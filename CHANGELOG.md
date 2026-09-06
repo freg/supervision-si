@@ -1,3 +1,35 @@
+## 2026-09-06 — netprobe-api : flotte des sondes distribuées et mesures remontées (livraison #406)
+
+Côté CENTRAL de #405. Nouveau module `netprobe/api/agents_store.py` (même
+base SQLite, tables `probe_agents` et `agent_measurements`, déduplication
+sur (sonde, tâche, instant)) et routes sur `netprobe-api` :
+- flotte : `GET/POST /agents`, `GET/PUT/DELETE /agents/<id>`,
+  `POST /agents/<id>/rotate-secret`, `GET /agents/<id>/provision`
+  (configuration prête pour l'image, secret compris — consommée par
+  `build-image.sh`). Le secret n'est renvoyé qu'à la création, à la
+  rotation et au provisionnement, jamais en liste.
+- `GET /fleet?site=` **signé par un collecteur** : sondes actives de SON
+  site avec secrets et tâches (401 sinon, 403 pour un autre site).
+- `POST /agents/measurements/bulk` **signé** par un collecteur (mesures de
+  ses sondes, périmètre = son site) ou par une sonde en direct (ses
+  mesures seulement — l'identité vient de la signature, jamais du corps).
+- lectures pour le hub : `GET /agents/latest?site=` (dernière mesure par
+  sonde × tâche, une seule requête), `GET /agents/<id>/measurements?task=&since=&limit=`.
+
+Le protocole (`protocol.py`) reste dans `netprobe/agent/` : le Dockerfile
+en COPIE une instance (`netprobe_protocol.py`), l'import retombe sur le
+dépôt en développement — jamais deux implémentations. Le chemin signé est
+celui APRÈS retrait du préfixe `/api/netprobe` par tls-proxy (rewrite
+explicite déjà en place), query string comprise.
+
+**Vérifié** : 8 tests `app.test_client()` — création/validation/liste sans
+secret, provisionnement et rotation, flotte signée (rôle, site, secret
+faux, sans en-têtes), ingestion par collecteur (doublon, hors site,
+inconnue, invalide ; dernier contact « via »), ingestion directe par une
+sonde limitée à elle-même, sonde désactivée refusée, corps altéré refusé,
+suppression avec purge. **Non vérifié** : build Docker de netprobe-api
+(deux COPY ajoutés, vérifiés à la lecture), collecteur réel vers le central.
+
 ## 2026-09-06 — Sondes distribuées : agent Pi Zero W + collecteur Pi 3B (items 45/47/48, livraison #405)
 
 Demandé explicitement : « dans le backlog il y a un agent à déployer,

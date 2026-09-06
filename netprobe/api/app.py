@@ -16,6 +16,18 @@ import nmap_probe
 import iperf3_probe
 import tcpdump_probe
 import analyzer_engine
+import agents_store
+
+# Protocole des sondes distribuées (#405/#406) -- SOURCE CANONIQUE :
+# netprobe/agent/netprobe_agent/protocol.py. Le Dockerfile en copie une
+# instance sous le nom netprobe_protocol.py ; en développement, on la lit
+# directement dans le dépôt. Jamais une seconde implémentation ici.
+try:
+    import netprobe_protocol as protocol
+except ImportError:  # dépôt de développement
+    import sys as _sys
+    _sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "agent"))
+    from netprobe_agent import protocol
 
 try:
     from version_endpoint import register_version_route
@@ -32,6 +44,7 @@ _log = logging.getLogger("netprobe_app")
 DB_PATH = os.environ.get("NETPROBE_DB_PATH", "/data/netprobe.db")
 NETWORK_AGENT_API_URL = os.environ.get("NETWORK_AGENT_API_URL", "").rstrip("/") or None
 store.ensure_schema(DB_PATH)
+agents_store.ensure_schema(DB_PATH)
 
 # Livraison #297 -- démarre l'ordonnanceur smokeping en thread daemon,
 # jamais bloquant au démarrage. Respecte le système de contrôle
@@ -364,6 +377,172 @@ if make_shared_log_handler and _MemcacheClient:
         SERVICE_NAME, get_memcache_client, buffer_size=LOG_BUFFER_SIZE, capture_level=LOG_CAPTURE_LEVEL,
     )
     _logging.getLogger().addHandler(_log_handler)
+
+
+# ============================================================
+# Sondes distribuées (livraison #406, items 45/47/48) -- flotte de
+# sondes/collecteurs Raspberry Pi et mesures remontées. Voir
+# netprobe/agent/README.md pour l'architecture et agents_store.py pour
+# le stockage.
+# ============================================================
+
+def _signed_path():
+    """Chemin tel que l'appareil l'a signé : tls-proxy retire le préfixe
+    `/api/netprobe` (rewrite explicite, voir render_nginx_conf.py), donc
+    l'appareil signe `/fleet?site=x` et Flask voit `/fleet` + query."""
+    qs = request.query_string.decode("utf-8") if request.query_string else ""
+    return request.path + ("?" + qs if qs else "")
+
+
+def _verify_device(expected_roles):
+    """Authentifie l'appareil signataire ; renvoie (device|None, erreur)."""
+    device_id = request.headers.get(protocol.HEADER_ID)
+    if not device_id:
+        return None, "en-tête %s absent" % protocol.HEADER_ID
+    info = agents_store.get_secret(DB_PATH, device_id)
+    if info is None:
+        return None, "appareil inconnu ou inactif"
+    if info["role"] not in expected_roles:
+        return None, "rôle %s non autorisé ici" % info["role"]
+    ok, why = protocol.verify(info["secret"], request.method, _signed_path(), request.headers, request.get_data())
+    if not ok:
+        return None, why
+    info["id"] = device_id
+    return info, None
+
+
+@app.route("/agents", methods=["GET"])
+def list_agents_route():
+    return jsonify({"agents": agents_store.list_agents(DB_PATH, site=request.args.get("site"), role=request.args.get("role"))}), 200
+
+
+@app.route("/agents", methods=["POST"])
+def create_agent_route():
+    body = request.get_json(silent=True) or {}
+    try:
+        created = agents_store.create_agent(DB_PATH, body.get("agent_id", ""), body.get("site", ""), body.get("role", "probe"),
+                                            label=body.get("label"), tasks=body.get("tasks"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    # Le secret n'est renvoyé QU'ICI (et par rotate-secret/provision) --
+    # c'est le moment de le mettre dans la configuration de l'image.
+    return jsonify(created), 201
+
+
+@app.route("/agents/latest", methods=["GET"])
+def agents_latest_route():
+    return jsonify({"latest": agents_store.latest_per_agent_task(DB_PATH, site=request.args.get("site"))}), 200
+
+
+@app.route("/agents/<agent_id>", methods=["GET"])
+def get_agent_route(agent_id):
+    a = agents_store.get_agent(DB_PATH, agent_id)
+    if a is None:
+        return jsonify({"error": "sonde inconnue"}), 404
+    return jsonify(a), 200
+
+
+@app.route("/agents/<agent_id>", methods=["PUT"])
+def update_agent_route(agent_id):
+    body = request.get_json(silent=True) or {}
+    try:
+        a = agents_store.update_agent(DB_PATH, agent_id, label=body.get("label"), active=body.get("active"),
+                                      tasks=body.get("tasks"), site=body.get("site"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if a is None:
+        return jsonify({"error": "sonde inconnue"}), 404
+    return jsonify(a), 200
+
+
+@app.route("/agents/<agent_id>", methods=["DELETE"])
+def delete_agent_route(agent_id):
+    purge = request.args.get("purge", "false").lower() == "true"
+    if not agents_store.delete_agent(DB_PATH, agent_id, purge_measurements=purge):
+        return jsonify({"error": "sonde inconnue"}), 404
+    return jsonify({"deleted": agent_id, "measurements_purged": purge}), 200
+
+
+@app.route("/agents/<agent_id>/rotate-secret", methods=["POST"])
+def rotate_secret_route(agent_id):
+    a = agents_store.rotate_secret(DB_PATH, agent_id)
+    if a is None:
+        return jsonify({"error": "sonde inconnue"}), 404
+    return jsonify(a), 200
+
+
+@app.route("/agents/<agent_id>/provision", methods=["GET"])
+def provision_route(agent_id):
+    """Configuration PRÊTE À ÉCRIRE dans l'image (agent.json ou
+    collector.json), secret compris -- consommée par
+    netprobe/agent/image/build-image.sh. `collector_url` / `central_url`
+    sont à fournir en paramètres de requête (ils dépendent du site)."""
+    a = agents_store.get_agent(DB_PATH, agent_id, with_secret=True)
+    if a is None:
+        return jsonify({"error": "sonde inconnue"}), 404
+    if a["role"] == "probe":
+        cfg = {"agent_id": a["agent_id"], "secret": a["secret"], "site": a["site"], "role": "probe",
+               "collector_url": request.args.get("collector_url", ""), "interface": request.args.get("interface", "wlan0"),
+               "default_tasks": a["tasks"] or None}
+        if cfg["default_tasks"] is None:
+            cfg.pop("default_tasks")
+    else:
+        cfg = {"collector_id": a["agent_id"], "secret": a["secret"], "site": a["site"],
+               "central_url": request.args.get("central_url", ""), "port": 6127}
+    return jsonify(cfg), 200
+
+
+@app.route("/fleet", methods=["GET"])
+def fleet_route():
+    """Flotte d'un site pour son COLLECTEUR (signé) : sondes actives du
+    site avec secrets et tâches. Un collecteur ne voit que SON site."""
+    device, err = _verify_device(("collector",))
+    if device is None:
+        return jsonify({"error": err}), 401
+    site = request.args.get("site") or device["site"]
+    if site != device["site"]:
+        return jsonify({"error": "site %s : hors du périmètre de ce collecteur" % site}), 403
+    return jsonify(agents_store.fleet_for_site(DB_PATH, site)), 200
+
+
+@app.route("/agents/measurements/bulk", methods=["POST"])
+def ingest_measurements_route():
+    """Lot de mesures, signé par un collecteur (mesures de ses sondes) ou
+    par une sonde parlant directement au central (ses mesures seulement)."""
+    device, err = _verify_device(("collector", "probe"))
+    if device is None:
+        return jsonify({"error": err}), 401
+    body = request.get_json(silent=True) or {}
+    items = body.get("measurements")
+    if not isinstance(items, list):
+        return jsonify({"error": "'measurements' (liste) attendu"}), 400
+    if len(items) > 5000:
+        return jsonify({"error": "lot trop volumineux (max 5000)"}), 400
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    if device["role"] == "collector":
+        accepted, duplicates, rejected = agents_store.ingest_measurements(
+            DB_PATH, items, via=device["id"], ip=ip, site=device["site"])
+        # Le collecteur lui-même est vu, même si le lot est vide
+        conn = agents_store._connect(DB_PATH)
+        try:
+            agents_store.touch_agent(conn, device["id"], "direct", ip); conn.commit()
+        finally:
+            conn.close()
+    else:
+        accepted, duplicates, rejected = agents_store.ingest_measurements(
+            DB_PATH, items, via="direct", ip=ip, only_agent=device["id"])
+    if rejected and not accepted and not duplicates and items:
+        return jsonify({"error": "aucune mesure valide", "rejected": rejected[:10]}), 400
+    return jsonify({"accepted": accepted, "duplicates": duplicates, "rejected": rejected[:10]}), 200
+
+
+@app.route("/agents/<agent_id>/measurements", methods=["GET"])
+def agent_measurements_route(agent_id):
+    if agents_store.get_agent(DB_PATH, agent_id) is None:
+        return jsonify({"error": "sonde inconnue"}), 404
+    limit = request.args.get("limit", 200, type=int)
+    return jsonify({"agent_id": agent_id, "measurements": agents_store.list_measurements(
+        DB_PATH, agent_id, task=request.args.get("task"), limit=limit, since=request.args.get("since"))}), 200
 
 
 @app.route("/logs", methods=["GET"])
