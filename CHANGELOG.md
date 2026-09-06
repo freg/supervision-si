@@ -8,6 +8,16 @@ Détail et piège (référence qui glisserait à chaque réponse d'API) dans
 `docs/cycle-agile-reseau.md`. Fichiers : `NetworkCycleView.jsx`,
 `networkCycleGraph.js`, `hub.css`, tests, docs.
 
+**Build Vite VÉRIFIÉ pour l'ensemble #399-#404** (ce qui n'avait pas pu
+l'être jusqu'ici) : les `node_modules` du Mac étant inexécutables dans le
+shell de la session, `hub/` et `network-explorer/` ont été transférés
+(sans `node_modules`) dans un environnement Linux avec accès npm, puis
+construits pour de vrai — `npm ci` + `vite build` pour le hub (677 modules,
+617 Ko, avertissement de taille de chunk préexistant), `npm install` +
+`vite build` pour network-explorer en reproduisant les `COPY` de son
+Dockerfile (608 modules). Aucune erreur. Reste non vérifié : le rendu et
+les gestes dans un navigateur réel.
+
 ## 2026-09-06 — Exploration réseau : services de la paire (livraison #403)
 
 `/links/services` (« services connectés par paire d'ip », demandé en #251,
