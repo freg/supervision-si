@@ -201,7 +201,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
         </button>
 
         {showHistory && (
-          <div style={{ marginBottom: 16, borderBottom: "1px solid var(--hub-border, #ddd)", paddingBottom: 12 }}>
+          <div style={{ marginBottom: 16, borderBottom: "1px solid var(--border)", paddingBottom: 12 }}>
             {batches.length === 0 ? (
               <p className="muted">Aucun import enregistré pour ce type.</p>
             ) : (

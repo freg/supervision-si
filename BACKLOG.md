@@ -2226,6 +2226,13 @@ qui fait alors sauter la file.
     pour le détail complet des deux volets.
 
 60. Variables de thème `--hub-*` inexistantes, replis en dur (2026-09-06).
+    **✅ TRAITÉ en #402** -- les 11 usages restants remplacés :
+    `--hub-ok`/`--hub-ok-bg` → `--ok`/`--ok-bg` (neutre), `--hub-border`
+    → `--border` (#ddd → #d8dee4 en clair, imperceptible), `--hub-bg` →
+    `--panel` (c'était le fond d'une boîte de dialogue, #fff = --panel
+    clair), `--hub-selected` → `--bg` (convention existante des lignes
+    sélectionnées, `.na-device-row.active`). Plus aucun `var(--hub-` dans
+    `hub/src`. Reste valable : le contrôle `grep` ci-dessous.
     Constaté en livrant #399, PAS demandé -- noté ici plutôt que corrigé
     en passant, parce que ces cas-là ne sont PAS neutres visuellement
     contrairement à `--hub-danger` (déjà corrigé en #399, ses replis

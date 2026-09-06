@@ -208,7 +208,7 @@ export default function ImapView({ onBack, imapApiBase }) {
           </table>
 
           {selectedMessage && (
-            <div style={{ marginTop: 16, borderTop: "1px solid var(--hub-border, #ddd)", paddingTop: 12 }}>
+            <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
               <h3>{selectedMessage.subject}</h3>
               <p className="muted">De {selectedMessage.from} — {selectedMessage.date}</p>
               <pre style={{ whiteSpace: "pre-wrap" }}>{selectedMessage.body_text || "(pas de corps texte)"}</pre>
@@ -223,7 +223,7 @@ export default function ImapView({ onBack, imapApiBase }) {
           )}
 
           {interpretResult && (
-            <div style={{ marginTop: 16, borderTop: "1px solid var(--hub-border, #ddd)", paddingTop: 12 }}>
+            <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
               <h3>Résultat d'interprétation</h3>
               {interpretResult.error ? (
                 <p>⚠️ {interpretResult.error}</p>

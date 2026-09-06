@@ -405,7 +405,7 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
             {showSubnets ? "▾" : "▸"} Sous-réseaux découverts depuis le trafic
           </button>
           {showSubnets && (
-            <div style={{ marginBottom: 16, borderBottom: "1px solid var(--hub-border, #ddd)", paddingBottom: 12 }}>
+            <div style={{ marginBottom: 16, borderBottom: "1px solid var(--border)", paddingBottom: 12 }}>
               <p className="muted" style={{ marginTop: 0 }}>
                 Regroupe les appareils déjà découverts par préfixe réseau -- répond directement à
                 "combien de segments distincts faut-il couvrir", à partir du trafic RÉEL plutôt que
@@ -446,7 +446,7 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
             {showFlowVisualizations ? "▾" : "▸"} Visualisations des flux (livraison #389)
           </button>
           {showFlowVisualizations && (
-            <div style={{ marginBottom: 16, borderBottom: "1px solid var(--hub-border, #ddd)", paddingBottom: 12 }}>
+            <div style={{ marginBottom: 16, borderBottom: "1px solid var(--border)", paddingBottom: 12 }}>
               <p className="muted" style={{ marginTop: 0 }}>
                 À partir des mêmes échanges affichés ci-dessous ("qui parle à qui") -- backlog item 58,
                 démarré avec netmap-orchestrator (#388). Deux premières vues, d'autres suivront ("cycle

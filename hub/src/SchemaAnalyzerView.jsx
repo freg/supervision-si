@@ -120,7 +120,7 @@ function AssignTableBrowser({ dbaApiBase, connectionId, database, table, relatio
               return (
                 <tr
                   key={pkVal ?? idx}
-                  style={{ cursor: "pointer", background: isSelected ? "var(--hub-selected, #e8f0fe)" : undefined }}
+                  style={{ cursor: "pointer", background: isSelected ? "var(--bg)" : undefined }}
                   onClick={() => onSelectRow(row)}
                 >
                   {row.map((v, i) => (
@@ -1223,7 +1223,7 @@ export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, 
                     </p>
                   ) : (
                     Object.entries(assignResolved.resolved).map(([colName, info]) => (
-                      <div key={colName} style={{ marginBottom: 16, padding: 12, border: "1px solid var(--hub-border, #ddd)", borderRadius: 6 }}>
+                      <div key={colName} style={{ marginBottom: 16, padding: 12, border: "1px solid var(--border)", borderRadius: 6 }}>
                         <p>
                           <strong>{info.relation.from_table}.{info.relation.from_column}</strong>
                           {" → "}
@@ -1300,7 +1300,7 @@ export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, 
         >
           <div
             className="hub-card"
-            style={{ maxWidth: 700, maxHeight: "80vh", overflow: "auto", padding: 20, background: "var(--hub-bg, #fff)" }}
+            style={{ maxWidth: 700, maxHeight: "80vh", overflow: "auto", padding: 20, background: "var(--panel)" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>

@@ -1,3 +1,15 @@
+## 2026-09-06 — Fin des variables de thème `--hub-*` inexistantes (item 60, livraison #402)
+
+Suite de #399 : les 11 usages restants de variables jamais définies dans
+`shared/theme.css` (donc toujours sur leur repli en dur, identique en thème
+sombre) remplacés par les variables réelles — `--hub-ok`/`--hub-ok-bg` →
+`--ok`/`--ok-bg`, `--hub-border` → `--border`, `--hub-bg` → `--panel`
+(fond de boîte de dialogue), `--hub-selected` → `--bg` (convention existante
+des lignes sélectionnées). Thème clair inchangé ou imperceptiblement
+(#ddd → #d8dee4), thème sombre corrigé. Plus aucun `var(--hub-` dans
+`hub/src`. Fichiers : `SchemaAnalyzerView`, `ImapView`, `NetworkAgentView`,
+`NebulaView`, `CalendarView`, `BACKLOG.md`.
+
 ## 2026-09-06 — Rattrapage du journal (#395, #398) et hygiène du dépôt (livraison #401)
 
 - Deux entrées **reconstruites a posteriori** pour les livraisons de la tuile
