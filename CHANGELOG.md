@@ -1,3 +1,16 @@
+## 2026-09-06 — Rattrapage du journal (#395, #398) et hygiène du dépôt (livraison #401)
+
+- Deux entrées **reconstruites a posteriori** pour les livraisons de la tuile
+  Cycle agile réseau qui n'en avaient jamais eu (commits `17ab5ce` et
+  `cc69fd3`) — insérées à leur place chronologique, marquées comme telles,
+  avec l'explication de l'écart entre les numéros des messages de commit
+  (#396, #401) et ceux du journal/badge (#395, #398).
+- `hub/dist/` et `hub/src/{theme.css,preferences.js,VERSION.json}` retirés de
+  l'index git (`git rm --cached`, fichiers conservés sur disque) : artefacts
+  de build et copies que `run.sh` régénère depuis `shared/` — le hub était le
+  seul front à les versionner. `.gitignore` complété pour tous les fronts.
+- Aucun changement de code.
+
 ## 2026-09-06 — Exploration réseau : historique du volume par paire + barres de delta (livraison #400)
 
 Suite de l'interface « Exploration réseau » : les deux points restés
@@ -85,6 +98,27 @@ dans aucune entrée de ce fichier, à rattraper.
 - `docs/cycle-agile-reseau.md` — documentation des nouvelles interactions
 - `hub/README.md` — journal du module
 - 15 fichiers `hub/src/*.jsx` — `--hub-danger` → `--danger`
+
+## 2026-09-06 — Onglet graphique du cycle agile réseau (livraison #398 — entrée reconstruite a posteriori en #401, commit `cc69fd3`)
+
+**Entrée absente au moment de la livraison**, reconstruite depuis le
+commit. Le message de commit annonçait « #401 » mais `shared/DELIVERY_NUMBER`
+était resté à 398 : le badge affiché à l'écran était donc **#398**, numéro
+retenu ici pour rester fidèle à ce que la personne a testé.
+
+Second onglet « 🔄 Graphique » dans la tuile Cycle agile réseau
+(`NetworkCycleView.jsx`, +494 lignes ; `hub.css`, +128) :
+- cinq nœuds SVG en pentagone (`NODE_POSITIONS`), un par étape, avec
+  pastille de statut temps réel (ok/attention/critique/inconnu) et texte
+  compact sous le nœud ;
+- flèches de flux animées (`stroke-dasharray` + `@keyframes nc-flow`) ;
+- clic sur un nœud = sélection de l'étape et retour en mode classique ;
+- chargement en parallèle des données des cinq étapes à l'activation de
+  l'onglet (le mode classique reste à la demande, étape par étape) ;
+- `docs/cycle-agile-reseau.md` complété (+124 lignes).
+
+Zoom/déplacement, infobulles et rafraîchissement automatique sont venus en
+#399.
 
 ## 2026-09-06 — Nouvelle tuile/outil "gestionnaire de fichiers" (item #26, version: 88fda222b4ad4278, livraison #397)
 
@@ -185,6 +219,30 @@ détail complet de chaque sujet reste dans son README dédié
 (`keycloak/README.md`, `tls-proxy/README.md`, `hub/README.md`,
 `tickets/README.md`...). Pour les clés `.env` spécifiquement, voir
 `ENV_CHANGELOG.md`.
+
+## 2026-09-06 — Tuile « Cycle agile réseau », mode classique (livraison #395 — entrée reconstruite a posteriori en #401, commit `17ab5ce`)
+
+**Entrée absente au moment de la livraison**, reconstruite depuis le
+commit. Le message de commit annonçait « #396 », numéro déjà pris par la
+vérification du chiffrement des secrets ci-dessous ; #395 est le seul
+numéro manquant dans la séquence du journal (394 → 396) et correspond à la
+position chronologique de ce commit, juste après l'import initial
+(« v#395 »).
+
+Nouvelle tuile hub sous le menu Réseau ▾ : cycle en cinq étapes
+Décider → Explorer → Déployer → Mesurer → Apprendre, chaque étape résumant
+l'état des outils existants et donnant accès direct à ceux-ci.
+- `hub/src/NetworkCycleView.jsx` (476 lignes) — navigation du cycle,
+  contenu par étape (KPI, tableaux), boutons précédent/suivant ;
+- `hub/src/networkCycleClient.js` — agrège sept API (netmap-orchestrator,
+  network-agent, ssh-tunnels, snmp, netprobe, vigilance, backup-restore) ;
+- `hub/src/hubEvents.js` (nouveau), `App.jsx`, `hub.css` ;
+- `docs/cycle-agile-reseau.md` (146 lignes).
+
+⚠️ Ce commit a aussi versionné par erreur `hub/dist/` (artefacts de build
+Vite) et les copies `hub/src/{theme.css,preferences.js,VERSION.json}` que
+`run.sh` régénère depuis `shared/` à chaque lancement — retirés de l'index
+en #401 (`.gitignore` complété), les fichiers restent sur disque.
 
 ## 2026-09-06 — Filtre "période temporelle", les 4 filtres demandés sont désormais tous livrés (version: 1f80f9b25ee9, livraison #394)
 

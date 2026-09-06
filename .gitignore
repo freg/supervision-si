@@ -47,3 +47,15 @@ docker-monitor/analysis/*
 
 # Archives de livraison
 *.zip
+
+# Artefacts de build des fronts Vite et copies de fichiers partagés
+# (livraison #401) -- run.sh recopie shared/theme.css, preferences.js et
+# VERSION.json dans le src/ de chaque front à CHAQUE lancement : la source
+# canonique est shared/, une copie versionnée ne peut que diverger en
+# silence. hub/dist et ces trois copies avaient été committées par erreur
+# avec la tuile "Cycle agile réseau" (17ab5ce), seul front dans ce cas.
+*/dist/
+*/src/theme.css
+*/src/preferences.js
+*/src/VERSION.json
+
