@@ -1524,3 +1524,43 @@ button.secondary { background: var(--panel); }
   color: var(--accent);
   font-size: 10px;
 }
+
+/* Onglet « Sondes WiFi » (netprobe, #407) -- tonalités et vivacité via les
+   variables de thème, jamais une couleur en dur. */
+.np-tone.good { color: var(--ok); }
+.np-tone.warn { color: var(--warning); }
+.np-tone.bad { color: var(--danger); }
+.np-tone.neutral { color: var(--text); }
+.np-live { font-size: 12px; white-space: nowrap; }
+.np-live.alive { color: var(--ok); }
+.np-live.stale { color: var(--warning); }
+.np-live.never { color: var(--muted); }
+.np-agent-row { cursor: pointer; }
+.np-agent-row:hover { background: var(--bg); }
+.np-agent-row.active { background: var(--bg); }
+.np-agent-row.inactive td { opacity: 0.6; }
+.np-secret-box { border-left: 3px solid var(--warning); }
+.np-secret {
+  font-family: monospace;
+  font-size: 13px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  user-select: all;
+  word-break: break-all;
+}
+.np-line-wrap { margin: 4px 0 10px; }
+.np-line-svg {
+  display: block;
+  width: 100%;
+  height: 90px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.np-line-path { fill: none; stroke: var(--accent); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.np-line-point { fill: var(--accent); }
+.np-line-point:hover { fill: var(--text); }
+.np-line-caption { font-size: 11px; margin-top: 3px; }
+

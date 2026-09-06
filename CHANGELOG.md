@@ -1,3 +1,33 @@
+## 2026-09-06 — Hub : onglet « 📶 Sondes WiFi » dans la tuile Sondes réseau (livraison #407)
+
+Interface de #405/#406 (`hub/src/NetprobeAgentsTab.jsx`, composant séparé
+— `NetprobeView.jsx` était déjà long) :
+- **Flotte** : une ligne par appareil (rôle, site, libellé, vivacité —
+  vue il y a N via collecteur/direct), lecture compacte de la dernière
+  mesure : WiFi (SSID, bande/canal, dBm avec tonalité > -67 / -75, débit),
+  ping, voisinage (bornes visibles, co-canal), Pi (température, charge,
+  sous-tension). Filtre par site. Actions : désactiver, régénérer le
+  secret, supprimer (douce).
+- **Création** derrière « + » ; le secret est affiché UNE fois avec la
+  commande `build-image.sh` correspondante.
+- **Détail d'une sonde** : courbe du signal reçu (300 derniers
+  `wifi_link`, SVG maison), **changements de borne** — le suivi
+  d'itinérance demandé en #303 et laissé hors de portée en #385 :
+  itinérance sans coupure / après coupure / reconnexion sur la même
+  borne (listée à part, ce n'est pas une itinérance) — édition des
+  tâches en JSON (reprise par le collecteur puis la sonde, jamais de
+  reflash), dernière mesure par tâche en brut.
+- Rafraîchissement toutes les 60 s, nettoyé au démontage.
+
+Logique pure dans `hub/src/netprobeAgents.js` (7 tests Node :
+vivacité, regroupement, lectures compactes, `detectBssidChanges` sur un
+historique en désordre avec erreurs et coupures, ligne de signal sans
+division par zéro). Client : 7 fonctions ajoutées à `netprobeClient.js`.
+
+**Vérifié** : build Vite réel du hub (679 modules), 37 tests hub, aucune
+couleur en dur (tonalités via `--ok`/`--warning`/`--danger`), aucun
+setter orphelin. **Non vérifié** : rendu dans un navigateur.
+
 ## 2026-09-06 — netprobe-api : flotte des sondes distribuées et mesures remontées (livraison #406)
 
 Côté CENTRAL de #405. Nouveau module `netprobe/api/agents_store.py` (même
