@@ -425,12 +425,12 @@ après cette troisième extension du module dans la même journée.
   croissance réelle de la base reste à observer, la purge à 30 jours
   est un point de départ raisonnable, pas une valeur validée en
   conditions réelles).
-- Pas de graphique -- tableau simple pour l'instant, faute de
-  bibliothèque disponible côté hub.
-- Historique du VOLUME PAR PAIRE (`/links/history`) construit et
-  testé côté backend, mais PAS ENCORE affiché côté hub (seule la
-  présence par appareil l'est) -- accessible via l'API, affichage à
-  ajouter si utile après un premier usage réel.
+- ~~Pas de graphique -- tableau simple pour l'instant, faute de
+  bibliothèque disponible côté hub.~~ **Livré en #400** (barres de delta
+  SVG maison, voir section dédiée plus bas).
+- ~~Historique du VOLUME PAR PAIRE (`/links/history`) construit et
+  testé côté backend, mais PAS ENCORE affiché côté hub~~ **Livré en
+  #400** -- clic sur une ligne "Échanges".
 
 ## Correctif : fichier manquant au déploiement (livraison #252)
 
@@ -694,3 +694,53 @@ période hors de toute donnée renvoie une liste vide, deuxième moitié
 seule strictement inférieure au cumul total (confirme que ce n'est
 PAS juste le cumul brut renvoyé). Route Flask testée (3 scénarios).
 Client hub testé (paramètres correctement encodés).
+
+## Historique du volume par paire + barres de delta (livraison #400)
+
+Lève les deux points restés "reste à faire (rémanence)" depuis #251.
+
+**Volume d'une paire dans le temps** -- chaque ligne du tableau
+"Échanges (qui parle à qui)" du pied de page est désormais cliquable :
+elle charge `/links/history` (route existante depuis #251, jamais
+appelée côté hub jusqu'ici) et affiche l'évolution du volume entre ces
+deux appareils sous le tableau. Un second clic sur la même ligne referme.
+Sélectionner un autre appareil réinitialise la paire. Une réponse qui
+arriverait après un autre clic entre-temps est ignorée (garde sur
+l'identité de la paire courante).
+
+**Barres de delta** (`HistoryBars`, `NetworkAgentView.jsx`) -- SVG maison
+comme les visualisations de flux (#389), aucune bibliothèque. Utilisées
+pour la présence d'un appareil (au-dessus du tableau existant, conservé)
+ET pour le volume d'une paire. L'API stocke des relevés CUMULATIFS
+("calculer un delta entre deux points est la responsabilité de la
+lecture", `store.take_snapshot`) -- cette responsabilité est tenue dans
+`hub/src/networkAgentHistory.js`, module PUR sans React, testé sous Node
+(`hub/tests/networkAgentHistory.test.mjs`, 10 tests). Trois choix à
+connaître :
+
+1. **Le premier relevé n'a pas de barre** (delta `null`, jamais 0) -- un
+   0 se lirait "rien n'a été échangé", ce qui est faux. Son créneau reste
+   occupé pour garder l'axe du temps régulier.
+2. **Un recul du compteur** (redémarrage de capture, purge) donnerait un
+   delta négatif : le point est marqué `reset`, dessiné en couleur
+   d'avertissement avec le nouveau cumul comme estimation, et compté dans
+   la légende ("N remise(s) à zéro") -- jamais lissé silencieusement.
+3. **`/links/history` renvoie une ligne par (relevé, protocole, port)** :
+   agrégation par `snapshot_at` avant tout calcul (`aggregateBySnapshot`),
+   inoffensive pour `/presence-history`.
+
+Survol d'une barre : date du relevé, volume sur l'intervalle, cumul.
+Légende sous le graphique : nombre de relevés, total échangé, pic par
+intervalle.
+
+**`network-explorer/Dockerfile`** : `networkAgentHistory.js` ajouté à la
+liste des fichiers recopiés depuis `hub/src` -- sans quoi le build du
+front autonome casse (piège "nouveau fichier oublié dans le COPY").
+
+**Vérifié** : 10 tests Node de la logique pure (agrégation, deltas, reset,
+disposition des barres, hauteur minimale visible, cadres vides), syntaxe
+JSX, aucun setter orphelin, tous les imports relatifs de
+`NetworkAgentView.jsx` présents dans le `COPY` de network-explorer.
+**Non vérifié ici** : rendu visuel réel, et surtout le comportement sur un
+VRAI historique (les seules données disponibles restent synthétiques ou
+de démonstration, #392).

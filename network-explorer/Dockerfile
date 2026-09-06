@@ -18,6 +18,7 @@ COPY network-explorer/ .
 COPY hub/src/NetworkAgentView.jsx src/NetworkAgentView.jsx
 COPY hub/src/NetmapOrchestratorView.jsx src/NetmapOrchestratorView.jsx
 COPY hub/src/networkAgentClient.js src/networkAgentClient.js
+COPY hub/src/networkAgentHistory.js src/networkAgentHistory.js
 COPY hub/src/netmapOrchestratorClient.js src/netmapOrchestratorClient.js
 COPY hub/src/classifierClient.js src/classifierClient.js
 COPY hub/src/alluvialLayout.js src/alluvialLayout.js

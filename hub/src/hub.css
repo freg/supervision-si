@@ -1100,6 +1100,37 @@ button.secondary { background: var(--panel); }
 .na-device-row:hover { background: var(--bg); }
 .na-device-row.active { background: var(--bg); }
 
+/* Échanges : ligne cliquable -> historique de la paire (même motif que
+   .na-device-row). */
+.na-link-row { cursor: pointer; }
+.na-link-row:hover { background: var(--bg); }
+.na-link-row.active { background: var(--bg); }
+.na-link-history {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+/* Barres de delta entre relevés (présence d'un appareil, volume d'une
+   paire). preserveAspectRatio="none" : seules des barres, aucune
+   déformation gênante, et la largeur suit celle de la colonne. */
+.na-history-bars { margin: 4px 0 8px; }
+.na-history-svg {
+  display: block;
+  width: 100%;
+  height: 48px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.na-history-axis { stroke: var(--border); stroke-width: 1; }
+.na-history-bar { fill: var(--accent); opacity: 0.85; }
+.na-history-bar:hover { opacity: 1; }
+.na-history-bar.reset { fill: var(--warning); }
+.na-history-caption { font-size: 11px; margin-top: 3px; }
+.na-history-reset-note { color: var(--warning); }
+.na-history-empty { margin: 4px 0 8px; font-size: 12px; }
+
 .na-service-dots {
   display: flex;
   gap: 4px;

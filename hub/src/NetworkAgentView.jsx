@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import {
   fetchCaptureStatus, fetchSites, fetchDevices, fetchDeviceServices,
   fetchAllServices, fetchLinks, fetchPresenceHistory, fetchObservedSubnets,
-  fetchFilterOptions, fetchDevicesForPeriod,
+  fetchFilterOptions, fetchDevicesForPeriod, fetchLinkHistory,
 } from "./networkAgentClient.js";
+import { formatBytes, computeDeltaSeries, buildBarLayout, sumDeltas } from "./networkAgentHistory.js";
 import { classifyBatch } from "./classifierClient.js";
 import AlluvialFlowChart from "./components/AlluvialFlowChart.jsx";
 import WeightedRadialTree from "./components/WeightedRadialTree.jsx";
@@ -34,11 +35,58 @@ const ROLE_ICONS = { "passerelle probable (NAT/routeur)": "🔀" };
 // passerelle relayant un trafic très divers -- voir capture.py).
 const MAX_VISIBLE_SERVICE_DOTS = 15;
 
-function formatBytes(bytes) {
-  if (typeof bytes !== "number") return "?";
-  if (bytes < 1024) return `${bytes} o`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+// Barres de delta entre relevés cumulatifs -- SVG maison, aucune
+// bibliothèque (même approche que AlluvialFlowChart/WeightedRadialTree,
+// #389). Lève la limite notée dans network-agent/README.md ("pas de
+// graphique -- tableau simple, faute de bibliothèque côté hub").
+// Une barre par intervalle entre deux relevés ; le premier relevé n'a pas
+// de barre (aucune base de comparaison). Un recul du compteur (redémarrage
+// de capture) est dessiné en couleur d'avertissement, jamais lissé.
+const HISTORY_BARS_W = 320;
+const HISTORY_BARS_H = 48;
+
+function HistoryBars({ rows, label }) {
+  const series = computeDeltaSeries(rows);
+  if (series.length < 2) {
+    return (
+      <p className="muted na-history-empty">
+        {series.length === 0 ? "Aucun relevé." : "Un seul relevé -- un deuxième est nécessaire pour un premier delta."}
+      </p>
+    );
+  }
+  const { bars, max } = buildBarLayout(series, HISTORY_BARS_W, HISTORY_BARS_H);
+  const total = sumDeltas(series);
+  const resets = series.filter((p) => p.reset).length;
+  return (
+    <div className="na-history-bars">
+      <svg
+        viewBox={`0 0 ${HISTORY_BARS_W} ${HISTORY_BARS_H}`}
+        preserveAspectRatio="none"
+        className="na-history-svg"
+        role="img"
+        aria-label={label || "Volume échangé par intervalle"}
+      >
+        <line x1="0" y1={HISTORY_BARS_H - 0.5} x2={HISTORY_BARS_W} y2={HISTORY_BARS_H - 0.5} className="na-history-axis" />
+        {bars.map((b) => (
+          <rect
+            key={b.index}
+            x={b.x} y={b.y} width={b.w} height={b.h}
+            className={`na-history-bar${b.reset ? " reset" : ""}`}
+          >
+            <title>
+              {new Date(b.at).toLocaleString("fr-FR")}
+              {"\n"}+{formatBytes(b.delta)} sur l'intervalle · cumul {formatBytes(b.cumulative)}
+              {b.reset ? "\n⚠ compteur remis à zéro (redémarrage de capture ?)" : ""}
+            </title>
+          </rect>
+        ))}
+      </svg>
+      <div className="na-history-caption muted">
+        {series.length} relevés · {formatBytes(total)} échangés · pic {formatBytes(max)} / intervalle
+        {resets > 0 && <span className="na-history-reset-note"> · ⚠ {resets} remise(s) à zéro</span>}
+      </div>
+    </div>
+  );
 }
 
 export default function NetworkAgentView({ onBack, networkAgentApiBase, classifierApiBase }) {
@@ -72,6 +120,11 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
   const [activeDevice, setActiveDevice] = useState(null);
   const [activeDeviceServices, setActiveDeviceServices] = useState(null);
   const [activeDeviceHistory, setActiveDeviceHistory] = useState(null);
+  // Historique du volume d'UNE paire (clic sur une ligne "Échanges") --
+  // `/links/history` existait côté API depuis #251 sans jamais être
+  // affiché côté hub (noté "reste à faire" dans network-agent/README.md).
+  const [activeLink, setActiveLink] = useState(null);
+  const [activeLinkHistory, setActiveLinkHistory] = useState(null);
 
   useEffect(() => {
     Promise.all([fetchCaptureStatus(networkAgentApiBase), fetchSites(networkAgentApiBase)]).then(([s, sitesList]) => {
@@ -177,6 +230,8 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
   }
 
   async function handleSelectDevice(device) {
+    setActiveLink(null);
+    setActiveLinkHistory(null);
     if (activeDevice?.id === device.id) {
       setActiveDevice(null);
       setActiveDeviceHistory(null);
@@ -187,6 +242,22 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
     setActiveDeviceHistory(null);
     setActiveDeviceServices(await fetchDeviceServices(networkAgentApiBase, device.id));
     setActiveDeviceHistory(await fetchPresenceHistory(networkAgentApiBase, device.id));
+  }
+
+  async function handleSelectLink(link) {
+    if (activeLink?.id === link.id) {
+      setActiveLink(null);
+      setActiveLinkHistory(null);
+      return;
+    }
+    setActiveLink(link);
+    setActiveLinkHistory(null);
+    const rows = await fetchLinkHistory(networkAgentApiBase, link.device_a_id, link.device_b_id);
+    // Garde contre une réponse arrivée après un autre clic entre-temps.
+    setActiveLink((cur) => {
+      if (cur?.id === link.id) setActiveLinkHistory(rows);
+      return cur;
+    });
   }
 
   const macToDevice = Object.fromEntries(devices.map((d) => [d.id, d]));
@@ -516,7 +587,12 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                           const from = macToDevice[l.device_a_id];
                           const to = macToDevice[l.device_b_id];
                           return (
-                            <tr key={l.id}>
+                            <tr
+                              key={l.id}
+                              className={`na-link-row${activeLink?.id === l.id ? " active" : ""}`}
+                              title="Cliquer pour voir l'évolution du volume de cette paire"
+                              onClick={() => handleSelectLink(l)}
+                            >
                               <td>{from ? (from.hostname || from.mac_address) : l.device_a_id}</td>
                               <td>{to ? (to.hostname || to.mac_address) : l.device_b_id}</td>
                               <td>{formatBytes(l.bytes_total)}</td>
@@ -525,6 +601,23 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                         })}
                       </tbody>
                     </table>
+                  )}
+                  {activeLink && (
+                    <div className="na-link-history">
+                      <h4 style={{ marginBottom: 2 }}>
+                        Volume de la paire dans le temps
+                        <span className="muted">
+                          {" "}— {(macToDevice[activeLink.device_a_id]?.hostname || macToDevice[activeLink.device_a_id]?.mac_address || activeLink.device_a_id)}
+                          {" ↔ "}
+                          {(macToDevice[activeLink.device_b_id]?.hostname || macToDevice[activeLink.device_b_id]?.mac_address || activeLink.device_b_id)}
+                        </span>
+                      </h4>
+                      {activeLinkHistory === null ? (
+                        <p className="muted">Chargement…</p>
+                      ) : (
+                        <HistoryBars rows={activeLinkHistory} label="Volume échangé entre les deux appareils, par intervalle entre relevés" />
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -539,6 +632,8 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                   ) : activeDeviceHistory.length === 0 ? (
                     <p className="muted">Aucun relevé encore enregistré pour cet appareil.</p>
                   ) : (
+                    <>
+                    <HistoryBars rows={activeDeviceHistory} label="Volume échangé par cet appareil, par intervalle entre relevés" />
                     <table>
                       <thead><tr><th>Relevé</th><th>IP</th><th>Volume cumulé</th></tr></thead>
                       <tbody>
@@ -551,6 +646,7 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                         ))}
                       </tbody>
                     </table>
+                    </>
                   )}
                 </div>
               </div>

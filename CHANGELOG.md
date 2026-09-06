@@ -1,3 +1,27 @@
+## 2026-09-06 — Exploration réseau : historique du volume par paire + barres de delta (livraison #400)
+
+Suite de l'interface « Exploration réseau » : les deux points restés
+"reste à faire (rémanence)" dans `network-agent/README.md` depuis #251.
+
+- **Volume d'une paire dans le temps** — clic sur une ligne « Échanges »
+  du pied de page → `/links/history` (route existante, jamais affichée
+  côté hub) → barres de delta sous le tableau.
+- **Barres de delta SVG maison** (`HistoryBars`) pour la présence d'un
+  appareil ET le volume d'une paire — remplace « tableau simple faute de
+  bibliothèque » (le tableau est conservé en dessous). Premier relevé sans
+  barre (pas de base), recul du compteur signalé en avertissement et
+  jamais lissé, agrégation par relevé pour les lignes par protocole/port.
+- `hub/src/networkAgentHistory.js` — logique pure (agrégation, deltas,
+  disposition), `formatBytes` y déménage ; 10 tests Node.
+- `network-explorer/Dockerfile` — nouveau module ajouté au `COPY`.
+
+**Vérifié** : 10/10 tests, syntaxe, setters, imports copiés par
+network-explorer. **Non vérifié** : rendu visuel, données réelles.
+
+**Fichiers** : `hub/src/NetworkAgentView.jsx`, `hub/src/networkAgentHistory.js`
+(nouveau), `hub/tests/networkAgentHistory.test.mjs` (nouveau),
+`hub/src/hub.css`, `network-explorer/Dockerfile`, `network-agent/README.md`.
+
 ## 2026-09-06 — Graphique du cycle réseau interactif + menu Réseau complété (livraison #399)
 
 Deux volets, sur la tuile et le menu réseau.
