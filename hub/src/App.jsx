@@ -35,6 +35,7 @@ import NebulaView from "./NebulaView.jsx";
 import ImapView from "./ImapView.jsx";
 import GlpiInventoryView from "./GlpiInventoryView.jsx";
 import NetworkAgentView from "./NetworkAgentView.jsx";
+import NetworkCycleView from "./NetworkCycleView.jsx";
 import CyberView from "./CyberView.jsx";
 import PersonalizeHomeView from "./PersonalizeHomeView.jsx";
 import { logPresenceTransitions } from "./hubLogClient.js";
@@ -1311,7 +1312,7 @@ export default function App() {
             <button
               type="button"
               className={
-                openNavMenu === "reseau" || ["ssh-tunnels", "snmp", "nebula", "glpi-inventory", "architecture", "netmap-orchestrator"].includes(viewMode)
+                openNavMenu === "reseau" || ["ssh-tunnels", "snmp", "nebula", "glpi-inventory", "architecture", "netmap-orchestrator", "network-cycle"].includes(viewMode)
                   ? "active"
                   : ""
               }
@@ -1321,6 +1322,9 @@ export default function App() {
             </button>
             {openNavMenu === "reseau" && (
               <div className="hub-nav-dropdown-panel">
+                <button type="button" onClick={() => { setViewMode((v) => (v === "network-cycle" ? "grid" : "network-cycle")); setOpenNavMenu(null); }}>
+                  Cycle agile réseau
+                </button>
                 <button type="button" onClick={() => { setViewMode((v) => (v === "ssh-tunnels" ? "grid" : "ssh-tunnels")); setOpenNavMenu(null); }}>
                   Tunnels SSH
                 </button>
@@ -1527,6 +1531,18 @@ export default function App() {
           onBack={() => setViewMode("grid")}
           networkAgentApiBase={NETWORK_AGENT_API_BASE_URL}
           classifierApiBase={CLASSIFIER_API_BASE_URL}
+        />
+      ) : viewMode === "network-cycle" ? (
+        <NetworkCycleView
+          onBack={() => setViewMode("grid")}
+          netmapOrchestratorApiBase={NETMAP_ORCHESTRATOR_API_BASE_URL}
+          networkAgentApiBase={NETWORK_AGENT_API_BASE_URL}
+          netprobeApiBase={NETPROBE_API_BASE_URL}
+          snmpApiBase={SNMP_API_BASE_URL}
+          sshTunnelsApiBase={SSH_TUNNELS_API_BASE_URL}
+          vigilanceApiBase={VIGILANCE_API_BASE_URL}
+          backupRestoreApiBase={BACKUP_RESTORE_API_BASE_URL}
+          onNavigate={(target) => setViewMode(target)}
         />
       ) : viewMode === "ent" ? (
         <EntView
