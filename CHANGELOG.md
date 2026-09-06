@@ -1,3 +1,46 @@
+## 2026-09-06 — Sondes distribuées : agent Pi Zero W + collecteur Pi 3B (items 45/47/48, livraison #405)
+
+Demandé explicitement : « dans le backlog il y a un agent à déployer,
+reprend cette partie ; prépare une image raspi0W comme sonde wifi ; idem
+pour un agent sur raspi3b pour collecter ». Première tranche : le LOGICIEL
+des deux rôles, testé ; les images et le central suivent (#406-#408).
+
+`netprobe/agent/` — un seul paquet Python **bibliothèque standard
+uniquement** (cible Pi Zero W, ARMv6, 512 Mo), deux rôles :
+- **sonde** (`agent.py`) : tâches `wifi_link` (BSSID/SSID/canal/signal/
+  débits + compteurs d'erreurs du pilote), `wifi_scan` (bornes visibles,
+  occupation par canal, plus fort voisin co-canal), `ping`, `dns`, `http`,
+  `iperf3` si présent, `sys` (charge, température, sous-tension du Pi) ;
+  liste de tâches TIRÉE du collecteur (jamais reflashée), file locale
+  SQLite store-and-forward, envoi par lots signés.
+- **collecteur** (`collector.py`, http.server) : réception authentifiée
+  et dédupliquée, statut/dernières mesures consultables SUR PLACE même VPN
+  coupé, flotte du site en cache local, relais par lots vers le central.
+
+**Questions ouvertes des items 45/48 tranchées** (défauts annoncés, voir
+`netprobe/agent/README.md`) : agent propre plutôt que sparrow-wifi (Pi Zero
+W sans mode moniteur, couche « expérience client » = client ordinaire),
+provisionnement à la construction de l'image, configuration tirée, push
+par lots, HMAC-SHA256 par appareil (identité prise de la signature, jamais
+du corps), pas de fenêtre temporelle stricte (Pi sans horloge) mais
+déduplication (agent, tâche, instant).
+
+**Lève la limite notée en #385** : le suivi de BSSID/itinérance « hors de
+portée » depuis un conteneur devient une simple tâche `wifi_link` native.
+
+**Vérifié** : 58 tests (Python 3.11 cloud ET 3.10 sur le Mac) — analyseurs
+sur sorties réelles d'iw/ping, signature et toutes ses altérations, file
+locale (purge, corruption), tâches simulées, boucle de la sonde,
+collecteur, et **chaîne HTTP réelle sonde → collecteur** sur 127.0.0.1.
+Deux vrais défauts attrapés par les tests : SSID vide (borne masquée)
+capturant la ligne suivante comme nom de réseau ; instant `at` pris de
+l'horloge murale au lieu de celle de l'agent (clé de déduplication).
+**Non vérifié** : aucun Raspberry Pi ni carte WiFi ici.
+
+**Fichiers** : `netprobe/agent/netprobe_agent/{protocol,parsers,localqueue,
+tasks,agent,collector}.py`, `tests/` (4 fichiers), `systemd/` (2 unités),
+`examples/` (3 configurations), `README.md`.
+
 ## 2026-09-06 — Cycle agile réseau : tendances entre deux rafraîchissements (livraison #404)
 
 Les métriques de chaque étape sont comparées au rafraîchissement précédent :

@@ -1705,7 +1705,13 @@ qui fait alors sauter la file.
     voir item 53 pour les questions précises posées à la personne.
 
 45. Architecture netprobe -- modularisation et agents répartis
-    multi-hôtes (2026-09-04). Réaction de la personne en plein
+    multi-hôtes (2026-09-04).
+    **✅ AGENTS RÉPARTIS LIVRÉS en #405** (`netprobe/agent/`, voir item 48
+    pour les choix) -- les quatre questions ouvertes ci-dessous sont
+    tranchées avec des défauts annoncés dans `netprobe/agent/README.md`.
+    La modularisation multi-services du CENTRAL (un conteneur par type
+    de sonde) reste NON faite : sans besoin concret constaté, netprobe-api
+    reste un seul conteneur. Réaction de la personne en plein
     développement de la fondation (#295) : "prévoir une
     modularisation des outils de sonde pas simplement de la tuile et
     prévoir sa répartition sur plusieurs host en mode agents
@@ -1806,7 +1812,12 @@ qui fait alors sauter la file.
     Zero W.
 
 48. Agent de sonde distribué pour Raspberry Pi — évolution de
-    l'item 45 (2026-09-04). **PAS COMMENCÉ**. Cas d'usage concret
+    l'item 45 (2026-09-04). **✅ LOGICIEL LIVRÉ en #405** (`netprobe/agent/`,
+    58 tests, chaîne HTTP réelle sonde→collecteur vérifiée) -- option
+    « agent netprobe propre » retenue (pas sparrow-wifi : Pi Zero W sans
+    mode moniteur, item 47 reformulé « sans RF »). Deux rôles : sonde
+    (Pi Zero W) et collecteur de site (Pi 3B). Images et central : voir
+    #406-#408. Historique de la décision ci-dessous. Cas d'usage concret
     maintenant disponible pour trancher les questions ouvertes de
     l'item 45 (agents multi-hôtes) : la flotte de Pi Zero W achetée
     pour la supervision WiFi. `sparrow-wifi` (voir item 50) fournit

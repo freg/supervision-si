@@ -1,0 +1,18 @@
+{
+  "version": "local-1",
+  "agents": {
+    "alpha-sonde-01": {
+      "secret": "REMPLACER",
+      "tasks_version": "local-1",
+      "tasks": [
+        {"type": "wifi_link", "every": 30},
+        {"type": "sys", "every": 60},
+        {"type": "ping", "every": 60, "params": {"host": "192.168.10.1", "count": 3}},
+        {"type": "dns", "every": 120, "params": {"name": "www.exemple.fr"}},
+        {"type": "http", "every": 300, "params": {"url": "https://service-distant.exemple.fr/health"}},
+        {"type": "wifi_scan", "every": 300, "params": {"keep_networks": 15}},
+        {"type": "iperf3", "every": 1800, "params": {"host": "192.168.10.20", "duration": 5}}
+      ]
+    }
+  }
+}
