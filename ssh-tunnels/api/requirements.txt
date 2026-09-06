@@ -1,0 +1,10 @@
+Flask==3.0.3
+flask-cors==4.0.1
+gunicorn==22.0.0
+pymemcache==4.0.0
+requests==2.32.3
+# cryptography -- livraison #210, authentification par mot de passe
+# SSH (backlog item 12) -- nécessaire à credential_crypto.py/
+# shared/secret_crypto.py. Même version que les autres services de ce
+# projet qui en dépendent déjà (cacti-api, dba-api).
+cryptography==43.0.1

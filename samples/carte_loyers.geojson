@@ -1,0 +1,152 @@
+{
+  "type": "FeatureCollection",
+  "properties": {
+    "_note": "Échantillon de test structuré comme le dataset officiel 'Carte des loyers' (ANIL, data.gouv.fr, Licence Ouverte 2.0). Champs (INSEE_CO, loypredm2, IPm2, IPm2_1, TYPPRED, nbobs_com, nbobs_mail, R2_adj) conformes au schéma réel. Communes, codes INSEE et coordonnées réels. VALEURS DE LOYER ILLUSTRATIVES — pas les chiffres officiels 2025 (CSV source non téléchargeable ici, protégé par robots.txt). Source d'inspiration : https://www.data.gouv.fr/datasets/carte-des-loyers-indicateurs-de-loyers-dannonce-par-commune-en-2025"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [2.3522, 48.8566] },
+      "properties": {
+        "commune": "Paris",
+        "INSEE_CO": "75056",
+        "loypredm2": 31.8,
+        "IPm2": 29.4,
+        "IPm2_1": 34.1,
+        "TYPPRED": "commune",
+        "nbobs_com": 48210,
+        "nbobs_mail": 48210,
+        "R2_adj": 0.71,
+        "date_maj": "2026-08-01T09:00:00+00:00"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [4.8357, 45.7640] },
+      "properties": {
+        "commune": "Lyon",
+        "INSEE_CO": "69123",
+        "loypredm2": 16.2,
+        "IPm2": 14.8,
+        "IPm2_1": 17.6,
+        "TYPPRED": "commune",
+        "nbobs_com": 12480,
+        "nbobs_mail": 12480,
+        "R2_adj": 0.68,
+        "date_maj": "2026-08-01T09:00:00+00:00"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [5.3698, 43.2965] },
+      "properties": {
+        "commune": "Marseille",
+        "INSEE_CO": "13055",
+        "loypredm2": 14.9,
+        "IPm2": 13.2,
+        "IPm2_1": 16.5,
+        "TYPPRED": "commune",
+        "nbobs_com": 15320,
+        "nbobs_mail": 15320,
+        "R2_adj": 0.63,
+        "date_maj": "2026-07-15T09:00:00+00:00"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-0.5792, 44.8378] },
+      "properties": {
+        "commune": "Bordeaux",
+        "INSEE_CO": "33063",
+        "loypredm2": 15.6,
+        "IPm2": 14.1,
+        "IPm2_1": 17.0,
+        "TYPPRED": "commune",
+        "nbobs_com": 9870,
+        "nbobs_mail": 9870,
+        "R2_adj": 0.66,
+        "date_maj": "2026-07-15T09:00:00+00:00"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [3.0573, 50.6292] },
+      "properties": {
+        "commune": "Lille",
+        "INSEE_CO": "59350",
+        "loypredm2": 14.1,
+        "IPm2": 12.6,
+        "IPm2_1": 15.5,
+        "TYPPRED": "commune",
+        "nbobs_com": 8340,
+        "nbobs_mail": 8340,
+        "R2_adj": 0.64,
+        "date_maj": "2026-06-20T09:00:00+00:00"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-1.5536, 47.2184] },
+      "properties": {
+        "commune": "Nantes",
+        "INSEE_CO": "44109",
+        "loypredm2": 13.4,
+        "IPm2": 12.0,
+        "IPm2_1": 14.8,
+        "TYPPRED": "commune",
+        "nbobs_com": 7650,
+        "nbobs_mail": 7650,
+        "R2_adj": 0.62,
+        "date_maj": "2026-06-20T09:00:00+00:00"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [1.4442, 43.6047] },
+      "properties": {
+        "commune": "Toulouse",
+        "INSEE_CO": "31555",
+        "loypredm2": 13.1,
+        "IPm2": 11.7,
+        "IPm2_1": 14.5,
+        "TYPPRED": "commune",
+        "nbobs_com": 11020,
+        "nbobs_mail": 11020,
+        "R2_adj": 0.65,
+        "date_maj": "2026-08-01T09:00:00+00:00"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-0.9497, 45.6480] },
+      "properties": {
+        "commune": "Royan",
+        "INSEE_CO": "17306",
+        "loypredm2": 14.7,
+        "IPm2": 12.9,
+        "IPm2_1": 16.4,
+        "TYPPRED": "maille",
+        "nbobs_com": 210,
+        "nbobs_mail": 640,
+        "R2_adj": 0.48,
+        "date_maj": "2026-05-10T09:00:00+00:00"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [3.8767, 46.3833] },
+      "properties": {
+        "commune": "Digoin",
+        "INSEE_CO": "71177",
+        "loypredm2": 8.3,
+        "IPm2": 6.9,
+        "IPm2_1": 9.8,
+        "TYPPRED": "maille",
+        "nbobs_com": 14,
+        "nbobs_mail": 210,
+        "R2_adj": 0.41,
+        "date_maj": "2026-03-02T09:00:00+00:00"
+      }
+    }
+  ]
+}

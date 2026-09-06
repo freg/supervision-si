@@ -1,0 +1,1187 @@
+/* Hub — même palette que tickets/portal (front séparé, public-facing,
+   cohérent avec l'autre portail plutôt qu'avec le thème sombre interne
+   de Supervision SI). */
+
+/* Couleurs (--bg, --panel, --border, --text, --muted, --accent,
+   --danger, --ok) désormais définies dans theme.css (partagé, importé
+   avant ce fichier dans main.jsx) -- plus dupliquées ici, pour que le
+   thème clair/foncé s'applique correctement sans collision. */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 6px 12px;
+}
+button:hover { border-color: var(--accent); }
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+/* Visuellement proche du bouton par défaut (déjà neutre) --
+   nommée explicitement pour rester cohérente avec les autres fronts
+   du projet, plutôt que de laisser une classe "secondary" sans
+   règle dédiée. */
+button.secondary { background: var(--panel); }
+
+.muted { color: var(--muted); }
+
+.hub-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.hub-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.hub-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 28px;
+  max-width: 420px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.hub-card h1 { margin: 0 0 8px; font-size: 22px; }
+.hub-card .primary { margin-top: 16px; }
+.hub-error-card { border-color: var(--danger); }
+
+.hub-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 32px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  /* Fixe au défilement (livraison #250, demandé explicitement pour
+     Exploration réseau -- "le défilement de la liste laisse... la
+     partie menu haut visible") -- appliqué GLOBALEMENT plutôt que
+     par vue, bénéfice pour tout le hub sur une longue page. z-index
+     10, VOLONTAIREMENT sous les 20 des menus déroulants (voir
+     .hub-nav-dropdown-panel plus bas) -- un menu ouvert doit toujours
+     se voir PAR-DESSUS cet en-tête, jamais l'inverse. */
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.hub-header h1 { margin: 0; font-size: 18px; }
+/* Menu horizontal en TEXTE (livraison #173) -- remplace le bandeau
+   d'icônes précédent, demandé explicitement ("j'en avais trop, je
+   préfère le mode menu horizontal texte"). Boutons SANS cadre par
+   défaut (transparent), seul l'état actif ou le survol les
+   distingue -- même esprit visuel que .tabs, jamais un bouton à
+   bordure pleine pour un simple lien de menu. */
+.hub-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.hub-nav button {
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font: inherit;
+  white-space: nowrap;
+}
+.hub-nav button:hover { background: var(--bg); }
+.hub-nav button.active { background: var(--accent); color: #fff; }
+/* Sous-menu "Paramètres" (livraison #173) -- hiérarchie d'inclusion
+   demandée explicitement : liens externes/personnalisation/
+   diagnostic REGROUPÉS ici, jamais des entrées séparées au même
+   rang que le reste du menu. */
+.hub-nav-dropdown { position: relative; }
+.hub-nav-dropdown-panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 6px;
+  z-index: 20;
+}
+.hub-nav-dropdown-panel button {
+  background: none;
+  border: none;
+  color: var(--text);
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font: inherit;
+  white-space: nowrap;
+}
+.hub-nav-dropdown-panel button:hover { background: var(--bg); }
+.hub-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.hub-debug {
+  margin: 0 32px;
+  padding: 12px 16px;
+  background: var(--panel);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  font-family: monospace;
+}
+.hub-debug p { margin: 4px 0; }
+.hub-debug pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow: auto;
+  background: var(--bg);
+  padding: 8px;
+  border-radius: 4px;
+}
+
+/* Grille d'accueil -- zone défilante indépendamment + pied de page
+   fixe et masquable (personnalisation de l'accueil, étape 1,
+   livraison #132, demandé explicitement). Même formule que
+   .hub-tabshell (calc(100vh - 60px)) -- hauteur de .hub-header déjà
+   validée là-bas, jamais un second calcul divergent. Scopé à CET
+   écran uniquement (jamais touché .hub-shell lui-même, qui reste en
+   flux normal pour les autres vues -- paramètres/historique/liens
+   externes n'ont pas ce besoin et n'ont pas été vérifiées avec un
+   défilement interne forcé). */
+.hub-grid-view {
+  height: calc(100vh - 60px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.hub-grid-scroll {
+  flex: 1;
+  overflow-y: auto;
+  /* min-height: 0 -- piège CSS classique sans ça : un enfant flex
+     avec overflow ne se limite jamais correctement dans un parent
+     flex-column, la zone déborderait silencieusement au lieu de
+     défiler. */
+  min-height: 0;
+}
+
+.hub-main {
+  flex: 1;
+  padding: 40px 32px;
+  /* Design (demande explicite) : la grille doit utiliser l'espace
+     laissé libre de chaque côté -- aujourd'hui, cet écran n'a AUCUNE
+     colonne latérale réelle, juste une marge vide au-delà de l'ancien
+     plafond de 900px. Plutôt qu'inventer des colonnes gauche/droite
+     qui n'existent pas, plafond simplement remonté très largement --
+     width: 100% (déjà là) fait que ça ne change RIEN sur petit écran
+     (le plafond ne s'applique jamais), et utilise bien plus d'espace
+     sur grand écran. Si de vraies colonnes latérales apparaissent un
+     jour sur cet écran, ce plafond redeviendra pertinent à revoir. */
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.hub-grid {
+  display: grid;
+  /* Densité doublée (demande explicite) : 260px -> 180px de largeur
+     minimale par tuile -- rendu possible par les tuiles nettement
+     plus compactes ci-dessous (description sur une ligne, plus de
+     lien "Ouvrir →", rembourrage vertical réduit). */
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 20px;
+}
+
+/* Cadres titrés -- personnalisation de l'accueil, étape 2 (livraison
+   #133). Un cadre par groupe créé par l'utilisateur (écran de
+   personnalisation, étape 3, pas encore livrée) -- ".hub-grid" à
+   l'intérieur, même style que la grille sans cadre, jamais une
+   variante séparée à maintenir. */
+.hub-frame { margin-top: 32px; }
+.hub-frame-title {
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.hub-front-card {
+  display: block;
+  text-align: left;
+  max-width: none;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  /* Rembourrage HAUT/BAS divisé par 2 (28px -> 14px, demande
+     explicite). Gauche/droite aussi réduit (28px -> 20px) -- pas
+     demandé tel quel, mais nécessaire en pratique pour laisser assez
+     de place au texte dans une tuile désormais bien plus étroite
+     (180px mini) ; sans ça, même un titre correct passerait sur 2-3
+     lignes de façon disgracieuse. Les titres LONGS peuvent toujours
+     passer sur 2 lignes (pas demandé de les tronquer, contrairement
+     à la description -- tronquer un nom d'appli risquerait de
+     rendre deux applis indiscernables l'une de l'autre). */
+  padding: 14px 20px;
+}
+.hub-front-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+/* Tuile de front INTERNE (bouton, livraison #172) -- .hub-front-card
+   couvre déjà background/border/display/padding (spécificité de
+   classe > styles par défaut du navigateur), il ne reste que ce
+   qu'un <button> n'hérite PAS par défaut contrairement à un <a>. */
+.hub-front-tile-button {
+  font: inherit;
+  cursor: pointer;
+  width: 100%;
+}
+.hub-front-card h2 { margin: 0 0 6px; font-size: 17px; color: var(--accent); }
+.hub-front-card p {
+  margin: 0;
+  font-size: 13px;
+  /* Description sur UNE ligne (demande explicite) -- coupée avec
+     "…" si trop longue plutôt qu'un retour à la ligne qui
+     agrandirait la tuile de façon imprévisible. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Pied de page -- fixe en bas (dernier enfant de .hub-grid-view,
+   flex-shrink: 0, jamais compressé), TOUJOURS visible sous cette
+   forme réduite même quand le texte est masqué (le bouton de bascule
+   doit rester atteignable). */
+.hub-footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+  padding: 6px 32px;
+}
+.hub-footer-toggle {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 0;
+}
+.hub-footer-toggle:hover { color: var(--accent); }
+.hub-footer-text {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Badge de version -- discret, coin inférieur droit, MÊME motif dans
+   les 5 fronts (voir shared/README.md) pour toujours savoir où
+   regarder, peu importe l'application ouverte. Contenu = hash du
+   CONTENU réel des fichiers (voir scripts/run.sh), pas juste un
+   horodatage -- reste stable tant que rien n'a changé, même après
+   plusieurs "--build" répétés. */
+.status-badges {
+  position: fixed;
+  bottom: 6px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 999;
+}
+.version-badge {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: help;
+  opacity: 0.7;
+}
+.version-badge:hover { opacity: 1; }
+
+/* Horloge permanente navigateur/serveur -- demandée explicitement
+   ("tout semble désynchronisé sous docker"), livraison #137. Même
+   gabarit que .version-badge (désormais enfant de .status-badges,
+   plus la position fixe qui lui était propre). */
+.clock-badge {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: help;
+  opacity: 0.7;
+}
+.clock-badge:hover { opacity: 1; }
+.clock-badge-desync { color: var(--danger); font-weight: 600; }
+
+/* Indicateurs de présence Keycloak/gateway/vault-standalone --
+   demandé explicitement, livraison #138. Même gabarit que
+   .clock-badge/.version-badge (enfant de .status-badges). Points
+   colorés -- même vocabulaire visuel que les "feux tricolores" déjà
+   utilisés par launcher (voir docker-compose.yml, service launcher)
+   pour le même genre d'indicateur de présence, gardé cohérent plutôt
+   qu'un second langage visuel inventé pour la même idée. */
+.presence-badge {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: help;
+  opacity: 0.7;
+}
+.presence-badge:hover { opacity: 1; }
+.presence-up { color: var(--ok, #27ae60); }
+.presence-down { color: var(--danger); }
+
+/* Page de paramètres/historique -- demandée explicitement, fondation
+   pour accueillir d'autres applications/préférences plus tard.
+   Classes dédiées, jamais .hub-card (pensée pour l'écran de
+   connexion centré à largeur fixe, pas pour un contenu large).
+   Bug de mise en page réel signalé (capture d'écran) : 640px de
+   largeur max sur un écran large laissait une colonne étroite et
+   surchargée à côté d'un grand vide -- corrigé : conteneur bien
+   plus large, et les sections (.hub-settings-grid) s'organisent
+   désormais en grille qui se réorganise en lignes selon la largeur
+   disponible, plutôt qu'empilées verticalement dans une seule
+   colonne quel que soit l'espace libre. */
+.hub-settings {
+  /* Conteneur de défilement BORNÉ propre à cette vue (livraison
+     #258, correctif du correctif #257 -- la première tentative
+     donnait `flex: 1; overflow-y: auto` à CE conteneur en supposant
+     que .hub-shell le bornerait déjà : FAUX, confirmé par capture
+     d'écran réelle montrant une page de PLUSIEURS MILLIERS DE PIXELS
+     de haut malgré ce premier correctif -- `flex: 1` n'a d'effet que
+     si le PARENT flex a lui-même une hauteur bornée, or .hub-shell
+     n'a que `min-height: 100vh` (jamais un plafond), donc rien
+     n'empêchait la page entière de continuer à grandir. Envisagé de
+     border .hub-shell lui-même (`height: 100vh`) -- ÉCARTÉ : un
+     commentaire déjà présent sur `.hub-grid-view` prévenait
+     explicitement que .hub-shell n'avait JAMAIS été touché pour
+     cette raison précise ("les autres vues... n'ont pas été
+     vérifiées avec un défilement interne forcé") -- modifier
+     .hub-shell aurait risqué de casser des vues jamais auditées pour
+     ce comportement, un changement bien plus large que nécessaire.
+     Repris à la place le motif DÉJÀ VALIDÉ de `.hub-grid-view`
+     (livraison #132) -- hauteur EXPLICITE `calc(100vh - 60px)` (60px
+     = hauteur de .hub-header, déjà confirmée exacte ailleurs, voir
+     `.hub-tabshell`) -- fonctionne INDÉPENDAMMENT de la hauteur de
+     .hub-shell, jamais besoin d'y toucher. Affecte TOUTES les vues
+     utilisant .hub-settings, pas seulement Exploration réseau --
+     cohérent avec "toujours le même souci" signalé par la personne. */
+  height: calc(100vh - 60px);
+  overflow-y: auto;
+  /* width: 100% -- livraison #148, bug réel trouvé et corrigé après
+     plusieurs échanges d'investigation. .hub-shell (parent direct)
+     est display:flex/flex-direction:column -- sur un élément FLEX,
+     des marges horizontales à auto (margin: 0 auto ci-dessous)
+     DÉSACTIVENT le comportement d'étirement par défaut
+     (align-items: stretch) : la boîte revient à un calcul "ajustée
+     au contenu" façon inline-block, plafonnée par max-width mais
+     jamais POUSSÉE à l'atteindre. max-width n'a donc jamais été
+     écrasé par une autre règle (vérifié plusieurs fois, toujours
+     gagnant dans les DevTools) -- il n'avait simplement jamais
+     l'occasion de s'appliquer, faute d'un width explicite. Confirmé
+     par la personne : élément mesuré à 538px de large réel malgré
+     max-width: 1800px calculé gagnant, alors que .hub-shell (parent)
+     fait bien 1920px. width: 100% restaure le remplissage jusqu'à
+     max-width, comportement attendu depuis #109 (bloc normal hors
+     contexte flex) -- jamais remarqué avant #141/#147 car le
+     contenu des écrans hub-settings existants (formulaires,
+     historique) dépassait déjà naturellement 1400px, masquant le
+     problème ; le tableau de bord du gestionnaire de logs (peu de
+     colonnes) l'a rendu visible pour la première fois. */
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 24px 40px;
+}
+/* Gestionnaire de logs (livraison #141) : plafond plus large,
+   réservé à CET écran -- un tableau dense de 15 lignes profite d'un
+   plafond plus généreux qu'un formulaire de réglages (Paramètres,
+   Liens externes, Personnaliser) qui n'a pas ce besoin et
+   deviendrait juste inconfortable très étiré. Composé avec
+   .hub-settings (pas un remplacement) : cette règle, plus tardive
+   dans le fichier, gagne la cascade pour max-width uniquement,
+   toutes les autres propriétés (padding, margin) restent celles de
+   .hub-settings. */
+.hub-settings-wide { max-width: 1800px; }
+.hub-settings-topbar { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+.hub-settings-topbar h1 { margin: 0; font-size: 22px; }
+.hub-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+.hub-settings-section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  text-align: left;
+  /* Bug réel signalé (capture d'écran) : cette section combine
+     TOUJOURS la classe .hub-card (className="hub-card
+     hub-settings-section") -- .hub-card plafonne à 420px pour
+     l'écran de connexion, une propriété que cette règle ne
+     redéclarait pas encore, donc jamais réellement écrasée malgré
+     l'élargissement du conteneur parent (.hub-settings-grid). */
+  max-width: none;
+}
+.hub-settings-section h2 { margin: 0 0 4px; font-size: 16px; }
+.hub-settings-section h3 { margin: 14px 0 4px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.hub-settings-row { display: flex; flex-direction: column; gap: 4px; margin: 10px 0; }
+.hub-settings-row label { font-size: 13px; color: var(--muted); }
+.hub-settings-row input[type="text"],
+.hub-settings-row input[type="number"],
+.hub-settings-row input:not([type]),
+.hub-settings-row select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  color: var(--text);
+  font-size: 14px;
+}
+.hub-settings-row label:has(input[type="checkbox"]) {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+/* Administration des liens externes -- backlog, livraison #121. */
+.hub-settings-section-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.hub-settings-section-header-row h2 { margin: 0; }
+.hub-external-links-form {
+  margin: 12px 0;
+  padding: 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.hub-external-links-roles { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 4px; }
+.hub-external-links-role-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+.hub-external-links-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
+.hub-external-links-table th {
+  text-align: left;
+  padding: 6px 10px 6px 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-weight: 600;
+}
+.hub-external-links-table td {
+  padding: 6px 10px 6px 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  overflow-wrap: break-word;
+}
+.hub-external-links-table tr:last-child td { border-bottom: none; }
+.hub-external-links-actions { display: flex; gap: 4px; white-space: nowrap; }
+
+/* Table GÉNÉRIQUE (livraison #178, onglet Données de
+   schema-analyzer) -- même esprit visuel que
+   .hub-external-links-table, mais pas nommée pour un usage
+   spécifique -- réutilisable pour tout tableau de données futur. */
+.hub-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+.hub-table th {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.hub-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.hub-table tr:hover td { background: var(--bg); }
+
+/* Défilement horizontal réutilisable -- livraison #306, bug réel
+   signalé (colonnes Source/Actif/poubelle poussées hors du cadre
+   visible sur viewport étroit, netprobe/Cibles et Sondes). Aucune
+   règle existante ne gérait ce cas -- .na-device-list-wrap gère le
+   défilement VERTICAL (max-height), jamais l'horizontal. Enveloppe
+   n'importe quel <table> brut, quelle que soit sa classe (y compris
+   aucune) -- défilement natif du navigateur, jamais de colonnes
+   coupées ni de contenu inaccessible. */
+.hub-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.hub-table-scroll table { min-width: max-content; }
+
+/* Panneau d'intégration Keycloak par lien -- backlog "interface
+   d'intégration Keycloak", livraison #124. */
+.hub-external-links-kc-detail-row td {
+  background: var(--bg);
+  padding: 10px 14px;
+}
+.hub-external-links-kc-panel { display: flex; flex-direction: column; gap: 8px; max-width: 520px; }
+.hub-external-links-kc-conflict {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--bg);
+}
+.hub-external-links-kc-conflict p { margin: 0; font-size: 13px; }
+.hub-external-links-kc-conflict code { font-size: 12px; }
+.hub-external-links-kc-field { display: flex; flex-direction: column; gap: 2px; margin: 0; }
+.hub-external-links-kc-field code {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+/* Widget de rappel d'activité -- popup au-dessus de tout, quel que
+   soit l'onglet du hub affiché. */
+.reminder-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.reminder-popup {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 22px;
+  max-width: 440px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+.reminder-popup h3 { margin: 0 0 10px; }
+.reminder-ticket-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+  margin: 12px 0;
+}
+.reminder-ticket-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.reminder-ticket-select {
+  flex: 1;
+  text-align: left;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+}
+.reminder-ticket-item.selected .reminder-ticket-select {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg));
+}
+.reminder-ticket-select:hover { border-color: var(--accent); }
+.reminder-ticket-item a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 14px;
+  padding: 4px 6px;
+}
+.reminder-ticket-item a:hover { color: var(--accent); }
+.reminder-deferred-note { font-size: 11px; margin-top: 8px; }
+.reminder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+/* Vue historique/backlog -- demandé explicitement, sert le contenu
+   réel de CHANGELOG.md/BACKLOG.md avec un rendu markdown minimal. */
+.tabs { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+.tabs button {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  color: var(--text);
+  font: inherit;
+}
+.tabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.hub-error {
+  color: var(--danger);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger);
+  padding: 8px 10px;
+  border-radius: 5px;
+  font-size: 13px;
+}
+
+.hub-markdown { text-align: left; max-width: 900px; }
+.hub-markdown h2 { font-size: 17px; margin: 20px 0 8px; }
+.hub-markdown h2:first-child { margin-top: 0; }
+.hub-markdown h3 { font-size: 15px; margin: 16px 0 6px; color: var(--muted); }
+.hub-markdown h4 { font-size: 13px; margin: 12px 0 4px; }
+.hub-markdown p { margin: 6px 0; line-height: 1.5; font-size: 14px; }
+.hub-markdown ul { margin: 6px 0; padding-left: 22px; }
+.hub-markdown li { margin: 3px 0; font-size: 14px; line-height: 1.4; }
+.hub-markdown code {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+
+/* --- Coquille à onglets -- demandé explicitement ("façon navigateur
+   web"). --- */
+.hub-tabshell { display: flex; flex-direction: column; height: calc(100vh - 60px); position: relative; }
+.hub-tabshell-topbar { padding: 8px 24px; border-bottom: 1px solid var(--border); }
+
+.hub-tabbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+.hub-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px 9px 14px;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+  color: var(--muted);
+  border: 1px solid transparent;
+  border-bottom: none;
+  margin-top: 6px;
+}
+.hub-tab:hover { color: var(--text); }
+.hub-tab.active {
+  background: var(--bg);
+  color: var(--text);
+  border-color: var(--border);
+  font-weight: 600;
+}
+.hub-tab-title { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+/* Point indicateur "modifications non enregistrées" -- backlog hub
+   #1, alimenté par le protocole postMessage (voir tabs.js). Couleur
+   --accent (jamais --danger) : indicatif, pas une erreur -- la
+   personne peut très bien fermer volontairement, la confirmation
+   (window.confirm) reste le seul vrai point de blocage. */
+.hub-tab-unsaved-dot { color: var(--accent); margin-left: 4px; font-size: 8px; vertical-align: middle; }
+.hub-tab-close {
+  background: none;
+  border: none;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+}
+.hub-tab-close:hover { opacity: 1; background: color-mix(in srgb, var(--danger) 15%, transparent); }
+
+.hub-tab-add {
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 16px;
+  width: 28px;
+  height: 28px;
+  line-height: 1;
+  margin-left: 4px;
+  margin-top: 6px;
+}
+.hub-tab-add:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Bascule de la timeline (livraison #130) -- même gabarit que
+   .hub-tab-add juste au-dessus, poussé à droite de la barre
+   d'onglets (margin-left: auto) pour rester repérable même avec
+   beaucoup d'onglets ouverts. */
+.hub-timeline-toggle {
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  width: 28px;
+  height: 28px;
+  line-height: 1;
+  margin-left: auto;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+.hub-timeline-toggle:hover { color: var(--accent); border-color: var(--accent); }
+.hub-tab-picker {
+  /* Positionné par rapport à .hub-tabshell (position: relative),
+     jamais .hub-tabbar -- ce dernier a overflow-x: auto pour le
+     défilement horizontal des onglets, ce qui recadre implicitement
+     tout débordement vertical de ses enfants (bug réel signalé : le
+     "+" semblait ne rien faire, alors que ce menu se rendait bel et
+     bien, juste invisible). Décalage fixe plutôt que calculé en JS --
+     approximatif si de nombreux onglets sont déjà ouverts (le "+" se
+     déplace vers la droite), mais correct dans le cas courant.
+     Priorité donnée à corriger la visibilité, pas l'alignement pixel
+     près. */
+  position: absolute;
+  top: 92px;
+  left: 12px;
+  z-index: 20;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 220px;
+}
+.hub-tab-picker-item {
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 13px;
+}
+.hub-tab-picker-item:hover { background: var(--bg); }
+
+/* Timeline du hub, étape 3 (livraison #120) -- .hub-tab-content ET
+   .hub-timeline sont désormais deux colonnes d'une même ligne flex,
+   plutôt que .hub-tab-content seul occupant tout .hub-tabshell (voir
+   TabShell.jsx). .hub-tab-content garde exactement le même CSS
+   qu'avant (flex: 1 s'applique toujours correctement au sein de
+   cette nouvelle ligne). */
+.hub-tabshell-body { flex: 1; display: flex; overflow: hidden; }
+.hub-tab-content { flex: 1; position: relative; overflow: hidden; }
+.hub-tab-empty { text-align: center; margin-top: 60px; }
+.hub-tab-iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* "À droite en bordure d'écran" (demandé explicitement) -- colonne
+   fixe plutôt qu'un panneau flottant par-dessus le contenu, largeur
+   modeste pour ne pas trop rogner sur l'iframe active. Personnelle
+   (voir hub/README.md) : le login déjà connu du hub, jamais un
+   sélecteur d'utilisateur ici. */
+.hub-timeline {
+  flex: 0 0 260px;
+  min-width: 220px;
+  border-left: 1px solid var(--border);
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.hub-timeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+}
+.hub-timeline-header h3 { margin: 0; font-size: 13px; }
+.hub-timeline-header select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  color: var(--text);
+  font-size: 12px;
+}
+.hub-timeline-body { padding: 8px 12px; display: flex; flex-direction: column; gap: 10px; }
+.hub-timeline-empty { font-size: 12px; text-align: center; margin-top: 20px; }
+.hub-timeline-bucket { display: flex; flex-direction: column; gap: 4px; }
+.hub-timeline-bucket-time { font-size: 11px; color: var(--muted); font-family: monospace; }
+.hub-timeline-bucket-markers { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Marqueurs différenciés PAR CATÉGORIE (demandé explicitement) --
+   4 couleurs de fond distinctes, jamais la couleur seule pour porter
+   l'information (l'icône + l'info-bulle -- title -- restent le
+   signal principal, la couleur n'est qu'un renfort visuel). */
+.hub-timeline-marker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: default;
+}
+.hub-timeline-marker-icon { line-height: 1; }
+.hub-timeline-marker-rappel_sans_reaction { background: color-mix(in srgb, #e67e22 20%, var(--bg)); }
+.hub-timeline-marker-changement_activite { background: color-mix(in srgb, #3498db 20%, var(--bg)); }
+.hub-timeline-marker-mouvement_onglet { background: color-mix(in srgb, #9b59b6 20%, var(--bg)); }
+.hub-timeline-marker-ticket_cree { background: color-mix(in srgb, #2ecc71 20%, var(--bg)); }
+/* Compteur ("un petit chiffre s'il y en a plusieurs", demandé
+   explicitement) -- badge en coin, jamais affiché si count <= 1
+   (voir HubTimeline.jsx). */
+.hub-timeline-marker-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+}
+
+/* Gestionnaire de logs -- livraison #139. Motif de tableau repris de
+   .hub-external-links-table (cohérence visuelle), pas une variante
+   inventée. */
+.logs-last-updated { margin-left: auto; font-size: 12px; white-space: nowrap; }
+
+.logs-dashboard-table,
+.logs-entries-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 4px;
+}
+.logs-dashboard-table th,
+.logs-entries-table th {
+  text-align: left;
+  padding: 6px 10px 6px 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-weight: 600;
+}
+.logs-dashboard-table td,
+.logs-entries-table td {
+  padding: 6px 10px 6px 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  overflow-wrap: break-word;
+}
+.logs-dashboard-table tr:last-child td,
+.logs-entries-table tr:last-child td { border-bottom: none; }
+
+.logs-dashboard-row { cursor: pointer; }
+.logs-dashboard-row:hover td { background: var(--bg); }
+
+/* Ambre littéral -- pas de variable de thème "warning" dans l'espace
+   --bg/--panel/--danger/--ok utilisé par hub.css (il existe bien un
+   --color-warn dans shared/theme.css, mais dans un AUTRE espace de
+   variables --color-*, jamais utilisé ailleurs dans ce fichier --
+   pas mélangé ici). Lisibilité correcte sur les thèmes clair ET
+   sombre, non vérifiée visuellement dans cet environnement. */
+.log-level-warning { color: #d9a441; font-weight: 600; }
+.log-level-error { color: var(--danger); font-weight: 600; }
+
+/* Personnalisation de l'accueil, étape 3 -- livraison #140. Motifs
+   repris de .hub-external-links-* (cohérence visuelle, pas une
+   variante inventée). */
+.personalize-saving { margin-left: auto; font-size: 12px; }
+.personalize-section-title { margin-top: 0; }
+
+.personalize-group-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  transition: border-color 0.1s ease, background 0.1s ease;
+}
+.personalize-group-title { font-weight: 600; }
+.personalize-group-rename-input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+.personalize-none-target { border-style: dashed; }
+
+/* Cible de dépôt survolée pendant un glisser-déposer -- retour
+   visuel explicite, sans quoi la personne ne saurait jamais si le
+   dépôt va réellement fonctionner à cet endroit. */
+.personalize-drop-target { border-color: var(--accent); background: var(--panel); }
+
+.personalize-new-group { display: flex; gap: 8px; margin-top: 10px; }
+.personalize-new-group input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.personalize-tiles-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 4px; }
+.personalize-tiles-table th {
+  text-align: left;
+  padding: 6px 10px 6px 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-weight: 600;
+}
+.personalize-tiles-table td {
+  padding: 6px 10px 6px 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.personalize-tiles-table tr:last-child td { border-bottom: none; }
+.personalize-tiles-table tr { cursor: grab; }
+.personalize-tiles-table tr:active { cursor: grabbing; }
+.personalize-tile-hidden { opacity: 0.55; }
+
+/* Aide du hub -- livraison #143. Sidebar (liste filtrable des
+   documents) + contenu, motif à deux colonnes distinct de
+   .hub-settings-grid (pensé pour des cartes de formulaire, pas une
+   liste de navigation + un long contenu markdown). */
+.aide-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.aide-sidebar {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  position: sticky;
+  top: 20px;
+}
+.aide-filter {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  color: var(--text);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.aide-doc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.aide-doc-list button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+.aide-doc-list button:hover { background: var(--bg); }
+.aide-doc-list button.active { background: var(--accent); color: #fff; }
+.aide-content { max-width: none; }
+
+/* Exploration réseau -- ergonomie demandée explicitement (livraison
+   #250) : liste des appareils défilante avec en-têtes de colonnes
+   fixes (indépendamment de l'en-tête global, voir .hub-header
+   plus haut), services représentés par de petits points colorés
+   avec le nom au survol (natif, via l'attribut title -- pas de
+   bibliothèque de tooltip supplémentaire), détails d'un appareil
+   affichés en pied de page fixe plutôt que d'insérer un panneau qui
+   décale tout le reste de la mise en page. */
+.na-device-list-wrap {
+  max-height: 55vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.na-device-list-wrap table { margin: 0; border: none; }
+.na-device-list-wrap thead th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  z-index: 1;
+  box-shadow: 0 1px 0 var(--border);
+}
+.na-device-row { cursor: pointer; }
+.na-device-row:hover { background: var(--bg); }
+.na-device-row.active { background: var(--bg); }
+
+.na-service-dots {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+  /* Contient visuellement même le nombre de points MAXIMUM autorisé
+     (voir MAX_VISIBLE_SERVICE_DOTS côté JS) -- jamais une ligne de
+     tableau qui s'étire sur toute la largeur, quel que soit le
+     volume de services réellement observés (livraison #257). */
+  max-width: 220px;
+}
+.na-service-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  cursor: default;
+  flex-shrink: 0;
+}
+.na-service-dot.tcp { background: var(--accent); }
+.na-service-dot.udp { background: var(--warning); }
+.na-service-more {
+  font-size: 11px;
+  color: var(--muted);
+  cursor: default;
+  white-space: nowrap;
+}
+.na-classification-badge {
+  /* Badge de classification (livraison #261) -- catégorie
+     ouverte/définie par la personne via ses propres dictionnaires
+     (classifier-api), jamais une liste fermée de couleurs par
+     catégorie possible ici -- style neutre unique, le TEXTE porte
+     l'information, la couleur sert seulement à le distinguer du
+     nom d'hôte lui-même. */
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--muted);
+  vertical-align: middle;
+}
+
+/* Pied de page fixe -- détails de l'appareil survolé/sélectionné,
+   dans l'espace du bas plutôt que d'insérer un panneau qui pousse
+   le reste de l'écran (demande explicite : "espace libre à droite
+   ou pied de page"). */
+.na-footer-panel {
+  position: sticky;
+  bottom: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-top: 12px;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Diagramme alluvial (flux réseau, livraison #389) */
+.alluvial-link {
+  fill: none;
+  stroke: var(--accent);
+  stroke-opacity: 0.35;
+}
+.alluvial-link:hover { stroke-opacity: 0.7; }
+.alluvial-node { fill: var(--accent); }
+.alluvial-label { font-size: 11px; fill: var(--text); }
+
+/* Radial tree pondéré (volume de trafic, livraison #389) */
+.weighted-radial-structure-link {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 1px;
+}
+.weighted-radial-volume-link {
+  fill: none;
+  stroke: var(--accent);
+  stroke-opacity: 0.45;
+}
+.weighted-radial-volume-link:hover { stroke-opacity: 0.8; }
+.weighted-radial-node { fill: var(--panel); stroke: var(--border); stroke-width: 1.5px; }
+.weighted-radial-node-device { fill: var(--accent); }
+.weighted-radial-label { font-size: 10px; fill: var(--muted); }

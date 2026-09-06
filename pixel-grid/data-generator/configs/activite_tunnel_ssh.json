@@ -1,0 +1,12 @@
+{
+  "nom": "activite_tunnels_ssh",
+  "type": "activite_tunnel_ssh",
+  "kind": "integer_enum",
+  "description": "Activité des tunnels/montages SSH (ssh-tunnels-api) -- 1 = connexion ouverte, 0 = fermée. Chargé via export_ssh_tunnel_activity.py, pas via generate.sh (données réelles, pas générées). Seules les connexions RÉUSSIES sont représentées -- les échecs sont exclus (voir le script).",
+  "values": {
+    "0": "fermee",
+    "1": "ouverte"
+  },
+  "seuil_taux_attention": 0.05,
+  "seuil_taux_alerte": 0.25
+}

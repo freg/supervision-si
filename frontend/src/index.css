@@ -1,0 +1,5620 @@
+/* ============================================================
+   Tokens — direction "salle de contrôle"
+   Couleurs (--color-bg, --color-panel, --color-ok, etc.) désormais
+   définies dans theme.css (partagé, importé avant ce fichier dans
+   main.jsx, sa propre paire clair/foncé) -- plus dupliquées ici.
+   Typographie et mise en page restent ici : ne changent pas avec le
+   thème.
+   ============================================================ */
+:root {
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+
+  --col-left-width: 300px;
+  --col-right-width: 380px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================================
+   Layout — 3 colonnes : gauche fixe, centre flexible, droite élastique
+   ============================================================ */
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--col-left-width) 1fr var(--col-right-width);
+  grid-template-rows: auto 1fr;
+  height: 100vh;
+}
+
+.app-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  /* Bug réel signalé (capture d'écran) : le titre ("SUPERVISION SI —
+     VUE CENTRALISÉE") était recouvert par .top-nav-fixed-controls
+     (🏠 Hub / ⚙️ Paramètres / 🌙, position: fixed, top-gauche,
+     z-index: 1001 -- voir plus bas) -- cet en-tête démarre lui aussi
+     tout en haut à gauche (padding 1rem seulement), exactement la
+     même zone. Cette classe n'avait jamais reçu le même traitement
+     que .top-nav (voir padding-left: 300px ci-dessous, déjà appliqué
+     pour ce même groupe de contrôles fixes) -- même marge généreuse
+     reprise ici, par cohérence et parce qu'elle a déjà fait ses
+     preuves contre ce chevauchement précis. */
+  padding: 0.75rem 1rem 0.75rem 300px;
+  background: var(--color-panel);
+  border-bottom: 1px solid var(--color-border);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.app-header strong {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-dot.ok {
+  background: var(--color-ok);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-ok) 20%, transparent);
+}
+.status-dot.unavailable {
+  background: var(--color-critical);
+}
+.status-dot.pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* Colonne gauche — sources */
+.col-sources {
+  border-right: 1px solid var(--color-border);
+  background: var(--color-panel);
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.source-card {
+  width: 100%;
+  text-align: left;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.65rem 0.75rem;
+  margin-bottom: 0.5rem;
+  color: var(--color-text);
+  transition: border-color 0.15s ease;
+  font-family: inherit;
+}
+.source-card:hover {
+  border-color: var(--color-select);
+}
+.source-card.active {
+  border-color: var(--color-select);
+  background: color-mix(in srgb, var(--color-select) 10%, var(--color-panel-alt));
+}
+
+/* Carte compacte -- une seule ligne visible par défaut (checkbox +
+   nom + repère bref), déploiement à 3 lignes au survol (méta complète
+   + actions). Demandé explicitement après test réel : la liste
+   systématiquement multi-lignes prenait trop de place pour naviguer
+   rapidement parmi de nombreuses sources. max-height + transition
+   plutôt qu'un état React (onMouseEnter/Leave) -- CSS pur, jamais de
+   scintillement possible entre deux rendus, et se comporte
+   naturellement au clavier/focus aussi (:focus-within). */
+.source-card-compact {
+  padding-bottom: 0.4rem;
+}
+.source-card-row-main {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.source-card-meta-inline {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}
+.source-card-hover-reveal {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.15s ease, opacity 0.15s ease;
+}
+.source-card-compact:hover .source-card-hover-reveal,
+.source-card-compact:focus-within .source-card-hover-reveal {
+  max-height: 60px;
+  opacity: 1;
+  margin-top: 0.35rem;
+}
+
+.sources-bulk-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.6rem;
+  margin-bottom: 0.6rem;
+  background: color-mix(in srgb, var(--color-select) 12%, var(--color-panel-alt));
+  border: 1px solid var(--color-select);
+  border-radius: 6px;
+}
+.sources-bulk-count {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-right: 0.3rem;
+}
+.sources-bulk-btn {
+  font-size: 0.72rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  background: var(--color-panel);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.sources-bulk-btn:hover { border-color: var(--color-select); }
+.sources-bulk-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.sources-bulk-btn-danger:hover { border-color: var(--color-critical); color: var(--color-critical); }
+
+.source-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.source-card-clickzone {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  color: inherit;
+  font-family: inherit;
+  padding: 0;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0; /* bug réel corrigé : sans ça, flexbox refuse par
+    défaut de faire rétrécir cette zone sous la largeur de son contenu
+    -- un nom de source long poussait tout le reste (boutons compris)
+    hors de la colonne. */
+  text-align: left;
+}
+
+.sources-manual-hint {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--color-select);
+  margin-bottom: 0.5rem;
+  padding: 0 0.25rem;
+}
+
+/* ============================================================
+   Formulaire d'injection de fichier
+   ============================================================ */
+.inject-toggle-btn {
+  width: 100%;
+  background: var(--color-panel-alt);
+  border: 1px dashed var(--color-border);
+  border-radius: 6px;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  color: var(--color-select);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.inject-toggle-btn:hover {
+  border-color: var(--color-select);
+}
+
+.sources-header-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+.sources-header-actions .inject-toggle-btn {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.sources-header-btn {
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.5rem 0.6rem;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sources-header-btn:hover {
+  border-color: var(--color-select);
+}
+.sources-header-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.source-card-icon-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0 0.15rem;
+  flex-shrink: 0;
+}
+.source-card-icon-btn:hover {
+  color: var(--color-text);
+}
+.source-card-icon-btn-danger:hover {
+  color: var(--color-critical);
+}
+
+.deleted-sources-list {
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px dashed var(--color-border);
+}
+
+.inject-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.inject-form-title {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.inject-file-label {
+  display: block;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.4rem 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  text-align: center;
+}
+.inject-file-label:hover {
+  border-color: var(--color-select);
+}
+
+.inject-form-error {
+  color: var(--color-critical);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+
+.inject-form-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.inject-submit-btn {
+  background: var(--color-select);
+  border-color: var(--color-select);
+  color: white;
+}
+
+.source-card-title {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0; /* même correctif que .source-card-clickzone -- une
+    <span> flex enfant a le même comportement par défaut */
+}
+
+.source-card-actions-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.4rem;
+}
+.source-card-actions-row .source-card-icon-btn {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
+.source-card-actions-row .source-card-icon-btn:hover {
+  border-color: var(--color-select);
+}
+
+.source-card-meta {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
+/* Colonne centrale — carte */
+.col-map {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-panel-alt);
+  position: relative; /* ancre le bouton de réduction (position: absolute) ici, pas plus haut dans l'arbre */
+}
+.col-map-collapsed {
+  /* Réduction manuelle (bouton), jamais automatique -- reprend
+     approximativement le quart inférieur signalé comme superflu sans
+     sélection, tout en laissant la personne remettre en plein écran
+     à tout moment. align-self:start indispensable ici : sans ça, la
+     ligne de grille (.app-shell, 1fr partagé avec les colonnes
+     sources/synthèse) réétire quand même cette colonne à pleine
+     hauteur, annulant toute réduction visible. */
+  height: 75%;
+  align-self: start;
+}
+.map-collapse-toggle-btn {
+  position: absolute;
+  top: 8px;
+  right: 56px; /* laisse la place aux boutons de zoom Leaflet, en haut a droite */
+  z-index: 1000;
+  font-size: 0.72rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-panel);
+  color: var(--color-text);
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+.map-collapse-toggle-btn:hover { border-color: var(--color-select); }
+.map-area {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.col-map .leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: var(--color-bg);
+}
+
+.map-coord-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  background: var(--color-panel);
+  border-top: 1px solid var(--color-border);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.map-coord-hover {
+  white-space: nowrap;
+}
+
+.map-coord-sep {
+  color: var(--color-border);
+}
+
+.map-coord-capture-label {
+  white-space: nowrap;
+}
+
+.map-coord-input {
+  flex: 1;
+  min-width: 120px;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Signature — réticule de sélection sur la carte */
+.selection-reticle {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+.selection-reticle span {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--color-select);
+}
+.selection-reticle span:nth-child(1) {
+  top: 0;
+  left: 0;
+  border-right: none;
+  border-bottom: none;
+}
+.selection-reticle span:nth-child(2) {
+  top: 0;
+  right: 0;
+  border-left: none;
+  border-bottom: none;
+}
+.selection-reticle span:nth-child(3) {
+  bottom: 0;
+  left: 0;
+  border-right: none;
+  border-top: none;
+}
+.selection-reticle span:nth-child(4) {
+  bottom: 0;
+  right: 0;
+  border-left: none;
+  border-top: none;
+}
+
+/* Colonne droite — synthèse (élastique) */
+.col-synthesis {
+  border-left: 1px solid var(--color-border);
+  background: var(--color-panel);
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.synthesis-empty {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.radial-tree-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 2rem 1rem;
+  text-align: center;
+}
+.radial-tree-summary-numbers {
+  font-family: var(--font-mono);
+  font-size: 1.4rem;
+  color: var(--color-text);
+  margin: 0;
+}
+.radial-tree-summary-numbers strong {
+  color: var(--color-select);
+}
+
+.synthesis-title {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.synthesis-value {
+  font-size: 1rem;
+  margin-bottom: 1.25rem;
+  line-height: 1.5;
+}
+
+.synthesis-field-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.85rem;
+}
+.synthesis-field-row:last-child {
+  border-bottom: none;
+}
+.synthesis-field-label {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+/* ============================================================
+   Colonne droite — deux sections empilées : Synthèse + Corbeille
+   ============================================================ */
+.col-synthesis {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.synthesis-section {
+  padding: 1rem;
+  border-bottom: 1px solid var(--color-border);
+  overflow-y: auto;
+  flex: 0 0 auto;
+  max-height: 40%;
+}
+.synthesis-section-grow {
+  flex: 1 1 auto;
+  max-height: none;
+  border-bottom: none;
+}
+
+.synthesis-section-title {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin-bottom: 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.basket-pour-btn {
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  background: var(--color-panel-alt);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.basket-pour-btn:hover { border-color: var(--color-select); }
+.basket-pour-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.basket-pour-ok { color: var(--color-ok); font-size: 0.7rem; text-transform: none; }
+.basket-pour-error { color: var(--color-critical); font-size: 0.7rem; text-transform: none; }
+
+/* ============================================================
+   Calendrier — overlay au-dessus de la carte (colonne centrale)
+   ============================================================ */
+.calendar-toggle-tab {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 500;
+  background: var(--color-select);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.45rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.calendar-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 500;
+  max-height: 55%;
+  overflow-y: auto;
+  background: var(--color-panel);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+.calendar-panel {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.calendar-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.calendar-period-label {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.calendar-nav-btn,
+.calendar-close-btn {
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.calendar-nav-btn:hover,
+.calendar-close-btn:hover {
+  border-color: var(--color-select);
+}
+
+.calendar-keywords-row,
+.calendar-selection-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.calendar-keywords-input {
+  flex: 1;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.35rem 0.5rem;
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+}
+
+.calendar-selection-count {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.calendar-mode-tabs {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.calendar-mode-tab {
+  flex: 1;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.35rem;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.calendar-mode-tab.active {
+  border-color: var(--color-select);
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-select) 12%, var(--color-panel-alt));
+}
+
+.calendar-grid {
+  display: grid;
+  gap: 0.4rem;
+}
+.calendar-grid-year {
+  grid-template-columns: repeat(6, 1fr);
+}
+.calendar-grid-month {
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.calendar-cell {
+  position: relative;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.5rem 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+  color: var(--color-text);
+}
+.calendar-cell.no-match {
+  background: color-mix(in srgb, var(--color-ok) 12%, var(--color-panel-alt));
+  border-color: color-mix(in srgb, var(--color-ok) 40%, var(--color-border));
+}
+.calendar-cell.match {
+  background: color-mix(in srgb, var(--color-critical) 18%, var(--color-panel-alt));
+  border-color: var(--color-critical);
+}
+.calendar-cell.match-mid {
+  background: color-mix(in srgb, var(--color-warn) 22%, var(--color-panel-alt));
+  border-color: var(--color-warn);
+}
+.calendar-cell.match-high {
+  background: color-mix(in srgb, var(--color-critical) 24%, var(--color-panel-alt));
+  border-color: var(--color-critical);
+}
+.calendar-cell.selected {
+  outline: 2px solid var(--color-select);
+  outline-offset: 1px;
+}
+.calendar-cell:hover {
+  border-color: var(--color-select);
+}
+
+.calendar-cell-value {
+  position: absolute;
+  bottom: 1px;
+  right: 3px;
+  font-size: 0.55rem;
+  color: var(--color-text-muted);
+  line-height: 1;
+}
+
+/* ============================================================
+   Corbeille de sélection
+   ============================================================ */
+.basket-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.basket-entry {
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-panel-alt);
+}
+
+.basket-entry-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+}
+
+.basket-expand-btn {
+  flex: 1;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.basket-entry-meta {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.basket-remove-btn {
+  background: none;
+  border: none;
+  color: var(--color-critical);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0 0.2rem;
+}
+
+.json-tree-container {
+  padding: 0.4rem 0.5rem 0.6rem;
+  border-top: 1px solid var(--color-border);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.json-tree-node {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.json-tree-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.15rem 0;
+  cursor: pointer;
+}
+.json-tree-row.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.json-tree-label {
+  color: var(--color-text);
+}
+
+.json-tree-value {
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+/* ============================================================
+   Menu horizontal auto-masquant (haut d'écran, toutes vues)
+   ============================================================ */
+.root-shell {
+  height: 100vh;
+}
+
+.top-nav-trigger {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  z-index: 1000;
+}
+
+.top-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 42px;
+  z-index: 999;
+  background: var(--color-panel);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  /* Bug réel signalé une deuxième fois (persistait après le premier
+     correctif, qui ne réglait que le chevauchement ENTRE les trois
+     contrôles fixes, jamais leur chevauchement avec ce menu
+     lui-même) : le menu démarre à top:0 avec seulement 1rem de
+     marge, exactement la même bande verticale que
+     .top-nav-fixed-controls (top:8px, aussi à gauche) -- les
+     premiers boutons du menu (Supervision SI, Pixel Grid...) se
+     retrouvaient donc masqués dessous dès que le menu apparaissait.
+     Marge gauche généreuse pour que le menu démarre nettement après
+     ce groupe, quelle que soit la largeur exacte du rendu des trois
+     contrôles (variable selon la police/le système). */
+  padding: 0 1rem 0 300px;
+  /* Filet de sécurité -- la marge gauche ci-dessus réduit l'espace
+     disponible pour les 13 boutons du menu ; défilement horizontal
+     plutôt qu'un débordement/retour à la ligne disgracieux si tout
+     ne tient plus sur un écran plus étroit. */
+  overflow-x: auto;
+  transform: translateY(-100%);
+  transition: transform 0.18s ease;
+}
+.top-nav.visible {
+  transform: translateY(0);
+}
+
+.top-nav-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0.4rem 0.75rem;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  cursor: pointer;
+  /* Jamais de rétrécissement/retour à la ligne du texte -- avec le
+     défilement horizontal ajouté sur .top-nav, chaque bouton garde
+     sa taille naturelle et c'est le CONTENEUR qui défile, pas le
+     texte qui se comprime. */
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.top-nav-btn:hover {
+  border-color: var(--color-border);
+}
+.top-nav-btn.active {
+  color: var(--color-text);
+  border-color: var(--color-select);
+  background: color-mix(in srgb, var(--color-select) 12%, transparent);
+}
+.top-nav-fixed-controls {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.top-nav-hub-link-fixed {
+  text-decoration: none;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-panel);
+  color: var(--color-text);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+}
+.top-nav-hub-link-fixed:hover {
+  border-color: var(--color-select);
+  color: var(--color-select);
+}
+.top-nav-theme-toggle-fixed {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-panel);
+  color: var(--color-text);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  line-height: 1;
+}
+.top-nav-theme-toggle-fixed:hover {
+  border-color: var(--color-select);
+}
+
+/* ============================================================
+   Module pixel-grid
+   ============================================================ */
+.pixel-grid-app {
+  height: 100vh;
+  overflow-y: auto;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pixel-grid-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.pixel-grid-type-select {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.pixel-grid-type-btn {
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.45rem 0.75rem;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.pixel-grid-type-btn.active {
+  border-color: var(--color-select);
+  background: color-mix(in srgb, var(--color-select) 12%, var(--color-panel-alt));
+}
+.pixel-grid-type-kind {
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+}
+
+.pixel-grid-empty-hint {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.pixel-grid-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.pixel-grid-controls-label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  margin-left: 0.5rem;
+}
+.pixel-grid-controls-label:first-child {
+  margin-left: 0;
+}
+
+.pixel-grid-level-btn,
+.pixel-grid-reset-btn {
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.3rem 0.55rem;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.pixel-grid-level-btn.active {
+  border-color: var(--color-select);
+  background: color-mix(in srgb, var(--color-select) 12%, var(--color-panel-alt));
+}
+.pixel-grid-level-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Filtre utilisateur/équipement (livraison #371) -- même apparence
+   que .pixel-grid-level-btn ci-dessus, adapté à un <select> natif. */
+.pixel-grid-nom-select {
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.3rem 0.4rem;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  cursor: pointer;
+  max-width: 180px;
+}
+
+.pixel-grid-breadcrumb {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+.pixel-grid-breadcrumb-btn {
+  background: none;
+  border: none;
+  color: var(--color-select);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  padding: 0 0.2rem;
+}
+.pixel-grid-breadcrumb-sep {
+  margin: 0 0.2rem;
+  color: var(--color-border);
+}
+
+.pixel-grid-error {
+  color: var(--color-critical);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.pixel-grid-mosaic-wrapper {
+  flex: 1;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-panel-alt);
+  padding: 0.5rem;
+}
+
+.pixel-grid-mosaic {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  align-content: flex-start;
+}
+
+.pixel-grid-cell {
+  width: var(--cell-size, 3px);
+  height: var(--cell-size, 3px);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.pixel-grid-cell-green { background: var(--color-ok); }
+.pixel-grid-cell-amber { background: var(--color-warn); }
+.pixel-grid-cell-red { background: var(--color-critical); }
+.pixel-grid-cell-empty { background: var(--color-border); }
+
+/* Mode "Activité" (livraison #371) -- échelle BLEUE volontairement
+   distincte du vert/orange/rouge (taux d'erreur) ci-dessus, pour
+   qu'aucune des deux échelles ne soit confondue avec l'autre. */
+.pixel-grid-cell-activity-none { background: var(--color-border); }
+.pixel-grid-cell-activity-low { background: color-mix(in srgb, var(--color-select) 25%, var(--color-panel-alt)); }
+.pixel-grid-cell-activity-medium { background: color-mix(in srgb, var(--color-select) 60%, var(--color-panel-alt)); }
+.pixel-grid-cell-activity-high { background: var(--color-select); }
+
+.pixel-grid-detail-color-activity-none { color: var(--color-text-muted); }
+.pixel-grid-detail-color-activity-low,
+.pixel-grid-detail-color-activity-medium,
+.pixel-grid-detail-color-activity-high { color: var(--color-select); }
+.pixel-grid-cell:hover {
+  outline: 1px solid white;
+  outline-offset: 0;
+}
+
+.pixel-grid-hover-detail {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  padding: 0.4rem 0.6rem;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
+
+.pixel-grid-body {
+  flex: 1;
+  display: flex;
+  gap: 0.75rem;
+  min-height: 0;
+}
+
+.pixel-grid-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.pixel-grid-cell.selected {
+  outline: 2px solid var(--color-select);
+  outline-offset: 0;
+}
+
+.pixel-grid-detail-col {
+  width: 340px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-panel);
+  padding: 0.75rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pixel-grid-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+
+.pixel-grid-detail-summary {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.pixel-grid-detail-color-green { color: var(--color-ok); }
+.pixel-grid-detail-color-amber { color: var(--color-warn); }
+.pixel-grid-detail-color-red { color: var(--color-critical); }
+
+.pixel-grid-detail-events {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow-y: auto;
+}
+
+.pixel-grid-detail-event {
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.5rem;
+  background: var(--color-panel-alt);
+}
+
+.pixel-grid-detail-event-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.3rem;
+}
+
+.pixel-grid-detail-event-time {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.pixel-grid-detail-event-valeur {
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.pixel-grid-detail-event-valeur.v-1 { color: var(--color-critical); }
+.pixel-grid-detail-event-valeur.v-0 { color: var(--color-ok); }
+.pixel-grid-detail-event-valeur.v--1 { color: var(--color-text-muted); }
+
+.pixel-grid-detail-event-nom {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  margin-bottom: 0.3rem;
+}
+
+.pixel-grid-detail-event-data {
+  font-size: 0.75rem;
+}
+
+.pixel-grid-detail-truncated {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--color-warn);
+  text-align: center;
+}
+
+.pixel-grid-detail-event-nom-btn {
+  background: none;
+  border: none;
+  color: var(--color-select);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+.pixel-grid-detail-event-nom-btn:hover {
+  text-decoration: underline;
+}
+
+/* ============================================================
+   Vue Timeline équipement
+   ============================================================ */
+.timeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.timeline-title {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.timeline-summary {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.timeline-bar-track {
+  position: relative;
+  height: 28px;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.timeline-bar-segment {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--color-critical);
+  cursor: pointer;
+}
+.timeline-bar-segment.timeline-bar-ongoing {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-critical),
+    var(--color-critical) 4px,
+    color-mix(in srgb, var(--color-critical) 60%, black) 4px,
+    color-mix(in srgb, var(--color-critical) 60%, black) 8px
+  );
+}
+
+.timeline-incident-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow-y: auto;
+}
+
+.timeline-incident-card {
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  background: var(--color-panel-alt);
+}
+.timeline-incident-card.timeline-incident-ongoing {
+  border-color: var(--color-critical);
+}
+
+.timeline-incident-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+
+.timeline-incident-duration {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.timeline-ongoing-badge {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--color-critical);
+  border: 1px solid var(--color-critical);
+  border-radius: 3px;
+  padding: 0.1rem 0.35rem;
+}
+
+.timeline-incident-times {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.4rem;
+}
+
+.timeline-incident-data {
+  font-size: 0.78rem;
+}
+
+.timeline-series-chart {
+  position: relative;
+  height: 160px;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
+
+.timeline-series-bar {
+  position: absolute;
+  bottom: 0;
+  background: var(--color-select);
+  min-height: 2px;
+}
+
+/* ============================================================
+   Vue Tickets Parallèles
+   ============================================================ */
+.parallel-gantt-wrapper {
+  position: relative;
+  overflow-x: auto;
+  padding-top: 1.5rem;
+}
+
+.parallel-gantt-markers {
+  position: relative;
+  height: 1.5rem;
+  margin-left: 180px;
+}
+
+.parallel-gantt-marker {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 100%;
+}
+.parallel-gantt-marker-label {
+  position: absolute;
+  top: -1.2rem;
+  left: 0;
+  transform: rotate(-40deg) translateX(-50%);
+  transform-origin: left bottom;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.parallel-gantt-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.parallel-gantt-row-label {
+  width: 170px;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.parallel-gantt-row-track {
+  position: relative;
+  flex: 1;
+  height: 22px;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  min-width: 600px;
+}
+
+.parallel-gantt-gridline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--color-border);
+  opacity: 0.5;
+}
+
+/* ============================================================
+   Onglet Géolocalisation
+   ============================================================ */
+.geo-embedded-map-block {
+  margin-bottom: 0.75rem;
+}
+.geo-hover-centering-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.4rem;
+  cursor: pointer;
+}
+.geo-embedded-map {
+  /* MapPanel s'appuie sur son propre .col-map (flex:1 sur .map-area
+     interne) pour se dimensionner -- dans son usage normal (colonne
+     centrale plein écran), la hauteur vient d'un ancêtre déjà défini.
+     Ici, contexte nouveau et plus petit : hauteur fixe explicite sur
+     CE conteneur, propagée à .col-map ci-dessous, sinon Leaflet se
+     retrouve avec une hauteur de 0 -- carte invisible, piège classique. */
+  height: 320px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.geo-embedded-map .col-map {
+  height: 100%;
+}
+.geo-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+.geo-table th {
+  text-align: left;
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.geo-table td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.geo-row-unmapped {
+  background: color-mix(in srgb, var(--color-critical) 6%, transparent);
+}
+.geo-cell-loc {
+  white-space: nowrap;
+}
+.geo-cell-actions {
+  display: flex;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+.geo-input {
+  width: 110px;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.25rem 0.4rem;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* ============================================================
+   Arbre radial — hiérarchie de la sélection courante
+   ============================================================ */
+.radial-tree-container {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.radial-tree-container-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.radial-tree-expand-btn {
+  background: none;
+  border: none;
+  color: var(--color-select);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  cursor: pointer;
+  padding: 0;
+}
+.radial-tree-expand-btn:hover {
+  text-decoration: underline;
+}
+
+/* Overlay agrandi sur la carte — ancré en bas, pour coexister avec le
+   calendrier (ancré en haut) sans se chevaucher si les deux sont ouverts. */
+.radial-tree-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 500;
+  max-height: 60%;
+  overflow-y: auto;
+  background: var(--color-panel);
+  border-top: 1px solid var(--color-border);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.45);
+  padding: 0.75rem 1rem;
+}
+
+.radial-tree-overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.radial-tree-svg {
+  width: 100%;
+  height: auto;
+  max-height: 420px;
+}
+
+.radial-tree-link {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+.radial-tree-link-partial {
+  stroke: var(--color-warn);
+  stroke-width: 1.5;
+}
+
+.radial-tree-node-off {
+  fill: var(--color-border);
+}
+
+.radial-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--color-select);
+}
+
+.radial-tree-container-wrapper {
+  position: relative;
+}
+
+.radial-tree-zoom-wrapper {
+  overflow: hidden;
+}
+
+.radial-tree-zoom-wrapper .radial-tree-svg {
+  transition: transform 0.15s ease;
+}
+
+.radial-zoom-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+.radial-zoom-control input[type="range"] {
+  flex: 1;
+}
+
+.radial-loupe-disk {
+  fill: var(--color-select);
+  stroke: var(--color-panel);
+  stroke-width: 1;
+}
+
+.radial-hover-panel {
+  position: absolute;
+  z-index: 20;
+  min-width: 160px;
+  max-width: 260px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-select);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  padding: 0.5rem;
+  pointer-events: none;
+}
+
+.radial-hover-title {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 0.35rem;
+  word-break: break-word;
+}
+
+.radial-hover-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+}
+.radial-hover-table th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  padding: 0.15rem 0.4rem 0.15rem 0;
+  white-space: nowrap;
+  vertical-align: top;
+}
+.radial-hover-table td {
+  color: var(--color-text);
+  padding: 0.15rem 0;
+  word-break: break-word;
+}
+
+.radial-hover-empty {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.radial-tree-node {
+  fill: var(--color-select);
+}
+.radial-tree-node-full {
+  fill: var(--color-select);
+}
+.radial-tree-node-partial {
+  fill: var(--color-warn);
+}
+.radial-tree-node-clickable {
+  cursor: pointer;
+}
+.radial-tree-node-group:hover .radial-tree-node {
+  fill: var(--color-critical);
+}
+.radial-tree-node-group:hover .radial-tree-label {
+  fill: var(--color-text);
+}
+
+.radial-tree-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  fill: var(--color-text-muted);
+}
+
+/* ============================================================
+   Onglet IPAM — racines à gauche, arbre radial au centre, JSON à
+   droite. Classes préfixées ipam- : indépendant de radial-tree-*
+   (modèle "corbeille" du calendrier), pas de collision voulue.
+   ============================================================ */
+.ipam-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  gap: 12px;
+}
+
+.ipam-health-banner {
+  background: color-mix(in srgb, var(--color-warn) 15%, var(--color-panel));
+  border: 1px solid var(--color-warn);
+  color: var(--color-text);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.ipam-columns {
+  display: flex;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+}
+
+.ipam-col-left {
+  flex: 0 0 var(--col-left-width);
+  overflow-y: auto;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.ipam-col-center {
+  flex: 1;
+  min-width: 0;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ipam-col-right {
+  flex: 0 0 var(--col-right-width);
+  overflow-y: auto;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.ipam-col-left h2,
+.ipam-col-right h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin: 0 0 10px;
+}
+
+.ipam-empty {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.ipam-error {
+  color: var(--color-critical);
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.ipam-search-input {
+  width: 100%;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  padding: 6px 10px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.ipam-search-input:focus {
+  outline: 1px solid var(--color-select);
+}
+
+/* --- racines (gauche) --- */
+.ipam-root-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ipam-root-item {
+  width: 100%;
+  text-align: left;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  color: var(--color-text);
+}
+.ipam-root-item:hover {
+  border-color: var(--color-select);
+}
+.ipam-root-item.selected {
+  border-color: var(--color-select);
+  box-shadow: inset 3px 0 0 var(--color-select);
+}
+
+.ipam-root-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+.ipam-root-desc {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+.ipam-root-counts {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+/* --- centre : barre d'outils + fil d'ariane --- */
+.ipam-center-toolbar {
+  margin-bottom: 8px;
+}
+
+.ipam-breadcrumb {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.ipam-breadcrumb-item {
+  cursor: pointer;
+}
+.ipam-breadcrumb-item:hover {
+  color: var(--color-select);
+  text-decoration: underline;
+}
+.ipam-breadcrumb-sep {
+  margin: 0 6px;
+  color: var(--color-border);
+}
+
+/* --- arbre radial IPAM --- */
+.ipam-radial-wrapper {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ipam-radial-zoom-hint {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-panel) 85%, transparent);
+  padding: 2px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.ipam-radial-zoom-reset {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 12px;
+  padding: 3px 9px;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  cursor: pointer;
+}
+.ipam-radial-zoom-reset:hover {
+  border-color: var(--color-select);
+}
+.ipam-radial-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.ipam-radial-link {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+.ipam-radial-link.ipam-radial-dim {
+  stroke-opacity: 0.15;
+}
+
+.ipam-radial-node {
+  fill: var(--color-text-muted);
+  stroke: var(--color-bg);
+  stroke-width: 1.5;
+}
+.ipam-radial-node-section {
+  fill: var(--color-select);
+}
+.ipam-radial-node-more {
+  fill: var(--color-border);
+}
+.ipam-radial-node-subnet.ipam-usage-ok {
+  fill: var(--color-ok);
+}
+.ipam-radial-node-subnet.ipam-usage-warn {
+  fill: var(--color-warn);
+}
+.ipam-radial-node-subnet.ipam-usage-critical {
+  fill: var(--color-critical);
+}
+.ipam-radial-node-subnet.ipam-usage-unknown {
+  fill: var(--color-text-muted);
+}
+.ipam-radial-node-selected {
+  stroke: var(--color-text);
+  stroke-width: 2.5;
+}
+.ipam-radial-node-clickable {
+  cursor: pointer;
+}
+.ipam-radial-node-group:hover .ipam-radial-node {
+  stroke: var(--color-select);
+  stroke-width: 2.5;
+}
+.ipam-radial-dim {
+  opacity: 0.2;
+}
+
+.ipam-radial-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  fill: var(--color-text-muted);
+}
+
+/* --- panneau JSON (droite) --- */
+.ipam-json-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.ipam-json-type-badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--color-border);
+}
+.ipam-json-type-section {
+  color: var(--color-select);
+  border-color: var(--color-select);
+}
+.ipam-json-type-subnet {
+  color: var(--color-ok);
+  border-color: var(--color-ok);
+}
+.ipam-json-name {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.ipam-json-body {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.ipam-json-line {
+  white-space: pre-wrap;
+}
+.ipam-json-tok-key {
+  color: var(--color-select);
+}
+.ipam-json-tok-string {
+  color: var(--color-ok);
+}
+.ipam-json-tok-number {
+  color: var(--color-warn);
+}
+.ipam-json-tok-boolean,
+.ipam-json-tok-null {
+  color: var(--color-critical);
+}
+.ipam-json-tok-punct {
+  color: var(--color-text-muted);
+}
+
+/* ============================================================
+   Onglet Optick — familles à gauche, arbre radial au centre, JSON à
+   droite. Classes préfixées optick- : indépendant de ipam-* et de
+   radial-tree-* (module autonome, même esprit que tickets/portal).
+   ============================================================ */
+.optick-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  gap: 12px;
+}
+
+.optick-health-banner {
+  background: color-mix(in srgb, var(--color-warn) 15%, var(--color-panel));
+  border: 1px solid var(--color-warn);
+  color: var(--color-text);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.optick-columns {
+  display: flex;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+}
+
+.optick-col-left {
+  flex: 0 0 var(--col-left-width);
+  overflow-y: auto;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.optick-col-center {
+  flex: 1;
+  min-width: 0;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.optick-col-right {
+  flex: 0 0 var(--col-right-width);
+  overflow-y: auto;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.optick-col-left h2,
+.optick-col-right h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin: 0 0 10px;
+}
+
+.optick-empty {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.optick-error {
+  color: var(--color-critical);
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.optick-search-input {
+  width: 100%;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  padding: 6px 10px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.optick-search-input:focus {
+  outline: 1px solid var(--color-select);
+}
+
+/* --- racines (gauche) --- */
+.optick-root-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.optick-root-item {
+  width: 100%;
+  text-align: left;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  color: var(--color-text);
+}
+.optick-root-item:hover {
+  border-color: var(--color-select);
+}
+.optick-root-item.selected {
+  border-color: var(--color-select);
+  box-shadow: inset 3px 0 0 var(--color-select);
+}
+
+.optick-root-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+.optick-root-desc {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+.optick-root-counts {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+/* --- centre : barre d'outils + fil d'ariane --- */
+.optick-center-toolbar {
+  margin-bottom: 8px;
+}
+
+.optick-breadcrumb {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.optick-breadcrumb-item {
+  cursor: pointer;
+}
+.optick-breadcrumb-item:hover {
+  color: var(--color-select);
+  text-decoration: underline;
+}
+.optick-breadcrumb-sep {
+  margin: 0 6px;
+  color: var(--color-border);
+}
+
+/* --- arbre radial IPAM --- */
+.optick-radial-wrapper {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.optick-radial-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.optick-radial-link {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+.optick-radial-link.optick-radial-dim {
+  stroke-opacity: 0.15;
+}
+
+.optick-radial-node {
+  fill: var(--color-text-muted);
+  stroke: var(--color-bg);
+  stroke-width: 1.5;
+}
+.optick-radial-node-family {
+  fill: var(--color-select);
+}
+.optick-radial-node-more {
+  fill: var(--color-border);
+}
+.optick-radial-node-category.optick-load-ok {
+  fill: var(--color-ok);
+}
+.optick-radial-node-category.optick-load-warn {
+  fill: var(--color-warn);
+}
+.optick-radial-node-category.optick-load-critical {
+  fill: var(--color-critical);
+}
+.optick-radial-node-category.optick-load-unknown {
+  fill: var(--color-text-muted);
+}
+.optick-radial-node-selected {
+  stroke: var(--color-text);
+  stroke-width: 2.5;
+}
+.optick-radial-node-clickable {
+  cursor: pointer;
+}
+.optick-radial-node-group:hover .optick-radial-node {
+  stroke: var(--color-select);
+  stroke-width: 2.5;
+}
+.optick-radial-dim {
+  opacity: 0.2;
+}
+
+.optick-radial-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  fill: var(--color-text-muted);
+}
+
+/* --- panneau JSON (droite) --- */
+.optick-json-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.optick-json-type-badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--color-border);
+}
+.optick-json-type-family {
+  color: var(--color-select);
+  border-color: var(--color-select);
+}
+.optick-json-type-category {
+  color: var(--color-ok);
+  border-color: var(--color-ok);
+}
+/* Types cacti (livraison #362) -- CactiJsonPanel.jsx réutilise ces
+   mêmes classes "optick-json-*", juste un préfixe de type différent. */
+.optick-json-type-tree {
+  color: var(--color-select);
+  border-color: var(--color-select);
+}
+.optick-json-type-header {
+  color: var(--color-text-muted);
+  border-color: var(--color-text-muted);
+}
+.optick-json-type-host {
+  color: var(--color-warn);
+  border-color: var(--color-warn);
+}
+.optick-json-type-graph {
+  color: var(--color-ok);
+  border-color: var(--color-ok);
+}
+
+/* Arbre dépliable de l'onglet Cacti (livraison #362) -- liste simple,
+   pas de composant radial dédié comme OptickRadialTree/OwncloudRadialTree. */
+.cacti-tree-row {
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+.cacti-tree-row:hover {
+  background: var(--color-panel-alt);
+}
+.cacti-tree-row.selected {
+  background: var(--color-panel-alt);
+  box-shadow: inset 3px 0 0 var(--color-select);
+}
+
+.optick-json-name {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.optick-json-body {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.optick-json-line {
+  white-space: pre-wrap;
+}
+.optick-json-tok-key {
+  color: var(--color-select);
+}
+.optick-json-tok-string {
+  color: var(--color-ok);
+}
+.optick-json-tok-number {
+  color: var(--color-warn);
+}
+.optick-json-tok-boolean,
+.optick-json-tok-null {
+  color: var(--color-critical);
+}
+.optick-json-tok-punct {
+  color: var(--color-text-muted);
+}
+
+/* ============================================================
+   Onglet Zenoss — racines (1er segment de la classification d'événement) à gauche,
+   arbre radial au centre, JSON à droite. Classes préfixées zenoss- :
+   module autonome, même esprit que tickets/portal.
+   ============================================================ */
+.zenoss-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  gap: 12px;
+}
+
+.zenoss-health-banner {
+  background: color-mix(in srgb, var(--color-warn) 15%, var(--color-panel));
+  border: 1px solid var(--color-warn);
+  color: var(--color-text);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.zenoss-columns {
+  display: flex;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+}
+
+.zenoss-col-left {
+  flex: 0 0 var(--col-left-width);
+  overflow-y: auto;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.zenoss-col-center {
+  flex: 1;
+  min-width: 0;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.zenoss-col-right {
+  flex: 0 0 var(--col-right-width);
+  overflow-y: auto;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.zenoss-col-left h2,
+.zenoss-col-right h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin: 0 0 10px;
+}
+
+.zenoss-empty {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.zenoss-error {
+  color: var(--color-critical);
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.zenoss-search-input {
+  width: 100%;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  padding: 6px 10px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.zenoss-search-input:focus {
+  outline: 1px solid var(--color-select);
+}
+
+/* --- racines (gauche) --- */
+.zenoss-root-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.zenoss-root-item {
+  width: 100%;
+  text-align: left;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  color: var(--color-text);
+}
+.zenoss-root-item:hover {
+  border-color: var(--color-select);
+}
+.zenoss-root-item.selected {
+  border-color: var(--color-select);
+  box-shadow: inset 3px 0 0 var(--color-select);
+}
+
+.zenoss-root-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+.zenoss-root-desc {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+.zenoss-root-counts {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+/* --- centre : barre d'outils + fil d'ariane --- */
+.zenoss-center-toolbar {
+  margin-bottom: 8px;
+}
+
+.zenoss-breadcrumb {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.zenoss-breadcrumb-item {
+  cursor: pointer;
+}
+.zenoss-breadcrumb-item:hover {
+  color: var(--color-select);
+  text-decoration: underline;
+}
+.zenoss-breadcrumb-sep {
+  margin: 0 6px;
+  color: var(--color-border);
+}
+
+/* --- arbre radial IPAM --- */
+.zenoss-radial-wrapper {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.zenoss-radial-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.zenoss-radial-link {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+.zenoss-radial-link.zenoss-radial-dim {
+  stroke-opacity: 0.15;
+}
+
+.zenoss-radial-node {
+  fill: var(--color-text-muted);
+  stroke: var(--color-bg);
+  stroke-width: 1.5;
+}
+.zenoss-radial-node-class {
+  fill: var(--color-select);
+}
+.zenoss-radial-node-more {
+  fill: var(--color-border);
+}
+.zenoss-radial-node-class.zenoss-sev-critical,
+.zenoss-radial-node-class.zenoss-sev-error {
+  fill: var(--color-critical);
+}
+.zenoss-radial-node-class.zenoss-sev-warning {
+  fill: var(--color-warn);
+}
+.zenoss-radial-node-class.zenoss-sev-info,
+.zenoss-radial-node-class.zenoss-sev-debug,
+.zenoss-radial-node-class.zenoss-sev-clear {
+  fill: var(--color-ok);
+}
+.zenoss-radial-node-class.zenoss-sev-unknown {
+  fill: var(--color-select);
+}
+.zenoss-radial-node-selected {
+  stroke: var(--color-text);
+  stroke-width: 2.5;
+}
+.zenoss-radial-node-clickable {
+  cursor: pointer;
+}
+.zenoss-radial-node-group:hover .zenoss-radial-node {
+  stroke: var(--color-select);
+  stroke-width: 2.5;
+}
+.zenoss-radial-dim {
+  opacity: 0.2;
+}
+
+.zenoss-radial-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  fill: var(--color-text-muted);
+}
+
+/* --- panneau JSON (droite) --- */
+.zenoss-json-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.zenoss-json-type-badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--color-select);
+  color: var(--color-select);
+}
+.zenoss-json-name {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.zenoss-json-body {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.zenoss-json-line {
+  white-space: pre-wrap;
+}
+.zenoss-json-tok-key {
+  color: var(--color-select);
+}
+.zenoss-json-tok-string {
+  color: var(--color-ok);
+}
+.zenoss-json-tok-number {
+  color: var(--color-warn);
+}
+.zenoss-json-tok-boolean,
+.zenoss-json-tok-null {
+  color: var(--color-critical);
+}
+.zenoss-json-tok-punct {
+  color: var(--color-text-muted);
+}
+
+/* ============================================================
+   Onglet TTS-GU — familles à gauche, arbre radial au centre, JSON à
+   droite. Classes préfixées ttsgu- : indépendant de ipam-* et de
+   radial-tree-* (module autonome, même esprit que tickets/portal).
+   ============================================================ */
+.ttsgu-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  gap: 12px;
+}
+
+.ttsgu-health-banner {
+  background: color-mix(in srgb, var(--color-warn) 15%, var(--color-panel));
+  border: 1px solid var(--color-warn);
+  color: var(--color-text);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.ttsgu-columns {
+  display: flex;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+}
+
+.ttsgu-col-left {
+  flex: 0 0 var(--col-left-width);
+  overflow-y: auto;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.ttsgu-col-center {
+  flex: 1;
+  min-width: 0;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ttsgu-col-right {
+  flex: 0 0 var(--col-right-width);
+  overflow-y: auto;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.ttsgu-col-left h2,
+.ttsgu-col-right h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin: 0 0 10px;
+}
+
+.ttsgu-empty {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.ttsgu-error {
+  color: var(--color-critical);
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.ttsgu-search-input {
+  width: 100%;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  padding: 6px 10px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.ttsgu-search-input:focus {
+  outline: 1px solid var(--color-select);
+}
+
+/* --- racines (gauche) --- */
+.ttsgu-root-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ttsgu-root-item {
+  width: 100%;
+  text-align: left;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  color: var(--color-text);
+}
+.ttsgu-root-item:hover {
+  border-color: var(--color-select);
+}
+.ttsgu-root-item.selected {
+  border-color: var(--color-select);
+  box-shadow: inset 3px 0 0 var(--color-select);
+}
+
+.ttsgu-root-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+.ttsgu-root-desc {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+.ttsgu-root-counts {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+/* --- centre : barre d'outils + fil d'ariane --- */
+.ttsgu-center-toolbar {
+  margin-bottom: 8px;
+}
+
+.ttsgu-breadcrumb {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.ttsgu-breadcrumb-item {
+  cursor: pointer;
+}
+.ttsgu-breadcrumb-item:hover {
+  color: var(--color-select);
+  text-decoration: underline;
+}
+.ttsgu-breadcrumb-sep {
+  margin: 0 6px;
+  color: var(--color-border);
+}
+
+/* --- arbre radial IPAM --- */
+.ttsgu-radial-wrapper {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ttsgu-radial-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.ttsgu-radial-link {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+.ttsgu-radial-link.ttsgu-radial-dim {
+  stroke-opacity: 0.15;
+}
+
+.ttsgu-radial-node {
+  fill: var(--color-text-muted);
+  stroke: var(--color-bg);
+  stroke-width: 1.5;
+}
+.ttsgu-radial-node-domain {
+  fill: var(--color-select);
+}
+.ttsgu-radial-node-more {
+  fill: var(--color-border);
+}
+.ttsgu-radial-node-category.ttsgu-load-ok {
+  fill: var(--color-ok);
+}
+.ttsgu-radial-node-category.ttsgu-load-warn {
+  fill: var(--color-warn);
+}
+.ttsgu-radial-node-category.ttsgu-load-critical {
+  fill: var(--color-critical);
+}
+.ttsgu-radial-node-category.ttsgu-load-unknown {
+  fill: var(--color-text-muted);
+}
+.ttsgu-radial-node-selected {
+  stroke: var(--color-text);
+  stroke-width: 2.5;
+}
+.ttsgu-radial-node-clickable {
+  cursor: pointer;
+}
+.ttsgu-radial-node-group:hover .ttsgu-radial-node {
+  stroke: var(--color-select);
+  stroke-width: 2.5;
+}
+.ttsgu-radial-dim {
+  opacity: 0.2;
+}
+
+.ttsgu-radial-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  fill: var(--color-text-muted);
+}
+
+/* --- panneau JSON (droite) --- */
+.ttsgu-json-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.ttsgu-json-type-badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--color-border);
+}
+.ttsgu-json-type-domain {
+  color: var(--color-select);
+  border-color: var(--color-select);
+}
+.ttsgu-json-type-category {
+  color: var(--color-ok);
+  border-color: var(--color-ok);
+}
+.ttsgu-json-name {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.ttsgu-json-body {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.ttsgu-json-line {
+  white-space: pre-wrap;
+}
+.ttsgu-json-tok-key {
+  color: var(--color-select);
+}
+.ttsgu-json-tok-string {
+  color: var(--color-ok);
+}
+.ttsgu-json-tok-number {
+  color: var(--color-warn);
+}
+.ttsgu-json-tok-boolean,
+.ttsgu-json-tok-null {
+  color: var(--color-critical);
+}
+.ttsgu-json-tok-punct {
+  color: var(--color-text-muted);
+}
+
+/* ============================================================
+   Onglet Zenoss — racines (1er segment de la classification d'événement) à gauche,
+   arbre radial au centre, JSON à droite. Classes préfixées zenoss- :
+   module autonome, même esprit que tickets/portal.
+   ============================================================ */
+.zenoss-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  gap: 12px;
+}
+
+.zenoss-health-banner {
+  background: color-mix(in srgb, var(--color-warn) 15%, var(--color-panel));
+  border: 1px solid var(--color-warn);
+  color: var(--color-text);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.zenoss-columns {
+  display: flex;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+}
+
+.zenoss-col-left {
+  flex: 0 0 var(--col-left-width);
+  overflow-y: auto;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.zenoss-col-center {
+  flex: 1;
+  min-width: 0;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.zenoss-col-right {
+  flex: 0 0 var(--col-right-width);
+  overflow-y: auto;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.zenoss-col-left h2,
+.zenoss-col-right h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin: 0 0 10px;
+}
+
+.zenoss-empty {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.zenoss-error {
+  color: var(--color-critical);
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.zenoss-search-input {
+  width: 100%;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  padding: 6px 10px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.zenoss-search-input:focus {
+  outline: 1px solid var(--color-select);
+}
+
+/* --- racines (gauche) --- */
+.zenoss-root-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.zenoss-root-item {
+  width: 100%;
+  text-align: left;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  color: var(--color-text);
+}
+.zenoss-root-item:hover {
+  border-color: var(--color-select);
+}
+.zenoss-root-item.selected {
+  border-color: var(--color-select);
+  box-shadow: inset 3px 0 0 var(--color-select);
+}
+
+.zenoss-root-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+.zenoss-root-desc {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+.zenoss-root-counts {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+/* --- centre : barre d'outils + fil d'ariane --- */
+.zenoss-center-toolbar {
+  margin-bottom: 8px;
+}
+
+.zenoss-breadcrumb {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.zenoss-breadcrumb-item {
+  cursor: pointer;
+}
+.zenoss-breadcrumb-item:hover {
+  color: var(--color-select);
+  text-decoration: underline;
+}
+.zenoss-breadcrumb-sep {
+  margin: 0 6px;
+  color: var(--color-border);
+}
+
+/* --- arbre radial IPAM --- */
+.zenoss-radial-wrapper {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.zenoss-radial-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.zenoss-radial-link {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+.zenoss-radial-link.zenoss-radial-dim {
+  stroke-opacity: 0.15;
+}
+
+.zenoss-radial-node {
+  fill: var(--color-text-muted);
+  stroke: var(--color-bg);
+  stroke-width: 1.5;
+}
+.zenoss-radial-node-class {
+  fill: var(--color-select);
+}
+.zenoss-radial-node-more {
+  fill: var(--color-border);
+}
+.zenoss-radial-node-class.zenoss-sev-critical,
+.zenoss-radial-node-class.zenoss-sev-error {
+  fill: var(--color-critical);
+}
+.zenoss-radial-node-class.zenoss-sev-warning {
+  fill: var(--color-warn);
+}
+.zenoss-radial-node-class.zenoss-sev-info,
+.zenoss-radial-node-class.zenoss-sev-debug,
+.zenoss-radial-node-class.zenoss-sev-clear {
+  fill: var(--color-ok);
+}
+.zenoss-radial-node-class.zenoss-sev-unknown {
+  fill: var(--color-select);
+}
+.zenoss-radial-node-selected {
+  stroke: var(--color-text);
+  stroke-width: 2.5;
+}
+.zenoss-radial-node-clickable {
+  cursor: pointer;
+}
+.zenoss-radial-node-group:hover .zenoss-radial-node {
+  stroke: var(--color-select);
+  stroke-width: 2.5;
+}
+.zenoss-radial-dim {
+  opacity: 0.2;
+}
+
+.zenoss-radial-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  fill: var(--color-text-muted);
+}
+
+/* --- panneau JSON (droite) --- */
+.zenoss-json-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.zenoss-json-type-badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--color-select);
+  color: var(--color-select);
+}
+.zenoss-json-name {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.zenoss-json-body {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.zenoss-json-line {
+  white-space: pre-wrap;
+}
+.zenoss-json-tok-key {
+  color: var(--color-select);
+}
+.zenoss-json-tok-string {
+  color: var(--color-ok);
+}
+.zenoss-json-tok-number {
+  color: var(--color-warn);
+}
+.zenoss-json-tok-boolean,
+.zenoss-json-tok-null {
+  color: var(--color-critical);
+}
+.zenoss-json-tok-punct {
+  color: var(--color-text-muted);
+}
+
+/* ============================================================
+   Onglet OwnCloud — familles à gauche, arbre radial au centre, JSON à
+   droite. Classes préfixées owncloud- : indépendant de ipam-* et de
+   radial-tree-* (module autonome, même esprit que tickets/portal).
+   ============================================================ */
+.owncloud-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  gap: 12px;
+}
+
+.owncloud-health-banner {
+  background: color-mix(in srgb, var(--color-warn) 15%, var(--color-panel));
+  border: 1px solid var(--color-warn);
+  color: var(--color-text);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.owncloud-columns {
+  display: flex;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+}
+
+.owncloud-col-left {
+  flex: 0 0 var(--col-left-width);
+  overflow-y: auto;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.owncloud-col-center {
+  flex: 1;
+  min-width: 0;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.owncloud-col-right {
+  flex: 0 0 var(--col-right-width);
+  overflow-y: auto;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.owncloud-col-left h2,
+.owncloud-col-right h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin: 0 0 10px;
+}
+
+.owncloud-empty {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.owncloud-error {
+  color: var(--color-critical);
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.owncloud-search-input {
+  width: 100%;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  padding: 6px 10px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.owncloud-search-input:focus {
+  outline: 1px solid var(--color-select);
+}
+
+/* --- racines (gauche) --- */
+.owncloud-root-sort {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.owncloud-root-sort-btn {
+  flex: 1;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.owncloud-root-sort-btn:hover { border-color: var(--color-select); color: var(--color-text); }
+.owncloud-root-sort-btn.active { border-color: var(--color-select); color: var(--color-select); font-weight: 600; }
+
+.owncloud-root-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.owncloud-root-item {
+  width: 100%;
+  text-align: left;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  color: var(--color-text);
+}
+.owncloud-root-item:hover {
+  border-color: var(--color-select);
+}
+.owncloud-root-item.selected {
+  border-color: var(--color-select);
+  box-shadow: inset 3px 0 0 var(--color-select);
+}
+
+.owncloud-root-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+.owncloud-root-desc {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+.owncloud-root-counts {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+/* --- centre : barre d'outils + fil d'ariane --- */
+.owncloud-center-toolbar {
+  margin-bottom: 8px;
+}
+
+.owncloud-breadcrumb {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.owncloud-breadcrumb-item {
+  cursor: pointer;
+}
+.owncloud-breadcrumb-item:hover {
+  color: var(--color-select);
+  text-decoration: underline;
+}
+.owncloud-breadcrumb-sep {
+  margin: 0 6px;
+  color: var(--color-border);
+}
+
+/* --- arbre radial IPAM --- */
+.owncloud-radial-wrapper {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.owncloud-radial-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.owncloud-radial-link {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+.owncloud-radial-link.owncloud-radial-dim {
+  stroke-opacity: 0.15;
+}
+
+.owncloud-radial-node {
+  fill: var(--color-text-muted);
+  stroke: var(--color-bg);
+  stroke-width: 1.5;
+}
+.owncloud-radial-node-folder {
+  fill: var(--color-select);
+}
+.owncloud-radial-node-file {
+  fill: var(--color-ok);
+}
+.owncloud-radial-node-more {
+  fill: var(--color-border);
+}
+.owncloud-radial-node-selected {
+  stroke: var(--color-text);
+  stroke-width: 2.5;
+}
+.owncloud-radial-node-clickable {
+  cursor: pointer;
+}
+.owncloud-radial-node-group:hover .owncloud-radial-node {
+  stroke: var(--color-select);
+  stroke-width: 2.5;
+}
+.owncloud-radial-dim {
+  opacity: 0.2;
+}
+
+.owncloud-radial-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  fill: var(--color-text-muted);
+}
+
+/* --- panneau JSON (droite) --- */
+.owncloud-json-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.owncloud-json-type-badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--color-border);
+}
+.owncloud-json-type-folder {
+  color: var(--color-select);
+  border-color: var(--color-select);
+}
+.owncloud-json-type-file {
+  color: var(--color-ok);
+  border-color: var(--color-ok);
+}
+.owncloud-json-name {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.owncloud-json-body {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.owncloud-json-line {
+  white-space: pre-wrap;
+}
+.owncloud-json-tok-key {
+  color: var(--color-select);
+}
+.owncloud-json-tok-string {
+  color: var(--color-ok);
+}
+.owncloud-json-tok-number {
+  color: var(--color-warn);
+}
+.owncloud-json-tok-boolean,
+.owncloud-json-tok-null {
+  color: var(--color-critical);
+}
+.owncloud-json-tok-punct {
+  color: var(--color-text-muted);
+}
+
+/* ============================================================
+   Onglet Zenoss — racines (1er segment de la classification d'événement) à gauche,
+   arbre radial au centre, JSON à droite. Classes préfixées zenoss- :
+   module autonome, même esprit que tickets/portal.
+   ============================================================ */
+.zenoss-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  gap: 12px;
+}
+
+.zenoss-health-banner {
+  background: color-mix(in srgb, var(--color-warn) 15%, var(--color-panel));
+  border: 1px solid var(--color-warn);
+  color: var(--color-text);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.zenoss-columns {
+  display: flex;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+}
+
+.zenoss-col-left {
+  flex: 0 0 var(--col-left-width);
+  overflow-y: auto;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.zenoss-col-center {
+  flex: 1;
+  min-width: 0;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.zenoss-col-right {
+  flex: 0 0 var(--col-right-width);
+  overflow-y: auto;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.zenoss-col-left h2,
+.zenoss-col-right h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin: 0 0 10px;
+}
+
+.zenoss-empty {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.zenoss-error {
+  color: var(--color-critical);
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.zenoss-search-input {
+  width: 100%;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  padding: 6px 10px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.zenoss-search-input:focus {
+  outline: 1px solid var(--color-select);
+}
+
+/* --- racines (gauche) --- */
+.zenoss-root-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.zenoss-root-item {
+  width: 100%;
+  text-align: left;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  color: var(--color-text);
+}
+.zenoss-root-item:hover {
+  border-color: var(--color-select);
+}
+.zenoss-root-item.selected {
+  border-color: var(--color-select);
+  box-shadow: inset 3px 0 0 var(--color-select);
+}
+
+.zenoss-root-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+.zenoss-root-desc {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+.zenoss-root-counts {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+/* --- centre : barre d'outils + fil d'ariane --- */
+.zenoss-center-toolbar {
+  margin-bottom: 8px;
+}
+
+.zenoss-breadcrumb {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.zenoss-breadcrumb-item {
+  cursor: pointer;
+}
+.zenoss-breadcrumb-item:hover {
+  color: var(--color-select);
+  text-decoration: underline;
+}
+.zenoss-breadcrumb-sep {
+  margin: 0 6px;
+  color: var(--color-border);
+}
+
+/* --- arbre radial IPAM --- */
+.zenoss-radial-wrapper {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.zenoss-radial-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.zenoss-radial-link {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+.zenoss-radial-link.zenoss-radial-dim {
+  stroke-opacity: 0.15;
+}
+
+.zenoss-radial-node {
+  fill: var(--color-text-muted);
+  stroke: var(--color-bg);
+  stroke-width: 1.5;
+}
+.zenoss-radial-node-class {
+  fill: var(--color-select);
+}
+.zenoss-radial-node-more {
+  fill: var(--color-border);
+}
+.zenoss-radial-node-class.zenoss-sev-critical,
+.zenoss-radial-node-class.zenoss-sev-error {
+  fill: var(--color-critical);
+}
+.zenoss-radial-node-class.zenoss-sev-warning {
+  fill: var(--color-warn);
+}
+.zenoss-radial-node-class.zenoss-sev-info,
+.zenoss-radial-node-class.zenoss-sev-debug,
+.zenoss-radial-node-class.zenoss-sev-clear {
+  fill: var(--color-ok);
+}
+.zenoss-radial-node-class.zenoss-sev-unknown {
+  fill: var(--color-select);
+}
+.zenoss-radial-node-selected {
+  stroke: var(--color-text);
+  stroke-width: 2.5;
+}
+.zenoss-radial-node-clickable {
+  cursor: pointer;
+}
+.zenoss-radial-node-group:hover .zenoss-radial-node {
+  stroke: var(--color-select);
+  stroke-width: 2.5;
+}
+.zenoss-radial-dim {
+  opacity: 0.2;
+}
+
+.zenoss-radial-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  fill: var(--color-text-muted);
+}
+
+/* --- panneau JSON (droite) --- */
+.zenoss-json-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.zenoss-json-type-badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--color-select);
+  color: var(--color-select);
+}
+.zenoss-json-name {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.zenoss-json-body {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.zenoss-json-line {
+  white-space: pre-wrap;
+}
+.zenoss-json-tok-key {
+  color: var(--color-select);
+}
+.zenoss-json-tok-string {
+  color: var(--color-ok);
+}
+.zenoss-json-tok-number {
+  color: var(--color-warn);
+}
+.zenoss-json-tok-boolean,
+.zenoss-json-tok-null {
+  color: var(--color-critical);
+}
+.zenoss-json-tok-punct {
+  color: var(--color-text-muted);
+}
+
+.owncloud-radial-node-unloaded {
+  stroke-dasharray: 2 1.5;
+}
+.owncloud-radial-unloaded-marker {
+  fill: var(--color-warn);
+}
+.owncloud-hint {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+
+/* --- OwnCloud : sélecteur de fenêtre temporelle --- */
+.owncloud-timeline-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.owncloud-timeline-reset {
+  font-size: 12px;
+  padding: 4px 10px;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.owncloud-timeline-reset:hover {
+  border-color: var(--color-select);
+}
+
+/* ============================================================
+   Curseur de fenêtre glissante générique (timeline-range-*) —
+   utilisé par OwnCloud, réutilisable ailleurs (aucune dépendance
+   métier). Deux <input type="range"> superposés : le rail visuel
+   est dessiné séparément, chaque input reste transparent et
+   cliquable seulement sur son curseur (pointer-events sur le thumb).
+   ============================================================ */
+.timeline-range {
+  flex: 1;
+  min-width: 220px;
+}
+
+.timeline-range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+.timeline-range-track-wrap {
+  position: relative;
+  height: 20px;
+}
+
+.timeline-range-track {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 3px;
+  transform: translateY(-50%);
+  background: var(--color-border);
+  border-radius: 2px;
+}
+
+.timeline-range-fill {
+  position: absolute;
+  top: 50%;
+  height: 3px;
+  transform: translateY(-50%);
+  background: var(--color-select);
+  border-radius: 2px;
+}
+
+.timeline-range-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 20px;
+  margin: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: none; /* seul le curseur (thumb) redevient cliquable ci-dessous */
+}
+
+.timeline-range-input::-webkit-slider-runnable-track {
+  background: transparent;
+}
+.timeline-range-input::-moz-range-track {
+  background: transparent;
+}
+
+.timeline-range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-select);
+  border: 2px solid var(--color-bg);
+  cursor: pointer;
+  margin-top: 3px;
+}
+.timeline-range-input::-moz-range-thumb {
+  pointer-events: auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-select);
+  border: 2px solid var(--color-bg);
+  cursor: pointer;
+}
+
+/* --- IPAM : sélecteur de fenêtre temporelle (editDate) --- */
+.ipam-timeline-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.ipam-timeline-reset {
+  font-size: 12px;
+  padding: 4px 10px;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ipam-timeline-reset:hover {
+  border-color: var(--color-select);
+}
+.ipam-timeline-reduce {
+  font-size: 12px;
+  padding: 4px 10px;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ipam-timeline-reduce:hover {
+  border-color: var(--color-select);
+}
+.ipam-timeline-reduce.active {
+  border-color: var(--color-select);
+  color: var(--color-select);
+  font-weight: 600;
+}
+
+/* --- Optick : sélecteur de fenêtre temporelle (open_date, recalcul serveur) --- */
+.optick-timeline-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.optick-timeline-reset {
+  font-size: 12px;
+  padding: 4px 10px;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.optick-timeline-reset:hover {
+  border-color: var(--color-select);
+}
+
+/* --- TTS-GU : sélecteur de fenêtre temporelle (open_date, recalcul serveur) --- */
+.ttsgu-timeline-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.ttsgu-timeline-reset {
+  font-size: 12px;
+  padding: 4px 10px;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ttsgu-timeline-reset:hover {
+  border-color: var(--color-select);
+}
+
+/* --- Zenoss : sélecteur de fenêtre temporelle (firstTime, recalcul serveur) --- */
+.zenoss-timeline-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.zenoss-timeline-reset {
+  font-size: 12px;
+  padding: 4px 10px;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.zenoss-timeline-reset:hover {
+  border-color: var(--color-select);
+}
+
+/* --- IPAM : case "actifs seulement" (arbre non rémanent) --- */
+.ipam-active-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.ipam-active-toggle input {
+  cursor: pointer;
+}
+
+/* --- Panneau d'aperçu IPAM (onglet Supervision, colonne synthèse) --- */
+.ipam-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ipam-overview-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.ipam-overview-value {
+  font-family: var(--font-mono);
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--color-select);
+}
+.ipam-overview-label {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+.ipam-overview-states {
+  display: flex;
+  gap: 12px;
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+.ipam-overview-state {
+  font-family: var(--font-mono);
+}
+.ipam-overview-state-active {
+  color: var(--color-ok);
+}
+.ipam-overview-state-offline {
+  color: var(--color-critical);
+}
+.ipam-overview-state-unmonitored {
+  color: var(--color-text-muted);
+}
+
+/* ============================================================
+   Onglet Fusion IP/MAC — tableau de corrélation, pas un arbre radial
+   (une corrélation n'est pas une hiérarchie). Détail par ligne à
+   droite. Classes préfixées fusion-.
+   ============================================================ */
+.fusion-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  gap: 12px;
+}
+
+.fusion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+.fusion-header h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+.fusion-subtitle {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  max-width: 60ch;
+}
+
+.fusion-source-status {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.fusion-source-badge {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-panel);
+  color: var(--color-text-muted);
+}
+.fusion-source-badge.error {
+  border-color: var(--color-critical);
+  color: var(--color-critical);
+}
+
+.fusion-error {
+  color: var(--color-critical);
+  font-size: 13px;
+  margin: 0;
+}
+.fusion-empty {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.fusion-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.fusion-search-input {
+  flex: 1;
+  min-width: 260px;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.fusion-search-input:focus {
+  outline: 1px solid var(--color-select);
+}
+.fusion-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.fusion-toggle input {
+  cursor: pointer;
+}
+.fusion-count {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.fusion-columns {
+  display: flex;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+}
+
+.fusion-table-wrap {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  /* Scrollbar toujours visible et bien identifiable — certains OS la
+     masquent par défaut jusqu'au survol, ce qui la rend difficile à
+     découvrir sur un tableau volontairement plus large que l'écran. */
+  scrollbar-width: auto;
+}
+.fusion-table-wrap::-webkit-scrollbar {
+  height: 12px;
+  width: 12px;
+}
+.fusion-table-wrap::-webkit-scrollbar-track {
+  background: var(--color-panel);
+}
+.fusion-table-wrap::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 6px;
+  border: 2px solid var(--color-panel);
+}
+.fusion-table-wrap::-webkit-scrollbar-thumb:hover {
+  background: var(--color-select);
+}
+
+table.fusion-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.fusion-table th {
+  position: sticky;
+  top: 0;
+  background: var(--color-panel);
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* position: sticky ci-dessus sert deja d'ancre pour la poignee de
+     redimensionnement (position: absolute) -- pas besoin de relative. */
+}
+.fusion-col-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  user-select: none;
+}
+.fusion-col-resize-handle:hover,
+.fusion-col-resize-handle:active {
+  background: color-mix(in srgb, var(--color-select) 40%, transparent);
+}
+
+.fusion-columns-menu-wrap {
+  position: relative;
+}
+.fusion-columns-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 200px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+.fusion-columns-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-text);
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.fusion-columns-menu-item:hover {
+  background: var(--color-panel-alt);
+}
+.fusion-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fusion-table tbody tr {
+  cursor: pointer;
+}
+.fusion-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--color-select) 6%, transparent);
+}
+.fusion-table tbody tr.selected td {
+  background: color-mix(in srgb, var(--color-select) 12%, transparent);
+}
+/* Colonne Position (ou toute colonne actuellement en dernière position
+   visible) toujours accessible sans défilement horizontal — appliqué
+   en JS via FUSION_COLUMNS/visibleColumns (fusionLib.js), jamais un
+   simple ":last-child" CSS : avec la visibilité de colonnes réglable,
+   la colonne structurellement dernière dans le DOM peut varier selon
+   ce qui est masqué, un sélecteur purement structurel se tromperait. */
+.fusion-table th.fusion-col-sticky-right,
+.fusion-table td.fusion-col-sticky-right {
+  position: sticky;
+  right: 0;
+  background: var(--color-panel);
+  box-shadow: -4px 0 6px -4px rgba(0, 0, 0, 0.4);
+}
+.fusion-ip {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+.fusion-mac {
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+}
+.fusion-empty-row {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: 24px 10px !important;
+}
+
+.fusion-source-tag {
+  display: inline-block;
+  font-size: 10px;
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-right: 4px;
+  border: 1px solid var(--color-border);
+}
+.fusion-source-tag-ipam {
+  color: var(--color-select);
+  border-color: var(--color-select);
+}
+.fusion-source-tag-zenoss {
+  color: var(--color-warn);
+  border-color: var(--color-warn);
+}
+
+.fusion-severity {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+}
+.fusion-sev-critical { color: var(--color-critical); }
+.fusion-sev-error { color: var(--color-critical); }
+.fusion-sev-warning { color: var(--color-warn); }
+.fusion-sev-info { color: var(--color-select); }
+.fusion-sev-debug { color: var(--color-text-muted); }
+.fusion-sev-clear { color: var(--color-ok); }
+.fusion-sev-unknown { color: var(--color-text-muted); }
+
+.fusion-detail {
+  flex: 0 0 340px;
+  overflow-y: auto;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+.fusion-detail h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin: 0 0 10px;
+}
+.fusion-detail-ip {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.fusion-detail-block {
+  margin-bottom: 14px;
+}
+.fusion-detail-block-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+.fusion-detail-json {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--color-panel-alt);
+  border-radius: 6px;
+  padding: 8px;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* --- Carte "source externe" (IPAM, etc.) — symbolique distincte des sources JSON --- */
+.external-source-card {
+  cursor: pointer;
+  border-left: 3px solid var(--color-select);
+}
+.external-source-card:hover {
+  background: color-mix(in srgb, var(--color-select) 6%, transparent);
+}
+.external-source-icon {
+  font-size: 0.9rem;
+}
+.external-source-badge {
+  margin-left: auto;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-select);
+  border: 1px solid var(--color-select);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+/* ============================================================
+   "Figer cette vue comme source" (FreezeSnapshotButton.jsx) —
+   partagé par les 5 modules de bases en lecture seule. Classes
+   génériques (freeze-*), un seul endroit à faire évoluer.
+   ============================================================ */
+.freeze-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.freeze-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.freeze-btn:hover:not(:disabled) {
+  border-color: var(--color-select);
+}
+.freeze-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.freeze-status {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.freeze-status.ok {
+  color: var(--color-ok);
+}
+.freeze-status.error {
+  color: var(--color-critical);
+}
+
+
+/* --- Carte "source externe" : bouton "Charger comme source" --- */
+.external-source-load-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+.external-source-load-btn {
+  font-size: 0.7rem;
+  padding: 3px 8px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.external-source-load-btn:hover:not(:disabled) {
+  border-color: var(--color-select);
+}
+.external-source-load-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.external-source-load-status {
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+.external-source-load-status.ok {
+  color: var(--color-ok);
+}
+.external-source-load-status.error {
+  color: var(--color-critical);
+}
+
+/* --- Fusion IP/MAC : géolocalisation (bouton + colonne Position) --- */
+.fusion-geo-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  cursor: pointer;
+  white-space: nowrap;
+  margin-left: auto;
+}
+.fusion-geo-btn:hover:not(:disabled) {
+  border-color: var(--color-select);
+}
+.fusion-geo-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.fusion-geo-status {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.fusion-geo-status.ok {
+  color: var(--color-ok);
+}
+.fusion-geo-status.error {
+  color: var(--color-critical);
+}
+.fusion-geo-position {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.fusion-geo-position.mapped {
+  color: var(--color-ok);
+  font-family: var(--font-mono);
+}
+.fusion-geo-position.pending {
+  color: var(--color-warn);
+}
+.fusion-geo-position.unknown {
+  color: var(--color-text-muted);
+}
+
+/* --- Zenoss : mode "Inventaire physique" (Location/IP/Systems) ---
+   EXCEPTION délibérée et scopée, voir zenoss/api/app.py et
+   zenoss/README.md. Réutilise les classes .zenoss-radial-* /
+   .zenoss-json-* existantes (structurelles, génériques) ; seules les
+   couleurs de noeud et la bascule de mode sont nouvelles ici. */
+.zenoss-radial-node-location {
+  fill: var(--color-select);
+}
+.zenoss-radial-node-device {
+  fill: var(--color-ok);
+}
+
+.zenoss-mode-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.zenoss-mode-tab {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.zenoss-mode-tab:hover {
+  border-color: var(--color-select);
+  color: var(--color-text);
+}
+.zenoss-mode-tab.active {
+  border-color: var(--color-select);
+  color: var(--color-select);
+  font-weight: 600;
+}
+
+/* --- MapPanel : source selectionnee sans forme GeoJSON valide ---
+   Corrige un crash reel (react-leaflet levait une exception non
+   rattrapee sur toute source "non-geo" — voir ErrorBoundary.jsx et
+   lib/geojson.js pour la double protection). */
+.map-geojson-warning {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  right: 0.75rem;
+  z-index: 500;
+  background: color-mix(in srgb, var(--color-warn) 15%, var(--color-panel));
+  border: 1px solid var(--color-warn);
+  color: var(--color-text);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* --- Géolocalisation : lien externe + panneau de candidats de géocodage --- */
+.geo-external-link-btn {
+  text-decoration: none;
+  display: inline-block;
+}
+.geo-candidates-row td {
+  background: var(--color-panel-alt);
+  padding: 0.5rem 0.75rem;
+}
+.geo-candidates-error {
+  color: var(--color-warn);
+  font-size: 0.78rem;
+  margin: 0 0 0.4rem;
+}
+.geo-candidates-empty {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  margin: 0 0 0.4rem;
+}
+.geo-candidates-list {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.geo-candidate-btn {
+  width: 100%;
+  text-align: left;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.35rem 0.5rem;
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+}
+.geo-candidate-btn:hover {
+  border-color: var(--color-select);
+}
+.geo-candidate-label {
+  flex: 1;
+}
+.geo-candidate-city {
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+}
+.geo-candidate-coords {
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+.geo-candidates-close {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 0;
+  text-decoration: underline;
+}
+
+/* ============================================================
+   Onglet Logs (LogsApp.jsx) + bandeau pied de page (LogFooter.jsx)
+   ============================================================ */
+.logs-app {
+  padding: 1rem 1.25rem 5rem; /* marge basse : laisse la place au bandeau fixe */
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+.logs-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+.logs-subtitle {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+.logs-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+.logs-select {
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.8rem;
+}
+.logs-count,
+.logs-last-fetch {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+}
+.logs-unreachable {
+  color: var(--color-warn);
+  font-size: 0.8rem;
+  margin: 0 0 0.75rem;
+}
+.logs-empty {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+.logs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+.logs-table th {
+  text-align: left;
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  background: var(--color-bg);
+}
+.logs-table td {
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+.logs-time {
+  white-space: nowrap;
+  color: var(--color-text-muted);
+}
+.logs-service {
+  white-space: nowrap;
+}
+.logs-level {
+  white-space: nowrap;
+  font-weight: 600;
+}
+.logs-message {
+  word-break: break-word;
+}
+
+/* Coloration par niveau, partagee entre le tableau et le bandeau */
+.log-level-critical .logs-level,
+.log-level-critical .log-footer-message,
+.log-row.log-level-critical .logs-message,
+.log-footer-line.log-level-critical,
+.log-footer-panel-row.log-level-critical .log-footer-message {
+  color: var(--color-critical);
+}
+.log-level-error .logs-level,
+.log-row.log-level-error .logs-message,
+.log-footer-line.log-level-error,
+.log-footer-panel-row.log-level-error .log-footer-message {
+  color: var(--color-critical);
+}
+.log-level-warning .logs-level,
+.log-row.log-level-warning .logs-message,
+.log-footer-line.log-level-warning,
+.log-footer-panel-row.log-level-warning .log-footer-message {
+  color: var(--color-warn);
+}
+.log-level-info .logs-level,
+.log-footer-line.log-level-info,
+.log-footer-panel-row.log-level-info .log-footer-message {
+  color: var(--color-text-muted);
+}
+.log-level-debug .logs-level,
+.log-footer-line.log-level-debug,
+.log-footer-panel-row.log-level-debug .log-footer-message {
+  color: var(--color-text-muted);
+  opacity: 0.7;
+}
+
+/* --- Bandeau pied de page, persistant sur tous les onglets --- */
+.log-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 900;
+  background: var(--color-panel);
+  border-top: 1px solid var(--color-border);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
+}
+.log-footer.has-errors {
+  border-top-color: var(--color-critical);
+}
+.log-footer-bar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+}
+.log-footer-toggle {
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+.log-footer-lines {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.log-footer-line {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.log-footer-empty {
+  color: var(--color-text-muted);
+}
+.log-footer-service {
+  color: var(--color-select);
+  flex-shrink: 0;
+}
+.log-footer-time {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+.log-footer-message {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.log-footer-badge {
+  flex-shrink: 0;
+  background: var(--color-critical);
+  color: white;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.log-footer-panel {
+  border-top: 1px solid var(--color-border);
+  max-height: 40vh;
+  display: flex;
+  flex-direction: column;
+}
+.log-footer-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+.log-footer-viewall {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.2rem 0.5rem;
+  color: var(--color-select);
+  cursor: pointer;
+  font-size: 0.72rem;
+}
+.log-footer-viewall:hover {
+  border-color: var(--color-select);
+}
+.log-footer-panel-list {
+  overflow-y: auto;
+  padding: 0.3rem 0.75rem;
+}
+.log-footer-panel-row {
+  display: flex;
+  gap: 0.6rem;
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  padding: 0.15rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
+}
+.log-footer-panel-row .log-footer-time {
+  white-space: nowrap;
+}
+.log-footer-panel-row .log-footer-service {
+  white-space: nowrap;
+  min-width: 90px;
+}
+.log-footer-panel-row .log-footer-level {
+  white-space: nowrap;
+  min-width: 60px;
+  color: var(--color-text-muted);
+}
+.log-footer-panel-empty {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+
+/* --- OwnCloud : panneau de géocodage (réutilise .geo-candidates-*
+   déjà défini pour la Géolocalisation Pixel Grid) --- */
+.owncloud-geocode-panel {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+}
+.owncloud-geocode-panel h3 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  margin: 0 0 0.4rem;
+}
+.owncloud-geocode-hint {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  margin: 0 0 0.5rem;
+}
+.owncloud-geocode-search-row {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+.owncloud-geocode-search-row .owncloud-search-input {
+  flex: 1;
+}
+.owncloud-geocode-picked {
+  margin-top: 0.5rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.78rem;
+}
+.owncloud-geocode-picked p {
+  margin: 0 0 0.4rem;
+  color: var(--color-text-muted);
+}
+.owncloud-geocode-saved {
+  margin-left: 0.5rem;
+  color: var(--color-ok);
+  font-size: 0.75rem;
+}
+
+/* ============================================================
+   Onglet Recherche (SearchApp.jsx) — contenu OwnCloud via Elasticsearch
+   ============================================================ */
+.search-app {
+  padding: 1rem 1.25rem 5rem;
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+.search-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+.search-subtitle {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+.search-health-banner {
+  background: color-mix(in srgb, var(--color-warn) 15%, var(--color-panel));
+  border: 1px solid var(--color-warn);
+  color: var(--color-text);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  margin-bottom: 0.75rem;
+}
+.search-error {
+  color: var(--color-warn);
+  font-size: 0.82rem;
+}
+.search-empty {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.search-builder {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+}
+.search-clause-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+.search-select {
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.8rem;
+}
+.search-value-input {
+  flex: 1;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.8rem;
+}
+.search-builder-footer {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+}
+.search-combinator {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+.search-combinator label {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: pointer;
+}
+.search-run-btn {
+  margin-left: auto;
+}
+
+.search-results-count {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  margin: 0 0 0.5rem;
+}
+.search-results-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.search-result-item {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+}
+.search-result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.search-result-name {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  word-break: break-all;
+}
+.search-result-score {
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+.search-snippet {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+.search-snippet mark {
+  background: color-mix(in srgb, var(--color-select) 35%, transparent);
+  color: var(--color-text);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+/* --- OwnCloud : bascule Arbre/Timeline versions, filtre récurrents,
+   vue timeline des versions --- */
+.owncloud-mode-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.owncloud-mode-tab {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.owncloud-mode-tab:hover {
+  border-color: var(--color-select);
+  color: var(--color-text);
+}
+.owncloud-mode-tab.active {
+  border-color: var(--color-select);
+  color: var(--color-select);
+  font-weight: 600;
+}
+
+.owncloud-layout-toggle {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 8px;
+  padding-left: 8px;
+  border-left: 1px solid var(--color-border);
+}
+.owncloud-layout-btn {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.owncloud-layout-btn:hover { border-color: var(--color-select); color: var(--color-text); }
+.owncloud-layout-btn.active { border-color: var(--color-select); color: var(--color-select); font-weight: 600; }
+
+/* --- Constructeur de filtre à termes combinables --- */
+.owncloud-filter-terms {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.owncloud-filter-term-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.owncloud-filter-term-input { margin-bottom: 0; flex: 1; }
+.owncloud-filter-mode-toggle {
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  background: var(--color-panel);
+  color: var(--color-text-muted);
+}
+.owncloud-filter-mode-include { border-color: var(--color-ok); color: var(--color-ok); }
+.owncloud-filter-mode-exclude { border-color: var(--color-critical); color: var(--color-critical); }
+.owncloud-filter-combine-toggle {
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-select);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-select);
+  cursor: pointer;
+  min-width: 32px;
+}
+.owncloud-filter-term-remove {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 6px;
+}
+.owncloud-filter-term-remove:hover { color: var(--color-critical); }
+.owncloud-filter-add-term {
+  align-self: flex-start;
+  background: none;
+  border: 1px dashed var(--color-border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.owncloud-filter-add-term:hover { border-color: var(--color-select); color: var(--color-select); }
+
+/* --- Vue arbre classique (liste indentée) --- */
+.owncloud-classic-wrapper {
+  overflow: auto;
+  max-height: 100%;
+  font-size: 13px;
+}
+.owncloud-classic-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.owncloud-classic-row:hover { background: var(--color-panel-alt); }
+.owncloud-classic-row-selected { background: color-mix(in srgb, var(--color-select) 18%, var(--color-panel-alt)); }
+.owncloud-classic-icon { flex-shrink: 0; }
+.owncloud-classic-name { color: var(--color-text); overflow: hidden; text-overflow: ellipsis; }
+.owncloud-classic-unloaded-marker { color: var(--color-select); font-size: 16px; line-height: 0; }
+
+/* --- Panneau du dictionnaire de dossiers récurrents --- */
+.owncloud-recurring-panel { margin: 6px 0; }
+.owncloud-recurring-empty { font-size: 12px; color: var(--color-text-muted); margin: 6px 0; }
+.owncloud-recurring-body { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.owncloud-recurring-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+.owncloud-recurring-section-title-muted { opacity: 0.7; font-weight: 500; text-transform: none; letter-spacing: normal; }
+.owncloud-recurring-list-unique .owncloud-recurring-item { opacity: 0.75; }
+.owncloud-recurring-header {
+  background: none;
+  border: none;
+  padding: 2px 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  text-align: left;
+}
+.owncloud-recurring-header:hover { color: var(--color-text); }
+.owncloud-recurring-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+.owncloud-recurring-item {
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-panel);
+}
+.owncloud-recurring-item label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+}
+.owncloud-recurring-count {
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 1px 6px;
+  background: var(--color-panel-alt);
+  color: var(--color-text-muted);
+}
+/* Code couleur par fréquence -- approximatif, juste distinguer visuellement
+   "revient beaucoup" de "revient occasionnellement" (voir OwncloudRecurringPanel.jsx). */
+.owncloud-recurring-high .owncloud-recurring-count { background: color-mix(in srgb, var(--color-critical) 25%, var(--color-panel-alt)); color: var(--color-critical); }
+.owncloud-recurring-medium .owncloud-recurring-count { background: color-mix(in srgb, var(--color-select) 25%, var(--color-panel-alt)); color: var(--color-select); }
+.owncloud-recurring-low .owncloud-recurring-count { background: var(--color-panel-alt); color: var(--color-text-muted); }
+/* État masqué -- nom barré + estompé, distinct du code couleur de fréquence ci-dessus. */
+.owncloud-recurring-hidden { opacity: 0.55; }
+.owncloud-recurring-hidden .owncloud-recurring-name { text-decoration: line-through; }
+
+.owncloud-version-timeline {
+  padding: 4px 8px;
+  overflow-y: auto;
+  height: 100%;
+  box-sizing: border-box;
+}
+.owncloud-version-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+.owncloud-version-row {
+  display: grid;
+  grid-template-columns: 160px 1fr 70px;
+  align-items: center;
+  gap: 10px;
+}
+.owncloud-version-row-label {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.owncloud-version-row-track {
+  position: relative;
+  height: 18px;
+  background: var(--color-panel-alt);
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+}
+.owncloud-version-dot {
+  position: absolute;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-select);
+  border: 1px solid var(--color-bg);
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  padding: 0;
+}
+.owncloud-version-dot:hover {
+  background: var(--color-text);
+}
+.owncloud-version-dot.selected {
+  background: var(--color-critical);
+  width: 12px;
+  height: 12px;
+}
+.owncloud-version-row-count {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* --- Fusion IP/MAC : filtres dédiés par colonne + bouton carte --- */
+.fusion-search-input-narrow {
+  flex: 0 1 180px;
+  min-width: 140px;
+}
+.fusion-geo-position.mapped {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.fusion-map-btn {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 1px 4px;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.fusion-map-btn:hover {
+  border-color: var(--color-select);
+}
+
+/* ============================================================
+   Onglet Dépôt shapefiles (GeoImportApp.jsx)
+   ============================================================ */
+.geo-import-app {
+  padding: 1rem 1.25rem 5rem;
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+.geo-import-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+.geo-import-subtitle {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+.geo-import-health-banner {
+  background: color-mix(in srgb, var(--color-warn) 15%, var(--color-panel));
+  border: 1px solid var(--color-warn);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  margin-bottom: 0.75rem;
+}
+.geo-import-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.geo-import-panel {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1rem;
+}
+.geo-import-panel h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+.geo-import-panel h4 {
+  margin: 1rem 0 0.3rem;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+.geo-import-hint {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  margin: 0 0 0.6rem;
+}
+.geo-import-file-input {
+  display: block;
+  margin-bottom: 0.6rem;
+  font-size: 0.8rem;
+}
+.geo-import-text-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.82rem;
+  margin-bottom: 0.5rem;
+}
+.geo-import-mode-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.6rem;
+}
+.geo-import-mode-choice label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+.geo-import-btn {
+  font-size: 0.82rem;
+  padding: 6px 14px;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  cursor: pointer;
+}
+.geo-import-btn:hover:not(:disabled) {
+  border-color: var(--color-select);
+}
+.geo-import-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.geo-import-result {
+  margin-top: 0.6rem;
+  font-size: 0.8rem;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+.geo-import-result.ok {
+  color: var(--color-ok);
+  background: color-mix(in srgb, var(--color-ok) 10%, transparent);
+}
+.geo-import-result.error {
+  color: var(--color-critical);
+  background: color-mix(in srgb, var(--color-critical) 10%, transparent);
+}
+.geo-import-warnings {
+  margin: 0.3rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--color-warn);
+}
+.geo-import-error {
+  color: var(--color-warn);
+  font-size: 0.8rem;
+}
+.geo-import-layer-list {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.geo-import-layer-item label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+.geo-import-layer-item label:hover {
+  background: var(--color-panel-alt);
+}
+.geo-import-layer-name {
+  font-family: var(--font-mono);
+  flex: 1;
+}
+.geo-import-layer-type,
+.geo-import-layer-srid {
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+.geo-import-fusion-tool {
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.6rem;
+}
+
+/* --- Dépôt shapefiles : connecteurs + outil de corrélation --- */
+.geo-import-connectors {
+  margin-top: 1rem;
+}
+.geo-import-connector-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.82rem;
+}
+.geo-import-correlation {
+  margin-top: 1rem;
+}
+.geo-import-corr-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.geo-import-select {
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.35rem 0.5rem;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.8rem;
+}
+.geo-import-inline-number {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+.geo-import-inline-number input {
+  width: 70px;
+  background: var(--color-panel-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.3rem 0.4rem;
+  color: var(--color-text);
+  font-family: inherit;
+}
+.geo-import-corr-results {
+  margin-top: 0.75rem;
+}
+.geo-import-corr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.geo-import-corr-table th {
+  text-align: left;
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+.geo-import-corr-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.geo-import-batch-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.geo-import-batch-list li.ok {
+  color: var(--color-ok);
+}
+.geo-import-batch-list li.error {
+  color: var(--color-critical);
+}
+
+/* Badge de version -- discret, coin inférieur droit, MÊME motif dans
+   les 5 fronts (voir shared/README.md) -- famille de variables
+   --color-* propre à Supervision SI, pas --bg/--panel/--border comme
+   les 3 autres fronts (voir shared/theme.css, deux familles jamais
+   mélangées). */
+.version-badge {
+  position: fixed;
+  bottom: 6px;
+  right: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-text-muted);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: help;
+  opacity: 0.7;
+  z-index: 999;
+}
+.version-badge:hover { opacity: 1; }

@@ -1,0 +1,125 @@
+# Stack SÉPARÉ pour Mayan EDMS (livraison #158) -- demandé
+# explicitement ("allons-y pour Mayan EDMS") après une recherche
+# rapide de GED open source effectuée en #157 (voir ged/README.md
+# pour le raisonnement complet -- décision initialement DÉFÉRÉE en
+# #157, "on travaillera cet aspect plus tard", tranchée ici).
+#
+# Réseau Docker PARTAGÉ avec le stack principal (même motif que
+# gateway/, voir son en-tête pour le raisonnement complet) --
+# ged-api (stack principal) doit joindre Mayan par son nom Docker
+# interne, ce qui ne fonctionne QUE sur le même réseau. Créé de
+# façon IDEMPOTENTE par n'importe quel run.sh de ce projet (peu
+# importe lequel démarre en premier).
+#
+# ADAPTÉ (simplifié) depuis le docker-compose.yml OFFICIEL de Mayan
+# EDMS (https://github.com/mayan-edms/mayan-edms/blob/master/docker/docker-compose.yml,
+# miroir de https://gitlab.com/mayan-edms/mayan-edms, consulté
+# 2026-09-01) -- retrait du mécanisme `profiles:` (pas utilisé
+# ailleurs dans ce projet, préféré une liste de services ORDINAIRE
+# pour rester cohérent) ; retrait des services optionnels non
+# nécessaires ici (elasticsearch -- Mayan utilise Whoosh par défaut
+# sans lui ; traefik -- ce projet a déjà tls-proxy/gateway pour ça ;
+# workers séparés/mountindex/celery_beat séparé -- le service "app"
+# seul suffit pour un usage modeste, voir ged/README.md "Chantiers
+# pas commencés" si le volume justifie plus tard des workers dédiés).
+#
+# 4 conteneurs, TOUS nécessaires (vérifié directement contre le
+# fichier officiel -- certaines sources secondaires laissent penser
+# à tort que Redis+PostgreSQL suffisent) : l'appli Mayan elle-même,
+# PostgreSQL (base), Redis (résultats Celery + verrous), RabbitMQ
+# (courtier de tâches Celery -- AMQP, câblé en dur dans le modèle de
+# conteneur du fichier officiel, pas remplaçable par Redis dans
+# cette configuration).
+#
+# ⚠️  NON VÉRIFIÉ dans cet environnement, comme tout ce qui touche
+# Docker dans ce projet (aucun moteur Docker disponible ici) -- à
+# tester en PRIORITÉ une fois déployé. Vérifier aussi que le tag
+# d'image ci-dessous (MAYAN_DOCKER_IMAGE_TAG) existe toujours sur
+# Docker Hub au moment du déploiement -- les séries "sN.NN" évoluent.
+
+services:
+  mayan-app:
+    image: ${MAYAN_DOCKER_IMAGE_NAME:-mayanedms/mayanedms}:${MAYAN_DOCKER_IMAGE_TAG:-s4.11}
+    environment:
+      # Courtier de tâches Celery -- RabbitMQ (AMQP), voir en-tête.
+      MAYAN_CELERY_BROKER_URL: amqp://${MAYAN_RABBITMQ_USER:-mayan}:${MAYAN_RABBITMQ_PASSWORD:-mayanrabbitpass}@mayan-rabbitmq:5672/${MAYAN_RABBITMQ_VHOST:-mayan}
+      # Résultats Celery -- Redis, base logique 1.
+      MAYAN_CELERY_RESULT_BACKEND: redis://:${MAYAN_REDIS_PASSWORD:-mayanredispassword}@mayan-redis:6379/1
+      MAYAN_DATABASES: "{'default':{'ENGINE':'django.db.backends.postgresql','NAME':'${MAYAN_DATABASE_NAME:-mayan}','PASSWORD':'${MAYAN_DATABASE_PASSWORD:-mayandbpass}','USER':'${MAYAN_DATABASE_USER:-mayan}','HOST':'mayan-postgresql'}}"
+      # Gestionnaire de verrous -- Redis, base logique 2 (distincte
+      # des résultats Celery ci-dessus, même motif que le fichier
+      # officiel -- jamais la même base logique pour deux usages).
+      MAYAN_LOCK_MANAGER_BACKEND: mayan.apps.lock_manager.backends.redis_lock.RedisLock
+      MAYAN_LOCK_MANAGER_BACKEND_ARGUMENTS: "{'redis_url':'redis://:${MAYAN_REDIS_PASSWORD:-mayanredispassword}@mayan-redis:6379/2'}"
+      # Compte admin créé AUTOMATIQUEMENT au premier démarrage --
+      # jamais de dance d'import manuel comme Keycloak (gateway/) :
+      # Mayan gère sa propre initialisation via ces variables.
+      MAYAN_AUTOADMIN_USERNAME: ${MAYAN_AUTOADMIN_USERNAME:-admin}
+      MAYAN_AUTOADMIN_PASSWORD: ${MAYAN_AUTOADMIN_PASSWORD:-change-me}
+      MAYAN_AUTOADMIN_EMAIL: ${MAYAN_AUTOADMIN_EMAIL:-admin@example.com}
+      # Attend explicitement que la base ET RabbitMQ soient prêts
+      # avant de lancer l'initialisation (mécanisme du fichier
+      # officiel, wait-for-it interne à l'image) -- évite une
+      # initialisation ratée si la base met plus de temps à démarrer
+      # que l'appli (bug de démarrage RÉEL déjà rencontré ailleurs
+      # dans ce projet avec Keycloak, voir gateway/README.md).
+      MAYAN_DOCKER_WAIT: mayan-postgresql:5432 mayan-rabbitmq:5672 mayan-redis:6379
+    ports:
+      # Port publié DIRECTEMENT sur l'hôte pour l'instant (réseau de
+      # confiance, même posture que le reste de ce projet) -- pas
+      # encore routé via tls-proxy : seul ged-api (interne au réseau
+      # Docker) consomme l'API pour l'instant, voir ged/README.md.
+      # À reconsidérer si un accès direct navigateur à l'interface
+      # web de Mayan devient utile.
+      - "${MAYAN_PORT:-8100}:8000"
+    depends_on:
+      - mayan-postgresql
+      - mayan-redis
+      - mayan-rabbitmq
+    volumes:
+      - ${MAYAN_APP_VOLUME:-mayan_app}:/var/lib/mayan
+    restart: unless-stopped
+
+  mayan-postgresql:
+    image: postgres:${MAYAN_DOCKER_POSTGRES_TAG:-16-alpine}
+    environment:
+      POSTGRES_DB: ${MAYAN_DATABASE_NAME:-mayan}
+      POSTGRES_USER: ${MAYAN_DATABASE_USER:-mayan}
+      POSTGRES_PASSWORD: ${MAYAN_DATABASE_PASSWORD:-mayandbpass}
+    volumes:
+      - ${MAYAN_POSTGRES_VOLUME:-mayan_postgres}:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  mayan-redis:
+    image: redis:${MAYAN_DOCKER_REDIS_TAG:-7-alpine}
+    command:
+      - redis-server
+      - --requirepass
+      - "${MAYAN_REDIS_PASSWORD:-mayanredispassword}"
+    volumes:
+      - ${MAYAN_REDIS_VOLUME:-mayan_redis}:/data
+    restart: unless-stopped
+
+  mayan-rabbitmq:
+    image: rabbitmq:${MAYAN_DOCKER_RABBITMQ_TAG:-3-management-alpine}
+    environment:
+      RABBITMQ_DEFAULT_USER: ${MAYAN_RABBITMQ_USER:-mayan}
+      RABBITMQ_DEFAULT_PASS: ${MAYAN_RABBITMQ_PASSWORD:-mayanrabbitpass}
+      RABBITMQ_DEFAULT_VHOST: ${MAYAN_RABBITMQ_VHOST:-mayan}
+    volumes:
+      - ${MAYAN_RABBITMQ_VOLUME:-mayan_rabbitmq}:/var/lib/rabbitmq
+    restart: unless-stopped
+
+volumes:
+  mayan_app:
+  mayan_postgres:
+  mayan_redis:
+  mayan_rabbitmq:
+
+networks:
+  default:
+    # MÊME nom que ../docker-compose.yml et gateway/docker-compose.yml,
+    # OBLIGATOIREMENT identique partout -- voir le commentaire
+    # d'en-tête de ce fichier.
+    name: ${SUPERVISION_SI_NETWORK_NAME:-supervision-si-net}
+    external: true

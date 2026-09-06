@@ -1,0 +1,148 @@
+/*
+ * Thème de connexion "hub-dark" -- livraison #275, CORRIGÉ en #281
+ * (mêmes bugs réels que le skin "hub" clair, trouvés sur celui-ci
+ * lors d'un déploiement réel -- voir keycloak/themes/hub/login/
+ * resources/css/login.css pour le détail complet du raisonnement,
+ * repris ici à l'identique, seules les couleurs changent).
+ * Palette sombre (shared/theme.css, :root[data-theme="dark"]) --
+ * --bg: #1a1d23, --panel: #22262e, --border: #383d47,
+ * --text: #e4e6eb, --muted: #9099a8, --accent: #4a9eda,
+ * --danger: #e57373, --danger-bg: #3a1f1f, --ok: #4caf7d,
+ * --ok-bg: #1f3a2a.
+ *
+ * ⚠️ CE skin spécifique reste NON VÉRIFIÉ EN CONDITIONS RÉELLES
+ * (seul "hub", le skin par défaut, a été testé contre un vrai
+ * déploiement) -- les corrections structurelles (carte/bouton/
+ * largeur/menu) sont reprises par analogie directe avec "hub", mais
+ * le contraste et le rendu réel de CETTE palette sombre précise
+ * restent à confirmer au premier essai.
+ */
+
+body {
+  background: #1a1d23;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  color: #e4e6eb;
+}
+
+.card-pf {
+  background: #22262e;
+  border: 1px solid #383d47;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+  padding: 32px;
+  max-width: 480px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.login-pf-page {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 40px;
+}
+
+#kc-header-wrapper {
+  color: #e4e6eb;
+  font-weight: 600;
+  text-align: center;
+  padding-bottom: 16px;
+}
+
+#kc-page-title {
+  color: #e4e6eb;
+  font-weight: 600;
+}
+
+/* Étiquettes de formulaire -- livraison #300, même correctif
+   d'alignement que hub/login.css (voir ce fichier pour le détail). */
+.pf-c-form__label,
+.pf-c-form__label-text {
+  color: #9099a8;
+  font-weight: 500;
+  max-width: 320px;
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+}
+
+/* livraison #296 -- même resserrement/centrage que le skin "hub",
+   voir ce fichier pour le raisonnement complet. */
+.pf-c-form-control {
+  background: #1a1d23;
+  border: 1px solid #383d47;
+  color: #e4e6eb;
+  border-radius: 4px;
+  max-width: 320px;
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+}
+.pf-c-form-control:focus {
+  border-color: #4a9eda;
+  box-shadow: 0 0 0 2px rgba(74, 158, 218, 0.25);
+  outline: none;
+}
+
+/* #kc-login EST le bouton lui-même (pas la carte) -- voir le skin
+   "hub" pour le raisonnement complet de ce correctif. */
+#kc-login {
+  background-color: #4a9eda !important;
+  border-color: #4a9eda !important;
+  color: #1a1d23 !important;
+  font-weight: 500;
+  max-width: 320px;
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+  width: 100%;
+}
+#kc-login:hover {
+  background-color: #6bb0e2 !important;
+  border-color: #6bb0e2 !important;
+}
+
+a,
+a:visited {
+  color: #4a9eda;
+}
+a:hover {
+  color: #6bb0e2;
+}
+
+.pf-c-alert.pf-m-danger,
+.kc-feedback-text {
+  background: #3a1f1f;
+  border-color: #e57373;
+  color: #e57373;
+}
+.pf-c-alert.pf-m-success {
+  background: #1f3a2a;
+  border-color: #4caf7d;
+  color: #4caf7d;
+}
+
+#kc-form-options,
+.checkbox {
+  color: #9099a8;
+}
+
+/* Menu de langue -- livraison #296, même correctif que hub/login.css
+   (voir ce fichier pour le raisonnement complet : sélecteur ARIA
+   confirmé via le vrai gabarit Keycloak, jamais une classe devinée). */
+#language-switch1.pf-c-dropdown__menu {
+  display: none;
+}
+#kc-current-locale-link[aria-expanded="true"] ~ #language-switch1.pf-c-dropdown__menu {
+  display: block;
+}
+
+/* Numéro de livraison -- livraison #298, même motif que hub/login.css. */
+.card-pf::after {
+  content: "v300";
+  display: block;
+  text-align: center;
+  margin-top: 16px;
+  font-size: 11px;
+  color: #9099a8;
+}

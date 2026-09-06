@@ -1,0 +1,62 @@
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #111318;
+  color: #e5e7eb;
+}
+header { max-width: 900px; margin: 0 auto; padding: 24px 24px 8px; }
+header h1 { margin-bottom: 4px; }
+.muted { color: #9099a8; font-size: 13px; }
+
+.grid {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 16px 24px 40px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 16px;
+}
+
+.tile {
+  background: #1a1d24;
+  border: 1px solid #2a2e38;
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.light {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid #2a2e38;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  padding: 0;
+}
+/* Gris (chargement/statut pas encore connu) -- pas cliquable
+   utilement (voir launcher-state.js, onClick ignore ce cas), curseur
+   par défaut plutôt que pointeur pour ne pas laisser croire à une
+   action possible. */
+.light-gray { background: #3a3f4a; cursor: default; }
+.light-red { background: #e5484d; }
+.light-green { background: #46a758; }
+/* Orange (transition en cours) -- jamais cliquable pendant ce temps
+   (voir launcher-state.js, onClick ignore un clic pendant "pending"),
+   curseur par défaut pour le signaler visuellement. */
+.light-orange { background: #f5a524; cursor: default; animation: pulse 1s ease-in-out infinite; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.name {
+  font-size: 12px;
+  text-align: center;
+  word-break: break-word;
+  color: #c5cad3;
+}

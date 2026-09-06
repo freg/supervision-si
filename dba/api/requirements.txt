@@ -1,0 +1,14 @@
+Flask==3.0.3
+flask-cors==4.0.1
+gunicorn==22.0.0
+requests==2.32.3
+psycopg2-binary==2.9.9
+PyMySQL==1.1.1
+# Requis par PyMySQL pour les méthodes d'authentification par défaut
+# de MySQL 8+ (caching_sha2_password) et sha256_password -- sans ce
+# paquet, PyMySQL échoue avec "'cryptography' package is required..."
+# sur tout serveur MySQL 8 récent utilisant son authentification par
+# défaut (le cas de la grande majorité des serveurs modernes). Bug
+# réel rencontré au premier vrai test.
+cryptography==43.0.1
+pymemcache==4.0.0

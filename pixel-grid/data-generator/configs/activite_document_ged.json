@@ -1,0 +1,11 @@
+{
+  "nom": "activite_documents_ged",
+  "type": "activite_document_ged",
+  "kind": "integer_enum",
+  "description": "Liens de documents GED créés (document_links) -- 1 = lien créé (événement ponctuel, jamais de 0 correspondant -- affiché EN COURS par pixel-grid, imprécis mais exploitable pour un événement instantané). nom = utilisateur (linked_by) ou 'non_attribue'. Chargé via export_document_links.py.",
+  "values": {
+    "1": "lien_cree"
+  },
+  "seuil_taux_attention": 0.05,
+  "seuil_taux_alerte": 0.25
+}

@@ -1,0 +1,130 @@
+# Stack Docker de l'instance ISOLÉE du coffre-fort -- même code
+# applicatif que le stack principal (vault/api, vault/portal,
+# vault/admin-api -- context: .. pointe vers la racine du projet,
+# AUCUN fichier dupliqué), infrastructure minimale et séparée : sa
+# propre entrée IP/DNS, son propre certificat, son propre Keycloak
+# (fédération LDAP identique au realm principal, voir
+# keycloak/render.py de ce dossier).
+#
+# But explicite (décidé avec la personne) : pérenniser le projet
+# coffre-fort vis-à-vis du hub principal, en constante évolution --
+# un réimport Keycloak lié à une AUTRE application du hub ne doit
+# JAMAIS pouvoir affecter la disponibilité du coffre. D'où une
+# instance Keycloak ENTIÈREMENT séparée (jamais partagée avec le hub),
+# même si la fédération LDAP qu'elle interroge est la même.
+#
+#   cd vault-standalone && docker compose up -d --build
+#
+# Lit le MÊME .env que le hub, à la racine du projet (voir
+# ../.env.example, section "Instance isolée du coffre-fort") --
+# décidé avec la personne ("même infra") : les identifiants LDAP_*
+# doivent de toute façon rester identiques aux deux endroits, jamais
+# une seconde copie à maintenir en double.
+
+services:
+  keycloak-standalone:
+    image: quay.io/keycloak/keycloak:26.0
+    command: ["start-dev", "--import-realm"]
+    environment:
+      - KC_BOOTSTRAP_ADMIN_USERNAME=${KEYCLOAK_ADMIN_USER:-admin}
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-change-me}
+      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN_USER:-admin}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-change-me}
+      - KC_HTTP_RELATIVE_PATH=/auth/
+      - KC_HTTP_ENABLED=true
+      - KC_HOSTNAME=https://${VAULT_STANDALONE_HOST_IP:-localhost}:${VAULT_STANDALONE_GATEWAY_PORT:-7443}/auth/
+      - KC_PROXY_HEADERS=xforwarded
+      - KC_HOSTNAME_STRICT=false
+    # Limite mémoire EXPLICITE (livraison #363) -- même raisonnement
+    # que le realm principal (voir ../gateway/docker-compose.yml pour
+    # le détail complet du diagnostic OOM) : sans limite, le calcul en
+    # pourcentage du tas JVM de Keycloak se base sur toute la mémoire
+    # visible par le conteneur plutôt qu'une portion raisonnable.
+    mem_limit: 1536m
+    ports:
+      # Accès direct de secours, réservé au LAN -- même raisonnement
+      # que le realm principal (voir ../docker-compose.yml) : sans
+      # ça, une panne du proxy prive de tout accès à la console admin,
+      # même pour diagnostiquer.
+      - "${VAULT_STANDALONE_HOST_IP:-127.0.0.1}:${VAULT_STANDALONE_KEYCLOAK_PORT:-7180}:8080"
+    volumes:
+      - keycloak_standalone_data:/opt/keycloak/data
+      # :ro -- même garde-fou que le realm principal (voir
+      # keycloak/render.py de ce dossier, docstring) : Keycloak masque
+      # les identifiants sensibles dans ses propres exports, un volume
+      # en lecture-écriture réintroduirait exactement ce bug.
+      - ${VAULT_STANDALONE_KEYCLOAK_IMPORT_DIR:-./keycloak/import}:/opt/keycloak/data/import:ro
+
+  vault-api-standalone:
+    build:
+      context: ..
+      dockerfile: vault/api/Dockerfile
+    environment:
+      - VAULT_DB_PATH=/data/vault.db
+    volumes:
+      # Base SÉPARÉE de celle du stack principal -- jamais le même
+      # fichier vault.db, sans quoi les deux instances écriraient
+      # concurremment sans coordination (tout l'intérêt de
+      # l'export/import ponctuel à sens contrôlé, pas un partage direct).
+      - ${VAULT_STANDALONE_DATA_DIR:-./data}:/data
+
+  vault-admin-api-standalone:
+    # Même raisonnement que le stack principal (voir
+    # ../docker-compose.yml) : JAMAIS routé par le proxy, port exposé
+    # directement sur l'hôte, réservé au LAN.
+    build:
+      context: ..
+      dockerfile: vault/admin-api/Dockerfile
+    environment:
+      - VAULT_DB_PATH=/data/vault.db
+      - VAULT_ADMIN_ALLOWED_CIDRS=${VAULT_ADMIN_ALLOWED_CIDRS:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8}
+      - VAULT_ADMIN_SMTP_HOST=${VAULT_ADMIN_SMTP_HOST:-}
+      - VAULT_ADMIN_SMTP_PORT=${VAULT_ADMIN_SMTP_PORT:-587}
+      - VAULT_ADMIN_SMTP_USER=${VAULT_ADMIN_SMTP_USER:-}
+      - VAULT_ADMIN_SMTP_PASSWORD=${VAULT_ADMIN_SMTP_PASSWORD:-}
+      - VAULT_ADMIN_SMTP_FROM=${VAULT_ADMIN_SMTP_FROM:-}
+      - VAULT_ADMIN_SMTP_TO=${VAULT_ADMIN_SMTP_TO:-}
+    ports:
+      - "${VAULT_STANDALONE_ADMIN_LAN_PORT:-7119}:5000"
+    volumes:
+      - ${VAULT_STANDALONE_DATA_DIR:-./data}:/data
+
+  vault-portal-standalone:
+    build:
+      context: ..
+      dockerfile: vault/portal/Dockerfile
+    environment:
+      # GATEWAY_PORT lu par vite.config.js pour le HMR (voir ce
+      # fichier) -- celui de CETTE stack, jamais celui du hub.
+      - GATEWAY_PORT=${VAULT_STANDALONE_GATEWAY_PORT:-7443}
+      - VITE_VAULT_API_BASE_URL=https://${VAULT_STANDALONE_HOST_IP:-localhost}:${VAULT_STANDALONE_GATEWAY_PORT:-7443}/api/vault
+      - VITE_KEYCLOAK_URL=https://${VAULT_STANDALONE_HOST_IP:-localhost}:${VAULT_STANDALONE_GATEWAY_PORT:-7443}/auth
+      - VITE_KEYCLOAK_REALM=vault-standalone
+      # prefs-api et pixel-grid VOLONTAIREMENT absents -- indépendance
+      # vis-à-vis du hub, but même de cette instance (voir en-tête de
+      # fichier). Le thème reste local au navigateur (jamais synchronisé
+      # entre appareils) ; la navigation par arbre de localisation
+      # reste indisponible (dégradation déjà prévue côté
+      # VaultSearchScreen.jsx, message clair plutôt qu'un plantage) --
+      # la recherche par libellé et par mot-clé fonctionnent normalement.
+    depends_on:
+      - vault-api-standalone
+      - keycloak-standalone
+
+  tls-proxy-standalone:
+    image: nginx:1.27-alpine
+    ports:
+      - "${VAULT_STANDALONE_GATEWAY_PORT:-7443}:${VAULT_STANDALONE_GATEWAY_PORT:-7443}"
+    volumes:
+      - ./tls-proxy/generated:/etc/nginx/conf.d:ro
+      # PKI SÉPARÉE de celle du stack principal -- certificat propre à
+      # cette instance (voir ../pki/README.md pour le mécanisme repris
+      # tel quel, juste un dossier de sortie différent).
+      - ${VAULT_STANDALONE_PKI_DIR:-./pki}/server:/etc/nginx/tls:ro
+    depends_on:
+      - vault-api-standalone
+      - vault-portal-standalone
+      - keycloak-standalone
+
+volumes:
+  keycloak_standalone_data:

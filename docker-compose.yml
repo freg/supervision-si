@@ -1,0 +1,1753 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      - MEMCACHED_PORT=11211
+      - DATA_DIR=/app/data
+      - CACHE_TTL_SECONDS=300
+      # RIGHTS_API_URL -- livraison #320, OPT-IN comme partout ailleurs.
+      # Gardé UNIQUEMENT sur la gestion des sources (from-selection,
+      # register, delete, restore) -- JAMAIS /ingest, appelé par
+      # plusieurs pipelines automatisés (pipeline/, pixel-grid/bridge,
+      # imap-client-api, connectors/zenoss_legacy) sans contexte
+      # utilisateur/groupes -- le garder casserait ces flux.
+      - RIGHTS_API_URL=${CENTRAL_API_RIGHTS_API_URL:-}
+    volumes:
+      # Persistance des fichiers hors du conteneur — survit aux redémarrages
+      - api_data:/app/data
+    depends_on:
+      - memcached
+
+  pipeline:
+    build: ./pipeline
+    environment:
+      - API_BASE_URL=http://api:5000
+      - PUSH_INTERVAL_SECONDS=30
+      - SOURCE_NAME=supervision_demo
+    depends_on:
+      - api
+
+  memcached:
+    image: memcached:1.6-alpine
+    # Pas de port exposé à l'hôte : Memcached n'est accédé que par l'API,
+    # en interne au réseau Docker Compose.
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      # Le frontend tourne dans le navigateur de l'hôte, pas dans le réseau
+      # Docker interne : il doit donc viser une adresse joignable depuis
+      # le poste qui ouvre le navigateur. HOST_IP est injectée au lancement
+      # (voir scripts/run.sh) ; fallback sur localhost si non définie
+      # (cas où le navigateur tourne sur la même machine que Docker).
+      # Entrée UNIQUE par chemin (décidé en cours de session, voir
+      # tls-proxy/README.md) : un seul GATEWAY_PORT pour tout, plus un
+      # port par API — /api/<nom>/ dispatché par tls-proxy.
+      - GATEWAY_PORT=${GATEWAY_PORT:-6443}
+      - VITE_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/supervision
+      - VITE_PIXEL_GRID_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/pixel-grid
+      - VITE_TICKETS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/tickets
+      - VITE_IPAM_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/ipam
+      - VITE_OPTICK_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/optick
+      - VITE_ZENOSS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/zenoss
+      # cacti-api (livraison #362) -- onglet Cacti du frontend,
+      # jamais construit jusqu'ici malgré un backend prêt depuis
+      # longtemps (voir cacti/README.md, nouvellement créé).
+      - VITE_CACTI_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/cacti
+      - VITE_TTSGU_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/tts-gu
+      - VITE_OWNCLOUD_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/owncloud
+      - VITE_CACTI_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/cacti
+      - VITE_OWNCLOUD_SEARCH_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/owncloud-search
+      - VITE_GEO_IMPORT_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/geo-import
+    depends_on:
+      - api
+
+  pixel-grid-postgres:
+    image: postgres:16-alpine
+    ports:
+      # Port centralisé dans .env — évite volontairement 5432/5433
+      # (trop communs) et toute la plage déjà utilisée par ailleurs.
+      - "${PIXEL_GRID_POSTGRES_PORT:-6543}:5432"
+    environment:
+      - POSTGRES_DB=pixelgrid
+      - POSTGRES_USER=pixelgrid
+      - POSTGRES_PASSWORD=pixelgrid
+    volumes:
+      - pixel_grid_pg_data:/var/lib/postgresql/data
+      # Appliqué automatiquement au premier démarrage par l'image
+      # officielle (mécanisme /docker-entrypoint-initdb.d/).
+      - ./pixel-grid/data-generator/schema.postgres.sql:/docker-entrypoint-initdb.d/01-schema.sql
+
+  pixel-grid-api:
+    build:
+      context: .
+      dockerfile: pixel-grid/api/Dockerfile
+    environment:
+      # MEMCACHED_HOST -- livraison #145, tampon de logs partagé (voir
+      # shared/log_buffer.py) -- ce service tourne avec 2 workers
+      # Gunicorn, mémoire NON partagée entre eux.
+      - MEMCACHED_HOST=memcached
+      # Bascule de backend : "sqlite" (défaut) ou "postgres".
+      - DB_BACKEND=${PIXEL_GRID_BACKEND:-sqlite}
+      - PIXEL_GRID_DB_PATH=/data/timeseries.db
+      # Utilisées seulement si DB_BACKEND=postgres. Port 5432 ici :
+      # communication interne au réseau Docker (conteneur à conteneur),
+      # indépendante du port publié à l'hôte (PIXEL_GRID_POSTGRES_PORT).
+      - PGHOST=pixel-grid-postgres
+      - PGPORT=5432
+      - PGUSER=pixelgrid
+      - PGPASSWORD=pixelgrid
+      - PGDATABASE=pixelgrid
+      # Position de repli pour les événements sans localisation connue —
+      # pré-remplit l'entrée "__default__" au tout premier démarrage
+      # seulement (éditable ensuite dans l'onglet Géolocalisation).
+      - PIXEL_GRID_DEFAULT_LAT=${PIXEL_GRID_DEFAULT_LAT:-}
+      - PIXEL_GRID_DEFAULT_LON=${PIXEL_GRID_DEFAULT_LON:-}
+      # Géolocalisation IP publique — jamais appelé pour une IP privée
+      # (voir .env.example pour le détail). Repli vide volontaire ici
+      # (pas de valeur par défaut contenant des accolades imbriquées
+      # dans ce fichier — ambiguïté possible selon la version de
+      # Docker Compose) : la vraie valeur par défaut vit dans .env et,
+      # en dernier recours, dans le code Python lui-même.
+      - GEOIP_PROVIDER_URL=${GEOIP_PROVIDER_URL:-}
+      - GEOIP_TIMEOUT_SECONDS=${GEOIP_TIMEOUT_SECONDS:-5}
+      - GEOIP_MIN_INTERVAL_SECONDS=${GEOIP_MIN_INTERVAL_SECONDS:-1.5}
+      # RIGHTS_API_URL -- livraison #317, OPT-IN comme partout ailleurs.
+      # Gardé sur les 4 routes d'écriture (géolocalisations, scan,
+      # enregistrement d'IP) -- jamais la lecture/agrégation.
+      - RIGHTS_API_URL=${PIXEL_GRID_RIGHTS_API_URL:-}
+    volumes:
+      # La base SQLite est générée par
+      # pixel-grid/data-generator/load_sqlite.sh, exécuté en dehors de
+      # Docker (dépend de jq/awk/sqlite3 sur l'hôte) — ce montage la
+      # rend visible au conteneur à l'endroit attendu par
+      # PIXEL_GRID_DB_PATH. Sans effet en mode postgres.
+      - ./pixel-grid/data-generator:/data
+    depends_on:
+      - memcached
+    # Pas de dépendance forcée à pixel-grid-postgres : le backend sqlite
+    # (défaut) n'en a pas besoin. En mode postgres, démarre les deux :
+    # docker compose up pixel-grid-postgres pixel-grid-api
+
+  pixel-grid-bridge:
+    # Contexte changé (livraison #351) -- était "./pixel-grid/bridge"
+    # (racine locale, jamais accès à shared/), désormais racine du
+    # projet + dockerfile explicite -- même motif que les services
+    # plus récents (ex. relations-api) -- nécessaire pour copier
+    # shared/log_buffer.py (câblage /logs, backlog item 8).
+    build:
+      context: .
+      dockerfile: pixel-grid/bridge/Dockerfile
+    environment:
+      - PIXEL_GRID_API_URL=http://pixel-grid-api:5000
+      - SUPERVISION_API_URL=http://api:5000
+      - BRIDGE_INTERVAL_SECONDS=${BRIDGE_INTERVAL_SECONDS:-60}
+      - BRIDGE_WINDOW_DAYS=${BRIDGE_WINDOW_DAYS:-30}
+      - BRIDGE_MAX_POINTS_PER_TYPE=${BRIDGE_MAX_POINTS_PER_TYPE:-5000}
+    depends_on:
+      - pixel-grid-api
+      - api
+      - memcached
+
+  tickets-postgres:
+    image: postgres:16-alpine
+    ports:
+      - "${TICKETS_POSTGRES_PORT:-6545}:5432"
+    environment:
+      - POSTGRES_DB=tickets
+      - POSTGRES_USER=tickets
+      - POSTGRES_PASSWORD=tickets
+    volumes:
+      - tickets_pg_data:/var/lib/postgresql/data
+      - ./tickets/data-generator/schema.postgres.sql:/docker-entrypoint-initdb.d/01-schema.sql
+
+  tickets-api:
+    build:
+      context: .
+      dockerfile: tickets/api/Dockerfile
+    environment:
+      # MEMCACHED_HOST -- livraison #145, tampon de logs partagé (voir
+      # shared/log_buffer.py) -- ce service tourne avec 2 workers
+      # Gunicorn, mémoire NON partagée entre eux.
+      - MEMCACHED_HOST=memcached
+      - DB_BACKEND=${TICKETS_BACKEND:-sqlite}
+      - TICKETS_DB_PATH=/data/tickets.db
+      - PGHOST=tickets-postgres
+      - PGPORT=5432
+      - PGUSER=tickets
+      - PGPASSWORD=tickets
+      - PGDATABASE=tickets
+      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-}
+      - GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      # https:// — ce port n'est plus publié directement que par
+      # tls-proxy (voir plus bas) ; Google exige de toute façon HTTPS
+      # sur les URI de callback OAuth hors localhost pur. Entrée unique
+      # par chemin : /api/tickets/ (voir tls-proxy/README.md).
+      - GOOGLE_OAUTH_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI:-https://localhost:${GATEWAY_PORT:-6443}/api/tickets/oauth/google/callback}
+      # Import direct des membres d'un groupe Keycloak (ex. "demandeurs")
+      # comme comptes locaux -- mêmes identifiants admin que
+      # keycloak-backup, réutilisés ici plutôt que dupliqués. Jamais
+      # via tls-proxy : trafic conteneur-à-conteneur interne au réseau
+      # Docker, pas navigateur.
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=supervision-si
+      - KEYCLOAK_ADMIN_USER=${KEYCLOAK_ADMIN_USER:-admin}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-change-me}
+      # Sauvegardes versionnées -- voir .env.example et
+      # tickets/README.md pour le raisonnement complet.
+      - TICKETS_BACKUP_RETENTION_COUNT=${TICKETS_BACKUP_RETENTION_COUNT:-30}
+      - TICKETS_BACKUP_PERIODIC_INTERVAL_HOURS=${TICKETS_BACKUP_PERIODIC_INTERVAL_HOURS:-24}
+      - TICKETS_BACKUP_DISABLE_PERIODIC=${TICKETS_BACKUP_DISABLE_PERIODIC:-}
+      # RIGHTS_API_URL -- livraison #324, OPT-IN comme partout ailleurs.
+      # GROS CHANTIER traité en plusieurs passes -- cette première
+      # passe (#324) garde UNIQUEMENT le cluster console DB/SQL, de
+      # loin le plus dangereux du module : POST /backups, POST
+      # /backups/<file>/restore, PUT /db/tables/<t>/rows/<id>, POST
+      # /db/sql/execute. Les autres routes d'écriture (tickets, users,
+      # sites, calendrier...) seront traitées dans des passes
+      # ultérieures, voir tickets/README.md.
+      - RIGHTS_API_URL=${TICKETS_RIGHTS_API_URL:-}
+    volumes:
+      # TICKETS_DATA_DIR (.env, optionnel) : sort ce dossier de
+      # l'arborescence du projet -- même logique que KEYCLOAK_IMPORT_DIR/
+      # KEYCLOAK_BACKUP_DIR. Important ici particulièrement : c'est ce
+      # dossier qui contient tickets.db (base réelle, pas un secret
+      # rendu) -- un déploiement qui supprime puis réextrait le projet
+      # à chaque livraison (plutôt que d'extraire par-dessus l'existant)
+      # perdrait cette base à chaque fois si elle reste dans
+      # l'arborescence du projet. Vide = ./tickets/data-generator comme
+      # avant. Jamais de "~" (ni docker-compose ni ce montage ne
+      # l'étendent) -- un chemin absolu explicite à la place.
+      - ${TICKETS_DATA_DIR:-./tickets/data-generator}:/data
+    depends_on:
+      - memcached
+    # Bug réel rencontré et corrigé (livraison #135) : depends_on vers
+    # "keycloak" retiré ici -- Keycloak vit désormais dans un AUTRE
+    # docker-compose.yml (gateway/), Compose ne permet pas un
+    # depends_on cross-stack. KEYCLOAK_INTERNAL_URL ci-dessus continue
+    # de fonctionner (réseau Docker PARTAGÉ entre les deux stacks,
+    # voir networks: en bas de ce fichier) -- seul l'ORDRE de démarrage
+    # garanti disparaît, pas la joignabilité elle-même.
+    # Backend sqlite (défaut) : schéma appliqué automatiquement au
+    # démarrage de l'API (idempotent, CREATE TABLE IF NOT EXISTS).
+    # Backend postgres : appliqué automatiquement par tickets-postgres
+    # au premier démarrage.
+
+  tickets-portal:
+    build:
+      context: .
+      dockerfile: tickets/portal/Dockerfile
+    environment:
+      - GATEWAY_PORT=${GATEWAY_PORT:-6443}
+      - VITE_TICKETS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/tickets
+      # Client OIDC "tickets-portal" — déjà défini dans
+      # keycloak/realm-template.json depuis le début, même mécanique que
+      # le hub (voir hub/README.md pour le détail du flux et les deux
+      # accrocs réels rencontrés en le mettant en place la première fois).
+      - VITE_KEYCLOAK_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/auth
+      - VITE_KEYCLOAK_REALM=supervision-si
+      - VITE_PREFS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/prefs
+      # Documents joints (livraison #160) -- TicketDocuments.jsx parle
+      # directement à ged-api, jamais via tickets-api (même
+      # raisonnement de couplage FAIBLE qu'ailleurs dans ce projet).
+      - VITE_GED_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/ged
+    depends_on:
+      - tickets-api
+      # keycloak retiré (livraison #135) -- voir tickets-api ci-dessus
+      # pour le raisonnement complet.
+      - prefs-api
+
+  dba-api:
+    build:
+      context: .
+      dockerfile: dba/api/Dockerfile
+    environment:
+      # MEMCACHED_HOST -- livraison #145, tampon de logs partagé (voir
+      # shared/log_buffer.py) -- ce service tourne avec 2 workers
+      # Gunicorn, mémoire NON partagée entre eux.
+      - MEMCACHED_HOST=memcached
+      - DBA_DB_PATH=/data/dba.db
+      # Branchement rights-api (livraison #292) -- OPT-IN, même motif
+      # que ssh-tunnels-api/ldap-admin-api. Jamais actif par défaut.
+      - RIGHTS_API_URL=${DBA_RIGHTS_API_URL:-}
+      # Connexion(s) par défaut pré-configurées, amorçage idempotent
+      # au démarrage (voir dba/api/app.py, seed_connections_from_env)
+      # -- distinctes des bases IPAM/Optick/Zenoss/OwnCloud/Cacti,
+      # jamais réutilisées ici. Vide = rien d'amorcé.
+      - HUB_SGBD_MYSQL_HOST=${HUB_SGBD_MYSQL_HOST:-}
+      - HUB_SGBD_MYSQL_PORT=${HUB_SGBD_MYSQL_PORT:-3306}
+      - HUB_SGBD_MYSQL_USER=${HUB_SGBD_MYSQL_USER:-}
+      - HUB_SGBD_MYSQL_PASSWORD=${HUB_SGBD_MYSQL_PASSWORD:-}
+      - HUB_SGBD_MYSQL_DATABASE=${HUB_SGBD_MYSQL_DATABASE:-}
+      - HUB_SGBD_POSTGRES_HOST=${HUB_SGBD_POSTGRES_HOST:-}
+      - HUB_SGBD_POSTGRES_PORT=${HUB_SGBD_POSTGRES_PORT:-5432}
+      - HUB_SGBD_POSTGRES_USER=${HUB_SGBD_POSTGRES_USER:-}
+      - HUB_SGBD_POSTGRES_PASSWORD=${HUB_SGBD_POSTGRES_PASSWORD:-}
+      - HUB_SGBD_POSTGRES_DATABASE=${HUB_SGBD_POSTGRES_DATABASE:-}
+    volumes:
+      # DBA_DATA_DIR (.env, optionnel) : sort ce dossier de
+      # l'arborescence du projet -- même logique que TICKETS_DATA_DIR
+      # (voir docker-compose.yml, service tickets-api, pour le bug réel
+      # que ça évite). Contient dba.db -- CONNEXIONS SGBD CONFIGURÉES,
+      # IDENTIFIANTS INCLUS EN CLAIR (voir dba/README.md, décision de
+      # sécurité assumée). Vide = ./dba/data comme repli.
+      - ${DBA_DATA_DIR:-./dba/data}:/data
+    depends_on:
+      - memcached
+
+  schema-analyzer-api:
+    # Livraison #151, backlog BACKLOG.md #5 -- décision d'architecture
+    # prise avec la personne avant de coder : module dédié, s'appuyant
+    # sur dba-api pour la couche accès (connexions déjà gérées là-bas)
+    # plutôt que de la reconstruire -- voir schema-analyzer/README.md.
+    build:
+      context: .
+      dockerfile: schema-analyzer/api/Dockerfile
+    environment:
+      # MEMCACHED_HOST -- tampon de logs partagé (voir
+      # shared/log_buffer.py) -- ce service tourne avec 2 workers
+      # Gunicorn, mémoire NON partagée entre eux.
+      - MEMCACHED_HOST=memcached
+      # DBA_API_BASE -- adresse INTERNE au réseau Docker (jamais via
+      # tls-proxy, trafic conteneur-à-conteneur, pas navigateur --
+      # même motif que KEYCLOAK_INTERNAL_URL dans prefs-api).
+      - DBA_API_BASE=http://dba-api:5000
+      # RIGHTS_API_URL -- livraison #319, OPT-IN comme partout ailleurs.
+      # Gardé sur create/update/delete_relation + import-proposals --
+      # jamais /analyze ni /relations/validate (confirmées lecture
+      # pure, aucun effet de bord).
+      - RIGHTS_API_URL=${SCHEMA_ANALYZER_RIGHTS_API_URL:-}
+    volumes:
+      # SCHEMA_ANALYZER_DATA_DIR (.env, optionnel) : même logique que
+      # DBA_DATA_DIR/TICKETS_DATA_DIR -- sort schema-analyzer.db
+      # (relations persistées, livraison #152) de l'arborescence du
+      # projet. Vide = ./schema-analyzer/data comme repli.
+      - ${SCHEMA_ANALYZER_DATA_DIR:-./schema-analyzer/data}:/data
+    depends_on:
+      - memcached
+      - dba-api
+
+  ged-api:
+    # Livraison #157-#158 -- gestion électronique de documents.
+    # #157 : fondation HOMEMADE (stockage disque + SQLite). #158 :
+    # "allons-y pour Mayan EDMS" -- le stockage/versioning des
+    # fichiers est désormais RELAYÉ vers Mayan (voir mayan/,
+    # ged/api/mayan_client.py) ; seule la table de liaison polymorphe
+    # reste locale (SQLite, ged.db). Voir ged/README.md pour le
+    # raisonnement complet.
+    build:
+      context: .
+      dockerfile: ged/api/Dockerfile
+    environment:
+      # MEMCACHED_HOST -- tampon de logs partagé (voir
+      # shared/log_buffer.py) -- ce service tourne avec 2 workers
+      # Gunicorn, mémoire NON partagée entre eux.
+      - MEMCACHED_HOST=memcached
+      - GED_MAX_UPLOAD_MB=${GED_MAX_UPLOAD_MB:-50}
+      # MAYAN_BASE -- adresse INTERNE au réseau Docker PARTAGÉ (voir
+      # mayan/docker-compose.yml, stack SÉPARÉ, livraison #158) --
+      # jamais via tls-proxy, trafic conteneur-à-conteneur. Identifiants
+      # : MÊME compte que MAYAN_AUTOADMIN_USERNAME/PASSWORD dans
+      # mayan/docker-compose.yml -- DOIVENT rester synchronisés entre
+      # les deux stacks (aucune vérification automatique, à surveiller
+      # manuellement si l'un des deux change).
+      - MAYAN_BASE=http://mayan-app:8000
+      - MAYAN_USERNAME=${MAYAN_AUTOADMIN_USERNAME:-admin}
+      - MAYAN_PASSWORD=${MAYAN_AUTOADMIN_PASSWORD:-change-me}
+      # RIGHTS_API_URL -- livraison #311, OPT-IN comme partout ailleurs.
+      # Gardé sur les 5 routes d'écriture (créer/supprimer un document,
+      # nouvelle version, créer/supprimer un lien) -- jamais la lecture.
+      - RIGHTS_API_URL=${GED_RIGHTS_API_URL:-}
+    volumes:
+      # GED_DATA_DIR (.env, optionnel) : même logique que
+      # SCHEMA_ANALYZER_DATA_DIR/DBA_DATA_DIR -- sort ged.db (table de
+      # liaisons UNIQUEMENT depuis #158, les fichiers eux-mêmes vivent
+      # désormais dans le volume Mayan, voir mayan/docker-compose.yml)
+      # de l'arborescence du projet. Vide = ./ged/data comme repli.
+      - ${GED_DATA_DIR:-./ged/data}:/data
+    depends_on:
+      - memcached
+
+  ssh-tunnels-api:
+    # Livraison #159, backlog BACKLOG.md #2 -- supervision de
+    # tunnels SSH (ssh -L) et partages SSHFS. Clés SSH : chemin
+    # protégé PARAMÉTRÉ (SSH_KEYS_DIR).
+    #
+    # ⚠️ Montage LECTURE-ÉCRITURE depuis la livraison #277 -- ce
+    # service GÉNÈRE et SUPPRIME désormais des clés lui-même
+    # (demandé explicitement), inversant le choix initial de #159
+    # ("monté en LECTURE SEULE -- ce service ne génère ni ne stocke
+    # jamais de clé lui-même") -- CONFIRMÉ EXPLICITEMENT avec la
+    # personne (2026-09-04) avant ce changement, un vrai changement
+    # de posture sécurité pour ce service précis.
+    #
+    # Montage SSHFS RÉEL (livraison #180, demandé explicitement) --
+    # privilèges FUSE requis, TOUS documentés ici plutôt que devinés :
+    # - cap_add SYS_ADMIN : nécessaire pour l'appel système `mount()`
+    #   sous-jacent à sshfs/FUSE -- un conteneur SANS ce privilège ne
+    #   peut PAS monter de système de fichiers, quelle que soit la
+    #   méthode (confirmé par la documentation FUSE elle-même).
+    # - devices /dev/fuse : le périphérique FUSE lui-même, absent
+    #   d'un conteneur par défaut (contrairement à /dev/null etc.).
+    # - security_opt apparmor:unconfined : AppArmor (activé par
+    #   défaut sur Ubuntu/Debian, l'hôte visé par ce projet, voir
+    #   scripts/run.sh) bloque `mount()` en conteneur par défaut MÊME
+    #   avec SYS_ADMIN -- nécessaire en pratique sur ce type d'hôte,
+    #   documentation FUSE-in-Docker converge sur ce point. Restreint
+    #   à CE service précis, jamais un défaut global du projet.
+    # ⚠️ Non vérifié dans cet environnement (sshfs non installable,
+    # réseau restreint) -- à confirmer au premier vrai montage.
+    build:
+      context: .
+      dockerfile: ssh-tunnels/api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      - SSH_KEYS_DIR=/keys
+      - SSH_MOUNTS_BASE_DIR=/mounts
+      # Branchement rights-api (livraison #289) -- OPT-IN via .env,
+      # jamais actif par défaut : activer le gating sans que la
+      # personne ait déjà un groupe admin_hub assigné dans Keycloak
+      # bloquerait ses propres actions sans prévenir, en pleine
+      # session de test. Vide/absent = gating désactivé (comportement
+      # inchangé) -- à activer explicitement une fois prêt.
+      - RIGHTS_API_URL=${SSH_TUNNELS_RIGHTS_API_URL:-}
+      # Authentification par mot de passe (livraison #210, backlog
+      # item 12) -- optionnel : absent = comportement inchangé (aucune
+      # connexion par mot de passe possible, seul le mode par clé
+      # fonctionne, comme avant #210). Contrairement aux secrets de
+      # démarrage (.env.encrypted, #202-205), CETTE phrase de passe
+      # doit rester DISPONIBLE EN CONTINU dans l'environnement de ce
+      # conteneur -- un mot de passe stocké peut être déchiffré
+      # BIEN APRÈS le déploiement (voir credential_crypto.py).
+      - SSH_TUNNELS_CRED_PASSPHRASE=${SSH_TUNNELS_CRED_PASSPHRASE:-}
+      - SSH_TUNNELS_CRED_SALT=${SSH_TUNNELS_CRED_SALT:-}
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      # SSH_TUNNELS_DATA_DIR (.env, optionnel) : même logique que
+      # GED_DATA_DIR/SCHEMA_ANALYZER_DATA_DIR -- sort la base
+      # (connexions/tunnels/montages) de l'arborescence du projet.
+      - ${SSH_TUNNELS_DATA_DIR:-./ssh-tunnels/data}:/data
+      # SSH_TUNNELS_KEYS_DIR : dossier RÉEL sur l'hôte contenant les
+      # clés privées autorisées -- OBLIGATOIREMENT en LECTURE SEULE
+      # (":ro") -- ce service ne doit JAMAIS pouvoir modifier ou
+      # créer une clé, seulement en lire l'empreinte/le type via
+      # ssh-keygen. Vide = ./ssh-tunnels/keys comme repli (dossier
+      # à peupler manuellement, jamais créé avec un contenu par
+      # défaut).
+      - ${SSH_TUNNELS_KEYS_DIR:-./ssh-tunnels/keys}:/keys
+      # SSH_TUNNELS_MOUNTS_DIR (livraison #180) : dossier RÉEL sur
+      # l'hôte où les partages SSHFS montés DEVRAIENT devenir
+      # visibles.
+      #
+      # ⚠️ CORRIGÉ (livraison #355) -- `bind: propagation: rshared`
+      # (présent ici jusqu'à cette livraison, jamais vérifié en
+      # conditions réelles avant, comme le disait honnêtement le
+      # commentaire d'origine) empêchait le conteneur de démarrer DU
+      # TOUT sur macOS (Docker Desktop) : "path .../ssh-tunnels/mounts
+      # is mounted on /host_mnt/Users but it is not a shared mount" --
+      # signalé en conditions réelles par la personne. Confirmé par
+      # recherche : limitation CONNUE et ANCIENNE de Docker Desktop
+      # (moby/moby#39093, 2019, toujours d'actualité) -- contrairement
+      # à Linux natif, la correction habituelle (`mount --make-rshared`
+      # sur l'hôte) NE FONCTIONNE PAS de façon fiable sur Docker
+      # Desktop pour Mac/Windows d'après plusieurs retours concordants
+      # -- pas un réglage à ajuster, une limitation de fond de sa
+      # virtualisation.
+      #
+      # Compromis assumé : propagation RETIRÉE par défaut -- le
+      # conteneur démarre partout (macOS/Windows/Linux), mais un
+      # montage SSHFS fait DANS le conteneur ne devient PLUS visible
+      # depuis l'explorateur de fichiers de l'hôte (Finder/Explorateur)
+      # -- reste consultable UNIQUEMENT depuis l'intérieur du
+      # conteneur (donc toujours exploitable par une future route API
+      # qui en lirait le contenu). La gestion des tunnels/montages via
+      # l'API elle-même n'est PAS affectée -- ce compromis touche
+      # SEULEMENT la visibilité du contenu monté côté hôte.
+      #
+      # Sur un hôte Linux NATIF (pas Docker Desktop), la propagation
+      # `rshared` fonctionne normalement -- pour la retrouver,
+      # remplacer la ligne "- ${SSH_TUNNELS_MOUNTS_DIR..." ci-dessous
+      # par le bloc long form :
+      #   - type: bind
+      #     source: ${SSH_TUNNELS_MOUNTS_DIR:-./ssh-tunnels/mounts}
+      #     target: /mounts
+      #     bind:
+      #       propagation: rshared
+      - ${SSH_TUNNELS_MOUNTS_DIR:-./ssh-tunnels/mounts}:/mounts
+    depends_on:
+      - memcached
+
+  rsyslog-listener:
+    # Livraison #177, backlog BACKLOG.md #3 étape 4/4 -- écoute UDP
+    # syslog (RFC 3164/5424), dernière étape de l'initiative "logs de
+    # toutes sortes". Port UDP exposé DIRECTEMENT sur l'hôte
+    # (RSYSLOG_LISTENER_PORT ci-dessous) -- CONTRAIREMENT à tous les
+    # autres services de ce projet (atteints via tls-proxy, HTTP
+    # uniquement) : syslog est un protocole réseau BRUT, ne peut pas
+    # transiter par un reverse proxy HTTP. /health et /logs restent
+    # accessibles via tls-proxy comme les autres (voir
+    # render_nginx_conf.py), pour le diagnostic uniquement -- jamais
+    # le flux syslog lui-même.
+    build:
+      context: .
+      dockerfile: rsyslog-listener/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      # Port UDP d'ÉCOUTE, à l'INTÉRIEUR du conteneur -- distinct du
+      # port PUBLIÉ sur l'hôte (RSYSLOG_LISTENER_PORT dans .env,
+      # voir "ports:" ci-dessous) -- même distinction que
+      # GATEWAY_PORT vs le port interne 8080 de Keycloak ailleurs
+      # dans ce projet.
+      - RSYSLOG_LISTEN_PORT=5514
+      - RSYSLOG_SOURCE_NAME=${RSYSLOG_SOURCE_NAME:-rsyslog}
+    ports:
+      # RSYSLOG_LISTENER_PORT (.env, optionnel) : port UDP PUBLIÉ sur
+      # l'hôte -- une machine distante pousse ses logs syslog
+      # DIRECTEMENT ici (`logger -n <host> -P <port> ...` ou
+      # équivalent côté source), jamais via GATEWAY_PORT. Vide =
+      # 5514 comme repli (514, le port syslog standard, nécessite des
+      # privilèges root sur l'hôte -- 5514 évite ça par défaut,
+      # changeable si la personne préfère rediriger 514 elle-même).
+      - "${RSYSLOG_LISTENER_PORT:-5514}:5514/udp"
+    depends_on:
+      - memcached
+
+  imap-client-api:
+    # Livraison #179, backlog BACKLOG.md #4 volet 1/4 -- connexion
+    # IMAP (voir imap-client/README.md). UN SEUL compte configuré
+    # pour l'instant (identifiants dans .env, pas de gestion
+    # multi-comptes). Volet 2/4 (#189/#190) : gestion de dossiers +
+    # règles de tri -- SEULE donnée persistante de ce module (volume
+    # ci-dessous), le reste (connexion IMAP elle-même) reste SANS
+    # ÉTAT (connexion neuve à chaque requête).
+    build:
+      context: .
+      dockerfile: imap-client/api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      - IMAP_HOST=${IMAP_HOST:-}
+      - IMAP_PORT=${IMAP_PORT:-993}
+      - IMAP_USER=${IMAP_USER:-}
+      - IMAP_PASSWORD=${IMAP_PASSWORD:-}
+      - IMAP_USE_SSL=${IMAP_USE_SSL:-true}
+      - IMAP_DEFAULT_FOLDER=${IMAP_DEFAULT_FOLDER:-INBOX}
+      # Connecteur source (livraison #230, backlog item 4) -- appel
+      # conteneur-à-conteneur vers le service `api` principal, même
+      # motif que NEBULA_API_INTERNAL_URL (glpi/api/app.py, #208).
+      - API_INTERNAL_URL=http://api:5000
+      # RIGHTS_API_URL -- livraison #310, OPT-IN comme partout ailleurs.
+      # Gardé sur les 10 routes d'écriture (dossiers, déplacement,
+      # règles, interprètes) -- jamais la lecture, ni /interpret
+      # (fonctionnellement une lecture malgré le verbe POST).
+      - RIGHTS_API_URL=${IMAP_CLIENT_RIGHTS_API_URL:-}
+    volumes:
+      # IMAP_CLIENT_DATA_DIR (.env, optionnel) -- même logique que
+      # GED_DATA_DIR/SCHEMA_ANALYZER_DATA_DIR : sort la base des
+      # règles de tri de l'arborescence du projet.
+      - ${IMAP_CLIENT_DATA_DIR:-./imap-client/data}:/data
+    depends_on:
+      - memcached
+      - api
+
+  glpi-api:
+    # Livraison #192, backlog : "évolution d'intégration GLPI, une
+    # tuile et une api pour utiliser l'api glpi et ses données dans
+    # les autres tuiles du hub" (demande explicite). Cette livraison
+    # couvre le "besoin immédiat" (import de l'inventaire Excel) --
+    # PAS ENCORE l'exposition aux autres tuiles, volontairement laissé
+    # pour une étape suivante. GLPI_BASE_URL pointe vers UN GLPI
+    # EXISTANT, EXTERNE à ce projet (pas géré par ce docker-compose)
+    # -- voir glpi/README.md pour la configuration attendue.
+    #
+    # ⚠️ Non vérifié contre un vrai GLPI dans cet environnement
+    # (aucun accès réseau externe ici) -- toute la logique HTTP est
+    # construite à partir de la documentation officielle de l'API
+    # historique GLPI (apirest.php), voir glpi/api/glpi_client.py.
+    build:
+      context: .
+      dockerfile: glpi/api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      # Branchement rights-api (livraison #294) -- OPT-IN, même motif
+      # que les services précédents. Jamais actif par défaut.
+      - RIGHTS_API_URL=${GLPI_RIGHTS_API_URL:-}
+      - GLPI_BASE_URL=${GLPI_BASE_URL:-}
+      - GLPI_APP_TOKEN=${GLPI_APP_TOKEN:-}
+      - GLPI_USER_TOKEN=${GLPI_USER_TOKEN:-}
+      - GLPI_LOGIN=${GLPI_LOGIN:-}
+      - GLPI_PASSWORD=${GLPI_PASSWORD:-}
+      # ⚠️ network-agent-api tourne en network_mode: host (#238-239)
+      # -- HOST_IP, jamais le nom de service Docker (livraison #264,
+      # export vers GLPI de ce que network-agent découvre).
+      - NETWORK_AGENT_API_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
+    depends_on:
+      - memcached
+
+  nebula-api:
+    # Livraison #196, second "besoin immédiat" de la demande GLPI
+    # (#192) : "importer les données d'un site sous nebula.zyxel.com".
+    # Cette livraison couvre la CONNEXION et la CONSULTATION -- PAS
+    # ENCORE l'import vers GLPI, volontairement laissé pour une étape
+    # suivante une fois la connexion validée en conditions réelles.
+    #
+    # ⚠️ DEUX PRÉREQUIS BLOQUANTS côté organisation Nebula, à réunir
+    # AVANT tout test réel (voir nebula/README.md) : licence Nebula
+    # Pro Pack, ET une clé d'API obtenue via un dossier support Zyxel
+    # (jamais en libre-service, confirmé par la doc officielle).
+    #
+    # ⚠️ Non vérifié contre une vraie API Nebula dans cet
+    # environnement (aucun accès réseau externe ici) -- toute la
+    # logique HTTP est construite à partir de la spécification
+    # OpenAPI officielle, voir nebula/api/nebula_client.py.
+    #
+    # Import CSV (livraison #200) : volume de données persistant --
+    # premier stockage de ce module, jusqu'ici purement passe-plat.
+    build:
+      context: .
+      dockerfile: nebula/api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      - NEBULA_API_KEY=${NEBULA_API_KEY:-}
+      - NEBULA_BASE_URL=${NEBULA_BASE_URL:-}
+      # Archivage des CSV importés dans la GED (livraison #237) --
+      # même motif que NEBULA_API_INTERNAL_URL/SNMP_API_INTERNAL_URL
+      # déjà utilisés ailleurs dans ce projet.
+      - GED_API_INTERNAL_URL=http://ged-api:5000
+      # RIGHTS_API_URL -- livraison #314, OPT-IN comme partout ailleurs.
+      # Gardé sur les 3 routes d'import CSV et les 2 routes de
+      # suppression (lots importés) -- jamais la consultation.
+      - RIGHTS_API_URL=${NEBULA_RIGHTS_API_URL:-}
+    volumes:
+      # NEBULA_DATA_DIR (.env, optionnel) : même logique que
+      # PREFS_DATA_DIR/IMAP_CLIENT_DATA_DIR -- vide = valeur par
+      # défaut ci-dessous, jamais un chemin absolu codé en dur.
+      - ${NEBULA_DATA_DIR:-./nebula/data}:/data
+    depends_on:
+      - memcached
+      - ged-api
+
+  snmp-api:
+    # Livraison #212, backlog item 13 -- module SNMP. Portée
+    # VOLONTAIREMENT LIMITÉE, voir snmp/README.md et
+    # snmp/api/snmp_client.py pour le détail complet des décisions
+    # de portée prises pour pouvoir avancer plutôt que d'attendre
+    # (SNMPv1/v2c uniquement, pas de scan de ports, pas de
+    # "déploiement automatisé").
+    # ⚠️ Jamais testé contre un vrai équipement SNMP dans cet
+    # environnement (pysnmp non installable, réseau restreint).
+    build:
+      context: .
+      dockerfile: snmp/api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      - SNMP_DEFAULT_PORT=161
+      - SNMP_DEFAULT_TIMEOUT=5
+      # Cibles enregistrées (livraison #213) -- optionnel : absent =
+      # seul l'usage ponctuel (host+community en direct, /query et
+      # /walk-interfaces) fonctionne, POST /targets refuse alors
+      # clairement. Même motif que SSH_TUNNELS_CRED_* (#210) --
+      # SNMP_CRED_SALT généré une seule fois, JAMAIS régénéré ensuite.
+      - SNMP_CRED_PASSPHRASE=${SNMP_CRED_PASSPHRASE:-}
+      - SNMP_CRED_SALT=${SNMP_CRED_SALT:-}
+      # RIGHTS_API_URL -- livraison #313, OPT-IN comme partout ailleurs.
+      # Scope étroit : gardé UNIQUEMENT sur create_target/delete_target
+      # -- jamais /query ni /walk-interfaces (voir snmp/api/app.py
+      # pour le raisonnement complet sur cette limite assumée).
+      - RIGHTS_API_URL=${SNMP_RIGHTS_API_URL:-}
+    volumes:
+      - ${SNMP_DATA_DIR:-./snmp/data}:/data
+    depends_on:
+      - memcached
+
+  network-agent-api:
+    # Livraison #233, backlog item 20 -- agent d'exploration réseau
+    # ACTIF, CLARIFIÉ avec la personne : UN SEUL agent (le VPN existant
+    # sert de passerelle vers le réseau interne géré par Nebula), UNE
+    # SEULE tuile hub. Voir network-agent/README.md pour le détail
+    # complet des décisions de portée (heuristique de détection de
+    # passerelle, modèle site/segment, simplifications assumées).
+    #
+    # ⚠️ tcpdump nécessite CAP_NET_RAW/CAP_NET_ADMIN -- SANS ces
+    # capacités, la capture échoue proprement ("permission denied"),
+    # géré par la boucle de réessai de app.py (jamais un crash de
+    # service, voir /capture/status pour diagnostiquer).
+    #
+    # `network_mode: host` CONFIRMÉ NÉCESSAIRE (livraison #238) --
+    # premier test réel de la personne : sans lui, l'interface `ens18`
+    # de l'hôte (nommage Proxmox typique) est INVISIBLE depuis le
+    # conteneur ("No such device exists"), qui ne voit que ses propres
+    # interfaces virtuelles Docker -- jamais le vrai trafic réseau de
+    # l'hôte/VPN. Contrepartie ACCEPTÉE en connaissance de cause : ce
+    # conteneur quitte le réseau Docker interne partagé
+    # (`supervision-si-net`) -- `memcached:11211` NE RÉSOUT PLUS
+    # (dégradation SILENCIEUSE et SANS CRASH, voir
+    # shared/log_buffer.py -- toute écriture Memcached déjà encapsulée
+    # dans un `except Exception: pass`, seul le partage du journal
+    # `/logs` de CE service en pâtit, jamais la capture elle-même) ;
+    # `network-agent-api:5000` n'est PLUS joignable par son nom Docker
+    # -- tls-proxy route désormais vers `host.docker.internal` pour ce
+    # service précis (voir tls-proxy/render_nginx_conf.py et
+    # gateway/docker-compose.yml, `extra_hosts`).
+    build:
+      context: .
+      dockerfile: network-agent/api/Dockerfile
+    network_mode: host
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    environment:
+      # `memcached` ne résout plus en network_mode:host -- laissé tel
+      # quel volontairement (voir commentaire ci-dessus) : la
+      # résolution échoue, l'écriture est simplement ignorée, jamais
+      # un crash (chemin déjà testé, voir shared/log_buffer.py).
+      - MEMCACHED_HOST=memcached
+      - NETWORK_AGENT_INTERFACE=${NETWORK_AGENT_INTERFACE:-eth0}
+      - NETWORK_AGENT_SITE_NAME=${NETWORK_AGENT_SITE_NAME:-}
+      - NETWORK_AGENT_SEGMENT_LABEL=${NETWORK_AGENT_SEGMENT_LABEL:-}
+      - NETWORK_AGENT_SEGMENT_CIDR=${NETWORK_AGENT_SEGMENT_CIDR:-}
+      - NETWORK_AGENT_CAPTURE_ENABLED=${NETWORK_AGENT_CAPTURE_ENABLED:-true}
+      # Port configurable (livraison #239) -- COLLISION RÉELLE trouvée
+      # au déploiement (docker-registry occupait déjà 5000 sur
+      # l'hôte -- ce conteneur, en network_mode: host, se lie
+      # DIRECTEMENT sur un port de l'hôte, pas un port Docker isolé).
+      # Défaut 15000 -- surcharger ICI si collision sur un autre port.
+      - NETWORK_AGENT_HOST_PORT=${NETWORK_AGENT_HOST_PORT:-15000}
+      # Résolution DNS (livraison #250) -- serveur spécifique
+      # optionnel (vide = résolveur système, best-effort "depuis
+      # l'hôte") et domaine par défaut retiré des noms résolus pour
+      # un affichage plus court.
+      - NETWORK_AGENT_DNS_SERVER=${NETWORK_AGENT_DNS_SERVER:-}
+      - NETWORK_AGENT_DEFAULT_DOMAIN=${NETWORK_AGENT_DEFAULT_DOMAIN:-}
+      # Relevés périodiques / rémanence (livraison #251) -- un
+      # relevé par heure, conservé 30 jours par défaut.
+      - NETWORK_AGENT_SNAPSHOT_INTERVAL_SECONDS=${NETWORK_AGENT_SNAPSHOT_INTERVAL_SECONDS:-3600}
+      - NETWORK_AGENT_HISTORY_RETENTION_DAYS=${NETWORK_AGENT_HISTORY_RETENTION_DAYS:-30}
+    volumes:
+      - ${NETWORK_AGENT_DATA_DIR:-./network-agent/data}:/data
+    depends_on:
+      - memcached
+
+  retro-api:
+    # Livraison #243, backlog item 30 -- tuile "Rétro-ingénierie",
+    # demandée explicitement en urgence : "vieille application...
+    # aucune note, développeur génial avait ses schémas en tête".
+    # Extrait des relations SQL CANDIDATES depuis du code PHP
+    # (jointures ON/WHERE, motif Fat-Free Mapper) -- voir
+    # retro/README.md pour le détail complet des décisions et de ce
+    # qui est vérifié.
+    build:
+      context: .
+      dockerfile: retro/api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+    depends_on:
+      - memcached
+
+  backup-restore-api:
+    # Livraison #249, backlog item 27 -- sous-volet "backup-restore"
+    # marqué URGENT par la personne (Clonezilla/image système pour
+    # virtualisation de postes Windows). Portée VOLONTAIREMENT limitée
+    # au suivi/couverture -- voir backup-restore/README.md pour le
+    # détail complet (pourquoi l'automatisation réelle de Clonezilla
+    # reste hors de portée sans infrastructure matérielle à tester).
+    #
+    # ⚠️ NETWORK_AGENT_API_URL construite avec HOST_IP, PAS le nom de
+    # service Docker habituel -- network-agent-api tourne en
+    # `network_mode: host` (#238-239), n'est PLUS sur le réseau Docker
+    # partagé. MÊME piège déjà rencontré et corrigé pour la passerelle
+    # nginx -- reproduit ici en connaissance de cause.
+    build:
+      context: .
+      dockerfile: backup-restore/api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      - NETWORK_AGENT_API_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
+      # RIGHTS_API_URL -- livraison #309, OPT-IN comme partout ailleurs.
+      # Gardé sur create_image/delete_image uniquement -- /coverage et
+      # /logs restent en lecture libre.
+      - RIGHTS_API_URL=${BACKUP_RESTORE_RIGHTS_API_URL:-}
+    volumes:
+      - ${BACKUP_RESTORE_DATA_DIR:-./backup-restore/data}:/data
+    depends_on:
+      - memcached
+
+  architecture-api:
+    # Livraison #253, nouveau chantier -- vue/outil de parcours de
+    # l'architecture réseau, demandé explicitement : identifier les
+    # interfaces amont/aval, les accès, les lieux d'intervention, la
+    # documentation liée, à partir d'un équipement (alerte Zenoss ou
+    # dysfonctionnement). Voir architecture/README.md pour le détail
+    # complet -- ce qui est croisé À LA LECTURE (GED, ssh-tunnels)
+    # plutôt que dupliqué, et la localisation Zenoss volontairement
+    # différée à une prochaine tranche.
+    build:
+      context: .
+      dockerfile: architecture/api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      - GED_API_INTERNAL_URL=http://ged-api:5000
+      - SSH_TUNNELS_API_INTERNAL_URL=http://ssh-tunnels-api:5000
+      # ⚠️ network-agent-api tourne en network_mode: host (#238-239)
+      # -- HOST_IP, jamais le nom de service Docker (livraison #254).
+      - NETWORK_AGENT_API_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
+      # RIGHTS_API_URL -- livraison #316, OPT-IN comme partout ailleurs.
+      # Gardé sur les 8 routes d'écriture (équipements, import
+      # network-agent, interfaces, liens) -- jamais la lecture.
+      - RIGHTS_API_URL=${ARCHITECTURE_RIGHTS_API_URL:-}
+    volumes:
+      - ${ARCHITECTURE_DATA_DIR:-./architecture/data}:/data
+    depends_on:
+      - memcached
+      - ged-api
+      - ssh-tunnels-api
+
+  memory-api:
+    # Livraison #259, backlog item 32 -- tuile "Mémoire", rémanence
+    # du tampon de logs Memcached. Voir memory/README.md pour le
+    # détail complet -- portée SCOPÉE au tampon de logs partagé
+    # (shared/log_buffer.py), jamais un "tout Memcached" générique
+    # (Memcached n'offre pas de "lister les clés").
+    build:
+      context: .
+      dockerfile: memory/api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      - MEMORY_COLLECTION_INTERVAL_SECONDS=${MEMORY_COLLECTION_INTERVAL_SECONDS:-300}
+      - MEMORY_RETENTION_DAYS=${MEMORY_RETENTION_DAYS:-30}
+      - MEMORY_REPOPULATE_COUNT=${MEMORY_REPOPULATE_COUNT:-50}
+    volumes:
+      - ${MEMORY_DATA_DIR:-./memory/data}:/data
+    depends_on:
+      - memcached
+
+  classifier-api:
+    # Livraison #260, backlog item 34 -- classification sémantique
+    # des identités découvertes ("à prioriser fort car central").
+    # Voir classifier/README.md -- dictionnaires importables (pas de
+    # listes codées en dur), NLTK non installable/non pertinent ici.
+    build:
+      context: .
+      dockerfile: classifier/api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      - CLASSIFIER_MAX_IMPORT_MB=${CLASSIFIER_MAX_IMPORT_MB:-5}
+      # RIGHTS_API_URL -- livraison #315, OPT-IN comme partout ailleurs.
+      # Gardé sur import/delete_term/delete_source/confirm (mutation
+      # du dictionnaire partagé) -- jamais classify/classify_batch.
+      - RIGHTS_API_URL=${CLASSIFIER_RIGHTS_API_URL:-}
+    volumes:
+      - ${CLASSIFIER_DATA_DIR:-./classifier/data}:/data
+    depends_on:
+      - memcached
+
+  vigilance-api:
+    # Livraison #262, backlog item 34 (suite) -- automates d'analyse
+    # cyber-vigilance/santé du parc, croisant network-agent et
+    # classifier. Voir vigilance/README.md pour le détail complet.
+    build:
+      context: .
+      dockerfile: vigilance/api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      # ⚠️ network-agent-api tourne en network_mode: host (#238-239)
+      # -- HOST_IP, jamais le nom de service Docker.
+      - NETWORK_AGENT_API_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
+      - CLASSIFIER_API_INTERNAL_URL=http://classifier-api:5000
+      - VIGILANCE_SERVICE_DIVERSITY_THRESHOLD=${VIGILANCE_SERVICE_DIVERSITY_THRESHOLD:-10}
+      - VIGILANCE_VOLUME_GROWTH_PERCENT_THRESHOLD=${VIGILANCE_VOLUME_GROWTH_PERCENT_THRESHOLD:-200}
+      - VIGILANCE_SILENCE_THRESHOLD_HOURS=${VIGILANCE_SILENCE_THRESHOLD_HOURS:-24}
+      - VIGILANCE_ANALYSIS_INTERVAL_SECONDS=${VIGILANCE_ANALYSIS_INTERVAL_SECONDS:-1800}
+      - VIGILANCE_RETENTION_DAYS=${VIGILANCE_RETENTION_DAYS:-30}
+      # RIGHTS_API_URL -- livraison #321, OPT-IN comme partout ailleurs.
+      # Gardé sur /analyze uniquement -- la seule route d'écriture de
+      # ce module (déclenchement immédiat, hors du rythme périodique).
+      - RIGHTS_API_URL=${VIGILANCE_RIGHTS_API_URL:-}
+    volumes:
+      - ${VIGILANCE_DATA_DIR:-./vigilance/data}:/data
+    depends_on:
+      - memcached
+      - classifier-api
+
+  tasks-api:
+    # Livraison #271 -- gestion de tâches indépendante des tickets,
+    # avec vue Kanban (demandé explicitement).
+    build:
+      context: .
+      dockerfile: tasks/api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      # RIGHTS_API_URL -- livraison #312, OPT-IN comme partout ailleurs.
+      # Scope étroit : gardé UNIQUEMENT sur DELETE /tasks/<id> --
+      # kanban délibérément collaboratif, create/update/move restent
+      # libres (voir tasks/api/app.py).
+      - RIGHTS_API_URL=${TASKS_RIGHTS_API_URL:-}
+    volumes:
+      - ${TASKS_DATA_DIR:-./tasks/data}:/data
+    depends_on:
+      - memcached
+
+  relations-api:
+    # Livraisons #335-338, backlog item 38 point 2 -- "vue relations"
+    # de la super tuile ENT. Voir hub/README.md pour le cadrage
+    # complet, relations/README.md pour le détail de chaque passe.
+    # SANS ÉTAT PROPRE -- interroge tickets-api/ged-api/tasks-api/
+    # pixel-grid-api à la volée à chaque requête, aucun volume de
+    # données ici. pixel-grid-api est OPTIONNEL (proximité
+    # géographique, #338) -- injoignable, simplement ignoré.
+    build:
+      context: .
+      dockerfile: relations/api/Dockerfile
+    environment:
+      - TICKETS_API_INTERNAL_URL=http://tickets-api:5000
+      - GED_API_INTERNAL_URL=http://ged-api:5000
+      - TASKS_API_INTERNAL_URL=http://tasks-api:5000
+      - PIXEL_GRID_API_INTERNAL_URL=http://pixel-grid-api:5000
+    depends_on:
+      - tickets-api
+      - ged-api
+      - tasks-api
+      - pixel-grid-api
+
+  rights-api:
+    # Livraison #283 -- service central de droits (groupe admin_hub,
+    # gestion des permissions, inventaire de fichiers avec visibilité
+    # filtrée). Montage RACINE DU PROJET en LECTURE SEULE -- nécessaire
+    # pour scanner WATCHED_PATHS (voir rights/api/file_inventory.py) ;
+    # ce service ne LIT JAMAIS le contenu d'un fichier, seulement son
+    # chemin/taille/date -- jamais un secret exposé via cette API.
+    build:
+      context: .
+      dockerfile: rights/api/Dockerfile
+    volumes:
+      - ${RIGHTS_DATA_DIR:-./rights/data}:/data
+      - .:/project:ro
+    environment:
+      - RIGHTS_PROJECT_ROOT=/project
+
+  netprobe-api:
+    # Livraison #295 -- fondation du sondage réseau actif (collecteur
+    # d'IP + système de contrôle), demandé explicitement. Module
+    # DÉLIBÉRÉMENT séparé de network-agent-api (charge active vs
+    # capture passive continue, voir netprobe/README.md) -- la suite
+    # (smokeping/nmap/tcpdump partagé/analyseur multi-scripts) reste
+    # à construire, backlog item 45 pour l'évolution vers des agents
+    # multi-hôtes.
+    build:
+      context: .
+      dockerfile: netprobe/api/Dockerfile
+    volumes:
+      - ${NETPROBE_DATA_DIR:-./netprobe/data}:/data
+    # NET_RAW -- livraison #297, requis par le binaire `ping` (sockets
+    # ICMP raw) en conteneur non privilégié. Sans cette capacité,
+    # `ping` échoue systématiquement même correctement installé --
+    # limitation Docker standard, pas propre à ce projet.
+    # NET_ADMIN -- livraison #305, requis EN PLUS par `tcpdump` (même
+    # motif déjà établi pour network-agent-api en #238) -- sans elle,
+    # la capture échoue proprement ("permission denied"), géré par
+    # tcpdump_probe.py qui renvoie l'erreur plutôt que de planter.
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    environment:
+      - NETWORK_AGENT_API_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
+
+  netmap-orchestrator-api:
+    # Livraison #388 -- orchestrateur d'analyse/supervision réseau,
+    # demandé explicitement après recentrage du volet Nebula ("le
+    # besoin d'analyse et de supervision d'un environnement réseau...
+    # est prioritaire") : NE DUPLIQUE PAS les données de
+    # network-agent-api (appareils IP/MAC/DNS/ports confirmés dans le
+    # temps, liens/flux/volumes -- déjà couvertes par ce module
+    # depuis longtemps), les LIT via son API HTTP et applique des
+    # règles (voir netmap-orchestrator/api/rules/) pour SUGGÉRER des
+    # étapes suivantes concrètes -- ne lance rien lui-même,
+    # l'exécution reste une action humaine (ou automatisée plus tard)
+    # via les modules concernés (netprobe, snmp-api...).
+    build:
+      context: .
+      dockerfile: netmap-orchestrator/api/Dockerfile
+    volumes:
+      - ${NETMAP_ORCHESTRATOR_DATA_DIR:-./netmap-orchestrator/data}:/data
+    environment:
+      - MEMCACHED_HOST=memcached
+      - NETWORK_AGENT_API_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
+      - NETMAP_ORCHESTRATOR_INTERVAL_SECONDS=${NETMAP_ORCHESTRATOR_INTERVAL_SECONDS:-300}
+    depends_on:
+      - memcached
+    ports:
+      - "${NETMAP_ORCHESTRATOR_API_PORT:-6125}:5000"
+
+  network-explorer:
+    # Livraison #393 -- demandé explicitement : "un docker front qui
+    # se branche sur le/les dockers api" -- SANS Keycloak ni
+    # passerelle (contrairement au hub principal), juste les deux
+    # tuiles réseau (network-agent + netmap-orchestrator) pour tester
+    # isolément. Réutilise TELLES QUELLES les vues déjà construites
+    # pour le hub (voir network-explorer/Dockerfile -- copiées depuis
+    # hub/src, jamais forkées). MÊME raisonnement de sécurité que
+    # vault-admin-portal (jamais dans tls-proxy, voir
+    # tls-proxy/render_nginx_conf.py) -- accès direct LAN uniquement,
+    # aucune protection d'accès ici : les API concernées
+    # (network-agent-api, netmap-orchestrator-api) restent la seule
+    # barrière réelle, ce portail n'en ajoute aucune.
+    build:
+      context: .
+      dockerfile: network-explorer/Dockerfile
+    environment:
+      - VITE_NETWORK_AGENT_API_BASE_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
+      - VITE_NETMAP_ORCHESTRATOR_API_BASE_URL=http://${HOST_IP:-localhost}:${NETMAP_ORCHESTRATOR_API_PORT:-6125}
+    ports:
+      - "${NETWORK_EXPLORER_LAN_PORT:-6126}:5173"
+
+  ldap-admin-api:
+    build:
+      context: .
+      dockerfile: ldap-admin/api/Dockerfile
+    environment:
+      # MEMCACHED_HOST -- livraison #145, tampon de logs partagé (voir
+      # shared/log_buffer.py) -- ce service tourne avec 2 workers
+      # Gunicorn, mémoire NON partagée entre eux.
+      - MEMCACHED_HOST=memcached
+      # Branchement rights-api (livraison #290) -- OPT-IN via .env,
+      # même motif que ssh-tunnels-api (#289) : jamais actif par
+      # défaut, activer sans groupe admin_hub déjà assigné dans
+      # Keycloak bloquerait sans prévenir.
+      - RIGHTS_API_URL=${LDAP_ADMIN_RIGHTS_API_URL:-}
+      # Volontairement SÉPARÉ de LDAP_URL/LDAP_BIND_DN/... (Keycloak,
+      # lecture seule) -- voir .env.example pour le raisonnement
+      # complet. Vide = repli sur LDAP_URL pour l'URL uniquement --
+      # bind_dn/base_dn n'ont PLUS de repli (bug réel corrigé : base_dn
+      # retombait jusqu'ici sur LDAP_USERS_DN, une portée trop
+      # restreinte pour un navigateur d'annuaire complet).
+      #
+      # PAS de LDAP_ADMIN_BIND_PASSWORD ici, demandé explicitement --
+      # jamais pré-configuré ni conservé côté serveur, fourni par la
+      # personne à chaque accès (en-tête X-LDAP-Bind-Password, voir
+      # ldap-admin/api/app.py).
+      - LDAP_ADMIN_URL=${LDAP_ADMIN_URL:-}
+      - LDAP_URL=${LDAP_URL:-}
+      - LDAP_ADMIN_BIND_DN=${LDAP_ADMIN_BIND_DN:-}
+      - LDAP_ADMIN_BASE_DN=${LDAP_ADMIN_BASE_DN:-}
+      - LDAP_ADMIN_BACKUP_RETENTION_COUNT=${LDAP_ADMIN_BACKUP_RETENTION_COUNT:-30}
+    volumes:
+      # LDAP_ADMIN_DATA_DIR (.env, optionnel) : même logique que
+      # DBA_DATA_DIR/TICKETS_DATA_DIR -- sort les sauvegardes LDIF de
+      # l'arborescence du projet. Vide = ./ldap-admin/data comme repli.
+      - ${LDAP_ADMIN_DATA_DIR:-./ldap-admin/data}:/data/backups
+    depends_on:
+      - memcached
+
+  prefs-api:
+    build:
+      context: .
+      dockerfile: prefs-api/Dockerfile
+    environment:
+      # MEMCACHED_HOST -- livraison #145, tampon de logs partagé (voir
+      # shared/log_buffer.py) -- ce service tourne avec 2 workers
+      # Gunicorn, mémoire NON partagée entre eux. Réutilisé aussi par
+      # /hub-log et /push-log (même tampon partagé, voir prefs-api/app.py).
+      - MEMCACHED_HOST=memcached
+      - PREFS_DB_PATH=/data/prefs.db
+      # Compte de service Keycloak dédié (droits manage-clients
+      # UNIQUEMENT, jamais plus large -- décidé explicitement) pour
+      # provisionner en direct les clients OIDC des applis externes
+      # depuis l'écran d'administration "Liens externes" du hub, voir
+      # keycloak/README.md. Adresse INTERNE au réseau Docker (jamais
+      # tls-proxy -- prefs-api et keycloak vivent dans deux
+      # docker-compose.yml séparés depuis la livraison #135, mais
+      # partagent le MÊME réseau Docker explicitement nommé, voir
+      # `networks:` en bas de ce fichier et gateway/README.md) : port
+      # 8080 = le port INTERNE du conteneur Keycloak (voir
+      # gateway/docker-compose.yml), PAS GATEWAY_PORT (celui-là est le
+      # port publié sur l'hôte, pour le navigateur -- deux choses
+      # différentes).
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      # Adresse PUBLIQUE de Keycloak -- distincte de la précédente,
+      # affichée à l'admin après provisionnement (l'appli externe,
+      # elle, doit joindre Keycloak depuis LE NAVIGATEUR/son propre
+      # serveur, jamais via le réseau Docker interne). Même formule
+      # que VITE_KEYCLOAK_URL (hub/tickets-portal).
+      - KEYCLOAK_PUBLIC_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/auth
+      - KEYCLOAK_REALM=supervision-si
+      - KEYCLOAK_SERVICE_CLIENT_ID=prefs-api-service
+      - KEYCLOAK_SERVICE_CLIENT_SECRET=${PREFS_API_SERVICE_SECRET:-change-me}
+      # Indicateurs de présence Keycloak/gateway/vault-standalone (hub,
+      # pied de page) -- livraison #138. HOST_IP exposé ICI tel quel
+      # (pas seulement composé dans d'autres URLs comme
+      # KEYCLOAK_PUBLIC_URL ci-dessus) -- nécessaire pour joindre
+      # vault-standalone depuis CE conteneur, où "localhost" désignerait
+      # le conteneur lui-même, jamais la machine hôte (contrairement à
+      # une URL ouverte par un NAVIGATEUR, où "localhost" a un sens).
+      - HOST_IP=${HOST_IP:-localhost}
+      - VAULT_STANDALONE_HOST_IP=${VAULT_STANDALONE_HOST_IP:-}
+      - VAULT_STANDALONE_GATEWAY_PORT=${VAULT_STANDALONE_GATEWAY_PORT:-7443}
+      # Sources de logs FICHIER (livraison #176, backlog BACKLOG.md
+      # #3 étape 3/4) -- répertoire INTERNE au conteneur où les
+      # fichiers plats hôte sont exposés (voir le montage
+      # LOG_FILES_HOST_DIR ci-dessous). Chaque source "file" pointe
+      # ensuite un chemin RELATIF à CE répertoire (config.path,
+      # jamais un chemin absolu ni une traversée -- voir
+      # file_source_poller._resolve_safe_path).
+      - LOG_FILES_BASE_DIR=/log-files
+    # depends_on vers "keycloak" retiré (livraison #135) -- voir
+    # tickets-api plus haut pour le raisonnement complet.
+    depends_on:
+      - memcached
+    volumes:
+      # PREFS_DATA_DIR (.env, optionnel) : même logique que
+      # DBA_DATA_DIR/TICKETS_DATA_DIR -- sort prefs.db (préférences
+      # liées au compte : thème clair/foncé pour l'instant) de
+      # l'arborescence du projet. Vide = ./prefs-api/data comme repli.
+      - ${PREFS_DATA_DIR:-./prefs-api/data}:/data
+      # CHANGELOG.md/BACKLOG.md -- montés en LECTURE SEULE directement
+      # depuis la racine du dépôt, jamais une copie figée au build :
+      # ces fichiers changent à chaque livraison, la vue "historique"
+      # du hub doit toujours refléter leur contenu RÉEL du moment,
+      # sans jamais nécessiter un rebuild de ce service.
+      - ./CHANGELOG.md:/data/CHANGELOG.md:ro
+      - ./BACKLOG.md:/data/BACKLOG.md:ro
+      # Aide du hub, livraison #143 -- racine ENTIÈRE du dépôt montée
+      # en lecture seule, chemin SÉPARÉ de /data (jamais mélangé avec
+      # le volume accueillant prefs.db, qui lui reste writable) pour
+      # que la découverte des README (voir prefs-api/app.py,
+      # _discover_readmes) puisse "s'enrichir" automatiquement --
+      # tout nouveau README.md ajouté n'importe où dans le projet
+      # apparaît sans toucher à ce fichier. Ce montage donne accès en
+      # LECTURE à TOUT le dépôt (dont .env, les clés PKI) -- la seule
+      # protection entre ce montage et ce qui est réellement exposé
+      # est la liste blanche stricte côté application (uniquement des
+      # fichiers nommés EXACTEMENT "README.md", jamais un chemin
+      # arbitraire fourni par le client) -- voir le commentaire de
+      # sécurité complet dans prefs-api/app.py.
+      - .:/project-root:ro
+      # LOG_FILES_HOST_DIR (.env, optionnel) : répertoire RÉEL sur
+      # l'hôte contenant les fichiers de logs plats à suivre
+      # (ex. /var/log, ou un sous-ensemble copié/lié exprès) --
+      # OBLIGATOIREMENT en LECTURE SEULE (":ro"), même motif que
+      # SSH_TUNNELS_KEYS_DIR (#159) : ce service ne doit JAMAIS
+      # pouvoir modifier un fichier de log. Vide = ./prefs-api/log-files
+      # comme repli (dossier à peupler manuellement, jamais créé avec
+      # un contenu par défaut) -- pointer vers un VRAI répertoire
+      # système (ex. /var/log) demande un choix explicite de la
+      # personne dans .env, jamais présumé ici.
+      - ${LOG_FILES_HOST_DIR:-./prefs-api/log-files}:/log-files:ro
+
+  vault-api:
+    build:
+      context: .
+      dockerfile: vault/api/Dockerfile
+    environment:
+      # MEMCACHED_HOST -- livraison #145, tampon de logs partagé (voir
+      # shared/log_buffer.py) -- ce service tourne avec 2 workers
+      # Gunicorn, mémoire NON partagée entre eux.
+      - MEMCACHED_HOST=memcached
+      - VAULT_DB_PATH=/data/vault.db
+      # RIGHTS_API_URL -- livraison #308, OPT-IN comme partout ailleurs
+      # (vide = comportement inchangé). Scope volontairement étroit --
+      # voir le commentaire en tête de vault/api/app.py : seules
+      # revoke_collection_access et reset_user sont gardées, jamais
+      # grant_collection_access (déjà bornée par le chiffrement) ni
+      # les actions self-service.
+      - RIGHTS_API_URL=${VAULT_API_RIGHTS_API_URL:-}
+    depends_on:
+      - memcached
+    volumes:
+      # VAULT_DATA_DIR (.env, optionnel) : même logique que les autres
+      # *_DATA_DIR -- vault.db ne contient QUE des blobs chiffrés (voir
+      # vault/README.md, le serveur ne détient jamais de quoi les
+      # déchiffrer), mais reste hors de l'arborescence du projet par
+      # cohérence avec le reste. Vide = ./vault/data comme repli.
+      - ${VAULT_DATA_DIR:-./vault/data}:/data
+
+  vault-admin-api:
+    # Service SÉPARÉ de vault-api (processus distinct), volontairement
+    # -- voir vault/admin-api/app.py pour le détail complet des trois
+    # couches de protection. Partage le MÊME fichier vault.db (même
+    # volume que vault-api ci-dessus) : lit l'archive des clés de
+    # récupération que vault-api dépose, rien de plus.
+    #
+    # CRITIQUE : ce service N'EST JAMAIS enregistré dans le routage
+    # tls-proxy (voir tls-proxy/render_nginx_conf.py -- volontairement
+    # absent de la table SERVICES) -- port exposé DIRECTEMENT sur
+    # l'hôte ci-dessous, jamais par la passerelle publique. La
+    # personne déployant ce projet reste responsable de ne JAMAIS
+    # rediriger ce port vers l'extérieur (Apache, pare-feu...) --
+    # aucun mécanisme purement logiciel ne peut garantir ça à lui
+    # seul depuis l'intérieur du conteneur.
+    build:
+      context: .
+      dockerfile: vault/admin-api/Dockerfile
+    environment:
+      - VAULT_DB_PATH=/data/vault.db
+      - VAULT_ADMIN_ALLOWED_CIDRS=${VAULT_ADMIN_ALLOWED_CIDRS:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8}
+      # Branchement rights-api (livraison #291) -- OPT-IN, même motif
+      # que ssh-tunnels-api/ldap-admin-api. ⚠️ CONTRAIREMENT à ces
+      # deux services, vault-admin-portal n'est PAS authentifié via
+      # Keycloak (juste un nom en texte libre, voir vault/README.md)
+      # -- l'ACTIVER sans AUSSI donner au portail un moyen de
+      # transmettre des groupes bloquerait TOUT LE MONDE dès
+      # l'activation (aucun octroi ne matchera jamais un groupe
+      # vide). Backend prêt et testé ; le portail a besoin d'une
+      # évolution séparée avant que ceci soit utilisable en pratique
+      # -- voir vault/README.md.
+      - RIGHTS_API_URL=${VAULT_ADMIN_RIGHTS_API_URL:-}
+      - VAULT_ADMIN_SMTP_HOST=${VAULT_ADMIN_SMTP_HOST:-}
+      - VAULT_ADMIN_SMTP_PORT=${VAULT_ADMIN_SMTP_PORT:-587}
+      - VAULT_ADMIN_SMTP_USER=${VAULT_ADMIN_SMTP_USER:-}
+      - VAULT_ADMIN_SMTP_PASSWORD=${VAULT_ADMIN_SMTP_PASSWORD:-}
+      - VAULT_ADMIN_SMTP_FROM=${VAULT_ADMIN_SMTP_FROM:-}
+      - VAULT_ADMIN_SMTP_TO=${VAULT_ADMIN_SMTP_TO:-}
+    ports:
+      - "${VAULT_ADMIN_LAN_PORT:-6119}:5000"
+    volumes:
+      - ${VAULT_DATA_DIR:-./vault/data}:/data
+
+  vault-admin-portal:
+    # Interface du service ci-dessus -- même raisonnement de sécurité
+    # côté DONNÉES : jamais dans tls-proxy (voir
+    # tls-proxy/render_nginx_conf.py, volontairement absent de la
+    # table SERVICES), port exposé directement sur l'hôte, protection
+    # réelle des rôles toujours côté vault-admin-api (LAN + acteur
+    # déclaré + journalisation).
+    #
+    # HTTPS malgré tout NÉCESSAIRE -- bug réel signalé : depuis la
+    # refonte "débloquer un compte" (voir vault/README.md), ce portail
+    # utilise la MÊME cryptographie que le coffre principal
+    # (usurpMaitrePrincipal/decryptArchivedRecoveryKey, Web Crypto).
+    # `crypto.subtle` est VOLONTAIREMENT indisponible par les
+    # navigateurs hors "contexte sécurisé" (HTTPS ou localhost) --
+    # servi en HTTP simple, chaque déverrouillage échouait
+    # silencieusement, mal interprété en "mot de passe incorrect" (voir
+    # vite.config.js). Réutilise le certificat déjà généré pour la
+    # passerelle principale (mêmes entrées SAN, un certificat n'encode
+    # jamais de port).
+    build:
+      context: .
+      dockerfile: vault/admin-portal/Dockerfile
+    volumes:
+      - ${PKI_DIR:-./pki}/server:/etc/vault-admin-portal/tls:ro
+    environment:
+      - VITE_VAULT_ADMIN_API_BASE_URL=http://${HOST_IP:-localhost}:${VAULT_ADMIN_LAN_PORT:-6119}
+      # Livraison #293 -- même realm que vault-portal ci-dessus
+      # (vault-admin-portal fait partie du déploiement PRINCIPAL,
+      # pas de vault-standalone qui a sa propre instance séparée).
+      - VITE_KEYCLOAK_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/auth
+      - VITE_KEYCLOAK_REALM=supervision-si
+      # vault-api n'a PAS de port hôte propre (uniquement accessible
+      # via la passerelle, comme vault-portal) -- même URL que
+      # vault-portal lui-même, seule voie d'accès possible depuis un
+      # navigateur externe au réseau Docker. Nécessaire depuis la
+      # refonte "débloquer un compte" (voir vault/README.md) :
+      # l'administrateur déverrouille désormais SON PROPRE compte
+      # coffre ici (usurpMaitrePrincipal), pas seulement des rôles.
+      - VITE_VAULT_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/vault
+      # Retour ergonomique -- signalé après coup : ce portail était un
+      # cul-de-sac (jamais de lien vers le hub ni vers le coffre lui-
+      # même). URLs ABSOLUES nécessaires ici, contrairement à
+      # vault-portal (href="/" y suffit, servi SOUS le même gateway) --
+      # ce portail vit sur son propre port LAN, origine différente.
+      - VITE_HUB_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/
+      - VITE_VAULT_PORTAL_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/vault/
+      # Sélecteur de thème -- demandé explicitement, même mécanisme que
+      # les 3 autres fronts de la "famille 1" (hub/tickets/dba, voir
+      # shared/theme.css). Synchronisation croisée via localStorage
+      # avec CES fronts-là ne fonctionnera PAS ici (origine différente,
+      # port 6120 -- localStorage est isolé par origine) -- seule la
+      # persistance par compte (prefs-api) traverse cette limite, pas
+      # la synchronisation immédiate entre onglets.
+      - VITE_PREFS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/prefs
+    ports:
+      - "${VAULT_ADMIN_PORTAL_LAN_PORT:-6120}:5173"
+    depends_on:
+      - vault-admin-api
+
+  vault-portal:
+    build:
+      context: .
+      dockerfile: vault/portal/Dockerfile
+    environment:
+      - GATEWAY_PORT=${GATEWAY_PORT:-6443}
+      - VITE_VAULT_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/vault
+      - VITE_KEYCLOAK_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/auth
+      - VITE_KEYCLOAK_REALM=supervision-si
+      - VITE_PREFS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/prefs
+      # Écran de recherche par localisation (vault/README.md) --
+      # lecture seule des géolocalisations (jamais rien de sensible,
+      # voir la décision de sécurité assumée) depuis Supervision SI.
+      - VITE_PIXEL_GRID_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/pixel-grid
+    depends_on:
+      - vault-api
+      # keycloak retiré (livraison #135) -- voir tickets-api plus haut.
+      - prefs-api
+
+  dba-portal:
+    build:
+      context: .
+      dockerfile: dba/portal/Dockerfile
+    environment:
+      - GATEWAY_PORT=${GATEWAY_PORT:-6443}
+      - VITE_DBA_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/dba
+      # Catalogue SGBD (livraison #229) -- même tunnels SSH que le
+      # hub, référence croisée par hôte+port, voir SchemaAnalyzerView
+      # (hub, #221) pour la version déjà en place là-bas.
+      - VITE_SSH_TUNNELS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/ssh-tunnels
+    depends_on:
+      - dba-api
+
+  ldap-admin-portal:
+    build:
+      context: .
+      dockerfile: ldap-admin/portal/Dockerfile
+    environment:
+      - GATEWAY_PORT=${GATEWAY_PORT:-6443}
+      - VITE_LDAP_ADMIN_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/ldap-admin
+    depends_on:
+      - ldap-admin-api
+
+  hub:
+    build:
+      context: .
+      dockerfile: hub/Dockerfile
+    environment:
+      - GATEWAY_PORT=${GATEWAY_PORT:-6443}
+      # Client OIDC "supervision-hub" — déjà défini dans
+      # keycloak/realm-template.json, rien à créer côté Keycloak.
+      - VITE_KEYCLOAK_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/auth
+      - VITE_KEYCLOAK_REALM=supervision-si
+      # Fronts vers lesquels le hub ouvre — mêmes URLs que celles
+      # utilisées par la personne dans son navigateur (HOST_IP), pas
+      # les noms de service Docker internes. Entrée unique par chemin.
+      - VITE_SUPERVISION_FRONTEND_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/app/
+      - VITE_TICKETS_PORTAL_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/tickets/
+      - VITE_DBA_PORTAL_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/dba/
+      - VITE_LDAP_ADMIN_PORTAL_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/ldap-admin/
+      - VITE_VAULT_PORTAL_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/vault/
+      # Adresse LAN DIRECTE (http, pas https via la passerelle) --
+      # même raisonnement que vault-admin-portal lui-même, jamais routé
+      # par tls-proxy.
+      - VITE_VAULT_ADMIN_PORTAL_URL=https://${HOST_IP:-localhost}:${VAULT_ADMIN_PORTAL_LAN_PORT:-6120}
+      - VITE_PREFS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/prefs
+      # Rappel d'activité technicien -- le hub doit pouvoir interroger
+      # la file d'attente et soumettre des segments de temps
+      # directement, sans passer par le portail tickets (le rappel
+      # s'affiche dans le hub lui-même, quel que soit l'onglet ouvert).
+      - VITE_TICKETS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/tickets
+      # Analyse de schémas (livraison #156) -- le hub liste les
+      # connexions DBA existantes en LECTURE SEULE via dba-api
+      # directement (jamais un CRUD complet, ça reste le rôle de
+      # l'onglet DBA lui-même -- juste choisir une connexion pour
+      # l'analyser).
+      - VITE_DBA_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/dba
+      - VITE_SCHEMA_ANALYZER_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/schema-analyzer
+      # Documents joints -- onglet GED (livraison #167) -- même API
+      # que TicketDocuments.jsx (tickets-portal, #160), consommée ici
+      # pour la navigation/gestion générale (pas liée à un ticket en
+      # particulier).
+      - VITE_GED_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/ged
+      # Tunnels SSH -- onglet hub (livraison #175), backend #159.
+      - VITE_SSH_TUNNELS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/ssh-tunnels
+      # SNMP -- onglet hub (livraison #227), backend #212-213.
+      - VITE_SNMP_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/snmp
+      # netmap-orchestrator-api (livraison #389) -- routé via la
+      # passerelle (voir tls-proxy/render_nginx_conf.py), prêt pour
+      # une future interface hub de consultation des suggestions,
+      # jamais construite dans cette livraison (pas demandée).
+      - VITE_NETMAP_ORCHESTRATOR_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/netmap-orchestrator
+      # Nebula + pont GLPI -- onglet hub (livraison #228), backend
+      # #196-200 (nebula) et #208 (pont GLPI).
+      - VITE_NEBULA_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/nebula
+      - VITE_GLPI_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/glpi
+      # Client IMAP -- onglet hub (livraison #230), backend #179-191
+      # (PREMIÈRE interface pour ce module, jamais construite avant).
+      - VITE_IMAP_CLIENT_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/imap-client
+      # Exploration réseau -- onglet hub (livraison #233), backend
+      # #233 (item 20).
+      - VITE_NETWORK_AGENT_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/network-agent
+      # Rétro-ingénierie -- onglet hub (livraison #243), backend #243
+      # (item 30).
+      - VITE_RETRO_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/retro
+      # backup-restore -- onglet hub (livraison #249), backend #249
+      # (item 27, sous-volet Clonezilla).
+      - VITE_BACKUP_RESTORE_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/backup-restore
+      # Architecture réseau -- onglet hub (livraison #253), backend
+      # #253.
+      - VITE_ARCHITECTURE_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/architecture
+      # Mémoire -- onglet hub (livraison #259), backend #259.
+      - VITE_MEMORY_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/memory
+      # Classification sémantique -- onglet hub (livraison #260).
+      - VITE_CLASSIFIER_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/classifier
+      # Vigilance -- onglet hub (livraison #262).
+      - VITE_VIGILANCE_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/vigilance
+      # Tâches (Kanban) -- onglet hub (livraison #271).
+      - VITE_TASKS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/tasks
+      # Droits (livraison #283) -- onglet hub réservé à admin_hub.
+      - VITE_RIGHTS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/rights
+      # Sondes réseau (livraison #301) -- tuile hub pour netprobe-api.
+      - VITE_NETPROBE_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/netprobe
+      # Relations transversales -- onglet hub (livraison #335), backlog
+      # item 38 point 2 ("vue relations" de la super tuile ENT).
+      - VITE_RELATIONS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/relations
+      # OwnCloud (dépôt externe, lecture seule) + recherche Elasticsearch
+      # -- livraison #354, backlog item 6/9 -- sous-onglets de la tuile
+      # GED, séparés visuellement du dépôt interne (Mayan) -- demandé
+      # explicitement : "on ne doit pas toucher aux fichiers internes"
+      # par ce chemin.
+      - VITE_OWNCLOUD_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/owncloud
+      - VITE_OWNCLOUD_SEARCH_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/owncloud-search
+    depends_on:
+      # keycloak retiré (livraison #135) -- voir tickets-api plus haut.
+      - prefs-api
+
+  ipam-api:
+    build:
+      context: .
+      dockerfile: ipam/api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      # Base MySQL de l'appli phpipam EXISTANTE — hors de ce docker-compose,
+      # sur ton infrastructure. Lecture seule : voir ipam/README.md pour
+      # le GRANT SELECT à créer côté MySQL avant de renseigner ces variables.
+      - IPAM_DB_HOST=${IPAM_DB_HOST:-}
+      - IPAM_DB_PORT=${IPAM_DB_PORT:-3306}
+      - IPAM_DB_NAME=${IPAM_DB_NAME:-phpipam}
+      - IPAM_DB_USER=${IPAM_DB_USER:-}
+      - IPAM_DB_PASSWORD=${IPAM_DB_PASSWORD:-}
+      - IPAM_DB_SSL=${IPAM_DB_SSL:-false}
+      - IPAM_CACHE_TTL=${IPAM_CACHE_TTL:-60}
+    depends_on:
+      - memcached
+
+  optick-api:
+    build:
+      context: .
+      dockerfile: optick/api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      # Base MySQL de l'outil "optick" EXISTANT — hors de ce docker-compose.
+      # Lecture seule : voir optick/README.md pour le GRANT SELECT à créer.
+      - OPTICK_DB_HOST=${OPTICK_DB_HOST:-}
+      - OPTICK_DB_PORT=${OPTICK_DB_PORT:-3306}
+      - OPTICK_DB_NAME=${OPTICK_DB_NAME:-optick3}
+      - OPTICK_DB_USER=${OPTICK_DB_USER:-}
+      - OPTICK_DB_PASSWORD=${OPTICK_DB_PASSWORD:-}
+      - OPTICK_DB_SSL=${OPTICK_DB_SSL:-false}
+      - OPTICK_DB_CHARSET=${OPTICK_DB_CHARSET:-utf8}
+      - OPTICK_CACHE_TTL=${OPTICK_CACHE_TTL:-60}
+    depends_on:
+      - memcached
+
+  zenoss-api:
+    build:
+      context: .
+      dockerfile: zenoss/api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      # Base MySQL "events" de Zenoss EXISTANTE — hors de ce docker-compose.
+      # Lecture seule : voir zenoss/README.md pour le GRANT SELECT à créer.
+      - ZENOSS_DB_HOST=${ZENOSS_DB_HOST:-}
+      - ZENOSS_DB_PORT=${ZENOSS_DB_PORT:-3306}
+      - ZENOSS_DB_NAME=${ZENOSS_DB_NAME:-events}
+      - ZENOSS_DB_USER=${ZENOSS_DB_USER:-}
+      - ZENOSS_DB_PASSWORD=${ZENOSS_DB_PASSWORD:-}
+      - ZENOSS_DB_SSL=${ZENOSS_DB_SSL:-false}
+      - ZENOSS_DB_CHARSET=${ZENOSS_DB_CHARSET:-utf8}
+      - ZENOSS_CACHE_TTL=${ZENOSS_CACHE_TTL:-60}
+    depends_on:
+      - memcached
+
+  tts-gu-api:
+    build:
+      context: .
+      dockerfile: tts-gu/api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      # Base MySQL du clone "tts-gu" — hors de ce docker-compose.
+      # Lecture seule : voir tts-gu/README.md pour le GRANT SELECT à créer.
+      - TTSGU_DB_HOST=${TTSGU_DB_HOST:-}
+      - TTSGU_DB_PORT=${TTSGU_DB_PORT:-3306}
+      - TTSGU_DB_NAME=${TTSGU_DB_NAME:-optick3}
+      - TTSGU_DB_USER=${TTSGU_DB_USER:-}
+      - TTSGU_DB_PASSWORD=${TTSGU_DB_PASSWORD:-}
+      - TTSGU_DB_SSL=${TTSGU_DB_SSL:-false}
+      - TTSGU_DB_CHARSET=${TTSGU_DB_CHARSET:-utf8}
+      - TTSGU_CACHE_TTL=${TTSGU_CACHE_TTL:-60}
+    depends_on:
+      - memcached
+
+  owncloud-api:
+    build:
+      context: .
+      dockerfile: owncloud/api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      # Base MySQL de l'instance ownCloud/Nextcloud EXISTANTE — hors de
+      # ce docker-compose. Lecture seule : voir owncloud/README.md.
+      - OWNCLOUD_DB_HOST=${OWNCLOUD_DB_HOST:-}
+      - OWNCLOUD_DB_PORT=${OWNCLOUD_DB_PORT:-3306}
+      - OWNCLOUD_DB_NAME=${OWNCLOUD_DB_NAME:-owncloud}
+      - OWNCLOUD_DB_USER=${OWNCLOUD_DB_USER:-}
+      - OWNCLOUD_DB_PASSWORD=${OWNCLOUD_DB_PASSWORD:-}
+      - OWNCLOUD_DB_SSL=${OWNCLOUD_DB_SSL:-false}
+      - OWNCLOUD_DB_CHARSET=${OWNCLOUD_DB_CHARSET:-utf8mb4}
+      - OWNCLOUD_CACHE_TTL=${OWNCLOUD_CACHE_TTL:-60}
+    depends_on:
+      - memcached
+
+  cacti-api:
+    build:
+      context: .
+      dockerfile: cacti/api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      # Base MySQL de l'application Cacti EXISTANTE — hors de ce
+      # docker-compose. Lecture seule : voir cacti/README.md pour le
+      # GRANT SELECT à créer côté MySQL avant de renseigner ces variables.
+      - CACTI_DB_HOST=${CACTI_DB_HOST:-}
+      - CACTI_DB_PORT=${CACTI_DB_PORT:-3306}
+      - CACTI_DB_NAME=${CACTI_DB_NAME:-cacti}
+      - CACTI_DB_USER=${CACTI_DB_USER:-}
+      - CACTI_DB_PASSWORD=${CACTI_DB_PASSWORD:-}
+      - CACTI_DB_SSL=${CACTI_DB_SSL:-false}
+      - CACTI_DB_CHARSET=${CACTI_DB_CHARSET:-utf8}
+      - CACTI_CACHE_TTL=${CACTI_CACHE_TTL:-60}
+    depends_on:
+      - memcached
+
+  elasticsearch:
+    build: ./elasticsearch
+    environment:
+      # xpack desactive : reseau interne Docker uniquement, jamais
+      # expose publiquement -- evite la complexite mot de passe
+      # "changeme" par defaut de l'image officielle pour un usage
+      # interne. Voir owncloud/search-api/README.md.
+      - "ES_JAVA_OPTS=${ELASTICSEARCH_JAVA_OPTS:--Xms512m -Xmx512m}"
+      - xpack.security.enabled=false
+      - cluster.name=supervision-si-owncloud-search
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      # SANS ce bloc, le conteneur herite du ulimit "nofile" de l'hote
+      # Docker -- souvent "unlimited" selon la config systemd de la
+      # machine. La JVM tente alors d'allouer une table de descripteurs
+      # de fichiers dimensionnee pour cette limite absurde et echoue
+      # immediatement au demarrage ("unable to allocate file descriptor
+      # table - out of memory", exit 139) -- AVANT meme qu'Elasticsearch
+      # ne loggue quoi que ce soit. Rien a voir avec la RAM disponible
+      # (message trompeur) : fixer explicitement une valeur raisonnable
+      # resout le probleme quelle que soit la RAM de la machine.
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      # Expose sur l'hote : c'est PAR CE PORT que votre serveur
+      # ownCloud externe (hors de ce docker-compose) doit joindre
+      # cette instance -- http://<ip-de-cette-machine>:9200, PAS
+      # http://elasticsearch:9200 (ce nom DNS interne ne resout que
+      # dans le reseau Docker de CE projet).
+      - "${ELASTICSEARCH_HOST_PORT:-9200}:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ------------------------------------------------------------------
+  # Géomatique — base PostGIS de staging LOCALE à ce projet (décision
+  # actée : pas de connexion à une base PostGIS externe existante,
+  # celle-ci est gérée entièrement par ce docker-compose, écriture
+  # incluse). Sert de zone de dépôt/fusion pour les shapefiles importés
+  # avant projection sur la carte principale via GeoServer.
+  # ------------------------------------------------------------------
+  geo-postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      - POSTGRES_DB=${GEO_DB_NAME:-geo}
+      - POSTGRES_USER=${GEO_DB_USER:-geo}
+      - POSTGRES_PASSWORD=${GEO_DB_PASSWORD:-geo}
+    volumes:
+      - geo_pg_data:/var/lib/postgresql/data
+      - ./geo-import/db-init:/docker-entrypoint-initdb.d
+    ports:
+      - "${GEO_DB_PORT:-6546}:5432"
+
+  geo-import-api:
+    build:
+      context: .
+      dockerfile: geo-import/api/Dockerfile
+    environment:
+      # MEMCACHED_HOST -- livraison #145, tampon de logs partagé (voir
+      # shared/log_buffer.py) -- ce service tourne avec 2 workers
+      # Gunicorn, mémoire NON partagée entre eux.
+      - MEMCACHED_HOST=memcached
+      - GEO_DB_HOST=geo-postgres
+      - GEO_DB_PORT=5432
+      - GEO_DB_NAME=${GEO_DB_NAME:-geo}
+      - GEO_DB_USER=${GEO_DB_USER:-geo}
+      - GEO_DB_PASSWORD=${GEO_DB_PASSWORD:-geo}
+      - GEO_IMPORT_MAX_MB=${GEO_IMPORT_MAX_MB:-200}
+      # RIGHTS_API_URL -- livraison #318, OPT-IN comme partout ailleurs.
+      # Gardé sur import/fusion/connectors/geolocations/sync (les 3
+      # routes d'écriture) -- jamais /correlate (confirmé purement
+      # lecture, ni /layers).
+      - RIGHTS_API_URL=${GEO_IMPORT_RIGHTS_API_URL:-}
+    depends_on:
+      - geo-postgres
+      - memcached
+
+  owncloud-search-api:
+    build:
+      context: .
+      dockerfile: owncloud/search-api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      # Elasticsearch alimenté par l'app ownCloud "search_elastic",
+      # EXTERNE à ce projet — connecteur à mettre en place côté
+      # personne (voir owncloud/search-api/README.md). URL interne du
+      # service ci-dessus par défaut ; ELASTICSEARCH_INDEX reste vide
+      # tant que search_elastic n'a pas ete configure cote ownCloud
+      # (c'est cette configuration-la qui determine le nom de l'index).
+      - ELASTICSEARCH_URL=${ELASTICSEARCH_URL:-http://elasticsearch:9200}
+      - ELASTICSEARCH_INDEX=${ELASTICSEARCH_INDEX:-}
+      - ELASTICSEARCH_TIMEOUT_SECONDS=${ELASTICSEARCH_TIMEOUT_SECONDS:-10}
+      - SEARCH_CACHE_TTL=${SEARCH_CACHE_TTL:-30}
+    depends_on:
+      - memcached
+      - elasticsearch
+
+  # ------------------------------------------------------------------
+  # Keycloak, keycloak-backup et tls-proxy SORTIS de ce fichier vers
+  # gateway/docker-compose.yml (backlog, livraison #135) -- cycle de
+  # vie indépendant du reste de la plateforme, demandé explicitement
+  # (une application externe, trb140-sms-relay, dépend de la
+  # disponibilité de Keycloak, ne devrait plus subir les redémarrages
+  # fréquents des services applicatifs ci-dessus/ci-dessous). Réseau
+  # Docker PARTAGÉ (voir `networks:` en bas de CE fichier, MÊME nom
+  # des deux côtés) -- tls-proxy continue de joindre tous les services
+  # de CE fichier par leur nom Docker interne, exactement comme avant.
+  #
+  #   cd gateway && ./scripts/run.sh up -d --build
+  #   (ou depuis la racine : ./scripts/run-all.sh gateway up -d --build)
+  #
+  # Voir gateway/README.md pour la procédure de migration (volume
+  # Keycloak existant à référencer explicitement, sans quoi le realm
+  # repartirait vide).
+  # ------------------------------------------------------------------
+
+  docker-monitor-api:
+    # Livraison #376, demandé explicitement : "extraire de portainer.io
+    # de quoi construire un docker qui contrôle les autres stacks/
+    # containers à minima qui lise et analyse les logs de tous les
+    # container y compris lui-même et publie son analyse dans un
+    # fichier log externe".
+    #
+    # ⚠️ CHEVAUCHEMENT PARTIEL avec `launcher` (ci-dessous), TROUVÉ EN
+    # CONSTRUISANT CE SERVICE -- `launcher` fait DÉJÀ du contrôle
+    # start/stop/status par service, avec une interface web dédiée.
+    # Ce service-ci REFAIT une partie de ce contrôle (start/stop/
+    # restart PAR CONTENEUR plutôt que par groupe de services nommés,
+    # interface JSON plutôt qu'UI) -- gardé quand même, "à minima"
+    # étant explicitement demandé, et une interface API JSON reste
+    # utile en soi (consommable par une future tuile hub, par exemple)
+    # -- mais la personne devrait savoir que `launcher` existe déjà
+    # pour un contrôle piloté par UI. Voir docker-monitor/README.md.
+    #
+    # ⚠️ SÉCURITÉ, MÊME AVERTISSEMENT que `launcher` -- ce conteneur
+    # monte le socket Docker de l'hôte (voir volumes ci-dessous),
+    # ÉQUIVALENT EN PRATIQUE À UN ACCÈS ROOT sur la machine hôte
+    # (confirmé par recherche : même principe que Portainer, un
+    # conteneur avec ce socket peut créer un AUTRE conteneur montant
+    # `/` de l'hôte) -- JAMAIS à exposer publiquement, voir
+    # docker-monitor/README.md pour le détail complet.
+    build:
+      context: .
+      dockerfile: docker-monitor/api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      - DOCKER_MONITOR_ANALYSIS_LOG=/analysis/docker-monitor-analysis.log
+      - DOCKER_MONITOR_INTERVAL_SECONDS=${DOCKER_MONITOR_INTERVAL_SECONDS:-60}
+      - DOCKER_MONITOR_TAIL_LINES=${DOCKER_MONITOR_TAIL_LINES:-200}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Fichier d'analyse EXTERNE (demandé explicitement) -- survit à
+      # un redémarrage/une reconstruction de CE conteneur. Vide =
+      # ./docker-monitor/analysis comme repli (dossier à créer au
+      # premier lancement si absent, jamais un contenu par défaut).
+      - ${DOCKER_MONITOR_ANALYSIS_DIR:-./docker-monitor/analysis}:/analysis
+    depends_on:
+      - memcached
+    ports:
+      - "${DOCKER_MONITOR_API_PORT:-6124}:5000"
+
+  launcher:
+    # Vue d'ensemble + start/stop/status par service, page web avec
+    # feux tricolores -- demandé explicitement. PAS du docker-in-
+    # docker : ce conteneur ne fait tourner aucun démon Docker à lui,
+    # juste un CLIENT (CLI docker) parlant au démon de L'HÔTE via le
+    # socket monté ci-dessous -- équivalent en pratique à un accès
+    # root sur l'hôte, jamais à exposer publiquement (voir
+    # LAUNCHER_ALLOWED_CIDRS, même garde-fou LAN que vault-admin-api).
+    build:
+      context: .
+      dockerfile: launcher/Dockerfile
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Lecture seule -- le conteneur a besoin de LIRE
+      # docker-compose.yml/.env pour que ses commandes "docker compose
+      # start/stop/ps" ciblent le bon projet, jamais d'écrire quoi
+      # que ce soit ici.
+      - .:/compose-project:ro
+    environment:
+      - LAUNCHER_ALLOWED_CIDRS=${LAUNCHER_ALLOWED_CIDRS:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8}
+      - LAUNCHER_GATEWAY_PORT=${GATEWAY_PORT:-6443}
+      # CRITIQUE et FRAGILE, à vérifier après un premier déploiement
+      # réel (jamais testable dans l'environnement où ceci a été
+      # écrit, aucun Docker disponible) : "docker compose start/stop"
+      # exécuté DEPUIS ce conteneur ne trouvera les VRAIS conteneurs
+      # QUE si ce nom correspond exactement au nom de projet réel
+      # (par défaut, le nom du dossier contenant ce fichier sur
+      # l'hôte -- "supervision-si" ici, mais À CONFIRMER si votre
+      # dossier s'appelle autrement). Si le lanceur ne trouve jamais
+      # aucun conteneur, c'est le premier suspect.
+      - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-supervision-si}
+    ports:
+      - "${LAUNCHER_LAN_PORT:-6121}:8000"
+
+volumes:
+  api_data:
+  pixel_grid_pg_data:
+  tickets_pg_data:
+  elasticsearch_data:
+  geo_pg_data:
+  # keycloak_data SORTI vers gateway/docker-compose.yml (livraison
+  # #135) -- le volume EXISTANT (créé avant cette extraction) y est
+  # référencé explicitement (external: true) pour préserver le realm,
+  # jamais recréé vide. Voir gateway/README.md.
+
+networks:
+  default:
+    # Réseau PARTAGÉ avec gateway/docker-compose.yml -- MÊME nom des
+    # deux côtés, OBLIGATOIRE (voir gateway/docker-compose.yml,
+    # en-tête, pour le raisonnement complet). `external: true` : ni ce
+    # fichier ni gateway/docker-compose.yml ne "possède" ce réseau au
+    # sens Compose -- créé de façon idempotente par les DEUX run.sh
+    # (scripts/run.sh ET gateway/scripts/run.sh), jamais supprimé par
+    # un `down` de l'un ou l'autre. Bare `docker compose up` (sans
+    # passer par scripts/run.sh) échouerait tant que ce réseau n'existe
+    # pas encore -- toujours passer par scripts/run.sh, comme documenté
+    # partout ailleurs dans ce projet.
+    name: ${SUPERVISION_SI_NETWORK_NAME:-supervision-si-net}
+    external: true

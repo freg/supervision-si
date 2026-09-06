@@ -1,0 +1,193 @@
+/*
+ * Thème de connexion "hub" -- livraison #275, CORRIGÉ en #281 après
+ * un vrai déploiement réel (les quatre bugs ci-dessous n'ont pu être
+ * trouvés qu'à ce moment-là, aucun navigateur disponible avant).
+ * Reprend les jetons de design du hub (shared/theme.css, palette
+ * claire) -- --bg: #f4f6f8, --panel: #ffffff, --border: #d8dee4,
+ * --text: #24292f, --muted: #6a737d, --accent: #2980b9,
+ * --danger: #c0392b, --danger-bg: #fdecea, --ok: #27ae60, police
+ * "Segoe UI".
+ *
+ * Sélecteurs reconfirmés contre le VRAI code source HTML transmis
+ * par la personne (Keycloak 26, PatternFly v4 -- v3 chargé en
+ * parallèle mais peu utilisé sur cette page) -- plus une
+ * supposition de documentation, un fait vérifié.
+ */
+
+body {
+  background: var(--bg, #f4f6f8);
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  color: var(--text, #24292f);
+}
+
+/* Carte de connexion -- livraison #281, BUG RÉEL CORRIGÉ : `#kc-login`
+   n'est PAS la carte (comme une documentation plus ancienne le
+   suggérait) -- c'est l'ID du BOUTON de connexion lui-même (voir
+   plus bas, "Bouton principal"). Confondre les deux donnait au
+   bouton un fond blanc qui l'emportait sur le bleu voulu par
+   spécificité CSS (#id > .classe.classe) -- texte blanc sur fond
+   blanc, signalé par la personne. `.card-pf` SEULE est la bonne
+   cible pour la carte. */
+.card-pf {
+  background: var(--panel, #ffffff);
+  border: 1px solid var(--border, #d8dee4);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  padding: 32px;
+  /* Largeur -- livraison #281, BUG RÉEL CORRIGÉ : jamais bornée
+     avant, la carte prenait toute la largeur de l'écran (signalé
+     par la personne, "inverse des interfaces data"). */
+  max-width: 480px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.login-pf-page {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 40px;
+}
+
+#kc-header-wrapper {
+  color: var(--text, #24292f);
+  font-weight: 600;
+  text-align: center;
+  padding-bottom: 16px;
+}
+
+#kc-page-title {
+  color: var(--text, #24292f);
+  font-weight: 600;
+}
+
+/* Étiquettes de formulaire -- livraison #300, correctif d'alignement
+   signalé par la personne après #296 : les champs (ci-dessous) sont
+   centrés/réduits (max-width: 320px, margin auto), mais les
+   étiquettes restaient alignées à gauche sur toute la largeur de la
+   carte -- ne correspondaient plus au bord gauche des champs.
+   MÊME largeur/centrage appliqué ici pour que les deux s'alignent. */
+.pf-c-form__label,
+.pf-c-form__label-text {
+  color: var(--muted, #6a737d);
+  font-weight: 500;
+  max-width: 320px;
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+}
+
+/* Champs de saisie -- livraison #296, "centrer et réduire les
+   champs et boutons" (demandé explicitement). Sans largeur propre,
+   ces éléments héritaient de 100% de la carte (480px, voir
+   .card-pf ci-dessus) -- réduits à une largeur plus resserrée,
+   centrée dans la carte plutôt que collée à ses bords. */
+.pf-c-form-control {
+  background: var(--panel, #ffffff);
+  border: 1px solid var(--border, #d8dee4);
+  color: var(--text, #24292f);
+  border-radius: 4px;
+  max-width: 320px;
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+}
+.pf-c-form-control:focus {
+  border-color: var(--accent, #2980b9);
+  box-shadow: 0 0 0 2px rgba(41, 128, 185, 0.15);
+  outline: none;
+}
+
+/* Bouton principal -- livraison #281 : `#kc-login` EST le vrai
+   bouton (`<input type="submit" id="kc-login" class="pf-c-button
+   pf-m-primary ...">`), ciblé par ID pour battre en spécificité le
+   CSS PatternFly v4 fourni (qui définit son propre fond via des
+   propriétés custom internes, jamais neutralisé par une simple
+   règle de classe -- d'où le fond qui restait blanc avant même la
+   confusion avec la carte). `background-color` (jamais le raccourci
+   `background`) + `!important` -- assumé ici, seul moyen fiable
+   vérifié de battre une feuille de style tierce sans en connaître
+   toute la spécificité interne. */
+#kc-login {
+  background-color: var(--accent, #2980b9) !important;
+  border-color: var(--accent, #2980b9) !important;
+  color: #ffffff !important;
+  font-weight: 500;
+  /* livraison #296 -- même resserrement/centrage que les champs
+     ci-dessus, cohérence visuelle entre saisie et action. */
+  max-width: 320px;
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+  width: 100%;
+}
+#kc-login:hover {
+  background-color: #23689a !important; /* --accent assombri de ~15% */
+  border-color: #23689a !important;
+}
+
+/* Liens (mot de passe oublié, inscription...) */
+a,
+a:visited {
+  color: var(--accent, #2980b9);
+}
+a:hover {
+  color: #23689a;
+}
+
+/* Messages d'alerte -- erreur/succès */
+.pf-c-alert.pf-m-danger,
+.kc-feedback-text {
+  background: var(--danger-bg, #fdecea);
+  border-color: var(--danger, #c0392b);
+  color: var(--danger, #c0392b);
+}
+.pf-c-alert.pf-m-success {
+  background: var(--ok-bg, #eafaf1);
+  border-color: var(--ok, #27ae60);
+  color: var(--ok, #27ae60);
+}
+
+/* Case à cocher "se souvenir de moi" et texte connexe */
+#kc-form-options,
+.checkbox {
+  color: var(--muted, #6a737d);
+}
+
+/* Menu de langue -- livraison #296, CORRIGÉ après un vrai bug
+   signalé (le correctif défensif de #281 ne suffisait pas). Le VRAI
+   gabarit Keycloak (base/login/template.ftl, confirmé via le dépôt
+   officiel keycloak/keycloak) montre :
+     <div id="kc-locale-dropdown" class="menu-button-links ...">
+       <button id="kc-current-locale-link" aria-expanded="false" ...>
+       <ul id="language-switch1" class="pf-c-dropdown__menu ...">
+     </div>
+   -- AUCUNE classe ".pf-m-expanded" nulle part dans ce gabarit (la
+   supposition de #281 était fausse). L'état ouvert/fermé est porté
+   par l'attribut ARIA standard `aria-expanded` sur le BOUTON,
+   commun à tous les menus accessibles (confirmé par la documentation
+   PatternFly et les pratiques ARIA usuelles) -- menu-button-links.js
+   (hérité du thème parent, jamais modifié ici) bascule cet attribut
+   au clic. Sélecteur de fratrie CSS (`~`) ciblant directement cet
+   état, jamais une classe devinée. */
+#language-switch1.pf-c-dropdown__menu {
+  display: none;
+}
+#kc-current-locale-link[aria-expanded="true"] ~ #language-switch1.pf-c-dropdown__menu {
+  display: block;
+}
+
+/* Numéro de livraison -- livraison #298, demandé explicitement.
+   CSS pur (::after avec `content`), jamais une réécriture de
+   gabarit FreeMarker (voir docstring du module, "parent=keycloak...
+   SEULEMENT le CSS est remplacé"). Mis à jour manuellement à chaque
+   livraison qui touche ce thème -- pas d'automatisation pour
+   l'instant, une chaîne fixe comme tout le reste de ce fichier. */
+.card-pf::after {
+  content: "v300";
+  display: block;
+  text-align: center;
+  margin-top: 16px;
+  font-size: 11px;
+  color: var(--muted, #6a737d);
+}

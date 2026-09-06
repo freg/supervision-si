@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1400" height="1120" viewBox="0 0 1400 1120" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Architecture du projet supervision-si</title>
+<desc>Vue graphique des ressources, cles de configuration et systemes externes lies au projet supervision-si.</desc>
+<defs><marker id="arrExt" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#854f0b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker><marker id="arrGw" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#5f5e5a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker></defs>
+<rect x="0" y="0" width="1400" height="1120" fill="#FFFFFF"/>
+<text x="700" y="40" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#1F1F1D" text-anchor="middle">Architecture du projet supervision-si</text>
+<text x="700" y="62" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#5f5e5a" text-anchor="middle">Vue d'ensemble -- ressources, cles de configuration et systemes externes lies (livraison #207)</text>
+<rect x="60" y="78" width="16" height="16" rx="3" fill="#e6f1fb" stroke="#185fa5" stroke-width="1"/>
+<text x="84" y="90" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#3d3d3a" text-anchor="start">Interfaces (portails/hub)</text>
+<rect x="500" y="78" width="16" height="16" rx="3" fill="#eeedfe" stroke="#534ab7" stroke-width="1"/>
+<text x="524" y="90" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#3d3d3a" text-anchor="start">Modules metier (API internes)</text>
+<rect x="940" y="78" width="16" height="16" rx="3" fill="#faece7" stroke="#993c1d" stroke-width="1"/>
+<text x="964" y="90" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#3d3d3a" text-anchor="start">Securite et secrets</text>
+<rect x="60" y="102" width="16" height="16" rx="3" fill="#e1f5ee" stroke="#0f6e56" stroke-width="1"/>
+<text x="84" y="114" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#3d3d3a" text-anchor="start">Donnees et stockage</text>
+<rect x="500" y="102" width="16" height="16" rx="3" fill="#f1efe8" stroke="#5f5e5a" stroke-width="1"/>
+<text x="524" y="114" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#3d3d3a" text-anchor="start">Passerelle/authentification (stack separe)</text>
+<rect x="940" y="102" width="16" height="16" rx="3" fill="#faeeda" stroke="#854f0b" stroke-width="1"/>
+<text x="964" y="114" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#3d3d3a" text-anchor="start">Systemes EXTERNES (hors de ce projet)</text>
+<rect x="40" y="160" width="820" height="680" rx="20" fill="#FAFAF8" stroke="#B4B2A9" stroke-width="1"/>
+<text x="60" y="188" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#2C2C2A" text-anchor="start">Stack principal -- docker-compose.yml (~37 services)</text>
+<rect x="64" y="210" width="360" height="250" rx="12" fill="#e6f1fb" stroke="#185fa5" stroke-width="1"/>
+<text x="80" y="236" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#0C447C" text-anchor="start">Interfaces (portails, hub)</text>
+<text x="80" y="260" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">hub -- portail central, grille des tuiles</text>
+<text x="80" y="277" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">frontend -- Supervision SI historique</text>
+<text x="80" y="294" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">tickets-portal -- gestion des tickets</text>
+<text x="80" y="311" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">dba-portal -- interface bases de donnees</text>
+<text x="80" y="328" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">ldap-admin-portal -- gestion annuaire</text>
+<text x="80" y="345" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">vault-portal / vault-admin-portal --</text>
+<text x="80" y="362" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">  coffre-fort (chiffrement bout-en-bout,</text>
+<text x="80" y="379" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">  fondation posee, interface pas encore</text>
+<text x="80" y="396" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">  cablee au hub)</text>
+<rect x="448" y="210" width="384" height="250" rx="12" fill="#eeedfe" stroke="#534ab7" stroke-width="1"/>
+<text x="464" y="236" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#3C3489" text-anchor="start">Modules metier (~20 API internes)</text>
+<text x="464" y="260" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">dba, ged, tickets, ipam, optick, zenoss,</text>
+<text x="464" y="277" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">cacti, owncloud (+search), tts-gu,</text>
+<text x="464" y="294" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">imap-client, schema-analyzer,</text>
+<text x="464" y="311" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">pixel-grid, geo-import,</text>
+<text x="464" y="328" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">rsyslog-listener (UDP)</text>
+<text x="464" y="345" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start"></text>
+<text x="464" y="362" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">Integrations recentes : glpi-api (#192),</text>
+<text x="464" y="379" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">nebula-api (#196, #200), ldap-admin-api</text>
+<text x="464" y="396" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start"></text>
+<text x="464" y="413" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">prefs-api -- parametrage transversal,</text>
+<text x="464" y="430" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">  logs persistants (#198), historique</text>
+<rect x="64" y="484" width="360" height="310" rx="12" fill="#faece7" stroke="#993c1d" stroke-width="1"/>
+<text x="80" y="510" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#712B13" text-anchor="start">Securite et secrets</text>
+<text x="80" y="534" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">vault-api / vault-admin-api -- coffre-fort</text>
+<text x="80" y="551" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">  (RSA-2048 + AES-256, cle privee jamais</text>
+<text x="80" y="568" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">  transmise au serveur)</text>
+<text x="80" y="585" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">ssh-tunnels-api -- tunnels vers bases</text>
+<text x="80" y="602" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">  distantes, cles SSH (chiffrement</text>
+<text x="80" y="619" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">  prevu, pas encore migre)</text>
+<text x="80" y="636" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start"></text>
+<text x="80" y="653" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">shared/secret_crypto.py (#202) --</text>
+<text x="80" y="670" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">  PBKDF2-HMAC-SHA256 + Fernet</text>
+<text x="80" y="687" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">scripts/secrets_tool.py (#204-206) --</text>
+<text x="80" y="704" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">  CLI + alertes SMS/courriel PRA</text>
+<text x="80" y="721" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start"></text>
+<text x="80" y="738" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">Volontairement INDEPENDANTS du</text>
+<text x="80" y="755" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">coffre-fort et de Keycloak (evite la</text>
+<text x="80" y="772" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">boucle identifiee, voir PRA)</text>
+<rect x="448" y="484" width="384" height="310" rx="12" fill="#e1f5ee" stroke="#0f6e56" stroke-width="1"/>
+<text x="464" y="510" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#085041" text-anchor="start">Donnees et stockage</text>
+<text x="464" y="534" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">memcached -- cache partage, tampon</text>
+<text x="464" y="551" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">  de logs volatil (#145), registre des</text>
+<text x="464" y="568" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">  sources poussees</text>
+<text x="464" y="585" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">PostgreSQL x3 -- pixel-grid, tickets,</text>
+<text x="464" y="602" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">  geo-import (une base dediee chacun)</text>
+<text x="464" y="619" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">Elasticsearch -- indexation owncloud-</text>
+<text x="464" y="636" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">  search</text>
+<text x="464" y="653" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">SQLite -- un fichier par service</text>
+<text x="464" y="670" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">  (prefs-api, glpi-api, nebula-api,</text>
+<text x="464" y="687" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">  ged-api...), sur volumes dedies</text>
+<text x="464" y="704" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start"></text>
+<text x="464" y="721" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">persisted_logs (#198) -- archivage</text>
+<text x="464" y="738" font-family="Arial, sans-serif" font-size="12.5" font-weight="400" fill="#3d3d3a" text-anchor="start">  durable au-dessus du tampon volatil</text>
+<rect x="40" y="880" width="400" height="150" rx="16" fill="#f1efe8" stroke="#5f5e5a" stroke-width="1"/>
+<text x="56" y="904" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#444441" text-anchor="start">gateway/ -- stack SEPARE (livraison #135)</text>
+<text x="56" y="924" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#3d3d3a" text-anchor="start">Keycloak -- authentification unique (SSO)</text>
+<text x="56" y="941" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#3d3d3a" text-anchor="start">tls-proxy -- nginx, HTTPS, reecriture des</text>
+<text x="56" y="958" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#3d3d3a" text-anchor="start">  routes /api/&lt;module&gt;/</text>
+<text x="56" y="975" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#3d3d3a" text-anchor="start"></text>
+<text x="56" y="992" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#3d3d3a" text-anchor="start">Reseau Docker PARTAGE avec le stack</text>
+<text x="56" y="1009" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#3d3d3a" text-anchor="start">principal (supervision-si-net)</text>
+<path d="M440 920 L480 840" fill="none" stroke="#5f5e5a" stroke-width="1.3" marker-end="url(#arrGw)"/>
+<text x="460" y="905" font-family="Arial, sans-serif" font-size="11.5" font-weight="400" fill="#5f5e5a" text-anchor="start">Authentifie l'acces aux</text>
+<text x="460" y="920" font-family="Arial, sans-serif" font-size="11.5" font-weight="400" fill="#5f5e5a" text-anchor="start">portails du hub (SPA) --</text>
+<text x="460" y="935" font-family="Arial, sans-serif" font-size="11.5" font-weight="400" fill="#5f5e5a" text-anchor="start">pas les routes API elles-</text>
+<text x="460" y="950" font-family="Arial, sans-serif" font-size="11.5" font-weight="400" fill="#5f5e5a" text-anchor="start">memes (voir PRA, #203)</text>
+<rect x="920" y="170" width="400" height="106" rx="12" fill="#faeeda" stroke="#854f0b" stroke-width="1" stroke-dasharray="5,4"/>
+<text x="936" y="194" font-family="Arial, sans-serif" font-size="13.5" font-weight="700" fill="#633806" text-anchor="start">GLPI existant</text>
+<text x="936" y="214" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">Inventaire deja en place chez la</text>
+<text x="936" y="229" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">personne -- connecte via glpi-api (#192)</text>
+<text x="936" y="244" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">API historique apirest.php. Import Excel</text>
+<text x="936" y="259" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">livre, import Nebula-&gt;GLPI a construire.</text>
+<path d="M860 223.0 L920 223.0" fill="none" stroke="#854f0b" stroke-width="1.3" marker-end="url(#arrExt)"/>
+<rect x="920" y="294" width="400" height="106" rx="12" fill="#faeeda" stroke="#854f0b" stroke-width="1" stroke-dasharray="5,4"/>
+<text x="936" y="318" font-family="Arial, sans-serif" font-size="13.5" font-weight="700" fill="#633806" text-anchor="start">Zyxel Nebula (cloud)</text>
+<text x="936" y="338" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">Reseau interne gere par Nebula --</text>
+<text x="936" y="353" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">connecte via nebula-api (#196, #200).</text>
+<text x="936" y="368" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">API bloquee sans licence Pro Pack + cle</text>
+<text x="936" y="383" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">support. Import CSV (portail web) OK.</text>
+<path d="M860 347.0 L920 347.0" fill="none" stroke="#854f0b" stroke-width="1.3" marker-end="url(#arrExt)"/>
+<rect x="920" y="418" width="400" height="106" rx="12" fill="#faeeda" stroke="#854f0b" stroke-width="1" stroke-dasharray="5,4"/>
+<text x="936" y="442" font-family="Arial, sans-serif" font-size="13.5" font-weight="700" fill="#633806" text-anchor="start">Passerelle SMS -- Teltonika TRB140</text>
+<text x="936" y="462" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">Projet SEPARE (trb140-sms-relay),</text>
+<text x="936" y="477" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">integre via Keycloak SSO uniquement.</text>
+<text x="936" y="492" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">Route /send (machine, independante de</text>
+<text x="936" y="507" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">Keycloak) utilisee pour l'alerte PRA SMS.</text>
+<path d="M860 471.0 L920 471.0" fill="none" stroke="#854f0b" stroke-width="1.3" marker-end="url(#arrExt)"/>
+<rect x="920" y="542" width="400" height="76" rx="12" fill="#faeeda" stroke="#854f0b" stroke-width="1" stroke-dasharray="5,4"/>
+<text x="936" y="566" font-family="Arial, sans-serif" font-size="13.5" font-weight="700" fill="#633806" text-anchor="start">Annuaire LDAP/AD</text>
+<text x="936" y="586" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">Gere via ldap-admin-api -- comptes,</text>
+<text x="936" y="601" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">groupes, mots de passe.</text>
+<path d="M860 580.0 L920 580.0" fill="none" stroke="#854f0b" stroke-width="1.3" marker-end="url(#arrExt)"/>
+<rect x="920" y="636" width="400" height="76" rx="12" fill="#faeeda" stroke="#854f0b" stroke-width="1" stroke-dasharray="5,4"/>
+<text x="936" y="660" font-family="Arial, sans-serif" font-size="13.5" font-weight="700" fill="#633806" text-anchor="start">GED -- Mayan EDMS</text>
+<text x="936" y="680" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">Gestion electronique de documents,</text>
+<text x="936" y="695" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">deploiement Docker separe (mayan/).</text>
+<path d="M860 674.0 L920 674.0" fill="none" stroke="#854f0b" stroke-width="1.3" marker-end="url(#arrExt)"/>
+<rect x="920" y="730" width="400" height="91" rx="12" fill="#faeeda" stroke="#854f0b" stroke-width="1" stroke-dasharray="5,4"/>
+<text x="936" y="754" font-family="Arial, sans-serif" font-size="13.5" font-weight="700" fill="#633806" text-anchor="start">Bases de donnees distantes</text>
+<text x="936" y="774" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">Accessibles via ssh-tunnels-api --</text>
+<text x="936" y="789" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">clefs SSH stockees localement (chiffre-</text>
+<text x="936" y="804" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">ment prevu, pas encore migre).</text>
+<path d="M860 775.5 L920 775.5" fill="none" stroke="#854f0b" stroke-width="1.3" marker-end="url(#arrExt)"/>
+<rect x="920" y="839" width="400" height="106" rx="12" fill="#faeeda" stroke="#854f0b" stroke-width="1" stroke-dasharray="5,4"/>
+<text x="936" y="863" font-family="Arial, sans-serif" font-size="13.5" font-weight="700" fill="#633806" text-anchor="start">Equipements reseau supervises</text>
+<text x="936" y="883" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">Via zenoss-api / cacti-api / ipam-api</text>
+<text x="936" y="898" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">(supervision passive). Module SNMP actif</text>
+<text x="936" y="913" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">et agent d'exploration reseau : notes au</text>
+<text x="936" y="928" font-family="Arial, sans-serif" font-size="11.8" font-weight="400" fill="#633806" text-anchor="start">backlog (items 13, 20), pas construits.</text>
+<path d="M860 892.0 L920 892.0" fill="none" stroke="#854f0b" stroke-width="1.3" marker-end="url(#arrExt)"/>
+<text x="700" y="1100" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#888780" text-anchor="middle">Genere automatiquement a partir de docker-compose.yml, .env.example et des README de modules -- livraison #207.</text>
+</svg>

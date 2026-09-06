@@ -1,0 +1,12 @@
+{
+  "nom": "alertes_zenoss_email_exemple",
+  "type": "alerte_zenoss_email",
+  "kind": "integer_enum",
+  "description": "Alertes réelles issues des e-mails de notification Zenoss (Site A) — 1 = alerte active, 0 = résolution (clear). Chargé via parse_zenoss_emails.py, pas via generate.sh (données réelles, pas générées).",
+  "values": {
+    "0": "resolu",
+    "1": "alerte_active"
+  },
+  "seuil_taux_attention": 0.05,
+  "seuil_taux_alerte": 0.25
+}

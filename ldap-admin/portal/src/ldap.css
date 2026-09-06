@@ -1,0 +1,377 @@
+/* Couleurs (--bg, --panel, --border, --text, --muted, --accent,
+   --danger, --danger-bg, --ok, --ok-bg) définies dans theme.css
+   (partagé, importé avant ce fichier dans main.jsx). */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.ldap-shell { min-height: 100vh; }
+
+.muted { color: var(--muted); font-size: 13px; }
+
+/* --- En-tête --- */
+.ldap-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 24px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.ldap-header h1 { margin: 0; font-size: 17px; flex: 1; }
+.ldap-header-actions { display: flex; gap: 8px; }
+.ldap-hub-link {
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+.ldap-hub-link:hover { border-color: var(--accent); color: var(--accent); }
+
+/* --- Onglets --- */
+.tabs { display: flex; gap: 4px; padding: 0 24px; background: var(--panel); border-bottom: 1px solid var(--border); }
+.tabs button {
+  border: none;
+  background: none;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+}
+.tabs button.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+/* --- Écran de déverrouillage --- */
+.ldap-unlock-panel {
+  max-width: 440px;
+  margin: 15vh auto;
+  padding: 28px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  text-align: center;
+}
+.ldap-unlock-panel h1 { margin-top: 0; }
+.ldap-unlock-panel input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 14px;
+  margin: 14px 0;
+}
+.ldap-unlock-panel button.primary { width: 100%; }
+
+/* --- Boutons génériques --- */
+button.primary {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 7px 14px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+}
+button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+button.secondary {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+}
+button.danger {
+  background: var(--danger-bg);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  padding: 6px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+}
+button.danger:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.ldap-form-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 12px 24px; }
+.ldap-form-row select { padding: 6px 8px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; }
+
+/* --- Contenu principal --- */
+/* Chaque bloc de contenu (tableau, erreur, formulaire, diff) porte
+   déjà sa propre marge horizontale de 24px individuellement --
+   jamais besoin d'un conteneur wrapper dédié pour ça. */
+
+/* --- Tableau --- */
+.ldap-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 0 24px; width: calc(100% - 48px); }
+.ldap-table th, .ldap-table td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border); }
+.ldap-table th { background: var(--panel); font-weight: 600; }
+
+/* --- Messages --- */
+.ldap-error {
+  color: var(--danger);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger);
+  padding: 8px 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  margin: 8px 24px;
+}
+.ldap-success {
+  color: var(--ok);
+  background: var(--ok-bg);
+  border: 1px solid var(--ok);
+  padding: 8px 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  margin: 8px 0;
+}
+
+/* --- Modale de confirmation (réinitialisation de mot de passe) --- */
+.ldap-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+/* --- Navigateur en colonnes -- demandé explicitement, façon
+   phpLDAPadmin/Finder. --- */
+.ldap-browser-toolbar { display: flex; gap: 6px; margin: 0 24px 12px; }
+.ldap-browser-toolbar button {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  color: var(--text);
+  font: inherit;
+}
+.ldap-browser-toolbar button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.ldap-columns {
+  display: flex;
+  gap: 0;
+  margin: 0 24px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow-x: auto;
+  max-height: 60vh;
+}
+.ldap-column {
+  flex: 0 0 280px;
+  /* Élargie (220px -> 280px) : chaque colonne peut désormais
+     contenir un bloc d'attributs éditables en tête (voir
+     EntryDetailPanel avec `compact`, demandé explicitement), pas
+     seulement des libellés de navigation. Le conteneur parent
+     (.ldap-columns) reste défilable horizontalement -- jamais besoin
+     d'élargir davantage pour rester lisible sur un annuaire profond. */
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.ldap-column:last-child { border-right: none; }
+.ldap-column-no-children { padding: 8px 10px; font-size: 12px; }
+.ldap-column-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding: 8px 10px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 13px;
+  font: inherit;
+}
+.ldap-column-item span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ldap-column-item:hover { background: var(--bg); }
+.ldap-column-item.selected { background: color-mix(in srgb, var(--accent) 15%, var(--panel)); font-weight: 600; }
+.ldap-column-count {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 1px 7px;
+}
+
+.ldap-column-users { flex: 0 0 260px; padding: 8px; }
+.ldap-column-users h4 { margin: 4px 6px 8px; font-size: 12px; color: var(--muted); }
+.ldap-user-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.ldap-user-item:hover { background: var(--bg); }
+.ldap-user-item.selected { background: color-mix(in srgb, var(--accent) 15%, var(--panel)); font-weight: 600; }
+
+.ldap-json-view {
+  margin: 0 24px;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  overflow: auto;
+  max-height: 60vh;
+}
+
+/* Visualiseur d'arbre JSON complet -- demandé explicitement (couvrir
+   tout l'arbre par défaut, navigable avec +/-). */
+.ldap-json-node { margin: 2px 0; }
+.ldap-json-node-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.ldap-json-node-header:hover { background: var(--panel); }
+.ldap-json-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--accent);
+}
+.ldap-json-toggle-spacer { display: inline-block; width: 14px; flex-shrink: 0; }
+.ldap-json-dn { color: var(--text); }
+.ldap-json-node-body { margin-left: 20px; }
+.ldap-json-attrs {
+  margin: 2px 0 4px;
+  padding: 6px 8px;
+  background: var(--panel);
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* --- Panneau de détail/édition -- demandé explicitement ("éditer
+   tous les attributs à tous les niveaux, en particulier les
+   feuilles") : toujours visible sous les colonnes/JSON, montre
+   l'entrée actuellement sélectionnée, quelle que soit sa nature. --- */
+.ldap-detail-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  max-width: 700px;
+}
+.ldap-detail-panel h4 { margin: 0 0 2px; font-size: 15px; }
+.ldap-detail-dn { font-family: ui-monospace, monospace; font-size: 11px; margin: 0 0 14px; word-break: break-all; }
+.ldap-detail-attr { margin-bottom: 14px; }
+.ldap-detail-attr label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.ldap-detail-value-row { display: flex; gap: 6px; margin-bottom: 4px; }
+.ldap-detail-value-row input {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 13px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Intégré en tête de chaque colonne (demandé explicitement), plutôt
+   qu'un panneau séparé pleine largeur en bas -- s'adapte à la
+   largeur de la colonne au lieu d'un max-width fixe, un peu plus
+   resserré pour rester lisible dans l'espace disponible. */
+.ldap-detail-panel-compact {
+  max-width: none;
+  padding: 10px;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  border-bottom: 2px solid var(--accent);
+}
+.ldap-detail-panel-compact h4 { font-size: 13px; }
+.ldap-detail-panel-compact .ldap-detail-attr { margin-bottom: 10px; }
+.ldap-detail-panel-compact button.primary { font-size: 12px; padding: 5px 10px; }
+
+.ldap-modal {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 22px;
+  max-width: 440px;
+  width: 90%;
+}
+.ldap-modal h2 { margin-top: 0; font-size: 16px; }
+.ldap-modal label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+.ldap-modal input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 14px;
+}
+.ldap-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+/* --- Diff façon git --- */
+.ldap-diff-result { margin: 12px 24px; }
+.ldap-diff-group {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+.ldap-diff-group ul { margin: 6px 0 0; padding-left: 20px; font-size: 13px; }
+.ldap-diff-added { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 6%, var(--panel)); }
+.ldap-diff-removed { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 6%, var(--panel)); }
+.ldap-diff-modified { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--panel)); }
+.ldap-diff-entry { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+.ldap-diff-entry:first-of-type { margin-top: 6px; padding-top: 0; border-top: none; }
+.ldap-diff-dn { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+.ldap-diff-attr { font-size: 12px; margin-left: 12px; }
+.ldap-diff-attr-name { font-weight: 600; margin-right: 6px; }
+.ldap-diff-old { color: var(--danger); text-decoration: line-through; }
+.ldap-diff-new { color: var(--ok); }
+
+/* --- Badge de version -- même motif que les autres fronts --- */
+.version-badge {
+  position: fixed;
+  bottom: 6px;
+  right: 8px;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: help;
+  opacity: 0.7;
+  z-index: 999;
+}
+.version-badge:hover { opacity: 1; }

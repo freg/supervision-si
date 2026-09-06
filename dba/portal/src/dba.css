@@ -1,0 +1,288 @@
+/* Couleurs (--bg, --panel, --border, --text, --muted, --accent,
+   --danger, --danger-bg) désormais définies dans theme.css (partagé,
+   importé avant ce fichier dans main.jsx) -- plus dupliquées ici. */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.dba-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.dba-header h1 { margin: 0; font-size: 17px; }
+.dba-hub-link {
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+.dba-hub-link:hover { border-color: var(--accent); color: var(--accent); }
+
+.dba-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 24px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.dba-tabs button {
+  border: none;
+  background: none;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+}
+.dba-tabs button.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+.dba-main {
+  padding: 20px 24px;
+  /* Bug réel signalé (capture d'écran) : de l'espace inutilisé à
+     gauche et à droite alors que les tables de données bénéficient
+     directement de plus de largeur -- élargi (1200px -> 1600px). */
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.dba-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.dba-panel h2 { margin-top: 0; font-size: 15px; }
+
+.dba-form-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.dba-form-row input, .dba-form-row select {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 13px;
+}
+.dba-form-row input[type="password"] { min-width: 140px; }
+
+button.primary {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 7px 14px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+}
+button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+button.secondary {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+}
+button.danger {
+  background: var(--danger-bg);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  padding: 6px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.dba-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.dba-table th, .dba-table td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dba-table th { background: var(--bg); font-weight: 600; }
+
+/* Édition de cellule avec validation par ligne -- demandé
+   explicitement. */
+.dba-editable-cell { cursor: pointer; }
+.dba-editable-cell:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.dba-row-editing { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.dba-row-editing td { overflow: visible; }
+.dba-row-editing input {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  font-size: 13px;
+  background: var(--panel);
+  color: var(--text);
+}
+.dba-row-actions {
+  display: flex;
+  gap: 4px;
+  white-space: nowrap;
+  /* Bug réel signalé (les boutons valider/annuler nécessitaient un
+     défilement horizontal pour être vus, sur une table à beaucoup de
+     colonnes) : collée à droite du tableau défilable, reste
+     TOUJOURS visible quelle que soit la largeur de la table -- plus
+     jamais dépendante du défilement. background: inherit -- reprend
+     la couleur de la LIGNE (normale, en édition, ou sélectionnée),
+     jamais une couleur fixe qui détonnerait selon l'état de la
+     ligne. */
+  position: sticky;
+  right: 0;
+  background: inherit;
+  box-shadow: -4px 0 6px -4px rgba(0, 0, 0, 0.3);
+}
+.dba-row-actions button { font-size: 12px; padding: 4px 8px; }
+.dba-row-actions-col {
+  position: sticky;
+  right: 0;
+  background: var(--bg);
+}
+
+/* Sélection multiple + opérations en lot -- demandé explicitement. */
+.dba-panel-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.dba-panel-header-row h2 { margin: 0; }
+.dba-row-selected { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.dba-bulk-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  font-size: 13px;
+}
+.dba-bulk-toolbar button { font-size: 12px; padding: 5px 10px; }
+
+/* Modification de schéma -- demandé explicitement. */
+.dba-add-column-form { margin-bottom: 10px; }
+.dba-inline-checkbox { display: flex; align-items: center; gap: 5px; font-size: 13px; white-space: nowrap; }
+
+.dba-conn-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dba-conn-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.dba-conn-item:hover { border-color: var(--accent); }
+.dba-conn-item.selected {
+  border-color: var(--accent);
+  /* Bug réel signalé (capture d'écran) : #eff6ff codé en dur (bleu
+     très clair) ne s'adaptait jamais au thème sombre -- le texte
+     (couleur du thème, claire) devenait quasi invisible sur ce fond
+     accidentellement clair une fois en thème sombre. */
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+}
+.dba-engine-badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  margin-left: 8px;
+}
+
+.dba-muted { color: var(--muted); font-size: 13px; }
+.dba-error {
+  color: var(--danger);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger);
+  padding: 8px 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  margin: 8px 0;
+  white-space: pre-wrap;
+}
+.dba-success {
+  color: var(--ok);
+  background: var(--ok-bg);
+  border: 1px solid var(--ok);
+  padding: 8px 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  margin: 8px 0;
+}
+
+.dba-sql-editor {
+  width: 100%;
+  min-height: 140px;
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  resize: vertical;
+}
+
+.dba-pagination {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+/* Badge de version -- discret, coin inférieur droit, MÊME motif dans
+   les 5 fronts (voir shared/README.md) pour toujours savoir où
+   regarder, peu importe l'application ouverte. Contenu = hash du
+   CONTENU réel des fichiers (voir scripts/run.sh), pas juste un
+   horodatage -- reste stable tant que rien n'a changé, même après
+   plusieurs "--build" répétés. */
+.version-badge {
+  position: fixed;
+  bottom: 6px;
+  right: 8px;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: help;
+  opacity: 0.7;
+  z-index: 999;
+}
+.version-badge:hover { opacity: 1; }

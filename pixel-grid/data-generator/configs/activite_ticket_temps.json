@@ -1,0 +1,12 @@
+{
+  "nom": "activite_tickets_temps",
+  "type": "activite_ticket_temps",
+  "kind": "integer_enum",
+  "description": "Segments de temps sur tickets (ticket_time_entries, #115) -- 1 = début du segment, 0 = fin. nom = login du technicien (ou 'non_attribue'). Chargé via export_ticket_time_entries.py, pas via generate.sh.",
+  "values": {
+    "0": "fin_segment",
+    "1": "debut_segment"
+  },
+  "seuil_taux_attention": 0.05,
+  "seuil_taux_alerte": 0.25
+}

@@ -1,0 +1,131 @@
+/* Jetons de couleur -- voir theme.css (copié au build, comme les 3
+   autres fronts de la "famille 1", voir shared/theme.css) : plus de
+   couleurs codées en dur, --bg/--panel/--border/--text/--muted/
+   --accent/--danger/--ok appliquées via [data-theme]. Sélecteur de
+   thème demandé explicitement -- voir App.jsx. */
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+.admin-app { max-width: 900px; margin: 0 auto; padding: 24px; }
+/* Livraison #293 -- garde de connexion Keycloak, même motif que
+   vault-portal (.vault-center/.vault-card, voir vault/portal/src/vault.css). */
+.admin-app.admin-center { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 0; }
+.admin-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px;
+  max-width: 420px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.admin-card h1 { margin: 0; }
+.admin-header-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.admin-header h1 { margin-bottom: 4px; }
+.admin-nav { display: flex; gap: 8px; align-items: center; }
+.admin-nav a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+}
+.admin-nav a:hover { color: var(--text); border-color: var(--accent); }
+.admin-theme-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.admin-theme-toggle:hover { border-color: var(--accent); }
+.admin-muted { color: var(--muted); font-size: 13px; }
+.admin-hint { margin-top: 12px; }
+.admin-error { color: var(--danger); }
+
+.admin-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px;
+  margin-bottom: 16px;
+}
+.admin-form-row { display: flex; gap: 8px; }
+.admin-form-row input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: var(--text);
+}
+button.primary {
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  color: #fff;
+  cursor: pointer;
+}
+button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.admin-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.admin-table th, .admin-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+.admin-table th { font-size: 12px; color: var(--muted); font-weight: 600; }
+.admin-login-cell { font-weight: 600; }
+.admin-role-cell { position: relative; }
+.admin-role-cell input[type="checkbox"] { cursor: pointer; }
+.admin-saved-flash { color: var(--ok); margin-left: 6px; font-size: 12px; }
+
+.admin-filter-input {
+  width: 100%;
+  margin-bottom: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--text);
+}
+.admin-archived-badge { margin-left: 6px; font-size: 12px; }
+.admin-revealed-key {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+.admin-revealed-key code {
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.admin-reset-preview-list { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.admin-reset-preview-list li { padding: 4px 8px; border-radius: 4px; background: var(--bg); }
+.admin-reassignable { color: var(--ok); }
+.admin-orphan { color: var(--danger); }
+.admin-reset-done {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.admin-bootstrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 10px;
+}

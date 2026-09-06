@@ -1,0 +1,219 @@
+{
+  "type": "FeatureCollection",
+  "properties": {
+    "_note": "Échantillon de test — bâtiments avec typologie de logements et occupation potentielle DÉDUITE (pas des données officielles individuelles, ce niveau de détail réel provient des Fichiers fonciers DGFiP, à accès restreint aux acteurs publics). Géométrie simplifiée en point (centroïde) — l'emprise réelle des bâtiments viendrait de cadastre.data.gouv.fr (Etalab, open data). Nombre d'étages et de logements par étage inspirés de la structure BDNB (data.gouv.fr) mais VALEURS ILLUSTRATIVES. Modèle d'occupation : nb_logements_par_typologie x occupation_moyenne_par_typologie, avec occupation_moyenne fournie par l'utilisateur pour F1 (1.2) et F5 (2.6), valeurs F2/F3/F4 interpolées par Claude (1.8 / 2.3 / 2.5) — à ajuster si une vraie table de référence (ex: INSEE taille moyenne des ménages par typologie) est disponible.",
+    "modele_occupation_moyenne": {
+      "F1": 1.2,
+      "F2": 1.8,
+      "F3": 2.3,
+      "F4": 2.5,
+      "F5": 2.6
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.3522,
+          48.8566
+        ]
+      },
+      "properties": {
+        "id_batiment": "BAT-75056-0001",
+        "commune": "Paris",
+        "INSEE_CO": "75056",
+        "nb_etages": 4,
+        "nb_logements_par_etage": 3,
+        "nb_logements_total": 12,
+        "repartition_logements": {
+          "F1": 7,
+          "F2": 2,
+          "F3": 1,
+          "F4": 1,
+          "F5": 1
+        },
+        "repartition_pct": {
+          "F1": 58.3,
+          "F2": 16.7,
+          "F3": 8.3,
+          "F4": 8.3,
+          "F5": 8.3
+        },
+        "population_estimee": 19.4,
+        "date_estimation": "2026-08-01T09:00:00+00:00"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.354,
+          48.858
+        ]
+      },
+      "properties": {
+        "id_batiment": "BAT-75056-0002",
+        "commune": "Paris",
+        "INSEE_CO": "75056",
+        "nb_etages": 6,
+        "nb_logements_par_etage": 4,
+        "nb_logements_total": 24,
+        "repartition_logements": {
+          "F1": 12,
+          "F2": 6,
+          "F3": 3,
+          "F4": 2,
+          "F5": 1
+        },
+        "repartition_pct": {
+          "F1": 50.0,
+          "F2": 25.0,
+          "F3": 12.5,
+          "F4": 8.3,
+          "F5": 4.2
+        },
+        "population_estimee": 39.7,
+        "date_estimation": "2026-08-01T09:00:00+00:00"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.8357,
+          45.764
+        ]
+      },
+      "properties": {
+        "id_batiment": "BAT-69123-0001",
+        "commune": "Lyon",
+        "INSEE_CO": "69123",
+        "nb_etages": 5,
+        "nb_logements_par_etage": 2,
+        "nb_logements_total": 10,
+        "repartition_logements": {
+          "F1": 3,
+          "F2": 3,
+          "F3": 2,
+          "F4": 1,
+          "F5": 1
+        },
+        "repartition_pct": {
+          "F1": 30.0,
+          "F2": 30.0,
+          "F3": 20.0,
+          "F4": 10.0,
+          "F5": 10.0
+        },
+        "population_estimee": 18.7,
+        "date_estimation": "2026-07-15T09:00:00+00:00"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.838,
+          45.7615
+        ]
+      },
+      "properties": {
+        "id_batiment": "BAT-69123-0002",
+        "commune": "Lyon",
+        "INSEE_CO": "69123",
+        "nb_etages": 3,
+        "nb_logements_par_etage": 2,
+        "nb_logements_total": 6,
+        "repartition_logements": {
+          "F1": 1,
+          "F2": 2,
+          "F3": 2,
+          "F4": 1,
+          "F5": 0
+        },
+        "repartition_pct": {
+          "F1": 16.7,
+          "F2": 33.3,
+          "F3": 33.3,
+          "F4": 16.7,
+          "F5": 0.0
+        },
+        "population_estimee": 11.9,
+        "date_estimation": "2026-07-15T09:00:00+00:00"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -0.9497,
+          45.648
+        ]
+      },
+      "properties": {
+        "id_batiment": "BAT-17306-0001",
+        "commune": "Royan",
+        "INSEE_CO": "17306",
+        "nb_etages": 2,
+        "nb_logements_par_etage": 2,
+        "nb_logements_total": 4,
+        "repartition_logements": {
+          "F1": 0,
+          "F2": 1,
+          "F3": 1,
+          "F4": 1,
+          "F5": 1
+        },
+        "repartition_pct": {
+          "F1": 0.0,
+          "F2": 25.0,
+          "F3": 25.0,
+          "F4": 25.0,
+          "F5": 25.0
+        },
+        "population_estimee": 9.2,
+        "date_estimation": "2026-05-10T09:00:00+00:00"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          3.8767,
+          46.3833
+        ]
+      },
+      "properties": {
+        "id_batiment": "BAT-71177-0001",
+        "commune": "Digoin",
+        "INSEE_CO": "71177",
+        "nb_etages": 1,
+        "nb_logements_par_etage": 1,
+        "nb_logements_total": 1,
+        "repartition_logements": {
+          "F1": 0,
+          "F2": 0,
+          "F3": 0,
+          "F4": 1,
+          "F5": 0
+        },
+        "repartition_pct": {
+          "F1": 0.0,
+          "F2": 0.0,
+          "F3": 0.0,
+          "F4": 100.0,
+          "F5": 0.0
+        },
+        "population_estimee": 2.5,
+        "date_estimation": "2026-03-02T09:00:00+00:00"
+      }
+    }
+  ]
+}

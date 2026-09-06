@@ -1,0 +1,15 @@
+Flask==3.0.3
+flask-cors==4.0.1
+gunicorn==22.0.0
+pymemcache==4.0.0
+requests==2.32.3
+# cryptography -- livraison #213, stockage chiffré des cibles SNMP
+# (credential_crypto.py/shared/secret_crypto.py). Même version que
+# les autres services de ce projet qui en dépendent déjà.
+cryptography==43.0.1
+# pysnmp -- livraison #212, backlog item 13. Fork lextudio/pysnmp
+# (ACTIF -- l'original etingof/pysnmp est à l'abandon depuis 2022,
+# décès du mainteneur, vérifié avant de choisir cette dépendance).
+# Version 7.1.21 confirmée réellement publiée par deux sources
+# indépendantes (Cloudsmith, Tessl) avant d'être fixée ici.
+pysnmp==7.1.21

@@ -1,0 +1,33 @@
+{
+  "nom": "etat_switch_reseau_01",
+  "type": "etat",
+  "kind": "integer_enum",
+  "description": "État d'un équipement réseau : -1 aucune donnée, 0 normal, 1 erreur",
+  "values": {
+    "-1": "aucun",
+    "0": "normal",
+    "1": "erreur"
+  },
+  "start": "2024-08-10T00:00:00Z",
+  "end": "2026-08-10T00:00:00Z",
+  "interval_minutes": 1,
+  "probabilities": {
+    "-1": 0.03,
+    "0": 0.92,
+    "1": 0.05
+  },
+  "seuil_taux_attention": 0.03,
+  "seuil_taux_alerte": 0.15,
+  "incident_windows": [
+    {
+      "start": "2026-01-25T00:00:00Z",
+      "end": "2026-06-15T00:00:00Z",
+      "probabilities": { "-1": 0.05, "0": 0.55, "1": 0.40 },
+      "comment": "Fenêtre d'incident en cascade, probabilité d'erreur nettement accrue"
+    }
+  ],
+  "data_fields": {
+    "service": ["dns", "dhcp", "core-switch", "firewall", "wifi-controller"],
+    "os": ["Linux", "IOS-XE", "JunOS", "pfSense"]
+  }
+}

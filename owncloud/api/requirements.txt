@@ -1,0 +1,9 @@
+Flask==3.0.3
+flask-cors==4.0.1
+pymysql==1.1.1
+# Requis par pymysql pour les méthodes d'authentification par défaut de
+# MySQL 8+/MariaDB récents (caching_sha2_password, sha256_password) — sans
+# ce paquet, la connexion échoue avec "cryptography package is required".
+cryptography==43.0.1
+pymemcache==4.0.0
+gunicorn==22.0.0

@@ -1,0 +1,47 @@
+# Amorçage LDAP de test -- livraison #348, backlog "package complet
+# autonome" (2026-09-05, demandé explicitement : "as tu prévu des
+# données ldap ou un bouchon ldap ?"). Voir gateway/README.md pour le
+# cadrage complet.
+#
+# Structure MINIMALE -- juste des utilisateurs (inetOrgPerson,
+# attributs uid/entryUUID par défaut, correspondant EXACTEMENT aux
+# défauts déjà attendus par keycloak/render.py -- LDAP_USERNAME_ATTR,
+# LDAP_UUID_ATTR, LDAP_USER_OBJECT_CLASSES). Jamais de groupes LDAP
+# ici -- LDAP_ROLES_ENABLED reste à "false" par défaut dans ce
+# projet (rôles Keycloak assignés à la main dans la console), pas
+# besoin de structure de groupes pour ce premier jet.
+#
+# Mot de passe de test IDENTIQUE pour tous : "password" -- clairement
+# un jeu de données de TEST, jamais destiné à un usage réel (voir
+# l'avertissement dans gateway/README.md).
+
+dn: ou=users,dc=supervision-si,dc=local
+objectClass: organizationalUnit
+ou: users
+
+dn: uid=alice,ou=users,dc=supervision-si,dc=local
+objectClass: inetOrgPerson
+uid: alice
+cn: Alice Dupont
+sn: Dupont
+givenName: Alice
+mail: alice@supervision-si.local
+userPassword: password
+
+dn: uid=bob,ou=users,dc=supervision-si,dc=local
+objectClass: inetOrgPerson
+uid: bob
+cn: Bob Martin
+sn: Martin
+givenName: Bob
+mail: bob@supervision-si.local
+userPassword: password
+
+dn: uid=admin_test,ou=users,dc=supervision-si,dc=local
+objectClass: inetOrgPerson
+uid: admin_test
+cn: Admin Test
+sn: Test
+givenName: Admin
+mail: admin_test@supervision-si.local
+userPassword: password

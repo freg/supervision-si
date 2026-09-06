@@ -1,0 +1,370 @@
+{
+  "realm": "supervision-si",
+  "displayName": "Supervision SI",
+  "loginTheme": "hub-dark",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": true,
+  "loginWithEmailAllowed": false,
+  "duplicateEmailsAllowed": true,
+  "internationalizationEnabled": true,
+  "supportedLocales": ["fr", "en"],
+  "defaultLocale": "fr",
+  "roles": {
+    "realm": [
+      { "name": "admin", "description": "Administration : base, incidents projet, statistiques, connecteurs" },
+      { "name": "demandeur", "description": "Client : crée et suit ses demandes, sous-demandes, forum/chat" },
+      { "name": "technicien", "description": "Traite les tickets, fait évoluer les statuts, dialogue avec les demandeurs" },
+      { "name": "politique", "description": "Synthèse, Gantt, priorités, clôture/réouverture des demandes" },
+      { "name": "supervision", "description": "Accès à Supervision SI (carte, arbres radiaux, IPAM, Zenoss, géomatique...) depuis le hub — indépendant des 4 rôles du portail tickets" },
+      { "name": "service", "description": "Accès au coffre-fort de codes/secrets (contrôles d'accès, équipements sécurisés) depuis le hub — distinct de 'technicien' : tous les techniciens n'ont pas forcément besoin des codes physiques" },
+      { "name": "maitre_clefs", "description": "Accès de secours au coffre-fort : peut usurper le compte maître_principal pour retrouver une clé de récupération archivée. Réservé au LAN, journalisé, notifié par email — voir vault/README.md" },
+      { "name": "send", "description": "TRB140 (passerelle SMS) — droit existant côté application, nom repris tel quel (voir trb140-sms-relay/README.md côté ce projet-là pour la sémantique exacte)" },
+      { "name": "full", "description": "TRB140 (passerelle SMS) — droit existant côté application, nom repris tel quel" },
+      { "name": "compose", "description": "TRB140 (passerelle SMS) — droit existant côté application, nom repris tel quel" },
+      { "name": "history", "description": "TRB140 (passerelle SMS) — droit existant côté application, nom repris tel quel" },
+      { "name": "cron", "description": "TRB140 (passerelle SMS) — droit existant côté application, nom repris tel quel" },
+      { "name": "event", "description": "TRB140 (passerelle SMS) — droit existant côté application, nom repris tel quel" },
+      { "name": "logs", "description": "TRB140 (passerelle SMS) — droit existant côté application, nom repris tel quel" },
+      { "name": "inbox", "description": "TRB140 (passerelle SMS) — droit existant côté application, nom repris tel quel" },
+      { "name": "filters", "description": "TRB140 (passerelle SMS) — droit existant côté application, nom repris tel quel" },
+      { "name": "admin_hub", "description": "Administration du HUB (droits, fichiers internes) — distinct du rôle 'admin' (portail tickets). Donne tous les droits, y compris gérer les droits des autres." }
+    ]
+  },
+  "groups": [
+    {
+      "name": "administrateurs",
+      "realmRoles": ["admin"],
+      "clientRoles": { "realm-management": ["realm-admin"] }
+    },
+    { "name": "demandeurs", "realmRoles": ["demandeur"] },
+    {
+      "name": "techniciens",
+      "realmRoles": ["technicien"],
+      "clientRoles": { "realm-management": ["view-users", "view-realm", "view-clients", "query-users", "query-groups"] }
+    },
+    { "name": "direction", "realmRoles": ["politique"] },
+    { "name": "supervision", "realmRoles": ["supervision"] },
+    { "name": "service", "realmRoles": ["service"] },
+    { "name": "maitre_clefs", "realmRoles": ["maitre_clefs"] },
+    { "name": "admin_hub", "realmRoles": ["admin_hub"] }
+  ],
+  "clients": [
+    {
+      "clientId": "supervision-frontend",
+      "name": "Frontend interne Supervision SI",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": ["__FRONTEND_PUBLIC_URL__/*", "__FRONTEND_PUBLIC_URL__"],
+      "webOrigins": ["__FRONTEND_PUBLIC_URL__"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "__FRONTEND_PUBLIC_URL__/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-apis",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "supervision-apis",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "tickets-portal",
+      "name": "Portail tickets multi-profils",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": ["__PORTAL_PUBLIC_URL__/*", "__PORTAL_PUBLIC_URL__"],
+      "webOrigins": ["__PORTAL_PUBLIC_URL__"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "__PORTAL_PUBLIC_URL__/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-apis",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "supervision-apis",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        },
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "vault-portal",
+      "name": "Coffre-fort de codes/secrets",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": ["__VAULT_PUBLIC_URL__/*", "__VAULT_PUBLIC_URL__"],
+      "webOrigins": ["__VAULT_PUBLIC_URL__"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "__VAULT_PUBLIC_URL__/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "vault-admin-portal",
+      "name": "Coffre-fort — administration des rôles",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": ["__VAULT_ADMIN_PORTAL_PUBLIC_URL__/*", "__VAULT_ADMIN_PORTAL_PUBLIC_URL__"],
+      "webOrigins": ["__VAULT_ADMIN_PORTAL_PUBLIC_URL__"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "__VAULT_ADMIN_PORTAL_PUBLIC_URL__/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "supervision-hub",
+      "name": "Portail d'accès Supervision SI",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": ["__HUB_PUBLIC_URL__/*", "__HUB_PUBLIC_URL__"],
+      "webOrigins": ["__HUB_PUBLIC_URL__"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "__HUB_PUBLIC_URL__/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-apis",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "supervision-apis",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        },
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "supervision-apis",
+      "name": "APIs Supervision SI (validation de jetons)",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "bearerOnly": true
+    },
+    {
+      "clientId": "trb140-sms-relay",
+      "name": "Passerelle SMS TRB140",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": ["__TRB140_SMS_RELAY_URL__/auth/callback"],
+      "webOrigins": ["__TRB140_SMS_RELAY_URL__"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "__TRB140_SMS_RELAY_URL__/*"
+      }
+    },
+    {
+      "clientId": "prefs-api-service",
+      "name": "prefs-api (compte de service -- provisionnement de clients OIDC)",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "secret": "__PREFS_API_SERVICE_SECRET__"
+    }
+  ],
+  "users": [
+    {
+      "username": "service-account-prefs-api-service",
+      "enabled": true,
+      "serviceAccountClientId": "prefs-api-service",
+      "clientRoles": {
+        "realm-management": ["manage-clients"]
+      }
+    }
+  ],
+  "components": {
+    "org.keycloak.storage.UserStorageProvider": [
+      {
+        "name": "annuaire-ldap",
+        "providerId": "ldap",
+        "subComponents": {
+          "org.keycloak.storage.ldap.mappers.LDAPStorageMapper": [
+            {
+              "name": "username",
+              "providerId": "user-attribute-ldap-mapper",
+              "config": {
+                "user.model.attribute": ["username"],
+                "ldap.attribute": ["__LDAP_USERNAME_ATTR__"],
+                "read.only": ["true"],
+                "always.read.value.from.ldap": ["false"],
+                "is.mandatory.in.ldap": ["true"]
+              }
+            },
+            {
+              "name": "email",
+              "providerId": "user-attribute-ldap-mapper",
+              "config": {
+                "user.model.attribute": ["email"],
+                "ldap.attribute": ["mail"],
+                "read.only": ["true"],
+                "always.read.value.from.ldap": ["false"],
+                "is.mandatory.in.ldap": ["false"]
+              }
+            },
+            {
+              "name": "first name",
+              "providerId": "user-attribute-ldap-mapper",
+              "config": {
+                "user.model.attribute": ["firstName"],
+                "ldap.attribute": ["givenName"],
+                "read.only": ["true"],
+                "always.read.value.from.ldap": ["true"],
+                "is.mandatory.in.ldap": ["false"]
+              }
+            },
+            {
+              "name": "last name",
+              "providerId": "user-attribute-ldap-mapper",
+              "config": {
+                "user.model.attribute": ["lastName"],
+                "ldap.attribute": ["sn"],
+                "read.only": ["true"],
+                "always.read.value.from.ldap": ["true"],
+                "is.mandatory.in.ldap": ["false"]
+              }
+            }
+          ]
+        },
+        "config": {
+          "enabled": ["true"],
+          "priority": ["0"],
+          "editMode": ["__LDAP_EDIT_MODE__"],
+          "syncRegistrations": ["false"],
+          "vendor": ["__LDAP_VENDOR__"],
+          "usernameLDAPAttribute": ["__LDAP_USERNAME_ATTR__"],
+          "rdnLDAPAttribute": ["__LDAP_RDN_ATTR__"],
+          "uuidLDAPAttribute": ["__LDAP_UUID_ATTR__"],
+          "userObjectClasses": ["__LDAP_USER_OBJECT_CLASSES__"],
+          "connectionUrl": ["__LDAP_URL__"],
+          "usersDn": ["__LDAP_USERS_DN__"],
+          "authType": ["simple"],
+          "bindDn": ["__LDAP_BIND_DN__"],
+          "bindCredential": ["__LDAP_BIND_PASSWORD__"],
+          "customUserSearchFilter": ["__LDAP_SEARCH_FILTER__"],
+          "searchScope": ["2"],
+          "useTruststoreSpi": ["ldapsOnly"],
+          "startTls": ["__LDAP_START_TLS__"],
+          "connectionPooling": ["true"],
+          "pagination": ["true"],
+          "trustEmail": ["true"],
+          "batchSizeForSync": ["1000"],
+          "importEnabled": ["true"],
+          "allowKerberosAuthentication": ["false"]
+        }
+      }
+    ]
+  }
+}

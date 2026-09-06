@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Supervision SI — Lanceur</title>
+    <link rel="stylesheet" href="launcher.css" />
+  </head>
+  <body>
+    <header>
+      <h1>🚦 Lanceur — Supervision SI</h1>
+      <p class="muted">
+        Un clic sur un feu <strong>rouge</strong> démarre le service, un clic sur un feu
+        <strong>vert</strong> l'arrête. L'orange signale une action en cours — jamais
+        cliquable tant que le nouvel état n'est pas confirmé.
+      </p>
+    </header>
+    <main id="grid" class="grid">
+      <p class="muted">Chargement de la liste des services…</p>
+    </main>
+    <script type="module" src="launcher.js"></script>
+  </body>
+</html>

@@ -1,0 +1,49 @@
+# Dépendances et caches
+node_modules/
+__pycache__/
+*.pyc
+
+# Bases locales (SQLite) et données de travail
+*.db
+
+# Secrets et configuration locale — .env.example versionné à la place
+.env
+# Résumé des secrets générés par scripts/generate-env.sh -- mêmes
+# raisons que .env ci-dessus, jamais un fichier séparé qui échapperait
+# à cette règle par accident.
+.env.generated-secrets.txt
+keycloak/import/
+# ⚠️ Correctif réel (2026-09-04, signalé par la personne en plein
+# déploiement) : "keycloak/backup/" en exclusion GLOBALE effaçait
+# aussi le Dockerfile et backup-loop.sh, du VRAI code source commis
+# dans ce dossier -- au premier `git clone`, le service
+# `keycloak-backup` (gateway/docker-compose.yml) se retrouvait sans
+# Dockerfile, `docker compose build` échouait avec "Dockerfile: no
+# such file or directory". Corrigé -- seuls les artefacts de
+# sauvegarde RÉELS (écrits par backup-loop.sh à l'exécution) sont
+# désormais exclus, jamais le dossier entier.
+keycloak/backup/*.json
+keycloak/backup/.*.json.tmp
+pki/ca/
+pki/server/
+tls-proxy/generated/
+apache/generated/
+vault-standalone/keycloak/import/
+vault-standalone/pki/
+vault-standalone/tls-proxy/generated/
+vault-standalone/data/
+
+# Clés privées SSH RÉELLES (livraison #159) -- jamais versionnées,
+# contrairement aux autres dossiers de données déjà couverts par
+# *.db ci-dessus, celui-ci contient directement du secret sensible.
+ssh-tunnels/keys/*
+!ssh-tunnels/keys/README.md
+ssh-tunnels/mounts/*
+!ssh-tunnels/mounts/README.md
+prefs-api/log-files/*
+!prefs-api/log-files/README.md
+docker-monitor/analysis/*
+!docker-monitor/analysis/README.md
+
+# Archives de livraison
+*.zip

@@ -1,0 +1,11 @@
+Flask==3.0.3
+flask-cors==4.0.1
+gunicorn==22.0.0
+pymemcache==4.0.0
+# docker (docker-py) -- livraison #376, SDK officiel Docker Inc. pour
+# parler à l'API Docker via le socket monté (/var/run/docker.sock,
+# voir docker-compose.yml et le docstring de app.py pour le
+# raisonnement sécurité complet) -- même principe que Portainer.
+# Version 7.2.0 confirmée réellement publiée (PyPI, juillet 2026,
+# maintenue par Docker Inc.) avant d'être fixée ici.
+docker==7.2.0

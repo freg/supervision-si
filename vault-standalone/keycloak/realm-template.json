@@ -1,0 +1,125 @@
+{
+  "realm": "vault-standalone",
+  "displayName": "Coffre-fort — instance isolée",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "internationalizationEnabled": true,
+  "supportedLocales": ["fr"],
+  "defaultLocale": "fr",
+  "roles": {
+    "realm": []
+  },
+  "groups": [],
+  "clients": [
+    {
+      "clientId": "vault-portal",
+      "name": "Coffre-fort de codes/secrets (isolé)",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": [
+        "__VAULT_STANDALONE_PUBLIC_URL__/*",
+        "__VAULT_STANDALONE_PUBLIC_URL__"
+      ],
+      "webOrigins": [
+        "__VAULT_STANDALONE_PUBLIC_URL__"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "__VAULT_STANDALONE_PUBLIC_URL__/*"
+      }
+    }
+  ],
+  "components": {
+    "org.keycloak.storage.UserStorageProvider": [
+      {
+        "name": "annuaire-ldap",
+        "providerId": "ldap",
+        "subComponents": {
+          "org.keycloak.storage.ldap.mappers.LDAPStorageMapper": [
+            {
+              "name": "username",
+              "providerId": "user-attribute-ldap-mapper",
+              "config": {
+                "user.model.attribute": ["username"],
+                "ldap.attribute": ["__LDAP_USERNAME_ATTR__"],
+                "read.only": ["true"],
+                "always.read.value.from.ldap": ["false"],
+                "is.mandatory.in.ldap": ["true"]
+              }
+            },
+            {
+              "name": "email",
+              "providerId": "user-attribute-ldap-mapper",
+              "config": {
+                "user.model.attribute": ["email"],
+                "ldap.attribute": ["mail"],
+                "read.only": ["true"],
+                "always.read.value.from.ldap": ["false"],
+                "is.mandatory.in.ldap": ["false"]
+              }
+            },
+            {
+              "name": "first name",
+              "providerId": "user-attribute-ldap-mapper",
+              "config": {
+                "user.model.attribute": ["firstName"],
+                "ldap.attribute": ["givenName"],
+                "read.only": ["true"],
+                "always.read.value.from.ldap": ["true"],
+                "is.mandatory.in.ldap": ["false"]
+              }
+            },
+            {
+              "name": "last name",
+              "providerId": "user-attribute-ldap-mapper",
+              "config": {
+                "user.model.attribute": ["lastName"],
+                "ldap.attribute": ["sn"],
+                "read.only": ["true"],
+                "always.read.value.from.ldap": ["true"],
+                "is.mandatory.in.ldap": ["false"]
+              }
+            }
+          ]
+        },
+        "config": {
+          "enabled": ["true"],
+          "priority": ["0"],
+          "editMode": ["__LDAP_EDIT_MODE__"],
+          "syncRegistrations": ["false"],
+          "vendor": ["__LDAP_VENDOR__"],
+          "usernameLDAPAttribute": ["__LDAP_USERNAME_ATTR__"],
+          "rdnLDAPAttribute": ["__LDAP_RDN_ATTR__"],
+          "uuidLDAPAttribute": ["__LDAP_UUID_ATTR__"],
+          "userObjectClasses": ["__LDAP_USER_OBJECT_CLASSES__"],
+          "connectionUrl": ["__LDAP_URL__"],
+          "usersDn": ["__LDAP_USERS_DN__"],
+          "authType": ["simple"],
+          "bindDn": ["__LDAP_BIND_DN__"],
+          "bindCredential": ["__LDAP_BIND_PASSWORD__"],
+          "customUserSearchFilter": ["__LDAP_SEARCH_FILTER__"],
+          "searchScope": ["2"],
+          "useTruststoreSpi": ["ldapsOnly"],
+          "startTls": ["__LDAP_START_TLS__"],
+          "connectionPooling": ["true"],
+          "pagination": ["true"],
+          "trustEmail": ["true"],
+          "batchSizeForSync": ["1000"],
+          "importEnabled": ["true"],
+          "allowKerberosAuthentication": ["false"]
+        }
+      }
+    ]
+  }
+}

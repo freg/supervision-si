@@ -1,0 +1,306 @@
+# Stack SÉPARÉ pour Keycloak + tls-proxy -- cycle de vie indépendant
+# du reste de la plateforme (backlog, livraison #135). Demandé
+# explicitement par la personne : une application externe
+# (trb140-sms-relay) dépend maintenant de la disponibilité de
+# Keycloak, qui ne devrait plus subir les redémarrages/arrêts
+# fréquents des ~20 services applicatifs du stack principal (en
+# évolution constante).
+#
+# MÊME realm Keycloak que le stack principal -- PAS une instance
+# séparée comme vault-standalone/ (qui a résolu un problème proche en
+# DUPLIQUANT Keycloak) : ici, les clients OIDC déjà configurés (ex.
+# trb140-sms-relay, provisionné à la main en #123, adopté depuis
+# l'écran "Liens externes" en #126) doivent continuer à fonctionner
+# SANS reconfiguration.
+#
+# Réseau Docker PARTAGÉ avec le stack principal (voir `networks:`
+# ci-dessous ET dans ../docker-compose.yml, MÊME nom des deux côtés)
+# -- tls-proxy doit continuer à joindre les ~20 services du stack
+# principal par leur nom Docker interne, ce qui ne fonctionne QUE sur
+# le même réseau. Créé de façon IDEMPOTENTE par les DEUX run.sh (ce
+# dossier ET le principal) -- peu importe lequel démarre en premier,
+# aucun des deux ne "possède" ce réseau au sens Compose (les deux le
+# déclarent `external: true`, jamais supprimé par un `down` de l'un
+# ou l'autre).
+#
+# `depends_on` volontairement ABSENT sur tls-proxy pour les 21
+# services du stack principal (present avant l'extraction) -- Compose
+# NE PERMET PAS un depends_on vers un service défini dans un AUTRE
+# docker-compose.yml. Rendu ACCEPTABLE par la résolution DNS DYNAMIQUE
+# de tls-proxy (livraison #134, voir ../tls-proxy/render_nginx_conf.py)
+# -- nginx démarre TOUJOURS désormais, même si ces services n'existent
+# pas encore (502 le temps qu'ils apparaissent, jamais un refus de
+# démarrer comme avant ce prérequis).
+#
+# Chemins relatifs (./keycloak/import, ./pki/server, etc.) VOLONTAIREMENT
+# identiques à ceux de ../docker-compose.yml, PAS préfixés par "../" --
+# gateway/scripts/run.sh invoque `docker compose` avec
+# `--project-directory` pointant vers la RACINE du projet, donc ces
+# chemins se résolvent exactement comme s'ils vivaient à la racine.
+# Change ce fichier de dossier sans passer par gateway/scripts/run.sh
+# (docker compose direct, ici) romprait cette résolution -- toujours
+# passer par le script.
+#
+#   cd gateway && ./scripts/run.sh up -d --build
+#   (ou depuis la racine : ./scripts/run-all.sh gateway up -d --build)
+#
+# MIGRATION depuis le stack principal (une seule fois) : voir
+# gateway/README.md -- le volume Keycloak existant doit être référencé
+# EXPLICITEMENT (ci-dessous, `external: true`) pour ne PAS repartir
+# d'un realm vide, le nom de projet Compose changeant forcément change
+# aussi le nom AUTO-généré du volume.
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: ["start-dev", "--import-realm"]
+    environment:
+      # Noms Keycloak >= 26 + anciens noms en tolérance de version.
+      - KC_BOOTSTRAP_ADMIN_USERNAME=${KEYCLOAK_ADMIN_USER:-admin}
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-change-me}
+      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN_USER:-admin}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-change-me}
+      # Compte de SERVICE de bootstrap (livraison #361) -- EN PLUS de
+      # l'utilisateur ci-dessus, jamais à sa place (l'utilisateur
+      # reste utile pour un premier accès humain à la console
+      # d'admin). Demandé par la personne, qui avait trouvé
+      # elle-même la commande `bootstrap-admin service` en explorant
+      # l'image Keycloak. Documentation officielle Keycloak
+      # (keycloak.org/server/bootstrap-admin-recovery) : "a temporary
+      # admin SERVICE ACCOUNT can be a more suitable alternative...
+      # for automated scenarios" -- exactement le cas de
+      # keycloak-backup/tickets-api/group_memberships.py, qui
+      # authentifiaient jusqu'ici via grant_type=password sur
+      # l'utilisateur de bootstrap ci-dessus (voir keycloak/README.md
+      # pour l'historique complet : la personne a signalé des échecs
+      # d'authentification répétés après un premier succès, cause
+      # jamais confirmée à 100% -- ce changement suit la
+      # recommandation officielle plutôt que d'attendre une
+      # confirmation qui pourrait ne jamais arriver en conditions de
+      # développement). grant_type=client_credentials, jamais soumis
+      # à la même mécanique "temporaire" documentée pour un compte
+      # UTILISATEUR de bootstrap.
+      - KC_BOOTSTRAP_ADMIN_CLIENT_ID=${KEYCLOAK_SERVICE_CLIENT_ID:-supervision-si-service}
+      - KC_BOOTSTRAP_ADMIN_CLIENT_SECRET=${KEYCLOAK_SERVICE_CLIENT_SECRET:-change-me}
+      # Entrée unique par chemin (tls-proxy route /auth/ vers ce
+      # service) : Keycloak doit connaître ce même préfixe pour générer
+      # ses propres liens/redirections cohérents avec ce qu'expose
+      # réellement le proxy — voir ../tls-proxy/README.md et
+      # ../tls-proxy/render_nginx_conf.py.
+      - KC_HTTP_RELATIVE_PATH=/auth/
+      # Bug réel rencontré en test (URLs générées en http://, sans
+      # port) : Keycloak, derrière un proxy, ne déduit PAS tout seul
+      # son adresse publique -- voir ../docker-compose.yml (raisonnement
+      # complet, identique ici) pour KC_HOSTNAME/KC_PROXY_HEADERS/
+      # KC_HTTP_ENABLED/KC_HOSTNAME_STRICT.
+      - KC_HTTP_ENABLED=true
+      - KC_HOSTNAME=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/auth/
+      - KC_PROXY_HEADERS=xforwarded
+      - KC_HOSTNAME_STRICT=false
+    # Limite mémoire EXPLICITE (livraison #363) -- signalé en
+    # conditions réelles par la personne : le process Java de
+    # l'étape de build Keycloak ("build-and-exit=true", avant même le
+    # démarrage réel) se faisait tuer ("Killed" -- signature Linux
+    # d'un OOM killer), empêchant tout démarrage. Cause : SANS limite
+    # mémoire de conteneur, Keycloak calcule son tas JVM en
+    # pourcentage (`-XX:MaxRAMPercentage=70`/`-XX:InitialRAMPercentage=50`,
+    # défauts documentés de Keycloak lui-même depuis la 24.0, voir
+    # keycloak.org/2024/03/keycloak-2400-released) -- SANS cgroup
+    # borné, ce pourcentage se calcule sur la mémoire TOTALE visible
+    # par le conteneur (celle de la VM Docker Desktop entière, pas
+    # une portion raisonnable) -- avec 40+ conteneurs de ce projet
+    # tournant simultanément, la demande cumulée peut dépasser ce qui
+    # est réellement disponible, l'OOM killer du noyau tue alors le
+    # plus gros consommateur récent (le JVM de build, ici). Une limite
+    # explicite borne le calcul en pourcentage à une valeur PRÉVISIBLE
+    # (~1 Go de tas max sur cette limite) plutôt que de laisser
+    # Keycloak présumer toute la mémoire de la machine hôte -- valeur
+    # choisie par prudence (retours communautaires Keycloak : même
+    # 512 Mo peut ne pas suffire pour ce mode dev + import de realm).
+    # ⚠️ Si l'OOM persiste malgré cette limite, le problème est
+    # probablement l'allocation mémoire GLOBALE de Docker Desktop
+    # elle-même (Réglages → Ressources → Mémoire) -- à vérifier/
+    # augmenter côté personne, aucun réglage de ce fichier ne peut
+    # compenser une VM Docker Desktop elle-même trop limitée pour tous
+    # ces conteneurs à la fois.
+    mem_limit: 1536m
+    ports:
+      # Accès direct de secours, réservé au LAN -- même raisonnement
+      # que ../docker-compose.yml (voir ce fichier pour le détail
+      # complet, notamment le bug HOST_IP-multi-cartes déjà rencontré
+      # et corrigé -- lié sur toutes les interfaces, jamais une IP
+      # précise).
+      - "${KEYCLOAK_PORT:-6180}:8080"
+    volumes:
+      # ATTENTION -- volume EXTERNE (voir bloc `volumes:` en bas de ce
+      # fichier) : c'est CELUI DU STACK PRINCIPAL, référencé
+      # explicitement pour PRÉSERVER le realm existant à la migration
+      # (voir gateway/README.md) -- jamais un volume neuf qui repartirait
+      # d'un realm vide.
+      - keycloak_data:/opt/keycloak/data
+      - ${KEYCLOAK_IMPORT_DIR:-./keycloak/import}:/opt/keycloak/data/import:ro
+      # Thèmes de connexion personnalisés (livraison #275) --
+      # ⚠️ chaque thème monté INDIVIDUELLEMENT sur SON PROPRE
+      # sous-dossier, JAMAIS tout /opt/keycloak/themes d'un coup --
+      # un montage sur le dossier PARENT remplacerait entièrement le
+      # contenu du conteneur à ce chemin, effaçant les thèmes intégrés
+      # (keycloak, base, keycloak.v2) dont `parent=keycloak` dépend.
+      - ./keycloak/themes/hub:/opt/keycloak/themes/hub:ro
+      - ./keycloak/themes/hub-dark:/opt/keycloak/themes/hub-dark:ro
+
+  keycloak-backup:
+    build: ./keycloak/backup
+    environment:
+      - KEYCLOAK_ADMIN_USER=${KEYCLOAK_ADMIN_USER:-admin}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-change-me}
+      - KEYCLOAK_BACKUP_INTERVAL_SECONDS=${KEYCLOAK_BACKUP_INTERVAL_SECONDS:-1800}
+    volumes:
+      # Même répertoire que ../keycloak/render.py lit (tourne sur
+      # L'HÔTE, pas en conteneur, voir ../keycloak/README.md) --
+      # DOIT rester identique à KEYCLOAK_BACKUP_DIR côté principal.
+      - ${KEYCLOAK_BACKUP_DIR:-./keycloak/backup}:/backup
+    depends_on:
+      - keycloak
+
+  # --- openldap-test (livraison #348) --------------------------------
+  # Annuaire LDAP de TEST, pour un package complet autonome (demandé
+  # explicitement : "as tu prévu des données ldap ou un bouchon
+  # ldap ?"). Sans lui, ni la fédération LDAP de Keycloak
+  # (LDAP_URL/BIND_DN pointant par défaut vers ldap.example.local,
+  # inexistant) ni ldap-admin-api n'ont quoi que ce soit à consulter --
+  # et Keycloak n'a par ailleurs AUCUN utilisateur local humain défini
+  # dans le realm (uniquement un compte de service technique), donc
+  # AUCUNE connexion possible au hub sans un LDAP fonctionnel, même
+  # minimal.
+  #
+  # ⚠️ DONNÉES DE TEST UNIQUEMENT -- 3 comptes (alice/bob/admin_test),
+  # même mot de passe pour tous ("password", voir ldap-seed/bootstrap.ldif),
+  # jamais destiné à un usage réel. Pour du LDAP réel, pointer
+  # LDAP_URL/LDAP_BIND_DN/etc. (.env) vers votre annuaire existant --
+  # ce conteneur reste alors simplement inutilisé (peut être retiré de
+  # ce fichier ou laissé tourner sans conséquence, personne d'autre ne
+  # le consomme).
+  #
+  # Amorçage LDIF automatique -- UNIQUEMENT au tout premier démarrage
+  # (volume de données vide) : osixia/openldap importe tout fichier
+  # sous bootstrap/ldif/custom/ une seule fois, jamais réimporté aux
+  # démarrages suivants même si le fichier change (comportement de
+  # l'image, pas de ce projet -- supprimer le volume pour forcer un
+  # réamorçage si le LDIF est modifié).
+  openldap-test:
+    image: osixia/openldap:1.5.0
+    # ⚠️ CORRIGÉ (livraison #378) -- `--copy-service` (ajouté en #364
+    # pour corriger "rm: cannot remove '.../bootstrap/ldif/custom':
+    # Device or resource busy") introduisait un AUTRE bug, découvert
+    # en conditions réelles par la personne juste après : le bootstrap
+    # personnalisé (alice/bob/admin_test) n'était PLUS jamais
+    # appliqué DU TOUT -- Keycloak échouait ensuite avec "LDAP: error
+    # code 32 - No Such Object" sur ou=users (recherche renvoyant
+    # nentries=0). Confirmé par recherche -- problème CONNU et
+    # documenté du mécanisme `--copy-service` lui-même
+    # (osixia/docker-openldap#310, 2019) : quand le dossier de
+    # bootstrap personnalisé est LUI-MÊME un point de montage séparé
+    # (notre cas exact), la copie interne
+    # (/container/service -> /container/run/service) échoue
+    # silencieusement à recopier ce sous-dossier précis -- le
+    # bootstrap tourne alors sur un dossier "custom" VIDE, sans
+    # jamais signaler d'erreur bloquante.
+    #
+    # Remplacé par `LDAP_REMOVE_CONFIG_AFTER_SETUP=false` (variable
+    # d'environnement, PAS un changement de commande) -- contournement
+    # DIFFÉRENT trouvé dans la même recherche
+    # (osixia/docker-openldap#660) : évite le problème À LA RACINE en
+    # désactivant l'étape de SUPPRESSION des fichiers de config après
+    # amorçage (celle qui échouait à l'origine sur le point de
+    # montage, #359) -- sans jamais passer par un mécanisme de copie
+    # qui a lui-même ses propres angles morts avec des points de
+    # montage imbriqués.
+    # ⚠️ DIAGNOSTIC TEMPORAIRE (livraison #379) -- le remplacement de
+    # --copy-service par LDAP_REMOVE_CONFIG_AFTER_SETUP=false (#378)
+    # n'a PAS résolu le problème (signalé en conditions réelles) :
+    # "ou=users" introuvable persiste. Reconsidéré après recherche :
+    # le silence entre "Add custom bootstrap ldif..." et l'étape
+    # suivante est NORMAL à CONTAINER_LOG_LEVEL=3 (info), MÊME en cas
+    # de succès -- mon diagnostic précédent l'interprétant comme un
+    # signe d'échec était probablement erroné. `--loglevel debug`
+    # ajouté ICI temporairement pour voir ce qui se passe VRAIMENT à
+    # l'intérieur de cette étape -- À RETIRER une fois la vraie cause
+    # trouvée (pas destiné à rester en configuration normale, verbeux).
+    # ⚠️ VRAIE CAUSE TROUVÉE (livraison #381) -- les diagnostics #378/
+    # #379 étaient tous les deux des fausses pistes. Cause réelle,
+    # confirmée par `docker exec ... ls` montrant ce dossier VIDE à
+    # l'intérieur du conteneur : `--project-directory "$PROJECT_ROOT"`
+    # (gateway/scripts/run.sh) pointe DÉLIBÉRÉMENT vers la racine du
+    # projet PRINCIPAL (pas gateway/), pour que d'autres chemins
+    # relatifs de ce fichier (./keycloak/import, ./pki/server --
+    # dossiers PARTAGÉS, à la racine) résolvent correctement. Mais
+    # `./ldap-seed` ci-dessous suivait AUSSI cette même résolution,
+    # alors que ce dossier vit DANS gateway/ (`gateway/ldap-seed/`) --
+    # jamais remarqué avant : Docker Compose CRÉE SILENCIEUSEMENT un
+    # dossier VIDE quand la source d'un bind mount n'existe pas sur
+    # l'hôte, sans jamais signaler d'erreur -- exactement pourquoi
+    # aucune trace d'échec n'apparaissait nulle part, dans aucun
+    # journal, à aucun niveau de verbosité. Corrigé : préfixe
+    # `gateway/` ajouté, cohérent avec le fait que ce dossier est
+    # SPÉCIFIQUE à gateway/, contrairement à keycloak/pki ci-dessus
+    # qui sont partagés avec le stack principal.
+    environment:
+      - LDAP_REMOVE_CONFIG_AFTER_SETUP=false
+      - LDAP_ORGANISATION=Supervision SI (test)
+      - LDAP_DOMAIN=supervision-si.local
+      - LDAP_ADMIN_PASSWORD=${LDAP_TEST_ADMIN_PASSWORD:-change-me}
+    volumes:
+      - openldap_test_data:/var/lib/ldap
+      - openldap_test_config:/etc/ldap/slapd.d
+      # ⚠️ CORRIGÉ (livraison #359) -- JAMAIS ":ro" ici, contrairement
+      # à l'intuition première (protéger le LDIF source d'une
+      # écriture accidentelle) : l'image osixia/openldap AJUSTE la
+      # propriété (chown) de CHAQUE volume monté au démarrage, y
+      # compris celui-ci -- un montage lecture seule fait ÉCHOUER ce
+      # chown ("Read-only file system"), le conteneur ne démarre
+      # PLUS DU TOUT ("/container/run/startup/slapd failed with
+      # status 1"). Signalé en conditions réelles par la personne.
+      # Annuaire de TEST local, mono-utilisateur -- écriture
+      # techniquement possible sur ce dossier depuis le conteneur,
+      # sans enjeu de sécurité réel dans ce contexte précis.
+      - ./gateway/ldap-seed:/container/service/slapd/assets/config/bootstrap/ldif/custom
+
+  tls-proxy:
+    image: nginx:1.27-alpine
+    ports:
+      - "${GATEWAY_PORT:-6443}:${GATEWAY_PORT:-6443}"
+    volumes:
+      - ./tls-proxy/generated:/etc/nginx/conf.d:ro
+      - ${PKI_DIR:-./pki}/server:/etc/nginx/tls:ro
+    depends_on:
+      - keycloak
+      # Les 20 AUTRES dépendances (api, frontend, hub, tickets-portal,
+      # etc.) volontairement ABSENTES -- voir le commentaire d'en-tête
+      # de ce fichier (Compose ne permet pas un depends_on cross-stack ;
+      # rendu acceptable par la résolution DNS dynamique de tls-proxy).
+
+volumes:
+  keycloak_data:
+    # EXTERNE -- c'est le volume DÉJÀ CRÉÉ par le stack principal
+    # avant cette extraction, jamais un volume neuf généré par ce
+    # fichier (le nom de projet Compose change forcément le nom
+    # auto-généré, donc `external: true` + nom explicite est
+    # OBLIGATOIRE pour préserver le realm existant). Voir
+    # gateway/README.md pour la procédure de migration -- VÉRIFIER le
+    # nom réel avec `docker volume ls | grep keycloak_data` si le
+    # dossier du projet ne s'appelle pas exactement "supervision-si".
+    external: true
+    name: ${KEYCLOAK_DATA_VOLUME_NAME:-supervision-si_keycloak_data}
+  # openldap-test (livraison #348) -- volumes NORMAUX, jamais
+  # `external: true` contrairement à keycloak_data ci-dessus : cet
+  # annuaire est un bouchon de TEST propre à cette installation,
+  # aucune donnée préexistante à préserver d'un stack antérieur.
+  openldap_test_data:
+  openldap_test_config:
+
+networks:
+  default:
+    # MÊME nom que ../docker-compose.yml, OBLIGATOIREMENT identique
+    # des deux côtés -- voir le commentaire d'en-tête de ce fichier.
+    name: ${SUPERVISION_SI_NETWORK_NAME:-supervision-si-net}
+    external: true
