@@ -251,11 +251,90 @@ Si une variable n'est pas définie, l'étape correspondante affiche un message i
 - **Performance** : Chargement à la demande en mode classique ; chargement parallèle uniquement à l'activation du graphique
 - **Dark theme** : Utilise les variables CSS du thème (`--bg`, `--panel`, `--border`, `--text`, `--muted`, `--accent`)
 
+## Interactions du graphique (livraison #399)
+
+### Zoom et déplacement
+
+Le dessin (flèches + nœuds) vit dans un `<g>` portant
+`translate(x y) scale(zoom)`. Le **viewBox ne change jamais** : les marqueurs
+de flèche déclarés dans `<defs>` restent donc valables et l'épaisseur du trait
+suit naturellement le zoom.
+
+| Geste | Effet |
+|---|---|
+| Molette | Zoom **ancré sous le curseur** (le point survolé ne bouge pas) |
+| Glisser (bouton gauche) | Déplacement |
+| `+` / `−` | Zoom centré sur le milieu du viewBox |
+| `⟲` | Retour à la vue initiale |
+
+Bornes : `GRAPH_ZOOM_MIN = 0.6`, `GRAPH_ZOOM_MAX = 4`, pas `1.25`.
+
+Trois points de mise en œuvre qui ne sont pas évidents :
+
+1. **Le facteur de zoom est recalculé APRÈS bornage** (`zoomAtPoint`).
+   Appliquer le facteur demandé une fois la butée atteinte ferait glisser le
+   dessin sous le curseur à chaque cran de molette supplémentaire.
+2. **Le déplacement utilise UNE échelle commune aux deux axes**
+   (`clientDeltaToViewBox`). `preserveAspectRatio="xMidYMid meet"` n'applique
+   qu'une seule échelle, celle du côté le plus contraint : diviser par
+   `rect.width` en x et `rect.height` en y ferait dériver le dessin en
+   diagonale pendant un glisser horizontal.
+3. **Le glisser n'utilise PAS `setPointerCapture`.** La capture redirige aussi
+   l'événement `click` vers l'élément capturant, ce qui casserait le clic sur
+   un nœud. Les gestionnaires vivent sur `window` le temps du geste, et un
+   déplacement de plus de 4 px marque `draggedRef` pour que la fin du glisser
+   ne soit pas interprétée comme un clic.
+
+La molette est écoutée en **non passif** (`addEventListener` avec
+`{ passive: false }` dans un effet, pas `onWheel`) : React attache ses
+gestionnaires au conteneur racine, où `wheel` est passif par défaut, et un
+`preventDefault()` y serait ignoré avec un avertissement console.
+
+### Infobulles
+
+Au survol d'un nœud, une infobulle HTML donne le détail de l'étape
+(`getStepTooltipLines`) — elle **complète** le texte compact déjà affiché sous
+le nœud, elle ne le répète pas. Le contenu n'utilise que des champs déjà
+consommés ailleurs dans la vue, jamais un champ d'API supposé.
+
+`.nc-graph-container` étant en `overflow: hidden`, la position est **bornée
+côté JS** (`clampTooltipPosition`) et l'infobulle bascule à gauche du curseur
+plutôt que de déborder — un débordement serait simplement coupé. Piège déjà
+rencontré ailleurs dans le projet (barre d'onglets du hub).
+
+### Rafraîchissement
+
+- `⟳` : rechargement manuel immédiat.
+- Case « auto 30s » : rechargement périodique (`GRAPH_REFRESH_MS`).
+- Horodatage de la dernière mise à jour à droite de la barre d'outils.
+
+La minuterie n'est armée **que** si l'onglet graphique est affiché ET la
+bascule enclenchée ; elle est nettoyée au retour de l'effet, donc jamais de
+battement résiduel en mode classique ni après démontage. Le chargement des
+données est un `useCallback` unique (`loadGraphData`) partagé par l'activation
+de l'onglet et le rafraîchissement — jamais deux copies divergentes de la même
+liste d'appels.
+
+## Logique pure et tests
+
+`hub/src/networkCycleGraph.js` — aucun import React, donc testable directement
+sous Node. Même motif que `ldapTree.js` (`buildColumns`/`buildTree`).
+
+```bash
+node --test hub/tests/networkCycleGraph.test.mjs   # 12 tests
+```
+
+Couvre : bornage du zoom (dont `NaN`/`undefined`), immobilité du point
+d'ancrage, absence de dérive à la butée, aller-retour zoom avant/arrière,
+échelle commune du déplacement, conteneur non mesuré, letterboxing du
+`meet`, bornage de l'infobulle sur les quatre bords, et contenu des
+infobulles sur données absentes puis réelles.
+
+**Non couvert** (pas de navigateur ici) : rendu visuel, gestes souris et
+molette réels.
+
 ## Évolutions possibles
 
-- Rafraîchissement automatique des données du graphique (polling)
-- Zoom/pan sur le diagramme SVG
-- Affichage de tooltips détaillés au survol des nœuds
 - Ajout d'indicateurs de tendance (comparaison avec la période précédente)
 - Notifications en cas de dépassement de seuils
 - Export des données du cycle (PDF, CSV)

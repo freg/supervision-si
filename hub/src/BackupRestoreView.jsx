@@ -102,7 +102,7 @@ function BackupPCView({ apiBase }) {
         </div>
       )}
 
-      {error && <div className="hub-card" style={{ borderColor: "var(--hub-danger, #c0392b)", marginBottom: 16 }}>⚠️ {error}</div>}
+      {error && <div className="hub-card" style={{ borderColor: "var(--danger)", marginBottom: 16 }}>⚠️ {error}</div>}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div className="hub-card">
@@ -209,7 +209,7 @@ function ClonezillaView({ apiBase }) {
 
   return (
     <div>
-      {error && <div className="hub-card" style={{ borderColor: "var(--hub-danger, #c0392b)", marginBottom: 16 }}>⚠️ {error}</div>}
+      {error && <div className="hub-card" style={{ borderColor: "var(--danger)", marginBottom: 16 }}>⚠️ {error}</div>}
 
       {pxeConfig && (
         <div className="hub-card" style={{ marginBottom: 16 }}>
@@ -319,7 +319,7 @@ function ResticView({ apiBase }) {
 
   return (
     <div>
-      {error && <div className="hub-card" style={{ borderColor: "var(--hub-danger, #c0392b)", marginBottom: 16 }}>⚠️ {error}</div>}
+      {error && <div className="hub-card" style={{ borderColor: "var(--danger)", marginBottom: 16 }}>⚠️ {error}</div>}
 
       {stats && (
         <div className="hub-card" style={{ marginBottom: 16 }}>
@@ -456,7 +456,7 @@ export default function BackupRestoreView({ onBack, backupRestoreApiBase }) {
       </div>
 
       {error && (
-        <div className="hub-card" style={{ borderColor: "var(--hub-danger, #c0392b)" }}>
+        <div className="hub-card" style={{ borderColor: "var(--danger)" }}>
           <p style={{ margin: 0 }}>⚠️ {error}</p>
         </div>
       )}

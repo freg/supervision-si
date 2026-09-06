@@ -124,7 +124,7 @@ export default function RetroView({ onBack, retroApiBase, dbaApiBase, schemaApiB
         </label>
         {busy && <p className="muted">Analyse en cours…</p>}
         {error && (
-          <p style={{ color: "var(--hub-danger, #c0392b)" }}>⚠️ {error}</p>
+          <p style={{ color: "var(--danger)" }}>⚠️ {error}</p>
         )}
       </div>
 
@@ -163,7 +163,7 @@ export default function RetroView({ onBack, retroApiBase, dbaApiBase, schemaApiB
                         ) : sendStatus[idx] === "sent" ? (
                           <span className="muted">✔ envoyée</span>
                         ) : sendStatus[idx]?.error ? (
-                          <span style={{ color: "var(--hub-danger, #c0392b)" }} title={sendStatus[idx].error}>⚠️ échec</span>
+                          <span style={{ color: "var(--danger)" }} title={sendStatus[idx].error}>⚠️ échec</span>
                         ) : (
                           <button
                             className="secondary"

@@ -155,7 +155,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
       </div>
 
       {error && (
-        <div className="hub-card" style={{ borderColor: "var(--hub-danger, #c0392b)" }}>
+        <div className="hub-card" style={{ borderColor: "var(--danger)" }}>
           <p style={{ margin: 0 }}>⚠️ {error}</p>
         </div>
       )}
@@ -295,7 +295,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
             )}
             {(glpiPreview.errors || []).length > 0 && (
               <ul>
-                {glpiPreview.errors.map((line, idx) => <li key={idx} style={{ color: "var(--hub-danger, #c0392b)" }}>{line}</li>)}
+                {glpiPreview.errors.map((line, idx) => <li key={idx} style={{ color: "var(--danger)" }}>{line}</li>)}
               </ul>
             )}
           </div>

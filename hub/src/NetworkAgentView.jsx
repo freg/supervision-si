@@ -204,7 +204,7 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
       {status && (
         <div className="hub-card">
           {status.error ? (
-            <p style={{ margin: 0, color: "var(--hub-danger, #c0392b)" }}>
+            <p style={{ margin: 0, color: "var(--danger)" }}>
               ⚠️ Impossible de joindre network-agent-api : {status.error}
             </p>
           ) : (
@@ -212,7 +212,7 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
               Capture : {status.running ? "🟢 en cours" : "⚪ arrêtée"}
               {status.started_at && ` (depuis ${new Date(status.started_at).toLocaleString("fr-FR")})`}
               {" — "}{status.packets_processed ?? 0} paquet(s) traité(s) au total.
-              {status.last_error && <><br /><span style={{ color: "var(--hub-danger, #c0392b)" }}>⚠️ {status.last_error}</span></>}
+              {status.last_error && <><br /><span style={{ color: "var(--danger)" }}>⚠️ {status.last_error}</span></>}
             </p>
           )}
         </div>

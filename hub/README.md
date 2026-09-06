@@ -2431,3 +2431,33 @@ n'ont pas encore reçu ce callback).
 Confirmé qu'aucun autre composant du hub n'utilise `CalendarView`
 en dehors d'`EntView.jsx` -- le nouveau prop optionnel
 (`onViewRelations`) reste rétrocompatible partout ailleurs.
+
+## Graphique du cycle réseau interactif + menu Réseau complété (livraison #399)
+
+**Graphique** (`NetworkCycleView.jsx`) — zoom molette ancré sous le curseur,
+déplacement au glisser, boutons `+`/`−`/`⟲`, infobulles détaillées au survol
+des nœuds, rafraîchissement manuel et automatique (30 s) avec horodatage.
+Toute la logique non-React vit dans `src/networkCycleGraph.js` (12 tests Node
+dans `tests/networkCycleGraph.test.mjs`) — même motif que `ldapTree.js`.
+Détail des pièges traités (facteur de zoom recalculé après bornage, échelle
+commune aux deux axes du déplacement, absence de `setPointerCapture` pour ne
+pas casser le clic sur un nœud, molette en écoute non passive, infobulle
+bornée à cause de `overflow: hidden`) : voir `docs/cycle-agile-reseau.md`.
+
+**Menu Réseau ▾** (`App.jsx`) — « Exploration réseau » et « Sondes réseau »
+n'existaient QUE comme tuiles d'accueil. Rapatriées dans le menu (mêmes
+`viewMode`, jamais une vue dupliquée) et **conditionnées à leur variable
+d'API**, contrairement aux sept autres entrées : `NetworkAgentView` et
+`NetprobeView` appellent leur API dès le montage sans garde-fou sur une base
+absente, une entrée non conditionnée mènerait donc à un écran d'erreur réseau
+plutôt qu'à un « non configuré ». La liste des `viewMode` qui allument le menu
+a été complétée (`network-agent`, `netprobe`).
+
+**Correction de thème `--hub-danger`** — variable **jamais définie** : les 32
+usages du hub retombaient tous sur leur repli en dur (`#c0392b` / `#fdecea`)
+et restaient donc identiques en thème sombre. Remplacés par `var(--danger)` /
+`var(--danger-bg)` dans 15 fichiers. Les replis valaient exactement les
+valeurs du thème clair : rendu clair inchangé, seul le sombre est corrigé.
+Même famille de bug que les couleurs en dur trouvées trois fois dans DBA — à
+`grep` systématiquement (`grep -rn -- "var(--[a-z-]*, #" hub/src`) avant de
+considérer un module terminé.

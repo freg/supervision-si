@@ -130,7 +130,7 @@ export default function GlpiInventoryView({ onBack, glpiApiBase, networkAgentApi
       </div>
 
       {error && (
-        <div className="hub-card" style={{ borderColor: "var(--hub-danger, #c0392b)" }}>
+        <div className="hub-card" style={{ borderColor: "var(--danger)" }}>
           <p style={{ margin: 0 }}>⚠️ {error}</p>
         </div>
       )}
@@ -217,7 +217,7 @@ export default function GlpiInventoryView({ onBack, glpiApiBase, networkAgentApi
               <p className="muted">{preview.skipped_existing.length} déjà présent(s) dans GLPI (non ré-importé(s)).</p>
             )}
             {preview.errors?.length > 0 && (
-              <p style={{ color: "var(--hub-danger, #c0392b)" }}>{preview.errors.length} erreur(s) : {preview.errors.join(", ")}</p>
+              <p style={{ color: "var(--danger)" }}>{preview.errors.length} erreur(s) : {preview.errors.join(", ")}</p>
             )}
             <button onClick={handleImportSelection} disabled={importing || selectedKeys.size === 0}>
               {importing ? "Import en cours…" : `Importer la sélection (${selectedKeys.size})`}

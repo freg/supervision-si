@@ -14,7 +14,7 @@ import { fetchStats, fetchServices, fetchEntries } from "./memoryClient.js";
 // Memcached" générique -- voir memory/README.md pour le
 // raisonnement complet (Memcached n'offre pas de "lister les clés").
 
-const LEVEL_COLORS = { ERROR: "var(--hub-danger, #c0392b)", WARNING: "var(--warning, #b7791f)" };
+const LEVEL_COLORS = { ERROR: "var(--danger)", WARNING: "var(--warning, #b7791f)" };
 
 export default function MemoryView({ onBack, memoryApiBase }) {
   const [stats, setStats] = useState(null);

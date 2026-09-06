@@ -943,7 +943,7 @@ export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, 
                             {vResult === "loading" ? (
                               <span className="muted">Vérification en cours…</span>
                             ) : vResult.error ? (
-                              <span style={{ color: "var(--hub-danger, #c0392b)" }}>⚠️ {vResult.error}</span>
+                              <span style={{ color: "var(--danger)" }}>⚠️ {vResult.error}</span>
                             ) : vResult.coverage_ratio === null ? (
                               <span className="muted">Aucune valeur non vide à vérifier dans l'échantillon.</span>
                             ) : (

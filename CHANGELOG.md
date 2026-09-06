@@ -1,3 +1,67 @@
+## 2026-09-06 — Graphique du cycle réseau interactif + menu Réseau complété (livraison #399)
+
+Deux volets, sur la tuile et le menu réseau.
+
+**1. Graphique du cycle agile réseau** (suite de l'onglet livré précédemment) :
+- **Zoom et déplacement** — molette (ancrée sous le curseur), glisser à la
+  souris, boutons `+` / `−` / `⟲` et niveau de zoom affiché. Le dessin vit
+  désormais dans un `<g>` transformé : le viewBox ne bouge pas, donc les
+  marqueurs de flèche déclarés dans `<defs>` restent valables.
+- **Infobulles au survol** des nœuds — détail par étape (suggestions,
+  capture, tunnels/SNMP, sondes, signaux/sauvegardes), en complément du
+  texte compact déjà affiché sous chaque nœud.
+- **Rafraîchissement** — bouton manuel `⟳`, bascule automatique (30 s) et
+  horodatage de la dernière mise à jour. La minuterie ne tourne QUE sur
+  l'onglet graphique et est nettoyée au démontage.
+- `hub/src/networkCycleGraph.js` — logique pure extraite dans son propre
+  module (même motif que `ldapTree.js`), 12 tests Node dans
+  `hub/tests/networkCycleGraph.test.mjs`.
+
+**2. Menu Réseau ▾ complété** — « Exploration réseau » et « Sondes réseau »
+n'existaient QUE comme tuiles d'accueil alors que tout le reste de
+l'écosystème réseau vit dans ce menu. Ajoutées (mêmes `viewMode`, jamais de
+vue dupliquée) et conditionnées à leur variable d'API, contrairement aux sept
+autres entrées : `NetworkAgentView`/`NetprobeView` appellent leur API dès le
+montage sans garde-fou sur une base absente. La liste des `viewMode` qui
+allument le menu a été complétée en conséquence.
+
+**3. Correction de thème `--hub-danger`** — cette variable n'était **définie
+nulle part** : les 32 usages du hub retombaient tous sur leur repli en dur
+(`#c0392b` / `#fdecea`), donc restaient identiques en thème sombre alors que
+le reste de l'interface changeait. Remplacés par `var(--danger)` /
+`var(--danger-bg)` — les replis valaient EXACTEMENT les valeurs du thème
+clair, le rendu clair est donc inchangé et seul le sombre est corrigé.
+Même correction sur `.nc-status-dot` et la légende du graphe
+(`#00b894`/`#fdcb6e`/`#c0392b` → `var(--ok)`/`var(--warning)`/`var(--danger)`).
+
+**Vérifié réellement** : 12 tests de la logique pure passent sous Node
+(zoom ancré sans dérive, butée de zoom, échelle commune aux deux axes du
+déplacement, bornage de l'infobulle, contenu des infobulles sur données
+partielles) ; analyse syntaxique @babel/parser des 74 fichiers de `hub/src`,
+0 échec ; aucun `setXxx` orphelin ; plus aucun `--hub-danger` dans l'arbre.
+
+**⚠️ Non vérifié dans cet environnement** : rendu visuel réel et gestes
+souris/molette réels (pas de navigateur ici) ; `npm run build` impossible —
+les `node_modules` présents sont ceux d'un macOS (binaire esbuild
+« Exec format error » dans ce shell Linux), la vérification syntaxique a donc
+été faite avec `@babel/parser` (JS pur) à la place.
+
+**⚠️ Écart de numérotation constaté** : `shared/DELIVERY_NUMBER` était resté à
+398 alors que les messages de commit mentionnent #398 à #401. Le badge affiché
+suit le FICHIER (`run.sh` le lit tel quel) et affichait donc bien #398 —
+incrémenté à #399 ici. Les livraisons #398-#401 des commits ne sont documentées
+dans aucune entrée de ce fichier, à rattraper.
+
+**Fichiers** :
+- `hub/src/networkCycleGraph.js` — NOUVEAU, logique pure du graphique
+- `hub/tests/networkCycleGraph.test.mjs` — NOUVEAU, 12 tests Node
+- `hub/src/NetworkCycleView.jsx` — zoom/déplacement, infobulles, rafraîchissement
+- `hub/src/App.jsx` — deux entrées de plus dans le menu Réseau
+- `hub/src/hub.css` — barre d'outils, infobulle, curseurs, couleurs de thème
+- `docs/cycle-agile-reseau.md` — documentation des nouvelles interactions
+- `hub/README.md` — journal du module
+- 15 fichiers `hub/src/*.jsx` — `--hub-danger` → `--danger`
+
 ## 2026-09-06 — Nouvelle tuile/outil "gestionnaire de fichiers" (item #26, version: 88fda222b4ad4278, livraison #397)
 
 Trois volets livrés d'un coup :

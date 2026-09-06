@@ -1327,7 +1327,7 @@ export default function App() {
             <button
               type="button"
               className={
-                openNavMenu === "reseau" || ["ssh-tunnels", "snmp", "nebula", "glpi-inventory", "architecture", "netmap-orchestrator", "network-cycle"].includes(viewMode)
+                openNavMenu === "reseau" || ["ssh-tunnels", "snmp", "nebula", "glpi-inventory", "architecture", "netmap-orchestrator", "network-cycle", "network-agent", "netprobe"].includes(viewMode)
                   ? "active"
                   : ""
               }
@@ -1340,6 +1340,26 @@ export default function App() {
                 <button type="button" onClick={() => { setViewMode((v) => (v === "network-cycle" ? "grid" : "network-cycle")); setOpenNavMenu(null); }}>
                   Cycle agile réseau
                 </button>
+                {/* Exploration réseau (#265) et Sondes réseau (#295) n'existaient
+                    QUE comme tuiles d'accueil, alors que tout le reste de
+                    l'écosystème réseau vit dans ce menu -- deux chemins d'accès
+                    vers le MÊME viewMode, jamais une vue dupliquée. Contrairement
+                    aux sept autres entrées de ce menu, celles-ci sont
+                    CONDITIONNÉES à leur variable d'API : NetworkAgentView et
+                    NetprobeView appellent leur API dès le montage sans garde-fou
+                    sur une base absente (vérifié) -- une entrée non conditionnée
+                    mènerait à un écran d'erreur réseau, pas à un "non configuré".
+                    Même garde que les tuiles correspondantes plus haut. */}
+                {NETWORK_AGENT_API_BASE_URL && (
+                  <button type="button" onClick={() => { setViewMode((v) => (v === "network-agent" ? "grid" : "network-agent")); setOpenNavMenu(null); }}>
+                    Exploration réseau
+                  </button>
+                )}
+                {NETPROBE_API_BASE_URL && (
+                  <button type="button" onClick={() => { setViewMode((v) => (v === "netprobe" ? "grid" : "netprobe")); setOpenNavMenu(null); }}>
+                    Sondes réseau
+                  </button>
+                )}
                 <button type="button" onClick={() => { setViewMode((v) => (v === "ssh-tunnels" ? "grid" : "ssh-tunnels")); setOpenNavMenu(null); }}>
                   Tunnels SSH
                 </button>

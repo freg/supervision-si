@@ -2224,3 +2224,31 @@ qui fait alors sauter la file.
     routé publiquement (vérifié absent de `tls-proxy/render_nginx_conf.py`).
     Voir `network-agent/README.md` et `network-explorer/README.md`
     pour le détail complet des deux volets.
+
+60. Variables de thème `--hub-*` inexistantes, replis en dur (2026-09-06).
+    Constaté en livrant #399, PAS demandé -- noté ici plutôt que corrigé
+    en passant, parce que ces cas-là ne sont PAS neutres visuellement
+    contrairement à `--hub-danger` (déjà corrigé en #399, ses replis
+    valaient exactement les valeurs du thème clair).
+
+    Aucune de ces variables n'est définie dans `shared/theme.css` : chaque
+    usage retombe silencieusement sur son repli en dur, donc reste
+    identique en thème sombre alors que le reste de l'interface change.
+
+    - `var(--hub-ok, #27ae60)` (2 usages) et `var(--hub-ok-bg, #eafaf1)`
+      (1 usage) -- replis EXACTEMENT égaux à `--ok` / `--ok-bg` du thème
+      clair : remplacement neutre, corrige uniquement le sombre. À faire
+      en premier, sans risque.
+    - `var(--hub-border, #ddd)` (6 usages) -- `--border` vaut `#d8dee4` en
+      clair, PAS `#ddd` : le remplacement change (très légèrement) aussi
+      le thème clair. À valider visuellement.
+    - `var(--hub-bg, #fff)` (1 usage) -- ambigu : `--panel` vaut `#ffffff`,
+      `--bg` vaut `#f4f6f8`. Regarder l'usage avant de trancher.
+    - `var(--hub-selected, #e8f0fe)` (1 usage) -- aucune variable
+      équivalente au thème, il en faudrait une nouvelle.
+
+    Contrôle systématique à ajouter avant de considérer un module du hub
+    terminé : `grep -rn -- 'var(--[a-z-]*, #' hub/src` -- un repli en dur
+    sur une variable jamais définie est indétectable à la lecture du JSX
+    seul, il faut vérifier que la variable EXISTE dans `shared/theme.css`.
+

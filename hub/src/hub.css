@@ -1350,9 +1350,13 @@ button.secondary { background: var(--panel); }
   stroke: var(--panel);
   stroke-width: 2px;
 }
-.nc-status-dot.ok { fill: #00b894; }
-.nc-status-dot.warn { fill: #fdcb6e; }
-.nc-status-dot.down { fill: #c0392b; }
+/* Variables de thème obligatoires : les couleurs fixes précédentes
+   (#00b894/#fdcb6e/#c0392b) restaient identiques en thème sombre alors que
+   le reste de l'interface changeait -- même famille de bug que celui déjà
+   corrigé trois fois dans DBA. */
+.nc-status-dot.ok { fill: var(--ok); }
+.nc-status-dot.warn { fill: var(--warning); }
+.nc-status-dot.down { fill: var(--danger); }
 .nc-status-dot.unknown { fill: var(--muted); }
 
 /* Légende du graphe */
@@ -1376,4 +1380,91 @@ button.secondary { background: var(--panel); }
   border-radius: 50%;
   margin-right: 4px;
   vertical-align: middle;
+}
+.nc-graph-legend-dot.ok { background: var(--ok); }
+.nc-graph-legend-dot.warn { background: var(--warning); }
+.nc-graph-legend-dot.down { background: var(--danger); }
+.nc-graph-legend-dot.unknown { background: var(--muted); }
+
+/* Zoom / déplacement du graphique du cycle */
+.nc-graph-svg { cursor: grab; touch-action: none; }
+.nc-graph-svg.panning { cursor: grabbing; }
+
+.nc-graph-toolbar {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.nc-graph-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 3px 7px;
+}
+.nc-graph-btn:hover { border-color: var(--accent); color: var(--accent); }
+.nc-graph-zoom-level {
+  min-width: 42px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.nc-graph-toolbar-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+}
+.nc-graph-auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+.nc-graph-auto input { margin: 0; cursor: pointer; }
+.nc-graph-refresh-time { font-variant-numeric: tabular-nums; }
+
+/* Infobulle de survol -- positionnée DANS .nc-graph-container, qui est en
+   overflow:hidden : sa position est bornée côté JS (clampTooltipPosition),
+   jamais laissée déborder puisqu'un débordement serait simplement coupé. */
+.nc-graph-tooltip {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 8px 10px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  font-size: 11px;
+  color: var(--text);
+}
+.nc-graph-tooltip-title {
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+.nc-graph-tooltip-line {
+  color: var(--muted);
+  line-height: 1.5;
+}
+.nc-graph-tooltip-hint {
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px solid var(--border);
+  color: var(--accent);
+  font-size: 10px;
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   fetchOrchestratorSummary, fetchOrchestratorSuggestions,
   fetchCaptureStatus, fetchSites,
@@ -8,6 +8,18 @@ import {
   fetchVigilanceSummary, fetchSignals,
   fetchCoverage,
 } from "./networkCycleClient.js";
+import {
+  GRAPH_ZOOM_STEP,
+  GRAPH_VIEW_INITIAL,
+  GRAPH_REFRESH_MS,
+  GRAPH_VB_WIDTH,
+  GRAPH_VB_HEIGHT,
+  zoomAtPoint,
+  clientDeltaToViewBox,
+  clientPointToViewBox,
+  clampTooltipPosition,
+  getStepTooltipLines,
+} from "./networkCycleGraph.js";
 
 // Tuile hub "Réseau" -- cycle agile réseau en 5 étapes :
 // Décider → Explorer → Déployer → Mesurer → Apprendre.
@@ -215,6 +227,17 @@ export default function NetworkCycleView({
   onNavigate,
 }) {
   const [viewMode, setViewMode] = useState("classique");
+
+  // Graphique : zoom/déplacement, infobulle, rafraîchissement automatique
+  const [graphView, setGraphView] = useState(GRAPH_VIEW_INITIAL);
+  const [hovered, setHovered] = useState(null);      // { id, x, y } -- x/y en px conteneur
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [lastGraphRefresh, setLastGraphRefresh] = useState(null);
+  const [panning, setPanning] = useState(false);
+  const graphContainerRef = useRef(null);
+  const svgRef = useRef(null);
+  const panRef = useRef(null);                        // état du glisser en cours
+  const draggedRef = useRef(false);                   // vrai si le dernier geste a déplacé
   const [step, setStep] = useState("decider");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -327,72 +350,182 @@ export default function NetworkCycleView({
     loadStep(step);
   }, [step, loadStep]);
 
-  // Chargement initial des données pour le graphique (toutes les étapes)
+  // Chargement des données du graphique (toutes les étapes, en parallèle).
+  // Extrait en useCallback -- appelé À LA FOIS à l'activation de l'onglet
+  // graphique ET par le rafraîchissement automatique, jamais deux copies
+  // divergentes de la même liste d'appels.
+  const loadGraphData = useCallback(async () => {
+    const promises = [];
+    if (netmapOrchestratorApiBase) {
+      promises.push(
+        fetchOrchestratorSummary(netmapOrchestratorApiBase).then((d) => {
+          if (!d?.error) setOrchestratorSummary(d);
+        }),
+        fetchOrchestratorSuggestions(netmapOrchestratorApiBase, "open").then((d) => {
+          setSuggestions(Array.isArray(d) ? d : []);
+        })
+      );
+    }
+    if (networkAgentApiBase) {
+      promises.push(
+        fetchCaptureStatus(networkAgentApiBase).then((d) => {
+          if (!d?.error) setCaptureStatus(d);
+        }),
+        fetchSites(networkAgentApiBase).then((d) => {
+          setSites(Array.isArray(d) ? d : []);
+        })
+      );
+    }
+    if (sshTunnelsApiBase) {
+      promises.push(
+        fetchTunnels(sshTunnelsApiBase).then((d) => setTunnels(Array.isArray(d) ? d : [])),
+        fetchConnections(sshTunnelsApiBase).then((d) => setConnections(Array.isArray(d) ? d : []))
+      );
+    }
+    if (snmpApiBase) {
+      promises.push(
+        fetchSnmpTargets(snmpApiBase).then((d) => setSnmpTargets(Array.isArray(d) ? d : []))
+      );
+    }
+    if (netprobeApiBase) {
+      promises.push(
+        fetchLatestSamples(netprobeApiBase).then((d) => setLatestSamples(Array.isArray(d?.latest) ? d.latest : [])),
+        fetchProbeConfigs(netprobeApiBase).then((d) => setProbeConfigs(Array.isArray(d?.configs) ? d.configs : []))
+      );
+    }
+    if (vigilanceApiBase) {
+      promises.push(
+        fetchSignals(vigilanceApiBase).then((d) => setSignals(Array.isArray(d) ? d : [])),
+        fetchVigilanceSummary(vigilanceApiBase).then((d) => setVigilanceSummary(Array.isArray(d) ? d : []))
+      );
+    }
+    if (backupRestoreApiBase) {
+      promises.push(
+        fetchCoverage(backupRestoreApiBase).then((d) => {
+          if (!d?.error) setCoverage(d);
+        })
+      );
+    }
+    await Promise.all(promises);
+    setLastGraphRefresh(new Date());
+  }, [netmapOrchestratorApiBase, networkAgentApiBase, netprobeApiBase, snmpApiBase, sshTunnelsApiBase, vigilanceApiBase, backupRestoreApiBase]);
+
+  // Chargement à l'activation de l'onglet graphique
   useEffect(() => {
     if (viewMode !== "graphique") return;
-    // Charge les données de toutes les étapes non encore chargées
-    const loadAll = async () => {
-      const promises = [];
-      if (netmapOrchestratorApiBase) {
-        promises.push(
-          fetchOrchestratorSummary(netmapOrchestratorApiBase).then((d) => {
-            if (!d?.error) setOrchestratorSummary(d);
-          }),
-          fetchOrchestratorSuggestions(netmapOrchestratorApiBase, "open").then((d) => {
-            setSuggestions(Array.isArray(d) ? d : []);
-          })
-        );
-      }
-      if (networkAgentApiBase) {
-        promises.push(
-          fetchCaptureStatus(networkAgentApiBase).then((d) => {
-            if (!d?.error) setCaptureStatus(d);
-          }),
-          fetchSites(networkAgentApiBase).then((d) => {
-            setSites(Array.isArray(d) ? d : []);
-          })
-        );
-      }
-      if (sshTunnelsApiBase) {
-        promises.push(
-          fetchTunnels(sshTunnelsApiBase).then((d) => setTunnels(Array.isArray(d) ? d : [])),
-          fetchConnections(sshTunnelsApiBase).then((d) => setConnections(Array.isArray(d) ? d : []))
-        );
-      }
-      if (snmpApiBase) {
-        promises.push(
-          fetchSnmpTargets(snmpApiBase).then((d) => setSnmpTargets(Array.isArray(d) ? d : []))
-        );
-      }
-      if (netprobeApiBase) {
-        promises.push(
-          fetchLatestSamples(netprobeApiBase).then((d) => setLatestSamples(Array.isArray(d?.latest) ? d.latest : [])),
-          fetchProbeConfigs(netprobeApiBase).then((d) => setProbeConfigs(Array.isArray(d?.configs) ? d.configs : []))
-        );
-      }
-      if (vigilanceApiBase) {
-        promises.push(
-          fetchSignals(vigilanceApiBase).then((d) => setSignals(Array.isArray(d) ? d : [])),
-          fetchVigilanceSummary(vigilanceApiBase).then((d) => setVigilanceSummary(Array.isArray(d) ? d : []))
-        );
-      }
-      if (backupRestoreApiBase) {
-        promises.push(
-          fetchCoverage(backupRestoreApiBase).then((d) => {
-            if (!d?.error) setCoverage(d);
-          })
-        );
-      }
-      await Promise.all(promises);
-    };
-    loadAll();
-  }, [viewMode, netmapOrchestratorApiBase, networkAgentApiBase, netprobeApiBase, snmpApiBase, sshTunnelsApiBase, vigilanceApiBase, backupRestoreApiBase]);
+    loadGraphData();
+  }, [viewMode, loadGraphData]);
+
+  // Rafraîchissement automatique -- actif UNIQUEMENT quand l'onglet graphique
+  // est affiché ET la bascule enclenchée. La minuterie est nettoyée au retour
+  // de l'effet, donc jamais de battement résiduel après un passage en mode
+  // classique ni après démontage du composant.
+  useEffect(() => {
+    if (viewMode !== "graphique" || !autoRefresh) return undefined;
+    const id = setInterval(() => { loadGraphData(); }, GRAPH_REFRESH_MS);
+    return () => clearInterval(id);
+  }, [viewMode, autoRefresh, loadGraphData]);
 
   const currentStep = CYCLE_STEPS.find((s) => s.id === step);
   const stepIndex = CYCLE_STEPS.findIndex((s) => s.id === step);
 
+  // --- Interactions du graphique : molette, glisser, survol ---
+
+  // La molette est écoutée en NON PASSIF, seule façon d'empêcher le
+  // défilement de la page pendant le zoom : React attache ses gestionnaires
+  // au conteneur racine, où `wheel` est passif par défaut -- un simple
+  // onWheel + preventDefault serait ignoré avec un avertissement console.
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el || viewMode !== "graphique") return undefined;
+    const onWheel = (e) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const anchor = clientPointToViewBox(
+        e.clientX - rect.left, e.clientY - rect.top, rect,
+        GRAPH_VB_WIDTH, GRAPH_VB_HEIGHT,
+      );
+      const factor = e.deltaY < 0 ? GRAPH_ZOOM_STEP : 1 / GRAPH_ZOOM_STEP;
+      setGraphView((v) => zoomAtPoint(v, factor, anchor.x, anchor.y));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [viewMode]);
+
+  // Déplacement : les gestionnaires vivent sur `window` le temps du glisser,
+  // JAMAIS via setPointerCapture sur le SVG -- la capture redirige aussi
+  // l'événement `click` vers l'élément capturant, ce qui casserait le clic
+  // sur un nœud (le geste principal de ce graphique).
+  useEffect(() => {
+    if (!panning) return undefined;
+    const onMove = (e) => {
+      const start = panRef.current;
+      if (!start || !svgRef.current) return;
+      const rect = svgRef.current.getBoundingClientRect();
+      const { dx, dy } = clientDeltaToViewBox(
+        e.clientX - start.x, e.clientY - start.y, rect,
+        GRAPH_VB_WIDTH, GRAPH_VB_HEIGHT,
+      );
+      if (Math.abs(e.clientX - start.x) + Math.abs(e.clientY - start.y) > 4) {
+        draggedRef.current = true;
+      }
+      setGraphView({ zoom: start.view.zoom, x: start.view.x + dx, y: start.view.y + dy });
+    };
+    const onUp = () => {
+      panRef.current = null;
+      setPanning(false);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  }, [panning]);
+
+  function handlePanStart(e) {
+    // Bouton principal uniquement -- le clic droit reste au menu contextuel.
+    if (e.button !== 0) return;
+    draggedRef.current = false;
+    panRef.current = { x: e.clientX, y: e.clientY, view: graphView };
+    setPanning(true);
+  }
+
+  function zoomBy(factor) {
+    setGraphView((v) => zoomAtPoint(v, factor, GRAPH_VB_WIDTH / 2, GRAPH_VB_HEIGHT / 2));
+  }
+
+  function resetGraphView() {
+    setGraphView(GRAPH_VIEW_INITIAL);
+  }
+
+  function pointInContainer(e) {
+    const box = graphContainerRef.current?.getBoundingClientRect();
+    if (!box) return null;
+    return { x: e.clientX - box.left, y: e.clientY - box.top };
+  }
+
+  function handleNodeEnter(stepId, e) {
+    const p = pointInContainer(e);
+    if (p) setHovered({ id: stepId, x: p.x, y: p.y });
+  }
+
+  function handleNodeMove(e) {
+    const p = pointInContainer(e);
+    if (p) setHovered((h) => (h ? { ...h, x: p.x, y: p.y } : h));
+  }
+
   // Navigation depuis le graphique : on sélectionne l'étape ET on bascule en mode classique
   function handleNodeClick(stepId) {
+    // Un glisser qui se termine sur un nœud n'est PAS un clic -- sans ce
+    // garde-fou, tout déplacement du graphique se terminerait par un saut
+    // inattendu vers le mode classique.
+    if (draggedRef.current) {
+      draggedRef.current = false;
+      return;
+    }
     setStep(stepId);
     setViewMode("classique");
   }
@@ -618,7 +751,7 @@ export default function NetworkCycleView({
       <>
         <div className="nc-kpi-row">
           <div className="nc-kpi">
-            <span className="nc-kpi-value" style={{ color: "var(--hub-danger, #c0392b)" }}>{criticalCount}</span>
+            <span className="nc-kpi-value" style={{ color: "var(--danger)" }}>{criticalCount}</span>
             <span className="nc-kpi-label">Critiques</span>
           </div>
           <div className="nc-kpi">
@@ -638,7 +771,7 @@ export default function NetworkCycleView({
                 {vigilanceSummary.map((s, idx) => (
                   <tr key={idx}>
                     <td>{signalLabel(s.signal_type)}</td>
-                    <td style={{ color: s.severity === "critical" ? "var(--hub-danger, #c0392b)" : "var(--warning, #b7791f)" }}>{s.severity}</td>
+                    <td style={{ color: s.severity === "critical" ? "var(--danger)" : "var(--warning, #b7791f)" }}>{s.severity}</td>
                     <td>{s.n}</td>
                     <td>{s.distinct_devices}</td>
                   </tr>
@@ -674,18 +807,77 @@ export default function NetworkCycleView({
     return labels[type] || type;
   }
 
+  // --- Barre d'outils du graphique (zoom, rafraîchissement) ---
+  function renderGraphToolbar() {
+    return (
+      <div className="nc-graph-toolbar">
+        <button type="button" className="nc-graph-btn" onClick={() => zoomBy(GRAPH_ZOOM_STEP)} title="Zoom avant">+</button>
+        <button type="button" className="nc-graph-btn" onClick={() => zoomBy(1 / GRAPH_ZOOM_STEP)} title="Zoom arrière">−</button>
+        <button type="button" className="nc-graph-btn" onClick={resetGraphView} title="Réinitialiser la vue">⟲</button>
+        <span className="nc-graph-zoom-level">{Math.round(graphView.zoom * 100)} %</span>
+        <span className="nc-graph-toolbar-sep" />
+        <button type="button" className="nc-graph-btn" onClick={() => loadGraphData()} title="Rafraîchir maintenant">⟳</button>
+        <label className="nc-graph-auto" title={`Rafraîchissement automatique toutes les ${GRAPH_REFRESH_MS / 1000} secondes`}>
+          <input
+            type="checkbox"
+            checked={autoRefresh}
+            onChange={(e) => setAutoRefresh(e.target.checked)}
+          />
+          auto {GRAPH_REFRESH_MS / 1000}s
+        </label>
+        {lastGraphRefresh && (
+          <span className="nc-graph-refresh-time" title="Dernière mise à jour">
+            {lastGraphRefresh.toLocaleTimeString("fr-FR")}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  // --- Infobulle de survol d'un nœud ---
+  function renderGraphTooltip() {
+    if (!hovered) return null;
+    const s = CYCLE_STEPS.find((c) => c.id === hovered.id);
+    const lines = getStepTooltipLines(hovered.id, graphData);
+    const box = graphContainerRef.current?.getBoundingClientRect();
+    // Dimensions estimées plutôt que mesurées : une mesure réelle imposerait
+    // un rendu en deux passes (ref + effet de mise en page) pour un gain nul
+    // ici, la largeur étant fixée et les lignes courtes.
+    const tipW = 250;
+    const tipH = 40 + lines.length * 18;
+    const { left, top } = clampTooltipPosition(
+      hovered.x, hovered.y, tipW, tipH,
+      box?.width ?? GRAPH_VB_WIDTH, box?.height ?? 420,
+    );
+    return (
+      <div
+        className="nc-graph-tooltip"
+        style={{ left, top, width: tipW, borderTopColor: s?.color }}
+      >
+        <div className="nc-graph-tooltip-title">{s?.icon} {s?.label}</div>
+        {lines.map((line, i) => (
+          <div key={i} className="nc-graph-tooltip-line">{line}</div>
+        ))}
+        <div className="nc-graph-tooltip-hint">Cliquer pour ouvrir cette étape</div>
+      </div>
+    );
+  }
+
   // --- Rendu du graphique SVG interactif ---
   function renderGraphique() {
     const nodeRadius = 38;
-    const svgWidth = 800;
-    const svgHeight = 400;
+    const svgWidth = GRAPH_VB_WIDTH;
+    const svgHeight = GRAPH_VB_HEIGHT;
 
     return (
-      <div className="nc-graph-container">
+      <div className="nc-graph-container" ref={graphContainerRef}>
+        {renderGraphToolbar()}
         <svg
-          className="nc-graph-svg"
+          ref={svgRef}
+          className={`nc-graph-svg${panning ? " panning" : ""}`}
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
           preserveAspectRatio="xMidYMid meet"
+          onPointerDown={handlePanStart}
         >
           <defs>
             {/* Marqueur de flèche statique */}
@@ -714,81 +906,96 @@ export default function NetworkCycleView({
             </marker>
           </defs>
 
-          {/* Flèches du flux (animées) */}
-          {FLOW_EDGES.map((edge) => {
-            const { path } = getArrowStartEnd(edge.from, edge.to, nodeRadius);
-            const fromStep = CYCLE_STEPS.find((s) => s.id === edge.from);
-            return (
-              <path
-                key={`${edge.from}-${edge.to}`}
-                d={path}
-                className="nc-graph-arrow-flow"
-                style={{ stroke: fromStep?.color ?? "var(--accent)" }}
-              />
-            );
-          })}
+          {/* Tout le dessin vit dans un groupe transformé : le zoom et le
+              déplacement n'agissent QUE sur ce groupe, jamais sur le viewBox
+              -- les marqueurs de flèche déclarés dans <defs> restent donc
+              valables, et l'échelle du trait suit naturellement le zoom. */}
+          <g transform={`translate(${graphView.x} ${graphView.y}) scale(${graphView.zoom})`}>
 
-          {/* Nœuds */}
-          {CYCLE_STEPS.map((s) => {
-            const pos = NODE_POSITIONS[s.id];
-            const status = getStepStatus(s.id, graphData);
-            const statusText = getStepStatusText(s.id, graphData);
-            return (
-              <g
-                key={s.id}
-                className="nc-graph-node"
-                onClick={() => handleNodeClick(s.id)}
-              >
-                {/* Cercle principal du nœud */}
-                <circle
-                  cx={pos.x}
-                  cy={pos.y}
-                  r={nodeRadius}
-                  className="nc-graph-node-circle"
-                  style={{ stroke: s.color }}
+            {/* Flèches du flux (animées) */}
+            {FLOW_EDGES.map((edge) => {
+              const { path } = getArrowStartEnd(edge.from, edge.to, nodeRadius);
+              const fromStep = CYCLE_STEPS.find((s) => s.id === edge.from);
+              return (
+                <path
+                  key={`${edge.from}-${edge.to}`}
+                  d={path}
+                  className="nc-graph-arrow-flow"
+                  style={{ stroke: fromStep?.color ?? "var(--accent)" }}
                 />
-                {/* Icône */}
-                <text
-                  x={pos.x}
-                  y={pos.y - 6}
-                  className="nc-graph-node-icon"
+              );
+            })}
+
+            {/* Nœuds */}
+            {CYCLE_STEPS.map((s) => {
+              const pos = NODE_POSITIONS[s.id];
+              const status = getStepStatus(s.id, graphData);
+              const statusText = getStepStatusText(s.id, graphData);
+              return (
+                <g
+                  key={s.id}
+                  className="nc-graph-node"
+                  onClick={() => handleNodeClick(s.id)}
+                  onMouseEnter={(e) => handleNodeEnter(s.id, e)}
+                  onMouseMove={handleNodeMove}
+                  onMouseLeave={() => setHovered(null)}
                 >
-                  {s.icon}
-                </text>
-                {/* Label */}
-                <text
-                  x={pos.x}
-                  y={pos.y + 16}
-                  className="nc-graph-node-label"
-                >
-                  {s.label}
-                </text>
-                {/* Indicateur de statut (coin inférieur droit) */}
-                <circle
-                  cx={pos.x + nodeRadius - 8}
-                  cy={pos.y + nodeRadius - 8}
-                  r={6}
-                  className={`nc-status-dot ${status}`}
-                />
-                {/* Texte de statut */}
-                <text
-                  x={pos.x}
-                  y={pos.y + nodeRadius + 16}
-                  className="nc-graph-node-status-text"
-                >
-                  {statusText}
-                </text>
-              </g>
-            );
-          })}
+                  {/* Cercle principal du nœud */}
+                  <circle
+                    cx={pos.x}
+                    cy={pos.y}
+                    r={nodeRadius}
+                    className="nc-graph-node-circle"
+                    style={{ stroke: s.color }}
+                  />
+                  {/* Icône */}
+                  <text
+                    x={pos.x}
+                    y={pos.y - 6}
+                    className="nc-graph-node-icon"
+                  >
+                    {s.icon}
+                  </text>
+                  {/* Label */}
+                  <text
+                    x={pos.x}
+                    y={pos.y + 16}
+                    className="nc-graph-node-label"
+                  >
+                    {s.label}
+                  </text>
+                  {/* Indicateur de statut (coin inférieur droit) */}
+                  <circle
+                    cx={pos.x + nodeRadius - 8}
+                    cy={pos.y + nodeRadius - 8}
+                    r={6}
+                    className={`nc-status-dot ${status}`}
+                  />
+                  {/* Texte de statut */}
+                  <text
+                    x={pos.x}
+                    y={pos.y + nodeRadius + 16}
+                    className="nc-graph-node-status-text"
+                  >
+                    {statusText}
+                  </text>
+                </g>
+              );
+            })}
+          </g>
         </svg>
+
+        {renderGraphTooltip()}
 
         {/* Légende */}
         <div className="nc-graph-legend">
-          <span><span className="nc-graph-legend-dot" style={{ background: "#00b894" }}></span> OK</span>
-          <span><span className="nc-graph-legend-dot" style={{ background: "#fdcb6e" }}></span> Attention</span>
-          <span><span className="nc-graph-legend-dot" style={{ background: "#c0392b" }}></span> Critique</span>
-          <span><span className="nc-graph-legend-dot" style={{ background: "var(--muted)" }}></span> Inconnu</span>
+          {/* Couleurs portées par le CSS (variables de thème), jamais en dur
+              dans un style en ligne -- un #00b894 fixe ressort faux en thème
+              sombre, piège déjà corrigé plusieurs fois dans ce projet. */}
+          <span><span className="nc-graph-legend-dot ok"></span> OK</span>
+          <span><span className="nc-graph-legend-dot warn"></span> Attention</span>
+          <span><span className="nc-graph-legend-dot down"></span> Critique</span>
+          <span><span className="nc-graph-legend-dot unknown"></span> Inconnu</span>
         </div>
       </div>
     );
