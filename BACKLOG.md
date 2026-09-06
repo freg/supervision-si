@@ -1769,6 +1769,13 @@ qui fait alors sauter la file.
     Combien de skins au total, au-delà de hub/hub-dark ?
 
 47. Volet WiFi dans netprobe — supervision continue Campus Alpha
+    **✅ COUCHE « EXPÉRIENCE CLIENT » ET RF LÉGÈRE LIVRÉES en #405-#408**
+    (sondes Pi Zero W + collecteur Pi 3B + central + hub + images) :
+    signal/canal/BSSID/itinérance, bornes visibles et voisins co-canal,
+    ping/DNS/HTTP/iperf3 depuis chaque point, santé du Pi. Le suivi de
+    BSSID « hors de portée » en #385 est levé. Voir docs/supervision-wifi.md.
+    Reste HORS de portée tant que le matériel RF n'est pas reçu : voir
+    ci-dessous (inchangé).
     (2026-09-04, reformulé le 2026-09-05 -- demandé explicitement :
     "voyons ce qu'on peut déjà faire sans RF simplement avec un
     client wifi et la couche IP et le snmp"). Objectif inchangé :
@@ -1899,7 +1906,11 @@ qui fait alors sauter la file.
     corrélation manuelle, à la charge du technicien.
 
 51. Interface hub — vue de corrélation multi-couches et guidage
-    technicien (2026-09-04). **PAS COMMENCÉ**. Dépend des items
+    technicien (2026-09-04). **SOCLE LIVRÉ en #407** (onglet « Sondes
+    WiFi » : ce que chaque sonde voit, quand -- courbe de signal,
+    itinérance, ping, voisinage, santé) ; la CORRÉLATION entre couches
+    reste à concevoir sur de vraies séries, après un premier déploiement
+    (voir docs/supervision-wifi.md, « mise en route »). Dépend des items
     47-50 (rien à afficher tant que les couches sous-jacentes ne
     produisent pas de données). Objectif exprimé explicitement :
     "proposer et mettre en place des outils permettant de superviser

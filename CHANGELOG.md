@@ -1,3 +1,41 @@
+## 2026-09-06 — Images Raspberry Pi : sonde Zero W et collecteur 3B, premier démarrage automatique (livraison #408)
+
+`netprobe/agent/image/build-image.sh` : à partir de l'image OFFICIELLE
+Raspberry Pi OS Lite 32 bits (téléchargée en cache, ou fournie), injecte
+sur la partition de boot -- avec mtools, sans montage ni root -- le paquet
+`netprobe_agent`, la configuration de l'appareil (récupérée du central par
+`/agents/<id>/provision`, ou d'un fichier), `userconf.txt` (utilisateur +
+hash SHA-512), le fichier `ssh`, une clé SSH optionnelle, et
+`firstrun.sh` lancé une fois par `systemd.run=` (mécanisme de Raspberry Pi
+Imager). Au premier boot : hostname, fuseau, WiFi (`raspi-config nonint`),
+adresse fixe (NetworkManager sur Bookworm, dhcpcd sur Bullseye),
+installation dans `/opt/netprobe-agent`, services systemd (sonde :
+`netprobe-agent` + désactivation de l'économie d'énergie WiFi ;
+collecteur : `netprobe-collector` sous un utilisateur système), iperf3
+optionnel, nettoyage (directive retirée de `cmdline.txt`, clé WiFi effacée
+de la FAT), redémarrage. Point de montage `/boot/firmware` (Bookworm) ou
+`/boot` (Bullseye) détecté d'après `issue.txt`, forçable.
+
+`docs/supervision-wifi.md` : **vérification de la proposition de #303**
+(architecture 4 couches confirmée ; Pi Zero W sous-estimé -- `iw` suffit
+pour l'itinérance et l'occupation des canaux sans mode moniteur ; limite
+BSSID de #385 levée ; Pi 3B collecteur justifié par le VPN ; sparrow-wifi
+écarté sur les Pi), état couche par couche, ordre de mise en route.
+
+**Vérifié** : construction des deux rôles sur une image SYNTHÉTIQUE au
+format Raspberry Pi OS (MBR + FAT32 + cmdline/issue), inspection mtools de
+tout ce qui est injecté (dont une clé WiFi avec apostrophes relue intacte
+par bash), image de base intacte, provisionnement de bout en bout contre un
+`netprobe-api` réel lancé localement, syntaxe bash. **Non vérifié :
+aucun Raspberry Pi n'a démarré** -- le téléchargement de l'image
+officielle est bloqué depuis l'environnement de développement (proxy,
+non contourné). Points à regarder au premier essai : `image/README.md`.
+
+Fichiers : `netprobe/agent/image/{build-image.sh,firstrun.sh,README.md}`,
+`netprobe/agent/systemd/netprobe-wifi-powersave.service`,
+`docs/supervision-wifi.md`, `netprobe/README.md`, `BACKLOG.md` (47, 51),
+`.gitignore` (cache et images).
+
 ## 2026-09-06 — Hub : onglet « 📶 Sondes WiFi » dans la tuile Sondes réseau (livraison #407)
 
 Interface de #405/#406 (`hub/src/NetprobeAgentsTab.jsx`, composant séparé

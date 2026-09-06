@@ -59,3 +59,10 @@ docker-monitor/analysis/*
 */src/preferences.js
 */src/VERSION.json
 
+# Images Raspberry Pi (netprobe/agent/image, #408) : image officielle en
+# cache (≈500 Mo) et images construites (contiennent des secrets d'appareil
+# et la clé WiFi du site) -- jamais versionnées.
+netprobe/agent/image/cache/
+*.img
+*.img.xz
+
