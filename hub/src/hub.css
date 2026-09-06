@@ -1249,3 +1249,131 @@ button.secondary { background: var(--panel); }
 }
 .nc-pill.ok { background: rgba(0, 184, 148, 0.12); color: #00b894; }
 .nc-pill.down { background: rgba(192, 57, 43, 0.12); color: #c0392b; }
+
+/* --- Cycle agile réseau : onglet graphique (diagramme SVG interactif) --- */
+.nc-view-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+.nc-view-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 0;
+}
+.nc-view-tab:hover { color: var(--text); }
+.nc-view-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.nc-graph-container {
+  position: relative;
+  width: 100%;
+  height: 420px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.nc-graph-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Nœuds du graphe */
+.nc-graph-node {
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.nc-graph-node:hover .nc-graph-node-circle {
+  stroke-width: 3px;
+  filter: brightness(1.2);
+}
+.nc-graph-node-circle {
+  fill: var(--panel);
+  stroke-width: 2px;
+  transition: all 0.15s ease;
+}
+.nc-graph-node-icon {
+  font-size: 22px;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+.nc-graph-node-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-anchor: middle;
+  fill: var(--text);
+  pointer-events: none;
+}
+.nc-graph-node-status {
+  pointer-events: none;
+}
+.nc-graph-node-status-text {
+  font-size: 10px;
+  text-anchor: middle;
+  fill: var(--muted);
+  pointer-events: none;
+}
+
+/* Flèches animées */
+.nc-graph-arrow {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 2px;
+  marker-end: url(#nc-arrowhead);
+}
+.nc-graph-arrow-flow {
+  fill: none;
+  stroke-width: 3px;
+  marker-end: url(#nc-arrowhead-flow);
+  stroke-dasharray: 8 12;
+  animation: nc-flow 1.5s linear infinite;
+}
+@keyframes nc-flow {
+  to { stroke-dashoffset: -40; }
+}
+
+/* Indicateur de statut temps réel sur les nœuds */
+.nc-status-dot {
+  stroke: var(--panel);
+  stroke-width: 2px;
+}
+.nc-status-dot.ok { fill: #00b894; }
+.nc-status-dot.warn { fill: #fdcb6e; }
+.nc-status-dot.down { fill: #c0392b; }
+.nc-status-dot.unknown { fill: var(--muted); }
+
+/* Légende du graphe */
+.nc-graph-legend {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--panel);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+.nc-graph-legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
