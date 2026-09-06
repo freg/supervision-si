@@ -19,6 +19,9 @@ import {
   clientPointToViewBox,
   clampTooltipPosition,
   getStepTooltipLines,
+  extractStepMetrics,
+  compareMetrics,
+  summarizeTrend,
 } from "./networkCycleGraph.js";
 
 // Tuile hub "Réseau" -- cycle agile réseau en 5 étapes :
@@ -238,6 +241,12 @@ export default function NetworkCycleView({
   const svgRef = useRef(null);
   const panRef = useRef(null);                        // état du glisser en cours
   const draggedRef = useRef(false);                   // vrai si le dernier geste a déplacé
+  // Tendances entre deux rafraîchissements (#404) : métriques du
+  // rafraîchissement précédent (ref, jamais un état -- ne doit pas
+  // déclencher de rendu) et variations calculées (état, affichées).
+  const lastMetricsRef = useRef(null);
+  const graphDataRef = useRef(null);
+  const [trends, setTrends] = useState({});
   const [step, setStep] = useState("decider");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -425,6 +434,27 @@ export default function NetworkCycleView({
     const id = setInterval(() => { loadGraphData(); }, GRAPH_REFRESH_MS);
     return () => clearInterval(id);
   }, [viewMode, autoRefresh, loadGraphData]);
+
+  // Tendances : comparaison des métriques entre deux rafraîchissements
+  // COMPLETS. graphData change à chaque réponse d'API individuelle (une
+  // dizaine par rafraîchissement) -- en dépendre ici ferait glisser la
+  // "référence précédente" à chaque réponse et ne comparerait plus que la
+  // dernière. D'où la lecture via une ref, et un déclenchement sur le seul
+  // horodatage de fin de rafraîchissement (posé APRÈS Promise.all).
+  graphDataRef.current = graphData;
+  useEffect(() => {
+    if (!lastGraphRefresh) return;
+    const data = graphDataRef.current;
+    const cur = {};
+    for (const st of CYCLE_STEPS) cur[st.id] = extractStepMetrics(st.id, data);
+    const prev = lastMetricsRef.current;
+    if (prev) {
+      const next = {};
+      for (const st of CYCLE_STEPS) next[st.id] = compareMetrics(prev[st.id], cur[st.id]);
+      setTrends(next);
+    }
+    lastMetricsRef.current = cur;
+  }, [lastGraphRefresh]);
 
   const currentStep = CYCLE_STEPS.find((s) => s.id === step);
   const stepIndex = CYCLE_STEPS.findIndex((s) => s.id === step);
@@ -843,8 +873,9 @@ export default function NetworkCycleView({
     // Dimensions estimées plutôt que mesurées : une mesure réelle imposerait
     // un rendu en deux passes (ref + effet de mise en page) pour un gain nul
     // ici, la largeur étant fixée et les lignes courtes.
+    const trendCount = (trends[hovered.id] || []).length;
     const tipW = 250;
-    const tipH = 40 + lines.length * 18;
+    const tipH = 40 + lines.length * 18 + (trendCount ? 22 + trendCount * 17 : 0);
     const { left, top } = clampTooltipPosition(
       hovered.x, hovered.y, tipW, tipH,
       box?.width ?? GRAPH_VB_WIDTH, box?.height ?? 420,
@@ -858,6 +889,16 @@ export default function NetworkCycleView({
         {lines.map((line, i) => (
           <div key={i} className="nc-graph-tooltip-line">{line}</div>
         ))}
+        {(trends[hovered.id] || []).length > 0 && (
+          <div className="nc-graph-tooltip-trends">
+            <div className="nc-graph-tooltip-trends-title">Depuis le rafraîchissement précédent</div>
+            {trends[hovered.id].map((c) => (
+              <div key={c.label} className={`nc-graph-tooltip-trend ${c.tone}`}>
+                {c.label} : {c.before} → {c.after} {c.delta > 0 ? "▲" : "▼"}
+              </div>
+            ))}
+          </div>
+        )}
         <div className="nc-graph-tooltip-hint">Cliquer pour ouvrir cette étape</div>
       </div>
     );
@@ -979,6 +1020,19 @@ export default function NetworkCycleView({
                   >
                     {statusText}
                   </text>
+                  {/* Marqueur de tendance (coin supérieur droit) -- présent
+                      seulement si quelque chose a changé depuis le
+                      rafraîchissement précédent ; le détail est dans
+                      l'infobulle. */}
+                  {summarizeTrend(trends[s.id]) && (
+                    <text
+                      x={pos.x + nodeRadius - 6}
+                      y={pos.y - nodeRadius + 10}
+                      className={`nc-trend-mark ${summarizeTrend(trends[s.id])}`}
+                    >
+                      {summarizeTrend(trends[s.id]) === "bad" ? "▼" : summarizeTrend(trends[s.id]) === "good" ? "▲" : "±"}
+                    </text>
+                  )}
                 </g>
               );
             })}

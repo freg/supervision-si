@@ -333,9 +333,31 @@ infobulles sur données absentes puis réelles.
 **Non couvert** (pas de navigateur ici) : rendu visuel, gestes souris et
 molette réels.
 
+### Tendances entre deux rafraîchissements (livraison #404)
+
+Rendu possible par le rafraîchissement automatique : les métriques de chaque
+étape (`extractStepMetrics` -- mêmes champs que le texte de statut) sont
+gardées en mémoire du composant d'un rafraîchissement à l'autre, et comparées
+au suivant (`compareMetrics`). Aucun stockage, aucune API : la « période
+précédente » est simplement le rafraîchissement précédent (30 s en auto).
+
+- Un marqueur apparaît en haut à droite du nœud quand quelque chose a
+  changé : `▼` (au moins une dégradation), `▲` (amélioration seulement),
+  `±` (variation neutre, ex. nombre de cibles SNMP).
+- L'infobulle détaille chaque variation : `cibles en ligne : 5 → 4 ▼`.
+- La polarité de chaque métrique est explicite (`METRIC_POLARITY`) : plus
+  de suggestions ouvertes ou de signaux critiques est une dégradation, plus
+  de sites découverts ou de tunnels actifs une amélioration.
+- Une métrique apparue ou disparue (service qui répond puis ne répond plus)
+  n'est pas une variation : ignorée plutôt qu'affichée comme `0 → N`.
+
+Point de mise en œuvre : `graphData` change à chaque réponse d'API
+individuelle ; l'effet de comparaison ne dépend donc que de l'horodatage de
+fin de rafraîchissement et lit les données via une ref, sinon la
+« référence précédente » glisserait à chaque réponse.
+
 ## Évolutions possibles
 
-- Ajout d'indicateurs de tendance (comparaison avec la période précédente)
 - Notifications en cas de dépassement de seuils
 - Export des données du cycle (PDF, CSV)
 - Personnalisation de l'ordre des étapes par l'utilisateur

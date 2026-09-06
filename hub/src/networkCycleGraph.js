@@ -146,3 +146,86 @@ export function getStepTooltipLines(stepId, data) {
       return [];
   }
 }
+
+// --- Tendances entre deux rafraîchissements (livraison #404) ---
+// Le rafraîchissement automatique (#399) rend possible une comparaison
+// "avant / après" sans aucun stockage : on garde les métriques du
+// rafraîchissement précédent en mémoire du composant, rien de plus.
+// Aucune donnée d'API supposée : mêmes champs que getStepStatusText.
+
+// Polarité : +1 = "plus, c'est mieux", -1 = "plus, c'est pire". Tout
+// libellé absent d'ici est considéré neutre (affiché sans couleur).
+export const METRIC_POLARITY = {
+  "suggestions ouvertes": -1,
+  "sites découverts": 1,
+  "tunnels actifs": 1,
+  "tunnels en erreur": -1,
+  "cibles SNMP": 0,
+  "cibles en ligne": 1,
+  "cibles hors ligne": -1,
+  "signaux critiques": -1,
+  "avertissements": -1,
+};
+
+export function extractStepMetrics(stepId, data) {
+  switch (stepId) {
+    case "decider": {
+      const s = data.orchestratorSummary;
+      return s ? { "suggestions ouvertes": Number(s.open) || 0 } : {};
+    }
+    case "explorer":
+      return data.captureStatus ? { "sites découverts": data.sites?.length ?? 0 } : {};
+    case "deployer": {
+      const tunnels = data.tunnels || [];
+      if (tunnels.length === 0 && (data.snmpTargets?.length ?? 0) === 0) return {};
+      return {
+        "tunnels actifs": tunnels.filter((t) => t.status === "running").length,
+        "tunnels en erreur": tunnels.filter((t) => t.status === "error").length,
+        "cibles SNMP": data.snmpTargets?.length ?? 0,
+      };
+    }
+    case "mesurer": {
+      const samples = data.latestSamples || [];
+      if (samples.length === 0) return {};
+      const up = samples.filter((x) => x.success).length;
+      return { "cibles en ligne": up, "cibles hors ligne": samples.length - up };
+    }
+    case "apprendre": {
+      const sum = data.vigilanceSummary || [];
+      if (!data.vigilanceApiBase) return {};
+      const count = (sev) => sum.filter((x) => x.severity === sev).reduce((a, x) => a + (x.n || 0), 0);
+      return { "signaux critiques": count("critical"), "avertissements": count("warning") };
+    }
+    default:
+      return {};
+  }
+}
+
+// Compare deux jeux de métriques d'une étape. Ne renvoie QUE ce qui a
+// changé, avec le sens et l'appréciation (good/bad/neutral). Une métrique
+// absente d'un des deux côtés (service apparu/disparu) est ignorée : il
+// n'y a rien de comparable, pas une variation.
+export function compareMetrics(prev, cur) {
+  const out = [];
+  for (const label of Object.keys(cur || {})) {
+    if (!prev || !(label in prev)) continue;
+    const before = Number(prev[label]);
+    const after = Number(cur[label]);
+    if (!Number.isFinite(before) || !Number.isFinite(after) || before === after) continue;
+    const delta = after - before;
+    const polarity = METRIC_POLARITY[label] ?? 0;
+    const tone = polarity === 0 ? "neutral" : (delta * polarity > 0 ? "good" : "bad");
+    out.push({ label, before, after, delta, tone });
+  }
+  return out;
+}
+
+// Résumé d'une liste de variations pour le marqueur affiché sur le nœud :
+// "bad" l'emporte sur "good", qui l'emporte sur "neutral" ; null si rien.
+export function summarizeTrend(changes) {
+  if (!changes || changes.length === 0) return null;
+  if (changes.some((c) => c.tone === "bad")) return "bad";
+  if (changes.some((c) => c.tone === "good")) return "good";
+  return "neutral";
+}
+

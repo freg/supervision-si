@@ -1492,6 +1492,31 @@ button.secondary { background: var(--panel); }
   color: var(--muted);
   line-height: 1.5;
 }
+.nc-graph-tooltip-trends {
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px dashed var(--border);
+}
+.nc-graph-tooltip-trends-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+.nc-graph-tooltip-trend { line-height: 1.5; }
+.nc-graph-tooltip-trend.good { color: var(--ok); }
+.nc-graph-tooltip-trend.bad { color: var(--danger); }
+.nc-graph-tooltip-trend.neutral { color: var(--muted); }
+.nc-trend-mark {
+  font-size: 11px;
+  font-weight: 700;
+  text-anchor: middle;
+  pointer-events: none;
+}
+.nc-trend-mark.good { fill: var(--ok); }
+.nc-trend-mark.bad { fill: var(--danger); }
+.nc-trend-mark.neutral { fill: var(--muted); }
 .nc-graph-tooltip-hint {
   margin-top: 6px;
   padding-top: 5px;

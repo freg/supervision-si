@@ -140,3 +140,54 @@ test("getStepTooltipLines agrège correctement des données réelles", () => {
   assert.equal(app[0], "3 signal(aux) critique(s) · 5 avertissement(s)");
   assert.equal(app[1], "4 élément(s) sans sauvegarde");
 });
+
+// --- Tendances (#404) ---
+import { extractStepMetrics, compareMetrics, summarizeTrend } from "../src/networkCycleGraph.js";
+
+test("extractStepMetrics ne renvoie rien tant que le service n'a pas répondu", () => {
+  assert.deepEqual(extractStepMetrics("decider", {}), {});
+  assert.deepEqual(extractStepMetrics("explorer", { sites: [{}, {}] }), {}, "sites sans statut de capture : pas comparable");
+  assert.deepEqual(extractStepMetrics("mesurer", { latestSamples: [] }), {});
+  assert.deepEqual(extractStepMetrics("nope", {}), {});
+});
+
+test("extractStepMetrics reflète les mêmes champs que le texte de statut", () => {
+  const data = {
+    orchestratorSummary: { open: "3" },
+    captureStatus: { running: true }, sites: [{}, {}, {}],
+    tunnels: [{ status: "running" }, { status: "error" }], snmpTargets: [{}],
+    latestSamples: [{ success: true }, { success: false }, { success: false }],
+    vigilanceApiBase: "http://x", vigilanceSummary: [{ severity: "critical", n: 2 }, { severity: "warning", n: 1 }],
+  };
+  assert.deepEqual(extractStepMetrics("decider", data), { "suggestions ouvertes": 3 });
+  assert.deepEqual(extractStepMetrics("explorer", data), { "sites découverts": 3 });
+  assert.deepEqual(extractStepMetrics("deployer", data), { "tunnels actifs": 1, "tunnels en erreur": 1, "cibles SNMP": 1 });
+  assert.deepEqual(extractStepMetrics("mesurer", data), { "cibles en ligne": 1, "cibles hors ligne": 2 });
+  assert.deepEqual(extractStepMetrics("apprendre", data), { "signaux critiques": 2, "avertissements": 1 });
+});
+
+test("compareMetrics ne garde que les variations, avec le bon ton", () => {
+  const prev = { "cibles en ligne": 5, "cibles hors ligne": 0, "cibles SNMP": 2 };
+  const cur = { "cibles en ligne": 4, "cibles hors ligne": 1, "cibles SNMP": 3 };
+  const out = compareMetrics(prev, cur);
+  assert.deepEqual(out, [
+    { label: "cibles en ligne", before: 5, after: 4, delta: -1, tone: "bad" },
+    { label: "cibles hors ligne", before: 0, after: 1, delta: 1, tone: "bad" },
+    { label: "cibles SNMP", before: 2, after: 3, delta: 1, tone: "neutral" },
+  ]);
+  assert.deepEqual(compareMetrics(prev, prev), [], "identique : aucune variation");
+});
+
+test("compareMetrics ignore une métrique apparue ou disparue, et les valeurs invalides", () => {
+  assert.deepEqual(compareMetrics({}, { "sites découverts": 2 }), []);
+  assert.deepEqual(compareMetrics(null, { "sites découverts": 2 }), []);
+  assert.deepEqual(compareMetrics({ "sites découverts": "abc" }, { "sites découverts": 2 }), []);
+});
+
+test("summarizeTrend : bad > good > neutral, null si rien", () => {
+  assert.equal(summarizeTrend([]), null);
+  assert.equal(summarizeTrend(null), null);
+  assert.equal(summarizeTrend([{ tone: "neutral" }]), "neutral");
+  assert.equal(summarizeTrend([{ tone: "good" }, { tone: "neutral" }]), "good");
+  assert.equal(summarizeTrend([{ tone: "good" }, { tone: "bad" }]), "bad");
+});

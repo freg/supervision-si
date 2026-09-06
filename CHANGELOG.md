@@ -1,3 +1,13 @@
+## 2026-09-06 — Cycle agile réseau : tendances entre deux rafraîchissements (livraison #404)
+
+Les métriques de chaque étape sont comparées au rafraîchissement précédent :
+marqueur `▲`/`▼`/`±` sur le nœud, détail `avant → après` dans l'infobulle,
+polarité explicite par métrique (`METRIC_POLARITY`). Aucun stockage ni API.
+Logique pure dans `networkCycleGraph.js` (+5 tests, 30 tests hub au vert).
+Détail et piège (référence qui glisserait à chaque réponse d'API) dans
+`docs/cycle-agile-reseau.md`. Fichiers : `NetworkCycleView.jsx`,
+`networkCycleGraph.js`, `hub.css`, tests, docs.
+
 ## 2026-09-06 — Exploration réseau : services de la paire (livraison #403)
 
 `/links/services` (« services connectés par paire d'ip », demandé en #251,
