@@ -200,10 +200,8 @@ qui fait alors sauter la file.
    - **Interface de gestion (affectation des relations)** -- distincte
      de l'éditeur de relations ci-dessus (celui-ci corrige le SCHÉMA
      déduit ; celle-ci gère l'AFFECTATION des relations sur les
-     données elles-mêmes). **PAS COMMENCÉ** -- reste flou même après
-     tentative d'interprétation, traité séparément. Rejoint la "vue
-     JSON avec valeurs résolues" mentionnée par la personne en #241,
-     pas encore construite non plus -- à cadrer ensemble.
+     données elles-mêmes). **LIVRÉE** -- voir
+     `schema-analyzer/README.md`.
 6. Nouveau module `ged` — gestion électronique de documents,
    demandé pour deux usages : "documents liés/joints" pour les
    tickets, ET une interface/API GED dans le hub pour accéder/gérer
@@ -964,9 +962,15 @@ qui fait alors sauter la file.
       accessible AUSSI par l'hôte (donc pas seulement depuis
       l'intérieur d'un conteneur -- implique un montage/volume
       partagé avec la machine hôte elle-même).
-    **PAS COMMENCÉ** -- juste noté. Périmètre exact de chaque volet,
-    modèle de permissions (le hub tourne avec quels droits sur les
-    fichiers de l'hôte ?), et articulation avec la GED existante --
+    **✅ LIVRÉ en #397** -- trois volets livrés d'un coup :
+    - Espace protégé du hub (répertoire hôte, navigation arborescente,
+      protégé par rights-api, métadonnées uniquement).
+    - Documents GED (agrégé depuis ged-api, lecture seule).
+    - Partages SSHFS (agrégé depuis ssh-tunnels-api, stats espace/inodes).
+    **⚠️ Non vérifié dans cet environnement** : accès réseau réel à
+    ged-api/ssh-tunnels-api (réseau restreint). Logique testée en profondeur
+    avec des scénarios simulés.
+    **CONFIRMÉ IDENTIQUE À L'ITEM 9 (étape 2)** par la personne --
     à trancher ensemble le moment venu.
     **CONFIRMÉ IDENTIQUE À L'ITEM 9 (étape 2)** par la personne --
     ce chantier ET "promouvoir ged au même niveau que les fronts

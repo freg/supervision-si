@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backup-restore/api/app.py .
 COPY backup-restore/api/store.py .
+COPY backup-restore/api/connectors/ ./connectors/
 COPY shared/version_endpoint.py .
 COPY shared/VERSION.json .
 COPY shared/log_buffer.py .

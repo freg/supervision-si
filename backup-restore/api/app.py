@@ -269,3 +269,307 @@ def get_logs():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
+# ===================================================================
+# Routes livraison #270 -- Connecteurs BackupPC, Clonezilla, Restic
+# ===================================================================
+
+CONNECTOR_TYPES = {"backuppc", "clonezilla", "restic"}
+
+
+@app.route("/connectors", methods=["GET"])
+def list_connectors():
+    """Liste les configurations de connecteurs."""
+    connector_type = request.args.get("type")
+    return jsonify(store.list_connector_configs(DB_PATH, connector_type=connector_type)), 200
+
+
+@app.route("/connectors", methods=["POST"])
+def create_connector():
+    """Crée une configuration de connecteur."""
+    body = request.get_json(silent=True) or {}
+    connector_type = (body.get("connector_type") or "").strip()
+    name = (body.get("name") or "").strip()
+    if not connector_type or not name:
+        return jsonify({"error": "'connector_type' et 'name' sont requis"}), 400
+    if connector_type not in CONNECTOR_TYPES:
+        return jsonify({"error": f"'connector_type' doit être l'un de {sorted(CONNECTOR_TYPES)}"}), 400
+    new_id = store.create_connector_config(
+        DB_PATH,
+        connector_type=connector_type,
+        name=name,
+        url=body.get("url"),
+        config_json=body.get("config_json"),
+    )
+    return jsonify({"status": "ok", "id": new_id}), 201
+
+
+@app.route("/connectors/<int:config_id>", methods=["DELETE"])
+def delete_connector(config_id):
+    """Supprime une configuration de connecteur."""
+    deleted = store.delete_connector_config(DB_PATH, config_id)
+    return jsonify({"status": "ok", "deleted": deleted}), 200
+
+
+@app.route("/jobs", methods=["GET"])
+def list_all_jobs():
+    """Liste les jobs de sauvegarde."""
+    connector_type = request.args.get("connector_type")
+    status = request.args.get("status")
+    limit = request.args.get("limit", 50, type=int)
+    return jsonify(store.list_jobs(DB_PATH, connector_type=connector_type, status=status, limit=limit)), 200
+
+
+@app.route("/jobs", methods=["POST"])
+def create_new_job():
+    """Crée un nouveau job de sauvegarde."""
+    body = request.get_json(silent=True) or {}
+    connector_type = (body.get("connector_type") or "").strip()
+    job_type = (body.get("job_type") or "").strip()
+    if not connector_type or not job_type:
+        return jsonify({"error": "'connector_type' et 'job_type' sont requis"}), 400
+    if connector_type not in CONNECTOR_TYPES:
+        return jsonify({"error": f"'connector_type' doit être l'un de {sorted(CONNECTOR_TYPES)}"}), 400
+    new_id = store.create_job(
+        DB_PATH,
+        connector_type=connector_type,
+        job_type=job_type,
+        connector_id=body.get("connector_id"),
+        device=body.get("device"),
+        image_name=body.get("image_name"),
+        snapshot_id=body.get("snapshot_id"),
+        target_path=body.get("target_path"),
+    )
+    return jsonify({"status": "ok", "id": new_id}), 201
+
+
+@app.route("/jobs/<int:job_id>", methods=["GET"])
+def get_job_detail(job_id):
+    """Récupère les détails d'un job."""
+    job = store.get_job(DB_PATH, job_id)
+    if not job:
+        return jsonify({"error": "Job non trouvé"}), 404
+    return jsonify(job), 200
+
+
+@app.route("/jobs/<int:job_id>/status", methods=["PATCH"])
+def update_job(job_id):
+    """Met à jour le statut d'un job."""
+    body = request.get_json(silent=True) or {}
+    status = (body.get("status") or "").strip()
+    if not status:
+        return jsonify({"error": "'status' est requis"}), 400
+    updated = store.update_job_status(
+        DB_PATH,
+        job_id,
+        status=status,
+        progress_percent=body.get("progress_percent"),
+        error_message=body.get("error_message"),
+    )
+    return jsonify({"status": "ok", "updated": updated}), 200
+
+
+@app.route("/schedules", methods=["GET"])
+def list_all_schedules():
+    """Liste les planifications."""
+    connector_type = request.args.get("connector_type")
+    return jsonify(store.list_schedules(DB_PATH, connector_type=connector_type)), 200
+
+
+@app.route("/schedules", methods=["POST"])
+def create_new_schedule():
+    """Crée une planification."""
+    body = request.get_json(silent=True) or {}
+    connector_type = (body.get("connector_type") or "").strip()
+    name = (body.get("name") or "").strip()
+    cron_expression = (body.get("cron_expression") or "").strip()
+    if not connector_type or not name or not cron_expression:
+        return jsonify({"error": "'connector_type', 'name' et 'cron_expression' sont requis"}), 400
+    if connector_type not in CONNECTOR_TYPES:
+        return jsonify({"error": f"'connector_type' doit être l'un de {sorted(CONNECTOR_TYPES)}"}), 400
+    new_id = store.create_schedule(
+        DB_PATH,
+        connector_type=connector_type,
+        name=name,
+        cron_expression=cron_expression,
+        connector_id=body.get("connector_id"),
+        config_json=body.get("config_json"),
+    )
+    return jsonify({"status": "ok", "id": new_id}), 201
+
+
+@app.route("/schedules/<int:schedule_id>", methods=["DELETE"])
+def delete_schedule_route(schedule_id):
+    """Supprime une planification."""
+    deleted = store.delete_schedule(DB_PATH, schedule_id)
+    return jsonify({"status": "ok", "deleted": deleted}), 200
+
+
+@app.route("/file-versions", methods=["GET"])
+def list_all_file_versions():
+    """Liste les versions de fichiers."""
+    host = request.args.get("host")
+    file_path = request.args.get("file_path")
+    connector_type = request.args.get("connector_type")
+    limit = request.args.get("limit", 20, type=int)
+    if host and file_path:
+        return jsonify(store.list_file_versions(DB_PATH, host=host, file_path=file_path, limit=limit)), 200
+    return jsonify(store.get_hosts_with_versions(DB_PATH, connector_type=connector_type)), 200
+
+
+@app.route("/file-versions", methods=["POST"])
+def add_new_file_version():
+    """Ajoute une version de fichier."""
+    body = request.get_json(silent=True) or {}
+    connector_type = (body.get("connector_type") or "").strip()
+    host = (body.get("host") or "").strip()
+    file_path = (body.get("file_path") or "").strip()
+    version_number = body.get("version_number")
+    if not connector_type or not host or not file_path or version_number is None:
+        return jsonify({"error": "'connector_type', 'host', 'file_path' et 'version_number' sont requis"}), 400
+    new_id = store.add_file_version(
+        DB_PATH,
+        connector_type=connector_type,
+        host=host,
+        file_path=file_path,
+        version_number=version_number,
+        snapshot_id=body.get("snapshot_id"),
+        size_bytes=body.get("size_bytes"),
+        modified_at=body.get("modified_at"),
+        hash=body.get("hash"),
+    )
+    return jsonify({"status": "ok", "id": new_id}), 201
+
+
+# --- Routes spécifiques aux connecteurs (données simulées/réelles) ---
+
+@app.route("/backuppc/hosts", methods=["GET"])
+def backuppc_hosts():
+    """Liste les hôtes BackupPC (via le connecteur)."""
+    from connectors.backuppc import get_connector
+    connector = get_connector()
+    return jsonify({"hosts": connector.get_hosts()}), 200
+
+
+@app.route("/backuppc/hosts/<host>/versions", methods=["GET"])
+def backuppc_host_versions(host):
+    """Liste les versions d'un hôte BackupPC."""
+    from connectors.backuppc import get_connector
+    connector = get_connector()
+    return jsonify({"host": host, "versions": connector.get_host_versions(host)}), 200
+
+
+@app.route("/backuppc/hosts/<host>/content", methods=["GET"])
+def backuppc_host_content(host):
+    """Liste le contenu d'une sauvegarde BackupPC."""
+    from connectors.backuppc import get_connector
+    connector = get_connector()
+    version = request.args.get("version", type=int)
+    return jsonify(connector.get_host_content(host, version=version)), 200
+
+
+@app.route("/backuppc/pool/stats", methods=["GET"])
+def backuppc_pool_stats():
+    """Statistiques du pool BackupPC."""
+    from connectors.backuppc import get_connector
+    connector = get_connector()
+    return jsonify(connector.get_pool_stats()), 200
+
+
+@app.route("/clonezilla/images", methods=["GET"])
+def clonezilla_images():
+    """Liste les images Clonezilla."""
+    from connectors.clonezilla import get_connector
+    connector = get_connector()
+    return jsonify({"images": connector.get_images()}), 200
+
+
+@app.route("/clonezilla/jobs", methods=["GET"])
+def clonezilla_jobs():
+    """Liste les jobs Clonezilla."""
+    from connectors.clonezilla import get_connector
+    connector = get_connector()
+    status = request.args.get("status")
+    return jsonify({"jobs": connector.get_jobs(status=status)}), 200
+
+
+@app.route("/clonezilla/jobs", methods=["POST"])
+def clonezilla_create_job():
+    """Crée un job Clonezilla."""
+    from connectors.clonezilla import get_connector
+    connector = get_connector()
+    body = request.get_json(silent=True) or {}
+    job_type = body.get("type", "save")
+    if job_type == "save":
+        result = connector.trigger_save(body.get("device"), body.get("image_name"), body.get("method", "partclone"))
+    elif job_type == "restore":
+        result = connector.trigger_restore(body.get("image_name"), body.get("device"))
+    else:
+        return jsonify({"error": "Type de job invalide"}), 400
+    return jsonify(result), 201
+
+
+@app.route("/clonezilla/pxe-config", methods=["GET"])
+def clonezilla_pxe_config():
+    """Configuration PXE Clonezilla."""
+    from connectors.clonezilla import get_connector
+    connector = get_connector()
+    return jsonify(connector.get_pxe_config()), 200
+
+
+@app.route("/restic/snapshots", methods=["GET"])
+def restic_snapshots():
+    """Liste les snapshots Restic."""
+    from connectors.restic import get_connector
+    connector = get_connector()
+    return jsonify({"snapshots": connector.get_snapshots()}), 200
+
+
+@app.route("/restic/snapshots/<snapshot_id>/content", methods=["GET"])
+def restic_snapshot_content(snapshot_id):
+    """Contenu d'un snapshot Restic."""
+    from connectors.restic import get_connector
+    connector = get_connector()
+    path = request.args.get("path", "/")
+    return jsonify(connector.get_snapshot_content(snapshot_id, path=path)), 200
+
+
+@app.route("/restic/stats", methods=["GET"])
+def restic_stats():
+    """Statistiques du dépôt Restic."""
+    from connectors.restic import get_connector
+    connector = get_connector()
+    return jsonify(connector.get_stats()), 200
+
+
+@app.route("/restic/restore", methods=["POST"])
+def restic_restore():
+    """Déclenche une restauration Restic."""
+    from connectors.restic import get_connector
+    connector = get_connector()
+    body = request.get_json(silent=True) or {}
+    result = connector.restore(
+        snapshot_id=body.get("snapshot_id"),
+        target_path=body.get("target_path"),
+        includes=body.get("includes"),
+        excludes=body.get("excludes"),
+    )
+    return jsonify(result), 200 if result.get("status") == "ok" else 400
+
+
+@app.route("/restic/forget", methods=["POST"])
+def restic_forget():
+    """Applique la politique de rétention Restic."""
+    from connectors.restic import get_connector
+    connector = get_connector()
+    body = request.get_json(silent=True) or {}
+    result = connector.forget(body)
+    return jsonify(result), 200 if result.get("status") == "ok" else 400
+
+
+@app.route("/restic/check", methods=["GET"])
+def restic_check():
+    """Vérifie l'intégrité du dépôt Restic."""
+    from connectors.restic import get_connector
+    connector = get_connector()
+    return jsonify(connector.check()), 200

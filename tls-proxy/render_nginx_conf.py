@@ -125,6 +125,9 @@ SERVICES = [
     ("SCHEMA_ANALYZER_API_PORT", "schema-analyzer-api", 5000, "/api/schema-analyzer/", "api"),
     ("GED_API_PORT", "ged-api", 5000, "/api/ged/", "api"),
     ("SSH_TUNNELS_API_PORT", "ssh-tunnels-api", 5000, "/api/ssh-tunnels/", "api"),
+    # file-manager-api (livraison #396, backlog item 26) -- agrège GED,
+    # SSHFS, espace protégé. Routé via la passerelle pour l'interface hub.
+    ("FILE_MANAGER_API_PORT", "file-manager-api", 5000, "/api/file-manager/", "api"),
     # snmp-api (livraison #212) -- module SNMP, interface hub #227.
     ("SNMP_API_PORT", "snmp-api", 5000, "/api/snmp/", "api"),
     # netmap-orchestrator-api (livraison #388) -- orchestrateur

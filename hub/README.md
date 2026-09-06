@@ -1805,6 +1805,33 @@ l'éditeur de schéma) reste **flou** même après cette interprétation
 -- traité séparément (voir `BACKLOG.md` #5 et le changelog de
 livraisons suivantes).
 
+## Onglet Affectation de schema-analyzer (livraison #5)
+
+Backlog `BACKLOG.md` #5 -- "Interface de gestion (affectation des
+relations)". Distinct de l'éditeur de relations (qui corrige le
+SCHÉMA déduit) : ici, on gère l'AFFECTATION des relations sur les
+données elles-mêmes.
+
+**Ce qui EST construit** : nouveau sous-onglet "Affectation" dans
+`SchemaAnalyzerView.jsx` -- sélecteur de table, navigateur de lignes
+(50 lignes/page, pagination), clic sur une ligne pour résoudre TOUTES
+ses relations confirmées (affichage des lignes cibles), et bouton
+"Modifier l'affectation" pour changer la valeur d'une FK/colonne-liste
+(protégé par rights-api).
+
+**Backend** : nouveau module `relation_resolver.py` (fonctions PURES)
++ 2 routes (`POST /relations/resolve-row` pour la résolution, `POST
+/relations/assign` pour l'affectation). L'écriture réelle délègue à
+dba-api (PUT /rows) -- schema-analyzer ne fait que préparer l'appel.
+
+**Vérifié réellement** : logique de résolution testée en profondeur
+(16 tests) -- résolution FK classique + colonne-liste, valeur
+orpheline, ligne introuvable, colonne-liste avec correspondance
+partielle, ignore les relations non confirmées et les valeurs vides.
+Logique d'affectation testée (5 tests) -- cascade complète
+validation -> résolution -> assignation, refus sans relation
+confirmée. Structure JSX revérifiée.
+
 **Vérifié réellement** : nouvelles fonctions du client
 (`fetchTableColumnsForEdit`, `fetchTableRows`, `updateTableRow`,
 `insertTableRow`, `deleteTableRows`, `executeSql`) testées avec un

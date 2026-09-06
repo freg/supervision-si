@@ -38,6 +38,7 @@ import NetworkAgentView from "./NetworkAgentView.jsx";
 import NetworkCycleView from "./NetworkCycleView.jsx";
 import CyberView from "./CyberView.jsx";
 import PersonalizeHomeView from "./PersonalizeHomeView.jsx";
+import FileManagerView from "./FileManagerView.jsx";
 import { logPresenceTransitions } from "./hubLogClient.js";
 import { parseMarkdown } from "./markdown.js";
 import versionInfo from "./VERSION.json";
@@ -83,6 +84,9 @@ const GED_API_BASE_URL = import.meta.env.VITE_GED_API_BASE_URL || "";
 // ci-dessus (dépôt interne, Mayan).
 const OWNCLOUD_API_BASE_URL = import.meta.env.VITE_OWNCLOUD_API_BASE_URL || "";
 const OWNCLOUD_SEARCH_API_BASE_URL = import.meta.env.VITE_OWNCLOUD_SEARCH_API_BASE_URL || "";
+// Gestionnaire de fichiers (livraison #396, backlog item 26) -- agrège
+// GED, montages SSHFS, et espace protégé du hub.
+const FILE_MANAGER_API_BASE_URL = import.meta.env.VITE_FILE_MANAGER_API_BASE_URL || "";
 // Onglet ssh-tunnels (livraison #175) -- backend #159.
 const SSH_TUNNELS_API_BASE_URL = import.meta.env.VITE_SSH_TUNNELS_API_BASE_URL || "";
 const SNMP_API_BASE_URL = import.meta.env.VITE_SNMP_API_BASE_URL || "";
@@ -1165,6 +1169,17 @@ export default function App() {
       onClick: () => setViewMode("rights"),
     });
   }
+  // Tuile "Gestionnaire de fichiers" (livraison #396, backlog item 26) --
+  // agrège GED, montages SSHFS, espace protégé. Accessible à tous les
+  // groupes authentifiés (la protection fine se fait côté file-manager-api).
+  if (FILE_MANAGER_API_BASE_URL) {
+    fronts.push({
+      id: "file-manager",
+      name: "Gestionnaire de fichiers",
+      description: "Documents, montages SSHFS, espace protégé — exploration arborescente",
+      onClick: () => setViewMode("file-manager"),
+    });
+  }
   // Tuile "Sondes réseau" (netprobe, livraisons #295/#297/#301) --
   // collecteur d'IP, système de contrôle, suivi smokeping. Module
   // séparé de network-agent (voir netprobe/README.md) -- aucune
@@ -1560,6 +1575,13 @@ export default function App() {
         <RightsView
           onBack={() => setViewMode("grid")}
           rightsApiBase={RIGHTS_API_BASE_URL}
+          groups={groups}
+        />
+      ) : viewMode === "file-manager" ? (
+        <FileManagerView
+          onBack={() => setViewMode("grid")}
+          fileManagerApiBase={FILE_MANAGER_API_BASE_URL}
+          login={profile.preferred_username}
           groups={groups}
         />
       ) : viewMode === "netprobe" ? (

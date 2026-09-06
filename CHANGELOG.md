@@ -1,3 +1,44 @@
+## 2026-09-06 — Nouvelle tuile/outil "gestionnaire de fichiers" (item #26, version: 88fda222b4ad4278, livraison #397)
+
+Trois volets livrés d'un coup :
+1. **Espace protégé du hub** -- répertoire sur l'hôte accessible aussi bien
+   depuis le hub que directement par la machine hôte. Protégé par rights-api
+   (groupe admin_hub par défaut, OPT-IN via `FILE_MANAGER_RIGHTS_API_URL`).
+2. **Documents GED** -- agrégé depuis ged-api (lecture seule), organisé par
+   entité liée.
+3. **Partages SSHFS** -- agrégé depuis ssh-tunnels-api (lecture seule),
+   avec stats espace/inodes/latence.
+
+**Backend** (`file-manager/api/app.py`) : Flask, agrégation de ged-api et
+ssh-tunnels-api via HTTP interne, scan arborescent de l'espace protégé
+(métadonnées uniquement via `os.scandir()` -- jamais de contenu). SQLite
+locale pour l'index espace protégé (chemins/taizes/dates).
+
+**Frontend** (`hub/src/FileManagerView.jsx`) : tuile hub avec onglets par
+source, navigation arborescente (dossiers d'abord, puis fichiers), stats.
+
+**Sécurité** : protection traversale de chemin (refuse `..`), accès protégé
+gated par rights-api, filet de sécurité sur `.json()` pour les appels
+internes.
+
+**⚠️ Non vérifié dans cet environnement** : accès réseau réel à ged-api/
+ssh-tunnels-api (réseau restreint). Logique testée en profondeur avec des
+scénarios simulés.
+
+**Fichiers** :
+- `file-manager/api/app.py` -- routes Flask, logique d'agrégation
+- `file-manager/api/store.py` -- SQLite (index espace protégé)
+- `file-manager/api/Dockerfile` -- image Gunicorn 2 workers
+- `file-manager/api/requirements.txt` -- dépendances
+- `file-manager/README.md` -- documentation complète
+- `hub/src/FileManagerView.jsx` -- composant React
+- `hub/src/fileManagerClient.js` -- client API
+- `hub/src/App.jsx` -- intégration tuile + viewMode
+- `docker-compose.yml` -- service file-manager-api + variable hub
+- `.env.example` -- variables FILE_MANAGER_*, GED_API_INTERNAL_URL,
+  SSH_TUNNELS_API_INTERNAL_URL
+- `tls-proxy/render_nginx_conf.py` -- routage `/api/file-manager/`
+
 ## 2026-09-06 — Vérification et documentation complètes du chiffrement des secrets de démarrage (item #22, version: 88fda222b4ad4278, livraison #396)
 
 Vérification systématique de l'ensemble du chantier #22 (points 2/3

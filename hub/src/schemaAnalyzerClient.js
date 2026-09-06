@@ -203,3 +203,28 @@ export function sqlLiteral(value) {
   if (/^-?\d+(\.\d+)?$/.test(asString)) return asString;
   return `'${asString.replace(/'/g, "''")}'`;
 }
+
+// --- Résolution et affectation des relations sur les DONNÉES (livraison
+// #5, backlog BACKLOG.md -- "Interface de gestion (affectation des
+// relations)") ---
+
+/** Pour UNE ligne, résout TOUTES les relations CONFIRMÉES -- la "vue
+ * JSON avec valeurs résolues" (demandée en #241). Renvoie
+ * {row, resolved} ou {error}. */
+export async function resolveRowRelations(schemaApiBase, payload) {
+  return fetchJson(`${schemaApiBase}/relations/resolve-row`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Modifie la valeur d'une clé étrangère/colonne-liste sur une ligne
+ * existante -- l'"affectation" demandée. Protégée par rights-api. */
+export async function assignRelation(schemaApiBase, payload) {
+  return fetchJson(`${schemaApiBase}/relations/assign`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
