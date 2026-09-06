@@ -744,3 +744,19 @@ JSX, aucun setter orphelin, tous les imports relatifs de
 **Non vérifié ici** : rendu visuel réel, et surtout le comportement sur un
 VRAI historique (les seules données disponibles restent synthétiques ou
 de démonstration, #392).
+
+## Services de la paire (livraison #403)
+
+« Services connectés par paire d'ip » faisait partie de la demande de
+rémanence (#251) et la route `/links/services` existe depuis -- mais elle
+n'avait **jamais de client côté hub**, donc jamais affichée. Ajouté au
+panneau de la paire ouvert en #400 : sous les barres de volume, tableau
+Protocole / Port / Paquets / Volume / Dernier, trié par volume décroissant
+(ordre de l'API), les deux sens confondus (voulu : par PAIRE, pas par
+direction, `store.list_device_link_services`). Historique et services sont
+chargés en parallèle ; la garde contre une réponse tardive couvre les deux.
+
+`hub/tests/networkAgentClient.test.mjs` (nouveau) : URLs construites par
+`fetchLinkServices`/`fetchLinkHistory` et repli en tableau vide sur erreur
+API, JSON invalide ou réseau coupé -- `fetch` simulé, aucun réseau.
+

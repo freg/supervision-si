@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   fetchCaptureStatus, fetchSites, fetchDevices, fetchDeviceServices,
   fetchAllServices, fetchLinks, fetchPresenceHistory, fetchObservedSubnets,
-  fetchFilterOptions, fetchDevicesForPeriod, fetchLinkHistory,
+  fetchFilterOptions, fetchDevicesForPeriod, fetchLinkHistory, fetchLinkServices,
 } from "./networkAgentClient.js";
 import { formatBytes, computeDeltaSeries, buildBarLayout, sumDeltas } from "./networkAgentHistory.js";
 import { classifyBatch } from "./classifierClient.js";
@@ -125,6 +125,7 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
   // affiché côté hub (noté "reste à faire" dans network-agent/README.md).
   const [activeLink, setActiveLink] = useState(null);
   const [activeLinkHistory, setActiveLinkHistory] = useState(null);
+  const [activeLinkServices, setActiveLinkServices] = useState(null);
 
   useEffect(() => {
     Promise.all([fetchCaptureStatus(networkAgentApiBase), fetchSites(networkAgentApiBase)]).then(([s, sitesList]) => {
@@ -232,6 +233,7 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
   async function handleSelectDevice(device) {
     setActiveLink(null);
     setActiveLinkHistory(null);
+    setActiveLinkServices(null);
     if (activeDevice?.id === device.id) {
       setActiveDevice(null);
       setActiveDeviceHistory(null);
@@ -248,14 +250,22 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
     if (activeLink?.id === link.id) {
       setActiveLink(null);
       setActiveLinkHistory(null);
+      setActiveLinkServices(null);
       return;
     }
     setActiveLink(link);
     setActiveLinkHistory(null);
-    const rows = await fetchLinkHistory(networkAgentApiBase, link.device_a_id, link.device_b_id);
+    setActiveLinkServices(null);
+    const [rows, services] = await Promise.all([
+      fetchLinkHistory(networkAgentApiBase, link.device_a_id, link.device_b_id),
+      fetchLinkServices(networkAgentApiBase, link.device_a_id, link.device_b_id),
+    ]);
     // Garde contre une réponse arrivée après un autre clic entre-temps.
     setActiveLink((cur) => {
-      if (cur?.id === link.id) setActiveLinkHistory(rows);
+      if (cur?.id === link.id) {
+        setActiveLinkHistory(rows);
+        setActiveLinkServices(services);
+      }
       return cur;
     });
   }
@@ -616,6 +626,35 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                         <p className="muted">Chargement…</p>
                       ) : (
                         <HistoryBars rows={activeLinkHistory} label="Volume échangé entre les deux appareils, par intervalle entre relevés" />
+                      )}
+                      {/* "Services connectés par paire d'ip" -- demandé en #251
+                          et servi par l'API depuis, jamais affiché ici avant #403.
+                          Les deux sens sont confondus côté API (voulu : par PAIRE,
+                          pas par direction). */}
+                      <h4 style={{ marginBottom: 4 }}>
+                        Services de la paire{activeLinkServices ? ` (${activeLinkServices.length})` : ""}
+                      </h4>
+                      {activeLinkServices === null ? (
+                        <p className="muted">Chargement…</p>
+                      ) : activeLinkServices.length === 0 ? (
+                        <p className="muted">Aucun service identifié entre ces deux appareils.</p>
+                      ) : (
+                        <div style={{ maxHeight: 180, overflowY: "auto" }}>
+                          <table>
+                            <thead><tr><th>Protocole</th><th>Port</th><th>Paquets</th><th>Volume</th><th>Dernier</th></tr></thead>
+                            <tbody>
+                              {activeLinkServices.map((sv) => (
+                                <tr key={sv.id ?? `${sv.protocol}-${sv.port}`}>
+                                  <td>{(sv.protocol || "?").toUpperCase()}</td>
+                                  <td>{sv.port}</td>
+                                  <td>{sv.packet_count}</td>
+                                  <td>{formatBytes(sv.bytes_total)}</td>
+                                  <td className="muted">{sv.last_seen ? new Date(sv.last_seen).toLocaleString("fr-FR") : "—"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       )}
                     </div>
                   )}

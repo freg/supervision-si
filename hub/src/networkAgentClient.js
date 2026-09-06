@@ -69,6 +69,13 @@ export async function fetchPresenceHistory(apiBase, deviceId) {
   const data = await fetchJson(apiBase, `/devices/${deviceId}/presence-history`);
   return Array.isArray(data) ? data : [];
 }
+// Services utilisés ENTRE deux appareils, les deux sens confondus (route
+// existante depuis #251, "services connectés par paire d'ip" -- jamais
+// appelée côté hub avant #403).
+export async function fetchLinkServices(apiBase, deviceAId, deviceBId) {
+  const data = await fetchJson(apiBase, `/links/services?device_a_id=${deviceAId}&device_b_id=${deviceBId}`);
+  return Array.isArray(data) ? data : [];
+}
 export async function fetchLinkHistory(apiBase, deviceAId, deviceBId) {
   const data = await fetchJson(apiBase, `/links/history?device_a_id=${deviceAId}&device_b_id=${deviceBId}`);
   return Array.isArray(data) ? data : [];

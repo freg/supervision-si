@@ -1,3 +1,14 @@
+## 2026-09-06 — Exploration réseau : services de la paire (livraison #403)
+
+`/links/services` (« services connectés par paire d'ip », demandé en #251,
+servi par l'API depuis) n'avait jamais de client côté hub. Affiché dans le
+panneau de la paire (#400), sous les barres de volume : protocole, port,
+paquets, volume, dernier contact. Chargé en parallèle de l'historique, même
+garde contre les réponses tardives. Client testé (`fetch` simulé, 3 tests) ;
+25 tests hub au vert. Fichiers : `networkAgentClient.js`,
+`NetworkAgentView.jsx`, `hub/tests/networkAgentClient.test.mjs` (nouveau),
+`network-agent/README.md`.
+
 ## 2026-09-06 — Fin des variables de thème `--hub-*` inexistantes (item 60, livraison #402)
 
 Suite de #399 : les 11 usages restants de variables jamais définies dans
