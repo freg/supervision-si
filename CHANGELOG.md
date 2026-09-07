@@ -1,3 +1,26 @@
+## 2026-09-07 — Correctif réel : build de file-manager-api impossible depuis #397 (livraison #409)
+
+Signalé par la personne au déploiement de #408 : `failed to compute cache
+key ... "/store.py": not found` sur `file-manager-api`. Cause : le
+Dockerfile livré en #397 utilisait des chemins relatifs au dossier
+(`COPY requirements.txt .`, `COPY app.py .`, `COPY store.py .`) alors que le
+contexte de build est la RACINE du projet (`context: .`) comme pour tous
+les autres services -- ce module n'avait jamais été construit
+(« non vérifié dans cet environnement » en #397). Deux défauts voisins
+corrigés en même temps : `shared/log_buffer.py` copié dans `/app/shared/`
+alors que `app.py` fait `from log_buffer import ...` (journal partagé
+silencieusement absent), et `shared/VERSION.json` non copié (badge
+« inconnu »). Modèle : `backup-restore/api/Dockerfile`.
+
+**Contrôle généralisé** : pour chaque paire `context`/`dockerfile` de
+`docker-compose.yml`, existence de chaque source `COPY` relative au
+contexte -- seul `file-manager-api` était en défaut. Contrôle à refaire
+avant toute livraison d'un nouveau service (script dans cette entrée du
+CHANGELOG, à intégrer à `scripts/check-env.py` si le cas se reproduit).
+
+**Non vérifié** : le build Docker lui-même (pas de Docker ici) -- à
+confirmer par `docker compose build file-manager-api`.
+
 ## 2026-09-06 — Images Raspberry Pi : sonde Zero W et collecteur 3B, premier démarrage automatique (livraison #408)
 
 `netprobe/agent/image/build-image.sh` : à partir de l'image OFFICIELLE
