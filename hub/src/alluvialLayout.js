@@ -11,11 +11,16 @@
 // Séparé du rendu (AlluvialFlowChart.jsx) pour rester testable sans
 // navigateur -- pure fonction de données en entrée vers positions en
 // sortie, aucun effet de bord.
+//
+// Livraison #413 : l'épaisseur des liens passe par chartScales.makeScale
+// (échelle linéaire / racine / log + gain, options.scale) -- même
+// modulation que le radial tree, jamais deux formules divergentes.
+import { makeScale } from "./chartScales.js";
 
 /**
  * @param {Array} links - [{device_a_id, device_b_id, bytes_total, packet_count}, ...]
  * @param {Object} deviceLabels - {id: "label lisible"} déjà résolu par l'appelant
- * @param {Object} options - {width, height, nodeWidth, minLinkWidth, maxLinkWidth}
+ * @param {Object} options - {width, height, nodeWidth, minLinkWidth, maxLinkWidth, scale: {mode, gain}}
  */
 export function computeAlluvialLayout(links, deviceLabels, options = {}) {
   const width = options.width ?? 700;
@@ -72,11 +77,12 @@ export function computeAlluvialLayout(links, deviceLabels, options = {}) {
   const sourceCursor = new Map(sourceNodesRaw.map((n) => [n.id, n.y0]));
   const destCursor = new Map(destNodesRaw.map((n) => [n.id, n.y0]));
 
-  const linkScale = (bytes) => {
-    if (grandTotal === 0) return minLinkWidth;
-    const ratio = bytes / Math.max(...validLinks.map((l) => l.bytes_total));
-    return minLinkWidth + ratio * (maxLinkWidth - minLinkWidth);
-  };
+  const linkScale = makeScale(validLinks.map((l) => l.bytes_total), {
+    mode: options.scale?.mode,
+    gain: options.scale?.gain,
+    minOut: minLinkWidth,
+    maxOut: maxLinkWidth,
+  });
 
   const linkPaths = validLinks.map((l, i) => {
     const srcNode = sourceById.get(l.device_a_id);

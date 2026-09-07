@@ -1,16 +1,19 @@
 import { useMemo } from "react";
 import * as d3 from "d3";
 import { computeAlluvialLayout } from "../alluvialLayout.js";
+import ZoomableChart from "./ZoomableChart.jsx";
 
 // Diagramme alluvial simple (flux TCP/IP/UDP entre appareils) --
 // livraison #389, backlog item 58. Calcul de layout SÉPARÉ
 // (alluvialLayout.js, testable sans navigateur) -- ce composant ne
 // fait QUE le rendu SVG à partir du résultat déjà calculé.
 
-export default function AlluvialFlowChart({ links, deviceLabels, width = 700, height = 500 }) {
+// `scale` = {mode, gain} (#413, chartScales) ; `controls` : contrôles
+// supplémentaires à afficher dans la barre de l'enveloppe de zoom.
+export default function AlluvialFlowChart({ links, deviceLabels, width = 700, height = 500, scale, controls }) {
   const layout = useMemo(
-    () => computeAlluvialLayout(links, deviceLabels, { width, height }),
-    [links, deviceLabels, width, height]
+    () => computeAlluvialLayout(links, deviceLabels, { width, height, scale }),
+    [links, deviceLabels, width, height, scale]
   );
 
   if (layout.isEmpty) {
@@ -20,7 +23,13 @@ export default function AlluvialFlowChart({ links, deviceLabels, width = 700, he
   const linkGen = d3.linkHorizontal();
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="alluvial-svg" style={{ width: "100%", height: "auto" }}>
+    <ZoomableChart
+      viewBox={`0 0 ${width} ${height}`}
+      className="alluvial-svg"
+      svgStyle={{ width: "100%", height: "auto" }}
+      label="Graphe alluvial"
+      controls={controls}
+    >
       {layout.linkPaths.map((l) => {
         const path = linkGen({
           source: [layout.nodeWidth, l.sourceY],
@@ -56,6 +65,6 @@ export default function AlluvialFlowChart({ links, deviceLabels, width = 700, he
           </text>
         </g>
       ))}
-    </svg>
+    </ZoomableChart>
   );
 }

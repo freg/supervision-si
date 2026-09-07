@@ -2505,3 +2505,14 @@ supervision (MAC puis IP de l'interface de capture, exposées par
 routeur, tranche de pourcentage sur la part de chaque flux dans le volume
 total (base stable). Les boutons de section ouverts sont en surbrillance
 (`.na-section-toggle.active`). Voir le CHANGELOG #412.
+
+## Zoom et échelle des graphiques (livraison #413)
+
+`src/components/ZoomableChart.jsx` enveloppe tout graphique SVG : boutons
++ / − / ⟲, Ctrl + molette (loupe sous le curseur), double-clic (×2),
+glisser (déplacer). Logique pure dans `src/chartZoom.js` (viewBox d'origine
+quelconque, `preserveAspectRatio` meet ou none). `src/chartScales.js` :
+échelles linéaire / racine / log et gain, partagées par `alluvialLayout.js`,
+`weightedRadialLayout.js` et `networkAgentHistory.js`. Règle : un graphique
+ne sait rien du zoom ; il rend dans son viewBox, l'enveloppe fait le reste.
+Nouveau graphique = l'envelopper, jamais réécrire un zoom local.

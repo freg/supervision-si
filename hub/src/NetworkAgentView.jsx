@@ -12,6 +12,38 @@ import {
   findSupervisionHost, findGateways, applyFlowFilters, describeFlowFilterResult,
   DEFAULT_FLOW_FILTERS,
 } from "./networkFlowFilters.js";
+import ZoomableChart from "./components/ZoomableChart.jsx";
+import {
+  SCALE_MODES, GAIN_MIN, GAIN_MAX, loadScalePreference, saveScalePreference,
+} from "./chartScales.js";
+
+const browserStorage = () => (typeof localStorage !== "undefined" ? localStorage : undefined);
+
+// Sélecteur d'échelle (#413) partagé par les graphiques de flux et les
+// barres d'historique : linéaire / racine / log, plus un gain d'épaisseur
+// pour les traits. Rendu dans la barre de l'enveloppe de zoom.
+function ScaleControls({ scale, onChange, withGain = true }) {
+  return (
+    <span className="hub-chart-scale">
+      <label title="Échelle des épaisseurs : linéaire (fidèle), racine (compromis), log (tout reste visible)">
+        échelle
+        <select value={scale.mode} onChange={(e) => onChange({ ...scale, mode: e.target.value })}>
+          {SCALE_MODES.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+        </select>
+      </label>
+      {withGain && (
+        <label title="Gain : épaissit ou affine tous les traits d'un coup, sans changer l'échelle">
+          ×{Number(scale.gain).toFixed(2).replace(/\.?0+$/, "")}
+          <input
+            type="range" min={GAIN_MIN} max={GAIN_MAX} step="0.25"
+            value={scale.gain}
+            onChange={(e) => onChange({ ...scale, gain: Number(e.target.value) })}
+          />
+        </label>
+      )}
+    </span>
+  );
+}
 
 // Tuile UNIQUE de l'agent d'exploration réseau (hub), livraison #233
 // -- backlog item 20, CLARIFIÉ explicitement avec la personne avant
@@ -50,6 +82,9 @@ const HISTORY_BARS_W = 320;
 const HISTORY_BARS_H = 48;
 
 function HistoryBars({ rows, label }) {
+  // Échelle des hauteurs (#413) : locale à ce graphique (pas de gain, une
+  // hauteur n'a pas d'épaisseur à moduler).
+  const [mode, setMode] = useState("linear");
   const series = computeDeltaSeries(rows);
   if (series.length < 2) {
     return (
@@ -58,17 +93,17 @@ function HistoryBars({ rows, label }) {
       </p>
     );
   }
-  const { bars, max } = buildBarLayout(series, HISTORY_BARS_W, HISTORY_BARS_H);
+  const { bars, max } = buildBarLayout(series, HISTORY_BARS_W, HISTORY_BARS_H, 2, mode);
   const total = sumDeltas(series);
   const resets = series.filter((p) => p.reset).length;
   return (
     <div className="na-history-bars">
-      <svg
+      <ZoomableChart
         viewBox={`0 0 ${HISTORY_BARS_W} ${HISTORY_BARS_H}`}
         preserveAspectRatio="none"
         className="na-history-svg"
-        role="img"
-        aria-label={label || "Volume échangé par intervalle"}
+        label={label || "Volume échangé par intervalle"}
+        controls={<ScaleControls scale={{ mode, gain: 1 }} onChange={(s) => setMode(s.mode)} withGain={false} />}
       >
         <line x1="0" y1={HISTORY_BARS_H - 0.5} x2={HISTORY_BARS_W} y2={HISTORY_BARS_H - 0.5} className="na-history-axis" />
         {bars.map((b) => (
@@ -84,7 +119,7 @@ function HistoryBars({ rows, label }) {
             </title>
           </rect>
         ))}
-      </svg>
+      </ZoomableChart>
       <div className="na-history-caption muted">
         {series.length} relevés · {formatBytes(total)} échangés · pic {formatBytes(max)} / intervalle
         {resets > 0 && <span className="na-history-reset-note"> · ⚠ {resets} remise(s) à zéro</span>}
@@ -109,6 +144,14 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
   // la main (id d'appareil) quand la détection par MAC/IP ne suffit pas.
   const [flowFilters, setFlowFilters] = useState(DEFAULT_FLOW_FILTERS);
   const [hostOverride, setHostOverride] = useState("");
+  // Échelle des traits des deux vues de flux (#413), mémorisée dans le
+  // navigateur : un réglage trouvé sur un réseau réel doit survivre au
+  // rechargement.
+  const [flowScale, setFlowScale] = useState(() => loadScalePreference(browserStorage()));
+  function changeFlowScale(next) {
+    setFlowScale(next);
+    saveScalePreference(browserStorage(), next);
+  }
   // Filtres profondeur/géographie/volume (livraison #392, backlog
   // item 58) -- options peuplées depuis les valeurs RÉELLEMENT
   // présentes (fetchFilterOptions), jamais une liste devinée.
@@ -569,12 +612,16 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                       <AlluvialFlowChart
                         links={flowResult.links}
                         deviceLabels={Object.fromEntries(devices.map((d) => [d.id, d.hostname || d.ip_address || d.mac_address || `#${d.id}`]))}
+                        scale={flowScale}
+                        controls={<ScaleControls scale={flowScale} onChange={changeFlowScale} />}
                       />
                       <h3 style={{ marginTop: 20, marginBottom: 4 }}>Radial tree augmenté (épaisseur = volume échangé)</h3>
                       <WeightedRadialTree
                         devices={devices}
                         links={flowResult.links}
                         segmentLabels={Object.fromEntries(sites.flatMap((s) => s.segments).map((seg) => [seg.id, seg.label]))}
+                        scale={flowScale}
+                        controls={<ScaleControls scale={flowScale} onChange={changeFlowScale} />}
                       />
                     </>
                   )}

@@ -1221,6 +1221,36 @@ button.secondary { background: var(--panel); }
 .na-flow-pct { width: 64px; }
 .na-flow-summary { margin-left: auto; font-size: 12px; }
 
+/* Enveloppe de zoom des graphiques (livraison #413, components/ZoomableChart.jsx) */
+.hub-chart { position: relative; }
+.hub-chart-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+.hub-chart-label { font-weight: 600; color: var(--muted); }
+.hub-chart-zoom { display: inline-flex; align-items: center; gap: 4px; }
+.hub-chart-zoom .nc-graph-btn:disabled { opacity: 0.4; cursor: default; }
+.hub-chart-hint { margin-left: auto; font-size: 11px; }
+.hub-chart-svg { cursor: grab; touch-action: none; overflow: hidden; }
+.hub-chart.panning .hub-chart-svg { cursor: grabbing; }
+.hub-chart-scale { display: inline-flex; align-items: center; gap: 10px; }
+.hub-chart-scale label { display: inline-flex; align-items: center; gap: 4px; }
+.hub-chart-scale select { font-size: 12px; padding: 2px 4px; }
+.hub-chart-scale input[type="range"] { width: 90px; margin: 0; }
+.alluvial-svg, .weighted-radial-svg {
+  display: block;
+  max-width: 900px;
+  margin: 0 auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.weighted-radial-svg { max-height: 70vh; }
+
 /* Diagramme alluvial (flux réseau, livraison #389) */
 .alluvial-link {
   fill: none;

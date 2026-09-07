@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import * as d3 from "d3";
 import { buildDeviceHierarchy, makeVolumeWidthScale, prepareWeightedLinks } from "../weightedRadialLayout.js";
+import ZoomableChart from "./ZoomableChart.jsx";
 
 // Radial tree augmenté -- backlog item 58, "radial tree augmenté
 // avec des liens d'épaisseur proportionnelle au volume échangé"
@@ -20,9 +21,11 @@ import { buildDeviceHierarchy, makeVolumeWidthScale, prepareWeightedLinks } from
 // d3.hierarchy/d3.tree/d3.linkRadial lui-même n'a pas pu être
 // exécuté ici -- à vérifier en priorité au premier rendu réel.
 
-export default function WeightedRadialTree({ devices, links, segmentLabels = {}, radius = 220 }) {
+// `scale` = {mode, gain} (#413, chartScales) ; `controls` : contrôles
+// supplémentaires pour la barre de l'enveloppe de zoom.
+export default function WeightedRadialTree({ devices, links, segmentLabels = {}, radius = 220, scale, controls }) {
   const treeData = useMemo(() => buildDeviceHierarchy(devices, segmentLabels), [devices, segmentLabels]);
-  const widthScale = useMemo(() => makeVolumeWidthScale(links), [links]);
+  const widthScale = useMemo(() => makeVolumeWidthScale(links, 0.5, 8, scale || {}), [links, scale]);
   const weightedLinks = useMemo(() => prepareWeightedLinks(links, widthScale), [links, widthScale]);
 
   const hierarchyRoot = useMemo(() => {
@@ -47,12 +50,17 @@ export default function WeightedRadialTree({ devices, links, segmentLabels = {},
   }
 
   const linkGenerator = d3.linkRadial().angle((d) => d.x).radius((d) => d.y);
-  const margin = 70;
+  const margin = 110; // #413 : 70 coupait les libellés longs au bord (constaté au rendu réel)
   const extent = radius + margin;
 
   return (
     <div className="weighted-radial-wrapper">
-      <svg viewBox={`${-extent} ${-extent} ${extent * 2} ${extent * 2}`} className="weighted-radial-svg">
+      <ZoomableChart
+        viewBox={`${-extent} ${-extent} ${extent * 2} ${extent * 2}`}
+        className="weighted-radial-svg"
+        label="Radial tree"
+        controls={controls}
+      >
         {/* Structure de l'arbre (segment -> appareil) -- traits fins, discrets */}
         {hierarchyRoot.links().map((link, i) => (
           <path key={`struct-${i}`} d={linkGenerator(link)} className="weighted-radial-structure-link" />
@@ -98,7 +106,7 @@ export default function WeightedRadialTree({ devices, links, segmentLabels = {},
             </g>
           );
         })}
-      </svg>
+      </ZoomableChart>
     </div>
   );
 }

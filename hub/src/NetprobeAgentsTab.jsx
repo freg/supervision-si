@@ -17,6 +17,8 @@ import {
 // de vraies données. Toute la logique non-React est dans
 // netprobeAgents.js (testée à part).
 
+import ZoomableChart from "./components/ZoomableChart.jsx";
+
 const REFRESH_MS = 60000;
 const LINE_W = 600;
 const LINE_H = 90;
@@ -40,14 +42,21 @@ function SignalLine({ series }) {
   if (!path) return <p className="muted">Pas assez de relevés wifi_link pour tracer une courbe (2 minimum).</p>;
   return (
     <div className="np-line-wrap">
-      <svg viewBox={`0 0 ${LINE_W} ${LINE_H}`} preserveAspectRatio="none" className="np-line-svg" role="img" aria-label="Signal reçu dans le temps">
+      {/* Zoom / loupe (#413) : enveloppe commune à tous les graphiques du
+          hub ; preserveAspectRatio="none" conservé (une échelle par axe). */}
+      <ZoomableChart
+        viewBox={`0 0 ${LINE_W} ${LINE_H}`}
+        preserveAspectRatio="none"
+        className="np-line-svg"
+        label="Signal reçu dans le temps"
+      >
         <path d={path} className="np-line-path" />
         {points.map((p, i) => (
           <circle key={i} cx={p.x} cy={p.y} r="2.5" className="np-line-point">
             <title>{new Date(p.at).toLocaleString("fr-FR")} : {p.value} dBm</title>
           </circle>
         ))}
-      </svg>
+      </ZoomableChart>
       <div className="np-line-caption muted">
         {series.length} relevés · min {min} dBm · max {max} dBm · de {new Date(series[0].at).toLocaleString("fr-FR")} à {new Date(series[series.length - 1].at).toLocaleString("fr-FR")}
       </div>

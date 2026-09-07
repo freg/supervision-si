@@ -1,3 +1,52 @@
+## 2026-09-07 — Zoom / loupe et modulation d'échelle sur tous les graphiques du hub (livraison #413)
+
+Retour de tests : « ajouter des options de zoom / loupe et de modulation
+d'échelle pour tous les graphiques ».
+
+**Zoom** -- nouvelle enveloppe `hub/src/components/ZoomableChart.jsx`,
+logique pure dans `hub/src/chartZoom.js` (7 tests) : boutons + / − / ⟲ et
+pourcentage, **Ctrl (⌘) + molette** = loupe ancrée sous le curseur (la
+molette seule continue de faire défiler la page : un graphique sur toute
+la largeur qui l'avalerait rendrait la page impraticable ; le pincement du
+pavé tactile envoie Ctrl), **double-clic** = ×2 sur le point cliqué,
+**glisser** = déplacement. Généralise le zoom du cycle agile (#399) à un
+viewBox d'origine quelconque (radial tree centré en 0,0) et aux deux modes
+`preserveAspectRatio` du hub (« meet » : une échelle, dessin centré ;
+« none » : une échelle par axe). Appliqué au graphe alluvial, au radial
+tree, aux barres d'historique (appareil et paire) et à la courbe de signal
+des sondes WiFi. Le graphique du cycle agile garde son zoom propre
+(molette simple, dans un cadre).
+
+**Échelle** -- `hub/src/chartScales.js` (5 tests) : linéaire / racine /
+log appliquée au ratio valeur ÷ maximum, plus un **gain** ×0.25 à ×4 sur
+la part au-dessus de l'épaisseur minimale (un flux existant reste visible
+quel que soit le réglage). Un seul réglage pour les deux vues de flux,
+mémorisé dans le navigateur (`hub.charts.scale`) ; échelle locale pour les
+barres d'historique (pas de gain : une hauteur n'a pas d'épaisseur).
+`alluvialLayout.js`, `weightedRadialLayout.js` et
+`networkAgentHistory.buildBarLayout` passent tous par `makeScale` /
+`scaleRatio` -- jamais deux formules divergentes.
+
+Au passage : le radial tree, **jamais rendu pour de vrai depuis #389**
+(« d3 inaccessible »), l'a été ici (Chromium/Playwright, d3 réel) : il
+fonctionne ; sa marge passe de 70 à 110 (libellés longs coupés au bord),
+et les deux vues de flux sont plafonnées à 900 px de large (le SVG
+s'étirait sur toute la largeur, traits de 40 px).
+
+**Correctif inclus** : `network-explorer/Dockerfile` copie désormais
+`networkFlowFilters.js` (oublié en #412 -- le build de CE conteneur aurait
+échoué, celui du hub non), `chartZoom.js`, `chartScales.js` et
+`ZoomableChart.jsx` -- piège documenté en #402, retombé dedans une fois de
+plus ; contrôle fait : chaque `import` de `NetworkAgentView.jsx` a sa ligne
+`COPY`, et le build Vite réel de network-explorer passe.
+
+**Vérifié** : 70 tests Node du hub (12 nouveaux), builds Vite réels du hub
+ET de network-explorer, rendu réel Chromium des deux vues de flux avec
+échelle log / racine, gain, zoom 125 %, sans erreur console. **Non vérifié** : rendu de la courbe de signal
+des sondes et des barres d'historique dans le navigateur (pas de données
+d'historique dans le harnais) -- même enveloppe, même code ; à regarder au
+premier usage.
+
 ## 2026-09-07 — Exploration réseau : boutons de section en surbrillance, filtres des flux (hôte de supervision ↔ routeur, tranche de %) (livraison #412)
 
 Retour de tests : « mettre en surbrillance le bouton en plus de la bascule du

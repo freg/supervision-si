@@ -9,6 +9,8 @@
 // responsabilité de la lecture (hub)". C'est ici que cette responsabilité
 // est tenue.
 
+import { scaleRatio } from "./chartScales.js";
+
 export function formatBytes(bytes) {
   if (typeof bytes !== "number" || !Number.isFinite(bytes)) return "?";
   if (bytes < 1024) return `${bytes} o`;
@@ -56,7 +58,7 @@ export function computeDeltaSeries(rows) {
 // (le premier) occupent leur place mais ne produisent pas de barre -- l'axe
 // du temps reste régulier. Hauteur minimale de 1 pour un delta non nul mais
 // trop petit pour être visible, 0 strict pour un delta nul.
-export function buildBarLayout(series, width, height, gap = 2) {
+export function buildBarLayout(series, width, height, gap = 2, mode = "linear") {
   const n = series.length;
   if (n === 0 || width <= 0 || height <= 0) return { bars: [], max: 0 };
   const max = series.reduce((m, p) => (p.delta != null && p.delta > m ? p.delta : m), 0);
@@ -65,7 +67,9 @@ export function buildBarLayout(series, width, height, gap = 2) {
   const bars = [];
   series.forEach((p, i) => {
     if (p.delta == null) return;
-    let h = max > 0 ? (p.delta / max) * height : 0;
+    // Hauteur selon l'échelle (#413) : linéaire par défaut, racine ou log
+    // pour lire les petits intervalles à côté d'un pic.
+    let h = max > 0 ? scaleRatio(p.delta, max, mode) * height : 0;
     if (p.delta > 0 && h < 1) h = 1;
     bars.push({
       x: i * slot + gap / 2,
