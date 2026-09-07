@@ -2335,6 +2335,22 @@ qui fait alors sauter la file.
     déployé → lecture via glpi-api plutôt qu'un doublon. À trancher avant
     de coder : ordre (a→f proposé), et si l'agent Linux généraliste doit
     être un paquet distinct (`si-agent`) ou rester `netprobe_agent`.
+    **Tranché par la personne (2026-09-07)** : NOUVEAU paquet `si-agent`,
+    distinct de `netprobe_agent` (qui reste la sonde WiFi/réseau). Rôle
+    précisé : « l'agent host surveille le host (CPU, disque, mémoire,
+    logs, risques internes) et il sert de machine-moteur pour la gestion
+    de plugins / sondes ». Donc : (1) collecteurs hôte de base (CPU,
+    charge, mémoire, disques, uptime, services en échec, journaux
+    d'erreurs, risques internes : disque plein, redémarrage requis, ports
+    exposés, comptes sudo…) ; (2) moteur de plugins = sondes Python ou
+    shell déposées/signées par le central, ordonnancées par l'agent,
+    sortie JSON normalisée ; (3) le relais d'exploration réseau et l'audit
+    de zone deviennent des plugins livrés avec l'agent (désactivés par
+    défaut) ; (4) central `si-agent-api` (flotte, enrôlement HMAC comme
+    netprobe, catalogue de plugins, tableau de bord / commande par agent)
+    et tuile hub « Agents ». Le protocole HMAC / file de netprobe est
+    réutilisé (copie au build depuis la source canonique, jamais une
+    seconde implémentation).
 
 64. Refonte de la tuile Supervision SI (2026-09-07, demandé avec #418).
     « La tuile actuelle était la maquette initiale de la dataviz du hub ;
@@ -2354,8 +2370,15 @@ qui fait alors sauter la file.
     (3) page centrale en cadres (1-4, disposition, choix du contenu de
     chaque cadre parmi : carte, table, timeline, pixel-grid, radial…) ;
     (4) redistribution des outils actuels (calendrier, corbeille, radial,
-    fusion IP/MAC…) vers leurs tuiles. Questions avant de coder :
-    « Propositions » = suggestions de l'orchestrateur + vigilance ?
-    « Liens » = URI externes du hub ou liens entre équipements (flux) ?
-    Où vit la nouvelle tuile : dans le hub (composant, comme les vues
-    réseau) ou dans `frontend/` (l'appli historique, Leaflet) ?
+    fusion IP/MAC…) vers leurs tuiles.
+    **Tranché par la personne (2026-09-07)** : la nouvelle tuile vit DANS
+    LE HUB (composant React, carte Leaflet réimportée) ; « Propositions »
+    = suggestions de l'orchestrateur + signaux de vigilance + appareils
+    découverts non supervisés, les trois à cocher/décocher par
+    l'utilisateur ; « Liens » = liens construits AUTOMATIQUEMENT entre
+    équipements : « cette colonne régit l'affichage sur la carte, il faut
+    une accroche géographique aux données présentées ; en période
+    d'exploration, seule l'analyse des liens offre une position » -- un
+    équipement sans coordonnées est positionné par ses liens (ce à quoi
+    il parle, le site/segment auquel il appartient), et l'onglet montre
+    cette chaîne de déduction.
