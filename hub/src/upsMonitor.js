@@ -4,14 +4,14 @@
 // Champs de la fiche présentés en premier dans le tableau, dans cet ordre
 // (les autres suivent, dans l'ordre de la page).
 export const PRIMARY_KEYS = [
-  "model", "communication", "output_source", "battery",
+  "model", "serial_number", "communication", "output_source", "battery", "ups_state",
   "input_voltage", "output_voltage", "input_frequency", "output_frequency",
-  "output_load", "battery_capacity",
+  "output_load", "battery_capacity", "battery_runtime", "battery_voltage", "temperature",
 ];
 
 // Champs numériques proposés pour la timeline (courbe) ; tout autre champ
 // numérique présent dans la fiche est ajouté à la volée.
-export const SERIES_KEYS = ["input_voltage", "output_voltage", "input_frequency", "output_frequency", "output_load", "battery_capacity"];
+export const SERIES_KEYS = ["input_voltage", "output_voltage", "input_frequency", "output_frequency", "output_load", "battery_capacity", "battery_runtime", "battery_voltage", "temperature"];
 
 export const FIELD_LABELS_FR = {
   model: "Modèle",
@@ -28,7 +28,24 @@ export const FIELD_LABELS_FR = {
   next_power_on: "Prochain démarrage programmé",
   next_test: "Prochain test",
   time_to_power_off: "Délai avant arrêt",
+  // Net Vision v6 (#417)
+  serial_number: "Numéro de série",
+  ups_state: "État de l'ASI",
+  battery_runtime: "Autonomie batterie",
+  battery_voltage: "Tension batterie",
+  temperature: "Température",
+  device_date: "Date de l'appareil",
+  device_time: "Heure de l'appareil",
 };
+
+// Valeur lisible : unité ajoutée si la page ne l'écrit pas dans la valeur
+// (Net Vision : « 230.0 » + « V »). Miroir de ups_parser.display_value.
+export function displayValue(field) {
+  const value = field?.value || "";
+  const unit = field?.unit;
+  if (value && unit && !value.toLowerCase().includes(unit.toLowerCase())) return `${value} ${unit}`;
+  return value;
+}
 
 export function fieldLabel(key, fallback) {
   return FIELD_LABELS_FR[key] || fallback || key;
@@ -50,7 +67,12 @@ export function orderedFields(sections) {
 
 // Ton d'affichage d'un champ : les champs d'état connus (texte) sont
 // « good » à leur valeur normale, « bad » sinon ; les autres « neutral ».
-const NORMAL_VALUES = { communication: ["ok"], output_source: ["normal"], battery: ["normal"] };
+const NORMAL_VALUES = {
+  communication: ["ok"],
+  output_source: ["normal"],
+  battery: ["normal"],
+  ups_state: ["utilisation sur onduleur", "normal", "fonctionnement normal", "on line", "online", "on inverter"],
+};
 
 export function fieldTone(field) {
   const normal = NORMAL_VALUES[field?.key];

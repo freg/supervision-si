@@ -172,11 +172,12 @@ def poll_device(device, opener=None, now_iso=None):
             "fields": parsed["fields"],
             "sections": parsed["sections"],
             "summary": {
-                k: parsed["fields"][k]["value"]
-                for k in ("model", "communication", "output_source", "battery", "input_voltage", "output_voltage",
-                          "output_load", "battery_capacity")
+                k: ups_parser.display_value(parsed["fields"][k])
+                for k in ("model", "communication", "output_source", "battery", "ups_state", "input_voltage", "output_voltage",
+                          "output_load", "battery_capacity", "temperature")
                 if k in parsed["fields"]
             },
+            "flavor": parsed.get("flavor"),
         })
     result["duration_ms"] = int((time.monotonic() - started) * 1000)
     return result

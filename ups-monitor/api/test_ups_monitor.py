@@ -503,3 +503,91 @@ class FramesetTests(unittest.TestCase):
         store.ensure_schema(old)
         cols = [r[1] for r in sqlite3.connect(old).execute("PRAGMA table_info(ups_readings)")]
         self.assertIn("resolved_path", cols)
+
+
+class NetVisionV6Tests(unittest.TestCase):
+    """Livraison #417 : pages RÉELLES d'une carte SOCOMEC Net Vision v6.01
+    (ITYS 3 kVA) copiées par la personne -- frameset Logo/Menu/Content, menu
+    en JavaScript, « Synthèse ASI » mêlant lignes HTML (TD ID=TH1 + table
+    imbriquée) et lignes écrites par CheckParameter()."""
+
+    INDEX = open(os.path.join(HERE, "samples", "netvision_v6_index.html"), encoding="iso-8859-1").read()
+    MENU = open(os.path.join(HERE, "samples", "netvision_v6_menu.html"), encoding="iso-8859-1").read()
+    CONTENT = open(os.path.join(HERE, "samples", "netvision_v6_comprehensive.html"), encoding="iso-8859-1").read()
+
+    def test_synthese_asi_complete(self):
+        r = ups_parser.parse_ups_page(self.CONTENT)
+        self.assertEqual(r["flavor"], "netvision-v6")
+        self.assertEqual(r["title"], "Comprehensive View")
+        self.assertEqual([s["title"] for s in r["sections"]], ["Identification", "Synthèse ASI"])
+        self.assertEqual(r["field_count"], 12)
+        f = r["fields"]
+        self.assertEqual(f["model"]["value"], "ITYS 3 kVA")
+        self.assertEqual(f["serial_number"]["value"], "3I13B00169")
+        self.assertEqual(f["ups_state"]["value"], "Utilisation sur Onduleur")
+        self.assertEqual(f["ups_state"]["label"], "État de l'ASI")
+        self.assertEqual((f["output_load"]["number"], f["output_load"]["unit"]), (5.0, "%"), "unité prise dans le libellé")
+        self.assertEqual((f["output_voltage"]["number"], f["output_voltage"]["unit"]), (230.0, "V"))
+        self.assertEqual((f["input_voltage"]["number"], f["input_voltage"]["unit"]), (235.0, "V"))
+        self.assertEqual(f["input_voltage"]["label"], "Tension d'entrée Redresseur")
+        self.assertEqual((f["battery_capacity"]["number"], f["battery_capacity"]["unit"]), (0.0, "%"))
+        self.assertEqual((f["temperature"]["number"], f["temperature"]["unit"]), (33.0, "°C"), "<SUP>o</SUP>C → °C")
+        self.assertEqual(f["battery_runtime"]["value"], "", "<BR> = non disponible, conservé vide")
+        self.assertEqual(f["battery_runtime"]["unit"], "minutes")
+        self.assertEqual(f["battery_voltage"]["value"], "")
+        self.assertEqual(f["device_date"]["value"], "07/09/2026")
+        self.assertEqual(f["device_date"]["unit"], None, "(dd/mm/yyyy) est un format, pas une unité")
+        self.assertEqual(f["device_time"]["value"], "14:21:49")
+        self.assertEqual(r["system_time"], "07/09/2026 14:21:49")
+        self.assertEqual(ups_parser.display_value(f["output_voltage"]), "230.0 V")
+        self.assertEqual(ups_parser.display_value(f["ups_state"]), "Utilisation sur Onduleur")
+        self.assertEqual(ups_parser.display_value(f["battery_runtime"]), "")
+        # Ordre du document conservé (HTML, puis JS, puis HTML)
+        keys = [x["key"] for x in r["sections"][1]["fields"]]
+        self.assertEqual(keys, ["ups_state", "output_load", "output_voltage", "battery_capacity", "battery_runtime",
+                                "battery_voltage", "input_voltage", "temperature", "device_date", "device_time"])
+
+    def test_etat_asi(self):
+        f = ups_parser.parse_ups_page(self.CONTENT)["fields"]
+        self.assertEqual(ups_parser.derive_state(f), ("ok", []))
+        degraded = self.CONTENT.replace("Utilisation sur Onduleur", "Utilisation sur Batterie")
+        state, reasons = ups_parser.derive_state(ups_parser.parse_ups_page(degraded)["fields"])
+        self.assertEqual(state, "alarm")
+        self.assertEqual(reasons, ["État de l'ASI : Utilisation sur Batterie"])
+
+    def test_menu_et_logo_sans_champ_ni_frame(self):
+        self.assertEqual(ups_parser.parse_ups_page(self.MENU)["field_count"], 0)
+        self.assertEqual(ups_parser.extract_frame_sources(self.MENU), [])
+        self.assertEqual(ups_parser.extract_frame_sources(self.INDEX), ["./Logo.html", "./Menu.html", "./PageMonComprehensive.html"])
+        # META REFRESH CONTENT="15" sans url : pas une redirection
+        self.assertEqual(ups_parser.extract_frame_sources(self.CONTENT), [])
+
+    def test_chaine_complete_depuis_index(self):
+        seen = []
+        opener = make_opener({
+            "http://192.168.1.99/index.htm": self.INDEX,
+            "http://192.168.1.99/Logo.html": "<html><body><img src='logo.gif'></body></html>",
+            "http://192.168.1.99/Menu.html": self.MENU,
+            "http://192.168.1.99/PageMonComprehensive.html": self.CONTENT,
+        }, seen)
+        r = poller.poll_device({"host": "192.168.1.99", "path": "/index.htm", "username": "admin", "password": "pw"}, opener=opener)
+        self.assertTrue(r["ok"], r["error"])
+        self.assertEqual(r["resolved_path"], "/PageMonComprehensive.html")
+        self.assertEqual(r["pages_visited"], 4)
+        self.assertEqual(r["flavor"], "netvision-v6")
+        self.assertEqual(r["summary"]["output_voltage"], "230.0 V")
+        self.assertEqual(r["summary"]["ups_state"], "Utilisation sur Onduleur")
+        self.assertEqual(r["summary"]["temperature"], "33 °C")
+        self.assertEqual(r["system_time"], "07/09/2026 14:21:49")
+        # Page fixée à la main : une seule lecture
+        r2 = poller.poll_device({"host": "192.168.1.99", "path": "/PageMonComprehensive.html", "username": "admin", "password": "pw"}, opener=opener)
+        self.assertTrue(r2["ok"])
+        self.assertEqual(r2["pages_visited"], 1)
+        # Archivage : colonnes extraites et série
+        db = os.path.join(tempfile.mkdtemp(), "ups.db")
+        store.ensure_schema(db)
+        dev, _ = store.create_device(db, {"name": "ITYS", "host": "192.168.1.99", "path": "/PageMonComprehensive.html"})
+        store.record_reading(db, dev["id"], r2)
+        latest = store.latest_reading(db, dev["id"])
+        self.assertEqual((latest["input_voltage"], latest["output_voltage"], latest["output_load"], latest["battery_capacity"]), (235.0, 230.0, 5.0, 0.0))
+        self.assertEqual(store.field_series(db, dev["id"], "temperature")[0]["number"], 33.0)

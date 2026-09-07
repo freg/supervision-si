@@ -5,7 +5,7 @@ import {
 } from "./upsClient.js";
 import {
   orderedFields, fieldLabel, fieldTone, deviceStatus, formatAge, formatInterval, summarizeLast,
-  numericKeys, toLineSeries, timelineRows, TIME_WINDOWS, windowStart,
+  numericKeys, toLineSeries, timelineRows, TIME_WINDOWS, windowStart, displayValue,
 } from "./upsMonitor.js";
 import { buildLinePath } from "./netprobeAgents.js";
 import ZoomableChart from "./components/ZoomableChart.jsx";
@@ -320,7 +320,7 @@ export default function UpsView({ onBack, upsApiBase }) {
                       <tr key={`${f.section}-${f.key}`}>
                         <td className="muted">{f.section}</td>
                         <td title={f.key}>{fieldLabel(f.key, f.label)}</td>
-                        <td><Tone tone={fieldTone(f)}>{f.value || <span className="muted">(vide)</span>}</Tone></td>
+                        <td><Tone tone={fieldTone(f)}>{displayValue(f) || <span className="muted">(vide)</span>}</Tone></td>
                       </tr>
                     ))}
                   </tbody>

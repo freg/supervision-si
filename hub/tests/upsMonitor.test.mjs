@@ -99,3 +99,21 @@ test("timeline : ce qui change d'un relevé à l'autre est repéré", () => {
   assert.deepEqual(rows[3].changes, ["state", "input_voltage", "output_load", "battery_capacity", "ok"]);
   assert.deepEqual(timelineRows([]), []);
 });
+
+// --- Livraison #417 : Net Vision v6 ---
+import { displayValue, SERIES_KEYS } from "../src/upsMonitor.js";
+
+test("valeur affichée avec son unité quand la page ne l'écrit pas ; état de l'ASI coloré", () => {
+  assert.equal(displayValue({ value: "230.0", unit: "V" }), "230.0 V");
+  assert.equal(displayValue({ value: "236.0 V", unit: "V" }), "236.0 V", "pas de doublon");
+  assert.equal(displayValue({ value: "", unit: "minutes" }), "");
+  assert.equal(displayValue({ value: "Utilisation sur Onduleur", unit: null }), "Utilisation sur Onduleur");
+  assert.equal(displayValue(undefined), "");
+  assert.equal(fieldTone({ key: "ups_state", value: "Utilisation sur Onduleur" }), "good");
+  assert.equal(fieldTone({ key: "ups_state", value: "Utilisation sur Batterie" }), "bad");
+  assert.equal(fieldLabel("ups_state"), "État de l'ASI");
+  assert.equal(fieldLabel("temperature"), "Température");
+  assert.ok(SERIES_KEYS.includes("temperature"));
+  const keys = orderedFields([{ title: "Synthèse ASI", fields: [{ key: "temperature" }, { key: "ups_state" }, { key: "device_date" }] }]).map((f) => f.key);
+  assert.deepEqual(keys, ["ups_state", "temperature", "device_date"]);
+});

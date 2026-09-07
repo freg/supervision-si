@@ -65,6 +65,28 @@ main (cas d'une frame plus profonde ou d'une page d'état sous un autre
 nom : la lire dans le navigateur, « afficher la source », repérer le
 `src`).
 
+## Net Vision v6 (livraison #417)
+
+Pages réelles d'une carte **SOCOMEC Net Vision v6.01** (ITYS 3 kVA)
+copiées par la personne : `/index.htm` est un frameset (`Logo.html`,
+`Menu.html`, `PageMonComprehensive.html`), le menu est écrit en JavaScript,
+et la « Synthèse ASI » mêle des lignes HTML (`<TD ID=TH1>Libellé (unité)</TD>`
++ valeur dans une table imbriquée) et des lignes écrites par
+`CheckParameter("valeur", drapeau, "Libellé<i> (unité)</i>")` dans des
+`<script>`. Le parseur reconnaît cette seconde forme (`flavor:
+"netvision-v6"`) : cellules d'en-tête `TH*`/`<th>`, scripts lus dans l'ordre
+du document, unité prise dans le libellé quand la valeur n'en a pas
+(« 230.0 » + « (V) »), `<SUP>o</SUP>C` → °C, `(dd/mm/yyyy)` traité comme un
+format et non une unité, `<BR>` = valeur non disponible (champ conservé,
+vide), modèle et numéro de série lus dans le script d'en-tête (`tmpP1`,
+`tmpP2`), section nommée par `SetSubTitle`, heure de l'appareil = Date +
+Heure Net Vision. Libellés français normalisés vers les mêmes clés que la
+page anglaise (`output_load`, `output_voltage`, `input_voltage`,
+`battery_capacity`…) : une timeline commune aux deux familles. « État de
+l'ASI » entre dans l'état global : « Utilisation sur Onduleur » = normal
+(onduleur on-line), toute autre valeur (batterie, bypass, défaut) = alarme.
+Échantillons : `samples/netvision_v6_*.html`.
+
 ## API (`/api/ups` via tls-proxy, port direct `UPS_MONITOR_API_PORT` = 6128)
 
 | Méthode | Route | Rôle |
@@ -106,8 +128,8 @@ Côté conteneur seulement : `UPS_POLL_ENABLED=false` (tests),
 ## Tests
 
 ```bash
-cd ups-monitor/api && UPS_POLL_ENABLED=false python3 -m unittest test_ups_monitor.py   # 20 tests
-node --test hub/tests/upsMonitor.test.mjs                                               # 7 tests
+cd ups-monitor/api && UPS_POLL_ENABLED=false python3 -m unittest test_ups_monitor.py   # 24 tests
+node --test hub/tests/upsMonitor.test.mjs                                               # 8 tests
 ```
 
 Parseur sur la page réelle ; store, automate (intervalles, activation,
@@ -121,17 +143,17 @@ archivé, migration d'une base créée avant #416.
 
 ## Vérifié / non vérifié
 
-**Vérifié** : les 21 tests ci-dessus ; build Vite réel du hub ; **chaîne
+**Vérifié** : les 32 tests ci-dessus ; build Vite réel du hub ; **chaîne
 complète réelle** dans l'environnement de développement : `ups-monitor-api`
 lancé (Flask) + faux onduleur HTTP servant la page copiée derrière Basic +
 tuile rendue dans Chromium (Playwright) — création, test de requête,
 relevés, fiche, timeline avec courbe, onduleur injoignable en erreur
 datée, aucune erreur console.
 
-**Non vérifié** : un onduleur RÉEL (la page copiée est celle d'un NETYS RT ;
-une autre carte Socomec ou un autre constructeur peut présenter la page
-autrement — le parseur signale alors « aucun champ reconnu », voir
-ci-dessous) ; le build Docker (`docker compose build ups-monitor-api`) et
+**Non vérifié** : un onduleur RÉEL en direct (les pages copiées sont celles
+d'un NETYS RT « UPS Management Web » et d'un ITYS « Net Vision v6.01 » ;
+une autre carte peut présenter la page autrement — le parseur signale alors
+« aucun champ reconnu », voir ci-dessous) ; le build Docker (`docker compose build ups-monitor-api`) et
 la route tls-proxy en conditions réelles ; le comportement d'une carte
 qui répondrait par un formulaire de connexion plutôt qu'en Basic.
 

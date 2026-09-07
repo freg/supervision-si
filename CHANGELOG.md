@@ -1,3 +1,40 @@
+## 2026-09-07 — UPS : prise en charge des cartes SOCOMEC Net Vision v6 (page « Synthèse ASI » en JavaScript) (livraison #417)
+
+Suite de #416 : la personne a fourni les pages RÉELLES d'une carte Net
+Vision v6.01 (ITYS 3 kVA) -- frameset `Logo.html` / `Menu.html` /
+`PageMonComprehensive.html`, menu écrit en JavaScript, et une « Synthèse
+ASI » qui n'a pas la forme « Libellé: valeur » : lignes HTML `<TD
+ID=TH1>Libellé (unité)</TD>` + valeur dans une table imbriquée, et lignes
+écrites par `CheckParameter("valeur", drapeau, "Libellé<i> (unité)</i>")`
+dans des `<script>`. Le suivi des frames de #416 arrivait bien sur la bonne
+page, mais elle donnait « aucun champ reconnu ».
+
+**Parseur** (`ups_parser.py`) : le collecteur garde désormais lignes ET
+scripts dans l'ordre du document et gère les cellules imbriquées ; seconde
+forme reconnue (`flavor: "netvision-v6"`) -- cellules d'en-tête `TH*`/`<th>`,
+appels `CheckParameter`, unité prise dans le libellé quand la valeur n'en a
+pas, `<SUP>o</SUP>C` → °C, `(dd/mm/yyyy)` = format et non unité, `<BR>` =
+valeur non disponible (champ conservé, vide), modèle et numéro de série
+lus dans le script d'en-tête, section = `SetSubTitle`, heure de l'appareil
+= Date + Heure Net Vision. Libellés français normalisés vers les mêmes clés
+que la page anglaise (timeline commune) ; « État de l'ASI » entre dans
+l'état global (« Utilisation sur Onduleur » = normal, autre = alarme).
+`display_value` ajoute l'unité quand la page ne l'écrit pas (résumé de la
+liste, fiche). La page « UPS Management Web » (#415) est parsée à
+l'identique (non-régression : mêmes 14 champs).
+
+**Hub** : libellés français des nouvelles clés (État de l'ASI, autonomie,
+tension batterie, température, numéro de série, date/heure de l'appareil),
+unité affichée dans la fiche, température & co dans les courbes.
+
+**Vérifié** : 24 tests Python (4 nouveaux sur les pages réelles : 12
+champs, unités, état, chaîne complète depuis `/index.htm` en 4 lectures
+puis 1 seule avec « Page » fixée, archivage et série), 83 tests Node, build
+Vite réel, chaîne réelle : API + faux Net Vision (4 pages, Basic) + tuile
+dans Chromium -- fiche complète affichée. **Non vérifié** : la carte
+réelle elle-même (pages identiques à celles fournies, mais le `charset`
+HTTP réel n'est pas connu -- si des accents sortent mal, me le dire).
+
 ## 2026-09-07 — UPS : suivi des frames quand la page d'état est un conteneur (livraison #416)
 
 Retour de tests immédiat sur #415 : « une partie des onduleurs répond avec
