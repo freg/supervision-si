@@ -2351,6 +2351,10 @@ qui fait alors sauter la file.
     et tuile hub « Agents ». Le protocole HMAC / file de netprobe est
     réutilisé (copie au build depuis la source canonique, jamais une
     seconde implémentation).
+    Avancement (#420) : agent `si-agent/agent/` livré -- points (1) et
+    (2), plugin `network-neighbors` livré désactivé pour (3). Reste :
+    (4) central `si-agent-api` + tuile hub « Agents » (#421), relais
+    d'exploration, sondes Windows, agents GLPI.
 
 64. Refonte de la tuile Supervision SI (2026-09-07, demandé avec #418).
     « La tuile actuelle était la maquette initiale de la dataviz du hub ;

@@ -1,0 +1,11 @@
+{
+  "id": "network-neighbors",
+  "version": "1",
+  "runner": "shell",
+  "entry": "network_neighbors.sh",
+  "interval_seconds": 3600,
+  "timeout_seconds": 120,
+  "args": [],
+  "enabled": false,
+  "description": "Audit de la zone réseau accessible : voisins ARP/NDP (ip neigh), sous-réseaux locaux, balayage ping du /24 principal (désactivé par défaut : trafic actif)."
+}

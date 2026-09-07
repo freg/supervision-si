@@ -1,3 +1,59 @@
+## 2026-09-07 — si-agent : agent hôte Linux et moteur de sondes, v0 (livraison #420)
+
+Backlog 63, premier volet. Demandé : « une sonde linux… un agent qui
+permette d'auditer le host et sa zone réseau… déployer des sondes futures
+en python ou en shell/bash », précisé par « l'agent host surveille le host
+(cpu, disque, mémoire, log, risques internes) et il sert de machine-moteur
+pour la gestion de plugin/sonde ». Décision de la personne : nouveau paquet
+`si-agent/`, distinct de `netprobe/agent`.
+
+`si-agent/agent/` — Python 3 sans dépendance, service systemd, `install.sh`
+(`--agent --secret --central [--site --ca|--insecure --enable-plugin]`) :
+
+- **Surveillance de l'hôte** (`si_agent/host.py`, mesure `host` toutes les
+  60 s) : système (OS, noyau, modèle CPU/Raspberry, uptime, redémarrage
+  requis), CPU (% sur l'intervalle, charges), mémoire/swap, disques (montages
+  réels, pseudo-fs écartés), unités systemd en échec, ports en écoute avec
+  processus et exposition, erreurs du journal 24 h (journald sinon syslog),
+  comptes (sudoers, interactifs, UID 0 hors root), outils disponibles. Une
+  source absente est listée dans `partial` et la mesure passe `ok: false`.
+- **Risques internes** (`si_agent/risks.py`, mesure `risks`) : constats purs
+  disk-full/high, memory-high, swap-high, load-high, reboot-required,
+  recent-boot, service-failed, port-exposed (liste courte de ports
+  sensibles), uid0-account, log-errors ; seuils locaux puis du central.
+- **Moteur de plugins/sondes** (`si_agent/plugins.py`) : manifeste + script
+  shell ou Python, intervalle et délai propres, sortie JSON, mesure
+  `plugin:<id>`. Deux origines : `bundled` (livrés, désactivés) et `central`
+  — **jamais écrit sur le disque sans sha256 et signature HMAC valides**
+  (secret de l'agent). La configuration locale l'emporte sur l'activation
+  décidée par le central. Plugins livrés : `network-neighbors` (shell, zone
+  réseau : voisins ARP/NDP, sous-réseaux, balayage ping optionnel) et
+  `docker-containers` (python).
+- **Boucle** (`si_agent/agent.py`) : file SQLite locale, envoi signé par
+  lots (protocole netprobe : `protocol.py`/`localqueue.py` copiés, vérifiés
+  identiques par `sync-shared.sh --check` et un test), configuration
+  versionnée du central (intervalle, seuils, plugins à installer/retirer),
+  commandes acquittées (collect_now, run_plugin, enable/disable/remove_plugin,
+  flush). CLI `--status` (derniers risques relus dans la file, donc valable
+  depuis un autre processus que le service), `--collect`, `--once`.
+
+Le contrat HTTP attendu du central est documenté dans `si-agent/README.md`
+pour construire `si-agent-api` et la tuile « Agents » (#421) contre lui.
+
+**Vérifié** : `python3 -m unittest` (16 tests : collecteurs sur contenus
+réels capturés, risques, signature et exécution réelle de scripts bash et
+Python, faux central avec plugin signé accepté / non signé refusé,
+commandes, panne réseau → file puis rattrapage, refus 401, copies
+partagées) ; collecte réelle sur un conteneur Ubuntu 24.04 (`partial:
+["ss"]`, disque à 88 % → `disk-high`) ; `--once` avec le plugin
+`network-neighbors` réel ; `--status` depuis un processus séparé.
+
+**Non vérifié** : `install.sh` et le service sur une vraie machine
+(systemd absent ici), Raspberry Pi, le central (n'existe pas encore).
+
+Numéro #419 non utilisé (le commit de documentation du backlog 63/64 n'a
+pas incrémenté le compteur) — on passe de #418 à #420.
+
 ## 2026-09-07 — Cycle agile : actions suggérées cliquables vers l'outil, exécution en un clic ou automatique (livraison #418)
 
 Retour de tests : « action suggérée ⇒ cliquable et renvoie vers l'outil
