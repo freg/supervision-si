@@ -1749,3 +1749,23 @@ button.secondary { background: var(--panel); }
 .ups-timeline-table { max-height: 320px; overflow-y: auto; margin-top: 6px; }
 .ups-reading-failed td { opacity: 0.8; }
 .ups-changed { font-weight: 600; color: var(--accent); }
+/* Tuile Agents hôtes (livraison #421) -- SiAgentView.jsx. Réutilise
+   .ups-* (toolbar, formulaires, lignes, actions sticky) et .np-tone ;
+   couleurs par variables de thème. */
+.sa-gauge { display: flex; align-items: center; gap: 6px; min-width: 110px; }
+.sa-gauge-bar { flex: 1; height: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.sa-gauge-fill { height: 100%; background: var(--ok); }
+.sa-gauge-fill.warn { background: var(--warning); }
+.sa-gauge-fill.bad { background: var(--danger); }
+.sa-gauge-text { font-size: 11px; min-width: 42px; text-align: right; }
+.sa-fleet td { vertical-align: middle; }
+.sa-detail { max-width: none; text-align: left; }
+.sa-sections { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 8px; }
+.sa-sections button { padding: 2px 10px; font-size: 12px; }
+.sa-risks { margin: 0; padding-left: 18px; }
+.sa-risks li { margin: 2px 0; }
+.sa-kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 4px 16px; font-size: 13px; }
+.sa-kv > div { display: flex; gap: 8px; align-items: baseline; }
+.sa-kv > div > span:first-child { min-width: 110px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+.sa-log { font-size: 11px; max-height: 240px; overflow: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; white-space: pre-wrap; }
+.sa-script { font-family: monospace; font-size: 12px; padding: 6px 8px; width: 100%; box-sizing: border-box; }

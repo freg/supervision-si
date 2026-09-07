@@ -12,6 +12,15 @@ regarder l'entrée la plus récente en haut — si elle correspond à ce
 que vous avez déjà en `.env`, rien à faire. Sinon, copier/ajouter les
 clés listées, dans votre `.env` existant.
 
+## 2026-09-07 — SI_AGENT_* (livraison #421)
+
+Nouveau service `si-agent-api` (central des agents hôtes Linux, tuile
+« Agents hôtes ») : `SI_AGENT_API_PORT` (6129), `SI_AGENT_DATA_DIR`
+(vide = `./si-agent/data`), `SI_AGENT_PUBLIC_URL` (vide = passerelle
+`https://HOST_IP:GATEWAY_PORT/api/si-agent`, affichée dans la commande
+d'installation), `SI_AGENT_OFFLINE_SECONDS` (300),
+`SI_AGENT_RETENTION_DAYS` (90). Rien à faire si les défauts conviennent.
+
 ## 2026-09-05 — KEYCLOAK_SERVICE_CLIENT_ID/SECRET, nouvelles variables (livraison #361)
 
 Nouveau : `KEYCLOAK_SERVICE_CLIENT_ID` (défaut `supervision-si-service`)

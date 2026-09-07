@@ -1048,6 +1048,29 @@ services:
     ports:
       - "${UPS_MONITOR_API_PORT:-6128}:5000"
 
+  si-agent-api:
+    # Livraison #421 (backlog 63) -- central des agents hôtes Linux
+    # (si-agent) : flotte et enrôlement (secret HMAC par agent), mesures
+    # remontées (hôte, risques, inventaire, sondes), catalogue de sondes
+    # poussées signées, commandes acquittées. Tuile hub « Agents hôtes ».
+    # Voir si-agent/README.md.
+    build:
+      context: .
+      dockerfile: si-agent/api/Dockerfile
+    volumes:
+      - ${SI_AGENT_DATA_DIR:-./si-agent/data}:/data
+    environment:
+      - MEMCACHED_HOST=memcached
+      # URL que les agents utilisent pour joindre le central (passerelle
+      # TLS) -- affichée dans la commande d'installation.
+      - SI_AGENT_PUBLIC_URL=${SI_AGENT_PUBLIC_URL:-https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-agent}
+      - SI_AGENT_OFFLINE_SECONDS=${SI_AGENT_OFFLINE_SECONDS:-300}
+      - SI_AGENT_RETENTION_DAYS=${SI_AGENT_RETENTION_DAYS:-90}
+    depends_on:
+      - memcached
+    ports:
+      - "${SI_AGENT_API_PORT:-6129}:5000"
+
   network-explorer:
     # Livraison #393 -- demandé explicitement : "un docker front qui
     # se branche sur le/les dockers api" -- SANS Keycloak ni
@@ -1457,6 +1480,8 @@ services:
       - VITE_NETPROBE_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/netprobe
       # UPS (livraison #415) -- tuile hub pour ups-monitor-api.
       - VITE_UPS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/ups
+      # Agents hôtes (livraison #421) -- tuile hub pour si-agent-api.
+      - VITE_SI_AGENT_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-agent
       # Relations transversales -- onglet hub (livraison #335), backlog
       # item 38 point 2 ("vue relations" de la super tuile ENT).
       - VITE_RELATIONS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/relations

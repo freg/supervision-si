@@ -28,6 +28,7 @@ import EntView from "./EntView.jsx";
 import RightsView from "./RightsView.jsx";
 import NetprobeView from "./NetprobeView.jsx";
 import UpsView from "./UpsView.jsx";
+import SiAgentView from "./SiAgentView.jsx";
 import GedView from "./GedView.jsx";
 import SshTunnelsView from "./SshTunnelsView.jsx";
 import SnmpView from "./SnmpView.jsx";
@@ -77,6 +78,8 @@ const RIGHTS_API_BASE_URL = import.meta.env.VITE_RIGHTS_API_BASE_URL || "";
 const NETPROBE_API_BASE_URL = import.meta.env.VITE_NETPROBE_API_BASE_URL || "";
 // Tuile UPS (livraison #415) -- ups-monitor-api.
 const UPS_API_BASE_URL = import.meta.env.VITE_UPS_API_BASE_URL || "";
+// Tuile Agents hôtes (livraison #421, backlog 63) -- si-agent-api.
+const SI_AGENT_API_BASE_URL = import.meta.env.VITE_SI_AGENT_API_BASE_URL || "";
 const RELATIONS_API_BASE_URL = import.meta.env.VITE_RELATIONS_API_BASE_URL || "";
 // Onglet GED (livraison #167) -- même API que TicketDocuments.jsx
 // (tickets-portal, #160), consommée ici pour la navigation/gestion
@@ -1208,6 +1211,16 @@ export default function App() {
       onClick: () => setViewMode("ups"),
     });
   }
+  // Tuile "Agents hôtes" (livraison #421, backlog 63) -- flotte des
+  // agents si-agent : surveillance de l'hôte, risques internes, sondes.
+  if (SI_AGENT_API_BASE_URL) {
+    fronts.push({
+      id: "si-agent",
+      name: "Agents hôtes",
+      description: "Agents Linux : CPU, mémoire, disques, services, ports, risques internes, sondes déployées",
+      onClick: () => setViewMode("si-agent"),
+    });
+  }
   // Personnalisation de l'accueil, étape 2 (livraison #133) --
   // hubLayout encore undefined tant qu'il n'a jamais été chargé (ou
   // jamais personnalisé) : applyHubLayout gère déjà ce cas par
@@ -1378,6 +1391,11 @@ export default function App() {
                 {UPS_API_BASE_URL && (
                   <button type="button" onClick={() => { setViewMode((v) => (v === "ups" ? "grid" : "ups")); setOpenNavMenu(null); }}>
                     Onduleurs (UPS)
+                  </button>
+                )}
+                {SI_AGENT_API_BASE_URL && (
+                  <button type="button" onClick={() => { setViewMode((v) => (v === "si-agent" ? "grid" : "si-agent")); setOpenNavMenu(null); }}>
+                    Agents hôtes
                   </button>
                 )}
                 <button type="button" onClick={() => { setViewMode((v) => (v === "ssh-tunnels" ? "grid" : "ssh-tunnels")); setOpenNavMenu(null); }}>
@@ -1633,6 +1651,11 @@ export default function App() {
         <UpsView
           onBack={() => setViewMode("grid")}
           upsApiBase={UPS_API_BASE_URL}
+        />
+      ) : viewMode === "si-agent" ? (
+        <SiAgentView
+          onBack={() => setViewMode("grid")}
+          siAgentApiBase={SI_AGENT_API_BASE_URL}
         />
       ) : viewMode === "cyber" ? (
         <CyberView

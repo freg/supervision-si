@@ -1,4 +1,4 @@
-# si-agent — agent hôte Linux et moteur de sondes (livraison #420)
+# si-agent — agent hôte Linux, moteur de sondes et central (livraisons #420, #421)
 
 Demandé : « une sonde linux… un agent qui permette d'auditer le host et sa
 zone réseau… déployer des sondes futures en python ou en shell/bash », précisé
@@ -8,10 +8,10 @@ Décision de la personne : **nouveau paquet `si-agent`**, distinct de
 `netprobe/agent` (sonde réseau Raspberry Pi) — les deux partagent seulement
 le protocole signé et la file locale (copiés, voir `sync-shared.sh`).
 
-Backlog 63. Cette livraison = **l'agent seul** (v0, côté hôte). Le central
-`si-agent-api` et la tuile hub « Agents » sont la livraison suivante ; le
-protocole attendu du central est décrit ci-dessous pour qu'il soit
-construit contre ce contrat.
+Backlog 63. #420 = **l'agent** (`agent/`, côté hôte) ; #421 = le **central**
+`si-agent-api` (`api/`) et la tuile hub **« Agents hôtes »** (menu Réseau,
+`VITE_SI_AGENT_API_BASE_URL`). Le contrat entre les deux est le protocole
+décrit plus bas, vérifié par une chaîne réelle agent ↔ central en test.
 
 ## Ce que fait l'agent
 
@@ -132,11 +132,66 @@ identique par `sync-shared.sh --check` et par un test.
 Tâches : `host`, `risks` (`{risks: [...], summary}`), `inventory`,
 `plugin:<id>` (`data._plugin` = id, version, durée).
 
+## Central `si-agent-api` (livraison #421)
+
+Flask + SQLite (`SI_AGENT_DATA_DIR`, défaut `./si-agent/data`), port
+`SI_AGENT_API_PORT` 6129, routé par tls-proxy sur `/api/si-agent/` (le
+préfixe est retiré ; les agents signent `/api/v1/...`). Même motif que
+netprobe pour les sondes Pi : un secret par agent, généré à l'enrôlement,
+stocké en clair (la vérification HMAC l'exige), renvoyé seulement par
+`POST /agents`, `POST /agents/<id>/rotate-secret` et `GET /agents/<id>/install`
+(commande d'installation prête à coller, avec `SI_AGENT_PUBLIC_URL`).
+
+Face tableau de bord (non signée, LAN + passerelle comme les autres API) :
+
+| Route | Rôle |
+|---|---|
+| `GET /status` | compteurs (agents, contact, risques, catalogue) |
+| `GET /fleet[?site=]` | flotte + résumé de la dernière mesure `host` (CPU, mémoire, disque max, uptime, partiel), dernier `risks`, état `online/offline/never`, commandes en attente, sondes affectées |
+| `GET /risks[?site=]` | tous les constats courants, à plat, triés par sévérité |
+| `GET/POST /agents`, `GET/PUT/DELETE /agents/<id>` | enrôlement (`agent_id`, `site`, `label`, `host_interval_seconds`, `risk_thresholds`, `notes`), réglages poussés, désactivation (= refus des requêtes signées), suppression (`?purge=true` efface les mesures) |
+| `GET /agents/<id>/latest`, `GET /agents/<id>/measurements?task&limit&since` | dernière mesure par tâche, historique |
+| `GET /agents/<id>/config-preview` | ce que l'agent recevra (sans corps ni signatures) et la version attendue ; `GET /agents/<id>` dit si elle est appliquée (`config_applied`) |
+| `GET/POST /plugins`, `GET /plugins/<id>[?body=true]`, `DELETE /plugins/<id>` | catalogue de sondes (manifeste validé par la **même** fonction que l'agent, copie de `plugins.py`) ; retirer du catalogue = `remove_plugins` pour les agents affectés |
+| `GET /agents/<id>/plugins`, `PUT/DELETE /agents/<id>/plugins/<pid>` | affectation (`{enabled}`) |
+| `GET/POST /agents/<id>/commands`, `GET /commands/<cid>` | commandes (`collect_now`, `flush`, `run_plugin`, `enable_plugin`, `disable_plugin`, `remove_plugin` + `params.id`) et leur acquittement (`done`/`failed`, résultat) |
+
+Face agents (signée) : les quatre routes du contrat ci-dessus. Version de
+configuration = empreinte des réglages + plugins affectés (id, version,
+activation, sha256) + plugins centraux à retirer : l'agent ne réapplique
+que si elle change. Mesures dédupliquées sur (agent, tâche, instant) ; une
+mesure portant un autre `agent_id` que le signataire est rejetée. Purge
+des mesures au-delà de `SI_AGENT_RETENTION_DAYS` (la dernière de chaque
+tâche est toujours gardée) ; `offline` après `SI_AGENT_OFFLINE_SECONDS`
+(au moins 3 intervalles de collecte) sans contact.
+
+## Tuile hub « Agents hôtes » (livraison #421)
+
+Trois onglets. **Flotte** : tableau trié (critiques, hors ligne,
+avertissements, ok, jamais vus) avec jauges CPU / mémoire / disque max,
+contact, risques, sondes affectées ; enrôlement (secret + commande
+d'installation affichés une fois, retrouvables par « Installation »,
+rotation du secret) ; détail par agent en sections repliables : risques,
+système (OS, noyau, machine, uptime, charges, mémoire, comptes, outils),
+disques, ports (exposés d'abord), services en échec, journal, sondes
+(catalogue affectées ↔ présentes sur l'hôte d'après l'inventaire,
+activation côté central, retrait, exécution), commandes (envoi, états,
+résultats acquittés), réglages poussés (intervalle, seuils JSON).
+**Risques** : constats de toute la flotte, clic → l'agent. **Catalogue de
+sondes** : création / modification (identifiant, version, runner, entrée,
+intervalle, délai, arguments, script dans un éditeur), validation miroir
+de `validate_manifest` avant envoi, retrait.
+
+Logique pure dans `hub/src/siAgent.js` (`hub/tests/siAgent.test.mjs`),
+client `siAgentClient.js`, vue `SiAgentView.jsx`.
+
 ## Tests
 
 ```bash
-cd si-agent/agent && python3 -m unittest            # 16 tests
+cd si-agent/agent && python3 -m unittest            # 16 tests (agent)
 ./sync-shared.sh --check                              # copies protocol/localqueue à jour
+cd ../api && python3 -m unittest                      # 5 tests (central), dont la chaîne réelle agent ↔ central
+cd ../../hub && node --test tests/siAgent.test.mjs    # 8 tests (logique de la tuile)
 ```
 
 Collecteurs sur des contenus `/proc`, `ss`, `journalctl`, `passwd` réels
@@ -154,6 +209,17 @@ Ubuntu 24.04 (`partial: ["ss"]` correctement signalé, disque à 88 % →
 valide, mesures en file, central injoignable journalisé) ; `--status`
 depuis un autre processus (derniers risques relus dans la file).
 
+**Vérifié (#421)** : tests du central, dont le VRAI agent contre le VRAI
+central (client Flask signé) : configuration poussée et appliquée, plugin
+du catalogue signé, installé et exécuté avec arguments, mesures reçues,
+commande acquittée, retrait du catalogue → désinstallation, corps altéré
+en base → refusé par l'agent ; puis la même chaîne **par HTTP réel**
+(central Flask sur 6302, agent en `--once` depuis le conteneur) ; rendus
+Chromium de la tuile (flotte, détail, catalogue, enrôlement, thème
+sombre) sur ces données réelles ; builds Vite hub ; `docker-compose.yml`
+valide, sources `COPY` du Dockerfile présentes (contrôle #409), route
+tls-proxy rendue.
+
 **Non vérifié** : `install.sh` et le service systemd sur une vraie machine
 (pas de systemd ici) ; Raspberry Pi ; `journalctl` avec de vraies erreurs ;
-le central lui-même (n'existe pas encore — #421).
+build Docker de `si-agent-api` ; passage par la passerelle TLS réelle.

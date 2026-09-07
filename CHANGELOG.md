@@ -1,3 +1,57 @@
+## 2026-09-07 — si-agent-api : central des agents hôtes + tuile « Agents hôtes » (livraison #421)
+
+Backlog 63, second volet, contre le contrat décrit en #420. Demandé :
+« inventaire des sondes… inventaire des agents / tableau de bord ».
+
+`si-agent/api/` (Flask + SQLite, port 6129, `/api/si-agent/` dans
+tls-proxy, service compose `si-agent-api`, clés `SI_AGENT_*`) :
+
+- **Flotte et enrôlement** : secret HMAC par agent généré ici (même motif
+  que netprobe #406), renvoyé seulement à la création, à la rotation et par
+  `GET /agents/<id>/install` (commande `install.sh` prête à coller, avec
+  `SI_AGENT_PUBLIC_URL`) ; désactiver un agent = refuser ses requêtes.
+- **Face signée** (`/api/v1/...`, préfixe retiré par tls-proxy) :
+  configuration versionnée (empreinte des réglages + sondes affectées),
+  commandes en attente + acquittement, dépôt des mesures dédupliquées
+  sur (agent, tâche, instant), `agent_id` étranger rejeté.
+- **Catalogue de sondes** : manifeste validé par la MÊME fonction que
+  l'agent (`si_agent/plugins.py` copié au build, jamais réimplémenté),
+  corps du script en base, signature HMAC calculée par agent au moment de
+  pousser ; retirer du catalogue → `remove_plugins` chez les agents.
+- **Vues** : `/fleet` (résumé de la dernière mesure hôte, dernier état de
+  risques, en ligne / hors ligne / jamais vu, commandes en attente, sondes
+  affectées), `/risks` (constats de toute la flotte à plat), dernière
+  mesure par tâche, historique, aperçu de configuration et « appliquée ? ».
+  Purge au-delà de `SI_AGENT_RETENTION_DAYS` en gardant la dernière mesure
+  de chaque tâche.
+
+Hub, tuile **« Agents hôtes »** (menu Réseau, `VITE_SI_AGENT_API_BASE_URL`,
+`SiAgentView.jsx` + logique pure `siAgent.js`) : flotte triée par urgence
+avec jauges CPU / mémoire / disque, enrôlement (secret affiché une fois),
+détail par agent en sections (risques, système, disques, ports, services,
+journal, sondes catalogue ↔ hôte, commandes et résultats, réglages
+poussés), onglet risques de la flotte, catalogue de sondes avec éditeur de
+script et validation miroir de l'agent. Manifestes des sondes livrées :
+`"source": "bundled"` explicite.
+
+Contrat corrigé en construisant le central : `GET …/commands` renvoie
+`{commands: [...]}` (ce que l'agent lisait déjà) — README aligné.
+
+**Vérifié** : 5 tests du central dont la CHAÎNE RÉELLE (vrai agent ↔ vrai
+central via client Flask signé : configuration appliquée, sonde du
+catalogue signée / installée / exécutée avec arguments, mesures reçues,
+commande acquittée, retrait → désinstallation, corps altéré → refusé) ;
+même chaîne par HTTP réel (central sur 6302, agent `--once` du conteneur,
+mesures et acquittement visibles dans `/fleet` et `/agents/<id>/commands`) ;
+16 tests agent ; 98 tests hub (8 nouveaux) ; builds Vite hub et harnais ;
+rendus Chromium sur ces données réelles (flotte, détail, catalogue,
+enrôlement, thème sombre) — un bug réel trouvé et corrigé au rendu :
+attribut `pattern` invalide (tiret non échappé) ; `docker-compose.yml`
+valide, sources `COPY` présentes, route tls-proxy rendue.
+
+**Non vérifié** : build Docker de `si-agent-api`, passerelle TLS réelle,
+`install.sh` / systemd sur une vraie machine.
+
 ## 2026-09-07 — si-agent : agent hôte Linux et moteur de sondes, v0 (livraison #420)
 
 Backlog 63, premier volet. Demandé : « une sonde linux… un agent qui
