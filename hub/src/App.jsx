@@ -27,6 +27,7 @@ import VigilanceView from "./VigilanceView.jsx";
 import EntView from "./EntView.jsx";
 import RightsView from "./RightsView.jsx";
 import NetprobeView from "./NetprobeView.jsx";
+import UpsView from "./UpsView.jsx";
 import GedView from "./GedView.jsx";
 import SshTunnelsView from "./SshTunnelsView.jsx";
 import SnmpView from "./SnmpView.jsx";
@@ -74,6 +75,8 @@ const VIGILANCE_API_BASE_URL = import.meta.env.VITE_VIGILANCE_API_BASE_URL || ""
 const TASKS_API_BASE_URL = import.meta.env.VITE_TASKS_API_BASE_URL || "";
 const RIGHTS_API_BASE_URL = import.meta.env.VITE_RIGHTS_API_BASE_URL || "";
 const NETPROBE_API_BASE_URL = import.meta.env.VITE_NETPROBE_API_BASE_URL || "";
+// Tuile UPS (livraison #415) -- ups-monitor-api.
+const UPS_API_BASE_URL = import.meta.env.VITE_UPS_API_BASE_URL || "";
 const RELATIONS_API_BASE_URL = import.meta.env.VITE_RELATIONS_API_BASE_URL || "";
 // Onglet GED (livraison #167) -- même API que TicketDocuments.jsx
 // (tickets-portal, #160), consommée ici pour la navigation/gestion
@@ -1193,6 +1196,18 @@ export default function App() {
       onClick: () => setViewMode("netprobe"),
     });
   }
+  // Tuile "UPS" (livraison #415, demandée en urgence) -- liste des
+  // onduleurs, relevé automatique de leur page d'état, fiche et timeline.
+  // Conditionnée à sa variable d'API comme Sondes réseau (la vue appelle
+  // l'API dès le montage).
+  if (UPS_API_BASE_URL) {
+    fronts.push({
+      id: "ups",
+      name: "Onduleurs (UPS)",
+      description: "État des onduleurs relevé automatiquement, fiche et historique",
+      onClick: () => setViewMode("ups"),
+    });
+  }
   // Personnalisation de l'accueil, étape 2 (livraison #133) --
   // hubLayout encore undefined tant qu'il n'a jamais été chargé (ou
   // jamais personnalisé) : applyHubLayout gère déjà ce cas par
@@ -1327,7 +1342,7 @@ export default function App() {
             <button
               type="button"
               className={
-                openNavMenu === "reseau" || ["ssh-tunnels", "snmp", "nebula", "glpi-inventory", "architecture", "netmap-orchestrator", "network-cycle", "network-agent", "netprobe"].includes(viewMode)
+                openNavMenu === "reseau" || ["ssh-tunnels", "snmp", "nebula", "glpi-inventory", "architecture", "netmap-orchestrator", "network-cycle", "network-agent", "netprobe", "ups"].includes(viewMode)
                   ? "active"
                   : ""
               }
@@ -1358,6 +1373,11 @@ export default function App() {
                 {NETPROBE_API_BASE_URL && (
                   <button type="button" onClick={() => { setViewMode((v) => (v === "netprobe" ? "grid" : "netprobe")); setOpenNavMenu(null); }}>
                     Sondes réseau
+                  </button>
+                )}
+                {UPS_API_BASE_URL && (
+                  <button type="button" onClick={() => { setViewMode((v) => (v === "ups" ? "grid" : "ups")); setOpenNavMenu(null); }}>
+                    Onduleurs (UPS)
                   </button>
                 )}
                 <button type="button" onClick={() => { setViewMode((v) => (v === "ssh-tunnels" ? "grid" : "ssh-tunnels")); setOpenNavMenu(null); }}>
@@ -1608,6 +1628,11 @@ export default function App() {
         <NetprobeView
           onBack={() => setViewMode("grid")}
           netprobeApiBase={NETPROBE_API_BASE_URL}
+        />
+      ) : viewMode === "ups" ? (
+        <UpsView
+          onBack={() => setViewMode("grid")}
+          upsApiBase={UPS_API_BASE_URL}
         />
       ) : viewMode === "cyber" ? (
         <CyberView

@@ -1690,3 +1690,46 @@ button.secondary { background: var(--panel); }
 .np-line-point:hover { fill: var(--text); }
 .np-line-caption { font-size: 11px; margin-top: 3px; }
 
+/* Tuile UPS (livraison #415) -- UpsView.jsx. Réutilise .np-tone / .np-line-*
+   (sondes WiFi) et .na-section-toggle ; couleurs par variables de thème. */
+.ups-notice { display: flex; align-items: center; gap: 8px; }
+.ups-notice button { padding: 2px 8px; font-size: 11px; }
+.ups-status-card { max-width: none; text-align: left; }
+.ups-toolbar { display: flex; align-items: center; gap: 8px; margin: 12px 0 8px; }
+.ups-form { max-width: none; text-align: left; }
+.ups-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px 16px;
+}
+.ups-form-grid label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+.ups-form-grid input, .ups-form-grid select { font-size: 13px; padding: 5px 8px; }
+.ups-form-check { flex-direction: row !important; align-items: center; color: var(--text) !important; }
+.ups-form-wide { grid-column: 1 / -1; }
+.ups-test-result { margin-top: 8px; padding: 6px 10px; border-radius: 6px; background: var(--bg); border: 1px solid var(--border); font-size: 13px; }
+.ups-test-result.ok { border-color: var(--ok); }
+.ups-test-result.bad { border-color: var(--danger); }
+.ups-row { cursor: pointer; }
+.ups-row:hover { background: var(--bg); }
+.ups-row.active { background: var(--bg); }
+.ups-row.inactive td { opacity: 0.6; }
+/* Colonne d'actions dans un tableau défilable : sticky à droite, cellule
+   ET en-tête (piège documenté). */
+.ups-actions, .ups-actions-head { position: sticky; right: 0; background: var(--panel); white-space: nowrap; }
+.ups-actions button { padding: 2px 8px; margin-right: 4px; }
+.ups-detail { max-width: none; text-align: left; margin-top: 16px; }
+.ups-detail h3 { margin: 14px 0 6px; font-size: 14px; }
+.ups-fiche td:first-child { font-size: 11px; }
+.ups-timeline-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 6px; font-size: 13px; }
+.ups-timeline-controls label { display: inline-flex; align-items: center; gap: 6px; }
+.ups-line-svg {
+  display: block;
+  width: 100%;
+  height: 120px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.ups-timeline-table { max-height: 320px; overflow-y: auto; margin-top: 6px; }
+.ups-reading-failed td { opacity: 0.8; }
+.ups-changed { font-weight: 600; color: var(--accent); }

@@ -1,0 +1,412 @@
+"""Tests de ups-monitor-api (livraison #415) :
+`cd ups-monitor/api && UPS_POLL_ENABLED=false python3 -m unittest test_ups_monitor.py`
+
+Parseur sur la page RÉELLE copiée par la personne (samples/), store et
+automate sur base SQLite temporaire, routes via app.test_client() avec un
+faux serveur HTTP (opener injecté) -- aucun onduleur réel ici.
+"""
+import io
+import json
+import os
+import sys
+import tempfile
+import unittest
+import urllib.error
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+os.environ["UPS_POLL_ENABLED"] = "false"
+os.environ["UPS_MONITOR_DB_PATH"] = os.path.join(tempfile.mkdtemp(), "ups.db")
+
+import ups_parser  # noqa: E402
+import store  # noqa: E402
+import poller  # noqa: E402
+import app as app_module  # noqa: E402
+
+SAMPLE = open(os.path.join(HERE, "samples", "netys_rt_index.htm"), encoding="iso-8859-1").read()
+
+
+class FakeResponse(io.BytesIO):
+    def __init__(self, body, charset="iso-8859-1"):
+        super().__init__(body)
+        self.headers = self
+        self._charset = charset
+
+    def get_content_charset(self):
+        return self._charset
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def make_opener(pages, seen=None):
+    """pages : {url: html | Exception}. `seen` reçoit les requêtes."""
+    def opener(req, timeout=None):
+        if seen is not None:
+            seen.append(req)
+        target = pages.get(req.full_url)
+        if isinstance(target, Exception):
+            raise target
+        if target is None:
+            raise urllib.error.HTTPError(req.full_url, 404, "not found", {}, None)
+        return FakeResponse(target.encode("iso-8859-1"))
+    return opener
+
+
+class ParserTests(unittest.TestCase):
+    def test_page_reelle_tous_les_champs(self):
+        r = ups_parser.parse_ups_page(SAMPLE)
+        self.assertEqual(r["title"], "UPS Management Web")
+        self.assertEqual(r["system_time"], "09/07/2026 Monday 09:00:58")
+        self.assertEqual([s["title"] for s in r["sections"]], ["UPS Status", "UPS Measurement", "Schedule", "Countdown Timer"])
+        self.assertEqual(r["field_count"], 14)
+        f = r["fields"]
+        self.assertEqual(f["model"]["value"], "NETYS RT 1/1 UPS")
+        self.assertEqual(f["input_voltage"]["number"], 236.0)
+        self.assertEqual(f["input_voltage"]["unit"], "V")
+        self.assertEqual(f["output_frequency"]["number"], 49.9)
+        self.assertEqual(f["output_load"]["number"], 8.0)
+        self.assertEqual(f["battery_capacity"]["value"], "100 %")
+        self.assertEqual(f["next_power_off"]["value"], "", "champ vide conservé : rien de programmé")
+        self.assertEqual(f["next_test"]["value"], "09/07/2026 15:00")
+        self.assertEqual(f["model"]["css"], "bold")
+        self.assertEqual(f["communication"]["css"], "normal")
+        self.assertEqual(f["input_voltage"]["section"], "UPS Measurement")
+
+    def test_etat_global(self):
+        f = ups_parser.parse_ups_page(SAMPLE)["fields"]
+        self.assertEqual(ups_parser.derive_state(f), ("ok", []))
+        degraded = SAMPLE.replace('<td CLASS="normal">Normal</td>', '<td CLASS="alarm">On Battery</td>', 1)
+        state, reasons = ups_parser.derive_state(ups_parser.parse_ups_page(degraded)["fields"])
+        self.assertEqual(state, "alarm")
+        self.assertEqual(reasons, ["Output Source : On Battery"])
+        self.assertEqual(ups_parser.derive_state({}), ("unknown", []))
+
+    def test_libelles_inconnus_et_nombres(self):
+        html = """<table><tr><td class="title">Battery Parameters</td></tr>
+        <tr><td align="right">Battery Voltage:</td><td>27,4 V</td></tr>
+        <tr><td align="right">Température interne:</td><td>31 °C</td></tr>
+        <tr><td>pas un champ</td><td>x</td></tr></table>"""
+        r = ups_parser.parse_ups_page(html)
+        self.assertEqual(r["field_count"], 2)
+        self.assertEqual(r["fields"]["battery_voltage"]["number"], 27.4, "virgule décimale acceptée")
+        self.assertIn("temperature_interne", r["fields"])
+        self.assertEqual(r["fields"]["temperature_interne"]["unit"], "°C")
+        self.assertEqual(ups_parser.parse_number("OK"), (None, None))
+        self.assertEqual(ups_parser.parse_number(None), (None, None))
+
+    def test_page_sans_forme_connue(self):
+        r = ups_parser.parse_ups_page("<html><body><h1>Login</h1><form></form></body></html>")
+        self.assertEqual(r["field_count"], 0)
+        self.assertEqual(r["sections"], [])
+        self.assertEqual(ups_parser.parse_ups_page("")["field_count"], 0)
+        self.assertEqual(ups_parser.parse_ups_page(None)["field_count"], 0)
+
+
+class StoreAndPollerTests(unittest.TestCase):
+    def setUp(self):
+        self.db = os.path.join(tempfile.mkdtemp(), "ups.db")
+        store.ensure_schema(self.db)
+        self.dev, err = store.create_device(self.db, {
+            "name": "Onduleur salle serveurs", "site": "Siège", "host": "192.168.1.107",
+            "username": "admin", "password": "secret",
+        })
+        self.assertIsNone(err)
+
+    def test_validation_et_masquage_du_mot_de_passe(self):
+        self.assertEqual(self.dev["path"], "/index.htm")
+        self.assertTrue(self.dev["has_password"])
+        self.assertNotIn("password", self.dev)
+        self.assertEqual(store.create_device(self.db, {"name": "x"})[1], "'host' requis (IP ou nom)")
+        self.assertIn("sans schéma", store.create_device(self.db, {"name": "x", "host": "http://1.2.3.4"})[1])
+        self.assertIn("30 s minimum", store.create_device(self.db, {"name": "x", "host": "1.2.3.4", "poll_interval_seconds": 5})[1])
+        self.assertIn("entier", store.create_device(self.db, {"name": "x", "host": "1.2.3.4", "poll_interval_seconds": "abc"})[1])
+        # Mise à jour sans mot de passe = inchangé ; clear_password = effacé
+        updated, err = store.update_device(self.db, self.dev["id"], {"site": "Annexe", "password": ""})
+        self.assertIsNone(err)
+        self.assertEqual(updated["site"], "Annexe")
+        self.assertEqual(store.get_device(self.db, self.dev["id"], include_secret=True)["password"], "secret")
+        store.update_device(self.db, self.dev["id"], {"clear_password": True})
+        self.assertFalse(store.get_device(self.db, self.dev["id"])["has_password"])
+        self.assertEqual(store.update_device(self.db, 999, {"name": "x"})[1], "onduleur inconnu")
+
+    def test_releve_reussi_archive_et_denormalise(self):
+        seen = []
+        opener = make_opener({"http://192.168.1.107/index.htm": SAMPLE}, seen)
+        device = store.get_device(self.db, self.dev["id"], include_secret=True)
+        result = poller.poll_device(device, opener=opener, now_iso="2026-09-07T09:00:00Z")
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["state"], "ok")
+        self.assertEqual(result["summary"]["input_voltage"], "236.0 V")
+        self.assertEqual(seen[0].get_header("Authorization"), "Basic YWRtaW46c2VjcmV0", "user:password@ → Basic")
+        store.record_reading(self.db, device["id"], result)
+        d = store.get_device(self.db, device["id"])
+        self.assertEqual(d["last_polled_at"], "2026-09-07T09:00:00Z")
+        self.assertTrue(d["last_ok"])
+        self.assertEqual(d["last_state"], "ok")
+        latest = store.latest_reading(self.db, device["id"])
+        self.assertEqual(latest["input_voltage"], 236.0)
+        self.assertEqual(latest["battery_capacity"], 100.0)
+        self.assertEqual(latest["fields"]["model"]["value"], "NETYS RT 1/1 UPS")
+        self.assertEqual(len(latest["sections"]), 4)
+
+    def test_echecs_archives_avec_raison(self):
+        device = store.get_device(self.db, self.dev["id"], include_secret=True)
+        cases = {
+            "http://192.168.1.107/index.htm": urllib.error.HTTPError("u", 401, "unauthorized", {}, None),
+        }
+        r = poller.poll_device(device, opener=make_opener(cases))
+        self.assertFalse(r["ok"])
+        self.assertIn("401", r["error"])
+        r2 = poller.poll_device(device, opener=make_opener({"http://192.168.1.107/index.htm": urllib.error.URLError("timed out")}))
+        self.assertIn("injoignable", r2["error"])
+        r3 = poller.poll_device(device, opener=make_opener({"http://192.168.1.107/index.htm": "<html><body>Login</body></html>"}))
+        self.assertFalse(r3["ok"])
+        self.assertIn("aucun champ reconnu", r3["error"])
+        store.record_reading(self.db, device["id"], r3)
+        d = store.get_device(self.db, device["id"])
+        self.assertFalse(d["last_ok"])
+        self.assertIn("aucun champ", d["last_error"])
+        self.assertIsNone(store.latest_ok_reading(self.db, device["id"]), "aucune fiche complète encore")
+
+    def test_automate_respecte_intervalle_et_activation(self):
+        opener = make_opener({"http://192.168.1.107/index.htm": SAMPLE, "http://10.0.0.9/index.htm": SAMPLE})
+        other, _ = store.create_device(self.db, {"name": "B", "host": "10.0.0.9", "poll_interval_seconds": 120})
+        t0 = 1_800_000_000
+        r = poller.run_tick(self.db, now_ts=t0, opener=opener, default_interval=3600)
+        self.assertEqual((r["checked"], r["polled"], r["skipped"]), (2, 2, 0), "jamais relevés : dus")
+        r = poller.run_tick(self.db, now_ts=t0 + 30, opener=opener, default_interval=3600)
+        self.assertEqual(r["polled"], 0)
+        # Le second a un intervalle propre de 120 s : dû après 120 s, le premier (3600 s) non.
+        # (last_polled_at est à la seconde : on simule en réécrivant l'horodatage)
+        conn = store.get_connection(self.db)
+        conn.execute("UPDATE ups_devices SET last_polled_at = '2026-01-01T00:00:00Z' WHERE id = ?", [other["id"]])
+        conn.commit(); conn.close()
+        r = poller.run_tick(self.db, now_ts=t0 + 30, opener=opener, default_interval=3600)
+        self.assertEqual(r["polled"], 1)
+        # Désactivé : jamais relevé, sauf forcé
+        store.update_device(self.db, other["id"], {"enabled": False})
+        conn = store.get_connection(self.db)
+        conn.execute("UPDATE ups_devices SET last_polled_at = NULL"); conn.commit(); conn.close()
+        r = poller.run_tick(self.db, now_ts=t0 + 10_000, opener=opener, default_interval=3600)
+        self.assertEqual(r["polled"], 1)
+        r = poller.run_tick(self.db, now_ts=t0 + 10_000, opener=opener, default_interval=3600, force_ids=[other["id"]])
+        self.assertEqual(r["polled"], 1)
+        self.assertEqual(len(store.list_readings(self.db, other["id"])), 3)
+
+    def test_timeline_et_serie(self):
+        device = store.get_device(self.db, self.dev["id"], include_secret=True)
+        for i, volt in enumerate([236.0, 238.5, None, 231.0]):
+            if volt is None:
+                res = poller.poll_device(device, opener=make_opener({}), now_iso=f"2026-09-07T{10 + i:02d}:00:00Z")
+            else:
+                page = SAMPLE.replace("236.0 V", f"{volt} V")
+                res = poller.poll_device(device, opener=make_opener({"http://192.168.1.107/index.htm": page}), now_iso=f"2026-09-07T{10 + i:02d}:00:00Z")
+            store.record_reading(self.db, device["id"], res)
+        rows = store.list_readings(self.db, device["id"])
+        self.assertEqual([r["polled_at"][11:13] for r in rows], ["10", "11", "12", "13"], "du plus ancien au plus récent")
+        self.assertEqual([r["ok"] for r in rows], [True, True, False, True])
+        self.assertNotIn("fields", rows[0], "compact par défaut")
+        window = store.list_readings(self.db, device["id"], start="2026-09-07T11:00:00Z", end="2026-09-07T12:30:00Z")
+        self.assertEqual(len(window), 2)
+        self.assertEqual(len(store.list_readings(self.db, device["id"], limit=2)), 2)
+        self.assertEqual(store.list_readings(self.db, device["id"], limit=2)[0]["polled_at"][11:13], "12", "les plus récents")
+        s = store.field_series(self.db, device["id"], "input_voltage")
+        self.assertEqual([p["number"] for p in s], [236.0, 238.5, 231.0], "l'échec n'a pas de point")
+        self.assertEqual(s[0]["unit"], "V")
+        latest_ok = store.latest_ok_reading(self.db, device["id"])
+        self.assertEqual(latest_ok["input_voltage"], 231.0)
+        self.assertEqual(store.purge_readings(self.db, "2026-09-07T11:30:00Z"), 2)
+        self.assertEqual(store.counts(self.db)["readings"], 2)
+
+    def test_suppression_en_cascade(self):
+        device = store.get_device(self.db, self.dev["id"], include_secret=True)
+        store.record_reading(self.db, device["id"], poller.poll_device(device, opener=make_opener({"http://192.168.1.107/index.htm": SAMPLE})))
+        self.assertTrue(store.delete_device(self.db, device["id"]))
+        self.assertFalse(store.delete_device(self.db, device["id"]))
+        self.assertEqual(store.counts(self.db), {"devices": 0, "enabled": 0, "readings": 0, "alarms": 0, "unreachable": 0})
+
+
+class RoutesTests(unittest.TestCase):
+    def setUp(self):
+        self.client = app_module.app.test_client()
+        # Base propre par test
+        conn = store.get_connection(app_module.DB_PATH)
+        conn.execute("DELETE FROM ups_readings"); conn.execute("DELETE FROM ups_devices"); conn.commit(); conn.close()
+        self._orig_open = poller.urllib.request.urlopen
+        poller.urllib.request.urlopen = make_opener({"http://192.168.1.107/index.htm": SAMPLE})
+
+    def tearDown(self):
+        poller.urllib.request.urlopen = self._orig_open
+
+    def test_cycle_complet(self):
+        r = self.client.post("/ups", json={"name": "Salle serveurs", "site": "Siège", "host": "192.168.1.107", "username": "admin", "password": "pw"})
+        self.assertEqual(r.status_code, 201, r.get_json())
+        ups_id = r.get_json()["id"]
+        self.assertNotIn("password", r.get_json())
+        self.assertEqual(self.client.post("/ups", json={"name": "x"}).status_code, 400)
+
+        listing = self.client.get("/ups").get_json()
+        self.assertEqual(len(listing), 1)
+        self.assertIsNone(listing[0]["last_polled_at"])
+
+        r = self.client.post(f"/ups/{ups_id}/poll")
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.get_json()["ok"])
+        self.assertNotIn("url", r.get_json())
+        self.assertEqual(r.get_json()["fields"]["battery_capacity"]["number"], 100.0)
+
+        fiche = self.client.get(f"/ups/{ups_id}").get_json()
+        self.assertEqual(fiche["device"]["last_state"], "ok")
+        self.assertEqual(fiche["latest"]["fields"]["model"]["value"], "NETYS RT 1/1 UPS")
+        self.assertEqual(fiche["latest_ok"]["id"], fiche["latest"]["id"])
+        self.assertEqual(fiche["url"], "http://192.168.1.107/index.htm")
+
+        rows = self.client.get(f"/ups/{ups_id}/readings").get_json()["readings"]
+        self.assertEqual(len(rows), 1)
+        self.assertNotIn("fields", rows[0])
+        rows = self.client.get(f"/ups/{ups_id}/readings?fields=1").get_json()["readings"]
+        self.assertIn("fields", rows[0])
+        series = self.client.get(f"/ups/{ups_id}/series?key=output_load").get_json()
+        self.assertEqual(series["points"][0]["number"], 8.0)
+        self.assertEqual(self.client.get(f"/ups/{ups_id}/series").status_code, 400)
+
+        r = self.client.put(f"/ups/{ups_id}", json={"poll_interval_seconds": 600, "enabled": False})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.get_json()["poll_interval_seconds"], 600)
+        self.assertFalse(r.get_json()["enabled"])
+        self.assertTrue(r.get_json()["has_password"], "mot de passe conservé")
+
+        st = self.client.get("/status").get_json()
+        self.assertEqual(st["counts"]["devices"], 1)
+        self.assertEqual(st["settings"]["default_interval_seconds"], 3600)
+        self.assertFalse(st["settings"]["poll_enabled"])
+
+        self.assertEqual(self.client.delete(f"/ups/{ups_id}").status_code, 200)
+        self.assertEqual(self.client.delete(f"/ups/{ups_id}").status_code, 404)
+        self.assertEqual(self.client.get(f"/ups/{ups_id}").status_code, 404)
+        self.assertEqual(self.client.post(f"/ups/{ups_id}/poll").status_code, 404)
+
+    def test_essai_sans_enregistrement(self):
+        r = self.client.post("/ups/test", json={"name": "essai", "host": "192.168.1.107", "username": "u", "password": "p"})
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.get_json()["ok"])
+        self.assertEqual(self.client.get("/ups").get_json(), [], "rien d'enregistré")
+        r = self.client.post("/ups/test", json={"name": "essai", "host": "10.9.9.9"})
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(r.get_json()["ok"])
+        self.assertIn("HTTP 404", r.get_json()["error"])
+        self.assertEqual(self.client.post("/ups/test", json={"host": "10.9.9.9"}).status_code, 400)
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+class RealHttpTests(unittest.TestCase):
+    """Un vrai serveur HTTP local avec authentification Basic, interrogé par
+    le vrai urllib : vérifie le chemin réseau complet (en-tête Authorization,
+    401 sans identifiants, décodage iso-8859-1), pas seulement le faux opener."""
+
+    @classmethod
+    def setUpClass(cls):
+        import base64
+        import threading
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+
+        expected = "Basic " + base64.b64encode(b"admin:pw").decode()
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                if self.headers.get("Authorization") != expected:
+                    self.send_response(401)
+                    self.send_header("WWW-Authenticate", 'Basic realm="UPS"')
+                    self.end_headers()
+                    return
+                body = SAMPLE.encode("iso-8859-1")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=iso-8859-1")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *a):
+                pass
+
+        cls.server = HTTPServer(("127.0.0.1", 0), Handler)
+        cls.port = cls.server.server_address[1]
+        threading.Thread(target=cls.server.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+
+    def test_basic_reel(self):
+        device = {"host": f"127.0.0.1:{self.port}", "path": "/index.htm", "username": "admin", "password": "pw"}
+        r = poller.poll_device(device)
+        self.assertTrue(r["ok"], r["error"])
+        self.assertEqual(r["fields"]["input_voltage"]["number"], 236.0)
+        bad = poller.poll_device(dict(device, password="mauvais"))
+        self.assertFalse(bad["ok"])
+        self.assertIn("401", bad["error"])
+        nobody = poller.poll_device({"host": "127.0.0.1:1", "path": "/index.htm"})
+        self.assertIn("injoignable", nobody["error"])
+
+
+class CredentialCryptoTests(unittest.TestCase):
+    """Chiffrement optionnel des mots de passe (UPS_CRED_PASSPHRASE / SALT)."""
+
+    def setUp(self):
+        import credential_crypto
+        self.cc = credential_crypto
+        self.db = os.path.join(tempfile.mkdtemp(), "ups.db")
+        store.ensure_schema(self.db)
+        self._env = {k: os.environ.get(k) for k in ("UPS_CRED_PASSPHRASE", "UPS_CRED_SALT")}
+
+    def tearDown(self):
+        for k, v in self._env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+    def test_clair_sans_configuration_puis_chiffre_avec(self):
+        os.environ.pop("UPS_CRED_PASSPHRASE", None); os.environ.pop("UPS_CRED_SALT", None)
+        self.assertFalse(self.cc.is_configured())
+        dev, _ = store.create_device(self.db, {"name": "A", "host": "1.2.3.4", "password": "clair"})
+        self.assertFalse(dev["password_encrypted"])
+        raw = store.get_connection(self.db).execute("SELECT password FROM ups_devices").fetchone()[0]
+        self.assertEqual(raw, "clair")
+        if self.cc.sc is None:
+            self.skipTest("cryptography absent ici")
+        import base64, secrets
+        os.environ["UPS_CRED_PASSPHRASE"] = "phrase-de-test"
+        os.environ["UPS_CRED_SALT"] = base64.b64encode(secrets.token_bytes(16)).decode()
+        self.assertTrue(self.cc.is_configured())
+        # Une modification rechiffre l'ancien mot de passe en clair
+        upd, _ = store.update_device(self.db, dev["id"], {"site": "S"})
+        self.assertTrue(upd["password_encrypted"])
+        raw = store.get_connection(self.db).execute("SELECT password FROM ups_devices").fetchone()[0]
+        self.assertTrue(raw.startswith("enc:"))
+        self.assertNotIn("clair", raw)
+        self.assertEqual(store.get_device(self.db, dev["id"], include_secret=True)["password"], "clair")
+        # Phrase de passe retirée : relevé en échec explicite, jamais un mot de passe faux
+        os.environ["UPS_CRED_PASSPHRASE"] = ""
+        secret = store.get_device(self.db, dev["id"], include_secret=True)
+        self.assertEqual(secret["password"], "")
+        self.assertIn("absents", secret["password_error"])
+        r = poller.poll_device(secret, opener=make_opener({}))
+        self.assertFalse(r["ok"])
+        self.assertIn("absents", r["error"])
+        # Mauvaise phrase de passe
+        os.environ["UPS_CRED_PASSPHRASE"] = "autre"
+        self.assertIn("échoué", store.get_device(self.db, dev["id"], include_secret=True)["password_error"])
+        # Une modification sans nouveau mot de passe ne détruit pas le jeton
+        store.update_device(self.db, dev["id"], {"site": "T"})
+        raw2 = store.get_connection(self.db).execute("SELECT password FROM ups_devices").fetchone()[0]
+        self.assertEqual(raw2, raw, "jeton conservé tel quel")
+        os.environ["UPS_CRED_PASSPHRASE"] = "phrase-de-test"
+        self.assertEqual(store.get_device(self.db, dev["id"], include_secret=True)["password"], "clair", "relisible une fois la phrase revenue")

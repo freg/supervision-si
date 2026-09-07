@@ -2524,3 +2524,11 @@ absolu min/max en Ko, sous-réseau (/16 → /28, flux internes ou touchant,
 arithmétique IPv4 maison), et la période du tableau appliquée aux flux via
 `fetchLinks(apiBase, segmentId, { startIso, endIso })` →
 `/links?start&end`. Voir le CHANGELOG #414.
+
+## Tuile « Onduleurs (UPS) » (livraison #415)
+
+`src/UpsView.jsx`, `src/upsClient.js`, `src/upsMonitor.js` (pur, 7 tests) :
+liste des onduleurs relevés par `ups-monitor-api`, formulaire avec essai
+de la requête, fiche d'état en tableau, timeline (courbe + relevés). Tuile
+et entrée du menu Réseau conditionnées à `VITE_UPS_API_BASE_URL`. Voir
+`ups-monitor/README.md`.

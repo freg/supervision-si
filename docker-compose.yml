@@ -1020,6 +1020,34 @@ services:
     ports:
       - "${NETMAP_ORCHESTRATOR_API_PORT:-6125}:5000"
 
+  ups-monitor-api:
+    # Livraison #415 -- tuile « UPS » demandée en urgence : liste
+    # d'onduleurs (site / IP / utilisateur / mot de passe), automate qui
+    # relève chaque carte réseau par HTTP (page d'état, version 0 --
+    # Socomec NETYS « UPS Management Web »), fiche extraite et archivée,
+    # timeline. Fréquence 1 h par défaut, réglable globalement ici et par
+    # onduleur dans l'interface. Voir ups-monitor/README.md.
+    build:
+      context: .
+      dockerfile: ups-monitor/api/Dockerfile
+    volumes:
+      - ${UPS_MONITOR_DATA_DIR:-./ups-monitor/data}:/data
+    environment:
+      - MEMCACHED_HOST=memcached
+      - UPS_POLL_INTERVAL_SECONDS=${UPS_POLL_INTERVAL_SECONDS:-3600}
+      - UPS_HTTP_TIMEOUT_SECONDS=${UPS_HTTP_TIMEOUT_SECONDS:-10}
+      - UPS_HISTORY_RETENTION_DAYS=${UPS_HISTORY_RETENTION_DAYS:-365}
+      # Chiffrement des mots de passe stockés (optionnel, même motif que
+      # SNMP_CRED_*) : sans ces deux variables, stockage en clair signalé
+      # par GET /status (secrets_encrypted: false). Sel généré une seule
+      # fois, JAMAIS régénéré ensuite.
+      - UPS_CRED_PASSPHRASE=${UPS_CRED_PASSPHRASE:-}
+      - UPS_CRED_SALT=${UPS_CRED_SALT:-}
+    depends_on:
+      - memcached
+    ports:
+      - "${UPS_MONITOR_API_PORT:-6128}:5000"
+
   network-explorer:
     # Livraison #393 -- demandé explicitement : "un docker front qui
     # se branche sur le/les dockers api" -- SANS Keycloak ni
@@ -1427,6 +1455,8 @@ services:
       - VITE_RIGHTS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/rights
       # Sondes réseau (livraison #301) -- tuile hub pour netprobe-api.
       - VITE_NETPROBE_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/netprobe
+      # UPS (livraison #415) -- tuile hub pour ups-monitor-api.
+      - VITE_UPS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/ups
       # Relations transversales -- onglet hub (livraison #335), backlog
       # item 38 point 2 ("vue relations" de la super tuile ENT).
       - VITE_RELATIONS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/relations

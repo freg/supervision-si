@@ -2293,3 +2293,15 @@ qui fait alors sauter la file.
     `icons.test.mjs` impose qu'aucun jeu ne l'oublie. Si le jeu « au
     trait » est retenu, dessiner les pictogrammes manquants (une
     soixantaine de tuiles) plutôt que de mélanger emoji et traits.
+
+62. Tuile UPS -- suite de la version 0 (2026-09-07, #415). Livré :
+    liste, automate HTTP (Basic) 1 h, fiche extraite de la page Socomec
+    NETYS, archive, timeline (`ups-monitor/README.md`). À faire, dans
+    l'ordre proposé : (1) confronter le parseur à un onduleur RÉEL et
+    aux autres pages de la carte (`info_battery.htm`, `info_io.htm`,
+    `hist_log1.htm`) -- « plusieurs pages par onduleur » ; (2) poser
+    `UPS_CRED_PASSPHRASE` / `UPS_CRED_SALT` en production (sans eux,
+    mots de passe en clair, signalé) ; (3) alertes (passage en alarme,
+    injoignable depuis N relevés) vers vigilance / SMS ; (4) seuils
+    tension / charge / batterie ; (5) seconde méthode de relevé SNMP
+    (RFC 1628 UPS-MIB) via snmp-api, plus fiable que l'HTML.

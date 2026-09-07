@@ -1,3 +1,67 @@
+## 2026-09-07 — Nouvelle tuile « Onduleurs (UPS) » : liste, automate de relevé HTTP, fiche d'état, archive et timeline (livraison #415)
+
+Demandé en urgence : « un automate / cron ; une liste d'onduleurs / site /
+IP / user / password ; en version 0 une requête HTTP du genre
+`http://user:password@ip/index.htm` qui retourne la page ; d'où on extrait
+une fiche d'état avec tous les champs présentés, en tableau ; données
+archivées et présentées à la demande en timeline ; fréquence initiale
+(paramétrable) 1 heure ».
+
+**Nouveau module `ups-monitor/`** (`ups-monitor-api`, port 6128, route
+`/api/ups`, README détaillé) :
+- `store.py` -- `ups_devices` (la liste, fréquence propre optionnelle,
+  état dénormalisé du dernier relevé) et `ups_readings` (archive : un
+  relevé par requête, réussie ou non, fiche complète en JSON + colonnes
+  extraites), SQLite, cascade, purge (`UPS_HISTORY_RETENTION_DAYS`, 365).
+- `ups_parser.py` -- parseur de la page « UPS Management Web » copiée par
+  la personne (Socomec NETYS RT) : sections `class="title"`, champs
+  « Libellé: » + valeur, heure système, nombres avec unité (virgule
+  décimale acceptée), clés stables pour les 14 libellés connus, clé
+  dérivée pour tout libellé inconnu (jamais perdu). État global
+  ok / alarm / unknown d'après Communication, Output Source, Battery.
+- `poller.py` -- l'automate : thread de fond, passage par minute, chaque
+  onduleur relevé quand son intervalle (propre, sinon
+  `UPS_POLL_INTERVAL_SECONDS` = 3600) est écoulé depuis `last_polled_at`
+  en base. Requête GET + **HTTP Basic** construite depuis utilisateur /
+  mot de passe (ce que le navigateur fait de `user:password@`), `urllib`
+  stdlib, délai 10 s, 512 Ko max. Erreurs explicites archivées (401,
+  injoignable, « page reçue mais aucun champ reconnu »). gunicorn à UN
+  worker, volontairement.
+- `credential_crypto.py` -- mots de passe chiffrés au repos comme
+  snmp-api (#213) si `UPS_CRED_PASSPHRASE` / `UPS_CRED_SALT` sont fournis ;
+  sinon (urgence) stockage en clair SIGNALÉ par `/status` et dans la
+  tuile, rechiffrement à la première modification une fois configuré,
+  jeton conservé si la phrase disparaît. Jamais renvoyé par l'API.
+- Routes : `/ups` CRUD, `/ups/<id>/poll` (relever maintenant),
+  `/ups/test` (essayer une saisie sans enregistrer), `/ups/<id>/readings`
+  (timeline), `/ups/<id>/series?key=` (courbe), `/status`, `/logs`.
+- Câblage : `docker-compose.yml`, `.env.example`, `tls-proxy`
+  (ajouté dès la première livraison, piège #301), Dockerfile avec chemins
+  racine (piège #409).
+
+**Hub** : `UpsView.jsx` + `upsClient.js` + `upsMonitor.js` (logique pure,
+7 tests) -- tuile d'accueil et entrée du menu Réseau ▾ (conditionnées à
+`VITE_UPS_API_BASE_URL`). Liste (état coloré, âge du relevé, résumé
+« 236 V → 229 V · charge 8 % · batt. 100 % », fréquence, ⟳ ✎ 🗑 en colonne
+collante), formulaire replié avec « Tester la requête », fiche d'état en
+tableau (champs principaux d'abord, libellés français, valeurs d'état
+colorées), timeline : fenêtre 24 h / 7 j / 30 j / tout, courbe d'un champ
+numérique (enveloppe de zoom #413), tableau des relevés avec les
+changements en évidence et les échecs datés.
+
+**Vérifié** : 14 tests Python (parseur sur la page réelle, store,
+automate, routes `test_client`, vrai serveur HTTP Basic local, chiffrement),
+82 tests Node du hub (7 nouveaux), build Vite réel du hub, **chaîne
+complète réelle** : API Flask lancée + faux onduleur servant la page
+copiée derrière Basic + tuile dans Chromium (Playwright) -- création, test,
+relevés, fiche, courbe, onduleur injoignable en erreur, aucune erreur
+console. Mac injoignable pendant ce développement : construit en cloud,
+committé dès la reconnexion.
+
+**Non vérifié** : un onduleur réel (autre carte = autre page possible,
+le parseur le dit), le build Docker et tls-proxy en conditions réelles.
+Suite (backlog 62) : autres pages de la carte, SNMP UPS-MIB, alertes, seuils.
+
 ## 2026-09-07 — Flux : fenêtre temporelle, volume min/max, sous-réseau /16 → /28 (livraison #414)
 
 Retour de tests : « des options de filtrage sur ce qui peut l'être, ex :

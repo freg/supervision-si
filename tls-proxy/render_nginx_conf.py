@@ -182,6 +182,9 @@ SERVICES = [
     # appelaient déjà /api/netprobe, jamais routé -- 404 systématique
     # sans ce correctif.
     ("NETPROBE_API_PORT", "netprobe-api", 5000, "/api/netprobe/", "api"),
+    # ups-monitor-api (livraison #415) -- tuile UPS. Ajouté dès la
+    # première livraison (piège #301).
+    ("UPS_MONITOR_API_PORT", "ups-monitor-api", 5000, "/api/ups/", "api"),
     # relations-api (livraison #335) -- vue relations transversale de
     # la super tuile ENT, backlog item 38 point 2. Piège déjà rencontré
     # pour netprobe-api (#301) -- ajouté ICI dès la première livraison,
