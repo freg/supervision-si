@@ -2281,3 +2281,15 @@ qui fait alors sauter la file.
     sur une variable jamais définie est indétectable à la lecture du JSX
     seul, il faut vérifier que la variable EXISTE dans `shared/theme.css`.
 
+61. Charte d'icônes du hub -- décision et extension (2026-09-07, #410).
+    Trois jeux proposés dans le cycle agile (`hub/src/icons.js`,
+    `docs/charte-icones-hub.md`) ; Déployer et Apprendre déjà changés
+    (📦, 📚). Reste à trancher par la personne : (1) le jeu par défaut
+    (emoji sobres / symboles monochromes / pictogrammes au trait) ;
+    (2) si la préférence devient un réglage de COMPTE (comme le thème,
+    `shared/preferences.js`) plutôt que de navigateur ; (3) l'extension
+    aux tuiles de l'accueil et au menu (`App.jsx` porte encore ses emoji
+    en dur) -- ajouter une clé par tuile dans chaque jeu, le test
+    `icons.test.mjs` impose qu'aucun jeu ne l'oublie. Si le jeu « au
+    trait » est retenu, dessiner les pictogrammes manquants (une
+    soixantaine de tuiles) plutôt que de mélanger emoji et traits.

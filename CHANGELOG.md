@@ -1,3 +1,42 @@
+## 2026-09-07 — Charte d'icônes du hub : trois jeux comparables, Déployer et Apprendre changés (livraison #410)
+
+Retour de tests sur le cycle agile : « le cerveau est un peu saignant et la
+fusée trop Tintin ; propose des jeux d'icônes et de symboles, qu'on
+construise une mini charte pour le hub ». Nouveau module PUR
+`hub/src/icons.js` (données de la charte, 6 tests Node) et composants
+`hub/src/StepIcon.jsx` (`StepIcon` en HTML, `SvgStepIcon` dans le graphique).
+Les icônes ne sont plus écrites en dur dans `NetworkCycleView.jsx` : une
+seule source, appliquée au menu classique, aux nœuds du graphique, au titre
+du panneau et à l'infobulle.
+
+**Ce qui change par défaut** : Déployer 🚀 → 📦, Apprendre 🧠 → 📚 (Décider
+🧭, Explorer 🕸️, Mesurer 📊 inchangés). Les deux icônes écartées sont
+consignées avec leur raison (`REJECTED_ICONS`) et un test interdit leur
+retour.
+
+**Trois jeux à comparer en direct** (sélecteur « Icônes » à droite des
+onglets Classique / Graphique, préférence locale au navigateur,
+`localStorage` `hub.cycle.iconSet`) : *Emoji sobres* (défaut), *Symboles
+monochromes* (Unicode, couleur de l'étape, suivent le thème) et
+*Pictogrammes au trait* (SVG 24×24 dessinés pour le projet, rendu identique
+partout). Alternatives emoji par étape dans `EMOJI_ALTERNATIVES`.
+
+**Règles** (docs/charte-icones-hub.md) : une idée = une icône ; la couleur
+porte l'identité, jamais l'état (l'état passe par la pastille et
+`--ok/--warning/--danger/--muted`) ; objets et symboles, ni visage, ni
+organe, ni véhicule ; lisible sur les deux thèmes ; tailles fixées par
+contexte. Extension aux autres tuiles décrite dans le document ; le test
+impose qu'un jeu définisse chaque clé.
+
+**Vérifié** : 43 tests Node du hub (6 nouveaux), build Vite réel, rendu
+réel dans Chromium (Playwright) des trois jeux, thèmes clair et sombre,
+menu classique et graphique, sans erreur console -- première fois que le
+rendu du hub est regardé pour de vrai depuis l'environnement de
+développement (harnais `NetworkCycleView` seul + faux back-end, hors dépôt).
+**Non vérifié** : rendu des emoji et des symboles Unicode sur le poste de la
+personne (police système). **Décision attendue** : quel jeu devient le
+défaut, et si la préférence doit devenir un réglage de compte (backlog 61).
+
 ## 2026-09-07 — Correctif réel : build de file-manager-api impossible depuis #397 (livraison #409)
 
 Signalé par la personne au déploiement de #408 : `failed to compute cache

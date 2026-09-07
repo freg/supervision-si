@@ -2461,3 +2461,29 @@ valeurs du thème clair : rendu clair inchangé, seul le sombre est corrigé.
 Même famille de bug que les couleurs en dur trouvées trois fois dans DBA — à
 `grep` systématiquement (`grep -rn -- "var(--[a-z-]*, #" hub/src`) avant de
 considérer un module terminé.
+
+
+## Charte d'icônes du hub (livraison #410)
+
+`src/icons.js` (pur, 6 tests dans `tests/icons.test.mjs`) décrit trois jeux
+d'icônes pour les cinq étapes du cycle agile — *Emoji sobres* (défaut :
+🧭 🕸️ 📦 📊 📚), *Symboles monochromes* (⎈ ⌕ ⇪ ∿ ✎, couleur de l'étape,
+suivent le thème) et *Pictogrammes au trait* (SVG 24×24 dessinés pour le
+projet) — ainsi que les icônes écartées avec leur raison (🚀, 🧠) et les
+alternatives étudiées. `src/StepIcon.jsx` les dessine : `StepIcon` en HTML
+(boutons, titres), `SvgStepIcon` dans un `<svg>` (nœuds du graphique). Le
+sélecteur « Icônes » du cycle agile bascule le jeu en direct ; préférence
+locale au navigateur (`localStorage` `hub.cycle.iconSet`, lecture tolérante
+à un stockage absent ou plein).
+
+Règles et extension aux autres tuiles : `docs/charte-icones-hub.md`. Règle
+qui compte le plus : **la couleur porte l'identité, jamais l'état** — l'état
+passe par la pastille et les variables `--ok/--warning/--danger/--muted`,
+lisibles sur les deux thèmes.
+
+Vérification : au-delà des tests Node et du build Vite, le rendu a été
+regardé pour de vrai dans Chromium (Playwright) via un harnais qui monte
+`NetworkCycleView` seul devant un faux back-end — clair et sombre, menu et
+graphique, trois jeux, aucune erreur console. Le harnais n'est pas dans le
+dépôt (voir backlog 59, « frontend autonome ») ; il est décrit dans le
+CHANGELOG #410.

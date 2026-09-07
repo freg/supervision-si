@@ -23,6 +23,8 @@ import {
   compareMetrics,
   summarizeTrend,
 } from "./networkCycleGraph.js";
+import { ICON_SETS, ICON_SET_IDS, loadIconSetPreference, saveIconSetPreference } from "./icons.js";
+import { StepIcon, SvgStepIcon } from "./StepIcon.jsx";
 
 // Tuile hub "Réseau" -- cycle agile réseau en 5 étapes :
 // Décider → Explorer → Déployer → Mesurer → Apprendre.
@@ -30,12 +32,16 @@ import {
 // (netmap-orchestrator, network-agent, netprobe, snmp,
 // ssh-tunnels, backup-restore, vigilance) ou résume leur état.
 
+// Les icônes ne sont plus portées ici mais par la charte (icons.js,
+// livraison #410) : un jeu d'icônes choisi par la personne, appliqué
+// partout où une étape est nommée (menu classique, graphique, titres).
+// La couleur reste l'identité de l'étape (règle 2 de la charte).
 const CYCLE_STEPS = [
-  { id: "decider", label: "Décider", icon: "🧭", color: "#6c5ce7" },
-  { id: "explorer", label: "Explorer", icon: "🕸️", color: "#0984e3" },
-  { id: "deployer", label: "Déployer", icon: "🚀", color: "#00b894" },
-  { id: "mesurer", label: "Mesurer", icon: "📊", color: "#fdcb6e" },
-  { id: "apprendre", label: "Apprendre", icon: "🧠", color: "#e17055" },
+  { id: "decider", label: "Décider", color: "#6c5ce7" },
+  { id: "explorer", label: "Explorer", color: "#0984e3" },
+  { id: "deployer", label: "Déployer", color: "#00b894" },
+  { id: "mesurer", label: "Mesurer", color: "#fdcb6e" },
+  { id: "apprendre", label: "Apprendre", color: "#e17055" },
 ];
 
 // Position des nœuds sur le SVG (disposés en cercle/flow)
@@ -230,6 +236,12 @@ export default function NetworkCycleView({
   onNavigate,
 }) {
   const [viewMode, setViewMode] = useState("classique");
+  // Jeu d'icônes de la charte (#410) -- préférence locale au navigateur.
+  const [iconSet, setIconSet] = useState(() => loadIconSetPreference(typeof localStorage !== "undefined" ? localStorage : undefined));
+  function chooseIconSet(id) {
+    setIconSet(id);
+    saveIconSetPreference(typeof localStorage !== "undefined" ? localStorage : undefined, id);
+  }
 
   // Graphique : zoom/déplacement, infobulle, rafraîchissement automatique
   const [graphView, setGraphView] = useState(GRAPH_VIEW_INITIAL);
@@ -885,7 +897,9 @@ export default function NetworkCycleView({
         className="nc-graph-tooltip"
         style={{ left, top, width: tipW, borderTopColor: s?.color }}
       >
-        <div className="nc-graph-tooltip-title">{s?.icon} {s?.label}</div>
+        <div className="nc-graph-tooltip-title">
+          <StepIcon set={iconSet} step={hovered.id} size={15} color={s?.color} /> {s?.label}
+        </div>
         {lines.map((line, i) => (
           <div key={i} className="nc-graph-tooltip-line">{line}</div>
         ))}
@@ -989,14 +1003,8 @@ export default function NetworkCycleView({
                     className="nc-graph-node-circle"
                     style={{ stroke: s.color }}
                   />
-                  {/* Icône */}
-                  <text
-                    x={pos.x}
-                    y={pos.y - 6}
-                    className="nc-graph-node-icon"
-                  >
-                    {s.icon}
-                  </text>
+                  {/* Icône de la charte (#410) : emoji, symbole ou tracé */}
+                  <SvgStepIcon set={iconSet} step={s.id} x={pos.x} y={pos.y - 6} size={22} color={s.color} />
                   {/* Label */}
                   <text
                     x={pos.x}
@@ -1078,6 +1086,16 @@ export default function NetworkCycleView({
         >
           🔄 Graphique
         </button>
+        {/* Charte d'icônes (#410) : les jeux proposés se comparent en
+            direct, dans le menu ET le graphique ; docs/charte-icones-hub.md */}
+        <label className="nc-icon-set" title={ICON_SETS[iconSet]?.description}>
+          Icônes
+          <select value={iconSet} onChange={(e) => chooseIconSet(e.target.value)}>
+            {ICON_SET_IDS.map((id) => (
+              <option key={id} value={id}>{ICON_SETS[id].label}</option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {viewMode === "graphique" ? (
@@ -1093,7 +1111,7 @@ export default function NetworkCycleView({
                   onClick={() => setStep(s.id)}
                   style={{ borderColor: step === s.id ? s.color : undefined }}
                 >
-                  <span className="nc-cycle-icon">{s.icon}</span>
+                  <StepIcon set={iconSet} step={s.id} size={16} color={s.color} className="nc-cycle-icon" />
                   <span className="nc-cycle-label">{s.label}</span>
                 </button>
                 {idx < CYCLE_STEPS.length - 1 && <span className="nc-cycle-arrow">→</span>}
@@ -1104,7 +1122,7 @@ export default function NetworkCycleView({
           {/* Contenu de l'étape */}
           <div className="hub-card hub-settings-section nc-step-content">
             <h2 style={{ marginTop: 0, color: currentStep?.color }}>
-              {currentStep?.icon} {currentStep?.label}
+              <StepIcon set={iconSet} step={step} size={20} color={currentStep?.color} /> {currentStep?.label}
             </h2>
             {loading ? (
               <p className="muted">Chargement…</p>

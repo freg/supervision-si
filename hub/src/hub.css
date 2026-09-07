@@ -1284,6 +1284,7 @@ button.secondary { background: var(--panel); }
 /* --- Cycle agile réseau : onglet graphique (diagramme SVG interactif) --- */
 .nc-view-tabs {
   display: flex;
+  align-items: flex-end;
   gap: 4px;
   margin-bottom: 16px;
   border-bottom: 1px solid var(--border);
@@ -1305,6 +1306,30 @@ button.secondary { background: var(--panel); }
   color: var(--accent);
   border-bottom-color: var(--accent);
 }
+
+/* Charte d'icônes (#410) -- icons.js / StepIcon.jsx. Les symboles et les
+   tracés prennent la couleur passée en `color` (currentColor), les emoji
+   gardent la leur : aucune couleur en dur ici. */
+.hub-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  vertical-align: -0.15em;
+}
+.hub-icon-glyph { font-weight: 600; }
+.hub-icon-line { flex: none; }
+.nc-graph-node-icon-line { pointer-events: none; }
+.nc-icon-set {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  padding-bottom: 4px;
+}
+.nc-icon-set select { font-size: 12px; padding: 3px 6px; }
 
 .nc-graph-container {
   position: relative;
