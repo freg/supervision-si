@@ -28,6 +28,11 @@ import { StepIcon, SvgStepIcon } from "./StepIcon.jsx";
 import {
   nextMenuState, graphHeightPx, loadLayoutPreference, saveLayoutPreference, hiddenMenuLabel,
 } from "./networkCycleLayout.js";
+import {
+  resolveAction, executeSuggestion, selectAutoRunnable, loadAutoRunPreference, saveAutoRunPreference,
+} from "./cycleActions.js";
+import { addTarget as npAddTarget, scanTarget as npScanTarget } from "./netprobeClient.js";
+import { setSuggestionStatus as orchSetSuggestionStatus } from "./netmapOrchestratorClient.js";
 
 const browserStorage = () => (typeof localStorage !== "undefined" ? localStorage : undefined);
 
@@ -268,6 +273,16 @@ export default function NetworkCycleView({
   }, []);
   const graphVisible = viewMode === "graphique" && menuState !== "hidden";
 
+  // Actions suggérées (#418) : exécution d'une préconisation depuis
+  // l'étape Décider, résultats par suggestion, et mode automatique
+  // (préférence locale, désactivé par défaut). `ranRef` : suggestions déjà
+  // lancées dans cette session -- jamais deux scans pour un même
+  // rafraîchissement.
+  const [actionResults, setActionResults] = useState({});
+  const [runningIds, setRunningIds] = useState(() => new Set());
+  const [autoRun, setAutoRun] = useState(() => loadAutoRunPreference(browserStorage()));
+  const ranRef = useRef(new Set());
+
   // Jeu d'icônes de la charte (#410) -- préférence locale au navigateur.
   const [iconSet, setIconSet] = useState(() => loadIconSetPreference(browserStorage()));
   function chooseIconSet(id) {
@@ -504,6 +519,52 @@ export default function NetworkCycleView({
   const currentStep = CYCLE_STEPS.find((s) => s.id === step);
   const stepIndex = CYCLE_STEPS.findIndex((s) => s.id === step);
 
+  // --- Actions suggérées (#418) ---
+  const actionApiBases = useMemo(() => ({ netprobeApiBase, snmpApiBase, netmapOrchestratorApiBase }), [netprobeApiBase, snmpApiBase, netmapOrchestratorApiBase]);
+  const actionClients = useMemo(() => ({
+    netprobe: { addTarget: npAddTarget, scanTarget: npScanTarget },
+    orchestrator: { setSuggestionStatus: orchSetSuggestionStatus },
+  }), []);
+
+  const runSuggestion = useCallback(async (s) => {
+    if (s?.id == null || ranRef.current.has(s.id)) return;
+    ranRef.current.add(s.id);
+    setRunningIds((prev) => new Set([...prev, s.id]));
+    const r = await executeSuggestion(s, { apiBases: actionApiBases, clients: actionClients });
+    setActionResults((prev) => ({ ...prev, [s.id]: r }));
+    setRunningIds((prev) => { const n = new Set(prev); n.delete(s.id); return n; });
+    if (!r.ok) ranRef.current.delete(s.id);   // relançable après un échec
+    return r;
+  }, [actionApiBases, actionClients]);
+
+  function toggleAutoRun(enabled) {
+    setAutoRun(enabled);
+    saveAutoRunPreference(browserStorage(), enabled);
+  }
+
+  // Mode automatique : à chaque nouvelle liste de suggestions ouvertes, les
+  // préconisations exécutables non encore lancées le sont, en série (un
+  // scan nmap à la fois -- jamais une rafale sur tout le segment).
+  useEffect(() => {
+    if (!autoRun) return undefined;
+    const due = selectAutoRunnable(suggestions, actionApiBases, ranRef.current);
+    if (due.length === 0) return undefined;
+    let cancelled = false;
+    (async () => {
+      for (const s of due) {
+        if (cancelled) break;
+        await runSuggestion(s);
+      }
+      if (!cancelled) loadStep("decider");
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRun, suggestions]);
+
+  function openSuggestedTool(action) {
+    if (onNavigate && action?.tool) onNavigate(action.tool);
+  }
+
   // --- Interactions du graphique : molette, glisser, survol ---
 
   // La molette est écoutée en NON PASSIF, seule façon d'empêcher le
@@ -649,21 +710,70 @@ export default function NetworkCycleView({
         {suggestions.length === 0 ? (
           <p className="muted">Aucune suggestion ouverte pour l'instant.</p>
         ) : (
-          <div className="hub-table-scroll">
-            <table>
-              <thead><tr><th>Sév.</th><th>Message</th><th>Action suggérée</th><th>Détectée</th></tr></thead>
-              <tbody>
-                {suggestions.slice(0, 10).map((s) => (
-                  <tr key={s.id}>
-                    <td>{s.severity === "critical" ? "🔴" : s.severity === "warning" ? "⚠️" : "ℹ️"}</td>
-                    <td>{s.message}</td>
-                    <td className="muted">{s.suggested_action || "—"}</td>
-                    <td className="muted">{formatDate(s.last_detected_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <>
+            {/* Actions suggérées (#418) : bouton vers l'outil préconisé,
+                « ▶ Lancer » quand l'action s'exécute sans saisie, et mode
+                automatique (préférence locale, désactivé par défaut). */}
+            <label className="nc-autorun" title="Quand une nouvelle suggestion exécutable apparaît (scan nmap), elle est lancée sans clic ; les actions qui exigent une saisie (communauté SNMP) restent manuelles.">
+              <input type="checkbox" checked={autoRun} onChange={(e) => toggleAutoRun(e.target.checked)} />
+              Lancer automatiquement les préconisations exécutables
+            </label>
+            <div className="hub-table-scroll">
+              <table className="nc-suggestions">
+                <thead><tr><th>Sév.</th><th>Message</th><th>Action suggérée</th><th>Détectée</th></tr></thead>
+                <tbody>
+                  {suggestions.slice(0, 10).map((s) => {
+                    const action = resolveAction(s, actionApiBases);
+                    const result = actionResults[s.id];
+                    const running = runningIds.has(s.id);
+                    return (
+                      <tr key={s.id}>
+                        <td>{s.severity === "critical" ? "🔴" : s.severity === "warning" ? "⚠️" : "ℹ️"}</td>
+                        <td>{s.message}</td>
+                        <td>
+                          {!action ? (
+                            <span className="muted">—</span>
+                          ) : (
+                            <div className="nc-action">
+                              <button
+                                type="button"
+                                className="secondary nc-action-tool"
+                                onClick={() => openSuggestedTool(action)}
+                                disabled={!action.tool || !onNavigate || !action.available}
+                                title={action.available ? `Ouvrir ${action.toolLabel}` : `${action.toolLabel || action.label} non configuré`}
+                              >
+                                {action.icon} {action.label}{action.toolLabel ? ` → ${action.toolLabel}` : ""}
+                              </button>
+                              {action.canAuto && (
+                                <button
+                                  type="button"
+                                  className="secondary nc-action-run"
+                                  onClick={() => runSuggestion(s)}
+                                  disabled={running || result?.ok}
+                                  title={action.description}
+                                >
+                                  {running ? "⏳ en cours…" : result?.ok ? "✔ lancée" : "▶ Lancer"}
+                                </button>
+                              )}
+                              {result && (
+                                <span className={`nc-action-result ${result.ok ? "ok" : "bad"}`}>
+                                  {result.ok ? result.summary : `échec : ${result.error}`}
+                                </span>
+                              )}
+                              {!action.canAuto && action.available && (
+                                <span className="muted nc-action-hint">{action.description}</span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                        <td className="muted">{formatDate(s.last_detected_at)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
         {onNavigate && netmapOrchestratorApiBase && (
           <button className="secondary" onClick={() => onNavigate("netmap-orchestrator")} style={{ marginTop: 12 }}>

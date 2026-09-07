@@ -1,3 +1,38 @@
+## 2026-09-07 — Cycle agile : actions suggérées cliquables vers l'outil, exécution en un clic ou automatique (livraison #418)
+
+Retour de tests : « action suggérée ⇒ cliquable et renvoie vers l'outil
+préconisé, et case à cocher pour simplement lancer la préconisation en
+automatique si c'est possible ».
+
+`hub/src/cycleActions.js` (logique pure, 7 tests) : table de correspondance
+entre les identifiants de l'orchestrateur (`suggested_action`,
+`action_params`, #388) et l'outil du hub + la séquence d'API qui exécute
+l'action sans saisie quand c'est possible. `netprobe_nmap_scan` :
+cible netprobe créée ou retrouvée depuis l'IP → scan nmap → suggestion
+marquée traitée (jamais marquée si le scan échoue) ; `snmp_register_target`
+: renvoi vers SNMP seulement (la communauté est un secret à saisir) ;
+identifiant inconnu : affiché brut. Clients injectés, testés avec des
+faux (succès, échec de scan, cible existante, exception réseau, refus).
+
+Étape Décider (`NetworkCycleView.jsx`) : bouton « 🔎 Scan actif nmap →
+Sondes réseau » (navigation), « ▶ Lancer » avec résultat en ligne (ports
+ouverts, ou échec explicite et relançable), case « Lancer automatiquement
+les préconisations exécutables » (préférence locale, **désactivée par
+défaut**) : les nouvelles suggestions exécutables sont lancées en série
+puis l'étape rechargée. Outil non configuré = bouton grisé, jamais
+exécuté. Messages longs passés à la ligne dans le tableau.
+
+**Vérifié** : 90 tests Node, build Vite réel, rendu réel Chromium (faux
+orchestrateur + faux netprobe) : lancement, « en cours… », résultat
+« 2 port(s) ouvert(s) (22, 443) ». **Non vérifié** : un scan réel via
+netprobe-api (même appel que le bouton « Scanner » de Sondes réseau).
+
+Deux autres demandes de la même série sont **cadrées au backlog** (63 :
+agent Linux d'audit / relais / sondes extensibles ; 64 : refonte de la
+tuile Supervision SI en colonne à onglets + page centrale en 1 à 4
+cadres) -- chantiers majeurs, découpage proposé, questions posées avant
+de coder.
+
 ## 2026-09-07 — UPS : prise en charge des cartes SOCOMEC Net Vision v6 (page « Synthèse ASI » en JavaScript) (livraison #417)
 
 Suite de #416 : la personne a fourni les pages RÉELLES d'une carte Net

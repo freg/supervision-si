@@ -1367,6 +1367,21 @@ button.secondary { background: var(--panel); }
   border-bottom-color: var(--accent);
 }
 
+/* Actions suggérées du cycle agile (#418) */
+.nc-autorun { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; margin: 0 0 8px; }
+.nc-autorun input { margin: 0; }
+.nc-action { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.nc-action button { padding: 2px 8px; font-size: 12px; white-space: nowrap; }
+.nc-action-run:disabled { opacity: 0.6; cursor: default; }
+.nc-action-result { font-size: 12px; }
+.nc-action-result.ok { color: var(--ok); }
+.nc-action-result.bad { color: var(--danger); }
+.nc-action-hint { font-size: 11px; }
+/* Le message d'une suggestion peut être long : on le laisse passer à la
+   ligne plutôt que d'imposer un défilement horizontal à tout le tableau. */
+.nc-suggestions { min-width: 0 !important; width: 100%; }
+.nc-suggestions td:nth-child(2) { white-space: normal; min-width: 260px; }
+
 /* Charte d'icônes (#410) -- icons.js / StepIcon.jsx. Les symboles et les
    tracés prennent la couleur passée en `color` (currentColor), les emoji
    gardent la leur : aucune couleur en dur ici. */
@@ -1689,6 +1704,7 @@ button.secondary { background: var(--panel); }
 .np-line-point { fill: var(--accent); }
 .np-line-point:hover { fill: var(--text); }
 .np-line-caption { font-size: 11px; margin-top: 3px; }
+
 
 /* Tuile UPS (livraison #415) -- UpsView.jsx. Réutilise .np-tone / .np-line-*
    (sondes WiFi) et .na-section-toggle ; couleurs par variables de thème. */

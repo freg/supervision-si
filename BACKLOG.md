@@ -2305,3 +2305,57 @@ qui fait alors sauter la file.
     injoignable depuis N relevés) vers vigilance / SMS ; (4) seuils
     tension / charge / batterie ; (5) seconde méthode de relevé SNMP
     (RFC 1628 UPS-MIB) via snmp-api, plus fiable que l'HTML.
+
+63. Agent Linux d'audit et de sondes extensibles (2026-09-07, demandé
+    avec #418). Demande : « un agent qui permette d'auditer le host et la
+    zone réseau accessible autour ; qui permette de déployer des sondes
+    futures en Python ou en shell/bash ; par défaut un relais pour
+    l'exploration réseau mais désactivé ; inventaire des sondes (logiciels
+    disponibles et installés) ; inventaire des agents pointant sur un
+    tableau de bord / de commande de l'agent ; sondes Linux / RPi Zero W… ;
+    sondes Windows (à explorer) ; agents GLPI ». État : l'agent
+    `netprobe/agent` (#405-#408, Python stdlib, tâches tirées, HMAC, file
+    store-and-forward, images Pi) EST déjà un agent Linux -- la demande
+    est sa généralisation, pas un second agent. Découpage proposé :
+    (a) audit de l'hôte : tâche `sys` étendue (OS, paquets, services,
+    interfaces, routes, ports à l'écoute, disques) ; (b) audit de la zone
+    réseau : tâche `neighbors` (table ARP, `ip neigh`, ping-sweep du /24,
+    nmap si présent) ; (c) sondes extensibles : tâche `script` exécutant
+    un script Python ou shell fourni par le central avec signature (même
+    HMAC), sortie JSON normalisée -- jamais d'exécution non signée ;
+    (d) inventaire des capacités : l'agent déclare les binaires
+    disponibles (nmap, iperf3, tcpdump, iw, snmpwalk…) et les sondes
+    installées, affiché dans le tableau de bord de flotte (onglet « Sondes
+    WiFi » renommé « Agents ») ; (e) relais d'exploration : tâche
+    `capture` qui envoie des relevés tcpdump vers network-agent-api,
+    DÉSACTIVÉE par défaut, activable par agent ; (f) tableau de bord /
+    commande par agent (tâches, dernier contact, capacités, journal) ;
+    (g) Windows : à explorer -- Python embarqué + service, ou WMI/PowerShell
+    via un agent minimal ; (h) agents GLPI : inventaire GLPI Agent déjà
+    déployé → lecture via glpi-api plutôt qu'un doublon. À trancher avant
+    de coder : ordre (a→f proposé), et si l'agent Linux généraliste doit
+    être un paquet distinct (`si-agent`) ou rester `netprobe_agent`.
+
+64. Refonte de la tuile Supervision SI (2026-09-07, demandé avec #418).
+    « La tuile actuelle était la maquette initiale de la dataviz du hub ;
+    elle doit changer radicalement et ses outils actuels se retrouveront
+    distribués dans les tuiles (on garde la tuile, rôle central). »
+    Spécification reçue : colonne de gauche à onglets « Propositions »,
+    « Supervisés », « Liens », peuplée par défaut de tout ce qu'on
+    supervise (onglet Supervisés) avec filtre et priorisation des
+    équipements/lieux ; page centrale découpée en 1 à 4 cadres (défaut 2 :
+    carte + table des équipements supervisés ; 3 cadres : le troisième
+    prend la largeur en bas ; 4 : répartition équilibrée). Découpage
+    proposé : (1) API d'agrégation « supervisés » (nouveau service ou
+    route hub) qui réunit netprobe (cibles, sondes), UPS, network-agent
+    (appareils), snmp (cibles), ssh-tunnels, docker-monitor… en une liste
+    homogène {type, nom, site/lieu, état, dernier relevé, tuile d'origine}
+    ; (2) colonne gauche (onglets, filtre, priorisation persistée) ;
+    (3) page centrale en cadres (1-4, disposition, choix du contenu de
+    chaque cadre parmi : carte, table, timeline, pixel-grid, radial…) ;
+    (4) redistribution des outils actuels (calendrier, corbeille, radial,
+    fusion IP/MAC…) vers leurs tuiles. Questions avant de coder :
+    « Propositions » = suggestions de l'orchestrateur + vigilance ?
+    « Liens » = URI externes du hub ou liens entre équipements (flux) ?
+    Où vit la nouvelle tuile : dans le hub (composant, comme les vues
+    réseau) ou dans `frontend/` (l'appli historique, Leaflet) ?

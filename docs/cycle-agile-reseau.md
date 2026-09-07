@@ -396,6 +396,37 @@ erreur console. Piste non retenue pour l'instant : en état réduit, un zoom
 initial qui remplirait la largeur (le schéma 2:1 laisse des marges sur un
 conteneur 5:1) -- à voir à l'usage.
 
+## Actions suggérées exécutables (livraison #418)
+
+Retour de tests : « action suggérée ⇒ cliquable et renvoie vers l'outil
+préconisé, et case à cocher pour simplement lancer la préconisation en
+automatique si c'est possible ». `hub/src/cycleActions.js` (pur, 7 tests)
+est la table de correspondance entre les identifiants produits par
+l'orchestrateur (`suggested_action` + `action_params`, #388) et :
+
+| Action | Outil (bouton) | Exécutable sans saisie | Séquence |
+|---|---|---|---|
+| `netprobe_nmap_scan` | Sondes réseau | oui | `POST /targets` (créée ou retrouvée depuis l'IP) → `POST /nmap/scan` → suggestion marquée `done` |
+| `snmp_register_target` | SNMP | non (communauté = secret à saisir) | renvoi vers l'outil, description affichée |
+| autre / inconnue | — | non | identifiant brut affiché, jamais perdu |
+
+Dans l'étape Décider : bouton « 🔎 Scan actif nmap → Sondes réseau »
+(navigation), « ▶ Lancer » quand l'action est exécutable (résultat en
+ligne : ports ouverts, ou échec explicite -- la suggestion reste alors
+ouverte et relançable), et la case « Lancer automatiquement les
+préconisations exécutables » (préférence locale `hub.cycle.autoRun`,
+**désactivée par défaut** : un scan actif reste un geste qu'on choisit
+d'automatiser). En mode automatique, chaque nouvelle liste de suggestions
+ouvertes déclenche les exécutables non encore lancées, **en série** (un
+scan à la fois, jamais une rafale sur le segment), puis l'étape est
+rechargée. Une action dont l'outil n'est pas configuré (variable d'API
+absente) est affichée grisée, jamais exécutée.
+
+Vérifié au rendu réel (harnais + faux back-end) : bouton, lancement,
+résultat « 2 port(s) ouvert(s) (22, 443) », action SNMP non exécutable
+avec sa description. Non vérifié : un scan nmap réel via netprobe-api
+(même appel que le bouton « Scanner » de la tuile Sondes réseau).
+
 ## Évolutions possibles
 
 - Notifications en cas de dépassement de seuils
