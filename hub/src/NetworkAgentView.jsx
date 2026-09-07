@@ -10,7 +10,7 @@ import AlluvialFlowChart from "./components/AlluvialFlowChart.jsx";
 import WeightedRadialTree from "./components/WeightedRadialTree.jsx";
 import {
   findSupervisionHost, findGateways, applyFlowFilters, describeFlowFilterResult,
-  DEFAULT_FLOW_FILTERS,
+  DEFAULT_FLOW_FILTERS, SUBNET_PREFIXES, listDeviceSubnets,
 } from "./networkFlowFilters.js";
 import ZoomableChart from "./components/ZoomableChart.jsx";
 import {
@@ -144,6 +144,7 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
   // la main (id d'appareil) quand la détection par MAC/IP ne suffit pas.
   const [flowFilters, setFlowFilters] = useState(DEFAULT_FLOW_FILTERS);
   const [hostOverride, setHostOverride] = useState("");
+  const [subnetPrefix, setSubnetPrefix] = useState(24);   // longueur de préfixe du filtre sous-réseau (#414)
   // Échelle des traits des deux vues de flux (#413), mémorisée dans le
   // navigateur : un réglage trouvé sur un réseau réel doit survivre au
   // rechargement.
@@ -218,6 +219,20 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
     if (selectedSegment) loadDevicesAndClassify();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDepths, selectedBuilding, selectedZone, minVolumeKo, periodStart, periodEnd]);
+
+  // Fenêtre temporelle sur les FLUX (#414) : la période du tableau
+  // s'applique aussi aux échanges -- `/links?start&end` renvoie les volumes
+  // échangés PENDANT la période (différence de relevés côté API). Sans
+  // période complète : cumul actuel. Rechargé seulement quand la période
+  // change, jamais à chaque autre filtre.
+  useEffect(() => {
+    if (!selectedSegment) return;
+    const period = periodStart && periodEnd
+      ? { startIso: `${periodStart}T00:00:00Z`, endIso: `${periodEnd}T23:59:59Z` }
+      : null;
+    fetchLinks(networkAgentApiBase, selectedSegment.id, period).then(setLinks);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodStart, periodEnd]);
 
   async function loadDevicesAndClassify() {
     const hasPeriod = periodStart && periodEnd;
@@ -336,7 +351,12 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
     ...flowFilters,
     hostId: supervisionHost?.id ?? null,
     gatewayIds: gateways.map((g) => g.id),
+    devicesById: macToDevice,
   });
+  const deviceSubnets = listDeviceSubnets(devices, subnetPrefix);
+  const flowFiltersActive = flowFilters.hideHostRouter || String(flowFilters.minPct) !== "0" || String(flowFilters.maxPct) !== "100"
+    || flowFilters.minKo !== "" || flowFilters.maxKo !== "" || flowFilters.subnet !== "" || hostOverride;
+  const linksArePeriod = links.length > 0 && links.every((l) => l.period);
   const deviceLinks = activeDevice
     ? links.filter((l) => l.device_a_id === activeDevice.id || l.device_b_id === activeDevice.id)
     : [];
@@ -543,7 +563,11 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                 permanent de retour" sur ce sujet).
               </p>
               {links.length === 0 ? (
-                <p className="muted">Aucun échange détecté pour l'instant sur ce segment.</p>
+                <p className="muted">
+                  {periodStart && periodEnd
+                    ? `Aucun relevé de flux entre le ${periodStart} et le ${periodEnd} (les relevés sont périodiques, voir NETWORK_AGENT_SNAPSHOT_INTERVAL_SECONDS) -- effacez la période pour revenir au cumul.`
+                    : "Aucun échange détecté pour l'instant sur ce segment."}
+                </p>
               ) : (
                 <>
                   {/* Filtres (#412) -- appliqués AVANT les deux vues, jamais
@@ -594,7 +618,44 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                       />
                       %
                     </label>
-                    {(flowFilters.hideHostRouter || String(flowFilters.minPct) !== "0" || String(flowFilters.maxPct) !== "100" || hostOverride) && (
+                    {/* Livraison #414 : volume absolu, sous-réseau, fenêtre temporelle */}
+                    <label className="na-flow-filter" title="Volume absolu de chaque flux, en Ko (vide = pas de borne)">
+                      Volume de
+                      <input
+                        type="number" min="0" step="1" className="na-flow-pct" placeholder="min"
+                        value={flowFilters.minKo}
+                        onChange={(e) => setFlowFilters((f) => ({ ...f, minKo: e.target.value }))}
+                      />
+                      Ko à
+                      <input
+                        type="number" min="0" step="1" className="na-flow-pct" placeholder="max"
+                        value={flowFilters.maxKo}
+                        onChange={(e) => setFlowFilters((f) => ({ ...f, maxKo: e.target.value }))}
+                      />
+                      Ko
+                    </label>
+                    <label className="na-flow-filter" title="Ne garder que les flux d'un sous-réseau : « internes » = les deux appareils dedans, « touchant » = au moins un">
+                      Sous-réseau
+                      <select value={subnetPrefix} onChange={(e) => { setSubnetPrefix(Number(e.target.value)); setFlowFilters((f) => ({ ...f, subnet: "" })); }}>
+                        {SUBNET_PREFIXES.map((p) => <option key={p} value={p}>/{p}</option>)}
+                      </select>
+                      <select value={flowFilters.subnet} onChange={(e) => setFlowFilters((f) => ({ ...f, subnet: e.target.value }))}>
+                        <option value="">tous</option>
+                        {deviceSubnets.map((s) => (
+                          <option key={s.subnet} value={s.subnet}>{s.subnet} ({s.count})</option>
+                        ))}
+                      </select>
+                      <select value={flowFilters.subnetMode} onChange={(e) => setFlowFilters((f) => ({ ...f, subnetMode: e.target.value }))} disabled={!flowFilters.subnet}>
+                        <option value="intra">flux internes</option>
+                        <option value="touche">flux touchant</option>
+                      </select>
+                    </label>
+                    <span className="na-flow-filter muted" title="La période choisie dans les filtres du tableau s'applique aussi aux flux (volumes échangés pendant la période, par différence de relevés)">
+                      {periodStart && periodEnd
+                        ? (linksArePeriod ? `⏱ du ${periodStart} au ${periodEnd}` : "⏱ période : aucun relevé de flux sur cette période")
+                        : "⏱ cumul depuis le début de la capture -- une période se choisit dans les filtres du tableau"}
+                    </span>
+                    {flowFiltersActive && (
                       <button
                         className="secondary"
                         onClick={() => { setFlowFilters(DEFAULT_FLOW_FILTERS); setHostOverride(""); }}

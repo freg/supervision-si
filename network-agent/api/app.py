@@ -284,6 +284,18 @@ def list_links():
     segment_id = request.args.get("segment_id", type=int)
     if not segment_id:
         return jsonify({"error": "'segment_id' requis"}), 400
+    # Fenêtre temporelle (#414) : `start` et `end` (ISO 8601, tous deux
+    # requis) -> volumes échangés PENDANT la période, par différence de
+    # relevés (store.list_device_links_for_period). Sans les deux : cumul
+    # actuel, comme avant.
+    start = (request.args.get("start") or "").strip()
+    end = (request.args.get("end") or "").strip()
+    if bool(start) != bool(end):
+        return jsonify({"error": "'start' et 'end' vont ensemble"}), 400
+    if start and end:
+        if start > end:
+            return jsonify({"error": "'start' doit précéder 'end'"}), 400
+        return jsonify(store.list_device_links_for_period(DB_PATH, segment_id, start, end)), 200
     return jsonify(store.list_device_links(DB_PATH, segment_id)), 200
 
 

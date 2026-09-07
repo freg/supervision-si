@@ -1,3 +1,46 @@
+## 2026-09-07 — Flux : fenêtre temporelle, volume min/max, sous-réseau /16 → /28 (livraison #414)
+
+Retour de tests : « des options de filtrage sur ce qui peut l'être, ex :
+fenêtre temporelle, min/max flux, réseau /24 /16… ». Trois filtres de plus
+sur les visualisations de flux, dans la même barre que ceux de #412, même
+logique pure (`hub/src/networkFlowFilters.js`, 14 tests) appliquée avant
+les deux vues.
+
+**Fenêtre temporelle** -- côté API, `GET /links?segment_id&start&end`
+(`network-agent-api`) renvoie les volumes échangés PENDANT la période, par
+différence entre le dernier relevé ≤ `end` et le dernier relevé ≤ `start`
+pour chaque service d'une paire, sommés par paire
+(`store.list_device_links_for_period`, 5 tests unittest sur base SQLite
+réelle) -- même principe que `/devices/for-period` (#394) : un compteur
+cumulatif ne répond pas à « combien pendant », seule une différence le
+fait. Une paire apparue pendant la période compte son cumul entier ; une
+paire sans relevé dans la période est omise ; `start`/`end` vont ensemble
+et dans l'ordre (400 sinon). Côté hub, la **période déjà choisie pour le
+tableau** s'applique aussi aux flux (un seul réglage, rappelé dans la
+barre : « ⏱ du … au … » ou « cumul depuis le début de la capture ») ;
+message explicite si aucun relevé ne tombe dans la période.
+
+**Volume min / max** -- bornes absolues en Ko (vide = pas de borne,
+permutées si inversées, saisie invalide ignorée), en complément de la
+tranche de pourcentage (#412) : « au moins 500 Ko » ne dépend pas du
+volume total, contrairement à « au moins 5 % ».
+
+**Sous-réseau** -- longueur de préfixe /16, /20, /24 ou /28, liste des
+sous-réseaux présents parmi les appareils affichés (avec l'effectif,
+calculée côté client à partir des dernières IP, IPv4), puis « flux
+internes » (les deux appareils dedans) ou « flux touchant » (au moins un).
+Arithmétique de préfixe maison, sans dépendance.
+
+Résumé complété (« k hors volume », « j hors sous-réseau ») ; ✕
+Réinitialiser couvre tous les filtres.
+
+**Vérifié** : 75 tests Node du hub, 5 tests Python (store) + 5 (identité),
+build Vite réel du hub et de network-explorer, rendu réel Chromium de la
+barre de filtres (sous-réseau /24 sélectionné, modes) sans erreur console.
+**Non vérifié** : la route `/links?start&end` en HTTP (Flask absent ici --
+la fonction de store l'est, sur données réelles en base) ; l'affichage avec
+une vraie période (le harnais n'a pas d'historique de relevés).
+
 ## 2026-09-07 — Zoom / loupe et modulation d'échelle sur tous les graphiques du hub (livraison #413)
 
 Retour de tests : « ajouter des options de zoom / loupe et de modulation

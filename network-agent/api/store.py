@@ -561,6 +561,64 @@ def list_devices_for_period(db_path, network_segment_id, start_iso, end_iso):
         conn.close()
 
 
+def list_device_links_for_period(db_path, network_segment_id, start_iso, end_iso):
+    """Livraison #414 -- fenêtre temporelle sur les FLUX (« filtre sur
+    fenêtre temporelle » du retour de tests), même principe que
+    `list_devices_for_period` (#394) : pour chaque paire (A -> B) du
+    segment, volume échangé PENDANT [start_iso, end_iso] = différence entre
+    le dernier relevé <= end_iso et le dernier relevé <= start_iso (0 si la
+    paire est apparue pendant la période), sommée sur les services
+    (protocole/port) de la paire -- `na_link_history` est un relevé de
+    `na_device_link_services`, pas de `na_device_links`. Une paire sans
+    aucun relevé dans la période est omise, jamais une valeur inventée.
+
+    Même forme de ligne que `list_device_links` (device_a_id, device_b_id,
+    packet_count, bytes_total) avec `period: True`, pour que le hub
+    applique les mêmes filtres et les mêmes vues sans cas particulier."""
+    conn = get_connection(db_path)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """SELECT l.device_a_id, l.device_b_id, l.protocol, l.port, h.snapshot_at, l.packet_count, l.bytes_total
+               FROM na_link_history l
+               JOIN na_history_snapshots h ON h.id = l.snapshot_id
+               WHERE h.network_segment_id = ? AND h.snapshot_at <= ?
+               ORDER BY l.device_a_id, l.device_b_id, l.protocol, l.port, h.snapshot_at ASC""",
+            [network_segment_id, end_iso],
+        )
+        series = {}
+        for row in cur.fetchall():
+            key = (row["device_a_id"], row["device_b_id"], row["protocol"], row["port"])
+            series.setdefault(key, []).append(dict(row))
+
+        totals = {}
+        for (a, b, _protocol, _port), readings in series.items():
+            end_reading = readings[-1]
+            if end_reading["snapshot_at"] < start_iso:
+                continue  # aucun relevé dans la période pour ce service
+            baseline_bytes = 0
+            baseline_packets = 0
+            for r in readings:
+                if r["snapshot_at"] <= start_iso:
+                    baseline_bytes = r["bytes_total"]
+                    baseline_packets = r["packet_count"]
+                else:
+                    break
+            entry = totals.setdefault((a, b), {"device_a_id": a, "device_b_id": b, "bytes_total": 0, "packet_count": 0, "period": True})
+            entry["bytes_total"] += max(0, end_reading["bytes_total"] - baseline_bytes)
+            entry["packet_count"] += max(0, end_reading["packet_count"] - baseline_packets)
+
+        results = list(totals.values())
+        for i, r in enumerate(results):
+            # Identifiant stable pour les clés React : pas de ligne en base
+            # derrière un flux « de période », l'id est synthétique.
+            r["id"] = f"period-{r['device_a_id']}-{r['device_b_id']}"
+        results.sort(key=lambda r: r["bytes_total"], reverse=True)
+        return results
+    finally:
+        conn.close()
+
+
 def list_link_history(db_path, device_a_id, device_b_id):
     """Évolution du volume échangé entre DEUX appareils précis, dans
     le temps -- une ligne CUMULATIVE par relevé (jamais un delta

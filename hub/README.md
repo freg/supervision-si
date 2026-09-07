@@ -2516,3 +2516,11 @@ quelconque, `preserveAspectRatio` meet ou none). `src/chartScales.js` :
 `weightedRadialLayout.js` et `networkAgentHistory.js`. Règle : un graphique
 ne sait rien du zoom ; il rend dans son viewBox, l'enveloppe fait le reste.
 Nouveau graphique = l'envelopper, jamais réécrire un zoom local.
+
+## Flux : fenêtre temporelle, volume, sous-réseau (livraison #414)
+
+Trois filtres de plus dans `src/networkFlowFilters.js` (14 tests) : volume
+absolu min/max en Ko, sous-réseau (/16 → /28, flux internes ou touchant,
+arithmétique IPv4 maison), et la période du tableau appliquée aux flux via
+`fetchLinks(apiBase, segmentId, { startIso, endIso })` →
+`/links?start&end`. Voir le CHANGELOG #414.

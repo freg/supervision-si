@@ -60,7 +60,7 @@ test("sans filtre, tout passe (hors volume nul)", () => {
   const r = applyFlowFilters(links, {});
   assert.equal(r.links.length, 5);
   assert.equal(r.keptBytes, 1000);
-  assert.deepEqual(r.hidden, { hostRouter: 0, band: 0 });
+  assert.deepEqual(r.hidden, { hostRouter: 0, band: 0, volume: 0, subnet: 0 });
   assert.equal(describeFlowFilterResult(r), "5 flux sur 5 · 100 % du volume");
 });
 
@@ -87,11 +87,84 @@ test("la tranche de pourcentage garde les flux dont la part est dans [min, max]"
 test("les deux filtres se cumulent, hôte ↔ routeur compté avant la tranche", () => {
   const r = applyFlowFilters(links, { hideHostRouter: true, hostId: 2, gatewayIds: [1], minPct: 0, maxPct: 12 });
   assert.deepEqual(r.links.map((l) => l.id), [3, 5]);
-  assert.deepEqual(r.hidden, { hostRouter: 2, band: 1 });
+  assert.deepEqual(r.hidden, { hostRouter: 2, band: 1, volume: 0, subnet: 0 });
 });
 
 test("hôte inconnu : la case hôte ↔ routeur ne masque rien, sans erreur", () => {
   const r = applyFlowFilters(links, { hideHostRouter: true, hostId: null, gatewayIds: [1] });
   assert.equal(r.links.length, 5);
   assert.equal(r.hidden.hostRouter, 0);
+});
+
+// --- Livraison #414 : volume absolu et sous-réseau ---
+import {
+  ipv4ToInt, subnetOf, ipInSubnet, listDeviceSubnets, linkSubnetRelation, DEFAULT_FLOW_FILTERS,
+} from "../src/networkFlowFilters.js";
+
+test("IPv4 : conversion, sous-réseau, appartenance, entrées invalides", () => {
+  assert.equal(ipv4ToInt("192.168.1.10"), 3232235786);
+  assert.equal(ipv4ToInt("256.1.1.1"), null);
+  assert.equal(ipv4ToInt("1.2.3"), null);
+  assert.equal(ipv4ToInt(null), null);
+  assert.equal(subnetOf("192.168.1.10", 24), "192.168.1.0/24");
+  assert.equal(subnetOf("192.168.37.10", 16), "192.168.0.0/16");
+  assert.equal(subnetOf("192.168.37.10", 20), "192.168.32.0/20");
+  assert.equal(subnetOf("10.0.0.200", 28), "10.0.0.192/28");
+  assert.equal(subnetOf("bidon", 24), null);
+  assert.equal(subnetOf("10.0.0.1", 40), null);
+  assert.equal(ipInSubnet("192.168.1.77", "192.168.1.0/24"), true);
+  assert.equal(ipInSubnet("192.168.2.77", "192.168.1.0/24"), false);
+  assert.equal(ipInSubnet("192.168.2.77", "192.168.0.0/16"), true);
+  assert.equal(ipInSubnet("192.168.2.77", "pas-un-cidr"), false);
+  assert.equal(ipInSubnet(undefined, "192.168.1.0/24"), false);
+});
+
+test("les sous-réseaux des appareils sont listés par préfixe, triés par effectif", () => {
+  const devs = [
+    { id: 1, ip_address: "192.168.1.1" }, { id: 2, ip_address: "192.168.1.10" },
+    { id: 3, ip_address: "192.168.2.5" }, { id: 4, ip_address: null }, { id: 5, ip_address: "10.0.0.1" },
+  ];
+  assert.deepEqual(listDeviceSubnets(devs, 24), [
+    { subnet: "192.168.1.0/24", count: 2 }, { subnet: "10.0.0.0/24", count: 1 }, { subnet: "192.168.2.0/24", count: 1 },
+  ]);
+  assert.deepEqual(listDeviceSubnets(devs, 16), [{ subnet: "192.168.0.0/16", count: 3 }, { subnet: "10.0.0.0/16", count: 1 }]);
+  assert.deepEqual(listDeviceSubnets([], 24), []);
+});
+
+test("filtre de volume absolu en Ko, bornes permutées si besoin, vide = pas de borne", () => {
+  const r = applyFlowFilters(links, { minKo: 0.05, maxKo: 0.2 });   // 51,2 o à 204,8 o
+  assert.deepEqual(r.links.map((l) => l.id), [2, 3]);
+  assert.equal(r.hidden.volume, 3);
+  const swapped = applyFlowFilters(links, { minKo: "0.2", maxKo: "0.05" });
+  assert.deepEqual(swapped.links.map((l) => l.id), [2, 3]);
+  const openEnded = applyFlowFilters(links, { minKo: "0.5", maxKo: "" });
+  assert.deepEqual(openEnded.links.map((l) => l.id), [1]);
+  assert.match(describeFlowFilterResult(r), /3 hors volume/);
+  assert.equal(applyFlowFilters(links, { minKo: "abc" }).links.length, 5, "saisie invalide : pas de borne");
+});
+
+test("filtre de sous-réseau : interne (les deux) ou touchant (au moins un)", () => {
+  const devs = [
+    { id: 1, ip_address: "192.168.1.1" }, { id: 2, ip_address: "192.168.1.10" },
+    { id: 3, ip_address: "192.168.2.21" }, { id: 4, ip_address: "192.168.2.35" },
+  ];
+  const byId = Object.fromEntries(devs.map((d) => [d.id, d]));
+  assert.equal(linkSubnetRelation(links[0], byId, "192.168.1.0/24"), "intra");   // 2 → 1
+  assert.equal(linkSubnetRelation(links[1], byId, "192.168.1.0/24"), "touche");  // 1 → 3
+  assert.equal(linkSubnetRelation(links[4], byId, "192.168.1.0/24"), "hors");    // 3 → 4
+  const intra = applyFlowFilters(links, { subnet: "192.168.1.0/24", subnetMode: "intra", devicesById: byId });
+  assert.deepEqual(intra.links.map((l) => l.id), [1, 4]);
+  assert.equal(intra.hidden.subnet, 3);
+  const touche = applyFlowFilters(links, { subnet: "192.168.1.0/24", subnetMode: "touche", devicesById: byId });
+  assert.deepEqual(touche.links.map((l) => l.id), [1, 2, 3, 4]);
+  const seize = applyFlowFilters(links, { subnet: "192.168.0.0/16", subnetMode: "intra", devicesById: byId });
+  assert.equal(seize.links.length, 5);
+  assert.match(describeFlowFilterResult(intra), /3 hors sous-réseau/);
+  assert.equal(applyFlowFilters(links, { subnet: "bidon", devicesById: byId }).links.length, 5, "CIDR invalide : ignoré");
+});
+
+test("les valeurs par défaut ne filtrent rien", () => {
+  const r = applyFlowFilters(links, { ...DEFAULT_FLOW_FILTERS, hostId: 2, gatewayIds: [1], devicesById: {} });
+  assert.equal(r.links.length, 5);
+  assert.deepEqual(r.hidden, { hostRouter: 0, band: 0, volume: 0, subnet: 0 });
 });

@@ -771,3 +771,14 @@ sert pour reconnaître l'hôte de supervision parmi les appareils découverts et
 proposer de masquer ses échanges avec la passerelle dans les visualisations de
 flux. Tests : `python3 -m unittest test_capture_identity.py` (5 tests, dont
 la lecture réelle de l'IP de `lo` sous Linux).
+
+## `/links` sur une période (livraison #414)
+
+`GET /links?segment_id=<id>&start=<ISO>&end=<ISO>` : volumes échangés
+PENDANT la période, par différence de relevés (`na_link_history`, relevé de
+`na_device_link_services`) sommée par paire -- même principe que
+`/devices/for-period` (#394). `start` et `end` vont ensemble et dans l'ordre
+(400 sinon) ; sans eux, cumul actuel comme avant. Lignes de même forme que
+le cumul (`device_a_id`, `device_b_id`, `bytes_total`, `packet_count`) avec
+`period: true` et un `id` synthétique `period-<a>-<b>`. Tests :
+`python3 -m unittest test_links_period.py` (base SQLite temporaire).

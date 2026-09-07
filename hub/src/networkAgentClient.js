@@ -56,8 +56,13 @@ export async function fetchAllServices(apiBase, segmentId) {
   const data = await fetchJson(apiBase, `/devices/services?segment_id=${segmentId}`);
   return data && typeof data === "object" && !data.error ? data : {};
 }
-export async function fetchLinks(apiBase, segmentId) {
-  const data = await fetchJson(apiBase, `/links?segment_id=${segmentId}`);
+// `period` = { startIso, endIso } (#414) : volumes échangés PENDANT la
+// période (différence de relevés côté API) au lieu du cumul actuel.
+export async function fetchLinks(apiBase, segmentId, period) {
+  const qs = period?.startIso && period?.endIso
+    ? `&start=${encodeURIComponent(period.startIso)}&end=${encodeURIComponent(period.endIso)}`
+    : "";
+  const data = await fetchJson(apiBase, `/links?segment_id=${segmentId}${qs}`);
   return Array.isArray(data) ? data : [];
 }
 export async function fetchObservedSubnets(apiBase, segmentId, prefixLength) {
