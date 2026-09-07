@@ -27,6 +27,7 @@ import os
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
@@ -79,20 +80,67 @@ def fetch_page(url, username="", password="", timeout=HTTP_TIMEOUT_SECONDS, open
         return None, f"erreur inattendue : {exc}"
 
 
+# Suivi des frames (#416) : profondeur et nombre de sous-pages bornés --
+# un conteneur qui pointe sur un conteneur qui pointe sur… ne doit jamais
+# faire boucler l'automate ; 1 + 6 requêtes au pire par relevé.
+FRAME_MAX_DEPTH = 2
+FRAME_MAX_PAGES = 6
+
+
+def _same_host(base_url, target_url):
+    b = urllib.parse.urlsplit(base_url)
+    t = urllib.parse.urlsplit(target_url)
+    return (t.scheme or b.scheme) == b.scheme and (t.netloc or b.netloc) == b.netloc
+
+
+def fetch_status_page(url, username, password, opener=None):
+    """Récupère la page d'état en suivant les frames si la page demandée
+    n'est qu'un conteneur (#416). Renvoie (parsed, erreur, chemin_effectif,
+    pages_visitées). `parsed` est la première page (en largeur d'abord) qui
+    contient des champs ; sinon None avec un message qui liste les pages
+    essayées -- la personne peut alors fixer le champ « Page » à la main."""
+    html, err = fetch_page(url, username, password, opener=opener)
+    if html is None:
+        return None, err, None, [url]
+    parsed = ups_parser.parse_ups_page(html)
+    if parsed["field_count"] > 0:
+        return parsed, None, urllib.parse.urlsplit(url).path, [url]
+
+    visited = [url]
+    queue = [(urllib.parse.urljoin(url, src), 1) for src in ups_parser.extract_frame_sources(html)]
+    titles = [parsed["title"] or "sans titre"]
+    while queue and len(visited) <= FRAME_MAX_PAGES:
+        sub_url, depth = queue.pop(0)
+        if sub_url in visited or not _same_host(url, sub_url):
+            continue
+        visited.append(sub_url)
+        sub_html, sub_err = fetch_page(sub_url, username, password, opener=opener)
+        if sub_html is None:
+            titles.append(f"{urllib.parse.urlsplit(sub_url).path} : {sub_err}")
+            continue
+        sub = ups_parser.parse_ups_page(sub_html)
+        if sub["field_count"] > 0:
+            return sub, None, urllib.parse.urlsplit(sub_url).path, visited
+        titles.append(f"{urllib.parse.urlsplit(sub_url).path} : {sub['title'] or 'sans titre'}")
+        if depth < FRAME_MAX_DEPTH:
+            queue.extend((urllib.parse.urljoin(sub_url, s), depth + 1) for s in ups_parser.extract_frame_sources(sub_html))
+    tried = " ; ".join(titles)
+    if len(visited) > 1:
+        return None, f"aucun champ reconnu dans la page ni dans ses {len(visited) - 1} frame(s) ({tried}) -- fixer « Page » sur la page d'état", None, visited
+    return None, f"page reçue mais aucun champ reconnu (titre : {parsed['title'] or 'aucun'}) -- chemin ou authentification ?", None, visited
+
+
 def poll_device(device, opener=None, now_iso=None):
-    """Un relevé complet : requête, parse, état. Renvoie le dict archivé
-    par store.record_reading -- TOUJOURS, réussi ou non."""
+    """Un relevé complet : requête (frames suivies au besoin), parse, état.
+    Renvoie le dict archivé par store.record_reading -- TOUJOURS, réussi
+    ou non. `resolved_path` = page qui a réellement fourni la fiche."""
     started = time.monotonic()
     url = build_url(device)
-    if device.get("password_error"):
-        html, err = None, device["password_error"]
-    else:
-        html, err = fetch_page(url, device.get("username") or "", device.get("password") or "", opener=opener)
     result = {
         "polled_at": now_iso or store.now_iso(),
         "url": url,
         "ok": False,
-        "error": err,
+        "error": None,
         "state": None,
         "state_reasons": [],
         "system_time": None,
@@ -100,28 +148,36 @@ def poll_device(device, opener=None, now_iso=None):
         "sections": [],
         "summary": {},
         "duration_ms": None,
+        "resolved_path": None,
+        "pages_visited": 0,
     }
-    if html is not None:
-        parsed = ups_parser.parse_ups_page(html)
-        if parsed["field_count"] == 0:
-            result["error"] = f"page reçue mais aucun champ reconnu (titre : {parsed['title'] or 'aucun'}) -- chemin ou authentification ?"
-        else:
-            state, reasons = ups_parser.derive_state(parsed["fields"])
-            result.update({
-                "ok": True,
-                "error": None,
-                "state": state,
-                "state_reasons": reasons,
-                "system_time": parsed["system_time"],
-                "fields": parsed["fields"],
-                "sections": parsed["sections"],
-                "summary": {
-                    k: parsed["fields"][k]["value"]
-                    for k in ("model", "communication", "output_source", "battery", "input_voltage", "output_voltage",
-                              "output_load", "battery_capacity")
-                    if k in parsed["fields"]
-                },
-            })
+    if device.get("password_error"):
+        parsed, err, resolved, visited = None, device["password_error"], None, []
+    else:
+        parsed, err, resolved, visited = fetch_status_page(
+            url, device.get("username") or "", device.get("password") or "", opener=opener,
+        )
+    result["pages_visited"] = len(visited)
+    result["resolved_path"] = resolved
+    if parsed is None:
+        result["error"] = err
+    else:
+        state, reasons = ups_parser.derive_state(parsed["fields"])
+        result.update({
+            "ok": True,
+            "error": None,
+            "state": state,
+            "state_reasons": reasons,
+            "system_time": parsed["system_time"],
+            "fields": parsed["fields"],
+            "sections": parsed["sections"],
+            "summary": {
+                k: parsed["fields"][k]["value"]
+                for k in ("model", "communication", "output_source", "battery", "input_voltage", "output_voltage",
+                          "output_load", "battery_capacity")
+                if k in parsed["fields"]
+            },
+        })
     result["duration_ms"] = int((time.monotonic() - started) * 1000)
     return result
 

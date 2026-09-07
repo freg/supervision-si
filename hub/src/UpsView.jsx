@@ -239,6 +239,9 @@ export default function UpsView({ onBack, upsApiBase }) {
                   <Tone tone="good">✔ page reçue et reconnue</Tone> -- {Object.keys(testResult.fields || {}).length} champ(s), état {testResult.state}
                   {testResult.system_time && <> · heure de l'onduleur : {testResult.system_time}</>}
                   {testResult.fields?.model && <> · {testResult.fields.model.value}</>}
+                  {testResult.resolved_path && testResult.resolved_path !== (form.path || "/index.htm") && (
+                    <> · <Tone tone="warn">fiche trouvée dans la frame <code>{testResult.resolved_path}</code></Tone> ({testResult.pages_visited} pages lues -- mettre ce chemin dans « Page » évite les lectures intermédiaires)</>
+                  )}
                 </>
               ) : (
                 <Tone tone="bad">✖ {testResult.error || "échec"}</Tone>
@@ -305,6 +308,9 @@ export default function UpsView({ onBack, upsApiBase }) {
                 {fiche.system_time && <> · heure de l'onduleur : {fiche.system_time}</>}
                 {" · "}état global : <Tone tone={fiche.state === "ok" ? "good" : fiche.state === "alarm" ? "bad" : "neutral"}>{fiche.state}</Tone>
                 {fiche.state_reasons?.length > 0 && <> ({fiche.state_reasons.join(" ; ")})</>}
+                {fiche.resolved_path && fiche.resolved_path !== (selected.path || "/index.htm") && (
+                  <> · <Tone tone="warn">lue dans la frame <code>{fiche.resolved_path}</code></Tone> (la page configurée est un conteneur ; « ✎ » pour fixer « Page » à ce chemin)</>
+                )}
               </p>
               <div className="hub-table-scroll">
                 <table className="ups-fiche">

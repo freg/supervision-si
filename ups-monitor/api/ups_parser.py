@@ -136,6 +136,49 @@ class _CellCollector(HTMLParser):
 _SYSTEM_TIME_RE = re.compile(r"System Time:\s*(.+)$", re.IGNORECASE)
 
 
+class _FrameCollector(HTMLParser):
+    """Sources des <frame>, <iframe> et redirections <meta refresh> d'une
+    page -- pour suivre une page « conteneur » jusqu'à la page d'état."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.sources = []
+
+    def handle_starttag(self, tag, attrs):
+        tag = tag.lower()
+        a = {k.lower(): (v or "") for k, v in attrs}
+        if tag in ("frame", "iframe"):
+            src = a.get("src", "").strip()
+            if src:
+                self.sources.append(src)
+        elif tag == "meta" and a.get("http-equiv", "").lower() == "refresh":
+            m = re.search(r"url\s*=\s*['\"]?([^'\";]+)", a.get("content", ""), re.IGNORECASE)
+            if m:
+                self.sources.append(m.group(1).strip())
+
+
+def extract_frame_sources(html):
+    """Livraison #416 : « une partie des onduleurs répond avec une frame ».
+    Certaines cartes (frameset HTML 4) servent en /index.htm un simple
+    conteneur : <frameset><frame src="menu.htm"><frame src="status.htm">.
+    Renvoie les sources dans l'ordre du document, sans doublon, en ignorant
+    les pseudo-URL (javascript:, about:, données)."""
+    p = _FrameCollector()
+    try:
+        p.feed(html or "")
+        p.close()
+    except Exception:  # noqa: BLE001
+        pass
+    out = []
+    for src in p.sources:
+        low = src.lower()
+        if low.startswith(("javascript:", "about:", "data:", "#")):
+            continue
+        if src not in out:
+            out.append(src)
+    return out
+
+
 def parse_ups_page(html):
     """Fiche d'état.
 

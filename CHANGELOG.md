@@ -1,3 +1,34 @@
+## 2026-09-07 — UPS : suivi des frames quand la page d'état est un conteneur (livraison #416)
+
+Retour de tests immédiat sur #415 : « une partie des onduleurs répond avec
+une frame et l'extraction est en échec ». Sur ces cartes, `/index.htm` est
+un `<frameset>` (HTML 4) qui ne contient aucun champ : la fiche est dans une
+sous-page (`ups_status.htm` ou équivalent).
+
+**Correctif** (`ups-monitor/api/poller.py`, `ups_parser.py`) : quand la page
+demandée n'a aucun champ, `fetch_status_page` suit les `<frame>`, `<iframe>`
+et redirections `<meta http-equiv="refresh">` -- en largeur d'abord, dans
+l'ordre du document, **même hôte seulement**, 2 niveaux et 6 sous-pages au
+plus (jamais une boucle), avec les mêmes identifiants Basic -- et retient
+la première sous-page qui contient des champs. Le chemin effectif est
+archivé (`ups_readings.resolved_path`, `ups_devices.last_resolved_path`,
+colonnes ajoutées par `ALTER TABLE` tolérant pour une base créée en #415)
+et affiché dans la tuile (« lue dans la frame /ups_status.htm ») ainsi que
+dans « Tester la requête », avec le conseil de mettre ce chemin dans
+« Page » pour économiser les lectures intermédiaires. Si aucune sous-page
+ne convient, l'erreur liste les pages essayées et leur titre pour fixer
+« Page » à la main.
+
+**Vérifié** : 20 tests Python (6 nouveaux : sources extraites, frameset suivi
+jusqu'à la fiche avec Basic sur chaque sous-page, page directe sans lecture
+inutile, meta refresh + borne de profondeur, autre hôte ignoré et échec
+partiel expliqué, chemin archivé/conservé + migration de schéma), 82 tests
+Node, build Vite réel, chaîne réelle : API + faux onduleur « frameset »
+(conteneur → menu → page d'état) relevé et affiché dans Chromium.
+**Non vérifié** : vos cartes réelles -- si l'une échoue encore, l'erreur
+donne les pages essayées ; une copie de la source de son `/index.htm`
+(et de la frame d'état) permettra d'ajuster.
+
 ## 2026-09-07 — Nouvelle tuile « Onduleurs (UPS) » : liste, automate de relevé HTTP, fiche d'état, archive et timeline (livraison #415)
 
 Demandé en urgence : « un automate / cron ; une liste d'onduleurs / site /

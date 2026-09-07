@@ -410,3 +410,96 @@ class CredentialCryptoTests(unittest.TestCase):
         self.assertEqual(raw2, raw, "jeton conservé tel quel")
         os.environ["UPS_CRED_PASSPHRASE"] = "phrase-de-test"
         self.assertEqual(store.get_device(self.db, dev["id"], include_secret=True)["password"], "clair", "relisible une fois la phrase revenue")
+
+
+class FramesetTests(unittest.TestCase):
+    """Livraison #416 : « une partie des onduleurs répond avec une frame et
+    l'extraction est en échec » -- la page demandée n'est qu'un conteneur
+    <frameset>, la fiche est dans une sous-page."""
+
+    FRAMESET = open(os.path.join(HERE, "samples", "frameset_index.htm"), encoding="iso-8859-1").read()
+    MENU = "<html><body><table><tr><td><a href='/index.htm'>UPS Information</a></td></tr></table></body></html>"
+    TOP = "<html><body><img src='/logo.jpg'></body></html>"
+
+    def setUp(self):
+        self.device = {"host": "192.168.1.108", "path": "/index.htm", "username": "admin", "password": "pw"}
+
+    def test_sources_extraites(self):
+        srcs = ups_parser.extract_frame_sources(self.FRAMESET)
+        self.assertEqual(srcs, ["/top.htm", "/menu.htm", "/ups_status.htm?lang=en"])
+        meta = '<html><head><meta http-equiv="Refresh" content="0; URL=/login_ok.htm"></head></html>'
+        self.assertEqual(ups_parser.extract_frame_sources(meta), ["/login_ok.htm"])
+        iframe = "<html><body><iframe src='status.htm'></iframe><iframe src='javascript:void(0)'></iframe><iframe src='status.htm'></iframe></body></html>"
+        self.assertEqual(ups_parser.extract_frame_sources(iframe), ["status.htm"])
+        self.assertEqual(ups_parser.extract_frame_sources(SAMPLE), [])
+        self.assertEqual(ups_parser.extract_frame_sources(None), [])
+
+    def test_frameset_suivi_jusqu_a_la_fiche(self):
+        seen = []
+        opener = make_opener({
+            "http://192.168.1.108/index.htm": self.FRAMESET,
+            "http://192.168.1.108/top.htm": self.TOP,
+            "http://192.168.1.108/menu.htm": self.MENU,
+            "http://192.168.1.108/ups_status.htm?lang=en": SAMPLE,
+        }, seen)
+        r = poller.poll_device(self.device, opener=opener)
+        self.assertTrue(r["ok"], r["error"])
+        self.assertEqual(r["fields"]["input_voltage"]["number"], 236.0)
+        self.assertEqual(r["resolved_path"], "/ups_status.htm")
+        self.assertEqual(r["pages_visited"], 4)
+        self.assertEqual([q.full_url.split("/")[-1] for q in seen], ["index.htm", "top.htm", "menu.htm", "ups_status.htm?lang=en"], "largeur d'abord, dans l'ordre du document")
+        self.assertTrue(all(q.get_header("Authorization") for q in seen), "Basic sur chaque sous-page")
+
+    def test_page_directe_pas_de_frame_suivie(self):
+        r = poller.poll_device(self.device, opener=make_opener({"http://192.168.1.108/index.htm": SAMPLE}))
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["resolved_path"], "/index.htm")
+        self.assertEqual(r["pages_visited"], 1)
+
+    def test_meta_refresh_et_profondeur(self):
+        pages = {
+            "http://192.168.1.108/index.htm": '<html><head><meta http-equiv="refresh" content="0;url=/frames.htm"></head></html>',
+            "http://192.168.1.108/frames.htm": '<frameset><frame src="/deep.htm"></frameset>',
+            "http://192.168.1.108/deep.htm": '<frameset><frame src="/status.htm"></frameset>',  # profondeur 3 : hors limite
+            "http://192.168.1.108/status.htm": SAMPLE,
+        }
+        r = poller.poll_device(self.device, opener=make_opener(pages))
+        self.assertFalse(r["ok"], "profondeur 3 non suivie -- borne volontaire")
+        self.assertIn("frame(s)", r["error"])
+        self.assertIn("fixer « Page »", r["error"])
+        # Avec la page d'état fixée à la main : direct
+        r2 = poller.poll_device(dict(self.device, path="/status.htm"), opener=make_opener(pages))
+        self.assertTrue(r2["ok"])
+
+    def test_frame_vers_autre_hote_ignoree_et_echec_partiel_explique(self):
+        pages = {
+            "http://192.168.1.108/index.htm": '<frameset><frame src="http://evil.example/x.htm"><frame src="/menu.htm"><frame src="/missing.htm"></frameset>',
+            "http://192.168.1.108/menu.htm": self.MENU,
+        }
+        seen = []
+        r = poller.poll_device(self.device, opener=make_opener(pages, seen))
+        self.assertFalse(r["ok"])
+        self.assertNotIn("evil.example", " ".join(q.full_url for q in seen), "jamais un autre hôte")
+        self.assertIn("/missing.htm : HTTP 404", r["error"])
+        self.assertIn("/menu.htm", r["error"])
+
+    def test_chemin_effectif_archive_et_conserve_sur_echec(self):
+        db = os.path.join(tempfile.mkdtemp(), "ups.db")
+        store.ensure_schema(db)
+        dev, _ = store.create_device(db, {"name": "F", "host": "192.168.1.108", "username": "admin", "password": "pw"})
+        d = store.get_device(db, dev["id"], include_secret=True)
+        pages = {"http://192.168.1.108/index.htm": self.FRAMESET, "http://192.168.1.108/ups_status.htm?lang=en": SAMPLE}
+        store.record_reading(db, d["id"], poller.poll_device(d, opener=make_opener(pages)))
+        self.assertEqual(store.get_device(db, d["id"])["last_resolved_path"], "/ups_status.htm")
+        self.assertEqual(store.latest_reading(db, d["id"])["resolved_path"], "/ups_status.htm")
+        store.record_reading(db, d["id"], poller.poll_device(d, opener=make_opener({})))
+        self.assertEqual(store.get_device(db, d["id"])["last_resolved_path"], "/ups_status.htm", "conservé sur échec")
+        # Base créée AVANT #416 (sans les colonnes) : ensure_schema les ajoute
+        old = os.path.join(tempfile.mkdtemp(), "old.db")
+        import sqlite3
+        c = sqlite3.connect(old)
+        c.executescript(store.SCHEMA.replace(",\n    resolved_path TEXT", ""))
+        c.close()
+        store.ensure_schema(old)
+        cols = [r[1] for r in sqlite3.connect(old).execute("PRAGMA table_info(ups_readings)")]
+        self.assertIn("resolved_path", cols)

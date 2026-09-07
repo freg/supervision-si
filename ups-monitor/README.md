@@ -44,6 +44,27 @@ la demande en timeline ; fréquence initiale (paramétrable) 1 heure ».
   d'un champ numérique au choix (zoom #413), tableau des relevés avec
   les valeurs qui ont changé mises en évidence et les échecs datés.
 
+## Pages en frames (livraison #416)
+
+Retour de tests : « une partie des onduleurs répond avec une frame et
+l'extraction est en échec ». Sur ces cartes, `/index.htm` n'est qu'un
+conteneur HTML 4 (`<frameset><frame src="top.htm"><frame
+src="menu.htm"><frame src="ups_status.htm">`) : la fiche est dans une
+sous-page. `poller.fetch_status_page` suit désormais les `<frame>`,
+`<iframe>` et redirections `<meta http-equiv="refresh">` quand la page
+demandée n'a aucun champ : en largeur d'abord, dans l'ordre du document,
+**même hôte seulement**, 2 niveaux et 6 sous-pages au plus, avec les mêmes
+identifiants Basic ; la première sous-page qui contient des champs devient
+la fiche. Le chemin effectif est archivé (`resolved_path` sur le relevé,
+`last_resolved_path` sur l'onduleur, conservé sur un échec) et affiché
+dans la tuile (« lue dans la frame /ups_status.htm ») : mettre ce chemin
+dans « Page » évite les lectures intermédiaires à chaque relevé -- « Tester
+la requête » le signale dès la saisie. Si aucune sous-page ne convient,
+l'erreur liste les pages essayées et leur titre, pour fixer « Page » à la
+main (cas d'une frame plus profonde ou d'une page d'état sous un autre
+nom : la lire dans le navigateur, « afficher la source », repérer le
+`src`).
+
 ## API (`/api/ups` via tls-proxy, port direct `UPS_MONITOR_API_PORT` = 6128)
 
 | Méthode | Route | Rôle |
@@ -85,7 +106,7 @@ Côté conteneur seulement : `UPS_POLL_ENABLED=false` (tests),
 ## Tests
 
 ```bash
-cd ups-monitor/api && UPS_POLL_ENABLED=false python3 -m unittest test_ups_monitor.py   # 14 tests
+cd ups-monitor/api && UPS_POLL_ENABLED=false python3 -m unittest test_ups_monitor.py   # 20 tests
 node --test hub/tests/upsMonitor.test.mjs                                               # 7 tests
 ```
 
@@ -93,7 +114,10 @@ Parseur sur la page réelle ; store, automate (intervalles, activation,
 forçage), timeline, purge, cascade ; routes via `test_client` ; un vrai
 serveur HTTP local avec Basic (401 sans identifiants) interrogé par le
 vrai `urllib` ; chiffrement optionnel (clair → chiffré à la modification,
-phrase absente → échec explicite, jeton conservé).
+phrase absente → échec explicite, jeton conservé) ; frames (#416) : suivi
+jusqu'à la fiche, page directe sans lecture inutile, meta refresh, borne
+de profondeur, autre hôte ignoré, échec partiel expliqué, chemin effectif
+archivé, migration d'une base créée avant #416.
 
 ## Vérifié / non vérifié
 

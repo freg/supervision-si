@@ -64,10 +64,18 @@ CREATE TABLE IF NOT EXISTS ups_readings (
     output_voltage REAL,
     output_load REAL,
     battery_capacity REAL,
-    duration_ms INTEGER
+    duration_ms INTEGER,
+    resolved_path TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_ups_readings_ups_time ON ups_readings(ups_id, polled_at);
 """
+
+# Colonnes ajoutées après la première livraison : ALTER TABLE tolérant,
+# même motif que les autres modules (ensure_xxx_column).
+EXTRA_COLUMNS = (
+    ("ups_readings", "resolved_path", "TEXT"),
+    ("ups_devices", "last_resolved_path", "TEXT"),
+)
 
 DEVICE_COLUMNS = ("name", "site", "host", "scheme", "path", "username", "password", "poll_interval_seconds", "enabled", "notes")
 
@@ -88,6 +96,12 @@ def ensure_schema(db_path):
     try:
         conn.executescript(SCHEMA)
         conn.commit()
+        for table, column, ctype in EXTRA_COLUMNS:
+            try:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ctype}")
+                conn.commit()
+            except sqlite3.OperationalError:
+                conn.rollback()  # déjà présente
     finally:
         conn.close()
 
@@ -272,19 +286,23 @@ def record_reading(db_path, ups_id, result):
         cur = conn.execute(
             """INSERT INTO ups_readings (ups_id, polled_at, ok, error, state, state_reasons, system_time,
                                          fields_json, sections_json, input_voltage, output_voltage,
-                                         output_load, battery_capacity, duration_ms)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                         output_load, battery_capacity, duration_ms, resolved_path)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [ups_id, polled_at, 1 if result.get("ok") else 0, result.get("error"), result.get("state"),
              json.dumps(result.get("state_reasons") or [], ensure_ascii=False), result.get("system_time"),
              json.dumps(fields, ensure_ascii=False), json.dumps(result.get("sections") or [], ensure_ascii=False),
              num("input_voltage"), num("output_voltage"), num("output_load"), num("battery_capacity"),
-             result.get("duration_ms")],
+             result.get("duration_ms"), result.get("resolved_path")],
         )
+        # last_resolved_path : page qui a fourni la dernière fiche (#416) --
+        # conservé tel quel sur un échec, pour que l'écran puisse dire
+        # « la dernière fiche venait de /status.htm ».
         conn.execute(
-            """UPDATE ups_devices SET last_polled_at = ?, last_ok = ?, last_state = ?, last_error = ?, last_summary = ?
+            """UPDATE ups_devices SET last_polled_at = ?, last_ok = ?, last_state = ?, last_error = ?, last_summary = ?,
+                                     last_resolved_path = COALESCE(?, last_resolved_path)
                WHERE id = ?""",
             [polled_at, 1 if result.get("ok") else 0, result.get("state"), result.get("error"),
-             json.dumps(result.get("summary") or {}, ensure_ascii=False), ups_id],
+             json.dumps(result.get("summary") or {}, ensure_ascii=False), result.get("resolved_path"), ups_id],
         )
         conn.commit()
         return cur.lastrowid
