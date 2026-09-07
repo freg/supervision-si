@@ -25,6 +25,11 @@ import {
 } from "./networkCycleGraph.js";
 import { ICON_SETS, ICON_SET_IDS, loadIconSetPreference, saveIconSetPreference } from "./icons.js";
 import { StepIcon, SvgStepIcon } from "./StepIcon.jsx";
+import {
+  nextMenuState, graphHeightPx, loadLayoutPreference, saveLayoutPreference, hiddenMenuLabel,
+} from "./networkCycleLayout.js";
+
+const browserStorage = () => (typeof localStorage !== "undefined" ? localStorage : undefined);
 
 // Tuile hub "Réseau" -- cycle agile réseau en 5 étapes :
 // Décider → Explorer → Déployer → Mesurer → Apprendre.
@@ -235,12 +240,39 @@ export default function NetworkCycleView({
   backupRestoreApiBase,
   onNavigate,
 }) {
-  const [viewMode, setViewMode] = useState("classique");
+  // Disposition (#411) : deux zones, MENU en haut (barre classique OU
+  // schéma graphique -- la seule chose que les onglets changent), DÉTAIL
+  // de l'étape en bas, toujours présent. Le menu a trois états
+  // (expanded / reduced / hidden, voir networkCycleLayout.js) ; l'état
+  // d'avant un masquage est retenu pour que la languette le restaure.
+  const [layout, setLayout] = useState(() => loadLayoutPreference(browserStorage()));
+  const { viewMode, menuState } = layout;
+  const menuBeforeHideRef = useRef(null);
+  const detailRef = useRef(null);
+  const [viewportH, setViewportH] = useState(() => (typeof window !== "undefined" ? window.innerHeight : 900));
+  function setViewMode(mode) {
+    setLayout((l) => ({ ...l, viewMode: mode }));
+  }
+  function applyMenuAction(action) {
+    setLayout((l) => {
+      if (action === "hide") menuBeforeHideRef.current = l.menuState;
+      return { ...l, menuState: nextMenuState(l.menuState, action, menuBeforeHideRef.current) };
+    });
+  }
+  useEffect(() => { saveLayoutPreference(browserStorage(), layout); }, [layout]);
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const onResize = () => setViewportH(window.innerHeight);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  const graphVisible = viewMode === "graphique" && menuState !== "hidden";
+
   // Jeu d'icônes de la charte (#410) -- préférence locale au navigateur.
-  const [iconSet, setIconSet] = useState(() => loadIconSetPreference(typeof localStorage !== "undefined" ? localStorage : undefined));
+  const [iconSet, setIconSet] = useState(() => loadIconSetPreference(browserStorage()));
   function chooseIconSet(id) {
     setIconSet(id);
-    saveIconSetPreference(typeof localStorage !== "undefined" ? localStorage : undefined, id);
+    saveIconSetPreference(browserStorage(), id);
   }
 
   // Graphique : zoom/déplacement, infobulle, rafraîchissement automatique
@@ -431,21 +463,22 @@ export default function NetworkCycleView({
     setLastGraphRefresh(new Date());
   }, [netmapOrchestratorApiBase, networkAgentApiBase, netprobeApiBase, snmpApiBase, sshTunnelsApiBase, vigilanceApiBase, backupRestoreApiBase]);
 
-  // Chargement à l'activation de l'onglet graphique
+  // Chargement à l'activation de l'onglet graphique (ou à sa réapparition
+  // après un masquage -- les statuts affichés doivent être à jour).
   useEffect(() => {
-    if (viewMode !== "graphique") return;
+    if (!graphVisible) return;
     loadGraphData();
-  }, [viewMode, loadGraphData]);
+  }, [graphVisible, loadGraphData]);
 
   // Rafraîchissement automatique -- actif UNIQUEMENT quand l'onglet graphique
   // est affiché ET la bascule enclenchée. La minuterie est nettoyée au retour
   // de l'effet, donc jamais de battement résiduel après un passage en mode
   // classique ni après démontage du composant.
   useEffect(() => {
-    if (viewMode !== "graphique" || !autoRefresh) return undefined;
+    if (!graphVisible || !autoRefresh) return undefined;
     const id = setInterval(() => { loadGraphData(); }, GRAPH_REFRESH_MS);
     return () => clearInterval(id);
-  }, [viewMode, autoRefresh, loadGraphData]);
+  }, [graphVisible, autoRefresh, loadGraphData]);
 
   // Tendances : comparaison des métriques entre deux rafraîchissements
   // COMPLETS. graphData change à chaque réponse d'API individuelle (une
@@ -479,7 +512,7 @@ export default function NetworkCycleView({
   // onWheel + preventDefault serait ignoré avec un avertissement console.
   useEffect(() => {
     const el = svgRef.current;
-    if (!el || viewMode !== "graphique") return undefined;
+    if (!el || !graphVisible) return undefined;
     const onWheel = (e) => {
       e.preventDefault();
       const rect = el.getBoundingClientRect();
@@ -492,7 +525,7 @@ export default function NetworkCycleView({
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [viewMode]);
+  }, [graphVisible]);
 
   // Déplacement : les gestionnaires vivent sur `window` le temps du glisser,
   // JAMAIS via setPointerCapture sur le SVG -- la capture redirige aussi
@@ -559,17 +592,38 @@ export default function NetworkCycleView({
     if (p) setHovered((h) => (h ? { ...h, x: p.x, y: p.y } : h));
   }
 
-  // Navigation depuis le graphique : on sélectionne l'étape ET on bascule en mode classique
+  // Navigation depuis le graphique (#411) : on sélectionne l'étape, dont
+  // le détail se déplie DANS LA ZONE BASSE -- on ne quitte plus le
+  // schéma. Retour de tests : « quand on clique sur l'une des icônes, les
+  // fonctionnalités se déplient sur la seconde moitié basse de l'écran ».
   function handleNodeClick(stepId) {
     // Un glisser qui se termine sur un nœud n'est PAS un clic -- sans ce
-    // garde-fou, tout déplacement du graphique se terminerait par un saut
-    // inattendu vers le mode classique.
+    // garde-fou, tout déplacement du graphique se terminerait par un
+    // changement d'étape inattendu.
     if (draggedRef.current) {
       draggedRef.current = false;
       return;
     }
+    selectStep(stepId);
+  }
+
+  // Sélection d'une étape depuis n'importe quel menu. Si le détail commence
+  // sous la moitié basse de la fenêtre (schéma en grand sur un petit écran),
+  // la page défile juste assez pour l'y amener -- le schéma reste visible
+  // dans la moitié haute. Pas de scrollIntoView : avec "nearest" il alignait
+  // le BAS du détail et faisait sortir le menu de l'écran (constaté au
+  // rendu réel) ; avec "start" il ferait sortir le schéma.
+  function selectStep(stepId) {
     setStep(stepId);
-    setViewMode("classique");
+    if (typeof requestAnimationFrame !== "function" || typeof window === "undefined") return;
+    requestAnimationFrame(() => {
+      const rect = detailRef.current?.getBoundingClientRect?.();
+      if (!rect) return;
+      const half = window.innerHeight / 2;
+      if (rect.top > half + 40) {
+        window.scrollBy({ top: rect.top - half, behavior: "smooth" });
+      }
+    });
   }
 
   function renderDecider() {
@@ -913,7 +967,7 @@ export default function NetworkCycleView({
             ))}
           </div>
         )}
-        <div className="nc-graph-tooltip-hint">Cliquer pour ouvrir cette étape</div>
+        <div className="nc-graph-tooltip-hint">Cliquer pour afficher cette étape ci-dessous</div>
       </div>
     );
   }
@@ -925,7 +979,11 @@ export default function NetworkCycleView({
     const svgHeight = GRAPH_VB_HEIGHT;
 
     return (
-      <div className="nc-graph-container" ref={graphContainerRef}>
+      <div
+        className={`nc-graph-container ${menuState}`}
+        ref={graphContainerRef}
+        style={{ height: graphHeightPx(menuState, viewportH) }}
+      >
         {renderGraphToolbar()}
         <svg
           ref={svgRef}
@@ -989,7 +1047,7 @@ export default function NetworkCycleView({
               return (
                 <g
                   key={s.id}
-                  className="nc-graph-node"
+                  className={`nc-graph-node${s.id === step ? " selected" : ""}`}
                   onClick={() => handleNodeClick(s.id)}
                   onMouseEnter={(e) => handleNodeEnter(s.id, e)}
                   onMouseMove={handleNodeMove}
@@ -1063,16 +1121,30 @@ export default function NetworkCycleView({
     );
   }
 
-  return (
-    <div className="hub-settings hub-settings-wide">
-      <div className="hub-settings-topbar">
-        <button className="secondary" onClick={onBack}>◀ Retour</button>
-        <h1>🔄 Cycle agile réseau</h1>
+  // --- Menu classique : la barre d'étapes (#411 : un menu parmi deux) ---
+  function renderClassicNav() {
+    return (
+      <div className="nc-cycle-nav">
+        {CYCLE_STEPS.map((s, idx) => (
+          <React.Fragment key={s.id}>
+            <button
+              className={`nc-cycle-step${step === s.id ? " active" : ""}`}
+              onClick={() => selectStep(s.id)}
+              style={{ borderColor: step === s.id ? s.color : undefined }}
+            >
+              <StepIcon set={iconSet} step={s.id} size={16} color={s.color} className="nc-cycle-icon" />
+              <span className="nc-cycle-label">{s.label}</span>
+            </button>
+            {idx < CYCLE_STEPS.length - 1 && <span className="nc-cycle-arrow">→</span>}
+          </React.Fragment>
+        ))}
       </div>
+    );
+  }
 
-      {error && <p className="hub-error">{error}</p>}
-
-      {/* Onglets de vue : classique / graphique */}
+  // --- Barre du menu : onglets + jeu d'icônes + réduction/masquage ---
+  function renderMenuBar() {
+    return (
       <div className="nc-view-tabs">
         <button
           className={`nc-view-tab ${viewMode === "classique" ? "active" : ""}`}
@@ -1096,62 +1168,99 @@ export default function NetworkCycleView({
             ))}
           </select>
         </label>
+        {/* Réduction / masquage du menu (#411). La barre classique est
+            déjà compacte : le bouton de réduction n'a de sens que pour le
+            schéma. Le masquage laisse une languette (renderHiddenTab). */}
+        <span className="nc-menu-controls">
+          {viewMode === "graphique" && (
+            <button
+              type="button"
+              className="nc-graph-btn"
+              onClick={() => applyMenuAction("toggle")}
+              title={menuState === "expanded" ? "Réduire le schéma" : "Agrandir le schéma"}
+            >
+              {menuState === "expanded" ? "▾" : "▴"}
+            </button>
+          )}
+          <button
+            type="button"
+            className="nc-graph-btn"
+            onClick={() => applyMenuAction("hide")}
+            title={viewMode === "graphique" ? "Masquer le schéma (une languette reste pour le rouvrir)" : "Masquer le menu (une languette reste pour le rouvrir)"}
+          >
+            ✕
+          </button>
+        </span>
+      </div>
+    );
+  }
+
+  // --- Languette : seule trace du menu quand il est masqué ---
+  function renderHiddenTab() {
+    return (
+      <button type="button" className="nc-menu-tab" onClick={() => applyMenuAction("show")}>
+        <span className="nc-menu-tab-arrow">▸</span>
+        {hiddenMenuLabel(viewMode)}
+        <span className="nc-menu-tab-step">
+          · étape : <StepIcon set={iconSet} step={step} size={14} color={currentStep?.color} /> {currentStep?.label}
+        </span>
+      </button>
+    );
+  }
+
+  return (
+    <div className="hub-settings hub-settings-wide">
+      <div className="hub-settings-topbar">
+        <button className="secondary" onClick={onBack}>◀ Retour</button>
+        <h1>🔄 Cycle agile réseau</h1>
       </div>
 
-      {viewMode === "graphique" ? (
-        renderGraphique()
+      {error && <p className="hub-error">{error}</p>}
+
+      {/* Zone haute : le MENU -- barre classique ou schéma graphique,
+          c'est la seule différence entre les deux onglets (#411). */}
+      {menuState === "hidden" ? (
+        renderHiddenTab()
       ) : (
-        <>
-          {/* Navigation du cycle (mode classique) */}
-          <div className="nc-cycle-nav">
-            {CYCLE_STEPS.map((s, idx) => (
-              <React.Fragment key={s.id}>
-                <button
-                  className={`nc-cycle-step${step === s.id ? " active" : ""}`}
-                  onClick={() => setStep(s.id)}
-                  style={{ borderColor: step === s.id ? s.color : undefined }}
-                >
-                  <StepIcon set={iconSet} step={s.id} size={16} color={s.color} className="nc-cycle-icon" />
-                  <span className="nc-cycle-label">{s.label}</span>
-                </button>
-                {idx < CYCLE_STEPS.length - 1 && <span className="nc-cycle-arrow">→</span>}
-              </React.Fragment>
-            ))}
-          </div>
-
-          {/* Contenu de l'étape */}
-          <div className="hub-card hub-settings-section nc-step-content">
-            <h2 style={{ marginTop: 0, color: currentStep?.color }}>
-              <StepIcon set={iconSet} step={step} size={20} color={currentStep?.color} /> {currentStep?.label}
-            </h2>
-            {loading ? (
-              <p className="muted">Chargement…</p>
-            ) : (
-              <>
-                {step === "decider" && renderDecider()}
-                {step === "explorer" && renderExplorer()}
-                {step === "deployer" && renderDeployer()}
-                {step === "mesurer" && renderMesurer()}
-                {step === "apprendre" && renderApprendre()}
-              </>
-            )}
-          </div>
-
-          {/* Navigation précédent/suivant */}
-          <div className="nc-step-nav">
-            {stepIndex > 0 && (
-              <button className="secondary" onClick={() => setStep(CYCLE_STEPS[stepIndex - 1].id)}>
-                ← {CYCLE_STEPS[stepIndex - 1].label}
-              </button>
-            )}
-            {stepIndex < CYCLE_STEPS.length - 1 && (
-              <button className="secondary" onClick={() => setStep(CYCLE_STEPS[stepIndex + 1].id)} style={{ marginLeft: "auto" }}>
-                {CYCLE_STEPS[stepIndex + 1].label} →
-              </button>
-            )}
-          </div>
-        </>
+        <div className={`nc-menu nc-menu-${viewMode} ${menuState}`}>
+          {renderMenuBar()}
+          {viewMode === "graphique" ? renderGraphique() : renderClassicNav()}
+        </div>
       )}
+
+      {/* Zone basse : le DÉTAIL de l'étape courante, toujours présent. */}
+      <div className="nc-detail" ref={detailRef}>
+        <div className="hub-card hub-settings-section nc-step-content">
+          <h2 style={{ marginTop: 0, color: currentStep?.color }}>
+            <StepIcon set={iconSet} step={step} size={20} color={currentStep?.color} /> {currentStep?.label}
+          </h2>
+          {loading ? (
+            <p className="muted">Chargement…</p>
+          ) : (
+            <>
+              {step === "decider" && renderDecider()}
+              {step === "explorer" && renderExplorer()}
+              {step === "deployer" && renderDeployer()}
+              {step === "mesurer" && renderMesurer()}
+              {step === "apprendre" && renderApprendre()}
+            </>
+          )}
+        </div>
+
+        {/* Navigation précédent/suivant */}
+        <div className="nc-step-nav">
+          {stepIndex > 0 && (
+            <button className="secondary" onClick={() => selectStep(CYCLE_STEPS[stepIndex - 1].id)}>
+              ← {CYCLE_STEPS[stepIndex - 1].label}
+            </button>
+          )}
+          {stepIndex < CYCLE_STEPS.length - 1 && (
+            <button className="secondary" onClick={() => selectStep(CYCLE_STEPS[stepIndex + 1].id)} style={{ marginLeft: "auto" }}>
+              {CYCLE_STEPS[stepIndex + 1].label} →
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

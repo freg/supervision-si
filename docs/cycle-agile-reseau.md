@@ -18,6 +18,9 @@ La tuile propose **deux modes de vue** :
 |---------|------|
 | `hub/src/NetworkCycleView.jsx` | Composant principal — panneau central avec navigation entre les étapes + onglet graphique SVG |
 | `hub/src/networkCycleClient.js` | Client API — agrège les appels vers les services réseau |
+| `hub/src/networkCycleGraph.js` | Logique pure du graphique : zoom, déplacement, infobulles, tendances (#399, #404) |
+| `hub/src/networkCycleLayout.js` | Logique pure de la disposition : états du menu, hauteur du schéma, préférence (#411) |
+| `hub/src/icons.js`, `hub/src/StepIcon.jsx` | Charte d'icônes des étapes, trois jeux (#410, `docs/charte-icones-hub.md`) |
 | `hub/src/hub.css` | Styles CSS pour la navigation du cycle, les KPI et le diagramme SVG |
 | `docs/cycle-agile-reseau.md` | Cette documentation |
 
@@ -166,16 +169,14 @@ useEffect(() => {
 
 ### Navigation depuis le graphique
 
-Clic sur un nœud → `handleNodeClick(stepId)` :
-1. Met à jour `step` pour sélectionner l'étape
-2. Bascule `viewMode` vers `"classique"` pour afficher le détail
-
-```javascript
-function handleNodeClick(stepId) {
-  setStep(stepId);
-  setViewMode("classique");
-}
-```
+Clic sur un nœud → `handleNodeClick(stepId)` → `selectStep(stepId)` : l'étape
+devient courante et son détail se déplie **dans la zone basse**, sous le
+schéma, qui reste affiché (livraison #411 -- avant, le clic basculait en
+mode classique, ce qui faisait disparaître le schéma). Le nœud courant est
+marqué (anneau épais, libellé souligné). Si le détail commence sous la
+moitié basse de la fenêtre, la page défile juste assez pour l'y amener --
+jamais `scrollIntoView` (« nearest » alignait le bas du détail et sortait
+le menu de l'écran, constaté au rendu réel).
 
 ### Position des nœuds (viewBox 800×400)
 
@@ -355,6 +356,45 @@ Point de mise en œuvre : `graphData` change à chaque réponse d'API
 individuelle ; l'effet de comparaison ne dépend donc que de l'horodatage de
 fin de rafraîchissement et lit les données via une ref, sinon la
 « référence précédente » glisserait à chaque réponse.
+
+## Disposition en deux zones : menu et détail (livraison #411)
+
+Retour de tests : « quand on clique sur l'une des icônes, les fonctionnalités
+se déplient sur la seconde moitié basse de l'écran ; le schéma/menu peut
+être réduit par défaut et autoriser une réduction manuelle, voire un
+masquage en laissant juste une languette pour le redéployer ; suggestion :
+seule la partie menu change entre classique et graphique ».
+
+L'écran est désormais **deux zones** : en haut le **menu** -- la barre
+d'étapes (onglet Classique) ou le schéma (onglet Graphique), c'est la seule
+chose que les onglets changent -- et en bas le **détail** de l'étape
+courante, toujours présent, avec les boutons précédent/suivant. Le menu a
+trois états, gérés par la logique pure de `networkCycleLayout.js`
+(6 tests) :
+
+| État | Schéma | Barre classique | Commande |
+|---|---|---|---|
+| `reduced` (défaut) | ~30 % de la fenêtre (170–300 px), légende masquée | inchangée (déjà compacte) | ▴ pour agrandir |
+| `expanded` | ~50 % de la fenêtre (300–600 px) | inchangée | ▾ pour réduire |
+| `hidden` | disparu | disparue | ✕ pour masquer ; la **languette** « ▸ Afficher le schéma / le menu du cycle · étape : … » le rouvre dans l'état d'AVANT le masquage |
+
+Le SVG garde son viewBox 800×400 et se met à l'échelle (`meet`) : réduire la
+hauteur ne coupe rien, cela rapetisse tout ; les nœuds restent cliquables.
+Onglet et état du menu sont mémorisés dans le navigateur
+(`localStorage` `hub.cycle.layout`, lecture tolérante : stockage absent,
+JSON cassé ou valeurs inconnues retombent sur classique / réduit).
+
+Conséquences sur les effets : le chargement des données du graphique et le
+rafraîchissement automatique sont conditionnés à `graphVisible`
+(`viewMode === "graphique" && menuState !== "hidden"`), de même que
+l'écoute non passive de la molette (le SVG n'existe pas quand le menu est
+masqué ; l'effet se réattache à sa réapparition).
+
+Vérifié au rendu réel (Chromium/Playwright, harnais hors dépôt) : clic sur
+un nœud en réduit et en grand, agrandissement, masquage, languette, aucune
+erreur console. Piste non retenue pour l'instant : en état réduit, un zoom
+initial qui remplirait la largeur (le schéma 2:1 laisse des marges sur un
+conteneur 5:1) -- à voir à l'usage.
 
 ## Évolutions possibles
 

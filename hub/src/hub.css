@@ -1334,12 +1334,53 @@ button.secondary { background: var(--panel); }
 .nc-graph-container {
   position: relative;
   width: 100%;
+  /* Hauteur posée en ligne par le composant (#411) : moitié haute de la
+     fenêtre en grand, un tiers en réduit -- voir networkCycleLayout.js. */
   height: 420px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
+  transition: height 0.2s ease;
 }
+
+/* Disposition en deux zones (#411) : menu en haut, détail en bas. */
+.nc-menu { margin-bottom: 12px; }
+.nc-menu .nc-view-tabs { margin-bottom: 8px; }
+.nc-menu-controls {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 8px;
+  padding-bottom: 4px;
+}
+.nc-menu-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 12px;
+  margin-bottom: 12px;
+  background: var(--panel);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.nc-menu-tab:hover { color: var(--text); border-color: var(--accent); }
+.nc-menu-tab-arrow { color: var(--accent); font-size: 14px; }
+.nc-menu-tab-step { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; color: var(--text); }
+.nc-detail { min-height: 40vh; }
+/* Nœud de l'étape courante : anneau plus épais, léger halo de sa couleur
+   (portée par style={{stroke}} -- currentColor via le CSS ne suffit pas
+   pour un halo, d'où le filtre). */
+.nc-graph-node.selected .nc-graph-node-circle {
+  stroke-width: 4px;
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.25));
+}
+.nc-graph-node.selected .nc-graph-node-label { text-decoration: underline; text-underline-offset: 2px; }
+.nc-graph-container.reduced .nc-graph-legend { display: none; }
 .nc-graph-svg {
   width: 100%;
   height: 100%;

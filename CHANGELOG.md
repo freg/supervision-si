@@ -1,3 +1,36 @@
+## 2026-09-07 — Cycle agile : deux zones, le clic sur un nœud déplie le détail en bas, schéma réductible et masquable (livraison #411)
+
+Retour de tests : « quand on clique sur l'une des icônes, les fonctionnalités
+se déplient sur la seconde moitié basse de l'écran ; le schéma/menu peut
+être réduit par défaut et autoriser une réduction manuelle, voire un
+masquage en laissant juste une languette pour le redéployer ; suggestion :
+seule la partie menu change entre classique et graphique ».
+
+**Disposition** (`NetworkCycleView.jsx`) : en haut le MENU -- barre d'étapes
+(Classique) ou schéma (Graphique), seule chose que les onglets changent --,
+en bas le DÉTAIL de l'étape courante, toujours présent. Le clic sur un nœud
+du schéma ne bascule plus en mode classique : il sélectionne l'étape (nœud
+marqué) et son détail se déplie dessous ; si ce détail commence sous la
+moitié basse de la fenêtre, la page défile juste assez (pas de
+`scrollIntoView`, dont « nearest » sortait le menu de l'écran au rendu réel).
+
+**Trois états du menu**, logique pure dans `hub/src/networkCycleLayout.js`
+(6 tests) : `reduced` par défaut (schéma ≈ 30 % de la fenêtre, légende
+masquée), `expanded` (≈ 50 %), `hidden` (une languette « ▸ Afficher le
+schéma / le menu du cycle · étape : … » rouvre le menu dans l'état d'avant
+le masquage). Commandes ▴/▾ (schéma seulement, la barre classique est déjà
+compacte) et ✕. Onglet et état mémorisés dans le navigateur
+(`hub.cycle.layout`, lecture tolérante). Chargement, rafraîchissement
+automatique et écoute de la molette conditionnés à la visibilité réelle du
+schéma.
+
+**Vérifié** : 49 tests Node du hub, build Vite réel, rendu réel Chromium
+(Playwright) des états réduit / grand / masqué, clic sur un nœud, languette,
+aucune erreur console. **Non vérifié** : le ressenti sur l'écran de la
+personne (la « moitié basse » dépend de la hauteur de fenêtre ; bornes
+170–300 px et 300–600 px à ajuster si besoin). Détail :
+`docs/cycle-agile-reseau.md`, section « Disposition en deux zones ».
+
 ## 2026-09-07 — Charte d'icônes du hub : trois jeux comparables, Déployer et Apprendre changés (livraison #410)
 
 Retour de tests sur le cycle agile : « le cerveau est un peu saignant et la

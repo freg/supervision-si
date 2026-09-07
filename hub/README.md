@@ -2487,3 +2487,12 @@ regardé pour de vrai dans Chromium (Playwright) via un harnais qui monte
 graphique, trois jeux, aucune erreur console. Le harnais n'est pas dans le
 dépôt (voir backlog 59, « frontend autonome ») ; il est décrit dans le
 CHANGELOG #410.
+
+## Cycle agile : disposition en deux zones (livraison #411)
+
+Menu en haut (barre d'étapes ou schéma -- seule chose que les onglets
+Classique / Graphique changent), détail de l'étape en bas, toujours présent.
+Le clic sur un nœud du schéma déplie le détail dessous au lieu de quitter le
+schéma. Trois états du menu (`src/networkCycleLayout.js`, 6 tests) : réduit
+par défaut, grand, masqué avec languette de réouverture ; préférence locale
+au navigateur (`hub.cycle.layout`). Voir `docs/cycle-agile-reseau.md`.
