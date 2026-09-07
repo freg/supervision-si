@@ -2496,3 +2496,12 @@ Le clic sur un nœud du schéma déplie le détail dessous au lieu de quitter le
 schéma. Trois états du menu (`src/networkCycleLayout.js`, 6 tests) : réduit
 par défaut, grand, masqué avec languette de réouverture ; préférence locale
 au navigateur (`hub.cycle.layout`). Voir `docs/cycle-agile-reseau.md`.
+
+## Exploration réseau : filtres des visualisations de flux (livraison #412)
+
+`src/networkFlowFilters.js` (pur, 9 tests) : détection de l'hôte de
+supervision (MAC puis IP de l'interface de capture, exposées par
+`/capture/status`), passerelles par rôle deviné, masquage des flux hôte ↔
+routeur, tranche de pourcentage sur la part de chaque flux dans le volume
+total (base stable). Les boutons de section ouverts sont en surbrillance
+(`.na-section-toggle.active`). Voir le CHANGELOG #412.

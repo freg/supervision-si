@@ -8,6 +8,10 @@ import { formatBytes, computeDeltaSeries, buildBarLayout, sumDeltas } from "./ne
 import { classifyBatch } from "./classifierClient.js";
 import AlluvialFlowChart from "./components/AlluvialFlowChart.jsx";
 import WeightedRadialTree from "./components/WeightedRadialTree.jsx";
+import {
+  findSupervisionHost, findGateways, applyFlowFilters, describeFlowFilterResult,
+  DEFAULT_FLOW_FILTERS,
+} from "./networkFlowFilters.js";
 
 // Tuile UNIQUE de l'agent d'exploration réseau (hub), livraison #233
 // -- backlog item 20, CLARIFIÉ explicitement avec la personne avant
@@ -100,6 +104,11 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
   const [subnetPrefixLength, setSubnetPrefixLength] = useState(24);
   const [showSubnets, setShowSubnets] = useState(false);
   const [showFlowVisualizations, setShowFlowVisualizations] = useState(false);
+  // Filtres des visualisations de flux (#412) -- logique dans
+  // networkFlowFilters.js. `hostOverride` : hôte de supervision choisi à
+  // la main (id d'appareil) quand la détection par MAC/IP ne suffit pas.
+  const [flowFilters, setFlowFilters] = useState(DEFAULT_FLOW_FILTERS);
+  const [hostOverride, setHostOverride] = useState("");
   // Filtres profondeur/géographie/volume (livraison #392, backlog
   // item 58) -- options peuplées depuis les valeurs RÉELLEMENT
   // présentes (fetchFilterOptions), jamais une liste devinée.
@@ -271,6 +280,20 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
   }
 
   const macToDevice = Object.fromEntries(devices.map((d) => [d.id, d]));
+
+  // Flux filtrés pour les deux vues (#412). L'hôte détecté vient de
+  // `/capture/status` (MAC puis IP de l'interface de capture) ; un choix
+  // manuel le remplace. Les passerelles sont celles du rôle deviné.
+  const detectedHost = findSupervisionHost(devices, status);
+  const supervisionHost = hostOverride
+    ? devices.find((d) => String(d.id) === hostOverride) || null
+    : detectedHost;
+  const gateways = findGateways(devices);
+  const flowResult = applyFlowFilters(links, {
+    ...flowFilters,
+    hostId: supervisionHost?.id ?? null,
+    gatewayIds: gateways.map((g) => g.id),
+  });
   const deviceLinks = activeDevice
     ? links.filter((l) => l.device_a_id === activeDevice.id || l.device_b_id === activeDevice.id)
     : [];
@@ -411,7 +434,16 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
             </div>
           )}
 
-          <button className="secondary" onClick={toggleShowSubnets} style={{ marginBottom: 12 }}>
+          {/* Boutons de section (#412) : le bouton OUVERT est mis en
+              surbrillance, pas seulement son chevron -- retour de tests
+              (« mettre en surbrillance le bouton en plus de la bascule
+              du symbole »). */}
+          <button
+            className={`secondary na-section-toggle${showSubnets ? " active" : ""}`}
+            onClick={toggleShowSubnets}
+            style={{ marginBottom: 12 }}
+            aria-expanded={showSubnets}
+          >
             {showSubnets ? "▾" : "▸"} Sous-réseaux découverts depuis le trafic
           </button>
           {showSubnets && (
@@ -452,8 +484,13 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
             </div>
           )}
 
-          <button className="secondary" onClick={() => setShowFlowVisualizations((v) => !v)} style={{ marginBottom: 12 }}>
-            {showFlowVisualizations ? "▾" : "▸"} Visualisations des flux (livraison #389)
+          <button
+            className={`secondary na-section-toggle${showFlowVisualizations ? " active" : ""}`}
+            onClick={() => setShowFlowVisualizations((v) => !v)}
+            style={{ marginBottom: 12 }}
+            aria-expanded={showFlowVisualizations}
+          >
+            {showFlowVisualizations ? "▾" : "▸"} Visualisations des flux
           </button>
           {showFlowVisualizations && (
             <div style={{ marginBottom: 16, borderBottom: "1px solid var(--border)", paddingBottom: 12 }}>
@@ -466,17 +503,81 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                 <p className="muted">Aucun échange détecté pour l'instant sur ce segment.</p>
               ) : (
                 <>
-                  <h3 style={{ marginBottom: 4 }}>Graphe alluvial (flux TCP/IP/UDP)</h3>
-                  <AlluvialFlowChart
-                    links={links}
-                    deviceLabels={Object.fromEntries(devices.map((d) => [d.id, d.hostname || d.ip_address || d.mac_address || `#${d.id}`]))}
-                  />
-                  <h3 style={{ marginTop: 20, marginBottom: 4 }}>Radial tree augmenté (épaisseur = volume échangé)</h3>
-                  <WeightedRadialTree
-                    devices={devices}
-                    links={links}
-                    segmentLabels={Object.fromEntries(sites.flatMap((s) => s.segments).map((seg) => [seg.id, seg.label]))}
-                  />
+                  {/* Filtres (#412) -- appliqués AVANT les deux vues, jamais
+                      dans les composants de dessin. */}
+                  <div className="na-flow-filters">
+                    <label className="na-flow-filter" title={
+                      gateways.length === 0
+                        ? "Aucune passerelle devinée sur ce segment pour l'instant (rôle « passerelle probable »)"
+                        : supervisionHost
+                          ? `Masque les échanges entre ${supervisionHost.hostname || supervisionHost.ip_address || supervisionHost.mac_address} et ${gateways.length} passerelle(s)`
+                          : "Hôte de supervision inconnu : choisissez-le à droite"
+                    }>
+                      <input
+                        type="checkbox"
+                        checked={flowFilters.hideHostRouter}
+                        disabled={gateways.length === 0 || !supervisionHost}
+                        onChange={(e) => setFlowFilters((f) => ({ ...f, hideHostRouter: e.target.checked }))}
+                      />
+                      Masquer hôte de supervision ↔ routeur
+                    </label>
+                    <label className="na-flow-filter">
+                      Hôte de supervision
+                      <select value={hostOverride} onChange={(e) => setHostOverride(e.target.value)}>
+                        <option value="">
+                          {detectedHost
+                            ? `détecté : ${detectedHost.hostname || detectedHost.ip_address || detectedHost.mac_address}`
+                            : "non détecté -- choisir"}
+                        </option>
+                        {devices.map((d) => (
+                          <option key={d.id} value={String(d.id)}>
+                            {d.hostname || d.ip_address || d.mac_address}{d.role_hint ? " (passerelle)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="na-flow-filter" title="Part de chaque flux dans le volume total du segment (base stable, avant tout filtre)">
+                      Part du volume de
+                      <input
+                        type="number" min="0" max="100" step="1" className="na-flow-pct"
+                        value={flowFilters.minPct}
+                        onChange={(e) => setFlowFilters((f) => ({ ...f, minPct: e.target.value }))}
+                      />
+                      % à
+                      <input
+                        type="number" min="0" max="100" step="1" className="na-flow-pct"
+                        value={flowFilters.maxPct}
+                        onChange={(e) => setFlowFilters((f) => ({ ...f, maxPct: e.target.value }))}
+                      />
+                      %
+                    </label>
+                    {(flowFilters.hideHostRouter || String(flowFilters.minPct) !== "0" || String(flowFilters.maxPct) !== "100" || hostOverride) && (
+                      <button
+                        className="secondary"
+                        onClick={() => { setFlowFilters(DEFAULT_FLOW_FILTERS); setHostOverride(""); }}
+                      >
+                        ✕ Réinitialiser
+                      </button>
+                    )}
+                    <span className="muted na-flow-summary">{describeFlowFilterResult(flowResult)}</span>
+                  </div>
+                  {flowResult.links.length === 0 ? (
+                    <p className="muted">Aucun flux ne passe les filtres.</p>
+                  ) : (
+                    <>
+                      <h3 style={{ marginBottom: 4 }}>Graphe alluvial (flux TCP/IP/UDP)</h3>
+                      <AlluvialFlowChart
+                        links={flowResult.links}
+                        deviceLabels={Object.fromEntries(devices.map((d) => [d.id, d.hostname || d.ip_address || d.mac_address || `#${d.id}`]))}
+                      />
+                      <h3 style={{ marginTop: 20, marginBottom: 4 }}>Radial tree augmenté (épaisseur = volume échangé)</h3>
+                      <WeightedRadialTree
+                        devices={devices}
+                        links={flowResult.links}
+                        segmentLabels={Object.fromEntries(sites.flatMap((s) => s.segments).map((seg) => [seg.id, seg.label]))}
+                      />
+                    </>
+                  )}
                 </>
               )}
             </div>

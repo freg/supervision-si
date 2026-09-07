@@ -44,6 +44,43 @@ _log = logging.getLogger("network_agent_capture")
 BROADCAST_MAC = "ff:ff:ff:ff:ff:ff"
 
 
+def interface_identity(interface, sys_class_net="/sys/class/net"):
+    """MAC et IPv4 de l'interface de capture (livraison #412) -- c'est
+    l'HÔTE DE SUPERVISION lui-même vu depuis le trafic : le hub s'en sert
+    pour proposer de masquer les échanges hôte de supervision <-> routeur,
+    qui dominent la visualisation des flux (le hub, les sondes, les
+    tunnels parlent tous à la passerelle) sans rien dire du site observé.
+
+    Meilleur effort, jamais une exception : MAC lue dans sysfs (présent
+    en mode réseau hôte, absent dans un conteneur isolé ou sur macOS),
+    IPv4 par l'ioctl SIOCGIFADDR (Linux seulement). Chaque champ vaut
+    None quand il n'est pas connu -- le hub laisse alors la personne
+    choisir l'hôte à la main."""
+    mac = None
+    ip = None
+    try:
+        with open(f"{sys_class_net}/{interface}/address", encoding="utf-8") as fh:
+            raw = fh.read().strip().lower()
+        if raw and raw != "00:00:00:00:00:00":
+            mac = raw
+    except OSError:
+        pass
+    try:
+        import fcntl
+        import socket
+        import struct
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            packed = struct.pack("256s", interface.encode("utf-8")[:15])
+            res = fcntl.ioctl(sock.fileno(), 0x8915, packed)  # SIOCGIFADDR
+            ip = socket.inet_ntoa(res[20:24])
+        finally:
+            sock.close()
+    except (OSError, ImportError, ValueError, struct.error):
+        pass
+    return {"interface": interface, "interface_mac": mac, "interface_ip": ip}
+
+
 def is_unicast_mac(mac):
     """Exclut broadcast/multicast -- jamais traités comme un
     "appareil" (voir docstring du module). Le bit de poids faible du

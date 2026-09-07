@@ -760,3 +760,14 @@ chargés en parallèle ; la garde contre une réponse tardive couvre les deux.
 `fetchLinkServices`/`fetchLinkHistory` et repli en tableau vide sur erreur
 API, JSON invalide ou réseau coupé -- `fetch` simulé, aucun réseau.
 
+## Identité de l'hôte de supervision dans `/capture/status` (livraison #412)
+
+`GET /capture/status` renvoie en plus `interface`, `interface_mac` et
+`interface_ip` (`capture.interface_identity`) : la MAC est lue dans
+`/sys/class/net/<iface>/address`, l'IPv4 par l'ioctl `SIOCGIFADDR` (Linux).
+Meilleur effort : chaque champ vaut `null` quand il n'est pas connu (conteneur
+sans `network_mode: host`, interface absente), jamais une erreur. Le hub s'en
+sert pour reconnaître l'hôte de supervision parmi les appareils découverts et
+proposer de masquer ses échanges avec la passerelle dans les visualisations de
+flux. Tests : `python3 -m unittest test_capture_identity.py` (5 tests, dont
+la lecture réelle de l'IP de `lo` sous Linux).

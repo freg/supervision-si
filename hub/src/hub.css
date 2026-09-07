@@ -1191,6 +1191,36 @@ button.secondary { background: var(--panel); }
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
 }
 
+/* Boutons de section et filtres de flux (livraison #412) */
+.na-section-toggle.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.na-section-toggle.active:hover { filter: brightness(1.08); }
+.na-flow-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.na-flow-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.na-flow-filter input[type="checkbox"] { margin: 0; }
+.na-flow-filter select { max-width: 220px; }
+.na-flow-pct { width: 64px; }
+.na-flow-summary { margin-left: auto; font-size: 12px; }
+
 /* Diagramme alluvial (flux réseau, livraison #389) */
 .alluvial-link {
   fill: none;

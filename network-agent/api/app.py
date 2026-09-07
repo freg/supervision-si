@@ -189,7 +189,12 @@ def health():
 @app.route("/capture/status", methods=["GET"])
 def capture_status():
     with _capture_status_lock:
-        return jsonify(dict(_capture_status)), 200
+        status = dict(_capture_status)
+    # Identité de l'hôte de supervision (#412) : relue à chaque appel (pas
+    # de cache -- une IP DHCP peut changer, et l'appel est rare et bon
+    # marché), toujours présente même si inconnue (champs à None).
+    status.update(capture.interface_identity(CAPTURE_INTERFACE))
+    return jsonify(status), 200
 
 
 @app.route("/sites", methods=["GET"])

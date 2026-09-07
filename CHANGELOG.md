@@ -1,3 +1,43 @@
+## 2026-09-07 — Exploration réseau : boutons de section en surbrillance, filtres des flux (hôte de supervision ↔ routeur, tranche de %) (livraison #412)
+
+Retour de tests : « mettre en surbrillance le bouton en plus de la bascule du
+symbole ; ajouter des options de filtrage, notamment réduire la visu des
+flux entre l'hôte de la supervision et le routeur ; filtre sur une tranche
+du % des flux du graphique ».
+
+**Surbrillance** : les boutons « Sous-réseaux découverts » et
+« Visualisations des flux » passent en couleur d'accent quand leur section
+est ouverte (`.na-section-toggle.active`, même convention que le menu du
+hub), en plus du chevron ▸/▾ ; `aria-expanded` posé.
+
+**Filtres des flux** (`hub/src/networkFlowFilters.js`, logique pure,
+9 tests), appliqués AVANT les deux vues (alluvial, radial) :
+- *Masquer hôte de supervision ↔ routeur* -- l'hôte est reconnu par la MAC
+  puis l'IP de l'interface de capture, que `network-agent-api` expose
+  désormais dans `GET /capture/status` (`interface`, `interface_mac`,
+  `interface_ip`, meilleur effort : sysfs + ioctl SIOCGIFADDR, `None` si
+  inconnu -- `capture.interface_identity`, 5 tests unittest) ; le routeur
+  est l'appareil au rôle deviné « passerelle probable (NAT/routeur) ». Un
+  sélecteur permet de choisir l'hôte à la main si la détection échoue
+  (conteneur sans mode réseau hôte, par exemple) ; la case est inactive
+  tant qu'aucune passerelle n'est devinée ou qu'aucun hôte n'est connu.
+- *Part du volume de X % à Y %* -- part de chaque flux dans le volume
+  TOTAL du segment, base stable (avant tout filtre), sinon la part de chaque
+  flux changerait à chaque case cochée. Saisie tolérante (bornée, min/max
+  permutés si besoin).
+- Résumé « N flux sur M · X % du volume · k hôte ↔ routeur masqué(s) ·
+  j hors tranche », bouton ✕ Réinitialiser.
+
+**Vérifié** : 58 tests Node du hub (9 nouveaux), 5 tests Python,
+`interface_identity` exécutée pour de vrai sur une interface réelle (MAC et
+IP lues) et sur sysfs simulé, build Vite réel, rendu réel Chromium
+(Playwright) avec un faux back-end : bouton en surbrillance, hôte détecté,
+flux hôte ↔ routeur masqué, tranche appliquée, aucune erreur console.
+**Non vérifié** : la détection de l'hôte dans le conteneur réel
+(`network_mode: host` attendu, sinon MAC absente → choix manuel) ; le
+Docker build (`capture.py` et `app.py` déjà copiés par le Dockerfile, aucun
+nouveau fichier de production).
+
 ## 2026-09-07 — Cycle agile : deux zones, le clic sur un nœud déplie le détail en bas, schéma réductible et masquable (livraison #411)
 
 Retour de tests : « quand on clique sur l'une des icônes, les fonctionnalités
