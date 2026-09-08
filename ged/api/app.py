@@ -31,6 +31,7 @@ from flask_cors import CORS
 
 import documents_store as store
 import mayan_client as mayan
+import versioning as vg
 
 try:
     from version_endpoint import register_version_route
@@ -82,6 +83,10 @@ def _check_manage_right(body):
 DB_PATH = os.environ.get("GED_DB_PATH", "/data/ged.db")
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 store.ensure_schema(DB_PATH)
+# #460 : archivage versionné -- métadonnées de versions, check-out, archive immuable
+vg.ensure_schema(DB_PATH)
+GED_ARCHIVE_DIR = os.environ.get("GED_ARCHIVE_DIR", "/data/archive")
+os.makedirs(GED_ARCHIVE_DIR, exist_ok=True)
 
 # Adresse INTERNE au réseau Docker PARTAGÉ (voir mayan/docker-compose.yml,
 # livraison #158) -- jamais via tls-proxy, trafic conteneur-à-conteneur.
@@ -294,6 +299,12 @@ def add_version(document_id):
     upload = request.files["file"]
     if not upload.filename:
         return jsonify({"error": "fichier vide ou nom de fichier manquant"}), 400
+    # #460 : un document sorti (check-out) n'accepte une version que de son détenteur
+    actor = (request.form.get("actor") or request.form.get("author") or "").strip() or None
+    co = vg.get_checkout(DB_PATH, document_id)
+    if co and (actor is None or co["user"] != actor):
+        return jsonify({"error": "document sorti par %s (check-out) : seule cette personne peut déposer une version" % co["user"]}), 409
+    before = len(_sorted_files(document_id))
     try:
         mayan.upload_file(MAYAN_BASE, MAYAN_USERNAME, MAYAN_PASSWORD, document_id, upload.stream, upload.filename, is_new_version=True)
     except mayan.MayanError as exc:
@@ -302,7 +313,25 @@ def add_version(document_id):
             document_id, upload.filename, _link_context(document_id), exc,
         )
         return jsonify({"error": str(exc)}), 502
-    return jsonify({"status": "ok", "processing": "Fichier envoyé, traitement Mayan en cours (asynchrone)"}), 201
+    # #460 : métadonnées de la version à venir (numéro = position suivante) : parent, branche, auteur, commentaire
+    meta = {}
+    if request.form.get("parent_version"):
+        try:
+            meta["parent_version"] = int(request.form["parent_version"])
+        except ValueError:
+            pass
+    elif co and co.get("version_number"):
+        meta["parent_version"] = co["version_number"]
+    for k in ("branch", "comment"):
+        if request.form.get(k):
+            meta[k] = request.form[k].strip()
+    if actor:
+        meta["author"] = actor
+    if meta:
+        vg.upsert_meta(DB_PATH, document_id, before + 1, **meta)
+    if co and request.form.get("checkin") in ("1", "true", "oui"):
+        vg.checkin(DB_PATH, document_id, actor)
+    return jsonify({"status": "ok", "version_number": before + 1, "processing": "Fichier envoyé, traitement Mayan en cours (asynchrone)"}), 201
 
 
 @app.route("/documents/<int:document_id>/versions/<version_spec>/download", methods=["GET"])
@@ -426,3 +455,139 @@ def health():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
+
+# ---------------------------------------------------------------------
+# Archivage versionné (livraison #460) -- voir versioning.py. Repris des
+# gestions documentaires Novell des années 90 (SoftSolutions/GroupWise) :
+# versions numérotées avec parent (branches), version OFFICIELLE unique,
+# check-out / check-in (« document en cours d'utilisation »), archive
+# immuable (copie + sha256 + catalogue) indépendante de Mayan.
+# ---------------------------------------------------------------------
+def _graph_of(document_id):
+    doc = _document_with_versions(document_id)
+    if doc is None:
+        return None, None
+    g = vg.build_graph(doc["versions"], vg.list_meta(DB_PATH, document_id), checkout=vg.get_checkout(DB_PATH, document_id),
+                       archives=vg.list_archives(DB_PATH, document_id))
+    g["lanes"] = vg.assign_lanes(g["nodes"])
+    g["document"] = {"id": document_id, "name": doc["name"], "links": doc["links"]}
+    return g, doc
+
+
+@app.route("/documents/<int:document_id>/graph", methods=["GET"])
+def version_graph(document_id):
+    g, _ = _graph_of(document_id)
+    if g is None:
+        return jsonify({"error": "document introuvable"}), 404
+    return jsonify(g), 200
+
+
+@app.route("/documents/<int:document_id>/versions/<int:version_number>/meta", methods=["POST"])
+def set_version_meta(document_id, version_number):
+    """{parent_version?, branch?, author?, comment?, status?, groups}"""
+    body = request.get_json(silent=True) or {}
+    allowed, error = _check_manage_right(body)
+    if not allowed:
+        return jsonify({"error": error}), 403
+    g, _ = _graph_of(document_id)
+    if g is None:
+        return jsonify({"error": "document introuvable"}), 404
+    if version_number not in [n["version"] for n in g["nodes"]]:
+        return jsonify({"error": "version introuvable"}), 404
+    fields = {k: body[k] for k in ("parent_version", "branch", "author", "comment") if k in body}
+    if fields.get("parent_version") is not None and fields["parent_version"] >= version_number:
+        return jsonify({"error": "le parent doit être une version antérieure"}), 400
+    if fields:
+        vg.upsert_meta(DB_PATH, document_id, version_number, **fields)
+    if body.get("status"):
+        try:
+            changes = vg.lifecycle_transition(g["nodes"], version_number, body["status"])
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        vg.set_statuses(DB_PATH, document_id, changes)
+    g, _ = _graph_of(document_id)
+    return jsonify(g), 200
+
+
+@app.route("/documents/<int:document_id>/checkout", methods=["POST"])
+def checkout_document(document_id):
+    body = request.get_json(silent=True) or {}
+    user = (body.get("user") or "").strip()
+    if not user:
+        return jsonify({"error": "'user' requis"}), 400
+    g, _ = _graph_of(document_id)
+    if g is None:
+        return jsonify({"error": "document introuvable"}), 404
+    ok, holder = vg.checkout(DB_PATH, document_id, user, body.get("version_number") or (g["nodes"][-1]["version"] if g["nodes"] else None))
+    if not ok:
+        return jsonify({"error": "déjà sorti par %s depuis %s" % (holder["user"], holder["checked_out_at"]), "checkout": holder}), 409
+    return jsonify({"checkout": vg.get_checkout(DB_PATH, document_id)}), 200
+
+
+@app.route("/documents/<int:document_id>/checkin", methods=["POST"])
+def checkin_document(document_id):
+    body = request.get_json(silent=True) or {}
+    user = (body.get("user") or "").strip()
+    force = bool(body.get("force"))
+    if force:
+        allowed, error = _check_manage_right(body)
+        if not allowed:
+            return jsonify({"error": error}), 403
+    ok, why = vg.checkin(DB_PATH, document_id, user, force=force)
+    if not ok:
+        return jsonify({"error": why}), 409
+    return jsonify({"checkout": None}), 200
+
+
+@app.route("/checkouts", methods=["GET"])
+def list_checkouts():
+    return jsonify({"checkouts": vg.list_checkouts(DB_PATH)}), 200
+
+
+@app.route("/documents/<int:document_id>/versions/<int:version_number>/archive", methods=["POST"])
+def archive_version(document_id, version_number):
+    """Copie immuable de la version dans GED_ARCHIVE_DIR (+ statut archived)."""
+    body = request.get_json(silent=True) or {}
+    allowed, error = _check_manage_right(body)
+    if not allowed:
+        return jsonify({"error": error}), 403
+    g, doc = _graph_of(document_id)
+    if g is None:
+        return jsonify({"error": "document introuvable"}), 404
+    node = next((n for n in g["nodes"] if n["version"] == version_number), None)
+    if node is None:
+        return jsonify({"error": "version introuvable"}), 404
+    try:
+        content, _ct, filename = mayan.download_file(MAYAN_BASE, MAYAN_USERNAME, MAYAN_PASSWORD, document_id, node["mayan_file_id"])
+    except mayan.MayanError as exc:
+        return jsonify({"error": str(exc)}), 502
+    entry, err = vg.archive_version(DB_PATH, GED_ARCHIVE_DIR, document_id, version_number, content, filename,
+                                    document_name=doc["name"], archived_by=body.get("actor"))
+    if err:
+        return jsonify({"error": err}), 409
+    vg.set_statuses(DB_PATH, document_id, vg.lifecycle_transition(g["nodes"], version_number, "archived"))
+    g, _ = _graph_of(document_id)
+    return jsonify({"archived": entry, "graph": g}), 201
+
+
+@app.route("/archive", methods=["GET"])
+def archive_catalog():
+    entries = vg.list_archives(DB_PATH)
+    for e in entries:
+        e["intact"] = vg.verify_archive(e)
+        e.pop("path", None)
+    return jsonify({"archive": entries, "dir": GED_ARCHIVE_DIR}), 200
+
+
+@app.route("/archive/<int:document_id>/<int:version_number>/download", methods=["GET"])
+def archive_download(document_id, version_number):
+    e = vg.get_archive(DB_PATH, document_id, version_number)
+    if not e:
+        return jsonify({"error": "archive introuvable"}), 404
+    if not vg.verify_archive(e):
+        return jsonify({"error": "archive ALTÉRÉE : l'empreinte ne correspond plus au catalogue"}), 409
+    with open(e["path"], "rb") as fh:
+        content = fh.read()
+    return Response(content, mimetype="application/octet-stream",
+                    headers={"Content-Disposition": 'attachment; filename="%s"' % (e.get("filename") or os.path.basename(e["path"]))})

@@ -2512,6 +2512,7 @@ backup-full.sh (archive chiffrée : dépôt, .env, PKI, montages, volumes, dumps
 shim), restore-full.sh, regenerate-host.sh (CA et sels jamais touchés). Voir
 docs/sauvegarde-totale.md. #459 : incrémentale + gestionnaire (catalogue,
 chaînes, GFS, export, planification) façon ARCserve (Cheyenne/NetWare, confirmé).
-À suivre : #460 archivage versionné du dépôt de documents + graphe d'évolution
-des versions (inspiration SoftSolutions/GroupWise : profils, versions officielles,
-check-out/in).
+#460 : archivage versionné de la GED (parent/branches, officielle unique,
+check-out/in, archive immuable) + graphe des versions. Reste : essai contre le
+vrai Mayan sur « super » ; archivage planifié (GroupWise « scheduled archival »)
+et sécurité par version si besoin.

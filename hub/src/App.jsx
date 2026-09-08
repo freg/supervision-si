@@ -1429,6 +1429,7 @@ vm === "settings" ? (
           onBack={goBack}
           gedApiBase={GED_API_BASE_URL}
           login={profile.preferred_username}
+          groups={groups}
           ticketsPortalUrl={PORTAL_URL}
           ownCloudApiBase={OWNCLOUD_API_BASE_URL}
           ownCloudSearchApiBase={OWNCLOUD_SEARCH_API_BASE_URL}

@@ -1,3 +1,42 @@
+## 2026-09-08 — GED : archivage versionné et graphe d'évolution des versions (livraison #460)
+
+Demandé : « un mécanisme d'archivage versionné pour le dépôt de document,
+et un visualiseur de graphe d'évolution des versions », avec le souvenir
+d'un système d'archivage Novell des années 80-90. Recherche faite : ce
+souvenir est ARCserve (Cheyenne Software, produit phare NetWare des
+années 90, racheté par CA en 1996 — voir [Arcserve](https://en.wikipedia.org/wiki/Arcserve),
+[Cheyenne Software](https://www.fundinguniverse.com/company-histories/cheyenne-software-inc-history/)),
+confirmé par la personne ; et pour la gestion documentaire, SoftSolutions
+(1979, Orem ; 54 % du marché des DMS en 1993, racheté par WordPerfect
+puis Novell, intégré à GroupWise en 1998 — [SoftSolutions](https://en.wikipedia.org/wiki/SoftSolutions),
+[stratégie GroupWise Document Management, Novell 1997](https://support.novell.com/techcenter/articles/ana19970704.html)) :
+bibliothèques, profils de documents, versions avec version officielle
+(*Document Life Cycle status*), *Document In-Use* (check-out/check-in),
+plusieurs versions éditées en parallèle, sécurité par version, archivage
+planifié. Repris ici sur Mayan :
+
+- `ged/api/versioning.py` : par version, **parent** (défaut la
+  précédente ; autre = branche), branche, statut `draft / official /
+  superseded / archived` (une seule officielle ; archivée = terminal),
+  auteur, commentaire ; **check-out / check-in** par document (dépôt d'une
+  version refusé à quiconque d'autre que le détenteur) ; **archive
+  immuable** (copie 0440 + sha256 + `catalogue.jsonl` dans
+  `GED_ARCHIVE_DIR`, jamais ré-archivable, intégrité vérifiée à la
+  lecture). Routes `/graph`, `/versions/<n>/meta`, `/checkout`,
+  `/checkin`, `/checkouts`, `/versions/<n>/archive`, `/archive`,
+  `/archive/<doc>/<n>/download` ; dépôt de version enrichi (`actor`,
+  `parent_version`, `branch`, `comment`, `checkin`).
+- Hub : « 🌳 graphe des versions » par document (`VersionGraphView.jsx`,
+  `versionGraph.js`) — SVG façon `git log --graph` (voies = branches,
+  fourches orange, officielle cerclée, archive pointillée), sortie /
+  retour, promotion, archivage, profil, dépôt d'une version dérivée ;
+  onglet « Archive & sorties » (catalogue, intégrité, documents sortis).
+
+**Vérifié** : 6 tests purs + routes avec Mayan simulé (check-out refusé à
+un autre, dépôt hors détenteur refusé, officielle unique, parent invalide,
+ré-archive refusée, altération détectée) ; graphe rendu sous Chromium ;
+164 tests Node. **Non vérifié** : contre un vrai Mayan.
+
 ## 2026-09-08 — Sauvegarde incrémentale et gestionnaire de sauvegardes du hub avec export, façon ARCserve (livraison #459)
 
 Demandé : « un second incrémental et un gestionnaire avec export » ; la

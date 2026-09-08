@@ -89,3 +89,25 @@ export async function deleteLink(apiBase, documentId, linkId) {
 export function documentDownloadUrl(apiBase, documentId, versionSpec = "latest") {
   return `${apiBase}/documents/${documentId}/versions/${versionSpec}/download`;
 }
+
+// --- Archivage versionné (livraison #460) : graphe des versions, check-out
+// / check-in, statut / parent / branche, archive immuable, catalogue ---
+const jsonOpts = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+export const fetchVersionGraph = (apiBase, documentId) => fetchJson(apiBase, `/documents/${documentId}/graph`);
+export const setVersionMeta = (apiBase, documentId, version, payload) => fetchJson(apiBase, `/documents/${documentId}/versions/${version}/meta`, jsonOpts("POST", payload));
+export const checkoutDocument = (apiBase, documentId, user, versionNumber) => fetchJson(apiBase, `/documents/${documentId}/checkout`, jsonOpts("POST", { user, version_number: versionNumber }));
+export const checkinDocument = (apiBase, documentId, user, force, groups) => fetchJson(apiBase, `/documents/${documentId}/checkin`, jsonOpts("POST", { user, force, groups }));
+export const archiveVersion = (apiBase, documentId, version, actor, groups) => fetchJson(apiBase, `/documents/${documentId}/versions/${version}/archive`, jsonOpts("POST", { actor, groups }));
+export const fetchArchiveCatalog = (apiBase) => fetchJson(apiBase, "/archive");
+export const fetchCheckouts = (apiBase) => fetchJson(apiBase, "/checkouts");
+export const archiveDownloadUrl = (apiBase, documentId, version) => `${apiBase}/archive/${documentId}/${version}/download`;
+export async function uploadNewVersionWithMeta(apiBase, documentId, file, { actor, parentVersion, branch, comment, checkin } = {}) {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (actor) formData.append("actor", actor);
+  if (parentVersion) formData.append("parent_version", String(parentVersion));
+  if (branch) formData.append("branch", branch);
+  if (comment) formData.append("comment", comment);
+  if (checkin) formData.append("checkin", "1");
+  return fetchJson(apiBase, `/documents/${documentId}/versions`, { method: "POST", body: formData });
+}

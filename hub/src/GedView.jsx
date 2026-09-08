@@ -31,10 +31,38 @@ import OwnCloudSearchView from "./OwnCloudSearchView.jsx";
 // préexistant) ne partagent AUCUN état ni composant, seulement cet
 // conteneur à onglets.
 
+import VersionGraphView from "./VersionGraphView.jsx";
+import { fetchArchiveCatalog, fetchCheckouts, archiveDownloadUrl } from "./gedClient.js";
+
+// #460 : onglet « Archive » -- catalogue des copies immuables (sha256
+// vérifié à chaque affichage) et documents sortis (check-out).
+function ArchiveTab({ gedApiBase }) {
+  const [cat, setCat] = useState(null);
+  const [cos, setCos] = useState([]);
+  useEffect(() => { (async () => { const c = await fetchArchiveCatalog(gedApiBase); setCat(c); const k = await fetchCheckouts(gedApiBase); setCos(k?.checkouts || []); })(); }, [gedApiBase]);
+  if (!cat) return <p className="muted">Chargement…</p>;
+  if (cat.error) return <p className="hub-error">{cat.error}</p>;
+  return (
+    <div className="hub-card hub-settings-section">
+      <h2>Archive immuable ({cat.archive.length})</h2>
+      <p className="muted">Copies figées (sha256, catalogue jsonl) dans {cat.dir}, indépendantes de Mayan : une version archivée ne change plus, et son intégrité est vérifiée à chaque affichage.</p>
+      {cat.archive.length === 0 ? <p className="muted">Aucune version archivée.</p> : (
+        <div className="hub-table-scroll"><table><thead><tr><th>Document</th><th>Version</th><th>Fichier</th><th>Taille</th><th>Archivée</th><th>Par</th><th>Intégrité</th><th></th></tr></thead>
+          <tbody>{cat.archive.map((e) => <tr key={e.id}><td>{e.document_name || `#${e.document_id}`}</td><td>v{e.version_number}</td><td className="muted">{e.filename}</td><td>{e.size} o</td><td>{e.archived_at}</td><td>{e.archived_by || "—"}</td>
+            <td>{e.intact ? <span className="np-tone good">intacte</span> : <span className="np-tone bad">ALTÉRÉE</span>}</td>
+            <td>{e.intact && <a href={archiveDownloadUrl(gedApiBase, e.document_id, e.version_number)} target="_blank" rel="noreferrer">télécharger</a>}</td></tr>)}</tbody></table></div>
+      )}
+      <h2 style={{ marginTop: 12 }}>Documents sortis (check-out) ({cos.length})</h2>
+      {cos.length === 0 ? <p className="muted">Aucun document en cours de modification.</p> : <ul>{cos.map((c) => <li key={c.document_id}>document #{c.document_id} sorti par <strong>{c.user}</strong> depuis {c.checked_out_at}{c.version_number ? ` (v${c.version_number})` : ""}</li>)}</ul>}
+    </div>
+  );
+}
+
 const EMPTY_UPLOAD_FORM = { name: "", linkedType: "", linkedId: "" };
 const EMPTY_LINK_FORM = { linkedType: "", linkedId: "" };
 
-export default function GedView({ onBack, gedApiBase, login, ticketsPortalUrl, ownCloudApiBase, ownCloudSearchApiBase, frontendUrl, onViewRelations }) {
+export default function GedView({ onBack, gedApiBase, login, groups = [], ticketsPortalUrl, ownCloudApiBase, ownCloudSearchApiBase, frontendUrl, onViewRelations }) {
+  const [graphFor, setGraphFor] = useState(null); // #460 : document dont le graphe des versions est ouvert
   const [tab, setTab] = useState("interne");
   const [filterType, setFilterType] = useState("");
   const [filterId, setFilterId] = useState("");
@@ -184,7 +212,11 @@ export default function GedView({ onBack, gedApiBase, login, ticketsPortalUrl, o
         >
           🔍 Recherche (Elasticsearch, lecture seule)
         </button>
+        <button className={tab === "archive" ? "" : "secondary"} onClick={() => setTab("archive")}>
+          🗄 Archive & sorties (versions)
+        </button>
       </div>
+      {tab === "archive" && <ArchiveTab gedApiBase={gedApiBase} />}
 
       {tab === "owncloud" && (
         <div
@@ -282,7 +314,8 @@ export default function GedView({ onBack, gedApiBase, login, ticketsPortalUrl, o
                     </a>
                   </p>
 
-                  <h4>Versions</h4>
+                  <h4>Versions <button className="secondary ss-origin" onClick={() => setGraphFor(graphFor === doc.id ? null : doc.id)}>{graphFor === doc.id ? "masquer le graphe" : "🌳 graphe des versions"}</button></h4>
+                  {graphFor === doc.id && <VersionGraphView gedApiBase={gedApiBase} documentId={doc.id} login={login} groups={groups} onChanged={load} />}
                   <ul>
                     {versions.map((v) => (
                       <li key={v.version_number}>
