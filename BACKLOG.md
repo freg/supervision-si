@@ -2424,6 +2424,9 @@ qui fait alors sauter la file.
     (2) revue de l'hôte : matériel, niveaux des ressources, activités
     (processus, services, connexions), présentée dans la tuile Agents
     hôtes et reprise par Supervision SI.
+    LIVRÉ en #428 (mesure netview passive, matériel et activité, sections
+    dans la tuile, procédure du premier hôte réel) -- reste : reprise des
+    voisins/pairs par Supervision SI et Exploration réseau (liens).
 67. Catalogue de positions (2026-09-08, demandé avec #426). Docker dédié
     ou complément du PostGIS existant (geo-import) -- orientation :
     complément de `geo-postgres` (pg_trgm, connecteurs). Charger les

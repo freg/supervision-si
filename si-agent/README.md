@@ -44,6 +44,21 @@ système), service systemd, qui :
    perdu, envoi à la reconnexion.
 6. **Se pilote depuis le central** : configuration versionnée (intervalle,
    seuils, plugins à installer/retirer) et commandes acquittées.
+7. **Découvre passivement son réseau** (#428, `si_agent/netview.py`, mesure
+   `netview` toutes les `netview_interval_seconds` = 300 s) : interfaces et
+   adresses, routes (passerelle par défaut, **routes directes** vers d'autres
+   sous-réseaux -- le cas « sous-réseau isolé/filtré mais accessible par
+   route directe »), voisins ARP/NDP déjà résolus par le noyau, connexions
+   établies groupées par pair (IP, ports, processus, local/routé), DNS.
+   **Jamais un paquet émis** : le balayage reste dans le plugin
+   `network-neighbors`, désactivé par défaut.
+8. **Revue de l'hôte** (#428, `si_agent/review.py`) : `hardware` dans
+   l'inventaire (constructeur/modèle DMI ou Raspberry, n° de série, BIOS,
+   CPU via `lscpu`, mémoire installée, disques physiques via `lsblk`,
+   cartes réseau et vitesse, virtualisation via `systemd-detect-virt`) ;
+   `activity` dans la mesure `host` (processus les plus gourmands en CPU et
+   en mémoire, nombre de processus, sessions ouvertes `who`, dernières
+   connexions `last`, services systemd actifs, mises à jour en attente).
 
 Dans le futur tableau de bord, l'agent est pensé pour se retrouver aussi
 dans l'inventaire GLPI (backlog 63, « agents glpi »).
@@ -110,8 +125,36 @@ PYTHONPATH=/opt/si-agent python3 -m si_agent.agent --once      # un passage comp
 PYTHONPATH=/opt/si-agent python3 -m si_agent.agent --block "incident" # blocage général local (ou : touch /etc/si-agent/BLOCKED)
 ```
 
+### Premier hôte réel : un Linux dans un sous-réseau isolé/filtré (#428)
+
+1. Sur le hub, tuile **Agents hôtes → Enrôler un agent** : identifiant
+   (ex. `srv-isole-01`), site. Le bouton **Installation** de la ligne affiche
+   la commande complète (secret, URL du central, empreinte de la CA).
+   `SI_AGENT_PUBLIC_URL` doit être l'URL du central **telle que l'hôte la
+   joint** (l'hôte est derrière un filtrage : seul le port de la passerelle
+   TLS, 6443 par défaut, doit être ouvert de l'hôte vers la VM, en sortie).
+2. Copier le dossier `si-agent/agent/` sur l'hôte (`scp -r`, clé USB…), puis
+   la commande d'installation en root. Prérequis : Python 3 système,
+   `iproute2` (`ip`, `ss`), systemd ; `lscpu`/`lsblk` (util-linux) et
+   `last` (util-linux ou wtmpdb) pour la revue -- absents, ils sont
+   simplement listés dans `partial`.
+3. Vérifier sur place, avant même que le central réponde :
+   `PYTHONPATH=/opt/si-agent python3 -m si_agent.agent --collect` (JSON :
+   `host`, `risks`, `netview`, `hardware`) puis `--status` (file, blocage,
+   derniers risques) et `journalctl -u si-agent -f`.
+4. Sur le hub : la ligne passe « en ligne » au premier lot reçu ; sections
+   **Réseau vu de l'hôte** (sous-réseaux attachés, passerelle et son état
+   ARP, routes directes, pairs, voisins), **Matériel**, **Activité**. Si
+   « jamais vu » : `--once -v` sur l'hôte montre la requête et la réponse
+   (401 = secret ou identifiant, erreur TLS = `--ca-fingerprint` ou `--ca`,
+   délai = filtrage réseau vers 6443).
+5. Après validation, activer si voulu le plugin `network-neighbors`
+   (balayage ping, trafic actif) depuis le catalogue du central ou
+   `--enable-plugin network-neighbors` à l'installation.
+
 `agent.json` : `agent_id`, `secret`, `central_url` (obligatoires), `site`,
 `host_interval_seconds` 60, `inventory_interval_seconds` 3600,
+`netview_interval_seconds` 300 (#428),
 `poll_config_seconds` 300, `commands_poll_seconds` 60, `flush_seconds` 30,
 `batch_size` 100, `queue_path`, `plugins_dir`, `risk_thresholds`, `plugins`
 (surcharges locales), `ca_file`, `insecure` ; #422 : `state_path`,
@@ -133,8 +176,9 @@ identique par `sync-shared.sh --check` et par un test.
 | POST | `/agents/<id>/commands/<cid>/ack` | `{ok, result?, error?}` |
 | POST | `/agents/<id>/measurements` | `{measurements: [{agent_id, task, at, ok, data, error}]}` → 200/201 `{accepted}` ; 400 = lot rejeté (journalisé, abandonné) ; autre = conservé en file, nouvel essai |
 
-Tâches : `host`, `risks` (`{risks: [...], summary}`), `inventory`,
-`plugin:<id>` (`data._plugin` = id, version, durée).
+Tâches : `host` (avec `activity` depuis #428), `risks` (`{risks: [...], summary}`),
+`netview` (#428), `inventory` (avec `hardware` depuis #428), `plugin:<id>`
+(`data._plugin` = id, version, durée).
 
 ## Central `si-agent-api` (livraison #421)
 
@@ -188,6 +232,20 @@ de `validate_manifest` avant envoi, retrait.
 
 Logique pure dans `hub/src/siAgent.js` (`hub/tests/siAgent.test.mjs`),
 client `siAgentClient.js`, vue `SiAgentView.jsx`.
+
+## Découverte passive et revue de l'hôte dans la tuile (livraison #428)
+
+Détail d'un agent, trois sections nouvelles : **Réseau vu de l'hôte**
+(sous-réseaux attachés, passerelle par défaut et son état ARP -- « aucune »
+signale un sous-réseau isolé --, routes directes vers d'autres sous-réseaux
+avec l'état ARP de leur passerelle, DNS, interfaces, pairs des connexions
+établies avec ports/processus/portée locale ou routée, voisins ARP/NDP
+avec alerte sur ceux hors des sous-réseaux attachés), **Matériel**
+(machine, carte/BIOS, CPU, mémoire installée, disques physiques, cartes
+réseau, virtualisation, sources absentes) et **Activité** (processus par
+CPU et par mémoire, sessions, dernières connexions, services actifs, mises
+à jour). Les mesures viennent telles quelles de l'agent (`latest.netview`,
+`latest.inventory.data.hardware`, `latest.host.data.activity`).
 
 ## Sécurisation du déploiement et du contrôle des sondes (livraison #422)
 
@@ -269,7 +327,7 @@ thread, best-effort, anti-tempête `SI_AGENT_NOTIFY_COOLDOWN_SECONDS` par
 ## Tests
 
 ```bash
-cd si-agent/agent && python3 -m unittest            # 22 tests (agent)
+cd si-agent/agent && python3 -m unittest            # 27 tests (agent), dont netview/review (#428)
 ./sync-shared.sh --check                              # copies protocol/localqueue à jour
 cd ../api && python3 -m unittest                      # 9 tests (central), dont la chaîne réelle agent ↔ central
 cd ../../hub && node --test tests/siAgent.test.mjs    # 10 tests (logique de la tuile)

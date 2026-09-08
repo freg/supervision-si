@@ -198,10 +198,10 @@ class RealChainTests(ApiBase):
         self.c.post("/agents/srv-01/commands", json={"type": "collect_now"})
         # 2. passage complet de l'agent
         out = self.agent.run_once()
-        self.assertEqual([m["task"] for m in out], ["host", "risks", "inventory", "plugin:hello"])
+        self.assertEqual([m["task"] for m in out], ["host", "risks", "netview", "inventory", "plugin:hello"])
         self.assertEqual(self.agent.cfg["host_interval_seconds"], 30, "réglage du central appliqué")
         self.assertEqual(self.agent.store.get("hello")["source"], "central", "plugin signé par le central, installé")
-        self.assertEqual(out[3]["data"]["hi"], 3, "exécution réelle python avec args")
+        self.assertEqual(out[4]["data"]["hi"], 3, "exécution réelle python avec args")
         self.assertGreaterEqual(self.agent.flush(force=True), 4, "mesures + événements de l'agent")
         self.assertEqual(self.agent.queue.stats()["pending"], 0)
         agent_events = self.c.get("/events?agent=srv-01").get_json()["events"]

@@ -68,7 +68,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
   const [cmdPlugin, setCmdPlugin] = useState("");
   const [assignId, setAssignId] = useState("");
   const [settings, setSettings] = useState(null);
-  const [section, setSection] = useState({ risks: true, system: true, disks: true, ports: false, services: false, logs: false, plugins: true, commands: true, settings: false });
+  const [section, setSection] = useState({ risks: true, system: true, network: true, hardware: false, activity: false, disks: true, ports: false, services: false, logs: false, plugins: true, commands: true, settings: false });
 
   const [pluginForm, setPluginForm] = useState(EMPTY_PLUGIN_FORM);
   const [showPluginForm, setShowPluginForm] = useState(false);
@@ -302,6 +302,10 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
   const host = detail?.latest?.host?.data || null;
   const hostRisks = detail?.latest?.risks?.data || null;
   const inventory = detail?.latest?.inventory?.data || null;
+  // #428 : découverte passive et revue de l'hôte
+  const netview = detail?.latest?.netview?.data || null;
+  const hardware = inventory?.hardware || null;
+  const activity = host?.activity || null;
   const plugins = useMemo(() => mergePlugins(detail?.plugins, inventory?.plugins), [detail, inventory]);
   const assignable = catalogue.filter((p) => !(detail?.plugins || []).some((ap) => ap.id === p.id));
   const disks = useMemo(() => diskRows(host), [host]);
@@ -465,7 +469,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
               ) : (
                 <>
                   <div className="sa-sections">
-                    {[["risks", "Risques"], ["system", "Système"], ["disks", "Disques"], ["ports", "Ports"], ["services", "Services"], ["logs", "Journal"], ["plugins", "Sondes"], ["commands", "Commandes"], ["settings", "Réglages"]].map(([k, l]) => (
+                    {[["risks", "Risques"], ["system", "Système"], ["network", "Réseau vu de l'hôte"], ["hardware", "Matériel"], ["activity", "Activité"], ["disks", "Disques"], ["ports", "Ports"], ["services", "Services"], ["logs", "Journal"], ["plugins", "Sondes"], ["commands", "Commandes"], ["settings", "Réglages"]].map(([k, l]) => (
                       <button key={k} className={`secondary na-section-toggle${section[k] ? " active" : ""}`} onClick={() => toggle(k)}>{l}</button>
                     ))}
                     <span className="muted" style={{ fontSize: 12, marginLeft: "auto" }}>mesure du {when(detail.latest.host.at)}{host.partial?.length > 0 && <> · <Tone tone="warn">partielle : {host.partial.join(", ")}</Tone></>}</span>
@@ -497,6 +501,102 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                         <div><span className="muted">Comptes</span>sudo : {(host.accounts?.sudoers || []).join(", ") || "—"} · interactifs : {(host.accounts?.interactive || []).join(", ") || "—"}{host.accounts?.uid0_not_root?.length > 0 && <> · <Tone tone="bad">UID 0 : {host.accounts.uid0_not_root.join(", ")}</Tone></>}</div>
                         <div><span className="muted">Agent</span>v{detail.agent_version || "?"} · dernière IP {detail.last_ip || "—"}{inventory?.tools?.available && <> · outils : {inventory.tools.available.join(", ")}</>}</div>
                       </div>
+                    </>
+                  )}
+
+                  {section.network && (
+                    <>
+                      <h3>Réseau vu de l'hôte {netview ? <span className="muted" style={{ textTransform: "none", letterSpacing: 0 }}>· découverte passive du {when(detail.latest.netview.at)}{netview.partial?.length > 0 && <> · <Tone tone="warn">partielle : {netview.partial.join(", ")}</Tone></>}</span> : null}</h3>
+                      {!netview ? <p className="muted">Pas encore de mesure « netview » (agent ≥ 0.3.0, toutes les 5 min).</p> : (
+                        <>
+                          <div className="sa-kv">
+                            <div><span className="muted">Sous-réseaux attachés</span>{netview.summary?.attached_subnets?.length ? netview.summary.attached_subnets.map((n) => <code key={n} style={{ marginRight: 6 }}>{n}</code>) : "—"}</div>
+                            <div><span className="muted">Passerelle par défaut</span>{netview.summary?.default_gateway ? <><code>{netview.summary.default_gateway}</code> · ARP {netview.summary.default_gateway_state || "inconnu"}</> : <Tone tone="warn">aucune (sous-réseau isolé)</Tone>}</div>
+                            <div className="sa-wide"><span className="muted">Routes directes</span>{netview.summary?.reachable_subnets?.length ? netview.summary.reachable_subnets.map((r) => <span key={r.subnet} className="na-chip"><code>{r.subnet}</code> via {r.gateway} ({r.gateway_state || "?"})</span>) : <span className="muted">aucune route statique vers un autre sous-réseau</span>}</div>
+                            <div><span className="muted">DNS</span>{(netview.dns?.servers || []).join(", ") || "—"}{netview.dns?.search?.length ? ` · recherche ${netview.dns.search.join(", ")}` : ""}</div>
+                            <div className="sa-wide"><span className="muted">Interfaces</span>{(netview.interfaces || []).map((i) => <span key={i.name} className="na-chip">{i.name} {i.state} {i.mac ? `· ${i.mac}` : ""} {i.addresses.filter((a) => a.family === "inet").map((a) => `${a.ip}/${a.prefix}`).join(" ")}</span>)}</div>
+                          </div>
+                          <div className="sa-two-cols">
+                            <div>
+                              <h4>Pairs des connexions établies ({netview.summary?.peers?.length || 0})</h4>
+                              {netview.summary?.peers?.length ? (
+                                <div className="hub-table-scroll" style={{ maxHeight: 220 }}>
+                                  <table>
+                                    <thead><tr><th>IP</th><th>Conn.</th><th>Ports</th><th>Processus</th><th>Portée</th></tr></thead>
+                                    <tbody>{netview.summary.peers.slice(0, 40).map((p) => (
+                                      <tr key={p.ip}><td><code>{p.ip}</code></td><td>{p.connections}</td><td className="muted">{p.ports.join(", ")}</td><td>{p.processes.join(", ") || "—"}</td><td>{p.local === true ? "sous-réseau local" : p.local === false ? <Tone tone="neutral">distant / routé</Tone> : "—"}</td></tr>
+                                    ))}</tbody>
+                                  </table>
+                                </div>
+                              ) : <p className="muted">Aucune connexion établie au moment de la mesure.</p>}
+                            </div>
+                            <div>
+                              <h4>Voisins ARP / NDP ({netview.neighbors?.length || 0}){netview.summary?.neighbors_outside_attached?.length > 0 && <> · <Tone tone="warn">{netview.summary.neighbors_outside_attached.length} hors sous-réseau attaché</Tone></>}</h4>
+                              {netview.neighbors?.length ? (
+                                <div className="hub-table-scroll" style={{ maxHeight: 220 }}>
+                                  <table>
+                                    <thead><tr><th>IP</th><th>MAC</th><th>Interface</th><th>État</th></tr></thead>
+                                    <tbody>{netview.neighbors.slice(0, 60).map((n, i) => (
+                                      <tr key={i}><td><code>{n.ip}</code></td><td className="muted">{n.mac || "—"}</td><td>{n.dev}</td><td>{n.state}</td></tr>
+                                    ))}</tbody>
+                                  </table>
+                                </div>
+                              ) : <p className="muted">Aucun voisin résolu (l'hôte n'a parlé à personne sur le L2, ou table vidée).</p>}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
+
+                  {section.hardware && (
+                    <>
+                      <h3>Matériel {hardware ? <span className="muted" style={{ textTransform: "none", letterSpacing: 0 }}>· inventaire du {when(detail.latest.inventory.at)}</span> : null}</h3>
+                      {!hardware ? <p className="muted">Pas encore d'inventaire matériel (agent ≥ 0.3.0, toutes les heures).</p> : (
+                        <div className="sa-kv">
+                          <div><span className="muted">Machine</span>{[hardware.vendor, hardware.product, hardware.product_version].filter(Boolean).join(" ") || "—"}{hardware.serial ? ` · n° ${hardware.serial}` : ""}{hardware.virtualization && hardware.virtualization !== "none" ? <> · <Tone tone="neutral">virtualisé ({hardware.virtualization})</Tone></> : ""}</div>
+                          <div><span className="muted">Carte / BIOS</span>{hardware.board || "—"}{hardware.bios ? ` · BIOS ${hardware.bios}` : ""}</div>
+                          <div><span className="muted">CPU</span>{hardware.cpu?.model || "—"}{hardware.cpu?.cpus ? ` · ${hardware.cpu.cpus} CPU` : ""}{hardware.cpu?.sockets ? ` (${hardware.cpu.sockets} socket, ${hardware.cpu.cores_per_socket} cœurs, ${hardware.cpu.threads_per_core} fils)` : ""}{hardware.cpu?.arch ? ` · ${hardware.cpu.arch}` : ""}</div>
+                          <div><span className="muted">Mémoire installée</span>{formatBytes(hardware.memory_total_bytes)}</div>
+                          <div className="sa-wide"><span className="muted">Disques physiques</span>{hardware.disks?.length ? hardware.disks.map((d) => <span key={d.name} className="na-chip"><code>{d.name}</code> {d.size} {d.model || d.vendor || ""} {d.transport || ""} {d.rotational ? "HDD" : "SSD"}</span>) : "—"}</div>
+                          <div className="sa-wide"><span className="muted">Cartes réseau</span>{hardware.nics?.length ? hardware.nics.map((n) => <span key={n.name} className="na-chip">{n.name} {n.state} · {n.mac}{n.speed_mbps ? ` · ${n.speed_mbps} Mb/s` : ""}</span>) : "—"}</div>
+                          {hardware.partial?.length > 0 && <div><span className="muted">Sources absentes</span><Tone tone="warn">{hardware.partial.join(", ")}</Tone></div>}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {section.activity && (
+                    <>
+                      <h3>Activité {activity ? <span className="muted" style={{ textTransform: "none", letterSpacing: 0 }}>· {activity.process_count ?? "?"} processus · {activity.running_services_count ?? "?"} services actifs{activity.updates_available != null ? ` · ${activity.updates_available} mise(s) à jour en attente` : ""}</span> : null}</h3>
+                      {!activity ? <p className="muted">Pas encore de mesure d'activité (agent ≥ 0.3.0).</p> : (
+                        <div className="sa-two-cols">
+                          <div>
+                            <h4>Processus (CPU)</h4>
+                            <div className="hub-table-scroll" style={{ maxHeight: 200 }}>
+                              <table>
+                                <thead><tr><th>PID</th><th>Utilisateur</th><th>CPU</th><th>Mém.</th><th>Commande</th></tr></thead>
+                                <tbody>{(activity.top_cpu || []).map((p) => <tr key={p.pid}><td>{p.pid}</td><td>{p.user}</td><td>{p.cpu_percent} %</td><td>{formatBytes(p.rss_bytes)}</td><td><code>{p.command}</code></td></tr>)}</tbody>
+                              </table>
+                            </div>
+                            <h4>Processus (mémoire)</h4>
+                            <div className="hub-table-scroll" style={{ maxHeight: 200 }}>
+                              <table>
+                                <thead><tr><th>PID</th><th>Utilisateur</th><th>Mém.</th><th>CPU</th><th>Commande</th></tr></thead>
+                                <tbody>{(activity.top_memory || []).map((p) => <tr key={p.pid}><td>{p.pid}</td><td>{p.user}</td><td>{formatBytes(p.rss_bytes)}</td><td>{p.cpu_percent} %</td><td><code>{p.command}</code></td></tr>)}</tbody>
+                              </table>
+                            </div>
+                          </div>
+                          <div>
+                            <h4>Sessions ouvertes ({activity.sessions?.length || 0})</h4>
+                            {activity.sessions?.length ? <ul>{activity.sessions.map((sn, i) => <li key={i}><strong>{sn.user}</strong> sur {sn.tty}{sn.from ? ` depuis ${sn.from}` : ""}{sn.since ? ` (${sn.since})` : ""}</li>)}</ul> : <p className="muted">Aucune.</p>}
+                            <h4>Dernières connexions</h4>
+                            {activity.last_logins?.length ? <pre className="sa-log">{activity.last_logins.map((l) => l.line).join("\n")}</pre> : <p className="muted">—{activity.partial?.includes("last") ? " (commande last absente)" : ""}</p>}
+                            <h4>Services actifs ({activity.running_services_count ?? "?"})</h4>
+                            <p className="muted" style={{ fontSize: 12 }}>{(activity.running_services || []).slice(0, 40).join(", ")}{(activity.running_services || []).length > 40 ? "…" : ""}</p>
+                          </div>
+                        </div>
+                      )}
                     </>
                   )}
 

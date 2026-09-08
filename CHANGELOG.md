@@ -1,3 +1,32 @@
+## 2026-09-08 — Agent hôte : découverte passive du réseau et revue de l'hôte, prêt pour un premier exemplaire réel (livraison #428)
+
+Backlog 66, demandé pour tester aujourd'hui un premier agent sur un Linux
+d'un sous-réseau isolé/filtré mais joignable par route directe. Voir
+`si-agent/README.md` (§ « Premier hôte réel » et § #428).
+
+- Agent 0.3.0 -- `si_agent/netview.py` : mesure `netview` (5 min) sans
+  aucun paquet émis : interfaces, routes (passerelle par défaut, routes
+  directes vers d'autres sous-réseaux), voisins ARP/NDP, connexions
+  établies groupées par pair (ports, processus, local/routé), DNS,
+  synthèse (`attached_subnets`, `default_gateway(_state)`,
+  `reachable_subnets`, `peers`, `neighbors_outside_attached`).
+  `si_agent/review.py` : `hardware` dans l'inventaire (DMI/Raspberry, CPU,
+  mémoire, disques physiques, cartes réseau, virtualisation) et `activity`
+  dans `host` (processus CPU/mémoire, sessions, dernières connexions,
+  services actifs, mises à jour). `--collect` affiche tout ; 5 tests
+  nouveaux, 3 tests existants ajustés (nouvelle mesure dans le passage).
+- Hub, tuile Agents hôtes : sections **Réseau vu de l'hôte**, **Matériel**,
+  **Activité** dans le détail d'un agent.
+- README : procédure pas à pas pour le premier hôte réel (enrôlement,
+  prérequis, vérification sur place, diagnostic « jamais vu »).
+
+**Vérifié** : 27 tests agent + 9 tests central (chaîne réelle), collecte
+réelle `--collect` et `--once` depuis le conteneur (iproute2 installé :
+interfaces, passerelle ARP reachable, 14 connexions vers 1 pair, matériel
+virtio), mesures reçues par le vrai central et rendues dans la tuile
+(clair/sombre). **Non vérifié** : vraie machine derrière un filtrage,
+`last`/`who` sur un hôte avec sessions, Raspberry, systemd.
+
 ## 2026-09-08 — Exploration réseau : fiche récapitulative d'un sous-réseau, IP distantes rangées derrière leur relais (livraison #427)
 
 Constat : des sous-réseaux « observés » sans aucun appareil correspondant

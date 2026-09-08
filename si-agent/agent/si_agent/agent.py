@@ -38,7 +38,7 @@ import time
 import urllib.error
 import urllib.request
 
-from . import control, host, plugins, protocol, risks
+from . import control, host, netview, plugins, protocol, review, risks
 from .localqueue import LocalQueue
 
 _log = logging.getLogger("si_agent")
@@ -48,6 +48,7 @@ DEFAULTS = {
     "site": "default",
     "host_interval_seconds": 60,
     "inventory_interval_seconds": 3600,
+    "netview_interval_seconds": 300,
     "poll_config_seconds": 300,
     "commands_poll_seconds": 60,
     "flush_seconds": 30,
@@ -159,6 +160,8 @@ class Agent(object):
         self._prev_cpu = None
         self._next_host = 0
         self._next_inventory = 0
+        self._next_netview = 0
+        self.last_netview = None
         self._next_plugin = {}
         self._last_poll = 0
         self._last_commands = 0
@@ -283,7 +286,7 @@ class Agent(object):
         self.config_version = body.get("version")
         if isinstance(issued, (int, float)):
             self.state["last_config_issued_at"] = issued
-        for key in ("host_interval_seconds", "inventory_interval_seconds"):
+        for key in ("host_interval_seconds", "inventory_interval_seconds", "netview_interval_seconds"):
             if isinstance(body.get(key), (int, float)) and body[key] >= 10:
                 self.cfg[key] = body[key]
         if isinstance(body.get("risk_thresholds"), dict):
@@ -403,6 +406,8 @@ class Agent(object):
         self._next_host = now + float(self.cfg["host_interval_seconds"])
         data, self._prev_cpu = host.collect_all(files=self.files, cmd=self.cmd, usage=self.usage, which=self.which,
                                                 previous_cpu=self._prev_cpu, include_tools=False, exists=self.exists)
+        # #428 : activité (processus, sessions, connexions, services actifs)
+        data["activity"] = review.collect_activity(cmd=self.cmd, files=self.files)
         self.last_host_data = data
         found = risks.evaluate(data, self.cfg.get("risk_thresholds"))
         self.last_risks = found
@@ -417,18 +422,33 @@ class Agent(object):
             self.queue.put(m)
         return produced
 
+    def collect_netview(self, force=False):
+        """#428 : découverte passive du réseau (interfaces, routes, voisins,
+        connexions, DNS) -- mesure `netview`, jamais un paquet émis."""
+        now = self.clock()
+        if not force and now < self._next_netview:
+            return None
+        self._next_netview = now + float(self.cfg.get("netview_interval_seconds") or 300)
+        data = netview.collect(cmd=self.cmd, files=self.files)
+        self.last_netview = data
+        m = {"agent_id": self.agent_id, "task": "netview", "at": _iso(now), "ok": not data.get("partial"), "data": data,
+             "error": ("collecte partielle : " + ", ".join(data["partial"])) if data.get("partial") else None}
+        self.queue.put(m)
+        return m
+
     def collect_inventory(self, force=False):
         now = self.clock()
         if not force and now < self._next_inventory:
             return None
         self._next_inventory = now + float(self.cfg["inventory_interval_seconds"])
         tools = host.collect_tools(self.which)
+        hardware = review.collect_hardware(cmd=self.cmd, files=self.files)  # #428
         installed = [{k: v for k, v in m.items() if k != "path"} for m in self.store.list()]
         for m in installed:
             m["effective_enabled"] = plugins.is_enabled(m, self.cfg.get("plugins"))
             m["effective_blocked"] = control.plugin_blocked(self.state, m)
         m = {"agent_id": self.agent_id, "task": "inventory", "at": _iso(now), "ok": True,
-             "data": {"tools": tools, "plugins": installed, "agent_version": __import__("si_agent").__version__,
+             "data": {"tools": tools, "hardware": hardware, "plugins": installed, "agent_version": __import__("si_agent").__version__,
                       "config_version": self.config_version, "blocked": self.is_blocked(),
                       "blocked_reason": self.block_reason() if self.is_blocked() else None,
                       "blocked_plugins": sorted((self.state.get("blocked_plugins") or {}).keys()),
@@ -567,6 +587,9 @@ class Agent(object):
     def run_once(self):
         self.refresh_config(force=True)
         out = self.collect_host(force=True)
+        nv = self.collect_netview(force=True)
+        if nv:
+            out.append(nv)
         inv = self.collect_inventory(force=True)
         if inv:
             out.append(inv)
@@ -589,6 +612,7 @@ class Agent(object):
                                "fichier BLOCKED local %s" % ("présent : blocage général" if lb else "retiré"))
                 self.refresh_config()
                 self.collect_host()
+                self.collect_netview()
                 self.collect_inventory()
                 self.run_plugins()
                 self.poll_commands()
@@ -621,7 +645,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="si-agent -- agent hôte de supervision-si")
     parser.add_argument("--config", default=os.environ.get("SI_AGENT_CONFIG", DEFAULT_CONFIG_PATH))
     parser.add_argument("--once", action="store_true", help="un passage complet (collecte, inventaire, plugins, envoi) puis sortie")
-    parser.add_argument("--collect", action="store_true", help="affiche la collecte hôte et les risques en JSON, sans envoi ni configuration")
+    parser.add_argument("--collect", action="store_true", help="affiche la collecte hôte, les risques, la vue réseau passive et le matériel en JSON, sans envoi ni configuration")
     parser.add_argument("--status", action="store_true", help="affiche l'état local et sort")
     parser.add_argument("-v", "--verbose", action="store_true", help="traces DEBUG (requêtes, sondes, commandes)")
     parser.add_argument("--block", nargs="?", const="blocage local", metavar="MOTIF", help="blocage général local des sondes, puis sortie")
@@ -631,7 +655,9 @@ def main(argv=None):
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     if args.collect:
         data, _ = host.collect_all()
-        print(json.dumps({"host": data, "risks": risks.evaluate(data), "summary": risks.summarize(risks.evaluate(data))},
+        data["activity"] = review.collect_activity()
+        print(json.dumps({"host": data, "risks": risks.evaluate(data), "summary": risks.summarize(risks.evaluate(data)),
+                          "netview": netview.collect(), "hardware": review.collect_hardware()},
                          indent=2, ensure_ascii=False))
         return 0
     cfg = load_config(args.config)
