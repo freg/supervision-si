@@ -172,6 +172,35 @@ class SignedFaceTests(ApiBase):
         self.assertEqual(http.request("POST", "/api/v1/agents/srv-01/measurements", {"measurements": [{"task": "x"}]})[0], 400)
 
 
+class CaptureRelayTests(ApiBase):
+    """#436 : mesure plugin:capture-relay -> network-agent-api (relais sous mock)."""
+
+    def test_relais(self):
+        import app as api  # noqa: PLC0415
+        old = api.NETWORK_AGENT_API_URL
+        api.NETWORK_AGENT_API_URL = "http://na.test"
+        calls = []
+
+        class R:
+            status_code, content = 200, b"{}"
+
+            def json(self):
+                return {"packets": 3}
+        try:
+            n = api.relay_capture_measurements("srv-01", {"site": "siege"}, [
+                {"task": "plugin:capture-relay", "at": "x", "ok": True, "data": {"pcap_base64": "AAAA", "cidr": "10.0.0.0/24", "interface": "eth0"}},
+                {"task": "plugin:capture-relay", "at": "y", "ok": False, "data": {"error": "tcpdump absent"}},
+                {"task": "host", "at": "z", "ok": True, "data": {}},
+            ], post=lambda url, payload: (calls.append((url, payload)) or R()))
+            self.assertEqual(n, 1)
+            self.assertEqual(calls[0][0], "http://na.test/capture/upload")
+            self.assertEqual((calls[0][1]["segment"], calls[0][1]["cidr"], calls[0][1]["site"]), ("srv-01", "10.0.0.0/24", "siege"))
+            api.NETWORK_AGENT_API_URL = ""
+            self.assertEqual(api.relay_capture_measurements("srv-01", {}, [{"task": "plugin:capture-relay", "ok": True, "data": {"pcap_base64": "AAAA"}}]), 0, "sans URL : rien")
+        finally:
+            api.NETWORK_AGENT_API_URL = old
+
+
 class RealChainTests(ApiBase):
     """Le VRAI agent contre le VRAI central."""
 
