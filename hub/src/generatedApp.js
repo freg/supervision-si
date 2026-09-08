@@ -23,6 +23,11 @@ export function editableFields(screen) {
   return (screen?.fields || []).filter((f) => f.column && f.column !== screen.pk);
 }
 
+// Champs d'un formulaire sans colonne dans cette application (#445 : outil unique projeté).
+export function missingFields(screen) {
+  return (screen?.fields || []).filter((f) => !f.column);
+}
+
 export function rowToValues(columns, row) {
   const out = {};
   (columns || []).forEach((c, i) => { out[c] = row?.[i]; });

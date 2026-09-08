@@ -59,3 +59,6 @@ export const fetchScript = (base, id) => call(base, `/journeys/${encodeURICompon
 // #444 : spécification d'interface générée
 export const fetchUiSpec = (base, label, regenerate) => call(base, `/apps/${encodeURIComponent(label)}/ui-spec${regenerate ? "?regenerate=1" : ""}`);
 export const saveUiSpec = (base, label, spec) => call(base, `/apps/${encodeURIComponent(label)}/ui-spec`, json("PUT", { spec }));
+// #445 : comparaison des applications et outil unique
+export const fetchCompareApps = (base, apps) => call(base, `/unified/compare?apps=${encodeURIComponent((apps || []).join(","))}`);
+export const fetchUnified = (base, apps, view, label) => call(base, `/unified?apps=${encodeURIComponent((apps || []).join(","))}${view ? `&view=${encodeURIComponent(view)}` : ""}${label ? `&label=${encodeURIComponent(label)}` : ""}`);

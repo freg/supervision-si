@@ -1,3 +1,21 @@
+## 2026-09-08 — Outil de gestion unique : comparaison des applications enregistrées (livraison #445, phase 3)
+
+`retro/api/merge.py` : rapprochement des écrans d'applications
+différentes qui remplissent la même fonction (champs / colonnes de même
+nom après normalisation -- préfixes de formulaire, accents, pluriels,
+`_id`, synonymes FR/EN courants --, titres, tables ; score explicite,
+seuil 0,4), spécification unique (un écran par fonction, champs = union
+avec, par application, table et colonne réelles) et projection par
+application. Routes `GET /unified/compare` et `GET /unified?apps=…
+[&view=…]`. Hub : « 🧩 Outil unique » dans la tuile Rétro-ingénierie --
+matrice fonctions × applications, champs unifiés avec leur origine,
+interface unique rendue sur les données de l'application choisie
+(lecture / écriture via dba-api, champs absents indiqués). Vérifié :
+10 tests API, 4 tests hub (141 au total), chaîne réelle avec deux
+applications (gestion réelle + crm aux tables `customers`), rendu
+Chromium, écriture en base par l'interface unique. Non vérifié : de
+vraies applications.
+
 ## 2026-09-08 — Interface générée au design du hub depuis les parcours (livraison #444, phase 2)
 
 `retro/api/ui_spec.py` : étapes + carte fonctionnelle + colonnes réelles

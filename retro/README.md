@@ -392,3 +392,72 @@ générée depuis les parcours réels de l'application factice + faux dba-api
 (Nom, Ville → ville_id), ouverture d'une ligne, modification de l'email
 **écrite dans la table** via dba-api. Non vérifié : une vraie application
 (la richesse des écrans dépend des parcours enregistrés).
+
+## Outil de gestion unique (livraison #445, phase 3)
+
+Demande : « comparer les applications enregistrées et produire un outil
+unique de gestion ». Tout part des spécifications d'interface (#444) de
+chaque application -- donc des parcours réellement enregistrés.
+
+- **`retro/api/merge.py`** (pur, 10 tests) :
+  - `compare_apps(specs)` rapproche les écrans d'applications différentes
+    qui remplissent la **même fonction** : même genre (liste / formulaire),
+    champs ou colonnes de même nom après normalisation (préfixes de
+    formulaire `txtNom` → `nom`, accents, pluriels, suffixe `_id`, et un
+    petit dictionnaire de synonymes FR/EN volontaire : `customers` ≡
+    `clients`, `name` ≡ `nom`, `phone` ≡ `tel`, `city` ≡ `ville`…), titres
+    et chemins voisins, tables de même nom. Score = 0,6 × recouvrement des
+    champs (part du plus petit écran retrouvée dans l'autre dès 2 champs
+    communs, sinon Jaccard) + 0,25 × titres + 0,15 × tables ; **sous 0,4
+    rien n'est rapproché**. Appariement glouton par score décroissant, un
+    écran par application et par groupe. Résultat : groupes (`function`,
+    `kind`, `score`, `why` en clair, `common_fields`, `specific_fields` par
+    application), écrans sans équivalent (`unique`), compteurs. Les écrans
+    `action` (POST transitoires) et masqués ne comptent pas.
+  - `unified_spec(specs)` : **une spec pour toutes** -- un écran par
+    fonction, champs = union, chaque champ portant `sources` {application :
+    table, colonne, confiance}, ses noms d'origine (`names`), `shared`
+    (présent partout) ; par écran `targets` {application : table, clé
+    primaire, connexion DBA, base} et `todo` (nombre de champs propres à une
+    application). Écrans propres à une application ajoutés à la fin,
+    tagués `(app)`.
+  - `per_app_view(unified, app)` : la spec unique projetée sur UNE
+    application (ses tables, ses colonnes ; les champs qu'elle n'a pas
+    restent listés, sans colonne) -- exactement ce que `GeneratedAppView`
+    sait rendre.
+- **Routes** : `GET /unified/compare?apps=a,b` (vide = toutes les
+  applications enregistrées ; spec générée à la volée si absente) et
+  `GET /unified?apps=a,b[&label=…][&view=<app>]`. Moins de deux
+  applications → 400.
+- **Hub** (`UnifiedToolView.jsx` + `unifiedTool.js`, 3 tests) : bouton
+  « 🧩 Outil unique » dans la tuile Rétro-ingénierie dès deux applications
+  enregistrées. Cases à cocher des applications comparées ; trois onglets :
+  **Fonctions × applications** (matrice : une ligne par fonction, l'écran
+  de chaque application, score et raisons, champs communs / propres,
+  recouvrement fonctionnel en %), **Champs unifiés** (par écran unique,
+  chaque champ avec son origine et, par application, `table.colonne` et le
+  nom de champ d'origine), **Interface unique** : les MÊMES écrans pour
+  toutes les applications, avec un sélecteur « Données de l'application » --
+  listes et fiches lisent et écrivent dans les tables de l'application
+  choisie via dba-api (`GeneratedAppView` en mode `externalSpec`, sans
+  régénération ni édition : la spec unique se corrige dans celle de chaque
+  application), les champs absents de cette application sont indiqués et
+  non saisissables.
+
+Limites : le rapprochement est lexical (noms, titres, tables) ; deux
+fonctions identiques nommées sans aucun mot commun ne sont pas
+rapprochées -- elles apparaissent alors comme « propres » et se voient dans
+la matrice. La phase 4 (méta-relevé des champs, relations inter-gestions,
+proposition de fusion) s'appuiera sur cette spec unique.
+
+Vérifié : 10 tests `test_merge.py` (similarité, genres différents,
+synonymes / préfixes / `_id`, groupes et champs propres, actions écartées,
+un écran par application par groupe, spec unique et `sources`, ordre,
+projection, trois applications) ; chaîne réelle : application « gestion »
+(parcours réels, spec générée) + application « crm » (spec aux tables
+`customers.name/mail/city/tel`, connexion DBA 2 d'un faux dba-api) →
+2 fonctions communes (Clients 100 %, Fiche client 80 %), 1 écran propre ;
+rendu Chromium des trois onglets ; **écriture** du téléphone d'un client
+dans `customers` via l'interface unique (données crm), puis bascule sur
+les données gestion (fiche `clients` id 42). Non vérifié : de vraies
+applications, où la qualité dépend des parcours enregistrés et des noms.

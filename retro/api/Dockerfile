@@ -12,6 +12,7 @@ COPY retro/api/route_scanner.py .
 COPY retro/api/journeys.py .
 COPY retro/api/journeys_store.py .
 COPY retro/api/ui_spec.py .
+COPY retro/api/merge.py .
 COPY shared/version_endpoint.py .
 COPY shared/VERSION.json .
 COPY shared/log_buffer.py .

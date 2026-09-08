@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { fetchUiSpec, saveUiSpec } from "./retroClient.js";
 import { fetchTableColumnsForEdit, fetchTableRows, updateTableRow, insertTableRow } from "./schemaAnalyzerClient.js";
-import { navScreens, listColumns, formScreenFor, editableFields, rowToValues, filterRows, specSummary } from "./generatedApp.js";
+import { navScreens, listColumns, formScreenFor, editableFields, missingFields, rowToValues, filterRows, specSummary } from "./generatedApp.js";
 
 // Application générée (livraison #444, phase 2) : rend, avec la charte du
 // hub (cartes, tableaux, formulaires), les écrans déduits des parcours --
@@ -10,7 +10,10 @@ import { navScreens, listColumns, formScreenFor, editableFields, rowToValues, fi
 // l'Analyse de schémas : clé primaire jamais modifiée, colonnes validées
 // contre le schéma). Ce que les parcours n'ont pas montré est marqué « à
 // compléter » et modifiable dans l'onglet Spécification.
-export default function GeneratedAppView({ retroApiBase, dbaApiBase, app, onClose }) {
+// #445 : `externalSpec` (projection de l'outil unique sur une application)
+// remplace la spec enregistrée -- rendu identique, pas de régénération ni
+// d'édition (la spec unique se corrige dans celles des applications).
+export default function GeneratedAppView({ retroApiBase, dbaApiBase, app, onClose, externalSpec, heading }) {
   const [spec, setSpec] = useState(null);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
@@ -23,16 +26,17 @@ export default function GeneratedAppView({ retroApiBase, dbaApiBase, app, onClos
   const [record, setRecord] = useState(null);   // {screen, values, pk} en édition ; pk null = création
   const [busy, setBusy] = useState(false);
 
+  const readOnly = !!externalSpec;
   const load = useCallback(async (regenerate) => {
     setBusy(true); setError(null);
-    const r = await fetchUiSpec(retroApiBase, app, regenerate);
+    const r = externalSpec || await fetchUiSpec(retroApiBase, app, regenerate);
     setBusy(false);
     if (r.error) { setError(r.error); return; }
     setSpec(r);
     const nav = navScreens(r);
     setScreenId((cur) => (cur && r.screens.some((s) => s.id === cur) ? cur : nav[0]?.id || r.screens[0]?.id || null));
     if (regenerate) setNotice(`spécification régénérée : ${specSummary(r)}`);
-  }, [retroApiBase, app]);
+  }, [retroApiBase, app, externalSpec]);
   useEffect(() => { load(false); }, [load]);
 
   const screen = spec?.screens.find((s) => s.id === screenId) || null;
@@ -84,6 +88,7 @@ export default function GeneratedAppView({ retroApiBase, dbaApiBase, app, onClos
     if (screen?.table) page(offset);
   }
   async function persistSpec(next) {
+    if (readOnly) return;
     setSpec(next);
     const r = await saveUiSpec(retroApiBase, app, next);
     if (r.error) setError(r.error); else setNotice("spécification enregistrée");
@@ -99,13 +104,13 @@ export default function GeneratedAppView({ retroApiBase, dbaApiBase, app, onClos
   return (
     <div className="hub-card hub-settings-section" style={{ borderColor: "var(--accent, #2b5797)" }}>
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <h2 style={{ margin: 0 }}>Application générée — « {app} »</h2>
+        <h2 style={{ margin: 0 }}>{heading || `Application générée — « ${app} »`}</h2>
         <span className="muted">{specSummary(spec)}{spec.generated_at ? ` · générée le ${spec.generated_at}` : ""}</span>
         <span style={{ flex: 1 }} />
         <button className={mode === "app" ? "" : "secondary"} onClick={() => setMode("app")}>Application</button>
         <button className={mode === "spec" ? "" : "secondary"} onClick={() => setMode("spec")}>Spécification</button>
-        <button className="secondary" disabled={busy} onClick={() => load(true)} title="recalculer depuis les parcours, la carte et les colonnes réelles (choix manuels conservés)">↻ Régénérer</button>
-        <button className="secondary" onClick={onClose}>Fermer</button>
+        {!readOnly && <button className="secondary" disabled={busy} onClick={() => load(true)} title="recalculer depuis les parcours, la carte et les colonnes réelles (choix manuels conservés)">↻ Régénérer</button>}
+        {onClose && <button className="secondary" onClick={onClose}>Fermer</button>}
       </div>
       {error && <p style={{ color: "var(--danger)" }}>⚠️ {error}</p>}
       {notice && <p className="muted">{notice}</p>}
@@ -159,6 +164,7 @@ export default function GeneratedAppView({ retroApiBase, dbaApiBase, app, onClos
                   <form onSubmit={saveRecord} className="hub-card" style={{ margin: 0 }}>
                     <h4 style={{ marginTop: 0 }}>{record.pk != null ? `${record.screen.title} — ${record.pkCol} ${record.pk}` : `${record.screen.title} — nouvelle ligne`}</h4>
                     {editableFields(record.screen).length === 0 && <p style={{ color: "var(--warning, #b7791f)" }}>Aucun champ rattaché à une colonne : compléter la spécification.</p>}
+                    {missingFields(record.screen).length > 0 && <p className="muted" style={{ fontSize: 12 }}>Sans colonne dans cette application (non saisissables) : {missingFields(record.screen).map((f) => f.label || f.name).join(", ")}</p>}
                     {editableFields(record.screen).map((f) => (
                       <div className="hub-settings-row" key={f.name}>
                         <label title={`champ ${f.name} → colonne ${f.column} (${f.source}, ${Math.round((f.confidence || 0) * 100)} %)`}>{f.label || f.name}{f.required ? " *" : ""}</label>
@@ -190,12 +196,13 @@ export default function GeneratedAppView({ retroApiBase, dbaApiBase, app, onClos
             <tbody>{spec.screens.map((s) => (
               <tr key={s.id} style={s.hidden ? { opacity: 0.5 } : undefined}>
                 <td><code>{s.screen}</code><div className="muted" style={{ fontSize: 12 }}>{s.route ? `${s.route} → ${s.handler}` : "route non trouvée"} · {s.visits} visite(s)</div></td>
-                <td><input value={s.title || ""} onChange={(e) => updateScreen(s.id, { title: e.target.value, title_manual: true })} style={{ width: 150 }} /></td>
-                <td><select value={s.kind} onChange={(e) => updateScreen(s.id, { kind: e.target.value, nav: ["list", "form", "detail"].includes(e.target.value) && !s.hidden })}>
+                <td><input value={s.title || ""} disabled={readOnly} onChange={(e) => updateScreen(s.id, { title: e.target.value, title_manual: true })} style={{ width: 150 }} /></td>
+                <td><select value={s.kind} disabled={readOnly} onChange={(e) => updateScreen(s.id, { kind: e.target.value, nav: ["list", "form", "detail"].includes(e.target.value) && !s.hidden })}>
                   {["list", "form", "detail", "action", "other"].map((k) => <option key={k} value={k}>{k}</option>)}</select></td>
                 <td>
-                  <select value={s.table || ""} onChange={(e) => updateScreen(s.id, { table: e.target.value || null, table_manual: true, table_source: "choisi à la main", table_confidence: 1 })}>
+                  <select value={s.table || ""} disabled={readOnly} onChange={(e) => updateScreen(s.id, { table: e.target.value || null, table_manual: true, table_source: "choisi à la main", table_confidence: 1 })}>
                     <option value="">— aucune —</option>
+                    {readOnly && s.table && !(spec.tables || {})[s.table] && <option value={s.table}>{s.table}</option>}
                     {Object.keys(spec.tables || {}).map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
                   <div className="muted" style={{ fontSize: 12 }}>{s.table_source || ""}{s.table_confidence ? ` (${Math.round(s.table_confidence * 100)} %)` : ""}</div>
@@ -206,7 +213,7 @@ export default function GeneratedAppView({ retroApiBase, dbaApiBase, app, onClos
                   {s.todo?.length > 0 && <div style={{ color: "var(--warning, #b7791f)" }}>{s.todo.join(" ; ")}</div>}
                 </td>
                 <td className="muted" style={{ fontSize: 12 }}>{(s.links || []).map((l) => `→ ${l.screen}`).join(", ")}{s.actions?.length ? ` · ${s.actions.map((a) => `${a.method} ${a.path}${a.writes?.length ? ` (écrit ${a.writes.join(", ")})` : ""}`).join(", ")}` : ""}</td>
-                <td><input type="checkbox" checked={!s.hidden} onChange={(e) => updateScreen(s.id, { hidden: !e.target.checked, nav: e.target.checked && ["list", "form", "detail"].includes(s.kind) })} /></td>
+                <td><input type="checkbox" checked={!s.hidden} disabled={readOnly} onChange={(e) => updateScreen(s.id, { hidden: !e.target.checked, nav: e.target.checked && ["list", "form", "detail"].includes(s.kind) })} /></td>
               </tr>
             ))}</tbody>
           </table>

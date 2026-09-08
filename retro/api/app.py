@@ -37,6 +37,7 @@ import route_scanner
 import journeys
 import journeys_store as jstore
 import ui_spec
+import merge
 
 _log = logging.getLogger("retro_app")
 
@@ -321,6 +322,12 @@ def apps_ui_spec(label):
     existing = jstore.get_ui_spec(DB_PATH, label)
     if existing and request.args.get("regenerate") != "1":
         return jsonify({**existing, "saved": True}), 200
+    spec = _generate_ui_spec(label, a, existing)
+    return jsonify({**spec, "saved": True, "regenerated": True}), 200
+
+
+def _generate_ui_spec(label, a, existing=None):
+    """Recalcule et enregistre la spec d'interface d'une application."""
     steps, fmap = _app_steps(label, a)
     columns = {}
     if a.get("dba_connection_id"):
@@ -329,7 +336,52 @@ def apps_ui_spec(label):
     spec["dba_connection_id"], spec["dba_database"] = a.get("dba_connection_id"), a.get("dba_database")
     spec["generated_at"] = jstore.now_iso()
     jstore.save_ui_spec(DB_PATH, label, spec)
-    return jsonify({**spec, "saved": True, "regenerated": True}), 200
+    return spec
+
+
+def _specs_for(param):
+    """Specs d'interface des applications listées (`a,b,c` ; vide = toutes
+    les applications enregistrées) : la spec enregistrée, sinon générée.
+    Retourne ({label: spec}, [labels inconnus])."""
+    labels = [x.strip() for x in (param or "").split(",") if x.strip()] or [a["label"] for a in jstore.list_apps(DB_PATH)]
+    specs, unknown = {}, []
+    for label in labels:
+        a = jstore.get_app(DB_PATH, label, with_scan=True)
+        if a is None:
+            unknown.append(label)
+            continue
+        specs[label] = jstore.get_ui_spec(DB_PATH, label) or _generate_ui_spec(label, a)
+    return specs, unknown
+
+
+@app.route("/unified/compare", methods=["GET"])
+def unified_compare():
+    """#445 : comparaison des applications enregistrées (`?apps=a,b`, vide =
+    toutes) : groupes d'écrans remplissant la même fonction (score, raisons,
+    champs communs / propres) et écrans sans équivalent."""
+    specs, unknown = _specs_for(request.args.get("apps"))
+    if len(specs) < 2:
+        return jsonify({"error": "au moins deux applications enregistrées sont nécessaires", "unknown": unknown, "apps": sorted(specs)}), 400
+    return jsonify({**merge.compare_apps(specs), "unknown": unknown}), 200
+
+
+@app.route("/unified", methods=["GET"])
+def unified_spec():
+    """#445 : spécification de l'OUTIL UNIQUE (`?apps=a,b`, `?label=`) --
+    un écran par fonction, champs = union avec, par application, la table
+    et la colonne réelles. `?view=<app>` : projection sur une application
+    (ce que l'interface générée sait rendre, lecture / écriture dans les
+    tables de cette application)."""
+    specs, unknown = _specs_for(request.args.get("apps"))
+    if len(specs) < 2:
+        return jsonify({"error": "au moins deux applications enregistrées sont nécessaires", "unknown": unknown, "apps": sorted(specs)}), 400
+    uni = merge.unified_spec(specs, label=(request.args.get("label") or "outil unique")[:80])
+    view = request.args.get("view")
+    if view:
+        if view not in specs:
+            return jsonify({"error": "application inconnue : %s" % view, "apps": sorted(specs)}), 404
+        return jsonify({**merge.per_app_view(uni, view), "unified_counts": uni["counts"], "apps": uni["apps"]}), 200
+    return jsonify({**uni, "unknown": unknown}), 200
 
 
 @app.route("/apps/<label>/ui-spec", methods=["PUT"])

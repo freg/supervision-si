@@ -1131,8 +1131,9 @@ qui fait alors sauter la file.
     routes, tables du code et du journal SQL via dba-api, carte
     fonctionnelle) ; #443 : rejeu pas à pas, rejeu réel, sous-parcours,
     comparaison ; #444 : (2) interface générée au design du hub (spec
-    par application, listes/fiches sur les tables réelles). Suite : (3) comparer les
-    applications enregistrées → outil de gestion unique ; (4) champs et
+    par application, listes/fiches sur les tables réelles) ; #445 : (3) outil
+    unique (fonctions communes entre applications, spec unifiée rendue sur
+    les données de chaque application). Suite : (4) champs et
     relations inter-applications → méta-graphe, proposition de fusion.
     Reste : premier parcours réel dans Firefox, vrai general_log. Voir
     `retro/README.md`.

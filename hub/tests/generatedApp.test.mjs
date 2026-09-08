@@ -19,3 +19,10 @@ test("navigation, colonnes, formulaire lié, champs éditables", () => {
   assert.equal(filterRows([[1, "Dupont"], [2, "Durand"]], ["id", "nom"], "dur").length, 1);
   assert.equal(specSummary(spec), "3 écran(s), 2 dans la navigation, 3 rattaché(s) à une table, 1 point(s) à compléter");
 });
+
+test("missingFields : champs sans colonne (outil unique projeté)", async () => {
+  const { missingFields } = await import("../src/generatedApp.js");
+  const screen = { pk: "id", fields: [{ name: "nom", column: "name" }, { name: "remise", column: null }, { name: "ville", column: undefined }] };
+  assert.deepEqual(missingFields(screen).map((f) => f.name), ["remise", "ville"]);
+  assert.deepEqual(missingFields(null), []);
+});

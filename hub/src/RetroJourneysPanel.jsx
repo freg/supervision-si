@@ -5,6 +5,7 @@ import {
 } from "./retroClient.js";
 import { STATUS_LABELS, stepTitle, stepSummary, screensByTables, dbTablesLabel, relayCommand, journeyTree, storyboardFrame } from "./retroJourneys.js";
 import GeneratedAppView from "./GeneratedAppView.jsx";
+import UnifiedToolView from "./UnifiedToolView.jsx";
 
 // Parcours applicatifs (livraison #441, backlog 30 volet 2 -- « schéma
 // fonctionnel de l'interface ») : la personne parcourt l'application réelle
@@ -28,6 +29,8 @@ export default function RetroJourneysPanel({ retroApiBase, connections, dbaApiBa
   const [compare, setCompare] = useState(null);
   // #444 : application générée (phase 2)
   const [showGenerated, setShowGenerated] = useState(false);
+  // #445 : outil unique (phase 3)
+  const [showUnified, setShowUnified] = useState(false);
 
   const loadApps = useCallback(async () => {
     const r = await fetchApps(retroApiBase);
@@ -133,6 +136,7 @@ export default function RetroJourneysPanel({ retroApiBase, connections, dbaApiBa
             </label>
           )}
           {app && <button onClick={() => setShowGenerated((v) => !v)} title="écrans déduits des parcours, rendus avec la charte du hub sur les tables réelles">{showGenerated ? "Masquer l'application générée" : "⚙ Application générée"}</button>}
+          {apps.length >= 2 && <button onClick={() => setShowUnified((v) => !v)} title="comparer les applications enregistrées et produire un outil de gestion unique">{showUnified ? "Masquer l'outil unique" : "🧩 Outil unique"}</button>}
           {current && <span className="muted">{current.base_url || "URL de base non renseignée"} · {current.has_scan ? `code analysé le ${current.scanned_at} (${current.scan_summary?.routes} routes)` : "code non analysé"} · {current.dba_connection_id ? `connexion DBA #${current.dba_connection_id}${current.dba_database ? ` / ${current.dba_database}` : ""}` : "sans connexion DBA (pas de journal SQL)"}</span>}
         </div>
 
@@ -150,6 +154,7 @@ export default function RetroJourneysPanel({ retroApiBase, connections, dbaApiBa
       </div>
 
       {app && showGenerated && <GeneratedAppView retroApiBase={retroApiBase} dbaApiBase={dbaApiBase} app={app} onClose={() => setShowGenerated(false)} />}
+      {showUnified && <UnifiedToolView retroApiBase={retroApiBase} dbaApiBase={dbaApiBase} apps={apps} onClose={() => setShowUnified(false)} />}
 
       {app && (
         <div className="hub-card hub-settings-section">
