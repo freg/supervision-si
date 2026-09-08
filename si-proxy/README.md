@@ -1,4 +1,4 @@
-# Bastion si-proxy (livraisons #452, #453)
+# Bastion si-proxy (livraisons #452, #453, #454)
 
 Accès **réservé à freg** (pour l'instant), depuis le Mac, à trois choses via
 le hub :
@@ -84,7 +84,42 @@ curl -s --cacert pki/ca/ca.crt -H "X-Si-Proxy-Admin: $SI_PROXY_ADMIN_TOKEN" http
 curl -s --cacert pki/ca/ca.crt -H "X-Si-Proxy-Admin: $SI_PROXY_ADMIN_TOKEN" -X POST https://super:6452/disable
 ```
 (`super` = le nom du cert du relais ; en local `--resolve super:6452:127.0.0.1`.)
-La tuile « Bastion » du hub (#454) s'appuie sur ces routes.
+
+## Tuile « Bastion » du hub et pont si-proxy-admin-api (#454)
+
+Le jeton d'administration ne doit **jamais** être dans le navigateur. Un
+petit service **`si-proxy-admin-api`** (`si-proxy/admin/`, routé
+`/api/si-proxy/` par la passerelle) fait le pont : il garde le jeton
+côté serveur et n'accepte que les requêtes portant le **jeton d'accès
+Keycloak** de la personne (`Authorization: Bearer`), qu'il **vérifie
+réellement** (signature RS256 contre les clés publiques du realm, URL
+interne `KEYCLOAK_INTERNAL_URL`, expiration) et dont le
+`preferred_username` doit être dans **`SI_PROXY_ADMIN_USERS`** (défaut
+`freg`). C'est le premier service du projet à vérifier le jeton OIDC
+plutôt qu'à faire confiance à des `groups` envoyés par le client — le
+bastion le justifie. Routes : `/whoami`, `/status`, `/audit`,
+`/summary?hours=`, `POST /sessions/<id>/kill`, `/disable`, `/enable`,
+`/unban/<ip>` ; `/health` et `/version` seuls sans jeton. Le pont
+vérifie le certificat de l'interface de contrôle (`https://si-proxy:6452`,
+CA du projet) : le cert du relais doit porter `DNS:si-proxy` dans son
+SAN — `setup-certs.sh` l'ajoute depuis #454 (réémettre un cert émis
+avant).
+
+La **tuile « Bastion »** (`hub/src/SiProxyView.jsx`) n'apparaît qu'aux
+personnes de `VITE_SI_PROXY_ADMIN_USERS` (confort d'affichage ; le
+contrôle réel est le pont) : bandeau d'état (relais, shim host, TLS
+mutuel, compteurs), **pause / reprise**, **sessions en cours** avec
+fermeture, **fail2ban maison** (IP bannies, levée, refus par IP),
+**cibles jointes** sur 24 h / 7 j / 30 j, **journal d'audit** filtrable.
+Rafraîchissement toutes les 5 s.
+
+Dans la **tuile Supervision SI**, une catégorie **Bastion** (🛡) ajoute
+deux supervisés — le relais et le shim host (états : injoignable =
+critique, shim absent ou pause = avertissement) — et, dans l'analyse des
+liens, des liens de type **`bastion`** « hub → cible (N sessions,
+types) », source `si-proxy`, pondérés par les octets échangés (tracés en
+orange sur la carte). Visible seulement pour les personnes autorisées
+(le pont refuse les autres, sans erreur affichée).
 
 ## Mise en place (sur la VM du hub)
 
@@ -148,8 +183,20 @@ Le relais n'accepte alors que les certificats dont le CN est dans
   qui refuse une nouvelle session et `/enable` qui la rétablit, et une
   session ouverte listée dans `/status` puis **tuée** par
   `/sessions/<id>/kill` (le client sort) -- tout vert.
+- #454 (`si-proxy/admin/test_admin_api.py`, 17 tests) : vérification du
+  jeton avec une paire RSA jetable (valide, mauvaise clé, `kid` inconnu
+  puis rechargement, expiré, utilisateur hors liste = 403, casse, `azp`,
+  JWKS injoignable = 503), routes protégées (401 sans jeton, aucune
+  action transmise sans jeton), actions relayées, synthèse (fenêtre,
+  cibles, dernier refus, relais injoignable = critique). Hub : 6 tests
+  Node (`hub/tests/siProxy.test.mjs`, 150 au total). **Chaîne réelle** :
+  relais + shim + contrôle, JWKS factice, pont Flask, jeton signé ->
+  `/status` 200 pour freg, 401 sans jeton, 403 pour un autre
+  utilisateur ; tuile rendue sous Chromium sur cette chaîne (session
+  shell listée puis **fermée depuis la tuile**, **pause** puis reprise),
+  catégorie Bastion et lien `bastion` rendus dans la tuile Supervision SI.
 
 Non vérifié : le déploiement réel sur la VM « super » (systemd, certs de la
-PKI du hub, accès depuis l'extérieur) et le TLS mutuel bout-à-bout — premier
-essai à faire côté hub. Le shell sous freg (drop setuid) n'est exercé ici que
+PKI du hub, accès depuis l'extérieur), le TLS mutuel bout-à-bout, et le pont
+contre le vrai Keycloak (JWKS réel) — premier essai à faire côté hub. Le shell sous freg (drop setuid) n'est exercé ici que
 sous l'utilisateur courant de l'environnement de test.

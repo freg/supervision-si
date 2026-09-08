@@ -190,6 +190,10 @@ SERVICES = [
     # est retiré ici (même mécanique que netprobe). Ajouté dès la
     # première livraison (piège #301).
     ("SI_AGENT_API_PORT", "si-agent-api", 5000, "/api/si-agent/", "api"),
+    # si-proxy-admin-api (livraison #454) -- pont de la tuile « Bastion »
+    # vers l'interface de contrôle du relais si-proxy. Ajouté dès la
+    # première livraison (piège #301).
+    ("SI_PROXY_ADMIN_API_PORT", "si-proxy-admin-api", 5000, "/api/si-proxy/", "api"),
     # geo-catalog-api (livraison #429) -- catalogue de positions.
     ("GEO_CATALOG_API_PORT", "geo-catalog-api", 5000, "/api/geo-catalog/", "api"),
     # relations-api (livraison #335) -- vue relations transversale de

@@ -2488,6 +2488,10 @@ puis élargissement éventuel à d'autres utilisateurs. Voir si-proxy/README.md.
 #453 : journal d'audit JSONL (si-proxy/data), fail2ban maison (ban par IP
 au seuil d'échecs d'auth), interface de contrôle HTTPS 6452 (status,
 audit, kill, disable/enable, unban ; jeton SI_PROXY_ADMIN_TOKEN).
-À faire (#454) : tuile « Bastion » du hub (sessions, historique, kill,
-pause, bans/déban) derrière la passerelle, catégorie dédiée dans la
-supervision (relais/host/sessions) et l'analyse réseau (cibles jointes).
+#454 : tuile « Bastion » (sessions/kill, pause, bans, audit, cibles) via le
+pont si-proxy-admin-api (jeton Keycloak VÉRIFIÉ, SI_PROXY_ADMIN_USERS),
+catégorie Bastion dans Supervision SI + liens « bastion ».
+À faire (#455, demandé) : passe sur l'ensemble des outils et tuiles pour
+rapatrier dans Bastion tout ce qui concerne les entrées/sorties,
+autorisations et partages (tunnels SSH, liens externes, droits, montages
+et partages de fichiers, relais…) -- inventaire puis intégration.

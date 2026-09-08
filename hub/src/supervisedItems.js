@@ -21,6 +21,10 @@ export const ITEM_TYPES = {
   snmp: { label: "Cible SNMP", origin: "snmp", icon: "🧭" },
   tunnel: { label: "Tunnel SSH", origin: "ssh-tunnels", icon: "🔐" },
   wifi: { label: "Sonde WiFi", origin: "netprobe", icon: "📶" },
+  // #454 : catégorie « Bastion » (si-proxy) -- le relais et le shim host
+  // sont supervisés comme des équipements ; visible seulement pour les
+  // personnes autorisées sur la tuile Bastion (le pont refuse les autres).
+  bastion: { label: "Bastion", origin: "si-proxy", icon: "🛡" },
 };
 
 // Tri d'affichage : ce qui demande attention d'abord (l'inconnu avant l'ok).
@@ -131,6 +135,27 @@ export function fromWifiAgents(agents, nowMs = Date.now(), staleAfter = 600) {
 
 function isLoopback(ip) { return /^127\./.test(ip) || ip === "::1"; }
 
+// #454 : synthèse du bastion (si-proxy-admin-api /summary) -> deux
+// supervisés : le relais (conteneur du hub) et le shim host (VM). Ni l'un
+// ni l'autre n'a d'IP propre différente du hub : identité par NOM, pour
+// ne pas fusionner avec l'agent hôte du hub (qui reste un équipement à
+// part) mais rester dans le même site déclaré.
+export function fromSiProxy(summary, { hubHost = "hub", site = null } = {}) {
+  if (!summary || typeof summary !== "object") return [];
+  const relayDown = summary.relay === "down" || summary.state === "critical";
+  const relayState = relayDown ? "critical" : !summary.enabled ? "warning" : "ok";
+  const relayText = relayDown ? (summary.state_text || "relais injoignable") : !summary.enabled ? "bastion en pause" : `${summary.sessions_active || 0} session(s) en cours`;
+  const items = [{ key: "bastion:relay", type: "bastion", name: `Bastion si-proxy (relais ${hubHost})`, ip: null, mac: null, site,
+    state: relayState, stateText: relayText, lastSeen: summary.last_session?.at || null, origin: "si-proxy", originId: "relay",
+    identity: `name:bastion-relay@${norm(hubHost)}` }];
+  if (!relayDown) {
+    items.push({ key: "bastion:host", type: "bastion", name: `Bastion si-proxy (shim host ${hubHost})`, ip: null, mac: null, site,
+      state: summary.host_connected ? "ok" : "warning", stateText: summary.host_connected ? "shim connecté (shell sous freg)" : "shim host non connecté",
+      lastSeen: summary.last_session?.at || null, origin: "si-proxy", originId: "host", identity: `name:bastion-host@${norm(hubHost)}` });
+  }
+  return items;
+}
+
 export function mergeItems(lists) {
   const out = new Map();
   for (const item of lists.flat()) {
@@ -157,6 +182,7 @@ export function aggregateSupervised(sources, nowMs = Date.now()) {
     fromSnmp(sources.snmpTargets),
     fromSshTunnels(sources.sshTunnels, sources.sshConnections),
     fromWifiAgents(sources.wifiAgents, nowMs),
+    fromSiProxy(sources.bastion, { hubHost: sources.hubHost, site: sources.bastionSite }),
   ]);
 }
 
@@ -262,9 +288,18 @@ export function movePriority(priorities, orderedIdentities, identity, delta) {
 // ---- 3. Liens et positions déduites -------------------------------------------
 
 // Liens homogènes : {a, b (identités), kind: "flux"|"tunnel"|"site", weight, label, via}
-export function buildLinks({ naLinks = [], naDevices = [], tunnels = [], connections = [], supervised = [], netviews = [] }) {
+export function buildLinks({ naLinks = [], naDevices = [], tunnels = [], connections = [], supervised = [], netviews = [], bastion = null, hubHost = "hub" }) {
   const devById = new Map((naDevices || []).map((d) => [d.id, d]));
   const out = [];
+  // #454 : accès bastion = cibles jointes depuis le Mac PAR le hub (catégorie
+  // « bastion » de l'analyse des liens ; poids = octets échangés, source
+  // « si-proxy »). Le nœud de départ est le relais du hub.
+  for (const t of bastion?.targets || []) {
+    if (!t.host || isLoopback(t.host)) continue;
+    const ipLike = /^[0-9a-f.:]+$/i.test(t.host) && /[.:]/.test(t.host);
+    out.push({ a: `name:bastion-relay@${norm(hubHost)}`, b: identity(ipLike ? t.host : null, null, t.host), kind: "bastion", weight: t.bytes || 0,
+      label: `${hubHost} → ${t.target} (${t.count} session(s), ${(t.kinds || []).map((k) => ({ shell: "shell host", connect: "https (CONNECT)", http: "http" })[k] || k).join(", ")})`, via: "si-proxy" });
+  }
   // #432 : connexions établies vues par un agent hôte = flux agent <-> pair
   // (poids = nombre de connexions ; source « si-agent », passif).
   for (const nv of netviews || []) {

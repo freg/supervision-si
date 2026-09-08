@@ -1167,6 +1167,28 @@ services:
       - "${SI_PROXY_PORT:-6450}:6450"
       - "127.0.0.1:${SI_PROXY_CONTROL_PORT:-6452}:6452"
 
+  si-proxy-admin-api:
+    # Livraison #454 -- pont entre la tuile « Bastion » du hub et
+    # l'interface de contrôle du relais (#453). Le jeton d'admin du relais
+    # reste ICI (jamais dans le navigateur) ; le hub s'identifie par son
+    # jeton Keycloak, VÉRIFIÉ (RS256/JWKS) et restreint à
+    # SI_PROXY_ADMIN_USERS (freg). Routé /api/si-proxy/ par tls-proxy.
+    build:
+      context: .
+      dockerfile: si-proxy/admin/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ${PKI_DIR:-./pki}/ca/ca.crt:/ca/ca.crt:ro
+    environment:
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=supervision-si
+      - SI_PROXY_ADMIN_USERS=${SI_PROXY_ADMIN_USERS:-freg}
+      - SI_PROXY_ADMIN_TOKEN=${SI_PROXY_ADMIN_TOKEN:-}
+      - SI_PROXY_CONTROL_URL=https://si-proxy:6452
+      - SI_PROXY_CONTROL_CA=/ca/ca.crt
+    depends_on:
+      - si-proxy
+
   network-explorer:
     # Livraison #393 -- demandé explicitement : "un docker front qui
     # se branche sur le/les dockers api" -- SANS Keycloak ni
@@ -1578,6 +1600,9 @@ services:
       - VITE_UPS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/ups
       # Agents hôtes (livraison #421) -- tuile hub pour si-agent-api.
       - VITE_SI_AGENT_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-agent
+      # Bastion si-proxy (livraison #454) -- tuile réservée (SI_PROXY_ADMIN_USERS).
+      - VITE_SI_PROXY_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-proxy
+      - VITE_SI_PROXY_ADMIN_USERS=${SI_PROXY_ADMIN_USERS:-freg}
       # Catalogue de positions (livraison #429) -- tuile hub pour geo-catalog-api.
       - VITE_GEO_CATALOG_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/geo-catalog
       # Supervision SI refondue (livraison #423) -- géolocalisations connues.

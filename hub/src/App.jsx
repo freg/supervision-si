@@ -29,6 +29,8 @@ import RightsView from "./RightsView.jsx";
 import NetprobeView from "./NetprobeView.jsx";
 import UpsView from "./UpsView.jsx";
 import SiAgentView from "./SiAgentView.jsx";
+import SiProxyView from "./SiProxyView.jsx";
+import { canSeeBastion } from "./siProxy.js";
 import SiAgentEventsBanner from "./SiAgentEventsBanner.jsx";
 import SupervisionSiView from "./SupervisionSiView.jsx";
 import ExternalBasesView from "./ExternalBasesView.jsx";
@@ -85,6 +87,10 @@ const NETPROBE_API_BASE_URL = import.meta.env.VITE_NETPROBE_API_BASE_URL || "";
 const UPS_API_BASE_URL = import.meta.env.VITE_UPS_API_BASE_URL || "";
 // Tuile Agents hôtes (livraison #421, backlog 63) -- si-agent-api.
 const SI_AGENT_API_BASE_URL = import.meta.env.VITE_SI_AGENT_API_BASE_URL || "";
+// Tuile Bastion (livraison #454) -- si-proxy-admin-api ; réservée aux
+// preferred_username de VITE_SI_PROXY_ADMIN_USERS (le pont vérifie le jeton).
+const SI_PROXY_API_BASE_URL = import.meta.env.VITE_SI_PROXY_API_BASE_URL || "";
+const SI_PROXY_ADMIN_USERS = import.meta.env.VITE_SI_PROXY_ADMIN_USERS || "freg";
 // Géolocalisations (pixel-grid) -- positions connues pour la nouvelle tuile
 // Supervision SI (livraison #423, backlog 64).
 const PIXEL_GRID_API_BASE_URL = import.meta.env.VITE_PIXEL_GRID_API_BASE_URL || "";
@@ -1282,6 +1288,18 @@ export default function App() {
       onClick: () => setViewMode("si-agent"),
     });
   }
+  // Tuile « Bastion » (livraison #454) -- console du bastion si-proxy,
+  // affichée SEULEMENT aux personnes autorisées (confort : le contrôle
+  // réel est fait par le pont, qui vérifie le jeton Keycloak).
+  const bastionAllowed = !!SI_PROXY_API_BASE_URL && canSeeBastion(profile.preferred_username, SI_PROXY_ADMIN_USERS);
+  if (bastionAllowed) {
+    fronts.push({
+      id: "si-proxy",
+      name: "Bastion",
+      description: "Bastion si-proxy : sessions shell/https en cours, pause, fail2ban maison, journal d'audit, cibles jointes — réservé",
+      onClick: () => setViewMode("si-proxy"),
+    });
+  }
   // Personnalisation de l'accueil, étape 2 (livraison #133) --
   // hubLayout encore undefined tant qu'il n'a jamais été chargé (ou
   // jamais personnalisé) : applyHubLayout gère déjà ce cas par
@@ -1742,6 +1760,8 @@ export default function App() {
           netprobeApiBase={NETPROBE_API_BASE_URL}
           upsApiBase={UPS_API_BASE_URL}
           siAgentApiBase={SI_AGENT_API_BASE_URL}
+          siProxyApiBase={bastionAllowed ? SI_PROXY_API_BASE_URL : ""}
+          accessToken={auth.user?.access_token}
           snmpApiBase={SNMP_API_BASE_URL}
           sshTunnelsApiBase={SSH_TUNNELS_API_BASE_URL}
           networkAgentApiBase={NETWORK_AGENT_API_BASE_URL}
@@ -1754,6 +1774,13 @@ export default function App() {
         <SiAgentView
           onBack={() => setViewMode("grid")}
           siAgentApiBase={SI_AGENT_API_BASE_URL}
+        />
+      ) : viewMode === "si-proxy" && bastionAllowed ? (
+        <SiProxyView
+          onBack={() => setViewMode("grid")}
+          siProxyApiBase={SI_PROXY_API_BASE_URL}
+          accessToken={auth.user?.access_token}
+          username={profile.preferred_username}
         />
       ) : viewMode === "cyber" ? (
         <CyberView

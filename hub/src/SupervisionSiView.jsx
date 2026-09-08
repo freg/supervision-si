@@ -4,6 +4,7 @@ import "leaflet/dist/leaflet.css";
 import { fetchTargets, fetchLatestSamples, fetchAgents as fetchWifiAgents } from "./netprobeClient.js";
 import { fetchUpsList } from "./upsClient.js";
 import { fetchFleet, fetchNetviews } from "./siAgentClient.js";
+import { fetchProxySummary } from "./siProxyClient.js";
 import { fetchSnmpTargets } from "./snmpClient.js";
 import { fetchTunnels, fetchConnections } from "./sshTunnelsClient.js";
 import { fetchSites, fetchDevices, fetchLinks } from "./networkAgentClient.js";
@@ -108,7 +109,7 @@ function FitBounds({ points }) {
 
 export default function SupervisionSiView({
   onBack, onNavigate, legacyFrontendUrl,
-  netprobeApiBase, upsApiBase, siAgentApiBase, snmpApiBase, sshTunnelsApiBase, networkAgentApiBase,
+  netprobeApiBase, upsApiBase, siAgentApiBase, siProxyApiBase, accessToken, snmpApiBase, sshTunnelsApiBase, networkAgentApiBase,
   netmapOrchestratorApiBase, vigilanceApiBase, pixelGridApiBase, groups = [],
 }) {
   const [sources, setSources] = useState(null);
@@ -145,7 +146,7 @@ export default function SupervisionSiView({
     const safe = async (label, fn, fallback) => {
       try { const r = await fn(); if (r && r.error) { errs.push(`${label} : ${r.error}`); return fallback; } return r; } catch (e) { errs.push(`${label} : ${e.message}`); return fallback; }
     };
-    const [netprobeTargets, netprobeLatest, wifiAgents, upsDevices, siAgentFleet, snmpTargets, sshTunnels, sshConnections, sites, suggestions, signals, geolocations, netviews] = await Promise.all([
+    const [netprobeTargets, netprobeLatest, wifiAgents, upsDevices, siAgentFleet, snmpTargets, sshTunnels, sshConnections, sites, suggestions, signals, geolocations, netviews, bastion] = await Promise.all([
       netprobeApiBase ? safe("Sondes réseau", () => fetchTargets(netprobeApiBase), []) : [],
       netprobeApiBase ? safe("Sondes réseau (relevés)", () => fetchLatestSamples(netprobeApiBase), []) : [],
       netprobeApiBase ? safe("Sondes WiFi", async () => (await fetchWifiAgents(netprobeApiBase)).filter((a) => a.role === "probe"), []) : [],
@@ -159,6 +160,8 @@ export default function SupervisionSiView({
       vigilanceApiBase ? safe("Vigilance", () => fetchSignals(vigilanceApiBase), []) : [],
       pixelGridApiBase ? safe("Géolocalisations", async () => { const r = await fetch(`${pixelGridApiBase}/geolocations`); const d = await r.json(); return Array.isArray(d?.geolocations) ? d.geolocations : []; }, []) : [],
       siAgentApiBase ? safe("Agents hôtes (vue réseau)", () => fetchNetviews(siAgentApiBase), []) : [],
+      // #454 : catégorie Bastion (réservée : le pont refuse les autres -> null, sans erreur affichée)
+      siProxyApiBase && accessToken ? (async () => { const r = await fetchProxySummary(siProxyApiBase, accessToken, 24 * 7); return r && !r.error ? r : (r?.status === 401 || r?.status === 403 ? null : (r?.error ? { relay: "down", state: "critical", state_text: r.error } : null)); })() : null,
     ]);
     // appareils et flux de chaque segment (exploration réseau)
     const naDevices = [], naLinks = [];
@@ -174,11 +177,12 @@ export default function SupervisionSiView({
         naLinks.push(...lks);
       }
     }
-    setSources({ netprobeTargets, netprobeLatest, wifiAgents, upsDevices, siAgentFleet, snmpTargets, sshTunnels, sshConnections, sites, suggestions, signals, geolocations, naDevices, naLinks, netviews });
+    const hubHost = (() => { try { return new URL(siProxyApiBase || siAgentApiBase || window.location.href).hostname || "hub"; } catch { return "hub"; } })();
+    setSources({ netprobeTargets, netprobeLatest, wifiAgents, upsDevices, siAgentFleet, snmpTargets, sshTunnels, sshConnections, sites, suggestions, signals, geolocations, naDevices, naLinks, netviews, bastion, hubHost });
     setErrors(errs);
     setLoading(false);
     setNow(Date.now());
-  }, [netprobeApiBase, upsApiBase, siAgentApiBase, snmpApiBase, sshTunnelsApiBase, networkAgentApiBase, netmapOrchestratorApiBase, vigilanceApiBase, pixelGridApiBase]);
+  }, [netprobeApiBase, upsApiBase, siAgentApiBase, siProxyApiBase, accessToken, snmpApiBase, sshTunnelsApiBase, networkAgentApiBase, netmapOrchestratorApiBase, vigilanceApiBase, pixelGridApiBase]);
 
   useEffect(() => { load(); const id = setInterval(load, REFRESH_MS); return () => clearInterval(id); }, [load]);
 
@@ -187,7 +191,7 @@ export default function SupervisionSiView({
   const sitesList = useMemo(() => [...new Set(supervised.map((i) => i.site).filter(Boolean))].sort(), [supervised]);
   const visible = useMemo(() => prioritizeSupervised(filterSupervised(supervised, filter), priorities), [supervised, filter, priorities]);
   const proposals = useMemo(() => (sources ? buildProposals({ suggestions: sources.suggestions, signals: sources.signals, devices: sources.naDevices, supervised, netviews: sources.netviews }) : []), [sources, supervised]);
-  const links = useMemo(() => (sources ? buildLinks({ naLinks: sources.naLinks, naDevices: sources.naDevices, tunnels: sources.sshTunnels, connections: sources.sshConnections, supervised, netviews: sources.netviews }) : []), [sources, supervised]);
+  const links = useMemo(() => (sources ? buildLinks({ naLinks: sources.naLinks, naDevices: sources.naDevices, tunnels: sources.sshTunnels, connections: sources.sshConnections, supervised, netviews: sources.netviews, bastion: sources.bastion, hubHost: sources.hubHost }) : []), [sources, supervised]);
   // #426 : résolution par nom, relancée quand la liste (identités, noms,
   // sites) change -- pas à chaque rafraîchissement d'état.
   const subjectsKey = useMemo(() => resolveKey(supervised, sources?.sites), [supervised, sources]);
@@ -267,7 +271,7 @@ export default function SupervisionSiView({
             <FitBounds points={mapPoints.map((x) => x.p)} />
             {mapLinks.map((l, k) => {
               const a = positions.get(l.a), b = positions.get(l.b);
-              return <Polyline key={k} positions={[[a.lat, a.lon], [b.lat, b.lon]]} pathOptions={{ color: l.kind === "tunnel" ? "#7b61ff" : "#6c8ebf", weight: 1.5, opacity: 0.6 }} />;
+              return <Polyline key={k} positions={[[a.lat, a.lon], [b.lat, b.lon]]} pathOptions={{ color: l.kind === "tunnel" ? "#7b61ff" : l.kind === "bastion" ? "#c2410c" : "#6c8ebf", weight: 1.5, opacity: 0.6 }} />;
             })}
             {mapPoints.map(({ it, p, dlat, dlon }) => (
               <CircleMarker key={it.identity} center={[dlat, dlon]} radius={selected === it.identity ? 11 : 8}
@@ -552,7 +556,7 @@ ${when(new Date(sg.start).toISOString())} → ${when(new Date(sg.end).toISOStrin
 
           {tab === "links" && (
             <div className="ss-linkstab">
-              <p className="muted" style={{ margin: "6px 0" }}>Liens construits automatiquement (flux captés, tunnels, appartenance à un site) : ils régissent la carte — un équipement sans coordonnées est positionné par ce à quoi il parle.</p>
+              <p className="muted" style={{ margin: "6px 0" }}>Liens construits automatiquement (flux captés, tunnels, accès bastion, appartenance à un site) : ils régissent la carte — un équipement sans coordonnées est positionné par ce à quoi il parle.</p>
               <ul className="ss-list">
                 {visible.map((it) => {
                   const p = positions.get(it.identity);

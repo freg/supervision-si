@@ -26,7 +26,9 @@ gen() { # gen <nom> <CN> <SAN?>
   chmod 600 "$OUT/$name.key"
 }
 # SAN : IP si $HUB est une IP, sinon DNS
-if printf '%s' "$HUB" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then SAN="IP:$HUB"; else SAN="DNS:$HUB"; fi
+# + DNS:si-proxy (#454) : nom Docker du relais, pour que si-proxy-admin-api
+# vérifie le certificat de l'interface de contrôle (https://si-proxy:6452).
+if printf '%s' "$HUB" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then SAN="IP:$HUB,DNS:si-proxy"; else SAN="DNS:$HUB,DNS:si-proxy"; fi
 gen relay "$HUB" "$SAN"
 echo "cert serveur du relais émis pour $HUB (si-proxy/certs/relay.crt)"
 if [ "$CLIENTS" = "--clients" ]; then

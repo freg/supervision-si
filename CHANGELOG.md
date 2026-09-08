@@ -1,3 +1,46 @@
+## 2026-09-08 — Tuile « Bastion » du hub, pont si-proxy-admin-api, catégorie Bastion dans la supervision et l'analyse des liens (livraison #454)
+
+Suite de #453 (« une interface de contrôle ? une catégorie spéciale dans
+la supervision et l'analyse réseau ? »).
+
+- **Pont `si-proxy-admin-api`** (`si-proxy/admin/`, service compose,
+  route `/api/si-proxy/`) : le jeton d'administration du relais reste
+  côté serveur, jamais dans le navigateur. Le hub s'identifie par son
+  jeton d'accès Keycloak (`Authorization: Bearer`), **vérifié
+  réellement** (RS256 contre les clés publiques du realm via l'URL
+  interne, expiration, rechargement sur `kid` inconnu) et restreint à
+  `SI_PROXY_ADMIN_USERS` (défaut `freg`) — premier service du projet à
+  vérifier le jeton OIDC plutôt que des `groups` déclarés. Routes :
+  `/whoami`, `/status`, `/audit`, `/summary?hours=`, `POST
+  /sessions/<id>/kill`, `/disable`, `/enable`, `/unban/<ip>`. Le pont
+  vérifie le cert de l'interface de contrôle (`https://si-proxy:6452`) :
+  `setup-certs.sh` ajoute `DNS:si-proxy` au SAN du relais.
+- **Tuile « Bastion »** (`hub/src/SiProxyView.jsx`, logique pure
+  `siProxy.js`, client `siProxyClient.js`), visible seulement pour
+  `VITE_SI_PROXY_ADMIN_USERS` : état (relais, shim host, TLS mutuel,
+  compteurs), pause / reprise, sessions en cours avec fermeture,
+  fail2ban maison (IP bannies + levée, refus par IP), cibles jointes
+  (24 h / 7 j / 30 j, volume), journal d'audit filtrable ; 5 s.
+- **Catégorie Bastion (🛡) dans Supervision SI** (`supervisedItems.js`
+  `fromSiProxy`) : relais et shim host supervisés (injoignable =
+  critique, shim absent ou pause = avertissement) ; **liens `bastion`**
+  « hub → cible (N sessions, types) » via `si-proxy` dans l'analyse des
+  liens (poids = octets, orange sur la carte). Réservé : le pont refuse
+  les autres, sans erreur affichée.
+
+**Vérifié** : 17 tests du pont (paire RSA jetable : valide / mauvaise
+clé / `kid` inconnu / expiré / 403 hors liste / `azp` / JWKS
+injoignable = 503 ; 401 sans jeton et aucune action transmise ;
+synthèse), 6 tests Node (150 au total) ; **chaîne réelle** relais + shim
++ contrôle + JWKS factice + pont Flask + jeton signé (200 freg, 401,
+403 eve) ; tuile rendue sous Chromium sur cette chaîne — session
+shell listée puis fermée depuis la tuile, pause puis reprise ; catégorie
+et lien Bastion rendus dans Supervision SI ; `render_nginx_conf.py
+--check` OK.
+
+**Non vérifié** : le pont contre le vrai Keycloak et le déploiement
+compose sur « super » (comme #452/#453).
+
 ## 2026-09-08 — Bastion si-proxy : journal d'audit, fail2ban maison, interface de contrôle (livraison #453)
 
 Suite à la question « as-tu prévu du log access/error ? une interface de
