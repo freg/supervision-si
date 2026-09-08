@@ -33,6 +33,7 @@ import SiAgentEventsBanner from "./SiAgentEventsBanner.jsx";
 import SupervisionSiView from "./SupervisionSiView.jsx";
 import ExternalBasesView from "./ExternalBasesView.jsx";
 import GeoCatalogView from "./GeoCatalogView.jsx";
+import FusionView from "./FusionView.jsx";
 import GedView from "./GedView.jsx";
 import SshTunnelsView from "./SshTunnelsView.jsx";
 import SnmpView from "./SnmpView.jsx";
@@ -1157,6 +1158,16 @@ export default function App() {
       onClick: () => setViewMode("external-bases"),
     });
   }
+  // Tuile « Fusion IP/MAC » (livraison #431) -- corrélation IPAM / Zenoss
+  // par IP, promue depuis l'ancienne maquette.
+  if (EXTERNAL_BASES.ipam || EXTERNAL_BASES.zenoss) {
+    fronts.push({
+      id: "fusion",
+      name: "Fusion IP/MAC",
+      description: "Corrélation par IP entre IPAM et Zenoss, positions (GeoIP, code postal, nom d'hôte), fiche par adresse",
+      onClick: () => setViewMode("fusion"),
+    });
+  }
   // Tuile « Catalogue de positions » (livraison #429).
   if (GEO_CATALOG_API_BASE_URL) {
     fronts.push({
@@ -1415,7 +1426,7 @@ export default function App() {
             <button
               type="button"
               className={
-                openNavMenu === "reseau" || ["ssh-tunnels", "snmp", "nebula", "glpi-inventory", "architecture", "netmap-orchestrator", "network-cycle", "network-agent", "netprobe", "ups"].includes(viewMode)
+                openNavMenu === "reseau" || ["ssh-tunnels", "snmp", "nebula", "glpi-inventory", "architecture", "netmap-orchestrator", "network-cycle", "network-agent", "netprobe", "ups", "fusion"].includes(viewMode)
                   ? "active"
                   : ""
               }
@@ -1446,6 +1457,11 @@ export default function App() {
                 {NETPROBE_API_BASE_URL && (
                   <button type="button" onClick={() => { setViewMode((v) => (v === "netprobe" ? "grid" : "netprobe")); setOpenNavMenu(null); }}>
                     Sondes réseau
+                  </button>
+                )}
+                {(EXTERNAL_BASES.ipam || EXTERNAL_BASES.zenoss) && (
+                  <button type="button" onClick={() => { setViewMode((v) => (v === "fusion" ? "grid" : "fusion")); setOpenNavMenu(null); }}>
+                    Fusion IP/MAC
                   </button>
                 )}
                 {UPS_API_BASE_URL && (
@@ -1712,6 +1728,8 @@ export default function App() {
           onBack={() => setViewMode("grid")}
           upsApiBase={UPS_API_BASE_URL}
         />
+      ) : viewMode === "fusion" ? (
+        <FusionView onBack={() => setViewMode("grid")} ipamApiBase={EXTERNAL_BASES.ipam} zenossApiBase={EXTERNAL_BASES.zenoss} pixelGridApiBase={PIXEL_GRID_API_BASE_URL} groups={groups} onNavigate={(t) => setViewMode(t)} />
       ) : viewMode === "geo-catalog" ? (
         <GeoCatalogView onBack={() => setViewMode("grid")} geoCatalogApiBase={GEO_CATALOG_API_BASE_URL} groups={groups} onNavigate={(t) => setViewMode(t)} />
       ) : viewMode === "external-bases" ? (

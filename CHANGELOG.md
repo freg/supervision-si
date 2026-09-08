@@ -1,3 +1,18 @@
+## 2026-09-08 — Tuile « Fusion IP/MAC » : corrélation IPAM / Zenoss par IP promue dans le hub, positions par IP et par nom, GeoIP / code postal / nom d'hôte (livraison #431)
+
+Backlog 64, point (4), suite : l'onglet Fusion IP/MAC de l'ancienne
+maquette devient une tuile du hub (menu Réseau). Voir `docs/fusion-ip-mac.md`.
+
+- `hub/src/fusionLib.js` (pur, 4 tests, 127 au total) : fusion par IP,
+  filtres, colonnes, sévérité, classification IPv4, positions (table par
+  IP puis correspondance par nom #426), synthèse.
+- `hub/src/FusionView.jsx` + `fusionClient.js` : table, filtres, colonnes
+  masquables, fiche par IP, trois compléments de géolocalisation avec le
+  droit *manage* transmis, liens vers Supervision SI et le catalogue.
+
+**Vérifié** : tests, build Vite, rendu sur faux IPAM/Zenoss avec le vrai
+pixel-grid. **Non vérifié** : ipam-api / zenoss-api réels, GeoIP réel.
+
 ## 2026-09-08 — Catalogue de positions : base PostGIS dédiée et déplaçable, références data.gouv.fr / OSM, interprétation, justesse en %, valider / corriger, objets rattachés (livraison #429)
 
 Backlog 67. Nouveau module `geo-catalog/` (README) et tuile hub

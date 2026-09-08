@@ -110,7 +110,7 @@ export default function ExternalBasesView({ onBack, bases, legacyFrontendUrl }) 
         </div>
         <span style={{ flex: 1 }} />
         {health && <span className={`np-tone ${health.status === "ok" ? "good" : "warn"}`} style={{ fontSize: 12 }}>{source?.label} : {health.status === "ok" ? "base joignable" : `dégradé (${health.db || health.error || "?"})`}</span>}
-        {legacyFrontendUrl && <a className="secondary ss-legacy" href={legacyFrontendUrl} target="_blank" rel="noreferrer" title="OwnCloud et la fusion IP/MAC restent dans l'ancienne maquette pour l'instant">ancienne maquette ↗</a>}
+        {legacyFrontendUrl && <a className="secondary ss-legacy" href={legacyFrontendUrl} target="_blank" rel="noreferrer" title="ancienne maquette (OwnCloud est dans la tuile GED, la fusion IP/MAC a sa tuile depuis #431)">ancienne maquette ↗</a>}
       </div>
       {sources.length === 0 && <p className="muted">Aucune base externe configurée (VITE_IPAM_API_BASE_URL, VITE_ZENOSS_API_BASE_URL, VITE_OPTICK_API_BASE_URL, VITE_TTSGU_API_BASE_URL, VITE_CACTI_API_BASE_URL).</p>}
 

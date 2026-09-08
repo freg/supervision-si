@@ -2402,8 +2402,9 @@ qui fait alors sauter la file.
     des contenus de cadre de la tuile, nourris par les tuiles.
     Avancement (#425) : IPAM, Zenoss, Optick, TTS-GU et Cacti promus en
     UNE tuile générique « Bases externes » (docs/bases-externes.md).
-    Reste : OwnCloud et la fusion IP/MAC en tuiles, la géomatique, puis
-    retrait de l'ancien front.
+    Avancement (#431) : Fusion IP/MAC en tuile (docs/fusion-ip-mac.md) ;
+    OwnCloud est dans la tuile GED depuis #354. Reste : la géomatique
+    (GeoImportApp), puis retrait de l'ancien front.
     Avancement (#426) : géolocalisation par le nom (« UPS-Arobase-5 » →
     @5), correspondances persistées dans pixel-grid, cadre
     « Localisations » (docs/geolocalisation-par-nom.md).

@@ -1910,3 +1910,16 @@ button.secondary { background: var(--panel); }
 .gc-links { list-style: none; margin: 0; padding: 0; font-size: 12px; }
 .gc-links li { padding: 3px 0; border-bottom: 1px solid var(--border); display: flex; gap: 6px; align-items: center; }
 @media (max-width: 1100px) { .gc-body { grid-template-columns: 1fr; } }
+/* Tuile Fusion IP/MAC (livraison #431) -- FusionView.jsx */
+.fu-body { grid-template-columns: 1fr 380px; }
+.fu-toolbar { flex-wrap: wrap; }
+.fu-toolbar .ss-search { width: 220px; }
+.fu-table { width: 100%; }
+.fu-table tr { cursor: pointer; }
+.fu-table tr.active td { background: var(--accent-bg, rgba(74, 110, 224, 0.12)); }
+.fu-table td { white-space: normal; word-break: break-word; vertical-align: top; }
+.fu-src-ipam { border-color: #4a6ee0; } .fu-src-zenoss { border-color: #d69a2b; }
+.fu-byname { font-size: 11px; font-style: italic; }
+.fu-cols-menu { position: absolute; right: 0; top: 24px; z-index: 20; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; display: flex; flex-direction: column; gap: 3px; font-size: 12px; min-width: 190px; }
+.fu-detail h4 { margin: 10px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+@media (max-width: 1100px) { .fu-body { grid-template-columns: 1fr; } }
