@@ -70,6 +70,11 @@ export async function fetchObservedSubnets(apiBase, segmentId, prefixLength) {
   const data = await fetchJson(apiBase, `/observed-subnets?segment_id=${segmentId}${query}`);
   return Array.isArray(data) ? data : [];
 }
+// #427 : fiche récapitulative d'un sous-réseau observé -> objet ou null
+export async function fetchSubnetDetail(apiBase, segmentId, subnet) {
+  const data = await fetchJson(apiBase, `/observed-subnet?segment_id=${segmentId}&subnet=${encodeURIComponent(subnet)}`);
+  return data && !data.error && data.subnet ? data : null;
+}
 export async function fetchPresenceHistory(apiBase, deviceId) {
   const data = await fetchJson(apiBase, `/devices/${deviceId}/presence-history`);
   return Array.isArray(data) ? data : [];

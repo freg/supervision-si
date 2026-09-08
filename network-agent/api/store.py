@@ -125,6 +125,26 @@ CREATE INDEX IF NOT EXISTS idx_na_link_services_pair ON na_device_link_services(
 -- pas seulement celui figé à la capture) révèle l'évolution entre
 -- les deux. Retenue VOLONTAIREMENT bornée dans le temps -- voir
 -- `purge_old_snapshots` -- jamais une croissance illimitée.
+-- IP DISTANTES vues derrière un relais (livraison #427) : une IP hors du
+-- CIDR du segment n'est JAMAIS l'adresse de la MAC qui la porte (c'est la
+-- passerelle) -- elle est rangée ici, avec le relais (`via_device_id`) et
+-- le sens (in = source distante, out = destination distante). C'est ce
+-- qui nourrit la fiche « sous-réseau » : d'où vient un sous-réseau qui
+-- n'est pas le LAN immédiat, quelles IP y ont été vues, par quel relais.
+CREATE TABLE IF NOT EXISTS na_remote_ips (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    network_segment_id INTEGER NOT NULL REFERENCES na_network_segments(id),
+    via_device_id INTEGER NOT NULL REFERENCES na_devices(id),
+    ip_address TEXT NOT NULL,
+    direction TEXT NOT NULL,
+    first_seen TEXT NOT NULL,
+    last_seen TEXT NOT NULL,
+    packet_count INTEGER NOT NULL DEFAULT 0,
+    bytes_total INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(network_segment_id, via_device_id, ip_address, direction)
+);
+CREATE INDEX IF NOT EXISTS idx_na_remote_ips_segment ON na_remote_ips(network_segment_id);
+
 CREATE TABLE IF NOT EXISTS na_history_snapshots (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     network_segment_id INTEGER NOT NULL REFERENCES na_network_segments(id),
@@ -298,6 +318,29 @@ def upsert_device(conn, network_segment_id, mac_address, ip_address, bytes_delta
         [ip_address, now, bytes_delta, 1 if is_external_relay else 0, device_id],
     )
     return device_id
+
+
+def upsert_remote_ip(conn, network_segment_id, via_device_id, ip_address, direction, bytes_delta):
+    """IP hors segment vue derrière `via_device_id` (livraison #427) --
+    même motif UPSERT que les autres compteurs cumulatifs."""
+    now = now_iso()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id FROM na_remote_ips WHERE network_segment_id = ? AND via_device_id = ? AND ip_address = ? AND direction = ?",
+        [network_segment_id, via_device_id, ip_address, direction],
+    )
+    row = cur.fetchone()
+    if row is None:
+        cur.execute(
+            """INSERT INTO na_remote_ips (network_segment_id, via_device_id, ip_address, direction, first_seen, last_seen, packet_count, bytes_total)
+               VALUES (?, ?, ?, ?, ?, ?, 1, ?)""",
+            [network_segment_id, via_device_id, ip_address, direction, now, now, bytes_delta],
+        )
+        return
+    cur.execute(
+        "UPDATE na_remote_ips SET last_seen = ?, packet_count = packet_count + 1, bytes_total = bytes_total + ? WHERE id = ?",
+        [now, bytes_delta, row["id"]],
+    )
 
 
 def upsert_device_service(conn, device_id, protocol, port):
@@ -730,6 +773,21 @@ def list_filter_options(db_path, network_segment_id=None):
         conn.close()
 
 
+def _segment_cidr(cur, network_segment_id):
+    cur.execute("SELECT cidr FROM na_network_segments WHERE id = ?", [network_segment_id])
+    row = cur.fetchone()
+    return row["cidr"] if row and row["cidr"] else None
+
+
+def _in_cidr(subnet, cidr):
+    if not cidr:
+        return None
+    try:
+        return ipaddress.ip_network(subnet, strict=False).subnet_of(ipaddress.ip_network(cidr, strict=False))
+    except (ValueError, TypeError):
+        return None
+
+
 def list_observed_subnets(db_path, network_segment_id, prefix_length=24):
     """Découverte de sous-réseaux DEPUIS LE TRAFIC OBSERVÉ (livraison
     #256, demandé explicitement -- "notre module d'exploration doit
@@ -737,55 +795,180 @@ def list_observed_subnets(db_path, network_segment_id, prefix_length=24):
     faut-il couvrir]" -- backlog item 21, préparation GLPI Inventory).
     Plutôt que d'exiger que la personne connaisse déjà tous ses
     sous-réseaux à l'avance, ce module les REGROUPE lui-même depuis
-    les adresses IP des appareils déjà découverts -- un supernet
-    configuré large (ex. le /16 réel de la personne) laisse
-    apparaître sa STRUCTURE INTERNE réelle (les /24 effectivement en
-    usage) à mesure que la capture avance.
+    les adresses IP déjà vues -- un supernet configuré large (ex. le
+    /16 réel de la personne) laisse apparaître sa STRUCTURE INTERNE
+    réelle (les /24 effectivement en usage) à mesure que la capture
+    avance.
 
-    **AUCUNE nouvelle table, aucun nouveau chemin d'écriture dans
-    `capture.py`** -- calcul PUREMENT en lecture, à partir de
-    `na_devices` déjà rempli, groupé côté Python (SQLite n'a pas de
-    fonction CIDR native) via le module standard `ipaddress`, déjà
-    utilisé ailleurs dans ce module (voir `capture.py`).
+    Livraison #427 : DEUX origines, distinguées -- les IP des appareils
+    du segment (MAC vue : `device_count`) et les IP DISTANTES vues
+    derrière un relais (`na_remote_ips` : `remote_ip_count`, `via` =
+    relais) ; `origin` = local | relais | mixte ; `in_segment` = le
+    sous-réseau est dans le CIDR configuré (None si pas de CIDR). C'est
+    la réponse à « je vois d'autres sous-réseaux que le LAN immédiat, mais
+    aucune de leurs IP dans les appareils découverts » : elles ne sont pas
+    des appareils, elles sont derrière la passerelle.
 
-    `prefix_length` (défaut 24) -- la granularité du regroupement,
-    paramétrable (le réseau réel de la personne semble structuré en
-    /24 à l'intérieur d'un /16, mais rien ne force cette hypothèse
-    pour un autre déploiement).
-
-    Renvoie une liste triée par nombre d'appareils décroissant --
-    {"subnet": "192.168.1.0/24", "device_count", "first_seen",
-    "last_seen"} -- les sous-réseaux avec LE PLUS d'appareils
-    d'abord, signal le plus direct de "où est le trafic réel".
-    Adresses IP absentes ou malformées IGNORÉES proprement (jamais
-    une exception qui interromprait toute la liste pour UNE IP
-    inattendue)."""
+    Calcul PUREMENT en lecture, groupé côté Python via `ipaddress`.
+    `prefix_length` (défaut 24) -- granularité du regroupement. Tri par
+    nombre d'adresses décroissant. IP malformées IGNORÉES proprement."""
     conn = get_connection(db_path)
     try:
         cur = conn.cursor()
+        cidr = _segment_cidr(cur, network_segment_id)
         cur.execute(
             "SELECT ip_address, first_seen, last_seen FROM na_devices WHERE network_segment_id = ? AND ip_address IS NOT NULL",
             [network_segment_id],
         )
-        rows = cur.fetchall()
+        local_rows = cur.fetchall()
+        cur.execute(
+            """SELECT r.ip_address, r.first_seen, r.last_seen, r.packet_count, r.direction,
+                      d.mac_address AS via_mac, d.ip_address AS via_ip, d.hostname AS via_hostname
+               FROM na_remote_ips r JOIN na_devices d ON d.id = r.via_device_id
+               WHERE r.network_segment_id = ?""",
+            [network_segment_id],
+        )
+        remote_rows = cur.fetchall()
     finally:
         conn.close()
 
     grouped = {}
-    for row in rows:
+
+    def entry_for(ip):
         try:
-            network = ipaddress.ip_network(f"{row['ip_address']}/{prefix_length}", strict=False)
+            network = ipaddress.ip_network(f"{ip}/{prefix_length}", strict=False)
         except ValueError:
-            continue  # IP malformée/inattendue -- ignorée, jamais une exception qui casse toute la liste
+            return None  # IP malformée/inattendue -- ignorée, jamais une exception qui casse toute la liste
         key = str(network)
         if key not in grouped:
-            grouped[key] = {"subnet": key, "device_count": 0, "first_seen": row["first_seen"], "last_seen": row["last_seen"]}
-        entry = grouped[key]
-        entry["device_count"] += 1
-        entry["first_seen"] = min(entry["first_seen"], row["first_seen"])
-        entry["last_seen"] = max(entry["last_seen"], row["last_seen"])
+            grouped[key] = {"subnet": key, "device_count": 0, "remote_ip_count": 0, "packet_count": 0, "first_seen": None, "last_seen": None,
+                            "via": [], "in_segment": _in_cidr(key, cidr), "_remote_ips": set()}
+        return grouped[key]
 
-    return sorted(grouped.values(), key=lambda e: -e["device_count"])
+    def touch(e, first, last):
+        e["first_seen"] = first if e["first_seen"] is None else min(e["first_seen"], first)
+        e["last_seen"] = last if e["last_seen"] is None else max(e["last_seen"], last)
+
+    for row in local_rows:
+        e = entry_for(row["ip_address"])
+        if e is None:
+            continue
+        e["device_count"] += 1
+        touch(e, row["first_seen"], row["last_seen"])
+    for row in remote_rows:
+        e = entry_for(row["ip_address"])
+        if e is None:
+            continue
+        e["_remote_ips"].add(row["ip_address"])
+        e["packet_count"] += row["packet_count"]
+        touch(e, row["first_seen"], row["last_seen"])
+        via = row["via_hostname"] or row["via_ip"] or row["via_mac"]
+        if via not in e["via"]:
+            e["via"].append(via)
+
+    out = []
+    for e in grouped.values():
+        e["remote_ip_count"] = len(e.pop("_remote_ips"))
+        e["origin"] = "mixte" if e["device_count"] and e["remote_ip_count"] else ("local" if e["device_count"] else "relais")
+        out.append(e)
+    return sorted(out, key=lambda e: -(e["device_count"] + e["remote_ip_count"]))
+
+
+def subnet_detail(db_path, network_segment_id, subnet):
+    """Fiche récapitulative d'UN sous-réseau (livraison #427) : d'où il
+    vient (segment configuré, appareils locaux, relais), les IP vues (avec
+    l'appareil ou le relais, le sens, les volumes), les services de ses
+    appareils, les échanges qui le concernent, premières/dernières vues.
+    `subnet` en notation CIDR ; IP malformées ignorées."""
+    try:
+        net = ipaddress.ip_network(subnet, strict=False)
+    except ValueError:
+        return None
+
+    def inside(ip):
+        try:
+            return ipaddress.ip_address(ip) in net
+        except (ValueError, TypeError):
+            return False
+
+    conn = get_connection(db_path)
+    try:
+        cur = conn.cursor()
+        cidr = _segment_cidr(cur, network_segment_id)
+        cur.execute("SELECT s.label, s.cidr, si.name AS site FROM na_network_segments s JOIN na_sites si ON si.id = s.site_id WHERE s.id = ?", [network_segment_id])
+        seg = cur.fetchone()
+        cur.execute("SELECT * FROM na_devices WHERE network_segment_id = ? AND ip_address IS NOT NULL", [network_segment_id])
+        devices = [dict(r) for r in cur.fetchall() if inside(r["ip_address"])]
+        device_ids = [d["id"] for d in devices]
+        services = []
+        if device_ids:
+            q = ",".join("?" * len(device_ids))
+            cur.execute(f"SELECT device_id, protocol, port, packet_count, last_seen FROM na_device_services WHERE device_id IN ({q}) ORDER BY packet_count DESC", device_ids)
+            services = [dict(r) for r in cur.fetchall()]
+            cur.execute(
+                f"""SELECT l.device_a_id, l.device_b_id, l.packet_count, l.bytes_total, l.last_seen,
+                           a.ip_address AS a_ip, a.mac_address AS a_mac, a.hostname AS a_hostname,
+                           b.ip_address AS b_ip, b.mac_address AS b_mac, b.hostname AS b_hostname
+                    FROM na_device_links l JOIN na_devices a ON a.id = l.device_a_id JOIN na_devices b ON b.id = l.device_b_id
+                    WHERE l.network_segment_id = ? AND (l.device_a_id IN ({q}) OR l.device_b_id IN ({q}))
+                    ORDER BY l.bytes_total DESC LIMIT 200""",
+                [network_segment_id, *device_ids, *device_ids],
+            )
+            links = [dict(r) for r in cur.fetchall()]
+        else:
+            links = []
+        cur.execute(
+            """SELECT r.ip_address, r.direction, r.first_seen, r.last_seen, r.packet_count, r.bytes_total,
+                      d.id AS via_id, d.mac_address AS via_mac, d.ip_address AS via_ip, d.hostname AS via_hostname, d.role_hint AS via_role
+               FROM na_remote_ips r JOIN na_devices d ON d.id = r.via_device_id
+               WHERE r.network_segment_id = ? ORDER BY r.bytes_total DESC""",
+            [network_segment_id],
+        )
+        remote = [dict(r) for r in cur.fetchall() if inside(r["ip_address"])]
+    finally:
+        conn.close()
+
+    ips = {}
+    for d in devices:
+        ips[d["ip_address"]] = {"ip": d["ip_address"], "kind": "appareil", "mac": d["mac_address"], "hostname": d.get("hostname"),
+                                "first_seen": d["first_seen"], "last_seen": d["last_seen"], "packet_count": d["packet_count"], "bytes_total": d["bytes_total"], "via": None, "directions": []}
+    for r in remote:
+        e = ips.setdefault(r["ip_address"], {"ip": r["ip_address"], "kind": "distante", "mac": None, "hostname": None, "first_seen": r["first_seen"], "last_seen": r["last_seen"],
+                                             "packet_count": 0, "bytes_total": 0, "via": None, "directions": []})
+        if e["kind"] == "distante":
+            e["packet_count"] += r["packet_count"]; e["bytes_total"] += r["bytes_total"]
+            e["first_seen"] = min(e["first_seen"], r["first_seen"]); e["last_seen"] = max(e["last_seen"], r["last_seen"])
+            e["via"] = r["via_hostname"] or r["via_ip"] or r["via_mac"]
+            if r["direction"] not in e["directions"]:
+                e["directions"].append(r["direction"])
+    relays = {}
+    for r in remote:
+        k = r["via_id"]
+        relays.setdefault(k, {"device_id": k, "mac": r["via_mac"], "ip": r["via_ip"], "hostname": r["via_hostname"], "role_hint": r["via_role"], "ip_count": 0, "bytes_total": 0})
+        relays[k]["ip_count"] += 1
+        relays[k]["bytes_total"] += r["bytes_total"]
+    all_first = [x["first_seen"] for x in ips.values()]
+    all_last = [x["last_seen"] for x in ips.values()]
+    in_segment = _in_cidr(str(net), cidr)
+    if in_segment:
+        explanation = "Sous-réseau inclus dans le CIDR configuré du segment : ses adresses sont des appareils vus directement (MAC connue)."
+    elif in_segment is False:
+        explanation = ("Sous-réseau HORS du CIDR configuré : ses adresses ont été vues comme sources ou destinations de paquets relayés par une "
+                       "passerelle du segment -- ce ne sont pas des appareils du LAN immédiat, elles n'apparaissent donc pas dans la table des découvertes.")
+    else:
+        explanation = ("Aucun CIDR configuré sur ce segment (NETWORK_AGENT_SEGMENT_CIDR) : local et distant ne peuvent pas être distingués -- "
+                       "les IP publiques sont traitées comme distantes, le reste est attribué à la MAC qui le porte.")
+    if not devices and not remote:
+        explanation += " Aucune adresse de ce sous-réseau n'est connue avec cette granularité."
+    return {
+        "subnet": str(net), "segment": dict(seg) if seg else None, "segment_cidr": cidr, "in_segment": in_segment, "explanation": explanation,
+        "device_count": len(devices), "remote_ip_count": sum(1 for x in ips.values() if x["kind"] == "distante"),
+        "first_seen": min(all_first) if all_first else None, "last_seen": max(all_last) if all_last else None,
+        "ips": sorted(ips.values(), key=lambda x: ipaddress.ip_address(x["ip"])),
+        "relays": sorted(relays.values(), key=lambda r: -r["bytes_total"]),
+        "services": services, "links": links,
+        "sources": [x for x, ok in (("appareils du segment (MAC vue, ARP ou trafic)", bool(devices)), ("trafic relayé (IP distantes derrière une passerelle)", bool(remote))) if ok],
+    }
 
 
 def list_devices_needing_dns_resolution(db_path, stale_before_iso, limit=50):

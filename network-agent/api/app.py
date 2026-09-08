@@ -257,6 +257,20 @@ def observed_subnets():
     return jsonify(store.list_observed_subnets(DB_PATH, segment_id, prefix_length=prefix_length)), 200
 
 
+@app.route("/observed-subnet", methods=["GET"])
+def observed_subnet_detail():
+    """Fiche récapitulative d'un sous-réseau (livraison #427) --
+    `segment_id` et `subnet` (CIDR) requis."""
+    segment_id = request.args.get("segment_id", type=int)
+    subnet = request.args.get("subnet")
+    if not segment_id or not subnet:
+        return jsonify({"error": "'segment_id' et 'subnet' requis"}), 400
+    detail = store.subnet_detail(DB_PATH, segment_id, subnet)
+    if detail is None:
+        return jsonify({"error": "sous-réseau invalide (notation CIDR attendue)"}), 400
+    return jsonify(detail), 200
+
+
 @app.route("/devices/<int:device_id>/services", methods=["GET"])
 def list_device_services(device_id):
     return jsonify(store.list_device_services(DB_PATH, device_id)), 200

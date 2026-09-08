@@ -1872,3 +1872,7 @@ button.secondary { background: var(--panel); }
 .ss-geo table { table-layout: fixed; width: 100%; }
 .ss-geo td, .ss-geo th { white-space: normal; word-break: break-word; }
 .ss-geo th:nth-child(1) { width: 32%; } .ss-geo th:nth-child(2) { width: 30%; } .ss-geo th:nth-child(3) { width: 15%; }
+/* #427 : fiche d'un sous-réseau observé (NetworkAgentView) */
+.na-subnets tr { cursor: pointer; }
+.na-subnet-card { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
+.na-chip { display: inline-block; padding: 1px 6px; margin: 0 4px 4px 0; border: 1px solid var(--border); border-radius: 10px; font-size: 11px; }

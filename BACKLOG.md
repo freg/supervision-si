@@ -2415,6 +2415,8 @@ qui fait alors sauter la file.
     tout ce qui le concerne -- d'où il a été pris (source, segment,
     agent), quelles IP y ont été vues, appareils, flux, découvertes -- et
     expliquer/corriger l'absence du LAN immédiat.
+    LIVRÉ en #427 (fiche, IP distantes derrière leur relais, IP des
+    appareils passifs) -- à confirmer en capture réelle.
 66. Agent hôte -- premier exemplaire réel (2026-09-08, demandé avec #426) :
     un Linux dans un sous-réseau isolé/filtré mais accessible par route
     directe. (1) découverte passive du réseau depuis l'hôte (voisins ARP /

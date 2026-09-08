@@ -782,3 +782,57 @@ PENDANT la période, par différence de relevés (`na_link_history`, relevé de
 le cumul (`device_a_id`, `device_b_id`, `bytes_total`, `packet_count`) avec
 `period: true` et un `id` synthétique `period-<a>-<b>`. Tests :
 `python3 -m unittest test_links_period.py` (base SQLite temporaire).
+
+## Fiche récapitulative d'un sous-réseau, IP distantes derrière un relais (livraison #427)
+
+Constat remonté : « dans sous-réseaux je vois autre chose que le LAN
+immédiat, mais aucune IP de ce LAN dans les appareils découverts, pas plus
+que ce sous-réseau dans la table des découvertes ». Cause dans `capture.py` :
+un paquet **venant de l'extérieur** arrive avec la MAC de la passerelle et
+l'IP distante comme source ; `upsert_device(src_mac, src_ip)` attribuait
+donc l'IP distante (8.8.8.8, 10.20.0.5…) à la passerelle -- sa vraie IP
+était écrasée à chaque paquet relayé, et les sous-réseaux « observés »
+n'étaient que le reflet de ces IP baladeuses. Et un appareil qui ne fait
+que **recevoir** (NAS, imprimante) n'avait jamais d'IP (seules les sources
+en donnaient une).
+
+Corrections :
+
+- une IP source **hors du CIDR du segment** n'est plus l'adresse de la MAC
+  qui la porte : elle est rangée dans la nouvelle table `na_remote_ips`
+  (segment, relais `via_device_id`, IP, sens `in`/`out`, compteurs), et la
+  MAC est comptée comme relais (`external_relay_count`) ; les destinations
+  distantes y sont rangées aussi (sens `out`) ;
+- une destination **dans** le CIDR est bien l'adresse de la MAC
+  destinataire (livraison locale sur le L2) : les appareils passifs ont
+  désormais une IP ; sans CIDR configuré rien n'est déduit ;
+- sans CIDR, une IP **publique** est traitée comme distante (elle ne peut
+  pas être celle d'un appareil du LAN capté) ; le privé reste attribué à
+  la MAC (impossible de distinguer) -- configurer `NETWORK_AGENT_SEGMENT_CIDR`
+  reste la vraie réponse.
+
+`GET /observed-subnets` distingue maintenant les deux origines :
+`device_count` (appareils du segment), `remote_ip_count` (IP distantes),
+`origin` = `local` | `relais` | `mixte`, `via` (relais), `in_segment`
+(dans le CIDR configuré ; `null` sans CIDR), `packet_count`. Nouvelle route
+`GET /observed-subnet?segment_id=&subnet=<cidr>` : la **fiche** -- segment
+et CIDR, dans/hors segment avec l'explication en clair, d'où viennent les
+adresses (appareils / trafic relayé), relais (MAC, IP, nom, rôle, nombre
+d'IP, volume), chaque IP (appareil ou distante, MAC ou relais, nom, sens,
+paquets, volume, première/dernière vue), services des appareils du
+sous-réseau, échanges concernés (200 max).
+
+Hub, tuile Exploration réseau : colonnes Origine / IP distantes / Via dans
+le tableau des sous-réseaux, flèche ⇢ pour un sous-réseau hors segment, et
+**clic sur une ligne** → la fiche sous le tableau.
+
+Migration : `CREATE TABLE IF NOT EXISTS` (schéma), aucune reprise des
+données passées -- les IP déjà attribuées à tort à une passerelle sont
+corrigées au prochain paquet local de celle-ci (COALESCE), les IP
+distantes se reconstituent au fil de la capture.
+
+Vérifié : 4 tests (`test_observed_subnets.py` : IP distante jamais
+attribuée au relais, deux origines, fiche, sans CIDR), non-régression des
+tests existants (14), rendu hub sur faux back-end. Non vérifié : capture
+réelle (à confirmer au prochain déploiement : la passerelle doit garder
+son IP et le LAN immédiat apparaître en `local`).

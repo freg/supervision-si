@@ -1,3 +1,31 @@
+## 2026-09-08 — Exploration réseau : fiche récapitulative d'un sous-réseau, IP distantes rangées derrière leur relais (livraison #427)
+
+Constat : des sous-réseaux « observés » sans aucun appareil correspondant
+dans les découvertes. Cause : une IP source venant de l'extérieur (MAC de
+la passerelle, IP distante) était attribuée à la passerelle, dont la vraie
+IP était écrasée à chaque paquet relayé ; et un appareil qui ne fait que
+recevoir n'avait jamais d'IP. Voir `network-agent/README.md` (§ #427).
+
+- `capture.py` / `store.py` : table `na_remote_ips` (IP hors CIDR, relais,
+  sens in/out, compteurs) ; une source hors segment n'est plus l'IP de la
+  MAC (relais compté) ; une destination dans le CIDR devient l'IP de la
+  MAC destinataire ; sans CIDR, les IP publiques sont distantes.
+- `GET /observed-subnets` : `device_count` / `remote_ip_count` / `origin`
+  (local, relais, mixte) / `via` / `in_segment` / `packet_count` ;
+  `GET /observed-subnet?segment_id=&subnet=` : fiche (segment, CIDR,
+  explication en clair, relais, chaque IP avec origine, sens, volumes,
+  services, échanges).
+- Hub, Exploration réseau : colonnes Origine / IP distantes / Via, clic sur
+  un sous-réseau → fiche sous le tableau.
+- BACKLOG : items 65 (fiche sous-réseau, livré ici), 66 (agent hôte :
+  découverte passive + revue de l'hôte), 67 (catalogue de positions, base
+  OSM déplaçable sur un hôte secondaire) enregistrés en #426.
+
+**Vérifié** : 4 tests nouveaux + 10 existants (network-agent), rendu hub
+sur faux back-end. **Non vérifié** : capture réelle -- à confirmer au
+déploiement (la passerelle garde son IP, le LAN immédiat apparaît en
+« local »).
+
 ## 2026-09-08 — Géolocalisation par le nom : « UPS-Arobase-5 » se place sur le site Arobase 5 / @5, correspondances persistées, validées d'office et corrigeables (livraison #426)
 
 Demandé sur la tuile Supervision SI : un équipement dont le nom contient

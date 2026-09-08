@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   fetchCaptureStatus, fetchSites, fetchDevices, fetchDeviceServices,
-  fetchAllServices, fetchLinks, fetchPresenceHistory, fetchObservedSubnets,
+  fetchAllServices, fetchLinks, fetchPresenceHistory, fetchObservedSubnets, fetchSubnetDetail,
   fetchFilterOptions, fetchDevicesForPeriod, fetchLinkHistory, fetchLinkServices,
 } from "./networkAgentClient.js";
 import { formatBytes, computeDeltaSeries, buildBarLayout, sumDeltas } from "./networkAgentHistory.js";
@@ -128,6 +128,65 @@ function HistoryBars({ rows, label }) {
   );
 }
 
+// #427 : fiche récapitulative d'un sous-réseau observé -- d'où il vient
+// (segment, CIDR, relais), quelles IP y ont été vues (appareil ou distante,
+// sens, volumes), services et échanges concernés.
+function SubnetCard({ detail: d, onClose }) {
+  const fmt = (iso) => (iso ? new Date(iso).toLocaleString("fr-FR") : "—");
+  const kb = (b) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} Mo` : b >= 1024 ? `${Math.round(b / 1024)} Ko` : `${b || 0} o`);
+  return (
+    <div className="na-subnet-card">
+      <div className="ss-tool-head">
+        <strong>Sous-réseau {d.subnet}</strong>
+        <span className={`np-tone ${d.in_segment ? "good" : d.in_segment === false ? "warn" : "neutral"}`} style={{ fontSize: 11 }}>
+          {d.in_segment ? "dans le segment" : d.in_segment === false ? "hors segment (relayé)" : "segment sans CIDR"}
+        </span>
+        <span style={{ flex: 1 }} />
+        <button className="secondary ss-origin" onClick={onClose}>fermer</button>
+      </div>
+      <p style={{ margin: "4px 0" }}>{d.explanation}</p>
+      <p className="muted" style={{ margin: "0 0 8px", fontSize: 12 }}>
+        Segment {d.segment?.site ? `${d.segment.site} / ` : ""}{d.segment?.label || "?"} (CIDR {d.segment_cidr || "non configuré"}) ·
+        {" "}{d.device_count} appareil(s) · {d.remote_ip_count} IP distante(s) · vu de {fmt(d.first_seen)} à {fmt(d.last_seen)}
+        {d.sources?.length ? <> · d'où : {d.sources.join(" ; ")}</> : null}
+      </p>
+      {d.relays?.length > 0 && (
+        <p style={{ margin: "0 0 8px", fontSize: 12 }}>
+          <strong>Relais :</strong>{" "}
+          {d.relays.map((r) => <span key={r.device_id} className="na-chip">{r.hostname || r.ip || r.mac}{r.role_hint ? ` (${r.role_hint})` : ""} · {r.ip_count} IP · {kb(r.bytes_total)}</span>)}
+        </p>
+      )}
+      <div className="hub-table-scroll" style={{ maxHeight: 260 }}>
+        <table>
+          <thead><tr><th>IP</th><th>Type</th><th>MAC / relais</th><th>Nom</th><th>Sens</th><th>Paquets</th><th>Volume</th><th>Vue la 1ère fois</th><th>Vue la dernière fois</th></tr></thead>
+          <tbody>
+            {d.ips.map((ip) => (
+              <tr key={ip.ip}>
+                <td><code>{ip.ip}</code></td>
+                <td>{ip.kind === "appareil" ? "appareil du segment" : "distante"}</td>
+                <td className="muted" style={{ fontSize: 11 }}>{ip.kind === "appareil" ? ip.mac : `via ${ip.via || "?"}`}</td>
+                <td>{ip.hostname || <span className="muted">—</span>}</td>
+                <td className="muted">{ip.directions?.length ? ip.directions.map((x) => (x === "in" ? "source" : "destination")).join(" + ") : "—"}</td>
+                <td>{ip.packet_count}</td>
+                <td className="muted">{kb(ip.bytes_total)}</td>
+                <td className="muted">{fmt(ip.first_seen)}</td>
+                <td className="muted">{fmt(ip.last_seen)}</td>
+              </tr>
+            ))}
+            {d.ips.length === 0 && <tr><td colSpan={9} className="muted">Aucune adresse connue.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      {(d.services?.length > 0 || d.links?.length > 0) && (
+        <p className="muted" style={{ margin: "8px 0 0", fontSize: 12 }}>
+          {d.services?.length > 0 && <>Services vus sur ses appareils : {[...new Set(d.services.map((s) => `${s.protocol}/${s.port}`))].slice(0, 12).join(", ")}{d.services.length > 12 ? "…" : ""}. </>}
+          {d.links?.length > 0 && <>{d.links.length} échange(s) concerné(s), le plus volumineux : {d.links[0].a_hostname || d.links[0].a_ip || d.links[0].a_mac} → {d.links[0].b_hostname || d.links[0].b_ip || d.links[0].b_mac} ({kb(d.links[0].bytes_total)}).</>}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function NetworkAgentView({ onBack, networkAgentApiBase, classifierApiBase }) {
   const [status, setStatus] = useState(null);
   const [sites, setSites] = useState([]);
@@ -136,6 +195,9 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
   const [allServices, setAllServices] = useState({});
   const [links, setLinks] = useState([]);
   const [observedSubnets, setObservedSubnets] = useState([]);
+  // #427 : fiche du sous-réseau cliqué
+  const [subnetDetail, setSubnetDetail] = useState(null);
+  const [subnetDetailLoading, setSubnetDetailLoading] = useState(false);
   const [subnetPrefixLength, setSubnetPrefixLength] = useState(24);
   const [showSubnets, setShowSubnets] = useState(false);
   const [showFlowVisualizations, setShowFlowVisualizations] = useState(false);
@@ -287,6 +349,14 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
     if (!selectedSegment) return;
     const p = prefixLength || subnetPrefixLength;
     setObservedSubnets(await fetchObservedSubnets(networkAgentApiBase, selectedSegment.id, p));
+  }
+
+  async function openSubnet(subnet) {
+    if (!selectedSegment) return;
+    if (subnetDetail?.subnet === subnet) { setSubnetDetail(null); return; }
+    setSubnetDetailLoading(true);
+    setSubnetDetail(await fetchSubnetDetail(networkAgentApiBase, selectedSegment.id, subnet));
+    setSubnetDetailLoading(false);
   }
 
   function toggleShowSubnets() {
@@ -530,13 +600,16 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
               {observedSubnets.length === 0 ? (
                 <p className="muted">Aucun sous-réseau observé pour l'instant.</p>
               ) : (
-                <table>
-                  <thead><tr><th>Sous-réseau</th><th>Appareils</th><th>Vu la 1ère fois</th><th>Vu la dernière fois</th></tr></thead>
+                <table className="na-subnets">
+                  <thead><tr><th>Sous-réseau</th><th>Origine</th><th>Appareils</th><th>IP distantes</th><th>Via</th><th>Vu la 1ère fois</th><th>Vu la dernière fois</th></tr></thead>
                   <tbody>
                     {observedSubnets.map((s) => (
-                      <tr key={s.subnet}>
-                        <td>{s.subnet}</td>
+                      <tr key={s.subnet} className={`ups-row${subnetDetail?.subnet === s.subnet ? " active" : ""}`} onClick={() => openSubnet(s.subnet)} title="ouvrir la fiche de ce sous-réseau">
+                        <td><strong>{s.subnet}</strong>{s.in_segment === false && <span className="muted" title="hors du CIDR configuré du segment"> ⇢</span>}</td>
+                        <td><span className={`np-tone ${s.origin === "local" ? "good" : s.origin === "relais" ? "warn" : "neutral"}`} style={{ fontSize: 11 }}>{s.origin === "relais" ? "relayé" : s.origin || "local"}</span></td>
                         <td>{s.device_count}</td>
+                        <td>{s.remote_ip_count ?? 0}</td>
+                        <td className="muted" style={{ fontSize: 11 }}>{(s.via || []).slice(0, 2).join(", ")}{(s.via || []).length > 2 ? "…" : ""}</td>
                         <td className="muted">{new Date(s.first_seen).toLocaleString("fr-FR")}</td>
                         <td className="muted">{new Date(s.last_seen).toLocaleString("fr-FR")}</td>
                       </tr>
@@ -544,6 +617,8 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                   </tbody>
                 </table>
               )}
+              {subnetDetailLoading && <p className="muted">Chargement de la fiche…</p>}
+              {subnetDetail && <SubnetCard detail={subnetDetail} onClose={() => setSubnetDetail(null)} />}
             </div>
           )}
 

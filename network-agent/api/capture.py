@@ -102,9 +102,14 @@ def ip_outside_cidr(ip_str, cidr_str):
     détection de relais externe possible dans ce cas, pas une
     approximation risquée) ou si l'IP est malformée (paquet
     corrompu/atypique, jamais bloquant)."""
-    if not cidr_str or not ip_str:
+    if not ip_str:
         return False
     try:
+        if not cidr_str:
+            # #427 : sans CIDR, une adresse PUBLIQUE ne peut pas être celle
+            # d'un appareil du LAN capté -- traitée comme distante ; le reste
+            # est laissé tel quel (pas d'approximation sur le privé).
+            return ipaddress.ip_address(ip_str).is_global
         return ipaddress.ip_address(ip_str) not in ipaddress.ip_network(cidr_str, strict=False)
     except ValueError:
         return False
@@ -132,16 +137,30 @@ def process_packet(conn, network_segment_id, segment_cidr, summary):
     src_ip, dst_ip = summary["src_ip"], summary["dst_ip"]
 
     dst_is_external = ip_outside_cidr(dst_ip, segment_cidr)
+    # #427 : une IP SOURCE hors segment n'est pas l'adresse de la MAC qui
+    # la porte (c'est la passerelle qui relaie) -- avant, elle écrasait
+    # l'IP de la passerelle et faisait apparaître des sous-réseaux sans
+    # aucun appareil correspondant. Rangée dans na_remote_ips.
+    src_is_external = ip_outside_cidr(src_ip, segment_cidr)
 
     src_device_id = None
     if is_unicast_mac(src_mac):
-        src_device_id = store.upsert_device(conn, network_segment_id, src_mac, src_ip,
-                                             bytes_delta=summary["orig_len"], is_external_relay=False)
+        src_device_id = store.upsert_device(conn, network_segment_id, src_mac, None if src_is_external else src_ip,
+                                             bytes_delta=summary["orig_len"], is_external_relay=src_is_external)
+        if src_is_external and src_ip:
+            store.upsert_remote_ip(conn, network_segment_id, src_device_id, src_ip, "in", summary["orig_len"])
 
     dst_device_id = None
     if is_unicast_mac(dst_mac):
-        dst_device_id = store.upsert_device(conn, network_segment_id, dst_mac, None,
+        # #427 : une destination DANS le CIDR configuré est bien l'adresse de
+        # la MAC destinataire (livraison locale sur le L2) -- un appareil qui
+        # ne fait que recevoir (NAS, imprimante) avait jusqu'ici une MAC sans
+        # IP. Sans CIDR, rien n'est déduit (la MAC pourrait être la passerelle).
+        dst_ip_local = dst_ip if (segment_cidr and not dst_is_external) else None
+        dst_device_id = store.upsert_device(conn, network_segment_id, dst_mac, dst_ip_local,
                                              bytes_delta=0, is_external_relay=dst_is_external)
+        if dst_is_external and dst_ip:
+            store.upsert_remote_ip(conn, network_segment_id, dst_device_id, dst_ip, "out", summary["orig_len"])
 
     if kind in ("tcp", "udp") and dst_device_id is not None and summary["dst_port"] is not None:
         store.upsert_device_service(conn, dst_device_id, kind, summary["dst_port"])
