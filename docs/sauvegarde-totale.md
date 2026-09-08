@@ -1,4 +1,4 @@
-# Sauvegarde totale, restauration sur un autre host, régénération (livraison #458)
+# Sauvegarde totale et incrémentale, restauration sur un autre host, régénération, gestionnaire (livraisons #458, #459)
 
 Trois scripts dans `scripts/`, un seul moteur (`scripts/full_backup.py`,
 logique pure testée par `scripts/test_full_backup.py`) :
@@ -43,6 +43,40 @@ SI_BACKUP_PASSPHRASE=… ./scripts/backup-full.sh     # sans interaction (cron)
 L'archive `supervision-si-backup-<host>-<date>.tar.gz.enc` est en `0600`.
 `--no-encrypt` seulement vers un support déjà chiffré. `--no-docker`
 (volumes et dumps omis) et `--no-sql` existent pour les cas particuliers.
+
+## Sauvegarde incrémentale et gestionnaire (livraison #459)
+
+Demandé : « un second incrémental et un gestionnaire avec export », en
+souvenir d'ARCserve (Cheyenne, NetWare) : un **catalogue de sessions**,
+des **chaînes** totale → incrémentales, une **rotation GFS** et la
+restauration « à une date ».
+
+`./scripts/backup-full.sh --incremental` (ou le gestionnaire) ne prend que
+ce qui a changé depuis la dernière archive du même dossier : index des
+fichiers des montages (`backups/.state.json`), commits git nouveaux (bundle
+partiel), `.env`, `pg_dumpall` ; les fichiers supprimés sont listés dans le
+manifeste et retirés à la restauration. Les **volumes Docker ne sont pris
+qu'en totale** (les bases sont couvertes par les dumps SQL). Chaque archive
+a un manifeste en clair à côté (`<nom>.manifest.json`, aucun secret) ;
+`restore-full.sh <incrémentale>` retrouve et rejoue **toute la chaîne**
+(totale puis incrémentales) automatiquement.
+
+Le **gestionnaire** est l'onglet « Sauvegardes du hub » de la tuile
+Sauvegardes (thématique Sécurité & accès) : catalogue par chaîne, taille,
+livraison et commit de chaque session, **exécution** d'une totale ou d'une
+incrémentale (une à la fois, journal du dernier run), **rotation GFS**
+(`SI_BACKUP_KEEP_DAILY` totales récentes, `KEEP_WEEKLY` hebdomadaires,
+`KEEP_MONTHLY` mensuelles ; les incrémentales suivent leur totale ;
+aperçu puis purge confirmée), **export** (téléchargement de l'archive
+chiffrée telle quelle -- la phrase reste dans `.env`), suppression, et
+**point de restauration** (commande à lancer pour une session donnée).
+Planification dans `.env` : `SI_BACKUP_INCR_HOURS` (incrémentale toutes
+les N h) et `SI_BACKUP_FULL_WEEKDAY` / `SI_BACKUP_FULL_HOUR` (totale
+hebdomadaire) ; `SI_BACKUP_PASSPHRASE` est obligatoire -- sans elle, le
+gestionnaire refuse (jamais d'archive en clair). Le conteneur
+`backup-restore-api` monte la racine du projet (`/project`) et le socket
+Docker (volumes) ; `SI_BACKUP_HOST_ROOT` (`${PWD}`) traduit les chemins
+pour `docker run -v`. Actions gardées par le droit `manage` (rights-api).
 
 ## Restaurer sur un autre host
 
@@ -100,5 +134,12 @@ d'essai, PKI générée, 12 montages) → restauration dans un autre dossier
 mauvaise phrase refusée → régénération avec une autre IP et
 `--rotate-tokens` (`.env` réécrit sans toucher aux sels, certificat
 serveur avec la nouvelle IP en SAN, relais `DNS:superbis,DNS:si-proxy`,
-CA inchangée, liste d'actions). 5 tests purs. **Non vérifié** : la partie
-Docker (volumes, `pg_dumpall`) et le shim côté host — à faire sur « super ».
+CA inchangée, liste d'actions). 5 tests purs. #459 : totale puis
+incrémentale (1 fichier changé, 1 supprimé, commits nouveaux, 26 Ko) →
+restauration de la chaîne dans un dossier neuf (commit récupéré, fichier
+présent, fichier supprimé absent) ; 5 tests purs du gestionnaire
+(catalogue, chaînes, orphelines, GFS, planification) ; API réelle
+(catalogue, run incrémental avec le vrai moteur, refus d'un second run
+simultané, export, suppression, rotation) ; onglet rendu sous Chromium.
+**Non vérifié** : la partie Docker (volumes, `pg_dumpall`, image avec le
+client docker) et le shim côté host — à faire sur « super ».

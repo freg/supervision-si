@@ -1,3 +1,36 @@
+## 2026-09-08 — Sauvegarde incrémentale et gestionnaire de sauvegardes du hub avec export, façon ARCserve (livraison #459)
+
+Demandé : « un second incrémental et un gestionnaire avec export » ; la
+personne se souvenait d'un système d'archivage Novell des années 80-90 —
+c'était ARCserve (Cheyenne Software, NetWare) : catalogue de sessions,
+chaînes totale → incrémentales, rotation GFS, restauration à une date.
+Repris ici.
+
+- **Incrémentale** (`backup-full.sh --incremental`, moteur #458) : index
+  des fichiers des montages (`backups/.state.json`), seuls les fichiers
+  changés/nouveaux sont archivés, les supprimés listés dans le manifeste
+  et retirés à la restauration ; commits git nouveaux en bundle partiel ;
+  `.env` et `pg_dumpall` toujours ; volumes Docker en totale seulement.
+  Manifeste en clair à côté de chaque archive (aucun secret) ;
+  `restore-full.sh <incrémentale>` retrouve et rejoue toute la chaîne.
+- **Gestionnaire** : onglet « Sauvegardes du hub » de la tuile Sauvegardes
+  (`backup-restore-api` : `/hub-backups`, `/run`, `/prune`,
+  `/<nom>/download`, `DELETE`) — catalogue par chaîne (taille, livraison,
+  commit), exécution d'une totale ou d'une incrémentale (une à la fois,
+  journal), rotation GFS (`SI_BACKUP_KEEP_DAILY/WEEKLY/MONTHLY`, aperçu puis
+  purge), **export** de l'archive chiffrée, suppression, point de
+  restauration (archives à rejouer + commande). Planification par `.env`
+  (`SI_BACKUP_INCR_HOURS`, `SI_BACKUP_FULL_WEEKDAY/HOUR`) ;
+  `SI_BACKUP_PASSPHRASE` obligatoire. Le conteneur monte `/project` et le
+  socket Docker (git, openssl, client docker dans l'image ; 1 worker).
+
+**Vérifié** : chaîne réelle totale → incrémentale → restauration de la
+chaîne dans un dossier neuf ; 5 tests purs du gestionnaire + 5 du moteur ;
+API réelle avec le vrai moteur (run, refus de run simultané, export,
+suppression, rotation) ; onglet rendu sous Chromium (162 tests Node).
+**Non vérifié** : image Docker de backup-restore-api (client docker
+téléchargé au build) et volumes sur « super ».
+
 ## 2026-09-08 — Sauvegarde totale, restauration sur un autre host, régénération de ce qui est propre au host (livraison #458)
 
 Demandé : « un mécanisme de backup total et de restore sur un autre host

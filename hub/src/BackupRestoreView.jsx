@@ -1,5 +1,79 @@
 import React, { useState, useEffect } from "react";
-import { fetchImages, createImage, deleteImage, fetchCoverage } from "./backupRestoreClient.js";
+import { fetchImages, createImage, deleteImage, fetchCoverage, fetchHubBackups, runHubBackup, deleteHubBackup, pruneHubBackups, hubBackupDownloadUrl } from "./backupRestoreClient.js";
+import { fmtSize, KIND_LABEL, restorePoint, chainSummary, scheduleText, lastRunText } from "./hubBackups.js";
+
+// --- Sauvegardes DU HUB (livraison #459) : catalogue de sessions façon
+// ARCserve (chaînes totale -> incrémentales), exécution, rotation GFS,
+// export de l'archive chiffrée, point de restauration. ---
+function HubBackupsView({ apiBase, groups }) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const load = async () => {
+    const r = await fetchHubBackups(apiBase);
+    if (r.error) setError(r.error); else { setError(null); setData(r); }
+  };
+  useEffect(() => { load(); const id = setInterval(load, 10000); return () => clearInterval(id); }, [apiBase]); // eslint-disable-line react-hooks/exhaustive-deps
+  const act = async (label, fn) => { setBusy(true); const r = await fn(); setBusy(false); setNotice(r?.error ? `${label} : ${r.error}` : `${label} : ${r.started ? "lancée" : "fait"}`); load(); };
+  if (error) return <p className="hub-error">{error}</p>;
+  if (!data) return <p className="muted">Chargement…</p>;
+  const st = data.status || {};
+  const selChain = selected ? data.chains.find((c) => (c.full && c.full.name === selected.name) || c.increments.some((i) => i.name === selected.name)) : null;
+  const point = selChain ? restorePoint(selChain, selected.name) : [];
+  return (
+    <div>
+      <p style={{ margin: "0 0 8px" }}>
+        {st.configured ? <span className="np-tone good">phrase de chiffrement configurée</span> : <span className="np-tone bad">SI_BACKUP_PASSPHRASE absent dans .env — aucune sauvegarde possible</span>}
+        {" · "}planification : {scheduleText(st.schedule)}{" · "}dernier run : {lastRunText(st.last)}
+        {st.running && <> · <span className="np-tone warn">⏳ {KIND_LABEL[st.running.kind]} en cours depuis {st.running.started_at}</span></>}
+        {!data.engine_present && <> · <span className="np-tone bad">scripts/full_backup.py introuvable dans /project</span></>}
+      </p>
+      <p style={{ margin: "0 0 10px" }}>
+        <button className="primary" disabled={busy || !st.configured || !!st.running} onClick={() => act("Sauvegarde totale", () => runHubBackup(apiBase, "full", groups))}>▶ Totale maintenant</button>{" "}
+        <button className="secondary" disabled={busy || !st.configured || !!st.running} onClick={() => act("Sauvegarde incrémentale", () => runHubBackup(apiBase, "incremental", groups))}>▶ Incrémentale maintenant</button>{" "}
+        <button className="secondary" disabled={busy || !data.prune?.drop?.length} title={`Rotation GFS : ${data.gfs?.keep_daily} récentes, ${data.gfs?.keep_weekly} hebdo, ${data.gfs?.keep_monthly} mensuelles`}
+          onClick={() => { if (window.confirm(`Supprimer ${data.prune.drop.length} chaîne(s) hors rotation GFS ?`)) act("Rotation GFS", () => pruneHubBackups(apiBase, true, groups)); }}>
+          🗑 Rotation GFS ({data.prune?.drop?.length || 0} chaîne(s) à purger)</button>{" "}
+        <button className="secondary" disabled={busy} onClick={load}>↻</button>
+      </p>
+      {notice && <p className="muted ups-notice">{notice} <button className="secondary" onClick={() => setNotice(null)}>✕</button></p>}
+      {st.last && st.last.rc !== 0 && <details><summary className="hub-error">Journal du dernier run (échec)</summary><pre style={{ fontSize: 11, maxHeight: 200, overflow: "auto" }}>{st.last.log}</pre></details>}
+      {data.chains.length === 0 ? <p className="muted">Aucune session dans {st.backup_dir} — lancer une totale.</p> : data.chains.map((c) => (
+        <div key={c.key} className="hub-card hub-settings-section" style={{ margin: "8px 0", padding: 10, textAlign: "left" }}>
+          <strong>{c.full ? `Chaîne du ${c.full.created_at}` : "Incrémentales orphelines"}</strong> <span className="muted">— {chainSummary(c)}{data.prune?.why?.[c.key] ? ` · conservée (${data.prune.why[c.key]})` : data.prune?.drop?.includes(c.key) ? " · hors rotation GFS" : ""}</span>
+          <div className="hub-table-scroll">
+            <table>
+              <thead><tr><th>Session</th><th>Type</th><th>Date</th><th>Livraison</th><th>Contenu</th><th>Taille</th><th></th></tr></thead>
+              <tbody>{(c.full ? [c.full] : []).concat(c.increments).map((s) => (
+                <tr key={s.name} className={selected?.name === s.name ? "active" : ""} onClick={() => setSelected(s)} style={{ cursor: "pointer" }}>
+                  <td>{s.name}{!s.present && <span className="np-tone bad"> archive absente</span>}</td>
+                  <td>{KIND_LABEL[s.kind]}</td><td>{s.created_at}</td><td>#{s.delivery || "?"} {s.commit}</td>
+                  <td className="muted">{s.kind === "full" ? `${s.mounts} montage(s), ${s.volumes} volume(s)` : `${s.changed_files ?? "?"} fichier(s) changé(s), ${s.deleted} supprimé(s)`}</td>
+                  <td>{fmtSize(s.size)}</td>
+                  <td>
+                    {s.present && <a className="secondary ss-origin" href={hubBackupDownloadUrl(apiBase, s.name)} download>⬇ exporter</a>}{" "}
+                    <button className="secondary ss-origin" disabled={busy} onClick={(e) => { e.stopPropagation(); if (window.confirm(`Supprimer ${s.name} ?`)) act("Suppression", () => deleteHubBackup(apiBase, s.name, groups)); }}>✕</button>
+                  </td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+      {selected && (
+        <div className="hub-card hub-settings-section" style={{ padding: 10, textAlign: "left" }}>
+          <strong>Point de restauration : {selected.name}</strong>
+          <p className="muted" style={{ margin: "4px 0" }}>Archives à rejouer dans l'ordre (restore-full.sh les enchaîne automatiquement depuis la dernière) :</p>
+          <ol style={{ margin: 0 }}>{point.map((m) => <li key={m.name}>{m.name} <span className="muted">({KIND_LABEL[m.kind]}, {fmtSize(m.size)})</span></li>)}</ol>
+          <pre style={{ fontSize: 12, margin: "6px 0 0" }}>{`./scripts/restore-full.sh backups/${point[point.length - 1]?.archive || ""} --into /chemin/nouveau-host
+./scripts/regenerate-host.sh`}</pre>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Tuile "Sauvegardes" (hub), livraison #270 -- backlog item 27
 // Étend la vue #249 avec les connecteurs BackupPC, Clonezilla, Restic
@@ -378,8 +452,8 @@ function ResticView({ apiBase }) {
 }
 
 // --- Vue principale ---
-export default function BackupRestoreView({ onBack, backupRestoreApiBase }) {
-  const [tab, setTab] = useState("coverage");
+export default function BackupRestoreView({ onBack, backupRestoreApiBase, groups = [] }) {
+  const [tab, setTab] = useState("hub"); // #459 : les sauvegardes du hub d'abord
   const [coverage, setCoverage] = useState(null);
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -433,6 +507,7 @@ export default function BackupRestoreView({ onBack, backupRestoreApiBase }) {
   }
 
   const tabs = [
+    { id: "hub", label: "Sauvegardes du hub" },
     { id: "coverage", label: "Couverture" },
     { id: "images", label: "Images enregistrées" },
     { id: "backuppc", label: "BackupPC" },
@@ -473,6 +548,7 @@ export default function BackupRestoreView({ onBack, backupRestoreApiBase }) {
         {tab === "backuppc" && <BackupPCView apiBase={backupRestoreApiBase} />}
         {tab === "clonezilla" && <ClonezillaView apiBase={backupRestoreApiBase} />}
         {tab === "restic" && <ResticView apiBase={backupRestoreApiBase} />}
+        {tab === "hub" && <HubBackupsView apiBase={backupRestoreApiBase} groups={groups} />}
 
         {loading && (tab === "coverage" || tab === "images") && <p className="muted">Chargement…</p>}
 

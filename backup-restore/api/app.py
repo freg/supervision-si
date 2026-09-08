@@ -573,3 +573,105 @@ def restic_check():
     from connectors.restic import get_connector
     connector = get_connector()
     return jsonify(connector.check()), 200
+
+
+# ---------------------------------------------------------------------
+# Sauvegardes DU HUB (livraison #459) -- catalogue des sessions
+# (totales / incrémentales chaînées, scripts/full_backup.py #458),
+# exécution, rotation GFS, export (téléchargement de l'archive chiffrée).
+# Le conteneur monte la racine du projet (/project) et le socket Docker ;
+# SI_BACKUP_PASSPHRASE (.env) chiffre les archives -- sans elle, rien ne
+# tourne. Actions (run, prune, delete) gardées par le droit `manage`.
+# ---------------------------------------------------------------------
+import hub_backups  # noqa: E402
+
+HUB_PROJECT_ROOT = os.environ.get("SI_BACKUP_PROJECT_ROOT", "/project")
+HUB_BACKUP_DIR = os.environ.get("SI_BACKUP_DIR") or os.path.join(HUB_PROJECT_ROOT, "backups")
+_hub_runner = hub_backups.Runner(
+    HUB_PROJECT_ROOT, HUB_BACKUP_DIR, passphrase=os.environ.get("SI_BACKUP_PASSPHRASE") or None,
+    host_root=os.environ.get("SI_BACKUP_HOST_ROOT") or None,
+    incr_hours=os.environ.get("SI_BACKUP_INCR_HOURS", "0"),
+    full_weekday=(int(os.environ["SI_BACKUP_FULL_WEEKDAY"]) if os.environ.get("SI_BACKUP_FULL_WEEKDAY", "").strip() != "" else None),
+    full_hour=os.environ.get("SI_BACKUP_FULL_HOUR", "2"))
+if os.path.isdir(HUB_PROJECT_ROOT):
+    _hub_runner.start_scheduler()
+
+GFS = {"keep_daily": int(os.environ.get("SI_BACKUP_KEEP_DAILY", "7")), "keep_weekly": int(os.environ.get("SI_BACKUP_KEEP_WEEKLY", "4")),
+       "keep_monthly": int(os.environ.get("SI_BACKUP_KEEP_MONTHLY", "6"))}
+
+
+@app.route("/hub-backups", methods=["GET"])
+def hub_backups_list():
+    sessions = hub_backups.read_catalog(HUB_BACKUP_DIR)
+    chains = hub_backups.build_chains(sessions)
+    plan = hub_backups.gfs_plan(chains, **GFS)
+    return jsonify({"sessions": sessions, "chains": chains, "status": _hub_runner.status(), "gfs": GFS,
+                    "prune": {"drop": [c["key"] for c in plan["drop"]], "why": plan["why"]},
+                    "engine_present": os.path.exists(os.path.join(HUB_PROJECT_ROOT, "scripts", "full_backup.py"))}), 200
+
+
+@app.route("/hub-backups/status", methods=["GET"])
+def hub_backups_status():
+    return jsonify(_hub_runner.status()), 200
+
+
+@app.route("/hub-backups/run", methods=["POST"])
+def hub_backups_run():
+    body = request.get_json(silent=True) or {}
+    ok, why = _check_manage_right(body)
+    if not ok:
+        return jsonify({"error": why}), 403
+    kind = body.get("kind") or "incremental"
+    if kind not in ("full", "incremental"):
+        return jsonify({"error": "kind : full | incremental"}), 400
+    started, err = _hub_runner.start(kind)
+    if not started:
+        return jsonify({"error": err}), 409
+    return jsonify({"started": kind}), 202
+
+
+@app.route("/hub-backups/<name>/download", methods=["GET"])
+def hub_backups_download(name):
+    """Export : l'archive CHIFFRÉE telle quelle (la phrase reste dans .env)."""
+    if not hub_backups.safe_name(name):
+        return jsonify({"error": "nom invalide"}), 400
+    from flask import send_from_directory
+    for ext in (".tar.gz.enc", ".tar.gz"):
+        if os.path.exists(os.path.join(HUB_BACKUP_DIR, name + ext)):
+            return send_from_directory(HUB_BACKUP_DIR, name + ext, as_attachment=True)
+    return jsonify({"error": "archive introuvable"}), 404
+
+
+@app.route("/hub-backups/<name>", methods=["DELETE"])
+def hub_backups_delete(name):
+    body = request.get_json(silent=True) or {}
+    ok, why = _check_manage_right(body)
+    if not ok:
+        return jsonify({"error": why}), 403
+    if not hub_backups.safe_name(name):
+        return jsonify({"error": "nom invalide"}), 400
+    removed = []
+    for ext in (".tar.gz.enc", ".tar.gz", ".manifest.json"):
+        p = os.path.join(HUB_BACKUP_DIR, name + ext)
+        if os.path.exists(p):
+            os.remove(p)
+            removed.append(name + ext)
+    return jsonify({"removed": removed}), 200 if removed else 404
+
+
+@app.route("/hub-backups/prune", methods=["POST"])
+def hub_backups_prune():
+    """Rotation GFS : supprime les chaînes hors plan (dry_run par défaut)."""
+    body = request.get_json(silent=True) or {}
+    ok, why = _check_manage_right(body)
+    if not ok:
+        return jsonify({"error": why}), 403
+    chains = hub_backups.build_chains(hub_backups.read_catalog(HUB_BACKUP_DIR))
+    plan = hub_backups.gfs_plan(chains, **GFS)
+    files = [f for c in plan["drop"] for f in hub_backups.files_of_chain(c)]
+    if body.get("apply"):
+        for f in files:
+            p = os.path.join(HUB_BACKUP_DIR, f)
+            if os.path.exists(p):
+                os.remove(p)
+    return jsonify({"applied": bool(body.get("apply")), "dropped_chains": [c["key"] for c in plan["drop"]], "files": files, "gfs": GFS}), 200

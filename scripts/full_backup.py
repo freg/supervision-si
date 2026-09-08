@@ -316,6 +316,55 @@ def _passphrase(args, confirm=False):
     return p
 
 
+# ------------------------------------------------------ incrémental --
+HOST_ROOT = os.environ.get("SI_BACKUP_HOST_ROOT")   # chemin de ROOT vu du démon Docker (exécution en conteneur, #459)
+
+
+def docker_path(p):
+    """Chemin à passer à `docker run -v` : identique sur le host ; traduit
+    quand ce script tourne dans un conteneur qui monte ROOT (SI_BACKUP_HOST_ROOT)."""
+    return p.replace(ROOT, HOST_ROOT, 1) if HOST_ROOT and p.startswith(ROOT) else p
+
+
+def file_index(mounts):
+    """Index {chemin relatif: [taille, mtime_ns]} de tous les fichiers des
+    montages (pour l'incrémental : ce qui a changé depuis le dernier index)."""
+    idx = {}
+    for m in mounts:
+        base = abs_path(m["path"])
+        if os.path.isfile(base):
+            st = os.stat(base)
+            idx[m["path"]] = [st.st_size, st.st_mtime_ns]
+        elif os.path.isdir(base):
+            for d, _dirs, files in os.walk(base):
+                for f in files:
+                    fp = os.path.join(d, f)
+                    try:
+                        st = os.stat(fp)
+                    except OSError:
+                        continue
+                    rel = os.path.relpath(fp, ROOT) if not os.path.isabs(m["path"]) else fp
+                    idx[rel] = [st.st_size, st.st_mtime_ns]
+    return idx
+
+
+def diff_index(previous, current):
+    """-> (changés ou nouveaux, supprimés)"""
+    changed = sorted(p for p, v in current.items() if previous.get(p) != v)
+    deleted = sorted(p for p in previous if p not in current)
+    return changed, deleted
+
+
+def load_state(out_dir):
+    p = os.path.join(out_dir, ".state.json")
+    return json.load(open(p, encoding="utf-8")) if os.path.exists(p) else {}
+
+
+def save_state(out_dir, state):
+    with open(os.path.join(out_dir, ".state.json"), "w", encoding="utf-8") as fh:
+        json.dump(state, fh)
+
+
 def cmd_backup(args):
     env = load_env()
     mounts = collect_mounts(env)
@@ -323,60 +372,88 @@ def cmd_backup(args):
     use_docker = docker_ok() and not args.no_docker
     existing = sh("docker volume ls --format '{{.Name}}'", capture=True).split() if use_docker else []
     matched = match_docker_volumes(vols, existing)
-    stamp = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
-    name = "supervision-si-backup-%s-%s" % (socket.gethostname(), stamp)
     out_dir = os.path.abspath(args.out)
     os.makedirs(out_dir, exist_ok=True)
+    state = load_state(out_dir)
+    incremental = bool(getattr(args, "incremental", False))
+    if incremental and not state.get("last_full"):
+        print("aucune sauvegarde totale dans %s : la première est forcément totale" % out_dir)
+        incremental = False
+    stamp = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    name = "supervision-si-%s-%s-%s" % ("incr" if incremental else "backup", socket.gethostname(), stamp)
     passphrase = _passphrase(args, confirm=True)
-    work = tempfile.mkdtemp(prefix="si-backup-")
+    # espace de travail : sous out_dir (visible du démon Docker si on tourne en conteneur)
+    work = os.path.join(out_dir, ".work-" + stamp)
+    os.makedirs(work)
     stage = os.path.join(work, name)
     os.makedirs(stage)
-    # 1. dépôt : bundle de toutes les branches
-    print("• dépôt git (bundle)")
-    sh(["git", "bundle", "create", os.path.join(stage, "repo.bundle"), "--all"], cwd=ROOT)
+    current = file_index(mounts)
+    changed, deleted = diff_index(state.get("files", {}), current) if incremental else (sorted(current), [])
+    # 1. dépôt : bundle complet (totale) ou seulement les nouveaux commits (incrémental)
+    gi = git_info()
+    if not incremental:
+        print("• dépôt git (bundle complet)")
+        sh(["git", "bundle", "create", os.path.join(stage, "repo.bundle"), "--all"], cwd=ROOT)
+    elif gi.get("commit") and gi["commit"] != state.get("git_commit"):
+        print("• dépôt git (commits depuis %s)" % (state.get("git_commit") or "?")[:8])
+        r = subprocess.run(["git", "bundle", "create", os.path.join(stage, "repo.bundle"), "--all", "^" + state["git_commit"]] if state.get("git_commit")
+                           else ["git", "bundle", "create", os.path.join(stage, "repo.bundle"), "--all"], cwd=ROOT, capture_output=True, text=True)
+        if r.returncode != 0:
+            print("  (bundle partiel impossible : %s -- bundle complet)" % r.stderr.strip()[:80])
+            sh(["git", "bundle", "create", os.path.join(stage, "repo.bundle"), "--all"], cwd=ROOT)
+    else:
+        print("• dépôt git : aucun nouveau commit")
     # 2. .env
     os.makedirs(os.path.join(stage, "env"))
     for f in (".env", ".env.encrypted", ".env.encrypted.salt"):
         if os.path.exists(os.path.join(ROOT, f)):
             shutil.copy2(os.path.join(ROOT, f), os.path.join(stage, "env", f))
-    # 3. montages hôte (données, PKI, clés, certs si-proxy...)
-    print("• dossiers de données (%d montages)" % len(mounts))
+    # 3. montages hôte : tout (totale) ou seulement les fichiers changés (incrémental)
+    print("• données : %d fichier(s)%s" % (len(changed), " changé(s), %d supprimé(s)" % len(deleted) if incremental else " (%d montages)" % len(mounts)))
     saved_mounts = []
     with tarfile.open(os.path.join(stage, "bind.tar"), "w") as tf:
-        for m in mounts:
-            p = abs_path(m["path"])
-            if not os.path.exists(p):
-                continue
-            arc = m["path"] if not os.path.isabs(m["path"]) else "ABS" + m["path"]
-            tf.add(p, arcname=arc)
-            saved_mounts.append({**m, "arcname": arc, "absolute": os.path.isabs(m["path"])})
-    # 4. volumes Docker
+        if incremental:
+            for rel in changed:
+                p = rel if os.path.isabs(rel) else os.path.join(ROOT, rel)
+                if os.path.isfile(p):
+                    tf.add(p, arcname=("ABS" + rel) if os.path.isabs(rel) else rel)
+            saved_mounts = [{"path": rel, "kind": "file", "arcname": ("ABS" + rel) if os.path.isabs(rel) else rel, "absolute": os.path.isabs(rel)} for rel in changed]
+        else:
+            for m in mounts:
+                p = abs_path(m["path"])
+                if not os.path.exists(p):
+                    continue
+                arc = m["path"] if not os.path.isabs(m["path"]) else "ABS" + m["path"]
+                tf.add(p, arcname=arc)
+                saved_mounts.append({**m, "arcname": arc, "absolute": os.path.isabs(m["path"])})
+    # 4. volumes Docker (totale seulement) + pg_dump (toujours)
     saved_vols = []
-    if matched:
+    if use_docker and matched and not incremental:
         os.makedirs(os.path.join(stage, "volumes"))
         for v in matched:
             print("• volume %s" % v["name"])
-            sh(["docker", "run", "--rm", "-v", "%s:/v:ro" % v["name"], "-v", "%s:/b" % os.path.join(stage, "volumes"), "alpine",
+            sh(["docker", "run", "--rm", "-v", "%s:/v:ro" % v["name"], "-v", "%s:/b" % docker_path(os.path.join(stage, "volumes")), "alpine",
                 "tar", "czf", "/b/%s.tgz" % v["name"], "-C", "/v", "."])
             saved_vols.append(v)
-        # pg_dump des PostgreSQL en cours d'exécution (portable)
-        if not args.no_sql:
-            os.makedirs(os.path.join(stage, "sql"))
-            ps = sh("docker ps --format '{{.Names}}\t{{.Image}}'", capture=True)
-            for line in ps.splitlines():
-                cname, image = (line.split("\t") + [""])[:2]
-                if "postgres" in image:
-                    print("• pg_dumpall %s" % cname)
-                    r = subprocess.run(["docker", "exec", cname, "sh", "-c", "pg_dumpall -U \"${POSTGRES_USER:-postgres}\""],
-                                       stdout=open(os.path.join(stage, "sql", cname + ".sql"), "w"), stderr=subprocess.PIPE, text=True)
-                    if r.returncode != 0:
-                        print("  (échec, ignoré : %s)" % r.stderr.strip()[:120])
+    elif incremental:
+        print("• volumes Docker : seulement en totale (les bases sont couvertes par les dumps SQL)")
     elif use_docker:
         print("• aucun volume Docker correspondant (stack jamais lancé ici ?)")
     else:
         print("• Docker indisponible ou --no-docker : volumes et pg_dump omis")
-    # 5. côté host (shim si-proxy)
-    hs = [f for f in HOST_SIDE_FILES if os.path.exists(f)]
+    if use_docker and not args.no_sql:
+        os.makedirs(os.path.join(stage, "sql"))
+        ps = sh("docker ps --format '{{.Names}}\t{{.Image}}'", capture=True)
+        for line in ps.splitlines():
+            cname, image = (line.split("\t") + [""])[:2]
+            if "postgres" in image:
+                print("• pg_dumpall %s" % cname)
+                with open(os.path.join(stage, "sql", cname + ".sql"), "w") as fh:
+                    r = subprocess.run(["docker", "exec", cname, "sh", "-c", "pg_dumpall -U \"${POSTGRES_USER:-postgres}\""], stdout=fh, stderr=subprocess.PIPE, text=True)
+                if r.returncode != 0:
+                    print("  (échec, ignoré : %s)" % r.stderr.strip()[:120])
+    # 5. côté host (totale seulement)
+    hs = [f for f in HOST_SIDE_FILES if os.path.exists(f)] if not incremental else []
     if hs:
         print("• côté host : %s" % ", ".join(hs))
         with tarfile.open(os.path.join(stage, "host-side.tar"), "w") as tf:
@@ -385,8 +462,13 @@ def cmd_backup(args):
                     tf.add(f, arcname=f.lstrip("/"))
                 except PermissionError:
                     print("  (lecture refusée : %s -- relancer en sudo pour l'inclure)" % f)
-    # 6. manifeste
-    manifest = build_manifest(env, saved_mounts, saved_vols, git_info(), {"host_side": hs, "encrypted": passphrase is not None, "name": name})
+    # 6. manifeste (+ copie en clair à côté de l'archive : aucun secret dedans)
+    manifest = build_manifest(env, saved_mounts, saved_vols, gi, {
+        "host_side": hs, "encrypted": passphrase is not None, "name": name,
+        "kind": "incremental" if incremental else "full",
+        "base": state.get("last_full") if incremental else name,
+        "previous": state.get("last_archive") if incremental else None,
+        "deleted": deleted, "changed_files": len(changed)})
     with open(os.path.join(stage, "manifest.json"), "w", encoding="utf-8") as fh:
         json.dump(manifest, fh, ensure_ascii=False, indent=1)
     # 7. archive (+ chiffrement)
@@ -397,27 +479,70 @@ def cmd_backup(args):
         final = os.path.join(out_dir, name + ".tar.gz.enc")
         subprocess.run(["openssl", "enc", "-aes-256-cbc", "-pbkdf2", "-salt", "-in", tar_path, "-out", final, "-pass", "stdin"],
                        input=passphrase + "\n", text=True, check=True)
-        os.remove(tar_path)
     else:
         final = os.path.join(out_dir, name + ".tar.gz")
         shutil.move(tar_path, final)
     shutil.rmtree(work, ignore_errors=True)
     os.chmod(final, 0o600)
-    print("\nArchive : %s (%.1f Mo, %s)" % (final, os.path.getsize(final) / 1e6, "chiffrée AES-256" if passphrase else "EN CLAIR"))
-    print("Contenu : bundle git, .env, %d montages, %d volumes, côté host : %d" % (len(saved_mounts), len(saved_vols), len(hs)))
+    manifest["archive"] = os.path.basename(final)
+    manifest["size"] = os.path.getsize(final)
+    with open(os.path.join(out_dir, name + ".manifest.json"), "w", encoding="utf-8") as fh:
+        json.dump(manifest, fh, ensure_ascii=False, indent=1)
+    # 8. état de la chaîne
+    state.update({"files": current, "git_commit": gi.get("commit"), "last_archive": name,
+                  "last_full": name if not incremental else state.get("last_full"), "updated_at": manifest["created_at"]})
+    save_state(out_dir, state)
+    print("\nArchive : %s (%.1f Mo, %s, %s)" % (final, os.path.getsize(final) / 1e6, "chiffrée AES-256" if passphrase else "EN CLAIR",
+          "incrémentale depuis %s" % manifest["previous"] if incremental else "totale"))
+    print("Contenu : %s, .env, %d fichier(s)/montage(s), %d volumes, côté host : %d" % (
+        "commits nouveaux" if incremental else "bundle git", len(saved_mounts), len(saved_vols), len(hs)))
     return 0
 
 
 # ----------------------------------------------------------- restore --
+def chain_for(archive_path):
+    """Pour une archive incrémentale : [totale, incr1, ..., archive] d'après les
+    manifestes en clair du même dossier ; pour une totale : [archive]."""
+    d = os.path.dirname(archive_path)
+    base = os.path.basename(archive_path)
+    stem = base.replace(".tar.gz.enc", "").replace(".tar.gz", "")
+    mp = os.path.join(d, stem + ".manifest.json")
+    if not os.path.exists(mp):
+        return [archive_path]
+    m = json.load(open(mp, encoding="utf-8"))
+    if m.get("kind", "full") == "full":
+        return [archive_path]
+    chain = [archive_path]
+    prev = m.get("previous")
+    while prev:
+        pm = os.path.join(d, prev + ".manifest.json")
+        if not os.path.exists(pm):
+            raise SystemExit("chaîne incomplète : manifeste %s introuvable" % pm)
+        pmd = json.load(open(pm, encoding="utf-8"))
+        chain.append(os.path.join(d, pmd.get("archive") or (prev + ".tar.gz.enc")))
+        prev = pmd.get("previous") if pmd.get("kind") == "incremental" else None
+    chain.reverse()
+    return chain
+
+
 def cmd_restore(args):
-    src = os.path.abspath(args.archive)
     into = os.path.abspath(args.into)
+    chain = chain_for(os.path.abspath(args.archive))
+    if len(chain) > 1:
+        print("Chaîne : %s" % " -> ".join(os.path.basename(c) for c in chain))
     if os.path.exists(into) and os.listdir(into) and not args.force:
         raise SystemExit("dossier cible non vide : %s (--force pour y déposer quand même)" % into)
+    passphrase = _passphrase(args) if chain[0].endswith(".enc") else None
+    for i, arc in enumerate(chain):
+        _restore_one(arc, into, args, passphrase, first=(i == 0))
+    print("\nRestauration déposée dans %s -- rien n'est démarré. Étape suivante : ./scripts/regenerate-host.sh" % into)
+    return 0
+
+
+def _restore_one(src, into, args, passphrase, first=True):
     work = tempfile.mkdtemp(prefix="si-restore-")
     tar_path = src
     if src.endswith(".enc"):
-        passphrase = _passphrase(args)
         tar_path = os.path.join(work, "archive.tar.gz")
         r = subprocess.run(["openssl", "enc", "-d", "-aes-256-cbc", "-pbkdf2", "-in", src, "-out", tar_path, "-pass", "stdin"],
                            input=(passphrase or "") + "\n", text=True)
@@ -427,18 +552,28 @@ def cmd_restore(args):
         tf.extractall(work)
     stage = next(os.path.join(work, d) for d in os.listdir(work) if os.path.isdir(os.path.join(work, d)))
     manifest = json.load(open(os.path.join(stage, "manifest.json"), encoding="utf-8"))
-    print("Archive du %s, host %s (%s), livraison #%s, branche %s" % (manifest["created_at"], manifest["hostname"], manifest["host_ip"],
+    print("Archive %s du %s, host %s (%s), livraison #%s, branche %s" % (manifest.get("kind", "full"), manifest["created_at"], manifest["hostname"], manifest["host_ip"],
           manifest["git"].get("delivery"), manifest["git"].get("branch")))
     os.makedirs(into, exist_ok=True)
     # 1. dépôt
-    if not os.path.isdir(os.path.join(into, ".git")):
+    bundle = os.path.join(stage, "repo.bundle")
+    if not os.path.isdir(os.path.join(into, ".git")) and os.path.exists(bundle):
         print("• clone depuis le bundle")
-        sh(["git", "clone", "-q", os.path.join(stage, "repo.bundle"), into])
+        sh(["git", "clone", "-q", bundle, into])
         branch = manifest["git"].get("branch")
         if branch and branch != "HEAD":
             sh(["git", "checkout", "-q", branch], cwd=into)
-    else:
-        print("• dépôt déjà présent, conservé (fetch du bundle possible : git fetch <bundle> --all)")
+    elif os.path.exists(bundle):
+        print("• nouveaux commits (fetch du bundle)")
+        sh(["git", "fetch", "-q", bundle, "+refs/heads/*:refs/remotes/bundle/*"], cwd=into)
+        branch = manifest["git"].get("branch")
+        if branch and branch != "HEAD":
+            subprocess.run(["git", "checkout", "-q", "-B", branch, "bundle/" + branch], cwd=into, capture_output=True)
+    # fichiers supprimés depuis l'archive précédente (incrémental)
+    for rel in manifest.get("deleted") or []:
+        p = rel if os.path.isabs(rel) else os.path.join(into, rel)
+        if os.path.isfile(p):
+            os.remove(p)
     # 2. .env
     for f in os.listdir(os.path.join(stage, "env")):
         shutil.copy2(os.path.join(stage, "env", f), os.path.join(into, f))
@@ -470,7 +605,7 @@ def cmd_restore(args):
                     print("  (volume %s : préfixe de projet %s -> %s)" % (v["name"], old_prefix, args.project_name or new_prefix))
                 print("• volume %s" % name)
                 sh(["docker", "volume", "create", name], capture=True)
-                sh(["docker", "run", "--rm", "-v", "%s:/v" % name, "-v", "%s:/b:ro" % vdir, "alpine",
+                sh(["docker", "run", "--rm", "-v", "%s:/v" % name, "-v", "%s:/b:ro" % docker_path(vdir), "alpine",
                     "sh", "-c", "cd /v && tar xzf /b/%s.tgz" % v["name"]])
         else:
             keep = os.path.join(into, "_volumes-a-restaurer")
@@ -485,10 +620,9 @@ def cmd_restore(args):
     if os.path.isdir(os.path.join(stage, "sql")):
         shutil.copytree(os.path.join(stage, "sql"), os.path.join(into, "_sql-dumps"), dirs_exist_ok=True)
         print("• dumps SQL dans _sql-dumps/ (secours : psql -f si un volume ne remonte pas)")
-    shutil.copy2(os.path.join(stage, "manifest.json"), os.path.join(into, ".restore-manifest.json"))
+    if first or manifest.get("kind") == "full":
+        shutil.copy2(os.path.join(stage, "manifest.json"), os.path.join(into, ".restore-manifest.json"))
     shutil.rmtree(work, ignore_errors=True)
-    print("\nRestauration déposée dans %s -- rien n'est démarré. Étape suivante : ./scripts/regenerate-host.sh" % into)
-    return 0
 
 
 # -------------------------------------------------------- regenerate --
@@ -551,6 +685,7 @@ def main(argv=None):
     b.add_argument("--no-encrypt", action="store_true")
     b.add_argument("--no-docker", action="store_true")
     b.add_argument("--no-sql", action="store_true")
+    b.add_argument("--incremental", action="store_true", help="seulement ce qui a changé depuis la dernière archive du même dossier (#459)")
     r = sub.add_parser("restore")
     r.add_argument("archive")
     r.add_argument("--into", required=True)

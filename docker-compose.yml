@@ -825,8 +825,24 @@ services:
       # Gardé sur create_image/delete_image uniquement -- /coverage et
       # /logs restent en lecture libre.
       - RIGHTS_API_URL=${BACKUP_RESTORE_RIGHTS_API_URL:-}
+      # #459 : sauvegardes DU HUB (totale / incrémentale, scripts/full_backup.py)
+      # -- la racine du projet est montée dans /project (archives dans
+      # ./backups), le socket Docker sert aux volumes ; SI_BACKUP_HOST_ROOT =
+      # chemin de ce dossier vu du démon Docker (docker run -v). Sans
+      # SI_BACKUP_PASSPHRASE, aucune sauvegarde (jamais d'archive en clair).
+      - SI_BACKUP_PROJECT_ROOT=/project
+      - SI_BACKUP_HOST_ROOT=${PWD}
+      - SI_BACKUP_PASSPHRASE=${SI_BACKUP_PASSPHRASE:-}
+      - SI_BACKUP_INCR_HOURS=${SI_BACKUP_INCR_HOURS:-0}
+      - SI_BACKUP_FULL_WEEKDAY=${SI_BACKUP_FULL_WEEKDAY:-}
+      - SI_BACKUP_FULL_HOUR=${SI_BACKUP_FULL_HOUR:-2}
+      - SI_BACKUP_KEEP_DAILY=${SI_BACKUP_KEEP_DAILY:-7}
+      - SI_BACKUP_KEEP_WEEKLY=${SI_BACKUP_KEEP_WEEKLY:-4}
+      - SI_BACKUP_KEEP_MONTHLY=${SI_BACKUP_KEEP_MONTHLY:-6}
     volumes:
       - ${BACKUP_RESTORE_DATA_DIR:-./backup-restore/data}:/data
+      - .:/project
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - memcached
 

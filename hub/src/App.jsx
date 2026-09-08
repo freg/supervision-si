@@ -1415,7 +1415,7 @@ vm === "settings" ? (
           schemaApiBase={SCHEMA_ANALYZER_API_BASE_URL}
         />
       ) : vm === "backup-restore" ? (
-        <BackupRestoreView onBack={goBack} backupRestoreApiBase={BACKUP_RESTORE_API_BASE_URL} />
+        <BackupRestoreView onBack={goBack} backupRestoreApiBase={BACKUP_RESTORE_API_BASE_URL} groups={groups} />
       ) : vm === "architecture" ? (
         <ArchitectureView onBack={goBack} architectureApiBase={ARCHITECTURE_API_BASE_URL} />
       ) : vm === "memory" ? (
