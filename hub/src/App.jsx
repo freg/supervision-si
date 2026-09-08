@@ -1711,6 +1711,7 @@ export default function App() {
           netmapOrchestratorApiBase={NETMAP_ORCHESTRATOR_API_BASE_URL}
           vigilanceApiBase={VIGILANCE_API_BASE_URL}
           pixelGridApiBase={PIXEL_GRID_API_BASE_URL}
+          groups={groups}
         />
       ) : viewMode === "si-agent" ? (
         <SiAgentView

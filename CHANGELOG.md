@@ -1,3 +1,45 @@
+## 2026-09-08 — Géolocalisation par le nom : « UPS-Arobase-5 » se place sur le site Arobase 5 / @5, correspondances persistées, validées d'office et corrigeables (livraison #426)
+
+Demandé sur la tuile Supervision SI : un équipement dont le nom contient
+un lieu et un type ne doit plus tomber sur la position de repli mais sur
+la géolocalisation du lieu ; passe sur les fronts et les API pour que
+noms et sites produisent une position ; la liste des localisations à
+valider persiste, l'automatique est validé par défaut (référence
+orthographiquement ou sémantiquement proche = position). Voir
+`docs/geolocalisation-par-nom.md`.
+
+- `pixel-grid/api/name_resolver.py` (pur, 9 tests) : alias déclarés,
+  équivalences sémantiques (`@`/`arobase`, `tp`/`batiment`, `bat`/`bâtiment`,
+  `cinq`/`5`…), proximité orthographique sur les jetons (types
+  d'équipement retirés du nom, mots génériques peu pesants, chemin complet
+  et dernier segment), nombres contraints (Arobase-5 ≠ Arobase 3) ; seuils
+  auto ≥ 0,75, suggestion ≥ 0,5. Le site déclaré prime sur le nom, un alias
+  sur un calcul.
+- `pixel-grid/api/app.py` : tables `location_matches` et `location_aliases`
+  (CREATE IF NOT EXISTS, SQLite et PostgreSQL), `GET|POST /geolocations/resolve`
+  (lot persisté, décisions humaines jamais recalculées, `auto` réévalué),
+  `GET /geolocations/matches`, `PUT|DELETE /geolocations/matches/<sujet>`
+  (validated / rejected / manual, droit *manage*), `/geolocations/aliases`
+  ; Dockerfile : `COPY name_resolver.py` ; 5 tests de routes.
+- Hub, Supervision SI : résolution en lot à chaque changement de la liste
+  (sujets = identités du hub + nœuds `site:`), position de source « nom »
+  (liseré gris) avant liens et repli, colonne Site avec localisation
+  résolue et statut, fiche « Liens et positions » avec candidats et
+  actions, nouveau cadre **« Localisations »** (filtres, compteurs, valider
+  / rejeter / auto / choisir, alias) ; `groups` transmis pour le droit
+  *manage* ; test ajouté (121 au total).
+- Ancienne maquette, Fusion IP/MAC : bouton « Géocoder via le nom d'hôte »
+  (mêmes sujets `ip:<ip>` que le hub), Position « ≈ localisation ».
+- relations-api : sites de tickets résolus par pixel-grid avant la
+  proximité géographique ; pixel-grid-bridge : chemin `localisation`
+  inconnu résolu avant le repli `__default__` (`localisation_resolue`).
+
+**Vérifié** : tests Python (14) et Node (121), build Vite du hub, chaîne
+réelle hub ↔ pixel-grid-api (Flask sur SQLite) dans le harnais avec clic
+« valider », rendu clair/sombre, syntaxe de l'ancienne maquette, relations
+et pont sous mock. **Non vérifié** : PostgreSQL, builds Docker, vrais
+noms du parc (listes `TYPE_TOKENS` / `SEMANTIC` à enrichir).
+
 ## 2026-09-08 — Tuile « Bases externes » : IPAM, Zenoss, Optick, TTS-GU et Cacti promus dans le hub en une vue générique (livraison #425)
 
 Backlog 64, point (4), suite : les cinq onglets « bases externes » de

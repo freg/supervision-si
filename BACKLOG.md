@@ -2404,3 +2404,32 @@ qui fait alors sauter la file.
     UNE tuile générique « Bases externes » (docs/bases-externes.md).
     Reste : OwnCloud et la fusion IP/MAC en tuiles, la géomatique, puis
     retrait de l'ancien front.
+    Avancement (#426) : géolocalisation par le nom (« UPS-Arobase-5 » →
+    @5), correspondances persistées dans pixel-grid, cadre
+    « Localisations » (docs/geolocalisation-par-nom.md).
+65. Exploration réseau -- fiche récapitulative d'un sous-réseau
+    (2026-09-08, demandé avec #426). Constat : dans « sous-réseaux » on
+    voit autre chose que le LAN immédiat, mais aucune IP de ce LAN dans
+    les appareils découverts ni ce sous-réseau dans la table des
+    découvertes. Demandé : au clic sur un sous-réseau, un récapitulatif de
+    tout ce qui le concerne -- d'où il a été pris (source, segment,
+    agent), quelles IP y ont été vues, appareils, flux, découvertes -- et
+    expliquer/corriger l'absence du LAN immédiat.
+66. Agent hôte -- premier exemplaire réel (2026-09-08, demandé avec #426) :
+    un Linux dans un sous-réseau isolé/filtré mais accessible par route
+    directe. (1) découverte passive du réseau depuis l'hôte (voisins ARP /
+    ND, connexions établies, écoute, sans scan actif) remontée au central ;
+    (2) revue de l'hôte : matériel, niveaux des ressources, activités
+    (processus, services, connexions), présentée dans la tuile Agents
+    hôtes et reprise par Supervision SI.
+67. Catalogue de positions (2026-09-08, demandé avec #426). Docker dédié
+    ou complément du PostGIS existant (geo-import) -- orientation :
+    complément de `geo-postgres` (pg_trgm, connecteurs). Charger les
+    référentiels OSM et data.gouv.fr (BAN/Géoplateforme, découpage
+    administratif) ; interface listant, par position : la ou les données
+    de référence (fiches avec agrégation ou extraction), l'interprétation
+    géographique la plus précise, longitude/latitude, l'estimation en % de
+    véracité/justesse, un bouton Corriger, un bouton Valider ; un
+    catalogue de positions avec les liens vers les objets positionnés sur
+    chacune. S'appuie sur les correspondances de #426 (location_matches,
+    aliases) et la table geolocations.

@@ -4,6 +4,7 @@ import {
   fromNetprobe, fromUps, fromSiAgent, fromSnmp, fromSshTunnels, fromWifiAgents, mergeItems, aggregateSupervised,
   buildProposals, filterSupervised, prioritizeSupervised, setPriority, movePriority,
   buildLinks, knownPositions, deducePositions, describeChain, frameLayout, normalizeFrames, summarizeByState, loadPref, savePref,
+  appliedMatch, displaySite, resolveSubjects, resolveKey, geoRows, geoSummary,
 } from "../src/supervisedItems.js";
 
 const NOW = Date.parse("2026-09-08T10:00:00Z");
@@ -143,4 +144,42 @@ test("points superposés écartés, points isolés inchangés", () => {
   assert.equal(a.dlat, 45.77); assert.notEqual(`${b.dlat},${b.dlon}`, `${a.dlat},${a.dlon}`);
   assert.ok(Math.abs(b.dlat - 45.77) < 0.002 && Math.abs(b.dlon - 2.4) < 0.002);
   assert.equal(c.dlat, 48);
+});
+
+test("#426 géolocalisation par nom : une correspondance appliquée vaut position, jamais le repli", () => {
+  const supervised = [
+    { identity: "ip:10.0.0.1", name: "UPS-Arobase-5", ip: "10.0.0.1", site: null, origins: [] },
+    { identity: "ip:10.0.0.2", name: "sw-arobase", ip: "10.0.0.2", site: null, origins: [] },
+    { identity: "ip:10.0.0.3", name: "pc-compta", ip: "10.0.0.3", site: null, origins: [] },
+    { identity: "ip:10.0.0.4", name: "nas", ip: "10.0.0.4", site: "Annexe", origins: [] },
+    { identity: "ip:10.0.0.5", name: "ap-rejet", ip: "10.0.0.5", site: null, origins: [] },
+  ];
+  const geolocations = [{ localisation: "@5", latitude: 45.76, longitude: 4.83 }, { localisation: "Annexe", latitude: 47, longitude: 1 }, { localisation: "__default__", latitude: 45.77, longitude: 2.4 }, { localisation: "Sans coord", latitude: null, longitude: null }];
+  const matches = {
+    "ip:10.0.0.1": { status: "auto", localisation: "@5", latitude: 45.76, longitude: 4.83, score: 1, method: "exact/nom", mapped: true },
+    "ip:10.0.0.2": { status: "suggested", localisation: "@5", latitude: 45.76, longitude: 4.83, score: 0.5, method: "proche/nom", mapped: true },
+    "ip:10.0.0.5": { status: "rejected", localisation: "@5", latitude: 45.76, longitude: 4.83, score: 1, mapped: true },
+  };
+  const known = knownPositions({ geolocations, supervised, matches });
+  assert.equal(known.get("ip:10.0.0.1").source, "nom");
+  assert.match(known.get("ip:10.0.0.1").label, /@5 d'après le nom \(automatique/);
+  assert.equal(known.has("ip:10.0.0.2"), false, "à confirmer : pas appliquée");
+  assert.equal(known.has("ip:10.0.0.5"), false, "rejetée : pas appliquée");
+  assert.equal(known.get("site:annexe").source, "site", "site déclaré inchangé");
+  const pos = deducePositions(supervised.map((i) => i.identity), [], known);
+  assert.equal(pos.get("ip:10.0.0.1").source, "nom");
+  assert.equal(pos.get("ip:10.0.0.3").source, "repli");
+  assert.equal(appliedMatch(matches, "ip:10.0.0.2"), null);
+  assert.deepEqual(displaySite(supervised[0], matches), { site: "@5", resolved: true, status: "auto" });
+  assert.deepEqual(displaySite(supervised[3], matches), { site: "Annexe", resolved: false });
+  assert.deepEqual(resolveSubjects(supervised)[3], { subject: "ip:10.0.0.4", name: "nas", site: "Annexe" });
+  assert.deepEqual(resolveSubjects(supervised, [{ name: "Annexe" }, { name: "Dépôt" }]).slice(5), [{ subject: "site:annexe", name: null, site: "Annexe" }, { subject: "site:dépôt", name: null, site: "Dépôt" }], "un sujet par site, sans doublon");
+  assert.equal(resolveKey(supervised), resolveKey([...supervised].reverse()), "clé indépendante de l'ordre");
+  const known2 = knownPositions({ geolocations, supervised: [{ identity: "ip:9", name: "x", site: "Annexe-Nord", origins: [] }], matches: { "site:annexe-nord": { status: "auto", localisation: "Agence Annexe Nord", latitude: 48.6, longitude: -4.3, mapped: true } } });
+  assert.equal(known2.get("site:annexe-nord").source, "site");
+  assert.match(known2.get("site:annexe-nord").label, /≈ Agence Annexe Nord/);
+  const rows = geoRows(supervised, matches);
+  assert.deepEqual(rows.map((r) => r.status), ["suggested", "none", "none", "auto", "rejected"]);
+  const sum = geoSummary(rows, geolocations);
+  assert.deepEqual(sum, { total: 5, applied: 1, suggested: 1, none: 2, rejected: 1, unmapped: 0, pendingPlaces: 1 });
 });

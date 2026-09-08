@@ -109,9 +109,37 @@ def fetch_events(event_type, start_iso, end_iso):
         return []
 
 
-def build_geojson(events, geolocation_map, default_coords):
+def resolve_unknown_locations(loc_paths, geolocation_map):
+    """Livraison #426 -- avant le repli sur la position par défaut, les
+    chemins `localisation` absents de la table sont soumis au résolveur
+    par nom de pixel-grid-api (/geolocations/resolve, avec persistance :
+    la correspondance se retrouve dans le cadre « Localisations » du
+    hub, corrigeable). Une seule requête par cycle ; toute erreur ->
+    dict vide (le repli reste ce qu'il était)."""
+    unknown = sorted({p for p in loc_paths if p and p not in geolocation_map})
+    if not unknown:
+        return {}
+    try:
+        r = requests.post(
+            f"{PIXEL_GRID_API_URL}/geolocations/resolve",
+            json={"subjects": [{"subject": f"path:{p}", "name": p.rsplit("/", 1)[-1], "site": p} for p in unknown], "persist": True},
+            timeout=30,
+        )
+        r.raise_for_status()
+        out = {}
+        for m in r.json().get("matches", []):
+            if m.get("status") in ("auto", "validated", "manual") and m.get("latitude") is not None and m.get("longitude") is not None:
+                out[m["subject"][len("path:"):]] = (m["latitude"], m["longitude"], m.get("localisation"))
+        return out
+    except (requests.RequestException, ValueError) as exc:
+        logger.warning("Résolution par nom indisponible ce cycle : %s", exc)
+        return {}
+
+
+def build_geojson(events, geolocation_map, default_coords, resolved=None):
     features = []
     skipped_no_location = 0
+    resolved = resolved or {}
 
     for event in events:
         data = event.get("data") or {}
@@ -119,6 +147,10 @@ def build_geojson(events, geolocation_map, default_coords):
 
         coords = geolocation_map.get(loc_path) if loc_path else None
         used_default = False
+        resolved_as = None
+        if coords is None and loc_path in resolved:
+            lat_r, lon_r, resolved_as = resolved[loc_path]
+            coords = (lat_r, lon_r)
         if coords is None:
             coords = default_coords
             used_default = True
@@ -136,6 +168,8 @@ def build_geojson(events, geolocation_map, default_coords):
             "localisation_source": loc_path,
             "position_par_defaut": used_default,
         }
+        if resolved_as:
+            properties["localisation_resolue"] = resolved_as
         if isinstance(data, dict):
             properties.update(data)
 
@@ -179,7 +213,10 @@ def run_cycle():
 
     for event_type in types:
         events = fetch_events(event_type, start_iso, end_iso)
-        geojson, skipped = build_geojson(events, geolocation_map, default_coords)
+        resolved = resolve_unknown_locations(
+            [((e.get("data") or {}).get("localisation") if isinstance(e.get("data"), dict) else None) for e in events], geolocation_map,
+        )
+        geojson, skipped = build_geojson(events, geolocation_map, default_coords, resolved)
         source_name = f"pixelgrid_{event_type}"
 
         if push_to_supervision(source_name, geojson):

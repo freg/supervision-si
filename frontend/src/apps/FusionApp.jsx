@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchIpamIpList, fetchZenossIpList } from "./fusionApi.js";
 import {
-  mergeIpSources, filterRows, severityClass, enrichWithGeolocation, extractPostalCodeFromRow,
+  mergeIpSources, filterRows, severityClass, enrichWithGeolocation, extractPostalCodeFromRow, nameResolveSubjects,
   FUSION_COLUMNS, defaultColumnWidths, computeResizedWidth, toggleColumnVisibility, visibleColumns,
 } from "./fusionLib.js";
-import { fetchGeolocations, registerIpsForGeolocation, fetchCommuneCentroid, upsertGeolocation } from "./pixelGridApi.js";
+import { fetchGeolocations, registerIpsForGeolocation, fetchCommuneCentroid, upsertGeolocation, resolveByName, fetchLocationMatches } from "./pixelGridApi.js";
 import { classifyIp } from "../lib/ipClassify.js";
 
 const SOURCE_LABELS = { ipam: "IPAM", zenoss: "Zenoss" };
@@ -25,6 +25,9 @@ export default function FusionApp({ onGoToMap }) {
   const [geolocations, setGeolocations] = useState([]);
   const [geoStatus, setGeoStatus] = useState(null); // null | "loading" | {ok, ...summary} | {ok:false, error}
   const [postalGeoStatus, setPostalGeoStatus] = useState(null);
+  // #426 : correspondances nom d'hôte -> localisation (pixel-grid), {subject -> match}
+  const [nameMatches, setNameMatches] = useState({});
+  const [nameGeoStatus, setNameGeoStatus] = useState(null);
 
   const [hiddenColumns, setHiddenColumns] = useState(() => new Set());
   const [columnWidths, setColumnWidths] = useState(defaultColumnWidths);
@@ -40,6 +43,7 @@ export default function FusionApp({ onGoToMap }) {
       setLoaded(true);
     });
     fetchGeolocations().then(setGeolocations);
+    fetchLocationMatches().then((list) => setNameMatches(Object.fromEntries(list.map((m) => [m.subject, m]))));
   }, []);
 
   // Ferme le panneau "⚙ Colonnes" au clic en dehors — comportement
@@ -81,8 +85,8 @@ export default function FusionApp({ onGoToMap }) {
 
   const merged = useMemo(() => {
     const base = mergeIpSources(ipamEntries, zenossEntries);
-    return enrichWithGeolocation(base, geolocations);
-  }, [ipamEntries, zenossEntries, geolocations]);
+    return enrichWithGeolocation(base, geolocations, nameMatches);
+  }, [ipamEntries, zenossEntries, geolocations, nameMatches]);
   const filtered = useMemo(
     () => filterRows(merged, { query, correlatedOnly, hostnameQuery, alertQuery }),
     [merged, query, correlatedOnly, hostnameQuery, alertQuery]
@@ -133,6 +137,21 @@ export default function FusionApp({ onGoToMap }) {
     setTimeout(() => setPostalGeoStatus(null), 8000);
   }
 
+  /** #426 -- troisième complément : résolution par le NOM d'hôte
+   * (« UPS-Arobase-5 » -> localisation « @5 » de la table geolocations),
+   * calculée et conservée par pixel-grid (statut « auto », à corriger
+   * depuis le hub, tuile Supervision SI, cadre « Localisations »). */
+  async function handleGeocodeByName() {
+    setNameGeoStatus("loading");
+    const subjects = nameResolveSubjects(merged);
+    const matches = await resolveByName(subjects, true);
+    setNameMatches((cur) => ({ ...cur, ...matches }));
+    const applied = Object.values(matches).filter((m) => ["auto", "validated", "manual"].includes(m.status) && m.latitude != null).length;
+    const suggested = Object.values(matches).filter((m) => m.status === "suggested").length;
+    setNameGeoStatus({ ok: true, applied, suggested, scanned: subjects.length });
+    setTimeout(() => setNameGeoStatus(null), 8000);
+  }
+
   /** Rendu d'une cellule selon la clé de colonne — seule source de
    * vérité pour "quoi afficher dans cette colonne", partagée par
    * toutes les lignes ; ajouter/retirer une colonne ne se fait qu'ici
@@ -165,8 +184,8 @@ export default function FusionApp({ onGoToMap }) {
       case "position":
         return row.position?.mapped ? (
           <span className="fusion-geo-position mapped">
-            <span title={`${row.position.latitude}, ${row.position.longitude}`}>
-              📍 {row.position.latitude.toFixed(2)}, {row.position.longitude.toFixed(2)}
+            <span title={row.position.source === "nom" ? `${row.position.localisation} d'après le nom d'hôte (${row.position.status}, score ${row.position.score}) — ${row.position.latitude}, ${row.position.longitude}` : `${row.position.latitude}, ${row.position.longitude}`}>
+              📍 {row.position.latitude.toFixed(2)}, {row.position.longitude.toFixed(2)}{row.position.source === "nom" && <span className="fusion-geo-byname"> ≈ {row.position.localisation}</span>}
             </span>
             {onGoToMap && (
               <button
@@ -279,6 +298,21 @@ export default function FusionApp({ onGoToMap }) {
                 ✓ {postalGeoStatus.resolved} résolue{postalGeoStatus.resolved > 1 ? "s" : ""}
                 {postalGeoStatus.notFound > 0 && ` · ${postalGeoStatus.notFound} sans correspondance`}
                 {postalGeoStatus.scanned === 0 && " · aucun nom d'hôte avec code postal exploitable"}
+              </span>
+            )}
+            <button
+              className="fusion-geo-btn"
+              onClick={handleGeocodeByName}
+              disabled={nameGeoStatus === "loading" || merged.length === 0}
+              title="Reconnaît un site dans le nom d'hôte (ex. UPS-Arobase-5 → localisation « @5 » ou « Arobase 5 » de la table des géolocalisations, orthographe et abréviations tolérées) — pour les lignes encore sans position. Les correspondances sont conservées et se corrigent depuis le hub (Supervision SI → cadre Localisations)."
+            >
+              🏷️ {nameGeoStatus === "loading" ? "Résolution…" : "Géocoder via le nom d'hôte"}
+            </button>
+            {nameGeoStatus?.ok && (
+              <span className="fusion-geo-status ok">
+                ✓ {nameGeoStatus.applied} placée{nameGeoStatus.applied > 1 ? "s" : ""}
+                {nameGeoStatus.suggested > 0 && ` · ${nameGeoStatus.suggested} à confirmer (hub)`}
+                {nameGeoStatus.scanned === 0 && " · aucune ligne sans position avec un nom d'hôte"}
               </span>
             )}
             <div className="fusion-columns-menu-wrap" ref={columnsMenuRef}>

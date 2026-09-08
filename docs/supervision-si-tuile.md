@@ -77,6 +77,15 @@ dans `supervisedHistoryClient.js`.
   uniformément, nœuds internes au centre angulaire de leurs feuilles),
   couleur = état, clic = sélection, zoom / déplacement.
 
+## Localisation par le nom (livraison #426)
+
+Cadre « Localisations » et actions dans « Liens et positions » : voir
+`docs/geolocalisation-par-nom.md`. En résumé, `UPS-Arobase-5` se place sur
+la localisation `@5` / `Arobase 5` de la table des géolocalisations
+(source de position « nom », avant la déduction par les liens et le
+repli), automatiquement ; la liste des correspondances est persistée dans
+pixel-grid et se valide, se rejette ou se corrige depuis la tuile.
+
 ## Sources d'API
 
 `VITE_NETPROBE_API_BASE_URL`, `VITE_UPS_API_BASE_URL`,

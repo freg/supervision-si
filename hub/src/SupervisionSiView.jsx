@@ -13,7 +13,9 @@ import {
   ITEM_TYPES, STATE_ORDER, aggregateSupervised, buildProposals, filterSupervised, prioritizeSupervised, movePriority, setPriority,
   buildLinks, knownPositions, deducePositions, describeChain, FRAME_KINDS, frameLayout, normalizeFrames, summarizeByState,
   PREF_KEYS, loadPref, savePref, spreadCoincident,
+  MATCH_STATUS, appliedMatch, displaySite, resolveSubjects as subjectsOf, resolveKey, geoRows, geoSummary,
 } from "./supervisedItems.js";
+import { resolveSubjects, decideMatch, resetMatch, fetchAliases, addAlias, deleteAlias } from "./geoMatchesClient.js";
 import {
   HISTORY_WINDOWS, windowById, stateSegments, bucketize, calendarDays, dayTone, buildHierarchy, radialLayout,
   effectiveSelection, toggleSelection,
@@ -38,6 +40,35 @@ const REFRESH_MS = 60000;
 const STATE_COLORS = { critical: "var(--danger)", warning: "var(--warning)", ok: "var(--ok)", unknown: "var(--muted)" };
 const STATE_LABELS = { critical: "critique", warning: "avertissement", ok: "ok", unknown: "inconnu" };
 const STATE_HEX = { critical: "#d64545", warning: "#d69a2b", ok: "#2f9e5b", unknown: "#8a8f98" };
+
+// #426 : ligne « localisation d'après le nom » d'une fiche + actions
+function MatchActions({ item, match, places, onDecide, onReset }) {
+  const [choice, setChoice] = useState("");
+  const st = match?.status;
+  return (
+    <span className="ss-match-actions">
+      {(st === "auto" || st === "suggested") && match.localisation && <button className="secondary ss-origin" onClick={() => onDecide(item, "validated")} title="confirmer cette localisation">✓ valider</button>}
+      {(st === "auto" || st === "suggested" || st === "manual" || st === "validated") && <button className="secondary ss-origin" onClick={() => onDecide(item, "rejected")} title="ne jamais placer cet équipement d'après son nom">✕ rejeter</button>}
+      {(st === "validated" || st === "manual" || st === "rejected") && <button className="secondary ss-origin" onClick={() => onReset(item)} title="oublier la décision, revenir à l'automatique">↺ auto</button>}
+      <select value={choice} onChange={(e) => { setChoice(""); if (e.target.value) onDecide(item, "manual", e.target.value); }} title="choisir une autre localisation">
+        <option value="">choisir…</option>{places.map((l) => <option key={l} value={l}>{l}</option>)}
+      </select>
+    </span>
+  );
+}
+
+function MatchLine({ item, match, places, onDecide, onReset }) {
+  const st = match?.status;
+  return (
+    <p className="ss-match-line" style={{ margin: "0 0 8px", fontSize: 12 }}>
+      {st && match.localisation ? (
+        <>localisation d'après {(match.method || "").endsWith("/site") ? "le site déclaré" : "le nom"} : <strong>{match.localisation}</strong> <span className="muted">({MATCH_STATUS[st]?.label}{match.score != null && st !== "manual" ? `, ${match.method} ${match.score}` : ""}{match.mapped === false ? ", sans coordonnées" : ""})</span>
+          {match.candidates?.length > 1 && <span className="muted"> · autres : {match.candidates.slice(1, 3).map((c) => `${c.localisation} (${c.score})`).join(", ")}</span>}</>
+      ) : <span className="muted">aucune localisation reconnue dans le nom{item.site ? " ni le site déclaré" : ""}{match?.candidates?.length ? ` (proche : ${match.candidates.slice(0, 2).map((c) => `${c.localisation} ${c.score}`).join(", ")})` : ""}</span>}
+      {" "}<MatchActions item={item} match={match} places={places} onDecide={onDecide} onReset={onReset} />
+    </p>
+  );
+}
 
 function Tone({ state, children }) {
   return <span className={`np-tone ${state === "critical" ? "bad" : state === "warning" ? "warn" : state === "ok" ? "good" : "neutral"}`}>{children}</span>;
@@ -78,7 +109,7 @@ function FitBounds({ points }) {
 export default function SupervisionSiView({
   onBack, onNavigate, legacyFrontendUrl,
   netprobeApiBase, upsApiBase, siAgentApiBase, snmpApiBase, sshTunnelsApiBase, networkAgentApiBase,
-  netmapOrchestratorApiBase, vigilanceApiBase, pixelGridApiBase,
+  netmapOrchestratorApiBase, vigilanceApiBase, pixelGridApiBase, groups = [],
 }) {
   const [sources, setSources] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -95,6 +126,12 @@ export default function SupervisionSiView({
   const [windowId, setWindowId] = useState(() => loadPref(storage(), PREF_KEYS.window, "24h"));
   const [history, setHistory] = useState({}); // identity -> points
   const [historyLoading, setHistoryLoading] = useState(false);
+  // #426 : correspondances nom/site -> localisation (pixel-grid), alias
+  const [matches, setMatches] = useState({});
+  const [matchesError, setMatchesError] = useState(null);
+  const [aliases, setAliases] = useState([]);
+  const [geoFilter, setGeoFilter] = useState("todo");
+  const [aliasForm, setAliasForm] = useState({ alias: "", localisation: "" });
 
   useEffect(() => savePref(storage(), PREF_KEYS.tab, tab), [tab]);
   useEffect(() => savePref(storage(), PREF_KEYS.frames, frames), [frames]);
@@ -150,11 +187,23 @@ export default function SupervisionSiView({
   const visible = useMemo(() => prioritizeSupervised(filterSupervised(supervised, filter), priorities), [supervised, filter, priorities]);
   const proposals = useMemo(() => (sources ? buildProposals({ suggestions: sources.suggestions, signals: sources.signals, devices: sources.naDevices, supervised }) : []), [sources, supervised]);
   const links = useMemo(() => (sources ? buildLinks({ naLinks: sources.naLinks, naDevices: sources.naDevices, tunnels: sources.sshTunnels, connections: sources.sshConnections, supervised }) : []), [sources, supervised]);
+  // #426 : résolution par nom, relancée quand la liste (identités, noms,
+  // sites) change -- pas à chaque rafraîchissement d'état.
+  const subjectsKey = useMemo(() => resolveKey(supervised, sources?.sites), [supervised, sources]);
+  const refreshMatches = useCallback(async () => {
+    if (!pixelGridApiBase || !supervised.length) return;
+    const [{ matches: m, error }, { aliases: al }] = await Promise.all([resolveSubjects(pixelGridApiBase, subjectsOf(supervised, sources?.sites)), fetchAliases(pixelGridApiBase)]);
+    setMatches(m); setMatchesError(error); setAliases(al);
+  }, [pixelGridApiBase, subjectsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { refreshMatches(); }, [refreshMatches]);
   const positions = useMemo(() => {
     if (!sources) return new Map();
-    const known = knownPositions({ naDevices: sources.naDevices, geolocations: sources.geolocations, sites: sources.sites, supervised });
+    const known = knownPositions({ naDevices: sources.naDevices, geolocations: sources.geolocations, sites: sources.sites, supervised, matches });
     return deducePositions(supervised.map((i) => i.identity), links, known);
-  }, [sources, supervised, links]);
+  }, [sources, supervised, links, matches]);
+  const geoList = useMemo(() => geoRows(supervised, matches), [supervised, matches]);
+  const geoStats = useMemo(() => geoSummary(geoList, sources?.geolocations || []), [geoList, sources]);
+  const placeNames = useMemo(() => (sources?.geolocations || []).map((g) => g.localisation).filter((l) => l !== "__default__").sort(), [sources]);
   const summary = useMemo(() => summarizeByState(supervised), [supervised]);
   const selectedItem = supervised.find((i) => i.identity === selected) || null;
 
@@ -188,6 +237,17 @@ export default function SupervisionSiView({
   const addFrame = () => setFrames((fr) => (fr.length < 4 ? [...fr, { kind: fr.some((f) => f.kind === "links") ? "summary" : "links" }] : fr));
   const toggleProposal = (p) => setCheckedProposals((c) => ({ ...c, [p.key]: !c[p.key] }));
   const toggleBasket = (it) => setSelection((sel) => toggleSelection(sel, it.identity));
+  const decide = async (it, status, localisation) => {
+    const r = await decideMatch(pixelGridApiBase, it.identity, { status, localisation, name: it.name, site: it.site, groups });
+    if (r?.error) setMatchesError(r.error); else { setMatchesError(null); await refreshMatches(); }
+  };
+  const undecide = async (it) => { const r = await resetMatch(pixelGridApiBase, it.identity, groups); if (r?.error) setMatchesError(r.error); else await refreshMatches(); };
+  const submitAlias = async (e) => {
+    e.preventDefault();
+    if (!aliasForm.alias || !aliasForm.localisation) return;
+    const r = await addAlias(pixelGridApiBase, aliasForm.alias, aliasForm.localisation, groups);
+    if (r?.error) setMatchesError(r.error); else { setAliasForm({ alias: "", localisation: "" }); await refreshMatches(); }
+  };
   const goto = (origin) => { if (onNavigate) onNavigate(origin === "netprobe" ? "netprobe" : origin === "ups" ? "ups" : origin === "si-agent" ? "si-agent" : origin === "snmp" ? "snmp" : origin === "ssh-tunnels" ? "ssh-tunnels" : origin); };
 
   // --- Cadres ---
@@ -210,7 +270,7 @@ export default function SupervisionSiView({
             })}
             {mapPoints.map(({ it, p, dlat, dlon }) => (
               <CircleMarker key={it.identity} center={[dlat, dlon]} radius={selected === it.identity ? 11 : 8}
-                pathOptions={{ color: p.source === "déduite" || p.source === "repli" ? "#ffffff" : STATE_HEX[it.state], fillColor: STATE_HEX[it.state], fillOpacity: p.source === "repli" ? 0.35 : 0.85, weight: 2, dashArray: p.source === "déduite" ? "3 3" : null }}
+                pathOptions={{ color: p.source === "déduite" || p.source === "repli" ? "#ffffff" : p.source === "nom" ? "#666666" : STATE_HEX[it.state], fillColor: STATE_HEX[it.state], fillOpacity: p.source === "repli" ? 0.35 : 0.85, weight: 2, dashArray: p.source === "déduite" ? "3 3" : null }}
                 eventHandlers={{ click: () => setSelected(it.identity) }}>
                 <Popup>
                   <strong>{it.name}</strong> — {STATE_LABELS[it.state]} ({it.stateText})<br />
@@ -224,6 +284,7 @@ export default function SupervisionSiView({
             {Object.entries(STATE_HEX).map(([s, c]) => <span key={s}><i style={{ background: c }} /> {STATE_LABELS[s]}</span>)}
             <span><i style={{ background: "transparent", border: "2px dashed #666" }} /> déduite</span>
             <span><i style={{ background: "#999", opacity: 0.4 }} /> repli</span>
+            <span><i style={{ background: "transparent", border: "2px solid #666" }} /> nom</span>
             <span className="muted">{mapPoints.length}/{visible.length} positionnés · {mapLinks.length} liens</span>
           </div>
         </div>
@@ -240,7 +301,7 @@ export default function SupervisionSiView({
                   <td title={ITEM_TYPES[it.type]?.label}>{ITEM_TYPES[it.type]?.icon}{priorities[it.identity] != null && <span title={`priorité ${priorities[it.identity]}`}> ★</span>}</td>
                   <td><strong>{it.name}</strong></td>
                   <td>{it.ip ? <code>{it.ip}</code> : <span className="muted">—</span>}</td>
-                  <td>{it.site || <span className="muted">—</span>}</td>
+                  <td>{(() => { const d = displaySite(it, matches); return d.site ? <>{d.site}{d.resolved && <span className="muted ss-resolved" title={`localisation ${MATCH_STATUS[d.status]?.label} d'après le nom`}> ({MATCH_STATUS[d.status]?.label})</span>}</> : <span className="muted">—</span>; })()}</td>
                   <td><Tone state={it.state}>{STATE_LABELS[it.state]}</Tone> <span className="muted" style={{ fontSize: 11 }}>{it.stateText}</span></td>
                   <td className="muted">{when(it.lastSeen)}</td>
                   <td onClick={(e) => e.stopPropagation()}>{it.origins.map((o) => <button key={o.key} className="secondary ss-origin" onClick={() => goto(o.origin)} title={`ouvrir la tuile ${o.origin}`}>{ITEM_TYPES[o.type]?.label || o.origin}</button>)}</td>
@@ -257,7 +318,10 @@ export default function SupervisionSiView({
       body = (
         <div className="ss-links">
           {selectedItem ? (
-            <p style={{ margin: "4px 0 8px" }}><strong>{selectedItem.name}</strong> — position : {describeChain(positions.get(selectedItem.identity))}</p>
+            <>
+              <p style={{ margin: "4px 0 4px" }}><strong>{selectedItem.name}</strong> — position : {describeChain(positions.get(selectedItem.identity))}</p>
+              {pixelGridApiBase && <MatchLine item={selectedItem} match={matches[selectedItem.identity]} places={placeNames} onDecide={decide} onReset={undecide} />}
+            </>
           ) : <p className="muted" style={{ margin: "4px 0 8px" }}>Sélectionner un équipement pour voir sa chaîne de déduction ; ci-dessous les {shown.length} premiers liens.</p>}
           <div className="hub-table-scroll">
             <table>
@@ -335,6 +399,44 @@ ${when(new Date(sg.start).toISOString())} → ${when(new Date(sg.end).toISOStrin
           </div>
         );
       }
+    } else if (f.kind === "geo") {
+      const shownRows = geoList.filter((r) => geoFilter === "all" || (geoFilter === "todo" ? (r.status === "suggested" || r.status === "none" || (r.applied && !r.mapped)) : geoFilter === "applied" ? r.applied : r.status === geoFilter));
+      body = (
+        <div className="ss-geo">
+          <div className="ss-tool-head">
+            <span className="muted">{geoStats.applied}/{geoStats.total} localisés par le nom ou le site · {geoStats.suggested} à confirmer · {geoStats.none} sans correspondance · {geoStats.rejected} rejetés{geoStats.unmapped ? ` · ${geoStats.unmapped} lieu(x) sans coordonnées` : ""}{geoStats.pendingPlaces ? ` · ${geoStats.pendingPlaces} lieu(x) en attente de coordonnées` : ""}</span>
+            <span style={{ flex: 1 }} />
+            {[["todo", "à traiter"], ["applied", "appliquées"], ["rejected", "rejetées"], ["all", "toutes"]].map(([k, l]) => <button key={k} className={`secondary ss-chip${geoFilter === k ? " active" : ""}`} onClick={() => setGeoFilter(k)}>{l}</button>)}
+          </div>
+          {matchesError && <p className="hub-error" style={{ fontSize: 12 }}>{matchesError}</p>}
+          {!pixelGridApiBase && <p className="muted">VITE_PIXEL_GRID_API_BASE_URL non configurée : pas de résolution par nom.</p>}
+          <div className="hub-table-scroll">
+            <table>
+              <thead><tr><th>Équipement</th><th>Localisation</th><th>Statut</th><th></th></tr></thead>
+              <tbody>{shownRows.map((r) => (
+                <tr key={r.item.identity} className={selected === r.item.identity ? "active" : ""} onClick={() => setSelected(r.item.identity)}>
+                  <td><strong>{r.item.name}</strong><br /><span className="muted" style={{ fontSize: 11 }}>{[r.item.ip, r.item.site ? `site déclaré : ${r.item.site}` : null].filter(Boolean).join(" · ") || "—"}</span></td>
+                  <td>{r.match?.localisation ? <>{r.match.localisation}{r.match.mapped === false && <span className="muted"> (sans coordonnées)</span>}</> : <span className="muted">aucune</span>}{r.match?.score != null && r.match.status !== "manual" && <span className="muted" style={{ fontSize: 11 }}> · {r.match.method} {r.match.score}</span>}</td>
+                  <td><span className={`np-tone ${r.applied ? "good" : r.status === "suggested" ? "warn" : "neutral"}`} style={{ fontSize: 11 }}>{r.status === "none" ? "aucune" : MATCH_STATUS[r.status]?.label}</span></td>
+                  <td onClick={(e) => e.stopPropagation()}><MatchActions item={r.item} match={r.match} places={placeNames} onDecide={decide} onReset={undecide} /></td>
+                </tr>
+              ))}</tbody>
+            </table>
+            {shownRows.length === 0 && <p className="muted" style={{ padding: 8 }}>Rien pour ce filtre.</p>}
+          </div>
+          <details className="ss-aliases">
+            <summary>Alias déclarés ({aliases.length}) — « @5 » → « Parc/Batiment 5 »</summary>
+            <ul className="ss-list">
+              {aliases.map((a) => <li key={a.alias}><span className="ss-name"><strong>{a.alias}</strong> → {a.localisation}</span><button className="secondary ss-origin" onClick={() => deleteAlias(pixelGridApiBase, a.alias, groups).then(refreshMatches)} title="supprimer l'alias">✕</button></li>)}
+            </ul>
+            <form className="ss-alias-form" onSubmit={submitAlias}>
+              <input className="ss-search" placeholder="alias (ex. @5, tp5)" value={aliasForm.alias} onChange={(e) => setAliasForm((f) => ({ ...f, alias: e.target.value }))} />
+              <select value={aliasForm.localisation} onChange={(e) => setAliasForm((f) => ({ ...f, localisation: e.target.value }))}><option value="">localisation…</option>{placeNames.map((l) => <option key={l} value={l}>{l}</option>)}</select>
+              <button type="submit" className="secondary" disabled={!aliasForm.alias || !aliasForm.localisation}>Ajouter</button>
+            </form>
+          </details>
+        </div>
+      );
     } else if (f.kind === "radial") {
       const lay = radialLayout(buildHierarchy(visible), { radius: 230 });
       const S = 560;

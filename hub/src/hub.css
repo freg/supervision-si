@@ -1858,3 +1858,17 @@ button.secondary { background: var(--panel); }
 .eb-right { overflow-y: auto; }
 .eb-json { font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; white-space: pre-wrap; word-break: break-all; max-height: 40vh; overflow: auto; margin: 0; }
 @media (max-width: 1100px) { .eb-body { grid-template-columns: 1fr; } }
+/* #426 : localisation par nom (cadre « Localisations », actions de correspondance) */
+.ss-geo { display: flex; flex-direction: column; gap: 6px; min-height: 0; height: 100%; }
+.ss-geo .hub-table-scroll { flex: 1; min-height: 0; }
+.ss-geo tr.active td { background: var(--accent-bg, rgba(74, 110, 224, 0.12)); }
+.ss-match-actions { display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.ss-match-actions select { font-size: 11px; padding: 1px 4px; max-width: 110px; }
+.ss-geo td { vertical-align: top; }
+.ss-resolved { font-size: 11px; font-style: italic; }
+.ss-aliases summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+.ss-alias-form { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+.ss-alias-form input { flex: 1; }
+.ss-geo table { table-layout: fixed; width: 100%; }
+.ss-geo td, .ss-geo th { white-space: normal; word-break: break-word; }
+.ss-geo th:nth-child(1) { width: 32%; } .ss-geo th:nth-child(2) { width: 30%; } .ss-geo th:nth-child(3) { width: 15%; }

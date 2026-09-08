@@ -250,23 +250,57 @@ export function buildLinks({ naLinks = [], naDevices = [], tunnels = [], connect
 // Positions connues : {identity -> {lat, lon, source, label}} depuis les
 // coordonnées déclarées (network-agent), la table geolocations (pixel-grid,
 // par nom / IP / site) et les sites.
-export function knownPositions({ naDevices = [], geolocations = [], sites = [], supervised = [] }) {
+// #426 : `matches` = {identity -> correspondance nom/site -> localisation
+// calculée par pixel-grid (/geolocations/resolve), statut auto | suggested |
+// validated | rejected | manual}. Une correspondance appliquée (auto,
+// validated, manual) AVEC coordonnées vaut position « nom » -- plus jamais
+// la position de repli pour « UPS-Arobase-5 » quand « Arobase 5 » est connue.
+export const MATCH_STATUS = {
+  auto: { label: "auto", applied: true },
+  validated: { label: "validée", applied: true },
+  manual: { label: "manuelle", applied: true },
+  suggested: { label: "à confirmer", applied: false },
+  rejected: { label: "rejetée", applied: false },
+};
+
+export function appliedMatch(matches, identity) {
+  const m = matches && (matches instanceof Map ? matches.get(identity) : matches[identity]);
+  return m && m.status && MATCH_STATUS[m.status]?.applied && m.localisation ? m : null;
+}
+
+// Site affiché : déclaré sur l'équipement, sinon la localisation résolue.
+export function displaySite(item, matches) {
+  if (item.site) return { site: item.site, resolved: false };
+  const m = appliedMatch(matches, item.identity);
+  return m ? { site: m.localisation, resolved: true, status: m.status } : { site: null, resolved: false };
+}
+
+export function knownPositions({ naDevices = [], geolocations = [], sites = [], supervised = [], matches = null }) {
   const pos = new Map();
   const geo = new Map((geolocations || []).filter((g) => g.latitude != null && g.longitude != null).map((g) => [norm(g.localisation), g]));
   for (const d of naDevices || []) {
     if (d.latitude != null && d.longitude != null) pos.set(identity(d.ip_address, d.mac_address, null), { lat: d.latitude, lon: d.longitude, source: "déclarée", label: "coordonnées de l'appareil (network-agent)" });
   }
-  for (const s of sites || []) {
-    const g = geo.get(norm(s.name));
-    if (g) pos.set(`site:${norm(s.name)}`, { lat: g.latitude, lon: g.longitude, source: "site", label: `site ${s.name} (géolocalisations)` });
-  }
+  // nœud « site » : nom exact dans la table, sinon correspondance résolue
+  // (« Annexe-Nord » -> « Agence Annexe Nord »)
+  const siteNode = (name) => {
+    const key = `site:${norm(name)}`;
+    if (pos.has(key)) return;
+    const g = geo.get(norm(name));
+    if (g) { pos.set(key, { lat: g.latitude, lon: g.longitude, source: "site", label: `site ${name} (géolocalisations)` }); return; }
+    const m = appliedMatch(matches, key);
+    if (m && m.latitude != null && m.longitude != null) pos.set(key, { lat: m.latitude, lon: m.longitude, source: "site", label: `site ${name} ≈ ${m.localisation} (${MATCH_STATUS[m.status].label})`, match: m });
+  };
+  for (const s of sites || []) siteNode(s.name);
   for (const it of supervised || []) {
+    if (it.site) siteNode(it.site);
     if (pos.has(it.identity)) continue;
     const g = geo.get(norm(it.ip)) || geo.get(norm(it.name));
-    if (g) pos.set(it.identity, { lat: g.latitude, lon: g.longitude, source: "géolocalisation", label: `table des géolocalisations (${g.localisation})` });
-    else if (it.site && geo.get(norm(it.site))) {
-      const gs = geo.get(norm(it.site));
-      pos.set(`site:${norm(it.site)}`, { lat: gs.latitude, lon: gs.longitude, source: "site", label: `site ${it.site} (géolocalisations)` });
+    if (g) { pos.set(it.identity, { lat: g.latitude, lon: g.longitude, source: "géolocalisation", label: `table des géolocalisations (${g.localisation})` }); continue; }
+    const m = appliedMatch(matches, it.identity);
+    if (m && m.latitude != null && m.longitude != null) {
+      const how = m.status === "auto" ? `automatique, ${m.method || "proche"}, score ${m.score}` : MATCH_STATUS[m.status].label;
+      pos.set(it.identity, { lat: m.latitude, lon: m.longitude, source: "nom", label: `${m.localisation} d'après ${(m.method || "").endsWith("/site") ? "le site déclaré" : "le nom"} (${how})`, match: m });
     }
   }
   const dflt = geo.get("__default__");
@@ -332,6 +366,8 @@ export const FRAME_KINDS = {
   grid: "Mosaïque (pixel-grid)",
   calendar: "Calendrier de densité",
   radial: "Arbre radial",
+  // #426 : correspondances nom -> localisation à valider, alias, lieux sans coordonnées
+  geo: "Localisations",
 };
 
 export const DEFAULT_FRAMES = [{ kind: "map" }, { kind: "table" }];
@@ -394,5 +430,48 @@ export function spreadCoincident(points, step = 0.0006) {
       out.push({ ...p, dlat: p.lat + r * Math.cos(a), dlon: p.lon + r * Math.sin(a) * 1.5 });
     });
   }
+  return out;
+}
+
+// ---- #426 : sujets envoyés à /geolocations/resolve et synthèse du cadre -----
+
+// Un sujet par supervisé : identité stable, nom et site déclaré. Les
+// sujets « IP nue » ou « MAC nue » sans nom lisible sont quand même envoyés
+// (le site déclaré peut suffire).
+export function resolveSubjects(supervised, sites = []) {
+  const out = (supervised || []).map((it) => ({ subject: it.identity, name: it.name || null, site: it.site || null }));
+  // nœuds « site » (sites d'exploration réseau et sites déclarés) : le nom
+  // du site seul, pour placer le nœud auquel les liens rattachent les autres
+  const names = new Set([...(sites || []).map((s) => s.name), ...(supervised || []).map((it) => it.site)].filter(Boolean).map((n) => String(n)));
+  for (const n of names) out.push({ subject: `site:${norm(n)}`, name: null, site: n });
+  return out;
+}
+
+export function resolveKey(supervised, sites = []) {
+  return resolveSubjects(supervised, sites).map((s) => `${s.subject}|${s.name || ""}|${s.site || ""}`).sort().join("\n");
+}
+
+// Lignes du cadre « Localisations » : une par supervisé, avec la
+// correspondance (ou son absence), triées : à confirmer, puis sans
+// correspondance, puis automatiques, validées/manuelles, rejetées.
+export function geoRows(supervised, matches) {
+  const order = { suggested: 0, none: 1, auto: 2, validated: 3, manual: 3, rejected: 4 };
+  return (supervised || []).map((it) => {
+    const m = matches && (matches instanceof Map ? matches.get(it.identity) : matches[it.identity]);
+    const status = m?.status || "none";
+    return { item: it, match: m || null, status, applied: !!appliedMatch(matches, it.identity), mapped: !!m?.mapped };
+  }).sort((a, b) => (order[a.status] ?? 1) - (order[b.status] ?? 1) || String(a.item.name).localeCompare(String(b.item.name)));
+}
+
+export function geoSummary(rows, geolocations = []) {
+  const out = { total: rows.length, applied: 0, suggested: 0, none: 0, rejected: 0, unmapped: 0, pendingPlaces: 0 };
+  for (const r of rows) {
+    if (r.applied) out.applied += 1;
+    if (r.status === "suggested") out.suggested += 1;
+    if (r.status === "none") out.none += 1;
+    if (r.status === "rejected") out.rejected += 1;
+    if (r.applied && !r.mapped) out.unmapped += 1;
+  }
+  out.pendingPlaces = (geolocations || []).filter((g) => g.latitude == null || g.longitude == null).filter((g) => g.localisation !== "__default__").length;
   return out;
 }
