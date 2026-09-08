@@ -17,6 +17,8 @@ répète est rafraîchi, jamais dupliqué.
 import hashlib
 import re
 
+import places
+
 SEV = {"critical": 3, "warning": 2, "info": 1}
 GENERIC_NAMES = {"localhost", "pc", "serveur", "server", "unknown", "?", ""}
 PORT_ROLES = {"53": "dns", "67": "dhcp", "161": "snmp-manageable", "9100": "imprimante", "631": "imprimante",
@@ -211,6 +213,7 @@ def from_network_agent(sites, devices, links_by_segment):
     for s in sites or []:
         for seg in s.get("segments") or []:
             seg_site[seg.get("id")] = s.get("name")
+    _, dev_places = places.places_from_network_agent(sites, devices)   # lieu déclaré (bâtiment / salle) par appareil
     by_id = {}
     for d in devices or []:
         key = entity_key(ip=d.get("ip_address"), mac=d.get("mac_address"), name=d.get("hostname"))
@@ -224,7 +227,12 @@ def from_network_agent(sites, devices, links_by_segment):
             port = str(svc.get("port") or svc)
             if port in PORT_ROLES:
                 hints.append({"role": PORT_ROLES[port], "principle": "serves-port", "evidence": "sert le port %s" % port})
-        ents.append(_ent(key, "equipement", d.get("hostname"), d.get("ip_address"), d.get("mac_address"), seg_site.get(d.get("network_segment_id")), "network-agent", d.get("id"), hints))
+        e = _ent(key, "equipement", d.get("hostname"), d.get("ip_address"), d.get("mac_address"), seg_site.get(d.get("network_segment_id")), "network-agent", d.get("id"), hints)
+        if d.get("latitude") is not None and d.get("longitude") is not None:
+            e["geo"] = {"lat": d["latitude"], "lon": d["longitude"], "source": "network-agent"}
+        if dev_places.get(d.get("id")):
+            e["place"] = dev_places[d.get("id")]
+        ents.append(e)
     for seg_id, links in (links_by_segment or {}).items():
         for l in links or []:
             a, b = by_id.get(l.get("device_a_id")), by_id.get(l.get("device_b_id"))
@@ -297,7 +305,7 @@ def merge_entities(entities):
         if not cur:
             out[e["key"]] = {**e, "origins": list(e["origins"]), "hints": list(e["hints"])}
             continue
-        for f in ("name", "ip", "mac", "site"):
+        for f in ("name", "ip", "mac", "site", "geo", "place"):
             if not cur.get(f) and e.get(f):
                 cur[f] = e[f]
         if cur["kind"] in ("equipement", "pair") and e["kind"] not in ("equipement", "pair"):

@@ -30,3 +30,11 @@ export const runCollect = (b, groups) => fetchJson(b, "/collect", json("POST", {
 export const fetchGraph = (b) => fetchJson(b, "/graph");
 export const fetchRoutes = (b) => fetchJson(b, "/routes");
 export const fetchChanges = (b, since) => fetchJson(b, since ? `/changes?since=${encodeURIComponent(since)}&limit=300` : "/changes?limit=300");
+// #464 : lieux, positions, fiche d'intervention, couches carto
+export const fetchPositions = (b, provenance) => fetchJson(b, provenance ? `/positions?provenance=${encodeURIComponent(provenance)}` : "/positions");
+export const fetchPositionsQueue = (b) => fetchJson(b, "/positions/queue");
+export const resolvePositions = (b, groups) => fetchJson(b, "/positions/resolve", json("POST", { groups }));
+export const fetchPlaces = (b) => fetchJson(b, "/places");
+export const savePlaceNote = (b, key, payload) => fetchJson(b, `/places/${encodeURIComponent(key)}`, json("PUT", payload));
+export const fetchIntervention = (b, key) => fetchJson(b, `/entities/${encodeURIComponent(key)}/intervention`);
+export const fetchLayers = (b) => fetchJson(b, "/layers");

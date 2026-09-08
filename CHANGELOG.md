@@ -1,3 +1,56 @@
+## 2026-09-08 — Cortex, étape 3 : lieux, positions avec provenance, fiche d'intervention, éclairage carto (livraison #464)
+
+Suite du découpage validé en #461. Aucun module d'origine modifié ; Cortex
+lit pixel-grid (géolocalisations, correspondances) et geo-catalog.
+
+- **Hiérarchie de lieux** (`cortex/api/places.py`, tables `places`,
+  `place_notes`) : site > bâtiment > étage > salle > baie depuis les
+  géolocalisations (parent / type), les appareils network-agent
+  (bâtiment / salle, sites) et le catalogue geo-catalog ; fusion
+  lieu / site homonymes et des salles déclarées deux fois sous un même
+  site ; un lieu sans coordonnées hérite de son parent
+  (`place-hierarchy`) ; contact, accès et notes d'un lieu = saisie
+  humaine (`PUT /places/<clé>`), jamais écrasée par la collecte.
+- **Position mémorisée par entité** (table `positions`, `/positions`,
+  `/positions/queue`, `POST /positions/resolve`) avec provenance,
+  confiance, chaîne et date : échelle explicite dont chaque barreau est
+  un principe — déclarée (0,95) › validée (0,9) › lieu déclaré (0,85 ;
+  0,75 si hérité) › géolocalisation (0,8) › résolue par le nom (0,6) ›
+  propagée par relation (client → borne, hôte → passerelle du même site,
+  onduleur → alimenté ; ≤ 0,7) › voisinage (0,5 / profondeur) › repli
+  (0,1). Résolution à chaque collecte (plus à l'affichage), file de
+  travail par site, changements journalisés (`position-found`,
+  `position-changed`, `position-moved`).
+- **Fiche d'intervention** (`/entities/<clé>/intervention`, depuis le
+  détail d'une entité, la table des positions et la carte) : où aller,
+  position et provenance, amont (passerelle, borne, onduleur du site) avec
+  état, incidents ouverts, supervisée ou vue par la découverte seule
+  (`unsupervised`), entités du même lieu, accès bastion (IP privée
+  joignable par si-proxy quand `SI_PROXY_ENABLED`, sans jeton dans
+  Cortex), lien « ouvrir un ticket » (`CORTEX_TICKETS_PORTAL_URL`),
+  contact et accès du site saisis dans la fiche.
+- **Éclairage carto** (`/layers` GeoJSON, onglet **Carte**,
+  `hub/src/cortexPlaces.js`) : couches activables — entités positionnées
+  (couleur = provenance), halos d'incidents (rayon = sévérité × entités),
+  densité par lieu, zones sans supervision, chemins de dépendance ;
+  cadrage automatique, légende, clic = fiche d'intervention. Onglet
+  **Positions** : table par provenance, filtre, file de travail,
+  résolution à la demande.
+- Dix principes de plus (trente), tous évaluables ; compose :
+  `PIXEL_GRID_API_URL`, `GEO_CATALOG_API_URL`, `TICKETS_PORTAL_URL`,
+  `SI_PROXY_ENABLED` sur `cortex-api` ; `.env.example` :
+  `CORTEX_TICKETS_PORTAL_URL`.
+
+**Vérifié** : 15 tests purs Python (hiérarchie / héritage / fusion, échelle
+barreau par barreau avec confiance décroissante et file de travail, fiche
+et couches) ; chaîne réelle central si-agent + UPS, vigilance, pixel-grid et
+network-agent simulés : 17 entités positionnées (1 déclarée, 11 lieu
+déclaré dont une salle héritée, 1 résolue par le nom, 4 voisinage), contact
+de site enregistré et relu dans la fiche, `/layers` 3 halos / 4 lieux /
+3 sans supervision / 1 chemin ; onglets Positions, Carte et fiche
+d'intervention sous Chromium ; 170 tests Node. **Non vérifié** : geo-catalog
+réel, fond de carte (pas de réseau sortant en test), bastion réel.
+
 ## 2026-09-08 — Cortex, étape 2 : rôles enrichis, table de routes, graphe d'architecture, « ce qui a changé » (livraison #463)
 
 Suite du découpage validé en #461 (« continue »). Aucun module d'origine

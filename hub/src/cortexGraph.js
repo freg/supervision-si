@@ -51,10 +51,11 @@ export const KIND_ICON = { passerelle: "🛰", onduleur: "🔋", "equipement-res
 
 // Résumé lisible d'un changement.
 export const CHANGE_LABEL = { "entity-new": "nouvelle entité", "entity-gone": "entité disparue", "relation-new": "nouvelle relation", "relation-gone": "relation disparue",
-  "role-changed": "rôle changé", "role-new": "rôle attribué", "site-changed": "site changé", "gateway-changed": "passerelle changée" };
+  "role-changed": "rôle changé", "role-new": "rôle attribué", "site-changed": "site changé", "gateway-changed": "passerelle changée",
+  "position-found": "position trouvée", "position-changed": "provenance de position changée", "position-moved": "position déplacée" };
 export function changeTone(kind) {
   if (kind === "entity-gone" || kind === "relation-gone" || kind === "gateway-changed") return "warn";
-  if (kind === "entity-new" || kind === "relation-new") return "good";
+  if (kind === "entity-new" || kind === "relation-new" || kind === "position-found") return "good";
   return "neutral";
 }
 // Routes regroupées par hôte.

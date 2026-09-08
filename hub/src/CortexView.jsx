@@ -6,12 +6,15 @@
 // entités consolidées avec rôles pondérés ; événements normalisés ;
 // journal de collecte ; statistiques. Rien n'est affirmé sans dire pourquoi.
 import { useCallback, useEffect, useState } from "react";
-import { fetchCortexStatus, fetchIncidents, fetchIncident, ackIncident, closeIncident, feedbackIncident, fetchEntities, fetchEntity, fetchEvents, fetchPrinciples, fetchCortexStats, fetchRuns, runCollect, fetchGraph, fetchRoutes, fetchChanges } from "./cortexClient.js";
+import { MapContainer, TileLayer, CircleMarker, Polyline, Popup, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import { fetchCortexStatus, fetchIncidents, fetchIncident, ackIncident, closeIncident, feedbackIncident, fetchEntities, fetchEntity, fetchEvents, fetchPrinciples, fetchCortexStats, fetchRuns, runCollect, fetchGraph, fetchRoutes, fetchChanges, fetchPositions, fetchPositionsQueue, resolvePositions, fetchPlaces, savePlaceNote, fetchIntervention, fetchLayers } from "./cortexClient.js";
 import { layoutGraph, EDGE_STYLE, KIND_ICON, CHANGE_LABEL, changeTone, routesByHost } from "./cortexGraph.js";
+import { PROVENANCE, provenanceStyle, LAYERS, defaultLayers, SEV_COLOR, boundsOf, sortPositions, provenanceCounts, chainText, whereText } from "./cortexPlaces.js";
 import { SEV, STATE_LABEL, KIND_LABEL, confidenceWord, pct, incidentLine, splitHypotheses, collectHealth, principleText, eventsBySource } from "./cortex.js";
 
 const REFRESH_MS = 30000;
-const TABS = [["incidents", "Incidents"], ["graph", "Architecture"], ["changes", "Ce qui a changé"], ["routes", "Routes"], ["entities", "Entités"], ["events", "Événements"], ["principles", "Principes & évaluations"], ["stats", "Statistiques"], ["runs", "Collecte"]];
+const TABS = [["incidents", "Incidents"], ["graph", "Architecture"], ["map", "Carte"], ["positions", "Positions"], ["changes", "Ce qui a changé"], ["routes", "Routes"], ["entities", "Entités"], ["events", "Événements"], ["principles", "Principes & évaluations"], ["stats", "Statistiques"], ["runs", "Collecte"]];
 
 function Tone({ tone, children, title }) {
   return <span className={`np-tone ${tone || "neutral"}`} title={title}>{children}</span>;
@@ -38,6 +41,43 @@ function Hypothesis({ h, incidentKey, apiBase, login, onDone }) {
   );
 }
 
+function FitBounds({ bounds }) {
+  const map = useMap();
+  useEffect(() => { if (bounds) map.fitBounds(bounds, { padding: [24, 24], maxZoom: 15 }); }, [map, bounds]);
+  return null;
+}
+
+// Fiche « où aller » d'une entité (#464) : lieu, position et provenance,
+// amont (passerelle, borne, onduleur) avec état, incidents ouverts, voisins
+// du même lieu, accès bastion, contact et accès du site (saisie humaine).
+function InterventionSheet({ sheet, apiBase, login, groups, onSaved }) {
+  const [contact, setContact] = useState(sheet.contact || "");
+  const [access, setAccess] = useState(sheet.access || "");
+  const [busy, setBusy] = useState(false);
+  const siteKey = sheet.where?.length ? sheet.where[0].key : null;
+  const pos = sheet.position;
+  const st = pos ? provenanceStyle(pos.provenance) : null;
+  return (
+    <div className="hub-card hub-settings-section" style={{ marginTop: 8, textAlign: "left", borderLeft: "4px solid var(--accent, #2f6fd6)" }}>
+      <h3 style={{ margin: "0 0 4px" }}>🧭 Fiche d'intervention — {sheet.entity.name || sheet.entity.ip || sheet.entity.key}</h3>
+      <p style={{ margin: "0 0 4px" }}><strong>Où aller :</strong> {whereText(sheet)}{pos ? <> · <Tone tone={st.tone} title={st.help}>{pos.provenance} ({pct(pos.confidence)})</Tone> <span className="muted">{pos.lat?.toFixed(5)}, {pos.lon?.toFixed(5)} — {chainText(pos)} · principe <code>{pos.principle}</code></span></> : <span className="muted"> · sans position (file de travail)</span>}</p>
+      <p style={{ margin: "0 0 4px" }}><strong>En amont :</strong> {sheet.upstream?.length ? sheet.upstream.map((u) => <span key={u.key + u.kind}><Tone tone={u.state === "ok" ? "good" : SEV[u.state]?.tone}>{u.name}</Tone> <span className="muted">({u.kind === "gateway_of" ? "passerelle" : u.kind === "uplink" ? "borne / switch" : u.kind === "powers_site" ? "onduleur du site" : u.kind}{u.state !== "ok" ? `, ${SEV[u.state]?.label || u.state}` : ""})</span> </span>) : <span className="muted">rien de connu</span>}</p>
+      <p style={{ margin: "0 0 4px" }}><strong>Incidents ouverts :</strong> {sheet.incidents?.length ? sheet.incidents.map((i) => <span key={i.key}><Tone tone={SEV[i.severity]?.tone}>{SEV[i.severity]?.label}</Tone> {i.title} </span>) : <span className="muted">aucun</span>} · <strong>supervision :</strong> {sheet.supervised ? <Tone tone="good">supervisée</Tone> : <Tone tone="warn">vue par la découverte seule</Tone>}</p>
+      <p style={{ margin: "0 0 4px" }}><strong>Accès :</strong> {sheet.bastion ? (sheet.bastion.available ? <Tone tone="good">joignable par le bastion ({sheet.bastion.via})</Tone> : <span className="muted">pas de cible bastion connue pour cette IP</span>) : <span className="muted">bastion non interrogé</span>}{sheet.ticket_url && <> · <a href={sheet.ticket_url} target="_blank" rel="noreferrer">ouvrir un ticket</a></>}</p>
+      {sheet.same_place?.length > 0 && <p className="muted" style={{ margin: "0 0 4px" }}><strong>Au même lieu :</strong> {sheet.same_place.slice(0, 12).map((s) => `${s.name}${s.role ? ` (${s.role})` : ""}`).join(", ")}{sheet.same_place.length > 12 ? ` … (+${sheet.same_place.length - 12})` : ""}</p>}
+      {siteKey && (
+        <p style={{ margin: "4px 0 0" }}>
+          <strong>Contact du site :</strong> <input className="ss-search" style={{ width: 220 }} value={contact} placeholder="nom, téléphone" onChange={(e) => setContact(e.target.value)} />
+          {" "}<strong>Accès :</strong> <input className="ss-search" style={{ width: 260 }} value={access} placeholder="badge, clé, horaires" onChange={(e) => setAccess(e.target.value)} />
+          {" "}<button className="secondary ss-origin" disabled={busy} onClick={async () => { setBusy(true); await savePlaceNote(apiBase, siteKey, { contact, access, by: login, groups }); setBusy(false); onSaved?.(); }}>enregistrer</button>
+          <span className="muted"> (lieu {siteKey} — saisie humaine, jamais écrasée par la collecte)</span>
+        </p>
+      )}
+      {sheet.principles?.length > 0 && <p className="muted" style={{ margin: "4px 0 0" }}>Principes appliqués : {sheet.principles.map((p) => `${p.id} (${pct(p.effective)})`).join(" · ")}</p>}
+    </div>
+  );
+}
+
 export default function CortexView({ onBack, cortexApiBase, login, groups = [], onNavigate }) {
   const [tab, setTab] = useState("incidents");
   const [status, setStatus] = useState(null);
@@ -55,6 +95,12 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
   const [routes, setRoutes] = useState([]);
   const [changes, setChanges] = useState([]);
   const [graphNode, setGraphNode] = useState(null);
+  const [positions, setPositions] = useState(null);
+  const [queue, setQueue] = useState(null);
+  const [provFilter, setProvFilter] = useState(null);
+  const [layers, setLayers] = useState(null);
+  const [activeLayers, setActiveLayers] = useState(defaultLayers);
+  const [sheet, setSheet] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
@@ -72,7 +118,10 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
     if (tab === "graph") { const r = await fetchGraph(cortexApiBase); if (!r.error) setGraph(r); }
     if (tab === "routes") { const r = await fetchRoutes(cortexApiBase); if (!r.error) setRoutes(r.routes); }
     if (tab === "changes") { const r = await fetchChanges(cortexApiBase); if (!r.error) setChanges(r.changes); }
+    if (tab === "positions") { const [r, qq] = await Promise.all([fetchPositions(cortexApiBase), fetchPositionsQueue(cortexApiBase)]); if (!r.error) setPositions(r.positions); if (!qq.error) setQueue(qq); }
+    if (tab === "map") { const r = await fetchLayers(cortexApiBase); if (!r.error) setLayers(r); }
   }, [cortexApiBase, tab, incState, q]);
+  const openSheet = async (key) => { const d = await fetchIntervention(cortexApiBase, key); if (!d.error) setSheet(d); else setNotice(`fiche : ${d.error}`); };
   useEffect(() => { load(); const id = setInterval(load, REFRESH_MS); return () => clearInterval(id); }, [load]);
 
   const openDetail = async (key) => { const d = await fetchIncident(cortexApiBase, key); if (!d.error) setDetail(d); };
@@ -201,13 +250,56 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
             ))}</tbody></table></div>
           {entity && (
             <div className="hub-card hub-settings-section" style={{ marginTop: 10, textAlign: "left" }}>
-              <h2 style={{ margin: "0 0 4px" }}>{entity.name || entity.ip || entity.key} <span className="muted">{entity.key}</span> <button className="secondary ss-origin" onClick={() => setEntity(null)}>✕</button></h2>
+              <h2 style={{ margin: "0 0 4px" }}>{entity.name || entity.ip || entity.key} <span className="muted">{entity.key}</span> <button className="secondary ss-origin" onClick={() => openSheet(entity.key)}>🧭 fiche d'intervention</button> <button className="secondary ss-origin" onClick={() => { setEntity(null); setSheet(null); }}>✕</button></h2>
               <p className="muted" style={{ margin: 0 }}>vu de {entity.first_seen} à {entity.last_seen}</p>
+              {sheet && sheet.entity.key === entity.key && <InterventionSheet sheet={sheet} apiBase={cortexApiBase} login={login} groups={groups} onSaved={() => openSheet(entity.key)} />}
               <ul className="sa-risks">{(entity.roles || []).map((r) => <li key={r.role}><Conf c={r.confidence} /> {r.role} — {r.evidence.join(" ; ")} <span className="muted">(principes {r.principles.join(", ")})</span></li>)}</ul>
               <ul className="sa-risks">{(entity.relations || []).slice(0, 30).map((r, k) => <li key={k}><code>{r.a === entity.key ? "cette entité" : r.a}</code> —{r.kind}→ <code>{r.b === entity.key ? "cette entité" : r.b}</code> <span className="muted">{r.evidence} ({r.source})</span></li>)}</ul>
               {(entity.events || []).length > 0 && <p className="muted">{entity.events.length} événement(s) : {entity.events.slice(0, 5).map((e) => `${e.kind} (${STATE_LABEL[e.state]})`).join(" · ")}</p>}
             </div>
           )}
+        </div>
+      )}
+
+      {tab === "positions" && (
+        <div className="hub-card hub-settings-section">
+          <p className="muted" style={{ margin: "0 0 6px" }}>Position mémorisée par entité avec sa provenance, résolue à chaque collecte par une échelle explicite (déclarée › validée › lieu déclaré › géolocalisation › résolue par le nom › propagée › voisinage › repli) — chaque barreau est un principe évalué. <button className="secondary ss-origin" disabled={busy} onClick={() => act("résolution", () => resolvePositions(cortexApiBase, groups))}>↻ résoudre maintenant</button></p>
+          <p style={{ margin: "0 0 6px" }}>
+            <button className={`secondary ss-origin${provFilter ? "" : " active"}`} onClick={() => setProvFilter(null)}>toutes ({(positions || []).length})</button>
+            {provenanceCounts(positions).map(([p, n]) => <span key={p}> <button className={`secondary ss-origin${provFilter === p ? " active" : ""}`} title={provenanceStyle(p).help} style={{ borderLeft: `4px solid ${provenanceStyle(p).color}` }} onClick={() => setProvFilter(provFilter === p ? null : p)}>{p} ({n})</button></span>)}
+          </p>
+          {queue && queue.queue.length > 0 && (
+            <div className="hub-card hub-settings-section" style={{ marginBottom: 8, textAlign: "left" }}>
+              <strong>File de travail</strong> <span className="muted">— {queue.entities - queue.positioned + queue.queue.reduce((n, g) => n + g.entities.filter((e) => e.status === "repli").length, 0)} entité(s) sans position ou en repli : à déclarer (géolocalisations, lieu sur l'appareil) ou à valider (correspondances).</span>
+              <ul className="sa-risks">{queue.queue.map((g) => <li key={g.site}><strong>{g.site}</strong> ({g.count}) : {g.entities.slice(0, 15).map((e) => `${e.name || e.ip || e.key} [${e.status}]`).join(", ")}{g.entities.length > 15 ? " …" : ""}</li>)}</ul>
+            </div>
+          )}
+          <div className="hub-table-scroll"><table><thead><tr><th>Entité</th><th>Site</th><th>Provenance</th><th>Confiance</th><th>Lieu</th><th>Coordonnées</th><th>Comment</th><th>Depuis</th></tr></thead>
+            <tbody>{sortPositions(positions, provFilter).map((p) => { const st = provenanceStyle(p.provenance); return (
+              <tr key={p.entity} style={{ cursor: "pointer" }} onClick={async () => { const d = await fetchEntity(cortexApiBase, p.entity); if (!d.error) { setEntity(d); setTab("entities"); openSheet(p.entity); } }}>
+                <td><strong>{p.name || p.ip || p.entity}</strong> <span className="muted">{p.kind ? KIND_LABEL[p.kind] || p.kind : ""}</span></td><td>{p.site || "—"}</td>
+                <td><Tone tone={st.tone} title={st.help}>{p.provenance}</Tone></td><td>{pct(p.confidence)}</td><td className="muted">{p.place || "—"}</td>
+                <td className="muted">{p.lat?.toFixed(5)}, {p.lon?.toFixed(5)}</td><td className="muted">{chainText(p)} <code>{p.principle}</code></td><td className="muted">{p.changed_at || p.first_at}</td>
+              </tr>); })}</tbody></table></div>
+        </div>
+      )}
+
+      {tab === "map" && (
+        <div className="hub-card hub-settings-section">
+          <p className="muted" style={{ margin: "0 0 6px" }}>Éclairage carto : couches activables sur les positions mémorisées. {layers?.summary && <>{layers.summary.positioned} positionnée(s), {layers.summary.unpositioned} sans position, {layers.summary.incidents} halo(s) d'incident, {layers.summary.unsupervised} sans supervision, {layers.summary.places} lieu(x), {layers.summary.dependencies} chemin(s).</>}</p>
+          <p style={{ margin: "0 0 6px" }}>{LAYERS.map((l) => <label key={l.id} title={l.help} style={{ marginRight: 12 }}><input type="checkbox" checked={activeLayers.has(l.id)} onChange={() => setActiveLayers((s) => { const n = new Set(s); if (n.has(l.id)) n.delete(l.id); else n.add(l.id); return n; })} /> {l.label}</label>)}
+            <span className="muted"> · légende : {PROVENANCE.map(([p, v]) => <span key={p} style={{ marginRight: 6 }}><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 5, background: v.color, verticalAlign: "middle" }} /> {p}</span>)}</span></p>
+          <div style={{ height: 520, borderRadius: 8, overflow: "hidden", border: "1px solid var(--border, #ddd)" }}>
+            <MapContainer center={[46.6, 2.4]} zoom={6} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
+              <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              <FitBounds bounds={boundsOf(layers?.positions?.features)} />
+              {activeLayers.has("density") && (layers?.density?.features || []).map((f) => <CircleMarker key={`d-${f.properties.place}`} center={[f.geometry.coordinates[1], f.geometry.coordinates[0]]} radius={f.properties.radius} pathOptions={{ color: "#2f6fd6", weight: 1, fillColor: "#2f6fd6", fillOpacity: 0.12 }}><Popup><strong>{f.properties.name}</strong> ({f.properties.kind || "lieu"})<br />{f.properties.count} entité(s), {f.properties.supervised} supervisée(s), {f.properties.unsupervised} sans supervision, {f.properties.incidents} incident(s)</Popup></CircleMarker>)}
+              {activeLayers.has("incidents") && (layers?.incidents?.features || []).map((f) => <CircleMarker key={`i-${f.properties.key}`} center={[f.geometry.coordinates[1], f.geometry.coordinates[0]]} radius={f.properties.radius} pathOptions={{ color: SEV_COLOR[f.properties.severity] || "#999", weight: 2, fillColor: SEV_COLOR[f.properties.severity] || "#999", fillOpacity: 0.25 }}><Popup><strong>{f.properties.title}</strong><br />{SEV[f.properties.severity]?.label} · {f.properties.entities} entité(s) · confiance {pct(f.properties.confidence)}<br /><button className="secondary ss-origin" onClick={() => { setTab("incidents"); openDetail(f.properties.key); }}>ouvrir l'incident</button></Popup></CircleMarker>)}
+              {activeLayers.has("dependencies") && (layers?.dependencies?.features || []).map((f, k) => <Polyline key={`l-${k}`} positions={f.geometry.coordinates.map(([lon, lat]) => [lat, lon])} pathOptions={{ color: EDGE_STYLE[f.properties.kind]?.color || "#999", weight: 2, opacity: 0.8, dashArray: f.properties.kind === "powers_site" ? "4 4" : null }}><Popup>{f.properties.a_name} —{f.properties.kind}→ {f.properties.b_name}</Popup></Polyline>)}
+              {activeLayers.has("positions") && (layers?.positions?.features || []).map((f) => { const st = provenanceStyle(f.properties.provenance); return <CircleMarker key={`p-${f.properties.key}`} center={[f.geometry.coordinates[1], f.geometry.coordinates[0]]} radius={5} pathOptions={{ color: st.color, weight: 1.5, fillColor: st.color, fillOpacity: 0.85 }}><Popup><strong>{f.properties.name}</strong> <span className="muted">{f.properties.key}</span><br />{f.properties.provenance} ({pct(f.properties.confidence)}) · {f.properties.place || f.properties.site || "sans lieu"}<br /><button className="secondary ss-origin" onClick={async () => { const d = await fetchEntity(cortexApiBase, f.properties.key); if (!d.error) { setEntity(d); setTab("entities"); openSheet(f.properties.key); } }}>fiche d'intervention</button></Popup></CircleMarker>; })}
+              {activeLayers.has("unsupervised") && (layers?.unsupervised?.features || []).map((f) => <CircleMarker key={`u-${f.properties.key}`} center={[f.geometry.coordinates[1], f.geometry.coordinates[0]]} radius={11} pathOptions={{ color: "#c58a00", weight: 2, dashArray: "3 3", fill: false }}><Popup><strong>{f.properties.name}</strong><br />{f.properties.reason}</Popup></CircleMarker>)}
+            </MapContainer>
+          </div>
         </div>
       )}
 

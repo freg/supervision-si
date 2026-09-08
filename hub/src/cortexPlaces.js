@@ -1,0 +1,77 @@
+// Lieux, positions et couches carto de Cortex (livraison #464) -- logique
+// PURE, testée sous Node (hub/tests/cortexPlaces.test.mjs). La position
+// d'une entité est mémorisée par cortex-api avec sa PROVENANCE ; ici on
+// ne fait que présenter : couleur par provenance, légende des couches,
+// regroupements, bornes de carte.
+
+// Provenance -> ton et couleur (du plus sûr au moins sûr).
+export const PROVENANCE = [
+  ["déclarée", { color: "#1b7f3b", tone: "good", rank: 0, help: "coordonnées portées par l'appareil" }],
+  ["validée", { color: "#1b7f3b", tone: "good", rank: 1, help: "correspondance validée par une personne" }],
+  ["lieu déclaré", { color: "#2f6fd6", tone: "good", rank: 2, help: "lieu déclaré (site, bâtiment, salle) positionné" }],
+  ["géolocalisation", { color: "#2f6fd6", tone: "good", rank: 3, help: "table des géolocalisations (nom ou IP)" }],
+  ["résolue par le nom", { color: "#c58a00", tone: "warn", rank: 4, help: "correspondance automatique, à valider" }],
+  ["propagée", { color: "#c58a00", tone: "warn", rank: 5, help: "prise sur l'équipement dont elle dépend" }],
+  ["déduite du voisinage", { color: "#b45309", tone: "warn", rank: 6, help: "moyenne des voisins positionnés" }],
+  ["repli", { color: "#9ca3af", tone: "bad", rank: 7, help: "position de repli : à traiter dans la file" }],
+];
+const PROV_MAP = new Map(PROVENANCE);
+export function provenanceStyle(p) {
+  return PROV_MAP.get(p) || { color: "#6b7280", tone: "neutral", rank: 9, help: p || "?" };
+}
+
+export const LAYERS = [
+  { id: "positions", label: "Entités positionnées", help: "une pastille par entité, couleur = provenance", default: true },
+  { id: "incidents", label: "Halos d'incidents", help: "rayon = sévérité × entités touchées", default: true },
+  { id: "density", label: "Densité par lieu", help: "un cercle par lieu, rayon = nombre d'entités", default: false },
+  { id: "unsupervised", label: "Zones sans supervision", help: "entités vues par la découverte seule (principe unsupervised)", default: true },
+  { id: "dependencies", label: "Chemins de dépendance", help: "passerelle → hôte, borne → client, onduleur → site", default: false },
+];
+export function defaultLayers() {
+  return new Set(LAYERS.filter((l) => l.default).map((l) => l.id));
+}
+
+export const SEV_COLOR = { critical: "#c92a2a", warning: "#e67700", info: "#1c7ed6" };
+
+// Bornes [[latMin, lonMin], [latMax, lonMax]] des positions (ou null).
+export function boundsOf(features) {
+  let latMin = 90, latMax = -90, lonMin = 180, lonMax = -180, n = 0;
+  for (const f of features || []) {
+    if (f.geometry?.type !== "Point") continue;
+    const [lon, lat] = f.geometry.coordinates;
+    if (typeof lat !== "number" || typeof lon !== "number") continue;
+    latMin = Math.min(latMin, lat); latMax = Math.max(latMax, lat); lonMin = Math.min(lonMin, lon); lonMax = Math.max(lonMax, lon); n += 1;
+  }
+  if (!n) return null;
+  if (n === 1) return [[latMin - 0.01, lonMin - 0.01], [latMax + 0.01, lonMax + 0.01]];
+  return [[latMin, lonMin], [latMax, lonMax]];
+}
+
+// Positions triées : d'abord les moins sûres (c'est là qu'il y a du travail),
+// puis par nom ; filtre optionnel par provenance.
+export function sortPositions(rows, provenance = null) {
+  return (rows || []).filter((r) => !provenance || r.provenance === provenance)
+    .sort((a, b) => provenanceStyle(b.provenance).rank - provenanceStyle(a.provenance).rank || (a.name || a.entity).localeCompare(b.name || b.entity));
+}
+
+// Compte par provenance dans l'ordre de l'échelle.
+export function provenanceCounts(rows) {
+  const c = new Map();
+  for (const r of rows || []) c.set(r.provenance, (c.get(r.provenance) || 0) + 1);
+  return PROVENANCE.map(([p]) => [p, c.get(p) || 0]).filter(([, n]) => n > 0);
+}
+
+// Phrase d'une chaîne de déduction.
+export function chainText(p) {
+  if (!p) return "";
+  const chain = p.chain || [];
+  if (!chain.length) return p.evidence || "";
+  return chain.map((c) => `${c.why || c.via} ← ${c.from}${c.from_provenance ? ` [${c.from_provenance}]` : ""}${c.weight != null ? ` ×${c.weight}` : ""}`).join(" ; ");
+}
+
+// « Où aller » en une ligne : site › bâtiment › salle.
+export function whereText(sheet) {
+  const w = sheet?.where || [];
+  if (!w.length) return sheet?.entity?.site ? `site ${sheet.entity.site} (non positionné)` : "lieu inconnu";
+  return w.map((x) => x.name).join(" › ");
+}

@@ -1,0 +1,28 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { provenanceStyle, defaultLayers, boundsOf, sortPositions, provenanceCounts, chainText, whereText, LAYERS } from "../src/cortexPlaces.js";
+
+test("provenances, couches et bornes", () => {
+  assert.equal(provenanceStyle("déclarée").tone, "good");
+  assert.equal(provenanceStyle("repli").tone, "bad");
+  assert.equal(provenanceStyle("???").tone, "neutral");
+  const d = defaultLayers();
+  assert.ok(d.has("positions") && d.has("incidents") && !d.has("density"));
+  assert.equal(LAYERS.length, 5);
+  assert.equal(boundsOf([]), null);
+  const one = boundsOf([{ geometry: { type: "Point", coordinates: [4.83, 45.76] } }]);
+  assert.ok(one[0][0] < 45.76 && one[1][0] > 45.76);
+  const two = boundsOf([{ geometry: { type: "Point", coordinates: [4.83, 45.76] } }, { geometry: { type: "Point", coordinates: [2.35, 48.85] } }, { geometry: { type: "LineString", coordinates: [[0, 0], [1, 1]] } }]);
+  assert.deepEqual(two, [[45.76, 2.35], [48.85, 4.83]]);
+});
+
+test("tri, comptes, chaîne, où aller", () => {
+  const rows = [{ entity: "a", name: "zed", provenance: "déclarée" }, { entity: "b", name: "alpha", provenance: "repli" }, { entity: "c", name: "beta", provenance: "repli" }, { entity: "d", name: "vm", provenance: "propagée" }];
+  assert.deepEqual(sortPositions(rows).map((r) => r.entity), ["b", "c", "d", "a"]);   // le moins sûr d'abord
+  assert.deepEqual(sortPositions(rows, "repli").map((r) => r.entity), ["b", "c"]);
+  assert.deepEqual(provenanceCounts(rows), [["déclarée", 1], ["propagée", 1], ["repli", 2]]);
+  assert.equal(chainText({ evidence: "lieu bureau (site)", chain: [] }), "lieu bureau (site)");
+  assert.equal(chainText({ chain: [{ via: "uplink", why: "borne", from: "mac:1", from_provenance: "déclarée" }] }), "borne ← mac:1 [déclarée]");
+  assert.equal(whereText({ where: [{ name: "siege" }, { name: "B1" }, { name: "Local technique" }] }), "siege › B1 › Local technique");
+  assert.equal(whereText({ where: [], entity: { site: "cloud" } }), "site cloud (non positionné)");
+});

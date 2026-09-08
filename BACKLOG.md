@@ -2526,5 +2526,6 @@ apprises et anticipation, dérives généralisées ; (5) statistiques MTTA/MTTR 
 d'alerte. Validé (« cortex me plait ») ; étape 1 livrée en #462 (cortex-api,
 tuile, principes évalués) ; étape 2 livrée en #463 (rôles enrichis OUI /
 classifier / Nebula / IPAM, table de routes, graphe d'architecture, « ce qui
-a changé »). Prochaine : étape 3 (lieux et positions avec provenance, fiche
-d'intervention, couches carto).
+a changé ») ; étape 3 livrée en #464 (hiérarchie de lieux, positions avec
+provenance et file de travail, fiche d'intervention, couches carto).
+Prochaine : étape 4 (séquences apprises, anticipation, dérives).

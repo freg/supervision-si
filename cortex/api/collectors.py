@@ -13,6 +13,7 @@ import requests
 import changes as ch
 import correlate
 import normalize as nz
+import places as pl
 import store
 
 _log = logging.getLogger("cortex.collect")
@@ -32,6 +33,7 @@ class Collector(object):
         self.urls = urls        # {si_agent, vigilance, ups, orchestrator, netprobe, network_agent, backup}
         self.window_s = window_s
         self.horizon_h = horizon_h   # événements historiques plus vieux : ignorés
+        self._na = ([], [])          # dernier (sites, appareils) network-agent lus
 
     def _snapshot(self):
         fb = store.feedback_counts(self.db_path)
@@ -79,6 +81,7 @@ class Collector(object):
             def na():
                 sites = _get(u["network_agent"], "/sites") or []
                 devices = _get(u["network_agent"], "/devices") or []
+                self._na = (sites, devices)      # réutilisé par resolve_places (lieux, coordonnées)
                 links, services = {}, {}
                 for s in sites:
                     for seg in s.get("segments") or []:
@@ -124,14 +127,73 @@ class Collector(object):
         ok_sources = {k for k, v in report.items() if v.get("ok")}
         closed = store.close_missing_events(self.db_path, {e["fingerprint"] for e in evs}, ok_sources)
         counts = self.recompute()
+        pos_report = self.resolve_places()
+        report["positions"] = pos_report
         after = self._snapshot()
         failed = {k for k, v in report.items() if not v.get("ok")}
         diff = ch.compute_changes(before, after, failed_sources=failed, names=store.entity_names(self.db_path)) if before["entities"] else []
+        diff.extend(pos_report.get("changes") or [])
         store.add_changes(self.db_path, diff)
         counts.update({"entities": len(merged), "aliases": len(alias), "relations": len(rels), "routes": len(routes), "changes": len(diff),
                        "events_new": new, "events_refreshed": refreshed, "events_closed": closed})
         store.add_run(self.db_path, int((time.time() - t0) * 1000), report, counts)
         return report, counts
+
+    def resolve_places(self):
+        """Étape 3 (#464) : lieux + positions mémorisées avec provenance.
+        Lit pixel-grid (géolocalisations, correspondances) et geo-catalog
+        (positions validées) ; les appareils network-agent viennent de la
+        collecte courante. -> rapport {ok, places, positions, by_provenance, changes}."""
+        u = self.urls
+        t = time.time()
+        rep = {"ok": True, "sources": {}}
+        geos, matches, catalog = [], [], []
+        if u.get("pixel_grid"):
+            try:
+                geos = (_get(u["pixel_grid"], "/geolocations") or {}).get("geolocations") or []
+                matches = (_get(u["pixel_grid"], "/geolocations/matches") or {}).get("matches") or []
+                rep["sources"]["pixel-grid"] = {"ok": True, "geolocations": len(geos), "matches": len(matches)}
+            except Exception as exc:  # noqa: BLE001
+                rep["sources"]["pixel-grid"] = {"ok": False, "error": str(exc)[:160]}
+        if u.get("geo_catalog"):
+            try:
+                catalog = (_get(u["geo_catalog"], "/positions?limit=2000") or {}).get("positions") or []
+                rep["sources"]["geo-catalog"] = {"ok": True, "positions": len(catalog)}
+            except Exception as exc:  # noqa: BLE001
+                rep["sources"]["geo-catalog"] = {"ok": False, "error": str(exc)[:160]}
+        sites, devices = self._na
+        cat_places = pl.places_from_geo_catalog(catalog)
+        # un lieu du catalogue lié à un sujet supervisé vaut correspondance (validée si décidée)
+        for cp in cat_places:
+            for subj in cp.get("links") or []:
+                matches.append({"subject": subj, "localisation": cp["name"], "latitude": cp["lat"], "longitude": cp["lon"],
+                                "status": "validated" if cp.get("confidence", 0) >= 0.95 else "auto", "method": "geo-catalog", "score": cp.get("confidence")})
+        na_places, _ = pl.places_from_network_agent(sites, devices)
+        places, alias = pl.merge_places(pl.places_from_geolocations(geos), na_places, cat_places)
+        entities = store.list_entities(self.db_path, limit=100000)
+        relations = store.list_relations(self.db_path)
+        entity_places = {e["key"]: e["place"] for e in entities if e.get("place")}
+        positions = pl.resolve_positions(entities, relations, places, alias, geolocations=geos, matches=matches, entity_places=entity_places)
+        store.upsert_places(self.db_path, places)
+        before = store.positions_map(self.db_path)
+        sync = store.sync_positions(self.db_path, positions)
+        names = store.entity_names(self.db_path)
+        changes = []
+        for k, p in positions.items():
+            o = before.get(k)
+            if o and o.get("principle") == "pos-fallback" and p["principle"] != "pos-fallback":
+                changes.append({"kind": "position-found", "subject": k, "principle": p["principle"],
+                                "message": "%s a maintenant une position (%s)" % (names.get(k, k), p["provenance"])})
+            elif o and (o.get("provenance") != p["provenance"]):
+                changes.append({"kind": "position-changed", "subject": k, "principle": p["principle"],
+                                "message": "%s : position %s → %s" % (names.get(k, k), o.get("provenance"), p["provenance"])})
+            elif o and abs((o.get("lat") or 0) - p["lat"]) + abs((o.get("lon") or 0) - p["lon"]) > 1e-4 and p["principle"] not in ("pos-neighbor", "pos-fallback"):
+                changes.append({"kind": "position-moved", "subject": k, "principle": p["principle"],
+                                "message": "%s a bougé (%s) : %.5f,%.5f → %.5f,%.5f" % (names.get(k, k), p["provenance"], o.get("lat") or 0, o.get("lon") or 0, p["lat"], p["lon"])})
+        rep.update({"places": len(places), "positions": len(positions), "entities": len(entities), "sync": sync, "changes": changes,
+                    "by_provenance": pl._count(positions.values(), "provenance"), "ms": int((time.time() - t) * 1000)})
+        self._alias = alias
+        return rep
 
     def recompute(self):
         """Recalcule les incidents à partir des événements ouverts/acquittés."""

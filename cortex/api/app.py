@@ -34,6 +34,7 @@ from flask_cors import CORS
 import collectors
 import correlate
 import normalize as nz
+import places as pl
 import principles as pr
 import store
 
@@ -56,7 +57,8 @@ store.ensure_schema(DB_PATH)
 URLS = {"si_agent": os.environ.get("SI_AGENT_API_URL", ""), "vigilance": os.environ.get("VIGILANCE_API_URL", ""), "ups": os.environ.get("UPS_API_URL", ""),
         "orchestrator": os.environ.get("NETMAP_ORCHESTRATOR_API_URL", ""), "netprobe": os.environ.get("NETPROBE_API_URL", ""),
         "network_agent": os.environ.get("NETWORK_AGENT_API_URL", ""), "backup": os.environ.get("BACKUP_RESTORE_API_URL", ""),
-        "classifier": os.environ.get("CLASSIFIER_API_URL", ""), "nebula": os.environ.get("NEBULA_API_URL", ""), "ipam": os.environ.get("IPAM_API_URL", "")}
+        "classifier": os.environ.get("CLASSIFIER_API_URL", ""), "nebula": os.environ.get("NEBULA_API_URL", ""), "ipam": os.environ.get("IPAM_API_URL", ""),
+        "pixel_grid": os.environ.get("PIXEL_GRID_API_URL", ""), "geo_catalog": os.environ.get("GEO_CATALOG_API_URL", "")}
 WINDOW_S = int(os.environ.get("CORTEX_WINDOW_SECONDS", "300"))
 INTERVAL_S = int(os.environ.get("CORTEX_INTERVAL_SECONDS", "300"))
 RIGHTS_API_URL = os.environ.get("RIGHTS_API_URL", "").rstrip("/") or None
@@ -270,6 +272,102 @@ def incident_action(key, action):
         collector.recompute()
         return jsonify({"ok": True, "principle": pr.evaluate(body["principle"], store.feedback_counts(DB_PATH))}), 200
     return jsonify({"error": "action : ack | close | feedback"}), 400
+
+
+# ---------------------------------------------------------------- lieux / positions / intervention / couches (#464)
+TICKETS_URL = os.environ.get("TICKETS_PORTAL_URL", "").rstrip("/") or None
+BASTION_ENABLED = os.environ.get("SI_PROXY_ENABLED", "0") in ("1", "true", "yes")
+
+
+def _bastion_targets(entity):
+    """Le bastion (si-proxy) n'a pas de liste de cibles : depuis le Mac de la
+    personne autorisée, il ouvre un shell sur le hub et un CONNECT vers le
+    LAN du hub. Une IP privée est donc « joignable via le bastion » quand
+    le relais est déployé ; None quand il ne l'est pas (fiche : « non
+    interrogé »). Cortex ne détient jamais le jeton d'administration."""
+    if not BASTION_ENABLED:
+        return None
+    ip = entity.get("ip") or ""
+    try:
+        import ipaddress
+        return [ip] if ip and ipaddress.ip_address(ip).is_private and not ip.startswith("127.") else []
+    except ValueError:
+        return []
+
+
+@app.route("/places", methods=["GET"])
+def places_route():
+    return jsonify({"places": store.list_places(DB_PATH), "kinds": list(pl.PLACE_KINDS)}), 200
+
+
+@app.route("/places/<path:key>", methods=["PUT"])
+def place_note(key):
+    """Contact, accès, notes d'un lieu -- saisie humaine, jamais écrasée par la collecte."""
+    body = request.get_json(silent=True) or {}
+    ok, why = _check_manage_right(body)
+    if not ok:
+        return jsonify({"error": why}), 403
+    n = store.set_place_note(DB_PATH, key, contact=body.get("contact"), access=body.get("access"), notes=body.get("notes"), by=body.get("by"))
+    return jsonify({"ok": True, "note": n}), 200
+
+
+@app.route("/positions", methods=["GET"])
+def positions_route():
+    rows = store.list_positions(DB_PATH, provenance=request.args.get("provenance"), entity=request.args.get("entity"))
+    return jsonify({"positions": rows, "by_provenance": pl._count(rows, "provenance"), "count": len(rows)}), 200
+
+
+@app.route("/positions/queue", methods=["GET"])
+def positions_queue():
+    ents = store.list_entities(DB_PATH, limit=100000)
+    pos = store.positions_map(DB_PATH)
+    return jsonify({"queue": pl.work_queue(ents, pos), "positioned": len(pos), "entities": len(ents)}), 200
+
+
+@app.route("/positions/resolve", methods=["POST"])
+def positions_resolve():
+    body = request.get_json(silent=True) or {}
+    ok, why = _check_manage_right(body)
+    if not ok:
+        return jsonify({"error": why}), 403
+    rep = collector.resolve_places()
+    store.add_changes(DB_PATH, rep.get("changes") or [])
+    rep["changes"] = len(rep.get("changes") or [])
+    return jsonify(rep), 200
+
+
+@app.route("/entities/<path:key>/intervention", methods=["GET"])
+def intervention(key):
+    e = store.get_entity(DB_PATH, key)
+    if not e:
+        return jsonify({"error": "entité inconnue"}), 404
+    places = {p["key"]: p for p in store.list_places(DB_PATH)}
+    alias = getattr(collector, "_alias", {}) or {}
+    pos = store.positions_map(DB_PATH)
+    ents = {x["key"]: x for x in store.list_entities(DB_PATH, limit=100000)}
+    incidents = store.list_incidents(DB_PATH, state="open", limit=500)   # ouverts + acquittés
+    events = store.list_events(DB_PATH, state="open", limit=2000) + store.list_events(DB_PATH, state="acked", limit=2000)
+    sheet = pl.intervention_sheet(e, pos.get(key), places, alias, store.list_relations(DB_PATH), incidents, events, ents, pos,
+                                  notes=store.place_notes(DB_PATH), bastion_targets=_bastion_targets(e), tickets_url=TICKETS_URL)
+    sheet["principles"] = [pr.evaluate(pid, store.feedback_counts(DB_PATH)) for pid in sorted({(pos.get(key) or {}).get("principle") or "pos-fallback", "unsupervised"})]
+    return jsonify(sheet), 200
+
+
+@app.route("/layers", methods=["GET"])
+def layers_route():
+    """Couches carto (GeoJSON) : positions, incidents (halos), density (par
+    lieu), unsupervised, dependencies -- ?only=incidents,density pour n'en
+    prendre que certaines."""
+    ents = store.list_entities(DB_PATH, limit=100000)
+    pos = store.positions_map(DB_PATH)
+    incidents = store.list_incidents(DB_PATH, state="open", limit=500)   # ouverts + acquittés
+    places = {p["key"]: p for p in store.list_places(DB_PATH)}
+    out = pl.layers(ents, pos, incidents, store.list_relations(DB_PATH), places)
+    only = request.args.get("only")
+    if only:
+        keep = set(only.split(",")) | {"summary"}
+        out = {k: v for k, v in out.items() if k in keep}
+    return jsonify(out), 200
 
 
 if __name__ == "__main__":  # pragma: no cover

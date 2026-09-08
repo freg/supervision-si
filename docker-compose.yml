@@ -1213,6 +1213,11 @@ services:
       - CLASSIFIER_API_URL=http://classifier-api:5000
       - NEBULA_API_URL=http://nebula-api:5000
       - IPAM_API_URL=${CORTEX_IPAM_API_URL:-http://ipam-api:5000}
+      # #464 : lieux / positions (géolocalisations, correspondances, catalogue), fiche d'intervention
+      - PIXEL_GRID_API_URL=http://pixel-grid-api:5000
+      - GEO_CATALOG_API_URL=http://geo-catalog-api:5000
+      - TICKETS_PORTAL_URL=${CORTEX_TICKETS_PORTAL_URL:-}
+      - SI_PROXY_ENABLED=${SI_PROXY_ENABLED:-1}
       - RIGHTS_API_URL=${CORTEX_RIGHTS_API_URL:-}
       - CORTEX_WINDOW_SECONDS=${CORTEX_WINDOW_SECONDS:-300}
       - CORTEX_INTERVAL_SECONDS=${CORTEX_INTERVAL_SECONDS:-300}

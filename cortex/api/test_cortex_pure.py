@@ -8,6 +8,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import correlate as co  # noqa: E402
 import normalize as nz  # noqa: E402
+import places as pl  # noqa: E402
 import principles as pr  # noqa: E402
 
 
@@ -187,6 +188,93 @@ class TestStep2(unittest.TestCase):
         self.assertFalse(any(c["kind"] == "entity-gone" for c in out))
         out2 = ch.compute_changes(before, after, failed_sources=set())
         self.assertEqual(sum(1 for c in out2 if c["kind"] == "entity-gone"), 2)
+
+
+class TestStep3Places(unittest.TestCase):
+    GEOS = [{"localisation": "Bureau", "latitude": 48.85, "longitude": 2.35, "location_type": "site", "parent_localisation": None},
+            {"localisation": "Salle serveurs", "latitude": None, "longitude": None, "location_type": "room", "parent_localisation": "Bureau"},
+            {"localisation": "Agence Annexe Nord", "latitude": 50.63, "longitude": 3.06, "location_type": None, "parent_localisation": None},
+            {"localisation": "__default__", "latitude": 46.6, "longitude": 2.4}]
+    SITES = [{"name": "bureau", "latitude": None, "longitude": None, "segments": [{"id": 1}]}]
+    DEVICES = [{"id": 10, "ip_address": "192.168.1.20", "mac_address": "aa:bb:cc:00:00:20", "hostname": "sw-acces", "network_segment_id": 1, "building": "B1", "room": "Local technique"},
+               {"id": 11, "ip_address": "192.168.1.21", "mac_address": "aa:bb:cc:00:00:21", "hostname": "cam-parking", "network_segment_id": 1, "latitude": 48.851, "longitude": 2.351}]
+
+    def test_places_hierarchy_and_inheritance(self):
+        na, by_dev = pl.places_from_network_agent(self.SITES, self.DEVICES)
+        places, alias = pl.merge_places(pl.places_from_geolocations(self.GEOS), na)
+        by = {p["key"]: p for p in places}
+        # « lieu:bureau » (géolocalisation typée site) et « site:bureau » (network-agent) = un seul lieu
+        self.assertEqual(alias["lieu:bureau"], alias["site:bureau"])
+        self.assertEqual(len([p for p in places if p["name"].lower() == "bureau"]), 1)
+        # la salle sans coordonnées hérite du site (place-hierarchy) ; la chaîne est site > bâtiment > salle
+        room = by[by_dev[10]]
+        self.assertEqual(room["kind"], "salle"); self.assertEqual(room["principle"], "place-hierarchy"); self.assertAlmostEqual(room["lat"], 48.85)
+        chain = pl.place_chain(by, by_dev[10], alias)
+        self.assertEqual([c["kind"] for c in chain], ["site", "batiment", "salle"])
+        self.assertEqual(by["salle:salle serveurs"]["principle"], "place-hierarchy")
+
+    def test_resolution_ladder(self):
+        ents, rels, _ = nz.from_network_agent(self.SITES, self.DEVICES, {})
+        ents += [nz._ent("ip:192.168.1.30", "hote", "pc-compta", "192.168.1.30", None, "bureau", "si-agent", "a1"),
+                 nz._ent("ip:192.168.1.31", "hote", "portable", "192.168.1.31", None, None, "si-agent", "a2"),
+                 nz._ent("ip:10.9.9.9", "pair", None, "10.9.9.9", None, None, "network-agent", 99),
+                 nz._ent("ip:172.16.0.5", "equipement", "Annexe-Nord-cam", "172.16.0.5", None, None, "network-agent", 98)]
+        rels += [{"a": "mac:aa:bb:cc:00:00:20", "b": "ip:192.168.1.31", "kind": "uplink", "weight": 0.8},
+                 {"a": "ip:192.168.1.30", "b": "ip:10.9.9.9", "kind": "flow", "weight": 0.3}]
+        matches = [{"subject": "name:annexe-nord-cam", "localisation": "Agence Annexe Nord", "latitude": 50.63, "longitude": 3.06, "status": "auto", "method": "similar", "score": 0.8}]
+        na, by_dev = pl.places_from_network_agent(self.SITES, self.DEVICES)
+        places, alias = pl.merge_places(pl.places_from_geolocations(self.GEOS), na)
+        pos = pl.resolve_positions(ents, rels, places, alias, geolocations=self.GEOS, matches=matches, entity_places={e["key"]: e["place"] for e in ents if e.get("place")})
+        p = lambda k: pos[k]  # noqa: E731
+        self.assertEqual(p("mac:aa:bb:cc:00:00:21")["principle"], "pos-declared")          # coordonnées portées par l'appareil
+        self.assertEqual(p("mac:aa:bb:cc:00:00:20")["principle"], "pos-place")             # salle déclarée (héritée du site)
+        self.assertEqual(p("ip:192.168.1.30")["principle"], "pos-place")                   # site textuel positionné
+        self.assertEqual(p("ip:192.168.1.31")["principle"], "pos-propagated")              # client WiFi -> sa borne
+        self.assertEqual(p("ip:192.168.1.31")["chain"][0]["from"], "mac:aa:bb:cc:00:00:20")
+        self.assertEqual(p("ip:172.16.0.5")["principle"], "pos-resolved-name")             # correspondance automatique
+        self.assertEqual(p("ip:10.9.9.9")["principle"], "pos-neighbor")                    # voisin de flux
+        self.assertLess(p("ip:10.9.9.9")["confidence"], p("ip:192.168.1.31")["confidence"])
+        # tout barreau est un principe nommé ; l'ordre de l'échelle est décroissant
+        for v in pos.values():
+            self.assertIn(v["principle"], pr.PRINCIPLES)
+        self.assertGreater(p("mac:aa:bb:cc:00:00:21")["confidence"], p("ip:192.168.1.31")["confidence"])
+        # file de travail : rien (tout est positionné hors repli) ; sans __default__ le pair isolé y entre
+        self.assertEqual(pl.work_queue(ents, pos), [])
+        pos2 = pl.resolve_positions(ents, [], places, alias, geolocations=[g for g in self.GEOS if g["localisation"] != "__default__"], matches=matches)
+        q = pl.work_queue(ents, pos2)
+        queued = {x["key"]: x["status"] for g in q for x in g["entities"]}
+        self.assertEqual(queued, {"ip:10.9.9.9": "sans position", "ip:192.168.1.31": "sans position"})   # sans relation, le portable n'a plus de borne
+
+    def test_sheet_and_layers(self):
+        ents, rels, _ = nz.from_network_agent(self.SITES, self.DEVICES, {})
+        ents += [nz._ent("ip:192.168.1.30", "hote", "pc-compta", "192.168.1.30", None, "bureau", "si-agent", "a1"),
+                 nz._ent("ip:192.168.1.250", "onduleur", "UPS-Bureau", "192.168.1.250", None, "bureau", "ups", 1)]
+        rels += [{"a": "ip:192.168.1.250", "b": "site:bureau", "kind": "powers_site", "weight": 0.5},
+                 {"a": "mac:aa:bb:cc:00:00:20", "b": "ip:192.168.1.30", "kind": "gateway_of", "weight": 1.0, "evidence": "route par défaut"}]
+        na, by_dev = pl.places_from_network_agent(self.SITES, self.DEVICES)
+        places, alias = pl.merge_places(pl.places_from_geolocations(self.GEOS), na)
+        pos = pl.resolve_positions(ents, rels, places, alias, geolocations=self.GEOS, entity_places={e["key"]: e["place"] for e in ents if e.get("place")})
+        by = {p["key"]: p for p in places}
+        ebk = {e["key"]: e for e in ents}
+        incidents = [{"key": "inc1", "title": "onduleur", "severity": "critical", "state": "open", "root": "ip:192.168.1.250", "entities": ["ip:192.168.1.250", "ip:192.168.1.30"]}]
+        events = [{"entity": "ip:192.168.1.250", "severity": "critical", "state": "open"}]
+        sheet = pl.intervention_sheet(ebk["ip:192.168.1.30"], pos["ip:192.168.1.30"], by, alias, rels, incidents, events, ebk, pos,
+                                      notes={alias.get("site:bureau", "site:bureau"): {"contact": "Marie 06…", "access": "badge + clé armoire"}},
+                                      bastion_targets=["192.168.1.30"], tickets_url="https://hub/tickets")
+        self.assertEqual([w["kind"] for w in sheet["where"]], ["site"])
+        self.assertEqual(sheet["contact"], "Marie 06…"); self.assertTrue(sheet["bastion"]["available"]); self.assertIn("pc-compta", sheet["ticket_url"])
+        ups = [u for u in sheet["upstream"] if u["kind"] == "powers_site"]
+        self.assertEqual(ups[0]["state"], "critical")                       # l'onduleur du site est en défaut
+        self.assertEqual([u["kind"] for u in sheet["upstream"] if u["kind"] == "gateway_of"], ["gateway_of"])
+        self.assertEqual(sheet["incidents"][0]["key"], "inc1"); self.assertTrue(sheet["supervised"])
+        # couches : halo d'incident sur la cause, densité par lieu, non supervisé = vu par la découverte seule
+        lay = pl.layers(ents, pos, incidents, rels, by)
+        self.assertEqual(lay["summary"]["incidents"], 1)
+        self.assertEqual(lay["incidents"]["features"][0]["properties"]["severity"], "critical")
+        unsup = {f["properties"]["key"] for f in lay["unsupervised"]["features"]}
+        self.assertIn("mac:aa:bb:cc:00:00:21", unsup); self.assertNotIn("ip:192.168.1.30", unsup)
+        self.assertGreaterEqual(lay["summary"]["places"], 1)
+        self.assertTrue(all(f["geometry"]["type"] == "LineString" for f in lay["dependencies"]["features"]))
 
 
 if __name__ == "__main__":

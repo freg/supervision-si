@@ -41,6 +41,17 @@ CREATE TABLE IF NOT EXISTS changes (
     id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, kind TEXT NOT NULL, subject TEXT, message TEXT, principle TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_changes_at ON changes(at);
+CREATE TABLE IF NOT EXISTS places (
+    key TEXT PRIMARY KEY, kind TEXT, name TEXT, parent TEXT, lat REAL, lon REAL, principle TEXT, sources_json TEXT, inherited_from TEXT,
+    first_seen TEXT NOT NULL, last_seen TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS place_notes (
+    key TEXT PRIMARY KEY, contact TEXT, access TEXT, notes TEXT, updated_by TEXT, updated_at TEXT
+);
+CREATE TABLE IF NOT EXISTS positions (
+    entity TEXT PRIMARY KEY, lat REAL, lon REAL, place TEXT, provenance TEXT, principle TEXT, confidence REAL, chain_json TEXT,
+    source TEXT, evidence TEXT, first_at TEXT NOT NULL, updated_at TEXT NOT NULL, changed_at TEXT
+);
 CREATE TABLE IF NOT EXISTS runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, duration_ms INTEGER, sources_json TEXT, counts_json TEXT
 );
@@ -62,7 +73,7 @@ def ensure_schema(db_path):
     try:
         c.executescript(SCHEMA)
         cols = {r["name"] for r in c.execute("PRAGMA table_info(entities)").fetchall()}
-        for col in ("vendor", "model", "description", "subnet", "os"):
+        for col in ("vendor", "model", "description", "subnet", "os", "geo_json", "place"):
             if col not in cols:
                 c.execute("ALTER TABLE entities ADD COLUMN %s TEXT" % col)
         c.commit()
@@ -87,16 +98,18 @@ def upsert_entities(db_path, entities):
     c = connect(db_path)
     try:
         for e in entities:
-            c.execute("""INSERT INTO entities (key, kind, name, ip, mac, site, origins_json, hints_json, first_seen, last_seen, vendor, model, description, subnet, os)
-                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            c.execute("""INSERT INTO entities (key, kind, name, ip, mac, site, origins_json, hints_json, first_seen, last_seen, vendor, model, description, subnet, os, geo_json, place)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                          ON CONFLICT(key) DO UPDATE SET kind=excluded.kind, name=COALESCE(excluded.name, entities.name),
                            ip=COALESCE(excluded.ip, entities.ip), mac=COALESCE(excluded.mac, entities.mac), site=COALESCE(excluded.site, entities.site),
                            origins_json=excluded.origins_json, hints_json=excluded.hints_json, last_seen=excluded.last_seen,
                            vendor=COALESCE(excluded.vendor, entities.vendor), model=COALESCE(excluded.model, entities.model),
-                           description=COALESCE(excluded.description, entities.description), subnet=COALESCE(excluded.subnet, entities.subnet), os=COALESCE(excluded.os, entities.os)""",
+                           description=COALESCE(excluded.description, entities.description), subnet=COALESCE(excluded.subnet, entities.subnet), os=COALESCE(excluded.os, entities.os),
+                           geo_json=COALESCE(excluded.geo_json, entities.geo_json), place=COALESCE(excluded.place, entities.place)""",
                       (e["key"], e.get("kind"), e.get("name"), e.get("ip"), e.get("mac"), e.get("site"),
                        json.dumps(e.get("origins") or []), json.dumps(e.get("hints") or []), now, now,
-                       e.get("vendor"), e.get("model"), e.get("description"), e.get("subnet"), e.get("os")))
+                       e.get("vendor"), e.get("model"), e.get("description"), e.get("subnet"), e.get("os"),
+                       json.dumps(e["geo"]) if e.get("geo") else None, e.get("place")))
         c.commit()
     finally:
         c.close()
@@ -123,7 +136,7 @@ def list_entities(db_path, q=None, limit=500):
             rows = c.execute("SELECT * FROM entities WHERE key LIKE ? OR name LIKE ? OR ip LIKE ? OR site LIKE ? ORDER BY last_seen DESC LIMIT ?", (like, like, like, like, limit)).fetchall()
         else:
             rows = c.execute("SELECT * FROM entities ORDER BY last_seen DESC LIMIT ?", (limit,)).fetchall()
-        return [_row(r, ("origins_json", "hints_json")) for r in rows]
+        return [_row(r, ("origins_json", "hints_json", "geo_json")) for r in rows]
     finally:
         c.close()
 
@@ -132,7 +145,7 @@ def get_entity(db_path, key):
     c = connect(db_path)
     try:
         r = c.execute("SELECT * FROM entities WHERE key=?", (key,)).fetchone()
-        return _row(r, ("origins_json", "hints_json")) if r else None
+        return _row(r, ("origins_json", "hints_json", "geo_json")) if r else None
     finally:
         c.close()
 
@@ -431,3 +444,115 @@ def entity_names(db_path):
         return {r["key"]: (r["name"] or r["ip"] or r["key"]) for r in c.execute("SELECT key, name, ip FROM entities").fetchall()}
     finally:
         c.close()
+
+
+# ---------------------------------------------------------------- lieux / positions (#464)
+def upsert_places(db_path, places):
+    now = now_iso()
+    c = connect(db_path)
+    try:
+        for p in places:
+            c.execute("""INSERT INTO places (key, kind, name, parent, lat, lon, principle, sources_json, inherited_from, first_seen, last_seen) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                         ON CONFLICT(key) DO UPDATE SET kind=excluded.kind, name=excluded.name, parent=COALESCE(excluded.parent, places.parent),
+                           lat=excluded.lat, lon=excluded.lon, principle=excluded.principle, sources_json=excluded.sources_json,
+                           inherited_from=excluded.inherited_from, last_seen=excluded.last_seen""",
+                      (p["key"], p.get("kind"), p.get("name"), p.get("parent"), p.get("lat"), p.get("lon"), p.get("principle"),
+                       json.dumps(p.get("sources") or []), p.get("inherited_from"), now, now))
+        keys = [p["key"] for p in places]
+        if keys:   # un lieu que plus aucune source ne décrit disparaît (ses notes humaines restent)
+            c.execute("DELETE FROM places WHERE key NOT IN (%s)" % ",".join("?" * len(keys)), keys)
+        c.commit()
+    finally:
+        c.close()
+
+
+def list_places(db_path):
+    c = connect(db_path)
+    try:
+        notes = {r["key"]: dict(r) for r in c.execute("SELECT * FROM place_notes").fetchall()}
+        out = []
+        for r in c.execute("SELECT * FROM places ORDER BY kind, name").fetchall():
+            d = _row(r, ("sources_json",))
+            n = notes.get(d["key"])
+            d["contact"], d["access"], d["notes"] = (n.get("contact"), n.get("access"), n.get("notes")) if n else (None, None, None)
+            out.append(d)
+        return out
+    finally:
+        c.close()
+
+
+def set_place_note(db_path, key, contact=None, access=None, notes=None, by=None):
+    c = connect(db_path)
+    try:
+        c.execute("""INSERT INTO place_notes (key, contact, access, notes, updated_by, updated_at) VALUES (?,?,?,?,?,?)
+                     ON CONFLICT(key) DO UPDATE SET contact=COALESCE(excluded.contact, place_notes.contact), access=COALESCE(excluded.access, place_notes.access),
+                       notes=COALESCE(excluded.notes, place_notes.notes), updated_by=excluded.updated_by, updated_at=excluded.updated_at""",
+                  (key, contact, access, notes, by, now_iso()))
+        c.commit()
+        r = c.execute("SELECT * FROM place_notes WHERE key=?", (key,)).fetchone()
+        return dict(r) if r else None
+    finally:
+        c.close()
+
+
+def place_notes(db_path):
+    c = connect(db_path)
+    try:
+        return {r["key"]: dict(r) for r in c.execute("SELECT * FROM place_notes").fetchall()}
+    finally:
+        c.close()
+
+
+def sync_positions(db_path, positions):
+    """Remplace les positions calculées ; `changed_at` ne bouge que si la
+    position ou sa provenance a changé -> {kept, changed, new, dropped}."""
+    now = now_iso()
+    c = connect(db_path)
+    try:
+        old = {r["entity"]: dict(r) for r in c.execute("SELECT * FROM positions").fetchall()}
+        kept = changed = new = 0
+        for k, p in positions.items():
+            o = old.pop(k, None)
+            if o and abs((o["lat"] or 0) - p["lat"]) < 1e-6 and abs((o["lon"] or 0) - p["lon"]) < 1e-6 and o["provenance"] == p["provenance"]:
+                c.execute("UPDATE positions SET updated_at=?, confidence=?, chain_json=?, evidence=?, place=? WHERE entity=?",
+                          (now, p.get("confidence"), json.dumps(p.get("chain") or []), p.get("evidence"), p.get("place"), k))
+                kept += 1
+                continue
+            if o:
+                changed += 1
+            else:
+                new += 1
+            c.execute("""INSERT INTO positions (entity, lat, lon, place, provenance, principle, confidence, chain_json, source, evidence, first_at, updated_at, changed_at)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                         ON CONFLICT(entity) DO UPDATE SET lat=excluded.lat, lon=excluded.lon, place=excluded.place, provenance=excluded.provenance,
+                           principle=excluded.principle, confidence=excluded.confidence, chain_json=excluded.chain_json, source=excluded.source,
+                           evidence=excluded.evidence, updated_at=excluded.updated_at, changed_at=excluded.changed_at""",
+                      (k, p["lat"], p["lon"], p.get("place"), p.get("provenance"), p.get("principle"), p.get("confidence"),
+                       json.dumps(p.get("chain") or []), p.get("source"), p.get("evidence"), now, now, now))
+        for k in old:
+            c.execute("DELETE FROM positions WHERE entity=?", (k,))
+        c.commit()
+        return {"kept": kept, "changed": changed, "new": new, "dropped": len(old)}
+    finally:
+        c.close()
+
+
+def list_positions(db_path, provenance=None, entity=None):
+    c = connect(db_path)
+    try:
+        q, args = "SELECT p.*, e.name, e.ip, e.kind, e.site FROM positions p LEFT JOIN entities e ON e.key=p.entity", []
+        conds = []
+        if provenance:
+            conds.append("p.provenance=?"); args.append(provenance)
+        if entity:
+            conds.append("p.entity=?"); args.append(entity)
+        if conds:
+            q += " WHERE " + " AND ".join(conds)
+        rows = c.execute(q + " ORDER BY p.confidence DESC, e.name", args).fetchall()
+        return [_row(r, ("chain_json",)) for r in rows]
+    finally:
+        c.close()
+
+
+def positions_map(db_path):
+    return {p["entity"]: p for p in list_positions(db_path)}
