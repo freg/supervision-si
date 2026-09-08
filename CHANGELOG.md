@@ -1,3 +1,36 @@
+## 2026-09-08 — Supervision SI : outils de l'ancienne maquette redistribués dans la tuile (timeline, mosaïque, calendrier, arbre radial, corbeille) (livraison #424)
+
+Backlog 64, point (4). « Ses outils actuels se retrouveront distribués
+dans les tuiles » : les outils de dataviz de la maquette initiale
+reviennent comme **contenus de cadre** de la tuile refondue, nourris par
+les historiques des tuiles (relevés smokeping, relevés UPS, risques des
+agents) au lieu de JSON versés à la main. Voir `docs/supervision-si-tuile.md`.
+
+- `hub/src/supervisedHistory.js` (logique pure, 6 tests) : points d'état
+  depuis chaque origine, segments contigus avec trous « inconnu » et
+  fusion, créneaux (pire état), calendrier de densité avec seuils
+  vert / orange / rouge, hiérarchie site → type → équipement et disposition
+  radiale sans dépendance (moyenne angulaire circulaire), corbeille
+  (cochés > priorisés > premiers visibles, bornée à 12).
+- `supervisedHistoryClient.js` : historiques par équipement fusionné
+  (toutes ses origines), tolérant aux pannes.
+- `SupervisionSiView.jsx` : quatre nouveaux contenus de cadre (timeline
+  zoomable, mosaïque, calendrier, arbre radial), case « corbeille » devant
+  chaque supervisé, fenêtre 6 h / 24 h / 7 j / 30 j, préférences
+  `hub.supervision.selection` / `.window`.
+- Reste de l'ancienne maquette (onglets sur bases externes : IPAM, Optick,
+  TTS-GU, Zenoss, Cacti, OwnCloud, Fusion IP/MAC, géomatique) : tuiles à
+  part entière, inscrites au backlog ; l'ancien front reste joignable.
+
+**Vérifié** : 6 tests (114 sur le hub), build Vite, rendus Chromium des
+quatre outils en 4 cadres sur faux back-end avec historiques (incident
+visible sur les trois outils temporels), thème sombre ; contrat de
+`ZoomableChart` (viewBox) corrigé après un rendu vide.
+
+**Non vérifié** : vraies API (volumes et formes réelles des relevés
+`/smokeping/samples` et `/ups/<id>/readings` sur des données de
+production), build Docker du hub.
+
 ## 2026-09-08 — Supervision SI refondue : colonne Propositions / Supervisés / Liens, page centrale en 1 à 4 cadres, carte et positions déduites (livraison #423)
 
 Backlog 64, premier volet (points 1 à 3 : agrégation, colonne gauche,

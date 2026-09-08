@@ -14,6 +14,12 @@ import {
   buildLinks, knownPositions, deducePositions, describeChain, FRAME_KINDS, frameLayout, normalizeFrames, summarizeByState,
   PREF_KEYS, loadPref, savePref, spreadCoincident,
 } from "./supervisedItems.js";
+import {
+  HISTORY_WINDOWS, windowById, stateSegments, bucketize, calendarDays, dayTone, buildHierarchy, radialLayout,
+  effectiveSelection, toggleSelection,
+} from "./supervisedHistory.js";
+import { fetchItemHistory } from "./supervisedHistoryClient.js";
+import ZoomableChart from "./components/ZoomableChart.jsx";
 
 // Nouvelle tuile « Supervision SI » (livraison #423, backlog 64) -- « la
 // tuile actuelle était la maquette initiale de la dataviz du hub ; elle doit
@@ -22,7 +28,11 @@ import {
 // (défaut carte + table). Agrégation client des tuiles (netprobe, UPS,
 // agents, SNMP, tunnels, sondes WiFi), propositions (orchestrateur,
 // vigilance, appareils découverts), liens automatiques et positions
-// déduites. Toute la logique non-React est dans supervisedItems.js.
+// déduites. #424 (point 4) : les outils de l'ancienne maquette reviennent
+// comme contenus de cadre -- timeline des états, mosaïque pixel-grid,
+// calendrier de densité, arbre radial -- nourris par les historiques des
+// tuiles pour une « corbeille » de sélection (cases à cocher). Toute la
+// logique non-React est dans supervisedItems.js / supervisedHistory.js.
 
 const REFRESH_MS = 60000;
 const STATE_COLORS = { critical: "var(--danger)", warning: "var(--warning)", ok: "var(--ok)", unknown: "var(--muted)" };
@@ -80,11 +90,18 @@ export default function SupervisionSiView({
   const [checkedProposals, setCheckedProposals] = useState(() => loadPref(storage(), PREF_KEYS.proposals, {}));
   const [filter, setFilter] = useState({ text: "", types: [], states: [], site: "" });
   const [selected, setSelected] = useState(null);
+  // #424 : corbeille de sélection + historiques
+  const [selection, setSelection] = useState(() => loadPref(storage(), PREF_KEYS.selection, []));
+  const [windowId, setWindowId] = useState(() => loadPref(storage(), PREF_KEYS.window, "24h"));
+  const [history, setHistory] = useState({}); // identity -> points
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => savePref(storage(), PREF_KEYS.tab, tab), [tab]);
   useEffect(() => savePref(storage(), PREF_KEYS.frames, frames), [frames]);
   useEffect(() => savePref(storage(), PREF_KEYS.priorities, priorities), [priorities]);
   useEffect(() => savePref(storage(), PREF_KEYS.proposals, checkedProposals), [checkedProposals]);
+  useEffect(() => savePref(storage(), PREF_KEYS.selection, selection), [selection]);
+  useEffect(() => savePref(storage(), PREF_KEYS.window, windowId), [windowId]);
 
   const load = useCallback(async () => {
     const errs = [];
@@ -141,6 +158,26 @@ export default function SupervisionSiView({
   const summary = useMemo(() => summarizeByState(supervised), [supervised]);
   const selectedItem = supervised.find((i) => i.identity === selected) || null;
 
+  // --- #424 : corbeille et historiques des équipements retenus ---
+  const win = windowById(windowId);
+  const needsHistory = frames.some((f) => ["timeline", "grid", "calendar"].includes(f.kind));
+  const basket = useMemo(() => effectiveSelection(selection, visible, priorities, 12), [selection, visible, priorities]);
+  const basketItems = basket.map((id) => supervised.find((i) => i.identity === id)).filter(Boolean);
+  const basketKey = basket.join("|") + "@" + windowId;
+  useEffect(() => {
+    if (!needsHistory || !basketItems.length) return undefined;
+    let cancelled = false;
+    setHistoryLoading(true);
+    const startIso = new Date(Date.now() - win.seconds * 1000).toISOString();
+    (async () => {
+      const entries = await Promise.all(basketItems.map(async (it) => [it.identity, await fetchItemHistory(it, { netprobe: netprobeApiBase, ups: upsApiBase, siAgent: siAgentApiBase }, { startIso, limit: win.id === "30d" ? 2000 : 800 })]));
+      if (cancelled) return;
+      setHistory((h) => ({ ...h, ...Object.fromEntries(entries) }));
+      setHistoryLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [basketKey, needsHistory, now]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // --- Actions ---
   const toggleType = (t) => setFilter((f) => ({ ...f, types: f.types.includes(t) ? f.types.filter((x) => x !== t) : [...f.types, t] }));
   const toggleState = (s) => setFilter((f) => ({ ...f, states: f.states.includes(s) ? f.states.filter((x) => x !== s) : [...f.states, s] }));
@@ -150,6 +187,7 @@ export default function SupervisionSiView({
   const removeFrame = (i) => setFrames((fr) => (fr.length > 1 ? fr.filter((_, j) => j !== i) : fr));
   const addFrame = () => setFrames((fr) => (fr.length < 4 ? [...fr, { kind: fr.some((f) => f.kind === "links") ? "summary" : "links" }] : fr));
   const toggleProposal = (p) => setCheckedProposals((c) => ({ ...c, [p.key]: !c[p.key] }));
+  const toggleBasket = (it) => setSelection((sel) => toggleSelection(sel, it.identity));
   const goto = (origin) => { if (onNavigate) onNavigate(origin === "netprobe" ? "netprobe" : origin === "ups" ? "ups" : origin === "si-agent" ? "si-agent" : origin === "snmp" ? "snmp" : origin === "ssh-tunnels" ? "ssh-tunnels" : origin); };
 
   // --- Cadres ---
@@ -231,6 +269,97 @@ export default function SupervisionSiView({
       );
     } else if (f.kind === "proposals") {
       body = <ProposalList proposals={proposals} checked={checkedProposals} onToggle={toggleProposal} compact />;
+    } else if (f.kind === "timeline" || f.kind === "grid" || f.kind === "calendar") {
+      const endMs = now, startMs = now - win.seconds * 1000;
+      const header = (
+        <div className="ss-tool-head">
+          <span className="muted">{basketItems.length} équipement(s) {selection.length ? "cochés" : Object.keys(priorities).length ? "priorisés" : "(premiers visibles)"}{historyLoading ? " · chargement…" : ""}</span>
+          <span style={{ flex: 1 }} />
+          {HISTORY_WINDOWS.map((w) => <button key={w.id} className={`secondary ss-chip${windowId === w.id ? " active" : ""}`} onClick={() => setWindowId(w.id)}>{w.label}</button>)}
+        </div>
+      );
+      if (f.kind === "timeline") {
+        const W = 800, ROW = 22, LEFT = 150;
+        const rows = basketItems.map((it) => ({ it, segs: stateSegments(history[it.identity] || [], { startMs, endMs, gapMs: win.bucketSeconds * 1000 * 3 }) }));
+        const x = (t) => LEFT + ((t - startMs) / (endMs - startMs)) * (W - LEFT - 10);
+        body = (
+          <div className="ss-tool">
+            {header}
+            {rows.length === 0 ? <p className="muted">Rien à tracer : cocher des équipements dans la colonne Supervisés.</p> : (
+              <ZoomableChart viewBox={`0 0 ${W} ${rows.length * ROW + 24}`} className="ss-timeline-svg" label="états dans le temps">
+                {rows.map(({ it, segs }, i) => (
+                  <g key={it.identity} transform={`translate(0, ${i * ROW})`}>
+                    <text x={LEFT - 6} y={14} textAnchor="end" fontSize="11" fill="currentColor" className={selected === it.identity ? "ss-strong" : ""}>{it.name.slice(0, 22)}</text>
+                    {segs.map((sg, k) => (
+                      <rect key={k} x={x(sg.start)} y={4} width={Math.max(1, x(sg.end) - x(sg.start))} height={14} fill={STATE_HEX[sg.state]} opacity={sg.state === "unknown" ? 0.25 : 0.9} onClick={() => setSelected(it.identity)}>
+                        <title>{`${it.name} — ${STATE_LABELS[sg.state]} (${sg.text || ""})
+${when(new Date(sg.start).toISOString())} → ${when(new Date(sg.end).toISOString())}`}</title>
+                      </rect>
+                    ))}
+                  </g>
+                ))}
+                <text x={LEFT} y={rows.length * ROW + 16} fontSize="10" fill="currentColor" opacity="0.7">{when(new Date(startMs).toISOString())}</text>
+                <text x={W - 10} y={rows.length * ROW + 16} fontSize="10" fill="currentColor" opacity="0.7" textAnchor="end">{when(new Date(endMs).toISOString())}</text>
+              </ZoomableChart>
+            )}
+          </div>
+        );
+      } else if (f.kind === "grid") {
+        const bucketMs = win.bucketSeconds * 1000;
+        const rows = basketItems.map((it) => ({ it, cells: bucketize(history[it.identity] || [], { startMs, endMs, bucketMs }) }));
+        body = (
+          <div className="ss-tool">
+            {header}
+            <p className="muted" style={{ margin: "0 0 6px", fontSize: 11 }}>Une case = {win.bucketSeconds >= 86400 ? "1 jour" : win.bucketSeconds >= 3600 ? `${win.bucketSeconds / 3600} h` : `${win.bucketSeconds / 60} min`}, couleur = pire état du créneau, gris = aucun relevé.</p>
+            <div className="ss-grid">
+              {rows.map(({ it, cells }) => (
+                <div key={it.identity} className="ss-grid-row" onClick={() => setSelected(it.identity)}>
+                  <span className="ss-grid-label" title={it.name}>{it.name.slice(0, 18)}</span>
+                  <span className="ss-grid-cells">{cells.map((c, k) => <i key={k} style={{ background: c.state ? STATE_HEX[c.state] : "var(--border)" }} title={`${when(new Date(c.start).toISOString())} : ${c.state ? STATE_LABELS[c.state] : "aucun relevé"} (${c.count} relevé(s))`} />)}</span>
+                </div>
+              ))}
+              {rows.length === 0 && <p className="muted">Rien à afficher : cocher des équipements.</p>}
+            </div>
+          </div>
+        );
+      } else {
+        const calStart = now - Math.max(win.seconds, 30 * 86400) * 1000;
+        const days = calendarDays(Object.fromEntries(basketItems.map((it) => [it.identity, history[it.identity] || []])), { startMs: calStart, endMs: now });
+        body = (
+          <div className="ss-tool">
+            {header}
+            <p className="muted" style={{ margin: "0 0 6px", fontSize: 11 }}>Un jour = nombre de relevés « pas ok » sur les équipements retenus (vert = 0, orange ≥ 1, rouge ≥ 3) ; les 30 derniers jours au moins.</p>
+            <div className="ss-calendar">
+              {days.map((d) => <div key={d.day} className={`ss-day ${dayTone(d.events)}`} title={`${d.day} : ${d.events} événement(s) sur ${d.items} équipement(s)`}><span>{d.day.slice(8)}</span><b>{d.events || ""}</b></div>)}
+            </div>
+          </div>
+        );
+      }
+    } else if (f.kind === "radial") {
+      const lay = radialLayout(buildHierarchy(visible), { radius: 230 });
+      const S = 560;
+      body = (
+        <div className="ss-tool">
+          <p className="muted" style={{ margin: "0 0 4px", fontSize: 11 }}>Sites → types → équipements ({visible.length}) ; couleur = état, clic = sélection. Molette/Ctrl pour zoomer, glisser pour déplacer.</p>
+          <ZoomableChart viewBox={`0 0 ${S} ${S}`} className="ss-radial-svg" label="arbre radial des supervisés">
+            <g transform={`translate(${S / 2}, ${S / 2})`}>
+              {lay.links.map((l, k) => <line key={k} x1={l.source.x} y1={l.source.y} x2={l.target.x} y2={l.target.y} stroke="currentColor" opacity="0.25" />)}
+              {lay.nodes.map((n, k) => (
+                <g key={k} transform={`translate(${n.x}, ${n.y})`} onClick={() => n.identity && setSelected(n.identity)} style={{ cursor: n.identity ? "pointer" : "default" }}>
+                  <circle r={n.kind === "item" ? (selected === n.identity ? 7 : 5) : n.kind === "root" ? 8 : 6} fill={n.kind === "item" ? STATE_HEX[n.state] : "var(--accent)"} opacity={n.kind === "item" ? 0.95 : 0.7} />
+                  {/* feuilles : texte le long du rayon, retourné sur la moitié gauche pour rester lisible */}
+                  <text x={n.kind !== "item" ? 0 : n.angle > Math.PI ? -8 : 8} y={n.kind === "item" ? 4 : -10} fontSize={n.kind === "item" ? 10 : 11}
+                    textAnchor={n.kind !== "item" ? "middle" : n.angle > Math.PI ? "end" : "start"} fill="currentColor"
+                    transform={n.kind === "item" ? `rotate(${(n.angle * 180) / Math.PI - 90 + (n.angle > Math.PI ? 180 : 0)})` : undefined}>
+                    {n.kind === "type" ? (ITEM_TYPES[n.name]?.label || n.name) : n.name.slice(0, 20)}
+                  </text>
+                  <title>{n.kind === "item" ? `${n.name} — ${STATE_LABELS[n.state]}` : `${n.name} (${n.leafCount})`}</title>
+                </g>
+              ))}
+            </g>
+          </ZoomableChart>
+        </div>
+      );
     } else {
       body = (
         <div className="ss-summary">
@@ -297,9 +426,11 @@ export default function SupervisionSiView({
                   </select>
                 )}
               </div>
+              {selection.length > 0 && <div className="muted" style={{ fontSize: 11 }}>{selection.length} retenu(s) dans la corbeille <button className="secondary ss-chip" onClick={() => setSelection([])}>vider</button></div>}
               <ul className="ss-list">
                 {visible.map((it) => (
                   <li key={it.identity} className={selected === it.identity ? "active" : ""} onClick={() => setSelected(selected === it.identity ? null : it.identity)}>
+                    <input type="checkbox" className="ss-basket" checked={selection.includes(it.identity)} onChange={() => toggleBasket(it)} onClick={(e) => e.stopPropagation()} title="retenir pour la timeline / mosaïque / calendrier (corbeille)" />
                     <span className="ss-dot" style={{ background: STATE_COLORS[it.state] }} title={STATE_LABELS[it.state]} />
                     <span className="ss-icon" title={ITEM_TYPES[it.type]?.label}>{ITEM_TYPES[it.type]?.icon}</span>
                     <span className="ss-name"><strong>{it.name}</strong><br /><span className="muted">{it.ip || ""}{it.site ? ` · ${it.site}` : ""} · {it.stateText}</span></span>

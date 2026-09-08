@@ -327,6 +327,11 @@ export const FRAME_KINDS = {
   links: "Liens et positions",
   proposals: "Propositions",
   summary: "Synthèse par état",
+  // #424 : outils de l'ancienne maquette, nourris par les tuiles
+  timeline: "Timeline des états",
+  grid: "Mosaïque (pixel-grid)",
+  calendar: "Calendrier de densité",
+  radial: "Arbre radial",
 };
 
 export const DEFAULT_FRAMES = [{ kind: "map" }, { kind: "table" }];
@@ -358,7 +363,8 @@ export function summarizeByState(items) {
 
 // ---- Préférences (localStorage, même motif que cycleActions.js) -----------------
 
-export const PREF_KEYS = { frames: "hub.supervision.frames", priorities: "hub.supervision.priorities", proposals: "hub.supervision.proposals", tab: "hub.supervision.tab" };
+export const PREF_KEYS = { frames: "hub.supervision.frames", priorities: "hub.supervision.priorities", proposals: "hub.supervision.proposals", tab: "hub.supervision.tab",
+  selection: "hub.supervision.selection", window: "hub.supervision.window" };
 
 export function loadPref(storage, key, fallback) {
   try {

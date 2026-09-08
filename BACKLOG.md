@@ -2397,6 +2397,9 @@ qui fait alors sauter la file.
     Liens avec positions déduites) et (3) page centrale en 1 à 4 cadres
     (carte, table, liens, propositions, synthèse) livrés dans le hub
     (`SupervisionSiView.jsx`, `docs/supervision-si-tuile.md`). Reste :
-    (4) redistribution des outils de l'ancienne maquette (calendrier,
-    corbeille, radial, fusion IP/MAC…) vers leurs tuiles, timeline /
-    pixel-grid / radial comme contenus de cadre.
+    Avancement (#424) : point (4) -- timeline, mosaïque pixel-grid,
+    calendrier de densité, arbre radial et corbeille de sélection sont
+    des contenus de cadre de la tuile, nourris par les tuiles. Reste : les
+    onglets de l'ancienne maquette sur bases externes (IPAM, Optick,
+    TTS-GU, Zenoss, Cacti, OwnCloud, Fusion IP/MAC, géomatique) à
+    promouvoir en tuiles à part entière, puis retrait de l'ancien front.
