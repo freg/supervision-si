@@ -1851,3 +1851,10 @@ button.secondary { background: var(--panel); }
 .ss-day.warn { background: var(--warning); }
 .ss-day.bad { background: var(--danger); }
 .ss-day b { font-size: 11px; }
+/* Tuile Bases externes (livraison #425) -- ExternalBasesView.jsx */
+.eb-body { grid-template-columns: 300px 1fr 340px; }
+.eb-center { min-height: 0; display: flex; }
+.eb-center .ss-frame { flex: 1; }
+.eb-right { overflow-y: auto; }
+.eb-json { font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; white-space: pre-wrap; word-break: break-all; max-height: 40vh; overflow: auto; margin: 0; }
+@media (max-width: 1100px) { .eb-body { grid-template-columns: 1fr; } }

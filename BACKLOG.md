@@ -2399,7 +2399,8 @@ qui fait alors sauter la file.
     (`SupervisionSiView.jsx`, `docs/supervision-si-tuile.md`). Reste :
     Avancement (#424) : point (4) -- timeline, mosaïque pixel-grid,
     calendrier de densité, arbre radial et corbeille de sélection sont
-    des contenus de cadre de la tuile, nourris par les tuiles. Reste : les
-    onglets de l'ancienne maquette sur bases externes (IPAM, Optick,
-    TTS-GU, Zenoss, Cacti, OwnCloud, Fusion IP/MAC, géomatique) à
-    promouvoir en tuiles à part entière, puis retrait de l'ancien front.
+    des contenus de cadre de la tuile, nourris par les tuiles.
+    Avancement (#425) : IPAM, Zenoss, Optick, TTS-GU et Cacti promus en
+    UNE tuile générique « Bases externes » (docs/bases-externes.md).
+    Reste : OwnCloud et la fusion IP/MAC en tuiles, la géomatique, puis
+    retrait de l'ancien front.

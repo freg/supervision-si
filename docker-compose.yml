@@ -1506,6 +1506,13 @@ services:
       - VITE_SI_AGENT_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-agent
       # Supervision SI refondue (livraison #423) -- géolocalisations connues.
       - VITE_PIXEL_GRID_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/pixel-grid
+      # Bases externes (livraison #425) -- tuile générique IPAM / Zenoss /
+      # Optick / TTS-GU / Cacti (contrat commun /roots + /tree/<id>).
+      - VITE_IPAM_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/ipam
+      - VITE_ZENOSS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/zenoss
+      - VITE_OPTICK_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/optick
+      - VITE_TTSGU_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/tts-gu
+      - VITE_CACTI_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/cacti
       # Relations transversales -- onglet hub (livraison #335), backlog
       # item 38 point 2 ("vue relations" de la super tuile ENT).
       - VITE_RELATIONS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/relations

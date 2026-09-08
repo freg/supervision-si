@@ -31,6 +31,7 @@ import UpsView from "./UpsView.jsx";
 import SiAgentView from "./SiAgentView.jsx";
 import SiAgentEventsBanner from "./SiAgentEventsBanner.jsx";
 import SupervisionSiView from "./SupervisionSiView.jsx";
+import ExternalBasesView from "./ExternalBasesView.jsx";
 import GedView from "./GedView.jsx";
 import SshTunnelsView from "./SshTunnelsView.jsx";
 import SnmpView from "./SnmpView.jsx";
@@ -85,6 +86,16 @@ const SI_AGENT_API_BASE_URL = import.meta.env.VITE_SI_AGENT_API_BASE_URL || "";
 // Géolocalisations (pixel-grid) -- positions connues pour la nouvelle tuile
 // Supervision SI (livraison #423, backlog 64).
 const PIXEL_GRID_API_BASE_URL = import.meta.env.VITE_PIXEL_GRID_API_BASE_URL || "";
+// Bases externes (livraison #425) -- onglets IPAM / Zenoss / Optick / TTS-GU /
+// Cacti de l'ancienne maquette, promus en tuile générique du hub.
+const EXTERNAL_BASES = {
+  ipam: import.meta.env.VITE_IPAM_API_BASE_URL || "",
+  zenoss: import.meta.env.VITE_ZENOSS_API_BASE_URL || "",
+  optick: import.meta.env.VITE_OPTICK_API_BASE_URL || "",
+  "tts-gu": import.meta.env.VITE_TTSGU_API_BASE_URL || "",
+  cacti: import.meta.env.VITE_CACTI_API_BASE_URL || "",
+};
+const HAS_EXTERNAL_BASES = Object.values(EXTERNAL_BASES).some(Boolean);
 const RELATIONS_API_BASE_URL = import.meta.env.VITE_RELATIONS_API_BASE_URL || "";
 // Onglet GED (livraison #167) -- même API que TicketDocuments.jsx
 // (tickets-portal, #160), consommée ici pour la navigation/gestion
@@ -1133,6 +1144,16 @@ export default function App() {
       f.onClick = () => setViewMode("supervision-si");
     }
   }
+  // Tuile « Bases externes » (livraison #425) -- visible dès qu'une des
+  // API lecture seule est configurée.
+  if (HAS_EXTERNAL_BASES) {
+    fronts.push({
+      id: "external-bases",
+      name: "Bases externes",
+      description: "IPAM, Zenoss, Optick, TTS-GU, Cacti : racines, arbre radial, fiche JSON (lecture seule)",
+      onClick: () => setViewMode("external-bases"),
+    });
+  }
   // GED promue en tuile de front (livraison #172, demandé
   // explicitement -- "on commence par le plus facile : juste une
   // tuile qui pointe vers l'écran actuel"). PAS via buildFrontsList
@@ -1328,7 +1349,7 @@ export default function App() {
             <button
               type="button"
               className={
-                openNavMenu === "general" || ["logs", "cyber", "vigilance", "history", "imap", "backup-restore", "memory"].includes(viewMode)
+                openNavMenu === "general" || ["logs", "cyber", "vigilance", "history", "imap", "backup-restore", "memory", "external-bases"].includes(viewMode)
                   ? "active"
                   : ""
               }
@@ -1364,6 +1385,11 @@ export default function App() {
                 <button type="button" onClick={() => { setViewMode((v) => (v === "memory" ? "grid" : "memory")); setOpenNavMenu(null); }}>
                   Mémoire
                 </button>
+                {HAS_EXTERNAL_BASES && (
+                  <button type="button" onClick={() => { setViewMode((v) => (v === "external-bases" ? "grid" : "external-bases")); setOpenNavMenu(null); }}>
+                    Bases externes
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -1669,6 +1695,8 @@ export default function App() {
           onBack={() => setViewMode("grid")}
           upsApiBase={UPS_API_BASE_URL}
         />
+      ) : viewMode === "external-bases" ? (
+        <ExternalBasesView onBack={() => setViewMode("grid")} bases={EXTERNAL_BASES} legacyFrontendUrl={FRONTEND_URL} />
       ) : viewMode === "supervision-si" ? (
         <SupervisionSiView
           onBack={() => setViewMode("grid")}

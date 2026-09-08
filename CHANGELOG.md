@@ -1,3 +1,35 @@
+## 2026-09-08 — Tuile « Bases externes » : IPAM, Zenoss, Optick, TTS-GU et Cacti promus dans le hub en une vue générique (livraison #425)
+
+Backlog 64, point (4), suite : les cinq onglets « bases externes » de
+l'ancienne maquette (racines à gauche, arbre radial au centre, JSON à
+droite) partageaient un même contrat d'API lecture seule (`/health`,
+`/roots`, `/tree/<id>`) ; ils deviennent UNE tuile du hub au lieu de cinq
+écrans quasi identiques. Voir `docs/bases-externes.md`.
+
+- `hub/src/externalBases.js` (logique pure, 6 tests, 120 au total) :
+  sources disponibles selon les URL configurées, parcours et compteurs,
+  chemin, filtre texte insensible aux accents conservant ancêtres ET
+  descendants du match, « actifs seulement » IPAM (sous-réseaux inactifs
+  sans descendant actif retirés), profondeur bornée avec nœud « … +N »
+  dépliable, fiche du nœud, occupation IPAM et ses seuils, tri et
+  compteurs des racines.
+- `hub/src/ExternalBasesView.jsx` + `externalBasesClient.js` : onglets par
+  source (dernier mémorisé), colonne de racines filtrable (première ouverte
+  d'office), arbre radial zoomable (`radialLayout` réutilisé de #424,
+  couleur par type, anneau d'occupation), filtre, profondeur, fiche avec
+  chemin, enfants cliquables et JSON `raw`, lien « ancienne maquette »
+  (OwnCloud et fusion IP/MAC y restent pour l'instant), bandeau d'état
+  `/health`. Le changement d'onglet annule proprement les chargements en
+  cours (pas d'arbre d'une base demandé à l'autre).
+- `hub/src/App.jsx` : tuile « Bases externes » et entrée du menu Général,
+  visibles dès qu'une des cinq `VITE_*_API_BASE_URL` est définie ;
+  `docker-compose.yml` : ces variables ajoutées au service `hub` (mêmes
+  valeurs que pour `frontend`).
+
+**Vérifié** : tests Node, build Vite du hub, rendu Chromium sur harnais
+(faux back-end aux cinq sources, clair/sombre, filtre, onglets, fiche).
+**Non vérifié** : les API réelles derrière la passerelle, build Docker.
+
 ## 2026-09-08 — Supervision SI : outils de l'ancienne maquette redistribués dans la tuile (timeline, mosaïque, calendrier, arbre radial, corbeille) (livraison #424)
 
 Backlog 64, point (4). « Ses outils actuels se retrouveront distribués
