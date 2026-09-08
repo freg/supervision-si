@@ -2392,6 +2392,7 @@ qui fait alors sauter la file.
     montages lecture seule / amovibles jamais « disque plein ». Reste :
     archive sans Docker (systemd) à tester, retours des premiers hôtes.
 
+    #451 : agent macOS livré (machost.py, LaunchDaemon install-macos.sh, agent 0.5.0) -- premier Mac de test à venir.
 64. Refonte de la tuile Supervision SI (2026-09-07, demandé avec #418).
     « La tuile actuelle était la maquette initiale de la dataviz du hub ;
     elle doit changer radicalement et ses outils actuels se retrouveront

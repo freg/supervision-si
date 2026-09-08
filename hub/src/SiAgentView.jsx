@@ -463,6 +463,12 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                       <pre className="np-secret">{install.install_command_docker}</pre>
                     </>
                   )}
+                  {install.install_command_macos && (
+                    <>
+                      <p className="muted" style={{ margin: "6px 0 2px", fontSize: 12 }}>macOS (Terminal, <code>sudo</code> ; LaunchDaemon au démarrage, archive <code>si-agent-agent-&lt;version&gt;.tar.gz</code> décompressée) :</p>
+                      <pre className="np-secret">{install.install_command_macos}</pre>
+                    </>
+                  )}
                   {install.install_command_windows && (
                     <>
                       <p className="muted" style={{ margin: "6px 0 2px", fontSize: 12 }}>Windows 10 / 11 — Terminal (administrateur), depuis l'archive décompressée (ne pas double-cliquer le .ps1 : le Bloc-notes s'ouvre ; <code>windows\install.cmd</code> fait l'élévation et accepte les mêmes arguments, ou pose les questions en double-clic) :</p>
@@ -584,7 +590,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                         <div className="sa-kv">
                           <div><span className="muted">Machine</span>{[hardware.vendor, hardware.product, hardware.product_version].filter(Boolean).join(" ") || "—"}{hardware.serial ? ` · n° ${hardware.serial}` : ""}{hardware.virtualization && hardware.virtualization !== "none" ? <> · <Tone tone="neutral">virtualisé ({hardware.virtualization})</Tone></> : ""}</div>
                           <div><span className="muted">Carte / BIOS</span>{hardware.board || "—"}{hardware.bios ? ` · BIOS ${hardware.bios}` : ""}</div>
-                          <div><span className="muted">CPU</span>{hardware.cpu?.model || "—"}{hardware.cpu?.cpus ? ` · ${hardware.cpu.cpus} CPU` : ""}{hardware.cpu?.sockets ? ` (${hardware.cpu.sockets} socket, ${hardware.cpu.cores_per_socket} cœurs, ${hardware.cpu.threads_per_core} fils)` : ""}{hardware.cpu?.arch ? ` · ${hardware.cpu.arch}` : ""}</div>
+                          <div><span className="muted">CPU</span>{hardware.cpu?.model || "—"}{hardware.cpu?.cpus ? ` · ${hardware.cpu.cpus} CPU` : ""}{hardware.cpu?.sockets ? ` (${hardware.cpu.sockets} socket, ${hardware.cpu.cores_per_socket} cœurs${hardware.cpu.threads_per_core ? `, ${hardware.cpu.threads_per_core} fils` : ""})` : ""}{hardware.cpu?.arch ? ` · ${hardware.cpu.arch}` : ""}</div>
                           <div><span className="muted">Mémoire installée</span>{formatBytes(hardware.memory_total_bytes)}</div>
                           <div className="sa-wide"><span className="muted">Disques physiques</span>{hardware.disks?.length ? hardware.disks.map((d) => <span key={d.name} className="na-chip"><code>{d.name}</code> {d.size} {d.model || d.vendor || ""} {d.transport || ""} {d.rotational == null ? "" : d.rotational ? "HDD" : "SSD"}{d.health && d.health !== "Healthy" ? ` ⚠ ${d.health}` : ""}</span>) : "—"}</div>
                           {hardware.software_count != null && (

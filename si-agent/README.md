@@ -497,6 +497,51 @@ thread et casse l'envoi. `install.ps1` passe désormais un vrai délégué C#
 garde `-SkipCertificateCheck`. Vérifié : délégué + `WebClient` contre un
 serveur HTTPS auto-signé (CA lue, échec sans le délégué). Agent **0.4.4**.
 
+## Agent macOS (livraison #451, backlog 63)
+
+Demande : « un agent Mac de supervision ». Même paquet `si_agent`, même
+protocole HMAC, mêmes mesures (`host`, `activity`, `hardware`, `netview`,
+`inventory`) que Linux et Windows -- seule la source change. Contrairement
+à Windows (#440, scripts PowerShell), macOS a un vrai shell et le paquet
+tourne déjà en Python : `si_agent/machost.py` lance directement les
+commandes natives et traduit leur sortie dans les formes connues du central
+et de la tuile.
+
+- **`machost.py`** (pur + collecteurs, 17 tests) : `host` -- système
+  (`sw_vers`, `sysctl hw.model/ncpu/kern.boottime`, `uname`), CPU (`top -l 1`
+  + `vm.loadavg`), mémoire (`hw.memsize` + `vm_stat` + `vm.swapusage`),
+  disques (`df -k` recoupé avec `mount` pour type et lecture seule ;
+  **les volumes APFS scellé `/` et `/System/Volumes/Data` sont fusionnés en
+  une seule entrée `/`** portant l'usage réel, pour ne pas compter deux fois
+  ni afficher le système scellé comme un disque « plein » -- même esprit que
+  #442), services (`launchctl list` : échecs = code de sortie non nul),
+  ports en écoute (`lsof -nP -iTCP -sTCP:LISTEN`), journal (`log show`
+  messages d'erreur, 15 min), comptes (`dscl` groupe admin + utilisateurs
+  uid ≥ 500, `stat /dev/console`) ; `activity` (`ps`, `who`, `last`,
+  `softwareupdate -l`) ; `hardware` (`system_profiler SPHardwareDataType`
+  + `networksetup`) ; `netview` (`ifconfig`, `netstat -rn`, `arp -an`,
+  `netstat -an -p tcp`, `scutil --dns`). `risks.py` : message dédié
+  « service launchd en échec » (l'exposition de port, le disque plein hors
+  lecture seule/amovible et les seuils CPU/mémoire sont génériques).
+- **Installation** : `install-macos.sh` (même contrat que `install.sh` :
+  `--ca-fingerprint` amorçage GET /ca vérifié SHA-256, `--ca`, `--insecure`)
+  installe le paquet dans `/usr/local/opt/si-agent`, la configuration dans
+  `/usr/local/etc/si-agent/agent.json` (mode 600), et un **LaunchDaemon**
+  `fr.exemple.si-agent` (compte root, au démarrage, relancé) ;
+  `uninstall-macos.sh` (`--keep-data`). Commande affichée dans la tuile
+  (`install_command_macos`). Agent **0.5.0**.
+
+Vérifié : 17 tests `test_machost.py` (tous les parseurs sur sorties
+représentatives + `collect_all` de bout en bout) ; chaîne réelle : mesures
+`host`/`risks`/`netview`/`inventory` produites depuis des sorties macOS
+réalistes, ingérées dans le central réel, **rendu Chromium de la tuile**
+(macOS 14.6.1, mémoire 92,7 % → risque « mémoire saturée », service launchd
+en échec, disque APFS `/` 35 % + partage SMB distant 78 % non signalé
+« plein », matériel Apple M2, réseau) ; non-régression Windows/Linux vérifiée.
+**Non vérifié : un Mac réel** (noms de propriétés `system_profiler`, format
+exact de `df`/`ifconfig` selon la version, LaunchDaemon) -- premier poste de
+test à venir.
+
 ## Montages illisibles ou invisibles (livraison #438)
 
 Premier retour du premier hôte réel : « l'agent ne voit pas tous les types

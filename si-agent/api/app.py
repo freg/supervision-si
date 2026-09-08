@@ -356,6 +356,12 @@ def _install_command_docker(agent_id, secret, site):
     return _install_command(agent_id, secret, site).replace("sudo ./install.sh", "sudo ./docker/deploy-docker.sh", 1)
 
 
+def _install_command_macos(agent_id, secret, site):
+    """Variante macOS (#451, même archive) : install-macos.sh installe un
+    LaunchDaemon (compte root, au démarrage)."""
+    return _install_command(agent_id, secret, site).replace("sudo ./install.sh", "sudo ./install-macos.sh", 1)
+
+
 def _ps_quote(s):
     """Guillemets doubles : compris par PowerShell ET par cmd.exe (les
     simples restent littéraux sous cmd) ; l'identifiant, le secret et
@@ -453,6 +459,7 @@ def install_route(agent_id):
                     "install_command": _install_command(agent_id, a["secret"], a["site"]),
                     "install_command_docker": _install_command_docker(agent_id, a["secret"], a["site"]),
                     "install_command_windows": _install_command_windows(agent_id, a["secret"], a["site"]),
+                    "install_command_macos": _install_command_macos(agent_id, a["secret"], a["site"]),
                     "install_cmd_available": _install_cmd_windows(agent_id, a["secret"], a["site"]) is not None,
                     "agent_json": {"agent_id": agent_id, "secret": a["secret"], "site": a["site"],
                                    "central_url": PUBLIC_URL or "https://<VM>:6443/api/si-agent"}}), 200

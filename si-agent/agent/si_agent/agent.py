@@ -46,8 +46,17 @@ from .localqueue import LocalQueue
 # PowerShell livrés) ; le reste du paquet (protocole, file locale, sondes
 # python/powershell, commandes) est commun.
 IS_WINDOWS = sys.platform == "win32"
+IS_MACOS = sys.platform == "darwin"
 if IS_WINDOWS:
     from . import winhost as _plat
+    _collect_all, _collect_activity, _collect_hardware, _collect_netview = _plat.collect_all, _plat.collect_activity, _plat.collect_hardware, _plat.collect_netview
+    _collect_tools = _plat.collect_tools
+elif IS_MACOS:
+    # #451 : sous macOS, les collecteurs viennent de machost.py (commandes
+    # natives sw_vers/sysctl/vm_stat/df/launchctl/lsof/ifconfig/...) ; le
+    # reste du paquet (protocole, file locale, sondes, confinement setuid)
+    # est commun avec Linux.
+    from . import machost as _plat
     _collect_all, _collect_activity, _collect_hardware, _collect_netview = _plat.collect_all, _plat.collect_activity, _plat.collect_hardware, _plat.collect_netview
     _collect_tools = _plat.collect_tools
 else:
@@ -63,8 +72,15 @@ _log = logging.getLogger("si_agent")
 if IS_WINDOWS:
     _PROGRAM_DATA = os.path.join(os.environ.get("ProgramData", r"C:\ProgramData"), "si-agent")
     DEFAULT_CONFIG_PATH = os.path.join(_PROGRAM_DATA, "agent.json")
+    _ETC_DIR, _VAR_DIR = _PROGRAM_DATA, _PROGRAM_DATA
+elif IS_MACOS:
+    # conventions macOS pour un LaunchDaemon (#451)
+    _PROGRAM_DATA = None
+    _ETC_DIR, _VAR_DIR = "/usr/local/etc/si-agent", "/usr/local/var/lib/si-agent"
+    DEFAULT_CONFIG_PATH = os.path.join(_ETC_DIR, "agent.json")
 else:
     _PROGRAM_DATA = None
+    _ETC_DIR, _VAR_DIR = "/etc/si-agent", "/var/lib/si-agent"
     DEFAULT_CONFIG_PATH = "/etc/si-agent/agent.json"
 DEFAULTS = {
     "site": "default",
@@ -75,16 +91,16 @@ DEFAULTS = {
     "commands_poll_seconds": 60,
     "flush_seconds": 30,
     "batch_size": 100,
-    "queue_path": os.path.join(_PROGRAM_DATA, "queue.db") if IS_WINDOWS else "/var/lib/si-agent/queue.db",
-    "plugins_dir": os.path.join(_PROGRAM_DATA, "plugins") if IS_WINDOWS else "/var/lib/si-agent/plugins",
+    "queue_path": os.path.join(_VAR_DIR, "queue.db"),
+    "plugins_dir": os.path.join(_VAR_DIR, "plugins"),
     "risk_thresholds": {},
     "plugins": {},
     "ca_file": None,
     "ca_fingerprint": None,
     "insecure": False,
     # #422
-    "state_path": os.path.join(_PROGRAM_DATA, "state.json") if IS_WINDOWS else "/var/lib/si-agent/state.json",
-    "block_file": os.path.join(_PROGRAM_DATA, "BLOCKED") if IS_WINDOWS else "/etc/si-agent/BLOCKED",
+    "state_path": os.path.join(_VAR_DIR, "state.json"),
+    "block_file": os.path.join(_ETC_DIR, "BLOCKED"),
     "require_signed_responses": True,
     "plugins_user": "nobody",
     "plugin_max_memory_mb": 512,
@@ -475,7 +491,7 @@ class Agent(object):
                       "blocked_reason": self.block_reason() if self.is_blocked() else None,
                       "blocked_plugins": sorted((self.state.get("blocked_plugins") or {}).keys()),
                       "insecure_tls": bool(self.cfg.get("insecure")), "plugins_user": self._plugins_user_effective(),
-                      "log_level": self.cfg.get("log_level"), "platform": "windows" if IS_WINDOWS else "linux",
+                      "log_level": self.cfg.get("log_level"), "platform": "windows" if IS_WINDOWS else ("macos" if IS_MACOS else "linux"),
                       "python": sys.version.split()[0]}, "error": None}
         self.queue.put(m)
         return m

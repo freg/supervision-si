@@ -79,6 +79,8 @@ class DashboardTests(ApiBase):
         self.assertEqual(inst["secret"], a["secret"])
         self.assertEqual(inst["agent_json"]["central_url"], "https://vm:6443/api/si-agent")
         # #446 : commande Windows exécutable telle quelle (politique d'exécution contournée, guillemets doubles compris par cmd et PowerShell)
+        self.assertIn("sudo ./install-macos.sh --agent %s" % a["secret"][:0] + "srv-01", inst["install_command_macos"])
+        self.assertIn("--central https://vm:6443/api/si-agent", inst["install_command_macos"])
         w = inst["install_command_windows"]
         self.assertTrue(w.startswith("powershell -NoProfile -ExecutionPolicy Bypass -File .\\windows\\install.ps1 -Agent \"srv-01\" -Secret \"%s\"" % a["secret"]), w)
         self.assertIn('-Central "https://vm:6443/api/si-agent" -Site "siege"', w)

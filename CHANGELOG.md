@@ -1,3 +1,17 @@
+## 2026-09-08 — Agent macOS de supervision (livraison #451)
+
+`si_agent/machost.py` : collecteurs macOS (commandes natives sw_vers /
+sysctl / vm_stat / df+mount / launchctl / lsof / dscl / log show /
+system_profiler / ifconfig / netstat / arp) produisant les mêmes mesures
+host/activity/hardware/netview/inventory que Linux et Windows ; volumes
+APFS scellé « / » et Data fusionnés en une entrée « / » (pas de disque
+« plein » factice), risque « service launchd en échec ». Installation par
+LaunchDaemon (install-macos.sh / uninstall-macos.sh, TLS par empreinte),
+commande dans la tuile Agents hôtes. Agent 0.5.0, archive
+si-agent-agent-0.5.0.tar.gz. Vérifié : 17 tests parseurs, chaîne réelle
+ingérée dans le central + rendu Chromium de la tuile, non-régression
+Windows/Linux. Non vérifié : un Mac réel.
+
 ## 2026-09-08 — Agent Windows : récupération de la CA sous PowerShell 5.1 (livraison #450)
 
 Premier poste réel : un ScriptBlock en `ServerCertificateValidationCallback`

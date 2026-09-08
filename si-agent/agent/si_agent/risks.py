@@ -78,10 +78,12 @@ def evaluate(host_data, thresholds=None):
         out.append({"id": "recent-boot", "severity": "info", "subject": "system",
                     "message": "hôte démarré il y a %d s" % int(up)})
 
-    is_windows = (d.get("system") or {}).get("os_id") == "windows"
+    os_id = (d.get("system") or {}).get("os_id")
+    is_windows = os_id == "windows"
+    _svc_msg = {"windows": "service Windows automatique arrêté : %s", "macos": "service launchd en échec : %s"}.get(os_id, "unité systemd en échec : %s")
     for unit in (d.get("services") or {}).get("failed") or []:
         out.append({"id": "service-failed", "severity": "warning", "subject": unit,
-                    "message": ("service Windows automatique arrêté : %s" if is_windows else "unité systemd en échec : %s") % unit})
+                    "message": _svc_msg % unit})
 
     for p in (d.get("ports") or {}).get("ports") or []:
         if p.get("exposed") and p.get("port") in SENSITIVE_PORTS:
