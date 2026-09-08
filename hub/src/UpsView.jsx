@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   fetchUpsStatus, fetchUpsList, fetchUps, createUps, updateUps, deleteUps, pollUps, testUps,
-  fetchUpsReadings, fetchUpsSeries,
+  fetchUpsReadings, fetchUpsSeries, fetchUpsAlerts, ackUpsAlert, testUpsNotifications,
 } from "./upsClient.js";
 import {
   orderedFields, fieldLabel, fieldTone, deviceStatus, formatAge, formatInterval, summarizeLast,
   numericKeys, toLineSeries, timelineRows, TIME_WINDOWS, windowStart, displayValue,
+  THRESHOLD_KEYS, thresholdsFromForm, thresholdsToForm, sortAlerts, alertKindLabel, alertTone,
 } from "./upsMonitor.js";
 import { buildLinePath } from "./netprobeAgents.js";
 import ZoomableChart from "./components/ZoomableChart.jsx";
@@ -23,6 +24,8 @@ const REFRESH_MS = 60000;
 const EMPTY_FORM = {
   name: "", site: "", host: "", scheme: "http", path: "/index.htm",
   username: "", password: "", poll_interval_seconds: "", enabled: true, notes: "",
+  // #433 : seuils ("" = défaut, "off" = désactivé), échecs avant « injoignable », notifications
+  ...thresholdsToForm({}), unreachable_after: "", notify: true,
 };
 
 function Tone({ tone, children }) {
@@ -56,11 +59,15 @@ export default function UpsView({ onBack, upsApiBase }) {
   const [seriesKey, setSeriesKey] = useState("input_voltage");
   const [windowId, setWindowId] = useState("7d");
   const [showTimelineTable, setShowTimelineTable] = useState(true);
+  // #433 : alertes actives
+  const [alerts, setAlerts] = useState([]);
+  const [showThresholds, setShowThresholds] = useState(false);
 
   const load = useCallback(async () => {
-    const [st, list] = await Promise.all([fetchUpsStatus(upsApiBase), fetchUpsList(upsApiBase)]);
+    const [st, list, al] = await Promise.all([fetchUpsStatus(upsApiBase), fetchUpsList(upsApiBase), fetchUpsAlerts(upsApiBase)]);
     setStatus(st);
     setDevices(list);
+    setAlerts(sortAlerts(al.alerts));
     setError(st?.error || null);
     setLoading(false);
     setNow(Date.now());
@@ -107,7 +114,9 @@ export default function UpsView({ onBack, upsApiBase }) {
       name: d.name, site: d.site || "", host: d.host, scheme: d.scheme || "http", path: d.path || "/index.htm",
       username: d.username || "", password: "", poll_interval_seconds: d.poll_interval_seconds || "",
       enabled: d.enabled, notes: d.notes || "",
+      ...thresholdsToForm(d.thresholds), unreachable_after: d.unreachable_after || "", notify: d.notify !== false,
     });
+    setShowThresholds(Object.keys(d.thresholds || {}).length > 0);
     setTestResult(null);
     setShowForm(true);
   }
@@ -116,6 +125,9 @@ export default function UpsView({ onBack, upsApiBase }) {
     const p = { ...form };
     if (p.poll_interval_seconds === "") p.poll_interval_seconds = null;
     if (editingId && !p.password) delete p.password;
+    p.thresholds = thresholdsFromForm(form);
+    for (const { key } of THRESHOLD_KEYS) delete p[key];
+    if (p.unreachable_after === "") p.unreachable_after = null;
     return p;
   }
 
@@ -149,6 +161,21 @@ export default function UpsView({ onBack, upsApiBase }) {
     setNotice(r?.ok ? `${d.name} : relevé effectué (${r.duration_ms} ms).` : `${d.name} : ${r?.error || "échec"}`);
     await load();
     if (selectedId === d.id) loadDetail(d.id);
+  }
+
+  async function handleAck(a) {
+    const r = await ackUpsAlert(upsApiBase, a.id, null);
+    if (r?.error) { setError(r.error); return; }
+    await load();
+  }
+
+  async function handleTestNotifications() {
+    setBusy(true);
+    const r = await testUpsNotifications(upsApiBase);
+    setBusy(false);
+    if (r?.error) { setError(r.error); return; }
+    const res = r.result || {};
+    setNotice(`Essai de notification : ${Object.entries(res).filter(([k]) => k !== "at").map(([k, v]) => `${k} ${v ? "✓" : "✗"}`).join(", ") || "aucun canal configuré (SECRETS_ALERT_* / UPS_NOTIFY_WEBHOOK_URL)"}`);
   }
 
   async function handleDelete(d) {
@@ -186,6 +213,8 @@ export default function UpsView({ onBack, upsApiBase }) {
             {status.counts.alarms > 0 && <> · <Tone tone="bad">{status.counts.alarms} en alarme</Tone></>}
             {status.counts.unreachable > 0 && <> · <Tone tone="bad">{status.counts.unreachable} injoignable(s)</Tone></>}
             {!status.settings.poll_enabled && <> · <Tone tone="warn">automate désactivé (UPS_POLL_ENABLED)</Tone></>}
+            {status.alerts && <> · alertes : {status.alerts.active ? <Tone tone={status.alerts.critical ? "bad" : "warn"}>{status.alerts.active} active(s){status.alerts.unacked ? `, ${status.alerts.unacked} non acquittée(s)` : ""}</Tone> : <Tone tone="good">aucune</Tone>}</>}
+            {status.notifications && <> · notifications : {status.notifications.any ? <Tone tone="good">{Object.entries(status.notifications.channels).filter(([, v]) => v).map(([k]) => k).join(", ")} (≥ {status.notifications.min_severity})</Tone> : <Tone tone="warn">aucun canal (SECRETS_ALERT_* / UPS_NOTIFY_WEBHOOK_URL)</Tone>} <button className="secondary ss-origin" onClick={handleTestNotifications} disabled={busy}>tester</button></>}
             {!status.settings.secrets_encrypted && (
               <><br /><Tone tone="warn">⚠ mots de passe stockés en clair -- définir UPS_CRED_PASSPHRASE et UPS_CRED_SALT (voir ups-monitor/README.md)</Tone></>
             )}
@@ -194,6 +223,23 @@ export default function UpsView({ onBack, upsApiBase }) {
           <p className="muted" style={{ margin: 0 }}>{loading ? "Chargement…" : "ups-monitor-api injoignable."}</p>
         )}
       </div>
+
+      {alerts.length > 0 && (
+        <div className="hub-card hub-settings-section ups-alerts">
+          <h2 style={{ margin: "0 0 6px" }}>Alertes actives ({alerts.length})</h2>
+          <ul className="sa-risks">
+            {alerts.map((a) => (
+              <li key={a.id} className={a.acked_at ? "muted" : ""}>
+                <Tone tone={a.acked_at ? "neutral" : alertTone(a.severity)}>{a.severity === "critical" ? "⛔" : "⚠"} {alertKindLabel(a.kind)}</Tone>
+                {" "}<strong>{a.ups_name}</strong>{a.ups_site ? ` (${a.ups_site})` : ""} — {a.message}
+                <span className="muted" style={{ fontSize: 11 }}> · depuis {when(a.opened_at)}{a.notified ? ` · notifié (${Object.entries(a.notified).filter(([k, v]) => k !== "at" && v).map(([k]) => k).join(", ") || "échec"})` : ""}{a.acked_at ? ` · acquittée${a.acked_by ? ` par ${a.acked_by}` : ""}` : ""}</span>
+                {!a.acked_at && <> <button className="secondary ss-origin" onClick={() => handleAck(a)} title="acquitter : la condition reste suivie, plus de notification tant qu'elle dure">✓ acquitter</button></>}
+                <button className="secondary ss-origin" onClick={() => setSelectedId(a.ups_id)} title="ouvrir l'onduleur">↗</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="ups-toolbar">
         <h2 style={{ margin: 0 }}>Onduleurs ({devices.length})</h2>
@@ -224,6 +270,21 @@ export default function UpsView({ onBack, upsApiBase }) {
             <label className="ups-form-check"><input type="checkbox" checked={!!form.enabled} onChange={(e) => setForm({ ...form, enabled: e.target.checked })} /> relevé automatique</label>
             <label className="ups-form-wide">Notes <input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></label>
           </div>
+          <button type="button" className={`secondary na-section-toggle${showThresholds ? " active" : ""}`} onClick={() => setShowThresholds((v) => !v)} style={{ margin: "8px 0 4px" }}>{showThresholds ? "▾" : "▸"} Seuils et alertes</button>
+          {showThresholds && (
+            <div className="ups-form-grid">
+              {THRESHOLD_KEYS.map(({ key, label }) => (
+                <label key={key}>{label}
+                  <input value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} placeholder={`${status?.default_thresholds?.[key] ?? ""} (défaut) · off`} />
+                </label>
+              ))}
+              <label>Injoignable après (échecs)
+                <input type="number" min="1" value={form.unreachable_after} onChange={(e) => setForm({ ...form, unreachable_after: e.target.value })} placeholder="3 (défaut)" />
+              </label>
+              <label className="ups-form-check"><input type="checkbox" checked={!!form.notify} onChange={(e) => setForm({ ...form, notify: e.target.checked })} /> notifications (SMS / courriel / webhook)</label>
+              <p className="muted ups-form-wide" style={{ margin: 0, fontSize: 12 }}>Vide = seuil par défaut, « off » = seuil désactivé. Une alerte s'ouvre au franchissement, se ferme au retour dans la plage (hystérésis 2 %) ; l'alarme de la carte et l'injoignabilité sont suivies d'office.</p>
+            </div>
+          )}
           <p className="muted" style={{ margin: "8px 0" }}>
             Requête envoyée : <code>{form.scheme}://{form.username ? `${form.username}:•••@` : ""}{form.host || "ip"}{form.path || "/index.htm"}</code>
             {" "}-- l'identifiant devient une authentification HTTP Basic, comme dans le navigateur.
@@ -259,7 +320,7 @@ export default function UpsView({ onBack, upsApiBase }) {
         <div className="hub-table-scroll">
           <table>
             <thead>
-              <tr><th>Nom</th><th>Site</th><th>Adresse</th><th>État</th><th>Dernier relevé</th><th>Mesures</th><th>Fréquence</th><th className="ups-actions-head"></th></tr>
+              <tr><th>Nom</th><th>Site</th><th>Adresse</th><th>État</th><th>Alertes</th><th>Dernier relevé</th><th>Mesures</th><th>Fréquence</th><th className="ups-actions-head"></th></tr>
             </thead>
             <tbody>
               {devices.map((d) => {
@@ -270,7 +331,8 @@ export default function UpsView({ onBack, upsApiBase }) {
                     <td><strong>{d.name}</strong>{d.notes && <div className="muted" style={{ fontSize: 11 }}>{d.notes}</div>}</td>
                     <td>{d.site || <span className="muted">—</span>}</td>
                     <td><code>{d.host}</code></td>
-                    <td><Tone tone={st.tone}>{st.text}</Tone></td>
+                    <td><Tone tone={st.tone}>{st.text}</Tone>{d.stale && <div className="muted" style={{ fontSize: 11 }} title={d.stale}>relevé en retard</div>}</td>
+                    <td>{(d.active_alerts || []).length === 0 ? <span className="muted">—</span> : d.active_alerts.map((a) => <div key={a.id}><Tone tone={a.acked_at ? "neutral" : alertTone(a.severity)}>{alertKindLabel(a.kind)}</Tone></div>)}</td>
                     <td className="muted" title={when(d.last_polled_at)}>{age == null ? "—" : `il y a ${formatAge(age)}`}</td>
                     <td className="muted">{summarizeLast(d.last_summary) || "—"}</td>
                     <td className="muted">{formatInterval(d.poll_interval_seconds || defaultInterval)}{!d.poll_interval_seconds && " (défaut)"}</td>

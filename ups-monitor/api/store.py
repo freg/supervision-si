@@ -68,6 +68,24 @@ CREATE TABLE IF NOT EXISTS ups_readings (
     resolved_path TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_ups_readings_ups_time ON ups_readings(ups_id, polled_at);
+
+-- Alertes (livraison #433) : une ligne par condition ouverte, fermée
+-- quand la condition disparaît ; acquittement humain = notifications
+-- coupées tant qu'elle dure.
+CREATE TABLE IF NOT EXISTS ups_alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ups_id INTEGER NOT NULL REFERENCES ups_devices(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    message TEXT NOT NULL,
+    details_json TEXT NOT NULL DEFAULT '{}',
+    opened_at TEXT NOT NULL,
+    closed_at TEXT,
+    acked_at TEXT,
+    acked_by TEXT,
+    notified_json TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_ups_alerts_open ON ups_alerts(ups_id, closed_at);
 """
 
 # Colonnes ajoutées après la première livraison : ALTER TABLE tolérant,
@@ -75,9 +93,14 @@ CREATE INDEX IF NOT EXISTS idx_ups_readings_ups_time ON ups_readings(ups_id, pol
 EXTRA_COLUMNS = (
     ("ups_readings", "resolved_path", "TEXT"),
     ("ups_devices", "last_resolved_path", "TEXT"),
+    # #433 : seuils (JSON), nombre d'échecs avant « injoignable », notifications
+    ("ups_devices", "thresholds", "TEXT"),
+    ("ups_devices", "unreachable_after", "INTEGER"),
+    ("ups_devices", "notify", "INTEGER"),
 )
 
-DEVICE_COLUMNS = ("name", "site", "host", "scheme", "path", "username", "password", "poll_interval_seconds", "enabled", "notes")
+DEVICE_COLUMNS = ("name", "site", "host", "scheme", "path", "username", "password", "poll_interval_seconds", "enabled", "notes",
+                  "thresholds", "unreachable_after", "notify")
 
 
 def now_iso():
@@ -114,6 +137,12 @@ def _public(row):
     d["password_encrypted"] = credential_crypto.is_protected(stored)
     d["enabled"] = bool(d["enabled"])
     d["last_ok"] = None if d["last_ok"] is None else bool(d["last_ok"])
+    try:
+        d["thresholds"] = json.loads(d.get("thresholds") or "{}")
+    except (TypeError, ValueError):
+        d["thresholds"] = {}
+    d["unreachable_after"] = d.get("unreachable_after") or 3
+    d["notify"] = bool(d.get("notify", 1) if d.get("notify") is not None else 1)
     return d
 
 
@@ -184,7 +213,29 @@ def _normalize_device(data, existing=None):
             return None, "'poll_interval_seconds' : 30 s minimum -- la page se rafraîchit elle-même toutes les 30 s"
     enabled = base.get("enabled", True)
     enabled = 1 if (enabled is True or str(enabled).lower() in ("1", "true", "yes", "on")) else 0
+    # #433 : seuils, injoignable après N échecs, notifications
+    import alerts as _alerts  # noqa: PLC0415
+    thresholds, err = _alerts.validate_thresholds(base.get("thresholds"))
+    if err:
+        return None, err
+    after = base.get("unreachable_after")
+    if after in ("", None):
+        after = 3
+    else:
+        try:
+            after = int(after)
+        except (TypeError, ValueError):
+            return None, "'unreachable_after' : entier (nombre d'échecs consécutifs) ou vide"
+        if after < 1:
+            return None, "'unreachable_after' : 1 minimum"
+    notify = base.get("notify")
+    if notify is None:
+        notify = True
+    notify = 1 if (notify is True or notify == 1 or str(notify).lower() in ("1", "true", "yes", "on")) else 0
     return {
+        "thresholds": json.dumps(thresholds, ensure_ascii=False) if thresholds else None,
+        "unreachable_after": after,
+        "notify": notify,
         "name": name,
         "site": str(base.get("site") or "").strip(),
         "host": host,
@@ -207,11 +258,11 @@ def create_device(db_path, data):
     try:
         cur = conn.execute(
             """INSERT INTO ups_devices (name, site, host, scheme, path, username, password,
-                                        poll_interval_seconds, enabled, notes, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                        poll_interval_seconds, enabled, notes, thresholds, unreachable_after, notify, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [values["name"], values["site"], values["host"], values["scheme"], values["path"],
              values["username"], credential_crypto.protect(values["password"]), values["poll_interval_seconds"], values["enabled"],
-             values["notes"], now, now],
+             values["notes"], values["thresholds"], values["unreachable_after"], values["notify"], now, now],
         )
         conn.commit()
         return get_device(db_path, cur.lastrowid), None
@@ -249,11 +300,11 @@ def update_device(db_path, ups_id, data):
     try:
         conn.execute(
             """UPDATE ups_devices SET name = ?, site = ?, host = ?, scheme = ?, path = ?, username = ?, password = ?,
-                                     poll_interval_seconds = ?, enabled = ?, notes = ?, updated_at = ?
+                                     poll_interval_seconds = ?, enabled = ?, notes = ?, thresholds = ?, unreachable_after = ?, notify = ?, updated_at = ?
                WHERE id = ?""",
             [values["name"], values["site"], values["host"], values["scheme"], values["path"],
              values["username"], values["password"], values["poll_interval_seconds"], values["enabled"],
-             values["notes"], now_iso(), ups_id],
+             values["notes"], values["thresholds"], values["unreachable_after"], values["notify"], now_iso(), ups_id],
         )
         conn.commit()
     finally:
@@ -406,5 +457,118 @@ def counts(db_path):
         alarms = conn.execute("SELECT COUNT(*) AS n FROM ups_devices WHERE last_state = 'alarm'").fetchone()["n"]
         down = conn.execute("SELECT COUNT(*) AS n FROM ups_devices WHERE last_ok = 0").fetchone()["n"]
         return {"devices": devices, "enabled": enabled, "readings": readings, "alarms": alarms, "unreachable": down}
+    finally:
+        conn.close()
+
+
+# ---- Alertes (livraison #433) --------------------------------------------------
+
+def _alert_row(row):
+    d = dict(row)
+    try:
+        d["details"] = json.loads(d.pop("details_json") or "{}")
+    except (TypeError, ValueError):
+        d["details"] = {}
+    try:
+        d["notified"] = json.loads(d.pop("notified_json") or "null")
+    except (TypeError, ValueError):
+        d["notified"] = None
+    return d
+
+
+def open_alerts(db_path, ups_id):
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute("SELECT * FROM ups_alerts WHERE ups_id = ? AND closed_at IS NULL", [ups_id]).fetchall()
+        return {r["kind"]: _alert_row(r) for r in rows}
+    finally:
+        conn.close()
+
+
+def open_alert(db_path, ups_id, alert, at=None):
+    conn = get_connection(db_path)
+    try:
+        cur = conn.execute(
+            "INSERT INTO ups_alerts (ups_id, kind, severity, message, details_json, opened_at) VALUES (?, ?, ?, ?, ?, ?)",
+            [ups_id, alert["kind"], alert["severity"], alert["message"], json.dumps(alert.get("details") or {}, ensure_ascii=False), at or now_iso()],
+        )
+        conn.commit()
+        return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def close_alert(db_path, ups_id, kind, at=None):
+    conn = get_connection(db_path)
+    try:
+        cur = conn.execute("UPDATE ups_alerts SET closed_at = ? WHERE ups_id = ? AND kind = ? AND closed_at IS NULL", [at or now_iso(), ups_id, kind])
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
+
+def ack_alert(db_path, alert_id, who=None):
+    conn = get_connection(db_path)
+    try:
+        cur = conn.execute("UPDATE ups_alerts SET acked_at = ?, acked_by = ? WHERE id = ? AND closed_at IS NULL", [now_iso(), who, alert_id])
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
+
+def mark_alert_notified(db_path, alert_id, result):
+    conn = get_connection(db_path)
+    try:
+        conn.execute("UPDATE ups_alerts SET notified_json = ? WHERE id = ?", [json.dumps(result, ensure_ascii=False), alert_id])
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def list_alerts(db_path, active_only=True, ups_id=None, limit=200):
+    conn = get_connection(db_path)
+    try:
+        q = "SELECT a.*, d.name AS ups_name, d.site AS ups_site FROM ups_alerts a JOIN ups_devices d ON d.id = a.ups_id"
+        clauses, params = [], []
+        if active_only:
+            clauses.append("a.closed_at IS NULL")
+        if ups_id:
+            clauses.append("a.ups_id = ?"); params.append(ups_id)
+        if clauses:
+            q += " WHERE " + " AND ".join(clauses)
+        q += " ORDER BY a.closed_at IS NOT NULL, a.opened_at DESC LIMIT ?"
+        params.append(limit)
+        return [_alert_row(r) for r in conn.execute(q, params).fetchall()]
+    finally:
+        conn.close()
+
+
+def consecutive_failures(db_path, ups_id, limit=50):
+    """Nombre de relevés en échec consécutifs, le plus récent inclus."""
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute("SELECT ok FROM ups_readings WHERE ups_id = ? ORDER BY polled_at DESC, id DESC LIMIT ?", [ups_id, limit]).fetchall()
+    finally:
+        conn.close()
+    n = 0
+    for r in rows:
+        if r["ok"]:
+            break
+        n += 1
+    return n
+
+
+def alert_counts(db_path):
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute("SELECT severity, COUNT(*) AS n FROM ups_alerts WHERE closed_at IS NULL GROUP BY severity").fetchall()
+        out = {"active": 0, "critical": 0, "warning": 0, "unacked": 0}
+        for r in rows:
+            out["active"] += r["n"]
+            out[r["severity"]] = out.get(r["severity"], 0) + r["n"]
+        out["unacked"] = conn.execute("SELECT COUNT(*) AS n FROM ups_alerts WHERE closed_at IS NULL AND acked_at IS NULL").fetchone()["n"]
+        return out
     finally:
         conn.close()

@@ -81,3 +81,15 @@ export async function fetchUpsSeries(apiBase, upsId, key, { start, end, limit } 
   const data = await fetchJson(apiBase, `/ups/${upsId}/series?${params.toString()}`);
   return Array.isArray(data?.points) ? data.points : [];
 }
+
+// #433 : alertes et seuils
+export async function fetchUpsAlerts(apiBase, { active = true, upsId } = {}) {
+  const data = await fetchJson(apiBase, `/alerts?active=${active ? 1 : 0}${upsId ? `&ups_id=${upsId}` : ""}`);
+  return data?.error ? { alerts: [], counts: null, error: data.error } : { alerts: data.alerts || [], counts: data.counts || null, error: null };
+}
+export async function ackUpsAlert(apiBase, alertId, who) {
+  return fetchJson(apiBase, `/alerts/${alertId}/ack`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ who }) });
+}
+export async function testUpsNotifications(apiBase) {
+  return fetchJson(apiBase, "/alerts/test", { method: "POST" });
+}

@@ -21,11 +21,14 @@ Routes (préfixe /api/ups via tls-proxy) :
 """
 import logging
 import os
+import time
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
+import alerts
 import credential_crypto
+import notify
 import poller
 import store
 
@@ -66,12 +69,27 @@ def status():
             # UPS_CRED_PASSPHRASE et UPS_CRED_SALT (voir README).
             "secrets_encrypted": credential_crypto.is_configured(),
         },
+        # #433 : alertes actives et canaux de notification (présence, jamais les valeurs)
+        "alerts": store.alert_counts(DB_PATH),
+        "notifications": notify.describe(),
+        "default_thresholds": alerts.DEFAULT_THRESHOLDS,
     }), 200
 
 
 @app.route("/ups", methods=["GET"])
 def list_ups():
-    return jsonify(store.list_devices(DB_PATH)), 200
+    """#433 : chaque onduleur porte ses alertes actives (`active_alerts`)
+    et `stale` (plus de relevé depuis 2,5 intervalles, calculé ici)."""
+    devices = store.list_devices(DB_PATH)
+    by_ups = {}
+    for a in store.list_alerts(DB_PATH, active_only=True, limit=1000):
+        by_ups.setdefault(a["ups_id"], []).append({"id": a["id"], "kind": a["kind"], "severity": a["severity"], "message": a["message"], "opened_at": a["opened_at"], "acked_at": a["acked_at"]})
+    now_ts = time.time()
+    for d in devices:
+        d["active_alerts"] = by_ups.get(d["id"], [])
+        stale, msg = alerts.stale_check(d, now_ts, poller._iso_to_ts(d.get("last_polled_at")), poller.DEFAULT_INTERVAL_SECONDS)
+        d["stale"] = msg if stale else None
+    return jsonify(devices), 200
 
 
 @app.route("/ups", methods=["POST"])
@@ -102,7 +120,8 @@ def get_ups(ups_id):
         return jsonify({"error": "onduleur inconnu"}), 404
     latest = store.latest_reading(DB_PATH, ups_id)
     latest_ok = latest if (latest and latest["ok"]) else store.latest_ok_reading(DB_PATH, ups_id)
-    return jsonify({"device": device, "latest": latest, "latest_ok": latest_ok, "url": poller.build_url(device)}), 200
+    return jsonify({"device": device, "latest": latest, "latest_ok": latest_ok, "url": poller.build_url(device),
+                    "alerts": store.list_alerts(DB_PATH, active_only=False, ups_id=ups_id, limit=50)}), 200
 
 
 @app.route("/ups/<int:ups_id>", methods=["PUT"])
@@ -128,6 +147,7 @@ def poll_ups(ups_id):
         return jsonify({"error": "onduleur inconnu"}), 404
     result = poller.poll_device(device)
     store.record_reading(DB_PATH, ups_id, result)
+    poller.evaluate_alerts(DB_PATH, device, result)  # #433 : un relevé manuel ouvre / ferme aussi les alertes
     return jsonify(_public_result(result)), 200
 
 
@@ -199,6 +219,32 @@ if make_shared_log_handler and _MemcacheClient:
         SERVICE_NAME, get_memcache_client, buffer_size=LOG_BUFFER_SIZE, capture_level=LOG_CAPTURE_LEVEL,
     )
     logging.getLogger().addHandler(_log_handler)
+
+
+# ---- Alertes (livraison #433) ------------------------------------------------
+
+@app.route("/alerts", methods=["GET"])
+def list_alerts_route():
+    active = request.args.get("active", "1") != "0"
+    return jsonify({"alerts": store.list_alerts(DB_PATH, active_only=active, ups_id=request.args.get("ups_id", type=int),
+                                                 limit=min(1000, request.args.get("limit", type=int) or 200)),
+                    "counts": store.alert_counts(DB_PATH)}), 200
+
+
+@app.route("/alerts/<int:alert_id>/ack", methods=["POST"])
+def ack_alert_route(alert_id):
+    body = request.get_json(silent=True) or {}
+    n = store.ack_alert(DB_PATH, alert_id, who=(body.get("who") or None))
+    if not n:
+        return jsonify({"error": "alerte inconnue ou déjà fermée"}), 404
+    return jsonify({"status": "ok"}), 200
+
+
+@app.route("/alerts/test", methods=["POST"])
+def test_alert_route():
+    """Envoi d'essai sur les canaux configurés (synchrone)."""
+    result = notify.send_all({"id": 0, "name": "test", "site": "", "host": "-"}, {"kind": "test", "severity": "warning", "message": "message d'essai des notifications UPS", "details": {}})
+    return jsonify({"status": "ok", "result": result, "channels": notify.channels()}), 200
 
 
 @app.route("/logs", methods=["GET"])

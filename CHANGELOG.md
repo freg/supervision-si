@@ -1,3 +1,26 @@
+## 2026-09-08 — Onduleurs : alertes (alarme, injoignable, seuils avec hystérésis), notifications SMS / courriel / webhook, acquittement (livraison #433)
+
+Backlog 62. Voir `ups-monitor/README.md` (§ « Alertes et seuils »).
+
+- `ups-monitor/api/alerts.py` (pur) : ouverture / fermeture des alertes
+  après chaque relevé -- `alarm`, `unreachable` (N échecs consécutifs,
+  réglable), `threshold:<champ>` (tension d'entrée min/max, charge max,
+  batterie min, température max ; défauts, surcharge par onduleur, `null`
+  = désactivé, hystérésis 2 %) ; « relevé en retard » calculé à la lecture.
+- `store.py` : table `ups_alerts`, colonnes `thresholds` / `unreachable_after`
+  / `notify`, compteurs ; `notify.py` : SMS et courriel (`SECRETS_ALERT_*`),
+  webhook, seuil, anti-tempête, rétablissement (sauf alerte acquittée) ;
+  `poller.py` : évaluation après chaque relevé (automate et relevé manuel) ;
+  routes `/alerts`, `/alerts/<id>/ack`, `/alerts/test`, `/status` enrichi,
+  `GET /ups` avec `active_alerts` et `stale` ; compose et `.env.example`.
+- Hub : bandeau des alertes actives (acquitter, ouvrir), colonne Alertes,
+  section « Seuils et alertes » du formulaire, canaux et bouton d'essai ;
+  Supervision SI dégrade l'état d'un onduleur en alerte (2 tests, 130).
+
+**Vérifié** : 27 tests Python, tests Node, chaîne réelle API + faux
+onduleur (seuil franchi, injoignable, acquittement), rendu Chromium.
+**Non vérifié** : SMS / courriel réels, build Docker.
+
 ## 2026-09-08 — Supervision SI : la vue réseau passive des agents hôtes nourrit propositions et liens (livraison #432)
 
 Suite de #428 (backlog 66) : ce que l'agent voit sans émettre un paquet

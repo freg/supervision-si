@@ -157,6 +157,40 @@ une autre carte peut présenter la page autrement — le parseur signale alors
 la route tls-proxy en conditions réelles ; le comportement d'une carte
 qui répondrait par un formulaire de connexion plutôt qu'en Basic.
 
+## Alertes et seuils (livraison #433)
+
+`api/alerts.py` (logique pure) : après chaque relevé, ouverture / fermeture
+des alertes de l'onduleur -- `alarm` (la carte signale une alarme :
+champs d'état hors valeur normale), `unreachable` (N relevés consécutifs
+en échec, `unreachable_after` par onduleur, 3 par défaut),
+`threshold:<champ>` (tension d'entrée min/max, charge max, batterie min,
+température max ; défauts 207 / 253 V, 80 %, 50 %, 40 °C, surchargés par
+onduleur, `null` = seuil désactivé ; fermeture au retour dans la plage
+avec 2 % d'hystérésis). Un relevé en échec ne ferme jamais un seuil (pas
+de donnée). « Relevé en retard » (plus de relevé depuis 2,5 intervalles)
+est calculé à la lecture (`stale` sur `GET /ups`), jamais stocké.
+Table `ups_alerts` (ouverture, fermeture, acquittement, notification).
+
+Notifications (`api/notify.py`, mêmes canaux que si-agent #422) : SMS et
+courriel par `shared/secrets_alert.py` (`SECRETS_ALERT_*`), webhook
+`UPS_NOTIFY_WEBHOOK_URL` ; seuil `UPS_NOTIFY_MIN_SEVERITY` (warning ;
+`none` désactive), anti-tempête `UPS_NOTIFY_COOLDOWN_SECONDS` (900) par
+(onduleur, genre), `notify` par onduleur ; rétablissement notifié sauf si
+l'alerte a été acquittée. Routes : `GET /alerts?active=1|0&ups_id=`,
+`POST /alerts/<id>/ack`, `POST /alerts/test` (essai des canaux) ;
+`/status` porte `alerts` (compteurs), `notifications` (canaux présents,
+jamais leurs valeurs) et `default_thresholds` ; `GET /ups` porte
+`active_alerts` et `stale` ; `POST|PUT /ups` acceptent `thresholds`,
+`unreachable_after`, `notify`. Tuile : bandeau des alertes actives
+(acquitter, ouvrir), colonne Alertes, section « Seuils et alertes » du
+formulaire, état des canaux et bouton d'essai ; Supervision SI passe
+l'onduleur en avertissement dès qu'une alerte est active.
+
+Vérifié : 3 tests (seuils validés, évaluation pure avec hystérésis et
+injoignabilité, automate qui ouvre / ferme / notifie / acquitte, 27 au
+total), chaîne réelle API + faux onduleur dans le harnais (seuil franchi,
+injoignable), rendu Chromium. Non vérifié : SMS / courriel réels.
+
 ## Ce que cette version ne fait pas (backlog 62)
 
 - D'autres pages de la carte (`info_battery.htm`, `info_io.htm`,
@@ -164,7 +198,5 @@ qui répondrait par un formulaire de connexion plutôt qu'en Basic.
   « plusieurs pages par onduleur ».
 - SNMP (RFC 1628 UPS-MIB), plus fiable que l'HTML : la tuile est prête
   à recevoir une seconde méthode de relevé.
-- Alertes (passage en alarme, injoignable depuis N relevés) vers
-  vigilance / SMS (`shared/secrets_alert.py`).
-- Seuils personnalisés (tension, charge, batterie) et détection de
-  dérive.
+- ~~Alertes~~ et ~~seuils~~ : livrés en #433 (reste la détection de dérive
+  lente et la remontée vers vigilance).

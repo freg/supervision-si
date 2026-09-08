@@ -10,6 +10,9 @@ RUN pip install --no-cache-dir --retries 5 --timeout 60 -r requirements.txt
 COPY ups-monitor/api/app.py .
 COPY ups-monitor/api/store.py .
 COPY ups-monitor/api/poller.py .
+COPY ups-monitor/api/alerts.py .
+COPY ups-monitor/api/notify.py .
+COPY shared/secrets_alert.py .
 COPY ups-monitor/api/ups_parser.py .
 COPY ups-monitor/api/credential_crypto.py .
 COPY shared/secret_crypto.py .

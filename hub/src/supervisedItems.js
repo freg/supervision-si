@@ -66,6 +66,12 @@ export function fromUps(devices, nowMs = Date.now()) {
       const age = (nowMs - Date.parse(d.last_polled_at)) / 1000;
       if (Number.isFinite(age) && age > (d.poll_interval_seconds || 3600) * 2.5) { state = "warning"; stateText = "relevé ancien"; }
     }
+    // #433 : une alerte active (seuil, alarme, injoignable) dégrade l'état
+    const active = (d.active_alerts || []).filter((a) => !a.acked_at);
+    if (active.length) {
+      const worst = active.some((a) => a.severity === "critical") ? "critical" : "warning";
+      if ({ critical: 0, warning: 1, ok: 2, unknown: 3 }[worst] < { critical: 0, warning: 1, ok: 2, unknown: 3 }[state]) { state = worst; stateText = active.map((a) => a.kind.replace("threshold:", "")).join(", "); }
+    }
     return { key: `ups:${d.id}`, type: "ups", name: d.name, ip: d.host || null, mac: null, site: d.site || null,
       state, stateText, lastSeen: d.last_polled_at || null, origin: "ups", originId: d.id, identity: identity(d.host, null, d.name) };
   });

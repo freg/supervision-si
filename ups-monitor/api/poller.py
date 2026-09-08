@@ -33,6 +33,8 @@ from datetime import datetime, timezone
 
 import ups_parser
 import store
+import alerts
+import notify
 
 _log = logging.getLogger("ups_monitor_poller")
 
@@ -204,7 +206,7 @@ def run_tick(db_path, now_ts=None, opener=None, default_interval=None, force_ids
     if now_ts is None:
         now_ts = time.time()
     force = set(force_ids or [])
-    checked = polled = skipped = failed = 0
+    checked = polled = skipped = failed = alerts_opened = alerts_closed = 0
     for device in store.list_devices(db_path, include_secret=True):
         checked += 1
         if device["id"] not in force and (not device["enabled"] or not is_due(device, now_ts, default_interval)):
@@ -218,7 +220,30 @@ def run_tick(db_path, now_ts=None, opener=None, default_interval=None, force_ids
         if not result["ok"]:
             failed += 1
             _log.warning("ups-monitor : %s (%s) -- %s", device["name"], device["host"], result["error"])
-    return {"checked": checked, "polled": polled, "skipped": skipped, "failed": failed}
+        opened, closed = evaluate_alerts(db_path, device, result)
+        alerts_opened += opened; alerts_closed += closed
+    return {"checked": checked, "polled": polled, "skipped": skipped, "failed": failed, "alerts_opened": alerts_opened, "alerts_closed": alerts_closed}
+
+
+def evaluate_alerts(db_path, device, result):
+    """#433 : après un relevé, ouvre / ferme les alertes de l'onduleur et
+    notifie. Renvoie (ouvertes, fermées)."""
+    opened_now = store.open_alerts(db_path, device["id"])
+    failures = store.consecutive_failures(db_path, device["id"]) if not result.get("ok") else 0
+    to_open, to_close, _kept = alerts.evaluate(device, result, failures, opened_now)
+    public = store.get_device(db_path, device["id"]) or device
+    at = result.get("polled_at")
+    for a in to_open:
+        a["id"] = store.open_alert(db_path, device["id"], a, at=at)
+        _log.warning("ups-monitor : alerte %s sur %s -- %s", a["kind"], device["name"], a["message"])
+        notify.dispatch(db_path, public, a)
+    for kind in to_close:
+        prev = opened_now.get(kind)
+        store.close_alert(db_path, device["id"], kind, at=at)
+        _log.info("ups-monitor : alerte %s levée sur %s", kind, device["name"])
+        if prev and not prev.get("acked_at"):
+            notify.dispatch(db_path, public, {"kind": kind, "severity": prev.get("severity") or "warning", "message": prev.get("message"), "details": prev.get("details")}, closing=True)
+    return len(to_open), len(to_close)
 
 
 def purge_tick(db_path, now_ts=None):

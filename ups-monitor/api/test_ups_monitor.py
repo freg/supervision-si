@@ -20,6 +20,7 @@ os.environ["UPS_MONITOR_DB_PATH"] = os.path.join(tempfile.mkdtemp(), "ups.db")
 
 import ups_parser  # noqa: E402
 import store  # noqa: E402
+import alerts  # noqa: E402
 import poller  # noqa: E402
 import app as app_module  # noqa: E402
 
@@ -228,6 +229,94 @@ class StoreAndPollerTests(unittest.TestCase):
         self.assertTrue(store.delete_device(self.db, device["id"]))
         self.assertFalse(store.delete_device(self.db, device["id"]))
         self.assertEqual(store.counts(self.db), {"devices": 0, "enabled": 0, "readings": 0, "alarms": 0, "unreachable": 0})
+
+
+class AlertsTests(unittest.TestCase):
+    """Livraison #433 : alertes et seuils."""
+
+    def setUp(self):
+        os.environ["UPS_NOTIFY_SYNC"] = "1"
+        os.environ["UPS_NOTIFY_MIN_SEVERITY"] = "none"
+        self.db = os.path.join(tempfile.mkdtemp(), "ups.db")
+        store.ensure_schema(self.db)
+        self.dev, err = store.create_device(self.db, {"name": "UPS A", "site": "Siège", "host": "192.168.1.107",
+                                                     "thresholds": {"input_voltage_min": 235, "output_load_max": 10}, "unreachable_after": 2})
+        self.assertIsNone(err, err)
+
+    def test_seuils_valides_et_renvoyes(self):
+        d = store.get_device(self.db, self.dev["id"])
+        self.assertEqual(d["thresholds"], {"input_voltage_min": 235.0, "output_load_max": 10.0})
+        self.assertEqual((d["unreachable_after"], d["notify"]), (2, True))
+        _, err = store.create_device(self.db, {"name": "x", "host": "h", "thresholds": {"bizarre": 1}})
+        self.assertIn("clé inconnue", err)
+        _, err = store.create_device(self.db, {"name": "x", "host": "h", "unreachable_after": 0})
+        self.assertIn("1 minimum", err)
+        merged = alerts.parse_thresholds({"input_voltage_min": None, "temperature_max": "45"})
+        self.assertIsNone(merged["input_voltage_min"]); self.assertEqual(merged["temperature_max"], 45.0); self.assertEqual(merged["output_load_max"], 80.0)
+
+    def test_evaluation_pure(self):
+        dev = {"thresholds": {"input_voltage_min": 235, "output_load_max": 10}, "unreachable_after": 2}
+        ok_low = {"ok": True, "state": "ok", "input_voltage": 230.0, "output_load": 5}
+        to_open, to_close, kept = alerts.evaluate(dev, ok_low, 0, {})
+        self.assertEqual([a["kind"] for a in to_open], ["threshold:input_voltage_min"])
+        self.assertIn("230 < 235", to_open[0]["message"])
+        opened = {"threshold:input_voltage_min": {"kind": "threshold:input_voltage_min"}}
+        # 236 V : dans l'hystérésis (235 + 2 % = 239,7) -> reste ouverte
+        _, to_close, kept = alerts.evaluate(dev, {"ok": True, "state": "ok", "input_voltage": 236.0}, 0, opened)
+        self.assertEqual((to_close, kept), ([], ["threshold:input_voltage_min"]))
+        _, to_close, _ = alerts.evaluate(dev, {"ok": True, "state": "ok", "input_voltage": 241.0}, 0, opened)
+        self.assertEqual(to_close, ["threshold:input_voltage_min"])
+        # échec : rien ne se ferme, injoignable après 2
+        to_open, to_close, kept = alerts.evaluate(dev, {"ok": False, "error": "timeout"}, 1, opened)
+        self.assertEqual((to_open, to_close, kept), ([], [], ["threshold:input_voltage_min"]))
+        to_open, _, _ = alerts.evaluate(dev, {"ok": False, "error": "timeout"}, 2, opened)
+        self.assertEqual([a["kind"] for a in to_open], ["unreachable"])
+        # alarme de la carte, puis retour
+        to_open, _, _ = alerts.evaluate(dev, {"ok": True, "state": "alarm", "state_reasons": ["Battery : Low"]}, 0, {})
+        self.assertEqual(to_open[0]["kind"], "alarm"); self.assertEqual(to_open[0]["severity"], "critical")
+        _, to_close, _ = alerts.evaluate(dev, {"ok": True, "state": "ok"}, 0, {"alarm": {}, "unreachable": {}})
+        self.assertEqual(sorted(to_close), ["alarm", "unreachable"])
+        self.assertEqual(alerts.stale_check({"enabled": True, "poll_interval_seconds": 60}, 1000, 800, 3600), (True, "aucun relevé depuis 3 min (intervalle 60 s)"))
+        self.assertEqual(alerts.stale_check({"enabled": True, "poll_interval_seconds": 60}, 1000, 900, 3600)[0], False)
+
+    def test_automate_ouvre_ferme_et_notifie(self):
+        sent = []
+        import notify as notify_mod
+        notify_mod.secrets_alert = None
+        os.environ["UPS_NOTIFY_MIN_SEVERITY"] = "warning"
+        os.environ["UPS_NOTIFY_WEBHOOK_URL"] = "http://webhook.test/x"
+        real_send = notify_mod.send_all
+        notify_mod.send_all = lambda device, alert, closing=False: (sent.append((device["name"], alert["kind"], closing)) or {"webhook": True, "at": "now"})
+        try:
+            t0 = 1_700_000_000
+            page_ok = SAMPLE  # 236 V > 235, charge 0 % : rien ; puis seuil de charge à 10 % franchi par la page ? non -> on force par un seuil bas
+            store.update_device(self.db, self.dev["id"], {"thresholds": {"input_voltage_min": 240, "output_load_max": 80}})
+            opener = make_opener({"http://192.168.1.107/index.htm": page_ok})
+            r = poller.run_tick(self.db, now_ts=t0, opener=opener, default_interval=3600)
+            self.assertEqual((r["polled"], r["alerts_opened"]), (1, 1), "236 V < 240 V : seuil ouvert")
+            active = store.list_alerts(self.db, active_only=True)
+            self.assertEqual([a["kind"] for a in active], ["threshold:input_voltage_min"])
+            self.assertEqual(active[0]["notified"], {"webhook": True, "at": "now"})
+            self.assertEqual(sent, [("UPS A", "threshold:input_voltage_min", False)])
+            # deux échecs -> injoignable ; le seuil reste ouvert
+            bad = make_opener({"http://192.168.1.107/index.htm": urllib.error.URLError("timed out")})
+            poller.run_tick(self.db, now_ts=t0 + 4000, opener=bad, default_interval=3600)
+            r = poller.run_tick(self.db, now_ts=t0 + 8000, opener=bad, default_interval=3600)
+            self.assertEqual(r["alerts_opened"], 1)
+            self.assertEqual(sorted(a["kind"] for a in store.list_alerts(self.db)), ["threshold:input_voltage_min", "unreachable"])
+            # acquittement, puis retour : injoignable fermée (pas de notification de rétablissement car acquittée)
+            ua = next(a for a in store.list_alerts(self.db) if a["kind"] == "unreachable")
+            self.assertEqual(store.ack_alert(self.db, ua["id"], "freg"), 1)
+            store.update_device(self.db, self.dev["id"], {"thresholds": {"input_voltage_min": 200}})
+            r = poller.run_tick(self.db, now_ts=t0 + 12000, opener=opener, default_interval=3600)
+            self.assertEqual(r["alerts_closed"], 2, "injoignable et seuil (236 > 200 + 2 %) fermés")
+            self.assertEqual(store.list_alerts(self.db), [])
+            closed = store.list_alerts(self.db, active_only=False)
+            self.assertEqual(len(closed), 2); self.assertTrue(all(a["closed_at"] for a in closed))
+            self.assertEqual([x for x in sent if x[2]], [("UPS A", "threshold:input_voltage_min", True)], "rétablissement notifié seulement pour l'alerte non acquittée")
+        finally:
+            notify_mod.send_all = real_send
+            os.environ.pop("UPS_NOTIFY_WEBHOOK_URL", None)
 
 
 class RoutesTests(unittest.TestCase):

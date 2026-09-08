@@ -196,3 +196,12 @@ test("#432 vue réseau passive des agents : voisins/pairs non supervisés = prop
   const links = buildLinks({ supervised, netviews });
   assert.deepEqual(links.filter((l) => l.via === "si-agent").map((l) => [l.a, l.b, l.weight]), [["ip:10.50.7.12", "ip:192.168.100.5", 2048], ["ip:10.50.7.12", "ip:10.50.7.30", 1024]]);
 });
+
+test("#433 alerte UPS active -> état dégradé dans Supervision SI", () => {
+  const [a, b] = fromUps([
+    { id: 1, name: "u1", host: "10.0.0.1", enabled: true, last_ok: true, last_state: "ok", last_polled_at: new Date(NOW).toISOString(), active_alerts: [{ id: 1, kind: "threshold:input_voltage_min", severity: "warning" }] },
+    { id: 2, name: "u2", host: "10.0.0.2", enabled: true, last_ok: true, last_state: "ok", last_polled_at: new Date(NOW).toISOString(), active_alerts: [{ id: 2, kind: "unreachable", severity: "critical", acked_at: "x" }] },
+  ], NOW);
+  assert.equal(a.state, "warning"); assert.equal(a.stateText, "input_voltage_min");
+  assert.equal(b.state, "ok", "acquittée : n'altère plus l'état");
+});

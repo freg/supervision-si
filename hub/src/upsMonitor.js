@@ -171,3 +171,47 @@ export function windowStart(windowId, nowMs = Date.now()) {
   if (!w || !w.seconds) return null;
   return new Date(nowMs - w.seconds * 1000).toISOString().replace(/\.\d{3}Z$/, "Z");
 }
+
+// ---- #433 : alertes et seuils -------------------------------------------------
+
+export const THRESHOLD_KEYS = [
+  { key: "input_voltage_min", label: "Tension d'entrée min (V)" },
+  { key: "input_voltage_max", label: "Tension d'entrée max (V)" },
+  { key: "output_load_max", label: "Charge max (%)" },
+  { key: "battery_capacity_min", label: "Batterie min (%)" },
+  { key: "temperature_max", label: "Température max (°C)" },
+];
+
+export const ALERT_KIND_LABELS = { alarm: "alarme de l'onduleur", unreachable: "injoignable", "threshold:input_voltage_min": "tension basse",
+  "threshold:input_voltage_max": "tension haute", "threshold:output_load_max": "charge élevée", "threshold:battery_capacity_min": "batterie faible", "threshold:temperature_max": "température" };
+
+export function alertKindLabel(kind) { return ALERT_KIND_LABELS[kind] || kind; }
+export function alertTone(severity) { return severity === "critical" ? "bad" : severity === "warning" ? "warn" : "neutral"; }
+
+// Formulaire -> objet de seuils : "" = défaut (clé absente), "off" = désactivé (null), nombre sinon.
+export function thresholdsFromForm(form) {
+  const out = {};
+  for (const { key } of THRESHOLD_KEYS) {
+    const v = form[key];
+    if (v === "" || v == null) continue;
+    if (String(v).toLowerCase() === "off") { out[key] = null; continue; }
+    const n = Number(v);
+    if (Number.isFinite(n)) out[key] = n;
+  }
+  return out;
+}
+
+export function thresholdsToForm(thresholds) {
+  const out = {};
+  for (const { key } of THRESHOLD_KEYS) {
+    const v = (thresholds || {})[key];
+    out[key] = v === undefined ? "" : v === null ? "off" : String(v);
+  }
+  return out;
+}
+
+// Tri : critiques non acquittées d'abord, puis avertissements, puis acquittées, par date décroissante.
+export function sortAlerts(alerts) {
+  const sev = { critical: 0, warning: 1, info: 2 };
+  return [...(alerts || [])].sort((a, b) => (a.acked_at ? 1 : 0) - (b.acked_at ? 1 : 0) || (sev[a.severity] ?? 2) - (sev[b.severity] ?? 2) || String(b.opened_at).localeCompare(String(a.opened_at)));
+}

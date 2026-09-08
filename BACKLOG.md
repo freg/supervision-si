@@ -2294,7 +2294,9 @@ qui fait alors sauter la file.
     trait » est retenu, dessiner les pictogrammes manquants (une
     soixantaine de tuiles) plutôt que de mélanger emoji et traits.
 
-62. Tuile UPS -- suite de la version 0 (2026-09-07, #415). Livré :
+62. Tuile UPS -- suite de la version 0 (2026-09-07, #415). #433 : alertes
+    (alarme, injoignable, seuils) et notifications livrées ; reste : autres
+    pages de la carte, SNMP UPS-MIB, dérive lente. Livré :
     liste, automate HTTP (Basic) 1 h, fiche extraite de la page Socomec
     NETYS, archive, timeline (`ups-monitor/README.md`). À faire, dans
     l'ordre proposé : (1) confronter le parseur à un onduleur RÉEL et

@@ -117,3 +117,13 @@ test("valeur affichée avec son unité quand la page ne l'écrit pas ; état de 
   const keys = orderedFields([{ title: "Synthèse ASI", fields: [{ key: "temperature" }, { key: "ups_state" }, { key: "device_date" }] }]).map((f) => f.key);
   assert.deepEqual(keys, ["ups_state", "temperature", "device_date"]);
 });
+
+test("#433 seuils et alertes : formulaire <-> objet, tri", async () => {
+  const { thresholdsFromForm, thresholdsToForm, sortAlerts, alertKindLabel, alertTone } = await import("../src/upsMonitor.js");
+  assert.deepEqual(thresholdsFromForm({ input_voltage_min: "210", output_load_max: "", battery_capacity_min: "off", temperature_max: "abc" }), { input_voltage_min: 210, battery_capacity_min: null });
+  assert.deepEqual(thresholdsToForm({ input_voltage_min: 210, battery_capacity_min: null }), { input_voltage_min: "210", input_voltage_max: "", output_load_max: "", battery_capacity_min: "off", temperature_max: "" });
+  const sorted = sortAlerts([{ severity: "warning", opened_at: "2026-09-08T10:00:00Z" }, { severity: "critical", opened_at: "2026-09-08T09:00:00Z", acked_at: "x" }, { severity: "critical", opened_at: "2026-09-08T08:00:00Z" }]);
+  assert.deepEqual(sorted.map((a) => [a.severity, !!a.acked_at]), [["critical", false], ["warning", false], ["critical", true]]);
+  assert.equal(alertKindLabel("threshold:output_load_max"), "charge élevée");
+  assert.equal(alertTone("critical"), "bad");
+});
