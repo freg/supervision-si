@@ -1045,6 +1045,8 @@ services:
       - UPS_CRED_SALT=${UPS_CRED_SALT:-}
       # #433 : alertes (seuils, alarme, injoignable) -> SMS / courriel (canaux
       # SECRETS_ALERT_* du PRA #206) et webhook ; seuil et anti-tempête.
+      # #434 : relevé SNMP (UPS-MIB) par snmp-api, une seule implémentation pysnmp.
+      - SNMP_API_INTERNAL_URL=http://snmp-api:5000
       - UPS_NOTIFY_MIN_SEVERITY=${UPS_NOTIFY_MIN_SEVERITY:-warning}
       - UPS_NOTIFY_COOLDOWN_SECONDS=${UPS_NOTIFY_COOLDOWN_SECONDS:-900}
       - UPS_NOTIFY_WEBHOOK_URL=${UPS_NOTIFY_WEBHOOK_URL:-}

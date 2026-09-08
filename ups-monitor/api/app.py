@@ -68,6 +68,7 @@ def status():
             # Faux = mots de passe stockés en clair dans /data : fournir
             # UPS_CRED_PASSPHRASE et UPS_CRED_SALT (voir README).
             "secrets_encrypted": credential_crypto.is_configured(),
+            "snmp_api_url": poller.SNMP_API_URL,  # #434 : relevés SNMP (UPS-MIB) via snmp-api
         },
         # #433 : alertes actives et canaux de notification (présence, jamais les valeurs)
         "alerts": store.alert_counts(DB_PATH),

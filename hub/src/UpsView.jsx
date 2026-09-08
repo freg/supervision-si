@@ -26,6 +26,8 @@ const EMPTY_FORM = {
   username: "", password: "", poll_interval_seconds: "", enabled: true, notes: "",
   // #433 : seuils ("" = défaut, "off" = désactivé), échecs avant « injoignable », notifications
   ...thresholdsToForm({}), unreachable_after: "", notify: true,
+  // #434 : méthode de relevé (page HTML de la carte, ou SNMP UPS-MIB via snmp-api)
+  method: "http", snmp_community: "", snmp_port: "",
 };
 
 function Tone({ tone, children }) {
@@ -115,6 +117,7 @@ export default function UpsView({ onBack, upsApiBase }) {
       username: d.username || "", password: "", poll_interval_seconds: d.poll_interval_seconds || "",
       enabled: d.enabled, notes: d.notes || "",
       ...thresholdsToForm(d.thresholds), unreachable_after: d.unreachable_after || "", notify: d.notify !== false,
+      method: d.method || "http", snmp_community: "", snmp_port: d.snmp_port && d.snmp_port !== 161 ? d.snmp_port : "",
     });
     setShowThresholds(Object.keys(d.thresholds || {}).length > 0);
     setTestResult(null);
@@ -128,6 +131,8 @@ export default function UpsView({ onBack, upsApiBase }) {
     p.thresholds = thresholdsFromForm(form);
     for (const { key } of THRESHOLD_KEYS) delete p[key];
     if (p.unreachable_after === "") p.unreachable_after = null;
+    if (p.snmp_port === "") p.snmp_port = null;
+    if (editingId && !p.snmp_community) delete p.snmp_community;
     return p;
   }
 
@@ -254,16 +259,32 @@ export default function UpsView({ onBack, upsApiBase }) {
             <label>Nom <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder="Salle serveurs" /></label>
             <label>Site <input value={form.site} onChange={(e) => setForm({ ...form, site: e.target.value })} placeholder="Siège" /></label>
             <label>IP / nom <input value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })} required placeholder="192.168.1.107" /></label>
-            <label>Schéma
-              <select value={form.scheme} onChange={(e) => setForm({ ...form, scheme: e.target.value })}>
-                <option value="http">http</option><option value="https">https</option>
+            <label>Méthode
+              <select value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value })}>
+                <option value="http">page HTML de la carte</option><option value="snmp">SNMP (UPS-MIB, RFC 1628)</option>
               </select>
             </label>
-            <label>Page <input value={form.path} onChange={(e) => setForm({ ...form, path: e.target.value })} placeholder="/index.htm" /></label>
-            <label>Utilisateur <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} autoComplete="off" /></label>
-            <label>Mot de passe
-              <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} autoComplete="new-password" placeholder={editingId ? "(inchangé)" : ""} />
-            </label>
+            {form.method === "snmp" ? (
+              <>
+                <label>Communauté SNMP
+                  <input type="password" value={form.snmp_community} onChange={(e) => setForm({ ...form, snmp_community: e.target.value })} autoComplete="new-password" placeholder={editingId ? "(inchangée)" : "public"} />
+                </label>
+                <label>Port SNMP <input type="number" min="1" value={form.snmp_port} onChange={(e) => setForm({ ...form, snmp_port: e.target.value })} placeholder="161" /></label>
+              </>
+            ) : (
+              <>
+                <label>Schéma
+                  <select value={form.scheme} onChange={(e) => setForm({ ...form, scheme: e.target.value })}>
+                    <option value="http">http</option><option value="https">https</option>
+                  </select>
+                </label>
+                <label>Page <input value={form.path} onChange={(e) => setForm({ ...form, path: e.target.value })} placeholder="/index.htm" /></label>
+                <label>Utilisateur <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} autoComplete="off" /></label>
+                <label>Mot de passe
+                  <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} autoComplete="new-password" placeholder={editingId ? "(inchangé)" : ""} />
+                </label>
+              </>
+            )}
             <label>Fréquence (s)
               <input type="number" min="30" step="30" value={form.poll_interval_seconds} onChange={(e) => setForm({ ...form, poll_interval_seconds: e.target.value })} placeholder={`${defaultInterval} (défaut)`} />
             </label>
@@ -286,8 +307,12 @@ export default function UpsView({ onBack, upsApiBase }) {
             </div>
           )}
           <p className="muted" style={{ margin: "8px 0" }}>
-            Requête envoyée : <code>{form.scheme}://{form.username ? `${form.username}:•••@` : ""}{form.host || "ip"}{form.path || "/index.htm"}</code>
-            {" "}-- l'identifiant devient une authentification HTTP Basic, comme dans le navigateur.
+            {form.method === "snmp" ? (
+              <>Relevé SNMP v2c : <code>snmp://{form.host || "ip"}:{form.snmp_port || 161}</code> (UPS-MIB 1.3.6.1.2.1.33, via snmp-api ; communauté jamais renvoyée ni tracée) -- plus fiable que la page HTML quand la carte l'expose.</>
+            ) : (
+              <>Requête envoyée : <code>{form.scheme}://{form.username ? `${form.username}:•••@` : ""}{form.host || "ip"}{form.path || "/index.htm"}</code>
+                {" "}-- l'identifiant devient une authentification HTTP Basic, comme dans le navigateur.</>
+            )}
           </p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button type="button" className="secondary" onClick={handleTest} disabled={busy || !form.host}>🔎 Tester la requête</button>
@@ -330,7 +355,7 @@ export default function UpsView({ onBack, upsApiBase }) {
                   <tr key={d.id} className={`ups-row${selectedId === d.id ? " active" : ""}${d.enabled ? "" : " inactive"}`} onClick={() => setSelectedId(selectedId === d.id ? null : d.id)}>
                     <td><strong>{d.name}</strong>{d.notes && <div className="muted" style={{ fontSize: 11 }}>{d.notes}</div>}</td>
                     <td>{d.site || <span className="muted">—</span>}</td>
-                    <td><code>{d.host}</code></td>
+                    <td><code>{d.host}</code>{d.method === "snmp" && <span className="muted" style={{ fontSize: 11 }}> · SNMP</span>}</td>
                     <td><Tone tone={st.tone}>{st.text}</Tone>{d.stale && <div className="muted" style={{ fontSize: 11 }} title={d.stale}>relevé en retard</div>}</td>
                     <td>{(d.active_alerts || []).length === 0 ? <span className="muted">—</span> : d.active_alerts.map((a) => <div key={a.id}><Tone tone={a.acked_at ? "neutral" : alertTone(a.severity)}>{alertKindLabel(a.kind)}</Tone></div>)}</td>
                     <td className="muted" title={when(d.last_polled_at)}>{age == null ? "—" : `il y a ${formatAge(age)}`}</td>

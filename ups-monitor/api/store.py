@@ -97,10 +97,14 @@ EXTRA_COLUMNS = (
     ("ups_devices", "thresholds", "TEXT"),
     ("ups_devices", "unreachable_after", "INTEGER"),
     ("ups_devices", "notify", "INTEGER"),
+    # #434 : méthode de relevé (http | snmp), communauté SNMP (protégée comme le mot de passe), port
+    ("ups_devices", "method", "TEXT"),
+    ("ups_devices", "snmp_community", "TEXT"),
+    ("ups_devices", "snmp_port", "INTEGER"),
 )
 
 DEVICE_COLUMNS = ("name", "site", "host", "scheme", "path", "username", "password", "poll_interval_seconds", "enabled", "notes",
-                  "thresholds", "unreachable_after", "notify")
+                  "thresholds", "unreachable_after", "notify", "method", "snmp_community", "snmp_port")
 
 
 def now_iso():
@@ -143,6 +147,10 @@ def _public(row):
         d["thresholds"] = {}
     d["unreachable_after"] = d.get("unreachable_after") or 3
     d["notify"] = bool(d.get("notify", 1) if d.get("notify") is not None else 1)
+    community = d.pop("snmp_community", "") or ""
+    d["has_snmp_community"] = bool(community)
+    d["method"] = d.get("method") or "http"
+    d["snmp_port"] = d.get("snmp_port") or 161
     return d
 
 
@@ -177,6 +185,13 @@ def _with_secret(row):
     except ValueError as exc:
         d["password"] = ""
         d["password_error"] = str(exc)
+    try:
+        d["snmp_community"] = credential_crypto.reveal(d.get("snmp_community") or "")
+    except ValueError as exc:
+        d["snmp_community"] = ""
+        d["password_error"] = d["password_error"] or str(exc)
+    d["method"] = d.get("method") or "http"
+    d["snmp_port"] = d.get("snmp_port") or 161
     return d
 
 
@@ -232,7 +247,21 @@ def _normalize_device(data, existing=None):
     if notify is None:
         notify = True
     notify = 1 if (notify is True or notify == 1 or str(notify).lower() in ("1", "true", "yes", "on")) else 0
+    method = str(base.get("method") or "http").strip().lower()
+    if method not in ("http", "snmp"):
+        return None, "'method' : http ou snmp"
+    snmp_port = base.get("snmp_port")
+    if snmp_port in ("", None):
+        snmp_port = 161
+    else:
+        try:
+            snmp_port = int(snmp_port)
+        except (TypeError, ValueError):
+            return None, "'snmp_port' : entier"
     return {
+        "method": method,
+        "snmp_community": str(base.get("snmp_community") or ""),
+        "snmp_port": snmp_port,
         "thresholds": json.dumps(thresholds, ensure_ascii=False) if thresholds else None,
         "unreachable_after": after,
         "notify": notify,
@@ -258,11 +287,13 @@ def create_device(db_path, data):
     try:
         cur = conn.execute(
             """INSERT INTO ups_devices (name, site, host, scheme, path, username, password,
-                                        poll_interval_seconds, enabled, notes, thresholds, unreachable_after, notify, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                        poll_interval_seconds, enabled, notes, thresholds, unreachable_after, notify,
+                                        method, snmp_community, snmp_port, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [values["name"], values["site"], values["host"], values["scheme"], values["path"],
              values["username"], credential_crypto.protect(values["password"]), values["poll_interval_seconds"], values["enabled"],
-             values["notes"], values["thresholds"], values["unreachable_after"], values["notify"], now, now],
+             values["notes"], values["thresholds"], values["unreachable_after"], values["notify"],
+             values["method"], credential_crypto.protect(values["snmp_community"]), values["snmp_port"], now, now],
         )
         conn.commit()
         return get_device(db_path, cur.lastrowid), None
@@ -282,6 +313,11 @@ def update_device(db_path, ups_id, data):
         payload["password"] = ""
     elif not data.get("password"):
         payload.pop("password", None)
+    # #434 : même règle pour la communauté SNMP (absente/vide = inchangée)
+    if data.get("clear_snmp_community"):
+        payload["snmp_community"] = ""
+    elif not data.get("snmp_community"):
+        payload.pop("snmp_community", None)
     values, err = _normalize_device(payload, existing)
     if err:
         return None, err
@@ -289,6 +325,7 @@ def update_device(db_path, ups_id, data):
     # ancien mot de passe en clair est chiffré dès que la configuration
     # existe, sans étape de migration séparée.
     values["password"] = credential_crypto.protect(values["password"])
+    values["snmp_community"] = credential_crypto.protect(values["snmp_community"])
     conn = get_connection(db_path)
     if existing.get("password_error") and "password" not in payload:
         # Jeton indéchiffrable (phrase de passe absente ou changée) et pas
@@ -300,11 +337,13 @@ def update_device(db_path, ups_id, data):
     try:
         conn.execute(
             """UPDATE ups_devices SET name = ?, site = ?, host = ?, scheme = ?, path = ?, username = ?, password = ?,
-                                     poll_interval_seconds = ?, enabled = ?, notes = ?, thresholds = ?, unreachable_after = ?, notify = ?, updated_at = ?
+                                     poll_interval_seconds = ?, enabled = ?, notes = ?, thresholds = ?, unreachable_after = ?, notify = ?,
+                                     method = ?, snmp_community = ?, snmp_port = ?, updated_at = ?
                WHERE id = ?""",
             [values["name"], values["site"], values["host"], values["scheme"], values["path"],
              values["username"], values["password"], values["poll_interval_seconds"], values["enabled"],
-             values["notes"], values["thresholds"], values["unreachable_after"], values["notify"], now_iso(), ups_id],
+             values["notes"], values["thresholds"], values["unreachable_after"], values["notify"],
+             values["method"], values["snmp_community"], values["snmp_port"], now_iso(), ups_id],
         )
         conn.commit()
     finally:

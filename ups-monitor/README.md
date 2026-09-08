@@ -191,12 +191,32 @@ injoignabilité, automate qui ouvre / ferme / notifie / acquitte, 27 au
 total), chaîne réelle API + faux onduleur dans le harnais (seuil franchi,
 injoignable), rendu Chromium. Non vérifié : SMS / courriel réels.
 
+## Relevé SNMP, UPS-MIB RFC 1628 (livraison #434)
+
+Seconde méthode de relevé, par onduleur (`method` = `http` | `snmp`,
+`snmp_community` protégée comme le mot de passe et jamais renvoyée,
+`snmp_port` 161) : `api/ups_snmp.py` interroge les objets scalaires et la
+première ligne des tables d'entrée / sortie de l'UPS-MIB (fabricant,
+modèle, état batterie, autonomie, capacité, tension et température
+batterie, fréquence et tension d'entrée, source de sortie, fréquence,
+tension, courant, puissance et charge de sortie, alarmes présentes) **via
+`snmp-api` (`POST /get`, #434)** -- une seule implémentation pysnmp dans
+le projet (`SNMP_API_INTERNAL_URL`). Le résultat a exactement la forme de
+la page HTML (`fields`, `sections`, `summary`, état par `derive_state` :
+batterie ≠ Normal, source ≠ Normal ou alarmes > 0 = alarme) : stockage,
+alertes, tuile et Supervision SI ne voient pas la différence. Formulaire :
+méthode, communauté, port ; « Tester la requête » fonctionne aussi en SNMP.
+
+Vérifié : 2 tests (traduction des OID, relevé et stockage avec un faux
+snmp-api, seuils, communauté inchangée / effacée), 29 au total. Non
+vérifié : vraie carte SNMP (snmp-api lui-même n'a jamais vu de vrai
+équipement, voir snmp/README.md).
+
 ## Ce que cette version ne fait pas (backlog 62)
 
 - D'autres pages de la carte (`info_battery.htm`, `info_io.htm`,
   `hist_log1.htm`) : le parseur les lirait déjà, il manque la notion de
   « plusieurs pages par onduleur ».
-- SNMP (RFC 1628 UPS-MIB), plus fiable que l'HTML : la tuile est prête
-  à recevoir une seconde méthode de relevé.
+- ~~SNMP (RFC 1628 UPS-MIB)~~ : livré en #434 (à confirmer sur une vraie carte).
 - ~~Alertes~~ et ~~seuils~~ : livrés en #433 (reste la détection de dérive
   lente et la remontée vers vigilance).

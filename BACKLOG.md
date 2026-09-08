@@ -2295,8 +2295,9 @@ qui fait alors sauter la file.
     soixantaine de tuiles) plutôt que de mélanger emoji et traits.
 
 62. Tuile UPS -- suite de la version 0 (2026-09-07, #415). #433 : alertes
-    (alarme, injoignable, seuils) et notifications livrées ; reste : autres
-    pages de la carte, SNMP UPS-MIB, dérive lente. Livré :
+    (alarme, injoignable, seuils) et notifications livrées ; #434 : SNMP
+    UPS-MIB (à confirmer sur une vraie carte). Reste : autres pages de la
+    carte, dérive lente. Livré :
     liste, automate HTTP (Basic) 1 h, fiche extraite de la page Socomec
     NETYS, archive, timeline (`ups-monitor/README.md`). À faire, dans
     l'ordre proposé : (1) confronter le parseur à un onduleur RÉEL et

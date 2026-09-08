@@ -319,6 +319,70 @@ class AlertsTests(unittest.TestCase):
             os.environ.pop("UPS_NOTIFY_WEBHOOK_URL", None)
 
 
+class SnmpTests(unittest.TestCase):
+    """Livraison #434 : relevé UPS-MIB (RFC 1628) via snmp-api."""
+    M = "1.3.6.1.2.1.33.1"
+    VALUES = {M + ".1.1.0": "SOCOMEC", M + ".1.2.0": "NETYS RT", M + ".2.1.0": "2", M + ".2.3.0": "25", M + ".2.4.0": "100", M + ".2.5.0": "273",
+              M + ".2.7.0": "31", M + ".3.3.1.2.1": "500", M + ".3.3.1.3.1": "236", M + ".4.1.0": "3", M + ".4.2.0": "499", M + ".4.4.1.2.1": "229",
+              M + ".4.4.1.5.1": "8", M + ".6.1.0": "0", M + ".2.2.0": None}
+
+    def test_parse_values_forme_identique_a_la_page(self):
+        import ups_snmp
+        fields, sections = ups_snmp.parse_values(self.VALUES)
+        self.assertEqual(fields["input_voltage"]["number"], 236); self.assertEqual(fields["input_voltage"]["value"], "236 V")
+        self.assertEqual(fields["input_frequency"]["number"], 50.0, "0,1 Hz")
+        self.assertEqual(fields["battery_voltage"]["number"], 27.3)
+        self.assertEqual(fields["battery"]["value"], "Normal"); self.assertEqual(fields["output_source"]["value"], "Normal")
+        self.assertEqual(fields["alarms"]["value"], "None"); self.assertEqual(fields["alarms"]["css"], "normal")
+        self.assertNotIn("seconds_on_battery", fields, "OID absent ignoré")
+        self.assertEqual([s["title"] for s in sections][:2], ["UPS Identification", "UPS Status"])
+        state, reasons = ups_parser.derive_state(fields)
+        self.assertEqual((state, reasons), ("ok", []))
+        bad = dict(self.VALUES); bad[self.M + ".4.1.0"] = "5"; bad[self.M + ".6.1.0"] = "2"; bad[self.M + ".2.1.0"] = "3"
+        f2, _ = ups_snmp.parse_values(bad)
+        state, reasons = ups_parser.derive_state(f2)
+        self.assertEqual(state, "alarm"); self.assertEqual(len(reasons), 3, "batterie basse, sur batterie, 2 alarmes")
+        self.assertEqual(ups_snmp.parse_values({}), ({}, []))
+
+    def test_releve_snmp_et_stockage(self):
+        db = os.path.join(tempfile.mkdtemp(), "ups.db")
+        store.ensure_schema(db)
+        dev, err = store.create_device(db, {"name": "UPS SNMP", "host": "10.0.0.9", "method": "snmp", "snmp_community": "secret-community", "snmp_port": 1161})
+        self.assertIsNone(err, err)
+        self.assertEqual((dev["method"], dev["snmp_port"], dev["has_snmp_community"]), ("snmp", 1161, True))
+        self.assertNotIn("snmp_community", dev, "la communauté n'est jamais renvoyée")
+        self.assertIn("'method'", store.create_device(db, {"name": "x", "host": "h", "method": "telnet"})[1])
+        calls = []
+
+        def getter(host, community, port=161, snmp_timeout=5):
+            calls.append((host, community, port))
+            return self.VALUES
+        secret = store.get_device(db, dev["id"], include_secret=True)
+        self.assertEqual(secret["snmp_community"], "secret-community")
+        r = poller.poll_device(secret, getter=getter)
+        self.assertTrue(r["ok"], r["error"]); self.assertEqual(r["state"], "ok"); self.assertEqual(r["flavor"], "snmp")
+        self.assertEqual(r["url"], "snmp://10.0.0.9:1161"); self.assertEqual(calls, [("10.0.0.9", "secret-community", 1161)])
+        self.assertEqual(r["summary"]["input_voltage"], "236 V")
+        store.record_reading(db, dev["id"], r)
+        self.assertEqual(store.latest_reading(db, dev["id"])["input_voltage"], 236)
+        # échec : snmp-api injoignable / MIB absente
+        def bad(host, community, port=161, snmp_timeout=5):
+            raise RuntimeError("snmp-api injoignable : refus")
+        r = poller.poll_device(secret, getter=bad)
+        self.assertFalse(r["ok"]); self.assertIn("injoignable", r["error"])
+        r = poller.poll_device(secret, getter=lambda *a, **k: {})
+        self.assertIn("aucun objet UPS-MIB", r["error"])
+        # automate : le getter est passé, seuil évalué comme pour le HTML
+        store.update_device(db, dev["id"], {"thresholds": {"input_voltage_min": 240}})
+        t = poller.run_tick(db, now_ts=1_700_000_000, getter=getter, default_interval=3600, force_ids=[dev["id"]])
+        self.assertEqual((t["polled"], t["alerts_opened"]), (1, 1))
+        # modification sans communauté = inchangée ; clear = effacée
+        store.update_device(db, dev["id"], {"notes": "x"})
+        self.assertEqual(store.get_device(db, dev["id"], include_secret=True)["snmp_community"], "secret-community")
+        store.update_device(db, dev["id"], {"clear_snmp_community": True})
+        self.assertFalse(store.get_device(db, dev["id"])["has_snmp_community"])
+
+
 class RoutesTests(unittest.TestCase):
     def setUp(self):
         self.client = app_module.app.test_client()

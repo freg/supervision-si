@@ -35,6 +35,7 @@ import ups_parser
 import store
 import alerts
 import notify
+import ups_snmp
 
 _log = logging.getLogger("ups_monitor_poller")
 
@@ -43,6 +44,15 @@ TICK_SECONDS = int(os.environ.get("UPS_POLL_TICK_SECONDS", "60"))
 HTTP_TIMEOUT_SECONDS = float(os.environ.get("UPS_HTTP_TIMEOUT_SECONDS", "10"))
 RETENTION_DAYS = int(os.environ.get("UPS_HISTORY_RETENTION_DAYS", "365"))
 MAX_BODY_BYTES = 512 * 1024
+SNMP_API_URL = os.environ.get("SNMP_API_INTERNAL_URL", "http://snmp-api:5000").rstrip("/")
+_snmp_getter = None
+
+
+def snmp_getter():
+    global _snmp_getter
+    if _snmp_getter is None:
+        _snmp_getter = ups_snmp.build_getter(SNMP_API_URL, timeout=HTTP_TIMEOUT_SECONDS + 2)
+    return _snmp_getter
 
 
 def build_url(device):
@@ -132,7 +142,7 @@ def fetch_status_page(url, username, password, opener=None):
     return None, f"page reçue mais aucun champ reconnu (titre : {parsed['title'] or 'aucun'}) -- chemin ou authentification ?", None, visited
 
 
-def poll_device(device, opener=None, now_iso=None):
+def poll_device(device, opener=None, now_iso=None, getter=None):
     """Un relevé complet : requête (frames suivies au besoin), parse, état.
     Renvoie le dict archivé par store.record_reading -- TOUJOURS, réussi
     ou non. `resolved_path` = page qui a réellement fourni la fiche."""
@@ -155,6 +165,11 @@ def poll_device(device, opener=None, now_iso=None):
     }
     if device.get("password_error"):
         parsed, err, resolved, visited = None, device["password_error"], None, []
+    elif (device.get("method") or "http") == "snmp":
+        # #434 : UPS-MIB par snmp-api -- même forme de résultat que la page HTML
+        result["url"] = "snmp://%s:%s" % (device["host"], device.get("snmp_port") or 161)
+        parsed, err = ups_snmp.poll_snmp(device, getter or snmp_getter())
+        resolved, visited = ("UPS-MIB" if parsed else None), ([] if parsed is None else ["snmp"])
     else:
         parsed, err, resolved, visited = fetch_status_page(
             url, device.get("username") or "", device.get("password") or "", opener=opener,
@@ -200,7 +215,7 @@ def is_due(device, now_ts, default_interval=None):
     return last is None or (now_ts - last) >= interval
 
 
-def run_tick(db_path, now_ts=None, opener=None, default_interval=None, force_ids=None):
+def run_tick(db_path, now_ts=None, opener=None, default_interval=None, force_ids=None, getter=None):
     """Une passe : relève chaque onduleur activé dont l'intervalle est
     écoulé (ou listé dans `force_ids`). Renvoie des compteurs."""
     if now_ts is None:
@@ -214,7 +229,7 @@ def run_tick(db_path, now_ts=None, opener=None, default_interval=None, force_ids
             continue
         # Horodatage du relevé = l'instant de décision (injectable) : la
         # prochaine échéance se calcule sur la même horloge.
-        result = poll_device(device, opener=opener, now_iso=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now_ts)))
+        result = poll_device(device, opener=opener, now_iso=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now_ts)), getter=getter)
         store.record_reading(db_path, device["id"], result)
         polled += 1
         if not result["ok"]:

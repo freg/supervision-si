@@ -72,6 +72,8 @@ STATE_FIELDS = {
     # d'un onduleur on-line (double conversion) ; « sur Batterie »,
     # « sur Bypass », « Défaut »… = alarme.
     "ups_state": ("utilisation sur onduleur", "normal", "fonctionnement normal", "on line", "online", "on inverter"),
+    # UPS-MIB (#434) : upsAlarmsPresent = 0 -> « None »
+    "alarms": ("none",),
 }
 
 # Unités reconnues dans un libellé « Libellé (unité) » (Net Vision v6) ;

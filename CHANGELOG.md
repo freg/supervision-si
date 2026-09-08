@@ -1,3 +1,14 @@
+## 2026-09-08 — Onduleurs : relevé SNMP UPS-MIB (RFC 1628) comme seconde méthode, GET d'OID générique dans snmp-api (livraison #434)
+
+Backlog 62. `ups-monitor/api/ups_snmp.py` traduit l'UPS-MIB (identité,
+batterie, entrée, sortie, alarmes) dans la forme exacte de la page HTML,
+via `snmp-api POST /get` (nouveau, `snmp_client.get_oids`) -- une seule
+implémentation pysnmp ; par onduleur : `method` http | snmp,
+`snmp_community` (protégée, jamais renvoyée, inchangée si absente,
+`clear_snmp_community`), `snmp_port` ; automate, relevé manuel, essai et
+alertes (#433) identiques ; formulaire de la tuile avec la méthode.
+2 tests (29 au total). Non vérifié : vraie carte SNMP.
+
 ## 2026-09-08 — Onduleurs : alertes (alarme, injoignable, seuils avec hystérésis), notifications SMS / courriel / webhook, acquittement (livraison #433)
 
 Backlog 62. Voir `ups-monitor/README.md` (§ « Alertes et seuils »).
