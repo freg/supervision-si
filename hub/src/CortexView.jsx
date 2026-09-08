@@ -8,13 +8,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { MapContainer, TileLayer, CircleMarker, Polyline, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { fetchCortexStatus, fetchIncidents, fetchIncident, ackIncident, closeIncident, feedbackIncident, fetchEntities, fetchEntity, fetchEvents, fetchPrinciples, fetchCortexStats, fetchRuns, runCollect, fetchGraph, fetchRoutes, fetchChanges, fetchPositions, fetchPositionsQueue, resolvePositions, fetchPlaces, savePlaceNote, fetchIntervention, fetchLayers } from "./cortexClient.js";
+import { fetchCortexStatus, fetchIncidents, fetchIncident, ackIncident, closeIncident, feedbackIncident, fetchEntities, fetchEntity, fetchEvents, fetchPrinciples, fetchCortexStats, fetchRuns, runCollect, fetchGraph, fetchRoutes, fetchChanges, fetchPositions, fetchPositionsQueue, resolvePositions, fetchPlaces, savePlaceNote, fetchIntervention, fetchLayers, fetchRules, ruleAction, fetchPredictions, fetchDrifts, fetchSamples, runLearn } from "./cortexClient.js";
 import { layoutGraph, EDGE_STYLE, KIND_ICON, CHANGE_LABEL, changeTone, routesByHost } from "./cortexGraph.js";
-import { PROVENANCE, provenanceStyle, LAYERS, defaultLayers, SEV_COLOR, boundsOf, sortPositions, provenanceCounts, chainText, whereText } from "./cortexPlaces.js";
+import { PROVENANCE, provenanceStyle, LAYERS, defaultLayers, SEV_COLOR, boundsOf, sortPositions, provenanceCounts, chainText, whereText, RULE_STATE, OUTCOME, ruleText, minutesLeft, predictionStats, sparkPath } from "./cortexPlaces.js";
 import { SEV, STATE_LABEL, KIND_LABEL, confidenceWord, pct, incidentLine, splitHypotheses, collectHealth, principleText, eventsBySource } from "./cortex.js";
 
 const REFRESH_MS = 30000;
-const TABS = [["incidents", "Incidents"], ["graph", "Architecture"], ["map", "Carte"], ["positions", "Positions"], ["changes", "Ce qui a changé"], ["routes", "Routes"], ["entities", "Entités"], ["events", "Événements"], ["principles", "Principes & évaluations"], ["stats", "Statistiques"], ["runs", "Collecte"]];
+const TABS = [["incidents", "Incidents"], ["anticipation", "Anticipation"], ["graph", "Architecture"], ["map", "Carte"], ["positions", "Positions"], ["changes", "Ce qui a changé"], ["routes", "Routes"], ["entities", "Entités"], ["events", "Événements"], ["principles", "Principes & évaluations"], ["stats", "Statistiques"], ["runs", "Collecte"]];
 
 function Tone({ tone, children, title }) {
   return <span className={`np-tone ${tone || "neutral"}`} title={title}>{children}</span>;
@@ -101,6 +101,10 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
   const [layers, setLayers] = useState(null);
   const [activeLayers, setActiveLayers] = useState(defaultLayers);
   const [sheet, setSheet] = useState(null);
+  const [rules, setRules] = useState(null);
+  const [predictions, setPredictions] = useState([]);
+  const [drifts, setDrifts] = useState(null);
+  const [spark, setSpark] = useState({});
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
@@ -120,6 +124,10 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
     if (tab === "changes") { const r = await fetchChanges(cortexApiBase); if (!r.error) setChanges(r.changes); }
     if (tab === "positions") { const [r, qq] = await Promise.all([fetchPositions(cortexApiBase), fetchPositionsQueue(cortexApiBase)]); if (!r.error) setPositions(r.positions); if (!qq.error) setQueue(qq); }
     if (tab === "map") { const r = await fetchLayers(cortexApiBase); if (!r.error) setLayers(r); }
+    if (tab === "anticipation") {
+      const [r, p, d] = await Promise.all([fetchRules(cortexApiBase), fetchPredictions(cortexApiBase), fetchDrifts(cortexApiBase)]);
+      if (!r.error) setRules(r); if (!p.error) setPredictions(p.predictions); if (!d.error) setDrifts(d);
+    }
   }, [cortexApiBase, tab, incState, q]);
   const openSheet = async (key) => { const d = await fetchIntervention(cortexApiBase, key); if (!d.error) setSheet(d); else setNotice(`fiche : ${d.error}`); };
   useEffect(() => { load(); const id = setInterval(load, REFRESH_MS); return () => clearInterval(id); }, [load]);
@@ -177,6 +185,7 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
             <div className="hub-card hub-settings-section" style={{ marginTop: 10, textAlign: "left" }}>
               <h2 style={{ margin: "0 0 4px" }}><Tone tone={SEV[detail.severity]?.tone}>{SEV[detail.severity]?.label}</Tone> {detail.title} <button className="secondary ss-origin" onClick={() => setDetail(null)}>✕</button></h2>
               <p className="muted" style={{ margin: "0 0 6px" }}>{incidentLine(detail)} · ouvert {detail.opened_at} · dernier événement {detail.last_at} · {STATE_LABEL[detail.state]}</p>
+              {(detail.predictions || []).length > 0 && <p style={{ margin: "4px 0" }}><strong>🔮 Annoncé :</strong> {detail.predictions.map((p) => <span key={p.id}><Tone tone={confidenceWord(p.confidence).tone}>{p.message}</Tone> <span className="muted">(échéance {p.expected_at}{minutesLeft(p) != null ? `, dans ${minutesLeft(p)} min` : ""})</span> </span>)}</p>}
               <h3 style={{ margin: "6px 0 2px" }}>Hypothèses (chacune avec sa confiance, ses preuves, son principe — dites-nous si c'est juste)</h3>
               <ul className="sa-risks">{(detail.hypotheses || []).map((h, k) => <Hypothesis key={k} h={h} incidentKey={detail.key} apiBase={cortexApiBase} login={login} onDone={() => { load(); openDetail(detail.key); }} />)}</ul>
               <h3 style={{ margin: "6px 0 2px" }}>Entités concernées</h3>
@@ -256,6 +265,49 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
               <ul className="sa-risks">{(entity.roles || []).map((r) => <li key={r.role}><Conf c={r.confidence} /> {r.role} — {r.evidence.join(" ; ")} <span className="muted">(principes {r.principles.join(", ")})</span></li>)}</ul>
               <ul className="sa-risks">{(entity.relations || []).slice(0, 30).map((r, k) => <li key={k}><code>{r.a === entity.key ? "cette entité" : r.a}</code> —{r.kind}→ <code>{r.b === entity.key ? "cette entité" : r.b}</code> <span className="muted">{r.evidence} ({r.source})</span></li>)}</ul>
               {(entity.events || []).length > 0 && <p className="muted">{entity.events.length} événement(s) : {entity.events.slice(0, 5).map((e) => `${e.kind} (${STATE_LABEL[e.state]})`).join(" · ")}</p>}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "anticipation" && (
+        <div className="hub-card hub-settings-section">
+          <p className="muted" style={{ margin: "0 0 6px" }}>Causalité apprise : les séquences « A précède B » plus fréquentes que le hasard deviennent des règles <em>proposées</em> (à confirmer ou rejeter) ; quand A survient, Cortex annonce B et juge ensuite son annonce (juste / fausse). Signaux faibles : écarts, tendances vers un seuil et habitudes horaires sur les mesures relevées. <button className="secondary ss-origin" disabled={busy} onClick={() => act("apprentissage", () => runLearn(cortexApiBase, groups))}>↻ réapprendre maintenant</button></p>
+          {(() => { const st = predictionStats(predictions); return (
+            <div className="hub-card hub-settings-section" style={{ marginBottom: 8, textAlign: "left" }}>
+              <h3 style={{ margin: "0 0 4px" }}>🔮 Annonces <span className="muted">— {st.pending} en attente, {st.hits} juste(s), {st.misses} fausse(s){st.accuracy != null ? `, exactitude ${pct(st.accuracy)}` : ""}</span></h3>
+              {predictions.length === 0 ? <p className="muted" style={{ margin: 0 }}>Aucune annonce : il faut des règles et un événement déclencheur ouvert.</p> : (
+                <div className="hub-table-scroll"><table><thead><tr><th>Annonce</th><th>Confiance</th><th>Échéance</th><th>Issue</th><th>Règle</th></tr></thead>
+                  <tbody>{predictions.slice(0, 40).map((p) => { const ml = minutesLeft(p); return (
+                    <tr key={p.id}><td>{p.message}</td><td><Conf c={p.confidence} /></td><td className="muted">{p.expected_at}{!p.outcome && ml != null ? (ml >= 0 ? ` (dans ${ml} min)` : ` (dépassée de ${-ml} min)`) : ""}</td>
+                      <td>{p.outcome ? <Tone tone={OUTCOME[p.outcome]?.tone}>{OUTCOME[p.outcome]?.label}</Tone> : <Tone tone="neutral">en attente</Tone>}</td><td className="muted"><code>{p.rule_id}</code></td></tr>); })}</tbody></table></div>
+              )}
+            </div>); })()}
+          {rules && (
+            <div className="hub-card hub-settings-section" style={{ marginBottom: 8, textAlign: "left" }}>
+              <h3 style={{ margin: "0 0 4px" }}>📐 Règles apprises <span className="muted">— {rules.counts.proposed} proposée(s), {rules.counts.confirmed} confirmée(s), {rules.counts.rejected} rejetée(s) ; principes <code>sequence-learned</code> / <code>sequence-confirmed</code></span></h3>
+              {rules.rules.length === 0 ? <p className="muted" style={{ margin: 0 }}>Aucune séquence assez fréquente (support ≥ 3, confiance ≥ 50 %, ≥ 2 × l'attendu) dans l'historique des occurrences.</p> : (
+                <div className="hub-table-scroll"><table><thead><tr><th>Règle</th><th>Portée</th><th>Confiance</th><th>Attendu / observé</th><th>Jugée</th><th>État</th><th></th></tr></thead>
+                  <tbody>{rules.rules.map((r) => (
+                    <tr key={r.id}><td>{ruleText(r)}</td><td className="muted">{r.scope === "role" ? "par rôle" : "entités"}</td><td><Conf c={r.effective} /></td>
+                      <td className="muted">{r.expected} / {r.count} (×{r.lift})</td><td className="muted">{r.hits} juste(s), {r.misses} fausse(s)</td>
+                      <td><Tone tone={RULE_STATE[r.state]?.tone}>{RULE_STATE[r.state]?.label}</Tone>{r.decided_by ? <span className="muted"> par {r.decided_by}</span> : null}</td>
+                      <td>{r.state !== "confirmed" && <button className="secondary ss-origin" disabled={busy} onClick={() => act("règle confirmée", () => ruleAction(cortexApiBase, r.id, "confirm", { by: login, groups }))}>✓ confirmer</button>}{" "}
+                        {r.state !== "rejected" && <button className="secondary ss-origin" disabled={busy} onClick={() => act("règle rejetée", () => ruleAction(cortexApiBase, r.id, "reject", { by: login, groups }))}>✗ rejeter</button>}{" "}
+                        {r.state !== "proposed" && <button className="secondary ss-origin" disabled={busy} onClick={() => act("règle remise en proposition", () => ruleAction(cortexApiBase, r.id, "reset", { by: login, groups }))}>↺</button>}</td></tr>
+                  ))}</tbody></table></div>
+              )}
+            </div>
+          )}
+          {drifts && (
+            <div className="hub-card hub-settings-section" style={{ textAlign: "left" }}>
+              <h3 style={{ margin: "0 0 4px" }}>📈 Signaux faibles <span className="muted">— {drifts.drifts.length} dérive(s) en cours (événements de source <code>cortex</code>, regroupables en incidents), {drifts.tracked.length} série(s) suivie(s) ; principes <code>drift-zscore</code>, <code>drift-trend</code>, <code>seasonality</code></span></h3>
+              {drifts.drifts.length > 0 && <ul className="sa-risks">{drifts.drifts.map((d) => <li key={d.fingerprint}><Tone tone={SEV[d.severity]?.tone}>{SEV[d.severity]?.label}</Tone> {d.message} <span className="muted">({STATE_LABEL[d.state]}, depuis {d.first_at})</span></li>)}</ul>}
+              <div className="hub-table-scroll"><table><thead><tr><th>Entité</th><th>Mesure</th><th>Relevés</th><th>Dernier</th><th>Min – max</th><th>Courbe</th></tr></thead>
+                <tbody>{drifts.tracked.map((t) => { const k = `${t.entity}|${t.metric}`; return (
+                  <tr key={k} style={{ cursor: "pointer" }} onClick={async () => { if (spark[k]) return; const r = await fetchSamples(cortexApiBase, t.entity, t.metric); if (!r.error) setSpark((s) => ({ ...s, [k]: r.points })); }}>
+                    <td>{t.entity}</td><td>{t.label}</td><td className="muted">{t.points}</td><td>{t.last}{t.unit} <span className="muted">{t.last_at}</span></td><td className="muted">{t.min} – {t.max}{t.unit}</td>
+                    <td>{spark[k] ? <svg width={120} height={28}><path d={sparkPath(spark[k])} fill="none" stroke="var(--accent, #2f6fd6)" strokeWidth={1.5} /></svg> : <span className="muted">cliquer</span>}</td></tr>); })}</tbody></table></div>
             </div>
           )}
         </div>

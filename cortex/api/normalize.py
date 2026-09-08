@@ -121,6 +121,21 @@ def from_si_agent(fleet, netviews, events, status=None, since=None):
     return ents, rels, evs
 
 
+def occurrences_from_si_agent(events, by_agent):
+    """Historique du central (#465) -> occurrences pour l'apprentissage des
+    séquences : mêmes empreintes que les événements d'état (agent-offline
+    sans identifiant), toutes sévérités, transitions comprises."""
+    out = []
+    for e in events or []:
+        key = by_agent.get(e.get("agent_id")) or (("name:" + str(e["agent_id"]).lower()) if e.get("agent_id") else "name:si-agent-central")
+        kind = e.get("kind") or "event"
+        if kind in ("agent-online", "fleet-unblocked", "agent-unblocked") or not e.get("at"):
+            continue
+        fp = fingerprint("si-agent", kind, key) if kind in ("agent-offline", "fleet-blocked") else fingerprint("si-agent", kind, key, str(e.get("id")))
+        out.append({"fingerprint": fp, "source": "si-agent", "kind": kind, "entity": key, "site": e.get("site"), "severity": e.get("severity"), "at": e.get("at")})
+    return out
+
+
 # ---------------------------------------------------------------- vigilance
 SEV_ALIAS = {"high": "critical", "critical": "critical", "medium": "warning", "warning": "warning", "low": "info", "info": "info"}
 

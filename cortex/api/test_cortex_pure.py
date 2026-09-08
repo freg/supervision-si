@@ -8,6 +8,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import correlate as co  # noqa: E402
 import normalize as nz  # noqa: E402
+import learn  # noqa: E402
 import places as pl  # noqa: E402
 import principles as pr  # noqa: E402
 
@@ -275,6 +276,109 @@ class TestStep3Places(unittest.TestCase):
         self.assertIn("mac:aa:bb:cc:00:00:21", unsup); self.assertNotIn("ip:192.168.1.30", unsup)
         self.assertGreaterEqual(lay["summary"]["places"], 1)
         self.assertTrue(all(f["geometry"]["type"] == "LineString" for f in lay["dependencies"]["features"]))
+
+
+class TestStep4Learning(unittest.TestCase):
+    @staticmethod
+    def _occ(kind, entity, t, source="ups"):
+        return {"fingerprint": "%s|%s|%s" % (source, kind, entity), "source": source, "kind": kind, "entity": entity, "at": t.strftime("%Y-%m-%dT%H:%M:%SZ")}
+
+    def _history(self):
+        import datetime as dt
+        t0 = dt.datetime(2026, 9, 1, 8, 0, tzinfo=dt.timezone.utc)
+        occ = []
+        # 5 coupures secteur : l'onduleur passe sur batterie, 3-4 min plus tard deux agents du site tombent (une fois sur cinq, un seul)
+        for i in range(5):
+            t = t0 + dt.timedelta(days=i, hours=i)
+            occ.append(self._occ("ups:on_battery", "ip:10.0.0.250", t))
+            occ.append(self._occ("agent-offline", "name:srv-a", t + dt.timedelta(minutes=3), "si-agent"))
+            if i != 2:
+                occ.append(self._occ("agent-offline", "name:srv-b", t + dt.timedelta(minutes=4), "si-agent"))
+        # bruit : un signal vigilance à des moments quelconques, jamais lié
+        for i in range(6):
+            occ.append(self._occ("signal:port_scan", "ip:10.0.0.7", t0 + dt.timedelta(days=i, hours=15), "vigilance"))
+        return occ, t0
+
+    def test_mine_sequences(self):
+        occ, t0 = self._history()
+        roles = {"name:srv-a": "hote-supervise", "name:srv-b": "hote-supervise", "ip:10.0.0.250": "onduleur"}
+        rules = learn.mine_sequences(occ, roles=roles, window_s=600)
+        byid = {learn.rule_id(r): r for r in rules}
+        a = byid["ups:ups:on_battery@ip:10.0.0.250=>si-agent:agent-offline@name:srv-a"]
+        self.assertEqual((a["count"], a["support_a"], a["confidence"]), (5, 5, 1.0)); self.assertEqual(a["delay_s"], 180); self.assertGreater(a["lift"], 2)
+        b = byid["ups:ups:on_battery@ip:10.0.0.250=>si-agent:agent-offline@name:srv-b"]
+        self.assertEqual((b["count"], b["confidence"]), (4, 0.8))
+        # règle généralisée par rôle : « sur batterie sur un onduleur » précède « agent-offline sur un hôte supervisé »
+        g = byid["ups:ups:on_battery@role:onduleur=>si-agent:agent-offline@role:hote-supervise"]
+        self.assertEqual(g["scope"], "role"); self.assertEqual(g["count"], 5)
+        # le bruit ne produit pas de règle ; A -> A n'existe pas
+        self.assertFalse(any("port_scan" in k for k in byid))
+        self.assertFalse(any(r["a"] == r["b"] for r in rules))
+        self.assertTrue(all(r["principle"] == "sequence-learned" for r in rules))
+        self.assertEqual(learn.mine_sequences([]), [])
+
+    def test_anticipate_and_settle(self):
+        import datetime as dt
+        occ, t0 = self._history()
+        rules = learn.mine_sequences(occ, window_s=600)
+        for r in rules:
+            r["state"] = "proposed"
+        now = dt.datetime(2026, 9, 8, 12, 0, tzinfo=dt.timezone.utc)
+        opened = [{"fingerprint": "ups|ups:on_battery|ip:10.0.0.250", "source": "ups", "kind": "ups:on_battery", "entity": "ip:10.0.0.250", "first_at": "2026-09-08T11:59:00Z", "site": "siege"}]
+        preds = learn.anticipate(opened, rules, names={"name:srv-a": "srv-a"}, now=now, principle_eff={"sequence-learned": 0.6})
+        self.assertEqual(len(preds), 2)
+        p = preds[0]
+        self.assertIn("agent-offline sur srv-a suit habituellement", p["message"]); self.assertIn("(5 fois sur 5)", p["message"])
+        self.assertEqual(p["expected_at"], "2026-09-08T12:02:00Z"); self.assertAlmostEqual(p["confidence"], 0.6)
+        # B déjà ouvert : plus rien à annoncer pour lui
+        opened2 = opened + [{"fingerprint": "x", "source": "si-agent", "kind": "agent-offline", "entity": "name:srv-a", "first_at": "2026-09-08T12:00:30Z"}]
+        self.assertEqual([q["expected"] for q in learn.anticipate(opened2, rules, now=now)], ["si-agent:agent-offline@name:srv-b"])
+        # trop tard : l'annonce n'est plus faite
+        self.assertEqual(learn.anticipate(opened, rules, now=now + dt.timedelta(hours=1)), [])
+        # jugement : srv-a tombe -> juste ; srv-b ne vient pas -> fausse une fois le délai max ×2 passé
+        pend = [dict(p, id=1), dict(preds[1], id=2)]
+        for q in pend:
+            q["delay_max_s"] = 240
+        later = [self._occ("agent-offline", "name:srv-a", dt.datetime(2026, 9, 8, 12, 2, 30, tzinfo=dt.timezone.utc), "si-agent")]
+        v = learn.settle_predictions(pend, later, now=dt.datetime(2026, 9, 8, 12, 3, tzinfo=dt.timezone.utc))
+        self.assertEqual([(x["id"], x["outcome"]) for x in v], [(1, "hit")])
+        v = learn.settle_predictions(pend, later, now=dt.datetime(2026, 9, 8, 12, 30, tzinfo=dt.timezone.utc))
+        self.assertEqual(sorted((x["id"], x["outcome"]) for x in v), [(1, "hit"), (2, "miss")])
+        # une règle jugée 3 fois fausse perd de la confiance affichée
+        self.assertLess(learn.rule_confidence({"confidence": 1.0, "hits": 0, "misses": 3}, 0.6), learn.rule_confidence({"confidence": 1.0, "hits": 3, "misses": 0}, 0.6))
+
+    def test_drifts_and_samples(self):
+        import datetime as dt
+        now = dt.datetime(2026, 9, 8, 14, 0, tzinfo=dt.timezone.utc)
+        iso = lambda t: t.strftime("%Y-%m-%dT%H:%M:%SZ")  # noqa: E731
+        series = {}
+        # disque : +0,4 %/h régulier depuis 24 h, 78 % maintenant -> seuil 90 % dans ~30 h (tendance, avertissement)
+        series[("name:srv-a", "disk_max_percent")] = [(iso(now - dt.timedelta(hours=h)), 78 - 0.4 * h) for h in range(24, -1, -1)]
+        # CPU : 20 % ± 1 toute la journée, 80 % sur la dernière heure -> écart énorme (critique)
+        series[("name:srv-a", "cpu_percent")] = [(iso(now - dt.timedelta(hours=h)), 20 + (h % 3) - 1) for h in range(24, 1, -1)] + [(iso(now - dt.timedelta(minutes=m)), 80) for m in (50, 30, 10)]
+        # latence : stable -> rien
+        series[("ip:10.0.0.1", "latency_ms")] = [(iso(now - dt.timedelta(hours=h)), 12 + (h % 2)) for h in range(24, -1, -1)]
+        # trop peu de points -> rien
+        series[("name:srv-b", "memory_percent")] = [(iso(now), 50), (iso(now - dt.timedelta(hours=1)), 51)]
+        drifts = learn.detect_drifts(series, now=now)
+        kinds = {(d["entity"], d["metric"], d["kind"]): d for d in drifts}
+        self.assertIn(("name:srv-a", "cpu_percent", "zscore"), kinds); self.assertEqual(kinds[("name:srv-a", "cpu_percent", "zscore")]["severity"], "critical")
+        tr = kinds[("name:srv-a", "disk_max_percent", "trend")]
+        self.assertEqual(tr["severity"], "warning"); self.assertTrue(26 * 3600 < tr["eta_s"] < 34 * 3600); self.assertIn("90%", tr["message"])
+        self.assertFalse(any(d["entity"] == "ip:10.0.0.1" for d in drifts)); self.assertFalse(any(d["entity"] == "name:srv-b" for d in drifts))
+        for d in drifts:
+            self.assertIn(d["principle"], pr.PRINCIPLES)
+        evs = learn.drift_events(drifts, sites={"name:srv-a": "siege"})
+        self.assertTrue(all(e["source"] == "cortex" and e["site"] == "siege" for e in evs))
+        self.assertEqual(len({e["fingerprint"] for e in evs}), len(evs))
+        # mesures depuis les sources
+        fleet = [{"agent_id": "a1", "hostname": "srv-a", "last_ip": None, "summary": {"cpu_percent": 12.5, "memory_percent": 40, "disk_max_percent": 70, "load5": 0.4, "host_at": "2026-09-08T13:59:00Z"}}]
+        sm = learn.samples_from_si_agent(fleet, lambda a: "name:srv-a")
+        self.assertEqual({x["metric"] for x in sm}, {"cpu_percent", "memory_percent", "disk_max_percent", "load5"})
+        ups = [{"id": 1, "name": "UPS", "host": "10.0.0.250", "last_polled_at": "2026-09-08T13:58:00Z", "last_summary": '{"output_load": 41, "battery_capacity": 100, "input_voltage": 231}'}]
+        self.assertEqual(sorted(x["metric"] for x in learn.samples_from_ups(ups, lambda d: "ip:10.0.0.250")), ["battery_capacity", "input_voltage", "output_load"])
+        np_ = learn.samples_from_netprobe([{"id": 3, "ip_address": "10.0.0.1"}], [{"target_id": 3, "latency_ms": 11.2, "packet_loss_percent": 0, "sampled_at": "2026-09-08T13:57:00Z"}], lambda t: "ip:10.0.0.1")
+        self.assertEqual(len(np_), 2)
 
 
 if __name__ == "__main__":

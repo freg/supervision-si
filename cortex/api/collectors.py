@@ -12,6 +12,7 @@ import requests
 
 import changes as ch
 import correlate
+import learn
 import normalize as nz
 import places as pl
 import store
@@ -43,6 +44,7 @@ class Collector(object):
     def run(self):
         t0 = time.time()
         ents, rels, evs, routes, report = [], [], [], [], {}
+        occurrences, samples = [], []      # #465 : historique pour les séquences, mesures pour les dérives
         u = self.urls
         before = self._snapshot()
 
@@ -60,9 +62,12 @@ class Collector(object):
             def si():
                 fleet = (_get(u["si_agent"], "/fleet") or {}).get("agents")
                 nvs = (_get(u["si_agent"], "/netview") or {}).get("netviews")
-                e, r, v = nz.from_si_agent(fleet, nvs, (_get(u["si_agent"], "/events?limit=200&min_severity=warning") or {}).get("events"), _get(u["si_agent"], "/status"), since=since)
+                history = (_get(u["si_agent"], "/events?limit=500") or {}).get("events")
+                e, r, v = nz.from_si_agent(fleet, nvs, history, _get(u["si_agent"], "/status"), since=since)
                 by_agent = {a["agent_id"]: nz.entity_key(ip=a.get("last_ip"), name=a.get("hostname") or a.get("agent_id")) for a in fleet or []}
                 routes.extend(nz.routes_from_netviews(nvs, by_agent))
+                occurrences.extend(nz.occurrences_from_si_agent(history, by_agent))
+                samples.extend(learn.samples_from_si_agent(fleet, lambda a: nz.entity_key(ip=a.get("last_ip"), name=a.get("hostname") or a.get("agent_id"))))
                 return e, r, v
             step("si-agent", si)
         if u.get("vigilance"):
@@ -70,13 +75,19 @@ class Collector(object):
         if u.get("ups"):
             def ups():
                 d = _get(u["ups"], "/ups")
-                return nz.from_ups(d.get("devices") if isinstance(d, dict) else d)
+                devices = d.get("devices") if isinstance(d, dict) else d
+                samples.extend(learn.samples_from_ups(devices, lambda x: nz.entity_key(ip=x.get("host"), name=x.get("name"))))
+                return nz.from_ups(devices)
             step("ups", ups)
         if u.get("orchestrator"):
             step("netmap-orchestrator", lambda: nz.from_orchestrator((_get(u["orchestrator"], "/suggestions?status=open&limit=300") or {}).get("suggestions")))
         if u.get("netprobe"):
-            step("netprobe", lambda: nz.from_netprobe((_get(u["netprobe"], "/targets") or {}).get("targets"), (_get(u["netprobe"], "/smokeping/latest") or {}).get("latest"),
-                                                       (_get(u["netprobe"], "/analysis/results?limit=200") or {}).get("results")))
+            def np_():
+                targets = (_get(u["netprobe"], "/targets") or {}).get("targets")
+                latest = (_get(u["netprobe"], "/smokeping/latest") or {}).get("latest")
+                samples.extend(learn.samples_from_netprobe(targets, latest, lambda t: nz.entity_key(ip=t.get("ip_address"), name=t.get("label"))))
+                return nz.from_netprobe(targets, latest, (_get(u["netprobe"], "/analysis/results?limit=200") or {}).get("results"))
+            step("netprobe", np_)
         if u.get("network_agent"):
             def na():
                 sites = _get(u["network_agent"], "/sites") or []
@@ -123,10 +134,17 @@ class Collector(object):
         store.upsert_entities(self.db_path, merged)
         store.upsert_relations(self.db_path, rels)
         store.upsert_routes(self.db_path, routes)
+        # #465 : mesures -> dérives (événements « cortex », même cycle de vie) ; historique -> occurrences
+        store.add_samples(self.db_path, samples)
+        store.add_occurrences(self.db_path, occurrences)
+        drifts = learn.detect_drifts(store.series(self.db_path))
+        evs.extend(learn.drift_events(drifts, sites=store.entity_sites(self.db_path)))
         new, refreshed = store.upsert_events(self.db_path, evs)
-        ok_sources = {k for k, v in report.items() if v.get("ok")}
+        ok_sources = {k for k, v in report.items() if v.get("ok")} | {"cortex"}
         closed = store.close_missing_events(self.db_path, {e["fingerprint"] for e in evs}, ok_sources)
         counts = self.recompute()
+        learn_report = self.learn()
+        report["learning"] = learn_report
         pos_report = self.resolve_places()
         report["positions"] = pos_report
         after = self._snapshot()
@@ -135,7 +153,8 @@ class Collector(object):
         diff.extend(pos_report.get("changes") or [])
         store.add_changes(self.db_path, diff)
         counts.update({"entities": len(merged), "aliases": len(alias), "relations": len(rels), "routes": len(routes), "changes": len(diff),
-                       "events_new": new, "events_refreshed": refreshed, "events_closed": closed})
+                       "events_new": new, "events_refreshed": refreshed, "events_closed": closed, "samples": len(samples), "drifts": len(drifts),
+                       "rules": learn_report.get("rules"), "predictions_open": learn_report.get("pending")})
         store.add_run(self.db_path, int((time.time() - t0) * 1000), report, counts)
         return report, counts
 
@@ -194,6 +213,40 @@ class Collector(object):
                     "by_provenance": pl._count(positions.values(), "provenance"), "ms": int((time.time() - t) * 1000)})
         self._alias = alias
         return rep
+
+    def roles_map(self):
+        fb = store.feedback_counts(self.db_path)
+        out = {}
+        for e in store.list_entities(self.db_path, limit=100000):
+            r = nz.role_hypotheses(e, fb)
+            if r:
+                out[e["key"]] = r[0]["role"]
+        return out
+
+    def learn(self):
+        """Étape 4 (#465) : règles apprises depuis les occurrences, annonces
+        pour les événements ouverts, jugement des annonces en attente."""
+        t = time.time()
+        roles = self.roles_map()
+        occ = store.list_occurrences(self.db_path)
+        rules = learn.mine_sequences(occ, roles=roles, window_s=max(self.window_s, 600))
+        store.sync_rules(self.db_path, rules)
+        pending = store.list_predictions(self.db_path, pending_only=True, limit=1000)
+        verdicts = learn.settle_predictions(pending, occ[-5000:])
+        store.settle(self.db_path, verdicts)
+        all_rules = [r for r in store.list_rules(self.db_path) if r["state"] != "rejected"]
+        fb = store.feedback_counts(self.db_path)
+        import principles as pr
+        eff = {pid: pr.evaluate(pid, fb)["effective"] for pid in ("sequence-learned", "sequence-confirmed")}
+        open_events = store.list_events(self.db_path, state="open", limit=2000)
+        preds = learn.anticipate(open_events, all_rules, roles=roles, names=store.entity_names(self.db_path), principle_eff=eff)
+        for p in preds:
+            r = next((x for x in all_rules if "%s=>%s" % (x["a"], x["b"]) == p["rule_id"]), None)
+            p["delay_max_s"] = r.get("delay_max_s") if r else None
+        added = store.add_predictions(self.db_path, preds, roles=roles)
+        return {"ok": True, "occurrences": len(occ), "rules": len(rules), "rules_known": len(all_rules), "settled": len(verdicts),
+                "hits": sum(1 for v in verdicts if v["outcome"] == "hit"), "predictions": len(preds), "new_predictions": added,
+                "pending": len(store.list_predictions(self.db_path, pending_only=True, limit=1000)), "ms": int((time.time() - t) * 1000)}
 
     def recompute(self):
         """Recalcule les incidents à partir des événements ouverts/acquittés."""

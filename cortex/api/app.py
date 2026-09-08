@@ -33,6 +33,7 @@ from flask_cors import CORS
 
 import collectors
 import correlate
+import learn
 import normalize as nz
 import places as pl
 import principles as pr
@@ -254,6 +255,10 @@ def incident(key):
             if sig not in seen and (r["a"] in ents or r["b"] in ents):
                 seen.add(sig); rels.append(r)
     i["relations"] = rels[:200]
+    # #465 : annonces en attente déclenchées par un événement de cet incident
+    i["predictions"] = [p for p in store.list_predictions(DB_PATH, pending_only=True, limit=500) if p.get("trigger") in fps]
+    for p in i["predictions"]:
+        p.pop("roles", None)
     return jsonify(i), 200
 
 
@@ -368,6 +373,78 @@ def layers_route():
         keep = set(only.split(",")) | {"summary"}
         out = {k: v for k, v in out.items() if k in keep}
     return jsonify(out), 200
+
+
+# ---------------------------------------------------------------- apprentissage / anticipation / dérives (#465)
+@app.route("/rules", methods=["GET"])
+def rules_route():
+    fb = store.feedback_counts(DB_PATH)
+    eff = {pid: pr.evaluate(pid, fb)["effective"] for pid in ("sequence-learned", "sequence-confirmed")}
+    names = store.entity_names(DB_PATH)
+    out = []
+    for r in store.list_rules(DB_PATH, state=request.args.get("state")):
+        pid = "sequence-confirmed" if r["state"] == "confirmed" else "sequence-learned"
+        r["a_text"], r["b_text"] = learn.describe_signature(r["a"], names), learn.describe_signature(r["b"], names)
+        r["effective"] = 0.0 if r["state"] == "rejected" else learn.rule_confidence(r, eff[pid])
+        r["principle"] = pid
+        out.append(r)
+    return jsonify({"rules": out, "counts": {s: sum(1 for r in out if r["state"] == s) for s in ("proposed", "confirmed", "rejected")}}), 200
+
+
+@app.route("/rules/<path:rid>/<action>", methods=["POST"])
+def rule_action(rid, action):
+    body = request.get_json(silent=True) or {}
+    ok, why = _check_manage_right(body)
+    if not ok:
+        return jsonify({"error": why}), 403
+    state = {"confirm": "confirmed", "reject": "rejected", "reset": "proposed"}.get(action)
+    if not state:
+        return jsonify({"error": "action : confirm | reject | reset"}), 400
+    if not store.set_rule_state(DB_PATH, unquote(rid), state, by=body.get("by"), note=body.get("note")):
+        return jsonify({"error": "règle inconnue"}), 404
+    # une décision humaine sur une règle est aussi un retour sur le principe qui l'a proposée
+    if action in ("confirm", "reject"):
+        store.add_feedback(DB_PATH, "sequence-learned", "confirmed" if action == "confirm" else "rejected", claim=unquote(rid), by=body.get("by"), note=body.get("note"))
+    return jsonify({"ok": True, "state": state}), 200
+
+
+@app.route("/predictions", methods=["GET"])
+def predictions_route():
+    pending = request.args.get("pending") in ("1", "true")
+    rows = store.list_predictions(DB_PATH, pending_only=pending, limit=request.args.get("limit", 200, type=int))
+    for r in rows:
+        r.pop("roles", None)
+    return jsonify({"predictions": rows, "pending": sum(1 for r in rows if not r.get("outcome")),
+                    "hits": sum(1 for r in rows if r.get("outcome") == "hit"), "misses": sum(1 for r in rows if r.get("outcome") == "miss")}), 200
+
+
+@app.route("/drifts", methods=["GET"])
+def drifts_route():
+    """Dérives courantes = événements ouverts de source « cortex » ; plus les
+    séries suivies (entité, métrique, nombre de relevés, dernier)."""
+    evs = [e for e in store.list_events(DB_PATH, state="open", limit=2000) + store.list_events(DB_PATH, state="acked", limit=2000) if e.get("source") == "cortex"]
+    series = store.series(DB_PATH)
+    tracked = [{"entity": k[0], "metric": k[1], "label": learn.METRICS.get(k[1], {}).get("label", k[1]), "unit": learn.METRICS.get(k[1], {}).get("unit", ""),
+                "points": len(v), "last_at": v[-1][0], "last": v[-1][1], "min": min(x[1] for x in v), "max": max(x[1] for x in v)} for k, v in series.items()]
+    tracked.sort(key=lambda t: (t["entity"], t["metric"]))
+    return jsonify({"drifts": evs, "tracked": tracked, "metrics": learn.METRICS}), 200
+
+
+@app.route("/samples", methods=["GET"])
+def samples_route():
+    entity, metric = request.args.get("entity"), request.args.get("metric")
+    series = store.series(DB_PATH, hours=request.args.get("hours", 26, type=int))
+    pts = series.get((entity, metric), []) if entity and metric else []
+    return jsonify({"entity": entity, "metric": metric, "points": [{"at": a, "value": v} for a, v in pts]}), 200
+
+
+@app.route("/learn", methods=["POST"])
+def learn_route():
+    body = request.get_json(silent=True) or {}
+    ok, why = _check_manage_right(body)
+    if not ok:
+        return jsonify({"error": why}), 403
+    return jsonify(collector.learn()), 200
 
 
 if __name__ == "__main__":  # pragma: no cover

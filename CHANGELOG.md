@@ -1,3 +1,47 @@
+## 2026-09-08 — Cortex, étape 4 : causalité apprise, anticipation, signaux faibles (livraison #465)
+
+Suite du découpage validé en #461. Aucun module d'origine modifié.
+
+- **Occurrences** (table `occurrences`, 90 j) : chaque ouverture ou
+  réouverture d'événement est historisée, amorcée depuis l'historique du
+  central si-agent — jamais un simple rafraîchissement.
+- **Séquences apprises** (`cortex/api/learn.py`, table `rules`, `/rules`,
+  onglet **Anticipation**) : « A précède B » dans la fenêtre (10 min) avec
+  support ≥ 3, confiance ≥ 0,5 et ≥ 2 × l'attendu sous indépendance →
+  règle **proposée** (délai médian / min / max), en deux portées : entités
+  nommées et généralisée par rôle. Confirmer / rejeter / remettre en
+  proposition (`POST /rules/<id>/…`) ; la décision nourrit le principe
+  `sequence-learned` ; les mesures se remettent à jour, l'état décidé et
+  les jugements sont conservés (principes `sequence-learned` 0,6,
+  `sequence-confirmed` 0,9).
+- **Anticipation** (table `predictions`, `/predictions`, visible dans
+  l'incident) : quand A est ouvert, annonce « B suit habituellement A dans
+  n min (x fois sur n) » avec échéance, tant que B n'est pas là ; une
+  annonce par B attendu ; jugée ensuite juste / fausse, ce qui remesure la
+  règle (confiance = observée × principe, ajustée par les jugements ;
+  principe `anticipation` 0,7).
+- **Signaux faibles** (table `samples`, `/drifts`, `/samples`) : mesures
+  relevées à chaque collecte (CPU, mémoire, disque, charge ; latence,
+  pertes ; charge, batterie, tensions d'onduleur ; 3 j) et trois
+  détecteurs : écart de la dernière heure aux 24 h (`drift-zscore`),
+  tendance linéaire vers un seuil (`drift-trend`, échéance < 7 j, ignorée
+  sur un saut brutal), habitude horaire (`seasonality`). Une dérive est un
+  événement normalisé de source `cortex` — même cycle de vie, regroupable
+  en incident.
+- Six principes de plus (trente-six) ; `POST /learn` ; onglet Anticipation :
+  annonces (échéance, issue, exactitude), règles (confirmer / rejeter),
+  dérives en cours et séries suivies (mini-courbe au clic).
+
+**Vérifié** : 18 tests purs Python ; chaîne réelle : l'historique du central
+produit 10 règles proposées (« agent-offline sur vm suit config-applied sur
+vm dans 5 min, 7 fois sur 8 ») ; historique semé + surcharge d'onduleur
+ouverte → annonce « agent-offline sur srv-fichiers-01 suit habituellement
+ups:overload sur UPS-Siege dans 5 min (4 fois sur 5) », confirmation →
+48 % → 72 %, `sequence-learned` mesuré 68 % ; mesures semées → deux dérives
+(CPU 4,7 σ, disque 90 % dans 29 h) dans l'incident de vm ; onglet
+Anticipation sous Chromium ; 171 tests Node. **Non vérifié** :
+apprentissage sur un vrai historique long, netprobe réel.
+
 ## 2026-09-08 — Cortex, étape 3 : lieux, positions avec provenance, fiche d'intervention, éclairage carto (livraison #464)
 
 Suite du découpage validé en #461. Aucun module d'origine modifié ; Cortex

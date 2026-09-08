@@ -1,4 +1,4 @@
-# Cortex (livraisons #462 à #464) — décloisonne, corrèle, relie, consolide
+# Cortex (livraisons #462 à #465) — décloisonne, corrèle, relie, consolide
 
 Première étape du découpage de `docs/analyse-supervision-unifiee.md`
 (#461) : un modèle commun et une file d'incidents corrélés, **totalement
@@ -105,16 +105,55 @@ Collecte toutes les `CORTEX_INTERVAL_SECONDS` (300) et à la demande
   (passerelle → hôte, borne → client, onduleur → site). GeoJSON réutilisable
   par la carte de Supervision SI (`?only=incidents,density`).
 
+### Étape 4 (#465) : causalité apprise, anticipation, signaux faibles
+
+- **occurrences** (table `occurrences`) : chaque ouverture ou réouverture
+  d'événement est historisée (90 j), amorcée depuis l'historique du
+  central si-agent ; jamais un simple rafraîchissement ;
+- **séquences apprises** (`learn.py`, `mine_sequences`, table `rules`,
+  `/rules`) : dans la fenêtre (10 min), les paires « A précède B » avec
+  support ≥ 3, confiance ≥ 0,5 et ≥ 2 × l'attendu sous indépendance
+  deviennent des règles **proposées**, avec délai typique (médiane, min,
+  max) ; deux portées : entités nommées et généralisée par rôle (« sur
+  batterie sur un onduleur » précède « agent-offline sur un hôte
+  supervisé »). Une personne confirme / rejette / remet en proposition
+  (`POST /rules/<id>/confirm|reject|reset`) — la décision est aussi un
+  retour sur le principe `sequence-learned` ; les mesures d'une règle sont
+  remises à jour à chaque collecte, l'état décidé et les annonces jugées
+  sont conservés ;
+- **anticipation** (`anticipate`, table `predictions`, `/predictions`) :
+  quand A est ouvert et qu'une règle A → B existe, Cortex annonce « B suit
+  habituellement A dans n min (x fois sur n) » avec échéance, tant que B
+  n'est pas là et que l'échéance n'est pas dépassée de deux fois le délai
+  maximal ; une seule annonce par B attendu ; l'annonce est visible dans
+  l'incident qui contient A. Elle est ensuite **jugée** (`settle_predictions`)
+  : B survenu = juste, délai dépassé = fausse ; le bilan remesure la règle
+  (confiance affichée = confiance observée × principe, ajustée par les
+  jugements) ;
+- **signaux faibles** (`detect_drifts`, table `samples`, `/drifts`,
+  `/samples`) : mesures relevées à chaque collecte (si-agent : CPU,
+  mémoire, disque, charge ; netprobe : latence, pertes ; UPS : charge,
+  batterie, tensions ; 3 j conservés) ; trois détecteurs, chacun un
+  principe : écart de la dernière heure aux 24 h (`drift-zscore`, ≥ 3 σ
+  avertissement, ≥ 5 σ critique, σ plancher 2 %), tendance linéaire vers
+  un seuil (`drift-trend`, échéance < 7 j ; ignorée quand un saut brutal
+  est déjà signalé), habitude horaire (`seasonality`, même créneau ± 1 h
+  des jours précédents). Une dérive est un **événement normalisé de source
+  `cortex`** : même empreinte, même cycle de vie (fermée quand elle cesse),
+  donc regroupable dans les incidents.
+
 ## Principes (partis pris) — `cortex/api/principles.py`
 
-Trente principes nommés, chacun avec sa confiance de base, son énoncé et
-sa limite connue : identité (IP, MAC, nom), relations (passerelle, relais,
-port servi → rôle, même site, onduleur du site, sonde, borne d'un client
-WiFi, route déclarée), rôle (OUI du constructeur, classification du nom,
-référentiel déclaré), position (les huit barreaux de l'échelle + héritage
-de lieu), causalité (amont d'abord, fenêtre + relation, regroupement par
-site, événement isolé), présentation (sévérité max, changement entre deux
-collectes, non supervisée). La confiance **mesurée** d'un principe
+Trente-six principes nommés, chacun avec sa confiance de base, son énoncé
+et sa limite connue : identité (IP, MAC, nom), relations (passerelle,
+relais, port servi → rôle, même site, onduleur du site, sonde, borne d'un
+client WiFi, route déclarée), rôle (OUI du constructeur, classification du
+nom, référentiel déclaré), position (les huit barreaux de l'échelle +
+héritage de lieu), causalité (amont d'abord, fenêtre + relation,
+regroupement par site, événement isolé, séquence apprise, règle
+confirmée, anticipation), signaux faibles (écart, tendance, habitude
+horaire), présentation (sévérité max, changement entre deux collectes,
+non supervisée). La confiance **mesurée** d'un principe
 intègre les retours « juste / fausse » donnés sur les hypothèses qui s'en
 réclament (lissage : la base vaut quatre retours). La confiance d'un
 incident est celle de son hypothèse causale — jamais un maximum flatteur.
@@ -131,13 +170,18 @@ incident est celle de son hypothèse causale — jamais un maximum flatteur.
 `/routes?host=`, `/changes?since&kind&limit` ; depuis #464 : `/places`,
 `PUT /places/<clé> {contact, access, notes}`, `/positions?provenance=`,
 `/positions/queue`, `POST /positions/resolve`,
-`/entities/<clé>/intervention`, `/layers?only=`.
+`/entities/<clé>/intervention`, `/layers?only=` ; depuis #465 : `/rules`,
+`POST /rules/<id>/confirm|reject|reset`, `/predictions?pending=`,
+`/drifts`, `/samples?entity&metric`, `POST /learn`.
 
 ## Tuile
 
 Thématique Supervision, premier onglet : incidents (cause proposée,
-confiance en mots et en %, détail avec hypothèses votables, entités,
-relations utilisées, événements), **Architecture** (SVG : une colonne par
+confiance en mots et en %, détail avec hypothèses votables, annonces en
+cours, entités, relations utilisées, événements), **Anticipation**
+(annonces avec échéance et issue, exactitude ; règles apprises avec
+confirmer / rejeter ; dérives en cours et séries suivies avec
+mini-courbe), **Architecture** (SVG : une colonne par
 site, trois couches — amont / hôtes supervisés / reste — largeur de
 colonne adaptée à l'étiquette la plus longue, arêtes colorées par type,
 clic sur un nœud = fiche), **Carte** (couches activables, légende des
@@ -192,8 +236,25 @@ automatique sont rendus) et fiche d'intervention sous Chromium ; 170
 tests Node. **Non vérifié** : geo-catalog réel (PostgreSQL), fond de
 carte, bastion réel.
 
+Étape 4 (#465) : 18 tests purs (les trois nouveaux : extraction des
+règles — entités et par rôle, bruit écarté, pas de A → A ; annonce avec
+message, échéance et confiance, rien si B est déjà là ou trop tard,
+jugement juste / fausse, confiance qui baisse avec les fausses ; dérives
+— saut de CPU critique, tendance disque vers 90 % en ~30 h, série stable
+et série trop courte muettes — et mesures depuis les trois sources) ;
+chaîne réelle : l'historique du central produit à lui seul 10 règles
+proposées (ex. « agent-offline sur vm suit config-applied sur vm dans
+5 min, 7 fois sur 8 ») ; avec un historique semé (4 surcharges d'onduleur
+suivies de la perte de srv-fichiers-01) et une surcharge ouverte
+maintenant : annonce « agent-offline sur srv-fichiers-01 suit
+habituellement ups:overload sur UPS-Siege dans 5 min (4 fois sur 5) »,
+confirmation de la règle → confiance 48 % → 72 %, principe
+`sequence-learned` mesuré à 68 % ; mesures semées (disque +0,4 %/h, CPU
+20 % → 85 %) → deux dérives ouvertes, intégrées à l'incident de vm ;
+onglet Anticipation sous Chromium ; 171 tests Node. **Non vérifié** :
+apprentissage sur un vrai historique long, netprobe réel.
+
 ## Suite (découpage #461)
 
-4. séquences apprises et anticipation, dérives ; 5. MTTA/MTTR, politiques
-d'alerte, notifications par incident. (Étapes 1 à 3 livrées en #462, #463,
-#464.)
+5. MTTA/MTTR, politiques d'alerte, notifications par incident. (Étapes 1
+à 4 livrées en #462, #463, #464, #465.)

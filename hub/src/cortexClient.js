@@ -38,3 +38,10 @@ export const fetchPlaces = (b) => fetchJson(b, "/places");
 export const savePlaceNote = (b, key, payload) => fetchJson(b, `/places/${encodeURIComponent(key)}`, json("PUT", payload));
 export const fetchIntervention = (b, key) => fetchJson(b, `/entities/${encodeURIComponent(key)}/intervention`);
 export const fetchLayers = (b) => fetchJson(b, "/layers");
+// #465 : règles apprises, annonces, dérives
+export const fetchRules = (b) => fetchJson(b, "/rules");
+export const ruleAction = (b, id, action, payload) => fetchJson(b, `/rules/${encodeURIComponent(id)}/${action}`, json("POST", payload));
+export const fetchPredictions = (b, pendingOnly = false) => fetchJson(b, `/predictions?limit=200${pendingOnly ? "&pending=1" : ""}`);
+export const fetchDrifts = (b) => fetchJson(b, "/drifts");
+export const fetchSamples = (b, entity, metric) => fetchJson(b, `/samples?entity=${encodeURIComponent(entity)}&metric=${encodeURIComponent(metric)}`);
+export const runLearn = (b, groups) => fetchJson(b, "/learn", json("POST", { groups }));

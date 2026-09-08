@@ -52,6 +52,24 @@ CREATE TABLE IF NOT EXISTS positions (
     entity TEXT PRIMARY KEY, lat REAL, lon REAL, place TEXT, provenance TEXT, principle TEXT, confidence REAL, chain_json TEXT,
     source TEXT, evidence TEXT, first_at TEXT NOT NULL, updated_at TEXT NOT NULL, changed_at TEXT
 );
+CREATE TABLE IF NOT EXISTS occurrences (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, fingerprint TEXT, source TEXT, kind TEXT, entity TEXT, site TEXT, severity TEXT, at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_occ_at ON occurrences(at);
+CREATE TABLE IF NOT EXISTS rules (
+    id TEXT PRIMARY KEY, a TEXT NOT NULL, b TEXT NOT NULL, scope TEXT, count INTEGER, support_a INTEGER, support_b INTEGER, confidence REAL,
+    expected REAL, lift REAL, delay_s INTEGER, delay_min_s INTEGER, delay_max_s INTEGER, first_at TEXT, last_at TEXT,
+    state TEXT DEFAULT 'proposed', hits INTEGER DEFAULT 0, misses INTEGER DEFAULT 0, decided_by TEXT, decided_at TEXT, note TEXT, updated_at TEXT
+);
+CREATE TABLE IF NOT EXISTS predictions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, rule_id TEXT NOT NULL, trigger TEXT, entity TEXT, site TEXT, expected TEXT, expected_at TEXT, since TEXT,
+    delay_max_s INTEGER, scope TEXT, message TEXT, confidence REAL, roles_json TEXT, outcome TEXT, settled_at TEXT, created_at TEXT NOT NULL,
+    UNIQUE (rule_id, trigger)
+);
+CREATE TABLE IF NOT EXISTS samples (
+    entity TEXT NOT NULL, metric TEXT NOT NULL, at TEXT NOT NULL, value REAL, PRIMARY KEY (entity, metric, at)
+);
+CREATE INDEX IF NOT EXISTS ix_samples_at ON samples(at);
 CREATE TABLE IF NOT EXISTS runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, duration_ms INTEGER, sources_json TEXT, counts_json TEXT
 );
@@ -173,15 +191,21 @@ def upsert_events(db_path, events):
         for e in events:
             at = e.get("at") or now
             r = c.execute("SELECT state, count FROM events WHERE fingerprint=?", (e["fingerprint"],)).fetchone()
+            occ = False
             if r is None:
                 c.execute("INSERT INTO events (fingerprint, source, kind, severity, entity, site, message, raw_ref, at, first_at, last_at, count, state) VALUES (?,?,?,?,?,?,?,?,?,?,?,1,'open')",
                           (e["fingerprint"], e.get("source"), e.get("kind"), e.get("severity"), e.get("entity"), e.get("site"), e.get("message"), e.get("raw_ref"), at, at, at))
                 new += 1
+                occ = True
             else:
                 state = "open" if r["state"] == "closed" else r["state"]
+                occ = r["state"] == "closed"
                 c.execute("UPDATE events SET last_at=?, count=count+1, message=?, severity=?, state=?, closed_at=NULL WHERE fingerprint=?",
                           (max(at, r["state"] and at), e.get("message"), e.get("severity"), state, e["fingerprint"]))
                 refreshed += 1
+            if occ:   # historique des OCCURRENCES (#465) : ouverture ou réouverture, jamais un simple rafraîchissement
+                c.execute("INSERT INTO occurrences (fingerprint, source, kind, entity, site, severity, at) VALUES (?,?,?,?,?,?,?)",
+                          (e["fingerprint"], e.get("source"), e.get("kind"), e.get("entity"), e.get("site"), e.get("severity"), at if r is None else now))
         c.commit()
     finally:
         c.close()
@@ -379,6 +403,9 @@ def purge(db_path, days=30):
         c.execute("DELETE FROM events WHERE state='closed' AND closed_at < ?", (cutoff,))
         c.execute("DELETE FROM incidents WHERE state='closed' AND closed_at < ?", (cutoff,))
         c.execute("DELETE FROM relations WHERE last_seen < ?", (cutoff,))
+        c.execute("DELETE FROM samples WHERE at < ?", (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 3 * 86400)),))
+        c.execute("DELETE FROM occurrences WHERE at < ?", (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 90 * 86400)),))
+        c.execute("DELETE FROM predictions WHERE outcome IS NOT NULL AND settled_at < ?", (cutoff,))
         c.commit()
     finally:
         c.close()
@@ -556,3 +583,152 @@ def list_positions(db_path, provenance=None, entity=None):
 
 def positions_map(db_path):
     return {p["entity"]: p for p in list_positions(db_path)}
+
+
+# ---------------------------------------------------------------- apprentissage (#465)
+def list_occurrences(db_path, days=90, limit=50000):
+    cutoff = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - days * 86400))
+    c = connect(db_path)
+    try:
+        return [dict(r) for r in c.execute("SELECT * FROM occurrences WHERE at>=? ORDER BY at LIMIT ?", (cutoff, limit)).fetchall()]
+    finally:
+        c.close()
+
+
+def add_occurrences(db_path, occurrences):
+    """Amorçage depuis un historique externe (si-agent /events) : une occurrence par (empreinte, at)."""
+    c = connect(db_path)
+    try:
+        n = 0
+        for o in occurrences:
+            if not o.get("at"):
+                continue
+            r = c.execute("SELECT 1 FROM occurrences WHERE fingerprint=? AND at=?", (o["fingerprint"], o["at"])).fetchone()
+            if r:
+                continue
+            c.execute("INSERT INTO occurrences (fingerprint, source, kind, entity, site, severity, at) VALUES (?,?,?,?,?,?,?)",
+                      (o["fingerprint"], o.get("source"), o.get("kind"), o.get("entity"), o.get("site"), o.get("severity"), o["at"]))
+            n += 1
+        c.commit()
+        return n
+    finally:
+        c.close()
+
+
+def sync_rules(db_path, rules):
+    """Règles apprises : les mesures (count, confiance, délai) sont remises à
+    jour ; l'état décidé par une personne (confirmée / rejetée), les
+    annonces jugées (hits / misses) et la note sont conservés."""
+    now = now_iso()
+    c = connect(db_path)
+    try:
+        for r in rules:
+            rid = "%s=>%s" % (r["a"], r["b"])
+            c.execute("""INSERT INTO rules (id, a, b, scope, count, support_a, support_b, confidence, expected, lift, delay_s, delay_min_s, delay_max_s, first_at, last_at, state, updated_at)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'proposed',?)
+                         ON CONFLICT(id) DO UPDATE SET count=excluded.count, support_a=excluded.support_a, support_b=excluded.support_b, confidence=excluded.confidence,
+                           expected=excluded.expected, lift=excluded.lift, delay_s=excluded.delay_s, delay_min_s=excluded.delay_min_s, delay_max_s=excluded.delay_max_s,
+                           first_at=excluded.first_at, last_at=excluded.last_at, updated_at=excluded.updated_at""",
+                      (rid, r["a"], r["b"], r.get("scope"), r["count"], r["support_a"], r["support_b"], r["confidence"], r.get("expected"), r.get("lift"),
+                       r["delay_s"], r.get("delay_min_s"), r.get("delay_max_s"), r.get("first_at"), r.get("last_at"), now))
+        c.commit()
+    finally:
+        c.close()
+
+
+def list_rules(db_path, state=None):
+    c = connect(db_path)
+    try:
+        if state:
+            rows = c.execute("SELECT * FROM rules WHERE state=? ORDER BY count*confidence DESC", (state,)).fetchall()
+        else:
+            rows = c.execute("SELECT * FROM rules ORDER BY (state='rejected'), count*confidence DESC").fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        c.close()
+
+
+def set_rule_state(db_path, rid, state, by=None, note=None):
+    c = connect(db_path)
+    try:
+        cur = c.execute("UPDATE rules SET state=?, decided_by=?, decided_at=?, note=COALESCE(?, note) WHERE id=?", (state, by, now_iso(), note, rid))
+        c.commit()
+        return cur.rowcount > 0
+    finally:
+        c.close()
+
+
+def add_predictions(db_path, predictions, roles=None):
+    """Nouvelle annonce par (règle, déclencheur) ; une annonce existante n'est pas dupliquée. -> nouvelles"""
+    now = now_iso()
+    c = connect(db_path)
+    try:
+        n = 0
+        for p in predictions:
+            r = c.execute("SELECT 1 FROM predictions WHERE rule_id=? AND trigger=?", (p["rule_id"], p["trigger"])).fetchone()
+            if r:   # annonce déjà faite : sa confiance suit la règle (confirmée depuis, jugée…) tant qu'elle n'est pas tranchée
+                c.execute("UPDATE predictions SET confidence=?, message=? WHERE rule_id=? AND trigger=? AND outcome IS NULL", (p.get("confidence"), p.get("message"), p["rule_id"], p["trigger"]))
+                continue
+            c.execute("""INSERT INTO predictions (rule_id, trigger, entity, site, expected, expected_at, since, delay_max_s, scope, message, confidence, roles_json, created_at)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                      (p["rule_id"], p["trigger"], p.get("entity"), p.get("site"), p["expected"], p["expected_at"], p["since"], p.get("delay_max_s"),
+                       p.get("scope"), p.get("message"), p.get("confidence"), json.dumps(roles or {}), now))
+            n += 1
+        c.commit()
+        return n
+    finally:
+        c.close()
+
+
+def list_predictions(db_path, pending_only=False, limit=200):
+    c = connect(db_path)
+    try:
+        q = "SELECT * FROM predictions" + (" WHERE outcome IS NULL" if pending_only else "") + " ORDER BY id DESC LIMIT ?"
+        return [_row(r, ("roles_json",)) for r in c.execute(q, (limit,)).fetchall()]
+    finally:
+        c.close()
+
+
+def settle(db_path, verdicts):
+    """verdicts: [{id, outcome, at}] -> met à jour l'annonce ET la règle (hits / misses)."""
+    c = connect(db_path)
+    try:
+        for v in verdicts:
+            r = c.execute("SELECT rule_id, outcome FROM predictions WHERE id=?", (v["id"],)).fetchone()
+            if not r or r["outcome"]:
+                continue
+            c.execute("UPDATE predictions SET outcome=?, settled_at=? WHERE id=?", (v["outcome"], v["at"], v["id"]))
+            c.execute("UPDATE rules SET %s=%s+1 WHERE id=?" % (("hits", "hits") if v["outcome"] == "hit" else ("misses", "misses")), (r["rule_id"],))
+        c.commit()
+    finally:
+        c.close()
+
+
+def add_samples(db_path, samples):
+    c = connect(db_path)
+    try:
+        c.executemany("INSERT OR IGNORE INTO samples (entity, metric, at, value) VALUES (?,?,?,?)",
+                      [(s["entity"], s["metric"], s["at"], s["value"]) for s in samples if s.get("at") and s.get("value") is not None])
+        c.commit()
+    finally:
+        c.close()
+
+
+def series(db_path, hours=26):
+    cutoff = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - hours * 3600))
+    c = connect(db_path)
+    try:
+        out = {}
+        for r in c.execute("SELECT entity, metric, at, value FROM samples WHERE at>=? ORDER BY at", (cutoff,)).fetchall():
+            out.setdefault((r["entity"], r["metric"]), []).append((r["at"], r["value"]))
+        return out
+    finally:
+        c.close()
+
+
+def entity_sites(db_path):
+    c = connect(db_path)
+    try:
+        return {r["key"]: r["site"] for r in c.execute("SELECT key, site FROM entities").fetchall()}
+    finally:
+        c.close()

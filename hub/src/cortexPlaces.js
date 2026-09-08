@@ -75,3 +75,37 @@ export function whereText(sheet) {
   if (!w.length) return sheet?.entity?.site ? `site ${sheet.entity.site} (non positionné)` : "lieu inconnu";
   return w.map((x) => x.name).join(" › ");
 }
+
+// ---- Étape 4 (#465) : règles, annonces, dérives -------------------------
+export const RULE_STATE = { proposed: { label: "proposée", tone: "warn" }, confirmed: { label: "confirmée", tone: "good" }, rejected: { label: "rejetée", tone: "bad" } };
+export const OUTCOME = { hit: { label: "juste", tone: "good" }, miss: { label: "fausse", tone: "bad" } };
+
+// Phrase d'une règle : « B suit A dans n min (x fois sur n), délai 2–6 min ».
+export function ruleText(r) {
+  const mins = Math.max(1, Math.round((r.delay_s || 0) / 60));
+  const span = r.delay_min_s != null && r.delay_max_s != null && r.delay_max_s !== r.delay_min_s ? `, entre ${Math.round(r.delay_min_s / 60)} et ${Math.round(r.delay_max_s / 60)} min` : "";
+  return `${r.b_text || r.b} suit ${r.a_text || r.a} dans ${mins} min (${r.count} fois sur ${r.support_a}${span})`;
+}
+
+// Minutes restantes avant l'échéance d'une annonce (négatif = dépassée).
+export function minutesLeft(p, now = Date.now()) {
+  const t = Date.parse(p.expected_at);
+  if (Number.isNaN(t)) return null;
+  return Math.round((t - now) / 60000);
+}
+
+// Bilan des annonces : {pending, hits, misses, accuracy}
+export function predictionStats(preds) {
+  const s = { pending: 0, hits: 0, misses: 0, accuracy: null };
+  for (const p of preds || []) { if (!p.outcome) s.pending += 1; else if (p.outcome === "hit") s.hits += 1; else s.misses += 1; }
+  if (s.hits + s.misses) s.accuracy = s.hits / (s.hits + s.misses);
+  return s;
+}
+
+// Mini-courbe SVG (sparkline) : points [{at, value}] -> chemin normalisé dans w×h.
+export function sparkPath(points, w = 120, h = 28) {
+  const vals = (points || []).map((p) => p.value).filter((v) => typeof v === "number");
+  if (vals.length < 2) return "";
+  const min = Math.min(...vals), max = Math.max(...vals), span = max - min || 1;
+  return vals.map((v, i) => `${i === 0 ? "M" : "L"}${((i / (vals.length - 1)) * (w - 2) + 1).toFixed(1)},${(h - 1 - ((v - min) / span) * (h - 2)).toFixed(1)}`).join(" ");
+}
