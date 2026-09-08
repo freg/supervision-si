@@ -1125,9 +1125,12 @@ qui fait alors sauter la file.
     de couverture trouvé et corrigé en testant ce second motif,
     exactement celui décrit par la personne comme présent dans son
     code), plus le motif Fat-Free `Mapper`. `POST /scan` (archive
-    ZIP), onglet hub "Rétro-ingénierie" (menu Data). Volet 2
-    ("schéma fonctionnel de l'interface") TOUJOURS pas commencé. Voir
-    `retro/README.md`.
+    ZIP), onglet hub "Rétro-ingénierie" (menu Data). **Volet 2
+    ("schéma fonctionnel de l'interface") LIVRÉ en #441** par l'usage
+    réel : extension Firefox + agent relais + API « parcours » (étapes,
+    routes, tables du code et du journal SQL via dba-api, carte
+    fonctionnelle). Reste : premier parcours réel dans Firefox, vrai
+    general_log. Voir `retro/README.md`.
 
     **EXTENSION LIVRÉE EN #245** -- demandé explicitement juste
     après le volet 1 : "importer du php et des vues d'écran en html

@@ -784,8 +784,18 @@ services:
     build:
       context: .
       dockerfile: retro/api/Dockerfile
+    volumes:
+      # #441 : parcours applicatifs (applications, scans de code conservés,
+      # événements, requêtes SQL collectées) -- retro-api était sans état.
+      - ${RETRO_DATA_DIR:-./retro/data}:/data
     environment:
       - MEMCACHED_HOST=memcached
+      - RETRO_DATA_DIR=/data
+      # #441 : jeton partagé avec l'agent relais des parcours (vide = relais refusé)
+      - RETRO_RELAY_TOKEN=${RETRO_RELAY_TOKEN:-}
+      # #441 : journal général MySQL de l'application lu via dba-api
+      - DBA_API_INTERNAL_URL=http://dba-api:5000
+      - RIGHTS_API_URL=${RETRO_RIGHTS_API_URL:-}
     depends_on:
       - memcached
 

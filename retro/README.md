@@ -247,3 +247,66 @@ simultanément sur la même archive, non-régression confirmée.
 - Flux entre écrans (navigation, enchaînement des actions) --
   seules les routes elles-mêmes sont extraites, jamais les liens
   entre elles.
+
+## Parcours applicatifs -- rétro-ingénierie dynamique (livraison #441, volet 2)
+
+Demande : « continuer dans le reverse engineering d'appli web (évolution de
+notre SI) : un plugin Firefox, un agent relais et une API type QA qui suit
+mon parcours dans l'appli web ; ça s'intègre avec la partie analyse bdd ».
+C'est le **volet 2** du backlog 30 (« schéma FONCTIONNEL de l'interface »),
+abordé par l'usage réel plutôt que par le seul code.
+
+Trois pièces :
+
+1. **Extension Firefox** `retro/browser-extension/` (README dédié) :
+   écrans, DOM utile (formulaires, tableaux, en-têtes), clics, saisies
+   (noms et longueurs, jamais un mot de passe), envois, requêtes HTTP
+   (page, XHR, redirections, clés de formulaire), repères. Variante
+   Chromium (MV3) avec les mêmes sources.
+2. **Agent relais** `retro/relay/relay.py` (Python 3 seul) sur le poste :
+   reçoit les événements de l'extension en local (127.0.0.1:6320), les met
+   dans une file SQLite, les expédie par lots à retro-api avec le jeton
+   `RETRO_RELAY_TOKEN` (`X-Relay-Token`) et la CA interne ; rejoue après une
+   coupure, dans l'ordre (`seq`). Crée / termine les parcours, pose des
+   repères ; l'extension adopte le parcours courant du relais.
+3. **retro-api, routes « parcours »** (retro-api a maintenant un volume
+   `/data`, SQLite `retro.db`) : `GET/POST /apps` (application : libellé, URL
+   de base, connexion DBA + base), `POST /scan?app=<libellé>` conserve le
+   scan de code comme référence (avec, nouveaux, `classes` {classe:
+   fichier} et `file_tables` {fichier: tables Mapper}), `GET /journeys`,
+   `POST /journeys`, `GET /journeys/<id>` (étapes + carte), `POST
+   /journeys/<id>/events` (relais, jeton, idempotent sur `seq`), `/end`,
+   `/annotate`, `DELETE`, `POST /journeys/<id>/queries/collect` (« analyse
+   bdd » : lit `mysql.general_log` entre le début et la fin du parcours via
+   dba-api -- prérequis MySQL : `SET GLOBAL general_log='ON',
+   log_output='TABLE'` pendant le test), `GET /apps/<libellé>/map` (carte
+   agrégée sur tous les parcours).
+
+Logique pure `journeys.py` : une **étape** commence quand le navigateur
+envoie la requête d'une page (`request` main_frame -- c'est là que le
+serveur, donc le SQL, travaille) ou à un repère ; le `navigation` qui suit
+la complète. Un POST suivi d'une redirection donne deux étapes (l'action,
+puis la page). Les URL sont normalisées (`/client/42` → `/client/{n}`) et
+rapprochées des routes Fat-Free du scan (`/client/@id`, jetons et `*`) →
+contrôleur → fichier (classe → fichier) → tables (jointures + Mapper de ce
+fichier) ; les requêtes du journal SQL sont rattachées à la dernière étape
+commencée avant elles (paramètre `skew` pour un décalage d'horloge base /
+navigateur) → tables réellement lues / écrites par écran. La **carte
+fonctionnelle** liste chaque écran avec route, fichiers, formulaires
+(champs ↔ champs de gabarit du scan), tables « code », tables « base »,
+et la matrice écrans × tables (● concordant, ◐ code seul, ◑ base seule).
+
+Tuile Rétro-ingénierie, section « Parcours applicatifs » : applications,
+parcours, étapes annotables, collecte du SQL, schéma fonctionnel. Motif
+Mapper élargi (`$this->db`, `$f3->get('DB')`) : constaté manquant sur le
+premier code parcouru.
+
+**Vérifié** : 7 tests `retro/api/test_journeys.py` (logique + routes avec
+faux dba-api), 2 tests du relais (file, panne du central et rejeu, fin),
+3 tests de l'extension (fonctions pures), 2 tests hub ; **chaîne réelle**
+extension (Chromium MV3, Playwright) → relais → retro-api → application
+factice Flask (liste, fiche, saisie, POST + 302, XHR, repère), scan d'un
+code F3 factice, collecte du journal via un faux dba-api → étapes et carte
+attendues, rendu Chromium de la tuile ; compose YAML. **Non vérifié** :
+Firefox réel (manifeste V2), un vrai `mysql.general_log` via dba-api réel,
+build Docker de retro-api.

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { scanPhpArchive } from "./retroClient.js";
 import { fetchDbaConnections, createRelation } from "./schemaAnalyzerClient.js";
+import RetroJourneysPanel from "./RetroJourneysPanel.jsx";
 
 // Tuile "Rétro-ingénierie" (hub), livraison #243 -- backlog item 30,
 // demandé explicitement en urgence : "vieille application de
@@ -116,6 +117,9 @@ export default function RetroView({ onBack, retroApiBase, dbaApiBase, schemaApiB
           <input value={database} onChange={(e) => setDatabase(e.target.value)} placeholder="laisser vide si non applicable" />
         </div>
       </div>
+
+      {/* #441 : parcours applicatifs (extension Firefox + relais + journal SQL) */}
+      <RetroJourneysPanel retroApiBase={retroApiBase} connections={connections} />
 
       <div className="hub-card hub-settings-section">
         <label className="secondary" style={{ cursor: "pointer", display: "inline-block" }}>

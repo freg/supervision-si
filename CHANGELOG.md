@@ -1,3 +1,27 @@
+## 2026-09-08 — Rétro-ingénierie dynamique : parcours applicatifs (extension Firefox, agent relais, API « parcours », journal SQL) (livraison #441)
+
+Backlog 30, volet 2 (« schéma fonctionnel de l'interface »), demande :
+« un plugin Firefox, un agent relais et une API type QA qui suit mon
+parcours dans l'appli web ; ça s'intègre avec la partie analyse bdd ».
+Extension `retro/browser-extension` (écrans, DOM utile, clics, saisies sans
+valeurs ni mots de passe, envois, requêtes HTTP avec redirections et clés
+de formulaire, repères ; variante Chromium MV3 mêmes sources) → agent
+relais `retro/relay/relay.py` (local, file SQLite, lots, rejeu, jeton
+`RETRO_RELAY_TOKEN`, CA interne) → retro-api (nouveau volume `/data`,
+SQLite) : applications (URL de base, connexion DBA), scan de code conservé
+par application (`classes`, `file_tables` nouveaux), parcours, événements
+idempotents, étapes (une par requête de page ou repère ; POST + 302 = deux
+étapes), routes Fat-Free rapprochées des URL normalisées → contrôleur →
+fichier → tables, collecte de `mysql.general_log` via dba-api rattachée
+aux étapes (tables lues / écrites par écran), carte fonctionnelle et
+matrice écrans × tables (code / base / concordant), annotations. Tuile
+Rétro-ingénierie : section « Parcours applicatifs ». Motif Mapper élargi
+(`$this->db`, `$f3->get('DB')`). Vérifié : 7 tests API, 2 relais, 3
+extension, 135 hub ; chaîne réelle extension (Chromium) → relais →
+retro-api → appli factice → scan F3 factice → faux dba-api → carte ;
+rendu Chromium. Non vérifié : Firefox réel, vrai `general_log` via dba-api,
+build Docker.
+
 ## 2026-09-08 — Agent hôte Windows 10 / 11 (livraison #440)
 
 Backlog 63 (« Windows à explorer »), demande : « pour le second test il
