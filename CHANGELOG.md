@@ -1,3 +1,26 @@
+## 2026-09-08 — GLPI ↔ agents hôtes : export des hôtes si-agent vers GLPI, comparaison avec les agents GLPI Agent ; correctif du montage de la CA (livraison #437)
+
+Backlog 63 (h). `glpi/api/si_agent_import.py` : chaque hôte de la flotte
+si-agent devient un `Computer` GLPI (nom, série DMI, `otherserial` =
+`si-agent:<id>` comme clé de dédoublonnage, fabricant / modèle / lieu par
+listes déroulantes, commentaire matériel : OS, noyau, CPU, mémoire,
+disques, interfaces, IP, version d'agent) -- `POST /import/si-agent-hosts`
+(`dry_run`, `update_existing`, `include_never_seen`, `site`, `only_agents`),
+dédoublonnage joué à blanc dès l'aperçu quand GLPI répond, agents jamais
+vus écartés par défaut. `GET /agents-comparison` : agents GLPI (itemtype
+`Agent`, GLPI Agent natif) rapprochés de la flotte par nom d'hôte
+(both / only_si / only_glpi). Tuile GLPI Inventory : source « Agents hôtes
+», case « mettre à jour les hôtes déjà dans GLPI », section « Agents GLPI ↔
+agents hôtes » ; `hub/src/glpiImport.js` (pur). `SI_AGENT_API_URL` sur
+glpi-api, Dockerfile complété. **Correctif réel** (premier hôte de la
+personne) : le montage de la CA de si-agent-api ignorait `PKI_DIR` →
+`${PKI_DIR:-./pki}/ca/ca.crt`.
+Vérifié : 15 tests glpi-api (logique + routes sous mock), 132 tests hub ;
+chaîne réelle glpi-api ↔ si-agent-api réel ↔ faux `apirest.php` (aperçu,
+import, ré-import ignoré, mise à jour, comparaison), rendu Chromium ; compose
+YAML. Non vérifié : un vrai GLPI (itemtype `Agent`, champs `Computer`),
+build Docker.
+
 ## 2026-09-08 — Agent hôte : relais d'exploration réseau (plugin capture-relay → central → network-agent-api) (livraison #436)
 
 Backlog 63 (e). Plugin `capture-relay` (python, privilégié, DÉSACTIVÉ par

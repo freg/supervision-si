@@ -623,6 +623,9 @@ services:
       # -- HOST_IP, jamais le nom de service Docker (livraison #264,
       # export vers GLPI de ce que network-agent découvre).
       - NETWORK_AGENT_API_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
+      # #437 : hôtes des agents si-agent -> GLPI, comparaison avec les
+      # agents GLPI Agent (si-agent-api est un service Compose ordinaire).
+      - SI_AGENT_API_URL=http://si-agent-api:5000
     depends_on:
       - memcached
 
@@ -1079,7 +1082,9 @@ services:
       # CA interne (pki/) servie aux agents pour l'amorçage TLS par
       # empreinte (#422, `install.sh --ca-fingerprint`) -- le CERTIFICAT
       # seul, jamais le dossier (ca.key n'a rien à faire dans ce conteneur).
-      - ./pki/ca/ca.crt:/ca/ca.crt:ro
+      # #437 : PKI_DIR respecté (bug réel : avec PKI_DIR dans .env, Docker
+      # créait un DOSSIER ./pki/ca/ca.crt et la CA restait « non montée »).
+      - ${PKI_DIR:-./pki}/ca/ca.crt:/ca/ca.crt:ro
     environment:
       - MEMCACHED_HOST=memcached
       # URL que les agents utilisent pour joindre le central (passerelle

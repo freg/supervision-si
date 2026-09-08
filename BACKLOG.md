@@ -2365,8 +2365,10 @@ qui fait alors sauter la file.
     traces verbeuses, journal d'événements + notifications (SMS /
     courriel du PRA, webhook) + synthèse sur l'accueil du hub.
     Avancement (#436) : relais d'exploration livré (plugin capture-relay ->
-    central -> network-agent-api). Reste : Windows, GLPI, vraie machine
-    (archive Docker/systemd #430 en test).
+    central -> network-agent-api). GLPI livré en #437 (hôtes si-agent ->
+    Computer GLPI, comparaison avec les agents GLPI Agent). Premier hôte
+    réel (Docker, #430) en ligne le 8 sept. Reste : Windows, archive sans
+    Docker (systemd) à tester.
 
 64. Refonte de la tuile Supervision SI (2026-09-07, demandé avec #418).
     « La tuile actuelle était la maquette initiale de la dataviz du hub ;

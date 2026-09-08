@@ -12,6 +12,7 @@ COPY glpi/api/nebula_import.py .
 COPY glpi/api/nebula_clients_import.py .
 COPY glpi/api/snmp_import.py .
 COPY glpi/api/network_agent_import.py .
+COPY glpi/api/si_agent_import.py .
 COPY shared/version_endpoint.py .
 COPY shared/VERSION.json .
 COPY shared/log_buffer.py .

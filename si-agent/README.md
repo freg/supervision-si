@@ -371,6 +371,21 @@ thread, best-effort, anti-tempête `SI_AGENT_NOTIFY_COOLDOWN_SECONDS` par
 (genre, agent) ; résultat mémorisé sur l'événement (colonne « Notifié »),
 `POST /notifications/test` et bouton « tester » dans la tuile.
 
+## Vers GLPI (livraison #437)
+
+La tuile GLPI Inventory exporte les hôtes de la flotte vers GLPI
+(`Computer` : nom, série, fabricant/modèle/lieu, commentaire matériel)
+et compare la flotte aux agents GLPI Agent -- voir `glpi/README.md`,
+section « Agents hôtes (si-agent) ↔ GLPI ». glpi-api lit `/fleet` et
+`/agents/<id>/latest` (`SI_AGENT_API_URL`).
+
+Correctif du même jour, trouvé au premier hôte réel : le montage de la CA
+dans `docker-compose.yml` ignorait `PKI_DIR` (`.env`) -- Docker créait un
+**dossier** `./pki/ca/ca.crt` et la tuile affichait « CA interne non
+montée ». Le montage est maintenant `${PKI_DIR:-./pki}/ca/ca.crt`. Si le
+dossier parasite existe : `docker compose stop si-agent-api && sudo rmdir
+pki/ca/ca.crt && docker compose up -d --force-recreate si-agent-api`.
+
 ## Tests
 
 ```bash
