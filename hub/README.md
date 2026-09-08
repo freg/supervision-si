@@ -15,6 +15,29 @@ qu'un ajout à l'un des deux existants, parce qu'aucun des deux n'a
 vocation à être "la porte d'entrée de l'autre" — ni Supervision SI ni
 le portail tickets ne devrait dépendre de l'autre pour démarrer.
 
+## Accueil par thématiques (livraison #457)
+
+Demandé : « il y a trop de tuiles et seulement quelques thématiques ».
+L'accueil montre désormais **cinq super-tuiles** (`src/hubThemes.js`,
+source unique pour l'accueil ET les menus de l'en-tête) : Supervision
+(supervisés, agents, sondes, onduleurs, SNMP, vigilance, cyber, logs,
+historique, mémoire), Réseau (exploration, cycle agile, orchestrateur,
+architecture, fusion IP/MAC, Nebula, tunnels SSH), Données &
+référentiels (bases externes, GLPI, positions, classification, schémas,
+rétro-ingénierie, DBA), Documents & ENT (ENT, GED, fichiers, IMAP, portail
+tickets), Sécurité & accès (Bastion, droits, sauvegardes, coffre-fort,
+Keycloak, annuaire). Une thématique ouverte (`src/ThemeView.jsx`) présente
+ses outils en **onglets** ; « Retour » depuis un outil revient à la
+thématique. Les vues elles-mêmes sont inchangées (la chaîne de routage de
+`App.jsx` est devenue `renderRoute(vm)`, réutilisée par la thématique).
+Un outil n'apparaît que si son API est configurée et si la personne y a
+droit (mêmes conditions qu'avant) ; une thématique vide n'apparaît pas.
+Les liens externes déclarés par les administrateurs restent des tuiles à
+part. Les menus Général / Réseau / Data de l'en-tête (#236) sont remplacés
+par un menu par thématique. L'ancien accueil (toutes les tuiles, avec la
+personnalisation de #133) reste disponible : Réglages → « Accueil :
+par thématiques → toutes les tuiles » (mémorisé dans le navigateur).
+
 ## Fronts listés — un seul par application déployée séparément
 
 `buildFrontsList()` (`src/lib.js`) liste actuellement 2 fronts :
@@ -2461,74 +2484,3 @@ valeurs du thème clair : rendu clair inchangé, seul le sombre est corrigé.
 Même famille de bug que les couleurs en dur trouvées trois fois dans DBA — à
 `grep` systématiquement (`grep -rn -- "var(--[a-z-]*, #" hub/src`) avant de
 considérer un module terminé.
-
-
-## Charte d'icônes du hub (livraison #410)
-
-`src/icons.js` (pur, 6 tests dans `tests/icons.test.mjs`) décrit trois jeux
-d'icônes pour les cinq étapes du cycle agile — *Emoji sobres* (défaut :
-🧭 🕸️ 📦 📊 📚), *Symboles monochromes* (⎈ ⌕ ⇪ ∿ ✎, couleur de l'étape,
-suivent le thème) et *Pictogrammes au trait* (SVG 24×24 dessinés pour le
-projet) — ainsi que les icônes écartées avec leur raison (🚀, 🧠) et les
-alternatives étudiées. `src/StepIcon.jsx` les dessine : `StepIcon` en HTML
-(boutons, titres), `SvgStepIcon` dans un `<svg>` (nœuds du graphique). Le
-sélecteur « Icônes » du cycle agile bascule le jeu en direct ; préférence
-locale au navigateur (`localStorage` `hub.cycle.iconSet`, lecture tolérante
-à un stockage absent ou plein).
-
-Règles et extension aux autres tuiles : `docs/charte-icones-hub.md`. Règle
-qui compte le plus : **la couleur porte l'identité, jamais l'état** — l'état
-passe par la pastille et les variables `--ok/--warning/--danger/--muted`,
-lisibles sur les deux thèmes.
-
-Vérification : au-delà des tests Node et du build Vite, le rendu a été
-regardé pour de vrai dans Chromium (Playwright) via un harnais qui monte
-`NetworkCycleView` seul devant un faux back-end — clair et sombre, menu et
-graphique, trois jeux, aucune erreur console. Le harnais n'est pas dans le
-dépôt (voir backlog 59, « frontend autonome ») ; il est décrit dans le
-CHANGELOG #410.
-
-## Cycle agile : disposition en deux zones (livraison #411)
-
-Menu en haut (barre d'étapes ou schéma -- seule chose que les onglets
-Classique / Graphique changent), détail de l'étape en bas, toujours présent.
-Le clic sur un nœud du schéma déplie le détail dessous au lieu de quitter le
-schéma. Trois états du menu (`src/networkCycleLayout.js`, 6 tests) : réduit
-par défaut, grand, masqué avec languette de réouverture ; préférence locale
-au navigateur (`hub.cycle.layout`). Voir `docs/cycle-agile-reseau.md`.
-
-## Exploration réseau : filtres des visualisations de flux (livraison #412)
-
-`src/networkFlowFilters.js` (pur, 9 tests) : détection de l'hôte de
-supervision (MAC puis IP de l'interface de capture, exposées par
-`/capture/status`), passerelles par rôle deviné, masquage des flux hôte ↔
-routeur, tranche de pourcentage sur la part de chaque flux dans le volume
-total (base stable). Les boutons de section ouverts sont en surbrillance
-(`.na-section-toggle.active`). Voir le CHANGELOG #412.
-
-## Zoom et échelle des graphiques (livraison #413)
-
-`src/components/ZoomableChart.jsx` enveloppe tout graphique SVG : boutons
-+ / − / ⟲, Ctrl + molette (loupe sous le curseur), double-clic (×2),
-glisser (déplacer). Logique pure dans `src/chartZoom.js` (viewBox d'origine
-quelconque, `preserveAspectRatio` meet ou none). `src/chartScales.js` :
-échelles linéaire / racine / log et gain, partagées par `alluvialLayout.js`,
-`weightedRadialLayout.js` et `networkAgentHistory.js`. Règle : un graphique
-ne sait rien du zoom ; il rend dans son viewBox, l'enveloppe fait le reste.
-Nouveau graphique = l'envelopper, jamais réécrire un zoom local.
-
-## Flux : fenêtre temporelle, volume, sous-réseau (livraison #414)
-
-Trois filtres de plus dans `src/networkFlowFilters.js` (14 tests) : volume
-absolu min/max en Ko, sous-réseau (/16 → /28, flux internes ou touchant,
-arithmétique IPv4 maison), et la période du tableau appliquée aux flux via
-`fetchLinks(apiBase, segmentId, { startIso, endIso })` →
-`/links?start&end`. Voir le CHANGELOG #414.
-
-## Tuile « Onduleurs (UPS) » (livraison #415)
-
-`src/UpsView.jsx`, `src/upsClient.js`, `src/upsMonitor.js` (pur, 7 tests) :
-liste des onduleurs relevés par `ups-monitor-api`, formulaire avec essai
-de la requête, fiche d'état en tableau, timeline (courbe + relevés). Tuile
-et entrée du menu Réseau conditionnées à `VITE_UPS_API_BASE_URL`. Voir
-`ups-monitor/README.md`.

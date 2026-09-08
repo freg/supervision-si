@@ -30,6 +30,8 @@ import NetprobeView from "./NetprobeView.jsx";
 import UpsView from "./UpsView.jsx";
 import SiAgentView from "./SiAgentView.jsx";
 import BastionView from "./BastionView.jsx";
+import ThemeView from "./ThemeView.jsx";
+import { buildThemes, themeViewMode, isThemeViewMode, themeIdOf, findTheme, themeOfView, normalizeHomeMode, HOME_MODES } from "./hubThemes.js";
 import { canSeeBastion } from "./siProxy.js";
 import SiAgentEventsBanner from "./SiAgentEventsBanner.jsx";
 import SupervisionSiView from "./SupervisionSiView.jsx";
@@ -935,6 +937,12 @@ export default function App() {
   // (livraison #173) -- même mécanique, juste généralisée aux trois
   // nouveaux menus plutôt que dupliquée quatre fois.
   const [openNavMenu, setOpenNavMenu] = useState(null);
+  // #457 : accueil par thématiques (super-tuiles). `themeEntry` = outil
+  // ouvert dans la thématique courante ; `homeMode` = "themes" (défaut) ou
+  // "tiles" (toutes les tuiles, avec la personnalisation d'origine).
+  const [themeEntry, setThemeEntry] = useState(null);
+  const [homeMode, setHomeMode] = useState(() => { try { return normalizeHomeMode(localStorage.getItem("hub.home.mode")); } catch { return "themes"; } });
+  useEffect(() => { try { localStorage.setItem("hub.home.mode", homeMode); } catch { /* ignoré */ } }, [homeMode]);
   // Personnalisation de l'accueil, étape 1 (livraison #132).
   const [showFooterNote, setShowFooterNote] = useState(() => loadStoredFooterNoteVisible());
   useEffect(() => {
@@ -1307,6 +1315,23 @@ export default function App() {
   // l'écran de personnalisation (étape 3, pas encore livrée) n'existe
   // pas pour en créer un.
   const { ungrouped: ungroupedFronts, groups: frontGroups } = applyHubLayout(fronts, hubLayout);
+  // #457 : ce qui est disponible pour CETTE personne / ce déploiement --
+  // mêmes conditions que les tuiles et menus d'origine.
+  const availableViews = new Set([
+    fronts.some((f) => f.id === "supervision") && "supervision-si",
+    SI_AGENT_API_BASE_URL && "si-agent", NETPROBE_API_BASE_URL && "netprobe", UPS_API_BASE_URL && "ups", SNMP_API_BASE_URL && "snmp",
+    VIGILANCE_API_BASE_URL && "vigilance", "cyber", "logs", "history", MEMORY_API_BASE_URL && "memory",
+    NETWORK_AGENT_API_BASE_URL && "network-agent", "network-cycle", NETMAP_ORCHESTRATOR_API_BASE_URL && "netmap-orchestrator",
+    ARCHITECTURE_API_BASE_URL && "architecture", (EXTERNAL_BASES.ipam || EXTERNAL_BASES.zenoss) && "fusion", NEBULA_API_BASE_URL && "nebula",
+    SSH_TUNNELS_API_BASE_URL && "ssh-tunnels", HAS_EXTERNAL_BASES && "external-bases", GLPI_API_BASE_URL && "glpi-inventory",
+    GEO_CATALOG_API_BASE_URL && "geo-catalog", CLASSIFIER_API_BASE_URL && "classifier", SCHEMA_ANALYZER_API_BASE_URL && "schema-analyzer",
+    RETRO_API_BASE_URL && "retro", (TICKETS_API_BASE_URL || TASKS_API_BASE_URL) && "ent", GED_API_BASE_URL && "ged",
+    FILE_MANAGER_API_BASE_URL && "file-manager", IMAP_CLIENT_API_BASE_URL && "imap", bastionAllowed && "si-proxy",
+    RIGHTS_API_BASE_URL && groups.includes("admin_hub") && "rights", BACKUP_RESTORE_API_BASE_URL && "backup-restore",
+  ].filter(Boolean));
+  const { themes: visibleThemes, leftover: leftoverFronts } = buildThemes({ available: availableViews, fronts });
+  const currentTheme = isThemeViewMode(viewMode) ? findTheme(visibleThemes, themeIdOf(viewMode)) : null;
+  const openInTheme = (themeId, view) => { setThemeEntry(view); setViewMode(themeViewMode(themeId)); setOpenNavMenu(null); };
 
   // Horloge permanente -- calcul dérivé de browserNow/serverTimeInfo
   // ci-dessus, à chaque rendu (pas besoin d'un state séparé, c'est une
@@ -1353,355 +1378,105 @@ export default function App() {
     );
   }
 
-  return (
-    <div className="hub-shell">
-      <ReminderWidget
-        login={profile.preferred_username}
-        groups={groups}
-        prefsApiBase={PREFS_API_BASE_URL}
-        ticketsApiBase={TICKETS_API_BASE_URL}
-        ticketsPortalUrl={PORTAL_URL}
-      />
-      <header className="hub-header">
-        <h1>Hub SI</h1>
-        <nav className="hub-nav">
-          <button
-            type="button"
-            className={viewMode === "aide" ? "active" : ""}
-            onClick={() => setViewMode((v) => (v === "aide" ? "grid" : "aide"))}
-          >
-            Aide
-          </button>
-          <button
-            type="button"
-            className={viewMode === "tabs" ? "active" : ""}
-            onClick={() => setViewMode((v) => (v === "tabs" ? "grid" : "tabs"))}
-          >
-            Onglets
-          </button>
-
-          {/* Réorganisation de l'en-tête (livraison #236) demandée
-              explicitement -- "trop d'outils maintenant" : deux
-              boutons permanents (Aide, Onglets) ci-dessus, tout le
-              reste regroupé par catégorie sous ces trois menus. Un
-              choix sous un menu FERME ce menu (setOpenNavMenu(null))
-              et navigue -- jamais les deux actions séparées. */}
-          <div className="hub-nav-dropdown">
-            <button
-              type="button"
-              className={
-                openNavMenu === "general" || ["logs", "cyber", "vigilance", "history", "imap", "backup-restore", "memory", "external-bases", "geo-catalog"].includes(viewMode)
-                  ? "active"
-                  : ""
-              }
-              onClick={() => setOpenNavMenu((v) => (v === "general" ? null : "general"))}
-            >
-              Général ▾
-            </button>
-            {openNavMenu === "general" && (
-              <div className="hub-nav-dropdown-panel">
-                <button type="button" onClick={() => { setViewMode((v) => (v === "logs" ? "grid" : "logs")); setOpenNavMenu(null); }}>
-                  Logs
-                </button>
-                <button type="button" onClick={() => { setViewMode((v) => (v === "cyber" ? "grid" : "cyber")); setOpenNavMenu(null); }}>
-                  Cyber
-                </button>
-                <button type="button" onClick={() => { setViewMode((v) => (v === "vigilance" ? "grid" : "vigilance")); setOpenNavMenu(null); }}>
-                  Vigilance
-                </button>
-                <button type="button" onClick={() => { setViewMode((v) => (v === "history" ? "grid" : "history")); setOpenNavMenu(null); }}>
-                  Historique
-                </button>
-                {/* Client IMAP -- pas mentionné explicitement dans les
-                    trois catégories demandées (Général/Réseau/Data),
-                    placé ici par défaut (ni réseau bas niveau, ni
-                    analyse de données) -- à corriger si une autre
-                    catégorie convient mieux. */}
-                <button type="button" onClick={() => { setViewMode((v) => (v === "imap" ? "grid" : "imap")); setOpenNavMenu(null); }}>
-                  Client IMAP
-                </button>
-                <button type="button" onClick={() => { setViewMode((v) => (v === "backup-restore" ? "grid" : "backup-restore")); setOpenNavMenu(null); }}>
-                  Sauvegardes
-                </button>
-                <button type="button" onClick={() => { setViewMode((v) => (v === "memory" ? "grid" : "memory")); setOpenNavMenu(null); }}>
-                  Mémoire
-                </button>
-                {HAS_EXTERNAL_BASES && (
-                  <button type="button" onClick={() => { setViewMode((v) => (v === "external-bases" ? "grid" : "external-bases")); setOpenNavMenu(null); }}>
-                    Bases externes
-                  </button>
-                )}
-                {GEO_CATALOG_API_BASE_URL && (
-                  <button type="button" onClick={() => { setViewMode((v) => (v === "geo-catalog" ? "grid" : "geo-catalog")); setOpenNavMenu(null); }}>
-                    Catalogue de positions
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="hub-nav-dropdown">
-            <button
-              type="button"
-              className={
-                openNavMenu === "reseau" || ["ssh-tunnels", "snmp", "nebula", "glpi-inventory", "architecture", "netmap-orchestrator", "network-cycle", "network-agent", "netprobe", "ups", "fusion"].includes(viewMode)
-                  ? "active"
-                  : ""
-              }
-              onClick={() => setOpenNavMenu((v) => (v === "reseau" ? null : "reseau"))}
-            >
-              Réseau ▾
-            </button>
-            {openNavMenu === "reseau" && (
-              <div className="hub-nav-dropdown-panel">
-                <button type="button" onClick={() => { setViewMode((v) => (v === "network-cycle" ? "grid" : "network-cycle")); setOpenNavMenu(null); }}>
-                  Cycle agile réseau
-                </button>
-                {/* Exploration réseau (#265) et Sondes réseau (#295) n'existaient
-                    QUE comme tuiles d'accueil, alors que tout le reste de
-                    l'écosystème réseau vit dans ce menu -- deux chemins d'accès
-                    vers le MÊME viewMode, jamais une vue dupliquée. Contrairement
-                    aux sept autres entrées de ce menu, celles-ci sont
-                    CONDITIONNÉES à leur variable d'API : NetworkAgentView et
-                    NetprobeView appellent leur API dès le montage sans garde-fou
-                    sur une base absente (vérifié) -- une entrée non conditionnée
-                    mènerait à un écran d'erreur réseau, pas à un "non configuré".
-                    Même garde que les tuiles correspondantes plus haut. */}
-                {NETWORK_AGENT_API_BASE_URL && (
-                  <button type="button" onClick={() => { setViewMode((v) => (v === "network-agent" ? "grid" : "network-agent")); setOpenNavMenu(null); }}>
-                    Exploration réseau
-                  </button>
-                )}
-                {NETPROBE_API_BASE_URL && (
-                  <button type="button" onClick={() => { setViewMode((v) => (v === "netprobe" ? "grid" : "netprobe")); setOpenNavMenu(null); }}>
-                    Sondes réseau
-                  </button>
-                )}
-                {(EXTERNAL_BASES.ipam || EXTERNAL_BASES.zenoss) && (
-                  <button type="button" onClick={() => { setViewMode((v) => (v === "fusion" ? "grid" : "fusion")); setOpenNavMenu(null); }}>
-                    Fusion IP/MAC
-                  </button>
-                )}
-                {UPS_API_BASE_URL && (
-                  <button type="button" onClick={() => { setViewMode((v) => (v === "ups" ? "grid" : "ups")); setOpenNavMenu(null); }}>
-                    Onduleurs (UPS)
-                  </button>
-                )}
-                {SI_AGENT_API_BASE_URL && (
-                  <button type="button" onClick={() => { setViewMode((v) => (v === "si-agent" ? "grid" : "si-agent")); setOpenNavMenu(null); }}>
-                    Agents hôtes
-                  </button>
-                )}
-                <button type="button" onClick={() => { setViewMode((v) => (v === "ssh-tunnels" ? "grid" : "ssh-tunnels")); setOpenNavMenu(null); }}>
-                  Tunnels SSH
-                </button>
-                <button type="button" onClick={() => { setViewMode((v) => (v === "snmp" ? "grid" : "snmp")); setOpenNavMenu(null); }}>
-                  SNMP
-                </button>
-                <button type="button" onClick={() => { setViewMode((v) => (v === "netmap-orchestrator" ? "grid" : "netmap-orchestrator")); setOpenNavMenu(null); }}>
-                  Orchestrateur réseau
-                </button>
-                <button type="button" onClick={() => { setViewMode((v) => (v === "nebula" ? "grid" : "nebula")); setOpenNavMenu(null); }}>
-                  Nebula
-                </button>
-                <button type="button" onClick={() => { setViewMode((v) => (v === "glpi-inventory" ? "grid" : "glpi-inventory")); setOpenNavMenu(null); }}>
-                  GLPI Inventory
-                </button>
-                <button type="button" onClick={() => { setViewMode((v) => (v === "architecture" ? "grid" : "architecture")); setOpenNavMenu(null); }}>
-                  Architecture réseau
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="hub-nav-dropdown">
-            <button
-              type="button"
-              className={openNavMenu === "data" || ["schema-analyzer", "retro", "classifier"].includes(viewMode) ? "active" : ""}
-              onClick={() => setOpenNavMenu((v) => (v === "data" ? null : "data"))}
-            >
-              Data ▾
-            </button>
-            {openNavMenu === "data" && (
-              <div className="hub-nav-dropdown-panel">
-                <button type="button" onClick={() => { setViewMode((v) => (v === "schema-analyzer" ? "grid" : "schema-analyzer")); setOpenNavMenu(null); }}>
-                  Analyse de schémas
-                </button>
-                <button type="button" onClick={() => { setViewMode((v) => (v === "retro" ? "grid" : "retro")); setOpenNavMenu(null); }}>
-                  Rétro-ingénierie
-                </button>
-                <button type="button" onClick={() => { setViewMode((v) => (v === "classifier" ? "grid" : "classifier")); setOpenNavMenu(null); }}>
-                  Classification
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Regroupement "Paramètres" (livraison #173) -- hiérarchie
-              d'inclusion demandée explicitement : liens externes,
-              personnalisation de l'accueil et diagnostic technique
-              vivent SOUS ce menu, jamais des icônes séparées au même
-              rang que le reste. Le déclencheur lui-même ne navigue
-              JAMAIS directement -- ouvre seulement le sous-menu, un
-              choix explicite en dessous navigue. */}
-          <div className="hub-nav-dropdown">
-            <button
-              type="button"
-              className={
-                openNavMenu === "settings" || ["settings", "personalize", "external-links"].includes(viewMode)
-                  ? "active"
-                  : ""
-              }
-              onClick={() => setOpenNavMenu((v) => (v === "settings" ? null : "settings"))}
-            >
-              Paramètres ▾
-            </button>
-            {openNavMenu === "settings" && (
-              <div className="hub-nav-dropdown-panel">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setViewMode((v) => (v === "settings" ? "grid" : "settings"));
-                    setOpenNavMenu(null);
-                  }}
-                >
-                  Paramètres généraux
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setViewMode((v) => (v === "personalize" ? "grid" : "personalize"));
-                    setOpenNavMenu(null);
-                  }}
-                >
-                  Personnaliser l'accueil
-                </button>
-                {isAdmin(groups) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setViewMode((v) => (v === "external-links" ? "grid" : "external-links"));
-                      setOpenNavMenu(null);
-                    }}
-                  >
-                    Liens externes
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowDebug((v) => !v);
-                    setOpenNavMenu(null);
-                  }}
-                >
-                  Diagnostic (jeton Keycloak)
-                </button>
-              </div>
-            )}
-          </div>
-        </nav>
-        <div className="hub-user">
-          <span>👤 {displayName}</span>
-          {roles.length > 0 && <span className="muted">({roles.join(", ")})</span>}
-          <button onClick={toggleTheme} title={theme === "dark" ? "Passer au thème clair" : "Passer au thème sombre"}>
-            {theme === "dark" ? "☀️" : "🌙"}
-          </button>
-          <button onClick={() => auth.signoutRedirect()}>Se déconnecter</button>
-        </div>
-      </header>
-
-      {viewMode === "settings" ? (
+  // #457 : « Retour » d'un outil ouvert dans une thématique revient à la
+  // vue d'ensemble de la thématique, sinon à l'accueil.
+  const goBack = () => { if (isThemeViewMode(viewMode)) setThemeEntry(null); else setViewMode("grid"); };
+  // Chaîne de routage (inchangée) devenue une fonction : ThemeView la
+  // réutilise pour rendre l'outil choisi -- jamais deux routages.
+  function renderRoute(vm) {
+    return (
+vm === "settings" ? (
         <SettingsView
           groups={groups}
           login={profile.preferred_username}
           apiBase={PREFS_API_BASE_URL}
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
         />
-      ) : viewMode === "history" ? (
-        <HistoryView apiBase={PREFS_API_BASE_URL} onBack={() => setViewMode("grid")} />
-      ) : viewMode === "aide" ? (
-        <AideView apiBase={PREFS_API_BASE_URL} onBack={() => setViewMode("grid")} />
-      ) : viewMode === "tabs" ? (
-        <TabShell fronts={fronts} onBack={() => setViewMode("grid")} login={profile.preferred_username} prefsApiBase={PREFS_API_BASE_URL} />
-      ) : viewMode === "logs" ? (
-        <LogsManagerView onBack={() => setViewMode("grid")} prefsApiBase={PREFS_API_BASE_URL} />
-      ) : viewMode === "schema-analyzer" ? (
+      ) : vm === "history" ? (
+        <HistoryView apiBase={PREFS_API_BASE_URL} onBack={goBack} />
+      ) : vm === "aide" ? (
+        <AideView apiBase={PREFS_API_BASE_URL} onBack={goBack} />
+      ) : vm === "tabs" ? (
+        <TabShell fronts={fronts} onBack={goBack} login={profile.preferred_username} prefsApiBase={PREFS_API_BASE_URL} />
+      ) : vm === "logs" ? (
+        <LogsManagerView onBack={goBack} prefsApiBase={PREFS_API_BASE_URL} />
+      ) : vm === "schema-analyzer" ? (
         <SchemaAnalyzerView
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
           dbaApiBase={DBA_API_BASE_URL}
           schemaApiBase={SCHEMA_ANALYZER_API_BASE_URL}
           login={profile.preferred_username}
         />
-      ) : viewMode === "retro" ? (
+      ) : vm === "retro" ? (
         <RetroView
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
           retroApiBase={RETRO_API_BASE_URL}
           dbaApiBase={DBA_API_BASE_URL}
           schemaApiBase={SCHEMA_ANALYZER_API_BASE_URL}
         />
-      ) : viewMode === "backup-restore" ? (
-        <BackupRestoreView onBack={() => setViewMode("grid")} backupRestoreApiBase={BACKUP_RESTORE_API_BASE_URL} />
-      ) : viewMode === "architecture" ? (
-        <ArchitectureView onBack={() => setViewMode("grid")} architectureApiBase={ARCHITECTURE_API_BASE_URL} />
-      ) : viewMode === "memory" ? (
-        <MemoryView onBack={() => setViewMode("grid")} memoryApiBase={MEMORY_API_BASE_URL} />
-      ) : viewMode === "classifier" ? (
-        <ClassifierView onBack={() => setViewMode("grid")} classifierApiBase={CLASSIFIER_API_BASE_URL} />
-      ) : viewMode === "vigilance" ? (
-        <VigilanceView onBack={() => setViewMode("grid")} vigilanceApiBase={VIGILANCE_API_BASE_URL} />
-      ) : viewMode === "ged" ? (
+      ) : vm === "backup-restore" ? (
+        <BackupRestoreView onBack={goBack} backupRestoreApiBase={BACKUP_RESTORE_API_BASE_URL} />
+      ) : vm === "architecture" ? (
+        <ArchitectureView onBack={goBack} architectureApiBase={ARCHITECTURE_API_BASE_URL} />
+      ) : vm === "memory" ? (
+        <MemoryView onBack={goBack} memoryApiBase={MEMORY_API_BASE_URL} />
+      ) : vm === "classifier" ? (
+        <ClassifierView onBack={goBack} classifierApiBase={CLASSIFIER_API_BASE_URL} />
+      ) : vm === "vigilance" ? (
+        <VigilanceView onBack={goBack} vigilanceApiBase={VIGILANCE_API_BASE_URL} />
+      ) : vm === "ged" ? (
         <GedView
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
           gedApiBase={GED_API_BASE_URL}
           login={profile.preferred_username}
           ticketsPortalUrl={PORTAL_URL}
           ownCloudApiBase={OWNCLOUD_API_BASE_URL}
           ownCloudSearchApiBase={OWNCLOUD_SEARCH_API_BASE_URL}
         />
-      ) : viewMode === "ssh-tunnels" ? (
+      ) : vm === "ssh-tunnels" ? (
         <SshTunnelsView
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
           sshTunnelsApiBase={SSH_TUNNELS_API_BASE_URL}
           login={profile.preferred_username}
         />
-      ) : viewMode === "snmp" ? (
+      ) : vm === "snmp" ? (
         <SnmpView
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
           snmpApiBase={SNMP_API_BASE_URL}
           glpiApiBase={GLPI_API_BASE_URL}
           login={profile.preferred_username}
         />
-      ) : viewMode === "netmap-orchestrator" ? (
+      ) : vm === "netmap-orchestrator" ? (
         <NetmapOrchestratorView
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
           netmapOrchestratorApiBase={NETMAP_ORCHESTRATOR_API_BASE_URL}
         />
-      ) : viewMode === "nebula" ? (
+      ) : vm === "nebula" ? (
         <NebulaView
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
           nebulaApiBase={NEBULA_API_BASE_URL}
           glpiApiBase={GLPI_API_BASE_URL}
         />
-      ) : viewMode === "imap" ? (
+      ) : vm === "imap" ? (
         <ImapView
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
           imapApiBase={IMAP_CLIENT_API_BASE_URL}
         />
-      ) : viewMode === "glpi-inventory" ? (
+      ) : vm === "glpi-inventory" ? (
         <GlpiInventoryView
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
           glpiApiBase={GLPI_API_BASE_URL}
           networkAgentApiBase={NETWORK_AGENT_API_BASE_URL}
         />
-      ) : viewMode === "network-agent" ? (
+      ) : vm === "network-agent" ? (
         <NetworkAgentView
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
           networkAgentApiBase={NETWORK_AGENT_API_BASE_URL}
           classifierApiBase={CLASSIFIER_API_BASE_URL}
         />
-      ) : viewMode === "network-cycle" ? (
+      ) : vm === "network-cycle" ? (
         <NetworkCycleView
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
           netmapOrchestratorApiBase={NETMAP_ORCHESTRATOR_API_BASE_URL}
           networkAgentApiBase={NETWORK_AGENT_API_BASE_URL}
           netprobeApiBase={NETPROBE_API_BASE_URL}
@@ -1711,9 +1486,9 @@ export default function App() {
           backupRestoreApiBase={BACKUP_RESTORE_API_BASE_URL}
           onNavigate={(target) => setViewMode(target)}
         />
-      ) : viewMode === "ent" ? (
+      ) : vm === "ent" ? (
         <EntView
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
           ticketsApiBase={TICKETS_API_BASE_URL}
           tasksApiBase={TASKS_API_BASE_URL}
           portalUrl={PORTAL_URL}
@@ -1723,38 +1498,38 @@ export default function App() {
           ownCloudApiBase={OWNCLOUD_API_BASE_URL}
           ownCloudSearchApiBase={OWNCLOUD_SEARCH_API_BASE_URL}
         />
-      ) : viewMode === "rights" ? (
+      ) : vm === "rights" ? (
         <RightsView
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
           rightsApiBase={RIGHTS_API_BASE_URL}
           groups={groups}
         />
-      ) : viewMode === "file-manager" ? (
+      ) : vm === "file-manager" ? (
         <FileManagerView
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
           fileManagerApiBase={FILE_MANAGER_API_BASE_URL}
           login={profile.preferred_username}
           groups={groups}
         />
-      ) : viewMode === "netprobe" ? (
+      ) : vm === "netprobe" ? (
         <NetprobeView
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
           netprobeApiBase={NETPROBE_API_BASE_URL}
         />
-      ) : viewMode === "ups" ? (
+      ) : vm === "ups" ? (
         <UpsView
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
           upsApiBase={UPS_API_BASE_URL}
         />
-      ) : viewMode === "fusion" ? (
-        <FusionView onBack={() => setViewMode("grid")} ipamApiBase={EXTERNAL_BASES.ipam} zenossApiBase={EXTERNAL_BASES.zenoss} pixelGridApiBase={PIXEL_GRID_API_BASE_URL} groups={groups} onNavigate={(t) => setViewMode(t)} />
-      ) : viewMode === "geo-catalog" ? (
-        <GeoCatalogView onBack={() => setViewMode("grid")} geoCatalogApiBase={GEO_CATALOG_API_BASE_URL} groups={groups} onNavigate={(t) => setViewMode(t)} />
-      ) : viewMode === "external-bases" ? (
-        <ExternalBasesView onBack={() => setViewMode("grid")} bases={EXTERNAL_BASES} legacyFrontendUrl={FRONTEND_URL} />
-      ) : viewMode === "supervision-si" ? (
+      ) : vm === "fusion" ? (
+        <FusionView onBack={goBack} ipamApiBase={EXTERNAL_BASES.ipam} zenossApiBase={EXTERNAL_BASES.zenoss} pixelGridApiBase={PIXEL_GRID_API_BASE_URL} groups={groups} onNavigate={(t) => setViewMode(t)} />
+      ) : vm === "geo-catalog" ? (
+        <GeoCatalogView onBack={goBack} geoCatalogApiBase={GEO_CATALOG_API_BASE_URL} groups={groups} onNavigate={(t) => setViewMode(t)} />
+      ) : vm === "external-bases" ? (
+        <ExternalBasesView onBack={goBack} bases={EXTERNAL_BASES} legacyFrontendUrl={FRONTEND_URL} />
+      ) : vm === "supervision-si" ? (
         <SupervisionSiView
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
           onNavigate={(target) => setViewMode(target)}
           legacyFrontendUrl={FRONTEND_URL}
           netprobeApiBase={NETPROBE_API_BASE_URL}
@@ -1770,14 +1545,14 @@ export default function App() {
           pixelGridApiBase={PIXEL_GRID_API_BASE_URL}
           groups={groups}
         />
-      ) : viewMode === "si-agent" ? (
+      ) : vm === "si-agent" ? (
         <SiAgentView
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
           siAgentApiBase={SI_AGENT_API_BASE_URL}
         />
-      ) : viewMode === "si-proxy" && bastionAllowed ? (
+      ) : vm === "si-proxy" && bastionAllowed ? (
         <BastionView
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
           onNavigate={(target) => setViewMode(target)}
           siProxyApiBase={SI_PROXY_API_BASE_URL}
           accessToken={auth.user?.access_token}
@@ -1787,28 +1562,28 @@ export default function App() {
             prefs: PREFS_API_BASE_URL, fileManager: FILE_MANAGER_API_BASE_URL, ged: GED_API_BASE_URL, nebula: NEBULA_API_BASE_URL, glpi: GLPI_API_BASE_URL,
             imap: IMAP_CLIENT_API_BASE_URL, backupRestore: BACKUP_RESTORE_API_BASE_URL, owncloud: OWNCLOUD_API_BASE_URL, pixelGrid: PIXEL_GRID_API_BASE_URL }}
         />
-      ) : viewMode === "cyber" ? (
+      ) : vm === "cyber" ? (
         <CyberView
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
           prefsApiBase={PREFS_API_BASE_URL}
           login={profile.preferred_username}
         />
-      ) : viewMode === "personalize" ? (
+      ) : vm === "personalize" ? (
         <PersonalizeHomeView
           fronts={fronts}
           hubLayout={hubLayout}
           onHubLayoutChanged={setHubLayout}
           apiBase={PREFS_API_BASE_URL}
           login={profile.preferred_username}
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
         />
-      ) : viewMode === "external-links" ? (
+      ) : vm === "external-links" ? (
         <ExternalLinksAdminView
           apiBase={PREFS_API_BASE_URL}
           login={profile.preferred_username}
           links={externalLinks}
           onLinksChanged={loadExternalLinks}
-          onBack={() => setViewMode("grid")}
+          onBack={goBack}
         />
       ) : (
       <>
@@ -1853,17 +1628,41 @@ export default function App() {
                 VITE_TICKETS_PORTAL_URL côté déploiement.
               </p>
             )}
-            <div className="hub-grid">
-              {ungroupedFronts.map(renderFrontTile)}
-            </div>
-            {frontGroups.map((g) => (
-              <div key={g.id} className="hub-frame">
-                <h3 className="hub-frame-title">{g.title}</h3>
-                <div className="hub-grid">
-                  {g.tiles.map(renderFrontTile)}
+            {homeMode === "themes" ? (
+              <>
+                {/* #457 : cinq super-tuiles thématiques (hubThemes.js) ;
+                    les liens externes déclarés par les administrateurs
+                    restent des tuiles à part, en dessous. */}
+                <div className="hub-grid hub-grid-themes">
+                  {visibleThemes.map((t) => (
+                    <button key={t.id} type="button" className="hub-card hub-front-card hub-front-tile-button hub-theme-tile" onClick={() => { setThemeEntry(null); setViewMode(themeViewMode(t.id)); }}>
+                      <h2>{t.icon} {t.name}</h2>
+                      <p className="muted" title={t.labels.join(" · ")}>{t.count} outil{t.count > 1 ? "s" : ""} — {t.labels.join(" · ")}</p>
+                    </button>
+                  ))}
                 </div>
-              </div>
-            ))}
+                {leftoverFronts.length > 0 && (
+                  <div className="hub-frame">
+                    <h3 className="hub-frame-title">Liens externes</h3>
+                    <div className="hub-grid">{leftoverFronts.map(renderFrontTile)}</div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="hub-grid">
+                  {ungroupedFronts.map(renderFrontTile)}
+                </div>
+                {frontGroups.map((g) => (
+                  <div key={g.id} className="hub-frame">
+                    <h3 className="hub-frame-title">{g.title}</h3>
+                    <div className="hub-grid">
+                      {g.tiles.map(renderFrontTile)}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
           </main>
         </div>
 
@@ -1895,7 +1694,147 @@ export default function App() {
         </footer>
       </div>
       </>
-      )}
+      )
+    );
+  }
+
+  return (
+    <div className="hub-shell">
+      <ReminderWidget
+        login={profile.preferred_username}
+        groups={groups}
+        prefsApiBase={PREFS_API_BASE_URL}
+        ticketsApiBase={TICKETS_API_BASE_URL}
+        ticketsPortalUrl={PORTAL_URL}
+      />
+      <header className="hub-header">
+        <h1>Hub SI</h1>
+        <nav className="hub-nav">
+          <button
+            type="button"
+            className={viewMode === "aide" ? "active" : ""}
+            onClick={() => setViewMode((v) => (v === "aide" ? "grid" : "aide"))}
+          >
+            Aide
+          </button>
+          <button
+            type="button"
+            className={viewMode === "tabs" ? "active" : ""}
+            onClick={() => setViewMode((v) => (v === "tabs" ? "grid" : "tabs"))}
+          >
+            Onglets
+          </button>
+
+          {/* #457 : les menus Général / Réseau / Data (livraison #236) sont
+              remplacés par UNE entrée par thématique (hubThemes.js, même
+              source que les tuiles de l'accueil) : un choix ouvre l'outil
+              DANS sa thématique (onglets) et ferme le menu. */}
+          {visibleThemes.map((t) => (
+            <div key={t.id} className="hub-nav-dropdown">
+              <button
+                type="button"
+                className={openNavMenu === t.id || themeIdOf(viewMode) === t.id || themeOfView(visibleThemes, viewMode) === t.id ? "active" : ""}
+                onClick={() => setOpenNavMenu((v) => (v === t.id ? null : t.id))}
+              >
+                {t.name} ▾
+              </button>
+              {openNavMenu === t.id && (
+                <div className="hub-nav-dropdown-panel">
+                  {t.entries.map((e) => (
+                    <button key={e.id} type="button" onClick={() => {
+                      if (e.kind === "view") openInTheme(t.id, e.view);
+                      else if (e.onClick) { e.onClick(); setOpenNavMenu(null); }
+                      else { window.open(e.url, "_blank", "noopener"); setOpenNavMenu(null); }
+                    }}>
+                      {e.label}{e.kind === "link" ? " ↗" : ""}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+          <div className="hub-nav-dropdown">
+            <button
+              type="button"
+              className={
+                openNavMenu === "settings" || ["settings", "personalize", "external-links"].includes(viewMode)
+                  ? "active"
+                  : ""
+              }
+              onClick={() => setOpenNavMenu((v) => (v === "settings" ? null : "settings"))}
+            >
+              Paramètres ▾
+            </button>
+            {openNavMenu === "settings" && (
+              <div className="hub-nav-dropdown-panel">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewMode((v) => (v === "settings" ? "grid" : "settings"));
+                    setOpenNavMenu(null);
+                  }}
+                >
+                  Paramètres généraux
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewMode((v) => (v === "personalize" ? "grid" : "personalize"));
+                    setOpenNavMenu(null);
+                  }}
+                >
+                  Personnaliser l'accueil
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setHomeMode((m) => (m === "themes" ? "tiles" : "themes")); setOpenNavMenu(null); }}
+                  title="#457 : accueil par thématiques (cinq super-tuiles) ou toutes les tuiles (personnalisation d'origine)"
+                >
+                  Accueil : {HOME_MODES[homeMode]} → {HOME_MODES[homeMode === "themes" ? "tiles" : "themes"]}
+                </button>
+                {isAdmin(groups) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setViewMode((v) => (v === "external-links" ? "grid" : "external-links"));
+                      setOpenNavMenu(null);
+                    }}
+                  >
+                    Liens externes
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDebug((v) => !v);
+                    setOpenNavMenu(null);
+                  }}
+                >
+                  Diagnostic (jeton Keycloak)
+                </button>
+              </div>
+            )}
+          </div>
+        </nav>
+        <div className="hub-user">
+          <span>👤 {displayName}</span>
+          {roles.length > 0 && <span className="muted">({roles.join(", ")})</span>}
+          <button onClick={toggleTheme} title={theme === "dark" ? "Passer au thème clair" : "Passer au thème sombre"}>
+            {theme === "dark" ? "☀️" : "🌙"}
+          </button>
+          <button onClick={() => auth.signoutRedirect()}>Se déconnecter</button>
+        </div>
+      </header>
+
+      {isThemeViewMode(viewMode) && currentTheme ? (
+        <ThemeView
+          theme={currentTheme}
+          entryId={themeEntry}
+          onSelect={setThemeEntry}
+          renderView={renderRoute}
+          onBack={() => { setThemeEntry(null); setViewMode("grid"); }}
+        />
+      ) : renderRoute(viewMode)}
       <div className="status-badges">
         <div
           className="clock-badge"

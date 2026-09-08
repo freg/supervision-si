@@ -2500,3 +2500,9 @@ portails hors passerelle (vault-admin, network-explorer, launcher,
 docker-monitor, netmap-orchestrator, ups, si-agent, geo-catalog...) à
 passer derrière tls-proxy ou à restreindre. Partages ownCloud (oc_share)
 non exploités ; coffre/annuaire/Keycloak restent des portails dédiés.
+
+## Accueil par thématiques (2026-09-08, #457)
+Cinq super-tuiles (hubThemes.js) remplacent la trentaine de tuiles et les
+menus Général/Réseau/Data ; ancien accueil conservé (Réglages). À suivre :
+retour réel derrière Keycloak, éventuel réglage de la composition des
+thématiques, retrait de l'ancien mode si inutile.

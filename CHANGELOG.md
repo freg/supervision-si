@@ -1,3 +1,31 @@
+## 2026-09-08 — Accueil du hub par thématiques : cinq super-tuiles au lieu d'une trentaine (livraison #457)
+
+Demandé : « revois toutes les tuiles pour fusionner ce qui peut l'être,
+il y a trop de tuiles et seulement quelques thématiques ». Passe sur
+l'ensemble des tuiles de l'accueil, des menus Général / Réseau / Data et
+des fronts externes : tout est regroupé en **cinq thématiques**
+(`hub/src/hubThemes.js`, source unique pour l'accueil et l'en-tête) —
+Supervision, Réseau, Données & référentiels, Documents & ENT, Sécurité &
+accès. Chaque thématique est une super-tuile (`ThemeView.jsx`) : vue
+d'ensemble en cartes, puis l'outil choisi rendu tel quel sous une barre
+d'onglets pour passer d'un outil à l'autre ; « Retour » revient à la
+thématique. Les fronts externes (portail tickets, coffre-fort, consoles
+Keycloak/OpenLDAP, DBA) sont des onglets ↗ (nouvel onglet, ou cadre si
+embarquable). Les vues ne changent pas : la chaîne de routage de
+`App.jsx` est devenue `renderRoute(vm)`, réutilisée par la thématique.
+Disponibilité inchangée (API configurée, droits) ; thématique vide
+omise ; liens externes des administrateurs en tuiles à part. Les trois
+menus de l'en-tête (#236) deviennent un menu par thématique. L'ancien
+accueil (toutes les tuiles + personnalisation #133) reste accessible :
+Réglages → « Accueil : par thématiques → toutes les tuiles ».
+
+**Vérifié** : 4 tests purs (`hub/tests/hubThemes.test.mjs`, 160 au
+total), build complet du hub (App.jsx) sans erreur, accueil thématique,
+vue d'ensemble d'une thématique et outil ouvert en onglet rendus sous
+Chromium (banc). **Non vérifié** : l'accueil réel derrière Keycloak sur
+« super » (ordre des menus, personnalisation existante en mode « toutes
+les tuiles »).
+
 ## 2026-09-08 — Bases et index liés à la boucle locale de la VM (livraison #456)
 
 Suite au constat de la console Bastion (#455) : les quatre PostgreSQL
