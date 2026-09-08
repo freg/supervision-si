@@ -1,3 +1,46 @@
+## 2026-09-08 — Cortex, étape 5 : politiques d'alerte, notifications par incident, silences, MTTA/MTTR (livraison #466)
+
+Dernière étape du découpage validé en #461. Aucun module d'origine
+modifié ; les canaux SMS / courriel sont ceux du PRA (`shared/secrets_alert.py`).
+
+- **Politiques d'alerte** (`cortex/api/policy.py`, table `policies`,
+  `/policies`, `PUT`, `DELETE`, `/policies/preview`) : liste ordonnée par
+  rôle de la cause, site, type, entités nommées, sévérité et confiance
+  minimales → priorité (haute / normale / basse), canaux, délai et canaux
+  d'escalade, notification de la résolution ; quatre politiques par
+  défaut (« un routeur de site vaut plus qu'un poste ») ; la raison de
+  chaque décision est affichée (`policy-role-place`, 0,9).
+- **Notifications par incident** (`notify.py`, table `notifications`,
+  `/notifications`, `POST /notify`) : une par incident et par moment —
+  ouverture, escalade sans accusé (une seule fois, `escalation` 0,9),
+  résolution si la politique le veut — jamais par événement
+  (`notify-per-incident` 1,0) ; SMS / courriel via `SECRETS_ALERT_*`,
+  webhook JSON `CORTEX_NOTIFY_WEBHOOK_URL` ; `CORTEX_NOTIFY=0` journalise
+  sans envoyer ; résultat par canal conservé.
+- **Silences de maintenance** (table `silences`, `/silences`) : nom, ticket,
+  plage, cible (sites / entités / rôles / tout) ; l'incident couvert reste
+  visible et compté, sa raison « silence » est tracée (`silence-maintenance` 0,9).
+- **Statistiques** (`/kpis?days=`) : MTTA / MTTR (moyenne, médiane, max)
+  par site, rôle, sévérité ; causes racines ; faux positifs par règle et
+  par principe ; couverture (sans supervision, sans position, sites) ;
+  semaine par semaine.
+- **Tuiles d'origine** : le détail d'un incident propose « ↗ tuile
+  si-agent / ups / … », la fiche d'intervention de la cause, acquitter,
+  clore ; il affiche politique appliquée, silence, notifications.
+- Onglet **Alertes & KPI** : statistiques, politiques (formulaire),
+  silences, journal des notifications, aperçu des décisions ; quatre
+  principes de plus (quarante) ; compose : `CORTEX_NOTIFY`,
+  `CORTEX_NOTIFY_WEBHOOK_URL`, `SECRETS_ALERT_*` sur `cortex-api` ;
+  Dockerfile copie `shared/secrets_alert.py`.
+
+**Vérifié** : 21 tests purs Python ; chaîne réelle avec webhook récepteur :
+5 incidents → 5 notifications (une chacune, haute pour les onduleurs),
+notification antidatée → une escalade et une seule, silence sur le site
+bureau (T-4512) → incident tu avec sa raison, politique modifiée par
+`PUT`, accusé → MTTA dans `/kpis` ; onglet Alertes & KPI et détail
+d'incident sous Chromium ; 172 tests Node. **Non vérifié** : SMS et
+courriel réels.
+
 ## 2026-09-08 — Cortex, étape 4 : causalité apprise, anticipation, signaux faibles (livraison #465)
 
 Suite du découpage validé en #461. Aucun module d'origine modifié.

@@ -35,7 +35,9 @@ import collectors
 import correlate
 import learn
 import normalize as nz
+import notify
 import places as pl
+import policy
 import principles as pr
 import store
 
@@ -64,6 +66,7 @@ WINDOW_S = int(os.environ.get("CORTEX_WINDOW_SECONDS", "300"))
 INTERVAL_S = int(os.environ.get("CORTEX_INTERVAL_SECONDS", "300"))
 RIGHTS_API_URL = os.environ.get("RIGHTS_API_URL", "").rstrip("/") or None
 collector = collectors.Collector(DB_PATH, URLS, window_s=WINDOW_S, horizon_h=int(os.environ.get("CORTEX_EVENT_HORIZON_HOURS", "24")))
+store.seed_policies(DB_PATH, policy.DEFAULT_POLICIES)
 _state = {"last_run": None, "running": False}
 
 
@@ -259,6 +262,15 @@ def incident(key):
     i["predictions"] = [p for p in store.list_predictions(DB_PATH, pending_only=True, limit=500) if p.get("trigger") in fps]
     for p in i["predictions"]:
         p.pop("roles", None)
+    # #466 : politique appliquée, notifications envoyées, silence en cours, tuiles d'origine
+    ents = {e["key"]: e for e in store.list_entities(DB_PATH, limit=100000)}
+    roles = collector.roles_map()
+    i["policy"] = policy.evaluate_policy(i, ents, roles, store.list_policies(DB_PATH))
+    import datetime as _dt
+    sil = policy.active_silence(store.list_silences(DB_PATH, active_only=True), i, ents, roles, _dt.datetime.now(_dt.timezone.utc))
+    i["silence"] = {"id": sil["id"], "name": sil.get("name"), "ticket": sil.get("ticket"), "end_at": sil.get("end_at")} if sil else None
+    i["notifications"] = store.list_notifications(DB_PATH, incident_key=key)
+    i["origins"] = policy.origin_views(i, {e["fingerprint"]: e for e in i["event_details"]})
     return jsonify(i), 200
 
 
@@ -445,6 +457,91 @@ def learn_route():
     if not ok:
         return jsonify({"error": why}), 403
     return jsonify(collector.learn()), 200
+
+
+# ---------------------------------------------------------------- politiques, silences, notifications, KPI (#466)
+@app.route("/policies", methods=["GET"])
+def policies_route():
+    return jsonify({"policies": store.list_policies(DB_PATH), "channels": notify.describe(), "priorities": list(policy.PRIORITIES), "channel_names": list(policy.CHANNELS)}), 200
+
+
+@app.route("/policies", methods=["PUT"])
+def policy_put():
+    body = request.get_json(silent=True) or {}
+    ok, why = _check_manage_right(body)
+    if not ok:
+        return jsonify({"error": why}), 403
+    p, err = policy.validate_policy(body.get("policy") or {})
+    if err:
+        return jsonify({"error": err}), 400
+    store.save_policy(DB_PATH, p, by=body.get("by"))
+    return jsonify({"ok": True, "policy": p}), 200
+
+
+@app.route("/policies/<path:pid>", methods=["DELETE"])
+def policy_delete(pid):
+    body = request.get_json(silent=True) or {}
+    ok, why = _check_manage_right(body)
+    if not ok:
+        return jsonify({"error": why}), 403
+    return (jsonify({"ok": True}), 200) if store.delete_policy(DB_PATH, unquote(pid)) else (jsonify({"error": "politique inconnue"}), 404)
+
+
+@app.route("/policies/preview", methods=["GET"])
+def policies_preview():
+    """Ce que les politiques décideraient maintenant (sans envoyer)."""
+    return jsonify(collector.notify(dry_run=True)), 200
+
+
+@app.route("/silences", methods=["GET"])
+def silences_route():
+    return jsonify({"silences": store.list_silences(DB_PATH), "now": store.now_iso()}), 200
+
+
+@app.route("/silences", methods=["POST"])
+def silence_add():
+    body = request.get_json(silent=True) or {}
+    ok, why = _check_manage_right(body)
+    if not ok:
+        return jsonify({"error": why}), 403
+    if not body.get("start_at") or not body.get("end_at") or body["end_at"] <= body["start_at"]:
+        return jsonify({"error": "start_at et end_at (ISO UTC, fin après début) requis"}), 400
+    target = {k: [str(x) for x in body.get(k) or []] for k in ("sites", "entities", "roles") if body.get(k)}
+    sid = store.add_silence(DB_PATH, body.get("name") or "maintenance", body["start_at"], body["end_at"], target=target, ticket=body.get("ticket"), by=body.get("by"))
+    return jsonify({"ok": True, "id": sid}), 201
+
+
+@app.route("/silences/<int:sid>", methods=["DELETE"])
+def silence_delete(sid):
+    body = request.get_json(silent=True) or {}
+    ok, why = _check_manage_right(body)
+    if not ok:
+        return jsonify({"error": why}), 403
+    return (jsonify({"ok": True}), 200) if store.delete_silence(DB_PATH, sid) else (jsonify({"error": "silence inconnu"}), 404)
+
+
+@app.route("/notifications", methods=["GET"])
+def notifications_route():
+    return jsonify({"notifications": store.list_notifications(DB_PATH, limit=request.args.get("limit", 100, type=int)), "channels": notify.describe()}), 200
+
+
+@app.route("/notify", methods=["POST"])
+def notify_now():
+    body = request.get_json(silent=True) or {}
+    ok, why = _check_manage_right(body)
+    if not ok:
+        return jsonify({"error": why}), 403
+    return jsonify(collector.notify()), 200
+
+
+@app.route("/kpis", methods=["GET"])
+def kpis_route():
+    days = request.args.get("days", 30, type=int)
+    ents = {e["key"]: e for e in store.list_entities(DB_PATH, limit=100000)}
+    k = policy.compute_kpis(store.list_incidents(DB_PATH, state="all", limit=5000), ents, collector.roles_map(), store.positions_map(DB_PATH),
+                            store.list_rules(DB_PATH), store.feedback_counts(DB_PATH), days=days)
+    k["notifications"] = {"total": len(store.list_notifications(DB_PATH, limit=5000))}
+    return jsonify(k), 200
 
 
 if __name__ == "__main__":  # pragma: no cover

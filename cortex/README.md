@@ -1,4 +1,4 @@
-# Cortex (livraisons #462 à #465) — décloisonne, corrèle, relie, consolide
+# Cortex (livraisons #462 à #466) — décloisonne, corrèle, relie, consolide
 
 Première étape du découpage de `docs/analyse-supervision-unifiee.md`
 (#461) : un modèle commun et une file d'incidents corrélés, **totalement
@@ -142,9 +142,49 @@ Collecte toutes les `CORTEX_INTERVAL_SECONDS` (300) et à la demande
   `cortex`** : même empreinte, même cycle de vie (fermée quand elle cesse),
   donc regroupable dans les incidents.
 
+### Étape 5 (#466) : politiques d'alerte, notifications par incident, silences, MTTA / MTTR
+
+- **politiques d'alerte** (`policy.py`, table `policies`, `/policies`,
+  `PUT /policies`, `DELETE /policies/<id>`) : liste ordonnée ; chaque
+  politique se choisit par rôle de la cause, site, type d'entité, entités
+  nommées, sévérité minimale et confiance minimale, et décide priorité
+  (haute / normale / basse), canaux (sms, email, webhook), délai
+  d'escalade et canaux d'escalade, notification de la résolution. Quatre
+  politiques par défaut installées une fois (infrastructure de site →
+  haute, SMS + courriel + webhook, escalade 15 min ; serveurs → normale,
+  courriel + webhook, escalade 1 h ; postes → basse, webhook, critique
+  seulement ; par défaut → critique). La raison de chaque décision est
+  affichée (principe `policy-role-place`) ; `/policies/preview` dit ce qui
+  partirait maintenant sans rien envoyer ;
+- **notifications par incident** (`notify.py`, table `notifications`,
+  `/notifications`, `POST /notify`) : une par incident et par moment —
+  ouverture, escalade (non acquitté après le délai, une seule fois,
+  principe `escalation`), résolution si la politique le veut — jamais par
+  événement (`notify-per-incident`) ; canaux SMS et courriel par la copie
+  de `shared/secrets_alert.py` (mêmes `SECRETS_ALERT_*` que le PRA,
+  si-agent et UPS), webhook `CORTEX_NOTIFY_WEBHOOK_URL` (JSON : texte,
+  moment, priorité, politique, incident avec hypothèses) ; `CORTEX_NOTIFY=0`
+  journalise sans envoyer ; le résultat par canal est conservé ;
+- **silences de maintenance** (table `silences`, `/silences`, `POST`,
+  `DELETE`) : nom, ticket, plage horaire, cible (sites, entités, rôles ou
+  tout) ; un incident couvert reste visible et compté mais n'est pas
+  notifié, la raison « silence « … » (ticket) » est tracée
+  (`silence-maintenance`) ;
+- **statistiques** (`/kpis?days=`) : MTTA (accusé) et MTTR (clôture) —
+  moyenne, médiane, max — par site, par rôle de la cause, par sévérité ;
+  incidents par cause racine ; taux de faux positifs par règle (annonces
+  jugées) et par principe (retours) ; couverture (entités sans
+  supervision, sans position, sites sans position) ; évolution semaine
+  par semaine (ouverts, critiques, clos) ;
+- **rattachement des tuiles d'origine** : le détail d'un incident propose
+  « ↗ tuile si-agent / ups / … » d'après ses sources, la fiche
+  d'intervention de la cause, acquitter, clore ; il affiche la politique
+  appliquée avec sa raison, le silence en cours et les notifications
+  envoyées.
+
 ## Principes (partis pris) — `cortex/api/principles.py`
 
-Trente-six principes nommés, chacun avec sa confiance de base, son énoncé
+Quarante principes nommés, chacun avec sa confiance de base, son énoncé
 et sa limite connue : identité (IP, MAC, nom), relations (passerelle,
 relais, port servi → rôle, même site, onduleur du site, sonde, borne d'un
 client WiFi, route déclarée), rôle (OUI du constructeur, classification du
@@ -152,8 +192,9 @@ nom, référentiel déclaré), position (les huit barreaux de l'échelle +
 héritage de lieu), causalité (amont d'abord, fenêtre + relation,
 regroupement par site, événement isolé, séquence apprise, règle
 confirmée, anticipation), signaux faibles (écart, tendance, habitude
-horaire), présentation (sévérité max, changement entre deux collectes,
-non supervisée). La confiance **mesurée** d'un principe
+horaire), alerte (politique par rôle et lieu, une notification par
+incident, escalade, silence), présentation (sévérité max, changement
+entre deux collectes, non supervisée). La confiance **mesurée** d'un principe
 intègre les retours « juste / fausse » donnés sur les hypothèses qui s'en
 réclament (lissage : la base vaut quatre retours). La confiance d'un
 incident est celle de son hypothèse causale — jamais un maximum flatteur.
@@ -172,13 +213,22 @@ incident est celle de son hypothèse causale — jamais un maximum flatteur.
 `/positions/queue`, `POST /positions/resolve`,
 `/entities/<clé>/intervention`, `/layers?only=` ; depuis #465 : `/rules`,
 `POST /rules/<id>/confirm|reject|reset`, `/predictions?pending=`,
-`/drifts`, `/samples?entity&metric`, `POST /learn`.
+`/drifts`, `/samples?entity&metric`, `POST /learn` ; depuis #466 :
+`/policies`, `PUT /policies`, `DELETE /policies/<id>`, `/policies/preview`,
+`/silences`, `POST /silences`, `DELETE /silences/<id>`, `/notifications`,
+`POST /notify`, `/kpis?days=`.
 
 ## Tuile
 
 Thématique Supervision, premier onglet : incidents (cause proposée,
-confiance en mots et en %, détail avec hypothèses votables, annonces en
-cours, entités, relations utilisées, événements), **Anticipation**
+confiance en mots et en %, détail avec politique appliquée et sa raison,
+notifications envoyées, silence, actions — tuiles d'origine, fiche
+d'intervention de la cause, acquitter, clore —, hypothèses votables,
+annonces en cours, entités, relations utilisées, événements), **Alertes &
+KPI** (statistiques MTTA / MTTR par site, rôle et sévérité, causes
+racines, semaine par semaine, couverture, faux positifs ; politiques
+d'alerte modifiables ; silences de maintenance ; journal des
+notifications ; aperçu des décisions), **Anticipation**
 (annonces avec échéance et issue, exactitude ; règles apprises avec
 confirmer / rejeter ; dérives en cours et séries suivies avec
 mini-courbe), **Architecture** (SVG : une colonne par
@@ -254,7 +304,26 @@ confirmation de la règle → confiance 48 % → 72 %, principe
 onglet Anticipation sous Chromium ; 171 tests Node. **Non vérifié** :
 apprentissage sur un vrai historique long, netprobe réel.
 
-## Suite (découpage #461)
+Étape 5 (#466) : 21 tests purs (les trois nouveaux : choix de politique
+par rôle / site / sévérité et validation ; plan de notifications —
+ouverture, canal indisponible filtré, pas de doublon, escalade une seule
+fois après le délai, rien si acquitté, « résolu » après clôture, silence
+avec ticket tracé puis expiré, silence par rôle non couvrant ; MTTA /
+MTTR par site, rôle, sévérité, causes racines, faux positifs, couverture,
+semaines, tuiles d'origine) ; chaîne réelle avec un webhook récepteur :
+5 incidents → 5 notifications d'ouverture (une chacune), priorité haute
+pour les onduleurs, normale pour les hôtes ; notification d'ouverture
+antidatée → une escalade « non acquitté 114 min après notification » et
+une seule ; silence sur le site bureau (ticket T-4512) → l'incident de
+l'onduleur du bureau est tu avec sa raison ; politique modifiée par
+`PUT` ; accusé d'un incident → MTTA 10,5 h dans `/kpis` ; onglet Alertes
+& KPI sous Chromium ; 172 tests Node. **Non vérifié** : SMS et courriel
+réels (module partagé déjà éprouvé par le PRA, si-agent et UPS).
 
-5. MTTA/MTTR, politiques d'alerte, notifications par incident. (Étapes 1
-à 4 livrées en #462, #463, #464, #465.)
+## Suite
+
+Les cinq étapes du découpage #461 sont livrées (#462 à #466). Reste, hors
+découpage : déploiement réel sur « super » et lecture des sources réelles
+(classifier, Nebula, IPAM, geo-catalog, netprobe), SMS / courriel réels,
+filtrage syslog à l'entrée (point de vigilance de l'analyse), et les
+tuiles d'origine gardées en onglets de la thématique Supervision.

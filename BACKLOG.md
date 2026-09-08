@@ -2529,5 +2529,7 @@ classifier / Nebula / IPAM, table de routes, graphe d'architecture, « ce qui
 a changé ») ; étape 3 livrée en #464 (hiérarchie de lieux, positions avec
 provenance et file de travail, fiche d'intervention, couches carto) ; étape 4
 livrée en #465 (règles apprises à confirmer, annonces jugées, dérives comme
-événements). Prochaine : étape 5 (MTTA/MTTR, politiques d'alerte,
-notifications par incident).
+événements) ; étape 5 livrée en #466 (politiques d'alerte par rôle et lieu, une
+notification par incident avec escalade et silences, MTTA/MTTR). Les cinq étapes
+du découpage sont livrées ; reste le déploiement réel sur « super » et les
+sources réelles (classifier, Nebula, IPAM, geo-catalog, netprobe, SMS/courriel).

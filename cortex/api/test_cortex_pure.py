@@ -10,6 +10,7 @@ import correlate as co  # noqa: E402
 import normalize as nz  # noqa: E402
 import learn  # noqa: E402
 import places as pl  # noqa: E402
+import policy as po  # noqa: E402
 import principles as pr  # noqa: E402
 
 
@@ -379,6 +380,88 @@ class TestStep4Learning(unittest.TestCase):
         self.assertEqual(sorted(x["metric"] for x in learn.samples_from_ups(ups, lambda d: "ip:10.0.0.250")), ["battery_capacity", "input_voltage", "output_load"])
         np_ = learn.samples_from_netprobe([{"id": 3, "ip_address": "10.0.0.1"}], [{"target_id": 3, "latency_ms": 11.2, "packet_loss_percent": 0, "sampled_at": "2026-09-08T13:57:00Z"}], lambda t: "ip:10.0.0.1")
         self.assertEqual(len(np_), 2)
+
+
+class TestStep5Policies(unittest.TestCase):
+    ENTS = {"ip:10.0.0.1": {"key": "ip:10.0.0.1", "name": "rtr-siege", "kind": "passerelle", "site": "siege", "origins": [{"source": "si-agent"}]},
+            "name:pc-12": {"key": "name:pc-12", "name": "pc-12", "kind": "hote", "site": "siege", "origins": [{"source": "network-agent"}]},
+            "name:srv-a": {"key": "name:srv-a", "name": "srv-a", "kind": "hote", "site": "agence", "origins": [{"source": "si-agent"}]}}
+    ROLES = {"ip:10.0.0.1": "passerelle", "name:pc-12": "poste", "name:srv-a": "hote-supervise"}
+    POL = [po.validate_policy(p)[0] for p in po.DEFAULT_POLICIES]
+
+    def test_policy_selection_and_validation(self):
+        inc = {"key": "i1", "severity": "warning", "root": "ip:10.0.0.1", "entities": ["ip:10.0.0.1", "name:pc-12"], "confidence": 0.8, "state": "open"}
+        ev = po.evaluate_policy(inc, self.ENTS, self.ROLES, self.POL)
+        self.assertEqual((ev["policy_id"], ev["priority"], ev["channels"]), ("infra-critique", "haute", ["sms", "email", "webhook"]))
+        self.assertIn("passerelle", ev["reason"]); self.assertEqual(ev["principle"], "policy-role-place")
+        # un poste en avertissement : sous le seuil de sa politique -> la politique par défaut exige critique -> pas de notification
+        inc2 = {"key": "i2", "severity": "warning", "root": "name:pc-12", "entities": ["name:pc-12"], "confidence": 0.9}
+        self.assertFalse(po.evaluate_policy(inc2, self.ENTS, self.ROLES, self.POL)["notify"])
+        inc2["severity"] = "critical"
+        self.assertEqual(po.evaluate_policy(inc2, self.ENTS, self.ROLES, self.POL)["policy_id"], "postes")
+        # une politique par site prime si elle est placée avant
+        site_pol = po.validate_policy({"id": "agence-sms", "order": 5, "match": {"sites": ["agence"], "severity_min": "warning"}, "priority": "haute", "channels": ["sms"]})[0]
+        inc3 = {"key": "i3", "severity": "warning", "root": "name:srv-a", "entities": ["name:srv-a"], "confidence": 0.5}
+        self.assertEqual(po.evaluate_policy(inc3, self.ENTS, self.ROLES, [site_pol] + self.POL)["policy_id"], "agence-sms")
+        self.assertEqual(po.evaluate_policy(inc3, self.ENTS, self.ROLES, self.POL)["policy_id"], "serveurs")
+        # validation
+        self.assertIsNotNone(po.validate_policy({"match": {}})[1])
+        self.assertIsNotNone(po.validate_policy({"id": "x", "priority": "urgente"})[1])
+        p, err = po.validate_policy({"id": "x", "channels": ["sms", "pigeon"], "escalate_after_s": "600"})
+        self.assertIsNone(err); self.assertEqual(p["channels"], ["sms"]); self.assertEqual(p["escalate_after_s"], 600)
+
+    def test_plan_notifications_silence_escalation(self):
+        import datetime as dt
+        now = dt.datetime(2026, 9, 8, 12, 0, tzinfo=dt.timezone.utc)
+        avail = {"sms": True, "email": True, "webhook": False}
+        inc = {"key": "i1", "severity": "critical", "root": "ip:10.0.0.1", "entities": ["ip:10.0.0.1"], "confidence": 0.8, "state": "open", "title": "rtr-siege — agent-offline", "opened_at": "2026-09-08T11:58:00Z"}
+        plan, skipped = po.plan_notifications([inc], {}, self.POL, [], self.ENTS, self.ROLES, now, avail)
+        self.assertEqual([(p["kind"], p["channels"]) for p in plan], [("open", ["sms", "email"])])     # webhook indisponible : filtré
+        self.assertIn("INCIDENT CRITICAL", plan[0]["message"]); self.assertIn("priorité haute", plan[0]["message"])
+        # déjà notifié : rien, puis escalade après 15 min sans accusé, une seule fois
+        notified = {"i1": {"open": "2026-09-08T11:58:30Z"}}
+        self.assertEqual(po.plan_notifications([inc], notified, self.POL, [], self.ENTS, self.ROLES, now, avail)[0], [])
+        later = now + dt.timedelta(minutes=20)
+        plan, _ = po.plan_notifications([inc], notified, self.POL, [], self.ENTS, self.ROLES, later, avail)
+        self.assertEqual([(p["kind"], p["channels"]) for p in plan], [("escalation", ["sms"])])
+        notified["i1"]["escalation"] = "2026-09-08T12:18:30Z"
+        self.assertEqual(po.plan_notifications([inc], notified, self.POL, [], self.ENTS, self.ROLES, later + dt.timedelta(hours=2), avail)[0], [])
+        # acquitté : pas d'escalade
+        acked = dict(inc, state="acked")
+        self.assertEqual(po.plan_notifications([acked], {"i1": {"open": "2026-09-08T11:58:30Z"}}, self.POL, [], self.ENTS, self.ROLES, later, avail)[0], [])
+        # clôturé après notification : « résolu » si la politique le veut (infra : oui)
+        closed = dict(inc, state="closed")
+        plan, _ = po.plan_notifications([closed], {"i1": {"open": "2026-09-08T11:58:30Z"}}, self.POL, [], self.ENTS, self.ROLES, later, avail)
+        self.assertEqual([p["kind"] for p in plan], ["resolved"])
+        # silence sur le site siege avec ticket : tu, mais tracé
+        sil = [{"id": 1, "name": "changement de switch", "ticket": "T-4512", "start_at": "2026-09-08T11:00:00Z", "end_at": "2026-09-08T13:00:00Z", "target": {"sites": ["siege"]}}]
+        plan, skipped = po.plan_notifications([inc], {}, self.POL, sil, self.ENTS, self.ROLES, now, avail)
+        self.assertEqual(plan, []); self.assertIn("T-4512", skipped[0]["reason"])
+        # silence expiré : notifié
+        sil[0]["end_at"] = "2026-09-08T11:30:00Z"
+        self.assertEqual(len(po.plan_notifications([inc], {}, self.POL, sil, self.ENTS, self.ROLES, now, avail)[0]), 1)
+        # silence par rôle sur une autre cible : non couvert
+        self.assertFalse(po.silence_covers({"start_at": "2026-09-08T11:00:00Z", "end_at": "2026-09-08T13:00:00Z", "target": {"roles": ["poste"]}}, inc, self.ENTS, self.ROLES, now))
+
+    def test_kpis_and_origins(self):
+        import datetime as dt
+        now = dt.datetime(2026, 9, 8, 12, 0, tzinfo=dt.timezone.utc)
+        incs = [{"key": "a", "severity": "critical", "root": "ip:10.0.0.1", "entities": ["ip:10.0.0.1"], "state": "closed", "opened_at": "2026-09-08T08:00:00Z", "acked_at": "2026-09-08T08:10:00Z", "closed_at": "2026-09-08T09:00:00Z"},
+                {"key": "b", "severity": "warning", "root": "name:srv-a", "entities": ["name:srv-a"], "state": "closed", "opened_at": "2026-09-07T08:00:00Z", "acked_at": "2026-09-07T08:30:00Z", "closed_at": "2026-09-07T10:00:00Z"},
+                {"key": "c", "severity": "critical", "root": "ip:10.0.0.1", "entities": ["ip:10.0.0.1"], "state": "open", "opened_at": "2026-09-08T11:00:00Z"},
+                {"key": "old", "severity": "info", "root": "name:pc-12", "entities": [], "state": "closed", "opened_at": "2026-06-01T08:00:00Z", "closed_at": "2026-06-01T09:00:00Z"}]
+        pos = {"ip:10.0.0.1": {"principle": "pos-place"}, "name:srv-a": {"principle": "pos-fallback"}}
+        rules = [{"id": "r1", "a": "x", "b": "y", "hits": 1, "misses": 3, "state": "proposed"}]
+        k = po.compute_kpis(incs, self.ENTS, self.ROLES, pos, rules, {"sequence-learned": {"confirmed": 2, "rejected": 1}}, now=now, days=30)
+        self.assertEqual(k["incidents"]["total"], 3); self.assertEqual(k["incidents"]["open"], 1)
+        self.assertEqual(k["mtta"]["all"]["n"], 2); self.assertEqual(k["mtta"]["by_site"]["siege"]["mean_s"], 600); self.assertEqual(k["mtta"]["by_role"]["hote-supervise"]["mean_s"], 1800)
+        self.assertEqual(k["mttr"]["by_severity"]["critical"]["mean_s"], 3600)
+        self.assertEqual(k["by_root"][0], {"root": "ip:10.0.0.1", "name": "rtr-siege", "role": "passerelle", "count": 2})
+        self.assertEqual(k["false_positives"]["rules"][0]["false_rate"], 0.75); self.assertAlmostEqual(k["false_positives"]["principles"][0]["false_rate"], 0.333)
+        self.assertEqual(k["coverage"]["unsupervised"], 1); self.assertEqual(k["coverage"]["unpositioned"], 2); self.assertEqual(k["coverage"]["sites_without_position"], ["agence"])
+        self.assertTrue(any(w["week"] == "2026-W37" and w["opened"] == 3 and w["critical"] == 2 for w in k["weekly"]))
+        self.assertEqual(po.humanize_s(45), "45 s"); self.assertEqual(po.humanize_s(600), "10 min"); self.assertEqual(po.humanize_s(7200), "2.0 h")
+        self.assertEqual(po.origin_views({"sources": ["ups", "cortex"], "events": ["f1"]}, {"f1": {"source": "si-agent"}}), [{"source": "si-agent", "view": "si-agent"}, {"source": "ups", "view": "ups"}])
 
 
 if __name__ == "__main__":

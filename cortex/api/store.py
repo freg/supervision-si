@@ -70,6 +70,16 @@ CREATE TABLE IF NOT EXISTS samples (
     entity TEXT NOT NULL, metric TEXT NOT NULL, at TEXT NOT NULL, value REAL, PRIMARY KEY (entity, metric, at)
 );
 CREATE INDEX IF NOT EXISTS ix_samples_at ON samples(at);
+CREATE TABLE IF NOT EXISTS policies (
+    id TEXT PRIMARY KEY, json TEXT NOT NULL, updated_by TEXT, updated_at TEXT
+);
+CREATE TABLE IF NOT EXISTS silences (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, ticket TEXT, start_at TEXT NOT NULL, end_at TEXT NOT NULL, target_json TEXT, created_by TEXT, created_at TEXT
+);
+CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, incident_key TEXT NOT NULL, kind TEXT NOT NULL, at TEXT NOT NULL, policy TEXT, priority TEXT,
+    channels_json TEXT, result_json TEXT, message TEXT, reason TEXT, UNIQUE (incident_key, kind)
+);
 CREATE TABLE IF NOT EXISTS runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, duration_ms INTEGER, sources_json TEXT, counts_json TEXT
 );
@@ -730,5 +740,124 @@ def entity_sites(db_path):
     c = connect(db_path)
     try:
         return {r["key"]: r["site"] for r in c.execute("SELECT key, site FROM entities").fetchall()}
+    finally:
+        c.close()
+
+
+# ---------------------------------------------------------------- politiques, silences, notifications (#466)
+def list_policies(db_path):
+    c = connect(db_path)
+    try:
+        out = []
+        for r in c.execute("SELECT * FROM policies").fetchall():
+            try:
+                p = json.loads(r["json"])
+            except ValueError:
+                continue
+            p["updated_by"], p["updated_at"] = r["updated_by"], r["updated_at"]
+            out.append(p)
+        return sorted(out, key=lambda p: p.get("order", 500))
+    finally:
+        c.close()
+
+
+def save_policy(db_path, policy, by=None):
+    c = connect(db_path)
+    try:
+        c.execute("INSERT INTO policies (id, json, updated_by, updated_at) VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET json=excluded.json, updated_by=excluded.updated_by, updated_at=excluded.updated_at",
+                  (policy["id"], json.dumps(policy, ensure_ascii=False), by, now_iso()))
+        c.commit()
+    finally:
+        c.close()
+
+
+def delete_policy(db_path, pid):
+    c = connect(db_path)
+    try:
+        n = c.execute("DELETE FROM policies WHERE id=?", (pid,)).rowcount
+        c.commit()
+        return n > 0
+    finally:
+        c.close()
+
+
+def seed_policies(db_path, defaults):
+    """Politiques par défaut installées une seule fois (table vide)."""
+    c = connect(db_path)
+    try:
+        if c.execute("SELECT count(*) AS n FROM policies").fetchone()["n"]:
+            return 0
+        for p in defaults:
+            c.execute("INSERT INTO policies (id, json, updated_by, updated_at) VALUES (?,?,?,?)", (p["id"], json.dumps(p, ensure_ascii=False), "cortex", now_iso()))
+        c.commit()
+        return len(defaults)
+    finally:
+        c.close()
+
+
+def list_silences(db_path, active_only=False, now=None):
+    c = connect(db_path)
+    try:
+        rows = [_row(r, ("target_json",)) for r in c.execute("SELECT * FROM silences ORDER BY start_at DESC").fetchall()]
+        if active_only:
+            now = now or now_iso()
+            rows = [r for r in rows if r["start_at"] <= now <= r["end_at"]]
+        return rows
+    finally:
+        c.close()
+
+
+def add_silence(db_path, name, start_at, end_at, target=None, ticket=None, by=None):
+    c = connect(db_path)
+    try:
+        cur = c.execute("INSERT INTO silences (name, ticket, start_at, end_at, target_json, created_by, created_at) VALUES (?,?,?,?,?,?,?)",
+                        (name, ticket, start_at, end_at, json.dumps(target or {}), by, now_iso()))
+        c.commit()
+        return cur.lastrowid
+    finally:
+        c.close()
+
+
+def delete_silence(db_path, sid):
+    c = connect(db_path)
+    try:
+        n = c.execute("DELETE FROM silences WHERE id=?", (sid,)).rowcount
+        c.commit()
+        return n > 0
+    finally:
+        c.close()
+
+
+def notified_map(db_path):
+    """{clé incident: {kind: at}}"""
+    c = connect(db_path)
+    try:
+        out = {}
+        for r in c.execute("SELECT incident_key, kind, at FROM notifications").fetchall():
+            out.setdefault(r["incident_key"], {})[r["kind"]] = r["at"]
+        return out
+    finally:
+        c.close()
+
+
+def add_notification(db_path, item, result):
+    c = connect(db_path)
+    try:
+        c.execute("""INSERT OR IGNORE INTO notifications (incident_key, kind, at, policy, priority, channels_json, result_json, message, reason) VALUES (?,?,?,?,?,?,?,?,?)""",
+                  (item["incident_key"], item["kind"], result.get("at") or now_iso(), item.get("policy"), item.get("priority"), json.dumps(item.get("channels") or []),
+                   json.dumps(result), item.get("message"), item.get("reason")))
+        c.commit()
+    finally:
+        c.close()
+
+
+def list_notifications(db_path, limit=100, incident_key=None):
+    c = connect(db_path)
+    try:
+        if incident_key:
+            rows = c.execute("SELECT * FROM notifications WHERE incident_key=? ORDER BY id DESC LIMIT ?", (incident_key, limit)).fetchall()
+        else:
+            rows = c.execute("SELECT * FROM notifications ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        return [_row(r, ("channels_json", "result_json")) for r in rows]
     finally:
         c.close()

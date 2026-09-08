@@ -8,13 +8,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { MapContainer, TileLayer, CircleMarker, Polyline, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { fetchCortexStatus, fetchIncidents, fetchIncident, ackIncident, closeIncident, feedbackIncident, fetchEntities, fetchEntity, fetchEvents, fetchPrinciples, fetchCortexStats, fetchRuns, runCollect, fetchGraph, fetchRoutes, fetchChanges, fetchPositions, fetchPositionsQueue, resolvePositions, fetchPlaces, savePlaceNote, fetchIntervention, fetchLayers, fetchRules, ruleAction, fetchPredictions, fetchDrifts, fetchSamples, runLearn } from "./cortexClient.js";
+import { fetchCortexStatus, fetchIncidents, fetchIncident, ackIncident, closeIncident, feedbackIncident, fetchEntities, fetchEntity, fetchEvents, fetchPrinciples, fetchCortexStats, fetchRuns, runCollect, fetchGraph, fetchRoutes, fetchChanges, fetchPositions, fetchPositionsQueue, resolvePositions, fetchPlaces, savePlaceNote, fetchIntervention, fetchLayers, fetchRules, ruleAction, fetchPredictions, fetchDrifts, fetchSamples, runLearn, fetchPolicies, savePolicy, deletePolicy, previewPolicies, fetchSilences, addSilence, deleteSilence, fetchNotifications, notifyNow, fetchKpis } from "./cortexClient.js";
 import { layoutGraph, EDGE_STYLE, KIND_ICON, CHANGE_LABEL, changeTone, routesByHost } from "./cortexGraph.js";
-import { PROVENANCE, provenanceStyle, LAYERS, defaultLayers, SEV_COLOR, boundsOf, sortPositions, provenanceCounts, chainText, whereText, RULE_STATE, OUTCOME, ruleText, minutesLeft, predictionStats, sparkPath } from "./cortexPlaces.js";
+import { PROVENANCE, provenanceStyle, LAYERS, defaultLayers, SEV_COLOR, boundsOf, sortPositions, provenanceCounts, chainText, whereText, RULE_STATE, OUTCOME, ruleText, minutesLeft, predictionStats, sparkPath, PRIORITY_TONE, NOTIF_KIND, humanizeS, matchText, policyFromForm, formFromPolicy, kpiRows, weeklyBars } from "./cortexPlaces.js";
 import { SEV, STATE_LABEL, KIND_LABEL, confidenceWord, pct, incidentLine, splitHypotheses, collectHealth, principleText, eventsBySource } from "./cortex.js";
 
 const REFRESH_MS = 30000;
-const TABS = [["incidents", "Incidents"], ["anticipation", "Anticipation"], ["graph", "Architecture"], ["map", "Carte"], ["positions", "Positions"], ["changes", "Ce qui a changé"], ["routes", "Routes"], ["entities", "Entités"], ["events", "Événements"], ["principles", "Principes & évaluations"], ["stats", "Statistiques"], ["runs", "Collecte"]];
+const TABS = [["incidents", "Incidents"], ["alerts", "Alertes & KPI"], ["anticipation", "Anticipation"], ["graph", "Architecture"], ["map", "Carte"], ["positions", "Positions"], ["changes", "Ce qui a changé"], ["routes", "Routes"], ["entities", "Entités"], ["events", "Événements"], ["principles", "Principes & évaluations"], ["stats", "Statistiques"], ["runs", "Collecte"]];
 
 function Tone({ tone, children, title }) {
   return <span className={`np-tone ${tone || "neutral"}`} title={title}>{children}</span>;
@@ -105,6 +105,13 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
   const [predictions, setPredictions] = useState([]);
   const [drifts, setDrifts] = useState(null);
   const [spark, setSpark] = useState({});
+  const [policies, setPolicies] = useState(null);
+  const [silences, setSilences] = useState([]);
+  const [notifs, setNotifs] = useState([]);
+  const [kpis, setKpis] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [polForm, setPolForm] = useState(null);
+  const [silForm, setSilForm] = useState({ name: "", ticket: "", start_at: "", end_at: "", sites: "", entities: "", roles: "" });
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
@@ -124,6 +131,10 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
     if (tab === "changes") { const r = await fetchChanges(cortexApiBase); if (!r.error) setChanges(r.changes); }
     if (tab === "positions") { const [r, qq] = await Promise.all([fetchPositions(cortexApiBase), fetchPositionsQueue(cortexApiBase)]); if (!r.error) setPositions(r.positions); if (!qq.error) setQueue(qq); }
     if (tab === "map") { const r = await fetchLayers(cortexApiBase); if (!r.error) setLayers(r); }
+    if (tab === "alerts") {
+      const [p, si, n, k] = await Promise.all([fetchPolicies(cortexApiBase), fetchSilences(cortexApiBase), fetchNotifications(cortexApiBase), fetchKpis(cortexApiBase, 30)]);
+      if (!p.error) setPolicies(p); if (!si.error) setSilences(si.silences); if (!n.error) setNotifs(n.notifications); if (!k.error) setKpis(k);
+    }
     if (tab === "anticipation") {
       const [r, p, d] = await Promise.all([fetchRules(cortexApiBase), fetchPredictions(cortexApiBase), fetchDrifts(cortexApiBase)]);
       if (!r.error) setRules(r); if (!p.error) setPredictions(p.predictions); if (!d.error) setDrifts(d);
@@ -185,6 +196,18 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
             <div className="hub-card hub-settings-section" style={{ marginTop: 10, textAlign: "left" }}>
               <h2 style={{ margin: "0 0 4px" }}><Tone tone={SEV[detail.severity]?.tone}>{SEV[detail.severity]?.label}</Tone> {detail.title} <button className="secondary ss-origin" onClick={() => setDetail(null)}>✕</button></h2>
               <p className="muted" style={{ margin: "0 0 6px" }}>{incidentLine(detail)} · ouvert {detail.opened_at} · dernier événement {detail.last_at} · {STATE_LABEL[detail.state]}</p>
+              <p style={{ margin: "0 0 6px" }}>
+                {detail.policy && <><strong>Politique :</strong> <Tone tone={PRIORITY_TONE[detail.policy.priority]}>{detail.policy.name} · priorité {detail.policy.priority}</Tone> <span className="muted">{detail.policy.reason}{detail.policy.notify ? ` → ${(detail.policy.channels || []).join(", ") || "aucun canal"}` : " → pas de notification"}{detail.policy.escalate_after_s ? `, escalade après ${humanizeS(detail.policy.escalate_after_s)}` : ""}</span></>}
+                {detail.silence && <> · <Tone tone="neutral">silence « {detail.silence.name} »{detail.silence.ticket ? ` (${detail.silence.ticket})` : ""} jusqu'à {detail.silence.end_at}</Tone></>}
+                {(detail.notifications || []).length > 0 && <> · <strong>notifié :</strong> {detail.notifications.map((n) => `${NOTIF_KIND[n.kind] || n.kind} ${n.at} (${(n.channels || []).join(", ")})`).join(" ; ")}</>}
+              </p>
+              <p style={{ margin: "0 0 6px" }}>
+                <strong>Actions :</strong>{" "}
+                {(detail.origins || []).map((o) => <button key={o.view} className="secondary ss-origin" onClick={() => onNavigate?.(o.view)}>↗ tuile {o.source}</button>)}{" "}
+                {detail.root && <button className="secondary ss-origin" onClick={async () => { const d = await fetchEntity(cortexApiBase, detail.root); if (!d.error) { setEntity(d); setTab("entities"); openSheet(detail.root); } }}>🧭 fiche d'intervention de la cause</button>}{" "}
+                {detail.state === "open" && <button className="secondary ss-origin" disabled={busy} onClick={() => act("Acquittement", () => ackIncident(cortexApiBase, detail.key, login))}>acquitter</button>}{" "}
+                {detail.state !== "closed" && <button className="secondary ss-origin" disabled={busy} onClick={() => act("Clôture", () => closeIncident(cortexApiBase, detail.key, login))}>clore</button>}
+              </p>
               {(detail.predictions || []).length > 0 && <p style={{ margin: "4px 0" }}><strong>🔮 Annoncé :</strong> {detail.predictions.map((p) => <span key={p.id}><Tone tone={confidenceWord(p.confidence).tone}>{p.message}</Tone> <span className="muted">(échéance {p.expected_at}{minutesLeft(p) != null ? `, dans ${minutesLeft(p)} min` : ""})</span> </span>)}</p>}
               <h3 style={{ margin: "6px 0 2px" }}>Hypothèses (chacune avec sa confiance, ses preuves, son principe — dites-nous si c'est juste)</h3>
               <ul className="sa-risks">{(detail.hypotheses || []).map((h, k) => <Hypothesis key={k} h={h} incidentKey={detail.key} apiBase={cortexApiBase} login={login} onDone={() => { load(); openDetail(detail.key); }} />)}</ul>
@@ -267,6 +290,78 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
               {(entity.events || []).length > 0 && <p className="muted">{entity.events.length} événement(s) : {entity.events.slice(0, 5).map((e) => `${e.kind} (${STATE_LABEL[e.state]})`).join(" · ")}</p>}
             </div>
           )}
+        </div>
+      )}
+
+      {tab === "alerts" && (
+        <div className="hub-card hub-settings-section">
+          <p className="muted" style={{ margin: "0 0 6px" }}>Une notification par incident (jamais par événement), décidée par des politiques par rôle, site, type et sévérité — « un routeur de site vaut plus qu'un poste » ; escalade sans accusé ; silences de maintenance avec ticket. Chaque décision porte sa raison. Canaux : {policies ? Object.entries(policies.channels.channels).map(([c, ok]) => `${c} ${ok ? "✓" : "✗"}`).join(" · ") : "…"}{policies && !policies.channels.enabled ? " · envoi coupé (CORTEX_NOTIFY=0)" : ""}.
+            {" "}<button className="secondary ss-origin" onClick={async () => { const r = await previewPolicies(cortexApiBase); if (!r.error) setPreview(r); }}>aperçu des décisions</button> <button className="secondary ss-origin" disabled={busy} onClick={() => act("notifications", () => notifyNow(cortexApiBase, groups))}>envoyer maintenant</button></p>
+          {preview && <div className="hub-card hub-settings-section" style={{ marginBottom: 8, textAlign: "left" }}><strong>Ce qui partirait maintenant :</strong> {preview.planned} envoi(s), {preview.skipped_count} incident(s) tu(s). <button className="secondary ss-origin" onClick={() => setPreview(null)}>✕</button>
+            <ul className="sa-risks">{(preview.skipped || []).map((x, k) => <li key={k}><code>{x.incident_key}</code> — {x.reason}</li>)}</ul></div>}
+
+          {kpis && (
+            <div className="hub-card hub-settings-section" style={{ marginBottom: 8, textAlign: "left" }}>
+              <h3 style={{ margin: "0 0 4px" }}>📊 Statistiques sur {kpis.days} jours</h3>
+              <p style={{ margin: "0 0 6px" }}>{kpis.incidents.total} incident(s) ({Object.entries(kpis.incidents.by_severity || {}).map(([k, v]) => `${SEV[k]?.label || k} ${v}`).join(", ") || "—"}), {kpis.incidents.open} ouvert(s) dont {kpis.incidents.acked_open} acquitté(s), âge moyen des ouverts {humanizeS(kpis.incidents.open_age?.mean_s)} · acquittés {kpis.incidents.acked_rate != null ? pct(kpis.incidents.acked_rate) : "—"}, clos {kpis.incidents.closed_rate != null ? pct(kpis.incidents.closed_rate) : "—"} · <strong>MTTA</strong> {humanizeS(kpis.mtta.all?.mean_s)} (médiane {humanizeS(kpis.mtta.all?.median_s)}) · <strong>MTTR</strong> {humanizeS(kpis.mttr.all?.mean_s)} (médiane {humanizeS(kpis.mttr.all?.median_s)}) · {kpis.notifications?.total} notification(s) envoyée(s).</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
+                {[["MTTA par site", kpis.mtta.by_site], ["MTTA par rôle", kpis.mtta.by_role], ["MTTR par site", kpis.mttr.by_site], ["MTTR par rôle", kpis.mttr.by_role], ["MTTA par sévérité", kpis.mtta.by_severity], ["MTTR par sévérité", kpis.mttr.by_severity]].map(([title, data]) => kpiRows(data).length ? (
+                  <div key={title}><strong>{title}</strong><table><thead><tr><th></th><th>n</th><th>moyenne</th><th>médiane</th><th>max</th></tr></thead><tbody>{kpiRows(data).map((r) => <tr key={r.label}><td>{r.label}</td><td>{r.n}</td><td>{r.mean}</td><td>{r.median}</td><td className="muted">{r.max}</td></tr>)}</tbody></table></div>) : null)}
+                <div><strong>Causes racines</strong><table><thead><tr><th>Cause</th><th>Rôle</th><th>Incidents</th></tr></thead><tbody>{kpis.by_root.map((r) => <tr key={r.root}><td>{r.name}</td><td className="muted">{r.role || "—"}</td><td>{r.count}</td></tr>)}</tbody></table></div>
+                <div><strong>Semaine par semaine</strong><div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 70, marginTop: 4 }}>{weeklyBars(kpis.weekly).map((w) => <div key={w.week} title={`${w.week} : ${w.opened} ouvert(s), ${w.critical} critique(s), ${w.closed} clos`} style={{ width: 28, textAlign: "center", fontSize: 10 }}><div style={{ height: Math.max(2, w.h * 50), background: "var(--accent, #2f6fd6)", borderRadius: 3 }} />{w.week.slice(-3)}</div>)}</div></div>
+                <div><strong>Couverture</strong><p className="muted" style={{ margin: 0 }}>{kpis.coverage.entities} entités · {kpis.coverage.unsupervised} sans supervision · {kpis.coverage.unpositioned} sans position · {kpis.coverage.sites} site(s){kpis.coverage.sites_without_position.length ? `, sans position : ${kpis.coverage.sites_without_position.join(", ")}` : ""}</p>
+                  <strong>Faux positifs</strong><p className="muted" style={{ margin: 0 }}>{kpis.false_positives.rules.length ? kpis.false_positives.rules.slice(0, 5).map((r) => `${r.rule} ${pct(r.false_rate)} (${r.misses}/${r.hits + r.misses})`).join(" · ") : "aucune règle jugée"}<br />{kpis.false_positives.principles.length ? kpis.false_positives.principles.map((p) => `${p.principle} ${pct(p.false_rate)} (${p.rejected}/${p.confirmed + p.rejected})`).join(" · ") : "aucun retour sur les principes"}</p></div>
+              </div>
+            </div>
+          )}
+
+          {policies && (
+            <div className="hub-card hub-settings-section" style={{ marginBottom: 8, textAlign: "left" }}>
+              <h3 style={{ margin: "0 0 4px" }}>🎛 Politiques d'alerte <span className="muted">— la première qui correspond décide (principe <code>policy-role-place</code>)</span> <button className="secondary ss-origin" onClick={() => setPolForm(formFromPolicy(null))}>+ nouvelle</button></h3>
+              <div className="hub-table-scroll"><table><thead><tr><th>Ordre</th><th>Politique</th><th>Critère</th><th>Priorité</th><th>Canaux</th><th>Escalade</th><th>Résolu</th><th></th></tr></thead>
+                <tbody>{policies.policies.map((p) => (
+                  <tr key={p.id} style={{ opacity: p.enabled === false ? 0.5 : 1 }}><td>{p.order}</td><td><strong>{p.name}</strong> <span className="muted">{p.id}</span></td><td className="muted">{matchText(p.match)}</td>
+                    <td><Tone tone={PRIORITY_TONE[p.priority]}>{p.priority}</Tone></td><td>{p.notify ? (p.channels || []).join(", ") || "—" : <span className="muted">pas de notification</span>}</td>
+                    <td className="muted">{p.escalate_after_s ? `${humanizeS(p.escalate_after_s)} → ${(p.escalation_channels || []).join(", ") || "mêmes canaux"}` : "—"}</td><td>{p.notify_resolved ? "oui" : "non"}</td>
+                    <td><button className="secondary ss-origin" onClick={() => setPolForm(formFromPolicy(p))}>modifier</button> <button className="secondary ss-origin" disabled={busy} onClick={() => act("politique supprimée", () => deletePolicy(cortexApiBase, p.id, login, groups))}>supprimer</button></td></tr>
+                ))}</tbody></table></div>
+              {polForm && (
+                <div className="hub-card hub-settings-section" style={{ marginTop: 8, textAlign: "left" }}>
+                  <strong>{polForm.id ? `Politique ${polForm.id}` : "Nouvelle politique"}</strong>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 6, marginTop: 6 }}>
+                    {[["id", "identifiant"], ["name", "nom"], ["order", "ordre (petit = d'abord)"], ["roles", "rôles (virgules)"], ["sites", "sites (virgules)"], ["kinds", "types d'entité (virgules)"], ["entities", "entités (clés, virgules)"], ["channels", "canaux : sms, email, webhook"], ["escalate_after_s", "escalade après (s)"], ["escalation_channels", "canaux d'escalade"]].map(([k, lab]) => (
+                      <label key={k} className="muted">{lab}<br /><input className="ss-search" style={{ width: "95%" }} value={polForm[k] ?? ""} onChange={(e) => setPolForm({ ...polForm, [k]: e.target.value })} /></label>))}
+                    <label className="muted">sévérité minimale<br /><select value={polForm.severity_min} onChange={(e) => setPolForm({ ...polForm, severity_min: e.target.value })}>{["critical", "warning", "info"].map((v) => <option key={v} value={v}>{v}</option>)}</select></label>
+                    <label className="muted">priorité<br /><select value={polForm.priority} onChange={(e) => setPolForm({ ...polForm, priority: e.target.value })}>{policies.priorities.map((v) => <option key={v} value={v}>{v}</option>)}</select></label>
+                    <label className="muted"><input type="checkbox" checked={polForm.notify} onChange={(e) => setPolForm({ ...polForm, notify: e.target.checked })} /> notifier</label>
+                    <label className="muted"><input type="checkbox" checked={polForm.notify_resolved} onChange={(e) => setPolForm({ ...polForm, notify_resolved: e.target.checked })} /> notifier la résolution</label>
+                    <label className="muted"><input type="checkbox" checked={polForm.enabled} onChange={(e) => setPolForm({ ...polForm, enabled: e.target.checked })} /> active</label>
+                  </div>
+                  <p style={{ margin: "6px 0 0" }}><button className="secondary ss-origin" disabled={busy} onClick={() => act("politique enregistrée", async () => { const r = await savePolicy(cortexApiBase, policyFromForm(polForm), login, groups); if (!r.error) setPolForm(null); return r; })}>enregistrer</button> <button className="secondary ss-origin" onClick={() => setPolForm(null)}>annuler</button></p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="hub-card hub-settings-section" style={{ marginBottom: 8, textAlign: "left" }}>
+            <h3 style={{ margin: "0 0 4px" }}>🔕 Silences de maintenance <span className="muted">— les incidents couverts restent visibles mais ne sont pas notifiés (principe <code>silence-maintenance</code>)</span></h3>
+            {silences.length > 0 && <div className="hub-table-scroll"><table><thead><tr><th>Nom</th><th>Ticket</th><th>Du</th><th>Au</th><th>Cible</th><th></th></tr></thead>
+              <tbody>{silences.map((si) => <tr key={si.id}><td>{si.name}</td><td className="muted">{si.ticket || "—"}</td><td className="muted">{si.start_at}</td><td className="muted">{si.end_at}</td><td className="muted">{Object.entries(si.target || {}).map(([k, v]) => `${k} ${v.join(", ")}`).join(" ; ") || "tout"}</td>
+                <td><button className="secondary ss-origin" disabled={busy} onClick={() => act("silence supprimé", () => deleteSilence(cortexApiBase, si.id, login, groups))}>supprimer</button></td></tr>)}</tbody></table></div>}
+            <p style={{ margin: "6px 0 0" }}>
+              {[["name", "nom"], ["ticket", "ticket"], ["start_at", "début (ISO UTC)"], ["end_at", "fin (ISO UTC)"], ["sites", "sites"], ["entities", "entités"], ["roles", "rôles"]].map(([k, lab]) => <span key={k}><input className="ss-search" style={{ width: 130, marginRight: 4 }} placeholder={lab} value={silForm[k]} onChange={(e) => setSilForm({ ...silForm, [k]: e.target.value })} /></span>)}
+              <button className="secondary ss-origin" disabled={busy} onClick={() => act("silence ajouté", () => { const list = (v) => v.split(",").map((x) => x.trim()).filter(Boolean); return addSilence(cortexApiBase, { name: silForm.name, ticket: silForm.ticket, start_at: silForm.start_at, end_at: silForm.end_at, sites: list(silForm.sites), entities: list(silForm.entities), roles: list(silForm.roles), by: login, groups }); })}>ajouter</button>
+            </p>
+          </div>
+
+          <div className="hub-card hub-settings-section" style={{ textAlign: "left" }}>
+            <h3 style={{ margin: "0 0 4px" }}>📨 Journal des notifications <span className="muted">— une par incident et par moment (principe <code>notify-per-incident</code>)</span></h3>
+            {notifs.length === 0 ? <p className="muted" style={{ margin: 0 }}>Aucune notification envoyée.</p> : (
+              <div className="hub-table-scroll"><table><thead><tr><th>Quand</th><th>Moment</th><th>Incident</th><th>Politique</th><th>Priorité</th><th>Canaux</th><th>Résultat</th><th>Raison</th></tr></thead>
+                <tbody>{notifs.map((n) => <tr key={n.id}><td className="muted">{n.at}</td><td>{NOTIF_KIND[n.kind] || n.kind}</td><td><button className="secondary ss-origin" onClick={() => { setTab("incidents"); openDetail(n.incident_key); }}>{n.incident_key}</button></td><td className="muted">{n.policy}</td><td><Tone tone={PRIORITY_TONE[n.priority]}>{n.priority}</Tone></td><td>{(n.channels || []).join(", ")}</td>
+                  <td>{Object.entries(n.result || {}).filter(([k]) => k !== "at").map(([k, v]) => <span key={k}><Tone tone={v ? "good" : "bad"}>{k} {v ? "✓" : "✗"}</Tone> </span>)}</td><td className="muted">{n.reason}</td></tr>)}</tbody></table></div>
+            )}
+          </div>
         </div>
       )}
 

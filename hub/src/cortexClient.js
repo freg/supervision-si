@@ -45,3 +45,14 @@ export const fetchPredictions = (b, pendingOnly = false) => fetchJson(b, `/predi
 export const fetchDrifts = (b) => fetchJson(b, "/drifts");
 export const fetchSamples = (b, entity, metric) => fetchJson(b, `/samples?entity=${encodeURIComponent(entity)}&metric=${encodeURIComponent(metric)}`);
 export const runLearn = (b, groups) => fetchJson(b, "/learn", json("POST", { groups }));
+// #466 : politiques, silences, notifications, KPI
+export const fetchPolicies = (b) => fetchJson(b, "/policies");
+export const savePolicy = (b, policyObj, by, groups) => fetchJson(b, "/policies", json("PUT", { policy: policyObj, by, groups }));
+export const deletePolicy = (b, id, by, groups) => fetchJson(b, `/policies/${encodeURIComponent(id)}`, json("DELETE", { by, groups }));
+export const previewPolicies = (b) => fetchJson(b, "/policies/preview");
+export const fetchSilences = (b) => fetchJson(b, "/silences");
+export const addSilence = (b, payload) => fetchJson(b, "/silences", json("POST", payload));
+export const deleteSilence = (b, id, by, groups) => fetchJson(b, `/silences/${id}`, json("DELETE", { by, groups }));
+export const fetchNotifications = (b) => fetchJson(b, "/notifications?limit=100");
+export const notifyNow = (b, groups) => fetchJson(b, "/notify", json("POST", { groups }));
+export const fetchKpis = (b, days = 30) => fetchJson(b, `/kpis?days=${days}`);

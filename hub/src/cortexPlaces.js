@@ -109,3 +109,56 @@ export function sparkPath(points, w = 120, h = 28) {
   const min = Math.min(...vals), max = Math.max(...vals), span = max - min || 1;
   return vals.map((v, i) => `${i === 0 ? "M" : "L"}${((i / (vals.length - 1)) * (w - 2) + 1).toFixed(1)},${(h - 1 - ((v - min) / span) * (h - 2)).toFixed(1)}`).join(" ");
 }
+
+// ---- Étape 5 (#466) : politiques, silences, KPI ----------------------------
+export const PRIORITY_TONE = { haute: "bad", normale: "warn", basse: "neutral" };
+export const NOTIF_KIND = { open: "ouverture", escalation: "escalade", resolved: "résolu" };
+
+export function humanizeS(s) {
+  if (s == null) return "—";
+  s = Math.round(s);
+  if (s < 90) return `${s} s`;
+  if (s < 5400) return `${Math.round(s / 60)} min`;
+  if (s < 2 * 86400) return `${(s / 3600).toFixed(1)} h`;
+  return `${(s / 86400).toFixed(1)} j`;
+}
+
+// Résumé lisible du critère d'une politique.
+export function matchText(m) {
+  const parts = [];
+  if (m?.roles?.length) parts.push(`rôle ${m.roles.join(" / ")}`);
+  if (m?.sites?.length) parts.push(`site ${m.sites.join(" / ")}`);
+  if (m?.kinds?.length) parts.push(`type ${m.kinds.join(" / ")}`);
+  if (m?.entities?.length) parts.push(`${m.entities.length} entité(s) nommée(s)`);
+  parts.push(`sévérité ≥ ${m?.severity_min || "info"}`);
+  if (m?.min_confidence) parts.push(`confiance ≥ ${Math.round(m.min_confidence * 100)} %`);
+  return parts.join(", ");
+}
+
+// Formulaire -> objet politique (listes séparées par des virgules).
+export function policyFromForm(f) {
+  const list = (v) => String(v || "").split(",").map((x) => x.trim()).filter(Boolean);
+  return { id: (f.id || "").trim(), name: f.name || f.id, order: Number(f.order) || 500,
+    match: { roles: list(f.roles), sites: list(f.sites), kinds: list(f.kinds), entities: list(f.entities), severity_min: f.severity_min || "warning", min_confidence: Number(f.min_confidence) || 0 },
+    priority: f.priority || "normale", notify: f.notify !== false, channels: list(f.channels), escalate_after_s: Number(f.escalate_after_s) || null,
+    escalation_channels: list(f.escalation_channels), notify_resolved: !!f.notify_resolved, enabled: f.enabled !== false };
+}
+export function formFromPolicy(p) {
+  const m = p?.match || {};
+  return { id: p?.id || "", name: p?.name || "", order: p?.order ?? 500, roles: (m.roles || []).join(", "), sites: (m.sites || []).join(", "), kinds: (m.kinds || []).join(", "),
+    entities: (m.entities || []).join(", "), severity_min: m.severity_min || "warning", min_confidence: m.min_confidence || 0, priority: p?.priority || "normale",
+    notify: p?.notify !== false, channels: (p?.channels || []).join(", "), escalate_after_s: p?.escalate_after_s || "", escalation_channels: (p?.escalation_channels || []).join(", "),
+    notify_resolved: !!p?.notify_resolved, enabled: p?.enabled !== false };
+}
+
+// Lignes du tableau MTTA/MTTR : [{label, n, mean, median, max}] depuis {clé: {n, mean_s, ...}}.
+export function kpiRows(byKey) {
+  return Object.entries(byKey || {}).filter(([, v]) => v).map(([label, v]) => ({ label, n: v.n, mean: humanizeS(v.mean_s), median: humanizeS(v.median_s), max: humanizeS(v.max_s) }))
+    .sort((a, b) => b.n - a.n);
+}
+
+// Semaine par semaine -> barres normalisées [{week, opened, closed, critical, h}] (h ∈ [0,1]).
+export function weeklyBars(weekly) {
+  const max = Math.max(1, ...(weekly || []).map((w) => w.opened));
+  return (weekly || []).map((w) => ({ ...w, h: w.opened / max }));
+}

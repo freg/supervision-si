@@ -3,8 +3,9 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY cortex/api/requirements.txt .
 RUN pip install --no-cache-dir --retries 5 --timeout 60 -r requirements.txt
-COPY cortex/api/app.py cortex/api/store.py cortex/api/normalize.py cortex/api/correlate.py cortex/api/collectors.py cortex/api/principles.py cortex/api/oui.py cortex/api/changes.py cortex/api/places.py cortex/api/learn.py ./
+COPY cortex/api/app.py cortex/api/store.py cortex/api/normalize.py cortex/api/correlate.py cortex/api/collectors.py cortex/api/principles.py cortex/api/oui.py cortex/api/changes.py cortex/api/places.py cortex/api/learn.py cortex/api/policy.py cortex/api/notify.py ./
 COPY shared/version_endpoint.py .
+COPY shared/secrets_alert.py .
 COPY shared/VERSION.json .
 ENV CORTEX_DB_PATH=/data/cortex.db
 RUN mkdir -p /data

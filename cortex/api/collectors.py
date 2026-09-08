@@ -14,7 +14,9 @@ import changes as ch
 import correlate
 import learn
 import normalize as nz
+import notify
 import places as pl
+import policy
 import store
 
 _log = logging.getLogger("cortex.collect")
@@ -145,6 +147,7 @@ class Collector(object):
         counts = self.recompute()
         learn_report = self.learn()
         report["learning"] = learn_report
+        report["notifications"] = self.notify()
         pos_report = self.resolve_places()
         report["positions"] = pos_report
         after = self._snapshot()
@@ -247,6 +250,25 @@ class Collector(object):
         return {"ok": True, "occurrences": len(occ), "rules": len(rules), "rules_known": len(all_rules), "settled": len(verdicts),
                 "hits": sum(1 for v in verdicts if v["outcome"] == "hit"), "predictions": len(preds), "new_predictions": added,
                 "pending": len(store.list_predictions(self.db_path, pending_only=True, limit=1000)), "ms": int((time.time() - t) * 1000)}
+
+    def notify(self, dry_run=False):
+        """Étape 5 (#466) : une notification par incident et par moment,
+        selon les politiques, hors silences ; escalade sans accusé."""
+        import datetime as dt
+        t = time.time()
+        now = dt.datetime.now(dt.timezone.utc)
+        incidents = store.list_incidents(self.db_path, state="all", limit=2000)
+        ents = {e["key"]: e for e in store.list_entities(self.db_path, limit=100000)}
+        plan, skipped = policy.plan_notifications(incidents, store.notified_map(self.db_path), store.list_policies(self.db_path),
+                                                  store.list_silences(self.db_path, active_only=True), ents, self.roles_map(), now, notify.channels())
+        sent = []
+        if not dry_run:
+            by_key = {i["key"]: i for i in incidents}
+            for item in plan:
+                res = notify.send(item, by_key[item["incident_key"]])
+                store.add_notification(self.db_path, item, res)
+                sent.append({"incident": item["incident_key"], "kind": item["kind"], "channels": item["channels"], "ok": {k: v for k, v in res.items() if k in item["channels"]}})
+        return {"ok": True, "planned": len(plan), "sent": sent, "skipped": skipped[:50], "skipped_count": len(skipped), "channels": notify.describe(), "ms": int((time.time() - t) * 1000)}
 
     def recompute(self):
         """Recalcule les incidents à partir des événements ouverts/acquittés."""
