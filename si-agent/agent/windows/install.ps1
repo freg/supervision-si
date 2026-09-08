@@ -116,9 +116,24 @@ if ($CaFingerprint) {
   if ($PSVersionTable.PSVersion.Major -ge 7) {
     $bytes = (Invoke-WebRequest -Uri "$Central/ca" -SkipCertificateCheck -UseBasicParsing).Content
   } else {
+    # Windows PowerShell 5.1 (#450, premier poste réel) : un ScriptBlock en
+    # ServerCertificateValidationCallback est appelé sur un autre thread par
+    # .NET et fait échouer l'envoi (« une erreur inattendue s'est produite lors
+    # de l'envoi ») ; on passe un vrai délégué C#, TLS 1.2 explicite, et
+    # WebClient plutôt qu'Invoke-WebRequest. Amorçage seulement : la CA n'est
+    # pas encore connue, l'empreinte fait foi juste après.
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    if (-not ("SiAgentTrustAll" -as [type])) {
+      Add-Type -TypeDefinition @"
+using System.Net.Security;
+public static class SiAgentTrustAll {
+  public static RemoteCertificateValidationCallback Callback() { return delegate { return true; }; }
+}
+"@
+    }
     $old = [Net.ServicePointManager]::ServerCertificateValidationCallback
-    [Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }   # amorçage : la CA n'est pas encore connue, l'empreinte fait foi
-    try { $bytes = (Invoke-WebRequest -Uri "$Central/ca" -UseBasicParsing).Content } finally { [Net.ServicePointManager]::ServerCertificateValidationCallback = $old }
+    [Net.ServicePointManager]::ServerCertificateValidationCallback = [SiAgentTrustAll]::Callback()
+    try { $wc = New-Object System.Net.WebClient; $bytes = $wc.DownloadData("$Central/ca") } finally { [Net.ServicePointManager]::ServerCertificateValidationCallback = $old }
   }
   if ($bytes -is [string]) { $bytes = [Text.Encoding]::ASCII.GetBytes($bytes) }
   $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new([byte[]]$bytes)

@@ -2387,7 +2387,8 @@ qui fait alors sauter la file.
     lanceurs install.cmd/uninstall.cmd et commande avec -ExecutionPolicy
     Bypass (premier retour du poste de test) ; #447 : .cmd silencieux
     généré par le central (double-clic, UAC, OK, effacement) ; #449 : racine
-    de l'archive cherchée autour du script. #442 :
+    de l'archive cherchée autour du script ; #450 : CA lue par délégué C# sous
+    PowerShell 5.1 (Bitdefender entreprise : exclusion de stratégie à prévoir). #442 :
     montages lecture seule / amovibles jamais « disque plein ». Reste :
     archive sans Docker (systemd) à tester, retours des premiers hôtes.
 

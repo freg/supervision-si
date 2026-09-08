@@ -483,6 +483,20 @@ exécutée sous PowerShell 7 depuis cinq emplacements (racine, `windows\`,
 un cran trop haut, dossier imbriqué, dossier vide → erreur explicite) ;
 non vérifié : le poste Windows réel (retour attendu).
 
+Retours suivants du même poste (#450) : (1) `agent.py` seul disparaissait à
+l'extraction -- **Bitdefender** (édition entreprise, quarantaine
+silencieuse, sans exception locale possible) ; à retenir pour le parc :
+exclusion de stratégie sur `C:\Program Files\si-agent` et
+`C:\ProgramData\si-agent` dans GravityZone, ou nom de la détection pour
+adapter le code. (2) Passé ce cap, la récupération de la CA échouait sous
+Windows PowerShell 5.1 : « la connexion sous-jacente a été fermée : une
+erreur inattendue s'est produite lors de l'envoi » -- un ScriptBlock donné
+en `ServerCertificateValidationCallback` est appelé par .NET sur un autre
+thread et casse l'envoi. `install.ps1` passe désormais un vrai délégué C#
+(`Add-Type`), force TLS 1.2 et lit `/ca` avec `WebClient` ; PowerShell 7
+garde `-SkipCertificateCheck`. Vérifié : délégué + `WebClient` contre un
+serveur HTTPS auto-signé (CA lue, échec sans le délégué). Agent **0.4.4**.
+
 ## Montages illisibles ou invisibles (livraison #438)
 
 Premier retour du premier hôte réel : « l'agent ne voit pas tous les types

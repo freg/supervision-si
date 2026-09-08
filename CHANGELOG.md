@@ -1,3 +1,13 @@
+## 2026-09-08 — Agent Windows : récupération de la CA sous PowerShell 5.1 (livraison #450)
+
+Premier poste réel : un ScriptBlock en `ServerCertificateValidationCallback`
+faisait échouer la lecture de `/ca` (« erreur inattendue lors de l'envoi »).
+`install.ps1` utilise un délégué C# (`Add-Type`), TLS 1.2 explicite et
+`WebClient`. Doc : Bitdefender entreprise mettait `agent.py` en quarantaine
+silencieuse (exclusion de stratégie à prévoir pour le parc). Agent 0.4.4,
+archive `si-agent-agent-0.4.4.tar.gz`. Vérifié : délégué contre un serveur
+HTTPS auto-signé ; non vérifié : la suite sur le poste Windows.
+
 ## 2026-09-08 — Agent Windows : racine de l'archive cherchée autour du script (livraison #449)
 
 Premier essai réel du `.cmd` silencieux : « si_agent\agent.py
