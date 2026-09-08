@@ -1,3 +1,31 @@
+## 2026-09-08 — Analyse : tuile unique découverte / localisation / causalité (livraison #461, analyse seulement)
+
+Demandé : analyser toutes les fonctionnalités automatiques ou
+semi-automatiques de localisation, d'identification d'architecture réseau
+et d'exploration des données à destination de la supervision, pour en
+faire une tuile unique avec un corollaire supervision / alertes /
+statistiques / rapprochement de cascades d'événements — trois idées :
+découverte (routes, services, rôles), position (lieu, géo, intervention,
+éclairage carto), chaînes causales (détection, anticipation). « Analyse du
+hub pour l'instant avec suggestions d'évolution ».
+
+`docs/analyse-supervision-unifiee.md` : inventaire de l'existant (network-
+agent, orchestrateur, netprobe, netview si-agent, classifier, SNMP, Nebula,
+IPAM/Zenoss, fusion ; pixel-grid, geo-catalog, positions déduites,
+geo-import ; cinq schémas d'événements cloisonnés, vigilance, UPS, logs,
+memory, timeline), ce qui manque (rôles, routes consolidées, graphe
+persistant, hiérarchie de lieux, position mémorisée avec provenance, bus
+d'événements, corrélation, cycle de vie et accusé unifiés), ce qui se
+réutilise tel quel, puis la proposition « Cortex » : modèle commun
+(entités / relations / événements normalisés), volet Découverte (rôles
+pondérés explicables, table de routes, propositions à confirmer, « ce qui a
+changé »), volet Position (hiérarchie site → baie, provenance, propagation
+par relation, fiche d'intervention, couches carto), volet Causalité
+(incidents par fenêtre glissante + relation avec cause racine amont,
+séquences apprises pour anticiper, dérives), corollaire (file d'incidents,
+MTTA/MTTR, faux positifs par règle, politiques d'alerte), découpage en
+cinq livraisons et points de vigilance. Aucun code.
+
 ## 2026-09-08 — GED : archivage versionné et graphe d'évolution des versions (livraison #460)
 
 Demandé : « un mécanisme d'archivage versionné pour le dépôt de document,

@@ -2516,3 +2516,11 @@ chaînes, GFS, export, planification) façon ARCserve (Cheyenne/NetWare, confirm
 check-out/in, archive immuable) + graphe des versions. Reste : essai contre le
 vrai Mayan sur « super » ; archivage planifié (GroupWise « scheduled archival »)
 et sécurité par version si besoin.
+
+## Tuile unique « Cortex » : découverte / position / causalité (2026-09-08, #461, analyse)
+Analyse dans docs/analyse-supervision-unifiee.md. À construire par étapes : (1) cortex-api
+(entités, relations, événements normalisés, incidents par fenêtre + relation) ; (2) rôles
+pondérés et table de routes, graphe d'architecture persistant ; (3) hiérarchie de lieux,
+position mémorisée avec provenance, fiche d'intervention, couches carto ; (4) séquences
+apprises et anticipation, dérives généralisées ; (5) statistiques MTTA/MTTR et politiques
+d'alerte. En attente de validation de la personne sur le découpage.
