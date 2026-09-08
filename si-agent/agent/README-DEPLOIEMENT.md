@@ -83,6 +83,17 @@ poste (*Restricted*) refuse les scripts. D'où les deux façons de faire :
   demande alors identifiant, secret, URL du central, site et empreinte
   (vide = `-Insecure`, dépannage seulement) dans une fenêtre
   administrateur qui reste ouverte. `windows\uninstall.cmd` de même.
+- **Sans intervention (#447)** : le bouton *Installation* de la tuile
+  propose `si-agent-install-<agent>.cmd`, un fichier généré par le central
+  avec identifiant, secret, URL et empreinte de la CA inclus. Le déposer à
+  la racine de l'archive décompressée (à côté de `windows\`) et
+  double-cliquer : une seule question, l'élévation UAC ; `install.ps1`
+  tourne en silence (journal `%TEMP%\si-agent-install.log`), la fenêtre
+  affiche « OK - agent … installe et demarre » et se ferme après 10 s, et
+  le fichier **s'efface** (il contient le secret). En cas d'échec, le
+  journal s'affiche et la fenêtre reste ouverte. Indisponible sans CA
+  interne sur le central (une installation silencieuse n'est jamais
+  `-Insecure`).
 
 Ce que fait `install.ps1` : cherche **Python 3.8+** (`py`, `python` --
 l'alias du Store est ignoré) et, s'il n'y en a pas, télécharge la

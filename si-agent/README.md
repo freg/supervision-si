@@ -454,6 +454,21 @@ site, empreinte demandés dans une fenêtre administrateur qui reste
 ouverte). Agent **0.4.2**. Vérifié : commande et guillemets (test API) ;
 non vérifié : les `.cmd` sur un Windows réel (pas de `cmd.exe` ici).
 
+Suite immédiate (#447), « un install.cmd complet qui reste muet avec
+juste un OK à la fin, pour déployer sans autre intervention qu'un
+double-clic » : `GET /agents/<id>/install.cmd` renvoie un `.cmd` généré
+par le central, propre à l'agent -- identifiant, secret, URL du central et
+empreinte de la CA inclus, élévation UAC automatique, `install.ps1` lancé
+en `-NonInteractive` avec sa sortie dans `%TEMP%\si-agent-install.log`,
+« OK - agent … installe et demarre » puis fermeture après 10 s et
+**effacement du fichier** (il porte le secret) ; en erreur, journal
+affiché, fenêtre conservée. ASCII seul (page de code OEM de `cmd.exe`),
+caractères `" % ! ^ & < > |` refusés dans les valeurs, 409 sans CA interne
+(pas de `-Insecure` silencieux). La réponse `/install` porte
+`install_cmd_available` et la tuile affiche le lien de téléchargement.
+Vérifié : test API (409 / 404 / contenu, CRLF, ASCII), rendu de la tuile ;
+non vérifié : exécution sur un Windows réel.
+
 ## Montages illisibles ou invisibles (livraison #438)
 
 Premier retour du premier hôte réel : « l'agent ne voit pas tous les types

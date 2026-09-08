@@ -21,7 +21,7 @@ import time
 
 import requests
 
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 
 try:
@@ -367,13 +367,76 @@ def _install_command_windows(agent_id, secret, site):
     """Variante Windows 10/11 (#440, même archive). #446 : passe par
     `powershell -ExecutionPolicy Bypass -File` -- un poste Windows refuse
     les scripts par défaut (politique Restricted) et un double-clic ouvre
-    le .ps1 dans le Bloc-notes ; `windows\install.cmd` fait la même chose
+    le .ps1 dans le Bloc-notes ; `windows/install.cmd` fait la même chose
     avec élévation automatique en administrateur."""
     central = PUBLIC_URL or "https://<VM>:6443/api/si-agent"
     ca = _ca_info()
-    tls = (" -CaFingerprint %s" % ca["sha256"]) if ca.get("sha256") else " -Ca C:\chemin\ca.crt"
-    return "powershell -NoProfile -ExecutionPolicy Bypass -File .\windows\install.ps1 -Agent %s -Secret %s -Central %s -Site %s%s" % (
+    tls = (" -CaFingerprint %s" % ca["sha256"]) if ca.get("sha256") else " -Ca C:\\chemin\\ca.crt"
+    return "powershell -NoProfile -ExecutionPolicy Bypass -File .\\windows\\install.ps1 -Agent %s -Secret %s -Central %s -Site %s%s" % (
         _ps_quote(agent_id), _ps_quote(secret), _ps_quote(central), _ps_quote(site or "default"), tls)
+
+
+def _ascii(s):
+    import unicodedata
+    return unicodedata.normalize("NFKD", str(s or "")).encode("ascii", "ignore").decode()
+
+
+def _install_cmd_windows(agent_id, secret, site):
+    """#446 bis : fichier `.cmd` SILENCIEUX propre à l'agent -- valeurs
+    incluses, élévation UAC, install.ps1 sans question (sortie dans un
+    journal), « OK » à la fin puis le fichier s'efface (il contient le
+    secret) ; en erreur, le journal est affiché et la fenêtre reste
+    ouverte. À déposer à la racine de l'archive décompressée (à côté du
+    dossier windows) et double-cliquer. ASCII seul (cmd.exe lit la page de
+    code OEM) ; l'empreinte de la CA interne est obligatoire (jamais
+    `-Insecure` en silence)."""
+    ca = _ca_info()
+    if not ca.get("sha256"):
+        return None
+    central = _ascii(PUBLIC_URL or "https://<VM>:6443/api/si-agent")
+    aid, sec, st = _ascii(agent_id), _ascii(secret), _ascii(site or "default")
+    for v in (aid, sec, central, st):
+        if re.search(r'["%!^&<>|]', v):
+            return None
+    lines = [
+        "@echo off",
+        "rem si-agent -- installation silencieuse de l'agent %s (fichier genere par le central, contient le secret : s'efface apres succes)." % aid,
+        "rem A placer a la racine de l'archive si-agent-agent-<version> decompressee (a cote de windows\\), puis double-cliquer (UAC demande une fois).",
+        "setlocal",
+        'set "PS1=%~dp0windows\\install.ps1"',
+        'if not exist "%PS1%" set "PS1=%~dp0install.ps1"',
+        'if not exist "%PS1%" ( echo ERREUR : install.ps1 introuvable -- placer ce fichier a la racine de l\'archive decompressee. & pause & exit /b 1 )',
+        "net session >nul 2>&1",
+        'if not "%errorlevel%"=="0" (',
+        '  powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath \'%~f0\' -Verb RunAs"',
+        "  exit /b",
+        ")",
+        'set "LOG=%TEMP%\\si-agent-install.log"',
+        'powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%%PS1%%" -Agent "%s" -Secret "%s" -Central "%s" -Site "%s" -CaFingerprint %s > "%%LOG%%" 2>&1' % (aid, sec, central, st, ca["sha256"]),
+        'if not "%errorlevel%"=="0" goto :erreur',
+        "echo OK - agent %s installe et demarre (journal : %%LOG%%)" % aid,
+        "timeout /t 10 >nul",
+        '(goto) 2>nul & del "%~f0"',
+        ":erreur",
+        "echo ERREUR (code %errorlevel%) - journal %LOG% :",
+        'type "%LOG%"',
+        "pause",
+        "exit /b 1",
+    ]
+    return "\r\n".join(lines) + "\r\n"
+
+
+@app.route("/agents/<agent_id>/install.cmd", methods=["GET"])
+def install_cmd_route(agent_id):
+    """Le `.cmd` silencieux de l'agent (même exposition du secret que
+    /install : réservée au hub). 409 sans CA interne."""
+    a = store.get_agent(DB_PATH, agent_id, with_secret=True)
+    if a is None:
+        return jsonify({"error": "agent inconnu"}), 404
+    body = _install_cmd_windows(agent_id, a["secret"], a["site"])
+    if body is None:
+        return jsonify({"error": "CA interne absente (empreinte requise pour une installation silencieuse) ou caractère interdit dans l'identifiant, le site ou l'URL"}), 409
+    return Response(body, mimetype="text/plain", headers={"Content-Disposition": 'attachment; filename="si-agent-install-%s.cmd"' % re.sub(r"[^A-Za-z0-9_.-]", "_", agent_id)})
 
 
 @app.route("/agents/<agent_id>/install", methods=["GET"])
@@ -389,6 +452,7 @@ def install_route(agent_id):
                     "install_command": _install_command(agent_id, a["secret"], a["site"]),
                     "install_command_docker": _install_command_docker(agent_id, a["secret"], a["site"]),
                     "install_command_windows": _install_command_windows(agent_id, a["secret"], a["site"]),
+                    "install_cmd_available": _install_cmd_windows(agent_id, a["secret"], a["site"]) is not None,
                     "agent_json": {"agent_id": agent_id, "secret": a["secret"], "site": a["site"],
                                    "central_url": PUBLIC_URL or "https://<VM>:6443/api/si-agent"}}), 200
 

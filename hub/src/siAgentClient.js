@@ -53,6 +53,8 @@ export const updateAgent = (apiBase, agentId, body) => fetchJson(apiBase, `/agen
 export const deleteAgent = (apiBase, agentId, purge) => fetchJson(apiBase, `/agents/${encodeURIComponent(agentId)}${purge ? "?purge=true" : ""}`, { method: "DELETE" });
 export const rotateAgentSecret = (apiBase, agentId) => fetchJson(apiBase, `/agents/${encodeURIComponent(agentId)}/rotate-secret`, json("POST", {}));
 export const fetchInstall = (apiBase, agentId) => fetchJson(apiBase, `/agents/${encodeURIComponent(agentId)}/install`);
+// #446 : fichier .cmd silencieux (secret inclus) généré par le central
+export const installCmdUrl = (apiBase, agentId) => `${apiBase}/agents/${encodeURIComponent(agentId)}/install.cmd`;
 
 export async function fetchAgentMeasurements(apiBase, agentId, { task, limit = 200, since } = {}) {
   const q = new URLSearchParams();

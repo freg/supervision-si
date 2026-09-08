@@ -83,6 +83,27 @@ class DashboardTests(ApiBase):
         self.assertTrue(w.startswith("powershell -NoProfile -ExecutionPolicy Bypass -File .\\windows\\install.ps1 -Agent \"srv-01\" -Secret \"%s\"" % a["secret"]), w)
         self.assertIn('-Central "https://vm:6443/api/si-agent" -Site "siege"', w)
         self.assertNotIn("'", w)
+        # #446 : .cmd silencieux -- 409 sans CA interne, fichier ASCII CRLF avec valeurs incluses sinon
+        self.assertEqual(inst["install_cmd_available"], False)
+        self.assertEqual(self.c.get("/agents/srv-01/install.cmd").status_code, 409)
+        self.assertEqual(self.c.get("/agents/nope/install.cmd").status_code, 404)
+        import app as _app
+        old = _app._ca_info
+        _app._ca_info = lambda: {"available": True, "sha256": "ab" * 32}
+        try:
+            r = self.c.get("/agents/srv-01/install.cmd")
+            self.assertEqual(r.status_code, 200)
+            self.assertIn('attachment; filename="si-agent-install-srv-01.cmd"', r.headers["Content-Disposition"])
+            body = r.get_data(as_text=True)
+            self.assertTrue(body.startswith("@echo off\r\n"))
+            self.assertIn('-Agent "srv-01" -Secret "%s" -Central "https://vm:6443/api/si-agent" -Site "siege" -CaFingerprint %s > "%%LOG%%"' % (a["secret"], "ab" * 32), body)
+            self.assertIn("-NonInteractive", body)
+            self.assertIn("-Verb RunAs", body)
+            self.assertIn('del "%~f0"', body)
+            self.assertTrue(all(ord(ch) < 128 for ch in body), "ASCII seul")
+            self.assertTrue(self.c.get("/agents/srv-01/install").get_json()["install_cmd_available"])
+        finally:
+            _app._ca_info = old
         rot = self.c.post("/agents/srv-01/rotate-secret").get_json()
         self.assertNotEqual(rot["secret"], a["secret"])
         up = self.c.put("/agents/srv-01", json={"host_interval_seconds": 30, "risk_thresholds": {"disk_warning_percent": 50}, "active": False}).get_json()

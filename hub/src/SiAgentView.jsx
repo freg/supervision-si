@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   fetchSiAgentStatus, fetchFleet, fetchFleetRisks, fetchAgent, createAgent, updateAgent, deleteAgent,
-  rotateAgentSecret, fetchInstall, fetchPlugins, fetchPlugin, savePlugin, deletePlugin, assignPlugin,
+  rotateAgentSecret, fetchInstall, installCmdUrl, fetchPlugins, fetchPlugin, savePlugin, deletePlugin, assignPlugin,
   unassignPlugin, sendCommand, fetchCommands, blockFleet, unblockFleet, blockAgent, unblockAgent, setPluginBlocked,
   fetchEvents, fetchEventsSummary, testNotifications,
 } from "./siAgentClient.js";
@@ -467,6 +467,13 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                     <>
                       <p className="muted" style={{ margin: "6px 0 2px", fontSize: 12 }}>Windows 10 / 11 — Terminal (administrateur), depuis l'archive décompressée (ne pas double-cliquer le .ps1 : le Bloc-notes s'ouvre ; <code>windows\install.cmd</code> fait l'élévation et accepte les mêmes arguments, ou pose les questions en double-clic) :</p>
                       <pre className="np-secret">{install.install_command_windows}</pre>
+                      {install.install_cmd_available ? (
+                        <p className="muted" style={{ margin: "4px 0 2px", fontSize: 12 }}>
+                          Sans intervention : <a href={installCmdUrl(siAgentApiBase, selectedId)} download={`si-agent-install-${selectedId}.cmd`}>télécharger <code>si-agent-install-{selectedId}.cmd</code></a> (secret et empreinte inclus), le déposer à la racine de l'archive décompressée et double-cliquer : UAC une fois, puis « OK » ; le fichier s'efface après succès.
+                        </p>
+                      ) : (
+                        <p className="muted" style={{ margin: "4px 0 2px", fontSize: 12 }}>Fichier .cmd silencieux indisponible : CA interne absente sur le central (empreinte requise) ou caractère interdit dans l'identifiant / le site.</p>
+                      )}
                     </>
                   )}
                   <div style={{ display: "flex", gap: 8, marginTop: 6 }}>

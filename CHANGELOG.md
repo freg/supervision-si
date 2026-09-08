@@ -1,3 +1,14 @@
+## 2026-09-08 — Agent Windows : installation silencieuse en double-clic (livraison #447)
+
+`GET /agents/<id>/install.cmd` (si-agent-api) : fichier `.cmd` généré par
+le central, propre à l'agent (identifiant, secret, URL et empreinte de la
+CA inclus) -- élévation UAC, `install.ps1` en silence (journal dans
+`%TEMP%`), « OK » à la fin, effacement du fichier après succès, journal
+affiché en cas d'échec ; jamais `-Insecure` (409 sans CA interne).
+Lien « télécharger si-agent-install-<agent>.cmd » dans le panneau
+Installation de la tuile Agents hôtes. Vérifié : test API, rendu de la
+tuile. Non vérifié : exécution sur un Windows réel.
+
 ## 2026-09-08 — Agent Windows : lancement de l'installation sans piège (livraison #446)
 
 Premier retour du poste Windows de test : le `.ps1` s'ouvre dans le
