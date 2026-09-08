@@ -73,3 +73,12 @@ si-proxy/certs/*
 # Bastion si-proxy : journal d'audit (#453), jamais versionné
 si-proxy/data/*
 !si-proxy/data/.gitkeep
+
+# Sauvegardes totales (#458) : archives chiffrées, jamais versionnées
+backups/
+.restore-manifest.json
+.env.avant-regen
+_volumes-a-restaurer/
+_host-side/
+_sql-dumps/
+_absolute/

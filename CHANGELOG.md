@@ -1,3 +1,37 @@
+## 2026-09-08 — Sauvegarde totale, restauration sur un autre host, régénération de ce qui est propre au host (livraison #458)
+
+Demandé : « un mécanisme de backup total et de restore sur un autre host
+avec un script de régénération de tout ce qui est unique pour un host
+(clés...) ». Un moteur (`scripts/full_backup.py`) et trois scripts :
+
+- `backup-full.sh` : archive **chiffrée** (AES-256, `openssl enc
+  -pbkdf2`) contenant le dépôt (bundle git de toutes les branches),
+  `.env`, la PKI entière (CA comprise), tous les montages hôte des quatre
+  compose (découverts dans les fichiers, jamais une liste à la main), les
+  volumes Docker nommés (copie brute via `alpine`) + `pg_dumpall` de
+  chaque PostgreSQL, le shim si-proxy côté host, et un manifeste
+  (host, IP, commit, livraison). `inventory` montre ce qui serait pris.
+- `restore-full.sh` : sur le nouveau host, clone depuis le bundle,
+  restaure `.env` (0600), montages, volumes (préfixe Compose adapté au
+  dossier cible), dépose le côté host et les dumps ; refuse un dossier
+  non vide ; ne démarre rien.
+- `regenerate-host.sh` : `HOST_IP` et toute valeur de `.env` qui
+  contenait l'ancienne IP, certificat serveur (SAN = nouvelle IP), realm
+  Keycloak, conf nginx, certificat du relais si-proxy, `EXPOSURE.json` ;
+  jetons du bastion sur `--rotate-tokens` seulement. **Jamais** la CA
+  (épinglée par les agents, certificat client de freg) ni les sels et
+  phrases de chiffrement (`*_SALT`, `*_PASSPHRASE`). Imprime ce qui reste
+  à faire à la main (agents à re-pointer, shim à réinstaller, realm
+  Keycloak à réimporter, DNS). Doc : `docs/sauvegarde-totale.md`.
+
+**Vérifié** : 5 tests purs ; chaîne réelle sans Docker — sauvegarde
+chiffrée (bundle, `.env` d'essai, PKI, 12 montages) → restauration dans un
+autre dossier (clone sur la branche, CA identique) → mauvaise phrase
+refusée → régénération avec une autre IP et rotation des jetons (`.env`
+réécrit sans toucher aux sels, SAN du cert serveur = nouvelle IP, relais
+`DNS:<hub>,DNS:si-proxy`, CA inchangée).
+**Non vérifié** : volumes Docker / `pg_dumpall` / shim côté host — sur « super ».
+
 ## 2026-09-08 — Accueil du hub par thématiques : cinq super-tuiles au lieu d'une trentaine (livraison #457)
 
 Demandé : « revois toutes les tuiles pour fusionner ce qui peut l'être,
