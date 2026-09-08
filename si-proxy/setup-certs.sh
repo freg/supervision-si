@@ -37,3 +37,5 @@ fi
 echo "jetons suggérés (à mettre dans .env / host.env) :"
 echo "  SI_PROXY_HOST_TOKEN=$(openssl rand -hex 24)"
 echo "  SI_PROXY_CLIENT_TOKEN=$(openssl rand -hex 24)"
+echo "  SI_PROXY_ADMIN_TOKEN=$(openssl rand -hex 24)   # interface de contrôle (#453)"
+mkdir -p "$(dirname "$0")/data"

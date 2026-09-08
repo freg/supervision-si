@@ -1,3 +1,44 @@
+## 2026-09-08 — Bastion si-proxy : journal d'audit, fail2ban maison, interface de contrôle (livraison #453)
+
+Suite à la question « as-tu prévu du log access/error ? une interface de
+contrôle ? » puis « fail2ban maison je préfère ». Trois briques dans le
+relais, sans rien changer au protocole ni aux clients :
+
+- **Journal d'audit** (`siproxy/audit.py`) : JSONL dans `si-proxy/data/`
+  (volume `/data`, jamais versionné) -- `session-start` (identifiant,
+  client `cn:<CN>` / `token:client`, IP, type, cible), `session-end`
+  (durée, octets montés/descendus, issue), `refused` (motif, IP, demande).
+  Métadonnées seulement : jamais le contenu des sessions, jamais un jeton
+  (`aio.bridge` compte les octets et retourne `(montés, descendus)`).
+- **Fail2ban maison** (`siproxy/guard.py`, logique pure, horloge
+  injectable) : échecs d'auth comptés par IP dans une fenêtre glissante,
+  ban au seuil (défaut 5 en 300 s, 15 min ; `SI_PROXY_BAN_*`) ; une IP
+  bannie est fermée avant même le HELLO, bon jeton ou pas ; un succès
+  efface les échecs ; levée manuelle.
+- **Interface de contrôle** (`siproxy/control.py`) : mini-serveur HTTPS
+  sur un port séparé (6452, publié sur la boucle locale de la VM
+  seulement), jeton `SI_PROXY_ADMIN_TOKEN` en en-tête `X-Si-Proxy-Admin`
+  (sans jeton, non démarrée) : `GET /status` (host connecté, actif,
+  sessions en cours, compteurs, bannis), `GET /audit?limit=`,
+  `POST /sessions/<id>/kill`, `POST /disable` / `/enable`,
+  `POST /unban/<ip>`. Base de la tuile « Bastion » du hub (#454).
+
+`relay.py` : `Relay(audit, guard)`, `enabled`, `status()`,
+`kill_session()` ; `entrypoint.sh`, compose (volume `./si-proxy/data`,
+port contrôle, env), `.env.example`, `setup-certs.sh` (jeton admin
+suggéré), `.gitignore`, README.
+
+**Vérifié** : 10 tests purs (`tests/test_audit_guard.py`) + 9 tests
+protocole ; essai de bout en bout étendu (`tests/e2e_local.py`, vrais
+processus relais + shim + client) : `/status`, `/audit` (refus et
+start/end présents, aucun jeton dans le fichier), 403 sans jeton admin,
+ban réel après 3 échecs (bon jeton rejeté, IP listée) puis `/unban`,
+`/disable` refusant une session puis `/enable`, session listée puis tuée
+par `/sessions/<id>/kill` (le client sort) -- tout vert.
+
+**Non vérifié** : le conteneur réel (compose) et le déploiement sur
+« super » -- inchangé depuis #452.
+
 ## 2026-09-08 — Bastion si-proxy réservé à freg (livraison #452)
 
 Nouveau composant `si-proxy` : depuis le Mac, via le hub, un shell sur le

@@ -2485,3 +2485,9 @@ navigation HTTPS sur le hub et, par le hub, sur le LAN. Relais TLS
 HTTP). Réservé freg : jeton + TLS, mTLS+CN optionnel. Vérifié en
 bout-à-bout local ; reste : déploiement réel sur « super », mTLS,
 puis élargissement éventuel à d'autres utilisateurs. Voir si-proxy/README.md.
+#453 : journal d'audit JSONL (si-proxy/data), fail2ban maison (ban par IP
+au seuil d'échecs d'auth), interface de contrôle HTTPS 6452 (status,
+audit, kill, disable/enable, unban ; jeton SI_PROXY_ADMIN_TOKEN).
+À faire (#454) : tuile « Bastion » du hub (sessions, historique, kill,
+pause, bans/déban) derrière la passerelle, catégorie dédiée dans la
+supervision (relais/host/sessions) et l'analyse réseau (cibles jointes).

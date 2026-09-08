@@ -1138,6 +1138,11 @@ services:
     # reste du hub. Certifs émis par si-proxy/setup-certs.sh ; jetons dans
     # .env. Durcissement mTLS : SI_PROXY_MTLS=1 (+ certs clients). Voir
     # si-proxy/README.md.
+    # #453 : journal d'audit JSONL dans ./si-proxy/data (volume /data, jamais
+    # versionné), « fail2ban maison » (SI_PROXY_BAN_*) et interface de
+    # contrôle HTTPS (port 6452, jeton SI_PROXY_ADMIN_TOKEN) publiée sur la
+    # boucle locale de la VM seulement -- consommée par la tuile du hub
+    # (#454) via le réseau Docker, jamais exposée à l'extérieur.
     build:
       context: .
       dockerfile: si-proxy/relay/Dockerfile
@@ -1145,15 +1150,22 @@ services:
     volumes:
       - ./si-proxy/certs:/certs:ro
       - ${PKI_DIR:-./pki}/ca/ca.crt:/ca/ca.crt:ro
+      - ./si-proxy/data:/data
     environment:
       - SI_PROXY_PORT=6450
       - SI_PROXY_HOST_TOKEN=${SI_PROXY_HOST_TOKEN:?SI_PROXY_HOST_TOKEN requis dans .env}
       - SI_PROXY_CLIENT_TOKEN=${SI_PROXY_CLIENT_TOKEN:?SI_PROXY_CLIENT_TOKEN requis dans .env}
+      - SI_PROXY_ADMIN_TOKEN=${SI_PROXY_ADMIN_TOKEN:-}
+      - SI_PROXY_CONTROL_PORT=6452
       - SI_PROXY_MTLS=${SI_PROXY_MTLS:-0}
       - SI_PROXY_ALLOW_CN=${SI_PROXY_ALLOW_CN:-freg}
       - SI_PROXY_LOG_LEVEL=${SI_PROXY_LOG_LEVEL:-INFO}
+      - SI_PROXY_BAN_THRESHOLD=${SI_PROXY_BAN_THRESHOLD:-5}
+      - SI_PROXY_BAN_WINDOW=${SI_PROXY_BAN_WINDOW:-300}
+      - SI_PROXY_BAN_MINUTES=${SI_PROXY_BAN_MINUTES:-15}
     ports:
       - "${SI_PROXY_PORT:-6450}:6450"
+      - "127.0.0.1:${SI_PROXY_CONTROL_PORT:-6452}:6452"
 
   network-explorer:
     # Livraison #393 -- demandé explicitement : "un docker front qui

@@ -148,3 +148,25 @@ def redact(obj):
     if not isinstance(obj, dict):
         return obj
     return {k: ("***" if k in ("token", "secret") else v) for k, v in obj.items()}
+
+
+def parse_http_request(head):
+    """Requête HTTP (en-tête complet, octets jusqu'à \r\n\r\n) ->
+    (method, path, headers) ; headers : dict clés minuscules. (None,...) si
+    illisible. Sert au petit serveur de contrôle du relais."""
+    try:
+        text = head.decode("latin-1")
+    except (AttributeError, UnicodeDecodeError):
+        return None, None, {}
+    lines = text.split("\r\n")
+    parts = lines[0].split(" ") if lines else []
+    if len(parts) < 2:
+        return None, None, {}
+    method, path = parts[0].upper(), parts[1]
+    headers = {}
+    for line in lines[1:]:
+        if not line or ":" not in line:
+            continue
+        k, v = line.split(":", 1)
+        headers[k.strip().lower()] = v.strip()
+    return method, path, headers

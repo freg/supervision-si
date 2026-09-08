@@ -16,9 +16,11 @@ async def read_hello(reader, timeout=15.0):
     return proto.decode_line(raw.rstrip(b"\n"))
 
 
-async def pipe(reader, writer, chunk=65536):
+async def pipe(reader, writer, chunk=65536, counter=None):
     """Copie reader -> writer jusqu'à EOF, puis ferme l'écriture de writer.
-    Ne lève jamais : une erreur réseau termine simplement la pompe."""
+    Ne lève jamais : une erreur réseau termine simplement la pompe. Si
+    `counter` (liste [n]) est fourni, y accumule le nombre d'octets copiés
+    (pour l'audit -- métadonnée de volume, jamais le contenu)."""
     try:
         while True:
             data = await reader.read(chunk)
@@ -26,6 +28,8 @@ async def pipe(reader, writer, chunk=65536):
                 break
             writer.write(data)
             await writer.drain()
+            if counter is not None:
+                counter[0] += len(data)
     except (ConnectionError, asyncio.IncompleteReadError, OSError):
         pass
     finally:
@@ -41,8 +45,9 @@ async def bridge(a_reader, a_writer, b_reader, b_writer):
     erreur), on ferme les DEUX connexions : en TLS on ne peut pas demi-fermer
     (`write_eof` indisponible), donc fermer franchement évite qu'un pair reste
     suspendu et que les connexions s'accumulent (sémantique d'un proxy)."""
-    t1 = asyncio.ensure_future(pipe(a_reader, b_writer))
-    t2 = asyncio.ensure_future(pipe(b_reader, a_writer))
+    ca, cb = [0], [0]
+    t1 = asyncio.ensure_future(pipe(a_reader, b_writer, counter=ca))
+    t2 = asyncio.ensure_future(pipe(b_reader, a_writer, counter=cb))
     await asyncio.wait({t1, t2}, return_when=asyncio.FIRST_COMPLETED)
     for w in (a_writer, b_writer):
         try:
@@ -56,6 +61,7 @@ async def bridge(a_reader, a_writer, b_reader, b_writer):
             await t
         except (asyncio.CancelledError, Exception):  # noqa: BLE001
             pass
+    return ca[0], cb[0]
 
 
 def server_context(certfile, keyfile, ca_file=None, require_client_cert=False):

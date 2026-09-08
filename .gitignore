@@ -70,3 +70,6 @@ netprobe/agent/image/cache/
 # Bastion si-proxy : certificats et clés générés (jamais versionnés)
 si-proxy/certs/*
 !si-proxy/certs/.gitkeep
+# Bastion si-proxy : journal d'audit (#453), jamais versionné
+si-proxy/data/*
+!si-proxy/data/.gitkeep
