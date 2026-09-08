@@ -613,7 +613,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                         <table>
                           <thead><tr><th>Montage</th><th>Périphérique</th><th>Type</th><th>Utilisé</th><th>Total</th><th>Remplissage</th></tr></thead>
                           <tbody>{disks.map((d) => (
-                            <tr key={d.mountpoint}><td><code>{d.mountpoint}</code></td><td className="muted">{d.device}</td><td className="muted">{d.fstype}</td><td>{d.used}</td><td>{d.total}</td><td><Gauge percent={d.gauge.percent} /></td></tr>
+                            <tr key={d.mountpoint}><td><code>{d.mountpoint}</code>{d.remote && <> <span className="na-chip">distant</span></>}</td><td className="muted">{d.device}</td><td className="muted">{d.fstype}</td><td>{d.used}</td><td>{d.total}</td><td>{d.gauge ? <Gauge percent={d.gauge.percent} /> : <Tone tone="warn" title={d.error || ""}>{d.invisible ? "invisible du conteneur" : "illisible"}{d.error ? ` — ${d.error}` : ""}</Tone>}</td></tr>
                           ))}</tbody>
                         </table>
                       </div>

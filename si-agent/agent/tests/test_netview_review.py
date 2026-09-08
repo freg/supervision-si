@@ -139,6 +139,21 @@ class HostRootTests(unittest.TestCase):
         self.assertEqual([x["mountpoint"] for x in d], ["/", "/data"], "montages de l'hôte seuls, sans le préfixe ; overlay du conteneur exclu")
         self.assertEqual([x["mountpoint"] for x in host.collect_disks(files=lambda p: mounts, usage=U, host_root="")], ["/host", "/host/data"])
 
+    def test_montage_hote_invisible_du_conteneur(self):
+        """#438 : sshfs monté sur l'hôte après le démarrage du conteneur --
+        présent dans /proc/1/mounts (--pid host), absent sous /host."""
+        own = "/dev/vda1 /host ext4 rw 0 0\noverlay / overlay rw 0 0\n"
+        host_view = "/dev/vda1 / ext4 rw 0 0\nalice@nas:/data /home/alice/nas fuse.sshfs rw 0 0\nproc /proc proc rw 0 0\n"
+        files = lambda p: host_view if p == "/proc/1/mounts" else own
+
+        class U(object):
+            def __init__(self, *a):
+                self.total, self.used, self.free = 100, 40, 60
+        d = host.collect_disks(files=files, usage=U, host_root="/host")
+        self.assertEqual([(x["mountpoint"], x["visible"]) for x in d], [("/", True), ("/home/alice/nas", False)])
+        self.assertIn("invisible depuis le conteneur", d[1]["error"])
+        self.assertTrue(d[1]["remote"])
+
     def test_chemins_prefixes(self):
         old = host.HOST_ROOT
         try:

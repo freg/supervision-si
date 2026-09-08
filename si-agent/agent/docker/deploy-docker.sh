@@ -10,6 +10,8 @@
 #   2. écrit /etc/si-agent/agent.json (mode 600) sur l'hôte ;
 #   3. construit l'image sur place (python:3.12-slim + iproute2, procps, util-linux, journalctl) ;
 #   4. lance le conteneur : --network host --pid host, / de l'hôte monté en lecture
+#      (rslave, #438 : les montages faits sur l'hôte APRÈS le démarrage -- sshfs,
+#      NFS, clés USB -- apparaissent dans le conteneur)
 #      seule sous /host, file et plugins persistants dans /var/lib/si-agent,
 #      redémarrage automatique (unless-stopped), journal Docker limité.
 #
@@ -102,7 +104,7 @@ docker run -d --name "$NAME" --restart unless-stopped \
   --network host --pid host \
   --log-opt max-size=10m --log-opt max-file=3 \
   -e SI_AGENT_HOST_ROOT=/host \
-  -v /:/host:ro \
+  -v /:/host:ro,rslave \
   -v /etc/si-agent:/etc/si-agent \
   -v /var/lib/si-agent:/var/lib/si-agent \
   ${EXTRA[@]+"${EXTRA[@]}"} \

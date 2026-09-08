@@ -1,3 +1,20 @@
+## 2026-09-08 — Agent hôte : montages illisibles ou invisibles listés avec leur raison (sshfs/FUSE, NFS, propagation Docker) (livraison #438)
+
+Retour du premier hôte réel : « l'agent ne voit pas tous les types de
+montage, notamment sshfs ». Deux causes : `collect_disks` ignorait en
+silence tout montage dont `statvfs` échoue (un montage FUSE refuse root
+sans `allow_other`/`allow_root` ; NFS périmé), et le conteneur ne voit pas
+un montage fait sur l'hôte après son démarrage. Correctif : chaque montage
+est listé avec `remote`, `visible`, `error` (tailles à null) ; en
+conteneur la table de montage de l'hôte (`/proc/1/mounts`, --pid host) est
+comparée à ce que le conteneur voit ; `deploy-docker.sh` monte `/` en
+`ro,rslave` ; agent 0.3.2 ; `partial` = `mounts:<n>`. Tuile Agents hôtes :
+« illisible — raison » / « invisible du conteneur » à la place de la
+jauge, puce « distant ». README-DEPLOIEMENT : marche à suivre sshfs
+(`-o allow_root`, `user_allow_other`). Vérifié : 31 tests agent, 133 hub,
+collecte réelle sous /host, rendu Chromium. Non vérifié : vrai sshfs (pas
+de FUSE dans l'environnement de développement) -- à confirmer sur l'hôte.
+
 ## 2026-09-08 — GLPI ↔ agents hôtes : export des hôtes si-agent vers GLPI, comparaison avec les agents GLPI Agent ; correctif du montage de la CA (livraison #437)
 
 Backlog 63 (h). `glpi/api/si_agent_import.py` : chaque hôte de la flotte

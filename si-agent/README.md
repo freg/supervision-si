@@ -386,10 +386,25 @@ montée ». Le montage est maintenant `${PKI_DIR:-./pki}/ca/ca.crt`. Si le
 dossier parasite existe : `docker compose stop si-agent-api && sudo rmdir
 pki/ca/ca.crt && docker compose up -d --force-recreate si-agent-api`.
 
+## Montages illisibles ou invisibles (livraison #438)
+
+Premier retour du premier hôte réel : « l'agent ne voit pas tous les types
+de montage, notamment sshfs ». Causes trouvées : `collect_disks` IGNORAIT
+tout montage dont `statvfs` échoue (FUSE refuse root sans `allow_other`,
+NFS périmé), et le conteneur ne voit pas un montage fait sur l'hôte après
+son démarrage (pas de propagation). Maintenant : chaque montage est listé
+avec `remote` (sshfs, NFS, CIFS, rclone…), `visible` et `error` (tailles à
+null), `partial` contient `mounts:<n>` ; en conteneur la table de montage
+de l'hôte (`/proc/1/mounts`, --pid host) révèle les montages invisibles ;
+`deploy-docker.sh` monte `/` en `ro,rslave` (agent 0.3.2). La tuile
+affiche « illisible — raison » ou « invisible du conteneur » à la place
+de la jauge, et une puce « distant ». Marche à suivre pour sshfs :
+`README-DEPLOIEMENT.md`, section « Montages réseau et FUSE ».
+
 ## Tests
 
 ```bash
-cd si-agent/agent && python3 -m unittest            # 27 tests (agent), dont netview/review (#428)
+cd si-agent/agent && python3 -m unittest            # 31 tests (agent), dont netview/review (#428), montages (#438)
 ./sync-shared.sh --check                              # copies protocol/localqueue à jour
 cd ../api && python3 -m unittest                      # 9 tests (central), dont la chaîne réelle agent ↔ central
 cd ../../hub && node --test tests/siAgent.test.mjs    # 10 tests (logique de la tuile)

@@ -253,11 +253,38 @@ def parse_mounts(text):
     return out
 
 
+# Systèmes de fichiers distants / montés par un utilisateur (sshfs, NFS,
+# CIFS, rclone, WebDAV…) : signalés `remote`, et jamais tus quand leur
+# lecture échoue (#438 : « je ne vois pas mon sshfs »).
+_REMOTE_FS_PREFIXES = ("fuse.", "nfs", "cifs", "smb", "davfs", "9p", "ceph", "glusterfs", "afs", "lustre", "ncpfs")
+
+
+def is_remote_fs(fstype):
+    return bool(fstype) and fstype.startswith(_REMOTE_FS_PREFIXES) and fstype not in ("fuse.gvfsd-fuse", "fuse.portal")
+
+
+def _usage_error(fstype, exc):
+    err = getattr(exc, "errno", None)
+    if fstype and fstype.startswith("fuse.") and err in (1, 13):  # EPERM, EACCES
+        return "accès refusé : montage FUSE (%s) sans allow_other/allow_root -- seul l'utilisateur qui l'a monté peut le lire (sshfs -o allow_root, user_allow_other dans /etc/fuse.conf)" % fstype
+    if err == 116:  # ESTALE
+        return "montage périmé (stale) : serveur injoignable ?"
+    return "lecture impossible : %s" % (getattr(exc, "strerror", None) or str(exc) or "erreur")
+
+
 def collect_disks(files=read_file, usage=shutil.disk_usage, host_root=None):
     """En conteneur (`host_root`, ex. /host) : seuls les montages de
-    l'hôte (sous /host) comptent, affichés sans le préfixe."""
+    l'hôte (sous /host) comptent, affichés sans le préfixe.
+
+    #438 : un montage dont la taille ne peut pas être lue (FUSE sans
+    allow_other, NFS périmé…) est LISTÉ avec `error` (tailles à null)
+    plutôt qu'ignoré ; en conteneur, la table de montage de l'hôte
+    (`/proc/1/mounts`, visible grâce à --pid host) est comparée à ce que
+    le conteneur voit : un montage fait sur l'hôte après le démarrage du
+    conteneur (sans propagation rslave) apparaît avec `visible: false`."""
     root = HOST_ROOT if host_root is None else host_root
     disks = []
+    shown_points = set()
     for m in parse_mounts(files("/proc/mounts")):
         mountpoint = m["mountpoint"]
         if root:
@@ -268,18 +295,34 @@ def collect_disks(files=read_file, usage=shutil.disk_usage, host_root=None):
                 continue
         else:
             shown = mountpoint
+        entry = {"mountpoint": shown, "device": m["device"], "fstype": m["fstype"], "remote": is_remote_fs(m["fstype"]),
+                 "total_bytes": None, "used_bytes": None, "free_bytes": None, "used_percent": None, "visible": True}
+        shown_points.add(shown)
         try:
             u = usage(mountpoint)
-        except OSError:
+        except OSError as exc:
+            entry["error"] = _usage_error(m["fstype"], exc)
+            disks.append(entry)
             continue
         total = u.total
         if not total:
             continue
-        disks.append({
-            "mountpoint": shown, "device": m["device"], "fstype": m["fstype"],
-            "total_bytes": total, "used_bytes": u.used, "free_bytes": u.free,
-            "used_percent": round(100.0 * u.used / total, 1),
-        })
+        entry.update({"total_bytes": total, "used_bytes": u.used, "free_bytes": u.free, "used_percent": round(100.0 * u.used / total, 1)})
+        disks.append(entry)
+    if root:
+        # Table de montage de l'hôte (PID 1 de l'hôte, --pid host) : ce que
+        # l'hôte a monté et que le conteneur ne voit pas (propagation).
+        host_view = files("/proc/1/mounts") or ""
+        for m in parse_mounts(host_view):
+            mp = m["mountpoint"]
+            if mp in shown_points or mp.startswith((root + "/", "/proc", "/sys", "/dev", "/run", "/snap/")) or mp == root:
+                continue
+            if m["fstype"] == "overlay" or (m["device"] == "overlay"):
+                continue
+            disks.append({"mountpoint": mp, "device": m["device"], "fstype": m["fstype"], "remote": is_remote_fs(m["fstype"]),
+                          "total_bytes": None, "used_bytes": None, "free_bytes": None, "used_percent": None, "visible": False,
+                          "error": "monté sur l'hôte mais invisible depuis le conteneur (monté après son démarrage ?) -- relancer deploy-docker.sh (/host en rslave) ou redémarrer le conteneur"})
+            shown_points.add(mp)
     return disks
 
 
@@ -419,6 +462,8 @@ def collect_all(files=read_file, cmd=run_cmd, usage=shutil.disk_usage, which=shu
         partial.append("meminfo")
     if not disks:
         partial.append("mounts")
+    elif any(d.get("error") for d in disks):
+        partial.append("mounts:%d" % sum(1 for d in disks if d.get("error")))
     if not services.get("available"):
         partial.append("systemctl")
     if not ports.get("available"):

@@ -71,6 +71,19 @@ test("disques et ports dérivés d'une mesure host", () => {
   assert.deepEqual(diskRows(null), []);
 });
 
+test("#438 : montage illisible (sshfs sans allow_other) ou invisible du conteneur, listé avec sa raison", () => {
+  const host = { disks: [
+    { mountpoint: "/home/alice/nas", device: "alice@nas:/data", fstype: "fuse.sshfs", remote: true, total_bytes: null, used_percent: null, visible: true, error: "accès refusé : montage FUSE (fuse.sshfs) sans allow_other/allow_root" },
+    { mountpoint: "/mnt/usb", device: "/dev/sdb1", fstype: "vfat", total_bytes: null, used_percent: null, visible: false, error: "monté sur l'hôte mais invisible depuis le conteneur" },
+  ] };
+  const [nas, usb] = diskRows(host);
+  assert.equal(nas.used, "—");
+  assert.equal(nas.gauge, null);
+  assert.equal(nas.remote, true);
+  assert.match(nas.error, /allow_other/);
+  assert.equal(usb.invisible, true);
+});
+
 test("fusion sondes affectées (central) et présentes (inventaire de l'hôte)", () => {
   const merged = mergePlugins(
     [{ id: "hello", version: "2", runner: "shell", enabled: true }, { id: "new", version: "1", runner: "python", enabled: false }],

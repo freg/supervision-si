@@ -64,6 +64,25 @@ PYTHONPATH=/opt/si-agent python3 -m si_agent.agent --collect
 `--enable-plugin network-neighbors` (balayage ping, trafic actif,
 désactivé par défaut) ; `--log-level DEBUG`.
 
+## Montages réseau et FUSE (sshfs, NFS, CIFS…)
+
+Depuis 0.3.2 (#438) l'agent liste TOUS les montages de l'hôte, y compris
+ceux qu'il ne peut pas mesurer, avec la raison :
+
+- **sshfs / FUSE « accès refusé »** : un montage FUSE n'est lisible que par
+  l'utilisateur qui l'a monté, sauf option `allow_other` ou `allow_root`.
+  L'agent (root, ou l'utilisateur `si-agent`) doit donc être autorisé :
+  `sshfs -o allow_root user@hote:/chemin /point` (ou `allow_other`), après
+  avoir décommenté `user_allow_other` dans `/etc/fuse.conf`. Sans cela, le
+  montage apparaît « illisible », jamais silencieusement absent.
+- **« invisible du conteneur »** (déploiement Docker) : le montage a été
+  fait sur l'hôte après le démarrage du conteneur. `deploy-docker.sh`
+  monte maintenant `/` en `rslave` pour que les nouveaux montages se
+  propagent ; un conteneur lancé avec l'ancien script doit être relancé
+  (`deploy-docker.sh` à nouveau, mêmes paramètres, ou
+  `docker restart si-agent`).
+- **NFS « périmé »** : serveur injoignable (stale file handle).
+
 ## Réseau
 
 L'hôte doit joindre le central en sortie sur le port de la passerelle TLS

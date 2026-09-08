@@ -122,14 +122,19 @@ export function riskSummaryText(summary) {
 }
 
 // Lignes du tableau des disques d'une mesure host.
+// #438 : un montage illisible (FUSE/sshfs sans allow_other, NFS périmé) ou
+// invisible depuis le conteneur est listé avec sa raison, tailles à « — ».
 export function diskRows(host) {
   return (host?.disks || []).map((d) => ({
     mountpoint: d.mountpoint,
     device: d.device,
     fstype: d.fstype,
-    used: formatBytes(d.used_bytes),
-    total: formatBytes(d.total_bytes),
-    gauge: gauge(d.used_percent),
+    remote: !!d.remote,
+    used: d.total_bytes == null ? "—" : formatBytes(d.used_bytes),
+    total: d.total_bytes == null ? "—" : formatBytes(d.total_bytes),
+    gauge: d.used_percent == null ? null : gauge(d.used_percent),
+    error: d.error || null,
+    invisible: d.visible === false,
   }));
 }
 

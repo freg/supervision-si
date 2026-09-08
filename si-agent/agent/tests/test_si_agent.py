@@ -96,7 +96,28 @@ class HostTests(unittest.TestCase):
             if mp == "/mnt/nas":
                 raise OSError("stale")
             return Usage(10, 1)
-        self.assertEqual(len(host.collect_disks(files(PROC), usage=failing)), 2, "un montage en erreur est ignoré")
+        d = host.collect_disks(files(PROC), usage=failing)
+        self.assertEqual(len(d), 3, "#438 : un montage en erreur est listé, pas ignoré")
+        nas = [x for x in d if x["mountpoint"] == "/mnt/nas"][0]
+        self.assertIsNone(nas["used_percent"])
+        self.assertIn("lecture impossible", nas["error"])
+
+    def test_sshfs_fuse_sans_allow_other(self):
+        """#438 : « j'ai du sshfs et je ne le vois pas » -- FUSE refuse
+        l'accès à root (EACCES) : listé, avec la raison."""
+        mounts = "/dev/sda1 / ext4 rw 0 0\nalice@nas:/data /home/alice/nas fuse.sshfs rw,nosuid,nodev,user_id=1000 0 0\nnas:/exports /mnt/nfs nfs4 rw 0 0\n"
+        def usage(mp):
+            if mp == "/home/alice/nas":
+                raise PermissionError(13, "Permission denied")
+            if mp == "/mnt/nfs":
+                raise OSError(116, "Stale file handle")
+            return Usage(100, 50)
+        d = host.collect_disks(files({"/proc/mounts": mounts}), usage=usage)
+        by = {x["mountpoint"]: x for x in d}
+        self.assertIn("allow_other", by["/home/alice/nas"]["error"])
+        self.assertTrue(by["/home/alice/nas"]["remote"] and by["/mnt/nfs"]["remote"] and not by["/"]["remote"])
+        self.assertIn("périmé", by["/mnt/nfs"]["error"])
+        self.assertEqual(by["/"]["used_percent"], 50.0)
 
     def test_services_ports_journaux_comptes(self):
         cmd = FakeCmd({"systemctl": (0, "● nginx.service loaded failed failed A high performance web server\nfoo.timer loaded failed failed Foo\n"),
