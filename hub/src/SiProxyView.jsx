@@ -22,7 +22,7 @@ function when(iso) {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString("fr-FR");
 }
 
-export default function SiProxyView({ onBack, siProxyApiBase, accessToken, username }) {
+export default function SiProxyView({ onBack, siProxyApiBase, accessToken, username, embedded = false }) {
   const [status, setStatus] = useState(null);
   const [summary, setSummary] = useState(null);
   const [audit, setAudit] = useState([]);
@@ -63,12 +63,14 @@ export default function SiProxyView({ onBack, siProxyApiBase, accessToken, usern
   const refusals = useMemo(() => refusalsByPeer(audit), [audit]);
 
   return (
-    <div className="hub-settings hub-settings-wide">
-      <div className="hub-settings-topbar">
-        <button className="secondary" onClick={onBack}>◀ Retour</button>
-        <h1>🛡 Bastion si-proxy</h1>
-        <span className="muted">réservé — connecté en tant que {username || "?"}</span>
-      </div>
+    <div className={embedded ? "" : "hub-settings hub-settings-wide"}>
+      {!embedded && (
+        <div className="hub-settings-topbar">
+          <button className="secondary" onClick={onBack}>◀ Retour</button>
+          <h1>🛡 Bastion si-proxy</h1>
+          <span className="muted">réservé — connecté en tant que {username || "?"}</span>
+        </div>
+      )}
 
       {error && <p className="hub-error">{error} — cette tuile est réservée aux personnes de SI_PROXY_ADMIN_USERS ; le pont a refusé le jeton.</p>}
       {notice && <p className="muted ups-notice">{notice} <button className="secondary" onClick={() => setNotice(null)}>✕</button></p>}

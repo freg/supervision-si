@@ -11,6 +11,7 @@ import unittest
 
 os.environ["SI_PROXY_ADMIN_TOKEN"] = "ADMIN-test"
 os.environ["SI_PROXY_ADMIN_USERS"] = "freg, francois"
+os.environ["SI_PROXY_EXPOSURE_PATH"] = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "shared", "EXPOSURE.json")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import jwt  # noqa: E402
@@ -184,6 +185,25 @@ class TestApi(unittest.TestCase):
         t = s["targets"][0]
         self.assertEqual((t["host"], t["count"], t["kinds"], t["bytes"]), ("192.168.1.10", 2, ["connect", "http"], 1100))
         self.assertEqual(s["banned"][0]["ip"], "203.0.113.9")
+
+    def test_exposure(self):
+        self.assertEqual(self.c.get("/exposure").status_code, 401)
+        r = self.c.get("/exposure", headers=self.h())
+        self.assertEqual(r.status_code, 200)
+        d = r.get_json()
+        self.assertTrue(any(g["path"] == "/api/si-proxy/" for g in d["gateway"]))
+        self.assertTrue(any(p["service"] == "si-proxy" and p["loopback_only"] for p in d["direct_ports"]))
+        self.assertEqual(d["counts"]["direct_ports"], len(d["direct_ports"]))
+
+    def test_exposure_missing_file_is_explicit(self):
+        old = appmod.EXPOSURE_PATH
+        appmod.EXPOSURE_PATH = "/nonexistent/EXPOSURE.json"
+        try:
+            d = self.c.get("/exposure", headers=self.h()).get_json()
+            self.assertIn("indisponible", d["error"])
+            self.assertEqual(d["counts"]["direct_ports"], 0)
+        finally:
+            appmod.EXPOSURE_PATH = old
 
     def test_summary_relay_down(self):
         appmod.app.control_call = lambda m, p, timeout=8: (503, {"error": "relais injoignable : refus"})

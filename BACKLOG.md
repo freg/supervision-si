@@ -2491,7 +2491,14 @@ audit, kill, disable/enable, unban ; jeton SI_PROXY_ADMIN_TOKEN).
 #454 : tuile « Bastion » (sessions/kill, pause, bans, audit, cibles) via le
 pont si-proxy-admin-api (jeton Keycloak VÉRIFIÉ, SI_PROXY_ADMIN_USERS),
 catégorie Bastion dans Supervision SI + liens « bastion ».
-À faire (#455, demandé) : passe sur l'ensemble des outils et tuiles pour
-rapatrier dans Bastion tout ce qui concerne les entrées/sorties,
-autorisations et partages (tunnels SSH, liens externes, droits, montages
-et partages de fichiers, relais…) -- inventaire puis intégration.
+#455 : console Bastion à cinq onglets (si-proxy, Entrées = exposition
+EXPOSURE.json + agents/sondes avec coupe-circuit, Sorties = tunnels +
+connecteurs externes, Autorisations = rights-api + liens externes,
+Partages = gestionnaire de fichiers + montages SSHFS).
+À DÉCIDER (constat #455) : 5 bases/index publiés sur 0.0.0.0 hors
+passerelle (pixel-grid/tickets/geo/geo-catalog PostgreSQL, Elasticsearch)
+-> lier à 127.0.0.1 dans le compose si aucun client externe ; 11 API et
+portails hors passerelle (vault-admin, network-explorer, launcher,
+docker-monitor, netmap-orchestrator, ups, si-agent, geo-catalog...) à
+passer derrière tls-proxy ou à restreindre. Partages ownCloud (oc_share)
+non exploités ; coffre/annuaire/Keycloak restent des portails dédiés.

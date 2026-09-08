@@ -17,6 +17,8 @@ Routes (préfixe /api/si-proxy via tls-proxy) -- toutes exigent le Bearer :
   GET  /status                 -> état du relais (proxy de /status)
   GET  /audit?limit=N          -> journal (proxy de /audit)
   GET  /summary?hours=24       -> synthèse supervision / analyse réseau
+  GET  /exposure               -> inventaire d'exposition (shared/EXPOSURE.json,
+                                  #455 : routes passerelle, ports directs, réseau hôte)
   POST /sessions/<id>/kill, /disable, /enable, /unban/<ip>
 Sans Bearer : /health et /version seulement.
 """
@@ -49,6 +51,7 @@ CONTROL_URL = os.environ.get("SI_PROXY_CONTROL_URL", "https://si-proxy:6452").rs
 CONTROL_CA = os.environ.get("SI_PROXY_CONTROL_CA", "/ca/ca.crt")
 ADMIN_TOKEN = os.environ.get("SI_PROXY_ADMIN_TOKEN", "")
 EXPECTED_AZP = os.environ.get("SI_PROXY_EXPECTED_AZP") or None
+EXPOSURE_PATH = os.environ.get("SI_PROXY_EXPOSURE_PATH") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "EXPOSURE.json")
 
 app = Flask(__name__)
 CORS(app)
@@ -144,6 +147,18 @@ def summary():
     if st.get("error"):
         out["error"] = st["error"]
     return jsonify(out), 200
+
+
+@app.route("/exposure", methods=["GET"])
+def exposure():
+    """Inventaire d'exposition généré par scripts/render-exposure.py (copié
+    au build). Absent -> réponse explicite, jamais une 500."""
+    try:
+        with open(EXPOSURE_PATH, encoding="utf-8") as fh:
+            return jsonify(json.load(fh)), 200
+    except (OSError, ValueError) as exc:
+        return jsonify({"error": "inventaire d'exposition indisponible : %s" % exc, "gateway": [], "direct_ports": [], "host_network": [],
+                        "counts": {"gateway_routes": 0, "direct_ports": 0, "direct_public": 0, "host_network": 0}}), 200
 
 
 def _act(method, path, log_msg):

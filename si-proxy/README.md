@@ -1,4 +1,4 @@
-# Bastion si-proxy (livraisons #452, #453, #454)
+# Bastion si-proxy (livraisons #452 à #455)
 
 Accès **réservé à freg** (pour l'instant), depuis le Mac, à trois choses via
 le hub :
@@ -121,6 +121,37 @@ types) », source `si-proxy`, pondérés par les octets échangés (tracés en
 orange sur la carte). Visible seulement pour les personnes autorisées
 (le pont refuse les autres, sans erreur affichée).
 
+## Console Bastion élargie : entrées, sorties, autorisations, partages (#455)
+
+Demandé : « une passe sur l'ensemble des outils et des tuiles pour mettre
+dans bastion tout ce qui concerne les entrées, sorties, autorisations,
+partages ». La tuile devient une **console de sécurité** à cinq onglets
+(`hub/src/BastionView.jsx`, logique pure `bastionInventory.js`, sondes
+`bastionClient.js`). Rien n'est dupliqué : chaque onglet agrège ce que les
+tuiles d'origine exposent déjà, offre les **actions de coupure** qui
+existent et renvoie vers la tuile pour le reste. Un compteur d'attention
+par onglet signale ce qui mérite un regard.
+
+| Onglet | Contenu | Actions |
+|---|---|---|
+| Bastion si-proxy | #454 inchangé | pause, kill, déban |
+| Entrées | **Exposition du SI** : routes de la passerelle, ports publiés **directement** sur l'hôte (contournent la passerelle ; base/index sur toutes les interfaces = critique, API/portail = avertissement, boucle locale = info), services en `network_mode: host` ; agents hôtes (si-agent) et sondes (netprobe) entrants, TLS non vérifié signalé | **coupe-circuit** : bloquer / débloquer toutes les sondes de la flotte |
+| Sorties | tunnels SSH (état, via, vers), connecteurs vers des services externes (Nebula, GLPI, IMAP, ownCloud, sauvegardes, GeoIP, notifications) d'après leur `/health` | arrêter / démarrer un tunnel |
+| Autorisations | permissions rights-api par type de ressource, types restés ouverts (contrôle opt-in), liens externes du hub et leurs rôles (« tout le monde » signalé), mes groupes | révoquer une permission (admin_hub) |
+| Partages | sources du gestionnaire de fichiers (espace protégé gardé par rights-api, GED, montages), montages SSHFS | démonter |
+
+L'inventaire d'exposition est **`shared/EXPOSURE.json`**, généré par
+`scripts/render-exposure.py` (à chaque `run.sh`, comme `VERSION.json`)
+d'après `docker-compose.yml` (`ports:`, `network_mode`) et la liste des
+routes de `tls-proxy` — jamais maintenu à la main — et servi par le pont
+(`GET /exposure`). Premier constat réel à la génération : **cinq bases /
+index (PostgreSQL ×4, Elasticsearch) publiés sur toutes les interfaces de
+la VM**, hors passerelle et hors Keycloak — noté au backlog (les lier à
+`127.0.0.1` dans le compose si aucun client externe n'en a besoin).
+
+Hors console (portails dédiés) : coffre-fort (ACL par collection),
+annuaire, console Keycloak. Partages ownCloud (`oc_share`) : non exploités.
+
 ## Mise en place (sur la VM du hub)
 
 ```bash
@@ -195,6 +226,12 @@ Le relais n'accepte alors que les certificats dont le CN est dans
   utilisateur ; tuile rendue sous Chromium sur cette chaîne (session
   shell listée puis **fermée depuis la tuile**, **pause** puis reprise),
   catégorie Bastion et lien `bastion` rendus dans la tuile Supervision SI.
+- #455 : 3 tests du parseur d'exposition (`scripts/test_render_exposure.py`),
+  2 tests du pont (`/exposure`, fichier absent explicite), 6 tests Node
+  (`hub/tests/bastionInventory.test.mjs`, 156 au total) ; inventaire
+  généré sur le vrai `docker-compose.yml` (47 routes, 17 ports directs,
+  1 service en réseau hôte) ; les cinq onglets rendus sous Chromium sur
+  la chaîne réelle (pont + relais) et les API simulées des tuiles.
 
 Non vérifié : le déploiement réel sur la VM « super » (systemd, certs de la
 PKI du hub, accès depuis l'extérieur), le TLS mutuel bout-à-bout, et le pont

@@ -1,3 +1,47 @@
+## 2026-09-08 — Console Bastion : entrées, sorties, autorisations, partages rapatriés depuis toutes les tuiles (livraison #455)
+
+Demandé : « une passe sur l'ensemble des outils et des tuiles pour mettre
+dans bastion tout ce qui concerne les entrées sorties autorisation
+partages ». Inventaire fait sur le dépôt entier (passerelle, ports
+publiés, agents/sondes entrants, tunnels SSH et montages, connecteurs
+externes, rights-api, liens externes, coffre/annuaire, gestionnaire de
+fichiers, GED, ownCloud) puis intégration dans la tuile Bastion, devenue
+une console à cinq onglets (`hub/src/BastionView.jsx`, logique pure
+`bastionInventory.js`, sondes `bastionClient.js`) :
+
+- **Entrées** : exposition du SI d'après `shared/EXPOSURE.json`, généré
+  par `scripts/render-exposure.py` (appelé par `run.sh`, comme
+  `VERSION.json`) à partir de `docker-compose.yml` et des routes
+  `tls-proxy` — routes de la passerelle, ports publiés directement sur
+  l'hôte classés (base/index sur toutes les interfaces = critique,
+  API/portail hors passerelle = avertissement, boucle locale = info),
+  services en `network_mode: host` ; agents hôtes et sondes entrants avec
+  **coupe-circuit** de la flotte (bloquer/débloquer) ; servi par le pont
+  (`GET /exposure`).
+- **Sorties** : tunnels SSH (arrêt/démarrage), connecteurs externes
+  (Nebula, GLPI, IMAP, ownCloud, sauvegardes, GeoIP, notifications)
+  d'après leur `/health`.
+- **Autorisations** : permissions rights-api par type (révocation
+  admin_hub), types restés ouverts (contrôle opt-in), liens externes et
+  rôles (« tout le monde » signalé), mes groupes.
+- **Partages** : sources du gestionnaire de fichiers (espace protégé
+  gardé), GED, montages SSHFS (démontage).
+Compteur d'attention par onglet ; renvoi vers la tuile d'origine partout.
+
+**Constat réel** à la première génération de l'inventaire : cinq bases /
+index (pixel-grid, tickets, geo, geo-catalog PostgreSQL ; Elasticsearch)
+sont publiés sur **toutes les interfaces** de la VM, hors passerelle et
+hors Keycloak, plus onze API/portails hors passerelle — rien n'a été
+changé dans le compose (à décider : lier à `127.0.0.1`), noté au backlog.
+
+**Vérifié** : 3 tests du parseur, 19 tests du pont, 156 tests Node ;
+inventaire généré sur le vrai compose (47 routes, 17 ports, 1 réseau
+hôte) ; cinq onglets rendus sous Chromium sur la chaîne réelle du pont et
+les API simulées des tuiles (blocage flotte, arrêt tunnel, démontage et
+révocation exposés comme boutons -- actions réelles non exercées ici).
+
+**Non vérifié** : déploiement compose sur « super » (comme #452–#454).
+
 ## 2026-09-08 — Tuile « Bastion » du hub, pont si-proxy-admin-api, catégorie Bastion dans la supervision et l'analyse des liens (livraison #454)
 
 Suite de #453 (« une interface de contrôle ? une catégorie spéciale dans

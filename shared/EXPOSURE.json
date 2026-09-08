@@ -1,0 +1,505 @@
+{
+ "gateway_port": "6443",
+ "gateway": [
+  {
+   "path": "/api/supervision/",
+   "service": "api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "SUPERVISION_API_PORT"
+  },
+  {
+   "path": "/api/pixel-grid/",
+   "service": "pixel-grid-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "PIXEL_GRID_API_PORT"
+  },
+  {
+   "path": "/api/tickets/",
+   "service": "tickets-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "TICKETS_API_PORT"
+  },
+  {
+   "path": "/api/ipam/",
+   "service": "ipam-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "IPAM_API_PORT"
+  },
+  {
+   "path": "/api/optick/",
+   "service": "optick-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "OPTICK_API_PORT"
+  },
+  {
+   "path": "/api/zenoss/",
+   "service": "zenoss-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "ZENOSS_API_PORT"
+  },
+  {
+   "path": "/api/tts-gu/",
+   "service": "tts-gu-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "TTSGU_API_PORT"
+  },
+  {
+   "path": "/api/owncloud/",
+   "service": "owncloud-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "OWNCLOUD_API_PORT"
+  },
+  {
+   "path": "/api/cacti/",
+   "service": "cacti-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "CACTI_API_PORT"
+  },
+  {
+   "path": "/api/owncloud-search/",
+   "service": "owncloud-search-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "OWNCLOUD_SEARCH_API_PORT"
+  },
+  {
+   "path": "/api/geo-import/",
+   "service": "geo-import-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "GEO_IMPORT_API_PORT"
+  },
+  {
+   "path": "/api/dba/",
+   "service": "dba-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "DBA_API_PORT"
+  },
+  {
+   "path": "/api/schema-analyzer/",
+   "service": "schema-analyzer-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "SCHEMA_ANALYZER_API_PORT"
+  },
+  {
+   "path": "/api/ged/",
+   "service": "ged-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "GED_API_PORT"
+  },
+  {
+   "path": "/api/ssh-tunnels/",
+   "service": "ssh-tunnels-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "SSH_TUNNELS_API_PORT"
+  },
+  {
+   "path": "/api/file-manager/",
+   "service": "file-manager-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "FILE_MANAGER_API_PORT"
+  },
+  {
+   "path": "/api/snmp/",
+   "service": "snmp-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "SNMP_API_PORT"
+  },
+  {
+   "path": "/api/netmap-orchestrator/",
+   "service": "netmap-orchestrator-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "NETMAP_ORCHESTRATOR_API_PORT"
+  },
+  {
+   "path": "/api/network-agent/",
+   "service": "hôte (IP réelle)",
+   "container_port": 15000,
+   "kind": "api-static",
+   "env_var": "NETWORK_AGENT_API_PORT"
+  },
+  {
+   "path": "/api/retro/",
+   "service": "retro-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "RETRO_API_PORT"
+  },
+  {
+   "path": "/api/backup-restore/",
+   "service": "backup-restore-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "BACKUP_RESTORE_API_PORT"
+  },
+  {
+   "path": "/api/architecture/",
+   "service": "architecture-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "ARCHITECTURE_API_PORT"
+  },
+  {
+   "path": "/api/memory/",
+   "service": "memory-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "MEMORY_API_PORT"
+  },
+  {
+   "path": "/api/classifier/",
+   "service": "classifier-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "CLASSIFIER_API_PORT"
+  },
+  {
+   "path": "/api/vigilance/",
+   "service": "vigilance-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "VIGILANCE_API_PORT"
+  },
+  {
+   "path": "/api/tasks/",
+   "service": "tasks-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "TASKS_API_PORT"
+  },
+  {
+   "path": "/api/rights/",
+   "service": "rights-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "RIGHTS_API_PORT"
+  },
+  {
+   "path": "/api/netprobe/",
+   "service": "netprobe-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "NETPROBE_API_PORT"
+  },
+  {
+   "path": "/api/ups/",
+   "service": "ups-monitor-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "UPS_MONITOR_API_PORT"
+  },
+  {
+   "path": "/api/si-agent/",
+   "service": "si-agent-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "SI_AGENT_API_PORT"
+  },
+  {
+   "path": "/api/si-proxy/",
+   "service": "si-proxy-admin-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "SI_PROXY_ADMIN_API_PORT"
+  },
+  {
+   "path": "/api/geo-catalog/",
+   "service": "geo-catalog-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "GEO_CATALOG_API_PORT"
+  },
+  {
+   "path": "/api/relations/",
+   "service": "relations-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "RELATIONS_API_PORT"
+  },
+  {
+   "path": "/api/imap-client/",
+   "service": "imap-client-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "IMAP_CLIENT_API_PORT"
+  },
+  {
+   "path": "/api/glpi/",
+   "service": "glpi-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "GLPI_API_PORT"
+  },
+  {
+   "path": "/api/nebula/",
+   "service": "nebula-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "NEBULA_API_PORT"
+  },
+  {
+   "path": "/api/rsyslog-listener/",
+   "service": "rsyslog-listener",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "RSYSLOG_LISTENER_API_PORT"
+  },
+  {
+   "path": "/api/ldap-admin/",
+   "service": "ldap-admin-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "LDAP_ADMIN_API_PORT"
+  },
+  {
+   "path": "/api/prefs/",
+   "service": "prefs-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "PREFS_API_PORT"
+  },
+  {
+   "path": "/api/vault/",
+   "service": "vault-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "VAULT_API_PORT"
+  },
+  {
+   "path": "/app/",
+   "service": "frontend",
+   "container_port": 5173,
+   "kind": "spa",
+   "env_var": "SUPERVISION_FRONTEND_PORT"
+  },
+  {
+   "path": "/",
+   "service": "hub",
+   "container_port": 5173,
+   "kind": "spa",
+   "env_var": "SUPERVISION_HUB_PORT"
+  },
+  {
+   "path": "/tickets/",
+   "service": "tickets-portal",
+   "container_port": 5173,
+   "kind": "spa",
+   "env_var": "TICKETS_PORTAL_PORT"
+  },
+  {
+   "path": "/dba/",
+   "service": "dba-portal",
+   "container_port": 5173,
+   "kind": "spa",
+   "env_var": "DBA_PORTAL_PORT"
+  },
+  {
+   "path": "/ldap-admin/",
+   "service": "ldap-admin-portal",
+   "container_port": 5173,
+   "kind": "spa",
+   "env_var": "LDAP_ADMIN_PORTAL_PORT"
+  },
+  {
+   "path": "/vault/",
+   "service": "vault-portal",
+   "container_port": 5173,
+   "kind": "spa",
+   "env_var": "VAULT_PORTAL_PORT"
+  },
+  {
+   "path": "/auth/",
+   "service": "keycloak",
+   "container_port": 8080,
+   "kind": "keycloak",
+   "env_var": "KEYCLOAK_PORT"
+  }
+ ],
+ "direct_ports": [
+  {
+   "service": "vault-admin-api",
+   "bind": "0.0.0.0",
+   "host_port": "6119",
+   "container_port": "5000",
+   "proto": "tcp",
+   "loopback_only": false,
+   "comment": "Service SÉPARÉ de vault-api (processus distinct), volontairement"
+  },
+  {
+   "service": "vault-admin-portal",
+   "bind": "0.0.0.0",
+   "host_port": "6120",
+   "container_port": "5173",
+   "proto": "tcp",
+   "loopback_only": false,
+   "comment": "Interface du service ci-dessus -- même raisonnement de sécurité"
+  },
+  {
+   "service": "launcher",
+   "bind": "0.0.0.0",
+   "host_port": "6121",
+   "container_port": "8000",
+   "proto": "tcp",
+   "loopback_only": false,
+   "comment": "Vue d'ensemble + start/stop/status par service, page web avec"
+  },
+  {
+   "service": "docker-monitor-api",
+   "bind": "0.0.0.0",
+   "host_port": "6124",
+   "container_port": "5000",
+   "proto": "tcp",
+   "loopback_only": false,
+   "comment": "Livraison #376, demandé explicitement : \"extraire de portainer.io"
+  },
+  {
+   "service": "netmap-orchestrator-api",
+   "bind": "0.0.0.0",
+   "host_port": "6125",
+   "container_port": "5000",
+   "proto": "tcp",
+   "loopback_only": false,
+   "comment": "Livraison #388 -- orchestrateur d'analyse/supervision réseau,"
+  },
+  {
+   "service": "network-explorer",
+   "bind": "0.0.0.0",
+   "host_port": "6126",
+   "container_port": "5173",
+   "proto": "tcp",
+   "loopback_only": false,
+   "comment": "Livraison #393 -- demandé explicitement : \"un docker front qui"
+  },
+  {
+   "service": "ups-monitor-api",
+   "bind": "0.0.0.0",
+   "host_port": "6128",
+   "container_port": "5000",
+   "proto": "tcp",
+   "loopback_only": false,
+   "comment": "Livraison #415 -- tuile « UPS » demandée en urgence : liste"
+  },
+  {
+   "service": "si-agent-api",
+   "bind": "0.0.0.0",
+   "host_port": "6129",
+   "container_port": "5000",
+   "proto": "tcp",
+   "loopback_only": false,
+   "comment": "Livraison #421 (backlog 63) -- central des agents hôtes Linux"
+  },
+  {
+   "service": "geo-catalog-api",
+   "bind": "0.0.0.0",
+   "host_port": "6130",
+   "container_port": "5000",
+   "proto": "tcp",
+   "loopback_only": false,
+   "comment": null
+  },
+  {
+   "service": "si-proxy",
+   "bind": "0.0.0.0",
+   "host_port": "6450",
+   "container_port": "6450",
+   "proto": "tcp",
+   "loopback_only": false,
+   "comment": "Livraison #452 (backlog) -- bastion RÉSERVÉ à freg : aiguilleur TLS"
+  },
+  {
+   "service": "pixel-grid-postgres",
+   "bind": "0.0.0.0",
+   "host_port": "6543",
+   "container_port": "5432",
+   "proto": "tcp",
+   "loopback_only": false,
+   "comment": null
+  },
+  {
+   "service": "tickets-postgres",
+   "bind": "0.0.0.0",
+   "host_port": "6545",
+   "container_port": "5432",
+   "proto": "tcp",
+   "loopback_only": false,
+   "comment": null
+  },
+  {
+   "service": "geo-postgres",
+   "bind": "0.0.0.0",
+   "host_port": "6546",
+   "container_port": "5432",
+   "proto": "tcp",
+   "loopback_only": false,
+   "comment": null
+  },
+  {
+   "service": "geo-catalog-postgres",
+   "bind": "0.0.0.0",
+   "host_port": "6547",
+   "container_port": "5432",
+   "proto": "tcp",
+   "loopback_only": false,
+   "comment": null
+  },
+  {
+   "service": "elasticsearch",
+   "bind": "0.0.0.0",
+   "host_port": "9200",
+   "container_port": "9200",
+   "proto": "tcp",
+   "loopback_only": false,
+   "comment": null
+  },
+  {
+   "service": "rsyslog-listener",
+   "bind": "0.0.0.0",
+   "host_port": "5514",
+   "container_port": "5514",
+   "proto": "udp",
+   "loopback_only": false,
+   "comment": "Livraison #177, backlog BACKLOG.md #3 étape 4/4 -- écoute UDP"
+  },
+  {
+   "service": "si-proxy",
+   "bind": "127.0.0.1",
+   "host_port": "6452",
+   "container_port": "6452",
+   "proto": "tcp",
+   "loopback_only": true,
+   "comment": "Livraison #452 (backlog) -- bastion RÉSERVÉ à freg : aiguilleur TLS"
+  }
+ ],
+ "host_network": [
+  {
+   "service": "network-agent-api",
+   "comment": "Livraison #233, backlog item 20 -- agent d'exploration réseau"
+  }
+ ],
+ "counts": {
+  "gateway_routes": 47,
+  "direct_ports": 17,
+  "direct_public": 16,
+  "host_network": 1
+ },
+ "generated_from": [
+  "docker-compose.yml",
+  "tls-proxy/render_nginx_conf.py"
+ ]
+}

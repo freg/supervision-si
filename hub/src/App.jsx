@@ -29,7 +29,7 @@ import RightsView from "./RightsView.jsx";
 import NetprobeView from "./NetprobeView.jsx";
 import UpsView from "./UpsView.jsx";
 import SiAgentView from "./SiAgentView.jsx";
-import SiProxyView from "./SiProxyView.jsx";
+import BastionView from "./BastionView.jsx";
 import { canSeeBastion } from "./siProxy.js";
 import SiAgentEventsBanner from "./SiAgentEventsBanner.jsx";
 import SupervisionSiView from "./SupervisionSiView.jsx";
@@ -1296,7 +1296,7 @@ export default function App() {
     fronts.push({
       id: "si-proxy",
       name: "Bastion",
-      description: "Bastion si-proxy : sessions shell/https en cours, pause, fail2ban maison, journal d'audit, cibles jointes — réservé",
+      description: "Console de sécurité : bastion si-proxy, entrées (exposition, agents), sorties (tunnels, connecteurs), autorisations, partages — réservé",
       onClick: () => setViewMode("si-proxy"),
     });
   }
@@ -1776,11 +1776,16 @@ export default function App() {
           siAgentApiBase={SI_AGENT_API_BASE_URL}
         />
       ) : viewMode === "si-proxy" && bastionAllowed ? (
-        <SiProxyView
+        <BastionView
           onBack={() => setViewMode("grid")}
+          onNavigate={(target) => setViewMode(target)}
           siProxyApiBase={SI_PROXY_API_BASE_URL}
           accessToken={auth.user?.access_token}
           username={profile.preferred_username}
+          groups={groups}
+          apiBases={{ siAgent: SI_AGENT_API_BASE_URL, netprobe: NETPROBE_API_BASE_URL, sshTunnels: SSH_TUNNELS_API_BASE_URL, rights: RIGHTS_API_BASE_URL,
+            prefs: PREFS_API_BASE_URL, fileManager: FILE_MANAGER_API_BASE_URL, ged: GED_API_BASE_URL, nebula: NEBULA_API_BASE_URL, glpi: GLPI_API_BASE_URL,
+            imap: IMAP_CLIENT_API_BASE_URL, backupRestore: BACKUP_RESTORE_API_BASE_URL, owncloud: OWNCLOUD_API_BASE_URL, pixelGrid: PIXEL_GRID_API_BASE_URL }}
         />
       ) : viewMode === "cyber" ? (
         <CyberView

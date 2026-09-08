@@ -9,5 +9,7 @@ COPY si-proxy/admin/auth.py .
 COPY si-proxy/admin/summary.py .
 COPY shared/version_endpoint.py .
 COPY shared/VERSION.json .
+# #455 : inventaire d'exposition (scripts/render-exposure.py, régénéré par run.sh)
+COPY shared/EXPOSURE.json .
 EXPOSE 5000
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "4", "app:app"]
