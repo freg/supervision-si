@@ -423,51 +423,6 @@
    "comment": "Livraison #452 (backlog) -- bastion RÉSERVÉ à freg : aiguilleur TLS"
   },
   {
-   "service": "pixel-grid-postgres",
-   "bind": "0.0.0.0",
-   "host_port": "6543",
-   "container_port": "5432",
-   "proto": "tcp",
-   "loopback_only": false,
-   "comment": null
-  },
-  {
-   "service": "tickets-postgres",
-   "bind": "0.0.0.0",
-   "host_port": "6545",
-   "container_port": "5432",
-   "proto": "tcp",
-   "loopback_only": false,
-   "comment": null
-  },
-  {
-   "service": "geo-postgres",
-   "bind": "0.0.0.0",
-   "host_port": "6546",
-   "container_port": "5432",
-   "proto": "tcp",
-   "loopback_only": false,
-   "comment": null
-  },
-  {
-   "service": "geo-catalog-postgres",
-   "bind": "0.0.0.0",
-   "host_port": "6547",
-   "container_port": "5432",
-   "proto": "tcp",
-   "loopback_only": false,
-   "comment": null
-  },
-  {
-   "service": "elasticsearch",
-   "bind": "0.0.0.0",
-   "host_port": "9200",
-   "container_port": "9200",
-   "proto": "tcp",
-   "loopback_only": false,
-   "comment": null
-  },
-  {
    "service": "rsyslog-listener",
    "bind": "0.0.0.0",
    "host_port": "5514",
@@ -484,6 +439,51 @@
    "proto": "tcp",
    "loopback_only": true,
    "comment": "Livraison #452 (backlog) -- bastion RÉSERVÉ à freg : aiguilleur TLS"
+  },
+  {
+   "service": "pixel-grid-postgres",
+   "bind": "127.0.0.1",
+   "host_port": "6543",
+   "container_port": "5432",
+   "proto": "tcp",
+   "loopback_only": true,
+   "comment": null
+  },
+  {
+   "service": "tickets-postgres",
+   "bind": "127.0.0.1",
+   "host_port": "6545",
+   "container_port": "5432",
+   "proto": "tcp",
+   "loopback_only": true,
+   "comment": null
+  },
+  {
+   "service": "geo-postgres",
+   "bind": "127.0.0.1",
+   "host_port": "6546",
+   "container_port": "5432",
+   "proto": "tcp",
+   "loopback_only": true,
+   "comment": null
+  },
+  {
+   "service": "geo-catalog-postgres",
+   "bind": "127.0.0.1",
+   "host_port": "6547",
+   "container_port": "5432",
+   "proto": "tcp",
+   "loopback_only": true,
+   "comment": null
+  },
+  {
+   "service": "elasticsearch",
+   "bind": "127.0.0.1",
+   "host_port": "9200",
+   "container_port": "9200",
+   "proto": "tcp",
+   "loopback_only": true,
+   "comment": null
   }
  ],
  "host_network": [
@@ -495,7 +495,7 @@
  "counts": {
   "gateway_routes": 47,
   "direct_ports": 17,
-  "direct_public": 16,
+  "direct_public": 11,
   "host_network": 1
  },
  "generated_from": [

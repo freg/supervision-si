@@ -72,7 +72,10 @@ services:
     ports:
       # Port centralisé dans .env — évite volontairement 5432/5433
       # (trop communs) et toute la plage déjà utilisée par ailleurs.
-      - "${PIXEL_GRID_POSTGRES_PORT:-6543}:5432"
+      # #456 : lié à la boucle locale de la VM (constat Bastion #455 : base
+      # publiée sur toutes les interfaces, hors passerelle) -- rien n'y
+      # pointe de l'extérieur ; SI_DB_BIND=0.0.0.0 pour rouvrir au besoin.
+      - "${SI_DB_BIND:-127.0.0.1}:${PIXEL_GRID_POSTGRES_PORT:-6543}:5432"
     environment:
       - POSTGRES_DB=pixelgrid
       - POSTGRES_USER=pixelgrid
@@ -157,7 +160,7 @@ services:
   tickets-postgres:
     image: postgres:16-alpine
     ports:
-      - "${TICKETS_POSTGRES_PORT:-6545}:5432"
+      - "${SI_DB_BIND:-127.0.0.1}:${TICKETS_POSTGRES_PORT:-6545}:5432"  # #456 : boucle locale
     environment:
       - POSTGRES_DB=tickets
       - POSTGRES_USER=tickets
@@ -1780,7 +1783,7 @@ services:
       # cette instance -- http://<ip-de-cette-machine>:9200, PAS
       # http://elasticsearch:9200 (ce nom DNS interne ne resout que
       # dans le reseau Docker de CE projet).
-      - "${ELASTICSEARCH_HOST_PORT:-9200}:9200"
+      - "${SI_DB_BIND:-127.0.0.1}:${ELASTICSEARCH_HOST_PORT:-9200}:9200"  # #456 : boucle locale
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
       interval: 30s
@@ -1808,7 +1811,7 @@ services:
       - ${GEO_CATALOG_DATA_DIR:-geo_catalog_pg_data}:/var/lib/postgresql/data
       - ./geo-catalog/db-init:/docker-entrypoint-initdb.d
     ports:
-      - "${GEO_CATALOG_DB_PORT:-6547}:5432"
+      - "${SI_DB_BIND:-127.0.0.1}:${GEO_CATALOG_DB_PORT:-6547}:5432"  # #456 : boucle locale
     shm_size: 1g
 
   geo-catalog-api:
@@ -1857,7 +1860,7 @@ services:
       - geo_pg_data:/var/lib/postgresql/data
       - ./geo-import/db-init:/docker-entrypoint-initdb.d
     ports:
-      - "${GEO_DB_PORT:-6546}:5432"
+      - "${SI_DB_BIND:-127.0.0.1}:${GEO_DB_PORT:-6546}:5432"  # #456 : boucle locale
 
   geo-import-api:
     build:

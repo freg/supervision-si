@@ -19,6 +19,7 @@ COMPOSE = """services:
     ports:
       - "${RSYSLOG_LISTENER_PORT:-5514}:5514/udp"
       - "127.0.0.1:${CTRL:-6452}:6452"
+      - "${DBB:-127.0.0.1}:${PG:-6545}:5432"  # commentaire de fin de ligne
   network-agent-api:
     # Sonde en pile réseau hôte.
     network_mode: host
@@ -44,8 +45,9 @@ class T(unittest.TestCase):
         self.assertEqual(sorted(s), ["api", "hub", "network-agent-api", "rsyslog-listener"])
         self.assertEqual(s["api"]["ports"][0]["host_port"], "6103")
         self.assertEqual(s["api"]["comment"], "Service central.")
-        self.assertEqual(len(s["rsyslog-listener"]["ports"]), 2)
+        self.assertEqual(len(s["rsyslog-listener"]["ports"]), 3)
         self.assertEqual(s["rsyslog-listener"]["ports"][1]["loopback_only"], True)
+        self.assertEqual((s["rsyslog-listener"]["ports"][2]["bind"], s["rsyslog-listener"]["ports"][2]["host_port"]), ("127.0.0.1", "6545"))
         self.assertEqual(s["network-agent-api"]["network_mode"], "host")
         self.assertEqual(s["hub"]["ports"], [])
         self.assertNotIn("api_data", s)
@@ -53,7 +55,7 @@ class T(unittest.TestCase):
     def test_build(self):
         s = rx.parse_compose(COMPOSE)
         out = rx.build_exposure(s, [("API_PORT", "api", 5000, "/api/x/", "api"), ("NA", "__HOST_IP__", 15000, "/api/na/", "api-static")], "6443")
-        self.assertEqual(out["counts"], {"gateway_routes": 2, "direct_ports": 3, "direct_public": 2, "host_network": 1})
+        self.assertEqual(out["counts"], {"gateway_routes": 2, "direct_ports": 4, "direct_public": 2, "host_network": 1})
         self.assertEqual(out["gateway"][1]["service"], "hôte (IP réelle)")
         self.assertEqual(out["direct_ports"][-1]["loopback_only"], True)   # boucle locale en dernier
         self.assertEqual(out["host_network"][0]["service"], "network-agent-api")

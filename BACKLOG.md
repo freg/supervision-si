@@ -2495,9 +2495,7 @@ catégorie Bastion dans Supervision SI + liens « bastion ».
 EXPOSURE.json + agents/sondes avec coupe-circuit, Sorties = tunnels +
 connecteurs externes, Autorisations = rights-api + liens externes,
 Partages = gestionnaire de fichiers + montages SSHFS).
-À DÉCIDER (constat #455) : 5 bases/index publiés sur 0.0.0.0 hors
-passerelle (pixel-grid/tickets/geo/geo-catalog PostgreSQL, Elasticsearch)
--> lier à 127.0.0.1 dans le compose si aucun client externe ; 11 API et
+#456 : les 5 bases/index sont liés à 127.0.0.1 (SI_DB_BIND). Reste : 11 API et
 portails hors passerelle (vault-admin, network-explorer, launcher,
 docker-monitor, netmap-orchestrator, ups, si-agent, geo-catalog...) à
 passer derrière tls-proxy ou à restreindre. Partages ownCloud (oc_share)

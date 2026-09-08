@@ -1,3 +1,22 @@
+## 2026-09-08 — Bases et index liés à la boucle locale de la VM (livraison #456)
+
+Suite au constat de la console Bastion (#455) : les quatre PostgreSQL
+(pixel-grid, tickets, geo, geo-catalog) et Elasticsearch étaient publiés
+sur toutes les interfaces de la VM, hors passerelle et hors Keycloak.
+Confirmé par la personne : « rien ne pointe dessus à l'extérieur ». Les
+cinq `ports:` sont désormais préfixés par `${SI_DB_BIND:-127.0.0.1}`
+(`.env.example` : `SI_DB_BIND=127.0.0.1` ; `0.0.0.0` pour rouvrir). Les
+services du compose continuent de joindre les bases par le réseau Docker
+(noms de service), rien ne change pour eux ; les chargeurs lancés sur la
+VM elle-même passent par localhost. `render-exposure.py` accepte les
+commentaires de fin de ligne dans `ports:` (test ajouté) ; `EXPOSURE.json`
+régénéré : 11 ports publics restants (API/portails, à traiter ensuite).
+
+**Vérifié** : compose valide (YAML), 3 tests du parseur, inventaire
+régénéré (les cinq bases passent en « boucle locale »).
+**Non vérifié** : `docker compose up` sur « super » (à relancer pour que
+le nouveau bind s'applique).
+
 ## 2026-09-08 — Console Bastion : entrées, sorties, autorisations, partages rapatriés depuis toutes les tuiles (livraison #455)
 
 Demandé : « une passe sur l'ensemble des outils et des tuiles pour mettre

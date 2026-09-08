@@ -92,7 +92,8 @@ def parse_compose(text, env=None):
         if in_ports:
             pm = re.match(r"^      - (.+)$", line)
             if pm:
-                services[cur]["ports"].append(parse_port(resolve(pm.group(1), env)))
+                spec = re.sub(r"\s+#.*$", "", pm.group(1)).strip()   # commentaire de fin de ligne
+                services[cur]["ports"].append(parse_port(resolve(spec, env)))
                 continue
             if line.strip() and not line.startswith("      "):
                 in_ports = False
