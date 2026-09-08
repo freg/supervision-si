@@ -79,12 +79,31 @@ def _kill_group(proc):
         pass
 
 
+# En conteneur (#430, deploy-docker.sh) : le système de fichiers de l'hôte
+# est monté en lecture seule sous SI_AGENT_HOST_ROOT (ex. /host). Les
+# fichiers de configuration et journaux (/etc, /var, /boot) sont lus là ;
+# /proc et /sys viennent du noyau, partagés (--pid host, --network host).
+HOST_ROOT = os.environ.get("SI_AGENT_HOST_ROOT", "").rstrip("/")
+_HOST_PREFIXED = ("/etc/", "/var/", "/boot/", "/home/", "/root/")
+
+
+def host_path(path):
+    """Chemin réel d'un fichier de l'hôte (préfixé en conteneur)."""
+    if HOST_ROOT and path.startswith(_HOST_PREFIXED):
+        return HOST_ROOT + path
+    return path
+
+
 def read_file(path):
     try:
-        with open(path, "r", errors="replace") as fh:
+        with open(host_path(path), "r", errors="replace") as fh:
             return fh.read()
     except OSError:
         return ""
+
+
+def host_exists(path):
+    return os.path.exists(host_path(path))
 
 
 def _kv_file(text):
@@ -234,18 +253,30 @@ def parse_mounts(text):
     return out
 
 
-def collect_disks(files=read_file, usage=shutil.disk_usage):
+def collect_disks(files=read_file, usage=shutil.disk_usage, host_root=None):
+    """En conteneur (`host_root`, ex. /host) : seuls les montages de
+    l'hôte (sous /host) comptent, affichés sans le préfixe."""
+    root = HOST_ROOT if host_root is None else host_root
     disks = []
     for m in parse_mounts(files("/proc/mounts")):
+        mountpoint = m["mountpoint"]
+        if root:
+            if mountpoint != root and not mountpoint.startswith(root + "/"):
+                continue
+            shown = mountpoint[len(root):] or "/"
+            if shown.startswith(("/proc", "/sys", "/dev", "/run", "/snap/")):
+                continue
+        else:
+            shown = mountpoint
         try:
-            u = usage(m["mountpoint"])
+            u = usage(mountpoint)
         except OSError:
             continue
         total = u.total
         if not total:
             continue
         disks.append({
-            "mountpoint": m["mountpoint"], "device": m["device"], "fstype": m["fstype"],
+            "mountpoint": shown, "device": m["device"], "fstype": m["fstype"],
             "total_bytes": total, "used_bytes": u.used, "free_bytes": u.free,
             "used_percent": round(100.0 * u.used / total, 1),
         })
@@ -258,7 +289,8 @@ def collect_disks(files=read_file, usage=shutil.disk_usage):
 
 def collect_failed_services(cmd=run_cmd):
     r = cmd(["systemctl", "--failed", "--no-legend", "--plain", "--no-pager"])
-    if r.returncode < 0:
+    if r.returncode < 0 or (r.returncode != 0 and not (r.stdout or "").strip()):
+        # absent, ou présent sans bus systemd joignable (conteneur, #430)
         return {"available": False, "failed": []}
     failed = []
     for line in r.stdout.splitlines():
@@ -306,7 +338,10 @@ def collect_listening_ports(cmd=run_cmd):
 def collect_log_errors(cmd=run_cmd, files=read_file, lines=40):
     """Dernières erreurs du journal : journald si présent, sinon la queue
     de /var/log/syslog ou /var/log/messages filtrée sur err/crit/fail."""
-    r = cmd(["journalctl", "-p", "err", "-n", str(lines), "--no-pager", "-o", "short-iso", "--since", "-24h"])
+    argv = ["journalctl", "-p", "err", "-n", str(lines), "--no-pager", "-o", "short-iso", "--since", "-24h"]
+    if HOST_ROOT:
+        argv += ["-D", HOST_ROOT + "/var/log/journal"]  # journal de l'hôte lu directement, sans systemd dans le conteneur
+    r = cmd(argv)
     if r.returncode >= 0 and r.returncode != -127:
         entries = [l for l in r.stdout.splitlines() if l and not l.startswith("-- ")]
         return {"source": "journald", "lines": entries[-lines:]}
@@ -364,7 +399,7 @@ def collect_tools(which=shutil.which, tools=KNOWN_TOOLS):
 # ---------------------------------------------------------------------
 
 def collect_all(files=read_file, cmd=run_cmd, usage=shutil.disk_usage, which=shutil.which,
-                sleep=time.sleep, previous_cpu=None, hostname=None, include_tools=True, exists=os.path.exists):
+                sleep=time.sleep, previous_cpu=None, hostname=None, include_tools=True, exists=host_exists):
     """Une mesure `host` complète. `previous_cpu` = `_stat` du passage
     précédent pour un pourcentage CPU sans pause."""
     partial = []

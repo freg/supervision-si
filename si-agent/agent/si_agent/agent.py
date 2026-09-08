@@ -149,7 +149,7 @@ class Agent(object):
         self.cmd, self.files, self.clock = cmd, files, clock
         self.usage = usage or __import__("shutil").disk_usage
         self.which = which or __import__("shutil").which
-        self.exists = exists or os.path.exists
+        self.exists = exists or host.host_exists
         self.queue = queue or LocalQueue(cfg["queue_path"])
         self.store = store or plugins.PluginStore(cfg["plugins_dir"])
         if hasattr(self.store, "ensure_permissions"):

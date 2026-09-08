@@ -126,5 +126,30 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual(a["partial"], ["last"])
 
 
+class HostRootTests(unittest.TestCase):
+    """#430 : agent en conteneur, système de fichiers de l'hôte sous /host."""
+
+    def test_montages_sous_le_root_hote(self):
+        mounts = "/dev/vda1 /host ext4 rw 0 0\n/dev/vdb /host/data ext4 rw 0 0\noverlay / overlay rw 0 0\nproc /host/proc proc rw 0 0\n"
+
+        class U(object):
+            def __init__(self, *a):
+                self.total, self.used, self.free = 100, 40, 60
+        d = host.collect_disks(files=lambda p: mounts, usage=U, host_root="/host")
+        self.assertEqual([x["mountpoint"] for x in d], ["/", "/data"], "montages de l'hôte seuls, sans le préfixe ; overlay du conteneur exclu")
+        self.assertEqual([x["mountpoint"] for x in host.collect_disks(files=lambda p: mounts, usage=U, host_root="")], ["/host", "/host/data"])
+
+    def test_chemins_prefixes(self):
+        old = host.HOST_ROOT
+        try:
+            host.HOST_ROOT = "/host"
+            self.assertEqual(host.host_path("/etc/passwd"), "/host/etc/passwd")
+            self.assertEqual(host.host_path("/var/run/reboot-required"), "/host/var/run/reboot-required")
+            self.assertEqual(host.host_path("/proc/meminfo"), "/proc/meminfo", "procfs : celui du noyau, jamais préfixé")
+            self.assertEqual(host.host_path("/sys/class/dmi/id/sys_vendor"), "/sys/class/dmi/id/sys_vendor")
+        finally:
+            host.HOST_ROOT = old
+
+
 if __name__ == "__main__":
     unittest.main()

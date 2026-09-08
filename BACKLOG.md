@@ -2427,6 +2427,8 @@ qui fait alors sauter la file.
     LIVRÉ en #428 (mesure netview passive, matériel et activité, sections
     dans la tuile, procédure du premier hôte réel) -- reste : reprise des
     voisins/pairs par Supervision SI et Exploration réseau (liens).
+    #430 : archive de déploiement (make-archive.sh) avec variante conteneur
+    Docker (deploy-docker.sh) et variante systemd (install.sh).
 67. Catalogue de positions (2026-09-08, demandé avec #426). Docker dédié
     ou complément du PostGIS existant (geo-import) -- orientation :
     complément de `geo-postgres` (pg_trgm, connecteurs). Charger les

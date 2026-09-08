@@ -1,3 +1,32 @@
+## 2026-09-08 — Agent hôte : archive de déploiement, variante conteneur Docker (livraison #430)
+
+Demandé pour le premier hôte réel (« mon premier host dispose d'un docker,
+ensuite il faudra la même chose sans docker »). Voir
+`si-agent/agent/README-DEPLOIEMENT.md` et `si-agent/README.md` (§ #430).
+
+- `si-agent/make-archive.sh` → `si-agent-agent-<version>.tar.gz` : paquet,
+  plugins, `install.sh` + systemd (sans Docker), `docker/` (Dockerfile,
+  `deploy-docker.sh`, entrypoint), `README-DEPLOIEMENT.md` ; sans secret.
+- `docker/deploy-docker.sh` : mêmes options qu'`install.sh` (CA par
+  empreinte, plugins, niveau de trace) ; image construite sur place ;
+  conteneur `--network host --pid host`, `/` de l'hôte en lecture seule
+  sous `/host`, `/etc/si-agent` et `/var/lib/si-agent` persistants, utmp /
+  wtmp / bus D-Bus montés s'ils existent, socket Docker sur demande,
+  redémarrage automatique, journal Docker borné ; relance = mise à jour.
+- Agent : `SI_AGENT_HOST_ROOT` (host.py) -- `/etc`, `/var`, `/boot` lus sous
+  le root hôte, montages de l'hôte seuls comptés et affichés sans préfixe,
+  `journalctl -D <root>/var/log/journal`, `systemctl` sans bus = indisponible
+  (partial) ; 2 tests.
+- Central + tuile : `install_command_docker` affiché sous la commande
+  systemd dans le panneau Installation.
+
+**Vérifié** : tests agent (29) et central (9), archive construite,
+extraite, scripts `bash -n`, collecte réelle depuis l'archive avec `/`
+re-monté sous `/host` (OS, disques, journal, comptes de l'hôte),
+`deploy-docker.sh` jusqu'au `docker build` (pas de démon ici).
+**Non vérifié** : construction et exécution réelles du conteneur, bus
+D-Bus depuis le conteneur.
+
 ## 2026-09-08 — Agent hôte : découverte passive du réseau et revue de l'hôte, prêt pour un premier exemplaire réel (livraison #428)
 
 Backlog 66, demandé pour tester aujourd'hui un premier agent sur un Linux

@@ -125,6 +125,28 @@ PYTHONPATH=/opt/si-agent python3 -m si_agent.agent --once      # un passage comp
 PYTHONPATH=/opt/si-agent python3 -m si_agent.agent --block "incident" # blocage général local (ou : touch /etc/si-agent/BLOCKED)
 ```
 
+### Archive de déploiement et variante conteneur (#430)
+
+`si-agent/make-archive.sh [dossier]` produit `si-agent-agent-<version>.tar.gz`
+(paquet, plugins, `install.sh` + systemd, `docker/`, `README-DEPLOIEMENT.md`,
+sans secret). Sur un hôte qui a Docker :
+
+```bash
+sudo ./docker/deploy-docker.sh --agent srv-01 --secret 'SECRET' --central https://VM:6443/api/si-agent --site siege --ca-fingerprint <sha256>
+```
+
+Image construite sur place (`python:3.12-slim` + iproute2, procps,
+util-linux, journalctl), conteneur `si-agent` en `--network host --pid host`
+avec `/` de l'hôte monté en lecture seule sous `/host`
+(`SI_AGENT_HOST_ROOT` : `/etc`, `/var`, `/boot` sont lus là, les montages
+de l'hôte seuls sont comptés, `journalctl -D /host/var/log/journal`),
+`/etc/si-agent` et `/var/lib/si-agent` persistants, `utmp`/`wtmp` et le bus
+D-Bus montés s'ils existent, socket Docker avec `DOCKER_SOCK=1`. Le bouton
+*Installation* de la tuile affiche les deux commandes. Limite : sans bus
+D-Bus joignable, `systemctl --failed` est indisponible (partial). Vérifié
+ici : collecte avec `/` re-monté sous `/host` (OS, disques sans préfixe,
+journal, comptes) ; non vérifié : `docker build`/`run` réels.
+
 ### Premier hôte réel : un Linux dans un sous-réseau isolé/filtré (#428)
 
 1. Sur le hub, tuile **Agents hôtes → Enrôler un agent** : identifiant

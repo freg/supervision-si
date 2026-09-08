@@ -457,6 +457,12 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                 <div className="np-secret-box hub-card" style={{ margin: "8px 0" }}>
                   <p style={{ margin: "0 0 6px" }}>Commande d'installation (secret inclus -- ne pas diffuser) :</p>
                   <pre className="np-secret">{install.install_command}</pre>
+                  {install.install_command_docker && (
+                    <>
+                      <p className="muted" style={{ margin: "6px 0 2px", fontSize: 12 }}>Variante conteneur (l'hôte a Docker, archive <code>si-agent-agent-&lt;version&gt;.tar.gz</code>, voir <code>si-agent/agent/README-DEPLOIEMENT.md</code>) :</p>
+                      <pre className="np-secret">{install.install_command_docker}</pre>
+                    </>
+                  )}
                   <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
                     <button className="secondary" onClick={() => handleRotate(selectedId)}>Nouveau secret</button>
                     <button className="secondary" onClick={() => setInstall(null)}>Masquer</button>

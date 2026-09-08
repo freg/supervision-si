@@ -342,6 +342,11 @@ def _install_command(agent_id, secret, site):
         shlex.quote(agent_id), shlex.quote(secret), shlex.quote(central), shlex.quote(site or "default"), tls)
 
 
+def _install_command_docker(agent_id, secret, site):
+    """Variante conteneur (#430, archive si-agent-agent-<version>.tar.gz)."""
+    return _install_command(agent_id, secret, site).replace("sudo ./install.sh", "sudo ./docker/deploy-docker.sh", 1)
+
+
 @app.route("/agents/<agent_id>/install", methods=["GET"])
 def install_route(agent_id):
     """Secret + commande d'installation prête à coller sur l'hôte -- la
@@ -353,6 +358,7 @@ def install_route(agent_id):
     return jsonify({"agent_id": agent_id, "secret": a["secret"], "site": a["site"],
                     "central_url": PUBLIC_URL or None,
                     "install_command": _install_command(agent_id, a["secret"], a["site"]),
+                    "install_command_docker": _install_command_docker(agent_id, a["secret"], a["site"]),
                     "agent_json": {"agent_id": agent_id, "secret": a["secret"], "site": a["site"],
                                    "central_url": PUBLIC_URL or "https://<VM>:6443/api/si-agent"}}), 200
 
