@@ -14,9 +14,14 @@ et jamais une exception -- l'agent doit produire une mesure même sur un
 hôte exotique, quitte à ce qu'elle soit partielle et le dise
 (`partial: [...]`).
 """
+import collections
+import errno
+import json
 import os
 import re
+import select
 import shutil
+import signal
 import subprocess
 import time
 
@@ -249,7 +254,7 @@ def parse_mounts(text):
         if fs in _SKIP_FS or mp.startswith(("/snap/", "/proc", "/sys", "/dev", "/run")) or mp in seen:
             continue
         seen.add(mp)
-        out.append({"device": dev, "mountpoint": mp, "fstype": fs})
+        out.append({"device": dev, "mountpoint": mp, "fstype": fs, "options": parts[3] if len(parts) > 3 else ""})
     return out
 
 
@@ -263,16 +268,94 @@ def is_remote_fs(fstype):
     return bool(fstype) and fstype.startswith(_REMOTE_FS_PREFIXES) and fstype not in ("fuse.gvfsd-fuse", "fuse.portal")
 
 
-def _usage_error(fstype, exc):
+_Usage = collections.namedtuple("_Usage", "total used free")
+REMOTE_STATVFS_TIMEOUT = 5.0
+
+
+def fuse_owner(options):
+    """(uid, gid) de l'utilisateur qui a fait un montage FUSE : FUSE inscrit
+    lui-même `user_id=` / `group_id=` dans les options (`/proc/mounts`)."""
+    uid = gid = None
+    for opt in (options or "").split(","):
+        if opt.startswith("user_id="):
+            try:
+                uid = int(opt[8:])
+            except ValueError:
+                pass
+        elif opt.startswith("group_id="):
+            try:
+                gid = int(opt[9:])
+            except ValueError:
+                pass
+    return uid, gid
+
+
+def statvfs_isolated(path, uid=None, gid=None, timeout=REMOTE_STATVFS_TIMEOUT):
+    """`statvfs` dans un processus fils, avec délai (un sshfs/NFS dont le
+    serveur ne répond plus ne bloque jamais la collecte) et, si `uid` est
+    donné et que l'agent est root, en se présentant comme cet utilisateur :
+    FUSE n'autorise que l'utilisateur qui a monté (sauf allow_other), mais
+    ne regarde que l'uid de l'appelant -- aucune option de montage ni
+    configuration du serveur à changer (#439). Même forme de résultat que
+    shutil.disk_usage ; lève OSError (errno ETIMEDOUT si délai)."""
+    r, w = os.pipe()
+    pid = os.fork()
+    if pid == 0:  # fils
+        try:
+            os.close(r)
+            if uid is not None:
+                try:
+                    os.setgroups([])
+                except OSError:
+                    pass
+                os.setgid(gid if gid is not None else uid)
+                os.setuid(uid)
+            st = os.statvfs(path)
+            total = st.f_frsize * st.f_blocks
+            os.write(w, json.dumps({"total": total, "used": total - st.f_frsize * st.f_bfree, "free": st.f_frsize * st.f_bavail}).encode())
+        except OSError as exc:
+            os.write(w, json.dumps({"errno": exc.errno, "strerror": exc.strerror}).encode())
+        finally:
+            os._exit(0)
+    os.close(w)
+    try:
+        ready, _, _ = select.select([r], [], [], timeout)
+        if not ready:
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except OSError:
+                pass
+            os.waitpid(pid, 0)
+            raise OSError(errno.ETIMEDOUT, "délai dépassé (%ss) : serveur injoignable ?" % timeout)
+        data = os.read(r, 4096)
+    finally:
+        os.close(r)
+    os.waitpid(pid, 0)
+    try:
+        d = json.loads(data.decode("utf-8") or "{}")
+    except ValueError:
+        d = {}
+    if "total" not in d:
+        raise OSError(d.get("errno") or errno.EIO, d.get("strerror") or "erreur")
+    return _Usage(d["total"], d["used"], d["free"])
+
+
+def _usage_error(fstype, exc, owner_uid=None, retried_as_owner=False, is_root=True):
     err = getattr(exc, "errno", None)
-    if fstype and fstype.startswith("fuse.") and err in (1, 13):  # EPERM, EACCES
+    if fstype and fstype.startswith("fuse.") and err in (errno.EPERM, errno.EACCES):
+        if retried_as_owner:
+            return "accès refusé, même en se présentant comme l'utilisateur du montage (uid %s) : montage FUSE (%s) -- sshfs -o allow_root, ou user_allow_other dans /etc/fuse.conf" % (owner_uid, fstype)
+        if owner_uid is not None and not is_root:
+            return "accès refusé : montage FUSE (%s) réservé à l'utilisateur uid %s ; l'agent n'est pas root, il ne peut pas se présenter comme lui" % (fstype, owner_uid)
         return "accès refusé : montage FUSE (%s) sans allow_other/allow_root -- seul l'utilisateur qui l'a monté peut le lire (sshfs -o allow_root, user_allow_other dans /etc/fuse.conf)" % fstype
-    if err == 116:  # ESTALE
+    if err == errno.ESTALE:
         return "montage périmé (stale) : serveur injoignable ?"
+    if err == errno.ETIMEDOUT:
+        return "sans réponse : %s" % (getattr(exc, "strerror", None) or "délai dépassé")
     return "lecture impossible : %s" % (getattr(exc, "strerror", None) or str(exc) or "erreur")
 
 
-def collect_disks(files=read_file, usage=shutil.disk_usage, host_root=None):
+def collect_disks(files=read_file, usage=shutil.disk_usage, host_root=None, usage_remote=None, usage_as=None, euid=None):
     """En conteneur (`host_root`, ex. /host) : seuls les montages de
     l'hôte (sous /host) comptent, affichés sans le préfixe.
 
@@ -281,8 +364,17 @@ def collect_disks(files=read_file, usage=shutil.disk_usage, host_root=None):
     plutôt qu'ignoré ; en conteneur, la table de montage de l'hôte
     (`/proc/1/mounts`, visible grâce à --pid host) est comparée à ce que
     le conteneur voit : un montage fait sur l'hôte après le démarrage du
-    conteneur (sans propagation rslave) apparaît avec `visible: false`."""
+    conteneur (sans propagation rslave) apparaît avec `visible: false`.
+
+    #439 : un système distant (`remote`) est mesuré par `usage_remote`
+    (statvfs isolé avec délai) ; un FUSE qui refuse l'accès est remesuré
+    par `usage_as(mountpoint, uid, gid)` en se présentant comme
+    l'utilisateur du montage (`user_id=` des options) si l'agent est root
+    -- `measured_as` le dit. Rien à changer sur l'hôte."""
     root = HOST_ROOT if host_root is None else host_root
+    usage_remote = usage_remote or (lambda p: statvfs_isolated(p))
+    usage_as = usage_as or (lambda p, u, g: statvfs_isolated(p, u, g))
+    is_root = (os.geteuid() if euid is None else euid) == 0
     disks = []
     shown_points = set()
     for m in parse_mounts(files("/proc/mounts")):
@@ -298,13 +390,40 @@ def collect_disks(files=read_file, usage=shutil.disk_usage, host_root=None):
         entry = {"mountpoint": shown, "device": m["device"], "fstype": m["fstype"], "remote": is_remote_fs(m["fstype"]),
                  "total_bytes": None, "used_bytes": None, "free_bytes": None, "used_percent": None, "visible": True}
         shown_points.add(shown)
+        owner_uid, owner_gid = fuse_owner(m.get("options")) if m["fstype"].startswith("fuse.") else (None, None)
         try:
-            u = usage(mountpoint)
+            u = usage_remote(mountpoint) if entry["remote"] else usage(mountpoint)
         except OSError as exc:
-            entry["error"] = _usage_error(m["fstype"], exc)
-            disks.append(entry)
-            continue
+            u = None
+            if owner_uid is not None and is_root and getattr(exc, "errno", None) in (errno.EPERM, errno.EACCES):
+                try:
+                    u = usage_as(mountpoint, owner_uid, owner_gid)
+                    entry["measured_as"] = "uid %d" % owner_uid
+                except OSError as exc2:
+                    entry["error"] = _usage_error(m["fstype"], exc2, owner_uid, retried_as_owner=True)
+            else:
+                entry["error"] = _usage_error(m["fstype"], exc, owner_uid, is_root=is_root)
+            if u is None:
+                disks.append(entry)
+                continue
         total = u.total
+        if not total and owner_uid is not None:
+            # Constaté avec un vrai sshfs (#439) : pour un autre utilisateur que
+            # celui du montage, FUSE ne renvoie pas EACCES à statvfs mais des
+            # tailles NULLES -- d'où le montage « invisible » d'avant.
+            if is_root and "measured_as" not in entry:
+                try:
+                    u = usage_as(mountpoint, owner_uid, owner_gid)
+                    entry["measured_as"] = "uid %d" % owner_uid
+                    total = u.total
+                except OSError as exc2:
+                    entry["error"] = _usage_error(m["fstype"], exc2, owner_uid, retried_as_owner=True)
+                    disks.append(entry)
+                    continue
+            if not total:
+                entry["error"] = _usage_error(m["fstype"], OSError(errno.EACCES, "tailles nulles"), owner_uid, retried_as_owner=is_root, is_root=is_root)
+                disks.append(entry)
+                continue
         if not total:
             continue
         entry.update({"total_bytes": total, "used_bytes": u.used, "free_bytes": u.free, "used_percent": round(100.0 * u.used / total, 1)})
@@ -449,7 +568,7 @@ def collect_all(files=read_file, cmd=run_cmd, usage=shutil.disk_usage, which=shu
     system = collect_system(files, hostname=hostname, exists=exists)
     cpu = collect_cpu(files, sleep=sleep, previous=previous_cpu)
     memory = collect_memory(files)
-    disks = collect_disks(files, usage=usage)
+    disks = collect_disks(files, usage=usage, usage_remote=None if usage is shutil.disk_usage else usage)
     services = collect_failed_services(cmd)
     ports = collect_listening_ports(cmd)
     logs = collect_log_errors(cmd, files)

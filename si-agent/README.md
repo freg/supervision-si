@@ -398,13 +398,23 @@ null), `partial` contient `mounts:<n>` ; en conteneur la table de montage
 de l'hôte (`/proc/1/mounts`, --pid host) révèle les montages invisibles ;
 `deploy-docker.sh` monte `/` en `ro,rslave` (agent 0.3.2). La tuile
 affiche « illisible — raison » ou « invisible du conteneur » à la place
-de la jauge, et une puce « distant ». Marche à suivre pour sshfs :
-`README-DEPLOIEMENT.md`, section « Montages réseau et FUSE ».
+de la jauge, et une puce « distant ».
+
+**#439, sans changer la configuration de l'hôte** (retour : « un simple
+`mount` le liste sans avoir de droit ») : vérifié avec un vrai sshfs, FUSE
+ne renvoie pas « accès refusé » à root mais des **tailles nulles**, d'où
+le montage escamoté. L'agent root mesure maintenant un FUSE en se
+présentant comme l'utilisateur du montage (`user_id=` dans
+`/proc/mounts`, fork + setuid + statvfs : `host.statvfs_isolated`), et
+tout système distant avec un délai de 5 s (sshfs figé → « sans réponse »,
+la collecte continue). `measured_as` sur l'entrée, « (uid N) » dans la
+tuile. Agent 0.3.3. Marche à suivre : `README-DEPLOIEMENT.md`, section
+« Montages réseau et FUSE ».
 
 ## Tests
 
 ```bash
-cd si-agent/agent && python3 -m unittest            # 31 tests (agent), dont netview/review (#428), montages (#438)
+cd si-agent/agent && python3 -m unittest            # 32 tests (agent), dont netview/review (#428), montages (#438-#439)
 ./sync-shared.sh --check                              # copies protocol/localqueue à jour
 cd ../api && python3 -m unittest                      # 9 tests (central), dont la chaîne réelle agent ↔ central
 cd ../../hub && node --test tests/siAgent.test.mjs    # 10 tests (logique de la tuile)

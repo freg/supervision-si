@@ -82,6 +82,9 @@ test("#438 : montage illisible (sshfs sans allow_other) ou invisible du conteneu
   assert.equal(nas.remote, true);
   assert.match(nas.error, /allow_other/);
   assert.equal(usb.invisible, true);
+  const [ok] = diskRows({ disks: [{ mountpoint: "/home/alice/nas", fstype: "fuse.sshfs", remote: true, total_bytes: 1000, used_bytes: 250, used_percent: 25, measured_as: "uid 1000" }] });
+  assert.equal(ok.measuredAs, "uid 1000");
+  assert.equal(ok.gauge.percent, 25);
 });
 
 test("fusion sondes affectées (central) et présentes (inventaire de l'hôte)", () => {

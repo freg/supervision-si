@@ -1,3 +1,21 @@
+## 2026-09-08 — Agent hôte : montages sshfs/FUSE mesurés sans changer la configuration de l'hôte, délai sur les systèmes distants (livraison #439)
+
+Suite de #438, retour : « pour un serveur dont on ne doit pas changer la
+configuration c'est gênant, un simple `mount` le liste sans droit ».
+Vérifié avec un vrai sshfs (sshd + sshfs montés dans l'environnement de
+développement) : pour un autre utilisateur que celui du montage, FUSE ne
+renvoie pas « accès refusé » à statvfs mais des tailles NULLES -- c'est
+ce qui escamotait le montage. L'agent root mesure maintenant un FUSE en
+se présentant comme l'utilisateur du montage (`user_id=` de
+`/proc/mounts` ; `host.statvfs_isolated` : fork + setuid + statvfs), rien
+à changer sur l'hôte (`measured_as`, « (uid N) » dans la tuile) ; tout
+système distant est mesuré avec un délai de 5 s (sshfs figé → « sans
+réponse », la collecte continue) ; un agent non root garde la raison en
+clair. Agent 0.3.3. Vérifié : 32 tests agent, 133 hub ; chaîne réelle
+sshfs (uid 1500) → agent → central → tuile (mesuré « uid 1500 »), sshfs
+figé par SIGSTOP → délai 5 s. Non vérifié : NFS/CIFS réels, conteneur
+Docker (même mécanisme, uid identiques sans user namespace).
+
 ## 2026-09-08 — Agent hôte : montages illisibles ou invisibles listés avec leur raison (sshfs/FUSE, NFS, propagation Docker) (livraison #438)
 
 Retour du premier hôte réel : « l'agent ne voit pas tous les types de

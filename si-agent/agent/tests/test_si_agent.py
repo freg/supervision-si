@@ -103,21 +103,47 @@ class HostTests(unittest.TestCase):
         self.assertIn("lecture impossible", nas["error"])
 
     def test_sshfs_fuse_sans_allow_other(self):
-        """#438 : « j'ai du sshfs et je ne le vois pas » -- FUSE refuse
-        l'accès à root (EACCES) : listé, avec la raison."""
-        mounts = "/dev/sda1 / ext4 rw 0 0\nalice@nas:/data /home/alice/nas fuse.sshfs rw,nosuid,nodev,user_id=1000 0 0\nnas:/exports /mnt/nfs nfs4 rw 0 0\n"
+        """#438/#439 : « j'ai du sshfs et je ne le vois pas » -- FUSE refuse
+        l'accès à root (EACCES) : remesuré comme l'utilisateur du montage
+        (user_id= des options), sinon listé avec la raison."""
+        mounts = "/dev/sda1 / ext4 rw 0 0\nalice@nas:/data /home/alice/nas fuse.sshfs rw,nosuid,nodev,user_id=1000,group_id=1000 0 0\nnas:/exports /mnt/nfs nfs4 rw 0 0\n"
         def usage(mp):
             if mp == "/home/alice/nas":
                 raise PermissionError(13, "Permission denied")
             if mp == "/mnt/nfs":
                 raise OSError(116, "Stale file handle")
             return Usage(100, 50)
-        d = host.collect_disks(files({"/proc/mounts": mounts}), usage=usage)
+        seen = []
+        def as_user(mp, uid, gid):
+            seen.append((mp, uid, gid))
+            return Usage(2000, 500)
+        d = host.collect_disks(files({"/proc/mounts": mounts}), usage=usage, usage_remote=usage, usage_as=as_user, euid=0)
         by = {x["mountpoint"]: x for x in d}
-        self.assertIn("allow_other", by["/home/alice/nas"]["error"])
+        self.assertEqual(seen, [("/home/alice/nas", 1000, 1000)])
+        self.assertEqual((by["/home/alice/nas"]["used_percent"], by["/home/alice/nas"]["measured_as"]), (25.0, "uid 1000"))
         self.assertTrue(by["/home/alice/nas"]["remote"] and by["/mnt/nfs"]["remote"] and not by["/"]["remote"])
         self.assertIn("périmé", by["/mnt/nfs"]["error"])
         self.assertEqual(by["/"]["used_percent"], 50.0)
+        # même refus en tant qu'utilisateur du montage : la raison le dit
+        def refused(mp, uid, gid):
+            raise PermissionError(13, "Permission denied")
+        d = host.collect_disks(files({"/proc/mounts": mounts}), usage=usage, usage_remote=usage, usage_as=refused, euid=0)
+        self.assertIn("même en se présentant comme l'utilisateur du montage (uid 1000)", d[1]["error"])
+        # agent non root : pas de changement d'identité possible
+        d = host.collect_disks(files({"/proc/mounts": mounts}), usage=usage, usage_remote=usage, usage_as=as_user, euid=1001)
+        self.assertIn("l'agent n'est pas root", d[1]["error"])
+        self.assertIsNone(d[1]["used_percent"])
+
+    def test_statvfs_isole_reel(self):
+        """#439 : mesure dans un processus fils, avec délai ; changement d'uid réel si root."""
+        u = host.statvfs_isolated("/")
+        self.assertGreater(u.total, 0)
+        with self.assertRaises(OSError):
+            host.statvfs_isolated("/chemin/inexistant")
+        if os.geteuid() == 0:
+            self.assertGreater(host.statvfs_isolated("/", 65534, 65534).total, 0)
+        self.assertEqual(host.fuse_owner("rw,user_id=1000,group_id=27"), (1000, 27))
+        self.assertEqual(host.fuse_owner("rw"), (None, None))
 
     def test_services_ports_journaux_comptes(self):
         cmd = FakeCmd({"systemctl": (0, "● nginx.service loaded failed failed A high performance web server\nfoo.timer loaded failed failed Foo\n"),

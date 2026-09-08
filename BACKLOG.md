@@ -2368,7 +2368,8 @@ qui fait alors sauter la file.
     central -> network-agent-api). GLPI livré en #437 (hôtes si-agent ->
     Computer GLPI, comparaison avec les agents GLPI Agent). Premier hôte
     réel (Docker, #430) en ligne le 8 sept. ; premier retour traité en #438
-    (montages sshfs/FUSE listés avec leur raison, propagation rslave).
+    (montages sshfs/FUSE listés avec leur raison, propagation rslave) et
+    #439 (FUSE mesuré comme l'utilisateur du montage, sans configuration).
     Reste : Windows, archive sans Docker (systemd) à tester.
 
 64. Refonte de la tuile Supervision SI (2026-09-07, demandé avec #418).

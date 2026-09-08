@@ -135,6 +135,7 @@ export function diskRows(host) {
     gauge: d.used_percent == null ? null : gauge(d.used_percent),
     error: d.error || null,
     invisible: d.visible === false,
+    measuredAs: d.measured_as || null,
   }));
 }
 

@@ -69,12 +69,17 @@ désactivé par défaut) ; `--log-level DEBUG`.
 Depuis 0.3.2 (#438) l'agent liste TOUS les montages de l'hôte, y compris
 ceux qu'il ne peut pas mesurer, avec la raison :
 
-- **sshfs / FUSE « accès refusé »** : un montage FUSE n'est lisible que par
-  l'utilisateur qui l'a monté, sauf option `allow_other` ou `allow_root`.
-  L'agent (root, ou l'utilisateur `si-agent`) doit donc être autorisé :
-  `sshfs -o allow_root user@hote:/chemin /point` (ou `allow_other`), après
-  avoir décommenté `user_allow_other` dans `/etc/fuse.conf`. Sans cela, le
-  montage apparaît « illisible », jamais silencieusement absent.
+- **sshfs / FUSE** : un montage FUSE n'est lisible que par l'utilisateur
+  qui l'a monté (sauf `allow_other`/`allow_root`) ; aux autres, root
+  compris, il renvoie des tailles nulles. Depuis 0.3.3 (#439) l'agent, s'il
+  est root (service systemd et conteneur : c'est le cas), le mesure en se
+  présentant comme cet utilisateur (`user_id=` des options de montage) --
+  **rien à changer sur l'hôte**, la tuile indique « (uid N) » à côté du
+  type. Seul un agent non root a besoin de `-o allow_root` (et de
+  `user_allow_other` dans `/etc/fuse.conf`) ; sinon le montage apparaît
+  « illisible » avec la raison, jamais silencieusement absent. Les
+  systèmes distants sont mesurés avec un délai de 5 s : un serveur qui ne
+  répond plus donne « sans réponse », sans bloquer la collecte.
 - **« invisible du conteneur »** (déploiement Docker) : le montage a été
   fait sur l'hôte après le démarrage du conteneur. `deploy-docker.sh`
   monte maintenant `/` en `rslave` pour que les nouveaux montages se
