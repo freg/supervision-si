@@ -1,3 +1,20 @@
+## 2026-09-08 — Parcours applicatifs : rejeu pas à pas, rejeu réel dans le navigateur, sous-parcours, comparaison (livraison #443)
+
+Suite de #441. Arbre de parcours (`parent_id`, `branch_step`, `kind`
+recorded/replay, migration SQLite) : sous-parcours créé depuis une étape
+dans la tuile, repris dans le popup de l'extension (« Reprendre », relais
+`/journeys/<id>/adopt`). « Rejouer pas à pas » : storyboard de chaque
+étape (écran reconstitué : en-têtes, formulaires et champs, tableaux ;
+actions ; SQL ; trace de rejeu). Rejeu réel : `GET /journeys/<id>/script`
+(navigate/click/fill/submit/expect/mark, sans doublon clic + submit, pause
+sur un champ sans valeur enregistrée), `POST /journeys/<id>/replay`
+(parcours enfant), relais `/replay`, exécution action par action par
+l'extension (attente des chargements, `expect` GET par URL normalisée,
+POST par requête vue), `GET /journeys/<a>/compare/<b>` étape par étape,
+affiché sous le storyboard. Vérifié : 8 tests API, 2 relais, 4 extension,
+136 hub ; rejeu réel dans Chromium via le popup sur l'appli factice, 5/5
+étapes identiques à l'origine ; rendu Chromium. Non vérifié : Firefox réel.
+
 ## 2026-09-08 — Agent hôte : un montage en lecture seule n'est plus un « disque plein » (livraison #442)
 
 Retour du poste réel : un ISO GParted monté sous `/media/…` à 100 %

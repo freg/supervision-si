@@ -49,3 +49,36 @@ export function relayCommand(centralBase, tokenConfigured) {
   const central = centralBase || "https://<VM>:6443/api/retro";
   return `python3 relay.py --central ${central} --token <RETRO_RELAY_TOKEN${tokenConfigured ? "" : " — à définir dans .env"}> --ca ca.crt`;
 }
+
+// #443 : arbre des parcours (parents puis enfants, indentés) ; les enfants sans parent visible restent à plat.
+export function journeyTree(journeys) {
+  const byParent = new Map();
+  const ids = new Set((journeys || []).map((j) => j.id));
+  for (const j of journeys || []) {
+    const p = j.parent_id && ids.has(j.parent_id) ? j.parent_id : null;
+    if (!byParent.has(p)) byParent.set(p, []);
+    byParent.get(p).push(j);
+  }
+  const out = [];
+  const walk = (parent, depth) => {
+    for (const j of byParent.get(parent) || []) { out.push({ ...j, depth }); walk(j.id, depth + 1); }
+  };
+  walk(null, 0);
+  return out;
+}
+
+// Fil d'Ariane textuel d'une étape pour le mode « rejouer pas à pas » (storyboard).
+export function storyboardFrame(step) {
+  if (!step) return null;
+  const dom = step.dom || {};
+  return {
+    title: stepTitle(step),
+    headings: dom.headings || [],
+    forms: (dom.forms || []).map((f) => ({ action: f.action, method: (f.method || "get").toUpperCase(), fields: (f.fields || []).map((x) => ({ name: x.name, type: x.type, label: x.label })) })),
+    tables: (dom.tables || []).map((t) => ({ headers: t.headers || [], rows: t.rows })),
+    links: dom.links_count,
+    actions: (step.actions || []).map((a) => `${a.kind}${a.text ? ` « ${a.text} »` : a.field ? ` ${a.field}` : ""}`),
+    replay: step.replay || [],
+    queries: (step.queries || []).map((q) => `${q.kind} ${q.tables.join(", ")}`),
+  };
+}

@@ -53,3 +53,6 @@ export const endJourney = (base, id, notes) => call(base, `/journeys/${encodeURI
 export const deleteJourney = (base, id) => call(base, `/journeys/${encodeURIComponent(id)}`, json("DELETE", {}));
 export const annotateStep = (base, id, step, text) => call(base, `/journeys/${encodeURIComponent(id)}/annotate`, json("POST", { step, text }));
 export const collectQueries = (base, id, body) => call(base, `/journeys/${encodeURIComponent(id)}/queries/collect`, json("POST", body || {}));
+// #443 : rejeu et comparaison
+export const fetchCompare = (base, id, other) => call(base, `/journeys/${encodeURIComponent(id)}/compare/${encodeURIComponent(other)}`);
+export const fetchScript = (base, id) => call(base, `/journeys/${encodeURIComponent(id)}/script`);

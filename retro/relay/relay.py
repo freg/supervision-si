@@ -17,6 +17,9 @@ Routes locales (JSON, CORS ouvert : seul le poste local peut joindre 127.0.0.1) 
   POST /events        {journey_id?, events: [...]}    met en file, expédie par lots (rejoue après une coupure)
   POST /journeys/<id>/end                               termine (après avoir vidé la file)
   POST /mark          {label}                           repère posé depuis le relais (ou l'extension)
+  GET  /journeys?app=X                                  parcours de l'application (transmis) -- #443
+  POST /journeys/<id>/adopt                             reprendre un parcours existant (sous-parcours créé depuis le hub) -- #443
+  POST /replay        {journey_id, tester}              prépare un rejeu : parcours enfant + script pour l'extension -- #443
 La file locale est un SQLite (`queue_path`) : rien n'est perdu si le central
 est injoignable, les lots sont renvoyés dans l'ordre avec leur `seq`.
 """
@@ -33,7 +36,7 @@ import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 
 def now_iso():
@@ -193,6 +196,28 @@ class Relay(object):
     def mark(self, body):
         return self.add_events({"events": [{"kind": "mark", "at": now_iso(), "data": {"label": body.get("label") or "repère"}}]})
 
+    def adopt(self, jid):
+        status, resp = self.central.request("GET", "/journeys/%s" % jid)
+        if status != 200:
+            return status or 502, {"error": resp.get("error") or "parcours introuvable"}
+        if resp.get("status") != "recording":
+            return 409, {"error": "parcours terminé : impossible de reprendre"}
+        self.current = {"id": resp["id"], "app": resp.get("app"), "name": resp.get("name"), "base_url": resp.get("base_url"), "started_at": resp.get("started_at"),
+                        "parent_id": resp.get("parent_id"), "branch_step": resp.get("branch_step")}
+        return 200, resp
+
+    def replay(self, body):
+        jid = body.get("journey_id")
+        if not jid:
+            return 400, {"error": "'journey_id' requis"}
+        status, resp = self.central.request("POST", "/journeys/%s/replay" % jid, {"tester": body.get("tester")})
+        if status != 201:
+            return status or 502, {"error": resp.get("error") or "rejeu refusé par le central"}
+        child = resp["journey"]
+        self.current = {"id": child["id"], "app": child.get("app"), "name": child.get("name"), "base_url": resp.get("base_url"), "started_at": child.get("started_at"),
+                        "parent_id": jid, "kind": "replay"}
+        return 201, resp
+
     def end_journey(self, jid, body):
         self.flush_all()
         status, resp = self.central.request("POST", "/journeys/%s/end" % jid, {"notes": body.get("notes")})
@@ -242,6 +267,9 @@ def make_handler(relay):
             if self.path == "/apps":
                 status, resp = relay.central.request("GET", "/apps")
                 return self._send(status or 502, resp)
+            if self.path.startswith("/journeys"):
+                status, resp = relay.central.request("GET", self.path)
+                return self._send(status or 502, resp)
             return self._send(404, {"error": "inconnu"})
 
         def do_POST(self):
@@ -254,6 +282,10 @@ def make_handler(relay):
                 return self._send(*relay.add_events(body))
             if self.path == "/mark":
                 return self._send(*relay.mark(body))
+            if self.path == "/replay":
+                return self._send(*relay.replay(body))
+            if self.path.startswith("/journeys/") and self.path.endswith("/adopt"):
+                return self._send(*relay.adopt(self.path.split("/")[2]))
             if self.path.startswith("/journeys/") and self.path.endswith("/end"):
                 return self._send(*relay.end_journey(self.path.split("/")[2], body))
             return self._send(404, {"error": "inconnu"})

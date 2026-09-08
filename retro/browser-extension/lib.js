@@ -73,7 +73,22 @@
     if (requestBody.formData) return Object.keys(requestBody.formData);
     return [];
   }
-  const api = { inScope: inScope, selectorFor: selectorFor, describeForm: describeForm, describeDocument: describeDocument, fieldValue: fieldValue, formKeys: formKeys };
+  // Même normalisation que journeys.normalize_path côté API (rejeu : « suis-je sur l'écran attendu ? »).
+  function normalizePath(url, base) {
+    let path, query;
+    try { const u = new URL(url, "http://x"); path = u.pathname || "/"; query = u.search.slice(1); } catch (e) { return "/"; }
+    if (base) {
+      let bp = "";
+      try { bp = new URL(base, "http://x").pathname.replace(/\/+$/, ""); } catch (e) { bp = ""; }
+      if (bp && path.startsWith(bp + "/")) path = path.slice(bp.length); else if (bp && path === bp) path = "/";
+    }
+    const segs = path.split("/").map((s) => (s && (/^\d+$/.test(s) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s) || /^[0-9a-f]{16,}$/i.test(s))) ? "{n}" : s);
+    let out = segs.join("/") || "/";
+    const keys = Array.from(new Set(query.split("&").filter(Boolean).map((kv) => decodeURIComponent(kv.split("=")[0])))).sort();
+    if (keys.length) out += "?" + keys.join("&");
+    return out;
+  }
+  const api = { inScope: inScope, selectorFor: selectorFor, describeForm: describeForm, describeDocument: describeDocument, fieldValue: fieldValue, formKeys: formKeys, normalizePath: normalizePath };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.RetroLib = api;
 })(typeof self !== "undefined" ? self : this);

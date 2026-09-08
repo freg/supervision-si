@@ -30,6 +30,12 @@ test("sélecteur, valeurs de champ, clés de formulaire", () => {
   assert.deepEqual(L.formKeys(null), []);
 });
 
+test("normalisation d'URL identique à l'API", () => {
+  assert.equal(L.normalizePath("https://h/appli/client/42/edit?tab=infos&id=7", "https://h/appli"), "/client/{n}/edit?id&tab");
+  assert.equal(L.normalizePath("http://localhost:6309/client/42", "http://localhost:6309"), "/client/{n}");
+  assert.equal(L.normalizePath("https://h/appli", "https://h/appli"), "/");
+});
+
 test("description d'un formulaire (jamais les valeurs)", () => {
   const el = (name, type, extra) => Object.assign({ name, type, value: "valeur", labels: [], required: false }, extra || {});
   const form = { elements: [el("nom", "text", { labels: [{ textContent: " Nom " }] }), el("pwd", "password"), el("ok", "submit"), el("nom", "text")],

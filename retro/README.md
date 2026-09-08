@@ -310,3 +310,41 @@ code F3 factice, collecte du journal via un faux dba-api → étapes et carte
 attendues, rendu Chromium de la tuile ; compose YAML. **Non vérifié** :
 Firefox réel (manifeste V2), un vrai `mysql.general_log` via dba-api réel,
 build Docker de retro-api.
+
+## Rejeu, sous-parcours, comparaison (livraison #443)
+
+Questions posées : « où et sous quelle forme est stockée la navigation ? une
+interface pour rejouer et ajouter des sous-parcours ? ». Stockage : SQLite
+`retro.db` sur le volume `/data` (`apps`, `journeys`, `events` -- une ligne
+par événement brut, JSON tel que reçu, ordre `seq` --, `queries`) ; étapes
+et carte recalculées à la lecture.
+
+- **Arbre de parcours** : `journeys.parent_id` + `branch_step` (sous-parcours
+  qui part de l'étape N du parent) et `kind` (`recorded` | `replay`),
+  migration automatique. Dans la tuile, bouton « Sous-parcours à partir
+  d'ici » sur une étape → parcours enfant en cours ; dans le navigateur on
+  revient à cet écran, puis popup de l'extension → « Reprendre » (le relais
+  l'adopte, `POST /journeys/<id>/adopt`). Liste indentée.
+- **Rejouer pas à pas** (storyboard) : pour chaque étape, ce que l'écran
+  montrait (en-têtes, formulaires et champs, colonnes des tableaux),
+  actions, requêtes SQL, trace du rejeu, annotation.
+- **Rejeu réel** : `GET /journeys/<id>/script` dérive des étapes un script
+  `navigate` / `click` / `fill` / `submit` / `expect` / `mark` (`navigate`
+  seulement pour un écran atteint sans action ni redirection ; un clic sur
+  le bouton d'envoi n'est pas doublé d'un `submit` ; `fill` sans valeur
+  enregistrée → le rejeu s'arrête sur le champ, la personne saisit puis
+  « Continuer »). `POST /journeys/<id>/replay` crée le parcours enfant
+  (`kind=replay`) et renvoie le script ; le relais (`POST /replay`) le
+  transmet à l'extension, dont l'arrière-plan exécute action par action
+  dans l'onglet (attente des chargements, `expect` GET vérifié par l'URL
+  normalisée, `expect` POST par la requête réellement vue) en enregistrant
+  le rejeu comme n'importe quel parcours, plus une trace `replay-action`
+  par action. `GET /journeys/<a>/compare/<b>` aligne les deux parcours
+  étape par étape (écran, méthode, statut, titre, champs, en-têtes,
+  colonnes, requêtes secondaires, tables SQL) ; la tuile l'affiche pour
+  tout rejeu, sous le storyboard.
+
+Vérifié : 8 tests API, relais, 4 tests extension, 3 hub ; **rejeu réel** dans
+Chromium via le popup de l'extension sur l'application factice (valeurs
+enregistrées) : 8 actions exécutées, rejeu comparé à l'origine 5/5 étapes
+identiques ; rendu Chromium. Non vérifié : Firefox réel.

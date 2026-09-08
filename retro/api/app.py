@@ -303,8 +303,16 @@ def journeys_create():
     appl = (body.get("app") or "").strip()
     if not appl:
         return jsonify({"error": "'app' requis"}), 400
+    branch = body.get("branch_step")
+    try:
+        branch = int(branch) if branch not in (None, "") else None
+    except (TypeError, ValueError):
+        return jsonify({"error": "'branch_step' entier attendu"}), 400
     j = jstore.create_journey(DB_PATH, appl, name=(body.get("name") or "").strip() or None, tester=(body.get("tester") or "").strip() or None,
-                              base_url=(body.get("base_url") or "").strip() or None)
+                              base_url=(body.get("base_url") or "").strip() or None, parent_id=(body.get("parent_id") or "").strip() or None,
+                              branch_step=branch, kind=body.get("kind") or "recorded")
+    if j is None:
+        return jsonify({"error": "parcours parent inconnu"}), 404
     return jsonify(j), 201
 
 
@@ -378,6 +386,56 @@ def journeys_annotate(jid):
     if ann is None:
         return jsonify({"error": "parcours inconnu"}), 404
     return jsonify({"annotations": ann}), 200
+
+
+@app.route("/journeys/<jid>/script", methods=["GET"])
+def journeys_script(jid):
+    """#443 : script de rejeu (navigate / click / fill / submit / expect /
+    mark) dérivé des étapes -- lu par le relais pour l'extension."""
+    j = jstore.get_journey(DB_PATH, jid)
+    if j is None:
+        return jsonify({"error": "parcours inconnu"}), 404
+    a = jstore.get_app(DB_PATH, j["app"]) or {}
+    steps = journeys.build_steps(jstore.get_events(DB_PATH, jid), a.get("base_url"))
+    return jsonify({"journey_id": jid, "app": j["app"], "name": j["name"], "base_url": a.get("base_url"), "steps": len(steps),
+                    "script": journeys.replay_script(steps)}), 200
+
+
+@app.route("/journeys/<jid>/replay", methods=["POST"])
+def journeys_replay(jid):
+    """#443 : prépare un rejeu -- crée le parcours enfant (kind=replay, même
+    application) qui recevra les événements du rejeu, et renvoie le script.
+    Relais (jeton) ou hub (manage)."""
+    body = request.get_json(silent=True) or {}
+    if not _relay_authorized():
+        allowed, error = _check_manage_right(body)
+        if not allowed:
+            return jsonify({"error": error}), 403
+    j = jstore.get_journey(DB_PATH, jid)
+    if j is None:
+        return jsonify({"error": "parcours inconnu"}), 404
+    a = jstore.get_app(DB_PATH, j["app"]) or {}
+    steps = journeys.build_steps(jstore.get_events(DB_PATH, jid), a.get("base_url"))
+    child = jstore.create_journey(DB_PATH, j["app"], name="rejeu de %s" % (j["name"] or jid), tester=(body.get("tester") or "").strip() or None,
+                                  parent_id=jid, branch_step=None, kind="replay")
+    return jsonify({"journey": child, "base_url": a.get("base_url"), "script": journeys.replay_script(steps)}), 201
+
+
+@app.route("/journeys/<jid>/compare/<other>", methods=["GET"])
+def journeys_compare(jid, other):
+    """#443 : deux parcours alignés étape par étape (écran, statut,
+    formulaires, en-têtes, tableaux, requêtes secondaires, tables SQL)."""
+    ja, jb = jstore.get_journey(DB_PATH, jid), jstore.get_journey(DB_PATH, other)
+    if ja is None or jb is None:
+        return jsonify({"error": "parcours inconnu"}), 404
+    out = []
+    for j in (ja, jb):
+        a = jstore.get_app(DB_PATH, j["app"]) or {}
+        steps = journeys.build_steps(jstore.get_events(DB_PATH, j["id"]), a.get("base_url"))
+        journeys.attribute_queries(steps, jstore.get_queries(DB_PATH, j["id"]))
+        out.append(steps)
+    return jsonify({"a": {"id": ja["id"], "name": ja["name"], "kind": ja["kind"]}, "b": {"id": jb["id"], "name": jb["name"], "kind": jb["kind"]},
+                    **journeys.compare_journeys(out[0], out[1])}), 200
 
 
 def fetch_general_log(dba_url, conn_id, database, since, until, http=None):

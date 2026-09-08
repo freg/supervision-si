@@ -1129,8 +1129,13 @@ qui fait alors sauter la file.
     ("schéma fonctionnel de l'interface") LIVRÉ en #441** par l'usage
     réel : extension Firefox + agent relais + API « parcours » (étapes,
     routes, tables du code et du journal SQL via dba-api, carte
-    fonctionnelle). Reste : premier parcours réel dans Firefox, vrai
-    general_log. Voir `retro/README.md`.
+    fonctionnelle) ; #443 : rejeu pas à pas, rejeu réel, sous-parcours,
+    comparaison. Suite demandée : (2) générer une interface au design du
+    hub offrant les mêmes fonctions qu'un parcours ; (3) comparer les
+    applications enregistrées → outil de gestion unique ; (4) champs et
+    relations inter-applications → méta-graphe, proposition de fusion.
+    Reste : premier parcours réel dans Firefox, vrai general_log. Voir
+    `retro/README.md`.
 
     **EXTENSION LIVRÉE EN #245** -- demandé explicitement juste
     après le volet 1 : "importer du php et des vues d'écran en html

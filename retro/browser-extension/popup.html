@@ -15,6 +15,16 @@ input,button{font:inherit}input{width:100%;box-sizing:border-box;padding:4px}but
   <label>Repère</label><input id="label" placeholder="ex. après validation du devis">
   <button id="btnMark">Poser un repère</button>
   <button id="btnStop">Terminer</button>
+  <div id="replayBox" hidden style="margin-top:8px;padding:6px;background:#fff7e6;border-radius:4px">
+    <div id="replayStatus"></div>
+    <button id="btnContinue">Continuer</button> <button id="btnAbort">Arrêter le rejeu</button>
+  </div>
+</div>
+<div id="existing" style="margin-top:8px">
+  <label>Parcours existants de l'application <span id="existingApp" class="muted"></span></label>
+  <select id="journeys"></select>
+  <button id="btnAdopt" title="continuer l'enregistrement d'un parcours en cours (sous-parcours créé depuis le hub)">Reprendre</button>
+  <button id="btnReplay" title="rejouer ce parcours dans l'onglet courant ; le rejeu est enregistré comme parcours enfant">Rejouer</button>
 </div>
 <p class="muted" style="margin-top:10px"><a href="#" id="opts">Options</a> (relais, périmètre, valeurs des champs) · <span id="stats"></span></p>
 <script src="popup.js"></script></body></html>

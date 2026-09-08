@@ -186,7 +186,45 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(m["journeys"], 1); self.assertGreaterEqual(m["counts"]["tables"], 3)
         self.assertEqual(self.c.get("/journeys?app=gestion").get_json()["journeys"][0]["queries_count"], 7)
         self.assertEqual(self.c.get("/apps").get_json()["apps"][0]["journeys"], 1)
+        # #443 : sous-parcours depuis l'étape 2, script de rejeu, rejeu (parcours enfant), comparaison
+        r = self.c.post("/journeys", json={"app": "gestion", "name": "ajouter un contrat", "parent_id": jid, "branch_step": 2})
+        self.assertEqual(r.status_code, 201); sub = r.get_json()
+        self.assertEqual((sub["parent_id"], sub["branch_step"], sub["kind"]), (jid, 2, "recorded"))
+        self.assertEqual(self.c.post("/journeys", json={"app": "gestion", "parent_id": "nope"}).status_code, 404)
+        sc = self.c.get(f"/journeys/{jid}/script").get_json()
+        self.assertEqual(sc["script"][0]["action"], "navigate"); self.assertEqual(sc["steps"], 5)
+        r = self.c.post(f"/journeys/{jid}/replay", json={}, headers={"X-Relay-Token": "relais-secret"})
+        self.assertEqual(r.status_code, 201); rep_ = r.get_json()
+        self.assertEqual((rep_["journey"]["kind"], rep_["journey"]["parent_id"]), ("replay", jid))
+        self.assertEqual(len(rep_["script"]), 8)
+        self.c.post(f"/journeys/{rep_['journey']['id']}/events", json={"events": EVENTS[:6]}, headers={"X-Relay-Token": "relais-secret"})
+        cmp_ = self.c.get(f"/journeys/{jid}/compare/{rep_['journey']['id']}").get_json()
+        self.assertEqual((cmp_["summary"]["steps_a"], cmp_["summary"]["steps_b"]), (5, 2))
+        self.assertTrue(cmp_["pairs"][0]["same"])
+        lst = self.c.get("/journeys?app=gestion").get_json()["journeys"]
+        self.assertEqual([x for x in lst if x["id"] == jid][0]["children"], 2)
         self.assertEqual(self.c.delete(f"/journeys/{jid}").get_json()["deleted"], True)
+
+    def test_replay_script_and_compare(self):
+        steps = J.build_steps(EVENTS, "https://gestion.exemple.fr")
+        sc = J.replay_script(steps)
+        self.assertEqual([a["action"] for a in sc], ["navigate", "click", "expect", "fill", "submit", "expect", "expect", "mark"])
+        self.assertEqual(sc[1]["selector"], "table tr:nth-child(2) a")
+        self.assertEqual((sc[3]["field"], sc[3]["value"], sc[3]["length"]), ("email", None, 14))
+        self.assertEqual(sc[6]["expect_path"], "/client/{n}")  # écran issu de la redirection : pas de navigate
+        # clic sur le bouton d'envoi puis submit : un seul envoi rejoué
+        ev = copy.deepcopy(EVENTS) if False else None
+        import copy as _c
+        ev = _c.deepcopy(EVENTS)
+        ev.insert(8, {"seq": 8.5, "at": "2026-09-08T10:00:24Z", "kind": "click", "data": {"selector": "#f button", "tag": "BUTTON", "text": "Enregistrer"}})
+        sc2 = J.replay_script(J.build_steps(ev, "https://gestion.exemple.fr"))
+        self.assertEqual([a["action"] for a in sc2 if a["step"] == 2], ["expect", "fill", "click"])
+        import copy
+        b = copy.deepcopy(EVENTS); b[5]["data"]["title"] = "Client Durand"
+        c = J.compare_journeys(steps, J.build_steps(b[:10], "https://gestion.exemple.fr"))
+        self.assertEqual(c["summary"], {"steps_a": 5, "steps_b": 3, "same": 2, "different": 3})
+        self.assertEqual(c["pairs"][1]["diffs"], ["titre : Client Dupont ≠ Client Durand"])
+        self.assertIn("absente", c["pairs"][4]["diffs"][0])
 
     def test_mapper_pattern_with_property(self):
         import php_sql_scanner as scanner

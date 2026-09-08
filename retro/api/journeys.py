@@ -153,7 +153,7 @@ def build_steps(events, base_url=None):
         nonlocal cur
         cur = {"n": len(steps) + 1, "kind": kind, "at": at, "at_ts": parse_ts(at), "until": None, "until_ts": None,
                "url": url, "path": normalize_path(url, base_url) if url else None, "title": title, "label": label, "method": method,
-               "note": None, "dom": None, "actions": [], "requests": [], "forms": [], "inputs": [], "_awaiting_nav": awaiting}
+               "note": None, "dom": None, "actions": [], "requests": [], "forms": [], "inputs": [], "replay": [], "_awaiting_nav": awaiting}
         steps.append(cur)
 
     for ev in sorted(events or [], key=lambda e: (e.get("seq") or 0)):
@@ -173,7 +173,11 @@ def build_steps(events, base_url=None):
             continue
         if kind == "request" and d.get("type") == "main_frame":
             new_step("navigation", ev.get("at"), url=d.get("url"), method=(d.get("method") or "GET").upper(), awaiting=True)
+        if kind not in ("dom", "click", "submit", "input", "change", "keydown", "request", "note", "replay-action", "replay-end"):
+            continue
         if cur is None:
+            if kind in ("replay-action", "replay-end"):
+                continue
             new_step("navigation", ev.get("at"), url=d.get("url") or d.get("page_url"))
         if kind == "dom":
             cur["_awaiting_nav"] = False
@@ -206,6 +210,8 @@ def build_steps(events, base_url=None):
                                     "form_keys": list(d.get("form_keys") or [])})
         elif kind == "note":
             cur["note"] = d.get("text")
+        elif kind == "replay-action":   # #443 : trace du rejeu (action ok / en échec) sur l'étape où elle a eu lieu
+            cur.setdefault("replay", []).append({"action": d.get("action"), "ok": bool(d.get("ok")), "error": d.get("error"), "what": d.get("what"), "step_ref": d.get("step")})
     for i, s in enumerate(steps):
         s.pop("_awaiting_nav", None)
         nxt = steps[i + 1] if i + 1 < len(steps) else None
@@ -383,3 +389,94 @@ def functional_map(steps, scan, base_url=None):
             tables[t]["from_db"] |= t in sc["db_tables"]
     return {"screens": out, "tables": tables,
             "counts": {"screens": len(out), "with_route": sum(1 for s in out if s["route"]), "with_tables": sum(1 for s in out if s["tables"]), "tables": len(tables)}}
+
+
+# ---- Rejeu et comparaison (#443) ------------------------------------------------------
+
+def replay_script(steps):
+    """Étapes → script de rejeu pour l'extension : [{action, step, …}].
+    `navigate` seulement pour un écran atteint sans clic ni envoi à l'étape
+    précédente (URL tapée, premier écran) : les autres écrans découlent des
+    actions rejouées. `fill` reprend la valeur enregistrée si elle l'a été
+    (option de l'extension), sinon `value: null` -- à saisir à la main, le
+    rejeu s'arrête sur le champ."""
+    script = []
+    prev_ended_with_action = False
+    prev_redirected = False
+    for s in steps:
+        if s.get("kind") == "mark":
+            script.append({"action": "mark", "step": s["n"], "label": s.get("label")})
+            continue
+        page_req = next((r for r in s.get("requests") or [] if r.get("page")), None)
+        method = (s.get("method") or (page_req or {}).get("method") or "GET").upper()
+        if s.get("url") and method == "GET" and not prev_ended_with_action and not prev_redirected:
+            script.append({"action": "navigate", "step": s["n"], "url": s["url"], "expect_path": s.get("path")})
+        elif s.get("url"):
+            script.append({"action": "expect", "step": s["n"], "expect_path": s.get("path"), "method": method})
+        pending_inputs = {i["field"]: i for i in s.get("inputs") or []}
+        last = None
+        for a in s.get("actions") or []:
+            k = a.get("kind")
+            if k in ("input", "change"):
+                i = pending_inputs.pop(a.get("field"), None)
+                if i is not None:
+                    script.append({"action": "fill", "step": s["n"], "field": i["field"], "selector": a.get("selector"), "value": i.get("value"), "length": i.get("length")})
+                    last = "fill"
+            elif k == "click":
+                script.append({"action": "click", "step": s["n"], "selector": a.get("selector"), "text": a.get("text"), "href": a.get("href"), "tag": a.get("tag")})
+                last = "click"
+            elif k == "submit":
+                # le clic sur le bouton d'envoi (juste avant) provoque déjà l'envoi : ne pas soumettre deux fois
+                if script and script[-1]["action"] == "click" and (script[-1].get("tag") or "").upper() in ("BUTTON", "INPUT") and script[-1]["step"] == s["n"]:
+                    last = "submit"
+                    continue
+                script.append({"action": "submit", "step": s["n"], "selector": a.get("selector"), "form": a.get("form")})
+                last = "submit"
+        for i in pending_inputs.values():   # saisies sans action associée (frappe seule)
+            script.append({"action": "fill", "step": s["n"], "field": i["field"], "selector": None, "value": i.get("value"), "length": i.get("length")})
+        prev_ended_with_action = last in ("click", "submit")
+        status = (page_req or {}).get("status")
+        prev_redirected = isinstance(status, int) and 300 <= status < 400   # l'écran suivant vient de la redirection
+    return script
+
+
+def _step_sig(s):
+    page = next((r for r in s.get("requests") or [] if r.get("page")), None)
+    return {"n": s["n"], "kind": s["kind"], "path": s.get("path"), "method": s.get("method"), "title": s.get("title"),
+            "status": (page or {}).get("status"), "label": s.get("label"),
+            "forms": sorted({tuple(f.get("fields") or []) for f in s.get("forms") or []}),
+            "headings": list((s.get("dom") or {}).get("headings") or []), "tables": [t.get("headers") for t in (s.get("dom") or {}).get("tables") or []],
+            "xhr": sorted({(r["method"], r.get("path")) for r in s.get("requests") or [] if not r.get("page")}),
+            "db_tables": sorted((s.get("db_tables") or {}).keys())}
+
+
+def compare_journeys(steps_a, steps_b):
+    """Deux parcours (le second est en général le rejeu du premier) alignés
+    étape par étape : mêmes écrans, statuts, formulaires, en-têtes,
+    tableaux, requêtes secondaires, tables SQL ? → {pairs, summary}."""
+    pairs = []
+    n = max(len(steps_a), len(steps_b))
+    same = 0
+    for i in range(n):
+        a = _step_sig(steps_a[i]) if i < len(steps_a) else None
+        b = _step_sig(steps_b[i]) if i < len(steps_b) else None
+        diffs = []
+        if a is None or b is None:
+            diffs.append("étape absente dans %s" % ("le premier" if a is None else "le second"))
+        else:
+            for key, label in (("path", "écran"), ("method", "méthode"), ("status", "statut HTTP"), ("title", "titre"), ("forms", "champs de formulaire"),
+                               ("headings", "en-têtes"), ("tables", "colonnes des tableaux"), ("xhr", "requêtes secondaires"), ("db_tables", "tables SQL")):
+                if a.get(key) != b.get(key) and not (key == "db_tables" and (not a.get(key) or not b.get(key))):
+                    diffs.append("%s : %s ≠ %s" % (label, _fmt_sig(a.get(key)), _fmt_sig(b.get(key))))
+        if not diffs:
+            same += 1
+        pairs.append({"n": i + 1, "a": a, "b": b, "same": not diffs, "diffs": diffs})
+    return {"pairs": pairs, "summary": {"steps_a": len(steps_a), "steps_b": len(steps_b), "same": same, "different": n - same}}
+
+
+def _fmt_sig(v):
+    if v is None or v == [] or v == ():
+        return "—"
+    if isinstance(v, (list, tuple, set)):
+        return ", ".join(_fmt_sig(x) if isinstance(x, (list, tuple)) else str(x) for x in v) or "—"
+    return str(v)

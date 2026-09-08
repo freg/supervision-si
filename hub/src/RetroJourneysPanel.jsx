@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   fetchApps, upsertApp, fetchAppMap, fetchJourneys, fetchJourney, endJourney, deleteJourney, annotateStep, collectQueries, scanPhpArchiveForApp,
+  createJourney, fetchCompare,
 } from "./retroClient.js";
-import { STATUS_LABELS, stepTitle, stepSummary, screensByTables, dbTablesLabel, relayCommand } from "./retroJourneys.js";
+import { STATUS_LABELS, stepTitle, stepSummary, screensByTables, dbTablesLabel, relayCommand, journeyTree, storyboardFrame } from "./retroJourneys.js";
 
 // Parcours applicatifs (livraison #441, backlog 30 volet 2 -- « schéma
 // fonctionnel de l'interface ») : la personne parcourt l'application réelle
@@ -21,6 +22,9 @@ export default function RetroJourneysPanel({ retroApiBase, connections }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
   const [scanning, setScanning] = useState(false);
+  // #443 : rejeu pas à pas (storyboard) et comparaison avec le parent (rejeu)
+  const [frame, setFrame] = useState(0);
+  const [compare, setCompare] = useState(null);
 
   const loadApps = useCallback(async () => {
     const r = await fetchApps(retroApiBase);
@@ -41,7 +45,20 @@ export default function RetroJourneysPanel({ retroApiBase, connections }) {
 
   async function openJourney(id) {
     const r = await fetchJourney(retroApiBase, id);
-    if (r.error) setError(r.error); else setJourney(r);
+    if (r.error) { setError(r.error); return; }
+    setJourney(r); setFrame(0); setCompare(null);
+    if (r.parent_id && r.kind === "replay") {
+      const c = await fetchCompare(retroApiBase, r.parent_id, r.id);
+      if (!c.error) setCompare(c);
+    }
+  }
+  async function handleSubJourney(step) {
+    const name = window.prompt(`Nom du sous-parcours qui part de l'étape ${step.n} (${stepTitle(step)}) :`, "");
+    if (name === null) return;
+    const r = await createJourney(retroApiBase, { app: journey.app, name: name || `sous-parcours depuis l'étape ${step.n}`, parent_id: journey.id, branch_step: step.n, tester: journey.tester });
+    if (r.error) { setError(r.error); return; }
+    setNotice(`sous-parcours « ${r.name} » créé (en cours) : dans le navigateur, revenez à l'écran de l'étape ${step.n}, puis dans le popup de l'extension choisissez-le et « Reprendre » -- ce qui suit s'y enregistre.`);
+    await loadJourneys();
   }
   async function handleSaveApp(e) {
     e.preventDefault();
@@ -135,9 +152,11 @@ export default function RetroJourneysPanel({ retroApiBase, connections }) {
             <div className="hub-table-scroll">
               <table>
                 <thead><tr><th>Parcours</th><th>Testeur</th><th>Début</th><th>État</th><th>Événements</th><th>Requêtes SQL</th><th></th></tr></thead>
-                <tbody>{journeys.map((j) => (
+                <tbody>{journeyTree(journeys).map((j) => (
                   <tr key={j.id} style={journey?.id === j.id ? { fontWeight: 600 } : undefined}>
-                    <td><a href="#" onClick={(e) => { e.preventDefault(); openJourney(j.id); }}>{j.name || j.id}</a></td>
+                    <td style={{ paddingLeft: 8 + j.depth * 18 }}>{j.depth > 0 && <span className="muted">↳ </span>}<a href="#" onClick={(e) => { e.preventDefault(); openJourney(j.id); }}>{j.name || j.id}</a>
+                      {j.kind === "replay" && <> <span className="na-chip" title="rejeu automatique du parcours parent">rejeu</span></>}
+                      {j.branch_step && <> <span className="muted" style={{ fontSize: 12 }}>depuis l'étape {j.branch_step}</span></>}</td>
                     <td className="muted">{j.tester || "—"}</td><td className="muted">{j.started_at}</td>
                     <td>{STATUS_LABELS[j.status] || j.status}</td><td>{j.events_count}</td>
                     <td className="muted">{j.queries_count ? `${j.queries_count} (${j.queries_collected_at})` : "—"}</td>
@@ -151,6 +170,65 @@ export default function RetroJourneysPanel({ retroApiBase, connections }) {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {journey && journey.steps.length > 0 && (
+        <div className="hub-card hub-settings-section">
+          <h2>Rejouer pas à pas — étape {Math.min(frame + 1, journey.steps.length)} / {journey.steps.length}</h2>
+          <p className="muted" style={{ marginTop: -4 }}>Ce que l'écran montrait, ce qui a été fait, ce que la base a exécuté. Pour rejouer réellement dans le navigateur : popup de l'extension → choisir ce parcours → « Rejouer » (le rejeu est enregistré comme parcours enfant et comparé).</p>
+          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+            <button className="secondary" disabled={frame <= 0} onClick={() => setFrame(frame - 1)}>◀ Précédente</button>
+            <button className="secondary" disabled={frame >= journey.steps.length - 1} onClick={() => setFrame(frame + 1)}>Suivante ▶</button>
+            <button className="secondary" onClick={() => handleSubJourney(journey.steps[frame])} title="créer un parcours enfant qui part de cet écran">＋ Sous-parcours à partir d'ici</button>
+          </div>
+          {(() => {
+            const f = storyboardFrame(journey.steps[frame]);
+            const sc = journey.map.screens.find((x) => x.steps.includes(journey.steps[frame].n)) || {};
+            return (
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
+                <div className="hub-card" style={{ margin: 0, border: "1px dashed var(--border, #ccc)" }}>
+                  <div style={{ fontWeight: 600 }}><code>{f.title}</code>{sc.route && <span className="muted" style={{ fontSize: 12 }}> · {sc.route} → {sc.handler}</span>}</div>
+                  {f.headings.map((h, i) => <div key={i} style={{ fontSize: i === 0 ? 18 : 14, fontWeight: 600, margin: "6px 0 2px" }}>{h}</div>)}
+                  {f.forms.map((fm, i) => (
+                    <fieldset key={i} style={{ margin: "8px 0", padding: 8 }}>
+                      <legend className="muted" style={{ fontSize: 12 }}>{fm.method} {fm.action || "(même page)"}</legend>
+                      {fm.fields.map((x) => <div key={x.name} style={{ display: "flex", gap: 8, alignItems: "center", margin: "3px 0" }}><span style={{ minWidth: 140 }}>{x.label || x.name}</span><span className="na-chip"><code>{x.name}</code> {x.type}</span></div>)}
+                    </fieldset>
+                  ))}
+                  {f.tables.map((t, i) => (
+                    <table key={i} style={{ margin: "8px 0" }}><thead><tr>{t.headers.map((h) => <th key={h}>{h}</th>)}</tr></thead><tbody><tr>{t.headers.map((h) => <td key={h} className="muted">…</td>)}</tr></tbody></table>
+                  ))}
+                  {f.links != null && <div className="muted" style={{ fontSize: 12 }}>{f.links} lien(s) sur l'écran</div>}
+                </div>
+                <div>
+                  <div><span className="muted">Actions</span><br />{f.actions.length ? f.actions.map((a, i) => <div key={i}>{a}</div>) : "—"}</div>
+                  <div style={{ marginTop: 8 }}><span className="muted">Requêtes SQL</span><br />{f.queries.length ? f.queries.map((q, i) => <div key={i}><code>{q}</code></div>) : "—"}</div>
+                  {f.replay.length > 0 && <div style={{ marginTop: 8 }}><span className="muted">Rejeu</span><br />{f.replay.map((r, i) => <div key={i} style={{ color: r.ok ? "var(--success, #1a7f37)" : "var(--danger)" }}>{r.ok ? "✓" : "✗"} {r.action}{r.error ? ` — ${r.error}` : ""}</div>)}</div>}
+                  {journey.steps[frame].annotation && <div style={{ marginTop: 8 }}><span className="muted">Annotation</span><br />{journey.steps[frame].annotation}</div>}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {compare && (
+        <div className="hub-card hub-settings-section">
+          <h2>Rejeu comparé au parcours d'origine — {compare.summary.same} étape(s) identique(s), {compare.summary.different} différente(s)</h2>
+          <div className="hub-table-scroll">
+            <table>
+              <thead><tr><th>#</th><th>Origine</th><th>Rejeu</th><th>Différences</th></tr></thead>
+              <tbody>{compare.pairs.map((p) => (
+                <tr key={p.n} style={p.same ? undefined : { background: "var(--warning-bg, #fff7e6)" }}>
+                  <td className="muted">{p.n}</td>
+                  <td><code>{p.a ? `${p.a.method && p.a.method !== "GET" ? p.a.method + " " : ""}${p.a.path || p.a.label || "?"}` : "—"}</code>{p.a?.status != null && <span className="muted"> {p.a.status}</span>}</td>
+                  <td><code>{p.b ? `${p.b.method && p.b.method !== "GET" ? p.b.method + " " : ""}${p.b.path || p.b.label || "?"}` : "—"}</code>{p.b?.status != null && <span className="muted"> {p.b.status}</span>}</td>
+                  <td className="muted" style={{ fontSize: 12 }}>{p.same ? "identique" : p.diffs.join(" · ")}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
         </div>
       )}
 

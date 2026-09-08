@@ -39,10 +39,22 @@ def _connect(path):
     return conn
 
 
+# #443 : arbre de parcours (sous-parcours à partir d'une étape) et rejeux
+MIGRATIONS = (
+    ("journeys", "parent_id", "ALTER TABLE journeys ADD COLUMN parent_id TEXT"),
+    ("journeys", "branch_step", "ALTER TABLE journeys ADD COLUMN branch_step INTEGER"),
+    ("journeys", "kind", "ALTER TABLE journeys ADD COLUMN kind TEXT NOT NULL DEFAULT 'recorded'"),
+)
+
+
 def ensure_schema(path):
     conn = _connect(path)
     try:
         conn.executescript(SCHEMA)
+        for table, col, ddl in MIGRATIONS:
+            cols = [r[1] for r in conn.execute("PRAGMA table_info(%s)" % table)]
+            if col not in cols:
+                conn.execute(ddl)
         conn.commit()
     finally:
         conn.close()
@@ -137,13 +149,18 @@ def delete_app(path, label):
 
 # ---- parcours ------------------------------------------------------------------
 
-def create_journey(path, app, name=None, tester=None, base_url=None):
+def create_journey(path, app, name=None, tester=None, base_url=None, parent_id=None, branch_step=None, kind="recorded"):
+    """`parent_id` + `branch_step` (#443) : sous-parcours qui part de l'étape
+    `branch_step` du parcours parent ; `kind` : recorded | replay."""
     jid = time.strftime("%Y%m%d-%H%M%S", time.gmtime()) + "-" + secrets.token_hex(3)
     conn = _connect(path)
     try:
         if conn.execute("SELECT 1 FROM apps WHERE label = ?", (app,)).fetchone() is None:
             conn.execute("INSERT INTO apps (label, base_url, created_at) VALUES (?, ?, ?)", (app, base_url, now_iso()))
-        conn.execute("INSERT INTO journeys (id, app, name, tester, started_at) VALUES (?, ?, ?, ?, ?)", (jid, app, name, tester, now_iso()))
+        if parent_id and conn.execute("SELECT 1 FROM journeys WHERE id = ?", (parent_id,)).fetchone() is None:
+            return None
+        conn.execute("INSERT INTO journeys (id, app, name, tester, started_at, parent_id, branch_step, kind) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                     (jid, app, name, tester, now_iso(), parent_id, branch_step, kind if kind in ("recorded", "replay") else "recorded"))
         conn.commit()
     finally:
         conn.close()
@@ -160,9 +177,12 @@ def get_journey(path, jid):
 
 
 def _journey_public(r):
+    keys = r.keys()
     return {"id": r["id"], "app": r["app"], "name": r["name"], "tester": r["tester"], "status": r["status"], "started_at": r["started_at"],
             "ended_at": r["ended_at"], "notes": r["notes"], "events_count": r["events_count"], "queries_collected_at": r["queries_collected_at"],
-            "queries_count": r["queries_count"], "annotations": _j(r["annotations_json"], {}) or {}}
+            "queries_count": r["queries_count"], "annotations": _j(r["annotations_json"], {}) or {},
+            "parent_id": r["parent_id"] if "parent_id" in keys else None, "branch_step": r["branch_step"] if "branch_step" in keys else None,
+            "kind": r["kind"] if "kind" in keys else "recorded"}
 
 
 def list_journeys(path, app=None):
@@ -174,7 +194,14 @@ def list_journeys(path, app=None):
         rows = conn.execute(q + " ORDER BY started_at DESC", params).fetchall()
     finally:
         conn.close()
-    return [_journey_public(r) for r in rows]
+    out = [_journey_public(r) for r in rows]
+    children = {}
+    for j in out:
+        if j.get("parent_id"):
+            children[j["parent_id"]] = children.get(j["parent_id"], 0) + 1
+    for j in out:
+        j["children"] = children.get(j["id"], 0)
+    return out
 
 
 def add_events(path, jid, events):

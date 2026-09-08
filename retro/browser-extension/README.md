@@ -39,6 +39,16 @@ popup : application, nom du parcours, testeur → *Démarrer* ; parcourir ;
 *Poser un repère* quand utile ; *Terminer*. Un parcours démarré ailleurs
 (relais) est adopté automatiquement par l'extension.
 
+## Reprendre, rejouer (#443)
+
+Dans le popup, la liste des parcours de l'application (via le relais) :
+**Reprendre** continue l'enregistrement d'un parcours en cours (par
+exemple un sous-parcours créé depuis le hub à partir d'une étape : revenir
+d'abord sur cet écran) ; **Rejouer** exécute le parcours choisi dans
+l'onglet courant -- le rejeu est enregistré comme parcours enfant et
+comparé à l'origine dans la tuile. Un champ dont la valeur n'avait pas été
+enregistrée met le rejeu en pause sur ce champ : saisir, puis « Continuer ».
+
 ## Chromium / Chrome / Edge
 
 `manifest.chromium.json` (Manifest V3, mêmes sources) : copier le dossier,
