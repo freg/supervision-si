@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, CircleMarker, Polyline, Popup, useMap } from "
 import "leaflet/dist/leaflet.css";
 import { fetchTargets, fetchLatestSamples, fetchAgents as fetchWifiAgents } from "./netprobeClient.js";
 import { fetchUpsList } from "./upsClient.js";
-import { fetchFleet } from "./siAgentClient.js";
+import { fetchFleet, fetchNetviews } from "./siAgentClient.js";
 import { fetchSnmpTargets } from "./snmpClient.js";
 import { fetchTunnels, fetchConnections } from "./sshTunnelsClient.js";
 import { fetchSites, fetchDevices, fetchLinks } from "./networkAgentClient.js";
@@ -145,7 +145,7 @@ export default function SupervisionSiView({
     const safe = async (label, fn, fallback) => {
       try { const r = await fn(); if (r && r.error) { errs.push(`${label} : ${r.error}`); return fallback; } return r; } catch (e) { errs.push(`${label} : ${e.message}`); return fallback; }
     };
-    const [netprobeTargets, netprobeLatest, wifiAgents, upsDevices, siAgentFleet, snmpTargets, sshTunnels, sshConnections, sites, suggestions, signals, geolocations] = await Promise.all([
+    const [netprobeTargets, netprobeLatest, wifiAgents, upsDevices, siAgentFleet, snmpTargets, sshTunnels, sshConnections, sites, suggestions, signals, geolocations, netviews] = await Promise.all([
       netprobeApiBase ? safe("Sondes réseau", () => fetchTargets(netprobeApiBase), []) : [],
       netprobeApiBase ? safe("Sondes réseau (relevés)", () => fetchLatestSamples(netprobeApiBase), []) : [],
       netprobeApiBase ? safe("Sondes WiFi", async () => (await fetchWifiAgents(netprobeApiBase)).filter((a) => a.role === "probe"), []) : [],
@@ -158,6 +158,7 @@ export default function SupervisionSiView({
       netmapOrchestratorApiBase ? safe("Orchestrateur", () => fetchSuggestions(netmapOrchestratorApiBase, { status: "open" }), []) : [],
       vigilanceApiBase ? safe("Vigilance", () => fetchSignals(vigilanceApiBase), []) : [],
       pixelGridApiBase ? safe("Géolocalisations", async () => { const r = await fetch(`${pixelGridApiBase}/geolocations`); const d = await r.json(); return Array.isArray(d?.geolocations) ? d.geolocations : []; }, []) : [],
+      siAgentApiBase ? safe("Agents hôtes (vue réseau)", () => fetchNetviews(siAgentApiBase), []) : [],
     ]);
     // appareils et flux de chaque segment (exploration réseau)
     const naDevices = [], naLinks = [];
@@ -173,7 +174,7 @@ export default function SupervisionSiView({
         naLinks.push(...lks);
       }
     }
-    setSources({ netprobeTargets, netprobeLatest, wifiAgents, upsDevices, siAgentFleet, snmpTargets, sshTunnels, sshConnections, sites, suggestions, signals, geolocations, naDevices, naLinks });
+    setSources({ netprobeTargets, netprobeLatest, wifiAgents, upsDevices, siAgentFleet, snmpTargets, sshTunnels, sshConnections, sites, suggestions, signals, geolocations, naDevices, naLinks, netviews });
     setErrors(errs);
     setLoading(false);
     setNow(Date.now());
@@ -185,8 +186,8 @@ export default function SupervisionSiView({
   const supervised = useMemo(() => (sources ? aggregateSupervised(sources, now) : []), [sources, now]);
   const sitesList = useMemo(() => [...new Set(supervised.map((i) => i.site).filter(Boolean))].sort(), [supervised]);
   const visible = useMemo(() => prioritizeSupervised(filterSupervised(supervised, filter), priorities), [supervised, filter, priorities]);
-  const proposals = useMemo(() => (sources ? buildProposals({ suggestions: sources.suggestions, signals: sources.signals, devices: sources.naDevices, supervised }) : []), [sources, supervised]);
-  const links = useMemo(() => (sources ? buildLinks({ naLinks: sources.naLinks, naDevices: sources.naDevices, tunnels: sources.sshTunnels, connections: sources.sshConnections, supervised }) : []), [sources, supervised]);
+  const proposals = useMemo(() => (sources ? buildProposals({ suggestions: sources.suggestions, signals: sources.signals, devices: sources.naDevices, supervised, netviews: sources.netviews }) : []), [sources, supervised]);
+  const links = useMemo(() => (sources ? buildLinks({ naLinks: sources.naLinks, naDevices: sources.naDevices, tunnels: sources.sshTunnels, connections: sources.sshConnections, supervised, netviews: sources.netviews }) : []), [sources, supervised]);
   // #426 : résolution par nom, relancée quand la liste (identités, noms,
   // sites) change -- pas à chaque rafraîchissement d'état.
   const subjectsKey = useMemo(() => resolveKey(supervised, sources?.sites), [supervised, sources]);
@@ -577,7 +578,7 @@ ${when(new Date(sg.start).toISOString())} → ${when(new Date(sg.end).toISOStrin
 }
 
 function ProposalList({ proposals, checked, onToggle, onNavigate, compact }) {
-  const KIND = { orchestrateur: { label: "orchestrateur", tool: "network-cycle" }, vigilance: { label: "vigilance", tool: "vigilance" }, decouvert: { label: "découvert", tool: "network-agent" } };
+  const KIND = { orchestrateur: { label: "orchestrateur", tool: "network-cycle" }, vigilance: { label: "vigilance", tool: "vigilance" }, decouvert: { label: "découvert", tool: "network-agent" }, agent: { label: "vu par un agent", tool: "si-agent" } };
   if (!proposals.length) return <p className="muted" style={{ padding: 6 }}>Aucune proposition : rien de nouveau côté orchestrateur, vigilance ni exploration.</p>;
   const kept = proposals.filter((p) => checked[p.key]).length;
   return (

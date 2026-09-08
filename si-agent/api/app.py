@@ -184,6 +184,12 @@ def fleet_route():
     return jsonify({"agents": store.fleet(DB_PATH, site=request.args.get("site"), offline_after_seconds=OFFLINE_AFTER_SECONDS)}), 200
 
 
+@app.route("/netview", methods=["GET"])
+def netview_route():
+    """#432 : vue réseau passive de chaque agent (dernière mesure netview)."""
+    return jsonify({"netviews": store.latest_netviews(DB_PATH, site=request.args.get("site"))}), 200
+
+
 @app.route("/risks", methods=["GET"])
 def risks_route():
     return jsonify({"risks": store.fleet_risks(DB_PATH, site=request.args.get("site"))}), 200

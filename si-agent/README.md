@@ -269,6 +269,10 @@ CPU et par mémoire, sessions, dernières connexions, services actifs, mises
 à jour). Les mesures viennent telles quelles de l'agent (`latest.netview`,
 `latest.inventory.data.hardware`, `latest.host.data.activity`).
 
+`GET /netview` (#432) : dernière vue réseau passive de chaque agent
+(résumé, voisins, interfaces, DNS) -- reprise par Supervision SI
+(propositions « vu par un agent », liens agent ↔ pair).
+
 ## Sécurisation du déploiement et du contrôle des sondes (livraison #422)
 
 Demandé : « sécuriser le déploiement et le contrôle des sondes, ssl, logs

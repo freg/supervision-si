@@ -86,6 +86,17 @@ la localisation `@5` / `Arobase 5` de la table des géolocalisations
 repli), automatiquement ; la liste des correspondances est persistée dans
 pixel-grid et se valide, se rejette ou se corrige depuis la tuile.
 
+## Agents hôtes : vue réseau passive reprise (livraison #432)
+
+`GET /netview` de si-agent-api (dernière mesure `netview` de chaque agent,
+#428) nourrit la tuile : les **voisins ARP/NDP et pairs** vus passivement
+par un agent et qu'aucune tuile ne supervise deviennent des propositions
+« vu par un agent » (voisin / pair, ports, agents qui les voient ;
+dédoublonnées avec les découvertes de network-agent), et les **connexions
+établies** deviennent des liens `flux` agent ↔ pair (poids = connexions,
+via `si-agent`) -- donc une position déduite pour les pairs sans
+coordonnées, dès le premier agent en ligne.
+
 ## Sources d'API
 
 `VITE_NETPROBE_API_BASE_URL`, `VITE_UPS_API_BASE_URL`,

@@ -123,6 +123,8 @@ export function fromWifiAgents(agents, nowMs = Date.now(), staleAfter = 600) {
 
 // ---- Fusion par identité ------------------------------------------------
 
+function isLoopback(ip) { return /^127\./.test(ip) || ip === "::1"; }
+
 export function mergeItems(lists) {
   const out = new Map();
   for (const item of lists.flat()) {
@@ -154,10 +156,39 @@ export function aggregateSupervised(sources, nowMs = Date.now()) {
 
 // ---- 2. Propositions ------------------------------------------------------
 
-export function buildProposals({ suggestions, signals, devices, supervised }) {
+export function buildProposals({ suggestions, signals, devices, supervised, netviews }) {
   const known = new Set();
   for (const it of supervised || []) { if (it.ip) known.add(`ip:${norm(it.ip)}`); if (it.mac) known.add(`mac:${norm(it.mac)}`); }
   const out = [];
+  // #432 : voisins ARP/NDP et pairs vus PASSIVEMENT par les agents hôtes
+  // (mesure netview) -- un appareil que l'agent connaît sans qu'aucune
+  // tuile ne le supervise. Dédoublonnés par IP entre agents.
+  const seenByAgents = new Map();
+  for (const nv of netviews || []) {
+    const who = nv.hostname || nv.agent_id;
+    for (const n of nv.neighbors || []) {
+      if (!n.ip || isLoopback(n.ip)) continue;
+      const e = seenByAgents.get(n.ip) || { ip: n.ip, mac: null, agents: [], via: [], at: nv.at };
+      e.mac = e.mac || n.mac || null;
+      if (!e.agents.includes(who)) e.agents.push(who);
+      if (!e.via.includes("voisin")) e.via.push("voisin");
+      seenByAgents.set(n.ip, e);
+    }
+    for (const p of nv.summary?.peers || []) {
+      if (!p.ip || isLoopback(p.ip)) continue;
+      const e = seenByAgents.get(p.ip) || { ip: p.ip, mac: null, agents: [], via: [], at: nv.at };
+      if (!e.agents.includes(who)) e.agents.push(who);
+      if (!e.via.includes("pair")) e.via.push("pair");
+      e.ports = [...new Set([...(e.ports || []), ...(p.ports || [])])].slice(0, 6);
+      seenByAgents.set(p.ip, e);
+    }
+  }
+  for (const e of seenByAgents.values()) {
+    if (known.has(`ip:${norm(e.ip)}`) || (e.mac && known.has(`mac:${norm(e.mac)}`))) continue;
+    if ((devices || []).some((d) => norm(d.ip_address) === norm(e.ip) || (e.mac && norm(d.mac_address) === norm(e.mac)))) continue;
+    out.push({ key: `agentnv:${e.ip}`, kind: "agent", severity: "info", label: e.ip + (e.mac ? ` (${e.mac})` : ""),
+      detail: `${e.via.join(" + ")} de ${e.agents.join(", ")}${e.ports?.length ? ` · ${e.ports.join(", ")}` : ""}`, subject: e.ip, ip: e.ip, mac: e.mac, at: e.at, raw: e });
+  }
   for (const s of suggestions || []) {
     if (s.status && s.status !== "open") continue;
     out.push({ key: `orch:${s.id}`, kind: "orchestrateur", severity: s.severity || "info", label: s.message, detail: s.suggested_action || s.rule_name,
@@ -225,9 +256,19 @@ export function movePriority(priorities, orderedIdentities, identity, delta) {
 // ---- 3. Liens et positions déduites -------------------------------------------
 
 // Liens homogènes : {a, b (identités), kind: "flux"|"tunnel"|"site", weight, label, via}
-export function buildLinks({ naLinks = [], naDevices = [], tunnels = [], connections = [], supervised = [] }) {
+export function buildLinks({ naLinks = [], naDevices = [], tunnels = [], connections = [], supervised = [], netviews = [] }) {
   const devById = new Map((naDevices || []).map((d) => [d.id, d]));
   const out = [];
+  // #432 : connexions établies vues par un agent hôte = flux agent <-> pair
+  // (poids = nombre de connexions ; source « si-agent », passif).
+  for (const nv of netviews || []) {
+    const self = identity(nv.last_ip && !nv.last_ip.startsWith("127.") ? nv.last_ip : null, null, nv.hostname || nv.agent_id);
+    for (const p of nv.summary?.peers || []) {
+      if (!p.ip || isLoopback(p.ip)) continue;
+      out.push({ a: self, b: identity(p.ip, null, null), kind: "flux", weight: (p.connections || 1) * 1024,
+        label: `${nv.hostname || nv.agent_id} ↔ ${p.ip} (${p.connections} conn., ${(p.ports || []).slice(0, 3).join(", ")}${(p.processes || []).length ? ` · ${p.processes.slice(0, 2).join(", ")}` : ""})`, via: "si-agent" });
+    }
+  }
   for (const l of naLinks || []) {
     const a = devById.get(l.device_a_id), b = devById.get(l.device_b_id);
     if (!a || !b) continue;

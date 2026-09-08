@@ -1,3 +1,13 @@
+## 2026-09-08 — Supervision SI : la vue réseau passive des agents hôtes nourrit propositions et liens (livraison #432)
+
+Suite de #428 (backlog 66) : ce que l'agent voit sans émettre un paquet
+sert à la carte. `GET /netview` de si-agent-api (dernière mesure `netview`
+par agent) ; dans Supervision SI, voisins et pairs non supervisés →
+propositions « vu par un agent » (voisin / pair, ports, agents),
+connexions établies → liens `flux` agent ↔ pair (via `si-agent`), d'où des
+positions déduites pour les pairs. Test central (chaîne réelle) et test
+hub ajoutés (128 au total) ; rendu vérifié avec le vrai agent du conteneur.
+
 ## 2026-09-08 — Tuile « Fusion IP/MAC » : corrélation IPAM / Zenoss par IP promue dans le hub, positions par IP et par nom, GeoIP / code postal / nom d'hôte (livraison #431)
 
 Backlog 64, point (4), suite : l'onglet Fusion IP/MAC de l'ancienne

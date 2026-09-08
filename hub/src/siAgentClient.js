@@ -36,6 +36,12 @@ export async function fetchFleet(apiBase, site) {
   return Array.isArray(data?.agents) ? data.agents : [];
 }
 
+// #432 : vue réseau passive de chaque agent (voisins, pairs, sous-réseaux)
+export async function fetchNetviews(apiBase, site) {
+  const data = await fetchJson(apiBase, `/netview${site ? `?site=${encodeURIComponent(site)}` : ""}`);
+  return Array.isArray(data?.netviews) ? data.netviews : [];
+}
+
 export async function fetchFleetRisks(apiBase) {
   const data = await fetchJson(apiBase, "/risks");
   return Array.isArray(data?.risks) ? data.risks : [];

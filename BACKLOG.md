@@ -2426,8 +2426,9 @@ qui fait alors sauter la file.
     (processus, services, connexions), présentée dans la tuile Agents
     hôtes et reprise par Supervision SI.
     LIVRÉ en #428 (mesure netview passive, matériel et activité, sections
-    dans la tuile, procédure du premier hôte réel) -- reste : reprise des
-    voisins/pairs par Supervision SI et Exploration réseau (liens).
+    dans la tuile, procédure du premier hôte réel) ; #432 : voisins/pairs
+    repris par Supervision SI (propositions, liens). Reste : Exploration
+    réseau (fusionner les voisins d'agent avec les découvertes de capture).
     #430 : archive de déploiement (make-archive.sh) avec variante conteneur
     Docker (deploy-docker.sh) et variante systemd (install.sh).
 67. Catalogue de positions (2026-09-08, demandé avec #426). Docker dédié

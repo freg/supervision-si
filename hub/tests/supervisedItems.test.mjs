@@ -183,3 +183,16 @@ test("#426 géolocalisation par nom : une correspondance appliquée vaut positio
   const sum = geoSummary(rows, geolocations);
   assert.deepEqual(sum, { total: 5, applied: 1, suggested: 1, none: 2, rejected: 1, unmapped: 0, pendingPlaces: 1 });
 });
+
+test("#432 vue réseau passive des agents : voisins/pairs non supervisés = propositions, pairs = liens", () => {
+  const supervised = [{ identity: "ip:10.50.7.12", name: "srv-isole", ip: "10.50.7.12", mac: null, site: null, origins: [] }, { identity: "ip:10.50.7.1", name: "gw", ip: "10.50.7.1", mac: null, site: null, origins: [] }];
+  const netviews = [{ agent_id: "a1", hostname: "srv-isole", last_ip: "10.50.7.12", at: "2026-09-08T10:00:00Z",
+    neighbors: [{ ip: "10.50.7.1", mac: "aa:bb:cc:00:00:01" }, { ip: "10.50.7.30", mac: "aa:bb:cc:00:00:30" }, { ip: "127.0.0.1" }],
+    summary: { peers: [{ ip: "192.168.100.5", connections: 2, ports: ["tcp/443"], processes: ["curl"], local: false }, { ip: "10.50.7.30", connections: 1, ports: ["tcp/22"] }] } }];
+  const props = buildProposals({ suggestions: [], signals: [], devices: [{ id: 1, ip_address: "192.168.100.5", mac_address: null }], supervised, netviews });
+  assert.deepEqual(props.filter((p) => p.kind === "agent").map((p) => p.key), ["agentnv:10.50.7.30"], "passerelle déjà supervisée et pair déjà découvert par network-agent (proposé par lui) exclus");
+  const a = props.find((p) => p.kind === "agent");
+  assert.match(a.detail, /voisin \+ pair de srv-isole · tcp\/22/);
+  const links = buildLinks({ supervised, netviews });
+  assert.deepEqual(links.filter((l) => l.via === "si-agent").map((l) => [l.a, l.b, l.weight]), [["ip:10.50.7.12", "ip:192.168.100.5", 2048], ["ip:10.50.7.12", "ip:10.50.7.30", 1024]]);
+});

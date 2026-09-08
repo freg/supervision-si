@@ -878,6 +878,33 @@ def latest_per_task(db_path, agent_id):
     return {r["task"]: _measurement_public(r) for r in rows}
 
 
+def latest_netviews(db_path, site=None):
+    """#432 : dernière mesure `netview` de chaque agent (site, hostname,
+    dernière IP) -- ce que Supervision SI reprend (voisins, pairs,
+    sous-réseaux joignables)."""
+    conn = _connect(db_path)
+    try:
+        q = ("SELECT a.agent_id, a.hostname, a.site, a.last_ip, m.at, m.data FROM agents a "
+             "JOIN (SELECT agent_id, MAX(at) AS at FROM measurements WHERE task = 'netview' GROUP BY agent_id) l ON l.agent_id = a.agent_id "
+             "JOIN measurements m ON m.agent_id = l.agent_id AND m.at = l.at AND m.task = 'netview'")
+        params = []
+        if site:
+            q += " WHERE a.site = ?"; params.append(site)
+        rows = conn.execute(q, params).fetchall()
+    finally:
+        conn.close()
+    out = []
+    for r in rows:
+        try:
+            data = json.loads(r["data"]) if isinstance(r["data"], str) else r["data"]
+        except (TypeError, ValueError):
+            data = {}
+        out.append({"agent_id": r["agent_id"], "hostname": r["hostname"], "site": r["site"], "last_ip": r["last_ip"], "at": r["at"],
+                    "summary": (data or {}).get("summary") or {}, "neighbors": (data or {}).get("neighbors") or [],
+                    "interfaces": (data or {}).get("interfaces") or [], "dns": (data or {}).get("dns") or {}})
+    return out
+
+
 def fleet(db_path, site=None, offline_after_seconds=300):
     """Flotte avec, pour chaque agent, la dernière mesure `host` (résumée),
     le dernier `risks` et l'état de contact -- ce que la tuile affiche."""

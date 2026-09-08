@@ -208,6 +208,9 @@ class RealChainTests(ApiBase):
         self.assertIn("plugin-installed", [e["kind"] for e in agent_events if e["source"] == "agent"], "événement de l'agent dans le journal du central")
         self.assertIn("config-applied", [e["kind"] for e in agent_events if e["source"] == "agent"])
         # 3. côté central : flotte, risques, inventaire, commande acquittée
+        nv = self.c.get("/netview").get_json()["netviews"]
+        self.assertEqual([n["agent_id"] for n in nv], ["srv-01"], "#432 : vue réseau passive par agent")
+        self.assertIn("counts", nv[0]["summary"])
         f = self.c.get("/fleet").get_json()["agents"][0]
         self.assertEqual(f["online"], "online")
         self.assertEqual(f["hostname"], "srv-01")
