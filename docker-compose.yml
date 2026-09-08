@@ -1090,6 +1090,9 @@ services:
       # #422 : sécurité, traces, notifications (SMS/courriel via les
       # canaux SECRETS_ALERT_* du PRA #206, webhook), journal d'événements.
       - SI_AGENT_CA_FILE=/ca/ca.crt
+      # #436 : relais d'exploration -- les captures du plugin capture-relay
+      # sont versées dans network-agent-api (network_mode: host, donc HOST_IP).
+      - NETWORK_AGENT_API_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
       - SI_AGENT_LOG_LEVEL=${SI_AGENT_LOG_LEVEL:-INFO}
       - SI_AGENT_EVENTS_RETENTION_DAYS=${SI_AGENT_EVENTS_RETENTION_DAYS:-365}
       - SI_AGENT_NOTIFY_MIN_SEVERITY=${SI_AGENT_NOTIFY_MIN_SEVERITY:-warning}

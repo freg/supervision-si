@@ -10,7 +10,7 @@ FROM python:3.12-slim
 # lsblk, last ; systemd : le binaire journalctl (lecture du journal de l'hôte
 # par -D /host/var/log/journal, sans systemd qui tourne) ; login : who.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      iproute2 procps util-linux systemd login ca-certificates \
+      iproute2 procps util-linux systemd login ca-certificates tcpdump \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/si-agent

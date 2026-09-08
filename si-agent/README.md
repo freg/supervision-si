@@ -103,6 +103,18 @@ Plugins livrés (exemples des deux runners, désactivés) :
   (`SI_NEIGHBORS_SWEEP=0` pour se limiter aux voisins déjà vus).
 - `docker-containers` (python) — conteneurs de l'hôte : état, image,
   redémarrages, ports publiés (socket Docker requis).
+- `capture-relay` (python, privilégié, #436) — **relais d'exploration
+  réseau** : capture tcpdump bornée (60 s, 1,5 Mo, en-têtes seulement :
+  snaplen 96) sur l'interface de la route par défaut, rendue en JSON
+  (`pcap_base64`, `cidr`, `packets`, `truncated`) ; le central la verse dans
+  network-agent-api (`POST /capture/upload`, `NETWORK_AGENT_API_URL`) --
+  site de l'agent, segment = nom d'hôte -- où elle est traitée comme une
+  capture locale (appareils, liens, services, IP distantes, sous-réseaux).
+  Réglages par les `args` du manifeste (`--seconds`, `--max-bytes`,
+  `--snaplen`, `--interface`). Toutes les 15 min par défaut, **désactivé**
+  (trafic réel observé) : à activer par hôte depuis le catalogue ou
+  `--enable-plugin capture-relay`. En conteneur (deploy-docker.sh),
+  `--network host` suffit (tcpdump dans l'image).
 
 ## Installation
 
@@ -124,6 +136,15 @@ PYTHONPATH=/opt/si-agent python3 -m si_agent.agent --collect   # une collecte h�
 PYTHONPATH=/opt/si-agent python3 -m si_agent.agent --once      # un passage complet (config, collecte, plugins, envoi)
 PYTHONPATH=/opt/si-agent python3 -m si_agent.agent --block "incident" # blocage général local (ou : touch /etc/si-agent/BLOCKED)
 ```
+
+### Relais d'exploration réseau (#436)
+
+Voir le plugin `capture-relay` ci-dessus. Chaîne vérifiée ici : plugin réel
+(tcpdump 5 s dans le conteneur) → agent → central réel
+(`NETWORK_AGENT_API_URL`) → network-agent-api réel : site « cloud »,
+segment « vm », l'hôte avec son IP et la passerelle comptée comme relais
+(228 paquets) sans IP usurpée (#427). Backlog 63 (e) livré ; le
+`docker/Dockerfile` de l'agent embarque tcpdump.
 
 ### Archive de déploiement et variante conteneur (#430)
 

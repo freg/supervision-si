@@ -183,6 +183,29 @@ def process_packet(conn, network_segment_id, segment_cidr, summary):
     return src_device_id
 
 
+def ingest_pcap_bytes(db_path, network_segment_id, segment_cidr, pcap_bytes, max_packets=200000):
+    """#436 : traite une capture pcap REÇUE (relais d'un agent hôte) exactement
+    comme le flux tcpdump local -- mêmes appareils, liens, services, IP
+    distantes, indices de rôle. Renvoie le nombre de paquets traités."""
+    import io  # noqa: PLC0415
+    conn = store.get_connection(db_path)
+    processed = 0
+    try:
+        for raw in pcap_parser.iter_packets(io.BytesIO(pcap_bytes)):
+            process_packet(conn, network_segment_id, segment_cidr, pcap_parser.summarize_packet(raw))
+            processed += 1
+            if processed % 200 == 0:
+                conn.commit()
+            if processed >= max_packets:
+                break
+        conn.commit()
+        store.apply_role_hints(conn, network_segment_id)
+        conn.commit()
+    finally:
+        conn.close()
+    return processed
+
+
 def run_capture(interface, network_segment_id, segment_cidr, db_path,
                  packet_source=None, role_hint_every=200, max_packets=None):
     """Boucle PRINCIPALE -- lance `tcpdump` (ou utilise

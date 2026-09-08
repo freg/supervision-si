@@ -1,3 +1,16 @@
+## 2026-09-08 — Agent hôte : relais d'exploration réseau (plugin capture-relay → central → network-agent-api) (livraison #436)
+
+Backlog 63 (e). Plugin `capture-relay` (python, privilégié, DÉSACTIVÉ par
+défaut) : capture tcpdump bornée (60 s, 1,5 Mo, en-têtes seulement) sur
+l'interface de la route par défaut, rendue en JSON ; si-agent-api
+(`NETWORK_AGENT_API_URL`) verse chaque mesure `plugin:capture-relay` dans
+network-agent-api via `POST /capture/upload` (nouveau,
+`capture.ingest_pcap_bytes`) -- site de l'agent, segment = hôte, traitement
+identique à la capture locale. Agent 0.3.1, tcpdump dans l'image Docker de
+l'agent. Tests : network-agent (pcap synthétique), central (relais sous
+mock), agent (plugins livrés) ; chaîne réelle plugin → agent → central →
+network-agent-api vérifiée dans le conteneur.
+
 ## 2026-09-08 — Onduleurs : pages supplémentaires de la carte fusionnées dans la fiche, détection de dérive lente (livraison #435)
 
 Backlog 62 (reste : historique de la carte, remontée vers vigilance). Voir

@@ -257,6 +257,45 @@ def observed_subnets():
     return jsonify(store.list_observed_subnets(DB_PATH, segment_id, prefix_length=prefix_length)), 200
 
 
+@app.route("/capture/upload", methods=["POST"])
+def capture_upload():
+    """#436 -- relais d'exploration : une capture pcap faite AILLEURS (agent
+    hôte si-agent, plugin capture-relay, relayée par si-agent-api) versée
+    dans ce module comme si tcpdump avait tourné ici. Corps JSON :
+    {site, segment, cidr?, pcap_base64, source?} -- site et segment créés
+    au besoin (segment = nom de l'hôte relais). Bornes : 8 Mo décodés,
+    200 000 paquets. Renvoie {segment_id, packets}."""
+    import base64  # noqa: PLC0415
+    body = request.get_json(silent=True) or {}
+    site = (body.get("site") or "").strip() or SITE_NAME or "relais"
+    segment = (body.get("segment") or "").strip()
+    raw = body.get("pcap_base64") or ""
+    if not segment or not raw:
+        return jsonify({"error": "'segment' et 'pcap_base64' requis"}), 400
+    try:
+        pcap = base64.b64decode(raw, validate=True)
+    except (ValueError, TypeError):
+        return jsonify({"error": "pcap_base64 illisible"}), 400
+    if len(pcap) > 8 * 1024 * 1024:
+        return jsonify({"error": "capture trop volumineuse (8 Mo max)"}), 413
+    cidr = (body.get("cidr") or "").strip() or None
+    conn = store.get_connection(DB_PATH)
+    try:
+        site_id = store.get_or_create_site(conn, site)
+        segment_id = store.get_or_create_segment(conn, site_id, segment, cidr=cidr)
+        if cidr:
+            conn.execute("UPDATE na_network_segments SET cidr = COALESCE(cidr, ?) WHERE id = ?", [cidr, segment_id])
+        conn.commit()
+    finally:
+        conn.close()
+    try:
+        n = capture.ingest_pcap_bytes(DB_PATH, segment_id, cidr, pcap)
+    except Exception as exc:  # noqa: BLE001 -- pcap invalide : réponse claire, jamais une 500
+        return jsonify({"error": "capture illisible : %s" % exc}), 400
+    _log.info("relais d'exploration : %d paquet(s) de %s/%s (%s)", n, site, segment, body.get("source") or "?")
+    return jsonify({"site": site, "segment": segment, "segment_id": segment_id, "packets": n}), 200
+
+
 @app.route("/observed-subnet", methods=["GET"])
 def observed_subnet_detail():
     """Fiche récapitulative d'un sous-réseau (livraison #427) --

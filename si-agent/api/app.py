@@ -18,6 +18,8 @@ import shlex
 import threading
 import time
 
+import requests
+
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
@@ -614,6 +616,41 @@ def agent_ack_route(agent_id, cid):
     return _signed_json(info["secret"], {"acked": cid})
 
 
+NETWORK_AGENT_API_URL = os.environ.get("NETWORK_AGENT_API_URL", "").rstrip("/")
+
+
+def relay_capture_measurements(agent_id, info, items, post=None):
+    """#436 : chaque mesure `plugin:capture-relay` réussie (pcap en base64,
+    bornée par le plugin) est versée dans network-agent-api
+    (`POST /capture/upload`, site de l'agent, segment = nom d'hôte). Le pcap
+    n'est PAS conservé ici (la mesure stockée le contient déjà ; purge par
+    rétention). Échec = événement, jamais un refus de la mesure."""
+    if not NETWORK_AGENT_API_URL:
+        return 0
+    post = post or (lambda url, payload: requests.post(url, json=payload, timeout=60))
+    done = 0
+    agent = store.get_agent(DB_PATH, agent_id) or {}
+    for m in items:
+        if not isinstance(m, dict) or m.get("task") != "plugin:capture-relay" or not m.get("ok"):
+            continue
+        data = m.get("data") or {}
+        if not isinstance(data, dict) or not data.get("pcap_base64"):
+            continue
+        payload = {"site": agent.get("site") or info.get("site") or "relais", "segment": agent.get("hostname") or agent_id,
+                   "cidr": data.get("cidr"), "pcap_base64": data["pcap_base64"], "source": "si-agent %s (%s)" % (agent_id, data.get("interface"))}
+        try:
+            r = post(NETWORK_AGENT_API_URL + "/capture/upload", payload)
+            if r.status_code == 200:
+                done += 1
+                _log.info("relais d'exploration : %s -> %s paquet(s) versés (segment %s)", agent_id, (r.json() or {}).get("packets"), payload["segment"])
+            else:
+                _event("capture-relay-failed", "warning", "relais d'exploration refusé par network-agent-api (%s) pour %s" % (r.status_code, agent_id), agent_id=agent_id,
+                       details={"status": r.status_code, "error": (r.json() or {}).get("error") if r.content else None})
+        except Exception as exc:  # noqa: BLE001 -- jamais bloquant
+            _event("capture-relay-failed", "warning", "relais d'exploration impossible pour %s : %s" % (agent_id, exc), agent_id=agent_id, details={})
+    return done
+
+
 @app.route(protocol.API_PREFIX + "/agents/<agent_id>/measurements", methods=["POST"])
 def agent_measurements_ingest_route(agent_id):
     info, err = _verify_agent(agent_id)
@@ -626,6 +663,7 @@ def agent_measurements_ingest_route(agent_id):
     if len(items) > 5000:
         return jsonify({"error": "lot trop volumineux (max 5000)"}), 400
     accepted, duplicates, rejected, events = store.ingest_measurements(DB_PATH, agent_id, items, ip=_client_ip())
+    relay_capture_measurements(agent_id, info, items)  # #436 : relais d'exploration vers network-agent-api
     _log.debug("agent %s : %d mesure(s) acceptée(s), %d doublon(s), %d rejet(s), %d événement(s)", agent_id, accepted, duplicates, len(rejected), len(events))
     for ev in events:
         notify.dispatch(DB_PATH, dict(ev, source="agent", details={}))

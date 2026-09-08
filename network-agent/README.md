@@ -783,6 +783,17 @@ le cumul (`device_a_id`, `device_b_id`, `bytes_total`, `packet_count`) avec
 `period: true` et un `id` synthétique `period-<a>-<b>`. Tests :
 `python3 -m unittest test_links_period.py` (base SQLite temporaire).
 
+## Relais d'exploration depuis un agent hôte (livraison #436)
+
+`POST /capture/upload` -- `{site, segment, cidr?, pcap_base64, source?}` :
+une capture pcap faite ailleurs (plugin `capture-relay` de si-agent,
+relayée par si-agent-api) est traitée par `capture.ingest_pcap_bytes`
+exactement comme le flux tcpdump local (appareils, liens, services, IP
+distantes #427, indices de rôle), dans le site de l'agent et un segment
+au nom de l'hôte (créés au besoin, CIDR renseigné s'il manque). Bornes :
+8 Mo, 200 000 paquets. Test : `CaptureUploadTests` (pcap synthétique) ;
+chaîne réelle vérifiée agent → central → ce module.
+
 ## Fiche récapitulative d'un sous-réseau, IP distantes derrière un relais (livraison #427)
 
 Constat remonté : « dans sous-réseaux je vois autre chose que le LAN

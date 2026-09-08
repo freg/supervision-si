@@ -250,7 +250,7 @@ class PluginTests(unittest.TestCase):
     def test_plugins_livres_valides(self):
         bundled = os.path.join(ROOT, "plugins")
         ids = sorted(os.listdir(bundled))
-        self.assertEqual(ids, ["docker-containers", "network-neighbors"])
+        self.assertEqual(ids, ["capture-relay", "docker-containers", "network-neighbors"])  # #436 : relais d'exploration
         for pid in ids:
             with open(os.path.join(bundled, pid, "manifest.json")) as fh:
                 m = json.load(fh)

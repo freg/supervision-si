@@ -92,5 +92,45 @@ class ObservedSubnetsTest(unittest.TestCase):
         self.assertIn("Aucun CIDR", store.subnet_detail(self.db, 2, "10.9.9.0/24")["explanation"])
 
 
+class CaptureUploadTests(unittest.TestCase):
+    """#436 : relais d'exploration -- pcap reçu, traité comme la capture locale."""
+
+    def setUp(self):
+        self.db = os.path.join(tempfile.mkdtemp(), "na.db")
+        store.ensure_schema(self.db)
+        os.environ["NETWORK_AGENT_DB_PATH"] = self.db
+        os.environ["NETWORK_AGENT_CAPTURE_ENABLED"] = "false"
+
+    def test_pcap_synthetique(self):
+        import base64
+        import struct
+        # pcap minimal : 2 trames Ethernet/IPv4/UDP PC(192.168.1.35) -> GW puis GW -> PC (source distante)
+        def frame(src_mac, dst_mac, src_ip, dst_ip, sport, dport):
+            eth = bytes.fromhex(dst_mac.replace(":", "")) + bytes.fromhex(src_mac.replace(":", "")) + b"\x08\x00"
+            payload = struct.pack("!HHHH", sport, dport, 8, 0)
+            ip = struct.pack("!BBHHHBBH4s4s", 0x45, 0, 20 + len(payload), 0, 0, 64, 17, 0,
+                             bytes(int(x) for x in src_ip.split(".")), bytes(int(x) for x in dst_ip.split(".")))
+            return eth + ip + payload
+        frames = [frame(PC, GW, "192.168.1.35", "8.8.8.8", 40000, 53), frame(GW, PC, "8.8.8.8", "192.168.1.35", 53, 40000)]
+        pcap = struct.pack("<IHHiIII", 0xA1B2C3D4, 2, 4, 0, 0, 65535, 1)
+        for f in frames:
+            pcap += struct.pack("<IIII", 1700000000, 0, len(f), len(f)) + f
+        import importlib
+        import app as na_app
+        importlib.reload(na_app)
+        c = na_app.app.test_client()
+        r = c.post("/capture/upload", json={"site": "Agence", "segment": "srv-isole", "cidr": "192.168.1.0/24", "pcap_base64": base64.b64encode(pcap).decode()})
+        self.assertEqual(r.status_code, 200, r.get_json())
+        d = r.get_json()
+        self.assertEqual(d["packets"], 2)
+        subs = {s["subnet"]: s for s in store.list_observed_subnets(self.db, d["segment_id"])}
+        self.assertEqual(subs["192.168.1.0/24"]["origin"], "local")
+        self.assertEqual(subs["8.8.8.0/24"]["origin"], "relais", "IP distante rangée derrière la passerelle, comme en capture locale")
+        sites = store.list_sites_with_segments(self.db)
+        self.assertEqual([(s["name"], [g["label"] for g in s["segments"]]) for s in sites], [("Agence", ["srv-isole"])])
+        self.assertEqual(c.post("/capture/upload", json={"segment": "x"}).status_code, 400)
+        self.assertEqual(c.post("/capture/upload", json={"segment": "x", "pcap_base64": "AAAA"}).status_code, 400, "pcap illisible")
+
+
 if __name__ == "__main__":
     unittest.main()
