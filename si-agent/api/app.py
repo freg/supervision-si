@@ -14,6 +14,7 @@ une seconde implémentation ici.
 """
 import logging
 import os
+import re
 import shlex
 import threading
 import time
@@ -356,15 +357,22 @@ def _install_command_docker(agent_id, secret, site):
 
 
 def _ps_quote(s):
-    return "'" + str(s).replace("'", "''") + "'"
+    """Guillemets doubles : compris par PowerShell ET par cmd.exe (les
+    simples restent littéraux sous cmd) ; l'identifiant, le secret et
+    l'URL ne contiennent ni `"` ni `$` (retirés par prudence)."""
+    return '"' + re.sub(r'["$`]', "", str(s)) + '"'
 
 
 def _install_command_windows(agent_id, secret, site):
-    """Variante Windows 10/11 (#440, PowerShell en administrateur, même archive)."""
+    """Variante Windows 10/11 (#440, même archive). #446 : passe par
+    `powershell -ExecutionPolicy Bypass -File` -- un poste Windows refuse
+    les scripts par défaut (politique Restricted) et un double-clic ouvre
+    le .ps1 dans le Bloc-notes ; `windows\install.cmd` fait la même chose
+    avec élévation automatique en administrateur."""
     central = PUBLIC_URL or "https://<VM>:6443/api/si-agent"
     ca = _ca_info()
-    tls = (" -CaFingerprint %s" % ca["sha256"]) if ca.get("sha256") else " -Ca C:\\chemin\\ca.crt"
-    return ".\\windows\\install.ps1 -Agent %s -Secret %s -Central %s -Site %s%s" % (
+    tls = (" -CaFingerprint %s" % ca["sha256"]) if ca.get("sha256") else " -Ca C:\chemin\ca.crt"
+    return "powershell -NoProfile -ExecutionPolicy Bypass -File .\windows\install.ps1 -Agent %s -Secret %s -Central %s -Site %s%s" % (
         _ps_quote(agent_id), _ps_quote(secret), _ps_quote(central), _ps_quote(site or "default"), tls)
 
 

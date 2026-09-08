@@ -465,7 +465,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                   )}
                   {install.install_command_windows && (
                     <>
-                      <p className="muted" style={{ margin: "6px 0 2px", fontSize: 12 }}>Windows 10 / 11 (PowerShell en administrateur, depuis l'archive décompressée ; Python trouvé ou distribution embarquée téléchargée) :</p>
+                      <p className="muted" style={{ margin: "6px 0 2px", fontSize: 12 }}>Windows 10 / 11 — Terminal (administrateur), depuis l'archive décompressée (ne pas double-cliquer le .ps1 : le Bloc-notes s'ouvre ; <code>windows\install.cmd</code> fait l'élévation et accepte les mêmes arguments, ou pose les questions en double-clic) :</p>
                       <pre className="np-secret">{install.install_command_windows}</pre>
                     </>
                   )}

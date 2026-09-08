@@ -2380,7 +2380,9 @@ qui fait alors sauter la file.
     (montages sshfs/FUSE listés avec leur raison, propagation rslave) et
     #439 (FUSE mesuré comme l'utilisateur du montage, sans configuration).
     Agent Windows 10/11 livré en #440 (winhost.py + scripts PowerShell,
-    install.ps1, tâche planifiée) -- à tester sur un poste réel. #442 :
+    install.ps1, tâche planifiée) -- à tester sur un poste réel ; #446 :
+    lanceurs install.cmd/uninstall.cmd et commande avec -ExecutionPolicy
+    Bypass (premier retour du poste de test). #442 :
     montages lecture seule / amovibles jamais « disque plein ». Reste :
     archive sans Docker (systemd) à tester, retours des premiers hôtes.
 

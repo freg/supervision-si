@@ -1,3 +1,17 @@
+## 2026-09-08 — Agent Windows : lancement de l'installation sans piège (livraison #446)
+
+Premier retour du poste Windows de test : le `.ps1` s'ouvre dans le
+Bloc-notes (association de fichier) et « Exécuter avec PowerShell » le
+lance sans paramètres. La commande affichée par la tuile Agents hôtes
+devient `powershell -NoProfile -ExecutionPolicy Bypass -File
+.\windows\install.ps1 …` (guillemets doubles compris par PowerShell et
+`cmd`) ; l'archive de l'agent gagne `windows\install.cmd` et
+`uninstall.cmd` (élévation UAC automatique, politique d'exécution
+contournée pour la commande seule, questions posées en double-clic).
+Agent 0.4.2, archive `si-agent-agent-0.4.2.tar.gz`. Vérifié : test API de
+la commande, 51 tests si-agent. Non vérifié : les `.cmd` sur un Windows
+réel.
+
 ## 2026-09-08 — Outil de gestion unique : comparaison des applications enregistrées (livraison #445, phase 3)
 
 `retro/api/merge.py` : rapprochement des écrans d'applications

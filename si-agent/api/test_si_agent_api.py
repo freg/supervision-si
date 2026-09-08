@@ -78,6 +78,11 @@ class DashboardTests(ApiBase):
         inst = self.c.get("/agents/srv-01/install").get_json()
         self.assertEqual(inst["secret"], a["secret"])
         self.assertEqual(inst["agent_json"]["central_url"], "https://vm:6443/api/si-agent")
+        # #446 : commande Windows exécutable telle quelle (politique d'exécution contournée, guillemets doubles compris par cmd et PowerShell)
+        w = inst["install_command_windows"]
+        self.assertTrue(w.startswith("powershell -NoProfile -ExecutionPolicy Bypass -File .\\windows\\install.ps1 -Agent \"srv-01\" -Secret \"%s\"" % a["secret"]), w)
+        self.assertIn('-Central "https://vm:6443/api/si-agent" -Site "siege"', w)
+        self.assertNotIn("'", w)
         rot = self.c.post("/agents/srv-01/rotate-secret").get_json()
         self.assertNotEqual(rot["secret"], a["secret"])
         up = self.c.put("/agents/srv-01", json={"host_interval_seconds": 30, "risk_thresholds": {"disk_warning_percent": 50}, "active": False}).get_json()

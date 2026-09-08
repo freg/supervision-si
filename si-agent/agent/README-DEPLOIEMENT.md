@@ -59,16 +59,30 @@ PYTHONPATH=/opt/si-agent python3 -m si_agent.agent --collect
 ## Variante 3 — Windows 10 / 11 (livraison #440)
 
 Même archive (décompressée avec l'Explorateur, 7-Zip ou `tar xzf` qui
-existe sous Windows 10+), PowerShell **en administrateur** :
+existe sous Windows 10+). Deux pièges Windows à connaître (#446) : un
+**double-clic sur `install.ps1` l'ouvre dans le Bloc-notes** (c'est
+l'association de fichier de Windows, pas une erreur), « Exécuter avec
+PowerShell » le lance **sans paramètres** (il pose alors les questions
+puis échoue faute de droits), et la politique d'exécution par défaut d'un
+poste (*Restricted*) refuse les scripts. D'où les deux façons de faire :
 
-```powershell
-Set-Location .\si-agent-agent-<version>\
-.\windows\install.ps1 -Agent 'pc-compta' -Secret 'SECRET' -Central 'https://VM:6443/api/si-agent' -Site 'siege' -CaFingerprint <sha256>
-```
+- **Terminal (administrateur)** (menu Démarrer ou Win+X), `cd` dans le
+  dossier de l'archive, puis la commande affichée par le bouton
+  *Installation* de la tuile (secret et empreinte compris) :
 
-(la commande exacte, secret et empreinte compris, est affichée par le
-bouton *Installation* de la tuile). Si PowerShell refuse d'exécuter le
-script : `Set-ExecutionPolicy -Scope Process Bypass` puis relancer.
+  ```powershell
+  powershell -NoProfile -ExecutionPolicy Bypass -File .\windows\install.ps1 -Agent "pc-compta" -Secret "SECRET" -Central "https://VM:6443/api/si-agent" -Site "siege" -CaFingerprint <sha256>
+  ```
+
+  (`-ExecutionPolicy Bypass` ne vaut que pour cette commande ; rien n'est
+  changé sur le poste. Les guillemets doubles sont compris par PowerShell
+  et par `cmd`.)
+- **`windows\install.cmd`** : lanceur qui demande l'élévation (UAC) puis
+  appelle `install.ps1` avec la même politique ; avec les mêmes arguments
+  depuis `cmd` ou PowerShell, ou **en double-clic** sans argument -- il
+  demande alors identifiant, secret, URL du central, site et empreinte
+  (vide = `-Insecure`, dépannage seulement) dans une fenêtre
+  administrateur qui reste ouverte. `windows\uninstall.cmd` de même.
 
 Ce que fait `install.ps1` : cherche **Python 3.8+** (`py`, `python` --
 l'alias du Store est ignoré) et, s'il n'y en a pas, télécharge la

@@ -435,6 +435,25 @@ propriétés CIM, droits du compte SYSTEM, durée des scripts, téléchargement
 de la distribution embarquée, tâche planifiée) -- premier poste de test à
 venir.
 
+Premier retour du poste de test (#446) : « le PowerShell ouvre en lecture
+quand je passe par le shell, et par l'Explorateur en double-clic il me
+pose toutes les questions ». Ce sont deux comportements de Windows, pas de
+l'agent : l'association de fichier des `.ps1` est le **Bloc-notes**
+(double-clic, ou nom du script tapé dans `cmd`), et « Exécuter avec
+PowerShell » lance le script **sans paramètres** (les trois obligatoires
+sont alors demandés, puis l'absence de droits fait échouer) ; s'y ajoute
+la politique d'exécution *Restricted* par défaut d'un poste. Réponse :
+la commande affichée par la tuile devient `powershell -NoProfile
+-ExecutionPolicy Bypass -File .\windows\install.ps1 …` (guillemets
+doubles, compris par PowerShell et `cmd` ; la politique n'est contournée
+que pour cette commande), et l'archive gagne **`windows\install.cmd`** /
+`uninstall.cmd` : lanceurs qui demandent l'élévation UAC puis appellent le
+script avec la même politique -- mêmes arguments depuis `cmd` ou
+PowerShell, ou en double-clic sans argument (identifiant, secret, URL,
+site, empreinte demandés dans une fenêtre administrateur qui reste
+ouverte). Agent **0.4.2**. Vérifié : commande et guillemets (test API) ;
+non vérifié : les `.cmd` sur un Windows réel (pas de `cmd.exe` ici).
+
 ## Montages illisibles ou invisibles (livraison #438)
 
 Premier retour du premier hôte réel : « l'agent ne voit pas tous les types
