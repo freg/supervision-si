@@ -219,6 +219,13 @@
    "env_var": "SI_PROXY_ADMIN_API_PORT"
   },
   {
+   "path": "/api/cortex/",
+   "service": "cortex-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "CORTEX_API_PORT"
+  },
+  {
    "path": "/api/geo-catalog/",
    "service": "geo-catalog-api",
    "container_port": 5000,
@@ -493,7 +500,7 @@
   }
  ],
  "counts": {
-  "gateway_routes": 47,
+  "gateway_routes": 48,
   "direct_ports": 17,
   "direct_public": 11,
   "host_network": 1

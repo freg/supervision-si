@@ -30,6 +30,7 @@ import NetprobeView from "./NetprobeView.jsx";
 import UpsView from "./UpsView.jsx";
 import SiAgentView from "./SiAgentView.jsx";
 import BastionView from "./BastionView.jsx";
+import CortexView from "./CortexView.jsx";
 import ThemeView from "./ThemeView.jsx";
 import { buildThemes, themeViewMode, isThemeViewMode, themeIdOf, findTheme, themeOfView, normalizeHomeMode, HOME_MODES } from "./hubThemes.js";
 import { canSeeBastion } from "./siProxy.js";
@@ -92,6 +93,8 @@ const SI_AGENT_API_BASE_URL = import.meta.env.VITE_SI_AGENT_API_BASE_URL || "";
 // Tuile Bastion (livraison #454) -- si-proxy-admin-api ; réservée aux
 // preferred_username de VITE_SI_PROXY_ADMIN_USERS (le pont vérifie le jeton).
 const SI_PROXY_API_BASE_URL = import.meta.env.VITE_SI_PROXY_API_BASE_URL || "";
+// Cortex (livraison #462) -- incidents corrélés, hypothèses évaluées.
+const CORTEX_API_BASE_URL = import.meta.env.VITE_CORTEX_API_BASE_URL || "";
 const SI_PROXY_ADMIN_USERS = import.meta.env.VITE_SI_PROXY_ADMIN_USERS || "freg";
 // Géolocalisations (pixel-grid) -- positions connues pour la nouvelle tuile
 // Supervision SI (livraison #423, backlog 64).
@@ -1318,6 +1321,7 @@ export default function App() {
   // #457 : ce qui est disponible pour CETTE personne / ce déploiement --
   // mêmes conditions que les tuiles et menus d'origine.
   const availableViews = new Set([
+    CORTEX_API_BASE_URL && "cortex",
     fronts.some((f) => f.id === "supervision") && "supervision-si",
     SI_AGENT_API_BASE_URL && "si-agent", NETPROBE_API_BASE_URL && "netprobe", UPS_API_BASE_URL && "ups", SNMP_API_BASE_URL && "snmp",
     VIGILANCE_API_BASE_URL && "vigilance", "cyber", "logs", "history", MEMORY_API_BASE_URL && "memory",
@@ -1551,6 +1555,8 @@ vm === "settings" ? (
           onBack={goBack}
           siAgentApiBase={SI_AGENT_API_BASE_URL}
         />
+      ) : vm === "cortex" ? (
+        <CortexView onBack={goBack} onNavigate={(t) => setViewMode(t)} cortexApiBase={CORTEX_API_BASE_URL} login={profile.preferred_username} groups={groups} />
       ) : vm === "si-proxy" && bastionAllowed ? (
         <BastionView
           onBack={goBack}

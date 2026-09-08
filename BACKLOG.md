@@ -2523,4 +2523,6 @@ Analyse dans docs/analyse-supervision-unifiee.md. À construire par étapes : (1
 pondérés et table de routes, graphe d'architecture persistant ; (3) hiérarchie de lieux,
 position mémorisée avec provenance, fiche d'intervention, couches carto ; (4) séquences
 apprises et anticipation, dérives généralisées ; (5) statistiques MTTA/MTTR et politiques
-d'alerte. En attente de validation de la personne sur le découpage.
+d'alerte. Validé (« cortex me plait ») ; étape 1 livrée en #462 (cortex-api,
+tuile, principes évalués). Prochaine : étape 2 (rôles enrichis, routes, graphe
+d'architecture persistant, « ce qui a changé »).

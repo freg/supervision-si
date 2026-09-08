@@ -194,6 +194,8 @@ SERVICES = [
     # vers l'interface de contrôle du relais si-proxy. Ajouté dès la
     # première livraison (piège #301).
     ("SI_PROXY_ADMIN_API_PORT", "si-proxy-admin-api", 5000, "/api/si-proxy/", "api"),
+    # cortex-api (livraison #462) -- ajouté dès la première livraison (piège #301).
+    ("CORTEX_API_PORT", "cortex-api", 5000, "/api/cortex/", "api"),
     # geo-catalog-api (livraison #429) -- catalogue de positions.
     ("GEO_CATALOG_API_PORT", "geo-catalog-api", 5000, "/api/geo-catalog/", "api"),
     # relations-api (livraison #335) -- vue relations transversale de

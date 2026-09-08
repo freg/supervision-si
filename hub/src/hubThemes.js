@@ -15,8 +15,9 @@
 // depuis cette liste -- jamais deux listes à maintenir.
 
 export const THEMES = [
-  { id: "supervision", name: "Supervision", icon: "🗺", description: "Supervisés, agents, sondes, onduleurs, SNMP, vigilance, cyber, logs",
+  { id: "supervision", name: "Supervision", icon: "🗺", description: "Cortex (incidents corrélés), supervisés, agents, sondes, onduleurs, SNMP, vigilance, cyber, logs",
     entries: [
+      { view: "cortex", label: "Cortex" },
       { view: "supervision-si", label: "Supervision SI" },
       { view: "si-agent", label: "Agents hôtes" },
       { view: "netprobe", label: "Sondes réseau" },

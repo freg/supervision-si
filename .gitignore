@@ -82,3 +82,7 @@ _volumes-a-restaurer/
 _host-side/
 _sql-dumps/
 _absolute/
+
+# Cortex (#462) : base SQLite
+cortex/data/*
+!cortex/data/.gitkeep

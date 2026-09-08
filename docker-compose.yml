@@ -1186,6 +1186,37 @@ services:
       - "${SI_PROXY_PORT:-6450}:6450"
       - "127.0.0.1:${SI_PROXY_CONTROL_PORT:-6452}:6452"
 
+  cortex-api:
+    # Livraison #462 -- « Cortex » : décloisonne, corrèle, relie, consolide.
+    # Modèle commun (entités / relations / événements normalisés) alimenté par
+    # les API existantes (si-agent, vigilance, UPS, orchestrateur, netprobe,
+    # network-agent, sauvegardes), incidents par fenêtre + relation avec
+    # cause racine amont, hypothèses évaluées (principes = partis pris,
+    # retours humains). Voir docs/analyse-supervision-unifiee.md et
+    # cortex/README.md. Routé /api/cortex/ par tls-proxy.
+    build:
+      context: .
+      dockerfile: cortex/api/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ${CORTEX_DATA_DIR:-./cortex/data}:/data
+    environment:
+      - SI_AGENT_API_URL=http://si-agent-api:5000
+      - VIGILANCE_API_URL=http://vigilance-api:5000
+      - UPS_API_URL=http://ups-monitor-api:5000
+      - NETMAP_ORCHESTRATOR_API_URL=http://netmap-orchestrator-api:5000
+      - NETPROBE_API_URL=http://netprobe-api:5000
+      # network-agent-api tourne en network_mode: host (#238) -- IP réelle de l'hôte
+      - NETWORK_AGENT_API_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
+      - BACKUP_RESTORE_API_URL=http://backup-restore-api:5000
+      - RIGHTS_API_URL=${CORTEX_RIGHTS_API_URL:-}
+      - CORTEX_WINDOW_SECONDS=${CORTEX_WINDOW_SECONDS:-300}
+      - CORTEX_INTERVAL_SECONDS=${CORTEX_INTERVAL_SECONDS:-300}
+      - CORTEX_EVENT_HORIZON_HOURS=${CORTEX_EVENT_HORIZON_HOURS:-24}
+      - CORTEX_RETENTION_DAYS=${CORTEX_RETENTION_DAYS:-30}
+    depends_on:
+      - si-agent-api
+
   si-proxy-admin-api:
     # Livraison #454 -- pont entre la tuile « Bastion » du hub et
     # l'interface de contrôle du relais (#453). Le jeton d'admin du relais
@@ -1619,6 +1650,8 @@ services:
       - VITE_UPS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/ups
       # Agents hôtes (livraison #421) -- tuile hub pour si-agent-api.
       - VITE_SI_AGENT_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-agent
+      # Cortex (livraison #462) -- incidents corrélés, hypothèses évaluées.
+      - VITE_CORTEX_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/cortex
       # Bastion si-proxy (livraison #454) -- tuile réservée (SI_PROXY_ADMIN_USERS).
       - VITE_SI_PROXY_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-proxy
       - VITE_SI_PROXY_ADMIN_USERS=${SI_PROXY_ADMIN_USERS:-freg}

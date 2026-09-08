@@ -1,3 +1,41 @@
+## 2026-09-08 — Cortex, étape 1 : modèle commun, collecte, incidents corrélés, hypothèses évaluées (livraison #462)
+
+Validation de l'analyse #461 : « cortex me plait comme titre c'est moderne
+et explicite, décloisonne, corrèle, relie, consolide et construit un outil
+cohérent massivement automatisé et totalement transparent en présentant
+des évaluations pour chaque hypothèse et parti pris ».
+
+- **cortex-api** (`cortex/api/`, route `/api/cortex/`, SQLite) : entités
+  consolidées (clé `mac:` > `ip:` > `name:`, alias absorbés, origines,
+  indices de rôle), relations (`gateway_of` depuis les routes vues par les
+  agents, `powers_site`, `neighbor`, `talks_to`, `flow`, `watches`),
+  événements normalisés avec empreinte et cycle de vie (rafraîchis, jamais
+  dupliqués ; fermés quand la source ne les remonte plus), incidents par
+  fenêtre glissante + relation partagée (ou même entité, ou faiblement
+  même site) avec cause racine = entité la plus en amont, état
+  ouvert/acquitté/clos conservé d'une collecte à l'autre ; collecte toutes
+  les 5 min de si-agent, vigilance, UPS, orchestrateur, netprobe,
+  network-agent, sauvegardes — aucun module d'origine modifié.
+- **Transparence** : `principles.py` nomme quatorze partis pris (identité,
+  relations, causalité, présentation) avec confiance de base, énoncé et
+  limite connue ; chaque hypothèse d'incident cite son principe, sa
+  confiance et ses preuves ; les retours humains (« juste » / « fausse »)
+  produisent une confiance **mesurée** par principe ; la confiance d'un
+  incident est celle de son hypothèse causale ; le journal des collectes
+  dit quelle source a répondu et ce qui en est sorti.
+- **Tuile Cortex** (première entrée de la thématique Supervision) :
+  incidents avec cause proposée et confiance en mots, détail votable,
+  entités et rôles pondérés, événements, principes & évaluations,
+  statistiques, collecte.
+
+**Vérifié** : 10 tests purs ; API réelle sur le central si-agent + UPS et
+vigilance simulés — onduleur sur batterie + agent du même site hors ligne
+= un incident, cause proposée l'onduleur (confiance annoncée faible, 22 %,
+lien onduleur → site supposé), signal vigilance et agent de même IP
+consolidés (3 alias), acquittement, clôture, retour humain ; 6 onglets
+rendus sous Chromium ; 166 tests Node ; `render_nginx_conf.py --check` OK.
+**Non vérifié** : collecte contre les vraies API sur « super ».
+
 ## 2026-09-08 — Analyse : tuile unique découverte / localisation / causalité (livraison #461, analyse seulement)
 
 Demandé : analyser toutes les fonctionnalités automatiques ou
