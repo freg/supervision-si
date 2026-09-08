@@ -1,0 +1,20 @@
+# Shim host du bastion si-proxy (#452) sur la VM « super ». Tourne en root
+# pour ouvrir le shell SOUS freg (drop de privilèges par session) ; APPELLE
+# le relais en sortant (aucun port entrant). Configuration : /etc/si-proxy/host.env
+[Unit]
+Description=si-proxy host shim (bastion réservé freg)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/si-proxy/host.env
+WorkingDirectory=/opt/si-proxy
+ExecStart=/usr/bin/python3 -m siproxy.hostshim --relay ${SI_PROXY_RELAY} --ca ${SI_PROXY_CA} --token ${SI_PROXY_HOST_TOKEN} --shell-user ${SI_PROXY_SHELL_USER} --log-level ${SI_PROXY_LOG_LEVEL}
+Restart=always
+RestartSec=5
+# Durcissement : pas de nouveaux privilèges hormis le drop initial vers freg
+NoNewPrivileges=false
+
+[Install]
+WantedBy=multi-user.target

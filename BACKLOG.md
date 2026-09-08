@@ -2477,3 +2477,11 @@ qui fait alors sauter la file.
     tuile) -- reste : appels réels aux référentiels et import OSM à
     confirmer en déploiement ; autres objets à positionner (tickets,
     documents) au-delà des géolocalisations.
+
+## Bastion si-proxy (2026-09-08, #452) -- réservé freg
+Depuis le Mac, via le hub : shell sur le host de la VM (sous freg),
+navigation HTTPS sur le hub et, par le hub, sur le LAN. Relais TLS
+(conteneur), shim host systemd sortant, client Mac (shell + proxy
+HTTP). Réservé freg : jeton + TLS, mTLS+CN optionnel. Vérifié en
+bout-à-bout local ; reste : déploiement réel sur « super », mTLS,
+puis élargissement éventuel à d'autres utilisateurs. Voir si-proxy/README.md.

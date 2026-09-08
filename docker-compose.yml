@@ -1128,6 +1128,33 @@ services:
     ports:
       - "${SI_AGENT_API_PORT:-6129}:5000"
 
+  si-proxy:
+    # Livraison #452 (backlog) -- bastion RÉSERVÉ à freg : aiguilleur TLS
+    # (n'exécute rien). Depuis le Mac : shell sur le host de la VM (sous
+    # freg), navigation HTTPS sur le hub et, par le hub, sur le LAN. Le host
+    # APPELLE ce relais en sortant (shim systemd si-proxy-host) : le conteneur
+    # n'a aucun accès au host, le host n'ouvre aucun port entrant. Seul point
+    # d'entrée exposé (l'« agent-proxy »), joignable de l'extérieur comme le
+    # reste du hub. Certifs émis par si-proxy/setup-certs.sh ; jetons dans
+    # .env. Durcissement mTLS : SI_PROXY_MTLS=1 (+ certs clients). Voir
+    # si-proxy/README.md.
+    build:
+      context: .
+      dockerfile: si-proxy/relay/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./si-proxy/certs:/certs:ro
+      - ${PKI_DIR:-./pki}/ca/ca.crt:/ca/ca.crt:ro
+    environment:
+      - SI_PROXY_PORT=6450
+      - SI_PROXY_HOST_TOKEN=${SI_PROXY_HOST_TOKEN:?SI_PROXY_HOST_TOKEN requis dans .env}
+      - SI_PROXY_CLIENT_TOKEN=${SI_PROXY_CLIENT_TOKEN:?SI_PROXY_CLIENT_TOKEN requis dans .env}
+      - SI_PROXY_MTLS=${SI_PROXY_MTLS:-0}
+      - SI_PROXY_ALLOW_CN=${SI_PROXY_ALLOW_CN:-freg}
+      - SI_PROXY_LOG_LEVEL=${SI_PROXY_LOG_LEVEL:-INFO}
+    ports:
+      - "${SI_PROXY_PORT:-6450}:6450"
+
   network-explorer:
     # Livraison #393 -- demandé explicitement : "un docker front qui
     # se branche sur le/les dockers api" -- SANS Keycloak ni

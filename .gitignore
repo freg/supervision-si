@@ -66,3 +66,7 @@ netprobe/agent/image/cache/
 *.img
 *.img.xz
 
+
+# Bastion si-proxy : certificats et clés générés (jamais versionnés)
+si-proxy/certs/*
+!si-proxy/certs/.gitkeep

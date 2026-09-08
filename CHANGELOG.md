@@ -1,3 +1,20 @@
+## 2026-09-08 — Bastion si-proxy réservé à freg (livraison #452)
+
+Nouveau composant `si-proxy` : depuis le Mac, via le hub, un shell sur le
+host de la VM (sous freg, non-root), la navigation HTTPS sur le hub et, par
+le hub, sur le LAN. Relais TLS aiguilleur (conteneur, service compose
+`si-proxy`, n'exécute rien) ; shim host systemd (`si-proxy-host`) qui appelle
+le relais en sortant (le host n'ouvre aucun port entrant) et ouvre seul les
+PTY/TCP ; client Mac `siproxy.client` (shell interactif + proxy HTTP local
+CONNECT). Réservé à freg : jeton client dédié + TLS, TLS mutuel optionnel
+avec liste blanche de CN. Cibles loopback/lien-local/métadonnées refusées ;
+aucun secret journalisé. Certificats émis par la PKI interne
+(`setup-certs.sh`), installation host par `install-host.sh`. Vérifié :
+tests purs du protocole + essai de bout en bout (relais + shim + client,
+TLS + jetons) — shell qui répond, proxy CONNECT/HTTP, rejet du mauvais
+jeton, tout vert. Non vérifié : déploiement réel sur la VM et TLS mutuel
+bout-à-bout.
+
 ## 2026-09-08 — Agent macOS de supervision (livraison #451)
 
 `si_agent/machost.py` : collecteurs macOS (commandes natives sw_vers /
