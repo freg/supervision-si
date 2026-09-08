@@ -119,7 +119,7 @@ export default function RetroView({ onBack, retroApiBase, dbaApiBase, schemaApiB
       </div>
 
       {/* #441 : parcours applicatifs (extension Firefox + relais + journal SQL) */}
-      <RetroJourneysPanel retroApiBase={retroApiBase} connections={connections} />
+      <RetroJourneysPanel retroApiBase={retroApiBase} connections={connections} dbaApiBase={dbaApiBase} />
 
       <div className="hub-card hub-settings-section">
         <label className="secondary" style={{ cursor: "pointer", display: "inline-block" }}>

@@ -56,3 +56,6 @@ export const collectQueries = (base, id, body) => call(base, `/journeys/${encode
 // #443 : rejeu et comparaison
 export const fetchCompare = (base, id, other) => call(base, `/journeys/${encodeURIComponent(id)}/compare/${encodeURIComponent(other)}`);
 export const fetchScript = (base, id) => call(base, `/journeys/${encodeURIComponent(id)}/script`);
+// #444 : spécification d'interface générée
+export const fetchUiSpec = (base, label, regenerate) => call(base, `/apps/${encodeURIComponent(label)}/ui-spec${regenerate ? "?regenerate=1" : ""}`);
+export const saveUiSpec = (base, label, spec) => call(base, `/apps/${encodeURIComponent(label)}/ui-spec`, json("PUT", { spec }));

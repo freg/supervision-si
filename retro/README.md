@@ -348,3 +348,47 @@ Vérifié : 8 tests API, relais, 4 tests extension, 3 hub ; **rejeu réel** dans
 Chromium via le popup de l'extension sur l'application factice (valeurs
 enregistrées) : 8 actions exécutées, rejeu comparé à l'origine 5/5 étapes
 identiques ; rendu Chromium. Non vérifié : Firefox réel.
+
+## Interface générée au design du hub (livraison #444, phase 2)
+
+Demande : « de ce parcours, générer une interface avec le design/charte
+du hub pour offrir les mêmes fonctionnalités ». Deux pièces :
+
+- **`retro/api/ui_spec.py`** (pur, 3 tests + route) : étapes de tous les
+  parcours + carte fonctionnelle + colonnes réelles des tables (dba-api,
+  connexion de l'application) → une **spécification** : par écran, genre
+  (`list` : tableau vu ; `form` : formulaire POST ≥ 2 champs ; `detail` ;
+  `action` : écran POST transitoire ; `other`), titre (premier en-tête vu),
+  **table principale** (écritures SQL de l'action du formulaire 0,9 →
+  journal SQL de l'écran 0,8 → tables du code 0,5/0,35), **colonnes** de
+  liste (en-têtes des tableaux vus rapprochés des colonnes réelles :
+  exact 1,0, sans séparateurs 0,9, inclusion ≤ 0,85, jetons ≤ 0,6 ; les
+  préfixes `txt`, `f_`, `champ_`… et les accents sont neutralisés),
+  **champs** de formulaire rapprochés de même (clé primaire et jetons CSRF
+  écartés), liens (clics vers un autre écran), actions (POST + tables
+  écrites), points « à compléter ». `GET /apps/<label>/ui-spec`
+  (enregistrée ; `?regenerate=1` recalcule en conservant les choix
+  marqués `*_manual`), `PUT /apps/<label>/ui-spec`.
+- **`hub/src/GeneratedAppView.jsx`** (+ `generatedApp.js`, 1 test) : dans
+  la tuile Rétro-ingénierie, bouton « Application générée » : navigation
+  entre les écrans (charte du hub), **listes** branchées sur la table réelle
+  via dba-api (filtre, pagination 50, « Nouveau »), **fiches** : ouvrir une
+  ligne → formulaire dont les champs sont ceux du parcours, rattachés aux
+  colonnes → `PUT/POST rows` de dba-api (clé primaire jamais modifiée,
+  colonnes validées côté serveur). Onglet **Spécification** : titre, genre,
+  table (liste des tables connues), masquage, avec pour chaque rattachement
+  sa source et sa confiance ; enregistré aussitôt, survit à une
+  régénération.
+
+Ce que les parcours n'ont pas montré (règles métier du PHP, écrans jamais
+visités, champs sans colonne) n'est pas inventé : « à compléter ». Une
+exportation de la spec en module React autonome est possible ensuite (le
+rendu est déjà générique).
+
+Vérifié : 3 tests `test_ui_spec.py` (rapprochement, genres, table, choix
+manuels conservés, routes avec faux dba-api) ; chaîne réelle : spec
+générée depuis les parcours réels de l'application factice + faux dba-api
+(tables clients/journal/villes/produits), rendu Chromium : liste Clients
+(Nom, Ville → ville_id), ouverture d'une ligne, modification de l'email
+**écrite dans la table** via dba-api. Non vérifié : une vraie application
+(la richesse des écrans dépend des parcours enregistrés).

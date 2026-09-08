@@ -36,6 +36,7 @@ import html_view_scanner as view_scanner
 import route_scanner
 import journeys
 import journeys_store as jstore
+import ui_spec
 
 _log = logging.getLogger("retro_app")
 
@@ -275,6 +276,13 @@ def apps_map(label):
     a = jstore.get_app(DB_PATH, label, with_scan=True)
     if a is None:
         return jsonify({"error": "application inconnue"}), 404
+    steps, m = _app_steps(label, a)
+    return jsonify({"app": label, "has_scan": a["has_scan"], "journeys": len(jstore.list_journeys(DB_PATH, app=label)), **m}), 200
+
+
+def _app_steps(label, a):
+    """Toutes les étapes de tous les parcours d'une application (avec le
+    SQL collecté), et la carte fonctionnelle."""
     steps = []
     for j in jstore.list_journeys(DB_PATH, app=label):
         s = journeys.build_steps(jstore.get_events(DB_PATH, j["id"]), a.get("base_url"))
@@ -282,8 +290,63 @@ def apps_map(label):
         for st in s:
             st["journey_id"] = j["id"]
         steps.extend(s)
-    m = journeys.functional_map(steps, a.get("scan"), a.get("base_url"))
-    return jsonify({"app": label, "has_scan": a["has_scan"], "journeys": len(jstore.list_journeys(DB_PATH, app=label)), **m}), 200
+    return steps, journeys.functional_map(steps, a.get("scan"), a.get("base_url"))
+
+
+def fetch_columns(dba_url, conn_id, database, tables, http=None):
+    """{table: colonnes} via dba-api (best-effort : une table illisible est
+    simplement absente)."""
+    http = http or _requests.get
+    out = {}
+    for t in tables:
+        try:
+            resp = http(f"{dba_url}/connections/{conn_id}/tables/{t}/columns", params={"database": database} if database else None, timeout=15)
+            data = resp.json()
+            if resp.status_code == 200 and isinstance(data, list):
+                out[t] = data
+        except (_requests.RequestException, ValueError):
+            continue
+    return out
+
+
+@app.route("/apps/<label>/ui-spec", methods=["GET"])
+def apps_ui_spec(label):
+    """#444 : spécification de l'interface générée. Enregistrée si elle
+    existe (choix manuels conservés) ; `?regenerate=1` la recalcule
+    depuis les parcours, la carte et les colonnes réelles (dba-api), en
+    gardant les choix manuels de la version précédente."""
+    a = jstore.get_app(DB_PATH, label, with_scan=True)
+    if a is None:
+        return jsonify({"error": "application inconnue"}), 404
+    existing = jstore.get_ui_spec(DB_PATH, label)
+    if existing and request.args.get("regenerate") != "1":
+        return jsonify({**existing, "saved": True}), 200
+    steps, fmap = _app_steps(label, a)
+    columns = {}
+    if a.get("dba_connection_id"):
+        columns = fetch_columns(DBA_API_INTERNAL_URL, a["dba_connection_id"], a.get("dba_database"), sorted(fmap.get("tables") or {}))
+    spec = ui_spec.build_ui_spec(steps, fmap, columns, label, existing=existing)
+    spec["dba_connection_id"], spec["dba_database"] = a.get("dba_connection_id"), a.get("dba_database")
+    spec["generated_at"] = jstore.now_iso()
+    jstore.save_ui_spec(DB_PATH, label, spec)
+    return jsonify({**spec, "saved": True, "regenerated": True}), 200
+
+
+@app.route("/apps/<label>/ui-spec", methods=["PUT"])
+def apps_ui_spec_put(label):
+    """Enregistre une spec modifiée à la main (table d'un écran, colonnes,
+    titres, écrans masqués) -- les marqueurs `*_manual` protègent ces
+    choix lors d'une régénération."""
+    body = request.get_json(silent=True) or {}
+    allowed, error = _check_manage_right(body)
+    if not allowed:
+        return jsonify({"error": error}), 403
+    spec = body.get("spec")
+    if not isinstance(spec, dict) or not isinstance(spec.get("screens"), list):
+        return jsonify({"error": "'spec' : objet {screens: [...]} attendu"}), 400
+    if not jstore.save_ui_spec(DB_PATH, label, spec):
+        return jsonify({"error": "application inconnue"}), 404
+    return jsonify({"saved": True, "screens": len(spec["screens"])}), 200
 
 
 @app.route("/journeys", methods=["GET"])

@@ -4,13 +4,14 @@ import {
   createJourney, fetchCompare,
 } from "./retroClient.js";
 import { STATUS_LABELS, stepTitle, stepSummary, screensByTables, dbTablesLabel, relayCommand, journeyTree, storyboardFrame } from "./retroJourneys.js";
+import GeneratedAppView from "./GeneratedAppView.jsx";
 
 // Parcours applicatifs (livraison #441, backlog 30 volet 2 -- « schéma
 // fonctionnel de l'interface ») : la personne parcourt l'application réelle
 // avec l'extension Firefox + l'agent relais ; ici on voit les parcours, chaque
 // étape (écran, actions, requêtes, tables), la carte fonctionnelle écrans ↔
 // routes ↔ tables (code scanné + journal SQL réel via dba-api).
-export default function RetroJourneysPanel({ retroApiBase, connections }) {
+export default function RetroJourneysPanel({ retroApiBase, connections, dbaApiBase }) {
   const [apps, setApps] = useState([]);
   const [tokenConfigured, setTokenConfigured] = useState(true);
   const [app, setApp] = useState("");
@@ -25,6 +26,8 @@ export default function RetroJourneysPanel({ retroApiBase, connections }) {
   // #443 : rejeu pas à pas (storyboard) et comparaison avec le parent (rejeu)
   const [frame, setFrame] = useState(0);
   const [compare, setCompare] = useState(null);
+  // #444 : application générée (phase 2)
+  const [showGenerated, setShowGenerated] = useState(false);
 
   const loadApps = useCallback(async () => {
     const r = await fetchApps(retroApiBase);
@@ -129,6 +132,7 @@ export default function RetroJourneysPanel({ retroApiBase, connections }) {
               <input type="file" accept=".zip" onChange={handleScan} disabled={scanning} style={{ display: "none" }} />
             </label>
           )}
+          {app && <button onClick={() => setShowGenerated((v) => !v)} title="écrans déduits des parcours, rendus avec la charte du hub sur les tables réelles">{showGenerated ? "Masquer l'application générée" : "⚙ Application générée"}</button>}
           {current && <span className="muted">{current.base_url || "URL de base non renseignée"} · {current.has_scan ? `code analysé le ${current.scanned_at} (${current.scan_summary?.routes} routes)` : "code non analysé"} · {current.dba_connection_id ? `connexion DBA #${current.dba_connection_id}${current.dba_database ? ` / ${current.dba_database}` : ""}` : "sans connexion DBA (pas de journal SQL)"}</span>}
         </div>
 
@@ -144,6 +148,8 @@ export default function RetroJourneysPanel({ retroApiBase, connections }) {
           <button type="submit" className="secondary">Enregistrer</button>
         </form>
       </div>
+
+      {app && showGenerated && <GeneratedAppView retroApiBase={retroApiBase} dbaApiBase={dbaApiBase} app={app} onClose={() => setShowGenerated(false)} />}
 
       {app && (
         <div className="hub-card hub-settings-section">

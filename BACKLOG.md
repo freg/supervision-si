@@ -1130,8 +1130,8 @@ qui fait alors sauter la file.
     réel : extension Firefox + agent relais + API « parcours » (étapes,
     routes, tables du code et du journal SQL via dba-api, carte
     fonctionnelle) ; #443 : rejeu pas à pas, rejeu réel, sous-parcours,
-    comparaison. Suite demandée : (2) générer une interface au design du
-    hub offrant les mêmes fonctions qu'un parcours ; (3) comparer les
+    comparaison ; #444 : (2) interface générée au design du hub (spec
+    par application, listes/fiches sur les tables réelles). Suite : (3) comparer les
     applications enregistrées → outil de gestion unique ; (4) champs et
     relations inter-applications → méta-graphe, proposition de fusion.
     Reste : premier parcours réel dans Firefox, vrai general_log. Voir

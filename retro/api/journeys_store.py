@@ -44,6 +44,7 @@ MIGRATIONS = (
     ("journeys", "parent_id", "ALTER TABLE journeys ADD COLUMN parent_id TEXT"),
     ("journeys", "branch_step", "ALTER TABLE journeys ADD COLUMN branch_step INTEGER"),
     ("journeys", "kind", "ALTER TABLE journeys ADD COLUMN kind TEXT NOT NULL DEFAULT 'recorded'"),
+    ("apps", "ui_spec_json", "ALTER TABLE apps ADD COLUMN ui_spec_json TEXT"),   # #444 : interface générée
 )
 
 
@@ -100,6 +101,25 @@ def save_scan(path, label, scan):
         conn.close()
 
 
+def save_ui_spec(path, label, spec):
+    conn = _connect(path)
+    try:
+        n = conn.execute("UPDATE apps SET ui_spec_json = ? WHERE label = ?", (json.dumps(spec, ensure_ascii=False) if spec is not None else None, label)).rowcount
+        conn.commit()
+    finally:
+        conn.close()
+    return n > 0
+
+
+def get_ui_spec(path, label):
+    conn = _connect(path)
+    try:
+        r = conn.execute("SELECT ui_spec_json FROM apps WHERE label = ?", (label,)).fetchone()
+    finally:
+        conn.close()
+    return _j(r["ui_spec_json"], None) if r else None
+
+
 def get_app(path, label, with_scan=False):
     conn = _connect(path)
     try:
@@ -115,6 +135,7 @@ def _app_public(r, with_scan=False):
     scan = _j(r["scan_json"], None)
     out = {"label": r["label"], "base_url": r["base_url"], "dba_connection_id": r["dba_connection_id"], "dba_database": r["dba_database"],
            "scanned_at": r["scanned_at"], "has_scan": scan is not None, "created_at": r["created_at"],
+           "has_ui_spec": bool(r["ui_spec_json"]) if "ui_spec_json" in r.keys() else False,
            "scan_summary": {"routes": len(scan.get("routes") or []), "join_candidates": len(scan.get("join_candidates") or []),
                             "files": scan.get("scanned_files"), "classes": len(scan.get("classes") or {})} if scan else None}
     if with_scan:

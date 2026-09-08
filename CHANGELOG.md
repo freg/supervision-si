@@ -1,3 +1,18 @@
+## 2026-09-08 — Interface générée au design du hub depuis les parcours (livraison #444, phase 2)
+
+`retro/api/ui_spec.py` : étapes + carte fonctionnelle + colonnes réelles
+(dba-api) → spécification d'interface par application (écrans list /
+form / detail / action, titre, table principale, colonnes de liste et
+champs rapprochés des colonnes avec source et confiance, liens, actions,
+points à compléter), enregistrée (`GET/PUT /apps/<label>/ui-spec`,
+régénération qui conserve les choix manuels). Hub : « Application
+générée » dans la tuile Rétro-ingénierie -- navigation, listes sur les
+tables réelles (filtre, pagination, nouveau), fiches/formulaires qui
+écrivent via dba-api, onglet Spécification modifiable. Vérifié : 3 tests
+API, 1 test hub (138 au total), chaîne réelle parcours → spec → liste →
+fiche → écriture en base via un faux dba-api, rendu Chromium. Non
+vérifié : une vraie application.
+
 ## 2026-09-08 — Parcours applicatifs : rejeu pas à pas, rejeu réel dans le navigateur, sous-parcours, comparaison (livraison #443)
 
 Suite de #441. Arbre de parcours (`parent_id`, `branch_step`, `kind`
