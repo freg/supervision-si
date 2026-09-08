@@ -2392,3 +2392,11 @@ qui fait alors sauter la file.
     équipement sans coordonnées est positionné par ses liens (ce à quoi
     il parle, le site/segment auquel il appartient), et l'onglet montre
     cette chaîne de déduction.
+    Avancement (#423) : points (1) agrégation, (2) colonne gauche
+    (Propositions à cocher / Supervisés avec filtre et priorisation /
+    Liens avec positions déduites) et (3) page centrale en 1 à 4 cadres
+    (carte, table, liens, propositions, synthèse) livrés dans le hub
+    (`SupervisionSiView.jsx`, `docs/supervision-si-tuile.md`). Reste :
+    (4) redistribution des outils de l'ancienne maquette (calendrier,
+    corbeille, radial, fusion IP/MAC…) vers leurs tuiles, timeline /
+    pixel-grid / radial comme contenus de cadre.

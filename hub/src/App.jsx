@@ -30,6 +30,7 @@ import NetprobeView from "./NetprobeView.jsx";
 import UpsView from "./UpsView.jsx";
 import SiAgentView from "./SiAgentView.jsx";
 import SiAgentEventsBanner from "./SiAgentEventsBanner.jsx";
+import SupervisionSiView from "./SupervisionSiView.jsx";
 import GedView from "./GedView.jsx";
 import SshTunnelsView from "./SshTunnelsView.jsx";
 import SnmpView from "./SnmpView.jsx";
@@ -81,6 +82,9 @@ const NETPROBE_API_BASE_URL = import.meta.env.VITE_NETPROBE_API_BASE_URL || "";
 const UPS_API_BASE_URL = import.meta.env.VITE_UPS_API_BASE_URL || "";
 // Tuile Agents hôtes (livraison #421, backlog 63) -- si-agent-api.
 const SI_AGENT_API_BASE_URL = import.meta.env.VITE_SI_AGENT_API_BASE_URL || "";
+// Géolocalisations (pixel-grid) -- positions connues pour la nouvelle tuile
+// Supervision SI (livraison #423, backlog 64).
+const PIXEL_GRID_API_BASE_URL = import.meta.env.VITE_PIXEL_GRID_API_BASE_URL || "";
 const RELATIONS_API_BASE_URL = import.meta.env.VITE_RELATIONS_API_BASE_URL || "";
 // Onglet GED (livraison #167) -- même API que TicketDocuments.jsx
 // (tickets-portal, #160), consommée ici pour la navigation/gestion
@@ -1117,6 +1121,18 @@ export default function App() {
     groups,
     externalLinks,
   });
+  // Nouvelle tuile « Supervision SI » (livraison #423, backlog 64) : la
+  // tuile « maquette initiale » (front externe, lib.js) devient une VUE
+  // INTERNE du hub -- même identifiant et même rôle (`supervision`) pour
+  // ne pas casser la personnalisation de l'accueil ni les droits ; l'ancien
+  // front reste accessible dans la vue (« ancienne maquette ») et dans le
+  // mode onglets (embeddable) tant que ses outils ne sont pas redistribués.
+  for (const f of fronts) {
+    if (f.id === "supervision") {
+      f.description = "Supervisés, propositions, liens -- carte et table en cadres, tuiles d'origine à un clic";
+      f.onClick = () => setViewMode("supervision-si");
+    }
+  }
   // GED promue en tuile de front (livraison #172, demandé
   // explicitement -- "on commence par le plus facile : juste une
   // tuile qui pointe vers l'écran actuel"). PAS via buildFrontsList
@@ -1652,6 +1668,21 @@ export default function App() {
         <UpsView
           onBack={() => setViewMode("grid")}
           upsApiBase={UPS_API_BASE_URL}
+        />
+      ) : viewMode === "supervision-si" ? (
+        <SupervisionSiView
+          onBack={() => setViewMode("grid")}
+          onNavigate={(target) => setViewMode(target)}
+          legacyFrontendUrl={FRONTEND_URL}
+          netprobeApiBase={NETPROBE_API_BASE_URL}
+          upsApiBase={UPS_API_BASE_URL}
+          siAgentApiBase={SI_AGENT_API_BASE_URL}
+          snmpApiBase={SNMP_API_BASE_URL}
+          sshTunnelsApiBase={SSH_TUNNELS_API_BASE_URL}
+          networkAgentApiBase={NETWORK_AGENT_API_BASE_URL}
+          netmapOrchestratorApiBase={NETMAP_ORCHESTRATOR_API_BASE_URL}
+          vigilanceApiBase={VIGILANCE_API_BASE_URL}
+          pixelGridApiBase={PIXEL_GRID_API_BASE_URL}
         />
       ) : viewMode === "si-agent" ? (
         <SiAgentView

@@ -1,0 +1,367 @@
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { MapContainer, TileLayer, CircleMarker, Polyline, Popup, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import { fetchTargets, fetchLatestSamples, fetchAgents as fetchWifiAgents } from "./netprobeClient.js";
+import { fetchUpsList } from "./upsClient.js";
+import { fetchFleet } from "./siAgentClient.js";
+import { fetchSnmpTargets } from "./snmpClient.js";
+import { fetchTunnels, fetchConnections } from "./sshTunnelsClient.js";
+import { fetchSites, fetchDevices, fetchLinks } from "./networkAgentClient.js";
+import { fetchSuggestions } from "./netmapOrchestratorClient.js";
+import { fetchSignals } from "./vigilanceClient.js";
+import {
+  ITEM_TYPES, STATE_ORDER, aggregateSupervised, buildProposals, filterSupervised, prioritizeSupervised, movePriority, setPriority,
+  buildLinks, knownPositions, deducePositions, describeChain, FRAME_KINDS, frameLayout, normalizeFrames, summarizeByState,
+  PREF_KEYS, loadPref, savePref, spreadCoincident,
+} from "./supervisedItems.js";
+
+// Nouvelle tuile « Supervision SI » (livraison #423, backlog 64) -- « la
+// tuile actuelle était la maquette initiale de la dataviz du hub ; elle doit
+// changer radicalement ». Vit DANS le hub. Colonne de gauche à onglets
+// Propositions / Supervisés (défaut) / Liens ; page centrale en 1 à 4 cadres
+// (défaut carte + table). Agrégation client des tuiles (netprobe, UPS,
+// agents, SNMP, tunnels, sondes WiFi), propositions (orchestrateur,
+// vigilance, appareils découverts), liens automatiques et positions
+// déduites. Toute la logique non-React est dans supervisedItems.js.
+
+const REFRESH_MS = 60000;
+const STATE_COLORS = { critical: "var(--danger)", warning: "var(--warning)", ok: "var(--ok)", unknown: "var(--muted)" };
+const STATE_LABELS = { critical: "critique", warning: "avertissement", ok: "ok", unknown: "inconnu" };
+const STATE_HEX = { critical: "#d64545", warning: "#d69a2b", ok: "#2f9e5b", unknown: "#8a8f98" };
+
+function Tone({ state, children }) {
+  return <span className={`np-tone ${state === "critical" ? "bad" : state === "warning" ? "warn" : state === "ok" ? "good" : "neutral"}`}>{children}</span>;
+}
+
+function when(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString("fr-FR");
+}
+
+function storage() {
+  try { return typeof window !== "undefined" ? window.localStorage : null; } catch { return null; }
+}
+
+// Recadre la carte sur les points quand ils changent, et recalcule la
+// taille de la carte quand son cadre change (1 à 4 cadres : Leaflet ne
+// voit pas seul un redimensionnement CSS -- marqueurs hors champ sinon).
+function FitBounds({ points }) {
+  const map = useMap();
+  const key = points.map((p) => `${p.lat.toFixed(3)},${p.lon.toFixed(3)}`).join("|");
+  const fit = () => {
+    if (!points.length) return;
+    if (points.length === 1) { map.setView([points[0].lat, points[0].lon], 12); return; }
+    map.fitBounds(points.map((p) => [p.lat, p.lon]), { padding: [24, 24], maxZoom: 15 });
+  };
+  useEffect(() => { fit(); }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const el = map.getContainer();
+    if (typeof ResizeObserver === "undefined" || !el) return undefined;
+    const ro = new ResizeObserver(() => { map.invalidateSize(); fit(); });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [map, key]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
+export default function SupervisionSiView({
+  onBack, onNavigate, legacyFrontendUrl,
+  netprobeApiBase, upsApiBase, siAgentApiBase, snmpApiBase, sshTunnelsApiBase, networkAgentApiBase,
+  netmapOrchestratorApiBase, vigilanceApiBase, pixelGridApiBase,
+}) {
+  const [sources, setSources] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [errors, setErrors] = useState([]);
+  const [now, setNow] = useState(Date.now());
+  const [tab, setTab] = useState(() => loadPref(storage(), PREF_KEYS.tab, "supervised"));
+  const [frames, setFrames] = useState(() => normalizeFrames(loadPref(storage(), PREF_KEYS.frames, null)));
+  const [priorities, setPriorities] = useState(() => loadPref(storage(), PREF_KEYS.priorities, {}));
+  const [checkedProposals, setCheckedProposals] = useState(() => loadPref(storage(), PREF_KEYS.proposals, {}));
+  const [filter, setFilter] = useState({ text: "", types: [], states: [], site: "" });
+  const [selected, setSelected] = useState(null);
+
+  useEffect(() => savePref(storage(), PREF_KEYS.tab, tab), [tab]);
+  useEffect(() => savePref(storage(), PREF_KEYS.frames, frames), [frames]);
+  useEffect(() => savePref(storage(), PREF_KEYS.priorities, priorities), [priorities]);
+  useEffect(() => savePref(storage(), PREF_KEYS.proposals, checkedProposals), [checkedProposals]);
+
+  const load = useCallback(async () => {
+    const errs = [];
+    const safe = async (label, fn, fallback) => {
+      try { const r = await fn(); if (r && r.error) { errs.push(`${label} : ${r.error}`); return fallback; } return r; } catch (e) { errs.push(`${label} : ${e.message}`); return fallback; }
+    };
+    const [netprobeTargets, netprobeLatest, wifiAgents, upsDevices, siAgentFleet, snmpTargets, sshTunnels, sshConnections, sites, suggestions, signals, geolocations] = await Promise.all([
+      netprobeApiBase ? safe("Sondes réseau", () => fetchTargets(netprobeApiBase), []) : [],
+      netprobeApiBase ? safe("Sondes réseau (relevés)", () => fetchLatestSamples(netprobeApiBase), []) : [],
+      netprobeApiBase ? safe("Sondes WiFi", async () => (await fetchWifiAgents(netprobeApiBase)).filter((a) => a.role === "probe"), []) : [],
+      upsApiBase ? safe("Onduleurs", () => fetchUpsList(upsApiBase), []) : [],
+      siAgentApiBase ? safe("Agents hôtes", () => fetchFleet(siAgentApiBase), []) : [],
+      snmpApiBase ? safe("SNMP", () => fetchSnmpTargets(snmpApiBase), []) : [],
+      sshTunnelsApiBase ? safe("Tunnels SSH", () => fetchTunnels(sshTunnelsApiBase), []) : [],
+      sshTunnelsApiBase ? safe("Connexions SSH", () => fetchConnections(sshTunnelsApiBase), []) : [],
+      networkAgentApiBase ? safe("Exploration réseau (sites)", () => fetchSites(networkAgentApiBase), []) : [],
+      netmapOrchestratorApiBase ? safe("Orchestrateur", () => fetchSuggestions(netmapOrchestratorApiBase, { status: "open" }), []) : [],
+      vigilanceApiBase ? safe("Vigilance", () => fetchSignals(vigilanceApiBase), []) : [],
+      pixelGridApiBase ? safe("Géolocalisations", async () => { const r = await fetch(`${pixelGridApiBase}/geolocations`); const d = await r.json(); return Array.isArray(d?.geolocations) ? d.geolocations : []; }, []) : [],
+    ]);
+    // appareils et flux de chaque segment (exploration réseau)
+    const naDevices = [], naLinks = [];
+    if (networkAgentApiBase) {
+      const segs = (sites || []).flatMap((s) => (s.segments || []).map((seg) => ({ ...seg, siteName: s.name })));
+      const res = await Promise.all(segs.map(async (seg) => [
+        await safe(`Appareils ${seg.label}`, () => fetchDevices(networkAgentApiBase, seg.id), []),
+        await safe(`Flux ${seg.label}`, () => fetchLinks(networkAgentApiBase, seg.id), []),
+        seg,
+      ]));
+      for (const [devs, lks, seg] of res) {
+        for (const d of devs) naDevices.push({ ...d, siteName: seg.siteName });
+        naLinks.push(...lks);
+      }
+    }
+    setSources({ netprobeTargets, netprobeLatest, wifiAgents, upsDevices, siAgentFleet, snmpTargets, sshTunnels, sshConnections, sites, suggestions, signals, geolocations, naDevices, naLinks });
+    setErrors(errs);
+    setLoading(false);
+    setNow(Date.now());
+  }, [netprobeApiBase, upsApiBase, siAgentApiBase, snmpApiBase, sshTunnelsApiBase, networkAgentApiBase, netmapOrchestratorApiBase, vigilanceApiBase, pixelGridApiBase]);
+
+  useEffect(() => { load(); const id = setInterval(load, REFRESH_MS); return () => clearInterval(id); }, [load]);
+
+  // --- Dérivés (logique pure) ---
+  const supervised = useMemo(() => (sources ? aggregateSupervised(sources, now) : []), [sources, now]);
+  const sitesList = useMemo(() => [...new Set(supervised.map((i) => i.site).filter(Boolean))].sort(), [supervised]);
+  const visible = useMemo(() => prioritizeSupervised(filterSupervised(supervised, filter), priorities), [supervised, filter, priorities]);
+  const proposals = useMemo(() => (sources ? buildProposals({ suggestions: sources.suggestions, signals: sources.signals, devices: sources.naDevices, supervised }) : []), [sources, supervised]);
+  const links = useMemo(() => (sources ? buildLinks({ naLinks: sources.naLinks, naDevices: sources.naDevices, tunnels: sources.sshTunnels, connections: sources.sshConnections, supervised }) : []), [sources, supervised]);
+  const positions = useMemo(() => {
+    if (!sources) return new Map();
+    const known = knownPositions({ naDevices: sources.naDevices, geolocations: sources.geolocations, sites: sources.sites, supervised });
+    return deducePositions(supervised.map((i) => i.identity), links, known);
+  }, [sources, supervised, links]);
+  const summary = useMemo(() => summarizeByState(supervised), [supervised]);
+  const selectedItem = supervised.find((i) => i.identity === selected) || null;
+
+  // --- Actions ---
+  const toggleType = (t) => setFilter((f) => ({ ...f, types: f.types.includes(t) ? f.types.filter((x) => x !== t) : [...f.types, t] }));
+  const toggleState = (s) => setFilter((f) => ({ ...f, states: f.states.includes(s) ? f.states.filter((x) => x !== s) : [...f.states, s] }));
+  const bump = (it, delta) => setPriorities((p) => movePriority(p, visible.map((i) => i.identity), it.identity, delta));
+  const pin = (it) => setPriorities((p) => (p[it.identity] != null ? setPriority(p, it.identity, null) : movePriority(p, visible.map((i) => i.identity), it.identity, 0)));
+  const setFrameKind = (i, kind) => setFrames((fr) => fr.map((f, j) => (j === i ? { kind } : f)));
+  const removeFrame = (i) => setFrames((fr) => (fr.length > 1 ? fr.filter((_, j) => j !== i) : fr));
+  const addFrame = () => setFrames((fr) => (fr.length < 4 ? [...fr, { kind: fr.some((f) => f.kind === "links") ? "summary" : "links" }] : fr));
+  const toggleProposal = (p) => setCheckedProposals((c) => ({ ...c, [p.key]: !c[p.key] }));
+  const goto = (origin) => { if (onNavigate) onNavigate(origin === "netprobe" ? "netprobe" : origin === "ups" ? "ups" : origin === "si-agent" ? "si-agent" : origin === "snmp" ? "snmp" : origin === "ssh-tunnels" ? "ssh-tunnels" : origin); };
+
+  // --- Cadres ---
+  const layout = frameLayout(frames.length);
+  const mapPoints = spreadCoincident(visible.map((it) => ({ it, p: positions.get(it.identity) })).filter((x) => x.p).map((x) => ({ ...x, lat: x.p.lat, lon: x.p.lon })));
+  const positionedIds = new Set(mapPoints.map((x) => x.it.identity));
+  const mapLinks = links.filter((l) => l.kind !== "site" && positionedIds.has(l.a) && positionedIds.has(l.b)).slice(0, 400);
+
+  function renderFrame(f, i) {
+    let body;
+    if (f.kind === "map") {
+      body = (
+        <div className="ss-map">
+          <MapContainer center={[46.6, 2.4]} zoom={6} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
+            <TileLayer attribution="&copy; OpenStreetMap" url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <FitBounds points={mapPoints.map((x) => x.p)} />
+            {mapLinks.map((l, k) => {
+              const a = positions.get(l.a), b = positions.get(l.b);
+              return <Polyline key={k} positions={[[a.lat, a.lon], [b.lat, b.lon]]} pathOptions={{ color: l.kind === "tunnel" ? "#7b61ff" : "#6c8ebf", weight: 1.5, opacity: 0.6 }} />;
+            })}
+            {mapPoints.map(({ it, p, dlat, dlon }) => (
+              <CircleMarker key={it.identity} center={[dlat, dlon]} radius={selected === it.identity ? 11 : 8}
+                pathOptions={{ color: p.source === "déduite" || p.source === "repli" ? "#ffffff" : STATE_HEX[it.state], fillColor: STATE_HEX[it.state], fillOpacity: p.source === "repli" ? 0.35 : 0.85, weight: 2, dashArray: p.source === "déduite" ? "3 3" : null }}
+                eventHandlers={{ click: () => setSelected(it.identity) }}>
+                <Popup>
+                  <strong>{it.name}</strong> — {STATE_LABELS[it.state]} ({it.stateText})<br />
+                  {it.ip && <code>{it.ip}</code>}{it.site && <> · {it.site}</>}<br />
+                  <span className="muted">position : {describeChain(p)}</span>
+                </Popup>
+              </CircleMarker>
+            ))}
+          </MapContainer>
+          <div className="ss-map-legend">
+            {Object.entries(STATE_HEX).map(([s, c]) => <span key={s}><i style={{ background: c }} /> {STATE_LABELS[s]}</span>)}
+            <span><i style={{ background: "transparent", border: "2px dashed #666" }} /> déduite</span>
+            <span><i style={{ background: "#999", opacity: 0.4 }} /> repli</span>
+            <span className="muted">{mapPoints.length}/{visible.length} positionnés · {mapLinks.length} liens</span>
+          </div>
+        </div>
+      );
+    } else if (f.kind === "table") {
+      body = (
+        <div className="hub-table-scroll ss-table">
+          <table>
+            <thead><tr><th></th><th>Équipement</th><th>Adresse</th><th>Site</th><th>État</th><th>Dernier relevé</th><th>Origine(s)</th><th>Position</th></tr></thead>
+            <tbody>{visible.map((it) => {
+              const p = positions.get(it.identity);
+              return (
+                <tr key={it.identity} className={`ups-row${selected === it.identity ? " active" : ""}`} onClick={() => setSelected(selected === it.identity ? null : it.identity)}>
+                  <td title={ITEM_TYPES[it.type]?.label}>{ITEM_TYPES[it.type]?.icon}{priorities[it.identity] != null && <span title={`priorité ${priorities[it.identity]}`}> ★</span>}</td>
+                  <td><strong>{it.name}</strong></td>
+                  <td>{it.ip ? <code>{it.ip}</code> : <span className="muted">—</span>}</td>
+                  <td>{it.site || <span className="muted">—</span>}</td>
+                  <td><Tone state={it.state}>{STATE_LABELS[it.state]}</Tone> <span className="muted" style={{ fontSize: 11 }}>{it.stateText}</span></td>
+                  <td className="muted">{when(it.lastSeen)}</td>
+                  <td onClick={(e) => e.stopPropagation()}>{it.origins.map((o) => <button key={o.key} className="secondary ss-origin" onClick={() => goto(o.origin)} title={`ouvrir la tuile ${o.origin}`}>{ITEM_TYPES[o.type]?.label || o.origin}</button>)}</td>
+                  <td className="muted" style={{ fontSize: 11 }}>{p ? p.source : "—"}</td>
+                </tr>
+              );
+            })}</tbody>
+          </table>
+          {visible.length === 0 && <p className="muted" style={{ padding: 8 }}>{loading ? "Chargement…" : "Rien de supervisé pour ces critères."}</p>}
+        </div>
+      );
+    } else if (f.kind === "links") {
+      const shown = selectedItem ? links.filter((l) => l.a === selectedItem.identity || l.b === selectedItem.identity) : links.filter((l) => l.kind !== "site").slice(0, 200);
+      body = (
+        <div className="ss-links">
+          {selectedItem ? (
+            <p style={{ margin: "4px 0 8px" }}><strong>{selectedItem.name}</strong> — position : {describeChain(positions.get(selectedItem.identity))}</p>
+          ) : <p className="muted" style={{ margin: "4px 0 8px" }}>Sélectionner un équipement pour voir sa chaîne de déduction ; ci-dessous les {shown.length} premiers liens.</p>}
+          <div className="hub-table-scroll">
+            <table>
+              <thead><tr><th>Type</th><th>Lien</th><th>Poids</th><th>Via</th></tr></thead>
+              <tbody>{shown.map((l, k) => <tr key={k}><td>{l.kind}</td><td>{l.label}</td><td className="muted">{l.weight ? Math.round(l.weight / 1024) + " Ko" : "—"}</td><td className="muted">{l.via}</td></tr>)}</tbody>
+            </table>
+          </div>
+        </div>
+      );
+    } else if (f.kind === "proposals") {
+      body = <ProposalList proposals={proposals} checked={checkedProposals} onToggle={toggleProposal} compact />;
+    } else {
+      body = (
+        <div className="ss-summary">
+          {["critical", "warning", "unknown", "ok"].map((s) => (
+            <div key={s} className="ss-summary-card" style={{ borderColor: STATE_COLORS[s] }} onClick={() => toggleState(s)}>
+              <div className="ss-summary-n" style={{ color: STATE_COLORS[s] }}>{summary[s] || 0}</div>
+              <div className="muted">{STATE_LABELS[s]}</div>
+            </div>
+          ))}
+          <div className="ss-summary-types">
+            {Object.entries(summary.byType).map(([t, c]) => <div key={t}>{ITEM_TYPES[t]?.icon} {ITEM_TYPES[t]?.label} : {c.total}{c.critical ? <> · <Tone state="critical">{c.critical} critique(s)</Tone></> : null}{c.warning ? <> · <Tone state="warning">{c.warning} avert.</Tone></> : null}</div>)}
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div key={i} className="ss-frame" style={{ gridArea: `f${i}` }}>
+        <div className="ss-frame-head">
+          <select value={f.kind} onChange={(e) => setFrameKind(i, e.target.value)}>
+            {Object.entries(FRAME_KINDS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select>
+          <span style={{ flex: 1 }} />
+          {frames.length > 1 && <button className="secondary" onClick={() => removeFrame(i)} title="retirer ce cadre">✕</button>}
+        </div>
+        <div className="ss-frame-body">{body}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="hub-settings hub-settings-wide ss-root">
+      <div className="hub-settings-topbar">
+        <button className="secondary" onClick={onBack}>◀ Retour</button>
+        <h1>🗺 Supervision SI</h1>
+        <span className="muted" style={{ fontSize: 13 }}>
+          {summary.total} supervisé(s) · <Tone state="critical">{summary.critical} critique(s)</Tone> · <Tone state="warning">{summary.warning} avert.</Tone> · {proposals.length} proposition(s)
+        </span>
+        <span style={{ flex: 1 }} />
+        {frames.length < 4 && <button className="secondary" onClick={addFrame}>+ cadre</button>}
+        <button className="secondary" onClick={load}>⟳</button>
+        {legacyFrontendUrl && <a className="secondary ss-legacy" href={legacyFrontendUrl} target="_blank" rel="noreferrer" title="ancienne maquette (outils en cours de redistribution)">ancienne maquette ↗</a>}
+      </div>
+      {errors.length > 0 && <p className="muted ss-errors" title={errors.join("\n")}>⚠ {errors.length} source(s) injoignable(s) : {errors.map((e) => e.split(" : ")[0]).join(", ")}</p>}
+
+      <div className="ss-body">
+        <aside className="ss-left">
+          <div className="ss-tabs">
+            {[["proposals", `Propositions (${proposals.length})`], ["supervised", `Supervisés (${visible.length})`], ["links", "Liens"]].map(([k, l]) => (
+              <button key={k} className={`secondary na-section-toggle${tab === k ? " active" : ""}`} onClick={() => setTab(k)}>{l}</button>
+            ))}
+          </div>
+
+          {tab === "supervised" && (
+            <>
+              <input className="ss-search" placeholder="filtrer : nom, IP, site, état" value={filter.text} onChange={(e) => setFilter({ ...filter, text: e.target.value })} />
+              <div className="ss-chips">
+                {Object.entries(ITEM_TYPES).map(([t, d]) => <button key={t} className={`secondary ss-chip${filter.types.includes(t) ? " active" : ""}`} onClick={() => toggleType(t)} title={d.label}>{d.icon} {d.label}</button>)}
+              </div>
+              <div className="ss-chips">
+                {Object.keys(STATE_ORDER).map((s) => <button key={s} className={`secondary ss-chip${filter.states.includes(s) ? " active" : ""}`} style={{ borderColor: STATE_COLORS[s] }} onClick={() => toggleState(s)}>{STATE_LABELS[s]} ({summary[s] || 0})</button>)}
+                {sitesList.length > 0 && (
+                  <select value={filter.site} onChange={(e) => setFilter({ ...filter, site: e.target.value })}>
+                    <option value="">tous les sites</option>{sitesList.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                )}
+              </div>
+              <ul className="ss-list">
+                {visible.map((it) => (
+                  <li key={it.identity} className={selected === it.identity ? "active" : ""} onClick={() => setSelected(selected === it.identity ? null : it.identity)}>
+                    <span className="ss-dot" style={{ background: STATE_COLORS[it.state] }} title={STATE_LABELS[it.state]} />
+                    <span className="ss-icon" title={ITEM_TYPES[it.type]?.label}>{ITEM_TYPES[it.type]?.icon}</span>
+                    <span className="ss-name"><strong>{it.name}</strong><br /><span className="muted">{it.ip || ""}{it.site ? ` · ${it.site}` : ""} · {it.stateText}</span></span>
+                    <span className="ss-prio" onClick={(e) => e.stopPropagation()}>
+                      <button className="secondary" title="prioriser / dé-prioriser" onClick={() => pin(it)}>{priorities[it.identity] != null ? "★" : "☆"}</button>
+                      {priorities[it.identity] != null && <><button className="secondary" onClick={() => bump(it, -1)} title="monter">▲</button><button className="secondary" onClick={() => bump(it, 1)} title="descendre">▼</button></>}
+                    </span>
+                  </li>
+                ))}
+                {visible.length === 0 && <li className="muted">{loading ? "Chargement…" : "Aucun supervisé pour ces critères."}</li>}
+              </ul>
+            </>
+          )}
+
+          {tab === "proposals" && <ProposalList proposals={proposals} checked={checkedProposals} onToggle={toggleProposal} onNavigate={onNavigate} />}
+
+          {tab === "links" && (
+            <div className="ss-linkstab">
+              <p className="muted" style={{ margin: "6px 0" }}>Liens construits automatiquement (flux captés, tunnels, appartenance à un site) : ils régissent la carte — un équipement sans coordonnées est positionné par ce à quoi il parle.</p>
+              <ul className="ss-list">
+                {visible.map((it) => {
+                  const p = positions.get(it.identity);
+                  const n = links.filter((l) => l.a === it.identity || l.b === it.identity).length;
+                  return (
+                    <li key={it.identity} className={selected === it.identity ? "active" : ""} onClick={() => setSelected(selected === it.identity ? null : it.identity)}>
+                      <span className="ss-dot" style={{ background: p ? (p.source === "déduite" ? "#6c8ebf" : p.source === "repli" ? "#bbb" : STATE_COLORS.ok) : STATE_COLORS.critical }} title={p ? p.source : "sans position"} />
+                      <span className="ss-name"><strong>{it.name}</strong> <span className="muted">· {n} lien(s)</span><br /><span className="muted">{describeChain(p)}</span></span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+        </aside>
+
+        <main className="ss-center" style={{ gridTemplateColumns: layout.columns, gridTemplateRows: layout.rows, gridTemplateAreas: layout.areas.join(" ") }}>
+          {frames.map(renderFrame)}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function ProposalList({ proposals, checked, onToggle, onNavigate, compact }) {
+  const KIND = { orchestrateur: { label: "orchestrateur", tool: "network-cycle" }, vigilance: { label: "vigilance", tool: "vigilance" }, decouvert: { label: "découvert", tool: "network-agent" } };
+  if (!proposals.length) return <p className="muted" style={{ padding: 6 }}>Aucune proposition : rien de nouveau côté orchestrateur, vigilance ni exploration.</p>;
+  const kept = proposals.filter((p) => checked[p.key]).length;
+  return (
+    <div className="ss-proposals">
+      {!compact && <p className="muted" style={{ margin: "6px 0" }}>{kept} retenue(s) sur {proposals.length} — cocher = à traiter (retenue), décocher = écartée ; le traitement se fait dans la tuile d'origine.</p>}
+      <ul className="ss-list">
+        {proposals.map((p) => (
+          <li key={p.key} className={checked[p.key] ? "active" : ""}>
+            <input type="checkbox" checked={!!checked[p.key]} onChange={() => onToggle(p)} title="retenir" />
+            <span className="ss-name">
+              <Tone state={p.severity === "critical" || p.severity === "high" ? "critical" : p.severity === "warning" || p.severity === "medium" ? "warning" : "unknown"}>{KIND[p.kind]?.label}</Tone> <strong>{p.label}</strong>
+              <br /><span className="muted">{p.detail}{p.at ? ` · ${when(p.at)}` : ""}</span>
+            </span>
+            {onNavigate && <button className="secondary ss-origin" onClick={() => onNavigate(KIND[p.kind]?.tool)} title="ouvrir la tuile d'origine">↗</button>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}

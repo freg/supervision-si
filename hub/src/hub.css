@@ -1791,3 +1791,46 @@ button.secondary { background: var(--panel); }
 .sa-banner-head { font-weight: 600; }
 .sa-banner-items { display: flex; gap: 6px 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 0; padding: 0; list-style: none; }
 .sa-banner-items li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px; }
+
+/* Tuile Supervision SI refondue (livraison #423, backlog 64) -- SupervisionSiView.jsx.
+   Colonne gauche à onglets + page centrale en cadres (grille 1-4). */
+.ss-root { display: flex; flex-direction: column; height: calc(100vh - 60px); }
+.ss-root .hub-settings-topbar { flex: 0 0 auto; }
+.ss-errors { margin: 0 0 6px; font-size: 12px; }
+.ss-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 340px 1fr; gap: 12px; }
+.ss-left { min-height: 0; display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); padding: 8px; overflow: hidden; }
+.ss-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.ss-tabs button { padding: 3px 8px; font-size: 12px; }
+.ss-search { font-size: 13px; padding: 5px 8px; }
+.ss-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.ss-chip { padding: 1px 7px; font-size: 11px; }
+.ss-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ss-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; min-height: 0; }
+.ss-list li { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; }
+.ss-list li:hover, .ss-list li.active { background: var(--bg); }
+.ss-list li.muted { cursor: default; }
+.ss-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+.ss-icon { flex: 0 0 auto; }
+.ss-name { flex: 1; min-width: 0; line-height: 1.25; }
+.ss-name .muted { font-size: 11px; }
+.ss-prio { display: flex; gap: 2px; }
+.ss-prio button, .ss-origin { padding: 0 5px; font-size: 11px; line-height: 18px; }
+.ss-origin { margin-right: 3px; }
+.ss-center { min-height: 0; display: grid; gap: 10px; }
+.ss-frame { min-height: 0; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); overflow: hidden; }
+.ss-frame-head { display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-bottom: 1px solid var(--border); }
+.ss-frame-head select { font-size: 12px; padding: 2px 6px; }
+.ss-frame-head button { padding: 0 6px; font-size: 11px; }
+.ss-frame-body { flex: 1; min-height: 0; overflow: auto; position: relative; }
+.ss-map { position: absolute; inset: 0; }
+.ss-map .leaflet-container { background: var(--bg); font: inherit; }
+.ss-map-legend { position: absolute; left: 8px; bottom: 8px; z-index: 500; display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
+.ss-map-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vertical-align: middle; }
+.ss-table table { font-size: 12px; }
+.ss-links, .ss-summary, .ss-proposals { padding: 8px; }
+.ss-summary { display: flex; flex-wrap: wrap; gap: 10px; }
+.ss-summary-card { flex: 1 1 100px; border: 2px solid; border-radius: 8px; text-align: center; padding: 8px; cursor: pointer; }
+.ss-summary-n { font-size: 28px; font-weight: 700; }
+.ss-summary-types { flex-basis: 100%; font-size: 13px; display: flex; flex-direction: column; gap: 3px; }
+.ss-legacy { font-size: 12px; text-decoration: none; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); }
+@media (max-width: 900px) { .ss-body { grid-template-columns: 1fr; } .ss-left { max-height: 40vh; } }

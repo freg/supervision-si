@@ -1,3 +1,40 @@
+## 2026-09-08 — Supervision SI refondue : colonne Propositions / Supervisés / Liens, page centrale en 1 à 4 cadres, carte et positions déduites (livraison #423)
+
+Backlog 64, premier volet (points 1 à 3 : agrégation, colonne gauche,
+cadres). « La tuile actuelle était la maquette initiale de la dataviz du
+hub ; elle doit changer radicalement ». Tranché : dans le hub, Propositions
+= orchestrateur + vigilance + découverts à cocher, Liens = liens
+automatiques donnant l'accroche géographique. Voir
+`docs/supervision-si-tuile.md`.
+
+- `hub/src/supervisedItems.js` (logique pure, 8 tests) : agrégation
+  « supervisés » depuis netprobe (cibles + dernier relevé, sondes WiFi),
+  UPS, agents hôtes, SNMP, tunnels SSH, fusionnée par identité IP/MAC
+  (état connu le pire, origines conservées) ; propositions (suggestions
+  ouvertes, signaux, appareils non supervisés) ; filtre et priorisation
+  persistée ; liens (flux, tunnels, sites) et **positions déduites** par
+  les liens (moyenne pondérée itérée, profondeur ≤ 3, site prioritaire,
+  repli `__default__`) avec chaîne de déduction ; dispositions 1–4 cadres.
+- `hub/src/SupervisionSiView.jsx` : colonne gauche à onglets, page
+  centrale en cadres (carte Leaflet/OSM, table, liens, propositions,
+  synthèse), préférences `hub.supervision.*`, sources injoignables
+  signalées sans bloquer, lien « ancienne maquette » et mode onglets
+  conservés jusqu'à la redistribution des outils (point 4, à suivre).
+- `App.jsx` : la tuile `supervision` (même identifiant et même rôle que
+  le front historique) ouvre désormais la vue interne ;
+  `VITE_PIXEL_GRID_API_BASE_URL` ajouté au hub (géolocalisations) ;
+  dépendances `leaflet` / `react-leaflet` dans `hub/package.json`.
+
+**Vérifié** : 8 tests (108 au total sur le hub), build Vite, rendus
+Chromium sur faux back-end (2/3/4 cadres, Propositions, Liens avec
+chaîne, thème sombre) ; bug réel trouvé au rendu : Leaflet ne suit pas le
+redimensionnement d'un cadre (marqueurs hors champ) → `ResizeObserver` +
+`invalidateSize`.
+
+**Non vérifié** : tuiles OSM (pas de réseau dans le bac à sable), vraies
+API réunies, volumes réels, build Docker du hub avec les nouvelles
+dépendances.
+
 ## 2026-09-08 — si-agent : déploiement et contrôle des sondes sécurisés, blocage général / individuel, journal d'événements, notifications, synthèse sur le hub (livraison #422)
 
 Demandé : « sécuriser le déploiement et le contrôle des sondes, ssl, logs
