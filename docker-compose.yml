@@ -1070,13 +1070,6 @@ services:
       - SI_AGENT_PUBLIC_URL=${SI_AGENT_PUBLIC_URL:-https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-agent}
       - SI_AGENT_OFFLINE_SECONDS=${SI_AGENT_OFFLINE_SECONDS:-300}
       - SI_AGENT_RETENTION_DAYS=${SI_AGENT_RETENTION_DAYS:-90}
-    environment:
-      - MEMCACHED_HOST=memcached
-      # URL que les agents utilisent pour joindre le central (passerelle
-      # TLS) -- affichée dans la commande d'installation.
-      - SI_AGENT_PUBLIC_URL=${SI_AGENT_PUBLIC_URL:-https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-agent}
-      - SI_AGENT_OFFLINE_SECONDS=${SI_AGENT_OFFLINE_SECONDS:-300}
-      - SI_AGENT_RETENTION_DAYS=${SI_AGENT_RETENTION_DAYS:-90}
       # #422 : sécurité, traces, notifications (SMS/courriel via les
       # canaux SECRETS_ALERT_* du PRA #206, webhook), journal d'événements.
       - SI_AGENT_CA_FILE=/ca/ca.crt
