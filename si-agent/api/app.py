@@ -403,6 +403,7 @@ def _install_cmd_windows(agent_id, secret, site):
         "rem si-agent -- installation silencieuse de l'agent %s (fichier genere par le central, contient le secret : s'efface apres succes)." % aid,
         "rem A placer a la racine de l'archive si-agent-agent-<version> decompressee (a cote de windows\\), puis double-cliquer (UAC demande une fois).",
         "setlocal",
+        'cd /d "%~dp0"',
         'set "PS1=%~dp0windows\\install.ps1"',
         'if not exist "%PS1%" set "PS1=%~dp0install.ps1"',
         'if not exist "%PS1%" ( echo ERREUR : install.ps1 introuvable -- placer ce fichier a la racine de l\'archive decompressee. & pause & exit /b 1 )',

@@ -1,3 +1,14 @@
+## 2026-09-08 — Agent Windows : racine de l'archive cherchée autour du script (livraison #449)
+
+Premier essai réel du `.cmd` silencieux : « si_agent\agent.py
+introuvable ». `install.ps1` cherche désormais la racine de l'archive
+dans le parent du script, le script, le dossier courant et deux niveaux
+de sous-dossiers (`SI_AGENT_SRC` pour forcer), et son erreur liste ce
+qui a été vu ; les `.cmd` se placent dans leur dossier avant de lancer.
+Agent 0.4.3, archive `si-agent-agent-0.4.3.tar.gz`. Vérifié : recherche
+exécutée sous PowerShell 7 depuis cinq emplacements ; non vérifié : le
+poste Windows réel.
+
 ## 2026-09-08 — Méta-relevé des champs, relations inter-gestions et proposition de fusion (livraison #448, phase 4)
 
 `retro/api/metagraph.py` : graphe des entités (tables par application,

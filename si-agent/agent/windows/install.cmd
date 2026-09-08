@@ -7,6 +7,7 @@ rem s'eleve en administrateur (UAC) puis appelle install.ps1 avec Bypass.
 rem Usage (cmd ou PowerShell, dossier de l'archive decompressee) :
 rem   windows\install.cmd -Agent "ID" -Secret "SECRET" -Central "https://VM:6443/api/si-agent" -Site "siege" -CaFingerprint sha256
 rem Sans argument (double-clic) : les valeurs sont demandees.
+cd /d "%~dp0"
 set "SCRIPT=%~dp0install.ps1"
 if not exist "%SCRIPT%" ( echo install.ps1 introuvable a cote de ce lanceur & pause & exit /b 1 )
 net session >nul 2>&1

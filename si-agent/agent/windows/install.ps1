@@ -39,8 +39,27 @@ $Central = $Central.TrimEnd("/")
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) { throw "à lancer dans une console PowerShell « Exécuter en tant qu'administrateur »" }
 if (-not $Ca -and -not $CaFingerprint -and -not $Insecure) { throw "préciser -CaFingerprint <sha256> (recommandé), -Ca <ca.crt> ou -Insecure (dépannage seulement)" }
-$Src = Split-Path -Parent $PSScriptRoot   # racine de l'archive : si_agent\, plugins\, windows\
-if (-not (Test-Path (Join-Path $Src "si_agent\agent.py"))) { throw "si_agent\agent.py introuvable à côté de windows\ : lancer le script depuis l'archive décompressée" }
+# Racine de l'archive (si_agent\, plugins\, windows\) : à côté de windows\ en principe ;
+# sinon (#449, premier essai réel) on cherche autour -- dossier du script, dossier courant,
+# et deux niveaux de sous-dossiers (archive décompressée dans un dossier du même nom,
+# fichier .cmd déposé un cran trop haut) -- et l'erreur dit ce qui a été vu.
+function Find-Src {
+  $roots = @((Get-Location).Path)
+  if ($PSScriptRoot) { $roots = @((Split-Path -Parent $PSScriptRoot), $PSScriptRoot) + $roots }
+  if ($env:SI_AGENT_SRC) { $roots = @($env:SI_AGENT_SRC) + $roots }
+  $cands = @()
+  foreach ($r in $roots) {
+    if (-not $r) { continue }
+    $cands += $r
+    $cands += Get-ChildItem -LiteralPath $r -Directory -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
+    $cands += Get-ChildItem -LiteralPath $r -Directory -ErrorAction SilentlyContinue | Get-ChildItem -Directory -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
+  }
+  foreach ($c in $cands) { if (Test-Path -LiteralPath (Join-Path $c "si_agent\agent.py")) { return $c } }
+  $seen = ($roots | Where-Object { $_ } | ForEach-Object { "$_ : " + ((Get-ChildItem -LiteralPath $_ -ErrorAction SilentlyContinue | Select-Object -First 12 | ForEach-Object { $_.Name }) -join ", ") }) -join " | "
+  throw "si_agent\agent.py introuvable : lancer depuis l'archive si-agent-agent-<version> décompressée (dossiers si_agent, plugins, windows côte à côte). Vu : $seen"
+}
+$Src = Find-Src
+Write-Host "Sources : $Src"
 
 # --- 1. Python ---------------------------------------------------------------------
 function Test-Python($exe, $extra) {
@@ -84,7 +103,7 @@ New-Item -ItemType Directory -Force -Path $InstallDir, $DataDir, (Join-Path $Dat
 foreach ($d in @("si_agent", "plugins")) {
   $dst = Join-Path $InstallDir $d
   if (Test-Path $dst) { Remove-Item $dst -Recurse -Force }
-  Copy-Item (Join-Path $Src $d) $dst -Recurse -Force
+  Copy-Item -LiteralPath (Join-Path $Src $d) $dst -Recurse -Force
 }
 Get-ChildItem $InstallDir -Recurse -Directory -Filter "__pycache__" | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 Copy-Item $PSScriptRoot\uninstall.ps1 (Join-Path $InstallDir "uninstall.ps1") -Force

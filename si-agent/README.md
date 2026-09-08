@@ -469,6 +469,20 @@ caractères `" % ! ^ & < > |` refusés dans les valeurs, 409 sans CA interne
 Vérifié : test API (409 / 404 / contenu, CRLF, ASCII), rendu de la tuile ;
 non vérifié : exécution sur un Windows réel.
 
+Premier essai réel du `.cmd` (#449) : « ça se lance bien mais ça bloque
+sur si_agent\agent.py introuvable ». `install.ps1` ne regardait qu'à côté
+de `windows\` (`Split-Path -Parent $PSScriptRoot`). Il cherche désormais
+la racine de l'archive (`si_agent\agent.py`) dans le dossier parent du
+script, le dossier du script, le dossier courant, et deux niveaux de
+sous-dossiers en dessous -- archive décompressée dans un dossier du même
+nom, `.cmd` déposé un cran trop haut --, `SI_AGENT_SRC` pour forcer un
+chemin ; l'erreur liste ce qui a été vu dans chaque dossier (visible dans
+le journal du `.cmd`), et les deux `.cmd` se placent d'abord dans leur
+propre dossier (`cd /d "%~dp0"`). Agent **0.4.3**. Vérifié : `Find-Src`
+exécutée sous PowerShell 7 depuis cinq emplacements (racine, `windows\`,
+un cran trop haut, dossier imbriqué, dossier vide → erreur explicite) ;
+non vérifié : le poste Windows réel (retour attendu).
+
 ## Montages illisibles ou invisibles (livraison #438)
 
 Premier retour du premier hôte réel : « l'agent ne voit pas tous les types

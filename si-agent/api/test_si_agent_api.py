@@ -98,6 +98,7 @@ class DashboardTests(ApiBase):
             self.assertTrue(body.startswith("@echo off\r\n"))
             self.assertIn('-Agent "srv-01" -Secret "%s" -Central "https://vm:6443/api/si-agent" -Site "siege" -CaFingerprint %s > "%%LOG%%"' % (a["secret"], "ab" * 32), body)
             self.assertIn("-NonInteractive", body)
+            self.assertIn('cd /d "%~dp0"', body)
             self.assertIn("-Verb RunAs", body)
             self.assertIn('del "%~f0"', body)
             self.assertTrue(all(ord(ch) < 128 for ch in body), "ASCII seul")

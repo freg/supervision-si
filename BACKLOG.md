@@ -2386,7 +2386,8 @@ qui fait alors sauter la file.
     install.ps1, tâche planifiée) -- à tester sur un poste réel ; #446 :
     lanceurs install.cmd/uninstall.cmd et commande avec -ExecutionPolicy
     Bypass (premier retour du poste de test) ; #447 : .cmd silencieux
-    généré par le central (double-clic, UAC, OK, effacement). #442 :
+    généré par le central (double-clic, UAC, OK, effacement) ; #449 : racine
+    de l'archive cherchée autour du script. #442 :
     montages lecture seule / amovibles jamais « disque plein ». Reste :
     archive sans Docker (systemd) à tester, retours des premiers hôtes.
 
