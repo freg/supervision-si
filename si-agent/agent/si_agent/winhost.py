@@ -84,7 +84,7 @@ def map_host(raw, hostname=None):
     for d in raw.get("disks") or []:
         t, f = d.get("total_bytes"), d.get("free_bytes")
         entry = {"mountpoint": d.get("mountpoint"), "device": d.get("provider") or d.get("label") or d.get("mountpoint"), "fstype": d.get("fstype"),
-                 "remote": d.get("drive_type") == 4, "removable": d.get("drive_type") == 2, "visible": True,
+                 "remote": d.get("drive_type") == 4, "removable": d.get("drive_type") == 2, "readonly": False, "visible": True,
                  "total_bytes": t, "used_bytes": (t - f) if t and f is not None else None, "free_bytes": f,
                  "used_percent": round(100.0 * (t - f) / t, 1) if t and f is not None else None}
         if not t:

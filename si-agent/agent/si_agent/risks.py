@@ -41,6 +41,13 @@ def evaluate(host_data, thresholds=None):
         pct = disk.get("used_percent")
         if pct is None:
             continue
+        if disk.get("readonly"):
+            continue  # #442 : un montage en lecture seule (ISO, image, support protégé) ne peut pas se remplir
+        if disk.get("removable"):
+            if pct >= t["disk_critical_percent"]:
+                out.append({"id": "removable-full", "severity": "info", "subject": disk.get("mountpoint"),
+                            "message": "support amovible %s plein à %.0f %% (sans effet sur l'hôte)" % (disk.get("mountpoint"), pct)})
+            continue
         if pct >= t["disk_critical_percent"]:
             out.append({"id": "disk-full", "severity": "critical", "subject": disk.get("mountpoint"),
                         "message": "%s plein à %.0f %%" % (disk.get("mountpoint"), pct)})

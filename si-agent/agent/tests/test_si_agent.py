@@ -102,6 +102,24 @@ class HostTests(unittest.TestCase):
         self.assertIsNone(nas["used_percent"])
         self.assertIn("lecture impossible", nas["error"])
 
+    def test_montage_lecture_seule_et_amovible_jamais_disque_plein(self):
+        """#442 : « le montage readonly vu comme un disque plein met du rouge
+        critique » -- ISO GParted monté à 100 % : listé, jamais un risque."""
+        mounts = ("/dev/sda1 / ext4 rw,relatime 0 0\n/dev/loop3 /media/freg/GParted-live iso9660 ro,nosuid,nodev,relatime 0 0\n"
+                  "/dev/sdb1 /media/freg/CLEUSB vfat rw,nosuid,nodev 0 0\n/dev/sdc1 /data ext4 rw 0 0\n")
+        def usage(mp):
+            return Usage(100, 100) if mp.startswith("/media/") else (Usage(100, 97) if mp == "/data" else Usage(100, 10))
+        d = host.collect_disks(files({"/proc/mounts": mounts}), usage=usage)
+        by = {x["mountpoint"]: x for x in d}
+        self.assertTrue(by["/media/freg/GParted-live"]["readonly"] and by["/media/freg/GParted-live"]["removable"])
+        self.assertFalse(by["/"]["readonly"] or by["/"]["removable"])
+        self.assertEqual(by["/media/freg/GParted-live"]["used_percent"], 100.0)  # toujours listé
+        found = risks.evaluate({"disks": d})
+        ids = [(r["id"], r["severity"], r["subject"]) for r in found]
+        self.assertIn(("disk-full", "critical", "/data"), ids)
+        self.assertNotIn("/media/freg/GParted-live", [r["subject"] for r in found if r["id"] == "disk-full"])
+        self.assertIn(("removable-full", "info", "/media/freg/CLEUSB"), ids)
+
     def test_sshfs_fuse_sans_allow_other(self):
         """#438/#439 : « j'ai du sshfs et je ne le vois pas » -- FUSE refuse
         l'accès à root (EACCES) : remesuré comme l'utilisateur du montage

@@ -1,3 +1,14 @@
+## 2026-09-08 — Agent hôte : un montage en lecture seule n'est plus un « disque plein » (livraison #442)
+
+Retour du poste réel : un ISO GParted monté sous `/media/…` à 100 %
+ouvrait un risque `disk-full` CRITIQUE -- faux positif qui peut masquer
+un vrai problème. `collect_disks` porte `readonly` (option `ro`) et
+`removable` (`/media/`, `/run/media/`, `/mnt/usb`, `/cdrom`, `/run/live/`,
+iso9660 / udf / squashfs ; Windows : lecteur amovible) ; `risks` : lecture
+seule → jamais un risque de remplissage, amovible plein → information
+`removable-full` au plus. Toujours listés, puces « lecture seule » /
+« amovible » dans la tuile. Agent 0.4.1. Vérifié : 41 tests agent, 11 hub.
+
 ## 2026-09-08 — Rétro-ingénierie dynamique : parcours applicatifs (extension Firefox, agent relais, API « parcours », journal SQL) (livraison #441)
 
 Backlog 30, volet 2 (« schéma fonctionnel de l'interface »), demande :

@@ -266,6 +266,17 @@ def parse_mounts(text):
 _REMOTE_FS_PREFIXES = ("fuse.", "nfs", "cifs", "smb", "davfs", "9p", "ceph", "glusterfs", "afs", "lustre", "ncpfs")
 
 
+# Supports amovibles / images montées (clé USB, ISO GParted, CD) : listés,
+# jamais des risques de remplissage (#442 : un ISO monté en lecture seule
+# à 100 % remontait « disque plein » en critique).
+_REMOVABLE_FS = ("iso9660", "udf", "squashfs", "fuseblk", "vfat", "exfat")
+_REMOVABLE_MOUNT_PREFIXES = ("/media/", "/run/media/", "/mnt/usb", "/cdrom", "/run/live/")
+
+
+def is_removable_mount(mountpoint, fstype):
+    return (mountpoint or "").startswith(_REMOVABLE_MOUNT_PREFIXES) or (fstype in ("iso9660", "udf", "squashfs"))
+
+
 def is_remote_fs(fstype):
     return bool(fstype) and fstype.startswith(_REMOTE_FS_PREFIXES) and fstype not in ("fuse.gvfsd-fuse", "fuse.portal")
 
@@ -389,7 +400,9 @@ def collect_disks(files=read_file, usage=shutil.disk_usage, host_root=None, usag
                 continue
         else:
             shown = mountpoint
+        opts = (m.get("options") or "").split(",")
         entry = {"mountpoint": shown, "device": m["device"], "fstype": m["fstype"], "remote": is_remote_fs(m["fstype"]),
+                 "readonly": "ro" in opts, "removable": is_removable_mount(shown, m["fstype"]),
                  "total_bytes": None, "used_bytes": None, "free_bytes": None, "used_percent": None, "visible": True}
         shown_points.add(shown)
         owner_uid, owner_gid = fuse_owner(m.get("options")) if m["fstype"].startswith("fuse.") else (None, None)

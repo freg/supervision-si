@@ -386,6 +386,19 @@ montée ». Le montage est maintenant `${PKI_DIR:-./pki}/ca/ca.crt`. Si le
 dossier parasite existe : `docker compose stop si-agent-api && sudo rmdir
 pki/ca/ca.crt && docker compose up -d --force-recreate si-agent-api`.
 
+## Montages en lecture seule et supports amovibles (livraison #442)
+
+Retour du poste réel : « le montage readonly vu comme un disque plein met
+du rouge critique, pas bon si ça cache d'autres soucis réels ». Un ISO
+GParted monté sous `/media/…` à 100 % ouvrait `disk-full` critique.
+`collect_disks` porte maintenant `readonly` (option `ro` du montage) et
+`removable` (`/media/`, `/run/media/`, `/mnt/usb`, `/cdrom`, `/run/live/`,
+ou iso9660 / udf / squashfs ; sous Windows : lecteur amovible) ; `risks` :
+un montage en lecture seule n'est jamais un risque de remplissage, un
+support amovible plein donne au plus une information (`removable-full`).
+Toujours listés dans la tuile, avec les puces « lecture seule » et
+« amovible ». Agent 0.4.1.
+
 ## Agent Windows 10 / 11 (livraison #440, backlog 63)
 
 Demande : « pour le second test il me faut un agent Windows 10/11 ». Même

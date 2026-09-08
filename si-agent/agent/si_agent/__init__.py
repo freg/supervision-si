@@ -7,4 +7,4 @@ shell) poussés et signés par le central. Paquet DISTINCT de
 mais même protocole d'authentification et même file locale, copiés depuis
 la source canonique (voir sync-shared.sh).
 """
-__version__ = "0.4.0"
+__version__ = "0.4.1"

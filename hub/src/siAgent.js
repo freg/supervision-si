@@ -20,6 +20,7 @@ export const RISK_LABELS_FR = {
   "defender-signatures-old": "Signatures antivirus anciennes",
   "firewall-profile-off": "Pare-feu désactivé",
   "updates-pending": "Mises à jour en attente",
+  "removable-full": "Support amovible plein",
 };
 
 export const COMMAND_TYPES = [
@@ -142,6 +143,8 @@ export function diskRows(host) {
     error: d.error || null,
     invisible: d.visible === false,
     measuredAs: d.measured_as || null,
+    readonly: !!d.readonly,
+    removable: !!d.removable,
   }));
 }
 
