@@ -30,23 +30,53 @@ class CmdResult(object):
         self.returncode, self.stdout, self.stderr = returncode, stdout, stderr
 
 
-def run_cmd(argv, timeout=DEFAULT_TIMEOUT, env=None):
+def run_cmd(argv, timeout=DEFAULT_TIMEOUT, env=None, confined=None):
     """Exécution réelle ; jamais d'exception (binaire absent → -127, délai
     → -124), même contrat que netprobe_agent.tasks.run_cmd. `env` :
-    variables AJOUTÉES à l'environnement courant (plugins)."""
+    variables AJOUTÉES à l'environnement courant (collecte) ; `confined`
+    (plugins, #422) = {"env": environnement COMPLET de remplacement,
+    "preexec_fn": confinement dans l'enfant, "cwd": dossier} -- la sonde
+    tourne dans sa propre session et le délai tue tout son groupe de
+    processus, jamais seulement le premier."""
     try:
         full_env = None
-        if env:
+        if confined and confined.get("env") is not None:
+            full_env = {k: str(v) for k, v in confined["env"].items()}
+        elif env:
             full_env = dict(os.environ)
             full_env.update({k: str(v) for k, v in env.items()})
-        p = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, env=full_env)
-        return CmdResult(p.returncode, p.stdout, p.stderr)
+        if not confined:
+            p = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, env=full_env)
+            return CmdResult(p.returncode, p.stdout, p.stderr)
+        proc = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=full_env,
+                                cwd=confined.get("cwd"), preexec_fn=confined.get("preexec_fn"))
+        try:
+            out, err = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            _kill_group(proc)
+            return CmdResult(-124, "", "délai dépassé (%ss) : %s" % (timeout, " ".join(argv)))
+        return CmdResult(proc.returncode, out, err)
     except FileNotFoundError:
         return CmdResult(-127, "", "binaire introuvable : %s" % argv[0])
     except subprocess.TimeoutExpired:
         return CmdResult(-124, "", "délai dépassé (%ss) : %s" % (timeout, " ".join(argv)))
-    except OSError as exc:
+    except (OSError, subprocess.SubprocessError) as exc:
         return CmdResult(-1, "", str(exc))
+
+
+def _kill_group(proc):
+    import signal
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except (OSError, ProcessLookupError):
+        try:
+            proc.kill()
+        except OSError:
+            pass
+    try:
+        proc.communicate(timeout=5)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def read_file(path):

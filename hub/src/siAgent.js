@@ -142,10 +142,11 @@ export function portRows(host) {
 // sur l'hôte d'après le dernier inventaire, fusionnées par identifiant.
 export function mergePlugins(assigned, inventoryPlugins) {
   const out = new Map();
-  for (const p of assigned || []) out.set(p.id, { id: p.id, version: p.version, runner: p.runner, description: p.description, assigned: true, enabled_central: !!p.enabled, present: false });
+  for (const p of assigned || []) out.set(p.id, { id: p.id, version: p.version, runner: p.runner, description: p.description, assigned: true, enabled_central: !!p.enabled, blocked_central: !!p.blocked, privileged: !!p.privileged, present: false });
   for (const p of inventoryPlugins || []) {
     const cur = out.get(p.id) || { id: p.id, assigned: false };
-    out.set(p.id, { ...cur, version: cur.version || p.version, present: true, enabled_host: !!(p.effective_enabled ?? p.enabled), source: p.source || "bundled", runner: cur.runner || p.runner });
+    out.set(p.id, { ...cur, version: cur.version || p.version, present: true, enabled_host: !!(p.effective_enabled ?? p.enabled),
+      blocked_host: !!(p.effective_blocked ?? p.blocked), privileged: cur.privileged || !!p.privileged, source: p.source || "bundled", runner: cur.runner || p.runner });
   }
   return [...out.values()].sort((a, b) => a.id.localeCompare(b.id));
 }
@@ -167,4 +168,108 @@ export function validatePluginForm(form) {
 export function defaultEntry(runner, id) {
   const base = (id || "plugin").replace(/-/g, "_");
   return runner === "python" ? `${base}.py` : `${base}.sh`;
+}
+
+// ---- #422 : événements, blocage ----------------------------------------
+
+export const EVENT_KIND_LABELS_FR = {
+  "agent-started": "Agent démarré",
+  "config-applied": "Configuration appliquée",
+  "config-replayed": "Configuration rejouée (refusée)",
+  "central-response-rejected": "Réponse du central non signée / altérée",
+  "central-auth-refused": "Authentification refusée par le central",
+  "auth-refused": "Requête d'agent refusée",
+  "plugin-installed": "Sonde installée",
+  "plugin-refused": "Sonde refusée (signature)",
+  "plugin-removed": "Sonde retirée",
+  "plugin-failed": "Sonde en échec",
+  "plugin-blocked": "Sonde bloquée",
+  "plugin-unblocked": "Sonde débloquée",
+  "plugin-catalogued": "Sonde au catalogue",
+  "plugin-uncatalogued": "Sonde retirée du catalogue",
+  "plugin-assigned": "Sonde affectée",
+  "plugin-unassigned": "Sonde désaffectée",
+  "blocked": "Blocage général (agent)",
+  "unblocked": "Déblocage général (agent)",
+  "fleet-blocked": "BLOCAGE GÉNÉRAL de la flotte",
+  "fleet-unblocked": "Blocage général levé",
+  "agent-blocked": "Agent bloqué",
+  "agent-unblocked": "Agent débloqué",
+  "agent-enrolled": "Agent enrôlé",
+  "agent-deleted": "Agent supprimé",
+  "agent-activated": "Agent réactivé",
+  "agent-deactivated": "Agent désactivé",
+  "agent-offline": "Agent hors ligne",
+  "agent-online": "Agent de nouveau en ligne",
+  "secret-rotated": "Secret renouvelé",
+  "command-block": "Commande de blocage envoyée",
+  "command-acked": "Commande appliquée",
+  "command-failed": "Commande en échec",
+  "command-replayed": "Commande rejouée (ignorée)",
+  "command-unknown": "Commande inconnue",
+  "tls-insecure": "TLS non vérifié",
+  "notification-test": "Test de notification",
+};
+
+export const EVENT_SEVERITIES = ["critical", "warning", "info"];
+
+export function eventKindLabel(kind) {
+  return EVENT_KIND_LABELS_FR[kind] || kind || "—";
+}
+
+// Genres qui relèvent de la SÉCURITÉ (mis en avant dans la synthèse).
+export const SECURITY_KINDS = new Set([
+  "config-replayed", "central-response-rejected", "central-auth-refused", "auth-refused", "plugin-refused",
+  "command-replayed", "tls-insecure", "fleet-blocked", "agent-blocked", "plugin-blocked", "secret-rotated", "plugin-catalogued",
+]);
+
+export function isSecurityEvent(e) {
+  return SECURITY_KINDS.has(e?.kind) || e?.severity === "critical";
+}
+
+// Synthèse d'un lot d'événements : compteurs par sévérité / source, part sécurité.
+export function summarizeEvents(events) {
+  const out = { total: 0, critical: 0, warning: 0, info: 0, agent: 0, central: 0, security: 0, byKind: {} };
+  for (const e of events || []) {
+    out.total += 1;
+    if (e.severity in out) out[e.severity] += 1;
+    if (e.source === "agent") out.agent += 1; else out.central += 1;
+    if (isSecurityEvent(e)) out.security += 1;
+    out.byKind[e.kind] = (out.byKind[e.kind] || 0) + 1;
+  }
+  return out;
+}
+
+// Filtre côté client (onglet Événements) : sévérité minimale, agent, sécurité seulement, texte.
+export function filterEvents(events, { minSeverity = "info", agent = "", securityOnly = false, text = "" } = {}) {
+  const max = EVENT_SEVERITIES.indexOf(minSeverity);
+  const t = (text || "").trim().toLowerCase();
+  return (events || []).filter((e) => {
+    if (EVENT_SEVERITIES.indexOf(e.severity) > max) return false;
+    if (agent && e.agent_id !== agent) return false;
+    if (securityOnly && !isSecurityEvent(e)) return false;
+    if (t && !`${e.kind} ${e.message} ${e.agent_id || ""}`.toLowerCase().includes(t)) return false;
+    return true;
+  });
+}
+
+// Ton du bandeau de synthèse sur l'accueil du hub.
+export function bannerTone(summary) {
+  if (!summary) return "neutral";
+  if (summary.fleet_blocked || summary.counts?.critical > 0) return "bad";
+  if (summary.counts?.warning > 0 || summary.agents_offline?.length > 0 || summary.agents_blocked?.length > 0) return "warn";
+  return "good";
+}
+
+export function bannerHeadline(summary) {
+  if (!summary) return "Agents hôtes : synthèse indisponible";
+  if (summary.fleet_blocked) return `BLOCAGE GÉNÉRAL des sondes en cours${summary.fleet_block_reason ? ` — ${summary.fleet_block_reason}` : ""}`;
+  const parts = [];
+  const c = summary.counts || {};
+  if (c.critical) parts.push(`${c.critical} critique${c.critical > 1 ? "s" : ""}`);
+  if (c.warning) parts.push(`${c.warning} avertissement${c.warning > 1 ? "s" : ""}`);
+  if (summary.agents_offline?.length) parts.push(`${summary.agents_offline.length} agent${summary.agents_offline.length > 1 ? "s" : ""} hors ligne`);
+  if (summary.agents_blocked?.length) parts.push(`${summary.agents_blocked.length} bloqué${summary.agents_blocked.length > 1 ? "s" : ""}`);
+  if (!parts.length) return `Agents hôtes : rien à signaler sur ${summary.window_hours} h (${summary.agents} agent${summary.agents > 1 ? "s" : ""})`;
+  return `Agents hôtes, ${summary.window_hours} h : ${parts.join(", ")}`;
 }

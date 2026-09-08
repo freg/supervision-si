@@ -1,4 +1,4 @@
-# si-agent — agent hôte Linux, moteur de sondes et central (livraisons #420, #421)
+# si-agent — agent hôte Linux, moteur de sondes et central (livraisons #420 à #422)
 
 Demandé : « une sonde linux… un agent qui permette d'auditer le host et sa
 zone réseau… déployer des sondes futures en python ou en shell/bash », précisé
@@ -95,7 +95,8 @@ Plugins livrés (exemples des deux runners, désactivés) :
 cd si-agent/agent
 sudo ./install.sh --agent srv-01 --secret 'SECRET' \
      --central https://VM:6443/api/si-agent --site siege \
-     [--ca ca.crt | --insecure] [--enable-plugin network-neighbors]
+     [--ca ca.crt | --ca-fingerprint <sha256> | --insecure] \
+     [--enable-plugin network-neighbors] [--plugins-user nobody] [--log-level DEBUG]
 ```
 
 Copie le paquet dans `/opt/si-agent`, les plugins dans
@@ -106,13 +107,16 @@ installe et démarre `si-agent.service`. Sur place :
 PYTHONPATH=/opt/si-agent python3 -m si_agent.agent --status    # file, plugins, derniers risques
 PYTHONPATH=/opt/si-agent python3 -m si_agent.agent --collect   # une collecte hôte + risques, affichée, sans envoi
 PYTHONPATH=/opt/si-agent python3 -m si_agent.agent --once      # un passage complet (config, collecte, plugins, envoi)
+PYTHONPATH=/opt/si-agent python3 -m si_agent.agent --block "incident" # blocage général local (ou : touch /etc/si-agent/BLOCKED)
 ```
 
 `agent.json` : `agent_id`, `secret`, `central_url` (obligatoires), `site`,
 `host_interval_seconds` 60, `inventory_interval_seconds` 3600,
 `poll_config_seconds` 300, `commands_poll_seconds` 60, `flush_seconds` 30,
 `batch_size` 100, `queue_path`, `plugins_dir`, `risk_thresholds`, `plugins`
-(surcharges locales), `ca_file`, `insecure`.
+(surcharges locales), `ca_file`, `insecure` ; #422 : `state_path`,
+`block_file`, `require_signed_responses` (true), `plugins_user` (nobody),
+`plugin_max_memory_mb` (512), `log_level`, `log_file`.
 
 ## Protocole attendu du central (contrat pour `si-agent-api`, #421)
 
@@ -185,13 +189,90 @@ de `validate_manifest` avant envoi, retrait.
 Logique pure dans `hub/src/siAgent.js` (`hub/tests/siAgent.test.mjs`),
 client `siAgentClient.js`, vue `SiAgentView.jsx`.
 
+## Sécurisation du déploiement et du contrôle des sondes (livraison #422)
+
+Demandé : « sécuriser le déploiement et le contrôle des sondes, ssl, logs
+verbeux, notifications et présenter une synthèse des événements sur le
+hub, ajouter une commande de blocage général et une autre individuelle ».
+Logique partagée dans `si_agent/control.py` (copié dans le central).
+
+**Réponses signées.** Le protocole netprobe authentifie l'agent, pas le
+central : configuration et commandes n'étaient protégées que par TLS. Le
+central signe désormais chaque réponse de la face agents (en-têtes
+`X-Netprobe-Response-Timestamp` / `-Signature`, HMAC du secret de l'agent
+sur l'horodatage + SHA-256 du corps) ; l'agent refuse (événement
+`central-response-rejected`, critique) toute réponse non signée ou
+altérée — un central usurpé ne fait rien exécuter, même derrière
+`insecure`. Rejeu neutralisé : `issued_at` monotone pour la
+configuration, identifiants de commandes mémorisés (`state.json`).
+`require_signed_responses: false` seulement pour un central ancien.
+
+**Sondes confinées.** Environnement minimal (jamais celui du service),
+session propre (le délai tue tout le groupe de processus), priorité
+abaissée, limites CPU / mémoire (`max_memory_mb`, 512 Mo par défaut) /
+fichiers, umask 077, et abandon des privilèges vers `plugins_user`
+(`nobody`) quand l'agent est root — sauf sonde `privileged: true`, drapeau
+**couvert par la signature** du central et journalisé ; les sondes livrées
+`docker-containers` est privilégiée (socket Docker), `network-neighbors`
+non. Les sondes installées avant #422 sont normalisées (0755) au démarrage.
+
+**Blocage général et individuel.** Trois sources, la plus restrictive
+gagne : configuration du central (`blocked`, manifeste `blocked`),
+commandes immédiates (`block_all` / `unblock_all` / `block_plugin` /
+`unblock_plugin`), et sur place le fichier `/etc/si-agent/BLOCKED` ou
+`--block` / `--unblock`. Bloqué = plus aucune sonde exécutée ni installée,
+la surveillance de l'hôte et les remontées continuent (on voit toujours
+l'agent, qui déclare son état dans l'inventaire). Côté central : `POST
+/block` (toute la flotte, réglage global + commande à chaque agent),
+`/unblock`, `POST /agents/<id>/block|unblock`, `PUT
+/agents/<id>/plugins/<pid> {blocked, reason}` ; la tuile a le bouton rouge
+« Blocage général », un bandeau tant qu'il est actif, « Bloquer » par
+agent, une case « bloquée » par sonde.
+
+**TLS.** `GET /ca` sert le certificat de l'autorité interne
+(`pki/ca/ca.crt` monté en lecture seule) ; la commande d'installation
+porte `--ca-fingerprint <sha256>` : `install.sh` récupère la CA du central
+(sans vérification à ce seul moment) et ne l'installe que si l'empreinte
+correspond — amorçage sûr sans copier de fichier. `--insecure` reste un
+mode de dépannage : signalé au central (événement `tls-insecure`) et dans
+la tuile. HTTP clair : avertissement, réservé au test.
+
+**Traces verbeuses.** Agent : `log_level` / `--verbose` (requêtes avec
+statut et durée, lancement et résultat de chaque sonde, commandes,
+drapeaux), `log_file` en rotation en plus de journald. Central :
+`SI_AGENT_LOG_LEVEL` (DEBUG = chaque requête d'agent), refus toujours
+journalisés (WARNING + événement `auth-refused`, une fois par 10 min par
+motif), journal partagé `/logs`. Jamais un secret dans une trace.
+
+**Journal d'événements.** Table `events` : événements REMONTÉS par les
+agents (mesure `event` : démarrage, configuration appliquée / rejouée,
+sonde installée / refusée / retirée / en échec / bloquée, blocage,
+commande rejouée ou inconnue, TLS non vérifié, réponse du central
+rejetée…) et événements DU central (enrôlement, suppression, rotation de
+secret, catalogue, affectations, blocages, commandes en échec, refus
+d'authentification, agent hors ligne / de retour — chien de garde toutes
+les 30 s). `GET /events?agent&severity&min_severity&kind&since&limit`,
+`GET /events/summary?hours=24`. Onglet « Événements » de la tuile
+(filtres sévérité / agent / sécurité / texte, clic → l'agent) et
+**bandeau de synthèse sur l'accueil du hub** (blocage général, critiques,
+avertissements, agents hors ligne / bloqués sur 24 h, derniers
+événements notables ; clic → la tuile).
+
+**Notifications.** `notify.py` : un événement ≥ `SI_AGENT_NOTIFY_MIN_SEVERITY`
+part vers les canaux configurés — SMS et courriel par la copie de
+`shared/secrets_alert.py` (canaux du PRA #206, variables `SECRETS_ALERT_*`),
+webhook `SI_AGENT_NOTIFY_WEBHOOK_URL` (POST JSON `{text, event}`) — en
+thread, best-effort, anti-tempête `SI_AGENT_NOTIFY_COOLDOWN_SECONDS` par
+(genre, agent) ; résultat mémorisé sur l'événement (colonne « Notifié »),
+`POST /notifications/test` et bouton « tester » dans la tuile.
+
 ## Tests
 
 ```bash
-cd si-agent/agent && python3 -m unittest            # 16 tests (agent)
+cd si-agent/agent && python3 -m unittest            # 22 tests (agent)
 ./sync-shared.sh --check                              # copies protocol/localqueue à jour
-cd ../api && python3 -m unittest                      # 5 tests (central), dont la chaîne réelle agent ↔ central
-cd ../../hub && node --test tests/siAgent.test.mjs    # 8 tests (logique de la tuile)
+cd ../api && python3 -m unittest                      # 9 tests (central), dont la chaîne réelle agent ↔ central
+cd ../../hub && node --test tests/siAgent.test.mjs    # 10 tests (logique de la tuile)
 ```
 
 Collecteurs sur des contenus `/proc`, `ss`, `journalctl`, `passwd` réels
@@ -220,6 +301,22 @@ sombre) sur ces données réelles ; builds Vite hub ; `docker-compose.yml`
 valide, sources `COPY` du Dockerfile présentes (contrôle #409), route
 tls-proxy rendue.
 
-**Non vérifié** : `install.sh` et le service systemd sur une vraie machine
-(pas de systemd ici) ; Raspberry Pi ; `journalctl` avec de vraies erreurs ;
-build Docker de `si-agent-api` ; passage par la passerelle TLS réelle.
+**Vérifié (#422)** : 22 tests agent (réponse non signée / altérée /
+mauvais secret refusée, rejeu de configuration et de commande, blocage
+général et individuel par commande / configuration / fichier local avec
+persistance après redémarrage, drapeau `privileged` non signé refusé,
+exécution RÉELLE confinée : `nobody`, environnement minimal, délai qui tue
+le groupe) ; 9 tests central (réponses signées, blocage de flotte puis
+individuel en chaîne réelle avec deux agents, chien de garde hors ligne /
+en ligne avec webhook RÉEL reçu, seuil et anti-tempête, `/ca` avec une
+vraie CA et empreinte dans la commande d'installation) ; chaîne par HTTP
+réel (agent `--once` en DEBUG, sonde exécutée en `nobody`, blocage
+général → commande + configuration, déblocage, blocage d'une sonde,
+notifications webhook reçues) ; migration du schéma sur la base existante
+de #421 ; rendus Chromium (bandeau de blocage, journal, synthèse sur
+l'accueil en thème sombre).
+
+**Non vérifié** : `install.sh` (`--ca-fingerprint` testé seulement par son
+extrait Python contre le vrai `/ca`) et le service systemd sur une vraie
+machine ; Raspberry Pi ; build Docker ; passerelle TLS réelle ; canaux SMS
+et courriel réels (fonctions du PRA réutilisées telles quelles).

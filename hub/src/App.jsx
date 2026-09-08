@@ -29,6 +29,7 @@ import RightsView from "./RightsView.jsx";
 import NetprobeView from "./NetprobeView.jsx";
 import UpsView from "./UpsView.jsx";
 import SiAgentView from "./SiAgentView.jsx";
+import SiAgentEventsBanner from "./SiAgentEventsBanner.jsx";
 import GedView from "./GedView.jsx";
 import SshTunnelsView from "./SshTunnelsView.jsx";
 import SnmpView from "./SnmpView.jsx";
@@ -1714,6 +1715,9 @@ export default function App() {
           )}
 
           <main className="hub-main">
+            {SI_AGENT_API_BASE_URL && (
+              <SiAgentEventsBanner siAgentApiBase={SI_AGENT_API_BASE_URL} onOpen={() => setViewMode("si-agent")} />
+            )}
             {fronts.length === 0 && (
               <p className="muted">
                 Aucune application configurée — vérifiez VITE_SUPERVISION_FRONTEND_URL /

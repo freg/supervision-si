@@ -1,3 +1,74 @@
+## 2026-09-08 — si-agent : déploiement et contrôle des sondes sécurisés, blocage général / individuel, journal d'événements, notifications, synthèse sur le hub (livraison #422)
+
+Demandé : « sécuriser le déploiement et le contrôle des sondes, ssl, logs
+verbeux, notifications et présenter une synthèse des événements sur le
+hub, ajouter une commande de blocage général et une autre individuelle ».
+Backlog 63. Logique partagée agent / central dans
+`si-agent/agent/si_agent/control.py` (copié au build, jamais réimplémenté).
+
+- **Réponses signées du central** : le protocole netprobe authentifiait
+  l'agent, pas le central -- configuration et commandes n'étaient
+  protégées que par TLS. Chaque réponse de la face agents porte désormais
+  un HMAC (secret de l'agent, horodatage + SHA-256 du corps) ; l'agent
+  refuse toute réponse non signée ou altérée (événement critique), même
+  derrière `insecure`. Rejeu neutralisé : `issued_at` monotone, commandes
+  mémorisées. Tests : central non signé, corps altéré, mauvais secret,
+  rejeu de configuration et de commande -- rien ne s'exécute.
+- **Sondes confinées** : environnement minimal, session propre (le délai
+  tue tout le groupe), priorité abaissée, limites CPU / mémoire /
+  fichiers, umask 077, exécution en `nobody` quand l'agent est root sauf
+  sonde `privileged` -- drapeau couvert par la signature du central et
+  journalisé ; `docker-containers` devient privilégiée, `network-neighbors`
+  non. Sondes antérieures normalisées en 0755 au démarrage (trouvé en
+  testant sur la base de #421 : `Permission denied` pour `nobody`).
+- **Blocage général et individuel** : commandes `block_all` /
+  `unblock_all` / `block_plugin` / `unblock_plugin`, configuration
+  déclarative (`blocked`, manifeste `blocked`), fichier local
+  `/etc/si-agent/BLOCKED` et `--block` / `--unblock` sur place ; le plus
+  restrictif gagne, persistant, la surveillance de l'hôte continue.
+  Central : `POST /block` (flotte : réglage global + commande immédiate à
+  chaque agent), `/unblock`, `/agents/<id>/block|unblock`, sonde bloquée
+  par affectation. Tuile : bouton rouge « Blocage général », bandeau tant
+  qu'actif, « Bloquer » par agent, case par sonde, état confirmé par
+  l'agent (inventaire).
+- **TLS** : `GET /ca` sert `pki/ca/ca.crt` (monté seul, jamais la clé) ;
+  commande d'installation avec `--ca-fingerprint <sha256>` : `install.sh`
+  récupère la CA et ne l'installe que si l'empreinte correspond.
+  `insecure` signalé au central (événement, tuile). HTTP clair averti.
+- **Traces verbeuses** : agent `log_level` / `--verbose` / `log_file`
+  (requêtes, sondes, commandes) ; central `SI_AGENT_LOG_LEVEL`, refus
+  toujours journalisés + événement `auth-refused` (anti-tempête 10 min).
+- **Journal d'événements** : mesure `event` remontée par les agents
+  (démarrage, configuration, sondes installées / refusées / en échec,
+  blocages, rejeux, TLS…) + événements du central (enrôlement, rotation,
+  catalogue, affectations, blocages, commandes en échec, refus, agent
+  hors ligne / de retour par chien de garde 30 s). `GET /events`,
+  `/events/summary`, onglet « Événements » (filtres, sécurité, clic →
+  agent), **bandeau de synthèse sur l'accueil du hub**
+  (`SiAgentEventsBanner.jsx`).
+- **Notifications** : `si-agent/api/notify.py` -- SMS / courriel par la
+  COPIE de `shared/secrets_alert.py` (canaux du PRA #206, variables
+  `SECRETS_ALERT_*` désormais dans `.env.example` et passées au
+  conteneur), webhook `SI_AGENT_NOTIFY_WEBHOOK_URL` ; seuil
+  `SI_AGENT_NOTIFY_MIN_SEVERITY`, anti-tempête
+  `SI_AGENT_NOTIFY_COOLDOWN_SECONDS`, thread, best-effort, résultat
+  mémorisé sur l'événement, `POST /notifications/test` et bouton « tester ».
+- Schéma : colonnes ajoutées par `ALTER TABLE` idempotent (migration
+  vérifiée sur la base réelle de #421). Agent v0.2.0.
+
+**Vérifié** : 22 tests agent (dont exécution réelle confinée en `nobody`
+et délai tuant le groupe de processus), 9 tests central (blocage de
+flotte puis individuel avec deux vrais agents, chien de garde + webhook
+réel, `/ca` avec vraie CA), 100 tests hub (10 pour la tuile), builds Vite
+hub et harnais, chaîne par HTTP réel (agent `--once` DEBUG, blocage /
+déblocage / blocage d'une sonde, webhooks reçus), rendus Chromium
+(bandeau de blocage, journal, synthèse sur l'accueil), `docker-compose.yml`
+valide.
+
+**Non vérifié** : `install.sh --ca-fingerprint` de bout en bout (son
+extrait Python testé contre le vrai `/ca`), systemd, Raspberry Pi, build
+Docker, passerelle TLS réelle, canaux SMS / courriel réels.
+
 ## 2026-09-07 — si-agent-api : central des agents hôtes + tuile « Agents hôtes » (livraison #421)
 
 Backlog 63, second volet, contre le contrat décrit en #420. Demandé :

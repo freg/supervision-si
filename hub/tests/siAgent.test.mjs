@@ -97,3 +97,38 @@ test("validation du formulaire de sonde (miroir de validate_manifest)", () => {
   assert.equal(defaultEntry("python", "disk-smart"), "disk_smart.py");
   assert.equal(defaultEntry("shell", ""), "plugin.sh");
 });
+
+// ---- #422 ----
+import { eventKindLabel, isSecurityEvent, summarizeEvents, filterEvents, bannerTone, bannerHeadline } from "../src/siAgent.js";
+
+test("événements : libellés, sécurité, synthèse, filtres", () => {
+  assert.equal(eventKindLabel("fleet-blocked"), "BLOCAGE GÉNÉRAL de la flotte");
+  assert.equal(eventKindLabel("zzz"), "zzz");
+  assert.equal(isSecurityEvent({ kind: "plugin-refused", severity: "warning" }), true);
+  assert.equal(isSecurityEvent({ kind: "config-applied", severity: "info" }), false);
+  assert.equal(isSecurityEvent({ kind: "whatever", severity: "critical" }), true);
+  const evs = [
+    { id: 1, kind: "plugin-refused", severity: "warning", source: "agent", agent_id: "a", message: "refusée" },
+    { id: 2, kind: "config-applied", severity: "info", source: "agent", agent_id: "a", message: "ok" },
+    { id: 3, kind: "fleet-blocked", severity: "critical", source: "central", agent_id: null, message: "incident" },
+    { id: 4, kind: "agent-enrolled", severity: "info", source: "central", agent_id: "b", message: "enrôlé" },
+  ];
+  const sm = summarizeEvents(evs);
+  assert.deepEqual([sm.total, sm.critical, sm.warning, sm.info, sm.agent, sm.central, sm.security], [4, 1, 1, 2, 2, 2, 2]);
+  assert.deepEqual(filterEvents(evs, { minSeverity: "warning" }).map((e) => e.id), [1, 3]);
+  assert.deepEqual(filterEvents(evs, { agent: "a" }).map((e) => e.id), [1, 2]);
+  assert.deepEqual(filterEvents(evs, { securityOnly: true }).map((e) => e.id), [1, 3]);
+  assert.deepEqual(filterEvents(evs, { text: "ENRÔ" }).map((e) => e.id), [4]);
+});
+
+test("bandeau d'accueil : ton et titre", () => {
+  assert.equal(bannerTone(null), "neutral");
+  assert.equal(bannerTone({ fleet_blocked: true, counts: {} }), "bad");
+  assert.equal(bannerTone({ counts: { critical: 1 } }), "bad");
+  assert.equal(bannerTone({ counts: { warning: 2 }, agents_offline: [] }), "warn");
+  assert.equal(bannerTone({ counts: {}, agents_offline: ["x"] }), "warn");
+  assert.equal(bannerTone({ counts: {}, agents_offline: [], agents_blocked: [] }), "good");
+  assert.match(bannerHeadline({ fleet_blocked: true, fleet_block_reason: "incident", counts: {} }), /BLOCAGE GÉNÉRAL.*incident/);
+  assert.equal(bannerHeadline({ counts: {}, agents_offline: [], agents_blocked: [], window_hours: 24, agents: 3 }), "Agents hôtes : rien à signaler sur 24 h (3 agents)");
+  assert.equal(bannerHeadline({ counts: { critical: 1, warning: 2 }, agents_offline: ["a"], agents_blocked: [], window_hours: 24 }), "Agents hôtes, 24 h : 1 critique, 2 avertissements, 1 agent hors ligne");
+});

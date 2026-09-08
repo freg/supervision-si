@@ -2,25 +2,28 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   fetchSiAgentStatus, fetchFleet, fetchFleetRisks, fetchAgent, createAgent, updateAgent, deleteAgent,
   rotateAgentSecret, fetchInstall, fetchPlugins, fetchPlugin, savePlugin, deletePlugin, assignPlugin,
-  unassignPlugin, sendCommand, fetchCommands,
+  unassignPlugin, sendCommand, fetchCommands, blockFleet, unblockFleet, blockAgent, unblockAgent, setPluginBlocked,
+  fetchEvents, fetchEventsSummary, testNotifications,
 } from "./siAgentClient.js";
 import {
   COMMAND_TYPES, CONTACT_LABELS, riskLabel, severityTone, stateTone, contactTone, gauge, formatBytes,
   formatUptime, formatAge, ageSeconds, sortFleet, riskSummaryText, diskRows, portRows, mergePlugins,
-  validatePluginForm, defaultEntry,
+  validatePluginForm, defaultEntry, eventKindLabel, filterEvents, summarizeEvents, isSecurityEvent, EVENT_SEVERITIES,
 } from "./siAgent.js";
 
 // Tuile « Agents hôtes » (livraison #421, backlog 63) -- flotte des agents
 // si-agent (surveillance de l'hôte : CPU, mémoire, disques, services,
 // ports, journal, comptes), risques internes, catalogue de sondes
 // (plugins shell/python) affectées et poussées signées, commandes
-// acquittées. Toute la logique non-React est dans siAgent.js (testée à
-// part) ; le central est si-agent-api (si-agent/README.md).
+// acquittées. #422 : blocage général / individuel, journal d'événements
+// (agents + central), état de sécurité (CA, TLS, notifications). Toute la
+// logique non-React est dans siAgent.js (testée à part) ; le central est
+// si-agent-api (si-agent/README.md).
 
 const REFRESH_MS = 30000;
 
 const EMPTY_AGENT_FORM = { agent_id: "", site: "", label: "", host_interval_seconds: "", notes: "" };
-const EMPTY_PLUGIN_FORM = { id: "", version: "1", runner: "shell", entry: "", interval_seconds: "3600", timeout_seconds: "60", args: "", description: "", body: "" };
+const EMPTY_PLUGIN_FORM = { id: "", version: "1", runner: "shell", entry: "", interval_seconds: "3600", timeout_seconds: "60", args: "", description: "", body: "", privileged: false, max_memory_mb: "" };
 
 function Tone({ tone, children, title }) {
   return <span className={`np-tone ${tone || "neutral"}`} title={title}>{children}</span>;
@@ -70,14 +73,22 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
   const [pluginForm, setPluginForm] = useState(EMPTY_PLUGIN_FORM);
   const [showPluginForm, setShowPluginForm] = useState(false);
 
+  // #422 : journal d'événements
+  const [events, setEvents] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [evFilter, setEvFilter] = useState({ minSeverity: "info", agent: "", securityOnly: false, text: "" });
+
   const load = useCallback(async () => {
-    const [st, fl, rk, cat] = await Promise.all([
+    const [st, fl, rk, cat, ev, sm] = await Promise.all([
       fetchSiAgentStatus(siAgentApiBase), fetchFleet(siAgentApiBase), fetchFleetRisks(siAgentApiBase), fetchPlugins(siAgentApiBase),
+      fetchEvents(siAgentApiBase, { limit: 300 }), fetchEventsSummary(siAgentApiBase, 24),
     ]);
     setStatus(st);
     setFleet(fl);
     setRisks(rk);
     setCatalogue(cat);
+    setEvents(ev);
+    setSummary(sm?.error ? null : sm);
     setError(st?.error || null);
     setLoading(false);
     setNow(Date.now());
@@ -126,6 +137,57 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
     const r = await deleteAgent(siAgentApiBase, a.agent_id, true);
     if (r?.error) { setError(r.error); return; }
     if (selectedId === a.agent_id) setSelectedId(null);
+    await load();
+  }
+
+  // --- Blocage (#422) ---
+  async function handleBlockFleet() {
+    const reason = window.prompt("BLOCAGE GÉNÉRAL : plus aucune sonde ne s'exécute ni ne s'installe sur AUCUN agent (la surveillance de l'hôte continue). Motif :", "incident de sécurité");
+    if (reason === null) return;
+    const r = await blockFleet(siAgentApiBase, reason);
+    if (r?.error) { setError(r.error); return; }
+    setNotice("Blocage général demandé : configuration et commande immédiate envoyées à tous les agents.");
+    await load();
+  }
+
+  async function handleUnblockFleet() {
+    if (!window.confirm("Lever le blocage général ? Les agents bloqués individuellement le restent.")) return;
+    const r = await unblockFleet(siAgentApiBase);
+    if (r?.error) { setError(r.error); return; }
+    await load();
+  }
+
+  async function handleBlockAgent(a) {
+    if (a.blocked) {
+      const r = await unblockAgent(siAgentApiBase, a.agent_id);
+      if (r?.error) { setError(r.error); return; }
+    } else {
+      const reason = window.prompt(`Bloquer toutes les sondes de « ${a.agent_id} » ? Motif :`, "analyse en cours");
+      if (reason === null) return;
+      const r = await blockAgent(siAgentApiBase, a.agent_id, reason);
+      if (r?.error) { setError(r.error); return; }
+    }
+    await load();
+    if (selectedId === a.agent_id) loadDetail(a.agent_id);
+  }
+
+  async function handlePluginBlock(p) {
+    let reason = null;
+    if (!p.blocked_central) {
+      reason = window.prompt(`Bloquer la sonde « ${p.id} » sur cet agent ? Motif :`, "sortie suspecte");
+      if (reason === null) return;
+    }
+    const r = await setPluginBlocked(siAgentApiBase, selectedId, p.id, !p.blocked_central, reason);
+    if (r?.error) { setError(r.error); return; }
+    await load();
+    loadDetail(selectedId);
+  }
+
+  async function handleTestNotifications() {
+    const r = await testNotifications(siAgentApiBase);
+    if (r?.error) { setError(r.error); return; }
+    const ok = Object.entries(r).filter(([k]) => k !== "at").map(([k, v]) => `${k} : ${v ? "envoyé" : "échec"}`).join(", ");
+    setNotice(`Test de notification : ${ok || "aucun canal configuré"}.`);
     await load();
   }
 
@@ -202,7 +264,8 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
     const full = await fetchPlugin(siAgentApiBase, p.id);
     if (full?.error) { setError(full.error); return; }
     setPluginForm({ id: full.id, version: String(full.version || "1"), runner: full.runner, entry: full.entry, interval_seconds: String(full.interval_seconds || 3600),
-      timeout_seconds: String(full.timeout_seconds || 60), args: (full.args || []).join(" "), description: full.description || "", body: full.body || "" });
+      timeout_seconds: String(full.timeout_seconds || 60), args: (full.args || []).join(" "), description: full.description || "", body: full.body || "",
+      privileged: !!full.privileged, max_memory_mb: full.max_memory_mb ? String(full.max_memory_mb) : "" });
     setShowPluginForm(true);
     setTab("catalogue");
   }
@@ -215,7 +278,8 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
     const r = await savePlugin(siAgentApiBase, {
       manifest: { id: pluginForm.id.trim(), version: pluginForm.version.trim() || "1", runner: pluginForm.runner, entry: pluginForm.entry.trim(),
         interval_seconds: Number(pluginForm.interval_seconds) || 3600, timeout_seconds: Number(pluginForm.timeout_seconds) || 60,
-        args: pluginForm.args.trim() ? pluginForm.args.trim().split(/\s+/) : [], description: pluginForm.description },
+        args: pluginForm.args.trim() ? pluginForm.args.trim().split(/\s+/) : [], description: pluginForm.description,
+        privileged: !!pluginForm.privileged, max_memory_mb: pluginForm.max_memory_mb ? Number(pluginForm.max_memory_mb) : null },
       body: pluginForm.body,
     });
     setBusy(false);
@@ -263,17 +327,39 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
             {" · "}risques : <Tone tone={status.risks.critical ? "bad" : "neutral"}>{status.risks.critical} critique(s)</Tone>, <Tone tone={status.risks.warning ? "warn" : "neutral"}>{status.risks.warning} avertissement(s)</Tone>
             {" · "}{status.plugins} sonde(s) au catalogue · hors ligne après {formatAge(status.offline_after_seconds)} sans contact · {status.retention_days ? `${status.retention_days} jours d'archive` : "archive illimitée"}
             {!status.public_url && <><br /><Tone tone="warn">⚠ SI_AGENT_PUBLIC_URL non défini : la commande d'installation affiche « https://&lt;VM&gt;:6443/api/si-agent » à remplacer.</Tone></>}
+            <br />
+            <span className="muted">Sécurité :</span>{" "}
+            {status.ca?.available ? <Tone tone="good" title={status.ca.sha256}>CA interne servie (empreinte {status.ca.sha256.slice(0, 12)}…)</Tone> : <Tone tone="warn">CA interne non montée (SI_AGENT_CA_FILE) : amorçage TLS par empreinte indisponible</Tone>}
+            {" · "}réponses signées aux agents · sondes confinées (utilisateur non privilégié, limites, délai)
+            {status.insecure_agents?.length > 0 && <> · <Tone tone="bad">⚠ TLS non vérifié sur : {status.insecure_agents.join(", ")}</Tone></>}
+            {status.agents_blocked > 0 && <> · <Tone tone="warn">{status.agents_blocked} agent(s) bloqué(s)</Tone></>}
+            {" · "}notifications : {status.notifications?.any
+              ? <Tone tone="good">{Object.entries(status.notifications.channels).filter(([, v]) => v).map(([k]) => k).join(", ")} (≥ {status.notifications.min_severity})</Tone>
+              : <Tone tone="warn">aucun canal (SECRETS_ALERT_* / SI_AGENT_NOTIFY_WEBHOOK_URL)</Tone>}
+            {" "}<button className="secondary" style={{ padding: "0 6px", fontSize: 11 }} onClick={handleTestNotifications}>tester</button>
+            {" · "}traces {status.log_level}
           </p>
         ) : (
           <p className="muted" style={{ margin: 0 }}>{loading ? "Chargement…" : "si-agent-api injoignable."}</p>
         )}
       </div>
 
+      {status?.fleet_blocked && (
+        <div className="sa-fleet-blocked">
+          <strong>⛔ BLOCAGE GÉNÉRAL EN COURS</strong> — {status.fleet_block_reason || "sans motif"} (depuis {when(status.fleet_blocked_at)}). Aucune sonde ne s'exécute ni ne s'installe sur aucun agent ; la surveillance des hôtes continue.
+          <button className="secondary" onClick={handleUnblockFleet}>Lever le blocage général</button>
+        </div>
+      )}
+
       <div className="ups-toolbar">
         <button className={`secondary na-section-toggle${tab === "fleet" ? " active" : ""}`} onClick={() => setTab("fleet")}>Flotte ({fleet.length})</button>
         <button className={`secondary na-section-toggle${tab === "risks" ? " active" : ""}`} onClick={() => setTab("risks")}>Risques ({risks.length})</button>
         <button className={`secondary na-section-toggle${tab === "catalogue" ? " active" : ""}`} onClick={() => setTab("catalogue")}>Catalogue de sondes ({catalogue.length})</button>
+        <button className={`secondary na-section-toggle${tab === "events" ? " active" : ""}`} onClick={() => setTab("events")}>
+          Événements {summary ? <>({summary.counts.critical + summary.counts.warning} sur 24 h)</> : ""}
+        </button>
         <span style={{ flex: 1 }} />
+        {!status?.fleet_blocked && <button className="sa-danger" onClick={handleBlockFleet} title="Arrêt d'urgence de toutes les sondes, sur tous les agents">⛔ Blocage général</button>}
         <button className="secondary" onClick={load} disabled={busy}>⟳ Rafraîchir</button>
       </div>
 
@@ -329,6 +415,8 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                           <Tone tone={contactTone(a.online)} title={when(a.last_seen_at)}>{CONTACT_LABELS[a.online] || a.online}</Tone>
                           {age != null && <div className="muted" style={{ fontSize: 11 }}>il y a {formatAge(age)}</div>}
                           {!a.active && <div className="muted" style={{ fontSize: 11 }}>désactivé</div>}
+                          {(a.blocked || a.host_blocked || status?.fleet_blocked) && <div><Tone tone="bad" title={a.blocked_reason || a.host_blocked_reason || ""}>⛔ sondes bloquées{a.host_blocked ? " (confirmé)" : ""}</Tone></div>}
+                          {a.insecure_tls && <div><Tone tone="warn">TLS non vérifié</Tone></div>}
                         </td>
                         <td><Gauge percent={a.summary?.cpu_percent} label={`charge 5 min ${a.summary?.load5 ?? "—"}`} /></td>
                         <td><Gauge percent={a.summary?.memory_percent} /></td>
@@ -337,6 +425,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                         <td className="muted">{a.plugins_assigned > 0 ? `${a.plugins_assigned} affectée${a.plugins_assigned > 1 ? "s" : ""}` : "—"}{a.pending_commands > 0 && <div style={{ fontSize: 11 }}>{a.pending_commands} cmd en attente</div>}</td>
                         <td className="ups-actions" onClick={(e) => e.stopPropagation()}>
                           <button className="secondary" onClick={() => { setSelectedId(a.agent_id); handleInstall(a.agent_id); }}>Installation</button>
+                          <button className={a.blocked ? "secondary" : "sa-danger"} onClick={() => handleBlockAgent(a)}>{a.blocked ? "Débloquer" : "Bloquer"}</button>
                           <button className="secondary" onClick={() => handleToggleActive(a)}>{a.active ? "Désactiver" : "Activer"}</button>
                           <button className="secondary" onClick={() => handleDelete(a)}>Supprimer</button>
                         </td>
@@ -467,7 +556,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                       {plugins.length === 0 ? <p className="muted">Aucune sonde affectée ni présente.</p> : (
                         <div className="hub-table-scroll">
                           <table>
-                            <thead><tr><th>Sonde</th><th>Version</th><th>Origine</th><th>Central</th><th>Sur l'hôte</th><th>Dernier résultat</th><th className="ups-actions-head"></th></tr></thead>
+                            <thead><tr><th>Sonde</th><th>Version</th><th>Origine</th><th>Central</th><th>Sur l'hôte</th><th>Blocage</th><th>Dernier résultat</th><th className="ups-actions-head"></th></tr></thead>
                             <tbody>{plugins.map((p) => {
                               const last = detail.latest?.[`plugin:${p.id}`];
                               return (
@@ -476,7 +565,13 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                                   <td>{p.version || "—"}</td>
                                   <td className="muted">{p.assigned ? "catalogue" : p.source === "bundled" ? "livrée avec l'agent" : p.source || "—"}</td>
                                   <td>{p.assigned ? <label className="ups-form-check" style={{ fontSize: 12 }}><input type="checkbox" checked={!!p.enabled_central} onChange={() => handleAssignedToggle(p)} /> activée</label> : <span className="muted">non affectée</span>}</td>
-                                  <td>{p.present ? <Tone tone={p.enabled_host ? "good" : "neutral"}>{p.enabled_host ? "active" : "présente, inactive"}</Tone> : <span className="muted">pas encore reçue</span>}</td>
+                                  <td>{p.present ? <Tone tone={p.enabled_host ? "good" : "neutral"}>{p.enabled_host ? "active" : "présente, inactive"}</Tone> : <span className="muted">pas encore reçue</span>}{p.privileged && <div><Tone tone="warn" title="tourne en root sur l'hôte (drapeau signé par le central)">privilégiée</Tone></div>}</td>
+                                  <td>
+                                    {p.assigned ? (
+                                      <label className="ups-form-check" style={{ fontSize: 12 }}><input type="checkbox" checked={!!p.blocked_central} onChange={() => handlePluginBlock(p)} /> bloquée</label>
+                                    ) : <span className="muted">—</span>}
+                                    {p.blocked_host && <div><Tone tone="bad">bloquée sur l'hôte</Tone></div>}
+                                  </td>
                                   <td className="muted" title={last?.error || ""}>{last ? <><Tone tone={last.ok ? "good" : "bad"}>{last.ok ? "✔" : "✖"}</Tone> {when(last.at)}</> : "—"}</td>
                                   <td className="ups-actions">
                                     {p.assigned && <button className="secondary" onClick={() => handleUnassign(p)}>Retirer</button>}
@@ -571,6 +666,61 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
         </>
       )}
 
+      {tab === "events" && (
+        <>
+          <div className="ups-toolbar" style={{ marginTop: 0 }}>
+            <h2 style={{ margin: 0 }}>Journal des événements</h2>
+            {summary && (
+              <span className="muted" style={{ fontSize: 13 }}>
+                24 h : <Tone tone={summary.counts.critical ? "bad" : "neutral"}>{summary.counts.critical} critique(s)</Tone>, <Tone tone={summary.counts.warning ? "warn" : "neutral"}>{summary.counts.warning} avertissement(s)</Tone>, {summary.counts.info} info
+                {summary.agents_offline?.length > 0 && <> · <Tone tone="bad">hors ligne : {summary.agents_offline.join(", ")}</Tone></>}
+                {summary.agents_blocked?.length > 0 && <> · <Tone tone="warn">bloqués : {summary.agents_blocked.join(", ")}</Tone></>}
+              </span>
+            )}
+          </div>
+          <div className="ups-timeline-controls">
+            <label>Sévérité min.
+              <select value={evFilter.minSeverity} onChange={(e) => setEvFilter({ ...evFilter, minSeverity: e.target.value })}>
+                {EVENT_SEVERITIES.map((sv) => <option key={sv} value={sv}>{sv}</option>)}
+              </select>
+            </label>
+            <label>Agent
+              <select value={evFilter.agent} onChange={(e) => setEvFilter({ ...evFilter, agent: e.target.value })}>
+                <option value="">tous</option>
+                {fleet.map((a) => <option key={a.agent_id} value={a.agent_id}>{a.agent_id}</option>)}
+              </select>
+            </label>
+            <label><input type="checkbox" checked={evFilter.securityOnly} onChange={(e) => setEvFilter({ ...evFilter, securityOnly: e.target.checked })} /> sécurité seulement</label>
+            <label>Recherche <input value={evFilter.text} onChange={(e) => setEvFilter({ ...evFilter, text: e.target.value })} placeholder="genre, message, agent" /></label>
+          </div>
+          {(() => {
+            const shown = filterEvents(events, evFilter);
+            const sm = summarizeEvents(shown);
+            return shown.length === 0 ? <p className="muted">Aucun événement pour ces critères.</p> : (
+              <>
+                <p className="muted" style={{ margin: "4px 0" }}>{sm.total} événement(s) affiché(s) : {sm.agent} remonté(s) par les agents, {sm.central} du central, {sm.security} liés à la sécurité.</p>
+                <div className="hub-table-scroll sa-events">
+                  <table>
+                    <thead><tr><th>Quand</th><th>Sévérité</th><th>Agent</th><th>Événement</th><th>Message</th><th>Source</th><th>Notifié</th></tr></thead>
+                    <tbody>{shown.map((e) => (
+                      <tr key={e.id} className={`ups-row${isSecurityEvent(e) ? " sa-event-security" : ""}`} onClick={() => { if (e.agent_id) { setTab("fleet"); setSelectedId(e.agent_id); } }} title={e.details && Object.keys(e.details).length ? JSON.stringify(e.details) : ""}>
+                        <td className="muted" style={{ whiteSpace: "nowrap" }}>{when(e.at)}</td>
+                        <td><Tone tone={severityTone(e.severity)}>{e.severity === "critical" ? "⛔" : e.severity === "warning" ? "⚠" : "ℹ"} {e.severity}</Tone></td>
+                        <td>{e.agent_id ? <strong>{e.agent_id}</strong> : <span className="muted">central</span>}</td>
+                        <td>{isSecurityEvent(e) && <span title="sécurité">🔒 </span>}{eventKindLabel(e.kind)}</td>
+                        <td>{e.message}</td>
+                        <td className="muted">{e.source}</td>
+                        <td className="muted" style={{ fontSize: 11 }}>{e.notified ? Object.entries(e.notified).filter(([k]) => k !== "at").map(([k, v]) => `${k}${v ? "✔" : "✖"}`).join(" ") : ""}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              </>
+            );
+          })()}
+        </>
+      )}
+
       {tab === "catalogue" && (
         <>
           <div className="ups-toolbar" style={{ marginTop: 0 }}>
@@ -594,13 +744,15 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                 <label>Intervalle (s) <input type="number" min="30" value={pluginForm.interval_seconds} onChange={(e) => setPluginForm({ ...pluginForm, interval_seconds: e.target.value })} /></label>
                 <label>Délai max (s) <input type="number" min="1" value={pluginForm.timeout_seconds} onChange={(e) => setPluginForm({ ...pluginForm, timeout_seconds: e.target.value })} /></label>
                 <label>Arguments <input value={pluginForm.args} onChange={(e) => setPluginForm({ ...pluginForm, args: e.target.value })} placeholder="séparés par des espaces" /></label>
+                <label>Mémoire max (Mo) <input type="number" min="16" value={pluginForm.max_memory_mb} onChange={(e) => setPluginForm({ ...pluginForm, max_memory_mb: e.target.value })} placeholder="512 (défaut)" /></label>
+                <label className="ups-form-check"><input type="checkbox" checked={!!pluginForm.privileged} onChange={(e) => setPluginForm({ ...pluginForm, privileged: e.target.checked })} /> privilégiée (root sur l'hôte)</label>
                 <label className="ups-form-wide">Description <input value={pluginForm.description} onChange={(e) => setPluginForm({ ...pluginForm, description: e.target.value })} /></label>
                 <label className="ups-form-wide">Script
                   <textarea className="sa-script" value={pluginForm.body} onChange={(e) => setPluginForm({ ...pluginForm, body: e.target.value })} rows={12} spellCheck={false}
                     placeholder={pluginForm.runner === "python" ? "import json\nprint(json.dumps({\"ok\": True}))" : "#!/bin/bash\necho '{\"ok\": true}'"} />
                 </label>
               </div>
-              <p className="muted" style={{ margin: "8px 0" }}>Changer le script ou la version fait re-signer et re-pousser la sonde à tous les agents affectés. Le script tourne avec les droits du service (root) sur l'hôte.</p>
+              <p className="muted" style={{ margin: "8px 0" }}>Changer le script ou la version fait re-signer et re-pousser la sonde à tous les agents affectés. Par défaut la sonde tourne <strong>sans privilège</strong> (utilisateur `nobody`, environnement minimal, mémoire et délai bornés) ; « privilégiée » = root sur l'hôte, drapeau couvert par la signature du central et journalisé.</p>
               <button type="submit" className="primary" disabled={busy}>Enregistrer au catalogue</button>
             </form>
           )}
@@ -613,7 +765,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                   <tr key={p.id}>
                     <td><strong>{p.id}</strong>{p.description && <div className="muted" style={{ fontSize: 11 }}>{p.description}</div>}</td>
                     <td>{p.version}</td>
-                    <td>{p.runner} · <code>{p.entry}</code></td>
+                    <td>{p.runner} · <code>{p.entry}</code>{p.privileged && <> · <Tone tone="warn">privilégiée</Tone></>}</td>
                     <td>{formatAge(p.interval_seconds)}</td>
                     <td>{p.assigned_agents}</td>
                     <td className="muted">{when(p.updated_at)}</td>

@@ -1769,3 +1769,25 @@ button.secondary { background: var(--panel); }
 .sa-kv > div > span:first-child { min-width: 110px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
 .sa-log { font-size: 11px; max-height: 240px; overflow: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; white-space: pre-wrap; }
 .sa-script { font-family: monospace; font-size: 12px; padding: 6px 8px; width: 100%; box-sizing: border-box; }
+/* #422 : blocage, événements, bandeau de synthèse sur l'accueil */
+.sa-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.sa-danger:hover { filter: brightness(1.08); }
+.sa-fleet-blocked {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin: 8px 0; padding: 10px 14px; border-radius: 8px;
+  border: 2px solid var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--panel));
+}
+.sa-fleet-blocked button { margin-left: auto; }
+.sa-events { max-height: 60vh; overflow-y: auto; }
+.sa-event-security td:nth-child(4) { font-weight: 600; }
+.sa-banner {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin: 0 0 16px; padding: 10px 14px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--panel); text-align: left; width: 100%; font: inherit; color: var(--text);
+}
+.sa-banner.bad { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, var(--panel)); }
+.sa-banner.warn { border-color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, var(--panel)); }
+.sa-banner.good { border-color: var(--ok); }
+.sa-banner-head { font-weight: 600; }
+.sa-banner-items { display: flex; gap: 6px 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 0; padding: 0; list-style: none; }
+.sa-banner-items li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px; }

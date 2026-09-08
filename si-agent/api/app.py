@@ -23,15 +23,17 @@ from flask_cors import CORS
 
 try:
     import si_agent_protocol as protocol
+    import si_agent_control as control
 except ImportError:  # dépôt de développement
     import sys as _sys
-    _sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "agent", "si_agent"))
     _sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "agent"))
-    from si_agent import protocol  # noqa: E402
+    from si_agent import control, protocol  # noqa: E402
     import si_agent.plugins as _plugins  # noqa: E402
     _sys.modules.setdefault("si_agent_plugins", _plugins)
+    _sys.modules.setdefault("si_agent_control", control)
 
 import store  # noqa: E402
+import notify  # noqa: E402
 
 try:
     from version_endpoint import register_version_route
@@ -49,11 +51,19 @@ if register_version_route:
     register_version_route(app, "si-agent-api")
 
 _log = logging.getLogger("si_agent_api")
+# Verbosité (#422) : SI_AGENT_LOG_LEVEL=DEBUG trace chaque requête de la face
+# agents (identifiant, chemin, statut, durée) et chaque action du tableau
+# de bord ; les refus d'authentification sont TOUJOURS journalisés (WARNING)
+# et deviennent des événements.
+logging.basicConfig(level=getattr(logging, os.environ.get("SI_AGENT_LOG_LEVEL", "INFO").upper(), logging.INFO),
+                    format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 DB_PATH = os.environ.get("SI_AGENT_DB_PATH", "/data/si-agent.db")
 OFFLINE_AFTER_SECONDS = int(os.environ.get("SI_AGENT_OFFLINE_SECONDS", "300"))
 RETENTION_DAYS = int(os.environ.get("SI_AGENT_RETENTION_DAYS", "90"))
 PUBLIC_URL = os.environ.get("SI_AGENT_PUBLIC_URL", "").rstrip("/")
+CA_FILE = os.environ.get("SI_AGENT_CA_FILE", "/ca/ca.crt")
+EVENTS_RETENTION_DAYS = int(os.environ.get("SI_AGENT_EVENTS_RETENTION_DAYS", "365"))
 MEMCACHED_HOST = os.environ.get("MEMCACHED_HOST", "memcached")
 MEMCACHED_PORT = int(os.environ.get("MEMCACHED_PORT", "11211"))
 SERVICE_NAME = "si-agent-api"
@@ -79,12 +89,40 @@ def _purge_loop():
             n = store.purge_measurements(DB_PATH, RETENTION_DAYS)
             if n:
                 _log.info("purge : %d mesure(s) au-delà de %d jours", n, RETENTION_DAYS)
+            n = store.purge_events(DB_PATH, EVENTS_RETENTION_DAYS)
+            if n:
+                _log.info("purge : %d événement(s) au-delà de %d jours", n, EVENTS_RETENTION_DAYS)
         except Exception as exc:  # noqa: BLE001
             _log.warning("purge impossible : %s", exc)
 
 
+def _event(kind, severity, message, agent_id=None, details=None, source="central"):
+    """Journalise (base + traces) et notifie si la sévérité le mérite."""
+    ev = store.add_event(DB_PATH, kind, severity, message, agent_id=agent_id, details=details, source=source)
+    if ev:
+        notify.dispatch(DB_PATH, ev)
+    return ev
+
+
+def watchdog_tick():
+    """Transitions en ligne / hors ligne -> événements (et notifications)."""
+    for agent_id, state in store.online_transitions(DB_PATH, OFFLINE_AFTER_SECONDS):
+        _event("agent-offline" if state == "offline" else "agent-online", "warning" if state == "offline" else "info",
+               "agent %s %s" % (agent_id, "ne répond plus (hors ligne)" if state == "offline" else "de nouveau en ligne"), agent_id=agent_id)
+
+
+def _watchdog_loop():
+    while True:
+        time.sleep(30)
+        try:
+            watchdog_tick()
+        except Exception as exc:  # noqa: BLE001
+            _log.warning("chien de garde : %s", exc)
+
+
 if os.environ.get("SI_AGENT_PURGE_THREAD", "1") == "1":
     threading.Thread(target=_purge_loop, daemon=True).start()
+    threading.Thread(target=_watchdog_loop, daemon=True).start()
 
 
 # ============================================================
@@ -105,9 +143,40 @@ def status_route():
         counts[a["online"]] = counts.get(a["online"], 0) + 1
         for k, v in (a.get("risks") or {}).get("counts", {}).items():
             risk_counts[k] = risk_counts.get(k, 0) + (v or 0)
+    fb = store.fleet_block(DB_PATH)
     return jsonify({"agents": len(agents), "contact": counts, "risks": risk_counts,
                     "plugins": len(store.list_plugins(DB_PATH)), "offline_after_seconds": OFFLINE_AFTER_SECONDS,
-                    "retention_days": RETENTION_DAYS, "public_url": PUBLIC_URL or None}), 200
+                    "retention_days": RETENTION_DAYS, "public_url": PUBLIC_URL or None,
+                    "fleet_blocked": bool(fb.get("blocked")), "fleet_block_reason": fb.get("reason"), "fleet_blocked_at": fb.get("at"),
+                    "agents_blocked": sum(1 for a in agents if a["blocked"]),
+                    "insecure_agents": [a["agent_id"] for a in agents if a.get("insecure_tls")],
+                    "ca": _ca_info(), "notifications": notify.describe(),
+                    "log_level": logging.getLevelName(logging.getLogger().level)}), 200
+
+
+def _ca_info():
+    try:
+        with open(CA_FILE, "rb") as fh:
+            pem = fh.read()
+        import ssl as _ssl
+        import hashlib as _hashlib
+        der = _ssl.PEM_cert_to_DER_cert(pem.decode("utf-8"))
+        return {"available": True, "sha256": _hashlib.sha256(der).hexdigest(), "path": CA_FILE}
+    except (OSError, ValueError):
+        return {"available": False, "sha256": None, "path": CA_FILE}
+
+
+@app.route("/ca", methods=["GET"])
+def ca_route():
+    """Certificat de l'autorité interne (PEM) pour l'amorçage TLS des agents
+    (install.sh --ca-fingerprint) : public par nature, l'EMPREINTE affichée
+    dans la tuile fait foi côté hôte."""
+    try:
+        with open(CA_FILE, "rb") as fh:
+            pem = fh.read()
+    except OSError:
+        return jsonify({"error": "certificat de l'autorité indisponible (SI_AGENT_CA_FILE)"}), 404
+    return pem, 200, {"Content-Type": "application/x-pem-file"}
 
 
 @app.route("/fleet", methods=["GET"])
@@ -135,6 +204,7 @@ def create_agent_route():
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     created["install_command"] = _install_command(created["agent_id"], created["secret"], created["site"])
+    _event("agent-enrolled", "info", "agent %s enrôlé (site %s)" % (created["agent_id"], created["site"]), agent_id=created["agent_id"])
     return jsonify(created), 201
 
 
@@ -163,6 +233,9 @@ def update_agent_route(agent_id):
         return jsonify({"error": str(exc)}), 400
     if a is None:
         return jsonify({"error": "agent inconnu"}), 404
+    if body.get("active") is not None:
+        _event("agent-activated" if body["active"] else "agent-deactivated", "info" if body["active"] else "warning",
+               "agent %s %s" % (agent_id, "réactivé" if body["active"] else "désactivé (requêtes refusées)"), agent_id=agent_id)
     return jsonify(a), 200
 
 
@@ -171,6 +244,7 @@ def delete_agent_route(agent_id):
     purge = request.args.get("purge", "false").lower() == "true"
     if not store.delete_agent(DB_PATH, agent_id, purge_measurements=purge):
         return jsonify({"error": "agent inconnu"}), 404
+    _event("agent-deleted", "warning", "agent %s supprimé" % agent_id, agent_id=agent_id)
     return jsonify({"deleted": agent_id, "measurements_purged": purge}), 200
 
 
@@ -180,13 +254,92 @@ def rotate_secret_route(agent_id):
     if a is None:
         return jsonify({"error": "agent inconnu"}), 404
     a["install_command"] = _install_command(a["agent_id"], a["secret"], a["site"])
+    _event("secret-rotated", "warning", "secret de l'agent %s renouvelé -- réinstallation requise" % agent_id, agent_id=agent_id)
     return jsonify(a), 200
+
+
+# -- blocage général et individuel (#422) ------------------------------------
+
+def _queue_block_command(agent_id, ctype, params=None):
+    """Le blocage est DÉCLARATIF (configuration, relue toutes les 5 min) ET
+    IMMÉDIAT (commande relevée toutes les minutes)."""
+    try:
+        store.create_command(DB_PATH, agent_id, ctype, params or {})
+    except ValueError:
+        pass
+
+
+@app.route("/block", methods=["POST"])
+def block_fleet_route():
+    body = request.get_json(silent=True) or {}
+    reason = (body.get("reason") or "").strip() or "blocage général de la flotte"
+    store.set_setting(DB_PATH, "fleet_block", {"blocked": True, "reason": reason, "at": store.now_iso()})
+    for a in store.list_agents(DB_PATH):
+        _queue_block_command(a["agent_id"], "block_all", {"reason": reason})
+    _event("fleet-blocked", "critical", "BLOCAGE GÉNÉRAL des sondes sur toute la flotte : %s" % reason, details={"reason": reason})
+    return jsonify(store.fleet_block(DB_PATH)), 200
+
+
+@app.route("/unblock", methods=["POST"])
+def unblock_fleet_route():
+    store.set_setting(DB_PATH, "fleet_block", {"blocked": False, "reason": None, "at": None})
+    for a in store.list_agents(DB_PATH):
+        if not a["blocked"]:
+            _queue_block_command(a["agent_id"], "unblock_all")
+    _event("fleet-unblocked", "warning", "blocage général levé")
+    return jsonify(store.fleet_block(DB_PATH)), 200
+
+
+@app.route("/agents/<agent_id>/block", methods=["POST"])
+def block_agent_route(agent_id):
+    body = request.get_json(silent=True) or {}
+    reason = (body.get("reason") or "").strip() or "blocage depuis le tableau de bord"
+    if not store.set_agent_blocked(DB_PATH, agent_id, True, reason):
+        return jsonify({"error": "agent inconnu"}), 404
+    _queue_block_command(agent_id, "block_all", {"reason": reason})
+    _event("agent-blocked", "warning", "sondes de l'agent %s bloquées : %s" % (agent_id, reason), agent_id=agent_id)
+    return jsonify(store.get_agent(DB_PATH, agent_id)), 200
+
+
+@app.route("/agents/<agent_id>/unblock", methods=["POST"])
+def unblock_agent_route(agent_id):
+    if not store.set_agent_blocked(DB_PATH, agent_id, False):
+        return jsonify({"error": "agent inconnu"}), 404
+    if not store.fleet_block(DB_PATH).get("blocked"):
+        _queue_block_command(agent_id, "unblock_all")
+    _event("agent-unblocked", "info", "sondes de l'agent %s débloquées" % agent_id, agent_id=agent_id)
+    return jsonify(store.get_agent(DB_PATH, agent_id)), 200
+
+
+# -- journal d'événements (#422) ----------------------------------------------
+
+@app.route("/events", methods=["GET"])
+def events_route():
+    return jsonify({"events": store.list_events(
+        DB_PATH, agent_id=request.args.get("agent"), severity=request.args.get("severity"), kind=request.args.get("kind"),
+        since=request.args.get("since"), limit=request.args.get("limit", 200, type=int), min_severity=request.args.get("min_severity"))}), 200
+
+
+@app.route("/events/summary", methods=["GET"])
+def events_summary_route():
+    hours = max(1, min(request.args.get("hours", 24, type=int), 24 * 30))
+    return jsonify(store.events_summary(DB_PATH, hours=hours, offline_after_seconds=OFFLINE_AFTER_SECONDS)), 200
+
+
+@app.route("/notifications/test", methods=["POST"])
+def notifications_test_route():
+    body = request.get_json(silent=True) or {}
+    ev = {"id": None, "at": store.now_iso(), "agent_id": None, "site": None, "source": "central", "kind": "notification-test",
+          "severity": body.get("severity") or "warning", "message": body.get("message") or "test de notification depuis le hub", "details": {}}
+    return jsonify(notify.send_all(ev, force=True)), 200
 
 
 def _install_command(agent_id, secret, site):
     central = PUBLIC_URL or "https://<VM>:6443/api/si-agent"
-    return "sudo ./install.sh --agent %s --secret %s --central %s --site %s" % (
-        shlex.quote(agent_id), shlex.quote(secret), shlex.quote(central), shlex.quote(site or "default"))
+    ca = _ca_info()
+    tls = (" --ca-fingerprint %s" % ca["sha256"]) if ca.get("sha256") else " --ca /chemin/ca.crt"
+    return "sudo ./install.sh --agent %s --secret %s --central %s --site %s%s" % (
+        shlex.quote(agent_id), shlex.quote(secret), shlex.quote(central), shlex.quote(site or "default"), tls)
 
 
 @app.route("/agents/<agent_id>/install", methods=["GET"])
@@ -241,11 +394,15 @@ def list_plugins_route():
 def create_plugin_route():
     body = request.get_json(silent=True) or {}
     manifest = body.get("manifest") if isinstance(body.get("manifest"), dict) else {
-        k: body.get(k) for k in ("id", "version", "runner", "entry", "interval_seconds", "timeout_seconds", "args", "description") if k in body}
+        k: body.get(k) for k in ("id", "version", "runner", "entry", "interval_seconds", "timeout_seconds", "args", "description",
+                                 "privileged", "max_memory_mb") if k in body}
     try:
         p = store.upsert_plugin(DB_PATH, manifest, body.get("body"))
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
+    _event("plugin-catalogued", "warning" if p.get("privileged") else "info",
+           "sonde %s v%s enregistrée au catalogue%s" % (p["id"], p["version"], " (PRIVILÉGIÉE : tourne en root)" if p.get("privileged") else ""),
+           details={"plugin": p["id"], "version": p["version"], "sha256": p["sha256"], "privileged": p.get("privileged"), "assigned_agents": p.get("assigned_agents", 0)})
     return jsonify(p), 201
 
 
@@ -261,6 +418,7 @@ def get_plugin_route(plugin_id):
 def delete_plugin_route(plugin_id):
     if not store.delete_plugin(DB_PATH, plugin_id):
         return jsonify({"error": "plugin inconnu"}), 404
+    _event("plugin-uncatalogued", "warning", "sonde %s retirée du catalogue (désinstallation chez les agents affectés)" % plugin_id, details={"plugin": plugin_id})
     return jsonify({"deleted": plugin_id}), 200
 
 
@@ -274,12 +432,25 @@ def agent_plugins_route(agent_id):
 @app.route("/agents/<agent_id>/plugins/<plugin_id>", methods=["PUT"])
 def assign_plugin_route(agent_id, plugin_id):
     body = request.get_json(silent=True) or {}
+    existing = {p["id"]: p for p in store.agent_plugins(DB_PATH, agent_id)}
+    prev = existing.get(plugin_id)
     try:
-        res = store.assign_plugin(DB_PATH, agent_id, plugin_id, enabled=body.get("enabled", True))
+        res = store.assign_plugin(DB_PATH, agent_id, plugin_id, enabled=body.get("enabled", prev["enabled"] if prev else True))
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     if res is None:
         return jsonify({"error": "agent inconnu"}), 404
+    if "blocked" in body:
+        blocked = bool(body["blocked"])
+        store.set_plugin_blocked(DB_PATH, agent_id, plugin_id, blocked, body.get("reason"))
+        if not prev or prev["blocked"] != blocked:
+            _queue_block_command(agent_id, "block_plugin" if blocked else "unblock_plugin", {"id": plugin_id, "reason": body.get("reason")})
+            _event("plugin-blocked" if blocked else "plugin-unblocked", "warning" if blocked else "info",
+                   "sonde %s %s sur l'agent %s%s" % (plugin_id, "bloquée" if blocked else "débloquée", agent_id, (" : " + body["reason"]) if body.get("reason") else ""),
+                   agent_id=agent_id, details={"plugin": plugin_id})
+        res = store.agent_plugins(DB_PATH, agent_id)
+    elif prev is None:
+        _event("plugin-assigned", "info", "sonde %s affectée à l'agent %s" % (plugin_id, agent_id), agent_id=agent_id, details={"plugin": plugin_id})
     return jsonify({"agent_id": agent_id, "plugins": res}), 200
 
 
@@ -287,6 +458,7 @@ def assign_plugin_route(agent_id, plugin_id):
 def unassign_plugin_route(agent_id, plugin_id):
     if not store.unassign_plugin(DB_PATH, agent_id, plugin_id):
         return jsonify({"error": "affectation inconnue"}), 404
+    _event("plugin-unassigned", "info", "sonde %s retirée de l'agent %s" % (plugin_id, agent_id), agent_id=agent_id, details={"plugin": plugin_id})
     return jsonify({"agent_id": agent_id, "plugins": store.agent_plugins(DB_PATH, agent_id)}), 200
 
 
@@ -309,6 +481,9 @@ def create_command_route(agent_id):
         return jsonify({"error": str(exc)}), 400
     if c is None:
         return jsonify({"error": "agent inconnu"}), 404
+    _log.info("commande %s (%s) créée pour %s", c["id"], c["type"], agent_id)
+    if c["type"] in control.BLOCK_COMMANDS:
+        _event("command-block", "warning", "commande %s envoyée à l'agent %s" % (c["type"], agent_id), agent_id=agent_id, details={"command": c["id"], "params": c["params"]})
     return jsonify(c), 201
 
 
@@ -331,23 +506,50 @@ def _signed_path():
     return request.path + ("?" + qs if qs else "")
 
 
+_auth_failures = {}
+
+
 def _verify_agent(agent_id):
     header_id = request.headers.get(protocol.HEADER_ID)
+    info, why = None, None
     if not header_id:
-        return None, "en-tête %s absent" % protocol.HEADER_ID
-    if header_id != agent_id:
-        return None, "identifiant signataire différent de l'URL"
-    info = store.get_secret(DB_PATH, agent_id)
+        why = "en-tête %s absent" % protocol.HEADER_ID
+    elif header_id != agent_id:
+        why = "identifiant signataire différent de l'URL"
+    else:
+        info = store.get_secret(DB_PATH, agent_id)
+        if info is None:
+            why = "agent inconnu ou désactivé"
+        else:
+            ok, reason = protocol.verify(info["secret"], request.method, _signed_path(), request.headers, request.get_data())
+            if not ok:
+                info, why = None, reason
     if info is None:
-        return None, "agent inconnu ou désactivé"
-    ok, why = protocol.verify(info["secret"], request.method, _signed_path(), request.headers, request.get_data())
-    if not ok:
+        _log.warning("face agents : refus %s %s pour %s depuis %s -- %s", request.method, request.path, agent_id, _client_ip(), why)
+        # un événement par (agent, motif) et par 10 min -- jamais une tempête
+        key = (agent_id, why)
+        last = _auth_failures.get(key, 0)
+        if time.time() - last > 600:
+            _auth_failures[key] = time.time()
+            _event("auth-refused", "warning", "requête refusée pour l'agent %s : %s (depuis %s)" % (agent_id, why, _client_ip()),
+                   agent_id=agent_id if store.get_agent(DB_PATH, agent_id) else None, details={"path": request.path, "ip": _client_ip(), "reason": why})
         return None, why
+    _log.debug("face agents : %s %s par %s depuis %s", request.method, request.path, agent_id, _client_ip())
     return info, None
 
 
 def _client_ip():
     return request.headers.get("X-Forwarded-For", request.remote_addr)
+
+
+def _signed_json(secret, payload, status=200):
+    """Réponse JSON SIGNÉE avec le secret de l'agent (voir control.py) :
+    l'agent n'applique une configuration / une commande que si cette
+    signature est valide."""
+    raw = protocol.canonical_json(payload)
+    headers = control.response_headers(secret, raw)
+    headers["Content-Type"] = "application/json; charset=utf-8"
+    return raw, status, headers
 
 
 @app.route(protocol.API_PREFIX + "/agents/<agent_id>/config", methods=["GET"])
@@ -356,13 +558,16 @@ def agent_config_route(agent_id):
     if info is None:
         return jsonify({"error": err}), 401
     cfg = store.config_for_agent(DB_PATH, agent_id)
+    prev = store.get_agent(DB_PATH, agent_id)
     conn = store._connect(DB_PATH)
     try:
         store.touch_agent(conn, agent_id, _client_ip(), config_version=cfg["version"])
         conn.commit()
     finally:
         conn.close()
-    return jsonify(cfg), 200
+    if prev and prev.get("last_config_version") != cfg["version"]:
+        _log.info("agent %s : configuration %s servie (%d sonde(s)%s)", agent_id, cfg["version"], len(cfg["plugins"]), ", BLOQUÉ" if cfg["blocked"] else "")
+    return _signed_json(info["secret"], cfg)
 
 
 @app.route(protocol.API_PREFIX + "/agents/<agent_id>/commands", methods=["GET"])
@@ -376,7 +581,7 @@ def agent_commands_route(agent_id):
         conn.commit()
     finally:
         conn.close()
-    return jsonify({"commands": store.pending_commands_for_agent(DB_PATH, agent_id)}), 200
+    return _signed_json(info["secret"], {"commands": store.pending_commands_for_agent(DB_PATH, agent_id)})
 
 
 @app.route(protocol.API_PREFIX + "/agents/<agent_id>/commands/<cid>/ack", methods=["POST"])
@@ -386,8 +591,15 @@ def agent_ack_route(agent_id, cid):
         return jsonify({"error": err}), 401
     result = request.get_json(silent=True) or {}
     if not store.ack_command(DB_PATH, agent_id, cid, result):
-        return jsonify({"error": "commande inconnue ou déjà acquittée"}), 404
-    return jsonify({"acked": cid}), 200
+        return _signed_json(info["secret"], {"error": "commande inconnue ou déjà acquittée"}, 404)
+    c = store.get_command(DB_PATH, cid) or {}
+    _log.info("agent %s : commande %s (%s) acquittée ok=%s", agent_id, cid, c.get("type"), bool(result.get("ok")))
+    if not result.get("ok"):
+        _event("command-failed", "warning", "commande %s (%s) en échec sur %s : %s" % (cid, c.get("type"), agent_id, result.get("error")),
+               agent_id=agent_id, details={"command": cid, "type": c.get("type")})
+    elif c.get("type") in control.BLOCK_COMMANDS:
+        _event("command-acked", "info", "commande %s appliquée par %s" % (c.get("type"), agent_id), agent_id=agent_id, details={"command": cid})
+    return _signed_json(info["secret"], {"acked": cid})
 
 
 @app.route(protocol.API_PREFIX + "/agents/<agent_id>/measurements", methods=["POST"])
@@ -401,10 +613,13 @@ def agent_measurements_ingest_route(agent_id):
         return jsonify({"error": "'measurements' (liste) attendu"}), 400
     if len(items) > 5000:
         return jsonify({"error": "lot trop volumineux (max 5000)"}), 400
-    accepted, duplicates, rejected = store.ingest_measurements(DB_PATH, agent_id, items, ip=_client_ip())
+    accepted, duplicates, rejected, events = store.ingest_measurements(DB_PATH, agent_id, items, ip=_client_ip())
+    _log.debug("agent %s : %d mesure(s) acceptée(s), %d doublon(s), %d rejet(s), %d événement(s)", agent_id, accepted, duplicates, len(rejected), len(events))
+    for ev in events:
+        notify.dispatch(DB_PATH, dict(ev, source="agent", details={}))
     if rejected and not accepted and not duplicates and items:
-        return jsonify({"error": "aucune mesure valide", "rejected": rejected[:10]}), 400
-    return jsonify({"accepted": accepted, "duplicates": duplicates, "rejected": rejected[:10]}), 201
+        return _signed_json(info["secret"], {"error": "aucune mesure valide", "rejected": rejected[:10]}, 400)
+    return _signed_json(info["secret"], {"accepted": accepted, "duplicates": duplicates, "rejected": rejected[:10]}, 201)
 
 
 @app.route("/logs", methods=["GET"])

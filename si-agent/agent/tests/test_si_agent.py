@@ -14,7 +14,7 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 
 from si_agent import agent as agent_mod  # noqa: E402
-from si_agent import host, plugins, protocol, risks  # noqa: E402
+from si_agent import control, host, plugins, protocol, risks  # noqa: E402
 from si_agent.localqueue import LocalQueue  # noqa: E402
 
 PROC = {
@@ -274,12 +274,28 @@ class FakeHttp(object):
 
     def __init__(self, secret):
         self.secret = secret
-        self.config = {"version": "v1", "host_interval_seconds": 30, "risk_thresholds": {"disk_warning_percent": 50}, "plugins": [], "remove_plugins": []}
+        self.config = {"version": "v1", "issued_at": 100, "host_interval_seconds": 30, "risk_thresholds": {"disk_warning_percent": 50},
+                       "plugins": [], "remove_plugins": [], "blocked": False}
         self.commands = []
         self.received = []
         self.acks = []
         self.fail_measurements = False
         self.calls = []
+        # #422 : réponses signées comme le vrai central ; `tamper` simule un
+        # central usurpé (corps modifié après signature) ou non signé
+        self.sign = True
+        self.tamper = None
+        self.last_raw = b""
+        self.last_headers = {}
+
+    def _reply(self, status, body):
+        raw = protocol.canonical_json(body) if body is not None else b""
+        headers = control.response_headers(self.secret, raw) if self.sign else {}
+        if self.tamper == "body":  # corps modifié en chemin : la signature ne correspond plus
+            body = dict(body, version="vX", blocked=False, plugins=[], commands=[{"id": "evil", "type": "collect_now"}])
+            raw = protocol.canonical_json(body)
+        self.last_raw, self.last_headers = raw, headers
+        return status, body
 
     def signed_plugin(self, pid, body, enabled=True, version="1", runner="shell", entry=None):
         digest = plugins.sha256_text(body)
@@ -290,10 +306,10 @@ class FakeHttp(object):
     def request(self, method, path, body=None):
         self.calls.append((method, path))
         if path.endswith("/config"):
-            return 200, self.config
+            return self._reply(200, self.config)
         if path.endswith("/commands"):
             cmds, self.commands = self.commands, []
-            return 200, {"commands": cmds}
+            return self._reply(200, {"commands": cmds})
         if "/commands/" in path and path.endswith("/ack"):
             self.acks.append((path.split("/")[-2], body))
             return 200, {"status": "ok"}
@@ -310,7 +326,8 @@ class AgentTests(unittest.TestCase):
         self.dir = tempfile.mkdtemp()
         self.cfg = dict(agent_mod.DEFAULTS)
         self.cfg.update({"agent_id": "srv-01", "secret": "s3cr3t", "central_url": "http://central", "site": "siege",
-                         "queue_path": os.path.join(self.dir, "q.db"), "plugins_dir": os.path.join(self.dir, "plugins")})
+                         "queue_path": os.path.join(self.dir, "q.db"), "plugins_dir": os.path.join(self.dir, "plugins"),
+                         "state_path": os.path.join(self.dir, "state.json"), "block_file": os.path.join(self.dir, "BLOCKED")})
         self.http = FakeHttp("s3cr3t")
         self.clock = [1_800_000_000.0]
         self.cmd = FakeCmd({"ss": (0, SS_OUT)})
@@ -322,6 +339,7 @@ class AgentTests(unittest.TestCase):
         out = self.agent.run_once()
         tasks = [m["task"] for m in out]
         self.assertEqual(tasks, ["host", "risks", "inventory"])
+        self.assertIn("config-applied", [e["data"]["kind"] for e in self.agent.queue.latest(task="event")], "événement journalisé")
         self.assertEqual(self.agent.cfg["host_interval_seconds"], 30, "configuration du central appliquée")
         host_m = out[0]
         self.assertFalse(host_m["ok"], "collecte partielle (pas de systemctl) -> ok=false, jamais silencieux")
@@ -331,8 +349,8 @@ class AgentTests(unittest.TestCase):
         self.assertIn("disk-high", ids, "seuil abaissé à 50 % par le central : 60 % -> warning")
         self.assertIn("port-exposed", ids, "mariadb exposé")
         self.assertIn("uid0-account", ids)
-        self.assertEqual(self.agent.flush(force=True), 3)
-        self.assertEqual([m["task"] for m in self.http.received], ["host", "risks", "inventory"])
+        self.assertEqual(self.agent.flush(force=True), 4, "3 mesures + 1 événement")
+        self.assertEqual([m["task"] for m in self.http.received if m["task"] != "event"], ["host", "risks", "inventory"])
         self.assertEqual(self.agent.queue.stats()["pending"], 0)
         st = self.agent.status()
         self.assertEqual(st["config_version"], "v1")
@@ -346,9 +364,9 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(len(self.agent.collect_host()), 2)
         self.http.fail_measurements = True
         self.assertEqual(self.agent.flush(force=True), 0)
-        self.assertEqual(self.agent.queue.stats()["pending"], 4, "rien de perdu, tout en file")
+        self.assertEqual(self.agent.queue.stats()["pending"], 5, "rien de perdu, tout en file (4 mesures + 1 événement)")
         self.http.fail_measurements = False
-        self.assertEqual(self.agent.flush(force=True), 4)
+        self.assertEqual(self.agent.flush(force=True), 5)
 
     def test_plugin_pousse_par_le_central_puis_commandes(self):
         self.http.config["plugins"] = [self.http.signed_plugin("hello", "#!/bin/bash\necho '{\"hi\": 1}'\n")]
@@ -416,6 +434,207 @@ class AgentTests(unittest.TestCase):
         h = protocol.auth_headers("srv-01", "s3cr3t", "POST", "/api/v1/agents/srv-01/measurements", body)
         self.assertEqual(protocol.verify("s3cr3t", "POST", "/api/v1/agents/srv-01/measurements", h, body), (True, "ok"))
         self.assertFalse(protocol.verify("autre", "POST", "/api/v1/agents/srv-01/measurements", h, body)[0])
+
+
+class SecurityTests(unittest.TestCase):
+    """Livraison #422 : réponses signées, rejeu, blocage, confinement."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.cfg = dict(agent_mod.DEFAULTS)
+        self.cfg.update({"agent_id": "srv-01", "secret": "s3cr3t", "central_url": "http://central", "site": "siege",
+                         "queue_path": os.path.join(self.dir, "q.db"), "plugins_dir": os.path.join(self.dir, "plugins"),
+                         "state_path": os.path.join(self.dir, "state.json"), "block_file": os.path.join(self.dir, "BLOCKED")})
+        self.http = FakeHttp("s3cr3t")
+        self.clock = [1_800_000_000.0]
+        self.blocked_file = [False]
+        self.make_agent()
+
+    def make_agent(self, **kw):
+        cmd = kw.pop("cmd", FakeCmd({"ss": (0, SS_OUT)}))
+        self.agent = agent_mod.Agent(self.cfg, http=self.http, cmd=cmd, files=files(PROC), clock=lambda: self.clock[0],
+                                     usage=lambda mp: Usage(100, 10), which=lambda t: None,
+                                     exists=lambda p: p == self.cfg["block_file"] and self.blocked_file[0], **kw)
+        return self.agent
+
+    def events(self):
+        return [e["data"]["kind"] for e in self.agent.queue.latest(task="event", limit=100)]
+
+    def test_reponse_non_signee_ou_alteree_refusee(self):
+        self.http.sign = False
+        self.assertFalse(self.agent.refresh_config(force=True), "central non signé : configuration ignorée")
+        self.assertIsNone(self.agent.config_version)
+        self.assertIn("central-response-rejected", self.events())
+        self.http.sign = True
+        self.http.tamper = "body"
+        self.http.commands = [{"id": "c1", "type": "collect_now"}]
+        self.assertEqual(self.agent.poll_commands(force=True), [], "corps altéré après signature : rien n'est exécuté")
+        self.assertEqual(self.http.acks, [])
+        self.http.tamper = None
+        self.assertTrue(self.agent.refresh_config(force=True))
+        self.assertEqual(self.agent.config_version, "v1")
+        # mauvais secret côté central = signature invalide
+        bad = FakeHttp("autre")
+        a = agent_mod.Agent(self.cfg, http=bad, cmd=FakeCmd({}), files=files(PROC), clock=lambda: self.clock[0],
+                            usage=lambda mp: Usage(100, 10), which=lambda t: None, exists=lambda p: False)
+        self.assertFalse(a.refresh_config(force=True))
+        # centraux anciens : tolérés seulement si explicitement demandé
+        self.http.sign = False
+        cfg2 = dict(self.cfg, require_signed_responses=False, state_path=os.path.join(self.dir, "s2.json"), queue_path=os.path.join(self.dir, "q2.db"))
+        a2 = agent_mod.Agent(cfg2, http=self.http, cmd=FakeCmd({}), files=files(PROC), clock=lambda: self.clock[0],
+                             usage=lambda mp: Usage(100, 10), which=lambda t: None, exists=lambda p: False)
+        self.assertTrue(a2.refresh_config(force=True))
+
+    def test_rejeu_configuration_et_commandes(self):
+        self.assertTrue(self.agent.refresh_config(force=True))
+        self.assertEqual(self.agent.state["last_config_issued_at"], 100)
+        self.http.config = dict(self.http.config, version="v0", issued_at=50, host_interval_seconds=10)
+        self.assertFalse(self.agent.refresh_config(force=True), "configuration plus ancienne = rejeu, ignorée")
+        self.assertEqual(self.agent.cfg["host_interval_seconds"], 30)
+        self.assertIn("config-replayed", self.events())
+        # l'état survit à un redémarrage
+        self.make_agent()
+        self.assertEqual(self.agent.state["last_config_issued_at"], 100)
+        self.http.config = dict(self.http.config, version="v2", issued_at=200, host_interval_seconds=45)
+        self.assertTrue(self.agent.refresh_config(force=True))
+        self.assertEqual(self.agent.cfg["host_interval_seconds"], 45)
+        # commande rejouée
+        self.http.commands = [{"id": "c1", "type": "collect_now"}]
+        self.assertEqual(len(self.agent.poll_commands(force=True)), 1)
+        self.http.commands = [{"id": "c1", "type": "collect_now"}, {"id": "c2", "type": "flush"}]
+        done = self.agent.poll_commands(force=True)
+        self.assertEqual([c["id"] for c, _ in done], ["c2"], "c1 déjà exécutée : ignorée, c2 passe")
+        self.assertIn("command-replayed", self.events())
+        self.make_agent()
+        self.assertIn("c1", self.agent.state["done_commands"], "identifiants mémorisés sur disque")
+
+    def test_blocage_general_et_individuel(self):
+        self.http.config["plugins"] = [self.http.signed_plugin("hello", "#!/bin/bash\necho '{\"hi\": 1}'\n"),
+                                       self.http.signed_plugin("other", "#!/bin/bash\necho '{\"o\": 1}'\n")]
+        self.agent.refresh_config(force=True)
+        self.assertEqual(len(self.agent.run_plugins()), 2)
+        # commande de blocage général : plus rien ne tourne, état persistant
+        self.http.commands = [{"id": "b1", "type": "block_all", "params": {"reason": "incident"}}]
+        self.agent.poll_commands(force=True)
+        self.assertTrue(self.agent.is_blocked())
+        self.assertEqual(self.agent.block_reason(), "incident")
+        self.clock[0] += 120
+        self.assertEqual(self.agent.run_plugins(), [], "bloqué : aucune sonde exécutée")
+        self.http.commands = [{"id": "r1", "type": "run_plugin", "params": {"id": "hello"}}]
+        done = self.agent.poll_commands(force=True)
+        self.assertFalse(done[0][1]["ok"], "exécution à la demande refusée aussi")
+        self.make_agent()
+        self.assertTrue(self.agent.is_blocked(), "blocage persistant après redémarrage")
+        # nouvelle sonde poussée pendant le blocage : pas installée
+        self.http.config = dict(self.http.config, version="v2", issued_at=200,
+                                plugins=self.http.config["plugins"] + [self.http.signed_plugin("late", "#!/bin/bash\necho 1\n")])
+        self.agent.refresh_config(force=True)
+        self.assertIsNone(self.agent.store.get("late"))
+        # déblocage
+        self.http.commands = [{"id": "u1", "type": "unblock_all"}]
+        self.agent.poll_commands(force=True)
+        self.assertFalse(self.agent.is_blocked())
+        self.clock[0] += 120
+        self.assertEqual(len(self.agent.run_plugins()), 2)
+        # blocage individuel
+        self.http.commands = [{"id": "p1", "type": "block_plugin", "params": {"id": "hello", "reason": "suspect"}}]
+        self.agent.poll_commands(force=True)
+        self.clock[0] += 120
+        self.assertEqual([m["task"] for m in self.agent.run_plugins()], ["plugin:other"])
+        inv = self.agent.collect_inventory(force=True)
+        self.assertEqual(inv["data"]["blocked_plugins"], ["hello"])
+        self.http.commands = [{"id": "p2", "type": "unblock_plugin", "params": {"id": "hello"}}]
+        self.agent.poll_commands(force=True)
+        # blocage déclaratif par la configuration du central
+        self.http.config = dict(self.http.config, version="v3", issued_at=300, blocked=True, blocked_reason="maintenance")
+        self.agent.refresh_config(force=True)
+        self.assertTrue(self.agent.is_blocked())
+        self.assertEqual(self.agent.block_reason(), "maintenance")
+        self.http.config = dict(self.http.config, version="v3", blocked=False)
+        self.agent.refresh_config(force=True)
+        self.assertFalse(self.agent.is_blocked(), "levé par le central même sans nouvelle version")
+        # blocage d'une sonde par le manifeste
+        self.http.config = dict(self.http.config, version="v4", issued_at=400,
+                                plugins=[dict(self.http.config["plugins"][0], manifest=dict(self.http.config["plugins"][0]["manifest"], blocked=True)),
+                                         self.http.config["plugins"][1]])
+        self.agent.refresh_config(force=True)
+        self.clock[0] += 120
+        self.assertEqual([m["task"] for m in self.agent.run_plugins()], ["plugin:other"])
+        # fichier BLOCKED local : le technicien sur place gagne
+        self.blocked_file[0] = True
+        self.assertTrue(self.agent.is_blocked())
+        self.assertEqual(self.agent.block_reason(), "fichier BLOCKED local")
+        kinds = self.events()
+        for k in ("blocked", "unblocked", "plugin-blocked", "plugin-unblocked"):
+            self.assertIn(k, kinds)
+
+    def test_privilege_signe(self):
+        body = "#!/bin/bash\nid -u\n"
+        item = self.http.signed_plugin("root-only", body)
+        item["manifest"]["privileged"] = True  # drapeau ajouté APRÈS signature
+        self.http.config["plugins"] = [item]
+        self.agent.refresh_config(force=True)
+        self.assertIsNone(self.agent.store.get("root-only"), "privileged non couvert par la signature : refusé")
+        digest = plugins.sha256_text(body)
+        item["manifest"]["signature"] = plugins.plugin_signature("s3cr3t", "root-only", "1", digest, privileged=True)
+        self.http.config = dict(self.http.config, version="v2", issued_at=200, plugins=[item])
+        self.agent.refresh_config(force=True)
+        self.assertTrue(self.agent.store.get("root-only")["privileged"])
+
+    def test_confinement_reel(self):
+        """Exécution RÉELLE confinée : environnement minimal, utilisateur non
+        privilégié si possible, délai qui tue tout le groupe."""
+        os.chmod(self.dir, 0o755)  # mkdtemp crée en 0700 : l'utilisateur non privilégié doit traverser
+        self.make_agent(cmd=host.run_cmd)
+        self.http.config["plugins"] = [
+            self.http.signed_plugin("whoami", "#!/bin/bash\nprintf '{\"uid\": %s, \"home\": \"%s\", \"secret\": \"%s\"}' \"$(id -u)\" \"$HOME\" \"${SI_SECRET:-none}\"\n"),
+            self.http.signed_plugin("slow", "#!/bin/bash\nsleep 30 &\nsleep 30\n"),
+        ]
+        self.http.config["plugins"][1]["manifest"]["timeout_seconds"] = 1
+        self.http.config["plugins"][1]["manifest"]["signature"] = plugins.plugin_signature("s3cr3t", "slow", "1", plugins.sha256_text("#!/bin/bash\nsleep 30 &\nsleep 30\n"))
+        os.environ["SI_SECRET"] = "leak"
+        try:
+            self.agent.refresh_config(force=True)
+            started = __import__("time").monotonic()
+            out = {m["task"]: m for m in self.agent.run_plugins()}
+        finally:
+            os.environ.pop("SI_SECRET", None)
+        who = out["plugin:whoami"]
+        self.assertTrue(who["ok"], who.get("error"))
+        self.assertEqual(who["data"]["secret"], "none", "environnement du service jamais transmis")
+        self.assertEqual(who["data"]["home"], "/tmp")
+        if os.geteuid() == 0 and agent_mod.Agent._lookup_user("nobody"):
+            self.assertNotEqual(who["data"]["uid"], 0, "sonde non privilégiée exécutée sans root")
+        slow = out["plugin:slow"]
+        self.assertFalse(slow["ok"])
+        self.assertIn("délai dépassé", slow["error"])
+        self.assertLess(__import__("time").monotonic() - started, 10, "le groupe de processus est tué, pas seulement le shell")
+        self.assertIn("plugin-failed", self.events())
+
+    def test_etat_et_evenements_purs(self):
+        st = control.load_state(os.path.join(self.dir, "absent.json"))
+        self.assertEqual(st["blocked"], False)
+        self.assertTrue(control.remember_command(st, "a"))
+        self.assertFalse(control.remember_command(st, "a"))
+        for i in range(control.MAX_DONE_COMMANDS + 10):
+            control.remember_command(st, "x%d" % i)
+        self.assertEqual(len(st["done_commands"]), control.MAX_DONE_COMMANDS)
+        control.save_state(os.path.join(self.dir, "s.json"), st)
+        self.assertEqual(control.load_state(os.path.join(self.dir, "s.json"))["done_commands"][-1], "x%d" % (control.MAX_DONE_COMMANDS + 9))
+        ev = control.make_event("a", "k", "bizarre", "m", now=1.5)
+        self.assertEqual(ev["data"]["severity"], "info")
+        self.assertEqual(ev["task"], "event")
+        env = control.plugin_env("a", "s", "p", {"SI_X": "1", "PATH": "/evil", "HOME": "/root"})
+        self.assertEqual(env["SI_X"], "1")
+        self.assertNotEqual(env["PATH"], "/evil")
+        self.assertEqual(env["HOME"], "/tmp")
+        self.assertIsNone(control.resolve_run_user({"privileged": True}, "nobody", 0, lambda n: (65534, 65534)))
+        self.assertEqual(control.resolve_run_user({}, "nobody", 0, lambda n: (65534, 65534)), (65534, 65534))
+        self.assertIsNone(control.resolve_run_user({}, "nobody", 1000, lambda n: (65534, 65534)), "seul root change d'utilisateur")
+        h = control.response_headers("s", b"body", timestamp=5)
+        self.assertEqual(control.verify_response("s", h, b"body"), (True, "ok"))
+        self.assertFalse(control.verify_response("s", h, b"other")[0])
+        self.assertFalse(control.verify_response("s", {}, b"body")[0])
 
 
 class SharedCopyTests(unittest.TestCase):

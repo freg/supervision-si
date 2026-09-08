@@ -1059,6 +1059,10 @@ services:
       dockerfile: si-agent/api/Dockerfile
     volumes:
       - ${SI_AGENT_DATA_DIR:-./si-agent/data}:/data
+      # CA interne (pki/) servie aux agents pour l'amorçage TLS par
+      # empreinte (#422, `install.sh --ca-fingerprint`) -- le CERTIFICAT
+      # seul, jamais le dossier (ca.key n'a rien à faire dans ce conteneur).
+      - ./pki/ca/ca.crt:/ca/ca.crt:ro
     environment:
       - MEMCACHED_HOST=memcached
       # URL que les agents utilisent pour joindre le central (passerelle
@@ -1066,6 +1070,31 @@ services:
       - SI_AGENT_PUBLIC_URL=${SI_AGENT_PUBLIC_URL:-https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-agent}
       - SI_AGENT_OFFLINE_SECONDS=${SI_AGENT_OFFLINE_SECONDS:-300}
       - SI_AGENT_RETENTION_DAYS=${SI_AGENT_RETENTION_DAYS:-90}
+    environment:
+      - MEMCACHED_HOST=memcached
+      # URL que les agents utilisent pour joindre le central (passerelle
+      # TLS) -- affichée dans la commande d'installation.
+      - SI_AGENT_PUBLIC_URL=${SI_AGENT_PUBLIC_URL:-https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-agent}
+      - SI_AGENT_OFFLINE_SECONDS=${SI_AGENT_OFFLINE_SECONDS:-300}
+      - SI_AGENT_RETENTION_DAYS=${SI_AGENT_RETENTION_DAYS:-90}
+      # #422 : sécurité, traces, notifications (SMS/courriel via les
+      # canaux SECRETS_ALERT_* du PRA #206, webhook), journal d'événements.
+      - SI_AGENT_CA_FILE=/ca/ca.crt
+      - SI_AGENT_LOG_LEVEL=${SI_AGENT_LOG_LEVEL:-INFO}
+      - SI_AGENT_EVENTS_RETENTION_DAYS=${SI_AGENT_EVENTS_RETENTION_DAYS:-365}
+      - SI_AGENT_NOTIFY_MIN_SEVERITY=${SI_AGENT_NOTIFY_MIN_SEVERITY:-warning}
+      - SI_AGENT_NOTIFY_COOLDOWN_SECONDS=${SI_AGENT_NOTIFY_COOLDOWN_SECONDS:-900}
+      - SI_AGENT_NOTIFY_WEBHOOK_URL=${SI_AGENT_NOTIFY_WEBHOOK_URL:-}
+      - SECRETS_ALERT_SMS_URL=${SECRETS_ALERT_SMS_URL:-}
+      - SECRETS_ALERT_SMS_KEY=${SECRETS_ALERT_SMS_KEY:-}
+      - SECRETS_ALERT_SMS_NUMBER=${SECRETS_ALERT_SMS_NUMBER:-}
+      - SECRETS_ALERT_SMTP_HOST=${SECRETS_ALERT_SMTP_HOST:-}
+      - SECRETS_ALERT_SMTP_PORT=${SECRETS_ALERT_SMTP_PORT:-587}
+      - SECRETS_ALERT_SMTP_USER=${SECRETS_ALERT_SMTP_USER:-}
+      - SECRETS_ALERT_SMTP_PASSWORD=${SECRETS_ALERT_SMTP_PASSWORD:-}
+      - SECRETS_ALERT_SMTP_FROM=${SECRETS_ALERT_SMTP_FROM:-}
+      - SECRETS_ALERT_SMTP_USE_TLS=${SECRETS_ALERT_SMTP_USE_TLS:-true}
+      - SECRETS_ALERT_EMAIL_TO=${SECRETS_ALERT_EMAIL_TO:-}
     depends_on:
       - memcached
     ports:

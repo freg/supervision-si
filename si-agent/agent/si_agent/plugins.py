@@ -36,6 +36,11 @@ import os
 import shutil
 import time
 
+try:
+    from . import control
+except ImportError:  # copie à plat dans l'image du central (si_agent_plugins.py)
+    import si_agent_control as control  # noqa: N813
+
 RUNNERS = ("shell", "python")
 MAX_RAW_OUTPUT = 4000
 
@@ -44,8 +49,11 @@ def sha256_text(text):
     return hashlib.sha256((text or "").encode("utf-8")).hexdigest()
 
 
-def plugin_signature(secret, plugin_id, version, digest):
-    msg = "%s\n%s\n%s" % (plugin_id, version, digest)
+def plugin_signature(secret, plugin_id, version, digest, privileged=False):
+    """HMAC du central sur (id, version, sha256) -- et sur le drapeau
+    `privileged` quand il est levé (#422) : un plugin ne tourne en root
+    que si le central l'a signé ainsi."""
+    msg = control.plugin_signature_message(plugin_id, version, digest, privileged)
     return hmac.new((secret or "").encode("utf-8"), msg.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
@@ -70,6 +78,12 @@ def validate_manifest(m):
         return False, "interval_seconds : 30 s minimum"
     if m.get("args") is not None and (not isinstance(m["args"], list) or any(not isinstance(a, str) for a in m["args"])):
         return False, "args : liste de chaînes"
+    if m.get("max_memory_mb") is not None:
+        try:
+            if int(m["max_memory_mb"]) < 16:
+                return False, "max_memory_mb : 16 Mo minimum"
+        except (TypeError, ValueError):
+            return False, "max_memory_mb non entier"
     return True, "ok"
 
 
@@ -100,6 +114,23 @@ class PluginStore(object):
             out.append(m)
         return out
 
+    def ensure_permissions(self):
+        """Sondes installées AVANT le confinement (#420/#421, scripts en 0750
+        root) : l'utilisateur non privilégié doit pouvoir traverser le dossier
+        et lire le script -- normalisé au démarrage, best-effort."""
+        fixed = 0
+        try:
+            if os.path.isdir(self.dir) and (os.stat(self.dir).st_mode & 0o055) != 0o055:
+                os.chmod(self.dir, 0o755); fixed += 1
+            for m in self.list():
+                d = os.path.dirname(m["path"])
+                for path, want in ((d, 0o755), (m["path"], 0o755)):
+                    if os.path.exists(path) and (os.stat(path).st_mode & 0o777) != want:
+                        os.chmod(path, want); fixed += 1
+        except OSError:
+            pass
+        return fixed
+
     def get(self, pid):
         for m in self.list():
             if m["id"] == pid:
@@ -117,15 +148,21 @@ class PluginStore(object):
         if source == "central":
             if manifest.get("sha256") != digest:
                 return False, "sha256 du script différent du manifeste"
-            expected = plugin_signature(secret, manifest["id"], str(manifest.get("version", "")), digest)
+            expected = plugin_signature(secret, manifest["id"], str(manifest.get("version", "")), digest,
+                                        privileged=bool(manifest.get("privileged")))
             if not secret or not hmac.compare_digest(expected, str(manifest.get("signature") or "")):
                 return False, "signature du central invalide"
         target = self._path(manifest["id"])
         os.makedirs(target, exist_ok=True)
+        try:
+            os.chmod(self.dir, 0o755)
+        except OSError:
+            pass
+        os.chmod(target, 0o755)  # lisible par l'utilisateur non privilégié qui exécute la sonde (#422)
         entry_path = os.path.join(target, manifest["entry"])
         with open(entry_path, "w") as fh:
             fh.write(body)
-        os.chmod(entry_path, 0o750)
+        os.chmod(entry_path, 0o755)
         stored = dict(manifest)
         stored["sha256"] = digest
         stored["source"] = source
@@ -144,11 +181,15 @@ class PluginStore(object):
         return True
 
     def set_enabled(self, pid, enabled):
+        return self.set_flag(pid, "enabled", bool(enabled))
+
+    def set_flag(self, pid, key, value):
+        """Met à jour un drapeau du manifeste stocké (enabled, blocked)."""
         m = self.get(pid)
         if m is None:
             return False
         m = {k: v for k, v in m.items() if k not in ("path", "present")}
-        m["enabled"] = bool(enabled)
+        m[key] = value
         with open(os.path.join(self._path(pid), "manifest.json"), "w") as fh:
             json.dump(m, fh, indent=2, ensure_ascii=False)
         return True
@@ -162,8 +203,11 @@ def is_enabled(manifest, local_overrides=None):
     return bool(manifest.get("enabled", False))
 
 
-def run_plugin(manifest, cmd, now=None, env=None, python="python3", shell="bash"):
-    """Exécute un plugin ; renvoie une mesure `plugin:<id>`."""
+def run_plugin(manifest, cmd, now=None, env=None, python="python3", shell="bash", confine=None):
+    """Exécute un plugin ; renvoie une mesure `plugin:<id>`. `confine`
+    (#422) : {"env", "preexec_fn", "cwd"} transmis à run_cmd -- session,
+    limites, utilisateur non privilégié ; absent = exécution simple (tests,
+    faux cmd)."""
     at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now if now is not None else time.time()))
     task = "plugin:%s" % manifest["id"]
     if not manifest.get("present", True):
@@ -172,7 +216,12 @@ def run_plugin(manifest, cmd, now=None, env=None, python="python3", shell="bash"
     argv = [shell if runner == "shell" else python, manifest["path"]] + list(manifest.get("args") or [])
     timeout = int(manifest.get("timeout_seconds") or 60)
     started = time.monotonic()
-    r = cmd(argv, timeout=timeout, env=env) if env is not None else cmd(argv, timeout=timeout)
+    if confine is not None:
+        r = cmd(argv, timeout=timeout, confined=confine)
+    elif env is not None:
+        r = cmd(argv, timeout=timeout, env=env)
+    else:
+        r = cmd(argv, timeout=timeout)
     duration = round(time.monotonic() - started, 3)
     stdout = (r.stdout or "").strip()
     data = None
@@ -186,5 +235,6 @@ def run_plugin(manifest, cmd, now=None, env=None, python="python3", shell="bash"
     error = None if ok else ("code %s : %s" % (r.returncode, (r.stderr or stdout or "")[:500].strip()))
     m = {"task": task, "at": at, "ok": ok, "data": data, "error": error}
     if data is not None:
-        data.setdefault("_plugin", {"id": manifest["id"], "version": str(manifest.get("version", "")), "duration_seconds": duration})
+        data.setdefault("_plugin", {"id": manifest["id"], "version": str(manifest.get("version", "")), "duration_seconds": duration,
+                                    "privileged": bool(manifest.get("privileged"))})
     return m

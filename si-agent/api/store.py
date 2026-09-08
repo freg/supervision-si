@@ -26,6 +26,7 @@ import sqlite3
 import time
 
 import si_agent_plugins as plugin_lib
+import si_agent_control as control_lib
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS agents (
@@ -95,10 +96,47 @@ CREATE TABLE IF NOT EXISTS commands (
     acked_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_commands_agent_status ON commands(agent_id, status);
+
+-- #422 : journal d'événements (agents + central), blocage, réglages globaux
+CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    at TEXT NOT NULL,
+    agent_id TEXT,
+    site TEXT,
+    source TEXT NOT NULL DEFAULT 'central',
+    kind TEXT NOT NULL,
+    severity TEXT NOT NULL DEFAULT 'info',
+    message TEXT NOT NULL,
+    details TEXT,
+    notified TEXT,
+    UNIQUE(agent_id, source, at, kind)
+);
+CREATE INDEX IF NOT EXISTS idx_events_at ON events(at);
+CREATE INDEX IF NOT EXISTS idx_events_agent ON events(agent_id, at);
+CREATE INDEX IF NOT EXISTS idx_events_severity ON events(severity, at);
+
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
 """
 
+# Colonnes ajoutées après coup (#422) -- `ALTER TABLE ... ADD COLUMN` idempotent
+MIGRATIONS = [
+    ("agents", "blocked", "INTEGER NOT NULL DEFAULT 0"),
+    ("agents", "blocked_reason", "TEXT"),
+    ("agents", "blocked_at", "TEXT"),
+    ("agents", "last_online", "TEXT"),
+    ("plugins", "privileged", "INTEGER NOT NULL DEFAULT 0"),
+    ("plugins", "max_memory_mb", "INTEGER"),
+    ("agent_plugins", "blocked", "INTEGER NOT NULL DEFAULT 0"),
+    ("agent_plugins", "blocked_reason", "TEXT"),
+]
+
 AGENT_ID_MAX = 64
-COMMAND_TYPES = ("collect_now", "run_plugin", "enable_plugin", "disable_plugin", "remove_plugin", "flush")
+COMMAND_TYPES = ("collect_now", "run_plugin", "enable_plugin", "disable_plugin", "remove_plugin", "flush",
+                 "block_all", "unblock_all", "block_plugin", "unblock_plugin")
+SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
 TASKS_KEPT_LATEST = ("host", "risks", "inventory")
 
 
@@ -116,6 +154,10 @@ def ensure_schema(db_path):
     conn = sqlite3.connect(db_path)
     try:
         conn.executescript(SCHEMA)
+        for table, col, decl in MIGRATIONS:
+            cols = [r[1] for r in conn.execute("PRAGMA table_info(%s)" % table).fetchall()]
+            if col not in cols:
+                conn.execute("ALTER TABLE %s ADD COLUMN %s %s" % (table, col, decl))
         conn.commit()
     finally:
         conn.close()
@@ -131,8 +173,193 @@ def _agent_public(r):
     d = dict(r)
     d.pop("secret", None)
     d["active"] = bool(d.get("active"))
+    d["blocked"] = bool(d.get("blocked"))
     d["risk_thresholds"] = json.loads(d.get("risk_thresholds") or "{}")
     return d
+
+
+# ------------------------------------------------------------------
+# Réglages globaux et journal d'événements (#422)
+# ------------------------------------------------------------------
+
+def get_setting(db_path, key, default=None):
+    conn = _connect(db_path)
+    try:
+        r = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    finally:
+        conn.close()
+    if r is None or r["value"] is None:
+        return default
+    try:
+        return json.loads(r["value"])
+    except ValueError:
+        return default
+
+
+def set_setting(db_path, key, value):
+    conn = _connect(db_path)
+    try:
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, json.dumps(value)))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def fleet_block(db_path):
+    return get_setting(db_path, "fleet_block", {"blocked": False, "reason": None, "at": None}) or {"blocked": False}
+
+
+def add_event(db_path, kind, severity, message, agent_id=None, details=None, source="central", at=None, site=None):
+    """Journal : un fait daté. `source` = central (action du tableau de
+    bord, constat du central) ou agent (remonté par l'agent). Renvoie
+    l'événement inséré (ou None si doublon)."""
+    if severity not in SEVERITY_ORDER:
+        severity = "info"
+    at = at or now_iso()
+    conn = _connect(db_path)
+    try:
+        if site is None and agent_id:
+            r = conn.execute("SELECT site FROM agents WHERE agent_id = ?", (agent_id,)).fetchone()
+            site = r["site"] if r else None
+        try:
+            cur = conn.execute("INSERT INTO events (at, agent_id, site, source, kind, severity, message, details) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                               (at, agent_id, site, source, kind, severity, message, json.dumps(details, ensure_ascii=False) if details else None))
+        except sqlite3.IntegrityError:
+            return None
+        conn.commit()
+        eid = cur.lastrowid
+    finally:
+        conn.close()
+    return {"id": eid, "at": at, "agent_id": agent_id, "site": site, "source": source, "kind": kind, "severity": severity,
+            "message": message, "details": details or {}}
+
+
+def _event_public(r):
+    d = dict(r)
+    d["details"] = json.loads(d["details"]) if d.get("details") else {}
+    d["notified"] = json.loads(d["notified"]) if d.get("notified") else None
+    return d
+
+
+def list_events(db_path, agent_id=None, severity=None, kind=None, since=None, limit=200, min_severity=None):
+    q = "SELECT * FROM events WHERE 1=1"
+    params = []
+    if agent_id:
+        q += " AND agent_id = ?"; params.append(agent_id)
+    if severity:
+        q += " AND severity = ?"; params.append(severity)
+    if min_severity in SEVERITY_ORDER:
+        allowed = [k for k, v in SEVERITY_ORDER.items() if v <= SEVERITY_ORDER[min_severity]]
+        q += " AND severity IN (%s)" % ",".join("?" * len(allowed)); params.extend(allowed)
+    if kind:
+        q += " AND kind = ?"; params.append(kind)
+    if since:
+        q += " AND at >= ?"; params.append(since)
+    q += " ORDER BY at DESC, id DESC LIMIT ?"; params.append(max(1, min(int(limit or 200), 2000)))
+    conn = _connect(db_path)
+    try:
+        rows = conn.execute(q, params).fetchall()
+    finally:
+        conn.close()
+    return [_event_public(r) for r in rows]
+
+
+def mark_notified(db_path, event_id, result):
+    conn = _connect(db_path)
+    try:
+        conn.execute("UPDATE events SET notified = ? WHERE id = ?", (json.dumps(result), event_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def events_summary(db_path, hours=24, offline_after_seconds=300):
+    """Synthèse pour le hub : compteurs par sévérité sur la fenêtre, derniers
+    événements notables, état de blocage, agents hors ligne."""
+    since = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - hours * 3600))
+    conn = _connect(db_path)
+    try:
+        counts = {r["severity"]: r["n"] for r in conn.execute(
+            "SELECT severity, COUNT(*) AS n FROM events WHERE at >= ? GROUP BY severity", (since,)).fetchall()}
+        kinds = [{"kind": r["kind"], "severity": r["severity"], "count": r["n"]} for r in conn.execute(
+            "SELECT kind, severity, COUNT(*) AS n FROM events WHERE at >= ? GROUP BY kind, severity ORDER BY n DESC LIMIT 12", (since,)).fetchall()]
+        notable = [_event_public(r) for r in conn.execute(
+            "SELECT * FROM events WHERE at >= ? AND severity IN ('critical', 'warning') ORDER BY at DESC, id DESC LIMIT 8", (since,)).fetchall()]
+        latest = [_event_public(r) for r in conn.execute("SELECT * FROM events ORDER BY at DESC, id DESC LIMIT 5").fetchall()]
+    finally:
+        conn.close()
+    agents = fleet(db_path, offline_after_seconds=offline_after_seconds)
+    fb = fleet_block(db_path)
+    return {
+        "window_hours": hours, "since": since,
+        "counts": {"critical": counts.get("critical", 0), "warning": counts.get("warning", 0), "info": counts.get("info", 0)},
+        "kinds": kinds, "notable": notable, "latest": latest,
+        "fleet_blocked": bool(fb.get("blocked")), "fleet_block_reason": fb.get("reason"), "fleet_blocked_at": fb.get("at"),
+        "agents": len(agents),
+        "agents_blocked": [a["agent_id"] for a in agents if a["blocked"]],
+        "agents_offline": [a["agent_id"] for a in agents if a["online"] == "offline"],
+        "agents_never": [a["agent_id"] for a in agents if a["online"] == "never"],
+        "risks": {"critical": sum((a.get("risks") or {}).get("counts", {}).get("critical", 0) for a in agents),
+                  "warning": sum((a.get("risks") or {}).get("counts", {}).get("warning", 0) for a in agents)},
+    }
+
+
+def purge_events(db_path, retention_days):
+    if not retention_days or retention_days <= 0:
+        return 0
+    cutoff = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - retention_days * 86400))
+    conn = _connect(db_path)
+    try:
+        cur = conn.execute("DELETE FROM events WHERE at < ?", (cutoff,))
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
+
+def set_agent_blocked(db_path, agent_id, blocked, reason=None):
+    conn = _connect(db_path)
+    try:
+        cur = conn.execute("UPDATE agents SET blocked = ?, blocked_reason = ?, blocked_at = ?, updated_at = ? WHERE agent_id = ?",
+                           (1 if blocked else 0, reason if blocked else None, now_iso() if blocked else None, now_iso(), agent_id))
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def set_plugin_blocked(db_path, agent_id, plugin_id, blocked, reason=None):
+    conn = _connect(db_path)
+    try:
+        cur = conn.execute("UPDATE agent_plugins SET blocked = ?, blocked_reason = ? WHERE agent_id = ? AND plugin_id = ?",
+                           (1 if blocked else 0, reason if blocked else None, agent_id, plugin_id))
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def online_transitions(db_path, offline_after_seconds=300):
+    """Compare l'état de contact courant à `last_online` mémorisé ; renvoie
+    les transitions [(agent_id, 'online'|'offline')] et les enregistre --
+    appelé par le chien de garde du central."""
+    out = []
+    conn = _connect(db_path)
+    try:
+        rows = conn.execute("SELECT agent_id, last_seen_at, last_online, host_interval_seconds FROM agents WHERE active = 1").fetchall()
+        now = time.time()
+        for r in rows:
+            cur = _online(r["last_seen_at"], now, offline_after_seconds, r["host_interval_seconds"])
+            if cur == "never":
+                continue
+            if r["last_online"] != cur:
+                if r["last_online"] is not None or cur == "offline":
+                    out.append((r["agent_id"], cur))
+                conn.execute("UPDATE agents SET last_online = ? WHERE agent_id = ?", (cur, r["agent_id"]))
+        conn.commit()
+    finally:
+        conn.close()
+    return out
 
 
 # ------------------------------------------------------------------
@@ -312,6 +539,7 @@ def touch_agent(conn, agent_id, ip=None, config_version=None):
 def _plugin_public(r, with_body=False):
     d = dict(r)
     d["args"] = json.loads(d.get("args") or "[]")
+    d["privileged"] = bool(d.get("privileged"))
     if not with_body:
         d.pop("body", None)
     return d
@@ -335,10 +563,11 @@ def upsert_plugin(db_path, manifest, body):
     try:
         exists = conn.execute("SELECT created_at FROM plugins WHERE id = ?", (m["id"],)).fetchone()
         conn.execute(
-            "INSERT OR REPLACE INTO plugins (id, version, runner, entry, interval_seconds, timeout_seconds, args, description, body, sha256, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO plugins (id, version, runner, entry, interval_seconds, timeout_seconds, args, description, body, sha256, created_at, updated_at, privileged, max_memory_mb) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (m["id"], m["version"], m["runner"], m["entry"], int(m.get("interval_seconds", 3600)), int(m.get("timeout_seconds") or 60),
-             json.dumps(m.get("args") or []), m.get("description"), body, digest, exists["created_at"] if exists else now, now))
+             json.dumps(m.get("args") or []), m.get("description"), body, digest, exists["created_at"] if exists else now, now,
+             1 if m.get("privileged") else 0, int(m["max_memory_mb"]) if m.get("max_memory_mb") else None))
         conn.commit()
         r = conn.execute("SELECT * FROM plugins WHERE id = ?", (m["id"],)).fetchone()
     finally:
@@ -413,11 +642,11 @@ def agent_plugins(db_path, agent_id):
     conn = _connect(db_path)
     try:
         rows = conn.execute(
-            "SELECT p.id, p.version, p.runner, p.description, p.interval_seconds, p.sha256, ap.enabled, ap.assigned_at "
+            "SELECT p.id, p.version, p.runner, p.description, p.interval_seconds, p.sha256, p.privileged, ap.enabled, ap.assigned_at, ap.blocked, ap.blocked_reason "
             "FROM agent_plugins ap JOIN plugins p ON p.id = ap.plugin_id WHERE ap.agent_id = ? ORDER BY p.id", (agent_id,)).fetchall()
     finally:
         conn.close()
-    return [dict(r, enabled=bool(r["enabled"])) for r in rows]
+    return [dict(r, enabled=bool(r["enabled"]), blocked=bool(r["blocked"]), privileged=bool(r["privileged"])) for r in rows]
 
 
 # ------------------------------------------------------------------
@@ -435,22 +664,30 @@ def config_for_agent(db_path, agent_id):
         if a is None:
             return None
         rows = conn.execute(
-            "SELECT p.*, ap.enabled AS assigned_enabled FROM agent_plugins ap JOIN plugins p ON p.id = ap.plugin_id "
+            "SELECT p.*, ap.enabled AS assigned_enabled, ap.blocked AS assigned_blocked FROM agent_plugins ap JOIN plugins p ON p.id = ap.plugin_id "
             "WHERE ap.agent_id = ? ORDER BY p.id", (agent_id,)).fetchall()
         inv = conn.execute("SELECT data FROM measurements WHERE agent_id = ? AND task = 'inventory' ORDER BY at DESC LIMIT 1",
                            (agent_id,)).fetchone()
     finally:
         conn.close()
+    fb = fleet_block(db_path)
+    blocked = bool(fb.get("blocked")) or bool(a["blocked"])
+    blocked_reason = (fb.get("reason") or "blocage général de la flotte") if fb.get("blocked") else a["blocked_reason"]
     assigned = []
-    fingerprint = [str(a["host_interval_seconds"]), a["risk_thresholds"] or "{}"]
+    fingerprint = [str(a["host_interval_seconds"]), a["risk_thresholds"] or "{}", "blocked:%d" % (1 if blocked else 0)]
     for r in rows:
+        privileged = bool(r["privileged"])
         manifest = {"id": r["id"], "version": r["version"], "runner": r["runner"], "entry": r["entry"],
                     "interval_seconds": r["interval_seconds"], "timeout_seconds": r["timeout_seconds"],
                     "args": json.loads(r["args"] or "[]"), "enabled": bool(r["assigned_enabled"]),
+                    "blocked": bool(r["assigned_blocked"]), "privileged": privileged,
                     "description": r["description"], "sha256": r["sha256"],
-                    "signature": plugin_lib.plugin_signature(a["secret"], r["id"], r["version"], r["sha256"])}
+                    "signature": plugin_lib.plugin_signature(a["secret"], r["id"], r["version"], r["sha256"], privileged=privileged)}
+        if r["max_memory_mb"]:
+            manifest["max_memory_mb"] = r["max_memory_mb"]
         assigned.append({"manifest": manifest, "body": r["body"]})
-        fingerprint.append("%s@%s:%s:%d" % (r["id"], r["version"], r["sha256"][:12], 1 if r["assigned_enabled"] else 0))
+        fingerprint.append("%s@%s:%s:%d:%d:%d" % (r["id"], r["version"], r["sha256"][:12], 1 if r["assigned_enabled"] else 0,
+                                                  1 if r["assigned_blocked"] else 0, 1 if privileged else 0))
     assigned_ids = {p["manifest"]["id"] for p in assigned}
     remove = []
     if inv and inv["data"]:
@@ -462,8 +699,11 @@ def config_for_agent(db_path, agent_id):
             pass
     fingerprint.append("rm:" + ",".join(sorted(remove)))
     version = hashlib.sha256("\n".join(fingerprint).encode("utf-8")).hexdigest()[:16]
-    return {"version": version, "host_interval_seconds": a["host_interval_seconds"],
-            "risk_thresholds": json.loads(a["risk_thresholds"] or "{}"), "plugins": assigned, "remove_plugins": remove}
+    # issued_at : horloge du central, monotone d'une lecture à l'autre -- l'agent
+    # refuse une configuration plus ancienne que la dernière appliquée (rejeu).
+    return {"version": version, "issued_at": int(time.time()), "host_interval_seconds": a["host_interval_seconds"],
+            "risk_thresholds": json.loads(a["risk_thresholds"] or "{}"), "plugins": assigned, "remove_plugins": remove,
+            "blocked": blocked, "blocked_reason": blocked_reason if blocked else None}
 
 
 # ------------------------------------------------------------------
@@ -473,7 +713,7 @@ def config_for_agent(db_path, agent_id):
 def create_command(db_path, agent_id, ctype, params=None):
     if ctype not in COMMAND_TYPES:
         raise ValueError("type de commande inconnu (%s)" % ", ".join(COMMAND_TYPES))
-    if ctype in ("run_plugin", "enable_plugin", "disable_plugin", "remove_plugin") and not (params or {}).get("id"):
+    if ctype in ("run_plugin", "enable_plugin", "disable_plugin", "remove_plugin", "block_plugin", "unblock_plugin") and not (params or {}).get("id"):
         raise ValueError("params.id (identifiant du plugin) requis")
     cid = "c-" + _secrets.token_hex(6)
     conn = _connect(db_path)
@@ -547,9 +787,11 @@ def ack_command(db_path, agent_id, cid, result):
 def ingest_measurements(db_path, agent_id, items, ip=None):
     """Insère les mesures d'UN agent (celui qui a signé) ; les mesures
     portant un autre agent_id sont rejetées. Renvoie (acceptées, doublons,
-    rejets). Met à jour le dernier contact et, sur `host`/`inventory`, la
-    fiche de l'agent (hôte, OS, version)."""
+    rejets, événements reçus). Les mesures `event` vont dans le journal
+    (table events, source agent), pas dans measurements. Met à jour le
+    dernier contact et, sur `host`/`inventory`, la fiche de l'agent."""
     accepted, duplicates, rejected = 0, 0, []
+    events_seen = []
     now = now_iso()
     conn = _connect(db_path)
     try:
@@ -561,6 +803,18 @@ def ingest_measurements(db_path, agent_id, items, ip=None):
                 rejected.append({"reason": "agent_id %s ≠ signataire" % m.get("agent_id")})
                 continue
             data = m.get("data")
+            if m["task"] == "event":
+                ev = data if isinstance(data, dict) else {}
+                sev = ev.get("severity") if ev.get("severity") in SEVERITY_ORDER else "info"
+                try:
+                    conn.execute("INSERT INTO events (at, agent_id, site, source, kind, severity, message, details) VALUES (?, ?, ?, 'agent', ?, ?, ?, ?)",
+                                 (m["at"], agent_id, site_of(conn, agent_id), str(ev.get("kind") or "event")[:64], sev,
+                                  str(ev.get("message") or "")[:500], json.dumps(ev.get("details") or {}, ensure_ascii=False)))
+                    accepted += 1
+                    events_seen.append({"at": m["at"], "kind": ev.get("kind"), "severity": sev, "message": ev.get("message"), "agent_id": agent_id})
+                except sqlite3.IntegrityError:
+                    duplicates += 1
+                continue
             try:
                 conn.execute("INSERT INTO measurements (agent_id, task, at, ok, data, error, received_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
                              (agent_id, m["task"], m["at"], 1 if m.get("ok", True) else 0,
@@ -580,7 +834,12 @@ def ingest_measurements(db_path, agent_id, items, ip=None):
         conn.commit()
     finally:
         conn.close()
-    return accepted, duplicates, rejected
+    return accepted, duplicates, rejected, events_seen
+
+
+def site_of(conn, agent_id):
+    r = conn.execute("SELECT site FROM agents WHERE agent_id = ?", (agent_id,)).fetchone()
+    return r["site"] if r else None
 
 
 def _measurement_public(r):
@@ -644,6 +903,10 @@ def fleet(db_path, site=None, offline_after_seconds=300):
         a["online"] = _online(a.get("last_seen_at"), now, offline_after_seconds, a["host_interval_seconds"])
         a["pending_commands"] = len(pending_commands_for_agent(db_path, a["agent_id"]))
         a["plugins_assigned"] = len(agent_plugins(db_path, a["agent_id"]))
+        inv = (latest.get("inventory") or {}).get("data") or {}
+        a["host_blocked"] = bool(inv.get("blocked"))  # ce que l'AGENT dit de lui-même (dernier inventaire)
+        a["host_blocked_reason"] = inv.get("blocked_reason")
+        a["insecure_tls"] = bool(inv.get("insecure_tls"))
         out.append(a)
     return out
 

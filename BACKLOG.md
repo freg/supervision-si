@@ -2355,6 +2355,12 @@ qui fait alors sauter la file.
     (2), plugin `network-neighbors` livré désactivé pour (3). Reste :
     (4) central `si-agent-api` + tuile hub « Agents » (#421), relais
     d'exploration, sondes Windows, agents GLPI.
+    Avancement (#422) : réponses du central signées, sondes confinées
+    (nobody, limites, délai), blocage général / individuel (commande,
+    configuration, fichier local), amorçage TLS par empreinte de CA,
+    traces verbeuses, journal d'événements + notifications (SMS /
+    courriel du PRA, webhook) + synthèse sur l'accueil du hub. Reste :
+    relais d'exploration, Windows, GLPI, vraie machine / Docker.
 
 64. Refonte de la tuile Supervision SI (2026-09-07, demandé avec #418).
     « La tuile actuelle était la maquette initiale de la dataviz du hub ;

@@ -7,6 +7,7 @@
   "timeout_seconds": 30,
   "args": [],
   "enabled": false,
-  "description": "Conteneurs Docker de l'hôte : état, image, redémarrages, ports publiés (exemple de plugin Python ; nécessite l'accès au socket Docker).",
-  "source": "bundled"
+  "description": "Conteneurs Docker de l'hôte : état, image, redémarrages, ports publiés (exemple de plugin Python ; nécessite l'accès au socket Docker). Privilégiée : accès au socket Docker (root).",
+  "source": "bundled",
+  "privileged": true
 }

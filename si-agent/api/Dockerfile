@@ -9,11 +9,15 @@ RUN pip install --no-cache-dir --retries 5 --timeout 60 -r requirements.txt
 
 COPY si-agent/api/app.py .
 COPY si-agent/api/store.py .
+COPY si-agent/api/notify.py .
 # COPIES du protocole et du moteur de plugins partagés avec l'agent
 # (source canonique : si-agent/agent/si_agent/), jamais une
 # réimplémentation. Oublier l'une des deux = ModuleNotFoundError.
 COPY si-agent/agent/si_agent/protocol.py ./si_agent_protocol.py
 COPY si-agent/agent/si_agent/plugins.py ./si_agent_plugins.py
+COPY si-agent/agent/si_agent/control.py ./si_agent_control.py
+# Canaux SMS / courriel du PRA (#206) réutilisés pour les notifications (#422)
+COPY shared/secrets_alert.py .
 COPY shared/log_buffer.py .
 COPY shared/version_endpoint.py .
 COPY shared/VERSION.json .

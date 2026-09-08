@@ -76,3 +76,25 @@ export async function fetchCommands(apiBase, agentId) {
   const data = await fetchJson(apiBase, `/agents/${encodeURIComponent(agentId)}/commands?limit=30`);
   return Array.isArray(data?.commands) ? data.commands : [];
 }
+
+// #422 : blocage, journal d'événements, synthèse, notifications
+export const blockFleet = (apiBase, reason) => fetchJson(apiBase, "/block", json("POST", { reason }));
+export const unblockFleet = (apiBase) => fetchJson(apiBase, "/unblock", json("POST", {}));
+export const blockAgent = (apiBase, agentId, reason) => fetchJson(apiBase, `/agents/${encodeURIComponent(agentId)}/block`, json("POST", { reason }));
+export const unblockAgent = (apiBase, agentId) => fetchJson(apiBase, `/agents/${encodeURIComponent(agentId)}/unblock`, json("POST", {}));
+export const setPluginBlocked = (apiBase, agentId, pluginId, blocked, reason) =>
+  fetchJson(apiBase, `/agents/${encodeURIComponent(agentId)}/plugins/${encodeURIComponent(pluginId)}`, json("PUT", { blocked, reason }));
+
+export async function fetchEvents(apiBase, { agent, severity, minSeverity, kind, since, limit = 200 } = {}) {
+  const q = new URLSearchParams();
+  if (agent) q.set("agent", agent);
+  if (severity) q.set("severity", severity);
+  if (minSeverity) q.set("min_severity", minSeverity);
+  if (kind) q.set("kind", kind);
+  if (since) q.set("since", since);
+  if (limit) q.set("limit", String(limit));
+  const data = await fetchJson(apiBase, `/events?${q.toString()}`);
+  return Array.isArray(data?.events) ? data.events : [];
+}
+export const fetchEventsSummary = (apiBase, hours = 24) => fetchJson(apiBase, `/events/summary?hours=${hours}`);
+export const testNotifications = (apiBase) => fetchJson(apiBase, "/notifications/test", json("POST", {}));
