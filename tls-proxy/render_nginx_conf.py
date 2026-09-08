@@ -190,6 +190,8 @@ SERVICES = [
     # est retiré ici (même mécanique que netprobe). Ajouté dès la
     # première livraison (piège #301).
     ("SI_AGENT_API_PORT", "si-agent-api", 5000, "/api/si-agent/", "api"),
+    # geo-catalog-api (livraison #429) -- catalogue de positions.
+    ("GEO_CATALOG_API_PORT", "geo-catalog-api", 5000, "/api/geo-catalog/", "api"),
     # relations-api (livraison #335) -- vue relations transversale de
     # la super tuile ENT, backlog item 38 point 2. Piège déjà rencontré
     # pour netprobe-api (#301) -- ajouté ICI dès la première livraison,

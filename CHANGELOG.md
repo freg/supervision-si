@@ -1,3 +1,38 @@
+## 2026-09-08 — Catalogue de positions : base PostGIS dédiée et déplaçable, références data.gouv.fr / OSM, interprétation, justesse en %, valider / corriger, objets rattachés (livraison #429)
+
+Backlog 67. Nouveau module `geo-catalog/` (README) et tuile hub
+« Catalogue de positions ».
+
+- `geo-catalog-postgres` : PostGIS **dédié** (postgis, pg_trgm, unaccent),
+  volume nommé ou `GEO_CATALOG_DATA_DIR` ; `GEO_CATALOG_DB_URL` pour une
+  base sur un **hôte secondaire** (procédure de déplacement documentée).
+- `geo-catalog-api` : `catalog.py` (pur, 7 tests) -- interprétation la
+  plus précise parmi les références, justesse 0-100 (précision, score du
+  géocodeur, concordances, contradictions, décision humaine), un
+  géocodage peu sûr n'écarte jamais des coordonnées saisies ; `store.py`
+  (positions, références, objets rattachés, communes, cache, journal de
+  synchro, voisinage) ; `refs.py` (pixel-grid, BAN/Géoplateforme en cache,
+  communes de geo.api.gouv.fr chargeables en base ou à la demande, OSM
+  local osm2pgsql par pg_trgm ou Nominatim cadencé) ; routes `/sync`,
+  `/positions`, `validate` / `correct` / `reset` / `refs/<id>/use` /
+  `push` (recopie dans les géolocalisations de pixel-grid), référentiels,
+  droit *manage* ; 6 tests contre un vrai PostGIS.
+- `scripts/import-osm.sh` : import d'un extrait Geofabrik avec osm2pgsql
+  (conteneur jetable) dans la base du catalogue, `--db` pour l'hôte
+  secondaire.
+- Hub : tuile et entrée du menu Général -- table (données de référence,
+  interprétation la plus précise, position, justesse, Valider / Corriger),
+  filtres, fiche avec carte (clic = correction proposée), références
+  (« utiliser »), correction, recopie, objets positionnés, voisines à
+  500 m ; `geoCatalog.js` (2 tests). Passerelle `/api/geo-catalog/`,
+  compose, `.env.example`.
+
+**Vérifié** : tests (7 + 6 + 2), chaîne réelle API ↔ PostGIS 16 ↔
+pixel-grid ↔ tuile (faux géocodeur, faux référentiel des communes -- pas
+d'accès aux services publics ici), rendu clair/sombre, build Vite, YAML.
+**Non vérifié** : data.geopf.fr / geo.api.gouv.fr / Nominatim réels,
+osm2pgsql, builds Docker, déplacement réel de la base.
+
 ## 2026-09-08 — Agent hôte : archive de déploiement, variante conteneur Docker (livraison #430)
 
 Demandé pour le premier hôte réel (« mon premier host dispose d'un docker,

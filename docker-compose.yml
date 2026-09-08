@@ -1504,6 +1504,8 @@ services:
       - VITE_UPS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/ups
       # Agents hôtes (livraison #421) -- tuile hub pour si-agent-api.
       - VITE_SI_AGENT_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-agent
+      # Catalogue de positions (livraison #429) -- tuile hub pour geo-catalog-api.
+      - VITE_GEO_CATALOG_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/geo-catalog
       # Supervision SI refondue (livraison #423) -- géolocalisations connues.
       - VITE_PIXEL_GRID_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/pixel-grid
       # Bases externes (livraison #425) -- tuile générique IPAM / Zenoss /
@@ -1688,6 +1690,58 @@ services:
       start_period: 60s
 
   # ------------------------------------------------------------------
+  # Catalogue de positions (livraison #429, backlog 67) -- base PostGIS
+  # DÉDIÉE, distincte de geo-postgres : elle accueille les référentiels
+  # volumineux (OSM via osm2pgsql, communes, cache de géocodage) et doit
+  # pouvoir vivre sur un HÔTE SECONDAIRE : GEO_CATALOG_DB_URL pointe
+  # alors vers l'autre machine et le service geo-catalog-postgres local
+  # peut être arrêté (voir geo-catalog/README.md, « Déplacer la base »).
+  # ------------------------------------------------------------------
+  geo-catalog-postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      - POSTGRES_DB=${GEO_CATALOG_DB_NAME:-geocat}
+      - POSTGRES_USER=${GEO_CATALOG_DB_USER:-geocat}
+      - POSTGRES_PASSWORD=${GEO_CATALOG_DB_PASSWORD:-geocat}
+    volumes:
+      # volume nommé par défaut ; GEO_CATALOG_DATA_DIR= un dossier (disque
+      # dédié) pour la base OSM -- plusieurs dizaines de Go pour la France.
+      - ${GEO_CATALOG_DATA_DIR:-geo_catalog_pg_data}:/var/lib/postgresql/data
+      - ./geo-catalog/db-init:/docker-entrypoint-initdb.d
+    ports:
+      - "${GEO_CATALOG_DB_PORT:-6547}:5432"
+    shm_size: 1g
+
+  geo-catalog-api:
+    build:
+      context: .
+      dockerfile: geo-catalog/api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      # URL complète de la base (hôte secondaire possible) ; vide = le
+      # service geo-catalog-postgres ci-dessus.
+      - GEO_CATALOG_DB_URL=${GEO_CATALOG_DB_URL:-}
+      - GEO_CATALOG_DB_HOST=geo-catalog-postgres
+      - GEO_CATALOG_DB_PORT=5432
+      - GEO_CATALOG_DB_NAME=${GEO_CATALOG_DB_NAME:-geocat}
+      - GEO_CATALOG_DB_USER=${GEO_CATALOG_DB_USER:-geocat}
+      - GEO_CATALOG_DB_PASSWORD=${GEO_CATALOG_DB_PASSWORD:-geocat}
+      - PIXEL_GRID_API_INTERNAL_URL=http://pixel-grid-api:5000
+      # géocodeur (Géoplateforme/BAN par défaut), Nominatim optionnel
+      # (vide = base OSM locale seulement), miroirs internes possibles.
+      - GEOCODE_PROVIDER_URL=${GEOCODE_PROVIDER_URL:-}
+      - GEO_CATALOG_NOMINATIM_URL=${GEO_CATALOG_NOMINATIM_URL:-}
+      - GEO_CATALOG_COMMUNES_URL=${GEO_CATALOG_COMMUNES_URL:-}
+      - GEO_CATALOG_COMMUNE_BY_CP_URL=${GEO_CATALOG_COMMUNE_BY_CP_URL:-}
+      - GEO_CATALOG_SYNC_MAX=${GEO_CATALOG_SYNC_MAX:-2000}
+      - RIGHTS_API_URL=${GEO_CATALOG_RIGHTS_API_URL:-}
+    ports:
+      - "${GEO_CATALOG_API_PORT:-6130}:5000"
+    depends_on:
+      - geo-catalog-postgres
+      - pixel-grid-api
+
+  # ------------------------------------------------------------------
   # Géomatique — base PostGIS de staging LOCALE à ce projet (décision
   # actée : pas de connexion à une base PostGIS externe existante,
   # celle-ci est gérée entièrement par ce docker-compose, écriture
@@ -1854,6 +1908,7 @@ volumes:
   tickets_pg_data:
   elasticsearch_data:
   geo_pg_data:
+  geo_catalog_pg_data:
   # keycloak_data SORTI vers gateway/docker-compose.yml (livraison
   # #135) -- le volume EXISTANT (créé avant cette extraction) y est
   # référencé explicitement (external: true) pour préserver le realm,

@@ -1882,3 +1882,31 @@ button.secondary { background: var(--panel); }
 @media (max-width: 1000px) { .sa-two-cols { grid-template-columns: 1fr; } }
 .sa-kv > div.sa-wide { grid-column: 1 / -1; flex-wrap: wrap; }
 .sa-kv > div.sa-wide > span:first-child { flex: 0 0 110px; }
+/* Tuile Catalogue de positions (livraison #429) -- GeoCatalogView.jsx */
+.gc-body { grid-template-columns: 1fr 460px; }
+.gc-table { width: 100%; table-layout: fixed; }
+.gc-table th:nth-child(1) { width: 30%; } .gc-table th:nth-child(2) { width: 24%; } .gc-table th:nth-child(3) { width: 14%; } .gc-table th:nth-child(4) { width: 14%; }
+.gc-table td { vertical-align: top; white-space: normal; word-break: break-word; }
+.gc-table tr { cursor: pointer; }
+.gc-table tr.active td { background: var(--accent-bg, rgba(74, 110, 224, 0.12)); }
+.gc-refs { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; margin-top: 3px; }
+.gc-prec { font-size: 12px; font-weight: 600; }
+.gc-coords code { font-size: 11px; }
+.gc-actions { white-space: normal; }
+.gc-actions button { margin: 0 3px 3px 0; }
+.gc-bar { position: relative; display: inline-block; width: 90px; height: 14px; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; background: var(--bg); vertical-align: middle; }
+.gc-bar-fill { position: absolute; inset: 0 auto 0 0; }
+.gc-bar-fill.good { background: var(--ok); } .gc-bar-fill.warn { background: var(--warning); } .gc-bar-fill.bad { background: var(--danger); } .gc-bar-fill.neutral { background: var(--border); }
+.gc-bar-label { position: relative; font-size: 10px; line-height: 14px; padding-left: 6px; font-weight: 600; }
+.gc-detail { min-height: 0; }
+.gc-detail-body { display: flex; flex-direction: column; }
+.gc-map { flex: 0 0 260px; position: relative; }
+.gc-detail-text { padding: 6px 10px; overflow: auto; font-size: 13px; }
+.gc-detail-text h4 { margin: 10px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.gc-reasons { margin: 0 0 4px; padding-left: 18px; font-size: 12px; color: var(--muted); }
+.gc-reftable td { vertical-align: top; padding: 3px 4px; font-size: 12px; white-space: normal; }
+.gc-form { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.gc-form input { width: 110px; font-size: 12px; padding: 4px 6px; }
+.gc-links { list-style: none; margin: 0; padding: 0; font-size: 12px; }
+.gc-links li { padding: 3px 0; border-bottom: 1px solid var(--border); display: flex; gap: 6px; align-items: center; }
+@media (max-width: 1100px) { .gc-body { grid-template-columns: 1fr; } }

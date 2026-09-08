@@ -32,6 +32,7 @@ import SiAgentView from "./SiAgentView.jsx";
 import SiAgentEventsBanner from "./SiAgentEventsBanner.jsx";
 import SupervisionSiView from "./SupervisionSiView.jsx";
 import ExternalBasesView from "./ExternalBasesView.jsx";
+import GeoCatalogView from "./GeoCatalogView.jsx";
 import GedView from "./GedView.jsx";
 import SshTunnelsView from "./SshTunnelsView.jsx";
 import SnmpView from "./SnmpView.jsx";
@@ -96,6 +97,8 @@ const EXTERNAL_BASES = {
   cacti: import.meta.env.VITE_CACTI_API_BASE_URL || "",
 };
 const HAS_EXTERNAL_BASES = Object.values(EXTERNAL_BASES).some(Boolean);
+// Catalogue de positions (livraison #429, backlog 67) -- geo-catalog-api.
+const GEO_CATALOG_API_BASE_URL = import.meta.env.VITE_GEO_CATALOG_API_BASE_URL || "";
 const RELATIONS_API_BASE_URL = import.meta.env.VITE_RELATIONS_API_BASE_URL || "";
 // Onglet GED (livraison #167) -- même API que TicketDocuments.jsx
 // (tickets-portal, #160), consommée ici pour la navigation/gestion
@@ -1154,6 +1157,15 @@ export default function App() {
       onClick: () => setViewMode("external-bases"),
     });
   }
+  // Tuile « Catalogue de positions » (livraison #429).
+  if (GEO_CATALOG_API_BASE_URL) {
+    fronts.push({
+      id: "geo-catalog",
+      name: "Catalogue de positions",
+      description: "Lieux du SI : références (BAN, communes, OSM), interprétation, justesse en %, valider / corriger, objets rattachés",
+      onClick: () => setViewMode("geo-catalog"),
+    });
+  }
   // GED promue en tuile de front (livraison #172, demandé
   // explicitement -- "on commence par le plus facile : juste une
   // tuile qui pointe vers l'écran actuel"). PAS via buildFrontsList
@@ -1349,7 +1361,7 @@ export default function App() {
             <button
               type="button"
               className={
-                openNavMenu === "general" || ["logs", "cyber", "vigilance", "history", "imap", "backup-restore", "memory", "external-bases"].includes(viewMode)
+                openNavMenu === "general" || ["logs", "cyber", "vigilance", "history", "imap", "backup-restore", "memory", "external-bases", "geo-catalog"].includes(viewMode)
                   ? "active"
                   : ""
               }
@@ -1388,6 +1400,11 @@ export default function App() {
                 {HAS_EXTERNAL_BASES && (
                   <button type="button" onClick={() => { setViewMode((v) => (v === "external-bases" ? "grid" : "external-bases")); setOpenNavMenu(null); }}>
                     Bases externes
+                  </button>
+                )}
+                {GEO_CATALOG_API_BASE_URL && (
+                  <button type="button" onClick={() => { setViewMode((v) => (v === "geo-catalog" ? "grid" : "geo-catalog")); setOpenNavMenu(null); }}>
+                    Catalogue de positions
                   </button>
                 )}
               </div>
@@ -1695,6 +1712,8 @@ export default function App() {
           onBack={() => setViewMode("grid")}
           upsApiBase={UPS_API_BASE_URL}
         />
+      ) : viewMode === "geo-catalog" ? (
+        <GeoCatalogView onBack={() => setViewMode("grid")} geoCatalogApiBase={GEO_CATALOG_API_BASE_URL} groups={groups} onNavigate={(t) => setViewMode(t)} />
       ) : viewMode === "external-bases" ? (
         <ExternalBasesView onBack={() => setViewMode("grid")} bases={EXTERNAL_BASES} legacyFrontendUrl={FRONTEND_URL} />
       ) : viewMode === "supervision-si" ? (

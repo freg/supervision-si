@@ -2440,3 +2440,7 @@ qui fait alors sauter la file.
     catalogue de positions avec les liens vers les objets positionnés sur
     chacune. S'appuie sur les correspondances de #426 (location_matches,
     aliases) et la table geolocations.
+    LIVRÉ en #429 (module geo-catalog, base PostGIS dédiée déplaçable,
+    tuile) -- reste : appels réels aux référentiels et import OSM à
+    confirmer en déploiement ; autres objets à positionner (tickets,
+    documents) au-delà des géolocalisations.
