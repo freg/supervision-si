@@ -72,6 +72,8 @@ def run_cmd(argv, timeout=DEFAULT_TIMEOUT, env=None, confined=None):
 def _kill_group(proc):
     import signal
     try:
+        if not hasattr(os, "killpg"):  # Windows (#440) : pas de groupe de processus POSIX
+            raise OSError("killpg indisponible")
         os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
     except (OSError, ProcessLookupError):
         try:

@@ -1,7 +1,7 @@
-# si-agent — déploiement sur un hôte Linux
+# si-agent — déploiement sur un hôte Linux ou Windows
 
 Archive autonome (`si-agent-agent-<version>.tar.gz`) : l'agent, ses
-plugins livrés, et DEUX façons de l'installer. Prérequis communs : un
+plugins livrés, et TROIS façons de l'installer (Docker, systemd, Windows). Prérequis communs : un
 identifiant d'agent et son secret, **enrôlés sur le hub** (tuile Agents
 hôtes → Enrôler un agent → bouton *Installation* : la commande complète
 s'affiche, avec l'URL du central et l'empreinte de la CA).
@@ -55,6 +55,74 @@ systemctl status si-agent ; journalctl -u si-agent -f
 PYTHONPATH=/opt/si-agent python3 -m si_agent.agent --status
 PYTHONPATH=/opt/si-agent python3 -m si_agent.agent --collect
 ```
+
+## Variante 3 — Windows 10 / 11 (livraison #440)
+
+Même archive (décompressée avec l'Explorateur, 7-Zip ou `tar xzf` qui
+existe sous Windows 10+), PowerShell **en administrateur** :
+
+```powershell
+Set-Location .\si-agent-agent-<version>\
+.\windows\install.ps1 -Agent 'pc-compta' -Secret 'SECRET' -Central 'https://VM:6443/api/si-agent' -Site 'siege' -CaFingerprint <sha256>
+```
+
+(la commande exacte, secret et empreinte compris, est affichée par le
+bouton *Installation* de la tuile). Si PowerShell refuse d'exécuter le
+script : `Set-ExecutionPolicy -Scope Process Bypass` puis relancer.
+
+Ce que fait `install.ps1` : cherche **Python 3.8+** (`py`, `python` --
+l'alias du Store est ignoré) et, s'il n'y en a pas, télécharge la
+distribution *embeddable* de python.org (~11 Mo, aucune installation
+système, `-PythonUrl` pour un miroir, `-NoDownload` pour refuser) dans
+`C:\Program Files\si-agent\python` ; copie `si_agent\` et `plugins\`
+dans `C:\Program Files\si-agent` ; récupère la CA du central et la
+vérifie par empreinte (`-Ca C:\chemin\ca.crt` pour un certificat
+fourni, `-Insecure` en dépannage) ; écrit `C:\ProgramData\si-agent\agent.json`
+(lecture réservée à SYSTEM et aux administrateurs) ; enregistre une
+**tâche planifiée `si-agent`** (compte SYSTEM, au démarrage, relancée
+chaque minute si elle s'arrête, sans limite de durée) et la lance. Pas de
+service Windows à proprement parler : la tâche planifiée fait la même
+chose sans dépendance (pywin32, NSSM) -- un vrai service reste possible
+plus tard si le besoin apparaît.
+
+Ce que l'agent remonte sous Windows (scripts PowerShell 5.1 livrés dans
+`si_agent\win\`, un par mesure, lisibles et exécutables à la main) :
+système (édition, build, version d'affichage, domaine, redémarrage en
+attente), CPU, mémoire et fichier d'échange, lecteurs locaux / amovibles /
+réseau (les lecteurs réseau mappés par un utilisateur ne sont pas visibles
+du compte SYSTEM : c'est normal), services automatiques arrêtés, ports en
+écoute, erreurs des journaux Système et Application (24 h),
+administrateurs et comptes locaux, Windows Update (redémarrage en attente,
+dernier correctif, mises à jour en attente), Defender (activé, temps réel,
+âge des signatures), pare-feu par profil, BitLocker sur C: ; activité :
+processus (CPU sur 1 s, mémoire), sessions (`quser` et sessions de
+connexion), dernières ouvertures de session (journal Sécurité, 4624),
+services en cours ; inventaire : fabricant, modèle, n° de série, UUID,
+BIOS, carte mère, CPU, disques physiques (NVMe/SSD/HDD, santé), cartes
+réseau, GPU, **logiciels installés** (registre, 400 premiers) ; vue
+réseau passive : adaptateurs, adresses, routes, voisins ARP/NDP,
+connexions établies avec le processus, DNS. Risques ajoutés : Defender
+inactif / temps réel désactivé / signatures anciennes, profil de pare-feu
+désactivé, mises à jour en attente.
+
+Sondes sous Windows : `runner: "python"` (le Python de l'agent) ou
+`runner: "powershell"` (nouveau) ; une sonde `shell` (bash) est refusée
+avec un message clair. Pas de confinement setuid/rlimit : environnement
+réduit aux variables système, dossier de la sonde, délai qui tue le
+processus. Commandes utiles :
+
+```powershell
+Get-ScheduledTask si-agent | Get-ScheduledTaskInfo          # état, dernier lancement
+Get-Content C:\ProgramData\si-agent\agent.log -Wait          # traces
+& 'C:\Program Files\si-agent\python\python.exe' -m si_agent.agent --config C:\ProgramData\si-agent\agent.json --collect   # collecte à blanc (depuis C:\Program Files\si-agent)
+New-Item C:\ProgramData\si-agent\BLOCKED                   # blocage local des sondes
+.\windows\uninstall.ps1 [-KeepData]                        # désinstallation
+```
+
+⚠️ Écrit et exécuté sous PowerShell 7 Linux (syntaxe, enchaînement,
+JSON) et testé sur des sorties représentatives, **pas encore sur un
+Windows réel** : le premier poste dira ce qui manque (noms de propriétés
+CIM, droits, temps d'exécution des scripts).
 
 ## Options communes
 

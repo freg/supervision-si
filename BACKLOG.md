@@ -2370,7 +2370,9 @@ qui fait alors sauter la file.
     réel (Docker, #430) en ligne le 8 sept. ; premier retour traité en #438
     (montages sshfs/FUSE listés avec leur raison, propagation rslave) et
     #439 (FUSE mesuré comme l'utilisateur du montage, sans configuration).
-    Reste : Windows, archive sans Docker (systemd) à tester.
+    Agent Windows 10/11 livré en #440 (winhost.py + scripts PowerShell,
+    install.ps1, tâche planifiée) -- à tester sur un poste réel. Reste :
+    archive sans Docker (systemd) à tester, retours des premiers hôtes.
 
 64. Refonte de la tuile Supervision SI (2026-09-07, demandé avec #418).
     « La tuile actuelle était la maquette initiale de la dataviz du hub ;

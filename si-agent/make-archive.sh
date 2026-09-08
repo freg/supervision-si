@@ -2,7 +2,8 @@
 # Archive de déploiement de l'agent (livraison #430) :
 #   si-agent/make-archive.sh [dossier de sortie]  ->  si-agent-agent-<version>.tar.gz
 # Contenu : si_agent/ (le paquet), plugins/, install.sh + systemd/ (variante
-# service), docker/ (variante conteneur), README-DEPLOIEMENT.md. Sans
+# service), docker/ (variante conteneur), windows/ (Windows 10/11, #440),
+# README-DEPLOIEMENT.md. Sans
 # secret, sans fichier de configuration : tout vient de la ligne de commande.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -11,7 +12,7 @@ VERSION="$(python3 -c "import re,sys; print(re.search(r'__version__ = \"([^\"]+)
 NAME="si-agent-agent-$VERSION"
 TMP="$(mktemp -d)"
 mkdir -p "$TMP/$NAME"
-cp -r "$HERE/agent/si_agent" "$HERE/agent/plugins" "$HERE/agent/systemd" "$HERE/agent/docker" "$TMP/$NAME/"
+cp -r "$HERE/agent/si_agent" "$HERE/agent/plugins" "$HERE/agent/systemd" "$HERE/agent/docker" "$HERE/agent/windows" "$TMP/$NAME/"
 cp "$HERE/agent/install.sh" "$HERE/agent/README-DEPLOIEMENT.md" "$TMP/$NAME/"
 find "$TMP/$NAME" -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
 chmod 755 "$TMP/$NAME/install.sh" "$TMP/$NAME/docker/deploy-docker.sh" "$TMP/$NAME/docker/entrypoint.sh"

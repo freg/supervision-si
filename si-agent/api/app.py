@@ -355,6 +355,19 @@ def _install_command_docker(agent_id, secret, site):
     return _install_command(agent_id, secret, site).replace("sudo ./install.sh", "sudo ./docker/deploy-docker.sh", 1)
 
 
+def _ps_quote(s):
+    return "'" + str(s).replace("'", "''") + "'"
+
+
+def _install_command_windows(agent_id, secret, site):
+    """Variante Windows 10/11 (#440, PowerShell en administrateur, même archive)."""
+    central = PUBLIC_URL or "https://<VM>:6443/api/si-agent"
+    ca = _ca_info()
+    tls = (" -CaFingerprint %s" % ca["sha256"]) if ca.get("sha256") else " -Ca C:\\chemin\\ca.crt"
+    return ".\\windows\\install.ps1 -Agent %s -Secret %s -Central %s -Site %s%s" % (
+        _ps_quote(agent_id), _ps_quote(secret), _ps_quote(central), _ps_quote(site or "default"), tls)
+
+
 @app.route("/agents/<agent_id>/install", methods=["GET"])
 def install_route(agent_id):
     """Secret + commande d'installation prête à coller sur l'hôte -- la
@@ -367,6 +380,7 @@ def install_route(agent_id):
                     "central_url": PUBLIC_URL or None,
                     "install_command": _install_command(agent_id, a["secret"], a["site"]),
                     "install_command_docker": _install_command_docker(agent_id, a["secret"], a["site"]),
+                    "install_command_windows": _install_command_windows(agent_id, a["secret"], a["site"]),
                     "agent_json": {"agent_id": agent_id, "secret": a["secret"], "site": a["site"],
                                    "central_url": PUBLIC_URL or "https://<VM>:6443/api/si-agent"}}), 200
 

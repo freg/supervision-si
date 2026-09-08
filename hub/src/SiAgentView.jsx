@@ -463,6 +463,12 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                       <pre className="np-secret">{install.install_command_docker}</pre>
                     </>
                   )}
+                  {install.install_command_windows && (
+                    <>
+                      <p className="muted" style={{ margin: "6px 0 2px", fontSize: 12 }}>Windows 10 / 11 (PowerShell en administrateur, depuis l'archive décompressée ; Python trouvé ou distribution embarquée téléchargée) :</p>
+                      <pre className="np-secret">{install.install_command_windows}</pre>
+                    </>
+                  )}
                   <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
                     <button className="secondary" onClick={() => handleRotate(selectedId)}>Nouveau secret</button>
                     <button className="secondary" onClick={() => setInstall(null)}>Masquer</button>
@@ -503,8 +509,17 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                         <div><span className="muted">Machine</span>{host.system?.model || host.system?.cpu_model || "—"}{host.system?.cpus ? ` · ${host.system.cpus} CPU` : ""}</div>
                         <div><span className="muted">Démarré depuis</span>{formatUptime(host.system?.uptime_seconds)}{host.system?.reboot_required && <> · <Tone tone="warn">redémarrage requis</Tone></>}</div>
                         <div><span className="muted">CPU</span>{host.cpu?.percent != null ? `${host.cpu.percent} %` : "—"} · charges {host.cpu?.load1 ?? "—"} / {host.cpu?.load5 ?? "—"} / {host.cpu?.load15 ?? "—"}</div>
+                        {host.windows && (host.windows.defender || host.windows.firewall?.length > 0) && (
+                          <div className="sa-wide"><span className="muted">Windows</span>
+                            {host.windows.defender ? <Tone tone={host.windows.defender.enabled && host.windows.defender.realtime ? "good" : "bad"}>Defender {host.windows.defender.enabled ? "actif" : "inactif"}{host.windows.defender.realtime === false ? ", temps réel désactivé" : ""}{host.windows.defender.signatures_age_days != null ? ` · signatures ${host.windows.defender.signatures_age_days} j` : ""}</Tone> : "Defender : —"}
+                            {" · "}pare-feu : {(host.windows.firewall || []).map((p) => <Tone key={p.profile} tone={p.enabled ? "good" : "bad"}>{p.profile} {p.enabled ? "on" : "off"}</Tone>).reduce((acc, x, i) => (i ? [...acc, " / ", x] : [x]), [])}
+                            {host.windows.updates?.last_hotfix && <> · dernier correctif {host.windows.updates.last_hotfix}</>}
+                            {host.windows.bitlocker_c && <> · BitLocker C: {host.windows.bitlocker_c}</>}
+                            {host.system?.display_version && <> · {host.system.display_version}</>}
+                          </div>
+                        )}
                         <div><span className="muted">Mémoire</span>{formatBytes(host.memory?.total_bytes != null && host.memory?.available_bytes != null ? host.memory.total_bytes - host.memory.available_bytes : null)} / {formatBytes(host.memory?.total_bytes)} ({host.memory?.used_percent ?? "—"} %){host.memory?.swap_total_bytes > 0 && <> · swap {host.memory.swap_used_percent} %</>}</div>
-                        <div><span className="muted">Comptes</span>sudo : {(host.accounts?.sudoers || []).join(", ") || "—"} · interactifs : {(host.accounts?.interactive || []).join(", ") || "—"}{host.accounts?.uid0_not_root?.length > 0 && <> · <Tone tone="bad">UID 0 : {host.accounts.uid0_not_root.join(", ")}</Tone></>}</div>
+                        <div><span className="muted">Comptes</span>{host.system?.os_id === "windows" ? "administrateurs" : "sudo"} : {(host.accounts?.sudoers || []).join(", ") || "—"} · {host.system?.os_id === "windows" ? "locaux actifs" : "interactifs"} : {(host.accounts?.interactive || []).join(", ") || "—"}{host.accounts?.uid0_not_root?.length > 0 && <> · <Tone tone="bad">UID 0 : {host.accounts.uid0_not_root.join(", ")}</Tone></>}</div>
                         <div><span className="muted">Agent</span>v{detail.agent_version || "?"} · dernière IP {detail.last_ip || "—"}{inventory?.tools?.available && <> · outils : {inventory.tools.available.join(", ")}</>}</div>
                       </div>
                     </>
@@ -564,7 +579,13 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                           <div><span className="muted">Carte / BIOS</span>{hardware.board || "—"}{hardware.bios ? ` · BIOS ${hardware.bios}` : ""}</div>
                           <div><span className="muted">CPU</span>{hardware.cpu?.model || "—"}{hardware.cpu?.cpus ? ` · ${hardware.cpu.cpus} CPU` : ""}{hardware.cpu?.sockets ? ` (${hardware.cpu.sockets} socket, ${hardware.cpu.cores_per_socket} cœurs, ${hardware.cpu.threads_per_core} fils)` : ""}{hardware.cpu?.arch ? ` · ${hardware.cpu.arch}` : ""}</div>
                           <div><span className="muted">Mémoire installée</span>{formatBytes(hardware.memory_total_bytes)}</div>
-                          <div className="sa-wide"><span className="muted">Disques physiques</span>{hardware.disks?.length ? hardware.disks.map((d) => <span key={d.name} className="na-chip"><code>{d.name}</code> {d.size} {d.model || d.vendor || ""} {d.transport || ""} {d.rotational ? "HDD" : "SSD"}</span>) : "—"}</div>
+                          <div className="sa-wide"><span className="muted">Disques physiques</span>{hardware.disks?.length ? hardware.disks.map((d) => <span key={d.name} className="na-chip"><code>{d.name}</code> {d.size} {d.model || d.vendor || ""} {d.transport || ""} {d.rotational == null ? "" : d.rotational ? "HDD" : "SSD"}{d.health && d.health !== "Healthy" ? ` ⚠ ${d.health}` : ""}</span>) : "—"}</div>
+                          {hardware.software_count != null && (
+                            <div className="sa-wide"><span className="muted">Logiciels installés ({hardware.software_count})</span>
+                              {(hardware.software || []).slice(0, 40).map((s) => <span key={s.name} className="na-chip" title={`${s.publisher || ""} ${s.installed || ""}`.trim()}>{s.name}{s.version ? ` ${s.version}` : ""}</span>)}
+                              {hardware.software_count > 40 && <span className="muted"> … et {hardware.software_count - 40} autres (inventaire complet dans la mesure)</span>}
+                            </div>
+                          )}
                           <div className="sa-wide"><span className="muted">Cartes réseau</span>{hardware.nics?.length ? hardware.nics.map((n) => <span key={n.name} className="na-chip">{n.name} {n.state} · {n.mac}{n.speed_mbps ? ` · ${n.speed_mbps} Mb/s` : ""}</span>) : "—"}</div>
                           {hardware.partial?.length > 0 && <div><span className="muted">Sources absentes</span><Tone tone="warn">{hardware.partial.join(", ")}</Tone></div>}
                         </div>

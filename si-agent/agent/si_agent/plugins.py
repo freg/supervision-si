@@ -41,7 +41,7 @@ try:
 except ImportError:  # copie à plat dans l'image du central (si_agent_plugins.py)
     import si_agent_control as control  # noqa: N813
 
-RUNNERS = ("shell", "python")
+RUNNERS = ("shell", "python", "powershell")  # powershell : #440 (Windows ; pwsh sous Linux s'il est installé)
 MAX_RAW_OUTPUT = 4000
 
 
@@ -66,7 +66,7 @@ def validate_manifest(m):
     if not isinstance(pid, str) or not pid or any(c for c in pid if not (c.isalnum() or c in "-_")) or pid != pid.lower():
         return False, "id invalide (minuscules, chiffres, - et _)"
     if m.get("runner") not in RUNNERS:
-        return False, "runner inconnu (shell|python)"
+        return False, "runner inconnu (shell|python|powershell)"
     entry = m.get("entry")
     if not isinstance(entry, str) or not entry or "/" in entry or entry.startswith(".") or "\\" in entry:
         return False, "entry invalide (nom de fichier simple)"
@@ -213,7 +213,14 @@ def run_plugin(manifest, cmd, now=None, env=None, python="python3", shell="bash"
     if not manifest.get("present", True):
         return {"task": task, "at": at, "ok": False, "error": "script absent : %s" % manifest.get("entry"), "data": None}
     runner = manifest.get("runner")
-    argv = [shell if runner == "shell" else python, manifest["path"]] + list(manifest.get("args") or [])
+    if runner == "powershell":
+        ps = "powershell.exe" if os.name == "nt" else "pwsh"
+        argv = [ps, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", manifest["path"]] + list(manifest.get("args") or [])
+    elif runner == "shell" and os.name == "nt":
+        return {"task": task, "at": at, "ok": False, "data": None,
+                "error": "sonde shell (bash) non exécutable sous Windows -- prévoir un runner python ou powershell"}
+    else:
+        argv = [shell if runner == "shell" else python, manifest["path"]] + list(manifest.get("args") or [])
     timeout = int(manifest.get("timeout_seconds") or 60)
     started = time.monotonic()
     if confine is not None:

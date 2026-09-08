@@ -14,6 +14,12 @@ export const RISK_LABELS_FR = {
   "port-exposed": "Port sensible exposé",
   "uid0-account": "Compte UID 0 hors root",
   "log-errors": "Erreurs dans le journal",
+  // #440 Windows
+  "defender-off": "Antivirus désactivé",
+  "defender-realtime-off": "Protection temps réel désactivée",
+  "defender-signatures-old": "Signatures antivirus anciennes",
+  "firewall-profile-off": "Pare-feu désactivé",
+  "updates-pending": "Mises à jour en attente",
 };
 
 export const COMMAND_TYPES = [

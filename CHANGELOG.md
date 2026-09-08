@@ -1,3 +1,30 @@
+## 2026-09-08 — Agent hôte Windows 10 / 11 (livraison #440)
+
+Backlog 63 (« Windows à explorer »), demande : « pour le second test il
+me faut un agent Windows 10/11 ». Même paquet `si_agent`, même protocole,
+mêmes mesures : sous Windows, `agent.py` prend ses collecteurs dans
+`winhost.py`, qui lance un script PowerShell 5.1 par mesure
+(`si_agent/win/host|activity|hardware|netview.ps1`, un objet JSON chacun,
+sources absentes en `partial`) et traduit vers la forme Linux (système,
+CPU, mémoire, lecteurs y compris réseau, services automatiques arrêtés,
+ports, journaux Système/Application, administrateurs, Windows Update,
+Defender, pare-feu, BitLocker ; processus, sessions `quser`, dernières
+connexions 4624 ; matériel, disques NVMe/SSD/HDD, cartes réseau, GPU,
+logiciels installés ; adaptateurs, routes, voisins, connexions, DNS).
+Chemins `%ProgramData%\si-agent`, runner de sonde `powershell`, sonde
+`shell` refusée proprement, environnement de sonde réduit, pas de
+setuid/rlimit (documenté). Risques Windows (Defender, pare-feu, mises à
+jour). `windows/install.ps1` (Python trouvé ou distribution embeddable
+téléchargée, CA par empreinte, ACL sur agent.json, tâche planifiée SYSTEM
+au démarrage relancée) + `uninstall.ps1`, commande affichée dans la tuile
+(`install_command_windows`), archive `make-archive.sh` avec `windows/`.
+Tuile : ligne « Windows », logiciels installés, libellés. Agent 0.4.0.
+Vérifié : 40 tests agent dont 8 Windows avec exécution réelle des 4
+scripts sous PowerShell 7 Linux ; scripts d'installation analysés par le
+parseur PowerShell ; agent Windows simulé dans le central réel, rendu
+Chromium. Non vérifié : un Windows réel (PowerShell 5.1, CIM, compte
+SYSTEM, embeddable, tâche planifiée) -- premier poste à venir.
+
 ## 2026-09-08 — Agent hôte : montages sshfs/FUSE mesurés sans changer la configuration de l'hôte, délai sur les systèmes distants (livraison #439)
 
 Suite de #438, retour : « pour un serveur dont on ne doit pas changer la

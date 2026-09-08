@@ -34,6 +34,7 @@ import logging
 import os
 import socket
 import ssl
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -41,9 +42,30 @@ import urllib.request
 from . import control, host, netview, plugins, protocol, review, risks
 from .localqueue import LocalQueue
 
+# #440 : sous Windows 10/11, les collecteurs viennent de winhost.py (scripts
+# PowerShell livrés) ; le reste du paquet (protocole, file locale, sondes
+# python/powershell, commandes) est commun.
+IS_WINDOWS = sys.platform == "win32"
+if IS_WINDOWS:
+    from . import winhost as _plat
+    _collect_all, _collect_activity, _collect_hardware, _collect_netview = _plat.collect_all, _plat.collect_activity, _plat.collect_hardware, _plat.collect_netview
+    _collect_tools = _plat.collect_tools
+else:
+    _collect_all, _collect_activity, _collect_hardware, _collect_netview = host.collect_all, review.collect_activity, review.collect_hardware, netview.collect
+    _collect_tools = host.collect_tools
+
+
+def _euid():
+    return os.geteuid() if hasattr(os, "geteuid") else -1
+
 _log = logging.getLogger("si_agent")
 
-DEFAULT_CONFIG_PATH = "/etc/si-agent/agent.json"
+if IS_WINDOWS:
+    _PROGRAM_DATA = os.path.join(os.environ.get("ProgramData", r"C:\ProgramData"), "si-agent")
+    DEFAULT_CONFIG_PATH = os.path.join(_PROGRAM_DATA, "agent.json")
+else:
+    _PROGRAM_DATA = None
+    DEFAULT_CONFIG_PATH = "/etc/si-agent/agent.json"
 DEFAULTS = {
     "site": "default",
     "host_interval_seconds": 60,
@@ -53,16 +75,16 @@ DEFAULTS = {
     "commands_poll_seconds": 60,
     "flush_seconds": 30,
     "batch_size": 100,
-    "queue_path": "/var/lib/si-agent/queue.db",
-    "plugins_dir": "/var/lib/si-agent/plugins",
+    "queue_path": os.path.join(_PROGRAM_DATA, "queue.db") if IS_WINDOWS else "/var/lib/si-agent/queue.db",
+    "plugins_dir": os.path.join(_PROGRAM_DATA, "plugins") if IS_WINDOWS else "/var/lib/si-agent/plugins",
     "risk_thresholds": {},
     "plugins": {},
     "ca_file": None,
     "ca_fingerprint": None,
     "insecure": False,
     # #422
-    "state_path": "/var/lib/si-agent/state.json",
-    "block_file": "/etc/si-agent/BLOCKED",
+    "state_path": os.path.join(_PROGRAM_DATA, "state.json") if IS_WINDOWS else "/var/lib/si-agent/state.json",
+    "block_file": os.path.join(_PROGRAM_DATA, "BLOCKED") if IS_WINDOWS else "/etc/si-agent/BLOCKED",
     "require_signed_responses": True,
     "plugins_user": "nobody",
     "plugin_max_memory_mb": 512,
@@ -404,10 +426,10 @@ class Agent(object):
         if not force and now < self._next_host:
             return []
         self._next_host = now + float(self.cfg["host_interval_seconds"])
-        data, self._prev_cpu = host.collect_all(files=self.files, cmd=self.cmd, usage=self.usage, which=self.which,
-                                                previous_cpu=self._prev_cpu, include_tools=False, exists=self.exists)
+        data, self._prev_cpu = _collect_all(files=self.files, cmd=self.cmd, usage=self.usage, which=self.which,
+                                            previous_cpu=self._prev_cpu, include_tools=False, exists=self.exists)
         # #428 : activité (processus, sessions, connexions, services actifs)
-        data["activity"] = review.collect_activity(cmd=self.cmd, files=self.files)
+        data["activity"] = _collect_activity(cmd=self.cmd, files=self.files)
         self.last_host_data = data
         found = risks.evaluate(data, self.cfg.get("risk_thresholds"))
         self.last_risks = found
@@ -429,7 +451,7 @@ class Agent(object):
         if not force and now < self._next_netview:
             return None
         self._next_netview = now + float(self.cfg.get("netview_interval_seconds") or 300)
-        data = netview.collect(cmd=self.cmd, files=self.files)
+        data = _collect_netview(cmd=self.cmd, files=self.files)
         self.last_netview = data
         m = {"agent_id": self.agent_id, "task": "netview", "at": _iso(now), "ok": not data.get("partial"), "data": data,
              "error": ("collecte partielle : " + ", ".join(data["partial"])) if data.get("partial") else None}
@@ -441,8 +463,8 @@ class Agent(object):
         if not force and now < self._next_inventory:
             return None
         self._next_inventory = now + float(self.cfg["inventory_interval_seconds"])
-        tools = host.collect_tools(self.which)
-        hardware = review.collect_hardware(cmd=self.cmd, files=self.files)  # #428
+        tools = _collect_tools(self.which)
+        hardware = _collect_hardware(cmd=self.cmd, files=self.files)  # #428
         installed = [{k: v for k, v in m.items() if k != "path"} for m in self.store.list()]
         for m in installed:
             m["effective_enabled"] = plugins.is_enabled(m, self.cfg.get("plugins"))
@@ -453,7 +475,8 @@ class Agent(object):
                       "blocked_reason": self.block_reason() if self.is_blocked() else None,
                       "blocked_plugins": sorted((self.state.get("blocked_plugins") or {}).keys()),
                       "insecure_tls": bool(self.cfg.get("insecure")), "plugins_user": self._plugins_user_effective(),
-                      "log_level": self.cfg.get("log_level")}, "error": None}
+                      "log_level": self.cfg.get("log_level"), "platform": "windows" if IS_WINDOWS else "linux",
+                      "python": sys.version.split()[0]}, "error": None}
         self.queue.put(m)
         return m
 
@@ -461,7 +484,7 @@ class Agent(object):
         """Utilisateur d'exécution des sondes non privilégiées : `plugins_user`
         s'il existe et si l'agent est root ; sinon l'utilisateur courant."""
         user = self.cfg.get("plugins_user")
-        if not user or os.geteuid() != 0 or not self._lookup_user(user):
+        if not user or _euid() != 0 or not self._lookup_user(user):
             return None
         return user
 
@@ -479,7 +502,12 @@ class Agent(object):
         pour un exécuteur injecté (tests) qui n'exécute rien de réel."""
         if self.cmd is not host.run_cmd:
             return None
-        run_as = control.resolve_run_user(manifest, self.cfg.get("plugins_user"), os.geteuid(), self._lookup_user)
+        if IS_WINDOWS:
+            # #440 : pas de setuid/rlimit sous Windows -- environnement propre,
+            # dossier de la sonde, délai (tue le processus) ; documenté.
+            return {"env": control.plugin_env(self.agent_id, self.cfg.get("site"), manifest["id"], manifest.get("env"), base_env=os.environ),
+                    "preexec_fn": None, "cwd": os.path.dirname(manifest.get("path") or "") or None}
+        run_as = control.resolve_run_user(manifest, self.cfg.get("plugins_user"), _euid(), self._lookup_user)
         return {"env": control.plugin_env(self.agent_id, self.cfg.get("site"), manifest["id"], manifest.get("env")),
                 "preexec_fn": control.make_preexec(int(manifest.get("timeout_seconds") or 60),
                                                    int(manifest.get("max_memory_mb") or self.cfg.get("plugin_max_memory_mb") or 0),
@@ -491,7 +519,8 @@ class Agent(object):
         confine = self._confinement(manifest)
         _log.debug("sonde %s : lancement (%s, privilégiée=%s, utilisateur=%s)", manifest["id"], manifest.get("runner"),
                    bool(manifest.get("privileged")), (confine or {}).get("preexec_fn") and self._plugins_user_effective())
-        meas = plugins.run_plugin(manifest, self.cmd, now=self.clock(), env=env, confine=confine)
+        meas = plugins.run_plugin(manifest, self.cmd, now=self.clock(), env=env, confine=confine,
+                                  python=sys.executable if IS_WINDOWS else "python3")
         meas["agent_id"] = self.agent_id
         self.queue.put(meas)
         if not meas.get("ok"):
@@ -654,10 +683,10 @@ def main(argv=None):
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     if args.collect:
-        data, _ = host.collect_all()
-        data["activity"] = review.collect_activity()
+        data, _ = _collect_all()
+        data["activity"] = _collect_activity()
         print(json.dumps({"host": data, "risks": risks.evaluate(data), "summary": risks.summarize(risks.evaluate(data)),
-                          "netview": netview.collect(), "hardware": review.collect_hardware()},
+                          "netview": _collect_netview(), "hardware": _collect_hardware()},
                          indent=2, ensure_ascii=False))
         return 0
     cfg = load_config(args.config)

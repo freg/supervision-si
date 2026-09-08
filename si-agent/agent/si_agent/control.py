@@ -186,11 +186,21 @@ def make_event(agent_id, kind, severity, message, details=None, now=None):
 
 # -- confinement de l'exécution ----------------------------------------------
 
-def plugin_env(agent_id, site, plugin_id, extra=None):
+_WINDOWS_ENV_KEEP = ("SystemRoot", "windir", "SystemDrive", "ProgramData", "ProgramFiles", "PATH", "Path", "PATHEXT", "COMSPEC", "ComSpec",
+                     "TEMP", "TMP", "PSModulePath", "NUMBER_OF_PROCESSORS", "PROCESSOR_ARCHITECTURE", "COMPUTERNAME", "USERPROFILE")
+
+
+def plugin_env(agent_id, site, plugin_id, extra=None, base_env=None):
     """Environnement MINIMAL : jamais l'environnement du service (qui peut
-    porter des chemins ou variables sensibles)."""
-    env = {"PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "LANG": "C.UTF-8",
-           "HOME": "/tmp", "SI_AGENT_ID": str(agent_id), "SI_AGENT_SITE": str(site or ""), "SI_PLUGIN_ID": str(plugin_id)}
+    porter des chemins ou variables sensibles). `base_env` (#440,
+    Windows) : environnement dont seules les variables système
+    indispensables (SystemRoot, PATH, TEMP…) sont reprises."""
+    if base_env is not None:
+        env = {k: str(v) for k, v in base_env.items() if k in _WINDOWS_ENV_KEEP}
+        env.update({"SI_AGENT_ID": str(agent_id), "SI_AGENT_SITE": str(site or ""), "SI_PLUGIN_ID": str(plugin_id)})
+    else:
+        env = {"PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "LANG": "C.UTF-8",
+               "HOME": "/tmp", "SI_AGENT_ID": str(agent_id), "SI_AGENT_SITE": str(site or ""), "SI_PLUGIN_ID": str(plugin_id)}
     for k, v in (extra or {}).items():
         if isinstance(k, str) and k.startswith("SI_") and isinstance(v, str):
             env[k] = v

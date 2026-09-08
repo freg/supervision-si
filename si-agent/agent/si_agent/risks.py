@@ -17,6 +17,7 @@ DEFAULT_THRESHOLDS = {
     "load_per_cpu_warning": 2.0,
     "recent_boot_seconds": 600,
     "log_errors_warning": 20,
+    "defender_signatures_max_days": 7,  # #440 Windows
 }
 
 # Ports dont l'exposition sur toutes les interfaces est un risque en soi
@@ -70,9 +71,10 @@ def evaluate(host_data, thresholds=None):
         out.append({"id": "recent-boot", "severity": "info", "subject": "system",
                     "message": "hôte démarré il y a %d s" % int(up)})
 
+    is_windows = (d.get("system") or {}).get("os_id") == "windows"
     for unit in (d.get("services") or {}).get("failed") or []:
         out.append({"id": "service-failed", "severity": "warning", "subject": unit,
-                    "message": "unité systemd en échec : %s" % unit})
+                    "message": ("service Windows automatique arrêté : %s" if is_windows else "unité systemd en échec : %s") % unit})
 
     for p in (d.get("ports") or {}).get("ports") or []:
         if p.get("exposed") and p.get("port") in SENSITIVE_PORTS:
@@ -90,6 +92,25 @@ def evaluate(host_data, thresholds=None):
     if n >= t["log_errors_warning"]:
         out.append({"id": "log-errors", "severity": "warning", "subject": logs.get("source"),
                     "message": "%d erreur(s) dans le journal sur 24 h" % n})
+
+    # #440 : Windows -- Defender, pare-feu, mises à jour en attente
+    win = d.get("windows") or {}
+    defender = win.get("defender")
+    if isinstance(defender, dict):
+        if defender.get("enabled") is False:
+            out.append({"id": "defender-off", "severity": "critical", "subject": "defender", "message": "antivirus Microsoft Defender désactivé"})
+        elif defender.get("realtime") is False:
+            out.append({"id": "defender-realtime-off", "severity": "warning", "subject": "defender", "message": "protection en temps réel de Defender désactivée"})
+        age = defender.get("signatures_age_days")
+        if age is not None and age > t.get("defender_signatures_max_days", 7):
+            out.append({"id": "defender-signatures-old", "severity": "warning", "subject": "defender", "message": "signatures Defender vieilles de %d jours" % age})
+    for prof in win.get("firewall") or []:
+        if isinstance(prof, dict) and prof.get("enabled") is False:
+            out.append({"id": "firewall-profile-off", "severity": "warning", "subject": "firewall:%s" % prof.get("profile"),
+                        "message": "pare-feu Windows désactivé pour le profil %s" % prof.get("profile")})
+    upd = (d.get("activity") or {}).get("updates_available")
+    if is_windows and upd:
+        out.append({"id": "updates-pending", "severity": "info", "subject": "windows-update", "message": "%d mise(s) à jour Windows en attente" % upd})
 
     return out
 

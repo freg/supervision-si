@@ -386,6 +386,42 @@ montée ». Le montage est maintenant `${PKI_DIR:-./pki}/ca/ca.crt`. Si le
 dossier parasite existe : `docker compose stop si-agent-api && sudo rmdir
 pki/ca/ca.crt && docker compose up -d --force-recreate si-agent-api`.
 
+## Agent Windows 10 / 11 (livraison #440, backlog 63)
+
+Demande : « pour le second test il me faut un agent Windows 10/11 ». Même
+paquet `si_agent` (Python 3 stdlib seule), même protocole HMAC, même file
+locale, mêmes mesures : sous Windows (`sys.platform == "win32"`),
+`agent.py` prend ses collecteurs dans `si_agent/winhost.py`, qui lance UN
+script PowerShell 5.1 par mesure (`si_agent/win/host.ps1`, `activity.ps1`,
+`hardware.ps1`, `netview.ps1` -- chacun imprime un objet JSON, chaque
+section protégée, sources absentes en `partial`) et traduit le résultat
+dans la forme que le central, `risks.py` et la tuile connaissent (fonctions
+`map_*` pures). Chemins Windows par défaut (`%ProgramData%\si-agent`),
+`os.geteuid` absent géré, pas de `killpg`, sondes `python` (Python de
+l'agent) et **`powershell`** (nouveau runner), sonde `shell` refusée
+proprement ; `control.plugin_env(base_env=…)` ne garde que les variables
+système. Risques ajoutés : Defender (inactif, temps réel, signatures),
+pare-feu par profil, mises à jour en attente ; message « service Windows
+automatique arrêté ». Installation : `windows/install.ps1` (Python trouvé
+ou distribution *embeddable* téléchargée, CA vérifiée par empreinte,
+`agent.json` protégé par ACL, tâche planifiée SYSTEM au démarrage,
+relancée) et `uninstall.ps1` ; commande affichée dans la tuile
+(`install_command_windows`). Tuile : ligne « Windows » (Defender, pare-feu,
+correctif, BitLocker, version d'affichage), logiciels installés dans
+Matériel, libellés des nouveaux risques. Agent **0.4.0**. Détail et
+commandes : `agent/README-DEPLOIEMENT.md`, variante 3.
+
+Vérifié : 8 tests `test_winhost` (traductions sur des sorties
+représentatives, risques, `quser` localisé, sonde powershell, environnement
+réduit) dont l'**exécution réelle des 4 scripts sous PowerShell 7 Linux**
+(syntaxe, enchaînement, JSON ; sources Windows absentes → partial) ;
+`install.ps1` / `uninstall.ps1` analysés par le parseur PowerShell ; agent
+Windows simulé dans le central réel → rendu Chromium de la tuile.
+**Non vérifié : un Windows réel** (Windows PowerShell 5.1, noms de
+propriétés CIM, droits du compte SYSTEM, durée des scripts, téléchargement
+de la distribution embarquée, tâche planifiée) -- premier poste de test à
+venir.
+
 ## Montages illisibles ou invisibles (livraison #438)
 
 Premier retour du premier hôte réel : « l'agent ne voit pas tous les types
@@ -414,7 +450,7 @@ tuile. Agent 0.3.3. Marche à suivre : `README-DEPLOIEMENT.md`, section
 ## Tests
 
 ```bash
-cd si-agent/agent && python3 -m unittest            # 32 tests (agent), dont netview/review (#428), montages (#438-#439)
+cd si-agent/agent && python3 -m unittest            # 40 tests (agent), dont netview/review (#428), montages (#438-#439), Windows (#440, pwsh si présent)
 ./sync-shared.sh --check                              # copies protocol/localqueue à jour
 cd ../api && python3 -m unittest                      # 9 tests (central), dont la chaîne réelle agent ↔ central
 cd ../../hub && node --test tests/siAgent.test.mjs    # 10 tests (logique de la tuile)
