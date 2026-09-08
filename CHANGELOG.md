@@ -1,3 +1,43 @@
+## 2026-09-08 — Cortex, étape 2 : rôles enrichis, table de routes, graphe d'architecture, « ce qui a changé » (livraison #463)
+
+Suite du découpage validé en #461 (« continue »). Aucun module d'origine
+modifié ; Cortex lit trois sources de plus.
+
+- **Rôles enrichis** (`cortex/api/normalize.py`, `oui.py`) : constructeur
+  et famille déduits de l'OUI de la MAC (principe `oui-vendor`, 0.55),
+  catégorie de classifier-api (`name-class`, 0.6), type Nebula et
+  description IPAM (`referential`, 0.9), services vus par network-agent
+  par segment (`serves-port`). Les entités portent constructeur, modèle,
+  description, sous-réseau, OS quand une source les connaît ; les rôles
+  restent des hypothèses pondérées et combinées.
+- **Table de routes** (`routes_from_netviews`, table `routes`, `/routes`) :
+  route par défaut, sous-réseaux attachés et joignables via une autre
+  passerelle, par hôte équipé d'un agent, avec premier/dernier relevé
+  (principe `route-known`, 0.9).
+- **Graphe d'architecture persistant** (`/graph`, `hub/src/cortexGraph.js`,
+  onglet **Architecture**) : SVG une colonne par site, trois couches
+  (amont / hôtes supervisés / reste), largeur de colonne adaptée à
+  l'étiquette la plus longue, arêtes colorées par type (dépendance,
+  alimentation, flux, voisinage, sonde), relation `uplink` client WiFi →
+  borne depuis Nebula (`attached-to`, 0.85), clic = fiche de l'entité.
+- **« Ce qui a changé »** (`changes.py`, table `changes`, `/changes`,
+  onglet dédié) : instantané avant / après chaque collecte ; entité
+  nouvelle ou plus vue, rôle dominant ou site qui bascule, relation
+  nouvelle ou disparue, passerelle qui change (`change-since`, 0.8) ; les
+  disparitions dues à une source en échec ne sont pas comptées.
+- Six principes de plus (vingt au total), tous exposés et évaluables dans
+  l'onglet « Principes & évaluations ».
+- Compose : `CLASSIFIER_API_URL`, `NEBULA_API_URL`, `IPAM_API_URL`
+  (`CORTEX_IPAM_API_URL`, défaut `ipam-api`) sur `cortex-api`.
+
+**Vérifié** : 12 tests purs Python (OUI, classifier / Nebula / IPAM, routes,
+changements avec source en échec ignorée) ; chaîne réelle central si-agent +
+UPS et vigilance simulés, deux collectes avec un onduleur ajouté entre les
+deux → `/changes` remonte la nouvelle entité et sa relation `powers_site`,
+`/routes` 7 routes pour 3 hôtes, `/graph` 14 nœuds / 13 arêtes ; onglets
+Architecture, Ce qui a changé, Routes rendus sous Chromium ; 168 tests
+Node. **Non vérifié** : classifier, Nebula et IPAM réels sur « super ».
+
 ## 2026-09-08 — Cortex, étape 1 : modèle commun, collecte, incidents corrélés, hypothèses évaluées (livraison #462)
 
 Validation de l'analyse #461 : « cortex me plait comme titre c'est moderne

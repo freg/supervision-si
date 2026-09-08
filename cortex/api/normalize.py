@@ -325,3 +325,124 @@ def role_hypotheses(entity, feedback=None):
         r["conf"] = 1 - (1 - r["conf"]) * (1 - p)   # indices indépendants
     return sorted(({"role": r["role"], "confidence": round(r["conf"], 2), "evidence": r["evidence"], "principles": r["principles"]} for r in by_role.values()),
                   key=lambda x: -x["confidence"])
+
+
+# ================================================================ étape 2 (#463)
+from oui import vendor_of  # noqa: E402
+
+NEBULA_TYPE_ROLES = {"ap": "borne-wifi", "access point": "borne-wifi", "switch": "switch", "gateway": "routeur", "router": "routeur", "firewall": "pare-feu", "security gateway": "pare-feu"}
+
+
+def vendor_hint(mac):
+    """Indice de rôle depuis l'OUI (principe oui-vendor) ; None si constructeur
+    inconnu ou généraliste."""
+    vendor, family = vendor_of(mac)
+    if not vendor or not family:
+        return None, vendor
+    return {"role": family, "principle": "oui-vendor", "evidence": "constructeur %s (OUI)" % vendor}, vendor
+
+
+def with_vendor_hints(entities):
+    """Ajoute à chaque entité connue par MAC son constructeur et, s'il est
+    parlant, l'indice de rôle correspondant."""
+    for e in entities:
+        if e.get("mac"):
+            hint, vendor = vendor_hint(e["mac"])
+            if vendor:
+                e["vendor"] = vendor
+            if hint and hint not in e["hints"]:
+                e["hints"].append(hint)
+    return entities
+
+
+def from_classifier(results):
+    """classifier-api /results : {input_text, category, confirmed} -> indices de rôle par nom."""
+    ents = []
+    for r in results or []:
+        key = entity_key(name=r.get("input_text"))
+        if not key or not r.get("category"):
+            continue
+        ents.append(_ent(key, "equipement", r.get("input_text"), None, None, None, "classifier", r.get("id"),
+                         [{"role": r["category"], "principle": "name-class", "evidence": "classification %s du nom « %s »" % ("confirmée" if r.get("confirmed") else "automatique", r.get("input_text"))}]))
+    return ents, [], []
+
+
+def from_nebula(devices, clients):
+    """Référentiel Nebula importé : appareils (type, modèle, site) et clients (attachés à un appareil)."""
+    ents, rels = [], []
+    by_name = {}
+    for d in devices or []:
+        key = entity_key(mac=d.get("mac_address"), name=d.get("name"))
+        if not key:
+            continue
+        typ = (d.get("device_type") or "").strip().lower()
+        role = NEBULA_TYPE_ROLES.get(typ) or ("equipement-reseau" if typ else None)
+        hints = [{"role": role, "principle": "referential", "evidence": "Nebula : %s %s" % (d.get("device_type") or "appareil", d.get("model") or "")}] if role else []
+        e = _ent(key, "equipement-reseau", d.get("name"), None, d.get("mac_address"), d.get("site"), "nebula", d.get("id"), hints)
+        e["model"] = d.get("model")
+        ents.append(e)
+        if d.get("name"):
+            by_name[d["name"].strip().lower()] = key
+    for c in clients or []:
+        key = entity_key(mac=c.get("mac_address"), ip=c.get("ipv4_address"), name=c.get("name"))
+        if not key:
+            continue
+        e = _ent(key, "equipement", c.get("name"), c.get("ipv4_address"), c.get("mac_address"), None, "nebula", c.get("id"))
+        if c.get("manufacturer"):
+            e["vendor"] = c["manufacturer"]
+        if c.get("os"):
+            e["os"] = c["os"]
+        ents.append(e)
+        up = by_name.get((c.get("connected_to") or "").strip().lower())
+        if up:
+            rels.append({"a": up, "b": key, "kind": "uplink", "weight": 0.8, "principle": "attached-to",
+                         "evidence": "client attaché à %s (%s)" % (c.get("connected_to"), c.get("ssid_name") or c.get("band") or "Nebula"), "source": "nebula"})
+    return ents, rels, []
+
+
+def from_ipam(entries):
+    """ipam-api /ip_list : nom, description, sous-réseau, état -- déclarations d'administrateur."""
+    ents = []
+    for r in entries or []:
+        key = entity_key(mac=r.get("mac"), ip=r.get("ip"), name=r.get("hostname"))
+        if not key:
+            continue
+        e = _ent(key, "equipement", r.get("hostname"), r.get("ip"), r.get("mac"), None, "ipam", r.get("id"))
+        if r.get("description"):
+            e["description"] = r["description"]
+        if r.get("subnet"):
+            e["subnet"] = r["subnet"]
+        ents.append(e)
+    return ents, [], []
+
+
+def services_hints(devices, services_by_device):
+    """network-agent /devices/services?segment_id : {device_id: [{protocol, port}]} -> indices serves-port."""
+    out = {}
+    for d in devices or []:
+        for svc in (services_by_device or {}).get(str(d.get("id"))) or (services_by_device or {}).get(d.get("id")) or []:
+            port = str(svc.get("port"))
+            if port in PORT_ROLES:
+                out.setdefault(d.get("id"), []).append({"role": PORT_ROLES[port], "principle": "serves-port", "evidence": "sert %s/%s (%s paquets)" % (svc.get("protocol"), port, svc.get("packet_count") or "?")})
+    return out
+
+
+def routes_from_netviews(netviews, by_agent=None):
+    """Table de routes (principe route-known) : par hôte, la route par défaut,
+    les sous-réseaux attachés et les sous-réseaux joignables via une autre passerelle."""
+    out = []
+    for nv in netviews or []:
+        key = (by_agent or {}).get(nv.get("agent_id")) or entity_key(ip=nv.get("last_ip"), name=nv.get("hostname") or nv.get("agent_id"))
+        if not key:
+            continue
+        s = nv.get("summary") or {}
+        if s.get("default_gateway"):
+            out.append({"host": key, "destination": "default", "via": s["default_gateway"], "kind": "default", "state": s.get("default_gateway_state"), "source": "si-agent"})
+        for cidr in s.get("attached_subnets") or []:
+            out.append({"host": key, "destination": cidr, "via": None, "kind": "attached", "state": "direct", "source": "si-agent"})
+        for r in s.get("reachable_subnets") or []:
+            if isinstance(r, dict):
+                out.append({"host": key, "destination": r.get("cidr") or r.get("destination"), "via": r.get("via") or r.get("gateway"), "kind": "reachable", "state": None, "source": "si-agent"})
+            elif isinstance(r, str):
+                out.append({"host": key, "destination": r, "via": None, "kind": "reachable", "state": None, "source": "si-agent"})
+    return out

@@ -10,6 +10,7 @@ import time
 
 import requests
 
+import changes as ch
 import correlate
 import normalize as nz
 import store
@@ -32,10 +33,16 @@ class Collector(object):
         self.window_s = window_s
         self.horizon_h = horizon_h   # événements historiques plus vieux : ignorés
 
+    def _snapshot(self):
+        fb = store.feedback_counts(self.db_path)
+        return ch.snapshot(store.list_entities(self.db_path, limit=100000), store.list_relations(self.db_path), store.list_routes(self.db_path),
+                           lambda e: nz.role_hypotheses(e, fb))
+
     def run(self):
         t0 = time.time()
-        ents, rels, evs, report = [], [], [], {}
+        ents, rels, evs, routes, report = [], [], [], [], {}
         u = self.urls
+        before = self._snapshot()
 
         def step(name, fn):
             t = time.time()
@@ -48,8 +55,14 @@ class Collector(object):
 
         if u.get("si_agent"):
             since = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - self.horizon_h * 3600))
-            step("si-agent", lambda: nz.from_si_agent((_get(u["si_agent"], "/fleet") or {}).get("agents"), (_get(u["si_agent"], "/netview") or {}).get("netviews"),
-                                                       (_get(u["si_agent"], "/events?limit=200&min_severity=warning") or {}).get("events"), _get(u["si_agent"], "/status"), since=since))
+            def si():
+                fleet = (_get(u["si_agent"], "/fleet") or {}).get("agents")
+                nvs = (_get(u["si_agent"], "/netview") or {}).get("netviews")
+                e, r, v = nz.from_si_agent(fleet, nvs, (_get(u["si_agent"], "/events?limit=200&min_severity=warning") or {}).get("events"), _get(u["si_agent"], "/status"), since=since)
+                by_agent = {a["agent_id"]: nz.entity_key(ip=a.get("last_ip"), name=a.get("hostname") or a.get("agent_id")) for a in fleet or []}
+                routes.extend(nz.routes_from_netviews(nvs, by_agent))
+                return e, r, v
+            step("si-agent", si)
         if u.get("vigilance"):
             step("vigilance", lambda: nz.from_vigilance(_get(u["vigilance"], "/signals?limit=300")))
         if u.get("ups"):
@@ -66,28 +79,57 @@ class Collector(object):
             def na():
                 sites = _get(u["network_agent"], "/sites") or []
                 devices = _get(u["network_agent"], "/devices") or []
-                links = {}
+                links, services = {}, {}
                 for s in sites:
                     for seg in s.get("segments") or []:
                         try:
                             links[seg["id"]] = _get(u["network_agent"], "/links?segment_id=%s" % seg["id"]) or []
+                            services.update(_get(u["network_agent"], "/devices/services?segment_id=%s" % seg["id"]) or {})
                         except Exception:  # noqa: BLE001
                             links[seg["id"]] = []
-                return nz.from_network_agent(sites, devices, links)
+                e, r, v = nz.from_network_agent(sites, devices, links)
+                hints = nz.services_hints(devices, services)
+                by_key = {}
+                for d in devices:
+                    k = nz.entity_key(ip=d.get("ip_address"), mac=d.get("mac_address"), name=d.get("hostname"))
+                    if k:
+                        by_key[k] = d.get("id")
+                for ent in e:
+                    for h in hints.get(by_key.get(ent["key"]), []):
+                        if h not in ent["hints"]:
+                            ent["hints"].append(h)
+                return e, r, v
             step("network-agent", na)
+        if u.get("classifier"):
+            def _classifier():
+                r = _get(u["classifier"], "/results?limit=500")
+                return nz.from_classifier(r.get("results") if isinstance(r, dict) else r)
+            step("classifier", _classifier)
+        if u.get("nebula"):
+            step("nebula", lambda: nz.from_nebula(_get(u["nebula"], "/imported/devices"), _get(u["nebula"], "/imported/clients")))
+        if u.get("ipam"):
+            step("ipam", lambda: nz.from_ipam((_get(u["ipam"], "/ip_list") or {}).get("entries")))
         if u.get("backup"):
             step("backup-restore", lambda: nz.from_backups(_get(u["backup"], "/hub-backups/status")))
 
         alias = nz.alias_map(ents)
         ents, rels, evs = nz.apply_aliases(ents, rels, evs, alias)
-        merged = nz.merge_entities(ents)
+        for r in routes:
+            r["host"] = alias.get(r["host"], r["host"])
+        merged = nz.with_vendor_hints(nz.merge_entities(ents))
         store.upsert_entities(self.db_path, merged)
         store.upsert_relations(self.db_path, rels)
+        store.upsert_routes(self.db_path, routes)
         new, refreshed = store.upsert_events(self.db_path, evs)
         ok_sources = {k for k, v in report.items() if v.get("ok")}
         closed = store.close_missing_events(self.db_path, {e["fingerprint"] for e in evs}, ok_sources)
         counts = self.recompute()
-        counts.update({"entities": len(merged), "aliases": len(alias), "relations": len(rels), "events_new": new, "events_refreshed": refreshed, "events_closed": closed})
+        after = self._snapshot()
+        failed = {k for k, v in report.items() if not v.get("ok")}
+        diff = ch.compute_changes(before, after, failed_sources=failed, names=store.entity_names(self.db_path)) if before["entities"] else []
+        store.add_changes(self.db_path, diff)
+        counts.update({"entities": len(merged), "aliases": len(alias), "relations": len(rels), "routes": len(routes), "changes": len(diff),
+                       "events_new": new, "events_refreshed": refreshed, "events_closed": closed})
         store.add_run(self.db_path, int((time.time() - t0) * 1000), report, counts)
         return report, counts
 

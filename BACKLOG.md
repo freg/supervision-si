@@ -2524,5 +2524,7 @@ pondérés et table de routes, graphe d'architecture persistant ; (3) hiérarchi
 position mémorisée avec provenance, fiche d'intervention, couches carto ; (4) séquences
 apprises et anticipation, dérives généralisées ; (5) statistiques MTTA/MTTR et politiques
 d'alerte. Validé (« cortex me plait ») ; étape 1 livrée en #462 (cortex-api,
-tuile, principes évalués). Prochaine : étape 2 (rôles enrichis, routes, graphe
-d'architecture persistant, « ce qui a changé »).
+tuile, principes évalués) ; étape 2 livrée en #463 (rôles enrichis OUI /
+classifier / Nebula / IPAM, table de routes, graphe d'architecture, « ce qui
+a changé »). Prochaine : étape 3 (lieux et positions avec provenance, fiche
+d'intervention, couches carto).

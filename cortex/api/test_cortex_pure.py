@@ -151,5 +151,43 @@ class TestCorrelate(unittest.TestCase):
         self.assertEqual((s["incidents_open"], s["incidents_weak"]), (1, 1))
 
 
+class TestStep2(unittest.TestCase):
+    def test_vendor_and_new_sources(self):
+        e = nz._ent("mac:b8:27:eb:00:00:01", "equipement", None, "10.0.0.20", "b8:27:eb:00:00:01", None, "network-agent", 1)
+        nz.with_vendor_hints([e])
+        self.assertEqual(e["vendor"], "Raspberry Pi"); self.assertEqual(e["hints"][0]["role"], "petit-ordinateur")
+        e2 = nz._ent("mac:3c:22:fb:00:00:01", "equipement", None, None, "3c:22:fb:00:00:01", None, "x", 1)
+        nz.with_vendor_hints([e2]); self.assertEqual((e2.get("vendor"), e2["hints"]), ("Apple", []))
+        ents, _, _ = nz.from_classifier([{"id": 1, "input_text": "SRV-DNS-01", "category": "infrastructure", "confirmed": 1}, {"id": 2, "input_text": "x", "category": None}])
+        self.assertEqual(len(ents), 1); self.assertEqual(ents[0]["hints"][0]["principle"], "name-class"); self.assertIn("confirmée", ents[0]["hints"][0]["evidence"])
+        ents, rels, _ = nz.from_nebula([{"id": 1, "name": "AP-Accueil", "mac_address": "b8:ec:a3:00:00:01", "device_type": "AP", "model": "NWA110AX", "site": "Alpha"}],
+                                       [{"id": 5, "name": "tablette", "mac_address": "3c:22:fb:00:00:09", "ipv4_address": "172.16.1.40", "connected_to": "AP-Accueil", "ssid_name": "NUM", "manufacturer": "Apple"}])
+        self.assertEqual(ents[0]["hints"][0]["role"], "borne-wifi"); self.assertEqual(ents[0]["site"], "Alpha")
+        self.assertEqual((rels[0]["a"], rels[0]["b"], rels[0]["kind"], rels[0]["principle"]), ("mac:b8:ec:a3:00:00:01", "mac:3c:22:fb:00:00:09", "uplink", "attached-to"))
+        ents, _, _ = nz.from_ipam([{"id": 3, "ip": "10.0.0.7", "mac": None, "hostname": "sw-core", "description": "cœur de réseau", "subnet": "10.0.0.0/24"}])
+        self.assertEqual((ents[0]["key"], ents[0]["description"], ents[0]["subnet"]), ("ip:10.0.0.7", "cœur de réseau", "10.0.0.0/24"))
+        h = nz.services_hints([{"id": 10}], {"10": [{"protocol": "udp", "port": 53, "packet_count": 40}, {"protocol": "tcp", "port": 8080}]})
+        self.assertEqual([x["role"] for x in h[10]], ["dns"])
+
+    def test_routes_and_changes(self):
+        nvs = [{"agent_id": "a1", "hostname": "srv1", "last_ip": "10.0.0.5", "summary": {"default_gateway": "10.0.0.1", "default_gateway_state": "reachable", "attached_subnets": ["10.0.0.0/24"], "reachable_subnets": [{"cidr": "10.1.0.0/16", "via": "10.0.0.254"}]}}]
+        routes = nz.routes_from_netviews(nvs)
+        self.assertEqual([(r["kind"], r["destination"], r["via"]) for r in routes], [("default", "default", "10.0.0.1"), ("attached", "10.0.0.0/24", None), ("reachable", "10.1.0.0/16", "10.0.0.254")])
+        import changes as ch
+        roles = lambda e: [{"role": e.get("_role")}] if e.get("_role") else []  # noqa: E731
+        before = ch.snapshot([{"key": "a", "kind": "hote", "site": "s1", "_role": "dns", "origins": [{"source": "si-agent"}]}, {"key": "gone", "kind": "hote", "origins": [{"source": "ups"}]}, {"key": "gone2", "kind": "hote", "origins": [{"source": "ups"}]}],
+                             [{"a": "g", "b": "a", "kind": "gateway_of"}], [{"host": "a", "kind": "default", "via": "10.0.0.1"}], roles)
+        after = ch.snapshot([{"key": "a", "kind": "hote", "site": "s1", "_role": "web", "origins": [{"source": "si-agent"}]}, {"key": "b", "kind": "passerelle", "site": "s1", "origins": []}],
+                            [{"a": "b", "b": "a", "kind": "gateway_of"}], [{"host": "a", "kind": "default", "via": "10.0.0.9"}], roles)
+        out = ch.compute_changes(before, after, failed_sources={"ups"}, names={"a": "srv1"})
+        kinds = sorted(c["kind"] for c in out)
+        self.assertEqual(kinds, ["entity-new", "gateway-changed", "relation-gone", "relation-new", "role-changed"])
+        self.assertTrue(any("srv1 : rôle dominant dns → web" == c["message"] for c in out))
+        # entités « gone » d'une source en échec : pas signalées
+        self.assertFalse(any(c["kind"] == "entity-gone" for c in out))
+        out2 = ch.compute_changes(before, after, failed_sources=set())
+        self.assertEqual(sum(1 for c in out2 if c["kind"] == "entity-gone"), 2)
+
+
 if __name__ == "__main__":
     unittest.main()

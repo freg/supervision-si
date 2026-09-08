@@ -26,3 +26,7 @@ export const fetchPrinciples = (b) => fetchJson(b, "/principles");
 export const fetchCortexStats = (b, days = 7) => fetchJson(b, `/stats?days=${days}`);
 export const fetchRuns = (b) => fetchJson(b, "/runs?limit=10");
 export const runCollect = (b, groups) => fetchJson(b, "/collect", json("POST", { groups }));
+// #463 : graphe d'architecture, routes, changements
+export const fetchGraph = (b) => fetchJson(b, "/graph");
+export const fetchRoutes = (b) => fetchJson(b, "/routes");
+export const fetchChanges = (b, since) => fetchJson(b, since ? `/changes?since=${encodeURIComponent(since)}&limit=300` : "/changes?limit=300");

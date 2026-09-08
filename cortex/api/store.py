@@ -33,6 +33,14 @@ CREATE TABLE IF NOT EXISTS feedback (
     id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, principle TEXT NOT NULL, verdict TEXT NOT NULL,
     incident_key TEXT, claim TEXT, by_user TEXT, note TEXT
 );
+CREATE TABLE IF NOT EXISTS routes (
+    host TEXT NOT NULL, destination TEXT NOT NULL, via TEXT, kind TEXT, state TEXT, source TEXT,
+    first_seen TEXT NOT NULL, last_seen TEXT NOT NULL, PRIMARY KEY (host, destination, source)
+);
+CREATE TABLE IF NOT EXISTS changes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, kind TEXT NOT NULL, subject TEXT, message TEXT, principle TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_changes_at ON changes(at);
 CREATE TABLE IF NOT EXISTS runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, duration_ms INTEGER, sources_json TEXT, counts_json TEXT
 );
@@ -53,6 +61,10 @@ def ensure_schema(db_path):
     c = connect(db_path)
     try:
         c.executescript(SCHEMA)
+        cols = {r["name"] for r in c.execute("PRAGMA table_info(entities)").fetchall()}
+        for col in ("vendor", "model", "description", "subnet", "os"):
+            if col not in cols:
+                c.execute("ALTER TABLE entities ADD COLUMN %s TEXT" % col)
         c.commit()
     finally:
         c.close()
@@ -75,13 +87,16 @@ def upsert_entities(db_path, entities):
     c = connect(db_path)
     try:
         for e in entities:
-            c.execute("""INSERT INTO entities (key, kind, name, ip, mac, site, origins_json, hints_json, first_seen, last_seen)
-                         VALUES (?,?,?,?,?,?,?,?,?,?)
+            c.execute("""INSERT INTO entities (key, kind, name, ip, mac, site, origins_json, hints_json, first_seen, last_seen, vendor, model, description, subnet, os)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                          ON CONFLICT(key) DO UPDATE SET kind=excluded.kind, name=COALESCE(excluded.name, entities.name),
                            ip=COALESCE(excluded.ip, entities.ip), mac=COALESCE(excluded.mac, entities.mac), site=COALESCE(excluded.site, entities.site),
-                           origins_json=excluded.origins_json, hints_json=excluded.hints_json, last_seen=excluded.last_seen""",
+                           origins_json=excluded.origins_json, hints_json=excluded.hints_json, last_seen=excluded.last_seen,
+                           vendor=COALESCE(excluded.vendor, entities.vendor), model=COALESCE(excluded.model, entities.model),
+                           description=COALESCE(excluded.description, entities.description), subnet=COALESCE(excluded.subnet, entities.subnet), os=COALESCE(excluded.os, entities.os)""",
                       (e["key"], e.get("kind"), e.get("name"), e.get("ip"), e.get("mac"), e.get("site"),
-                       json.dumps(e.get("origins") or []), json.dumps(e.get("hints") or []), now, now))
+                       json.dumps(e.get("origins") or []), json.dumps(e.get("hints") or []), now, now,
+                       e.get("vendor"), e.get("model"), e.get("description"), e.get("subnet"), e.get("os")))
         c.commit()
     finally:
         c.close()
@@ -352,5 +367,67 @@ def purge(db_path, days=30):
         c.execute("DELETE FROM incidents WHERE state='closed' AND closed_at < ?", (cutoff,))
         c.execute("DELETE FROM relations WHERE last_seen < ?", (cutoff,))
         c.commit()
+    finally:
+        c.close()
+
+
+# ---------------------------------------------------------------- routes et changements (#463)
+def upsert_routes(db_path, routes):
+    now = now_iso()
+    c = connect(db_path)
+    try:
+        for r in routes:
+            if not r.get("destination"):
+                continue
+            c.execute("""INSERT INTO routes (host, destination, via, kind, state, source, first_seen, last_seen) VALUES (?,?,?,?,?,?,?,?)
+                         ON CONFLICT(host, destination, source) DO UPDATE SET via=excluded.via, kind=excluded.kind, state=excluded.state, last_seen=excluded.last_seen""",
+                      (r["host"], r["destination"], r.get("via"), r.get("kind"), r.get("state"), r.get("source"), now, now))
+        c.commit()
+    finally:
+        c.close()
+
+
+def list_routes(db_path, host=None):
+    c = connect(db_path)
+    try:
+        if host:
+            rows = c.execute("SELECT * FROM routes WHERE host=? ORDER BY kind, destination", (host,)).fetchall()
+        else:
+            rows = c.execute("SELECT * FROM routes ORDER BY host, kind, destination").fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        c.close()
+
+
+def add_changes(db_path, changes):
+    if not changes:
+        return
+    now = now_iso()
+    c = connect(db_path)
+    try:
+        c.executemany("INSERT INTO changes (at, kind, subject, message, principle) VALUES (?,?,?,?,?)",
+                      [(now, ch["kind"], ch.get("subject"), ch.get("message"), ch.get("principle")) for ch in changes])
+        c.execute("DELETE FROM changes WHERE id NOT IN (SELECT id FROM changes ORDER BY id DESC LIMIT 5000)")
+        c.commit()
+    finally:
+        c.close()
+
+
+def list_changes(db_path, since=None, limit=300):
+    c = connect(db_path)
+    try:
+        if since:
+            rows = c.execute("SELECT * FROM changes WHERE at>=? ORDER BY id DESC LIMIT ?", (since, limit)).fetchall()
+        else:
+            rows = c.execute("SELECT * FROM changes ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        c.close()
+
+
+def entity_names(db_path):
+    c = connect(db_path)
+    try:
+        return {r["key"]: (r["name"] or r["ip"] or r["key"]) for r in c.execute("SELECT key, name, ip FROM entities").fetchall()}
     finally:
         c.close()

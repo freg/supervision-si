@@ -55,7 +55,8 @@ os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 store.ensure_schema(DB_PATH)
 URLS = {"si_agent": os.environ.get("SI_AGENT_API_URL", ""), "vigilance": os.environ.get("VIGILANCE_API_URL", ""), "ups": os.environ.get("UPS_API_URL", ""),
         "orchestrator": os.environ.get("NETMAP_ORCHESTRATOR_API_URL", ""), "netprobe": os.environ.get("NETPROBE_API_URL", ""),
-        "network_agent": os.environ.get("NETWORK_AGENT_API_URL", ""), "backup": os.environ.get("BACKUP_RESTORE_API_URL", "")}
+        "network_agent": os.environ.get("NETWORK_AGENT_API_URL", ""), "backup": os.environ.get("BACKUP_RESTORE_API_URL", ""),
+        "classifier": os.environ.get("CLASSIFIER_API_URL", ""), "nebula": os.environ.get("NEBULA_API_URL", ""), "ipam": os.environ.get("IPAM_API_URL", "")}
 WINDOW_S = int(os.environ.get("CORTEX_WINDOW_SECONDS", "300"))
 INTERVAL_S = int(os.environ.get("CORTEX_INTERVAL_SECONDS", "300"))
 RIGHTS_API_URL = os.environ.get("RIGHTS_API_URL", "").rstrip("/") or None
@@ -177,6 +178,36 @@ def entity(key):
     e["relations"] = store.list_relations(DB_PATH, entity=key)
     e["events"] = store.list_events(DB_PATH, entity=key, state="all", limit=50)
     return jsonify(e), 200
+
+
+@app.route("/routes", methods=["GET"])
+def routes():
+    names = store.entity_names(DB_PATH)
+    out = store.list_routes(DB_PATH, host=request.args.get("host"))
+    for r in out:
+        r["host_name"] = names.get(r["host"], r["host"])
+    return jsonify({"routes": out}), 200
+
+
+@app.route("/changes", methods=["GET"])
+def changes_route():
+    return jsonify({"changes": store.list_changes(DB_PATH, since=request.args.get("since"), limit=request.args.get("limit", 300, type=int))}), 200
+
+
+@app.route("/graph", methods=["GET"])
+def graph():
+    """Graphe d'architecture persistant : nœuds (entités avec rôle dominant,
+    site, type, constructeur) et arêtes (relations pondérées) -- pour la vue
+    Graphe et pour tout autre consommateur (architecture-api, analyse réseau)."""
+    fc = store.feedback_counts(DB_PATH)
+    nodes = []
+    for e in store.list_entities(DB_PATH, limit=5000):
+        roles = nz.role_hypotheses(e, fc)
+        nodes.append({"key": e["key"], "name": e.get("name") or e.get("ip") or e["key"], "kind": e.get("kind"), "site": e.get("site"), "ip": e.get("ip"),
+                      "vendor": e.get("vendor"), "role": roles[0]["role"] if roles else None, "role_confidence": roles[0]["confidence"] if roles else None,
+                      "sources": sorted({o.get("source") for o in (e.get("origins") or []) if o.get("source")})})
+    edges = [{"a": r["a"], "b": r["b"], "kind": r["kind"], "weight": r.get("weight"), "principle": r.get("principle"), "source": r.get("source")} for r in store.list_relations(DB_PATH)]
+    return jsonify({"nodes": nodes, "edges": edges, "generated_at": store.now_iso()}), 200
 
 
 @app.route("/relations", methods=["GET"])

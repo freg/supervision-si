@@ -1209,6 +1209,10 @@ services:
       # network-agent-api tourne en network_mode: host (#238) -- IP réelle de l'hôte
       - NETWORK_AGENT_API_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
       - BACKUP_RESTORE_API_URL=http://backup-restore-api:5000
+      # #463 : rôles enrichis (classification des noms, référentiels Nebula et IPAM)
+      - CLASSIFIER_API_URL=http://classifier-api:5000
+      - NEBULA_API_URL=http://nebula-api:5000
+      - IPAM_API_URL=${CORTEX_IPAM_API_URL:-http://ipam-api:5000}
       - RIGHTS_API_URL=${CORTEX_RIGHTS_API_URL:-}
       - CORTEX_WINDOW_SECONDS=${CORTEX_WINDOW_SECONDS:-300}
       - CORTEX_INTERVAL_SECONDS=${CORTEX_INTERVAL_SECONDS:-300}
