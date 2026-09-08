@@ -183,7 +183,8 @@ export const THRESHOLD_KEYS = [
 ];
 
 export const ALERT_KIND_LABELS = { alarm: "alarme de l'onduleur", unreachable: "injoignable", "threshold:input_voltage_min": "tension basse",
-  "threshold:input_voltage_max": "tension haute", "threshold:output_load_max": "charge élevée", "threshold:battery_capacity_min": "batterie faible", "threshold:temperature_max": "température" };
+  "threshold:input_voltage_max": "tension haute", "threshold:output_load_max": "charge élevée", "threshold:battery_capacity_min": "batterie faible", "threshold:temperature_max": "température",
+  "drift:battery_capacity": "dérive : capacité batterie", "drift:battery_voltage": "dérive : tension batterie", "drift:battery_runtime": "dérive : autonomie", "drift:temperature": "dérive : température", "drift:output_load": "dérive : charge" };
 
 export function alertKindLabel(kind) { return ALERT_KIND_LABELS[kind] || kind; }
 export function alertTone(severity) { return severity === "critical" ? "bad" : severity === "warning" ? "warn" : "neutral"; }

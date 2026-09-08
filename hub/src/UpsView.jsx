@@ -28,6 +28,7 @@ const EMPTY_FORM = {
   ...thresholdsToForm({}), unreachable_after: "", notify: true,
   // #434 : méthode de relevé (page HTML de la carte, ou SNMP UPS-MIB via snmp-api)
   method: "http", snmp_community: "", snmp_port: "",
+  extra_pages: "", // #435 : pages supplémentaires de la carte, séparées par des virgules
 };
 
 function Tone({ tone, children }) {
@@ -118,6 +119,7 @@ export default function UpsView({ onBack, upsApiBase }) {
       enabled: d.enabled, notes: d.notes || "",
       ...thresholdsToForm(d.thresholds), unreachable_after: d.unreachable_after || "", notify: d.notify !== false,
       method: d.method || "http", snmp_community: "", snmp_port: d.snmp_port && d.snmp_port !== 161 ? d.snmp_port : "",
+      extra_pages: (d.extra_pages || []).join(", "),
     });
     setShowThresholds(Object.keys(d.thresholds || {}).length > 0);
     setTestResult(null);
@@ -279,6 +281,7 @@ export default function UpsView({ onBack, upsApiBase }) {
                   </select>
                 </label>
                 <label>Page <input value={form.path} onChange={(e) => setForm({ ...form, path: e.target.value })} placeholder="/index.htm" /></label>
+                <label title="autres pages de la carte lues à chaque relevé et fusionnées dans la fiche (batterie, entrées/sorties…)">Pages en plus <input value={form.extra_pages} onChange={(e) => setForm({ ...form, extra_pages: e.target.value })} placeholder="/info_battery.htm, /info_io.htm" /></label>
                 <label>Utilisateur <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} autoComplete="off" /></label>
                 <label>Mot de passe
                   <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} autoComplete="new-password" placeholder={editingId ? "(inchangé)" : ""} />
@@ -378,6 +381,9 @@ export default function UpsView({ onBack, upsApiBase }) {
         <div className="hub-card hub-settings-section ups-detail">
           <h2 style={{ marginTop: 0 }}>🔋 {selected.name} <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>{selected.site} · {detail?.url || selected.host}</span></h2>
 
+          {detail?.latest?.extra_errors?.length > 0 && (
+            <p className="muted" style={{ fontSize: 12 }}>Pages supplémentaires en échec : {detail.latest.extra_errors.join(" ; ")}</p>
+          )}
           {detail?.latest && !detail.latest.ok && (
             <p className="hub-error">
               Dernier relevé le {when(detail.latest.polled_at)} en échec : {detail.latest.error}

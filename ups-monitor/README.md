@@ -212,11 +212,32 @@ snmp-api, seuils, communauté inchangée / effacée), 29 au total. Non
 vérifié : vraie carte SNMP (snmp-api lui-même n'a jamais vu de vrai
 équipement, voir snmp/README.md).
 
+## Pages supplémentaires et dérive lente (livraison #435)
+
+- **Pages en plus** (`extra_pages`, jusqu'à 8 chemins `/…`, champ « Pages
+  en plus » du formulaire) : lues à chaque relevé HTTP après la page
+  principale, avec les mêmes identifiants, et **fusionnées** dans la fiche
+  -- une clé déjà connue n'est jamais écrasée, chaque champ ajouté porte
+  `page`, les sections sont préfixées du chemin ; une page en échec est
+  archivée (`extra_errors` sur le relevé, affiché dans la fiche), jamais
+  bloquante. Les nouvelles mesures numériques entrent d'elles-mêmes dans la
+  timeline et les seuils.
+- **Dérive lente** (`alerts.drift_checks`) : une fois par jour et par
+  onduleur, la moyenne des 7 derniers jours est comparée à celle des 30
+  jours précédents (5 points minimum de chaque côté) : capacité batterie
+  −10 %, tension batterie −5 %, autonomie −20 %, température +15 %, charge
+  +30 % ouvrent `drift:<champ>` (avertissement, notifié) ; l'alerte se ferme
+  au contrôle suivant si la dérive a disparu, jamais sur un simple relevé.
+
+Vérifié : 2 tests (fusion des pages, dérive sur 37 jours simulés), 31 au
+total. Non vérifié : vraies pages `info_battery.htm` / `info_io.htm` (pas
+d'échantillon : copier ces pages pour affiner le parseur si les champs
+n'apparaissent pas).
+
 ## Ce que cette version ne fait pas (backlog 62)
 
-- D'autres pages de la carte (`info_battery.htm`, `info_io.htm`,
-  `hist_log1.htm`) : le parseur les lirait déjà, il manque la notion de
-  « plusieurs pages par onduleur ».
+- ~~D'autres pages de la carte~~ : livré en #435 (`extra_pages`) ; reste
+  l'historique de la carte (`hist_log1.htm`), sans échantillon.
 - ~~SNMP (RFC 1628 UPS-MIB)~~ : livré en #434 (à confirmer sur une vraie carte).
-- ~~Alertes~~ et ~~seuils~~ : livrés en #433 (reste la détection de dérive
-  lente et la remontée vers vigilance).
+- ~~Alertes~~ et ~~seuils~~ : livrés en #433 ; ~~dérive lente~~ : #435
+  (reste la remontée vers vigilance).

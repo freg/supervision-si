@@ -1,3 +1,13 @@
+## 2026-09-08 — Onduleurs : pages supplémentaires de la carte fusionnées dans la fiche, détection de dérive lente (livraison #435)
+
+Backlog 62 (reste : historique de la carte, remontée vers vigilance). Voir
+`ups-monitor/README.md` (§ #435). `extra_pages` par onduleur (lues et
+fusionnées à chaque relevé, échecs archivés et affichés) ; contrôle
+quotidien de dérive 7 j / 30 j (capacité, tension et autonomie batterie,
+température, charge) -> alertes `drift:<champ>` notifiées, fermées quand la
+dérive disparaît ; champ « Pages en plus » et libellés de dérive dans la
+tuile. 2 tests (31 au total).
+
 ## 2026-09-08 — Onduleurs : relevé SNMP UPS-MIB (RFC 1628) comme seconde méthode, GET d'OID générique dans snmp-api (livraison #434)
 
 Backlog 62. `ups-monitor/api/ups_snmp.py` traduit l'UPS-MIB (identité,

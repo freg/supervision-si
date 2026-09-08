@@ -10,6 +10,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 import unittest
 import urllib.error
 
@@ -381,6 +382,65 @@ class SnmpTests(unittest.TestCase):
         self.assertEqual(store.get_device(db, dev["id"], include_secret=True)["snmp_community"], "secret-community")
         store.update_device(db, dev["id"], {"clear_snmp_community": True})
         self.assertFalse(store.get_device(db, dev["id"])["has_snmp_community"])
+
+
+class ExtraPagesAndDriftTests(unittest.TestCase):
+    """Livraison #435 : pages supplémentaires et dérive lente."""
+    BATTERY_PAGE = """<html><body><table><tr><td COLSPAN="4" CLASS="title" ALIGN="center">Battery</td></tr>
+    <tr><td></td><td ALIGN="right">Battery Voltage:</td><td CLASS="normal">27.3 V</td><td></td></tr>
+    <tr><td></td><td ALIGN="right">Battery Capacity:</td><td CLASS="normal">99 %</td><td></td></tr>
+    <tr><td></td><td ALIGN="right">Battery Temperature:</td><td CLASS="normal">31 &deg;C</td><td></td></tr></table></body></html>"""
+
+    def setUp(self):
+        os.environ["UPS_NOTIFY_MIN_SEVERITY"] = "none"
+        self.db = os.path.join(tempfile.mkdtemp(), "ups.db")
+        store.ensure_schema(self.db)
+
+    def test_pages_supplementaires_fusionnees(self):
+        dev, err = store.create_device(self.db, {"name": "U", "host": "192.168.1.107", "username": "admin", "password": "pw", "extra_pages": "/info_battery.htm, /info_io.htm"})
+        self.assertIsNone(err, err)
+        self.assertEqual(dev["extra_pages"], ["/info_battery.htm", "/info_io.htm"])
+        self.assertIn("chemins", store.create_device(self.db, {"name": "x", "host": "h", "extra_pages": ["info.htm"]})[1])
+        secret = store.get_device(self.db, dev["id"], include_secret=True)
+        opener = make_opener({"http://192.168.1.107/index.htm": SAMPLE, "http://192.168.1.107/info_battery.htm": self.BATTERY_PAGE})
+        r = poller.poll_device(secret, opener=opener)
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["fields"]["battery_voltage"]["number"], 27.3, "champ venu de la page batterie")
+        self.assertEqual(r["fields"]["battery_voltage"]["page"], "/info_battery.htm")
+        self.assertEqual(r["fields"]["battery_capacity"]["number"], 100, "la page principale garde la main sur une clé déjà connue")
+        self.assertTrue(any(sec["title"].startswith("/info_battery.htm") for sec in r["sections"]))
+        self.assertEqual(r["extra_errors"], ["/info_io.htm : HTTP 404"])
+        self.assertEqual(r["pages_visited"], 3)
+        store.record_reading(self.db, dev["id"], r)
+        self.assertEqual(store.latest_reading(self.db, dev["id"])["extra_errors"], ["/info_io.htm : HTTP 404"])
+
+    def test_derive_lente(self):
+        recent = {"battery_capacity": [80, 82, 79, 81, 80], "temperature": [30, 31, 30, 31, 30]}
+        base = {"battery_capacity": [99, 100, 98, 100, 99, 100], "temperature": [30, 30, 31, 30, 30, 30]}
+        found = alerts.drift_checks(recent, base)
+        self.assertEqual([k for k, _, _ in found], ["drift:battery_capacity"])
+        self.assertIn("-19 %", found[0][1])
+        self.assertEqual(alerts.drift_checks({"battery_capacity": [80, 80]}, base), [], "trop peu de points")
+        self.assertEqual(alerts.drift_diff(["drift:battery_capacity"], {"drift:temperature": {}, "alarm": {}}), (["drift:battery_capacity"], ["drift:temperature"]))
+        # automate : 30 jours de relevés à 100 %, puis 7 jours à 80 % -> alerte quotidienne, puis fermeture si retour
+        dev, _ = store.create_device(self.db, {"name": "U", "host": "192.168.1.107", "username": "admin", "password": "pw"})
+        t0 = 1_700_000_000
+        for day in range(37):
+            page = SAMPLE.replace("Battery Capacity:</td>\n<td CLASS=\"normal\">100 %", "Battery Capacity:</td>\n<td CLASS=\"normal\">%d %%" % (100 if day < 30 else 80))
+            r = poller.poll_device(store.get_device(self.db, dev["id"], include_secret=True), opener=make_opener({"http://192.168.1.107/index.htm": page}),
+                                   now_iso=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t0 + day * 86400)))
+            store.record_reading(self.db, dev["id"], r)
+        self.assertEqual(store.latest_reading(self.db, dev["id"])["battery_capacity"], 80)
+        o, c = poller.drift_check(self.db, store.get_device(self.db, dev["id"]), t0 + 37 * 86400)
+        self.assertEqual((o, c), (1, 0))
+        self.assertEqual([a["kind"] for a in store.list_alerts(self.db)], ["drift:battery_capacity"])
+        self.assertEqual(poller.drift_check(self.db, store.get_device(self.db, dev["id"]), t0 + 37 * 86400 + 60), (0, 0), "pas deux fois le même jour")
+        # relevé suivant : la dérive reste ouverte (pas évaluée par un relevé)
+        r = poller.poll_device(store.get_device(self.db, dev["id"], include_secret=True), opener=make_opener({"http://192.168.1.107/index.htm": SAMPLE}))
+        store.record_reading(self.db, dev["id"], r)
+        poller.evaluate_alerts(self.db, store.get_device(self.db, dev["id"], include_secret=True), r)
+        self.assertEqual([a["kind"] for a in store.list_alerts(self.db)], ["drift:battery_capacity"])
+        self.assertEqual(poller.drift_check(self.db, store.get_device(self.db, dev["id"]), t0 + 80 * 86400, force=True), (0, 1), "plus de points récents : fermée")
 
 
 class RoutesTests(unittest.TestCase):

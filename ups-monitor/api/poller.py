@@ -22,6 +22,7 @@ dépendance, délai borné, jamais de suivi de redirection vers un autre
 hôte.
 """
 import base64
+import json
 import logging
 import os
 import threading
@@ -142,6 +143,33 @@ def fetch_status_page(url, username, password, opener=None):
     return None, f"page reçue mais aucun champ reconnu (titre : {parsed['title'] or 'aucun'}) -- chemin ou authentification ?", None, visited
 
 
+def merge_extra_pages(parsed, base_url, paths, username, password, opener):
+    """Lit chaque page supplémentaire, ajoute ses champs (une clé déjà
+    connue n'est jamais écrasée) et ses sections (titre préfixé du chemin).
+    Renvoie [erreurs]."""
+    errors = []
+    for path in paths:
+        sub_url = urllib.parse.urljoin(base_url, path)
+        html, err = fetch_page(sub_url, username, password, opener=opener)
+        if html is None:
+            errors.append("%s : %s" % (path, err))
+            continue
+        sub = ups_parser.parse_ups_page(html)
+        if sub["field_count"] == 0:
+            errors.append("%s : aucun champ reconnu" % path)
+            continue
+        added = 0
+        for key, entry in sub["fields"].items():
+            if key not in parsed["fields"]:
+                parsed["fields"][key] = dict(entry, page=path)
+                added += 1
+        for section in sub["sections"]:
+            parsed["sections"].append(dict(section, title="%s · %s" % (path, section.get("title") or "")))
+        parsed["field_count"] = len(parsed["fields"])
+        _log.debug("ups-monitor : page %s -> %d champ(s) ajouté(s)", path, added)
+    return errors
+
+
 def poll_device(device, opener=None, now_iso=None, getter=None):
     """Un relevé complet : requête (frames suivies au besoin), parse, état.
     Renvoie le dict archivé par store.record_reading -- TOUJOURS, réussi
@@ -176,6 +204,20 @@ def poll_device(device, opener=None, now_iso=None, getter=None):
         )
     result["pages_visited"] = len(visited)
     result["resolved_path"] = resolved
+    if parsed is not None and (device.get("method") or "http") != "snmp":
+        # #435 : pages supplémentaires de la carte (batterie, entrées/sorties…)
+        # fusionnées dans la même fiche -- une page en échec est signalée,
+        # jamais bloquante.
+        extra = device.get("extra_pages") or []
+        if isinstance(extra, str):
+            try:
+                extra = json.loads(extra)
+            except ValueError:
+                extra = []
+        extra_errors = merge_extra_pages(parsed, url, extra, device.get("username") or "", device.get("password") or "", opener)
+        result["pages_visited"] += len(extra)
+        if extra_errors:
+            result["extra_errors"] = extra_errors
     if parsed is None:
         result["error"] = err
     else:
@@ -237,7 +279,34 @@ def run_tick(db_path, now_ts=None, opener=None, default_interval=None, force_ids
             _log.warning("ups-monitor : %s (%s) -- %s", device["name"], device["host"], result["error"])
         opened, closed = evaluate_alerts(db_path, device, result)
         alerts_opened += opened; alerts_closed += closed
+        o2, c2 = drift_check(db_path, device, now_ts)
+        alerts_opened += o2; alerts_closed += c2
     return {"checked": checked, "polled": polled, "skipped": skipped, "failed": failed, "alerts_opened": alerts_opened, "alerts_closed": alerts_closed}
+
+
+def drift_check(db_path, device, now_ts, force=False):
+    """#435 : une fois par jour, compare 7 j récents / 30 j précédents et
+    ouvre / ferme les alertes `drift:<champ>`. Renvoie (ouvertes, fermées)."""
+    last = _iso_to_ts(device.get("last_drift_check")) if device.get("last_drift_check") else None
+    if not force and last is not None and now_ts - last < 86400:
+        return 0, 0
+    fmt = lambda ts: time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ts))  # noqa: E731
+    keys = list(alerts.DRIFT_RULES)
+    recent = store.field_values_between(db_path, device["id"], keys, fmt(now_ts - 7 * 86400), fmt(now_ts))
+    baseline = store.field_values_between(db_path, device["id"], keys, fmt(now_ts - 37 * 86400), fmt(now_ts - 7 * 86400))
+    found = alerts.drift_checks(recent, baseline)
+    opened_now = store.open_alerts(db_path, device["id"])
+    to_open, to_close = alerts.drift_diff([k for k, _, _ in found], opened_now)
+    public = store.get_device(db_path, device["id"]) or device
+    for kind, message, details in found:
+        if kind in to_open:
+            a = {"kind": kind, "severity": "warning", "message": message, "details": details}
+            a["id"] = store.open_alert(db_path, device["id"], a, at=fmt(now_ts))
+            notify.dispatch(db_path, public, a)
+    for kind in to_close:
+        store.close_alert(db_path, device["id"], kind, at=fmt(now_ts))
+    store.mark_drift_checked(db_path, device["id"], fmt(now_ts))
+    return len(to_open), len(to_close)
 
 
 def evaluate_alerts(db_path, device, result):

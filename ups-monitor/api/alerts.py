@@ -34,7 +34,7 @@ THRESHOLD_LABELS = {
 }
 # Hystérésis (fraction du seuil) pour ne pas battre autour de la valeur.
 HYSTERESIS = 0.02
-SEVERITY = {"alarm": "critical", "unreachable": "critical", "stale": "warning",
+SEVERITY = {"alarm": "critical", "unreachable": "critical", "stale": "warning", "drift": "warning",
             "threshold:input_voltage_min": "warning", "threshold:input_voltage_max": "warning", "threshold:output_load_max": "warning",
             "threshold:battery_capacity_min": "critical", "threshold:temperature_max": "warning"}
 
@@ -172,6 +172,9 @@ def evaluate(device, reading, consecutive_failures, open_alerts):
     for kind in open_alerts:
         if kind in kept or kind in to_close:
             continue
+        if kind.startswith("drift:"):
+            kept.append(kind)  # évaluée par le contrôle quotidien, pas par un relevé
+            continue
         if kind == "unreachable" and reading.get("ok"):
             to_close.append(kind)
         elif kind == "alarm" and reading.get("ok") and reading.get("state") != "alarm":
@@ -190,6 +193,49 @@ def stale_check(device, now_ts, last_polled_ts, default_interval):
     if age > interval * 2.5:
         return True, "aucun relevé depuis %d min (intervalle %d s)" % (age // 60, interval)
     return False, None
+
+
+# ---- Dérive lente (#435) --------------------------------------------------------
+# Comparaison de la moyenne des 7 derniers jours à celle des 30 jours qui
+# précèdent, par champ ; une baisse (ou hausse pour la température) au-delà
+# du seuil relatif ouvre `drift:<champ>`. Évaluée une fois par jour.
+DRIFT_RULES = {
+    "battery_capacity": ("down", 0.10, "capacité batterie en baisse"),
+    "battery_voltage": ("down", 0.05, "tension batterie en baisse"),
+    "battery_runtime": ("down", 0.20, "autonomie en baisse"),
+    "temperature": ("up", 0.15, "température en hausse"),
+    "output_load": ("up", 0.30, "charge en hausse"),
+}
+DRIFT_MIN_POINTS = 5
+
+
+def _mean(values):
+    vals = [float(v) for v in values if v is not None]
+    return (sum(vals) / len(vals)) if vals else None, len(vals)
+
+
+def drift_checks(recent_by_field, baseline_by_field):
+    """{champ: [valeurs 7 j]} et {champ: [valeurs 30 j avant]} ->
+    [(kind, message, details)] des dérives détectées."""
+    out = []
+    for field, (direction, rel, label) in DRIFT_RULES.items():
+        recent, n_recent = _mean(recent_by_field.get(field) or [])
+        base, n_base = _mean(baseline_by_field.get(field) or [])
+        if recent is None or base is None or n_recent < DRIFT_MIN_POINTS or n_base < DRIFT_MIN_POINTS or base == 0:
+            continue
+        change = (recent - base) / abs(base)
+        if (direction == "down" and change <= -rel) or (direction == "up" and change >= rel):
+            out.append(("drift:%s" % field, "%s : %s → %s sur 7 j (%+.0f %% vs les 30 j précédents)" % (label, _fmt(base), _fmt(recent), change * 100),
+                        {"field": field, "baseline": round(base, 2), "recent": round(recent, 2), "change": round(change, 3), "points": [n_base, n_recent]}))
+    return out
+
+
+def drift_diff(current_kinds, open_alerts):
+    """(à ouvrir [kind…], à fermer [kind…]) pour les dérives, à partir des
+    dérives détectées maintenant et des alertes ouvertes."""
+    to_open = [k for k in current_kinds if k not in open_alerts]
+    to_close = [k for k in open_alerts if k.startswith("drift:") and k not in current_kinds]
+    return to_open, to_close
 
 
 def format_message(device, alert, closing=False):

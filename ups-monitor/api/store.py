@@ -101,10 +101,14 @@ EXTRA_COLUMNS = (
     ("ups_devices", "method", "TEXT"),
     ("ups_devices", "snmp_community", "TEXT"),
     ("ups_devices", "snmp_port", "INTEGER"),
+    # #435 : pages supplémentaires de la carte (JSON), dernier contrôle de dérive
+    ("ups_devices", "extra_pages", "TEXT"),
+    ("ups_devices", "last_drift_check", "TEXT"),
+    ("ups_readings", "extra_errors", "TEXT"),
 )
 
 DEVICE_COLUMNS = ("name", "site", "host", "scheme", "path", "username", "password", "poll_interval_seconds", "enabled", "notes",
-                  "thresholds", "unreachable_after", "notify", "method", "snmp_community", "snmp_port")
+                  "thresholds", "unreachable_after", "notify", "method", "snmp_community", "snmp_port", "extra_pages")
 
 
 def now_iso():
@@ -149,6 +153,10 @@ def _public(row):
     d["notify"] = bool(d.get("notify", 1) if d.get("notify") is not None else 1)
     community = d.pop("snmp_community", "") or ""
     d["has_snmp_community"] = bool(community)
+    try:
+        d["extra_pages"] = json.loads(d.get("extra_pages") or "[]")
+    except (TypeError, ValueError):
+        d["extra_pages"] = []
     d["method"] = d.get("method") or "http"
     d["snmp_port"] = d.get("snmp_port") or 161
     return d
@@ -192,6 +200,10 @@ def _with_secret(row):
         d["password_error"] = d["password_error"] or str(exc)
     d["method"] = d.get("method") or "http"
     d["snmp_port"] = d.get("snmp_port") or 161
+    try:
+        d["extra_pages"] = json.loads(d.get("extra_pages") or "[]")
+    except (TypeError, ValueError):
+        d["extra_pages"] = []
     return d
 
 
@@ -258,7 +270,20 @@ def _normalize_device(data, existing=None):
             snmp_port = int(snmp_port)
         except (TypeError, ValueError):
             return None, "'snmp_port' : entier"
+    extra = base.get("extra_pages")
+    if isinstance(extra, str):
+        try:
+            extra = json.loads(extra) if extra.strip().startswith("[") else [p.strip() for p in extra.split(",")]
+        except ValueError:
+            return None, "'extra_pages' : liste de chemins"
+    extra = [str(p).strip() for p in (extra or []) if str(p).strip()]
+    for pth in extra:
+        if not pth.startswith("/") or any(c in pth for c in " \t"):
+            return None, "'extra_pages' : chemins commençant par / (ex. /info_battery.htm)"
+    if len(extra) > 8:
+        return None, "'extra_pages' : 8 pages au plus"
     return {
+        "extra_pages": json.dumps(extra) if extra else None,
         "method": method,
         "snmp_community": str(base.get("snmp_community") or ""),
         "snmp_port": snmp_port,
@@ -288,12 +313,12 @@ def create_device(db_path, data):
         cur = conn.execute(
             """INSERT INTO ups_devices (name, site, host, scheme, path, username, password,
                                         poll_interval_seconds, enabled, notes, thresholds, unreachable_after, notify,
-                                        method, snmp_community, snmp_port, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                        method, snmp_community, snmp_port, extra_pages, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [values["name"], values["site"], values["host"], values["scheme"], values["path"],
              values["username"], credential_crypto.protect(values["password"]), values["poll_interval_seconds"], values["enabled"],
              values["notes"], values["thresholds"], values["unreachable_after"], values["notify"],
-             values["method"], credential_crypto.protect(values["snmp_community"]), values["snmp_port"], now, now],
+             values["method"], credential_crypto.protect(values["snmp_community"]), values["snmp_port"], values["extra_pages"], now, now],
         )
         conn.commit()
         return get_device(db_path, cur.lastrowid), None
@@ -338,12 +363,12 @@ def update_device(db_path, ups_id, data):
         conn.execute(
             """UPDATE ups_devices SET name = ?, site = ?, host = ?, scheme = ?, path = ?, username = ?, password = ?,
                                      poll_interval_seconds = ?, enabled = ?, notes = ?, thresholds = ?, unreachable_after = ?, notify = ?,
-                                     method = ?, snmp_community = ?, snmp_port = ?, updated_at = ?
+                                     method = ?, snmp_community = ?, snmp_port = ?, extra_pages = ?, updated_at = ?
                WHERE id = ?""",
             [values["name"], values["site"], values["host"], values["scheme"], values["path"],
              values["username"], values["password"], values["poll_interval_seconds"], values["enabled"],
              values["notes"], values["thresholds"], values["unreachable_after"], values["notify"],
-             values["method"], values["snmp_community"], values["snmp_port"], now_iso(), ups_id],
+             values["method"], values["snmp_community"], values["snmp_port"], values["extra_pages"], now_iso(), ups_id],
         )
         conn.commit()
     finally:
@@ -387,6 +412,8 @@ def record_reading(db_path, ups_id, result):
         # last_resolved_path : page qui a fourni la dernière fiche (#416) --
         # conservé tel quel sur un échec, pour que l'écran puisse dire
         # « la dernière fiche venait de /status.htm ».
+        if result.get("extra_errors"):
+            conn.execute("UPDATE ups_readings SET extra_errors = ? WHERE id = ?", [json.dumps(result["extra_errors"], ensure_ascii=False), cur.lastrowid])
         conn.execute(
             """UPDATE ups_devices SET last_polled_at = ?, last_ok = ?, last_state = ?, last_error = ?, last_summary = ?,
                                      last_resolved_path = COALESCE(?, last_resolved_path)
@@ -404,6 +431,10 @@ def _reading_row(row, with_fields):
     d = dict(row)
     d["ok"] = bool(d["ok"])
     d["state_reasons"] = json.loads(d.get("state_reasons") or "[]")
+    try:
+        d["extra_errors"] = json.loads(d.get("extra_errors") or "[]")
+    except (TypeError, ValueError):
+        d["extra_errors"] = []
     if with_fields:
         d["fields"] = json.loads(d.pop("fields_json") or "{}")
         d["sections"] = json.loads(d.pop("sections_json") or "[]")
@@ -609,5 +640,29 @@ def alert_counts(db_path):
             out[r["severity"]] = out.get(r["severity"], 0) + r["n"]
         out["unacked"] = conn.execute("SELECT COUNT(*) AS n FROM ups_alerts WHERE closed_at IS NULL AND acked_at IS NULL").fetchone()["n"]
         return out
+    finally:
+        conn.close()
+
+
+# ---- Dérive lente (#435) -------------------------------------------------------
+
+def field_values_between(db_path, ups_id, keys, start_iso, end_iso):
+    """{clé: [nombres]} des relevés réussis entre deux dates (bornes ISO)."""
+    out = {k: [] for k in keys}
+    for r in list_readings(db_path, ups_id, start_iso, end_iso, limit=5000, with_fields=True):
+        if not r["ok"]:
+            continue
+        for k in keys:
+            e = (r.get("fields") or {}).get(k)
+            if e and e.get("number") is not None:
+                out[k].append(e["number"])
+    return out
+
+
+def mark_drift_checked(db_path, ups_id, at):
+    conn = get_connection(db_path)
+    try:
+        conn.execute("UPDATE ups_devices SET last_drift_check = ? WHERE id = ?", [at, ups_id])
+        conn.commit()
     finally:
         conn.close()

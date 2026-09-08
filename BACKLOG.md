@@ -2296,8 +2296,9 @@ qui fait alors sauter la file.
 
 62. Tuile UPS -- suite de la version 0 (2026-09-07, #415). #433 : alertes
     (alarme, injoignable, seuils) et notifications livrées ; #434 : SNMP
-    UPS-MIB (à confirmer sur une vraie carte). Reste : autres pages de la
-    carte, dérive lente. Livré :
+    UPS-MIB (à confirmer sur une vraie carte) ; #435 : pages supplémentaires
+    et dérive lente. Reste : historique de la carte, remontée vers
+    vigilance. Livré :
     liste, automate HTTP (Basic) 1 h, fiche extraite de la page Socomec
     NETYS, archive, timeline (`ups-monitor/README.md`). À faire, dans
     l'ordre proposé : (1) confronter le parseur à un onduleur RÉEL et
