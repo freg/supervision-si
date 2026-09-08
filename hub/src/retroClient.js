@@ -62,3 +62,5 @@ export const saveUiSpec = (base, label, spec) => call(base, `/apps/${encodeURICo
 // #445 : comparaison des applications et outil unique
 export const fetchCompareApps = (base, apps) => call(base, `/unified/compare?apps=${encodeURIComponent((apps || []).join(","))}`);
 export const fetchUnified = (base, apps, view, label) => call(base, `/unified?apps=${encodeURIComponent((apps || []).join(","))}${view ? `&view=${encodeURIComponent(view)}` : ""}${label ? `&label=${encodeURIComponent(label)}` : ""}`);
+// #448 : méta-relevé des champs, relations inter-gestions, proposition de fusion
+export const fetchMetagraph = (base, apps) => call(base, `/unified/metagraph?apps=${encodeURIComponent((apps || []).join(","))}`);

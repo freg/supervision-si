@@ -461,3 +461,68 @@ rendu Chromium des trois onglets ; **écriture** du téléphone d'un client
 dans `customers` via l'interface unique (données crm), puis bascule sur
 les données gestion (fiche `clients` id 42). Non vérifié : de vraies
 applications, où la qualité dépend des parcours enregistrés et des noms.
+
+## Méta-relevé des champs, relations inter-gestions, proposition de fusion (livraison #448, phase 4)
+
+Demande : « analyser les champs, trouver les relations inter-gestions et
+en faire un méta-relevé / graphe pour proposer une évolution fusion ».
+
+- **`retro/api/metagraph.py`** (pur, 10 tests). `build_metagraph(specs,
+  scans, queries_by_app, unified, columns_by_app)` :
+  - **entités** = une table d'une application (`app:table`), avec ses
+    **attributs** : colonnes typées via dba-api quand la connexion est
+    renseignée (sinon noms de la spec, sinon colonnes vues dans les
+    écrans), clé primaire, terme canonique (`customer_id` → `client`),
+    écrans qui les montrent, présence dans le code analysé ;
+  - arêtes **`fk`** (intra-application) : jointures du **code** PHP
+    (`join_candidates` du scan), jointures du **journal SQL** réellement
+    collecté pendant les parcours (`extract_join_candidates_from_sql` sur
+    chaque requête), et **noms de colonnes** (`ville_id`, `id_ville`,
+    `villeid` → table `villes` de la même application) ; les sources se
+    cumulent sur la même arête ;
+  - arêtes **`equiv`** (inter-applications) : écrans de même fonction de
+    la spec unique (#445, chaque champ unifié donne une paire de colonnes)
+    et tables de même terme canonique (`customers` ≡ `clients`) ; paires
+    complétées par les colonnes de même terme et par les clés primaires ;
+  - arêtes **`xref`** : colonne qui nomme une table absente de son
+    application mais présente dans une autre (`produit_id` dans un CRM sans
+    table produits → `gestion:produits`) : relation inter-gestion probable.
+  `fusion_proposal(graph)` : fermeture transitive des `equiv` → une
+  **entité cible** par groupe (nom = terme majoritaire), attributs = union
+  par terme (clés primaires réunies sous `id`, paires explicites
+  respectées) avec la colonne et le type de chaque application, `shared`
+  / `orphan` (une seule application) / `type_conflict` (familles int,
+  decimal, text, date, bool différentes), relations `fk` / `xref`
+  reportées entre entités cibles avec leurs sources et le chemin d'origine,
+  entités propres à une application reprises telles quelles, `todo` par
+  entité.
+- **Route** `GET /unified/metagraph?apps=a,b` (vide = toutes ; une seule
+  application accepte, sans équivalences) : graphe + `proposal` +
+  `inputs` (par application : code analysé ?, requêtes SQL, tables typées).
+- **Hub** (`MetaGraphView.jsx` + `metaGraph.js`, 3 tests) : onglet
+  « Méta-graphe & fusion » de l'outil unique. **Graphe** SVG : une colonne
+  par application, une boîte par table (clé, colonnes typées, « · » si
+  absente du code analysé), arêtes pleines (relation), tiretées (même
+  notion), pointillées (référence inter-gestion), étiquette de la première
+  paire de colonnes, clic sur une table → ses attributs, écrans et
+  relations, le reste s'estompe. **Relevé des champs** : une ligne par
+  attribut (application, table, colonne, type, terme, écrans, équivalents
+  dans les autres applications), filtrable. **Proposition de fusion** :
+  une carte par entité cible (fusion / reprise), tableau attribut cible ×
+  application avec la colonne réelle et son type, remarques (commun,
+  propre à…, types différents), relations entre entités cibles.
+
+Limites : les relations devinées par les noms restent des hypothèses
+(sources affichées) ; les équivalences viennent des noms et des écrans
+communs, pas des données ; la proposition ne génère pas de schéma SQL --
+c'est un relevé pour arbitrer, le DDL cible pourra suivre.
+
+Vérifié : 10 tests `test_metagraph.py` (entités, attributs et écrans ;
+relations code + journal + noms cumulées ; équivalences avec paires de
+colonnes et clés primaires ; référence inter-gestion ; sans colonnes
+typées ; familles de types ; entités cibles, conflit `ville` int/text,
+orphelins, relations reportées, entité propre) ; chaîne réelle gestion +
+crm (journal SQL réel des parcours → relation `clients → villes` vue dans
+le code ET dans le journal, `journal → clients` par le nom ; équivalence
+`customers ≡ clients` avec 4 paires) ; rendu Chromium du graphe et de la
+proposition. Non vérifié : de vraies applications.

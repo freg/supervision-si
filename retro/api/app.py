@@ -38,6 +38,7 @@ import journeys
 import journeys_store as jstore
 import ui_spec
 import merge
+import metagraph
 
 _log = logging.getLogger("retro_app")
 
@@ -399,6 +400,34 @@ def apps_ui_spec_put(label):
     if not jstore.save_ui_spec(DB_PATH, label, spec):
         return jsonify({"error": "application inconnue"}), 404
     return jsonify({"saved": True, "screens": len(spec["screens"])}), 200
+
+
+@app.route("/unified/metagraph", methods=["GET"])
+def unified_metagraph():
+    """#448 : méta-relevé des champs et des relations (`?apps=a,b`, vide =
+    toutes) : entités (tables par application, colonnes typées via dba-api
+    quand la connexion est renseignée, écrans qui les montrent), relations
+    intra-application (code, journal SQL, noms), équivalences
+    inter-applications (spec unique #445, noms canoniques), références
+    inter-gestions ; et la proposition de fusion (`proposal`)."""
+    specs, unknown = _specs_for(request.args.get("apps"))
+    if not specs:
+        return jsonify({"error": "aucune application enregistrée", "unknown": unknown}), 400
+    scans, queries, columns = {}, {}, {}
+    for label in specs:
+        a = jstore.get_app(DB_PATH, label, with_scan=True) or {}
+        scans[label] = a.get("scan") or {}
+        qs = []
+        for j in jstore.list_journeys(DB_PATH, app=label):
+            qs.extend(jstore.get_queries(DB_PATH, j["id"]))
+        queries[label] = qs
+        tables = sorted(set((specs[label].get("tables") or {}).keys()) | {s.get("table") for s in specs[label].get("screens") or [] if s.get("table")})
+        if a.get("dba_connection_id") and tables:
+            columns[label] = fetch_columns(DBA_API_INTERNAL_URL, a["dba_connection_id"], a.get("dba_database"), tables)
+    uni = merge.unified_spec(specs) if len(specs) >= 2 else None
+    graph = metagraph.build_metagraph(specs, scans=scans, queries_by_app=queries, unified=uni, columns_by_app=columns)
+    return jsonify({**graph, "proposal": metagraph.fusion_proposal(graph), "unknown": unknown,
+                    "inputs": {label: {"scan": bool(scans[label]), "queries": len(queries[label]), "typed_columns": len(columns.get(label) or {})} for label in specs}}), 200
 
 
 @app.route("/journeys", methods=["GET"])

@@ -1,3 +1,19 @@
+## 2026-09-08 — Méta-relevé des champs, relations inter-gestions et proposition de fusion (livraison #448, phase 4)
+
+`retro/api/metagraph.py` : graphe des entités (tables par application,
+colonnes typées via dba-api, écrans), relations intra-application (code
+PHP, journal SQL réel des parcours, noms de colonnes -- sources
+cumulées), équivalences inter-applications (spec unique #445, noms
+canoniques, clés primaires appariées), références inter-gestions
+(colonne nommant une table d'une autre application) ; proposition de
+fusion : entités cibles, union des attributs avec la colonne de chaque
+application, conflits de types, attributs propres, relations reportées.
+Route `GET /unified/metagraph`. Hub : onglet « Méta-graphe & fusion » de
+l'outil unique (graphe SVG cliquable, relevé des champs filtrable,
+proposition par entité). Vérifié : 10 tests API, 3 tests hub (144 au
+total), chaîne réelle gestion + crm, rendu Chromium. Non vérifié : de
+vraies applications.
+
 ## 2026-09-08 — Agent Windows : installation silencieuse en double-clic (livraison #447)
 
 `GET /agents/<id>/install.cmd` (si-agent-api) : fichier `.cmd` généré par

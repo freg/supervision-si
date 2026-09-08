@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { fetchCompareApps, fetchUnified } from "./retroClient.js";
 import { functionMatrix, fieldOrigin, sourceLabel, unifiedSummary, canCompare, coverage } from "./unifiedTool.js";
 import GeneratedAppView from "./GeneratedAppView.jsx";
+import MetaGraphView from "./MetaGraphView.jsx";
 
 // Outil unique (livraison #445, phase 3) : compare les applications
 // enregistrées (écrans remplissant la même fonction : mêmes champs /
@@ -15,7 +16,7 @@ export default function UnifiedToolView({ retroApiBase, dbaApiBase, apps, onClos
   const [unified, setUnified] = useState(null);
   const [view, setView] = useState("");       // application rendue
   const [viewSpec, setViewSpec] = useState(null);
-  const [mode, setMode] = useState("matrix"); // matrix | fields | app
+  const [mode, setMode] = useState("matrix"); // matrix | fields | app | meta (#448)
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -52,6 +53,7 @@ export default function UnifiedToolView({ retroApiBase, dbaApiBase, apps, onClos
         <button className={mode === "matrix" ? "" : "secondary"} onClick={() => setMode("matrix")}>Fonctions × applications</button>
         <button className={mode === "fields" ? "" : "secondary"} onClick={() => setMode("fields")}>Champs unifiés</button>
         <button className={mode === "app" ? "" : "secondary"} onClick={() => setMode("app")}>Interface unique</button>
+        <button className={mode === "meta" ? "" : "secondary"} onClick={() => setMode("meta")} title="entités, attributs, relations intra et inter-applications, proposition de fusion">Méta-graphe &amp; fusion</button>
         <button className="secondary" disabled={busy} onClick={load}>↻</button>
         <button className="secondary" onClick={onClose}>Fermer</button>
       </div>
@@ -118,6 +120,8 @@ export default function UnifiedToolView({ retroApiBase, dbaApiBase, apps, onClos
           ))}
         </div>
       )}
+
+      {mode === "meta" && canCompare(selected) && <MetaGraphView retroApiBase={retroApiBase} apps={selected} />}
 
       {mode === "app" && unified && (
         <div style={{ marginTop: 8 }}>

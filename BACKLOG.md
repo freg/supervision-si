@@ -1133,8 +1133,11 @@ qui fait alors sauter la file.
     comparaison ; #444 : (2) interface générée au design du hub (spec
     par application, listes/fiches sur les tables réelles) ; #445 : (3) outil
     unique (fonctions communes entre applications, spec unifiée rendue sur
-    les données de chaque application). Suite : (4) champs et
-    relations inter-applications → méta-graphe, proposition de fusion.
+    les données de chaque application) ; #448 : (4) méta-graphe des
+    entités et relations (code, journal SQL, noms), équivalences et
+    références inter-gestions, proposition de fusion. Les quatre phases
+    demandées sont livrées ; suite possible : DDL cible généré depuis la
+    proposition.
     Reste : premier parcours réel dans Firefox, vrai general_log. Voir
     `retro/README.md`.
 
