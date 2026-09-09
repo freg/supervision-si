@@ -15,8 +15,14 @@
 #                  absent = SSLProxyCheckPeerName off (chiffré mais non vérifié -- LAN seulement)
 #   HTTP_PORT      port en clair pour le défi ACME et la redirection           (défaut 80)
 #   STAGING=1      certificat de test Let's Encrypt (sans quota) pour valider la chaîne d'abord
+#   INTERNAL_ORIGIN  origine INTERNE du hub telle que construite (https://<HOST_IP>:<GATEWAY_PORT>,
+#                  ex. https://192.0.2.10:6443) : le frontal RÉÉCRIT alors cette origine en
+#                  https://PUBLIC_HOST dans les réponses (HTML, JS, CSS, JSON, en-têtes Location)
+#                  -> le hub reste construit pour le LAN, aucun rebuild, les deux accès coexistent (#473).
+#                  Côté hub il ne reste qu'à déclarer l'origine publique à Keycloak :
+#                  KEYCLOAK_EXTRA_ORIGINS=https://PUBLIC_HOST dans .env, python3 keycloak/render.py, ré-import.
 #
-# Prérequis CÔTÉ HUB (VM super) -- les URL du hub sont construites au BUILD
+# Sans INTERNAL_ORIGIN -- prérequis CÔTÉ HUB (VM super) : les URL du hub sont construites au BUILD
 # avec HOST_IP:GATEWAY_PORT (36 usages dans docker-compose.yml). Pour être
 # utilisable derrière ce frontal, le hub doit être construit pour le nom
 # public. Dans .env de super :
@@ -33,6 +39,8 @@ set -euo pipefail
 HUB_UPSTREAM="${HUB_UPSTREAM:-https://super:443}"
 HUB_CA="${HUB_CA:-}"
 HTTP_PORT="${HTTP_PORT:-80}"
+INTERNAL_ORIGIN="${INTERNAL_ORIGIN:-}"; INTERNAL_ORIGIN="${INTERNAL_ORIGIN%/}"
+INTERNAL_HOSTPORT="${INTERNAL_ORIGIN#https://}"; INTERNAL_HOSTPORT="${INTERNAL_HOSTPORT#http://}"
 SITE="hub-${PUBLIC_HOST}"
 CONF="/etc/apache2/sites-available/${SITE}.conf"
 CERT_DIR="/etc/letsencrypt/live/${PUBLIC_HOST}"
@@ -86,6 +94,7 @@ cat <<EOF
     ProxyPassReverse / ${HUB_UPSTREAM%/}/
     # gros envois (sauvegardes, GED) : pas de plafond côté frontal
     LimitRequestBody 0
+${SUBST_LINES}
 
     ErrorLog \${APACHE_LOG_DIR}/${SITE}-error.log
     CustomLog \${APACHE_LOG_DIR}/${SITE}-access.log combined
@@ -107,6 +116,24 @@ else
   CA_LINES="SSLProxyCheckPeerName off
     SSLProxyCheckPeerCN off"
   echo "   AVERTISSEMENT : pas de HUB_CA -> le certificat du hub n'est pas vérifié (chiffré seulement)"
+fi
+
+SUBST_LINES=""
+if [ -n "$INTERNAL_ORIGIN" ]; then
+  a2enmod -q substitute deflate filter >/dev/null
+  SUBST_LINES="
+    # #473 : réécriture de l'origine interne (${INTERNAL_ORIGIN}) en https://${PUBLIC_HOST}
+    # dans les corps (HTML, JS, CSS, JSON) et les en-têtes Location / cookies -- le hub reste
+    # construit pour le LAN. Réponses décompressées (INFLATE) avant substitution.
+    ProxyPassReverse / ${INTERNAL_ORIGIN}/
+    ProxyPassReverseCookieDomain ${INTERNAL_HOSTPORT%%:*} ${PUBLIC_HOST}
+    RequestHeader unset Accept-Encoding
+    AddOutputFilterByType INFLATE;SUBSTITUTE;DEFLATE text/html text/css text/javascript application/javascript application/x-javascript application/json text/plain
+    SubstituteMaxLineLength 32m
+    Substitute \"s|${INTERNAL_ORIGIN}|https://${PUBLIC_HOST}|ni\"
+    Substitute \"s|wss://${INTERNAL_HOSTPORT}|wss://${PUBLIC_HOST}|ni\"
+    Substitute \"s|//${INTERNAL_HOSTPORT}/|//${PUBLIC_HOST}/|n\""
+  echo "   réécriture activée : ${INTERNAL_ORIGIN} -> https://${PUBLIC_HOST}"
 fi
 
 echo "== 3/5 site HTTP (défi ACME + redirection)"

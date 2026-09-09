@@ -1,3 +1,28 @@
+## 2026-09-09 — Frontal public en mode réécriture : le hub reste construit pour le LAN (livraison #473)
+
+Demandé : « sur le proxy, y a-t-il un moyen de faire la substitution avec le
+nom déjà enregistré en interne ? » — oui, et c'est le mode à préférer.
+
+- `scripts/front-reverse-proxy.sh` : variable `INTERNAL_ORIGIN`
+  (`https://<HOST_IP>:<GATEWAY_PORT>`) → Apache décompresse et réécrit
+  cette origine en `https://PUBLIC_HOST` dans les corps (HTML, JS, CSS,
+  JSON, texte : `mod_substitute` + `mod_deflate`, lignes jusqu'à 32 Mo,
+  variantes `wss://` et `//hôte:port/`), les en-têtes `Location`
+  (`ProxyPassReverse`) et le domaine des cookies. Aucun rebuild du hub ;
+  accès LAN et public coexistent.
+- `keycloak/render.py` : `KEYCLOAK_EXTRA_ORIGINS` (liste à virgules) —
+  chaque client OIDC dont les `redirectUris` / `webOrigins` partent de
+  l'origine interne reçoit les mêmes entrées pour chaque origine
+  supplémentaire (`add_extra_origins`, idempotent, testé à la main sur un
+  realm réduit). `KC_HOSTNAME` reste interne : les URL de Keycloak sont
+  réécrites au passage et l'émetteur des jetons ne change pas pour les API.
+- `docs/acces-public-frontal.md` : les deux modes (réécriture recommandée,
+  reconstruction), limites de la réécriture.
+
+**Vérifié** : syntaxe, rendu du VirtualHost avec substitutions,
+`add_extra_origins` ; **non vérifié** : réécriture réelle sur le frontal,
+connexion Keycloak par le nom public.
+
 ## 2026-09-09 — Correctif réel : les fronts refusaient un nom DNS (« Blocked request. This host is not allowed ») (livraison #472)
 
 Signalé au premier accès par le nouveau nom public : les huit fronts sont

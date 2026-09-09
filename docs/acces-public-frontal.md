@@ -6,7 +6,35 @@ Encrypt (certbot, renouvellement automatique) et fait proxy inverse vers la
 passerelle nginx du hub. Script : `scripts/front-reverse-proxy.sh`
 (Debian / Ubuntu, root, idempotent).
 
-## 1. Côté hub (super) — construire le hub pour le nom public
+Deux modes. **Réécriture (recommandé, #473)** : le hub reste construit
+pour son origine LAN, le frontal réécrit cette origine en nom public dans
+tout ce qu'il renvoie ; LAN et extérieur coexistent, aucun rebuild.
+**Reconstruction** : le hub est construit pour le nom public (section 1),
+et le LAN doit résoudre ce nom.
+
+## 0. Mode réécriture — côté hub : deux lignes
+
+```bash
+# .env de super
+VITE_ALLOWED_HOSTS=super,hub.mondomaine.fr            # #472 : le serveur Vite accepte ces noms
+KEYCLOAK_EXTRA_ORIGINS=https://hub.mondomaine.fr      # #473 : redirections OIDC / origines web des clients
+python3 keycloak/render.py && ./scripts/run.sh up -d   # run.sh propose la ré-importation du realm
+```
+
+Puis, sur le frontal, `INTERNAL_ORIGIN=https://<HOST_IP>:<GATEWAY_PORT>`
+(l'origine telle que le hub a été construit, ex. `https://192.0.2.10:6443`)
+en plus des variables de la section 2. Apache décompresse les réponses,
+remplace `https://192.0.2.10:6443` (et `wss://…`, `//…/`) par le nom
+public dans HTML, JS, CSS, JSON et texte, réécrit les en-têtes `Location`
+et le domaine des cookies (`mod_substitute`, `mod_deflate`,
+`ProxyPassReverse`). Keycloak garde `KC_HOSTNAME` interne : ses URL sont
+réécrites au passage, l'émetteur des jetons reste le même pour les API.
+Limites : ce qui est construit côté client à partir de `window.location`
+n'est pas concerné (déjà public) ; un texte qui citerait l'origine
+interne dans un contenu métier (ticket, document) serait réécrit aussi
+à l'affichage — jamais en base.
+
+## 1. Mode reconstruction — côté hub : construire pour le nom public
 
 Les URL du hub (Keycloak, fronts, API) sont fabriquées **au build** à
 partir de `HOST_IP:GATEWAY_PORT`. Derrière un frontal, le navigateur doit
@@ -30,8 +58,9 @@ seul le frontal est publié.
 
 ```bash
 scp freg@super:SRC/data2/tickets/supervision-si/si-proxy/certs/ca.crt /root/hub-ca.crt   # CA de la PKI (public)
-PUBLIC_HOST=hub.mondomaine.fr LE_EMAIL=moi@mondomaine.fr HUB_UPSTREAM=https://super:443 \
-HUB_CA=/root/hub-ca.crt sudo -E ./front-reverse-proxy.sh
+PUBLIC_HOST=hub.mondomaine.fr LE_EMAIL=moi@mondomaine.fr HUB_UPSTREAM=https://super:6443 \
+INTERNAL_ORIGIN=https://192.0.2.10:6443 HUB_CA=/root/hub-ca.crt sudo -E ./front-reverse-proxy.sh
+#   (mode reconstruction : HUB_UPSTREAM=https://super:443, sans INTERNAL_ORIGIN)
 ```
 
 Le script installe apache2 + certbot, active ssl / proxy / proxy_http /

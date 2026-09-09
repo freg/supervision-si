@@ -189,6 +189,31 @@ def substitute(node, variables):
     return node
 
 
+def add_extra_origins(realm, base_url, extra_origins):
+    """#473 : un hub joignable par PLUSIEURS origines (LAN + nom public
+    derrière un frontal qui réécrit les URL) -- chaque client OIDC dont les
+    redirectUris / webOrigins commencent par l'origine interne (base_url,
+    ex. https://192.0.2.10:6443) reçoit en plus les mêmes entrées pour
+    chaque origine supplémentaire (ex. https://hub.exemple.fr). Idempotent."""
+    base = base_url.rstrip("/")
+    extras = [o.rstrip("/") for o in extra_origins if o and o.rstrip("/") != base]
+    if not extras:
+        return 0
+    added = 0
+    for client in realm.get("clients", []):
+        for key in ("redirectUris", "webOrigins"):
+            uris = client.get(key) or []
+            for uri in list(uris):
+                if isinstance(uri, str) and uri.startswith(base):
+                    for extra in extras:
+                        candidate = extra + uri[len(base):]
+                        if candidate not in uris:
+                            uris.append(candidate); added += 1
+            if uris:
+                client[key] = uris
+    return added
+
+
 def role_mapper(variables):
     """Mapper groupes LDAP -> rôles realm (admin/demandeur/technicien/
     politique) — injecté seulement si LDAP_ROLES_ENABLED=true, sinon les
@@ -312,6 +337,10 @@ def main():
         realm = json.load(fh)
 
     realm = substitute(realm, variables)
+    extra = [o.strip() for o in os.environ.get("KEYCLOAK_EXTRA_ORIGINS", env.get("KEYCLOAK_EXTRA_ORIGINS", "")).split(",") if o.strip()]
+    n_extra = add_extra_origins(realm, variables["HUB_PUBLIC_URL"], extra)
+    if n_extra:
+        print(f"origines supplémentaires (KEYCLOAK_EXTRA_ORIGINS) : {n_extra} URL de redirection / origine ajoutée(s) pour {', '.join(extra)}")
 
     if variables["LDAP_ROLES_ENABLED"] == "true":
         provider = realm["components"]["org.keycloak.storage.UserStorageProvider"][0]
