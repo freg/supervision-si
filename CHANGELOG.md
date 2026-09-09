@@ -1,3 +1,11 @@
+## 2026-09-09 — Correctif réel : setup-certs.sh ignorait PKI_DIR de .env (livraison #468)
+
+Signalé sur « super » : `CA introuvable (…/supervision-si/pki/ca/ca.crt)` alors
+que la PKI est dans `PKI_DIR=/home/…/supervision-si-pki` (.env). Le script ne
+lisait `PKI_DIR` que dans l'environnement du shell. Il la lit désormais dans
+`.env` du dépôt quand elle n'est pas exportée. **Vérifié** : syntaxe, valeur
+lue depuis un .env de test ; **non vérifié** : émission réelle sur « super ».
+
 ## 2026-09-09 — Anonymisation du dépôt avant publication (livraison #467)
 
 Demandé : « vérifier qu'aucune information précise, personnelle et

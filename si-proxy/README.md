@@ -156,6 +156,7 @@ annuaire, console Keycloak. Partages ownCloud (`oc_share`) : non exploités.
 
 ```bash
 # 1. certificats (cert serveur du relais, signé par la PKI ; + jetons)
+#    (PKI_DIR est lue dans .env si elle n'est pas exportée -- PKI déplacée hors du dépôt)
 ./si-proxy/setup-certs.sh super           # ou l'IP/nom par lequel tu joins le hub
 #   copie les trois jetons affichés dans .env : SI_PROXY_HOST_TOKEN / SI_PROXY_CLIENT_TOKEN / SI_PROXY_ADMIN_TOKEN
 

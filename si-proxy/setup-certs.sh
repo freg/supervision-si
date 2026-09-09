@@ -13,6 +13,11 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"; REPO="$(cd "$HERE/.." && pwd)"
 HUB="${1:?usage: setup-certs.sh <nom_ou_ip_du_hub> [--clients]}"
 CLIENTS="${2:-}"
+# PKI_DIR peut avoir été déplacée par .env (ex. hors du dépôt) : si la variable
+# n'est pas exportée dans le shell, on la lit dans .env (#468).
+if [ -z "${PKI_DIR:-}" ] && [ -f "$REPO/.env" ]; then
+  PKI_DIR="$(grep -E '^PKI_DIR=' "$REPO/.env" | tail -1 | cut -d= -f2- | tr -d '"' | tr -d "'")"
+fi
 CA_DIR="${PKI_DIR:-$REPO/pki}/ca"
 CRT="$CA_DIR/ca.crt"; KEY="$CA_DIR/ca.key"
 [ -f "$CRT" ] && [ -f "$KEY" ] || { echo "CA introuvable ($CRT / $KEY) -- initialiser la PKI d'abord" >&2; exit 1; }
