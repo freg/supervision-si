@@ -1,3 +1,23 @@
+## 2026-09-09 — Agents hôtes joignables depuis Internet : central de secours par le nom public (livraison #474)
+
+Demandé : « et l'agent Mac depuis Internet ? » — hors du LAN, l'agent ne
+joint plus `https://<IP LAN>:6443` ; il faut qu'il passe par le frontal.
+
+- `si_agent.agent.HttpClient` : `fallback_url` + `fallback_ca_file`
+  (`None` = magasin système, ex. certificat Let's Encrypt du frontal) ;
+  principal d'abord, secours si erreur réseau, retour au principal
+  réessayé toutes les 10 min (`RETRY_PRIMARY_S`) ; `current_url`,
+  `on_fallback` exposés dans l'état de l'agent. Signature HMAC inchangée
+  (méthode + chemin + corps, jamais l'hôte).
+- `install-macos.sh` et `install.sh` : `--central-fallback URL` →
+  `central_fallback_url` dans `agent.json` ; agent existant : une ligne
+  à ajouter + redémarrage (docs).
+- `docs/acces-public-frontal.md` § 4.
+
+**Vérifié** : 2 tests purs (bascule LAN → secours, secours en premier
+pendant le délai, retour au principal ; sans secours / tout injoignable),
+27 tests si-agent OK ; **non vérifié** : agent Mac réel hors du LAN.
+
 ## 2026-09-09 — Frontal public en mode réécriture : le hub reste construit pour le LAN (livraison #473)
 
 Demandé : « sur le proxy, y a-t-il un moyen de faire la substitution avec le

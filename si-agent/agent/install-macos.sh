@@ -5,6 +5,8 @@
 #   sudo ./install-macos.sh --agent mac-01 --secret '...' --central https://VM:6443/api/si-agent \
 #        [--site siege] [--ca /chemin/ca.crt | --ca-fingerprint sha256hex | --insecure] \
 #        [--enable-plugin ID] [--plugins-user nobody] [--log-level DEBUG]
+#        [--central-fallback https://hub.exemple.fr/api/si-agent]   # #474 : secours par le nom public
+#                                                                  # (frontal, certificat public : magasin système)
 #
 # Même contrat que install.sh (Linux) : TLS par empreinte (--ca-fingerprint,
 # amorçage GET /ca vérifié SHA-256), --ca pour un certificat fourni,
@@ -16,12 +18,13 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 OPT="/usr/local/opt/si-agent"; ETC="/usr/local/etc/si-agent"; VAR="/usr/local/var/lib/si-agent"; VARLOG="/usr/local/var/log"
 PLIST="/Library/LaunchDaemons/fr.exemple.si-agent.plist"; LABEL="fr.exemple.si-agent"
-AGENT="" SECRET="" CENTRAL="" SITE="default" CA="" CAFP="" INSECURE="false" ENABLE=() PLUGINS_USER="nobody" LOG_LEVEL="INFO"
+AGENT="" SECRET="" CENTRAL="" FALLBACK="" SITE="default" CA="" CAFP="" INSECURE="false" ENABLE=() PLUGINS_USER="nobody" LOG_LEVEL="INFO"
 while [ $# -gt 0 ]; do
   case "$1" in
     --agent) AGENT="$2"; shift 2;;
     --secret) SECRET="$2"; shift 2;;
     --central) CENTRAL="$2"; shift 2;;
+    --central-fallback) FALLBACK="$2"; shift 2;;   # #474 : central de secours (nom public, cert public -> magasin système)
     --site) SITE="$2"; shift 2;;
     --ca) CA="$2"; shift 2;;
     --ca-fingerprint) CAFP="$2"; shift 2;;
@@ -32,7 +35,7 @@ while [ $# -gt 0 ]; do
     *) echo "argument inconnu : $1" >&2; exit 2;;
   esac
 done
-[ -n "$AGENT" ] && [ -n "$SECRET" ] && [ -n "$CENTRAL" ] || { echo "usage : sudo ./install-macos.sh --agent ID --secret SECRET --central URL [--site S] [--ca CRT|--ca-fingerprint HEX|--insecure] [--enable-plugin ID] [--plugins-user U] [--log-level L]" >&2; exit 2; }
+[ -n "$AGENT" ] && [ -n "$SECRET" ] && [ -n "$CENTRAL" ] || { echo "usage : sudo ./install-macos.sh --agent ID --secret SECRET --central URL [--central-fallback URL_PUBLIQUE] [--site S] [--ca CRT|--ca-fingerprint HEX|--insecure] [--enable-plugin ID] [--plugins-user U] [--log-level L]" >&2; exit 2; }
 [ "$(id -u)" = "0" ] || { echo "à lancer avec sudo (LaunchDaemon système)" >&2; exit 1; }
 PY="$(command -v python3 || true)"
 [ -n "$PY" ] || { echo "python3 introuvable : installer les outils en ligne de commande (xcode-select --install) puis relancer" >&2; exit 1; }
@@ -65,7 +68,7 @@ for d in "$HERE"/plugins/*/; do
 done
 chmod 750 "$VAR"/plugins/*/*.sh "$VAR"/plugins/*/*.py 2>/dev/null || true
 
-"$PY" - "$AGENT" "$SECRET" "$CENTRAL" "$SITE" "$INSECURE" "$PLUGINS_USER" "$LOG_LEVEL" "$ETC" "$VAR" "${ENABLE[@]:-}" <<'PY'
+SI_AGENT_FALLBACK="$FALLBACK" "$PY" - "$AGENT" "$SECRET" "$CENTRAL" "$SITE" "$INSECURE" "$PLUGINS_USER" "$LOG_LEVEL" "$ETC" "$VAR" "${ENABLE[@]:-}" <<'PY'
 import json, os, sys
 agent, secret, central, site, insecure, plugins_user, log_level, etc, var = sys.argv[1:10]
 enable = [e for e in sys.argv[10:] if e]
@@ -77,6 +80,8 @@ cfg = {"agent_id": agent, "secret": secret, "central_url": central, "site": site
        "log_file": os.path.join("/usr/local/var/log", "si-agent.log")}
 if os.path.exists(os.path.join(etc, "central-ca.crt")):
     cfg["ca_file"] = os.path.join(etc, "central-ca.crt")
+if os.environ.get("SI_AGENT_FALLBACK"):   # #474 : central de secours, vérifié par le magasin système
+    cfg["central_fallback_url"] = os.environ["SI_AGENT_FALLBACK"].rstrip("/")
 with open(os.path.join(etc, "agent.json"), "w") as fh:
     json.dump(cfg, fh, indent=2)
 PY

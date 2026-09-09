@@ -17,12 +17,13 @@
 # (mode 600), installe et démarre le service systemd.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-AGENT="" SECRET="" CENTRAL="" SITE="default" CA="" CAFP="" INSECURE="false" ENABLE=() PLUGINS_USER="nobody" LOG_LEVEL="INFO"
+AGENT="" SECRET="" CENTRAL="" FALLBACK="" SITE="default" CA="" CAFP="" INSECURE="false" ENABLE=() PLUGINS_USER="nobody" LOG_LEVEL="INFO"
 while [ $# -gt 0 ]; do
   case "$1" in
     --agent) AGENT="$2"; shift 2;;
     --secret) SECRET="$2"; shift 2;;
     --central) CENTRAL="$2"; shift 2;;
+    --central-fallback) FALLBACK="$2"; shift 2;;   # #474 : central de secours (nom public, cert public -> magasin système)
     --site) SITE="$2"; shift 2;;
     --ca) CA="$2"; shift 2;;
     --ca-fingerprint) CAFP="$2"; shift 2;;
@@ -65,7 +66,7 @@ done
 chmod 750 /var/lib/si-agent/plugins/*/*.sh /var/lib/si-agent/plugins/*/*.py 2>/dev/null || true
 if [ -n "$CA" ]; then install -m 644 "$CA" /etc/si-agent/central-ca.crt; fi
 
-python3 - "$AGENT" "$SECRET" "$CENTRAL" "$SITE" "$INSECURE" "$PLUGINS_USER" "$LOG_LEVEL" "${ENABLE[@]:-}" <<'PY'
+SI_AGENT_FALLBACK="$FALLBACK" python3 - "$AGENT" "$SECRET" "$CENTRAL" "$SITE" "$INSECURE" "$PLUGINS_USER" "$LOG_LEVEL" "${ENABLE[@]:-}" <<'PY'
 import json, sys
 agent, secret, central, site, insecure, plugins_user, log_level = sys.argv[1:8]
 enable = [e for e in sys.argv[8:] if e]
@@ -76,6 +77,8 @@ cfg = {"agent_id": agent, "secret": secret, "central_url": central, "site": site
        "state_path": "/var/lib/si-agent/state.json", "block_file": "/etc/si-agent/BLOCKED"}
 if os.path.exists("/etc/si-agent/central-ca.crt"):
     cfg["ca_file"] = "/etc/si-agent/central-ca.crt"
+if os.environ.get("SI_AGENT_FALLBACK"):   # #474 : central de secours, vérifié par le magasin système
+    cfg["central_fallback_url"] = os.environ["SI_AGENT_FALLBACK"].rstrip("/")
 with open("/etc/si-agent/agent.json", "w") as fh:
     json.dump(cfg, fh, indent=2)
 PY

@@ -710,5 +710,43 @@ class SharedCopyTests(unittest.TestCase):
                 self.assertEqual(a.read(), b.read(), "%s diverge : relancer sync-shared.sh" % name)
 
 
+
+
+class FallbackCentralTests(unittest.TestCase):
+    """#474 : central de secours (nom public) quand le LAN ne répond pas."""
+
+    def _client(self, reach, clock):
+        c = agent_mod.HttpClient("https://lan:6443/api/si-agent", "a1", "s", fallback_url="https://hub.exemple.fr/api/si-agent", clock=clock)
+        calls = []
+
+        def fake(base_url, ctx, method, path, body, body_bytes, headers):
+            calls.append(base_url)
+            return (200, {"ok": True}) if reach.get(base_url) else (0, None)
+        c._request_one = fake
+        return c, calls
+
+    def test_bascule_et_retour(self):
+        now = [1000.0]
+        reach = {"https://lan:6443/api/si-agent": False, "https://hub.exemple.fr/api/si-agent": True}
+        c, calls = self._client(reach, lambda: now[0])
+        self.assertEqual(c.request("GET", "/x"), (200, {"ok": True}))
+        self.assertEqual(calls, ["https://lan:6443/api/si-agent", "https://hub.exemple.fr/api/si-agent"])   # LAN d'abord, puis secours
+        self.assertTrue(c.on_fallback); self.assertEqual(c.current_url, "https://hub.exemple.fr/api/si-agent")
+        # pendant le délai : le secours est essayé en premier (pas de temporisation LAN à chaque requête)
+        calls.clear(); now[0] += 60; c.request("GET", "/y")
+        self.assertEqual(calls, ["https://hub.exemple.fr/api/si-agent"])
+        # délai écoulé et LAN revenu : retour au principal
+        reach["https://lan:6443/api/si-agent"] = True; calls.clear(); now[0] += c.RETRY_PRIMARY_S + 1; c.request("GET", "/z")
+        self.assertEqual(calls, ["https://lan:6443/api/si-agent"]); self.assertFalse(c.on_fallback)
+
+    def test_sans_secours_et_tout_injoignable(self):
+        c, calls = self._client({}, lambda: 0.0)
+        self.assertEqual(c.request("GET", "/x"), (0, None)); self.assertEqual(len(calls), 2); self.assertFalse(c.on_fallback)
+        solo = agent_mod.HttpClient("https://lan:6443/api/si-agent", "a1", "s")
+        solo._request_one = lambda *a: (0, None)
+        self.assertEqual(solo.request("GET", "/x"), (0, None)); self.assertEqual(solo.current_url, "https://lan:6443/api/si-agent")
+        self.assertEqual(len(solo._targets()), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

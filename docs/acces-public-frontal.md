@@ -87,7 +87,33 @@ Puis connexion au hub : Keycloak doit rediriger vers `https://hub.mondomaine.fr/
 (si la page de connexion renvoie vers une IP LAN, `HOST_IP` n'a pas été
 reconstruit ou le realm n'a pas été ré-importé).
 
-## 4. Ce que le frontal ne couvre pas
+## 4. Les agents hôtes depuis Internet (#474)
+
+Un portable qui sort du LAN garde son agent joignable par le frontal : le
+client HTTP de si-agent accepte un **central de secours** avec sa propre
+confiance TLS (le certificat public du frontal, vérifié par le magasin
+système). Principal d'abord ; s'il ne répond pas, le secours ; le principal
+est réessayé toutes les 10 min. L'état (`--status`, tuile Agents) montre
+`central_in_use` / `on_fallback`.
+
+```bash
+# nouvelle installation
+sudo ./install-macos.sh --agent mac-01 --secret '…' --central https://<IP LAN>:6443/api/si-agent \
+     --ca ca.crt --central-fallback https://hub.mondomaine.fr/api/si-agent
+# agent déjà installé : paquet à jour + une ligne dans la configuration
+sudo cp -r si_agent /usr/local/opt/si-agent/ && sudo python3 - <<'PY'
+import json; p="/usr/local/etc/si-agent/agent.json"; c=json.load(open(p))
+c["central_fallback_url"]="https://hub.mondomaine.fr/api/si-agent"; json.dump(c, open(p,"w"), indent=2)
+PY
+sudo launchctl kickstart -k system/fr.exemple.si-agent
+```
+
+Les requêtes des agents sont signées (HMAC sur méthode + chemin + corps),
+indépendamment du nom appelé : rien à changer côté central. Même
+mécanisme sur Linux (`install.sh --central-fallback`) et, par la
+configuration, sur Windows.
+
+## 5. Ce que le frontal ne couvre pas
 
 - Le **bastion si-proxy** (6450) n'est pas de l'HTTP : il passe par le saut
   SSH (`si-proxy/README.md`) ou par un `--san` + port publié, pas par Apache.

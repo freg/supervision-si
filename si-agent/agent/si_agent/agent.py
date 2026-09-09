@@ -126,33 +126,77 @@ class HttpClient(object):
     netprobe_agent.agent.HttpClient : (status, dict|None), jamais
     d'exception -- une erreur réseau devient (0, None)."""
 
-    def __init__(self, base_url, device_id, secret, timeout=15, ca_file=None, insecure=False):
+    # #474 : après une panne réseau sur le central principal, le secours est
+    # utilisé ; le principal est réessayé toutes les RETRY_PRIMARY_S secondes.
+    RETRY_PRIMARY_S = 600
+
+    def __init__(self, base_url, device_id, secret, timeout=15, ca_file=None, insecure=False,
+                 fallback_url=None, fallback_ca_file=None, clock=time.monotonic):
         self.base_url, self.device_id, self.secret, self.timeout = base_url.rstrip("/"), device_id, secret, timeout
-        self.ssl_context = None
         self.insecure = bool(insecure)
+        self.ssl_context = self._context(self.base_url, ca_file, insecure)
+        # #474 : central de SECOURS (ex. nom public derrière un frontal, joignable
+        # depuis Internet) avec sa propre confiance TLS (fallback_ca_file ; None =
+        # magasin système, ex. certificat Let's Encrypt du frontal).
+        self.fallback_url = fallback_url.rstrip("/") if fallback_url else None
+        self.fallback_context = self._context(self.fallback_url, fallback_ca_file, insecure) if self.fallback_url else None
+        self.on_fallback = False
+        self._clock = clock
+        self._fallback_since = None
         # Dernière réponse brute (corps, en-têtes) -- l'agent y vérifie la
         # signature du central (#422) sans que le contrat (status, body)
         # change pour les appelants.
         self.last_raw = b""
         self.last_headers = {}
+
+    @staticmethod
+    def _context(base_url, ca_file, insecure):
+        if not base_url:
+            return None
         if base_url.lower().startswith("https"):
             if insecure:
-                self.ssl_context = ssl._create_unverified_context()  # noqa: SLF001
                 _log.warning("TLS non vérifié vers %s (insecure=true) -- dépannage uniquement", base_url)
-            else:
-                self.ssl_context = ssl.create_default_context(cafile=ca_file) if ca_file else ssl.create_default_context()
-        elif not base_url.lower().startswith("http://127.") and not base_url.lower().startswith("http://localhost"):
+                return ssl._create_unverified_context()  # noqa: SLF001
+            return ssl.create_default_context(cafile=ca_file) if ca_file else ssl.create_default_context()
+        if not base_url.lower().startswith("http://127.") and not base_url.lower().startswith("http://localhost"):
             _log.warning("central en HTTP clair (%s) -- réservé au test ; utiliser https + ca_file", base_url)
+        return None
+
+    @property
+    def current_url(self):
+        return self.fallback_url if self.on_fallback else self.base_url
+
+    def _targets(self):
+        """Ordre d'essai : principal puis secours ; en mode secours, le
+        principal est réessayé d'abord une fois le délai écoulé."""
+        if not self.fallback_url:
+            return [(self.base_url, self.ssl_context, False)]
+        primary, fallback = (self.base_url, self.ssl_context, False), (self.fallback_url, self.fallback_context, True)
+        if self.on_fallback and self._fallback_since is not None and self._clock() - self._fallback_since < self.RETRY_PRIMARY_S:
+            return [fallback, primary]
+        return [primary, fallback]
 
     def request(self, method, path, body=None):
         body_bytes = protocol.canonical_json(body) if body is not None else b""
         headers = protocol.auth_headers(self.device_id, self.secret, method, path, body_bytes)
-        req = urllib.request.Request(self.base_url + path, data=body_bytes if body is not None else None,
+        status, data = 0, None
+        for base_url, ctx, is_fallback in self._targets():
+            status, data = self._request_one(base_url, ctx, method, path, body, body_bytes, headers)
+            if status != 0:
+                if is_fallback != self.on_fallback:
+                    _log.warning("central %s : %s", "de secours utilisé" if is_fallback else "principal de retour", base_url)
+                    self.on_fallback = is_fallback
+                    self._fallback_since = self._clock() if is_fallback else None
+                break
+        return status, data
+
+    def _request_one(self, base_url, ctx, method, path, body, body_bytes, headers):
+        req = urllib.request.Request(base_url + path, data=body_bytes if body is not None else None,
                                      method=method, headers=headers)
         started = time.monotonic()
         self.last_raw, self.last_headers = b"", {}
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout, context=self.ssl_context) as resp:
+            with urllib.request.urlopen(req, timeout=self.timeout, context=ctx) as resp:
                 raw = resp.read()
                 self.last_raw, self.last_headers = raw, dict(resp.headers.items())
                 _log.debug("%s %s -> %s (%d octets, %.0f ms)", method, path, resp.status, len(raw), (time.monotonic() - started) * 1000)
@@ -183,7 +227,8 @@ class Agent(object):
         self.cfg = cfg
         self.agent_id = cfg["agent_id"]
         self.http = http or HttpClient(cfg["central_url"], cfg["agent_id"], cfg["secret"],
-                                       ca_file=cfg.get("ca_file"), insecure=bool(cfg.get("insecure")))
+                                       ca_file=cfg.get("ca_file"), insecure=bool(cfg.get("insecure")),
+                                       fallback_url=cfg.get("central_fallback_url"), fallback_ca_file=cfg.get("fallback_ca_file"))
         self.cmd, self.files, self.clock = cmd, files, clock
         self.usage = usage or __import__("shutil").disk_usage
         self.which = which or __import__("shutil").which
@@ -611,6 +656,8 @@ class Agent(object):
             "agent_id": self.agent_id,
             "site": self.cfg.get("site"),
             "central_url": self.cfg.get("central_url"),
+            "central_in_use": getattr(self.http, "current_url", self.cfg.get("central_url")),
+            "on_fallback": bool(getattr(self.http, "on_fallback", False)),
             "config_version": self.config_version,
             "host_interval_seconds": self.cfg.get("host_interval_seconds"),
             "plugins": [{"id": m["id"], "version": m.get("version"), "enabled": plugins.is_enabled(m, self.cfg.get("plugins")),
