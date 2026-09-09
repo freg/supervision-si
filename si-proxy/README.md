@@ -180,9 +180,28 @@ python3 -m siproxy.client proxy --listen 127.0.0.1:6451 --relay super:6450 --ca 
 #   règle le proxy HTTP du navigateur sur 127.0.0.1:6451, puis va sur https://super ou https://<hôte-du-LAN>
 ```
 
-`super` = le nom/IP par lequel tu joins le hub (depuis l'extérieur, c'est la
-même adresse que pour le reste du hub — le bastion ne demande pas d'ouverture
-supplémentaire côté host).
+`super` = le nom/IP par lequel tu joins le hub sur le LAN. **Depuis
+l'extérieur**, une adresse LAN ne mène nulle part : il faut soit publier le
+port 6450 de la VM sur la box (NAT) derrière un nom public / DynDNS, soit
+faire tourner le relais ailleurs (voir ci-dessous). Dans les deux cas le
+certificat du relais doit porter TOUS les noms utilisés :
+`setup-certs.sh super --san hub.exemple.dyndns.org --san <IP publique>`
+(#469), et le client Mac connaît les deux adresses (`SI_PROXY_RELAY` pour
+le LAN, `SI_PROXY_RELAY_WAN` pour l'extérieur, essayée si le LAN ne répond
+pas).
+
+### Relais hors du LAN (rendez-vous, aucun port ouvert chez soi)
+
+Le relais n'est qu'un aiguilleur TLS sans état : il peut tourner sur
+n'importe quelle machine joignable des deux côtés (VPS, petit hébergement).
+Le shim host de la VM l'appelle en sortant, le Mac aussi — rien n'est
+publié sur la box. Sur cette machine : `python3 -m siproxy.relay --cert
+relay.crt --key relay.key --host-token … --client-token … --control-port
+6452 --admin-token …` (ou l'image `si-proxy/relay/Dockerfile`), certificat
+émis pour son nom public ; sur la VM : `install-host.sh --relay
+<vps>:6450 …` ; la tuile Bastion pointe dessus par `SI_PROXY_CONTROL_URL`
+du service `si-proxy-admin-api`. Le port de contrôle 6452 doit alors être
+protégé (jeton + TLS + fail2ban maison, ou restreint à l'IP du hub).
 
 ## Durcissement TLS mutuel (recommandé ensuite)
 

@@ -1,3 +1,20 @@
+## 2026-09-09 — Bastion joignable depuis l'extérieur : plusieurs noms dans le certificat, adresse de repli côté client (livraison #469)
+
+Constat au premier accès distant : le client Mac ne connaissait que le nom
+LAN du hub, inutilisable hors du réseau.
+
+- `setup-certs.sh <hub> [--san <nom|ip>]...` : le certificat du relais porte
+  tous les noms / IP par lesquels on le joint (LAN, nom public ou DynDNS,
+  IP publique) ; `--clients` inchangé.
+- Client : `SI_PROXY_RELAY` (LAN) et `SI_PROXY_RELAY_WAN` (extérieur),
+  cette dernière essayée quand le LAN ne répond pas.
+- README : les deux façons d'être joignable de l'extérieur — port publié
+  sur la box, ou relais « rendez-vous » hors du LAN (rien d'ouvert chez
+  soi ; le shim et le Mac l'appellent en sortant).
+
+**Vérifié** : syntaxe des scripts ; **non vérifié** : émission réelle avec
+`--san`, accès depuis l'extérieur.
+
 ## 2026-09-09 — Correctif réel : setup-certs.sh ignorait PKI_DIR de .env (livraison #468)
 
 Signalé sur « super » : `CA introuvable (…/supervision-si/pki/ca/ca.crt)` alors
