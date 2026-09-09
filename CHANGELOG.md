@@ -1,3 +1,32 @@
+## 2026-09-09 — Anonymisation du dépôt avant publication (livraison #467)
+
+Demandé : « vérifier qu'aucune information précise, personnelle et
+professionnelle ne soit publiée sur le GitHub » — ce dépôt est un travail
+personnel destiné à la communauté, sans lien avec un employeur ou un client.
+
+- Passe complète sur les 905 fichiers suivis : noms de sociétés, de client,
+  de sites et de lieux réels (y compris codes postaux, codes commune et
+  coordonnées), prénoms servant de noms d'hôtes ou de logins d'exemple,
+  adresses IP et chemins réels remplacés par des valeurs fictives
+  (`exemple`, `Alpha`, `Parc/Batiment 5`, `Villexemple`, prénoms alice /
+  bob / carol / dave / eve, plage de documentation `192.0.2.0/24`, région
+  de Lyon pour les coordonnées d'exemple). Les tests concernés
+  (geo-catalog, classifier, pixel-grid, cortex, hub) passent inchangés
+  dans leur logique.
+- Retirés du dépôt et ignorés désormais : l'export de realm Keycloak
+  importé (`keycloak/.last-imported-realm.json`, qui portait l'adresse
+  réelle du hub), les `.DS_Store`, le fichier de série de la PKI
+  (`pki/scripts/.srl`), un journal de conteneur.
+- Adresse MAC : seules des valeurs manifestement fictives subsistent
+  (`aa:bb:cc:…`, `12:34:56`) ; aucune adresse électronique réelle hors
+  l'auteur du dépôt.
+
+**Vérifié** : recherche croisée (git grep) sur les motifs sensibles avant /
+après ; 172 tests Node, tests purs Python des modules touchés. **Non
+vérifié / à faire** : l'HISTORIQUE git (76 commits) contient encore les
+valeurs d'origine — voir « Historique » dans BACKLOG (réécriture par
+`git filter-repo` + push forcé, ou publication d'un dépôt neuf).
+
 ## 2026-09-08 — Cortex, étape 5 : politiques d'alerte, notifications par incident, silences, MTTA/MTTR (livraison #466)
 
 Dernière étape du découpage validé en #461. Aucun module d'origine

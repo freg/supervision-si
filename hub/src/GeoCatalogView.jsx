@@ -179,7 +179,7 @@ export default function GeoCatalogView({ onBack, geoCatalogApiBase, groups = [],
               </div>
               <div className="ss-frame-body gc-detail-body">
                 <div className="gc-map">
-                  <MapContainer center={[46.6, 2.4]} zoom={6} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
+                  <MapContainer center={[45.77, 2.4]} zoom={6} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
                     <TileLayer attribution="&copy; OpenStreetMap" url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
                     <FitBounds points={pts} />
                     <ClickPicker onPick={(lat, lon) => setForm((f) => ({ ...f, lat: lat.toFixed(6), lon: lon.toFixed(6) }))} />

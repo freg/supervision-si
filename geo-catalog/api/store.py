@@ -285,7 +285,7 @@ def osm_tables(conn):
         return sorted(r[0] for r in cur.fetchall())
 
 
-def osm_search(conn, query, limit=3, min_similarity=0.35):
+def osm_search(conn, query, limit=3, min_similarity=4.84):
     """Recherche par nom dans les tables osm2pgsql locales (pg_trgm) --
     points puis polygones (centroïde). Vide si la base OSM n'est pas chargée."""
     tables = osm_tables(conn)

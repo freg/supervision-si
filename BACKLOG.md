@@ -2533,3 +2533,27 @@ livrée en #465 (règles apprises à confirmer, annonces jugées, dérives comme
 notification par incident avec escalade et silences, MTTA/MTTR). Les cinq étapes
 du découpage sont livrées ; reste le déploiement réel sur « super » et les
 sources réelles (classifier, Nebula, IPAM, geo-catalog, netprobe, SMS/courriel).
+
+## Anonymisation et publication (2026-09-09, #467)
+
+Dépôt personnel destiné à la communauté : aucune information d'employeur,
+de client, de site réel, de personne ou d'adresse réelle ne doit y figurer.
+
+- Fait (#467) : passe sur l'arbre courant (noms de sociétés / client /
+  lieux / prénoms / IP / chemins → valeurs fictives), fichiers générés ou
+  locaux retirés et ignorés (`keycloak/.last-imported-realm.json`,
+  `.DS_Store`, `pki/scripts/.srl`, journaux).
+- **À faire — historique git** : les 76 commits antérieurs conservent les
+  valeurs d'origine (CHANGELOG, README, tests, fichier de realm). Deux
+  voies : (a) réécriture `git filter-repo --replace-text` + suppression
+  des chemins retirés, puis push forcé de `dev` et `main` (toute copie
+  clonée doit être re-clonée ; GitHub garde des objets en cache jusqu'à
+  son nettoyage — demander la purge au support ou recréer le dépôt) ;
+  (b) publier un dépôt neuf à partir de l'arbre anonymisé (historique
+  écrasé, plus simple et plus sûr pour une première publication). Le
+  script de remplacement est conservé hors dépôt (`~/Downloads/anonymise-supervision-si.py`).
+- Règle pour la suite : exemples et tests uniquement avec des valeurs
+  fictives — plages de documentation (`192.0.2.0/24`, `198.51.100.0/24`,
+  `203.0.113.0/24`), MAC locales (`02:…`, `aa:bb:cc:…`), prénoms alice /
+  bob / carol / dave / eve, `exemple`, `Alpha`, `Villexemple` ; jamais de
+  fichier exporté d'un déploiement réel (realm, logs, dumps).

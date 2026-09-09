@@ -86,3 +86,9 @@ _absolute/
 # Cortex (#462) : base SQLite
 cortex/data/*
 !cortex/data/.gitkeep
+
+# --- fichiers locaux / générés (anonymisation #467)
+.DS_Store
+keycloak/.last-imported-realm.json
+pki/scripts/.srl
+*.log.txt
