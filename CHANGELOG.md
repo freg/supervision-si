@@ -1,3 +1,25 @@
+## 2026-09-09 — Frontal public Apache + Let's Encrypt vers le hub (livraison #471)
+
+Demandé : « un script pour déployer un certbot avec un renew et l'apache en
+https qui va faire proxy vers la VM super, avec une variable
+d'environnement pour le nom public ».
+
+- `scripts/front-reverse-proxy.sh` (root, Debian/Ubuntu, idempotent) :
+  `PUBLIC_HOST` (nom public), `LE_EMAIL`, `HUB_UPSTREAM` (défaut
+  `https://super:443`), `HUB_CA` (vérification du certificat de la
+  passerelle par la CA du projet), `HTTP_PORT`, `STAGING`. Installe apache2
+  + certbot, site port 80 (défi ACME + redirection) et 443 (proxy inverse
+  HTTPS, WebSocket par wstunnel, X-Forwarded-*, HSTS, pas de plafond
+  d'envoi), certificat `--webroot`, hook de renouvellement rechargeant
+  Apache, `certbot.timer`.
+- `docs/acces-public-frontal.md` : le prérequis côté hub (`HOST_IP` = nom
+  public, `GATEWAY_PORT=443`, certificat de passerelle, `keycloak/render.py`,
+  rebuild), résolution LAN, vérifications, limites (bastion hors HTTP).
+
+**Vérifié** : syntaxe, rendu des deux VirtualHost ; **non vérifié** :
+exécution sur le frontal réel, obtention du certificat, Keycloak derrière
+le frontal.
+
 ## 2026-09-09 — Bastion par un saut SSH : `--server-name` côté client (livraison #470)
 
 La personne dispose d'une entrée SSH sur une VM du LAN : un tunnel local vers
