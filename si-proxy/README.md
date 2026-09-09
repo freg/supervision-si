@@ -190,6 +190,21 @@ certificat du relais doit porter TOUS les noms utilisés :
 le LAN, `SI_PROXY_RELAY_WAN` pour l'extérieur, essayée si le LAN ne répond
 pas).
 
+### Par un saut SSH existant (rien de plus à ouvrir)
+
+Si une machine du LAN a déjà une entrée SSH depuis Internet, elle sert de
+saut : tunnel local vers le relais, puis le client joint `127.0.0.1` en
+vérifiant le nom du hub dans le certificat (`--server-name`, #470) :
+
+```bash
+ssh -f -N -L 127.0.0.1:6450:super:6450 freg@vm-lan.mondomaine.fr
+python3 -m siproxy.client shell --relay 127.0.0.1:6450 --server-name super --ca ca.crt --token …
+```
+
+Le lanceur Mac le fait seul (`SI_PROXY_SSH_JUMP=…`) quand le LAN ne répond
+pas. Le bastion garde tout son rôle (jeton, audit, shell sous freg, bans) ;
+SSH n'est que le transport.
+
 ### Relais hors du LAN (rendez-vous, aucun port ouvert chez soi)
 
 Le relais n'est qu'un aiguilleur TLS sans état : il peut tourner sur

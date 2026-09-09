@@ -1,3 +1,13 @@
+## 2026-09-09 — Bastion par un saut SSH : `--server-name` côté client (livraison #470)
+
+La personne dispose d'une entrée SSH sur une VM du LAN : un tunnel local vers
+le relais suffit, sans rien publier de plus. Le client vérifiait le nom
+joint (`127.0.0.1`) contre le certificat (`super`) : nouvelle option
+`--server-name` (nom attendu dans le certificat, indépendant de l'adresse
+jointe). Lanceur Mac : `SI_PROXY_SSH_JUMP` ouvre le tunnel et bascule quand
+le LAN ne répond pas ; `si-proxy test` vérifie avec le bon nom. **Vérifié** :
+tests purs si-proxy (protocole, audit, garde) ; **non vérifié** : tunnel réel.
+
 ## 2026-09-09 — Bastion joignable depuis l'extérieur : plusieurs noms dans le certificat, adresse de repli côté client (livraison #469)
 
 Constat au premier accès distant : le client Mac ne connaissait que le nom
