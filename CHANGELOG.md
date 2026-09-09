@@ -1,3 +1,26 @@
+## 2026-09-09 — Correctif réel : les fronts refusaient un nom DNS (« Blocked request. This host is not allowed ») (livraison #472)
+
+Signalé au premier accès par le nouveau nom public : les huit fronts sont
+servis par le serveur de développement Vite (`npm run dev`) et Vite ≥ 5.4.12
+n'accepte par défaut que `localhost` et les adresses IP dans l'en-tête
+`Host` — d'où le fonctionnement par IP LAN et le refus par nom (LAN ou
+public derrière le frontal Apache).
+
+- Les huit `vite.config.js` (hub, frontend, tickets, dba, vault, vault
+  admin, ldap-admin, network-explorer) : `server.allowedHosts` = `HOST_IP`
+  (.env) + `VITE_ALLOWED_HOSTS` (liste à virgules ; `*` = tous, acceptable
+  puisque les fronts ne sont joignables que par la passerelle).
+- `docker-compose.yml` : `HOST_IP` et `VITE_ALLOWED_HOSTS` passés aux huit
+  services ; `.env.example` documente la variable.
+- À faire sur « super » après mise à jour : `VITE_ALLOWED_HOSTS=super,<nom
+  public>` (ou `*`) dans `.env`, puis `./scripts/run.sh up -d --build` des
+  fronts (ou simple `up -d` : la variable est lue au démarrage du serveur
+  Vite, pas au build).
+
+**Vérifié** : syntaxe des huit configurations (`node --check`), compose
+valide (61 services, variables présentes sur les huit) ; **non vérifié** :
+accès réel par le nom public.
+
 ## 2026-09-09 — Frontal public Apache + Let's Encrypt vers le hub (livraison #471)
 
 Demandé : « un script pour déployer un certbot avec un renew et l'apache en

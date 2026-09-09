@@ -40,6 +40,9 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
     environment:
+      # #472 : hôtes acceptés par le serveur Vite (nom LAN / nom public derrière un frontal)
+      - HOST_IP=${HOST_IP:-localhost}
+      - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-}
       # Le frontend tourne dans le navigateur de l'hôte, pas dans le réseau
       # Docker interne : il doit donc viser une adresse joignable depuis
       # le poste qui ouvre le navigateur. HOST_IP est injectée au lancement
@@ -246,6 +249,9 @@ services:
       context: .
       dockerfile: tickets/portal/Dockerfile
     environment:
+      # #472 : hôtes acceptés par le serveur Vite (nom LAN / nom public derrière un frontal)
+      - HOST_IP=${HOST_IP:-localhost}
+      - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-}
       - GATEWAY_PORT=${GATEWAY_PORT:-6443}
       - VITE_TICKETS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/tickets
       # Client OIDC "tickets-portal" — déjà défini dans
@@ -1279,6 +1285,9 @@ services:
       context: .
       dockerfile: network-explorer/Dockerfile
     environment:
+      # #472 : hôtes acceptés par le serveur Vite (nom LAN / nom public derrière un frontal)
+      - HOST_IP=${HOST_IP:-localhost}
+      - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-}
       - VITE_NETWORK_AGENT_API_BASE_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
       - VITE_NETMAP_ORCHESTRATOR_API_BASE_URL=http://${HOST_IP:-localhost}:${NETMAP_ORCHESTRATOR_API_PORT:-6125}
     ports:
@@ -1512,6 +1521,9 @@ services:
     volumes:
       - ${PKI_DIR:-./pki}/server:/etc/vault-admin-portal/tls:ro
     environment:
+      # #472 : hôtes acceptés par le serveur Vite (nom LAN / nom public derrière un frontal)
+      - HOST_IP=${HOST_IP:-localhost}
+      - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-}
       - VITE_VAULT_ADMIN_API_BASE_URL=http://${HOST_IP:-localhost}:${VAULT_ADMIN_LAN_PORT:-6119}
       # Livraison #293 -- même realm que vault-portal ci-dessus
       # (vault-admin-portal fait partie du déploiement PRINCIPAL,
@@ -1551,6 +1563,9 @@ services:
       context: .
       dockerfile: vault/portal/Dockerfile
     environment:
+      # #472 : hôtes acceptés par le serveur Vite (nom LAN / nom public derrière un frontal)
+      - HOST_IP=${HOST_IP:-localhost}
+      - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-}
       - GATEWAY_PORT=${GATEWAY_PORT:-6443}
       - VITE_VAULT_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/vault
       - VITE_KEYCLOAK_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/auth
@@ -1570,6 +1585,9 @@ services:
       context: .
       dockerfile: dba/portal/Dockerfile
     environment:
+      # #472 : hôtes acceptés par le serveur Vite (nom LAN / nom public derrière un frontal)
+      - HOST_IP=${HOST_IP:-localhost}
+      - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-}
       - GATEWAY_PORT=${GATEWAY_PORT:-6443}
       - VITE_DBA_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/dba
       # Catalogue SGBD (livraison #229) -- même tunnels SSH que le
@@ -1584,6 +1602,9 @@ services:
       context: .
       dockerfile: ldap-admin/portal/Dockerfile
     environment:
+      # #472 : hôtes acceptés par le serveur Vite (nom LAN / nom public derrière un frontal)
+      - HOST_IP=${HOST_IP:-localhost}
+      - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-}
       - GATEWAY_PORT=${GATEWAY_PORT:-6443}
       - VITE_LDAP_ADMIN_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/ldap-admin
     depends_on:
@@ -1594,6 +1615,9 @@ services:
       context: .
       dockerfile: hub/Dockerfile
     environment:
+      # #472 : hôtes acceptés par le serveur Vite (nom LAN / nom public derrière un frontal)
+      - HOST_IP=${HOST_IP:-localhost}
+      - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-}
       - GATEWAY_PORT=${GATEWAY_PORT:-6443}
       # Client OIDC "supervision-hub" — déjà défini dans
       # keycloak/realm-template.json, rien à créer côté Keycloak.
