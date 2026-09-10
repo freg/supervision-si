@@ -145,6 +145,26 @@ def query_system_info():
     return jsonify({"host": host, "port": port, "system": info}), 200
 
 
+@app.route("/get", methods=["POST"])
+def get_oids_route():
+    """GET d'OID arbitraires (livraison #434) -- corps {host, community |
+    target_id, oids: ["1.3.6.1.2.1.33.1.2.4.0", ...], port?, timeout?} ->
+    {values: {oid: texte | null}}. Au plus 64 OID par appel. Utilisé par
+    ups-monitor-api pour l'UPS-MIB (RFC 1628)."""
+    body = request.get_json(silent=True) or {}
+    host, community, port, timeout, error = _target_params(body)
+    if error:
+        return jsonify({"error": error}), 400
+    oids = body.get("oids")
+    if not isinstance(oids, list) or not oids or len(oids) > 64 or not all(isinstance(o, str) and o.replace(".", "").isdigit() for o in oids):
+        return jsonify({"error": "'oids' : liste de 1 à 64 OID numériques (ex. 1.3.6.1.2.1.33.1.2.4.0)"}), 400
+    try:
+        values = snmp_client.get_oids(host, community, oids, port=port, timeout=timeout)
+    except snmp_client.SnmpError as exc:
+        return jsonify({"error": str(exc)}), 502
+    return jsonify({"host": host, "port": port, "values": values}), 200
+
+
 @app.route("/walk-interfaces", methods=["POST"])
 def query_interfaces():
     """WALK de la table des interfaces (IF-MIB) sur une cible --

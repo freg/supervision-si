@@ -94,7 +94,59 @@ réelle une fois déployée.**
 - `POST /documents/<id>/links` / `DELETE /documents/<id>/links/<id>`
   -- gérer les liaisons indépendamment.
 
+## Archivage versionné et graphe d'évolution des versions (livraison #460)
+
+Demandé : « un mécanisme d'archivage versionné pour le dépôt de document,
+et un visualiseur de graphe d'évolution des versions », en pensant aux
+gestions documentaires Novell des années 90. Ce qui est repris de
+**SoftSolutions / GroupWise Document Management** (WordPerfect 1993, Novell
+1994, intégré à GroupWise 1998 — voir les sources dans le CHANGELOG #460) :
+profil de document, versions numérotées avec **une seule version
+officielle** (*Document Life Cycle status*), **check-out / check-in**
+(*Document In-Use* : celui qui a sorti le document est le seul à en
+déposer une version, les autres consultent), édition de plusieurs versions
+en parallèle — donc des **branches** —, archivage vers un emplacement
+dédié ; et d'**ARCserve** : une archive = copie immuable + catalogue.
+
+Mayan garde les fichiers (suite linéaire) ; `ged/api/versioning.py` ajoute
+une couche locale (SQLite du ged-api) :
+
+| Objet | Contenu |
+|---|---|
+| `version_meta` | par version Mayan : **parent** (défaut : la précédente ; une autre = branche), branche, statut `draft / official / superseded / archived`, auteur, commentaire |
+| `checkouts` | document sorti : par qui, depuis quand, à partir de quelle version |
+| `archive_entries` | copie **immuable** (`GED_ARCHIVE_DIR`, défaut `/data/archive/<doc>/v<N>-<sha8>-<nom>`, fichier en 0440, sha256, `catalogue.jsonl`) — indépendante de Mayan, jamais ré-archivable, intégrité vérifiée à chaque lecture |
+
+Routes : `GET /documents/<id>/graph` (nœuds, arêtes, voies, officielle,
+check-out), `POST /documents/<id>/versions/<n>/meta` (parent, branche,
+auteur, commentaire, statut — promouvoir en officielle rétrograde
+l'ancienne en `superseded` ; `archived` est terminal), `POST
+/documents/<id>/checkout` / `checkin` (`force` réservé au droit manage),
+`GET /checkouts`, `POST /documents/<id>/versions/<n>/archive`, `GET
+/archive`, `GET /archive/<doc>/<n>/download` (refus si altérée). Le dépôt
+d'une version (`POST /documents/<id>/versions`) accepte désormais `actor`,
+`parent_version`, `branch`, `comment`, `checkin` et **refuse** une version
+d'un autre que le détenteur du check-out.
+
+Hub : bouton « 🌳 graphe des versions » sur chaque document
+(`VersionGraphView.jsx`, logique pure `versionGraph.js`) — SVG façon
+`git log --graph` (voies = branches, lignes = versions, fourches en
+orange, officielle cerclée de noir, archive en pointillé), sortie / retour
+du document, promotion, archivage, profil (parent, branche, commentaire),
+dépôt d'une version dérivée ; onglet « Archive & sorties » (catalogue avec
+intégrité, documents sortis).
+
 ## Vérifié réellement
+
+#460 : 6 tests purs (graphe linéaire et branché, voies, cycle de vie,
+store, check-out/in, archive WORM et détection d'altération) ; routes
+exercées avec un Mayan simulé (graphe, check-out refusé à un autre, dépôt
+refusé hors détenteur puis accepté avec branche et check-in, officielle
+unique, parent invalide, archive puis ré-archive refusée, catalogue,
+téléchargement, statut figé) ; graphe rendu sous Chromium. **Non vérifié**
+contre un vrai Mayan (comme le reste de ce module ici).
+
+
 
 `mayan_client.py` testé contre un VRAI petit serveur Flask simulant
 les réponses documentées de l'API Mayan (thread réel, vraies

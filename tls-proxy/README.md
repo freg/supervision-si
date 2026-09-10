@@ -42,6 +42,7 @@ Décidé en cours de session, en deux temps :
 | `/api/cacti/` | `cacti-api` | API Flask |
 | `/api/owncloud-search/` | `owncloud-search-api` | API Flask |
 | `/api/geo-import/` | `geo-import-api` | API Flask |
+| `/api/geo-catalog/` | `geo-catalog-api` | API Flask (catalogue de positions, #429) |
 
 Généré par `render_nginx_conf.py` (liste `SERVICES` dans le script —
 modifier là, jamais `generated/services.conf` à la main).

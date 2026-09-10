@@ -12,6 +12,26 @@ regarder l'entrée la plus récente en haut — si elle correspond à ce
 que vous avez déjà en `.env`, rien à faire. Sinon, copier/ajouter les
 clés listées, dans votre `.env` existant.
 
+## 2026-09-08 — SI_AGENT_* sécurité / notifications, SECRETS_ALERT_* passés au central (livraison #422)
+
+`si-agent-api` : `SI_AGENT_LOG_LEVEL` (INFO), `SI_AGENT_EVENTS_RETENTION_DAYS`
+(365), `SI_AGENT_NOTIFY_MIN_SEVERITY` (warning), `SI_AGENT_NOTIFY_COOLDOWN_SECONDS`
+(900), `SI_AGENT_NOTIFY_WEBHOOK_URL` (vide). Les canaux SMS / courriel
+réutilisent les variables `SECRETS_ALERT_*` du PRA (#206), désormais
+listées dans `.env.example` et transmises au conteneur ; un canal
+incomplet est ignoré. Le certificat `pki/ca/ca.crt` est monté en lecture
+seule dans le conteneur (amorçage TLS des agents par empreinte). Rien à
+faire si les défauts conviennent.
+
+## 2026-09-07 — SI_AGENT_* (livraison #421)
+
+Nouveau service `si-agent-api` (central des agents hôtes Linux, tuile
+« Agents hôtes ») : `SI_AGENT_API_PORT` (6129), `SI_AGENT_DATA_DIR`
+(vide = `./si-agent/data`), `SI_AGENT_PUBLIC_URL` (vide = passerelle
+`https://HOST_IP:GATEWAY_PORT/api/si-agent`, affichée dans la commande
+d'installation), `SI_AGENT_OFFLINE_SECONDS` (300),
+`SI_AGENT_RETENTION_DAYS` (90). Rien à faire si les défauts conviennent.
+
 ## 2026-09-05 — KEYCLOAK_SERVICE_CLIENT_ID/SECRET, nouvelles variables (livraison #361)
 
 Nouveau : `KEYCLOAK_SERVICE_CLIENT_ID` (défaut `supervision-si-service`)

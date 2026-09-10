@@ -1,0 +1,26 @@
+# Collecteur de site netprobe (Raspberry Pi 3B, Ethernet) -- installé par
+# image/build-image.sh. Écoute sur le LAN du site (port 6127 par défaut,
+# voir collector.json) ; relaie vers netprobe-api central quand joignable.
+[Unit]
+Description=netprobe-collector -- collecteur de site des sondes (supervision-si)
+After=network-online.target time-sync.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=netprobe
+Group=netprobe
+ExecStart=/usr/bin/python3 -m netprobe_agent.collector --config /etc/netprobe-collector/collector.json
+WorkingDirectory=/opt/netprobe-agent
+Environment=PYTHONPATH=/opt/netprobe-agent
+Environment=PYTHONUNBUFFERED=1
+Restart=always
+RestartSec=5
+ReadWritePaths=/var/lib/netprobe-collector /etc/netprobe-collector
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

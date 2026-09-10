@@ -21,15 +21,26 @@ trouvée (le site officiel n'archive plus, semble-t-il, que 3.6+).
 Les résultats réels sur le code de la personne restent le meilleur
 signal pour confirmer ou ajuster cette couverture.
 """
+import hmac
+import logging
 import os
+import re
 import zipfile
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+import requests as _requests
 
 import php_sql_scanner as scanner
 import html_view_scanner as view_scanner
 import route_scanner
+import journeys
+import journeys_store as jstore
+import ui_spec
+import merge
+import metagraph
+
+_log = logging.getLogger("retro_app")
 
 try:
     from version_endpoint import register_version_route
@@ -57,6 +68,45 @@ MAX_TOTAL_UNCOMPRESSED_SIZE = 200 * 1024 * 1024  # 200 Mo -- large marge pour un
 # ET du HTML affiché directement (mélange courant en PHP ancien
 # style, sans séparation stricte contrôleur/vue).
 SCANNED_EXTENSIONS = (".php", ".phtml", ".html", ".htm")
+
+# ---- Parcours applicatifs (#441) ---------------------------------------------------
+# Stockage (retro-api était sans état), jeton partagé avec l'agent relais
+# (`X-Relay-Token`, comparaison en temps constant ; vide = ingestion
+# refusée), dba-api pour lire le journal général MySQL de l'application.
+DATA_DIR = os.environ.get("RETRO_DATA_DIR", "/data")
+DB_PATH = os.path.join(DATA_DIR, "retro.db")
+RELAY_TOKEN = os.environ.get("RETRO_RELAY_TOKEN", "").strip()
+DBA_API_INTERNAL_URL = os.environ.get("DBA_API_INTERNAL_URL", "http://dba-api:5000").rstrip("/")
+RIGHTS_API_URL = os.environ.get("RIGHTS_API_URL", "").rstrip("/") or None
+_CLASS_PATTERN = re.compile(r"^\s*(?:abstract\s+|final\s+)?class\s+(\w+)", re.M)
+try:
+    jstore.ensure_schema(DB_PATH)
+except OSError as exc:  # dossier absent en dev : les routes /journeys renverront une erreur claire
+    _log.warning("base des parcours indisponible (%s) : %s", DB_PATH, exc)
+
+
+def _check_manage_right(body):
+    """Même motif que les autres services (#294) : fail-closed ; sans
+    RIGHTS_API_URL, ouvert (comportement historique de retro-api)."""
+    if not RIGHTS_API_URL:
+        return True, None
+    groups = (body or {}).get("groups") or []
+    try:
+        resp = _requests.post(f"{RIGHTS_API_URL}/check", json={"groups": groups, "resource_type": "retro-api", "resource_id": None, "action": "manage"}, timeout=5)
+    except _requests.RequestException:
+        return False, "service de droits injoignable -- action refusée par prudence"
+    if resp.status_code != 200:
+        return False, "service de droits indisponible -- action refusée par prudence"
+    try:
+        allowed = bool(resp.json().get("allowed", False))
+    except ValueError:
+        return False, "réponse du service de droits illisible -- action refusée par prudence"
+    return allowed, None if allowed else "droit 'manage' sur retro-api requis"
+
+
+def _relay_authorized():
+    token = request.headers.get("X-Relay-Token", "")
+    return bool(RELAY_TOKEN) and hmac.compare_digest(token, RELAY_TOKEN)
 
 
 @app.route("/health", methods=["GET"])
@@ -98,6 +148,7 @@ def scan_upload():
     all_forms = []
     all_view_results = []
     all_routes = []
+    file_tables, classes = {}, {}
     scanned_files = 0
     skipped_files = []
     total_size = 0
@@ -128,6 +179,12 @@ def scan_upload():
         sql_result = scanner.scan_php_source(content, filename=normalized)
         all_candidates.extend(sql_result["join_candidates"])
         all_mapper_tables.update(sql_result["mapper_tables"])
+        # #441 : tables par fichier et classes par fichier, pour rapprocher un
+        # écran parcouru (route -> contrôleur -> fichier) de ses tables
+        if sql_result["mapper_tables"]:
+            file_tables[normalized] = sorted(sql_result["mapper_tables"])
+        for cls in _CLASS_PATTERN.findall(content):
+            classes.setdefault(cls, normalized)
 
         view_result = view_scanner.scan_view_source(content, filename=normalized)
         all_forms.extend(view_result["forms"])
@@ -149,7 +206,7 @@ def scan_upload():
         (key if key is not None else "(closure ou fonction globale)"): value
         for key, value in routes_by_controller_raw.items()
     }
-    return jsonify({
+    result = {
         "scanned_files": scanned_files,
         "skipped_files": skipped_files,
         "join_candidates": deduped,
@@ -158,7 +215,429 @@ def scan_upload():
         "template_fields": merged_template_fields,
         "routes": all_routes,
         "routes_by_controller": routes_by_controller,
-    }), 200
+        "file_tables": file_tables,
+        "classes": classes,
+    }
+    # #441 : `app=<libellé>` (query ou champ de formulaire) conserve ce scan
+    # comme référence de code de l'application, pour les parcours.
+    app_label = (request.args.get("app") or request.form.get("app") or "").strip()
+    if app_label:
+        try:
+            jstore.save_scan(DB_PATH, app_label, {k: v for k, v in result.items() if k != "forms"})
+            result["saved_for_app"] = app_label
+        except Exception as exc:  # noqa: BLE001
+            result["saved_for_app"] = None
+            result["save_error"] = str(exc)
+    return jsonify(result), 200
+
+
+# ------------------------------------------------------------------
+# Parcours applicatifs (#441) : applications, parcours, événements du
+# relais, carte fonctionnelle, requêtes SQL réellement exécutées.
+# ------------------------------------------------------------------
+
+@app.route("/apps", methods=["GET"])
+def apps_list():
+    return jsonify({"apps": jstore.list_apps(DB_PATH), "relay_token_configured": bool(RELAY_TOKEN)}), 200
+
+
+@app.route("/apps", methods=["POST"])
+def apps_upsert():
+    body = request.get_json(silent=True) or {}
+    allowed, error = _check_manage_right(body)
+    if not allowed:
+        return jsonify({"error": error}), 403
+    label = (body.get("label") or "").strip()
+    if not label or len(label) > 80:
+        return jsonify({"error": "'label' requis (80 caractères max.)"}), 400
+    a = jstore.upsert_app(DB_PATH, label, base_url=(body.get("base_url") or "").strip() or None,
+                          dba_connection_id=body.get("dba_connection_id"), dba_database=body.get("dba_database"))
+    return jsonify(a), 200
+
+
+@app.route("/apps/<label>", methods=["GET"])
+def apps_get(label):
+    a = jstore.get_app(DB_PATH, label, with_scan=request.args.get("scan") == "1")
+    if a is None:
+        return jsonify({"error": "application inconnue"}), 404
+    return jsonify(a), 200
+
+
+@app.route("/apps/<label>", methods=["DELETE"])
+def apps_delete(label):
+    allowed, error = _check_manage_right(request.get_json(silent=True) or {})
+    if not allowed:
+        return jsonify({"error": error}), 403
+    return (jsonify({"deleted": True}), 200) if jstore.delete_app(DB_PATH, label) else (jsonify({"error": "application inconnue"}), 404)
+
+
+@app.route("/apps/<label>/map", methods=["GET"])
+def apps_map(label):
+    """Carte fonctionnelle AGRÉGÉE sur tous les parcours terminés ou en
+    cours de l'application : écrans ↔ routes ↔ tables."""
+    a = jstore.get_app(DB_PATH, label, with_scan=True)
+    if a is None:
+        return jsonify({"error": "application inconnue"}), 404
+    steps, m = _app_steps(label, a)
+    return jsonify({"app": label, "has_scan": a["has_scan"], "journeys": len(jstore.list_journeys(DB_PATH, app=label)), **m}), 200
+
+
+def _app_steps(label, a):
+    """Toutes les étapes de tous les parcours d'une application (avec le
+    SQL collecté), et la carte fonctionnelle."""
+    steps = []
+    for j in jstore.list_journeys(DB_PATH, app=label):
+        s = journeys.build_steps(jstore.get_events(DB_PATH, j["id"]), a.get("base_url"))
+        journeys.attribute_queries(s, jstore.get_queries(DB_PATH, j["id"]))
+        for st in s:
+            st["journey_id"] = j["id"]
+        steps.extend(s)
+    return steps, journeys.functional_map(steps, a.get("scan"), a.get("base_url"))
+
+
+def fetch_columns(dba_url, conn_id, database, tables, http=None):
+    """{table: colonnes} via dba-api (best-effort : une table illisible est
+    simplement absente)."""
+    http = http or _requests.get
+    out = {}
+    for t in tables:
+        try:
+            resp = http(f"{dba_url}/connections/{conn_id}/tables/{t}/columns", params={"database": database} if database else None, timeout=15)
+            data = resp.json()
+            if resp.status_code == 200 and isinstance(data, list):
+                out[t] = data
+        except (_requests.RequestException, ValueError):
+            continue
+    return out
+
+
+@app.route("/apps/<label>/ui-spec", methods=["GET"])
+def apps_ui_spec(label):
+    """#444 : spécification de l'interface générée. Enregistrée si elle
+    existe (choix manuels conservés) ; `?regenerate=1` la recalcule
+    depuis les parcours, la carte et les colonnes réelles (dba-api), en
+    gardant les choix manuels de la version précédente."""
+    a = jstore.get_app(DB_PATH, label, with_scan=True)
+    if a is None:
+        return jsonify({"error": "application inconnue"}), 404
+    existing = jstore.get_ui_spec(DB_PATH, label)
+    if existing and request.args.get("regenerate") != "1":
+        return jsonify({**existing, "saved": True}), 200
+    spec = _generate_ui_spec(label, a, existing)
+    return jsonify({**spec, "saved": True, "regenerated": True}), 200
+
+
+def _generate_ui_spec(label, a, existing=None):
+    """Recalcule et enregistre la spec d'interface d'une application."""
+    steps, fmap = _app_steps(label, a)
+    columns = {}
+    if a.get("dba_connection_id"):
+        columns = fetch_columns(DBA_API_INTERNAL_URL, a["dba_connection_id"], a.get("dba_database"), sorted(fmap.get("tables") or {}))
+    spec = ui_spec.build_ui_spec(steps, fmap, columns, label, existing=existing)
+    spec["dba_connection_id"], spec["dba_database"] = a.get("dba_connection_id"), a.get("dba_database")
+    spec["generated_at"] = jstore.now_iso()
+    jstore.save_ui_spec(DB_PATH, label, spec)
+    return spec
+
+
+def _specs_for(param):
+    """Specs d'interface des applications listées (`a,b,c` ; vide = toutes
+    les applications enregistrées) : la spec enregistrée, sinon générée.
+    Retourne ({label: spec}, [labels inconnus])."""
+    labels = [x.strip() for x in (param or "").split(",") if x.strip()] or [a["label"] for a in jstore.list_apps(DB_PATH)]
+    specs, unknown = {}, []
+    for label in labels:
+        a = jstore.get_app(DB_PATH, label, with_scan=True)
+        if a is None:
+            unknown.append(label)
+            continue
+        specs[label] = jstore.get_ui_spec(DB_PATH, label) or _generate_ui_spec(label, a)
+    return specs, unknown
+
+
+@app.route("/unified/compare", methods=["GET"])
+def unified_compare():
+    """#445 : comparaison des applications enregistrées (`?apps=a,b`, vide =
+    toutes) : groupes d'écrans remplissant la même fonction (score, raisons,
+    champs communs / propres) et écrans sans équivalent."""
+    specs, unknown = _specs_for(request.args.get("apps"))
+    if len(specs) < 2:
+        return jsonify({"error": "au moins deux applications enregistrées sont nécessaires", "unknown": unknown, "apps": sorted(specs)}), 400
+    return jsonify({**merge.compare_apps(specs), "unknown": unknown}), 200
+
+
+@app.route("/unified", methods=["GET"])
+def unified_spec():
+    """#445 : spécification de l'OUTIL UNIQUE (`?apps=a,b`, `?label=`) --
+    un écran par fonction, champs = union avec, par application, la table
+    et la colonne réelles. `?view=<app>` : projection sur une application
+    (ce que l'interface générée sait rendre, lecture / écriture dans les
+    tables de cette application)."""
+    specs, unknown = _specs_for(request.args.get("apps"))
+    if len(specs) < 2:
+        return jsonify({"error": "au moins deux applications enregistrées sont nécessaires", "unknown": unknown, "apps": sorted(specs)}), 400
+    uni = merge.unified_spec(specs, label=(request.args.get("label") or "outil unique")[:80])
+    view = request.args.get("view")
+    if view:
+        if view not in specs:
+            return jsonify({"error": "application inconnue : %s" % view, "apps": sorted(specs)}), 404
+        return jsonify({**merge.per_app_view(uni, view), "unified_counts": uni["counts"], "apps": uni["apps"]}), 200
+    return jsonify({**uni, "unknown": unknown}), 200
+
+
+@app.route("/apps/<label>/ui-spec", methods=["PUT"])
+def apps_ui_spec_put(label):
+    """Enregistre une spec modifiée à la main (table d'un écran, colonnes,
+    titres, écrans masqués) -- les marqueurs `*_manual` protègent ces
+    choix lors d'une régénération."""
+    body = request.get_json(silent=True) or {}
+    allowed, error = _check_manage_right(body)
+    if not allowed:
+        return jsonify({"error": error}), 403
+    spec = body.get("spec")
+    if not isinstance(spec, dict) or not isinstance(spec.get("screens"), list):
+        return jsonify({"error": "'spec' : objet {screens: [...]} attendu"}), 400
+    if not jstore.save_ui_spec(DB_PATH, label, spec):
+        return jsonify({"error": "application inconnue"}), 404
+    return jsonify({"saved": True, "screens": len(spec["screens"])}), 200
+
+
+@app.route("/unified/metagraph", methods=["GET"])
+def unified_metagraph():
+    """#448 : méta-relevé des champs et des relations (`?apps=a,b`, vide =
+    toutes) : entités (tables par application, colonnes typées via dba-api
+    quand la connexion est renseignée, écrans qui les montrent), relations
+    intra-application (code, journal SQL, noms), équivalences
+    inter-applications (spec unique #445, noms canoniques), références
+    inter-gestions ; et la proposition de fusion (`proposal`)."""
+    specs, unknown = _specs_for(request.args.get("apps"))
+    if not specs:
+        return jsonify({"error": "aucune application enregistrée", "unknown": unknown}), 400
+    scans, queries, columns = {}, {}, {}
+    for label in specs:
+        a = jstore.get_app(DB_PATH, label, with_scan=True) or {}
+        scans[label] = a.get("scan") or {}
+        qs = []
+        for j in jstore.list_journeys(DB_PATH, app=label):
+            qs.extend(jstore.get_queries(DB_PATH, j["id"]))
+        queries[label] = qs
+        tables = sorted(set((specs[label].get("tables") or {}).keys()) | {s.get("table") for s in specs[label].get("screens") or [] if s.get("table")})
+        if a.get("dba_connection_id") and tables:
+            columns[label] = fetch_columns(DBA_API_INTERNAL_URL, a["dba_connection_id"], a.get("dba_database"), tables)
+    uni = merge.unified_spec(specs) if len(specs) >= 2 else None
+    graph = metagraph.build_metagraph(specs, scans=scans, queries_by_app=queries, unified=uni, columns_by_app=columns)
+    return jsonify({**graph, "proposal": metagraph.fusion_proposal(graph), "unknown": unknown,
+                    "inputs": {label: {"scan": bool(scans[label]), "queries": len(queries[label]), "typed_columns": len(columns.get(label) or {})} for label in specs}}), 200
+
+
+@app.route("/journeys", methods=["GET"])
+def journeys_list():
+    return jsonify({"journeys": jstore.list_journeys(DB_PATH, app=request.args.get("app"))}), 200
+
+
+@app.route("/journeys", methods=["POST"])
+def journeys_create():
+    """Depuis le hub (droit manage) OU depuis le relais (jeton) : {app,
+    name, tester, base_url}."""
+    body = request.get_json(silent=True) or {}
+    if not _relay_authorized():
+        allowed, error = _check_manage_right(body)
+        if not allowed:
+            return jsonify({"error": error}), 403
+    appl = (body.get("app") or "").strip()
+    if not appl:
+        return jsonify({"error": "'app' requis"}), 400
+    branch = body.get("branch_step")
+    try:
+        branch = int(branch) if branch not in (None, "") else None
+    except (TypeError, ValueError):
+        return jsonify({"error": "'branch_step' entier attendu"}), 400
+    j = jstore.create_journey(DB_PATH, appl, name=(body.get("name") or "").strip() or None, tester=(body.get("tester") or "").strip() or None,
+                              base_url=(body.get("base_url") or "").strip() or None, parent_id=(body.get("parent_id") or "").strip() or None,
+                              branch_step=branch, kind=body.get("kind") or "recorded")
+    if j is None:
+        return jsonify({"error": "parcours parent inconnu"}), 404
+    return jsonify(j), 201
+
+
+def _journey_detail(j):
+    a = jstore.get_app(DB_PATH, j["app"], with_scan=True) or {}
+    steps = journeys.build_steps(jstore.get_events(DB_PATH, j["id"]), a.get("base_url"))
+    journeys.attribute_queries(steps, jstore.get_queries(DB_PATH, j["id"]))
+    for st in steps:
+        st["annotation"] = (j.get("annotations") or {}).get(str(st["n"]))
+    fmap = journeys.functional_map(steps, a.get("scan"), a.get("base_url"))
+    return {**j, "base_url": a.get("base_url"), "has_scan": bool(a.get("has_scan")), "steps": steps, "map": fmap}
+
+
+@app.route("/journeys/<jid>", methods=["GET"])
+def journeys_get(jid):
+    j = jstore.get_journey(DB_PATH, jid)
+    if j is None:
+        return jsonify({"error": "parcours inconnu"}), 404
+    return jsonify(_journey_detail(j)), 200
+
+
+@app.route("/journeys/<jid>", methods=["DELETE"])
+def journeys_delete(jid):
+    allowed, error = _check_manage_right(request.get_json(silent=True) or {})
+    if not allowed:
+        return jsonify({"error": error}), 403
+    return (jsonify({"deleted": True}), 200) if jstore.delete_journey(DB_PATH, jid) else (jsonify({"error": "parcours inconnu"}), 404)
+
+
+@app.route("/journeys/<jid>/events", methods=["POST"])
+def journeys_events(jid):
+    """Ingestion par l'agent relais : {events: [{seq?, at, kind, data}]},
+    jeton `X-Relay-Token` obligatoire. Idempotent sur `seq`."""
+    if not _relay_authorized():
+        return jsonify({"error": "jeton de relais absent ou invalide (RETRO_RELAY_TOKEN)"}), 401
+    body = request.get_json(silent=True) or {}
+    events = body.get("events")
+    if not isinstance(events, list):
+        return jsonify({"error": "'events' : liste attendue"}), 400
+    if len(events) > 2000:
+        return jsonify({"error": "lot trop grand (2000 événements max.)"}), 400
+    r, err = jstore.add_events(DB_PATH, jid, events)
+    if err:
+        return jsonify({"error": err}), 404 if "inconnu" in err else 409
+    return jsonify(r), 200
+
+
+@app.route("/journeys/<jid>/end", methods=["POST"])
+def journeys_end(jid):
+    body = request.get_json(silent=True) or {}
+    if not _relay_authorized():
+        allowed, error = _check_manage_right(body)
+        if not allowed:
+            return jsonify({"error": error}), 403
+    if not jstore.end_journey(DB_PATH, jid, notes=body.get("notes")):
+        return jsonify({"error": "parcours inconnu"}), 404
+    return jsonify(jstore.get_journey(DB_PATH, jid)), 200
+
+
+@app.route("/journeys/<jid>/annotate", methods=["POST"])
+def journeys_annotate(jid):
+    body = request.get_json(silent=True) or {}
+    allowed, error = _check_manage_right(body)
+    if not allowed:
+        return jsonify({"error": error}), 403
+    try:
+        step = int(body.get("step"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "'step' entier requis"}), 400
+    ann = jstore.annotate(DB_PATH, jid, step, (body.get("text") or "").strip())
+    if ann is None:
+        return jsonify({"error": "parcours inconnu"}), 404
+    return jsonify({"annotations": ann}), 200
+
+
+@app.route("/journeys/<jid>/script", methods=["GET"])
+def journeys_script(jid):
+    """#443 : script de rejeu (navigate / click / fill / submit / expect /
+    mark) dérivé des étapes -- lu par le relais pour l'extension."""
+    j = jstore.get_journey(DB_PATH, jid)
+    if j is None:
+        return jsonify({"error": "parcours inconnu"}), 404
+    a = jstore.get_app(DB_PATH, j["app"]) or {}
+    steps = journeys.build_steps(jstore.get_events(DB_PATH, jid), a.get("base_url"))
+    return jsonify({"journey_id": jid, "app": j["app"], "name": j["name"], "base_url": a.get("base_url"), "steps": len(steps),
+                    "script": journeys.replay_script(steps)}), 200
+
+
+@app.route("/journeys/<jid>/replay", methods=["POST"])
+def journeys_replay(jid):
+    """#443 : prépare un rejeu -- crée le parcours enfant (kind=replay, même
+    application) qui recevra les événements du rejeu, et renvoie le script.
+    Relais (jeton) ou hub (manage)."""
+    body = request.get_json(silent=True) or {}
+    if not _relay_authorized():
+        allowed, error = _check_manage_right(body)
+        if not allowed:
+            return jsonify({"error": error}), 403
+    j = jstore.get_journey(DB_PATH, jid)
+    if j is None:
+        return jsonify({"error": "parcours inconnu"}), 404
+    a = jstore.get_app(DB_PATH, j["app"]) or {}
+    steps = journeys.build_steps(jstore.get_events(DB_PATH, jid), a.get("base_url"))
+    child = jstore.create_journey(DB_PATH, j["app"], name="rejeu de %s" % (j["name"] or jid), tester=(body.get("tester") or "").strip() or None,
+                                  parent_id=jid, branch_step=None, kind="replay")
+    return jsonify({"journey": child, "base_url": a.get("base_url"), "script": journeys.replay_script(steps)}), 201
+
+
+@app.route("/journeys/<jid>/compare/<other>", methods=["GET"])
+def journeys_compare(jid, other):
+    """#443 : deux parcours alignés étape par étape (écran, statut,
+    formulaires, en-têtes, tableaux, requêtes secondaires, tables SQL)."""
+    ja, jb = jstore.get_journey(DB_PATH, jid), jstore.get_journey(DB_PATH, other)
+    if ja is None or jb is None:
+        return jsonify({"error": "parcours inconnu"}), 404
+    out = []
+    for j in (ja, jb):
+        a = jstore.get_app(DB_PATH, j["app"]) or {}
+        steps = journeys.build_steps(jstore.get_events(DB_PATH, j["id"]), a.get("base_url"))
+        journeys.attribute_queries(steps, jstore.get_queries(DB_PATH, j["id"]))
+        out.append(steps)
+    return jsonify({"a": {"id": ja["id"], "name": ja["name"], "kind": ja["kind"]}, "b": {"id": jb["id"], "name": jb["name"], "kind": jb["kind"]},
+                    **journeys.compare_journeys(out[0], out[1])}), 200
+
+
+def fetch_general_log(dba_url, conn_id, database, since, until, http=None):
+    """Requêtes du journal général MySQL (`mysql.general_log`, `log_output=TABLE`)
+    entre deux instants, via dba-api. (liste [{at, sql, user, thread_id}], erreur)."""
+    http = http or _requests.post
+    sql = ("SELECT event_time, user_host, thread_id, argument FROM mysql.general_log "
+           "WHERE command_type = 'Query' AND event_time >= '%s' AND event_time < '%s' ORDER BY event_time LIMIT 20000"
+           % (since.replace("T", " ").rstrip("Z"), until.replace("T", " ").rstrip("Z")))
+    try:
+        resp = http(f"{dba_url}/connections/{conn_id}/sql", json={"sql": sql, "database": database or None, "groups": ["admin_hub"]}, timeout=60)
+    except _requests.RequestException as exc:
+        return None, f"dba-api injoignable : {exc}"
+    try:
+        data = resp.json()
+    except ValueError:
+        return None, "réponse de dba-api illisible"
+    if resp.status_code != 200 or "error" in data:
+        return None, "dba-api : %s" % (data.get("error") or resp.status_code)
+    cols = data.get("columns") or []
+    out = []
+    for row in data.get("rows") or []:
+        r = dict(zip(cols, row))
+        arg = r.get("argument")
+        if isinstance(arg, (bytes, bytearray)):
+            arg = arg.decode("utf-8", "replace")
+        out.append({"at": str(r.get("event_time") or ""), "sql": str(arg or ""), "user": r.get("user_host"), "thread_id": str(r.get("thread_id") or "")})
+    return out, None
+
+
+@app.route("/journeys/<jid>/queries/collect", methods=["POST"])
+def journeys_collect_queries(jid):
+    """« Analyse bdd » : lit le journal général MySQL de l'application
+    (connexion dba-api de l'application, ou `dba_connection_id` /
+    `dba_database` du corps) entre le début et la fin du parcours, et
+    rattache chaque requête à son étape. Prérequis côté MySQL :
+    `SET GLOBAL general_log = 'ON', log_output = 'TABLE'` pendant le test
+    (à couper après : volumineux)."""
+    body = request.get_json(silent=True) or {}
+    allowed, error = _check_manage_right(body)
+    if not allowed:
+        return jsonify({"error": error}), 403
+    j = jstore.get_journey(DB_PATH, jid)
+    if j is None:
+        return jsonify({"error": "parcours inconnu"}), 404
+    a = jstore.get_app(DB_PATH, j["app"]) or {}
+    conn_id = body.get("dba_connection_id") or a.get("dba_connection_id")
+    database = body.get("dba_database") or a.get("dba_database")
+    if not conn_id:
+        return jsonify({"error": "aucune connexion dba-api : renseigner dba_connection_id (application ou requête)"}), 400
+    until = j.get("ended_at") or jstore.now_iso()
+    queries, err = fetch_general_log(DBA_API_INTERNAL_URL, conn_id, database, j["started_at"], until)
+    if err:
+        return jsonify({"error": err}), 502
+    n = jstore.replace_queries(DB_PATH, jid, queries)
+    detail = _journey_detail(jstore.get_journey(DB_PATH, jid))
+    attributed = sum(len(s.get("queries") or []) for s in detail["steps"])
+    return jsonify({"collected": n, "attributed": attributed, "steps": len(detail["steps"]), "tables": len(detail["map"]["tables"])}), 200
 
 
 # ------------------------------------------------------------------

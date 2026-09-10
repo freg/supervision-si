@@ -1,0 +1,863 @@
+# -*- coding: utf-8 -*-
+"""Persistance de Cortex (livraison #462) -- SQLite : entités fusionnées,
+relations, événements normalisés avec cycle de vie (open / acked /
+closed, compteur de répétition), incidents (état, accusé, hypothèses),
+retours humains par principe (l'évaluation des partis pris), journal des
+collectes (transparence : qui a répondu, combien, en combien de temps).
+"""
+import json
+import sqlite3
+import time
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS entities (
+    key TEXT PRIMARY KEY, kind TEXT, name TEXT, ip TEXT, mac TEXT, site TEXT,
+    origins_json TEXT, hints_json TEXT, first_seen TEXT NOT NULL, last_seen TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS relations (
+    a TEXT NOT NULL, b TEXT NOT NULL, kind TEXT NOT NULL, weight REAL, principle TEXT, evidence TEXT, source TEXT,
+    first_seen TEXT NOT NULL, last_seen TEXT NOT NULL, PRIMARY KEY (a, b, kind, source)
+);
+CREATE TABLE IF NOT EXISTS events (
+    fingerprint TEXT PRIMARY KEY, source TEXT, kind TEXT, severity TEXT, entity TEXT, site TEXT, message TEXT, raw_ref TEXT,
+    at TEXT, first_at TEXT, last_at TEXT, count INTEGER DEFAULT 1, state TEXT DEFAULT 'open',
+    acked_by TEXT, acked_at TEXT, closed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_events_state ON events(state, last_at);
+CREATE TABLE IF NOT EXISTS incidents (
+    key TEXT PRIMARY KEY, severity TEXT, state TEXT DEFAULT 'open', opened_at TEXT, last_at TEXT, closed_at TEXT,
+    root TEXT, title TEXT, confidence REAL, weak INTEGER, entities_json TEXT, events_json TEXT, hypotheses_json TEXT, sources_json TEXT,
+    acked_by TEXT, acked_at TEXT
+);
+CREATE TABLE IF NOT EXISTS feedback (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, principle TEXT NOT NULL, verdict TEXT NOT NULL,
+    incident_key TEXT, claim TEXT, by_user TEXT, note TEXT
+);
+CREATE TABLE IF NOT EXISTS routes (
+    host TEXT NOT NULL, destination TEXT NOT NULL, via TEXT, kind TEXT, state TEXT, source TEXT,
+    first_seen TEXT NOT NULL, last_seen TEXT NOT NULL, PRIMARY KEY (host, destination, source)
+);
+CREATE TABLE IF NOT EXISTS changes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, kind TEXT NOT NULL, subject TEXT, message TEXT, principle TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_changes_at ON changes(at);
+CREATE TABLE IF NOT EXISTS places (
+    key TEXT PRIMARY KEY, kind TEXT, name TEXT, parent TEXT, lat REAL, lon REAL, principle TEXT, sources_json TEXT, inherited_from TEXT,
+    first_seen TEXT NOT NULL, last_seen TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS place_notes (
+    key TEXT PRIMARY KEY, contact TEXT, access TEXT, notes TEXT, updated_by TEXT, updated_at TEXT
+);
+CREATE TABLE IF NOT EXISTS positions (
+    entity TEXT PRIMARY KEY, lat REAL, lon REAL, place TEXT, provenance TEXT, principle TEXT, confidence REAL, chain_json TEXT,
+    source TEXT, evidence TEXT, first_at TEXT NOT NULL, updated_at TEXT NOT NULL, changed_at TEXT
+);
+CREATE TABLE IF NOT EXISTS occurrences (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, fingerprint TEXT, source TEXT, kind TEXT, entity TEXT, site TEXT, severity TEXT, at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_occ_at ON occurrences(at);
+CREATE TABLE IF NOT EXISTS rules (
+    id TEXT PRIMARY KEY, a TEXT NOT NULL, b TEXT NOT NULL, scope TEXT, count INTEGER, support_a INTEGER, support_b INTEGER, confidence REAL,
+    expected REAL, lift REAL, delay_s INTEGER, delay_min_s INTEGER, delay_max_s INTEGER, first_at TEXT, last_at TEXT,
+    state TEXT DEFAULT 'proposed', hits INTEGER DEFAULT 0, misses INTEGER DEFAULT 0, decided_by TEXT, decided_at TEXT, note TEXT, updated_at TEXT
+);
+CREATE TABLE IF NOT EXISTS predictions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, rule_id TEXT NOT NULL, trigger TEXT, entity TEXT, site TEXT, expected TEXT, expected_at TEXT, since TEXT,
+    delay_max_s INTEGER, scope TEXT, message TEXT, confidence REAL, roles_json TEXT, outcome TEXT, settled_at TEXT, created_at TEXT NOT NULL,
+    UNIQUE (rule_id, trigger)
+);
+CREATE TABLE IF NOT EXISTS samples (
+    entity TEXT NOT NULL, metric TEXT NOT NULL, at TEXT NOT NULL, value REAL, PRIMARY KEY (entity, metric, at)
+);
+CREATE INDEX IF NOT EXISTS ix_samples_at ON samples(at);
+CREATE TABLE IF NOT EXISTS policies (
+    id TEXT PRIMARY KEY, json TEXT NOT NULL, updated_by TEXT, updated_at TEXT
+);
+CREATE TABLE IF NOT EXISTS silences (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, ticket TEXT, start_at TEXT NOT NULL, end_at TEXT NOT NULL, target_json TEXT, created_by TEXT, created_at TEXT
+);
+CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, incident_key TEXT NOT NULL, kind TEXT NOT NULL, at TEXT NOT NULL, policy TEXT, priority TEXT,
+    channels_json TEXT, result_json TEXT, message TEXT, reason TEXT, UNIQUE (incident_key, kind)
+);
+CREATE TABLE IF NOT EXISTS runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, duration_ms INTEGER, sources_json TEXT, counts_json TEXT
+);
+"""
+
+
+def now_iso():
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def connect(db_path):
+    c = sqlite3.connect(db_path, timeout=10)
+    c.row_factory = sqlite3.Row
+    return c
+
+
+def ensure_schema(db_path):
+    c = connect(db_path)
+    try:
+        c.executescript(SCHEMA)
+        cols = {r["name"] for r in c.execute("PRAGMA table_info(entities)").fetchall()}
+        for col in ("vendor", "model", "description", "subnet", "os", "geo_json", "place"):
+            if col not in cols:
+                c.execute("ALTER TABLE entities ADD COLUMN %s TEXT" % col)
+        c.commit()
+    finally:
+        c.close()
+
+
+def _row(r, json_fields=()):
+    d = dict(r)
+    for f in json_fields:
+        if f in d:
+            try:
+                d[f[:-5]] = json.loads(d.pop(f) or "null")
+            except ValueError:
+                d[f[:-5]] = None
+    return d
+
+
+# ---------------------------------------------------------------- entités / relations
+def upsert_entities(db_path, entities):
+    now = now_iso()
+    c = connect(db_path)
+    try:
+        for e in entities:
+            c.execute("""INSERT INTO entities (key, kind, name, ip, mac, site, origins_json, hints_json, first_seen, last_seen, vendor, model, description, subnet, os, geo_json, place)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                         ON CONFLICT(key) DO UPDATE SET kind=excluded.kind, name=COALESCE(excluded.name, entities.name),
+                           ip=COALESCE(excluded.ip, entities.ip), mac=COALESCE(excluded.mac, entities.mac), site=COALESCE(excluded.site, entities.site),
+                           origins_json=excluded.origins_json, hints_json=excluded.hints_json, last_seen=excluded.last_seen,
+                           vendor=COALESCE(excluded.vendor, entities.vendor), model=COALESCE(excluded.model, entities.model),
+                           description=COALESCE(excluded.description, entities.description), subnet=COALESCE(excluded.subnet, entities.subnet), os=COALESCE(excluded.os, entities.os),
+                           geo_json=COALESCE(excluded.geo_json, entities.geo_json), place=COALESCE(excluded.place, entities.place)""",
+                      (e["key"], e.get("kind"), e.get("name"), e.get("ip"), e.get("mac"), e.get("site"),
+                       json.dumps(e.get("origins") or []), json.dumps(e.get("hints") or []), now, now,
+                       e.get("vendor"), e.get("model"), e.get("description"), e.get("subnet"), e.get("os"),
+                       json.dumps(e["geo"]) if e.get("geo") else None, e.get("place")))
+        c.commit()
+    finally:
+        c.close()
+
+
+def upsert_relations(db_path, relations):
+    now = now_iso()
+    c = connect(db_path)
+    try:
+        for r in relations:
+            c.execute("""INSERT INTO relations (a, b, kind, weight, principle, evidence, source, first_seen, last_seen) VALUES (?,?,?,?,?,?,?,?,?)
+                         ON CONFLICT(a, b, kind, source) DO UPDATE SET weight=excluded.weight, evidence=excluded.evidence, last_seen=excluded.last_seen""",
+                      (r["a"], r["b"], r["kind"], r.get("weight"), r.get("principle"), r.get("evidence"), r.get("source"), now, now))
+        c.commit()
+    finally:
+        c.close()
+
+
+def list_entities(db_path, q=None, limit=500):
+    c = connect(db_path)
+    try:
+        if q:
+            like = "%%%s%%" % q
+            rows = c.execute("SELECT * FROM entities WHERE key LIKE ? OR name LIKE ? OR ip LIKE ? OR site LIKE ? ORDER BY last_seen DESC LIMIT ?", (like, like, like, like, limit)).fetchall()
+        else:
+            rows = c.execute("SELECT * FROM entities ORDER BY last_seen DESC LIMIT ?", (limit,)).fetchall()
+        return [_row(r, ("origins_json", "hints_json", "geo_json")) for r in rows]
+    finally:
+        c.close()
+
+
+def get_entity(db_path, key):
+    c = connect(db_path)
+    try:
+        r = c.execute("SELECT * FROM entities WHERE key=?", (key,)).fetchone()
+        return _row(r, ("origins_json", "hints_json", "geo_json")) if r else None
+    finally:
+        c.close()
+
+
+def list_relations(db_path, entity=None, fresh_hours=None):
+    c = connect(db_path)
+    try:
+        if entity:
+            rows = c.execute("SELECT * FROM relations WHERE a=? OR b=? ORDER BY weight DESC", (entity, entity)).fetchall()
+        else:
+            rows = c.execute("SELECT * FROM relations").fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        c.close()
+
+
+# ---------------------------------------------------------------- événements
+def upsert_events(db_path, events):
+    """Un événement déjà connu (empreinte) est rafraîchi (last_at, count) ;
+    un événement fermé qui revient est rouvert. -> (nouveaux, rafraîchis)"""
+    now = now_iso()
+    new, refreshed = 0, 0
+    c = connect(db_path)
+    try:
+        for e in events:
+            at = e.get("at") or now
+            r = c.execute("SELECT state, count FROM events WHERE fingerprint=?", (e["fingerprint"],)).fetchone()
+            occ = False
+            if r is None:
+                c.execute("INSERT INTO events (fingerprint, source, kind, severity, entity, site, message, raw_ref, at, first_at, last_at, count, state) VALUES (?,?,?,?,?,?,?,?,?,?,?,1,'open')",
+                          (e["fingerprint"], e.get("source"), e.get("kind"), e.get("severity"), e.get("entity"), e.get("site"), e.get("message"), e.get("raw_ref"), at, at, at))
+                new += 1
+                occ = True
+            else:
+                state = "open" if r["state"] == "closed" else r["state"]
+                occ = r["state"] == "closed"
+                c.execute("UPDATE events SET last_at=?, count=count+1, message=?, severity=?, state=?, closed_at=NULL WHERE fingerprint=?",
+                          (max(at, r["state"] and at), e.get("message"), e.get("severity"), state, e["fingerprint"]))
+                refreshed += 1
+            if occ:   # historique des OCCURRENCES (#465) : ouverture ou réouverture, jamais un simple rafraîchissement
+                c.execute("INSERT INTO occurrences (fingerprint, source, kind, entity, site, severity, at) VALUES (?,?,?,?,?,?,?)",
+                          (e["fingerprint"], e.get("source"), e.get("kind"), e.get("entity"), e.get("site"), e.get("severity"), at if r is None else now))
+        c.commit()
+    finally:
+        c.close()
+    return new, refreshed
+
+
+def close_missing_events(db_path, seen_fingerprints, sources):
+    """Un événement ouvert d'une source collectée avec succès qui n'est plus
+    remonté est FERMÉ (la source ne le voit plus) -- sauf ceux à identifiant
+    source unique (raw_ref d'événement historique), qui ne se ferment que par accusé."""
+    now = now_iso()
+    c = connect(db_path)
+    try:
+        rows = c.execute("SELECT fingerprint, source, raw_ref FROM events WHERE state IN ('open','acked')").fetchall()
+        closed = 0
+        for r in rows:
+            if r["source"] in sources and r["fingerprint"] not in seen_fingerprints and ":event:" not in (r["raw_ref"] or ""):
+                c.execute("UPDATE events SET state='closed', closed_at=? WHERE fingerprint=?", (now, r["fingerprint"]))
+                closed += 1
+        c.commit()
+        return closed
+    finally:
+        c.close()
+
+
+def list_events(db_path, state=None, severity=None, since=None, entity=None, limit=300):
+    c = connect(db_path)
+    try:
+        q, args = "SELECT * FROM events WHERE 1=1", []
+        if state and state != "all":
+            q += " AND state=?"; args.append(state)
+        if severity:
+            q += " AND severity=?"; args.append(severity)
+        if since:
+            q += " AND last_at>=?"; args.append(since)
+        if entity:
+            q += " AND entity=?"; args.append(entity)
+        q += " ORDER BY last_at DESC LIMIT ?"; args.append(limit)
+        return [dict(r) for r in c.execute(q, args).fetchall()]
+    finally:
+        c.close()
+
+
+def set_event_state(db_path, fingerprint, state, by=None):
+    now = now_iso()
+    c = connect(db_path)
+    try:
+        if state == "acked":
+            n = c.execute("UPDATE events SET state='acked', acked_by=?, acked_at=? WHERE fingerprint=? AND state='open'", (by, now, fingerprint)).rowcount
+        elif state == "closed":
+            n = c.execute("UPDATE events SET state='closed', closed_at=? WHERE fingerprint=? AND state!='closed'", (now, fingerprint)).rowcount
+        else:
+            n = 0
+        c.commit()
+        return n > 0
+    finally:
+        c.close()
+
+
+# ---------------------------------------------------------------- incidents
+def sync_incidents(db_path, computed):
+    """Aligne la table sur les incidents recalculés : un incident dont la clé
+    existe garde son état (acked) et son accusé ; un incident absent du
+    calcul (tous ses événements fermés) est fermé ; un nouveau est ouvert."""
+    now = now_iso()
+    keys = {i["key"] for i in computed}
+    c = connect(db_path)
+    try:
+        existing = {r["key"]: dict(r) for r in c.execute("SELECT key, state, acked_by, acked_at FROM incidents").fetchall()}
+        for i in computed:
+            ex = existing.get(i["key"])
+            state = ex["state"] if ex and ex["state"] == "acked" else "open"
+            c.execute("""INSERT INTO incidents (key, severity, state, opened_at, last_at, closed_at, root, title, confidence, weak, entities_json, events_json, hypotheses_json, sources_json, acked_by, acked_at)
+                         VALUES (?,?,?,?,?,NULL,?,?,?,?,?,?,?,?,?,?)
+                         ON CONFLICT(key) DO UPDATE SET severity=excluded.severity, state=?, last_at=excluded.last_at, closed_at=NULL, root=excluded.root, title=excluded.title,
+                           confidence=excluded.confidence, weak=excluded.weak, entities_json=excluded.entities_json, events_json=excluded.events_json, hypotheses_json=excluded.hypotheses_json, sources_json=excluded.sources_json""",
+                      (i["key"], i["severity"], state, i["opened_at"] or now, i["last_at"] or now, i["root"], i["title"], i["confidence"], 1 if i.get("weak") else 0,
+                       json.dumps(i["entities"]), json.dumps(i["events"]), json.dumps(i["hypotheses"], ensure_ascii=False), json.dumps(i.get("sources") or []),
+                       ex["acked_by"] if ex else None, ex["acked_at"] if ex else None, state))
+        for k, ex in existing.items():
+            if k not in keys and ex["state"] != "closed":
+                c.execute("UPDATE incidents SET state='closed', closed_at=? WHERE key=?", (now, k))
+        c.commit()
+    finally:
+        c.close()
+
+
+def list_incidents(db_path, state="open", limit=200):
+    c = connect(db_path)
+    try:
+        if state == "all":
+            rows = c.execute("SELECT * FROM incidents ORDER BY (state='closed'), CASE severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END, last_at DESC LIMIT ?", (limit,)).fetchall()
+        elif state == "open":
+            rows = c.execute("SELECT * FROM incidents WHERE state IN ('open','acked') ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END, last_at DESC LIMIT ?", (limit,)).fetchall()
+        else:
+            rows = c.execute("SELECT * FROM incidents WHERE state=? ORDER BY last_at DESC LIMIT ?", (state, limit)).fetchall()
+        return [_row(r, ("entities_json", "events_json", "hypotheses_json", "sources_json")) for r in rows]
+    finally:
+        c.close()
+
+
+def get_incident(db_path, key):
+    c = connect(db_path)
+    try:
+        r = c.execute("SELECT * FROM incidents WHERE key=?", (key,)).fetchone()
+        return _row(r, ("entities_json", "events_json", "hypotheses_json", "sources_json")) if r else None
+    finally:
+        c.close()
+
+
+def set_incident_state(db_path, key, state, by=None):
+    now = now_iso()
+    c = connect(db_path)
+    try:
+        if state == "acked":
+            n = c.execute("UPDATE incidents SET state='acked', acked_by=?, acked_at=? WHERE key=? AND state='open'", (by, now, key)).rowcount
+            fps = json.loads((c.execute("SELECT events_json FROM incidents WHERE key=?", (key,)).fetchone() or {"events_json": "[]"})["events_json"])
+            for fp in fps:
+                c.execute("UPDATE events SET state='acked', acked_by=?, acked_at=? WHERE fingerprint=? AND state='open'", (by, now, fp))
+        elif state == "closed":
+            n = c.execute("UPDATE incidents SET state='closed', closed_at=? WHERE key=? AND state!='closed'", (now, key)).rowcount
+            fps = json.loads((c.execute("SELECT events_json FROM incidents WHERE key=?", (key,)).fetchone() or {"events_json": "[]"})["events_json"])
+            for fp in fps:
+                c.execute("UPDATE events SET state='closed', closed_at=? WHERE fingerprint=? AND state!='closed'", (now, fp))
+        else:
+            n = 0
+        c.commit()
+        return n > 0
+    finally:
+        c.close()
+
+
+# ---------------------------------------------------------------- retours et journal
+def add_feedback(db_path, principle, verdict, incident_key=None, claim=None, by=None, note=None):
+    c = connect(db_path)
+    try:
+        c.execute("INSERT INTO feedback (at, principle, verdict, incident_key, claim, by_user, note) VALUES (?,?,?,?,?,?,?)",
+                  (now_iso(), principle, verdict, incident_key, claim, by, note))
+        c.commit()
+    finally:
+        c.close()
+
+
+def feedback_counts(db_path):
+    """{principe: {confirmed, rejected, applied}} -- applied = nombre
+    d'hypothèses émises portant ce principe dans les incidents connus."""
+    c = connect(db_path)
+    try:
+        out = {}
+        for r in c.execute("SELECT principle, verdict, COUNT(*) n FROM feedback GROUP BY principle, verdict").fetchall():
+            out.setdefault(r["principle"], {"confirmed": 0, "rejected": 0, "applied": 0})
+            if r["verdict"] in ("confirmed", "rejected"):
+                out[r["principle"]][r["verdict"]] += r["n"]
+        for r in c.execute("SELECT hypotheses_json FROM incidents").fetchall():
+            try:
+                for h in json.loads(r["hypotheses_json"] or "[]"):
+                    out.setdefault(h.get("principle"), {"confirmed": 0, "rejected": 0, "applied": 0})["applied"] += 1
+            except ValueError:
+                pass
+        return out
+    finally:
+        c.close()
+
+
+def list_feedback(db_path, limit=100):
+    c = connect(db_path)
+    try:
+        return [dict(r) for r in c.execute("SELECT * FROM feedback ORDER BY at DESC LIMIT ?", (limit,)).fetchall()]
+    finally:
+        c.close()
+
+
+def add_run(db_path, duration_ms, sources, counts):
+    c = connect(db_path)
+    try:
+        c.execute("INSERT INTO runs (at, duration_ms, sources_json, counts_json) VALUES (?,?,?,?)", (now_iso(), duration_ms, json.dumps(sources, ensure_ascii=False), json.dumps(counts)))
+        c.execute("DELETE FROM runs WHERE id NOT IN (SELECT id FROM runs ORDER BY id DESC LIMIT 200)")
+        c.commit()
+    finally:
+        c.close()
+
+
+def list_runs(db_path, limit=20):
+    c = connect(db_path)
+    try:
+        return [_row(r, ("sources_json", "counts_json")) for r in c.execute("SELECT * FROM runs ORDER BY id DESC LIMIT ?", (limit,)).fetchall()]
+    finally:
+        c.close()
+
+
+def purge(db_path, days=30):
+    cutoff = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - days * 86400))
+    c = connect(db_path)
+    try:
+        c.execute("DELETE FROM events WHERE state='closed' AND closed_at < ?", (cutoff,))
+        c.execute("DELETE FROM incidents WHERE state='closed' AND closed_at < ?", (cutoff,))
+        c.execute("DELETE FROM relations WHERE last_seen < ?", (cutoff,))
+        c.execute("DELETE FROM samples WHERE at < ?", (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 3 * 86400)),))
+        c.execute("DELETE FROM occurrences WHERE at < ?", (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 90 * 86400)),))
+        c.execute("DELETE FROM predictions WHERE outcome IS NOT NULL AND settled_at < ?", (cutoff,))
+        c.commit()
+    finally:
+        c.close()
+
+
+# ---------------------------------------------------------------- routes et changements (#463)
+def upsert_routes(db_path, routes):
+    now = now_iso()
+    c = connect(db_path)
+    try:
+        for r in routes:
+            if not r.get("destination"):
+                continue
+            c.execute("""INSERT INTO routes (host, destination, via, kind, state, source, first_seen, last_seen) VALUES (?,?,?,?,?,?,?,?)
+                         ON CONFLICT(host, destination, source) DO UPDATE SET via=excluded.via, kind=excluded.kind, state=excluded.state, last_seen=excluded.last_seen""",
+                      (r["host"], r["destination"], r.get("via"), r.get("kind"), r.get("state"), r.get("source"), now, now))
+        c.commit()
+    finally:
+        c.close()
+
+
+def list_routes(db_path, host=None):
+    c = connect(db_path)
+    try:
+        if host:
+            rows = c.execute("SELECT * FROM routes WHERE host=? ORDER BY kind, destination", (host,)).fetchall()
+        else:
+            rows = c.execute("SELECT * FROM routes ORDER BY host, kind, destination").fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        c.close()
+
+
+def add_changes(db_path, changes):
+    if not changes:
+        return
+    now = now_iso()
+    c = connect(db_path)
+    try:
+        c.executemany("INSERT INTO changes (at, kind, subject, message, principle) VALUES (?,?,?,?,?)",
+                      [(now, ch["kind"], ch.get("subject"), ch.get("message"), ch.get("principle")) for ch in changes])
+        c.execute("DELETE FROM changes WHERE id NOT IN (SELECT id FROM changes ORDER BY id DESC LIMIT 5000)")
+        c.commit()
+    finally:
+        c.close()
+
+
+def list_changes(db_path, since=None, limit=300):
+    c = connect(db_path)
+    try:
+        if since:
+            rows = c.execute("SELECT * FROM changes WHERE at>=? ORDER BY id DESC LIMIT ?", (since, limit)).fetchall()
+        else:
+            rows = c.execute("SELECT * FROM changes ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        c.close()
+
+
+def entity_names(db_path):
+    c = connect(db_path)
+    try:
+        return {r["key"]: (r["name"] or r["ip"] or r["key"]) for r in c.execute("SELECT key, name, ip FROM entities").fetchall()}
+    finally:
+        c.close()
+
+
+# ---------------------------------------------------------------- lieux / positions (#464)
+def upsert_places(db_path, places):
+    now = now_iso()
+    c = connect(db_path)
+    try:
+        for p in places:
+            c.execute("""INSERT INTO places (key, kind, name, parent, lat, lon, principle, sources_json, inherited_from, first_seen, last_seen) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                         ON CONFLICT(key) DO UPDATE SET kind=excluded.kind, name=excluded.name, parent=COALESCE(excluded.parent, places.parent),
+                           lat=excluded.lat, lon=excluded.lon, principle=excluded.principle, sources_json=excluded.sources_json,
+                           inherited_from=excluded.inherited_from, last_seen=excluded.last_seen""",
+                      (p["key"], p.get("kind"), p.get("name"), p.get("parent"), p.get("lat"), p.get("lon"), p.get("principle"),
+                       json.dumps(p.get("sources") or []), p.get("inherited_from"), now, now))
+        keys = [p["key"] for p in places]
+        if keys:   # un lieu que plus aucune source ne décrit disparaît (ses notes humaines restent)
+            c.execute("DELETE FROM places WHERE key NOT IN (%s)" % ",".join("?" * len(keys)), keys)
+        c.commit()
+    finally:
+        c.close()
+
+
+def list_places(db_path):
+    c = connect(db_path)
+    try:
+        notes = {r["key"]: dict(r) for r in c.execute("SELECT * FROM place_notes").fetchall()}
+        out = []
+        for r in c.execute("SELECT * FROM places ORDER BY kind, name").fetchall():
+            d = _row(r, ("sources_json",))
+            n = notes.get(d["key"])
+            d["contact"], d["access"], d["notes"] = (n.get("contact"), n.get("access"), n.get("notes")) if n else (None, None, None)
+            out.append(d)
+        return out
+    finally:
+        c.close()
+
+
+def set_place_note(db_path, key, contact=None, access=None, notes=None, by=None):
+    c = connect(db_path)
+    try:
+        c.execute("""INSERT INTO place_notes (key, contact, access, notes, updated_by, updated_at) VALUES (?,?,?,?,?,?)
+                     ON CONFLICT(key) DO UPDATE SET contact=COALESCE(excluded.contact, place_notes.contact), access=COALESCE(excluded.access, place_notes.access),
+                       notes=COALESCE(excluded.notes, place_notes.notes), updated_by=excluded.updated_by, updated_at=excluded.updated_at""",
+                  (key, contact, access, notes, by, now_iso()))
+        c.commit()
+        r = c.execute("SELECT * FROM place_notes WHERE key=?", (key,)).fetchone()
+        return dict(r) if r else None
+    finally:
+        c.close()
+
+
+def place_notes(db_path):
+    c = connect(db_path)
+    try:
+        return {r["key"]: dict(r) for r in c.execute("SELECT * FROM place_notes").fetchall()}
+    finally:
+        c.close()
+
+
+def sync_positions(db_path, positions):
+    """Remplace les positions calculées ; `changed_at` ne bouge que si la
+    position ou sa provenance a changé -> {kept, changed, new, dropped}."""
+    now = now_iso()
+    c = connect(db_path)
+    try:
+        old = {r["entity"]: dict(r) for r in c.execute("SELECT * FROM positions").fetchall()}
+        kept = changed = new = 0
+        for k, p in positions.items():
+            o = old.pop(k, None)
+            if o and abs((o["lat"] or 0) - p["lat"]) < 1e-6 and abs((o["lon"] or 0) - p["lon"]) < 1e-6 and o["provenance"] == p["provenance"]:
+                c.execute("UPDATE positions SET updated_at=?, confidence=?, chain_json=?, evidence=?, place=? WHERE entity=?",
+                          (now, p.get("confidence"), json.dumps(p.get("chain") or []), p.get("evidence"), p.get("place"), k))
+                kept += 1
+                continue
+            if o:
+                changed += 1
+            else:
+                new += 1
+            c.execute("""INSERT INTO positions (entity, lat, lon, place, provenance, principle, confidence, chain_json, source, evidence, first_at, updated_at, changed_at)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                         ON CONFLICT(entity) DO UPDATE SET lat=excluded.lat, lon=excluded.lon, place=excluded.place, provenance=excluded.provenance,
+                           principle=excluded.principle, confidence=excluded.confidence, chain_json=excluded.chain_json, source=excluded.source,
+                           evidence=excluded.evidence, updated_at=excluded.updated_at, changed_at=excluded.changed_at""",
+                      (k, p["lat"], p["lon"], p.get("place"), p.get("provenance"), p.get("principle"), p.get("confidence"),
+                       json.dumps(p.get("chain") or []), p.get("source"), p.get("evidence"), now, now, now))
+        for k in old:
+            c.execute("DELETE FROM positions WHERE entity=?", (k,))
+        c.commit()
+        return {"kept": kept, "changed": changed, "new": new, "dropped": len(old)}
+    finally:
+        c.close()
+
+
+def list_positions(db_path, provenance=None, entity=None):
+    c = connect(db_path)
+    try:
+        q, args = "SELECT p.*, e.name, e.ip, e.kind, e.site FROM positions p LEFT JOIN entities e ON e.key=p.entity", []
+        conds = []
+        if provenance:
+            conds.append("p.provenance=?"); args.append(provenance)
+        if entity:
+            conds.append("p.entity=?"); args.append(entity)
+        if conds:
+            q += " WHERE " + " AND ".join(conds)
+        rows = c.execute(q + " ORDER BY p.confidence DESC, e.name", args).fetchall()
+        return [_row(r, ("chain_json",)) for r in rows]
+    finally:
+        c.close()
+
+
+def positions_map(db_path):
+    return {p["entity"]: p for p in list_positions(db_path)}
+
+
+# ---------------------------------------------------------------- apprentissage (#465)
+def list_occurrences(db_path, days=90, limit=50000):
+    cutoff = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - days * 86400))
+    c = connect(db_path)
+    try:
+        return [dict(r) for r in c.execute("SELECT * FROM occurrences WHERE at>=? ORDER BY at LIMIT ?", (cutoff, limit)).fetchall()]
+    finally:
+        c.close()
+
+
+def add_occurrences(db_path, occurrences):
+    """Amorçage depuis un historique externe (si-agent /events) : une occurrence par (empreinte, at)."""
+    c = connect(db_path)
+    try:
+        n = 0
+        for o in occurrences:
+            if not o.get("at"):
+                continue
+            r = c.execute("SELECT 1 FROM occurrences WHERE fingerprint=? AND at=?", (o["fingerprint"], o["at"])).fetchone()
+            if r:
+                continue
+            c.execute("INSERT INTO occurrences (fingerprint, source, kind, entity, site, severity, at) VALUES (?,?,?,?,?,?,?)",
+                      (o["fingerprint"], o.get("source"), o.get("kind"), o.get("entity"), o.get("site"), o.get("severity"), o["at"]))
+            n += 1
+        c.commit()
+        return n
+    finally:
+        c.close()
+
+
+def sync_rules(db_path, rules):
+    """Règles apprises : les mesures (count, confiance, délai) sont remises à
+    jour ; l'état décidé par une personne (confirmée / rejetée), les
+    annonces jugées (hits / misses) et la note sont conservés."""
+    now = now_iso()
+    c = connect(db_path)
+    try:
+        for r in rules:
+            rid = "%s=>%s" % (r["a"], r["b"])
+            c.execute("""INSERT INTO rules (id, a, b, scope, count, support_a, support_b, confidence, expected, lift, delay_s, delay_min_s, delay_max_s, first_at, last_at, state, updated_at)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'proposed',?)
+                         ON CONFLICT(id) DO UPDATE SET count=excluded.count, support_a=excluded.support_a, support_b=excluded.support_b, confidence=excluded.confidence,
+                           expected=excluded.expected, lift=excluded.lift, delay_s=excluded.delay_s, delay_min_s=excluded.delay_min_s, delay_max_s=excluded.delay_max_s,
+                           first_at=excluded.first_at, last_at=excluded.last_at, updated_at=excluded.updated_at""",
+                      (rid, r["a"], r["b"], r.get("scope"), r["count"], r["support_a"], r["support_b"], r["confidence"], r.get("expected"), r.get("lift"),
+                       r["delay_s"], r.get("delay_min_s"), r.get("delay_max_s"), r.get("first_at"), r.get("last_at"), now))
+        c.commit()
+    finally:
+        c.close()
+
+
+def list_rules(db_path, state=None):
+    c = connect(db_path)
+    try:
+        if state:
+            rows = c.execute("SELECT * FROM rules WHERE state=? ORDER BY count*confidence DESC", (state,)).fetchall()
+        else:
+            rows = c.execute("SELECT * FROM rules ORDER BY (state='rejected'), count*confidence DESC").fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        c.close()
+
+
+def set_rule_state(db_path, rid, state, by=None, note=None):
+    c = connect(db_path)
+    try:
+        cur = c.execute("UPDATE rules SET state=?, decided_by=?, decided_at=?, note=COALESCE(?, note) WHERE id=?", (state, by, now_iso(), note, rid))
+        c.commit()
+        return cur.rowcount > 0
+    finally:
+        c.close()
+
+
+def add_predictions(db_path, predictions, roles=None):
+    """Nouvelle annonce par (règle, déclencheur) ; une annonce existante n'est pas dupliquée. -> nouvelles"""
+    now = now_iso()
+    c = connect(db_path)
+    try:
+        n = 0
+        for p in predictions:
+            r = c.execute("SELECT 1 FROM predictions WHERE rule_id=? AND trigger=?", (p["rule_id"], p["trigger"])).fetchone()
+            if r:   # annonce déjà faite : sa confiance suit la règle (confirmée depuis, jugée…) tant qu'elle n'est pas tranchée
+                c.execute("UPDATE predictions SET confidence=?, message=? WHERE rule_id=? AND trigger=? AND outcome IS NULL", (p.get("confidence"), p.get("message"), p["rule_id"], p["trigger"]))
+                continue
+            c.execute("""INSERT INTO predictions (rule_id, trigger, entity, site, expected, expected_at, since, delay_max_s, scope, message, confidence, roles_json, created_at)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                      (p["rule_id"], p["trigger"], p.get("entity"), p.get("site"), p["expected"], p["expected_at"], p["since"], p.get("delay_max_s"),
+                       p.get("scope"), p.get("message"), p.get("confidence"), json.dumps(roles or {}), now))
+            n += 1
+        c.commit()
+        return n
+    finally:
+        c.close()
+
+
+def list_predictions(db_path, pending_only=False, limit=200):
+    c = connect(db_path)
+    try:
+        q = "SELECT * FROM predictions" + (" WHERE outcome IS NULL" if pending_only else "") + " ORDER BY id DESC LIMIT ?"
+        return [_row(r, ("roles_json",)) for r in c.execute(q, (limit,)).fetchall()]
+    finally:
+        c.close()
+
+
+def settle(db_path, verdicts):
+    """verdicts: [{id, outcome, at}] -> met à jour l'annonce ET la règle (hits / misses)."""
+    c = connect(db_path)
+    try:
+        for v in verdicts:
+            r = c.execute("SELECT rule_id, outcome FROM predictions WHERE id=?", (v["id"],)).fetchone()
+            if not r or r["outcome"]:
+                continue
+            c.execute("UPDATE predictions SET outcome=?, settled_at=? WHERE id=?", (v["outcome"], v["at"], v["id"]))
+            c.execute("UPDATE rules SET %s=%s+1 WHERE id=?" % (("hits", "hits") if v["outcome"] == "hit" else ("misses", "misses")), (r["rule_id"],))
+        c.commit()
+    finally:
+        c.close()
+
+
+def add_samples(db_path, samples):
+    c = connect(db_path)
+    try:
+        c.executemany("INSERT OR IGNORE INTO samples (entity, metric, at, value) VALUES (?,?,?,?)",
+                      [(s["entity"], s["metric"], s["at"], s["value"]) for s in samples if s.get("at") and s.get("value") is not None])
+        c.commit()
+    finally:
+        c.close()
+
+
+def series(db_path, hours=26):
+    cutoff = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - hours * 3600))
+    c = connect(db_path)
+    try:
+        out = {}
+        for r in c.execute("SELECT entity, metric, at, value FROM samples WHERE at>=? ORDER BY at", (cutoff,)).fetchall():
+            out.setdefault((r["entity"], r["metric"]), []).append((r["at"], r["value"]))
+        return out
+    finally:
+        c.close()
+
+
+def entity_sites(db_path):
+    c = connect(db_path)
+    try:
+        return {r["key"]: r["site"] for r in c.execute("SELECT key, site FROM entities").fetchall()}
+    finally:
+        c.close()
+
+
+# ---------------------------------------------------------------- politiques, silences, notifications (#466)
+def list_policies(db_path):
+    c = connect(db_path)
+    try:
+        out = []
+        for r in c.execute("SELECT * FROM policies").fetchall():
+            try:
+                p = json.loads(r["json"])
+            except ValueError:
+                continue
+            p["updated_by"], p["updated_at"] = r["updated_by"], r["updated_at"]
+            out.append(p)
+        return sorted(out, key=lambda p: p.get("order", 500))
+    finally:
+        c.close()
+
+
+def save_policy(db_path, policy, by=None):
+    c = connect(db_path)
+    try:
+        c.execute("INSERT INTO policies (id, json, updated_by, updated_at) VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET json=excluded.json, updated_by=excluded.updated_by, updated_at=excluded.updated_at",
+                  (policy["id"], json.dumps(policy, ensure_ascii=False), by, now_iso()))
+        c.commit()
+    finally:
+        c.close()
+
+
+def delete_policy(db_path, pid):
+    c = connect(db_path)
+    try:
+        n = c.execute("DELETE FROM policies WHERE id=?", (pid,)).rowcount
+        c.commit()
+        return n > 0
+    finally:
+        c.close()
+
+
+def seed_policies(db_path, defaults):
+    """Politiques par défaut installées une seule fois (table vide)."""
+    c = connect(db_path)
+    try:
+        if c.execute("SELECT count(*) AS n FROM policies").fetchone()["n"]:
+            return 0
+        for p in defaults:
+            c.execute("INSERT INTO policies (id, json, updated_by, updated_at) VALUES (?,?,?,?)", (p["id"], json.dumps(p, ensure_ascii=False), "cortex", now_iso()))
+        c.commit()
+        return len(defaults)
+    finally:
+        c.close()
+
+
+def list_silences(db_path, active_only=False, now=None):
+    c = connect(db_path)
+    try:
+        rows = [_row(r, ("target_json",)) for r in c.execute("SELECT * FROM silences ORDER BY start_at DESC").fetchall()]
+        if active_only:
+            now = now or now_iso()
+            rows = [r for r in rows if r["start_at"] <= now <= r["end_at"]]
+        return rows
+    finally:
+        c.close()
+
+
+def add_silence(db_path, name, start_at, end_at, target=None, ticket=None, by=None):
+    c = connect(db_path)
+    try:
+        cur = c.execute("INSERT INTO silences (name, ticket, start_at, end_at, target_json, created_by, created_at) VALUES (?,?,?,?,?,?,?)",
+                        (name, ticket, start_at, end_at, json.dumps(target or {}), by, now_iso()))
+        c.commit()
+        return cur.lastrowid
+    finally:
+        c.close()
+
+
+def delete_silence(db_path, sid):
+    c = connect(db_path)
+    try:
+        n = c.execute("DELETE FROM silences WHERE id=?", (sid,)).rowcount
+        c.commit()
+        return n > 0
+    finally:
+        c.close()
+
+
+def notified_map(db_path):
+    """{clé incident: {kind: at}}"""
+    c = connect(db_path)
+    try:
+        out = {}
+        for r in c.execute("SELECT incident_key, kind, at FROM notifications").fetchall():
+            out.setdefault(r["incident_key"], {})[r["kind"]] = r["at"]
+        return out
+    finally:
+        c.close()
+
+
+def add_notification(db_path, item, result):
+    c = connect(db_path)
+    try:
+        c.execute("""INSERT OR IGNORE INTO notifications (incident_key, kind, at, policy, priority, channels_json, result_json, message, reason) VALUES (?,?,?,?,?,?,?,?,?)""",
+                  (item["incident_key"], item["kind"], result.get("at") or now_iso(), item.get("policy"), item.get("priority"), json.dumps(item.get("channels") or []),
+                   json.dumps(result), item.get("message"), item.get("reason")))
+        c.commit()
+    finally:
+        c.close()
+
+
+def list_notifications(db_path, limit=100, incident_key=None):
+    c = connect(db_path)
+    try:
+        if incident_key:
+            rows = c.execute("SELECT * FROM notifications WHERE incident_key=? ORDER BY id DESC LIMIT ?", (incident_key, limit)).fetchall()
+        else:
+            rows = c.execute("SELECT * FROM notifications ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        return [_row(r, ("channels_json", "result_json")) for r in rows]
+    finally:
+        c.close()

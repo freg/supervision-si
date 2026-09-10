@@ -200,10 +200,8 @@ qui fait alors sauter la file.
    - **Interface de gestion (affectation des relations)** -- distincte
      de l'éditeur de relations ci-dessus (celui-ci corrige le SCHÉMA
      déduit ; celle-ci gère l'AFFECTATION des relations sur les
-     données elles-mêmes). **PAS COMMENCÉ** -- reste flou même après
-     tentative d'interprétation, traité séparément. Rejoint la "vue
-     JSON avec valeurs résolues" mentionnée par la personne en #241,
-     pas encore construite non plus -- à cadrer ensemble.
+     données elles-mêmes). **LIVRÉE** -- voir
+     `schema-analyzer/README.md`.
 6. Nouveau module `ged` — gestion électronique de documents,
    demandé pour deux usages : "documents liés/joints" pour les
    tickets, ET une interface/API GED dans le hub pour accéder/gérer
@@ -964,9 +962,15 @@ qui fait alors sauter la file.
       accessible AUSSI par l'hôte (donc pas seulement depuis
       l'intérieur d'un conteneur -- implique un montage/volume
       partagé avec la machine hôte elle-même).
-    **PAS COMMENCÉ** -- juste noté. Périmètre exact de chaque volet,
-    modèle de permissions (le hub tourne avec quels droits sur les
-    fichiers de l'hôte ?), et articulation avec la GED existante --
+    **✅ LIVRÉ en #397** -- trois volets livrés d'un coup :
+    - Espace protégé du hub (répertoire hôte, navigation arborescente,
+      protégé par rights-api, métadonnées uniquement).
+    - Documents GED (agrégé depuis ged-api, lecture seule).
+    - Partages SSHFS (agrégé depuis ssh-tunnels-api, stats espace/inodes).
+    **⚠️ Non vérifié dans cet environnement** : accès réseau réel à
+    ged-api/ssh-tunnels-api (réseau restreint). Logique testée en profondeur
+    avec des scénarios simulés.
+    **CONFIRMÉ IDENTIQUE À L'ITEM 9 (étape 2)** par la personne --
     à trancher ensemble le moment venu.
     **CONFIRMÉ IDENTIQUE À L'ITEM 9 (étape 2)** par la personne --
     ce chantier ET "promouvoir ged au même niveau que les fronts
@@ -1121,8 +1125,20 @@ qui fait alors sauter la file.
     de couverture trouvé et corrigé en testant ce second motif,
     exactement celui décrit par la personne comme présent dans son
     code), plus le motif Fat-Free `Mapper`. `POST /scan` (archive
-    ZIP), onglet hub "Rétro-ingénierie" (menu Data). Volet 2
-    ("schéma fonctionnel de l'interface") TOUJOURS pas commencé. Voir
+    ZIP), onglet hub "Rétro-ingénierie" (menu Data). **Volet 2
+    ("schéma fonctionnel de l'interface") LIVRÉ en #441** par l'usage
+    réel : extension Firefox + agent relais + API « parcours » (étapes,
+    routes, tables du code et du journal SQL via dba-api, carte
+    fonctionnelle) ; #443 : rejeu pas à pas, rejeu réel, sous-parcours,
+    comparaison ; #444 : (2) interface générée au design du hub (spec
+    par application, listes/fiches sur les tables réelles) ; #445 : (3) outil
+    unique (fonctions communes entre applications, spec unifiée rendue sur
+    les données de chaque application) ; #448 : (4) méta-graphe des
+    entités et relations (code, journal SQL, noms), équivalences et
+    références inter-gestions, proposition de fusion. Les quatre phases
+    demandées sont livrées ; suite possible : DDL cible généré depuis la
+    proposition.
+    Reste : premier parcours réel dans Firefox, vrai general_log. Voir
     `retro/README.md`.
 
     **EXTENSION LIVRÉE EN #245** -- demandé explicitement juste
@@ -1701,7 +1717,13 @@ qui fait alors sauter la file.
     voir item 53 pour les questions précises posées à la personne.
 
 45. Architecture netprobe -- modularisation et agents répartis
-    multi-hôtes (2026-09-04). Réaction de la personne en plein
+    multi-hôtes (2026-09-04).
+    **✅ AGENTS RÉPARTIS LIVRÉS en #405** (`netprobe/agent/`, voir item 48
+    pour les choix) -- les quatre questions ouvertes ci-dessous sont
+    tranchées avec des défauts annoncés dans `netprobe/agent/README.md`.
+    La modularisation multi-services du CENTRAL (un conteneur par type
+    de sonde) reste NON faite : sans besoin concret constaté, netprobe-api
+    reste un seul conteneur. Réaction de la personne en plein
     développement de la fondation (#295) : "prévoir une
     modularisation des outils de sonde pas simplement de la tuile et
     prévoir sa répartition sur plusieurs host en mode agents
@@ -1759,6 +1781,13 @@ qui fait alors sauter la file.
     Combien de skins au total, au-delà de hub/hub-dark ?
 
 47. Volet WiFi dans netprobe — supervision continue Campus Alpha
+    **✅ COUCHE « EXPÉRIENCE CLIENT » ET RF LÉGÈRE LIVRÉES en #405-#408**
+    (sondes Pi Zero W + collecteur Pi 3B + central + hub + images) :
+    signal/canal/BSSID/itinérance, bornes visibles et voisins co-canal,
+    ping/DNS/HTTP/iperf3 depuis chaque point, santé du Pi. Le suivi de
+    BSSID « hors de portée » en #385 est levé. Voir docs/supervision-wifi.md.
+    Reste HORS de portée tant que le matériel RF n'est pas reçu : voir
+    ci-dessous (inchangé).
     (2026-09-04, reformulé le 2026-09-05 -- demandé explicitement :
     "voyons ce qu'on peut déjà faire sans RF simplement avec un
     client wifi et la couche IP et le snmp"). Objectif inchangé :
@@ -1802,7 +1831,12 @@ qui fait alors sauter la file.
     Zero W.
 
 48. Agent de sonde distribué pour Raspberry Pi — évolution de
-    l'item 45 (2026-09-04). **PAS COMMENCÉ**. Cas d'usage concret
+    l'item 45 (2026-09-04). **✅ LOGICIEL LIVRÉ en #405** (`netprobe/agent/`,
+    58 tests, chaîne HTTP réelle sonde→collecteur vérifiée) -- option
+    « agent netprobe propre » retenue (pas sparrow-wifi : Pi Zero W sans
+    mode moniteur, item 47 reformulé « sans RF »). Deux rôles : sonde
+    (Pi Zero W) et collecteur de site (Pi 3B). Images et central : voir
+    #406-#408. Historique de la décision ci-dessous. Cas d'usage concret
     maintenant disponible pour trancher les questions ouvertes de
     l'item 45 (agents multi-hôtes) : la flotte de Pi Zero W achetée
     pour la supervision WiFi. `sparrow-wifi` (voir item 50) fournit
@@ -1884,7 +1918,11 @@ qui fait alors sauter la file.
     corrélation manuelle, à la charge du technicien.
 
 51. Interface hub — vue de corrélation multi-couches et guidage
-    technicien (2026-09-04). **PAS COMMENCÉ**. Dépend des items
+    technicien (2026-09-04). **SOCLE LIVRÉ en #407** (onglet « Sondes
+    WiFi » : ce que chaque sonde voit, quand -- courbe de signal,
+    itinérance, ping, voisinage, santé) ; la CORRÉLATION entre couches
+    reste à concevoir sur de vraies séries, après un premier déploiement
+    (voir docs/supervision-wifi.md, « mise en route »). Dépend des items
     47-50 (rien à afficher tant que les couches sous-jacentes ne
     produisent pas de données). Objectif exprimé explicitement :
     "proposer et mettre en place des outils permettant de superviser
@@ -2220,3 +2258,341 @@ qui fait alors sauter la file.
     routé publiquement (vérifié absent de `tls-proxy/render_nginx_conf.py`).
     Voir `network-agent/README.md` et `network-explorer/README.md`
     pour le détail complet des deux volets.
+
+60. Variables de thème `--hub-*` inexistantes, replis en dur (2026-09-06).
+    **✅ TRAITÉ en #402** -- les 11 usages restants remplacés :
+    `--hub-ok`/`--hub-ok-bg` → `--ok`/`--ok-bg` (neutre), `--hub-border`
+    → `--border` (#ddd → #d8dee4 en clair, imperceptible), `--hub-bg` →
+    `--panel` (c'était le fond d'une boîte de dialogue, #fff = --panel
+    clair), `--hub-selected` → `--bg` (convention existante des lignes
+    sélectionnées, `.na-device-row.active`). Plus aucun `var(--hub-` dans
+    `hub/src`. Reste valable : le contrôle `grep` ci-dessous.
+    Constaté en livrant #399, PAS demandé -- noté ici plutôt que corrigé
+    en passant, parce que ces cas-là ne sont PAS neutres visuellement
+    contrairement à `--hub-danger` (déjà corrigé en #399, ses replis
+    valaient exactement les valeurs du thème clair).
+
+    Aucune de ces variables n'est définie dans `shared/theme.css` : chaque
+    usage retombe silencieusement sur son repli en dur, donc reste
+    identique en thème sombre alors que le reste de l'interface change.
+
+    - `var(--hub-ok, #27ae60)` (2 usages) et `var(--hub-ok-bg, #eafaf1)`
+      (1 usage) -- replis EXACTEMENT égaux à `--ok` / `--ok-bg` du thème
+      clair : remplacement neutre, corrige uniquement le sombre. À faire
+      en premier, sans risque.
+    - `var(--hub-border, #ddd)` (6 usages) -- `--border` vaut `#d8dee4` en
+      clair, PAS `#ddd` : le remplacement change (très légèrement) aussi
+      le thème clair. À valider visuellement.
+    - `var(--hub-bg, #fff)` (1 usage) -- ambigu : `--panel` vaut `#ffffff`,
+      `--bg` vaut `#f4f6f8`. Regarder l'usage avant de trancher.
+    - `var(--hub-selected, #e8f0fe)` (1 usage) -- aucune variable
+      équivalente au thème, il en faudrait une nouvelle.
+
+    Contrôle systématique à ajouter avant de considérer un module du hub
+    terminé : `grep -rn -- 'var(--[a-z-]*, #' hub/src` -- un repli en dur
+    sur une variable jamais définie est indétectable à la lecture du JSX
+    seul, il faut vérifier que la variable EXISTE dans `shared/theme.css`.
+
+61. Charte d'icônes du hub -- décision et extension (2026-09-07, #410).
+    Trois jeux proposés dans le cycle agile (`hub/src/icons.js`,
+    `docs/charte-icones-hub.md`) ; Déployer et Apprendre déjà changés
+    (📦, 📚). Reste à trancher par la personne : (1) le jeu par défaut
+    (emoji sobres / symboles monochromes / pictogrammes au trait) ;
+    (2) si la préférence devient un réglage de COMPTE (comme le thème,
+    `shared/preferences.js`) plutôt que de navigateur ; (3) l'extension
+    aux tuiles de l'accueil et au menu (`App.jsx` porte encore ses emoji
+    en dur) -- ajouter une clé par tuile dans chaque jeu, le test
+    `icons.test.mjs` impose qu'aucun jeu ne l'oublie. Si le jeu « au
+    trait » est retenu, dessiner les pictogrammes manquants (une
+    soixantaine de tuiles) plutôt que de mélanger emoji et traits.
+
+62. Tuile UPS -- suite de la version 0 (2026-09-07, #415). #433 : alertes
+    (alarme, injoignable, seuils) et notifications livrées ; #434 : SNMP
+    UPS-MIB (à confirmer sur une vraie carte) ; #435 : pages supplémentaires
+    et dérive lente. Reste : historique de la carte, remontée vers
+    vigilance. Livré :
+    liste, automate HTTP (Basic) 1 h, fiche extraite de la page Socomec
+    NETYS, archive, timeline (`ups-monitor/README.md`). À faire, dans
+    l'ordre proposé : (1) confronter le parseur à un onduleur RÉEL et
+    aux autres pages de la carte (`info_battery.htm`, `info_io.htm`,
+    `hist_log1.htm`) -- « plusieurs pages par onduleur » ; (2) poser
+    `UPS_CRED_PASSPHRASE` / `UPS_CRED_SALT` en production (sans eux,
+    mots de passe en clair, signalé) ; (3) alertes (passage en alarme,
+    injoignable depuis N relevés) vers vigilance / SMS ; (4) seuils
+    tension / charge / batterie ; (5) seconde méthode de relevé SNMP
+    (RFC 1628 UPS-MIB) via snmp-api, plus fiable que l'HTML.
+
+63. Agent Linux d'audit et de sondes extensibles (2026-09-07, demandé
+    avec #418). Demande : « un agent qui permette d'auditer le host et la
+    zone réseau accessible autour ; qui permette de déployer des sondes
+    futures en Python ou en shell/bash ; par défaut un relais pour
+    l'exploration réseau mais désactivé ; inventaire des sondes (logiciels
+    disponibles et installés) ; inventaire des agents pointant sur un
+    tableau de bord / de commande de l'agent ; sondes Linux / RPi Zero W… ;
+    sondes Windows (à explorer) ; agents GLPI ». État : l'agent
+    `netprobe/agent` (#405-#408, Python stdlib, tâches tirées, HMAC, file
+    store-and-forward, images Pi) EST déjà un agent Linux -- la demande
+    est sa généralisation, pas un second agent. Découpage proposé :
+    (a) audit de l'hôte : tâche `sys` étendue (OS, paquets, services,
+    interfaces, routes, ports à l'écoute, disques) ; (b) audit de la zone
+    réseau : tâche `neighbors` (table ARP, `ip neigh`, ping-sweep du /24,
+    nmap si présent) ; (c) sondes extensibles : tâche `script` exécutant
+    un script Python ou shell fourni par le central avec signature (même
+    HMAC), sortie JSON normalisée -- jamais d'exécution non signée ;
+    (d) inventaire des capacités : l'agent déclare les binaires
+    disponibles (nmap, iperf3, tcpdump, iw, snmpwalk…) et les sondes
+    installées, affiché dans le tableau de bord de flotte (onglet « Sondes
+    WiFi » renommé « Agents ») ; (e) relais d'exploration : tâche
+    `capture` qui envoie des relevés tcpdump vers network-agent-api,
+    DÉSACTIVÉE par défaut, activable par agent ; (f) tableau de bord /
+    commande par agent (tâches, dernier contact, capacités, journal) ;
+    (g) Windows : à explorer -- Python embarqué + service, ou WMI/PowerShell
+    via un agent minimal ; (h) agents GLPI : inventaire GLPI Agent déjà
+    déployé → lecture via glpi-api plutôt qu'un doublon. À trancher avant
+    de coder : ordre (a→f proposé), et si l'agent Linux généraliste doit
+    être un paquet distinct (`si-agent`) ou rester `netprobe_agent`.
+    **Tranché par la personne (2026-09-07)** : NOUVEAU paquet `si-agent`,
+    distinct de `netprobe_agent` (qui reste la sonde WiFi/réseau). Rôle
+    précisé : « l'agent host surveille le host (CPU, disque, mémoire,
+    logs, risques internes) et il sert de machine-moteur pour la gestion
+    de plugins / sondes ». Donc : (1) collecteurs hôte de base (CPU,
+    charge, mémoire, disques, uptime, services en échec, journaux
+    d'erreurs, risques internes : disque plein, redémarrage requis, ports
+    exposés, comptes sudo…) ; (2) moteur de plugins = sondes Python ou
+    shell déposées/signées par le central, ordonnancées par l'agent,
+    sortie JSON normalisée ; (3) le relais d'exploration réseau et l'audit
+    de zone deviennent des plugins livrés avec l'agent (désactivés par
+    défaut) ; (4) central `si-agent-api` (flotte, enrôlement HMAC comme
+    netprobe, catalogue de plugins, tableau de bord / commande par agent)
+    et tuile hub « Agents ». Le protocole HMAC / file de netprobe est
+    réutilisé (copie au build depuis la source canonique, jamais une
+    seconde implémentation).
+    Avancement (#420) : agent `si-agent/agent/` livré -- points (1) et
+    (2), plugin `network-neighbors` livré désactivé pour (3). Reste :
+    (4) central `si-agent-api` + tuile hub « Agents » (#421), relais
+    d'exploration, sondes Windows, agents GLPI.
+    Avancement (#422) : réponses du central signées, sondes confinées
+    (nobody, limites, délai), blocage général / individuel (commande,
+    configuration, fichier local), amorçage TLS par empreinte de CA,
+    traces verbeuses, journal d'événements + notifications (SMS /
+    courriel du PRA, webhook) + synthèse sur l'accueil du hub.
+    Avancement (#436) : relais d'exploration livré (plugin capture-relay ->
+    central -> network-agent-api). GLPI livré en #437 (hôtes si-agent ->
+    Computer GLPI, comparaison avec les agents GLPI Agent). Premier hôte
+    réel (Docker, #430) en ligne le 8 sept. ; premier retour traité en #438
+    (montages sshfs/FUSE listés avec leur raison, propagation rslave) et
+    #439 (FUSE mesuré comme l'utilisateur du montage, sans configuration).
+    Agent Windows 10/11 livré en #440 (winhost.py + scripts PowerShell,
+    install.ps1, tâche planifiée) -- à tester sur un poste réel ; #446 :
+    lanceurs install.cmd/uninstall.cmd et commande avec -ExecutionPolicy
+    Bypass (premier retour du poste de test) ; #447 : .cmd silencieux
+    généré par le central (double-clic, UAC, OK, effacement) ; #449 : racine
+    de l'archive cherchée autour du script ; #450 : CA lue par délégué C# sous
+    PowerShell 5.1 (Bitdefender entreprise : exclusion de stratégie à prévoir). #442 :
+    montages lecture seule / amovibles jamais « disque plein ». Reste :
+    archive sans Docker (systemd) à tester, retours des premiers hôtes.
+
+    #451 : agent macOS livré (machost.py, LaunchDaemon install-macos.sh, agent 0.5.0) -- premier Mac de test à venir.
+64. Refonte de la tuile Supervision SI (2026-09-07, demandé avec #418).
+    « La tuile actuelle était la maquette initiale de la dataviz du hub ;
+    elle doit changer radicalement et ses outils actuels se retrouveront
+    distribués dans les tuiles (on garde la tuile, rôle central). »
+    Spécification reçue : colonne de gauche à onglets « Propositions »,
+    « Supervisés », « Liens », peuplée par défaut de tout ce qu'on
+    supervise (onglet Supervisés) avec filtre et priorisation des
+    équipements/lieux ; page centrale découpée en 1 à 4 cadres (défaut 2 :
+    carte + table des équipements supervisés ; 3 cadres : le troisième
+    prend la largeur en bas ; 4 : répartition équilibrée). Découpage
+    proposé : (1) API d'agrégation « supervisés » (nouveau service ou
+    route hub) qui réunit netprobe (cibles, sondes), UPS, network-agent
+    (appareils), snmp (cibles), ssh-tunnels, docker-monitor… en une liste
+    homogène {type, nom, site/lieu, état, dernier relevé, tuile d'origine}
+    ; (2) colonne gauche (onglets, filtre, priorisation persistée) ;
+    (3) page centrale en cadres (1-4, disposition, choix du contenu de
+    chaque cadre parmi : carte, table, timeline, pixel-grid, radial…) ;
+    (4) redistribution des outils actuels (calendrier, corbeille, radial,
+    fusion IP/MAC…) vers leurs tuiles.
+    **Tranché par la personne (2026-09-07)** : la nouvelle tuile vit DANS
+    LE HUB (composant React, carte Leaflet réimportée) ; « Propositions »
+    = suggestions de l'orchestrateur + signaux de vigilance + appareils
+    découverts non supervisés, les trois à cocher/décocher par
+    l'utilisateur ; « Liens » = liens construits AUTOMATIQUEMENT entre
+    équipements : « cette colonne régit l'affichage sur la carte, il faut
+    une accroche géographique aux données présentées ; en période
+    d'exploration, seule l'analyse des liens offre une position » -- un
+    équipement sans coordonnées est positionné par ses liens (ce à quoi
+    il parle, le site/segment auquel il appartient), et l'onglet montre
+    cette chaîne de déduction.
+    Avancement (#423) : points (1) agrégation, (2) colonne gauche
+    (Propositions à cocher / Supervisés avec filtre et priorisation /
+    Liens avec positions déduites) et (3) page centrale en 1 à 4 cadres
+    (carte, table, liens, propositions, synthèse) livrés dans le hub
+    (`SupervisionSiView.jsx`, `docs/supervision-si-tuile.md`). Reste :
+    Avancement (#424) : point (4) -- timeline, mosaïque pixel-grid,
+    calendrier de densité, arbre radial et corbeille de sélection sont
+    des contenus de cadre de la tuile, nourris par les tuiles.
+    Avancement (#425) : IPAM, Zenoss, Optick, TTS-GU et Cacti promus en
+    UNE tuile générique « Bases externes » (docs/bases-externes.md).
+    Avancement (#431) : Fusion IP/MAC en tuile (docs/fusion-ip-mac.md) ;
+    OwnCloud est dans la tuile GED depuis #354. Reste : la géomatique
+    (GeoImportApp), puis retrait de l'ancien front.
+    Avancement (#426) : géolocalisation par le nom (« UPS-Arobase-5 » →
+    @5), correspondances persistées dans pixel-grid, cadre
+    « Localisations » (docs/geolocalisation-par-nom.md).
+65. Exploration réseau -- fiche récapitulative d'un sous-réseau
+    (2026-09-08, demandé avec #426). Constat : dans « sous-réseaux » on
+    voit autre chose que le LAN immédiat, mais aucune IP de ce LAN dans
+    les appareils découverts ni ce sous-réseau dans la table des
+    découvertes. Demandé : au clic sur un sous-réseau, un récapitulatif de
+    tout ce qui le concerne -- d'où il a été pris (source, segment,
+    agent), quelles IP y ont été vues, appareils, flux, découvertes -- et
+    expliquer/corriger l'absence du LAN immédiat.
+    LIVRÉ en #427 (fiche, IP distantes derrière leur relais, IP des
+    appareils passifs) -- à confirmer en capture réelle.
+66. Agent hôte -- premier exemplaire réel (2026-09-08, demandé avec #426) :
+    un Linux dans un sous-réseau isolé/filtré mais accessible par route
+    directe. (1) découverte passive du réseau depuis l'hôte (voisins ARP /
+    ND, connexions établies, écoute, sans scan actif) remontée au central ;
+    (2) revue de l'hôte : matériel, niveaux des ressources, activités
+    (processus, services, connexions), présentée dans la tuile Agents
+    hôtes et reprise par Supervision SI.
+    LIVRÉ en #428 (mesure netview passive, matériel et activité, sections
+    dans la tuile, procédure du premier hôte réel) ; #432 : voisins/pairs
+    repris par Supervision SI (propositions, liens). Reste : Exploration
+    réseau (fusionner les voisins d'agent avec les découvertes de capture).
+    #430 : archive de déploiement (make-archive.sh) avec variante conteneur
+    Docker (deploy-docker.sh) et variante systemd (install.sh).
+67. Catalogue de positions (2026-09-08, demandé avec #426). Docker dédié
+    ou complément du PostGIS existant (geo-import) -- orientation :
+    complément de `geo-postgres` (pg_trgm, connecteurs). Charger les
+    référentiels OSM et data.gouv.fr (BAN/Géoplateforme, découpage
+    administratif) ; interface listant, par position : la ou les données
+    de référence (fiches avec agrégation ou extraction), l'interprétation
+    géographique la plus précise, longitude/latitude, l'estimation en % de
+    véracité/justesse, un bouton Corriger, un bouton Valider ; un
+    catalogue de positions avec les liens vers les objets positionnés sur
+    chacune. S'appuie sur les correspondances de #426 (location_matches,
+    aliases) et la table geolocations.
+    LIVRÉ en #429 (module geo-catalog, base PostGIS dédiée déplaçable,
+    tuile) -- reste : appels réels aux référentiels et import OSM à
+    confirmer en déploiement ; autres objets à positionner (tickets,
+    documents) au-delà des géolocalisations.
+
+## Bastion si-proxy (2026-09-08, #452) -- réservé freg
+Depuis le Mac, via le hub : shell sur le host de la VM (sous freg),
+navigation HTTPS sur le hub et, par le hub, sur le LAN. Relais TLS
+(conteneur), shim host systemd sortant, client Mac (shell + proxy
+HTTP). Réservé freg : jeton + TLS, mTLS+CN optionnel. Vérifié en
+bout-à-bout local ; reste : déploiement réel sur « super », mTLS,
+puis élargissement éventuel à d'autres utilisateurs. Voir si-proxy/README.md.
+#453 : journal d'audit JSONL (si-proxy/data), fail2ban maison (ban par IP
+au seuil d'échecs d'auth), interface de contrôle HTTPS 6452 (status,
+audit, kill, disable/enable, unban ; jeton SI_PROXY_ADMIN_TOKEN).
+#454 : tuile « Bastion » (sessions/kill, pause, bans, audit, cibles) via le
+pont si-proxy-admin-api (jeton Keycloak VÉRIFIÉ, SI_PROXY_ADMIN_USERS),
+catégorie Bastion dans Supervision SI + liens « bastion ».
+#455 : console Bastion à cinq onglets (si-proxy, Entrées = exposition
+EXPOSURE.json + agents/sondes avec coupe-circuit, Sorties = tunnels +
+connecteurs externes, Autorisations = rights-api + liens externes,
+Partages = gestionnaire de fichiers + montages SSHFS).
+#456 : les 5 bases/index sont liés à 127.0.0.1 (SI_DB_BIND). Reste : 11 API et
+portails hors passerelle (vault-admin, network-explorer, launcher,
+docker-monitor, netmap-orchestrator, ups, si-agent, geo-catalog...) à
+passer derrière tls-proxy ou à restreindre. Partages ownCloud (oc_share)
+non exploités ; coffre/annuaire/Keycloak restent des portails dédiés.
+
+## Accueil par thématiques (2026-09-08, #457)
+Cinq super-tuiles (hubThemes.js) remplacent la trentaine de tuiles et les
+menus Général/Réseau/Data ; ancien accueil conservé (Réglages). À suivre :
+retour réel derrière Keycloak, éventuel réglage de la composition des
+thématiques, retrait de l'ancien mode si inutile.
+
+## Sauvegarde totale / restauration / régénération host (2026-09-08, #458)
+backup-full.sh (archive chiffrée : dépôt, .env, PKI, montages, volumes, dumps,
+shim), restore-full.sh, regenerate-host.sh (CA et sels jamais touchés). Voir
+docs/sauvegarde-totale.md. #459 : incrémentale + gestionnaire (catalogue,
+chaînes, GFS, export, planification) façon ARCserve (Cheyenne/NetWare, confirmé).
+#460 : archivage versionné de la GED (parent/branches, officielle unique,
+check-out/in, archive immuable) + graphe des versions. Reste : essai contre le
+vrai Mayan sur « super » ; archivage planifié (GroupWise « scheduled archival »)
+et sécurité par version si besoin.
+
+## Tuile unique « Cortex » : découverte / position / causalité (2026-09-08, #461, analyse)
+Analyse dans docs/analyse-supervision-unifiee.md. À construire par étapes : (1) cortex-api
+(entités, relations, événements normalisés, incidents par fenêtre + relation) ; (2) rôles
+pondérés et table de routes, graphe d'architecture persistant ; (3) hiérarchie de lieux,
+position mémorisée avec provenance, fiche d'intervention, couches carto ; (4) séquences
+apprises et anticipation, dérives généralisées ; (5) statistiques MTTA/MTTR et politiques
+d'alerte. Validé (« cortex me plait ») ; étape 1 livrée en #462 (cortex-api,
+tuile, principes évalués) ; étape 2 livrée en #463 (rôles enrichis OUI /
+classifier / Nebula / IPAM, table de routes, graphe d'architecture, « ce qui
+a changé ») ; étape 3 livrée en #464 (hiérarchie de lieux, positions avec
+provenance et file de travail, fiche d'intervention, couches carto) ; étape 4
+livrée en #465 (règles apprises à confirmer, annonces jugées, dérives comme
+événements) ; étape 5 livrée en #466 (politiques d'alerte par rôle et lieu, une
+notification par incident avec escalade et silences, MTTA/MTTR). Les cinq étapes
+du découpage sont livrées ; reste le déploiement réel sur « super » et les
+sources réelles (classifier, Nebula, IPAM, geo-catalog, netprobe, SMS/courriel).
+
+## Anonymisation et publication (2026-09-09, #467)
+
+Dépôt personnel destiné à la communauté : aucune information d'employeur,
+de client, de site réel, de personne ou d'adresse réelle ne doit y figurer.
+
+- Fait (#467) : passe sur l'arbre courant (noms de sociétés / client /
+  lieux / prénoms / IP / chemins → valeurs fictives), fichiers générés ou
+  locaux retirés et ignorés (`keycloak/.last-imported-realm.json`,
+  `.DS_Store`, `pki/scripts/.srl`, journaux).
+- **À faire — historique git** : les 76 commits antérieurs conservent les
+  valeurs d'origine (CHANGELOG, README, tests, fichier de realm). Deux
+  voies : (a) réécriture `git filter-repo --replace-text` + suppression
+  des chemins retirés, puis push forcé de `dev` et `main` (toute copie
+  clonée doit être re-clonée ; GitHub garde des objets en cache jusqu'à
+  son nettoyage — demander la purge au support ou recréer le dépôt) ;
+  (b) publier un dépôt neuf à partir de l'arbre anonymisé (historique
+  écrasé, plus simple et plus sûr pour une première publication). Le
+  script de remplacement est conservé hors dépôt (`~/Downloads/anonymise-supervision-si.py`).
+- Règle pour la suite : exemples et tests uniquement avec des valeurs
+  fictives — plages de documentation (`192.0.2.0/24`, `198.51.100.0/24`,
+  `203.0.113.0/24`), MAC locales (`02:…`, `aa:bb:cc:…`), prénoms alice /
+  bob / carol / dave / eve, `exemple`, `Alpha`, `Villexemple` ; jamais de
+  fichier exporté d'un déploiement réel (realm, logs, dumps).
+3. Hub (PKI) — la CA interne « Supervision SI Internal CA » est générée
+   SANS extension `keyUsage`. OpenSSL ≥ 3 (Python 3.14, agents récents)
+   refuse dès lors de l'utiliser pour valider la chaîne du serveur :
+   « CA cert does not include key usage extension » -- constaté sur le
+   premier agent macOS réel (l'agent Linux passe, son OpenSSL étant plus
+   tolérant). Contournement en production : l'agent macOS tourne avec le
+   Python système (LibreSSL tolérant) au lieu d'un Python OpenSSL 3.
+   **Analyse d'impact (2026-09-10), à relire avant toute bascule** :
+   - CONSOMMATEURS DE LA CA : agents hôtes (`central-ca.crt` +
+     empreinte `--ca-fingerprint` à l'installation) ; `si-agent-api`,
+     `si-proxy`, `si-proxy-admin-api` (montent `/ca/ca.crt` en volume
+     -> automatique après redémarrage) ; `vault-admin-portal` (monte
+     `pki/server`, le certificat feuille) ; postes/navigateurs du LAN
+     (import manuel, Firefox a son propre magasin) ; dockers
+     INDÉPENDANTS interrogeant Keycloak via tls-proxy -- ils ont COPIÉ
+     le `ca.crt` dans leur propre trust store (cacerts Java,
+     update-ca-certificates, image) : point le plus manuel.
+   - CAS 1, CA AUTO-SIGNÉE régénérée : empreinte de la CA changée
+     (même en conservant la clé) -> agents = TLS rompu jusqu'à
+     remplacement de `central-ca.crt` + redémarrage (la file locale
+     survit) ; dockers hub quasi nuls (volume + feuille régénérée à
+     chaque `run.sh`) ; postes/navigateurs = retrait de l'ancienne CA
+     PUIS import de la nouvelle, sous peine de
+     `SEC_ERROR_REUSED_ISSUER_AND_SERIAL` (même émetteur + même numéro
+     de serie que l'ancienne qui traîne) -> NUMÉRO DE SÉRIE NEUF
+     obligatoire.
+   - CAS 2, LET'S ENCRYPT : déjà en place sur le frontal public
+     (#471-474) ; les agents en `--central-fallback` le valident via le
+     magasin système -> impact NUL sur ce chemin. Mais LE ne peut PAS
+     remplacer la CA interne pour le LAN (pas de certificat public pour
+     une IP privée / un nom interne). Les deux coexistent.
+   - VOIE RECOMMANDÉE : (a) dès maintenant, SANS RISQUE -- corriger
+     `generate-ca.sh` (ajouter `basicConstraints=critical,CA:TRUE` et
+     `keyUsage=critical,keyCertSign,cRLSign`, série neuf) : le script
+     ne régénère JAMAIS une CA existante, donc aucun impact sur le hub
+     en production, seuls les futurs déploiements en bénéficient ;
+     (b) plus tard, bascule en production : régénérer sur le hub puis
+     redéployer `ca.crt` dans l'ordre agents -> postes/navigateurs ->
+     dockers à trust store copié, avec fenêtre de maintenance.

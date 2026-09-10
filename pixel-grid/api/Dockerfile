@@ -6,6 +6,7 @@ COPY pixel-grid/api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY pixel-grid/api/app.py .
+COPY pixel-grid/api/name_resolver.py .
 COPY shared/log_buffer.py .
 COPY shared/version_endpoint.py .
 COPY shared/VERSION.json .

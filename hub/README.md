@@ -15,6 +15,29 @@ qu'un ajout à l'un des deux existants, parce qu'aucun des deux n'a
 vocation à être "la porte d'entrée de l'autre" — ni Supervision SI ni
 le portail tickets ne devrait dépendre de l'autre pour démarrer.
 
+## Accueil par thématiques (livraison #457)
+
+Demandé : « il y a trop de tuiles et seulement quelques thématiques ».
+L'accueil montre désormais **cinq super-tuiles** (`src/hubThemes.js`,
+source unique pour l'accueil ET les menus de l'en-tête) : Supervision
+(supervisés, agents, sondes, onduleurs, SNMP, vigilance, cyber, logs,
+historique, mémoire), Réseau (exploration, cycle agile, orchestrateur,
+architecture, fusion IP/MAC, Nebula, tunnels SSH), Données &
+référentiels (bases externes, GLPI, positions, classification, schémas,
+rétro-ingénierie, DBA), Documents & ENT (ENT, GED, fichiers, IMAP, portail
+tickets), Sécurité & accès (Bastion, droits, sauvegardes, coffre-fort,
+Keycloak, annuaire). Une thématique ouverte (`src/ThemeView.jsx`) présente
+ses outils en **onglets** ; « Retour » depuis un outil revient à la
+thématique. Les vues elles-mêmes sont inchangées (la chaîne de routage de
+`App.jsx` est devenue `renderRoute(vm)`, réutilisée par la thématique).
+Un outil n'apparaît que si son API est configurée et si la personne y a
+droit (mêmes conditions qu'avant) ; une thématique vide n'apparaît pas.
+Les liens externes déclarés par les administrateurs restent des tuiles à
+part. Les menus Général / Réseau / Data de l'en-tête (#236) sont remplacés
+par un menu par thématique. L'ancien accueil (toutes les tuiles, avec la
+personnalisation de #133) reste disponible : Réglages → « Accueil :
+par thématiques → toutes les tuiles » (mémorisé dans le navigateur).
+
 ## Fronts listés — un seul par application déployée séparément
 
 `buildFrontsList()` (`src/lib.js`) liste actuellement 2 fronts :
@@ -1805,6 +1828,33 @@ l'éditeur de schéma) reste **flou** même après cette interprétation
 -- traité séparément (voir `BACKLOG.md` #5 et le changelog de
 livraisons suivantes).
 
+## Onglet Affectation de schema-analyzer (livraison #5)
+
+Backlog `BACKLOG.md` #5 -- "Interface de gestion (affectation des
+relations)". Distinct de l'éditeur de relations (qui corrige le
+SCHÉMA déduit) : ici, on gère l'AFFECTATION des relations sur les
+données elles-mêmes.
+
+**Ce qui EST construit** : nouveau sous-onglet "Affectation" dans
+`SchemaAnalyzerView.jsx` -- sélecteur de table, navigateur de lignes
+(50 lignes/page, pagination), clic sur une ligne pour résoudre TOUTES
+ses relations confirmées (affichage des lignes cibles), et bouton
+"Modifier l'affectation" pour changer la valeur d'une FK/colonne-liste
+(protégé par rights-api).
+
+**Backend** : nouveau module `relation_resolver.py` (fonctions PURES)
++ 2 routes (`POST /relations/resolve-row` pour la résolution, `POST
+/relations/assign` pour l'affectation). L'écriture réelle délègue à
+dba-api (PUT /rows) -- schema-analyzer ne fait que préparer l'appel.
+
+**Vérifié réellement** : logique de résolution testée en profondeur
+(16 tests) -- résolution FK classique + colonne-liste, valeur
+orpheline, ligne introuvable, colonne-liste avec correspondance
+partielle, ignore les relations non confirmées et les valeurs vides.
+Logique d'affectation testée (5 tests) -- cascade complète
+validation -> résolution -> assignation, refus sans relation
+confirmée. Structure JSX revérifiée.
+
 **Vérifié réellement** : nouvelles fonctions du client
 (`fetchTableColumnsForEdit`, `fetchTableRows`, `updateTableRow`,
 `insertTableRow`, `deleteTableRows`, `executeSql`) testées avec un
@@ -2404,3 +2454,33 @@ n'ont pas encore reçu ce callback).
 Confirmé qu'aucun autre composant du hub n'utilise `CalendarView`
 en dehors d'`EntView.jsx` -- le nouveau prop optionnel
 (`onViewRelations`) reste rétrocompatible partout ailleurs.
+
+## Graphique du cycle réseau interactif + menu Réseau complété (livraison #399)
+
+**Graphique** (`NetworkCycleView.jsx`) — zoom molette ancré sous le curseur,
+déplacement au glisser, boutons `+`/`−`/`⟲`, infobulles détaillées au survol
+des nœuds, rafraîchissement manuel et automatique (30 s) avec horodatage.
+Toute la logique non-React vit dans `src/networkCycleGraph.js` (12 tests Node
+dans `tests/networkCycleGraph.test.mjs`) — même motif que `ldapTree.js`.
+Détail des pièges traités (facteur de zoom recalculé après bornage, échelle
+commune aux deux axes du déplacement, absence de `setPointerCapture` pour ne
+pas casser le clic sur un nœud, molette en écoute non passive, infobulle
+bornée à cause de `overflow: hidden`) : voir `docs/cycle-agile-reseau.md`.
+
+**Menu Réseau ▾** (`App.jsx`) — « Exploration réseau » et « Sondes réseau »
+n'existaient QUE comme tuiles d'accueil. Rapatriées dans le menu (mêmes
+`viewMode`, jamais une vue dupliquée) et **conditionnées à leur variable
+d'API**, contrairement aux sept autres entrées : `NetworkAgentView` et
+`NetprobeView` appellent leur API dès le montage sans garde-fou sur une base
+absente, une entrée non conditionnée mènerait donc à un écran d'erreur réseau
+plutôt qu'à un « non configuré ». La liste des `viewMode` qui allument le menu
+a été complétée (`network-agent`, `netprobe`).
+
+**Correction de thème `--hub-danger`** — variable **jamais définie** : les 32
+usages du hub retombaient tous sur leur repli en dur (`#c0392b` / `#fdecea`)
+et restaient donc identiques en thème sombre. Remplacés par `var(--danger)` /
+`var(--danger-bg)` dans 15 fichiers. Les replis valaient exactement les
+valeurs du thème clair : rendu clair inchangé, seul le sombre est corrigé.
+Même famille de bug que les couleurs en dur trouvées trois fois dans DBA — à
+`grep` systématiquement (`grep -rn -- "var(--[a-z-]*, #" hub/src`) avant de
+considérer un module terminé.

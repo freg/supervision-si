@@ -1,0 +1,13 @@
+{
+  "id": "capture-relay",
+  "version": "1",
+  "runner": "python",
+  "entry": "capture_relay.py",
+  "interval_seconds": 900,
+  "timeout_seconds": 120,
+  "args": [],
+  "enabled": false,
+  "description": "Relais d'exploration réseau : capture tcpdump bornée (durée, taille) sur l'interface principale, envoyée au central qui la verse dans network-agent-api (site de l'agent, segment = hôte). DÉSACTIVÉ par défaut : trafic réel de l'hôte observé. Privilégié : tcpdump exige root (CAP_NET_RAW).",
+  "source": "bundled",
+  "privileged": true
+}

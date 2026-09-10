@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { scanPhpArchive } from "./retroClient.js";
 import { fetchDbaConnections, createRelation } from "./schemaAnalyzerClient.js";
+import RetroJourneysPanel from "./RetroJourneysPanel.jsx";
 
 // Tuile "Rétro-ingénierie" (hub), livraison #243 -- backlog item 30,
 // demandé explicitement en urgence : "vieille application de
@@ -117,6 +118,9 @@ export default function RetroView({ onBack, retroApiBase, dbaApiBase, schemaApiB
         </div>
       </div>
 
+      {/* #441 : parcours applicatifs (extension Firefox + relais + journal SQL) */}
+      <RetroJourneysPanel retroApiBase={retroApiBase} connections={connections} dbaApiBase={dbaApiBase} />
+
       <div className="hub-card hub-settings-section">
         <label className="secondary" style={{ cursor: "pointer", display: "inline-block" }}>
           📤 Analyser une archive ZIP
@@ -124,7 +128,7 @@ export default function RetroView({ onBack, retroApiBase, dbaApiBase, schemaApiB
         </label>
         {busy && <p className="muted">Analyse en cours…</p>}
         {error && (
-          <p style={{ color: "var(--hub-danger, #c0392b)" }}>⚠️ {error}</p>
+          <p style={{ color: "var(--danger)" }}>⚠️ {error}</p>
         )}
       </div>
 
@@ -163,7 +167,7 @@ export default function RetroView({ onBack, retroApiBase, dbaApiBase, schemaApiB
                         ) : sendStatus[idx] === "sent" ? (
                           <span className="muted">✔ envoyée</span>
                         ) : sendStatus[idx]?.error ? (
-                          <span style={{ color: "var(--hub-danger, #c0392b)" }} title={sendStatus[idx].error}>⚠️ échec</span>
+                          <span style={{ color: "var(--danger)" }} title={sendStatus[idx].error}>⚠️ échec</span>
                         ) : (
                           <button
                             className="secondary"

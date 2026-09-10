@@ -1100,6 +1100,37 @@ button.secondary { background: var(--panel); }
 .na-device-row:hover { background: var(--bg); }
 .na-device-row.active { background: var(--bg); }
 
+/* Échanges : ligne cliquable -> historique de la paire (même motif que
+   .na-device-row). */
+.na-link-row { cursor: pointer; }
+.na-link-row:hover { background: var(--bg); }
+.na-link-row.active { background: var(--bg); }
+.na-link-history {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+/* Barres de delta entre relevés (présence d'un appareil, volume d'une
+   paire). preserveAspectRatio="none" : seules des barres, aucune
+   déformation gênante, et la largeur suit celle de la colonne. */
+.na-history-bars { margin: 4px 0 8px; }
+.na-history-svg {
+  display: block;
+  width: 100%;
+  height: 48px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.na-history-axis { stroke: var(--border); stroke-width: 1; }
+.na-history-bar { fill: var(--accent); opacity: 0.85; }
+.na-history-bar:hover { opacity: 1; }
+.na-history-bar.reset { fill: var(--warning); }
+.na-history-caption { font-size: 11px; margin-top: 3px; }
+.na-history-reset-note { color: var(--warning); }
+.na-history-empty { margin: 4px 0 8px; font-size: 12px; }
+
 .na-service-dots {
   display: flex;
   gap: 4px;
@@ -1160,6 +1191,66 @@ button.secondary { background: var(--panel); }
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
 }
 
+/* Boutons de section et filtres de flux (livraison #412) */
+.na-section-toggle.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.na-section-toggle.active:hover { filter: brightness(1.08); }
+.na-flow-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.na-flow-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.na-flow-filter input[type="checkbox"] { margin: 0; }
+.na-flow-filter select { max-width: 220px; }
+.na-flow-pct { width: 64px; }
+.na-flow-summary { margin-left: auto; font-size: 12px; }
+
+/* Enveloppe de zoom des graphiques (livraison #413, components/ZoomableChart.jsx) */
+.hub-chart { position: relative; }
+.hub-chart-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+.hub-chart-label { font-weight: 600; color: var(--muted); }
+.hub-chart-zoom { display: inline-flex; align-items: center; gap: 4px; }
+.hub-chart-zoom .nc-graph-btn:disabled { opacity: 0.4; cursor: default; }
+.hub-chart-hint { margin-left: auto; font-size: 11px; }
+.hub-chart-svg { cursor: grab; touch-action: none; overflow: hidden; }
+.hub-chart.panning .hub-chart-svg { cursor: grabbing; }
+.hub-chart-scale { display: inline-flex; align-items: center; gap: 10px; }
+.hub-chart-scale label { display: inline-flex; align-items: center; gap: 4px; }
+.hub-chart-scale select { font-size: 12px; padding: 2px 4px; }
+.hub-chart-scale input[type="range"] { width: 90px; margin: 0; }
+.alluvial-svg, .weighted-radial-svg {
+  display: block;
+  max-width: 900px;
+  margin: 0 auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.weighted-radial-svg { max-height: 70vh; }
+
 /* Diagramme alluvial (flux réseau, livraison #389) */
 .alluvial-link {
   fill: none;
@@ -1185,3 +1276,658 @@ button.secondary { background: var(--panel); }
 .weighted-radial-node { fill: var(--panel); stroke: var(--border); stroke-width: 1.5px; }
 .weighted-radial-node-device { fill: var(--accent); }
 .weighted-radial-label { font-size: 10px; fill: var(--muted); }
+
+/* Cycle agile réseau (tuile hub Réseau) */
+.nc-cycle-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 0;
+  overflow-x: auto;
+}
+.nc-cycle-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--panel);
+  border: 2px solid var(--border);
+  border-radius: 24px;
+  font-weight: 500;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.nc-cycle-step:hover { border-color: var(--accent); }
+.nc-cycle-step.active { background: var(--panel); font-weight: 600; }
+.nc-cycle-icon { font-size: 16px; }
+.nc-cycle-arrow { color: var(--muted); font-size: 18px; margin: 0 2px; }
+
+.nc-kpi-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.nc-kpi {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 20px;
+  background: var(--bg);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  min-width: 100px;
+}
+.nc-kpi-value { font-size: 24px; font-weight: 600; }
+.nc-kpi-label { font-size: 11px; color: var(--muted); margin-top: 2px; text-align: center; }
+
+.nc-step-content { margin-bottom: 16px; }
+.nc-step-nav {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0 24px;
+}
+
+.nc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+.nc-pill.ok { background: rgba(0, 184, 148, 0.12); color: #00b894; }
+.nc-pill.down { background: rgba(192, 57, 43, 0.12); color: #c0392b; }
+
+/* --- Cycle agile réseau : onglet graphique (diagramme SVG interactif) --- */
+.nc-view-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+.nc-view-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 0;
+}
+.nc-view-tab:hover { color: var(--text); }
+.nc-view-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* Actions suggérées du cycle agile (#418) */
+.nc-autorun { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; margin: 0 0 8px; }
+.nc-autorun input { margin: 0; }
+.nc-action { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.nc-action button { padding: 2px 8px; font-size: 12px; white-space: nowrap; }
+.nc-action-run:disabled { opacity: 0.6; cursor: default; }
+.nc-action-result { font-size: 12px; }
+.nc-action-result.ok { color: var(--ok); }
+.nc-action-result.bad { color: var(--danger); }
+.nc-action-hint { font-size: 11px; }
+/* Le message d'une suggestion peut être long : on le laisse passer à la
+   ligne plutôt que d'imposer un défilement horizontal à tout le tableau. */
+.nc-suggestions { min-width: 0 !important; width: 100%; }
+.nc-suggestions td:nth-child(2) { white-space: normal; min-width: 260px; }
+
+/* Charte d'icônes (#410) -- icons.js / StepIcon.jsx. Les symboles et les
+   tracés prennent la couleur passée en `color` (currentColor), les emoji
+   gardent la leur : aucune couleur en dur ici. */
+.hub-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  vertical-align: -0.15em;
+}
+.hub-icon-glyph { font-weight: 600; }
+.hub-icon-line { flex: none; }
+.nc-graph-node-icon-line { pointer-events: none; }
+.nc-icon-set {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  padding-bottom: 4px;
+}
+.nc-icon-set select { font-size: 12px; padding: 3px 6px; }
+
+.nc-graph-container {
+  position: relative;
+  width: 100%;
+  /* Hauteur posée en ligne par le composant (#411) : moitié haute de la
+     fenêtre en grand, un tiers en réduit -- voir networkCycleLayout.js. */
+  height: 420px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: height 0.2s ease;
+}
+
+/* Disposition en deux zones (#411) : menu en haut, détail en bas. */
+.nc-menu { margin-bottom: 12px; }
+.nc-menu .nc-view-tabs { margin-bottom: 8px; }
+.nc-menu-controls {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 8px;
+  padding-bottom: 4px;
+}
+.nc-menu-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 12px;
+  margin-bottom: 12px;
+  background: var(--panel);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.nc-menu-tab:hover { color: var(--text); border-color: var(--accent); }
+.nc-menu-tab-arrow { color: var(--accent); font-size: 14px; }
+.nc-menu-tab-step { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; color: var(--text); }
+.nc-detail { min-height: 40vh; }
+/* Nœud de l'étape courante : anneau plus épais, léger halo de sa couleur
+   (portée par style={{stroke}} -- currentColor via le CSS ne suffit pas
+   pour un halo, d'où le filtre). */
+.nc-graph-node.selected .nc-graph-node-circle {
+  stroke-width: 4px;
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.25));
+}
+.nc-graph-node.selected .nc-graph-node-label { text-decoration: underline; text-underline-offset: 2px; }
+.nc-graph-container.reduced .nc-graph-legend { display: none; }
+.nc-graph-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Nœuds du graphe */
+.nc-graph-node {
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.nc-graph-node:hover .nc-graph-node-circle {
+  stroke-width: 3px;
+  filter: brightness(1.2);
+}
+.nc-graph-node-circle {
+  fill: var(--panel);
+  stroke-width: 2px;
+  transition: all 0.15s ease;
+}
+.nc-graph-node-icon {
+  font-size: 22px;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+.nc-graph-node-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-anchor: middle;
+  fill: var(--text);
+  pointer-events: none;
+}
+.nc-graph-node-status {
+  pointer-events: none;
+}
+.nc-graph-node-status-text {
+  font-size: 10px;
+  text-anchor: middle;
+  fill: var(--muted);
+  pointer-events: none;
+}
+
+/* Flèches animées */
+.nc-graph-arrow {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 2px;
+  marker-end: url(#nc-arrowhead);
+}
+.nc-graph-arrow-flow {
+  fill: none;
+  stroke-width: 3px;
+  marker-end: url(#nc-arrowhead-flow);
+  stroke-dasharray: 8 12;
+  animation: nc-flow 1.5s linear infinite;
+}
+@keyframes nc-flow {
+  to { stroke-dashoffset: -40; }
+}
+
+/* Indicateur de statut temps réel sur les nœuds */
+.nc-status-dot {
+  stroke: var(--panel);
+  stroke-width: 2px;
+}
+/* Variables de thème obligatoires : les couleurs fixes précédentes
+   (#00b894/#fdcb6e/#c0392b) restaient identiques en thème sombre alors que
+   le reste de l'interface changeait -- même famille de bug que celui déjà
+   corrigé trois fois dans DBA. */
+.nc-status-dot.ok { fill: var(--ok); }
+.nc-status-dot.warn { fill: var(--warning); }
+.nc-status-dot.down { fill: var(--danger); }
+.nc-status-dot.unknown { fill: var(--muted); }
+
+/* Légende du graphe */
+.nc-graph-legend {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--panel);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+.nc-graph-legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.nc-graph-legend-dot.ok { background: var(--ok); }
+.nc-graph-legend-dot.warn { background: var(--warning); }
+.nc-graph-legend-dot.down { background: var(--danger); }
+.nc-graph-legend-dot.unknown { background: var(--muted); }
+
+/* Zoom / déplacement du graphique du cycle */
+.nc-graph-svg { cursor: grab; touch-action: none; }
+.nc-graph-svg.panning { cursor: grabbing; }
+
+.nc-graph-toolbar {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.nc-graph-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 3px 7px;
+}
+.nc-graph-btn:hover { border-color: var(--accent); color: var(--accent); }
+.nc-graph-zoom-level {
+  min-width: 42px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.nc-graph-toolbar-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+}
+.nc-graph-auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+.nc-graph-auto input { margin: 0; cursor: pointer; }
+.nc-graph-refresh-time { font-variant-numeric: tabular-nums; }
+
+/* Infobulle de survol -- positionnée DANS .nc-graph-container, qui est en
+   overflow:hidden : sa position est bornée côté JS (clampTooltipPosition),
+   jamais laissée déborder puisqu'un débordement serait simplement coupé. */
+.nc-graph-tooltip {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 8px 10px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  font-size: 11px;
+  color: var(--text);
+}
+.nc-graph-tooltip-title {
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+.nc-graph-tooltip-line {
+  color: var(--muted);
+  line-height: 1.5;
+}
+.nc-graph-tooltip-trends {
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px dashed var(--border);
+}
+.nc-graph-tooltip-trends-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+.nc-graph-tooltip-trend { line-height: 1.5; }
+.nc-graph-tooltip-trend.good { color: var(--ok); }
+.nc-graph-tooltip-trend.bad { color: var(--danger); }
+.nc-graph-tooltip-trend.neutral { color: var(--muted); }
+.nc-trend-mark {
+  font-size: 11px;
+  font-weight: 700;
+  text-anchor: middle;
+  pointer-events: none;
+}
+.nc-trend-mark.good { fill: var(--ok); }
+.nc-trend-mark.bad { fill: var(--danger); }
+.nc-trend-mark.neutral { fill: var(--muted); }
+.nc-graph-tooltip-hint {
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px solid var(--border);
+  color: var(--accent);
+  font-size: 10px;
+}
+
+/* Onglet « Sondes WiFi » (netprobe, #407) -- tonalités et vivacité via les
+   variables de thème, jamais une couleur en dur. */
+.np-tone.good { color: var(--ok); }
+.np-tone.warn { color: var(--warning); }
+.np-tone.bad { color: var(--danger); }
+.np-tone.neutral { color: var(--text); }
+.np-live { font-size: 12px; white-space: nowrap; }
+.np-live.alive { color: var(--ok); }
+.np-live.stale { color: var(--warning); }
+.np-live.never { color: var(--muted); }
+.np-agent-row { cursor: pointer; }
+.np-agent-row:hover { background: var(--bg); }
+.np-agent-row.active { background: var(--bg); }
+.np-agent-row.inactive td { opacity: 0.6; }
+.np-secret-box { border-left: 3px solid var(--warning); }
+.np-secret {
+  font-family: monospace;
+  font-size: 13px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  user-select: all;
+  word-break: break-all;
+}
+.np-line-wrap { margin: 4px 0 10px; }
+.np-line-svg {
+  display: block;
+  width: 100%;
+  height: 90px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.np-line-path { fill: none; stroke: var(--accent); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.np-line-point { fill: var(--accent); }
+.np-line-point:hover { fill: var(--text); }
+.np-line-caption { font-size: 11px; margin-top: 3px; }
+
+
+/* Tuile UPS (livraison #415) -- UpsView.jsx. Réutilise .np-tone / .np-line-*
+   (sondes WiFi) et .na-section-toggle ; couleurs par variables de thème. */
+.ups-notice { display: flex; align-items: center; gap: 8px; }
+.ups-notice button { padding: 2px 8px; font-size: 11px; }
+.ups-status-card { max-width: none; text-align: left; }
+.ups-toolbar { display: flex; align-items: center; gap: 8px; margin: 12px 0 8px; }
+.ups-form { max-width: none; text-align: left; }
+.ups-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px 16px;
+}
+.ups-form-grid label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+.ups-form-grid input, .ups-form-grid select { font-size: 13px; padding: 5px 8px; }
+.ups-form-check { flex-direction: row !important; align-items: center; color: var(--text) !important; }
+.ups-form-wide { grid-column: 1 / -1; }
+.ups-test-result { margin-top: 8px; padding: 6px 10px; border-radius: 6px; background: var(--bg); border: 1px solid var(--border); font-size: 13px; }
+.ups-test-result.ok { border-color: var(--ok); }
+.ups-test-result.bad { border-color: var(--danger); }
+.ups-row { cursor: pointer; }
+.ups-row:hover { background: var(--bg); }
+.ups-row.active { background: var(--bg); }
+.ups-row.inactive td { opacity: 0.6; }
+/* Colonne d'actions dans un tableau défilable : sticky à droite, cellule
+   ET en-tête (piège documenté). */
+.ups-actions, .ups-actions-head { position: sticky; right: 0; background: var(--panel); white-space: nowrap; }
+.ups-actions button { padding: 2px 8px; margin-right: 4px; }
+.ups-detail { max-width: none; text-align: left; margin-top: 16px; }
+.ups-detail h3 { margin: 14px 0 6px; font-size: 14px; }
+.ups-fiche td:first-child { font-size: 11px; }
+.ups-timeline-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 6px; font-size: 13px; }
+.ups-timeline-controls label { display: inline-flex; align-items: center; gap: 6px; }
+.ups-line-svg {
+  display: block;
+  width: 100%;
+  height: 120px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.ups-timeline-table { max-height: 320px; overflow-y: auto; margin-top: 6px; }
+.ups-reading-failed td { opacity: 0.8; }
+.ups-changed { font-weight: 600; color: var(--accent); }
+/* Tuile Agents hôtes (livraison #421) -- SiAgentView.jsx. Réutilise
+   .ups-* (toolbar, formulaires, lignes, actions sticky) et .np-tone ;
+   couleurs par variables de thème. */
+.sa-gauge { display: flex; align-items: center; gap: 6px; min-width: 110px; }
+.sa-gauge-bar { flex: 1; height: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.sa-gauge-fill { height: 100%; background: var(--ok); }
+.sa-gauge-fill.warn { background: var(--warning); }
+.sa-gauge-fill.bad { background: var(--danger); }
+.sa-gauge-text { font-size: 11px; min-width: 42px; text-align: right; }
+.sa-fleet td { vertical-align: middle; }
+.sa-detail { max-width: none; text-align: left; }
+.sa-sections { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 8px; }
+.sa-sections button { padding: 2px 10px; font-size: 12px; }
+.sa-risks { margin: 0; padding-left: 18px; }
+.sa-risks li { margin: 2px 0; }
+.sa-kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 4px 16px; font-size: 13px; }
+.sa-kv > div { display: flex; gap: 8px; align-items: baseline; }
+.sa-kv > div > span:first-child { min-width: 110px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+.sa-log { font-size: 11px; max-height: 240px; overflow: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; white-space: pre-wrap; }
+.sa-script { font-family: monospace; font-size: 12px; padding: 6px 8px; width: 100%; box-sizing: border-box; }
+/* #422 : blocage, événements, bandeau de synthèse sur l'accueil */
+.sa-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.sa-danger:hover { filter: brightness(1.08); }
+.sa-fleet-blocked {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin: 8px 0; padding: 10px 14px; border-radius: 8px;
+  border: 2px solid var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--panel));
+}
+.sa-fleet-blocked button { margin-left: auto; }
+.sa-events { max-height: 60vh; overflow-y: auto; }
+.sa-event-security td:nth-child(4) { font-weight: 600; }
+.sa-banner {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin: 0 0 16px; padding: 10px 14px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--panel); text-align: left; width: 100%; font: inherit; color: var(--text);
+}
+.sa-banner.bad { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, var(--panel)); }
+.sa-banner.warn { border-color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, var(--panel)); }
+.sa-banner.good { border-color: var(--ok); }
+.sa-banner-head { font-weight: 600; }
+.sa-banner-items { display: flex; gap: 6px 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 0; padding: 0; list-style: none; }
+.sa-banner-items li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px; }
+
+/* Tuile Supervision SI refondue (livraison #423, backlog 64) -- SupervisionSiView.jsx.
+   Colonne gauche à onglets + page centrale en cadres (grille 1-4). */
+.ss-root { display: flex; flex-direction: column; height: calc(100vh - 60px); }
+.ss-root .hub-settings-topbar { flex: 0 0 auto; }
+.ss-errors { margin: 0 0 6px; font-size: 12px; }
+.ss-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 340px 1fr; gap: 12px; }
+.ss-left { min-height: 0; display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); padding: 8px; overflow: hidden; }
+.ss-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.ss-tabs button { padding: 3px 8px; font-size: 12px; }
+.ss-search { font-size: 13px; padding: 5px 8px; }
+.ss-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.ss-chip { padding: 1px 7px; font-size: 11px; }
+.ss-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ss-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; min-height: 0; }
+.ss-list li { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; }
+.ss-list li:hover, .ss-list li.active { background: var(--bg); }
+.ss-list li.muted { cursor: default; }
+.ss-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+.ss-icon { flex: 0 0 auto; }
+.ss-name { flex: 1; min-width: 0; line-height: 1.25; }
+.ss-name .muted { font-size: 11px; }
+.ss-prio { display: flex; gap: 2px; }
+.ss-prio button, .ss-origin { padding: 0 5px; font-size: 11px; line-height: 18px; }
+.ss-origin { margin-right: 3px; }
+.ss-center { min-height: 0; display: grid; gap: 10px; }
+.ss-frame { min-height: 0; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); overflow: hidden; }
+.ss-frame-head { display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-bottom: 1px solid var(--border); }
+.ss-frame-head select { font-size: 12px; padding: 2px 6px; }
+.ss-frame-head button { padding: 0 6px; font-size: 11px; }
+.ss-frame-body { flex: 1; min-height: 0; overflow: auto; position: relative; }
+.ss-map { position: absolute; inset: 0; }
+.ss-map .leaflet-container { background: var(--bg); font: inherit; }
+.ss-map-legend { position: absolute; left: 8px; bottom: 8px; z-index: 500; display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
+.ss-map-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vertical-align: middle; }
+.ss-table table { font-size: 12px; }
+.ss-links, .ss-summary, .ss-proposals { padding: 8px; }
+.ss-summary { display: flex; flex-wrap: wrap; gap: 10px; }
+.ss-summary-card { flex: 1 1 100px; border: 2px solid; border-radius: 8px; text-align: center; padding: 8px; cursor: pointer; }
+.ss-summary-n { font-size: 28px; font-weight: 700; }
+.ss-summary-types { flex-basis: 100%; font-size: 13px; display: flex; flex-direction: column; gap: 3px; }
+.ss-legacy { font-size: 12px; text-decoration: none; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); }
+@media (max-width: 900px) { .ss-body { grid-template-columns: 1fr; } .ss-left { max-height: 40vh; } }
+/* #424 : outils redistribués (timeline, mosaïque, calendrier, radial, corbeille) */
+.ss-tool { padding: 6px 8px; }
+.ss-tool-head { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-bottom: 6px; font-size: 12px; }
+.ss-timeline-svg, .ss-radial-svg { width: 100%; height: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); }
+.ss-strong { font-weight: 700; }
+.ss-basket { margin: 0; }
+.ss-grid { display: flex; flex-direction: column; gap: 2px; }
+.ss-grid-row { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.ss-grid-label { width: 120px; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 0 auto; }
+.ss-grid-cells { display: flex; gap: 1px; flex: 1; }
+.ss-grid-cells i { flex: 1; height: 14px; min-width: 3px; border-radius: 2px; }
+.ss-calendar { display: grid; grid-template-columns: repeat(auto-fill, minmax(34px, 1fr)); gap: 3px; }
+.ss-day { border-radius: 4px; padding: 3px 2px; font-size: 10px; text-align: center; color: #fff; display: flex; flex-direction: column; line-height: 1.1; }
+.ss-day.good { background: var(--ok); opacity: 0.55; }
+.ss-day.warn { background: var(--warning); }
+.ss-day.bad { background: var(--danger); }
+.ss-day b { font-size: 11px; }
+/* Tuile Bases externes (livraison #425) -- ExternalBasesView.jsx */
+.eb-body { grid-template-columns: 300px 1fr 340px; }
+.eb-center { min-height: 0; display: flex; }
+.eb-center .ss-frame { flex: 1; }
+.eb-right { overflow-y: auto; }
+.eb-json { font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; white-space: pre-wrap; word-break: break-all; max-height: 40vh; overflow: auto; margin: 0; }
+@media (max-width: 1100px) { .eb-body { grid-template-columns: 1fr; } }
+/* #426 : localisation par nom (cadre « Localisations », actions de correspondance) */
+.ss-geo { display: flex; flex-direction: column; gap: 6px; min-height: 0; height: 100%; }
+.ss-geo .hub-table-scroll { flex: 1; min-height: 0; }
+.ss-geo tr.active td { background: var(--accent-bg, rgba(74, 110, 224, 0.12)); }
+.ss-match-actions { display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.ss-match-actions select { font-size: 11px; padding: 1px 4px; max-width: 110px; }
+.ss-geo td { vertical-align: top; }
+.ss-resolved { font-size: 11px; font-style: italic; }
+.ss-aliases summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+.ss-alias-form { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+.ss-alias-form input { flex: 1; }
+.ss-geo table { table-layout: fixed; width: 100%; }
+.ss-geo td, .ss-geo th { white-space: normal; word-break: break-word; }
+.ss-geo th:nth-child(1) { width: 32%; } .ss-geo th:nth-child(2) { width: 30%; } .ss-geo th:nth-child(3) { width: 15%; }
+/* #427 : fiche d'un sous-réseau observé (NetworkAgentView) */
+.na-subnets tr { cursor: pointer; }
+.na-subnet-card { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
+.na-chip { display: inline-block; padding: 1px 6px; margin: 0 4px 4px 0; border: 1px solid var(--border); border-radius: 10px; font-size: 11px; }
+/* #428 : réseau vu de l'hôte, matériel, activité (SiAgentView) */
+.sa-two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.sa-two-cols h4 { margin: 8px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+@media (max-width: 1000px) { .sa-two-cols { grid-template-columns: 1fr; } }
+.sa-kv > div.sa-wide { grid-column: 1 / -1; flex-wrap: wrap; }
+.sa-kv > div.sa-wide > span:first-child { flex: 0 0 110px; }
+/* Tuile Catalogue de positions (livraison #429) -- GeoCatalogView.jsx */
+.gc-body { grid-template-columns: 1fr 460px; }
+.gc-table { width: 100%; table-layout: fixed; }
+.gc-table th:nth-child(1) { width: 30%; } .gc-table th:nth-child(2) { width: 24%; } .gc-table th:nth-child(3) { width: 14%; } .gc-table th:nth-child(4) { width: 14%; }
+.gc-table td { vertical-align: top; white-space: normal; word-break: break-word; }
+.gc-table tr { cursor: pointer; }
+.gc-table tr.active td { background: var(--accent-bg, rgba(74, 110, 224, 0.12)); }
+.gc-refs { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; margin-top: 3px; }
+.gc-prec { font-size: 12px; font-weight: 600; }
+.gc-coords code { font-size: 11px; }
+.gc-actions { white-space: normal; }
+.gc-actions button { margin: 0 3px 3px 0; }
+.gc-bar { position: relative; display: inline-block; width: 90px; height: 14px; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; background: var(--bg); vertical-align: middle; }
+.gc-bar-fill { position: absolute; inset: 0 auto 0 0; }
+.gc-bar-fill.good { background: var(--ok); } .gc-bar-fill.warn { background: var(--warning); } .gc-bar-fill.bad { background: var(--danger); } .gc-bar-fill.neutral { background: var(--border); }
+.gc-bar-label { position: relative; font-size: 10px; line-height: 14px; padding-left: 6px; font-weight: 600; }
+.gc-detail { min-height: 0; }
+.gc-detail-body { display: flex; flex-direction: column; }
+.gc-map { flex: 0 0 260px; position: relative; }
+.gc-detail-text { padding: 6px 10px; overflow: auto; font-size: 13px; }
+.gc-detail-text h4 { margin: 10px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.gc-reasons { margin: 0 0 4px; padding-left: 18px; font-size: 12px; color: var(--muted); }
+.gc-reftable td { vertical-align: top; padding: 3px 4px; font-size: 12px; white-space: normal; }
+.gc-form { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.gc-form input { width: 110px; font-size: 12px; padding: 4px 6px; }
+.gc-links { list-style: none; margin: 0; padding: 0; font-size: 12px; }
+.gc-links li { padding: 3px 0; border-bottom: 1px solid var(--border); display: flex; gap: 6px; align-items: center; }
+@media (max-width: 1100px) { .gc-body { grid-template-columns: 1fr; } }
+/* Tuile Fusion IP/MAC (livraison #431) -- FusionView.jsx */
+.fu-body { grid-template-columns: 1fr 380px; }
+.fu-toolbar { flex-wrap: wrap; }
+.fu-toolbar .ss-search { width: 220px; }
+.fu-table { width: 100%; }
+.fu-table tr { cursor: pointer; }
+.fu-table tr.active td { background: var(--accent-bg, rgba(74, 110, 224, 0.12)); }
+.fu-table td { white-space: normal; word-break: break-word; vertical-align: top; }
+.fu-src-ipam { border-color: #4a6ee0; } .fu-src-zenoss { border-color: #d69a2b; }
+.fu-byname { font-size: 11px; font-style: italic; }
+.fu-cols-menu { position: absolute; right: 0; top: 24px; z-index: 20; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; display: flex; flex-direction: column; gap: 3px; font-size: 12px; min-width: 190px; }
+.fu-detail h4 { margin: 10px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+@media (max-width: 1100px) { .fu-body { grid-template-columns: 1fr; } }
+
+/* #457 : accueil par thématiques (super-tuiles) et vue thématique */
+.hub-grid-themes .hub-theme-tile h2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hub-theme { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.hub-theme-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 16px 6px; border-bottom: 1px solid var(--border); }
+.hub-theme-title { font-size: 16px; }
+.hub-theme-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.hub-theme-frame { flex: 1; min-height: 70vh; width: 100%; border: 0; background: var(--bg, #fff); }

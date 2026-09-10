@@ -331,6 +331,18 @@ simultanéité, carto) ne sont pas encore construites — on commence par
 la **timeline équipement**. La géolocalisation ci-dessus est le
 préalable pour la vue carto qui suivra.
 
+### Résolution par le nom (livraison #426)
+
+`name_resolver.py` + routes `/geolocations/resolve`, `/geolocations/matches`,
+`/geolocations/aliases` : un nom d'équipement (`UPS-Arobase-5`) ou de site
+(`Annexe-Nord`) est rapproché des localisations de la table (alias
+déclarés, équivalences `@`/`arobase`, `tp`/`batiment`…, proximité
+orthographique, nombres contraints) ; correspondances persistées
+(`location_matches`, statuts auto / suggested / validated / rejected /
+manual) et corrigeables depuis le hub. Le pont utilise la même résolution
+pour un chemin `localisation` inconnu avant le repli. Détails :
+`docs/geolocalisation-par-nom.md`.
+
 ## Pont vers Supervision SI
 
 Un service dédié (`pixel-grid-bridge`) synchronise **automatiquement et

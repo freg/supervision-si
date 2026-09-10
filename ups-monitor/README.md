@@ -1,0 +1,243 @@
+# ups-monitor — tuile « Onduleurs (UPS) »
+
+Livraison #415, demandée en urgence : « gestion des UPS : un automate /
+cron ; une liste d'onduleurs / site / IP / user / password ; en version 0
+une requête HTTP du genre `http://user:password@ip/index.htm` qui retourne
+la page ; d'où on extrait une fiche d'état avec tous les champs présentés
+et qu'on propose en tableau ; les données sont archivées et présentées à
+la demande en timeline ; fréquence initiale (paramétrable) 1 heure ».
+
+## Ce que fait la version 0
+
+- **Liste** des onduleurs : nom, site, IP ou nom, schéma (http/https),
+  page (`/index.htm` par défaut), utilisateur, mot de passe, fréquence
+  propre (vide = fréquence globale), activé/désactivé, notes.
+- **Automate** (`poller.py`) : thread de fond dans `ups-monitor-api`, un
+  passage par minute ; chaque onduleur activé est relevé quand son
+  intervalle est écoulé depuis `last_polled_at` (en base, donc résistant
+  au redémarrage). Fréquence globale `UPS_POLL_INTERVAL_SECONDS` (3600 par
+  défaut), 30 s minimum par onduleur (la page se rafraîchit elle-même
+  toutes les 30 s).
+- **Requête** : GET sur `scheme://host/path` avec authentification HTTP
+  Basic construite depuis utilisateur / mot de passe — c'est ce que le
+  navigateur fait de `user:password@` dans l'URL. `urllib` de la
+  bibliothèque standard, délai 10 s, 512 Ko maximum, sans suivi vers un
+  autre hôte.
+- **Fiche d'état** (`ups_parser.py`) : sections = cellules `class="title"`,
+  champs = cellule « Libellé: » suivie de sa valeur, sur la page
+  « UPS Management Web » (Socomec NETYS RT) copiée par la personne
+  (`samples/netys_rt_index.htm`) — 4 sections, 14 champs, heure système,
+  classe CSS de chaque valeur. Générique sur cette forme : un libellé
+  inconnu est conservé avec une clé dérivée, jamais perdu. Les valeurs
+  numériques (« 236.0 V », « 8 % », « 27,4 V ») sont extraites avec leur
+  unité. État global `ok` / `alarm` / `unknown` d'après Communication,
+  Output Source, Battery.
+- **Archive** (`ups_readings`) : un relevé par requête, réussie OU NON
+  (« injoignable depuis 3 h » est une information), fiche complète en
+  JSON + colonnes extraites (tension entrée/sortie, charge, batterie).
+  Conservation `UPS_HISTORY_RETENTION_DAYS` (365, 0 = illimitée).
+- **Tuile hub** (`hub/src/UpsView.jsx`) : liste avec état, âge du dernier
+  relevé, résumé, fréquence, actions ⟳ relever / ✎ modifier / 🗑 ;
+  formulaire avec « Tester la requête » (essai sans enregistrer) ; fiche
+  d'état en tableau (section, champ en français, valeur colorée pour les
+  champs d'état) ; **timeline** : fenêtre 24 h / 7 j / 30 j / tout, courbe
+  d'un champ numérique au choix (zoom #413), tableau des relevés avec
+  les valeurs qui ont changé mises en évidence et les échecs datés.
+
+## Pages en frames (livraison #416)
+
+Retour de tests : « une partie des onduleurs répond avec une frame et
+l'extraction est en échec ». Sur ces cartes, `/index.htm` n'est qu'un
+conteneur HTML 4 (`<frameset><frame src="top.htm"><frame
+src="menu.htm"><frame src="ups_status.htm">`) : la fiche est dans une
+sous-page. `poller.fetch_status_page` suit désormais les `<frame>`,
+`<iframe>` et redirections `<meta http-equiv="refresh">` quand la page
+demandée n'a aucun champ : en largeur d'abord, dans l'ordre du document,
+**même hôte seulement**, 2 niveaux et 6 sous-pages au plus, avec les mêmes
+identifiants Basic ; la première sous-page qui contient des champs devient
+la fiche. Le chemin effectif est archivé (`resolved_path` sur le relevé,
+`last_resolved_path` sur l'onduleur, conservé sur un échec) et affiché
+dans la tuile (« lue dans la frame /ups_status.htm ») : mettre ce chemin
+dans « Page » évite les lectures intermédiaires à chaque relevé -- « Tester
+la requête » le signale dès la saisie. Si aucune sous-page ne convient,
+l'erreur liste les pages essayées et leur titre, pour fixer « Page » à la
+main (cas d'une frame plus profonde ou d'une page d'état sous un autre
+nom : la lire dans le navigateur, « afficher la source », repérer le
+`src`).
+
+## Net Vision v6 (livraison #417)
+
+Pages réelles d'une carte **SOCOMEC Net Vision v6.01** (ITYS 3 kVA)
+copiées par la personne : `/index.htm` est un frameset (`Logo.html`,
+`Menu.html`, `PageMonComprehensive.html`), le menu est écrit en JavaScript,
+et la « Synthèse ASI » mêle des lignes HTML (`<TD ID=TH1>Libellé (unité)</TD>`
++ valeur dans une table imbriquée) et des lignes écrites par
+`CheckParameter("valeur", drapeau, "Libellé<i> (unité)</i>")` dans des
+`<script>`. Le parseur reconnaît cette seconde forme (`flavor:
+"netvision-v6"`) : cellules d'en-tête `TH*`/`<th>`, scripts lus dans l'ordre
+du document, unité prise dans le libellé quand la valeur n'en a pas
+(« 230.0 » + « (V) »), `<SUP>o</SUP>C` → °C, `(dd/mm/yyyy)` traité comme un
+format et non une unité, `<BR>` = valeur non disponible (champ conservé,
+vide), modèle et numéro de série lus dans le script d'en-tête (`tmpP1`,
+`tmpP2`), section nommée par `SetSubTitle`, heure de l'appareil = Date +
+Heure Net Vision. Libellés français normalisés vers les mêmes clés que la
+page anglaise (`output_load`, `output_voltage`, `input_voltage`,
+`battery_capacity`…) : une timeline commune aux deux familles. « État de
+l'ASI » entre dans l'état global : « Utilisation sur Onduleur » = normal
+(onduleur on-line), toute autre valeur (batterie, bypass, défaut) = alarme.
+Échantillons : `samples/netvision_v6_*.html`.
+
+## API (`/api/ups` via tls-proxy, port direct `UPS_MONITOR_API_PORT` = 6128)
+
+| Méthode | Route | Rôle |
+|---|---|---|
+| GET | `/status` | compteurs, réglages effectifs, `secrets_encrypted` |
+| GET / POST | `/ups` | liste (sans mot de passe) / création |
+| GET / PUT / DELETE | `/ups/<id>` | fiche (onduleur + dernier relevé + dernière fiche complète) / modification (mot de passe vide = inchangé, `clear_password` pour l'effacer) / suppression avec archive |
+| POST | `/ups/<id>/poll` | relever maintenant |
+| POST | `/ups/test` | essayer une saisie sans rien enregistrer |
+| GET | `/ups/<id>/readings?start&end&limit&fields=1` | timeline (du plus ancien au plus récent) |
+| GET | `/ups/<id>/series?key=input_voltage&start&end` | série d'un champ (relevés réussis) |
+
+Le mot de passe n'est **jamais** renvoyé (`has_password`,
+`password_encrypted`).
+
+## Mots de passe stockés
+
+Même motif que `snmp-api` (#213) : `credential_crypto.py` enveloppe
+`shared/secret_crypto.py`, phrase de passe `UPS_CRED_PASSPHRASE` et sel
+`UPS_CRED_SALT` (base64, généré UNE fois :
+`python3 -c "import secrets,base64; print(base64.b64encode(secrets.token_bytes(16)).decode())"`,
+jamais régénéré) fournis en continu au conteneur. **Différence assumée
+avec snmp** (urgence) : sans ces variables, les mots de passe sont
+stockés **en clair** dans le volume `/data` et la tuile l'affiche en
+avertissement. Une fois les variables posées, chaque modification
+d'onduleur rechiffre son mot de passe ; pour tout rechiffrer d'un coup,
+ouvrir et enregistrer chaque onduleur (ou `PUT /ups/<id>` avec `{}`).
+Si la phrase de passe disparaît ou change, le relevé échoue avec un
+message explicite et le jeton est conservé tel quel.
+
+## Variables (`.env`)
+
+`UPS_MONITOR_API_PORT` (6128), `UPS_MONITOR_DATA_DIR`,
+`UPS_POLL_INTERVAL_SECONDS` (3600), `UPS_HTTP_TIMEOUT_SECONDS` (10),
+`UPS_HISTORY_RETENTION_DAYS` (365), `UPS_CRED_PASSPHRASE`, `UPS_CRED_SALT`.
+Côté conteneur seulement : `UPS_POLL_ENABLED=false` (tests),
+`UPS_POLL_TICK_SECONDS` (60).
+
+## Tests
+
+```bash
+cd ups-monitor/api && UPS_POLL_ENABLED=false python3 -m unittest test_ups_monitor.py   # 24 tests
+node --test hub/tests/upsMonitor.test.mjs                                               # 8 tests
+```
+
+Parseur sur la page réelle ; store, automate (intervalles, activation,
+forçage), timeline, purge, cascade ; routes via `test_client` ; un vrai
+serveur HTTP local avec Basic (401 sans identifiants) interrogé par le
+vrai `urllib` ; chiffrement optionnel (clair → chiffré à la modification,
+phrase absente → échec explicite, jeton conservé) ; frames (#416) : suivi
+jusqu'à la fiche, page directe sans lecture inutile, meta refresh, borne
+de profondeur, autre hôte ignoré, échec partiel expliqué, chemin effectif
+archivé, migration d'une base créée avant #416.
+
+## Vérifié / non vérifié
+
+**Vérifié** : les 32 tests ci-dessus ; build Vite réel du hub ; **chaîne
+complète réelle** dans l'environnement de développement : `ups-monitor-api`
+lancé (Flask) + faux onduleur HTTP servant la page copiée derrière Basic +
+tuile rendue dans Chromium (Playwright) — création, test de requête,
+relevés, fiche, timeline avec courbe, onduleur injoignable en erreur
+datée, aucune erreur console.
+
+**Non vérifié** : un onduleur RÉEL en direct (les pages copiées sont celles
+d'un NETYS RT « UPS Management Web » et d'un ITYS « Net Vision v6.01 » ;
+une autre carte peut présenter la page autrement — le parseur signale alors
+« aucun champ reconnu », voir ci-dessous) ; le build Docker (`docker compose build ups-monitor-api`) et
+la route tls-proxy en conditions réelles ; le comportement d'une carte
+qui répondrait par un formulaire de connexion plutôt qu'en Basic.
+
+## Alertes et seuils (livraison #433)
+
+`api/alerts.py` (logique pure) : après chaque relevé, ouverture / fermeture
+des alertes de l'onduleur -- `alarm` (la carte signale une alarme :
+champs d'état hors valeur normale), `unreachable` (N relevés consécutifs
+en échec, `unreachable_after` par onduleur, 3 par défaut),
+`threshold:<champ>` (tension d'entrée min/max, charge max, batterie min,
+température max ; défauts 207 / 253 V, 80 %, 50 %, 40 °C, surchargés par
+onduleur, `null` = seuil désactivé ; fermeture au retour dans la plage
+avec 2 % d'hystérésis). Un relevé en échec ne ferme jamais un seuil (pas
+de donnée). « Relevé en retard » (plus de relevé depuis 2,5 intervalles)
+est calculé à la lecture (`stale` sur `GET /ups`), jamais stocké.
+Table `ups_alerts` (ouverture, fermeture, acquittement, notification).
+
+Notifications (`api/notify.py`, mêmes canaux que si-agent #422) : SMS et
+courriel par `shared/secrets_alert.py` (`SECRETS_ALERT_*`), webhook
+`UPS_NOTIFY_WEBHOOK_URL` ; seuil `UPS_NOTIFY_MIN_SEVERITY` (warning ;
+`none` désactive), anti-tempête `UPS_NOTIFY_COOLDOWN_SECONDS` (900) par
+(onduleur, genre), `notify` par onduleur ; rétablissement notifié sauf si
+l'alerte a été acquittée. Routes : `GET /alerts?active=1|0&ups_id=`,
+`POST /alerts/<id>/ack`, `POST /alerts/test` (essai des canaux) ;
+`/status` porte `alerts` (compteurs), `notifications` (canaux présents,
+jamais leurs valeurs) et `default_thresholds` ; `GET /ups` porte
+`active_alerts` et `stale` ; `POST|PUT /ups` acceptent `thresholds`,
+`unreachable_after`, `notify`. Tuile : bandeau des alertes actives
+(acquitter, ouvrir), colonne Alertes, section « Seuils et alertes » du
+formulaire, état des canaux et bouton d'essai ; Supervision SI passe
+l'onduleur en avertissement dès qu'une alerte est active.
+
+Vérifié : 3 tests (seuils validés, évaluation pure avec hystérésis et
+injoignabilité, automate qui ouvre / ferme / notifie / acquitte, 27 au
+total), chaîne réelle API + faux onduleur dans le harnais (seuil franchi,
+injoignable), rendu Chromium. Non vérifié : SMS / courriel réels.
+
+## Relevé SNMP, UPS-MIB RFC 1628 (livraison #434)
+
+Seconde méthode de relevé, par onduleur (`method` = `http` | `snmp`,
+`snmp_community` protégée comme le mot de passe et jamais renvoyée,
+`snmp_port` 161) : `api/ups_snmp.py` interroge les objets scalaires et la
+première ligne des tables d'entrée / sortie de l'UPS-MIB (fabricant,
+modèle, état batterie, autonomie, capacité, tension et température
+batterie, fréquence et tension d'entrée, source de sortie, fréquence,
+tension, courant, puissance et charge de sortie, alarmes présentes) **via
+`snmp-api` (`POST /get`, #434)** -- une seule implémentation pysnmp dans
+le projet (`SNMP_API_INTERNAL_URL`). Le résultat a exactement la forme de
+la page HTML (`fields`, `sections`, `summary`, état par `derive_state` :
+batterie ≠ Normal, source ≠ Normal ou alarmes > 0 = alarme) : stockage,
+alertes, tuile et Supervision SI ne voient pas la différence. Formulaire :
+méthode, communauté, port ; « Tester la requête » fonctionne aussi en SNMP.
+
+Vérifié : 2 tests (traduction des OID, relevé et stockage avec un faux
+snmp-api, seuils, communauté inchangée / effacée), 29 au total. Non
+vérifié : vraie carte SNMP (snmp-api lui-même n'a jamais vu de vrai
+équipement, voir snmp/README.md).
+
+## Pages supplémentaires et dérive lente (livraison #435)
+
+- **Pages en plus** (`extra_pages`, jusqu'à 8 chemins `/…`, champ « Pages
+  en plus » du formulaire) : lues à chaque relevé HTTP après la page
+  principale, avec les mêmes identifiants, et **fusionnées** dans la fiche
+  -- une clé déjà connue n'est jamais écrasée, chaque champ ajouté porte
+  `page`, les sections sont préfixées du chemin ; une page en échec est
+  archivée (`extra_errors` sur le relevé, affiché dans la fiche), jamais
+  bloquante. Les nouvelles mesures numériques entrent d'elles-mêmes dans la
+  timeline et les seuils.
+- **Dérive lente** (`alerts.drift_checks`) : une fois par jour et par
+  onduleur, la moyenne des 7 derniers jours est comparée à celle des 30
+  jours précédents (5 points minimum de chaque côté) : capacité batterie
+  −10 %, tension batterie −5 %, autonomie −20 %, température +15 %, charge
+  +30 % ouvrent `drift:<champ>` (avertissement, notifié) ; l'alerte se ferme
+  au contrôle suivant si la dérive a disparu, jamais sur un simple relevé.
+
+Vérifié : 2 tests (fusion des pages, dérive sur 37 jours simulés), 31 au
+total. Non vérifié : vraies pages `info_battery.htm` / `info_io.htm` (pas
+d'échantillon : copier ces pages pour affiner le parseur si les champs
+n'apparaissent pas).
+
+## Ce que cette version ne fait pas (backlog 62)
+
+- ~~D'autres pages de la carte~~ : livré en #435 (`extra_pages`) ; reste
+  l'historique de la carte (`hist_log1.htm`), sans échantillon.
+- ~~SNMP (RFC 1628 UPS-MIB)~~ : livré en #434 (à confirmer sur une vraie carte).
+- ~~Alertes~~ et ~~seuils~~ : livrés en #433 ; ~~dérive lente~~ : #435
+  (reste la remontée vers vigilance).

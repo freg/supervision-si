@@ -1,0 +1,21 @@
+[Unit]
+Description=si-agent -- agent hôte de supervision-si
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -m si_agent.agent --config /etc/si-agent/agent.json
+WorkingDirectory=/opt/si-agent
+Environment=PYTHONPATH=/opt/si-agent
+Restart=always
+RestartSec=10
+User=root
+# root : la collecte lit /proc, journald et ss (ports/processus) ; les
+# plugins sont exécutés avec les mêmes droits -- d'où la signature
+# obligatoire des plugins reçus du central.
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

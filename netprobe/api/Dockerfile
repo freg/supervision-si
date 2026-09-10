@@ -34,6 +34,11 @@ COPY netprobe/api/tcpdump_probe.py .
 COPY netprobe/api/iperf3_probe.py .
 COPY netprobe/api/analyzer_engine.py .
 COPY netprobe/api/analyzers/ ./analyzers/
+# Sondes distribuées (#406) -- agents_store.py + COPIE du protocole partagé
+# avec les sondes (source canonique : netprobe/agent/), jamais une
+# réimplémentation. Oublier l'un des deux = ModuleNotFoundError au démarrage.
+COPY netprobe/api/agents_store.py .
+COPY netprobe/agent/netprobe_agent/protocol.py ./netprobe_protocol.py
 COPY shared/version_endpoint.py .
 COPY shared/VERSION.json .
 

@@ -134,7 +134,10 @@ Non-régression complète reconfirmée.
 
 - Purge automatique périodique des échantillons smokeping (fonction
   déjà écrite dans `store.py`, jamais appelée depuis le scheduler).
-- Modularisation multi-services et agents répartis -- backlog item 45.
+- ~~Modularisation multi-services et agents répartis -- backlog item 45.~~
+  **Agents répartis LIVRÉS en #405-#408** (voir section dédiée) ; la
+  modularisation multi-conteneurs du central reste non faite, sans besoin
+  constaté.
 - Volet WiFi (Campus Alpha) -- backlog items 47-51, matériel RF en
   cours d'acquisition. **Débit réel (iperf3) LIVRÉ en #385** sans
   attendre ce matériel (voir section dédiée plus bas) -- reste HORS
@@ -399,3 +402,27 @@ Non-régression complète du reste du module reconfirmée.
 (Purge automatique périodique -- fonction déjà écrite dans
 `store.py`, jamais appelée depuis le scheduler -- voir "Reste à
 faire" en tête de ce fichier pour l'état à jour.)
+
+## Sondes distribuées Raspberry Pi -- agent, collecteur, central, images (livraisons #405-#408)
+
+Items 45/47/48 du backlog, demandés explicitement le 2026-09-06. Tout le
+détail vit dans `netprobe/agent/README.md` (logiciel), `netprobe/agent/image/README.md`
+(images) et `docs/supervision-wifi.md` (vérification de la proposition
+WiFi Alpha et état couche par couche). Résumé côté netprobe-api :
+
+- `agents_store.py` : tables `probe_agents` (flotte, secrets, tâches) et
+  `agent_measurements` (déduplication sur sonde/tâche/instant).
+- Routes : `GET/POST /agents`, `GET/PUT/DELETE /agents/<id>`,
+  `POST /agents/<id>/rotate-secret`, `GET /agents/<id>/provision`,
+  `GET /fleet?site=` (signé collecteur), `POST /agents/measurements/bulk`
+  (signé collecteur ou sonde), `GET /agents/latest?site=`,
+  `GET /agents/<id>/measurements`.
+- Le protocole de signature est **copié** de `netprobe/agent/netprobe_agent/protocol.py`
+  par le Dockerfile (`netprobe_protocol.py`) -- source canonique unique.
+- Hub : onglet « 📶 Sondes WiFi » de la tuile Sondes réseau.
+- Tests : `test_agents_routes.py` (8, `app.test_client()`), à lancer depuis
+  `netprobe/api` avec `NETPROBE_DB_PATH=/tmp/x.db PYTHONPATH=../../shared python3 -m unittest test_agents_routes`.
+
+**Lève la limite de #385** : le suivi de BSSID/itinérance est désormais
+une tâche `wifi_link` native sur la sonde, affichée dans le hub.
+

@@ -47,3 +47,48 @@ docker-monitor/analysis/*
 
 # Archives de livraison
 *.zip
+
+# Artefacts de build des fronts Vite et copies de fichiers partagés
+# (livraison #401) -- run.sh recopie shared/theme.css, preferences.js et
+# VERSION.json dans le src/ de chaque front à CHAQUE lancement : la source
+# canonique est shared/, une copie versionnée ne peut que diverger en
+# silence. hub/dist et ces trois copies avaient été committées par erreur
+# avec la tuile "Cycle agile réseau" (17ab5ce), seul front dans ce cas.
+*/dist/
+*/src/theme.css
+*/src/preferences.js
+*/src/VERSION.json
+
+# Images Raspberry Pi (netprobe/agent/image, #408) : image officielle en
+# cache (≈500 Mo) et images construites (contiennent des secrets d'appareil
+# et la clé WiFi du site) -- jamais versionnées.
+netprobe/agent/image/cache/
+*.img
+*.img.xz
+
+
+# Bastion si-proxy : certificats et clés générés (jamais versionnés)
+si-proxy/certs/*
+!si-proxy/certs/.gitkeep
+# Bastion si-proxy : journal d'audit (#453), jamais versionné
+si-proxy/data/*
+!si-proxy/data/.gitkeep
+
+# Sauvegardes totales (#458) : archives chiffrées, jamais versionnées
+backups/
+.restore-manifest.json
+.env.avant-regen
+_volumes-a-restaurer/
+_host-side/
+_sql-dumps/
+_absolute/
+
+# Cortex (#462) : base SQLite
+cortex/data/*
+!cortex/data/.gitkeep
+
+# --- fichiers locaux / générés (anonymisation #467)
+.DS_Store
+keycloak/.last-imported-realm.json
+pki/scripts/.srl
+*.log.txt

@@ -27,6 +27,8 @@ try:
     from version_endpoint import register_version_route
 except ImportError:
     register_version_route = None
+# Résolution nom -> localisation (livraison #426), module voisin pur.
+import name_resolver
 
 app = Flask(__name__)
 CORS(app)
@@ -229,6 +231,32 @@ def ensure_geolocations_hierarchy_columns():
 
 
 ensure_geolocations_hierarchy_columns()
+
+
+def ensure_location_match_tables():
+    """Tables de la livraison #426 -- correspondances nom/site ->
+    localisation (location_matches) et alias déclarés (location_aliases).
+    CREATE IF NOT EXISTS, jamais de recréation ; même prudence que la
+    migration ci-dessus (base éventuellement absente au premier démarrage)."""
+    try:
+        conn = get_write_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "CREATE TABLE IF NOT EXISTS location_matches ("
+            "subject TEXT PRIMARY KEY, name TEXT, site TEXT, localisation TEXT, "
+            "score REAL, method TEXT, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"
+        )
+        cur.execute(
+            "CREATE TABLE IF NOT EXISTS location_aliases ("
+            "alias TEXT PRIMARY KEY, localisation TEXT NOT NULL, created_at TEXT NOT NULL)"
+        )
+        conn.commit()
+        conn.close()
+    except Exception as exc:  # noqa: BLE001
+        app.logger.warning("Création des tables de correspondance reportée : %s", exc)
+
+
+ensure_location_match_tables()
 
 
 def bucket_expr(level):
@@ -881,6 +909,250 @@ def delete_geolocation():
         cur.execute(f"DELETE FROM geolocations WHERE localisation = {PLACEHOLDER}", [localisation])
         conn.commit()
         return jsonify({"status": "ok", "deleted": localisation}), 200
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Livraison #426 -- géolocalisation par NOM (« UPS-Arobase-5 » -> site
+# Arobase 5 / @5) : correspondances persistées, validées d'office
+# (statut « auto ») et corrigeables (« validated », « rejected »,
+# « manual ») ; alias déclarés (« @5 » -> « Parc/Batiment 5 »).
+# ---------------------------------------------------------------------------
+
+MATCH_STATUSES = ("auto", "suggested", "validated", "rejected", "manual")
+
+
+def _load_geo_index(cur):
+    """{localisation: (lat, lon)} -- __default__ exclu des candidats."""
+    cur.execute("SELECT localisation, latitude, longitude FROM geolocations")
+    return {loc: (lat, lon) for loc, lat, lon in cur.fetchall() if loc != DEFAULT_LOCATION_KEY}
+
+
+def _load_aliases(cur):
+    cur.execute("SELECT alias, localisation FROM location_aliases")
+    return {a: l for a, l in cur.fetchall()}
+
+
+def _match_row(row, geo):
+    subject, name, site, loc, score, method, status, created_at, updated_at = row
+    lat, lon = geo.get(loc, (None, None)) if loc else (None, None)
+    return {
+        "subject": subject, "name": name, "site": site, "localisation": loc, "score": score, "method": method,
+        "status": status, "latitude": lat, "longitude": lon, "mapped": lat is not None and lon is not None,
+        "created_at": created_at, "updated_at": updated_at,
+    }
+
+
+@app.route("/geolocations/resolve", methods=["GET"])
+def resolve_one():
+    """Résolution SANS persistance, pour un autre service ou un essai :
+    ?name=...&site=... -> {match, candidates}."""
+    name = (request.args.get("name") or "").strip()
+    site = (request.args.get("site") or "").strip() or None
+    if not name and not site:
+        return jsonify({"error": "paramètre 'name' ou 'site' requis"}), 400
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        geo, aliases = _load_geo_index(cur), _load_aliases(cur)
+    finally:
+        conn.close()
+    best, cands = name_resolver.resolve(name, geo.keys(), aliases=aliases, site=site)
+    if best:
+        lat, lon = geo.get(best["localisation"], (None, None))
+        best = {**best, "latitude": lat, "longitude": lon, "mapped": lat is not None and lon is not None}
+    return jsonify({"match": best, "candidates": cands}), 200
+
+
+@app.route("/geolocations/resolve", methods=["POST"])
+def resolve_subjects():
+    """Résolution EN LOT avec persistance : corps
+    {subjects: [{subject, name, site?}], persist?: true}.
+
+    Pour chaque sujet : une décision humaine existante (validated /
+    rejected / manual) est renvoyée telle quelle ; sinon le meilleur
+    candidat est calculé et enregistré avec le statut « auto » (score >=
+    AUTO_THRESHOLD, utilisé comme position) ou « suggested » (proposé, pas
+    utilisé) ; sans candidat crédible, une entrée « auto » périmée est
+    retirée. Pas de droit requis : rien ici ne vient de la personne, tout
+    est recalculable -- les décisions, elles, passent par PUT (manage)."""
+    body = request.get_json(silent=True) or {}
+    subjects = body.get("subjects")
+    if not isinstance(subjects, list):
+        return jsonify({"error": "'subjects' (liste) requis"}), 400
+    if len(subjects) > 2000:
+        return jsonify({"error": "au plus 2000 sujets par appel"}), 400
+    persist = body.get("persist", True)
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_write_connection() if persist else get_connection()
+    try:
+        cur = conn.cursor()
+        geo, aliases = _load_geo_index(cur), _load_aliases(cur)
+        cur.execute("SELECT subject, name, site, localisation, score, method, status, created_at, updated_at FROM location_matches")
+        existing = {row[0]: row for row in cur.fetchall()}
+        out = []
+        for s in subjects:
+            if not isinstance(s, dict):
+                continue
+            subject = str(s.get("subject") or s.get("name") or "").strip()
+            name = (s.get("name") or "").strip() or None
+            site = (s.get("site") or "").strip() or None
+            if not subject:
+                continue
+            row = existing.get(subject)
+            if row and row[6] in ("validated", "rejected", "manual"):
+                out.append({**_match_row(row, geo), "candidates": []})
+                continue
+            best, cands = name_resolver.resolve(name, geo.keys(), aliases=aliases, site=site)
+            if best is None:
+                if row and persist:
+                    cur.execute(f"DELETE FROM location_matches WHERE subject = {PLACEHOLDER}", [subject])
+                out.append({"subject": subject, "name": name, "site": site, "localisation": None, "score": None, "method": None,
+                            "status": None, "latitude": None, "longitude": None, "mapped": False, "candidates": cands})
+                continue
+            created = row[7] if row else now
+            if persist:
+                cur.execute(f"DELETE FROM location_matches WHERE subject = {PLACEHOLDER}", [subject])
+                cur.execute(
+                    f"INSERT INTO location_matches (subject, name, site, localisation, score, method, status, created_at, updated_at) "
+                    f"VALUES ({PLACEHOLDER}, {PLACEHOLDER}, {PLACEHOLDER}, {PLACEHOLDER}, {PLACEHOLDER}, {PLACEHOLDER}, {PLACEHOLDER}, {PLACEHOLDER}, {PLACEHOLDER})",
+                    [subject, name, site, best["localisation"], best["score"], f'{best["method"]}/{best["via"]}', best["status"], created, now],
+                )
+            out.append({**_match_row((subject, name, site, best["localisation"], best["score"], f'{best["method"]}/{best["via"]}', best["status"], created, now), geo),
+                        "candidates": cands})
+        if persist:
+            conn.commit()
+        return jsonify({"matches": out}), 200
+    finally:
+        conn.close()
+
+
+@app.route("/geolocations/matches", methods=["GET"])
+def list_matches():
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        geo = _load_geo_index(cur)
+        cur.execute("SELECT subject, name, site, localisation, score, method, status, created_at, updated_at FROM location_matches ORDER BY status, subject")
+        return jsonify({"matches": [_match_row(r, geo) for r in cur.fetchall()]}), 200
+    finally:
+        conn.close()
+
+
+@app.route("/geolocations/matches/<path:subject>", methods=["PUT"])
+def decide_match(subject):
+    """Décision humaine : {status: validated|rejected|manual, localisation?}
+    -- « manual » exige une localisation existante ; « validated » garde
+    celle calculée (ou celle fournie). Protégée par rights-api (manage)."""
+    body = request.get_json(silent=True) or {}
+    allowed, error = _check_manage_right(body)
+    if not allowed:
+        return jsonify({"error": error}), 403
+    status = body.get("status")
+    if status not in ("validated", "rejected", "manual"):
+        return jsonify({"error": "status attendu : validated, rejected ou manual"}), 400
+    localisation = body.get("localisation")
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_write_connection()
+    try:
+        cur = conn.cursor()
+        geo = _load_geo_index(cur)
+        cur.execute(f"SELECT subject, name, site, localisation, score, method, status, created_at, updated_at FROM location_matches WHERE subject = {PLACEHOLDER}", [subject])
+        row = cur.fetchone()
+        if status == "manual" or (status == "validated" and localisation):
+            if not localisation or localisation not in geo:
+                return jsonify({"error": "'localisation' requise et connue de la table geolocations"}), 400
+            loc, method, score = localisation, "manuelle", 1.0
+        elif row and row[3]:
+            loc, method, score = row[3], row[5], row[4]
+        elif status == "rejected":
+            loc, method, score = None, None, None
+        else:
+            return jsonify({"error": "rien à valider pour ce sujet (aucune correspondance calculée) -- fournir 'localisation'"}), 400
+        name = body.get("name") or (row[1] if row else None)
+        site = body.get("site") or (row[2] if row else None)
+        created = row[7] if row else now
+        cur.execute(f"DELETE FROM location_matches WHERE subject = {PLACEHOLDER}", [subject])
+        cur.execute(
+            f"INSERT INTO location_matches (subject, name, site, localisation, score, method, status, created_at, updated_at) "
+            f"VALUES ({PLACEHOLDER}, {PLACEHOLDER}, {PLACEHOLDER}, {PLACEHOLDER}, {PLACEHOLDER}, {PLACEHOLDER}, {PLACEHOLDER}, {PLACEHOLDER}, {PLACEHOLDER})",
+            [subject, name, site, loc, score, method, status, created, now],
+        )
+        conn.commit()
+        return jsonify({"status": "ok", "match": _match_row((subject, name, site, loc, score, method, status, created, now), geo)}), 200
+    finally:
+        conn.close()
+
+
+@app.route("/geolocations/matches/<path:subject>", methods=["DELETE"])
+def reset_match(subject):
+    """Retour à l'automatique (la décision humaine est oubliée). Manage."""
+    body = request.get_json(silent=True) or {}
+    allowed, error = _check_manage_right(body)
+    if not allowed:
+        return jsonify({"error": error}), 403
+    conn = get_write_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(f"DELETE FROM location_matches WHERE subject = {PLACEHOLDER}", [subject])
+        conn.commit()
+        return jsonify({"status": "ok", "deleted": subject}), 200
+    finally:
+        conn.close()
+
+
+@app.route("/geolocations/aliases", methods=["GET"])
+def list_aliases():
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT alias, localisation, created_at FROM location_aliases ORDER BY alias")
+        return jsonify({"aliases": [{"alias": a, "localisation": l, "created_at": c} for a, l, c in cur.fetchall()]}), 200
+    finally:
+        conn.close()
+
+
+@app.route("/geolocations/aliases", methods=["POST"])
+def upsert_alias():
+    """{alias, localisation} -- la localisation doit exister. Manage."""
+    body = request.get_json(silent=True) or {}
+    allowed, error = _check_manage_right(body)
+    if not allowed:
+        return jsonify({"error": error}), 403
+    alias = (body.get("alias") or "").strip()
+    localisation = body.get("localisation")
+    if not alias or not localisation:
+        return jsonify({"error": "'alias' et 'localisation' requis"}), 400
+    conn = get_write_connection()
+    try:
+        cur = conn.cursor()
+        if localisation not in _load_geo_index(cur):
+            return jsonify({"error": "localisation inconnue de la table geolocations"}), 400
+        cur.execute(f"DELETE FROM location_aliases WHERE alias = {PLACEHOLDER}", [alias])
+        cur.execute(f"INSERT INTO location_aliases (alias, localisation, created_at) VALUES ({PLACEHOLDER}, {PLACEHOLDER}, {PLACEHOLDER})",
+                    [alias, localisation, datetime.now(timezone.utc).isoformat()])
+        conn.commit()
+        return jsonify({"status": "ok", "alias": alias, "localisation": localisation}), 200
+    finally:
+        conn.close()
+
+
+@app.route("/geolocations/aliases", methods=["DELETE"])
+def delete_alias():
+    body = request.get_json(silent=True) or {}
+    allowed, error = _check_manage_right(body)
+    if not allowed:
+        return jsonify({"error": error}), 403
+    alias = request.args.get("alias") or body.get("alias")
+    if not alias:
+        return jsonify({"error": "'alias' requis"}), 400
+    conn = get_write_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(f"DELETE FROM location_aliases WHERE alias = {PLACEHOLDER}", [alias])
+        conn.commit()
+        return jsonify({"status": "ok", "deleted": alias}), 200
     finally:
         conn.close()
 

@@ -86,6 +86,13 @@ vérifié** : rendu visuel réel dans un navigateur (aucun ici) --
 hérite par ailleurs de la réserve déjà connue du backend (#212) :
 jamais testé contre un vrai équipement SNMP.
 
+## GET d'OID arbitraires (livraison #434)
+
+`POST /get` -- `{host, community | target_id, oids: [...], port?, timeout?}`
+→ `{values: {oid: texte | null}}` (au plus 64 OID numériques ; un OID
+absent vaut `null`). Utilisé par ups-monitor-api pour l'UPS-MIB (RFC
+1628), disponible à tout autre module.
+
 ## Cibles SNMP enregistrées (livraison #213)
 
 Volet 2 de la demande d'origine ("gestion des paramètres d'accès

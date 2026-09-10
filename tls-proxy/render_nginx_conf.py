@@ -125,6 +125,9 @@ SERVICES = [
     ("SCHEMA_ANALYZER_API_PORT", "schema-analyzer-api", 5000, "/api/schema-analyzer/", "api"),
     ("GED_API_PORT", "ged-api", 5000, "/api/ged/", "api"),
     ("SSH_TUNNELS_API_PORT", "ssh-tunnels-api", 5000, "/api/ssh-tunnels/", "api"),
+    # file-manager-api (livraison #396, backlog item 26) -- agrège GED,
+    # SSHFS, espace protégé. Routé via la passerelle pour l'interface hub.
+    ("FILE_MANAGER_API_PORT", "file-manager-api", 5000, "/api/file-manager/", "api"),
     # snmp-api (livraison #212) -- module SNMP, interface hub #227.
     ("SNMP_API_PORT", "snmp-api", 5000, "/api/snmp/", "api"),
     # netmap-orchestrator-api (livraison #388) -- orchestrateur
@@ -179,6 +182,22 @@ SERVICES = [
     # appelaient déjà /api/netprobe, jamais routé -- 404 systématique
     # sans ce correctif.
     ("NETPROBE_API_PORT", "netprobe-api", 5000, "/api/netprobe/", "api"),
+    # ups-monitor-api (livraison #415) -- tuile UPS. Ajouté dès la
+    # première livraison (piège #301).
+    ("UPS_MONITOR_API_PORT", "ups-monitor-api", 5000, "/api/ups/", "api"),
+    # si-agent-api (livraison #421) -- central des agents hôtes ; les
+    # agents Linux signent `/api/v1/...` et le préfixe `/api/si-agent`
+    # est retiré ici (même mécanique que netprobe). Ajouté dès la
+    # première livraison (piège #301).
+    ("SI_AGENT_API_PORT", "si-agent-api", 5000, "/api/si-agent/", "api"),
+    # si-proxy-admin-api (livraison #454) -- pont de la tuile « Bastion »
+    # vers l'interface de contrôle du relais si-proxy. Ajouté dès la
+    # première livraison (piège #301).
+    ("SI_PROXY_ADMIN_API_PORT", "si-proxy-admin-api", 5000, "/api/si-proxy/", "api"),
+    # cortex-api (livraison #462) -- ajouté dès la première livraison (piège #301).
+    ("CORTEX_API_PORT", "cortex-api", 5000, "/api/cortex/", "api"),
+    # geo-catalog-api (livraison #429) -- catalogue de positions.
+    ("GEO_CATALOG_API_PORT", "geo-catalog-api", 5000, "/api/geo-catalog/", "api"),
     # relations-api (livraison #335) -- vue relations transversale de
     # la super tuile ENT, backlog item 38 point 2. Piège déjà rencontré
     # pour netprobe-api (#301) -- ajouté ICI dès la première livraison,
