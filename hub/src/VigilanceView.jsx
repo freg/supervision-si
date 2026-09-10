@@ -17,7 +17,7 @@ import { fetchSignals, fetchSummary, triggerAnalysis } from "./vigilanceClient.j
 // équipements d'infrastructure : silence prolongé (panne, coupure,
 // ou signe de compromission).
 
-const SEVERITY_COLORS = { critical: "var(--hub-danger, #c0392b)", warning: "var(--warning, #b7791f)" };
+const SEVERITY_COLORS = { critical: "var(--danger)", warning: "var(--warning, #b7791f)" };
 const SIGNAL_LABELS = {
   contact_infrastructure: "Contact avec de l'infrastructure",
   diversite_services: "Diversité de services élevée",
@@ -94,7 +94,7 @@ export default function VigilanceView({ onBack, vigilanceApiBase }) {
             </div>
             {analyzeResult && (
               analyzeResult.error
-                ? <p style={{ color: "var(--hub-danger, #c0392b)" }}>⚠️ {analyzeResult.error}</p>
+                ? <p style={{ color: "var(--danger)" }}>⚠️ {analyzeResult.error}</p>
                 : <p className="muted">{analyzeResult.signals_detected} signal(aux) détecté(s) à ce passage.</p>
             )}
             {!summary || summary.length === 0 ? (

@@ -218,6 +218,11 @@ fi
 printf '{"content_hash": "%s", "git_hash": "%s", "last_checked_at": "%s", "delivery_number": "%s"}\n' \
   "$CONTENT_HASH" "$GIT_HASH" "$LAST_CHECKED_AT" "$DELIVERY_NUMBER" > "$VERSION_FILE"
 echo "Version (hash du contenu) : $CONTENT_HASH -- livraison #$DELIVERY_NUMBER"
+# Inventaire d'exposition (livraison #455) -- shared/EXPOSURE.json, lu par
+# si-proxy-admin-api pour l'onglet « Entrées » de la console Bastion :
+# routes de la passerelle + ports publiés directement + réseau hôte,
+# d'après docker-compose.yml et tls-proxy (jamais maintenu à la main).
+python3 "$HERE_DIR/scripts/render-exposure.py" || echo "avertissement : inventaire d'exposition non régénéré (EXPOSURE.json committé conservé)"
 
 # Détection de changement du realm Keycloak, PKI, config nginx --
 # SORTIS d'ici (livraison #135), voir gateway/scripts/run.sh. Ce

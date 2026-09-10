@@ -425,12 +425,12 @@ après cette troisième extension du module dans la même journée.
   croissance réelle de la base reste à observer, la purge à 30 jours
   est un point de départ raisonnable, pas une valeur validée en
   conditions réelles).
-- Pas de graphique -- tableau simple pour l'instant, faute de
-  bibliothèque disponible côté hub.
-- Historique du VOLUME PAR PAIRE (`/links/history`) construit et
-  testé côté backend, mais PAS ENCORE affiché côté hub (seule la
-  présence par appareil l'est) -- accessible via l'API, affichage à
-  ajouter si utile après un premier usage réel.
+- ~~Pas de graphique -- tableau simple pour l'instant, faute de
+  bibliothèque disponible côté hub.~~ **Livré en #400** (barres de delta
+  SVG maison, voir section dédiée plus bas).
+- ~~Historique du VOLUME PAR PAIRE (`/links/history`) construit et
+  testé côté backend, mais PAS ENCORE affiché côté hub~~ **Livré en
+  #400** -- clic sur une ligne "Échanges".
 
 ## Correctif : fichier manquant au déploiement (livraison #252)
 
@@ -694,3 +694,156 @@ période hors de toute donnée renvoie une liste vide, deuxième moitié
 seule strictement inférieure au cumul total (confirme que ce n'est
 PAS juste le cumul brut renvoyé). Route Flask testée (3 scénarios).
 Client hub testé (paramètres correctement encodés).
+
+## Historique du volume par paire + barres de delta (livraison #400)
+
+Lève les deux points restés "reste à faire (rémanence)" depuis #251.
+
+**Volume d'une paire dans le temps** -- chaque ligne du tableau
+"Échanges (qui parle à qui)" du pied de page est désormais cliquable :
+elle charge `/links/history` (route existante depuis #251, jamais
+appelée côté hub jusqu'ici) et affiche l'évolution du volume entre ces
+deux appareils sous le tableau. Un second clic sur la même ligne referme.
+Sélectionner un autre appareil réinitialise la paire. Une réponse qui
+arriverait après un autre clic entre-temps est ignorée (garde sur
+l'identité de la paire courante).
+
+**Barres de delta** (`HistoryBars`, `NetworkAgentView.jsx`) -- SVG maison
+comme les visualisations de flux (#389), aucune bibliothèque. Utilisées
+pour la présence d'un appareil (au-dessus du tableau existant, conservé)
+ET pour le volume d'une paire. L'API stocke des relevés CUMULATIFS
+("calculer un delta entre deux points est la responsabilité de la
+lecture", `store.take_snapshot`) -- cette responsabilité est tenue dans
+`hub/src/networkAgentHistory.js`, module PUR sans React, testé sous Node
+(`hub/tests/networkAgentHistory.test.mjs`, 10 tests). Trois choix à
+connaître :
+
+1. **Le premier relevé n'a pas de barre** (delta `null`, jamais 0) -- un
+   0 se lirait "rien n'a été échangé", ce qui est faux. Son créneau reste
+   occupé pour garder l'axe du temps régulier.
+2. **Un recul du compteur** (redémarrage de capture, purge) donnerait un
+   delta négatif : le point est marqué `reset`, dessiné en couleur
+   d'avertissement avec le nouveau cumul comme estimation, et compté dans
+   la légende ("N remise(s) à zéro") -- jamais lissé silencieusement.
+3. **`/links/history` renvoie une ligne par (relevé, protocole, port)** :
+   agrégation par `snapshot_at` avant tout calcul (`aggregateBySnapshot`),
+   inoffensive pour `/presence-history`.
+
+Survol d'une barre : date du relevé, volume sur l'intervalle, cumul.
+Légende sous le graphique : nombre de relevés, total échangé, pic par
+intervalle.
+
+**`network-explorer/Dockerfile`** : `networkAgentHistory.js` ajouté à la
+liste des fichiers recopiés depuis `hub/src` -- sans quoi le build du
+front autonome casse (piège "nouveau fichier oublié dans le COPY").
+
+**Vérifié** : 10 tests Node de la logique pure (agrégation, deltas, reset,
+disposition des barres, hauteur minimale visible, cadres vides), syntaxe
+JSX, aucun setter orphelin, tous les imports relatifs de
+`NetworkAgentView.jsx` présents dans le `COPY` de network-explorer.
+**Non vérifié ici** : rendu visuel réel, et surtout le comportement sur un
+VRAI historique (les seules données disponibles restent synthétiques ou
+de démonstration, #392).
+
+## Services de la paire (livraison #403)
+
+« Services connectés par paire d'ip » faisait partie de la demande de
+rémanence (#251) et la route `/links/services` existe depuis -- mais elle
+n'avait **jamais de client côté hub**, donc jamais affichée. Ajouté au
+panneau de la paire ouvert en #400 : sous les barres de volume, tableau
+Protocole / Port / Paquets / Volume / Dernier, trié par volume décroissant
+(ordre de l'API), les deux sens confondus (voulu : par PAIRE, pas par
+direction, `store.list_device_link_services`). Historique et services sont
+chargés en parallèle ; la garde contre une réponse tardive couvre les deux.
+
+`hub/tests/networkAgentClient.test.mjs` (nouveau) : URLs construites par
+`fetchLinkServices`/`fetchLinkHistory` et repli en tableau vide sur erreur
+API, JSON invalide ou réseau coupé -- `fetch` simulé, aucun réseau.
+
+## Identité de l'hôte de supervision dans `/capture/status` (livraison #412)
+
+`GET /capture/status` renvoie en plus `interface`, `interface_mac` et
+`interface_ip` (`capture.interface_identity`) : la MAC est lue dans
+`/sys/class/net/<iface>/address`, l'IPv4 par l'ioctl `SIOCGIFADDR` (Linux).
+Meilleur effort : chaque champ vaut `null` quand il n'est pas connu (conteneur
+sans `network_mode: host`, interface absente), jamais une erreur. Le hub s'en
+sert pour reconnaître l'hôte de supervision parmi les appareils découverts et
+proposer de masquer ses échanges avec la passerelle dans les visualisations de
+flux. Tests : `python3 -m unittest test_capture_identity.py` (5 tests, dont
+la lecture réelle de l'IP de `lo` sous Linux).
+
+## `/links` sur une période (livraison #414)
+
+`GET /links?segment_id=<id>&start=<ISO>&end=<ISO>` : volumes échangés
+PENDANT la période, par différence de relevés (`na_link_history`, relevé de
+`na_device_link_services`) sommée par paire -- même principe que
+`/devices/for-period` (#394). `start` et `end` vont ensemble et dans l'ordre
+(400 sinon) ; sans eux, cumul actuel comme avant. Lignes de même forme que
+le cumul (`device_a_id`, `device_b_id`, `bytes_total`, `packet_count`) avec
+`period: true` et un `id` synthétique `period-<a>-<b>`. Tests :
+`python3 -m unittest test_links_period.py` (base SQLite temporaire).
+
+## Relais d'exploration depuis un agent hôte (livraison #436)
+
+`POST /capture/upload` -- `{site, segment, cidr?, pcap_base64, source?}` :
+une capture pcap faite ailleurs (plugin `capture-relay` de si-agent,
+relayée par si-agent-api) est traitée par `capture.ingest_pcap_bytes`
+exactement comme le flux tcpdump local (appareils, liens, services, IP
+distantes #427, indices de rôle), dans le site de l'agent et un segment
+au nom de l'hôte (créés au besoin, CIDR renseigné s'il manque). Bornes :
+8 Mo, 200 000 paquets. Test : `CaptureUploadTests` (pcap synthétique) ;
+chaîne réelle vérifiée agent → central → ce module.
+
+## Fiche récapitulative d'un sous-réseau, IP distantes derrière un relais (livraison #427)
+
+Constat remonté : « dans sous-réseaux je vois autre chose que le LAN
+immédiat, mais aucune IP de ce LAN dans les appareils découverts, pas plus
+que ce sous-réseau dans la table des découvertes ». Cause dans `capture.py` :
+un paquet **venant de l'extérieur** arrive avec la MAC de la passerelle et
+l'IP distante comme source ; `upsert_device(src_mac, src_ip)` attribuait
+donc l'IP distante (8.8.8.8, 10.20.0.5…) à la passerelle -- sa vraie IP
+était écrasée à chaque paquet relayé, et les sous-réseaux « observés »
+n'étaient que le reflet de ces IP baladeuses. Et un appareil qui ne fait
+que **recevoir** (NAS, imprimante) n'avait jamais d'IP (seules les sources
+en donnaient une).
+
+Corrections :
+
+- une IP source **hors du CIDR du segment** n'est plus l'adresse de la MAC
+  qui la porte : elle est rangée dans la nouvelle table `na_remote_ips`
+  (segment, relais `via_device_id`, IP, sens `in`/`out`, compteurs), et la
+  MAC est comptée comme relais (`external_relay_count`) ; les destinations
+  distantes y sont rangées aussi (sens `out`) ;
+- une destination **dans** le CIDR est bien l'adresse de la MAC
+  destinataire (livraison locale sur le L2) : les appareils passifs ont
+  désormais une IP ; sans CIDR configuré rien n'est déduit ;
+- sans CIDR, une IP **publique** est traitée comme distante (elle ne peut
+  pas être celle d'un appareil du LAN capté) ; le privé reste attribué à
+  la MAC (impossible de distinguer) -- configurer `NETWORK_AGENT_SEGMENT_CIDR`
+  reste la vraie réponse.
+
+`GET /observed-subnets` distingue maintenant les deux origines :
+`device_count` (appareils du segment), `remote_ip_count` (IP distantes),
+`origin` = `local` | `relais` | `mixte`, `via` (relais), `in_segment`
+(dans le CIDR configuré ; `null` sans CIDR), `packet_count`. Nouvelle route
+`GET /observed-subnet?segment_id=&subnet=<cidr>` : la **fiche** -- segment
+et CIDR, dans/hors segment avec l'explication en clair, d'où viennent les
+adresses (appareils / trafic relayé), relais (MAC, IP, nom, rôle, nombre
+d'IP, volume), chaque IP (appareil ou distante, MAC ou relais, nom, sens,
+paquets, volume, première/dernière vue), services des appareils du
+sous-réseau, échanges concernés (200 max).
+
+Hub, tuile Exploration réseau : colonnes Origine / IP distantes / Via dans
+le tableau des sous-réseaux, flèche ⇢ pour un sous-réseau hors segment, et
+**clic sur une ligne** → la fiche sous le tableau.
+
+Migration : `CREATE TABLE IF NOT EXISTS` (schéma), aucune reprise des
+données passées -- les IP déjà attribuées à tort à une passerelle sont
+corrigées au prochain paquet local de celle-ci (COALESCE), les IP
+distantes se reconstituent au fil de la capture.
+
+Vérifié : 4 tests (`test_observed_subnets.py` : IP distante jamais
+attribuée au relais, deux origines, fiche, sans CIDR), non-régression des
+tests existants (14), rendu hub sur faux back-end. Non vérifié : capture
+réelle (à confirmer au prochain déploiement : la passerelle doit garder
+son IP et le LAN immédiat apparaître en `local`).

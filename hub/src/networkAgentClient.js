@@ -56,8 +56,13 @@ export async function fetchAllServices(apiBase, segmentId) {
   const data = await fetchJson(apiBase, `/devices/services?segment_id=${segmentId}`);
   return data && typeof data === "object" && !data.error ? data : {};
 }
-export async function fetchLinks(apiBase, segmentId) {
-  const data = await fetchJson(apiBase, `/links?segment_id=${segmentId}`);
+// `period` = { startIso, endIso } (#414) : volumes échangés PENDANT la
+// période (différence de relevés côté API) au lieu du cumul actuel.
+export async function fetchLinks(apiBase, segmentId, period) {
+  const qs = period?.startIso && period?.endIso
+    ? `&start=${encodeURIComponent(period.startIso)}&end=${encodeURIComponent(period.endIso)}`
+    : "";
+  const data = await fetchJson(apiBase, `/links?segment_id=${segmentId}${qs}`);
   return Array.isArray(data) ? data : [];
 }
 export async function fetchObservedSubnets(apiBase, segmentId, prefixLength) {
@@ -65,8 +70,20 @@ export async function fetchObservedSubnets(apiBase, segmentId, prefixLength) {
   const data = await fetchJson(apiBase, `/observed-subnets?segment_id=${segmentId}${query}`);
   return Array.isArray(data) ? data : [];
 }
+// #427 : fiche récapitulative d'un sous-réseau observé -> objet ou null
+export async function fetchSubnetDetail(apiBase, segmentId, subnet) {
+  const data = await fetchJson(apiBase, `/observed-subnet?segment_id=${segmentId}&subnet=${encodeURIComponent(subnet)}`);
+  return data && !data.error && data.subnet ? data : null;
+}
 export async function fetchPresenceHistory(apiBase, deviceId) {
   const data = await fetchJson(apiBase, `/devices/${deviceId}/presence-history`);
+  return Array.isArray(data) ? data : [];
+}
+// Services utilisés ENTRE deux appareils, les deux sens confondus (route
+// existante depuis #251, "services connectés par paire d'ip" -- jamais
+// appelée côté hub avant #403).
+export async function fetchLinkServices(apiBase, deviceAId, deviceBId) {
+  const data = await fetchJson(apiBase, `/links/services?device_a_id=${deviceAId}&device_b_id=${deviceBId}`);
   return Array.isArray(data) ? data : [];
 }
 export async function fetchLinkHistory(apiBase, deviceAId, deviceBId) {

@@ -1,0 +1,6 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><style>body{font:13px system-ui,sans-serif;padding:10px;max-width:520px}label{display:block;margin:8px 0 2px;color:#555}input,textarea{width:100%;box-sizing:border-box;padding:4px;font:inherit}button{margin-top:10px;padding:5px 10px}.muted{color:#777}</style></head><body>
+<label>URL de l'agent relais (sur ce poste)</label><input id="relayUrl" placeholder="http://127.0.0.1:6320">
+<label>Périmètre : URL de base de l'application, une par ligne (rien d'autre n'est enregistré)</label><textarea id="bases" rows="3" placeholder="https://gestion.exemple.fr&#10;http://10.0.0.5/appli"></textarea>
+<label><input type="checkbox" id="recordValues" style="width:auto"> enregistrer les VALEURS saisies (jamais les mots de passe) — sinon seulement le nom du champ et la longueur</label>
+<button id="save">Enregistrer</button> <span id="msg" class="muted"></span>
+<script src="options.js"></script></body></html>

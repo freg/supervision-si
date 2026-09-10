@@ -35,6 +35,7 @@ import nebula_import
 import nebula_clients_import
 import snmp_import
 import network_agent_import
+import si_agent_import
 
 _log = logging.getLogger("glpi_app")
 
@@ -112,6 +113,10 @@ NETWORK_AGENT_API_URL = os.environ.get("NETWORK_AGENT_API_URL", "").rstrip("/")
 # filtrage des catégories transitoires (ex. clients DHCP dynamiques)
 # à l'export, voir network_agent_import.py.
 CLASSIFIER_API_INTERNAL_URL = os.environ.get("CLASSIFIER_API_INTERNAL_URL", "http://classifier-api:5000").rstrip("/")
+# URL interne vers si-agent-api (#437, backlog 63 h) -- service Compose
+# ordinaire (réseau partagé), export des hôtes des agents vers GLPI et
+# comparaison avec les agents GLPI. Vide = fonctions désactivées.
+SI_AGENT_API_URL = os.environ.get("SI_AGENT_API_URL", "http://si-agent-api:5000").rstrip("/")
 
 
 def _connect():
@@ -486,6 +491,119 @@ def import_network_agent_devices_route():
         return jsonify({"error": str(exc)}), 502
 
     return jsonify({"dry_run": dry_run, "source_device_count": len(network_agent_devices), **summary}), 200
+
+
+def _si_agent_get(path, params=None):
+    """(json | None, erreur) -- un appel à si-agent-api."""
+    if not SI_AGENT_API_URL:
+        return None, "SI_AGENT_API_URL non configurée"
+    try:
+        resp = requests.get(f"{SI_AGENT_API_URL}{path}", params=params or {}, timeout=15)
+    except requests.RequestException as exc:
+        _log.debug("si-agent-api %s : appel échoué -- %s", path, exc)
+        return None, f"appel à si-agent-api échoué : {exc}"
+    if resp.status_code != 200:
+        return None, f"si-agent-api a répondu {resp.status_code} : {resp.text[:300]}"
+    try:
+        return resp.json(), None
+    except ValueError:
+        return None, "réponse de si-agent-api illisible (pas du JSON valide)"
+
+
+@app.route("/import/si-agent-hosts", methods=["POST"])
+def import_si_agent_hosts_route():
+    """Hôtes des agents si-agent (#421-#436) → `Computer` GLPI
+    (livraison #437, backlog 63 h). Lit `GET /fleet` puis
+    `GET /agents/<id>/latest` (inventaire matériel #428, système) de
+    si-agent-api ; voir si_agent_import.py pour les champs.
+
+    `dry_run` (défaut `true`) -- aperçu ; si GLPI est configuré ET
+    joignable, le dédoublonnage est joué à blanc (déjà présents listés),
+    sinon avertissement. `update_existing` (défaut `false`) -- un hôte
+    déjà présent (par `otherserial` si-agent:<id>, série, ou nom) est
+    MIS À JOUR (commentaire, fabricant/modèle/lieu ; jamais renommé) au
+    lieu d'être ignoré. `include_never_seen` (défaut `false`) -- inclut
+    les agents enrôlés jamais vus. `site` (query) -- limite à un site.
+    Corps : `{groups, only_agents: [agent_id…]}` (sélection multiple,
+    même mécanisme que les autres imports)."""
+    dry_run = request.args.get("dry_run", "true").strip().lower() != "false"
+    update_existing = request.args.get("update_existing", "false").strip().lower() == "true"
+    include_never_seen = request.args.get("include_never_seen", "false").strip().lower() == "true"
+    site = request.args.get("site") or None
+    body = request.get_json(silent=True) or {}
+    allowed, error = _check_manage_right(body)
+    if not allowed:
+        return jsonify({"error": error}), 403
+    only_agents = list(body["only_agents"]) if isinstance(body.get("only_agents"), list) else None
+
+    fleet, err = _si_agent_get("/fleet", {"site": site} if site else None)
+    if err:
+        return jsonify({"error": err}), 502
+    agents = fleet.get("agents") if isinstance(fleet, dict) else None
+    if not isinstance(agents, list):
+        return jsonify({"error": "réponse de si-agent-api inattendue (/fleet : {agents: [...]} attendu)"}), 502
+    latest_by_agent, warnings = {}, []
+    for a in agents:
+        aid = a.get("agent_id")
+        if not aid or (only_agents is not None and str(aid) not in {str(x) for x in only_agents}):
+            continue
+        data, err = _si_agent_get(f"/agents/{aid}/latest")
+        if err:
+            warnings.append(f"{aid} : dernières mesures illisibles ({err})")
+            continue
+        latest_by_agent[aid] = (data or {}).get("latest") or {}
+
+    client, check_existing = None, not dry_run
+    try:
+        if dry_run:
+            try:
+                client = _connect() if GLPI_BASE_URL else None
+                check_existing = client is not None
+            except glpi.GlpiError:
+                client = None
+            if client is None:
+                warnings.append("GLPI non configuré ou injoignable : dédoublonnage non vérifié dans cet aperçu")
+                client = glpi.GlpiClient(GLPI_BASE_URL or "https://dry-run.invalid")
+        else:
+            client = _connect()
+        try:
+            summary = si_agent_import.import_hosts(client, agents, latest_by_agent, dry_run=dry_run, only_agents=only_agents,
+                                                  update_existing=update_existing, check_existing=check_existing, include_never_seen=include_never_seen)
+        finally:
+            if check_existing:
+                client.kill_session()
+    except glpi.GlpiError as exc:
+        return jsonify({"error": str(exc)}), 502
+    summary["warnings"] = warnings + summary.get("warnings", [])
+    return jsonify({"dry_run": dry_run, "update_existing": update_existing, "source_agent_count": len(agents), **summary}), 200
+
+
+@app.route("/agents-comparison", methods=["GET"])
+def agents_comparison_route():
+    """Agents GLPI (itemtype `Agent`, GLPI 10 : GLPI Agent natif) ↔ flotte
+    si-agent (#437). Lecture seule. `site` (query) limite la flotte
+    si-agent. ⚠️ itemtype `Agent` jamais vérifié contre un vrai GLPI :
+    une erreur GLPI est renvoyée telle quelle (`glpi_error`) avec la
+    flotte si-agent seule, jamais un 500."""
+    site = request.args.get("site") or None
+    fleet, err = _si_agent_get("/fleet", {"site": site} if site else None)
+    si_agents = (fleet or {}).get("agents") if isinstance(fleet, dict) else []
+    si_error = err
+    glpi_agents, glpi_error = [], None
+    try:
+        client = _connect()
+        try:
+            glpi_agents = client.get_items("Agent", range_str="0-999")
+        finally:
+            client.kill_session()
+    except glpi.GlpiError as exc:
+        glpi_error = str(exc)
+    if not isinstance(glpi_agents, list):
+        glpi_error = glpi_error or "réponse GLPI inattendue pour l'itemtype Agent (liste attendue)"
+        glpi_agents = []
+    result = si_agent_import.compare_fleets(glpi_agents, si_agents or [])
+    return jsonify({**result, "glpi_agent_count": len(glpi_agents), "si_agent_count": len(si_agents or []),
+                    "glpi_error": glpi_error, "si_agent_error": si_error}), 200
 
 
 @app.route("/import/snmp-targets", methods=["POST"])

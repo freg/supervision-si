@@ -1,0 +1,6 @@
+Flask==3.0.3
+flask-cors==4.0.1
+gunicorn==22.0.0
+# Vérification RÉELLE du jeton Keycloak (RS256 via JWKS) -- #454.
+PyJWT==2.9.0
+cryptography==43.0.1

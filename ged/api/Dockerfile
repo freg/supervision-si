@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY ged/api/app.py .
 COPY ged/api/documents_store.py .
 COPY ged/api/mayan_client.py .
+COPY ged/api/versioning.py .
 COPY shared/version_endpoint.py .
 COPY shared/VERSION.json .
 COPY shared/log_buffer.py .

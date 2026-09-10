@@ -1,0 +1,16 @@
+{
+  "collector_id": "alpha-collecteur-01",
+  "secret": "REMPLACER-PAR-LE-SECRET-GENERE-PAR-LE-CENTRAL",
+  "site": "alpha",
+  "listen": "0.0.0.0",
+  "port": 6127,
+  "central_url": "https://supervision.exemple.local:6443/api/netprobe",
+  "central_ca_file": "/etc/netprobe-collector/central-ca.crt",
+  "central_insecure": false,
+  "fleet_path": "/etc/netprobe-collector/fleet.json",
+  "queue_path": "/var/lib/netprobe-collector/queue.db",
+  "db_path": "/var/lib/netprobe-collector/collector.db",
+  "forward_seconds": 60,
+  "fleet_sync_seconds": 300,
+  "batch_size": 500
+}

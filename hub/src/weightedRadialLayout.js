@@ -12,6 +12,7 @@
 // (WeightedRadialTree.jsx) calque fidèlement le motif déjà établi et
 // PRÉSUMÉ fonctionnel d'OptickRadialTree.jsx, mais n'a PAS pu être
 // exécuté ici -- à vérifier en priorité au premier rendu réel.
+import { makeScale } from "./chartScales.js";
 
 /**
  * Construit l'arbre hiérarchique {id, name, children} attendu par
@@ -46,19 +47,16 @@ export function buildDeviceHierarchy(devices, segmentLabels = {}) {
 }
 
 /**
- * Échelle de largeur de trait -- linéaire entre minWidth/maxWidth,
- * proportionnelle au volume RELATIF au maximum observé (jamais un
- * seuil absolu, cohérent avec le principe déjà appliqué ailleurs
- * dans ce projet -- voir pixel-grid, mode "Activité", #371).
+ * Échelle de largeur de trait entre minWidth/maxWidth, proportionnelle au
+ * volume RELATIF au maximum observé (jamais un seuil absolu, cohérent avec
+ * le principe déjà appliqué ailleurs dans ce projet -- voir pixel-grid,
+ * mode "Activité", #371). Livraison #413 : échelle linéaire / racine / log
+ * et gain via chartScales.makeScale (`scale` = {mode, gain}), la même
+ * modulation que le diagramme alluvial.
  */
-export function makeVolumeWidthScale(links, minWidth = 0.5, maxWidth = 8) {
-  const volumes = (links || []).map((l) => l.bytes_total ?? 0).filter((v) => v > 0);
-  const maxVolume = volumes.length > 0 ? Math.max(...volumes) : 0;
-  return function widthForVolume(bytesTotal) {
-    if (!bytesTotal || maxVolume === 0) return minWidth;
-    const ratio = bytesTotal / maxVolume;
-    return minWidth + ratio * (maxWidth - minWidth);
-  };
+export function makeVolumeWidthScale(links, minWidth = 0.5, maxWidth = 8, scale = {}) {
+  const volumes = (links || []).map((l) => l.bytes_total ?? 0);
+  return makeScale(volumes, { mode: scale.mode, gain: scale.gain, minOut: minWidth, maxOut: maxWidth });
 }
 
 /**

@@ -1,32 +1,65 @@
-# Sauvegardes -- suivi/couverture (livraison #249)
+# Sauvegardes -- couverture & connecteurs (livraison #270)
 
-Backlog item 27 -- "backup-restore", sous-volet marqué **URGENT**
-par la personne : "Clonezilla (ou équivalent) pour produire une IMAGE
-SYSTÈME complète -- objectif immédiat = future VIRTUALISATION de
-postes Windows existants".
+Backlog item 27 -- "backup-restore", extension de la livraison #249.
 
-## Portée VOLONTAIREMENT LIMITÉE
+## Portée
 
-Ce module répond d'abord à l'exigence explicite du backlog : "toute
-machine [détectée sur le LAN] doit avoir une image prête à la
-restauration" -- un registre des images connues, croisé avec les
-appareils DÉJÀ découverts par `network-agent` (#233/#240), pour
-répondre à la question "quelles machines n'ont PAS d'image récente ?".
+Ce module répond à l'exigence explicite du backlog : "toute machine
+[détectée sur le LAN] doit avoir une image prête à la restauration"
+-- un registre des images connues, croisé avec les appareils DÉJÀ
+découverts par `network-agent` (#233/#240), pour répondre à la question
+"quelles machines n'ont PAS d'image récente ?".
 
-**PAS construit ici** : l'automatisation réelle de Clonezilla (PXE
-boot, DRBL, déclenchement à distance d'une capture) -- exactement le
-même raisonnement que pour l'agent réseau (#233) : ce genre
-d'infrastructure nécessite du matériel/réseau réel (serveur PXE/TFTP,
-postes Windows accessibles) qu'aucun test dans cet environnement ne
-peut valider. Les images sont enregistrées MANUELLEMENT pour
-l'instant -- une fois que la personne aura défini comment elle pilote
-réellement Clonezilla (script, DRBL, autre), une ingestion automatique
-pourra remplacer cette saisie manuelle.
+**Extension livraison #270** : trois connecteurs de solutions de
+sauvegarde open source sont ajoutés :
+1. **BackupPC** -- vue hub contenu + versions (pool dédupliqué)
+2. **Clonezilla** -- gestion automatisée (jobs, PXE, images)
+3. **Restic** -- solution cloud-ready avec déduplication (snapshots, rétention)
 
-Les AUTRES volets du backlog (connecteur BackupPC, comparatif d'une
-solution de backup alternative, statistiques/versions de fichiers,
-agent courrier) restent également PAS COMMENCÉS -- seul le sous-volet
-signalé urgent est traité ici.
+## Connecteurs
+
+### BackupPC
+
+BackupPC est un système de sauvegarde réseau haute performance avec
+déduplication, support de SMB/NFS/rsync/ftp, et une interface web
+d'administration.
+
+Fonctionnalités :
+- Liste des hôtes BackupPC configurés
+- Visualisation du contenu du hub (pool de fichiers dédupliqués)
+- Historique des versions par hôte
+- Statistiques de déduplication
+
+Configuration : `BACKUPPC_API_URL` (vide = mode simulation)
+
+### Clonezilla
+
+Clonezilla est un outil d'imagerie de disque/clonage open source.
+Ce connecteur gère le déclenchement automatisé via PXE/DRBL.
+
+Fonctionnalités :
+- Registre des images Clonezilla connues
+- Déclenchement de jobs (sauvegarde/restauration)
+- Suivi des jobs en cours
+- Configuration PXE/DRBL
+- Planification de sauvegardes
+
+Configuration : `CLONAZILLA_API_URL` ou `CLONAZILLA_SSH_HOST`
+
+### Restic
+
+Restic est une solution de sauvegarde open source moderne avec
+déduplication par blocs, chiffrement AES-256, compression, et
+multi-backend (local, SFTP, S3, Azure, B2, rclone).
+
+Fonctionnalités :
+- Liste des snapshots
+- Consultation du contenu d'un snapshot
+- Politique de rétention (keep-last, daily, weekly, monthly, yearly)
+- Vérification d'intégrité du dépôt
+- Restauration de fichiers spécifiques
+
+Configuration : `RESTIC_REPOSITORY` et `RESTIC_PASSWORD`
 
 ## Modèle de données
 
@@ -35,8 +68,13 @@ optionnel -- une image peut être enregistrée avant que la machine
 correspondante soit rapprochée d'un appareil découvert par
 `network-agent` (ou si cette machine n'est pas/plus sur le réseau
 surveillé). `tool` reste un champ libre extensible
-(clonezilla/backuppc/other) -- ne ferme jamais la porte aux autres
-volets du backlog.
+(clonezilla/backuppc/restic/other).
+
+Tables ajoutées en livraison #270 :
+- `connector_configs` : configurations des connecteurs
+- `backup_jobs` : jobs de sauvegarde automatisés
+- `backup_schedules` : planifications récurrentes
+- `file_versions` : historique des versions de fichiers
 
 ## Couverture -- le cœur de la demande
 
@@ -53,59 +91,69 @@ débranchée du LAN surveillé) n'apparaît pas dans `network-agent`, donc
 pas ici non plus -- ce n'est PAS un inventaire exhaustif du parc,
 seulement des machines ACTIVEMENT vues sur le réseau surveillé.
 
-## Point d'architecture important -- `network_mode: host`
-
-`network-agent-api` tourne en `network_mode: host` (#238-239, confirmé
-nécessaire en déploiement réel) -- il n'est PLUS sur le réseau Docker
-partagé. `backup-restore-api` le joint via `NETWORK_AGENT_API_URL`,
-construite avec `HOST_IP` (voir `docker-compose.yml`) -- **jamais le
-nom de service Docker habituel**, qui ne résoudrait pas depuis un
-conteneur normal comme celui-ci. Même piège déjà rencontré et corrigé
-pour la passerelle nginx (#239), reproduit ici en connaissance de
-cause dès la conception plutôt que découvert après un premier
-déploiement raté.
-
 ## API
 
-- `GET /images` (`?device_mac=X` optionnel) -- liste des images
-  enregistrées.
-- `POST /images` -- enregistre une nouvelle image (`device_label`,
-  `tool`, `taken_at` requis).
+### Routes originales (livraison #249)
+- `GET /images` (`?device_mac=X` optionnel) -- liste des images enregistrées.
+- `POST /images` -- enregistre une nouvelle image.
 - `DELETE /images/<id>` -- supprime un enregistrement.
-- `GET /coverage` -- la vue croisée décrite ci-dessus. Best-effort
-  explicite si `network-agent-api` est injoignable -- erreur claire
-  (502), jamais un plantage silencieux.
+- `GET /coverage` -- la vue croisée décrite ci-dessus.
+
+### Routes connecteurs (livraison #270)
+- `GET /connectors` -- liste des configurations de connecteurs
+- `POST /connectors` -- crée une configuration
+- `DELETE /connectors/<id>` -- supprime une configuration
+- `GET /jobs` -- liste des jobs (filtres: connector_type, status)
+- `POST /jobs` -- crée un job
+- `GET /jobs/<id>` -- détails d'un job
+- `PATCH /jobs/<id>/status` -- met à jour le statut
+- `GET /schedules` -- liste des planifications
+- `POST /schedules` -- crée une planification
+- `DELETE /schedules/<id>` -- supprime une planification
+- `GET /file-versions` -- versions de fichiers
+- `POST /file-versions` -- ajoute une version
+
+### Routes BackupPC
+- `GET /backuppc/hosts` -- liste des hôtes
+- `GET /backuppc/hosts/<host>/versions` -- versions d'un hôte
+- `GET /backuppc/hosts/<host>/content` -- contenu d'une sauvegarde
+- `GET /backuppc/pool/stats` -- statistiques du pool
+
+### Routes Clonezilla
+- `GET /clonezilla/images` -- liste des images
+- `GET /clonezilla/jobs` -- jobs en cours
+- `POST /clonezilla/jobs` -- crée un job (save/restore)
+- `GET /clonezilla/pxe-config` -- configuration PXE
+
+### Routes Restic
+- `GET /restic/snapshots` -- liste des snapshots
+- `GET /restic/snapshots/<id>/content` -- contenu d'un snapshot
+- `GET /restic/stats` -- statistiques du dépôt
+- `POST /restic/restore` -- déclenche une restauration
+- `POST /restic/forget` -- applique la rétention
+- `GET /restic/check` -- vérifie l'intégrité
 
 ## Vérifié réellement
 
-Testé en profondeur : normalisation de casse des adresses MAC
-(création ET filtrage), regroupement "la plus récente par machine"
-confirmé correct (pas la première créée), image sans MAC gérée sans
-exception et exclue proprement du regroupement par MAC, suppression
-d'un id inexistant sans exception. Route `/coverage` testée de bout
-en bout avec de vrais appareils simulés (cross-référencement correct,
-tri machines-sans-image en tête, calcul des jours écoulés côté
-serveur), et avec `network-agent-api` injoignable (502 propre, jamais
-un 500 nu). Validation des champs requis et de la valeur `tool`
-testée. Structure JSX de `BackupRestoreView.jsx` et `App.jsx`
-revérifiée après câblage.
+Testé en profondeur (42 tests unitaires) :
+- Création/liste/suppression de configurations de connecteurs
+- Création/liste/filtrage de jobs (par statut, par connecteur)
+- Mise à jour du statut des jobs (pending → running → completed/failed)
+- Gestion des planifications (création, liste, suppression)
+- Historique des versions de fichiers
+- Mode simulation des trois connecteurs (BackupPC, Clonezilla, Restic)
+- Non-régression des fonctionnalités originales (#249)
 
 ## Branchement rights-api (livraison #309)
 
 Suite de l'item 38 du backlog -- service de SUIVI de couverture
-uniquement (jamais l'automatisation réelle de Clonezilla), mais
-falsifier ou supprimer un enregistrement pourrait masquer un vrai
+uniquement (jamais l'automatisation réelle de Clonezilla/BackupPC),
+mais falsifier ou supprimer un enregistrement pourrait masquer un vrai
 trou de couverture. Gardé sur les deux routes d'ÉCRITURE
 (`create_image`, `delete_image`) uniquement -- `/coverage` et
 `/logs` restent en lecture libre, même motif que partout ailleurs
 dans ce projet. OPT-IN via `BACKUP_RESTORE_RIGHTS_API_URL`, vide par
 défaut, comportement inchangé tant qu'elle n'est pas configurée.
-
-**Vérifié réellement** : comportement opt-in par défaut confirmé,
-FAIL CLOSED si `rights-api` injoignable, 403 sur les deux routes
-gardées avec un groupe non autorisé, `/coverage` confirmée NON
-affectée (même code de statut avant/après activation de
-`rights-api`). Non-régression complète reconfirmée.
 
 ## Reste à faire
 
@@ -117,6 +165,5 @@ affectée (même code de statut avant/après activation de
   piloté.
 - Rapprochement automatique `device_label` <-> appareil réseau quand
   `device_mac` n'a pas été renseigné à la création.
-- Les autres volets du backlog (BackupPC, solution alternative,
-  statistiques de versions de fichiers, agent courrier) -- non
-  traités ici, à cadrer séparément.
+- Intégration réelle avec les serveurs BackupPC/Restic/Clonezilla
+  (actuellement en mode simulation).

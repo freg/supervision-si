@@ -242,12 +242,11 @@ jusqu'ici accessible seulement via `curl`. Détail complet dans
 
 ## Chantiers pas commencés (voir `BACKLOG.md` #5 pour le détail complet)
 
-- **Proposition d'interface d'édition des données** -- générée depuis
-  le graphe relationnel validé.
-- **Interface de gestion (affectation des relations)** -- distincte de
-  l'éditeur de relations ci-dessus (celui-ci corrige le SCHÉMA
-  déduit ; celle-ci gère l'AFFECTATION des relations sur les
-  données elles-mêmes), à confirmer précisément avec la personne.
+- ~~**Interface de gestion (affectation des relations)**~~ **LIVRÉE** --
+  distincte de l'éditeur de relations ci-dessus (celui-ci corrige le
+  SCHÉMA déduit ; celle-ci gère l'AFFECTATION des relations sur les
+  données elles-mêmes). Voir "Interface de gestion (affectation des
+  relations)" ci-dessous.
 
 ## Correctif : fichier manquant au déploiement (livraison #252)
 
@@ -311,3 +310,42 @@ FAIL CLOSED si `rights-api` injoignable, 403 confirmé sur les 4
 routes gardées avec un groupe non autorisé, `/analyze` et
 `/relations/validate` confirmées TOUJOURS libres. Non-régression
 complète reconfirmée.
+
+## Interface de gestion (affectation des relations) -- livraison #5
+
+Backlog `BACKLOG.md` #5 -- "Interface de gestion (affectation des
+relations)". Distinct de l'éditeur de relations ci-dessus (qui
+corrige le SCHÉMA déduit) : ici, on gère l'AFFECTATION des relations
+sur les données elles-mêmes. Deux volets :
+
+1. **Résolution** (`POST /relations/resolve-row`) -- pour UNE ligne
+   d'une table, résout TOUTES les relations CONFIRMÉES dont elle est
+   la source : la ligne source + pour chaque colonne liée, la (ou les)
+   ligne(s) cible correspondante(s). C'est la "vue JSON avec valeurs
+   résolues" demandée en #241. AUCUN effet de bord, pure lecture.
+
+2. **Affectation** (`POST /relations/assign`) -- modifie la valeur
+   d'une clé étrangère ou d'une colonne-liste sur une ligne existante.
+   Vérifie qu'une relation CONFIRMÉE existe pour cette colonne (refuse
+   d'affecter arbitrairement n'importe quelle colonne -- on n'assigne
+   que sur des relations déclarées). Protégée par rights-api (#319) :
+   même motif que les autres routes qui PERSISTENT.
+
+Nouveau module `relation_resolver.py` -- fonctions PURES (reçoivent
+un `executor` injecté, jamais d'accès réseau/base direct) :
+`resolve_foreign_key`, `resolve_row_relations`,
+`assign_foreign_key`. L'écriture réelle délègue à dba-api (PUT /rows)
+-- ce module ne fait que préparer l'appel.
+
+Côté hub (`SchemaAnalyzerView.jsx`) : nouvel onglet "Affectation" --
+sélecteur de table, navigateur de lignes (clic pour sélectionner),
+affichage des relations résolues avec les lignes cibles, et bouton
+"Modifier l'affectation" pour changer la valeur d'une FK/colonne-liste.
+
+**Vérifié réellement** : logique de résolution testée en profondeur
+(16 tests) -- résolution FK classique + colonne-liste, valeur
+orpheline, ligne introuvable, colonne-liste avec correspondance
+partielle, ignore les relations non confirmées et les valeurs vides.
+Logique d'affectation testée (5 tests) -- cascade complète
+validation -> résolution -> assignation, refus sans relation
+confirmée. Structure JSX revérifiée.

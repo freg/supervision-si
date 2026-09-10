@@ -4524,6 +4524,8 @@ table.fusion-table {
   color: var(--color-ok);
   font-family: var(--font-mono);
 }
+/* #426 : position d'après le nom d'hôte */
+.fusion-geo-byname { font-size: 11px; opacity: 0.75; font-style: italic; margin-left: 4px; }
 .fusion-geo-position.pending {
   color: var(--color-warn);
 }

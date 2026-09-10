@@ -151,6 +151,36 @@ async def _get_system_info(host, community, port, timeout):
         return result
 
 
+async def _get_oids(host, community, port, timeout, oids):
+    """GET d'une liste d'OID numériques arbitraires (livraison #434, UPS-MIB
+    depuis ups-monitor) : {oid: valeur (prettyPrint)} ; un OID absent
+    (noSuchObject / noSuchInstance) vaut None, jamais une erreur globale."""
+    _log.debug("_get_oids : GET de %d OID -- host=%s port=%s timeout=%ss (communauté : %d caractères, jamais sa valeur)",
+               len(oids), host, port, timeout, len(community))
+    with SnmpDispatcher() as dispatcher:
+        error_indication, error_status, error_index, var_binds = await get_cmd(
+            dispatcher,
+            CommunityData(community, mpModel=1),
+            await UdpTransportTarget.create((host, port), timeout=timeout),
+            *[ObjectType(ObjectIdentity(oid)) for oid in oids],
+        )
+        if error_indication:
+            raise SnmpError(str(error_indication))
+        if error_status:
+            raise SnmpError(f"{error_status.prettyPrint()} (index {error_index})")
+        out = {}
+        for oid, var_bind in zip(oids, var_binds):
+            value = var_bind[1]
+            text = value.prettyPrint()
+            out[oid] = None if text in ("No Such Object currently exists at this OID", "No Such Instance currently exists at this OID", "noSuchObject", "noSuchInstance") else text
+        return out
+
+
+def get_oids(host, community, oids, port=161, timeout=5):
+    """GET synchrone d'OID arbitraires -> {oid: texte | None}."""
+    return _run_async(_get_oids(host, community, port, timeout, list(oids)), timeout + 2)
+
+
 def get_system_info(host, community, port=161, timeout=5):
     """GET synchrone des 5 valeurs du groupe "System" (SNMPv2-MIB) --
     lève SnmpError avec un message actionnable en cas d'échec (cible

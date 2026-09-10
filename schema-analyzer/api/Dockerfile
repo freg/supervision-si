@@ -10,6 +10,7 @@ COPY schema-analyzer/api/schema_client.py .
 COPY schema-analyzer/api/relation_detector.py .
 COPY schema-analyzer/api/list_detector.py .
 COPY schema-analyzer/api/relation_validator.py .
+COPY schema-analyzer/api/relation_resolver.py .
 COPY schema-analyzer/api/relations_store.py .
 COPY schema-analyzer/api/graph_export.py .
 COPY shared/version_endpoint.py .

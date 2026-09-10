@@ -112,3 +112,40 @@ export async function runAnalysis(apiBase, analyzerName) {
     body: JSON.stringify({ analyzer_name: analyzerName || null }),
   });
 }
+
+// --- Sondes distribuées (livraison #407, items 45/47/48) -- flotte de
+// sondes/collecteurs Raspberry Pi et mesures remontées par les
+// collecteurs de site. Voir netprobe/agent/README.md.
+export async function fetchAgents(apiBase, site) {
+  const q = site ? `?site=${encodeURIComponent(site)}` : "";
+  const data = await fetchJson(apiBase, `/agents${q}`);
+  return Array.isArray(data?.agents) ? data.agents : [];
+}
+export async function createAgent(apiBase, { agentId, site, role, label, tasks }) {
+  return fetchJson(apiBase, "/agents", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ agent_id: agentId, site, role, label, tasks }),
+  });
+}
+export async function updateAgent(apiBase, agentId, patch) {
+  return fetchJson(apiBase, `/agents/${encodeURIComponent(agentId)}`, {
+    method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
+  });
+}
+export async function deleteAgent(apiBase, agentId, purge = false) {
+  return fetchJson(apiBase, `/agents/${encodeURIComponent(agentId)}?purge=${purge ? "true" : "false"}`, { method: "DELETE" });
+}
+export async function rotateAgentSecret(apiBase, agentId) {
+  return fetchJson(apiBase, `/agents/${encodeURIComponent(agentId)}/rotate-secret`, { method: "POST" });
+}
+export async function fetchAgentsLatest(apiBase, site) {
+  const q = site ? `?site=${encodeURIComponent(site)}` : "";
+  const data = await fetchJson(apiBase, `/agents/latest${q}`);
+  return Array.isArray(data?.latest) ? data.latest : [];
+}
+export async function fetchAgentMeasurements(apiBase, agentId, task, limit = 300) {
+  const q = new URLSearchParams({ limit: String(limit) });
+  if (task) q.set("task", task);
+  const data = await fetchJson(apiBase, `/agents/${encodeURIComponent(agentId)}/measurements?${q.toString()}`);
+  return Array.isArray(data?.measurements) ? data.measurements : [];
+}

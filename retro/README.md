@@ -247,3 +247,282 @@ simultanément sur la même archive, non-régression confirmée.
 - Flux entre écrans (navigation, enchaînement des actions) --
   seules les routes elles-mêmes sont extraites, jamais les liens
   entre elles.
+
+## Parcours applicatifs -- rétro-ingénierie dynamique (livraison #441, volet 2)
+
+Demande : « continuer dans le reverse engineering d'appli web (évolution de
+notre SI) : un plugin Firefox, un agent relais et une API type QA qui suit
+mon parcours dans l'appli web ; ça s'intègre avec la partie analyse bdd ».
+C'est le **volet 2** du backlog 30 (« schéma FONCTIONNEL de l'interface »),
+abordé par l'usage réel plutôt que par le seul code.
+
+Trois pièces :
+
+1. **Extension Firefox** `retro/browser-extension/` (README dédié) :
+   écrans, DOM utile (formulaires, tableaux, en-têtes), clics, saisies
+   (noms et longueurs, jamais un mot de passe), envois, requêtes HTTP
+   (page, XHR, redirections, clés de formulaire), repères. Variante
+   Chromium (MV3) avec les mêmes sources.
+2. **Agent relais** `retro/relay/relay.py` (Python 3 seul) sur le poste :
+   reçoit les événements de l'extension en local (127.0.0.1:6320), les met
+   dans une file SQLite, les expédie par lots à retro-api avec le jeton
+   `RETRO_RELAY_TOKEN` (`X-Relay-Token`) et la CA interne ; rejoue après une
+   coupure, dans l'ordre (`seq`). Crée / termine les parcours, pose des
+   repères ; l'extension adopte le parcours courant du relais.
+3. **retro-api, routes « parcours »** (retro-api a maintenant un volume
+   `/data`, SQLite `retro.db`) : `GET/POST /apps` (application : libellé, URL
+   de base, connexion DBA + base), `POST /scan?app=<libellé>` conserve le
+   scan de code comme référence (avec, nouveaux, `classes` {classe:
+   fichier} et `file_tables` {fichier: tables Mapper}), `GET /journeys`,
+   `POST /journeys`, `GET /journeys/<id>` (étapes + carte), `POST
+   /journeys/<id>/events` (relais, jeton, idempotent sur `seq`), `/end`,
+   `/annotate`, `DELETE`, `POST /journeys/<id>/queries/collect` (« analyse
+   bdd » : lit `mysql.general_log` entre le début et la fin du parcours via
+   dba-api -- prérequis MySQL : `SET GLOBAL general_log='ON',
+   log_output='TABLE'` pendant le test), `GET /apps/<libellé>/map` (carte
+   agrégée sur tous les parcours).
+
+Logique pure `journeys.py` : une **étape** commence quand le navigateur
+envoie la requête d'une page (`request` main_frame -- c'est là que le
+serveur, donc le SQL, travaille) ou à un repère ; le `navigation` qui suit
+la complète. Un POST suivi d'une redirection donne deux étapes (l'action,
+puis la page). Les URL sont normalisées (`/client/42` → `/client/{n}`) et
+rapprochées des routes Fat-Free du scan (`/client/@id`, jetons et `*`) →
+contrôleur → fichier (classe → fichier) → tables (jointures + Mapper de ce
+fichier) ; les requêtes du journal SQL sont rattachées à la dernière étape
+commencée avant elles (paramètre `skew` pour un décalage d'horloge base /
+navigateur) → tables réellement lues / écrites par écran. La **carte
+fonctionnelle** liste chaque écran avec route, fichiers, formulaires
+(champs ↔ champs de gabarit du scan), tables « code », tables « base »,
+et la matrice écrans × tables (● concordant, ◐ code seul, ◑ base seule).
+
+Tuile Rétro-ingénierie, section « Parcours applicatifs » : applications,
+parcours, étapes annotables, collecte du SQL, schéma fonctionnel. Motif
+Mapper élargi (`$this->db`, `$f3->get('DB')`) : constaté manquant sur le
+premier code parcouru.
+
+**Vérifié** : 7 tests `retro/api/test_journeys.py` (logique + routes avec
+faux dba-api), 2 tests du relais (file, panne du central et rejeu, fin),
+3 tests de l'extension (fonctions pures), 2 tests hub ; **chaîne réelle**
+extension (Chromium MV3, Playwright) → relais → retro-api → application
+factice Flask (liste, fiche, saisie, POST + 302, XHR, repère), scan d'un
+code F3 factice, collecte du journal via un faux dba-api → étapes et carte
+attendues, rendu Chromium de la tuile ; compose YAML. **Non vérifié** :
+Firefox réel (manifeste V2), un vrai `mysql.general_log` via dba-api réel,
+build Docker de retro-api.
+
+## Rejeu, sous-parcours, comparaison (livraison #443)
+
+Questions posées : « où et sous quelle forme est stockée la navigation ? une
+interface pour rejouer et ajouter des sous-parcours ? ». Stockage : SQLite
+`retro.db` sur le volume `/data` (`apps`, `journeys`, `events` -- une ligne
+par événement brut, JSON tel que reçu, ordre `seq` --, `queries`) ; étapes
+et carte recalculées à la lecture.
+
+- **Arbre de parcours** : `journeys.parent_id` + `branch_step` (sous-parcours
+  qui part de l'étape N du parent) et `kind` (`recorded` | `replay`),
+  migration automatique. Dans la tuile, bouton « Sous-parcours à partir
+  d'ici » sur une étape → parcours enfant en cours ; dans le navigateur on
+  revient à cet écran, puis popup de l'extension → « Reprendre » (le relais
+  l'adopte, `POST /journeys/<id>/adopt`). Liste indentée.
+- **Rejouer pas à pas** (storyboard) : pour chaque étape, ce que l'écran
+  montrait (en-têtes, formulaires et champs, colonnes des tableaux),
+  actions, requêtes SQL, trace du rejeu, annotation.
+- **Rejeu réel** : `GET /journeys/<id>/script` dérive des étapes un script
+  `navigate` / `click` / `fill` / `submit` / `expect` / `mark` (`navigate`
+  seulement pour un écran atteint sans action ni redirection ; un clic sur
+  le bouton d'envoi n'est pas doublé d'un `submit` ; `fill` sans valeur
+  enregistrée → le rejeu s'arrête sur le champ, la personne saisit puis
+  « Continuer »). `POST /journeys/<id>/replay` crée le parcours enfant
+  (`kind=replay`) et renvoie le script ; le relais (`POST /replay`) le
+  transmet à l'extension, dont l'arrière-plan exécute action par action
+  dans l'onglet (attente des chargements, `expect` GET vérifié par l'URL
+  normalisée, `expect` POST par la requête réellement vue) en enregistrant
+  le rejeu comme n'importe quel parcours, plus une trace `replay-action`
+  par action. `GET /journeys/<a>/compare/<b>` aligne les deux parcours
+  étape par étape (écran, méthode, statut, titre, champs, en-têtes,
+  colonnes, requêtes secondaires, tables SQL) ; la tuile l'affiche pour
+  tout rejeu, sous le storyboard.
+
+Vérifié : 8 tests API, relais, 4 tests extension, 3 hub ; **rejeu réel** dans
+Chromium via le popup de l'extension sur l'application factice (valeurs
+enregistrées) : 8 actions exécutées, rejeu comparé à l'origine 5/5 étapes
+identiques ; rendu Chromium. Non vérifié : Firefox réel.
+
+## Interface générée au design du hub (livraison #444, phase 2)
+
+Demande : « de ce parcours, générer une interface avec le design/charte
+du hub pour offrir les mêmes fonctionnalités ». Deux pièces :
+
+- **`retro/api/ui_spec.py`** (pur, 3 tests + route) : étapes de tous les
+  parcours + carte fonctionnelle + colonnes réelles des tables (dba-api,
+  connexion de l'application) → une **spécification** : par écran, genre
+  (`list` : tableau vu ; `form` : formulaire POST ≥ 2 champs ; `detail` ;
+  `action` : écran POST transitoire ; `other`), titre (premier en-tête vu),
+  **table principale** (écritures SQL de l'action du formulaire 0,9 →
+  journal SQL de l'écran 0,8 → tables du code 0,5/0,35), **colonnes** de
+  liste (en-têtes des tableaux vus rapprochés des colonnes réelles :
+  exact 1,0, sans séparateurs 0,9, inclusion ≤ 0,85, jetons ≤ 0,6 ; les
+  préfixes `txt`, `f_`, `champ_`… et les accents sont neutralisés),
+  **champs** de formulaire rapprochés de même (clé primaire et jetons CSRF
+  écartés), liens (clics vers un autre écran), actions (POST + tables
+  écrites), points « à compléter ». `GET /apps/<label>/ui-spec`
+  (enregistrée ; `?regenerate=1` recalcule en conservant les choix
+  marqués `*_manual`), `PUT /apps/<label>/ui-spec`.
+- **`hub/src/GeneratedAppView.jsx`** (+ `generatedApp.js`, 1 test) : dans
+  la tuile Rétro-ingénierie, bouton « Application générée » : navigation
+  entre les écrans (charte du hub), **listes** branchées sur la table réelle
+  via dba-api (filtre, pagination 50, « Nouveau »), **fiches** : ouvrir une
+  ligne → formulaire dont les champs sont ceux du parcours, rattachés aux
+  colonnes → `PUT/POST rows` de dba-api (clé primaire jamais modifiée,
+  colonnes validées côté serveur). Onglet **Spécification** : titre, genre,
+  table (liste des tables connues), masquage, avec pour chaque rattachement
+  sa source et sa confiance ; enregistré aussitôt, survit à une
+  régénération.
+
+Ce que les parcours n'ont pas montré (règles métier du PHP, écrans jamais
+visités, champs sans colonne) n'est pas inventé : « à compléter ». Une
+exportation de la spec en module React autonome est possible ensuite (le
+rendu est déjà générique).
+
+Vérifié : 3 tests `test_ui_spec.py` (rapprochement, genres, table, choix
+manuels conservés, routes avec faux dba-api) ; chaîne réelle : spec
+générée depuis les parcours réels de l'application factice + faux dba-api
+(tables clients/journal/villes/produits), rendu Chromium : liste Clients
+(Nom, Ville → ville_id), ouverture d'une ligne, modification de l'email
+**écrite dans la table** via dba-api. Non vérifié : une vraie application
+(la richesse des écrans dépend des parcours enregistrés).
+
+## Outil de gestion unique (livraison #445, phase 3)
+
+Demande : « comparer les applications enregistrées et produire un outil
+unique de gestion ». Tout part des spécifications d'interface (#444) de
+chaque application -- donc des parcours réellement enregistrés.
+
+- **`retro/api/merge.py`** (pur, 10 tests) :
+  - `compare_apps(specs)` rapproche les écrans d'applications différentes
+    qui remplissent la **même fonction** : même genre (liste / formulaire),
+    champs ou colonnes de même nom après normalisation (préfixes de
+    formulaire `txtNom` → `nom`, accents, pluriels, suffixe `_id`, et un
+    petit dictionnaire de synonymes FR/EN volontaire : `customers` ≡
+    `clients`, `name` ≡ `nom`, `phone` ≡ `tel`, `city` ≡ `ville`…), titres
+    et chemins voisins, tables de même nom. Score = 0,6 × recouvrement des
+    champs (part du plus petit écran retrouvée dans l'autre dès 2 champs
+    communs, sinon Jaccard) + 0,25 × titres + 0,15 × tables ; **sous 0,4
+    rien n'est rapproché**. Appariement glouton par score décroissant, un
+    écran par application et par groupe. Résultat : groupes (`function`,
+    `kind`, `score`, `why` en clair, `common_fields`, `specific_fields` par
+    application), écrans sans équivalent (`unique`), compteurs. Les écrans
+    `action` (POST transitoires) et masqués ne comptent pas.
+  - `unified_spec(specs)` : **une spec pour toutes** -- un écran par
+    fonction, champs = union, chaque champ portant `sources` {application :
+    table, colonne, confiance}, ses noms d'origine (`names`), `shared`
+    (présent partout) ; par écran `targets` {application : table, clé
+    primaire, connexion DBA, base} et `todo` (nombre de champs propres à une
+    application). Écrans propres à une application ajoutés à la fin,
+    tagués `(app)`.
+  - `per_app_view(unified, app)` : la spec unique projetée sur UNE
+    application (ses tables, ses colonnes ; les champs qu'elle n'a pas
+    restent listés, sans colonne) -- exactement ce que `GeneratedAppView`
+    sait rendre.
+- **Routes** : `GET /unified/compare?apps=a,b` (vide = toutes les
+  applications enregistrées ; spec générée à la volée si absente) et
+  `GET /unified?apps=a,b[&label=…][&view=<app>]`. Moins de deux
+  applications → 400.
+- **Hub** (`UnifiedToolView.jsx` + `unifiedTool.js`, 3 tests) : bouton
+  « 🧩 Outil unique » dans la tuile Rétro-ingénierie dès deux applications
+  enregistrées. Cases à cocher des applications comparées ; trois onglets :
+  **Fonctions × applications** (matrice : une ligne par fonction, l'écran
+  de chaque application, score et raisons, champs communs / propres,
+  recouvrement fonctionnel en %), **Champs unifiés** (par écran unique,
+  chaque champ avec son origine et, par application, `table.colonne` et le
+  nom de champ d'origine), **Interface unique** : les MÊMES écrans pour
+  toutes les applications, avec un sélecteur « Données de l'application » --
+  listes et fiches lisent et écrivent dans les tables de l'application
+  choisie via dba-api (`GeneratedAppView` en mode `externalSpec`, sans
+  régénération ni édition : la spec unique se corrige dans celle de chaque
+  application), les champs absents de cette application sont indiqués et
+  non saisissables.
+
+Limites : le rapprochement est lexical (noms, titres, tables) ; deux
+fonctions identiques nommées sans aucun mot commun ne sont pas
+rapprochées -- elles apparaissent alors comme « propres » et se voient dans
+la matrice. La phase 4 (méta-relevé des champs, relations inter-gestions,
+proposition de fusion) s'appuiera sur cette spec unique.
+
+Vérifié : 10 tests `test_merge.py` (similarité, genres différents,
+synonymes / préfixes / `_id`, groupes et champs propres, actions écartées,
+un écran par application par groupe, spec unique et `sources`, ordre,
+projection, trois applications) ; chaîne réelle : application « gestion »
+(parcours réels, spec générée) + application « crm » (spec aux tables
+`customers.name/mail/city/tel`, connexion DBA 2 d'un faux dba-api) →
+2 fonctions communes (Clients 100 %, Fiche client 80 %), 1 écran propre ;
+rendu Chromium des trois onglets ; **écriture** du téléphone d'un client
+dans `customers` via l'interface unique (données crm), puis bascule sur
+les données gestion (fiche `clients` id 42). Non vérifié : de vraies
+applications, où la qualité dépend des parcours enregistrés et des noms.
+
+## Méta-relevé des champs, relations inter-gestions, proposition de fusion (livraison #448, phase 4)
+
+Demande : « analyser les champs, trouver les relations inter-gestions et
+en faire un méta-relevé / graphe pour proposer une évolution fusion ».
+
+- **`retro/api/metagraph.py`** (pur, 10 tests). `build_metagraph(specs,
+  scans, queries_by_app, unified, columns_by_app)` :
+  - **entités** = une table d'une application (`app:table`), avec ses
+    **attributs** : colonnes typées via dba-api quand la connexion est
+    renseignée (sinon noms de la spec, sinon colonnes vues dans les
+    écrans), clé primaire, terme canonique (`customer_id` → `client`),
+    écrans qui les montrent, présence dans le code analysé ;
+  - arêtes **`fk`** (intra-application) : jointures du **code** PHP
+    (`join_candidates` du scan), jointures du **journal SQL** réellement
+    collecté pendant les parcours (`extract_join_candidates_from_sql` sur
+    chaque requête), et **noms de colonnes** (`ville_id`, `id_ville`,
+    `villeid` → table `villes` de la même application) ; les sources se
+    cumulent sur la même arête ;
+  - arêtes **`equiv`** (inter-applications) : écrans de même fonction de
+    la spec unique (#445, chaque champ unifié donne une paire de colonnes)
+    et tables de même terme canonique (`customers` ≡ `clients`) ; paires
+    complétées par les colonnes de même terme et par les clés primaires ;
+  - arêtes **`xref`** : colonne qui nomme une table absente de son
+    application mais présente dans une autre (`produit_id` dans un CRM sans
+    table produits → `gestion:produits`) : relation inter-gestion probable.
+  `fusion_proposal(graph)` : fermeture transitive des `equiv` → une
+  **entité cible** par groupe (nom = terme majoritaire), attributs = union
+  par terme (clés primaires réunies sous `id`, paires explicites
+  respectées) avec la colonne et le type de chaque application, `shared`
+  / `orphan` (une seule application) / `type_conflict` (familles int,
+  decimal, text, date, bool différentes), relations `fk` / `xref`
+  reportées entre entités cibles avec leurs sources et le chemin d'origine,
+  entités propres à une application reprises telles quelles, `todo` par
+  entité.
+- **Route** `GET /unified/metagraph?apps=a,b` (vide = toutes ; une seule
+  application accepte, sans équivalences) : graphe + `proposal` +
+  `inputs` (par application : code analysé ?, requêtes SQL, tables typées).
+- **Hub** (`MetaGraphView.jsx` + `metaGraph.js`, 3 tests) : onglet
+  « Méta-graphe & fusion » de l'outil unique. **Graphe** SVG : une colonne
+  par application, une boîte par table (clé, colonnes typées, « · » si
+  absente du code analysé), arêtes pleines (relation), tiretées (même
+  notion), pointillées (référence inter-gestion), étiquette de la première
+  paire de colonnes, clic sur une table → ses attributs, écrans et
+  relations, le reste s'estompe. **Relevé des champs** : une ligne par
+  attribut (application, table, colonne, type, terme, écrans, équivalents
+  dans les autres applications), filtrable. **Proposition de fusion** :
+  une carte par entité cible (fusion / reprise), tableau attribut cible ×
+  application avec la colonne réelle et son type, remarques (commun,
+  propre à…, types différents), relations entre entités cibles.
+
+Limites : les relations devinées par les noms restent des hypothèses
+(sources affichées) ; les équivalences viennent des noms et des écrans
+communs, pas des données ; la proposition ne génère pas de schéma SQL --
+c'est un relevé pour arbitrer, le DDL cible pourra suivre.
+
+Vérifié : 10 tests `test_metagraph.py` (entités, attributs et écrans ;
+relations code + journal + noms cumulées ; équivalences avec paires de
+colonnes et clés primaires ; référence inter-gestion ; sans colonnes
+typées ; familles de types ; entités cibles, conflit `ville` int/text,
+orphelins, relations reportées, entité propre) ; chaîne réelle gestion +
+crm (journal SQL réel des parcours → relation `clients → villes` vue dans
+le code ET dans le journal, `journal → clients` par le nom ; équivalence
+`customers ≡ clients` avec 4 paires) ; rendu Chromium du graphe et de la
+proposition. Non vérifié : de vraies applications.

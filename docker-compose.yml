@@ -40,6 +40,9 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
     environment:
+      # #472 : hôtes acceptés par le serveur Vite (nom LAN / nom public derrière un frontal)
+      - HOST_IP=${HOST_IP:-localhost}
+      - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-}
       # Le frontend tourne dans le navigateur de l'hôte, pas dans le réseau
       # Docker interne : il doit donc viser une adresse joignable depuis
       # le poste qui ouvre le navigateur. HOST_IP est injectée au lancement
@@ -72,7 +75,10 @@ services:
     ports:
       # Port centralisé dans .env — évite volontairement 5432/5433
       # (trop communs) et toute la plage déjà utilisée par ailleurs.
-      - "${PIXEL_GRID_POSTGRES_PORT:-6543}:5432"
+      # #456 : lié à la boucle locale de la VM (constat Bastion #455 : base
+      # publiée sur toutes les interfaces, hors passerelle) -- rien n'y
+      # pointe de l'extérieur ; SI_DB_BIND=0.0.0.0 pour rouvrir au besoin.
+      - "${SI_DB_BIND:-127.0.0.1}:${PIXEL_GRID_POSTGRES_PORT:-6543}:5432"
     environment:
       - POSTGRES_DB=pixelgrid
       - POSTGRES_USER=pixelgrid
@@ -157,7 +163,7 @@ services:
   tickets-postgres:
     image: postgres:16-alpine
     ports:
-      - "${TICKETS_POSTGRES_PORT:-6545}:5432"
+      - "${SI_DB_BIND:-127.0.0.1}:${TICKETS_POSTGRES_PORT:-6545}:5432"  # #456 : boucle locale
     environment:
       - POSTGRES_DB=tickets
       - POSTGRES_USER=tickets
@@ -243,6 +249,9 @@ services:
       context: .
       dockerfile: tickets/portal/Dockerfile
     environment:
+      # #472 : hôtes acceptés par le serveur Vite (nom LAN / nom public derrière un frontal)
+      - HOST_IP=${HOST_IP:-localhost}
+      - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-}
       - GATEWAY_PORT=${GATEWAY_PORT:-6443}
       - VITE_TICKETS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/tickets
       # Client OIDC "tickets-portal" — déjà défini dans
@@ -372,6 +381,39 @@ services:
       - ${GED_DATA_DIR:-./ged/data}:/data
     depends_on:
       - memcached
+
+  file-manager-api:
+    # Livraison #396, backlog item 26 -- nouvelle tuile/outil
+    # "gestionnaire de fichiers". Agrège ged-api, ssh-tunnels-api,
+    # et gère l'espace protégé du hub (volet 3). Pas d'état propre
+    # persisté pour les documents/montages (il agrège les sources).
+    build:
+      context: .
+      dockerfile: file-manager/api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      - MEMCACHED_PORT=11211
+      # URLs internes (réseau Docker partagé) -- jamais via tls-proxy
+      - GED_API_INTERNAL_URL=${GED_API_INTERNAL_URL:-http://ged-api:5000}
+      - SSH_TUNNELS_API_INTERNAL_URL=${SSH_TUNNELS_API_INTERNAL_URL:-http://ssh-tunnels-api:5000}
+      # Espace protégé du hub (volet 3) -- répertoire sur l'hôte,
+      # accessible aussi bien depuis le hub que directement
+      - FILE_MANAGER_PROTECTED_DIR=${FILE_MANAGER_PROTECTED_DIR:-/protected-space}
+      - FILE_MANAGER_DB_PATH=/data/file-manager.db
+      - FILE_MANAGER_MAX_LISTING_ITEMS=${FILE_MANAGER_MAX_LISTING_ITEMS:-1000}
+      # Branchement rights-api -- OPT-IN, jamais actif par défaut.
+      # Protège l'accès à l'espace protégé (volet 3) : seuls les
+      # groupes autorisés (admin_hub par défaut) peuvent y accéder.
+      - RIGHTS_API_URL=${FILE_MANAGER_RIGHTS_API_URL:-}
+    volumes:
+      # FILE_MANAGER_DATA_DIR : SQLite de l'index espace protégé
+      - ${FILE_MANAGER_DATA_DIR:-./file-manager/data}:/data
+      # FILE_MANAGER_PROTECTED_DIR : répertoire protégé de l'hôte
+      - ${FILE_MANAGER_PROTECTED_DIR:-./file-manager/protected}:/protected-space
+    depends_on:
+      - memcached
+      - ged-api
+      - ssh-tunnels-api
 
   ssh-tunnels-api:
     # Livraison #159, backlog BACKLOG.md #2 -- supervision de
@@ -590,6 +632,9 @@ services:
       # -- HOST_IP, jamais le nom de service Docker (livraison #264,
       # export vers GLPI de ce que network-agent découvre).
       - NETWORK_AGENT_API_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
+      # #437 : hôtes des agents si-agent -> GLPI, comparaison avec les
+      # agents GLPI Agent (si-agent-api est un service Compose ordinaire).
+      - SI_AGENT_API_URL=http://si-agent-api:5000
     depends_on:
       - memcached
 
@@ -748,8 +793,18 @@ services:
     build:
       context: .
       dockerfile: retro/api/Dockerfile
+    volumes:
+      # #441 : parcours applicatifs (applications, scans de code conservés,
+      # événements, requêtes SQL collectées) -- retro-api était sans état.
+      - ${RETRO_DATA_DIR:-./retro/data}:/data
     environment:
       - MEMCACHED_HOST=memcached
+      - RETRO_DATA_DIR=/data
+      # #441 : jeton partagé avec l'agent relais des parcours (vide = relais refusé)
+      - RETRO_RELAY_TOKEN=${RETRO_RELAY_TOKEN:-}
+      # #441 : journal général MySQL de l'application lu via dba-api
+      - DBA_API_INTERNAL_URL=http://dba-api:5000
+      - RIGHTS_API_URL=${RETRO_RIGHTS_API_URL:-}
     depends_on:
       - memcached
 
@@ -776,8 +831,24 @@ services:
       # Gardé sur create_image/delete_image uniquement -- /coverage et
       # /logs restent en lecture libre.
       - RIGHTS_API_URL=${BACKUP_RESTORE_RIGHTS_API_URL:-}
+      # #459 : sauvegardes DU HUB (totale / incrémentale, scripts/full_backup.py)
+      # -- la racine du projet est montée dans /project (archives dans
+      # ./backups), le socket Docker sert aux volumes ; SI_BACKUP_HOST_ROOT =
+      # chemin de ce dossier vu du démon Docker (docker run -v). Sans
+      # SI_BACKUP_PASSPHRASE, aucune sauvegarde (jamais d'archive en clair).
+      - SI_BACKUP_PROJECT_ROOT=/project
+      - SI_BACKUP_HOST_ROOT=${PWD}
+      - SI_BACKUP_PASSPHRASE=${SI_BACKUP_PASSPHRASE:-}
+      - SI_BACKUP_INCR_HOURS=${SI_BACKUP_INCR_HOURS:-0}
+      - SI_BACKUP_FULL_WEEKDAY=${SI_BACKUP_FULL_WEEKDAY:-}
+      - SI_BACKUP_FULL_HOUR=${SI_BACKUP_FULL_HOUR:-2}
+      - SI_BACKUP_KEEP_DAILY=${SI_BACKUP_KEEP_DAILY:-7}
+      - SI_BACKUP_KEEP_WEEKLY=${SI_BACKUP_KEEP_WEEKLY:-4}
+      - SI_BACKUP_KEEP_MONTHLY=${SI_BACKUP_KEEP_MONTHLY:-6}
     volumes:
       - ${BACKUP_RESTORE_DATA_DIR:-./backup-restore/data}:/data
+      - .:/project
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - memcached
 
@@ -987,6 +1058,216 @@ services:
     ports:
       - "${NETMAP_ORCHESTRATOR_API_PORT:-6125}:5000"
 
+  ups-monitor-api:
+    # Livraison #415 -- tuile « UPS » demandée en urgence : liste
+    # d'onduleurs (site / IP / utilisateur / mot de passe), automate qui
+    # relève chaque carte réseau par HTTP (page d'état, version 0 --
+    # Socomec NETYS « UPS Management Web »), fiche extraite et archivée,
+    # timeline. Fréquence 1 h par défaut, réglable globalement ici et par
+    # onduleur dans l'interface. Voir ups-monitor/README.md.
+    build:
+      context: .
+      dockerfile: ups-monitor/api/Dockerfile
+    volumes:
+      - ${UPS_MONITOR_DATA_DIR:-./ups-monitor/data}:/data
+    environment:
+      - MEMCACHED_HOST=memcached
+      - UPS_POLL_INTERVAL_SECONDS=${UPS_POLL_INTERVAL_SECONDS:-3600}
+      - UPS_HTTP_TIMEOUT_SECONDS=${UPS_HTTP_TIMEOUT_SECONDS:-10}
+      - UPS_HISTORY_RETENTION_DAYS=${UPS_HISTORY_RETENTION_DAYS:-365}
+      # Chiffrement des mots de passe stockés (optionnel, même motif que
+      # SNMP_CRED_*) : sans ces deux variables, stockage en clair signalé
+      # par GET /status (secrets_encrypted: false). Sel généré une seule
+      # fois, JAMAIS régénéré ensuite.
+      - UPS_CRED_PASSPHRASE=${UPS_CRED_PASSPHRASE:-}
+      - UPS_CRED_SALT=${UPS_CRED_SALT:-}
+      # #433 : alertes (seuils, alarme, injoignable) -> SMS / courriel (canaux
+      # SECRETS_ALERT_* du PRA #206) et webhook ; seuil et anti-tempête.
+      # #434 : relevé SNMP (UPS-MIB) par snmp-api, une seule implémentation pysnmp.
+      - SNMP_API_INTERNAL_URL=http://snmp-api:5000
+      - UPS_NOTIFY_MIN_SEVERITY=${UPS_NOTIFY_MIN_SEVERITY:-warning}
+      - UPS_NOTIFY_COOLDOWN_SECONDS=${UPS_NOTIFY_COOLDOWN_SECONDS:-900}
+      - UPS_NOTIFY_WEBHOOK_URL=${UPS_NOTIFY_WEBHOOK_URL:-}
+      - SECRETS_ALERT_SMS_URL=${SECRETS_ALERT_SMS_URL:-}
+      - SECRETS_ALERT_SMS_KEY=${SECRETS_ALERT_SMS_KEY:-}
+      - SECRETS_ALERT_SMS_NUMBER=${SECRETS_ALERT_SMS_NUMBER:-}
+      - SECRETS_ALERT_SMTP_HOST=${SECRETS_ALERT_SMTP_HOST:-}
+      - SECRETS_ALERT_SMTP_PORT=${SECRETS_ALERT_SMTP_PORT:-587}
+      - SECRETS_ALERT_SMTP_USER=${SECRETS_ALERT_SMTP_USER:-}
+      - SECRETS_ALERT_SMTP_PASSWORD=${SECRETS_ALERT_SMTP_PASSWORD:-}
+      - SECRETS_ALERT_SMTP_FROM=${SECRETS_ALERT_SMTP_FROM:-}
+      - SECRETS_ALERT_SMTP_USE_TLS=${SECRETS_ALERT_SMTP_USE_TLS:-true}
+      - SECRETS_ALERT_EMAIL_TO=${SECRETS_ALERT_EMAIL_TO:-}
+    depends_on:
+      - memcached
+    ports:
+      - "${UPS_MONITOR_API_PORT:-6128}:5000"
+
+  si-agent-api:
+    # Livraison #421 (backlog 63) -- central des agents hôtes Linux
+    # (si-agent) : flotte et enrôlement (secret HMAC par agent), mesures
+    # remontées (hôte, risques, inventaire, sondes), catalogue de sondes
+    # poussées signées, commandes acquittées. Tuile hub « Agents hôtes ».
+    # Voir si-agent/README.md.
+    build:
+      context: .
+      dockerfile: si-agent/api/Dockerfile
+    volumes:
+      - ${SI_AGENT_DATA_DIR:-./si-agent/data}:/data
+      # CA interne (pki/) servie aux agents pour l'amorçage TLS par
+      # empreinte (#422, `install.sh --ca-fingerprint`) -- le CERTIFICAT
+      # seul, jamais le dossier (ca.key n'a rien à faire dans ce conteneur).
+      # #437 : PKI_DIR respecté (bug réel : avec PKI_DIR dans .env, Docker
+      # créait un DOSSIER ./pki/ca/ca.crt et la CA restait « non montée »).
+      - ${PKI_DIR:-./pki}/ca/ca.crt:/ca/ca.crt:ro
+    environment:
+      - MEMCACHED_HOST=memcached
+      # URL que les agents utilisent pour joindre le central (passerelle
+      # TLS) -- affichée dans la commande d'installation.
+      - SI_AGENT_PUBLIC_URL=${SI_AGENT_PUBLIC_URL:-https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-agent}
+      - SI_AGENT_OFFLINE_SECONDS=${SI_AGENT_OFFLINE_SECONDS:-300}
+      - SI_AGENT_RETENTION_DAYS=${SI_AGENT_RETENTION_DAYS:-90}
+      # #422 : sécurité, traces, notifications (SMS/courriel via les
+      # canaux SECRETS_ALERT_* du PRA #206, webhook), journal d'événements.
+      - SI_AGENT_CA_FILE=/ca/ca.crt
+      # #436 : relais d'exploration -- les captures du plugin capture-relay
+      # sont versées dans network-agent-api (network_mode: host, donc HOST_IP).
+      - NETWORK_AGENT_API_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
+      - SI_AGENT_LOG_LEVEL=${SI_AGENT_LOG_LEVEL:-INFO}
+      - SI_AGENT_EVENTS_RETENTION_DAYS=${SI_AGENT_EVENTS_RETENTION_DAYS:-365}
+      - SI_AGENT_NOTIFY_MIN_SEVERITY=${SI_AGENT_NOTIFY_MIN_SEVERITY:-warning}
+      - SI_AGENT_NOTIFY_COOLDOWN_SECONDS=${SI_AGENT_NOTIFY_COOLDOWN_SECONDS:-900}
+      - SI_AGENT_NOTIFY_WEBHOOK_URL=${SI_AGENT_NOTIFY_WEBHOOK_URL:-}
+      - SECRETS_ALERT_SMS_URL=${SECRETS_ALERT_SMS_URL:-}
+      - SECRETS_ALERT_SMS_KEY=${SECRETS_ALERT_SMS_KEY:-}
+      - SECRETS_ALERT_SMS_NUMBER=${SECRETS_ALERT_SMS_NUMBER:-}
+      - SECRETS_ALERT_SMTP_HOST=${SECRETS_ALERT_SMTP_HOST:-}
+      - SECRETS_ALERT_SMTP_PORT=${SECRETS_ALERT_SMTP_PORT:-587}
+      - SECRETS_ALERT_SMTP_USER=${SECRETS_ALERT_SMTP_USER:-}
+      - SECRETS_ALERT_SMTP_PASSWORD=${SECRETS_ALERT_SMTP_PASSWORD:-}
+      - SECRETS_ALERT_SMTP_FROM=${SECRETS_ALERT_SMTP_FROM:-}
+      - SECRETS_ALERT_SMTP_USE_TLS=${SECRETS_ALERT_SMTP_USE_TLS:-true}
+      - SECRETS_ALERT_EMAIL_TO=${SECRETS_ALERT_EMAIL_TO:-}
+    depends_on:
+      - memcached
+    ports:
+      - "${SI_AGENT_API_PORT:-6129}:5000"
+
+  si-proxy:
+    # Livraison #452 (backlog) -- bastion RÉSERVÉ à freg : aiguilleur TLS
+    # (n'exécute rien). Depuis le Mac : shell sur le host de la VM (sous
+    # freg), navigation HTTPS sur le hub et, par le hub, sur le LAN. Le host
+    # APPELLE ce relais en sortant (shim systemd si-proxy-host) : le conteneur
+    # n'a aucun accès au host, le host n'ouvre aucun port entrant. Seul point
+    # d'entrée exposé (l'« agent-proxy »), joignable de l'extérieur comme le
+    # reste du hub. Certifs émis par si-proxy/setup-certs.sh ; jetons dans
+    # .env. Durcissement mTLS : SI_PROXY_MTLS=1 (+ certs clients). Voir
+    # si-proxy/README.md.
+    # #453 : journal d'audit JSONL dans ./si-proxy/data (volume /data, jamais
+    # versionné), « fail2ban maison » (SI_PROXY_BAN_*) et interface de
+    # contrôle HTTPS (port 6452, jeton SI_PROXY_ADMIN_TOKEN) publiée sur la
+    # boucle locale de la VM seulement -- consommée par la tuile du hub
+    # (#454) via le réseau Docker, jamais exposée à l'extérieur.
+    build:
+      context: .
+      dockerfile: si-proxy/relay/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./si-proxy/certs:/certs:ro
+      - ${PKI_DIR:-./pki}/ca/ca.crt:/ca/ca.crt:ro
+      - ./si-proxy/data:/data
+    environment:
+      - SI_PROXY_PORT=6450
+      - SI_PROXY_HOST_TOKEN=${SI_PROXY_HOST_TOKEN:?SI_PROXY_HOST_TOKEN requis dans .env}
+      - SI_PROXY_CLIENT_TOKEN=${SI_PROXY_CLIENT_TOKEN:?SI_PROXY_CLIENT_TOKEN requis dans .env}
+      - SI_PROXY_ADMIN_TOKEN=${SI_PROXY_ADMIN_TOKEN:-}
+      - SI_PROXY_CONTROL_PORT=6452
+      - SI_PROXY_MTLS=${SI_PROXY_MTLS:-0}
+      - SI_PROXY_ALLOW_CN=${SI_PROXY_ALLOW_CN:-freg}
+      - SI_PROXY_LOG_LEVEL=${SI_PROXY_LOG_LEVEL:-INFO}
+      - SI_PROXY_BAN_THRESHOLD=${SI_PROXY_BAN_THRESHOLD:-5}
+      - SI_PROXY_BAN_WINDOW=${SI_PROXY_BAN_WINDOW:-300}
+      - SI_PROXY_BAN_MINUTES=${SI_PROXY_BAN_MINUTES:-15}
+    ports:
+      - "${SI_PROXY_PORT:-6450}:6450"
+      - "127.0.0.1:${SI_PROXY_CONTROL_PORT:-6452}:6452"
+
+  cortex-api:
+    # Livraison #462 -- « Cortex » : décloisonne, corrèle, relie, consolide.
+    # Modèle commun (entités / relations / événements normalisés) alimenté par
+    # les API existantes (si-agent, vigilance, UPS, orchestrateur, netprobe,
+    # network-agent, sauvegardes), incidents par fenêtre + relation avec
+    # cause racine amont, hypothèses évaluées (principes = partis pris,
+    # retours humains). Voir docs/analyse-supervision-unifiee.md et
+    # cortex/README.md. Routé /api/cortex/ par tls-proxy.
+    build:
+      context: .
+      dockerfile: cortex/api/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ${CORTEX_DATA_DIR:-./cortex/data}:/data
+    environment:
+      - SI_AGENT_API_URL=http://si-agent-api:5000
+      - VIGILANCE_API_URL=http://vigilance-api:5000
+      - UPS_API_URL=http://ups-monitor-api:5000
+      - NETMAP_ORCHESTRATOR_API_URL=http://netmap-orchestrator-api:5000
+      - NETPROBE_API_URL=http://netprobe-api:5000
+      # network-agent-api tourne en network_mode: host (#238) -- IP réelle de l'hôte
+      - NETWORK_AGENT_API_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
+      - BACKUP_RESTORE_API_URL=http://backup-restore-api:5000
+      # #463 : rôles enrichis (classification des noms, référentiels Nebula et IPAM)
+      - CLASSIFIER_API_URL=http://classifier-api:5000
+      - NEBULA_API_URL=http://nebula-api:5000
+      - IPAM_API_URL=${CORTEX_IPAM_API_URL:-http://ipam-api:5000}
+      # #464 : lieux / positions (géolocalisations, correspondances, catalogue), fiche d'intervention
+      - PIXEL_GRID_API_URL=http://pixel-grid-api:5000
+      - GEO_CATALOG_API_URL=http://geo-catalog-api:5000
+      - TICKETS_PORTAL_URL=${CORTEX_TICKETS_PORTAL_URL:-}
+      - SI_PROXY_ENABLED=${SI_PROXY_ENABLED:-1}
+      # #466 : notifications par incident -- SMS / courriel par les SECRETS_ALERT_* du PRA #206
+      # (même module partagé que si-agent et UPS), webhook propre à Cortex ; CORTEX_NOTIFY=0 coupe l'envoi.
+      - CORTEX_NOTIFY=${CORTEX_NOTIFY:-1}
+      - CORTEX_NOTIFY_WEBHOOK_URL=${CORTEX_NOTIFY_WEBHOOK_URL:-}
+      - SECRETS_ALERT_SMS_URL=${SECRETS_ALERT_SMS_URL:-}
+      - SECRETS_ALERT_SMS_KEY=${SECRETS_ALERT_SMS_KEY:-}
+      - SECRETS_ALERT_SMS_NUMBER=${SECRETS_ALERT_SMS_NUMBER:-}
+      - SECRETS_ALERT_SMTP_HOST=${SECRETS_ALERT_SMTP_HOST:-}
+      - SECRETS_ALERT_SMTP_PORT=${SECRETS_ALERT_SMTP_PORT:-587}
+      - SECRETS_ALERT_SMTP_USER=${SECRETS_ALERT_SMTP_USER:-}
+      - SECRETS_ALERT_SMTP_PASSWORD=${SECRETS_ALERT_SMTP_PASSWORD:-}
+      - SECRETS_ALERT_SMTP_FROM=${SECRETS_ALERT_SMTP_FROM:-}
+      - SECRETS_ALERT_SMTP_USE_TLS=${SECRETS_ALERT_SMTP_USE_TLS:-true}
+      - SECRETS_ALERT_EMAIL_TO=${SECRETS_ALERT_EMAIL_TO:-}
+      - RIGHTS_API_URL=${CORTEX_RIGHTS_API_URL:-}
+      - CORTEX_WINDOW_SECONDS=${CORTEX_WINDOW_SECONDS:-300}
+      - CORTEX_INTERVAL_SECONDS=${CORTEX_INTERVAL_SECONDS:-300}
+      - CORTEX_EVENT_HORIZON_HOURS=${CORTEX_EVENT_HORIZON_HOURS:-24}
+      - CORTEX_RETENTION_DAYS=${CORTEX_RETENTION_DAYS:-30}
+    depends_on:
+      - si-agent-api
+
+  si-proxy-admin-api:
+    # Livraison #454 -- pont entre la tuile « Bastion » du hub et
+    # l'interface de contrôle du relais (#453). Le jeton d'admin du relais
+    # reste ICI (jamais dans le navigateur) ; le hub s'identifie par son
+    # jeton Keycloak, VÉRIFIÉ (RS256/JWKS) et restreint à
+    # SI_PROXY_ADMIN_USERS (freg). Routé /api/si-proxy/ par tls-proxy.
+    build:
+      context: .
+      dockerfile: si-proxy/admin/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ${PKI_DIR:-./pki}/ca/ca.crt:/ca/ca.crt:ro
+    environment:
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=supervision-si
+      - SI_PROXY_ADMIN_USERS=${SI_PROXY_ADMIN_USERS:-freg}
+      - SI_PROXY_ADMIN_TOKEN=${SI_PROXY_ADMIN_TOKEN:-}
+      - SI_PROXY_CONTROL_URL=https://si-proxy:6452
+      - SI_PROXY_CONTROL_CA=/ca/ca.crt
+    depends_on:
+      - si-proxy
+
   network-explorer:
     # Livraison #393 -- demandé explicitement : "un docker front qui
     # se branche sur le/les dockers api" -- SANS Keycloak ni
@@ -1004,6 +1285,9 @@ services:
       context: .
       dockerfile: network-explorer/Dockerfile
     environment:
+      # #472 : hôtes acceptés par le serveur Vite (nom LAN / nom public derrière un frontal)
+      - HOST_IP=${HOST_IP:-localhost}
+      - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-}
       - VITE_NETWORK_AGENT_API_BASE_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
       - VITE_NETMAP_ORCHESTRATOR_API_BASE_URL=http://${HOST_IP:-localhost}:${NETMAP_ORCHESTRATOR_API_PORT:-6125}
     ports:
@@ -1237,6 +1521,9 @@ services:
     volumes:
       - ${PKI_DIR:-./pki}/server:/etc/vault-admin-portal/tls:ro
     environment:
+      # #472 : hôtes acceptés par le serveur Vite (nom LAN / nom public derrière un frontal)
+      - HOST_IP=${HOST_IP:-localhost}
+      - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-}
       - VITE_VAULT_ADMIN_API_BASE_URL=http://${HOST_IP:-localhost}:${VAULT_ADMIN_LAN_PORT:-6119}
       # Livraison #293 -- même realm que vault-portal ci-dessus
       # (vault-admin-portal fait partie du déploiement PRINCIPAL,
@@ -1276,6 +1563,9 @@ services:
       context: .
       dockerfile: vault/portal/Dockerfile
     environment:
+      # #472 : hôtes acceptés par le serveur Vite (nom LAN / nom public derrière un frontal)
+      - HOST_IP=${HOST_IP:-localhost}
+      - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-}
       - GATEWAY_PORT=${GATEWAY_PORT:-6443}
       - VITE_VAULT_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/vault
       - VITE_KEYCLOAK_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/auth
@@ -1295,6 +1585,9 @@ services:
       context: .
       dockerfile: dba/portal/Dockerfile
     environment:
+      # #472 : hôtes acceptés par le serveur Vite (nom LAN / nom public derrière un frontal)
+      - HOST_IP=${HOST_IP:-localhost}
+      - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-}
       - GATEWAY_PORT=${GATEWAY_PORT:-6443}
       - VITE_DBA_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/dba
       # Catalogue SGBD (livraison #229) -- même tunnels SSH que le
@@ -1309,6 +1602,9 @@ services:
       context: .
       dockerfile: ldap-admin/portal/Dockerfile
     environment:
+      # #472 : hôtes acceptés par le serveur Vite (nom LAN / nom public derrière un frontal)
+      - HOST_IP=${HOST_IP:-localhost}
+      - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-}
       - GATEWAY_PORT=${GATEWAY_PORT:-6443}
       - VITE_LDAP_ADMIN_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/ldap-admin
     depends_on:
@@ -1319,6 +1615,9 @@ services:
       context: .
       dockerfile: hub/Dockerfile
     environment:
+      # #472 : hôtes acceptés par le serveur Vite (nom LAN / nom public derrière un frontal)
+      - HOST_IP=${HOST_IP:-localhost}
+      - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-}
       - GATEWAY_PORT=${GATEWAY_PORT:-6443}
       # Client OIDC "supervision-hub" — déjà défini dans
       # keycloak/realm-template.json, rien à créer côté Keycloak.
@@ -1394,6 +1693,26 @@ services:
       - VITE_RIGHTS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/rights
       # Sondes réseau (livraison #301) -- tuile hub pour netprobe-api.
       - VITE_NETPROBE_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/netprobe
+      # UPS (livraison #415) -- tuile hub pour ups-monitor-api.
+      - VITE_UPS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/ups
+      # Agents hôtes (livraison #421) -- tuile hub pour si-agent-api.
+      - VITE_SI_AGENT_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-agent
+      # Cortex (livraison #462) -- incidents corrélés, hypothèses évaluées.
+      - VITE_CORTEX_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/cortex
+      # Bastion si-proxy (livraison #454) -- tuile réservée (SI_PROXY_ADMIN_USERS).
+      - VITE_SI_PROXY_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-proxy
+      - VITE_SI_PROXY_ADMIN_USERS=${SI_PROXY_ADMIN_USERS:-freg}
+      # Catalogue de positions (livraison #429) -- tuile hub pour geo-catalog-api.
+      - VITE_GEO_CATALOG_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/geo-catalog
+      # Supervision SI refondue (livraison #423) -- géolocalisations connues.
+      - VITE_PIXEL_GRID_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/pixel-grid
+      # Bases externes (livraison #425) -- tuile générique IPAM / Zenoss /
+      # Optick / TTS-GU / Cacti (contrat commun /roots + /tree/<id>).
+      - VITE_IPAM_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/ipam
+      - VITE_ZENOSS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/zenoss
+      - VITE_OPTICK_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/optick
+      - VITE_TTSGU_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/tts-gu
+      - VITE_CACTI_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/cacti
       # Relations transversales -- onglet hub (livraison #335), backlog
       # item 38 point 2 ("vue relations" de la super tuile ENT).
       - VITE_RELATIONS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/relations
@@ -1404,6 +1723,9 @@ services:
       # par ce chemin.
       - VITE_OWNCLOUD_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/owncloud
       - VITE_OWNCLOUD_SEARCH_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/owncloud-search
+      # Gestionnaire de fichiers (livraison #396, backlog item 26) -- agrège
+      # GED, SSHFS, espace protégé. Tuile hub "Gestionnaire de fichiers".
+      - VITE_FILE_MANAGER_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/file-manager
     depends_on:
       # keycloak retiré (livraison #135) -- voir tickets-api plus haut.
       - prefs-api
@@ -1557,13 +1879,65 @@ services:
       # cette instance -- http://<ip-de-cette-machine>:9200, PAS
       # http://elasticsearch:9200 (ce nom DNS interne ne resout que
       # dans le reseau Docker de CE projet).
-      - "${ELASTICSEARCH_HOST_PORT:-9200}:9200"
+      - "${SI_DB_BIND:-127.0.0.1}:${ELASTICSEARCH_HOST_PORT:-9200}:9200"  # #456 : boucle locale
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 60s
+
+  # ------------------------------------------------------------------
+  # Catalogue de positions (livraison #429, backlog 67) -- base PostGIS
+  # DÉDIÉE, distincte de geo-postgres : elle accueille les référentiels
+  # volumineux (OSM via osm2pgsql, communes, cache de géocodage) et doit
+  # pouvoir vivre sur un HÔTE SECONDAIRE : GEO_CATALOG_DB_URL pointe
+  # alors vers l'autre machine et le service geo-catalog-postgres local
+  # peut être arrêté (voir geo-catalog/README.md, « Déplacer la base »).
+  # ------------------------------------------------------------------
+  geo-catalog-postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      - POSTGRES_DB=${GEO_CATALOG_DB_NAME:-geocat}
+      - POSTGRES_USER=${GEO_CATALOG_DB_USER:-geocat}
+      - POSTGRES_PASSWORD=${GEO_CATALOG_DB_PASSWORD:-geocat}
+    volumes:
+      # volume nommé par défaut ; GEO_CATALOG_DATA_DIR= un dossier (disque
+      # dédié) pour la base OSM -- plusieurs dizaines de Go pour la France.
+      - ${GEO_CATALOG_DATA_DIR:-geo_catalog_pg_data}:/var/lib/postgresql/data
+      - ./geo-catalog/db-init:/docker-entrypoint-initdb.d
+    ports:
+      - "${SI_DB_BIND:-127.0.0.1}:${GEO_CATALOG_DB_PORT:-6547}:5432"  # #456 : boucle locale
+    shm_size: 1g
+
+  geo-catalog-api:
+    build:
+      context: .
+      dockerfile: geo-catalog/api/Dockerfile
+    environment:
+      - MEMCACHED_HOST=memcached
+      # URL complète de la base (hôte secondaire possible) ; vide = le
+      # service geo-catalog-postgres ci-dessus.
+      - GEO_CATALOG_DB_URL=${GEO_CATALOG_DB_URL:-}
+      - GEO_CATALOG_DB_HOST=geo-catalog-postgres
+      - GEO_CATALOG_DB_PORT=5432
+      - GEO_CATALOG_DB_NAME=${GEO_CATALOG_DB_NAME:-geocat}
+      - GEO_CATALOG_DB_USER=${GEO_CATALOG_DB_USER:-geocat}
+      - GEO_CATALOG_DB_PASSWORD=${GEO_CATALOG_DB_PASSWORD:-geocat}
+      - PIXEL_GRID_API_INTERNAL_URL=http://pixel-grid-api:5000
+      # géocodeur (Géoplateforme/BAN par défaut), Nominatim optionnel
+      # (vide = base OSM locale seulement), miroirs internes possibles.
+      - GEOCODE_PROVIDER_URL=${GEOCODE_PROVIDER_URL:-}
+      - GEO_CATALOG_NOMINATIM_URL=${GEO_CATALOG_NOMINATIM_URL:-}
+      - GEO_CATALOG_COMMUNES_URL=${GEO_CATALOG_COMMUNES_URL:-}
+      - GEO_CATALOG_COMMUNE_BY_CP_URL=${GEO_CATALOG_COMMUNE_BY_CP_URL:-}
+      - GEO_CATALOG_SYNC_MAX=${GEO_CATALOG_SYNC_MAX:-2000}
+      - RIGHTS_API_URL=${GEO_CATALOG_RIGHTS_API_URL:-}
+    ports:
+      - "${GEO_CATALOG_API_PORT:-6130}:5000"
+    depends_on:
+      - geo-catalog-postgres
+      - pixel-grid-api
 
   # ------------------------------------------------------------------
   # Géomatique — base PostGIS de staging LOCALE à ce projet (décision
@@ -1582,7 +1956,7 @@ services:
       - geo_pg_data:/var/lib/postgresql/data
       - ./geo-import/db-init:/docker-entrypoint-initdb.d
     ports:
-      - "${GEO_DB_PORT:-6546}:5432"
+      - "${SI_DB_BIND:-127.0.0.1}:${GEO_DB_PORT:-6546}:5432"  # #456 : boucle locale
 
   geo-import-api:
     build:
@@ -1732,6 +2106,7 @@ volumes:
   tickets_pg_data:
   elasticsearch_data:
   geo_pg_data:
+  geo_catalog_pg_data:
   # keycloak_data SORTI vers gateway/docker-compose.yml (livraison
   # #135) -- le volume EXISTANT (créé avant cette extraction) y est
   # référencé explicitement (external: true) pour préserver le realm,

@@ -1,0 +1,17 @@
+# Désactive l'économie d'énergie WiFi de la sonde. Sur Raspberry Pi
+# (brcmfmac), le mode d'économie ajoute une latence variable et des pertes
+# apparentes qui seraient prises pour des problèmes réseau -- une sonde
+# doit mesurer le réseau, pas ses propres artefacts. Installé par
+# image/firstrun.sh, rôle sonde uniquement.
+[Unit]
+Description=netprobe -- désactivation de l'économie d'énergie WiFi
+After=network.target sys-subsystem-net-devices-wlan0.device
+Wants=sys-subsystem-net-devices-wlan0.device
+
+[Service]
+Type=oneshot
+ExecStart=/sbin/iw dev wlan0 set power_save off
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

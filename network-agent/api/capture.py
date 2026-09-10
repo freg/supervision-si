@@ -44,6 +44,43 @@ _log = logging.getLogger("network_agent_capture")
 BROADCAST_MAC = "ff:ff:ff:ff:ff:ff"
 
 
+def interface_identity(interface, sys_class_net="/sys/class/net"):
+    """MAC et IPv4 de l'interface de capture (livraison #412) -- c'est
+    l'HÔTE DE SUPERVISION lui-même vu depuis le trafic : le hub s'en sert
+    pour proposer de masquer les échanges hôte de supervision <-> routeur,
+    qui dominent la visualisation des flux (le hub, les sondes, les
+    tunnels parlent tous à la passerelle) sans rien dire du site observé.
+
+    Meilleur effort, jamais une exception : MAC lue dans sysfs (présent
+    en mode réseau hôte, absent dans un conteneur isolé ou sur macOS),
+    IPv4 par l'ioctl SIOCGIFADDR (Linux seulement). Chaque champ vaut
+    None quand il n'est pas connu -- le hub laisse alors la personne
+    choisir l'hôte à la main."""
+    mac = None
+    ip = None
+    try:
+        with open(f"{sys_class_net}/{interface}/address", encoding="utf-8") as fh:
+            raw = fh.read().strip().lower()
+        if raw and raw != "00:00:00:00:00:00":
+            mac = raw
+    except OSError:
+        pass
+    try:
+        import fcntl
+        import socket
+        import struct
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            packed = struct.pack("256s", interface.encode("utf-8")[:15])
+            res = fcntl.ioctl(sock.fileno(), 0x8915, packed)  # SIOCGIFADDR
+            ip = socket.inet_ntoa(res[20:24])
+        finally:
+            sock.close()
+    except (OSError, ImportError, ValueError, struct.error):
+        pass
+    return {"interface": interface, "interface_mac": mac, "interface_ip": ip}
+
+
 def is_unicast_mac(mac):
     """Exclut broadcast/multicast -- jamais traités comme un
     "appareil" (voir docstring du module). Le bit de poids faible du
@@ -65,9 +102,14 @@ def ip_outside_cidr(ip_str, cidr_str):
     détection de relais externe possible dans ce cas, pas une
     approximation risquée) ou si l'IP est malformée (paquet
     corrompu/atypique, jamais bloquant)."""
-    if not cidr_str or not ip_str:
+    if not ip_str:
         return False
     try:
+        if not cidr_str:
+            # #427 : sans CIDR, une adresse PUBLIQUE ne peut pas être celle
+            # d'un appareil du LAN capté -- traitée comme distante ; le reste
+            # est laissé tel quel (pas d'approximation sur le privé).
+            return ipaddress.ip_address(ip_str).is_global
         return ipaddress.ip_address(ip_str) not in ipaddress.ip_network(cidr_str, strict=False)
     except ValueError:
         return False
@@ -95,16 +137,30 @@ def process_packet(conn, network_segment_id, segment_cidr, summary):
     src_ip, dst_ip = summary["src_ip"], summary["dst_ip"]
 
     dst_is_external = ip_outside_cidr(dst_ip, segment_cidr)
+    # #427 : une IP SOURCE hors segment n'est pas l'adresse de la MAC qui
+    # la porte (c'est la passerelle qui relaie) -- avant, elle écrasait
+    # l'IP de la passerelle et faisait apparaître des sous-réseaux sans
+    # aucun appareil correspondant. Rangée dans na_remote_ips.
+    src_is_external = ip_outside_cidr(src_ip, segment_cidr)
 
     src_device_id = None
     if is_unicast_mac(src_mac):
-        src_device_id = store.upsert_device(conn, network_segment_id, src_mac, src_ip,
-                                             bytes_delta=summary["orig_len"], is_external_relay=False)
+        src_device_id = store.upsert_device(conn, network_segment_id, src_mac, None if src_is_external else src_ip,
+                                             bytes_delta=summary["orig_len"], is_external_relay=src_is_external)
+        if src_is_external and src_ip:
+            store.upsert_remote_ip(conn, network_segment_id, src_device_id, src_ip, "in", summary["orig_len"])
 
     dst_device_id = None
     if is_unicast_mac(dst_mac):
-        dst_device_id = store.upsert_device(conn, network_segment_id, dst_mac, None,
+        # #427 : une destination DANS le CIDR configuré est bien l'adresse de
+        # la MAC destinataire (livraison locale sur le L2) -- un appareil qui
+        # ne fait que recevoir (NAS, imprimante) avait jusqu'ici une MAC sans
+        # IP. Sans CIDR, rien n'est déduit (la MAC pourrait être la passerelle).
+        dst_ip_local = dst_ip if (segment_cidr and not dst_is_external) else None
+        dst_device_id = store.upsert_device(conn, network_segment_id, dst_mac, dst_ip_local,
                                              bytes_delta=0, is_external_relay=dst_is_external)
+        if dst_is_external and dst_ip:
+            store.upsert_remote_ip(conn, network_segment_id, dst_device_id, dst_ip, "out", summary["orig_len"])
 
     if kind in ("tcp", "udp") and dst_device_id is not None and summary["dst_port"] is not None:
         store.upsert_device_service(conn, dst_device_id, kind, summary["dst_port"])
@@ -125,6 +181,29 @@ def process_packet(conn, network_segment_id, segment_cidr, summary):
                                               kind, summary["dst_port"], bytes_delta=summary["orig_len"])
 
     return src_device_id
+
+
+def ingest_pcap_bytes(db_path, network_segment_id, segment_cidr, pcap_bytes, max_packets=200000):
+    """#436 : traite une capture pcap REÇUE (relais d'un agent hôte) exactement
+    comme le flux tcpdump local -- mêmes appareils, liens, services, IP
+    distantes, indices de rôle. Renvoie le nombre de paquets traités."""
+    import io  # noqa: PLC0415
+    conn = store.get_connection(db_path)
+    processed = 0
+    try:
+        for raw in pcap_parser.iter_packets(io.BytesIO(pcap_bytes)):
+            process_packet(conn, network_segment_id, segment_cidr, pcap_parser.summarize_packet(raw))
+            processed += 1
+            if processed % 200 == 0:
+                conn.commit()
+            if processed >= max_packets:
+                break
+        conn.commit()
+        store.apply_role_hints(conn, network_segment_id)
+        conn.commit()
+    finally:
+        conn.close()
+    return processed
 
 
 def run_capture(interface, network_segment_id, segment_cidr, db_path,

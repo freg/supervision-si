@@ -120,7 +120,7 @@ export default function ClassifierView({ onBack, classifierApiBase }) {
       </div>
 
       {error && (
-        <div className="hub-card" style={{ borderColor: "var(--hub-danger, #c0392b)" }}>
+        <div className="hub-card" style={{ borderColor: "var(--danger)" }}>
           <p style={{ margin: 0 }}>⚠️ {error}</p>
         </div>
       )}

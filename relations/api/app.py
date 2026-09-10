@@ -94,7 +94,7 @@ def graph():
         entities = entity_fetchers.fetch_all_entities(TICKETS_API_URL, GED_API_URL, TASKS_API_URL)
     except entity_fetchers.FetchError as exc:
         return jsonify({"error": str(exc)}), 502
-    geolocations = _fetch_geolocations_best_effort()
+    geolocations = entity_fetchers.resolve_sites(PIXEL_GRID_API_URL, entities, _fetch_geolocations_best_effort())
     direct = relation_engine.compute_direct_relations(entities, geolocations)
     return jsonify({
         "entity_count": len(entities),
@@ -128,7 +128,7 @@ def entity_relations():
     if key not in entities:
         return jsonify({"error": f"entité {entity_type}#{entity_id} introuvable (ou hors du périmètre déjà chargé -- voir entity_fetchers.py)"}), 404
 
-    direct = relation_engine.compute_direct_relations(entities, _fetch_geolocations_best_effort())
+    direct = relation_engine.compute_direct_relations(entities, entity_fetchers.resolve_sites(PIXEL_GRID_API_URL, entities, _fetch_geolocations_best_effort()))
     result = relation_engine.relations_for(key, direct)
     return jsonify({
         "entity": {"type": entity_type, "id": entity_id, "label": entities[key]["label"]},

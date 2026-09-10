@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import {
   fetchInventorySummary, IMPORT_SOURCES, previewImport, commitImport,
-  fetchItemsOfType, deleteItem,
+  fetchItemsOfType, deleteItem, fetchAgentsComparison,
 } from "./glpiClient.js";
 import { fetchSites } from "./networkAgentClient.js";
+import { COMPARISON_LABELS, previewRows, dropdownsLabel, describeSiAgent, describeGlpiAgent, importResultLine } from "./glpiImport.js";
 
 // Onglet GLPI Inventory (hub), livraison #231 -- backlog item 21,
 // enrichi en #269 suite à un audit explicite : "les données
@@ -27,6 +28,7 @@ const SOURCE_LABELS = {
   "nebula-clients": "Nebula — clients connectés",
   "network-agent-devices": "Exploration réseau — appareils découverts",
   "snmp-targets": "SNMP — cibles interrogées",
+  "si-agent-hosts": "Agents hôtes — serveurs et postes (si-agent)",
 };
 const MANAGED_ITEMTYPES = ["Computer", "NetworkEquipment"];
 
@@ -48,6 +50,12 @@ export default function GlpiInventoryView({ onBack, glpiApiBase, networkAgentApi
   const [previewing, setPreviewing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
+  // #437 : hôtes si-agent déjà dans GLPI -> mis à jour plutôt qu'ignorés.
+  const [updateExisting, setUpdateExisting] = useState(false);
+
+  // --- Agents GLPI <-> agents hôtes (#437) ---
+  const [comparison, setComparison] = useState(null);
+  const [comparing, setComparing] = useState(false);
 
   // --- Gestion des actifs existants (annuler/supprimer) ---
   const [manageItemtype, setManageItemtype] = useState("Computer");
@@ -71,7 +79,7 @@ export default function GlpiInventoryView({ onBack, glpiApiBase, networkAgentApi
     setPreviewing(true);
     setImportResult(null);
     const segmentIdParam = source === "network-agent-devices" && selectedSegmentId ? Number(selectedSegmentId) : undefined;
-    const result = await previewImport(glpiApiBase, source, segmentIdParam);
+    const result = await previewImport(glpiApiBase, source, segmentIdParam, { updateExisting });
     setPreviewing(false);
     if (result.error) {
       setError(result.error);
@@ -81,7 +89,16 @@ export default function GlpiInventoryView({ onBack, glpiApiBase, networkAgentApi
     setError(null);
     setPreview(result);
     // Tout coché par défaut -- la personne décoche ce qu'elle ne veut pas.
-    setSelectedKeys(new Set((result.created || []).map((c) => c.key)));
+    // Les mises à jour (#437, aperçu `updated` objets) sont des candidats aussi.
+    setSelectedKeys(new Set(previewRows(result).map((c) => c.key)));
+  }
+
+  async function handleCompare() {
+    setComparing(true);
+    const result = await fetchAgentsComparison(glpiApiBase);
+    setComparing(false);
+    if (result.error) setError(result.error);
+    else setComparison(result);
   }
 
   function toggleKey(key) {
@@ -97,7 +114,7 @@ export default function GlpiInventoryView({ onBack, glpiApiBase, networkAgentApi
     if (selectedKeys.size === 0) return;
     setImporting(true);
     const segmentIdParam = source === "network-agent-devices" && selectedSegmentId ? Number(selectedSegmentId) : undefined;
-    const result = await commitImport(glpiApiBase, source, Array.from(selectedKeys), segmentIdParam);
+    const result = await commitImport(glpiApiBase, source, Array.from(selectedKeys), segmentIdParam, { updateExisting });
     setImporting(false);
     if (result.error) setError(result.error);
     else {
@@ -130,7 +147,7 @@ export default function GlpiInventoryView({ onBack, glpiApiBase, networkAgentApi
       </div>
 
       {error && (
-        <div className="hub-card" style={{ borderColor: "var(--hub-danger, #c0392b)" }}>
+        <div className="hub-card" style={{ borderColor: "var(--danger)" }}>
           <p style={{ margin: 0 }}>⚠️ {error}</p>
         </div>
       )}
@@ -174,10 +191,23 @@ export default function GlpiInventoryView({ onBack, glpiApiBase, networkAgentApi
               </select>
             </div>
           )}
+          {source === "si-agent-hosts" && (
+            <label style={{ display: "flex", alignItems: "center", gap: 6, margin: 0, paddingBottom: 6 }}>
+              <input type="checkbox" checked={updateExisting} onChange={(e) => { setUpdateExisting(e.target.checked); setPreview(null); }} />
+              mettre à jour les hôtes déjà dans GLPI
+            </label>
+          )}
           <button onClick={handlePreview} disabled={previewing}>
             {previewing ? "Chargement…" : "Prévisualiser"}
           </button>
         </div>
+        {source === "si-agent-hosts" && (
+          <p className="muted" style={{ marginTop: -4 }}>
+            Chaque agent hôte devient un <code>Computer</code> : nom, numéro de série, fabricant / modèle / lieu
+            (listes GLPI créées au besoin), OS, CPU, mémoire, disques, interfaces et dernière IP en commentaire.
+            Dédoublonnage par l'identifiant d'agent, le numéro de série puis le nom.
+          </p>
+        )}
 
         {source === "network-agent-devices" && !selectedSegmentId && (
           <p style={{ color: "var(--warning, #b7791f)" }}>
@@ -187,42 +217,84 @@ export default function GlpiInventoryView({ onBack, glpiApiBase, networkAgentApi
         )}
 
         {importResult && (
-          <p className="muted">
-            {importResult.created?.length || 0} créé(s), {importResult.skipped_existing?.length || 0} déjà présent(s),{" "}
-            {importResult.skipped_unselected?.length || 0} non sélectionné(s), {importResult.errors?.length || 0} erreur(s).
-          </p>
+          <p className="muted">{importResultLine(importResult)}</p>
         )}
 
         {preview && (
           <>
-            {(preview.created || []).length === 0 ? (
+            {previewRows(preview).length === 0 ? (
               <p className="muted">Aucun candidat à importer pour cette source.</p>
             ) : (
               <div style={{ maxHeight: 320, overflowY: "auto", marginBottom: 12 }}>
                 <table>
-                  <thead><tr><th></th><th>Nom</th><th>Type GLPI</th></tr></thead>
+                  <thead><tr><th></th><th>Nom</th><th>Type GLPI</th><th>Action</th>{source === "si-agent-hosts" && <th>Fabricant / modèle / lieu</th>}</tr></thead>
                   <tbody>
-                    {preview.created.map((c) => (
+                    {previewRows(preview).map((c) => (
                       <tr key={c.key}>
                         <td><input type="checkbox" checked={selectedKeys.has(c.key)} onChange={() => toggleKey(c.key)} /></td>
-                        <td>{c.name}</td>
+                        <td title={c.detail}>{c.name}</td>
                         <td className="muted">{c.itemtype}</td>
+                        <td className="muted">{c.action}</td>
+                        {source === "si-agent-hosts" && (
+                          <td className="muted">{dropdownsLabel(c)}</td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             )}
+            {preview.warnings?.length > 0 && (
+              <p style={{ color: "var(--warning, #b7791f)" }}>⚠️ {preview.warnings.join(" ; ")}</p>
+            )}
             {preview.skipped_existing?.length > 0 && (
               <p className="muted">{preview.skipped_existing.length} déjà présent(s) dans GLPI (non ré-importé(s)).</p>
             )}
             {preview.errors?.length > 0 && (
-              <p style={{ color: "var(--hub-danger, #c0392b)" }}>{preview.errors.length} erreur(s) : {preview.errors.join(", ")}</p>
+              <p style={{ color: "var(--danger)" }}>{preview.errors.length} erreur(s) : {preview.errors.join(", ")}</p>
             )}
             <button onClick={handleImportSelection} disabled={importing || selectedKeys.size === 0}>
               {importing ? "Import en cours…" : `Importer la sélection (${selectedKeys.size})`}
             </button>
           </>
+        )}
+      </div>
+
+      <div className="hub-card hub-settings-section">
+        <h2>Agents GLPI ↔ agents hôtes</h2>
+        <p className="muted" style={{ marginTop: -4 }}>
+          Les agents que GLPI connaît (GLPI Agent, inventaire natif GLPI 10) rapprochés de la flotte
+          si-agent par nom d'hôte : ce qui est vu des deux côtés, ce que seul si-agent voit (à importer
+          ci-dessus), ce que seul GLPI Agent voit (candidats à un agent hôte).
+        </p>
+        <button onClick={handleCompare} disabled={comparing}>{comparing ? "Chargement…" : "Comparer"}</button>
+        {comparison && (
+          <div style={{ marginTop: 12 }}>
+            <p className="muted">
+              {comparison.glpi_agent_count} agent(s) GLPI, {comparison.si_agent_count} agent(s) si-agent —{" "}
+              {comparison.counts?.both || 0} {COMPARISON_LABELS.both}, {comparison.counts?.only_si || 0} {COMPARISON_LABELS.only_si},{" "}
+              {comparison.counts?.only_glpi || 0} {COMPARISON_LABELS.only_glpi}.
+            </p>
+            {comparison.glpi_error && <p style={{ color: "var(--warning, #b7791f)" }}>⚠️ GLPI : {comparison.glpi_error}</p>}
+            {comparison.si_agent_error && <p style={{ color: "var(--warning, #b7791f)" }}>⚠️ si-agent : {comparison.si_agent_error}</p>}
+            {(comparison.rows || []).length > 0 && (
+              <div style={{ maxHeight: 320, overflowY: "auto" }}>
+                <table>
+                  <thead><tr><th>Hôte</th><th>Statut</th><th>si-agent</th><th>GLPI Agent</th></tr></thead>
+                  <tbody>
+                    {comparison.rows.map((r) => (
+                      <tr key={r.hostname}>
+                        <td>{r.hostname}</td>
+                        <td className="muted">{COMPARISON_LABELS[r.status] || r.status}</td>
+                        <td className="muted">{describeSiAgent(r.si)}</td>
+                        <td className="muted">{describeGlpiAgent(r.glpi)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         )}
       </div>
 

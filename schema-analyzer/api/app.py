@@ -32,6 +32,7 @@ from list_detector import detect_list_like_column
 from graph_export import build_graph, graph_to_xml
 import relations_store
 import relation_validator
+import relation_resolver
 
 # Import DÉFENSIF -- version_endpoint.py n'existe que dans l'image
 # Docker construite (copié au build, voir Dockerfile), jamais présent
@@ -367,6 +368,100 @@ def relations_graph():
     if fmt == "xml":
         return graph_to_xml(graph), 200, {"Content-Type": "application/xml; charset=utf-8"}
     return jsonify(graph), 200
+
+
+# ------------------------------------------------------------------
+# Résolution et affectation des relations sur les DONNÉES (livraison
+# #5, backlog BACKLOG.md -- "Interface de gestion (affectation des
+# relations)"). Distinct de l'éditeur de relations ci-dessus (qui
+# corrige le SCHÉMA déduit) : ici on résout les relations sur une
+# ligne existante (vue avec valeurs RÉSOLUES) et permet de MODIFIER
+# l'affectation (changer la cible d'une FK ou d'une colonne-liste).
+# ------------------------------------------------------------------
+
+
+@app.route("/relations/resolve-row", methods=["POST"])
+def resolve_row_relations_route():
+    """Pour UNE ligne d'une table, résout TOUTES les relations
+    CONFIRMÉES dont elle est la source -- la "vue JSON avec valeurs
+    résolues" (demandée en #241). Corps : {"connection_id", "database"
+    (optionnel), "from_table", "pk_column", "pk_value"}.
+
+    Résultat : la ligne source + pour chaque colonne liée, la (ou les)
+    ligne(s) cible correspondante(s) -- permet de voir d'un coup d'œil
+    toutes les relations d'une ligne données, sans avoir à cliquer
+    colonne par colonne. AUCUN effet de bord, pure lecture."""
+    body = request.get_json(silent=True) or {}
+    connection_id = body.get("connection_id")
+    from_table = (body.get("from_table") or "").strip()
+    pk_column = (body.get("pk_column") or "").strip()
+    pk_value = body.get("pk_value")
+    if not connection_id or not from_table or not pk_column or pk_value is None:
+        return jsonify({"error": "'connection_id', 'from_table', 'pk_column', 'pk_value' requis"}), 400
+    database = body.get("database")
+
+    def executor(sql):
+        return execute_sql(DBA_API_BASE, connection_id, sql, database=database)
+
+    try:
+        schema = fetch_tables_and_columns(DBA_API_BASE, connection_id, database=database)
+        relations = relations_store.list_relations(DB_PATH, connection_id, database=database)
+        result = relation_resolver.resolve_row_relations(
+            executor, schema, relations, from_table, pk_column, pk_value,
+        )
+    except DbaApiError as exc:
+        return jsonify({"error": str(exc)}), 502
+
+    if result is None:
+        return jsonify({"error": "ligne introuvable"}), 404
+    return jsonify(result), 200
+
+
+@app.route("/relations/assign", methods=["POST"])
+def assign_relation_route():
+    """Modifie la valeur d'une clé étrangère ou d'une colonne-liste sur
+    une ligne existante -- l'"affectation" demandée par l'item backlog.
+    Corps : {"connection_id", "database" (optionnel), "table",
+    "pk_column", "pk_value", "column", "new_value"}.
+
+    Vérifie qu'une relation CONFIRMÉE existe pour cette colonne
+    (refuse d'affecter arbitrairement n'importe quelle colonne -- on
+    n'assigne que sur des relations déclarées). Protégée par
+    rights-api (#319) : même motif que les autres routes qui
+    PERSISTENT."""
+    body = request.get_json(silent=True) or {}
+    allowed, error = _check_manage_right(body)
+    if not allowed:
+        return jsonify({"error": error}), 403
+    connection_id = body.get("connection_id")
+    table = (body.get("table") or "").strip()
+    pk_column = (body.get("pk_column") or "").strip()
+    pk_value = body.get("pk_value")
+    column = (body.get("column") or "").strip()
+    new_value = body.get("new_value")
+    if not connection_id or not table or not pk_column or pk_value is None or not column or new_value is None:
+        return jsonify({"error": "'connection_id', 'table', 'pk_column', 'pk_value', 'column', 'new_value' requis"}), 400
+    database = body.get("database")
+
+    # Vérifie qu'une relation confirmée existe pour cette colonne
+    relations = relations_store.list_relations(DB_PATH, connection_id, database=database)
+    has_relation = any(
+        r["status"] == "confirmed" and r["from_table"] == table and r["from_column"] == column
+        for r in relations
+    )
+    if not has_relation:
+        return jsonify({"error": f"aucune relation confirmée pour {table}.{column} -- déclarez la relation d'abord"}), 400
+
+    try:
+        result = relation_resolver.assign_foreign_key(
+            DBA_API_BASE, connection_id, database, table, pk_column, pk_value, column, new_value,
+        )
+    except DbaApiError as exc:
+        return jsonify({"error": str(exc)}), 502
+
+    if result.get("error"):
+        return jsonify(result), 400
+    return jsonify(result), 200
 
 
 @app.route("/relations/validate", methods=["POST"])

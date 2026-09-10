@@ -197,14 +197,14 @@ export default function CalendarView({ onBack, ticketsApiBase, onViewRelations, 
             style={{
               marginTop: 8,
               padding: "8px 12px",
-              background: importResult.error ? "var(--hub-danger-bg, #fdecea)" : "var(--hub-ok-bg, #eafaf1)",
-              border: `1px solid ${importResult.error ? "var(--hub-danger, #c0392b)" : "var(--hub-ok, #27ae60)"}`,
+              background: importResult.error ? "var(--danger-bg)" : "var(--ok-bg)",
+              border: `1px solid ${importResult.error ? "var(--danger)" : "var(--ok)"}`,
             }}
           >
             {importResult.error ? (
-              <p style={{ margin: 0, color: "var(--hub-danger, #c0392b)" }}>⚠️ {importResult.error}</p>
+              <p style={{ margin: 0, color: "var(--danger)" }}>⚠️ {importResult.error}</p>
             ) : (
-              <p style={{ margin: 0, color: "var(--hub-ok, #27ae60)", fontWeight: 500 }}>
+              <p style={{ margin: 0, color: "var(--ok)", fontWeight: 500 }}>
                 ✅ Import terminé — {importResult.imported} nouvel(le)(s) évènement(s), {importResult.already_known} déjà connu(s).
               </p>
             )}

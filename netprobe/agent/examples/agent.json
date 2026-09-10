@@ -1,0 +1,18 @@
+{
+  "agent_id": "alpha-sonde-01",
+  "secret": "REMPLACER-PAR-LE-SECRET-GENERE-PAR-LE-CENTRAL",
+  "site": "alpha",
+  "role": "probe",
+  "collector_url": "http://192.168.10.20:6127",
+  "interface": "wlan0",
+  "poll_config_seconds": 300,
+  "flush_seconds": 30,
+  "batch_size": 100,
+  "queue_path": "/var/lib/netprobe-agent/queue.db",
+  "default_tasks": [
+    {"type": "wifi_link", "every": 30},
+    {"type": "sys", "every": 60},
+    {"type": "ping", "every": 60, "params": {"host": "192.168.10.1", "count": 3}},
+    {"type": "wifi_scan", "every": 300, "params": {"keep_networks": 15}}
+  ]
+}

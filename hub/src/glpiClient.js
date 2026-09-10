@@ -31,25 +31,39 @@ const IMPORT_ROUTES = {
   "nebula-clients": { path: "/import/nebula-clients", selectionKey: "only_macs" },
   "network-agent-devices": { path: "/import/network-agent-devices", selectionKey: "only_macs" },
   "snmp-targets": { path: "/import/snmp-targets", selectionKey: "only_ids" },
+  // #437 : hôtes des agents si-agent -> Computer GLPI (clé = agent_id).
+  "si-agent-hosts": { path: "/import/si-agent-hosts", selectionKey: "only_agents" },
 };
 export const IMPORT_SOURCES = Object.keys(IMPORT_ROUTES);
 
-export async function previewImport(glpiApiBase, source, segmentId) {
+// `options` (#437) : { updateExisting } -- hôtes si-agent déjà présents
+// dans GLPI mis à jour au lieu d'être ignorés.
+function importQuery(dryRun, segmentId, options) {
+  const q = [`dry_run=${dryRun ? "true" : "false"}`];
+  if (segmentId) q.push(`segment_id=${segmentId}`);
+  if (options?.updateExisting) q.push("update_existing=true");
+  return `?${q.join("&")}`;
+}
+export async function previewImport(glpiApiBase, source, segmentId, options) {
   const route = IMPORT_ROUTES[source];
   if (!route) return { error: `Source inconnue : ${source}` };
-  const query = segmentId ? `?dry_run=true&segment_id=${segmentId}` : "?dry_run=true";
-  return fetchJson(glpiApiBase, `${route.path}${query}`, {
+  return fetchJson(glpiApiBase, `${route.path}${importQuery(true, segmentId, options)}`, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
   });
 }
-export async function commitImport(glpiApiBase, source, selectedKeys, segmentId) {
+export async function commitImport(glpiApiBase, source, selectedKeys, segmentId, options) {
   const route = IMPORT_ROUTES[source];
   if (!route) return { error: `Source inconnue : ${source}` };
   const body = selectedKeys ? { [route.selectionKey]: selectedKeys } : {};
-  const query = segmentId ? `?dry_run=false&segment_id=${segmentId}` : "?dry_run=false";
-  return fetchJson(glpiApiBase, `${route.path}${query}`, {
+  return fetchJson(glpiApiBase, `${route.path}${importQuery(false, segmentId, options)}`, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
   });
+}
+
+// --- Agents GLPI (GLPI Agent) <-> agents hôtes si-agent (#437) ---
+// -> { rows: [{hostname, status: both|only_si|only_glpi, si, glpi}], counts, glpi_error, si_agent_error }
+export async function fetchAgentsComparison(glpiApiBase) {
+  return fetchJson(glpiApiBase, "/agents-comparison");
 }
 
 // --- Gestion individuelle des actifs déjà créés (annuler/supprimer, livraison #269) ---

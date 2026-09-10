@@ -18,6 +18,8 @@ import {
   deleteTableRows,
   executeSql,
   sqlLiteral,
+  resolveRowRelations,
+  assignRelation,
 } from "./schemaAnalyzerClient.js";
 
 // Analyse de schémas (hub), livraison #156 -- interface pour
@@ -38,6 +40,109 @@ import {
 
 const STATUS_LABELS = { proposed: "Proposée", confirmed: "Confirmée", rejected: "Rejetée" };
 const EMPTY_MANUAL_FORM = { from_table: "", from_column: "", to_table: "", to_column: "" };
+
+const ASSIGN_PAGE_SIZE = 50;
+
+function AssignTableBrowser({ dbaApiBase, connectionId, database, table, relations, onSelectRow, selectedPkValue, busy }) {
+  const [rows, setRows] = useState(null);
+  const [columns, setColumns] = useState([]);
+  const [offset, setOffset] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError(null);
+      const [cols, data] = await Promise.all([
+        fetchTableColumnsForEdit(dbaApiBase, connectionId, table, database),
+        fetchTableRows(dbaApiBase, connectionId, table, database, ASSIGN_PAGE_SIZE, 0),
+      ]);
+      if (cancelled) return;
+      setLoading(false);
+      if (data.error) {
+        setError(data.error);
+        return;
+      }
+      setColumns(cols);
+      setRows(data);
+      setTotal(data.total_count || 0);
+    }
+    if (table) load();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dbaApiBase, connectionId, table, database]);
+
+  async function changePage(newOffset) {
+    setLoading(true);
+    setError(null);
+    const data = await fetchTableRows(dbaApiBase, connectionId, table, database, ASSIGN_PAGE_SIZE, newOffset);
+    setLoading(false);
+    if (data.error) {
+      setError(data.error);
+      return;
+    }
+    setRows(data);
+    setOffset(newOffset);
+  }
+
+  if (loading && !rows) return <p className="muted">Chargement…</p>;
+  if (error) return <p className="hub-error">{error}</p>;
+  if (!rows || !columns) return null;
+
+  const pkCol = columns.find((c) => c.primary_key)?.name;
+  const pkIndex = pkCol ? rows.columns.indexOf(pkCol) : -1;
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <p className="muted">
+        {total} ligne{total > 1 ? "s" : ""} — cliquez pour résoudre ses relations.
+        {selectedPkValue !== undefined && <> Ligne sélectionnée : <strong>{pkCol} = {String(selectedPkValue)}</strong></>}
+      </p>
+      <div style={{ overflowX: "auto" }}>
+        <table className="hub-table">
+          <thead>
+            <tr>
+              {rows.columns.map((c) => (
+                <th key={c}>
+                  {c}
+                  {columns.find((dc) => dc.name === c)?.primary_key ? " 🔑" : ""}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.rows.map((row, idx) => {
+              const pkVal = pkIndex >= 0 ? row[pkIndex] : idx;
+              const isSelected = selectedPkValue !== undefined && String(selectedPkValue) === String(pkVal);
+              return (
+                <tr
+                  key={pkVal ?? idx}
+                  style={{ cursor: "pointer", background: isSelected ? "var(--bg)" : undefined }}
+                  onClick={() => onSelectRow(row)}
+                >
+                  {row.map((v, i) => (
+                    <td key={i}>{String(v ?? "")}</td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+        <button className="secondary" disabled={offset === 0 || loading} onClick={() => changePage(Math.max(0, offset - ASSIGN_PAGE_SIZE))}>
+          ◀ Précédent
+        </button>
+        <button className="secondary" disabled={offset + ASSIGN_PAGE_SIZE >= total || loading} onClick={() => changePage(offset + ASSIGN_PAGE_SIZE)}>
+          Suivant ▶
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, sshTunnelsApiBase, login }) {
   const [connections, setConnections] = useState([]);
@@ -92,6 +197,16 @@ export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, 
   const [insertValues, setInsertValues] = useState({});
   const [jumpNotice, setJumpNotice] = useState(null);
   const DATA_PAGE_SIZE = 25;
+
+  // --- Onglet Affectation (livraison #5, backlog BACKLOG.md --
+  // "Interface de gestion (affectation des relations)") ---
+  const [assignTable, setAssignTable] = useState("");
+  const [assignRow, setAssignRow] = useState(null); // ligne sélectionnée
+  const [assignResolved, setAssignResolved] = useState(null); // {row, resolved}
+  const [assignBusy, setAssignBusy] = useState(false);
+  const [assignError, setAssignError] = useState(null);
+  const [assignEditing, setAssignEditing] = useState(null); // {colName, newValue}
+  const [assignNotice, setAssignNotice] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -383,6 +498,74 @@ export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, 
     setJumpNotice(`Filtré via la relation ${dataTable}.${colName} -> ${rel.to_table}.${rel.to_column} = ${value}`);
   }
 
+  // --- Onglet Affectation (livraison #5, backlog BACKLOG.md) ---
+  async function handleSelectAssignTable(table) {
+    setAssignTable(table);
+    setAssignRow(null);
+    setAssignResolved(null);
+    setAssignError(null);
+    setAssignNotice(null);
+    setAssignEditing(null);
+  }
+
+  async function handleSelectAssignRow(row) {
+    const pkCol = dataColumns.find((c) => c.primary_key)?.name;
+    if (!pkCol) {
+      setAssignError("cette table n'a pas de clé primaire identifiable");
+      return;
+    }
+    const pkIndex = dataRows.columns.indexOf(pkCol);
+    const pkValue = row[pkIndex];
+    setAssignBusy(true);
+    setAssignError(null);
+    setAssignNotice(null);
+    const result = await resolveRowRelations(schemaApiBase, {
+      connection_id: Number(connectionId),
+      database: database || undefined,
+      from_table: assignTable,
+      pk_column: pkCol,
+      pk_value: pkValue,
+    });
+    setAssignBusy(false);
+    if (result.error) {
+      setAssignError(result.error);
+      setAssignRow(null);
+      setAssignResolved(null);
+      return;
+    }
+    setAssignRow({ pkColumn: pkCol, pkValue: pkValue, values: row });
+    setAssignResolved(result);
+  }
+
+  function startAssignEdit(colName, currentValue) {
+    setAssignEditing({ colName, newValue: currentValue === null || currentValue === undefined ? "" : String(currentValue) });
+  }
+
+  async function commitAssignEdit() {
+    if (!assignEditing || !assignRow) return;
+    setAssignBusy(true);
+    setAssignError(null);
+    const result = await assignRelation(schemaApiBase, {
+      connection_id: Number(connectionId),
+      database: database || undefined,
+      table: assignTable,
+      pk_column: assignRow.pkColumn,
+      pk_value: assignRow.pkValue,
+      column: assignEditing.colName,
+      new_value: assignEditing.newValue,
+    });
+    setAssignBusy(false);
+    if (result.error) {
+      setAssignError(result.error);
+      setAssignEditing(null);
+      return;
+    }
+    setAssignEditing(null);
+    setAssignNotice(`Valeur de ${assignEditing.colName} modifiée avec succès`);
+    // Re-résoudre pour afficher la nouvelle cible
+    await handleSelectAssignRow(assignRow.values);
+  }
+
   const selectedConnection = connections.find((c) => String(c.id) === String(connectionId));
   const tableNames = analysis ? Object.keys(analysis.tables).sort() : [];
 
@@ -539,6 +722,9 @@ export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, 
             </button>
             <button className={subTab === "data" ? "active" : ""} onClick={() => setSubTab("data")}>
               Données
+            </button>
+            <button className={subTab === "assign" ? "active" : ""} onClick={() => setSubTab("assign")}>
+              Affectation
             </button>
           </div>
 
@@ -757,7 +943,7 @@ export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, 
                             {vResult === "loading" ? (
                               <span className="muted">Vérification en cours…</span>
                             ) : vResult.error ? (
-                              <span style={{ color: "var(--hub-danger, #c0392b)" }}>⚠️ {vResult.error}</span>
+                              <span style={{ color: "var(--danger)" }}>⚠️ {vResult.error}</span>
                             ) : vResult.coverage_ratio === null ? (
                               <span className="muted">Aucune valeur non vide à vérifier dans l'échantillon.</span>
                             ) : (
@@ -965,6 +1151,145 @@ export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, 
               )}
             </div>
           )}
+
+          {subTab === "assign" && (
+            <div className="hub-card hub-settings-section">
+              <h2>Affectation des relations</h2>
+              <p className="muted">
+                Sélectionnez une ligne pour voir ses relations résolues (les lignes liées dans les
+                tables cibles) et modifier l'affectation -- distinct de l'éditeur de schéma (qui
+                corrige les relations elles-mêmes).
+              </p>
+              <div className="hub-settings-row">
+                <label>Table</label>
+                <select value={assignTable} onChange={(e) => handleSelectAssignTable(e.target.value)}>
+                  <option value="">— choisir —</option>
+                  {tableNames.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+              {assignError && <p className="hub-error">{assignError}</p>}
+              {assignNotice && <p className="muted">✅ {assignNotice}</p>}
+              {assignBusy && <p className="muted">Chargement…</p>}
+
+              {assignTable && !assignRow && (
+                <p className="muted">
+                  Cliquez sur une ligne ci-dessous pour voir ses relations résolues — les données
+                  sont les mêmes que l'onglet "Données", mais la sélection déclenche la résolution.
+                </p>
+              )}
+
+              {assignTable && (
+                <AssignTableBrowser
+                  dbaApiBase={dbaApiBase}
+                  connectionId={connectionId}
+                  database={database}
+                  table={assignTable}
+                  relations={relations}
+                  onSelectRow={handleSelectAssignRow}
+                  selectedPkValue={assignRow?.pkValue}
+                  busy={assignBusy}
+                />
+              )}
+
+              {assignResolved && assignRow && (
+                <div style={{ marginTop: 16 }}>
+                  <h3>Ligne sélectionnée</h3>
+                  <p className="muted">
+                    {assignRow.pkColumn} = {String(assignRow.pkValue)}
+                  </p>
+                  <table className="hub-table" style={{ marginBottom: 16 }}>
+                    <thead>
+                      <tr>
+                        {dataRows && dataRows.columns.map((c) => (
+                          <th key={c}>{c}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        {assignRow.values.map((v, i) => (
+                          <td key={i}>{String(v ?? "")}</td>
+                        ))}
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  <h3>Relations résolues</h3>
+                  {Object.keys(assignResolved.resolved).length === 0 ? (
+                    <p className="muted">
+                      Aucune relation confirmée avec une valeur non-vide pour cette ligne.
+                    </p>
+                  ) : (
+                    Object.entries(assignResolved.resolved).map(([colName, info]) => (
+                      <div key={colName} style={{ marginBottom: 16, padding: 12, border: "1px solid var(--border)", borderRadius: 6 }}>
+                        <p>
+                          <strong>{info.relation.from_table}.{info.relation.from_column}</strong>
+                          {" → "}
+                          <strong>{info.relation.to_table}.{info.relation.to_column}</strong>
+                          {info.relation.relation_type === "list" && <span className="muted"> (liste)</span>}
+                        </p>
+                        <p className="muted">
+                          Valeur source : <code>{String(assignResolved.row[colName] ?? "(vide)")}</code>
+                        </p>
+                        {assignEditing && assignEditing.colName === colName ? (
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                            <label>Nouvelle valeur :</label>
+                            <input
+                              autoFocus
+                              value={assignEditing.newValue}
+                              onChange={(e) => setAssignEditing({ ...assignEditing, newValue: e.target.value })}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") commitAssignEdit();
+                                if (e.key === "Escape") setAssignEditing(null);
+                              }}
+                            />
+                            <button onClick={commitAssignEdit} disabled={assignBusy}>Valider</button>
+                            <button className="secondary" onClick={() => setAssignEditing(null)}>Annuler</button>
+                          </div>
+                        ) : (
+                          <button
+                            className="secondary"
+                            onClick={() => startAssignEdit(colName, assignResolved.row[colName])}
+                            disabled={assignBusy}
+                          >
+                            ✏️ Modifier l'affectation
+                          </button>
+                        )}
+                        {info.target.row_count === 0 ? (
+                          <p className="muted" style={{ marginTop: 8 }}>
+                            ⚠️ Aucune ligne correspondante dans {info.relation.to_table} (valeur orpheline).
+                          </p>
+                        ) : (
+                          <div style={{ marginTop: 8, overflowX: "auto" }}>
+                            <table className="hub-table" style={{ fontSize: 13 }}>
+                              <thead>
+                                <tr>
+                                  {info.target.columns.map((c) => (
+                                    <th key={c}>{c}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {info.target.rows.map((r, ri) => (
+                                  <tr key={ri}>
+                                    {r.map((v, vi) => (
+                                      <td key={vi}>{String(v ?? "")}</td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 
@@ -975,7 +1300,7 @@ export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, 
         >
           <div
             className="hub-card"
-            style={{ maxWidth: 700, maxHeight: "80vh", overflow: "auto", padding: 20, background: "var(--hub-bg, #fff)" }}
+            style={{ maxWidth: 700, maxHeight: "80vh", overflow: "auto", padding: 20, background: "var(--panel)" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>

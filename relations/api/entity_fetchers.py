@@ -120,6 +120,36 @@ def fetch_geolocations(pixel_grid_api_url):
     return result
 
 
+def resolve_sites(pixel_grid_api_url, entities, geolocations):
+    """Livraison #426 -- complète `geolocations` (dict normalisé ->
+    (lat, lon)) avec les sites d'entités qui n'y figurent PAS à
+    l'identique, résolus par pixel-grid (/geolocations/resolve, sans
+    persistance : « Arobase-5 » ~ « @5 »). Un seul appel en lot ; toute
+    erreur laisse `geolocations` tel quel (amélioration optionnelle,
+    même philosophie que fetch_geolocations)."""
+    from relation_engine import normalize_label
+
+    missing = sorted({(data.get("site") or "").strip() for data in entities.values() if data.get("site")}
+                     - {k for k in geolocations})
+    missing = [site for site in missing if normalize_label(site) not in geolocations]
+    if not missing:
+        return geolocations
+    try:
+        resp = requests.post(
+            f"{pixel_grid_api_url}/geolocations/resolve",
+            json={"subjects": [{"subject": f"site:{site}", "site": site} for site in missing], "persist": False},
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+        data = resp.json() if resp.status_code == 200 else {}
+    except (requests.RequestException, ValueError):
+        return geolocations
+    out = dict(geolocations)
+    for m in data.get("matches") or []:
+        if m.get("status") in ("auto", "validated", "manual") and m.get("latitude") is not None and m.get("longitude") is not None:
+            out[normalize_label(m.get("site"))] = (m["latitude"], m["longitude"])
+    return out
+
+
 def fetch_all_entities(tickets_api_url, ged_api_url, tasks_api_url):
     """Renvoie un dict {(type, id): {"label": str, "text": str,
     "site": str|None}} -- `label` sert à la correspondance de NOM

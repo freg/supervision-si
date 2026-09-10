@@ -1,0 +1,26 @@
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<title>Menu Page</title>
+<style>
+a{text-decoration:none}
+</style>
+<link rel="STYLESHEET" href="STYLE.CSS"><script language="JAVASCRIPT1.2" src="Menu.js"></script><script src="ajax.js"></script></head>
+<body id="BG3">
+<script>
+if (!document.all)
+document.all=document.getElementById;
+var i;
+var MenuStatus_M = [0, 0, 0, 0, 0, 0, 0];
+document.write ('<STYLE TYPE="text/css">');
+for (i=0; i<100; i++)
+document.write ('#lItem'+i+' {position:absolute; text-decoration:none;}');
+document.write ('</STYLE>');
+for (i=0; i<50; i++)
+document.write ('<DIV ID="lItem'+i+'" NAME="lItem'+i+'"></DIV>');
+menu_init();
+ck_select_Menu();
+setTimeout('ajaxGet(ajaxPollInstance, "Menu.dat", CheckUPS);', 500);
+</script>
+<div id="lItem7" name="lItem7"><table width="260" nowrap="" border="0" cellpadding="0" cellspacing="0"><tbody><tr><td width="26" nowrap="" valign="MIDDLE"><img border="0" width="26" heigh="25" src="./GIF/closed.gif" id="_img1" name="_img1"></td><td width="10" nowrap=""></td><td height="27" width="245" valign="MIDDLE" align="LEFT"><a style="text-decoration: none" href="javascript:expand(1,'Supervision ASI',7);"><font id="F1"><div id="my7"><nobr>Supervision ASI</nobr></div></font></a></td></tr></tbody></table></div>
+<div id="lItem15" name="lItem15"><table width="260" nowrap="" border="0" cellpadding="0" cellspacing="0"><tbody><tr><td width="26" nowrap="" valign="MIDDLE"><img border="0" width="26" heigh="25" src="./GIF/closed.gif" id="_img2" name="_img2"></td><td width="10" nowrap=""></td><td height="27" width="245" valign="MIDDLE" align="LEFT"><a style="text-decoration: none" href="javascript:expand(2,'Gestion ASI',15);"><font id="F1"><div id="my15"><nobr>Gestion ASI</nobr></div></font></a></td></tr></tbody></table></div>
+</body>

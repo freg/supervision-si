@@ -183,3 +183,33 @@ export async function fetchAggregateRange(type, level, startIso, endIso, nom) {
     return { ok: false, error: "Impossible de joindre l'API pixel-grid" };
   }
 }
+
+/** Livraison #426 -- résolution par le NOM (pixel-grid /geolocations/resolve) :
+ * subjects = [{subject, name, site}], persist = true pour garder les
+ * correspondances (statut « auto », corrigeables depuis le hub, cadre
+ * « Localisations »). Renvoie {subject -> match}. */
+export async function resolveByName(subjects, persist = true) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/geolocations/resolve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subjects, persist }),
+    });
+    if (!response.ok) return {};
+    const body = await response.json();
+    return Object.fromEntries((body.matches || []).map((m) => [m.subject, m]));
+  } catch (err) {
+    return {};
+  }
+}
+
+export async function fetchLocationMatches() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/geolocations/matches`);
+    if (!response.ok) return [];
+    const body = await response.json();
+    return body.matches || [];
+  } catch (err) {
+    return [];
+  }
+}

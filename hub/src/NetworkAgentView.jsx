@@ -1,12 +1,49 @@
 import React, { useState, useEffect } from "react";
 import {
   fetchCaptureStatus, fetchSites, fetchDevices, fetchDeviceServices,
-  fetchAllServices, fetchLinks, fetchPresenceHistory, fetchObservedSubnets,
-  fetchFilterOptions, fetchDevicesForPeriod,
+  fetchAllServices, fetchLinks, fetchPresenceHistory, fetchObservedSubnets, fetchSubnetDetail,
+  fetchFilterOptions, fetchDevicesForPeriod, fetchLinkHistory, fetchLinkServices,
 } from "./networkAgentClient.js";
+import { formatBytes, computeDeltaSeries, buildBarLayout, sumDeltas } from "./networkAgentHistory.js";
 import { classifyBatch } from "./classifierClient.js";
 import AlluvialFlowChart from "./components/AlluvialFlowChart.jsx";
 import WeightedRadialTree from "./components/WeightedRadialTree.jsx";
+import {
+  findSupervisionHost, findGateways, applyFlowFilters, describeFlowFilterResult,
+  DEFAULT_FLOW_FILTERS, SUBNET_PREFIXES, listDeviceSubnets,
+} from "./networkFlowFilters.js";
+import ZoomableChart from "./components/ZoomableChart.jsx";
+import {
+  SCALE_MODES, GAIN_MIN, GAIN_MAX, loadScalePreference, saveScalePreference,
+} from "./chartScales.js";
+
+const browserStorage = () => (typeof localStorage !== "undefined" ? localStorage : undefined);
+
+// Sélecteur d'échelle (#413) partagé par les graphiques de flux et les
+// barres d'historique : linéaire / racine / log, plus un gain d'épaisseur
+// pour les traits. Rendu dans la barre de l'enveloppe de zoom.
+function ScaleControls({ scale, onChange, withGain = true }) {
+  return (
+    <span className="hub-chart-scale">
+      <label title="Échelle des épaisseurs : linéaire (fidèle), racine (compromis), log (tout reste visible)">
+        échelle
+        <select value={scale.mode} onChange={(e) => onChange({ ...scale, mode: e.target.value })}>
+          {SCALE_MODES.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+        </select>
+      </label>
+      {withGain && (
+        <label title="Gain : épaissit ou affine tous les traits d'un coup, sans changer l'échelle">
+          ×{Number(scale.gain).toFixed(2).replace(/\.?0+$/, "")}
+          <input
+            type="range" min={GAIN_MIN} max={GAIN_MAX} step="0.25"
+            value={scale.gain}
+            onChange={(e) => onChange({ ...scale, gain: Number(e.target.value) })}
+          />
+        </label>
+      )}
+    </span>
+  );
+}
 
 // Tuile UNIQUE de l'agent d'exploration réseau (hub), livraison #233
 // -- backlog item 20, CLARIFIÉ explicitement avec la personne avant
@@ -34,11 +71,120 @@ const ROLE_ICONS = { "passerelle probable (NAT/routeur)": "🔀" };
 // passerelle relayant un trafic très divers -- voir capture.py).
 const MAX_VISIBLE_SERVICE_DOTS = 15;
 
-function formatBytes(bytes) {
-  if (typeof bytes !== "number") return "?";
-  if (bytes < 1024) return `${bytes} o`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+// Barres de delta entre relevés cumulatifs -- SVG maison, aucune
+// bibliothèque (même approche que AlluvialFlowChart/WeightedRadialTree,
+// #389). Lève la limite notée dans network-agent/README.md ("pas de
+// graphique -- tableau simple, faute de bibliothèque côté hub").
+// Une barre par intervalle entre deux relevés ; le premier relevé n'a pas
+// de barre (aucune base de comparaison). Un recul du compteur (redémarrage
+// de capture) est dessiné en couleur d'avertissement, jamais lissé.
+const HISTORY_BARS_W = 320;
+const HISTORY_BARS_H = 48;
+
+function HistoryBars({ rows, label }) {
+  // Échelle des hauteurs (#413) : locale à ce graphique (pas de gain, une
+  // hauteur n'a pas d'épaisseur à moduler).
+  const [mode, setMode] = useState("linear");
+  const series = computeDeltaSeries(rows);
+  if (series.length < 2) {
+    return (
+      <p className="muted na-history-empty">
+        {series.length === 0 ? "Aucun relevé." : "Un seul relevé -- un deuxième est nécessaire pour un premier delta."}
+      </p>
+    );
+  }
+  const { bars, max } = buildBarLayout(series, HISTORY_BARS_W, HISTORY_BARS_H, 2, mode);
+  const total = sumDeltas(series);
+  const resets = series.filter((p) => p.reset).length;
+  return (
+    <div className="na-history-bars">
+      <ZoomableChart
+        viewBox={`0 0 ${HISTORY_BARS_W} ${HISTORY_BARS_H}`}
+        preserveAspectRatio="none"
+        className="na-history-svg"
+        label={label || "Volume échangé par intervalle"}
+        controls={<ScaleControls scale={{ mode, gain: 1 }} onChange={(s) => setMode(s.mode)} withGain={false} />}
+      >
+        <line x1="0" y1={HISTORY_BARS_H - 0.5} x2={HISTORY_BARS_W} y2={HISTORY_BARS_H - 0.5} className="na-history-axis" />
+        {bars.map((b) => (
+          <rect
+            key={b.index}
+            x={b.x} y={b.y} width={b.w} height={b.h}
+            className={`na-history-bar${b.reset ? " reset" : ""}`}
+          >
+            <title>
+              {new Date(b.at).toLocaleString("fr-FR")}
+              {"\n"}+{formatBytes(b.delta)} sur l'intervalle · cumul {formatBytes(b.cumulative)}
+              {b.reset ? "\n⚠ compteur remis à zéro (redémarrage de capture ?)" : ""}
+            </title>
+          </rect>
+        ))}
+      </ZoomableChart>
+      <div className="na-history-caption muted">
+        {series.length} relevés · {formatBytes(total)} échangés · pic {formatBytes(max)} / intervalle
+        {resets > 0 && <span className="na-history-reset-note"> · ⚠ {resets} remise(s) à zéro</span>}
+      </div>
+    </div>
+  );
+}
+
+// #427 : fiche récapitulative d'un sous-réseau observé -- d'où il vient
+// (segment, CIDR, relais), quelles IP y ont été vues (appareil ou distante,
+// sens, volumes), services et échanges concernés.
+function SubnetCard({ detail: d, onClose }) {
+  const fmt = (iso) => (iso ? new Date(iso).toLocaleString("fr-FR") : "—");
+  const kb = (b) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} Mo` : b >= 1024 ? `${Math.round(b / 1024)} Ko` : `${b || 0} o`);
+  return (
+    <div className="na-subnet-card">
+      <div className="ss-tool-head">
+        <strong>Sous-réseau {d.subnet}</strong>
+        <span className={`np-tone ${d.in_segment ? "good" : d.in_segment === false ? "warn" : "neutral"}`} style={{ fontSize: 11 }}>
+          {d.in_segment ? "dans le segment" : d.in_segment === false ? "hors segment (relayé)" : "segment sans CIDR"}
+        </span>
+        <span style={{ flex: 1 }} />
+        <button className="secondary ss-origin" onClick={onClose}>fermer</button>
+      </div>
+      <p style={{ margin: "4px 0" }}>{d.explanation}</p>
+      <p className="muted" style={{ margin: "0 0 8px", fontSize: 12 }}>
+        Segment {d.segment?.site ? `${d.segment.site} / ` : ""}{d.segment?.label || "?"} (CIDR {d.segment_cidr || "non configuré"}) ·
+        {" "}{d.device_count} appareil(s) · {d.remote_ip_count} IP distante(s) · vu de {fmt(d.first_seen)} à {fmt(d.last_seen)}
+        {d.sources?.length ? <> · d'où : {d.sources.join(" ; ")}</> : null}
+      </p>
+      {d.relays?.length > 0 && (
+        <p style={{ margin: "0 0 8px", fontSize: 12 }}>
+          <strong>Relais :</strong>{" "}
+          {d.relays.map((r) => <span key={r.device_id} className="na-chip">{r.hostname || r.ip || r.mac}{r.role_hint ? ` (${r.role_hint})` : ""} · {r.ip_count} IP · {kb(r.bytes_total)}</span>)}
+        </p>
+      )}
+      <div className="hub-table-scroll" style={{ maxHeight: 260 }}>
+        <table>
+          <thead><tr><th>IP</th><th>Type</th><th>MAC / relais</th><th>Nom</th><th>Sens</th><th>Paquets</th><th>Volume</th><th>Vue la 1ère fois</th><th>Vue la dernière fois</th></tr></thead>
+          <tbody>
+            {d.ips.map((ip) => (
+              <tr key={ip.ip}>
+                <td><code>{ip.ip}</code></td>
+                <td>{ip.kind === "appareil" ? "appareil du segment" : "distante"}</td>
+                <td className="muted" style={{ fontSize: 11 }}>{ip.kind === "appareil" ? ip.mac : `via ${ip.via || "?"}`}</td>
+                <td>{ip.hostname || <span className="muted">—</span>}</td>
+                <td className="muted">{ip.directions?.length ? ip.directions.map((x) => (x === "in" ? "source" : "destination")).join(" + ") : "—"}</td>
+                <td>{ip.packet_count}</td>
+                <td className="muted">{kb(ip.bytes_total)}</td>
+                <td className="muted">{fmt(ip.first_seen)}</td>
+                <td className="muted">{fmt(ip.last_seen)}</td>
+              </tr>
+            ))}
+            {d.ips.length === 0 && <tr><td colSpan={9} className="muted">Aucune adresse connue.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      {(d.services?.length > 0 || d.links?.length > 0) && (
+        <p className="muted" style={{ margin: "8px 0 0", fontSize: 12 }}>
+          {d.services?.length > 0 && <>Services vus sur ses appareils : {[...new Set(d.services.map((s) => `${s.protocol}/${s.port}`))].slice(0, 12).join(", ")}{d.services.length > 12 ? "…" : ""}. </>}
+          {d.links?.length > 0 && <>{d.links.length} échange(s) concerné(s), le plus volumineux : {d.links[0].a_hostname || d.links[0].a_ip || d.links[0].a_mac} → {d.links[0].b_hostname || d.links[0].b_ip || d.links[0].b_mac} ({kb(d.links[0].bytes_total)}).</>}
+        </p>
+      )}
+    </div>
+  );
 }
 
 export default function NetworkAgentView({ onBack, networkAgentApiBase, classifierApiBase }) {
@@ -49,9 +195,26 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
   const [allServices, setAllServices] = useState({});
   const [links, setLinks] = useState([]);
   const [observedSubnets, setObservedSubnets] = useState([]);
+  // #427 : fiche du sous-réseau cliqué
+  const [subnetDetail, setSubnetDetail] = useState(null);
+  const [subnetDetailLoading, setSubnetDetailLoading] = useState(false);
   const [subnetPrefixLength, setSubnetPrefixLength] = useState(24);
   const [showSubnets, setShowSubnets] = useState(false);
   const [showFlowVisualizations, setShowFlowVisualizations] = useState(false);
+  // Filtres des visualisations de flux (#412) -- logique dans
+  // networkFlowFilters.js. `hostOverride` : hôte de supervision choisi à
+  // la main (id d'appareil) quand la détection par MAC/IP ne suffit pas.
+  const [flowFilters, setFlowFilters] = useState(DEFAULT_FLOW_FILTERS);
+  const [hostOverride, setHostOverride] = useState("");
+  const [subnetPrefix, setSubnetPrefix] = useState(24);   // longueur de préfixe du filtre sous-réseau (#414)
+  // Échelle des traits des deux vues de flux (#413), mémorisée dans le
+  // navigateur : un réglage trouvé sur un réseau réel doit survivre au
+  // rechargement.
+  const [flowScale, setFlowScale] = useState(() => loadScalePreference(browserStorage()));
+  function changeFlowScale(next) {
+    setFlowScale(next);
+    saveScalePreference(browserStorage(), next);
+  }
   // Filtres profondeur/géographie/volume (livraison #392, backlog
   // item 58) -- options peuplées depuis les valeurs RÉELLEMENT
   // présentes (fetchFilterOptions), jamais une liste devinée.
@@ -72,6 +235,12 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
   const [activeDevice, setActiveDevice] = useState(null);
   const [activeDeviceServices, setActiveDeviceServices] = useState(null);
   const [activeDeviceHistory, setActiveDeviceHistory] = useState(null);
+  // Historique du volume d'UNE paire (clic sur une ligne "Échanges") --
+  // `/links/history` existait côté API depuis #251 sans jamais être
+  // affiché côté hub (noté "reste à faire" dans network-agent/README.md).
+  const [activeLink, setActiveLink] = useState(null);
+  const [activeLinkHistory, setActiveLinkHistory] = useState(null);
+  const [activeLinkServices, setActiveLinkServices] = useState(null);
 
   useEffect(() => {
     Promise.all([fetchCaptureStatus(networkAgentApiBase), fetchSites(networkAgentApiBase)]).then(([s, sitesList]) => {
@@ -112,6 +281,20 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
     if (selectedSegment) loadDevicesAndClassify();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDepths, selectedBuilding, selectedZone, minVolumeKo, periodStart, periodEnd]);
+
+  // Fenêtre temporelle sur les FLUX (#414) : la période du tableau
+  // s'applique aussi aux échanges -- `/links?start&end` renvoie les volumes
+  // échangés PENDANT la période (différence de relevés côté API). Sans
+  // période complète : cumul actuel. Rechargé seulement quand la période
+  // change, jamais à chaque autre filtre.
+  useEffect(() => {
+    if (!selectedSegment) return;
+    const period = periodStart && periodEnd
+      ? { startIso: `${periodStart}T00:00:00Z`, endIso: `${periodEnd}T23:59:59Z` }
+      : null;
+    fetchLinks(networkAgentApiBase, selectedSegment.id, period).then(setLinks);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodStart, periodEnd]);
 
   async function loadDevicesAndClassify() {
     const hasPeriod = periodStart && periodEnd;
@@ -168,6 +351,14 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
     setObservedSubnets(await fetchObservedSubnets(networkAgentApiBase, selectedSegment.id, p));
   }
 
+  async function openSubnet(subnet) {
+    if (!selectedSegment) return;
+    if (subnetDetail?.subnet === subnet) { setSubnetDetail(null); return; }
+    setSubnetDetailLoading(true);
+    setSubnetDetail(await fetchSubnetDetail(networkAgentApiBase, selectedSegment.id, subnet));
+    setSubnetDetailLoading(false);
+  }
+
   function toggleShowSubnets() {
     setShowSubnets((v) => {
       const next = !v;
@@ -177,6 +368,9 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
   }
 
   async function handleSelectDevice(device) {
+    setActiveLink(null);
+    setActiveLinkHistory(null);
+    setActiveLinkServices(null);
     if (activeDevice?.id === device.id) {
       setActiveDevice(null);
       setActiveDeviceHistory(null);
@@ -189,7 +383,50 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
     setActiveDeviceHistory(await fetchPresenceHistory(networkAgentApiBase, device.id));
   }
 
+  async function handleSelectLink(link) {
+    if (activeLink?.id === link.id) {
+      setActiveLink(null);
+      setActiveLinkHistory(null);
+      setActiveLinkServices(null);
+      return;
+    }
+    setActiveLink(link);
+    setActiveLinkHistory(null);
+    setActiveLinkServices(null);
+    const [rows, services] = await Promise.all([
+      fetchLinkHistory(networkAgentApiBase, link.device_a_id, link.device_b_id),
+      fetchLinkServices(networkAgentApiBase, link.device_a_id, link.device_b_id),
+    ]);
+    // Garde contre une réponse arrivée après un autre clic entre-temps.
+    setActiveLink((cur) => {
+      if (cur?.id === link.id) {
+        setActiveLinkHistory(rows);
+        setActiveLinkServices(services);
+      }
+      return cur;
+    });
+  }
+
   const macToDevice = Object.fromEntries(devices.map((d) => [d.id, d]));
+
+  // Flux filtrés pour les deux vues (#412). L'hôte détecté vient de
+  // `/capture/status` (MAC puis IP de l'interface de capture) ; un choix
+  // manuel le remplace. Les passerelles sont celles du rôle deviné.
+  const detectedHost = findSupervisionHost(devices, status);
+  const supervisionHost = hostOverride
+    ? devices.find((d) => String(d.id) === hostOverride) || null
+    : detectedHost;
+  const gateways = findGateways(devices);
+  const flowResult = applyFlowFilters(links, {
+    ...flowFilters,
+    hostId: supervisionHost?.id ?? null,
+    gatewayIds: gateways.map((g) => g.id),
+    devicesById: macToDevice,
+  });
+  const deviceSubnets = listDeviceSubnets(devices, subnetPrefix);
+  const flowFiltersActive = flowFilters.hideHostRouter || String(flowFilters.minPct) !== "0" || String(flowFilters.maxPct) !== "100"
+    || flowFilters.minKo !== "" || flowFilters.maxKo !== "" || flowFilters.subnet !== "" || hostOverride;
+  const linksArePeriod = links.length > 0 && links.every((l) => l.period);
   const deviceLinks = activeDevice
     ? links.filter((l) => l.device_a_id === activeDevice.id || l.device_b_id === activeDevice.id)
     : [];
@@ -204,7 +441,7 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
       {status && (
         <div className="hub-card">
           {status.error ? (
-            <p style={{ margin: 0, color: "var(--hub-danger, #c0392b)" }}>
+            <p style={{ margin: 0, color: "var(--danger)" }}>
               ⚠️ Impossible de joindre network-agent-api : {status.error}
             </p>
           ) : (
@@ -212,7 +449,7 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
               Capture : {status.running ? "🟢 en cours" : "⚪ arrêtée"}
               {status.started_at && ` (depuis ${new Date(status.started_at).toLocaleString("fr-FR")})`}
               {" — "}{status.packets_processed ?? 0} paquet(s) traité(s) au total.
-              {status.last_error && <><br /><span style={{ color: "var(--hub-danger, #c0392b)" }}>⚠️ {status.last_error}</span></>}
+              {status.last_error && <><br /><span style={{ color: "var(--danger)" }}>⚠️ {status.last_error}</span></>}
             </p>
           )}
         </div>
@@ -330,11 +567,20 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
             </div>
           )}
 
-          <button className="secondary" onClick={toggleShowSubnets} style={{ marginBottom: 12 }}>
+          {/* Boutons de section (#412) : le bouton OUVERT est mis en
+              surbrillance, pas seulement son chevron -- retour de tests
+              (« mettre en surbrillance le bouton en plus de la bascule
+              du symbole »). */}
+          <button
+            className={`secondary na-section-toggle${showSubnets ? " active" : ""}`}
+            onClick={toggleShowSubnets}
+            style={{ marginBottom: 12 }}
+            aria-expanded={showSubnets}
+          >
             {showSubnets ? "▾" : "▸"} Sous-réseaux découverts depuis le trafic
           </button>
           {showSubnets && (
-            <div style={{ marginBottom: 16, borderBottom: "1px solid var(--hub-border, #ddd)", paddingBottom: 12 }}>
+            <div style={{ marginBottom: 16, borderBottom: "1px solid var(--border)", paddingBottom: 12 }}>
               <p className="muted" style={{ marginTop: 0 }}>
                 Regroupe les appareils déjà découverts par préfixe réseau -- répond directement à
                 "combien de segments distincts faut-il couvrir", à partir du trafic RÉEL plutôt que
@@ -354,13 +600,16 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
               {observedSubnets.length === 0 ? (
                 <p className="muted">Aucun sous-réseau observé pour l'instant.</p>
               ) : (
-                <table>
-                  <thead><tr><th>Sous-réseau</th><th>Appareils</th><th>Vu la 1ère fois</th><th>Vu la dernière fois</th></tr></thead>
+                <table className="na-subnets">
+                  <thead><tr><th>Sous-réseau</th><th>Origine</th><th>Appareils</th><th>IP distantes</th><th>Via</th><th>Vu la 1ère fois</th><th>Vu la dernière fois</th></tr></thead>
                   <tbody>
                     {observedSubnets.map((s) => (
-                      <tr key={s.subnet}>
-                        <td>{s.subnet}</td>
+                      <tr key={s.subnet} className={`ups-row${subnetDetail?.subnet === s.subnet ? " active" : ""}`} onClick={() => openSubnet(s.subnet)} title="ouvrir la fiche de ce sous-réseau">
+                        <td><strong>{s.subnet}</strong>{s.in_segment === false && <span className="muted" title="hors du CIDR configuré du segment"> ⇢</span>}</td>
+                        <td><span className={`np-tone ${s.origin === "local" ? "good" : s.origin === "relais" ? "warn" : "neutral"}`} style={{ fontSize: 11 }}>{s.origin === "relais" ? "relayé" : s.origin || "local"}</span></td>
                         <td>{s.device_count}</td>
+                        <td>{s.remote_ip_count ?? 0}</td>
+                        <td className="muted" style={{ fontSize: 11 }}>{(s.via || []).slice(0, 2).join(", ")}{(s.via || []).length > 2 ? "…" : ""}</td>
                         <td className="muted">{new Date(s.first_seen).toLocaleString("fr-FR")}</td>
                         <td className="muted">{new Date(s.last_seen).toLocaleString("fr-FR")}</td>
                       </tr>
@@ -368,34 +617,150 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                   </tbody>
                 </table>
               )}
+              {subnetDetailLoading && <p className="muted">Chargement de la fiche…</p>}
+              {subnetDetail && <SubnetCard detail={subnetDetail} onClose={() => setSubnetDetail(null)} />}
             </div>
           )}
 
-          <button className="secondary" onClick={() => setShowFlowVisualizations((v) => !v)} style={{ marginBottom: 12 }}>
-            {showFlowVisualizations ? "▾" : "▸"} Visualisations des flux (livraison #389)
+          <button
+            className={`secondary na-section-toggle${showFlowVisualizations ? " active" : ""}`}
+            onClick={() => setShowFlowVisualizations((v) => !v)}
+            style={{ marginBottom: 12 }}
+            aria-expanded={showFlowVisualizations}
+          >
+            {showFlowVisualizations ? "▾" : "▸"} Visualisations des flux
           </button>
           {showFlowVisualizations && (
-            <div style={{ marginBottom: 16, borderBottom: "1px solid var(--hub-border, #ddd)", paddingBottom: 12 }}>
+            <div style={{ marginBottom: 16, borderBottom: "1px solid var(--border)", paddingBottom: 12 }}>
               <p className="muted" style={{ marginTop: 0 }}>
                 À partir des mêmes échanges affichés ci-dessous ("qui parle à qui") -- backlog item 58,
                 démarré avec netmap-orchestrator (#388). Deux premières vues, d'autres suivront ("cycle
                 permanent de retour" sur ce sujet).
               </p>
               {links.length === 0 ? (
-                <p className="muted">Aucun échange détecté pour l'instant sur ce segment.</p>
+                <p className="muted">
+                  {periodStart && periodEnd
+                    ? `Aucun relevé de flux entre le ${periodStart} et le ${periodEnd} (les relevés sont périodiques, voir NETWORK_AGENT_SNAPSHOT_INTERVAL_SECONDS) -- effacez la période pour revenir au cumul.`
+                    : "Aucun échange détecté pour l'instant sur ce segment."}
+                </p>
               ) : (
                 <>
-                  <h3 style={{ marginBottom: 4 }}>Graphe alluvial (flux TCP/IP/UDP)</h3>
-                  <AlluvialFlowChart
-                    links={links}
-                    deviceLabels={Object.fromEntries(devices.map((d) => [d.id, d.hostname || d.ip_address || d.mac_address || `#${d.id}`]))}
-                  />
-                  <h3 style={{ marginTop: 20, marginBottom: 4 }}>Radial tree augmenté (épaisseur = volume échangé)</h3>
-                  <WeightedRadialTree
-                    devices={devices}
-                    links={links}
-                    segmentLabels={Object.fromEntries(sites.flatMap((s) => s.segments).map((seg) => [seg.id, seg.label]))}
-                  />
+                  {/* Filtres (#412) -- appliqués AVANT les deux vues, jamais
+                      dans les composants de dessin. */}
+                  <div className="na-flow-filters">
+                    <label className="na-flow-filter" title={
+                      gateways.length === 0
+                        ? "Aucune passerelle devinée sur ce segment pour l'instant (rôle « passerelle probable »)"
+                        : supervisionHost
+                          ? `Masque les échanges entre ${supervisionHost.hostname || supervisionHost.ip_address || supervisionHost.mac_address} et ${gateways.length} passerelle(s)`
+                          : "Hôte de supervision inconnu : choisissez-le à droite"
+                    }>
+                      <input
+                        type="checkbox"
+                        checked={flowFilters.hideHostRouter}
+                        disabled={gateways.length === 0 || !supervisionHost}
+                        onChange={(e) => setFlowFilters((f) => ({ ...f, hideHostRouter: e.target.checked }))}
+                      />
+                      Masquer hôte de supervision ↔ routeur
+                    </label>
+                    <label className="na-flow-filter">
+                      Hôte de supervision
+                      <select value={hostOverride} onChange={(e) => setHostOverride(e.target.value)}>
+                        <option value="">
+                          {detectedHost
+                            ? `détecté : ${detectedHost.hostname || detectedHost.ip_address || detectedHost.mac_address}`
+                            : "non détecté -- choisir"}
+                        </option>
+                        {devices.map((d) => (
+                          <option key={d.id} value={String(d.id)}>
+                            {d.hostname || d.ip_address || d.mac_address}{d.role_hint ? " (passerelle)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="na-flow-filter" title="Part de chaque flux dans le volume total du segment (base stable, avant tout filtre)">
+                      Part du volume de
+                      <input
+                        type="number" min="0" max="100" step="1" className="na-flow-pct"
+                        value={flowFilters.minPct}
+                        onChange={(e) => setFlowFilters((f) => ({ ...f, minPct: e.target.value }))}
+                      />
+                      % à
+                      <input
+                        type="number" min="0" max="100" step="1" className="na-flow-pct"
+                        value={flowFilters.maxPct}
+                        onChange={(e) => setFlowFilters((f) => ({ ...f, maxPct: e.target.value }))}
+                      />
+                      %
+                    </label>
+                    {/* Livraison #414 : volume absolu, sous-réseau, fenêtre temporelle */}
+                    <label className="na-flow-filter" title="Volume absolu de chaque flux, en Ko (vide = pas de borne)">
+                      Volume de
+                      <input
+                        type="number" min="0" step="1" className="na-flow-pct" placeholder="min"
+                        value={flowFilters.minKo}
+                        onChange={(e) => setFlowFilters((f) => ({ ...f, minKo: e.target.value }))}
+                      />
+                      Ko à
+                      <input
+                        type="number" min="0" step="1" className="na-flow-pct" placeholder="max"
+                        value={flowFilters.maxKo}
+                        onChange={(e) => setFlowFilters((f) => ({ ...f, maxKo: e.target.value }))}
+                      />
+                      Ko
+                    </label>
+                    <label className="na-flow-filter" title="Ne garder que les flux d'un sous-réseau : « internes » = les deux appareils dedans, « touchant » = au moins un">
+                      Sous-réseau
+                      <select value={subnetPrefix} onChange={(e) => { setSubnetPrefix(Number(e.target.value)); setFlowFilters((f) => ({ ...f, subnet: "" })); }}>
+                        {SUBNET_PREFIXES.map((p) => <option key={p} value={p}>/{p}</option>)}
+                      </select>
+                      <select value={flowFilters.subnet} onChange={(e) => setFlowFilters((f) => ({ ...f, subnet: e.target.value }))}>
+                        <option value="">tous</option>
+                        {deviceSubnets.map((s) => (
+                          <option key={s.subnet} value={s.subnet}>{s.subnet} ({s.count})</option>
+                        ))}
+                      </select>
+                      <select value={flowFilters.subnetMode} onChange={(e) => setFlowFilters((f) => ({ ...f, subnetMode: e.target.value }))} disabled={!flowFilters.subnet}>
+                        <option value="intra">flux internes</option>
+                        <option value="touche">flux touchant</option>
+                      </select>
+                    </label>
+                    <span className="na-flow-filter muted" title="La période choisie dans les filtres du tableau s'applique aussi aux flux (volumes échangés pendant la période, par différence de relevés)">
+                      {periodStart && periodEnd
+                        ? (linksArePeriod ? `⏱ du ${periodStart} au ${periodEnd}` : "⏱ période : aucun relevé de flux sur cette période")
+                        : "⏱ cumul depuis le début de la capture -- une période se choisit dans les filtres du tableau"}
+                    </span>
+                    {flowFiltersActive && (
+                      <button
+                        className="secondary"
+                        onClick={() => { setFlowFilters(DEFAULT_FLOW_FILTERS); setHostOverride(""); }}
+                      >
+                        ✕ Réinitialiser
+                      </button>
+                    )}
+                    <span className="muted na-flow-summary">{describeFlowFilterResult(flowResult)}</span>
+                  </div>
+                  {flowResult.links.length === 0 ? (
+                    <p className="muted">Aucun flux ne passe les filtres.</p>
+                  ) : (
+                    <>
+                      <h3 style={{ marginBottom: 4 }}>Graphe alluvial (flux TCP/IP/UDP)</h3>
+                      <AlluvialFlowChart
+                        links={flowResult.links}
+                        deviceLabels={Object.fromEntries(devices.map((d) => [d.id, d.hostname || d.ip_address || d.mac_address || `#${d.id}`]))}
+                        scale={flowScale}
+                        controls={<ScaleControls scale={flowScale} onChange={changeFlowScale} />}
+                      />
+                      <h3 style={{ marginTop: 20, marginBottom: 4 }}>Radial tree augmenté (épaisseur = volume échangé)</h3>
+                      <WeightedRadialTree
+                        devices={devices}
+                        links={flowResult.links}
+                        segmentLabels={Object.fromEntries(sites.flatMap((s) => s.segments).map((seg) => [seg.id, seg.label]))}
+                        scale={flowScale}
+                        controls={<ScaleControls scale={flowScale} onChange={changeFlowScale} />}
+                      />
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -516,7 +881,12 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                           const from = macToDevice[l.device_a_id];
                           const to = macToDevice[l.device_b_id];
                           return (
-                            <tr key={l.id}>
+                            <tr
+                              key={l.id}
+                              className={`na-link-row${activeLink?.id === l.id ? " active" : ""}`}
+                              title="Cliquer pour voir l'évolution du volume de cette paire"
+                              onClick={() => handleSelectLink(l)}
+                            >
                               <td>{from ? (from.hostname || from.mac_address) : l.device_a_id}</td>
                               <td>{to ? (to.hostname || to.mac_address) : l.device_b_id}</td>
                               <td>{formatBytes(l.bytes_total)}</td>
@@ -525,6 +895,52 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                         })}
                       </tbody>
                     </table>
+                  )}
+                  {activeLink && (
+                    <div className="na-link-history">
+                      <h4 style={{ marginBottom: 2 }}>
+                        Volume de la paire dans le temps
+                        <span className="muted">
+                          {" "}— {(macToDevice[activeLink.device_a_id]?.hostname || macToDevice[activeLink.device_a_id]?.mac_address || activeLink.device_a_id)}
+                          {" ↔ "}
+                          {(macToDevice[activeLink.device_b_id]?.hostname || macToDevice[activeLink.device_b_id]?.mac_address || activeLink.device_b_id)}
+                        </span>
+                      </h4>
+                      {activeLinkHistory === null ? (
+                        <p className="muted">Chargement…</p>
+                      ) : (
+                        <HistoryBars rows={activeLinkHistory} label="Volume échangé entre les deux appareils, par intervalle entre relevés" />
+                      )}
+                      {/* "Services connectés par paire d'ip" -- demandé en #251
+                          et servi par l'API depuis, jamais affiché ici avant #403.
+                          Les deux sens sont confondus côté API (voulu : par PAIRE,
+                          pas par direction). */}
+                      <h4 style={{ marginBottom: 4 }}>
+                        Services de la paire{activeLinkServices ? ` (${activeLinkServices.length})` : ""}
+                      </h4>
+                      {activeLinkServices === null ? (
+                        <p className="muted">Chargement…</p>
+                      ) : activeLinkServices.length === 0 ? (
+                        <p className="muted">Aucun service identifié entre ces deux appareils.</p>
+                      ) : (
+                        <div style={{ maxHeight: 180, overflowY: "auto" }}>
+                          <table>
+                            <thead><tr><th>Protocole</th><th>Port</th><th>Paquets</th><th>Volume</th><th>Dernier</th></tr></thead>
+                            <tbody>
+                              {activeLinkServices.map((sv) => (
+                                <tr key={sv.id ?? `${sv.protocol}-${sv.port}`}>
+                                  <td>{(sv.protocol || "?").toUpperCase()}</td>
+                                  <td>{sv.port}</td>
+                                  <td>{sv.packet_count}</td>
+                                  <td>{formatBytes(sv.bytes_total)}</td>
+                                  <td className="muted">{sv.last_seen ? new Date(sv.last_seen).toLocaleString("fr-FR") : "—"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -539,6 +955,8 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                   ) : activeDeviceHistory.length === 0 ? (
                     <p className="muted">Aucun relevé encore enregistré pour cet appareil.</p>
                   ) : (
+                    <>
+                    <HistoryBars rows={activeDeviceHistory} label="Volume échangé par cet appareil, par intervalle entre relevés" />
                     <table>
                       <thead><tr><th>Relevé</th><th>IP</th><th>Volume cumulé</th></tr></thead>
                       <tbody>
@@ -551,6 +969,7 @@ export default function NetworkAgentView({ onBack, networkAgentApiBase, classifi
                         ))}
                       </tbody>
                     </table>
+                    </>
                   )}
                 </div>
               </div>

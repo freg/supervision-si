@@ -1,0 +1,23 @@
+# Sonde netprobe (Raspberry Pi Zero W) -- installée par image/build-image.sh
+# dans /etc/systemd/system/. `iw scan` exige CAP_NET_ADMIN : le service
+# tourne en root, comme les outils réseau qu'il pilote ; il n'ouvre AUCUN
+# port (client pur).
+[Unit]
+Description=netprobe-agent -- sonde WiFi/IP distribuée (supervision-si)
+After=network-online.target time-sync.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -m netprobe_agent.agent --config /etc/netprobe-agent/agent.json
+WorkingDirectory=/opt/netprobe-agent
+Environment=PYTHONPATH=/opt/netprobe-agent
+Environment=PYTHONUNBUFFERED=1
+Restart=always
+RestartSec=10
+# Un Pi Zero W a 512 Mo : la sonde n'a aucune raison d'en prendre plus.
+MemoryMax=96M
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,13 @@
+{
+  "manifest_version": 2,
+  "name": "supervision-si — parcours applicatif",
+  "version": "0.1.0",
+  "description": "Enregistre le parcours dans une application web (écrans, actions, formulaires, requêtes) et l'envoie à l'agent relais local de supervision-si (rétro-ingénierie, livraison #441).",
+  "browser_specific_settings": { "gecko": { "id": "retro-journey@supervision-si.local", "strict_min_version": "109.0" } },
+  "permissions": ["storage", "tabs", "webRequest", "webNavigation", "<all_urls>"],
+  "background": { "scripts": ["lib.js", "background.js"], "persistent": true },
+  "content_scripts": [{ "matches": ["<all_urls>"], "js": ["lib.js", "content.js"], "run_at": "document_idle", "all_frames": false }],
+  "browser_action": { "default_title": "Parcours applicatif", "default_popup": "popup.html", "default_icon": "icon.svg" },
+  "options_ui": { "page": "options.html", "open_in_tab": false },
+  "icons": { "48": "icon.svg", "96": "icon.svg" }
+}

@@ -77,8 +77,11 @@ _PHP_STRING_PATTERN = re.compile(r'"([^"]*)"|\'([^\']*)\'')
 # contexte de namespace) -- révèle qu'UNE table est manipulée ici,
 # même sans jointure explicite (utile pour l'inventaire des tables
 # réellement utilisées par l'appli, pas seulement les relations).
+# #441 : le premier argument peut être une propriété ou un accès F3
+# (`$this->db`, `$f3->get('DB')`, `$this->f3->get('DB')`), pas seulement
+# `$db` -- constaté sur le premier code parcouru, tables manquées sinon.
 _F3_MAPPER_PATTERN = re.compile(
-    r"new\s+\\?(?:DB\\SQL\\)?Mapper\s*\(\s*\$\w+\s*,\s*['\"](\w+)['\"]",
+    r"new\s+\\?(?:DB\\SQL\\)?Mapper\s*\(\s*\$\w+(?:->\w+)*(?:\s*\(\s*['\"][^'\"]*['\"]\s*\))?\s*,\s*['\"](\w+)['\"]",
 )
 
 

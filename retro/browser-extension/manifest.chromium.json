@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "supervision-si — parcours applicatif",
+  "version": "0.1.0",
+  "description": "Variante Chromium (MV3) de l'extension Firefox : mêmes sources ; sert au harnais de vérification et aux postes sous Chrome/Edge.",
+  "permissions": ["storage", "tabs", "webRequest", "webNavigation"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [{ "matches": ["<all_urls>"], "js": ["lib.js", "content.js"], "run_at": "document_idle", "all_frames": false }],
+  "action": { "default_title": "Parcours applicatif", "default_popup": "popup.html" },
+  "options_ui": { "page": "options.html", "open_in_tab": false },
+  "icons": { "48": "icon.svg", "96": "icon.svg" }
+}

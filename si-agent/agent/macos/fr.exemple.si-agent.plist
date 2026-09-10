@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- LaunchDaemon si-agent macOS (livraison #451). Les chemins sont
+     réécrits par install-macos.sh ; ce gabarit vaut pour une installation
+     par défaut (/usr/local/opt/si-agent, /usr/local/etc/si-agent). -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>fr.exemple.si-agent</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__PYTHON__</string>
+    <string>-m</string>
+    <string>si_agent.agent</string>
+    <string>--config</string>
+    <string>__ETC__/agent.json</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PYTHONPATH</key>
+    <string>__OPT__</string>
+    <key>PYTHONUNBUFFERED</key>
+    <string>1</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>StandardOutPath</key>
+  <string>__VARLOG__/si-agent.log</string>
+  <key>StandardErrorPath</key>
+  <string>__VARLOG__/si-agent.log</string>
+</dict>
+</plist>

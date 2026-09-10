@@ -7,6 +7,7 @@ import {
   tcpdumpCapture,
   fetchAnalysisResults, runAnalysis,
 } from "./netprobeClient.js";
+import NetprobeAgentsTab from "./NetprobeAgentsTab.jsx";
 
 // Tuile "Sondes réseau" (netprobe, livraisons #295/#297/#302/#305/
 // #307) -- six onglets : Cibles (collecteur d'IP), Sondes (système
@@ -230,7 +231,13 @@ export default function NetprobeView({ onBack, netprobeApiBase }) {
         <button className={tab === "scans" ? "" : "secondary"} onClick={() => setTab("scans")}>🔍 Scans</button>
         <button className={tab === "capture" ? "" : "secondary"} onClick={() => setTab("capture")}>📦 Capture</button>
         <button className={tab === "analyse" ? "" : "secondary"} onClick={() => setTab("analyse")}>🧠 Analyse</button>
+        {/* Sondes distribuées (livraison #407, items 45/47/48) -- flotte de
+            Raspberry Pi (sondes WiFi + collecteurs de site), mesures remontées,
+            itinérance. Composant séparé : cette vue est déjà longue. */}
+        <button className={tab === "wifi" ? "" : "secondary"} onClick={() => setTab("wifi")}>📶 Sondes WiFi</button>
       </div>
+
+      {tab === "wifi" && <NetprobeAgentsTab netprobeApiBase={netprobeApiBase} />}
 
       {tab === "cibles" && (
         <div className="hub-card hub-settings-section">

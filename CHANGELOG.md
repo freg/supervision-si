@@ -1,3 +1,2307 @@
+## 2026-09-10 — Premier Mac réel : plugin network-neighbors porté macOS, bruit launchd `-9` écarté (correctif post-#475, à l'occasion d'une livraison)
+
+Premier hôte macOS réel enrôlé (install-macos.sh validé de bout en bout).
+Deux retours concrets :
+
+- **Risques launchd noyés dans le bruit** : 131 « service launchd en
+  échec », dont ~tout le lot en `code -9` sur des démons
+  `com.apple.*`. Sur macOS récent le système tue et relance en
+  permanence ses démons internes (pression mémoire, cryptexd,
+  jetsam…) : `-9` = SIGKILL système, pas un échec du service.
+  `machost.parse_launchctl_list` écarte désormais les `code -9`
+  sur `com.apple.*` ; un `-9` tiers ou un autre code reste signalé.
+  Test dédié ajouté (`test_launchctl_sigkill_systeme_ignore`).
+- **network-neighbors rendait du vide sur macOS** : le script
+  n'utilisait que `ip` (iproute2, absent de macOS). Portage
+  bidirectionnel : détection `uname` — Linux inchangé (`ip`), macOS
+  via `ifconfig` (netmask hexa -> préfixe, loopback exclue),
+  `arp -an` + `ndp -an` (MAC normalisées, entrées incomplètes
+  écartées), timeout ping adapté (`-W` = s sous Linux, ms sous
+  macOS). Vérifié sur le Mac réel (sous-réseaux + 6 voisins ARP
+  corrects, JSON valide). Balayage ping non exécuté ici (trafic
+  actif -- le plugin reste livré désactivé).
+
+**Vérifié** : 61 tests si-agent (les 3 échecs restants sont les
+échecs macOS pré-existants, hors périmètre) ; **non vérifié** :
+plugin exécuté par l'agent en confinement (`nobody`) une fois
+propagé sur le poste installé.
+
+## 2026-09-10 — Correctif : gabarit LaunchDaemon macOS renommé (livraison #475)
+
+L'anonymisation (#467) avait remplacé le contenu des fichiers mais pas
+leurs NOMS : le gabarit `si-agent/agent/macos/` portait encore l'ancien
+identifiant, alors qu'`install-macos.sh` cherchait déjà
+`fr.exemple.si-agent.plist` — installation macOS cassée depuis #467.
+Renommé ; vérification `git ls-files` sur les motifs sensibles : plus
+aucun nom de fichier concerné. **Vérifié** : cohérence gabarit /
+installateur ; **non vérifié** : installation réelle.
+
+## 2026-09-09 — Agents hôtes joignables depuis Internet : central de secours par le nom public (livraison #474)
+
+Demandé : « et l'agent Mac depuis Internet ? » — hors du LAN, l'agent ne
+joint plus `https://<IP LAN>:6443` ; il faut qu'il passe par le frontal.
+
+- `si_agent.agent.HttpClient` : `fallback_url` + `fallback_ca_file`
+  (`None` = magasin système, ex. certificat Let's Encrypt du frontal) ;
+  principal d'abord, secours si erreur réseau, retour au principal
+  réessayé toutes les 10 min (`RETRY_PRIMARY_S`) ; `current_url`,
+  `on_fallback` exposés dans l'état de l'agent. Signature HMAC inchangée
+  (méthode + chemin + corps, jamais l'hôte).
+- `install-macos.sh` et `install.sh` : `--central-fallback URL` →
+  `central_fallback_url` dans `agent.json` ; agent existant : une ligne
+  à ajouter + redémarrage (docs).
+- `docs/acces-public-frontal.md` § 4.
+
+**Vérifié** : 2 tests purs (bascule LAN → secours, secours en premier
+pendant le délai, retour au principal ; sans secours / tout injoignable),
+27 tests si-agent OK ; **non vérifié** : agent Mac réel hors du LAN.
+
+## 2026-09-09 — Frontal public en mode réécriture : le hub reste construit pour le LAN (livraison #473)
+
+Demandé : « sur le proxy, y a-t-il un moyen de faire la substitution avec le
+nom déjà enregistré en interne ? » — oui, et c'est le mode à préférer.
+
+- `scripts/front-reverse-proxy.sh` : variable `INTERNAL_ORIGIN`
+  (`https://<HOST_IP>:<GATEWAY_PORT>`) → Apache décompresse et réécrit
+  cette origine en `https://PUBLIC_HOST` dans les corps (HTML, JS, CSS,
+  JSON, texte : `mod_substitute` + `mod_deflate`, lignes jusqu'à 32 Mo,
+  variantes `wss://` et `//hôte:port/`), les en-têtes `Location`
+  (`ProxyPassReverse`) et le domaine des cookies. Aucun rebuild du hub ;
+  accès LAN et public coexistent.
+- `keycloak/render.py` : `KEYCLOAK_EXTRA_ORIGINS` (liste à virgules) —
+  chaque client OIDC dont les `redirectUris` / `webOrigins` partent de
+  l'origine interne reçoit les mêmes entrées pour chaque origine
+  supplémentaire (`add_extra_origins`, idempotent, testé à la main sur un
+  realm réduit). `KC_HOSTNAME` reste interne : les URL de Keycloak sont
+  réécrites au passage et l'émetteur des jetons ne change pas pour les API.
+- `docs/acces-public-frontal.md` : les deux modes (réécriture recommandée,
+  reconstruction), limites de la réécriture.
+
+**Vérifié** : syntaxe, rendu du VirtualHost avec substitutions,
+`add_extra_origins` ; **non vérifié** : réécriture réelle sur le frontal,
+connexion Keycloak par le nom public.
+
+## 2026-09-09 — Correctif réel : les fronts refusaient un nom DNS (« Blocked request. This host is not allowed ») (livraison #472)
+
+Signalé au premier accès par le nouveau nom public : les huit fronts sont
+servis par le serveur de développement Vite (`npm run dev`) et Vite ≥ 5.4.12
+n'accepte par défaut que `localhost` et les adresses IP dans l'en-tête
+`Host` — d'où le fonctionnement par IP LAN et le refus par nom (LAN ou
+public derrière le frontal Apache).
+
+- Les huit `vite.config.js` (hub, frontend, tickets, dba, vault, vault
+  admin, ldap-admin, network-explorer) : `server.allowedHosts` = `HOST_IP`
+  (.env) + `VITE_ALLOWED_HOSTS` (liste à virgules ; `*` = tous, acceptable
+  puisque les fronts ne sont joignables que par la passerelle).
+- `docker-compose.yml` : `HOST_IP` et `VITE_ALLOWED_HOSTS` passés aux huit
+  services ; `.env.example` documente la variable.
+- À faire sur « super » après mise à jour : `VITE_ALLOWED_HOSTS=super,<nom
+  public>` (ou `*`) dans `.env`, puis `./scripts/run.sh up -d --build` des
+  fronts (ou simple `up -d` : la variable est lue au démarrage du serveur
+  Vite, pas au build).
+
+**Vérifié** : syntaxe des huit configurations (`node --check`), compose
+valide (61 services, variables présentes sur les huit) ; **non vérifié** :
+accès réel par le nom public.
+
+## 2026-09-09 — Frontal public Apache + Let's Encrypt vers le hub (livraison #471)
+
+Demandé : « un script pour déployer un certbot avec un renew et l'apache en
+https qui va faire proxy vers la VM super, avec une variable
+d'environnement pour le nom public ».
+
+- `scripts/front-reverse-proxy.sh` (root, Debian/Ubuntu, idempotent) :
+  `PUBLIC_HOST` (nom public), `LE_EMAIL`, `HUB_UPSTREAM` (défaut
+  `https://super:443`), `HUB_CA` (vérification du certificat de la
+  passerelle par la CA du projet), `HTTP_PORT`, `STAGING`. Installe apache2
+  + certbot, site port 80 (défi ACME + redirection) et 443 (proxy inverse
+  HTTPS, WebSocket par wstunnel, X-Forwarded-*, HSTS, pas de plafond
+  d'envoi), certificat `--webroot`, hook de renouvellement rechargeant
+  Apache, `certbot.timer`.
+- `docs/acces-public-frontal.md` : le prérequis côté hub (`HOST_IP` = nom
+  public, `GATEWAY_PORT=443`, certificat de passerelle, `keycloak/render.py`,
+  rebuild), résolution LAN, vérifications, limites (bastion hors HTTP).
+
+**Vérifié** : syntaxe, rendu des deux VirtualHost ; **non vérifié** :
+exécution sur le frontal réel, obtention du certificat, Keycloak derrière
+le frontal.
+
+## 2026-09-09 — Bastion par un saut SSH : `--server-name` côté client (livraison #470)
+
+La personne dispose d'une entrée SSH sur une VM du LAN : un tunnel local vers
+le relais suffit, sans rien publier de plus. Le client vérifiait le nom
+joint (`127.0.0.1`) contre le certificat (`super`) : nouvelle option
+`--server-name` (nom attendu dans le certificat, indépendant de l'adresse
+jointe). Lanceur Mac : `SI_PROXY_SSH_JUMP` ouvre le tunnel et bascule quand
+le LAN ne répond pas ; `si-proxy test` vérifie avec le bon nom. **Vérifié** :
+tests purs si-proxy (protocole, audit, garde) ; **non vérifié** : tunnel réel.
+
+## 2026-09-09 — Bastion joignable depuis l'extérieur : plusieurs noms dans le certificat, adresse de repli côté client (livraison #469)
+
+Constat au premier accès distant : le client Mac ne connaissait que le nom
+LAN du hub, inutilisable hors du réseau.
+
+- `setup-certs.sh <hub> [--san <nom|ip>]...` : le certificat du relais porte
+  tous les noms / IP par lesquels on le joint (LAN, nom public ou DynDNS,
+  IP publique) ; `--clients` inchangé.
+- Client : `SI_PROXY_RELAY` (LAN) et `SI_PROXY_RELAY_WAN` (extérieur),
+  cette dernière essayée quand le LAN ne répond pas.
+- README : les deux façons d'être joignable de l'extérieur — port publié
+  sur la box, ou relais « rendez-vous » hors du LAN (rien d'ouvert chez
+  soi ; le shim et le Mac l'appellent en sortant).
+
+**Vérifié** : syntaxe des scripts ; **non vérifié** : émission réelle avec
+`--san`, accès depuis l'extérieur.
+
+## 2026-09-09 — Correctif réel : setup-certs.sh ignorait PKI_DIR de .env (livraison #468)
+
+Signalé sur « super » : `CA introuvable (…/supervision-si/pki/ca/ca.crt)` alors
+que la PKI est dans `PKI_DIR=/home/…/supervision-si-pki` (.env). Le script ne
+lisait `PKI_DIR` que dans l'environnement du shell. Il la lit désormais dans
+`.env` du dépôt quand elle n'est pas exportée. **Vérifié** : syntaxe, valeur
+lue depuis un .env de test ; **non vérifié** : émission réelle sur « super ».
+
+## 2026-09-09 — Anonymisation du dépôt avant publication (livraison #467)
+
+Demandé : « vérifier qu'aucune information précise, personnelle et
+professionnelle ne soit publiée sur le GitHub » — ce dépôt est un travail
+personnel destiné à la communauté, sans lien avec un employeur ou un client.
+
+- Passe complète sur les 905 fichiers suivis : noms de sociétés, de client,
+  de sites et de lieux réels (y compris codes postaux, codes commune et
+  coordonnées), prénoms servant de noms d'hôtes ou de logins d'exemple,
+  adresses IP et chemins réels remplacés par des valeurs fictives
+  (`exemple`, `Alpha`, `Parc/Batiment 5`, `Villexemple`, prénoms alice /
+  bob / carol / dave / eve, plage de documentation `192.0.2.0/24`, région
+  de Lyon pour les coordonnées d'exemple). Les tests concernés
+  (geo-catalog, classifier, pixel-grid, cortex, hub) passent inchangés
+  dans leur logique.
+- Retirés du dépôt et ignorés désormais : l'export de realm Keycloak
+  importé (`keycloak/.last-imported-realm.json`, qui portait l'adresse
+  réelle du hub), les `.DS_Store`, le fichier de série de la PKI
+  (`pki/scripts/.srl`), un journal de conteneur.
+- Adresse MAC : seules des valeurs manifestement fictives subsistent
+  (`aa:bb:cc:…`, `12:34:56`) ; aucune adresse électronique réelle hors
+  l'auteur du dépôt.
+
+**Vérifié** : recherche croisée (git grep) sur les motifs sensibles avant /
+après ; 172 tests Node, tests purs Python des modules touchés. **Non
+vérifié / à faire** : l'HISTORIQUE git (76 commits) contient encore les
+valeurs d'origine — voir « Historique » dans BACKLOG (réécriture par
+`git filter-repo` + push forcé, ou publication d'un dépôt neuf).
+
+## 2026-09-08 — Cortex, étape 5 : politiques d'alerte, notifications par incident, silences, MTTA/MTTR (livraison #466)
+
+Dernière étape du découpage validé en #461. Aucun module d'origine
+modifié ; les canaux SMS / courriel sont ceux du PRA (`shared/secrets_alert.py`).
+
+- **Politiques d'alerte** (`cortex/api/policy.py`, table `policies`,
+  `/policies`, `PUT`, `DELETE`, `/policies/preview`) : liste ordonnée par
+  rôle de la cause, site, type, entités nommées, sévérité et confiance
+  minimales → priorité (haute / normale / basse), canaux, délai et canaux
+  d'escalade, notification de la résolution ; quatre politiques par
+  défaut (« un routeur de site vaut plus qu'un poste ») ; la raison de
+  chaque décision est affichée (`policy-role-place`, 0,9).
+- **Notifications par incident** (`notify.py`, table `notifications`,
+  `/notifications`, `POST /notify`) : une par incident et par moment —
+  ouverture, escalade sans accusé (une seule fois, `escalation` 0,9),
+  résolution si la politique le veut — jamais par événement
+  (`notify-per-incident` 1,0) ; SMS / courriel via `SECRETS_ALERT_*`,
+  webhook JSON `CORTEX_NOTIFY_WEBHOOK_URL` ; `CORTEX_NOTIFY=0` journalise
+  sans envoyer ; résultat par canal conservé.
+- **Silences de maintenance** (table `silences`, `/silences`) : nom, ticket,
+  plage, cible (sites / entités / rôles / tout) ; l'incident couvert reste
+  visible et compté, sa raison « silence » est tracée (`silence-maintenance` 0,9).
+- **Statistiques** (`/kpis?days=`) : MTTA / MTTR (moyenne, médiane, max)
+  par site, rôle, sévérité ; causes racines ; faux positifs par règle et
+  par principe ; couverture (sans supervision, sans position, sites) ;
+  semaine par semaine.
+- **Tuiles d'origine** : le détail d'un incident propose « ↗ tuile
+  si-agent / ups / … », la fiche d'intervention de la cause, acquitter,
+  clore ; il affiche politique appliquée, silence, notifications.
+- Onglet **Alertes & KPI** : statistiques, politiques (formulaire),
+  silences, journal des notifications, aperçu des décisions ; quatre
+  principes de plus (quarante) ; compose : `CORTEX_NOTIFY`,
+  `CORTEX_NOTIFY_WEBHOOK_URL`, `SECRETS_ALERT_*` sur `cortex-api` ;
+  Dockerfile copie `shared/secrets_alert.py`.
+
+**Vérifié** : 21 tests purs Python ; chaîne réelle avec webhook récepteur :
+5 incidents → 5 notifications (une chacune, haute pour les onduleurs),
+notification antidatée → une escalade et une seule, silence sur le site
+bureau (T-4512) → incident tu avec sa raison, politique modifiée par
+`PUT`, accusé → MTTA dans `/kpis` ; onglet Alertes & KPI et détail
+d'incident sous Chromium ; 172 tests Node. **Non vérifié** : SMS et
+courriel réels.
+
+## 2026-09-08 — Cortex, étape 4 : causalité apprise, anticipation, signaux faibles (livraison #465)
+
+Suite du découpage validé en #461. Aucun module d'origine modifié.
+
+- **Occurrences** (table `occurrences`, 90 j) : chaque ouverture ou
+  réouverture d'événement est historisée, amorcée depuis l'historique du
+  central si-agent — jamais un simple rafraîchissement.
+- **Séquences apprises** (`cortex/api/learn.py`, table `rules`, `/rules`,
+  onglet **Anticipation**) : « A précède B » dans la fenêtre (10 min) avec
+  support ≥ 3, confiance ≥ 0,5 et ≥ 2 × l'attendu sous indépendance →
+  règle **proposée** (délai médian / min / max), en deux portées : entités
+  nommées et généralisée par rôle. Confirmer / rejeter / remettre en
+  proposition (`POST /rules/<id>/…`) ; la décision nourrit le principe
+  `sequence-learned` ; les mesures se remettent à jour, l'état décidé et
+  les jugements sont conservés (principes `sequence-learned` 0,6,
+  `sequence-confirmed` 0,9).
+- **Anticipation** (table `predictions`, `/predictions`, visible dans
+  l'incident) : quand A est ouvert, annonce « B suit habituellement A dans
+  n min (x fois sur n) » avec échéance, tant que B n'est pas là ; une
+  annonce par B attendu ; jugée ensuite juste / fausse, ce qui remesure la
+  règle (confiance = observée × principe, ajustée par les jugements ;
+  principe `anticipation` 0,7).
+- **Signaux faibles** (table `samples`, `/drifts`, `/samples`) : mesures
+  relevées à chaque collecte (CPU, mémoire, disque, charge ; latence,
+  pertes ; charge, batterie, tensions d'onduleur ; 3 j) et trois
+  détecteurs : écart de la dernière heure aux 24 h (`drift-zscore`),
+  tendance linéaire vers un seuil (`drift-trend`, échéance < 7 j, ignorée
+  sur un saut brutal), habitude horaire (`seasonality`). Une dérive est un
+  événement normalisé de source `cortex` — même cycle de vie, regroupable
+  en incident.
+- Six principes de plus (trente-six) ; `POST /learn` ; onglet Anticipation :
+  annonces (échéance, issue, exactitude), règles (confirmer / rejeter),
+  dérives en cours et séries suivies (mini-courbe au clic).
+
+**Vérifié** : 18 tests purs Python ; chaîne réelle : l'historique du central
+produit 10 règles proposées (« agent-offline sur vm suit config-applied sur
+vm dans 5 min, 7 fois sur 8 ») ; historique semé + surcharge d'onduleur
+ouverte → annonce « agent-offline sur srv-fichiers-01 suit habituellement
+ups:overload sur UPS-Siege dans 5 min (4 fois sur 5) », confirmation →
+48 % → 72 %, `sequence-learned` mesuré 68 % ; mesures semées → deux dérives
+(CPU 4,7 σ, disque 90 % dans 29 h) dans l'incident de vm ; onglet
+Anticipation sous Chromium ; 171 tests Node. **Non vérifié** :
+apprentissage sur un vrai historique long, netprobe réel.
+
+## 2026-09-08 — Cortex, étape 3 : lieux, positions avec provenance, fiche d'intervention, éclairage carto (livraison #464)
+
+Suite du découpage validé en #461. Aucun module d'origine modifié ; Cortex
+lit pixel-grid (géolocalisations, correspondances) et geo-catalog.
+
+- **Hiérarchie de lieux** (`cortex/api/places.py`, tables `places`,
+  `place_notes`) : site > bâtiment > étage > salle > baie depuis les
+  géolocalisations (parent / type), les appareils network-agent
+  (bâtiment / salle, sites) et le catalogue geo-catalog ; fusion
+  lieu / site homonymes et des salles déclarées deux fois sous un même
+  site ; un lieu sans coordonnées hérite de son parent
+  (`place-hierarchy`) ; contact, accès et notes d'un lieu = saisie
+  humaine (`PUT /places/<clé>`), jamais écrasée par la collecte.
+- **Position mémorisée par entité** (table `positions`, `/positions`,
+  `/positions/queue`, `POST /positions/resolve`) avec provenance,
+  confiance, chaîne et date : échelle explicite dont chaque barreau est
+  un principe — déclarée (0,95) › validée (0,9) › lieu déclaré (0,85 ;
+  0,75 si hérité) › géolocalisation (0,8) › résolue par le nom (0,6) ›
+  propagée par relation (client → borne, hôte → passerelle du même site,
+  onduleur → alimenté ; ≤ 0,7) › voisinage (0,5 / profondeur) › repli
+  (0,1). Résolution à chaque collecte (plus à l'affichage), file de
+  travail par site, changements journalisés (`position-found`,
+  `position-changed`, `position-moved`).
+- **Fiche d'intervention** (`/entities/<clé>/intervention`, depuis le
+  détail d'une entité, la table des positions et la carte) : où aller,
+  position et provenance, amont (passerelle, borne, onduleur du site) avec
+  état, incidents ouverts, supervisée ou vue par la découverte seule
+  (`unsupervised`), entités du même lieu, accès bastion (IP privée
+  joignable par si-proxy quand `SI_PROXY_ENABLED`, sans jeton dans
+  Cortex), lien « ouvrir un ticket » (`CORTEX_TICKETS_PORTAL_URL`),
+  contact et accès du site saisis dans la fiche.
+- **Éclairage carto** (`/layers` GeoJSON, onglet **Carte**,
+  `hub/src/cortexPlaces.js`) : couches activables — entités positionnées
+  (couleur = provenance), halos d'incidents (rayon = sévérité × entités),
+  densité par lieu, zones sans supervision, chemins de dépendance ;
+  cadrage automatique, légende, clic = fiche d'intervention. Onglet
+  **Positions** : table par provenance, filtre, file de travail,
+  résolution à la demande.
+- Dix principes de plus (trente), tous évaluables ; compose :
+  `PIXEL_GRID_API_URL`, `GEO_CATALOG_API_URL`, `TICKETS_PORTAL_URL`,
+  `SI_PROXY_ENABLED` sur `cortex-api` ; `.env.example` :
+  `CORTEX_TICKETS_PORTAL_URL`.
+
+**Vérifié** : 15 tests purs Python (hiérarchie / héritage / fusion, échelle
+barreau par barreau avec confiance décroissante et file de travail, fiche
+et couches) ; chaîne réelle central si-agent + UPS, vigilance, pixel-grid et
+network-agent simulés : 17 entités positionnées (1 déclarée, 11 lieu
+déclaré dont une salle héritée, 1 résolue par le nom, 4 voisinage), contact
+de site enregistré et relu dans la fiche, `/layers` 3 halos / 4 lieux /
+3 sans supervision / 1 chemin ; onglets Positions, Carte et fiche
+d'intervention sous Chromium ; 170 tests Node. **Non vérifié** : geo-catalog
+réel, fond de carte (pas de réseau sortant en test), bastion réel.
+
+## 2026-09-08 — Cortex, étape 2 : rôles enrichis, table de routes, graphe d'architecture, « ce qui a changé » (livraison #463)
+
+Suite du découpage validé en #461 (« continue »). Aucun module d'origine
+modifié ; Cortex lit trois sources de plus.
+
+- **Rôles enrichis** (`cortex/api/normalize.py`, `oui.py`) : constructeur
+  et famille déduits de l'OUI de la MAC (principe `oui-vendor`, 0.55),
+  catégorie de classifier-api (`name-class`, 0.6), type Nebula et
+  description IPAM (`referential`, 0.9), services vus par network-agent
+  par segment (`serves-port`). Les entités portent constructeur, modèle,
+  description, sous-réseau, OS quand une source les connaît ; les rôles
+  restent des hypothèses pondérées et combinées.
+- **Table de routes** (`routes_from_netviews`, table `routes`, `/routes`) :
+  route par défaut, sous-réseaux attachés et joignables via une autre
+  passerelle, par hôte équipé d'un agent, avec premier/dernier relevé
+  (principe `route-known`, 0.9).
+- **Graphe d'architecture persistant** (`/graph`, `hub/src/cortexGraph.js`,
+  onglet **Architecture**) : SVG une colonne par site, trois couches
+  (amont / hôtes supervisés / reste), largeur de colonne adaptée à
+  l'étiquette la plus longue, arêtes colorées par type (dépendance,
+  alimentation, flux, voisinage, sonde), relation `uplink` client WiFi →
+  borne depuis Nebula (`attached-to`, 0.85), clic = fiche de l'entité.
+- **« Ce qui a changé »** (`changes.py`, table `changes`, `/changes`,
+  onglet dédié) : instantané avant / après chaque collecte ; entité
+  nouvelle ou plus vue, rôle dominant ou site qui bascule, relation
+  nouvelle ou disparue, passerelle qui change (`change-since`, 0.8) ; les
+  disparitions dues à une source en échec ne sont pas comptées.
+- Six principes de plus (vingt au total), tous exposés et évaluables dans
+  l'onglet « Principes & évaluations ».
+- Compose : `CLASSIFIER_API_URL`, `NEBULA_API_URL`, `IPAM_API_URL`
+  (`CORTEX_IPAM_API_URL`, défaut `ipam-api`) sur `cortex-api`.
+
+**Vérifié** : 12 tests purs Python (OUI, classifier / Nebula / IPAM, routes,
+changements avec source en échec ignorée) ; chaîne réelle central si-agent +
+UPS et vigilance simulés, deux collectes avec un onduleur ajouté entre les
+deux → `/changes` remonte la nouvelle entité et sa relation `powers_site`,
+`/routes` 7 routes pour 3 hôtes, `/graph` 14 nœuds / 13 arêtes ; onglets
+Architecture, Ce qui a changé, Routes rendus sous Chromium ; 168 tests
+Node. **Non vérifié** : classifier, Nebula et IPAM réels sur « super ».
+
+## 2026-09-08 — Cortex, étape 1 : modèle commun, collecte, incidents corrélés, hypothèses évaluées (livraison #462)
+
+Validation de l'analyse #461 : « cortex me plait comme titre c'est moderne
+et explicite, décloisonne, corrèle, relie, consolide et construit un outil
+cohérent massivement automatisé et totalement transparent en présentant
+des évaluations pour chaque hypothèse et parti pris ».
+
+- **cortex-api** (`cortex/api/`, route `/api/cortex/`, SQLite) : entités
+  consolidées (clé `mac:` > `ip:` > `name:`, alias absorbés, origines,
+  indices de rôle), relations (`gateway_of` depuis les routes vues par les
+  agents, `powers_site`, `neighbor`, `talks_to`, `flow`, `watches`),
+  événements normalisés avec empreinte et cycle de vie (rafraîchis, jamais
+  dupliqués ; fermés quand la source ne les remonte plus), incidents par
+  fenêtre glissante + relation partagée (ou même entité, ou faiblement
+  même site) avec cause racine = entité la plus en amont, état
+  ouvert/acquitté/clos conservé d'une collecte à l'autre ; collecte toutes
+  les 5 min de si-agent, vigilance, UPS, orchestrateur, netprobe,
+  network-agent, sauvegardes — aucun module d'origine modifié.
+- **Transparence** : `principles.py` nomme quatorze partis pris (identité,
+  relations, causalité, présentation) avec confiance de base, énoncé et
+  limite connue ; chaque hypothèse d'incident cite son principe, sa
+  confiance et ses preuves ; les retours humains (« juste » / « fausse »)
+  produisent une confiance **mesurée** par principe ; la confiance d'un
+  incident est celle de son hypothèse causale ; le journal des collectes
+  dit quelle source a répondu et ce qui en est sorti.
+- **Tuile Cortex** (première entrée de la thématique Supervision) :
+  incidents avec cause proposée et confiance en mots, détail votable,
+  entités et rôles pondérés, événements, principes & évaluations,
+  statistiques, collecte.
+
+**Vérifié** : 10 tests purs ; API réelle sur le central si-agent + UPS et
+vigilance simulés — onduleur sur batterie + agent du même site hors ligne
+= un incident, cause proposée l'onduleur (confiance annoncée faible, 22 %,
+lien onduleur → site supposé), signal vigilance et agent de même IP
+consolidés (3 alias), acquittement, clôture, retour humain ; 6 onglets
+rendus sous Chromium ; 166 tests Node ; `render_nginx_conf.py --check` OK.
+**Non vérifié** : collecte contre les vraies API sur « super ».
+
+## 2026-09-08 — Analyse : tuile unique découverte / localisation / causalité (livraison #461, analyse seulement)
+
+Demandé : analyser toutes les fonctionnalités automatiques ou
+semi-automatiques de localisation, d'identification d'architecture réseau
+et d'exploration des données à destination de la supervision, pour en
+faire une tuile unique avec un corollaire supervision / alertes /
+statistiques / rapprochement de cascades d'événements — trois idées :
+découverte (routes, services, rôles), position (lieu, géo, intervention,
+éclairage carto), chaînes causales (détection, anticipation). « Analyse du
+hub pour l'instant avec suggestions d'évolution ».
+
+`docs/analyse-supervision-unifiee.md` : inventaire de l'existant (network-
+agent, orchestrateur, netprobe, netview si-agent, classifier, SNMP, Nebula,
+IPAM/Zenoss, fusion ; pixel-grid, geo-catalog, positions déduites,
+geo-import ; cinq schémas d'événements cloisonnés, vigilance, UPS, logs,
+memory, timeline), ce qui manque (rôles, routes consolidées, graphe
+persistant, hiérarchie de lieux, position mémorisée avec provenance, bus
+d'événements, corrélation, cycle de vie et accusé unifiés), ce qui se
+réutilise tel quel, puis la proposition « Cortex » : modèle commun
+(entités / relations / événements normalisés), volet Découverte (rôles
+pondérés explicables, table de routes, propositions à confirmer, « ce qui a
+changé »), volet Position (hiérarchie site → baie, provenance, propagation
+par relation, fiche d'intervention, couches carto), volet Causalité
+(incidents par fenêtre glissante + relation avec cause racine amont,
+séquences apprises pour anticiper, dérives), corollaire (file d'incidents,
+MTTA/MTTR, faux positifs par règle, politiques d'alerte), découpage en
+cinq livraisons et points de vigilance. Aucun code.
+
+## 2026-09-08 — GED : archivage versionné et graphe d'évolution des versions (livraison #460)
+
+Demandé : « un mécanisme d'archivage versionné pour le dépôt de document,
+et un visualiseur de graphe d'évolution des versions », avec le souvenir
+d'un système d'archivage Novell des années 80-90. Recherche faite : ce
+souvenir est ARCserve (Cheyenne Software, produit phare NetWare des
+années 90, racheté par CA en 1996 — voir [Arcserve](https://en.wikipedia.org/wiki/Arcserve),
+[Cheyenne Software](https://www.fundinguniverse.com/company-histories/cheyenne-software-inc-history/)),
+confirmé par la personne ; et pour la gestion documentaire, SoftSolutions
+(1979, Orem ; 54 % du marché des DMS en 1993, racheté par WordPerfect
+puis Novell, intégré à GroupWise en 1998 — [SoftSolutions](https://en.wikipedia.org/wiki/SoftSolutions),
+[stratégie GroupWise Document Management, Novell 1997](https://support.novell.com/techcenter/articles/ana19970704.html)) :
+bibliothèques, profils de documents, versions avec version officielle
+(*Document Life Cycle status*), *Document In-Use* (check-out/check-in),
+plusieurs versions éditées en parallèle, sécurité par version, archivage
+planifié. Repris ici sur Mayan :
+
+- `ged/api/versioning.py` : par version, **parent** (défaut la
+  précédente ; autre = branche), branche, statut `draft / official /
+  superseded / archived` (une seule officielle ; archivée = terminal),
+  auteur, commentaire ; **check-out / check-in** par document (dépôt d'une
+  version refusé à quiconque d'autre que le détenteur) ; **archive
+  immuable** (copie 0440 + sha256 + `catalogue.jsonl` dans
+  `GED_ARCHIVE_DIR`, jamais ré-archivable, intégrité vérifiée à la
+  lecture). Routes `/graph`, `/versions/<n>/meta`, `/checkout`,
+  `/checkin`, `/checkouts`, `/versions/<n>/archive`, `/archive`,
+  `/archive/<doc>/<n>/download` ; dépôt de version enrichi (`actor`,
+  `parent_version`, `branch`, `comment`, `checkin`).
+- Hub : « 🌳 graphe des versions » par document (`VersionGraphView.jsx`,
+  `versionGraph.js`) — SVG façon `git log --graph` (voies = branches,
+  fourches orange, officielle cerclée, archive pointillée), sortie /
+  retour, promotion, archivage, profil, dépôt d'une version dérivée ;
+  onglet « Archive & sorties » (catalogue, intégrité, documents sortis).
+
+**Vérifié** : 6 tests purs + routes avec Mayan simulé (check-out refusé à
+un autre, dépôt hors détenteur refusé, officielle unique, parent invalide,
+ré-archive refusée, altération détectée) ; graphe rendu sous Chromium ;
+164 tests Node. **Non vérifié** : contre un vrai Mayan.
+
+## 2026-09-08 — Sauvegarde incrémentale et gestionnaire de sauvegardes du hub avec export, façon ARCserve (livraison #459)
+
+Demandé : « un second incrémental et un gestionnaire avec export » ; la
+personne se souvenait d'un système d'archivage Novell des années 80-90 —
+c'était ARCserve (Cheyenne Software, NetWare) : catalogue de sessions,
+chaînes totale → incrémentales, rotation GFS, restauration à une date.
+Repris ici.
+
+- **Incrémentale** (`backup-full.sh --incremental`, moteur #458) : index
+  des fichiers des montages (`backups/.state.json`), seuls les fichiers
+  changés/nouveaux sont archivés, les supprimés listés dans le manifeste
+  et retirés à la restauration ; commits git nouveaux en bundle partiel ;
+  `.env` et `pg_dumpall` toujours ; volumes Docker en totale seulement.
+  Manifeste en clair à côté de chaque archive (aucun secret) ;
+  `restore-full.sh <incrémentale>` retrouve et rejoue toute la chaîne.
+- **Gestionnaire** : onglet « Sauvegardes du hub » de la tuile Sauvegardes
+  (`backup-restore-api` : `/hub-backups`, `/run`, `/prune`,
+  `/<nom>/download`, `DELETE`) — catalogue par chaîne (taille, livraison,
+  commit), exécution d'une totale ou d'une incrémentale (une à la fois,
+  journal), rotation GFS (`SI_BACKUP_KEEP_DAILY/WEEKLY/MONTHLY`, aperçu puis
+  purge), **export** de l'archive chiffrée, suppression, point de
+  restauration (archives à rejouer + commande). Planification par `.env`
+  (`SI_BACKUP_INCR_HOURS`, `SI_BACKUP_FULL_WEEKDAY/HOUR`) ;
+  `SI_BACKUP_PASSPHRASE` obligatoire. Le conteneur monte `/project` et le
+  socket Docker (git, openssl, client docker dans l'image ; 1 worker).
+
+**Vérifié** : chaîne réelle totale → incrémentale → restauration de la
+chaîne dans un dossier neuf ; 5 tests purs du gestionnaire + 5 du moteur ;
+API réelle avec le vrai moteur (run, refus de run simultané, export,
+suppression, rotation) ; onglet rendu sous Chromium (162 tests Node).
+**Non vérifié** : image Docker de backup-restore-api (client docker
+téléchargé au build) et volumes sur « super ».
+
+## 2026-09-08 — Sauvegarde totale, restauration sur un autre host, régénération de ce qui est propre au host (livraison #458)
+
+Demandé : « un mécanisme de backup total et de restore sur un autre host
+avec un script de régénération de tout ce qui est unique pour un host
+(clés...) ». Un moteur (`scripts/full_backup.py`) et trois scripts :
+
+- `backup-full.sh` : archive **chiffrée** (AES-256, `openssl enc
+  -pbkdf2`) contenant le dépôt (bundle git de toutes les branches),
+  `.env`, la PKI entière (CA comprise), tous les montages hôte des quatre
+  compose (découverts dans les fichiers, jamais une liste à la main), les
+  volumes Docker nommés (copie brute via `alpine`) + `pg_dumpall` de
+  chaque PostgreSQL, le shim si-proxy côté host, et un manifeste
+  (host, IP, commit, livraison). `inventory` montre ce qui serait pris.
+- `restore-full.sh` : sur le nouveau host, clone depuis le bundle,
+  restaure `.env` (0600), montages, volumes (préfixe Compose adapté au
+  dossier cible), dépose le côté host et les dumps ; refuse un dossier
+  non vide ; ne démarre rien.
+- `regenerate-host.sh` : `HOST_IP` et toute valeur de `.env` qui
+  contenait l'ancienne IP, certificat serveur (SAN = nouvelle IP), realm
+  Keycloak, conf nginx, certificat du relais si-proxy, `EXPOSURE.json` ;
+  jetons du bastion sur `--rotate-tokens` seulement. **Jamais** la CA
+  (épinglée par les agents, certificat client de freg) ni les sels et
+  phrases de chiffrement (`*_SALT`, `*_PASSPHRASE`). Imprime ce qui reste
+  à faire à la main (agents à re-pointer, shim à réinstaller, realm
+  Keycloak à réimporter, DNS). Doc : `docs/sauvegarde-totale.md`.
+
+**Vérifié** : 5 tests purs ; chaîne réelle sans Docker — sauvegarde
+chiffrée (bundle, `.env` d'essai, PKI, 12 montages) → restauration dans un
+autre dossier (clone sur la branche, CA identique) → mauvaise phrase
+refusée → régénération avec une autre IP et rotation des jetons (`.env`
+réécrit sans toucher aux sels, SAN du cert serveur = nouvelle IP, relais
+`DNS:<hub>,DNS:si-proxy`, CA inchangée).
+**Non vérifié** : volumes Docker / `pg_dumpall` / shim côté host — sur « super ».
+
+## 2026-09-08 — Accueil du hub par thématiques : cinq super-tuiles au lieu d'une trentaine (livraison #457)
+
+Demandé : « revois toutes les tuiles pour fusionner ce qui peut l'être,
+il y a trop de tuiles et seulement quelques thématiques ». Passe sur
+l'ensemble des tuiles de l'accueil, des menus Général / Réseau / Data et
+des fronts externes : tout est regroupé en **cinq thématiques**
+(`hub/src/hubThemes.js`, source unique pour l'accueil et l'en-tête) —
+Supervision, Réseau, Données & référentiels, Documents & ENT, Sécurité &
+accès. Chaque thématique est une super-tuile (`ThemeView.jsx`) : vue
+d'ensemble en cartes, puis l'outil choisi rendu tel quel sous une barre
+d'onglets pour passer d'un outil à l'autre ; « Retour » revient à la
+thématique. Les fronts externes (portail tickets, coffre-fort, consoles
+Keycloak/OpenLDAP, DBA) sont des onglets ↗ (nouvel onglet, ou cadre si
+embarquable). Les vues ne changent pas : la chaîne de routage de
+`App.jsx` est devenue `renderRoute(vm)`, réutilisée par la thématique.
+Disponibilité inchangée (API configurée, droits) ; thématique vide
+omise ; liens externes des administrateurs en tuiles à part. Les trois
+menus de l'en-tête (#236) deviennent un menu par thématique. L'ancien
+accueil (toutes les tuiles + personnalisation #133) reste accessible :
+Réglages → « Accueil : par thématiques → toutes les tuiles ».
+
+**Vérifié** : 4 tests purs (`hub/tests/hubThemes.test.mjs`, 160 au
+total), build complet du hub (App.jsx) sans erreur, accueil thématique,
+vue d'ensemble d'une thématique et outil ouvert en onglet rendus sous
+Chromium (banc). **Non vérifié** : l'accueil réel derrière Keycloak sur
+« super » (ordre des menus, personnalisation existante en mode « toutes
+les tuiles »).
+
+## 2026-09-08 — Bases et index liés à la boucle locale de la VM (livraison #456)
+
+Suite au constat de la console Bastion (#455) : les quatre PostgreSQL
+(pixel-grid, tickets, geo, geo-catalog) et Elasticsearch étaient publiés
+sur toutes les interfaces de la VM, hors passerelle et hors Keycloak.
+Confirmé par la personne : « rien ne pointe dessus à l'extérieur ». Les
+cinq `ports:` sont désormais préfixés par `${SI_DB_BIND:-127.0.0.1}`
+(`.env.example` : `SI_DB_BIND=127.0.0.1` ; `0.0.0.0` pour rouvrir). Les
+services du compose continuent de joindre les bases par le réseau Docker
+(noms de service), rien ne change pour eux ; les chargeurs lancés sur la
+VM elle-même passent par localhost. `render-exposure.py` accepte les
+commentaires de fin de ligne dans `ports:` (test ajouté) ; `EXPOSURE.json`
+régénéré : 11 ports publics restants (API/portails, à traiter ensuite).
+
+**Vérifié** : compose valide (YAML), 3 tests du parseur, inventaire
+régénéré (les cinq bases passent en « boucle locale »).
+**Non vérifié** : `docker compose up` sur « super » (à relancer pour que
+le nouveau bind s'applique).
+
+## 2026-09-08 — Console Bastion : entrées, sorties, autorisations, partages rapatriés depuis toutes les tuiles (livraison #455)
+
+Demandé : « une passe sur l'ensemble des outils et des tuiles pour mettre
+dans bastion tout ce qui concerne les entrées sorties autorisation
+partages ». Inventaire fait sur le dépôt entier (passerelle, ports
+publiés, agents/sondes entrants, tunnels SSH et montages, connecteurs
+externes, rights-api, liens externes, coffre/annuaire, gestionnaire de
+fichiers, GED, ownCloud) puis intégration dans la tuile Bastion, devenue
+une console à cinq onglets (`hub/src/BastionView.jsx`, logique pure
+`bastionInventory.js`, sondes `bastionClient.js`) :
+
+- **Entrées** : exposition du SI d'après `shared/EXPOSURE.json`, généré
+  par `scripts/render-exposure.py` (appelé par `run.sh`, comme
+  `VERSION.json`) à partir de `docker-compose.yml` et des routes
+  `tls-proxy` — routes de la passerelle, ports publiés directement sur
+  l'hôte classés (base/index sur toutes les interfaces = critique,
+  API/portail hors passerelle = avertissement, boucle locale = info),
+  services en `network_mode: host` ; agents hôtes et sondes entrants avec
+  **coupe-circuit** de la flotte (bloquer/débloquer) ; servi par le pont
+  (`GET /exposure`).
+- **Sorties** : tunnels SSH (arrêt/démarrage), connecteurs externes
+  (Nebula, GLPI, IMAP, ownCloud, sauvegardes, GeoIP, notifications)
+  d'après leur `/health`.
+- **Autorisations** : permissions rights-api par type (révocation
+  admin_hub), types restés ouverts (contrôle opt-in), liens externes et
+  rôles (« tout le monde » signalé), mes groupes.
+- **Partages** : sources du gestionnaire de fichiers (espace protégé
+  gardé), GED, montages SSHFS (démontage).
+Compteur d'attention par onglet ; renvoi vers la tuile d'origine partout.
+
+**Constat réel** à la première génération de l'inventaire : cinq bases /
+index (pixel-grid, tickets, geo, geo-catalog PostgreSQL ; Elasticsearch)
+sont publiés sur **toutes les interfaces** de la VM, hors passerelle et
+hors Keycloak, plus onze API/portails hors passerelle — rien n'a été
+changé dans le compose (à décider : lier à `127.0.0.1`), noté au backlog.
+
+**Vérifié** : 3 tests du parseur, 19 tests du pont, 156 tests Node ;
+inventaire généré sur le vrai compose (47 routes, 17 ports, 1 réseau
+hôte) ; cinq onglets rendus sous Chromium sur la chaîne réelle du pont et
+les API simulées des tuiles (blocage flotte, arrêt tunnel, démontage et
+révocation exposés comme boutons -- actions réelles non exercées ici).
+
+**Non vérifié** : déploiement compose sur « super » (comme #452–#454).
+
+## 2026-09-08 — Tuile « Bastion » du hub, pont si-proxy-admin-api, catégorie Bastion dans la supervision et l'analyse des liens (livraison #454)
+
+Suite de #453 (« une interface de contrôle ? une catégorie spéciale dans
+la supervision et l'analyse réseau ? »).
+
+- **Pont `si-proxy-admin-api`** (`si-proxy/admin/`, service compose,
+  route `/api/si-proxy/`) : le jeton d'administration du relais reste
+  côté serveur, jamais dans le navigateur. Le hub s'identifie par son
+  jeton d'accès Keycloak (`Authorization: Bearer`), **vérifié
+  réellement** (RS256 contre les clés publiques du realm via l'URL
+  interne, expiration, rechargement sur `kid` inconnu) et restreint à
+  `SI_PROXY_ADMIN_USERS` (défaut `freg`) — premier service du projet à
+  vérifier le jeton OIDC plutôt que des `groups` déclarés. Routes :
+  `/whoami`, `/status`, `/audit`, `/summary?hours=`, `POST
+  /sessions/<id>/kill`, `/disable`, `/enable`, `/unban/<ip>`. Le pont
+  vérifie le cert de l'interface de contrôle (`https://si-proxy:6452`) :
+  `setup-certs.sh` ajoute `DNS:si-proxy` au SAN du relais.
+- **Tuile « Bastion »** (`hub/src/SiProxyView.jsx`, logique pure
+  `siProxy.js`, client `siProxyClient.js`), visible seulement pour
+  `VITE_SI_PROXY_ADMIN_USERS` : état (relais, shim host, TLS mutuel,
+  compteurs), pause / reprise, sessions en cours avec fermeture,
+  fail2ban maison (IP bannies + levée, refus par IP), cibles jointes
+  (24 h / 7 j / 30 j, volume), journal d'audit filtrable ; 5 s.
+- **Catégorie Bastion (🛡) dans Supervision SI** (`supervisedItems.js`
+  `fromSiProxy`) : relais et shim host supervisés (injoignable =
+  critique, shim absent ou pause = avertissement) ; **liens `bastion`**
+  « hub → cible (N sessions, types) » via `si-proxy` dans l'analyse des
+  liens (poids = octets, orange sur la carte). Réservé : le pont refuse
+  les autres, sans erreur affichée.
+
+**Vérifié** : 17 tests du pont (paire RSA jetable : valide / mauvaise
+clé / `kid` inconnu / expiré / 403 hors liste / `azp` / JWKS
+injoignable = 503 ; 401 sans jeton et aucune action transmise ;
+synthèse), 6 tests Node (150 au total) ; **chaîne réelle** relais + shim
++ contrôle + JWKS factice + pont Flask + jeton signé (200 freg, 401,
+403 eve) ; tuile rendue sous Chromium sur cette chaîne — session
+shell listée puis fermée depuis la tuile, pause puis reprise ; catégorie
+et lien Bastion rendus dans Supervision SI ; `render_nginx_conf.py
+--check` OK.
+
+**Non vérifié** : le pont contre le vrai Keycloak et le déploiement
+compose sur « super » (comme #452/#453).
+
+## 2026-09-08 — Bastion si-proxy : journal d'audit, fail2ban maison, interface de contrôle (livraison #453)
+
+Suite à la question « as-tu prévu du log access/error ? une interface de
+contrôle ? » puis « fail2ban maison je préfère ». Trois briques dans le
+relais, sans rien changer au protocole ni aux clients :
+
+- **Journal d'audit** (`siproxy/audit.py`) : JSONL dans `si-proxy/data/`
+  (volume `/data`, jamais versionné) -- `session-start` (identifiant,
+  client `cn:<CN>` / `token:client`, IP, type, cible), `session-end`
+  (durée, octets montés/descendus, issue), `refused` (motif, IP, demande).
+  Métadonnées seulement : jamais le contenu des sessions, jamais un jeton
+  (`aio.bridge` compte les octets et retourne `(montés, descendus)`).
+- **Fail2ban maison** (`siproxy/guard.py`, logique pure, horloge
+  injectable) : échecs d'auth comptés par IP dans une fenêtre glissante,
+  ban au seuil (défaut 5 en 300 s, 15 min ; `SI_PROXY_BAN_*`) ; une IP
+  bannie est fermée avant même le HELLO, bon jeton ou pas ; un succès
+  efface les échecs ; levée manuelle.
+- **Interface de contrôle** (`siproxy/control.py`) : mini-serveur HTTPS
+  sur un port séparé (6452, publié sur la boucle locale de la VM
+  seulement), jeton `SI_PROXY_ADMIN_TOKEN` en en-tête `X-Si-Proxy-Admin`
+  (sans jeton, non démarrée) : `GET /status` (host connecté, actif,
+  sessions en cours, compteurs, bannis), `GET /audit?limit=`,
+  `POST /sessions/<id>/kill`, `POST /disable` / `/enable`,
+  `POST /unban/<ip>`. Base de la tuile « Bastion » du hub (#454).
+
+`relay.py` : `Relay(audit, guard)`, `enabled`, `status()`,
+`kill_session()` ; `entrypoint.sh`, compose (volume `./si-proxy/data`,
+port contrôle, env), `.env.example`, `setup-certs.sh` (jeton admin
+suggéré), `.gitignore`, README.
+
+**Vérifié** : 10 tests purs (`tests/test_audit_guard.py`) + 9 tests
+protocole ; essai de bout en bout étendu (`tests/e2e_local.py`, vrais
+processus relais + shim + client) : `/status`, `/audit` (refus et
+start/end présents, aucun jeton dans le fichier), 403 sans jeton admin,
+ban réel après 3 échecs (bon jeton rejeté, IP listée) puis `/unban`,
+`/disable` refusant une session puis `/enable`, session listée puis tuée
+par `/sessions/<id>/kill` (le client sort) -- tout vert.
+
+**Non vérifié** : le conteneur réel (compose) et le déploiement sur
+« super » -- inchangé depuis #452.
+
+## 2026-09-08 — Bastion si-proxy réservé à freg (livraison #452)
+
+Nouveau composant `si-proxy` : depuis le Mac, via le hub, un shell sur le
+host de la VM (sous freg, non-root), la navigation HTTPS sur le hub et, par
+le hub, sur le LAN. Relais TLS aiguilleur (conteneur, service compose
+`si-proxy`, n'exécute rien) ; shim host systemd (`si-proxy-host`) qui appelle
+le relais en sortant (le host n'ouvre aucun port entrant) et ouvre seul les
+PTY/TCP ; client Mac `siproxy.client` (shell interactif + proxy HTTP local
+CONNECT). Réservé à freg : jeton client dédié + TLS, TLS mutuel optionnel
+avec liste blanche de CN. Cibles loopback/lien-local/métadonnées refusées ;
+aucun secret journalisé. Certificats émis par la PKI interne
+(`setup-certs.sh`), installation host par `install-host.sh`. Vérifié :
+tests purs du protocole + essai de bout en bout (relais + shim + client,
+TLS + jetons) — shell qui répond, proxy CONNECT/HTTP, rejet du mauvais
+jeton, tout vert. Non vérifié : déploiement réel sur la VM et TLS mutuel
+bout-à-bout.
+
+## 2026-09-08 — Agent macOS de supervision (livraison #451)
+
+`si_agent/machost.py` : collecteurs macOS (commandes natives sw_vers /
+sysctl / vm_stat / df+mount / launchctl / lsof / dscl / log show /
+system_profiler / ifconfig / netstat / arp) produisant les mêmes mesures
+host/activity/hardware/netview/inventory que Linux et Windows ; volumes
+APFS scellé « / » et Data fusionnés en une entrée « / » (pas de disque
+« plein » factice), risque « service launchd en échec ». Installation par
+LaunchDaemon (install-macos.sh / uninstall-macos.sh, TLS par empreinte),
+commande dans la tuile Agents hôtes. Agent 0.5.0, archive
+si-agent-agent-0.5.0.tar.gz. Vérifié : 17 tests parseurs, chaîne réelle
+ingérée dans le central + rendu Chromium de la tuile, non-régression
+Windows/Linux. Non vérifié : un Mac réel.
+
+## 2026-09-08 — Agent Windows : récupération de la CA sous PowerShell 5.1 (livraison #450)
+
+Premier poste réel : un ScriptBlock en `ServerCertificateValidationCallback`
+faisait échouer la lecture de `/ca` (« erreur inattendue lors de l'envoi »).
+`install.ps1` utilise un délégué C# (`Add-Type`), TLS 1.2 explicite et
+`WebClient`. Doc : Bitdefender entreprise mettait `agent.py` en quarantaine
+silencieuse (exclusion de stratégie à prévoir pour le parc). Agent 0.4.4,
+archive `si-agent-agent-0.4.4.tar.gz`. Vérifié : délégué contre un serveur
+HTTPS auto-signé ; non vérifié : la suite sur le poste Windows.
+
+## 2026-09-08 — Agent Windows : racine de l'archive cherchée autour du script (livraison #449)
+
+Premier essai réel du `.cmd` silencieux : « si_agent\agent.py
+introuvable ». `install.ps1` cherche désormais la racine de l'archive
+dans le parent du script, le script, le dossier courant et deux niveaux
+de sous-dossiers (`SI_AGENT_SRC` pour forcer), et son erreur liste ce
+qui a été vu ; les `.cmd` se placent dans leur dossier avant de lancer.
+Agent 0.4.3, archive `si-agent-agent-0.4.3.tar.gz`. Vérifié : recherche
+exécutée sous PowerShell 7 depuis cinq emplacements ; non vérifié : le
+poste Windows réel.
+
+## 2026-09-08 — Méta-relevé des champs, relations inter-gestions et proposition de fusion (livraison #448, phase 4)
+
+`retro/api/metagraph.py` : graphe des entités (tables par application,
+colonnes typées via dba-api, écrans), relations intra-application (code
+PHP, journal SQL réel des parcours, noms de colonnes -- sources
+cumulées), équivalences inter-applications (spec unique #445, noms
+canoniques, clés primaires appariées), références inter-gestions
+(colonne nommant une table d'une autre application) ; proposition de
+fusion : entités cibles, union des attributs avec la colonne de chaque
+application, conflits de types, attributs propres, relations reportées.
+Route `GET /unified/metagraph`. Hub : onglet « Méta-graphe & fusion » de
+l'outil unique (graphe SVG cliquable, relevé des champs filtrable,
+proposition par entité). Vérifié : 10 tests API, 3 tests hub (144 au
+total), chaîne réelle gestion + crm, rendu Chromium. Non vérifié : de
+vraies applications.
+
+## 2026-09-08 — Agent Windows : installation silencieuse en double-clic (livraison #447)
+
+`GET /agents/<id>/install.cmd` (si-agent-api) : fichier `.cmd` généré par
+le central, propre à l'agent (identifiant, secret, URL et empreinte de la
+CA inclus) -- élévation UAC, `install.ps1` en silence (journal dans
+`%TEMP%`), « OK » à la fin, effacement du fichier après succès, journal
+affiché en cas d'échec ; jamais `-Insecure` (409 sans CA interne).
+Lien « télécharger si-agent-install-<agent>.cmd » dans le panneau
+Installation de la tuile Agents hôtes. Vérifié : test API, rendu de la
+tuile. Non vérifié : exécution sur un Windows réel.
+
+## 2026-09-08 — Agent Windows : lancement de l'installation sans piège (livraison #446)
+
+Premier retour du poste Windows de test : le `.ps1` s'ouvre dans le
+Bloc-notes (association de fichier) et « Exécuter avec PowerShell » le
+lance sans paramètres. La commande affichée par la tuile Agents hôtes
+devient `powershell -NoProfile -ExecutionPolicy Bypass -File
+.\windows\install.ps1 …` (guillemets doubles compris par PowerShell et
+`cmd`) ; l'archive de l'agent gagne `windows\install.cmd` et
+`uninstall.cmd` (élévation UAC automatique, politique d'exécution
+contournée pour la commande seule, questions posées en double-clic).
+Agent 0.4.2, archive `si-agent-agent-0.4.2.tar.gz`. Vérifié : test API de
+la commande, 51 tests si-agent. Non vérifié : les `.cmd` sur un Windows
+réel.
+
+## 2026-09-08 — Outil de gestion unique : comparaison des applications enregistrées (livraison #445, phase 3)
+
+`retro/api/merge.py` : rapprochement des écrans d'applications
+différentes qui remplissent la même fonction (champs / colonnes de même
+nom après normalisation -- préfixes de formulaire, accents, pluriels,
+`_id`, synonymes FR/EN courants --, titres, tables ; score explicite,
+seuil 0,4), spécification unique (un écran par fonction, champs = union
+avec, par application, table et colonne réelles) et projection par
+application. Routes `GET /unified/compare` et `GET /unified?apps=…
+[&view=…]`. Hub : « 🧩 Outil unique » dans la tuile Rétro-ingénierie --
+matrice fonctions × applications, champs unifiés avec leur origine,
+interface unique rendue sur les données de l'application choisie
+(lecture / écriture via dba-api, champs absents indiqués). Vérifié :
+10 tests API, 4 tests hub (141 au total), chaîne réelle avec deux
+applications (gestion réelle + crm aux tables `customers`), rendu
+Chromium, écriture en base par l'interface unique. Non vérifié : de
+vraies applications.
+
+## 2026-09-08 — Interface générée au design du hub depuis les parcours (livraison #444, phase 2)
+
+`retro/api/ui_spec.py` : étapes + carte fonctionnelle + colonnes réelles
+(dba-api) → spécification d'interface par application (écrans list /
+form / detail / action, titre, table principale, colonnes de liste et
+champs rapprochés des colonnes avec source et confiance, liens, actions,
+points à compléter), enregistrée (`GET/PUT /apps/<label>/ui-spec`,
+régénération qui conserve les choix manuels). Hub : « Application
+générée » dans la tuile Rétro-ingénierie -- navigation, listes sur les
+tables réelles (filtre, pagination, nouveau), fiches/formulaires qui
+écrivent via dba-api, onglet Spécification modifiable. Vérifié : 3 tests
+API, 1 test hub (138 au total), chaîne réelle parcours → spec → liste →
+fiche → écriture en base via un faux dba-api, rendu Chromium. Non
+vérifié : une vraie application.
+
+## 2026-09-08 — Parcours applicatifs : rejeu pas à pas, rejeu réel dans le navigateur, sous-parcours, comparaison (livraison #443)
+
+Suite de #441. Arbre de parcours (`parent_id`, `branch_step`, `kind`
+recorded/replay, migration SQLite) : sous-parcours créé depuis une étape
+dans la tuile, repris dans le popup de l'extension (« Reprendre », relais
+`/journeys/<id>/adopt`). « Rejouer pas à pas » : storyboard de chaque
+étape (écran reconstitué : en-têtes, formulaires et champs, tableaux ;
+actions ; SQL ; trace de rejeu). Rejeu réel : `GET /journeys/<id>/script`
+(navigate/click/fill/submit/expect/mark, sans doublon clic + submit, pause
+sur un champ sans valeur enregistrée), `POST /journeys/<id>/replay`
+(parcours enfant), relais `/replay`, exécution action par action par
+l'extension (attente des chargements, `expect` GET par URL normalisée,
+POST par requête vue), `GET /journeys/<a>/compare/<b>` étape par étape,
+affiché sous le storyboard. Vérifié : 8 tests API, 2 relais, 4 extension,
+136 hub ; rejeu réel dans Chromium via le popup sur l'appli factice, 5/5
+étapes identiques à l'origine ; rendu Chromium. Non vérifié : Firefox réel.
+
+## 2026-09-08 — Agent hôte : un montage en lecture seule n'est plus un « disque plein » (livraison #442)
+
+Retour du poste réel : un ISO GParted monté sous `/media/…` à 100 %
+ouvrait un risque `disk-full` CRITIQUE -- faux positif qui peut masquer
+un vrai problème. `collect_disks` porte `readonly` (option `ro`) et
+`removable` (`/media/`, `/run/media/`, `/mnt/usb`, `/cdrom`, `/run/live/`,
+iso9660 / udf / squashfs ; Windows : lecteur amovible) ; `risks` : lecture
+seule → jamais un risque de remplissage, amovible plein → information
+`removable-full` au plus. Toujours listés, puces « lecture seule » /
+« amovible » dans la tuile. Agent 0.4.1. Vérifié : 41 tests agent, 11 hub.
+
+## 2026-09-08 — Rétro-ingénierie dynamique : parcours applicatifs (extension Firefox, agent relais, API « parcours », journal SQL) (livraison #441)
+
+Backlog 30, volet 2 (« schéma fonctionnel de l'interface »), demande :
+« un plugin Firefox, un agent relais et une API type QA qui suit mon
+parcours dans l'appli web ; ça s'intègre avec la partie analyse bdd ».
+Extension `retro/browser-extension` (écrans, DOM utile, clics, saisies sans
+valeurs ni mots de passe, envois, requêtes HTTP avec redirections et clés
+de formulaire, repères ; variante Chromium MV3 mêmes sources) → agent
+relais `retro/relay/relay.py` (local, file SQLite, lots, rejeu, jeton
+`RETRO_RELAY_TOKEN`, CA interne) → retro-api (nouveau volume `/data`,
+SQLite) : applications (URL de base, connexion DBA), scan de code conservé
+par application (`classes`, `file_tables` nouveaux), parcours, événements
+idempotents, étapes (une par requête de page ou repère ; POST + 302 = deux
+étapes), routes Fat-Free rapprochées des URL normalisées → contrôleur →
+fichier → tables, collecte de `mysql.general_log` via dba-api rattachée
+aux étapes (tables lues / écrites par écran), carte fonctionnelle et
+matrice écrans × tables (code / base / concordant), annotations. Tuile
+Rétro-ingénierie : section « Parcours applicatifs ». Motif Mapper élargi
+(`$this->db`, `$f3->get('DB')`). Vérifié : 7 tests API, 2 relais, 3
+extension, 135 hub ; chaîne réelle extension (Chromium) → relais →
+retro-api → appli factice → scan F3 factice → faux dba-api → carte ;
+rendu Chromium. Non vérifié : Firefox réel, vrai `general_log` via dba-api,
+build Docker.
+
+## 2026-09-08 — Agent hôte Windows 10 / 11 (livraison #440)
+
+Backlog 63 (« Windows à explorer »), demande : « pour le second test il
+me faut un agent Windows 10/11 ». Même paquet `si_agent`, même protocole,
+mêmes mesures : sous Windows, `agent.py` prend ses collecteurs dans
+`winhost.py`, qui lance un script PowerShell 5.1 par mesure
+(`si_agent/win/host|activity|hardware|netview.ps1`, un objet JSON chacun,
+sources absentes en `partial`) et traduit vers la forme Linux (système,
+CPU, mémoire, lecteurs y compris réseau, services automatiques arrêtés,
+ports, journaux Système/Application, administrateurs, Windows Update,
+Defender, pare-feu, BitLocker ; processus, sessions `quser`, dernières
+connexions 4624 ; matériel, disques NVMe/SSD/HDD, cartes réseau, GPU,
+logiciels installés ; adaptateurs, routes, voisins, connexions, DNS).
+Chemins `%ProgramData%\si-agent`, runner de sonde `powershell`, sonde
+`shell` refusée proprement, environnement de sonde réduit, pas de
+setuid/rlimit (documenté). Risques Windows (Defender, pare-feu, mises à
+jour). `windows/install.ps1` (Python trouvé ou distribution embeddable
+téléchargée, CA par empreinte, ACL sur agent.json, tâche planifiée SYSTEM
+au démarrage relancée) + `uninstall.ps1`, commande affichée dans la tuile
+(`install_command_windows`), archive `make-archive.sh` avec `windows/`.
+Tuile : ligne « Windows », logiciels installés, libellés. Agent 0.4.0.
+Vérifié : 40 tests agent dont 8 Windows avec exécution réelle des 4
+scripts sous PowerShell 7 Linux ; scripts d'installation analysés par le
+parseur PowerShell ; agent Windows simulé dans le central réel, rendu
+Chromium. Non vérifié : un Windows réel (PowerShell 5.1, CIM, compte
+SYSTEM, embeddable, tâche planifiée) -- premier poste à venir.
+
+## 2026-09-08 — Agent hôte : montages sshfs/FUSE mesurés sans changer la configuration de l'hôte, délai sur les systèmes distants (livraison #439)
+
+Suite de #438, retour : « pour un serveur dont on ne doit pas changer la
+configuration c'est gênant, un simple `mount` le liste sans droit ».
+Vérifié avec un vrai sshfs (sshd + sshfs montés dans l'environnement de
+développement) : pour un autre utilisateur que celui du montage, FUSE ne
+renvoie pas « accès refusé » à statvfs mais des tailles NULLES -- c'est
+ce qui escamotait le montage. L'agent root mesure maintenant un FUSE en
+se présentant comme l'utilisateur du montage (`user_id=` de
+`/proc/mounts` ; `host.statvfs_isolated` : fork + setuid + statvfs), rien
+à changer sur l'hôte (`measured_as`, « (uid N) » dans la tuile) ; tout
+système distant est mesuré avec un délai de 5 s (sshfs figé → « sans
+réponse », la collecte continue) ; un agent non root garde la raison en
+clair. Agent 0.3.3. Vérifié : 32 tests agent, 133 hub ; chaîne réelle
+sshfs (uid 1500) → agent → central → tuile (mesuré « uid 1500 »), sshfs
+figé par SIGSTOP → délai 5 s. Non vérifié : NFS/CIFS réels, conteneur
+Docker (même mécanisme, uid identiques sans user namespace).
+
+## 2026-09-08 — Agent hôte : montages illisibles ou invisibles listés avec leur raison (sshfs/FUSE, NFS, propagation Docker) (livraison #438)
+
+Retour du premier hôte réel : « l'agent ne voit pas tous les types de
+montage, notamment sshfs ». Deux causes : `collect_disks` ignorait en
+silence tout montage dont `statvfs` échoue (un montage FUSE refuse root
+sans `allow_other`/`allow_root` ; NFS périmé), et le conteneur ne voit pas
+un montage fait sur l'hôte après son démarrage. Correctif : chaque montage
+est listé avec `remote`, `visible`, `error` (tailles à null) ; en
+conteneur la table de montage de l'hôte (`/proc/1/mounts`, --pid host) est
+comparée à ce que le conteneur voit ; `deploy-docker.sh` monte `/` en
+`ro,rslave` ; agent 0.3.2 ; `partial` = `mounts:<n>`. Tuile Agents hôtes :
+« illisible — raison » / « invisible du conteneur » à la place de la
+jauge, puce « distant ». README-DEPLOIEMENT : marche à suivre sshfs
+(`-o allow_root`, `user_allow_other`). Vérifié : 31 tests agent, 133 hub,
+collecte réelle sous /host, rendu Chromium. Non vérifié : vrai sshfs (pas
+de FUSE dans l'environnement de développement) -- à confirmer sur l'hôte.
+
+## 2026-09-08 — GLPI ↔ agents hôtes : export des hôtes si-agent vers GLPI, comparaison avec les agents GLPI Agent ; correctif du montage de la CA (livraison #437)
+
+Backlog 63 (h). `glpi/api/si_agent_import.py` : chaque hôte de la flotte
+si-agent devient un `Computer` GLPI (nom, série DMI, `otherserial` =
+`si-agent:<id>` comme clé de dédoublonnage, fabricant / modèle / lieu par
+listes déroulantes, commentaire matériel : OS, noyau, CPU, mémoire,
+disques, interfaces, IP, version d'agent) -- `POST /import/si-agent-hosts`
+(`dry_run`, `update_existing`, `include_never_seen`, `site`, `only_agents`),
+dédoublonnage joué à blanc dès l'aperçu quand GLPI répond, agents jamais
+vus écartés par défaut. `GET /agents-comparison` : agents GLPI (itemtype
+`Agent`, GLPI Agent natif) rapprochés de la flotte par nom d'hôte
+(both / only_si / only_glpi). Tuile GLPI Inventory : source « Agents hôtes
+», case « mettre à jour les hôtes déjà dans GLPI », section « Agents GLPI ↔
+agents hôtes » ; `hub/src/glpiImport.js` (pur). `SI_AGENT_API_URL` sur
+glpi-api, Dockerfile complété. **Correctif réel** (premier hôte de la
+personne) : le montage de la CA de si-agent-api ignorait `PKI_DIR` →
+`${PKI_DIR:-./pki}/ca/ca.crt`.
+Vérifié : 15 tests glpi-api (logique + routes sous mock), 132 tests hub ;
+chaîne réelle glpi-api ↔ si-agent-api réel ↔ faux `apirest.php` (aperçu,
+import, ré-import ignoré, mise à jour, comparaison), rendu Chromium ; compose
+YAML. Non vérifié : un vrai GLPI (itemtype `Agent`, champs `Computer`),
+build Docker.
+
+## 2026-09-08 — Agent hôte : relais d'exploration réseau (plugin capture-relay → central → network-agent-api) (livraison #436)
+
+Backlog 63 (e). Plugin `capture-relay` (python, privilégié, DÉSACTIVÉ par
+défaut) : capture tcpdump bornée (60 s, 1,5 Mo, en-têtes seulement) sur
+l'interface de la route par défaut, rendue en JSON ; si-agent-api
+(`NETWORK_AGENT_API_URL`) verse chaque mesure `plugin:capture-relay` dans
+network-agent-api via `POST /capture/upload` (nouveau,
+`capture.ingest_pcap_bytes`) -- site de l'agent, segment = hôte, traitement
+identique à la capture locale. Agent 0.3.1, tcpdump dans l'image Docker de
+l'agent. Tests : network-agent (pcap synthétique), central (relais sous
+mock), agent (plugins livrés) ; chaîne réelle plugin → agent → central →
+network-agent-api vérifiée dans le conteneur.
+
+## 2026-09-08 — Onduleurs : pages supplémentaires de la carte fusionnées dans la fiche, détection de dérive lente (livraison #435)
+
+Backlog 62 (reste : historique de la carte, remontée vers vigilance). Voir
+`ups-monitor/README.md` (§ #435). `extra_pages` par onduleur (lues et
+fusionnées à chaque relevé, échecs archivés et affichés) ; contrôle
+quotidien de dérive 7 j / 30 j (capacité, tension et autonomie batterie,
+température, charge) -> alertes `drift:<champ>` notifiées, fermées quand la
+dérive disparaît ; champ « Pages en plus » et libellés de dérive dans la
+tuile. 2 tests (31 au total).
+
+## 2026-09-08 — Onduleurs : relevé SNMP UPS-MIB (RFC 1628) comme seconde méthode, GET d'OID générique dans snmp-api (livraison #434)
+
+Backlog 62. `ups-monitor/api/ups_snmp.py` traduit l'UPS-MIB (identité,
+batterie, entrée, sortie, alarmes) dans la forme exacte de la page HTML,
+via `snmp-api POST /get` (nouveau, `snmp_client.get_oids`) -- une seule
+implémentation pysnmp ; par onduleur : `method` http | snmp,
+`snmp_community` (protégée, jamais renvoyée, inchangée si absente,
+`clear_snmp_community`), `snmp_port` ; automate, relevé manuel, essai et
+alertes (#433) identiques ; formulaire de la tuile avec la méthode.
+2 tests (29 au total). Non vérifié : vraie carte SNMP.
+
+## 2026-09-08 — Onduleurs : alertes (alarme, injoignable, seuils avec hystérésis), notifications SMS / courriel / webhook, acquittement (livraison #433)
+
+Backlog 62. Voir `ups-monitor/README.md` (§ « Alertes et seuils »).
+
+- `ups-monitor/api/alerts.py` (pur) : ouverture / fermeture des alertes
+  après chaque relevé -- `alarm`, `unreachable` (N échecs consécutifs,
+  réglable), `threshold:<champ>` (tension d'entrée min/max, charge max,
+  batterie min, température max ; défauts, surcharge par onduleur, `null`
+  = désactivé, hystérésis 2 %) ; « relevé en retard » calculé à la lecture.
+- `store.py` : table `ups_alerts`, colonnes `thresholds` / `unreachable_after`
+  / `notify`, compteurs ; `notify.py` : SMS et courriel (`SECRETS_ALERT_*`),
+  webhook, seuil, anti-tempête, rétablissement (sauf alerte acquittée) ;
+  `poller.py` : évaluation après chaque relevé (automate et relevé manuel) ;
+  routes `/alerts`, `/alerts/<id>/ack`, `/alerts/test`, `/status` enrichi,
+  `GET /ups` avec `active_alerts` et `stale` ; compose et `.env.example`.
+- Hub : bandeau des alertes actives (acquitter, ouvrir), colonne Alertes,
+  section « Seuils et alertes » du formulaire, canaux et bouton d'essai ;
+  Supervision SI dégrade l'état d'un onduleur en alerte (2 tests, 130).
+
+**Vérifié** : 27 tests Python, tests Node, chaîne réelle API + faux
+onduleur (seuil franchi, injoignable, acquittement), rendu Chromium.
+**Non vérifié** : SMS / courriel réels, build Docker.
+
+## 2026-09-08 — Supervision SI : la vue réseau passive des agents hôtes nourrit propositions et liens (livraison #432)
+
+Suite de #428 (backlog 66) : ce que l'agent voit sans émettre un paquet
+sert à la carte. `GET /netview` de si-agent-api (dernière mesure `netview`
+par agent) ; dans Supervision SI, voisins et pairs non supervisés →
+propositions « vu par un agent » (voisin / pair, ports, agents),
+connexions établies → liens `flux` agent ↔ pair (via `si-agent`), d'où des
+positions déduites pour les pairs. Test central (chaîne réelle) et test
+hub ajoutés (128 au total) ; rendu vérifié avec le vrai agent du conteneur.
+
+## 2026-09-08 — Tuile « Fusion IP/MAC » : corrélation IPAM / Zenoss par IP promue dans le hub, positions par IP et par nom, GeoIP / code postal / nom d'hôte (livraison #431)
+
+Backlog 64, point (4), suite : l'onglet Fusion IP/MAC de l'ancienne
+maquette devient une tuile du hub (menu Réseau). Voir `docs/fusion-ip-mac.md`.
+
+- `hub/src/fusionLib.js` (pur, 4 tests, 127 au total) : fusion par IP,
+  filtres, colonnes, sévérité, classification IPv4, positions (table par
+  IP puis correspondance par nom #426), synthèse.
+- `hub/src/FusionView.jsx` + `fusionClient.js` : table, filtres, colonnes
+  masquables, fiche par IP, trois compléments de géolocalisation avec le
+  droit *manage* transmis, liens vers Supervision SI et le catalogue.
+
+**Vérifié** : tests, build Vite, rendu sur faux IPAM/Zenoss avec le vrai
+pixel-grid. **Non vérifié** : ipam-api / zenoss-api réels, GeoIP réel.
+
+## 2026-09-08 — Catalogue de positions : base PostGIS dédiée et déplaçable, références data.gouv.fr / OSM, interprétation, justesse en %, valider / corriger, objets rattachés (livraison #429)
+
+Backlog 67. Nouveau module `geo-catalog/` (README) et tuile hub
+« Catalogue de positions ».
+
+- `geo-catalog-postgres` : PostGIS **dédié** (postgis, pg_trgm, unaccent),
+  volume nommé ou `GEO_CATALOG_DATA_DIR` ; `GEO_CATALOG_DB_URL` pour une
+  base sur un **hôte secondaire** (procédure de déplacement documentée).
+- `geo-catalog-api` : `catalog.py` (pur, 7 tests) -- interprétation la
+  plus précise parmi les références, justesse 0-100 (précision, score du
+  géocodeur, concordances, contradictions, décision humaine), un
+  géocodage peu sûr n'écarte jamais des coordonnées saisies ; `store.py`
+  (positions, références, objets rattachés, communes, cache, journal de
+  synchro, voisinage) ; `refs.py` (pixel-grid, BAN/Géoplateforme en cache,
+  communes de geo.api.gouv.fr chargeables en base ou à la demande, OSM
+  local osm2pgsql par pg_trgm ou Nominatim cadencé) ; routes `/sync`,
+  `/positions`, `validate` / `correct` / `reset` / `refs/<id>/use` /
+  `push` (recopie dans les géolocalisations de pixel-grid), référentiels,
+  droit *manage* ; 6 tests contre un vrai PostGIS.
+- `scripts/import-osm.sh` : import d'un extrait Geofabrik avec osm2pgsql
+  (conteneur jetable) dans la base du catalogue, `--db` pour l'hôte
+  secondaire.
+- Hub : tuile et entrée du menu Général -- table (données de référence,
+  interprétation la plus précise, position, justesse, Valider / Corriger),
+  filtres, fiche avec carte (clic = correction proposée), références
+  (« utiliser »), correction, recopie, objets positionnés, voisines à
+  500 m ; `geoCatalog.js` (2 tests). Passerelle `/api/geo-catalog/`,
+  compose, `.env.example`.
+
+**Vérifié** : tests (7 + 6 + 2), chaîne réelle API ↔ PostGIS 16 ↔
+pixel-grid ↔ tuile (faux géocodeur, faux référentiel des communes -- pas
+d'accès aux services publics ici), rendu clair/sombre, build Vite, YAML.
+**Non vérifié** : data.geopf.fr / geo.api.gouv.fr / Nominatim réels,
+osm2pgsql, builds Docker, déplacement réel de la base.
+
+## 2026-09-08 — Agent hôte : archive de déploiement, variante conteneur Docker (livraison #430)
+
+Demandé pour le premier hôte réel (« mon premier host dispose d'un docker,
+ensuite il faudra la même chose sans docker »). Voir
+`si-agent/agent/README-DEPLOIEMENT.md` et `si-agent/README.md` (§ #430).
+
+- `si-agent/make-archive.sh` → `si-agent-agent-<version>.tar.gz` : paquet,
+  plugins, `install.sh` + systemd (sans Docker), `docker/` (Dockerfile,
+  `deploy-docker.sh`, entrypoint), `README-DEPLOIEMENT.md` ; sans secret.
+- `docker/deploy-docker.sh` : mêmes options qu'`install.sh` (CA par
+  empreinte, plugins, niveau de trace) ; image construite sur place ;
+  conteneur `--network host --pid host`, `/` de l'hôte en lecture seule
+  sous `/host`, `/etc/si-agent` et `/var/lib/si-agent` persistants, utmp /
+  wtmp / bus D-Bus montés s'ils existent, socket Docker sur demande,
+  redémarrage automatique, journal Docker borné ; relance = mise à jour.
+- Agent : `SI_AGENT_HOST_ROOT` (host.py) -- `/etc`, `/var`, `/boot` lus sous
+  le root hôte, montages de l'hôte seuls comptés et affichés sans préfixe,
+  `journalctl -D <root>/var/log/journal`, `systemctl` sans bus = indisponible
+  (partial) ; 2 tests.
+- Central + tuile : `install_command_docker` affiché sous la commande
+  systemd dans le panneau Installation.
+
+**Vérifié** : tests agent (29) et central (9), archive construite,
+extraite, scripts `bash -n`, collecte réelle depuis l'archive avec `/`
+re-monté sous `/host` (OS, disques, journal, comptes de l'hôte),
+`deploy-docker.sh` jusqu'au `docker build` (pas de démon ici).
+**Non vérifié** : construction et exécution réelles du conteneur, bus
+D-Bus depuis le conteneur.
+
+## 2026-09-08 — Agent hôte : découverte passive du réseau et revue de l'hôte, prêt pour un premier exemplaire réel (livraison #428)
+
+Backlog 66, demandé pour tester aujourd'hui un premier agent sur un Linux
+d'un sous-réseau isolé/filtré mais joignable par route directe. Voir
+`si-agent/README.md` (§ « Premier hôte réel » et § #428).
+
+- Agent 0.3.0 -- `si_agent/netview.py` : mesure `netview` (5 min) sans
+  aucun paquet émis : interfaces, routes (passerelle par défaut, routes
+  directes vers d'autres sous-réseaux), voisins ARP/NDP, connexions
+  établies groupées par pair (ports, processus, local/routé), DNS,
+  synthèse (`attached_subnets`, `default_gateway(_state)`,
+  `reachable_subnets`, `peers`, `neighbors_outside_attached`).
+  `si_agent/review.py` : `hardware` dans l'inventaire (DMI/Raspberry, CPU,
+  mémoire, disques physiques, cartes réseau, virtualisation) et `activity`
+  dans `host` (processus CPU/mémoire, sessions, dernières connexions,
+  services actifs, mises à jour). `--collect` affiche tout ; 5 tests
+  nouveaux, 3 tests existants ajustés (nouvelle mesure dans le passage).
+- Hub, tuile Agents hôtes : sections **Réseau vu de l'hôte**, **Matériel**,
+  **Activité** dans le détail d'un agent.
+- README : procédure pas à pas pour le premier hôte réel (enrôlement,
+  prérequis, vérification sur place, diagnostic « jamais vu »).
+
+**Vérifié** : 27 tests agent + 9 tests central (chaîne réelle), collecte
+réelle `--collect` et `--once` depuis le conteneur (iproute2 installé :
+interfaces, passerelle ARP reachable, 14 connexions vers 1 pair, matériel
+virtio), mesures reçues par le vrai central et rendues dans la tuile
+(clair/sombre). **Non vérifié** : vraie machine derrière un filtrage,
+`last`/`who` sur un hôte avec sessions, Raspberry, systemd.
+
+## 2026-09-08 — Exploration réseau : fiche récapitulative d'un sous-réseau, IP distantes rangées derrière leur relais (livraison #427)
+
+Constat : des sous-réseaux « observés » sans aucun appareil correspondant
+dans les découvertes. Cause : une IP source venant de l'extérieur (MAC de
+la passerelle, IP distante) était attribuée à la passerelle, dont la vraie
+IP était écrasée à chaque paquet relayé ; et un appareil qui ne fait que
+recevoir n'avait jamais d'IP. Voir `network-agent/README.md` (§ #427).
+
+- `capture.py` / `store.py` : table `na_remote_ips` (IP hors CIDR, relais,
+  sens in/out, compteurs) ; une source hors segment n'est plus l'IP de la
+  MAC (relais compté) ; une destination dans le CIDR devient l'IP de la
+  MAC destinataire ; sans CIDR, les IP publiques sont distantes.
+- `GET /observed-subnets` : `device_count` / `remote_ip_count` / `origin`
+  (local, relais, mixte) / `via` / `in_segment` / `packet_count` ;
+  `GET /observed-subnet?segment_id=&subnet=` : fiche (segment, CIDR,
+  explication en clair, relais, chaque IP avec origine, sens, volumes,
+  services, échanges).
+- Hub, Exploration réseau : colonnes Origine / IP distantes / Via, clic sur
+  un sous-réseau → fiche sous le tableau.
+- BACKLOG : items 65 (fiche sous-réseau, livré ici), 66 (agent hôte :
+  découverte passive + revue de l'hôte), 67 (catalogue de positions, base
+  OSM déplaçable sur un hôte secondaire) enregistrés en #426.
+
+**Vérifié** : 4 tests nouveaux + 10 existants (network-agent), rendu hub
+sur faux back-end. **Non vérifié** : capture réelle -- à confirmer au
+déploiement (la passerelle garde son IP, le LAN immédiat apparaît en
+« local »).
+
+## 2026-09-08 — Géolocalisation par le nom : « UPS-Arobase-5 » se place sur le site Arobase 5 / @5, correspondances persistées, validées d'office et corrigeables (livraison #426)
+
+Demandé sur la tuile Supervision SI : un équipement dont le nom contient
+un lieu et un type ne doit plus tomber sur la position de repli mais sur
+la géolocalisation du lieu ; passe sur les fronts et les API pour que
+noms et sites produisent une position ; la liste des localisations à
+valider persiste, l'automatique est validé par défaut (référence
+orthographiquement ou sémantiquement proche = position). Voir
+`docs/geolocalisation-par-nom.md`.
+
+- `pixel-grid/api/name_resolver.py` (pur, 9 tests) : alias déclarés,
+  équivalences sémantiques (`@`/`arobase`, `tp`/`batiment`, `bat`/`bâtiment`,
+  `cinq`/`5`…), proximité orthographique sur les jetons (types
+  d'équipement retirés du nom, mots génériques peu pesants, chemin complet
+  et dernier segment), nombres contraints (Arobase-5 ≠ Arobase 3) ; seuils
+  auto ≥ 0,75, suggestion ≥ 0,5. Le site déclaré prime sur le nom, un alias
+  sur un calcul.
+- `pixel-grid/api/app.py` : tables `location_matches` et `location_aliases`
+  (CREATE IF NOT EXISTS, SQLite et PostgreSQL), `GET|POST /geolocations/resolve`
+  (lot persisté, décisions humaines jamais recalculées, `auto` réévalué),
+  `GET /geolocations/matches`, `PUT|DELETE /geolocations/matches/<sujet>`
+  (validated / rejected / manual, droit *manage*), `/geolocations/aliases`
+  ; Dockerfile : `COPY name_resolver.py` ; 5 tests de routes.
+- Hub, Supervision SI : résolution en lot à chaque changement de la liste
+  (sujets = identités du hub + nœuds `site:`), position de source « nom »
+  (liseré gris) avant liens et repli, colonne Site avec localisation
+  résolue et statut, fiche « Liens et positions » avec candidats et
+  actions, nouveau cadre **« Localisations »** (filtres, compteurs, valider
+  / rejeter / auto / choisir, alias) ; `groups` transmis pour le droit
+  *manage* ; test ajouté (121 au total).
+- Ancienne maquette, Fusion IP/MAC : bouton « Géocoder via le nom d'hôte »
+  (mêmes sujets `ip:<ip>` que le hub), Position « ≈ localisation ».
+- relations-api : sites de tickets résolus par pixel-grid avant la
+  proximité géographique ; pixel-grid-bridge : chemin `localisation`
+  inconnu résolu avant le repli `__default__` (`localisation_resolue`).
+
+**Vérifié** : tests Python (14) et Node (121), build Vite du hub, chaîne
+réelle hub ↔ pixel-grid-api (Flask sur SQLite) dans le harnais avec clic
+« valider », rendu clair/sombre, syntaxe de l'ancienne maquette, relations
+et pont sous mock. **Non vérifié** : PostgreSQL, builds Docker, vrais
+noms du parc (listes `TYPE_TOKENS` / `SEMANTIC` à enrichir).
+
+## 2026-09-08 — Tuile « Bases externes » : IPAM, Zenoss, Optick, TTS-GU et Cacti promus dans le hub en une vue générique (livraison #425)
+
+Backlog 64, point (4), suite : les cinq onglets « bases externes » de
+l'ancienne maquette (racines à gauche, arbre radial au centre, JSON à
+droite) partageaient un même contrat d'API lecture seule (`/health`,
+`/roots`, `/tree/<id>`) ; ils deviennent UNE tuile du hub au lieu de cinq
+écrans quasi identiques. Voir `docs/bases-externes.md`.
+
+- `hub/src/externalBases.js` (logique pure, 6 tests, 120 au total) :
+  sources disponibles selon les URL configurées, parcours et compteurs,
+  chemin, filtre texte insensible aux accents conservant ancêtres ET
+  descendants du match, « actifs seulement » IPAM (sous-réseaux inactifs
+  sans descendant actif retirés), profondeur bornée avec nœud « … +N »
+  dépliable, fiche du nœud, occupation IPAM et ses seuils, tri et
+  compteurs des racines.
+- `hub/src/ExternalBasesView.jsx` + `externalBasesClient.js` : onglets par
+  source (dernier mémorisé), colonne de racines filtrable (première ouverte
+  d'office), arbre radial zoomable (`radialLayout` réutilisé de #424,
+  couleur par type, anneau d'occupation), filtre, profondeur, fiche avec
+  chemin, enfants cliquables et JSON `raw`, lien « ancienne maquette »
+  (OwnCloud et fusion IP/MAC y restent pour l'instant), bandeau d'état
+  `/health`. Le changement d'onglet annule proprement les chargements en
+  cours (pas d'arbre d'une base demandé à l'autre).
+- `hub/src/App.jsx` : tuile « Bases externes » et entrée du menu Général,
+  visibles dès qu'une des cinq `VITE_*_API_BASE_URL` est définie ;
+  `docker-compose.yml` : ces variables ajoutées au service `hub` (mêmes
+  valeurs que pour `frontend`).
+
+**Vérifié** : tests Node, build Vite du hub, rendu Chromium sur harnais
+(faux back-end aux cinq sources, clair/sombre, filtre, onglets, fiche).
+**Non vérifié** : les API réelles derrière la passerelle, build Docker.
+
+## 2026-09-08 — Supervision SI : outils de l'ancienne maquette redistribués dans la tuile (timeline, mosaïque, calendrier, arbre radial, corbeille) (livraison #424)
+
+Backlog 64, point (4). « Ses outils actuels se retrouveront distribués
+dans les tuiles » : les outils de dataviz de la maquette initiale
+reviennent comme **contenus de cadre** de la tuile refondue, nourris par
+les historiques des tuiles (relevés smokeping, relevés UPS, risques des
+agents) au lieu de JSON versés à la main. Voir `docs/supervision-si-tuile.md`.
+
+- `hub/src/supervisedHistory.js` (logique pure, 6 tests) : points d'état
+  depuis chaque origine, segments contigus avec trous « inconnu » et
+  fusion, créneaux (pire état), calendrier de densité avec seuils
+  vert / orange / rouge, hiérarchie site → type → équipement et disposition
+  radiale sans dépendance (moyenne angulaire circulaire), corbeille
+  (cochés > priorisés > premiers visibles, bornée à 12).
+- `supervisedHistoryClient.js` : historiques par équipement fusionné
+  (toutes ses origines), tolérant aux pannes.
+- `SupervisionSiView.jsx` : quatre nouveaux contenus de cadre (timeline
+  zoomable, mosaïque, calendrier, arbre radial), case « corbeille » devant
+  chaque supervisé, fenêtre 6 h / 24 h / 7 j / 30 j, préférences
+  `hub.supervision.selection` / `.window`.
+- Reste de l'ancienne maquette (onglets sur bases externes : IPAM, Optick,
+  TTS-GU, Zenoss, Cacti, OwnCloud, Fusion IP/MAC, géomatique) : tuiles à
+  part entière, inscrites au backlog ; l'ancien front reste joignable.
+
+**Vérifié** : 6 tests (114 sur le hub), build Vite, rendus Chromium des
+quatre outils en 4 cadres sur faux back-end avec historiques (incident
+visible sur les trois outils temporels), thème sombre ; contrat de
+`ZoomableChart` (viewBox) corrigé après un rendu vide.
+
+**Non vérifié** : vraies API (volumes et formes réelles des relevés
+`/smokeping/samples` et `/ups/<id>/readings` sur des données de
+production), build Docker du hub.
+
+## 2026-09-08 — Supervision SI refondue : colonne Propositions / Supervisés / Liens, page centrale en 1 à 4 cadres, carte et positions déduites (livraison #423)
+
+Backlog 64, premier volet (points 1 à 3 : agrégation, colonne gauche,
+cadres). « La tuile actuelle était la maquette initiale de la dataviz du
+hub ; elle doit changer radicalement ». Tranché : dans le hub, Propositions
+= orchestrateur + vigilance + découverts à cocher, Liens = liens
+automatiques donnant l'accroche géographique. Voir
+`docs/supervision-si-tuile.md`.
+
+- `hub/src/supervisedItems.js` (logique pure, 8 tests) : agrégation
+  « supervisés » depuis netprobe (cibles + dernier relevé, sondes WiFi),
+  UPS, agents hôtes, SNMP, tunnels SSH, fusionnée par identité IP/MAC
+  (état connu le pire, origines conservées) ; propositions (suggestions
+  ouvertes, signaux, appareils non supervisés) ; filtre et priorisation
+  persistée ; liens (flux, tunnels, sites) et **positions déduites** par
+  les liens (moyenne pondérée itérée, profondeur ≤ 3, site prioritaire,
+  repli `__default__`) avec chaîne de déduction ; dispositions 1–4 cadres.
+- `hub/src/SupervisionSiView.jsx` : colonne gauche à onglets, page
+  centrale en cadres (carte Leaflet/OSM, table, liens, propositions,
+  synthèse), préférences `hub.supervision.*`, sources injoignables
+  signalées sans bloquer, lien « ancienne maquette » et mode onglets
+  conservés jusqu'à la redistribution des outils (point 4, à suivre).
+- `App.jsx` : la tuile `supervision` (même identifiant et même rôle que
+  le front historique) ouvre désormais la vue interne ;
+  `VITE_PIXEL_GRID_API_BASE_URL` ajouté au hub (géolocalisations) ;
+  dépendances `leaflet` / `react-leaflet` dans `hub/package.json`.
+
+**Vérifié** : 8 tests (108 au total sur le hub), build Vite, rendus
+Chromium sur faux back-end (2/3/4 cadres, Propositions, Liens avec
+chaîne, thème sombre) ; bug réel trouvé au rendu : Leaflet ne suit pas le
+redimensionnement d'un cadre (marqueurs hors champ) → `ResizeObserver` +
+`invalidateSize`.
+
+**Non vérifié** : tuiles OSM (pas de réseau dans le bac à sable), vraies
+API réunies, volumes réels, build Docker du hub avec les nouvelles
+dépendances.
+
+## 2026-09-08 — si-agent : déploiement et contrôle des sondes sécurisés, blocage général / individuel, journal d'événements, notifications, synthèse sur le hub (livraison #422)
+
+Demandé : « sécuriser le déploiement et le contrôle des sondes, ssl, logs
+verbeux, notifications et présenter une synthèse des événements sur le
+hub, ajouter une commande de blocage général et une autre individuelle ».
+Backlog 63. Logique partagée agent / central dans
+`si-agent/agent/si_agent/control.py` (copié au build, jamais réimplémenté).
+
+- **Réponses signées du central** : le protocole netprobe authentifiait
+  l'agent, pas le central -- configuration et commandes n'étaient
+  protégées que par TLS. Chaque réponse de la face agents porte désormais
+  un HMAC (secret de l'agent, horodatage + SHA-256 du corps) ; l'agent
+  refuse toute réponse non signée ou altérée (événement critique), même
+  derrière `insecure`. Rejeu neutralisé : `issued_at` monotone, commandes
+  mémorisées. Tests : central non signé, corps altéré, mauvais secret,
+  rejeu de configuration et de commande -- rien ne s'exécute.
+- **Sondes confinées** : environnement minimal, session propre (le délai
+  tue tout le groupe), priorité abaissée, limites CPU / mémoire /
+  fichiers, umask 077, exécution en `nobody` quand l'agent est root sauf
+  sonde `privileged` -- drapeau couvert par la signature du central et
+  journalisé ; `docker-containers` devient privilégiée, `network-neighbors`
+  non. Sondes antérieures normalisées en 0755 au démarrage (trouvé en
+  testant sur la base de #421 : `Permission denied` pour `nobody`).
+- **Blocage général et individuel** : commandes `block_all` /
+  `unblock_all` / `block_plugin` / `unblock_plugin`, configuration
+  déclarative (`blocked`, manifeste `blocked`), fichier local
+  `/etc/si-agent/BLOCKED` et `--block` / `--unblock` sur place ; le plus
+  restrictif gagne, persistant, la surveillance de l'hôte continue.
+  Central : `POST /block` (flotte : réglage global + commande immédiate à
+  chaque agent), `/unblock`, `/agents/<id>/block|unblock`, sonde bloquée
+  par affectation. Tuile : bouton rouge « Blocage général », bandeau tant
+  qu'actif, « Bloquer » par agent, case par sonde, état confirmé par
+  l'agent (inventaire).
+- **TLS** : `GET /ca` sert `pki/ca/ca.crt` (monté seul, jamais la clé) ;
+  commande d'installation avec `--ca-fingerprint <sha256>` : `install.sh`
+  récupère la CA et ne l'installe que si l'empreinte correspond.
+  `insecure` signalé au central (événement, tuile). HTTP clair averti.
+- **Traces verbeuses** : agent `log_level` / `--verbose` / `log_file`
+  (requêtes, sondes, commandes) ; central `SI_AGENT_LOG_LEVEL`, refus
+  toujours journalisés + événement `auth-refused` (anti-tempête 10 min).
+- **Journal d'événements** : mesure `event` remontée par les agents
+  (démarrage, configuration, sondes installées / refusées / en échec,
+  blocages, rejeux, TLS…) + événements du central (enrôlement, rotation,
+  catalogue, affectations, blocages, commandes en échec, refus, agent
+  hors ligne / de retour par chien de garde 30 s). `GET /events`,
+  `/events/summary`, onglet « Événements » (filtres, sécurité, clic →
+  agent), **bandeau de synthèse sur l'accueil du hub**
+  (`SiAgentEventsBanner.jsx`).
+- **Notifications** : `si-agent/api/notify.py` -- SMS / courriel par la
+  COPIE de `shared/secrets_alert.py` (canaux du PRA #206, variables
+  `SECRETS_ALERT_*` désormais dans `.env.example` et passées au
+  conteneur), webhook `SI_AGENT_NOTIFY_WEBHOOK_URL` ; seuil
+  `SI_AGENT_NOTIFY_MIN_SEVERITY`, anti-tempête
+  `SI_AGENT_NOTIFY_COOLDOWN_SECONDS`, thread, best-effort, résultat
+  mémorisé sur l'événement, `POST /notifications/test` et bouton « tester ».
+- Schéma : colonnes ajoutées par `ALTER TABLE` idempotent (migration
+  vérifiée sur la base réelle de #421). Agent v0.2.0.
+
+**Vérifié** : 22 tests agent (dont exécution réelle confinée en `nobody`
+et délai tuant le groupe de processus), 9 tests central (blocage de
+flotte puis individuel avec deux vrais agents, chien de garde + webhook
+réel, `/ca` avec vraie CA), 100 tests hub (10 pour la tuile), builds Vite
+hub et harnais, chaîne par HTTP réel (agent `--once` DEBUG, blocage /
+déblocage / blocage d'une sonde, webhooks reçus), rendus Chromium
+(bandeau de blocage, journal, synthèse sur l'accueil), `docker-compose.yml`
+valide.
+
+**Non vérifié** : `install.sh --ca-fingerprint` de bout en bout (son
+extrait Python testé contre le vrai `/ca`), systemd, Raspberry Pi, build
+Docker, passerelle TLS réelle, canaux SMS / courriel réels.
+
+## 2026-09-07 — si-agent-api : central des agents hôtes + tuile « Agents hôtes » (livraison #421)
+
+Backlog 63, second volet, contre le contrat décrit en #420. Demandé :
+« inventaire des sondes… inventaire des agents / tableau de bord ».
+
+`si-agent/api/` (Flask + SQLite, port 6129, `/api/si-agent/` dans
+tls-proxy, service compose `si-agent-api`, clés `SI_AGENT_*`) :
+
+- **Flotte et enrôlement** : secret HMAC par agent généré ici (même motif
+  que netprobe #406), renvoyé seulement à la création, à la rotation et par
+  `GET /agents/<id>/install` (commande `install.sh` prête à coller, avec
+  `SI_AGENT_PUBLIC_URL`) ; désactiver un agent = refuser ses requêtes.
+- **Face signée** (`/api/v1/...`, préfixe retiré par tls-proxy) :
+  configuration versionnée (empreinte des réglages + sondes affectées),
+  commandes en attente + acquittement, dépôt des mesures dédupliquées
+  sur (agent, tâche, instant), `agent_id` étranger rejeté.
+- **Catalogue de sondes** : manifeste validé par la MÊME fonction que
+  l'agent (`si_agent/plugins.py` copié au build, jamais réimplémenté),
+  corps du script en base, signature HMAC calculée par agent au moment de
+  pousser ; retirer du catalogue → `remove_plugins` chez les agents.
+- **Vues** : `/fleet` (résumé de la dernière mesure hôte, dernier état de
+  risques, en ligne / hors ligne / jamais vu, commandes en attente, sondes
+  affectées), `/risks` (constats de toute la flotte à plat), dernière
+  mesure par tâche, historique, aperçu de configuration et « appliquée ? ».
+  Purge au-delà de `SI_AGENT_RETENTION_DAYS` en gardant la dernière mesure
+  de chaque tâche.
+
+Hub, tuile **« Agents hôtes »** (menu Réseau, `VITE_SI_AGENT_API_BASE_URL`,
+`SiAgentView.jsx` + logique pure `siAgent.js`) : flotte triée par urgence
+avec jauges CPU / mémoire / disque, enrôlement (secret affiché une fois),
+détail par agent en sections (risques, système, disques, ports, services,
+journal, sondes catalogue ↔ hôte, commandes et résultats, réglages
+poussés), onglet risques de la flotte, catalogue de sondes avec éditeur de
+script et validation miroir de l'agent. Manifestes des sondes livrées :
+`"source": "bundled"` explicite.
+
+Contrat corrigé en construisant le central : `GET …/commands` renvoie
+`{commands: [...]}` (ce que l'agent lisait déjà) — README aligné.
+
+**Vérifié** : 5 tests du central dont la CHAÎNE RÉELLE (vrai agent ↔ vrai
+central via client Flask signé : configuration appliquée, sonde du
+catalogue signée / installée / exécutée avec arguments, mesures reçues,
+commande acquittée, retrait → désinstallation, corps altéré → refusé) ;
+même chaîne par HTTP réel (central sur 6302, agent `--once` du conteneur,
+mesures et acquittement visibles dans `/fleet` et `/agents/<id>/commands`) ;
+16 tests agent ; 98 tests hub (8 nouveaux) ; builds Vite hub et harnais ;
+rendus Chromium sur ces données réelles (flotte, détail, catalogue,
+enrôlement, thème sombre) — un bug réel trouvé et corrigé au rendu :
+attribut `pattern` invalide (tiret non échappé) ; `docker-compose.yml`
+valide, sources `COPY` présentes, route tls-proxy rendue.
+
+**Non vérifié** : build Docker de `si-agent-api`, passerelle TLS réelle,
+`install.sh` / systemd sur une vraie machine.
+
+## 2026-09-07 — si-agent : agent hôte Linux et moteur de sondes, v0 (livraison #420)
+
+Backlog 63, premier volet. Demandé : « une sonde linux… un agent qui
+permette d'auditer le host et sa zone réseau… déployer des sondes futures
+en python ou en shell/bash », précisé par « l'agent host surveille le host
+(cpu, disque, mémoire, log, risques internes) et il sert de machine-moteur
+pour la gestion de plugin/sonde ». Décision de la personne : nouveau paquet
+`si-agent/`, distinct de `netprobe/agent`.
+
+`si-agent/agent/` — Python 3 sans dépendance, service systemd, `install.sh`
+(`--agent --secret --central [--site --ca|--insecure --enable-plugin]`) :
+
+- **Surveillance de l'hôte** (`si_agent/host.py`, mesure `host` toutes les
+  60 s) : système (OS, noyau, modèle CPU/Raspberry, uptime, redémarrage
+  requis), CPU (% sur l'intervalle, charges), mémoire/swap, disques (montages
+  réels, pseudo-fs écartés), unités systemd en échec, ports en écoute avec
+  processus et exposition, erreurs du journal 24 h (journald sinon syslog),
+  comptes (sudoers, interactifs, UID 0 hors root), outils disponibles. Une
+  source absente est listée dans `partial` et la mesure passe `ok: false`.
+- **Risques internes** (`si_agent/risks.py`, mesure `risks`) : constats purs
+  disk-full/high, memory-high, swap-high, load-high, reboot-required,
+  recent-boot, service-failed, port-exposed (liste courte de ports
+  sensibles), uid0-account, log-errors ; seuils locaux puis du central.
+- **Moteur de plugins/sondes** (`si_agent/plugins.py`) : manifeste + script
+  shell ou Python, intervalle et délai propres, sortie JSON, mesure
+  `plugin:<id>`. Deux origines : `bundled` (livrés, désactivés) et `central`
+  — **jamais écrit sur le disque sans sha256 et signature HMAC valides**
+  (secret de l'agent). La configuration locale l'emporte sur l'activation
+  décidée par le central. Plugins livrés : `network-neighbors` (shell, zone
+  réseau : voisins ARP/NDP, sous-réseaux, balayage ping optionnel) et
+  `docker-containers` (python).
+- **Boucle** (`si_agent/agent.py`) : file SQLite locale, envoi signé par
+  lots (protocole netprobe : `protocol.py`/`localqueue.py` copiés, vérifiés
+  identiques par `sync-shared.sh --check` et un test), configuration
+  versionnée du central (intervalle, seuils, plugins à installer/retirer),
+  commandes acquittées (collect_now, run_plugin, enable/disable/remove_plugin,
+  flush). CLI `--status` (derniers risques relus dans la file, donc valable
+  depuis un autre processus que le service), `--collect`, `--once`.
+
+Le contrat HTTP attendu du central est documenté dans `si-agent/README.md`
+pour construire `si-agent-api` et la tuile « Agents » (#421) contre lui.
+
+**Vérifié** : `python3 -m unittest` (16 tests : collecteurs sur contenus
+réels capturés, risques, signature et exécution réelle de scripts bash et
+Python, faux central avec plugin signé accepté / non signé refusé,
+commandes, panne réseau → file puis rattrapage, refus 401, copies
+partagées) ; collecte réelle sur un conteneur Ubuntu 24.04 (`partial:
+["ss"]`, disque à 88 % → `disk-high`) ; `--once` avec le plugin
+`network-neighbors` réel ; `--status` depuis un processus séparé.
+
+**Non vérifié** : `install.sh` et le service sur une vraie machine
+(systemd absent ici), Raspberry Pi, le central (n'existe pas encore).
+
+Numéro #419 non utilisé (le commit de documentation du backlog 63/64 n'a
+pas incrémenté le compteur) — on passe de #418 à #420.
+
+## 2026-09-07 — Cycle agile : actions suggérées cliquables vers l'outil, exécution en un clic ou automatique (livraison #418)
+
+Retour de tests : « action suggérée ⇒ cliquable et renvoie vers l'outil
+préconisé, et case à cocher pour simplement lancer la préconisation en
+automatique si c'est possible ».
+
+`hub/src/cycleActions.js` (logique pure, 7 tests) : table de correspondance
+entre les identifiants de l'orchestrateur (`suggested_action`,
+`action_params`, #388) et l'outil du hub + la séquence d'API qui exécute
+l'action sans saisie quand c'est possible. `netprobe_nmap_scan` :
+cible netprobe créée ou retrouvée depuis l'IP → scan nmap → suggestion
+marquée traitée (jamais marquée si le scan échoue) ; `snmp_register_target`
+: renvoi vers SNMP seulement (la communauté est un secret à saisir) ;
+identifiant inconnu : affiché brut. Clients injectés, testés avec des
+faux (succès, échec de scan, cible existante, exception réseau, refus).
+
+Étape Décider (`NetworkCycleView.jsx`) : bouton « 🔎 Scan actif nmap →
+Sondes réseau » (navigation), « ▶ Lancer » avec résultat en ligne (ports
+ouverts, ou échec explicite et relançable), case « Lancer automatiquement
+les préconisations exécutables » (préférence locale, **désactivée par
+défaut**) : les nouvelles suggestions exécutables sont lancées en série
+puis l'étape rechargée. Outil non configuré = bouton grisé, jamais
+exécuté. Messages longs passés à la ligne dans le tableau.
+
+**Vérifié** : 90 tests Node, build Vite réel, rendu réel Chromium (faux
+orchestrateur + faux netprobe) : lancement, « en cours… », résultat
+« 2 port(s) ouvert(s) (22, 443) ». **Non vérifié** : un scan réel via
+netprobe-api (même appel que le bouton « Scanner » de Sondes réseau).
+
+Deux autres demandes de la même série sont **cadrées au backlog** (63 :
+agent Linux d'audit / relais / sondes extensibles ; 64 : refonte de la
+tuile Supervision SI en colonne à onglets + page centrale en 1 à 4
+cadres) -- chantiers majeurs, découpage proposé, questions posées avant
+de coder.
+
+## 2026-09-07 — UPS : prise en charge des cartes SOCOMEC Net Vision v6 (page « Synthèse ASI » en JavaScript) (livraison #417)
+
+Suite de #416 : la personne a fourni les pages RÉELLES d'une carte Net
+Vision v6.01 (ITYS 3 kVA) -- frameset `Logo.html` / `Menu.html` /
+`PageMonComprehensive.html`, menu écrit en JavaScript, et une « Synthèse
+ASI » qui n'a pas la forme « Libellé: valeur » : lignes HTML `<TD
+ID=TH1>Libellé (unité)</TD>` + valeur dans une table imbriquée, et lignes
+écrites par `CheckParameter("valeur", drapeau, "Libellé<i> (unité)</i>")`
+dans des `<script>`. Le suivi des frames de #416 arrivait bien sur la bonne
+page, mais elle donnait « aucun champ reconnu ».
+
+**Parseur** (`ups_parser.py`) : le collecteur garde désormais lignes ET
+scripts dans l'ordre du document et gère les cellules imbriquées ; seconde
+forme reconnue (`flavor: "netvision-v6"`) -- cellules d'en-tête `TH*`/`<th>`,
+appels `CheckParameter`, unité prise dans le libellé quand la valeur n'en a
+pas, `<SUP>o</SUP>C` → °C, `(dd/mm/yyyy)` = format et non unité, `<BR>` =
+valeur non disponible (champ conservé, vide), modèle et numéro de série
+lus dans le script d'en-tête, section = `SetSubTitle`, heure de l'appareil
+= Date + Heure Net Vision. Libellés français normalisés vers les mêmes clés
+que la page anglaise (timeline commune) ; « État de l'ASI » entre dans
+l'état global (« Utilisation sur Onduleur » = normal, autre = alarme).
+`display_value` ajoute l'unité quand la page ne l'écrit pas (résumé de la
+liste, fiche). La page « UPS Management Web » (#415) est parsée à
+l'identique (non-régression : mêmes 14 champs).
+
+**Hub** : libellés français des nouvelles clés (État de l'ASI, autonomie,
+tension batterie, température, numéro de série, date/heure de l'appareil),
+unité affichée dans la fiche, température & co dans les courbes.
+
+**Vérifié** : 24 tests Python (4 nouveaux sur les pages réelles : 12
+champs, unités, état, chaîne complète depuis `/index.htm` en 4 lectures
+puis 1 seule avec « Page » fixée, archivage et série), 83 tests Node, build
+Vite réel, chaîne réelle : API + faux Net Vision (4 pages, Basic) + tuile
+dans Chromium -- fiche complète affichée. **Non vérifié** : la carte
+réelle elle-même (pages identiques à celles fournies, mais le `charset`
+HTTP réel n'est pas connu -- si des accents sortent mal, me le dire).
+
+## 2026-09-07 — UPS : suivi des frames quand la page d'état est un conteneur (livraison #416)
+
+Retour de tests immédiat sur #415 : « une partie des onduleurs répond avec
+une frame et l'extraction est en échec ». Sur ces cartes, `/index.htm` est
+un `<frameset>` (HTML 4) qui ne contient aucun champ : la fiche est dans une
+sous-page (`ups_status.htm` ou équivalent).
+
+**Correctif** (`ups-monitor/api/poller.py`, `ups_parser.py`) : quand la page
+demandée n'a aucun champ, `fetch_status_page` suit les `<frame>`, `<iframe>`
+et redirections `<meta http-equiv="refresh">` -- en largeur d'abord, dans
+l'ordre du document, **même hôte seulement**, 2 niveaux et 6 sous-pages au
+plus (jamais une boucle), avec les mêmes identifiants Basic -- et retient
+la première sous-page qui contient des champs. Le chemin effectif est
+archivé (`ups_readings.resolved_path`, `ups_devices.last_resolved_path`,
+colonnes ajoutées par `ALTER TABLE` tolérant pour une base créée en #415)
+et affiché dans la tuile (« lue dans la frame /ups_status.htm ») ainsi que
+dans « Tester la requête », avec le conseil de mettre ce chemin dans
+« Page » pour économiser les lectures intermédiaires. Si aucune sous-page
+ne convient, l'erreur liste les pages essayées et leur titre pour fixer
+« Page » à la main.
+
+**Vérifié** : 20 tests Python (6 nouveaux : sources extraites, frameset suivi
+jusqu'à la fiche avec Basic sur chaque sous-page, page directe sans lecture
+inutile, meta refresh + borne de profondeur, autre hôte ignoré et échec
+partiel expliqué, chemin archivé/conservé + migration de schéma), 82 tests
+Node, build Vite réel, chaîne réelle : API + faux onduleur « frameset »
+(conteneur → menu → page d'état) relevé et affiché dans Chromium.
+**Non vérifié** : vos cartes réelles -- si l'une échoue encore, l'erreur
+donne les pages essayées ; une copie de la source de son `/index.htm`
+(et de la frame d'état) permettra d'ajuster.
+
+## 2026-09-07 — Nouvelle tuile « Onduleurs (UPS) » : liste, automate de relevé HTTP, fiche d'état, archive et timeline (livraison #415)
+
+Demandé en urgence : « un automate / cron ; une liste d'onduleurs / site /
+IP / user / password ; en version 0 une requête HTTP du genre
+`http://user:password@ip/index.htm` qui retourne la page ; d'où on extrait
+une fiche d'état avec tous les champs présentés, en tableau ; données
+archivées et présentées à la demande en timeline ; fréquence initiale
+(paramétrable) 1 heure ».
+
+**Nouveau module `ups-monitor/`** (`ups-monitor-api`, port 6128, route
+`/api/ups`, README détaillé) :
+- `store.py` -- `ups_devices` (la liste, fréquence propre optionnelle,
+  état dénormalisé du dernier relevé) et `ups_readings` (archive : un
+  relevé par requête, réussie ou non, fiche complète en JSON + colonnes
+  extraites), SQLite, cascade, purge (`UPS_HISTORY_RETENTION_DAYS`, 365).
+- `ups_parser.py` -- parseur de la page « UPS Management Web » copiée par
+  la personne (Socomec NETYS RT) : sections `class="title"`, champs
+  « Libellé: » + valeur, heure système, nombres avec unité (virgule
+  décimale acceptée), clés stables pour les 14 libellés connus, clé
+  dérivée pour tout libellé inconnu (jamais perdu). État global
+  ok / alarm / unknown d'après Communication, Output Source, Battery.
+- `poller.py` -- l'automate : thread de fond, passage par minute, chaque
+  onduleur relevé quand son intervalle (propre, sinon
+  `UPS_POLL_INTERVAL_SECONDS` = 3600) est écoulé depuis `last_polled_at`
+  en base. Requête GET + **HTTP Basic** construite depuis utilisateur /
+  mot de passe (ce que le navigateur fait de `user:password@`), `urllib`
+  stdlib, délai 10 s, 512 Ko max. Erreurs explicites archivées (401,
+  injoignable, « page reçue mais aucun champ reconnu »). gunicorn à UN
+  worker, volontairement.
+- `credential_crypto.py` -- mots de passe chiffrés au repos comme
+  snmp-api (#213) si `UPS_CRED_PASSPHRASE` / `UPS_CRED_SALT` sont fournis ;
+  sinon (urgence) stockage en clair SIGNALÉ par `/status` et dans la
+  tuile, rechiffrement à la première modification une fois configuré,
+  jeton conservé si la phrase disparaît. Jamais renvoyé par l'API.
+- Routes : `/ups` CRUD, `/ups/<id>/poll` (relever maintenant),
+  `/ups/test` (essayer une saisie sans enregistrer), `/ups/<id>/readings`
+  (timeline), `/ups/<id>/series?key=` (courbe), `/status`, `/logs`.
+- Câblage : `docker-compose.yml`, `.env.example`, `tls-proxy`
+  (ajouté dès la première livraison, piège #301), Dockerfile avec chemins
+  racine (piège #409).
+
+**Hub** : `UpsView.jsx` + `upsClient.js` + `upsMonitor.js` (logique pure,
+7 tests) -- tuile d'accueil et entrée du menu Réseau ▾ (conditionnées à
+`VITE_UPS_API_BASE_URL`). Liste (état coloré, âge du relevé, résumé
+« 236 V → 229 V · charge 8 % · batt. 100 % », fréquence, ⟳ ✎ 🗑 en colonne
+collante), formulaire replié avec « Tester la requête », fiche d'état en
+tableau (champs principaux d'abord, libellés français, valeurs d'état
+colorées), timeline : fenêtre 24 h / 7 j / 30 j / tout, courbe d'un champ
+numérique (enveloppe de zoom #413), tableau des relevés avec les
+changements en évidence et les échecs datés.
+
+**Vérifié** : 14 tests Python (parseur sur la page réelle, store,
+automate, routes `test_client`, vrai serveur HTTP Basic local, chiffrement),
+82 tests Node du hub (7 nouveaux), build Vite réel du hub, **chaîne
+complète réelle** : API Flask lancée + faux onduleur servant la page
+copiée derrière Basic + tuile dans Chromium (Playwright) -- création, test,
+relevés, fiche, courbe, onduleur injoignable en erreur, aucune erreur
+console. Mac injoignable pendant ce développement : construit en cloud,
+committé dès la reconnexion.
+
+**Non vérifié** : un onduleur réel (autre carte = autre page possible,
+le parseur le dit), le build Docker et tls-proxy en conditions réelles.
+Suite (backlog 62) : autres pages de la carte, SNMP UPS-MIB, alertes, seuils.
+
+## 2026-09-07 — Flux : fenêtre temporelle, volume min/max, sous-réseau /16 → /28 (livraison #414)
+
+Retour de tests : « des options de filtrage sur ce qui peut l'être, ex :
+fenêtre temporelle, min/max flux, réseau /24 /16… ». Trois filtres de plus
+sur les visualisations de flux, dans la même barre que ceux de #412, même
+logique pure (`hub/src/networkFlowFilters.js`, 14 tests) appliquée avant
+les deux vues.
+
+**Fenêtre temporelle** -- côté API, `GET /links?segment_id&start&end`
+(`network-agent-api`) renvoie les volumes échangés PENDANT la période, par
+différence entre le dernier relevé ≤ `end` et le dernier relevé ≤ `start`
+pour chaque service d'une paire, sommés par paire
+(`store.list_device_links_for_period`, 5 tests unittest sur base SQLite
+réelle) -- même principe que `/devices/for-period` (#394) : un compteur
+cumulatif ne répond pas à « combien pendant », seule une différence le
+fait. Une paire apparue pendant la période compte son cumul entier ; une
+paire sans relevé dans la période est omise ; `start`/`end` vont ensemble
+et dans l'ordre (400 sinon). Côté hub, la **période déjà choisie pour le
+tableau** s'applique aussi aux flux (un seul réglage, rappelé dans la
+barre : « ⏱ du … au … » ou « cumul depuis le début de la capture ») ;
+message explicite si aucun relevé ne tombe dans la période.
+
+**Volume min / max** -- bornes absolues en Ko (vide = pas de borne,
+permutées si inversées, saisie invalide ignorée), en complément de la
+tranche de pourcentage (#412) : « au moins 500 Ko » ne dépend pas du
+volume total, contrairement à « au moins 5 % ».
+
+**Sous-réseau** -- longueur de préfixe /16, /20, /24 ou /28, liste des
+sous-réseaux présents parmi les appareils affichés (avec l'effectif,
+calculée côté client à partir des dernières IP, IPv4), puis « flux
+internes » (les deux appareils dedans) ou « flux touchant » (au moins un).
+Arithmétique de préfixe maison, sans dépendance.
+
+Résumé complété (« k hors volume », « j hors sous-réseau ») ; ✕
+Réinitialiser couvre tous les filtres.
+
+**Vérifié** : 75 tests Node du hub, 5 tests Python (store) + 5 (identité),
+build Vite réel du hub et de network-explorer, rendu réel Chromium de la
+barre de filtres (sous-réseau /24 sélectionné, modes) sans erreur console.
+**Non vérifié** : la route `/links?start&end` en HTTP (Flask absent ici --
+la fonction de store l'est, sur données réelles en base) ; l'affichage avec
+une vraie période (le harnais n'a pas d'historique de relevés).
+
+## 2026-09-07 — Zoom / loupe et modulation d'échelle sur tous les graphiques du hub (livraison #413)
+
+Retour de tests : « ajouter des options de zoom / loupe et de modulation
+d'échelle pour tous les graphiques ».
+
+**Zoom** -- nouvelle enveloppe `hub/src/components/ZoomableChart.jsx`,
+logique pure dans `hub/src/chartZoom.js` (7 tests) : boutons + / − / ⟲ et
+pourcentage, **Ctrl (⌘) + molette** = loupe ancrée sous le curseur (la
+molette seule continue de faire défiler la page : un graphique sur toute
+la largeur qui l'avalerait rendrait la page impraticable ; le pincement du
+pavé tactile envoie Ctrl), **double-clic** = ×2 sur le point cliqué,
+**glisser** = déplacement. Généralise le zoom du cycle agile (#399) à un
+viewBox d'origine quelconque (radial tree centré en 0,0) et aux deux modes
+`preserveAspectRatio` du hub (« meet » : une échelle, dessin centré ;
+« none » : une échelle par axe). Appliqué au graphe alluvial, au radial
+tree, aux barres d'historique (appareil et paire) et à la courbe de signal
+des sondes WiFi. Le graphique du cycle agile garde son zoom propre
+(molette simple, dans un cadre).
+
+**Échelle** -- `hub/src/chartScales.js` (5 tests) : linéaire / racine /
+log appliquée au ratio valeur ÷ maximum, plus un **gain** ×0.25 à ×4 sur
+la part au-dessus de l'épaisseur minimale (un flux existant reste visible
+quel que soit le réglage). Un seul réglage pour les deux vues de flux,
+mémorisé dans le navigateur (`hub.charts.scale`) ; échelle locale pour les
+barres d'historique (pas de gain : une hauteur n'a pas d'épaisseur).
+`alluvialLayout.js`, `weightedRadialLayout.js` et
+`networkAgentHistory.buildBarLayout` passent tous par `makeScale` /
+`scaleRatio` -- jamais deux formules divergentes.
+
+Au passage : le radial tree, **jamais rendu pour de vrai depuis #389**
+(« d3 inaccessible »), l'a été ici (Chromium/Playwright, d3 réel) : il
+fonctionne ; sa marge passe de 70 à 110 (libellés longs coupés au bord),
+et les deux vues de flux sont plafonnées à 900 px de large (le SVG
+s'étirait sur toute la largeur, traits de 40 px).
+
+**Correctif inclus** : `network-explorer/Dockerfile` copie désormais
+`networkFlowFilters.js` (oublié en #412 -- le build de CE conteneur aurait
+échoué, celui du hub non), `chartZoom.js`, `chartScales.js` et
+`ZoomableChart.jsx` -- piège documenté en #402, retombé dedans une fois de
+plus ; contrôle fait : chaque `import` de `NetworkAgentView.jsx` a sa ligne
+`COPY`, et le build Vite réel de network-explorer passe.
+
+**Vérifié** : 70 tests Node du hub (12 nouveaux), builds Vite réels du hub
+ET de network-explorer, rendu réel Chromium des deux vues de flux avec
+échelle log / racine, gain, zoom 125 %, sans erreur console. **Non vérifié** : rendu de la courbe de signal
+des sondes et des barres d'historique dans le navigateur (pas de données
+d'historique dans le harnais) -- même enveloppe, même code ; à regarder au
+premier usage.
+
+## 2026-09-07 — Exploration réseau : boutons de section en surbrillance, filtres des flux (hôte de supervision ↔ routeur, tranche de %) (livraison #412)
+
+Retour de tests : « mettre en surbrillance le bouton en plus de la bascule du
+symbole ; ajouter des options de filtrage, notamment réduire la visu des
+flux entre l'hôte de la supervision et le routeur ; filtre sur une tranche
+du % des flux du graphique ».
+
+**Surbrillance** : les boutons « Sous-réseaux découverts » et
+« Visualisations des flux » passent en couleur d'accent quand leur section
+est ouverte (`.na-section-toggle.active`, même convention que le menu du
+hub), en plus du chevron ▸/▾ ; `aria-expanded` posé.
+
+**Filtres des flux** (`hub/src/networkFlowFilters.js`, logique pure,
+9 tests), appliqués AVANT les deux vues (alluvial, radial) :
+- *Masquer hôte de supervision ↔ routeur* -- l'hôte est reconnu par la MAC
+  puis l'IP de l'interface de capture, que `network-agent-api` expose
+  désormais dans `GET /capture/status` (`interface`, `interface_mac`,
+  `interface_ip`, meilleur effort : sysfs + ioctl SIOCGIFADDR, `None` si
+  inconnu -- `capture.interface_identity`, 5 tests unittest) ; le routeur
+  est l'appareil au rôle deviné « passerelle probable (NAT/routeur) ». Un
+  sélecteur permet de choisir l'hôte à la main si la détection échoue
+  (conteneur sans mode réseau hôte, par exemple) ; la case est inactive
+  tant qu'aucune passerelle n'est devinée ou qu'aucun hôte n'est connu.
+- *Part du volume de X % à Y %* -- part de chaque flux dans le volume
+  TOTAL du segment, base stable (avant tout filtre), sinon la part de chaque
+  flux changerait à chaque case cochée. Saisie tolérante (bornée, min/max
+  permutés si besoin).
+- Résumé « N flux sur M · X % du volume · k hôte ↔ routeur masqué(s) ·
+  j hors tranche », bouton ✕ Réinitialiser.
+
+**Vérifié** : 58 tests Node du hub (9 nouveaux), 5 tests Python,
+`interface_identity` exécutée pour de vrai sur une interface réelle (MAC et
+IP lues) et sur sysfs simulé, build Vite réel, rendu réel Chromium
+(Playwright) avec un faux back-end : bouton en surbrillance, hôte détecté,
+flux hôte ↔ routeur masqué, tranche appliquée, aucune erreur console.
+**Non vérifié** : la détection de l'hôte dans le conteneur réel
+(`network_mode: host` attendu, sinon MAC absente → choix manuel) ; le
+Docker build (`capture.py` et `app.py` déjà copiés par le Dockerfile, aucun
+nouveau fichier de production).
+
+## 2026-09-07 — Cycle agile : deux zones, le clic sur un nœud déplie le détail en bas, schéma réductible et masquable (livraison #411)
+
+Retour de tests : « quand on clique sur l'une des icônes, les fonctionnalités
+se déplient sur la seconde moitié basse de l'écran ; le schéma/menu peut
+être réduit par défaut et autoriser une réduction manuelle, voire un
+masquage en laissant juste une languette pour le redéployer ; suggestion :
+seule la partie menu change entre classique et graphique ».
+
+**Disposition** (`NetworkCycleView.jsx`) : en haut le MENU -- barre d'étapes
+(Classique) ou schéma (Graphique), seule chose que les onglets changent --,
+en bas le DÉTAIL de l'étape courante, toujours présent. Le clic sur un nœud
+du schéma ne bascule plus en mode classique : il sélectionne l'étape (nœud
+marqué) et son détail se déplie dessous ; si ce détail commence sous la
+moitié basse de la fenêtre, la page défile juste assez (pas de
+`scrollIntoView`, dont « nearest » sortait le menu de l'écran au rendu réel).
+
+**Trois états du menu**, logique pure dans `hub/src/networkCycleLayout.js`
+(6 tests) : `reduced` par défaut (schéma ≈ 30 % de la fenêtre, légende
+masquée), `expanded` (≈ 50 %), `hidden` (une languette « ▸ Afficher le
+schéma / le menu du cycle · étape : … » rouvre le menu dans l'état d'avant
+le masquage). Commandes ▴/▾ (schéma seulement, la barre classique est déjà
+compacte) et ✕. Onglet et état mémorisés dans le navigateur
+(`hub.cycle.layout`, lecture tolérante). Chargement, rafraîchissement
+automatique et écoute de la molette conditionnés à la visibilité réelle du
+schéma.
+
+**Vérifié** : 49 tests Node du hub, build Vite réel, rendu réel Chromium
+(Playwright) des états réduit / grand / masqué, clic sur un nœud, languette,
+aucune erreur console. **Non vérifié** : le ressenti sur l'écran de la
+personne (la « moitié basse » dépend de la hauteur de fenêtre ; bornes
+170–300 px et 300–600 px à ajuster si besoin). Détail :
+`docs/cycle-agile-reseau.md`, section « Disposition en deux zones ».
+
+## 2026-09-07 — Charte d'icônes du hub : trois jeux comparables, Déployer et Apprendre changés (livraison #410)
+
+Retour de tests sur le cycle agile : « le cerveau est un peu saignant et la
+fusée trop Tintin ; propose des jeux d'icônes et de symboles, qu'on
+construise une mini charte pour le hub ». Nouveau module PUR
+`hub/src/icons.js` (données de la charte, 6 tests Node) et composants
+`hub/src/StepIcon.jsx` (`StepIcon` en HTML, `SvgStepIcon` dans le graphique).
+Les icônes ne sont plus écrites en dur dans `NetworkCycleView.jsx` : une
+seule source, appliquée au menu classique, aux nœuds du graphique, au titre
+du panneau et à l'infobulle.
+
+**Ce qui change par défaut** : Déployer 🚀 → 📦, Apprendre 🧠 → 📚 (Décider
+🧭, Explorer 🕸️, Mesurer 📊 inchangés). Les deux icônes écartées sont
+consignées avec leur raison (`REJECTED_ICONS`) et un test interdit leur
+retour.
+
+**Trois jeux à comparer en direct** (sélecteur « Icônes » à droite des
+onglets Classique / Graphique, préférence locale au navigateur,
+`localStorage` `hub.cycle.iconSet`) : *Emoji sobres* (défaut), *Symboles
+monochromes* (Unicode, couleur de l'étape, suivent le thème) et
+*Pictogrammes au trait* (SVG 24×24 dessinés pour le projet, rendu identique
+partout). Alternatives emoji par étape dans `EMOJI_ALTERNATIVES`.
+
+**Règles** (docs/charte-icones-hub.md) : une idée = une icône ; la couleur
+porte l'identité, jamais l'état (l'état passe par la pastille et
+`--ok/--warning/--danger/--muted`) ; objets et symboles, ni visage, ni
+organe, ni véhicule ; lisible sur les deux thèmes ; tailles fixées par
+contexte. Extension aux autres tuiles décrite dans le document ; le test
+impose qu'un jeu définisse chaque clé.
+
+**Vérifié** : 43 tests Node du hub (6 nouveaux), build Vite réel, rendu
+réel dans Chromium (Playwright) des trois jeux, thèmes clair et sombre,
+menu classique et graphique, sans erreur console -- première fois que le
+rendu du hub est regardé pour de vrai depuis l'environnement de
+développement (harnais `NetworkCycleView` seul + faux back-end, hors dépôt).
+**Non vérifié** : rendu des emoji et des symboles Unicode sur le poste de la
+personne (police système). **Décision attendue** : quel jeu devient le
+défaut, et si la préférence doit devenir un réglage de compte (backlog 61).
+
+## 2026-09-07 — Correctif réel : build de file-manager-api impossible depuis #397 (livraison #409)
+
+Signalé par la personne au déploiement de #408 : `failed to compute cache
+key ... "/store.py": not found` sur `file-manager-api`. Cause : le
+Dockerfile livré en #397 utilisait des chemins relatifs au dossier
+(`COPY requirements.txt .`, `COPY app.py .`, `COPY store.py .`) alors que le
+contexte de build est la RACINE du projet (`context: .`) comme pour tous
+les autres services -- ce module n'avait jamais été construit
+(« non vérifié dans cet environnement » en #397). Deux défauts voisins
+corrigés en même temps : `shared/log_buffer.py` copié dans `/app/shared/`
+alors que `app.py` fait `from log_buffer import ...` (journal partagé
+silencieusement absent), et `shared/VERSION.json` non copié (badge
+« inconnu »). Modèle : `backup-restore/api/Dockerfile`.
+
+**Contrôle généralisé** : pour chaque paire `context`/`dockerfile` de
+`docker-compose.yml`, existence de chaque source `COPY` relative au
+contexte -- seul `file-manager-api` était en défaut. Contrôle à refaire
+avant toute livraison d'un nouveau service (script dans cette entrée du
+CHANGELOG, à intégrer à `scripts/check-env.py` si le cas se reproduit).
+
+**Non vérifié** : le build Docker lui-même (pas de Docker ici) -- à
+confirmer par `docker compose build file-manager-api`.
+
+## 2026-09-06 — Images Raspberry Pi : sonde Zero W et collecteur 3B, premier démarrage automatique (livraison #408)
+
+`netprobe/agent/image/build-image.sh` : à partir de l'image OFFICIELLE
+Raspberry Pi OS Lite 32 bits (téléchargée en cache, ou fournie), injecte
+sur la partition de boot -- avec mtools, sans montage ni root -- le paquet
+`netprobe_agent`, la configuration de l'appareil (récupérée du central par
+`/agents/<id>/provision`, ou d'un fichier), `userconf.txt` (utilisateur +
+hash SHA-512), le fichier `ssh`, une clé SSH optionnelle, et
+`firstrun.sh` lancé une fois par `systemd.run=` (mécanisme de Raspberry Pi
+Imager). Au premier boot : hostname, fuseau, WiFi (`raspi-config nonint`),
+adresse fixe (NetworkManager sur Bookworm, dhcpcd sur Bullseye),
+installation dans `/opt/netprobe-agent`, services systemd (sonde :
+`netprobe-agent` + désactivation de l'économie d'énergie WiFi ;
+collecteur : `netprobe-collector` sous un utilisateur système), iperf3
+optionnel, nettoyage (directive retirée de `cmdline.txt`, clé WiFi effacée
+de la FAT), redémarrage. Point de montage `/boot/firmware` (Bookworm) ou
+`/boot` (Bullseye) détecté d'après `issue.txt`, forçable.
+
+`docs/supervision-wifi.md` : **vérification de la proposition de #303**
+(architecture 4 couches confirmée ; Pi Zero W sous-estimé -- `iw` suffit
+pour l'itinérance et l'occupation des canaux sans mode moniteur ; limite
+BSSID de #385 levée ; Pi 3B collecteur justifié par le VPN ; sparrow-wifi
+écarté sur les Pi), état couche par couche, ordre de mise en route.
+
+**Vérifié** : construction des deux rôles sur une image SYNTHÉTIQUE au
+format Raspberry Pi OS (MBR + FAT32 + cmdline/issue), inspection mtools de
+tout ce qui est injecté (dont une clé WiFi avec apostrophes relue intacte
+par bash), image de base intacte, provisionnement de bout en bout contre un
+`netprobe-api` réel lancé localement, syntaxe bash. **Non vérifié :
+aucun Raspberry Pi n'a démarré** -- le téléchargement de l'image
+officielle est bloqué depuis l'environnement de développement (proxy,
+non contourné). Points à regarder au premier essai : `image/README.md`.
+
+Fichiers : `netprobe/agent/image/{build-image.sh,firstrun.sh,README.md}`,
+`netprobe/agent/systemd/netprobe-wifi-powersave.service`,
+`docs/supervision-wifi.md`, `netprobe/README.md`, `BACKLOG.md` (47, 51),
+`.gitignore` (cache et images).
+
+## 2026-09-06 — Hub : onglet « 📶 Sondes WiFi » dans la tuile Sondes réseau (livraison #407)
+
+Interface de #405/#406 (`hub/src/NetprobeAgentsTab.jsx`, composant séparé
+— `NetprobeView.jsx` était déjà long) :
+- **Flotte** : une ligne par appareil (rôle, site, libellé, vivacité —
+  vue il y a N via collecteur/direct), lecture compacte de la dernière
+  mesure : WiFi (SSID, bande/canal, dBm avec tonalité > -67 / -75, débit),
+  ping, voisinage (bornes visibles, co-canal), Pi (température, charge,
+  sous-tension). Filtre par site. Actions : désactiver, régénérer le
+  secret, supprimer (douce).
+- **Création** derrière « + » ; le secret est affiché UNE fois avec la
+  commande `build-image.sh` correspondante.
+- **Détail d'une sonde** : courbe du signal reçu (300 derniers
+  `wifi_link`, SVG maison), **changements de borne** — le suivi
+  d'itinérance demandé en #303 et laissé hors de portée en #385 :
+  itinérance sans coupure / après coupure / reconnexion sur la même
+  borne (listée à part, ce n'est pas une itinérance) — édition des
+  tâches en JSON (reprise par le collecteur puis la sonde, jamais de
+  reflash), dernière mesure par tâche en brut.
+- Rafraîchissement toutes les 60 s, nettoyé au démontage.
+
+Logique pure dans `hub/src/netprobeAgents.js` (7 tests Node :
+vivacité, regroupement, lectures compactes, `detectBssidChanges` sur un
+historique en désordre avec erreurs et coupures, ligne de signal sans
+division par zéro). Client : 7 fonctions ajoutées à `netprobeClient.js`.
+
+**Vérifié** : build Vite réel du hub (679 modules), 37 tests hub, aucune
+couleur en dur (tonalités via `--ok`/`--warning`/`--danger`), aucun
+setter orphelin. **Non vérifié** : rendu dans un navigateur.
+
+## 2026-09-06 — netprobe-api : flotte des sondes distribuées et mesures remontées (livraison #406)
+
+Côté CENTRAL de #405. Nouveau module `netprobe/api/agents_store.py` (même
+base SQLite, tables `probe_agents` et `agent_measurements`, déduplication
+sur (sonde, tâche, instant)) et routes sur `netprobe-api` :
+- flotte : `GET/POST /agents`, `GET/PUT/DELETE /agents/<id>`,
+  `POST /agents/<id>/rotate-secret`, `GET /agents/<id>/provision`
+  (configuration prête pour l'image, secret compris — consommée par
+  `build-image.sh`). Le secret n'est renvoyé qu'à la création, à la
+  rotation et au provisionnement, jamais en liste.
+- `GET /fleet?site=` **signé par un collecteur** : sondes actives de SON
+  site avec secrets et tâches (401 sinon, 403 pour un autre site).
+- `POST /agents/measurements/bulk` **signé** par un collecteur (mesures de
+  ses sondes, périmètre = son site) ou par une sonde en direct (ses
+  mesures seulement — l'identité vient de la signature, jamais du corps).
+- lectures pour le hub : `GET /agents/latest?site=` (dernière mesure par
+  sonde × tâche, une seule requête), `GET /agents/<id>/measurements?task=&since=&limit=`.
+
+Le protocole (`protocol.py`) reste dans `netprobe/agent/` : le Dockerfile
+en COPIE une instance (`netprobe_protocol.py`), l'import retombe sur le
+dépôt en développement — jamais deux implémentations. Le chemin signé est
+celui APRÈS retrait du préfixe `/api/netprobe` par tls-proxy (rewrite
+explicite déjà en place), query string comprise.
+
+**Vérifié** : 8 tests `app.test_client()` — création/validation/liste sans
+secret, provisionnement et rotation, flotte signée (rôle, site, secret
+faux, sans en-têtes), ingestion par collecteur (doublon, hors site,
+inconnue, invalide ; dernier contact « via »), ingestion directe par une
+sonde limitée à elle-même, sonde désactivée refusée, corps altéré refusé,
+suppression avec purge. **Non vérifié** : build Docker de netprobe-api
+(deux COPY ajoutés, vérifiés à la lecture), collecteur réel vers le central.
+
+## 2026-09-06 — Sondes distribuées : agent Pi Zero W + collecteur Pi 3B (items 45/47/48, livraison #405)
+
+Demandé explicitement : « dans le backlog il y a un agent à déployer,
+reprend cette partie ; prépare une image raspi0W comme sonde wifi ; idem
+pour un agent sur raspi3b pour collecter ». Première tranche : le LOGICIEL
+des deux rôles, testé ; les images et le central suivent (#406-#408).
+
+`netprobe/agent/` — un seul paquet Python **bibliothèque standard
+uniquement** (cible Pi Zero W, ARMv6, 512 Mo), deux rôles :
+- **sonde** (`agent.py`) : tâches `wifi_link` (BSSID/SSID/canal/signal/
+  débits + compteurs d'erreurs du pilote), `wifi_scan` (bornes visibles,
+  occupation par canal, plus fort voisin co-canal), `ping`, `dns`, `http`,
+  `iperf3` si présent, `sys` (charge, température, sous-tension du Pi) ;
+  liste de tâches TIRÉE du collecteur (jamais reflashée), file locale
+  SQLite store-and-forward, envoi par lots signés.
+- **collecteur** (`collector.py`, http.server) : réception authentifiée
+  et dédupliquée, statut/dernières mesures consultables SUR PLACE même VPN
+  coupé, flotte du site en cache local, relais par lots vers le central.
+
+**Questions ouvertes des items 45/48 tranchées** (défauts annoncés, voir
+`netprobe/agent/README.md`) : agent propre plutôt que sparrow-wifi (Pi Zero
+W sans mode moniteur, couche « expérience client » = client ordinaire),
+provisionnement à la construction de l'image, configuration tirée, push
+par lots, HMAC-SHA256 par appareil (identité prise de la signature, jamais
+du corps), pas de fenêtre temporelle stricte (Pi sans horloge) mais
+déduplication (agent, tâche, instant).
+
+**Lève la limite notée en #385** : le suivi de BSSID/itinérance « hors de
+portée » depuis un conteneur devient une simple tâche `wifi_link` native.
+
+**Vérifié** : 58 tests (Python 3.11 cloud ET 3.10 sur le Mac) — analyseurs
+sur sorties réelles d'iw/ping, signature et toutes ses altérations, file
+locale (purge, corruption), tâches simulées, boucle de la sonde,
+collecteur, et **chaîne HTTP réelle sonde → collecteur** sur 127.0.0.1.
+Deux vrais défauts attrapés par les tests : SSID vide (borne masquée)
+capturant la ligne suivante comme nom de réseau ; instant `at` pris de
+l'horloge murale au lieu de celle de l'agent (clé de déduplication).
+**Non vérifié** : aucun Raspberry Pi ni carte WiFi ici.
+
+**Fichiers** : `netprobe/agent/netprobe_agent/{protocol,parsers,localqueue,
+tasks,agent,collector}.py`, `tests/` (4 fichiers), `systemd/` (2 unités),
+`examples/` (3 configurations), `README.md`.
+
+## 2026-09-06 — Cycle agile réseau : tendances entre deux rafraîchissements (livraison #404)
+
+Les métriques de chaque étape sont comparées au rafraîchissement précédent :
+marqueur `▲`/`▼`/`±` sur le nœud, détail `avant → après` dans l'infobulle,
+polarité explicite par métrique (`METRIC_POLARITY`). Aucun stockage ni API.
+Logique pure dans `networkCycleGraph.js` (+5 tests, 30 tests hub au vert).
+Détail et piège (référence qui glisserait à chaque réponse d'API) dans
+`docs/cycle-agile-reseau.md`. Fichiers : `NetworkCycleView.jsx`,
+`networkCycleGraph.js`, `hub.css`, tests, docs.
+
+**Build Vite VÉRIFIÉ pour l'ensemble #399-#404** (ce qui n'avait pas pu
+l'être jusqu'ici) : les `node_modules` du Mac étant inexécutables dans le
+shell de la session, `hub/` et `network-explorer/` ont été transférés
+(sans `node_modules`) dans un environnement Linux avec accès npm, puis
+construits pour de vrai — `npm ci` + `vite build` pour le hub (677 modules,
+617 Ko, avertissement de taille de chunk préexistant), `npm install` +
+`vite build` pour network-explorer en reproduisant les `COPY` de son
+Dockerfile (608 modules). Aucune erreur. Reste non vérifié : le rendu et
+les gestes dans un navigateur réel.
+
+## 2026-09-06 — Exploration réseau : services de la paire (livraison #403)
+
+`/links/services` (« services connectés par paire d'ip », demandé en #251,
+servi par l'API depuis) n'avait jamais de client côté hub. Affiché dans le
+panneau de la paire (#400), sous les barres de volume : protocole, port,
+paquets, volume, dernier contact. Chargé en parallèle de l'historique, même
+garde contre les réponses tardives. Client testé (`fetch` simulé, 3 tests) ;
+25 tests hub au vert. Fichiers : `networkAgentClient.js`,
+`NetworkAgentView.jsx`, `hub/tests/networkAgentClient.test.mjs` (nouveau),
+`network-agent/README.md`.
+
+## 2026-09-06 — Fin des variables de thème `--hub-*` inexistantes (item 60, livraison #402)
+
+Suite de #399 : les 11 usages restants de variables jamais définies dans
+`shared/theme.css` (donc toujours sur leur repli en dur, identique en thème
+sombre) remplacés par les variables réelles — `--hub-ok`/`--hub-ok-bg` →
+`--ok`/`--ok-bg`, `--hub-border` → `--border`, `--hub-bg` → `--panel`
+(fond de boîte de dialogue), `--hub-selected` → `--bg` (convention existante
+des lignes sélectionnées). Thème clair inchangé ou imperceptiblement
+(#ddd → #d8dee4), thème sombre corrigé. Plus aucun `var(--hub-` dans
+`hub/src`. Fichiers : `SchemaAnalyzerView`, `ImapView`, `NetworkAgentView`,
+`NebulaView`, `CalendarView`, `BACKLOG.md`.
+
+## 2026-09-06 — Rattrapage du journal (#395, #398) et hygiène du dépôt (livraison #401)
+
+- Deux entrées **reconstruites a posteriori** pour les livraisons de la tuile
+  Cycle agile réseau qui n'en avaient jamais eu (commits `17ab5ce` et
+  `cc69fd3`) — insérées à leur place chronologique, marquées comme telles,
+  avec l'explication de l'écart entre les numéros des messages de commit
+  (#396, #401) et ceux du journal/badge (#395, #398).
+- `hub/dist/` et `hub/src/{theme.css,preferences.js,VERSION.json}` retirés de
+  l'index git (`git rm --cached`, fichiers conservés sur disque) : artefacts
+  de build et copies que `run.sh` régénère depuis `shared/` — le hub était le
+  seul front à les versionner. `.gitignore` complété pour tous les fronts.
+- Aucun changement de code.
+
+## 2026-09-06 — Exploration réseau : historique du volume par paire + barres de delta (livraison #400)
+
+Suite de l'interface « Exploration réseau » : les deux points restés
+"reste à faire (rémanence)" dans `network-agent/README.md` depuis #251.
+
+- **Volume d'une paire dans le temps** — clic sur une ligne « Échanges »
+  du pied de page → `/links/history` (route existante, jamais affichée
+  côté hub) → barres de delta sous le tableau.
+- **Barres de delta SVG maison** (`HistoryBars`) pour la présence d'un
+  appareil ET le volume d'une paire — remplace « tableau simple faute de
+  bibliothèque » (le tableau est conservé en dessous). Premier relevé sans
+  barre (pas de base), recul du compteur signalé en avertissement et
+  jamais lissé, agrégation par relevé pour les lignes par protocole/port.
+- `hub/src/networkAgentHistory.js` — logique pure (agrégation, deltas,
+  disposition), `formatBytes` y déménage ; 10 tests Node.
+- `network-explorer/Dockerfile` — nouveau module ajouté au `COPY`.
+
+**Vérifié** : 10/10 tests, syntaxe, setters, imports copiés par
+network-explorer. **Non vérifié** : rendu visuel, données réelles.
+
+**Fichiers** : `hub/src/NetworkAgentView.jsx`, `hub/src/networkAgentHistory.js`
+(nouveau), `hub/tests/networkAgentHistory.test.mjs` (nouveau),
+`hub/src/hub.css`, `network-explorer/Dockerfile`, `network-agent/README.md`.
+
+## 2026-09-06 — Graphique du cycle réseau interactif + menu Réseau complété (livraison #399)
+
+Deux volets, sur la tuile et le menu réseau.
+
+**1. Graphique du cycle agile réseau** (suite de l'onglet livré précédemment) :
+- **Zoom et déplacement** — molette (ancrée sous le curseur), glisser à la
+  souris, boutons `+` / `−` / `⟲` et niveau de zoom affiché. Le dessin vit
+  désormais dans un `<g>` transformé : le viewBox ne bouge pas, donc les
+  marqueurs de flèche déclarés dans `<defs>` restent valables.
+- **Infobulles au survol** des nœuds — détail par étape (suggestions,
+  capture, tunnels/SNMP, sondes, signaux/sauvegardes), en complément du
+  texte compact déjà affiché sous chaque nœud.
+- **Rafraîchissement** — bouton manuel `⟳`, bascule automatique (30 s) et
+  horodatage de la dernière mise à jour. La minuterie ne tourne QUE sur
+  l'onglet graphique et est nettoyée au démontage.
+- `hub/src/networkCycleGraph.js` — logique pure extraite dans son propre
+  module (même motif que `ldapTree.js`), 12 tests Node dans
+  `hub/tests/networkCycleGraph.test.mjs`.
+
+**2. Menu Réseau ▾ complété** — « Exploration réseau » et « Sondes réseau »
+n'existaient QUE comme tuiles d'accueil alors que tout le reste de
+l'écosystème réseau vit dans ce menu. Ajoutées (mêmes `viewMode`, jamais de
+vue dupliquée) et conditionnées à leur variable d'API, contrairement aux sept
+autres entrées : `NetworkAgentView`/`NetprobeView` appellent leur API dès le
+montage sans garde-fou sur une base absente. La liste des `viewMode` qui
+allument le menu a été complétée en conséquence.
+
+**3. Correction de thème `--hub-danger`** — cette variable n'était **définie
+nulle part** : les 32 usages du hub retombaient tous sur leur repli en dur
+(`#c0392b` / `#fdecea`), donc restaient identiques en thème sombre alors que
+le reste de l'interface changeait. Remplacés par `var(--danger)` /
+`var(--danger-bg)` — les replis valaient EXACTEMENT les valeurs du thème
+clair, le rendu clair est donc inchangé et seul le sombre est corrigé.
+Même correction sur `.nc-status-dot` et la légende du graphe
+(`#00b894`/`#fdcb6e`/`#c0392b` → `var(--ok)`/`var(--warning)`/`var(--danger)`).
+
+**Vérifié réellement** : 12 tests de la logique pure passent sous Node
+(zoom ancré sans dérive, butée de zoom, échelle commune aux deux axes du
+déplacement, bornage de l'infobulle, contenu des infobulles sur données
+partielles) ; analyse syntaxique @babel/parser des 74 fichiers de `hub/src`,
+0 échec ; aucun `setXxx` orphelin ; plus aucun `--hub-danger` dans l'arbre.
+
+**⚠️ Non vérifié dans cet environnement** : rendu visuel réel et gestes
+souris/molette réels (pas de navigateur ici) ; `npm run build` impossible —
+les `node_modules` présents sont ceux d'un macOS (binaire esbuild
+« Exec format error » dans ce shell Linux), la vérification syntaxique a donc
+été faite avec `@babel/parser` (JS pur) à la place.
+
+**⚠️ Écart de numérotation constaté** : `shared/DELIVERY_NUMBER` était resté à
+398 alors que les messages de commit mentionnent #398 à #401. Le badge affiché
+suit le FICHIER (`run.sh` le lit tel quel) et affichait donc bien #398 —
+incrémenté à #399 ici. Les livraisons #398-#401 des commits ne sont documentées
+dans aucune entrée de ce fichier, à rattraper.
+
+**Fichiers** :
+- `hub/src/networkCycleGraph.js` — NOUVEAU, logique pure du graphique
+- `hub/tests/networkCycleGraph.test.mjs` — NOUVEAU, 12 tests Node
+- `hub/src/NetworkCycleView.jsx` — zoom/déplacement, infobulles, rafraîchissement
+- `hub/src/App.jsx` — deux entrées de plus dans le menu Réseau
+- `hub/src/hub.css` — barre d'outils, infobulle, curseurs, couleurs de thème
+- `docs/cycle-agile-reseau.md` — documentation des nouvelles interactions
+- `hub/README.md` — journal du module
+- 15 fichiers `hub/src/*.jsx` — `--hub-danger` → `--danger`
+
+## 2026-09-06 — Onglet graphique du cycle agile réseau (livraison #398 — entrée reconstruite a posteriori en #401, commit `cc69fd3`)
+
+**Entrée absente au moment de la livraison**, reconstruite depuis le
+commit. Le message de commit annonçait « #401 » mais `shared/DELIVERY_NUMBER`
+était resté à 398 : le badge affiché à l'écran était donc **#398**, numéro
+retenu ici pour rester fidèle à ce que la personne a testé.
+
+Second onglet « 🔄 Graphique » dans la tuile Cycle agile réseau
+(`NetworkCycleView.jsx`, +494 lignes ; `hub.css`, +128) :
+- cinq nœuds SVG en pentagone (`NODE_POSITIONS`), un par étape, avec
+  pastille de statut temps réel (ok/attention/critique/inconnu) et texte
+  compact sous le nœud ;
+- flèches de flux animées (`stroke-dasharray` + `@keyframes nc-flow`) ;
+- clic sur un nœud = sélection de l'étape et retour en mode classique ;
+- chargement en parallèle des données des cinq étapes à l'activation de
+  l'onglet (le mode classique reste à la demande, étape par étape) ;
+- `docs/cycle-agile-reseau.md` complété (+124 lignes).
+
+Zoom/déplacement, infobulles et rafraîchissement automatique sont venus en
+#399.
+
+## 2026-09-06 — Nouvelle tuile/outil "gestionnaire de fichiers" (item #26, version: 88fda222b4ad4278, livraison #397)
+
+Trois volets livrés d'un coup :
+1. **Espace protégé du hub** -- répertoire sur l'hôte accessible aussi bien
+   depuis le hub que directement par la machine hôte. Protégé par rights-api
+   (groupe admin_hub par défaut, OPT-IN via `FILE_MANAGER_RIGHTS_API_URL`).
+2. **Documents GED** -- agrégé depuis ged-api (lecture seule), organisé par
+   entité liée.
+3. **Partages SSHFS** -- agrégé depuis ssh-tunnels-api (lecture seule),
+   avec stats espace/inodes/latence.
+
+**Backend** (`file-manager/api/app.py`) : Flask, agrégation de ged-api et
+ssh-tunnels-api via HTTP interne, scan arborescent de l'espace protégé
+(métadonnées uniquement via `os.scandir()` -- jamais de contenu). SQLite
+locale pour l'index espace protégé (chemins/taizes/dates).
+
+**Frontend** (`hub/src/FileManagerView.jsx`) : tuile hub avec onglets par
+source, navigation arborescente (dossiers d'abord, puis fichiers), stats.
+
+**Sécurité** : protection traversale de chemin (refuse `..`), accès protégé
+gated par rights-api, filet de sécurité sur `.json()` pour les appels
+internes.
+
+**⚠️ Non vérifié dans cet environnement** : accès réseau réel à ged-api/
+ssh-tunnels-api (réseau restreint). Logique testée en profondeur avec des
+scénarios simulés.
+
+**Fichiers** :
+- `file-manager/api/app.py` -- routes Flask, logique d'agrégation
+- `file-manager/api/store.py` -- SQLite (index espace protégé)
+- `file-manager/api/Dockerfile` -- image Gunicorn 2 workers
+- `file-manager/api/requirements.txt` -- dépendances
+- `file-manager/README.md` -- documentation complète
+- `hub/src/FileManagerView.jsx` -- composant React
+- `hub/src/fileManagerClient.js` -- client API
+- `hub/src/App.jsx` -- intégration tuile + viewMode
+- `docker-compose.yml` -- service file-manager-api + variable hub
+- `.env.example` -- variables FILE_MANAGER_*, GED_API_INTERNAL_URL,
+  SSH_TUNNELS_API_INTERNAL_URL
+- `tls-proxy/render_nginx_conf.py` -- routage `/api/file-manager/`
+
+## 2026-09-06 — Vérification et documentation complètes du chiffrement des secrets de démarrage (item #22, version: 88fda222b4ad4278, livraison #396)
+
+Vérification systématique de l'ensemble du chantier #22 (points 2/3
+de l'urgence matrice de risque -- "mots de passe stockés en clair ->
+chiffrer et imposer une réinjection de la clé à chaque déploiement").
+
+**Aucun nouveau code livré** -- toutes les étapes étaient déjà livrées
+précédemment (#202-#206, #386-#387) et l'item était marqué "entièrement
+complété" dans `BACKLOG.md`. Cette livraison formalise la vérification
+complète et la documentation de l'état final.
+
+**Vérifications effectuées** :
+- Syntaxe bash de tous les scripts (migrate-env-to-encrypted.sh,
+  migrate-ssh-keys-to-encrypted.sh, run.sh)
+- Syntaxe Python de tous les modules (secret_crypto.py, secrets_tool.py,
+  verify_env_migration.py, verify_file_migration.py, secrets_alert.py)
+- Cohérence du câblage run.sh (détection automatique de .env.encrypted,
+  déchiffrement à chaque lancement, injection via eval)
+- Cohérence des fichiers de documentation (chiffrement-secrets.md,
+  pra-secrets-demarrage.docx)
+- Cohérence des scripts de migration (séquence sûre : sauvegarde ->
+  chiffrement -> déchiffrement de vérification -> comparaison)
+
+**État final de l'item #22** :
+- `shared/secret_crypto.py` : primitives PBKDF2-HMAC-SHA256 + Fernet
+  (600k itérations, sel 16 octets)
+- `scripts/secrets_tool.py` : CLI complète (init-salt, encrypt-value,
+  decrypt-value, encrypt-file, decrypt-file, encrypt-env, decrypt-env)
+- `scripts/run.sh` : câblage automatique (.env.encrypted détecté et
+  déchiffré à chaque lancement, phrase de passe jamais stockée)
+- `shared/secrets_alert.py` : alertes PRA (SMS Teltonika TRB140 +
+  SMTP, best-effort, jamais bloquant)
+- `scripts/migrate-env-to-encrypted.sh` : migration guidée .env
+- `scripts/migrate-ssh-keys-to-encrypted.sh` : migration guidée clés SSH
+- `scripts/verify_env_migration.py` : comparaison clé par clé
+- `scripts/verify_file_migration.py` : comparaison octet par octet
+- `docs/chiffrement-secrets.md` : documentation technique complète
+- `docs/pra-secrets-demarrage.docx` : procédure PRA (3 canaux)
+
+**Limites connues (assumées et documentées)** :
+- La saisie de phrase de passe interactive à travers plusieurs
+  invocations Python enchaînées sur un pipe unique a montré des
+  instilités dans cet environnement sandboxé (EOFError) -- artefact
+  du harnais de test, pas de l'usage interactif normal.
+- Le basculement réel (remplacer .env par .env.encrypted, câbler
+  ssh-tunnels-api pour lire les clés .enc) reste une décision
+  manuelle et séparée de la personne.
+
+`BACKLOG.md` (item 22) confirme : **entièrement complété** — plus aucun
+point resté ouvert.
+
 # Changelog
 
 Vue d'ensemble chronologique, du plus récent au plus ancien — le
@@ -5,6 +2309,30 @@ détail complet de chaque sujet reste dans son README dédié
 (`keycloak/README.md`, `tls-proxy/README.md`, `hub/README.md`,
 `tickets/README.md`...). Pour les clés `.env` spécifiquement, voir
 `ENV_CHANGELOG.md`.
+
+## 2026-09-06 — Tuile « Cycle agile réseau », mode classique (livraison #395 — entrée reconstruite a posteriori en #401, commit `17ab5ce`)
+
+**Entrée absente au moment de la livraison**, reconstruite depuis le
+commit. Le message de commit annonçait « #396 », numéro déjà pris par la
+vérification du chiffrement des secrets ci-dessous ; #395 est le seul
+numéro manquant dans la séquence du journal (394 → 396) et correspond à la
+position chronologique de ce commit, juste après l'import initial
+(« v#395 »).
+
+Nouvelle tuile hub sous le menu Réseau ▾ : cycle en cinq étapes
+Décider → Explorer → Déployer → Mesurer → Apprendre, chaque étape résumant
+l'état des outils existants et donnant accès direct à ceux-ci.
+- `hub/src/NetworkCycleView.jsx` (476 lignes) — navigation du cycle,
+  contenu par étape (KPI, tableaux), boutons précédent/suivant ;
+- `hub/src/networkCycleClient.js` — agrège sept API (netmap-orchestrator,
+  network-agent, ssh-tunnels, snmp, netprobe, vigilance, backup-restore) ;
+- `hub/src/hubEvents.js` (nouveau), `App.jsx`, `hub.css` ;
+- `docs/cycle-agile-reseau.md` (146 lignes).
+
+⚠️ Ce commit a aussi versionné par erreur `hub/dist/` (artefacts de build
+Vite) et les copies `hub/src/{theme.css,preferences.js,VERSION.json}` que
+`run.sh` régénère depuis `shared/` à chaque lancement — retirés de l'index
+en #401 (`.gitignore` complété), les fichiers restent sur disque.
 
 ## 2026-09-06 — Filtre "période temporelle", les 4 filtres demandés sont désormais tous livrés (version: 1f80f9b25ee9, livraison #394)
 

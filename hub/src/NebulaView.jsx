@@ -155,7 +155,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
       </div>
 
       {error && (
-        <div className="hub-card" style={{ borderColor: "var(--hub-danger, #c0392b)" }}>
+        <div className="hub-card" style={{ borderColor: "var(--danger)" }}>
           <p style={{ margin: 0 }}>⚠️ {error}</p>
         </div>
       )}
@@ -201,7 +201,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
         </button>
 
         {showHistory && (
-          <div style={{ marginBottom: 16, borderBottom: "1px solid var(--hub-border, #ddd)", paddingBottom: 12 }}>
+          <div style={{ marginBottom: 16, borderBottom: "1px solid var(--border)", paddingBottom: 12 }}>
             {batches.length === 0 ? (
               <p className="muted">Aucun import enregistré pour ce type.</p>
             ) : (
@@ -295,7 +295,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
             )}
             {(glpiPreview.errors || []).length > 0 && (
               <ul>
-                {glpiPreview.errors.map((line, idx) => <li key={idx} style={{ color: "var(--hub-danger, #c0392b)" }}>{line}</li>)}
+                {glpiPreview.errors.map((line, idx) => <li key={idx} style={{ color: "var(--danger)" }}>{line}</li>)}
               </ul>
             )}
           </div>

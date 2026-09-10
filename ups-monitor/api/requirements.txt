@@ -1,0 +1,7 @@
+Flask==3.0.3
+flask-cors==4.0.1
+gunicorn==22.0.0
+pymemcache==4.0.0
+# cryptography -- chiffrement optionnel des mots de passe stockés
+# (credential_crypto.py, même motif que snmp-api #213).
+cryptography==43.0.1

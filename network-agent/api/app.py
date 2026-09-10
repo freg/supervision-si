@@ -189,7 +189,12 @@ def health():
 @app.route("/capture/status", methods=["GET"])
 def capture_status():
     with _capture_status_lock:
-        return jsonify(dict(_capture_status)), 200
+        status = dict(_capture_status)
+    # Identité de l'hôte de supervision (#412) : relue à chaque appel (pas
+    # de cache -- une IP DHCP peut changer, et l'appel est rare et bon
+    # marché), toujours présente même si inconnue (champs à None).
+    status.update(capture.interface_identity(CAPTURE_INTERFACE))
+    return jsonify(status), 200
 
 
 @app.route("/sites", methods=["GET"])
@@ -252,6 +257,59 @@ def observed_subnets():
     return jsonify(store.list_observed_subnets(DB_PATH, segment_id, prefix_length=prefix_length)), 200
 
 
+@app.route("/capture/upload", methods=["POST"])
+def capture_upload():
+    """#436 -- relais d'exploration : une capture pcap faite AILLEURS (agent
+    hôte si-agent, plugin capture-relay, relayée par si-agent-api) versée
+    dans ce module comme si tcpdump avait tourné ici. Corps JSON :
+    {site, segment, cidr?, pcap_base64, source?} -- site et segment créés
+    au besoin (segment = nom de l'hôte relais). Bornes : 8 Mo décodés,
+    200 000 paquets. Renvoie {segment_id, packets}."""
+    import base64  # noqa: PLC0415
+    body = request.get_json(silent=True) or {}
+    site = (body.get("site") or "").strip() or SITE_NAME or "relais"
+    segment = (body.get("segment") or "").strip()
+    raw = body.get("pcap_base64") or ""
+    if not segment or not raw:
+        return jsonify({"error": "'segment' et 'pcap_base64' requis"}), 400
+    try:
+        pcap = base64.b64decode(raw, validate=True)
+    except (ValueError, TypeError):
+        return jsonify({"error": "pcap_base64 illisible"}), 400
+    if len(pcap) > 8 * 1024 * 1024:
+        return jsonify({"error": "capture trop volumineuse (8 Mo max)"}), 413
+    cidr = (body.get("cidr") or "").strip() or None
+    conn = store.get_connection(DB_PATH)
+    try:
+        site_id = store.get_or_create_site(conn, site)
+        segment_id = store.get_or_create_segment(conn, site_id, segment, cidr=cidr)
+        if cidr:
+            conn.execute("UPDATE na_network_segments SET cidr = COALESCE(cidr, ?) WHERE id = ?", [cidr, segment_id])
+        conn.commit()
+    finally:
+        conn.close()
+    try:
+        n = capture.ingest_pcap_bytes(DB_PATH, segment_id, cidr, pcap)
+    except Exception as exc:  # noqa: BLE001 -- pcap invalide : réponse claire, jamais une 500
+        return jsonify({"error": "capture illisible : %s" % exc}), 400
+    _log.info("relais d'exploration : %d paquet(s) de %s/%s (%s)", n, site, segment, body.get("source") or "?")
+    return jsonify({"site": site, "segment": segment, "segment_id": segment_id, "packets": n}), 200
+
+
+@app.route("/observed-subnet", methods=["GET"])
+def observed_subnet_detail():
+    """Fiche récapitulative d'un sous-réseau (livraison #427) --
+    `segment_id` et `subnet` (CIDR) requis."""
+    segment_id = request.args.get("segment_id", type=int)
+    subnet = request.args.get("subnet")
+    if not segment_id or not subnet:
+        return jsonify({"error": "'segment_id' et 'subnet' requis"}), 400
+    detail = store.subnet_detail(DB_PATH, segment_id, subnet)
+    if detail is None:
+        return jsonify({"error": "sous-réseau invalide (notation CIDR attendue)"}), 400
+    return jsonify(detail), 200
+
+
 @app.route("/devices/<int:device_id>/services", methods=["GET"])
 def list_device_services(device_id):
     return jsonify(store.list_device_services(DB_PATH, device_id)), 200
@@ -279,6 +337,18 @@ def list_links():
     segment_id = request.args.get("segment_id", type=int)
     if not segment_id:
         return jsonify({"error": "'segment_id' requis"}), 400
+    # Fenêtre temporelle (#414) : `start` et `end` (ISO 8601, tous deux
+    # requis) -> volumes échangés PENDANT la période, par différence de
+    # relevés (store.list_device_links_for_period). Sans les deux : cumul
+    # actuel, comme avant.
+    start = (request.args.get("start") or "").strip()
+    end = (request.args.get("end") or "").strip()
+    if bool(start) != bool(end):
+        return jsonify({"error": "'start' et 'end' vont ensemble"}), 400
+    if start and end:
+        if start > end:
+            return jsonify({"error": "'start' doit précéder 'end'"}), 400
+        return jsonify(store.list_device_links_for_period(DB_PATH, segment_id, start, end)), 200
     return jsonify(store.list_device_links(DB_PATH, segment_id)), 200
 
 

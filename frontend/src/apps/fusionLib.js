@@ -183,16 +183,33 @@ export function severityClass(maxSeverity) {
  * longitude, mapped}). Une ligne sans entrée connue reçoit
  * position=null (jamais scannée) plutôt qu'un objet vide trompeur.
  */
-export function enrichWithGeolocation(rows, geolocations) {
+export function enrichWithGeolocation(rows, geolocations, matches = null) {
   const byIp = new Map((geolocations || []).map((g) => [g.localisation, g]));
   return rows.map((row) => {
     const geo = byIp.get(row.ip);
-    if (!geo) return { ...row, position: null };
-    return {
-      ...row,
-      position: { latitude: geo.latitude, longitude: geo.longitude, mapped: geo.mapped },
-    };
+    if (geo) {
+      return { ...row, position: { latitude: geo.latitude, longitude: geo.longitude, mapped: geo.mapped, source: "ip" } };
+    }
+    // #426 : position d'après le NOM d'hôte (correspondance appliquée --
+    // auto / validée / manuelle -- vers une localisation avec coordonnées),
+    // même sujet `ip:<ip>` que la tuile Supervision SI du hub.
+    const m = matches && matches[`ip:${row.ip}`];
+    if (m && APPLIED_MATCH_STATUSES.has(m.status) && m.latitude != null && m.longitude != null) {
+      return { ...row, position: { latitude: m.latitude, longitude: m.longitude, mapped: true, source: "nom", localisation: m.localisation, status: m.status, score: m.score } };
+    }
+    return { ...row, position: null };
   });
+}
+
+export const APPLIED_MATCH_STATUSES = new Set(["auto", "validated", "manual"]);
+
+/** Sujets pour /geolocations/resolve : une ligne sans position, avec au
+ * moins un nom d'hôte -> {subject: "ip:<ip>", name: <premier nom>}. Les
+ * lignes déjà positionnées ne sont pas renvoyées. */
+export function nameResolveSubjects(rows) {
+  return (rows || [])
+    .filter((r) => !r.position?.mapped && (r.hostnames || []).length)
+    .map((r) => ({ subject: `ip:${r.ip}`, name: r.hostnames[0], site: null }));
 }
 
 // --- Géocodage par code postal embarqué dans le nom d'hôte -----------

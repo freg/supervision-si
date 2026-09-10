@@ -176,7 +176,7 @@ export default function ArchitectureView({ onBack, architectureApiBase }) {
       </div>
 
       {error && (
-        <div className="hub-card" style={{ borderColor: "var(--hub-danger, #c0392b)" }}>
+        <div className="hub-card" style={{ borderColor: "var(--danger)" }}>
           <p style={{ margin: 0 }}>⚠️ {error}</p>
         </div>
       )}
@@ -314,7 +314,7 @@ export default function ArchitectureView({ onBack, architectureApiBase }) {
 
             <div style={{ flex: "1 1 280px" }}>
               <h3 style={{ marginBottom: 4 }}>📍 Lieu d'intervention</h3>
-              {overview.location_error && <p style={{ color: "var(--hub-danger, #c0392b)" }}>⚠️ {overview.location_error}</p>}
+              {overview.location_error && <p style={{ color: "var(--danger)" }}>⚠️ {overview.location_error}</p>}
               {!overview.location_error && overview.location === null && (
                 <p className="muted">Aucune localisation connue de Zenoss pour cet équipement.</p>
               )}
@@ -326,7 +326,7 @@ export default function ArchitectureView({ onBack, architectureApiBase }) {
               )}
 
               <h3 style={{ marginBottom: 4, marginTop: 12 }}>🔑 Accès de gestion</h3>
-              {overview.ssh_access_error && <p style={{ color: "var(--hub-danger, #c0392b)" }}>⚠️ {overview.ssh_access_error}</p>}
+              {overview.ssh_access_error && <p style={{ color: "var(--danger)" }}>⚠️ {overview.ssh_access_error}</p>}
               {overview.ssh_access.length === 0 ? (
                 <p className="muted">Aucun accès SSH connu pour cette IP.</p>
               ) : (
@@ -338,7 +338,7 @@ export default function ArchitectureView({ onBack, architectureApiBase }) {
               )}
 
               <h3 style={{ marginBottom: 4 }}>📄 Documents liés</h3>
-              {overview.documents_error && <p style={{ color: "var(--hub-danger, #c0392b)" }}>⚠️ {overview.documents_error}</p>}
+              {overview.documents_error && <p style={{ color: "var(--danger)" }}>⚠️ {overview.documents_error}</p>}
               {overview.documents.length === 0 ? (
                 <p className="muted">Aucun document lié.</p>
               ) : (
@@ -348,7 +348,7 @@ export default function ArchitectureView({ onBack, architectureApiBase }) {
               )}
 
               <h3 style={{ marginBottom: 4 }}>📈 Niveaux d'usage</h3>
-              {overview.usage_error && <p style={{ color: "var(--hub-danger, #c0392b)" }}>⚠️ {overview.usage_error}</p>}
+              {overview.usage_error && <p style={{ color: "var(--danger)" }}>⚠️ {overview.usage_error}</p>}
               {!overview.usage_error && overview.usage === null && (
                 <p className="muted">Cette IP n'est pas surveillée par Exploration réseau -- aucun historique disponible.</p>
               )}
@@ -359,7 +359,7 @@ export default function ArchitectureView({ onBack, architectureApiBase }) {
                     {overview.usage.growth_percent !== null && (
                       <>
                         {" — "}
-                        <strong style={{ color: overview.usage.growth_percent > 0 ? "var(--hub-danger, #c0392b)" : "inherit" }}>
+                        <strong style={{ color: overview.usage.growth_percent > 0 ? "var(--danger)" : "inherit" }}>
                           {overview.usage.growth_percent > 0 ? "+" : ""}{overview.usage.growth_percent}%
                         </strong>{" "}
                         depuis le premier relevé -- utile pour repérer une tendance (engorgement à anticiper) ou

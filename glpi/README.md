@@ -447,3 +447,48 @@ d'abord tronqué la docstring d'`import_nebula_devices_route` (une
 partie du texte perdue) -- repéré en relisant le résultat
 immédiatement après chaque édition (jamais supposé correct sans
 vérifier), corrigé avant de continuer.
+
+## Agents hôtes (si-agent) ↔ GLPI (livraison #437, backlog 63 h)
+
+Deux directions, module `glpi/api/si_agent_import.py` (logique pure,
+15 tests avec les routes : `cd glpi/api && python3 -m unittest
+test_si_agent_import`). Source de la tuile hub : « Agents hôtes —
+serveurs et postes (si-agent) », plus une section « Agents GLPI ↔ agents
+hôtes ». `SI_AGENT_API_URL` (défaut `http://si-agent-api:5000`, service
+Compose ordinaire, contrairement à network-agent-api).
+
+**`POST /import/si-agent-hosts`** (`dry_run` défaut `true`,
+`update_existing`, `include_never_seen`, `site` ; corps `{groups,
+only_agents}`) : lit `/fleet` puis `/agents/<id>/latest` de si-agent-api
+et fait de chaque hôte un `Computer` -- `name` = hostname, `serial` =
+numéro de série DMI (#428) s'il est connu, `otherserial` =
+`si-agent:<agent_id>` (clé de dédoublonnage, même rôle que la MAC pour
+l'exploration réseau), `manufacturers_id` / `computermodels_id` /
+`locations_id` (= site de l'agent) résolus par `get_or_create_dropdown`,
+et un commentaire structuré (OS + noyau, CPU, mémoire, disques,
+interfaces avec MAC, virtualisation, dernière IP, libellé, version
+d'agent, date de dernier contact). Dédoublonnage par `otherserial`, puis
+`serial`, puis nom exact ; un hôte déjà présent est ignoré, ou **mis à
+jour** (commentaire et listes, jamais renommé) avec `update_existing`.
+Un agent enrôlé qui n'a jamais contacté le central n'est pas un actif :
+écarté (`skipped_excluded`) sauf `include_never_seen`. Particularité de
+l'aperçu : si GLPI est configuré et joignable, le dédoublonnage est joué
+à blanc (les « déjà présents » apparaissent dans l'aperçu, et les mises à
+jour comme candidats cochables) ; sinon un avertissement le dit.
+
+**`GET /agents-comparison`** (`site`) : les agents que GLPI connaît
+(itemtype `Agent` de GLPI 10 -- GLPI Agent natif : `name`, `deviceid`,
+`version`, `last_contact`, item lié) rapprochés de la flotte si-agent par
+nom d'hôte (première étiquette, minuscules, suffixe de date du deviceid
+`pc-01-2024-05-03-10-22-41` retiré) → `both` / `only_si` / `only_glpi`.
+Lecture seule ; si GLPI n'est pas joignable, la flotte si-agent seule et
+`glpi_error` en clair, jamais un 500.
+
+**Vérifié** : les 15 tests ; chaîne réelle glpi-api (Flask) ↔ si-agent-api
+réel (agent cloud-01 avec son inventaire) ↔ un **faux `apirest.php`**
+écrit d'après la documentation (initSession, listes avec `searchText`,
+création 201, mise à jour, itemtype `Agent`) : aperçu, import, ré-import
+ignoré, mise à jour, comparaison ; rendu Chromium de la tuile.
+**Non vérifié** : un vrai GLPI (l'itemtype `Agent` par l'API REST, les
+champs `serial`/`otherserial`/`locations_id` sur `Computer`) -- toujours
+commencer en dry-run, comme pour les autres imports.
