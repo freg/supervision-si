@@ -2557,3 +2557,14 @@ de client, de site réel, de personne ou d'adresse réelle ne doit y figurer.
   `203.0.113.0/24`), MAC locales (`02:…`, `aa:bb:cc:…`), prénoms alice /
   bob / carol / dave / eve, `exemple`, `Alpha`, `Villexemple` ; jamais de
   fichier exporté d'un déploiement réel (realm, logs, dumps).
+3. Hub (PKI) — la CA interne « Supervision SI Internal CA » est générée
+   SANS extension `keyUsage`. OpenSSL ≥ 3 (Python 3.14, agents récents)
+   refuse dès lors de l'utiliser pour valider la chaîne du serveur :
+   « CA cert does not include key usage extension » -- constaté sur le
+   premier agent macOS réel (l'agent Linux passe, son OpenSSL étant plus
+   tolérant). Correctif propre : régénérer la CA avec
+   `keyUsage = critical, keyCertSign, cRLSign` (et re-signer les
+   certificats serveurs), ou signer une sous-CA avec les extensions ;
+   à planifier lorsque le hub redevient modifiable. Contournement
+   documenté pour les hôtes existants : faire tourner l'agent macOS avec
+   le Python système (LibreSSL tolérant) au lieu d'un Python OpenSSL 3.

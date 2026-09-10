@@ -97,6 +97,18 @@ class TestServicesPorts(unittest.TestCase):
         self.assertEqual(failed, ["com.acme.brokendaemon (code 78)"])
         self.assertEqual(running, 2)
 
+    def test_launchctl_sigkill_systeme_ignore(self):
+        # macOS réel : les démons com.apple.* tués par le système (code -9)
+        # sont du bruit -- à écarter ; un -9 tiers ou un autre code reste signalé
+        txt = ("PID\tStatus\tLabel\n"
+               "-\t-9\tcom.apple.security.cryptexd\n"
+               "-\t-9\tcom.apple.modelcatalogd\n"
+               "-\t-9\tcom.avg.hub.xpc\n"
+               "-\t1\tcom.apple.reallybroken\n")
+        failed, _ = machost.parse_launchctl_list(txt)
+        self.assertEqual(failed, ["com.avg.hub.xpc (code -9)",
+                                  "com.apple.reallybroken (code 1)"])
+
     def test_lsof_listen(self):
         txt = ("COMMAND   PID USER   FD   TYPE  DEVICE SIZE/OFF NODE NAME\n"
                "launchd     1 root   28u  IPv4 0x1234      0t0  TCP *:22 (LISTEN)\n"

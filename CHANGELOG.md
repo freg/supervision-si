@@ -1,3 +1,31 @@
+## 2026-09-10 — Premier Mac réel : plugin network-neighbors porté macOS, bruit launchd `-9` écarté (correctif post-#475, à l'occasion d'une livraison)
+
+Premier hôte macOS réel enrôlé (install-macos.sh validé de bout en bout).
+Deux retours concrets :
+
+- **Risques launchd noyés dans le bruit** : 131 « service launchd en
+  échec », dont ~tout le lot en `code -9` sur des démons
+  `com.apple.*`. Sur macOS récent le système tue et relance en
+  permanence ses démons internes (pression mémoire, cryptexd,
+  jetsam…) : `-9` = SIGKILL système, pas un échec du service.
+  `machost.parse_launchctl_list` écarte désormais les `code -9`
+  sur `com.apple.*` ; un `-9` tiers ou un autre code reste signalé.
+  Test dédié ajouté (`test_launchctl_sigkill_systeme_ignore`).
+- **network-neighbors rendait du vide sur macOS** : le script
+  n'utilisait que `ip` (iproute2, absent de macOS). Portage
+  bidirectionnel : détection `uname` — Linux inchangé (`ip`), macOS
+  via `ifconfig` (netmask hexa -> préfixe, loopback exclue),
+  `arp -an` + `ndp -an` (MAC normalisées, entrées incomplètes
+  écartées), timeout ping adapté (`-W` = s sous Linux, ms sous
+  macOS). Vérifié sur le Mac réel (sous-réseaux + 6 voisins ARP
+  corrects, JSON valide). Balayage ping non exécuté ici (trafic
+  actif -- le plugin reste livré désactivé).
+
+**Vérifié** : 61 tests si-agent (les 3 échecs restants sont les
+échecs macOS pré-existants, hors périmètre) ; **non vérifié** :
+plugin exécuté par l'agent en confinement (`nobody`) une fois
+propagé sur le poste installé.
+
 ## 2026-09-10 — Correctif : gabarit LaunchDaemon macOS renommé (livraison #475)
 
 L'anonymisation (#467) avait remplacé le contenu des fichiers mais pas

@@ -59,10 +59,18 @@ install -d /opt/si-agent /etc/si-agent /var/lib/si-agent/plugins
 rm -rf /opt/si-agent/si_agent
 cp -r "$HERE/si_agent" /opt/si-agent/
 find /opt/si-agent -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
-for d in "$HERE"/plugins/*/; do
-  id="$(basename "$d")"
-  [ -d "/var/lib/si-agent/plugins/$id" ] || cp -r "$d" "/var/lib/si-agent/plugins/$id"
-done
+# Plugins livrés : copiés s'ils sont présents dans l'archive (un gabarit
+# d'archive minimal peut ne pas contenir plugins/ -- ne pas en mourir,
+# l'agent fonctionne sans plugin et le central peut en pousser d'autres).
+if [ -d "$HERE/plugins" ]; then
+  for d in "$HERE"/plugins/*/; do
+    [ -e "$d" ] || continue   # glob non résolu : plugins/ vide
+    id="$(basename "$d")"
+    [ -d "/var/lib/si-agent/plugins/$id" ] || cp -r "$d" "/var/lib/si-agent/plugins/$id"
+  done
+else
+  echo "note : dossier plugins/ absent de l'archive -- installation poursuivie sans plugin livré" >&2
+fi
 chmod 750 /var/lib/si-agent/plugins/*/*.sh /var/lib/si-agent/plugins/*/*.py 2>/dev/null || true
 if [ -n "$CA" ]; then install -m 644 "$CA" /etc/si-agent/central-ca.crt; fi
 

@@ -193,6 +193,13 @@ def parse_launchctl_list(text):
             code = 0
         # on ignore les agents utilisateur (com.apple.*) sans PID au repos : bruit
         if code != 0 and not label.startswith("0x"):
+            # macOS récent : les démons système com.apple.* sont tués puis
+            # relancés en permanence par le système (pression mémoire,
+            # cryptexd, jetsam…) -- code -9 = SIGKILL système, pas un
+            # échec du service. Premier Mac réel : 131 « risques » dont
+            # ~tout le lot en -9. On les écarte du rapport d'échecs.
+            if code == -9 and label.startswith("com.apple."):
+                continue
             failed.append("%s (code %d)" % (label, code))
     return failed, running
 
