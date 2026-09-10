@@ -1,3 +1,13 @@
+## 2026-09-10 — Correctif : gabarit LaunchDaemon macOS renommé (livraison #475)
+
+L'anonymisation (#467) avait remplacé le contenu des fichiers mais pas
+leurs NOMS : le gabarit `si-agent/agent/macos/` portait encore l'ancien
+identifiant, alors qu'`install-macos.sh` cherchait déjà
+`fr.exemple.si-agent.plist` — installation macOS cassée depuis #467.
+Renommé ; vérification `git ls-files` sur les motifs sensibles : plus
+aucun nom de fichier concerné. **Vérifié** : cohérence gabarit /
+installateur ; **non vérifié** : installation réelle.
+
 ## 2026-09-09 — Agents hôtes joignables depuis Internet : central de secours par le nom public (livraison #474)
 
 Demandé : « et l'agent Mac depuis Internet ? » — hors du LAN, l'agent ne
