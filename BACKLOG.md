@@ -2562,9 +2562,37 @@ de client, de site réel, de personne ou d'adresse réelle ne doit y figurer.
    refuse dès lors de l'utiliser pour valider la chaîne du serveur :
    « CA cert does not include key usage extension » -- constaté sur le
    premier agent macOS réel (l'agent Linux passe, son OpenSSL étant plus
-   tolérant). Correctif propre : régénérer la CA avec
-   `keyUsage = critical, keyCertSign, cRLSign` (et re-signer les
-   certificats serveurs), ou signer une sous-CA avec les extensions ;
-   à planifier lorsque le hub redevient modifiable. Contournement
-   documenté pour les hôtes existants : faire tourner l'agent macOS avec
-   le Python système (LibreSSL tolérant) au lieu d'un Python OpenSSL 3.
+   tolérant). Contournement en production : l'agent macOS tourne avec le
+   Python système (LibreSSL tolérant) au lieu d'un Python OpenSSL 3.
+   **Analyse d'impact (2026-09-10), à relire avant toute bascule** :
+   - CONSOMMATEURS DE LA CA : agents hôtes (`central-ca.crt` +
+     empreinte `--ca-fingerprint` à l'installation) ; `si-agent-api`,
+     `si-proxy`, `si-proxy-admin-api` (montent `/ca/ca.crt` en volume
+     -> automatique après redémarrage) ; `vault-admin-portal` (monte
+     `pki/server`, le certificat feuille) ; postes/navigateurs du LAN
+     (import manuel, Firefox a son propre magasin) ; dockers
+     INDÉPENDANTS interrogeant Keycloak via tls-proxy -- ils ont COPIÉ
+     le `ca.crt` dans leur propre trust store (cacerts Java,
+     update-ca-certificates, image) : point le plus manuel.
+   - CAS 1, CA AUTO-SIGNÉE régénérée : empreinte de la CA changée
+     (même en conservant la clé) -> agents = TLS rompu jusqu'à
+     remplacement de `central-ca.crt` + redémarrage (la file locale
+     survit) ; dockers hub quasi nuls (volume + feuille régénérée à
+     chaque `run.sh`) ; postes/navigateurs = retrait de l'ancienne CA
+     PUIS import de la nouvelle, sous peine de
+     `SEC_ERROR_REUSED_ISSUER_AND_SERIAL` (même émetteur + même numéro
+     de serie que l'ancienne qui traîne) -> NUMÉRO DE SÉRIE NEUF
+     obligatoire.
+   - CAS 2, LET'S ENCRYPT : déjà en place sur le frontal public
+     (#471-474) ; les agents en `--central-fallback` le valident via le
+     magasin système -> impact NUL sur ce chemin. Mais LE ne peut PAS
+     remplacer la CA interne pour le LAN (pas de certificat public pour
+     une IP privée / un nom interne). Les deux coexistent.
+   - VOIE RECOMMANDÉE : (a) dès maintenant, SANS RISQUE -- corriger
+     `generate-ca.sh` (ajouter `basicConstraints=critical,CA:TRUE` et
+     `keyUsage=critical,keyCertSign,cRLSign`, série neuf) : le script
+     ne régénère JAMAIS une CA existante, donc aucun impact sur le hub
+     en production, seuls les futurs déploiements en bénéficient ;
+     (b) plus tard, bascule en production : régénérer sur le hub puis
+     redéployer `ca.crt` dans l'ordre agents -> postes/navigateurs ->
+     dockers à trust store copié, avec fenêtre de maintenance.
