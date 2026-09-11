@@ -17,6 +17,8 @@ et le LAN doit résoudre ce nom.
 ```bash
 # .env de super
 VITE_ALLOWED_HOSTS=super,hub.mondomaine.fr            # #472 : le serveur Vite accepte ces noms
+                                                      # (#478 : "*" par défaut dans .env.example,
+                                                      #  cette ligne n'est plus nécessaire)
 KEYCLOAK_EXTRA_ORIGINS=https://hub.mondomaine.fr      # #473 : redirections OIDC / origines web des clients
 python3 keycloak/render.py && ./scripts/run.sh up -d   # run.sh propose la ré-importation du realm
 ```

@@ -12,6 +12,18 @@ regarder l'entrée la plus récente en haut — si elle correspond à ce
 que vous avez déjà en `.env`, rien à faire. Sinon, copier/ajouter les
 clés listées, dans votre `.env` existant.
 
+## 2026-09-11 — VITE_ALLOWED_HOSTS="*" par défaut (livraison #478)
+
+`VITE_ALLOWED_HOSTS` vaut désormais `*` dans `.env.example` (vide
+avant) : vérifié qu'AUCUN des 6 fronts Vite ne publie de port direct —
+ils ne sont joignables que via tls-proxy, donc la liste blanche Vite
+n'apportait aucune protection mais bloquait tout nom non listé
+(« Blocked request. This host ("super") is not allowed », signalé en
+test via redirection X11 et par l'entrée externe). **Si votre `.env`
+existe déjà** : ajoutez `VITE_ALLOWED_HOSTS=*` (ou une liste explicite
+de noms) puis `./scripts/chantier.sh build` — la variable est lue par
+Vite au démarrage du conteneur, pas au simple `restart`.
+
 ## 2026-09-11 — PROJEQTOR_* (livraison #476)
 
 Nouveau module `projeqtor` (fork de ProjeQtOr V13.1.0, gestion de

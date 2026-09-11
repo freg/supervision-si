@@ -1,3 +1,29 @@
+## 2026-09-11 — Correctif : VITE_ALLOWED_HOSTS="*" par défaut (livraison #478)
+
+Signalé en conditions réelles (test via redirection X11 ET par l'entrée
+externe) : « Blocked request. This host ("super") is not allowed » — le
+serveur Vite des fronts refuse tout nom d'hôte non listé (#472), et le
+défaut vide obligeait à renseigner chaque nom à la main.
+
+Vérifié dans `docker-compose.yml` : **aucun** des 6 fronts Vite (hub,
+frontend, tickets, dba, ldap-admin, vault) ne publie de port direct —
+ils ne sont joignables QUE via tls-proxy, qui est déjà le point de
+contrôle unique. La liste blanche Vite n'apportait donc aucune
+protection réelle dans cette architecture, mais cassait tout accès par
+un nom non listé. `VITE_ALLOWED_HOSTS=*` devient le défaut dans
+`.env.example` (retour arrière documenté : liste explicite) ;
+`docs/acces-public-frontal.md` § 0 simplifié en conséquence.
+**Action requise pour un `.env` existant** : ajouter
+`VITE_ALLOWED_HOSTS=*` puis `./scripts/chantier.sh build` (la variable
+est lue au DÉMARRAGE du conteneur Vite -- un `restart` ne suffit pas,
+voir ENV_CHANGELOG.md).
+
+**Vérifié** : mécanisme `allowedHosts` relu dans les 6
+`vite.config.js` (même logique partout, `"*"` prévu et traduit en
+`true`), absence de port publié pour les 6 fronts ; **non vérifié** :
+rechargement réel d'un front après changement (à confirmer au premier
+accès via le nom « super »).
+
 ## 2026-09-11 — Fork ProjeQtOr : thème « hub » par défaut (livraison #477)
 
 Première retouche d'ergonomie du fork (backlog item 68, approche
