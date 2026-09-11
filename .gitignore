@@ -44,6 +44,10 @@ prefs-api/log-files/*
 !prefs-api/log-files/README.md
 docker-monitor/analysis/*
 !docker-monitor/analysis/README.md
+# Données d'exécution du fork ProjeQtOr (livraison #476) -- config
+# générée (mot de passe BD en clair), pièces jointes, documents, logs.
+projeqtor/data/*
+!projeqtor/data/README.md
 
 # Archives de livraison
 *.zip

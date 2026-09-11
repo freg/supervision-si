@@ -1,0 +1,910 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Contexts &#8212; Documentation ProjeQtOr User guide 13.1</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/translations.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Recherche" href="search.html" />
+    <link rel="next" title="Méthodes Agiles" href="Agile.html" />
+    <link rel="prev" title="Flux d’Activité" href="TransverseFeatures.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="Agile.html" title="Méthodes Agiles"
+             accesskey="N">suivant</a> |</li>
+        <li class="right" >
+          <a href="TransverseFeatures.html" title="Flux d’Activité"
+             accesskey="P">précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Contexts</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="concepts">
+<span id="concept"></span><h1>Concepts<a class="headerlink" href="#concepts" title="Lien permanent vers cette rubrique">¶</a></h1>
+<section id="project">
+<span id="concept-project"></span><h2>Projet<a class="headerlink" href="#project" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Un projet est l’entité principale de ProjeQtOr.</p>
+<p>L’élément projet est plus qu’un <a class="reference internal" href="#planning-element"><span class="std std-ref">élément de planification</span></a>.</p>
+<p>Il permet également de regrouper toutes les données liées au projet :</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="RiskIssueManagement.html#risk"><span class="std std-ref">Gestion des risques</span></a> : atténuation, réserve</p></li>
+<li><p><a class="reference internal" href="Ticket.html#ticket"><span class="std std-ref">Tickets</span></a> : Anomalie, Suivi des bogues, Demande de changement, Support</p></li>
+<li><p>Pilotage : <a class="reference internal" href="Steering.html#meeting"><span class="std std-ref">réunion</span></a>, <a class="reference internal" href="Steering.html#decision"><span class="std std-ref">décision</span></a>, <a class="reference internal" href="RiskIssueManagement.html#action"><span class="std std-ref">Plan d’action</span></a></p></li>
+<li><p><a class="reference internal" href="RequirementsTest.html#requirement"><span class="std std-ref">Exigences &amp; Tests</span></a></p></li>
+<li><p><a class="reference internal" href="Expenses.html#expenses"><span class="std std-ref">Dépenses</span></a> et <a class="reference internal" href="Incomes.html#incomes"><span class="std std-ref">Recettes</span></a> : dépenses du projet, dépenses individuelles, dépenses d’activités, Commande, Facture, Paiement…</p></li>
+<li><p><a class="reference internal" href="Document.html#document"><span class="std std-ref">Documents</span></a></p></li>
+</ul>
+<p>Permet de restreindre la visibilité des données aux utilisateurs par projet.</p>
+<p>La visibilité des données du projet est accordée en fonction du profil de l’utilisateur.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="PlanningElements.html#planningelem-project"><span class="std std-ref">Projet</span></a>
+<a class="reference internal" href="Planning.html#planning-order"><span class="std std-ref">Ordre de planification</span></a>
+<a class="reference internal" href="#profiles-definition"><span class="std std-ref">Définition des profils</span></a>
+<a class="reference internal" href="PlanningView.html#projectsdashboard"><span class="std std-ref">Tableau de bord des projets</span></a>
+<a class="reference internal" href="#allocation-to-project"><span class="std std-ref">Affectation au projet</span></a></p>
+</div>
+<section id="project-selector">
+<h3>Sélecteur de projet<a class="headerlink" href="#project-selector" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le sélecteur de projet fonctionne comme un filtre.</p>
+<p>Par défaut, le sélecteur affiche « tous les projets ». Vous pouvez modifier cette vue dans les paramètres utilisateur et choisir le projet à afficher par défaut.</p>
+<p>Vous pouvez restreindre les données à un ou plusieurs projets spécifiques sans nécessairement y être rattaché.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Le type de projet est défini dans un type de projet.</p>
+<p>Qui est associé à un projet. Voir : <a class="reference internal" href="PlanningElements.html#planningelem-project"><span class="std std-ref">Projet</span></a></p>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="Gui.html#top-bar"><span class="std std-ref">Barre supérieure</span></a> et <a class="reference internal" href="UserParameter.html#user-parameters"><span class="std std-ref">Paramètres utilisateur</span></a></p>
+</div>
+</section>
+<section id="project-s-type">
+<span id="project-type-definition"></span><span id="index-0"></span><h3>Type de projet<a class="headerlink" href="#project-s-type" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Quatre types de projets peuvent être définis :</p>
+<section id="operational-project">
+<h4>Projet opérationnel<a class="headerlink" href="#operational-project" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p><strong>Code : OPE</strong></p>
+<p>Type de projet le plus courant pour le suivi des activités.</p>
+<p>Un projet peut être non facturable, utilisé par exemple pour des projets internes ou administratifs, ou facturable.</p>
+<p>Vous pouvez choisir le <a class="reference internal" href="Incomes.html#billing-types"><span class="std std-ref">type de facturation</span></a> associé à chaque projet parmi : facturation manuelle, prix fixe, temps plafonné, régie, interne.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="PlanningElements.html#planningelem-project"><span class="std std-ref">Projet</span></a></p>
+<p><a class="reference internal" href="Incomes.html#billing-types"><span class="std std-ref">Type de facture</span></a></p>
+</div>
+</section>
+<section id="administrative-project">
+<h4>Projet administratif<a class="headerlink" href="#administrative-project" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p><strong>Code : ADM</strong></p>
+<p>Permet de suivre le travail non productif tel que les congés, les absences pour maladie, les formations, etc.</p>
+<p>Toutes les ressources ont accès à ce type de projet sans être affectées (Projet) ni assignées (Activité).</p>
+<p>Créez une activité, comme pour un projet OPE, pour chaque type d’absence.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="RealWorkAllocation.html#absence"><span class="std std-ref">Absences</span></a></p>
+</div>
+</section>
+<section id="template-project">
+<h4>Projet modèle<a class="headerlink" href="#template-project" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p><strong>Code : TMP</strong></p>
+<p>Conçu pour définir des modèles à copier dans un projet opérationnel.</p>
+<p>Tout chef de projet (profil) peut voir et copier ces projets sans y être assigné. Pour modifier directement ce projet modèle, une assignation est requise.</p>
+<p>Pour le modifier sans assignation, vous devez d’abord copier le projet dans un projet de type opérationnel (OPE).</p>
+<p>Un projet modèle, même s’il est affiché dans le diagramme de Gantt, n’est pas pris en compte dans la planification. Même s’il comporte des assignations et une charge affectée, celles-ci ne sont pas enregistrées et ne sont donc pas planifiées.</p>
+<p>Vous ne pourrez pas afficher le détail de planification sur les projets de type modèle.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="Gui.html#copy-item"><span class="std std-ref">Copier un élément</span></a></p>
+</div>
+</section>
+<section id="proposal-project">
+<h4>Projet de proposition<a class="headerlink" href="#proposal-project" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p><strong>Code : PRP</strong></p>
+<p>Les projets de type proposition sont destinés à identifier des projets stratégiques. Ils permettent de définir des objectifs basés sur des facteurs internes et externes pour les atteindre.</p>
+<p>Pour les projets de ce type, 4 champs supplémentaires sont affichés :</p>
+<ul class="simple">
+<li><p>Force</p></li>
+<li><p>Faiblesse</p></li>
+<li><p>Opportunité</p></li>
+<li><p>Menace</p></li>
+</ul>
+<p>La valeur stratégique est obligatoire.</p>
+<p>Le projet est automatiquement enregistré comme « En construction » et est en lecture seule.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="PlanningView.html#critical-resource"><span class="std std-ref">ressource critique</span></a></p>
+</div>
+</section>
+</section>
+<section id="allocation-to-project">
+<span id="id1"></span><h3>Affectation au projet<a class="headerlink" href="#allocation-to-project" title="Lien permanent vers cette rubrique">¶</a></h3>
+<aside class="sidebar">
+<p class="sidebar-title">Concepts</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#profiles-definition"><span class="std std-ref">Définition des profils</span></a></p></li>
+<li><p><a class="reference internal" href="#user-ress-contact-demystify"><span class="std std-ref">Définition des intervenants</span></a></p></li>
+</ul>
+</aside>
+<p>L’affectation au projet est utilisée pour :</p>
+<ul class="simple">
+<li><p>Définir la visibilité des données du projet avec les droits d’accès.</p></li>
+<li><p>Définir la disponibilité des ressources.</p></li>
+<li><p>Définir la période d’accès aux données du projet par l’utilisateur.</p></li>
+</ul>
+<p>Vous pouvez sélectionner un utilisateur, une ressource ou un contact.</p>
+<p>Si le contact sélectionné est également une ressource, il sera affiché dans le tableau d’assignation au niveau de la ressource.</p>
+<section id="user-and-contact-allocation">
+<h4>Affectation des utilisateurs et des contacts<a class="headerlink" href="#user-and-contact-allocation" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>L’affectation au projet peut être définie dans les écrans <a class="reference internal" href="PlanningElements.html#planningelem-project"><span class="std std-ref">Projet</span></a> et <a class="reference internal" href="Resource.html#user"><span class="std std-ref">Utilisateurs</span></a>.</p>
+<p>Le profil sélectionné permet de définir les droits sur tous les éléments du projet.</p>
+<p>Le profil affiché en premier sera le profil par défaut, mais le profil attribué à une affectation peut être différent sur chaque projet.</p>
+<p>Ces droits s’appliquent uniquement au projet sélectionné. Si un sous-projet y est créé, les droits seront automatiquement hérités.</p>
+<p>Vous pouvez modifier le profil sur n’importe quel projet à tout moment.</p>
+<p>La sélection de la période permet de définir la période de visibilité des données du projet. Elle peut être utilisée pour limiter la période d’accès, conformément à la convention de service.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Le profil défini dans l’affectation au projet n’accorde ni ne révoque l’accès aux utilisateurs.</p>
+<p>L’accès général aux fonctionnalités et aux données de l’application est défini par le profil utilisateur par défaut.</p>
+</div>
+</section>
+<section id="resource-allocation">
+<span id="resource-allocation-to-project"></span><h4>Affectation des ressources<a class="headerlink" href="#resource-allocation" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>L’affectation au projet permet de définir la disponibilité des ressources sur le projet.</p>
+<p>Une ressource peut être affectée à des projets à un taux spécifié pour une période donnée.</p>
+<p>L’affectation au projet peut être définie dans les écrans <a class="reference internal" href="PlanningElements.html#planningelem-project"><span class="std std-ref">Projet</span></a> et <a class="reference internal" href="Resource.html#resource"><span class="std std-ref">Ressource</span></a>.</p>
+<p>Vous pouvez également affecter une équipe ou une organisation à un projet dans les écrans <a class="reference internal" href="Resource.html#team"><span class="std std-ref">Équipes</span></a> et <a class="reference internal" href="Organization.html#linked-resource-organization"><span class="std std-ref">Organisation</span></a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Une ressource affectée à un projet peut être définie comme <a class="reference internal" href="Glossary.html#term-Responsible"><span class="xref std std-term">responsable</span></a> du traitement des éléments du projet.</p>
+</div>
+<section id="period-rate">
+<span id="periodandrate"></span><h5>Période &amp; Taux<a class="headerlink" href="#period-rate" title="Lien permanent vers cette rubrique">¶</a></h5>
+<p>Une ressource peut être affectée à un projet à un taux spécifié pour une période donnée.</p>
+<p>Ce taux est utilisé pour réserver du temps de planification pour d’autres tâches.</p>
+<p>Par exemple, si le taux d’affectation est de 50 %, la ressource dont le calendrier hebdomadaire est de 5 jours (du lundi au vendredi) ne sera pas planifiée plus de la moitié de ce calendrier, soit 2,5 jours par semaine.</p>
+<p>Si la période n’est pas spécifiée, la ressource est affectée pour toute la durée du projet.</p>
+<div class="admonition warning">
+<p class="admonition-title">Avertissement</p>
+<p>Le calculateur de planification tente de planifier le travail restant sur la tâche assignée à une ressource dans la période d’affectation au projet.</p>
+<p>Si le travail restant sur la tâche ne peut pas être planifié, une barre violette apparaît dans la vue Gantt.</p>
+</div>
+</section>
+<section id="change-resource">
+<h5>Changer de ressource<a class="headerlink" href="#change-resource" title="Lien permanent vers cette rubrique">¶</a></h5>
+<p>Une ressource peut être remplacée dans l’affectation au projet.</p>
+<p>Toutes les tâches assignées à l’ancienne ressource seront transférées à la nouvelle ressource avec le travail planifié et le travail restant.</p>
+<p>Le travail effectué sur les tâches appartient toujours à l’ancienne ressource.</p>
+</section>
+<section id="multi-allocation">
+<h5>Multi-affectation<a class="headerlink" href="#multi-allocation" title="Lien permanent vers cette rubrique">¶</a></h5>
+<p>Une ressource peut être affectée à plusieurs projets sur la même période.</p>
+<p>Dans la section <strong>Affectations</strong> de l’écran <a class="reference internal" href="Resource.html#resource"><span class="std std-ref">Ressource</span></a>, un outil permet d’afficher les conflits.</p>
+<div class="admonition tip">
+<p class="admonition-title">Astuce</p>
+<p>Comment résoudre les conflits ?</p>
+<p>Vous pouvez modifier la période d’affectation pour éviter les chevauchements entre projets.</p>
+<p>Vous pouvez modifier le taux d’affectation pour qu’il ne dépasse pas 100% sur la période.</p>
+</div>
+</section>
+</section>
+</section>
+</section>
+<section id="activity">
+<span id="concept-activity"></span><h2>Activité<a class="headerlink" href="#activity" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Une activité est un type de tâche qui peut être planifiée ou qui regroupe d’autres activités.</p>
+<p>Il s’agit généralement d’une tâche de longue durée pouvant être assignée à une ou plusieurs ressources.</p>
+<p>Les activités apparaîtront dans la vue du planning Gantt.</p>
+<p><strong>Vous pouvez considérer une activité comme :</strong></p>
+<ul class="simple">
+<li><p>Des tâches planifiées,</p></li>
+<li><p>Des demandes de modification,</p></li>
+<li><p>Des phases,</p></li>
+<li><p>Des versions ou de nouveaux déploiements,</p></li>
+</ul>
+<p>Les activités peuvent être regroupées selon un lien Mère / Fille. L’activité parente doit appartenir au même projet.</p>
+<p>Une structure WBS est appliquée et un index dynamique est calculé pour toutes les activités. Il peut être modifié dans la vue de planification Gantt par glisser-déposer.</p>
+<p>Une activité peut être liée à des éléments non planifiables comme les tickets, afin que le temps passé sur les tickets soit pris en compte dans la planification globale du projet. Cette option permet d’attribuer un pool de temps qui sera planifié et de lier les tickets à ce réservoir. Le temps passé sur les tickets sera alors déduit de celui de l’activité de planification.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="Ticket.html#ticket-planning-activity"><span class="std std-ref">Activité de planification</span></a></p>
+</div>
+<section id="assignment">
+<span id="id2"></span><h3>Assignation<a class="headerlink" href="#assignment" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>L’assignation est utilisée pour affecter des ressources aux tâches du projet (activité, session de test, réunion). Seules les ressources affectées au projet peuvent être assignées aux tâches du projet.</p>
+<p>Elle consiste à assigner une ressource à une tâche dans une fonction spécifique et contient les données relatives au travail sur la tâche : travail planifié, travail réel, travail restant et travail réévalué.</p>
+<p>Vous gardez la trace des ressources qui ont été assignées et ont travaillé sur l’activité.</p>
+<p>Vous pouvez définir une période pour la ressource sur chacune des activités.</p>
+<p>Vous pouvez également définir un taux d’assignation pour chaque activité qui déterminera la planification journalière en fonction du pourcentage de son <a class="reference internal" href="Resource.html#fte"><span class="std std-ref">ETP</span></a>.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Par défaut, vous ne pouvez pas supprimer l’assignation d’une ressource après que celle-ci a saisi du travail réel sur l’activité.</p>
+<p>Cette assignation peut être supprimée par un profil disposant de l’option « Peut supprimer les éléments avec du travail réel » dans le menu des droits d’accès spécifiques.</p>
+<p>De même, si la ressource a terminé son activité, la suppression n’est pas possible.</p>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="PlanningElements.html#activity"><span class="std std-ref">Activité</span></a> - <a class="reference internal" href="RequirementsTest.html#test-session"><span class="std std-ref">Sessions de test</span></a> - <a class="reference internal" href="Steering.html#meeting"><span class="std std-ref">Pilotage</span></a></p>
+<p><a class="reference internal" href="CommonSections.html#assignment-section"><span class="std std-ref">Section Assignation</span></a> dans la section commune</p>
+</div>
+</section>
+</section>
+<section id="organization">
+<span id="organization-concept"></span><span id="index-1"></span><h2>Organisation<a class="headerlink" href="#organization" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>La notion d’organisation introduit un moyen de consolider les projets selon une structure hiérarchique différente, indépendamment de la structure projets / sous-projets.</p>
+<p>Elle définit la structure de l’entreprise dans le cadre des organisations : départements, unités, sites, etc.</p>
+<p>L’organisation synthétise les données des projets en cours pour l’organisation concernée.</p>
+<figure class="align-center" id="id10">
+<img alt="_images/CONCEPT_ORG_Organisations.png" src="_images/CONCEPT_ORG_Organisations.png" />
+<figcaption>
+<p><span class="caption-text">Distribution au sein des organisations</span><a class="headerlink" href="#id10" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Chaque projet peut être lié à une organisation et les ressources peuvent être liées à une organisation.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>En fonction du profil, vous pouvez limiter la visibilité des ressources aux personnes appartenant à la même organisation ou équipe que l’utilisateur courant.</p>
+<p>Les sous-projets sont par défaut rattachés à la même organisation que le projet parent, mais peuvent être intégrés dans une autre organisation.</p>
+</div>
+</section>
+<section id="product">
+<span id="product-concept"></span><span id="index-2"></span><h2>Produit<a class="headerlink" href="#product" title="Lien permanent vers cette rubrique">¶</a></h2>
+<aside class="sidebar">
+<p class="sidebar-title">identifying</p>
+<p>Les versions de produit peuvent être identifiées dans ces éléments :</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="PlanningElements.html#activity"><span class="std std-ref">Activité</span></a></p></li>
+<li><p><a class="reference internal" href="PlanningElements.html#milestone"><span class="std std-ref">Jalon</span></a></p></li>
+<li><p><a class="reference internal" href="RequirementsTest.html#requirement"><span class="std std-ref">Exigences et tests</span></a></p></li>
+<li><p><a class="reference internal" href="RequirementsTest.html#test-case"><span class="std std-ref">Cas de test</span></a></p></li>
+<li><p><a class="reference internal" href="RequirementsTest.html#test-session"><span class="std std-ref">Sessions de test</span></a></p></li>
+<li><p><a class="reference internal" href="Ticket.html#ticket"><span class="std std-ref">Gestion des Tickets</span></a></p></li>
+<li><p><a class="reference internal" href="Document.html#document"><span class="std std-ref">Documents</span></a></p></li>
+</ul>
+</aside>
+<p>Un produit peut être un objet matériel ou, pour les projets informatiques, une application logicielle.</p>
+<p>Il peut avoir une structure complexe composée de sous-produits et de composants, et ces composants peuvent avoir plusieurs versions représentant chaque déclinaison.</p>
+<p>Un produit est un élément livré par un projet.</p>
+<p>Plusieurs éléments peuvent identifier un produit et/ou une version de produit. Les <a class="reference internal" href="Document.html#document"><span class="std std-ref">documents</span></a> eux-mêmes peuvent être identifiés à des produits.</p>
+<p>Le lien avec le projet n’a aucun impact sur la planification du projet. Il indique uniquement que le projet est consacré à des versions spécifiques d’un produit.</p>
+<p>La gestion des liens est effectuée dans les écrans <a class="reference internal" href="PlanningElements.html#planningelem-project"><span class="std std-ref">Projet</span></a> et <a class="reference internal" href="ConfigurationManagement.html#product-version"><span class="std std-ref">Version de produit</span></a>.</p>
+<figure class="align-center" id="id11">
+<img alt="Lien avec les projets" src="_images/CONCEPT_SCHEMA_LinkProductToProject.png" />
+<figcaption>
+<p><span class="caption-text">Lien avec les projets</span><a class="headerlink" href="#id11" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="#product-structure"><span class="std std-ref">Structure du produit</span></a> - <a class="reference internal" href="ConfigurationManagement.html#product-version"><span class="std std-ref">Version de produit</span></a> - <a class="reference internal" href="ConfigurationManagement.html#configurationmanagement"><span class="std std-ref">Gestion de la configuration</span></a></p>
+<p>et <a class="reference internal" href="Document.html#document"><span class="std std-ref">Documents</span></a></p>
+</div>
+<section id="product-structure">
+<span id="id3"></span><h3>Structure du produit<a class="headerlink" href="#product-structure" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>La structure du produit est définie en fonction des relations établies entre les éléments produits et composants.</p>
+<p>Les règles définissant une structure de produit sont :</p>
+<section id="relationships-between">
+<h4>Relations entre…<a class="headerlink" href="#relationships-between" title="Lien permanent vers cette rubrique">¶</a></h4>
+<section id="product-elements">
+<h5>…les éléments produits<a class="headerlink" href="#product-elements" title="Lien permanent vers cette rubrique">¶</a></h5>
+<ul class="simple">
+<li><p>Un produit peut avoir plusieurs sous-produits.</p></li>
+<li><p>Un sous-produit ne peut entrer dans la composition que d’un seul produit.</p></li>
+</ul>
+<figure class="align-center" id="id12">
+<img alt="Relations entre les éléments produits" src="_images/CONCEPT_SCHEMA_LinkProductSubProduct.png" />
+<figcaption>
+<p><span class="caption-text">Relations entre les éléments produits</span><a class="headerlink" href="#id12" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="product-and-component-elements">
+<h5>… les éléments produits et composants<a class="headerlink" href="#product-and-component-elements" title="Lien permanent vers cette rubrique">¶</a></h5>
+<ul class="simple">
+<li><dl class="simple">
+<dt>Un produit peut être composé de plusieurs composants.</dt><dd><ul>
+<li><p>Un composant peut entrer dans la composition de plusieurs produits.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+<figure class="align-center" id="id13">
+<img alt="Relations entre les éléments produits et composants" src="_images/CONCEPT_SCHEMA_LinkProductComponent.png" />
+<figcaption>
+<p><span class="caption-text">Relations entre les éléments produits et composants</span><a class="headerlink" href="#id13" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="component-elements">
+<h5>… les éléments composants<a class="headerlink" href="#component-elements" title="Lien permanent vers cette rubrique">¶</a></h5>
+<p>Les composants peuvent être liés entre eux (relations N à N).</p>
+<figure class="align-center" id="id14">
+<img alt="Relations entre les éléments composants" src="_images/CONCEPT_SCHEMA_LinkBetweenComponent.png" />
+<figcaption>
+<p><span class="caption-text">Relations entre les éléments composants</span><a class="headerlink" href="#id14" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+<section id="versions-of-product-and-component-elements">
+<h4>Versions des éléments produits et composants<a class="headerlink" href="#versions-of-product-and-component-elements" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Un produit peut avoir plusieurs versions représentant chaque déclinaison du produit.</p>
+<p>Un composant peut avoir plusieurs versions représentant chaque déclinaison du composant.</p>
+<p>Des liens peuvent être définis entre les versions de produits et de composants, mais uniquement avec les éléments définis dans la structure du produit.</p>
+<figure class="align-center" id="id15">
+<img alt="Lien entre les versions de produit et de composant" src="_images/CONCEPT_SCHEMA_LinkProductComponentVersion.png" />
+<figcaption>
+<p><span class="caption-text">Lien entre les versions de produit et de composant</span><a class="headerlink" href="#id15" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+</section>
+<section id="planning">
+<span id="index-3"></span><span id="id4"></span><h2>Planification<a class="headerlink" href="#planning" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>ProjeQtOr met en œuvre une méthode de planification pilotée par le travail, basée sur la disponibilité des ressources et leur capacité.</p>
+<p><a class="reference internal" href="Resource.html#resource"><span class="std std-ref">La disponibilité des ressources</span></a> est définie par les <a class="reference internal" href="Resource.html#calendars"><span class="std std-ref">calendriers</span></a> et la <a class="reference internal" href="#periodandrate"><span class="std std-ref">période d’affectation au projet</span></a>.</p>
+<p>Chaque ressource est associée à un calendrier pour définir ses jours ouvrés. Les tâches assignées à la ressource seront planifiées en fonction des jours ouvrés définis dans le calendrier.</p>
+<p>La capacité de la ressource (<a class="reference internal" href="Resource.html#fte"><span class="std std-ref">ETP</span></a>) est définie sur une base journalière et l’outil de planification ne dépasse pas la capacité journalière de la ressource.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="#resource-calendar"><span class="std std-ref">Calendrier de la ressource</span></a> et <a class="reference internal" href="#resource-allocation-to-project"><span class="std std-ref">Affectation au projet</span></a></p>
+</div>
+<p>Le <a class="reference internal" href="#periodandrate"><span class="std std-ref">taux d’affectation au projet</span></a> est utilisé pour résoudre les conflits d’affectation entre projets et permet de définir la disponibilité des ressources pour un projet durant une période. Utilisé avec la capacité de la ressource, il permet de définir la capacité d’affectation au projet sur une base hebdomadaire.</p>
+<p>Le <a class="reference internal" href="#assignment"><span class="std std-ref">taux d’assignation de la tâche</span></a> est utilisé pour réserver du temps de planification chaque jour pour d’autres tâches. Utilisé avec la capacité de la ressource, il permet de définir la capacité d’assignation sur une base journalière.</p>
+<section id="planning-elements">
+<span id="planning-element"></span><span id="index-4"></span><h3>Éléments de planification<a class="headerlink" href="#planning-elements" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>ProjeQtOr propose des éléments de planification standard tels que le Projet, l’Activité et le Jalon, ainsi que deux éléments de planification supplémentaires : la Session de test et la Réunion.</p>
+<section id="id5">
+<h4>Projet<a class="headerlink" href="#id5" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Cet élément de planification définit le projet.</p>
+<p>Il permet de renseigner des informations sur la fiche projet telles que le client, le contact de facturation, le commanditaire, le responsable et les objectifs.</p>
+<p>Le sous-projet est utilisé pour découper le projet, afin de correspondre à la décomposition organisationnelle ou à d’autres structures selon les besoins.</p>
+<figure class="align-center" id="id16">
+<img alt="Séparation des responsabilités" src="_images/CONCEPT_SCHEMA_SeparationDuties.png" />
+<figcaption>
+<p><span class="caption-text">Séparation des responsabilités</span><a class="headerlink" href="#id16" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Des documents, notes et pièces jointes peuvent être annexés.</p></li>
+<li><p>Un chef de projet et une équipe peuvent être affectés à chaque sous-projet.</p></li>
+<li><p>L’affectation au projet permet de définir la visibilité des données et d’isoler les sous-projets.</p></li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="PlanningElements.html#planningelem-project"><span class="std std-ref">Projet</span></a> et <a class="reference internal" href="#allocation-to-project"><span class="std std-ref">Affectation au projet</span></a></p>
+</div>
+</section>
+<section id="id6">
+<h4>Activité<a class="headerlink" href="#id6" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Cet élément de planification peut être une phase, une livraison, une tâche ou toute autre activité.</p>
+<p>Une activité peut regrouper d’autres activités ou constituer une tâche. Cela permet de définir la structure des phases et des livrables.</p>
+<p>Les dates, charges et coûts des activités (filles) sont synthétisés dans l’activité (parente).</p>
+<p>Une tâche est assignée à des ressources pour être réalisée.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="PlanningElements.html#activity"><span class="std std-ref">Activité</span></a></p>
+</div>
+</section>
+<section id="test-session">
+<h4>Session de test<a class="headerlink" href="#test-session" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Cet élément de planification est une activité spécialisée dédiée aux tests.</p>
+<p>Une session de test permet de définir un ensemble de cas de test devant être exécutés pour satisfaire une exigence.</p>
+<p>Elle peut regrouper d’autres sessions de test ou constituer une tâche. Cela permet de définir la structure des sessions de test.</p>
+<p>Les dates, charges et coûts des sessions de test (filles) sont synthétisés dans la session de test (parente).</p>
+<p>Une tâche est assignée à des ressources pour être réalisée.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="RequirementsTest.html#test-session"><span class="std std-ref">Sessions de test</span></a></p>
+</div>
+</section>
+<section id="milestone">
+<h4>Jalon<a class="headerlink" href="#milestone" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Cet élément de planification est un repère dans le planning, destiné à mettre en évidence les dates clés.</p>
+<p>Peut être un point de transition entre des phases ou des livrables.</p>
+<p>ProjeQtOr propose deux types de jalons : flottant et fixe.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="PlanningElements.html#milestone"><span class="std std-ref">Jalon</span></a></p>
+</div>
+</section>
+<section id="meeting">
+<span id="concept-meeting"></span><h4>Réunion<a class="headerlink" href="#meeting" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Cet élément de planification se comporte comme un jalon fixe, mais c’est une tâche.</p>
+<p>Comme un jalon, une réunion peut être un point de transition.</p>
+<p>Mais aussi, comme une tâche, car il est possible d’y assigner des ressources et du travail planifié.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="Steering.html#meeting"><span class="std std-ref">Pilotage</span></a></p>
+</div>
+</section>
+<section id="dependency">
+<span id="dependencies-role"></span><h4>Dépendance<a class="headerlink" href="#dependency" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Les dépendances permettent de définir l’ordre d’exécution des tâches (séquentiel ou concurrent).</p>
+<p>Tous les éléments de planification peuvent être liés entre eux par des dépendances.</p>
+<p>Il existe plusieurs types de dépendances permettant de démarrer et/ou de terminer avant/après un autre élément.</p>
+<p>Les dépendances peuvent être gérées dans le diagramme de Gantt et dans l’écran de l’élément de planification.</p>
+<p>Un délai peut être défini entre le prédécesseur et le successeur.</p>
+</section>
+</section>
+<section id="planning-mode">
+<span id="planningmode"></span><h3>Mode de planification<a class="headerlink" href="#planning-mode" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le mode de planification permet de définir des contraintes sur les éléments de planification : activité, session de test et jalon.</p>
+<section id="milestones-planning-mode">
+<h4>Mode de planification des jalons<a class="headerlink" href="#milestones-planning-mode" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Les modes de planification sont regroupés en deux types pour les jalons :</p>
+<p><strong>Flottant</strong></p>
+<ul class="simple">
+<li><p>Ces modes de planification n’ont pas de date contrainte.</p></li>
+<li><p>L’élément de planification est flottant en fonction de ses prédécesseurs.</p></li>
+</ul>
+<p><strong>Fixe</strong></p>
+<ul class="simple">
+<li><p>Ces modes de planification ont une date contrainte.</p></li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="CommonSections.html#progress-section-planning-mode"><span class="std std-ref">Modes de planification des activités et sessions de test</span></a> et <a class="reference internal" href="CommonSections.html#planning-mode-milestone"><span class="std std-ref">Modes de planification des jalons</span></a>.</p>
+</div>
+</section>
+<section id="planning-elements-planning-mode">
+<span id="planning-mode-concept"></span><h4>Mode de planification des éléments de planification<a class="headerlink" href="#planning-elements-planning-mode" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Plusieurs modes de planification pour vos éléments de projet sont proposés afin de gérer au mieux le temps consacré à certains éléments de planification.</p>
+<ul class="simple">
+<li><p>Dès que possible</p></li>
+<li><p>Travail simultané</p></li>
+<li><p>Durée fixe et activité parente</p></li>
+<li><p>Durée contrainte</p></li>
+<li><p>Ne doit pas démarrer avant la date de début validée</p></li>
+<li><p>Doit démarrer à la date validée</p></li>
+<li><p>Doit se terminer avant la date de fin validée</p></li>
+<li><p>Régulier entre des dates</p></li>
+<li><p>Régulier en jours entiers</p></li>
+<li><p>Régulier en demi-journées</p></li>
+<li><p>Régulier en quarts de journée</p></li>
+<li><p>Récurrent (sur une base hebdomadaire)</p></li>
+<li><p>Planification manuelle</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Vous pouvez définir le mode de planification par défaut d’un élément depuis son type.</p>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="Planning.html#planningmodegantt"><span class="std std-ref">Modes de planification</span></a></p>
+<p>Écrans <a class="reference internal" href="ListsOfTypes.html#activity-type"><span class="std std-ref">Types d’activités</span></a>, <a class="reference internal" href="ListsOfTypes.html#milestone-type"><span class="std std-ref">Types de jalons</span></a> et <a class="reference internal" href="ListsOfTypes.html#test-session-type"><span class="std std-ref">Types de sessions de test</span></a>.</p>
+</div>
+</section>
+</section>
+<section id="planning-priority">
+<span id="scheduling-priority"></span><h3>Priorité de planification<a class="headerlink" href="#planning-priority" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Les éléments de planification sont ordonnancés selon l’ordre de priorité suivant :</p>
+<ol class="arabic simple">
+<li><p>Planification manuelle</p></li>
+<li><p>Dépendance</p></li>
+<li><p>Date fixe</p></li>
+<li><p>Activités récurrentes</p></li>
+<li><p>Durée fixe</p></li>
+<li><p>Autres</p></li>
+</ol>
+<p>Vous pouvez également renseigner le champ priorité dans la section de gestion de vos éléments de planification pour définir un ordre de planification différent de celui par défaut. Les valeurs possibles vont de 1, pour la priorité la plus haute, à 999, pour la priorité la plus basse.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="Planning.html#planning-order"><span class="std std-ref">Ordre de planification</span></a> pour plus de détails</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Si des projets ont des priorités différentes, tous les éléments du projet ayant la priorité la plus haute sont planifiés en premier.</p>
+</div>
+</section>
+<section id="project-structure">
+<h3>Structure du projet<a class="headerlink" href="#project-structure" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>La structure de décomposition du travail (WBS) est utilisée pour définir la structure du projet.</p>
+<p>La décomposition peut être effectuée avec des sous-projets, des activités et des sessions de test.</p>
+<p><strong>Gestion de la structure</strong></p>
+<ul class="simple">
+<li><p>Comme indiqué précédemment, le projet peut être découpé en sous-projets.</p></li>
+<li><p>Tous les autres éléments de planification concernés par le projet ou le sous-projet leur sont rattachés sans structure particulière.</p></li>
+<li><p>Les éléments de planification peuvent être regroupés et ordonnés de manière hiérarchique.</p></li>
+<li><p>La gestion de la structure peut être effectuée dans le diagramme de Gantt ou dans l’écran des éléments de planification.</p></li>
+</ul>
+<p><strong>Numérotation des éléments WBS</strong></p>
+<ul class="simple">
+<li><p>Le projet est numéroté par son identifiant.</p></li>
+<li><p>Tous les autres éléments sont numérotés en fonction de leur niveau et de leur séquence.</p></li>
+<li><p>La numérotation WBS est ajustée automatiquement.</p></li>
+</ul>
+</section>
+<section id="project-planning-calculation">
+<h3>Calcul de la planification du projet<a class="headerlink" href="#project-planning-calculation" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>La planification du projet est calculée sur l’ensemble du plan de projet, incluant les éléments parents et prédécesseurs (dépendances).</p>
+<p><strong>Le calcul est exécuté tâche par tâche dans l’ordre suivant :</strong></p>
+<ol class="arabic simple">
+<li><p>Planification manuelle</p></li>
+<li><p>Dépendances (les tâches prédécesseurs sont calculées en premier)</p></li>
+<li><p>Éléments de planification prioritaires</p></li>
+<li><p>Priorité du projet</p></li>
+<li><p>Priorité de la tâche</p></li>
+<li><p>Structure du projet (WBS)</p></li>
+</ol>
+<p>Le travail restant sur les tâches sera distribué sur les jours suivants à partir de la date de début de planification, en tenant compte de plusieurs contraintes :</p>
+<ul class="simple">
+<li><p>Disponibilité et capacité des ressources</p></li>
+<li><p>Capacité d’affectation au projet (taux d’affectation au projet)</p></li>
+<li><p>Capacité d’assignation (taux d’assignation de la tâche)</p></li>
+<li><p>Mode de planification</p></li>
+</ul>
+<p><strong>Surcharges des ressources</strong></p>
+<ul class="simple">
+<li><p>Il n’est pas possible de surcharger les ressources.</p></li>
+<li><p>Le processus de calcul de la planification respecte la disponibilité et la capacité de la ressource.</p></li>
+<li><p>S’il n’est pas possible de distribuer le travail restant sur les jours déjà planifiés, le processus de calcul utilise de nouveaux créneaux disponibles.</p></li>
+</ul>
+</section>
+<section id="draft-planning">
+<h3>Planification préliminaire<a class="headerlink" href="#draft-planning" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Deux méthodes peuvent être utilisées pour créer une planification préliminaire.</p>
+<p>Utiliser le mode de planification « durée fixe »</p>
+<p>Ce mode de planification est utilisé pour définir des tâches à durée fixe. Voir : <a class="reference internal" href="#planningmode"><span class="std std-ref">Modes de planification</span></a></p>
+<p>Les dépendances permettent de définir l’ordre d’exécution des tâches. Voir : <a class="reference internal" href="Gantt.html#dependencylinks"><span class="std std-ref">Dépendances</span></a></p>
+<p>Vous pouvez définir ce mode de planification comme mode par défaut dans l’écran des types d’activités pour certains types d’activités que vous utiliserez dans les planifications préliminaires.</p>
+<p>Utiliser des ressources fictives et des ressources équipe</p>
+<p>Les ressources fictives et les ressources équipe peuvent être utiles pour obtenir une première estimation du coût et de la durée du projet sans impliquer les ressources réelles.</p>
+<p>Le planning est calculé en utilisant la méthode de planification pilotée par le travail.</p>
+<p>Les ressources fictives et les ressources équipe peuvent être combinées dans la même planification préliminaire.</p>
+<p><strong>Ressources fictives</strong></p>
+<ul class="simple">
+<li><p>Par exemple, vous souhaitez définir une ressource de type développeur Java. Vous pouvez créer une ressource nommée « Développeur Java n°1 ».</p></li>
+<li><p>Il existe plusieurs niveaux de développeur Java avec des coûts journaliers différents (débutant, intermédiaire et expert).</p></li>
+<li><p>Vous pouvez définir pour cette ressource les fonctions et le coût journalier moyen pour chaque niveau. (Voir : <a class="reference internal" href="#resource-function-cost"><span class="std std-ref">assignation</span></a>)</p></li>
+<li><p>Vous assignez cette ressource aux tâches, à une fonction spécifique (niveau). (Voir : <a class="reference internal" href="#assignment"><span class="std std-ref">assignment</span></a>)</p></li>
+<li><p>Les ressources fictives seront facilement remplacées par des ressources réelles lorsque le projet deviendra réel, grâce à la fonctionnalité de remplacement d’affectation <a class="reference internal" href="_images/iconSwitch.png"><img alt="Bouton petit interrupteur" src="_images/iconSwitch.png" style="width: 19.2px; height: 19.2px;" /></a>.</p></li>
+</ul>
+<p><strong>Ressource équipe</strong></p>
+<ul class="simple">
+<li><p>Une ressource équipe est une ressource dont la capacité journalière a été définie pour représenter la capacité d’une équipe (Capacité (ETP) &gt; 1).</p></li>
+<li><p>Par exemple, vous devez définir quatre développeurs Java, mais vous ne souhaitez pas créer une ressource pour chacun. Vous pouvez <em>surcharger</em> la capacité journalière de la ressource (Exemple : Capacité ETP=4).</p></li>
+<li><p>L’utilisation de ressources équipe est très simple, mais elle rend l’estimation de la durée du projet préliminaire, car elle ne tient pas compte des contraintes propres à chaque ressource, telles que des compétences ou des niveaux d’expertise potentiellement différents.</p></li>
+<li><p>Avec les ressources équipe, il est très facile d’estimer la planification avec un nombre différent de membres dans l’équipe : et si j’inclus 5 développeurs Java au lieu de 4 ? Il suffit de modifier la capacité à 5 et de recalculer la planification…</p></li>
+</ul>
+</section>
+</section>
+<section id="projeqtor-roles">
+<span id="id7"></span><h2>Rôles dans ProjeQtOr<a class="headerlink" href="#projeqtor-roles" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Un intervenant peut jouer plusieurs rôles dans ProjeQtOr.</p>
+<p>Des rôles spécifiques sont définis pour permettre :</p>
+<ul class="simple">
+<li><p>De catégoriser les intervenants impliqués dans les projets.</p></li>
+<li><p>D’identifier les intervenants sur les éléments.</p></li>
+<li><p>De regrouper les intervenants pour faciliter la diffusion de l’information.</p></li>
+</ul>
+<section id="profiles-definition">
+<span id="index-5"></span><span id="id8"></span><h3>Définition des profils<a class="headerlink" href="#profiles-definition" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le profil est utilisé pour définir les permissions applicatives et les droits d’accès aux données.</p>
+<p>Chaque ressource, utilisateur ou contact se voit attribuer un profil. Ceci est obligatoire. Il s’agit du profil par défaut.</p>
+<p>Plusieurs ressources, utilisateurs ou contacts peuvent avoir le même profil. Ils sont liés à un profil, appartiennent à ce groupe et partagent le même comportement applicatif.</p>
+<p>Le profil est utilisé en premier lieu pour définir les droits d’accès à l’application et aux données.</p>
+<p>De plus, le profil est utilisé pour envoyer des messages, des e-mails et des alertes à des groupes.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="AccessRights.html#profiles"><span class="std std-ref">Profils</span></a> et <a class="reference internal" href="AccessRights.html#acces-right"><span class="std std-ref">Droits d’accès</span></a></p>
+</div>
+<p>Un profil peut être attribué à un utilisateur, une ressource ou un contact lors de l’affectation au projet.</p>
+<figure class="align-default" id="id17">
+<img alt="Affectation des profils au projet" src="_images/AllocationProjectRole.png" />
+<figcaption>
+<p><span class="caption-text">Affectation des profils au projet</span><a class="headerlink" href="#id17" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Le profil sélectionné est utilisé pour accorder l’accès aux données des éléments du projet.</p>
+<p>Une ressource peut avoir un profil différent sur chaque projet auquel elle est assignée.</p>
+<p>Le profil est utilisé pour définir qui peut effectuer une transition d’un statut à un autre.</p>
+<p>Vous pouvez restreindre ou autoriser la transition d’état vers un autre état en fonction du profil.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p>Écran <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>.</p>
+</div>
+</section>
+<section id="predefined-profiles">
+<h3>Profils prédéfinis<a class="headerlink" href="#predefined-profiles" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>ProjeQtOr propose plusieurs profils prédéfinis.</p>
+<blockquote>
+<div><dl class="simple glossary">
+</dl>
+<p>Profil Administrateur</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Seuls ces utilisateurs peuvent administrer l’application et consulter toutes les données sans restriction.</p></li>
+<li><p>L’utilisateur « admin » est déjà défini.</p></li>
+</ul>
+</div></blockquote>
+<p>Profil Superviseur</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Les utilisateurs liés à ce profil ont une visibilité sur tous les projets.</p></li>
+<li><p>Ils ne peuvent créer ni modifier aucun élément.</p></li>
+<li><p>Ce profil permet de surveiller les projets.</p></li>
+</ul>
+</div></blockquote>
+<p>Profil Chef de projet</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Le chef de projet dispose d’un accès complet à ses propres projets.</p></li>
+</ul>
+</div></blockquote>
+<p>Profil Membre de projet</p>
+<ul class="simple">
+<li><p>Un membre de projet travaille sur les projets qui lui sont affectés.</p></li>
+<li><p>L’utilisateur lié à ce profil est un membre des équipes de projet.</p></li>
+</ul>
+<p>Profil Invité de projet</p>
+<ul class="simple">
+<li><p>Les utilisateurs liés à ce profil ont une visibilité limitée aux projets qui leur sont affectés.</p></li>
+<li><p>L’utilisateur « guest » est déjà défini.</p></li>
+</ul>
+</div></blockquote>
+<p>ProjeQtOr permet d’impliquer les collaborateurs clients dans leurs projets.</p>
+<p>La distinction entre ce profil et son équivalent réside dans des droits d’accès utilisateur plus limités.</p>
+</section>
+</section>
+<section id="stakeholder-definition">
+<span id="user-ress-contact-demystify"></span><h2>Définition des intervenants<a class="headerlink" href="#stakeholder-definition" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>ProjeQtOr permet de définir les rôles des intervenants.</p>
+<p>La définition des intervenants est effectuée en partie grâce au profil et à la définition utilisateur / ressource / contact. Cela permet de déterminer certains droits d’accès et de visibilité.</p>
+<p>Ces combinaisons sont utilisées pour définir :</p>
+<ul class="simple">
+<li><p>La connexion à l’application.</p></li>
+<li><p>La visibilité des données.</p></li>
+<li><p>La disponibilité.</p></li>
+<li><p>Les rôles.</p></li>
+</ul>
+<p>Ces intervenants peuvent être une ressource, un contact ou des utilisateurs, et peuvent également cumuler les trois rôles.</p>
+<p><strong>Profil</strong></p>
+<ul class="simple">
+<li><p>Pour un utilisateur, la visibilité de l’interface et des données est basée sur son profil utilisateur.</p></li>
+<li><p>Le profil utilisateur définit l’accès général aux fonctionnalités et aux données de l’application.</p></li>
+<li><p>Seule une ressource peut être planifiée sur un élément de planification.</p></li>
+<li><p>ProjeQtOr permet d’impliquer des contacts dans les projets.</p></li>
+</ul>
+<p><strong>Droits d’accès</strong></p>
+<ul class="simple">
+<li><p>Définit si un utilisateur a accès à ses propres projets ou à l’ensemble des projets.</p></li>
+<li><p>Les droits d’accès à tous les projets sont généralement réservés aux administrateurs et aux superviseurs. Ils ont accès à tous les éléments de tous les projets.</p></li>
+</ul>
+<p><strong>Données partagées</strong></p>
+<ul class="simple">
+<li><p>Pour un intervenant, les données relatives à l’utilisateur, à la ressource et au contact sont partagées.</p></li>
+<li><p>L’affectation au projet et le profil utilisateur sont également partagés.</p></li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Astuce</p>
+<p>Pour un intervenant, vous pouvez définir et redéfinir la combinaison sans perdre de données.</p>
+</div>
+</section>
+<section id="resource-function-and-cost">
+<span id="resource-function-cost"></span><span id="index-6"></span><h2>Fonction et coût de la ressource<a class="headerlink" href="#resource-function-and-cost" title="Lien permanent vers cette rubrique">¶</a></h2>
+<section id="function">
+<h3>Fonction<a class="headerlink" href="#function" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>La fonction définit la compétence générique d’une ressource.</p>
+<p>Elle est utilisée pour définir le rôle joué par la ressource sur les tâches.</p>
+<p>Dans l’écran de saisie du travail réel, le nom de la fonction sera affiché dans l’entrée de travail réel.</p>
+<p>Une fonction principale doit être définie pour la ressource et est utilisée comme fonction par défaut.</p>
+<p>Un coût journalier peut être défini pour chaque fonction de la ressource.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p>L’écran <a class="reference internal" href="ListsOfValues.html#function"><span class="std std-ref">Fonctions</span></a> permet de gérer la liste des fonctions.</p>
+</div>
+</section>
+<section id="resource-cost-definition">
+<h3>Définition du coût de la ressource<a class="headerlink" href="#resource-cost-definition" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Permet de définir le coût journalier en fonction des fonctions de la ressource.</p>
+<p>Le coût journalier est défini pour une période spécifique.</p>
+<p>Lorsque le travail réel est saisi, le coût réel est calculé à partir du travail de la journée et du coût journalier pour cette période.</p>
+<p>Lors du calcul de la planification du projet, le coût de la ressource est utilisé pour calculer le coût planifié.</p>
+<p>Le coût planifié est calculé à partir du travail planifié de la journée et du coût journalier courant.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p>La fonction et le coût sont définis dans l’écran <a class="reference internal" href="Resource.html#resource"><span class="std std-ref">Ressource</span></a>.</p>
+</div>
+</section>
+<section id="resource-calendar">
+<span id="index-7"></span><span id="id9"></span><h3>Calendrier de la ressource<a class="headerlink" href="#resource-calendar" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Un calendrier définit les jours ouvrés et les jours non ouvrés dans l’année.</p>
+<p>Vous pouvez définir autant de calendriers que nécessaire. Chaque ressource est associée à un calendrier.</p>
+<p>Les calendriers sont utilisés dans le processus de planification qui distribue le travail sur chaque jour ouvré. Les jours ouvrés définis dans un calendrier permettent d’afficher la disponibilité des ressources.</p>
+<p>Durant le processus de planification, le travail assigné à une ressource est planifié sur ses jours ouvrés.</p>
+<p>Le calendrier par défaut est utilisé pour définir les jours ouvrés dans l’année. Par défaut, ce calendrier est défini pour toutes les ressources.</p>
+<div class="admonition warning">
+<p class="admonition-title">Avertissement</p>
+<p>Vous devez recalculer une planification existante pour prendre en compte les modifications apportées au calendrier.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Un calendrier est défini dans l’écran <a class="reference internal" href="Resource.html#resource"><span class="std std-ref">Ressource</span></a>.</p>
+<p>Le calendrier est défini dans l’écran <a class="reference internal" href="Resource.html#calendars"><span class="std std-ref">Calendriers</span></a>.</p>
+</div>
+<span class="target" id="index-8"></span><span class="target" id="index-9"></span></section>
+</section>
+<section id="contexts">
+<span id="context"></span><span id="index-10"></span><h2>Contextes<a class="headerlink" href="#contexts" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Les contextes définissent une liste d’éléments sélectionnables pour définir le contexte d’un ticket et l’environnement d’un cas de test.</p>
+<p>Les contextes sont initialement configurés pour permettre de définir des contextes pour les projets informatiques, selon trois types de contextes :</p>
+<ul class="simple">
+<li><p>Environnement</p></li>
+<li><p>Système d’exploitation</p></li>
+<li><p>Navigateur</p></li>
+</ul>
+<p>Ils peuvent être modifiés pour s’adapter à tout type de projet.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table des matières</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Concepts</a><ul>
+<li><a class="reference internal" href="#project">Projet</a><ul>
+<li><a class="reference internal" href="#project-selector">Sélecteur de projet</a></li>
+<li><a class="reference internal" href="#project-s-type">Type de projet</a><ul>
+<li><a class="reference internal" href="#operational-project">Projet opérationnel</a></li>
+<li><a class="reference internal" href="#administrative-project">Projet administratif</a></li>
+<li><a class="reference internal" href="#template-project">Projet modèle</a></li>
+<li><a class="reference internal" href="#proposal-project">Projet de proposition</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#allocation-to-project">Affectation au projet</a><ul>
+<li><a class="reference internal" href="#user-and-contact-allocation">Affectation des utilisateurs et des contacts</a></li>
+<li><a class="reference internal" href="#resource-allocation">Affectation des ressources</a><ul>
+<li><a class="reference internal" href="#period-rate">Période &amp; Taux</a></li>
+<li><a class="reference internal" href="#change-resource">Changer de ressource</a></li>
+<li><a class="reference internal" href="#multi-allocation">Multi-affectation</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#activity">Activité</a><ul>
+<li><a class="reference internal" href="#assignment">Assignation</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#organization">Organisation</a></li>
+<li><a class="reference internal" href="#product">Produit</a><ul>
+<li><a class="reference internal" href="#product-structure">Structure du produit</a><ul>
+<li><a class="reference internal" href="#relationships-between">Relations entre…</a><ul>
+<li><a class="reference internal" href="#product-elements">…les éléments produits</a></li>
+<li><a class="reference internal" href="#product-and-component-elements">… les éléments produits et composants</a></li>
+<li><a class="reference internal" href="#component-elements">… les éléments composants</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#versions-of-product-and-component-elements">Versions des éléments produits et composants</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#planning">Planification</a><ul>
+<li><a class="reference internal" href="#planning-elements">Éléments de planification</a><ul>
+<li><a class="reference internal" href="#id5">Projet</a></li>
+<li><a class="reference internal" href="#id6">Activité</a></li>
+<li><a class="reference internal" href="#test-session">Session de test</a></li>
+<li><a class="reference internal" href="#milestone">Jalon</a></li>
+<li><a class="reference internal" href="#meeting">Réunion</a></li>
+<li><a class="reference internal" href="#dependency">Dépendance</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#planning-mode">Mode de planification</a><ul>
+<li><a class="reference internal" href="#milestones-planning-mode">Mode de planification des jalons</a></li>
+<li><a class="reference internal" href="#planning-elements-planning-mode">Mode de planification des éléments de planification</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#planning-priority">Priorité de planification</a></li>
+<li><a class="reference internal" href="#project-structure">Structure du projet</a></li>
+<li><a class="reference internal" href="#project-planning-calculation">Calcul de la planification du projet</a></li>
+<li><a class="reference internal" href="#draft-planning">Planification préliminaire</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#projeqtor-roles">Rôles dans ProjeQtOr</a><ul>
+<li><a class="reference internal" href="#profiles-definition">Définition des profils</a></li>
+<li><a class="reference internal" href="#predefined-profiles">Profils prédéfinis</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#stakeholder-definition">Définition des intervenants</a></li>
+<li><a class="reference internal" href="#resource-function-and-cost">Fonction et coût de la ressource</a><ul>
+<li><a class="reference internal" href="#function">Fonction</a></li>
+<li><a class="reference internal" href="#resource-cost-definition">Définition du coût de la ressource</a></li>
+<li><a class="reference internal" href="#resource-calendar">Calendrier de la ressource</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#contexts">Contextes</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Sujet précédent</h4>
+    <p class="topless"><a href="TransverseFeatures.html"
+                          title="Chapitre précédent">Flux d’Activité</a></p>
+  </div>
+  <div>
+    <h4>Sujet suivant</h4>
+    <p class="topless"><a href="Agile.html"
+                          title="Chapitre suivant">Méthodes Agiles</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Recherche rapide</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             >index</a></li>
+        <li class="right" >
+          <a href="Agile.html" title="Méthodes Agiles"
+             >suivant</a> |</li>
+        <li class="right" >
+          <a href="TransverseFeatures.html" title="Flux d’Activité"
+             >précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Contexts</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Créé en utilisant <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

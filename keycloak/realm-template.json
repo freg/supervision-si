@@ -30,7 +30,8 @@
       { "name": "logs", "description": "TRB140 (passerelle SMS) — droit existant côté application, nom repris tel quel" },
       { "name": "inbox", "description": "TRB140 (passerelle SMS) — droit existant côté application, nom repris tel quel" },
       { "name": "filters", "description": "TRB140 (passerelle SMS) — droit existant côté application, nom repris tel quel" },
-      { "name": "admin_hub", "description": "Administration du HUB (droits, fichiers internes) — distinct du rôle 'admin' (portail tickets). Donne tous les droits, y compris gérer les droits des autres." }
+      { "name": "admin_hub", "description": "Administration du HUB (droits, fichiers internes) — distinct du rôle 'admin' (portail tickets). Donne tous les droits, y compris gérer les droits des autres." },
+      { "name": "projeqtor", "description": "Groupe du fork ProjeQtOr (livraison #476) — la tuile reste visible de tous ; réservé aux filtrages futurs (droits fins, liens restreints)" }
     ]
   },
   "groups": [
@@ -49,7 +50,8 @@
     { "name": "supervision", "realmRoles": ["supervision"] },
     { "name": "service", "realmRoles": ["service"] },
     { "name": "maitre_clefs", "realmRoles": ["maitre_clefs"] },
-    { "name": "admin_hub", "realmRoles": ["admin_hub"] }
+    { "name": "admin_hub", "realmRoles": ["admin_hub"] },
+    { "name": "projeqtor", "realmRoles": ["projeqtor"] }
   ],
   "clients": [
     {

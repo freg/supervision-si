@@ -1,0 +1,203 @@
+/* * * COPYRIGHT NOTICE *********************************************************
+ *
+ * Copyright 2009-2017 ProjeQtOr - Pascal BERNARD - support@projeqtor.org
+ * Contributors : -
+ *
+ * This file is part of ProjeQtOr.
+ *
+ * ProjeQtOr is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU Affero General Public License as published by the Free
+ * Software Foundation, either version 3 of the License, or (at your option)
+ * any later version.
+ *
+ * ProjeQtOr is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License along with
+ * ProjeQtOr. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * You can get complete code of ProjeQtOr, other resource, help and information
+ * about contributors at http://www.projeqtor.org
+ *
+ * ** DO NOT REMOVE THIS NOTICE *********************************************** */
+
+#mainDocumentExplorerDivContainer #planningNewItem,
+#mainDocumentExplorerDivContainer #saveBaselineButtonMenu {
+  display: none !important;
+}
+
+#submainDocumentExplorerDivContainer #leftGanttChartDIV .scrollLeft td {
+  border-top: none !important;
+  border-bottom: none !important;
+}
+
+.documentExplorerRootDropZone {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 21px;
+  overflow: hidden;
+  white-space: nowrap;
+  border-bottom: 1px dashed #999;
+  background-color: #f4f4f4;
+}
+
+.documentExplorerRootDropZone table {
+  border-collapse: collapse;
+  height: 21px;
+}
+.documentExplorerRootDropZone td {
+  padding: 0;
+}
+.documentExplorerRootDropZone .namePart {
+  font-style: italic;
+  opacity: 0.75;
+}
+.documentExplorerRootDropZone.dojoDndTargetDisabled {
+  opacity: 0.4;
+}
+
+.documentExplorerRootDropZone.dojoDndContainerOver {
+  background-color: #dff0d8;
+  border-bottom: 1px solid #5a5;
+}
+.documentExplorerRootDropZone.dojoDndTargetDisabled.dojoDndContainerOver {
+  background-color: #f4f4f4;
+  border-bottom: 1px dashed #999;
+}
+
+#dndDocumentExplorerSource .dojoDndItemBefore,
+#dndDocumentExplorerSource .dojoDndItemAfter,
+#doc_dndDocumentExplorerSource .dojoDndItemBefore,
+#doc_dndDocumentExplorerSource .dojoDndItemAfter {
+  border-top: none !important;
+  border-bottom: none !important;
+}
+
+#doc_leftsideTop .ganttScale {
+  width: 100%;
+}
+.explorerDocumentPath {
+  display: inline-block;
+  max-width: 100%;
+  padding-left: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+.documentExplorerPathIcon {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 6px;
+  position: relative;
+  top: -1px;
+}
+
+.documentExplorerPathCurrent {
+  font-weight: bold;
+}
+.documentExplorerPathSep {
+  margin: 0 5px;
+  opacity: 0.6;
+}
+
+.explorerDocumentPath .link:hover {
+  background: transparent !important;
+  background-color: transparent !important;
+  text-decoration: none !important;
+  color: var(--color-secondary) !important;
+}
+
+#submainDocumentExplorerDivContainer #jsGanttHeaderName,
+#submainDocumentExplorerDivContainer #doc_jsGanttHeaderName {
+  cursor: default;
+}
+
+/* Preview : a fixed bar for the collapse control, then the file over the rest. */
+.documentExplorerPreviewPane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.documentExplorerPreviewBar {
+  flex: 0 0 auto;
+  height: 32px;
+}
+.documentExplorerPreviewPane .documentExplorerPreview {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* The iframe fills the detail pane, borderless, so the file is read in the
+   largest possible space. */
+.documentExplorerPreview {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+.documentExplorerPreviewFrame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+  border: 0;
+}
+/* An image is scaled down to the pane, never enlarged past its natural size : left
+   alone in an iframe the browser shows it full size and the pane gains scrollbars. */
+.documentExplorerPreviewCentered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.documentExplorerPreviewImage {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.documentExplorerPreviewEmpty {
+  padding: 20px;
+  text-align: center;
+  font-style: italic;
+  opacity: 0.75;
+}
+
+/* Colour of the detail bar controls. Two theme rules overlap here, one on the
+   ancestor and one on the icon, and their hue-rotate filters compose into black.
+   Cancelling the second is enough, outweighed by one more class, no !important.
+   Applies to every screen, the detail bar being shared. */
+.ProjeQtOrNewGui #buttonDiv .hideStreamNewGuiTopBar div.iconSize32 {
+  -webkit-filter: none;
+  filter: none;
+}
+
+/* Header bands and rows reach the edge of the pane. They are sized to the sum of
+   the columns : min-width stretches them without preventing horizontal scroll when
+   the columns overflow. A filler cell ends each row and absorbs the surplus, which
+   the browser would otherwise spread over the columns. */
+#submainDocumentExplorerDivContainer .scrollLeftTop,
+#submainDocumentExplorerDivContainer .scrollLeft {
+  min-width: 100%;
+}
+
+/* Group rows stay white, where the theme tints them : a directory holding
+   subdirectories is a row like any other, not a section heading. The container id
+   outweighs the theme rule, no !important. Hover and selection keep their tint. */
+#submainDocumentExplorerDivContainer .ganttTaskgroup {
+  background-color: var(--color-white);
+}
+
+/* Current directory : a persistent mark, fainter than the selection, so the place
+   being worked in stays visible once a document is selected. The accent bar is an
+   inset shadow, a border-left shifting the content of that row alone. */
+#submainDocumentExplorerDivContainer .documentExplorerCurrentDirectory {
+  background-color: var(--color-secondary);
+}
+#submainDocumentExplorerDivContainer .documentExplorerCurrentDirectory > td:first-child {
+  box-shadow: inset 3px 0 0 var(--color-secondary);
+}
+/* A row that is also the selected one keeps the selection background : the theme
+   rule carries !important. */

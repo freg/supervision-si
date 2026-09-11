@@ -1,0 +1,657 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Expenses &#8212; Documentation ProjeQtOr User guide 13.1</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/translations.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Recherche" href="search.html" />
+    <link rel="next" title="Recettes" href="Incomes.html" />
+    <link rel="prev" title="Traduction" href="Translation.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="Incomes.html" title="Recettes"
+             accesskey="N">suivant</a> |</li>
+        <li class="right" >
+          <a href="Translation.html" title="Traduction"
+             accesskey="P">précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Expenses</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="expenses">
+<span id="index-0"></span><span id="id1"></span><h1>Dépenses<a class="headerlink" href="#expenses" title="Lien permanent vers cette rubrique">¶</a></h1>
+<section id="hierarchical-budget">
+<span id="index-1"></span><span id="id2"></span><h2>Budget hiérarchique<a class="headerlink" href="#hierarchical-budget" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>La vue hiérarchique des budgets vous permet d’afficher une vue d’ensemble des budgets de manière graphique avec un système d’indentation pour une meilleure lecture.</p>
+<p>Vous pouvez filtrer la liste des budgets en utilisant le filtre de budget parent.</p>
+<p>Vous pouvez afficher une famille de budget particulière.</p>
+<p>Vous pouvez déplacer les budgets par « glisser-déposer ».</p>
+<figure class="align-default" id="id7">
+<img alt="Écran du budget hiérarchique" src="_images/EXPENSES_SCR_HierarchicalBudget.png" />
+<figcaption>
+<p><span class="caption-text">Écran du budget hiérarchique</span><a class="headerlink" href="#id7" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="budget">
+<span id="index-2"></span><span id="id3"></span><h2>Budget<a class="headerlink" href="#budget" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Un budget est une liste de tous les produits et dépenses à planifier. C’est un plan qui permet de définir à l’avance les dépenses, les recettes et les économies possibles à réaliser pendant une période définie.</p>
+<p>Il permet d’anticiper les ressources dont disposera l’entreprise à un moment précis.</p>
+<figure class="align-center" id="id8">
+<img alt="Écran budget" src="_images/EXPENSES_SCR_Budget.png" />
+<figcaption>
+<p><span class="caption-text">Écran Budget</span><a class="headerlink" href="#id8" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Vous pouvez créer autant de budgets et sous-budgets que vous le souhaitez.</p></li>
+<li><p>Une dépense est liée à un budget de base, c’est-à-dire un poste budgétaire</p></li>
+<li><p>Un poste budgétaire est lié à un budget parent</p></li>
+<li><p>Seuls les postes budgétaires actuels seront affichés dans les listes.</p></li>
+<li><p>Les budgets actuels, en construction et clos n’apparaîtront pas dans les listes. Pour voir les éléments clos, cochez la case « clos ».</p></li>
+</ul>
+<section id="budget-parent-filter">
+<h3>Filtre de budget parent<a class="headerlink" href="#budget-parent-filter" title="Lien permanent vers cette rubrique">¶</a></h3>
+<figure class="align-default" id="id9">
+<img alt="filtres" src="_images/EXPENSES_BOX_Filters.png" />
+<figcaption>
+<p><span class="caption-text">Filtres sur le budget</span><a class="headerlink" href="#id9" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Avec le filtre, vous pouvez afficher dans la zone de liste, uniquement un budget et sa famille (sous-budget).</p>
+<p>Une indentation de ceux-ci vers la droite montre qu’il s’agit de sous-budgets.</p>
+<p>Pour voir les éléments clos dans cette liste, cochez la case « clos ».</p>
+<p>Si vous changez le nom d’un budget, pensez à rafraîchir la page pour que les listes prennent en compte les modifications.</p>
+<ul class="simple">
+<li><p>Le budget parent existe uniquement pour consolider les données des postes budgétaires sous-jacents.</p></li>
+<li><p>Vous ne pouvez pas modifier les dépenses dans le champ Avancement d’un budget parent.</p></li>
+<li><p>Seul le montant cible peut être modifié si le traitement du budget est encore en construction.</p></li>
+</ul>
+</section>
+<section id="the-budget-item">
+<h3>Le poste budgétaire<a class="headerlink" href="#the-budget-item" title="Lien permanent vers cette rubrique">¶</a></h3>
+<ul class="simple">
+<li><p>Le poste budgétaire est l’élément le plus fin de l’analyse budgétaire.</p></li>
+<li><p>Ces postes ou destinations budgétaires vous permettront de détailler votre budget, en le catégorisant à votre convenance.</p></li>
+<li><p>Lorsque vous créez des <a class="reference internal" href="#project-expense"><span class="std std-ref">dépenses de projet</span></a> ou des <a class="reference internal" href="#individual-expense"><span class="std std-ref">dépenses individuelles</span></a>, vous pouvez les lier à un poste budgétaire spécifique.</p></li>
+</ul>
+</section>
+<section id="treatment">
+<h3>Traitement<a class="headerlink" href="#treatment" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Cette zone vous permet de modifier le macro-état du budget.</p>
+<ul class="simple">
+<li><p>Un budget peut être en construction</p></li>
+<li><p>Un budget en construction ne permet pas de voir les champs « montant cible » et empêche la modification du montant estimé</p></li>
+<li><p>Le macro-état « approuvé » modifie et annule automatiquement le macro-état « en construction ». La date est alors affichée dans les champs du macro-état concerné.</p></li>
+<li><p>Chaque sous-budget est alors impacté et l’état « approuvé » sera ensuite propagé sur toute sa famille.</p></li>
+<li><p>Chaque macro-état « en construction », « approuvé », « clos » et « annulé » modifié depuis l’écran du budget parent se propage en cascade sur toute la hiérarchie budgétaire.</p></li>
+</ul>
+</section>
+<section id="progress">
+<h3>Avancement<a class="headerlink" href="#progress" title="Lien permanent vers cette rubrique">¶</a></h3>
+<figure class="align-default" id="id10">
+<img alt="Section Avancement" src="_images/EXPENSES_ZONE_Progress.png" />
+<figcaption>
+<p><span class="caption-text">Section Avancement</span><a class="headerlink" href="#id10" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Cette section permet de suivre la consolidation de toutes les dépenses.</p>
+<p>Le montant cible est le seul montant que vous pouvez modifier sur un budget parent s’il est encore en construction.</p>
+<p>Les autres montants sont récupérés des sous-budgets et consolidés sur le budget parent.</p>
+<p>Le Montant transféré permet de libérer une somme d’un montant prévu pour un poste budgétaire afin de le redistribuer à un autre poste.</p>
+<p>Ce montant est visible sur tous les postes budgétaires.</p>
+<p class="rubric">Montant transféré</p>
+<ul class="simple">
+<li><p>Saisissez un montant négatif sur une ligne budgétaire pour transférer un montant</p></li>
+<li><p>Saisissez un montant positif sur une ligne budgétaire pour récupérer ce montant</p></li>
+<li><p>Seuls le budget parent et son sous-budget verront ce montant.</p></li>
+<li><p>Un autre budget parent ne peut pas récupérer ce montant.</p></li>
+</ul>
+</section>
+<section id="budget-expense-detail">
+<h3>Détail des dépenses budgétaires<a class="headerlink" href="#budget-expense-detail" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Cette section affiche les lignes en détail. Cette section, disponible au premier niveau du budget parent, affiche en détail les <a class="reference internal" href="#project-expense"><span class="std std-ref">lignes de dépenses du projet</span></a> qui ont été liées aux postes budgétaires définis.</p>
+<figure class="align-default" id="id11">
+<img alt="Lignes de détail" src="_images/EXPENSES_ZONE_DetailLine.png" />
+<figcaption>
+<p><span class="caption-text">Lignes de détail</span><a class="headerlink" href="#id11" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+<section id="expense-s-type">
+<h2>Type de dépense<a class="headerlink" href="#expense-s-type" title="Lien permanent vers cette rubrique">¶</a></h2>
+<span class="target" id="index-3"></span><section id="project-expense">
+<span id="index-4"></span><span id="id4"></span><h3>Dépense de projet<a class="headerlink" href="#project-expense" title="Lien permanent vers cette rubrique">¶</a></h3>
+<aside class="sidebar">
+<p class="sidebar-title">Other sections</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#expense-detail-lines"><span class="std std-ref">Lignes de détail des dépenses</span></a></p></li>
+</ul>
+</aside>
+<p>Une dépense de projet stocke les informations sur les coûts de projet qui ne sont pas des coûts de ressources.</p>
+<p>Cela peut être utilisé pour toutes sortes de coûts de projet :</p>
+<ul class="simple">
+<li><p>Machines (location ou achat).</p></li>
+<li><p>Logiciels.</p></li>
+<li><p>Bureau.</p></li>
+<li><p>Tout élément logistique.</p></li>
+</ul>
+<figure class="align-default" id="id12">
+<img alt="dépense de projet" src="_images/EXPENSES_SCR_ExpenseProject.png" />
+<figcaption>
+<p><span class="caption-text">Dépense de projet</span><a class="headerlink" href="#id12" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Champs Planifié et Réel</p>
+<p><strong>HT :</strong> Montant hors taxes. Le montant réel est automatiquement mis à jour avec la somme des montants des lignes de détail.</p>
+<p><strong>Taux de TVA :</strong> Montant de la TVA</p>
+<p><strong>Taxe :</strong> Montant de la TVA à partir du montant et du taux saisis précédemment.</p>
+<p><strong>TTC :</strong> Montant toutes taxes comprises.</p>
+<p><strong>Date de paiement :</strong></p>
+<ul class="simple">
+<li><p>Pour le champ « Planifié », c’est la date planifiée.</p></li>
+<li><p>Pour le champ « Réel », il peut s’agir de la date de paiement ou autre.</p></li>
+</ul>
+<span class="target" id="index-5"></span></section>
+<section id="activity-expenses">
+<span id="activity-expense"></span><span id="index-6"></span><h3>Dépenses d’activité<a class="headerlink" href="#activity-expenses" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>La date d’échéance de paiement peut être récupérée depuis l’activité.</p>
+<p>Choisissez parmi le début, le milieu ou la fin de l’activité associée à la dépense.</p>
+<p>Enregistrez et la date est automatiquement affichée.</p>
+<figure class="align-default" id="id13">
+<img alt="Activité de dépense" src="_images/EXPENSES_SCR_expenseActivity.png" />
+<figcaption>
+<p><span class="caption-text">Activité de dépense</span><a class="headerlink" href="#id13" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<span class="target" id="index-7"></span></section>
+<section id="individual-expenses">
+<span id="individual-expense"></span><span id="index-8"></span><h3>Dépenses individuelles<a class="headerlink" href="#individual-expenses" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Une dépense individuelle stocke les informations sur les coûts individuels, tels que, par exemple, les frais de déplacement.</p>
+<p>Cela peut par exemple être utilisé pour détailler toutes les dépenses sur un mois afin que chaque utilisateur n’ouvre qu’une seule dépense individuelle par mois (par projet), ou détailler tous les éléments d’une note de frais de déplacement.</p>
+</section>
+<section id="expenses-detail-lines">
+<span id="expense-detail-lines"></span><span id="index-9"></span><h3>Lignes de détail des dépenses<a class="headerlink" href="#expenses-detail-lines" title="Lien permanent vers cette rubrique">¶</a></h3>
+<figure class="align-default" id="id14">
+<img alt="lignes de détail" src="_images/EXPENSES_ZONE_Detailslines.png" />
+<figcaption>
+<p><span class="caption-text">Lignes de détail du projet</span><a class="headerlink" href="#id14" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Section Lignes de détail des dépenses</p>
+<p>Cette section est commune aux dépenses individuelles, d’activité et de projet.</p>
+<p>Elle permet de saisir des détails sur la ligne de dépense.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Lorsqu’une ligne est saisie, le montant réel de la dépense est automatiquement mis à jour à la somme des montants des lignes.</p>
+<p>La date réelle est définie avec la date de la première ligne de détail.</p>
+</div>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter une ligne de détail.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconEdit.png"><img alt="Bouton modifier" src="_images/iconEdit.png" style="width: 19.2px; height: 19.2px;" /></a> pour modifier une ligne de détail existante.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconDelete.png"><img alt="Supprimer" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> pour supprimer la ligne de détail.</p></li>
+</ul>
+<p class="rubric">Champ Date</p>
+<p>Cela permet de saisir plusieurs éléments, pendant plusieurs jours, pour la même dépense, afin d’avoir par exemple une dépense par déplacement ou par mois.</p>
+<p class="rubric">Champ Type</p>
+<p>Selon le type, de nouveaux champs apparaîtront pour aider au calcul du montant.</p>
+<p>Types disponibles selon qu’il s’agit d’une dépense individuelle ou de projet.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="ListsOfTypes.html#expense-detail-type"><span class="std std-ref">Types de détails de dépenses</span></a>.</p>
+</div>
+<p class="rubric">Champ Montant</p>
+<p>Calculé automatiquement à partir des champs selon le type.</p>
+<p>Peut également être saisi pour le type « dépense justifiée ».</p>
+<p class="rubric">Synthèse des dépenses financières</p>
+<p>Lorsque vos éléments financiers ont été liés et attachés à une dépense de projet (détaillée ou non), vous trouverez le résumé de ces éléments.</p>
+<figure class="align-default" id="id15">
+<img alt="Ligne de détail et synthèse des dépenses financières" src="_images/EXPENSES_ZONE_ExpensesDetailsSynthesis.png" />
+<figcaption>
+<p><span class="caption-text">Synthèse des dépenses financières avec lignes de détail</span><a class="headerlink" href="#id15" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<span class="target" id="index-10"></span></section>
+</section>
+<section id="call-for-tenders">
+<span id="index-11"></span><span id="id5"></span><h2>Appel d’offres<a class="headerlink" href="#call-for-tenders" title="Lien permanent vers cette rubrique">¶</a></h2>
+<figure class="align-default" id="id16">
+<img alt="Écran d'appel d'offres" src="_images/EXPENSES_SCR_CallforTender.png" />
+<figcaption>
+<p><span class="caption-text">Écran d’appel d’offres</span><a class="headerlink" href="#id16" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Cet écran vous permet d’enregistrer les informations sur vos besoins pour toute demande d’appel d’offres auprès de vos fournisseurs.</p>
+<p>Cela peut être utilisé pour détailler toutes les demandes et trouver la meilleure proposition.</p>
+<p>Pour vous aider à le faire, vous avez la possibilité de créer différents critères d’évaluation. Vous pouvez ensuite leur attribuer une valeur dans l’offre.</p>
+<p>L’appel d’offres, une fois enregistré, crée automatiquement une offre fournisseur pour chacun des fournisseurs sélectionnés.</p>
+<p class="rubric">Soumissions d’appels d’offres</p>
+<p>Cette section contient la liste des fournisseurs à qui l’invitation à soumissionner est envoyée.</p>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter un fournisseur à la liste.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconEdit.png"><img alt="Bouton modifier" src="_images/iconEdit.png" style="width: 19.2px; height: 19.2px;" /></a> pour modifier les informations.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconDelete.png"><img alt="Supprimer" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> pour supprimer un fournisseur de la liste.</p></li>
+</ul>
+<p>Une fenêtre contextuelle s’affiche. Renseignez les différents champs nécessaires à vos besoins.</p>
+<figure class="align-default" id="id17">
+<img alt="Soumission à l'appel d'offres" src="_images/EXPENSES_BOX_SubmissionCallTender.png" />
+<figcaption>
+<p><span class="caption-text">Fenêtre contextuelle de soumission à l’appel d’offres</span><a class="headerlink" href="#id17" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Vous pouvez choisir un contact fournisseur spécifique.</p></li>
+<li><p>Les contacts disponibles dans la liste sont liés au fournisseur sélectionné.</p></li>
+<li><p>Ces contacts doivent être enregistrés à l’avance sur l’écran du fournisseur.</p></li>
+<li><p>Changez de fournisseur, la liste des contacts s’adaptera</p></li>
+<li><p>Les dates de la demande et de la réponse attendue.</p></li>
+<li><p>Le statut de la soumission à l’appel d’offres. Plusieurs statuts sont disponibles.</p></li>
+<li><p>Ils sont entièrement configurables et personnalisables. Chaque statut a un code couleur.</p></li>
+</ul>
+<p>Vous pouvez accéder à chaque offre en cliquant sur le nom du fournisseur ou en visitant l’écran des offres fournisseur.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="ListsOfValues.html#lov-tender-statut"><span class="std std-ref">Liste des valeurs</span></a></p>
+</div>
+<p class="rubric" id="evaluation-criteria">Critères d’évaluation</p>
+<p>Cette section vous permet d’ajouter des critères d’évaluation pour noter vos fournisseurs en fonction de vos demandes.</p>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter un critère</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconEdit.png"><img alt="Bouton modifier" src="_images/iconEdit.png" style="width: 19.2px; height: 19.2px;" /></a> pour modifier un critère</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconDelete.png"><img alt="Supprimer" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> pour supprimer un critère</p></li>
+</ul>
+<figure class="align-default" id="id18">
+<img alt="Fenêtre contextuelle des critères d'évaluation" src="_images/EXPENSES_BOX_AddCriterion.png" />
+<figcaption>
+<p><span class="caption-text">Ajouter un critère d’évaluation</span><a class="headerlink" href="#id18" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Nommez votre critère d’évaluation.</p></li>
+<li><p>Attribuez une valeur de notation maximale.</p></li>
+<li><p>Attribuez un coefficient selon l’importance du critère.</p></li>
+<li><p>Le score est calculé sur la base des valeurs attribuées et reportées dans le tableau « soumission d’appels d’offres ».</p></li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Astuce</p>
+<p>Cliquez sur <a class="reference internal" href="_images/IconCopy.png"><img alt="Copier" src="_images/IconCopy.png" style="width: 19.2px; height: 19.2px;" /></a> pour passer logiquement d’un élément financier à un autre :</p>
+<p>Appel d’offres -&gt; Offres fournisseur -&gt; Commande au fournisseur -&gt; Termes/Factures -&gt; Paiements aux fournisseurs</p>
+<p>Chaque fois que vous copiez un élément financier, l’élément financier le plus logique pour la suite du processus de commande sera automatiquement affiché.</p>
+<p>Le montant des dépenses de ces éléments sera récupéré, transmis et lié à chacun des autres et vous permettra un suivi plus précis.</p>
+<p>Vous pouvez empêcher le report des montants ou la génération de dépenses dans les <a class="reference internal" href="GlobalParameters.html#financial"><span class="std std-ref">paramètres globaux</span></a></p>
+</div>
+<span class="target" id="index-12"></span></section>
+<section id="provider-tenders">
+<span id="tenders"></span><span id="index-13"></span><h2>Offres fournisseur<a class="headerlink" href="#provider-tenders" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Les offres fournisseur stockent les informations sur les réponses aux appels d’offres que vous avez soumis.</p>
+<p>Cela peut être utilisé pour détailler toutes les offres, les comparer, les évaluer pour choisir la plus adaptée à vos besoins.</p>
+<figure class="align-default" id="id19">
+<img alt="Écran des offres fournisseur" src="_images/EXPENSES_SCR_ProviderTender.png" />
+<figcaption>
+<p><span class="caption-text">Écran des offres fournisseur</span><a class="headerlink" href="#id19" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Une offre peut être créée manuellement ou générée automatiquement suite à un appel d’offres.</p>
+<p>Chaque fournisseur ajouté à l’invitation à soumissionner génèrera une offre.</p>
+<section id="generate-expense">
+<h3>Générer une dépense<a class="headerlink" href="#generate-expense" title="Lien permanent vers cette rubrique">¶</a></h3>
+<figure class="align-default" id="id20">
+<img alt="Générer une dépense" src="_images/EXPENSES_SCR_GenerateExpense.png" />
+<figcaption>
+<p><span class="caption-text">Générer une dépense</span><a class="headerlink" href="#id20" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Vous pouvez joindre une dépense spécifique à votre commande.</p>
+<p>Sélectionnez une dépense créée manuellement dans la liste des dépenses de projet.</p>
+<p>Si vous n’avez pas créé de dépense en amont, cochez la case générer une dépense, une ligne sera alors créée dans les dépenses de projet.</p>
+</section>
+<section id="evaluation">
+<h3>Évaluation<a class="headerlink" href="#evaluation" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>La section Évaluation n’est disponible que lorsque l’offre est liée à un appel d’offres.</p>
+<p>Si l’offre est créée manuellement, la section évaluation ne propose pas de critères.</p>
+<figure class="align-default" id="id21">
+<img alt="Section Évaluation" src="_images/EXPENSES_ZONE_CriterionEvaluation.png" />
+<figcaption>
+<p><span class="caption-text">Section Évaluation</span><a class="headerlink" href="#id21" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Lorsque le lien est établi alors :</p>
+<ul class="simple">
+<li><p>Vous pouvez attribuer des critères d’évaluation</p></li>
+<li><p>Vous pouvez attribuer une note avec un système de coefficients.</p></li>
+<li><p>L’évaluation affichera un résumé de vos critères avec leurs scores.</p></li>
+<li><p>Le score global sera ensuite affiché sur l’invitation à soumissionner pour toutes les offres concernées.</p></li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="#evaluation-criteria"><span class="std std-ref">les évaluations des critères</span></a> dans le chapitre Appel d’offres</p>
+</div>
+<span class="target" id="index-14"></span></section>
+</section>
+<section id="orders-to-provider">
+<span id="order-providers"></span><span id="index-15"></span><h2>Commandes au fournisseur<a class="headerlink" href="#orders-to-provider" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Cet écran permet de gérer les commandes au fournisseur.</p>
+<figure class="align-default" id="id22">
+<img alt="Écran des commandes au fournisseur" src="_images/EXPENSES_SCR_OrderProvider.png" />
+<figcaption>
+<p><span class="caption-text">Écran des commandes au fournisseur</span><a class="headerlink" href="#id22" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric" id="listterm-order">Liste des termes de commande</p>
+<p>Cette section vous permet de créer un ou plusieurs termes pour vos factures.</p>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter un terme. Une fenêtre contextuelle s’ouvre.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconList.png"><img alt="Liste" src="_images/iconList.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter un terme existant.</p></li>
+</ul>
+<figure class="align-default" id="id23">
+<img alt="Section liste des termes" src="_images/EXPENSES_ZONE_ListOfTermSection.png" />
+<figcaption>
+<p><span class="caption-text">Section liste des termes</span><a class="headerlink" href="#id23" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Le nom et la date sont obligatoires.</p></li>
+<li><p>Saisissez le nombre d’échéances pour payer votre facture.</p></li>
+<li><p>Si 1, il s’agit d’un paiement comptant.</p></li>
+</ul>
+<figure class="align-default" id="id24">
+<img alt="Fenêtre contextuelle de création des termes" src="_images/EXPENSES_ZONE_ListOfTerm.png" />
+<figcaption>
+<p><span class="caption-text">Fenêtre contextuelle de création des termes</span><a class="headerlink" href="#id24" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Lorsque vous saisissez plusieurs termes, le calcul sur le montant total est effectué automatiquement.</p></li>
+<li><p>Lorsque vous copiez votre commande en facture, les termes y sont automatiquement ajoutés.</p></li>
+<li><p>Vous pouvez ajouter des échéances depuis l’écran des factures fournisseur si vous ne l’avez pas fait sur cet écran.</p></li>
+</ul>
+<figure class="align-default" id="id25">
+<img alt="calcul après nombre d'échéances saisies" src="_images/EXPENSES_ZONE_ListOfTermDetails.png" />
+<figcaption>
+<p><span class="caption-text">Calcul après nombre d’échéances saisies</span><a class="headerlink" href="#id25" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Lorsque vous transformez votre commande en facture, les termes enregistrés dans l’offre sont automatiquement transférés vers les factures.</p>
+<p>Voir : <a class="reference internal" href="#listterm-invoice"><span class="std std-ref">Liste des termes</span></a></p>
+<p>Dans la commande, ceux-ci seront renseignés comme facturés avec un lien vers cette dernière.</p>
+<span class="target" id="index-16"></span></section>
+<section id="terms-of-payments-to-providers">
+<span id="termpaymentprovider"></span><span id="index-17"></span><h2>Conditions de paiement aux fournisseurs<a class="headerlink" href="#terms-of-payments-to-providers" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>En France, les délais de paiement inter-entreprises sont réglementés et fixés à 60 jours calendaires maximum ou 45 jours fin de mois à compter de la date d’émission de la facture.</p>
+<p>À défaut de mention du délai de paiement dans le contrat ou la facture, il est légalement fixé à 30 jours après réception des marchandises ou exécution de la prestation.</p>
+<ul class="simple">
+<li><p>Selon le secteur, les délais sont modifiables</p></li>
+<li><p>vous pouvez enregistrer, organiser, suivre et modifier vos dates de paiement à votre fournisseur</p></li>
+<li><p>Vous pouvez enregistrer un ou plusieurs délais de paiement sur chaque facture au prestataire de services.</p></li>
+<li><p>Une facture peut donc être payée soit en espèces soit en plusieurs versements.</p></li>
+<li><p>Chaque échéance enregistrée, que ce soit sur l’écran des commandes fournisseur ou sur l’écran des factures fournisseur, génère une ligne sur l’écran des termes.</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p><strong>HT :</strong> La valeur de la colonne est automatiquement mise à jour avec la somme des montants des lignes de facture.</p></li>
+<li><p><strong>Taxe :</strong> Si la taxe n’est pas définie, rien n’est appliqué dans ce champ et le montant restera hors taxe</p></li>
+<li><p><strong>TTC :</strong> Si le montant total hors taxe et le taux de taxe ont été saisis, le montant total sera calculé automatiquement</p></li>
+</ul>
+<p>Sur le projet, la somme des dépenses doit être effectuée en TTC si la saisie des dépenses est en TTC</p>
+</div>
+<span class="target" id="index-18"></span><span class="target" id="index-19"></span></section>
+<section id="provider-invoices">
+<h2>Factures fournisseur<a class="headerlink" href="#provider-invoices" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Cet écran est utilisé pour gérer les factures générées manuellement ou liées aux offres fournisseur.</p>
+<figure class="align-default" id="id26">
+<img alt="Écran des factures fournisseur" src="_images/EXPENSES_SCR_ProviderBill.png" />
+<figcaption>
+<p><span class="caption-text">Écran des factures fournisseur</span><a class="headerlink" href="#id26" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>ProjeQtOr est compatible avec Factur-X depuis la version 14.5. Vous pouvez importer ou exporter vos factures au format PDF - XML.</p>
+</div>
+<p class="rubric" id="listterm-invoice">Liste des termes</p>
+<figure class="align-default" id="id27">
+<img alt="Liste des termes facturés" src="_images/EXPENSES_ZONE_ListOfTermOrder.png" />
+<figcaption>
+<p><span class="caption-text">Liste des termes facturés</span><a class="headerlink" href="#id27" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Cette section vous permet de créer un ou plusieurs termes pour vos factures.</p>
+<p>Si votre facture a été créée à partir d’une commande, les termes enregistrés sur l’offre seront automatiquement récupérés sur la facture.</p>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter un terme. Une fenêtre contextuelle s’ouvre.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconList.png"><img alt="Liste" src="_images/iconList.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter un terme existant.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconMark.png"><img alt="Effacer" src="_images/iconMark.png" style="width: 19.2px; height: 19.2px;" /></a> pour supprimer un terme.</p></li>
+<li><p>Le nom et la date sont obligatoires.</p></li>
+<li><p>Saisissez le nombre d’échéances pour payer votre facture.</p></li>
+<li><p>Si 1, il s’agit d’un paiement comptant.</p></li>
+</ul>
+<figure class="align-default" id="id28">
+<img alt="Fenêtre contextuelle de création des termes" src="_images/EXPENSES_ZONE_ListOfTerm.png" />
+<figcaption>
+<p><span class="caption-text">Fenêtre contextuelle de création des termes</span><a class="headerlink" href="#id28" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Lorsque vous transformez votre commande en facture, les échéances enregistrées dans la commande sont automatiquement transférées vers les factures.</p>
+<p>Dans les commandes, dans la section des échéances, celles-ci seront indiquées comme facturées</p>
+<p>Chaque ligne fournit un lien vers l’écran de l’élément.</p>
+<figure class="align-default" id="id29">
+<img alt="Liste des termes facturés" src="_images/EXPENSES_ZONE_ListOfTermSectionBilled.png" />
+<figcaption>
+<p><span class="caption-text">Liste des termes facturés</span><a class="headerlink" href="#id29" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<span class="target" id="index-20"></span></section>
+<section id="payments-to-provider">
+<span id="payment-provider"></span><span id="index-21"></span><h2>Paiements au fournisseur<a class="headerlink" href="#payments-to-provider" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Suivez le paiement de vos factures fournisseur pour mieux organiser votre flux de trésorerie général ou votre fonds de roulement.</p>
+<p>Lorsque le paiement au fournisseur a été effectué et enregistré, sur l’écran de la facture fournisseur dans la section traitement, vous trouverez un enregistrement de ces paiements.</p>
+<p>Dans la section liste des termes, vous pouvez voir dans le tableau les termes pour lesquels le règlement a été effectué.</p>
+<p><strong>Lorsque toutes les échéances ont été payées :</strong></p>
+<ul class="simple">
+<li><p>sur l’écran de la facture, la case « complet » est automatiquement cochée</p></li>
+<li><p>La date du dernier versement est enregistrée</p></li>
+<li><p>Un résumé est affiché avec le nom de chaque paiement effectué</p></li>
+<li><p>Chaque ligne est cliquable.</p></li>
+</ul>
+<figure class="align-default" id="id30">
+<img alt="Liste des versements payés" src="_images/EXPENSES_ZONE_RecapPayment.png" />
+<figcaption>
+<p><span class="caption-text">Liste des versements payés</span><a class="headerlink" href="#id30" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="provider-contract">
+<span id="supplier-contrat"></span><span id="index-22"></span><h2>Contrat fournisseur<a class="headerlink" href="#provider-contract" title="Lien permanent vers cette rubrique">¶</a></h2>
+<aside class="sidebar">
+<p class="sidebar-title">Other sections</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#provider-gantt"><span class="std std-ref">Gantt contrat fournisseur</span></a></p></li>
+</ul>
+</aside>
+<p>ProjeQtOr vous donne la possibilité de gérer et suivre précisément vos contrats fournisseur</p>
+<p>Le contrat fournisseur est nécessairement lié à un projet et un fournisseur.</p>
+<p>Une vue diagramme de Gantt est disponible pour visualiser vos contrats graphiquement.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p>Cette vue est également disponible pour le <a class="reference internal" href="Incomes.html#client-contract"><span class="std std-ref">contrat client</span></a></p>
+</div>
+<section id="id6">
+<h3>Traitement<a class="headerlink" href="#id6" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Suivez l’état, l’avancement de votre contrat dans cette section.</p>
+<p class="rubric">Responsable</p>
+<ul class="simple">
+<li><p>Choisissez un responsable</p></li>
+<li><p>Ses initiales sont affichées sur le diagramme de Gantt des contrats</p></li>
+</ul>
+<p class="rubric">Workflow</p>
+<ul class="simple">
+<li><p>Le workflow est basé sur le workflow par défaut.</p></li>
+<li><p>Vous pouvez modifier le workflow actuel.</p></li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a></p>
+</div>
+<p class="rubric" id="renewalexpenses">Renouvellement</p>
+<p>Définit le comportement du renouvellement d’un contrat à la fin de la durée initialement prévue</p>
+<ul class="simple">
+<li><p><strong>Jamais :</strong> le contrat ne sera jamais renouvelé</p></li>
+<li><p><strong>Tacite :</strong> le contrat sera renouvelé s’il n’y a pas de résiliation</p></li>
+<li><p><strong>Express :</strong> le contrat est renouvelé et fait l’objet d’un acte écrit ou verbal</p></li>
+</ul>
+<p class="rubric">Statut</p>
+<ul class="simple">
+<li><p><strong>En cours :</strong> Date à laquelle le contrat est pris en charge. Effectif. Cette date peut être saisie manuellement ou en passant à l’état Affecté du workflow</p></li>
+<li><p><strong>Terminé :</strong> Date à laquelle le contrat se termine.</p></li>
+<li><p><strong>Clos :</strong> Date à laquelle le contrat a été clôturé.</p></li>
+<li><p><strong>Annulé :</strong> Date d’annulation</p></li>
+</ul>
+<p class="rubric">Avancement</p>
+<p>Dans la section Avancement, déterminez les différentes dates et échéances du contrat, préavis, délais, paiements…</p>
+</section>
+<section id="provider-contract-gantt-chart">
+<span id="provider-gantt"></span><h3>Diagramme de Gantt du contrat fournisseur<a class="headerlink" href="#provider-contract-gantt-chart" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>En plus de l’écran de gestion des contrats (zone liste et détails), vous pouvez visualiser vos contrats dans une vue temporelle sur un diagramme de Gantt. C’est le « planning des contrats »</p>
+<p>Chaque barre représente les différents contrats, allant de la date de début à la date de fin du contrat.</p>
+<p>Les dates de préavis et les dates d’échéance sont affichées comme des jalons.</p>
+<p>Les barres Gantt des contrats clients deviennent rouges lorsque la date d’échéance est supérieure à la date de fin du contrat.</p>
+<p>Aucun calcul n’est effectué. C’est une indication pour montrer une incohérence.</p>
+<figure class="align-default" id="id31">
+<img alt="Écran du diagramme de Gantt du contrat fournisseur" src="_images/EXPENSES_SCR_GanttSupplierContract.png" />
+<figcaption>
+<p><span class="caption-text">Écran du diagramme de Gantt du contrat fournisseur</span><a class="headerlink" href="#id31" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table des matières</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Dépenses</a><ul>
+<li><a class="reference internal" href="#hierarchical-budget">Budget hiérarchique</a></li>
+<li><a class="reference internal" href="#budget">Budget</a><ul>
+<li><a class="reference internal" href="#budget-parent-filter">Filtre de budget parent</a></li>
+<li><a class="reference internal" href="#the-budget-item">Le poste budgétaire</a></li>
+<li><a class="reference internal" href="#treatment">Traitement</a></li>
+<li><a class="reference internal" href="#progress">Avancement</a></li>
+<li><a class="reference internal" href="#budget-expense-detail">Détail des dépenses budgétaires</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#expense-s-type">Type de dépense</a><ul>
+<li><a class="reference internal" href="#project-expense">Dépense de projet</a></li>
+<li><a class="reference internal" href="#activity-expenses">Dépenses d’activité</a></li>
+<li><a class="reference internal" href="#individual-expenses">Dépenses individuelles</a></li>
+<li><a class="reference internal" href="#expenses-detail-lines">Lignes de détail des dépenses</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#call-for-tenders">Appel d’offres</a></li>
+<li><a class="reference internal" href="#provider-tenders">Offres fournisseur</a><ul>
+<li><a class="reference internal" href="#generate-expense">Générer une dépense</a></li>
+<li><a class="reference internal" href="#evaluation">Évaluation</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#orders-to-provider">Commandes au fournisseur</a></li>
+<li><a class="reference internal" href="#terms-of-payments-to-providers">Conditions de paiement aux fournisseurs</a></li>
+<li><a class="reference internal" href="#provider-invoices">Factures fournisseur</a></li>
+<li><a class="reference internal" href="#payments-to-provider">Paiements au fournisseur</a></li>
+<li><a class="reference internal" href="#provider-contract">Contrat fournisseur</a><ul>
+<li><a class="reference internal" href="#id6">Traitement</a></li>
+<li><a class="reference internal" href="#provider-contract-gantt-chart">Diagramme de Gantt du contrat fournisseur</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Sujet précédent</h4>
+    <p class="topless"><a href="Translation.html"
+                          title="Chapitre précédent">Traduction</a></p>
+  </div>
+  <div>
+    <h4>Sujet suivant</h4>
+    <p class="topless"><a href="Incomes.html"
+                          title="Chapitre suivant">Recettes</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Recherche rapide</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             >index</a></li>
+        <li class="right" >
+          <a href="Incomes.html" title="Recettes"
+             >suivant</a> |</li>
+        <li class="right" >
+          <a href="Translation.html" title="Traduction"
+             >précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Expenses</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Créé en utilisant <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

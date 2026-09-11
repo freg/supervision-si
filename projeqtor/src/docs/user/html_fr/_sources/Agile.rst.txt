@@ -1,0 +1,1244 @@
+.. include:: ImageReplacement.txt
+
+.. title:: Agile Methods
+
+.. index:: Agile methods
+
+.. _agile-methods:
+
+#############
+Agile Methods
+#############
+
+:term:`Agile methods` are groups of practices of piloting and realization of projects. 
+They originate from the Agile Manifesto, written in 2001, which uses the term "agile" to refer to multiple existing methods.
+
+Agile methods are more pragmatic than traditional methods, involve the client as much as possible and allow a great reactivity to his requests. They are based on an iterative, incremental and adaptive development cycle and must respect four fundamental values, based on twelve principles, from which a base of practices, either common or complementary, derives.
+
+
+
+
+.. index:: Scrum
+
+.. _menuScrum:
+
+Menu SCRUM
+##########
+
+The Agile/Scrum module allows you to manage your projects using Agile methodology, while retaining the power of ProjeQtOr.
+
+You can use this module alongside the traditional model (V-model/Waterfall).
+
+It provides:
+
+• Epic management (large features).
+
+• User Story management (broken-down features).
+
+• Sprint management.
+
+• A product backlog and a sprint backlog.
+
+• An interactive Kanban Sprint Board with Dojo (drag & drop).
+
+• A burndown chart to track progress.
+
+
+User stories
+************
+A User Story represents a functional requirement expressed from the user’s perspective.
+
+In ProjeQtOr, User Stories are first-class Agile objects, fully integrated with planning, tracking, and reporting features.
+
+When user story changes status, update status of Epic and Sprint as smallest (in order) status of all User Stories of the Epic / of the sprint.
+
+**A User Story typically follows the standard structure:**
+
+* As a (Persona: User, power user, business manager,...)
+
+* I want (desired functionality)
+
+* In order to (business value or goal)
+
+* Acceptation criteria
+
+
+Creating a User Story
+---------------------
+
+1. Open the User Stories menu.
+
+2. Create a new User Story.
+
+3. Define the main attributes:
+
+* Name: short and explicit title.
+
+* User story type: generally Agile.
+
+* Project: target project.
+
+* Epic (optional): parent Epic.
+
+* Sprint (optional): assigned sprint.
+
+* As: Persona concerned by the story.
+
+* Fill in the description fields:
+
+* I wish…: functional need.
+
+* In order to…: expected value.
+
+* Result: acceptance criteria or expected outcome.
+
+
+Estimation, Priority and Status
+-------------------------------
+
+Each User Story can be enriched with:
+
+* Scrum priority: helps backlog prioritization.
+
+* Story points: estimation of effort.
+
+* Business value: importance from a business perspective.
+
+* Status: recorded, to do, in progress, done, closed, cancelled.
+
+
+User Stories are moved through their lifecycle either from the Agile Backlog (planning phase) or via the Sprint Board (Kanban) during execution.
+
+All status changes are synchronized automatically across views.
+
+Epics
+*****
+
+An Epic is a high-level container grouping multiple User Stories around a major functional theme or objective.
+
+When user story changes status, update status of Epic as smallest (in order) status of all User Stories of the Epic .
+
+Epics allow teams to:
+
+structure the Product Backlog,
+
+track progress at a macro level,
+
+align development with strategic goals.
+
+An Epic does not represent a sprint-sized workload; it usually spans multiple sprints.
+
+
+Creating and Managing Epics
+---------------------------
+
+
+1. Open the Epics menu.
+
+2. Create a new Epic.
+
+3. Define:
+
+* Name: functional theme or major feature.
+
+* Epic type: generally Agile.
+
+* Project: target project.
+
+* Sprint (optional): if the Epic is mainly targeted for a specific sprint.
+
+4. Describe the Epic:
+
+* Description: scope and objectives.
+
+* Result: expected global outcome.
+
+
+Linking Epics and User Stories
+******************************
+User Stories can be linked to an Epic via the Epic field in the story form.
+
+**Within an Epic, ProjeQtOr automatically displays:**
+
+* the list of related User Stories,
+
+* their status,
+
+* their story points and business value.
+
+This provides a consolidated view of progress and helps Product Owners monitor delivery at a strategic level.
+
+
+
+Sprints
+*******
+a temporal iteration (often 2 to 4 weeks).
+
+When user story changes status, update status of Sprint as smallest (in order) status of all User Stories of the sprint.
+
+Manage the sprints
+------------------
+
+1. Create a Sprint from the "Sprints" menu.
+
+* Name: e.g., Sprint 1 – January.
+* Start and end dates.
+* Team capacity (optional).
+
+2. Open the Agile Backlog view.
+
+3. Drag and drop the Stories from the Backlog into the created Sprint.
+
+4. The Sprint now contains the selected Stories.
+
+
+Personas
+********
+
+In ProjeQtOr, a Persona represents a typical user profile interacting with the product or the project deliverables.
+Personas help teams better understand who the features are built for, and ensure that User Stories remain aligned with real user needs.
+
+Personas are not technical roles; they are functional or behavioral profiles.
+
+**Typical examples include:**
+
+* User: standard end user of the application.
+
+* Power User: advanced user with extended usage and expectations.
+
+* Business Manager: decision-maker focused on reporting and business value.
+
+* Administrator: technical or functional administrator of the system.
+
+
+**Optionally document the persona using:**
+
+* Context: environment and usage context.
+
+* Goals and Behavior: objectives, motivations, habits.
+
+* What this implies: functional or ergonomic implications for the product.
+
+
+These descriptive fields are strongly recommended to improve shared understanding within the team.
+
+
+Using Personas in User Stories
+------------------------------
+
+Personas are directly used in User Stories through the “As a …” field.
+
+.. tip:: 
+
+   As a Power User, I want to export reports in Excel format, in order to analyze data outside ProjeQtOr.
+
+   This linkage ensures that each story is explicitly tied to a user profile and avoids abstract or purely technical requirements.
+
+
+
+Backlog
+*******
+
+Sprints backlog
+---------------
+The stories chosen for the current sprint
+
+Products backlog
+----------------
+the prioritized list of Epics and Stories
+
+.. figure:: /images/GUI/AGILE_ZONE_ProductBacklog.png
+   :alt: Product Backlog with options
+   
+   Product Backlog with options
+
+Create and Manage a Backlog
+---------------------------
+
+1. In the menu, open Agile Backlog.
+
+2. Add your Epics and then associate them with User Stories.
+
+3. Define:
+
+* the priority (high, medium, low),
+* the estimated effort (in story points),
+* the project concerned.
+
+4. The Stories appear in the Product Backlog.
+
+5. You can drag and drop them into a Sprint for planning.
+
+
+Sprint Board - Kanban
+*********************
+
+1. Open Sprint Board from the menu.
+
+2. The board displays the following columns:
+
+* To Do
+* In Progress
+* Done
+
+3. Each Story is a card.
+
+4. You can move Stories between columns by dragging and dropping them.
+
+5. The status is automatically updated in the database.
+
+
+
+
+Progress monitoring (Burndown)
+******************************
+
+1. Depuis le Sprint Board, consultez le Burndown Chart.
+
+2. Le graphe affiche :
+
+* La courbe idéale (descente linéaire).
+*  La progression réelle (points de story restants).
+
+3. Vérifiez si l’équipe est en avance, à l’heure, ou en retard.
+
+4. Le burndown est recalculé automatiquement à chaque changement de Story.
+
+
+
+.. tip::
+
+   **Best Practices and Tips**
+
+   * Break down your user stories: no single story should last longer than one sprint.
+   
+   * Prioritize regularly: adjust the product backlog with the Product Owner.
+   
+   * Limit Work In Progress (WIP): avoid having too many stories in progress at once.
+   
+   * Hold your Scrum ceremonies: sprint review, retrospective, planning.
+   
+   * Mix Waterfall and Agile methodologies: it's possible to have projects using the V-model and others using Scrum within the same ProjeQtOr instance.
+
+
+
+
+
+.. note:: 
+   
+   For optimal use of the Agile module in ProjeQtOr:
+
+   * Always define Personas before writing User Stories.
+   
+   * Keep Epics business-oriented, not technical.
+   
+   * Use User Stories as the single source of functional requirements.
+   
+   * Rely on the Sprint Board and Burndown Chart for day-to-day execution tracking.
+
+
+
+.. index:: Kanban
+
+.. index:: Agile (Kanban)
+
+.. _kanban:
+
+KanBan
+######
+
+   
+.. sidebar:: Other sections
+
+   * :ref:`Actions<action>`
+   
+   * :ref:`Requirement<requirement>`
+   
+   * :ref:`Ticketing<ticket>`
+      
+      
+The Kanban methodology originated from the Japanese automotive industry. It was created with the aim of optimizing production.
+
+It is a visual task management tool that allows you to track tasks in real time, manage priorities and promote collaboration between team members.
+
+It works by simple drag and drop in a column. Each column respects the rules of the workflow linked to the element of your kanban
+
+
+.. figure:: /images/GUI/AGILE_SCR_Kanban.png
+   :alt: Kanban screen
+      
+   Kanban Screen
+   
+   
+ 
+In ProjeQtOr, you can create a new Kanban board for: 
+
+* Tickets,
+* Activities,
+* Actions,
+* Requirements
+      
+      
+  
+
+   
+.. _kanban-management:
+
+Dashboard management
+********************
+
+The Kanban Dashboard allows you to customize the display of tiles and the differents kanbans.
+  
+  
+.. figure:: /images/GUI/AGILE_ZONE_KanbanTOP.png
+   :alt: Kanban header area
+             
+   Header area
+   
+You can create or modify columns or even create tiles or new kanbans, export or print your tiles...   
+         
+
+.. _back:
+         
+.. topic:: Interface areas:
+
+   |one| :ref:`Fields restriction<kanban-restriction>`
+   
+   |two| :ref:`Kanban selector<kanban-selector>`
+   
+   |three| :ref:`Create a new kanban table<kanban-newtable>` 
+      
+   |four| :ref:`Kanban filters<kanban-filters>`
+      
+   |five| :ref:`Column management<kanban-newcolumn>`
+   
+   |six| :ref:`Create a new element<kanban-newelement>`
+   
+   |seven| :ref:`Display options<kanban-infobar>`
+
+
+
+
+
+.. _kanban-selector:
+
+.. rubric:: The Kanban selector
+ 
+You can see the complete list of created tables by clicking on the Kanbans drop-down list in the My Kanbans section.
+     
+The icon used for kanban tables created corresponds to the type of elements selected.   
+     
+You can see the shared kanban tables by others users on the shared Kanbans section.
+       
+        
+.. figure:: /images/GUI/AGILE_BOX_ListOfKanban.png
+   :alt: Add a new kanban table 
+         
+   List of existing kanban   
+   
+* Click on |addKanban| to create a new kanban    
+* Click on |Copy| to copy this kanban
+* Click on |Edit| to edit this kanban
+* Click on |Share| to share this kanban. The icon is fill |Shared| when it is already shared.
+* Click on |Delete| to delete this kanban 
+  
+:ref:`BACK<back>`  
+   
+   
+   
+   
+   
+
+        
+        
+        
+.. _kanban-newtable:
+
+.. rubric:: Create a new table
+ 
+When you create a kanban, no matter what type, only one column is available.
+  
+You create the following columns according to your needs. 
+ 
+
+* Click on |addKanban| to create a new Kanban
+ 
+.. figure:: /images/GUI/AGILE_BOX_NewKanban.png
+   :alt: Add a new kanban table 
+      
+   Add a new kanban of tickets 
+      
+You will need to define:
+ 
+* **Name** for the new Kanban board
+      
+* **Type of item:** you can define a Kanban of Tickets, Activities, Actions or Requirements
+      
+      
+When you have selected the item type, you must then define the type of Kanban board to apply:
+            
+* **Status:** you will manage the most standard "status based" kanban board
+* **Target product version:** you can distribute the tickets among the target product version
+* **Planning activity:** You will be able to send tickets among planning activities, which can be your Sprints in the Scrum method.
+* **Target milestone** You manage your elements according to the target milestones of your project
+  
+    
+    
+.. _kanban-shared:
+    
+You can choose directly if you want to share the newly created kanban with other users so that they can use it.
+  
+When you share a Kanban, other users will see your share in the list of shared Kanbans.
+
+.. figure:: /images/GUI/AGILE_BOX_SharedKanban.png
+   :alt: shared kanban
+   
+   Shared Kanban
+
+Each time you access the Kanban screen, the last selected Kanban map is displayed.   
+
+.. seealso:: :ref:`ticket-planning-activity` on the tickets screen and :ref:`milestone`
+
+:ref:`BACK<back>`     
+
+
+      
+.. _kanban-newcolumn:
+      
+.. rubric:: Create a new Column
+
+By default, when you create a new Kanban table, it gets a single column.
+
+* Click on |addColumnKanban| to create a new Column 
+  
+The pop up is different depending on the type of kanban board created beforehand.
+  
+.. figure:: /images/GUI/AGILE_BOX_NewColumn.png
+   :alt: Add new column
+   
+   Add a new column
+
+  
+When organized by status, the columns contain elements from one status to the next in the order they appear in your workflow. The states will be restricted based on your selection (filters and project selector).
+
+When organized by planning activity, product version, or milestones, the list will contain the names of the corresponding elements along with their assigned color (gray if no color is specified).  
+     
+The next column will show the next status following your workflow to the last or the status you have determined.  
+
+
+  
+      
+.. figure:: /images/GUI/AGILE_ZONE_HeaderColumn.png
+   :alt: Columns arrangement by status
+      
+   Details header column
+
+
+If a column is hidden, its name will be indicated vertically on the side.
+
+.. figure:: /images/GUI/AGILE_ZONE_HidenColumn.png
+   :alt: Columns arrangement by status
+      
+   Details Hidden column
+
+
+            
+When you right-click in the kanban columns, the context menu also offers you the option to create a new column.
+
+.. image:: /images/GUI/AGILE_BOX_CreateColumn.png
+     
+Each column indicates the number of elements contained in.
+
+* Click on |OptKB| to open the options windows.
+* Click on |Hide| to hide a column.   
+* Click on |edit| to edit the column name.
+* Click on |Delete| to delete the column.
+  
+  
+      
+.. figure:: /images/GUI/AGILE_ZONE_ColumnHide.png
+   :alt: Hide column
+      
+   Hide a column on Kanban  
+
+
+   
+:ref:`BACK<back>`     
+   
+   
+   
+
+   
+.. _kanban-newelement:          
+            
+.. rubric:: Create a new element
+ 
+The creation button change depending on the type of the element selected.
+ 
+* Click on |addTicketKanban| to add a new ticket into the Kanban Board or
+  
+* Click on |addActionKanban| to add a new action into the Kanban Board or
+  
+* Click on |addActivityKanban| to add a new activity into the Kanban Board or
+  
+* Click on |addRequirementKanban| to add a new action into the Kanban Board
+  
+:ref:`BACK<back>`     
+
+
+
+.. _kanban-restriction:          
+            
+.. rubric:: Fields restriction
+
+As with other ProjeQtOr screens, you can restrict the display of items in the created columns of your kanban.
+
+You can restrict items by name, manager, version, and sort them by ID, name, manager, status, or target version product.
+   
+:ref:`BACK<back>`  
+
+   
+   
+.. _kanban-filters:          
+            
+.. rubric:: Advanced filters
+
+* Click the icon to set an advanced filter.
+
+The advanced filter is used to define a clause to filter and sort
+
+.. seealso:: :ref:`Advanced filters in Graphic User Interface<filters>`
+
+:ref:`BACK<back>`     
+
+
+
+
+
+.. _kanban-infobar:          
+            
+.. rubric:: Display options on kanban
+
+Many options allow you to customize the display of your kanban or tiles.
+
+**Display on kanban:**
+
+* **Show work on elements**
+
+  Allows you to display the estimated, actual, and remaining work on each task.
+   
+.. figure:: /images/GUI/AGILE_ZONE_WorkElement.png
+   :alt: Work on element
+         
+   You can view the work information of items on each column.
+   
+* **Show idle elements**
+
+  Allows you to display closed items in the columns of your kanban.
+
+* **Show large element**
+
+  The tiles for each element will adapt to the full width of the column. This allows much more information to be displayed as the project name.
+  
+.. figure:: /images/GUI/AGILE_ZONE_LargeTiles.png
+   :alt: Large tiles
+   
+   Large tiles
+
+* **Show backlog**
+
+  The backlog column of your kanban is hidden by default. It defines the initial state of your tiles in your kanban. The backlog is the list of pending tasks: these are all the ideas, requests, or work that need to be done but have not yet been planned or started.
+
+**and for the personaliszation of the tiles:**
+
+* Status
+* Product version
+* Planning/Parent activity
+* Manager
+* Priority
+* Urgency
+* Planned end date
+* Type
+* Project name 
+* Color the background of the title according to the color of the project/activity/planned color or type.
+* Apply the color to the entire tile
+
+.. figure:: /images/GUI/AGILE_ZONE_TilesEmpty&Plain.png
+   :alt: empty tile and filled tile 
+   
+   difference between tickets tile and Activity without display options and with all options
+   
+   
+All these options allow you to have simple tiles or tiles offering maximum information.     
+
+The estimated work, actual work, and work remaining information on the selected item can be displayed. 
+
+If your profile is not allowed to see the job, you will not have access to this option.
+   
+The format for displaying the job (days or hours) depends on the global parameter.
+   
+* **unit for real work allocation** for Tickets
+
+* **unit for workload** for Activities
+
+**Show idle elements** allows you to display or not inactive elements (closed, canceled, paused, etc.)       
+       
+By default, Kanban board columns display two tiles side by side. By displaying the tiles in wide mode, each tile takes the maximum width of the column and allows to display much more information.
+  
+
+.. tip::
+  
+   When you create a kanban, you do not yet have columns representing a state, a set of states or even versions.
+   
+   The tiles then appear in a Backlog column. You have the option to display or hide this column.
+    
+
+    
+:ref:`BACK<back>`     
+    
+    
+    
+.. _display-tile:
+    
+Details of an element
+*********************
+
+The kanban tile represents your task. Whether it is an activity, an action, a requirement or a ticket
+ 
+.. figure:: /images/GUI/AGILE_ZONE_TileKanban.png
+   :alt: Kanban Tile
+
+   Kanban Tile
+
+
+The kanban tile is customizable. You can hide some information.
+
+     
+|one| ID of the element and the color of the project color
+  
+|two| The type of the element
+  
+|three| The planned due date for the element
+  
+|four| The name of the element. The background color depends on the selected option: project, priority, or emergency. 
+  
+|five| Status in which the tile is located in relation to your :ref:`workflow`.
+    
+|six| The description of the element.
+
+|seven| The target product version. 
+  
+|eight| The planning activity or parent activity related to the element.
+
+|nine| Estimated work | Real work | Left work.
+  
+|ten| Responsible of work - The name is displayed on mouse over.
+  
+|eleven| Priority of the element - :ref:`Priorities<priority>` are customizable.
+  
+|twelve| Urgency of the element - :ref:`Urgency<urgency>` are customizable.
+  
+|thirteen| edit the element in a popup.
+  
+|fourteen| Add a note. The number of notes is displayed on the icon.
+  
+|fifteen| Vote. The button allows you to vote on the item if you have the rights. Click the button to display the voting pop-up.
+  
+|sixteen| Go to. The button allows you to go to the item's page if you have the rights.
+
+
+Contextual menu
+---------------
+ 
+By right-clicking on a tile, you access the contextual menu which gives you access to several options
+  
+.. figure:: /images/GUI/AGILE_ZONE_ContextualMenu.png
+   :alt: contextual menu
+   
+   contextual menu
+      
+These are the main options like create, edit, copy but also shortcuts to add comments or go to the element.   
+
+
+
+Operations on element
+*********************
+
+Edit an element
+---------------
+ 
+   * Click on |Edit| to edit the element.
+   
+   * Click on the button to edit the element directly from the Kanban screen. A pop-up is displayed with your item information as on the dedicated screen.
+      
+   * Click on |Save| to save your changes
+   
+      
+   .. figure:: /images/GUI/AGILE_BOX_EditKanban.png
+      :alt: Edit element
+       
+      Edit element window
+    
+    
+      
+Moves an element
+----------------
+ 
+   To move tickets, activities, or anything else from your kanban, drag and drop a ticket into the corresponding column.
+   
+   .. figure:: /images/GUI/AGILE_ZONE_DragDrop.png
+      :alt: Move an element
+      
+      Move an element
+   
+   The heading of the moved element then changes to **green** when it is on a column where the movement is allowed and is **red** when it is on a column where the movement is prohibited.
+   
+   If the Kanban is arranged as statuses, the new status after move, will be the first status of the range defined for the column.
+   
+   For Kanbans based on the target product version and planning activities, the new field value will simply be the target.
+
+
+Forbidden moves
+---------------
+ 
+   
+   Displacements will change the value of the corresponding field for the moved element.
+     
+   .. figure:: /images/GUI/AGILE_ZONE_RedTile.png
+      :alt: movement refused
+         
+      movement refused 
+        
+   But the "status" change must respect the workflow configuration for the given item type. This is why some movements are prohibited.
+     
+   Permitted moves are easily identified from prohibited moves by the color of the Ticket header or the moved Activity.  
+  
+  
+Updating
+--------
+ 
+   Depending on the configuration of the ticket type, some state changes may require the definition of new fields.
+   
+   For example, in the default configuration, when changing to the "assigned" state, "responsible" is required, and when transitioning to the "terminated" state, "result" is required ".
+   
+   In this case, when you move a ticket in the Kanban columns, a pop-up window appears to allow you to enter the missing value if it is not already defined.      
+       
+
+Vote
+****
+ 
+If the voting settings and your rights allow you to vote on an element, then the vote button will be clickable and you will be able to vote directly on the element from the Kanban screen.
+   
+.. figure:: /images/GUI/AGILE_BOX_Vote.png
+   :alt: Vote pop-up
+      
+   Vote pop-up
+      
+Enter your vote. The remaining points are automatically decremented.
+
+Click on validate to close the pop-up.
+
+According to the rules established for voting on the item, the button will fill up as the votes are cast.
+
+
+.. figure:: /images/GUI/AGILE_ZONE_Vote.png
+   :alt: icon indicating that votes have started or have been completely filled
+      
+   icon indicating that votes have started or have been completely filled
+      
+          
+.. seealso:: 
+
+   :ref:`voting management<voting-management>`
+   
+        
+   
+
+
+.. index:: Live Meeting
+
+.. index:: Agile (Live Meeting)
+
+.. _livemeeting-agile:
+
+Live Meeting
+############
+
+
+LiveMeeting allow you to manage meetings in an agile way:
+
+* Manage written production quickly and easily
+
+* Recovery in the liveMeeting of the agenda established on the meeting screen
+
+* Automatic saving of the minutes when leaving the live meeting
+
+* Automatically share the time between all participants
+
+* Dynamically measure the speaking time of each participant
+
+* Easily write minutes while assistants speak
+
+* Easily manage actions / decisions / questions while writing minutes and add them with the enter button.
+
+* Manage tickets, activities, actions and requirements with Kanban while writing minutes.
+
+* Kanban status change manipulations are also indicated in the meeting minutes. 
+
+
+
+.. figure:: /images/GUI/AGILE_ZONE_LiveMeeting-Button.png
+   :alt: The LiveMeeting button
+   
+   The Live Meeting button
+
+Click this button to access the Live Meeting Management screen.
+
+.. figure:: /images/GUI/AGILE_SCR_LiveMeeting.png
+   :alt: The LiveMeeting screen
+   
+   The Live Meeting screen
+
+* Click on **Hide time counters** to show or hide participants' tabs with their speaking time    
+* Click on |Exit| to exit the LiveMeeting screen
+* Click on |Kanban| to manage your kanbans since the livemeeting
+* Click on |GlobalView| to display the QUestions / Actions and Decisions
+* Click on |Save| to save the live meeting report
+
+ 
+
+
+.. rubric:: Starting a meeting 
+
+When the Live Meeting screen opens, the duration of the meeting is automatically distributed equally to all participants.
+
+.. figure:: /images/GUI/AGILE_ZONE_LiveMeeting-Time.png
+   :alt: Live meeting screen
+   
+   Time distribution
+   
+ 
+* Click on |meetingPlay| to start the meeting and to start decrementing the speaking time
+
+* Click on |meetingStop| To stop the meeting and therefore close the LiveMeeting window to return to the current meeting screen
+
+* Click on |meetingPause| to pause the speaker's time
+  
+
+
+
+ .. compound:: Set the organizer
+
+   Before starting the meeting, you can define an organizer who will need additional speaking time to be able to lead the meeting.
+
+   To designate it, click twice on the hourglass |LiveMeetingSpeak| to obtain the symbol |meetingOrganizer| on the icon.
+
+   The organizer is designated, and sees his time increment double by taking equitable time on the other participants.
+
+
+   .. figure:: /images/GUI/AGILE_ZONE_Organizer.png
+      :alt: set an organizer
+      
+      The designated organizer has a PLus on the hourglass icon of his tab
+
+   Note that only one participant can be defined as an organizer.
+
+   To set another participant as an organizer, you must first redefine the current organizer as a normal participant by clicking the hourglass button again.
+
+
+
+ .. compound:: Speaking Time
+ 
+  If you started the meeting by clicking on the Play icon at the top right of the screen, then this is the first speaker displayed, the one with the green sign that will begin speaking.
+
+  Otherwise, click on the speaker's tab of your choice to start your speaking time.
+  
+  
+  * Click on |LiveMeetingDtSpeak| to prevent a speaker from speaking
+
+  * Click on |LiveMeetingSpeak| to give him the floor again
+    
+  If you prevent a speaker's speaking time by clicking on the hourglass, then the remaining speaking time of the speaker will be redistributed to the other participants entitled to speak.
+
+
+
+
+ .. compound:: Write a meeting report 
+
+   During the course of the meeting, the person in charge of the report can inform and report the words of the various participants.
+
+   The text editor is dynamic and reacts to speakers who have the floor.
+
+   When one speaker is finished and another speaker speaks, a field is added in the text editor with the name of the speaker with the detail of the time
+
+   The pause is also mentioned always with the detail of the time.
+
+
+   .. figure:: /images/GUI/AGILE_ZONE_Speaker.png
+      :alt: The field with the speaker's name
+   
+      Field with the speaker's name
+
+   When you stop LiveMeeting by clicking | meetingStop | the meeting report is automatically copied to the Minutes field in the treatment section. 
+   
+   .. figure:: /images/GUI/AGILE_ZONE_Minutes.png
+      :alt: Meeting report 
+      
+      The meeting report is copied in the minutes field in the treament section
+      
+      
+      
+.. rubric:: Actions, Decisions and Actions
+
+
+In the lower part of the screen, if the kanban is not open, you have direct access to actions, decisions and questions.
+
+.. figure:: /images/GUI/AGILE_ZONE_ADQManagement.png
+   :alt: Actions, Decisions, Questions Management
+   
+   Actions, Decisions, Questions Management
+
+Each list acts as the standard "linked element" element present on almost every element screen.
+
+You can then list an item to add it to the list of related items, but also create a new item to add to the list, just like for the Linked Items feature.
+
+All linked items through this feature will appear in linked items in the meeting.
+
+There is a slight difference with related items, when you click on the name of an item, you are not redirected to it. 
+   
+It simply opens in a pop-up form, allowing you to update it without leaving the LiveMeeting screen.      
+
+
+ .. compound:: New element
+ 
+  You can create, edit, or delete an action, decision, or question from the live meeting screen.
+  
+  Click on |Add| at the top right of each section to add a new element
+  
+  A pop up opens and allows you to create and edit the selected element.
+  
+   .. figure:: /images/GUI/AGILE_BOX_NewAction.png
+      :alt: Creating a new element
+   
+      Creating a new element 
+
+   * Click on |Valid| to select an item into the list by 
+   
+   * Click on |New| to create an item 
+   
+   * Click on |Undo| to undo the current manipulating and close the window
+   
+   * Click on |Filters| click on filter to restrict display
+     
+  You can also create a new item directly.
+  
+  Fill in the fields with an explicit title and click on |Add| to validate.
+  
+  .. figure:: /images/GUI/AGILE_ZONE_NewElement.png
+   :alt: Add new element
+   
+   Add a new element
+  
+  The line is displayed directly in the corresponding section without opening the pop up.
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+   
+.. raw:: latex
+
+    \newpage
+
+.. index:: Agile (Planning poker)
+
+.. index:: Planning poker
+
+.. _planning-poker:
+
+Planning Poker
+##############
+
+Planning Poker, also known as Scrum Poker, is a consensus-based gamified estimation technique primarily used to estimate the relative effort or size of development goals. (wikipedia)
+
+Projeqtor integrates planning poker into its functionalities. You will be able to plan a planning poker session as a meeting and see it appear on the Gantt chart.
+
+You define the project to which the session is linked, the user story (s) as well as the voters.
+
+
+
+
+.. _planning-poker-session:
+
+Planning poker session
+**********************
+
+The planning poker session screen is reserved for the session organizer and certain supervision profiles.
+
+A planning poker session can be scheduled and is visible on the Gantt chart of the planning view.
+
+
+.. figure:: /images/GUI/Agile_SCR_PlanningPokerSession.png
+   :alt: Planning poker session screen
+   
+   Planning poker session screen
+
+
+.. rubric:: Run a poker session
+   
+You define a date for your session, one or more user stories and the participants in the votes.
+
+Click on :kbd:`Run estimate` in front of the user stories you want to launch or on :kbd:`run all` to launch all the user stories
+
+When at least one user story is started, then voters will be able to access it on the planning poker estimate screen.
+
+Only profiles with update rights can vote on the planning poker sessions screen.
+
+The user story estimate is identical between the planning poker session screen and the planning poker estimate screen. 
+   
+   
+ .. compound:: Planning poker type
+
+   In ProjeQtOr, basic, you find the types "live session" or "session with a due date".
+   
+   The types are customizable and can be changed according to your needs.
+   
+   See: :ref:`Planning poker type<planning-poker-type>`
+   
+   
+ .. compound:: User story
+
+   The User Story represents an Agile practice, used above all in Scrum, to “capture” the needs of the users by expressing in a general and not detailed way, the characteristics, the functions and the requirements of the product to be created.
+   
+   In ProjeQtOr, a user story can be a ticket, an activity or a requirement.
+   
+   A session can contain several user stories, there is no limit.
+   
+   Each of these user stories can be started individually, in part or in full.
+   
+
+
+ .. compound:: Attendees
+
+   Participants can be resources, contacts, or users.
+   
+   Participants are assigned as on an activity, with a function linked to a cost.
+   
+   You can assign a load manually but if you have entered a time slot then the load is automatically calculated. 
+   
+     
+ .. compound:: Pause and stop session
+
+   You can pause the session. This will remove user stories from the planning poker estimates screen without actually closing or stopping the session.
+   
+   Stop the session, will change the status of the latter to "done".
+   
+   User stories will still be visible on the estimates planning poker screen but you will no longer be able to vote.
+   
+   Change the status to **in progress** so that the :kbd:`pause` and :kbd:`closed` buttons are visible again.
+
+
+
+
+
+.. rubric:: Closed a poker session
+
+   
+When all the votes are recorded, you have two options :
+
+   * Close the vote
+   * Turn the cards over
+   
+When you turn over the cards, the vote is indicated on each participant's card.
+
+.. figure:: /images/GUI/AGILE_ZONE_PlanningPokerFlipCards.png
+   :alt: Flip cards
+   :scale: 60
+   
+   Flip cards
+   
+You then have the possibility to reset the votes and this in accordance with the Scrum method, until the vote is unanimous.
+
+If all the votes are unanimous, when the user story is closed, the complexity point that was voted on is indicated.
+
+.. figure:: /images/GUI/AGILE_BOX_PlanningpokerClosedOK.png
+   :alt: close of unanimous votes
+   
+   Close of unanimous votes
+   
+
+If you close without the votes being unanimous, at the time of closing, the lowest and highest values are shown.
+
+The lowest value is selected by default, but you can click the highest value to select it or select another value from the drop-down list.
+
+   
+.. figure:: /images/GUI/AGILE_BOX_PlanningpokerClosednotOK.png
+   :alt: Closure of non-unanimous votes
+   
+   Closure of non-unanimous votes
+
+
+When the estimate is closed, the value that was voted on is displayed in the user story table.
+
+.. figure:: /images/GUI/AGILE_ZONE_PlanningPokerSessionValue.png
+   :alt: Report of the value in the table of user stories
+   
+   Report of the value in the table of user stories
+
+
+.. _planning-poker-estimate:
+
+Planning poker estimate
+***********************
+
+This screen is intended for participants of the voting sessions. 
+
+User stories are visible on the planning poker estimates screen only when at least one user story is started.
+
+.. figure:: /images/GUI/AGILE_SCR_EstimatePlanningPoker.png
+   :alt: Estimate planning poker screen
+   
+   Estimate planning poker screen
+   
+   
+
+The participants can vote thanks to a series of numbered cards on the principle of the Fibonacci sequence, but in a rounded way.
+
+These values are customizable.
+
+See: :ref:`list of value - Story point<story-point>`
+
+.. rubric:: Estimate an user story
+
+Each participant clicks on a card in order to estimate the proposed user story.
+
+If more than one user story then click on :kbd:`next` to vote for the next user story.
+
+ 
+.. figure:: /images/GUI/AGILE_ZONE_PlanningPokerVote.png
+   :alt: Planning Poker estimate
+   :scale: 60
+      
+   Planning Poker estimate
+
+
+
+* Click on |Refresh| to refresh your screen and the votes
+* Click on :kbd:`flip card` to return the cards. Only if the user has the rights to do so.
+
+When you have voted, the card changes color. Your vote has been registered
+
+
+ .. compound:: Remaining vote
+ 
+   The remaining votes correspond to the number of votes you need to cast.
+   
+   Use this information to make sure you don't forget a user story.
+   
+   

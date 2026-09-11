@@ -1,0 +1,1101 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Steering lever for planning &#8212; ProjeQtOr User guide 13.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Gantt Chart" href="Gantt.html" />
+    <link rel="prev" title="Planning elements" href="PlanningElements.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="Gantt.html" title="Gantt Chart"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="PlanningElements.html" title="Planning elements"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Steering lever for planning</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <span class="target" id="index-0"></span><section id="manage-the-planning">
+<span id="index-1"></span><h1>Manage the planning<a class="headerlink" href="#manage-the-planning" title="Permalink to this heading">¶</a></h1>
+<p>Project planning is of paramount importance to ensure the success of your objective.</p>
+<p>By ensuring optimal management of costs, deadlines and quality, project planning allows you to estimate the necessary resources, establish a realistic schedule and define the expected performance indicators. In the absence of planning, you expose your project to risks of financial losses, delays and inadequate quality.</p>
+<p>Projeqtor offers a wide choice of control levers to best plan your project and in precise conditions.</p>
+<section id="planning-codes">
+<span id="planningcode"></span><h2>Planning codes<a class="headerlink" href="#planning-codes" title="Permalink to this heading">¶</a></h2>
+<p>The planning modes that you will find in ProjeQTor are all coded.</p>
+<p>Below you will find the list of codes corresponding to the modes.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Code</p></th>
+<th class="head"><p>Planning modes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="#mode-assoon"><span class="std std-ref">ASAP</span></a></p></td>
+<td><p>As soon as possible</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#mode-worktogether"><span class="std std-ref">GROUP</span></a></p></td>
+<td><p>Work together</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#mode-startbefore"><span class="std std-ref">START</span></a></p></td>
+<td><p>Must not start before validated date</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#mode-startat"><span class="std std-ref">STARR</span></a></p></td>
+<td><p>Must start at validated star date</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#mode-endbefore"><span class="std std-ref">ALAP</span></a></p></td>
+<td><p>Should end before validated end date</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#mode-fixedduration"><span class="std std-ref">FDUR</span></a></p></td>
+<td><p>Fixed duration</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#mode-durationdriven"><span class="std std-ref">DDUR</span></a></p></td>
+<td><p>Duration driven</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#duration-constrained"><span class="std std-ref">CDUR</span></a></p></td>
+<td><p>Duration constrained</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#mode-regular"><span class="std std-ref">REGUL</span></a></p></td>
+<td><p>Regular between dates</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#mode-regularfull"><span class="std std-ref">FULL</span></a></p></td>
+<td><p>Regular in full days</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#mode-regularhalf"><span class="std std-ref">HALF</span></a></p></td>
+<td><p>Regular in half days</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#mode-regularquarter"><span class="std std-ref">QUART</span></a></p></td>
+<td><p>Regular in quarter days</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#mode-recurring"><span class="std std-ref">RECW</span></a></p></td>
+<td><p>Recurring</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#mode-manualplanning"><span class="std std-ref">MAN</span></a></p></td>
+<td><p>Manual planning</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#mode-activityparent"><span class="std std-ref">PAR</span></a></p></td>
+<td><p>Parent activity in fixed duration</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="planning-order">
+<span id="index-2"></span><span id="id1"></span><h2>Planning order<a class="headerlink" href="#planning-order" title="Permalink to this heading">¶</a></h2>
+<p>The planning is calculated as simply as possible. This means that no complex algorithm is applied.</p>
+<p>The principle adopted is simply to be able to reproduce what you could do with a spreadsheet, but this time automatically.</p>
+<p>All unrealized work is planned, from the start date to the maximum date depending on the load assigned to the project(s).</p>
+<aside class="topic">
+<p class="topic-title"><strong>Before v12.0</strong></p>
+<p>Calculations are performed task by task, according to the following organization from lowest priority to highest priority.</p>
+<ol class="arabic simple">
+<li><p><strong>WBS</strong></p></li>
+<li><p><strong>The validated end date or inherited end date</strong></p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#duration-constrained"><span class="std std-ref">CDUR</span></a>/<a class="reference internal" href="#mode-endbefore"><span class="std std-ref">ALAP</span></a> or if parameter enabled</p></li>
+</ul>
+</li>
+<li><p><strong>Priorities of activities</strong></p></li>
+<li><p><strong>Project priorities</strong></p></li>
+<li><p><strong>Planning modes</strong></p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#mode-activityparent"><span class="std std-ref">PAR</span></a></p></li>
+<li><p><a class="reference internal" href="#mode-assoon"><span class="std std-ref">ASAP</span></a> - <a class="reference internal" href="#mode-worktogether"><span class="std std-ref">GROUP</span></a> - <a class="reference internal" href="#mode-startbefore"><span class="std std-ref">START</span></a></p></li>
+<li><p><a class="reference internal" href="#mode-endbefore"><span class="std std-ref">ALAP</span></a> (sorted by validated end date)</p></li>
+<li><p><a class="reference internal" href="#mode-fixedduration"><span class="std std-ref">FDUR</span></a> - <a class="reference internal" href="#mode-durationdriven"><span class="std std-ref">DDUR</span></a> - <a class="reference internal" href="#duration-constrained"><span class="std std-ref">CDUR</span></a></p></li>
+<li><p><a class="reference internal" href="#mode-startat"><span class="std std-ref">STARR</span></a> (sorted by validated start date)</p></li>
+<li><p><a class="reference internal" href="#minimumthreshold"><span class="std std-ref">Not splitted work</span></a> with real already entered (started)</p></li>
+<li><p><a class="reference internal" href="#mode-regular"><span class="std std-ref">REGUL</span></a> - <a class="reference internal" href="#mode-regularfull"><span class="std std-ref">FULL</span></a> - <a class="reference internal" href="#mode-regularhalf"><span class="std std-ref">HALF</span></a> - <a class="reference internal" href="#mode-regularquarter"><span class="std std-ref">QUART:ref:`</span></a></p></li>
+<li><p><a class="reference internal" href="#mode-recurring"><span class="std std-ref">RECW</span></a></p></li>
+</ul>
+</li>
+<li><p><strong>Dependencies</strong></p></li>
+<li><p><strong>Meetings</strong></p></li>
+<li><p><strong>Planning Manual and planned interventions</strong></p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#mode-manualplanning"><span class="std std-ref">MAN</span></a></p></li>
+</ul>
+</li>
+</ol>
+</aside>
+<p>With version 12.0, the planning order has been redesigned and optimized to provide more consistent logic and increased accuracy.</p>
+<aside class="topic">
+<p class="topic-title"><strong>After v12.0</strong></p>
+<p>Calculations are performed task by task, according to the following organization from lowest priority to highest priority.</p>
+<ol class="arabic simple">
+<li><p><strong>WBS</strong></p></li>
+<li><p><strong>The validated end date or inherited end date</strong></p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#mode-startat"><span class="std std-ref">STARR</span></a> <em>(Validated start date)</em></p></li>
+<li><p>end date inherited if setting enabled</p></li>
+</ul>
+</li>
+<li><p><strong>Priorities of activities</strong> <em>(Intra Project only)</em></p></li>
+<li><p><strong>Parent activity</strong></p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#mode-activityparent"><span class="std std-ref">PAR</span></a> <em>(Within the same project)</em></p></li>
+<li><p>elementaries <em>(Regardless of the planning mode)</em></p></li>
+</ul>
+</li>
+<li><p><strong>Project priorities</strong></p></li>
+<li><p><strong>Planning modes</strong></p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#mode-assoon"><span class="std std-ref">ASAP</span></a> - <a class="reference internal" href="#mode-worktogether"><span class="std std-ref">GROUP</span></a> - <a class="reference internal" href="#mode-startbefore"><span class="std std-ref">START</span></a> - - <a class="reference internal" href="#mode-endbefore"><span class="std std-ref">ALAP</span></a> - <a class="reference internal" href="#mode-fixedduration"><span class="std std-ref">FDUR</span></a> - <a class="reference internal" href="#mode-durationdriven"><span class="std std-ref">DDUR</span></a> - <a class="reference internal" href="#duration-constrained"><span class="std std-ref">CDUR</span></a></p></li>
+<li><p><a class="reference internal" href="#mode-startat"><span class="std std-ref">STARR</span></a> (sorted by validated start date)</p></li>
+<li><p><a class="reference internal" href="#minimumthreshold"><span class="std std-ref">Not splitted work</span></a> with real already entered (started)</p></li>
+<li><p><a class="reference internal" href="#mode-regular"><span class="std std-ref">REGUL</span></a> - <a class="reference internal" href="#mode-regularfull"><span class="std std-ref">FULL</span></a> - <a class="reference internal" href="#mode-regularhalf"><span class="std std-ref">HALF</span></a> - <a class="reference internal" href="#mode-regularquarter"><span class="std std-ref">QUART:ref:`</span></a></p></li>
+<li><p><a class="reference internal" href="#mode-recurring"><span class="std std-ref">RECW</span></a></p></li>
+</ul>
+</li>
+<li><p><strong>Dependencies</strong></p></li>
+<li><p><strong>Meetings</strong></p></li>
+<li><p><strong>Planning Manual and planned interventions</strong></p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#mode-manualplanning"><span class="std std-ref">MAN</span></a></p></li>
+</ul>
+</li>
+</ol>
+</aside>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>These planning order changes will not impact your existing schedule. In fact, only new instances installed after version 12 will benefit from this new organization automatically.</p>
+<p>For previous versions and updates from v12.0, you will need to choose the option that suits you best in the settings.</p>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="Gantt.html#activityplanningcalculation"><span class="std std-ref">Apply calculation priority…</span></a></p>
+<p><a class="reference internal" href="#planningcode"><span class="std std-ref">code modes</span></a></p>
+<p><a class="reference internal" href="#planningmodegantt"><span class="std std-ref">planning mode</span></a></p>
+</div>
+<section id="definition">
+<h3>Definition<a class="headerlink" href="#definition" title="Permalink to this heading">¶</a></h3>
+<p><strong>WBS</strong></p>
+<p>The WBS (Work Breakdown Structure), that is to say the structure or scheduling of your schedule is planned first if no other constraint comes to disturb this order. It is read from top to bottom and from left to right.</p>
+<p><strong>The validated end date</strong></p>
+<p>It is possible to set the default priority of activities from the finish date posted before the order in the WBS structure.</p>
+<ul class="simple">
+<li><p>This will give higher priority to activities that need to finish sooner, regardless of WBS.</p></li>
+<li><p>The planned end date is by default the validated end date.</p></li>
+<li><p>If the validated end date is not defined, the planned end date can be retrieved from a successor (e.g. end milestone) or from the parent.</p></li>
+<li><p>When the end date is retrieved then it is displayed in pink and is written in gray italics.</p></li>
+<li><p>The bar is also displayed in pink.</p></li>
+<li><p>If two activities have the same scheduled end date, the WBS is always the last priority criterion.</p></li>
+<li><p>This feature can be disabled in Global setting to fetch default WBS criteria only.</p></li>
+</ul>
+<p><strong>Priorities of activities</strong></p>
+<p>All activities with the lowest priority value will potentially be scheduled first.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Priority of activities before version 12.0 was inter project.</p>
+<p>After version 12.0 with new scheduling rules enabled, priority of activities is intra project</p>
+</div>
+<p><strong>Project priorities</strong></p>
+<p>The smallest value (index) is calculated first, this means in particular that if the projects have different priorities, all activities of the project with the smallest priority value will potentially be planned first.</p>
+<p><strong>Planning modes</strong></p>
+<p>Before v12.0, the modes “F.D.C.DUR”, “STARR”, “REGUL, FULL, HALF and QUART” and “RECW” modes are priority modes compared to the other activity planning modes other than manual planning.</p>
+<p>After v12.0 with the new planification mode, the F.D.C.DUR modes are no longer a priority.</p>
+<p><strong>Dependencies</strong></p>
+<p>If an activity or project has a predecessor, the predecessor is always scheduled first.</p>
+<p><strong>Meetings</strong></p>
+<p>It is fixed on a given date. Even if not all of the participants are available.</p>
+<p>In this case, an alert informs you and the Gantt chart displays the unavailability.</p>
+<p><strong>Planning Manual</strong> and planned interventions</p>
+<p>This highest priority planning mode. The workload assigned with this planning mode can be recorded in planned work or in actual work.</p>
+</section>
+</section>
+<section id="planning-modes">
+<span id="planningmodegantt"></span><h2>Planning Modes<a class="headerlink" href="#planning-modes" title="Permalink to this heading">¶</a></h2>
+<p>Projeqtor offers several ways to plan your resource’s workload with planning modes.</p>
+<p>The order of the planning modes is not random.</p>
+<p>The further down the list you go, the more priority the planning modes have and will recover the load on the tasks that can be planned in the previous planning modes.</p>
+<p>Some planning modes are reserved for expert users.</p>
+<p>If you do not want to keep the modes that you do not use, you can use the dedicated screen which will allow you to close and therefore hide certain modes.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#planningmodesscreen"><span class="std std-ref">Planning modes screen</span></a></p>
+</div>
+<aside class="topic">
+<p class="topic-title">Planning Modes</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#mode-assoon"><span class="std std-ref">As soon as possible</span></a></p></li>
+<li><p><a class="reference internal" href="#mode-worktogether"><span class="std std-ref">Work together</span></a></p></li>
+<li><p><a class="reference internal" href="#mode-fixedduration"><span class="std std-ref">Fixed duration</span></a></p></li>
+<li><p><a class="reference internal" href="#mode-activityparent"><span class="std std-ref">Parent activity</span></a></p></li>
+<li><p><a class="reference internal" href="#mode-durationdriven"><span class="std std-ref">Duration driven</span></a></p></li>
+<li><p><a class="reference internal" href="#duration-constrained"><span class="std std-ref">Duration constrained</span></a></p></li>
+<li><p><a class="reference internal" href="#mode-startbefore"><span class="std std-ref">Must start before…</span></a></p></li>
+<li><p><a class="reference internal" href="#mode-startat"><span class="std std-ref">Must start at validated date</span></a></p></li>
+<li><p><a class="reference internal" href="#mode-endbefore"><span class="std std-ref">Should end before…</span></a></p></li>
+<li><p><a class="reference internal" href="#mode-regular"><span class="std std-ref">Regular between dates</span></a></p></li>
+<li><p><a class="reference internal" href="#mode-regularfull"><span class="std std-ref">Regular between dates in full dat</span></a></p></li>
+<li><p><a class="reference internal" href="#mode-regularhalf"><span class="std std-ref">Regular between dates in half day</span></a></p></li>
+<li><p><a class="reference internal" href="#mode-regularquarter"><span class="std std-ref">Regular between dates in quarter day</span></a></p></li>
+<li><p><a class="reference internal" href="#mode-recurring"><span class="std std-ref">Recurring</span></a></p></li>
+<li><p><a class="reference internal" href="#mode-manualplanning"><span class="std std-ref">Manual planning</span></a></p></li>
+</ul>
+</aside>
+<section id="as-soon-as-possible">
+<span id="mode-assoon"></span><h3>As soon as possible<a class="headerlink" href="#as-soon-as-possible" title="Permalink to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>The task is planned to be completed as quickly as possible.</p></li>
+<li><p>If no assignment is created the bar will automatically be 1 day.</p></li>
+<li><p>If the validated duration is entered, it is this duration that is planned.</p></li>
+</ul>
+<figure class="align-default" id="id5">
+<img alt="Planning Mode As soon as possible" src="_images/GANTT_ZONE_ModeAsap.png" />
+<figcaption>
+<p><span class="caption-text">Planning Mode As soon as possible: the calculation will schedule the resource as soon as it has an available slot</span><a class="headerlink" href="#id5" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><a class="reference internal" href="#planningmodegantt"><span class="std std-ref">|Back to planning modes|</span></a></p>
+</section>
+<section id="work-together">
+<span id="mode-worktogether"></span><h3>Work together<a class="headerlink" href="#work-together" title="Permalink to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>When two or more resources are assigned to the same task, planning tries to find periods where all resources are available to work together.</p></li>
+<li><p>Periods are searched “as soon as possible”.</p></li>
+<li><p>If only one resource is assigned, this planning mode is exactly the same as “As soon as possible”.</p></li>
+<li><p>If one resource is assigned more work than the other, the extra work is planned after working together periods.</p></li>
+</ul>
+<figure class="align-default" id="id6">
+<img alt="Planning Mode work together" src="_images/GANTT_ZONE_ModeWorkTogether.png" />
+<figcaption>
+<p><span class="caption-text">Planning Mode work together: the calculation will schedule the resources at the same time and as soon as it has an available slot</span><a class="headerlink" href="#id6" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><a class="reference internal" href="#planningmodegantt"><span class="std std-ref">|Back to planning modes|</span></a></p>
+</section>
+<section id="fixed-duration">
+<span id="mode-fixedduration"></span><h3>Fixed duration<a class="headerlink" href="#fixed-duration" title="Permalink to this heading">¶</a></h3>
+<ul>
+<li><p>The task is planned by duration. The Validated Duration field is a required field. If you do not fill it out, it will be set to 1 automatically.</p></li>
+<li><p>If work is assigned to the task, the scheduling behavior is the same as “Regular Between Dates”.</p></li>
+<li><p>Ability to readjust (start and end date) the task with handles directly on the Gantt view bar.</p></li>
+<li><p>When the number of assigned work days exceeds the indicated duration, then the days (detail of the Gantt bars) following the validated end date of the activity will be in red.</p></li>
+<li><p>You can manage the progress of these workload-less activities with the option <a class="reference internal" href="GlobalParameters.html#progress-fixedduration"><span class="std std-ref">Manual progress of fixed-duration activities</span></a></p></li>
+<li><p>The actual cost is calculated based on the validated cost.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>For instance : <strong>VALIDATED WORKLOAD</strong> is 40 - <strong>VALIDATED COST</strong> is 10 000;</p></li>
+<li><p>I fill Progress is 20%  workload done is 8 -&gt; Calculated real cost written down should be 2000 but the field remains empty so far.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+<figure class="align-default" id="id7">
+<img alt="Planning mode fixed duratiion with workload" src="_images/GANTT_ZONE_ModeFixedDuration.png" />
+<figcaption>
+<p><span class="caption-text">Planning mode fixed duratiion with workload</span><a class="headerlink" href="#id7" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<figure class="align-default" id="id8">
+<img alt="Planning mode fixed duratiion with workload - validated end date &lt; planned end date" src="_images/GANTT_ZONE_ModeFixedDuration-RED.png" />
+<figcaption>
+<p><span class="caption-text">Planning mode fixed duratiion with workload and validated end date &lt; planned end date</span><a class="headerlink" href="#id8" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><a class="reference internal" href="#planningmodegantt"><span class="std std-ref">|Back to planning modes|</span></a></p>
+</section>
+<section id="parent-activity">
+<span id="mode-activityparent"></span><h3>Parent activity<a class="headerlink" href="#parent-activity" title="Permalink to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>A parent activity can contain workload.</p></li>
+<li><p>In this case, the workload is then distributed over the duration of the parent activity.</p></li>
+<li><p>It takes into account the workload distributed to the child activities.</p></li>
+<li><p>Load distribution corresponds to the fixed duration planning mode.</p></li>
+<li><p>This mode is automatically assigned to the parent activities.</p></li>
+<li><p>You can change the smoothing behavior on parent activities using a global parameter.</p></li>
+</ul>
+<figure class="align-default" id="id9">
+<img alt="workload assigned to a parent activity" src="_images/GANTT_ZONE_PlannedParentActivity.png" />
+<figcaption>
+<p><span class="caption-text">Workload assigned to a parent activity</span><a class="headerlink" href="#id9" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<section id="planning-example">
+<h4>planning example<a class="headerlink" href="#planning-example" title="Permalink to this heading">¶</a></h4>
+<blockquote>
+<div><p>Example with a parent activity with no load and 2 sub-activities with 10 days of load for each of the resources (analyst 1 and analyst 2).</p>
+<p>In this case, the parent activity is the result of the sub-activities that compose it.</p>
+<figure class="align-default" id="id10">
+<img alt="Mother activity without workload" src="_images/PLANNINGELEM_ZONE_MotherActivity.png" />
+<figcaption>
+<p><span class="caption-text">Mother activity without workload</span><a class="headerlink" href="#id10" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>If workload is entered for a resource on a parent activity, and this resource is also scheduled on child activities, then the total of this workload will be displayed on the parent activity for this resource.</p>
+<figure class="align-default" id="id11">
+<img alt="Mother activity with workload" src="_images/PLANNINGELEM_ZONE_MotherActivityWorkload.png" />
+<figcaption>
+<p><span class="caption-text">Mother activity with workload</span><a class="headerlink" href="#id11" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The dates and durations section display the result</p>
+<figure class="align-default" id="id12">
+<img alt="Dates and durations section on parent activity" src="_images/PLANNINGELEM_ZONE_MotherActivityDates.png" />
+<figcaption>
+<p><span class="caption-text">Dates and durations section on parent activity</span><a class="headerlink" href="#id12" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The dates and duration section of the activity shows the overall load for a resource.</p>
+<p>20 workload days = 10 workload days for Analyst A for parent activity + 10 workload days for Analyst A for activity A.</p>
+<p>The mother activity, even if it has priority in relation to its position in the WBS, will distribute the workload assigned for the resource after the workload on the sub-activities.</p>
+<figure class="align-default" id="id13">
+<img alt="the load of the mother activity is planned after the sub-activities" src="_images/PLANNINGELEM_ZONE_MotherActivitydetails.png" />
+<figcaption>
+<p><span class="caption-text">the load of the mother activity is planned after the sub-activities</span><a class="headerlink" href="#id13" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</div></blockquote>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="GlobalParameters.html#plan-parent"><span class="std std-ref">Parent planning mode</span></a> in global parameters.</p>
+</div>
+<p>You can view the content of parent activities even when they are closed.</p>
+<p>Enabling the “Compacted display on closed levels” option allows you to view all the content of a single activity on a single bar.</p>
+<figure class="align-default" id="id14">
+<img alt="the load of the mother activity is planned after the sub-activities" src="_images/PLANNING_ZONE_CompactedDisplay.png" />
+<figcaption>
+<p><span class="caption-text">the load of the mother activity is planned after the sub-activities</span><a class="headerlink" href="#id14" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><a class="reference internal" href="#planningmodegantt"><span class="std std-ref">|Back to planning modes|</span></a></p>
+</section>
+</section>
+<section id="duration-driven">
+<span id="mode-durationdriven"></span><h3>Duration driven<a class="headerlink" href="#duration-driven" title="Permalink to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>The task is planned by duration which is fixed. If you do not fill it out, it will be set to 1 automatically.</p></li>
+<li><p>If the allocation of resources exceeds the set validated duration then the distribution of remaining work becomes overuse.</p></li>
+<li><p>When the assigned workload does not exceed the number of days of fixed duration then the planning mode distributes the workload by smoothing it throughout the duration, exactly as with the fixed duration or the regular between two dates.</p></li>
+<li><p>In automatic calculation mode, only the activity in this mode will be recalculated.</p></li>
+<li><p>Other activities, even those driven by dependencies, will only be recalculated with the full calculation function.</p></li>
+<li><p>Ability to readjust and move the task (handles on each side of the bar) directly on the Gantt.</p></li>
+<li><p>With the left handle you adjust the full bar without changing the duration.</p></li>
+</ul>
+<figure class="align-default" id="id15">
+<img alt="Planning mode Duration driven" src="_images/GANTT_ZONE_ModeDurationDriven.png" />
+<figcaption>
+<p><span class="caption-text">Planning mode Duration driven: work that exceeds the duration is calculated as overuse</span><a class="headerlink" href="#id15" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><a class="reference internal" href="#planningmodegantt"><span class="std std-ref">|Back to planning modes|</span></a></p>
+</section>
+<section id="constrained-duration">
+<span id="duration-constrained"></span><h3>Constrained duration<a class="headerlink" href="#constrained-duration" title="Permalink to this heading">¶</a></h3>
+<p>This planning mode behaves similarly to the “fixed duration” and “Duration driven” modes with some additional specificities.</p>
+<p>The Validated Duration field is a required field. If you do not fill it out, it will be set to 1 automatically.</p>
+<p>This is a priority mode compared to the “as soon as possible” or “work together” mode.</p>
+<p>It offers the possibility to shift the validated start date and the end date using the handles on each side of the bar.</p>
+<figure class="align-default" id="id16">
+<img alt="Constrained duration" src="_images/GANTT_ZONE_DurationConstrained.png" />
+<figcaption>
+<p><span class="caption-text">Activity in constrained duration mode</span><a class="headerlink" href="#id16" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Moving the start date fixes the validated start date without affecting the duration of the schedulable task.</p></li>
+<li><p>Moving the end date automatically calculates the duration.</p></li>
+<li><p>No overbooking within the same project.</p></li>
+<li><p>Possible inter-project overbooking.</p></li>
+<li><p>Respect of the allocation and the assignment rate by project and activity.</p></li>
+</ul>
+<figure class="align-default" id="id17">
+<img alt="Display start date" src="_images/GANTT_ZONE_DurationConstrained_StartDate.png" />
+<figcaption>
+<p><span class="caption-text">indication of the start date by a red line</span><a class="headerlink" href="#id17" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>If the start date is specified, the task takes priority over those of the same priority which do not have one.</p></li>
+<li><p>When the start date is entered but not respected, the bar turns red and a red line is displayed at the base of the line to indicate the duration of the drift (validated start date or end date of the predecessor(s)).</p></li>
+<li><p>If the duration is not respected, the task is red.</p></li>
+</ul>
+<p><a class="reference internal" href="#planningmodegantt"><span class="std std-ref">|Back to planning modes|</span></a></p>
+</section>
+<section id="must-not-start-before-validated-start-date">
+<span id="mode-startbefore"></span><h3>Must not start before validated start date<a class="headerlink" href="#must-not-start-before-validated-start-date" title="Permalink to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>The validated start date field must be set.</p></li>
+<li><p>The task must not begin before a specific date.</p></li>
+<li><p>If a stronger constraint, such as dependencies or real work, is specified, the planning mode will no longer be respected.</p></li>
+<li><p>You can block resource imputations in this planning mode by enabling the global parameters “lock timesheet before validated start date” in <a class="reference internal" href="GlobalParameters.html#realworkallocation-section"><span class="std std-ref">global parameters</span></a></p></li>
+</ul>
+<p><a class="reference internal" href="#planningmodegantt"><span class="std std-ref">|Back to planning modes|</span></a></p>
+</section>
+<section id="must-start-at-validated-start-date">
+<span id="mode-startat"></span><h3>Must start at validated start date<a class="headerlink" href="#must-start-at-validated-start-date" title="Permalink to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>The validated start date field must be set.</p></li>
+<li><p>The task must not begin before this specific date.</p></li>
+<li><p>This planning mode reclaims time from previous planning modes.</p></li>
+<li><p>It has priority over the “as soon as possible”, “fixed duration” and “work together” modes.</p></li>
+<li><p>The start date is no longer respected if a stronger constraint, such as dependencies or real work, is specified.</p></li>
+</ul>
+<p>You can block resource imputations in this planning mode by enabling the global parameters “lock timesheet before validated start date” in <a class="reference internal" href="GlobalParameters.html#realworkallocation-section"><span class="std std-ref">global settings</span></a></p>
+<p><a class="reference internal" href="#planningmodegantt"><span class="std std-ref">|Back to planning modes|</span></a></p>
+</section>
+<section id="should-end-before-validated-end-date">
+<span id="mode-endbefore"></span><h3>Should end before validated end date<a class="headerlink" href="#should-end-before-validated-end-date" title="Permalink to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>The validated end date field must be set.</p></li>
+<li><p>The task is planned backward from end to start.</p></li>
+<li><p>A validated end date must be defined.</p></li>
+</ul>
+<p><a class="reference internal" href="#planningmodegantt"><span class="std std-ref">|Back to planning modes|</span></a></p>
+</section>
+<section id="regular-between-dates">
+<span id="mode-regular"></span><h3>Regular between dates<a class="headerlink" href="#regular-between-dates" title="Permalink to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Allows to evenly distribute work between two dates.</p></li>
+<li><p>Used for management recurrent activities.</p></li>
+<li><p>The validated dates fields must be set.</p></li>
+<li><p>Possibility to readjust the task with handles directly on the bar of the Gantt view.</p></li>
+</ul>
+<figure class="align-default" id="id18">
+<img alt="Regular between dates" src="_images/GANTT_ZONE_ModeRegular.png" />
+<figcaption>
+<p><span class="caption-text">Regular between dates mode</span><a class="headerlink" href="#id18" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>See also: <a class="reference internal" href="#mode-regularexcess"><span class="std std-ref">Regular modes with excess workload</span></a></p>
+<p><a class="reference internal" href="#planningmodegantt"><span class="std std-ref">|Back to planning modes|</span></a></p>
+</section>
+<section id="regular-in-full-days">
+<span id="mode-regularfull"></span><h3>Regular in full days<a class="headerlink" href="#regular-in-full-days" title="Permalink to this heading">¶</a></h3>
+<p>Work will be distributed on full day between on working days.</p>
+<p>Possibility to readjust the task with handles directly on the bar of the Gantt view.</p>
+<figure class="align-default" id="id19">
+<img alt="Planning mode Regular in full days" src="_images/GANTT_ZONE_ModeRegularDAY.png" />
+<figcaption>
+<p><span class="caption-text">Planning mode Regular in full days: assigned days are distributed evenly in full days</span><a class="headerlink" href="#id19" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#mode-regularexcess"><span class="std std-ref">Regular modes with excess workload</span></a></p>
+</div>
+</section>
+<section id="regular-in-half-days">
+<span id="mode-regularhalf"></span><h3>Regular in half days<a class="headerlink" href="#regular-in-half-days" title="Permalink to this heading">¶</a></h3>
+<p>The work will be distributed over half of the day between working days.</p>
+<p>Possibility to readjust the task with handles directly on the bar of the Gantt view.</p>
+<figure class="align-default" id="id20">
+<img alt="Planning mode Regular in half day" src="_images/GANTT_ZONE_ModeRegularHALFDAY.png" />
+<figcaption>
+<p><span class="caption-text">Planning mode in half day: assigned days are distributed evenly in half days</span><a class="headerlink" href="#id20" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#mode-regularexcess"><span class="std std-ref">Regular modes with excess workload</span></a></p>
+</div>
+<p><a class="reference internal" href="#planningmodegantt"><span class="std std-ref">|Back to planning modes|</span></a></p>
+</section>
+<section id="regular-in-quarter-days">
+<span id="mode-regularquarter"></span><h3>Regular in quarter days<a class="headerlink" href="#regular-in-quarter-days" title="Permalink to this heading">¶</a></h3>
+<p>Work will be distributed on one quarter of the day between on working days.</p>
+<p>Possibility to readjust the task with handles directly on the bar of the Gantt view.</p>
+<figure class="align-default" id="id21">
+<img alt="Planning mode Regular in quarter day" src="_images/GANTT_ZONE_ModeRegularQUARTERDAY.png" />
+<figcaption>
+<p><span class="caption-text">Planning mode in half day: assigned days are distributed evenly in quarter days</span><a class="headerlink" href="#id21" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#mode-regularexcess"><span class="std std-ref">Regular modes with excess workload</span></a></p>
+</div>
+<p><a class="reference internal" href="#planningmodegantt"><span class="std std-ref">|Back to planning modes|</span></a></p>
+<section id="regular-modes-with-excess-workload">
+<span id="mode-regularexcess"></span><h4>Regular modes with excess workload<a class="headerlink" href="#regular-modes-with-excess-workload" title="Permalink to this heading">¶</a></h4>
+<p>If the dates are too short compared to the assigned load, the excess load will be divided and added in the same way as the chosen mode.</p>
+<p>So you can get full days even in regular mode in quarter day or half days.</p>
+<ul class="simple">
+<li><p>Example with 8 days of workload to plan over 10 days with the Regular mode in half days between dates</p></li>
+</ul>
+<img alt="_images/GANTT_ZONE_RegularHalf.png" src="_images/GANTT_ZONE_RegularHalf.png" />
+<p>The load is distributed regularly so as to respect the dates.</p>
+<img alt="_images/GANTT_ZONE_RegularExcess.png" src="_images/GANTT_ZONE_RegularExcess.png" />
+<p>If the load is too high to meet the dates, the excess load will be distributed over the whole day after the validated end date and will therefore be late (red color)</p>
+<p><a class="reference internal" href="#planningmodegantt"><span class="std std-ref">|Back to planning modes|</span></a></p>
+</section>
+</section>
+<section id="recurring-on-a-weekly-basis">
+<span id="mode-recurring"></span><h3>Recurring (on a weekly basis)<a class="headerlink" href="#recurring-on-a-weekly-basis" title="Permalink to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>This mode allows you to plan the workload on a weekly basis which will be distributed each week, for example 1/2 day every Monday, 1 hour every day, etc.</p></li>
+<li><p>It automatically adapts to the elements which determines the total duration of the project. If the project falls behind schedule, this mode will continue to adapt and automatically distribute the load for each added day.</p></li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Please note, the project is only an envelope, it is the elements that compose it which will determine its duration.
+A recurring activity cannot be calculated correctly if it is the only component of the project, even if it has validated dates.
+Other elements (Activities, milestones, etc.) will be needed for the distribution of this load to be done correctly.</p>
+</div>
+<p>Click <a class="reference internal" href="_images/iconEdit.png"><img alt="Button edit" src="_images/iconEdit.png" style="width: 19.2px; height: 19.2px;" /></a> to enter the load for each day of the week.</p>
+<p>The work is distributed dynamically according to the load indicated on the assignment table.</p>
+<figure class="align-default" id="id22">
+<img alt="Planning mode Regular in quarter day" src="_images/GANTT_ZONE_ModeReccurent.png" />
+<figcaption>
+<p><span class="caption-text">Planning mode in half day: assigned days are distributed evenly in quarter days</span><a class="headerlink" href="#id22" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>If you don’t want the recurring activity to fit the project, you can limit it between finish-to-start and finish-to-finish milestones.</p>
+<figure class="align-default" id="id23">
+<img alt="Planning mode Regular in quarter day" src="_images/GANTT_ZONE_ModeRecurrent-Milestone.png" />
+<figcaption>
+<p><span class="caption-text">Planning mode in half day: assigned days are distributed evenly in quarter days</span><a class="headerlink" href="#id23" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="CommonSections.html#recurrent-mode-assign"><span class="std std-ref">Recurrent mode assignment</span></a></p>
+</div>
+<p><a class="reference internal" href="#planningmodegantt"><span class="std std-ref">|Back to planning modes|</span></a></p>
+</section>
+<section id="manual-planning">
+<span id="mode-manualplanning"></span><span id="index-3"></span><h3>Manual planning<a class="headerlink" href="#manual-planning" title="Permalink to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>This is the most priority planning mode and constraint.</p></li>
+<li><p>You have the option to save the work as planned or real work.</p></li>
+<li><p>Two screens are dedicated to it: <a class="reference internal" href="#planned-interventions"><span class="std std-ref">planned interventions</span></a> to plan monthly and the <a class="reference internal" href="#view-interventions"><span class="std std-ref">View interventions</span></a> for read-only.</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The choice of planned or actual work is made in the global parameters in the planning section work tab.</p>
+<p>See: <a class="reference internal" href="GlobalParameters.html#gp-effectcapacity"><span class="std std-ref">global parameters</span></a>.</p>
+</div>
+<section id="planned-interventions">
+<span id="index-4"></span><span id="id2"></span><h4>Planned Interventions<a class="headerlink" href="#planned-interventions" title="Permalink to this heading">¶</a></h4>
+<p>The goal is to make the specifications more flexible to cover broader and more generic needs.</p>
+<section id="assignment">
+<span id="assignment-manualplanning"></span><h5>Assignment<a class="headerlink" href="#assignment" title="Permalink to this heading">¶</a></h5>
+<p>The assigned workload is no longer determined but will be entered on a calendar which can be clicked, per half-day.</p>
+<p>See: <a class="reference internal" href="CommonSections.html#plannedintervention-assign"><span class="std std-ref">Planned interventions assignment</span></a></p>
+<figure class="align-default" id="id24">
+<img alt="Assigment with the Manual planning mode" src="_images/GANTT_BOX_PlanningManual-Assignment.png" />
+<figcaption>
+<p><span class="caption-text">Assigment with the Manual planning mode</span><a class="headerlink" href="#id24" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The workload saved in this window will be displayed to the planned interventions screen.</p>
+</section>
+<section id="planned-interventions-screen">
+<h5>Planned Interventions screen<a class="headerlink" href="#planned-interventions-screen" title="Permalink to this heading">¶</a></h5>
+<p>The planned interventions screen allow you to manage the manual planning.</p>
+<p>This screen is available if at least one activity has a planning mode set to manual planning.</p>
+<figure class="align-default" id="id25">
+<img alt="Planned interventions screen" src="_images/GANTT_SCR_PlannedInterventions.png" />
+<figcaption>
+<p><span class="caption-text">Planned interventions screen</span><a class="headerlink" href="#id25" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<aside class="topic">
+<p class="topic-title">Interface areas</p>
+<p><a class="reference internal" href="_images/one.png"><img alt="One" src="_images/one.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#manualplan-display"><span class="std std-ref">Display zone</span></a></p>
+<p><a class="reference internal" href="_images/two.png"><img alt="Two" src="_images/two.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#manualplan-listprojectactivity"><span class="std std-ref">List of Projects and activity</span></a></p>
+<p><a class="reference internal" href="_images/three.png"><img alt="Three" src="_images/three.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#manuelplan-fte"><span class="std std-ref">FTE</span></a></p>
+<p><a class="reference internal" href="_images/four.png"><img alt="Four" src="_images/four.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#manualplan-interventionmode"><span class="std std-ref">Interventions mode</span></a></p>
+<p><a class="reference internal" href="_images/five.png"><img alt="Five" src="_images/five.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#manualplan-interventionintervention"><span class="std std-ref">Interventions Calendar</span></a></p>
+</aside>
+<p class="rubric" id="manualplan-display">Display zone</p>
+<p>The display area allows you to filter the resources you want to display.</p>
+<p>The screen is blank until you select the resource, the team or the organization.</p>
+<p>The calendar is displayed for the resource or for all members of the selected team or organization.</p>
+<p>These parameters are not exclusive, you can select team and organization.</p>
+<ul class="simple">
+<li><p><strong>Resource:</strong> filter by resource on calendar display.</p></li>
+<li><p><strong>Team:</strong> filter by team on calendar display.</p></li>
+<li><p><strong>Organization:</strong> filter by organization on calendar display.</p></li>
+<li><p><strong>Project:</strong> filter by project on calendar display.</p></li>
+<li><p><strong>Year:</strong> select the year to display.</p></li>
+<li><p><strong>Month:</strong> select the month to display.</p></li>
+<li><p><strong>Hide done items:</strong> you can hide the activities recorded in the “done” state in the displayed list.</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The selected parameters, except the month, always set by default to the current month, are saved as a user parameter.</p>
+<p>When the user returns to the screen, he therefore finds the last parameters entered</p>
+</div>
+<p class="rubric" id="manualplan-listprojectactivity">List of Projects and activity</p>
+<p>The list of activities displayed are in the planning mode “manual planning”. If no filter is selected (project, resource, organization …) then the screen does not display any data.</p>
+<p>You cannot create new activities in manual planning mode from the intervention screen. You need to access the activities or schedule screen to create the new activity in manual planning mode. The new activity will then appear in the list.</p>
+<p>Click on <a class="reference internal" href="_images/iconGoto.png"><img alt="icon goto" src="_images/iconGoto.png" style="width: 19.2px; height: 19.2px;" /></a> to access the activity screen and view its detail</p>
+<p class="rubric" id="manuelplan-fte">FTE</p>
+<p>In this calendar, we display graphically if we respect the quantity of people requested on the activity and on the half day.</p>
+<p>Fill in an integer value for each activity to check.</p>
+<p>If you enter 1, you expect at least one person to perform half a day on this activity.</p>
+<p>A check is then carried out and takes into account all the resources assigned to each activity, and not only those selected and visible on the calendar.</p>
+<p>If the field is left empty or at 0 then no control is carried out and the calendar will not display any green or red box.</p>
+<ul class="simple">
+<li><p><strong>Blue box</strong></p></li>
+</ul>
+<figure class="align-default" id="id26">
+<img alt="Do not yet reach all of the expected FTEs" src="_images/GANTT_ZONE_FTEBlue.png" />
+<figcaption>
+<p><span class="caption-text">Do not yet reach all of the expected FTEs</span><a class="headerlink" href="#id26" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>When you start to put in the workload but do not yet reach all of the expected FTEs.</p>
+<ul class="simple">
+<li><p><strong>Green Box</strong></p></li>
+</ul>
+<p>If the entry respects the workload constraint expected in FTE the box is green.</p>
+<figure class="align-default" id="id27">
+<img alt="Workload constraint expected in FTE" src="_images/GANTT_ZONE_FTEGreen.png" />
+<figcaption>
+<p><span class="caption-text">Workload constraint expected in FTE</span><a class="headerlink" href="#id27" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Example with a value of 2 in the FTE field for the selected activity.</p>
+<p>This FTE value is defined for each half-day.</p>
+<p>You must therefore have 2 effective persons planned for each half day whatever the resource or resources that will be provided.</p>
+<ul class="simple">
+<li><p><strong>Red Box</strong></p></li>
+</ul>
+<p>If the total entry is greater than the expected workload in FTE the box is red.</p>
+<figure class="align-default" id="id28">
+<img alt="Greater than the expected workload in FTE" src="_images/GANTT_ZONE_FTERed.png" />
+<figcaption>
+<p><span class="caption-text">Greater than the expected workload in FTE</span><a class="headerlink" href="#id28" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The box then turns red: the workload is higher than expected since we expected a person on this half day and on this activity</p>
+<ul class="simple">
+<li><p><strong>Non-colored box</strong></p></li>
+</ul>
+<p>There is no expected workload.</p>
+<p class="rubric" id="manualplan-interventionmode">Interventions mode</p>
+<p>The list of possible intervention methods is customizable.</p>
+<p>This list can be modified via a setting screen in the <a class="reference internal" href="ListsOfValues.html#intervention-mode-value"><span class="std std-ref">list of values</span></a>.</p>
+<p>The saved modes will remain fixed for all projects and all teams.</p>
+<figure class="align-default" id="id29">
+<img alt="Interventions mode" src="_images/GANTT_ZONE_InterventionsModes.png" />
+<figcaption>
+<p><span class="caption-text">Intervention mode</span><a class="headerlink" href="#id29" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>You can select an activity or a modality or both.</p>
+<ul class="simple">
+<li><p>If the intervention mode is not selected, the box is colored according to the activity but no letter appears, and vice versa.</p></li>
+<li><p>If only the intervention mode is selected, it will be saved without modifying the planned or actual work.</p></li>
+</ul>
+<p>You can however add one or the other after having planned the intervention or the intervention mode.</p>
+<p>A second click with the same parameters will delete the assignment.</p>
+<p>Ctrl Click allows you to complete the two half days</p>
+<p class="rubric" id="manualplan-interventionintervention">Interventions Calendar</p>
+<p>Click on an activity and / or an intervention modes to plan workload on it.</p>
+<p>Click on half a day to plan the workload.</p>
+<p>The targeted half day is filled with the color of the selected activity and the letter of the chosen intervention mode.</p>
+<ul>
+<li><p><strong>Light Gray color</strong></p>
+<blockquote>
+<div><p>The light gray box indicates that the day is inactive on the resource calendar.</p>
+<p>It can correspond to a weekend, a public holiday or a non-working day recorded on the resource’s calendar.</p>
+<img alt="_images/GANTT_ZONE_PLannedInterventionCalendar.png" src="_images/GANTT_ZONE_PLannedInterventionCalendar.png" />
+</div></blockquote>
+</li>
+<li><p><strong>Dark Gray color</strong></p>
+<blockquote>
+<div><p>The dark gray boxes indicate reality. It’s work actually performed and informed on the timesheet.</p>
+<p>When real work is completed for half a day, the box is half gray.</p>
+<p>If the full day is completed then the box is completely grayed out.</p>
+<img alt="_images/GANTT_ZONE_PLannedInterventionReal.png" src="_images/GANTT_ZONE_PLannedInterventionReal.png" />
+</div></blockquote>
+</li>
+<li><p><strong>Blue color</strong></p>
+<blockquote>
+<div><p>The blue boxes indicate absences.</p>
+<img alt="_images/GANTT_ZONE_PLannedInterventionAbsence.png" src="_images/GANTT_ZONE_PLannedInterventionAbsence.png" />
+</div></blockquote>
+</li>
+<li><p><strong>Striped box</strong></p>
+<blockquote>
+<div><p>The striped boxes indicates that the working time recorded by the resource has been validated.</p>
+<img alt="_images/GANTT_ZONE_PLannedInterventionValid.png" src="_images/GANTT_ZONE_PLannedInterventionValid.png" />
+</div></blockquote>
+</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The workload can be recorded as a planned load or as a real load.</p>
+<p>This option can be set in the <a class="reference internal" href="GlobalParameters.html#gp-manualplan-workas"><span class="std std-ref">global settings</span></a>.</p>
+</div>
+</section>
+<section id="view-interventions">
+<span id="id3"></span><h5>View interventions<a class="headerlink" href="#view-interventions" title="Permalink to this heading">¶</a></h5>
+<p>This screen allows you to see your planned interventions.</p>
+<p>You cannot modify these interventions or plan another half day on this screen.</p>
+<p>It is a bit the equivalent of planning by resource but in manual planning mode</p>
+<figure class="align-default" id="id30">
+<img alt="View interventions screen" src="_images/GANTT_SCR_ViewInterventions.png" />
+<figcaption>
+<p><span class="caption-text">View interventions screen</span><a class="headerlink" href="#id30" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><a class="reference internal" href="#planningmodegantt"><span class="std std-ref">|Back to planning modes|</span></a></p>
+</section>
+</section>
+</section>
+<section id="minimum-threshold-not-splitted-work">
+<span id="minimumthreshold"></span><h3>Minimum threshold &amp; not splitted work<a class="headerlink" href="#minimum-threshold-not-splitted-work" title="Permalink to this heading">¶</a></h3>
+<p>When this value is set, the activity will only be scheduled on the day when the daily availability is greater than or equal to this threshold.</p>
+<p>You also have the option to add a new property to a “cannot be split” task.</p>
+<p>This will require defining the minimum work to be allocated each day and therefore filling in the minimum threshold field.</p>
+<p>Be careful with this mode, planning will require finding consecutive days with at least the given value possible, which may never happen.</p>
+<p><a class="reference internal" href="#planningmodegantt"><span class="std std-ref">|Back to planning modes|</span></a></p>
+</section>
+</section>
+<section id="planning-modes-screen">
+<span id="planningmodesscreen"></span><h2>Planning Modes screen<a class="headerlink" href="#planning-modes-screen" title="Permalink to this heading">¶</a></h2>
+<p>You can disable planning modes via the dedicated screen.</p>
+<p>In the detail of the selected mode in the list box, check the “closed” box to disable the selected mode.</p>
+<figure class="align-default" id="id31">
+<img alt="Planning modes screen" src="_images/GANTT_SCREEN_PlanningMode.png" />
+<figcaption>
+<p><span class="caption-text">Planning modes screen</span><a class="headerlink" href="#id31" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="overuse">
+<span id="plan-overuse"></span><h2>Overuse<a class="headerlink" href="#overuse" title="Permalink to this heading">¶</a></h2>
+<p>By défault, the planning calculation is done without overuse, when multiple activities are assigned to the same resource, ProjeQtOr planned them sequentially.</p>
+<p>A resource cannot work more than one full day per day, and the planning engine enforces this constraint.</p>
+<p>As shown in the example below, since the same resource is assigned to several activities, these tasks are automatically spread out over time.</p>
+<p>They are planned one after the other, allowing the resource to complete them at their own pace and within their capacity.</p>
+<figure class="align-default" id="id32">
+<img alt="Plan without overuse" src="_images/GANTT_ZONE_WithoutOverusePlan.png" />
+<figcaption>
+<p><span class="caption-text">Plan without overuse</span><a class="headerlink" href="#id32" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<section id="overuse-with-the-calculate-capacity-planning">
+<h3>Overuse With the Calculate capacity planning<a class="headerlink" href="#overuse-with-the-calculate-capacity-planning" title="Permalink to this heading">¶</a></h3>
+<p>Click on <a class="reference internal" href="_images/iconPlan.png"><img alt="calculate planning button" src="_images/iconPlan.png" style="width: 19.2px; height: 19.2px;" /></a> and check the box “Plan with overuse (infinite overbooking capacity)” to calculate the planning</p>
+<figure class="align-default" id="id33">
+<img alt="Calculate planning with overuse" src="_images/PLANNING_BOX_CalculatePlanning.png" />
+<figcaption>
+<p><span class="caption-text">Calculate planning with overuse</span><a class="headerlink" href="#id33" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The resource is then allowed to exceed their daily work capacity.</p>
+<p>In this case, the same resource can be planned on multiple activities at the same time, even if the total workload exceeds one day.</p>
+<p>In other words, ProjeQtOr permits the resource to “work two days in one,” which can be useful for simulations or intentional overbooking scenarios or to identify the criticality of a resource.</p>
+<p>This method allows for inter-project overuse.</p>
+<figure class="align-default" id="id34">
+<img alt="Plan with overuse" src="_images/GANTT_ZONE_WithOverusePlan.png" />
+<figcaption>
+<p><span class="caption-text">Plan with overuse</span><a class="headerlink" href="#id34" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="overuse-with-the-planning-mode">
+<span id="id4"></span><h3>Overuse With the planning mode<a class="headerlink" href="#overuse-with-the-planning-mode" title="Permalink to this heading">¶</a></h3>
+<section id="duration-driven-planning-mode">
+<h4>Duration driven planning mode<a class="headerlink" href="#duration-driven-planning-mode" title="Permalink to this heading">¶</a></h4>
+<p>Some planning methods allow for calculations with overuse directly included.</p>
+<p>The <a class="reference internal" href="#mode-durationdriven"><span class="std std-ref">duration-driven</span></a> planning mode allows for intra- and inter-project overuse.</p>
+<figure class="align-default" id="id35">
+<img alt="Plan with overuse with duration driven planning mode" src="_images/PLANNING_ZONE_DurationDriven-Overuse.png" />
+<figcaption>
+<p><span class="caption-text">Plan with overuse with duration driven planning mode</span><a class="headerlink" href="#id35" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="constraint-duration-planning-mode">
+<h4>Constraint Duration planning mode<a class="headerlink" href="#constraint-duration-planning-mode" title="Permalink to this heading">¶</a></h4>
+<p>Some planning methods allow for calculations with overuse directly included.</p>
+<p>The <a class="reference internal" href="#mode-durationdriven"><span class="std std-ref">duration-driven</span></a> planning mode allows for inter-project overuse.</p>
+<figure class="align-default" id="id36">
+<img alt="Plan with overuse with constrained duration planning mode" src="_images/PLANNING_ZONE_ConstraintDuration-Overuse.png" />
+<figcaption>
+<p><span class="caption-text">Plan with overuse with constrained duration planning mode</span><a class="headerlink" href="#id36" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+</section>
+<section id="proportional-work">
+<span id="proportionalwork"></span><h2>Proportional work<a class="headerlink" href="#proportional-work" title="Permalink to this heading">¶</a></h2>
+<p>This option allows you to define the workload calculation proportionally to the task duration.</p>
+<p>The rate is then used not to limit the workload distribution for the resource, but to calculate it.</p>
+<p>This option is available in assignments for scheduling modes that use duration as the primary lever for workload distribution.</p>
+<ul class="simple">
+<li><p>Fixed duration mode</p></li>
+<li><p>Duration-driven mode</p></li>
+<li><p>Constrained duration mode</p></li>
+<li><p>Regular modes</p></li>
+</ul>
+<figure class="align-default" id="id37">
+<img alt="option proportional work" src="_images/PLANNING_BOX_ProportionalWork.png" />
+<figcaption>
+<p><span class="caption-text">Plan with propotional work</span><a class="headerlink" href="#id37" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>A mechanism will allow this mode to be defined at the planning mode level using a “load proportional to duration” parameter.</p>
+<p>If this option is enabled, when creating an assignment for this type of activity, the option will be automatically selected on the assignment.</p>
+<p>This setting applies to new assignments only; it will not affect assignment modifications or existing assignments when the activity’s scheduling mode is changed.</p>
+<img alt="_images/PLANNING_ZONE_OptionProportionalWork.png" src="_images/PLANNING_ZONE_OptionProportionalWork.png" />
+</div>
+<p>When you select proportional work, an icon is displayed in the table to indicate that the option is enabled.</p>
+<figure class="align-default" id="id38">
+<img alt="Assignment with proportional work" src="_images/PLANNING_ZONE_AssignmentProportionalWork.png" />
+<figcaption>
+<p><span class="caption-text">Assignment with proportional work</span><a class="headerlink" href="#id38" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>In this case, the resource workload is calculated by the software based on the duration of the activity.</p>
+<ul class="simple">
+<li><p>A resource with a 50% workload on a 20-day activity will be scheduled for 10 days.</p></li>
+<li><p>A resource with a 40% workload on a 20-day activity will be scheduled for 8 days.</p></li>
+<li><p>A resource with a 30% workload on a 20-day activity will be scheduled for 6 days.</p></li>
+</ul>
+<p>And so on.</p>
+<p>The work is then distributed over the duration of the task</p>
+<figure class="align-default" id="id39">
+<img alt="Details assignment with proportional work" src="_images/PLANNING_ZONE_DetailAssignmentProportional.png" />
+<figcaption>
+<p><span class="caption-text">Assignment with proportional work is</span><a class="headerlink" href="#id39" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<section id="remaining-workload-calculation-rule">
+<h3>Remaining Workload Calculation Rule<a class="headerlink" href="#remaining-workload-calculation-rule" title="Permalink to this heading">¶</a></h3>
+<ul>
+<li><p>The start date is determined. By default, the planned start date of the activity.</p>
+<blockquote>
+<div><p>Otherwise, the validated start date.</p>
+<p>If no start date is found, or if this start date is earlier than today, the start date is today.</p>
+</div></blockquote>
+</li>
+<li><p>The end date is determined.By default, the latest end date of all assignments for the activity that are not in proportional mode.</p>
+<blockquote>
+<div><p>If no other assignment is in non-proportional mode, the planned end date of the activity.</p>
+<p>Otherwise, the validated end date of the activity.</p>
+<p>If no end date is found, but the activity has a validated duration, the end date is established as the start date + duration (calculated in working days on the activity’s project calendar).</p>
+</div></blockquote>
+</li>
+<li><p>The available time for the resource (according to its calendar) is calculated between the start date and the end date.</p></li>
+<li><p>If no start or end date is specified, the duration is set to 1 by default.</p></li>
+</ul>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Periods of absence (actual for administrative projects) are deducted from the available time.</p>
+</div>
+<p><strong>The remaining workload is calculated:</strong></p>
+<ul class="simple">
+<li><p>For resource: [Remaining Workload] = [Available Time] x [Assignment Rate]</p></li>
+<li><p>For pools: [Available Time] x [Assignment Rate] x [FTE]</p></li>
+</ul>
+<p><strong>Assigned Workload Calculation Rule</strong></p>
+<ul>
+<li><p>For this type of assignment, as long as the activity is not in a started state (handled=0):</p>
+<blockquote>
+<div><p>[Assigned Workload] = [Remaining Workload]</p>
+<p>After (handled=1), the assigned workload is no longer updated.</p>
+</div></blockquote>
+</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The remaining workload calculation does not take into account resource usage on other activities and/or projects.</p>
+<p>Therefore, scheduling this workload may result in an extension of the activity’s duration.</p>
+</div>
+</section>
+</section>
+<section id="abacus">
+<h2>Abacus<a class="headerlink" href="#abacus" title="Permalink to this heading">¶</a></h2>
+<p>This option allows you to define the workload calculation proportionally to the task duration.</p>
+<p>The rate is then used not to limit the workload distribution for the resource, but to calculate it.</p>
+<section id="abacus-definition">
+<h3>abacus definition<a class="headerlink" href="#abacus-definition" title="Permalink to this heading">¶</a></h3>
+<p>You create your allocation definition lines based on your criteria.</p>
+<figure class="align-default" id="id40">
+<img alt="abacus definition" src="_images/PLANNING_ZONE_AbacusDefinition.png" />
+<figcaption>
+<p><span class="caption-text">Abacus definition</span><a class="headerlink" href="#id40" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Click <a class="reference internal" href="_images/iconPlus.png"><img alt="plus button" src="_images/iconPlus.png" style="width: 19.2px; height: 19.2px;" /></a> to add a row</p>
+<p>Click <a class="reference internal" href="_images/iconNewMultiple.png"><img alt="plus 10 button" src="_images/iconNewMultiple.png" style="width: 19.2px; height: 19.2px;" /></a> to add 10 rows</p>
+<p>Name your lookup table and select the criteria to which it will apply.</p>
+</section>
+<section id="filling-of-abacus">
+<h3>Filling of abacus<a class="headerlink" href="#filling-of-abacus" title="Permalink to this heading">¶</a></h3>
+<p>You create your allocation definition lines based on your criteria.</p>
+<figure class="align-default" id="id41">
+<img alt="abacus definition" src="_images/PLANNING_ZONE_AbacusFilling.png" />
+<figcaption>
+<p><span class="caption-text">Abacus definition</span><a class="headerlink" href="#id41" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="content-of-the-phases">
+<h3>Content of the phases<a class="headerlink" href="#content-of-the-phases" title="Permalink to this heading">¶</a></h3>
+<figure class="align-default" id="id42">
+<img alt="abacus definition" src="_images/PLANNING_ZONE_AbacusContentPhases.png" />
+<figcaption>
+<p><span class="caption-text">Abacus definition</span><a class="headerlink" href="#id42" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Manage the planning</a><ul>
+<li><a class="reference internal" href="#planning-codes">Planning codes</a></li>
+<li><a class="reference internal" href="#planning-order">Planning order</a><ul>
+<li><a class="reference internal" href="#definition">Definition</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#planning-modes">Planning Modes</a><ul>
+<li><a class="reference internal" href="#as-soon-as-possible">As soon as possible</a></li>
+<li><a class="reference internal" href="#work-together">Work together</a></li>
+<li><a class="reference internal" href="#fixed-duration">Fixed duration</a></li>
+<li><a class="reference internal" href="#parent-activity">Parent activity</a><ul>
+<li><a class="reference internal" href="#planning-example">planning example</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#duration-driven">Duration driven</a></li>
+<li><a class="reference internal" href="#constrained-duration">Constrained duration</a></li>
+<li><a class="reference internal" href="#must-not-start-before-validated-start-date">Must not start before validated start date</a></li>
+<li><a class="reference internal" href="#must-start-at-validated-start-date">Must start at validated start date</a></li>
+<li><a class="reference internal" href="#should-end-before-validated-end-date">Should end before validated end date</a></li>
+<li><a class="reference internal" href="#regular-between-dates">Regular between dates</a></li>
+<li><a class="reference internal" href="#regular-in-full-days">Regular in full days</a></li>
+<li><a class="reference internal" href="#regular-in-half-days">Regular in half days</a></li>
+<li><a class="reference internal" href="#regular-in-quarter-days">Regular in quarter days</a><ul>
+<li><a class="reference internal" href="#regular-modes-with-excess-workload">Regular modes with excess workload</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#recurring-on-a-weekly-basis">Recurring (on a weekly basis)</a></li>
+<li><a class="reference internal" href="#manual-planning">Manual planning</a><ul>
+<li><a class="reference internal" href="#planned-interventions">Planned Interventions</a><ul>
+<li><a class="reference internal" href="#assignment">Assignment</a></li>
+<li><a class="reference internal" href="#planned-interventions-screen">Planned Interventions screen</a></li>
+<li><a class="reference internal" href="#view-interventions">View interventions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#minimum-threshold-not-splitted-work">Minimum threshold &amp; not splitted work</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#planning-modes-screen">Planning Modes screen</a></li>
+<li><a class="reference internal" href="#overuse">Overuse</a><ul>
+<li><a class="reference internal" href="#overuse-with-the-calculate-capacity-planning">Overuse With the Calculate capacity planning</a></li>
+<li><a class="reference internal" href="#overuse-with-the-planning-mode">Overuse With the planning mode</a><ul>
+<li><a class="reference internal" href="#duration-driven-planning-mode">Duration driven planning mode</a></li>
+<li><a class="reference internal" href="#constraint-duration-planning-mode">Constraint Duration planning mode</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#proportional-work">Proportional work</a><ul>
+<li><a class="reference internal" href="#remaining-workload-calculation-rule">Remaining Workload Calculation Rule</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#abacus">Abacus</a><ul>
+<li><a class="reference internal" href="#abacus-definition">abacus definition</a></li>
+<li><a class="reference internal" href="#filling-of-abacus">Filling of abacus</a></li>
+<li><a class="reference internal" href="#content-of-the-phases">Content of the phases</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="PlanningElements.html"
+                          title="previous chapter">Planning elements</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="Gantt.html"
+                          title="next chapter">Gantt Chart</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="Gantt.html" title="Gantt Chart"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="PlanningElements.html" title="Planning elements"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Steering lever for planning</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

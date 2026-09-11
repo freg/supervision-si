@@ -1631,6 +1631,9 @@ services:
       - VITE_DBA_PORTAL_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/dba/
       - VITE_LDAP_ADMIN_PORTAL_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/ldap-admin/
       - VITE_VAULT_PORTAL_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/vault/
+      # ProjeQtOr (fork, livraison #476) — tuile visible de tous,
+      # embarquable en onglet (même origine via tls-proxy).
+      - VITE_PROJEQTOR_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/projeqtor/
       # Adresse LAN DIRECTE (http, pas https via la passerelle) --
       # même raisonnement que vault-admin-portal lui-même, jamais routé
       # par tls-proxy.
@@ -2100,6 +2103,59 @@ services:
     ports:
       - "${LAUNCHER_LAN_PORT:-6121}:8000"
 
+  # ProjeQtOr (fork supervision-si, livraison #476) — gestion de
+  # projets intégrée au hub, sources vendorées TELLES QUELLES dans
+  # projeqtor/src (voir projeqtor/README.md, section Fork). Tuile hub
+  # visible de tous ; authentification possible via l'annuaire LDAP du
+  # hub (paramètres générés par l'entrypoint, voir
+  # projeqtor/docker-entrypoint.sh). Routé par tls-proxy sous
+  # /projeqtor/ — penser au `restart tls-proxy` après le premier
+  # déploiement (piège #151).
+  projeqtor-db:
+    image: mariadb:11.4
+    environment:
+      - MARIADB_DATABASE=${PROJEQTOR_DB_NAME:-projeqtor}
+      - MARIADB_USER=${PROJEQTOR_DB_USER:-projeqtor}
+      - MARIADB_PASSWORD=${PROJEQTOR_DB_PASSWORD:-}
+      - MARIADB_ROOT_PASSWORD=${PROJEQTOR_DB_ROOT_PASSWORD:-}
+    volumes:
+      - projeqtor_db_data:/var/lib/mysql
+    # AUCUN port publié : joignable uniquement depuis le réseau Docker
+    # partagé (projeqtor-app), jamais depuis l'hôte ni le LAN.
+
+  projeqtor-app:
+    build:
+      # Contexte LOCAL projeqtor/ (et pas la racine) : src/ fait
+      # 258 Mo, inutile d'y ajouter le reste du dépôt ; le module n'a
+      # aucune dépendance à shared/.
+      context: ./projeqtor
+      dockerfile: Dockerfile
+    environment:
+      - PROJEQTOR_DB_HOST=projeqtor-db
+      - PROJEQTOR_DB_PORT=3306
+      - PROJEQTOR_DB_NAME=${PROJEQTOR_DB_NAME:-projeqtor}
+      - PROJEQTOR_DB_USER=${PROJEQTOR_DB_USER:-projeqtor}
+      - PROJEQTOR_DB_PASSWORD=${PROJEQTOR_DB_PASSWORD:-}
+      # Annuaire du hub -- mêmes variables que Keycloak/ldap-admin
+      # (LDAP_URL pointe vers openldap-test par défaut, voir
+      # .env.example). Vide => pas d'authentification LDAP, comptes
+      # propres à ProjeQtOr.
+      - LDAP_URL=${LDAP_URL:-}
+      - LDAP_BIND_DN=${LDAP_BIND_DN:-}
+      - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD:-}
+      - LDAP_USERS_DN=${LDAP_USERS_DN:-}
+      - PROJEQTOR_DEFAULT_LOCALE=${PROJEQTOR_DEFAULT_LOCALE:-fr}
+      - PROJEQTOR_DEFAULT_TIMEZONE=${PROJEQTOR_DEFAULT_TIMEZONE:-Europe/Paris}
+    volumes:
+      # PROJEQTOR_DATA_DIR (.env, optionnel) : sort ce dossier de
+      # l'arborescence du projet -- même logique que DBA_DATA_DIR /
+      # TICKETS_DATA_DIR. Contient config/parameters.php (MOT DE PASSE
+      # DE LA BASE EN CLAIR -- voir projeqtor/README.md), pièces
+      # jointes, documents, logs. Vide = ./projeqtor/data comme repli.
+      - ${PROJEQTOR_DATA_DIR:-./projeqtor/data}:/data
+    depends_on:
+      - projeqtor-db
+
 volumes:
   api_data:
   pixel_grid_pg_data:
@@ -2107,6 +2163,7 @@ volumes:
   elasticsearch_data:
   geo_pg_data:
   geo_catalog_pg_data:
+  projeqtor_db_data:
   # keycloak_data SORTI vers gateway/docker-compose.yml (livraison
   # #135) -- le volume EXISTANT (créé avant cette extraction) y est
   # référencé explicitement (external: true) pour préserver le realm,

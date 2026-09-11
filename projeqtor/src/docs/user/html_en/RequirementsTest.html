@@ -1,0 +1,491 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Requirements and Tests &#8212; ProjeQtOr User guide 13.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Risks and issues management" href="RiskIssueManagement.html" />
+    <link rel="prev" title="Configuration Management" href="ConfigurationManagement.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="RiskIssueManagement.html" title="Risks and issues management"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="ConfigurationManagement.html" title="Configuration Management"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Requirements and Tests</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="requirements-and-tests">
+<span id="requirement"></span><span id="index-0"></span><h1>Requirements and tests<a class="headerlink" href="#requirements-and-tests" title="Permalink to this heading">¶</a></h1>
+<section id="requirements">
+<h2>Requirements<a class="headerlink" href="#requirements" title="Permalink to this heading">¶</a></h2>
+<aside class="sidebar">
+<p class="sidebar-title">Concepts</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="Concept.html#product-concept"><span class="std std-ref">Product</span></a></p></li>
+<li><p><a class="reference internal" href="PlanningElements.html#planningelem-project"><span class="std std-ref">Project</span></a></p></li>
+</ul>
+</aside>
+<p>Requirement is a rule defined for a project or a product.</p>
+<p>In most IT projects, requirement can be a functional rule for a software.</p>
+<p>It allows to define and monitor cost and delays.</p>
+<p>It can be linked to test cases, it’s used to describe how you will test that a given requirement.</p>
+<figure class="align-default" id="id3">
+<img alt="Requirements screen" src="_images/REQUIREMENT_SCR_Description.png" />
+<figcaption>
+<p><span class="caption-text">Requirements screen</span><a class="headerlink" href="#id3" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Linking requirements to a project will limit the visibility, respecting rights management at project level.</p>
+<section id="requirement-link-to-test-cases">
+<h3>Requirement link to test cases<a class="headerlink" href="#requirement-link-to-test-cases" title="Permalink to this heading">¶</a></h3>
+<p>Test cases can be linked to a requirement in <strong>List of test cases</strong>.</p>
+<figure class="align-default" id="id4">
+<img alt="List of test cases section" src="_images/REQUIREMENT_ZONE_ListOfCases.png" />
+<figcaption>
+<p><span class="caption-text">List of test cases section</span><a class="headerlink" href="#id4" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconAdd.png"><img alt="Add" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> to add a test case that will cover the requirement or part of the requirement.</p></li>
+</ul>
+<figure class="align-default" id="id5">
+<img alt="Add a test case" src="_images/REQUIREMENT_BOX_AddTestCases.png" />
+<figcaption>
+<p><span class="caption-text">Add a test case</span><a class="headerlink" href="#id5" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconSearch.png"><img alt="button icon search" src="_images/iconSearch.png" style="width: 19.2px; height: 19.2px;" /></a> to search for an item that is not in the list</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconNew.png"><img alt="New" src="_images/iconNew.png" style="width: 19.2px; height: 19.2px;" /></a> to create a new item from the popup</p></li>
+</ul>
+<p>Linking a requirement to a test case will display a summary of test case run (defined in test session). This way, you will have an instant display of test coverage for the requirement.</p>
+<figure class="align-default" id="id6">
+<img alt="Summary test cases" src="_images/REQUIREMENT_ZONE_SumaryTestCase.png" />
+<figcaption>
+<p><span class="caption-text">Summary test cases</span><a class="headerlink" href="#id6" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p id="summary-test-case-run-status">This section summarizes the status of test case runs to requirement and test session.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><a class="reference internal" href="_images/iconPlanned.png"><img alt="test run Planned" src="_images/iconPlanned.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Planned:</strong> No test failed or blocked, at least one test planned.</p></li>
+<li><p><a class="reference internal" href="_images/iconPassed.png"><img alt="test run passed" src="_images/iconPassed.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Passed:</strong> All tests passed.</p></li>
+<li><p><a class="reference internal" href="_images/iconFailed.png"><img alt="test run failed" src="_images/iconFailed.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Failed:</strong> At least one test failed.</p></li>
+<li><p><a class="reference internal" href="_images/iconBlocked.png"><img alt="test run blocked" src="_images/iconBlocked.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Blocked:</strong> No test failed, at least one test blocked.</p></li>
+</ul>
+</div></blockquote>
+<p class="rubric">Requirement</p>
+<p>Summarizes the status of test case runs for test cases are linked to the requirement.</p>
+<p>Because a test case can be linked to several test sessions, total can be greater than linked to the requirement.</p>
+<p class="rubric">Test session</p>
+<p>Summarizes the status of test case runs in the test session.</p>
+</section>
+<section id="requirement-link-to-tickets">
+<h3>Requirement link to tickets<a class="headerlink" href="#requirement-link-to-tickets" title="Permalink to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>When test case run status is set to <strong>failed</strong>, the reference to a ticket must be defined (reference to the incident).</p></li>
+<li><p>When the requirement is linked to a test case with this run status, ticket is automatically linked to the requirement.</p></li>
+</ul>
+<p class="rubric">Predecessor and successor elements</p>
+<ul class="simple">
+<li><p>Requirements can have predecessors and successors.</p></li>
+<li><p>This defines some dependencies on the requirements.</p></li>
+<li><p>The dependencies don’t have specific effects. It is just an information.</p></li>
+</ul>
+<p class="rubric">Monitoring indicator</p>
+<p>Possibility to define <a class="reference internal" href="ControlAutomation.html#indicator"><span class="std std-ref">indicators</span></a> to follow the respect of dates values.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Respect of validated end date</p></li>
+<li><p>Respect of planned end date</p></li>
+<li><p>Respect of requested start date</p></li>
+<li><p>Respect of validated start date</p></li>
+<li><p>Respect of planned start date</p></li>
+<li><p>% final use of validated costs (revised/validated)</p></li>
+<li><p>% final use of assigned work (revised/assigned)</p></li>
+<li><p>% final use of validated work (revised/validated)</p></li>
+<li><p>% final use of assigned work (revised/assigned)</p></li>
+<li><p>% progress of validated work (real/validated)</p></li>
+<li><p>% progress of assignated work (real/assigned)</p></li>
+<li><p>% real progress</p></li>
+</ul>
+</div></blockquote>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Fields Project and Product</strong></p>
+<ul class="simple">
+<li><p>Must be concerned either with a project, a product or both.</p></li>
+<li><p>If the project is specified, the list of values for field “Product” contains only products linked the selected project.</p></li>
+</ul>
+<p><strong>Field Target version</strong></p>
+<ul class="simple">
+<li><p>Contains the list of product versions available according to the project and product selected.</p></li>
+</ul>
+</div>
+<p class="rubric">Lock</p>
+<p>A requirement can be locked to ensure that its definition has not changed during the implementation process.</p>
+<blockquote>
+<div><p><strong>Lock/Unlock requirement</strong></p>
+<ul class="simple">
+<li><p>Button to lock or unlock the requirement to preserve it from being changed.</p></li>
+<li><p>Only the user who locked the requirement or a habilitated user can unlock a requirement.</p></li>
+</ul>
+<p><strong>Requirement locked</strong></p>
+<ul class="simple">
+<li><p>When a requirement is locked the following fields are displayed.</p></li>
+</ul>
+</div></blockquote>
+</section>
+<section id="vote-on-requirement">
+<span id="id1"></span><h3>Vote on requirement<a class="headerlink" href="#vote-on-requirement" title="Permalink to this heading">¶</a></h3>
+<p>It is possible to vote on requirement.
+In the detail tab of each requirement, find the voting section.
+The target value, current value, number of votes and fill rate are displayed.</p>
+<p>Click on the vote button to assign a vote on the selected item.</p>
+<figure class="align-default" id="id7">
+<img alt="Voting section" src="_images/TICKET_ZONE_VoteSection.png" />
+<figcaption>
+<p><span class="caption-text">Voting Section</span><a class="headerlink" href="#id7" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>In the voting window, several pieces of information such as the maximum point limit of the vote that you can use on the vote of the item in question.</p>
+<p>Your personal vote which is not necessarily identical to the maximum points that you can award.</p>
+<p>And finally the number of points that you have left to spend in the period of use set upstream in the rules for awarding and using votes.</p>
+<figure class="align-default" id="id8">
+<img alt="Voting pop-up" src="_images/TICKET_BOX_Vote.png" />
+<figcaption>
+<p><span class="caption-text">Voting pop-up</span><a class="headerlink" href="#id8" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="Collaboration.html#voting-attribution-rule"><span class="std std-ref">Voting attribution rule</span></a></p>
+<p><a class="reference internal" href="Collaboration.html#voting-attribution-rule"><span class="std std-ref">Voting use rule</span></a></p>
+</div>
+<p>Once you have validated your vote, if the <a class="reference internal" href="AccessRights.html#vote-accesrights"><span class="std std-ref">specific access</span></a> dedicated to voting have been activated, a table appears to display the names of the voters and the points that each of them has assigned to the element.</p>
+<p>If several people have voted, the cumulative number of their points is displayed in the current value.</p>
+<p>You continue to see the number of your points already assigned, directly in the vote button or in the table if you have the right to see it.</p>
+<p>In the <a class="reference internal" href="AccessRights.html#vote-accesrights"><span class="std std-ref">specific access</span></a>, if the display of the table is deactivated, you can display at least the names of the voters.</p>
+<p>In any case, the names of the voters and the points they have assigned are necessarily displayed in the table.</p>
+<figure class="align-default" id="id9">
+<img alt="Voting table" src="_images/TICKET_ZONE_TicketVoteTable.png" />
+<figcaption>
+<p><span class="caption-text">Voting table</span><a class="headerlink" href="#id9" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="requirements-dashboard">
+<span id="index-1"></span><span id="id2"></span><h3>Requirements dashboard<a class="headerlink" href="#requirements-dashboard" title="Permalink to this heading">¶</a></h3>
+<p>Allows user to have a requirement global view of his projects.</p>
+<p>Shows several small reports, listing the number of requirements by item.</p>
+<p>Filters are available to limit scope.</p>
+<figure class="align-default">
+<img alt="Requirement dashboard screen" src="_images/REQUIREMENT_SCR_Dashboard.png" />
+</figure>
+<p class="rubric">Direct access to the list of requirements</p>
+<ul class="simple">
+<li><p>In reports, click on an item to get list of requirement corresponding to this item.</p></li>
+</ul>
+<p class="rubric">Parameters</p>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconParameter.png"><img alt="Parameter" src="_images/iconParameter.png" style="width: 19.05px; height: 19.2px;" /></a> to access parameters.</p></li>
+</ul>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>For <strong>Synthesis by status</strong>, filter clauses are not applicable.</p>
+</div>
+<figure class="align-center">
+<img alt="Dialog box - Ticket dashboard parameters" src="_images/REQUIREMENT_BOX_Itemdisplay.png" />
+</figure>
+<ul class="simple">
+<li><p>Allows to define reports displayed on the screen.</p></li>
+<li><p>Allows to reorder reports displayed with drag &amp; drop feature.</p></li>
+<li><p>Using the selector area button <a class="reference internal" href="_images/iconDrag.png"><img alt="Drag" src="_images/iconDrag.png" style="width: 19.2px; height: 19.2px;" /></a>.</p></li>
+</ul>
+<p class="rubric">Scope filters</p>
+<ul class="simple">
+<li><p>Filters allow you to restrict the display of saved requirements.</p></li>
+<li><p>By status, period, duration, closed element, linked to the user or no related…</p></li>
+</ul>
+<p class="rubric">No resolution scheduled</p>
+<ul class="simple">
+<li><p>Unscheduled: Requirements whose resolution is not scheduled in a next product version (target product version not set).</p></li>
+</ul>
+</section>
+</section>
+<section id="test-cases">
+<span id="test-case"></span><span id="index-2"></span><h2>Test cases<a class="headerlink" href="#test-cases" title="Permalink to this heading">¶</a></h2>
+<p>Test cases are elementary actions executed to test a requirement.</p>
+<p>You may define several tests to check a requirement, or check several requirements with one test.</p>
+<p>The test case is defined for a project, a product or one these components.</p>
+<figure class="align-default" id="id10">
+<img alt="Test cases screen" src="_images/REQUIREMENT_SCR_TestCase.png" />
+<figcaption>
+<p><span class="caption-text">Test cases screen</span><a class="headerlink" href="#id10" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Linking test case to a <a class="reference internal" href="PlanningElements.html#planningelem-project"><span class="std std-ref">project</span></a> will limit the visibility, respecting rights management at project level.</p>
+<p>Test case can have predecessors and successors.</p>
+<p>This defines some dependencies on the test case.</p>
+<p>Dependencies don’t have specific effects. It is just an information.</p>
+<p class="rubric">Fields Project and Product</p>
+<ul class="simple">
+<li><p>Must be concerned either with a project, a product or both.</p></li>
+<li><p>If the project is specified, the list of values for field “Product” contains only products linked the selected project.</p></li>
+</ul>
+<p class="rubric">Field Version</p>
+<ul class="simple">
+<li><p>Contains the list of product and component versions available according to the project and product selected.</p></li>
+</ul>
+<p class="rubric">Field Environment (Context)</p>
+<ul class="simple">
+<li><p>Contexts are initialized for IT Projects as “Environment”, “OS” and “Browser”.</p></li>
+<li><p>This can be easily changed values in <a class="reference internal" href="Concept.html#context"><span class="std std-ref">Contexts</span></a> screen.</p></li>
+</ul>
+<p class="rubric">Field Description</p>
+<ul class="simple">
+<li><p>The description of test case should describe the steps to run the test.</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If <strong>field Prerequisite</strong> left blank and test case has a parent, parent prerequisite will automatically be copied here.</p>
+</div>
+<section id="test-case-run">
+<span id="test-case-run-status"></span><span id="index-3"></span><h3>Test case run<a class="headerlink" href="#test-case-run" title="Permalink to this heading">¶</a></h3>
+<figure class="align-default" id="id11">
+<img alt="Test case run" src="_images/REQUIREMENT_ZONE_TestCaseRun.png" />
+<figcaption>
+<p><span class="caption-text">Test case run</span><a class="headerlink" href="#id11" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p><a class="reference internal" href="_images/iconPlanned.png"><img alt="test run Planned" src="_images/iconPlanned.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Planned:</strong> Test to be executed.</p></li>
+<li><p><a class="reference internal" href="_images/iconPassed.png"><img alt="test run passed" src="_images/iconPassed.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Passed:</strong> Test passed with success (result is conform to expected result).</p></li>
+<li><p><a class="reference internal" href="_images/iconBlocked.png"><img alt="test run blocked" src="_images/iconBlocked.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Blocked:</strong> Impossible to run the test because of a prior incident  (blocking incident or incident on preceding test) or missing prerequisite.</p></li>
+<li><p><a class="reference internal" href="_images/iconFailed.png"><img alt="test run failed" src="_images/iconFailed.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Failed:</strong> Test has returned wrong result.</p></li>
+</ul>
+<p>This section allows to display a complete list of test case runs. These are links of the test to test sessions. This list also displays the current status of the test in the sessions.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><strong>Field Summary</strong></p>
+<ul class="simple">
+<li><p>An icon whose presents the run status of the test case.</p></li>
+<li><p>For detail, see: <a class="reference internal" href="#summary-test-case-run-status"><span class="std std-ref">Summary of test case run status</span></a>.</p></li>
+<li><p>To go, click on the corresponding test session.</p></li>
+</ul>
+</div>
+</section>
+</section>
+<section id="test-sessions">
+<span id="test-session"></span><span id="index-4"></span><h2>Test sessions<a class="headerlink" href="#test-sessions" title="Permalink to this heading">¶</a></h2>
+<figure class="align-default" id="id12">
+<img alt="Test session screen" src="_images/REQUIREMENT_SCR_TestSession.png" />
+<figcaption>
+<p><span class="caption-text">Test session screen</span><a class="headerlink" href="#id12" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>A test session defines the set of tests to be executed to achieve a given objective, such as covering a requirement.</p>
+<p>Define in the test case runs all test cases will be running to this test session.</p>
+<p>For each test case run sets the status of test results</p>
+<p>The test session is defined for a project, a product or one these components.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#test-case-run-status"><span class="std std-ref">Test case run status</span></a></p>
+</div>
+<p class="rubric">Rights management</p>
+<ul class="simple">
+<li><p>Linking test session to a <a class="reference internal" href="PlanningElements.html#planningelem-project"><span class="std std-ref">project</span></a> will limit the visibility, respecting rights management at project level.</p></li>
+</ul>
+<p class="rubric">Test sessions regroupment</p>
+<ul class="simple">
+<li><p>Test session can have parents to regroup test sessions.</p></li>
+</ul>
+<p class="rubric">Planning element</p>
+<ul class="simple">
+<li><p>A test session is a planning element like <a class="reference internal" href="PlanningElements.html#activity"><span class="std std-ref">Activity</span></a>.</p></li>
+<li><p>A test session is a task in a <a class="reference internal" href="Gantt.html#gantt-chart"><span class="std std-ref">Gantt type project planning</span></a>.</p></li>
+<li><p>Allows to <a class="reference internal" href="CommonSections.html#assignment-section"><span class="std std-ref">assigned</span></a> resource and follow up progress.</p></li>
+</ul>
+<p class="rubric">Predecessor and successor elements</p>
+<ul class="simple">
+<li><p>Test sessions can have predecessors and successors.</p></li>
+<li><p>This defines some <a class="reference internal" href="Gantt.html#dependencylinks"><span class="std std-ref">dependencies</span></a> on test cases or planning constraints.</p></li>
+</ul>
+<p class="rubric">Monitoring indicator</p>
+<ul class="simple">
+<li><p>The indicators can be defined in the <a class="reference internal" href="ListsOfValues.html#list-of-values"><span class="std std-ref">List of Values</span></a>.</p></li>
+<li><p>See: <a class="reference internal" href="ListsOfValues.html#health-status"><span class="std std-ref">Health status</span></a> and <a class="reference internal" href="ListsOfValues.html#overall-progress"><span class="std std-ref">Overall progress</span></a></p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Fields Project and Product</strong></p>
+<p>Must be concerned either with a project, a product or both.</p>
+<p>If the project is specified, the list of values for field “Product” contains only products linked the selected project.</p>
+<p><strong>Field Version</strong></p>
+<p>Contains the list of product and component versions available according to the project and product selected.</p>
+</div>
+<section id="test-case-runs">
+<h3>Test case runs<a class="headerlink" href="#test-case-runs" title="Permalink to this heading">¶</a></h3>
+<figure class="align-default" id="id13">
+<img alt="Test case run screen" src="_images/REQUIREMENT_ZONE_TestCaseRunMain.png" />
+<figcaption>
+<p><span class="caption-text">Test case run screen</span><a class="headerlink" href="#id13" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>This section allows to manage test case runs.</p>
+<p>You can order the liste of test cases by order, type, id, name, status or tickets.</p>
+<figure class="align-default" id="id14">
+<img alt="Test case run section" src="_images/REQUIREMENT_ZONE_TestCaseRun.png" />
+<figcaption>
+<p><span class="caption-text">Test case run section</span><a class="headerlink" href="#id14" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconAdd.png"><img alt="Add" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> to add a test case run. The <strong>Test case run dialog box</strong> will be appear.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconEdit.png"><img alt="Button edit" src="_images/iconEdit.png" style="width: 19.2px; height: 19.2px;" /></a> to edit a test case run. The <strong>Test case run detail dialog box</strong> will be appear.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconDelete.png"><img alt="Delete" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> to remove a test case run.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconPassed.png"><img alt="test run passed" src="_images/iconPassed.png" style="width: 19.2px; height: 19.2px;" /></a> to mark test case run as passed.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconFailed.png"><img alt="test run failed" src="_images/iconFailed.png" style="width: 19.2px; height: 19.2px;" /></a> to mark test case run as failed. The <strong>Test case run detail dialog box</strong> will be appear.</p></li>
+</ul>
+<figure class="align-default" id="id15">
+<img alt="PopUp test failed" src="_images/REQUIREMENT_BOX_TestCaseRunKO.png" />
+<figcaption>
+<p><span class="caption-text">PopUp PopUp test failed</span><a class="headerlink" href="#id15" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>When the status is set to failed, the pop-up window allows you to create a ticket (reference to the incident) or a comment.</p>
+<p>If you create a ticket, it is automatically added to Links.</p>
+<p>Information about the selected ticket is also displayed and the ticket is clickable to go to its dedicated screen.</p>
+<p>Field ticket appear only whether status of test case run is <strong>failed</strong>.</p>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconBlocked.png"><img alt="test run blocked" src="_images/iconBlocked.png" style="width: 19.2px; height: 19.2px;" /></a> to mark test case run as blocked.</p></li>
+</ul>
+<p class="rubric">Field Test case</p>
+<ul class="simple">
+<li><p>This icon <a class="reference internal" href="_images/iconComment.png"><img alt="Comment" src="_images/iconComment.png" style="width: 19.2px; height: 19.2px;" /></a> appears when the test case run comment field is filled.</p></li>
+<li><p>Moving the mouse over the icon will display the test case run comments.</p></li>
+</ul>
+<p class="rubric">Field Detail</p>
+<ul class="simple">
+<li><p>Moving the mouse over the icon <img alt="Icon description" src="_images/description.png" /> will display the test case description.</p></li>
+<li><p>Moving the mouse over the icon <img alt="Icon result" src="_images/result.png" /> will display the test case expected result.</p></li>
+<li><p>Moving the mouse over the icon <img alt="Icon prerequisite" src="_images/prerequisite.png" /> will display the test case prerequisite.</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Requirements and tests</a><ul>
+<li><a class="reference internal" href="#requirements">Requirements</a><ul>
+<li><a class="reference internal" href="#requirement-link-to-test-cases">Requirement link to test cases</a></li>
+<li><a class="reference internal" href="#requirement-link-to-tickets">Requirement link to tickets</a></li>
+<li><a class="reference internal" href="#vote-on-requirement">Vote on requirement</a></li>
+<li><a class="reference internal" href="#requirements-dashboard">Requirements dashboard</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#test-cases">Test cases</a><ul>
+<li><a class="reference internal" href="#test-case-run">Test case run</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#test-sessions">Test sessions</a><ul>
+<li><a class="reference internal" href="#test-case-runs">Test case runs</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="ConfigurationManagement.html"
+                          title="previous chapter">Configuration Management</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="RiskIssueManagement.html"
+                          title="next chapter">Risks and issues management</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="RiskIssueManagement.html" title="Risks and issues management"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="ConfigurationManagement.html" title="Configuration Management"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Requirements and Tests</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

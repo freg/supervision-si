@@ -1,0 +1,305 @@
+.. include:: ImageReplacement.txt
+
+
+.. title:: Today (Dashboard)
+
+
+.. index:: Today
+.. index:: Dashboard
+
+.. _today-screen:
+
+#################
+Today (Dashboard)
+#################
+
+.. figure:: /images/GUI/TODAY_SCR_GlobalView.png
+   :alt: Today's Global view
+   
+   Today screen's Global view
+   
+
+This screen allows the user to have an overview of the projects and tasks he is working on.
+
+His projects, the tasks to which the user is assigned, those for which he is responsible as well as the various tasks created by himself or for which he is a requestor are listed in different sections.
+
+Each list can therefore contain different types of tasks. The user can therefore view activities, questions, decisions, tickets, risks, meetings, milestones, ... as well as financial elements, such as quotes, invoices or contracts.
+
+It's the User parameter “First page” by default. This parameter defines the screen that will be displayed first on each connection.
+
+The definition of visibility is based on the access rights of each user
+
+
+.. _parameters-today: 
+
+.. rubric:: Parameters
+
+* Click on |Parameter| to access screen parameters.
+
+.. figure:: /images/GUI/TODAY_BOX_Parameters.png
+   :alt: Dialog box - Today parameters 
+   
+   Dialog box - Today parameters
+
+Allows to define sections displayed on the screen.
+
+you can directly click on |Clear| at the top right of the section to close it
+
+To change the order of the blocks displayed, click and drag the blocks to the desired location.
+
+.. figure:: /images/GUI/TODAY_ZONE_MoveBloc.png
+   :alt: Move section
+   
+   Move a section
+
+If the movement is authorized the header is green otherwise it is red.
+
+
+Projects
+########
+
+This section allows you to view current projects on which you have visibility rights.
+
+Several sections are available: the weather forecast of the projects, the elements that compose it and the progress of each.
+
+The projects list is limited to the project visibility scope of the connected user. 
+
+Icons appear at the top right edge allowing you to close the block or switch it to full screen.
+
+The number of displayed projects can be defined in the :ref:`global parameters<display>`.
+
+Click on the name of a project will directly move to it. 
+
+
+.. _weather-today:
+
+Weather
+*******
+
+The weather is entered manually on each project.
+
+.. figure:: /images/GUI/TODAY_ZONE_ProjectsWeather.png
+   :alt: Projects Weather 
+
+   Projects Weather
+   
+   
+   
+.. _healthstatus-today:
+
+.. rubric:: Health status
+
+This icon allows to display the health status of the project.  
+
+
+.. _quality-today:
+
+.. rubric:: Quality level
+
+A manual indicator can be set on project.
+   
+This icon allows to display the quality of the project.
+
+
+
+.. _trend-today:
+
+.. rubric:: Trend
+
+Manual indicator can be set on project.
+   
+Trend indicators are displayed.
+   
+This icon allows to display the trend of the project.
+
+
+.. _calculated-today:
+
+.. rubric:: Overall progress
+
+Actual progress of the work of project and additional progress manually selected for the project
+   
+
+.. _elementproject-today:
+ 
+Elements concerned to project
+*****************************
+
+.. figure:: /images/GUI/TODAY_ZONE_ProjectsElements.png
+   :alt: Projects Elements 
+
+   Projects Elements
+   
+Numbers of elements concerned to a project are displayed.
+
+
+.. _otherprogress-today:
+
+Calculated and overall progress
+*******************************
+
+.. figure:: /images/GUI/TODAY_ZONE_ProjectProgress.png
+   :alt: Projects Progress 
+   
+   Projects Progress
+   
+   
+Actual progress of the work of project and additional progress manually selected for the project.
+   
+On mouse over the bar.
+       
+.. figure:: /images/GUI/TODAY_ZONE_Progress.png
+   :alt: Calculated progress
+         
+   Calculated progress
+         
+On each project shows part of “to do” (red) compared to “done and closed” (green).
+   
+
+.. rubric:: Progess
+ 
+* Real: LefProject progress based on actual resource working time.  
+* Estimated: Progress of the project based on values set manually for an estimate.
+      
+.. rubric:: Work
+
+* Validate: validate work on the project
+* Real: real work on the project
+* Left: remaining work on the project.
+
+.. rubric:: Other   
+   
+* Margin: the margin corresponds to the difference in work between the revised and the validated. 
+* End date: Planified end date of the project.
+* Late: Number of late days in project.
+ 
+ 
+
+Message
+#######
+
+All scheduled messages will be displayed in this section. 
+
+.. figure:: /images/GUI/TODAY_ZONE_MessageSection.png
+   :alt: Message section 
+   
+   Message section
+
+
+Each point corresponds to a different message.
+
+.. seealso::
+   
+   :ref:`message`
+ 
+
+
+To approve
+##########
+
+You can define approvers for a document, incoming or outgoing mail.
+
+
+.. figure:: /images/GUI/TODAY_ZONE_ToApprove.png
+   :alt: Item to approve 
+
+   Item to approve
+
+Only users assigned to the project linked to the item to be approved can be added.
+
+If you are in the list of approvers, you will see the list of items you need to approve.
+
+The list of items is clickable.
+
+.. seealso:: 
+
+   :ref:`document` - :ref:`Mails<mail-followup>` - :ref:`Approval process<approval-process-doc>`
+
+
+
+To do: Tasks list
+#################
+
+The list of tasks is divided into 3 parts, click on the respective buttons to display the list:
+
+.. figure:: /images/GUI/TODAY_ZONE_TaskList.png
+   :alt: Tasklist 
+
+   Tasklist
+   
+   
+   
+|HumanResource| the tasks for which I am :term:`responsible`,
+
+|resource| the tasks assigned to me and finally
+
+|contact| the tasks of which I am the :term:`issuer` or the :term:`requestor`
+
+
+
+.. note:: 
+
+   **Max items to display Parameter**
+
+   Number of items listed here are limited to a value defined in :ref:`Global parameters<global-display-section>` and :ref:`User parameters<display-parameters>`
+   
+   Enter the number of projects or tasks to appear on the screen.
+
+
+What's new: the activity Stream
+###############################
+
+You have access to the activity stream of the elements that you see displayed in accordance with the rights of your profile.
+
+.. seealso::
+
+   :ref:`activity-stream`
+
+
+Todo List
+#########
+
+In this section you see the current todo lists on which you have rights
+
+.. seealso::
+   
+   :ref:`todolist` 
+
+
+Reports
+#######
+
+You can select any report to be displayed on the Today screen.
+
+.. figure:: /images/GUI/TODAY_ZONE_Reports.png
+   :alt: Reports on today
+   
+   Reports on today
+   
+   
+* Click on |Delete| from the today screen window or in the :ref:`screen parameters<parameters-today>`. 
+* Click on |Fold| to reduce the report display area to half the screen width.
+* Click on |Extend| to extend the report display area to the entire width of the screen.
+
+
+.. figure:: /images/GUI/TODAY_BOX_ParamReport.png
+   :alt: Display parameters on today
+   
+   Display parameters on today
+   
+   
+.. rubric:: Add selected report
+
+* To do this, just go to the selected report, select parameters and display result (to check it is what you wish on today screen). 
+* Click on |Today| to insert this report with parameter on the Today screen.
+* Any unchanged parameter will be set as default value.
+* These reports will be displayed on Today screen like other pre-defined parts.
+   
+
+.. seealso::
+
+   :ref:`Favorite Report<favorite_report>` - :ref:`Today Screen Report<today_report>`
+
+
+   
+

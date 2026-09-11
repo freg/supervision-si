@@ -1,0 +1,285 @@
+/*** COPYRIGHT NOTICE *********************************************************
+ *
+ * Copyright 2009-2017 ProjeQtOr - Pascal BERNARD - support@projeqtor.org
+ * Contributors : -
+ * 
+ * This file is part of ProjeQtOr.
+ * 
+ * ProjeQtOr is free software: you can redistribute it and/or modify it under 
+ * the terms of the GNU Affero General Public License as published by the Free 
+ * Software Foundation, either version 3 of the License, or (at your option) 
+ * any later version.
+ * 
+ * ProjeQtOr is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+ * FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for 
+ * more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License along with
+ * ProjeQtOr. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * You can get complete code of ProjeQtOr, other resource, help and information
+ * about contributors at http://www.projeqtor.org 
+ *     
+ *** DO NOT REMOVE THIS NOTICE ************************************************/
+ 
+#bodyPrint .section,
+#bodyPrint .sectionCategorie,
+#bodyPrint .dijitTitlePane .dijitTitlePaneTitle {
+  text-align: left;
+  font-weight: normal;
+  font-size: 13pt;
+  text-shadow: none;
+  color: var(--color-section-title-text);
+  background-color: var(--color-background);
+  background-image: none;
+  border: 0;
+  border-top: 2px solid var(--color-section-title-border);
+  border-bottom: 0;
+  border-left: 0;
+  border-right: 0;
+  padding: 5px 8px 5px 8px;
+  height: 24px;
+}
+
+#bodyPrint .sectionCategorie {
+  color: var(--color-white);
+  background-color: var(--color-dark);
+  border: 1px solid var(--color-darker);
+}
+
+#bodyPrint .assignHeader,
+#bodyPrint .noteHeader,
+#bodyPrint .linkHeader,
+#bodyPrint .attachmentHeader,
+#bodyPrint .dependencyHeader,
+#bodyPrint .historyHeader,
+#bodyPrint .messageHeader,
+#bodyPrint .workflowHeader,
+#bodyPrint .filterHeader,
+#bodyPrint .calendarHeader,
+#bodyPrint .reportTableLineHeader {
+  text-align: left;
+  font-weight: normal;
+  text-shadow: none;
+  background-image: none;
+  color: var(--color-dark);
+  background-color: var(--color-lighter);
+  border: 1px solid var(--color-light);
+  border-color: var(--color-light);
+  padding: 4px 6px 4px 6px;
+  height: 22px;
+  vertical-align: middle;
+}
+
+#bodyPrint .reportTableColumnHeader,
+#bodyPrint .largeReportHeader2 {
+  text-shadow: none;
+  background-image: none;
+  color: var(--color-dark);
+  background-color: var(--color-lighter);
+  border: 1px solid var(--color-light);
+  border-color: var(--color-light);
+  padding: 4px 6px 4px 6px;
+  vertical-align: middle;
+}
+
+#bodyPrint .reportTableHeader,
+#bodyPrint .reportTableHeaderAsset,
+#bodyPrint .reportHeader,
+#bodyPrint .largeReportHeader {
+  text-shadow: none;
+  background-image: none;
+  color: var(--color-white);
+  background-color: var(--color-medium);
+  border: 1px solid var(--color-medium);
+  border-color: var(--color-medium);
+  padding: 6px 6px 6px 6px;
+  vertical-align: middle;
+}
+#bodyPrint .reportTableHeader,
+#bodyPrint .reportTableHeader *,
+#bodyPrint .reportHeader,
+#bodyPrint .reportHeader * {
+  color: var(--color-white);
+}
+
+#bodyPrint .assignData,
+#bodyPrint .noteData,
+#bodyPrint .linkData,
+#bodyPrint .attachmentData,
+#bodyPrint .dependencyData,
+#bodyPrint .historyData,
+#bodyPrint .workflowData,
+#bodyPrint .filterData,
+#bodyPrint .messageData,
+#bodyPrint .messageDataValue,
+#bodyPrint .reportTableData,
+#bodyPrint .reportTableDataLeft,
+#bodyPrint .reportTableDataSpanned,
+#bodyPrint .reportTableDataSimple,
+#bodyPrint .largeReportData {
+  color: #000000;
+  background-color: var(--color-white);
+  border: 1px solid var(--color-light);
+  border-color: var(--color-light);
+  padding: 4px 6px 4px 6px;
+  vertical-align: middle;
+}
+
+#bodyPrint .largeReportDataDone {
+  background-color: var(--color-lighter);
+  border: 1px solid var(--color-light);
+  border-color: var(--color-light);
+  color: var(--color-dark);
+  padding: 4px 6px 4px 6px;
+}
+
+#bodyPrint .colorNameData {
+  padding: 0;
+}
+
+#bodyPrint tr.detail td {
+  vertical-align: top;
+  color: #000000;
+}
+
+#bodyPrint tr.detail td.label {
+  padding-top: 0;
+}
+
+#bodyPrint tr.detail td.label label {
+  padding-top: 0;
+  margin-top: 0;
+  float: none;
+  text-align: right;
+}
+
+#bodyPrint .separatorSection {
+  background-color: transparent;
+  color: var(--color-dark);
+  padding: 0;
+  line-height: 20px;
+}
+
+#bodyPrint .separatorSection,
+#bodyPrint .separatorSection td {
+  border: 0;
+  border-color: var(--color-lighter);
+}
+
+#bodyPrint .separatorSection .assignHeader {
+  text-align: center;
+  background-color: var(--color-lighter);
+  color: var(--color-dark);
+  border: 0;
+  border-color: var(--color-lighter);
+}
+
+#bodyPrint.ProjeQtOrModern .assignData,
+#bodyPrint.ProjeQtOrModern .noteData,
+#bodyPrint.ProjeQtOrModern .linkData,
+#bodyPrint.ProjeQtOrModern .attachmentData,
+#bodyPrint.ProjeQtOrModern .dependencyData,
+#bodyPrint.ProjeQtOrModern .historyData,
+#bodyPrint.ProjeQtOrModern .workflowData,
+#bodyPrint.ProjeQtOrModern .filterData,
+#bodyPrint.ProjeQtOrModern .reportTableData,
+#bodyPrint.ProjeQtOrModern .reportTableDataLeft,
+#bodyPrint.ProjeQtOrModern .reportTableDataSpanned,
+#bodyPrint.ProjeQtOrModern .reportTableDataSimple,
+.ProjeQtOrModern .assignData,
+.ProjeQtOrModern .noteData,
+.ProjeQtOrModern .linkData,
+.ProjeQtOrModern .attachmentData,
+.ProjeQtOrModern .dependencyData,
+.ProjeQtOrModern .historyData,
+.ProjeQtOrModern .workflowData,
+.ProjeQtOrModern .filterData,
+.ProjeQtOrModern .reportTableData,
+.ProjeQtOrModern .reportTableDataLeft,
+.ProjeQtOrModern .reportTableDataSpanned,
+.ProjeQtOrModern .reportTableDataSimple {
+  border: 0;
+  border-bottom: 1px solid var(--color-lighter);
+  padding: 6px 8px 6px 8px;
+}
+
+#bodyPrint.ProjeQtOrModern .assignHeader,
+#bodyPrint.ProjeQtOrModern .noteHeader,
+#bodyPrint.ProjeQtOrModern .linkHeader,
+#bodyPrint.ProjeQtOrModern .attachmentHeader,
+#bodyPrint.ProjeQtOrModern .dependencyHeader,
+#bodyPrint.ProjeQtOrModern .historyHeader,
+#bodyPrint.ProjeQtOrModern .workflowHeader,
+#bodyPrint.ProjeQtOrModern .filterHeader,
+#bodyPrint.ProjeQtOrModern .calendarHeader,
+#bodyPrint.ProjeQtOrModern .reportTableLineHeader,
+#bodyPrint.ProjeQtOrModern .reportTableColumnHeader,
+.ProjeQtOrModern .assignHeader,
+.ProjeQtOrModern .noteHeader,
+.ProjeQtOrModern .linkHeader,
+.ProjeQtOrModern .attachmentHeader,
+.ProjeQtOrModern .dependencyHeader,
+.ProjeQtOrModern .historyHeader,
+.ProjeQtOrModern .workflowHeader,
+.ProjeQtOrModern .filterHeader,
+.ProjeQtOrModern .calendarHeader,
+.ProjeQtOrModern .reportTableLineHeader,
+.ProjeQtOrModern .reportTableColumnHeader {
+  background-color: var(--color-lighter);
+  color: var(--color-medium);
+  border: 0;
+  padding: 5px 8px 5px 8px;
+}
+
+#bodyPrint.ProjeQtOrModern .section,
+#bodyPrint.ProjeQtOrModern .dijitTitlePane .dijitTitlePaneTitle,
+.ProjeQtOrModern .section,
+.ProjeQtOrModern .dijitTitlePane .dijitTitlePaneTitle {
+  color: var(--color-medium);
+  background-color: var(--color-background);
+  background-image: none;
+  border-top: 2px solid var(--color-medium);
+  padding: 6px 8px 6px 8px;
+}
+
+#bodyPrint .tabLabel {
+  color: var(--color-dark);
+}
+
+#bodyPrint.ProjeQtOrModern tr.detail td label,
+.ProjeQtOrModern tr.detail td label,
+.ProjeQtOrModern label,
+.ProjeQtOrModern .label,
+.ProjeQtOrModern .smallLabel,
+.ProjeQtOrModern .labelMultiple,
+.ProjeQtOrModern .labelWithThumb,
+.ProjeQtOrModern .longTextLabel,
+.ProjeQtOrModern .tabLabel,
+#bodyPrint.ProjeQtOrModern .tabLabel {
+  color: var(--color-medium);
+}
+
+#bodyPrint.ProjeQtOrModern .separatorSection .assignHeader,
+.ProjeQtOrModern .separatorSection .assignHeader {
+  text-align: center;
+  background-color: var(--color-lighter-secondary);
+  color: var(--color-medium-secondary);
+  border: 0;
+  border-color: var(--color-lighter-secondary);
+}
+#bodyPrint.ProjeQtOrModern .separatorSection,
+#bodyPrint.ProjeQtOrModern .separatorSection td,
+.ProjeQtOrModern .separatorSection,
+.ProjeQtOrModern .separatorSection td {
+  border: 0;
+  border-color: var(--color-lighter-secondary);
+}
+
+#bodyPrint .booleanCheckBox img,
+#bodyPrint .whiteCheck img {
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+}

@@ -1,0 +1,40 @@
+.. include:: ImageReplacement.txt
+
+.. title:: Start guide
+
+.. index:: Start Guide
+
+.. _start-guide:
+
+Start Guide
+***********
+
+The Started Guide helps you start a brand new session that is still empty.
+
+This allows you to add the main elements needed to start planning your projects.
+
+.. figure:: /images/GUI/STARTGUIDE_SCR_Starting.png
+   :alt: Start guide screen
+   
+   Start guide screen
+   
+When you have not yet added an element, the element blocks are empty and indicate 0 elements
+
+As you start filling in items, the blocks will display the number of items saved and a clickable list of what you have filled in.
+
+.. figure:: /images/GUI/STARTGUIDE_ZONE_EmptyVSFill.png
+   :alt: Filled block and Empty block
+   
+   Filled block and Empty block
+
+
+
+* Click on |Add| to add a new element.
+
+* Click on |DownloadStartGuide| to import a new element.
+
+
+each recorded element is clickable and you go directly to the screen dedicated to this element.
+
+
+  

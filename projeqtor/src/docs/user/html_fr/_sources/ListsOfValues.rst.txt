@@ -1,0 +1,1308 @@
+.. raw:: latex
+
+    \newpage
+    
+    
+.. include:: ImageReplacement.txt
+
+.. title:: Lists of values
+
+.. index:: Function - Lists of values
+
+
+    
+.. _list-of-values:
+
+List of Values
+##############
+
+Each screen in List of values allows to define your own values.
+
+Then you will be able to select them in corresponding screens.
+
+.. note::
+   
+   By default, some lists are not visible on their corresponding screen like Languages in Product and Component screen.
+   
+   To use them you must enable their parameter in global parameters.
+
+
+
+
+Budget orientation
+******************
+
+The orientation of the budget
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+
+Budget Category
+***************
+
+The orientation of the budget
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+     
+     
+
+
+
+Categories of project
+*********************
+
+Define your categories of project and you are able to select one in Project screen.
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+ 
+
+
+.. index:: Criticality - Lists of values
+
+.. _criticality:
+
+Criticalities
+*************
+
+The criticality is the importance of an element to its context.
+
+.. note::
+
+   The criticality for Risk and Opportunity designs the level of impact the risk or opportunity may have to the project.
+
+   The criticality for ticket is the estimated impact that the subject of the ticket may have for the product.
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Value
+     - Value of criticality.
+   * - Color
+     - Color to display the criticality in element lists.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+   
+   
+   
+   
+   
+
+Deliverable status
+******************
+
+Define your deliverable status list and select it in Deliverable screen.
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - |RequiredField| Value
+     - Value of deliverable status.
+   * - Color
+     - Color to display the deliverable status in element lists.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+   
+
+
+Add dates on deliverables to follow dates : initial, planned, real, validation 
+
+
+
+
+
+Deliverable weights
+*******************
+
+Define your deliverable weights list and select it in Deliverable screen.
+
+That is useful to calculate weighting between different parameters in Reports->KPIs->KPI-deliverable-for-project screen. 
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - |RequiredField| Value
+     - Value of deliverable weights.
+   * - Color
+     - Color to display the deliverable weights in element lists.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+     
+     
+     
+     
+     
+     
+     
+
+.. index:: Delivery mode - Lists of values
+
+.. _delivery-mode:
+
+Delivery modes
+**************
+
+The mode of delivery.
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+   
+
+
+Add dates on deliveries to follow dates : initial, planned, real, validation
+
+
+
+
+.. index:: Efficiency - Lists of values
+
+.. _efficiency:
+
+Efficiencies
+************
+
+The efficiency measures the result of an action.
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Color
+     - Color to display the efficiency in element lists.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+   
+
+.. index:: Feasibility - Lists of values
+
+.. _feasibility:
+
+Feasibilities
+*************
+
+The feasibility defines the first analysis of implementation of a requirement.
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this status.
+   * - |RequiredField| Name
+     - Name of this status.
+   * - Color
+     - Color to display the feasibility in element lists.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this status is archived.
+   
+
+
+
+
+
+.. index:: Functions - Lists of values
+
+.. index:: Cost Function (Functions)
+     
+.. _function:
+
+Functions
+*********
+
+The function defines the generic competency of a resource which can be linked to a cost.
+
+The costs entered here will not be taken into account directly in the functions table on the resources screen.
+
+These are costs which are proposed by default but which can be modified when creating the function on the resources screen.
+
+To modify the functions and costs on the resource screen you must go through the update resource cost function.
+
+
+.. figure:: /images/GUI/LISTOFVALUE_SCR_Functions.png
+   :alt: Functions screen
+   
+   Functions screen
+   
+  
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - Default cost
+     - Default cost of the function. Typically the cost to the business.
+   * - default external cost
+     - Default external cost of the function. Typically the cost to the outsourced resource.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+   * - Description
+     - Complete description of this value.
+
+
+
+.. rubric:: Internal and external cost
+
+You can define two costs per function, one internal (existing) and one external (new).
+   
+When defining the cost of a resource, the proposed default cost should depend on whether the resource is external or internal:
+   
+If "is outsourced" is checked for the resource, the external cost will be assigned. Otherwise, it will be the internal cost
+   
+
+.. _update-resource-cost:
+
+.. rubric:: Update resource cost
+ 
+You can roll up current costs to all resources from the cost of the function taking into account the external or internal criterion of the resource.
+
+Click the **Update Resource Costs** button
+  
+.. figure:: /images/GUI/LISTOFVALUE_BOX_FunctionsReportCost.png
+   :alt: Update resource cost
+      
+   Update resource cost
+      
+      
+You have 3 options to perform this treatment. This will determine how assignments and activity costs will be updated.
+   
+   
+
+**Add new cost from date**
+   
+This option allows you to create a new cost for the resources whose value starts on the date entered.
+      
+- The cost of assigned activities remains unchanged.
+- The real cost of activities takes into account the new cost from the date you entered 
+- The left cost of activities takes the new cost.
+
+     
+**Replace existing cost**  
+     
+This option allows you to simply replace the current cost of the resource (the last cost if this amount has varied over time)
+      
+- The cost of assigned activities remains unchanged
+- The real cost of activities takes into account the new cost
+- The left cost of activities takes the new cost
+
+**Replace initial assignment cost**  
+   
+This option allows you to replace the current cost of the resource (the last cost if this amount has varied over time)
+while forcing the initial assignment cost (for unclosed assignments) to this new cost. 
+      
+- The cost of assigned activities takes the new cost
+- The real cost of activities takes the new cost
+- The left cost of activities takes the new cost
+   
+.. note:: In order to keep the initial functioning of the solution, during the migration, the external cost will be initialized with the same value as the internal cost.
+   
+   Similarly, when entering the internal cost, the external cost will be initialized to the same value if it is empty. In order to allow the entry of an external cost at zero, this will only be done when entering it on the screen (no systematic update on the server side).
+
+
+
+.. index:: Health status - Lists of values
+
+.. _health-status:
+
+Health status
+*************
+
+The health status is a manual indicator for the health of a project.
+
+It defines in a visual way the global health of the project.
+
+It is displayed on Today screen, for each project, as a Red / Amber / Green traffic light.
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Color
+     - Color to display the health status in element lists and on today screen.
+   * - Icon
+     - Icon that can be displayed for this health status.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+   
+
+
+.. note:: 
+   
+   If no icon is defined, color is used.
+   
+   You can define your own icons list (see: administration guide)
+   
+   
+   
+
+
+Incoming status
+***************
+
+Define your incoming status list and select it in Incoming screen.
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - |RequiredField| Value
+     - Value of incoming status.
+   * - Color
+     - Color to display the incoming status in element lists.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+   
+
+
+Add dates on incomings to follow dates : initial, planned, real, validation
+
+
+
+Incoming weights
+****************
+
+Define your incoming weights list and select it in Incoming screen.
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - |RequiredField| Value
+     - Value of incoming weights.
+   * - Color
+     - Color to display the incoming weights in element lists.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+   
+
+
+.. tip:: 
+
+   That is useful to calculate weighting between different parameters in:
+   
+   **Reports --> KPIs --> KPI-incoming-for-project**   
+   
+   
+.. _intervention-mode-value:
+            
+Intervention modes
+******************
+
+Allows you to define and create your own list of interventions mode. 
+
+These values are used in the :ref:`planned interventions<planned-interventions>` screens and :ref:`view interventions<view-interventions>`.
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - |RequiredField| Letter
+     - Letter displayed on the intervention schedule and which refers to the corresponding intervention mode  
+   * - Sort order 
+     - Number which defines the display order of intervention modes on the planned interventions and view interventions screen
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.             
+            
+            
+              
+Languages
+*********
+
+Allows to define and create your own languages list.
+
+Then in Product or Component screen you can select your languages values.
+
+.. warning:: 
+   
+   You have to active **display language** in :ref:`Product/Component<gp-product-component-section>` in global parameters.
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - |RequiredField| Value
+     - Value of deliverable status.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+     
+     
+     
+   
+   
+Languages skill level
+*********************
+
+You set the value for the skills of your translators. 
+
+These values will be applied to each of the languages known to the translator.
+
+
+.. warning:: 
+   
+   You have to active **display language** in :ref:`Product/Component<gp-product-component-section>` in global parameters.
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - |RequiredField| Value
+     - Value of deliverable status.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+     
+     
+     
+     
+     
+         
+.. index:: Likelihood - Lists of values
+
+.. _likelihood:
+
+Likelihoods
+***********
+
+The likelihood is the probability of a risk or an opportunity to occur.
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Value
+     - Value of likelihood.
+   * - % value
+     - Value in percent.
+   * - Color
+     - Color to display the likelihood in element lists
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+   
+
+
+.. note:: 
+
+   The % value field is used to calculate a reserve amount according to the likelihood of risk or opportunity.
+
+
+
+
+
+
+
+Locations
+*********
+
+Allows you to define and create your own list of locations, Sites, Cities, Countries ... for the management of your IT infrastructure.
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.   
+     
+     
+     
+ 
+
+
+.. index:: Measure unit - Lists of values
+
+.. _measure-unit:
+
+Measure units
+*************
+
+The measure units.
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Plural of name
+     - Plural form of name.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+
+
+
+.. index:: Overall progress - Lists of values
+
+.. _overall-progress:
+
+Overall progress
+****************
+
+The overall progress is a manual indicator for global progress of a project.
+
+It defines in a visual way the global progress of the project, independently from work progress.
+
+It is displayed on Today screen, for each project.
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+
+
+
+.. index:: Payment deadline - Lists of values
+
+.. _payment-deadline:
+
+Payment deadlines
+*****************
+
+The payment deadline is stated on the bill.
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Number of days
+     - Delay in payment (in days).
+   * - End of month
+     - Flag to indicate that delay for payment is set at the end of month.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+   
+
+
+
+
+.. index:: Payment method - Lists of values
+
+.. _payment-method:
+
+Payment methods
+***************
+
+The mode of payment.
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+   
+
+
+
+Periods
+*******
+
+Allows you to define and create your own list of periods. These are used to define the intervention periods in customer and supplier contracts.
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.   
+     
+     
+     
+     
+Predefined situation
+********************
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Element 
+     - Type of element affected
+   * - Type
+     - Name of the :ref:`brands` 
+   * - Sort order 
+     - Number which defines the display order of the finacial elements
+   * - Financial situation
+     - The financial situation which will be taken into account  
+   * - :term:`Closed`
+     - Flag to indicate this value is archived. 
+     
+     
+     
+        
+.. index:: Priority - Lists of values
+
+.. _priority:
+
+Priorities
+**********
+
+The ticket priority defines the order to treat different tickets.
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Value
+     - Value of priority.
+   * - Color
+     - Color to display the priority in element lists.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+   
+
+
+
+
+
+.. index:: Quality level - Lists of values
+
+.. _quality-level:
+
+Quality levels
+**************
+
+The quality is a manual indicator for the conformity of a project to quality processes.
+
+It defines in a visual way the global conformity of the project.
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Color
+     - Color to display the quality level in element lists and on today screen.
+   * - Icon
+     - Icon that can be displayed for this quality level. 
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+   
+
+
+.. note::
+   
+   If no icon is defined, color is used.
+   
+   You can define your own icons list (see: administration guide).
+
+
+
+
+
+Renewal
+*******
+
+Allows you to define and create your own renewal type list. These values are used in the customer and supplier contract management screens.
+
+3 values are pre-registered by default: never, tacit and Express
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived. 
+
+.. seealso:: :ref:`incomes<renewal-incomes>`
+
+
+
+.. index:: Resolutions - Lists of values
+
+.. _resolution:
+
+Resolutions
+***********
+
+Allows to define different kinds of resolution for tickets.
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Solved
+     - Box checked indicates the ticket will be automatically marked as “solved” when this resolution is selected.
+   * - Color
+     - Color to display the resolution in element lists.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+   
+
+
+
+.. index:: Risk level - Lists of values
+
+.. _risk-level:
+
+Risk levels
+***********
+
+The risk level measures the technical risk of implementation of a requirement.
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Color
+     - Color to display the risk level in element lists.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+   
+
+
+
+
+
+
+
+.. index:: Severity - Lists of values
+
+.. _severity:
+   
+Severities
+**********
+
+The severity designs the level of negative or positive impact the risk or opportunity may have for the product.
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Value
+     - Value of severity.
+   * - Color
+     - Color to display the severity in element lists.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+   
+
+
+
+.. index:: Status - Lists of values
+
+.. _status:
+
+Status
+******
+
+The status is an important element of items lifecycle.
+
+It defines the progress of the treatment of the element.
+
+Some automations are implemented, depending on status definition, to set on items.
+
+.. seealso:: :ref:`workflow`.
+
+
+
+.. rubric:: Assigned status
+
+This status indicates that you have assigned a resource to an activity.
+
+This can trigger the automatic status change when you assign a resource for the first time on a schedulable element of ProjeQtOr if the global parameter is activated.
+
+If the assignment is already present or if you use the automatic assignment of the project team then the change of status will not be effective
+      
+.. rubric:: In progress status
+
+This status specifies that the treatment of item is supported.
+
+A :term:`responsible` can be determined or required.
+
+.. rubric:: Paused status
+
+This state indicates that item processing is in a paused state.
+
+Used for the processing of certain elements (activity, tickets ...).
+
+Allows you to exclude and purge the calculation from the planning.
+
+Recording these break times allows you to get more accurate treatment information.
+
+Move activity back to not pauses project should then unpause it : this is valid if pause was set from inheritance of project.     
+      
+.. rubric:: Done status
+
+This status specifies that the treatment of item is done.
+
+A :term:`result` can be specified or required.
+
+It is possible to require a result when the status change to "done".
+
+.. rubric:: Closed status
+
+This status indicates that the item is closed.
+
+This article is archived and will no longer appear in the lists.
+
+You can display these items by checking the "closed" option at the top right of the screen
+
+.. rubric:: Cancelled status
+
+This status specifies that the item is cancelled.
+
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - In progress :term:`status`
+     - Defines whether ‘In progress’ flag is automatically set for this status.
+   * - Done :term:`status`
+     - Defines whether ‘done’ flag is automatically set for this status.
+   * - Closed :term:`status`
+     - Defines whether ‘closed’ flag is automatically set for this status.
+   * - Cancelled :term:`status`
+     - Defines whether ‘cancelled’ flag is automatically set for this status.
+   * - Color
+     - Color to display the status in element lists.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+
+
+.. rubric:: Consolidation of status changes  
+
+We have a parameter which allows to auto set parent item status.
+
+It depends on children item status and available status in the workflow.
+
+.. note::
+
+   Select YES **auto set parent activity status** in global parameters to use it.
+   
+   * If an activity changes to a "In progress" status, all parents move to the first "In progress" status available in the workflow.
+   * If an activity changes to a "done", "closed" or "canceled" status, moving of each parent to the first "done" or "closed" status according to the status of all its children.
+
+
+.. warning::  If parents items status has not been changed auto, please check your controls like required fields.
+
+
+
+
+.. index:: Story point
+
+.. _story-point:
+
+Story point
+***********
+
+Values for planning poker session cards are based on the Fibonacci sequence but with rounded values.
+
+You can determine a number of cards and a value for each of them.
+
+Each value is associated with a number of charging days.
+
+This charge will be postponed after the vote on the element used for the user story (ticket, requirement, activity)
+
+
+
+.. _LoV-tender-statut:
+
+Tender status
+*************
+
+Allows to define or create your own tender status list.
+
+Tender status displayed on Tenders screen and in the table Submissions of tenders 
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Color
+     - Color to display the status in element lists.
+   * - Waiting tender
+     - Status information.
+   * - Tender received
+     - status information.
+   * - Tender not selected
+     - status information.
+   * - Tender selected
+     - status information.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+
+
+
+.. index:: Trend - Lists of values
+
+.. _trend:
+
+Trends
+******
+
+The trend is a manual indicator for the global trend of project health.
+
+It defines in a visual way the health trend of the project.
+
+It is displayed on Today screen, for each project.
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Color
+     - Color to display the trend in element lists and on today screen.
+   * - Icon
+     - Icon that can be displayed for this trend.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+   
+
+
+.. note:: Field Icon
+   
+   * If no icon is defined, color is used.
+   * You can define your own icons list.
+
+
+
+
+
+
+.. index:: Urgency - Lists of values
+
+.. _urgency:
+
+Urgencies
+*********
+
+The ticket urgency is an element given by the requestor to indicate the quickness of treatment needed for the ticket.
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required fields |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for this value.
+   * - |RequiredField| Name
+     - Name of this value.
+   * - Value
+     - Value of urgency.
+   * - Color
+     - Color to display the urgency in element lists.
+   * - Sort order
+     - Number to define order of display in lists.
+   * - :term:`Closed`
+     - Flag to indicate this value is archived.
+   
+
+            

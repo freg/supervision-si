@@ -1,0 +1,281 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Asset Management &#8212; ProjeQtOr User guide 13.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Documents" href="Document.html" />
+    <link rel="prev" title="Collaboration" href="Collaboration.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="Document.html" title="Documents"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="Collaboration.html" title="Collaboration"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Asset Management</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="asset-management">
+<span id="index-0"></span><span id="id1"></span><h1>Asset Management<a class="headerlink" href="#asset-management" title="Permalink to this heading">¶</a></h1>
+<p>This module is dedicated to the management of your IT infrastructure.</p>
+<p>You can manage:</p>
+<ul class="simple">
+<li><p>All types of asset</p></li>
+<li><p>Asset categories</p></li>
+<li><p>Brands</p></li>
+<li><p>Models</p></li>
+<li><p>Asset localisations</p></li>
+</ul>
+<section id="asset">
+<h2>Asset<a class="headerlink" href="#asset" title="Permalink to this heading">¶</a></h2>
+<p>This screen allows you to manage lists of licenses, versions, products or even components linked to equipment.</p>
+<ul class="simple">
+<li><p>Define the list of devices contained in another device.</p></li>
+<li><p>Display the global tree of the equipment constituting an equipment, by being able to close or expand a given level.</p></li>
+<li><p>When copying a device you can select the complete composition of this device.</p></li>
+<li><p>Each piece of equipment contained is duplicated, recursively, by initializing the unique data (serial number, references, etc.).</p></li>
+</ul>
+<figure class="align-default" id="id7">
+<img alt="Asset management screen" src="_images/ASSETMANAGMENT_SCR_Assets.png" />
+<figcaption>
+<p><span class="caption-text">Asset management screen</span><a class="headerlink" href="#id7" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Access rights</p>
+<p>You can limit the visibility of equipment.</p>
+<p>some fields will be updated automatically to allow the user to see the items they have just created.</p>
+<p>If a profile has creation rights and read rights only on “the items for which it is responsible”, the creation must automatically position the manager on the current user.</p>
+<p>If a profile has creation rights and read rights only on “its own elements”, the creation must automatically position the user on the current user.</p>
+<p>This rights management is automatically extended to all elements not dependent on the project.</p>
+<p>Feeding the responsible field when creating an element if the user has visibility rights such as “the elements for which he is responsible”.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Hide buttons “Lock” and “send mail” when access right is readonly</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Each asset related to a resource or an user, is displayed on their respective screen.</p>
+<p>See: <a class="reference internal" href="Resource.html#allocated-asset-resource"><span class="std std-ref">Resource</span></a> and <a class="reference internal" href="Resource.html#allocated-asset-user"><span class="std std-ref">User</span></a></p>
+</div>
+<p class="rubric">Attribution</p>
+<figure class="align-default" id="id8">
+<img alt="Attribution section" src="_images/ASSETMANAGMENT_ZONE_Attribution.png" />
+<figcaption>
+<p><span class="caption-text">Attribution section</span><a class="headerlink" href="#id8" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>This section allow to define:</p>
+<ul class="simple">
+<li><p>A status for each device according to the selected workflow.</p></li>
+<li><p>An installation date and a possible decommissioning date.</p></li>
+<li><p>The location of the equipment, with the possibility of defining a list (see: <a class="reference internal" href="#asset-types"><span class="std std-ref">Asset types</span></a>) and / or a manual entry field for more precision.</p></li>
+<li><p>The user who will benefit from this equipment.</p></li>
+<li><p>The closed check box. Which allows to put the equipment in archive mode.</p></li>
+</ul>
+<p class="rubric">Costs section</p>
+<p>This section allow to define costs for the selected asset.</p>
+<p>You can set a cost for:</p>
+<ul class="simple">
+<li><p>Purchase value</p></li>
+<li><p>The warranty period</p></li>
+<li><p>End of warranty date</p></li>
+<li><p>The amortization period</p></li>
+<li><p>The need for insurance</p></li>
+</ul>
+<figure class="align-default" id="id9">
+<img alt="Costs section" src="_images/ASSETMANAGMENT_ZONE_Costs.png" />
+<figcaption>
+<p><span class="caption-text">Costs section</span><a class="headerlink" href="#id9" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Asset composition section</p>
+<p>When you define an element parent, the components of the element appear in this section giving you the complete structure of an element.</p>
+<figure class="align-default" id="id10">
+<img alt="Asset composition" src="_images/ASSETMANAGMENT_ZONE_AssetComposition.png" />
+<figcaption>
+<p><span class="caption-text">Asset composition</span><a class="headerlink" href="#id10" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The button <strong>display the structure</strong> opens a pop up which summarizes the complete composition of your equipment in table form.</p>
+<p>You can print this box.</p>
+<figure class="align-default" id="id11">
+<img alt="Asset composition section" src="_images/ASSETMANAGMENT_ZONE_DisplayStructure.png" />
+<figcaption>
+<p><span class="caption-text">Asset composition section</span><a class="headerlink" href="#id11" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<section id="asset-types">
+<span id="id2"></span><h3>Asset types<a class="headerlink" href="#asset-types" title="Permalink to this heading">¶</a></h3>
+<aside class="sidebar">
+<p class="sidebar-title">Other sections</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="ListsOfTypes.html#behavior-section"><span class="std std-ref">Behavior</span></a></p></li>
+</ul>
+</aside>
+<p>The types of asset in equipment make it possible to list the different materials of an equipment.</p>
+<p>For example, a workstation contains a computer, peripherals such as a screen, a mouse, a keyboard, or even a webcam, software, licenses, a printer …</p>
+<p>But you can also create even more detailed lists with types of information storage, processing, or network equipment.</p>
+<p>You can define an icon for each type of asset.</p>
+<p>ProjeQtOr puts some icons at your disposal.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>You can create and import yours in the application.</p>
+<p>Save your icons in the <strong>www\projeqtor\view\icons</strong> folder and relaunch the application.</p>
+</div>
+</section>
+<section id="asset-category">
+<span id="id3"></span><h3>Asset category<a class="headerlink" href="#asset-category" title="Permalink to this heading">¶</a></h3>
+<p>The screen of the equipment categories will allow you to make a more detailed inventory of certain equipment.</p>
+<p>You can determine for example whether a piece of equipment can be personal, for a service or collective.</p>
+<p>But you can also determine if a device is part of a hardware, network or workstation architecture</p>
+</section>
+</section>
+<section id="brands">
+<span id="id4"></span><h2>Brands<a class="headerlink" href="#brands" title="Permalink to this heading">¶</a></h2>
+<p>The brand screen allows to create a list of brands making up your IT infrastructure.</p>
+<figure class="align-default" id="id12">
+<img alt="Recorded brands" src="_images/ASSET_SCR_BrandList.png" />
+<figcaption>
+<p><span class="caption-text">Recorded Brands</span><a class="headerlink" href="#id12" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="models">
+<span id="id5"></span><h2>Models<a class="headerlink" href="#models" title="Permalink to this heading">¶</a></h2>
+<p>The model screen allows you to create a list of models linked to a brand and type of equipment.</p>
+<figure class="align-default" id="id13">
+<img alt="Recorded models" src="_images/ASSET_SCR_ModelList.png" />
+<figcaption>
+<p><span class="caption-text">Recorded models</span><a class="headerlink" href="#id13" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="location">
+<span id="id6"></span><h2>Location<a class="headerlink" href="#location" title="Permalink to this heading">¶</a></h2>
+<p>Location screen allow to create a list of places so that you can locate your equipment.</p>
+<figure class="align-default" id="id14">
+<img alt="Location screen" src="_images/ASSETMANAGMENT_SCR_Location.png" />
+<figcaption>
+<p><span class="caption-text">Location screen</span><a class="headerlink" href="#id14" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The “location” fields in the assets screen offers the possibility of selecting from the recorded list of locations and a manual entry field allowing you to add details with alphanumeric characters.</p>
+<p class="rubric">Adress section</p>
+<p>You can complete the axacte address by filling in numerous fields :</p>
+<ul class="simple">
+<li><p>Street</p></li>
+<li><p>Complement</p></li>
+<li><p>Zip code</p></li>
+<li><p>City</p></li>
+<li><p>State</p></li>
+<li><p>Country</p></li>
+</ul>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Asset Management</a><ul>
+<li><a class="reference internal" href="#asset">Asset</a><ul>
+<li><a class="reference internal" href="#asset-types">Asset types</a></li>
+<li><a class="reference internal" href="#asset-category">Asset category</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#brands">Brands</a></li>
+<li><a class="reference internal" href="#models">Models</a></li>
+<li><a class="reference internal" href="#location">Location</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="Collaboration.html"
+                          title="previous chapter">Collaboration</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="Document.html"
+                          title="next chapter">Documents</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="Document.html" title="Documents"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="Collaboration.html" title="Collaboration"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Asset Management</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

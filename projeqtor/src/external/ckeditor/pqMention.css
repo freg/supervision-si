@@ -1,0 +1,6 @@
+/* Style for @mentions within the CKEditor editing area */
+/* Hard-coded fallback if --color-secondary is not defined in the iframe */
+.pqMentionLink {
+  color: var(--color-secondary, #2980b9) !important;
+  font-weight: bold;
+}

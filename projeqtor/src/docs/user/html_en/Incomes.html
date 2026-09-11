@@ -1,0 +1,757 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Incomes &#8212; ProjeQtOr User guide 13.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Financial situation" href="Financial.html" />
+    <link rel="prev" title="Expenses" href="Expenses.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="Financial.html" title="Financial situation"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="Expenses.html" title="Expenses"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Incomes</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="incomes">
+<span id="index-0"></span><span id="id1"></span><h1>Incomes<a class="headerlink" href="#incomes" title="Permalink to this heading">¶</a></h1>
+<p>Follow with the “Incomes” menu, incoming financial movements and your customers and all the elements revolving around them, such as contracts, quotations, bills, catalogs …</p>
+<section id="client-quotation">
+<span id="quotation"></span><span id="index-1"></span><span id="id2"></span><h2>Client Quotation<a class="headerlink" href="#client-quotation" title="Permalink to this heading">¶</a></h2>
+<p>A quotation is a proposal estimate sent to customer to get approval of what’s to be done, and how must the customer will pay for it.</p>
+<p>On the quotation form, you can record all the information about the sent proposal, including attaching some file completely describing the proposal with details terms and conditions.</p>
+<p>A quotation can be copied into an order when corresponding document is received as customer agreement.</p>
+<p>Invoices lines allows to detail the quotation.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>The <strong>client</strong> field is automatically filled in if the project selected on the quote is linked to a customer.</p>
+</div>
+</section>
+<section id="client-orders">
+<span id="orders"></span><span id="index-2"></span><span id="id3"></span><h2>Client Orders<a class="headerlink" href="#client-orders" title="Permalink to this heading">¶</a></h2>
+<p>An order (also called command) is the trigger to start work.</p>
+<p>On the order form, you can record all the information of the received order.</p>
+<p class="rubric">Scheduled work and budgeted cost of project</p>
+<p>The scheduled work (field: “validated work”) of the project will be initialized with the sum of total work from all orders.</p>
+<p>The budgeted cost (field: “validated cost”) of the project will be initialized with the sum of the total amount before taxes for all orders.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="CommonSections.html#progress-section"><span class="std std-ref">Progress section</span></a></p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>The <strong>client</strong> field is automatically filled in if the project selected on the quote is linked to a customer.</p>
+</div>
+<p class="rubric">Fields behavior</p>
+<ul class="simple">
+<li><p><strong>Ex VAT:</strong> Amount before taxes: the column value is automatically updated with the sum of bill line amounts.</p></li>
+<li><p><strong>Tax:</strong> Applicable tax. if the applicable tax isn’t set, the tax defined for the selected customer is used.</p></li>
+<li><p><strong>Full:</strong> Amount with taxes.</p></li>
+<li><p><strong>Work</strong>: Work days corresponding to the order. The column value is automatically updated with the sum of invoice lines quantities.</p></li>
+<li><p>The columns values “Ex VAT” and “Work” are automatically updated with the sum of invoice lines with selected amendment checkboxes.</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><strong>Activity type:</strong> the activity should be created only after approval.</p>
+</div>
+</section>
+<section id="client-invoicing-terms">
+<span id="client-billing-term"></span><span id="term"></span><span id="index-3"></span><h2>Client invoicing terms<a class="headerlink" href="#client-invoicing-terms" title="Permalink to this heading">¶</a></h2>
+<p>A term is a planned trigger for billing.</p>
+<p>You can define as many terms as you wish, to define the billing calendar.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Terms are mandatory to bill “Fixed price” project.</p>
+<p>A term can be used just one time. The bill name will be displayed.</p>
+</div>
+<p class="rubric">A term has triggers</p>
+<ul class="simple">
+<li><p>You can link the activities that should be billed at this term.</p></li>
+<li><p>A summary of activities is displayed for validated and planned amount and end date.</p></li>
+<li><p>Validated and planned values play the role of reminder.</p></li>
+<li><p>You can use these values to set real amount and date.</p></li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p><strong>Fields Amount and Date (Planned &amp; Validated)</strong></p>
+<p>When a trigger is entered, the values of planned and validated are automatically updated with the sum and the max of triggered amounts.</p>
+</div>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconAdd.png"><img alt="Add" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> to add an element trigger.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconDelete.png"><img alt="Delete" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> to delete an element trigger.</p></li>
+</ul>
+</section>
+<section id="client-invoices">
+<span id="client-bill"></span><span id="bill"></span><h2>Client invoices<a class="headerlink" href="#client-invoices" title="Permalink to this heading">¶</a></h2>
+<p>An invoice is a request for payment for delivered work.</p>
+<p>Invoicing will depend on invoice type defined for the project through project type.</p>
+<figure class="align-center" id="id7">
+<img alt="Clients Bills" src="_images/INCOMES_SCR_InvoicesClient.png" />
+<figcaption>
+<p><span class="caption-text">Clients Bills</span><a class="headerlink" href="#id7" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>Projeqtor is compatible with Factur-X since version 14.5. You can import or export your invoices in PDF - XML format.</p>
+</div>
+<section id="invoice-type">
+<span id="billing-types"></span><h3>Invoice Type<a class="headerlink" href="#invoice-type" title="Permalink to this heading">¶</a></h3>
+<figure class="align-center" id="id8">
+<img alt="_images/INCOMES_CAPT_SchemaBill.png" src="_images/INCOMES_CAPT_SchemaBill.png" />
+<figcaption>
+<p><span class="caption-text">Schema bill</span><a class="headerlink" href="#id8" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Each invoice is linked to project, a project has a project type, and a project type is linked to a billing type.</p>
+<p>So the invoicing type is automatically defined for the selected project.</p>
+<p>Invoicing type will influence invoice line format.</p>
+<section id="at-terms">
+<h4>At terms<a class="headerlink" href="#at-terms" title="Permalink to this heading">¶</a></h4>
+<ul class="simple">
+<li><p>A <a class="reference internal" href="#term"><span class="std std-ref">term</span></a> must be defined to generate the invoice, generally following a billing calendar.</p></li>
+<li><p>Used for instance for: <strong>Fixed price projects</strong>.</p></li>
+</ul>
+</section>
+<section id="on-produced-work">
+<h4>On produced work<a class="headerlink" href="#on-produced-work" title="Permalink to this heading">¶</a></h4>
+<ul class="simple">
+<li><p>No term is needed.</p></li>
+<li><p>The billing will be calculated based on produced work by resources on selected <a class="reference internal" href="#activity-price"><span class="std std-ref">activities</span></a> and on a selected period.</p></li>
+<li><p>Used for instance for <strong>Time &amp; Materials projects</strong>.</p></li>
+</ul>
+</section>
+<section id="on-capped-produced-work">
+<h4>On capped produced work<a class="headerlink" href="#on-capped-produced-work" title="Permalink to this heading">¶</a></h4>
+<ul class="simple">
+<li><p>No term is needed.</p></li>
+<li><p>The billing will be calculated based on produced work by resources on selected <a class="reference internal" href="#activity-price"><span class="std std-ref">activities</span></a> and on a selected period.</p></li>
+<li><p>Taking into account that total billing cannot be more than project validated work.</p></li>
+<li><p>Used for instance for <strong>Capped Time &amp; Materials projects</strong>.</p></li>
+</ul>
+</section>
+<section id="manual">
+<h4>Manual<a class="headerlink" href="#manual" title="Permalink to this heading">¶</a></h4>
+<ul class="simple">
+<li><p>Billing is defined manually, with no link to the project activity.</p></li>
+<li><p>Used, for instance for <strong>Any kind of project where no link to activity is needed</strong>.</p></li>
+</ul>
+</section>
+<section id="not-billed">
+<h4>Not billed<a class="headerlink" href="#not-billed" title="Permalink to this heading">¶</a></h4>
+<ul class="simple">
+<li><p>No billing is possible for these kinds of projects.</p></li>
+<li><p>Used, for instance for <strong>Internal projects &amp; Administrative projects</strong>.</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><strong>Report</strong></p>
+<p>Only invoice with at least status “done” will be available for reporting.</p>
+<p>Before this status, they are considered as a draft.</p>
+</div>
+</section>
+</section>
+<section id="invoice-lines">
+<h3>Invoice lines<a class="headerlink" href="#invoice-lines" title="Permalink to this heading">¶</a></h3>
+<figure class="align-center" id="id9">
+<img alt="Treatment" src="_images/INCOMES_ZONE_InvoiceLines.png" />
+<figcaption>
+<p><span class="caption-text">bill lines treatment</span><a class="headerlink" href="#id9" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Input for each invoice line depends on invoicing type.</p>
+<p>A different “invoice line” dialog box will be displayed depends on invoicing type.</p>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconAdd.png"><img alt="Add" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> to add an invoice line.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconBill.png"><img alt="Add formated line" src="_images/iconBill.png" style="width: 19.2px; height: 19.2px;" /></a>  to add a formated line depending on invoicing type.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconEdit.png"><img alt="Button edit" src="_images/iconEdit.png" style="width: 19.2px; height: 19.2px;" /></a> to modify an existing bill line.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconDelete.png"><img alt="Delete" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> to delete the bill line.</p></li>
+</ul>
+<section id="bill-line-at-terms">
+<h4>Bill line “At terms”<a class="headerlink" href="#bill-line-at-terms" title="Permalink to this heading">¶</a></h4>
+<p>Client invoicing terms must be created in client invoices terms screen to be displayed in the list.</p>
+<figure class="align-default" id="id10">
+<img alt="Add a line at term" src="_images/INCOMES_BOX_InvoiceLine-Terms.png" />
+<figcaption>
+<p><span class="caption-text">Add a line at term</span><a class="headerlink" href="#id10" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Can be modified on update.</p>
+<figure class="align-default" id="id11">
+<img alt="Line at term" src="_images/INCOMES_BOX_InvoiceLine-Terms_Table.png" />
+<figcaption>
+<p><span class="caption-text">Line at term</span><a class="headerlink" href="#id11" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="bill-line-on-produced-work-on-capped-produced-work">
+<h4>Bill line On produced work &amp; On capped produced work<a class="headerlink" href="#bill-line-on-produced-work-on-capped-produced-work" title="Permalink to this heading">¶</a></h4>
+<p>Select the resource whose work you want to recover and the period you want to invoice</p>
+<figure class="align-default" id="id12">
+<img alt="Row insertion popup for a resource and over a given period" src="_images/INCOMES_BOX_InvoiceLine.png" />
+<figcaption>
+<p><span class="caption-text">Row insertion popup for a resource and over a given period</span><a class="headerlink" href="#id12" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Can be modified on update.</p>
+<figure class="align-default" id="id13">
+<img alt="Retrieving job information for the resource" src="_images/INCOMES_BOX_InvoiceLine_Table.png" />
+<figcaption>
+<p><span class="caption-text">Retrieving job information for the resource</span><a class="headerlink" href="#id13" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="invoice-line-manual-billing">
+<span id="manual-billing"></span><h4>Invoice line Manual billing<a class="headerlink" href="#invoice-line-manual-billing" title="Permalink to this heading">¶</a></h4>
+<p>For manual invoicing, you can select a line from the catalog if you have created one beforehand.</p>
+<p>The catalog is not mandatory to fill in a line</p>
+<p>At least describe the invoice line and enter the price.</p>
+<p>The unit to be invoiced is left to the user’s choice (day, month, piece, lot, etc.)</p>
+<figure class="align-default" id="id14">
+<img alt="Manual invoicing" src="_images/INCOMES_BOX_InvoiceLine-Manual.png" />
+<figcaption>
+<p><span class="caption-text">Manual invoicing</span><a class="headerlink" href="#id14" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Can be modified on update.</p>
+<figure class="align-default" id="id15">
+<img alt="Invoice line for manual invoicing." src="_images/INCOMES_BOX_InvoiceLine-Manual_Table.png" />
+<figcaption>
+<p><span class="caption-text">Invoice line for manual invoicing</span><a class="headerlink" href="#id15" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<span class="target" id="index-4"></span></section>
+</section>
+</section>
+<section id="client-payments">
+<span id="client-payment"></span><span id="index-5"></span><h2>Client Payments<a class="headerlink" href="#client-payments" title="Permalink to this heading">¶</a></h2>
+<p>Allow to define payment of bills.</p>
+<p>The bill keeps track of payment.</p>
+<figure class="align-default" id="id16">
+<img alt="Payment client" src="_images/INCOMES_SCR_PaymentClient.png" />
+<figcaption>
+<p><span class="caption-text">Payment client</span><a class="headerlink" href="#id16" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="activities-prices">
+<span id="activity-price"></span><span id="index-6"></span><h2>Activities prices<a class="headerlink" href="#activities-prices" title="Permalink to this heading">¶</a></h2>
+<p>Activity price defines daily price for activities of a given <strong>activity type</strong> and a given <strong>project</strong>.</p>
+<p>This is used to calculate a billing amount for billing type <strong>On produced work</strong> and <strong>On capped produced work</strong>.</p>
+</section>
+<section id="financial-gallery">
+<span id="index-7"></span><span id="id4"></span><h2>Financial Gallery<a class="headerlink" href="#financial-gallery" title="Permalink to this heading">¶</a></h2>
+<p>the financial gallery allows you to display in list form and by elements,
+the different client quotation, invoices and orders recorded in ProjeQtOr,
+per date, client or per type, partial, final and complete bill.</p>
+<p>Attachments are displayed grouped by element.</p>
+<p>Click on <a class="reference internal" href="_images/iconView.png"><img alt="button icon Follow up" src="_images/iconView.png" style="width: 19.2px; height: 19.2px;" /></a> to display attachment list.</p>
+<figure class="align-default" id="id17">
+<img alt="financial gallery" src="_images/INCOMES_ZONE_FinancialGallery.png" />
+<figcaption>
+<p><span class="caption-text">Financial gallery</span><a class="headerlink" href="#id17" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Filters can be applied to the list.</p>
+<span class="target" id="index-8"></span></section>
+<section id="financial-catalog">
+<span id="catalog"></span><span id="index-9"></span><h2>Financial catalog<a class="headerlink" href="#financial-catalog" title="Permalink to this heading">¶</a></h2>
+<p>Catalog defines items (products or services) that can be obects of a quotation, an order or a bill.</p>
+<p>This is used on the quotation lines, order lines and invoice lines.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#manual-billing"><span class="std std-ref">Invoice lines</span></a>.</p>
+</div>
+</section>
+<section id="revenue-managment">
+<span id="index-10"></span><span id="id5"></span><h2>Revenue Managment<a class="headerlink" href="#revenue-managment" title="Permalink to this heading">¶</a></h2>
+<p>You can manage the turnover of the project at completion, and its consistency with the orders and invoices on the project.</p>
+<p>A “Revenue management” section is visible on the projects screen in the Progress section after activation of the “Revenue management” module under the financial section.</p>
+<p><strong>The following information is then accessible:</strong></p>
+<ul class="simple">
+<li><p>The turnover at completion corresponds to the total amount that will be invoiced for this project.</p></li>
+<li><p>Display of the sum of the project’s customer orders</p></li>
+<li><p>Display of the sum of customer invoices for the project</p></li>
+<li><p>Method of valuation of turnover</p></li>
+</ul>
+<p class="rubric">Method of valuation of turnover</p>
+<p>The turnover is fixed then it is entered manually</p>
+<p>The turnover is Variable over time depending on the activities, it will be calculated from the turnover of all the activities (not canceled) of the project and possibly of the sub-projects. In this case the activities will also have a turnover field to feed.</p>
+<p>Projects with sub-projects will systematically have a “Variable” valuation mode, this mode will automatically consolidate the turnover of the sub-projects on the parent project.</p>
+<p class="rubric">Consistency with project orders and invoices</p>
+<p>For projects with sub-projects, the sum of orders and invoices will consolidate the data of the sub-projects, that is to say, it will integrate the orders and invoices of the sub-projects in addition to the orders and invoices possibly on the project itself.</p>
+<p>The sum of the orders is in red if it is lower than the turnover.
+The sum of the invoices is in red if it is greater than the turnover.</p>
+<p class="rubric">Raise alerts</p>
+<p>You can create definable alerts for projects in the “unit indicators” section:</p>
+<ul class="simple">
+<li><p>Revenue upper than command’s sums</p></li>
+<li><p>Revenue less than invoices sums</p></li>
+</ul>
+<p>In order to integrate this evolution into the community version, without disturbing the users who do not need this functionality, we will condition the behavior:</p>
+<p>In order to transcribe the current use of the validated cost, a <a class="reference internal" href="GlobalParameters.html#gp-revenue-work-unit"><span class="std std-ref">global parameter</span></a> will determine whether the turnover is automatically reported as validated cost on activities and projects.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This functionality is only visible if the Revenue Management module is activated via the access rights menu in <a class="reference internal" href="AccessRights.html#module-management"><span class="std std-ref">Modules management</span></a>.</p>
+<p>The Revenue Managment is a sub-module of the financial module.</p>
+<p>This new module will activate / desactivate the management of OUs and everything related to the management of OUs (see below).</p>
+<p>This module will be disabled by default.</p>
+</div>
+</section>
+<section id="work-units-catalog">
+<span id="work-unit-catalog"></span><span id="index-11"></span><h2>Work units catalog<a class="headerlink" href="#work-units-catalog" title="Permalink to this heading">¶</a></h2>
+<p>You can define catalogs of work units, made up of work units, themselves broken down into several complexities.</p>
+<p>This functionality will only be accessible if the <a class="reference internal" href="AccessRights.html#module-management"><span class="std std-ref">Revenue management</span></a> module is activated.</p>
+<p>The concept of Project on the catalog is not essential, it is present to guarantee the management of rights.</p>
+<figure class="align-default" id="id18">
+<img alt="Work units Catalog screen" src="_images/INCOMES_ZONE_WorkUnitCatalog.png" />
+<figcaption>
+<p><span class="caption-text">Work units Catalog screen</span><a class="headerlink" href="#id18" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>You can assign any catalog to a project, whatever its position in the structure, while maintaining the notion of inheritance on the sub-projects.</p>
+<ul class="simple">
+<li><p>A “catalog used” field on the projects screen is available.</p></li>
+<li><p>The OUs proposed on the activities of the project will systematically be the OUs of this catalogue.</p></li>
+<li><p>When the “catalog used” field is populated (entered or edited) for a project, all subprojects (recursively) that had the same initial catalog value (or no value) are assigned the new catalog value.</p></li>
+<li><p>The level of recursion stops at the first project that does not respect this rule.</p></li>
+<li><p>When a catalog is created or modified to be attached to a project then the “catalog used” field of the project is updated, and the update is passed on to the sub-projects.</p></li>
+</ul>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Modification rights are defined on the catalog by filling in the project field.</p>
+<p>Only profiles who have the right to modify the project and the catalog will be able to modify it, regardless of the project on which it is used.</p>
+</div>
+<section id="create-a-catalog">
+<h3>Create a catalog<a class="headerlink" href="#create-a-catalog" title="Permalink to this heading">¶</a></h3>
+<p>In the Finance menu Incomes section Catalog of work unit screen.</p>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconNew.png"><img alt="New" src="_images/iconNew.png" style="width: 19.2px; height: 19.2px;" /></a> to create a new catalog</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>If the complexity number is not filled in, you will not be able to add details in the work order units.</p>
+<p>The default number set in the <a class="reference internal" href="GlobalParameters.html#gp-revenue-work-unit"><span class="std std-ref">global parameters</span></a> is applied.</p>
+</div>
+<p>Then fill in the fields with the name of the complexities managed by this catalog.</p>
+<p>Click on <a class="reference internal" href="_images/iconAdd.png"><img alt="Add" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> to open the pop-up windows and complete the complexity details.</p>
+<p>You can fill in the following fields for each OU:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Reference</p></li>
+<li><p>Description</p></li>
+<li><p>Incomes</p></li>
+<li><p>Deliverable</p></li>
+<li><p>validity date</p></li>
+</ul>
+</div></blockquote>
+<p>The description, incoming and deliverable fields are text editors in inline mode. Edit buttons appear when the cursor is in the field.</p>
+<figure class="align-default" id="id19">
+<img alt="details complexities" src="_images/INCOMES_BOX_Detailscompexity.png" />
+<figcaption>
+<p><span class="caption-text">Pop-up of the complexities details</span><a class="headerlink" href="#id19" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>For each complexity of the OU, we can define:</p>
+<ul class="simple">
+<li><p>Validated workload - 0 is allowed</p></li>
+<li><p>Price (CA) of complexity</p></li>
+<li><p>Duration in working days - optional</p></li>
+</ul>
+<p>It is not mandatory to fill in all the complexities for an OU.</p>
+<figure class="align-default" id="id20">
+<img alt="Revenue section" src="_images/INCOMES_ZONE_RevenueSectionActivity.png" />
+<figcaption>
+<p><span class="caption-text">Revenue section on the activity screen</span><a class="headerlink" href="#id20" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="phasing">
+<h3>Phasing<a class="headerlink" href="#phasing" title="Permalink to this heading">¶</a></h3>
+<p>The goal is to be able to provide the technical part, the project management part, the quality part for example on work units.</p>
+<figure class="align-default" id="id21">
+<img alt="Phasing on work unit catalog" src="_images/INCOMES_ZONE_Phasing.png" />
+<figcaption>
+<p><span class="caption-text">Phasing on work unit catalog</span><a class="headerlink" href="#id21" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>You can enter percentages that will express % of the OU load at the catalog level and not at the OU level.</p>
+<p>Phasing at the catalog level avoids an entry for each OU and each OU complexity.</p>
+<p>You can enter as many lines as desired.</p>
+</section>
+<section id="use-of-a-catalog-of-work-units">
+<h3>Use of a catalog of work units<a class="headerlink" href="#use-of-a-catalog-of-work-units" title="Permalink to this heading">¶</a></h3>
+<p>You can select an OU on an activity, only if the project has a Variable CA valuation mode.</p>
+<p>We will inform the OU, its complexity and the number of units:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Entering the OU in the list of OUs in the catalog linked to the project. This will dynamically populate the list of OU complexities by displaying only those that have a charge and a price that is not zero but may be equal to zero.</p></li>
+<li><p>Entering complexity</p></li>
+<li><p>Entering the quantity number of work units</p></li>
+</ul>
+</div></blockquote>
+<p>An activity will only be associated with a single OU / Complexity pair.</p>
+<p>If OU is selected, complexity and quantity are mandatory, otherwise they are prohibited, i.e. not enterable.</p>
+<p>The UO / Complexity / Quantity data will make it possible to value:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>The validated load = load of the OU / Complexity x Quantity</p></li>
+<li><p>The turnover of the activity = price of the OU / Complexity x Quantity</p></li>
+<li><p>The validated duration = duration of the OU / Complexity x Quantity</p></li>
+</ul>
+</div></blockquote>
+<p>Entering the validated duration will automatically calculate the validated end date if the validated start date is entered.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This will only determine the planned duration of the activity if it is in “fixed duration” planning mode.</p>
+<p>Otherwise, the schedule will determine the planned duration from the assigned load and the availability of assigned resources.</p>
+</div>
+<p>These 3 data (validated load, validated duration, CA) will then go into read-only since they are calculated.</p>
+<ul class="simple">
+<li><p>If the OU’s expiry date has passed, an alert will be displayed on the activity, without this blocking the recording of the activity.</p></li>
+<li><p>If the global parameter “Report of turnover on the validated cost of activities” is activated, the turnover entered or entered through the OU is recopied in the validated cost of the activity.</p></li>
+<li><p>You can modify the catalog on the data of an OU, a Complexity or a Quantity however it is not possible to modify a unit of work from the catalog, if it is already used on an activity.</p></li>
+<li><p>If resources are assigned, application of the variation in the assigned load, in proportion to the load assigned to each resource and updating of the “still to do” accordingly (without ever being able to become negative).</p></li>
+<li><p>You can delete the catalog on the data of an OU, a Complexity or a Quantity however it is not possible to delete a unit of work from the catalog, if it is already used on an activity.</p></li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>In the case of an OU whose complexity generates 5 days of load with a quantity of 1.</p>
+<p>if A is assigned for 2 days and B assigned for 3 days</p>
+<p>if we double the quantity (and therefore the validated load) A is then assigned 4 days and B is assigned 6 days.</p>
+</div>
+<span class="target" id="index-12"></span></section>
+</section>
+<section id="work-commands">
+<span id="orderedwork"></span><span id="index-13"></span><h2>Work commands<a class="headerlink" href="#work-commands" title="Permalink to this heading">¶</a></h2>
+<p>The services ordered use the work unit catalog functionality.</p>
+<p>You must “activate ordered services” in the <a class="reference internal" href="GlobalParameters.html#gp-revenue-work-unit"><span class="std std-ref">global parameters</span></a></p>
+<p>Services can be recorded directly on client orders or on the dedicated work commands screen.</p>
+<section id="on-the-client-order">
+<h3>On the client order<a class="headerlink" href="#on-the-client-order" title="Permalink to this heading">¶</a></h3>
+<p>On the client orders screen, you must enter the project that will use the catalog.</p>
+<p>Only this project will be able to use these work units.</p>
+<p>If the project has sub-projects, although the catalog is inherited, the work units will only be accessible to the project linked to the order.</p>
+<figure class="align-default" id="id22">
+<img alt="Ordered work on activities" src="_images/INCOMES_ZONE_OrderedWorkCommand.png" />
+<figcaption>
+<p><span class="caption-text">Command work on activities</span><a class="headerlink" href="#id22" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Click on <a class="reference internal" href="_images/iconAdd.png"><img alt="Add" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> to add a new OU.</p>
+<p>Click on <a class="reference internal" href="_images/iconOrganization.png"><img alt="Work unit mother" src="_images/iconOrganization.png" style="width: 19.2px; height: 19.2px;" /></a> to add a mother line for the OU.</p>
+<figure class="align-default" id="id23">
+<img alt="Add a work unit on command" src="_images/INCOMES_BOX_AddUniteWork.png" />
+<figcaption>
+<p><span class="caption-text">Add a work unit on command</span><a class="headerlink" href="#id23" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>You enter the work unit from the catalog of the project linked to the order that you wish to use.</p>
+<p>Its complexity as well as its quantity.</p>
+<p>The amount fields are automatically calculated based on the information in the catalog.</p>
+<section id="billing">
+<h4>Billing<a class="headerlink" href="#billing" title="Permalink to this heading">¶</a></h4>
+<p>When copying your order to an invoice, the table of ordered services is also created taking into account the quantity already invoiced.</p>
+<ul class="simple">
+<li><p>The sum of the total invoiced quantity (including the current and already invoiced quantity) must not exceed the ordered quantity.</p></li>
+<li><p>Selecting a work order displays the work unit, complexity, unit quantity and quantities (stored on the work order line).</p></li>
+<li><p>The amount is calculated = invoiced quantity x unit amount.</p></li>
+<li><p>When updating, the work order reference cannot be changed.</p></li>
+<li><p>When data is inserted/updated, the sum of the data on the work order is updated.</p></li>
+</ul>
+</section>
+</section>
+<section id="on-the-activities">
+<h3>On the activities<a class="headerlink" href="#on-the-activities" title="Permalink to this heading">¶</a></h3>
+<p>When you have an effective order on an activity project, you can link the ordered OUs to the activities of the same project.</p>
+<p>The catalogs are inherited, but the OUs are accessible only to the activities of the project linked to the order.</p>
+<figure class="align-default" id="id24">
+<img alt="Work Command on activities" src="_images/INCOMES_ZONE_UOempty.png" />
+<figcaption>
+<p><span class="caption-text">Work command on activities</span><a class="headerlink" href="#id24" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>A window allows you to add an OU from the catalog linked to the project.</p>
+<p>If an order exists for this OU (or+complexity) on this project, then you can select the order in the corresponding field.</p>
+<p>Once linked, the order will follow the completion of the activities to update the Work Units used.</p>
+<figure class="align-default" id="id25">
+<img alt="Work Command on activities" src="_images/INCOMES_BOX_AddUniteWorkActivity.png" />
+<figcaption>
+<p><span class="caption-text">Work command on activities</span><a class="headerlink" href="#id25" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<ul class="simple">
+<li><p>The quantity must not be less than the quantity already invoiced,</p></li>
+<li><p>The quantity must not be less than the quantity already carried out</p></li>
+<li><p>If there is a quantity performed or invoiced, the unit of work and the complexity cannot be changed</p></li>
+</ul>
+</div>
+<figure class="align-default" id="id26">
+<img alt="Work Command on activities" src="_images/INCOMES_ZONE_OrderedWork.png" />
+<figcaption>
+<p><span class="caption-text">Work command on activities</span><a class="headerlink" href="#id26" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>When an activity is linked to an OU of the order, the OU table of the order is updated to indicate the number of OUs that were used on your activity.</p>
+<figure class="align-default" id="id27">
+<img alt="OU updated in order table" src="_images/INCOMES_ZONE_UOUsed.png" />
+<figcaption>
+<p><span class="caption-text">OU updated in client order table</span><a class="headerlink" href="#id27" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="on-the-work-command-screen">
+<h3>On the work command screen<a class="headerlink" href="#on-the-work-command-screen" title="Permalink to this heading">¶</a></h3>
+<p>This screen allows you to view all the units of works ordered, all projects and catalogs combined.</p>
+<p>A dedicated screen allows you to treat the units of works ordered as a separate element and benefit from the filter functions.</p>
+<figure class="align-default" id="id28">
+<img alt="Work Command on activities" src="_images/INCOMES_SCR_WorkCommand.png" />
+<figcaption>
+<p><span class="caption-text">Work command on activities</span><a class="headerlink" href="#id28" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>You will find the same information as on your customer order but in a generalized way.</p>
+</section>
+<section id="acceptance">
+<h3>Acceptance<a class="headerlink" href="#acceptance" title="Permalink to this heading">¶</a></h3>
+<p>Accepted services are linked to Ordered services.</p>
+<p>This involves integrating the concept of Client Acceptance. The objective is to be able to define and track these in terms of dates and content.</p>
+<p>Click on <a class="reference internal" href="_images/iconNew.png"><img alt="New" src="_images/iconNew.png" style="width: 19.2px; height: 19.2px;" /></a> to create a new acceptance.</p>
+<p>In the detail tab, click on <a class="reference internal" href="_images/iconAdd.png"><img alt="Add" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> to add the relevant work units of your order.</p>
+<figure class="align-default" id="id29">
+<img alt="Acceptance on OU" src="_images/INCOMES_BOX_Acceptance.png" />
+<figcaption>
+<p><span class="caption-text">Acceptance on OU</span><a class="headerlink" href="#id29" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The current accepted column is filled in.</p>
+<figure class="align-default" id="id30">
+<img alt="Current accepted" src="_images/INCOMES_ZONE_AcceptanceCurrent.png" />
+<figcaption>
+<p><span class="caption-text">Current accepted</span><a class="headerlink" href="#id30" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>In the Progress tab, enter the client acceptance date so that the accepted column is displayed.</p>
+<figure class="align-default" id="id31">
+<img alt="Accepted" src="_images/INCOMES_ZONE_AcceptanceComplete.png" />
+<figcaption>
+<p><span class="caption-text">Accepted</span><a class="headerlink" href="#id31" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>On the client order, you find the consolidation of the acceptance of the OUs.</p>
+<figure class="align-default" id="id32">
+<img alt="OU accepted on Client Order" src="_images/INCOMES_BOX_AcceptanceClientOrder.png" />
+<figcaption>
+<p><span class="caption-text">OU accepted on Client Order</span><a class="headerlink" href="#id32" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+<section id="client-contract">
+<span id="index-14"></span><span id="id6"></span><h2>Client contract<a class="headerlink" href="#client-contract" title="Permalink to this heading">¶</a></h2>
+<p>ProjeQtOr gives you the possibility to precisely manage and monitor your customer contracts.</p>
+<p>The customer contract is necessarily linked to a customer.</p>
+<p>A Gantt chart view is available to visualize your contracts graphically.</p>
+<figure class="align-default" id="id33">
+<img alt="Client contract screen" src="_images/INCOMES_SCR_ClientContrat.png" />
+<figcaption>
+<p><span class="caption-text">Client contract screen</span><a class="headerlink" href="#id33" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<section id="treatment">
+<h3>Treatment<a class="headerlink" href="#treatment" title="Permalink to this heading">¶</a></h3>
+<p>Follow the state, the progress of your contract in this section.</p>
+<p class="rubric">Responsible</p>
+<ul class="simple">
+<li><p>Choose a responsible</p></li>
+<li><p>Its initials are displayed on the Gantt chart of contracts</p></li>
+</ul>
+<p class="rubric">Workflow</p>
+<ul class="simple">
+<li><p>The workflow is based on the default workflow.</p></li>
+<li><p>You can change or modify the current workflow.</p></li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a></p>
+</div>
+<p class="rubric" id="renewal-incomes">Renewal</p>
+<p>Defines the behavior of the renewal of a contract at the end of the initially planned duration</p>
+<ul class="simple">
+<li><p><strong>Never:</strong> the contract will never be renewed</p></li>
+<li><p><strong>Tacit:</strong> the contract will be renewed if there is no termination</p></li>
+<li><p><strong>Express:</strong> the contract is renewed and is the subject of a written or verbal act</p></li>
+</ul>
+<p class="rubric">States</p>
+<ul class="simple">
+<li><p><strong>In progress:</strong> Date on which the contract is taken over. Effective. This date can be entered manually or by going to the Assigned state of the workflow</p></li>
+<li><p><strong>Done:</strong> Date the contract ends.</p></li>
+<li><p><strong>Closed:</strong> Date on which the contract was closed.</p></li>
+<li><p><strong>Cancelled:</strong> Cancellation Date</p></li>
+</ul>
+</section>
+<section id="client-contract-gantt-chart">
+<span id="client-gantt"></span><h3>Client contract Gantt chart<a class="headerlink" href="#client-contract-gantt-chart" title="Permalink to this heading">¶</a></h3>
+<p>In addition to the contract management screen (list and details area), you can view your contracts in a time view on a Gantt chart. This is the “customer contract calendar”</p>
+<p>Each bar representing the different contracts, going from the start date to the end date of the contract.</p>
+<p>Notice dates and due dates are displayed as milestones.</p>
+<p>Gantt bars for customer contracts turn red when the due date is higher than the end of contract date.</p>
+<p>No calculation is made. This is an indication to show an inconsistency.</p>
+<figure class="align-default" id="id34">
+<img alt="Client contract gantt chart screen" src="_images/INCOMES_SCR_ClientContratGANTT.png" />
+<figcaption>
+<p><span class="caption-text">Client contract Gantt chart screen</span><a class="headerlink" href="#id34" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Incomes</a><ul>
+<li><a class="reference internal" href="#client-quotation">Client Quotation</a></li>
+<li><a class="reference internal" href="#client-orders">Client Orders</a></li>
+<li><a class="reference internal" href="#client-invoicing-terms">Client invoicing terms</a></li>
+<li><a class="reference internal" href="#client-invoices">Client invoices</a><ul>
+<li><a class="reference internal" href="#invoice-type">Invoice Type</a><ul>
+<li><a class="reference internal" href="#at-terms">At terms</a></li>
+<li><a class="reference internal" href="#on-produced-work">On produced work</a></li>
+<li><a class="reference internal" href="#on-capped-produced-work">On capped produced work</a></li>
+<li><a class="reference internal" href="#manual">Manual</a></li>
+<li><a class="reference internal" href="#not-billed">Not billed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#invoice-lines">Invoice lines</a><ul>
+<li><a class="reference internal" href="#bill-line-at-terms">Bill line “At terms”</a></li>
+<li><a class="reference internal" href="#bill-line-on-produced-work-on-capped-produced-work">Bill line On produced work &amp; On capped produced work</a></li>
+<li><a class="reference internal" href="#invoice-line-manual-billing">Invoice line Manual billing</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#client-payments">Client Payments</a></li>
+<li><a class="reference internal" href="#activities-prices">Activities prices</a></li>
+<li><a class="reference internal" href="#financial-gallery">Financial Gallery</a></li>
+<li><a class="reference internal" href="#financial-catalog">Financial catalog</a></li>
+<li><a class="reference internal" href="#revenue-managment">Revenue Managment</a></li>
+<li><a class="reference internal" href="#work-units-catalog">Work units catalog</a><ul>
+<li><a class="reference internal" href="#create-a-catalog">Create a catalog</a></li>
+<li><a class="reference internal" href="#phasing">Phasing</a></li>
+<li><a class="reference internal" href="#use-of-a-catalog-of-work-units">Use of a catalog of work units</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#work-commands">Work commands</a><ul>
+<li><a class="reference internal" href="#on-the-client-order">On the client order</a><ul>
+<li><a class="reference internal" href="#billing">Billing</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#on-the-activities">On the activities</a></li>
+<li><a class="reference internal" href="#on-the-work-command-screen">On the work command screen</a></li>
+<li><a class="reference internal" href="#acceptance">Acceptance</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#client-contract">Client contract</a><ul>
+<li><a class="reference internal" href="#treatment">Treatment</a></li>
+<li><a class="reference internal" href="#client-contract-gantt-chart">Client contract Gantt chart</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="Expenses.html"
+                          title="previous chapter">Expenses</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="Financial.html"
+                          title="next chapter">Financial situation</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="Financial.html" title="Financial situation"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="Expenses.html" title="Expenses"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Incomes</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

@@ -2477,6 +2477,20 @@ qui fait alors sauter la file.
     tuile) -- reste : appels réels aux référentiels et import OSM à
     confirmer en déploiement ; autres objets à positionner (tickets,
     documents) au-delà des géolocalisations.
+68. ProjeQtOr — refonte d'ergonomie du fork (2026-09-11, demandé avec
+    #476). « Réutiliser et contribuer avec une ergonomie revue à ma
+    façon ». Le socle est livré en #476 (sources V13.1.0 vendorées
+    TELLES QUELLES dans projeqtor/src, tuile hub visible de tous,
+    MariaDB dédié, LDAP du hub, page publique via le frontal).
+    Reste à faire, par itérations à cadrer ensemble : recueillir les
+    irritants d'ergonomie un par un ; commencer par les thèmes
+    (mécanisme natif de ProjeQtOr) avant de toucher aux vues Dojo ;
+    chaque modification doit rester visible via `diff -r` contre
+    l'archive upstream (politique de fork, projeqtor/README.md) pour
+    garder merges upstream et contributions possibles. Sujets connexes
+    déjà identifiés : profil ProjeQtOr par défaut à la première
+    connexion LDAP ; usage éventuel du groupe Keycloak `projeqtor` pour
+    filtrer ; veille PHP 8.4 (extension imap).
 
 ## Bastion si-proxy (2026-09-08, #452) -- réservé freg
 Depuis le Mac, via le hub : shell sur le host de la VM (sous freg),

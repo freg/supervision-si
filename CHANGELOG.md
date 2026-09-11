@@ -1,3 +1,59 @@
+## 2026-09-11 — Tuile ProjeQtOr : fork de ProjeQtOr V13.1.0 intégré au hub (livraison #476)
+
+Demandé : « intégrer au hub une tuile de fork de projeqtor — réutiliser
+et contribuer avec une ergonomie revue à ma façon », avec un groupe
+Keycloak `projeqtor` en plus, une tuile visible de tous et une page
+publique. Cadrage validé ensemble avant de coder (4 choix : sources
+vendorées dans le dépôt, MariaDB dédié, LDAP du hub, visibilité tous).
+
+- **Nouveau module `projeqtor/`** : sources officielles V13.1.0
+  vendorées TELLES QUELLES dans `projeqtor/src/` (258 Mo, sha256 du zip
+  consigné dans `projeqtor/README.md`) — base de comparaison propre pour
+  les retouches d'ergonomie à venir et les merges upstream. PHP 8.3
+  (pas 8.4 : l'extension `imap` requise a quitté le noyau).
+- **`projeqtor/Dockerfile` + `docker-entrypoint.sh`** : Apache/PHP avec
+  les extensions requises (gd, imap, ldap, mbstring, mysqli, pdo_mysql,
+  xml, zip, curl) ; `tool/parametersLocation.php` écrit au build →
+  paramètres HORS portée web (`/data/config/parameters.php`, généré au
+  premier démarrage depuis `.env`, jamais régénéré ensuite) ; attente
+  bornée de la base ; `parameters.php` inclut les `paramLdap_*` du hub
+  (uid sous `LDAP_USERS_DN`) quand `LDAP_URL` est renseignée.
+- **Base MariaDB 11.4 dédiée** (`projeqtor-db`, volume
+  `projeqtor_db_data`, aucun port publié) — première MariaDB du stack
+  principal. Mots de passe générés par `scripts/generate-env.sh`
+  (deux nouvelles valeurs distinctes, voir ENV_CHANGELOG.md).
+- **Routage** : `/projeqtor/` dans `tls-proxy/render_nginx_conf.py`
+  (type "spa", préfixe conservé — le docroot Apache contient le dossier
+  `projeqtor/`). ⚠️ `./gateway/scripts/run.sh restart tls-proxy`
+  requis après le premier déploiement (piège #151).
+- **Tuile hub** : `hub/src/lib.js` `buildFrontsList` gagne
+  `projeqtorUrl` (← `VITE_PROJEQTOR_URL`) — visible de TOUS, sans
+  condition de rôle, `embeddable: true` (onglet de la coquille).
+- **Groupe Keycloak `projeqtor`** (+ rôle éponyme, mapping
+  `GROUP_TO_ROLE` hub) : créé pour les filtrages futurs, ne filtre
+  encore rien.
+- **Page publique** : `/projeqtor/` passe par le frontal public comme
+  le reste de la passerelle — documenté avec ses conséquences de
+  sécurité dans `docs/acces-public-frontal.md` § 6 (le compte intégré
+  admin/admin doit être changé immédiatement).
+- `.env.example` (section PROJEQTOR_*), `ENV_CHANGELOG.md`,
+  `.gitignore` (`projeqtor/data/*`), `hub/README.md`, BACKLOG (item :
+  refonte d'ergonomie du fork).
+
+**Vérifié ici** : 17 tests fonctionnels de l'entrypoint (rendu du
+`parameters.php`, échappement, parsing `ldap://`/`ldaps://` ± port,
+idempotence, fail-fast sans mot de passe) ; rendu nginx `--check`
+(route présente) ; 7 tests Node `buildFrontsList`/`groupsToRoles` ;
+non-régression des 29 fichiers de tests du hub ; `generate-env.sh` +
+`check-env.py` sur une copie complète (aucun avertissement nouveau) ;
+validation structurelle YAML du compose (63 services) et JSON du realm
+(9 groupes).
+**NON vérifié ici** (pas de Docker dimensionné ni navigateur) : build
+de l'image et démarrage réels, initialisation de la base au premier
+accès, authentification LDAP réelle, embarquabilité iframe dans la
+coquille, comportement derrière le double proxy du frontal public.
+Procédure de premier démarrage : `projeqtor/README.md`.
+
 ## 2026-09-10 — Premier Mac réel : plugin network-neighbors porté macOS, bruit launchd `-9` écarté (correctif post-#475, à l'occasion d'une livraison)
 
 Premier hôte macOS réel enrôlé (install-macos.sh validé de bout en bout).

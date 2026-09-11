@@ -1,0 +1,755 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Incomes &#8212; Documentation ProjeQtOr User guide 13.1</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/translations.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Recherche" href="search.html" />
+    <link rel="next" title="Situation financière" href="Financial.html" />
+    <link rel="prev" title="Dépenses" href="Expenses.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="Financial.html" title="Situation financière"
+             accesskey="N">suivant</a> |</li>
+        <li class="right" >
+          <a href="Expenses.html" title="Dépenses"
+             accesskey="P">précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Incomes</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="incomes">
+<span id="index-0"></span><span id="id1"></span><h1>Recettes<a class="headerlink" href="#incomes" title="Lien permanent vers cette rubrique">¶</a></h1>
+<p>Suivez avec le menu « Recettes », les mouvements financiers entrants et vos clients ainsi que tous les éléments qui gravitent autour d’eux, tels que les contrats, devis, factures, catalogues…</p>
+<section id="client-quotation">
+<span id="quotation"></span><span id="index-1"></span><span id="id2"></span><h2>Devis client<a class="headerlink" href="#client-quotation" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Un devis est une estimation de proposition envoyée au client pour obtenir son approbation sur ce qui doit être fait et ce qu’il devra payer.</p>
+<p>Sur le formulaire de devis, vous pouvez enregistrer toutes les informations sur la proposition envoyée, y compris en joignant un fichier décrivant complètement la proposition avec les détails des conditions générales.</p>
+<p>Un devis peut être copié en commande lorsque le document correspondant est reçu en tant qu’accord client.</p>
+<p>Les lignes de facture permettent de détailler le devis.</p>
+<div class="admonition tip">
+<p class="admonition-title">Astuce</p>
+<p>Le champ <strong>client</strong> est automatiquement renseigné si le projet sélectionné sur le devis est lié à un client.</p>
+</div>
+</section>
+<section id="client-orders">
+<span id="orders"></span><span id="index-2"></span><span id="id3"></span><h2>Commandes client<a class="headerlink" href="#client-orders" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Une commande (aussi appelée ordre) est le déclencheur pour commencer le travail.</p>
+<p>Sur le formulaire de commande, vous pouvez enregistrer toutes les informations de la commande reçue.</p>
+<p class="rubric">Travail planifié et coût budgété du projet</p>
+<p>Le travail planifié (champ : « travail validé ») du projet sera initialisé avec la somme du travail total de toutes les commandes.</p>
+<p>Le coût budgété (champ : « coût validé ») du projet sera initialisé avec la somme du montant total hors taxes de toutes les commandes.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="CommonSections.html#progress-section"><span class="std std-ref">Section Avancement</span></a></p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Astuce</p>
+<p>Le champ <strong>client</strong> est automatiquement renseigné si le projet sélectionné sur le devis est lié à un client.</p>
+</div>
+<p class="rubric">Comportement des champs</p>
+<ul class="simple">
+<li><p><strong>HT :</strong> Montant hors taxes : la valeur de la colonne est automatiquement mise à jour avec la somme des montants des lignes de facture.</p></li>
+<li><p><strong>Taxe :</strong> Taxe applicable. Si la taxe applicable n’est pas définie, la taxe définie pour le client sélectionné est utilisée.</p></li>
+<li><p><strong>TTC :</strong> Montant toutes taxes comprises.</p></li>
+<li><p><strong>Travail</strong> : Jours de travail correspondant à la commande. La valeur de la colonne est automatiquement mise à jour avec la somme des quantités des lignes de facture.</p></li>
+<li><p>Les valeurs des colonnes « HT » et « Travail » sont automatiquement mises à jour avec la somme des lignes de facture avec les cases à cocher d’avenant sélectionnées.</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Avertissement</p>
+<p><strong>Type d’activité :</strong> l’activité ne doit être créée qu’après approbation.</p>
+</div>
+</section>
+<section id="client-invoicing-terms">
+<span id="client-billing-term"></span><span id="term"></span><span id="index-3"></span><h2>Conditions de facturation client<a class="headerlink" href="#client-invoicing-terms" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Un terme est un déclencheur planifié pour la facturation.</p>
+<p>Vous pouvez définir autant de termes que vous le souhaitez pour définir le calendrier de facturation.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Les termes sont obligatoires pour facturer un projet « Prix fixe ».</p>
+<p>Un terme ne peut être utilisé qu’une seule fois. Le nom de la facture sera affiché.</p>
+</div>
+<p class="rubric">Un terme a des déclencheurs</p>
+<ul class="simple">
+<li><p>Vous pouvez lier les activités qui doivent être facturées à ce terme.</p></li>
+<li><p>Un résumé des activités est affiché pour le montant validé et planifié et la date de fin.</p></li>
+<li><p>Les valeurs validées et planifiées jouent le rôle de rappel.</p></li>
+<li><p>Vous pouvez utiliser ces valeurs pour définir le montant réel et la date.</p></li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Astuce</p>
+<p><strong>Champs Montant et Date (Planifié et Validé)</strong></p>
+<p>Lorsqu’un déclencheur est saisi, les valeurs planifiées et validées sont automatiquement mises à jour avec la somme et le maximum des montants déclenchés.</p>
+</div>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter un déclencheur d’élément.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconDelete.png"><img alt="Supprimer" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> pour supprimer un déclencheur d’élément.</p></li>
+</ul>
+</section>
+<section id="client-invoices">
+<span id="client-bill"></span><span id="bill"></span><h2>Factures client<a class="headerlink" href="#client-invoices" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Une facture est une demande de paiement pour le travail livré.</p>
+<p>La facturation dépendra du type de facture défini pour le projet via le type de projet.</p>
+<figure class="align-center" id="id7">
+<img alt="Factures clients" src="_images/INCOMES_SCR_InvoicesClient.png" />
+<figcaption>
+<p><span class="caption-text">Factures clients</span><a class="headerlink" href="#id7" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>ProjeQtOr est compatible avec Factur-X depuis la version 14.5. Vous pouvez importer ou exporter vos factures au format PDF - XML.</p>
+</div>
+<section id="invoice-type">
+<span id="billing-types"></span><h3>Type de facture<a class="headerlink" href="#invoice-type" title="Lien permanent vers cette rubrique">¶</a></h3>
+<figure class="align-center" id="id8">
+<img alt="_images/INCOMES_CAPT_SchemaBill.png" src="_images/INCOMES_CAPT_SchemaBill.png" />
+<figcaption>
+<p><span class="caption-text">Schéma de facturation</span><a class="headerlink" href="#id8" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Chaque facture est liée à un projet, un projet a un type de projet, et un type de projet est lié à un type de facturation.</p>
+<p>Ainsi le type de facturation est automatiquement défini pour le projet sélectionné.</p>
+<p>Le type de facturation influencera le format des lignes de facture.</p>
+<section id="at-terms">
+<h4>À l’échéance<a class="headerlink" href="#at-terms" title="Lien permanent vers cette rubrique">¶</a></h4>
+<ul class="simple">
+<li><p>Un <a class="reference internal" href="#term"><span class="std std-ref">terme</span></a> doit être défini pour générer la facture, généralement en suivant un calendrier de facturation.</p></li>
+<li><p>Utilisé par exemple pour : <strong>les projets à prix fixe</strong>.</p></li>
+</ul>
+</section>
+<section id="on-produced-work">
+<h4>Sur le travail produit<a class="headerlink" href="#on-produced-work" title="Lien permanent vers cette rubrique">¶</a></h4>
+<ul class="simple">
+<li><p>Aucun terme n’est nécessaire.</p></li>
+<li><p>La facturation sera calculée sur la base du travail produit par les ressources sur les <a class="reference internal" href="#activity-price"><span class="std std-ref">activités</span></a> sélectionnées et sur une période sélectionnée.</p></li>
+<li><p>Utilisé par exemple pour <strong>les projets en régie</strong>.</p></li>
+</ul>
+</section>
+<section id="on-capped-produced-work">
+<h4>Sur le travail produit plafonné<a class="headerlink" href="#on-capped-produced-work" title="Lien permanent vers cette rubrique">¶</a></h4>
+<ul class="simple">
+<li><p>Aucun terme n’est nécessaire.</p></li>
+<li><p>La facturation sera calculée sur la base du travail produit par les ressources sur les <a class="reference internal" href="#activity-price"><span class="std std-ref">activités</span></a> sélectionnées et sur une période sélectionnée.</p></li>
+<li><p>En tenant compte du fait que la facturation totale ne peut pas dépasser le travail validé du projet.</p></li>
+<li><p>Utilisé par exemple pour <strong>les projets en régie plafonnée</strong>.</p></li>
+</ul>
+</section>
+<section id="manual">
+<h4>Manuel<a class="headerlink" href="#manual" title="Lien permanent vers cette rubrique">¶</a></h4>
+<ul class="simple">
+<li><p>La facturation est définie manuellement, sans lien avec l’activité du projet.</p></li>
+<li><p>Utilisé, par exemple pour <strong>tout type de projet où aucun lien avec l’activité n’est nécessaire</strong>.</p></li>
+</ul>
+</section>
+<section id="not-billed">
+<h4>Non facturé<a class="headerlink" href="#not-billed" title="Lien permanent vers cette rubrique">¶</a></h4>
+<ul class="simple">
+<li><p>Aucune facturation n’est possible pour ces types de projets.</p></li>
+<li><p>Utilisé, par exemple pour <strong>les projets internes et les projets administratifs</strong>.</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Avertissement</p>
+<p><strong>Rapport</strong></p>
+<p>Seules les factures avec au moins le statut « terminé » seront disponibles pour les rapports.</p>
+<p>Avant ce statut, elles sont considérées comme un brouillon.</p>
+</div>
+</section>
+</section>
+<section id="invoice-lines">
+<h3>Lignes de facture<a class="headerlink" href="#invoice-lines" title="Lien permanent vers cette rubrique">¶</a></h3>
+<figure class="align-center" id="id9">
+<img alt="Traitement" src="_images/INCOMES_ZONE_InvoiceLines.png" />
+<figcaption>
+<p><span class="caption-text">traitement des lignes de facture</span><a class="headerlink" href="#id9" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>La saisie pour chaque ligne de facture dépend du type de facturation.</p>
+<p>Une boîte de dialogue « ligne de facture » différente sera affichée selon le type de facturation.</p>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter une ligne de facture.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconBill.png"><img alt="Ajouter une ligne formatée" src="_images/iconBill.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter une ligne formatée selon le type de facturation.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconEdit.png"><img alt="Bouton modifier" src="_images/iconEdit.png" style="width: 19.2px; height: 19.2px;" /></a> pour modifier une ligne de facture existante.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconDelete.png"><img alt="Supprimer" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> pour supprimer la ligne de facture.</p></li>
+</ul>
+<section id="bill-line-at-terms">
+<h4>Ligne de facture « À l’échéance »<a class="headerlink" href="#bill-line-at-terms" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Les conditions de facturation client doivent être créées dans l’écran des conditions de facturation client pour être affichées dans la liste.</p>
+<figure class="align-default" id="id10">
+<img alt="Ajouter une ligne à l'échéance" src="_images/INCOMES_BOX_InvoiceLine-Terms.png" />
+<figcaption>
+<p><span class="caption-text">Ajouter une ligne à l’échéance</span><a class="headerlink" href="#id10" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Peut être modifié lors de la mise à jour.</p>
+<figure class="align-default" id="id11">
+<img alt="Ligne à l'échéance" src="_images/INCOMES_BOX_InvoiceLine-Terms_Table.png" />
+<figcaption>
+<p><span class="caption-text">Ligne à l’échéance</span><a class="headerlink" href="#id11" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="bill-line-on-produced-work-on-capped-produced-work">
+<h4>Ligne de facture Sur le travail produit &amp; Sur le travail produit plafonné<a class="headerlink" href="#bill-line-on-produced-work-on-capped-produced-work" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Sélectionnez la ressource dont vous souhaitez récupérer le travail et la période que vous souhaitez facturer</p>
+<figure class="align-default" id="id12">
+<img alt="Fenêtre contextuelle d'insertion de ligne pour une ressource et sur une période donnée" src="_images/INCOMES_BOX_InvoiceLine.png" />
+<figcaption>
+<p><span class="caption-text">Fenêtre contextuelle d’insertion de ligne pour une ressource et sur une période donnée</span><a class="headerlink" href="#id12" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Peut être modifié lors de la mise à jour.</p>
+<figure class="align-default" id="id13">
+<img alt="Récupération des informations de travail pour la ressource" src="_images/INCOMES_BOX_InvoiceLine_Table.png" />
+<figcaption>
+<p><span class="caption-text">Récupération des informations de travail pour la ressource</span><a class="headerlink" href="#id13" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="invoice-line-manual-billing">
+<span id="manual-billing"></span><h4>Ligne de facture Facturation manuelle<a class="headerlink" href="#invoice-line-manual-billing" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Pour la facturation manuelle, vous pouvez sélectionner une ligne du catalogue si vous en avez créé un au préalable.</p>
+<p>Le catalogue n’est pas obligatoire pour remplir une ligne</p>
+<p>Décrivez au moins la ligne de facture et saisissez le prix.</p>
+<p>L’unité à facturer est laissée au choix de l’utilisateur (jour, mois, pièce, lot, etc.)</p>
+<figure class="align-default" id="id14">
+<img alt="Facturation manuelle" src="_images/INCOMES_BOX_InvoiceLine-Manual.png" />
+<figcaption>
+<p><span class="caption-text">Facturation manuelle</span><a class="headerlink" href="#id14" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Peut être modifié lors de la mise à jour.</p>
+<figure class="align-default" id="id15">
+<img alt="Ligne de facture pour la facturation manuelle." src="_images/INCOMES_BOX_InvoiceLine-Manual_Table.png" />
+<figcaption>
+<p><span class="caption-text">Ligne de facture pour la facturation manuelle</span><a class="headerlink" href="#id15" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<span class="target" id="index-4"></span></section>
+</section>
+</section>
+<section id="client-payments">
+<span id="client-payment"></span><span id="index-5"></span><h2>Paiements client<a class="headerlink" href="#client-payments" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Permet de définir le paiement des factures.</p>
+<p>La facture garde la trace du paiement.</p>
+<figure class="align-default" id="id16">
+<img alt="Paiement client" src="_images/INCOMES_SCR_PaymentClient.png" />
+<figcaption>
+<p><span class="caption-text">Paiement client</span><a class="headerlink" href="#id16" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="activities-prices">
+<span id="activity-price"></span><span id="index-6"></span><h2>Prix des activités<a class="headerlink" href="#activities-prices" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Le prix d’activité définit le prix journalier pour les activités d’un <strong>type d’activité</strong> donné et d’un <strong>projet</strong> donné.</p>
+<p>Cela est utilisé pour calculer un montant de facturation pour le type de facturation <strong>Sur le travail produit</strong> et <strong>Sur le travail produit plafonné</strong>.</p>
+</section>
+<section id="financial-gallery">
+<span id="index-7"></span><span id="id4"></span><h2>Galerie financière<a class="headerlink" href="#financial-gallery" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>la galerie financière vous permet d’afficher sous forme de liste et par éléments, les différents devis clients, factures et commandes enregistrés dans ProjeQtOr, par date, client ou par type, facture partielle, finale et complète.</p>
+<p>Les pièces jointes sont affichées groupées par élément.</p>
+<p>Cliquez sur <a class="reference internal" href="_images/iconView.png"><img alt="Icône bouton suivi" src="_images/iconView.png" style="width: 19.2px; height: 19.2px;" /></a> pour afficher la liste des pièces jointes.</p>
+<figure class="align-default" id="id17">
+<img alt="galerie financière" src="_images/INCOMES_ZONE_FinancialGallery.png" />
+<figcaption>
+<p><span class="caption-text">Galerie financière</span><a class="headerlink" href="#id17" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Des filtres peuvent être appliqués à la liste.</p>
+<span class="target" id="index-8"></span></section>
+<section id="financial-catalog">
+<span id="catalog"></span><span id="index-9"></span><h2>Catalogue financier<a class="headerlink" href="#financial-catalog" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Le catalogue définit les éléments (produits ou services) qui peuvent être l’objet d’un devis, d’une commande ou d’une facture.</p>
+<p>Cela est utilisé sur les lignes de devis, les lignes de commande et les lignes de facture.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="#manual-billing"><span class="std std-ref">Lignes de facture</span></a>.</p>
+</div>
+</section>
+<section id="revenue-managment">
+<span id="index-10"></span><span id="id5"></span><h2>Gestion du chiffre d’affaires<a class="headerlink" href="#revenue-managment" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Vous pouvez gérer le chiffre d’affaires du projet à l’achèvement et sa cohérence avec les commandes et factures du projet.</p>
+<p>Une section « Gestion du chiffre d’affaires » est visible sur l’écran des projets dans la section Avancement après activation du module « Gestion du chiffre d’affaires » sous la section financière.</p>
+<p><strong>Les informations suivantes sont alors accessibles :</strong></p>
+<ul class="simple">
+<li><p>Le chiffre d’affaires à l’achèvement correspond au montant total qui sera facturé pour ce projet.</p></li>
+<li><p>Affichage de la somme des commandes client du projet</p></li>
+<li><p>Affichage de la somme des factures client du projet</p></li>
+<li><p>Méthode d’évaluation du chiffre d’affaires</p></li>
+</ul>
+<p class="rubric">Méthode d’évaluation du chiffre d’affaires</p>
+<p>Le chiffre d’affaires est fixe, il est alors saisi manuellement</p>
+<p>Le chiffre d’affaires est Variable dans le temps en fonction des activités, il sera calculé à partir du chiffre d’affaires de toutes les activités (non annulées) du projet et éventuellement des sous-projets. Dans ce cas, les activités auront également un champ de chiffre d’affaires à alimenter.</p>
+<p>Les projets avec des sous-projets auront systématiquement un mode d’évaluation « Variable », ce mode consolidera automatiquement le chiffre d’affaires des sous-projets sur le projet parent.</p>
+<p class="rubric">Cohérence avec les commandes et factures du projet</p>
+<p>Pour les projets avec des sous-projets, la somme des commandes et factures consolidera les données des sous-projets, c’est-à-dire qu’elle intégrera les commandes et factures des sous-projets en plus des commandes et factures éventuellement sur le projet lui-même.</p>
+<p>La somme des commandes est en rouge si elle est inférieure au chiffre d’affaires. La somme des factures est en rouge si elle est supérieure au chiffre d’affaires.</p>
+<p class="rubric">Déclencher des alertes</p>
+<p>Vous pouvez créer des alertes définissables pour les projets dans la section « indicateurs unitaires » :</p>
+<ul class="simple">
+<li><p>Chiffre d’affaires supérieur à la somme des commandes</p></li>
+<li><p>Chiffre d’affaires inférieur à la somme des factures</p></li>
+</ul>
+<p>Afin d’intégrer cette évolution dans la version communautaire, sans perturber les utilisateurs qui n’ont pas besoin de cette fonctionnalité, nous conditionnerons le comportement :</p>
+<p>Afin de transcrire l’utilisation actuelle du coût validé, un <a class="reference internal" href="GlobalParameters.html#gp-revenue-work-unit"><span class="std std-ref">paramètre global</span></a> déterminera si le chiffre d’affaires est automatiquement reporté comme coût validé sur les activités et les projets.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Cette fonctionnalité n’est visible que si le module Gestion du chiffre d’affaires est activé via le menu des droits d’accès dans <a class="reference internal" href="AccessRights.html#module-management"><span class="std std-ref">Gestion des modules</span></a>.</p>
+<p>La Gestion du chiffre d’affaires est un sous-module du module financier.</p>
+<p>Ce nouveau module activera / désactivera la gestion des UO et tout ce qui est lié à la gestion des UO (voir ci-dessous).</p>
+<p>Ce module sera désactivé par défaut.</p>
+</div>
+</section>
+<section id="work-units-catalog">
+<span id="work-unit-catalog"></span><span id="index-11"></span><h2>Catalogue d’unités d’œuvre<a class="headerlink" href="#work-units-catalog" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Vous pouvez définir des catalogues d’unités d’œuvre, composés d’unités d’œuvre, elles-mêmes décomposées en plusieurs complexités.</p>
+<p>Cette fonctionnalité ne sera accessible que si le module <a class="reference internal" href="AccessRights.html#module-management"><span class="std std-ref">Gestion du chiffre d’affaires</span></a> est activé.</p>
+<p>Le concept de Projet sur le catalogue n’est pas essentiel, il est présent pour garantir la gestion des droits.</p>
+<figure class="align-default" id="id18">
+<img alt="Écran du catalogue d'unités d'œuvre" src="_images/INCOMES_ZONE_WorkUnitCatalog.png" />
+<figcaption>
+<p><span class="caption-text">Écran du catalogue d’unités d’œuvre</span><a class="headerlink" href="#id18" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Vous pouvez attribuer n’importe quel catalogue à un projet, quelle que soit sa position dans la structure, tout en maintenant la notion d’héritage sur les sous-projets.</p>
+<ul class="simple">
+<li><p>Un champ « catalogue utilisé » sur l’écran des projets est disponible.</p></li>
+<li><p>Les UO proposées sur les activités du projet seront systématiquement les UO de ce catalogue.</p></li>
+<li><p>Lorsque le champ « catalogue utilisé » est renseigné (saisi ou modifié) pour un projet, tous les sous-projets (récursivement) qui avaient la même valeur de catalogue initiale (ou aucune valeur) se voient attribuer la nouvelle valeur de catalogue.</p></li>
+<li><p>Le niveau de récursion s’arrête au premier projet qui ne respecte pas cette règle.</p></li>
+<li><p>Lorsqu’un catalogue est créé ou modifié pour être attaché à un projet, le champ « catalogue utilisé » du projet est mis à jour, et la mise à jour est transmise aux sous-projets.</p></li>
+</ul>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Les droits de modification sont définis sur le catalogue en renseignant le champ projet.</p>
+<p>Seuls les profils ayant le droit de modifier le projet et le catalogue pourront le modifier, quel que soit le projet sur lequel il est utilisé.</p>
+</div>
+<section id="create-a-catalog">
+<h3>Créer un catalogue<a class="headerlink" href="#create-a-catalog" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Dans le menu Finance, section Recettes, écran Catalogue d’unités d’œuvre.</p>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconNew.png"><img alt="Nouveau" src="_images/iconNew.png" style="width: 19.2px; height: 19.2px;" /></a> pour créer un nouveau catalogue</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Avertissement</p>
+<p>Si le numéro de complexité n’est pas renseigné, vous ne pourrez pas ajouter de détails dans les unités d’ordre de travail.</p>
+<p>Le nombre par défaut défini dans les <a class="reference internal" href="GlobalParameters.html#gp-revenue-work-unit"><span class="std std-ref">paramètres globaux</span></a> est appliqué.</p>
+</div>
+<p>Renseignez ensuite les champs avec le nom des complexités gérées par ce catalogue.</p>
+<p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ouvrir les fenêtres contextuelles et compléter les détails de complexité.</p>
+<p>Vous pouvez renseigner les champs suivants pour chaque UO :</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Référence</p></li>
+<li><p>Description</p></li>
+<li><p>Recettes</p></li>
+<li><p>Livrable</p></li>
+<li><p>date de validité</p></li>
+</ul>
+</div></blockquote>
+<p>Les champs description, entrant et livrable sont des éditeurs de texte en mode inline. Les boutons d’édition apparaissent lorsque le curseur est dans le champ.</p>
+<figure class="align-default" id="id19">
+<img alt="détails des complexités" src="_images/INCOMES_BOX_Detailscompexity.png" />
+<figcaption>
+<p><span class="caption-text">Fenêtre contextuelle des détails des complexités</span><a class="headerlink" href="#id19" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Pour chaque complexité de l’UO, on peut définir :</p>
+<ul class="simple">
+<li><p>Charge validée - 0 est autorisé</p></li>
+<li><p>Prix (CA) de la complexité</p></li>
+<li><p>Durée en jours ouvrés - optionnel</p></li>
+</ul>
+<p>Il n’est pas obligatoire de renseigner toutes les complexités pour une UO.</p>
+<figure class="align-default" id="id20">
+<img alt="Section chiffre d'affaires" src="_images/INCOMES_ZONE_RevenueSectionActivity.png" />
+<figcaption>
+<p><span class="caption-text">Section chiffre d’affaires sur l’écran de l’activité</span><a class="headerlink" href="#id20" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="phasing">
+<h3>Phasage<a class="headerlink" href="#phasing" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>L’objectif est de pouvoir fournir la partie technique, la partie gestion de projet, la partie qualité par exemple sur les unités d’œuvre.</p>
+<figure class="align-default" id="id21">
+<img alt="Phasage sur le catalogue d'unités d'œuvre" src="_images/INCOMES_ZONE_Phasing.png" />
+<figcaption>
+<p><span class="caption-text">Phasage sur le catalogue d’unités d’œuvre</span><a class="headerlink" href="#id21" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Vous pouvez saisir des pourcentages qui exprimeront % de la charge de l’UO au niveau du catalogue et non au niveau de l’UO.</p>
+<p>Le phasage au niveau du catalogue évite une saisie pour chaque UO et chaque complexité d’UO.</p>
+<p>Vous pouvez saisir autant de lignes que souhaité.</p>
+</section>
+<section id="use-of-a-catalog-of-work-units">
+<h3>Utilisation d’un catalogue d’unités d’œuvre<a class="headerlink" href="#use-of-a-catalog-of-work-units" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Vous pouvez sélectionner une UO sur une activité, uniquement si le projet a un mode d’évaluation CA Variable.</p>
+<p>Nous renseignerons l’UO, sa complexité et le nombre d’unités :</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Saisie de l’UO dans la liste des UO du catalogue lié au projet. Cela remplira dynamiquement la liste des complexités d’UO en affichant uniquement celles qui ont une charge et un prix non nul mais pouvant être égal à zéro.</p></li>
+<li><p>Saisie de la complexité</p></li>
+<li><p>Saisie du nombre de quantité d’unités d’œuvre</p></li>
+</ul>
+</div></blockquote>
+<p>Une activité ne sera associée qu’à un seul couple UO / Complexité.</p>
+<p>Si l’UO est sélectionnée, la complexité et la quantité sont obligatoires, sinon elles sont interdites, c’est-à-dire non saisissables.</p>
+<p>Les données UO / Complexité / Quantité permettront de valoriser :</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>La charge validée = charge de l’UO / Complexité x Quantité</p></li>
+<li><p>Le chiffre d’affaires de l’activité = prix de l’UO / Complexité x Quantité</p></li>
+<li><p>La durée validée = durée de l’UO / Complexité x Quantité</p></li>
+</ul>
+</div></blockquote>
+<p>La saisie de la durée validée calculera automatiquement la date de fin validée si la date de début validée est saisie.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Cela ne déterminera la durée planifiée de l’activité que si elle est en mode de planification « durée fixe ».</p>
+<p>Sinon, le planning déterminera la durée planifiée à partir de la charge affectée et de la disponibilité des ressources affectées.</p>
+</div>
+<p>Ces 3 données (charge validée, durée validée, CA) passeront alors en lecture seule car elles sont calculées.</p>
+<ul class="simple">
+<li><p>Si la date d’expiration de l’UO est dépassée, une alerte sera affichée sur l’activité, sans que cela bloque l’enregistrement de l’activité.</p></li>
+<li><p>Si le paramètre global « Report du chiffre d’affaires sur le coût validé des activités » est activé, le chiffre d’affaires saisi ou saisi via l’UO est recopié dans le coût validé de l’activité.</p></li>
+<li><p>Vous pouvez modifier le catalogue sur les données d’une UO, d’une Complexité ou d’une Quantité, cependant il n’est pas possible de modifier une unité d’œuvre du catalogue si elle est déjà utilisée sur une activité.</p></li>
+<li><p>Si des ressources sont affectées, application de la variation de la charge affectée, proportionnellement à la charge affectée à chaque ressource et mise à jour du « reste à faire » en conséquence (sans jamais pouvoir devenir négatif).</p></li>
+<li><p>Vous pouvez supprimer le catalogue sur les données d’une UO, d’une Complexité ou d’une Quantité, cependant il n’est pas possible de supprimer une unité d’œuvre du catalogue si elle est déjà utilisée sur une activité.</p></li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Astuce</p>
+<p>Dans le cas d’une UO dont la complexité génère 5 jours de charge avec une quantité de 1.</p>
+<p>si A est affecté pour 2 jours et B affecté pour 3 jours</p>
+<p>si nous doublons la quantité (et donc la charge validée), A est alors affecté 4 jours et B est affecté 6 jours.</p>
+</div>
+<span class="target" id="index-12"></span></section>
+</section>
+<section id="work-commands">
+<span id="orderedwork"></span><span id="index-13"></span><h2>Ordres de travail<a class="headerlink" href="#work-commands" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Les services commandés utilisent la fonctionnalité de catalogue d’unités d’œuvre.</p>
+<p>Vous devez « activer les services commandés » dans les <a class="reference internal" href="GlobalParameters.html#gp-revenue-work-unit"><span class="std std-ref">paramètres globaux</span></a></p>
+<p>Les services peuvent être enregistrés directement sur les commandes client ou sur l’écran dédié aux ordres de travail.</p>
+<section id="on-the-client-order">
+<h3>Sur la commande client<a class="headerlink" href="#on-the-client-order" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Sur l’écran des commandes client, vous devez saisir le projet qui utilisera le catalogue.</p>
+<p>Seul ce projet pourra utiliser ces unités d’œuvre.</p>
+<p>Si le projet a des sous-projets, bien que le catalogue soit hérité, les unités d’œuvre ne seront accessibles qu’au projet lié à la commande.</p>
+<figure class="align-default" id="id22">
+<img alt="Travail commandé sur les activités" src="_images/INCOMES_ZONE_OrderedWorkCommand.png" />
+<figcaption>
+<p><span class="caption-text">Travail de commande sur les activités</span><a class="headerlink" href="#id22" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter une nouvelle UO.</p>
+<p>Cliquez sur <a class="reference internal" href="_images/iconOrganization.png"><img alt="Unité de travail mère" src="_images/iconOrganization.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter une ligne mère pour l’UO.</p>
+<figure class="align-default" id="id23">
+<img alt="Ajouter une unité d'œuvre sur commande" src="_images/INCOMES_BOX_AddUniteWork.png" />
+<figcaption>
+<p><span class="caption-text">Ajouter une unité d’œuvre sur commande</span><a class="headerlink" href="#id23" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Vous saisissez l’unité d’œuvre depuis le catalogue du projet lié à la commande que vous souhaitez utiliser.</p>
+<p>Sa complexité ainsi que sa quantité.</p>
+<p>Les champs de montant sont automatiquement calculés sur la base des informations du catalogue.</p>
+<section id="billing">
+<h4>Facturation<a class="headerlink" href="#billing" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Lors de la copie de votre commande vers une facture, le tableau des services commandés est également créé en tenant compte de la quantité déjà facturée.</p>
+<ul class="simple">
+<li><p>La somme de la quantité totale facturée (y compris la quantité actuelle et déjà facturée) ne doit pas dépasser la quantité commandée.</p></li>
+<li><p>La sélection d’un ordre de travail affiche l’unité d’œuvre, la complexité, la quantité unitaire et les quantités (stockées sur la ligne d’ordre de travail).</p></li>
+<li><p>Le montant est calculé = quantité facturée x montant unitaire.</p></li>
+<li><p>Lors de la mise à jour, la référence de l’ordre de travail ne peut pas être modifiée.</p></li>
+<li><p>Lors de l’insertion/mise à jour de données, la somme des données sur l’ordre de travail est mise à jour.</p></li>
+</ul>
+</section>
+</section>
+<section id="on-the-activities">
+<h3>Sur les activités<a class="headerlink" href="#on-the-activities" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Lorsque vous avez une commande effective sur un projet d’activité, vous pouvez lier les UO commandées aux activités du même projet.</p>
+<p>Les catalogues sont hérités, mais les UO ne sont accessibles qu’aux activités du projet lié à la commande.</p>
+<figure class="align-default" id="id24">
+<img alt="Ordre de travail sur les activités" src="_images/INCOMES_ZONE_UOempty.png" />
+<figcaption>
+<p><span class="caption-text">Ordre de travail sur les activités</span><a class="headerlink" href="#id24" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Une fenêtre vous permet d’ajouter une UO depuis le catalogue lié au projet.</p>
+<p>Si une commande existe pour cette UO (ou+complexité) sur ce projet, vous pouvez sélectionner la commande dans le champ correspondant.</p>
+<p>Une fois liée, la commande suivra l’avancement des activités pour mettre à jour les Unités d’œuvre utilisées.</p>
+<figure class="align-default" id="id25">
+<img alt="Ordre de travail sur les activités" src="_images/INCOMES_BOX_AddUniteWorkActivity.png" />
+<figcaption>
+<p><span class="caption-text">Ordre de travail sur les activités</span><a class="headerlink" href="#id25" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<ul class="simple">
+<li><p>La quantité ne doit pas être inférieure à la quantité déjà facturée,</p></li>
+<li><p>La quantité ne doit pas être inférieure à la quantité déjà réalisée</p></li>
+<li><p>S’il y a une quantité réalisée ou facturée, l’unité d’œuvre et la complexité ne peuvent pas être modifiées</p></li>
+</ul>
+</div>
+<figure class="align-default" id="id26">
+<img alt="Ordre de travail sur les activités" src="_images/INCOMES_ZONE_OrderedWork.png" />
+<figcaption>
+<p><span class="caption-text">Ordre de travail sur les activités</span><a class="headerlink" href="#id26" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Lorsqu’une activité est liée à une UO de la commande, le tableau des UO de la commande est mis à jour pour indiquer le nombre d’UO utilisées sur votre activité.</p>
+<figure class="align-default" id="id27">
+<img alt="UO mise à jour dans le tableau de commande" src="_images/INCOMES_ZONE_UOUsed.png" />
+<figcaption>
+<p><span class="caption-text">UO mise à jour dans le tableau de commande client</span><a class="headerlink" href="#id27" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="on-the-work-command-screen">
+<h3>Sur l’écran de l’ordre de travail<a class="headerlink" href="#on-the-work-command-screen" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Cet écran vous permet de voir toutes les unités d’œuvre commandées, tous projets et catalogues confondus.</p>
+<p>Un écran dédié vous permet de traiter les unités d’œuvre commandées comme un élément séparé et de bénéficier des fonctions de filtre.</p>
+<figure class="align-default" id="id28">
+<img alt="Ordre de travail sur les activités" src="_images/INCOMES_SCR_WorkCommand.png" />
+<figcaption>
+<p><span class="caption-text">Ordre de travail sur les activités</span><a class="headerlink" href="#id28" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Vous trouverez les mêmes informations que sur votre commande client mais de manière généralisée.</p>
+</section>
+<section id="acceptance">
+<h3>Acceptation<a class="headerlink" href="#acceptance" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Les services acceptés sont liés aux services commandés.</p>
+<p>Il s’agit d’intégrer le concept d’Acceptation Client. L’objectif est de pouvoir les définir et les suivre en termes de dates et de contenu.</p>
+<p>Cliquez sur <a class="reference internal" href="_images/iconNew.png"><img alt="Nouveau" src="_images/iconNew.png" style="width: 19.2px; height: 19.2px;" /></a> pour créer une nouvelle acceptation.</p>
+<p>Dans l’onglet détail, cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter les unités d’œuvre pertinentes de votre commande.</p>
+<figure class="align-default" id="id29">
+<img alt="Acceptation sur UO" src="_images/INCOMES_BOX_Acceptance.png" />
+<figcaption>
+<p><span class="caption-text">Acceptation sur UO</span><a class="headerlink" href="#id29" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>La colonne acceptée actuelle est renseignée.</p>
+<figure class="align-default" id="id30">
+<img alt="Accepté actuel" src="_images/INCOMES_ZONE_AcceptanceCurrent.png" />
+<figcaption>
+<p><span class="caption-text">Accepté actuel</span><a class="headerlink" href="#id30" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Dans l’onglet Avancement, saisissez la date d’acceptation client pour que la colonne acceptée soit affichée.</p>
+<figure class="align-default" id="id31">
+<img alt="Accepté" src="_images/INCOMES_ZONE_AcceptanceComplete.png" />
+<figcaption>
+<p><span class="caption-text">Accepté</span><a class="headerlink" href="#id31" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Sur la commande client, vous trouvez la consolidation de l’acceptation des UO.</p>
+<figure class="align-default" id="id32">
+<img alt="UO acceptée sur la commande client" src="_images/INCOMES_BOX_AcceptanceClientOrder.png" />
+<figcaption>
+<p><span class="caption-text">UO acceptée sur la commande client</span><a class="headerlink" href="#id32" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+<section id="client-contract">
+<span id="index-14"></span><span id="id6"></span><h2>Contrat client<a class="headerlink" href="#client-contract" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>ProjeQtOr vous donne la possibilité de gérer et surveiller précisément vos contrats clients.</p>
+<p>Le contrat client est nécessairement lié à un client.</p>
+<p>Une vue diagramme de Gantt est disponible pour visualiser vos contrats graphiquement.</p>
+<figure class="align-default" id="id33">
+<img alt="Écran du contrat client" src="_images/INCOMES_SCR_ClientContrat.png" />
+<figcaption>
+<p><span class="caption-text">Écran du contrat client</span><a class="headerlink" href="#id33" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<section id="treatment">
+<h3>Traitement<a class="headerlink" href="#treatment" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Suivez l’état, l’avancement de votre contrat dans cette section.</p>
+<p class="rubric">Responsable</p>
+<ul class="simple">
+<li><p>Choisissez un responsable</p></li>
+<li><p>Ses initiales sont affichées sur le diagramme de Gantt des contrats</p></li>
+</ul>
+<p class="rubric">Workflow</p>
+<ul class="simple">
+<li><p>Le workflow est basé sur le workflow par défaut.</p></li>
+<li><p>Vous pouvez modifier le workflow actuel.</p></li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a></p>
+</div>
+<p class="rubric" id="renewal-incomes">Renouvellement</p>
+<p>Définit le comportement du renouvellement d’un contrat à la fin de la durée initialement prévue</p>
+<ul class="simple">
+<li><p><strong>Jamais :</strong> le contrat ne sera jamais renouvelé</p></li>
+<li><p><strong>Tacite :</strong> le contrat sera renouvelé s’il n’y a pas de résiliation</p></li>
+<li><p><strong>Express :</strong> le contrat est renouvelé et fait l’objet d’un acte écrit ou verbal</p></li>
+</ul>
+<p class="rubric">États</p>
+<ul class="simple">
+<li><p><strong>En cours :</strong> Date à laquelle le contrat est pris en charge. Effectif. Cette date peut être saisie manuellement ou en passant à l’état Affecté du workflow</p></li>
+<li><p><strong>Terminé :</strong> Date à laquelle le contrat se termine.</p></li>
+<li><p><strong>Clos :</strong> Date à laquelle le contrat a été clôturé.</p></li>
+<li><p><strong>Annulé :</strong> Date d’annulation</p></li>
+</ul>
+</section>
+<section id="client-contract-gantt-chart">
+<span id="client-gantt"></span><h3>Diagramme de Gantt du contrat client<a class="headerlink" href="#client-contract-gantt-chart" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>En plus de l’écran de gestion des contrats (zone liste et détails), vous pouvez visualiser vos contrats dans une vue temporelle sur un diagramme de Gantt. C’est le « calendrier des contrats clients »</p>
+<p>Chaque barre représente les différents contrats, allant de la date de début à la date de fin du contrat.</p>
+<p>Les dates de préavis et les dates d’échéance sont affichées comme des jalons.</p>
+<p>Les barres Gantt des contrats clients deviennent rouges lorsque la date d’échéance est supérieure à la date de fin du contrat.</p>
+<p>Aucun calcul n’est effectué. C’est une indication pour montrer une incohérence.</p>
+<figure class="align-default" id="id34">
+<img alt="Écran du diagramme de Gantt du contrat client" src="_images/INCOMES_SCR_ClientContratGANTT.png" />
+<figcaption>
+<p><span class="caption-text">Écran du diagramme de Gantt du contrat client</span><a class="headerlink" href="#id34" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table des matières</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Recettes</a><ul>
+<li><a class="reference internal" href="#client-quotation">Devis client</a></li>
+<li><a class="reference internal" href="#client-orders">Commandes client</a></li>
+<li><a class="reference internal" href="#client-invoicing-terms">Conditions de facturation client</a></li>
+<li><a class="reference internal" href="#client-invoices">Factures client</a><ul>
+<li><a class="reference internal" href="#invoice-type">Type de facture</a><ul>
+<li><a class="reference internal" href="#at-terms">À l’échéance</a></li>
+<li><a class="reference internal" href="#on-produced-work">Sur le travail produit</a></li>
+<li><a class="reference internal" href="#on-capped-produced-work">Sur le travail produit plafonné</a></li>
+<li><a class="reference internal" href="#manual">Manuel</a></li>
+<li><a class="reference internal" href="#not-billed">Non facturé</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#invoice-lines">Lignes de facture</a><ul>
+<li><a class="reference internal" href="#bill-line-at-terms">Ligne de facture « À l’échéance »</a></li>
+<li><a class="reference internal" href="#bill-line-on-produced-work-on-capped-produced-work">Ligne de facture Sur le travail produit &amp; Sur le travail produit plafonné</a></li>
+<li><a class="reference internal" href="#invoice-line-manual-billing">Ligne de facture Facturation manuelle</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#client-payments">Paiements client</a></li>
+<li><a class="reference internal" href="#activities-prices">Prix des activités</a></li>
+<li><a class="reference internal" href="#financial-gallery">Galerie financière</a></li>
+<li><a class="reference internal" href="#financial-catalog">Catalogue financier</a></li>
+<li><a class="reference internal" href="#revenue-managment">Gestion du chiffre d’affaires</a></li>
+<li><a class="reference internal" href="#work-units-catalog">Catalogue d’unités d’œuvre</a><ul>
+<li><a class="reference internal" href="#create-a-catalog">Créer un catalogue</a></li>
+<li><a class="reference internal" href="#phasing">Phasage</a></li>
+<li><a class="reference internal" href="#use-of-a-catalog-of-work-units">Utilisation d’un catalogue d’unités d’œuvre</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#work-commands">Ordres de travail</a><ul>
+<li><a class="reference internal" href="#on-the-client-order">Sur la commande client</a><ul>
+<li><a class="reference internal" href="#billing">Facturation</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#on-the-activities">Sur les activités</a></li>
+<li><a class="reference internal" href="#on-the-work-command-screen">Sur l’écran de l’ordre de travail</a></li>
+<li><a class="reference internal" href="#acceptance">Acceptation</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#client-contract">Contrat client</a><ul>
+<li><a class="reference internal" href="#treatment">Traitement</a></li>
+<li><a class="reference internal" href="#client-contract-gantt-chart">Diagramme de Gantt du contrat client</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Sujet précédent</h4>
+    <p class="topless"><a href="Expenses.html"
+                          title="Chapitre précédent">Dépenses</a></p>
+  </div>
+  <div>
+    <h4>Sujet suivant</h4>
+    <p class="topless"><a href="Financial.html"
+                          title="Chapitre suivant">Situation financière</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Recherche rapide</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             >index</a></li>
+        <li class="right" >
+          <a href="Financial.html" title="Situation financière"
+             >suivant</a> |</li>
+        <li class="right" >
+          <a href="Expenses.html" title="Dépenses"
+             >précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Incomes</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Créé en utilisant <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

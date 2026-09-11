@@ -1,0 +1,3 @@
+# Contexte de build = projeqtor/ (jamais la racine : src/ fait 258 Mo,
+# inutile d'y ajouter le reste du dépôt).
+data/

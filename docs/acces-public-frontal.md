@@ -120,3 +120,28 @@ configuration, sur Windows.
 - Les ports directs non passerellés (`shared/EXPOSURE.json`) restent LAN.
 - Le 443 public est désormais la porte d'entrée : garder le frontal à jour,
   et envisager `mod_evasive` / fail2ban sur ses journaux.
+
+## 6. ProjeQtOr public (livraison #476)
+
+Le fork ProjeQtOr (`/projeqtor/`, voir `projeqtor/README.md`) est routé
+par la passerelle du hub, donc **automatiquement joignable par le frontal
+public** dans les deux modes (réécriture ou reconstruction) — rien à
+changer à `front-reverse-proxy.sh`, qui proxifie `/` en entier. C'est
+voulu : la personne demande une page ProjeQtOr publique.
+
+Conséquences à assumer :
+
+- ProjeQtOr possède **son propre écran de connexion** — c'est lui, et lui
+  seul, qui protège l'application côté Internet (le hub/Keycloak ne sont
+  pas sur ce chemin). **Changer immédiatement le mot de passe du compte
+  intégré `admin`** (admin/admin à la première connexion).
+- L'authentification LDAP du hub est configurée par défaut (voir
+  `projeqtor/README.md`) : les mêmes identifiants que le hub ouvrent une
+  session ProjeQtOr — un mot de passe LDAP compromis expose donc AUSSI
+  cette page publique. À évaluer : restreindre `/projeqtor/` au LAN côté
+  frontal (`Require ip ...` dans le VirtualHost Apache) si la page
+  publique n'est finalement pas souhaitée, ou n'y exposer que le futur
+  portail public.
+- Comme tout applicatif PHP exposé : surveiller les montées de version
+  upstream (le fork se met à jour par merge, voir `projeqtor/README.md`,
+  section Fork).

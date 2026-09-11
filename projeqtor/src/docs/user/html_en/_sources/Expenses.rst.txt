@@ -1,0 +1,846 @@
+.. include:: ImageReplacement.txt
+
+.. title:: Expenses
+
+.. index:: Expenses
+
+.. _Expenses:
+
+########
+Expenses
+########
+
+.. index:: Hierarchical budget
+
+.. _hierarchical-budget:
+   
+Hierarchical budget
+###################
+
+The hierarchical view of budgets allows you to display an overview of budgets in a graphic way with an indent system for better reading.
+
+You can filter the list of budgets using the parent budget filter.
+
+You can display a particular budget family.
+
+You can move budgets by "drag and drop".
+
+
+.. figure:: /images/GUI/EXPENSES_SCR_HierarchicalBudget.png
+   :alt: Hierarchical budget screen
+   
+   Hierarchical budget screen
+   
+   
+   
+   
+   
+   
+   
+   
+.. index:: Budget
+
+.. _budget:
+
+Budget
+######
+
+A budget is a list of all products and different expenses to plan. It is a plan that allows to define in advance the expenses, the incomes and the possible savings to be realized during a definite period.
+
+It allows to anticipate the resources that the company will have at a specific moment.
+
+.. figure:: /images/GUI/EXPENSES_SCR_Budget.png
+   :alt: Budget screen
+   :align: center
+
+   Budget Screen
+   
+   
+* You can create as much budget and sub budget as you want.
+
+* An expense is related to a base budget, ie a budget item
+
+* A budget item is linked to a parent budget 
+
+* Only the current budget items will be displayed in the lists.
+
+* Current, under construction and closed budgets will not appear in the lists. To view the closed items, check the "closed" box.
+
+
+
+Budget parent filter
+********************
+   
+.. figure:: /images/GUI/EXPENSES_BOX_Filters.png
+   :alt: filters
+      
+   Filerts on budget
+      
+      
+      
+With the filter, you can display in the list area, only a budget and its family (sub-budget). 
+    
+An indentation of these to the right shows that they are sub-budgets.
+
+To see the closed items in this list, check the "closed" box.
+   
+If you change the name of a budget, remember to refresh the page so that the lists take into account the changes.
+   
+
+* The parent budget exists only to consolidate the data of the underlying budget items.
+
+* You cannot modify the expenses in the Progress field of a parent budget.
+
+* Only the target amount can be changed if the budget treatment is still under construction.
+
+
+
+
+The budget item
+***************
+  
+* The budget item is the finer element of the budget analysis. 
+
+* These posts or budget destinations will allow you to detail your budget, categorizing it at your convenience.
+
+* When you create a :ref:`project expenses<project-expense>` or an :ref:`individual expenses<individual-expense>`, you can link them to a specific budget item.
+   
+   
+
+
+Treatment
+*********
+
+This area allow you to change the macro state of the budget.
+
+* A budget may be under construction
+
+* A budget under construction does not allow to see the fields "target amount" and prevents the modification of the estimated amount
+
+* The "approved" macro-state changes and automatically cancels the "under construction" macro state. The date is then displayed in the fields of the macro-state concerned.
+
+* Each sub-budget is then impacted and the "approved" state will then be propagated on all of his family.
+
+* Each macro state "under construction", "approved", "closed" and "canceled" modified from the parent budget screen propagates in cascade over the entire budget hierarchy. 
+
+  
+   
+   
+Progress
+********
+
+.. figure:: /images/GUI/EXPENSES_ZONE_Progress.png
+   :alt: Progress Section
+   
+   Progress Section
+
+This section allows to follow the consolidation of all the expenses.
+
+The target amount is the only amount that you can change on a parent budget if it is still under construction.
+
+The other amounts are recovered from the sub-budgets and consolidated on the parent budget.
+
+Transferred Amount allows to release a sum of an amount planned for a budget item in order to redistribute it to another item.
+
+This amount is visible on all budget items.
+
+.. rubric:: Transfered Amount
+   
+* Enter a negative amount on a budget line to transfer an amount
+* Enter a positive amount on a budget line to recover this amount
+* Only the parent budget and its sub budget will see this amount. 
+* Another parent budget can not recover this amount.
+
+
+
+Budget expense detail
+*********************
+
+This section displays  lines in detail 
+This section, available at the first level of the parent budget, displays in detail the :ref:`expense lines of the project<project-expense>` that have been linked to the defined budget items.
+      
+.. figure:: /images/GUI/EXPENSES_ZONE_DetailLine.png
+   :alt: Details lines
+   
+   Details lines
+   
+   
+
+     
+      
+
+Expense's type
+##############
+
+.. index:: Expenses (Project)
+
+.. index:: Project (Expenses)
+
+.. _project-expense:
+
+Project expense
+***************
+.. sidebar:: Other sections
+
+   * :ref:`expense-detail-lines`
+   
+   
+
+A project expense stores information about project costs that are not resource costs.
+
+This can be used for all kinds of project cost : 
+
+* Machines (rent or buy).
+* Softwares.
+* Office.
+* Any logistic item.
+
+
+.. figure:: /images/GUI/EXPENSES_SCR_ExpenseProject.png
+   :alt: expense project
+   
+   Expense project
+
+
+
+
+.. rubric:: Fields Planned & Real
+
+**Ex VAT:** Amount without taxes. Real amount is automatically updated with the sum of the amounts of detail lines.
+
+**TAX rate:** VAT amount
+   
+**Tax:** VAT amount from the amount and rate entered previously. 
+
+**Full:** Amount with taxes.
+
+**Payment date:** 
+
+* For field "Planned" is the planned date.
+* For field "Real" can be the payment date or else.
+
+
+
+
+
+
+
+
+
+
+
+
+.. index:: Expenses (activity)
+
+.. index:: Activity Expenses
+
+.. _activity-expense:
+
+Activity expenses
+*****************
+
+The payment due date can be retrieved from the activity.
+
+Choose from the start, middle, or end of the activity associated with the expense.
+
+Save and the date is automatically displayed.
+
+.. figure:: /images/GUI/EXPENSES_SCR_expenseActivity.png
+   :alt: Expense activity
+   
+   Expense activity 
+
+     
+     
+     
+     
+     
+
+.. index:: Expenses (Individual)
+
+.. index:: Individual Expenses
+
+.. _individual-expense:
+
+Individual expenses
+*******************
+
+An individual expense stores information about individual costs, such, for example, as travel costs.
+
+This can for instance be used to detail all the expense on one month so that each user opens only one individual expense per month (per project), or detail all the elements of a travel expense.
+
+
+
+
+.. index::  Expenses (Detail line)
+
+.. _expense-detail-lines:
+
+Expenses detail lines
+*********************
+
+
+.. figure:: /images/GUI/EXPENSES_ZONE_Detailslines.png
+   :alt: details lines
+   
+   Project details lines 
+
+
+
+.. rubric:: Section Expenses detail lines
+
+This section is common to individual, activity and project expenses.
+
+It allows to enter detail on expense line.
+
+.. note:: 
+
+   When a line is entered, expense real amount is automatically updated to sum of lines amount.
+
+   Real date is set with the date in the firts detail line.
+ 
+* Click on |Add| to add a detail line.
+* Click on |Edit| to modify an existing detail line.
+* Click on |Delete| to delete the detail line.
+
+   
+.. rubric:: Field Date
+
+This allows to input several items, during several days, for the same expense, to have for instance one expense per travel or per month.
+
+.. rubric:: Field Type
+
+Depending on type, new fields will appear to help calculate of amount.
+   
+Available types depending on whether individual or project expense.
+   
+.. seealso:: :ref:`expense-detail-type`. 
+
+.. rubric:: Field Amount 
+
+Automatically calculated from fields depending on type.
+   
+May also be input for type “justified expense”.
+   
+   
+.. rubric:: Financial expenses synthesis
+
+When your financial elements have been linked and attached to a project expense (detailed or not), you will find the summary of these elements.
+
+.. figure:: /images/GUI/EXPENSES_ZONE_ExpensesDetailsSynthesis.png   
+   :alt: Details Line and financial expenses synthesis
+      
+   Financial expenses synthesis with details lines
+
+   
+
+.. index:: Expenses (Call for tender)
+
+.. index:: Call for tender (Expenses)
+
+.. _call-for-tenders:
+
+Call for tenders
+################
+
+
+.. figure:: /images/GUI/EXPENSES_SCR_CallforTender.png
+   :alt: Call for tender screen
+   
+   Call for tender screen
+   
+   
+This screen allows you to record information on your needs for any request for tenders from your providers.
+
+This can be used to detail all requests and find the best proposal.
+
+To help you do this, you have the option of creating different evaluation criteria. You can then assign a value to them in the offer.
+
+The call for tenders, once saved, automatically creates a provider offer for each of the selected providers.
+
+
+
+
+.. rubric:: Submissions of tenders
+
+This section contains the list of providers to whom the invitation to tender is sent.
+
+
+* Click on |Add| to add a provider to the list.
+
+* Click on |Edit| to edit informations.
+
+* Click on |Delete| to delete a provider to the list.
+
+
+A pop up is displayed. Fill in the different fields necessary for your needs.
+
+.. figure:: /images/GUI/EXPENSES_BOX_SubmissionCallTender.png
+   :alt: Submission to call for tender
+   
+   Submission to call for tender pop-up
+   
+* You can choose a specific supplier contact.
+
+* The contacts available in the list are linked to the selected supplier.
+
+* These contacts must be registered in advance on the provider's screen.
+
+* Change supplier, the contact list will adapt
+
+* The dates of the request and the expected response.
+
+* The status of the submission to tender. Several statuses are available. 
+
+* They are fully configurable and customizable. Each status has a color code.
+
+
+   
+     
+You can access to each offer by clicking on the name of the provider or by visiting the provider offers screen.
+     
+.. seealso:: 
+
+   :ref:`List of values<LoV-tender-statut>`
+
+
+     
+.. _evaluation-criteria:
+     
+.. rubric:: Evaluation Criteria
+
+This section allows you to add evaluation criteria to rate your providers based on your requests.
+
+* Click on |Add| to add a criteria
+* Click on |Edit| to modify a criteria
+* Click on |Delete| to delete a criteria     
+     
+.. figure:: /images/GUI/EXPENSES_BOX_AddCriterion.png
+   :alt: Evaluation criteria pop-up
+   
+   Add an evaluation criteria
+   
+* Name your evaluation criteria.
+
+* Assign a maximum rating value.
+
+* Assign a coefficient according to the importance of the criteria.
+
+* The score is calculated based on the values assigned and reported in the "submission of tenders" table.      
+     
+.. tip:: 
+
+   Click on |Copy| to logically switch from one financial item to another:
+
+   Call for tenders -> Provider tenders -> Order to provider -> Terms/Bills -> Payments to providers
+
+   Each time you copy a financial item, the most logical financial item for the rest of the order process will be displayed automatically.
+
+   The amount of expense of these elements will be recovered, passed on and linked to each of the others and will allow you more precise monitoring.
+   
+   You can prevent the carry forward of amounts or the generation of expenses in the :ref:`global parameters<financial>`
+   
+
+
+
+.. index:: Expenses (Provider Tenders)
+
+.. index:: Provider Tenders (Expenses)
+
+.. _tenders:
+
+Provider Tenders
+################
+
+Provider tenders store information about responses to tenders you have submitted.
+
+This can be used to detail all the offers, compare them, evaluate them to choose the most suitable for your needs.
+
+.. figure:: /images/GUI/EXPENSES_SCR_ProviderTender.png
+   :alt: Provider tender screen
+   
+   Provider tender screen
+
+
+An offer can be created manually or generated automatically following a call for tenders.
+
+Each provider added to the invitation to tender will generate an offer.
+
+
+
+Generate expense
+****************
+
+        
+.. figure:: /images/GUI/EXPENSES_SCR_GenerateExpense.png
+   :alt: Generate expense
+                  
+   Generate expense
+          
+You can attach a specific expense to your order.
+            
+Select a manually created expense from the project expense list.
+            
+If you have not created an expense upstream, check the generate expense box, a line will then be created in the project expenses.
+
+
+
+Evaluation
+**********
+
+The Evaluation section is only available when the offer is linked to a call for tenders.
+
+If the offer is created manually, the evaluation section does not offer criteria.
+
+
+
+
+.. figure:: /images/GUI/EXPENSES_ZONE_CriterionEvaluation.png
+   :alt: Evaluation section
+   
+   Evaluation section
+   
+   
+When the link is made then: 
+
+
+* You can assign evaluation criteria
+
+* You can assign a rating with a coefficient system.
+
+* The evaluation will display a summary of your criteria with their scores.
+
+* The overall score will then be displayed on the invitation to tender for all the offers concerned.
+
+
+.. seealso:: 
+
+   :ref:`the criteria evaluations<evaluation-criteria>` in the Call for tenders chapter
+
+
+
+
+
+.. index:: Expenses (Order to provider)
+
+.. index:: Order to provider (Expenses)
+
+.. _order_providers:
+
+Orders to provider
+##################
+
+This screen allow to manage the orders to provider.
+
+.. figure:: /images/GUI/EXPENSES_SCR_OrderProvider.png
+   :alt: Order to provider screen
+   
+   Order to provider screen
+   
+
+
+
+.. _listterm-order:
+
+.. rubric:: List of terms orders
+
+This section allows you to create one or more terms for your invoices.
+
+* Click on |Add| to add a term. A pop-up opens.
+
+* Click on |List| to add an existing term.
+
+.. figure:: /images/GUI/EXPENSES_ZONE_ListOfTermSection.png
+   :alt: List of term section
+   
+   List of term section
+      
+* The name and the date are mandatory.
+
+* Enter the number of installments you want to pay your invoice.
+
+* If 1 then it is a cash payment.
+
+
+.. figure:: /images/GUI/EXPENSES_ZONE_ListOfTerm.png
+   :alt: Terms creation pop-up
+   
+   Terms creation pop-up
+
+* When you enter several terms, the calculation on the total amount is done automatically.
+
+* When you copy your order as an invoice, the terms are automatically added to it.
+
+* You can add due dates from the provider invoices screen if you have not done so on this screen. 
+
+
+.. figure:: /images/GUI/EXPENSES_ZONE_ListOfTermDetails.png
+   :alt: calculation after number of deadlines entered
+   
+   Calculation after number of deadlines entered
+   
+
+When you transform your order into an invoice, the terms recorded in the offer are automatically transferred to the invoices.
+
+See: :ref:`listterm-invoice`
+
+
+In the order, these will be filled in as invoiceed with a link to the latter. 
+
+ 
+   
+  
+
+.. index:: Expenses (Terms of payment to provider)
+
+.. index:: Terms of payment to provider (Expenses)
+
+.. _TermPaymentProvider:
+
+Terms of payments to providers
+##############################
+
+In France, inter-company payment periods are regulated and set at maximum 60 calendar days or 45 days end of month 
+from the date of issue of the invoice. 
+
+Failing to mention the payment period in the contract or the invoice,
+it is legally fixed to 30 days after receipt of the goods or performance of the service. 
+
+* Depending on the sector, deadlines are modifiable
+
+* you can save, organize, track and edit your payment dates to your provider
+
+* You can record one or more payment delays on each invoice to the service provider.
+
+* A invoice can therefore be paid either in cash or in several installments.
+
+* Each recorded due date, whether on the supplier orders screen or on the supplier invoices screen, generates a line on the terms screen.
+
+
+
+.. note:: 
+
+      * **Ex VAT:** The column value is automatically updated with the sum of invoice line amounts.
+
+      * **Tax:** If the tax is not defined, nothing is applied in this field and the amount will remain without tax
+ 
+      * **Full:** If the total amount exclusive of tax and the tax rate have been entered, the total amount will be calculated automatically 
+      
+      On the project, the sum of the expenses must be carried out in including taxes if the entry of expenses is in including taxes
+ 
+
+
+
+
+.. index:: Expenses (Provider Bills)
+
+.. index:: Provider Bills (Expenses)
+
+.. Provider_Bills:
+
+Provider invoices
+#################
+
+This screen is used to manage invoices generated manually or linked to provider offers.
+
+
+.. figure:: /images/GUI/EXPENSES_SCR_ProviderBill.png
+   :alt: Provider invoice screen
+   
+   Provider invoice screen
+   
+   
+.. attention::
+
+   Projeqtor is compatible with Factur-X since version 14.5. You can import or export your invoices in PDF - XML format.
+
+
+
+.. _listterm-invoice:
+
+.. rubric:: List of terms
+
+.. figure:: /images/GUI/EXPENSES_ZONE_ListOfTermOrder.png
+   :alt: List of terms invoiceed
+   
+   List of terms invoiceed
+   
+   
+This section allows you to create one or more terms for your invoices.
+
+If your invoice was created from an order, then the terms recorded on the offer will be automatically recovered on the invoice.
+
+
+* Click on |Add| to add a term. A pop-up opens.
+
+* Click on |List| to add an existing term.
+
+* Click on |Clear| to remove a term.
+      
+* The name and the date are mandatory.
+
+* Enter the number of installments you want to pay your invoice.
+
+* If 1 then it is a cash payment.
+
+
+.. figure:: /images/GUI/EXPENSES_ZONE_ListOfTerm.png
+   :alt: Terms creation pop-up
+   
+   Terms creation pop-up
+
+When you transform your order into an invoice, the deadlines recorded in the order are automatically transferred to the invoices.
+
+In the orders, in the deadlines section, these will be indicated as invoiced
+
+Each line provides a link to the item screen.
+
+
+.. figure:: /images/GUI/EXPENSES_ZONE_ListOfTermSectionBilled.png
+   :alt: List of terms invoiceed
+   
+   List of terms invoiceed
+   
+     
+   
+   
+
+.. index:: Expenses (Payment to provider)
+
+.. index:: Payment to provider (Expenses)
+
+.. _payment-provider:
+
+Payments to provider
+####################
+
+Follow the payment of your provider invoices to better organize your general cash flow or your working capital.
+
+
+When the payment to the supplier has been completed and recorded, on the screen of provider invoice in the treatment section, you will find a record of these payments.
+
+In the list of terms section, you can see in the table, the terms for which the settlement has been made.
+
+
+**When all the due dates have been paid:**
+
+* on the invoice screen the "full" box is automatically checked
+
+* The date of the last installment is recorded
+
+* A summary is displayed with the name of each payment made
+
+* Each line is clickable.
+
+
+.. figure:: /images/GUI/EXPENSES_ZONE_RecapPayment.png
+   :alt: List of paid installments
+   
+   List of paid installments
+   
+   
+
+
+    
+.. index:: Supplier contract  
+
+.. _supplier-contrat:  
+    
+
+Provider Contract
+#################
+
+.. sidebar:: Other sections
+
+   * :ref:`Contract Gantt provider <provider-Gantt>`
+   
+ProjeQtOr gives you the possibility to manage and precisely follow your supplier contracts
+
+The supplier contract is necessarily linked to a project and a supplier.
+
+A Gantt chart view is available to visualize your contracts graphically.
+
+.. seealso:: 
+
+   This view is also available for the :ref:`contrat client<client-contract>` 
+
+
+
+
+Treatment
+*********
+
+Follow the state, the progress of your contract in this section.
+
+.. rubric:: Responsible
+   
+* Choose a responsible
+   
+* Its initials are displayed on the Gantt chart of contracts
+   
+
+.. rubric:: Workflow
+   
+* The workflow is based on the default workflow. 
+   
+* You can change or modify the current workflow.
+   
+.. seealso:: 
+
+   :ref:`workflow`
+ 
+
+.. _renewalExpenses:
+
+.. rubric:: Renewal
+   
+Defines the behavior of the renewal of a contract at the end of the initially planned duration
+   
+* **Never:** the contract will never be renewed
+      
+* **Tacit:** the contract will be renewed if there is no termination
+      
+* **Express:** the contract is renewed and is the subject of a written or verbal act 
+ 
+
+
+.. rubric:: Status
+   
+* **In progress:** Date on which the contract is taken over. Effective. This date can be entered manually or by going to the Assigned state of the workflow
+      
+* **Done:** Date the contract ends.
+      
+* **Closed:** Date on which the contract was closed.
+      
+* **Cancelled:** Cancellation Date 
+
+
+
+.. rubric:: Progress
+
+In the Progress section, determine the different dates and deadlines for the contract, notice, deadlines, payments ...
+
+ 
+ 
+ 
+.. _provider-gantt:
+
+Provider contract Gantt chart
+*****************************
+
+In addition to the contract management screen (list and details area), you can view your contracts in a time view on a Gantt chart. This is the "contract schedule"
+
+Each bar representing the different contracts, going from the start date to the end date of the contract.
+
+Notice dates and due dates are displayed as milestones.
+
+Gantt bars for customer contracts turn red when the due date is higher than the end of contract date. 
+
+No calculation is made. This is an indication to show an inconsistency. 
+
+
+
+.. figure:: /images/GUI/EXPENSES_SCR_GanttSupplierContract.png
+   :alt: Supplier contract gantt chart screen
+   
+   Supplier contract Gantt chart screen

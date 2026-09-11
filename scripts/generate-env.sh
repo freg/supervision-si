@@ -109,6 +109,10 @@ SNMP_CRED_SALT_GEN="$(gen_salt)"
 # ldap-admin (jamais stocké côté serveur pour ce module, voir
 # .env.example).
 LDAP_TEST_ADMIN_PASSWORD_GEN="$(gen_passphrase)"
+# Base MariaDB dédiée du fork ProjeQtOr (livraison #476) -- utilisateur
+# applicatif ET root, deux valeurs DISTINCTES.
+PROJEQTOR_DB_PASSWORD_GEN="$(gen_passphrase)"
+PROJEQTOR_DB_ROOT_PASSWORD_GEN="$(gen_passphrase)"
 
 # --- Construction du .env final ---
 # Part de .env.example (structure/commentaires intégralement
@@ -127,12 +131,14 @@ python3 - "$HOST_IP_DETECTED" "$PROJECT_NAME" "$KEYCLOAK_ADMIN_PASSWORD_GEN" \
   "$KEYCLOAK_SERVICE_CLIENT_SECRET_GEN" \
   "$PREFS_API_SERVICE_SECRET_GEN" "$MAYAN_AUTOADMIN_PASSWORD_GEN" \
   "$SSH_TUNNELS_CRED_PASSPHRASE_GEN" "$SSH_TUNNELS_CRED_SALT_GEN" \
-  "$SNMP_CRED_PASSPHRASE_GEN" "$SNMP_CRED_SALT_GEN" "$LDAP_TEST_ADMIN_PASSWORD_GEN" << 'PYEOF'
+  "$SNMP_CRED_PASSPHRASE_GEN" "$SNMP_CRED_SALT_GEN" "$LDAP_TEST_ADMIN_PASSWORD_GEN" \
+  "$PROJEQTOR_DB_PASSWORD_GEN" "$PROJEQTOR_DB_ROOT_PASSWORD_GEN" << 'PYEOF'
 import re
 import sys
 
 (host_ip, project_name, keycloak_pw, keycloak_service_secret, prefs_secret, mayan_pw,
- ssh_passphrase, ssh_salt, snmp_passphrase, snmp_salt, ldap_pw) = sys.argv[1:12]
+ ssh_passphrase, ssh_salt, snmp_passphrase, snmp_salt, ldap_pw,
+ projeqtor_pw, projeqtor_root_pw) = sys.argv[1:14]
 
 replacements = {
     "HOST_IP": host_ip,
@@ -149,6 +155,9 @@ replacements = {
     # l'annuaire de test (voir .env.example pour le détail complet).
     "LDAP_BIND_PASSWORD": ldap_pw,
     "LDAP_TEST_ADMIN_PASSWORD": ldap_pw,
+    # Fork ProjeQtOr (livraison #476) -- deux valeurs DISTINCTES.
+    "PROJEQTOR_DB_PASSWORD": projeqtor_pw,
+    "PROJEQTOR_DB_ROOT_PASSWORD": projeqtor_root_pw,
 }
 
 with open(".env", "r") as f:
@@ -182,6 +191,12 @@ Secrets générés le $(date +%Y-%m-%d\ %H:%M:%S) par scripts/generate-env.sh
 Keycloak admin (compte "admin") : $KEYCLOAK_ADMIN_PASSWORD_GEN
 Keycloak compte de service ("supervision-si-service" par défaut) : $KEYCLOAK_SERVICE_CLIENT_SECRET_GEN
 Mayan admin (compte "admin")    : $MAYAN_AUTOADMIN_PASSWORD_GEN
+
+ProjeQtOr (fork, livraison #476) :
+  Premiere connexion web -- compte integre : admin / admin
+    (a changer immediatement, voir projeqtor/README.md)
+  Base MariaDB dediee -- jamais besoin de les ressaisir, dans .env :
+    PROJEQTOR_DB_PASSWORD / PROJEQTOR_DB_ROOT_PASSWORD
 
 Annuaire LDAP de test (openldap-test, livraison #348) :
   Connexion Keycloak/hub -- 3 comptes, MÊME mot de passe pour tous :

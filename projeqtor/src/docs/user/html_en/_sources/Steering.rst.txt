@@ -1,0 +1,917 @@
+.. include:: ImageReplacement.txt
+
+.. index:: Steering
+
+.. title:: Steering
+
+.. index:: Meeting 
+
+
+.. _steering-page:
+
+.. _meeting:
+
+########
+Steering
+########
+
+
+
+Meetings
+########
+
+.. figure:: /images/GUI/STEERING_SCR_Meeting.png
+   :alt: Meeting screen
+   
+   Meeting screen
+   
+Meeting items are stored to keep track of important meetings during the project lifecycle :
+
+* Progress Meetings
+* Steering committees
+* Functional workshops
+
+Keeping track of each meeting makes it possible to follow the decisions or the answers to questions that are taken during them.
+
+This will provide an easy way to find back when, where and why a decision has been taken.
+
+Each meeting is displayed in the agenda. listed in chronological order during the day.
+
+If the manager is filled in, he is automatically added to the meeting assignments.
+
+If one of the resources is assigned to another meeting on the same day, a non-blocking message is displayed if the times overlap.
+
+Project task
+************
+
+.. sidebar:: Other sections
+
+   * :ref:`Attendees<attendees-section>`
+   
+   * :ref:`Live meeting<live-meeting-steering>`    
+
+
+* Meeting is a planned task. they appear in the Gantt diagram and imputation sheets with the date fixed. 
+* You can assign project resources (named attendees).
+* You have progress section that allows for followed resources work and cost. 
+
+     
+Description can be used to store agenda. 
+
+Email invitation
+----------------
+
+* Allows to send the email to attendees.
+* They will receive the invitation in their calendar management tool. 
+
+
+.. note::
+
+   **Minutes**
+
+   You can enter here only a short summary of the minutes and attach the full minutes as a file.
+
+   **Steering**
+
+   Retrieving the agenda of a meeting from the description of its type
+
+   **Diary**
+
+   Viewing meetings in agenda, even if they are not planned
+
+
+
+
+
+.. index:: Live Meeting 
+.. index:: Meeting (Live) 
+
+.. _live-meeting-steering:
+
+Live Meeting
+############
+
+LiveMeeting you can manage meetings in an :ref:`Agile<agile-methods>` way.
+
+* Manage written production quickly and easily.
+
+* Recovery in the liveMeeting of the agenda established on the meeting screen.
+
+* Automatic saving of the minutes when leaving the live meeting.
+
+* Automatically share the time between all participants.
+
+* Dynamically measure the speaking time of each participant.
+
+* Easily write minutes while assistants speak.
+
+* Easily manage actions / decisions / questions while writing minutes.
+
+* Manage tickets, activities, actions and requirements with Kanban while writing minutes.
+
+* Saving the items entered in the live in the minutes section of the meeting.
+
+
+Click on **Start meeting** button to access the Live Meeting Management screen.
+
+.. figure:: /images/GUI/AGILE_SCR_LiveMeeting.png
+   :alt: The LiveMeeting screen
+   
+   The Live Meeting screen
+   
+* Click on **Hide time counters** to show or hide participants' tabs with their speaking time    
+* Click on |meetingPlay| to start the meeting and to start decrementing the speaking time
+* Click on |meetingStop| to stop the meeting and close the LiveMeeting window 
+* Click on |Exit| to exit the LiveMeeting screen
+* Click on |Save| to save the live meeting report
+
+.. seealso:: :ref:`livemeeting-agile`
+
+
+Kanban Management
+*****************
+
+Click on |Kanban| to manage the kanbans.
+ 
+.. figure:: /images/GUI/AGILE_SCR_LiveMeeting-Kanban.png
+   :alt: Kanban management
+   
+   Kanban management in the Live Meeting
+   
+You can manage your Kanban tiles directly in the Live Meeting interface. 
+
+.. seealso:: :ref:`kanban`
+   
+   
+
+  
+   
+
+
+.. index:: Meeting (Periodic)  
+
+.. _periodic-meeting:
+
+Periodic meetings
+#################
+   
+Periodic meeting is a way to define some meetings that will occur on a regular basis.
+
+.. figure:: /images/GUI/STEERING_SCR_PeriodicMeeting.png
+   :alt: Periodic Meeting screen
+   :align: center
+   
+   Periodic meeting screen
+   
+.. warning::
+
+   Most fields match between meeting and recurring meeting, but some information is not present for recurring meetings, such as minutes or status.
+  
+  
+  
+When recording a recurring meeting, each meeting is automatically created in a parent folder, the recurring meeting.
+
+.. figure:: /images/GUI/STEERING_ZONE_Gantt-PeriodMeetings.png
+   :alt: displaying periodic meetings in the Gantt chart 
+   
+   Display of unit meetings under the parent folder
+         
+When the parent folder is closed, the meeting lines are not visible, but they appear on the same line as the folder.
+
+.. figure:: /images/GUI/STEERING_ZONE_Gantt-PeriodMeetings_HIDE.png
+   :alt: displaying periodic meetings on the bar 
+   
+   Display of single meetings on the parent folder bar
+
+.. sidebar:: Other sections
+
+   * :ref:`Attendees<attendees-section>`
+   
+
+Changes can be made on each group meeting.
+
+In most cases, these changes will not be affected or erased by periodic meeting updates.
+      
+Meetings created by recording a recurring meeting will also be displayed on the meetings screen.
+
+
+      
+
+Attendees can be defined on a periodic meeting. 
+
+Assigments of the entire project team to a periodic meeting (as existing for a simple meeting) is possible but the participants will be visible only on unit meetings.
+
+The periodic meetings will not be planned, only elementary meetings will be. 
+
+So left work will always be set to zero on periodic meetings.  
+
+Resource who is responsible for the organization of the meeting. But the responsible is not automatically assigned.
+  
+  
+  
+  
+.. rubric:: Update on a periodic meeting
+
+On each update of a periodic meeting, meetings are re-evaluated.
+  
+This may lead to deletion of some meetings.
+  
+This will also reposition meetings, even if their planned dates were elementary updated.
+  
+  
+  
+  
+
+Attendees assignment section
+****************************
+  
+Attendees can be defined on a periodic meeting. 
+    
+.. figure:: /images/GUI/STEERING_ZONE_AttendeesSection_team.png
+   :alt: attendees section
+   
+   attendees section
+   
+   
+The assignment of a project team to a periodic meeting is possible.
+
+The participants are visible in read-only mode from the recurring meeting but can be modified individually on the unit meeting screens.
+
+You can defined a parent activity for the meeting.
+  
+  
+.. figure:: /images/GUI/STEERING_ZONE_GanttMeeting.png
+   :alt: display of meetings under a parent activity on the Gantt chart
+   
+   display of meetings under a parent activity on the Gantt chart
+ 
+
+The meetings will be display under the selected activity.
+  
+
+
+Periodicity section
+*******************
+
+You can set a time and frequency for your meetings.
+
+.. figure:: /images/GUI/STEERING_ZONE_periodicity.png
+   :alt: Periodicity Section
+   
+   Periodicity Section
+
+
+The period of the recurring meetings can be entered manually or you can retrieve the dates of the selected project by clicking on the **get dates from project** button.
+  
+The number of occurrences and/or the end date can be completed automatically by entering one or other of these criteria.
+  
+Fill in the time - Meeting schedules allows you to automatically calculate and fill in the workload to be assigned to the resources - participants of the meeting in the table of assignments.
+  
+Periodicity
+-----------
+    
+Depending on the frequency selected in the drop-down list, the parameter information displayed is different.
+    
+.. rubric:: Every day 
+         
+Example --> every **3** days
+   
+The number of occurrences being to be personalized
+              
+.. rubric:: Same day every week
+         
+example --> On **Friday** every **2** weeks
+             
+.. rubric:: Same day every month
+         
+example --> day **7** every **2** month
+             
+.. rubric:: Same week every month
+         
+example --> On **1** th **Monday** every **2** months
+         
+         
+If the periodicity is likely to include non-working days, check the box to keep only meetings that will fall on a working day.   
+
+
+
+
+.. _attendees-Section:
+
+Attendees section
+*****************
+
+This section allows to define the list of attendees to the meeting.
+
+* The list of participants is displayed with 
+
+   - The assignment rate
+   - The time assigned and planned for this activity
+   - The real time filled in by the resources
+   - The remainder to be done.
+
+* If a resource has an entered entry date then they will be taken into account.
+
+* Resources prior to their entry date will not be displayed on meeting prior to this date.
+
+* So meeting works of these attendees are booked in the project.
+  
+* Ability to assign to a meeting a resource or a contact or a user not member of the project team.
+
+* A special icon is placed on resource rows representing a pool of resources.
+
+.. figure:: /images/GUI/STEERING_ZONE_Attendees.png
+   :alt: Attendees section
+   :align: center
+   
+   Attendees section
+
+You can assigned a team to the pool of resource, one dynamic and the other static.
+
+* The switch button **automatic assignment of the project team** above the assignment table allows you to assign the current project team.  If a resource is added to the project then they will also be assigned to the meeting.
+
+* The **assign whole project team** button assigns the project team from time to time. If a resource is assigned to the project later, it will not be added to the meeting assignment
+    
+    
+Attendee list
+-------------
+
+* Click on |Add| to add a new attendee
+* Click on |Edit| modify the assignment of the resource
+* Click on |Delete| to delete the assignment of the resource
+* Click on |Split| to divide the assignement with another resource
+* Click on |Goto| to go to the resource's timesheet screen for the week the meeting was planned
+
+.. rubric:: Mandatory participant and Optional attendant option      
+      
+The icon |Star| indicates that the presence of the participant is mandatory
+       
+.. figure:: /images/GUI/STEERING_ZONE_AttendeesEdit.png
+   :alt: Optional attendant
+         
+   Optional attendant
+   
+More detail about how assigned project resources, see: :ref:`assignment-section` section.
+   
+   
+   
+   
+.. rubric:: Other attendees
+   
+Extra list of persons attending (or expecting to attend) the meeting, in completion to resource in the attendee list.
+   
+* You can enter attendees by email address, resource or contact name, user name or initial without caring about. 
+
+* Just separate attendees with commas or semicolons.
+      
+.. note::
+   
+   Duplicate email addresses in the attendee list will automatically be removed.
+
+
+
+
+
+
+.. raw:: latex
+
+    \newpage
+
+.. index:: Decision
+
+.. _change-request: 
+
+Change Request
+##############
+
+The change request feature provides effective tracking of your customer's change requests.
+
+Its purpose is to describe a process that makes clear how the change is communicated, how decisions will be made and by whom and how the project will adapt accordingly.
+
+A change request is very close to a requirement, it can also generate several requirements. The change request is necessarily linked to a project and can be linked to a product.
+
+
+
+
+
+.. index:: Decision
+
+.. _decision: 
+
+Decisions
+#########
+
+Decisions are stored to keep track of important decisions, when, where and why the decision was taken.
+
+You can link a decision to a meeting to rapidly find the minutes where the decision is described.
+
+
+
+ 
+.. note:: 
+
+   The field **Origin** can be either the reference to a meeting where the decision was taken (so also add the reference to the meetings list), or a short description of why the decision was taken. 
+
+   The field **Accountable** is the person who took the decision.
+
+
+
+
+.. index:: Question 
+
+.. _question:
+
+Questions
+#########
+
+Question are stored to keep track of important questions and answers.
+
+In fact, you should keep trace of every question and answer that have an impact to the project.
+
+The questions can also afford an easy way to track questions sent and follow-up non-answered ones.
+
+This will provide an easy way to find back when, who and precise description of the answer to a question.
+
+Also keep in mind that some people will (consciously or not) be able to change their mind and uphold it has always been their opinion… 
+
+You can link a question to a meeting to rapidly find the minutes where the question was raised or answered.
+
+.. rubric:: Monitoring indicator
+
+Possibility to define indicators to follow the respect of dates values.
+
+* Respect of initial due date
+
+* Respect of planned due date
+
+
+
+
+.. index:: Deliverable
+
+.. _deliverables:
+
+Deliverables
+############
+
+This section allows to define the list of deliverables items.
+
+This will provide an easy way to organize your due to customers. 
+
+In fact, you can keep track of every deliverables. 
+
+Deliverables links with Milestones.
+
+.. note::
+
+   If you change the responsible of milestones, the responsible of deliverable will automatically changed, and vice versa. 
+
+   You can estimated quality value for deliverable and this will produce a KPI. 
+      
+.. seealso:: 
+
+   :ref:`kpi-definitions`
+  
+
+
+To follow life cycle management on deliverables (status managed as a workflow)
+
+
+
+
+
+.. index:: Incoming
+    
+.. _incomings:
+
+Incomings
+#########
+
+This section allows to define the list of incomings items from customers.
+
+It can be an indicator to follow if you can begin an action. For example, if you need an item from customer.
+
+Incomings links with Milestones.
+
+.. note::
+
+   If you change the responsible of milestones, the responsible of Incomings will automatically changed, and vice versa. 
+
+   You can estimated quality value for incoming  and this will produce a KPI. See: :ref:`kpi-definitions`
+
+
+
+.. index:: Deliveries
+    
+.. _deliveries:
+
+Deliveries
+##########
+
+Deliveries items are stored to keep track of deliveries.
+
+Added list of deliverables integrated in delivery.
+
+.. note::
+
+   Automatic dispatch of delivery status to deliverables.
+   
+
+To follow life cycle management on deliveries (status managed by a workflow)
+
+
+.. _mail-followup:
+
+Mails follow-up
+###############
+
+Incoming and outgoing mail allows the dematerialization of mail to facilitate its distribution, allow archiving and monitoring by all employees
+
+
+.. rubric:: Incoming mails
+
+.. figure:: /images/GUI/STEERING_SCR_IncomingMail.png
+   :alt: Incoming mails screen
+   
+   Incoming mails screen
+   
+
+
+
+Transmitter description
+***********************
+ 
+In this section it is possible to indicate which transmitter is.
+   
+If it is a contact known to your database, you can select it directly from the lists.
+
+
+
+Approvers
+---------
+    
+You can define approvers for a mail.
+  
+* Click on |Add| to add an approver
+
+* Click on |Delete| to delete an approver
+   
+On the incoming mail screen, the approver can approve or reject the maiml.
+
+All approvers of the mail can view the response of other approvers.   
+   
+   
+Approval status
+---------------
+  
+This status allows you to globally track the status of the approval.
+      
+It can be used in a filter, like all the other fields of the mail object.
+      
+calculated according to the approval status of the mail it may take the following values:
+      
+* **Without approval:** if no approver has been added to the list of approvers
+* **Rejected:** if at least one approver rejected the mail
+* **Pending approval:** if there is at least one approver who has not approved the document and no one has yet rejected the mail
+* **Approved:** if all approvers approved the mail.  
+      
+
+
+Outgoing mails
+**************
+
+.. figure:: /images/GUI/STEERING_SCR_OutgoingMail.png
+   :alt: Outgoing mails screen
+   
+   Outgoing mails screen
+   
+
+
+
+Transmitter description
+-----------------------
+ 
+In this section it is possible to indicate which transmitter is.
+   
+If it is a contact known to your database, you can select it directly from the lists.
+
+
+
+Approvers
+---------
+    
+You can define approvers for a mail.
+  
+* Click on |Add| to add an approver
+* Click on |Delete| to delete an approver
+   
+On the outgoing mail screen, the approver can approve or reject the mail.
+
+All approvers of the mail can view the response of other approvers.   
+   
+   
+Approval status
+---------------
+  
+This status allows you to globally track the status of the approval.
+      
+It can be used in a filter, like all the other fields of the mail object.
+      
+calculated according to the approval status of the mail it may take the following values:
+      
+* **Without approval:** if no approver has been added to the list of approvers
+* **Rejected:** if at least one approver rejected the mail
+* **Pending approval:** if there is at least one approver who has not approved the document and no one has yet rejected the mail
+* **Approved:** if all approvers approved the mail.  
+      
+      
+      
+      
+.. _project-analysis:
+
+Project Analysis
+################
+
+ProjeQtOr allows you to record **assumptions**, **constraints** and **lessons learned**. 
+
+This involves having several screens to enter this information which can be linked to the project like each element of ProjeQtOr.
+
+These screens will allow you to establish a management plan for your projects, whatever they may be.
+
+
+
+
+.. _raci:
+
+RACI
+####
+
+A RACI chart (or RACI matrix) is a project management tool used to define and assign roles and responsibilities for each task, action, or deliverable.
+
+The acronym represents four types of responsibilities:
+
+* **Responsible** (fr: Réalisateur)
+* **Accountable** (fr: Approbateur)
+* **Consulted** (fr: Consulté)
+* **Informed** (fr: Informé)
+
+.. list-table::
+   :header-rows: 1
+   :widths: 8 20 25 47
+
+   * - Letter
+     - Role in English
+     - French equivalent
+     - Concrete mission
+
+   * - R
+     - **Responsible**
+     - Executor / Doer
+     - The person or people who **perform the work or produce the task deliverable**. Several resources can be assigned as Responsible for the same task.
+
+   * - A
+     - **Accountable**
+     - Approver / Responsible
+     - The person who **has final accountability for the work and validates its completion**. There can be **only one Accountable per task**. The Accountable person can also be Responsible.
+
+   * - C
+     - **Consulted**
+     - Consulted
+     - The expert or stakeholder whose **advice or expertise is sought** before the task is finalized.
+
+   * - I
+     - **Informed**
+     - Informed
+     - The people who need to **be kept informed** of the progress or completion of the task.
+
+
+You can create as many **standard RACI matrices** and roles as needed, for example, to adapt them to the different types of projects you manage.
+
+A standard RACI matrix can then be selected and reused on your projects, avoiding the need to redefine the RACI structure for each project.
+
+In the details of each matrix, you define the distribution of responsibilities between the different **documents** and **roles/functions** involved in the project.
+
+.. figure:: /images/GUI/STEERING_ZONE_DetailRACI.png
+   :alt: RACI matrix
+
+   RACI matrix
+
+* Click |Plus| to add a row for a document or a role.
+* Click |superPlus| to add 10 rows at once.
+
+For each row, select the RACI responsibility assigned to each role/function.
+
+.. note:: 
+
+   Only one approver per document is allowed.
+
+
+RACI on the project
+*******************
+
+In the project, go to the **Details** tab to access the **RACI** section, where you can select the matrix to be used for the project.
+
+Once the matrix has been selected, the RACI table is displayed with the roles and functions defined in the matrix.
+
+You can then assign your project resources to these roles/functions.
+
+
+.. figure:: /images/GUI/STEERING_ZONE_ProjectDetailRACI.png
+   :alt: RACI on project
+
+   Resource assignment on your RACI matrix
+   
+   
+To assign a resource, **click and drag it into the corresponding cell** for each role or function.
+
+Resources can be moved from one role/function to another at any time.
+
+
+      
+.. _abacus:
+
+Abacus
+######
+
+
+A project is characterized by a limited lifespan. During this lifecycle, it goes through different stages, thus constituting the project lifecycle. 
+
+Abacus allow us to formalize the empirical rules derived from experience gained during projects and to reapply them to the different stages of the project.
+
+They serve to structure and consolidate information that enables the estimation or evaluation of certain elements of a project, for example:
+
+* a probable duration
+* an estimated workload
+* a cost
+* a priority level
+* a risk level
+* or any other information useful for project management.
+
+Abacus is therefore a table of correspondence between several criteria and a resulting value.
+
+
+Phasing
+*******
+
+Phasing allows the content of a nomogram to be linked to a specific stage in a project's lifecycle. 
+
+It serves to structure estimates according to the project's progress and to provide references adapted to the context of each phase.
+
+Click on |edit| to create the phases of your project
+
+.. figure:: /images/GUI/STEERING_BOX_AbacusPhasing.png
+   :alt: Phasing
+   
+   Phasing
+
+
+Contents of the phases
+----------------------
+
+Once your project phases are created, fill each of these phases with content.
+
+Click on |Edit| to open the pop-up window for adding phasing
+
+Click on |Plus| to recording the new phase
+
+.. figure:: /images/GUI/STEERING_BOX_AbacusPhasingAdd.png
+   :alt: Add a new phasing
+   
+   Add a new phasing
+   
+The content of the phases is not mandatory but allows you to estimate their duration.
+
+Enter the durations so that this data is retrieved for the project.
+
+Click on |Plus| to add a new line
+
+Click on |superPlus| to add 10 new lines
+
+
+.. figure:: /images/GUI/STEERING_SCR_AbacusPhasing.png
+   :alt: Contents of the phases
+   
+   Contents of the phases
+
+
+Definition of abacuses
+**********************
+
+The first step is to define abacus structure.
+
+**Each abacus consists of:**
+
+* a name
+
+* a list of criteria (fields)
+
+* a pivot representing the resulting value
+
+* a unit
+
+.. figure:: /images/GUI/STEERING_SCR_AbacusDefinition.png
+   :alt: Definition of abacuses
+   
+   Definition of abacuses
+   
+   
+The criteria correspond to the analysis dimensions used to construct the rule.
+
+Abacus then indicates how many days should be considered according to these criteria.
+
+You can add criteria from the list provided.
+
+* Click on |List| to adding criteria in the fields
+
+.. figure:: /images/GUI/STEERING_BOX_AbacusCriteriaAdd.png
+   :alt: Definition of abacuses
+   
+   Definition of abacuses
+   
+   
+You can link abacus to a phase. In this case, you will only see those abacus if you select the corresponding phase.
+
+Phases that are not linked to abacus will display all abacus.
+
+
+
+Filling of abacus
+*****************
+
+Once the nomograms are defined, the values corresponding to the different combinations of criteria must be entered.
+
+**Each row corresponds to:**
+
+* a combination of criteria
+* an associated value
+
+These values represent hypotheses derived from experience or internal references.
+
+**Filling in the nomograms can be based on:**
+
+* project history
+* project manager experience
+* organizational standards.   
+
+.. figure:: /images/GUI/STEERING_SCR_AbacusFilling.png
+   :alt: Definition of abacuses
+   
+   Definition of abacuses
+   
+   
+  
+Abacus on project
+*****************
+
+Once the abacus are filled in, you can link them to your projects so that your collaborators have a stable basis to start the project steps.
+
+.. figure:: /images/GUI/STEERING_ZONE_AbacusEmptyProject.png
+   :alt: Abacuses on Project
+   
+   Abacuses on Project
+   
+   
+In the "phasing" dropdown list you will find the previously created phases.
+
+When you select a phase, all the nomograms are offered in the drop-down list.
+
+As long as you don't save the screen, you can add as many lines as you like using any nomograms.
+
+Once the screen is saved with the selected phase, only the graphs relating to that phase will be displayed.
+   
+.. figure:: /images/GUI/STEERING_ZONE_AbacusFillProject.png
+   :alt: Abacuses on Project
+   
+   Abacuses on Project
+
+
+Select the corresponding phase and select the different charts to apply.
+
+Click on |Plus| to add and populate the nomogram to the project.
+
+.. figure:: /images/GUI/STEERING_BOX_AddingAbacus.png
+   :alt: Pop up adding abacuses on Project
+   
+   Pop up Adding abacuses on Project
+
+
+Depending on the selected abacus, the pop-up will display the necessary information, making it mandatory.
+
+
+.. figure:: /images/GUI/STEERING_ZONE_AbacusFillProject.png
+   :alt: Abacuses on Project
+   
+   Abacuses on Project
+   
+   
+   
+When the nomogram is added, two buttons are available.
+
+**Create assignments**
+
+Alows you to create assignments for activities using information related to the phasing and the linked nomogram.
+
+**Assign all used resources**
+
+Allows you to assign the selected resources to the project using the nomograms.   
+

@@ -1,0 +1,2062 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Lists of types &#8212; ProjeQtOr User guide 13.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="List of Values" href="ListsOfValues.html" />
+    <link rel="prev" title="Configuration Management" href="AccessRights.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="ListsOfValues.html" title="List of Values"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="AccessRights.html" title="Configuration Management"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Lists of types</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="list-of-types">
+<span id="list-of-type"></span><span id="index-0"></span><h1>List of Types<a class="headerlink" href="#list-of-types" title="Permalink to this heading">¶</a></h1>
+<p>Each element of ProjeQtOr can be typed at your convenience according to your profession or your field of activity.</p>
+<p>Each type is presented the same. A very simple description section, with different fields depending on the element, and a behavior section that will condition your future actions according to the parameters entered.</p>
+<section id="behavior-section">
+<span id="id1"></span><h2>Behavior section<a class="headerlink" href="#behavior-section" title="Permalink to this heading">¶</a></h2>
+<p>This section is common to several element types.</p>
+<p>Allows to determine some GUI behavior, according to element types.</p>
+<p class="rubric">Description or Comments</p>
+<p>Box checked indicates the field <a class="reference internal" href="Glossary.html#term-Description"><span class="xref std std-term">Description</span></a> is mandatory.</p>
+<p class="rubric">Responsible</p>
+<p>Box checked indicates the field <a class="reference internal" href="Glossary.html#term-Responsible"><span class="xref std std-term">Responsible</span></a> is mandatory when the status to treatment of the item is “In progress”.</p>
+<p class="rubric">Result</p>
+<p>Box checked indicates the field <a class="reference internal" href="Glossary.html#term-Result"><span class="xref std std-term">Result</span></a> is mandatory when the status to treatment of the item is “done”.</p>
+<p class="rubric">Flag status</p>
+<p>You can lock the macro status: In progress - Done - Closed - Canceled</p>
+<p>Those fields allow to determine whether the checkbox fields concerned are locked or not.</p>
+<p>If the box is checked then you will only be able to modify the macro status thanks to the workflow statuses.</p>
+<p class="rubric">No left work on done</p>
+<ul class="simple">
+<li><p>The plannable elements cannot be passed to status <strong>done</strong> if there is still left work.</p></li>
+</ul>
+<section id="project">
+<h3>Project<a class="headerlink" href="#project" title="Permalink to this heading">¶</a></h3>
+<figure class="align-default" id="id2">
+<img alt="Behavior zone of project" src="_images/LISTOFTYPE_ZONE_Behavior.png" />
+<figcaption>
+<p><span class="caption-text">Behavior zone of project</span><a class="headerlink" href="#id2" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Lead Project</p>
+<p>The definition is made by the project type, you define that certain types of projects can not have activities, only subprojects or milestones.</p>
+</section>
+<section id="activity">
+<h3>Activity<a class="headerlink" href="#activity" title="Permalink to this heading">¶</a></h3>
+<figure class="align-default" id="id3">
+<img alt="Behavior zone of activity" src="_images/LISTOFTYPE_ZONE_BehaviorActivity.png" />
+<figcaption>
+<p><span class="caption-text">Behavior zone of activity</span><a class="headerlink" href="#id3" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">activity on real time</p>
+<p>Possibility of managing activities on real time.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="GlobalParameters.html#gp-planning-section"><span class="std std-ref">Global parameters</span></a> | <a class="reference internal" href="CommonSections.html#activity-on-real-time"><span class="std std-ref">Assignement section</span></a></p>
+</div>
+<p class="rubric">No left work on done</p>
+<p>The activity cannot be passed to status <strong>done</strong> if there is still left work.</p>
+<p class="rubric">Todo list</p>
+<p>Checked box prohibits status change to completed if not all to-do list items are set to “completed”</p>
+<p class="rubric">Add a note</p>
+<p>Select the status that will require adding a new note.</p>
+<p>When switching to the specified status, if the current user has already saved a new note within the last 5 minutes, no action will be taken.</p>
+<p>Otherwise, the status change will trigger a pop-up window allowing the user to add a new note.</p>
+</section>
+<section id="ticket">
+<h3>Ticket<a class="headerlink" href="#ticket" title="Permalink to this heading">¶</a></h3>
+<p class="rubric">Resolution</p>
+<p>Box checked indicates the field <strong>Resolution</strong> is mandatory when the status to treatment of an item is <strong>done</strong>.</p>
+<p class="rubric">Lock solved</p>
+<p>Box checked indicates the field <strong>Solved</strong> is read only.
+The value of field must come from the field “Solved” defined in the selected resolution.</p>
+<p class="rubric">Todo list</p>
+<p>Checked box prohibits status change to completed if not all to-do list items are set to “completed”</p>
+<p class="rubric">Add a note</p>
+<p>Select the status that will require adding a new note.</p>
+<p>When switching to the specified status, if the current user has already saved a new note within the last 5 minutes, no action will be taken.</p>
+<p>Otherwise, the status change will trigger a pop-up window allowing the user to add a new note.</p>
+</section>
+<section id="translation">
+<h3>Translation<a class="headerlink" href="#translation" title="Permalink to this heading">¶</a></h3>
+<p class="rubric">Translation Request type</p>
+<p><strong>initial status of items</strong></p>
+<p>The initial state of the lines corresponds to the state of the request which will result in the automatic generation of the translation lines according to the languages recorded on your product or component version.</p>
+<p><strong>translation delay (nb days)</strong></p>
+<p>The translation deadline (in days) determines the deadline for the planned delivery date which will be calculated automatically from the creation of the request. This period is expressed in calendar duration and does not take into account non-working days.</p>
+<p class="rubric">Translation item type</p>
+<p><strong>status of generation of item</strong></p>
+<p>Corresponds to the state in which the rows will be created.</p>
+</section>
+</section>
+<section id="types-restrictions">
+<span id="type-restriction-section"></span><h2>Types restrictions<a class="headerlink" href="#types-restrictions" title="Permalink to this heading">¶</a></h2>
+<p>Allows to limit values displayed in the list of values for each element type.</p>
+<p>Restrictions can be defined for a project, a project type or a profile.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Types restrictions section on Project screen</strong></p>
+<p>To display types restrictions section:
+Go to <a class="reference internal" href="GlobalParameters.html#gp-control-restict-section"><span class="std std-ref">Global parameter &gt; Tab Activity &gt; Controls and Restrictions Section</span></a>
+“allow type restriction on project” must be set to “Yes”.
+Possibility to define more restrictions to a project against restrictions defined at the project type level.</p>
+</div>
+<p class="rubric">Type restriction management</p>
+<figure class="align-default" id="id4">
+<img alt="Section - Restrict types" src="_images/LISTofTYPE_ZONE_TypeRestriction.png" />
+<figcaption>
+<p><span class="caption-text">Restrict types section</span><a class="headerlink" href="#id4" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Click on <kbd class="kbd compound docutils literal notranslate"><kbd class="kbd docutils literal notranslate">Restrict</kbd> <kbd class="kbd docutils literal notranslate">types</kbd></kbd> button to display the dialog box.</p></li>
+<li><p>For each element type, select values that will be in the list of values displayed.</p></li>
+<li><p>By default, if no type of element is selected, all the values of the line will be displayed on each screen that will be affected.</p></li>
+</ul>
+<figure class="align-center" id="id5">
+<img alt="Dialog box - Restrict types for the project" src="_images/LISTofTYPE_ZONE_Restriction.png" />
+<figcaption>
+<p><span class="caption-text">Restrict types for the project</span><a class="headerlink" href="#id5" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Displays element type names where a restriction is applied</p>
+<p>Reminder : It means too, no restriction for remainding element types on each dedicated screen.</p>
+</section>
+<section id="element-types">
+<h2>Element types<a class="headerlink" href="#element-types" title="Permalink to this heading">¶</a></h2>
+<section id="actions-types">
+<span id="action-type"></span><span id="index-1"></span><h3>Actions types<a class="headerlink" href="#actions-types" title="Permalink to this heading">¶</a></h3>
+<p>Action type is a way to define common behavior on group of actions.</p>
+<p class="rubric">Add a note</p>
+<p>Select the status that will require adding a new note.</p>
+<p>When switching to the specified status, if the current user has already saved a new note within the last 5 minutes, no action will be taken.</p>
+<p>Otherwise, the status change will trigger a pop-up window allowing the user to add a new note.</p>
+<table class="docutils align-default" id="id6">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id6" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="activities-types">
+<span id="activity-type"></span><span id="index-2"></span><h3>Activities types<a class="headerlink" href="#activities-types" title="Permalink to this heading">¶</a></h3>
+<p>Activity type is a way to define common behavior on group of activities.</p>
+<table class="docutils align-default" id="id7">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id7" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Default planning mode</p></td>
+<td><p>Default planning mode for type.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Priority</p></td>
+<td><p>Defined the priority of the activity type. It will be automatically applied in the activity management section.</p></td>
+</tr>
+<tr class="row-even"><td><p>Color</p></td>
+<td><p>Defined the default color for this activity type.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="asset-types">
+<span id="asset-type"></span><span id="index-3"></span><h3>Asset types<a class="headerlink" href="#asset-types" title="Permalink to this heading">¶</a></h3>
+<p>Question type is a way to define common behavior on group of questions.</p>
+<table class="docutils align-default" id="id8">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id8" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="budget-types">
+<span id="budget-type"></span><span id="index-4"></span><h3>Budget types<a class="headerlink" href="#budget-types" title="Permalink to this heading">¶</a></h3>
+<p>Budget types are a way to define the best budget for each project/activity.</p>
+<p>Estimated budget, cash, investment, sale …</p>
+<table class="docutils align-default" id="id9">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id9" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="call-for-tender-types">
+<span id="call-for-tender-type"></span><span id="index-5"></span><h3>Call for tender types<a class="headerlink" href="#call-for-tender-types" title="Permalink to this heading">¶</a></h3>
+<p>The types of calls for tenders make it possible to define the best procedure for launching calls with respect to the organization of your company:</p>
+<p>the open, restricted tender, with minimum capacity requirements or pre-selection;</p>
+<table class="docutils align-default" id="id10">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id10" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="catalog-types">
+<span id="catalog-type"></span><span id="index-6"></span><h3>Catalog types<a class="headerlink" href="#catalog-types" title="Permalink to this heading">¶</a></h3>
+<p>Catalog types allow you to defune what type of item you produce or sell to your customers: products, services …</p>
+<table class="docutils align-default" id="id11">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id11" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="change-requests-types">
+<span id="change-request-type"></span><span id="index-7"></span><h3>Change requests types<a class="headerlink" href="#change-requests-types" title="Permalink to this heading">¶</a></h3>
+<p>The change request type is a way to define common behavior on a group of particular requests.</p>
+<p>Several types are pre recorded: recurring problems, technical and functional improvement, regulatory constraint and process and quality.</p>
+<table class="docutils align-default" id="id12">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id12" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="client-bills-types">
+<span id="client-bill-type"></span><span id="index-8"></span><h3>Client Bills types<a class="headerlink" href="#client-bills-types" title="Permalink to this heading">¶</a></h3>
+<p>Bill type is a way to define common behavior on group of bills.</p>
+<table class="docutils align-default" id="id13">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id13" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="client-contract-types">
+<span id="client-contract-type"></span><span id="index-9"></span><h3>Client contract types<a class="headerlink" href="#client-contract-types" title="Permalink to this heading">¶</a></h3>
+<p>Client contract types are a way of defining the type of contract with a client.</p>
+<p>Types of contract are already pre-registered: management assistance, hosting, technical improvement or Maintenance and support</p>
+<table class="docutils align-default" id="id14">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id14" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="client-order-types">
+<span id="client-order-type"></span><span id="index-10"></span><h3>Client order types<a class="headerlink" href="#client-order-types" title="Permalink to this heading">¶</a></h3>
+<p>Client order types allow you to define common order behaviors, such as billing</p>
+<table class="docutils align-default" id="id15">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id15" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="client-payments-types">
+<span id="client-payments-type"></span><span id="index-11"></span><h3>Client payments types<a class="headerlink" href="#client-payments-types" title="Permalink to this heading">¶</a></h3>
+<p>customer payment type defines how the customer will pay the bill</p>
+<table class="docutils align-default" id="id16">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id16" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="client-quotations-types">
+<span id="client-quotation-type"></span><span id="index-12"></span><h3>Client quotations types<a class="headerlink" href="#client-quotations-types" title="Permalink to this heading">¶</a></h3>
+<p>Customer quote types allow you to define common behaviors on a quote group, such as the type of billing that will be applied</p>
+<table class="docutils align-default" id="id17">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id17" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="components-types">
+<span id="component-type"></span><span id="index-13"></span><h3>Components types<a class="headerlink" href="#components-types" title="Permalink to this heading">¶</a></h3>
+<p>Component type is a way to define common behavior to group of component.</p>
+<table class="docutils align-default" id="id18">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id18" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="component-version-types">
+<span id="component-version-type"></span><span id="index-14"></span><h3>Component version types<a class="headerlink" href="#component-version-types" title="Permalink to this heading">¶</a></h3>
+<p>Component version type is a way to define common behavior to group of Component version.</p>
+<table class="docutils align-default" id="id19">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id19" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="contexts-types">
+<span id="context-type"></span><span id="index-15"></span><h3>Contexts types<a class="headerlink" href="#contexts-types" title="Permalink to this heading">¶</a></h3>
+<p>Context types are used to define the environmental context to describe ticket or test case.</p>
+<p>Only three context types exist, corresponding to the three selectable fields: Environment, OS and Browser.</p>
+<p>You can only rename the types, not add nor remove any.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>Only the name of the context types can be changed.</p></li>
+<li><p>No new context type can be added.</p></li>
+<li><p>No context type can be deleted.</p></li>
+</ul>
+</div>
+<table class="docutils align-default" id="id20">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id20" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+</tbody>
+</table>
+<span class="target" id="index-16"></span></section>
+<section id="customers-types">
+<span id="client-type"></span><span id="customer-type"></span><span id="index-17"></span><h3>Customers types<a class="headerlink" href="#customers-types" title="Permalink to this heading">¶</a></h3>
+<p>Customer type is a way to define different kinds of customers  (prospects or clients).</p>
+<table class="docutils align-default" id="id21">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id21" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="decisions-types">
+<span id="decision-type"></span><span id="index-18"></span><h3>Decisions types<a class="headerlink" href="#decisions-types" title="Permalink to this heading">¶</a></h3>
+<p>Decision type is a way to define common behavior on group of decisions.</p>
+<table class="docutils align-default" id="id22">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id22" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="documents-types">
+<span id="document-type"></span><span id="index-19"></span><h3>Documents types<a class="headerlink" href="#documents-types" title="Permalink to this heading">¶</a></h3>
+<p>Document type is a way to define common behavior on group of documents.</p>
+<table class="docutils align-default" id="id23">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id23" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="expenses-details-types">
+<span id="expense-detail-type"></span><span id="index-20"></span><h3>Expenses details types<a class="headerlink" href="#expenses-details-types" title="Permalink to this heading">¶</a></h3>
+<p>Expense detail type is a way to define common behavior and calculation mode on group of expense details.</p>
+<table class="docutils align-default" id="id24">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id24" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Value / unit</p></td>
+<td><p>Define calculation mode for the detail type.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Field <strong>Value / unit</strong></p>
+<p>If unit is set and not value, this line will be imputable.</p>
+<p>If both unit and value are set, the line will be read only.</p>
+<p>Result cost will be the multiplication between each of the three non empty line values.</p>
+</div>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Individual expense</p></td>
+<td><p>Details type of individual expense.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Project expense</p></td>
+<td><p>Details type of project expense.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="individual-expenses-types">
+<span id="individual-expense-type"></span><span id="index-21"></span><h3>Individual expenses types<a class="headerlink" href="#individual-expenses-types" title="Permalink to this heading">¶</a></h3>
+<p>Individual expense type is a way to define common behavior on group of individual expense.</p>
+<table class="docutils align-default" id="id25">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id25" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-odd"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="issues-types">
+<span id="issue-type"></span><span id="index-22"></span><h3>Issues types<a class="headerlink" href="#issues-types" title="Permalink to this heading">¶</a></h3>
+<p>Issue type is a way to define common behavior on group of issues.</p>
+<table class="docutils align-default" id="id26">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id26" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="meetings-types">
+<span id="meeting-type"></span><span id="index-23"></span><h3>Meetings types<a class="headerlink" href="#meetings-types" title="Permalink to this heading">¶</a></h3>
+<p>Meeting type is a way to define common behavior on group of meetings.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Meeting type is also used for periodic meetings definition.</p>
+</div>
+<table class="docutils align-default" id="id27">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id27" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="messages-types">
+<span id="message-type"></span><span id="index-24"></span><h3>Messages types<a class="headerlink" href="#messages-types" title="Permalink to this heading">¶</a></h3>
+<p>Message type is a way to define common behavior on group of messages (appearing on today screen).</p>
+<table class="docutils align-default" id="id28">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id28" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Color</p></td>
+<td><p>Display color for messages of this type.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="milestones-types">
+<span id="milestone-type"></span><span id="index-25"></span><h3>Milestones types<a class="headerlink" href="#milestones-types" title="Permalink to this heading">¶</a></h3>
+<p>Milestone type is a way to define common behavior on group of milestones.</p>
+<table class="docutils align-default" id="id29">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id29" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Default planning mode</p></td>
+<td><p>Default planning mode for type.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="opportunities-types">
+<span id="opportunity-type"></span><span id="index-26"></span><h3>Opportunities types<a class="headerlink" href="#opportunities-types" title="Permalink to this heading">¶</a></h3>
+<p>Opportunity type is a way to define common behavior on group of opportunities.</p>
+<table class="docutils align-default" id="id30">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id30" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="order-to-provider-types">
+<span id="order-provider-type"></span><span id="index-27"></span><h3>Order to Provider types<a class="headerlink" href="#order-to-provider-types" title="Permalink to this heading">¶</a></h3>
+<p>Vendor order types categorize the subject of the request: service or product</p>
+<table class="docutils align-default" id="id31">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id31" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="organization-types">
+<h3>Organization types<a class="headerlink" href="#organization-types" title="Permalink to this heading">¶</a></h3>
+<p>The type of organization allows you to define a common behavior on organizations.</p>
+<p>Management of <a class="reference internal" href="Organization.html#organizations"><span class="std std-ref">Organizations</span></a> allows to edit the structure of the company in the frame of organizations</p>
+<table class="docutils align-default" id="id32">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id32" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the project type.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="payments-to-provider-types">
+<span id="payment-provider-type"></span><span id="index-28"></span><h3>Payments to provider types<a class="headerlink" href="#payments-to-provider-types" title="Permalink to this heading">¶</a></h3>
+<p>Payment type is a way to define common behavior on group of payments.</p>
+<table class="docutils align-default" id="id33">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id33" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-odd"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="planning-poker-session-type">
+<span id="planning-poker-type"></span><span id="index-29"></span><h3>Planning poker session type<a class="headerlink" href="#planning-poker-session-type" title="Permalink to this heading">¶</a></h3>
+<p>Planning poker session type is a way to define common behavior on group of planning poker.</p>
+<table class="docutils align-default" id="id34">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id34" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-odd"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="products-types">
+<span id="product-type"></span><span id="index-30"></span><h3>Products types<a class="headerlink" href="#products-types" title="Permalink to this heading">¶</a></h3>
+<p>Product type is a way to define common behavior to group of product.</p>
+<table class="docutils align-default" id="id35">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id35" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="product-version-types">
+<span id="product-version-type"></span><span id="index-31"></span><h3>Product version types<a class="headerlink" href="#product-version-types" title="Permalink to this heading">¶</a></h3>
+<p>Product version type is a way to define common behavior to group of Product version.</p>
+<table class="docutils align-default" id="id36">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id36" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="project-expenses-types">
+<span id="project-expense-type"></span><span id="index-32"></span><h3>Project expenses types<a class="headerlink" href="#project-expenses-types" title="Permalink to this heading">¶</a></h3>
+<p>Project expense type is a way to define common behavior on group of project expense.</p>
+<table class="docutils align-default" id="id37">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id37" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-odd"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="projects-types">
+<span id="project-type"></span><span id="index-33"></span><h3>Projects types<a class="headerlink" href="#projects-types" title="Permalink to this heading">¶</a></h3>
+<p>Project type is a way to define common behavior on group of projects.</p>
+<p class="rubric">Code of the project type</p>
+<p>Some important behavior will depend on code of the project type.</p>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Code</p></td>
+<td><p>Name</p></td>
+</tr>
+<tr class="row-even"><td><p>OPE</p></td>
+<td><p>According to schedule</p></td>
+</tr>
+<tr class="row-odd"><td><p>OPE</p></td>
+<td><p>Based on actual workload</p></td>
+</tr>
+<tr class="row-even"><td><p>OPE</p></td>
+<td><p>Based on actual fixed workload</p></td>
+</tr>
+<tr class="row-odd"><td><p>OPE</p></td>
+<td><p>Manual entry</p></td>
+</tr>
+<tr class="row-even"><td><p>OPE</p></td>
+<td><p>Not billed</p></td>
+</tr>
+<tr class="row-odd"><td><p>ADM</p></td>
+<td><p>Administrative</p></td>
+</tr>
+<tr class="row-even"><td><p>TMP</p></td>
+<td><p>Template</p></td>
+</tr>
+<tr class="row-odd"><td><p>PRP</p></td>
+<td><p>Proposal</p></td>
+</tr>
+</tbody>
+</table>
+<section id="ope-operational-project">
+<h4>OPE: Operational project<a class="headerlink" href="#ope-operational-project" title="Permalink to this heading">¶</a></h4>
+<p>In ProjeQtOr, operational projects can be associated with a billing type.</p>
+<p>This association allows financial documents (invoices, quotes, purchase orders, etc.) to be automatically adapted to the billing method specific to the project type in question.</p>
+<p>Depending on the billing type defined, specific shortcuts will appear in financial documents.</p>
+<p>These shortcuts facilitate the automatic retrieval of relevant data (time spent, expenses, costs, etc.) related to the project, thus optimizing financial monitoring.</p>
+</section>
+<section id="adm-administrative-project">
+<h4>ADM: Administrative project<a class="headerlink" href="#adm-administrative-project" title="Permalink to this heading">¶</a></h4>
+<p>Type of project to follow non productive work : holidays, sickness, training, …</p>
+<p>All new types are created with <strong>ADM</strong> code.</p>
+<p>Every resource will be able to enter real work on these projects, without having to be allocated to the project, nor assigned to project activities.</p>
+<p>Assignments to all project task will be automatically created for users to enter real work.</p>
+<p>These projects are not visible on Gantt type screens.</p>
+<p>Some sections and fields are not visible or do not work on administrative projects like Paused, Fix planning or the minimum threshold.</p>
+</section>
+<section id="tmp-template-project">
+<h4>TMP: Template project<a class="headerlink" href="#tmp-template-project" title="Permalink to this heading">¶</a></h4>
+<p>These projects will not be used to follow some work.</p>
+<p>They are just designed to define templates, to be copied as operational projects.</p>
+<p>Any project leader (profile) can copy such projects, without having to be allocated to them.</p>
+<p>All new types are created with <strong>TMP</strong> code.</p>
+</section>
+<section id="prp-proposal-project">
+<h4>PRP: Proposal project<a class="headerlink" href="#prp-proposal-project" title="Permalink to this heading">¶</a></h4>
+<p>These projects will not be used to follow some work.</p>
+<p>This type of project makes it possible to define whether a project is strategically interesting to carry out.</p>
+<p>All new types are created with <strong>PRP</strong> code.</p>
+<table class="docutils align-default" id="id38">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id38" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the project type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Billing type</p></td>
+<td><p>Will define billing behavior (see: <a class="reference internal" href="Incomes.html#billing-types"><span class="std std-ref">Incomes</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="prospect-estimate-types">
+<span id="prospect-estimate-type"></span><span id="index-34"></span><h3>Prospect estimate types<a class="headerlink" href="#prospect-estimate-types" title="Permalink to this heading">¶</a></h3>
+<p>Prospect estimate type is a way to define common behavior on group of prospect estimates.</p>
+<table class="docutils align-default" id="id39">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id39" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defines the workflow ruling status changes for prospect estimates of this type (see <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="prospect-events-types">
+<span id="prospect-event-type"></span><span id="index-35"></span><h3>Prospect events types<a class="headerlink" href="#prospect-events-types" title="Permalink to this heading">¶</a></h3>
+<p>Prospect event type is a way to define common behavior on group of prospect events.</p>
+<table class="docutils align-default" id="id40">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id40" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defines the workflow ruling status changes for prospect events of this type (see <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="prospects-types">
+<span id="prospect-type"></span><span id="index-36"></span><h3>Prospects types<a class="headerlink" href="#prospects-types" title="Permalink to this heading">¶</a></h3>
+<p>Prospect type is a way to define common behavior on group of prospects.</p>
+<table class="docutils align-default" id="id41">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id41" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for prospects of this type (see <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="provider-bill-types">
+<span id="provider-bill-type"></span><span id="index-37"></span><h3>Provider bill types<a class="headerlink" href="#provider-bill-types" title="Permalink to this heading">¶</a></h3>
+<p>There is a wide variety of invoice types. Each one is used in specific circumstances and requires the respect of protocols concerning their constitution and their emission.</p>
+<p>You can create as many invoice types as you need.</p>
+<table class="docutils align-default" id="id42">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id42" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-odd"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="provider-tender-types">
+<span id="provider-tender-type"></span><span id="index-38"></span><h3>Provider tender types<a class="headerlink" href="#provider-tender-types" title="Permalink to this heading">¶</a></h3>
+<p>Quote types allow you to organize and categorize the different offers received by your suppliers</p>
+<table class="docutils align-default" id="id43">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id43" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="providers-types">
+<span id="provider-type"></span><span id="index-39"></span><h3>Providers types<a class="headerlink" href="#providers-types" title="Permalink to this heading">¶</a></h3>
+<p>Provider type is a way to define different kinds of providers.</p>
+<table class="docutils align-default" id="id44">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id44" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="questions-types">
+<span id="question-type"></span><span id="index-40"></span><h3>Questions types<a class="headerlink" href="#questions-types" title="Permalink to this heading">¶</a></h3>
+<p>Question type is a way to define common behavior on group of questions.</p>
+<table class="docutils align-default" id="id45">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id45" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="requirements-types">
+<span id="requirement-type"></span><span id="index-41"></span><h3>Requirements types<a class="headerlink" href="#requirements-types" title="Permalink to this heading">¶</a></h3>
+<p>Requirement type is a way to define common behavior on group of requirements.</p>
+<table class="docutils align-default" id="id46">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id46" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="risks-types">
+<span id="risk-type"></span><span id="index-42"></span><h3>Risks types<a class="headerlink" href="#risks-types" title="Permalink to this heading">¶</a></h3>
+<p>Risk type is a way to define common behavior on group of risks.</p>
+<table class="docutils align-default" id="id47">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id47" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="supplier-contract-types">
+<span id="supplier-contract-type"></span><span id="index-43"></span><h3>Supplier contract types<a class="headerlink" href="#supplier-contract-types" title="Permalink to this heading">¶</a></h3>
+<p>Supplier contract types are a way of defining the type of contract with a supplier.</p>
+<p>Types of contract are already pre-registered: management assistance, hosting, technical improvement or Maintenance and support</p>
+<table class="docutils align-default" id="id48">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id48" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="test-cases-types">
+<span id="test-case-type"></span><span id="index-44"></span><h3>Test cases types<a class="headerlink" href="#test-cases-types" title="Permalink to this heading">¶</a></h3>
+<p>Test case type is a way to define common behavior on group of test cases.</p>
+<table class="docutils align-default" id="id49">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id49" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="test-sessions-types">
+<span id="test-session-type"></span><span id="index-45"></span><h3>Test sessions types<a class="headerlink" href="#test-sessions-types" title="Permalink to this heading">¶</a></h3>
+<p>Test session type is a way to define common behavior on group of test sessions.</p>
+<table class="docutils align-default" id="id50">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id50" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Default planning mode</p></td>
+<td><p>Default planning mode for type.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="tickets-types">
+<span id="ticket-type"></span><span id="index-46"></span><h3>Tickets types<a class="headerlink" href="#tickets-types" title="Permalink to this heading">¶</a></h3>
+<p>Ticket type is a way to define common behavior on group of tickets.</p>
+<table class="docutils align-default" id="id51">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id51" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="translation-item-types">
+<span id="translation-item-type"></span><span id="index-47"></span><h3>Translation item types<a class="headerlink" href="#translation-item-types" title="Permalink to this heading">¶</a></h3>
+<p>Translation lines also have the possibility of being typed.
+You can more easily compartmentalize your requests.</p>
+<p>Assign a different workflow and behavior for each type of line.</p>
+<table class="docutils align-default" id="id52">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id52" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="translation-request-types">
+<span id="translation-request-type"></span><span id="index-48"></span><h3>Translation request types<a class="headerlink" href="#translation-request-types" title="Permalink to this heading">¶</a></h3>
+<p>You define the types of translation that you will use in your business.</p>
+<p>This allows you to apply a different workflow and behavior for each type.</p>
+<table class="docutils align-default" id="id53">
+<caption><span class="caption-text">Required fields <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Required File legend" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id53" title="Permalink to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Unique Id for the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Name</p></td>
+<td><p>Name of the type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code of the type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Required File" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Defined the workflow ruling status change for items of this type (see: <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Sort order</p></td>
+<td><p>Number to define order of display in lists.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Closed"><span class="xref std std-term">Closed</span></a></p></td>
+<td><p>Box checked indicates the type is archived.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description of the type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">List of Types</a><ul>
+<li><a class="reference internal" href="#behavior-section">Behavior section</a><ul>
+<li><a class="reference internal" href="#project">Project</a></li>
+<li><a class="reference internal" href="#activity">Activity</a></li>
+<li><a class="reference internal" href="#ticket">Ticket</a></li>
+<li><a class="reference internal" href="#translation">Translation</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#types-restrictions">Types restrictions</a></li>
+<li><a class="reference internal" href="#element-types">Element types</a><ul>
+<li><a class="reference internal" href="#actions-types">Actions types</a></li>
+<li><a class="reference internal" href="#activities-types">Activities types</a></li>
+<li><a class="reference internal" href="#asset-types">Asset types</a></li>
+<li><a class="reference internal" href="#budget-types">Budget types</a></li>
+<li><a class="reference internal" href="#call-for-tender-types">Call for tender types</a></li>
+<li><a class="reference internal" href="#catalog-types">Catalog types</a></li>
+<li><a class="reference internal" href="#change-requests-types">Change requests types</a></li>
+<li><a class="reference internal" href="#client-bills-types">Client Bills types</a></li>
+<li><a class="reference internal" href="#client-contract-types">Client contract types</a></li>
+<li><a class="reference internal" href="#client-order-types">Client order types</a></li>
+<li><a class="reference internal" href="#client-payments-types">Client payments types</a></li>
+<li><a class="reference internal" href="#client-quotations-types">Client quotations types</a></li>
+<li><a class="reference internal" href="#components-types">Components types</a></li>
+<li><a class="reference internal" href="#component-version-types">Component version types</a></li>
+<li><a class="reference internal" href="#contexts-types">Contexts types</a></li>
+<li><a class="reference internal" href="#customers-types">Customers types</a></li>
+<li><a class="reference internal" href="#decisions-types">Decisions types</a></li>
+<li><a class="reference internal" href="#documents-types">Documents types</a></li>
+<li><a class="reference internal" href="#expenses-details-types">Expenses details types</a></li>
+<li><a class="reference internal" href="#individual-expenses-types">Individual expenses types</a></li>
+<li><a class="reference internal" href="#issues-types">Issues types</a></li>
+<li><a class="reference internal" href="#meetings-types">Meetings types</a></li>
+<li><a class="reference internal" href="#messages-types">Messages types</a></li>
+<li><a class="reference internal" href="#milestones-types">Milestones types</a></li>
+<li><a class="reference internal" href="#opportunities-types">Opportunities types</a></li>
+<li><a class="reference internal" href="#order-to-provider-types">Order to Provider types</a></li>
+<li><a class="reference internal" href="#organization-types">Organization types</a></li>
+<li><a class="reference internal" href="#payments-to-provider-types">Payments to provider types</a></li>
+<li><a class="reference internal" href="#planning-poker-session-type">Planning poker session type</a></li>
+<li><a class="reference internal" href="#products-types">Products types</a></li>
+<li><a class="reference internal" href="#product-version-types">Product version types</a></li>
+<li><a class="reference internal" href="#project-expenses-types">Project expenses types</a></li>
+<li><a class="reference internal" href="#projects-types">Projects types</a><ul>
+<li><a class="reference internal" href="#ope-operational-project">OPE: Operational project</a></li>
+<li><a class="reference internal" href="#adm-administrative-project">ADM: Administrative project</a></li>
+<li><a class="reference internal" href="#tmp-template-project">TMP: Template project</a></li>
+<li><a class="reference internal" href="#prp-proposal-project">PRP: Proposal project</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#prospect-estimate-types">Prospect estimate types</a></li>
+<li><a class="reference internal" href="#prospect-events-types">Prospect events types</a></li>
+<li><a class="reference internal" href="#prospects-types">Prospects types</a></li>
+<li><a class="reference internal" href="#provider-bill-types">Provider bill types</a></li>
+<li><a class="reference internal" href="#provider-tender-types">Provider tender types</a></li>
+<li><a class="reference internal" href="#providers-types">Providers types</a></li>
+<li><a class="reference internal" href="#questions-types">Questions types</a></li>
+<li><a class="reference internal" href="#requirements-types">Requirements types</a></li>
+<li><a class="reference internal" href="#risks-types">Risks types</a></li>
+<li><a class="reference internal" href="#supplier-contract-types">Supplier contract types</a></li>
+<li><a class="reference internal" href="#test-cases-types">Test cases types</a></li>
+<li><a class="reference internal" href="#test-sessions-types">Test sessions types</a></li>
+<li><a class="reference internal" href="#tickets-types">Tickets types</a></li>
+<li><a class="reference internal" href="#translation-item-types">Translation item types</a></li>
+<li><a class="reference internal" href="#translation-request-types">Translation request types</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="AccessRights.html"
+                          title="previous chapter">Configuration Management</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="ListsOfValues.html"
+                          title="next chapter">List of Values</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="ListsOfValues.html" title="List of Values"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="AccessRights.html" title="Configuration Management"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Lists of types</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

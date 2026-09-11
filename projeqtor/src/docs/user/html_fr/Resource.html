@@ -1,0 +1,777 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Resource &#8212; Documentation ProjeQtOr User guide 13.1</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/translations.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Recherche" href="search.html" />
+    <link rel="next" title="Clients" href="Customer.html" />
+    <link rel="prev" title="Gestion des Tickets" href="Ticket.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="Customer.html" title="Clients"
+             accesskey="N">suivant</a> |</li>
+        <li class="right" >
+          <a href="Ticket.html" title="Gestion des Tickets"
+             accesskey="P">précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Resource</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <span class="target" id="index-0"></span><span class="target" id="index-1"></span><section id="roles-definitions">
+<span id="index-2"></span><h1>Définitions des rôles<a class="headerlink" href="#roles-definitions" title="Lien permanent vers cette rubrique">¶</a></h1>
+<section id="resource">
+<span id="id1"></span><h2>Ressource<a class="headerlink" href="#resource" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Les ressources d’un projet peuvent être humaines ou matérielles. La disponibilité des ressources est définie en les affectant à un projet.</p>
+<ul>
+<li><p>Les ressources sont nécessaires à la planification du projet</p></li>
+<li><p>Une ressource peut être un groupe de personnes</p>
+<p>ou une ressource fictive avec un ETP &gt; 1</p>
+</li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="Concept.html#projeqtor-roles"><span class="std std-ref">Rôles dans ProjeQtOr</span></a></p></li>
+<li><p><a class="reference internal" href="Concept.html#profiles-definition"><span class="std std-ref">Définition des profils</span></a></p></li>
+<li><p><a class="reference internal" href="Concept.html#resource-function-cost"><span class="std std-ref">Fonction et coût de la ressource</span></a></p></li>
+<li><p><a class="reference internal" href="Concept.html#resource-calendar"><span class="std std-ref">Calendrier de la ressource</span></a></p></li>
+<li><p><a class="reference internal" href="CommonSections.html#allocation-section"><span class="std std-ref">Allocations</span></a></p></li>
+<li><p><a class="reference internal" href="CommonSections.html#assignment-section"><span class="std std-ref">Affectation</span></a></p></li>
+<li><p><a class="reference internal" href="PlanningView.html#resource-planning"><span class="std std-ref">Planification des ressources</span></a></p></li>
+</ul>
+</div>
+<span class="target" id="fte"></span><section id="full-time-equivalent">
+<span id="index-3"></span><h3>Équivalent Temps Plein<a class="headerlink" href="#full-time-equivalent" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>ETP signifie « équivalent temps plein ». C’est le nombre d’heures travaillées par un seul employé en une journée.</p>
+<ul class="simple">
+<li><p>1 ETP (équivalent temps plein)</p></li>
+<li><p>&lt; 1 pour une ressource à temps partiel ou des variations de capacité</p></li>
+<li><p>&gt; 1 pour des ressources virtuelles ou des équipes, un réservoir de ressources ou des variations de capacité</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Si vous souhaitez un réservoir de ressources de trois personnes, la capacité ETP doit être définie à 3</p>
+</div>
+<p class="rubric">Travail maximum</p>
+<ul class="simple">
+<li><p>Vous pouvez définir une valeur maximale au-delà de laquelle aucune charge ne peut être saisie.</p></li>
+<li><p>Par exemple, pouvoir définir qu’un utilisateur ne peut pas saisir plus de 12 heures par jour.</p></li>
+<li><p>Vous pouvez définir une limite par jour et une limite par semaine.</p></li>
+<li><p>La ressource ne pourra pas saisir plus que le nombre d’heures autorisé sur ses feuilles de temps.</p></li>
+</ul>
+<p>Voir : <a class="reference internal" href="RealWorkAllocation.html#real-work-entry"><span class="std std-ref">Saisie du travail réel</span></a></p>
+<p class="rubric">Champ est un contact</p>
+<ul class="simple">
+<li><p>Cochez ceci si la ressource doit également être un <a class="reference internal" href="#contact"><span class="std std-ref">Contacts</span></a>.</p></li>
+<li><p>La ressource apparaîtra alors également dans la liste « Contacts ».</p></li>
+</ul>
+<p class="rubric">Champ est un utilisateur</p>
+<ul class="simple">
+<li><p>Cochez ceci si la ressource doit se connecter à l’application.</p></li>
+<li><p>Vous devez alors définir les champs <strong>Nom d’utilisateur</strong> et <strong>Profil</strong>.</p></li>
+<li><p>La ressource apparaîtra alors également dans la liste <a class="reference internal" href="#user"><span class="std std-ref">Utilisateurs</span></a>.</p></li>
+</ul>
+<p class="rubric">Champ est un employé</p>
+<ul class="simple">
+<li><p>Cochez cette case si la ressource doit être liée au module des ressources humaines.</p></li>
+<li><p>La ressource apparaîtra alors également dans la liste <a class="reference internal" href="HumanResources.html#employee-manager"><span class="std std-ref">Paramètres environnementaux</span></a>.</p></li>
+</ul>
+<aside class="sidebar">
+<p class="sidebar-title">Concepts</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="CommonSections.html#allocation-section"><span class="std std-ref">Allocations</span></a></p></li>
+<li><p><a class="reference internal" href="CommonSections.html#assignment-section"><span class="std std-ref">Affectation</span></a></p></li>
+</ul>
+</aside>
+<div class="compound" id="allocation-project-resource">
+<p><strong>Allocations aux projets</strong></p>
+</div>
+<p>Cette zone permet d’allouer les ressources au projet.</p>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour allouer une nouvelle ressource au projet.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconEdit.png"><img alt="Bouton modifier" src="_images/iconEdit.png" style="width: 19.2px; height: 19.2px;" /></a> pour mettre à jour un coût de ressource existant.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconDelete.png"><img alt="Supprimer" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> pour supprimer le coût de ressource.</p></li>
+</ul>
+<figure class="align-center" id="id4">
+<img alt="Allocation des ressources" src="_images/RESOURCE_ZONE_AllocationOK.png" />
+<figcaption>
+<p><span class="caption-text">Ressource affectée au projet</span><a class="headerlink" href="#id4" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="variations-in-resource-capacity">
+<span id="variation-capacity"></span><h3>Variations de la capacité des ressources<a class="headerlink" href="#variations-in-resource-capacity" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Vous pouvez enregistrer des dates (début et fin) pour indiquer que la capacité (ETP) de votre ressource va varier pendant cette période.</p>
+<p>Cela vous permet de réserver et de saisir du temps de travail supplémentaire (heures supplémentaires) ou de retirer des heures à la capacité standard (récupération).</p>
+<p>La ressource saisira alors ses imputations, la valeur exacte de sa capacité variable pour la période donnée. 1 + XX heures pour que le statut du jour passe au vert</p>
+<p>La surcapacité d’une ressource est directement visible sur le diagramme de Gantt.</p>
+<p>Une fine bande rouge surmonte les barres d’allocation de travail de la ressource et vous trouverez la capacité exacte ajoutée à la fin du détail de la ressource.</p>
+<figure class="align-default" id="id5">
+<img alt="Variations de la capacité des ressources" src="_images/RESOURCE_ZONE_Surcapacity.png" />
+<figcaption>
+<p><span class="caption-text">Variations de la capacité</span><a class="headerlink" href="#id5" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="managment-of-surbooking-periods">
+<span id="surbooking"></span><span id="index-4"></span><h3>Gestion des périodes de surbooking<a class="headerlink" href="#managment-of-surbooking-periods" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le surbooking en planification vous permet d’ajouter du temps de travail supplémentaire sur les capacités standard de vos ressources pour planifier davantage de projets que vous ne traiterez pas.</p>
+<p>Vous pouvez également soustraire ce temps de travail pour ne pas planifier toute la disponibilité des ressources.</p>
+<p>La ressource continuera à déclarer ses charges normalement, sans temps de travail supplémentaire ou réduit, pour passer le statut de sa journée au vert.</p>
+<figure class="align-default" id="id6">
+<img alt="Variations de la capacité des ressources" src="_images/GANTT_BAR_SurbookingView.png" />
+<figcaption>
+<p><span class="caption-text">Variations de la capacité</span><a class="headerlink" href="#id6" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition warning">
+<p class="admonition-title">Avertissement</p>
+<p>la capacité variable et le surbooking ne se comportent pas de la même manière.</p>
+<p>La capacité variable sera davantage utilisée pour contrôler et enregistrer les périodes d’heures supplémentaires réelles et le comportement des imputations sera adapté à cette capacité.</p>
+<p>le surbooking est une façon de planifier dans le futur sans interagir avec le comportement du temps de travail des ressources</p>
+</div>
+</section>
+<section id="function-and-cost-zone">
+<span id="function-cost-resource"></span><span id="index-5"></span><h3>Zone fonction et coût<a class="headerlink" href="#function-and-cost-zone" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Cette section permet de définir les fonctions et le coût de la ressource.</p>
+<p>update-resource-cost</p>
+<figure class="align-center" id="id7">
+<img alt="Fonction et coût" src="_images/RESOURCE_ZONE_CostResource.png" />
+<figcaption>
+<p><span class="caption-text">Zone fonction et coût</span><a class="headerlink" href="#id7" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<div class="compound">
+<p><strong>Fonction principale</strong></p>
+<ul class="simple">
+<li><p>La fonction principale vous permet de saisir les fonctions par défaut qui seront utilisées dans les affectations des activités.</p></li>
+<li><p>Une ressource peut avoir plusieurs fonctions et des coûts différents selon la fonction.</p></li>
+<li><p>Un coût est proposé par défaut si vous avez saisi les coûts dans la <a class="reference internal" href="ListsOfValues.html#function"><span class="std std-ref">liste des valeurs - Fonctions</span></a>.</p></li>
+<li><p>Ce coût peut être modifié à tout moment depuis le tableau des fonctions de l’écran des ressources, ou avec la ressource <a class="reference internal" href="ListsOfValues.html#update-resource-cost"><span class="std std-ref">Mise à jour du coût des ressources</span></a></p></li>
+</ul>
+</div>
+<div class="compound">
+<p><strong>Définition du coût des ressources</strong></p>
+<ul class="simple">
+<li><p>Permet de définir le coût journalier selon les fonctions de la ressource.</p></li>
+<li><p>Le coût journalier peut être défini pour une période spécifique.</p></li>
+</ul>
+</div>
+<table class="docutils align-default" id="id8">
+<caption><span class="caption-text"><strong>Champs de la section Fonction et coût</strong></span><a class="headerlink" href="#id8" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Fonction</p></td>
+<td><p>Fonction de la ressource pour le coût sélectionné.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Coût</p></td>
+<td><p>Coût journalier de la ressource pour la fonction sélectionnée.</p></td>
+</tr>
+<tr class="row-even"><td><p>Date de début</p></td>
+<td><p>Date de début pour le coût de la ressource, pour la fonction sélectionnée.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Date de fin</p></td>
+<td><p>Date de fin pour le coût de la ressource, pour la fonction sélectionnée.</p></td>
+</tr>
+</tbody>
+</table>
+<aside class="topic">
+<p class="topic-title">Champ <strong>Date de fin</strong></p>
+<ul class="simple">
+<li><p>La date de fin est définie lorsqu’un nouveau coût de ressource est défini pour la même fonction.</p></li>
+<li><p>La date de fin est la veille de la date de début dans la nouvelle entrée de coût de ressource.</p></li>
+</ul>
+</aside>
+<p class="rubric">Gestion du coût des ressources</p>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour créer un nouveau coût de ressource.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconEdit.png"><img alt="Bouton modifier" src="_images/iconEdit.png" style="width: 19.2px; height: 19.2px;" /></a> pour mettre à jour un coût de ressource existant.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconDelete.png"><img alt="Supprimer" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> pour supprimer le coût de ressource.</p></li>
+</ul>
+<figure class="align-center" id="id9">
+<img alt="Boîte de dialogue du coût de ressource" src="_images/RESOURCE_BOX_ResourceCost.png" />
+<figcaption>
+<p><span class="caption-text">Boîte de dialogue du coût de ressource</span><a class="headerlink" href="#id9" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<table class="docutils align-default" id="id10">
+<caption><span class="caption-text">Champs de la boîte de dialogue du coût de ressource</span><a class="headerlink" href="#id10" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Fonction</p></td>
+<td><p>Fonction à sélectionner.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Coût</p></td>
+<td><p>Coût journalier de la ressource pour la fonction sélectionnée.</p></td>
+</tr>
+<tr class="row-even"><td><p>Date de début</p></td>
+<td><p>Date de début pour le coût de la ressource, pour la fonction sélectionnée.</p></td>
+</tr>
+</tbody>
+</table>
+<aside class="topic">
+<p class="topic-title">Champ Fonction</p>
+<p>La valeur par défaut sera la fonction principale.</p>
+</aside>
+<aside class="topic">
+<p class="topic-title">Champ Date de début</p>
+<p>La date de début doit être définie lors de la création d’un nouveau coût de ressource pour la même fonction.</p>
+</aside>
+<table class="docutils align-default" id="id11">
+<caption><span class="caption-text">Champs de la section Divers</span><a class="headerlink" href="#id11" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Ne pas recevoir les mails de l’équipe</p></td>
+<td><p>Case cochée indiquant que la ressource ne souhaite pas recevoir les mails envoyés à l’équipe.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="incompatible-resources">
+<span id="incompatible-resource"></span><h3>Ressources incompatibles<a class="headerlink" href="#incompatible-resources" title="Lien permanent vers cette rubrique">¶</a></h3>
+<figure class="align-default" id="id12">
+<img alt="Affectation avec ressource incompatible" src="_images/RESOURCE_ZONE_AssignmentIncompatible.png" />
+<figcaption>
+<p><span class="caption-text">Affectation avec ressource incompatible</span><a class="headerlink" href="#id12" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Deux ressources A et B sont incompatibles.</p>
+<p>Si A est planifié à un moment donné, B ne peut pas être planifié le même jour que pour une charge inférieure ou égale à la disponibilité restante à ce jour,</p>
+<p>c’est-à-dire le minimum de [capacité de la ressource - charge déjà planifiée] pour chaque ressource incompatible et réciproquement, la relation étant bijective.</p>
+<aside class="topic">
+<p class="topic-title">Exemple</p>
+<p>Exemple avec deux ressources ETP = 1</p>
+<p>Jour x, A est planifié 0,6 j donc B ne peut être planifié que 0,4 j sur toutes les activités sur lesquelles A est planifié</p>
+</aside>
+</section>
+<section id="support-resources">
+<span id="support-resource"></span><h3>Ressources de support<a class="headerlink" href="#support-resources" title="Lien permanent vers cette rubrique">¶</a></h3>
+<figure class="align-default" id="id13">
+<img alt="Affectation avec ressource incompatible" src="_images/RESOURCE_ZONE_AssignmentSupport.png" />
+<figcaption>
+<p><span class="caption-text">Affectation avec ressource incompatible</span><a class="headerlink" href="#id13" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Si la ressource B est la ressource de support de la ressource A, si A est planifié à un moment donné, B doit également être automatiquement planifié au prorata indiqué comme taux d’emploi dans la définition de la ressource de support.</p>
+<p>Si la ressource de support B de A n’est pas disponible (en partie ou totalement), on planifie pour A uniquement la partie disponible en tenant compte du taux d’emploi.</p>
+<p>L’affichage de la charge planifiée pour la ressource de support, bien qu’elle ne soit pas affectée à l’activité, est visible dans le détail d’un clic droit sur la barre Gantt.</p>
+<aside class="topic">
+<p class="topic-title">Exemple</p>
+<p>Exemple avec B ressource de support de A avec un taux d’emploi de 50 %</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Jour x, A est disponible 1,0 j et B 1,0 j : A est planifié 1,0 j, B est planifié 0,5 j.</p></li>
+<li><p>Jour y, A est disponible 0,5 j et B 1,0 j : A est planifié 0,5 j, B est planifié 0,25 j</p></li>
+<li><p>Jour z, A est disponible 1,0 j et B 0,2 j : A est planifié 0,4 j, B est planifié 0,2 j</p></li>
+</ul>
+</div></blockquote>
+</aside>
+</section>
+<section id="others">
+<h3>Autres<a class="headerlink" href="#others" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p class="rubric" id="allocated-asset-resource">Actif alloué</p>
+<figure class="align-default" id="id14">
+<img alt="Actif alloué" src="_images/RESOURCE_ZONE_AllocationAsset.png" />
+<figcaption>
+<p><span class="caption-text">Actif alloué</span><a class="headerlink" href="#id14" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Cette section vous permet de voir tout l’équipement connecté à la ressource sous forme de tableau simple.</p>
+<p>Chaque ligne d’équipement est cliquable et dirige vers l’écran de l’élément.</p>
+<p>Voir : <a class="reference internal" href="AssetManagement.html#asset-management"><span class="std std-ref">Gestion des actifs</span></a></p>
+</section>
+</section>
+<section id="pool-of-resources">
+<span id="pool"></span><span id="index-6"></span><h2>Réservoir de ressources<a class="headerlink" href="#pool-of-resources" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Un réservoir est un groupe de ressources qui peuvent travailler comme n’importe laquelle des ressources affectées.</p>
+<figure class="align-default" id="id15">
+<img alt="Écran du réservoir de ressources" src="_images/RESOURCE_SCR_PoolofResource.png" />
+<figcaption>
+<p><span class="caption-text">Écran du réservoir de ressources</span><a class="headerlink" href="#id15" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Les cas d’utilisation d’un réservoir de ressources peuvent être nombreux :</p>
+<ul class="simple">
+<li><p>Lorsque vous avez un groupe de ressources pouvant travailler sur les mêmes tâches, mais que vous ne savez pas à l’avance qui travaillera. Par exemple, une équipe de maintenance pouvant travailler sur des tâches de maintenance et d’autres tâches de projet.</p></li>
+<li><p>Pour la planification macro.</p></li>
+<li><p>Définissez un réservoir pour chaque groupe de ressources (en fonction par exemple des compétences).</p></li>
+<li><p>Dans un premier temps, affectez des ressources fictives aux réservoirs et planifiez votre projet avec les réservoirs : vous obtenez une première ébauche de votre projet, même avant de savoir qui travaillera sur le projet, et sans avoir besoin d’aller à un niveau très détaillé de tâches (c’est une planification macro, vous n’avez que des macro-tâches).</p></li>
+<li><p>Ensuite, lorsque vous savez qui travaillera sur le projet : remplacez simplement la ressource fictive par de vraies ressources : vous obtenez immédiatement une planification réaliste tenant compte de la disponibilité des vraies ressources déjà réservées sur d’autres projets. C’est toujours une planification macro, mais réaliste.</p></li>
+<li><p>Ensuite, vous pouvez établir votre planification détaillée, en ajoutant simplement des sous-activités à vos macro-tâches et en affectant de vraies ressources aux activités de niveau inférieur : lorsque vous ajoutez du travail affecté, il est automatiquement soustrait du travail affecté sur le réservoir de la macro-tâche, et le travail affecté global sur le projet est constant.</p></li>
+</ul>
+<section id="planning">
+<h3>Planification<a class="headerlink" href="#planning" title="Lien permanent vers cette rubrique">¶</a></h3>
+<figure class="align-default">
+<img alt="Section affectation du réservoir de ressources" src="_images/RESOURCE_ZONE_AssignmentPool.png" />
+</figure>
+<ul class="simple">
+<li><p>Vous affectez des ressources au réservoir à un taux donné pour une période donnée.</p></li>
+<li><p>Un réservoir peut être alloué à des projets comme n’importe quelle ressource.</p></li>
+<li><p>Un réservoir peut être affecté à des activités comme des ressources. La différence est que lorsque vous affectez un réservoir, vous ne spécifiez pas le taux mais l’ETP (Équivalent Temps Plein) affecté à l’activité. Cela signifie le nombre de ressources pouvant travailler simultanément sur l’activité.</p></li>
+<li><p>Un réservoir n’a pas de capacité spécifique. Sa capacité maximale est calculée à partir de la capacité et du taux des ressources qui le composent.</p></li>
+<li><p>Lors de la planification d’un réservoir, la disponibilité des ressources unitaires déjà réservées sur d’autres tâches est prise en compte.</p></li>
+<li><p>Lors de la planification d’une ressource unitaire, la disponibilité déjà réservée via le réservoir sur d’autres tâches est également prise en compte (globalement pour toutes les ressources du réservoir).</p></li>
+</ul>
+<p class="rubric">Taux et ETP</p>
+<p>Une ressource ne peut pas être affectée à des réservoirs pour plus de 100 % sur une période donnée.</p>
+<p>Une ressource, si affectée sur 2 réservoirs. C’est la fraction de l’ETP de la ressource.</p>
+<p>Une ressource avec un ETP de 1, si affectée à 50 % sur un réservoir, ne sera planifiée qu’à un maximum de 0,5 par jour.</p>
+<p>Une ressource à 20 % ne sera planifiée qu’à hauteur de 0,2 de son ETP par jour…</p>
+<p class="rubric">Décrémentation automatique du travail affecté</p>
+<ul class="simple">
+<li><p>Lorsque vous affectez un réservoir à une activité, puis affectez une ressource du réservoir à la même activité, le travail affecté sur la ressource est automatiquement soustrait de l’affectation du réservoir.</p></li>
+<li><p>De même, lorsque vous affectez un réservoir à une activité, puis affectez une ressource du réservoir à une sous-activité de cette activité, le travail affecté sur la ressource est automatiquement soustrait de l’affectation du réservoir.</p></li>
+<li><p>Lorsque vous affectez un réservoir à une activité, puis affectez le même réservoir à une sous-activité de cette activité, le travail affecté sur le réservoir dans la sous-activité est automatiquement soustrait de l’affectation du réservoir dans l’activité parent.</p></li>
+<li><p>Lors de la suppression d’une affectation, le travail restant est réaffecté dans le réservoir.</p></li>
+<li><p>Lorsqu’une ressource fournit du travail sur une activité sans travail restant, mais sur la même activité il y a une allocation pour un réservoir de la ressource affectée à la même fonction, le travail restant sur le réservoir est décrémenté.</p></li>
+<li><p>C’est une option dans les <a class="reference internal" href="GlobalParameters.html#realworkallocation-section"><span class="std std-ref">paramètres globaux</span></a></p></li>
+</ul>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p><strong>Limites d’un réservoir de ressources</strong></p>
+<p>Un réservoir ne peut pas être un utilisateur et n’a pas de profil car il ne peut pas se connecter à l’application.</p>
+<p>Un réservoir ne peut pas être un contact</p>
+<p>Un réservoir ne peut pas être le responsable d’un élément</p>
+<p>Vous pouvez choisir comment le réservoir et ses ressources peuvent être alloués et affectés. Voir : <a class="reference internal" href="GlobalParameters.html#gp-assign-alloc"><span class="std std-ref">Allocation du réservoir de ressources</span></a></p>
+</div>
+</section>
+<section id="aggregated-resource">
+<span id="id2"></span><h3>Ressource agrégée<a class="headerlink" href="#aggregated-resource" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>La ressource agrégée vous permet de choisir une seule ressource dans un réservoir de ressources.</p>
+<p>Lorsque vous affectez un réservoir de ressources à une activité, une case à cocher apparaît : ressource unique.</p>
+<p>Si vous sélectionnez ressource unique, vous n’aurez pas de capacité ETP à renseigner mais un taux d’occupation sur l’activité.</p>
+<p>Cochez la case et confirmez pour fermer la fenêtre contextuelle.</p>
+<figure class="align-default">
+<img alt="Allouer le réservoir de ressources à l'activité" src="_images/RESOURCE_BOX_AllocationPool.png" />
+</figure>
+<p>Lorsque le réservoir est alloué, l’icône du réservoir apparaît sur le tableau.</p>
+<p>Si vous avez choisi la <strong>ressource unique</strong>, le chiffre 1 sera affiché sur l’icône.</p>
+<p>De même, la fonction de la ressource choisie dans le réservoir est indiquée entre parenthèses.</p>
+<figure class="align-default">
+<img alt="Allocation du réservoir" src="_images/RESOURCE_ZONE_AllocationPool.png" />
+</figure>
+<p>Cliquez sur <a class="reference internal" href="_images/iconEdit.png"><img alt="Bouton modifier" src="_images/iconEdit.png" style="width: 19.2px; height: 19.2px;" /></a> pour modifier l’allocation.</p>
+<p>La fenêtre contextuelle s’ouvre à nouveau et cette fois vous avez le tableau récapitulatif vous montrant les ressources de votre réservoir</p>
+<p>et les dates auxquelles chaque ressource peut ou devrait terminer l’activité.</p>
+<p>Vous devez renseigner la charge de l’activité pour voir les dates de fin des ressources du réservoir.</p>
+<p>Sinon le message “travail non planifié” apparaît à la place des dates.</p>
+<figure class="align-default">
+<img alt="_images/RESOURCE_BOX_AllocationPool_Edit.png" src="_images/RESOURCE_BOX_AllocationPool_Edit.png" />
+</figure>
+<p>Choisissez la ressource appropriée en sélectionnant la ligne correspondante et confirmez.</p>
+<p>Par défaut, ProjeQtOr sélectionnera automatiquement la ressource la plus rapide pour terminer la tâche.</p>
+<p>La ressource sélectionnée sera alors la seule à être planifiée sur cette activité depuis le réservoir.</p>
+<span class="target" id="index-7"></span></section>
+</section>
+<section id="teams">
+<span id="team"></span><span id="index-8"></span><h2>Équipes<a class="headerlink" href="#teams" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>L’équipe est un groupe de ressources regroupées selon n’importe quel critère.</p>
+<p>Une ressource ne peut appartenir qu’à une seule équipe.</p>
+<aside class="topic">
+<p class="topic-title"><strong>Utilisation pour</strong></p>
+<ul class="simple">
+<li><p>Pour allouer tous les membres de l’équipe à un projet.</p></li>
+<li><p>Pour filtrer les données des ressources dans les rapports de travail, de coût et de planification.</p></li>
+<li><p>Pour définir la visibilité des pièces jointes, des notes et des documents pour l’équipe.</p></li>
+</ul>
+</aside>
+<div class="compound" id="team-member">
+<p><strong>Membres de l’équipe</strong></p>
+</div>
+<p>Liste des ressources membres de l’équipe.</p>
+<figure class="align-default" id="id16">
+<img alt="Section membres de l'équipe" src="_images/RESOURCE_ZONE_Teams.png" />
+<figcaption>
+<p><span class="caption-text">Section membres de l’équipe</span><a class="headerlink" href="#id16" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter un ou plusieurs membres à l’équipe</p></li>
+<li><p>Utilisez <a class="reference internal" href="_images/iconSearch.png"><img alt="Icône bouton recherche" src="_images/iconSearch.png" style="width: 19.2px; height: 19.2px;" /></a> dans la fenêtre contextuelle pour rechercher des ressources spécifiques</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconDelete.png"><img alt="Supprimer" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> pour supprimer le membre de l’équipe</p></li>
+</ul>
+<aside class="topic">
+<p class="topic-title">Bouton <strong>Allouer tous les membres de l’équipe d’un projet</strong></p>
+<ul class="simple">
+<li><p>Ce bouton permet d’allouer tous les membres de l’équipe d’un projet.</p></li>
+<li><p>La <a class="reference internal" href="CommonSections.html#allocation-section"><span class="std std-ref">fenêtre de dialogue d’allocation</span></a> sera affichée.</p></li>
+</ul>
+</aside>
+<span class="target" id="index-9"></span><span class="target" id="index-10"></span></section>
+<section id="material-resources">
+<span id="material-resource"></span><span id="index-11"></span><h2>Ressources matérielles<a class="headerlink" href="#material-resources" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Il est possible de créer une ressource « matérielle » afin qu’elle puisse être réservée avec du travail.</p>
+<p>Ce travail ne sera pas ajouté au projet. En revanche, si cette ressource a un coût, il est ajouté.</p>
+<p>Cette ressource matérielle sera planifiée comme une ressource humaine avec une capacité (ETP) de 1 que vous ne pourrez pas modifier.</p>
+<p>Les propriétés de ressources humaines pour la surcapacité et le surbooking ne sont pas disponibles pour ce type de ressource.</p>
+<p>Cependant, une ressource matérielle peut avoir une ressource de support ou supportée ou une ressource incompatible.</p>
+<p>Par exemple, une remorque pourrait soutenir un camion. Ou une voiture automatique peut être incompatible avec une ressource qui ne sait pas conduire ce type de voiture.</p>
+<p>Une ressource matérielle ne peut pas faire partie d’un réservoir de ressources. Cela est réservé aux ressources humaines.</p>
+<p>Une ressource matérielle peut être attachée à une organisation.</p>
+</section>
+<section id="users">
+<span id="user"></span><span id="index-12"></span><h2>Utilisateurs<a class="headerlink" href="#users" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>L’utilisateur est une personne qui pourra se connecter à l’application.</p>
+<div class="admonition warning">
+<p class="admonition-title">Avertissement</p>
+<p>Pour pouvoir se connecter, l’utilisateur doit avoir un mot de passe et un profil utilisateur définis.</p>
+</div>
+<figure class="align-default" id="id17">
+<img alt="Écran utilisateur" src="_images/USER_SCR_Userscreen.png" />
+<figcaption>
+<p><span class="caption-text">Écran utilisateur</span><a class="headerlink" href="#id17" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<section id="projeqtor-and-ldap-users">
+<span id="ldap-users"></span><h3>Utilisateurs ProjeQtOr et LDAP<a class="headerlink" href="#projeqtor-and-ldap-users" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>ProjeQtOr propose trois modes d’authentification.</p>
+<p class="rubric"><strong>Utilisateurs ProjeQtOr</strong></p>
+<ul class="simple">
+<li><p>Les informations des utilisateurs sont conservées dans la base de données de l’application.</p></li>
+<li><p>La politique de mot de passe et le comportement de connexion sont gérés par l’application.</p></li>
+<li><p>Voir : <a class="reference internal" href="GlobalParameters.html#user-password"><span class="std std-ref">Utilisateur et mot de passe</span></a></p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Les utilisateurs « admin » et « guest » sont créés lors de l’installation.</p>
+<p>Le nom d’utilisateur doit être unique.</p>
+</div>
+<p class="rubric"><strong>Utilisateurs LDAP</strong></p>
+<ul class="simple">
+<li><p>Permet aux utilisateurs définis dans un annuaire externe de se connecter à ProjeQtOr via le protocole LDAP.</p></li>
+<li><p>Les informations des utilisateurs et la politique de mot de passe sont gérées dans l’annuaire externe.</p></li>
+<li><p>pour chaque utilisateur provenant d’un LDAP, le mot « vient de Ldap » sera affiché à côté du nom de l’utilisateur avec possibilité de modification selon les droits de l’utilisateur connecté</p></li>
+<li><p>Voir : <a class="reference internal" href="GlobalParameters.html#ldap-user"><span class="std std-ref">Paramètres de gestion LDAP</span></a></p></li>
+</ul>
+<p class="rubric"><strong>Utilisateurs SSO</strong></p>
+<ul class="simple">
+<li><p>Permet aux utilisateurs de se connecter à ProjeQtOr via le protocole SSO.</p></li>
+<li><p>Définissez l’ID d’entité, le certificat IDP, la connexion et la déconnexion uniques, etc.</p></li>
+<li><p>Message d’information sur la création d’un nouvel utilisateur depuis SAML</p></li>
+<li><p>Les informations utilisateur et la politique de mot de passe sont gérées par votre solution SSO.</p></li>
+<li><p>Voir <a class="reference internal" href="GlobalParameters.html#sso-saml2"><span class="std std-ref">Authentification unique SAML2</span></a></p></li>
+</ul>
+<p class="rubric">Profil utilisateur par défaut</p>
+<ul class="simple">
+<li><p>Un profil utilisateur par défaut est défini lors de la création de l’utilisateur.</p></li>
+<li><p>Un profil par défaut différent peut être défini selon le mode d’authentification.</p></li>
+</ul>
+<p class="rubric">Service Web</p>
+<ul class="simple">
+<li><p>ProjeQtOr fournit une API pour interagir avec ses éléments. Elle est fournie en tant que service Web REST.</p></li>
+<li><p>Une clé API est définie pour l’utilisateur.</p></li>
+<li><p>Cette clé API est utilisée pour chiffrer les données pour les méthodes : PUT, PUSH et DELETE.</p></li>
+</ul>
+<p class="rubric" id="allocated-asset-user">Actif alloué</p>
+<p>Cette section vous permet de voir tout l’équipement connecté à l’utilisateur sous forme de tableau simple.</p>
+<figure class="align-default" id="id18">
+<img alt="Actif alloué" src="_images/USER_ZONE_AllocatedAsset.png" />
+<figcaption>
+<p><span class="caption-text">Actif alloué pour l’utilisateur sélectionné</span><a class="headerlink" href="#id18" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Chaque ligne d’équipement est cliquable et dirige vers l’écran de l’élément.</p>
+<p>Voir : <a class="reference internal" href="AssetManagement.html#asset-management"><span class="std std-ref">Gestion des actifs</span></a></p>
+<p class="rubric">Section Divers</p>
+<aside class="topic">
+<p class="topic-title">Bouton Réinitialiser le mot de passe</p>
+<ul class="simple">
+<li><p>Ce bouton permet de réinitialiser le mot de passe au mot de passe par défaut.</p></li>
+<li><p>La valeur du mot de passe par défaut est définie dans l’écran <a class="reference internal" href="UserParameter.html#user-password-section"><span class="std std-ref">Paramètres globaux</span></a>.</p></li>
+<li><p>Le bouton de réinitialisation du mot de passe est disponible uniquement pour les utilisateurs ProjeQtOr.</p></li>
+</ul>
+</aside>
+<table class="docutils align-default" id="id19">
+<caption><span class="caption-text">Champs de la section divers utilisateurs</span><a class="headerlink" href="#id19" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Ne pas recevoir les mails de l’équipe</p></td>
+<td><p>Case cochée indiquant que la ressource ne souhaite pas recevoir les mails envoyés à l’équipe.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Provient de LDAP</p></td>
+<td><p>Case cochée indiquant que les informations de l’utilisateur proviennent de LDAP.</p></td>
+</tr>
+<tr class="row-even"><td><p>Clé API</p></td>
+<td><p>Chaîne de clé utilisée par le consommateur du service Web.</p></td>
+</tr>
+</tbody>
+</table>
+<aside class="topic">
+<p class="topic-title">Bouton Envoyer les informations à l’utilisateur</p>
+<p>Ce bouton permet d’envoyer par e-mail à l’utilisateur les informations de connexion.</p>
+</aside>
+<span class="target" id="index-13"></span></section>
+</section>
+<section id="contacts">
+<span id="contact"></span><span id="index-14"></span><h2>Contacts<a class="headerlink" href="#contacts" title="Lien permanent vers cette rubrique">¶</a></h2>
+<figure class="align-center" id="id20">
+<img alt="Écran des contacts" src="_images/CUSTOMER_SCR_Contacts.png" />
+<figcaption>
+<p><span class="caption-text">Écran des contacts</span><a class="headerlink" href="#id20" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<aside class="sidebar">
+<p class="sidebar-title">Other</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="Concept.html#projeqtor-roles"><span class="std std-ref">Rôles dans ProjeQtOr</span></a></p></li>
+<li><p><a class="reference internal" href="Concept.html#profiles-definition"><span class="std std-ref">Définition des profils</span></a></p></li>
+<li><p><a class="reference internal" href="Concept.html#user-ress-contact-demystify"><span class="std std-ref">Définition des intervenants</span></a></p></li>
+<li><p><a class="reference internal" href="UserParameter.html#photo"><span class="std std-ref">Onglet Profil</span></a></p></li>
+<li><p><a class="reference internal" href="CommonSections.html#allocation-section"><span class="std std-ref">Allocations</span></a></p></li>
+</ul>
+</aside>
+<p>Un contact est une personne ayant une relation d’affaires avec l’entreprise.</p>
+<p>L’entreprise conserve toutes les informations pour pouvoir le contacter en cas de besoin.</p>
+<p>Un contact peut être une personne dans l’organisation client.</p>
+<p>Un contact peut être la personne de contact pour les contrats, les ventes et la facturation.</p>
+<aside class="topic">
+<p class="topic-title">Champ Est une ressource</p>
+<ul class="simple">
+<li><p>Cochez ceci si le contact doit également être une ressource.</p></li>
+<li><p>Le contact apparaîtra alors également dans la liste « Ressources ».</p></li>
+</ul>
+</aside>
+<aside class="topic">
+<p class="topic-title">Champ Est un utilisateur</p>
+<ul class="simple">
+<li><p>Cochez ceci si le contact doit se connecter à l’application.</p></li>
+<li><p>Vous devez alors définir les champs <strong>Nom d’utilisateur</strong> et <strong>Profil</strong>.</p></li>
+<li><p>Le contact apparaîtra alors également dans la liste « Utilisateurs ».</p></li>
+</ul>
+</aside>
+<p>Voir : <a class="reference internal" href="Concept.html#user-ress-contact-demystify"><span class="std std-ref">Ressource Contact Utilisateur</span></a></p>
+<p class="rubric">Section Allocations au projet</p>
+<p>Permet d’allouer votre contact à un projet</p>
+<p>voir : <a class="reference internal" href="CommonSections.html#allocation-section"><span class="std std-ref">Allocations</span></a></p>
+<p class="rubric">Section Liste des abonnements pour ce contact</p>
+<p>Vous pouvez voir les éléments suivis par votre contact dans cette section</p>
+<figure class="align-center" id="id21">
+<img alt="liste des éléments suivis par votre contact" src="_images/CUSTOMER_ZONE_Subscription.png" />
+<figcaption>
+<p><span class="caption-text">liste des éléments suivis par votre contact</span><a class="headerlink" href="#id21" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Section Divers</p>
+<p>si la case est cochée, le contact ne recevra pas les mails envoyés à l’équipe</p>
+</section>
+<section id="calendars">
+<span id="id3"></span><h2>Calendriers<a class="headerlink" href="#calendars" title="Lien permanent vers cette rubrique">¶</a></h2>
+<aside class="sidebar">
+<p class="sidebar-title">Concepts</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="Concept.html#resource-calendar"><span class="std std-ref">Calendrier de la ressource</span></a></p></li>
+</ul>
+</aside>
+<p>Cet outil permet de définir des calendriers.</p>
+<figure class="align-center">
+<img alt="Calendrier" src="_images/RESOURCE_SCR_CalendarPresentation.png" />
+</figure>
+<ul class="simple">
+<li><p>Il permet de définir des exceptions à la définition par défaut.</p></li>
+<li><p>Dans la définition par défaut, les jours de semaine sont des jours de travail et les jours de week-end sont des jours de congé.</p></li>
+<li><p>Vous pouvez modifier le calendrier standard ou créer d’autres calendriers en permettant à n’importe quel jour de la semaine d’être un jour férié</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Des exceptions peuvent être définies pour l’année en cours et les années suivantes.</p>
+</div>
+<p class="rubric">Calendrier par défaut</p>
+<p>Un calendrier nommé « défaut » est déjà défini. Les jours de congé définis dans ce calendrier sont affichés dans le Gantt, l’allocation du travail réel et le journal. Par défaut, les jours de week-end sont indiqués comme jours non ouvrés et ne peuvent pas être décochés via les calendriers. Vous devez aller dans les paramètres globaux &gt; section temps de travail &gt; Jour ouvert et sélectionner votre choix (activé ou désactivé) dans la liste déroulante en face du jour. Le calendrier par défaut ne peut pas être supprimé.</p>
+<p>Un calendrier spécifique peut être créé pour définir les jours de congé et de travail d’une ressource particulière.</p>
+<ul class="simple">
+<li><p>Il est possible d’importer la définition des exceptions d’un calendrier dans un autre.</p></li>
+<li><p>Vous pouvez également importer les jours fériés</p></li>
+<li><p>Les exceptions existantes du calendrier actuel ne sont pas modifiées.</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>Les calendriers ne sont pas liés.</p></li>
+<li><p>Vous devez réimporter la définition pour appliquer les modifications.</p></li>
+</ul>
+</div>
+<p class="rubric">Banque de jours de congé</p>
+<p>Définition de la banque de jours fériés qui peut être facilement ajoutée chaque année.</p>
+<figure class="align-default">
+<img alt="Jours de congé de la banque" src="_images/RESOURCE_ZONE_BankDaysOFF.png" />
+</figure>
+<p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour créer un jour férié</p>
+<figure class="align-default" id="id22">
+<img alt="Jours de congé de la banque" src="_images/RESOURCE_BOX_CreationOFFDay.png" />
+<figcaption>
+<p><span class="caption-text">Jours de congé de la banque</span><a class="headerlink" href="#id22" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Une fenêtre contextuelle s’ouvre et vous pouvez définir le jour de congé</p>
+<p class="rubric">Jours de la semaine de congé</p>
+<ul class="simple">
+<li><p>Par défaut, le samedi et le dimanche sont des jours non ouvrés</p></li>
+<li><p>Cochez les cases correspondant aux jours non ouvrés si les paramètres par défaut ne conviennent pas à la structure de votre entreprise</p></li>
+</ul>
+<p class="rubric">Année</p>
+<ul class="simple">
+<li><p>Sélectionnez l’année du calendrier à créer.</p></li>
+</ul>
+<p class="rubric">Champ Année</p>
+<ul class="simple">
+<li><p>Créez le calendrier à partir de l’année spécifiée avec toutes les fonctionnalités du calendrier appelé.</p></li>
+</ul>
+<p class="rubric">Bouton Importer cette année depuis le calendrier</p>
+<ul class="simple">
+<li><p>Copiez les exceptions de l’année sélectionnée du calendrier sélectionné dans le calendrier actuel.</p></li>
+</ul>
+<p class="rubric">Jours du calendrier</p>
+<p>Un calendrier de l’année sélectionnée est affiché pour donner un aperçu global des exceptions existantes.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>En blanc : jours de travail.</p></li>
+<li><p>En gris : jours de congé.</p></li>
+<li><p>En rouge : jours de travail exceptionnels.</p></li>
+<li><p>En bleu : jours de congé exceptionnels.</p></li>
+<li><p>En gras : jour actuel.</p></li>
+</ul>
+</div></blockquote>
+<p>Cliquez simplement sur un jour du calendrier pour basculer entre jour de congé et jour de travail.</p>
+<p class="rubric" id="calendar-project">Calendrier sur le projet</p>
+<p>Ce calendrier n’est pas cumulatif avec les calendriers des ressources et n’a pas de priorité.</p>
+<p>le calendrier attaché au projet est idéal lors de la gestion par durée et pour être utilisé sur des activités sans charge de travail affectée.</p>
+<p>Si la charge de travail existe sur une période où le calendrier du projet indique une indisponibilité, mais que le calendrier de la ressource indique une disponibilité, alors cette ressource sera effectivement planifiée.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table des matières</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Définitions des rôles</a><ul>
+<li><a class="reference internal" href="#resource">Ressource</a><ul>
+<li><a class="reference internal" href="#full-time-equivalent">Équivalent Temps Plein</a></li>
+<li><a class="reference internal" href="#variations-in-resource-capacity">Variations de la capacité des ressources</a></li>
+<li><a class="reference internal" href="#managment-of-surbooking-periods">Gestion des périodes de surbooking</a></li>
+<li><a class="reference internal" href="#function-and-cost-zone">Zone fonction et coût</a></li>
+<li><a class="reference internal" href="#incompatible-resources">Ressources incompatibles</a></li>
+<li><a class="reference internal" href="#support-resources">Ressources de support</a></li>
+<li><a class="reference internal" href="#others">Autres</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#pool-of-resources">Réservoir de ressources</a><ul>
+<li><a class="reference internal" href="#planning">Planification</a></li>
+<li><a class="reference internal" href="#aggregated-resource">Ressource agrégée</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#teams">Équipes</a></li>
+<li><a class="reference internal" href="#material-resources">Ressources matérielles</a></li>
+<li><a class="reference internal" href="#users">Utilisateurs</a><ul>
+<li><a class="reference internal" href="#projeqtor-and-ldap-users">Utilisateurs ProjeQtOr et LDAP</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#contacts">Contacts</a></li>
+<li><a class="reference internal" href="#calendars">Calendriers</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Sujet précédent</h4>
+    <p class="topless"><a href="Ticket.html"
+                          title="Chapitre précédent">Gestion des Tickets</a></p>
+  </div>
+  <div>
+    <h4>Sujet suivant</h4>
+    <p class="topless"><a href="Customer.html"
+                          title="Chapitre suivant">Clients</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Recherche rapide</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             >index</a></li>
+        <li class="right" >
+          <a href="Customer.html" title="Clients"
+             >suivant</a> |</li>
+        <li class="right" >
+          <a href="Ticket.html" title="Gestion des Tickets"
+             >précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Resource</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Créé en utilisant <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

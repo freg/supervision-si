@@ -1,0 +1,798 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Planning view &#8212; Documentation ProjeQtOr User guide 13.1</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/translations.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Recherche" href="search.html" />
+    <link rel="next" title="Aujourd’hui (Tableau de bord)" href="Today.html" />
+    <link rel="prev" title="Diagramme de Gantt" href="Gantt.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="Today.html" title="Aujourd’hui (Tableau de bord)"
+             accesskey="N">suivant</a> |</li>
+        <li class="right" >
+          <a href="Gantt.html" title="Diagramme de Gantt"
+             accesskey="P">précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Planning view</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="planning-view">
+<span id="index-0"></span><h1>Vue Planning<a class="headerlink" href="#planning-view" title="Lien permanent vers cette rubrique">¶</a></h1>
+<section id="other-planning-views">
+<span id="gantt-planning"></span><h2>Autres vues de planification<a class="headerlink" href="#other-planning-views" title="Lien permanent vers cette rubrique">¶</a></h2>
+<section id="planning-global">
+<span id="gantt-planning-global"></span><h3>Planification globale<a class="headerlink" href="#planning-global" title="Lien permanent vers cette rubrique">¶</a></h3>
+<figure class="align-default" id="id5">
+<img alt="Planification globale" src="_images/GANTT_ZONE_PlanningGlobal.png" />
+<figcaption>
+<p><span class="caption-text">Planification globale</span><a class="headerlink" href="#id5" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>La planification globale permet de créer et de visualiser tout type d’élément (projet, activité, jalons, risque, réunion, action…)</p>
+<figure class="align-center" id="id6">
+<img alt="Créer un nouvel élément" src="_images/GANTT_TIP_PlanningElement.png" />
+<figcaption>
+<p><span class="caption-text">Créer un nouvel élément</span><a class="headerlink" href="#id6" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Ajouter et afficher tout nouvel élément de planification sur le diagramme de Gantt</p></li>
+<li><p>L’élément créé est ajouté dans le Gantt et la fenêtre de détail est ouverte.</p></li>
+<li><p>La fenêtre de détail permet de compléter la saisie</p></li>
+<li><p>Le calcul de la planification du projet et de la planification des activités peut être effectué dans le Gantt.</p></li>
+</ul>
+<figure class="align-center" id="id7">
+<img alt="Afficher les éléments" src="_images/GANTT_TIP_DisplayPlanningElement.png" />
+<figcaption>
+<p><span class="caption-text">Afficher les éléments</span><a class="headerlink" href="#id7" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Les Exigences peuvent être affichées, mais vous ne pourrez pas les créer depuis la vue planning</p></li>
+</ul>
+</section>
+<section id="projects-portfolio">
+<span id="project-portfolio"></span><span id="index-1"></span><h3>Portefeuille de projets<a class="headerlink" href="#projects-portfolio" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Cet écran n’affiche que les projets sur le diagramme. Les activités et les autres éléments qui composent la planification sont masqués.</p>
+<p>L’affichage des colonnes correspondant aux champs du projet derrière le curseur vous permet d’afficher toutes les informations sur votre projet dans une seule vue : statut, priorité, dates, charges, durée, coûts, etc.</p>
+<p>La possibilité d’afficher des champs personnalisés à l’aide du plugin de personnalisation est également disponible. Cliquez sur le bouton Colonnes pour choisir les champs à afficher.</p>
+<p>Il affiche uniquement les jalons et les dépendances de projet.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Cette section décrit le comportement spécifique de cet écran. Tous les autres comportements sont similaires à l’écran <a class="reference internal" href="Gantt.html#gantt-chart"><span class="std std-ref">Diagramme de Gantt</span></a>.</p>
+</div>
+<figure class="align-center" id="id8">
+<img alt="Gantt (Portefeuille de projets)" src="_images/GANTT_ZONE_PortfolioPlanning.png" />
+<figcaption>
+<p><span class="caption-text">Gantt (Portefeuille de projets)</span><a class="headerlink" href="#id8" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Afficher les jalons</p>
+<ul>
+<li><p>Vous avez la possibilité d’afficher ou de masquer les jalons.</p></li>
+<li><p>Il est possible de définir le type de jalon à afficher.</p>
+<blockquote>
+<div><p>Tous les jalons sont disponibles : livrable, à venir, date clé, etc.</p>
+</div></blockquote>
+</li>
+<li><p>Les jalons sont affichés directement sur la barre de votre projet.</p></li>
+</ul>
+<figure class="align-default" id="id9">
+<img alt="Colonnes du Portefeuille de projets" src="_images/GANTT_ZONE_ProjectPortfolio_Columns.png" />
+<figcaption>
+<p><span class="caption-text">Colonnes du Portefeuille de projets</span><a class="headerlink" href="#id9" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Comme dans la vue planning, vous affichez un menu dédié à la vue Portefeuille en faisant un clic droit sur la liste des projets.</p>
+<figure class="align-center" id="id10">
+<img alt="Menu contextuel" src="_images/GANTT_BOX_RightMenuPortfolio.png" />
+<figcaption>
+<p><span class="caption-text">Menu contextuel</span><a class="headerlink" href="#id10" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<span class="target" id="index-2"></span></section>
+<section id="resource-planning">
+<span id="index-3"></span><span id="id1"></span><h3>Planification des Ressources<a class="headerlink" href="#resource-planning" title="Lien permanent vers cette rubrique">¶</a></h3>
+<aside class="sidebar">
+<p class="sidebar-title">Others section</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="Resource.html#resource"><span class="std std-ref">Ressource</span></a></p></li>
+<li><p><a class="reference internal" href="Diary.html#diary"><span class="std std-ref">Journal</span></a></p></li>
+</ul>
+</aside>
+<p>Cet écran affiche le diagramme de Gantt d’un point de vue des Ressources.</p>
+<p>Les tâches assignées sont regroupées sous le niveau de la Ressource.</p>
+<p>En ce qui concerne la planification des Ressources, les réunions de groupe périodiques sont sous sa responsabilité.</p>
+<p>Possibilité de visualiser les activités assignées sans charge.</p>
+<figure class="align-center" id="id11">
+<img alt="Gantt (Planification des Ressources)" src="_images/GANTT_SCR_ResourcePlanning.png" />
+<figcaption>
+<p><span class="caption-text">Gantt (Planification des Ressources)</span><a class="headerlink" href="#id11" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric" id="visibility-resource">Limiter l’affichage à la Ressource ou à l’équipe sélectionnée</p>
+<ul class="simple">
+<li><p>Cliquez et sélectionnez une Ressource pour afficher uniquement ses données.</p></li>
+<li><p>Cliquez et sélectionnez une équipe pour afficher uniquement les données des Ressources de cette équipe.</p></li>
+<li><p>Cliquez et sélectionnez une organisation pour afficher uniquement les données des Ressources de cette organisation.</p></li>
+</ul>
+<p class="rubric" id="gantt-bars-resource">Diagrammes de Gantt pour les Ressources</p>
+<p>Les barres utilisées dans le diagramme de Gantt pour les Ressources diffèrent légèrement des barres de planification standard.</p>
+<p>La plupart des barres utilisées dans le diagramme de Gantt sont les mêmes que pour la planification standard.</p>
+<p>Voir : <a class="reference internal" href="Gantt.html#gantt-bars"><span class="std std-ref">Barres du diagramme de Gantt</span></a>.</p>
+<p><strong>BARRE GRISE</strong></p>
+<figure class="align-left" id="id12" style="width: 100%">
+<img alt="Tout va bien" src="_images/GanttBar_Grey.png" />
+<figcaption>
+<p><span class="caption-text">Tout va bien</span><a class="headerlink" href="#id12" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p><strong>Condition :</strong> Les Ressources assignées sont disponibles et répondent à la charge de travail, les dates validées ou planifiées ne sont pas en conflit avec d’autres éléments.</p>
+<p>La barre grise au centre représente graphiquement le pourcentage réel d’avancement par rapport à la durée totale de l’Activité.</p>
+<p>Cela fait apparaître un écart de planification entre le travail commencé et le travail réévalué.</p>
+<p class="rubric">Comportement des dépendances</p>
+<ul class="simple">
+<li><p>Les liens entre les activités ne sont affichés que dans le groupe de Ressources.</p></li>
+<li><p>Les liens existant entre des tâches sur des Ressources différentes ne sont pas affichés.</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Cette section décrit le comportement spécifique de cet écran.</p>
+<p>Tous les autres comportements sont similaires à l’écran <a class="reference internal" href="Gantt.html#gantt-chart"><span class="std std-ref">Diagramme de Gantt</span></a>.</p>
+</div>
+<section id="tools">
+<span id="tools-ganttresource"></span><h4>Outils<a class="headerlink" href="#tools" title="Lien permanent vers cette rubrique">¶</a></h4>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconPlan.png"><img alt="Bouton calculer la planification" src="_images/iconPlan.png" style="width: 19.2px; height: 19.2px;" /></a> pour démarrer le <a class="reference internal" href="Gantt.html#activityplanningcalculation"><span class="std std-ref">Calcul de planification</span></a>.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour créer un nouvel élément.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconFilters.png"><img alt="Filtres" src="_images/iconFilters.png" style="width: 19.2px; height: 19.2px;" /></a> pour appliquer plusieurs filtres et gérer les <a class="reference internal" href="Gui.html#filters"><span class="std std-ref">Filtres avancés</span></a>.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconColumns.png"><img alt="Organisateur de colonnes" src="_images/iconColumns.png" style="width: 19.2px; height: 19.2px;" /></a> pour organiser les <a class="reference internal" href="Gui.html#columns"><span class="std std-ref">colonnes</span></a> de la vue des données d’avancement.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconSubMenu.png"><img alt="Sous-menu" src="_images/iconSubMenu.png" style="width: 19.2px; height: 19.2px;" /></a> pour afficher le sous-menu.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconChangeLayout.png"><img alt="Changer de mode" src="_images/iconChangeLayout.png" style="width: 19.2px; height: 19.2px;" /></a> pour afficher cet écran en mode horizontal ou vertical.</p></li>
+</ul>
+<section id="display-dates">
+<span id="display-date-ganttresource"></span><h5>Afficher les dates<a class="headerlink" href="#display-dates" title="Lien permanent vers cette rubrique">¶</a></h5>
+<p>Cette fonctionnalité permet de définir les colonnes affichées dans la vue des données d’avancement.</p>
+<p>Plus de détails : <a class="reference internal" href="Gui.html#columns"><span class="std std-ref">Afficher et organiser les colonnes</span></a>.</p>
+</section>
+<section id="display-options-into-the-submenu">
+<span id="toolbar-ganttress"></span><h5>Options d’affichage dans le sous-menu<a class="headerlink" href="#display-options-into-the-submenu" title="Lien permanent vers cette rubrique">¶</a></h5>
+<p>Les <a class="reference internal" href="Gantt.html#checkbox-gantt"><span class="std std-ref">Options d’affichage</span></a> sont les mêmes que dans la vue planning.</p>
+<figure class="align-default" id="id13">
+<img alt="Options du diagramme de Gantt" src="_images/GANTT_ZONE_Options.png" />
+<figcaption>
+<p><span class="caption-text">Options du diagramme de Gantt</span><a class="headerlink" href="#id13" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+</section>
+<section id="global-view">
+<span id="id2"></span><h3>Vue globale<a class="headerlink" href="#global-view" title="Lien permanent vers cette rubrique">¶</a></h3>
+<figure class="align-center" id="id14">
+<img alt="Écran Vue globale" src="_images/TRANSFEAT_SCR_GlobalView.png" />
+<figcaption>
+<p><span class="caption-text">Écran vue globale</span><a class="headerlink" href="#id14" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>L’écran « Vue globale » liste tous les objets principaux créés au cours d’un projet. Cela vous permet de rechercher rapidement parmi tous les types d’éléments disponibles.</p>
+<p>Vous pouvez également choisir d’afficher uniquement certains éléments via la liste à afficher</p>
+<figure class="align-center" id="id15">
+<img alt="Afficher les éléments" src="_images/TRANSFEAT_ZONE_DisplayItems.png" />
+<figcaption>
+<p><span class="caption-text">Afficher un ou plusieurs éléments</span><a class="headerlink" href="#id15" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+<section id="critical-resource">
+<span id="id3"></span><h2>Ressource critique<a class="headerlink" href="#critical-resource" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>L’écran des Ressources critiques vous permettra d’identifier les Ressources qui vont faire dériver le projet et de ne pas manquer certaines dates clés en raison d’un manque de capacité sur le projet.</p>
+<p>Cela revient à calculer le planning complet et toutes vos Ressources en mode de Surbooking infini.</p>
+<figure class="align-default" id="id16">
+<img alt="Planification en mode Surbooking infini" src="_images/GANTT_ZONE_ProjectUsingCriticalResPlanning.png" />
+<figcaption>
+<p><span class="caption-text">Planification en mode Surbooking infini</span><a class="headerlink" href="#id16" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<section id="critical-resource-list">
+<h3>Liste des Ressources critiques<a class="headerlink" href="#critical-resource-list" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le tableau des Ressources critiques vous indique pour chaque Ressource critique affichée :</p>
+<figure class="align-default" id="id17">
+<img alt="Liste des Ressources critiques" src="_images/GANTT_ZONE_TableCriticalResource.png" />
+<figcaption>
+<p><span class="caption-text">Liste des Ressources critiques</span><a class="headerlink" href="#id17" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Le nom de la Ressource</p></li>
+<li><p>Sa charge disponible</p></li>
+<li><p>Sa charge utilisée</p></li>
+<li><p>Charge de Surbooking</p></li>
+<li><p>Son rang (Index utilisé pour calculer la marge = différence entre disponible - utilisé)</p></li>
+</ul>
+<p>Ce tableau des Ressources critiques est ventilé par projet.</p>
+<p class="rubric">Projets utilisant des Ressources critiques</p>
+<p>Le tableau des projets utilisant des Ressources critiques vous permet de visualiser le nombre de jours de retard par projet et quelles Ressources causent le retard.</p>
+<p>La valeur stratégique n’a aucun impact sur l’affichage des projets et la détermination des Ressources critiques. Cette valeur (numérique) est libre et laissée à votre discrétion.</p>
+<p>Il peut s’agir d’une valeur comprise entre 1 et 100, ou d’un nombre d’activités commerciales ; dans tous les cas, cela vous permettra d’identifier si les projets consommant des Ressources critiques sont stratégiquement pertinents et donc méritent d’être mis en œuvre.</p>
+</section>
+<section id="critical-resources-planning">
+<h3>Planification des Ressources critiques<a class="headerlink" href="#critical-resources-planning" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le tableau <strong>Liste des Ressources critiques par période</strong> est une représentation de la planification actuelle, non de la planification idéale.</p>
+<p>L’affichage sera effectué par période définie sur l’échelle (semaine, mois, trimestre) ou en affichant la « charge de Surbooking » nécessaire pour optimiser la planification.</p>
+<figure class="align-default" id="id18">
+<img alt="Écran des Ressources critiques" src="_images/GANTT_SCR_CriticalResource.png" />
+<figcaption>
+<p><span class="caption-text">Écran des Ressources critiques</span><a class="headerlink" href="#id18" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Mise en forme des résultats et indicateurs</p>
+<p>Indicator is a percentage  = (Margin - Overbooked) / Available (* 100)</p>
+<ul class="simple">
+<li><dl class="simple">
+<dt>Définir le seuil</dt><dd><ul>
+<li><p>Default Red = « &lt; 20% »</p></li>
+<li><p>Orange par défaut = « &lt; 5% »</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Planification en retard</dt><dd><ul>
+<li><p>En rouge, la Ressource n’a pas une capacité suffisante pour terminer la tâche dans les délais</p></li>
+<li><p>Date de fin planifiée &gt; Date de fin validée - Surbooking sur l’Activité</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Capacité manquante</dt><dd><ul>
+<li><p>En jaune, la Ressource n’a pas une capacité suffisante pour terminer la tâche dans les délais, mais n’est pas la cause du retard de la tâche.</p></li>
+<li><p>Date de fin planifiée &gt; Date de fin validée - pas de Surbooking</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Planification optimale</dt><dd><ul>
+<li><p>En vert, la Ressource a une capacité suffisante pour terminer la tâche dans les délais</p></li>
+<li><p>Date de fin planifiée &lt; Date de fin validée - pas de Surbooking sur l’Activité</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+<section id="critical-resources-scenario">
+<h3>Scénario de Ressources critiques<a class="headerlink" href="#critical-resources-scenario" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Sans affecter votre planning de base, vous pouvez simuler le démarrage d’un ou plusieurs projet(s) à des dates ultérieures en mois.</p>
+<figure class="align-default" id="id19">
+<img alt="Scénarios possibles pour une simulation sur des projets contenant des Ressources critiques" src="_images/GANTT_ZONE_ScenarionCriticalRes.png" />
+<figcaption>
+<p><span class="caption-text">Scénarios possibles pour une simulation sur des projets contenant des Ressources critiques</span><a class="headerlink" href="#id19" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Vous pouvez également ajouter de la capacité supplémentaire à vos pools pour vérifier si l’ajout possible de Ressources peut améliorer la planification de vos projets.</p>
+<p>Vous pouvez appliquer une date particulière pour que la nouvelle capacité soit ajoutée, ce qui déterminera quand la nouvelle capacité peut être intégrée.</p>
+</section>
+<section id="critical-resources-work-plan">
+<h3>Plan de charge des Ressources critiques<a class="headerlink" href="#critical-resources-work-plan" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Vous pouvez obtenir directement sur l’écran des Ressources critiques le Rapport sur la planification de la charge d’une Ressource sélectionnée pour la période indiquée.</p>
+<figure class="align-default" id="id20">
+<img alt="Rapport de planification de charge pour une Ressource" src="_images/GANTT_ZONE_WorkplanCriticalRes.png" />
+<figcaption>
+<p><span class="caption-text">Rapport de planification de charge pour une Ressource</span><a class="headerlink" href="#id20" title="Lien permanent vers cette image">¶</a></p>
+<div class="legend">
+</div>
+</figcaption>
+</figure>
+</section>
+</section>
+<section id="planning-dynamic-work-plan">
+<span id="planning-dynamicworkplan"></span><span id="index-4"></span><h2>Planning &amp; Plan de charge dynamique<a class="headerlink" href="#planning-dynamic-work-plan" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>En plus de la vue planning et de la vue du plan de charge dynamique, ProjeQtOr propose une vue qui combine les deux écrans.</p>
+<p>Cet écran vous permet de visualiser rapidement comment la quantité de charge affecte les dates de vos projets.</p>
+<figure class="align-default" id="id21">
+<img alt="Écran Planning et plan de charge dynamique" src="_images/GANTT_PlanningWorkPlan.png" />
+<figcaption>
+<p><span class="caption-text">Écran Planning et plan de charge dynamique</span><a class="headerlink" href="#id21" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Le plan de charge dynamique combiné au planning a été créé pour la lecture.</p>
+<p>Le tableau n’offre donc pas les options d’affichage et les restrictions proposées sur l’écran dédié.</p>
+</div>
+<p>ProjeQtOr propose une vue dynamique du plan de charge de vos Ressources.</p>
+<p>Vous pouvez visualiser la charge passée et prévisionnelle ainsi que la capacité future d’une Ressource ou de toutes les Ressources et pools.</p>
+<p>L’affichage peut être limité à l’aide de filtres.</p>
+<figure class="align-default" id="id22">
+<img alt="Plan de charge dynamique" src="_images/GANTT_SCR_DynamicWorkPlan.png" />
+<figcaption>
+<p><span class="caption-text">Écran Plan de charge dynamique</span><a class="headerlink" href="#id22" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Le graphique représentera la charge de travail passée et future sous forme de barres, similaires au détail des barres Gantt, et la capacité de la Ressource ou du groupe sous forme de ligne.</p>
+<p>Les données sont automatiquement limitées aux données du ou des projet(s) sélectionné(s) dans le sélecteur de projets.</p>
+<p>Cliquez sur <a class="reference internal" href="_images/iconPlus.png"><img alt="Bouton plus" src="_images/iconPlus.png" style="width: 19.2px; height: 19.2px;" /></a> pour ouvrir la ligne des Ressources.</p>
+<p>Toutes les Ressources des projets sélectionnés sont affichées avec le détail du travail pour chacune.</p>
+<figure class="align-default" id="id23">
+<img alt="Niveaux du plan de charge" src="_images/GANTT_ZONE_WorkplanLevel.png" />
+<figcaption>
+<p><span class="caption-text">Niveau du plan de charge</span><a class="headerlink" href="#id23" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Cliquez à nouveau sur le <a class="reference internal" href="_images/iconPlus.png"><img alt="Bouton plus" src="_images/iconPlus.png" style="width: 19.2px; height: 19.2px;" /></a> d’une Ressource pour afficher toutes les Activités sur lesquelles la Ressource a du travail.</p>
+<p>Survolez une Activité pour voir ses détails</p>
+<figure class="align-default" id="id24">
+<img alt="Détails de l'Activité sur le plan de charge dynamique" src="_images/PLANNINGVIEW_ZONE_ActivityDetails_DynWorkPlan.png" />
+<figcaption>
+<p><span class="caption-text">Détails de l’Activité sur le plan de charge dynamique</span><a class="headerlink" href="#id24" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition tip">
+<p class="admonition-title">Astuce</p>
+<p>Une option dans les options d’affichage de l’écran vous permet d’afficher ou non le niveau projet.</p>
+</div>
+<p>De nombreuses options vous permettent de personnaliser l’affichage du plan de charge dynamique.</p>
+<figure class="align-default" id="id25">
+<img alt="Options du plan de charge dynamique" src="_images/GANTT_BOX_OptionsDynamicWorkPlan.png" />
+<figcaption>
+<p><span class="caption-text">Options du plan de charge dynamique</span><a class="headerlink" href="#id25" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p><strong>Afficher les niveaux de projet</strong></p>
+<p>Permet d’avoir toutes les données des éléments constituant le projet sur une seule ligne pour une Ressource.</p>
+<p><strong>Afficher les couleurs du projet</strong></p>
+<p>Permet de visualiser les barres de charge dans la couleur assignée au projet dans la section description</p>
+<p><strong>Afficher les retards</strong></p>
+<p>Permet de visualiser le plan de charge dans les mêmes couleurs que les barres du diagramme de Gantt.</p>
+<p><strong>Afficher les retards par priorité</strong></p>
+<p>Cette option, disponible uniquement lorsque « afficher les retards » est activé, n’utilisera pas les couleurs de la vue Gantt mais les couleurs de priorité à gérer.</p>
+<p><strong>Afficher le Pool de ressources</strong></p>
+<p>Les pools sont un regroupement de Ressources. Leur planification est répartie sur tout ou partie du groupe.</p>
+<p><strong>Afficher les Ressources sans travail</strong></p>
+<p>Lorsqu’une Ressource n’a plus de travail à effectuer, et donc plus de travail planifié, sa ligne disparaît, tout comme les éléments clos.</p>
+<p>Vous pouvez donc afficher toutes les Ressources d’un projet, même si aucun travail ne leur a été assigné.</p>
+<p><strong>Afficher les valeurs décimales du travail</strong></p>
+<p>Permet d’arrondir ou non les valeurs calculées par le logiciel.</p>
+<section id="color-code">
+<h3>Code couleur<a class="headerlink" href="#color-code" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Différentes légendes peuvent être appliquées au plan de charge dynamique et donc changer les couleurs.</p>
+<section id="mode-normal">
+<h4>Mode normal<a class="headerlink" href="#mode-normal" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Le mode normal affiche les projets en tons bleus.</p>
+<figure class="align-default" id="id26">
+<img alt="Plan de charge dynamique" src="_images/PLANNINGVIEW_ZONE_WorkplanNormal.png" />
+<figcaption>
+<p><span class="caption-text">Plan de charge dynamique</span><a class="headerlink" href="#id26" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p><a class="reference internal" href="_images/GANTT_BAR_WorkPlanPlanned.png"><img alt="Travail planifié" src="_images/GANTT_BAR_WorkPlanPlanned.png" style="width: 18.0px; height: 21.0px;" /></a> Travail restant. Travail assigné.</p>
+<p><a class="reference internal" href="_images/GANTT_BAR_WorkPlanReal.png"><img alt="Travail réel" src="_images/GANTT_BAR_WorkPlanReal.png" style="width: 18.0px; height: 21.0px;" /></a> Travail réel - imputé aux Imputations.</p>
+<p><a class="reference internal" href="_images/GANTT_BAR_WorkPlanAbsence.png"><img alt="Absence" src="_images/GANTT_BAR_WorkPlanAbsence.png" style="width: 18.0px; height: 21.0px;" /></a> Absence</p>
+</section>
+<section id="mode-project-color">
+<h4>Mode couleur projet<a class="headerlink" href="#mode-project-color" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Permet d’afficher les barres dans la couleur du projet. Si le projet n’a pas de couleur, les barres sont affichées en gris.</p>
+<figure class="align-default" id="id27">
+<img alt="Plan de charge dynamique avec couleur de projet" src="_images/PLANNINGVIEW_ZONE_WorkplanProject.png" />
+<figcaption>
+<p><span class="caption-text">Plan de charge dynamique avec couleur de projet</span><a class="headerlink" href="#id27" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="mode-delays-color">
+<h4>Mode couleur des retards<a class="headerlink" href="#mode-delays-color" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Le mode délai décoche automatiquement le mode couleur de projet.</p>
+<p>Cela vous permet de revenir aux mêmes couleurs que sur le diagramme de Gantt.</p>
+<figure class="align-default" id="id28">
+<img alt="Plan de charge dynamique avec couleur de projet" src="_images/PLANNINGVIEW_ZONE_WorkplanGantt.png" />
+<figcaption>
+<p><span class="caption-text">Plan de charge dynamique avec couleur de projet</span><a class="headerlink" href="#id28" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p><a class="reference internal" href="_images/GANTT_BAR_WorkPlanRealWithColor.png"><img alt="Travail réel" src="_images/GANTT_BAR_WorkPlanRealWithColor.png" style="width: 18.0px; height: 21.0px;" /></a> Travail réel</p>
+<p><a class="reference internal" href="_images/GANTT_BAR_WorkPlanRealDelays.png"><img alt="Travail réel" src="_images/GANTT_BAR_WorkPlanRealDelays.png" style="width: 18.0px; height: 21.0px;" /></a> Travail réel en retard</p>
+<p><a class="reference internal" href="_images/GANTT_BAR_WorkPlanPlannedWithColor.png"><img alt="Travail planifié" src="_images/GANTT_BAR_WorkPlanPlannedWithColor.png" style="width: 18.0px; height: 21.0px;" /></a> Travail restant. Travail assigné. Ni retard, ni surbooking.</p>
+<p><a class="reference internal" href="_images/GANTT_BAR_WorkPlanDelays.png"><img alt="Retards sur le travail" src="_images/GANTT_BAR_WorkPlanDelays.png" style="width: 18.0px; height: 21.0px;" /></a> Surbooké et en retard.</p>
+<p><a class="reference internal" href="_images/GANTT_BAR_WorkPlanOverBookingColor.png"><img alt="Travail surbooké" src="_images/GANTT_BAR_WorkPlanOverBookingColor.png" style="width: 18.0px; height: 21.0px;" /></a> En retard, mais non Surbooké.</p>
+<p><a class="reference internal" href="_images/GANTT_BAR_WorkPlanOverbookDelays.png"><img alt="Retards sur le travail surbooké" src="_images/GANTT_BAR_WorkPlanOverbookDelays.png" style="width: 18.0px; height: 21.0px;" /></a> Surbooké, mais pas en retard.</p>
+</section>
+<section id="mode-delays-color-with-priorities">
+<h4>Mode couleur des retards avec priorités<a class="headerlink" href="#mode-delays-color-with-priorities" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Le mode délai avec visualisation des priorités changera les couleurs des retards.</p>
+<p>Cela vous permet d’identifier rapidement l’ordre dans lequel les tâches doivent être accomplies en mettant en évidence celles qui ont le plus de retard.</p>
+<p>Cela nous permettra de prioriser les activités rouges, puis les activités oranges, puis les activités jaunes, en ne laissant que les activités vertes, afin que tout se passe bien.</p>
+<figure class="align-default" id="id29">
+<img alt="Plan de charge dynamique avec couleur de projet" src="_images/PLANNINGVIEW_ZONE_WorkplanPriority.png" />
+<figcaption>
+<p><span class="caption-text">Plan de charge dynamique avec couleur de projet</span><a class="headerlink" href="#id29" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p><a class="reference internal" href="_images/BoxDetail_Overuse.png"><img alt="Surcharge prioritaire" src="_images/BoxDetail_Overuse.png" style="width: 18.0px; height: 21.0px;" /></a> Surbooké, mais pas en retard.</p>
+<p><a class="reference internal" href="_images/BoxDetail_OveruseDelays.png"><img alt="Surcharge avec retard prioritaire" src="_images/BoxDetail_OveruseDelays.png" style="width: 18.0px; height: 21.0px;" /></a> Surbooké et en retard.</p>
+</section>
+<section id="capacity">
+<h4>Capacité<a class="headerlink" href="#capacity" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>La ligne correspond à la capacité de la Ressource.</p>
+<p>Elle change de couleur uniquement lorsque le plan de charge dynamique est affiché en mode normal pour indiquer la surcharge.</p>
+<p><a class="reference internal" href="_images/GANTT_BAR_WorkPlanCap.png"><img alt="Capacité" src="_images/GANTT_BAR_WorkPlanCap.png" style="width: 18.0px; height: 21.0px;" /></a> Valeur de capacité des Ressources</p>
+<p><a class="reference internal" href="_images/GANTT_BAR_WorkPlanSurutilisation.png"><img alt="Surbooking" src="_images/GANTT_BAR_WorkPlanSurutilisation.png" style="width: 18.0px; height: 21.0px;" /></a> Valeur de capacité en surcharge des Ressources</p>
+<figure class="align-default" id="id30">
+<img alt="Plan de charge avec Surbooking" src="_images/GANTT_ZONE_WorkPlanSurutilisation.png" />
+<figcaption>
+<p><span class="caption-text">Plan de charge avec Surbooking</span><a class="headerlink" href="#id30" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Lorsque le planning est affiché dans d’autres modes, la ligne est pointillée en noir et jaune pour une meilleure lisibilité.</p>
+<p><a class="reference internal" href="_images/GANTT_BAR_WorkPlanCapPoint.png"><img alt="Ligne de capacité" src="_images/GANTT_BAR_WorkPlanCapPoint.png" style="width: 18.0px; height: 21.0px;" /></a> Valeur de capacité des Ressources</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="Gantt.html#special-bars"><span class="std std-ref">Barres spéciales du diagramme de Gantt</span></a></p>
+</div>
+</section>
+<section id="filters">
+<h4>Filtres<a class="headerlink" href="#filters" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Sur chaque ligne, nous affichons :</p>
+<ul class="simple">
+<li><p>Le nom de la Ressource ou du groupe de Ressources précédé de son icône de classe.</p></li>
+<li><p><strong>Moyenne</strong> d’utilisation de la capacité = Somme (charge de travail) / Somme (capacité) [exprimée en %]</p></li>
+<li><p>Travail <strong>planifié</strong> = Somme (charge de travail) [exprimé en jours ou heures]</p></li>
+<li><p><strong>Disponible</strong> = Somme (capacité) - Somme (charge de travail) [exprimé en jours ou heures]</p></li>
+</ul>
+<p>Les informations de travail sont affichées en jours ou en heures selon le paramètre d’affichage de la charge globale pour la période sélectionnée.</p>
+<ul class="simple">
+<li><p><strong>Si un Pool est sélectionné</strong></p></li>
+</ul>
+<p>Les données du graphique représentent la somme des données du Pool et des Ressources du Pool</p>
+<ul class="simple">
+<li><p><strong>Si une Équipe ou une Organisation est sélectionnée</strong></p></li>
+</ul>
+<p>Les données du graphique représentent la somme des données des Ressources et des Pools de l’équipe ou de l’organisation.</p>
+<ul class="simple">
+<li><p><strong>Si aucun paramètre n’est sélectionné</strong></p></li>
+</ul>
+<p>Les données du graphique représentent la somme des données de toutes les Ressources dont l’utilisateur actuel est responsable (telles que listées dans la liste des Ressources sur l’écran des Affectations)</p>
+</section>
+<section id="display-periods-and-scales">
+<h4>Périodes et échelles d’affichage<a class="headerlink" href="#display-periods-and-scales" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>L’échelle, qui détermine l’affichage des abscisses, est sélectionnée au niveau de l’en-tête.</p>
+<p>Vous pouvez choisir les mêmes échelles que pour la vue planning : jour, semaine, mois, trimestre pour l’affichage des dates.</p>
+<figure class="align-default" id="id31">
+<img alt="Afficher les dates dans la vue Planning" src="_images/GANTT_ZONE_DisplayDatesonWorkPlan.png" />
+<figcaption>
+<p><span class="caption-text">Afficher les dates dans la vue Planning</span><a class="headerlink" href="#id31" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Le choix de l’échelle déterminera :</p>
+<ul class="simple">
+<li><p>La largeur d’affichage d’un jour, exactement comme dans la vue planning</p></li>
+<li><p>La granularité de l’affichage des données, sur une base journalière ou hebdomadaire, comme c’est le cas pour le détail d’une barre Gantt dans la vue planning</p></li>
+<li><p>Le choix de la période à afficher sera identique à la sélection disponible sur le Gantt avec la date de début (positionnée par défaut sur la date actuelle) et la date de fin (vide par défaut).</p></li>
+<li><p>L’option « projet entier », qui détermine automatiquement la date de début et de fin en fonction des données à afficher (exactement comme pour la vue Planning).</p></li>
+<li><p>Le choix d’un filtre de durée, semaine, mois, trimestre, semestre, année, déterminera automatiquement la date de fin dans le champ « afficher jusqu’au ».</p></li>
+<li><p>Les deux échelles sont indépendantes l’une de l’autre et peuvent être combinées.</p></li>
+</ul>
+<figure class="align-default" id="id32">
+<img alt="Échelle de durée du plan de charge" src="_images/GANTT_ZONE_WorkPlanScale.png" />
+<figcaption>
+<p><span class="caption-text">Plan de charge - Échelle de durée</span><a class="headerlink" href="#id32" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Les dates d’affichage de la vue planning et du plan de charge dynamique sont liées.</p>
+<p>Lorsque vous sélectionnez des dates de début et de fin d’affichage, elles seront identiques d’une vue à l’autre.</p>
+<p>Si vous modifiez les dates d’affichage sur l’écran du plan de charge dynamique, lorsque vous revenez à la vue planning, ces dates d’affichage seront appliquées automatiquement</p>
+</div>
+</section>
+<section id="options">
+<h4>Options<a class="headerlink" href="#options" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Plusieurs options vous donnent la possibilité d’afficher le graphique de différentes manières.</p>
+<figure class="align-default" id="id33">
+<img alt="Options du plan de charge dynamique" src="_images/GANTT_ZONE_OptionsDynamic.png" />
+<figcaption>
+<p><span class="caption-text">Options du plan de charge dynamique</span><a class="headerlink" href="#id33" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Niveau projet</p>
+<p>Vous pouvez choisir d’afficher ou non la charge de travail de la Ressource pour l’ensemble du projet.</p>
+<p>Cette option permet d’afficher une ligne supplémentaire et indique la charge de travail totale de la Ressource pour les différentes Activités de ce projet, qui sera détaillée au niveau suivant.</p>
+<p class="rubric">Couleur par projet</p>
+<p>Ainsi, au lieu d’avoir uniquement du bleu foncé pour le réel et du bleu clair pour le planifié, la charge de chaque projet sera affichée dans la couleur du projet, si elle est renseignée, ou dans la couleur du type de projet sinon.</p>
+<p>La charge réelle sera distinguée par un hachurage de la couleur.</p>
+<figure class="align-default" id="id34">
+<img alt="Plan de charge affichant les couleurs de projet" src="_images/GANTT_ZONE_ColorProject.png" />
+<figcaption>
+<p><span class="caption-text">Plan de charge affichant les couleurs de projet</span><a class="headerlink" href="#id34" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Afficher les retards</p>
+<p>Afficher les retards vous permet d’afficher les barres de charge de travail dans le graphique avec les couleurs des barres Gantt, indiquant si le travail est « en retard » ou non.</p>
+<figure class="align-default" id="id35">
+<img alt="Afficher les retards" src="_images/GANTT_ZONE_ShowDelays.png" />
+<figcaption>
+<p><span class="caption-text">Afficher les retards</span><a class="headerlink" href="#id35" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Vert : Tout va bien</p></li>
+<li><p>Rouge : Le travail dépasse la date prévue</p></li>
+<li><p>Orange : La planification est en Surbooking</p></li>
+</ul>
+</section>
+</section>
+</section>
+<section id="projects-dashboard">
+<span id="projectsdashboard"></span><h2>Tableau de bord des projets<a class="headerlink" href="#projects-dashboard" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Cet écran vous permet de suivre les informations clés de vos projets.</p>
+<p>Le tableau de bord affiche les projets pour lesquels vous disposez de droits de visibilité.</p>
+<p>Il vous permet de trier selon divers critères et de visualiser les informations du projet de manière graphique.</p>
+<figure class="align-default" id="id36">
+<img alt="Écran du tableau de bord des projets" src="_images/PLANNINGVIEW_SCR_ProjectsDashBoard.png" />
+<figcaption>
+<p><span class="caption-text">Écran du tableau de bord des projets</span><a class="headerlink" href="#id36" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Filtres et options</p>
+<p>Plusieurs options de tri et de filtrage vous permettent d’afficher les projets comme vous le souhaitez, avec les informations de votre choix.</p>
+<figure class="align-default" id="id37">
+<img alt="Tri et filtrage sur les cartes de projet" src="_images/PLANNINGVIEW_ZONE_ProjectsDashBoardFilters.png" />
+<figcaption>
+<p><span class="caption-text">Tri et filtrage sur les cartes de projet</span><a class="headerlink" href="#id37" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>The <a class="reference internal" href="#linearview"><span class="std std-ref">affichage linéaire</span></a> permet d’afficher les projets en lignes.</p>
+<section id="the-cards">
+<h3>Les cartes<a class="headerlink" href="#the-cards" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Chaque projet est représenté sous forme de carte et affiche les informations que vous avez sélectionnées.</p>
+<figure class="align-default" id="id38">
+<img alt="Carte de projet" src="_images/PLANNINGVIEW_ZONE_ProjectsDashBoardCard.png" />
+<figcaption>
+<p><span class="caption-text">Carte de projet</span><a class="headerlink" href="#id38" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p><a class="reference internal" href="_images/zero.png"><img alt="Zéro" src="_images/zero.png" style="width: 17.7px; height: 17.7px;" /></a> Voir les dates de début <strong>ou</strong> de fin validées - planifiées - réelles</p>
+<p><a class="reference internal" href="_images/one.png"><img alt="Un" src="_images/one.png" style="width: 18.0px; height: 18.0px;" /></a> Image. Il est possible d’ajouter une image à chaque carte de projet.</p>
+<blockquote>
+<div><p>Si aucune image n’est sélectionnée, l’arrière-plan est rempli avec la couleur appliquée au projet.</p>
+<p>Cliquez sur l’image (hors icône +) pour accéder aux détails du projet en mode graphique.</p>
+</div></blockquote>
+<p><a class="reference internal" href="_images/two.png"><img alt="Deux" src="_images/two.png" style="width: 18.0px; height: 18.0px;" /></a> Outils</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Aller au projet vous permet d’accéder à l’écran des projets dédié.</p></li>
+<li><p>Rechercher dans le planning vous permet d’accéder à la vue planning et d’isoler le projet à l’aide du sélecteur.</p></li>
+<li><p>Aller au plan de charge vous permet d’accéder directement au plan de charge dynamique du projet sélectionné.</p></li>
+<li><p>Aller aux Risques vous permet d’accéder à la page dédiée aux Risques.</p></li>
+</ul>
+</div></blockquote>
+<p><a class="reference internal" href="_images/three.png"><img alt="Trois" src="_images/three.png" style="width: 18.0px; height: 18.0px;" /></a> Priorité du projet.</p>
+<p><a class="reference internal" href="_images/four.png"><img alt="Quatre" src="_images/four.png" style="width: 18.0px; height: 18.0px;" /></a> Statut du projet.</p>
+<p><a class="reference internal" href="_images/five.png"><img alt="Cinq" src="_images/five.png" style="width: 18.0px; height: 18.0px;" /></a> Nom du projet. Cliquez sur le nom pour accéder à l’écran du projet.</p>
+<p><a class="reference internal" href="_images/six.png"><img alt="Six" src="_images/six.png" style="width: 18.0px; height: 18.0px;" /></a> Chef de projet</p>
+<p><a class="reference internal" href="_images/seven.png"><img alt="Sept" src="_images/seven.png" style="width: 18.0px; height: 18.0px;" /></a> Prochain jalon dans le projet</p>
+<p><a class="reference internal" href="_images/eight.png"><img alt="Huit" src="_images/eight.png" style="width: 18.0px; height: 18.0px;" /></a> Météo du projet</p>
+<p><a class="reference internal" href="_images/nine.png"><img alt="Neuf" src="_images/nine.png" style="width: 18.0px; height: 18.0px;" /></a> Chronologie de la durée du projet avec option d’affichage des jalons par type. Les jalons validés sont affichés sous la ligne et les jalons planifiés sont affichés au-dessus de la ligne.</p>
+<img alt="_images/PLANNINGVIEW_ZONE_TimelineDetails.png" src="_images/PLANNINGVIEW_ZONE_TimelineDetails.png" />
+<p>Les barres changent également de couleur en fonction du type de date (validée, réelle, planifiée) et/ou selon qu’elles sont en retard ou non.</p>
+<p><a class="reference internal" href="_images/ten.png"><img alt="Dix" src="_images/ten.png" style="width: 18.0px; height: 18.0px;" /></a> Avancement de la charge de travail - Budget et les Risques</p>
+<blockquote>
+<div><p>Le premier cercle bleu représente les informations que vous avez validées.</p>
+<p>Le cercle intérieur indique l’avancement.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>En vert lorsque tout se passe bien.</p></li>
+<li><p>En gris lorsqu’il y a des informations « réelles »</p></li>
+<li><p>En rouge lorsque les informations validées ont été dépassées.</p></li>
+</ul>
+</div></blockquote>
+<p>À l’intérieur, l’affichage de cet avancement en pourcentage est indiqué.</p>
+<p>Le survol des cercles vous fournit des informations supplémentaires.</p>
+</div></blockquote>
+</section>
+<section id="id4">
+<h3>Options<a class="headerlink" href="#id4" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Vous sélectionner les éléments d’informations que vous voulez afficher sur le graphe.</p>
+<figure class="align-default" id="id39">
+<img alt="Options d'affichage du tableau de bord et des cartes" src="_images/PLANNINGVIEW_ZONE_ProjectsDashBoardOptions.png" />
+<figcaption>
+<p><span class="caption-text">Options d’affichage du tableau de bord et des cartes</span><a class="headerlink" href="#id39" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>La fonction « Enregistrer » vous permet de sauvegarder votre présentation et vos filtres d’affichage.</p>
+<p>Cela vous permet de retrouver votre mise en page préférée à tout moment.</p>
+</section>
+<section id="linear-view">
+<span id="linearview"></span><h3>Affichage linéaire<a class="headerlink" href="#linear-view" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le mode linéaire vous permet d’afficher les projets en ligne</p>
+<figure class="align-default" id="id40">
+<img alt="Mode linéaire" src="_images/PLANNINGVIEW_BOX_Inline.png" />
+<figcaption>
+<p><span class="caption-text">Mode linéaire</span><a class="headerlink" href="#id40" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="project-details-in-graphical-mode">
+<h3>Détails du projet en mode graphique.<a class="headerlink" href="#project-details-in-graphical-mode" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Cliquer sur le bloc image affiche l’écran des détails du projet.</p>
+<p>Sur cet écran, un résumé des informations de votre projet est affiché graphiquement.</p>
+<figure class="align-default" id="id41">
+<img alt="Détails du projet" src="_images/PLANNINGVIEW_SCR_TBBProjects_Details.png" />
+<figcaption>
+<p><span class="caption-text">Détails du projet</span><a class="headerlink" href="#id41" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Vous trouverez la description complète du projet, incluant ses dates de début et de fin (validées, planifiées et réelles).</p>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconGoto.png"><img alt="Icône aller à" src="_images/iconGoto.png" style="width: 19.2px; height: 19.2px;" /></a> pour accéder à l’écran dédié au projet.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconSearchPlanning.png"><img alt="Icône bouton recherche planification" src="_images/iconSearchPlanning.png" style="width: 19.2px; height: 19.2px;" /></a> pour afficher le projet dans la vue de planification.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconPlannedWorkManual.png"><img alt="Planification" src="_images/iconPlannedWorkManual.png" style="width: 19.2px; height: 19.2px;" /></a> pour afficher le plan de charge dynamique.</p></li>
+</ul>
+<p><strong>Plusieurs blocs permettent d’afficher les éléments du périmètre :</strong></p>
+<ul class="simple">
+<li><p>Objectifs du projet</p></li>
+<li><p>La météo</p></li>
+<li><p>Ressources allouées au projet</p></li>
+<li><p>Une chronologie des jalons, affichant les jalons validés en dessous et les jalons planifiés au-dessus de la ligne.</p></li>
+<li><p>La liste de tous les jalons du projet</p></li>
+<li><p>Un bloc financier regroupant les informations de coûts et de dépenses du projet.</p></li>
+<li><p>Gestion des revenus avec une liste de services commandés.</p></li>
+<li><p>Risques, opportunités et graphique tornade</p></li>
+<li><p>RACIs</p></li>
+<li><p>Certains rapports, tels que la courbe à 45° ou le graphique burndown.</p></li>
+</ul>
+<p>Vous choisissez les blocs que vous souhaitez afficher à l’aide des options de l’écran.</p>
+<p>Vous pouvez glisser-déposer les sections et les colonnes.</p>
+<figure class="align-default" id="id42">
+<img alt="Options de détail du tableau de bord de projet" src="_images/PLANNINGVIEW_BOX_TBBDetails_Options.png" />
+<figcaption>
+<p><span class="caption-text">Options de détail du tableau de bord de projet</span><a class="headerlink" href="#id42" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table des matières</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Vue Planning</a><ul>
+<li><a class="reference internal" href="#other-planning-views">Autres vues de planification</a><ul>
+<li><a class="reference internal" href="#planning-global">Planification globale</a></li>
+<li><a class="reference internal" href="#projects-portfolio">Portefeuille de projets</a></li>
+<li><a class="reference internal" href="#resource-planning">Planification des Ressources</a><ul>
+<li><a class="reference internal" href="#tools">Outils</a><ul>
+<li><a class="reference internal" href="#display-dates">Afficher les dates</a></li>
+<li><a class="reference internal" href="#display-options-into-the-submenu">Options d’affichage dans le sous-menu</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#global-view">Vue globale</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#critical-resource">Ressource critique</a><ul>
+<li><a class="reference internal" href="#critical-resource-list">Liste des Ressources critiques</a></li>
+<li><a class="reference internal" href="#critical-resources-planning">Planification des Ressources critiques</a></li>
+<li><a class="reference internal" href="#critical-resources-scenario">Scénario de Ressources critiques</a></li>
+<li><a class="reference internal" href="#critical-resources-work-plan">Plan de charge des Ressources critiques</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#planning-dynamic-work-plan">Planning &amp; Plan de charge dynamique</a><ul>
+<li><a class="reference internal" href="#color-code">Code couleur</a><ul>
+<li><a class="reference internal" href="#mode-normal">Mode normal</a></li>
+<li><a class="reference internal" href="#mode-project-color">Mode couleur projet</a></li>
+<li><a class="reference internal" href="#mode-delays-color">Mode couleur des retards</a></li>
+<li><a class="reference internal" href="#mode-delays-color-with-priorities">Mode couleur des retards avec priorités</a></li>
+<li><a class="reference internal" href="#capacity">Capacité</a></li>
+<li><a class="reference internal" href="#filters">Filtres</a></li>
+<li><a class="reference internal" href="#display-periods-and-scales">Périodes et échelles d’affichage</a></li>
+<li><a class="reference internal" href="#options">Options</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#projects-dashboard">Tableau de bord des projets</a><ul>
+<li><a class="reference internal" href="#the-cards">Les cartes</a></li>
+<li><a class="reference internal" href="#id4">Options</a></li>
+<li><a class="reference internal" href="#linear-view">Affichage linéaire</a></li>
+<li><a class="reference internal" href="#project-details-in-graphical-mode">Détails du projet en mode graphique.</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Sujet précédent</h4>
+    <p class="topless"><a href="Gantt.html"
+                          title="Chapitre précédent">Diagramme de Gantt</a></p>
+  </div>
+  <div>
+    <h4>Sujet suivant</h4>
+    <p class="topless"><a href="Today.html"
+                          title="Chapitre suivant">Aujourd’hui (Tableau de bord)</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Recherche rapide</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             >index</a></li>
+        <li class="right" >
+          <a href="Today.html" title="Aujourd’hui (Tableau de bord)"
+             >suivant</a> |</li>
+        <li class="right" >
+          <a href="Gantt.html" title="Diagramme de Gantt"
+             >précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Planning view</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Créé en utilisant <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

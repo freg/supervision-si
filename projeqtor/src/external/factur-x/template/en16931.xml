@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rsm:CrossIndustryInvoice
+  xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
+  xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
+  xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100"
+  xmlns:qdt="urn:un:unece:uncefact:data:standard:QualifiedDataType:100">
+
+  <rsm:ExchangedDocumentContext>
+    <ram:GuidelineSpecifiedDocumentContextParameter>
+      <ram:ID>urn:factur-x.eu:1p0:en16931</ram:ID>
+    </ram:GuidelineSpecifiedDocumentContextParameter>
+  </rsm:ExchangedDocumentContext>
+
+  <rsm:ExchangedDocument>
+    <ram:ID>{{INVOICE_NUMBER}}</ram:ID>
+    <ram:TypeCode>{{DOC_TYPE_CODE}}</ram:TypeCode>
+    <ram:IssueDateTime>
+      <udt:DateTimeString format="102">{{INVOICE_DATE_YYYYMMDD}}</udt:DateTimeString>
+    </ram:IssueDateTime>
+    <ram:IncludedNote>
+      <ram:Content>{{NOTE}}</ram:Content>
+    </ram:IncludedNote>
+  </rsm:ExchangedDocument>
+
+  <rsm:SupplyChainTradeTransaction>
+
+    {{LINES_BLOCK}}
+
+    <ram:ApplicableHeaderTradeAgreement>
+      <ram:SellerTradeParty>
+        <ram:Name>{{SELLER_NAME}}</ram:Name>
+        <ram:SpecifiedLegalOrganization>
+          <ram:ID>{{SELLER_SIRET}}</ram:ID>
+        </ram:SpecifiedLegalOrganization>
+        <ram:PostalTradeAddress>
+          <ram:PostcodeCode>{{SELLER_ZIP}}</ram:PostcodeCode>
+          <ram:LineOne>{{SELLER_ADDR1}}</ram:LineOne>
+          <ram:CityName>{{SELLER_CITY}}</ram:CityName>
+          <ram:CountryID>{{SELLER_COUNTRY}}</ram:CountryID>
+        </ram:PostalTradeAddress>
+        <ram:SpecifiedTaxRegistration>
+          <ram:ID>{{SELLER_VAT}}</ram:ID>
+        </ram:SpecifiedTaxRegistration>
+      </ram:SellerTradeParty>
+
+      <ram:BuyerTradeParty>
+        <ram:Name>{{BUYER_NAME}}</ram:Name>
+        <ram:PostalTradeAddress>
+          <ram:PostcodeCode>{{BUYER_ZIP}}</ram:PostcodeCode>
+          <ram:LineOne>{{BUYER_ADDR1}}</ram:LineOne>
+          {{BUYER_ADDR2_BLOCK}}
+          <ram:CityName>{{BUYER_CITY}}</ram:CityName>
+          <ram:CountryID>{{BUYER_COUNTRY}}</ram:CountryID>
+        </ram:PostalTradeAddress>
+      </ram:BuyerTradeParty>
+
+      {{BUYER_ORDER_BLOCK}}
+    </ram:ApplicableHeaderTradeAgreement>
+
+    <ram:ApplicableHeaderTradeDelivery/>
+
+    <ram:ApplicableHeaderTradeSettlement>
+      <ram:InvoiceCurrencyCode>{{CURRENCY}}</ram:InvoiceCurrencyCode>
+
+      <ram:SpecifiedTradeSettlementPaymentMeans>
+        <ram:TypeCode>{{PAYMENT_MEANS_CODE}}</ram:TypeCode>
+        <ram:PayeePartyCreditorFinancialAccount>
+          <ram:IBANID>{{PAYEE_IBAN}}</ram:IBANID>
+        </ram:PayeePartyCreditorFinancialAccount>
+        {{PAYEE_BIC_BLOCK}}
+      </ram:SpecifiedTradeSettlementPaymentMeans>
+
+      {{TAX_BLOCK}}
+
+      <ram:SpecifiedTradePaymentTerms>
+        <ram:Description>{{PAYMENT_TERMS_DESC}}</ram:Description>
+        <ram:DueDateDateTime>
+          <udt:DateTimeString format="102">{{DUE_DATE_YYYYMMDD}}</udt:DateTimeString>
+        </ram:DueDateDateTime>
+      </ram:SpecifiedTradePaymentTerms>
+
+      <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+        <ram:LineTotalAmount currencyID="{{CURRENCY}}">{{TOTAL_HT}}</ram:LineTotalAmount>
+        <ram:TaxBasisTotalAmount currencyID="{{CURRENCY}}">{{TOTAL_HT}}</ram:TaxBasisTotalAmount>
+        <ram:TaxTotalAmount currencyID="{{CURRENCY}}">{{TOTAL_VAT}}</ram:TaxTotalAmount>
+        <ram:GrandTotalAmount currencyID="{{CURRENCY}}">{{TOTAL_TTC}}</ram:GrandTotalAmount>
+        <ram:DuePayableAmount currencyID="{{CURRENCY}}">{{TOTAL_TTC}}</ram:DuePayableAmount>
+      </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+    </ram:ApplicableHeaderTradeSettlement>
+
+  </rsm:SupplyChainTradeTransaction>
+</rsm:CrossIndustryInvoice>

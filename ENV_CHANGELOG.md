@@ -12,6 +12,19 @@ regarder l'entrée la plus récente en haut — si elle correspond à ce
 que vous avez déjà en `.env`, rien à faire. Sinon, copier/ajouter les
 clés listées, dans votre `.env` existant.
 
+## 2026-09-11 — PROJEQTOR_* (livraison #476)
+
+Nouveau module `projeqtor` (fork de ProjeQtOr V13.1.0, gestion de
+projets, tuile hub visible de tous) : `PROJEQTOR_DB_NAME` (projeqtor),
+`PROJEQTOR_DB_USER` (projeqtor), `PROJEQTOR_DB_PASSWORD` et
+`PROJEQTOR_DB_ROOT_PASSWORD` (**générés aléatoirement** par
+`scripts/generate-env.sh` — relancer ce script dans chaque nouvelle
+extraction, comme toujours), `PROJEQTOR_DATA_DIR` (vide =
+`./projeqtor/data`), `PROJEQTOR_DEFAULT_LOCALE` (fr),
+`PROJEQTOR_DEFAULT_TIMEZONE` (Europe/Paris). L'authentification LDAP
+réutilise les variables `LDAP_*` existantes, rien de nouveau à
+renseigner.
+
 ## 2026-09-08 — SI_AGENT_* sécurité / notifications, SECRETS_ALERT_* passés au central (livraison #422)
 
 `si-agent-api` : `SI_AGENT_LOG_LEVEL` (INFO), `SI_AGENT_EVENTS_RETENTION_DAYS`

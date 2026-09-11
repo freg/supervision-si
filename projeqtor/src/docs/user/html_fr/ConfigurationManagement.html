@@ -1,0 +1,380 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Configuration Management &#8212; Documentation ProjeQtOr User guide 13.1</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/translations.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Recherche" href="search.html" />
+    <link rel="next" title="Exigences et tests" href="RequirementsTest.html" />
+    <link rel="prev" title="Pilotage" href="Steering.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="RequirementsTest.html" title="Exigences et tests"
+             accesskey="N">suivant</a> |</li>
+        <li class="right" >
+          <a href="Steering.html" title="Pilotage"
+             accesskey="P">précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Configuration Management</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="configuration-management">
+<span id="configurationmanagement"></span><span id="index-0"></span><h1>Gestion de la configuration<a class="headerlink" href="#configuration-management" title="Lien permanent vers cette rubrique">¶</a></h1>
+<p>La gestion de la configuration consiste à gérer la description technique d’un système, ainsi qu’à gérer tous les changements effectués lors de l’évolution du système.</p>
+<p>C’est l’ensemble des processus pour assurer la conformité d’un produit aux exigences, tout au long de son cycle de vie.</p>
+<p>En informatique, par exemple, la gestion de la configuration peut être utilisée à de nombreuses fins.</p>
+<ul class="simple">
+<li><p>Pour stocker et tracer les différentes versions ou révisions de toute information destinée à être utilisée par un système (matériel, logiciel, document, données unitaires, etc.).</p></li>
+<li><p>Pour déployer des configurations dans un parc informatique sous forme de fichiers et de données.</p></li>
+<li><p>Gérer les codes sources…</p></li>
+</ul>
+<section id="products">
+<span id="product"></span><span id="index-1"></span><h2>Produits<a class="headerlink" href="#products" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Permet de définir un produit et des sous-produits.</p>
+<p>Permet de lier des composants au produit.</p>
+<figure class="align-default" id="id2">
+<img alt="Écran de configuration du produit" src="_images/CONF_SCR_Product.png" />
+<figcaption>
+<p><span class="caption-text">Écran de configuration du produit</span><a class="headerlink" href="#id2" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Vous pouvez créer de nombreux liens entre les produits, les versions de produits et les composants</p>
+<section id="project-linked-to-this-product">
+<h3>Projet lié à ce produit<a class="headerlink" href="#project-linked-to-this-product" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Possibilité d’attacher les produits de la liste à des projets.</p>
+<p>Lorsque vous liez un projet à un produit, toutes les versions de ce produit seront liées.</p>
+<p>La date de début et de fin correspond à la durée de ce lien.</p>
+</section>
+<section id="composition">
+<h3>Composition<a class="headerlink" href="#composition" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Liste des sous-produits et liste des composants utilisés par ce produit</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="#relationship-product-component"><span class="std std-ref">Relations</span></a>.</p>
+</div>
+</section>
+<section id="structure">
+<h3>Structure<a class="headerlink" href="#structure" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Vous pouvez afficher la structure de 2 façons. Normal et plat.</p>
+<figure class="align-default" id="id3">
+<img alt="Afficher la structure du produit" src="_images/CONF_BOX_DisplayStructureSSBox.png" />
+<figcaption>
+<p><span class="caption-text">Affichage normal de la structure du produit</span><a class="headerlink" href="#id3" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Case cochée « Afficher les versions pour toute la structure » permet d’afficher les versions des sous-produits et des composants.</p>
+<p>Case cochée « Afficher les projets liés aux versions » permet d’afficher les projets liés.</p>
+<figure class="align-default" id="id4">
+<img alt="Afficher la structure du produit avec cases cochées" src="_images/CONF_BOX_DisplayStructure.png" />
+<figcaption>
+<p><span class="caption-text">Afficher la structure du produit avec les cases cochées</span><a class="headerlink" href="#id4" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+<section id="product-versions">
+<span id="product-version"></span><span id="index-2"></span><h2>Versions du produit<a class="headerlink" href="#product-versions" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Permet de définir des versions d’un produit.</p>
+<p>Permet de lier une version de composant à une version de produit.</p>
+<p>Permet de lier la version du produit à un projet.</p>
+<p>Possibilité de définir la compatibilité entre les versions de produits (fonctionnalité activée via un paramètre global)</p>
+<section id="automatic-formatting-of-version-name">
+<h3>Formatage automatique du nom de version<a class="headerlink" href="#automatic-formatting-of-version-name" title="Lien permanent vers cette rubrique">¶</a></h3>
+<aside class="sidebar">
+<p class="sidebar-title">Other sections</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#link-version-project-section"><span class="std std-ref">Projets liés à cette version</span></a></p></li>
+<li><p><a class="reference internal" href="#version-product-component"><span class="std std-ref">Composition…</span></a></p></li>
+</ul>
+</aside>
+<p>Possibilité de définir si le nom de version est automatiquement produit à partir du nom du produit et du numéro de version.</p>
+<p>Définissez les <a class="reference internal" href="GlobalParameters.html#global-parameters"><span class="std std-ref">Paramètres globaux</span></a> pour activer cette fonctionnalité.</p>
+<p>Sinon, le nom de version sera saisi manuellement.</p>
+<p>Par profil, possibilité d’avoir une liste différente de la version du produit d’origine selon le statut.</p>
+<figure class="align-default" id="id5">
+<img alt="Description de la version du produit" src="_images/CONF_ZONE_DescriptionVersionProduct.png" />
+<figcaption>
+<p><span class="caption-text">Description de la version du produit</span><a class="headerlink" href="#id5" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Numéro de version &amp; Nom</p>
+<p>Le champ « Numéro de version » n’apparaît que si le paramètre global « Format automatique du nom de version » est défini sur Oui.</p>
+<p>Le champ « Nom » sera en lecture seule.</p>
+<p class="rubric">Maître d’œuvre</p>
+<p>Le champ « Maître d’œuvre » peut être différent du maître d’œuvre du produit.</p>
+<p class="rubric">Mise en service (Réelle)</p>
+<p>Le champ « Mise en service » spécifie la date de mise en service.</p>
+<p>La case « Terminé » est cochée lorsque le champ date réelle est défini.</p>
+<p class="rubric">Date de fin (Réelle)</p>
+<p>Le champ « Date de fin » spécifie la date de fin de service.</p>
+<p>La case « Terminé » est cochée lorsque le champ date réelle est défini.</p>
+</section>
+</section>
+<section id="components">
+<span id="component"></span><span id="index-3"></span><h2>Composants<a class="headerlink" href="#components" title="Lien permanent vers cette rubrique">¶</a></h2>
+<aside class="sidebar">
+<p class="sidebar-title"><strong>Other sections</strong></p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#relationship-product-component"><span class="std std-ref">Structure…</span></a></p></li>
+<li><p><a class="reference internal" href="#relationship-product-component"><span class="std std-ref">Composition…</span></a></p></li>
+</ul>
+</aside>
+<p>Permet de définir des composants de produit.</p>
+<p>Permet de définir les produits utilisant le composant.</p>
+<p>Possibilité de définir des types de composants et des versions de composants qui ne seront utilisés que pour la définition de la structure (pas pour la Planification de version ou les Tickets)</p>
+<figure class="align-default" id="id6">
+<img alt="Composant" src="_images/CONF_ZONE_ComponentDetails.png" />
+<figcaption>
+<p><span class="caption-text">Détails du composant</span><a class="headerlink" href="#id6" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Liste des versions définies pour le composant.</p>
+<p>Les versions de composant sont définies dans l’écran <a class="reference internal" href="#component-version"><span class="std std-ref">Versions du composant</span></a>.</p>
+</section>
+<section id="component-versions">
+<span id="component-version"></span><span id="index-4"></span><h2>Versions du composant<a class="headerlink" href="#component-versions" title="Lien permanent vers cette rubrique">¶</a></h2>
+<aside class="sidebar">
+<p class="sidebar-title">Other sections</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#version-product-component"><span class="std std-ref">Structure…</span></a></p></li>
+<li><p><a class="reference internal" href="#version-product-component"><span class="std std-ref">Composition…</span></a></p></li>
+</ul>
+</aside>
+<p>Permet de définir des versions d’un composant.</p>
+<p>Permet de lier une version de produit à une version de composant.</p>
+<figure class="align-default" id="id7">
+<img alt="Détails de la version du composant" src="_images/CONF_ZONE_ComponentVersionDetails.png" />
+<figcaption>
+<p><span class="caption-text">Détails de la version du composant</span><a class="headerlink" href="#id7" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Possibilité de définir si le nom de version est automatiquement produit à partir du nom du composant et du numéro de version.</p>
+<p>Définissez les paramètres globaux pour activer cette fonctionnalité. Sinon, le nom de version sera saisi manuellement.</p>
+</div>
+<p class="rubric">Numéro de version &amp; Nom</p>
+<p>Le champ « Numéro de version » n’apparaît que si le paramètre global « Format automatique du nom de version » est défini sur Oui.</p>
+<p>Le champ « Nom » sera en lecture seule.</p>
+<p class="rubric">Mise en service (Réelle)</p>
+<p>Le champ « Mise en service » spécifie la date de mise en service.</p>
+<p>La case « Terminé » est cochée lorsque le champ date réelle est défini.</p>
+<p class="rubric">Date de fin (Réelle)</p>
+<p>Le champ « Date de fin » spécifie la date de fin de service.</p>
+<p>La case « Terminé » est cochée lorsque le champ date réelle est défini.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Date initiale :</strong> lorsque la date planifiée a été définie, la date initiale (si elle est vide uniquement) sera définie</p>
+</div>
+</section>
+<section id="relationships">
+<span id="relationship-product-component"></span><h2>Relations<a class="headerlink" href="#relationships" title="Lien permanent vers cette rubrique">¶</a></h2>
+<section id="product-and-component-elements">
+<h3>Éléments produit et composant<a class="headerlink" href="#product-and-component-elements" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Permet de gérer les relations entre les produits et les composants pour définir la structure du produit.</p>
+<p>Voir les relations possibles :  <a class="reference internal" href="Concept.html#product-structure"><span class="std std-ref">Structure du produit</span></a></p>
+<p class="rubric">Gestion des relations</p>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour créer une nouvelle relation. La boîte de dialogue « Structure » apparaît.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconDelete.png"><img alt="Supprimer" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> pour supprimer la relation correspondante.</p></li>
+</ul>
+<figure class="align-center" id="id8">
+<img alt="Boîte de dialogue - Structure" src="_images/CONF_BOX_ProductStructure.png" />
+<figcaption>
+<p><span class="caption-text">Structure</span><a class="headerlink" href="#id8" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="versions-of-products-and-components">
+<span id="version-product-component"></span><h3>Versions des produits et des composants<a class="headerlink" href="#versions-of-products-and-components" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Permet de définir des liens entre les versions des produits et des composants.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Uniquement avec les éléments définis dans la structure du produit.</p>
+</div>
+<p class="rubric">Gestion des liens</p>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour créer un nouveau lien. La boîte de dialogue « Structure de version » apparaît.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconDelete.png"><img alt="Supprimer" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> pour supprimer le lien correspondant.</p></li>
+</ul>
+<figure class="align-center" id="id9">
+<img alt="Boîte de dialogue - Structure de version" src="_images/CONF_BOX_VersionStructure.png" />
+<figcaption>
+<p><span class="caption-text">Structure de version</span><a class="headerlink" href="#id9" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="version-to-projects">
+<span id="link-version-project-section"></span><h3>version vers les projets<a class="headerlink" href="#version-to-projects" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Cette section permet de gérer les liens entre les projets et les versions des produits.</p>
+<p class="rubric">Gestion des liens version-projets</p>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour créer un nouveau lien.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconEdit.png"><img alt="Bouton modifier" src="_images/iconEdit.png" style="width: 19.2px; height: 19.2px;" /></a> pour mettre à jour un lien existant.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconDelete.png"><img alt="Supprimer" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> pour supprimer le lien correspondant.</p></li>
+</ul>
+<figure class="align-center" id="id10">
+<img alt="Boîte de dialogue - Lien Projet-Version" src="_images/CONF_BOX_ProjectVersionLink.png" />
+<figcaption>
+<p><span class="caption-text">Lien Projet / Version</span><a class="headerlink" href="#id10" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<aside class="topic">
+<p class="topic-title">Champs Projet, Produit et Version</p>
+<ul class="simple">
+<li><p>Depuis l’écran <strong>Projets</strong>, les champs <strong>produit et version</strong> seront sélectionnables.</p></li>
+<li><p>Depuis l’écran <strong>Versions du produit</strong>, le champ <strong>projet</strong> sera sélectionnable.</p></li>
+</ul>
+</aside>
+</section>
+</section>
+<section id="versions-planning">
+<span id="id1"></span><h2>Planification des versions<a class="headerlink" href="#versions-planning" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Sélectionnez une ou plusieurs versions de produit et la planification de version est affichée.</p>
+<p>Cette planification affiche chaque version des versions de produit sélectionnées et leurs composants de la date de début définie à la date de livraison.</p>
+<p>Pour l’utiliser, définissez vos dates de début et de livraison dans la Version du produit et la Version du composant.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Pour insérer des valeurs, vous devez activer l’affichage des jalons de début et de livraison dans les paramètres globaux, sinon ces champs sont masqués.</p>
+</div>
+<p>Cet écran permet de voir si la date de livraison des versions de composant est plus tardive que celle de leurs versions de produit.</p>
+<p>Graphiquement, vous pouvez voir tout retard ou incompatibilité.</p>
+<figure class="align-center" id="id11">
+<img alt="Planification de version" src="_images/CONF_ZONE_planningVersion.png" />
+<figcaption>
+<p><span class="caption-text">Planification de version</span><a class="headerlink" href="#id11" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Options d’affichage</p>
+<p>Cliquez sur <a class="reference internal" href="_images/iconNew.png"><img alt="Nouveau" src="_images/iconNew.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter une activité. Cliquez sur <a class="reference internal" href="_images/iconFilters.png"><img alt="Filtres" src="_images/iconFilters.png" style="width: 19.2px; height: 19.2px;" /></a> pour filtrer l’affichage des versions.</p>
+<figure class="align-default" id="id12">
+<img alt="Options d'affichage" src="_images/CONF_ZONE_Options.png" />
+<figcaption>
+<p><span class="caption-text">Options de planification des versions</span><a class="headerlink" href="#id12" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Cliquez sur <strong>Afficher les activités de la version du produit</strong> ou <strong>Afficher les activités de la version du composant</strong> pour afficher les activités associées.</p>
+<p>De nouvelles cases à cocher apparaîtront : une pour afficher les ressources et l’autre pour afficher ou masquer les versions sans activité affichée.</p>
+<p>Vous devez sélectionner une activité existante pour insérer la nouvelle activité dans la structure WBS.</p>
+<p>Si aucune activité n’est sélectionnée, l’icône « ajouter un nouvel élément » sera grisée.</p>
+<p>La nouvelle activité est automatiquement insérée après l’activité sélectionnée.</p>
+<p>La nouvelle activité est générée sur le même projet, avec le même composant, la même version de composant, et avec le même produit et la même version de produit si ces éléments sont renseignés sur l’activité d’origine.</p>
+<p>L’insertion à partir de la sélection d’une version de produit et de composant ne sera pas possible car nous ne savons pas où l’insérer dans le WBS des projets.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table des matières</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Gestion de la configuration</a><ul>
+<li><a class="reference internal" href="#products">Produits</a><ul>
+<li><a class="reference internal" href="#project-linked-to-this-product">Projet lié à ce produit</a></li>
+<li><a class="reference internal" href="#composition">Composition</a></li>
+<li><a class="reference internal" href="#structure">Structure</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#product-versions">Versions du produit</a><ul>
+<li><a class="reference internal" href="#automatic-formatting-of-version-name">Formatage automatique du nom de version</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#components">Composants</a></li>
+<li><a class="reference internal" href="#component-versions">Versions du composant</a></li>
+<li><a class="reference internal" href="#relationships">Relations</a><ul>
+<li><a class="reference internal" href="#product-and-component-elements">Éléments produit et composant</a></li>
+<li><a class="reference internal" href="#versions-of-products-and-components">Versions des produits et des composants</a></li>
+<li><a class="reference internal" href="#version-to-projects">version vers les projets</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#versions-planning">Planification des versions</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Sujet précédent</h4>
+    <p class="topless"><a href="Steering.html"
+                          title="Chapitre précédent">Pilotage</a></p>
+  </div>
+  <div>
+    <h4>Sujet suivant</h4>
+    <p class="topless"><a href="RequirementsTest.html"
+                          title="Chapitre suivant">Exigences et tests</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Recherche rapide</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             >index</a></li>
+        <li class="right" >
+          <a href="RequirementsTest.html" title="Exigences et tests"
+             >suivant</a> |</li>
+        <li class="right" >
+          <a href="Steering.html" title="Pilotage"
+             >précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Configuration Management</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Créé en utilisant <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

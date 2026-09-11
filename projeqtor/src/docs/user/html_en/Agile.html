@@ -1,0 +1,1030 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Agile Methods &#8212; ProjeQtOr User guide 13.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="User parameters" href="UserParameter.html" />
+    <link rel="prev" title="Concepts" href="Concept.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="UserParameter.html" title="User parameters"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="Concept.html" title="Concepts"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Agile Methods</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="agile-methods">
+<span id="index-0"></span><span id="id1"></span><h1>Agile Methods<a class="headerlink" href="#agile-methods" title="Permalink to this heading">¶</a></h1>
+<p><a class="reference internal" href="Glossary.html#term-Agile-methods"><span class="xref std std-term">Agile methods</span></a> are groups of practices of piloting and realization of projects.
+They originate from the Agile Manifesto, written in 2001, which uses the term “agile” to refer to multiple existing methods.</p>
+<p>Agile methods are more pragmatic than traditional methods, involve the client as much as possible and allow a great reactivity to his requests. They are based on an iterative, incremental and adaptive development cycle and must respect four fundamental values, based on twelve principles, from which a base of practices, either common or complementary, derives.</p>
+<section id="menu-scrum">
+<span id="menuscrum"></span><span id="index-1"></span><h2>Menu SCRUM<a class="headerlink" href="#menu-scrum" title="Permalink to this heading">¶</a></h2>
+<p>The Agile/Scrum module allows you to manage your projects using Agile methodology, while retaining the power of ProjeQtOr.</p>
+<p>You can use this module alongside the traditional model (V-model/Waterfall).</p>
+<p>It provides:</p>
+<ul class="simple">
+<li><p>Epic management (large features).</p></li>
+<li><p>User Story management (broken-down features).</p></li>
+<li><p>Sprint management.</p></li>
+<li><p>A product backlog and a sprint backlog.</p></li>
+<li><p>An interactive Kanban Sprint Board with Dojo (drag &amp; drop).</p></li>
+<li><p>A burndown chart to track progress.</p></li>
+</ul>
+<section id="user-stories">
+<h3>User stories<a class="headerlink" href="#user-stories" title="Permalink to this heading">¶</a></h3>
+<p>A User Story represents a functional requirement expressed from the user’s perspective.</p>
+<p>In ProjeQtOr, User Stories are first-class Agile objects, fully integrated with planning, tracking, and reporting features.</p>
+<p>When user story changes status, update status of Epic and Sprint as smallest (in order) status of all User Stories of the Epic / of the sprint.</p>
+<p><strong>A User Story typically follows the standard structure:</strong></p>
+<ul class="simple">
+<li><p>As a (Persona: User, power user, business manager,…)</p></li>
+<li><p>I want (desired functionality)</p></li>
+<li><p>In order to (business value or goal)</p></li>
+<li><p>Acceptation criteria</p></li>
+</ul>
+<section id="creating-a-user-story">
+<h4>Creating a User Story<a class="headerlink" href="#creating-a-user-story" title="Permalink to this heading">¶</a></h4>
+<ol class="arabic simple">
+<li><p>Open the User Stories menu.</p></li>
+<li><p>Create a new User Story.</p></li>
+<li><p>Define the main attributes:</p></li>
+</ol>
+<ul class="simple">
+<li><p>Name: short and explicit title.</p></li>
+<li><p>User story type: generally Agile.</p></li>
+<li><p>Project: target project.</p></li>
+<li><p>Epic (optional): parent Epic.</p></li>
+<li><p>Sprint (optional): assigned sprint.</p></li>
+<li><p>As: Persona concerned by the story.</p></li>
+<li><p>Fill in the description fields:</p></li>
+<li><p>I wish…: functional need.</p></li>
+<li><p>In order to…: expected value.</p></li>
+<li><p>Result: acceptance criteria or expected outcome.</p></li>
+</ul>
+</section>
+<section id="estimation-priority-and-status">
+<h4>Estimation, Priority and Status<a class="headerlink" href="#estimation-priority-and-status" title="Permalink to this heading">¶</a></h4>
+<p>Each User Story can be enriched with:</p>
+<ul class="simple">
+<li><p>Scrum priority: helps backlog prioritization.</p></li>
+<li><p>Story points: estimation of effort.</p></li>
+<li><p>Business value: importance from a business perspective.</p></li>
+<li><p>Status: recorded, to do, in progress, done, closed, cancelled.</p></li>
+</ul>
+<p>User Stories are moved through their lifecycle either from the Agile Backlog (planning phase) or via the Sprint Board (Kanban) during execution.</p>
+<p>All status changes are synchronized automatically across views.</p>
+</section>
+</section>
+<section id="epics">
+<h3>Epics<a class="headerlink" href="#epics" title="Permalink to this heading">¶</a></h3>
+<p>An Epic is a high-level container grouping multiple User Stories around a major functional theme or objective.</p>
+<p>When user story changes status, update status of Epic as smallest (in order) status of all User Stories of the Epic .</p>
+<p>Epics allow teams to:</p>
+<p>structure the Product Backlog,</p>
+<p>track progress at a macro level,</p>
+<p>align development with strategic goals.</p>
+<p>An Epic does not represent a sprint-sized workload; it usually spans multiple sprints.</p>
+<section id="creating-and-managing-epics">
+<h4>Creating and Managing Epics<a class="headerlink" href="#creating-and-managing-epics" title="Permalink to this heading">¶</a></h4>
+<ol class="arabic simple">
+<li><p>Open the Epics menu.</p></li>
+<li><p>Create a new Epic.</p></li>
+<li><p>Define:</p></li>
+</ol>
+<ul class="simple">
+<li><p>Name: functional theme or major feature.</p></li>
+<li><p>Epic type: generally Agile.</p></li>
+<li><p>Project: target project.</p></li>
+<li><p>Sprint (optional): if the Epic is mainly targeted for a specific sprint.</p></li>
+</ul>
+<ol class="arabic simple" start="4">
+<li><p>Describe the Epic:</p></li>
+</ol>
+<ul class="simple">
+<li><p>Description: scope and objectives.</p></li>
+<li><p>Result: expected global outcome.</p></li>
+</ul>
+</section>
+</section>
+<section id="linking-epics-and-user-stories">
+<h3>Linking Epics and User Stories<a class="headerlink" href="#linking-epics-and-user-stories" title="Permalink to this heading">¶</a></h3>
+<p>User Stories can be linked to an Epic via the Epic field in the story form.</p>
+<p><strong>Within an Epic, ProjeQtOr automatically displays:</strong></p>
+<ul class="simple">
+<li><p>the list of related User Stories,</p></li>
+<li><p>their status,</p></li>
+<li><p>their story points and business value.</p></li>
+</ul>
+<p>This provides a consolidated view of progress and helps Product Owners monitor delivery at a strategic level.</p>
+</section>
+<section id="sprints">
+<h3>Sprints<a class="headerlink" href="#sprints" title="Permalink to this heading">¶</a></h3>
+<p>a temporal iteration (often 2 to 4 weeks).</p>
+<p>When user story changes status, update status of Sprint as smallest (in order) status of all User Stories of the sprint.</p>
+<section id="manage-the-sprints">
+<h4>Manage the sprints<a class="headerlink" href="#manage-the-sprints" title="Permalink to this heading">¶</a></h4>
+<ol class="arabic simple">
+<li><p>Create a Sprint from the “Sprints” menu.</p></li>
+</ol>
+<ul class="simple">
+<li><p>Name: e.g., Sprint 1 – January.</p></li>
+<li><p>Start and end dates.</p></li>
+<li><p>Team capacity (optional).</p></li>
+</ul>
+<ol class="arabic simple" start="2">
+<li><p>Open the Agile Backlog view.</p></li>
+<li><p>Drag and drop the Stories from the Backlog into the created Sprint.</p></li>
+<li><p>The Sprint now contains the selected Stories.</p></li>
+</ol>
+</section>
+</section>
+<section id="personas">
+<h3>Personas<a class="headerlink" href="#personas" title="Permalink to this heading">¶</a></h3>
+<p>In ProjeQtOr, a Persona represents a typical user profile interacting with the product or the project deliverables.
+Personas help teams better understand who the features are built for, and ensure that User Stories remain aligned with real user needs.</p>
+<p>Personas are not technical roles; they are functional or behavioral profiles.</p>
+<p><strong>Typical examples include:</strong></p>
+<ul class="simple">
+<li><p>User: standard end user of the application.</p></li>
+<li><p>Power User: advanced user with extended usage and expectations.</p></li>
+<li><p>Business Manager: decision-maker focused on reporting and business value.</p></li>
+<li><p>Administrator: technical or functional administrator of the system.</p></li>
+</ul>
+<p><strong>Optionally document the persona using:</strong></p>
+<ul class="simple">
+<li><p>Context: environment and usage context.</p></li>
+<li><p>Goals and Behavior: objectives, motivations, habits.</p></li>
+<li><p>What this implies: functional or ergonomic implications for the product.</p></li>
+</ul>
+<p>These descriptive fields are strongly recommended to improve shared understanding within the team.</p>
+<section id="using-personas-in-user-stories">
+<h4>Using Personas in User Stories<a class="headerlink" href="#using-personas-in-user-stories" title="Permalink to this heading">¶</a></h4>
+<p>Personas are directly used in User Stories through the “As a …” field.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>As a Power User, I want to export reports in Excel format, in order to analyze data outside ProjeQtOr.</p>
+<p>This linkage ensures that each story is explicitly tied to a user profile and avoids abstract or purely technical requirements.</p>
+</div>
+</section>
+</section>
+<section id="backlog">
+<h3>Backlog<a class="headerlink" href="#backlog" title="Permalink to this heading">¶</a></h3>
+<section id="sprints-backlog">
+<h4>Sprints backlog<a class="headerlink" href="#sprints-backlog" title="Permalink to this heading">¶</a></h4>
+<p>The stories chosen for the current sprint</p>
+</section>
+<section id="products-backlog">
+<h4>Products backlog<a class="headerlink" href="#products-backlog" title="Permalink to this heading">¶</a></h4>
+<p>the prioritized list of Epics and Stories</p>
+<figure class="align-default" id="id6">
+<img alt="Product Backlog with options" src="_images/AGILE_ZONE_ProductBacklog.png" />
+<figcaption>
+<p><span class="caption-text">Product Backlog with options</span><a class="headerlink" href="#id6" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="create-and-manage-a-backlog">
+<h4>Create and Manage a Backlog<a class="headerlink" href="#create-and-manage-a-backlog" title="Permalink to this heading">¶</a></h4>
+<ol class="arabic simple">
+<li><p>In the menu, open Agile Backlog.</p></li>
+<li><p>Add your Epics and then associate them with User Stories.</p></li>
+<li><p>Define:</p></li>
+</ol>
+<ul class="simple">
+<li><p>the priority (high, medium, low),</p></li>
+<li><p>the estimated effort (in story points),</p></li>
+<li><p>the project concerned.</p></li>
+</ul>
+<ol class="arabic simple" start="4">
+<li><p>The Stories appear in the Product Backlog.</p></li>
+<li><p>You can drag and drop them into a Sprint for planning.</p></li>
+</ol>
+</section>
+</section>
+<section id="sprint-board-kanban">
+<h3>Sprint Board - Kanban<a class="headerlink" href="#sprint-board-kanban" title="Permalink to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p>Open Sprint Board from the menu.</p></li>
+<li><p>The board displays the following columns:</p></li>
+</ol>
+<ul class="simple">
+<li><p>To Do</p></li>
+<li><p>In Progress</p></li>
+<li><p>Done</p></li>
+</ul>
+<ol class="arabic simple" start="3">
+<li><p>Each Story is a card.</p></li>
+<li><p>You can move Stories between columns by dragging and dropping them.</p></li>
+<li><p>The status is automatically updated in the database.</p></li>
+</ol>
+</section>
+<section id="progress-monitoring-burndown">
+<h3>Progress monitoring (Burndown)<a class="headerlink" href="#progress-monitoring-burndown" title="Permalink to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p>Depuis le Sprint Board, consultez le Burndown Chart.</p></li>
+<li><p>Le graphe affiche :</p></li>
+</ol>
+<ul class="simple">
+<li><p>La courbe idéale (descente linéaire).</p></li>
+<li><p>La progression réelle (points de story restants).</p></li>
+</ul>
+<ol class="arabic simple" start="3">
+<li><p>Vérifiez si l’équipe est en avance, à l’heure, ou en retard.</p></li>
+<li><p>Le burndown est recalculé automatiquement à chaque changement de Story.</p></li>
+</ol>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p><strong>Best Practices and Tips</strong></p>
+<ul class="simple">
+<li><p>Break down your user stories: no single story should last longer than one sprint.</p></li>
+<li><p>Prioritize regularly: adjust the product backlog with the Product Owner.</p></li>
+<li><p>Limit Work In Progress (WIP): avoid having too many stories in progress at once.</p></li>
+<li><p>Hold your Scrum ceremonies: sprint review, retrospective, planning.</p></li>
+<li><p>Mix Waterfall and Agile methodologies: it’s possible to have projects using the V-model and others using Scrum within the same ProjeQtOr instance.</p></li>
+</ul>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For optimal use of the Agile module in ProjeQtOr:</p>
+<ul class="simple">
+<li><p>Always define Personas before writing User Stories.</p></li>
+<li><p>Keep Epics business-oriented, not technical.</p></li>
+<li><p>Use User Stories as the single source of functional requirements.</p></li>
+<li><p>Rely on the Sprint Board and Burndown Chart for day-to-day execution tracking.</p></li>
+</ul>
+</div>
+<span class="target" id="index-2"></span></section>
+</section>
+<section id="kanban">
+<span id="index-3"></span><span id="id2"></span><h2>KanBan<a class="headerlink" href="#kanban" title="Permalink to this heading">¶</a></h2>
+<aside class="sidebar">
+<p class="sidebar-title">Other sections</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="RiskIssueManagement.html#action"><span class="std std-ref">Actions</span></a></p></li>
+<li><p><a class="reference internal" href="RequirementsTest.html#requirement"><span class="std std-ref">Requirement</span></a></p></li>
+<li><p><a class="reference internal" href="Ticket.html#ticket"><span class="std std-ref">Ticketing</span></a></p></li>
+</ul>
+</aside>
+<p>The Kanban methodology originated from the Japanese automotive industry. It was created with the aim of optimizing production.</p>
+<p>It is a visual task management tool that allows you to track tasks in real time, manage priorities and promote collaboration between team members.</p>
+<p>It works by simple drag and drop in a column. Each column respects the rules of the workflow linked to the element of your kanban</p>
+<figure class="align-default" id="id7">
+<img alt="Kanban screen" src="_images/AGILE_SCR_Kanban.png" />
+<figcaption>
+<p><span class="caption-text">Kanban Screen</span><a class="headerlink" href="#id7" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>In ProjeQtOr, you can create a new Kanban board for:</p>
+<ul class="simple">
+<li><p>Tickets,</p></li>
+<li><p>Activities,</p></li>
+<li><p>Actions,</p></li>
+<li><p>Requirements</p></li>
+</ul>
+<section id="dashboard-management">
+<span id="kanban-management"></span><h3>Dashboard management<a class="headerlink" href="#dashboard-management" title="Permalink to this heading">¶</a></h3>
+<p>The Kanban Dashboard allows you to customize the display of tiles and the differents kanbans.</p>
+<figure class="align-default" id="id8">
+<img alt="Kanban header area" src="_images/AGILE_ZONE_KanbanTOP.png" />
+<figcaption>
+<p><span class="caption-text">Header area</span><a class="headerlink" href="#id8" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>You can create or modify columns or even create tiles or new kanbans, export or print your tiles…</p>
+<aside class="topic" id="back">
+<p class="topic-title">Interface areas:</p>
+<p><a class="reference internal" href="_images/one.png"><img alt="One" src="_images/one.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#kanban-restriction"><span class="std std-ref">Fields restriction</span></a></p>
+<p><a class="reference internal" href="_images/two.png"><img alt="Two" src="_images/two.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#kanban-selector"><span class="std std-ref">Kanban selector</span></a></p>
+<p><a class="reference internal" href="_images/three.png"><img alt="Three" src="_images/three.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#kanban-newtable"><span class="std std-ref">Create a new kanban table</span></a></p>
+<p><a class="reference internal" href="_images/four.png"><img alt="Four" src="_images/four.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#kanban-filters"><span class="std std-ref">Kanban filters</span></a></p>
+<p><a class="reference internal" href="_images/five.png"><img alt="Five" src="_images/five.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#kanban-newcolumn"><span class="std std-ref">Column management</span></a></p>
+<p><a class="reference internal" href="_images/six.png"><img alt="Six" src="_images/six.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#kanban-newelement"><span class="std std-ref">Create a new element</span></a></p>
+<p><a class="reference internal" href="_images/seven.png"><img alt="Seven" src="_images/seven.png" style="width: 18.0px; height: 18.0px;" /></a> <a class="reference internal" href="#kanban-infobar"><span class="std std-ref">Display options</span></a></p>
+</aside>
+<p class="rubric" id="kanban-selector">The Kanban selector</p>
+<p>You can see the complete list of created tables by clicking on the Kanbans drop-down list in the My Kanbans section.</p>
+<p>The icon used for kanban tables created corresponds to the type of elements selected.</p>
+<p>You can see the shared kanban tables by others users on the shared Kanbans section.</p>
+<figure class="align-default" id="id9">
+<img alt="Add a new kanban table" src="_images/AGILE_BOX_ListOfKanban.png" />
+<figcaption>
+<p><span class="caption-text">List of existing kanban</span><a class="headerlink" href="#id9" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconKanbanAdd.png"><img alt="add new Kanban" src="_images/iconKanbanAdd.png" style="width: 19.2px; height: 19.2px;" /></a> to create a new kanban</p></li>
+<li><p>Click on <a class="reference internal" href="_images/IconCopy.png"><img alt="Copy" src="_images/IconCopy.png" style="width: 19.2px; height: 19.2px;" /></a> to copy this kanban</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconEdit.png"><img alt="Button edit" src="_images/iconEdit.png" style="width: 19.2px; height: 19.2px;" /></a> to edit this kanban</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconShare.png"><img alt="Share" src="_images/iconShare.png" style="width: 19.2px; height: 19.2px;" /></a> to share this kanban. The icon is fill <a class="reference internal" href="_images/iconShared.png"><img alt="Share" src="_images/iconShared.png" style="width: 19.2px; height: 19.2px;" /></a> when it is already shared.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconDelete.png"><img alt="Delete" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> to delete this kanban</p></li>
+</ul>
+<p><a class="reference internal" href="#back"><span class="std std-ref">BACK</span></a></p>
+<p class="rubric" id="kanban-newtable">Create a new table</p>
+<p>When you create a kanban, no matter what type, only one column is available.</p>
+<p>You create the following columns according to your needs.</p>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconKanbanAdd.png"><img alt="add new Kanban" src="_images/iconKanbanAdd.png" style="width: 19.2px; height: 19.2px;" /></a> to create a new Kanban</p></li>
+</ul>
+<figure class="align-default" id="id10">
+<img alt="Add a new kanban table" src="_images/AGILE_BOX_NewKanban.png" />
+<figcaption>
+<p><span class="caption-text">Add a new kanban of tickets</span><a class="headerlink" href="#id10" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>You will need to define:</p>
+<ul class="simple">
+<li><p><strong>Name</strong> for the new Kanban board</p></li>
+<li><p><strong>Type of item:</strong> you can define a Kanban of Tickets, Activities, Actions or Requirements</p></li>
+</ul>
+<p>When you have selected the item type, you must then define the type of Kanban board to apply:</p>
+<ul class="simple">
+<li><p><strong>Status:</strong> you will manage the most standard “status based” kanban board</p></li>
+<li><p><strong>Target product version:</strong> you can distribute the tickets among the target product version</p></li>
+<li><p><strong>Planning activity:</strong> You will be able to send tickets among planning activities, which can be your Sprints in the Scrum method.</p></li>
+<li><p><strong>Target milestone</strong> You manage your elements according to the target milestones of your project</p></li>
+</ul>
+<p id="kanban-shared">You can choose directly if you want to share the newly created kanban with other users so that they can use it.</p>
+<p>When you share a Kanban, other users will see your share in the list of shared Kanbans.</p>
+<figure class="align-default" id="id11">
+<img alt="shared kanban" src="_images/AGILE_BOX_SharedKanban.png" />
+<figcaption>
+<p><span class="caption-text">Shared Kanban</span><a class="headerlink" href="#id11" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Each time you access the Kanban screen, the last selected Kanban map is displayed.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="Ticket.html#ticket-planning-activity"><span class="std std-ref">Planning activity</span></a> on the tickets screen and <a class="reference internal" href="PlanningElements.html#milestone"><span class="std std-ref">Milestone</span></a></p>
+</div>
+<p><a class="reference internal" href="#back"><span class="std std-ref">BACK</span></a></p>
+<p class="rubric" id="kanban-newcolumn">Create a new Column</p>
+<p>By default, when you create a new Kanban table, it gets a single column.</p>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconKanbanAddColumns.png"><img alt="add Column" src="_images/iconKanbanAddColumns.png" style="width: 19.2px; height: 19.2px;" /></a> to create a new Column</p></li>
+</ul>
+<p>The pop up is different depending on the type of kanban board created beforehand.</p>
+<figure class="align-default" id="id12">
+<img alt="Add new column" src="_images/AGILE_BOX_NewColumn.png" />
+<figcaption>
+<p><span class="caption-text">Add a new column</span><a class="headerlink" href="#id12" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>When organized by status, the columns contain elements from one status to the next in the order they appear in your workflow. The states will be restricted based on your selection (filters and project selector).</p>
+<p>When organized by planning activity, product version, or milestones, the list will contain the names of the corresponding elements along with their assigned color (gray if no color is specified).</p>
+<p>The next column will show the next status following your workflow to the last or the status you have determined.</p>
+<figure class="align-default" id="id13">
+<img alt="Columns arrangement by status" src="_images/AGILE_ZONE_HeaderColumn.png" />
+<figcaption>
+<p><span class="caption-text">Details header column</span><a class="headerlink" href="#id13" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>If a column is hidden, its name will be indicated vertically on the side.</p>
+<figure class="align-default" id="id14">
+<img alt="Columns arrangement by status" src="_images/AGILE_ZONE_HidenColumn.png" />
+<figcaption>
+<p><span class="caption-text">Details Hidden column</span><a class="headerlink" href="#id14" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>When you right-click in the kanban columns, the context menu also offers you the option to create a new column.</p>
+<img alt="_images/AGILE_BOX_CreateColumn.png" src="_images/AGILE_BOX_CreateColumn.png" />
+<p>Each column indicates the number of elements contained in.</p>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconOptionsKanban.png"><img alt="Kanban options" src="_images/iconOptionsKanban.png" style="width: 19.2px; height: 19.2px;" /></a> to open the options windows.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconHide.png"><img alt="Hide the column" src="_images/iconHide.png" style="width: 19.2px; height: 19.2px;" /></a> to hide a column.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconEdit.png"><img alt="Button edit" src="_images/iconEdit.png" style="width: 19.2px; height: 19.2px;" /></a> to edit the column name.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconDelete.png"><img alt="Delete" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> to delete the column.</p></li>
+</ul>
+<figure class="align-default" id="id15">
+<img alt="Hide column" src="_images/AGILE_ZONE_ColumnHide.png" />
+<figcaption>
+<p><span class="caption-text">Hide a column on Kanban</span><a class="headerlink" href="#id15" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p><a class="reference internal" href="#back"><span class="std std-ref">BACK</span></a></p>
+<p class="rubric" id="kanban-newelement">Create a new element</p>
+<p>The creation button change depending on the type of the element selected.</p>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconKanbanAddTicket.png"><img alt="add ticket" src="_images/iconKanbanAddTicket.png" style="width: 19.2px; height: 19.2px;" /></a> to add a new ticket into the Kanban Board or</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconKanbanAddAction.png"><img alt="add Action" src="_images/iconKanbanAddAction.png" style="width: 19.2px; height: 19.2px;" /></a> to add a new action into the Kanban Board or</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconKanbanAddActivity.png"><img alt="add Activity" src="_images/iconKanbanAddActivity.png" style="width: 19.2px; height: 19.2px;" /></a> to add a new activity into the Kanban Board or</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconKanbanAddRequirement.png"><img alt="add Requirement" src="_images/iconKanbanAddRequirement.png" style="width: 19.2px; height: 19.2px;" /></a> to add a new action into the Kanban Board</p></li>
+</ul>
+<p><a class="reference internal" href="#back"><span class="std std-ref">BACK</span></a></p>
+<p class="rubric" id="kanban-restriction">Fields restriction</p>
+<p>As with other ProjeQtOr screens, you can restrict the display of items in the created columns of your kanban.</p>
+<p>You can restrict items by name, manager, version, and sort them by ID, name, manager, status, or target version product.</p>
+<p><a class="reference internal" href="#back"><span class="std std-ref">BACK</span></a></p>
+<p class="rubric" id="kanban-filters">Advanced filters</p>
+<ul class="simple">
+<li><p>Click the icon to set an advanced filter.</p></li>
+</ul>
+<p>The advanced filter is used to define a clause to filter and sort</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="Gui.html#filters"><span class="std std-ref">Advanced filters in Graphic User Interface</span></a></p>
+</div>
+<p><a class="reference internal" href="#back"><span class="std std-ref">BACK</span></a></p>
+<p class="rubric" id="kanban-infobar">Display options on kanban</p>
+<p>Many options allow you to customize the display of your kanban or tiles.</p>
+<p><strong>Display on kanban:</strong></p>
+<ul>
+<li><p><strong>Show work on elements</strong></p>
+<p>Allows you to display the estimated, actual, and remaining work on each task.</p>
+</li>
+</ul>
+<figure class="align-default" id="id16">
+<img alt="Work on element" src="_images/AGILE_ZONE_WorkElement.png" />
+<figcaption>
+<p><span class="caption-text">You can view the work information of items on each column.</span><a class="headerlink" href="#id16" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul>
+<li><p><strong>Show idle elements</strong></p>
+<p>Allows you to display closed items in the columns of your kanban.</p>
+</li>
+<li><p><strong>Show large element</strong></p>
+<p>The tiles for each element will adapt to the full width of the column. This allows much more information to be displayed as the project name.</p>
+</li>
+</ul>
+<figure class="align-default" id="id17">
+<img alt="Large tiles" src="_images/AGILE_ZONE_LargeTiles.png" />
+<figcaption>
+<p><span class="caption-text">Large tiles</span><a class="headerlink" href="#id17" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul>
+<li><p><strong>Show backlog</strong></p>
+<p>The backlog column of your kanban is hidden by default. It defines the initial state of your tiles in your kanban. The backlog is the list of pending tasks: these are all the ideas, requests, or work that need to be done but have not yet been planned or started.</p>
+</li>
+</ul>
+<p><strong>and for the personaliszation of the tiles:</strong></p>
+<ul class="simple">
+<li><p>Status</p></li>
+<li><p>Product version</p></li>
+<li><p>Planning/Parent activity</p></li>
+<li><p>Manager</p></li>
+<li><p>Priority</p></li>
+<li><p>Urgency</p></li>
+<li><p>Planned end date</p></li>
+<li><p>Type</p></li>
+<li><p>Project name</p></li>
+<li><p>Color the background of the title according to the color of the project/activity/planned color or type.</p></li>
+<li><p>Apply the color to the entire tile</p></li>
+</ul>
+<figure class="align-default" id="id18">
+<img alt="empty tile and filled tile" src="_images/AGILE_ZONE_TilesEmpty&amp;Plain.png" />
+<figcaption>
+<p><span class="caption-text">difference between tickets tile and Activity without display options and with all options</span><a class="headerlink" href="#id18" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>All these options allow you to have simple tiles or tiles offering maximum information.</p>
+<p>The estimated work, actual work, and work remaining information on the selected item can be displayed.</p>
+<p>If your profile is not allowed to see the job, you will not have access to this option.</p>
+<p>The format for displaying the job (days or hours) depends on the global parameter.</p>
+<ul class="simple">
+<li><p><strong>unit for real work allocation</strong> for Tickets</p></li>
+<li><p><strong>unit for workload</strong> for Activities</p></li>
+</ul>
+<p><strong>Show idle elements</strong> allows you to display or not inactive elements (closed, canceled, paused, etc.)</p>
+<p>By default, Kanban board columns display two tiles side by side. By displaying the tiles in wide mode, each tile takes the maximum width of the column and allows to display much more information.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>When you create a kanban, you do not yet have columns representing a state, a set of states or even versions.</p>
+<p>The tiles then appear in a Backlog column. You have the option to display or hide this column.</p>
+</div>
+<p><a class="reference internal" href="#back"><span class="std std-ref">BACK</span></a></p>
+</section>
+<section id="details-of-an-element">
+<span id="display-tile"></span><h3>Details of an element<a class="headerlink" href="#details-of-an-element" title="Permalink to this heading">¶</a></h3>
+<p>The kanban tile represents your task. Whether it is an activity, an action, a requirement or a ticket</p>
+<figure class="align-default" id="id19">
+<img alt="Kanban Tile" src="_images/AGILE_ZONE_TileKanban.png" />
+<figcaption>
+<p><span class="caption-text">Kanban Tile</span><a class="headerlink" href="#id19" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The kanban tile is customizable. You can hide some information.</p>
+<p><a class="reference internal" href="_images/one.png"><img alt="One" src="_images/one.png" style="width: 18.0px; height: 18.0px;" /></a> ID of the element and the color of the project color</p>
+<p><a class="reference internal" href="_images/two.png"><img alt="Two" src="_images/two.png" style="width: 18.0px; height: 18.0px;" /></a> The type of the element</p>
+<p><a class="reference internal" href="_images/three.png"><img alt="Three" src="_images/three.png" style="width: 18.0px; height: 18.0px;" /></a> The planned due date for the element</p>
+<p><a class="reference internal" href="_images/four.png"><img alt="Four" src="_images/four.png" style="width: 18.0px; height: 18.0px;" /></a> The name of the element. The background color depends on the selected option: project, priority, or emergency.</p>
+<p><a class="reference internal" href="_images/five.png"><img alt="Five" src="_images/five.png" style="width: 18.0px; height: 18.0px;" /></a> Status in which the tile is located in relation to your <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>.</p>
+<p><a class="reference internal" href="_images/six.png"><img alt="Six" src="_images/six.png" style="width: 18.0px; height: 18.0px;" /></a> The description of the element.</p>
+<p><a class="reference internal" href="_images/seven.png"><img alt="Seven" src="_images/seven.png" style="width: 18.0px; height: 18.0px;" /></a> The target product version.</p>
+<p><a class="reference internal" href="_images/eight.png"><img alt="Eight" src="_images/eight.png" style="width: 18.0px; height: 18.0px;" /></a> The planning activity or parent activity related to the element.</p>
+<p><a class="reference internal" href="_images/nine.png"><img alt="Nine" src="_images/nine.png" style="width: 18.0px; height: 18.0px;" /></a> Estimated work | Real work | Left work.</p>
+<p><a class="reference internal" href="_images/ten.png"><img alt="Ten" src="_images/ten.png" style="width: 18.0px; height: 18.0px;" /></a> Responsible of work - The name is displayed on mouse over.</p>
+<p><a class="reference internal" href="_images/eleven.png"><img alt="Eleven" src="_images/eleven.png" style="width: 17.7px; height: 17.7px;" /></a> Priority of the element - <a class="reference internal" href="ListsOfValues.html#priority"><span class="std std-ref">Priorities</span></a> are customizable.</p>
+<p><a class="reference internal" href="_images/twelve.png"><img alt="Twelve" src="_images/twelve.png" style="width: 17.7px; height: 17.7px;" /></a> Urgency of the element - <a class="reference internal" href="ListsOfValues.html#urgency"><span class="std std-ref">Urgency</span></a> are customizable.</p>
+<p><a class="reference internal" href="_images/thirteen.png"><img alt="thirteen" src="_images/thirteen.png" style="width: 17.7px; height: 17.7px;" /></a> edit the element in a popup.</p>
+<p><a class="reference internal" href="_images/fourteen.png"><img alt="fourteen" src="_images/fourteen.png" style="width: 17.7px; height: 17.7px;" /></a> Add a note. The number of notes is displayed on the icon.</p>
+<p><a class="reference internal" href="_images/fifteen.png"><img alt="fifteen" src="_images/fifteen.png" style="width: 17.7px; height: 17.7px;" /></a> Vote. The button allows you to vote on the item if you have the rights. Click the button to display the voting pop-up.</p>
+<p><a class="reference internal" href="_images/sixteen.png"><img alt="sixteen" src="_images/sixteen.png" style="width: 17.7px; height: 17.7px;" /></a> Go to. The button allows you to go to the item’s page if you have the rights.</p>
+<section id="contextual-menu">
+<h4>Contextual menu<a class="headerlink" href="#contextual-menu" title="Permalink to this heading">¶</a></h4>
+<p>By right-clicking on a tile, you access the contextual menu which gives you access to several options</p>
+<figure class="align-default" id="id20">
+<img alt="contextual menu" src="_images/AGILE_ZONE_ContextualMenu.png" />
+<figcaption>
+<p><span class="caption-text">contextual menu</span><a class="headerlink" href="#id20" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>These are the main options like create, edit, copy but also shortcuts to add comments or go to the element.</p>
+</section>
+</section>
+<section id="operations-on-element">
+<h3>Operations on element<a class="headerlink" href="#operations-on-element" title="Permalink to this heading">¶</a></h3>
+<section id="edit-an-element">
+<h4>Edit an element<a class="headerlink" href="#edit-an-element" title="Permalink to this heading">¶</a></h4>
+<blockquote>
+<div><ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconEdit.png"><img alt="Button edit" src="_images/iconEdit.png" style="width: 19.2px; height: 19.2px;" /></a> to edit the element.</p></li>
+<li><p>Click on the button to edit the element directly from the Kanban screen. A pop-up is displayed with your item information as on the dedicated screen.</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconSave.png"><img alt="Save" src="_images/iconSave.png" style="width: 19.2px; height: 19.2px;" /></a> to save your changes</p></li>
+</ul>
+<figure class="align-default" id="id21">
+<img alt="Edit element" src="_images/AGILE_BOX_EditKanban.png" />
+<figcaption>
+<p><span class="caption-text">Edit element window</span><a class="headerlink" href="#id21" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</div></blockquote>
+</section>
+<section id="moves-an-element">
+<h4>Moves an element<a class="headerlink" href="#moves-an-element" title="Permalink to this heading">¶</a></h4>
+<blockquote>
+<div><p>To move tickets, activities, or anything else from your kanban, drag and drop a ticket into the corresponding column.</p>
+<figure class="align-default" id="id22">
+<img alt="Move an element" src="_images/AGILE_ZONE_DragDrop.png" />
+<figcaption>
+<p><span class="caption-text">Move an element</span><a class="headerlink" href="#id22" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The heading of the moved element then changes to <strong>green</strong> when it is on a column where the movement is allowed and is <strong>red</strong> when it is on a column where the movement is prohibited.</p>
+<p>If the Kanban is arranged as statuses, the new status after move, will be the first status of the range defined for the column.</p>
+<p>For Kanbans based on the target product version and planning activities, the new field value will simply be the target.</p>
+</div></blockquote>
+</section>
+<section id="forbidden-moves">
+<h4>Forbidden moves<a class="headerlink" href="#forbidden-moves" title="Permalink to this heading">¶</a></h4>
+<blockquote>
+<div><p>Displacements will change the value of the corresponding field for the moved element.</p>
+<figure class="align-default" id="id23">
+<img alt="movement refused" src="_images/AGILE_ZONE_RedTile.png" />
+<figcaption>
+<p><span class="caption-text">movement refused</span><a class="headerlink" href="#id23" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>But the “status” change must respect the workflow configuration for the given item type. This is why some movements are prohibited.</p>
+<p>Permitted moves are easily identified from prohibited moves by the color of the Ticket header or the moved Activity.</p>
+</div></blockquote>
+</section>
+<section id="updating">
+<h4>Updating<a class="headerlink" href="#updating" title="Permalink to this heading">¶</a></h4>
+<blockquote>
+<div><p>Depending on the configuration of the ticket type, some state changes may require the definition of new fields.</p>
+<p>For example, in the default configuration, when changing to the “assigned” state, “responsible” is required, and when transitioning to the “terminated” state, “result” is required “.</p>
+<p>In this case, when you move a ticket in the Kanban columns, a pop-up window appears to allow you to enter the missing value if it is not already defined.</p>
+</div></blockquote>
+</section>
+</section>
+<section id="vote">
+<h3>Vote<a class="headerlink" href="#vote" title="Permalink to this heading">¶</a></h3>
+<p>If the voting settings and your rights allow you to vote on an element, then the vote button will be clickable and you will be able to vote directly on the element from the Kanban screen.</p>
+<figure class="align-default" id="id24">
+<img alt="Vote pop-up" src="_images/AGILE_BOX_Vote.png" />
+<figcaption>
+<p><span class="caption-text">Vote pop-up</span><a class="headerlink" href="#id24" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Enter your vote. The remaining points are automatically decremented.</p>
+<p>Click on validate to close the pop-up.</p>
+<p>According to the rules established for voting on the item, the button will fill up as the votes are cast.</p>
+<figure class="align-default" id="id25">
+<img alt="icon indicating that votes have started or have been completely filled" src="_images/AGILE_ZONE_Vote.png" />
+<figcaption>
+<p><span class="caption-text">icon indicating that votes have started or have been completely filled</span><a class="headerlink" href="#id25" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="Collaboration.html#voting-management"><span class="std std-ref">voting management</span></a></p>
+</div>
+<span class="target" id="index-4"></span></section>
+</section>
+<section id="live-meeting">
+<span id="livemeeting-agile"></span><span id="index-5"></span><h2>Live Meeting<a class="headerlink" href="#live-meeting" title="Permalink to this heading">¶</a></h2>
+<p>LiveMeeting allow you to manage meetings in an agile way:</p>
+<ul class="simple">
+<li><p>Manage written production quickly and easily</p></li>
+<li><p>Recovery in the liveMeeting of the agenda established on the meeting screen</p></li>
+<li><p>Automatic saving of the minutes when leaving the live meeting</p></li>
+<li><p>Automatically share the time between all participants</p></li>
+<li><p>Dynamically measure the speaking time of each participant</p></li>
+<li><p>Easily write minutes while assistants speak</p></li>
+<li><p>Easily manage actions / decisions / questions while writing minutes and add them with the enter button.</p></li>
+<li><p>Manage tickets, activities, actions and requirements with Kanban while writing minutes.</p></li>
+<li><p>Kanban status change manipulations are also indicated in the meeting minutes.</p></li>
+</ul>
+<figure class="align-default" id="id26">
+<img alt="The LiveMeeting button" src="_images/AGILE_ZONE_LiveMeeting-Button.png" />
+<figcaption>
+<p><span class="caption-text">The Live Meeting button</span><a class="headerlink" href="#id26" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Click this button to access the Live Meeting Management screen.</p>
+<figure class="align-default" id="id27">
+<img alt="The LiveMeeting screen" src="_images/AGILE_SCR_LiveMeeting.png" />
+<figcaption>
+<p><span class="caption-text">The Live Meeting screen</span><a class="headerlink" href="#id27" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Click on <strong>Hide time counters</strong> to show or hide participants’ tabs with their speaking time</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconQuit.png"><img alt="Quit multiple update mode" src="_images/iconQuit.png" style="width: 19.2px; height: 19.2px;" /></a> to exit the LiveMeeting screen</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconKanban.png"><img alt="Kanban" src="_images/iconKanban.png" style="width: 19.2px; height: 19.2px;" /></a> to manage your kanbans since the livemeeting</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconGlobalView.png"><img alt="Global view" src="_images/iconGlobalView.png" style="width: 19.2px; height: 19.2px;" /></a> to display the QUestions / Actions and Decisions</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconSave.png"><img alt="Save" src="_images/iconSave.png" style="width: 19.2px; height: 19.2px;" /></a> to save the live meeting report</p></li>
+</ul>
+<p class="rubric">Starting a meeting</p>
+<p>When the Live Meeting screen opens, the duration of the meeting is automatically distributed equally to all participants.</p>
+<figure class="align-default" id="id28">
+<img alt="Live meeting screen" src="_images/AGILE_ZONE_LiveMeeting-Time.png" />
+<figcaption>
+<p><span class="caption-text">Time distribution</span><a class="headerlink" href="#id28" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/meetingPlay.png"><img alt="LiveMeeting Play" src="_images/meetingPlay.png" style="width: 4.8px; height: 4.8px;" /></a> to start the meeting and to start decrementing the speaking time</p></li>
+<li><p>Click on <a class="reference internal" href="_images/meetingStop.png"><img alt="LiveMeeting Stop" src="_images/meetingStop.png" style="width: 4.8px; height: 4.8px;" /></a> To stop the meeting and therefore close the LiveMeeting window to return to the current meeting screen</p></li>
+<li><p>Click on <a class="reference internal" href="_images/meetingPause.png"><img alt="LiveMeeting Pause" src="_images/meetingPause.png" style="width: 18.599999999999998px; height: 19.2px;" /></a> to pause the speaker’s time</p></li>
+</ul>
+<blockquote>
+<div><div class="compound">
+<p>Set the organizer</p>
+<p>Before starting the meeting, you can define an organizer who will need additional speaking time to be able to lead the meeting.</p>
+<p>To designate it, click twice on the hourglass <img alt="LiveMeeting speak" src="_images/iconLiveMeetingNormal.png" /> to obtain the symbol <img alt="Meeting organizer" src="_images/iconLiveMeetingOrganizator.png" /> on the icon.</p>
+<p>The organizer is designated, and sees his time increment double by taking equitable time on the other participants.</p>
+<figure class="align-default" id="id29">
+<img alt="set an organizer" src="_images/AGILE_ZONE_Organizer.png" />
+<figcaption>
+<p><span class="caption-text">The designated organizer has a PLus on the hourglass icon of his tab</span><a class="headerlink" href="#id29" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Note that only one participant can be defined as an organizer.</p>
+<p>To set another participant as an organizer, you must first redefine the current organizer as a normal participant by clicking the hourglass button again.</p>
+</div>
+<div class="compound">
+<p>Speaking Time</p>
+<p>If you started the meeting by clicking on the Play icon at the top right of the screen, then this is the first speaker displayed, the one with the green sign that will begin speaking.</p>
+<p>Otherwise, click on the speaker’s tab of your choice to start your speaking time.</p>
+<ul class="simple">
+<li><p>Click on <img alt="LiveMeeting can't speak" src="_images/iconLiveMeetingCantSpeak.png" /> to prevent a speaker from speaking</p></li>
+<li><p>Click on <img alt="LiveMeeting speak" src="_images/iconLiveMeetingNormal.png" /> to give him the floor again</p></li>
+</ul>
+<p>If you prevent a speaker’s speaking time by clicking on the hourglass, then the remaining speaking time of the speaker will be redistributed to the other participants entitled to speak.</p>
+</div>
+<div class="compound">
+<p>Write a meeting report</p>
+<p>During the course of the meeting, the person in charge of the report can inform and report the words of the various participants.</p>
+<p>The text editor is dynamic and reacts to speakers who have the floor.</p>
+<p>When one speaker is finished and another speaker speaks, a field is added in the text editor with the name of the speaker with the detail of the time</p>
+<p>The pause is also mentioned always with the detail of the time.</p>
+<figure class="align-default" id="id30">
+<img alt="The field with the speaker's name" src="_images/AGILE_ZONE_Speaker.png" />
+<figcaption>
+<p><span class="caption-text">Field with the speaker’s name</span><a class="headerlink" href="#id30" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>When you stop LiveMeeting by clicking | meetingStop | the meeting report is automatically copied to the Minutes field in the treatment section.</p>
+<figure class="align-default" id="id31">
+<img alt="Meeting report" src="_images/AGILE_ZONE_Minutes.png" />
+<figcaption>
+<p><span class="caption-text">The meeting report is copied in the minutes field in the treament section</span><a class="headerlink" href="#id31" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</div>
+</div></blockquote>
+<p class="rubric">Actions, Decisions and Actions</p>
+<p>In the lower part of the screen, if the kanban is not open, you have direct access to actions, decisions and questions.</p>
+<figure class="align-default" id="id32">
+<img alt="Actions, Decisions, Questions Management" src="_images/AGILE_ZONE_ADQManagement.png" />
+<figcaption>
+<p><span class="caption-text">Actions, Decisions, Questions Management</span><a class="headerlink" href="#id32" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>Each list acts as the standard “linked element” element present on almost every element screen.</p>
+<p>You can then list an item to add it to the list of related items, but also create a new item to add to the list, just like for the Linked Items feature.</p>
+<p>All linked items through this feature will appear in linked items in the meeting.</p>
+<p>There is a slight difference with related items, when you click on the name of an item, you are not redirected to it.</p>
+<p>It simply opens in a pop-up form, allowing you to update it without leaving the LiveMeeting screen.</p>
+<blockquote>
+<div><div class="compound">
+<p>New element</p>
+<p>You can create, edit, or delete an action, decision, or question from the live meeting screen.</p>
+<p>Click on <a class="reference internal" href="_images/iconAdd.png"><img alt="Add" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> at the top right of each section to add a new element</p>
+<p>A pop up opens and allows you to create and edit the selected element.</p>
+<blockquote>
+<div><figure class="align-default" id="id33">
+<img alt="Creating a new element" src="_images/AGILE_BOX_NewAction.png" />
+<figcaption>
+<p><span class="caption-text">Creating a new element</span><a class="headerlink" href="#id33" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconValid.png"><img alt="Validation" src="_images/iconValid.png" style="width: 19.2px; height: 19.2px;" /></a> to select an item into the list by</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconNew.png"><img alt="New" src="_images/iconNew.png" style="width: 19.2px; height: 19.2px;" /></a> to create an item</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconUndo.png"><img alt="Icon undo" src="_images/iconUndo.png" style="width: 19.2px; height: 19.2px;" /></a> to undo the current manipulating and close the window</p></li>
+<li><p>Click on <a class="reference internal" href="_images/iconFilters.png"><img alt="Filters" src="_images/iconFilters.png" style="width: 19.2px; height: 19.2px;" /></a> click on filter to restrict display</p></li>
+</ul>
+</div></blockquote>
+<p>You can also create a new item directly.</p>
+<p>Fill in the fields with an explicit title and click on <a class="reference internal" href="_images/iconAdd.png"><img alt="Add" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> to validate.</p>
+<figure class="align-default" id="id34">
+<img alt="Add new element" src="_images/AGILE_ZONE_NewElement.png" />
+<figcaption>
+<p><span class="caption-text">Add a new element</span><a class="headerlink" href="#id34" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The line is displayed directly in the corresponding section without opening the pop up.</p>
+</div>
+</div></blockquote>
+<span class="target" id="index-6"></span></section>
+<section id="planning-poker">
+<span id="index-7"></span><span id="id3"></span><h2>Planning Poker<a class="headerlink" href="#planning-poker" title="Permalink to this heading">¶</a></h2>
+<p>Planning Poker, also known as Scrum Poker, is a consensus-based gamified estimation technique primarily used to estimate the relative effort or size of development goals. (wikipedia)</p>
+<p>Projeqtor integrates planning poker into its functionalities. You will be able to plan a planning poker session as a meeting and see it appear on the Gantt chart.</p>
+<p>You define the project to which the session is linked, the user story (s) as well as the voters.</p>
+<section id="planning-poker-session">
+<span id="id4"></span><h3>Planning poker session<a class="headerlink" href="#planning-poker-session" title="Permalink to this heading">¶</a></h3>
+<p>The planning poker session screen is reserved for the session organizer and certain supervision profiles.</p>
+<p>A planning poker session can be scheduled and is visible on the Gantt chart of the planning view.</p>
+<figure class="align-default" id="id35">
+<img alt="Planning poker session screen" src="_images/Agile_SCR_PlanningPokerSession.png" />
+<figcaption>
+<p><span class="caption-text">Planning poker session screen</span><a class="headerlink" href="#id35" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Run a poker session</p>
+<p>You define a date for your session, one or more user stories and the participants in the votes.</p>
+<p>Click on <kbd class="kbd compound docutils literal notranslate"><kbd class="kbd docutils literal notranslate">Run</kbd> <kbd class="kbd docutils literal notranslate">estimate</kbd></kbd> in front of the user stories you want to launch or on <kbd class="kbd compound docutils literal notranslate"><kbd class="kbd docutils literal notranslate">run</kbd> <kbd class="kbd docutils literal notranslate">all</kbd></kbd> to launch all the user stories</p>
+<p>When at least one user story is started, then voters will be able to access it on the planning poker estimate screen.</p>
+<p>Only profiles with update rights can vote on the planning poker sessions screen.</p>
+<p>The user story estimate is identical between the planning poker session screen and the planning poker estimate screen.</p>
+<blockquote>
+<div><div class="compound">
+<p>Planning poker type</p>
+<p>In ProjeQtOr, basic, you find the types “live session” or “session with a due date”.</p>
+<p>The types are customizable and can be changed according to your needs.</p>
+<p>See: <a class="reference internal" href="ListsOfTypes.html#planning-poker-type"><span class="std std-ref">Planning poker type</span></a></p>
+</div>
+<div class="compound">
+<p>User story</p>
+<p>The User Story represents an Agile practice, used above all in Scrum, to “capture” the needs of the users by expressing in a general and not detailed way, the characteristics, the functions and the requirements of the product to be created.</p>
+<p>In ProjeQtOr, a user story can be a ticket, an activity or a requirement.</p>
+<p>A session can contain several user stories, there is no limit.</p>
+<p>Each of these user stories can be started individually, in part or in full.</p>
+</div>
+<div class="compound">
+<p>Attendees</p>
+<p>Participants can be resources, contacts, or users.</p>
+<p>Participants are assigned as on an activity, with a function linked to a cost.</p>
+<p>You can assign a load manually but if you have entered a time slot then the load is automatically calculated.</p>
+</div>
+<div class="compound">
+<p>Pause and stop session</p>
+<p>You can pause the session. This will remove user stories from the planning poker estimates screen without actually closing or stopping the session.</p>
+<p>Stop the session, will change the status of the latter to “done”.</p>
+<p>User stories will still be visible on the estimates planning poker screen but you will no longer be able to vote.</p>
+<p>Change the status to <strong>in progress</strong> so that the <kbd class="kbd docutils literal notranslate">pause</kbd> and <kbd class="kbd docutils literal notranslate">closed</kbd> buttons are visible again.</p>
+</div>
+</div></blockquote>
+<p class="rubric">Closed a poker session</p>
+<p>When all the votes are recorded, you have two options :</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Close the vote</p></li>
+<li><p>Turn the cards over</p></li>
+</ul>
+</div></blockquote>
+<p>When you turn over the cards, the vote is indicated on each participant’s card.</p>
+<figure class="align-default" id="id36">
+<a class="reference internal image-reference" href="_images/AGILE_ZONE_PlanningPokerFlipCards.png"><img alt="Flip cards" src="_images/AGILE_ZONE_PlanningPokerFlipCards.png" style="width: 331.8px; height: 268.2px;" /></a>
+<figcaption>
+<p><span class="caption-text">Flip cards</span><a class="headerlink" href="#id36" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>You then have the possibility to reset the votes and this in accordance with the Scrum method, until the vote is unanimous.</p>
+<p>If all the votes are unanimous, when the user story is closed, the complexity point that was voted on is indicated.</p>
+<figure class="align-default" id="id37">
+<img alt="close of unanimous votes" src="_images/AGILE_BOX_PlanningpokerClosedOK.png" />
+<figcaption>
+<p><span class="caption-text">Close of unanimous votes</span><a class="headerlink" href="#id37" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>If you close without the votes being unanimous, at the time of closing, the lowest and highest values are shown.</p>
+<p>The lowest value is selected by default, but you can click the highest value to select it or select another value from the drop-down list.</p>
+<figure class="align-default" id="id38">
+<img alt="Closure of non-unanimous votes" src="_images/AGILE_BOX_PlanningpokerClosednotOK.png" />
+<figcaption>
+<p><span class="caption-text">Closure of non-unanimous votes</span><a class="headerlink" href="#id38" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>When the estimate is closed, the value that was voted on is displayed in the user story table.</p>
+<figure class="align-default" id="id39">
+<img alt="Report of the value in the table of user stories" src="_images/AGILE_ZONE_PlanningPokerSessionValue.png" />
+<figcaption>
+<p><span class="caption-text">Report of the value in the table of user stories</span><a class="headerlink" href="#id39" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="planning-poker-estimate">
+<span id="id5"></span><h3>Planning poker estimate<a class="headerlink" href="#planning-poker-estimate" title="Permalink to this heading">¶</a></h3>
+<p>This screen is intended for participants of the voting sessions.</p>
+<p>User stories are visible on the planning poker estimates screen only when at least one user story is started.</p>
+<figure class="align-default" id="id40">
+<img alt="Estimate planning poker screen" src="_images/AGILE_SCR_EstimatePlanningPoker.png" />
+<figcaption>
+<p><span class="caption-text">Estimate planning poker screen</span><a class="headerlink" href="#id40" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>The participants can vote thanks to a series of numbered cards on the principle of the Fibonacci sequence, but in a rounded way.</p>
+<p>These values are customizable.</p>
+<p>See: <a class="reference internal" href="ListsOfValues.html#story-point"><span class="std std-ref">list of value - Story point</span></a></p>
+<p class="rubric">Estimate an user story</p>
+<p>Each participant clicks on a card in order to estimate the proposed user story.</p>
+<p>If more than one user story then click on <kbd class="kbd docutils literal notranslate">next</kbd> to vote for the next user story.</p>
+<figure class="align-default" id="id41">
+<a class="reference internal image-reference" href="_images/AGILE_ZONE_PlanningPokerVote.png"><img alt="Planning Poker estimate" src="_images/AGILE_ZONE_PlanningPokerVote.png" style="width: 393.59999999999997px; height: 607.1999999999999px;" /></a>
+<figcaption>
+<p><span class="caption-text">Planning Poker estimate</span><a class="headerlink" href="#id41" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Click on <a class="reference internal" href="_images/iconRefresh.png"><img alt="Refresh" src="_images/iconRefresh.png" style="width: 19.2px; height: 19.2px;" /></a> to refresh your screen and the votes</p></li>
+<li><p>Click on <kbd class="kbd compound docutils literal notranslate"><kbd class="kbd docutils literal notranslate">flip</kbd> <kbd class="kbd docutils literal notranslate">card</kbd></kbd> to return the cards. Only if the user has the rights to do so.</p></li>
+</ul>
+<p>When you have voted, the card changes color. Your vote has been registered</p>
+<blockquote>
+<div><div class="compound">
+<p>Remaining vote</p>
+<p>The remaining votes correspond to the number of votes you need to cast.</p>
+<p>Use this information to make sure you don’t forget a user story.</p>
+</div>
+</div></blockquote>
+</section>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Agile Methods</a><ul>
+<li><a class="reference internal" href="#menu-scrum">Menu SCRUM</a><ul>
+<li><a class="reference internal" href="#user-stories">User stories</a><ul>
+<li><a class="reference internal" href="#creating-a-user-story">Creating a User Story</a></li>
+<li><a class="reference internal" href="#estimation-priority-and-status">Estimation, Priority and Status</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#epics">Epics</a><ul>
+<li><a class="reference internal" href="#creating-and-managing-epics">Creating and Managing Epics</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#linking-epics-and-user-stories">Linking Epics and User Stories</a></li>
+<li><a class="reference internal" href="#sprints">Sprints</a><ul>
+<li><a class="reference internal" href="#manage-the-sprints">Manage the sprints</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#personas">Personas</a><ul>
+<li><a class="reference internal" href="#using-personas-in-user-stories">Using Personas in User Stories</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#backlog">Backlog</a><ul>
+<li><a class="reference internal" href="#sprints-backlog">Sprints backlog</a></li>
+<li><a class="reference internal" href="#products-backlog">Products backlog</a></li>
+<li><a class="reference internal" href="#create-and-manage-a-backlog">Create and Manage a Backlog</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#sprint-board-kanban">Sprint Board - Kanban</a></li>
+<li><a class="reference internal" href="#progress-monitoring-burndown">Progress monitoring (Burndown)</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#kanban">KanBan</a><ul>
+<li><a class="reference internal" href="#dashboard-management">Dashboard management</a></li>
+<li><a class="reference internal" href="#details-of-an-element">Details of an element</a><ul>
+<li><a class="reference internal" href="#contextual-menu">Contextual menu</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#operations-on-element">Operations on element</a><ul>
+<li><a class="reference internal" href="#edit-an-element">Edit an element</a></li>
+<li><a class="reference internal" href="#moves-an-element">Moves an element</a></li>
+<li><a class="reference internal" href="#forbidden-moves">Forbidden moves</a></li>
+<li><a class="reference internal" href="#updating">Updating</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#vote">Vote</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#live-meeting">Live Meeting</a></li>
+<li><a class="reference internal" href="#planning-poker">Planning Poker</a><ul>
+<li><a class="reference internal" href="#planning-poker-session">Planning poker session</a></li>
+<li><a class="reference internal" href="#planning-poker-estimate">Planning poker estimate</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="Concept.html"
+                          title="previous chapter">Concepts</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="UserParameter.html"
+                          title="next chapter">User parameters</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="UserParameter.html" title="User parameters"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="Concept.html" title="Concepts"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Agile Methods</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 16.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" id="Calque_2" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 width="128px" height="128px" viewBox="0 0 128 128" enable-background="new 0 0 128 128" xml:space="preserve">
+<g>
+	<g>
+		<path fill="none" stroke="#FF0000" stroke-width="5.0924" stroke-miterlimit="10" d="M84.568,22.297V2.905H25.772
+			c-2.837,0-5.138,2.252-5.138,5.012v112.88c0,2.775,2.301,5.032,5.138,5.032H105.5c2.844,0,5.145-2.257,5.145-5.032V27.355H89.707
+			C86.869,27.355,84.568,25.104,84.568,22.297z"/>
+	</g>
+	
+		<line fill="none" stroke="#FF0000" stroke-width="5.0924" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" x1="86.286" y1="2.905" x2="110.645" y2="26.05"/>
+</g>
+<g>
+	<rect x="54.811" y="2.905" fill="#FF0000" width="9.521" height="67.456"/>
+	<rect x="56.609" y="12.66" fill="#FF0000" width="17.496" height="7.063"/>
+	<rect x="56.609" y="27.288" fill="#FF0000" width="17.496" height="7.018"/>
+	<rect x="56.609" y="41.87" fill="#FF0000" width="17.496" height="7.063"/>
+	<rect x="56.609" y="56.496" fill="#FF0000" width="17.496" height="7.063"/>
+	<rect x="46.063" y="5.347" fill="#FF0000" width="17.488" height="7.063"/>
+	<rect x="46.063" y="19.974" fill="#FF0000" width="17.488" height="7.06"/>
+	<rect x="46.063" y="34.56" fill="#FF0000" width="17.488" height="7.06"/>
+	<rect x="46.063" y="49.184" fill="#FF0000" width="17.488" height="7.063"/>
+	<rect x="46.063" y="63.811" fill="#FF0000" width="17.488" height="7.058"/>
+	<g>
+		<path fill="#FF0000" d="M75.043,99.314c0-0.082,0.004-0.156,0.004-0.227c0-0.524-0.031-1.051-0.081-1.566
+			c-0.86-10.778-8.054-21.609-8.054-21.609H52.553c-8.349,15.11-7.763,23.662-7.763,23.662s0.014-0.048,0.018-0.076
+			c0.225,7.998,6.896,14.425,15.114,14.425c8.275,0,14.991-6.511,15.121-14.597c0,0.027,0,0.058,0.002,0.078
+			C75.045,99.371,75.043,99.338,75.043,99.314z M59.922,106.691c-4.291,0-7.762-3.398-7.762-7.604c0-4.195,3.471-7.592,7.762-7.592
+			c4.288,0,7.763,3.396,7.763,7.592C67.685,103.293,64.21,106.691,59.922,106.691z"/>
+		<path fill="#FF0000" d="M75.045,99.404c0,0.051,0.002,0.107,0.002,0.17C75.047,99.574,75.047,99.506,75.045,99.404z"/>
+	</g>
+</g>
+</svg>

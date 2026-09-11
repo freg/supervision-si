@@ -1,0 +1,490 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Requirements and Tests &#8212; Documentation ProjeQtOr User guide 13.1</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/translations.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Recherche" href="search.html" />
+    <link rel="next" title="Gestion des risques et problèmes" href="RiskIssueManagement.html" />
+    <link rel="prev" title="Gestion de la configuration" href="ConfigurationManagement.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="RiskIssueManagement.html" title="Gestion des risques et problèmes"
+             accesskey="N">suivant</a> |</li>
+        <li class="right" >
+          <a href="ConfigurationManagement.html" title="Gestion de la configuration"
+             accesskey="P">précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Requirements and Tests</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="requirements-and-tests">
+<span id="requirement"></span><span id="index-0"></span><h1>Exigences et tests<a class="headerlink" href="#requirements-and-tests" title="Lien permanent vers cette rubrique">¶</a></h1>
+<section id="requirements">
+<h2>Exigences<a class="headerlink" href="#requirements" title="Lien permanent vers cette rubrique">¶</a></h2>
+<aside class="sidebar">
+<p class="sidebar-title">Concepts</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="Concept.html#product-concept"><span class="std std-ref">Produit</span></a></p></li>
+<li><p><a class="reference internal" href="PlanningElements.html#planningelem-project"><span class="std std-ref">Projet</span></a></p></li>
+</ul>
+</aside>
+<p>Une exigence est une règle définie pour un projet ou un produit.</p>
+<p>Dans la plupart des projets informatiques, une exigence peut être une règle fonctionnelle pour un logiciel.</p>
+<p>Elle permet de définir et surveiller les coûts et les délais.</p>
+<p>Elle peut être liée à des cas de test, utilisés pour décrire comment vous testerez qu’une exigence donnée est satisfaite.</p>
+<figure class="align-default" id="id3">
+<img alt="Écran des exigences" src="_images/REQUIREMENT_SCR_Description.png" />
+<figcaption>
+<p><span class="caption-text">Écran des exigences</span><a class="headerlink" href="#id3" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Lier des exigences à un projet limitera la visibilité, en respectant la gestion des droits au niveau du projet.</p>
+<section id="requirement-link-to-test-cases">
+<h3>Lien de l’exigence aux cas de test<a class="headerlink" href="#requirement-link-to-test-cases" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Les cas de test peuvent être liés à une exigence dans la <strong>Liste des cas de test</strong>.</p>
+<figure class="align-default" id="id4">
+<img alt="Section liste des cas de test" src="_images/REQUIREMENT_ZONE_ListOfCases.png" />
+<figcaption>
+<p><span class="caption-text">Section liste des cas de test</span><a class="headerlink" href="#id4" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter un cas de test qui couvrira l’exigence ou une partie de l’exigence.</p></li>
+</ul>
+<figure class="align-default" id="id5">
+<img alt="Ajouter un cas de test" src="_images/REQUIREMENT_BOX_AddTestCases.png" />
+<figcaption>
+<p><span class="caption-text">Ajouter un cas de test</span><a class="headerlink" href="#id5" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconSearch.png"><img alt="Icône bouton recherche" src="_images/iconSearch.png" style="width: 19.2px; height: 19.2px;" /></a> pour rechercher un élément qui n’est pas dans la liste</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconNew.png"><img alt="Nouveau" src="_images/iconNew.png" style="width: 19.2px; height: 19.2px;" /></a> pour créer un nouvel élément depuis la fenêtre contextuelle</p></li>
+</ul>
+<p>Lier une exigence à un cas de test affichera un résumé de l’exécution du cas de test (défini dans la session de test). De cette façon, vous aurez un affichage instantané de la couverture des tests pour l’exigence.</p>
+<figure class="align-default" id="id6">
+<img alt="Résumé des cas de test" src="_images/REQUIREMENT_ZONE_SumaryTestCase.png" />
+<figcaption>
+<p><span class="caption-text">Résumé des cas de test</span><a class="headerlink" href="#id6" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p id="summary-test-case-run-status">Cette section résume le statut des exécutions de cas de test pour l’exigence et la session de test.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><a class="reference internal" href="_images/iconPlanned.png"><img alt="Exécution de test planifiée" src="_images/iconPlanned.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Planifié :</strong> Aucun test échoué ou bloqué, au moins un test planifié.</p></li>
+<li><p><a class="reference internal" href="_images/iconPassed.png"><img alt="Exécution de test réussie" src="_images/iconPassed.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Réussi :</strong> Tous les tests ont réussi.</p></li>
+<li><p><a class="reference internal" href="_images/iconFailed.png"><img alt="Exécution de test échouée" src="_images/iconFailed.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Échoué :</strong> Au moins un test a échoué.</p></li>
+<li><p><a class="reference internal" href="_images/iconBlocked.png"><img alt="Exécution de test bloquée" src="_images/iconBlocked.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Bloqué :</strong> Aucun test échoué, au moins un test bloqué.</p></li>
+</ul>
+</div></blockquote>
+<p class="rubric">Exigence</p>
+<p>Résume le statut des exécutions de cas de test pour les cas de test liés à l’exigence.</p>
+<p>Comme un cas de test peut être lié à plusieurs sessions de test, le total peut être supérieur à celui lié à l’exigence.</p>
+<p class="rubric">Session de test</p>
+<p>Résume le statut des exécutions de cas de test dans la session de test.</p>
+</section>
+<section id="requirement-link-to-tickets">
+<h3>Lien de l’exigence aux tickets<a class="headerlink" href="#requirement-link-to-tickets" title="Lien permanent vers cette rubrique">¶</a></h3>
+<ul class="simple">
+<li><p>Lorsque le statut d’exécution du cas de test est défini sur <strong>échoué</strong>, la référence à un ticket doit être définie (référence à l’incident).</p></li>
+<li><p>Lorsque l’exigence est liée à un cas de test avec ce statut d’exécution, le ticket est automatiquement lié à l’exigence.</p></li>
+</ul>
+<p class="rubric">Éléments prédécesseurs et successeurs</p>
+<ul class="simple">
+<li><p>Les exigences peuvent avoir des prédécesseurs et des successeurs.</p></li>
+<li><p>Cela définit certaines dépendances sur les exigences.</p></li>
+<li><p>Les dépendances n’ont pas d’effets spécifiques. C’est juste une information.</p></li>
+</ul>
+<p class="rubric">Indicateur de suivi</p>
+<p>Possibilité de définir des <a class="reference internal" href="ControlAutomation.html#indicator"><span class="std std-ref">indicateurs</span></a> pour suivre le respect des valeurs de dates.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Respect de la date de fin validée</p></li>
+<li><p>Respect de la date de fin planifiée</p></li>
+<li><p>Respect de la date de début demandée</p></li>
+<li><p>Respect de la date de début validée</p></li>
+<li><p>Respect de la date de début planifiée</p></li>
+<li><p>% utilisation finale des coûts validés (révisé/validé)</p></li>
+<li><p>% utilisation finale du travail affecté (révisé/affecté)</p></li>
+<li><p>% utilisation finale du travail validé (révisé/validé)</p></li>
+<li><p>% utilisation finale du travail affecté (révisé/affecté)</p></li>
+<li><p>% avancement du travail validé (réel/validé)</p></li>
+<li><p>% avancement du travail affecté (réel/affecté)</p></li>
+<li><p>% avancement réel</p></li>
+</ul>
+</div></blockquote>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Champs Projet et Produit</strong></p>
+<ul class="simple">
+<li><p>Doit concerner soit un projet, un produit, ou les deux.</p></li>
+<li><p>Si le projet est spécifié, la liste des valeurs du champ « Produit » ne contient que les produits liés au projet sélectionné.</p></li>
+</ul>
+<p><strong>Champ Version cible</strong></p>
+<ul class="simple">
+<li><p>Contient la liste des versions de produit disponibles selon le projet et le produit sélectionnés.</p></li>
+</ul>
+</div>
+<p class="rubric">Verrouillage</p>
+<p>Une exigence peut être verrouillée pour s’assurer que sa définition n’a pas changé pendant le processus de mise en œuvre.</p>
+<blockquote>
+<div><p><strong>Verrouiller/Déverrouiller l’exigence</strong></p>
+<ul class="simple">
+<li><p>Bouton pour verrouiller ou déverrouiller l’exigence afin de la préserver des modifications.</p></li>
+<li><p>Seul l’utilisateur qui a verrouillé l’exigence ou un utilisateur habilité peut déverrouiller une exigence.</p></li>
+</ul>
+<p><strong>Exigence verrouillée</strong></p>
+<ul class="simple">
+<li><p>Lorsqu’une exigence est verrouillée, les champs suivants sont affichés.</p></li>
+</ul>
+</div></blockquote>
+</section>
+<section id="vote-on-requirement">
+<span id="id1"></span><h3>Vote sur l’exigence<a class="headerlink" href="#vote-on-requirement" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Il est possible de voter sur une exigence. Dans l’onglet détail de chaque exigence, trouvez la section de vote. La valeur cible, la valeur actuelle, le nombre de votes et le taux de remplissage sont affichés.</p>
+<p>Cliquez sur le bouton de vote pour attribuer un vote sur l’élément sélectionné.</p>
+<figure class="align-default" id="id7">
+<img alt="Section de vote" src="_images/TICKET_ZONE_VoteSection.png" />
+<figcaption>
+<p><span class="caption-text">Section de vote</span><a class="headerlink" href="#id7" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Dans la fenêtre de vote, plusieurs informations telles que la limite maximale de points du vote que vous pouvez utiliser sur le vote de l’élément en question.</p>
+<p>Votre vote personnel qui n’est pas nécessairement identique au maximum de points que vous pouvez attribuer.</p>
+<p>Et enfin le nombre de points qu’il vous reste à dépenser dans la période d’utilisation définie en amont dans les règles d’attribution et d’utilisation des votes.</p>
+<figure class="align-default" id="id8">
+<img alt="Fenêtre contextuelle de vote" src="_images/TICKET_BOX_Vote.png" />
+<figcaption>
+<p><span class="caption-text">Fenêtre contextuelle de vote</span><a class="headerlink" href="#id8" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="Collaboration.html#voting-attribution-rule"><span class="std std-ref">Règle d’attribution des votes</span></a></p>
+<p><a class="reference internal" href="Collaboration.html#voting-attribution-rule"><span class="std std-ref">Règle d’utilisation des votes</span></a></p>
+</div>
+<p>Une fois que vous avez validé votre vote, si les <a class="reference internal" href="AccessRights.html#vote-accesrights"><span class="std std-ref">accès spécifiques</span></a> dédiés au vote ont été activés, un tableau apparaît pour afficher les noms des votants et les points que chacun d’eux a attribués à l’élément.</p>
+<p>Si plusieurs personnes ont voté, le nombre cumulé de leurs points est affiché dans la valeur actuelle.</p>
+<p>Vous continuez à voir le nombre de vos points déjà attribués, directement dans le bouton de vote ou dans le tableau si vous avez le droit de le voir.</p>
+<p>Dans les <a class="reference internal" href="AccessRights.html#vote-accesrights"><span class="std std-ref">accès spécifiques</span></a>, si l’affichage du tableau est désactivé, vous pouvez afficher au moins les noms des votants.</p>
+<p>Dans tous les cas, les noms des votants et les points qu’ils ont attribués sont nécessairement affichés dans le tableau.</p>
+<figure class="align-default" id="id9">
+<img alt="Tableau de vote" src="_images/TICKET_ZONE_TicketVoteTable.png" />
+<figcaption>
+<p><span class="caption-text">Tableau de vote</span><a class="headerlink" href="#id9" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="requirements-dashboard">
+<span id="index-1"></span><span id="id2"></span><h3>Tableau de bord des exigences<a class="headerlink" href="#requirements-dashboard" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Permet à l’utilisateur d’avoir une vue globale des exigences de ses projets.</p>
+<p>Affiche plusieurs petits rapports, listant le nombre d’exigences par élément.</p>
+<p>Des filtres sont disponibles pour limiter la portée.</p>
+<figure class="align-default">
+<img alt="Écran du tableau de bord des exigences" src="_images/REQUIREMENT_SCR_Dashboard.png" />
+</figure>
+<p class="rubric">Accès direct à la liste des exigences</p>
+<ul class="simple">
+<li><p>Dans les rapports, cliquez sur un élément pour obtenir la liste des exigences correspondant à cet élément.</p></li>
+</ul>
+<p class="rubric">Paramètres</p>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconParameter.png"><img alt="Paramètre" src="_images/iconParameter.png" style="width: 19.05px; height: 19.2px;" /></a> pour accéder aux paramètres.</p></li>
+</ul>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Pour la <strong>Synthèse par statut</strong>, les clauses de filtre ne sont pas applicables.</p>
+</div>
+<figure class="align-center">
+<img alt="Boîte de dialogue - Paramètres du tableau de bord des tickets" src="_images/REQUIREMENT_BOX_Itemdisplay.png" />
+</figure>
+<ul class="simple">
+<li><p>Permet de définir les rapports affichés à l’écran.</p></li>
+<li><p>Permet de réorganiser les rapports affichés avec la fonctionnalité glisser-déposer.</p></li>
+<li><p>En utilisant l’icône de la zone de sélection <a class="reference internal" href="_images/iconDrag.png"><img alt="Glisser" src="_images/iconDrag.png" style="width: 19.2px; height: 19.2px;" /></a>.</p></li>
+</ul>
+<p class="rubric">Filtres de portée</p>
+<ul class="simple">
+<li><p>Les filtres vous permettent de restreindre l’affichage des exigences enregistrées.</p></li>
+<li><p>Par statut, période, durée, élément clos, lié à l’utilisateur ou sans lien…</p></li>
+</ul>
+<p class="rubric">Aucune résolution planifiée</p>
+<ul class="simple">
+<li><p>Non planifié : Exigences dont la résolution n’est pas planifiée dans une prochaine version du produit (version de produit cible non définie).</p></li>
+</ul>
+</section>
+</section>
+<section id="test-cases">
+<span id="test-case"></span><span id="index-2"></span><h2>Cas de test<a class="headerlink" href="#test-cases" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Les cas de test sont des actions élémentaires exécutées pour tester une exigence.</p>
+<p>Vous pouvez définir plusieurs tests pour vérifier une exigence, ou vérifier plusieurs exigences avec un seul test.</p>
+<p>Le cas de test est défini pour un projet, un produit ou l’un de ces composants.</p>
+<figure class="align-default" id="id10">
+<img alt="Écran des cas de test" src="_images/REQUIREMENT_SCR_TestCase.png" />
+<figcaption>
+<p><span class="caption-text">Écran des cas de test</span><a class="headerlink" href="#id10" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Lier un cas de test à un <a class="reference internal" href="PlanningElements.html#planningelem-project"><span class="std std-ref">projet</span></a> limitera la visibilité, en respectant la gestion des droits au niveau du projet.</p>
+<p>Un cas de test peut avoir des prédécesseurs et des successeurs.</p>
+<p>Cela définit certaines dépendances sur le cas de test.</p>
+<p>Les dépendances n’ont pas d’effets spécifiques. C’est juste une information.</p>
+<p class="rubric">Champs Projet et Produit</p>
+<ul class="simple">
+<li><p>Doit concerner soit un projet, un produit, ou les deux.</p></li>
+<li><p>Si le projet est spécifié, la liste des valeurs du champ « Produit » ne contient que les produits liés au projet sélectionné.</p></li>
+</ul>
+<p class="rubric">Champ Version</p>
+<ul class="simple">
+<li><p>Contient la liste des versions de produit et de composant disponibles selon le projet et le produit sélectionnés.</p></li>
+</ul>
+<p class="rubric">Champ Environnement (Contexte)</p>
+<ul class="simple">
+<li><p>Les contextes sont initialisés pour les projets IT comme « Environnement », « OS » et « Navigateur ».</p></li>
+<li><p>Ces valeurs peuvent être facilement modifiées dans l’écran <a class="reference internal" href="Concept.html#context"><span class="std std-ref">Contextes</span></a>.</p></li>
+</ul>
+<p class="rubric">Champ « Description »</p>
+<ul class="simple">
+<li><p>La description du cas de test doit décrire les étapes pour exécuter le test.</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Si le <strong>champ Prérequis</strong> est laissé vide et que le cas de test a un parent, le prérequis du parent sera automatiquement copié ici.</p>
+</div>
+<section id="test-case-run">
+<span id="test-case-run-status"></span><span id="index-3"></span><h3>Exécution du cas de test<a class="headerlink" href="#test-case-run" title="Lien permanent vers cette rubrique">¶</a></h3>
+<figure class="align-default" id="id11">
+<img alt="Exécution du cas de test" src="_images/REQUIREMENT_ZONE_TestCaseRun.png" />
+<figcaption>
+<p><span class="caption-text">Exécution du cas de test</span><a class="headerlink" href="#id11" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p><a class="reference internal" href="_images/iconPlanned.png"><img alt="Exécution de test planifiée" src="_images/iconPlanned.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Planifié :</strong> Test à exécuter.</p></li>
+<li><p><a class="reference internal" href="_images/iconPassed.png"><img alt="Exécution de test réussie" src="_images/iconPassed.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Réussi :</strong> Le test a réussi (le résultat est conforme au résultat attendu).</p></li>
+<li><p><a class="reference internal" href="_images/iconBlocked.png"><img alt="Exécution de test bloquée" src="_images/iconBlocked.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Bloqué :</strong> Impossible d’exécuter le test en raison d’un incident préalable (incident bloquant ou incident sur un test précédent) ou d’un prérequis manquant.</p></li>
+<li><p><a class="reference internal" href="_images/iconFailed.png"><img alt="Exécution de test échouée" src="_images/iconFailed.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Échoué :</strong> Le test a renvoyé un résultat incorrect.</p></li>
+</ul>
+<p>Cette section permet d’afficher une liste complète des exécutions de cas de test. Ce sont des liens du test vers les sessions de test. Cette liste affiche également le statut actuel du test dans les sessions.</p>
+<div class="admonition warning">
+<p class="admonition-title">Avertissement</p>
+<p><strong>Champ Résumé</strong></p>
+<ul class="simple">
+<li><p>Une icône qui présente le statut d’exécution du cas de test.</p></li>
+<li><p>Pour plus de détails, voir : <a class="reference internal" href="#summary-test-case-run-status"><span class="std std-ref">Résumé du statut d’exécution des cas de test</span></a>.</p></li>
+<li><p>Pour y accéder, cliquez sur la session de test correspondante.</p></li>
+</ul>
+</div>
+</section>
+</section>
+<section id="test-sessions">
+<span id="test-session"></span><span id="index-4"></span><h2>Sessions de test<a class="headerlink" href="#test-sessions" title="Lien permanent vers cette rubrique">¶</a></h2>
+<figure class="align-default" id="id12">
+<img alt="Écran de session de test" src="_images/REQUIREMENT_SCR_TestSession.png" />
+<figcaption>
+<p><span class="caption-text">Écran de session de test</span><a class="headerlink" href="#id12" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Une session de test définit l’ensemble des tests à exécuter pour atteindre un objectif donné, comme couvrir une exigence.</p>
+<p>Définissez dans les exécutions de cas de test tous les cas de test qui seront exécutés pour cette session de test.</p>
+<p>Pour chaque exécution de cas de test, définit le statut des résultats des tests</p>
+<p>La session de test est définie pour un projet, un produit ou l’un de ces composants.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="#test-case-run-status"><span class="std std-ref">Statut d’exécution du cas de test</span></a></p>
+</div>
+<p class="rubric">Gestion des droits</p>
+<ul class="simple">
+<li><p>Lier une session de test à un <a class="reference internal" href="PlanningElements.html#planningelem-project"><span class="std std-ref">projet</span></a> limitera la visibilité, en respectant la gestion des droits au niveau du projet.</p></li>
+</ul>
+<p class="rubric">Regroupement des sessions de test</p>
+<ul class="simple">
+<li><p>Une session de test peut avoir des parents pour regrouper les sessions de test.</p></li>
+</ul>
+<p class="rubric">Élément de planification</p>
+<ul class="simple">
+<li><p>Une session de test est un élément de planification comme <a class="reference internal" href="PlanningElements.html#activity"><span class="std std-ref">Activité</span></a>.</p></li>
+<li><p>Une session de test est une tâche dans une <a class="reference internal" href="Gantt.html#gantt-chart"><span class="std std-ref">planification de projet de type Gantt</span></a>.</p></li>
+<li><p>Permet d”<a class="reference internal" href="CommonSections.html#assignment-section"><span class="std std-ref">affecter</span></a> une ressource et de suivre l’avancement.</p></li>
+</ul>
+<p class="rubric">Éléments prédécesseurs et successeurs</p>
+<ul class="simple">
+<li><p>Les sessions de test peuvent avoir des prédécesseurs et des successeurs.</p></li>
+<li><p>Cela définit certaines <a class="reference internal" href="Gantt.html#dependencylinks"><span class="std std-ref">dépendances</span></a> sur les cas de test ou des contraintes de planification.</p></li>
+</ul>
+<p class="rubric">Indicateur de suivi</p>
+<ul class="simple">
+<li><p>Les indicateurs peuvent être définis dans la <a class="reference internal" href="ListsOfValues.html#list-of-values"><span class="std std-ref">Liste des valeurs</span></a>.</p></li>
+<li><p>Voir : <a class="reference internal" href="ListsOfValues.html#health-status"><span class="std std-ref">État de santé</span></a> et <a class="reference internal" href="ListsOfValues.html#overall-progress"><span class="std std-ref">Avancement global</span></a></p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Champs Projet et Produit</strong></p>
+<p>Doit concerner soit un projet, un produit, ou les deux.</p>
+<p>Si le projet est spécifié, la liste des valeurs du champ « Produit » ne contient que les produits liés au projet sélectionné.</p>
+<p><strong>Champ Version</strong></p>
+<p>Contient la liste des versions de produit et de composant disponibles selon le projet et le produit sélectionnés.</p>
+</div>
+<section id="test-case-runs">
+<h3>Exécutions de cas de test<a class="headerlink" href="#test-case-runs" title="Lien permanent vers cette rubrique">¶</a></h3>
+<figure class="align-default" id="id13">
+<img alt="Écran d'exécution de cas de test" src="_images/REQUIREMENT_ZONE_TestCaseRunMain.png" />
+<figcaption>
+<p><span class="caption-text">Écran d’exécution de cas de test</span><a class="headerlink" href="#id13" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Cette section permet de gérer les exécutions de cas de test.</p>
+<p>Vous pouvez trier la liste des cas de test par ordre, type, id, nom, statut ou tickets.</p>
+<figure class="align-default" id="id14">
+<img alt="Section d'exécution de cas de test" src="_images/REQUIREMENT_ZONE_TestCaseRun.png" />
+<figcaption>
+<p><span class="caption-text">Section d’exécution de cas de test</span><a class="headerlink" href="#id14" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter une exécution de cas de test. La <strong>boîte de dialogue d’exécution de cas de test</strong> apparaîtra.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconEdit.png"><img alt="Bouton modifier" src="_images/iconEdit.png" style="width: 19.2px; height: 19.2px;" /></a> pour modifier une exécution de cas de test. La <strong>boîte de dialogue de détail d’exécution de cas de test</strong> apparaîtra.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconDelete.png"><img alt="Supprimer" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> pour supprimer une exécution de cas de test.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconPassed.png"><img alt="Exécution de test réussie" src="_images/iconPassed.png" style="width: 19.2px; height: 19.2px;" /></a> pour marquer l’exécution de cas de test comme réussie.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconFailed.png"><img alt="Exécution de test échouée" src="_images/iconFailed.png" style="width: 19.2px; height: 19.2px;" /></a> pour marquer l’exécution de cas de test comme échouée. La <strong>boîte de dialogue de détail d’exécution de cas de test</strong> apparaîtra.</p></li>
+</ul>
+<figure class="align-default" id="id15">
+<img alt="Fenêtre contextuelle test échoué" src="_images/REQUIREMENT_BOX_TestCaseRunKO.png" />
+<figcaption>
+<p><span class="caption-text">Fenêtre contextuelle test échoué</span><a class="headerlink" href="#id15" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Lorsque le statut est défini sur échoué, la fenêtre contextuelle vous permet de créer un ticket (référence à l’incident) ou un commentaire.</p>
+<p>Si vous créez un ticket, il est automatiquement ajouté aux Liens.</p>
+<p>Les informations sur le ticket sélectionné sont également affichées et le ticket est cliquable pour accéder à son écran dédié.</p>
+<p>Le champ ticket n’apparaît que si le statut de l’exécution du cas de test est <strong>échoué</strong>.</p>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconBlocked.png"><img alt="Exécution de test bloquée" src="_images/iconBlocked.png" style="width: 19.2px; height: 19.2px;" /></a> pour marquer l’exécution de cas de test comme bloquée.</p></li>
+</ul>
+<p class="rubric">Champ Cas de test</p>
+<ul class="simple">
+<li><p>Cette icône <a class="reference internal" href="_images/iconComment.png"><img alt="Commentaire" src="_images/iconComment.png" style="width: 19.2px; height: 19.2px;" /></a> apparaît lorsque le champ commentaire de l’exécution du cas de test est renseigné.</p></li>
+<li><p>Déplacer la souris sur l’icône affichera les commentaires de l’exécution du cas de test.</p></li>
+</ul>
+<p class="rubric">Champ Détail</p>
+<ul class="simple">
+<li><p>Déplacer la souris sur l’icône <img alt="Icône description" src="_images/description.png" /> affichera la description du cas de test.</p></li>
+<li><p>Déplacer la souris sur l’icône <img alt="Icône résultat" src="_images/result.png" /> affichera le résultat attendu du cas de test.</p></li>
+<li><p>Déplacer la souris sur l’icône <img alt="Icône prérequis" src="_images/prerequisite.png" /> affichera le prérequis du cas de test.</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table des matières</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Exigences et tests</a><ul>
+<li><a class="reference internal" href="#requirements">Exigences</a><ul>
+<li><a class="reference internal" href="#requirement-link-to-test-cases">Lien de l’exigence aux cas de test</a></li>
+<li><a class="reference internal" href="#requirement-link-to-tickets">Lien de l’exigence aux tickets</a></li>
+<li><a class="reference internal" href="#vote-on-requirement">Vote sur l’exigence</a></li>
+<li><a class="reference internal" href="#requirements-dashboard">Tableau de bord des exigences</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#test-cases">Cas de test</a><ul>
+<li><a class="reference internal" href="#test-case-run">Exécution du cas de test</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#test-sessions">Sessions de test</a><ul>
+<li><a class="reference internal" href="#test-case-runs">Exécutions de cas de test</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Sujet précédent</h4>
+    <p class="topless"><a href="ConfigurationManagement.html"
+                          title="Chapitre précédent">Gestion de la configuration</a></p>
+  </div>
+  <div>
+    <h4>Sujet suivant</h4>
+    <p class="topless"><a href="RiskIssueManagement.html"
+                          title="Chapitre suivant">Gestion des risques et problèmes</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Recherche rapide</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             >index</a></li>
+        <li class="right" >
+          <a href="RiskIssueManagement.html" title="Gestion des risques et problèmes"
+             >suivant</a> |</li>
+        <li class="right" >
+          <a href="ConfigurationManagement.html" title="Gestion de la configuration"
+             >précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Requirements and Tests</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Créé en utilisant <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,508 @@
+/*** COPYRIGHT NOTICE *********************************************************
+ *
+ * Copyright 2009-2017 ProjeQtOr - Pascal BERNARD - support@projeqtor.org
+ * Contributors : -
+ *
+ * This file is part of ProjeQtOr.
+ *
+ * ProjeQtOr is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU Affero General Public License as published by the Free
+ * Software Foundation, either version 3 of the License, or (at your option)
+ * any later version.
+ *
+ * ProjeQtOr is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License along with
+ * ProjeQtOr. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * You can get complete code of ProjeQtOr, other resource, help and information
+ * about contributors at http://www.projeqtor.org
+ *
+ *** DO NOT REMOVE THIS NOTICE ************************************************/
+
+/* A column : the title bar keeps its own height, the table takes the rest. */
+.prospectionViewScreen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.prospectionViewTitle {
+  flex: 0 0 auto;
+  position: relative;
+  overflow: visible;
+}
+
+/* Bounded height, or the container grows to fit every line and never scrolls.
+   min-height:0 is what lets a flex child shrink below its content. */
+.prospectionView {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: auto;
+}
+
+/* A rule separates the filters from the title above them, and the row carries
+   its own rhythm through gap rather than a margin on every field. */
+.prospectionViewFilters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--color-detail-header-border);
+}
+
+/* Each filter is a pair : the label belongs beside its field, not adrift. */
+.prospectionViewFilter {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* The theme floats every label left over a fixed width, which would push each
+   field past all the labels. Two classes are needed to outweigh that rule. */
+.prospectionViewFilters .prospectionViewFilter label {
+  float: none;
+  display: inline-block;
+  width: auto;
+  text-align: left;
+  padding: 0;
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* Pushed to the far edge of the row : an action apart from the fields that
+   feed it reads better on its own side. */
+.prospectionViewReset {
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.prospectionViewReset:focus-visible {
+  outline: 2px solid var(--color-reference);
+  outline-offset: 1px;
+}
+
+/* How many lines the filters keep, next to the title that names them all. */
+.prospectionViewCount {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 9px;
+  border-radius: 9px;
+  background-color: var(--color-lighter);
+  color: var(--color-section-title-text);
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+/* Legend for the row colours below : without it, a peach or a pale blue line
+   carries a meaning only the code remembers. Sits in the title bar, across
+   from the class name, so it reads as part of the heading rather than a
+   fourth filter. No colour of its own : it inherits the title bar's, so it
+   stays legible whatever the background the theme paints there. */
+.prospectionViewLegend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 14px;
+  font-size: 11px;
+  margin-right: 20px;
+}
+
+/* Reads as secondary next to the class name, whatever colour the title bar
+   otherwise prints in : a dimmer version of that same colour, not a new one. */
+.prospectionViewLegendLabel,
+.prospectionViewLegendItem {
+  opacity: 0.8;
+}
+
+.prospectionViewLegendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.prospectionViewLegendItem::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* The three dots borrow colours the application already uses elsewhere : the
+   orange and green themes, and a blue already drawn from the avatar palette.
+   A prospect, a client and a contact stay told apart the same way whatever
+   theme is otherwise in effect. */
+.prospectionViewLegendProspect::before { background-color: #D98F0E; }
+.prospectionViewLegendClient::before   { background-color: #539B53; }
+.prospectionViewLegendContact::before  { background-color: #2980B9; }
+
+/* The screen borrows the prospect icon : it lists prospects. */
+.iconProspectionView {
+  background-image: url(customIcons/new/iconProspect.svg);
+  background-repeat: no-repeat;
+}
+
+/* The icon of the object a line describes, before its name. */
+.prospectionViewRowIcon {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+/* The thumbnail of the responsible, an image or a coloured initial, before their
+   name. border-box keeps its border inside the 16px, so a row stays 22px tall. */
+.prospectionViewThumb {
+  display: inline-block;
+  box-sizing: border-box;
+  vertical-align: middle;
+  width: 16px;
+  height: 16px;
+  margin-right: 4px;
+  border-radius: 4px;
+  color: #FFFFFF;
+  font-size: 10px;
+  line-height: 16px;
+  font-weight: 300;
+  text-align: center;
+  text-shadow: none;
+  overflow: hidden;
+  cursor: default;
+}
+
+/* Only meant to hold text : an empty message would otherwise still reserve a
+   strip above the header, above every line, on the common day nothing is wrong. */
+.prospectionViewMessage {
+  padding: 6px;
+  text-align: center;
+  color: var(--color-text);
+}
+
+.prospectionViewMessage:empty {
+  padding: 0;
+}
+
+/* The header band sits once at the top, the lines scroll under it. */
+.prospectionViewHeader,
+.prospectionViewLine {
+  display: flex;
+  align-items: stretch;
+  white-space: nowrap;
+}
+
+
+/* Fixed height, the same for every line : 1px of rule, 68px of blocks and 22px of
+   padding, the blank line that separates two prospects. */
+.prospectionViewLine {
+  height: 91px;
+  padding-bottom: 22px;
+  border-top: 1px solid var(--color-detail-header-border);
+  box-sizing: border-box;
+  /* clip and not hidden : hidden would make the line the scroll container of the
+     pinned block, which would then follow the line instead of staying at the
+     edge. clip cuts the same way without creating that container. */
+  overflow: clip;
+}
+
+/* The first line sits under the header band, which already draws a rule. Marked by
+   the renderer : only visible lines exist, so :first-child is not the first line. */
+.prospectionViewLineFirst {
+  border-top: none;
+}
+
+.prospectionViewHeader {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background-color: var(--color-background);
+  /* A faint edge under the band, so the lines read as passing beneath it
+     rather than merely starting after it. */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.10);
+}
+
+/* Room above the block titles for the buttons that reopen folded blocks, taken
+   only when something is folded : an empty strip would waste a line of screen. */
+.prospectionViewHeaderFolded {
+  padding-top: 24px;
+}
+
+.prospectionViewHeadBlock,
+.prospectionViewBlock {
+  flex: 0 0 auto;
+  border-right: 1px solid var(--color-detail-header-border);
+  border-bottom: 1px solid var(--color-detail-header-border);
+  box-sizing: border-box;
+}
+
+/* Same role as a section title elsewhere in the application, so it borrows that
+   pair of colours rather than one invented just for this screen. Left aligned :
+   a title is read, not centred like a caption. */
+.prospectionViewGroup {
+  box-sizing: border-box;
+  height: 22px;
+  line-height: 22px;
+  padding: 0 8px;
+  text-align: left;
+  font-weight: 600;
+  background-color: var(--color-lighter);
+  color: var(--color-section-title-text);
+  border-bottom: 1px solid var(--color-section-title-border);
+}
+
+/* The class icon before a block title. No size here : iconSize22 declares it. */
+.prospectionViewGroupIcon {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+/* The colour the application already reserves for a table header, so this one
+   is recognised as the same kind of thing. Aligned like the values beneath : a
+   plain column left, unless a modifier below says otherwise. */
+.prospectionViewHeadCell {
+  text-align: left;
+  padding: 2px 8px;
+  background-color: var(--color-table-header);
+  color: var(--color-text);
+  font-weight: 600;
+  border-right: 1px solid var(--color-detail-header-border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A pill column centres its values ; its header follows. */
+.prospectionViewHeadCellCenter {
+  text-align: center;
+}
+
+/* An amount column right-aligns its values, digits lining up on their ones
+   place ; its header follows. */
+.prospectionViewHeadCellRight {
+  text-align: right;
+}
+
+/* Fixed widths, otherwise each table would size its own columns and the header
+   band would stop lining up with the lines below it. */
+.prospectionViewTable {
+  table-layout: fixed;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+/* Three rows are visible in every block, the rest is reached by scrolling. Child
+   combinators throughout : a status pill or any nested markup must not inherit
+   these rules. A slim thumb, since the scrollbar sits inside a 66px strip and a
+   system-width one would eat a sixth of it. */
+.prospectionViewBlock > .prospectionViewTable > tbody {
+  display: block;
+  max-height: 66px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-light) transparent;
+}
+
+.prospectionViewBlock > .prospectionViewTable > tbody::-webkit-scrollbar {
+  width: 6px;
+}
+
+.prospectionViewBlock > .prospectionViewTable > tbody::-webkit-scrollbar-thumb {
+  background-color: var(--color-light);
+  border-radius: 3px;
+}
+
+.prospectionViewBlock > .prospectionViewTable > tbody::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* A block that carries a total shows two lines : the total is the third row, so
+   every block ends up the same height. */
+.prospectionViewBlock > .prospectionViewTableScrolled > tbody {
+  max-height: 44px;
+}
+
+/* The total is a table of its own, below the scrolling one, so it never scrolls
+   away and needs no sticky positioning. */
+.prospectionViewBlock > .prospectionViewFooterTable > tbody {
+  display: block;
+  max-height: none;
+  overflow: visible;
+}
+
+.prospectionViewTable > tbody > tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+/* border-box keeps the declared height exact : without it the padding is added and
+   three lines no longer fit the 66px the block allows. */
+.prospectionViewTable > tbody > tr > .prospectionViewCell,
+.prospectionViewHeadCell {
+  box-sizing: border-box;
+  height: 22px;
+}
+
+.prospectionViewCell {
+  padding: 2px 8px;
+  border-right: 1px solid var(--color-detail-header-border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The company name carries the line ; the contact beside it is who to ask for,
+   not what to remember first. */
+.prospectionViewCell-company {
+  font-weight: 700;
+}
+
+.prospectionViewCell-contact {
+  color: var(--color-text);
+}
+
+/* An amount reads right to left, its ones place under the next row's. */
+.prospectionViewCellAmount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The fold and unfold buttons are the ones the planning uses : ganttExpandOpened
+   and ganttExpandClosed already carry the icon of the current theme. Only the
+   box needs declaring. */
+.prospectionViewToggle {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+/* The theme draws these icons at 12px. Three classes are needed to outweigh it :
+   projeqtorIcons arrives through an import of projeqtor.css, which loads after
+   this sheet, so equal specificity would lose. */
+.prospectionView .prospectionViewToggle.ganttExpandOpened,
+.prospectionView .prospectionViewToggle.ganttExpandClosed {
+  background-size: 16px 16px;
+}
+
+/* The fold button sits at the right of the block title it closes. */
+.prospectionViewFold {
+  float: right;
+  margin-right: 4px;
+  /* A float sits at the top of its 22px line : bring the 16px button to the middle. */
+  margin-top: 2px;
+}
+
+/* A folded block leaves nothing behind : no width, no border, no background.
+   Only this marker, which anchors the reopening button on the seam. */
+.prospectionViewBlockFolded {
+  position: relative;
+  width: 0;
+  border-right: none;
+  overflow: visible;
+}
+
+/* Out of the flow, straddling the seam : in the flow it would widen the gap and
+   push every block to its right. Three classes again : the theme sets these
+   icons to position relative, and it is loaded after this sheet.
+   The horizontal offset is written on each button : blocks folded next to one
+   another share a seam, and only the render knows how many. */
+.prospectionView .prospectionViewUnfold {
+  position: absolute;
+  top: -23px;
+  z-index: 4;
+  /* 22px, asked for at the acceptance of 2026-09-08, where the folding button stays
+     at 16. iconSize22 says the same thing but carries no !important, so it would
+     lose to the 16px of prospectionViewToggle if the sheets ever swapped order.
+     Written here, on two classes, the outcome does not depend on that order. */
+  width: 22px;
+  height: 22px;
+  background-size: 22px 22px;
+  background-repeat: no-repeat;
+}
+
+/* The company block : the two names that identify the line. It stays put on a
+   horizontal scroll, so a line never loses its name. The background must be
+   opaque, or the blocks passing behind would show through the padding. A faint
+   shadow marks the edge other blocks pass under, whether or not the screen has
+   been scrolled yet : with this many columns, it always will be. */
+.prospectionViewBlockCompany {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background-color: var(--color-background);
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.07);
+}
+
+/* The header of that block is pinned on both axes : top by the band it belongs
+   to, left by the block itself. It must pass over the lines, which are pinned
+   on one axis only. */
+.prospectionViewHeadBlock.prospectionViewBlockCompany {
+  z-index: 3;
+}
+
+/* A pill fills its cell edge to edge. */
+.prospectionViewCellPill {
+  padding: 0;
+}
+
+/* Inset from the cell it fills, so a status reads as a small label rather than
+   a stripe : 3px above, 3px below and the 16px left for the text add back to
+   the cell's 22px, so nothing is clipped. */
+.prospectionViewPill {
+  height: 16px;
+  line-height: 16px;
+  margin: 3px 4px;
+  border-radius: 3px;
+  font-weight: 400;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prospectionViewRow {
+  cursor: pointer;
+}
+
+.prospectionViewRow:hover {
+  outline: 1px solid var(--color-reference);
+  outline-offset: -1px;
+}
+
+/* Background of a line, by the kind of record it describes. */
+.prospectionViewRowProspect { background-color: #FAE2D1; }
+.prospectionViewRowClient   { background-color: #E6F5E6; }
+.prospectionViewRowContact  { background-color: #E6F0FA; }
+
+/* The total stays visible whatever the number of lines : it sits outside the
+   scrolling body, so it needs no sticky positioning. */
+.prospectionViewFooter {
+  background-color: var(--color-lighter);
+  color: var(--color-section-title-text);
+  font-weight: bold;
+}
+
+/* The one rule drawn in the reference colour on this screen : the total is the
+   single line every block always ends on, worth marking as such. */
+.prospectionViewFooterTable {
+  border-top: 2px solid var(--color-reference);
+}
+
+.prospectionViewTotalLabel {
+  text-align: center;
+}
+
+.prospectionViewTotal {
+  text-align: right;
+}

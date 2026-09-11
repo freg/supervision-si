@@ -1,0 +1,929 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Tickets &#8212; Documentation ProjeQtOr User guide 13.1</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/translations.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Recherche" href="search.html" />
+    <link rel="next" title="Définitions des rôles" href="Resource.html" />
+    <link rel="prev" title="Gestion des risques et problèmes" href="RiskIssueManagement.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="Resource.html" title="Définitions des rôles"
+             accesskey="N">suivant</a> |</li>
+        <li class="right" >
+          <a href="RiskIssueManagement.html" title="Gestion des risques et problèmes"
+             accesskey="P">précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Tickets</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="ticketing">
+<span id="simple-ticket"></span><span id="ticket"></span><span id="index-0"></span><h1>Gestion des Tickets<a class="headerlink" href="#ticketing" title="Lien permanent vers cette rubrique">¶</a></h1>
+<section id="id1">
+<h2>Ticket<a class="headerlink" href="#id1" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Un Ticket est un type de tâche qui ne peut pas être planifié de manière unitaire.</p>
+<p>Il s’agit généralement d’une Activité de courte durée pour un seul Ticket qui fournit un retour à l’émetteur ou permet de suivre le résultat.</p>
+<figure class="align-default" id="id5">
+<img alt="Écran de gestion des Tickets" src="_images/TICKET_SCR_Presentation.png" />
+<figcaption>
+<p><span class="caption-text">Écran de gestion des Tickets</span><a class="headerlink" href="#id5" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Il peut être planifié globalement comme une Activité générale, mais pas de manière unitaire.</p>
+<p>Par exemple, les bogues doivent être gérés via des Tickets :</p>
+<ul class="simple">
+<li><p>Vous ne pouvez pas planifier des bogues avant qu’ils soient enregistrés.</p></li>
+<li><p>Vous devez être en mesure de donner un retour sur chaque bogue.</p></li>
+<li><p>Vous pouvez planifier globalement l’Activité de correction de bogues.</p></li>
+</ul>
+<aside class="topic" id="index-1">
+<p class="topic-title">Tickets (simple)</p>
+<ul class="simple">
+<li><p>Cet écran est une version simplifiée de l’écran « Tickets ».</p></li>
+<li><p>Il est dédié aux utilisateurs qui souhaitent créer et suivre leurs propres Tickets sans être impliqués dans leur traitement.</p></li>
+<li><p>Lorsque les champs et fonctionnalités sont disponibles, la description est similaire.</p></li>
+</ul>
+</aside>
+<div class="admonition tip">
+<p class="admonition-title">Astuce</p>
+<p>Possibilité de définir que seul le responsable du Ticket peut saisir le travail réel.</p>
+<p>Ce comportement peut être défini dans l’écran <a class="reference internal" href="GlobalParameters.html#auto-responsible"><span class="std std-ref">Paramètres globaux</span></a>.</p>
+</div>
+<p class="rubric">Dates</p>
+<p><strong>Dates d’échéance</strong></p>
+<ul class="simple">
+<li><p>La date d’échéance initiale et planifiée permet de définir une date cible pour la résolution du Ticket.</p></li>
+<li><p>Si une définition de délai pour un Ticket existe, la date planifiée initiale est automatiquement calculée avec ce délai.</p></li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p>L’écran <a class="reference internal" href="ControlAutomation.html#delay-for-ticket"><span class="std std-ref">Délais pour les tickets</span></a> permet de définir le délai du Ticket.</p>
+</div>
+<p><strong>Date d’échéance planifiée</strong></p>
+<ul class="simple">
+<li><p>Sert à définir une date cible après évaluation.</p></li>
+<li><p>Initialisée automatiquement à la date d’échéance initiale.</p></li>
+</ul>
+<p><strong>Indicateur de suivi</strong></p>
+<ul class="simple">
+<li><p>Possibilité de définir des indicateurs pour suivre le respect des valeurs de dates.</p></li>
+</ul>
+<p class="rubric">Champs Produit, composant et versions</p>
+<p>Permet d’identifier le produit et le composant liés au problème.</p>
+<p>Identifie à partir de quelles versions le problème survient et à quelles versions une résolution sera appliquée.</p>
+<p><strong>Versions identifiées</strong></p>
+<ul class="simple">
+<li><p>Un Ticket peut identifier toutes les versions affectées.</p></li>
+<li><p>Possibilité de définir une version principale et les autres versions affectées.</p></li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="Concept.html#product-concept"><span class="std std-ref">Concept produit</span></a>.</p>
+</div>
+<p class="rubric">Responsable du produit</p>
+<p>Un responsable peut être défini pour un produit ou un composant.</p>
+<p>Si un produit ou un composant est sélectionné, le responsable défini peut être automatiquement assigné au Ticket.</p>
+<div class="admonition tip">
+<p class="admonition-title">Astuce</p>
+<p>Le responsable du Ticket issu du responsable du produit, dans les <a class="reference internal" href="GlobalParameters.html#globalparam-tickets"><span class="std std-ref">Paramètres globaux</span></a>, permet de définir si le responsable défini est automatiquement assigné au Ticket.</p>
+</div>
+<p class="rubric">Version produit d’origine &amp; Version composant d’origine</p>
+<ul class="simple">
+<li><p>La liste de valeurs sera filtrée en fonction de la valeur sélectionnée dans les champs « Produit et composant ».</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter une autre version, voir <a class="reference internal" href="#multi-version-selection"><span class="std std-ref">Sélection multi-versions</span></a>.</p></li>
+</ul>
+<p class="rubric">Section Traitement</p>
+<table class="docutils align-default" id="id6">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id6" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Activité de planification</p></td>
+<td><p>Activité dans laquelle le travail global pour ce type de Ticket est planifié.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Statut</p></td>
+<td><p><a class="reference internal" href="Glossary.html#term-Status"><span class="xref std std-term">Statut</span></a> actuel du Ticket.</p></td>
+</tr>
+<tr class="row-even"><td><p>Résolution</p></td>
+<td><p>Résolution du Ticket.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Régression</p></td>
+<td><p>La notion de régression peut être ajoutée.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Responsible"><span class="xref std std-term">Responsable</span></a></p></td>
+<td><p>Ressource responsable du Ticket.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Criticité</p></td>
+<td><p>Importance de l’impact sur le système, telle que déterminée après analyse.</p></td>
+</tr>
+<tr class="row-even"><td><p>Priorité</p></td>
+<td><p>Priorité de traitement.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Date d’échéance initiale</p></td>
+<td><p>Date cible initiale pour la résolution du Ticket.</p></td>
+</tr>
+<tr class="row-even"><td><p>Date d’échéance planifiée</p></td>
+<td><p>Date cible actuelle pour la résolution du Ticket.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Travail estimé</p></td>
+<td><p>Charge de travail estimée nécessaire pour traiter le Ticket.</p></td>
+</tr>
+<tr class="row-even"><td><p>Travail réel</p></td>
+<td><p>Charge de travail réelle dépensée pour traiter le Ticket.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Travail restant</p></td>
+<td><p>Charge de travail restante nécessaire pour terminer le Ticket. Calculée automatiquement comme Estimé – Réel. Mise à zéro lorsque le Ticket est terminé</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-In-Progress"><span class="xref std std-term">En cours</span></a></p></td>
+<td><p>Case cochée indique que le Ticket est pris en charge.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="Glossary.html#term-Done"><span class="xref std std-term">Terminé</span></a></p></td>
+<td><p>Case cochée indique que le Ticket a été traité.</p></td>
+</tr>
+<tr class="row-even"><td><p>Résolu</p></td>
+<td><p>Case cochée indique que le Ticket a été résolu.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le Ticket est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Résolu</p></td>
+<td><p>La case est automatiquement cochée ou décochée, selon la résolution sélectionnée</p></td>
+</tr>
+<tr class="row-odd"><td><p>Annulé</p></td>
+<td><p>Case cochée indique que le Ticket est annulé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Version produit cible</p></td>
+<td><p>Versions du produit pour lesquelles une résolution du problème sera fournie.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Version composant cible</p></td>
+<td><p>Versions du composant pour lesquelles une résolution du problème sera fournie.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Result"><span class="xref std std-term">Résultat</span></a></p></td>
+<td><p>Description complète de la résolution du Ticket.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>La <strong>Priorité</strong> est automatiquement calculée à partir des valeurs d’Urgence et de Criticité. Elle peut être modifiée manuellement</p>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="#priority-value-calculation"><span class="std std-ref">Calcul de la valeur de priorité</span></a>.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Version produit cible &amp; Version composant cible</strong></p>
+<ul class="simple">
+<li><p>La liste de valeurs sera filtrée en fonction de la valeur sélectionnée dans les champs « Produit et composant ».</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter une autre version, voir <a class="reference internal" href="#multi-version-selection"><span class="std std-ref">Sélection multi-versions</span></a>.</p></li>
+</ul>
+</div>
+<p class="rubric">Bouton <strong>Démarrer/Arrêter le travail</strong></p>
+<figure class="align-default">
+<img alt="Bouton démarrer le travail" src="_images/TICKET_ZONE_StartWork.png" />
+</figure>
+<ul class="simple">
+<li><p>Le bouton Démarrer le travail / Arrêter le travail est un minuteur marche/arrêt.</p></li>
+<li><p>Si l’utilisateur connecté est une Ressource, il ou elle a la possibilité de commencer à travailler sur le Ticket.</p></li>
+<li><p>Cliquez sur le bouton « Démarrer le travail » pour commencer à chronométrer le temps de traitement du Ticket.</p></li>
+<li><p>L’heure de début est alors affichée sous le bouton et le bouton change de nom.</p></li>
+</ul>
+<figure class="align-default">
+<img alt="Bouton démarrer le travail" src="_images/TICKET_ZONE_Button_StartWork.png" />
+</figure>
+<ul class="simple">
+<li><p>Une fois le travail terminé, appuyez sur le bouton « Arrêter le travail ».</p></li>
+<li><p>Le temps passé sera automatiquement converti en travail réel.</p></li>
+<li><p>Il sera transféré sur l’Activité de planification si elle est définie.</p></li>
+<li><p>Une diminution du « travail restant » sur l’Activité sera effectuée.</p></li>
+<li><p>Si le Ticket passe à l’état en pause, le travail démarré avec le bouton de démarrage sera arrêté.</p></li>
+</ul>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>La fermeture de l’application ou le démarrage d’un travail sur un autre Ticket arrêtera automatiquement le travail en cours.</p>
+</div>
+<p class="rubric">Bouton Répartir</p>
+<p>Ce bouton permet de répartir le Ticket.</p>
+<figure class="align-center">
+<img alt="Boîte de dialogue - Répartir le travail" src="_images/TICKET_BOX_DispatchWork.png" />
+</figure>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter une ligne.</p></li>
+</ul>
+<p class="rubric">Bouton Afficher les périodes</p>
+<p>Vous pouvez calculer le temps passé entre le début du traitement, qui correspond à la réception du Ticket et la fin du traitement d’un Ticket, c’est-à-dire lorsqu’il passe à l’état terminé, avec la possibilité de soustraire les périodes d’attente grâce à la macro d’état « en pause ».</p>
+<p>Les passages d’un macro-état actif à un macro-état non actif (en pause ou terminé) sont enregistrés grâce aux dates de début et de fin de chaque période. Ce tableau est mis à jour automatiquement avec le calcul de la durée en heures ouvrées et la durée en heures calendaires lorsque la date de fin de la période est saisie.</p>
+<figure class="align-center" id="id7">
+<img alt="Boîte de dialogue - Période de statut" src="_images/TICKET_BOX_StatusPeriod.png" />
+<figcaption>
+<p><span class="caption-text">Période de statut</span><a class="headerlink" href="#id7" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<section id="planning-activity">
+<span id="ticket-planning-activity"></span><span id="index-2"></span><h3>Activité de planification<a class="headerlink" href="#planning-activity" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le champ Activité de planification permet de lier le Ticket à une Activité de planification.</p>
+<p>Si le paramètre global <a class="reference internal" href="GlobalParameters.html#globalparam-tickets"><span class="std std-ref">limiter l’Activité de planification à celles avec indicateur</span></a> est défini sur oui, alors :</p>
+<ul class="simple">
+<li><p>Vous devez cocher la case « Activité de planification » sur l’Activité à lier.</p></li>
+<li><p>Elle sera alors visible dans la liste des Activités de planification de votre Ticket.</p></li>
+<li><p>Le travail sur le Ticket sera inclus dans cette Activité.</p></li>
+<li><p>Après l’enregistrement de l’option, de nouveaux champs sont affichés.</p></li>
+<li><p>Vous pouvez voir le nombre de Tickets liés à cette Activité et les informations de temps correspondant à tous ces Tickets.</p></li>
+</ul>
+<figure class="align-default" id="id8">
+<img alt="Nouveaux champs de l'Activité de planification" src="_images/TICKET_ZONE_SteeringActivityPlanningOK.png" />
+<figcaption>
+<p><span class="caption-text">Nouveaux champs affichés après l’enregistrement de l’option Activité de planification</span><a class="headerlink" href="#id8" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconSearch.png"><img alt="Icône bouton recherche" src="_images/iconSearch.png" style="width: 19.2px; height: 19.2px;" /></a> pour ouvrir une fenêtre contextuelle qui affichera le détail de ces Tickets.</p></li>
+</ul>
+<figure class="align-default" id="id9">
+<img alt="Liste des Tickets liés à l'Activité" src="_images/TICKET_BOX_ActivityPlanningLISTTICKETS.png" />
+<figcaption>
+<p><span class="caption-text">Liste des Tickets liés à l’Activité</span><a class="headerlink" href="#id9" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Travail réel</p>
+<p>Reporter le travail réel des Tickets vers les Imputations de la Ressource.</p>
+<ul class="simple">
+<li><p>Lorsqu’une Ressource a saisi le travail réel sur le Ticket et que le Ticket est lié à une Activité de planification.</p></li>
+<li><p>La Ressource est automatiquement assignée à cette Activité.</p></li>
+<li><p>Le travail réel saisi sur les Tickets est automatiquement reporté dans les Imputations de la Ressource.</p></li>
+</ul>
+<figure class="align-default" id="id10">
+<img alt="Imputations" src="_images/TICKET_ZONE_Timesheet.png" />
+<figcaption>
+<p><span class="caption-text">Imputations du travail réel sur les Tickets associés.</span><a class="headerlink" href="#id10" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Les Tickets sont très dépendants de l’Activité de planification.</p></li>
+<li><p>Une affectation et une charge doivent être correctement saisies sur l’activité de planification pour que l’affichage des tickets dans les imputations soit cohérent.</p></li>
+<li><p>Le temps indiqué par les Ressources sera décrémenté de celui planifié pour l’Activité.</p></li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="RealWorkAllocation.html#chargeticket"><span class="std std-ref">Comportement sur le ticket</span></a></p>
+</div>
+</section>
+<section id="multi-version-selection">
+<span id="id2"></span><h3>Sélection multi-versions<a class="headerlink" href="#multi-version-selection" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Dans les champs de version, il est possible de définir plusieurs versions.</p>
+<aside class="topic">
+<p class="topic-title">Version principale et autres versions</p>
+<ul class="simple">
+<li><p>La version avec l’identifiant le plus petit apparaîtra dans la liste de sélection et est considérée comme la version principale.</p></li>
+<li><p>Les autres versions sont listées au-dessus.</p></li>
+<li><p>Il est possible de définir une version “autre” comme version principale en utilisant le bouton <a class="reference internal" href="_images/iconSwitch.png"><img alt="Bouton petit commutateur" src="_images/iconSwitch.png" style="width: 19.2px; height: 19.2px;" /></a>.</p></li>
+</ul>
+</aside>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter une autre version.</p></li>
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconDelete.png"><img alt="Supprimer" src="_images/iconDelete.png" style="width: 19.2px; height: 19.2px;" /></a> pour supprimer une version.</p></li>
+</ul>
+</section>
+<section id="priority-value-calculation">
+<span id="id3"></span><h3>Calcul de la valeur de priorité<a class="headerlink" href="#priority-value-calculation" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>La valeur de priorité est automatiquement calculée à partir des valeurs d”<strong>Urgence</strong> et de <strong>Criticité</strong>.</p>
+<p>Les valeurs de Priorité, d’Urgence et de Criticité sont définies dans les écrans des listes de valeurs. Voir : écrans <a class="reference internal" href="ListsOfValues.html#priority"><span class="std std-ref">Priorités</span></a>, <a class="reference internal" href="ListsOfValues.html#urgency"><span class="std std-ref">Urgences</span></a> et <a class="reference internal" href="ListsOfValues.html#criticality"><span class="std std-ref">Criticités</span></a>.</p>
+<p>Dans les écrans précédents, un nom de valeur est défini avec une valeur numérique.</p>
+<p>La valeur numérique de la priorité est déterminée par une équation simple comme suit :</p>
+<aside class="topic">
+<p class="topic-title">Équation</p>
+<ul class="simple">
+<li><p>[Valeur de priorité] = [Valeur d’urgence] X [Valeur de criticité] / 2</p></li>
+<li><p>Par exemple :</p>
+<ul>
+<li><p>Bloquant (4) X Critique (8) / 2 = Priorité critique (16) pour [Valeur de priorité]</p></li>
+</ul>
+</li>
+</ul>
+</aside>
+<p class="rubric">Valeurs par défaut</p>
+<ul class="simple">
+<li><p>Les valeurs par défaut sont déterminées.</p></li>
+<li><p>Vous pouvez modifier ces valeurs tout en respectant l’équation définie ci-dessus.</p></li>
+</ul>
+</section>
+</section>
+<section id="mailbox-for-tickets">
+<span id="ticket-fromemail"></span><span id="index-3"></span><h2>Boîte mail pour les Tickets<a class="headerlink" href="#mailbox-for-tickets" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>ProjeQtOr propose d’enregistrer les Tickets depuis les e-mails directement dans l’application.</p>
+<figure class="align-default" id="id11">
+<img alt="Recevoir des e-mails depuis l'écran des Tickets" src="_images/TICKET_SCR_EmailTicket.png" />
+<figcaption>
+<p><span class="caption-text">Recevoir des e-mails depuis l’écran des Tickets</span><a class="headerlink" href="#id11" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Vous pouvez créer de nouvelles boîtes mail pour les Tickets sur les projets et pour chaque type de Ticket configuré dans ProjeQtOr.</p>
+<section id="configuration">
+<h3>Configuration<a class="headerlink" href="#configuration" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p class="rubric">Hôte IMAP</p>
+<p>Vous choisissez le mode de connexion entre une connexion simple ou une connexion sécurisée avec oAuth2.</p>
+<p>L’adresse doit être une chaîne de connexion IMAP.</p>
+<p><strong>Exemple pour se connecter à la boîte de réception GMAIL, l’hôte doit être</strong></p>
+<blockquote>
+<div><p>{imap.gmail.com:143}INBOX</p>
+<p>Aucun protocole n’est requis</p>
+</div></blockquote>
+<div class="admonition tip">
+<p class="admonition-title">Astuce</p>
+<p>Si les certificats sont auto-signés, vous pouvez tester l’ajout de novalidate-cert dans votre adresse</p>
+<p>{imap.gmail.com:143/novalidate-cert}INBOX</p>
+</div>
+<p class="rubric">Contraintes de sécurité</p>
+<ul>
+<li><p><strong>E-mails de toute source (peut entraîner du spam)</strong></p>
+<blockquote>
+<div><p>Vous permet de recevoir des e-mails de n’importe qui et peut donc entraîner du spam</p>
+</div></blockquote>
+</li>
+<li><p><strong>Uniquement les e-mails d’utilisateurs connus</strong></p>
+<blockquote>
+<div><p>Ne peut recevoir que les e-mails enregistrés dans votre application ProjeQtOr</p>
+</div></blockquote>
+</li>
+<li><p><strong>Uniquement les e-mails d’utilisateurs connus affectés au projet</strong></p>
+<blockquote>
+<div><p>Vous permet uniquement de recevoir les e-mails enregistrés dans votre application ProjeQtOr et qui sont assignés au projet sélectionné dans les paramètres de votre boîte mail</p>
+</div></blockquote>
+</li>
+</ul>
+<p class="rubric">E-mails traités</p>
+<ul>
+<li><p><strong>Marquer l’e-mail comme lu</strong></p>
+<blockquote>
+<div><p>Tous les e-mails authentifiés et conformes aux contraintes définies sont acceptés et marqués comme lus.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Supprimer l’e-mail de la boîte IMAP</strong></p>
+<blockquote>
+<div><p>Tous les e-mails qui ne sont pas correctement authentifiés et qui ne répondent pas aux contraintes définies sont définitivement supprimés de la boîte IMAP.</p>
+</div></blockquote>
+</li>
+</ul>
+<p class="rubric">E-mails rejetés</p>
+<ul>
+<li><p><strong>Ne pas modifier l’e-mail</strong></p>
+<blockquote>
+<div><p>Un e-mail est rejeté lorsqu’il ne répond pas aux critères de configuration de votre boîte mail. Ne pas modifier l’e-mail est une option qui ne déclenchera ni suppression ni marquage.</p>
+<p>L’e-mail rejeté reste non lu.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Marquer l’e-mail comme lu</strong></p>
+<blockquote>
+<div><p>L’e-mail rejeté est marqué comme lu.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Supprimer l’e-mail de la boîte IMAP</strong></p>
+<blockquote>
+<div><p>L’e-mail rejeté est définitivement supprimé de la boîte IMAP.</p>
+</div></blockquote>
+</li>
+</ul>
+<p class="rubric">Autres contraintes</p>
+<ul>
+<li><p><strong>Inclure les pièces jointes</strong></p>
+<blockquote>
+<div><p>Indique si vous autorisez ou non vos utilisateurs à joindre des pièces jointes.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Destinataires à suivre</strong></p>
+<blockquote>
+<div><p>Inclure systématiquement l’expéditeur et les destinataires de l’e-mail dans le suivi du Ticket créé ou de la note ajoutée par cet e-mail.</p>
+<p>Cela inclut les destinataires principaux (sauf celui correspondant à la boîte de réception) et les destinataires en copie.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Pseudo-utilisateurs</strong></p>
+<blockquote>
+<div><p>Autoriser l’envoi depuis des utilisateurs inconnus et conserver une trace des e-mails de l’expéditeur et les copier.</p>
+<p>Entraîne la création d’utilisateurs fictifs.</p>
+</div></blockquote>
+</li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Avertissement</p>
+<p>Il n’y a pas de limite de taille dans ProjeQtOr, mais probablement sur votre serveur de messagerie.</p>
+<p>La plupart du temps, les e-mails sont bloqués au-delà de 5 à 10 Mo</p>
+</div>
+<ul>
+<li><p><strong>Ordre de tri</strong></p>
+<blockquote>
+<div><p>En cas de plusieurs boîtes mail sur un seul projet, l’ordre de traitement des boîtes est important car c’est toujours en ordre croissant que les boîtes mail gèrent les Tickets entrants.</p>
+</div></blockquote>
+</li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="#management-emailsboxes"><span class="std std-ref">Gestion de plusieurs boîtes mail</span></a></p>
+<p><a class="reference internal" href="#replymail"><span class="std std-ref">Réponses par e-mail</span></a></p>
+</div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p><strong>CRON</strong></p>
+<p>Le Cron doit être lancé pour que les Tickets soient traités dans ProjeQtOr. Si vous ne recevez pas de Ticket, essayez d’arrêter le cron afin qu’il puisse redémarrer avec un rafraîchissement du code.</p>
+</div>
+<p class="rubric">Limite de Tickets / heure</p>
+<ul>
+<li><p>Cette limite vous permet de restreindre la réception des e-mails par heure.</p>
+<blockquote>
+<div><p>Si le nombre de Tickets reçus est bien supérieur à votre limitation, la probabilité de spam est à considérer ou vous avez mal évalué le nombre de Tickets à traiter.</p>
+</div></blockquote>
+</li>
+<li><p>Lorsque le nombre maximum de Tickets est atteint, la boîte mail se bloque</p>
+<blockquote>
+<div><p>Seule une intervention manuelle de l’administrateur peut la débloquer</p>
+<p>Son rôle consistera à réévaluer le nombre de Tickets pour permettre leur réception</p>
+</div></blockquote>
+</li>
+</ul>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<ul class="simple">
+<li><p>Si le nombre maximum de Tickets par heure a été atteint, vous avez un message de rejet sur la ligne d’historique <strong>Ticket rejeté : limite de Tickets par heure</strong></p></li>
+</ul>
+</div>
+<p class="rubric">Note sur un ticket, changement de statut vers… avec condition</p>
+<p>Vous pouvez configurer le changement de statut d’un Ticket entrant lorsqu’une note lui est ajoutée.</p>
+<p>Par exemple, si j’ajoute une note à un Ticket dans cette boîte mail, le Ticket passera au statut <strong>accepté</strong>.</p>
+<p>Si la condition <strong>si le ticket est clos</strong> est remplie, le Ticket sera automatiquement rouvert en plus du changement de statut.</p>
+<img alt="_images/TICKET_ZONE_StatusCondition.png" src="_images/TICKET_ZONE_StatusCondition.png" />
+<p class="rubric">Historique des Tickets créés</p>
+<p>Vous pouvez choisir le nombre de Tickets à afficher dans l’historique en renseignant le champ « historique à afficher »</p>
+</section>
+<section id="replies-from-email">
+<span id="replymail"></span><h3>Réponses par e-mail<a class="headerlink" href="#replies-from-email" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>L’utilisation de la boîte mail pour les nouveaux Tickets est identique pour les réponses.</p>
+<p>La référence de l’élément depuis lequel l’e-mail est envoyé est ajoutée dans l’objet de l’e-mail.</p>
+<p>Dans la procédure de détermination de l’origine d’un e-mail entrant, ProjeQtOr recherche la référence dans l’objet de l’e-mail.</p>
+<ul>
+<li><p><strong>Si elle n’est pas trouvée</strong></p>
+<blockquote>
+<div><p>ProjeQtOr le considère comme une nouvelle demande à intégrer comme nouveau Ticket.</p>
+</div></blockquote>
+</li>
+<li><p><strong>Si la référence est trouvée dans l’objet de l’e-mail entrant</strong></p>
+<blockquote>
+<div><p>Lors de la réception d’une réponse à un e-mail envoyé par ProjeQtOr, la réponse est insérée sur l’élément sous forme de note avec une option pour inclure les pièces jointes dans les fichiers attachés.</p>
+</div></blockquote>
+</li>
+</ul>
+</section>
+<section id="oauth2-pour-imap">
+<span id="oauth2imap"></span><h3>oAuth2 pour IMAP<a class="headerlink" href="#oauth2-pour-imap" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>L’objectif est de permettre la connexion aux boîtes IMAP via l’authentification oAuth2, pour la « Boîte mail d’entrée pour les Tickets ». Cela permet la connexion aux boîtes Office 365.</p>
+<p>Avec oAuth2, le protocole permet l’acquisition des identifiants client comme méthode de connexion.</p>
+<p>Cette méthode ne nécessite aucune interaction humaine. Lors de la déclaration du client, il sera nécessaire de définir correctement qu’il dispose de tous les droits nécessaires pour traiter les messages des boîtes IMAP utilisées, tels que :</p>
+<ul class="simple">
+<li><p>Lister les messages non lus,</p></li>
+<li><p>Marquer les messages comme lus,</p></li>
+<li><p>Supprimer les messages.</p></li>
+</ul>
+<p class="rubric">Gestion des e-mails traités</p>
+<p>Dans les <a class="reference internal" href="GlobalParameters.html#gp-automatic-import-replies"><span class="std std-ref">paramètres globaux</span></a>, vous pouvez déterminer, à la réception de l’e-mail, si vous souhaitez le marquer comme lu ou le supprimer.</p>
+<p class="rubric" id="management-emailsboxes">Réception de Tickets multi-projets</p>
+<p>Vous pourrez recevoir tous les Tickets de différents clients sur une seule boîte IMAP.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Vous définissez plusieurs configurations sur la même boîte IMAP avec des contraintes sur l’existence de l’expéditeur et son affectation au projet concerné.</p></li>
+<li><p>Vous définissez une configuration sur la boîte IMAP qui n’a aucune contrainte ou seulement une contrainte sur l’existence de l’expéditeur</p></li>
+<li><p>Vous définissez l’ordre dans lequel les configurations sont traitées pour vous assurer que la configuration la plus permissive est traitée en dernier.</p></li>
+</ul>
+</div></blockquote>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Attention, vous devrez veiller à disposer d’une configuration « finale » qui marquera comme lus ou supprimera les e-mails qui ne sont pas correctement traités. Sinon, la boîte IMAP accumulera un nombre croissant d’e-mails qui seront retraités (et rejetés) par toutes les configurations à chaque cycle séquencé de lecture des boîtes IMAP. Cela ne sera pas contrôlé par le système.</p>
+</div>
+</section>
+<section id="tickets-dashboard">
+<span id="ticket-dashboard"></span><span id="index-4"></span><h3>Tableau de bord des Tickets<a class="headerlink" href="#tickets-dashboard" title="Lien permanent vers cette rubrique">¶</a></h3>
+<figure class="align-default">
+<img alt="Écran du tableau de bord des Tickets" src="_images/TICKET_SCR_Dashboard.png" />
+</figure>
+<p>Permet à l’utilisateur d’avoir une vue globale des Tickets de ses projets.</p>
+<p>Affiche plusieurs petites synthèses qui regroupent les Tickets par catégorie : type, priorité ou par produit, composant ou par état.</p>
+<p>Le nombre de Tickets est listé. Le résultat est affiché avec des chiffres et en pourcentage.</p>
+<p>Des filtres sont disponibles pour limiter la portée.</p>
+<p class="rubric">Accès direct à la liste des Tickets</p>
+<ul class="simple">
+<li><p>Dans les différentes synthèses, cliquez sur un élément pour obtenir la liste des Tickets correspondant à cet élément.</p></li>
+<li><p>Vous revenez à l’écran des Tickets</p></li>
+</ul>
+<p class="rubric">Paramètres</p>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconParameter.png"><img alt="Paramètre" src="_images/iconParameter.png" style="width: 19.05px; height: 19.2px;" /></a> pour accéder aux paramètres.</p></li>
+<li><p>Permet de définir les Rapports affichés à l’écran.</p></li>
+<li><p>Utilisez <a class="reference internal" href="_images/iconDrag.png"><img alt="Glisser" src="_images/iconDrag.png" style="width: 19.2px; height: 19.2px;" /></a> pour réorganiser les Rapports affichés.</p></li>
+<li><p>Pour la synthèse par statut, les clauses de filtre ne sont pas applicables.</p></li>
+</ul>
+<figure class="align-center">
+<img alt="Boîte de dialogue - Paramètres du tableau de bord des Tickets" src="_images/TICKET_BOX_Parameters.png" />
+</figure>
+<p class="rubric">Filtres</p>
+<figure class="align-default" id="id12">
+<img alt="Filtres" src="_images/TICKET_ZONE_ScopeFilters.png" />
+<figcaption>
+<p><span class="caption-text">Filtres</span><a class="headerlink" href="#id12" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Les filtres vous permettent de restreindre l’affichage des Exigences sauvegardées</p>
+<p class="rubric">Filtres de portée</p>
+<p>Par statut, période, durée, élément clos, lié à l’utilisateur ou sans relation…</p>
+<p class="rubric">Aucune résolution planifiée</p>
+<p>Non planifié : Exigences dont la résolution n’est pas planifiée dans une prochaine version du produit (version produit cible non définie).</p>
+</section>
+</section>
+<section id="management-of-tokens-on-ticket">
+<span id="ticket-token"></span><h2>Gestion des Tokens sur les Tickets<a class="headerlink" href="#management-of-tokens-on-ticket" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Vous pouvez définir et intégrer des Tokens sur les Tickets que vous pouvez suivre sur vos contrats clients.</p>
+<p>L’utilisation de cette fonctionnalité est configurable et doit être activée dans la <a class="reference internal" href="AccessRights.html#module-management"><span class="std std-ref">gestion des modules</span></a> pour y avoir accès.</p>
+<p>Un nouvel écran pour la définition des Tokens sera accessible via le menu revenus de la partie financière.</p>
+<section id="token-definition">
+<h3>Définition des Tokens<a class="headerlink" href="#token-definition" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>L’objectif est de définir tous les types de Tokens susceptibles d’être commandés par votre client.</p>
+<figure class="align-default" id="id13">
+<img alt="Écran de définition des Tokens" src="_images/FINANCIAL_SCR_WorkTokenDefinition.png" />
+<figcaption>
+<p><span class="caption-text">Écran de définition des Tokens</span><a class="headerlink" href="#id13" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Vous définissez des valeurs pour un Token.</p>
+<blockquote>
+<div><p class="rubric">Durée</p>
+<p>Valeur du Token en jours ou en heures (selon l’unité d’enregistrement du temps dans les paramètres globaux)</p>
+<p class="rubric">Montant</p>
+<p>Valeur monétaire du Token en € (selon l’unité de devise dans les paramètres globaux)</p>
+<p class="rubric">Token divisible</p>
+<p>Définit si le Token peut être divisible, si des demi-Tokens peuvent être saisis</p>
+<p class="rubric">Situations de majoration</p>
+<p>Saisissez des situations de majoration pouvant s’appliquer aux Tokens, comme le travail de nuit, ou même pendant des jours normalement non travaillés</p>
+</div></blockquote>
+<div class="admonition warning">
+<p class="admonition-title">Avertissement</p>
+<p>Lorsqu’un Token a été utilisé sur un Ticket, il devient impossible de le modifier.</p>
+<p>De même, il n’est pas possible de supprimer ou de modifier le coefficient pour une situation de majoration utilisée sur une ligne de travail</p>
+</div>
+</section>
+<section id="token-on-the-client-contract">
+<span id="token-clientcontract"></span><h3>Token sur le contrat client<a class="headerlink" href="#token-on-the-client-contract" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Sur le contrat client, nous ajouterons un tableau avec des fonctions de gestion des commandes.</p>
+<ul class="simple">
+<li><p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter des Tokens à la commande</p></li>
+</ul>
+<figure class="align-default" id="id14">
+<img alt="Ajouter une commande de Token de travail" src="_images/FINANCIAL_ZONE_AddToken.png" />
+<figcaption>
+<p><span class="caption-text">Ajouter une commande de Token de travail</span><a class="headerlink" href="#id14" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Sélectionnez le type de Token parmi ceux définis sur le projet ou ses projets parents.</p></li>
+<li><p>Saisie de la quantité de Tokens commandés</p></li>
+<li><p>Ajouter un commentaire descriptif</p></li>
+<li><p>Choisir si vous pouvez dépasser la quantité de Tokens sur la commande.</p></li>
+</ul>
+<figure class="align-default" id="id15">
+<img alt="Gestion des Tokens commandés" src="_images/FINANCIAL_ZONE_ProgressToken.png" />
+<figcaption>
+<p><span class="caption-text">Gestion des Tokens commandés</span><a class="headerlink" href="#id15" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p><strong>Lorsque vous avez saisi la commande, le tableau indiquera :</strong></p>
+<blockquote>
+<div><p class="rubric">Dans la section des Tokens commandés</p>
+<ul class="simple">
+<li><p>Le type de Tokens commandés et sa description</p></li>
+<li><p>Le montant total des Tokens commandés</p></li>
+<li><p>La durée totale à laquelle correspond le nombre de Tokens</p></li>
+<li><p>Le montant total auquel correspond le nombre de Tokens commandés</p></li>
+</ul>
+<p class="rubric">Dans la partie des Tokens utilisés</p>
+<ul class="simple">
+<li><p>Le nombre total de Tokens utilisés sans majorations</p></li>
+<li><p>Le nombre total de Tokens utilisés avec majoration</p></li>
+<li><p>La durée totale des Tokens utilisés avec et sans majorations</p></li>
+<li><p>Le coût total des Tokens utilisés en tenant compte des majorations</p></li>
+</ul>
+<p class="rubric">Dans la partie des Tokens restants</p>
+<ul class="simple">
+<li><p>Affichage de la durée restante des Tokens (durée commandée - durée utilisée)</p></li>
+<li><p>Affichage du nombre de Tokens restants (montant commandé - montant utilisé)</p></li>
+</ul>
+</div></blockquote>
+<p>La Ligne Total additionne les nombres, montants et durées (commandés, réalisés, restants) pour tous les types de Tokens du contrat</p>
+</section>
+<section id="token-on-tickets">
+<h3>Token sur les Tickets<a class="headerlink" href="#token-on-tickets" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Lorsque vous créez un Ticket sur le projet où les Tokens ont été définis, vous pourrez sélectionner ces Tokens lors de la répartition du travail.</p>
+<p>Vous pouvez récupérer ces Tokens d’un projet parent.</p>
+<figure class="align-default" id="id16">
+<img alt="Répartir le travail avec sélection des Tokens" src="_images/TICKET_BOX_DispatchWorkTokens.png" />
+<figcaption>
+<p><span class="caption-text">Répartir le travail avec sélection des Tokens</span><a class="headerlink" href="#id16" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Cliquez sur <img alt="Token" src="_images/dispatch.png" /> pour ouvrir la fenêtre contextuelle.</p>
+<p>La date et l’heure de début sont automatiquement renseignées avec les dates et heures actuelles.</p>
+<ul class="simple">
+<li><p>Sélectionner la Ressource travaillant sur le Ticket</p></li>
+<li><p>Ajouter la charge de travail pour ce Ticket</p></li>
+<li><p>Sélectionner le Token correspondant au besoin du Ticket</p></li>
+<li><p>Déterminer si un type de majoration s’applique à ce Ticket</p></li>
+<li><p>La quantité de Tokens (sans décimale si le Token n’est pas divisible)</p></li>
+<li><p>La règle de majoration, à choisir parmi les règles définies sur le Token</p></li>
+<li><p>Le nombre de Tokens majorés calculé en appliquant la règle de majoration</p></li>
+<li><p>Si la case facturable est cochée, les Tokens ne seront pas comptabilisés sur le contrat client.</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Avertissement</p>
+<p>Les « Situations de majoration » sont descriptives et peuvent ou non être liées au moment de l’exécution. Il n’y aura donc pas de détermination automatique de la situation de majoration en fonction du jour ou de l’heure de la saisie du temps passé.</p>
+</div>
+<span class="target" id="index-5"></span></section>
+</section>
+<section id="synchronize-activitys-and-tickets">
+<span id="synchronize-ticket"></span><span id="index-6"></span><h2>Synchroniser les Activités et les Tickets<a class="headerlink" href="#synchronize-activitys-and-tickets" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Vous pouvez synchroniser les Tickets avec les Activités. Ainsi, lorsque vous activez cette option, tous les Tickets sont synchronisés de la façon suivante :</p>
+<ul class="simple">
+<li><p>Nous attachons l’Activité comme Activité de planification du Ticket</p></li>
+<li><p>Nous lions l’Activité avec le Ticket</p></li>
+<li><p>Le Ticket est saisi comme origine de l’Activité</p></li>
+<li><p>Nous modifions l’état de l’élément qui a l’état le moins avancé pour le faire passer à l’état de son binôme (le plus avancé).</p></li>
+<li><p>Les autres données ne sont pas synchronisées (un écart peut alors exister si le Ticket est attaché à une Activité existante).</p></li>
+</ul>
+<figure class="align-default" id="id17">
+<img alt="Synchronisation des Tickets avec les Activités" src="_images/TICKET_ZONE_ProjectSynchronization.png" />
+<figcaption>
+<p><span class="caption-text">Synchronisation des Tickets avec les Activités</span><a class="headerlink" href="#id17" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Vous activez l’option directement sur le projet. Solution plus flexible qui permettra une grande flexibilité selon les comportements potentiellement différents selon le projet.</p>
+<p>Il s’agit d’un lien unique pour éviter les mises à jour récursives. Un Ticket est synchronisé avec une seule Activité et une Activité sera synchronisée avec un seul Ticket (paire unique).</p>
+<p>La fonctionnalité de synchronisation définie sur un projet n’est pas héritée par les sous-projets.</p>
+<section id="synchronize-existing-tickets">
+<h3>Synchroniser les Tickets existants<a class="headerlink" href="#synchronize-existing-tickets" title="Lien permanent vers cette rubrique">¶</a></h3>
+<blockquote>
+<div><p>Lorsque cette option est sélectionnée, tous les Tickets non clos dont le statut est supérieur ou égal au statut de déclenchement et dont le type est celui spécifié seront synchronisés avec une Activité.</p>
+<ul class="simple">
+<li><p>Si le Ticket est déjà synchronisé avec une Activité, rien ne se passe. C’est le cas de la réactivation d’une règle précédemment désactivée.</p></li>
+<li><p>Si le Ticket est attaché à une Activité de planification ouverte, le Ticket est synchronisé avec cette Activité.</p></li>
+<li><p>Si le Ticket provient d’une et d’une seule Activité non clos, il est synchronisé avec cette Activité. Sinon, nous créerons une nouvelle Activité qui sera synchronisée avec le Ticket.</p></li>
+</ul>
+<p>Dans tous les cas de recherche de l’Activité à attacher, nous nous assurons qu’elle n’est pas déjà synchronisée avec un autre Ticket et qu’elle ne provient pas d’un autre Ticket</p>
+</div></blockquote>
+<p>Lorsqu’un élément Ticket ou Activité est modifié et synchronisé avec un binôme, les modifications de certains champs sont répercutées sur leur binôme :</p>
+<ul>
+<li><p>Nom</p></li>
+<li><p>Projet</p></li>
+<li><p>État</p></li>
+<li><p>Responsable</p></li>
+<li><p>Produit</p></li>
+<li><p>Composant</p></li>
+<li><p>Version produit cible</p></li>
+<li><p>Version composant cible</p>
+<blockquote>
+<div><p class="rubric">Le projet</p>
+<p>Lorsque vous modifiez le projet d’un Ticket attaché à une Activité de planification, un contrôle de cohérence vous empêche d’effectuer cette modification car les deux éléments doivent être liés au même projet.</p>
+<p>En cas de synchronisation, le contrôle est ignoré et vous pouvez modifier le projet sur l’un des deux éléments, la modification sera répercutée sur l’autre.</p>
+<ul>
+<li><p>Si un Ticket change de projet ou de type avant son état de déclenchement, il n’est pas synchronisé.</p>
+<p>Il est alors soumis à la règle du nouveau projet ou du nouveau type.</p>
+<p>Un contrôle est effectué pour savoir si le Ticket n’est pas déjà dans l’état de déclenchement pour le nouveau projet ou le nouveau type et pour déclencher la synchronisation dans ce cas.</p>
+</li>
+<li><p>Si un Ticket change de projet ou de type après son état de déclenchement, il est déjà synchronisé. Il continue d’être synchronisé avec son partenaire selon la règle de son projet d’origine, que son nouveau projet ait une règle de synchronisation ou non.</p>
+<p>Le changement de projet du Ticket peut également provenir directement d’une modification sur le Ticket ou d’une modification de son Activité binôme.</p>
+<p>La règle est toujours la même : la synchronisation de la paire est maintenue.</p>
+</li>
+</ul>
+<p class="rubric">Les statuts et le workflow</p>
+<p>Lors de certains changements de statut, certains champs peuvent devenir obligatoires et ces champs ne sont pas nécessairement synchronisés. Comme la description ou le résultat.</p>
+<p>Dans ce cas, ces champs - non synchronisés - sont automatiquement renseignés s’ils se trouvent dans l’élément en cours de modification.</p>
+<p>Si, malgré tout, il y a encore des contrôles invalides pour l’élément à synchroniser, la mise à jour est globalement rejetée avec un message explicite.</p>
+<p>Par exemple, la fermeture d’un Ticket associé à une Activité sur laquelle il reste du travail à faire ne devrait pas être effectuée.</p>
+<p>Pour que les changements de statut soient cohérents, les workflows entre le Ticket et l’Activité associée doivent être identiques pour éviter les incohérences dans les changements de statut.</p>
+<p>Un mécanisme permettra néanmoins de remplacer les règles du workflow pour l’élément qui changera d’état automatiquement.</p>
+<p>Essentiel, notamment lors de la création de l’Activité, qui doit être créée directement dans le même état que le Ticket, mais qui sera également appliqué ultérieurement.</p>
+<p>Par exemple, si une Activité est passée dans un état qui n’appartient pas au workflow du Ticket, le changement d’état est effectué pour maintenir la synchronisation.</p>
+<p>Attention : Cela peut conduire à placer le Ticket dans un état dont il ne peut plus sortir (car il est en dehors de son workflow). Dans ce cas, seul le changement d’état de l’Activité peut débloquer le Ticket.</p>
+<p>Le même cas peut se produire sur l’Activité qui serait bloquée suite au changement d’état du Ticket.</p>
+</div></blockquote>
+</li>
+</ul>
+<p class="rubric">Charge de travail</p>
+<p>Attacher l’Activité comme <strong>Activité de planification</strong> du Ticket impactera la charge :</p>
+<ul class="simple">
+<li><p>La charge imputée en temps réel au Ticket est enregistrée dans les coûts réels de l’Activité</p></li>
+<li><p>La charge imputée en temps réel sur le Ticket est automatiquement décrémentée dans les charges restantes de l’Activité</p></li>
+</ul>
+<p>Dans le cas d’éléments synchronisés, vous ne pouvez saisir que la charge réelle sur le Ticket.</p>
+<p>Cette charge sera alors correctement comptabilisée sur l’Activité via le mécanisme d’Activité de planification.</p>
+</section>
+<section id="deleting-a-synced-item">
+<h3>Suppression d’un élément synchronisé<a class="headerlink" href="#deleting-a-synced-item" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Lorsqu’un élément Ticket ou Activité est supprimé et synchronisé avec un binôme, un message de confirmation est affiché à l’utilisateur.</p>
+<p>Dans ce cas, l’élément associé n’est pas supprimé, mais la synchronisation est supprimée.</p>
+<p>Cliquez sur <strong>définir la synchronisation</strong> pour ouvrir la fenêtre contextuelle.</p>
+<figure class="align-default" id="id18">
+<img alt="Définition de la synchronisation" src="_images/TICKET_BOX_DefinitionSynchronization.png" />
+<figcaption>
+<p><span class="caption-text">Définition de la synchronisation</span><a class="headerlink" href="#id18" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Lors de l’activation de la fonction sur un projet, une fenêtre contextuelle s’affichera permettant de définir :</p>
+<ul>
+<li><p>Le statut du Ticket générant automatiquement l’Activité</p></li>
+<li><p>Le type de Ticket concerné (optionnel) - ne pas renseigner pour autoriser tous les types de Tickets</p></li>
+<li><p>Le type d’Activité à créer</p>
+<blockquote>
+<div><p class="rubric">Options</p>
+<ul class="simple">
+<li><p>Une option pour déclencher automatiquement l’attachement de l’Activité comme <a class="reference internal" href="#ticket-planning-activity"><span class="std std-ref">Activité de planification</span></a> du Ticket</p></li>
+<li><p>Une option pour synchroniser les Tickets existants</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</section>
+<section id="desactivation-of-the-function">
+<h3>Désactivation de la fonction<a class="headerlink" href="#desactivation-of-the-function" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>En cas de désactivation de la fonction au niveau du projet, un contrôle est effectué et alerte l’utilisateur si des Tickets sont synchronisés avec des Activités.</p>
+<ul>
+<li><p>S’il y a des synchronisations en cours, une fenêtre contextuelle s’ouvre pour afficher le nombre de paires existantes, en distinguant le nombre de closes et de non closes.</p></li>
+<li><p>Si le nombre de paires existantes n’est pas nul, vous pouvez sélectionner les liens existants qui doivent être conservés ou supprimés.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Si les liens sont supprimés, la fonction est complètement désactivée</p></li>
+<li><p>Si les liens ne sont pas supprimés, la fonction est désactivée uniquement pour les Tickets non encore synchronisés. Les Tickets déjà synchronisés restent synchronisés.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+<p>Il n’y a alors plus aucun moyen de supprimer la synchronisation (sauf à supprimer l’un des éléments de la paire).</p>
+</section>
+</section>
+<section id="vote-on-ticket">
+<span id="id4"></span><h2>Vote sur un Ticket<a class="headerlink" href="#vote-on-ticket" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Il est possible de voter sur les Tickets. Dans l’onglet de détail de chaque Ticket, trouvez la section de vote. La valeur cible, la valeur actuelle, le nombre de votes et le taux de remplissage sont affichés.</p>
+<p>Cliquez sur le bouton de vote pour attribuer un vote sur l’élément sélectionné.</p>
+<figure class="align-default" id="id19">
+<img alt="Section de vote" src="_images/TICKET_ZONE_VoteSection.png" />
+<figcaption>
+<p><span class="caption-text">Section de vote</span><a class="headerlink" href="#id19" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Dans la fenêtre de vote, plusieurs informations telles que la limite maximale de points du vote que vous pouvez utiliser sur le vote de l’élément en question.</p>
+<p>Votre vote personnel qui n’est pas nécessairement identique aux points maximum que vous pouvez attribuer.</p>
+<p>Et enfin le nombre de points qu’il vous reste à dépenser dans la période d’utilisation définie en amont dans les règles d’attribution et d’utilisation des votes.</p>
+<figure class="align-default" id="id20">
+<img alt="Fenêtre contextuelle de vote" src="_images/TICKET_BOX_Vote.png" />
+<figcaption>
+<p><span class="caption-text">Fenêtre contextuelle de vote</span><a class="headerlink" href="#id20" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="Collaboration.html#voting-attribution-rule"><span class="std std-ref">Règle d’attribution des votes</span></a></p>
+<p><a class="reference internal" href="Collaboration.html#voting-attribution-rule"><span class="std std-ref">Règle d’utilisation des votes</span></a></p>
+</div>
+<p>Une fois votre vote validé, si les <a class="reference internal" href="AccessRights.html#vote-accesrights"><span class="std std-ref">accès spécifiques</span></a> dédiés au vote ont été activés, un tableau apparaît pour afficher les noms des votants et les points que chacun d’eux a attribués à l’élément.</p>
+<p>Si plusieurs personnes ont voté, le nombre cumulé de leurs points est affiché dans la valeur actuelle.</p>
+<p>Vous continuez à voir le nombre de vos points déjà attribués, directement dans le bouton de vote ou dans le tableau si vous avez le droit de le voir.</p>
+<p>Dans les <a class="reference internal" href="AccessRights.html#vote-accesrights"><span class="std std-ref">accès spécifiques</span></a>, si l’affichage du tableau est désactivé, vous pouvez afficher au moins les noms des votants.</p>
+<p>Dans tous les cas, les noms des votants et les points qu’ils ont attribués sont nécessairement affichés dans le tableau.</p>
+<figure class="align-default" id="id21">
+<img alt="Tableau des votes" src="_images/TICKET_ZONE_TicketVoteTable.png" />
+<figcaption>
+<p><span class="caption-text">Tableau des votes</span><a class="headerlink" href="#id21" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table des matières</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Gestion des Tickets</a><ul>
+<li><a class="reference internal" href="#id1">Ticket</a><ul>
+<li><a class="reference internal" href="#planning-activity">Activité de planification</a></li>
+<li><a class="reference internal" href="#multi-version-selection">Sélection multi-versions</a></li>
+<li><a class="reference internal" href="#priority-value-calculation">Calcul de la valeur de priorité</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#mailbox-for-tickets">Boîte mail pour les Tickets</a><ul>
+<li><a class="reference internal" href="#configuration">Configuration</a></li>
+<li><a class="reference internal" href="#replies-from-email">Réponses par e-mail</a></li>
+<li><a class="reference internal" href="#oauth2-pour-imap">oAuth2 pour IMAP</a></li>
+<li><a class="reference internal" href="#tickets-dashboard">Tableau de bord des Tickets</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#management-of-tokens-on-ticket">Gestion des Tokens sur les Tickets</a><ul>
+<li><a class="reference internal" href="#token-definition">Définition des Tokens</a></li>
+<li><a class="reference internal" href="#token-on-the-client-contract">Token sur le contrat client</a></li>
+<li><a class="reference internal" href="#token-on-tickets">Token sur les Tickets</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#synchronize-activitys-and-tickets">Synchroniser les Activités et les Tickets</a><ul>
+<li><a class="reference internal" href="#synchronize-existing-tickets">Synchroniser les Tickets existants</a></li>
+<li><a class="reference internal" href="#deleting-a-synced-item">Suppression d’un élément synchronisé</a></li>
+<li><a class="reference internal" href="#desactivation-of-the-function">Désactivation de la fonction</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#vote-on-ticket">Vote sur un Ticket</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Sujet précédent</h4>
+    <p class="topless"><a href="RiskIssueManagement.html"
+                          title="Chapitre précédent">Gestion des risques et problèmes</a></p>
+  </div>
+  <div>
+    <h4>Sujet suivant</h4>
+    <p class="topless"><a href="Resource.html"
+                          title="Chapitre suivant">Définitions des rôles</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Recherche rapide</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             >index</a></li>
+        <li class="right" >
+          <a href="Resource.html" title="Définitions des rôles"
+             >suivant</a> |</li>
+        <li class="right" >
+          <a href="RiskIssueManagement.html" title="Gestion des risques et problèmes"
+             >précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Tickets</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Créé en utilisant <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

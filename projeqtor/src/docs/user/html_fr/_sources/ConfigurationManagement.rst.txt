@@ -1,0 +1,374 @@
+.. include:: ImageReplacement.txt
+
+.. title:: Configuration Management
+
+.. index:: Configuration Management
+
+.. _ConfigurationManagement:
+
+########################
+Configuration Management
+########################
+
+
+Configuration management consists of managing the technical description of a system, as well as managing all changes made during the evolution of the system.
+
+It is the set of processes to ensure the conformity of a product to the requirements, throughout its life cycle.
+
+In computing, for example, configuration management can be used for many purposes.
+
+* To store and trace the different versions or revisions of any information intended to be used by a system (hardware, software, document, unit data, etc.).
+* To deploy configurations through a computer park in the form of files and data.
+* Manage source codes ...
+  
+  
+.. index:: Product
+
+.. _product:
+
+Products
+########
+
+Allows to define product and sub-product.
+
+Allows to link components to product.
+
+.. figure:: /images/GUI/CONF_SCR_Product.png
+   :alt: Product configuration screen
+   
+   Product configuration screen
+   
+  
+You can create many links between products, product versions and component
+
+Project linked to this product
+******************************
+
+Possibility of attaching the products of the list to projects.
+   
+When you link a project to a product, all versions of this product are going to be linked.
+   
+The start and end date corresponds to the duration of this link.
+
+Composition
+***********
+ 
+List of sub-products and list of components used by this product
+
+.. seealso:: 
+
+   :ref:`relationship-product-component`.
+
+Structure
+*********
+   
+You can display 2 ways to display the structure. Normal and flat.
+   
+   
+.. figure:: /images/GUI/CONF_BOX_DisplayStructureSSBox.png
+   :alt: Display the product structure
+      
+   Normal display the product structure
+      
+      
+Box checked "Show versions for all structure" allows to display versions of sub-products and components.
+
+Box checked "Show projects linked to versions" allows to display projects linked.
+
+.. figure:: /images/GUI/CONF_BOX_DisplayStructure.png
+   :alt: Display the product structure box checked
+      
+   Display the product structure with the boxes checked
+
+
+.. index:: Product (Version)
+
+.. _product-version:
+
+Product Versions
+################
+
+
+Allows to define versions of a product.
+
+Allows to link a component version to product version.
+
+Allows to link the product version to a project.
+
+Ability to define the compatibility between product versions (feature activated through a global parameter)
+
+
+
+Automatic formatting of version name
+************************************
+
+
+.. sidebar:: Other sections
+
+   * :ref:`Projects linked to this version<Link-version-project-section>`
+   * :ref:`Composition...<version-product-component>`
+
+
+Possibility to define if the version name is automatically produced from the product name and version number.
+
+Set :ref:`global_parameters` to activate this feature.
+
+Else, the version name will entered manually.
+
+By profile, possibility to have a different list of the version of the original product according to the status.
+
+
+.. figure:: /images/GUI/CONF_ZONE_DescriptionVersionProduct.png
+   :alt: Product version description
+   
+   Product version description
+   
+   
+
+
+.. rubric:: Version number & Name
+
+The field "Version number" appears only if the global parameter "Automatic format of version name" is set to Yes.
+
+The field "Name" will be read only.
+
+.. rubric:: Prime contractor
+     
+The field "Prime contractor can be different from product prime contractor.
+
+.. rubric:: Entry into service (Real)
+
+The field "Entry into service" specify the date of entry into service.
+
+The box "Done" is checked when the real date field is set.
+
+.. rubric:: End date (Real)
+
+The field "End date" specify the date end-of-service.
+
+The box "Done" is checked when the real date field is set.
+
+
+
+
+
+.. index:: Component
+
+.. _component:
+
+Components
+##########
+
+.. sidebar:: **Other sections**
+   
+   * :ref:`Structure...<relationship-product-component>`   
+   * :ref:`Composition...<relationship-product-component>`   
+
+
+
+Allows to define product components.
+
+Allows to define products using the component.
+
+Possibility to define component types and component versions that will only be used for definition of structure (not for Version Planning or Tickets)
+
+.. figure:: /images/GUI/CONF_ZONE_ComponentDetails.png
+   :alt: Component
+   
+   Component details
+   
+
+List of versions defined for the component.
+
+Component versions are defined in :ref:`component-version` screen.
+
+
+
+.. index:: Component (Version)
+
+.. _component-version:
+
+Component Versions
+##################
+
+
+.. sidebar:: Other sections
+
+   * :ref:`Structure...<version-product-component>`  
+   * :ref:`Composition...<version-product-component>`  
+   
+   
+Allows to define versions of a component.
+
+Allows to link a product version to component version.
+ 
+.. figure:: /images/GUI/CONF_ZONE_ComponentVersionDetails.png
+   :alt: Component version details
+   
+   Component version details
+   
+      
+.. note:: 
+
+   Possibility to define if the version name is automatically produced from the component name and version number.
+
+   Set global parameters to activate this feature. Else, the version name will entered manually.
+
+
+.. rubric:: Version number & Name
+
+The field "Version number" appears only if the global parameter "Automatic format of version name" is set to Yes.
+
+The field "Name" will be read only.
+
+
+.. rubric:: Entry into service (Real)
+
+The field "Entry into service" specify the date of entry into service.
+
+The box "Done" is checked when the real date field is set.
+
+.. rubric:: End date (Real)
+
+The field "End date" specify the date end-of-service.
+
+The box "Done" is checked when the real date field is set.
+   
+
+
+.. note:: 
+
+   **Initial Date:** when the planned date has been set, the initial date (if it is empty only) will be defined
+
+
+
+
+
+.. _relationship-product-component:
+
+Relationships
+#############
+
+Product and component elements
+******************************
+
+Allows to manage relationships between products and components to define product structure.
+
+See possible relationships:  :ref:`product-structure`   
+
+.. rubric:: Relationships management
+
+* Click on |Add| to create a new relationship. The dialog box "Structure" appear. 
+* Click on |Delete| to delete the corresponding relationship.
+
+.. figure:: /images/GUI/CONF_BOX_ProductStructure.png
+   :alt: Dialog box - Structure 
+   :align: center
+   
+   Structure
+
+.. _version-product-component:
+
+Versions of products and components
+***********************************
+
+Allows to define links between versions of products and components.
+
+.. note:: 
+
+   Only with the elements defined in the product structure.
+
+.. rubric:: Link management
+
+* Click on |Add| to create a new link. The dialog box "Version Structure" appear. 
+* Click on |Delete| to delete the corresponding link.
+
+.. figure:: /images/GUI/CONF_BOX_VersionStructure.png
+   :alt: Dialog box - Version structure 
+   :align: center
+   
+   Version structure
+
+
+
+
+
+
+
+.. _Link-version-project-section:
+
+version to projects
+*******************
+
+This section allows to manage links between projects and versions of products.
+
+.. rubric:: Link version to projects management
+
+* Click on |Add| to create a new link. 
+* Click on |Edit| to update an existing link.
+* Click on |Delete| to delete the corresponding link.
+
+
+.. figure:: /images/GUI/CONF_BOX_ProjectVersionLink.png
+   :alt: Dialog box - Project-Version link 
+   :align: center
+
+   Project / Version Link
+
+
+
+.. topic:: Fields Project, Product and Version
+ 
+   * From the screen **Projects**, the fields **product and version** will be selectable.
+   * From the screen **Product versions**, the field **project** will be selectable.
+   
+.. _versions-planning:
+
+Versions planning
+#################
+
+Select one or more product versions and the planning version is displayed.
+
+This planning displays each version of selected product versions and their components from define start date to deliverable date.
+
+To use it define your start and delivery date in Product Version and Component Version.
+   
+.. note:: 
+
+   To insert values you have to activate display the start and delivery milestones’ in global parameters otherwise these fields are hidden.
+
+This screen allows to see if the delivery date of Component versions is more later than their Product versions. 
+
+Graphically, you can see any delay or incompatibility.
+
+.. figure:: /images/GUI/CONF_ZONE_planningVersion.png
+   :alt: Planning version
+   :align: center
+   
+   Planning version
+   
+   
+.. rubric:: Display options
+
+
+Click on |New| to add an activity.
+Click on |Filters| to filter the version display.  
+
+.. figure:: /images/GUI/CONF_ZONE_Options.png
+   :alt: Show options
+   
+   Version planning options
+
+Click on **Show activities from product version** or **Show activities from component version** To display the related activities.
+
+New check boxes will appear: one to show resources and the other to show or hide versions with no activity displayed.
+
+You must select an existing activity to insert the new activity into the WBS structure.
+
+If no activity is selected then the "add new element" icon will be grayed out.
+
+The new activity is automatically inserted after the selected activity.
+
+The new activity is generated on the same project, with the same component, the same component version, and with the same product and the same product version if these elements are filled in on the original activity.
+
+The insertion from the selection of a product and component version will not be possible because we do not know where to insert it in the WBS of the projects.

@@ -1,0 +1,2058 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Lists of types &#8212; Documentation ProjeQtOr User guide 13.1</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/translations.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Recherche" href="search.html" />
+    <link rel="next" title="Liste des valeurs" href="ListsOfValues.html" />
+    <link rel="prev" title="Gestion de la configuration" href="AccessRights.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="ListsOfValues.html" title="Liste des valeurs"
+             accesskey="N">suivant</a> |</li>
+        <li class="right" >
+          <a href="AccessRights.html" title="Gestion de la configuration"
+             accesskey="P">précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Lists of types</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="list-of-types">
+<span id="list-of-type"></span><span id="index-0"></span><h1>Liste des types<a class="headerlink" href="#list-of-types" title="Lien permanent vers cette rubrique">¶</a></h1>
+<p>Chaque élément de ProjeQtOr peut être typé à votre convenance selon votre métier ou votre domaine d’activité.</p>
+<p>Chaque type est présenté de la même manière. Une section de description très simple, avec différents champs selon l’élément, et une section comportement qui conditionnera vos actions futures selon les paramètres saisis.</p>
+<section id="behavior-section">
+<span id="id1"></span><h2>Section comportement<a class="headerlink" href="#behavior-section" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Cette section est commune à plusieurs types d’éléments.</p>
+<p>Permet de déterminer certains comportements de l’interface, selon les types d’éléments.</p>
+<p class="rubric">Description ou Commentaires</p>
+<p>Case cochée indique que le champ <a class="reference internal" href="Glossary.html#term-Description"><span class="xref std std-term">Description</span></a> est obligatoire.</p>
+<p class="rubric">Responsable</p>
+<p>Case cochée indique que le champ <a class="reference internal" href="Glossary.html#term-Responsible"><span class="xref std std-term">Responsable</span></a> est obligatoire lorsque le statut de traitement de l’élément est « En cours ».</p>
+<p class="rubric">Résultat</p>
+<p>Case cochée indique que le champ <a class="reference internal" href="Glossary.html#term-Result"><span class="xref std std-term">Résultat</span></a> est obligatoire lorsque le statut de traitement de l’élément est « Terminé ».</p>
+<p class="rubric">Indicateur de statut</p>
+<p>Vous pouvez verrouiller le macro-statut : En cours - Terminé - Clos - Annulé</p>
+<p>Ces champs permettent de déterminer si les cases à cocher concernées sont verrouillées ou non.</p>
+<p>Si la case est cochée, vous ne pourrez modifier le macro-statut qu’à l’aide des statuts du workflow.</p>
+<p class="rubric">Pas de travail restant sur Terminé</p>
+<ul class="simple">
+<li><p>Les éléments planifiables ne peuvent pas passer au statut <strong>Terminé</strong> s’il reste encore du travail.</p></li>
+</ul>
+<section id="project">
+<h3>Projet<a class="headerlink" href="#project" title="Lien permanent vers cette rubrique">¶</a></h3>
+<figure class="align-default" id="id2">
+<img alt="Zone de comportement du projet" src="_images/LISTOFTYPE_ZONE_Behavior.png" />
+<figcaption>
+<p><span class="caption-text">Zone de comportement du projet</span><a class="headerlink" href="#id2" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Projet directeur</p>
+<p>La définition est faite par le type de projet, vous définissez que certains types de projets ne peuvent pas avoir d’activités, uniquement des sous-projets ou des jalons.</p>
+</section>
+<section id="activity">
+<h3>Activité<a class="headerlink" href="#activity" title="Lien permanent vers cette rubrique">¶</a></h3>
+<figure class="align-default" id="id3">
+<img alt="Zone de comportement de l'activité" src="_images/LISTOFTYPE_ZONE_BehaviorActivity.png" />
+<figcaption>
+<p><span class="caption-text">Zone de comportement de l’activité</span><a class="headerlink" href="#id3" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Activité en temps réel</p>
+<p>Possibilité de gérer les activités en temps réel.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="GlobalParameters.html#gp-planning-section"><span class="std std-ref">Paramètres globaux</span></a> | <a class="reference internal" href="CommonSections.html#activity-on-real-time"><span class="std std-ref">Section affectation</span></a></p>
+</div>
+<p class="rubric">Pas de travail restant sur Terminé</p>
+<p>L’activité ne peut pas passer au statut <strong>Terminé</strong> s’il reste encore du travail.</p>
+<p class="rubric">Liste de tâches</p>
+<p>Case cochée interdit le changement de statut vers terminé si tous les éléments de la liste de tâches ne sont pas définis sur « terminé »</p>
+<p class="rubric">Ajouter une note</p>
+<p>Sélectionnez le statut qui nécessitera l’ajout d’une nouvelle note.</p>
+<p>Lors du passage au statut spécifié, si l’utilisateur actuel a déjà enregistré une nouvelle note au cours des 5 dernières minutes, aucune action ne sera effectuée.</p>
+<p>Sinon, le changement de statut déclenchera une fenêtre pop-up permettant à l’utilisateur d’ajouter une nouvelle note.</p>
+</section>
+<section id="ticket">
+<h3>Ticket<a class="headerlink" href="#ticket" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p class="rubric">Résolution</p>
+<p>Case cochée indique que le champ <strong>Résolution</strong> est obligatoire lorsque le statut de traitement d’un élément est <strong>Terminé</strong>.</p>
+<p class="rubric">Verrouiller résolu</p>
+<p>Case cochée indique que le champ <strong>Résolu</strong> est en lecture seule. La valeur du champ doit provenir du champ « Résolu » défini dans la résolution sélectionnée.</p>
+<p class="rubric">Liste de tâches</p>
+<p>Case cochée interdit le changement de statut vers terminé si tous les éléments de la liste de tâches ne sont pas définis sur « terminé »</p>
+<p class="rubric">Ajouter une note</p>
+<p>Sélectionnez le statut qui nécessitera l’ajout d’une nouvelle note.</p>
+<p>Lors du passage au statut spécifié, si l’utilisateur actuel a déjà enregistré une nouvelle note au cours des 5 dernières minutes, aucune action ne sera effectuée.</p>
+<p>Sinon, le changement de statut déclenchera une fenêtre pop-up permettant à l’utilisateur d’ajouter une nouvelle note.</p>
+</section>
+<section id="translation">
+<h3>Traduction<a class="headerlink" href="#translation" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p class="rubric">Type de demande de traduction</p>
+<p><strong>Statut initial des éléments</strong></p>
+<p>L’état initial des lignes correspond à l’état de la demande qui entraînera la génération automatique des lignes de traduction selon les langues enregistrées sur votre version de produit ou de composant.</p>
+<p><strong>Délai de traduction (nb jours)</strong></p>
+<p>Le délai de traduction (en jours) détermine l’échéance pour la date de livraison planifiée qui sera calculée automatiquement à partir de la création de la demande. Cette période est exprimée en durée calendaire et ne tient pas compte des jours non ouvrés.</p>
+<p class="rubric">Type d’élément de traduction</p>
+<p><strong>Statut de génération de l’élément</strong></p>
+<p>Correspond à l’état dans lequel les lignes seront créées.</p>
+</section>
+</section>
+<section id="types-restrictions">
+<span id="type-restriction-section"></span><h2>Restrictions des types<a class="headerlink" href="#types-restrictions" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Permet de limiter les valeurs affichées dans la liste de valeurs pour chaque type d’élément.</p>
+<p>Les restrictions peuvent être définies pour un projet, un type de projet ou un profil.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Section restrictions des types sur l’écran Projet</strong></p>
+<p>Pour afficher la section restrictions des types : Allez dans <a class="reference internal" href="GlobalParameters.html#gp-control-restict-section"><span class="std std-ref">Paramètre global &gt; Onglet Activité &gt; Section Contrôles et Restrictions</span></a> « autoriser la restriction de type sur le projet » doit être défini sur « Oui ». Possibilité de définir davantage de restrictions pour un projet par rapport aux restrictions définies au niveau du type de projet.</p>
+</div>
+<p class="rubric">Gestion des restrictions de type</p>
+<figure class="align-default" id="id4">
+<img alt="Section - Restreindre les types" src="_images/LISTofTYPE_ZONE_TypeRestriction.png" />
+<figcaption>
+<p><span class="caption-text">Section restreindre les types</span><a class="headerlink" href="#id4" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Cliquez sur le bouton <kbd class="kbd compound docutils literal notranslate"><kbd class="kbd docutils literal notranslate">Restreindre</kbd> <kbd class="kbd docutils literal notranslate">les</kbd> <kbd class="kbd docutils literal notranslate">types</kbd></kbd> pour afficher la boîte de dialogue.</p></li>
+<li><p>Pour chaque type d’élément, sélectionnez les valeurs qui figureront dans la liste des valeurs affichées.</p></li>
+<li><p>Par défaut, si aucun type d’élément n’est sélectionné, toutes les valeurs de la ligne seront affichées sur chaque écran concerné.</p></li>
+</ul>
+<figure class="align-center" id="id5">
+<img alt="Boîte de dialogue - Restreindre les types pour le projet" src="_images/LISTofTYPE_ZONE_Restriction.png" />
+<figcaption>
+<p><span class="caption-text">Restreindre les types pour le projet</span><a class="headerlink" href="#id5" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Affiche les noms des types d’éléments où une restriction est appliquée</p>
+<p>Rappel : Cela signifie aussi, aucune restriction pour les types d’éléments restants sur chaque écran dédié.</p>
+</section>
+<section id="element-types">
+<h2>Types d’éléments<a class="headerlink" href="#element-types" title="Lien permanent vers cette rubrique">¶</a></h2>
+<section id="actions-types">
+<span id="action-type"></span><span id="index-1"></span><h3>Types d’actions<a class="headerlink" href="#actions-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type d’action est un moyen de définir un comportement commun sur un groupe d’actions.</p>
+<p class="rubric">Ajouter une note</p>
+<p>Sélectionnez le statut qui nécessitera l’ajout d’une nouvelle note.</p>
+<p>Lors du passage au statut spécifié, si l’utilisateur actuel a déjà enregistré une nouvelle note au cours des 5 dernières minutes, aucune action ne sera effectuée.</p>
+<p>Sinon, le changement de statut déclenchera une fenêtre pop-up permettant à l’utilisateur d’ajouter une nouvelle note.</p>
+<table class="docutils align-default" id="id6">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id6" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="activities-types">
+<span id="activity-type"></span><span id="index-2"></span><h3>Types d’activités<a class="headerlink" href="#activities-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type d’activité est un moyen de définir un comportement commun sur un groupe d’activités.</p>
+<table class="docutils align-default" id="id7">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id7" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Mode de planification par défaut</p></td>
+<td><p>Mode de planification par défaut pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Priorité</p></td>
+<td><p>Définit la priorité du type d’activité. Elle sera automatiquement appliquée dans la section de gestion des activités.</p></td>
+</tr>
+<tr class="row-even"><td><p>Couleur</p></td>
+<td><p>Définit la couleur par défaut pour ce type d’activité.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="asset-types">
+<span id="asset-type"></span><span id="index-3"></span><h3>Types d’actifs<a class="headerlink" href="#asset-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de question est un moyen de définir un comportement commun sur un groupe de questions.</p>
+<table class="docutils align-default" id="id8">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id8" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="budget-types">
+<span id="budget-type"></span><span id="index-4"></span><h3>Types de budget<a class="headerlink" href="#budget-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Les types de budget sont un moyen de définir le meilleur budget pour chaque projet/activité.</p>
+<p>Budget estimé, trésorerie, investissement, vente…</p>
+<table class="docutils align-default" id="id9">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id9" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="call-for-tender-types">
+<span id="call-for-tender-type"></span><span id="index-5"></span><h3>Types d’appels d’offres<a class="headerlink" href="#call-for-tender-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Les types d’appels d’offres permettent de définir la meilleure procédure pour lancer des appels en fonction de l’organisation de votre entreprise :</p>
+<p>l’appel d’offres ouvert, restreint, avec exigences de capacité minimales ou pré-sélection ;</p>
+<table class="docutils align-default" id="id10">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id10" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="catalog-types">
+<span id="catalog-type"></span><span id="index-6"></span><h3>Types de catalogue<a class="headerlink" href="#catalog-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Les types de catalogue vous permettent de définir le type d’article que vous produisez ou vendez à vos clients : produits, services…</p>
+<table class="docutils align-default" id="id11">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id11" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="change-requests-types">
+<span id="change-request-type"></span><span id="index-7"></span><h3>Types de demandes de changement<a class="headerlink" href="#change-requests-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de demande de changement est un moyen de définir un comportement commun sur un groupe de demandes particulières.</p>
+<p>Plusieurs types sont pré-enregistrés : problèmes récurrents, amélioration technique et fonctionnelle, contrainte réglementaire et processus et qualité.</p>
+<table class="docutils align-default" id="id12">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id12" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="client-bills-types">
+<span id="client-bill-type"></span><span id="index-8"></span><h3>Types de factures client<a class="headerlink" href="#client-bills-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de facture est un moyen de définir un comportement commun sur un groupe de factures.</p>
+<table class="docutils align-default" id="id13">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id13" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="client-contract-types">
+<span id="client-contract-type"></span><span id="index-9"></span><h3>Types de contrats client<a class="headerlink" href="#client-contract-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Les types de contrats client sont un moyen de définir le type de contrat avec un client.</p>
+<p>Les types de contrats sont déjà pré-enregistrés : assistance à la maîtrise d’ouvrage, hébergement, amélioration technique ou Maintenance et support</p>
+<table class="docutils align-default" id="id14">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id14" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="client-order-types">
+<span id="client-order-type"></span><span id="index-10"></span><h3>Types de commandes client<a class="headerlink" href="#client-order-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Les types de commandes client vous permettent de définir des comportements communs de commande, tels que la facturation</p>
+<table class="docutils align-default" id="id15">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id15" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="client-payments-types">
+<span id="client-payments-type"></span><span id="index-11"></span><h3>Types de paiements client<a class="headerlink" href="#client-payments-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>le type de paiement client définit comment le client paiera la facture</p>
+<table class="docutils align-default" id="id16">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id16" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="client-quotations-types">
+<span id="client-quotation-type"></span><span id="index-12"></span><h3>Types de devis client<a class="headerlink" href="#client-quotations-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Les types de devis client vous permettent de définir des comportements communs sur un groupe de devis, tels que le type de facturation qui sera appliqué</p>
+<table class="docutils align-default" id="id17">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id17" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="components-types">
+<span id="component-type"></span><span id="index-13"></span><h3>Types de composants<a class="headerlink" href="#components-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de composant est un moyen de définir un comportement commun à un groupe de composants.</p>
+<table class="docutils align-default" id="id18">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id18" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="component-version-types">
+<span id="component-version-type"></span><span id="index-14"></span><h3>Types de versions de composant<a class="headerlink" href="#component-version-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de version de composant est un moyen de définir un comportement commun à un groupe de versions de composant.</p>
+<table class="docutils align-default" id="id19">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id19" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="contexts-types">
+<span id="context-type"></span><span id="index-15"></span><h3>Types de contextes<a class="headerlink" href="#contexts-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Les types de contextes sont utilisés pour définir le contexte environnemental pour décrire un ticket ou un cas de test.</p>
+<p>Seuls trois types de contextes existent, correspondant aux trois champs sélectionnables : Environnement, OS et Navigateur.</p>
+<p>Vous pouvez uniquement renommer les types, pas en ajouter ni en supprimer.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>Seul le nom des types de contextes peut être modifié.</p></li>
+<li><p>Aucun nouveau type de contexte ne peut être ajouté.</p></li>
+<li><p>Aucun type de contexte ne peut être supprimé.</p></li>
+</ul>
+</div>
+<table class="docutils align-default" id="id20">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id20" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+</tbody>
+</table>
+<span class="target" id="index-16"></span></section>
+<section id="customers-types">
+<span id="client-type"></span><span id="customer-type"></span><span id="index-17"></span><h3>Types de clients<a class="headerlink" href="#customers-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de client est un moyen de définir différentes catégories de clients (prospects ou clients).</p>
+<table class="docutils align-default" id="id21">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id21" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="decisions-types">
+<span id="decision-type"></span><span id="index-18"></span><h3>Types de décisions<a class="headerlink" href="#decisions-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de décision est un moyen de définir un comportement commun sur un groupe de décisions.</p>
+<table class="docutils align-default" id="id22">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id22" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="documents-types">
+<span id="document-type"></span><span id="index-19"></span><h3>Types de documents<a class="headerlink" href="#documents-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de document est un moyen de définir un comportement commun sur un groupe de documents.</p>
+<table class="docutils align-default" id="id23">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id23" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="expenses-details-types">
+<span id="expense-detail-type"></span><span id="index-20"></span><h3>Types de détails de dépenses<a class="headerlink" href="#expenses-details-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de détail de dépense est un moyen de définir un comportement commun et un mode de calcul sur un groupe de détails de dépenses.</p>
+<table class="docutils align-default" id="id24">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id24" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Valeur / unité</p></td>
+<td><p>Définit le mode de calcul pour le type de détail.</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Champ <strong>Valeur / unité</strong></p>
+<p>Si l’unité est définie et pas la valeur, cette ligne sera imputable.</p>
+<p>Si l’unité et la valeur sont toutes deux définies, la ligne sera en lecture seule.</p>
+<p>Le coût résultant sera la multiplication entre chacune des trois valeurs de ligne non vides.</p>
+</div>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Dépense individuelle</p></td>
+<td><p>Type de détail de dépense individuelle.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Dépense de projet</p></td>
+<td><p>Type de détail de dépense de projet.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="individual-expenses-types">
+<span id="individual-expense-type"></span><span id="index-21"></span><h3>Types de dépenses individuelles<a class="headerlink" href="#individual-expenses-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de dépense individuelle est un moyen de définir un comportement commun sur un groupe de dépenses individuelles.</p>
+<table class="docutils align-default" id="id25">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id25" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-odd"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="issues-types">
+<span id="issue-type"></span><span id="index-22"></span><h3>Types de problèmes<a class="headerlink" href="#issues-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de problème est un moyen de définir un comportement commun sur un groupe de problèmes.</p>
+<table class="docutils align-default" id="id26">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id26" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="meetings-types">
+<span id="meeting-type"></span><span id="index-23"></span><h3>Types de réunions<a class="headerlink" href="#meetings-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de réunion est un moyen de définir un comportement commun sur un groupe de réunions.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Le type de réunion est également utilisé pour la définition des réunions périodiques.</p>
+</div>
+<table class="docutils align-default" id="id27">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id27" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="messages-types">
+<span id="message-type"></span><span id="index-24"></span><h3>Types de messages<a class="headerlink" href="#messages-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de message est un moyen de définir un comportement commun sur un groupe de messages (apparaissant sur l’écran du jour).</p>
+<table class="docutils align-default" id="id28">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id28" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Couleur</p></td>
+<td><p>Couleur d’affichage pour les messages de ce type.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="milestones-types">
+<span id="milestone-type"></span><span id="index-25"></span><h3>Types de jalons<a class="headerlink" href="#milestones-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de jalon est un moyen de définir un comportement commun sur un groupe de jalons.</p>
+<table class="docutils align-default" id="id29">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id29" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Mode de planification par défaut</p></td>
+<td><p>Mode de planification par défaut pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="opportunities-types">
+<span id="opportunity-type"></span><span id="index-26"></span><h3>Types d’opportunités<a class="headerlink" href="#opportunities-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type d’opportunité est un moyen de définir un comportement commun sur un groupe d’opportunités.</p>
+<table class="docutils align-default" id="id30">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id30" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="order-to-provider-types">
+<span id="order-provider-type"></span><span id="index-27"></span><h3>Types de commandes fournisseur<a class="headerlink" href="#order-to-provider-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Les types de commandes fournisseur catégorisent l’objet de la demande : service ou produit</p>
+<table class="docutils align-default" id="id31">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id31" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="organization-types">
+<h3>Types d’organisations<a class="headerlink" href="#organization-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type d’organisation vous permet de définir un comportement commun sur les organisations.</p>
+<p>La gestion des <span class="xref std std-ref">Organisations</span> permet de modifier la structure de l’entreprise dans le cadre des organisations</p>
+<table class="docutils align-default" id="id32">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id32" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type de projet.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="payments-to-provider-types">
+<span id="payment-provider-type"></span><span id="index-28"></span><h3>Types de paiements fournisseur<a class="headerlink" href="#payments-to-provider-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de paiement est un moyen de définir un comportement commun sur un groupe de paiements.</p>
+<table class="docutils align-default" id="id33">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id33" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-odd"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="planning-poker-session-type">
+<span id="planning-poker-type"></span><span id="index-29"></span><h3>Type de session de planning poker<a class="headerlink" href="#planning-poker-session-type" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de session de planning poker est un moyen de définir un comportement commun sur un groupe de planning poker.</p>
+<table class="docutils align-default" id="id34">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id34" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-odd"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="products-types">
+<span id="product-type"></span><span id="index-30"></span><h3>Types de produits<a class="headerlink" href="#products-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de produit est un moyen de définir un comportement commun à un groupe de produits.</p>
+<table class="docutils align-default" id="id35">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id35" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="product-version-types">
+<span id="product-version-type"></span><span id="index-31"></span><h3>Types de versions de produit<a class="headerlink" href="#product-version-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de version de produit est un moyen de définir un comportement commun à un groupe de versions de produit.</p>
+<table class="docutils align-default" id="id36">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id36" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="project-expenses-types">
+<span id="project-expense-type"></span><span id="index-32"></span><h3>Types de dépenses de projet<a class="headerlink" href="#project-expenses-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de dépense de projet est un moyen de définir un comportement commun sur un groupe de dépenses de projet.</p>
+<table class="docutils align-default" id="id37">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id37" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-odd"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="projects-types">
+<span id="project-type"></span><span id="index-33"></span><h3>Types de projets<a class="headerlink" href="#projects-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de projet est un moyen de définir un comportement commun sur un groupe de projets.</p>
+<p class="rubric">Code du type de projet</p>
+<p>Certains comportements importants dépendront du code du type de projet.</p>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Code</p></td>
+<td><p>Nom</p></td>
+</tr>
+<tr class="row-even"><td><p>OPE</p></td>
+<td><p>Selon la planification</p></td>
+</tr>
+<tr class="row-odd"><td><p>OPE</p></td>
+<td><p>Basé sur la charge de travail réelle</p></td>
+</tr>
+<tr class="row-even"><td><p>OPE</p></td>
+<td><p>Basé sur la charge de travail fixe réelle</p></td>
+</tr>
+<tr class="row-odd"><td><p>OPE</p></td>
+<td><p>Saisie manuelle</p></td>
+</tr>
+<tr class="row-even"><td><p>OPE</p></td>
+<td><p>Non facturé</p></td>
+</tr>
+<tr class="row-odd"><td><p>ADM</p></td>
+<td><p>Administratif</p></td>
+</tr>
+<tr class="row-even"><td><p>TMP</p></td>
+<td><p>Modèle</p></td>
+</tr>
+<tr class="row-odd"><td><p>PRP</p></td>
+<td><p>Proposition</p></td>
+</tr>
+</tbody>
+</table>
+<section id="ope-operational-project">
+<h4>OPE : Projet opérationnel<a class="headerlink" href="#ope-operational-project" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Dans ProjeQtOr, les projets opérationnels peuvent être associés à un type de facturation.</p>
+<p>Cette association permet aux documents financiers (factures, devis, bons de commande, etc.) d’être automatiquement adaptés à la méthode de facturation spécifique au type de projet concerné.</p>
+<p>En fonction du type de facturation défini, des raccourcis spécifiques apparaîtront dans les documents financiers.</p>
+<p>Ces raccourcis facilitent la récupération automatique des données pertinentes (temps passé, dépenses, coûts, etc.) liées au projet, optimisant ainsi le suivi financier.</p>
+</section>
+<section id="adm-administrative-project">
+<h4>ADM : Projet administratif<a class="headerlink" href="#adm-administrative-project" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Type de projet pour suivre le travail non productif : congés, maladie, formation, …</p>
+<p>Tous les nouveaux types sont créés avec le code <strong>ADM</strong>.</p>
+<p>Chaque ressource pourra saisir du travail réel sur ces projets, sans avoir à être allouée au projet, ni affectée aux activités du projet.</p>
+<p>Les affectations à toutes les tâches du projet seront automatiquement créées pour que les utilisateurs puissent saisir du travail réel.</p>
+<p>Ces projets ne sont pas visibles sur les écrans de type Gantt.</p>
+<p>Certaines sections et champs ne sont pas visibles ou ne fonctionnent pas sur les projets administratifs comme Suspendu, Planification fixe ou le seuil minimum.</p>
+</section>
+<section id="tmp-template-project">
+<h4>TMP : Projet modèle<a class="headerlink" href="#tmp-template-project" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Ces projets ne seront pas utilisés pour suivre un travail.</p>
+<p>Ils sont conçus uniquement pour définir des modèles, à copier en tant que projets opérationnels.</p>
+<p>Tout chef de projet (profil) peut copier ces projets, sans avoir à y être alloué.</p>
+<p>Tous les nouveaux types sont créés avec le code <strong>TMP</strong>.</p>
+</section>
+<section id="prp-proposal-project">
+<h4>PRP : Projet de proposition<a class="headerlink" href="#prp-proposal-project" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Ces projets ne seront pas utilisés pour suivre un travail.</p>
+<p>Ce type de projet permet de définir si un projet est stratégiquement intéressant à réaliser.</p>
+<p>Tous les nouveaux types sont créés avec le code <strong>PRP</strong>.</p>
+<table class="docutils align-default" id="id38">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id38" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type de projet.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Type de facturation</p></td>
+<td><p>Définira le comportement de facturation (voir : <a class="reference internal" href="Incomes.html#billing-types"><span class="std std-ref">Revenus</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="prospect-estimate-types">
+<span id="prospect-estimate-type"></span><span id="index-34"></span><h3>Types de devis prospect<a class="headerlink" href="#prospect-estimate-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de devis prospect est un moyen de définir un comportement commun sur un groupe de devis prospect.</p>
+<table class="docutils align-default" id="id39">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id39" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant les changements de statut pour les devis prospect de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="prospect-events-types">
+<span id="prospect-event-type"></span><span id="index-35"></span><h3>Types d’événements prospect<a class="headerlink" href="#prospect-events-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type d’événement prospect est un moyen de définir un comportement commun sur un groupe d’événements prospect.</p>
+<table class="docutils align-default" id="id40">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id40" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant les changements de statut pour les événements prospect de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="prospects-types">
+<span id="prospect-type"></span><span id="index-36"></span><h3>Types de prospects<a class="headerlink" href="#prospects-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de prospect est un moyen de définir un comportement commun sur un groupe de prospects.</p>
+<table class="docutils align-default" id="id41">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id41" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les prospects de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="provider-bill-types">
+<span id="provider-bill-type"></span><span id="index-37"></span><h3>Types de factures fournisseur<a class="headerlink" href="#provider-bill-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Il existe une grande variété de types de factures. Chacune est utilisée dans des circonstances spécifiques et requiert le respect de protocoles concernant leur constitution et leur émission.</p>
+<p>Vous pouvez créer autant de types de factures que vous le souhaitez.</p>
+<table class="docutils align-default" id="id42">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id42" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-odd"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="provider-tender-types">
+<span id="provider-tender-type"></span><span id="index-38"></span><h3>Types d’appels d’offres fournisseur<a class="headerlink" href="#provider-tender-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Les types de devis vous permettent d’organiser et de catégoriser les différentes offres reçues de vos fournisseurs</p>
+<table class="docutils align-default" id="id43">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id43" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="providers-types">
+<span id="provider-type"></span><span id="index-39"></span><h3>Types de fournisseurs<a class="headerlink" href="#providers-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de fournisseur est un moyen de définir différentes catégories de fournisseurs.</p>
+<table class="docutils align-default" id="id44">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id44" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="questions-types">
+<span id="question-type"></span><span id="index-40"></span><h3>Types de questions<a class="headerlink" href="#questions-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de question est un moyen de définir un comportement commun sur un groupe de questions.</p>
+<table class="docutils align-default" id="id45">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id45" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="requirements-types">
+<span id="requirement-type"></span><span id="index-41"></span><h3>Types d’exigences<a class="headerlink" href="#requirements-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type d’exigence est un moyen de définir un comportement commun sur un groupe d’exigences.</p>
+<table class="docutils align-default" id="id46">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id46" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="risks-types">
+<span id="risk-type"></span><span id="index-42"></span><h3>Types de risques<a class="headerlink" href="#risks-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de risque est un moyen de définir un comportement commun sur un groupe de risques.</p>
+<table class="docutils align-default" id="id47">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id47" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="supplier-contract-types">
+<span id="supplier-contract-type"></span><span id="index-43"></span><h3>Types de contrats fournisseur<a class="headerlink" href="#supplier-contract-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Les types de contrats fournisseur sont un moyen de définir le type de contrat avec un fournisseur.</p>
+<p>Les types de contrats sont déjà pré-enregistrés : assistance à la maîtrise d’ouvrage, hébergement, amélioration technique ou Maintenance et support</p>
+<table class="docutils align-default" id="id48">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id48" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="test-cases-types">
+<span id="test-case-type"></span><span id="index-44"></span><h3>Types de cas de test<a class="headerlink" href="#test-cases-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de cas de test est un moyen de définir un comportement commun sur un groupe de cas de test.</p>
+<table class="docutils align-default" id="id49">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id49" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="test-sessions-types">
+<span id="test-session-type"></span><span id="index-45"></span><h3>Types de sessions de test<a class="headerlink" href="#test-sessions-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de session de test est un moyen de définir un comportement commun sur un groupe de sessions de test.</p>
+<table class="docutils align-default" id="id50">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id50" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Mode de planification par défaut</p></td>
+<td><p>Mode de planification par défaut pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-even"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="tickets-types">
+<span id="ticket-type"></span><span id="index-46"></span><h3>Types de tickets<a class="headerlink" href="#tickets-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Le type de ticket est un moyen de définir un comportement commun sur un groupe de tickets.</p>
+<table class="docutils align-default" id="id51">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id51" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="translation-item-types">
+<span id="translation-item-type"></span><span id="index-47"></span><h3>Types d’éléments de traduction<a class="headerlink" href="#translation-item-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Les lignes de traduction ont également la possibilité d’être typées. Vous pouvez compartimenter plus facilement vos demandes.</p>
+<p>Attribuez un workflow et un comportement différents pour chaque type de ligne.</p>
+<table class="docutils align-default" id="id52">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id52" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="translation-request-types">
+<span id="translation-request-type"></span><span id="index-48"></span><h3>Types de demandes de traduction<a class="headerlink" href="#translation-request-types" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Vous définissez les types de traduction que vous utiliserez dans votre activité.</p>
+<p>Cela vous permet d’appliquer un workflow et un comportement différents pour chaque type.</p>
+<table class="docutils align-default" id="id53">
+<caption><span class="caption-text">Champs obligatoires <a class="reference internal" href="_images/RequiredFILE.png"><img alt="Légende fichier requis" src="_images/RequiredFILE.png" style="width: 1.7999999999999998px; height: 10.799999999999999px;" /></a></span><a class="headerlink" href="#id53" title="Lien permanent vers ce tableau">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Champ</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="Glossary.html#term-Id"><span class="xref std std-term">Id</span></a></p></td>
+<td><p>Identifiant unique pour le type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Nom</p></td>
+<td><p>Nom du type.</p></td>
+</tr>
+<tr class="row-even"><td><p>Code</p></td>
+<td><p>Code du type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><img alt="Fichier requis" src="_images/RequiredFILE.png" /> Workflow</p></td>
+<td><p>Définit le workflow régissant le changement de statut pour les éléments de ce type (voir : <a class="reference internal" href="ControlAutomation.html#workflow"><span class="std std-ref">Workflow</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Ordre de tri</p></td>
+<td><p>Numéro définissant l’ordre d’affichage dans les listes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="xref std std-term">Clos</span></p></td>
+<td><p>Case cochée indique que le type est archivé.</p></td>
+</tr>
+<tr class="row-even"><td><p>Description</p></td>
+<td><p>Description du type.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table des matières</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Liste des types</a><ul>
+<li><a class="reference internal" href="#behavior-section">Section comportement</a><ul>
+<li><a class="reference internal" href="#project">Projet</a></li>
+<li><a class="reference internal" href="#activity">Activité</a></li>
+<li><a class="reference internal" href="#ticket">Ticket</a></li>
+<li><a class="reference internal" href="#translation">Traduction</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#types-restrictions">Restrictions des types</a></li>
+<li><a class="reference internal" href="#element-types">Types d’éléments</a><ul>
+<li><a class="reference internal" href="#actions-types">Types d’actions</a></li>
+<li><a class="reference internal" href="#activities-types">Types d’activités</a></li>
+<li><a class="reference internal" href="#asset-types">Types d’actifs</a></li>
+<li><a class="reference internal" href="#budget-types">Types de budget</a></li>
+<li><a class="reference internal" href="#call-for-tender-types">Types d’appels d’offres</a></li>
+<li><a class="reference internal" href="#catalog-types">Types de catalogue</a></li>
+<li><a class="reference internal" href="#change-requests-types">Types de demandes de changement</a></li>
+<li><a class="reference internal" href="#client-bills-types">Types de factures client</a></li>
+<li><a class="reference internal" href="#client-contract-types">Types de contrats client</a></li>
+<li><a class="reference internal" href="#client-order-types">Types de commandes client</a></li>
+<li><a class="reference internal" href="#client-payments-types">Types de paiements client</a></li>
+<li><a class="reference internal" href="#client-quotations-types">Types de devis client</a></li>
+<li><a class="reference internal" href="#components-types">Types de composants</a></li>
+<li><a class="reference internal" href="#component-version-types">Types de versions de composant</a></li>
+<li><a class="reference internal" href="#contexts-types">Types de contextes</a></li>
+<li><a class="reference internal" href="#customers-types">Types de clients</a></li>
+<li><a class="reference internal" href="#decisions-types">Types de décisions</a></li>
+<li><a class="reference internal" href="#documents-types">Types de documents</a></li>
+<li><a class="reference internal" href="#expenses-details-types">Types de détails de dépenses</a></li>
+<li><a class="reference internal" href="#individual-expenses-types">Types de dépenses individuelles</a></li>
+<li><a class="reference internal" href="#issues-types">Types de problèmes</a></li>
+<li><a class="reference internal" href="#meetings-types">Types de réunions</a></li>
+<li><a class="reference internal" href="#messages-types">Types de messages</a></li>
+<li><a class="reference internal" href="#milestones-types">Types de jalons</a></li>
+<li><a class="reference internal" href="#opportunities-types">Types d’opportunités</a></li>
+<li><a class="reference internal" href="#order-to-provider-types">Types de commandes fournisseur</a></li>
+<li><a class="reference internal" href="#organization-types">Types d’organisations</a></li>
+<li><a class="reference internal" href="#payments-to-provider-types">Types de paiements fournisseur</a></li>
+<li><a class="reference internal" href="#planning-poker-session-type">Type de session de planning poker</a></li>
+<li><a class="reference internal" href="#products-types">Types de produits</a></li>
+<li><a class="reference internal" href="#product-version-types">Types de versions de produit</a></li>
+<li><a class="reference internal" href="#project-expenses-types">Types de dépenses de projet</a></li>
+<li><a class="reference internal" href="#projects-types">Types de projets</a><ul>
+<li><a class="reference internal" href="#ope-operational-project">OPE : Projet opérationnel</a></li>
+<li><a class="reference internal" href="#adm-administrative-project">ADM : Projet administratif</a></li>
+<li><a class="reference internal" href="#tmp-template-project">TMP : Projet modèle</a></li>
+<li><a class="reference internal" href="#prp-proposal-project">PRP : Projet de proposition</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#prospect-estimate-types">Types de devis prospect</a></li>
+<li><a class="reference internal" href="#prospect-events-types">Types d’événements prospect</a></li>
+<li><a class="reference internal" href="#prospects-types">Types de prospects</a></li>
+<li><a class="reference internal" href="#provider-bill-types">Types de factures fournisseur</a></li>
+<li><a class="reference internal" href="#provider-tender-types">Types d’appels d’offres fournisseur</a></li>
+<li><a class="reference internal" href="#providers-types">Types de fournisseurs</a></li>
+<li><a class="reference internal" href="#questions-types">Types de questions</a></li>
+<li><a class="reference internal" href="#requirements-types">Types d’exigences</a></li>
+<li><a class="reference internal" href="#risks-types">Types de risques</a></li>
+<li><a class="reference internal" href="#supplier-contract-types">Types de contrats fournisseur</a></li>
+<li><a class="reference internal" href="#test-cases-types">Types de cas de test</a></li>
+<li><a class="reference internal" href="#test-sessions-types">Types de sessions de test</a></li>
+<li><a class="reference internal" href="#tickets-types">Types de tickets</a></li>
+<li><a class="reference internal" href="#translation-item-types">Types d’éléments de traduction</a></li>
+<li><a class="reference internal" href="#translation-request-types">Types de demandes de traduction</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Sujet précédent</h4>
+    <p class="topless"><a href="AccessRights.html"
+                          title="Chapitre précédent">Gestion de la configuration</a></p>
+  </div>
+  <div>
+    <h4>Sujet suivant</h4>
+    <p class="topless"><a href="ListsOfValues.html"
+                          title="Chapitre suivant">Liste des valeurs</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Recherche rapide</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             >index</a></li>
+        <li class="right" >
+          <a href="ListsOfValues.html" title="Liste des valeurs"
+             >suivant</a> |</li>
+        <li class="right" >
+          <a href="AccessRights.html" title="Gestion de la configuration"
+             >précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Lists of types</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Créé en utilisant <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

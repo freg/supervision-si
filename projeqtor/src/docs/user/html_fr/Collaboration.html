@@ -1,0 +1,324 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Collaboration &#8212; Documentation ProjeQtOr User guide 13.1</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/translations.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Recherche" href="search.html" />
+    <link rel="next" title="Gestion des actifs" href="AssetManagement.html" />
+    <link rel="prev" title="Saisie du travail réel" href="RealWorkAllocation.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="AssetManagement.html" title="Gestion des actifs"
+             accesskey="N">suivant</a> |</li>
+        <li class="right" >
+          <a href="RealWorkAllocation.html" title="Saisie du travail réel"
+             accesskey="P">précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Collaboration</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="collaboration">
+<span id="index-0"></span><span id="id1"></span><h1>Collaboration<a class="headerlink" href="#collaboration" title="Lien permanent vers cette rubrique">¶</a></h1>
+<section id="voting-management">
+<span id="id2"></span><h2>Gestion des votes<a class="headerlink" href="#voting-management" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>ProjeQtOr donne aux utilisateurs la possibilité de voter sur des tickets, des activités, des demandes de changement ou des exigences.</p>
+<p>La fonctionnalité de vote est un module et devra être activée via la gestion des modules pour être utilisée.</p>
+<p>Pour rendre un élément votable, vous devez créer des règles d’utilisation.</p>
+<p>Le principe est d’attribuer des points aux utilisateurs afin qu’ils puissent voter sur un élément particulier.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="Ticket.html#vote-on-ticket"><span class="std std-ref">Vote sur les tickets</span></a></p>
+</div>
+<section id="voting-attribution-rule">
+<span id="id3"></span><h3>Règle d’attribution des votes<a class="headerlink" href="#voting-attribution-rule" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Les points sont attribués à un client et ses contacts ou à un utilisateur.</p>
+<p>Il est possible d’attribuer des points fixes ou d’attribuer des points à une fréquence donnée.</p>
+<p>L’utilisateur peut utiliser ses propres points ou les points du client auquel il appartient en tant que contact.</p>
+<p>L’attribution est recalculée lorsque l’utilisateur se connecte, pour lui-même et pour le client auquel il appartient.</p>
+<p>Le calcul est basé sur la dernière date d’attribution des points de vote.</p>
+<figure class="align-default" id="id5">
+<img alt="Écran des règles d'attribution des votes" src="_images/COLLAB_SCR_RulesAttribution.png" />
+<figcaption>
+<p><span class="caption-text">Écran des règles d’attribution des votes</span><a class="headerlink" href="#id5" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Sur l’écran des règles de vote, cliquez sur <a class="reference internal" href="_images/iconNew.png"><img alt="Nouveau" src="_images/iconNew.png" style="width: 19.2px; height: 19.2px;" /></a> pour créer une nouvelle règle.</p>
+<p>Renseignez l’un des éléments de vote. Si le champ est laissé vide, l’attribution concernera tous les éléments de vote en même temps.</p>
+<p>Renseignez une valeur (nombre de points) à donner à l’utilisateur.</p>
+<p class="rubric">Valeur fixe</p>
+<p>Vous donnez un nombre de points bien défini qui ne changera pas.</p>
+<p>Pour réattribuer des points, vous devez recréer une nouvelle règle d’attribution.</p>
+<p class="rubric">Périodicité des valeurs</p>
+<p>Vous donnez un nombre de points qui s’incrémentera à intervalles réguliers.</p>
+<p>Chaque jour, chaque semaine, chaque mois ou chaque année, l’utilisateur recevra le nombre de points saisi.</p>
+<section id="attribution">
+<h4>Attribution<a class="headerlink" href="#attribution" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Sur l’écran client ou utilisateur, dans la section Attribution des votes, vous ajoutez les règles créées au préalable.</p>
+<p>Cliquez sur <a class="reference internal" href="_images/iconAdd.png"><img alt="Ajouter" src="_images/iconAdd.png" style="width: 19.2px; height: 19.2px;" /></a> pour ajouter une règle.</p>
+<p>La fenêtre contextuelle s’ouvre et vous pouvez choisir la ou les règles qui correspondent à vos besoins.</p>
+<figure class="align-default" id="id6">
+<img alt="Fenêtre contextuelle d'attribution des votes" src="_images/COLLAB_BOX_VotingAttribution.png" />
+<figcaption>
+<p><span class="caption-text">Fenêtre contextuelle d’attribution des votes</span><a class="headerlink" href="#id6" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Les informations sont récupérées automatiquement depuis la règle d’attribution et l’historique des points dépensés.</p>
+<p>Vous pourrez suivre l’évolution de vos points directement sur l’écran client ou utilisateur.</p>
+</section>
+</section>
+<section id="voting-use-rule">
+<span id="votinguserule"></span><h3>Règle d’utilisation des votes<a class="headerlink" href="#voting-use-rule" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Pour pouvoir voter, il est nécessaire de créer des règles pour l’utilisation des votes.</p>
+<p>Comment l’utilisateur va et peut utiliser ses points, sur quel élément et comment convertir et assimiler des points à des jours de charge.</p>
+<figure class="align-default">
+<img alt="Écran des règles d'utilisation des votes" src="_images/COLLAB_SCR_VotingUseRule.png" />
+</figure>
+<p>Cliquez sur <a class="reference internal" href="_images/iconNew.png"><img alt="Nouveau" src="_images/iconNew.png" style="width: 19.2px; height: 19.2px;" /></a> pour créer une nouvelle règle</p>
+<p>Le projet n’est pas obligatoire. S’il est renseigné, les points ne seront utilisables que sur les éléments de ce projet.</p>
+<p>Le votant peut voter sans avoir les droits de mise à jour de l’élément, juste avec des droits de « lecture » sur l’élément et un certain nombre de points.</p>
+<p>Le votant peut retirer ses points d’un élément pour les mettre sur un autre.</p>
+<p class="rubric">Statut de blocage</p>
+<p>À un stade (statut à définir), l’élément peut être bloqué : les points ne peuvent plus être modifiés ou supprimés.</p>
+<p class="rubric">conversion des points</p>
+<p>Ratio de conversion du travail estimé en nombre de points.</p>
+<p>Par exemple avec un ratio de 2, un ticket avec 1,5 travail estimé aura des points cibles de 3,0</p>
+<p class="rubric">Valeur fixe</p>
+<p>La valeur fixe n’est renseignée que si la règle d’attribution liée à la règle d’utilisation est renseignée comme valeur fixe.</p>
+<p class="rubric">Points maximum par vote.</p>
+<p>Vous pouvez fixer un maximum de points à utiliser sur un élément votable.</p>
+<p>Si vous fixez cette valeur, vous ne pourrez jamais dépenser plus que cette valeur sur l’élément.</p>
+<p class="rubric">Capacité de vote négatif</p>
+<p>Le votant peut voter négativement. C’est un bon moyen de montrer votre désintérêt ou une façon de mentionner que vous n’aimez pas l’idée générale de l’élément.</p>
+<section id="vote">
+<h4>Vote<a class="headerlink" href="#vote" title="Lien permanent vers cette rubrique">¶</a></h4>
+<p>Lorsqu’un élément votable est défini, le tableau d’attribution des votes est disponible sur les écrans respectifs des éléments.</p>
+<figure class="align-default" id="id7">
+<img alt="Section de vote" src="_images/COLLAB_ZONE_VotingSection.png" />
+<figcaption>
+<p><span class="caption-text">Section de vote</span><a class="headerlink" href="#id7" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>La valeur cible n’est renseignée que si vous avez du travail estimé sur l’élément.</p>
+<p>Travail estimé sur les tickets et les exigences et charge de travail validée sur les activités.</p>
+<p>Voir : <a class="reference internal" href="CommonSections.html#progress-section-date-duration"><span class="std std-ref">Dates et durée</span></a></p>
+<div class="admonition tip">
+<p class="admonition-title">Astuce</p>
+<p>Conversion</p>
+<p>ValeurCible = ceil (travailPlanifié * tauxConversionTravailPoints)</p>
+<p>Si travail = 0,5j | taux = 3 –&gt; points = 2</p>
+<p>Il n’y a pas de valeur décimale. Arrondir à l’entier supérieur.</p>
+<p>Si travail = 5j   | taux = 2 –&gt; points = 10</p>
+</div>
+<p>Cliquez sur le bouton de vote pour accéder à la fenêtre contextuelle de vote.</p>
+<figure class="align-default" id="id8">
+<img alt="Fenêtre contextuelle de vote" src="_images/COLLAB_BOX_Vote.png" />
+<figcaption>
+<p><span class="caption-text">Fenêtre contextuelle de vote</span><a class="headerlink" href="#id8" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Renseignez le nombre de points que vous souhaitez utiliser pour ce vote.</p>
+<p class="rubric">Limite par vote</p>
+<p>indique le nombre maximum de points que vous pouvez utiliser pour voter sur cet élément.</p>
+<p class="rubric">Vote personnel</p>
+<p>L’utilisateur utilise ses points en son propre nom.</p>
+<p class="rubric">Vote client</p>
+<p>L’utilisateur utilise les points attachés au client en tant que contact.</p>
+<p class="rubric">Points restants</p>
+<p>Indique votre nombre de points restants pour l’utilisateur et pour le client.</p>
+<p class="rubric">Commentaire</p>
+<p>Les commentaires sont ajoutés comme <a class="reference internal" href="CommonSections.html#note-section"><span class="std std-ref">note</span></a> sur la page de l’élément.</p>
+<p>Lorsqu’un utilisateur/client a voté, un tableau de suivi vous permet de voir qui a voté et combien de points ont été attribués.</p>
+<p>Le taux indique le pourcentage d’avancement pour le vote de l’élément selon la valeur cible et le nombre de votes.</p>
+<p>Sur le <a class="reference internal" href="Agile.html#kanban"><span class="std std-ref">Kanban</span></a>, ce pourcentage est reflété par le remplissage en couleur de l’icône de vote.</p>
+<p>Pour modifier ou supprimer votre vote, cliquez sur le bouton de modification du vote. Laissez le champ vide ou renseignez 0 pour annuler votre vote.</p>
+</section>
+</section>
+<section id="voting-follow-up">
+<span id="votingfollowup"></span><h3>Suivi des votes<a class="headerlink" href="#voting-follow-up" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>La zone en haut de l’écran vous permet de voir les règles d’attribution qui vous sont liées.</p>
+<p>La zone en bas de l’écran vous permet de voir les éléments votés, triés par % de votes décroissant.</p>
+<figure class="align-default" id="id9">
+<img alt="Écran de suivi des votes" src="_images/COLLAB_SCR_VotingFollowup.png" />
+<figcaption>
+<p><span class="caption-text">Écran de suivi des votes</span><a class="headerlink" href="#id9" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Les filtres permettent de restreindre la vue des éléments et de les trier.</p>
+<p>Cliquez sur <a class="reference internal" href="_images/iconSearch.png"><img alt="Icône bouton recherche" src="_images/iconSearch.png" style="width: 19.2px; height: 19.2px;" /></a> pour afficher le détail de l’élément dans une fenêtre contextuelle.</p>
+<p>Cliquez sur <a class="reference internal" href="_images/iconAddComment.png"><img alt="Ajouter un commentaire" src="_images/iconAddComment.png" style="width: 19.2px; height: 19.2px;" /></a> pour voir ou ajouter une note.</p>
+<p>Cliquez sur <a class="reference internal" href="_images/iconVotingUseRule.png"><img alt="Bouton vote" src="_images/iconVotingUseRule.png" style="width: 19.2px; height: 19.2px;" /></a> pour afficher le tableau de vote.</p>
+<p>Cliquez sur l’ID de l’élément votable pour accéder à l’écran de l’élément.</p>
+<p>Sur cet écran, un chef de projet (droits à définir) peut modifier la version cible et le statut d’un ou plusieurs éléments.</p>
+</section>
+<section id="voting-attribution-follow-up">
+<span id="votingattributionfollowup"></span><h3>Suivi de l’attribution des votes<a class="headerlink" href="#voting-attribution-follow-up" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>L’écran de suivi de l’attribution des votes vous permet de voir les éléments votés par un utilisateur.</p>
+<ul class="simple">
+<li><p>Nom d’utilisateur</p></li>
+<li><p>Nom du client s’il est le contact de ce dernier.</p></li>
+<li><p>La règle d’attribution qui lui est liée.</p></li>
+<li><p>L’élément affecté par la règle d’attribution.</p></li>
+<li><p>Le statut</p></li>
+<li><p>La version cible</p></li>
+<li><p>Le projet s’il a été informé de la règle d’utilisation liée à l’élément.</p></li>
+<li><p>Les points acquis, dépensés et restants</p></li>
+</ul>
+<figure class="align-default" id="id10">
+<img alt="Écran de suivi de l'attribution des votes" src="_images/COLLAB_SCR_VotingAttributionFollowup.png" />
+<figcaption>
+<p><span class="caption-text">Écran de suivi de l’attribution des votes</span><a class="headerlink" href="#id10" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Plusieurs filtres permettent de restreindre l’affichage par utilisateur, client et/ou élément.</p>
+</section>
+</section>
+<section id="vote-on-element">
+<span id="id4"></span><h2>Vote sur l’élément<a class="headerlink" href="#vote-on-element" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Il est possible de voter sur des tickets, des demandes de changement et des exigences.</p>
+<p>Dans l’onglet détail de chaque élément, trouvez la section de vote. La valeur cible, la valeur actuelle, le nombre de votes et le taux de remplissage sont affichés.</p>
+<p>Cliquez sur le bouton de vote pour attribuer un vote sur l’élément sélectionné.</p>
+<figure class="align-default" id="id11">
+<img alt="Section de vote" src="_images/TICKET_ZONE_VoteSection.png" />
+<figcaption>
+<p><span class="caption-text">Section de vote</span><a class="headerlink" href="#id11" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p>Dans la fenêtre de vote, plusieurs informations telles que la limite maximale de points du vote que vous pouvez utiliser sur le vote de l’élément en question.</p>
+<p>Votre vote personnel qui n’est pas nécessairement identique au maximum de points que vous pouvez attribuer.</p>
+<p>Et enfin le nombre de points qu’il vous reste à dépenser dans la période d’utilisation définie en amont dans les règles d’attribution et d’utilisation des votes.</p>
+<figure class="align-default" id="id12">
+<img alt="Fenêtre contextuelle de vote" src="_images/TICKET_BOX_Vote.png" />
+<figcaption>
+<p><span class="caption-text">Fenêtre contextuelle de vote</span><a class="headerlink" href="#id12" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="#voting-attribution-rule"><span class="std std-ref">Règle d’attribution des votes</span></a></p>
+<p><a class="reference internal" href="#voting-attribution-rule"><span class="std std-ref">Règle d’utilisation des votes</span></a></p>
+</div>
+<p>Une fois que vous avez validé votre vote, si les <a class="reference internal" href="AccessRights.html#vote-accesrights"><span class="std std-ref">accès spécifiques</span></a> dédiés au vote ont été activés, un tableau apparaît pour afficher les noms des votants et les points que chacun d’eux a attribués à l’élément.</p>
+<p>Si plusieurs personnes ont voté, le nombre cumulé de leurs points est affiché dans la valeur actuelle.</p>
+<p>Vous continuez à voir le nombre de vos points déjà attribués, directement dans le bouton de vote ou dans le tableau si vous avez le droit de le voir.</p>
+<p>Dans les <a class="reference internal" href="AccessRights.html#vote-accesrights"><span class="std std-ref">accès spécifiques</span></a>, si l’affichage du tableau est désactivé, vous pouvez afficher au moins les noms des votants.</p>
+<p>Dans tous les cas, les noms des votants et les points qu’ils ont attribués sont nécessairement affichés dans le tableau.</p>
+<figure class="align-default" id="id13">
+<img alt="Tableau de vote" src="_images/TICKET_ZONE_TicketVoteTable.png" />
+<figcaption>
+<p><span class="caption-text">Tableau de vote</span><a class="headerlink" href="#id13" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table des matières</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Collaboration</a><ul>
+<li><a class="reference internal" href="#voting-management">Gestion des votes</a><ul>
+<li><a class="reference internal" href="#voting-attribution-rule">Règle d’attribution des votes</a><ul>
+<li><a class="reference internal" href="#attribution">Attribution</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#voting-use-rule">Règle d’utilisation des votes</a><ul>
+<li><a class="reference internal" href="#vote">Vote</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#voting-follow-up">Suivi des votes</a></li>
+<li><a class="reference internal" href="#voting-attribution-follow-up">Suivi de l’attribution des votes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#vote-on-element">Vote sur l’élément</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Sujet précédent</h4>
+    <p class="topless"><a href="RealWorkAllocation.html"
+                          title="Chapitre précédent">Saisie du travail réel</a></p>
+  </div>
+  <div>
+    <h4>Sujet suivant</h4>
+    <p class="topless"><a href="AssetManagement.html"
+                          title="Chapitre suivant">Gestion des actifs</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Recherche rapide</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             >index</a></li>
+        <li class="right" >
+          <a href="AssetManagement.html" title="Gestion des actifs"
+             >suivant</a> |</li>
+        <li class="right" >
+          <a href="RealWorkAllocation.html" title="Saisie du travail réel"
+             >précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Collaboration</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Créé en utilisant <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

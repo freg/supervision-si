@@ -21,6 +21,11 @@ export const GROUP_TO_ROLE = {
   supervision: "supervision",
   service: "service",
   maitre_clefs: "maitre_clefs",
+  // Groupe dédié au fork ProjeQtOr (livraison #476) -- la tuile reste
+  // visible de TOUS (décision de la personne) ; ce mapping existe pour
+  // les filtrages FUTURS (droits fins dans ProjeQtOr, liens externes
+  // restreints...), aucune tuile ne s'en sert encore.
+  projeqtor: "projeqtor",
 };
 
 /** Convertit une liste de groupes Keycloak bruts en rôles applicatifs
@@ -92,7 +97,7 @@ export function isTechnicien(groups) {
 // que des droits de gestion de realm n'ont pas été accordés séparément
 // dans Keycloak).
 export function buildFrontsList({
-  frontendUrl, portalUrl, keycloakConsoleUrl, dbaUrl, vaultUrl, vaultAdminUrl, ldapAdminUrl,
+  frontendUrl, portalUrl, keycloakConsoleUrl, dbaUrl, vaultUrl, vaultAdminUrl, ldapAdminUrl, projeqtorUrl,
   groups, externalLinks,
 }) {
   const roles = groupsToRoles(groups);
@@ -166,6 +171,21 @@ export function buildFrontsList({
       embeddable: true,
     });
   }
+  // ProjeQtOr (fork, livraison #476) -- visible de TOUT LE MONDE,
+  // comme le portail tickets (décision explicite de la personne :
+  // "visibilité à tous, il y aura une page publique"). Aucune
+  // condition de rôle ici ; le groupe Keycloak "projeqtor" existe pour
+  // des filtrages futurs. L'accès RÉEL reste protégé par l'écran de
+  // connexion de ProjeQtOr lui-même (LDAP du hub ou comptes propres).
+  if (projeqtorUrl) {
+    fronts.push({
+      id: "projeqtor",
+      name: "ProjeQtOr",
+      description: "Gestion de projets — fork maison, ergonomie en cours de refonte",
+      url: projeqtorUrl,
+      embeddable: true,
+    });
+  }
   // Liens externes gérés par les administrateurs -- backlog, livraison
   // #121. `allowed_roles` VIDE (ou absent) = visible de tout le monde,
   // même défaut que les entrées internes ci-dessus qui n'ont pas de
@@ -200,6 +220,7 @@ export const ROLE_LABELS = {
   supervision: "Supervision",
   service: "Service",
   maitre_clefs: "Maître des clés",
+  projeqtor: "ProjeQtOr",
 };
 
 /** groups : tableau brut de groupes Keycloak (claim "groups") --

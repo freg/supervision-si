@@ -1,0 +1,477 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Planning elements &#8212; ProjeQtOr User guide 13.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Manage the planning" href="Planning.html" />
+    <link rel="prev" title="Start Guide" href="StartGuide.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="Planning.html" title="Manage the planning"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="StartGuide.html" title="Start Guide"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Planning elements</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="planning-elements">
+<span id="planning-element"></span><span id="index-0"></span><h1>Planning elements<a class="headerlink" href="#planning-elements" title="Permalink to this heading">¶</a></h1>
+<p>ProjeQtOr provides all the elements needed to build a planning from workload, constraints between tasks and resources availability.</p>
+<p>The planning elements <a class="reference internal" href="RequirementsTest.html#test-session"><span class="std std-ref">Test sessions</span></a> and <a class="reference internal" href="Steering.html#meeting"><span class="std std-ref">Steering</span></a> are described in their topics.</p>
+<section id="project">
+<span id="planningelem-project"></span><span id="index-1"></span><h2>Project<a class="headerlink" href="#project" title="Permalink to this heading">¶</a></h2>
+<p>The project is the primary entity of ProjeQtOr.</p>
+<p>It is also the top-level of visibility, depending on profiles.</p>
+<p>A project dashboard is available to track key information.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="PlanningView.html#projectsdashboard"><span class="std std-ref">Projects Dashboard</span></a></p>
+</div>
+<section id="sub-projects">
+<h3>Sub-projects<a class="headerlink" href="#sub-projects" title="Permalink to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>You can define sub-projects on any project and this unlimited.</p></li>
+<li><p>On the parent project screen, you can view the children in the subproject section.</p></li>
+<li><p>Then, the projects may not be real projects, but just organizational breakdown corresponding to an organization.</p></li>
+</ul>
+</section>
+<section id="project-type">
+<h3>Project type<a class="headerlink" href="#project-type" title="Permalink to this heading">¶</a></h3>
+<p>There are 4 types of projects which are not managed in the same way.</p>
+<section id="ope-operational-project">
+<h4>OPE: Operational project<a class="headerlink" href="#ope-operational-project" title="Permalink to this heading">¶</a></h4>
+<blockquote>
+<div><p>Project to follow. The one you’re working on.</p>
+<p>All new projects are created with the default code <strong>OPE</strong>.</p>
+<p>Operational projects are linked to billing types.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="ListsOfTypes.html#project-type"><span class="std std-ref">project types</span></a></p>
+</div>
+</div></blockquote>
+</section>
+<section id="adm-administrative-project">
+<h4>ADM: Administrative project<a class="headerlink" href="#adm-administrative-project" title="Permalink to this heading">¶</a></h4>
+<blockquote>
+<div><p>Type of project to follow non productive work : holidays, sickness, training, …</p>
+<p>Every resource will be able to enter real work on these projects, without having to be allocated to the project, nor assigned to project activities.</p>
+<p>Assignments to all project task will be automatically created for users to enter real work.</p>
+<p>These projects are not visible on Gantt type screens.</p>
+<p>Some sections and fields are not visible or do not work on administrative projects like Paused, Fix planning or the minimum threshold.</p>
+</div></blockquote>
+</section>
+<section id="tmp-template-project">
+<h4>TMP: Template project<a class="headerlink" href="#tmp-template-project" title="Permalink to this heading">¶</a></h4>
+<blockquote>
+<div><p>These projects will not be used to follow some work.</p>
+<p>They are just designed to define templates, to be copied as operational projects.</p>
+<p>Any project leader (profile) can copy such projects, without having to be allocated to them.</p>
+</div></blockquote>
+</section>
+<section id="prp-proposal-project">
+<h4>PRP: Proposal project<a class="headerlink" href="#prp-proposal-project" title="Permalink to this heading">¶</a></h4>
+<blockquote>
+<div><p>These projects will not be used to follow some work.</p>
+<p>This type of project makes it possible to define whether a project is strategically interesting to carry out.</p>
+</div></blockquote>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="ListsOfTypes.html#project-type"><span class="std std-ref">project type</span></a></p>
+</div>
+</section>
+</section>
+<section id="project-traitment">
+<h3>Project traitment<a class="headerlink" href="#project-traitment" title="Permalink to this heading">¶</a></h3>
+<p class="rubric">Fix planning</p>
+<p>When the “correct planning” box is checked, the project planning will not be recalculated.</p>
+<ul class="simple">
+<li><p>This avoids modifying the expected values.</p></li>
+<li><p>Planning will always be the same no matter what you do on other projects.</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This may lead to dependencies unconsistancies</p>
+</div>
+<p class="rubric">Non extendable project</p>
+<p>When project perimeter is fixed you can’t:</p>
+<ul class="simple">
+<li><p>add new elements to this project</p></li>
+<li><p>delete elements from this project</p></li>
+<li><p>move elements to or from this project</p></li>
+</ul>
+<p class="rubric">Under construction</p>
+<p>When a project is under construction, no <a class="reference internal" href="ControlAutomation.html#notif-on-event"><span class="std std-ref">automatic emails</span></a> will be sent, no <a class="reference internal" href="ControlAutomation.html#notifications"><span class="std std-ref">notifications</span></a> or <a class="reference internal" href="GlobalParameters.html#id5"><span class="std std-ref">alerts</span></a> will be generated for the project elements.</p>
+<ul class="simple">
+<li><p>A project can be under construction as long as it isn’t stated. Set to <a class="reference internal" href="Glossary.html#term-In-Progress"><span class="xref std std-term">In progress</span></a> status.</p></li>
+<li><p>The resources don’t see it on <a class="reference internal" href="RealWorkAllocation.html#timesheet"><span class="std std-ref">timesheet</span></a>.</p></li>
+</ul>
+<p class="rubric">Exclude from global plan</p>
+<ul class="simple">
+<li><p>Do not show the not plannable items for this project on the global planning view.</p></li>
+<li><p>This means that only standard planning items will be displayed excluding:</p></li>
+<li><p><a class="reference internal" href="RiskIssueManagement.html#action"><span class="std std-ref">Actions</span></a></p></li>
+<li><p><a class="reference internal" href="Steering.html#decision"><span class="std std-ref">Decisions</span></a></p></li>
+<li><p><a class="reference internal" href="Steering.html#deliveries"><span class="std std-ref">Deliveries</span></a></p></li>
+</ul>
+<p class="rubric">Validated work treatment</p>
+<p>Activates treatment of the validated work based on the sum of the work of the project orders otherwise it will be calculated on the sum of the validated work of the activities.</p>
+<p class="rubric">Manual indicators</p>
+<ul class="simple">
+<li><p>Fields: <a class="reference internal" href="ListsOfValues.html#health-status"><span class="std std-ref">Health status</span></a>, <a class="reference internal" href="ListsOfValues.html#quality-level"><span class="std std-ref">Quality level</span></a>, <a class="reference internal" href="ListsOfValues.html#trend"><span class="std std-ref">Trend</span></a> and <a class="reference internal" href="ListsOfValues.html#overall-progress"><span class="std std-ref">Overall progress</span></a> are manual indicators.</p></li>
+<li><p>They allow define visual way the general health, conformity, trend and progress of the project.</p></li>
+<li><p>Some manual indicators are displayed on the <a class="reference internal" href="Today.html#today-screen"><span class="std std-ref">Today screen</span></a>.</p></li>
+</ul>
+<figure class="align-default" id="id5">
+<img alt="Manual indicator on the Today screen" src="_images/PLANNINGELEM_ZONE_ManualIndicator.png" />
+<figcaption>
+<p><span class="caption-text">Manual indicator on the Today screen</span><a class="headerlink" href="#id5" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Special fields</p>
+<ul class="simple">
+<li><p>The value of the fields the Project name, Sponsor, Project code and Contract code can be used as the substitute value of special fields.</p></li>
+<li><p>See: <a class="reference internal" href="GlobalParameters.html#administration-special-fields"><span class="std std-ref">Special Fields</span></a></p></li>
+</ul>
+<p class="rubric">Monitoring indicator</p>
+<ul class="simple">
+<li><p>The <a class="reference internal" href="ControlAutomation.html#indicator"><span class="std std-ref">indicators</span></a> can be defined on the <a class="reference internal" href="CommonSections.html#progress-section"><span class="std std-ref">progress data</span></a>.</p></li>
+</ul>
+<p class="rubric" id="projet-donot-start">Do not start project before Validated Start Date</p>
+<ul class="simple">
+<li><p>The schedule should only start from this date, as if there was a fixed milestone preceding the project.</p></li>
+<li><p>Resources cannot be charged to the project before the specified date (as with a project under construction).</p></li>
+<li><p>This option must be enabled in the <a class="reference internal" href="GlobalParameters.html#gp-planning-section"><span class="std std-ref">global parameters</span></a>.</p></li>
+</ul>
+<span class="target" id="project-reserve"></span></section>
+<section id="index-2">
+<span id="id1"></span><h3>Project reserve<a class="headerlink" href="#index-2" title="Permalink to this heading">¶</a></h3>
+<p>Project reserve is an amount reserved based on identifying <a class="reference internal" href="RiskIssueManagement.html#risk"><span class="std std-ref">Risks</span></a> and <a class="reference internal" href="RiskIssueManagement.html#opportunity"><span class="std std-ref">Opportunity</span></a>.</p>
+<p>It calculated from contingency reserve of risks minus potential gain of opportunities.</p>
+<p>ProjeQtOr uses a technique as “Expected monetary value (EMV)” to convert risks and opportunities into an amount.</p>
+<p>The amount of project reserve will be added to remaining amount.</p>
+</section>
+<section id="abacus">
+<h3>Abacus<a class="headerlink" href="#abacus" title="Permalink to this heading">¶</a></h3>
+<p>The Abacus feature is currently available in an initial version (V0).</p>
+<p><strong>In this version:</strong></p>
+<ul class="simple">
+<li><p>no automatic calculation is applied</p></li>
+<li><p>the values are not automatically used in estimations</p></li>
+<li><p>they currently serve only as an informational reference</p></li>
+</ul>
+<p><strong>Abacus should therefore be used:</strong></p>
+<ul class="simple">
+<li><p>as a decision-support aid</p></li>
+<li><p>as a knowledge and experience capitalization tool</p></li>
+<li><p>as a reference framework for estimations</p></li>
+</ul>
+<p>The information can be consulted and applied manually by project managers.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Future evolutions may allow:</strong></p>
+<ul class="simple">
+<li><p>automatic use in estimations</p></li>
+<li><p>integration into planning calculations</p></li>
+<li><p>exploitation in reports.</p></li>
+</ul>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>:<a class="reference internal" href="Steering.html#abacus"><span class="std std-ref">Abacus</span></a></p>
+</div>
+</section>
+</section>
+<section id="activity">
+<span id="index-3"></span><span id="id2"></span><h2>Activity<a class="headerlink" href="#activity" title="Permalink to this heading">¶</a></h2>
+<aside class="sidebar">
+<p class="sidebar-title">Other sections</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="CommonSections.html#assignment-section"><span class="std std-ref">Assignment</span></a></p></li>
+<li><p><a class="reference internal" href="CommonSections.html#progress-section"><span class="std std-ref">Progress</span></a></p></li>
+<li><p><a class="reference internal" href="CommonSections.html#predsuces-element-section"><span class="std std-ref">Predecessor and Sucessor</span></a></p></li>
+</ul>
+</aside>
+<p>An activity is a kind of task that must be planned, or that regroups other activities.</p>
+<p>Activities can be:</p>
+<ul class="simple">
+<li><p>Development tasks.</p></li>
+<li><p>Initialization or conception task.</p></li>
+<li><p>Testing task.</p></li>
+<li><p>Recurring tasks for maintenance or support.</p></li>
+<li><p>Phases that will contain sub-tasks.</p></li>
+<li><p>Any planned tasks.</p></li>
+</ul>
+<p><a class="reference internal" href="Resource.html#resource"><span class="std std-ref">Resources</span></a> are assigned to activities. During an <a class="reference internal" href="CommonSections.html#assignment-section"><span class="std std-ref">assignment</span></a>, some work is initially planned on this activity for the resource.</p>
+<p>For a resource, assigned activities are tasks in which he can entry the <a class="reference internal" href="RealWorkAllocation.html#real-work-allocation"><span class="std std-ref">Real work</span></a></p>
+<section id="parent-activities">
+<span id="parent-activity"></span><h3>Parent activities<a class="headerlink" href="#parent-activities" title="Permalink to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Activities can have parents to regroup activities or planned tasks.</p></li>
+<li><p>Activities can be sorted inside their parent activity, on the <a class="reference internal" href="Gantt.html#gantt-chart"><span class="std std-ref">Gantt</span></a> planning view, using drag and drop in the list area.</p></li>
+<li><p>Parent activity must belong to the same project.</p></li>
+<li><p>When a parent activity contains an assignment with a workload then the planning mode applied does not correspond to any of those proposed in the list of planning modes.</p></li>
+<li><p>On a parent activity the planning mode is no longer displayed.</p></li>
+</ul>
+</section>
+<section id="activity-planning">
+<span id="id3"></span><h3>Activity planning<a class="headerlink" href="#activity-planning" title="Permalink to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><a class="reference internal" href="Ticket.html#ticket"><span class="std std-ref">Tickets</span></a> can be linked to an activity (task).</p></li>
+<li><p>Work on tickets will be included in the activity.</p></li>
+</ul>
+<blockquote>
+<div><div class="compound">
+<p><strong>Assignment of resources to task</strong></p>
+<ul class="simple">
+<li><p>Resources who will work on the ticket doesn’t need to be assigned to linked activity before.</p></li>
+<li><p>The assignment will be automatically created once that resource has entered the working time (real work) in the ticket.</p></li>
+<li><p>The assigned task and the sum of working time entries by resource in tickets will be available in its timesheet.</p></li>
+</ul>
+</div>
+</div></blockquote>
+</section>
+<section id="traitment">
+<h3>Traitment<a class="headerlink" href="#traitment" title="Permalink to this heading">¶</a></h3>
+<p class="rubric">Fix planning</p>
+<ul class="simple">
+<li><p>When box “fix planning” is checked, the activity scheduling won’t be remade.</p></li>
+<li><p>This will avoid change on planned values.</p></li>
+<li><p>The planning will always be the same whatever you do on other projects.</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This may lead to dependencies unconsistancies</p>
+</div>
+<p class="rubric">Filter on list</p>
+<p>Ability to filter activities by data or type, for instance by assigned resources</p>
+<p class="rubric">Monitoring indicator</p>
+<ul class="simple">
+<li><p>The indicators can be defined in the <a class="reference internal" href="ListsOfValues.html#list-of-values"><span class="std std-ref">List of Values</span></a>.</p></li>
+<li><p>See: <a class="reference internal" href="ListsOfValues.html#health-status"><span class="std std-ref">Health status</span></a> and <a class="reference internal" href="ListsOfValues.html#overall-progress"><span class="std std-ref">Overall progress</span></a></p></li>
+</ul>
+<section id="test-session">
+<span id="test-session-planning-element"></span><h4>Test session<a class="headerlink" href="#test-session" title="Permalink to this heading">¶</a></h4>
+<blockquote>
+<div><p>This planning element is a specialized activity aimed for tests.</p>
+<p>A test session allows to define a set of test case that must be run to meet a requirement.</p>
+<p>It can grouped other test sessions or be a task. This allows to define the structure of test sessions.</p>
+<p>Dates, works and costs of test sessions (child) are summarized in the test session (parent).</p>
+<p>A task is assigned to resources for to be performed.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="RequirementsTest.html#test-session"><span class="std std-ref">Test sessions</span></a></p>
+</div>
+</div></blockquote>
+</section>
+</section>
+</section>
+<section id="milestone">
+<span id="id4"></span><h2>Milestone<a class="headerlink" href="#milestone" title="Permalink to this heading">¶</a></h2>
+<aside class="sidebar">
+<p class="sidebar-title">Other sections</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="CommonSections.html#progress-section-milestone"><span class="std std-ref">Progress</span></a></p></li>
+<li><p><a class="reference internal" href="Gantt.html#predecessor-successor"><span class="std std-ref">Predecessor and Sucessor</span></a></p></li>
+</ul>
+</aside>
+<p>A milestone is a flag in the planning, to point out key dates.</p>
+<p>Milestones are commonly used to check delivery dates.</p>
+<p>They can also be used to highlight the transition from one phase to the next.</p>
+<p>ProjeQtOr offers two types of milestone:</p>
+<p><strong>Floating milestone</strong></p>
+<ul class="simple">
+<li><p>This milestone will automatically move to take into account dependencies.</p></li>
+</ul>
+<p><strong>Fixed milestone</strong></p>
+<ul class="simple">
+<li><p>This milestone is fixed in the planning, not taking into account predecessor dependencies.</p></li>
+<li><p>This kind of milestone is interesting, for instance to set-up start date for some tasks.</p></li>
+<li><p>Fixed date is set by validated date.</p></li>
+</ul>
+<p class="rubric">Monitoring indicator</p>
+<ul class="simple">
+<li><p>The indicators can be defined in the <a class="reference internal" href="ListsOfValues.html#list-of-values"><span class="std std-ref">List of Values</span></a>.</p></li>
+<li><p>See: <a class="reference internal" href="ListsOfValues.html#health-status"><span class="std std-ref">Health status</span></a> and <a class="reference internal" href="ListsOfValues.html#overall-progress"><span class="std std-ref">Overall progress</span></a></p></li>
+</ul>
+<p class="rubric">Section Details</p>
+<p>Items related to the milestone (target milestone) are displayed in the table.</p>
+<figure class="align-default" id="id6">
+<img alt="Section Details" src="_images/PLANNINGELEM_ZONE_SectionDetails.png" />
+<figcaption>
+<p><span class="caption-text">Details: item linked</span><a class="headerlink" href="#id6" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Contains the list of <a class="reference internal" href="Concept.html#product-concept"><span class="std std-ref">product versions</span></a>.</p></li>
+<li><p>Contains the list of <a class="reference internal" href="RequirementsTest.html#requirement"><span class="std std-ref">Requirements</span></a>.</p></li>
+<li><p>Contains the list of <a class="reference internal" href="Ticket.html#ticket"><span class="std std-ref">Tickets</span></a>.</p></li>
+<li><p>Contains the list of <a class="reference internal" href="#activity"><span class="std std-ref">Activities</span></a>.</p></li>
+</ul>
+</section>
+<section id="dependency">
+<span id="dependency-planningelement"></span><h2>Dependency<a class="headerlink" href="#dependency" title="Permalink to this heading">¶</a></h2>
+<blockquote>
+<div><p>Dependencies allow to define the execution order of tasks (sequential or concurrent).</p>
+<p>All planning elements can be linked to others by dependencies.</p>
+<p>There are several types of dependencies that allow to start and/or finish before/after another element.</p>
+<p>Dependencies can be managed in the Gantt chart and in screen of planning element.</p>
+<p>A delay can be defined between predecessor and successor.</p>
+<p>Several types are available:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="_images/iconDependencySS.png"><img alt="Start start dependency" src="_images/iconDependencySS.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Start to Start</strong>: second activity cannot start until the first activity has started.</p></li>
+<li><p><a class="reference internal" href="_images/iconDependencyES.png"><img alt="End Start dependency" src="_images/iconDependencyES.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Start to Finish</strong>: first activity must be completed before the second activity can begin.</p></li>
+<li><p><a class="reference internal" href="_images/iconDependencyEE.png"><img alt="End End dependency" src="_images/iconDependencyEE.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Finish to Finish</strong>: first activity must be completed before the second can be completed.</p></li>
+</ul>
+<p>Anyway, the successor can end before the predecessor. Note that the successor “should” not end after the end of predecessor, but in some cases this will not be respected:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>if the resource is already 100% used until the end of the successor</p></li>
+<li><p>if the successor has another predecessor of type “End-Start” or “Start-Start” and the remaining time is not enough to complete the task</p></li>
+<li><p>if the delay from the planning start date does not allow to complete the task.</p></li>
+</ul>
+</div></blockquote>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="Gantt.html#dependencylinks"><span class="std std-ref">Dependencies</span></a></p>
+</div>
+</div></blockquote>
+</section>
+<section id="meeting">
+<span id="meeting-planningelement"></span><h2>Meeting<a class="headerlink" href="#meeting" title="Permalink to this heading">¶</a></h2>
+<blockquote>
+<div><p>This planning element acts like a fixed milestone, but it’s a task.</p>
+<p>Like a milestone, a meeting can be a transition point.</p>
+<p>But also, like a task because it’s possible to assign resources and planned work.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="Steering.html#meeting"><span class="std std-ref">Steering</span></a></p>
+</div>
+</div></blockquote>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Planning elements</a><ul>
+<li><a class="reference internal" href="#project">Project</a><ul>
+<li><a class="reference internal" href="#sub-projects">Sub-projects</a></li>
+<li><a class="reference internal" href="#project-type">Project type</a><ul>
+<li><a class="reference internal" href="#ope-operational-project">OPE: Operational project</a></li>
+<li><a class="reference internal" href="#adm-administrative-project">ADM: Administrative project</a></li>
+<li><a class="reference internal" href="#tmp-template-project">TMP: Template project</a></li>
+<li><a class="reference internal" href="#prp-proposal-project">PRP: Proposal project</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#project-traitment">Project traitment</a></li>
+<li><a class="reference internal" href="#index-2">Project reserve</a></li>
+<li><a class="reference internal" href="#abacus">Abacus</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#activity">Activity</a><ul>
+<li><a class="reference internal" href="#parent-activities">Parent activities</a></li>
+<li><a class="reference internal" href="#activity-planning">Activity planning</a></li>
+<li><a class="reference internal" href="#traitment">Traitment</a><ul>
+<li><a class="reference internal" href="#test-session">Test session</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#milestone">Milestone</a></li>
+<li><a class="reference internal" href="#dependency">Dependency</a></li>
+<li><a class="reference internal" href="#meeting">Meeting</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="StartGuide.html"
+                          title="previous chapter">Start Guide</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="Planning.html"
+                          title="next chapter">Manage the planning</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="Planning.html" title="Manage the planning"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="StartGuide.html" title="Start Guide"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">ProjeQtOr User guide 13.1 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Planning elements</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>

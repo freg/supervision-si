@@ -219,6 +219,12 @@ SERVICES = [
     ("PREFS_API_PORT", "prefs-api", 5000, "/api/prefs/", "api"),
     ("VAULT_API_PORT", "vault-api", 5000, "/api/vault/", "api"),
     ("SUPERVISION_FRONTEND_PORT", "frontend", 5173, "/app/", "spa"),
+    # projeqtor-app (livraison #476) — fork de ProjeQtOr (Apache/PHP).
+    # Type "spa" : préfixe CONSERVÉ, jamais de rewrite — le docroot
+    # Apache contient le dossier projeqtor/ (/var/www/html/projeqtor),
+    # les URLs /projeqtor/... s'y résolvent donc directement, comme
+    # dans le déploiement traditionnel de ProjeQtOr en sous-dossier.
+    ("PROJEQTOR_PORT", "projeqtor-app", 80, "/projeqtor/", "spa"),
     ("SUPERVISION_HUB_PORT", "hub", 5173, "/", "spa"),
     ("TICKETS_PORTAL_PORT", "tickets-portal", 5173, "/tickets/", "spa"),
     ("DBA_PORTAL_PORT", "dba-portal", 5173, "/dba/", "spa"),

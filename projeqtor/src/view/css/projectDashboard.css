@@ -1,0 +1,620 @@
+
+#divDashboardContent {
+  position: relative !important;
+  z-index: 1 !important;
+  overflow: auto !important;
+}
+
+#titleProjectDashboard {
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+/* ==================== TILE CONTAINER ==================== */
+.dashboard-tiles-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 20px;
+  width: 100%;
+  padding: 20px; 
+  box-sizing: border-box;
+}
+
+.dashboard-tiles-container::after {
+  content: "";
+  display: block;
+  height: 28px;
+  width: 100%;
+}
+
+/* ==================== TILEs ==================== */
+.project-tile {
+  z-index: auto;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  transition: box-shadow 0.3s ease;
+  border: 1px solid #e0e0e0;
+}
+
+.project-tile:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* ==================== UPPER PART: DATES ==================== */
+.tile-dates-section {
+  position: relative;
+  padding: 12px 15px;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 4px;
+  border-bottom: 1px solid #dee2e6;
+  min-height: 68px;
+}
+
+.date-row {
+  align-items: center;
+  background: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 9px;
+  font-weight: 400;
+  color:#000000;
+  width: 52px;
+  white-space: nowrap;
+  text-align: center;
+  cursor: default;
+  height: 12px; 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.date-row.no-date {
+  text-align: center;
+  color: #adb5bd;
+  opacity: 0.6; 
+}
+
+/* ==================== MAIN PART ==================== */
+.tile-main {
+  position: relative;
+  padding: 20px 15px 2px 15px;
+  background: white;
+}
+
+/* Status*/
+.project-status {
+  padding: 4px 16px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: white;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+  z-index: 10;
+}
+
+.tile-priority{
+  font-size:11px;
+  padding:3px 8px;
+  border-radius:10px;
+  min-width:30px;
+  text-align:center;
+  align-items: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+}
+
+/* Project header */
+.tile-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.project-color-square {
+    min-width: 32px;
+    height: 32px;
+    border-radius: 5px;
+    flex-shrink: 0;
+}
+
+.project-title {
+  flex: 1;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #212529;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.tile-manager {
+  position: relative;
+  display: flex;
+  gap: 6px;
+}
+
+.tile-manager .manager-name {
+  font-size: 13px;
+  color: #333;
+}
+
+.tile-next-milestone{
+  position: relative;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  background-color:#ffa64d;
+  border:2px solid #f76b1c;
+  color:#000;
+  border-radius:50%;
+  width:32px;
+  height:32px;
+  font-size:11px;
+  font-weight:700;
+  line-height:1;
+  text-align:center;
+}
+
+/*  ==================== FUNCTIONS  ==================== */
+.tooltipProjectDashboard {
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 1000;
+        }
+.tooltipProjectDashboard.show {
+  opacity: 1;
+}
+
+.tile-progress-charts {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0px 2px 10px 2px; 
+  flex-wrap: nowrap;
+  gap:5px;
+}
+
+.tile-progress-charts.charts-count-1 {
+  gap: 0;
+}
+
+.tile-progress-charts.charts-count-2 {
+  gap: 20px;
+  justify-content: space-between;
+}
+
+
+.tile-work-progress,
+.tile-budget-progress,
+.tile-risks-progress {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tile-work-progress canvas,
+.tile-budget-progress canvas,
+.tile-risks-progress canvas {
+  display: block;
+}
+
+.projectItemHide{
+	display : none !important;
+}
+
+.menu-item{
+  width:100%;
+  padding:8px;
+  border:none;
+  background:white;
+  text-align:center;
+  cursor:pointer;
+  border-bottom:1px solid #f0f0f0;
+  transition:background 0.15s;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.tile-menu-btn{
+	width:32px;
+	height:32px;
+	border-radius:6px;
+	border:none;
+	cursor:pointer;
+	display:flex;
+	align-items:center;
+	justify-content:center;
+}
+
+.tile-dates-section:hover #addAttachementProjectPic, .detail-photo:hover #addAttachementProjectPic {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+#addAttachementProjectPic {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.tile-indicator {
+  width:24px;
+  height:24px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.no-title-style {
+  font-size: initial;
+  font-weight: normal;
+  background: none;
+}
+
+.project-row {
+    display: flex;
+    align-items: center;
+    height: 30px;
+    padding: 0 10px;
+    gap: 14px;
+    font-size: 13px;
+    border-bottom: 1px solid #eee;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.project-row > div {
+    display: flex;
+    align-items: center;
+}
+
+.row-project {
+    min-width: 220px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.row-manager {
+    min-width: 140px;
+}
+
+.row-weather,
+.row-priority,
+.row-milestone {
+    width: 60px;
+    justify-content: center;
+}
+
+.row-status {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+}
+
+.row-dates {
+    min-width: 160px;
+}
+
+
+
+.row-menu-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.dashboard-tiles-container.linear-view {
+  display: block;
+  padding: 0;
+}
+
+.project-photo-btn {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+
+.tile-dates-section:hover .project-photo-btn {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+
+.project-photo-btn[style*="pointer-events: none"] {
+  opacity: 0.5 !important;
+  visibility: visible !important; 
+}
+
+.dashboard-tiles-container.linear-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+}
+
+.project-row {
+  transition: background-color 0.2s;
+  position: relative;
+  overflow: visible !important; 
+}
+
+.project-row:hover {
+  background-color: #f8f9fa;
+  z-index: 10; 
+}
+
+.dates-block {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.date-cell {
+  font-size: 11px;
+  transition: transform 0.2s;
+}
+
+.date-cell:hover {
+  transform: scale(1.05);
+}
+
+.date-cell.no-date {
+  opacity: 0.4;
+}
+
+.row-menu-container {
+  position: relative;
+  z-index: 1;
+}
+
+.row-menu-container:hover {
+  z-index: 10000; 
+}
+
+.row-menu-dropdown .menu-item {
+  justify-content: flex-start;
+  white-space: nowrap;
+  transition: background-color 0.15s;
+}
+
+
+.project-row .row-progress canvas {
+  display: block !important;
+  width: 80px !important;
+  height: 80px !important;
+}
+
+.project-row .row-progress > div {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+
+
+/* ==================== DETAIL PROJECT DASHBOARD   ==================== */
+
+.project-detail-container {
+  padding: 20px;
+  margin: 0 auto;
+}
+
+.project-detail-header {
+  margin-bottom: 30px;
+}
+
+.project-detail-main-section {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.project-detail-left-chart {
+  flex: 0 0 20%;
+  min-width: 200px;
+}
+
+.project-detail-timeline {
+  flex: 1;
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e0e0e0;
+}
+
+.project-detail-timeline h3 {
+  margin: 0 0 15px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #212529;
+}
+
+.project-detail-timeline canvas {
+  width: 100% !important;
+  height: auto !important;
+}
+
+.project-detail-progress-chart {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.project-detail-progress-chart h3 {
+  margin: 0 0 15px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #212529;
+  text-align: center;
+}
+
+.project-detail-progress-chart canvas {
+  max-width: 180px;
+}
+
+.detail-item{
+  width:100%;
+  padding:8px;
+  border:none;
+  background:white;
+  text-align:center;
+  cursor:pointer;
+  transition:background 0.15s;
+  display:flex;
+  align-items:right;
+  justify-content:center;
+}
+
+
+.detail-block-small,
+.detail-objectives-block,
+.detail-weather-block,
+.detail-resource-block,
+.detail-milestone-block,
+.detail-financial-block,
+.detail-budget-block,
+.detail-revenue-block,
+.detail-risk-block,
+.detail-opportunity-block,
+.detail-tornado-block,
+.detail-burndown-block,
+.detail-raci-block,
+.detail-45degree-block,
+.detail-scurve-block {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.detail-block-small:hover,
+.detail-objectives-block:hover,
+.detail-weather-block:hover,
+.detail-resource-block:hover,
+.detail-milestone-block:hover,
+.detail-financial-block:hover,
+.detail-budget-block:hover,
+.detail-revenue-block:hover,
+.detail-risk-block:hover,
+.detail-opportunity-block:hover,
+.detail-tornado-block:hover,
+.detail-raci-block:hover,
+.detail-burndown-block:hover,
+.detail-45degree-block:hover,
+.detail-scurve-block:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.detail-photo {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.detail-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.detail-photo .project-photo-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0; 
+  z-index: 10;
+  transition: opacity 0.3s, box-shadow 0.3s, background 0.3s;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  padding: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.detail-photo:hover .project-photo-btn {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+
+.pdetail-photo[style*="pointer-events: none"] {
+  opacity: 0.5 !important;
+  visibility: visible !important; 
+}
+
+.rich-content-wrapper img {
+  max-width: 100%;
+  height: auto !important;
+  display: block;
+}
+
+.rich-content-wrapper {
+  overflow: hidden;
+  word-break: break-word;
+}
+
+
+.detail-draggable {
+  cursor: grab;
+  transition: opacity 0.2s, box-shadow 0.2s;
+}
+.detail-draggable:active {
+  cursor: grabbing;
+}
+.detail-draggable.dragging {
+  opacity: 0.4;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+}
+.detail-drop-zone.drag-over {
+  outline: 2px dashed var(--color-dark);
+  outline-offset: 4px;
+  border-radius: 8px;
+  background: rgba(99,102,241,0.03);
+}
+.detail-drop-placeholder {
+  height: 6px;
+  background: var(--color-dark);
+  border-radius: 3px;
+  margin: 4px 0;
+  transition: height 0.15s;
+}

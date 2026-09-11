@@ -1,0 +1,321 @@
+.. include:: ImageReplacement.txt
+
+
+.. title:: Clients and Customer relationship management
+
+.. index:: Customer
+.. index:: Client
+
+.. _customer:
+
+#######
+Clients
+#######
+
+
+The client is the entity for which the project is set.
+
+It is generally the owner of the project, and in many cases it is the payer.
+
+It can be an internal entity within the same enterprise, a different enterprise, or an entity of an enterprise.
+
+The client defined here is not a person. Real persons within a client entity are called ":ref:`contacts<contact>`".
+
+
+.. figure:: /images/GUI/CUSTOMER_SCR_Clients.png
+   :alt: Clients screen
+   
+   Clients screen
+
+.. rubric:: Section Description
+
+.. sidebar:: Other sections
+  
+   * :ref:`Attachments<attachment-section>`   
+   * :ref:`Notes<note-section>`   
+
+.. tabularcolumns:: |l|l|
+
+.. list-table:: Required field |ReqFieldLegend|
+   :header-rows: 1
+
+   * - Field
+     - Description
+   * - :term:`Id`
+     - Unique Id for the client.
+   * - |RequiredField| client name
+     - Short name of the client.
+   * - |RequiredField| Type of client
+     - Type of client.
+   * - Client code
+     - Code of the client.
+   * - Payment deadline
+     - The payment deadline is stated on the bill for this client.
+   * - Tax
+     - Tax rates that are applied to bill amounts for this client.
+   * - Tax number
+     - Tax reference number, to be displayed on the bill. 
+   * - :term:`Closed`
+     - Flag to indicate that the client is archived.
+   * - :term:`Description`
+     - Complete description of the client.
+
+.. rubric:: Address section
+
+Full address of the client.
+
+.. rubric:: Projects section
+
+List of projects related to the client.
+
+.. rubric:: Contacts section
+
+Displays the names of client-related contacts. 
+
+.. figure:: /images/GUI/CUSTOMER_ZONE_Contacts.png
+   :alt: Contacts section
+   
+   Contacts section
+   
+   
+You can create contacts directly from the Contact screen.
+
+You can also create contacts directly from the Contacts section.
+
+
+* Click on |Add| to create a contact
+* Click on |Delete| to delete a contact
+
+When you want to add a contact, a window displaying the existing contacts is opened.
+
+You can select an existing contact or create a new one from this window. The information will be reflected directly in the Contact screen.
+
+   
+   
+.. rubric:: Client quotation, client commands list and client bill list 
+
+These sections provide a summary of the various financial documents concerning the selected client.
+
+The quotations, orders and invoices associated with the client are displayed in tables for easy reading.
+
+.. figure:: /images/GUI/CUSTOMER_ZONE_Financial.png
+   :alt: financial monitoring sections
+   
+   Financial monitoring sections
+
+.. note:: To display these sections, you must set the options "list quotes, commands and bills on client form" on yes in the global parameters but also in the user parameters.   
+   
+   See: :ref:`Global Parameters<display>`
+   See: :ref:`Users Parameters<display-parameters>`  
+
+.. rubric:: List of tickets
+
+This section allows you to see all open tickets for the selected client.
+
+
+.. figure:: /images/GUI/CUSTOMER_ZONE_Tickets.png
+   :alt: List of tickets for this client
+   
+   List of tickets for this client
+   
+
+.. note:: 
+
+   To display this section, you must set the option "Display tickets at client level" to Yes in both the global parameters and the user parameters.
+
+
+.. seealso:: 
+
+   :ref:`Global Parameters<globalParam_tickets>`
+   
+
+
+
+
+
+
+
+.. index:: Customer relationship management
+.. index:: Prospect (client) 
+.. index:: Prospect
+
+.. _crm:
+
+################################
+Customer relationship management
+################################
+
+
+
+The ProjeQtOr CRM (Customer Relationship Management) module enables you to centralize and track all information and activities related to sales prospecting, from the identification of a prospect to their conversion into a contact or client.
+
+It allows you to manage prospects and their characteristics, record prospecting sources, events and actions, and associate financial information such as quotations and invoices.
+
+A consolidated CRM dashboard brings together this information to provide an overview of sales activity and prospect development.
+
+
+Prospecting sources and events provide the context for prospect acquisition, while prospecting actions allow you to track the interactions that take place throughout the sales process.
+
+Together, these elements provide a complete view of prospect development.
+
+
+
+
+
+
+
+.. _crm-prospect:
+
+The Prospects
+#############
+
+Record all the prospects you wish to track here.
+
+Numerous fields are available in the Description and Details sections to provide the information needed to qualify and follow up on your prospects.
+
+The prospect record allows you to store information such as the prospect type, business domain, language, title, position, function, level of engagement and whether the person is a decision-maker.
+
+You can also associate prospecting sources, prospecting events and prospecting actions with the prospect.
+
+In the Lead Processing section, the Convert button allows you to convert a prospect into a client and a contact.
+
+The prospect's company information is used to create the client, while the prospect's personal information is used to create the contact.
+
+
+.. rubric:: Possible duplicate prospect
+
+This section allows you to identify another prospect that may correspond to the same company or person, helping to avoid duplicate records.
+
+
+
+.. rubric:: Types of prospect
+
+Prospect types allow you to categorize prospects based on their profile or nature.
+
+This classification facilitates their identification and segmentation, as well as the analysis of sales activity.
+
+For example, you can distinguish between a private company, a government agency, a public body, an association, a consulting firm, and a potential partner.
+
+
+.. rubric:: Domains / Positions and decision makers
+
+These reference data allow you to describe and qualify your prospects.
+
+You can define their business domain, position, title, function and level of engagement, and indicate whether they are decision-makers.
+
+This information can then be used to segment prospects and filter CRM data.
+
+
+.. rubric:: Prospect financial information
+
+Financial information related to prospects can also be tracked, including prospect estimates.
+
+Once a prospect has been converted into a client, the associated client quotations, orders and invoices can be tracked from the client record.
+
+
+
+The prospect events
+*******************
+
+Prospecting actions are recorded directly on the relevant prospect's screen.
+
+They allow you to record and track all interactions with a prospect.
+
+They provide a record of communications and sales activities, maintaining a complete history of interactions with each prospect.
+
+
+.. figure:: images/GUI/CUSTOMER_ZONE-CRMProspectionActions.png
+   :alt: Prospection Actions
+   
+   Prospection Actions
+
+
+**For each action, specify in particular:**
+
+
+* The date of the action;
+
+* The type of action performed: phone call, email, meeting, demonstration, follow-up, event participation, etc.;
+
+* The description of the action
+
+The action history makes it possible to view the steps already taken, avoid unnecessary follow-ups, and quickly identify which actions need to be carried out.
+
+This information is also reflected in the CRM dashboard, providing a consolidated view of prospecting activity.
+
+.. _crm-events:
+
+The Lead events
+###############
+
+
+The lead events allow you to group and identify events or campaigns that generate prospecting activities.
+
+These may include trade shows, webinars, conferences, marketing campaigns or business events.
+
+They allow you to track the prospects generated by a specific event and measure its commercial impact.
+
+
+The Lead sources
+################
+
+
+Prospecting sources allow you to identify where prospects come from and the channels through which they were acquired.
+
+Examples include a website, word of mouth, trade shows, email campaigns, social media, or direct sales activities.
+
+They enable you to measure the effectiveness of various prospecting channels and identify those that generate the most business opportunities.
+
+
+
+.. _crm-dashboard:
+
+CRM Dashboard
+#############
+
+A consolidated CRM dashboard brings all this information together in a single view: prospects, contacts, customers, prospecting activities, and financial data. 
+
+It provides a comprehensive overview of sales activity, making it easier to track opportunities and their progress.
+
+
+.. figure:: /images/GUI/CUSTOMER_SCR_CRMDashboard.png
+   :alt: CRM Dashboard
+   
+   CRM Dashboard
+   
+   
+Click |Minus| to close the corresponding column.
+
+Click the icon to reopen the column. 
+
+
+* |CRMprospectInfo| Prospect informations
+   
+* |CRMprospectEvent| Prospect Events
+
+* |CRMprospectEstim| Prospect Estimates
+
+* |CRMquotation| Client quotations
+ 
+* |CRMcommand| Client orders
+   
+* |CRMbill| Client invoices
+
+  
+Once the columns are reduced, the icons automatically reposition themselves in the designated location.
+
+
+.. image:: /images/GUI/CUSTOMER_ZONE_CRMButtons.png
+
+
+
+Each line and piece of information is clickable and takes you to the dedicated screen.
+
+
+When all columns are open and your screen width does not allow them to be displayed simultaneously, a horizontal scrollbar enables you to access the data on the right side of the page.
+
+The "Company" column, however, remains visible at all times, regardless of how you scroll horizontally across the page.
+
+Several filters are available to help you isolate the information you need based on name, domain, prospecting source, prospect qualification, engagements, status, or assigned representative.
+
+A color code distinguishes prospects from clients and contacts.

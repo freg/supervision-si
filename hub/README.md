@@ -2484,3 +2484,28 @@ valeurs du thème clair : rendu clair inchangé, seul le sombre est corrigé.
 Même famille de bug que les couleurs en dur trouvées trois fois dans DBA — à
 `grep` systématiquement (`grep -rn -- "var(--[a-z-]*, #" hub/src`) avant de
 considérer un module terminé.
+
+## Tuile ProjeQtOr — fork intégré au hub (livraison #476)
+
+Nouvelle tuile d'accueil **ProjeQtOr**, visible de TOUT LE MONDE
+(décision explicite de la personne : « visibilité à tous, il y aura une
+page publique »), `embeddable: true` (onglet de la coquille, même
+origine via tls-proxy sous `/projeqtor/`). Ajoutée dans
+`buildFrontsList` (`lib.js`, paramètre `projeqtorUrl` ←
+`VITE_PROJEQTOR_URL`), JAMAIS en lien externe : c'est un service du
+stack (`projeqtor-app`, voir `projeqtor/README.md`), pas un site
+distant. L'accès réel reste protégé par l'écran de connexion de
+ProjeQtOr lui-même (LDAP du hub configuré par défaut).
+
+Groupe Keycloak **`projeqtor`** créé dans le realm (+ rôle éponyme,
+mapping `GROUP_TO_ROLE` dans `lib.js` ET libellé `ROLE_LABELS`) mais ne
+filtrant encore RIEN — réservé aux filtrages futurs, demandé dès cette
+livraison par la personne. Pas de mapping côté `tickets/portal` : comme
+`supervision`/`service`, ce groupe ne concerne pas le portail.
+
+Tests : 7 cas Node sur `buildFrontsList`/`groupsToRoles` (tuile sans
+aucun groupe, absente si URL vide, mapping du groupe) + non-régression
+des 29 fichiers de tests du hub. Embarquabilité iframe réelle à
+confirmer en conditions réelles (aucun `X-Frame-Options` attendu, ni
+Apache par défaut ni tls-proxy — jamais vérifié ici, pas de
+navigateur).

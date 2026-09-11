@@ -1,0 +1,478 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Planning elements &#8212; Documentation ProjeQtOr User guide 13.1</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" href="_static/projeqtor.css" type="text/css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/translations.js"></script>
+    
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Recherche" href="search.html" />
+    <link rel="next" title="Gérer la planification" href="Planning.html" />
+    <link rel="prev" title="Guide de démarrage" href="StartGuide.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="Planning.html" title="Gérer la planification"
+             accesskey="N">suivant</a> |</li>
+        <li class="right" >
+          <a href="StartGuide.html" title="Guide de démarrage"
+             accesskey="P">précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Planning elements</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="planning-elements">
+<span id="planning-element"></span><span id="index-0"></span><h1>Éléments de planification<a class="headerlink" href="#planning-elements" title="Lien permanent vers cette rubrique">¶</a></h1>
+<p>ProjeQtOr fournit tous les éléments nécessaires à la construction d’une planification à partir de la charge de travail, des contraintes entre les tâches et de la disponibilité des ressources.</p>
+<p>Les éléments de planification <a class="reference internal" href="RequirementsTest.html#test-session"><span class="std std-ref">Sessions de test</span></a> et <a class="reference internal" href="Steering.html#meeting"><span class="std std-ref">Pilotage</span></a> sont décrits dans leurs rubriques respectives.</p>
+<section id="project">
+<span id="planningelem-project"></span><span id="index-1"></span><h2>Projet<a class="headerlink" href="#project" title="Lien permanent vers cette rubrique">¶</a></h2>
+<p>Le projet est l’entité principale de ProjeQtOr.</p>
+<p>Il constitue également le niveau supérieur de visibilité, selon les Profils.</p>
+<p>Un tableau de bord de projet est disponible pour suivre les informations clés.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="PlanningView.html#projectsdashboard"><span class="std std-ref">Tableau de bord des projets</span></a></p>
+</div>
+<section id="sub-projects">
+<h3>Sous-projets<a class="headerlink" href="#sub-projects" title="Lien permanent vers cette rubrique">¶</a></h3>
+<ul class="simple">
+<li><p>Vous pouvez définir des sous-projets sur n’importe quel projet, et ce de manière illimitée.</p></li>
+<li><p>Dans l’écran du projet parent, vous pouvez visualiser les projets enfants dans la section des sous-projets.</p></li>
+<li><p>Ainsi, les projets peuvent ne pas être de véritables projets, mais simplement une décomposition organisationnelle correspondant à une structure.</p></li>
+</ul>
+</section>
+<section id="project-type">
+<h3>Type de projet<a class="headerlink" href="#project-type" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>Il existe 4 types de projets qui ne sont pas gérés de la même manière.</p>
+<section id="ope-operational-project">
+<h4>OPE : Projet opérationnel<a class="headerlink" href="#ope-operational-project" title="Lien permanent vers cette rubrique">¶</a></h4>
+<blockquote>
+<div><p>Projet à suivre. Celui sur lequel vous travaillez.</p>
+<p>Tous les nouveaux projets sont créés avec le code par défaut <strong>OPE</strong>.</p>
+<p>Les projets opérationnels sont liés aux types de facturation.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="ListsOfTypes.html#project-type"><span class="std std-ref">types de projet</span></a></p>
+</div>
+</div></blockquote>
+</section>
+<section id="adm-administrative-project">
+<h4>ADM : Projet administratif<a class="headerlink" href="#adm-administrative-project" title="Lien permanent vers cette rubrique">¶</a></h4>
+<blockquote>
+<div><p>Type de projet pour suivre le travail non productif : congés, maladie, formation, …</p>
+<p>Toutes les ressources pourront saisir du travail réel sur ces projets, sans avoir à être affectées au projet ni assignées aux activités du projet.</p>
+<p>Des Assignations à toutes les tâches du projet seront automatiquement créées pour permettre aux utilisateurs de saisir du travail réel.</p>
+<p>Ces projets ne sont pas visibles dans les écrans de type Gantt.</p>
+<p>Certaines sections et certains champs ne sont pas visibles ou ne fonctionnent pas sur les projets administratifs, comme Suspendu, Planification fixe ou le seuil minimum.</p>
+</div></blockquote>
+</section>
+<section id="tmp-template-project">
+<h4>TMP : Projet modèle<a class="headerlink" href="#tmp-template-project" title="Lien permanent vers cette rubrique">¶</a></h4>
+<blockquote>
+<div><p>Ces projets ne seront pas utilisés pour suivre du travail.</p>
+<p>Ils sont simplement conçus pour définir des modèles, destinés à être copiés en tant que projets opérationnels.</p>
+<p>Tout chef de projet (Profil) peut copier ces projets, sans avoir à y être affecté.</p>
+</div></blockquote>
+</section>
+<section id="prp-proposal-project">
+<h4>PRP : Projet de proposition<a class="headerlink" href="#prp-proposal-project" title="Lien permanent vers cette rubrique">¶</a></h4>
+<blockquote>
+<div><p>Ces projets ne seront pas utilisés pour suivre du travail.</p>
+<p>Ce type de projet permet de définir si un projet est stratégiquement intéressant à réaliser.</p>
+</div></blockquote>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="ListsOfTypes.html#project-type"><span class="std std-ref">type de projet</span></a></p>
+</div>
+</section>
+</section>
+<section id="project-traitment">
+<h3>Traitement du projet<a class="headerlink" href="#project-traitment" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p class="rubric">Planification fixe</p>
+<p>Lorsque la case « planification fixe » est cochée, la planification du projet ne sera pas recalculée.</p>
+<ul class="simple">
+<li><p>Cela évite de modifier les valeurs prévues.</p></li>
+<li><p>La planification restera toujours identique, quelles que soient les actions effectuées sur d’autres projets.</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Avertissement</p>
+<p>Cela peut entraîner des incohérences dans les dépendances.</p>
+</div>
+<p class="rubric">Projet non extensible</p>
+<p>Lorsque le périmètre du projet est fixé, vous ne pouvez pas :</p>
+<ul class="simple">
+<li><p>ajouter de nouveaux éléments à ce projet</p></li>
+<li><p>supprimer des éléments de ce projet</p></li>
+<li><p>déplacer des éléments vers ou depuis ce projet</p></li>
+</ul>
+<p class="rubric">En construction</p>
+<p>Lorsqu’un projet est en construction, aucun <a class="reference internal" href="ControlAutomation.html#notif-on-event"><span class="std std-ref">e-mail automatique</span></a> ne sera envoyé, aucune <a class="reference internal" href="ControlAutomation.html#notifications"><span class="std std-ref">notification</span></a> ni <a class="reference internal" href="GlobalParameters.html#id5"><span class="std std-ref">alerte</span></a> ne sera générée pour les éléments du projet.</p>
+<ul class="simple">
+<li><p>Un projet peut être en construction tant qu’il n’est pas déclaré. Défini avec le statut <a class="reference internal" href="Glossary.html#term-In-Progress"><span class="xref std std-term">En cours</span></a>.</p></li>
+<li><p>Les ressources ne le voient pas dans les <a class="reference internal" href="RealWorkAllocation.html#timesheet"><span class="std std-ref">Imputations</span></a>.</p></li>
+</ul>
+<p class="rubric">Exclure du plan global</p>
+<ul class="simple">
+<li><p>Ne pas afficher les éléments non planifiables de ce projet dans la vue de planification globale.</p></li>
+<li><p>Cela signifie que seuls les éléments de planification standard seront affichés, à l’exclusion de :</p></li>
+<li><p><a class="reference internal" href="RiskIssueManagement.html#action"><span class="std std-ref">Actions</span></a></p></li>
+<li><p><a class="reference internal" href="Steering.html#decision"><span class="std std-ref">Décisions</span></a></p></li>
+<li><p><a class="reference internal" href="Steering.html#deliveries"><span class="std std-ref">Livraisons</span></a></p></li>
+</ul>
+<p class="rubric">Traitement du travail validé</p>
+<p>Active le traitement du travail validé sur la base de la somme du travail des ordres de projet ; sinon, il sera calculé sur la somme du travail validé des activités.</p>
+<p class="rubric">Indicateurs manuels</p>
+<ul class="simple">
+<li><p>Les champs : <a class="reference internal" href="ListsOfValues.html#health-status"><span class="std std-ref">État de santé</span></a>, <a class="reference internal" href="ListsOfValues.html#quality-level"><span class="std std-ref">Niveau de qualité</span></a>, <a class="reference internal" href="ListsOfValues.html#trend"><span class="std std-ref">Tendance</span></a> et <a class="reference internal" href="ListsOfValues.html#overall-progress"><span class="std std-ref">Avancement global</span></a> sont des indicateurs manuels.</p></li>
+<li><p>Ils permettent de définir de manière visuelle l’état général, la conformité, la tendance et l’avancement du projet.</p></li>
+<li><p>Certains indicateurs manuels sont affichés dans l’écran <a class="reference internal" href="Today.html#today-screen"><span class="std std-ref">Aujourd’hui</span></a>.</p></li>
+</ul>
+<figure class="align-default" id="id5">
+<img alt="Indicateur manuel dans l'écran Aujourd'hui" src="_images/PLANNINGELEM_ZONE_ManualIndicator.png" />
+<figcaption>
+<p><span class="caption-text">Indicateur manuel dans l’écran Aujourd’hui</span><a class="headerlink" href="#id5" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<p class="rubric">Champs spéciaux</p>
+<ul class="simple">
+<li><p>La valeur des champs Nom du projet, Commanditaire, Code projet et Code contrat peut être utilisée comme valeur de substitution des champs spéciaux.</p></li>
+<li><p>Voir : <a class="reference internal" href="GlobalParameters.html#administration-special-fields"><span class="std std-ref">Champs spéciaux</span></a></p></li>
+</ul>
+<p class="rubric">Indicateur de suivi</p>
+<ul class="simple">
+<li><p>Les <a class="reference internal" href="ControlAutomation.html#indicator"><span class="std std-ref">indicateurs</span></a> peuvent être définis dans les <a class="reference internal" href="CommonSections.html#progress-section"><span class="std std-ref">données d’avancement</span></a>.</p></li>
+</ul>
+<p class="rubric" id="projet-donot-start">Ne pas démarrer le projet avant la Date de début validée</p>
+<ul class="simple">
+<li><p>La planification ne doit démarrer qu’à partir de cette date, comme s’il existait un Jalon fixe précédant le projet.</p></li>
+<li><p>Les ressources ne peuvent pas imputer de travail sur le projet avant la date spécifiée (comme pour un projet en construction).</p></li>
+<li><p>Cette option doit être activée dans les <a class="reference internal" href="GlobalParameters.html#gp-planning-section"><span class="std std-ref">paramètres globaux</span></a>.</p></li>
+</ul>
+<span class="target" id="project-reserve"></span></section>
+<section id="index-2">
+<span id="id1"></span><h3>Réserve du projet<a class="headerlink" href="#index-2" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>La réserve du projet est un montant réservé sur la base de l’identification des <a class="reference internal" href="RiskIssueManagement.html#risk"><span class="std std-ref">Risques</span></a> et des <a class="reference internal" href="RiskIssueManagement.html#opportunity"><span class="std std-ref">Opportunités</span></a>.</p>
+<p>Elle est calculée à partir de la réserve pour aléas des risques, diminuée du gain potentiel des opportunités.</p>
+<p>ProjeQtOr utilise une technique dite de « Valeur monétaire attendue (VME) » pour convertir les risques et les opportunités en montant.</p>
+<p>Le montant de la réserve du projet sera ajouté au montant restant.</p>
+</section>
+<section id="abacus">
+<h3>Abaque<a class="headerlink" href="#abacus" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p>La fonctionnalité Abaque est actuellement disponible dans une version initiale (V0).</p>
+<p><strong>Dans cette version :</strong></p>
+<ul class="simple">
+<li><p>aucun calcul automatique n’est appliqué</p></li>
+<li><p>les valeurs ne sont pas automatiquement utilisées dans les estimations</p></li>
+<li><p>elles servent actuellement uniquement de référence informative</p></li>
+</ul>
+<p><strong>Les Abaques doivent donc être utilisés :</strong></p>
+<ul class="simple">
+<li><p>comme aide à la décision</p></li>
+<li><p>comme outil de capitalisation des connaissances et des expériences</p></li>
+<li><p>comme cadre de référence pour les estimations</p></li>
+</ul>
+<p>Les informations peuvent être consultées et appliquées manuellement par les chefs de projet.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Les évolutions futures pourront permettre :</strong></p>
+<ul class="simple">
+<li><p>l’utilisation automatique dans les estimations</p></li>
+<li><p>l’intégration dans les calculs de planification</p></li>
+<li><p>l’exploitation dans les Rapports.</p></li>
+</ul>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p>:<a class="reference internal" href="Steering.html#abacus"><span class="std std-ref">Abaque</span></a></p>
+</div>
+</section>
+</section>
+<section id="activity">
+<span id="index-3"></span><span id="id2"></span><h2>Activité<a class="headerlink" href="#activity" title="Lien permanent vers cette rubrique">¶</a></h2>
+<aside class="sidebar">
+<p class="sidebar-title">Other sections</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="CommonSections.html#assignment-section"><span class="std std-ref">Assignation</span></a></p></li>
+<li><p><a class="reference internal" href="CommonSections.html#progress-section"><span class="std std-ref">Avancement</span></a></p></li>
+<li><p><a class="reference internal" href="CommonSections.html#predsuces-element-section"><span class="std std-ref">Prédécesseur et Successeur</span></a></p></li>
+</ul>
+</aside>
+<p>Une activité est un type de tâche qui doit être planifiée, ou qui regroupe d’autres activités.</p>
+<p>Les activités peuvent être :</p>
+<ul class="simple">
+<li><p>Tâches de développement.</p></li>
+<li><p>Tâche d’initialisation ou de conception.</p></li>
+<li><p>Tâche de test.</p></li>
+<li><p>Tâches récurrentes de maintenance ou de support.</p></li>
+<li><p>Phases qui contiendront des sous-tâches.</p></li>
+<li><p>Toutes les tâches planifiées.</p></li>
+</ul>
+<p><a class="reference internal" href="Resource.html#resource"><span class="std std-ref">Les ressources</span></a> sont assignées aux activités. Lors d’une <a class="reference internal" href="CommonSections.html#assignment-section"><span class="std std-ref">assignation</span></a>, un certain travail est initialement planifié sur cette activité pour la ressource.</p>
+<p>Pour une ressource, les activités assignées sont les tâches dans lesquelles elle peut saisir le <a class="reference internal" href="RealWorkAllocation.html#real-work-allocation"><span class="std std-ref">Travail réel</span></a></p>
+<section id="parent-activities">
+<span id="parent-activity"></span><h3>Activités parentes<a class="headerlink" href="#parent-activities" title="Lien permanent vers cette rubrique">¶</a></h3>
+<ul class="simple">
+<li><p>Les activités peuvent avoir des parents pour regrouper des activités ou des tâches planifiées.</p></li>
+<li><p>Les activités peuvent être triées à l’intérieur de leur activité parente, dans la vue de planification <a class="reference internal" href="Gantt.html#gantt-chart"><span class="std std-ref">Gantt</span></a>, par glisser-déposer dans la zone de liste.</p></li>
+<li><p>L’activité parente doit appartenir au même projet.</p></li>
+<li><p>Lorsqu’une activité parente contient une assignation avec une charge de travail, le mode de planification appliqué ne correspond à aucun de ceux proposés dans la liste des modes de planification.</p></li>
+<li><p>Sur une activité parente, le mode de planification n’est plus affiché.</p></li>
+</ul>
+</section>
+<section id="activity-planning">
+<span id="id3"></span><h3>Planification de l’Activité<a class="headerlink" href="#activity-planning" title="Lien permanent vers cette rubrique">¶</a></h3>
+<ul class="simple">
+<li><p><a class="reference internal" href="Ticket.html#ticket"><span class="std std-ref">Les Tickets</span></a> peuvent être liés à une activité (tâche).</p></li>
+<li><p>Le travail sur les Tickets sera inclus dans l’activité.</p></li>
+</ul>
+<blockquote>
+<div><div class="compound">
+<p><strong>Assignation des ressources à la tâche</strong></p>
+<ul class="simple">
+<li><p>Les ressources qui travailleront sur le Ticket n’ont pas besoin d’être assignées préalablement à l’activité liée.</p></li>
+<li><p>L’assignation sera automatiquement créée dès que cette ressource aura saisi le temps de travail (travail réel) dans le Ticket.</p></li>
+<li><p>La tâche assignée et la somme des saisies de temps de travail par ressource dans les Tickets seront disponibles dans ses Imputations.</p></li>
+</ul>
+</div>
+</div></blockquote>
+</section>
+<section id="traitment">
+<h3>Traitement<a class="headerlink" href="#traitment" title="Lien permanent vers cette rubrique">¶</a></h3>
+<p class="rubric">Planification fixe</p>
+<ul class="simple">
+<li><p>Lorsque la case « planification fixe » est cochée, la planification de l’activité ne sera pas recalculée.</p></li>
+<li><p>Cela évitera toute modification des valeurs planifiées.</p></li>
+<li><p>La planification restera toujours identique, quelles que soient les actions effectuées sur d’autres projets.</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Avertissement</p>
+<p>Cela peut entraîner des incohérences dans les dépendances.</p>
+</div>
+<p class="rubric">Filtre sur la liste</p>
+<p>Possibilité de filtrer les activités par données ou par type, par exemple par ressources assignées</p>
+<p class="rubric">Indicateur de suivi</p>
+<ul class="simple">
+<li><p>Les indicateurs peuvent être définis dans la <a class="reference internal" href="ListsOfValues.html#list-of-values"><span class="std std-ref">Liste des valeurs</span></a>.</p></li>
+<li><p>Voir : <a class="reference internal" href="ListsOfValues.html#health-status"><span class="std std-ref">État de santé</span></a> et <a class="reference internal" href="ListsOfValues.html#overall-progress"><span class="std std-ref">Avancement global</span></a></p></li>
+</ul>
+<section id="test-session">
+<span id="test-session-planning-element"></span><h4>Session de test<a class="headerlink" href="#test-session" title="Lien permanent vers cette rubrique">¶</a></h4>
+<blockquote>
+<div><p>Cet élément de planification est une activité spécialisée destinée aux tests.</p>
+<p>Une session de test permet de définir un ensemble de cas de test devant être exécutés pour satisfaire une Exigence.</p>
+<p>Elle peut regrouper d’autres sessions de test ou constituer une tâche. Cela permet de définir la structure des sessions de test.</p>
+<p>Les dates, travaux et coûts des sessions de test (enfants) sont récapitulés dans la session de test (parent).</p>
+<p>Une tâche est assignée à des ressources pour être réalisée.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="RequirementsTest.html#test-session"><span class="std std-ref">Sessions de test</span></a></p>
+</div>
+</div></blockquote>
+</section>
+</section>
+</section>
+<section id="milestone">
+<span id="id4"></span><h2>Jalon<a class="headerlink" href="#milestone" title="Lien permanent vers cette rubrique">¶</a></h2>
+<aside class="sidebar">
+<p class="sidebar-title">Other sections</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="CommonSections.html#progress-section-milestone"><span class="std std-ref">Avancement</span></a></p></li>
+<li><p><a class="reference internal" href="Gantt.html#predecessor-successor"><span class="std std-ref">Prédécesseur et Successeur</span></a></p></li>
+</ul>
+</aside>
+<p>Un Jalon est un repère dans la planification, destiné à mettre en évidence les dates clés.</p>
+<p>Les Jalons sont couramment utilisés pour contrôler les dates de livraison.</p>
+<p>Ils peuvent également être utilisés pour mettre en évidence la transition d’une phase à la suivante.</p>
+<p>ProjeQtOr propose deux types de Jalons :</p>
+<p><strong>Jalon flottant</strong></p>
+<ul class="simple">
+<li><p>Ce Jalon se déplacera automatiquement pour tenir compte des dépendances.</p></li>
+</ul>
+<p><strong>Jalon fixe</strong></p>
+<ul class="simple">
+<li><p>Ce Jalon est fixe dans la planification et ne tient pas compte des dépendances avec les prédécesseurs.</p></li>
+<li><p>Ce type de Jalon est utile, par exemple, pour définir la date de début de certaines tâches.</p></li>
+<li><p>La date fixe est définie par la date validée.</p></li>
+</ul>
+<p class="rubric">Indicateur de suivi</p>
+<ul class="simple">
+<li><p>Les indicateurs peuvent être définis dans la <a class="reference internal" href="ListsOfValues.html#list-of-values"><span class="std std-ref">Liste des valeurs</span></a>.</p></li>
+<li><p>Voir : <a class="reference internal" href="ListsOfValues.html#health-status"><span class="std std-ref">État de santé</span></a> et <a class="reference internal" href="ListsOfValues.html#overall-progress"><span class="std std-ref">Avancement global</span></a></p></li>
+</ul>
+<p class="rubric">Section Détails</p>
+<p>Les éléments liés au Jalon (Jalon cible) sont affichés dans le tableau.</p>
+<figure class="align-default" id="id6">
+<img alt="Section Détails" src="_images/PLANNINGELEM_ZONE_SectionDetails.png" />
+<figcaption>
+<p><span class="caption-text">Détails : élément lié</span><a class="headerlink" href="#id6" title="Lien permanent vers cette image">¶</a></p>
+</figcaption>
+</figure>
+<ul class="simple">
+<li><p>Contient la liste des <a class="reference internal" href="Concept.html#product-concept"><span class="std std-ref">versions de produit</span></a>.</p></li>
+<li><p>Contient la liste des <a class="reference internal" href="RequirementsTest.html#requirement"><span class="std std-ref">Exigences</span></a>.</p></li>
+<li><p>Contient la liste des <a class="reference internal" href="Ticket.html#ticket"><span class="std std-ref">Tickets</span></a>.</p></li>
+<li><p>Contient la liste des <a class="reference internal" href="#activity"><span class="std std-ref">Activités</span></a>.</p></li>
+</ul>
+</section>
+<section id="dependency">
+<span id="dependency-planningelement"></span><h2>Dépendance<a class="headerlink" href="#dependency" title="Lien permanent vers cette rubrique">¶</a></h2>
+<blockquote>
+<div><p>Les dépendances permettent de définir l’ordre d’exécution des tâches (séquentiel ou concurrent).</p>
+<p>Tous les éléments de planification peuvent être reliés à d’autres par des dépendances.</p>
+<p>Il existe plusieurs types de dépendances permettant de démarrer et/ou de terminer avant/après un autre élément.</p>
+<p>Les dépendances peuvent être gérées dans le diagramme de Gantt et dans l’écran de l’élément de planification.</p>
+<p>Un délai peut être défini entre le prédécesseur et le successeur.</p>
+<p>Plusieurs types sont disponibles :</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="_images/iconDependencySS.png"><img alt="Dépendance Début-Début" src="_images/iconDependencySS.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Début à Début</strong> : la seconde activité ne peut démarrer que lorsque la première activité a démarré.</p></li>
+<li><p><a class="reference internal" href="_images/iconDependencyES.png"><img alt="Dépendance Fin-Début" src="_images/iconDependencyES.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Fin à Début</strong> : la première activité doit être terminée avant que la seconde activité puisse commencer.</p></li>
+<li><p><a class="reference internal" href="_images/iconDependencyEE.png"><img alt="Dépendance Fin-Fin" src="_images/iconDependencyEE.png" style="width: 19.2px; height: 19.2px;" /></a> <strong>Fin à Fin</strong> : la première activité doit être terminée avant que la seconde puisse être achevée.</p></li>
+</ul>
+<p>En tout état de cause, le successeur peut se terminer avant le prédécesseur. Notez que le successeur « ne devrait » pas se terminer après la fin du prédécesseur, mais dans certains cas cela ne sera pas respecté :</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>si la ressource est déjà utilisée à 100 % jusqu’à la fin du successeur</p></li>
+<li><p>si le successeur possède un autre prédécesseur de type « Fin-Début » ou « Début-Début » et que le temps restant est insuffisant pour terminer la tâche</p></li>
+<li><p>si le délai à partir de la date de début de planification ne permet pas d’achever la tâche.</p></li>
+</ul>
+</div></blockquote>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="Gantt.html#dependencylinks"><span class="std std-ref">Dépendances</span></a></p>
+</div>
+</div></blockquote>
+</section>
+<section id="meeting">
+<span id="meeting-planningelement"></span><h2>Réunion<a class="headerlink" href="#meeting" title="Lien permanent vers cette rubrique">¶</a></h2>
+<blockquote>
+<div><p>Cet élément de planification se comporte comme un Jalon fixe, mais c’est une tâche.</p>
+<p>Comme un Jalon, une réunion peut constituer un point de transition.</p>
+<p>Mais aussi comme une tâche, car il est possible d’y assigner des ressources et du travail planifié.</p>
+<div class="admonition seealso">
+<p class="admonition-title">Voir aussi</p>
+<p><a class="reference internal" href="Steering.html#meeting"><span class="std std-ref">Pilotage</span></a></p>
+</div>
+</div></blockquote>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/Projeqtor_Logo_White.png" alt="Logo"/>
+            </a></p>
+  <div>
+    <h3><a href="index.html">Table des matières</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Éléments de planification</a><ul>
+<li><a class="reference internal" href="#project">Projet</a><ul>
+<li><a class="reference internal" href="#sub-projects">Sous-projets</a></li>
+<li><a class="reference internal" href="#project-type">Type de projet</a><ul>
+<li><a class="reference internal" href="#ope-operational-project">OPE : Projet opérationnel</a></li>
+<li><a class="reference internal" href="#adm-administrative-project">ADM : Projet administratif</a></li>
+<li><a class="reference internal" href="#tmp-template-project">TMP : Projet modèle</a></li>
+<li><a class="reference internal" href="#prp-proposal-project">PRP : Projet de proposition</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#project-traitment">Traitement du projet</a></li>
+<li><a class="reference internal" href="#index-2">Réserve du projet</a></li>
+<li><a class="reference internal" href="#abacus">Abaque</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#activity">Activité</a><ul>
+<li><a class="reference internal" href="#parent-activities">Activités parentes</a></li>
+<li><a class="reference internal" href="#activity-planning">Planification de l’Activité</a></li>
+<li><a class="reference internal" href="#traitment">Traitement</a><ul>
+<li><a class="reference internal" href="#test-session">Session de test</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#milestone">Jalon</a></li>
+<li><a class="reference internal" href="#dependency">Dépendance</a></li>
+<li><a class="reference internal" href="#meeting">Réunion</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Sujet précédent</h4>
+    <p class="topless"><a href="StartGuide.html"
+                          title="Chapitre précédent">Guide de démarrage</a></p>
+  </div>
+  <div>
+    <h4>Sujet suivant</h4>
+    <p class="topless"><a href="Planning.html"
+                          title="Chapitre suivant">Gérer la planification</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Recherche rapide</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="Index général"
+             >index</a></li>
+        <li class="right" >
+          <a href="Planning.html" title="Gérer la planification"
+             >suivant</a> |</li>
+        <li class="right" >
+          <a href="StartGuide.html" title="Guide de démarrage"
+             >précédent</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Documentation ProjeQtOr User guide 13.1</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Planning elements</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2015-2025, ProjeQtOr.
+      Créé en utilisant <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.2.3.
+    </div>
+  </body>
+</html>
