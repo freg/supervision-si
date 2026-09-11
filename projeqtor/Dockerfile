@@ -1,11 +1,16 @@
 # ProjeQtOr (fork supervision-si) — gestion de projets intégrée au hub.
 # Livraison #476. Voir projeqtor/README.md pour le raisonnement complet.
 #
-# Base php:8.3-apache (et pas 8.4) : l'extension `imap` (requise par
-# ProjeQtOr pour récupérer les réponses par mail, voir src/readme.txt)
-# est débarquée du noyau PHP en 8.4 — rester sur 8.3 tant que le fork
-# n'a pas remplacé cet usage.
-FROM php:8.3-apache
+# Base php:8.3-apache-bookworm (et pas 8.4) : l'extension `imap`
+# (requise par ProjeQtOr pour récupérer les réponses par mail, voir
+# src/readme.txt) est débarquée du noyau PHP en 8.4 — rester sur 8.3
+# tant que le fork n'a pas remplacé cet usage.
+# Variante -bookworm ÉPINGLÉE (livraison #480, échec de build réel) :
+# php:8.3-apache non qualifié suit désormais Debian trixie, où le
+# paquet libc-client-dev (UW-IMAP, requis pour l'extension imap) a été
+# RETIRÉ — « E: Unable to locate package libc-client-dev ». Bookworm
+# l'a encore et est maintenu jusqu'en 2028 (LTS).
+FROM php:8.3-apache-bookworm
 
 # Extensions requises par ProjeQtOr (src/readme.txt) : gd (graphiques
 # des rapports), imap (mails), mbstring (UTF-8), mysqli + pdo_mysql

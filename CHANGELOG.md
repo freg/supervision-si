@@ -1,3 +1,15 @@
+## 2026-09-12 — Correctif build ProjeQtOr : base php épinglée sur bookworm (livraison #480)
+
+Échec de build réel au premier déploiement de #476+ sur la VM :
+« E: Unable to locate package libc-client-dev ». L'image
+`php:8.3-apache` non qualifiée suit désormais Debian **trixie**, où le
+paquet `libc-client-dev` (UW-IMAP, requis pour compiler l'extension
+PHP `imap` dont ProjeQtOr a besoin pour récupérer les réponses par
+mail) a été retiré. Base épinglée sur `php:8.3-apache-bookworm`
+(bookworm a encore le paquet et est maintenu en LTS jusqu'en 2028).
+
+---
+
 ## 2026-09-12 — chantier/run.sh : clés .env manquantes ajoutées automatiquement (livraison #479)
 
 Demandé explicitement après un redéploiement où les nouvelles clés
