@@ -49,9 +49,14 @@ COPY src/ /var/www/html/projeqtor/
 # l'entrypoint, depuis les variables d'environnement, et jamais
 # régénéré ensuite (les retouches faites via l'écran de configuration
 # de ProjeQtOr sont préservées).
+# cache/ et files/ CRÉÉS ici (livraison #481, échec de build réel) :
+# l'archive zip upstream V13.1.0 ne conserve pas les dossiers VIDES,
+# donc « chown: cannot access .../cache: No such file or directory ».
 RUN echo '<?php $parametersLocation="/data/config/parameters.php";' \
       > /var/www/html/projeqtor/tool/parametersLocation.php \
-    && mkdir -p /data \
+    && mkdir -p /var/www/html/projeqtor/cache \
+                /var/www/html/projeqtor/files \
+                /data \
     && chown -R www-data:www-data /var/www/html/projeqtor/cache \
                                   /var/www/html/projeqtor/files \
                                   /data

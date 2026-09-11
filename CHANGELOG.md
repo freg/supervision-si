@@ -1,3 +1,14 @@
+## 2026-09-12 — Correctif build ProjeQtOr : cache/ et files/ créés au build (livraison #481)
+
+Second échec de build réel sur la VM : « chown: cannot access
+'/var/www/html/projeqtor/cache': No such file or directory ». Les
+dossiers `cache/` et `files/` existent en local dans `projeqtor/src/`
+mais sont VIDES — git ne suit pas les dossiers vides, donc ni le
+dépôt ni le zip de livraison ne les contiennent. Le Dockerfile les
+crée désormais explicitement (`mkdir -p`) avant le `chown`.
+
+---
+
 ## 2026-09-12 — Correctif build ProjeQtOr : base php épinglée sur bookworm (livraison #480)
 
 Échec de build réel au premier déploiement de #476+ sur la VM :
