@@ -67,6 +67,15 @@ export const THEMES = [
       { front: "keycloak-admin", label: "Administration Keycloak" },
       { front: "ldap-admin", label: "Administration OpenLDAP" },
     ] },
+  // ProjeQtOr (fork, livraison #482) : la tuile était tombée dans les
+  // « Liens externes » (leftover, jamais rattachée à une thématique) ;
+  // demandé explicitement : « un groupe en plus "projeqtor", visibilité
+  // à tous ». Thématique dédiée d'un seul outil, visible de tous (le
+  // front projeqtor n'a aucune condition de rôle, voir lib.js).
+  { id: "projeqtor", name: "ProjeQtOr", icon: "📋", description: "Gestion de projets — fork maison, ergonomie en cours de refonte",
+    entries: [
+      { front: "projeqtor", label: "ProjeQtOr" },
+    ] },
 ];
 
 export const THEME_PREFIX = "theme:";

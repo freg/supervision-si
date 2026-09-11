@@ -2,11 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { THEMES, buildThemes, absorbedFrontIds, themeViewMode, isThemeViewMode, themeIdOf, themeOfView, findTheme, normalizeHomeMode } from "../src/hubThemes.js";
 
-test("cinq thématiques, sans doublon de vue ni de front", () => {
-  assert.equal(THEMES.length, 5);
+test("six thématiques, sans doublon de vue ni de front", () => {
+  assert.equal(THEMES.length, 6);
   const views = THEMES.flatMap((t) => t.entries.map((e) => e.view || `front:${e.front}`));
   assert.equal(new Set(views).size, views.length);
   assert.ok(views.includes("si-proxy") && views.includes("supervision-si") && views.includes("front:tickets"));
+  assert.ok(views.includes("front:projeqtor")); // thématique dédiée, #482
 });
 
 test("viewMode thématique", () => {

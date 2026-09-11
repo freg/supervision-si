@@ -1,3 +1,15 @@
+## 2026-09-12 — Hub : thématique dédiée « ProjeQtOr » (livraison #482)
+
+La tuile ProjeQtOr (#476) tombait dans les « Liens externes » (front
+jamais rattaché à une thématique → leftover). Demandé explicitement :
+« un groupe en plus "projeqtor", visibilité à tous ». Sixième
+thématique d'accueil dédiée (`hub/src/hubThemes.js`), d'un seul outil
+pour l'instant ; la visibilité reste inconditionnelle (aucune
+condition de rôle sur le front, voir `hub/src/lib.js`). Tests Node des
+thématiques mis à jour (6 thématiques, `front:projeqtor` couvert).
+
+---
+
 ## 2026-09-12 — Correctif build ProjeQtOr : cache/ et files/ créés au build (livraison #481)
 
 Second échec de build réel sur la VM : « chown: cannot access

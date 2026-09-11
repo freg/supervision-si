@@ -22,9 +22,11 @@ export const GROUP_TO_ROLE = {
   service: "service",
   maitre_clefs: "maitre_clefs",
   // Groupe dédié au fork ProjeQtOr (livraison #476) -- la tuile reste
-  // visible de TOUS (décision de la personne) ; ce mapping existe pour
-  // les filtrages FUTURS (droits fins dans ProjeQtOr, liens externes
-  // restreints...), aucune tuile ne s'en sert encore.
+  // visible de TOUS (décision de la personne) ; ce mapping sert aux
+  // filtrages FUTURS (droits fins dans ProjeQtOr, liens externes
+  // restreints...). La thématique d'accueil dédiée « ProjeQtOr »
+  // (#482) n'est pas ce groupe : la visibilité de la tuile reste
+  // inconditionnelle, voir plus bas.
   projeqtor: "projeqtor",
 };
 
