@@ -3390,6 +3390,9 @@ function htmlSetClickableImages($text,$maxWidth, $fromMailDetail=false) {
 function drawColorDefaultThemes($fldMain,$fldSecondary,$width=80,$left=0) {
   $border=intval($width/15);
   $array=array(
+      // SUPERVISION-SI #477 : preset "hub" (accent + warning du
+      // theme supervision-si) propose en premier dans le selecteur.
+      "0_hub"=>array('#2980b9','#b7791f'),
       "1_blue"=>array('#545381','#e97b2c'),
       "2_green"=>array('#707c6e','#8fc874'),
       "3_red"=>array('#865f5f','#2ba9e9'),

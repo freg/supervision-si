@@ -2491,6 +2491,12 @@ qui fait alors sauter la file.
     déjà identifiés : profil ProjeQtOr par défaut à la première
     connexion LDAP ; usage éventuel du groupe Keycloak `projeqtor` pour
     filtrer ; veille PHP 8.4 (extension imap).
+    PREMIÈRE ITÉRATION LIVRÉE en #477 : thème « hub » par défaut
+    (couleurs supervision-si via les 2 paramètres du nouveau GUI, 3
+    fichiers touchés -- voir projeqtor/README.md, journal du fork).
+    Reste : retour visuel réel de la personne (contraste, lisibilité),
+    puis irritants d'ergonomie au-delà des couleurs (navigation,
+    densité, écrans) à recueillir.
 
 ## Bastion si-proxy (2026-09-08, #452) -- réservé freg
 Depuis le Mac, via le hub : shell sur le host de la VM (sous freg),

@@ -115,3 +115,40 @@ Refonte d'ergonomie « à la façon » de la personne — par itérations
 séparées, chaque modification visible via `diff -r` contre l'archive
 upstream. ProjeQtOr supporte des thèmes ; commencer par là avant de
 toucher aux vues Dojo.
+
+## Journal des retouches du fork
+
+### #477 — Thème « hub » par défaut (premières modifications de src/)
+
+⚠️ Découverte structurante : depuis V13.0, `isNewGui()` renvoie
+TOUJOURS `true` (`tool/projeqtor.php`) — l'ancien mécanisme de thèmes
+CSS (`getTheme()`, classes `ProjeQtOrFlat*` dans `projeqtorFlat.css`)
+est du code MORT. Le nouveau GUI dérive toute sa palette de DEUX
+couleurs via `view/js/dynamicCss.js` (`setColorTheming(ref, bis)` →
+déclinaisons HSL en variables CSS `--color-*`), avec paramètres
+globaux `newGuiThemeColor` / `newGuiThemeColorBis` (écran d'admin) et
+surcharge par utilisateur (`getUserParameter` retombe sur le global).
+
+Retouches (toutes marquées `SUPERVISION-SI #477`, visibles par
+`diff -r` contre l'archive upstream — 3 fichiers seulement) :
+
+- `db/maintenance.php` : à la première installation, les paramètres
+  globaux valent **`2980b9` (accent du hub) / `b7791f` (warning du
+  hub)** au lieu de `545381` / `e97b2c` → tout utilisateur voit le
+  thème hub par défaut, et peut toujours le changer pour lui-même.
+- `view/js/dynamicCss.js` : les deux replis JS (hsl ET hsv) alignés
+  sur ces mêmes couleurs (utilisés quand aucun paramètre n'existe
+  encore, ex. écran de configuration).
+- `tool/html.php` : preset `0_hub` ajouté au sélecteur de thème
+  (l'utilisateur retrouve les couleurs du hub en un clic même après
+  avoir changé).
+
+Approximation assumée (à ajuster au premier retour visuel) : la
+couleur secondaire ProjeQtOr (sélections, contrastes) est le
+`--warning` du hub — le hub n'a pas de « secondaire » à proprement
+parler. Approche « couleurs d'abord » validée avec la personne avant
+de toucher aux vues.
+
+**Non vérifié ici** (pas de navigateur) : le rendu visuel réel —
+vérifier au premier démarrage que les menus, tuiles et listes sont
+lisibles (contraste du texte sur les déclinaisons HSL dérivées).

@@ -1,3 +1,33 @@
+## 2026-09-11 — Fork ProjeQtOr : thème « hub » par défaut (livraison #477)
+
+Première retouche d'ergonomie du fork (backlog item 68, approche
+« couleurs d'abord » validée avec la personne). Découverte
+structurante : depuis ProjeQtOr V13.0, `isNewGui()` renvoie TOUJOURS
+`true` — l'ancien mécanisme de thèmes CSS (`ProjeQtOrFlat*` etc.) est
+du code mort ; le nouveau GUI dérive toute sa palette de DEUX couleurs
+via `view/js/dynamicCss.js` (`setColorTheming(ref, bis)` → déclinaisons
+HSL en variables CSS `--color-*`, paramètres globaux
+`newGuiThemeColor`/`newGuiThemeColorBis`, surcharge par utilisateur).
+
+- `projeqtor/src/db/maintenance.php` : à la première installation,
+  paramètres globaux = **`2980b9` (accent du hub) / `b7791f` (warning
+  du hub)** au lieu de `545381`/`e97b2c`.
+- `projeqtor/src/view/js/dynamicCss.js` : replis JS (hsl ET hsv)
+  alignés sur ces mêmes couleurs.
+- `projeqtor/src/tool/html.php` : preset `0_hub` dans le sélecteur de
+  thème (retrouver les couleurs du hub en un clic).
+- Discipline de fork vérifiée : `diff -r` contre l'archive officielle
+  = exactement ces 3 fichiers, chaque retouche marquée
+  `SUPERVISION-SI #477` (voir projeqtor/README.md, journal du fork).
+
+Approximation assumée : la « secondaire » ProjeQtOr = `--warning` du
+hub (le hub n'a pas de secondaire à proprement parler) — à ajuster au
+premier retour visuel. **Vérifié** : syntaxe JS (`node --check`), diff
+upstream exhaustif, non-régression inchangée (aucun fichier du hub
+touché) ; **non vérifié** : le rendu visuel réel (pas de navigateur
+ici) — contraste des déclinaisons HSL à regarder au premier
+démarrage, thème réglable ensuite par utilisateur (sélecteur intégré).
+
 ## 2026-09-11 — Tuile ProjeQtOr : fork de ProjeQtOr V13.1.0 intégré au hub (livraison #476)
 
 Demandé : « intégrer au hub une tuile de fork de projeqtor — réutiliser

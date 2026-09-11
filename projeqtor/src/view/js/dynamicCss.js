@@ -8,9 +8,10 @@ function setColorThemingBrightness(value) {
 }
 function setColorTheming(ref,bis, mode) {
   if (colorThemingInProgress) return;
-  if (!ref) ref='#545382';
+  // SUPERVISION-SI #477 : replis aux couleurs du hub (étaient #545382 / #e97b2c)
+  if (!ref) ref='#2980b9';
   if (ref.substr(0,1)!='#') ref='#'+ref;
-  if (!bis) bis='#e97b2c';
+  if (!bis) bis='#b7791f';
   if (bis.substr(0,1)!='#') bis='#'+bis;
   colorThemingInProgress=true;
   if (typeof top.dojo.byId !== "undefined") {
@@ -76,8 +77,9 @@ function setColorTheming(ref,bis, mode) {
     if (saturateSelected>80) saturateSelected=80;
   } else {
     // Default (initialization) =============================== INIT
-    if (!ref) ref='#545381';
-    if (!bis) bis='#E97B2C';
+    // SUPERVISION-SI #477 : replis aux couleurs du hub (étaient #545381 / #E97B2C)
+    if (!ref) ref='#2980b9';
+    if (!bis) bis='#b7791f';
     var dark='#656565';
     var medium='#b5b5b5';
     var light='#d8d8d8';

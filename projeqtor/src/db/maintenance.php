@@ -212,8 +212,8 @@ if ($currVersion=='V0.0.0') {
   // New in V5 : Start Guide Page
   Parameter::storeUserParameter('startPage', 'startGuide.php',1);
   Parameter::storeGlobalParameter('newGui', '1');
-  Parameter::storeGlobalParameter('newGuiThemeColor', '545381');
-  Parameter::storeGlobalParameter('newGuiThemeColorBis', 'e97b2c');
+  Parameter::storeGlobalParameter('newGuiThemeColor', '2980b9'); // SUPERVISION-SI #477 : accent du hub (était 545381)
+  Parameter::storeGlobalParameter('newGuiThemeColorBis', 'b7791f'); // SUPERVISION-SI #477 : warning du hub (était e97b2c)
   Parameter::storeGlobalParameter('paramScreen', 'left');
   Parameter::storeGlobalParameter('paramRightDiv', 'bottom');
   Parameter::storeGlobalParameter('requiredOldPassword', 'YES');
