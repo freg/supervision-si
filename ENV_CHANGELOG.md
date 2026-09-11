@@ -12,6 +12,18 @@ regarder l'entrée la plus récente en haut — si elle correspond à ce
 que vous avez déjà en `.env`, rien à faire. Sinon, copier/ajouter les
 clés listées, dans votre `.env` existant.
 
+## 2026-09-12 — Fusion manuelle désormais AUTOMATIQUE (livraison #479)
+
+Aucune clé ajoutée/renommée dans `.env.example` à cette livraison —
+mais le « Mode d'emploi » ci-dessus devient superflu : `scripts/run.sh`
+(donc aussi `chantier.sh`) appelle désormais `scripts/sync-env.py`,
+qui insère tout seul dans votre `.env` les clés manquantes (défauts
+repris d'ici, secrets `change-me` générés aléatoirement, jamais
+d'écrasement de vos valeurs). Un `.env` d'ancienne livraison se met
+donc à jour tout seul au premier démarrage.
+
+---
+
 ## 2026-09-11 — VITE_ALLOWED_HOSTS="*" par défaut (livraison #478)
 
 `VITE_ALLOWED_HOSTS` vaut désormais `*` dans `.env.example` (vide

@@ -1,3 +1,33 @@
+## 2026-09-12 — chantier/run.sh : clés .env manquantes ajoutées automatiquement (livraison #479)
+
+Demandé explicitement après un redéploiement où les nouvelles clés
+`PROJEQTOR_*` avaient dû être recopiées à la main dans le `.env` de la
+VM : `scripts/run.sh` (donc aussi `chantier.sh`, qui lui délègue tout)
+appelle désormais le nouveau **`scripts/sync-env.py`** AVANT
+`check-env.py` — toute clé présente dans `.env.example` mais absente
+du `.env` local est insérée en fin de fichier avec ses commentaires de
+documentation et une valeur par défaut fonctionnelle :
+
+- défaut repris de `.env.example` (vide reste vide = fonctionnalité
+  désactivée documentée) ;
+- placeholder `change-me` (toujours un secret interne, vérifié) →
+  valeur aléatoire générée, comme `generate-env.sh` ;
+- couplage `LDAP_TEST_ADMIN_PASSWORD` ← `LDAP_BIND_PASSWORD` : valeur
+  existante reprise telle quelle (même `change-me`, défaut fonctionnel
+  de l'image osixia/openldap) pour préserver la cohérence avec
+  l'annuaire de test.
+
+**Jamais d'écrasement** d'une clé existante, même vide ; idempotent
+(sans clé manquante, `.env` n'est pas modifié). Usage autonome :
+`python3 scripts/sync-env.py [--check]`.
+
+Conséquence pratique : un redéploiement à partir d'un `.env` d'une
+ancienne livraison n'a plus RIEN à fusionner à la main — les clés
+nouvelles (ex. `PROJEQTOR_*`, `VITE_ALLOWED_HOSTS`) sont ajoutées
+seules au premier `chantier.sh`.
+
+---
+
 ## 2026-09-11 — Correctif : VITE_ALLOWED_HOSTS="*" par défaut (livraison #478)
 
 Signalé en conditions réelles (test via redirection X11 ET par l'entrée

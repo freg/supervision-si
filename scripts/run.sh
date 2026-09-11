@@ -115,6 +115,17 @@ if [ ! -f "$HERE_DIR/.env" ]; then
   fail
 fi
 
+# Synchronisation des clés .env manquantes (livraison #479, demandé
+# explicitement après un redéploiement où les nouvelles clés avaient dû
+# être recopiées à la main) -- AVANT check-env.py pour que son rapport
+# reflète l'état APRÈS ajout. Jamais d'écrasement de clés existantes :
+# valeurs par défaut de .env.example, secrets internes générés
+# aléatoirement. Couvre aussi chantier.sh, qui délègue tout à ce script.
+if command -v python3 >/dev/null 2>&1; then
+  python3 "$(dirname "$0")/sync-env.py"
+  echo ""
+fi
+
 # Cohérence .env / docker-compose.yml / disque -- PUREMENT informatif
 # (jamais || fail derrière, contrairement aux étapes ci-dessous) :
 # chemins référencés mais absents du disque, variables utilisées mais
