@@ -2156,6 +2156,54 @@ services:
     depends_on:
       - projeqtor-db
 
+  # projeqtor-bridge (livraison #484) — pont entre le format OPTLINE
+  # imposé, ProjeQtOr et la gestion de tickets du hub : formulaire
+  # PUBLIC de dépôt (LAN, sans authentification, confirmé par la
+  # personne) sur /demande/, import/export xlsx, synchronisation des
+  # demandes ProjeQtOr vers les « imports à valider » du hub, import
+  # des utilisateurs depuis l'annuaire LDAP central (script).
+  # Voir projeqtor-bridge/README.md.
+  projeqtor-bridge:
+    build:
+      # Contexte racine (comme tickets-api) : partage
+      # shared/version_endpoint.py et shared/VERSION.json.
+      context: .
+      dockerfile: projeqtor-bridge/Dockerfile
+    environment:
+      # Compte ProjeQtOr DÉDIÉ au pont (créé une fois dans l'interface
+      # ProjeQtOr — voir projeqtor-bridge/README.md), jamais admin.
+      - PROJEQTOR_API_URL=http://projeqtor-app/projeqtor/api
+      - PROJEQTOR_API_USER=${PROJEQTOR_API_USER:-}
+      - PROJEQTOR_API_PASSWORD=${PROJEQTOR_API_PASSWORD:-}
+      - PROJEQTOR_IMPORT_PROFILE=${PROJEQTOR_IMPORT_PROFILE:-}
+      # Réseau Docker interne, jamais la passerelle : le pont pousse
+      # directement dans tickets-api (même patron que
+      # TICKETS_API_INTERNAL_URL existant).
+      - TICKETS_API_INTERNAL_URL=http://tickets-api:5000
+      - BRIDGE_SYNC_INTERVAL_SECONDS=${PROJEQTOR_BRIDGE_SYNC_SECONDS:-120}
+      - BRIDGE_STATE_PATH=/data/sync_state.json
+      # Annuaire LDAP CENTRAL de la société (externe au hub) — secret,
+      # renseigné à la main dans .env (sync-env.py insère les clés
+      # vides si absentes). Vides = import LDAP impossible mais tout
+      # le reste du pont fonctionne.
+      - CENTRAL_LDAP_URL=${CENTRAL_LDAP_URL:-}
+      - CENTRAL_LDAP_BIND_DN=${CENTRAL_LDAP_BIND_DN:-}
+      - CENTRAL_LDAP_BIND_PASSWORD=${CENTRAL_LDAP_BIND_PASSWORD:-}
+      - CENTRAL_LDAP_USERS_DN=${CENTRAL_LDAP_USERS_DN:-}
+      - CENTRAL_LDAP_FILTER=${CENTRAL_LDAP_FILTER:-}
+      - CENTRAL_LDAP_ATTR_LOGIN=${CENTRAL_LDAP_ATTR_LOGIN:-}
+      - CENTRAL_LDAP_ATTR_NAME=${CENTRAL_LDAP_ATTR_NAME:-}
+      - CENTRAL_LDAP_ATTR_MAIL=${CENTRAL_LDAP_ATTR_MAIL:-}
+    volumes:
+      # État de la synchronisation (derniers ids poussés) — sa perte
+      # ne crée JAMAIS de doublon (déduplication dans tickets-api,
+      # voir /tickets/import-external), elle ne coûte qu'un tour
+      # complet de relecture.
+      - ./projeqtor-bridge/data:/data
+    depends_on:
+      - projeqtor-app
+      - tickets-api
+
 volumes:
   api_data:
   pixel_grid_pg_data:

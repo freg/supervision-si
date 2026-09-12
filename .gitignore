@@ -96,3 +96,7 @@ cortex/data/*
 keycloak/.last-imported-realm.json
 pki/scripts/.srl
 *.log.txt
+
+# projeqtor-bridge : etat de synchronisation (regenerable, dedup cote tickets-api)
+projeqtor-bridge/data/*
+!projeqtor-bridge/data/README.md
