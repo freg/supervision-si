@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<!-- Formulaire PUBLIC de dépôt de demande (livraison #484) — LAN,
+sans authentification (confirmé explicitement par la personne), sur
+l'URI dédiée /demande/. Aucune dépendance externe : page unique,
+fonctionne hors CDN. Même charte sombre que le hub, sans couleur en
+dur qui ne soit du hub (bleu #2980b9 / ocre #b7791f / fond #1a1d24). -->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Déposer une demande — Support informatique</title>
+<style>
+  :root { --bg: #1a1d24; --card: #242933; --text: #e8eaed; --muted: #9aa3b2;
+          --accent: #2980b9; --ok: #27ae60; --err: #c0392b; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+         min-height: 100vh; display: flex; justify-content: center; padding: 24px 12px; }
+  main { width: 100%; max-width: 560px; }
+  h1 { font-size: 1.35rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: .9rem; margin-bottom: 20px; }
+  form { background: var(--card); border-radius: 12px; padding: 20px;
+         display: grid; gap: 14px; }
+  label { font-size: .85rem; color: var(--muted); display: block; margin-bottom: 4px; }
+  input, select, textarea { width: 100%; padding: 10px; border-radius: 8px;
+         border: 1px solid #3a4150; background: var(--bg); color: var(--text);
+         font: inherit; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  textarea { min-height: 90px; resize: vertical; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  button { padding: 12px; border: 0; border-radius: 8px; background: var(--accent);
+           color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: wait; }
+  #msg { border-radius: 8px; padding: 12px; display: none; font-size: .95rem; }
+  #msg.ok { display: block; background: rgba(39,174,96,.15); border: 1px solid var(--ok); }
+  #msg.err { display: block; background: rgba(192,57,43,.15); border: 1px solid var(--err); }
+</style>
+</head>
+<body>
+<main>
+  <h1>🛠 Déposer une demande</h1>
+  <p class="sub">Support informatique — votre demande est enregistrée immédiatement et prise en charge par le service.</p>
+
+  <form id="f">
+    <div>
+      <label for="demandeur">Votre nom (demandeur) *</label>
+      <input id="demandeur" name="demandeur" list="demandeurs" required autocomplete="name">
+      <datalist id="demandeurs"></datalist>
+    </div>
+    <div>
+      <label for="sujet">Sujet *</label>
+      <input id="sujet" name="sujet" required placeholder="Ex. : renouvellement du compte Office">
+    </div>
+    <div class="row">
+      <div>
+        <label for="priorite">Niveau de priorité</label>
+        <select id="priorite" name="priorite"></select>
+      </div>
+      <div>
+        <label for="categorie">Catégorie</label>
+        <select id="categorie" name="categorie"></select>
+      </div>
+    </div>
+    <div>
+      <label for="duree_j">Durée estimée (jours, optionnel)</label>
+      <input id="duree_j" name="duree_j" type="number" min="0" step="0.5" inputmode="decimal">
+    </div>
+    <div>
+      <label for="commentaire">Commentaire</label>
+      <textarea id="commentaire" name="commentaire" placeholder="Détaillez la demande, le poste concerné, l'urgence réelle…"></textarea>
+    </div>
+    <button type="submit" id="send">Envoyer la demande</button>
+    <div id="msg" role="status"></div>
+  </form>
+</main>
+
+<script>
+const api = location.pathname.replace(/\/$/, "");  // préfixe /demande conservé par tls-proxy
+
+// Listes déroulantes alimentées par ProjeQtOr (source de vérité) —
+// si l'API est momentanément injoignable, le formulaire reste
+// utilisable (listes vides, saisie libre conservée).
+fetch(api + "/referentiels").then(r => r.ok ? r.json() : null).then(ref => {
+  if (!ref) return;
+  const fill = (id, values) => {
+    const el = document.getElementById(id);
+    for (const v of values) {
+      const o = document.createElement("option");
+      o.value = v; o.textContent = v;
+      el.appendChild(o);
+    }
+  };
+  fill("priorite", ref.priorites || []);
+  fill("categorie", ref.categories || []);
+  const dl = document.getElementById("demandeurs");
+  for (const v of (ref.demandeurs || [])) {
+    const o = document.createElement("option");
+    o.value = v;
+    dl.appendChild(o);
+  }
+}).catch(() => {});
+
+document.getElementById("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById("msg");
+  const btn = document.getElementById("send");
+  msg.className = ""; msg.style.display = "none";
+  btn.disabled = true;
+  const data = Object.fromEntries(new FormData(e.target).entries());
+  try {
+    const r = await fetch(api + "/demandes", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(data),
+    });
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.error || ("erreur " + r.status));
+    msg.className = "ok";
+    msg.textContent = "✅ " + (body.message || "Demande enregistrée.");
+    e.target.reset();
+  } catch (err) {
+    msg.className = "err";
+    msg.textContent = "❌ " + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

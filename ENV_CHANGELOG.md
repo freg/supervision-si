@@ -12,6 +12,24 @@ regarder l'entrée la plus récente en haut — si elle correspond à ce
 que vous avez déjà en `.env`, rien à faire. Sinon, copier/ajouter les
 clés listées, dans votre `.env` existant.
 
+## 2026-09-12 — projeqtor-bridge (livraison #484)
+
+Nouvelles clés (insérées automatiquement par sync-env.py #479 si
+votre `.env` date d'avant) :
+
+- `PROJEQTOR_API_USER` (défaut `bridge`) / `PROJEQTOR_API_PASSWORD`
+  (`change-me` → généré, **à remplacer** par le mot de passe du compte
+  ProjeQtOr dédié, créé une fois dans l'interface) ;
+- `PROJEQTOR_IMPORT_PROFILE` (vide = défaut ProjeQtOr) ;
+- `PROJEQTOR_BRIDGE_SYNC_SECONDS` (défaut 120), `PROJEQTOR_BRIDGE_PORT`
+  (vide, variable historique pour tls-proxy) ;
+- `CENTRAL_LDAP_URL/BIND_DN/BIND_PASSWORD/USERS_DN/FILTER/ATTR_LOGIN/
+  ATTR_NAME/ATTR_MAIL` (toutes vides — secret, à renseigner à la main
+  pour l'import des utilisateurs depuis l'annuaire central ; vides =
+  import LDAP impossible, tout le reste du pont fonctionne).
+
+---
+
 ## 2026-09-12 — Fusion manuelle désormais AUTOMATIQUE (livraison #479)
 
 Aucune clé ajoutée/renommée dans `.env.example` à cette livraison —

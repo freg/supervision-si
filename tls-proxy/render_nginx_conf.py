@@ -225,6 +225,12 @@ SERVICES = [
     # les URLs /projeqtor/... s'y résolvent donc directement, comme
     # dans le déploiement traditionnel de ProjeQtOr en sous-dossier.
     ("PROJEQTOR_PORT", "projeqtor-app", 80, "/projeqtor/", "spa"),
+    # projeqtor-bridge (livraison #484) — pont OPTLINE/ProjeQtOr/hub.
+    # URI À PART, demandée explicitement : formulaire PUBLIC de dépôt
+    # de demande (LAN, sans authentification) + import/export xlsx au
+    # format imposé + statut de la sync. Le service sert lui-même ses
+    # pages sous ce préfixe (jamais de rewrite, comme projeqtor-app).
+    ("PROJEQTOR_BRIDGE_PORT", "projeqtor-bridge", 5000, "/demande/", "spa"),
     ("SUPERVISION_HUB_PORT", "hub", 5173, "/", "spa"),
     ("TICKETS_PORTAL_PORT", "tickets-portal", 5173, "/tickets/", "spa"),
     ("DBA_PORTAL_PORT", "dba-portal", 5173, "/dba/", "spa"),

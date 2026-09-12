@@ -2764,6 +2764,54 @@ def delete_pending_ticket(ticket_id):
         conn.close()
 
 
+@app.route("/tickets/import-external", methods=["POST"])
+def import_external_ticket():
+    """Création d'un ticket À VALIDER depuis un système EXTERNE
+    (livraison #484, demandé explicitement : les demandes ProjeQtOr
+    doivent arriver « dans la liste des imports à valider », même file
+    que les imports calendrier #273). Appelé par projeqtor-bridge sur
+    le réseau Docker interne, jamais par un navigateur.
+
+    MÊMES règles que /calendar/create_ticket : pending_validation=1
+    tant qu'un humain n'a pas confirmé via /tickets/<id>/validate.
+
+    Déduplication ICI (et pas chez l'appelant) : un ticket déjà connu
+    pour le même (source_type, source_nom) renvoie 409 SANS rien
+    créer — la source de vérité anti-doublon vit dans cette base, pas
+    dans un fichier d'état d'un service tiers qui peut se perdre.
+    """
+    body = request.get_json(silent=True) or {}
+    subject = (body.get("subject") or "").strip()
+    source_type = (body.get("source_type") or "").strip()
+    source_nom = (body.get("source_nom") or "").strip()
+    if not subject or not source_type or not source_nom:
+        return jsonify({"error": "'subject', 'source_type' et 'source_nom' requis"}), 400
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT id FROM tickets WHERE source_type = {PLACEHOLDER} AND source_nom = {PLACEHOLDER}",
+            [source_type, source_nom],
+        )
+        existing = cur.fetchone()
+        if existing is not None:
+            return jsonify({"status": "connu", "ticket_id": existing[0]}), 409
+
+        ts = now_ts()
+        cur.execute(
+            f"""INSERT INTO tickets
+                (user_id, subject, description, ts_created, last_change, source_type, source_nom, pending_validation)
+                VALUES ({PLACEHOLDER},{PLACEHOLDER},{PLACEHOLDER},{PLACEHOLDER},{PLACEHOLDER},{PLACEHOLDER},{PLACEHOLDER},{PLACEHOLDER})""",
+            [None, subject, body.get("description"), ts, ts, source_type, source_nom, 1],
+        )
+        conn.commit()
+        ticket_id = cur.lastrowid if DB_BACKEND == "sqlite" else _pg_lastval(cur)
+        return jsonify({"status": "ok", "ticket_id": ticket_id, "pending_validation": 1}), 201
+    finally:
+        conn.close()
+
+
 @app.route("/tickets/<int:ticket_id>/recalculate_status", methods=["POST"])
 def recalculate_ticket_status(ticket_id):
     """Livraison #284, demandé explicitement -- réévalue le statut

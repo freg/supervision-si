@@ -1,3 +1,39 @@
+## 2026-09-12 — projeqtor-bridge : pont OPTLINE / ProjeQtOr / hub (livraison #484)
+
+Demandé explicitement (format Excel « Tableau des suivis des demandes —
+Support OPTLINE » imposé par la société) :
+
+- **Import xlsx** : `POST /demande/import` (+ bouton sur
+  `/demande/admin`) — parse le tableau imposé, crée chaque demande
+  dans ProjeQtOr via son API REST ; lignes bancales signalées sans
+  arrêter l'import, noms non résolus conservés en clair.
+- **Export xlsx** : `GET /demande/export` — toutes les demandes
+  ProjeQtOr agrégées au format imposé (colonnes, listes déroulantes,
+  formules, table `Tableau1` A8:K104 — vérifié dans le XML du fichier
+  réel). Round-trip parse→régénère→reparse testé sans avertissement.
+- **Formulaire public LAN** (sans authentification, URI à part —
+  confirmé explicitement) : `https://<hôte>:6443/demande/`, listes
+  déroulantes alimentées par ProjeQtOr (source de vérité).
+- **Sync ProjeQtOr → hub** : boucle bornée
+  (`PROJEQTOR_BRIDGE_SYNC_SECONDS`, 120 s par défaut) → nouvelle route
+  `POST /tickets/import-external` de tickets-api, qui crée le ticket
+  avec `pending_validation=1` (même file « imports à valider » que les
+  imports ICS #273) et **déduplique** par source_type+source_nom —
+  l'état local du pont n'est qu'une optimisation, sa perte ne crée
+  jamais de doublon (testé).
+- **Import utilisateurs LDAP central** (externe au hub) :
+  `docker compose exec projeqtor-bridge python ldap_import.py
+  [--dry-run]` — adresse/compte dans `.env` (`CENTRAL_LDAP_*`,
+  secret), jamais d'écrasement d'un compte existant.
+
+Prérequis : créer une fois le compte ProjeQtOr dédié (`bridge`) et
+reporter son mot de passe dans `.env` (`PROJEQTOR_API_PASSWORD`).
+Routage tls-proxy `/demande/` ajouté (penser au restart tls-proxy,
+piège #151). Smoke test complet : `projeqtor-bridge/tests/smoke_test.py`
+(vert au moment de la livraison).
+
+---
+
 ## 2026-09-12 — ProjeQtOr : français par défaut, contenu distant coupé, branding hub (livraison #483)
 
 Première salve d'ergonomie du fork (demandée après vérification du

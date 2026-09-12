@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<!-- Page import/export OPTLINE (livraison #484) — posture LAN (même
+confiance que le formulaire public, confirmé par la personne) :
+accessible sans authentification sur /demande/admin. Les opérations
+sont visibles dans les logs du service (docker compose logs
+projeqtor-bridge), jamais silencieuses. -->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Import / export des demandes — format OPTLINE</title>
+<style>
+  :root { --bg: #1a1d24; --card: #242933; --text: #e8eaed; --muted: #9aa3b2;
+          --accent: #2980b9; --ok: #27ae60; --err: #c0392b; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+         min-height: 100vh; display: flex; justify-content: center; padding: 24px 12px; }
+  main { width: 100%; max-width: 620px; display: grid; gap: 16px; }
+  h1 { font-size: 1.35rem; margin: 0; }
+  .card { background: var(--card); border-radius: 12px; padding: 20px; }
+  h2 { font-size: 1rem; margin-top: 0; }
+  p { color: var(--muted); font-size: .9rem; }
+  button, a.btn { display: inline-block; padding: 10px 16px; border: 0; border-radius: 8px;
+           background: var(--accent); color: #fff; font: inherit; font-weight: 600;
+           cursor: pointer; text-decoration: none; }
+  button:disabled { opacity: .5; cursor: wait; }
+  input[type=file] { margin: 8px 0; color: var(--muted); }
+  pre { background: var(--bg); border-radius: 8px; padding: 12px; font-size: .8rem;
+        white-space: pre-wrap; word-break: break-word; display: none; max-height: 300px; overflow: auto; }
+  pre.show { display: block; }
+  .ok { color: var(--ok); } .err { color: var(--err); }
+</style>
+</head>
+<body>
+<main>
+  <h1>📊 Demandes — format OPTLINE</h1>
+
+  <div class="card">
+    <h2>Exporter (ProjeQtOr → Excel)</h2>
+    <p>Toutes les demandes de ProjeQtOr, agrégées dans le tableau au format imposé (colonnes, listes déroulantes et formules comprises).</p>
+    <a class="btn" id="exportBtn" href="#">⬇ Télécharger le tableau</a>
+  </div>
+
+  <div class="card">
+    <h2>Importer (Excel → ProjeQtOr)</h2>
+    <p>Envoie un fichier au format imposé : chaque ligne crée une demande dans ProjeQtOr. Les noms inconnus (demandeur, priorité, catégorie) sont conservés en clair dans la description et signalés ci-dessous.</p>
+    <input type="file" id="file" accept=".xlsx">
+    <button id="importBtn">⬆ Importer</button>
+    <pre id="result"></pre>
+  </div>
+
+  <div class="card">
+    <h2>Synchronisation vers la gestion de tickets du hub</h2>
+    <p>Les demandes ProjeQtOr arrivent automatiquement dans l'écran « imports à valider » du hub (même file que les imports calendrier). État :</p>
+    <pre id="sync" class="show">chargement…</pre>
+    <button id="syncBtn">↻ Lancer un tour maintenant</button>
+  </div>
+</main>
+
+<script>
+const api = location.pathname.replace(/\/admin\/?$/, "");
+
+document.getElementById("exportBtn").href = api + "/export";
+
+async function refreshSync() {
+  const el = document.getElementById("sync");
+  try {
+    const r = await fetch(api + "/sync/status");
+    el.textContent = JSON.stringify(await r.json(), null, 2);
+  } catch (e) { el.textContent = "état indisponible : " + e.message; }
+}
+refreshSync();
+
+document.getElementById("syncBtn").addEventListener("click", async () => {
+  const el = document.getElementById("sync");
+  el.textContent = "tour en cours…";
+  try {
+    const r = await fetch(api + "/sync/now", {method: "POST"});
+    el.textContent = JSON.stringify(await r.json(), null, 2);
+  } catch (e) { el.textContent = "échec : " + e.message; }
+});
+
+document.getElementById("importBtn").addEventListener("click", async () => {
+  const f = document.getElementById("file").files[0];
+  const out = document.getElementById("result");
+  if (!f) { out.className = "show err"; out.textContent = "Choisis d'abord un fichier .xlsx"; return; }
+  const data = new FormData();
+  data.append("file", f);
+  out.className = "show"; out.textContent = "import en cours…";
+  try {
+    const r = await fetch(api + "/import", {method: "POST", body: data});
+    const body = await r.json();
+    out.className = "show " + (r.ok ? "ok" : "err");
+    out.textContent = JSON.stringify(body, null, 2);
+  } catch (e) {
+    out.className = "show err"; out.textContent = "échec : " + e.message;
+  }
+});
+</script>
+</body>
+</html>
