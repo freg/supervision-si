@@ -42,6 +42,16 @@ COPY projeqtor.ini /usr/local/etc/php/conf.d/projeqtor.ini
 # exactement nos seules modifications (voir README.md, section Fork).
 COPY src/ /var/www/html/projeqtor/
 
+# Branding hub (livraison #483) : les logos de branding/ écrasent ceux
+# de l'image APRÈS la copie des sources — src/ reste strictement
+# identique à l'upstream (diff -r propre), le remplacement n'existe
+# que dans l'image construite. Mêmes dimensions que les originaux.
+COPY branding/logoBig.png        /var/www/html/projeqtor/view/img/logoBig.png
+COPY branding/logoMedium.png     /var/www/html/projeqtor/view/img/logoMedium.png
+COPY branding/logoSmallWhite.png /var/www/html/projeqtor/view/img/logoSmallWhite.png
+COPY branding/logoSmall.png      /var/www/html/projeqtor/view/img/logoSmall.png
+COPY branding/logo.ico           /var/www/html/projeqtor/view/img/logo.ico
+
 # Localisation du fichier de paramètres HORS de la portée web (conseil
 # de sécurité explicite de src/readme.txt et tool/projeqtor.php).
 # Écrit au BUILD (contenu constant), jamais dans src/ (voir ci-dessus).

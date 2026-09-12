@@ -1,3 +1,25 @@
+## 2026-09-12 — ProjeQtOr : français par défaut, contenu distant coupé, branding hub (livraison #483)
+
+Première salve d'ergonomie du fork (demandée après vérification du
+thème #477 sur capture) :
+
+- **Français par défaut** : `paramDefaultLocale=fr` dans les défauts
+  d'installation (`db/maintenance.php`, marqueur `SUPERVISION-SI
+  #483`) — cohérent avec le `$defaultLocale` du parameters.php généré
+  par l'entrypoint. Les utilisateurs déjà créés gardent leur langue de
+  profil (à changer dans le profil).
+- **Contenu distant coupé** : `getVersion=NO` aux défauts d'install —
+  aucun appel sortant vers projeqtor.org depuis un outil LAN ; vise le
+  bloc promo « Qlub » du menu et le bandeau de la page de connexion
+  (effet exact à confirmer sur capture).
+- **Branding hub** : logos du hub (badge « SI ») dans
+  `projeqtor/branding/`, écrasés dans l'image Docker APRÈS la copie
+  des sources — `src/` reste strictement identique à l'upstream
+  (`diff -r` propre). Remplace logoBig/logoMedium/logoSmall(White) et
+  le favicon.
+
+---
+
 ## 2026-09-12 — Hub : thématique dédiée « ProjeQtOr » (livraison #482)
 
 La tuile ProjeQtOr (#476) tombait dans les « Liens externes » (front

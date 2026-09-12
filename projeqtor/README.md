@@ -152,3 +152,22 @@ de toucher aux vues.
 **Non vérifié ici** (pas de navigateur) : le rendu visuel réel —
 vérifier au premier démarrage que les menus, tuiles et listes sont
 lisibles (contraste du texte sur les déclinaisons HSL dérivées).
+
+→ Vérifié sur capture (#481) : accents bleus/ocres bien appliqués,
+contrastes lisibles.
+
+### #483 — Français par défaut, pas de contenu distant, branding hub
+
+- `db/maintenance.php` (marqueurs `SUPERVISION-SI #483`, bloc des
+  défauts d'installation) : `paramDefaultLocale=fr` (cohérent avec le
+  `$defaultLocale` du parameters.php généré par l'entrypoint) et
+  `getVersion=NO` — **aucun appel sortant vers projeqtor.org** depuis
+  un outil LAN : les contenus distants (bloc promo « Qlub » du menu,
+  bandeaux de la page de connexion) ne sont plus récupérés. Effet
+  exact sur le bandeau « pas de souscription » à confirmer sur
+  capture. Les utilisateurs DÉJÀ créés gardent leur langue de profil
+  (la changer dans le profil utilisateur).
+- `branding/` (HORS src/, écrasé dans l'image par le Dockerfile APRÈS
+  la copie des sources — src/ reste identique à l'upstream) : logos du
+  hub (badge « SI » bleu nuit, point ocre) aux dimensions exactes des
+  originaux `logoBig/logoMedium/logoSmall(White)/logo.ico`.

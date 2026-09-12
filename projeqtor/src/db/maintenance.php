@@ -214,6 +214,8 @@ if ($currVersion=='V0.0.0') {
   Parameter::storeGlobalParameter('newGui', '1');
   Parameter::storeGlobalParameter('newGuiThemeColor', '2980b9'); // SUPERVISION-SI #477 : accent du hub (était 545381)
   Parameter::storeGlobalParameter('newGuiThemeColorBis', 'b7791f'); // SUPERVISION-SI #477 : warning du hub (était e97b2c)
+  Parameter::storeGlobalParameter('paramDefaultLocale', 'fr'); // SUPERVISION-SI #483 : français par défaut (cohérent avec $defaultLocale du parameters.php généré par l'entrypoint)
+  Parameter::storeGlobalParameter('getVersion', 'NO'); // SUPERVISION-SI #483 : aucun appel sortant vers projeqtor.org depuis un outil LAN (contenus distants/bandeaux promo)
   Parameter::storeGlobalParameter('paramScreen', 'left');
   Parameter::storeGlobalParameter('paramRightDiv', 'bottom');
   Parameter::storeGlobalParameter('requiredOldPassword', 'YES');
