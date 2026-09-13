@@ -57,6 +57,7 @@ export const THEMES = [
       { view: "ged", label: "GED" },
       { view: "file-manager", label: "Gestionnaire de fichiers" },
       { view: "imap", label: "Client IMAP" },
+      { view: "imap-connectors", label: "Connecteurs IMAP" },
       { front: "tickets", label: "Portail tickets" },
     ] },
   { id: "securite", name: "Sécurité & accès", icon: "🛡", description: "Bastion, droits, sauvegardes, coffre-fort, Keycloak, annuaire",
@@ -77,6 +78,7 @@ export const THEMES = [
   { id: "projeqtor", name: "ProjeQtOr", icon: "📋", description: "Gestion de projets — fork maison, ergonomie en cours de refonte",
     entries: [
       { front: "projeqtor", label: "ProjeQtOr" },
+      { front: "demande", label: "Demandes OPTLINE" },
     ] },
 ];
 

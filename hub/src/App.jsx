@@ -46,6 +46,7 @@ import SnmpView from "./SnmpView.jsx";
 import NetmapOrchestratorView from "./NetmapOrchestratorView.jsx";
 import NebulaView from "./NebulaView.jsx";
 import ImapView from "./ImapView.jsx";
+import ImapConnectorsView from "./ImapConnectorsView.jsx";
 import GlpiInventoryView from "./GlpiInventoryView.jsx";
 import NetworkAgentView from "./NetworkAgentView.jsx";
 import NetworkCycleView from "./NetworkCycleView.jsx";
@@ -69,6 +70,9 @@ const PROJEQTOR_URL = import.meta.env.VITE_PROJEQTOR_URL || "";
 // la base API est l'URL de la tuile sans sa barre finale.
 const MIKROTIK_URL = import.meta.env.VITE_MIKROTIK_URL || "";
 const MIKROTIK_API_BASE = MIKROTIK_URL.replace(/\/+$/, "");
+// Pont OPTLINE (#484) — page d'administration (import/export Excel,
+// synchro) ; tuile « Demandes OPTLINE » de la thématique ProjeQtOr (#489).
+const DEMANDE_URL = import.meta.env.VITE_DEMANDE_URL || "";
 const VAULT_URL = import.meta.env.VITE_VAULT_PORTAL_URL || "";
 // Portail d'administration du coffre-fort (rôles) -- JAMAIS routé par
 // la passerelle publique (voir vault-standalone/README.md/docker-
@@ -140,6 +144,7 @@ const SNMP_API_BASE_URL = import.meta.env.VITE_SNMP_API_BASE_URL || "";
 const NETMAP_ORCHESTRATOR_API_BASE_URL = import.meta.env.VITE_NETMAP_ORCHESTRATOR_API_BASE_URL || "";
 const NEBULA_API_BASE_URL = import.meta.env.VITE_NEBULA_API_BASE_URL || "";
 const IMAP_CLIENT_API_BASE_URL = import.meta.env.VITE_IMAP_CLIENT_API_BASE_URL || "";
+const IMAP_CONNECTORS_API_BASE_URL = import.meta.env.VITE_IMAP_CONNECTORS_API_BASE_URL || "";
 const GLPI_API_BASE_URL = import.meta.env.VITE_GLPI_API_BASE_URL || "";
 const NETWORK_AGENT_API_BASE_URL = import.meta.env.VITE_NETWORK_AGENT_API_BASE_URL || "";
 // Console SCOPÉE au realm supervision-si, pas la console master --
@@ -1162,6 +1167,7 @@ export default function App() {
     ldapAdminUrl: LDAP_ADMIN_URL,
     projeqtorUrl: PROJEQTOR_URL,
     mikrotikUrl: MIKROTIK_URL,
+    demandeUrl: DEMANDE_URL,
     groups,
     externalLinks,
   });
@@ -1342,7 +1348,8 @@ export default function App() {
     SSH_TUNNELS_API_BASE_URL && "ssh-tunnels", HAS_EXTERNAL_BASES && "external-bases", GLPI_API_BASE_URL && "glpi-inventory",
     GEO_CATALOG_API_BASE_URL && "geo-catalog", CLASSIFIER_API_BASE_URL && "classifier", SCHEMA_ANALYZER_API_BASE_URL && "schema-analyzer",
     RETRO_API_BASE_URL && "retro", (TICKETS_API_BASE_URL || TASKS_API_BASE_URL) && "ent", GED_API_BASE_URL && "ged",
-    FILE_MANAGER_API_BASE_URL && "file-manager", IMAP_CLIENT_API_BASE_URL && "imap", bastionAllowed && "si-proxy",
+    FILE_MANAGER_API_BASE_URL && "file-manager", IMAP_CLIENT_API_BASE_URL && "imap",
+    IMAP_CONNECTORS_API_BASE_URL && "imap-connectors", bastionAllowed && "si-proxy",
     RIGHTS_API_BASE_URL && groups.includes("admin_hub") && "rights", BACKUP_RESTORE_API_BASE_URL && "backup-restore",
   ].filter(Boolean));
   const { themes: visibleThemes, leftover: leftoverFronts } = buildThemes({ available: availableViews, fronts });
@@ -1478,6 +1485,11 @@ vm === "settings" ? (
         <ImapView
           onBack={goBack}
           imapApiBase={IMAP_CLIENT_API_BASE_URL}
+        />
+      ) : vm === "imap-connectors" ? (
+        <ImapConnectorsView
+          onBack={goBack}
+          imapConnectorsApiBase={IMAP_CONNECTORS_API_BASE_URL}
         />
       ) : vm === "glpi-inventory" ? (
         <GlpiInventoryView

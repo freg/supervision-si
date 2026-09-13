@@ -1,3 +1,39 @@
+## 2026-09-13 — imap-connectors : boîtes IMAP → tickets/ProjeQtOr/Zenoss/SMS + tuile Demandes OPTLINE (livraison #489)
+
+Demandé explicitement : « un gestionnaire de connecteur imap chacun
+sur une adresse de réception pour plusieurs api : demandes
+SAV/Tickets/ProjeQTor, alertes supervision ZenOS et autres, SMS
+entrants sur les passerelles sms, notifications diverses — le tout
+avec log et base de données, statistiques et vue pixelgrid ». Et :
+« je n'ai pas trouvé où on peut importer des demandes de sav sous
+forme de fichier excel ».
+
+- **Module `imap-connectors/`** (nouveau service, un seul worker
+  Gunicorn car le poller est un thread du processus) : chaque
+  connecteur = une boîte IMAP (hôte, identifiants, dossier, SSL) +
+  une cible. Relevé au rythme du connecteur (≥ 30 s), interprétation
+  des non lus, routage, journalisation complète en SQLite (messages,
+  livraisons, erreurs). **La boîte est la file de secours** : un
+  message non interprété ou mal routé reste non lu et sera retenté.
+- **Cinq cibles** : `tickets` (POST tickets-api, source `imap` — la
+  demande arrive dans la liste des imports à valider du hub),
+  `projeqtor` (POST pont OPTLINE `/demande/demandes` — inséré dans
+  ProjeQtOr), `zenoss` (corps interprété → événement pixel-grid
+  `alerte_zenoss_email`, backends sqlite ET postgres), `sms` et
+  `notification` (journalisés, socle pour cibles futures).
+- **Vue hub « Connecteurs IMAP »** (thématique Documents) : grille
+  d'activité jour × connecteur (30 j, palette du hub), tableau des
+  connecteurs avec Tester / Relever / Modifier / Supprimer,
+  formulaire CRUD, journal des messages avec livraisons. Le mot de
+  passe d'une boîte n'est jamais ressorti par l'API.
+- **Tuile « Demandes OPTLINE »** (thématique ProjeQtOr) : l'import
+  Excel des demandes SAV existait (pont #484, page `/demande/admin`)
+  mais aucune tuile n'y menait — c'est maintenant réparé.
+- Tests : 11 tests interpréteurs + 4 tests de chaîne API (faux IMAP,
+  faux HTTP, vraie SQLite) verts ; 174 tests Node hub verts ; syntaxe
+  validée à l'esbuild. ⚠️ Jamais testé contre une vraie boîte IMAP —
+  surveiller `last_error` au premier relevé réel.
+
 ## 2026-09-13 — proxmox : tuile dédiée + apprentissage URLs/services (livraison #488)
 
 Demandé explicitement : « il faudra les apprendre — 25 ans de

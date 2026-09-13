@@ -204,6 +204,10 @@ SERVICES = [
     # jamais laissé pour une passe ultérieure.
     ("RELATIONS_API_PORT", "relations-api", 5000, "/api/relations/", "api"),
     ("IMAP_CLIENT_API_PORT", "imap-client-api", 5000, "/api/imap-client/", "api"),
+    # imap-connectors (livraison #489) — gestionnaire de connecteurs
+    # IMAP : boîtes de réception → API du hub (tickets, OPTLINE,
+    # Zenoss→pixel-grid, SMS, notifications), journal + statistiques.
+    ("IMAP_CONNECTORS_API_PORT", "imap-connectors", 5000, "/api/imap-connectors/", "api"),
     # glpi-api (livraison #192) -- import Excel pour l'instant, base
     # du futur "tuile+api" GLPI (backlog).
     ("GLPI_API_PORT", "glpi-api", 5000, "/api/glpi/", "api"),

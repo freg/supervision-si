@@ -12,6 +12,24 @@ regarder l'entrée la plus récente en haut — si elle correspond à ce
 que vous avez déjà en `.env`, rien à faire. Sinon, copier/ajouter les
 clés listées, dans votre `.env` existant.
 
+## 2026-09-13 — imap-connectors (livraison #489)
+
+Nouvelles clés (insérées automatiquement par sync-env.py #479 si
+votre `.env` date d'avant) :
+
+- `IMAP_CONNECTORS_API_PORT` (vide, variable tls-proxy — route
+  `/api/imap-connectors/`) ;
+- `IMAP_CONNECTORS_DATA_DIR` (défaut `./imap-connectors/data` — base
+  SQLite des connecteurs, messages et livraisons).
+
+Aucune clé secrète nouvelle : les identifiants des boîtes IMAP sont
+saisis par connecteur dans la vue hub (stockés en base, jamais
+versionnés, jamais ressortis par l'API). Réutilise les clés
+existantes `TICKETS_API_URL`, `PROJEQTOR_BRIDGE_URL`,
+`PIXEL_GRID_BACKEND`, `PIXEL_GRID_DB_PATH` et `PG*` (déjà présentes).
+
+---
+
 ## 2026-09-13 — mikrotik (livraison #485)
 
 - `MIKROTIK_USER` / `MIKROTIK_PASSWORD` (vides — secret, identifiants

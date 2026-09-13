@@ -1637,6 +1637,9 @@ services:
       # MikroTik (livraison #485) — tuile de la thématique Réseau,
       # embarquable en onglet (même origine via tls-proxy).
       - VITE_MIKROTIK_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/mikrotik/
+      # Pont OPTLINE (#484) — page d'ADMINISTRATION (import/export
+      # Excel, synchro) pour la tuile « Demandes OPTLINE » (#489).
+      - VITE_DEMANDE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/demande/admin
       # Adresse LAN DIRECTE (http, pas https via la passerelle) --
       # même raisonnement que vault-admin-portal lui-même, jamais routé
       # par tls-proxy.
@@ -1675,6 +1678,9 @@ services:
       # Client IMAP -- onglet hub (livraison #230), backend #179-191
       # (PREMIÈRE interface pour ce module, jamais construite avant).
       - VITE_IMAP_CLIENT_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/imap-client
+      # Connecteurs IMAP -- tuile hub (livraison #489), backend du
+      # même numéro (boîtes de réception → API du hub).
+      - VITE_IMAP_CONNECTORS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/imap-connectors
       # Exploration réseau -- onglet hub (livraison #233), backend
       # #233 (item 20).
       - VITE_NETWORK_AGENT_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/network-agent
@@ -2225,6 +2231,35 @@ services:
       # Registre éditable sans rebuild — les identifiants, eux,
       # restent dans .env (jamais dans ce fichier versionné).
       - ./mikrotik/routers.json:/app/routers.json:ro
+
+  imap-connectors:
+    # Livraison #489 — gestionnaire de connecteurs IMAP : boîtes de
+    # réception → API du hub (tickets, pont OPTLINE/ProjeQtOr, alertes
+    # Zenoss → pixel-grid, SMS, notifications), avec journal, base et
+    # statistiques. Identifiants des boîtes en base (posture UPS),
+    # configurés depuis la tuile hub « Connecteurs IMAP ».
+    build:
+      context: .
+      dockerfile: imap-connectors/Dockerfile
+    environment:
+      - IMAP_CONNECTORS_DB_PATH=/data/imap-connectors.db
+      - TICKETS_API_URL=http://tickets-api:5000
+      - PROJEQTOR_BRIDGE_URL=http://projeqtor-bridge:5000
+      # pixel-grid : même bascule de backend que pixel-grid-api. En
+      # sqlite, la base est le fichier partagé par le volume ci-dessous.
+      - PIXEL_GRID_BACKEND=${PIXEL_GRID_BACKEND:-sqlite}
+      - PIXEL_GRID_DB_PATH=/pixelgrid/timeseries.db
+      - PGHOST=pixel-grid-postgres
+      - PGPORT=5432
+      - PGUSER=pixelgrid
+      - PGPASSWORD=pixelgrid
+      - PGDATABASE=pixelgrid
+    volumes:
+      - ${IMAP_CONNECTORS_DATA_DIR:-./imap-connectors/data}:/data
+      # Base timeseries de pixel-grid (backend sqlite seulement) —
+      # même montage que pixel-grid-api, en lecture-ÉCRITURE ici :
+      # c'est la liaison directe Zenoss → pixel-grid.
+      - ./pixel-grid/data-generator:/pixelgrid
 
 volumes:
   api_data:

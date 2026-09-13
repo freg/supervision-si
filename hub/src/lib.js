@@ -99,7 +99,7 @@ export function isTechnicien(groups) {
 // que des droits de gestion de realm n'ont pas été accordés séparément
 // dans Keycloak).
 export function buildFrontsList({
-  frontendUrl, portalUrl, keycloakConsoleUrl, dbaUrl, vaultUrl, vaultAdminUrl, ldapAdminUrl, projeqtorUrl, mikrotikUrl,
+  frontendUrl, portalUrl, keycloakConsoleUrl, dbaUrl, vaultUrl, vaultAdminUrl, ldapAdminUrl, projeqtorUrl, mikrotikUrl, demandeUrl,
   groups, externalLinks,
 }) {
   const roles = groupsToRoles(groups);
@@ -185,6 +185,20 @@ export function buildFrontsList({
       name: "ProjeQtOr",
       description: "Gestion de projets — fork maison, ergonomie en cours de refonte",
       url: projeqtorUrl,
+      embeddable: true,
+    });
+  }
+  // Pont OPTLINE (livraison #484, tuile ajoutée #489) — la page
+  // d'administration du pont : IMPORT/EXPORT Excel au format imposé,
+  // état de synchronisation ProjeQtOr ↔ hub. Le formulaire public de
+  // dépôt vit sur /demande/ (cette tuile vise /demande/admin). Visible
+  // de tous, comme le dépôt lui-même (LAN, sans authentification).
+  if (demandeUrl) {
+    fronts.push({
+      id: "demande",
+      name: "Demandes OPTLINE",
+      description: "Dépôt de demandes — import/export Excel au format imposé, synchronisation ProjeQtOr",
+      url: demandeUrl,
       embeddable: true,
     });
   }
