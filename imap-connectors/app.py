@@ -222,6 +222,44 @@ def stats_route():
     return jsonify(store.stats(DB_PATH, days=request.args.get("days", 30, type=int))), 200
 
 
+def _targets_arg(default=("sms",)):
+    """?targets=sms,notification — filtré sur les cibles connues,
+    jamais une cible inventée en SQL."""
+    raw = request.args.get("targets") or ""
+    wanted = [t for t in (x.strip() for x in raw.split(",")) if t in interpreters.TARGETS]
+    return tuple(wanted) if wanted else tuple(default)
+
+
+@app.route("/notifications", methods=["GET"])
+def notifications_route():
+    """La cloche du hub (#490) : compteur de non lus + derniers
+    messages des cibles demandées (sms par défaut)."""
+    targets = _targets_arg()
+    return jsonify({"unread": store.unread_count(DB_PATH, targets),
+                    "items": store.list_unread(DB_PATH, targets,
+                                               limit=request.args.get("limit", 50, type=int))}), 200
+
+
+@app.route("/notifications/ack", methods=["POST"])
+def notifications_ack_route():
+    """Accusé de réception : {ids: [...]} pour des messages précis,
+    {all: true, targets: [...]} pour tout le non lu des cibles."""
+    body = request.get_json(silent=True) or {}
+    if body.get("all"):
+        targets = tuple(t for t in (body.get("targets") or ["sms"]) if t in interpreters.TARGETS) or ("sms",)
+        acked = store.ack_messages(DB_PATH, ids=None, targets=targets)
+    else:
+        ids = body.get("ids")
+        if not isinstance(ids, list) or not ids:
+            return jsonify({"error": "ids (liste non vide) ou all:true requis"}), 400
+        try:
+            ids = [int(i) for i in ids]
+        except (TypeError, ValueError):
+            return jsonify({"error": "ids doit être une liste d'entiers"}), 400
+        acked = store.ack_messages(DB_PATH, ids=ids)
+    return jsonify({"acked": acked}), 200
+
+
 store.ensure_schema(DB_PATH)
 _start_poller()
 

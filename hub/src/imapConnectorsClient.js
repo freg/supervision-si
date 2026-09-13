@@ -39,3 +39,9 @@ export const fetchConnectorMessages = async (apiBase, { connectorId, errors } = 
   const data = await fetchJson(apiBase, `/messages?${q.toString()}`);
   return Array.isArray(data?.messages) ? data.messages : [];
 };
+
+// Cloche SMS (livraison #490) : non lus + accusés de réception.
+export const fetchNotifications = (apiBase, targets = ["sms"]) =>
+  fetchJson(apiBase, `/notifications?targets=${encodeURIComponent(targets.join(","))}`);
+export const ackNotifications = (apiBase, body) =>
+  fetchJson(apiBase, "/notifications/ack", json("POST", body));

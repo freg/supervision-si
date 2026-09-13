@@ -139,6 +139,43 @@ class ChainTests(unittest.TestCase):
         self.assertFalse(updated["last_ok"])
         self.assertEqual(updated["last_error"], "connexion refusée")
 
+    def test_cloche_sms_non_lus_et_accuse(self):
+        c = self._create(name="sms-gw", target="sms")
+        msg = {"uid": "301", "message_id": "<s@s>", "from_addr": "gw@sms.lan",
+               "subject": "SMS de +33612345678", "date": "Tue, 11 Aug 2026 14:00:00 +0200",
+               "body": "reunion avancee a 15h", "_num": b"7"}
+        app_mod.imap_fetch.mark_seen = lambda cfg, nums: None
+        handled, _ = app_mod.poll_connector(
+            store.get_connector(app_mod.DB_PATH, c["id"], with_secret=True),
+            fetch=lambda cfg, limit=50: ([msg], None))
+        self.assertEqual(handled, 1)
+        # la cloche voit 1 non lu, avec expéditeur et texte interprétés
+        n = self.c.get("/notifications").get_json()
+        self.assertEqual(n["unread"], 1)
+        self.assertEqual(len(n["items"]), 1)
+        item = n["items"][0]
+        self.assertEqual(item["connector_name"], "sms-gw")
+        self.assertEqual(item["fields"]["sender"], "+33612345678")
+        self.assertIn("reunion", item["fields"]["text"])
+        # filtre par cible : zenoss ne remonte pas ce SMS
+        self.assertEqual(self.c.get("/notifications?targets=zenoss").get_json()["unread"], 0)
+        # accusé par id, puis plus rien ; second accusé = 0 (idempotent)
+        r = self.c.post("/notifications/ack", json={"ids": [item["id"]]})
+        self.assertEqual(r.get_json()["acked"], 1)
+        self.assertEqual(self.c.get("/notifications").get_json()["unread"], 0)
+        self.assertEqual(self.c.post("/notifications/ack", json={"ids": [item["id"]]}).get_json()["acked"], 0)
+        # nouveau SMS puis « tout marquer lu »
+        msg2 = dict(msg, uid="302", _num=b"8", subject="SMS de +33699999999")
+        app_mod.poll_connector(store.get_connector(app_mod.DB_PATH, c["id"], with_secret=True),
+                               fetch=lambda cfg, limit=50: ([msg2], None))
+        self.assertEqual(self.c.get("/notifications").get_json()["unread"], 1)
+        r = self.c.post("/notifications/ack", json={"all": True, "targets": ["sms"]})
+        self.assertEqual(r.get_json()["acked"], 1)
+        self.assertEqual(self.c.get("/notifications").get_json()["unread"], 0)
+        # garde-fous
+        self.assertEqual(self.c.post("/notifications/ack", json={}).status_code, 400)
+        self.assertEqual(self.c.post("/notifications/ack", json={"ids": ["abc"]}).status_code, 400)
+
     def test_routage_tickets(self):
         c = self._create(name="sav-in", target="tickets")
         posts = []

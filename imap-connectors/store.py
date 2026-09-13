@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS messages (
     kind TEXT,
     summary TEXT,
     fields TEXT,
+    ack_at TEXT,
     UNIQUE(connector_id, uid)
 );
 CREATE TABLE IF NOT EXISTS deliveries (
@@ -75,6 +76,11 @@ def ensure_schema(db_path):
     conn = connect(db_path)
     try:
         conn.executescript(SCHEMA)
+        # Migration #490 : ack_at (accusé de lecture de la cloche SMS)
+        # ajouté aux bases créées en #489 — ALTER TABLE si absent.
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(messages)").fetchall()}
+        if "ack_at" not in cols:
+            conn.execute("ALTER TABLE messages ADD COLUMN ack_at TEXT")
         conn.commit()
     finally:
         conn.close()
@@ -222,6 +228,70 @@ def list_messages(db_path, connector_id=None, limit=100, only_errors=False):
             d.pop("fields", None)
             out.append(d)
         return out
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------- notifications (#490)
+
+def list_unread(db_path, targets=("sms",), limit=50):
+    """Messages non accusés des connecteurs des cibles données (la
+    cloche SMS du hub). Le plus récent d'abord ; les champs
+    interprétés (expéditeur, texte) sont décodés pour l'affichage."""
+    marks = ",".join("?" for _ in targets)
+    conn = connect(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT m.id, m.from_addr, m.subject, m.date, m.fetched_at, m.kind, m.summary, m.fields, "
+            "c.name AS connector_name, c.target AS target FROM messages m "
+            "JOIN connectors c ON c.id = m.connector_id "
+            "WHERE m.ack_at IS NULL AND c.target IN (%s) "
+            "ORDER BY m.id DESC LIMIT ?" % marks,
+            list(targets) + [min(int(limit), 200)]).fetchall()
+        out = []
+        for r in rows:
+            d = dict(r)
+            try:
+                d["fields"] = json.loads(d.get("fields") or "{}")
+            except ValueError:
+                d["fields"] = {}
+            out.append(d)
+        return out
+    finally:
+        conn.close()
+
+
+def unread_count(db_path, targets=("sms",)):
+    marks = ",".join("?" for _ in targets)
+    conn = connect(db_path)
+    try:
+        return conn.execute(
+            "SELECT COUNT(*) n FROM messages m JOIN connectors c ON c.id = m.connector_id "
+            "WHERE m.ack_at IS NULL AND c.target IN (%s)" % marks, list(targets)).fetchone()["n"]
+    finally:
+        conn.close()
+
+
+def ack_messages(db_path, ids=None, targets=("sms",)):
+    """Accuse réception (cloche du hub) : les ids donnés, ou TOUT le
+    non lu des cibles si ids est None. Retourne le nombre accusé."""
+    conn = connect(db_path)
+    try:
+        if ids is not None:
+            if not ids:
+                return 0
+            marks = ",".join("?" for _ in ids)
+            cur = conn.execute(
+                "UPDATE messages SET ack_at = ? WHERE ack_at IS NULL AND id IN (%s)" % marks,
+                [now_iso()] + [int(i) for i in ids])
+        else:
+            marks = ",".join("?" for _ in targets)
+            cur = conn.execute(
+                "UPDATE messages SET ack_at = ? WHERE ack_at IS NULL AND connector_id IN "
+                "(SELECT id FROM connectors WHERE target IN (%s))" % marks,
+                [now_iso()] + list(targets))
+        conn.commit()
+        return cur.rowcount
     finally:
         conn.close()
 

@@ -374,6 +374,105 @@ button.secondary { background: var(--panel); }
 .presence-up { color: var(--ok, #27ae60); }
 .presence-down { color: var(--danger); }
 
+/* Cloche SMS (livraison #490) — même gabarit que .clock-badge /
+   .version-badge pour le badge ; le panneau s'ouvre AU-DESSUS de la
+   zone status-badges (elle est en bas à droite de l'écran). Ton
+   "warn" (ambre) dès qu'il y a du non lu — un SMS en attente n'est
+   pas une panne, jamais rouge. */
+.sms-bell { position: relative; }
+.sms-bell-badge {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: pointer;
+  opacity: 0.7;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.sms-bell-badge:hover { opacity: 1; }
+.sms-bell-badge.warn { color: var(--warning); border-color: var(--warning); opacity: 1; }
+.sms-bell-count {
+  background: var(--warning);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0 5px;
+  font-weight: 700;
+  line-height: 14px;
+}
+.sms-bell-panel {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+  padding: 10px;
+  z-index: 1000;
+  text-align: left;
+}
+.sms-bell-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.sms-bell-ack-all {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.sms-bell-ack-all:hover { color: var(--fg, inherit); border-color: var(--warning); }
+.sms-bell-empty { font-size: 12px; padding: 8px 2px; }
+.sms-bell-list { list-style: none; margin: 0; padding: 0; }
+.sms-bell-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--border);
+  padding: 6px 2px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.sms-bell-item:hover { background: var(--warning-bg); }
+.sms-bell-item-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+.sms-bell-item-text {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.sms-bell-item-conn { font-size: 10px; }
+.sms-bell-foot { margin-top: 8px; text-align: center; }
+.sms-bell-open {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 /* Page de paramètres/historique -- demandée explicitement, fondation
    pour accueillir d'autres applications/préférences plus tard.
    Classes dédiées, jamais .hub-card (pensée pour l'écran de

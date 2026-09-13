@@ -1,3 +1,29 @@
+## 2026-09-13 — cloche SMS du hub : notification temps réel des SMS entrants (livraison #490)
+
+Demandé explicitement : « brancher les SMS entrants des passerelles
+sur une notification temps réel du hub (cloche + compteur non
+lus) ».
+
+- **Backend imap-connectors** : colonne `ack_at` (accusé de lecture)
+  sur les messages — migration automatique (`ALTER TABLE` si absent)
+  des bases créées en #489 ; `GET /notifications?targets=sms`
+  (compteur de non lus + derniers messages, champs interprétés
+  décodés : expéditeur, texte) ; `POST /notifications/ack` par ids
+  ou en bloc (`{all: true, targets: [...]}`), idempotent, cibles
+  filtrées sur les valeurs connues (jamais de SQL inventé).
+- **Cloche dans la barre d'état du hub** (à côté de l'horloge et du
+  n° de livraison) : badge 🔔 avec compteur ambré dès qu'un SMS est
+  non lu (jamais rouge — un SMS en attente n'est pas une panne),
+  panneau au clic (expéditeur, extrait, temps relatif, connecteur),
+  « marquer lu » par message ou « Tout marquer lu », lien vers la
+  tuile Connecteurs IMAP. Sondage 30 s ; API injoignable = cloche
+  discrète avec title d'explication, jamais bloquant. L'état « lu »
+  est côté serveur : partagé entre navigateurs du LAN.
+- Tests : 5 tests de chaîne API (dont la cloche : non lu → accusé
+  par id → tout marquer lu → garde-fous 400) ; 178 tests Node hub
+  (4 nouveaux sur les helpers purs : temps relatif, titre, extrait,
+  ton) ; syntaxe validée à l'esbuild.
+
 ## 2026-09-13 — imap-connectors : boîtes IMAP → tickets/ProjeQtOr/Zenoss/SMS + tuile Demandes OPTLINE (livraison #489)
 
 Demandé explicitement : « un gestionnaire de connecteur imap chacun

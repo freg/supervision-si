@@ -51,7 +51,22 @@ marqué lu (et seulement si `mark_seen` est activé sur le connecteur).
   leurs livraisons ;
 - `GET /stats` — compteurs par connecteur + grille jour × connecteur
   (30 jours) pour la vue pixelgrid ;
+- `GET /notifications?targets=sms` — la cloche du hub (#490) :
+  compteur de non lus + derniers messages des cibles demandées ;
+- `POST /notifications/ack` — accusé de réception : `{ids: [...]}`
+  ou `{all: true, targets: ["sms"]}` ; l'état « lu » (`ack_at`) est
+  en base, partagé entre navigateurs du LAN ;
 - `GET /logs` — journal applicatif (300 dernières entrées).
+
+## Cloche SMS du hub (#490)
+
+Les messages des connecteurs de cible `sms` alimentent la **cloche**
+de la barre d'état du hub (à côté de l'horloge et du n° de
+livraison) : compteur de non lus, panneau au clic (expéditeur,
+extrait, temps relatif), « marquer lu » par message ou en bloc, lien
+vers la tuile Connecteurs IMAP. Sondage 30 s, jamais bloquant (API
+injoignable = cloche discrète). Migration automatique : `ack_at` est
+ajouté par `ensure_schema` aux bases créées en #489.
 
 ## Configuration (.env)
 
