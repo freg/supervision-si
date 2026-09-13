@@ -1,3 +1,29 @@
+## 2026-09-13 — cloche généralisée : alertes supervision Zenoss en rouge + bascule supervision (livraison #491)
+
+Demandé explicitement : « étendre la cloche aux alertes Zenoss
+(badge rouge cette fois, avec bascule directe vers la vue
+pixelgrid) ».
+
+- **Cloche généralisée** (SmsBell → NotifBell) : deux sections dans
+  le panneau — « Alertes supervision » (messages des connecteurs de
+  cible `zenoss`) et « SMS entrants ». Le badge devient **rouge**
+  dès qu'une alerte supervision est non lue (la supervision prime),
+  ambre s'il ne reste que des SMS. Compteur = total des deux.
+- **Lignes Zenoss** : équipement, message, sévérité et localisation
+  interprétés ; ton par ligne — ⛔ critique/error, ⚠ warning, ✔
+  résolution (préfixée « Résolution : », jamais confondue avec une
+  alerte active), neutre si sévérité non reconnue (jamais rouge par
+  défaut sur du texte libre). « Tout marquer lu » par section ;
+  **bascule directe vers la supervision SI** (sa mosaïque
+  pixel-grid affiche l'état remonté par les mêmes événements).
+- Aucun changement backend : `GET /notifications?targets=zenoss` et
+  l'accusé par cible étaient déjà génériques (#490) — la preuve que
+  le contrat tient.
+- Tests : 181 tests Node hub (7 sur les helpers de la cloche :
+  titres/extraits Zenoss, ton par sévérité, priorité rouge > ambre) ;
+  5 tests de chaîne API inchangés et verts ; syntaxe validée à
+  l'esbuild.
+
 ## 2026-09-13 — cloche SMS du hub : notification temps réel des SMS entrants (livraison #490)
 
 Demandé explicitement : « brancher les SMS entrants des passerelles

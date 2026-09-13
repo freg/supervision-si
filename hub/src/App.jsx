@@ -47,7 +47,7 @@ import NetmapOrchestratorView from "./NetmapOrchestratorView.jsx";
 import NebulaView from "./NebulaView.jsx";
 import ImapView from "./ImapView.jsx";
 import ImapConnectorsView from "./ImapConnectorsView.jsx";
-import SmsBell from "./SmsBell.jsx";
+import NotifBell from "./NotifBell.jsx";
 import GlpiInventoryView from "./GlpiInventoryView.jsx";
 import NetworkAgentView from "./NetworkAgentView.jsx";
 import NetworkCycleView from "./NetworkCycleView.jsx";
@@ -1913,7 +1913,11 @@ vm === "settings" ? (
           )}
         </div>
         {IMAP_CONNECTORS_API_BASE_URL && (
-          <SmsBell apiBase={IMAP_CONNECTORS_API_BASE_URL} onOpen={() => setViewMode("imap-connectors")} />
+          <NotifBell
+            apiBase={IMAP_CONNECTORS_API_BASE_URL}
+            onOpenConnectors={() => setViewMode("imap-connectors")}
+            onOpenSupervision={availableViews.has("supervision-si") ? () => setViewMode("supervision-si") : null}
+          />
         )}
         <div className="version-badge" title={`hash contenu : ${versionInfo.content_hash} · hash git : ${versionInfo.git_hash} · dernière vérification : ${versionInfo.last_checked_at}`}>
           #{versionInfo.delivery_number || "?"}

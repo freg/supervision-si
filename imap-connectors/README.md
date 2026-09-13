@@ -58,15 +58,22 @@ marqué lu (et seulement si `mark_seen` est activé sur le connecteur).
   en base, partagé entre navigateurs du LAN ;
 - `GET /logs` — journal applicatif (300 dernières entrées).
 
-## Cloche SMS du hub (#490)
+## Cloche de notifications du hub (#490, généralisée #491)
 
-Les messages des connecteurs de cible `sms` alimentent la **cloche**
-de la barre d'état du hub (à côté de l'horloge et du n° de
-livraison) : compteur de non lus, panneau au clic (expéditeur,
-extrait, temps relatif), « marquer lu » par message ou en bloc, lien
-vers la tuile Connecteurs IMAP. Sondage 30 s, jamais bloquant (API
-injoignable = cloche discrète). Migration automatique : `ack_at` est
-ajouté par `ensure_schema` aux bases créées en #489.
+Les messages des connecteurs de cible `sms` ET `zenoss` alimentent
+la **cloche** de la barre d'état du hub (à côté de l'horloge et du
+n° de livraison) : compteur total de non lus — **rouge** s'il y a
+des alertes supervision non lues, **ambre** s'il ne reste que des
+SMS. Panneau au clic, deux sections : « Alertes supervision »
+(équipement, message, sévérité avec ton par ligne — résolution en
+vert, jamais confondue avec une alerte — et bascule directe vers la
+supervision SI dont la mosaïque pixel-grid affiche l'état) et « SMS
+entrants » (expéditeur, extrait, temps relatif, lien vers la tuile
+Connecteurs IMAP). « Marquer lu » par message ou par section. L'état
+lu (`ack_at`) est en base : partagé entre navigateurs du LAN.
+Sondage 30 s, jamais bloquant (API injoignable = cloche discrète).
+Migration automatique : `ack_at` est ajouté par `ensure_schema` aux
+bases créées en #489.
 
 ## Configuration (.env)
 

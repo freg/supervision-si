@@ -374,13 +374,14 @@ button.secondary { background: var(--panel); }
 .presence-up { color: var(--ok, #27ae60); }
 .presence-down { color: var(--danger); }
 
-/* Cloche SMS (livraison #490) — même gabarit que .clock-badge /
+/* Cloche de notifications (livraison #490, généralisée #491 aux
+   alertes supervision Zenoss) — même gabarit que .clock-badge /
    .version-badge pour le badge ; le panneau s'ouvre AU-DESSUS de la
-   zone status-badges (elle est en bas à droite de l'écran). Ton
-   "warn" (ambre) dès qu'il y a du non lu — un SMS en attente n'est
-   pas une panne, jamais rouge. */
-.sms-bell { position: relative; }
-.sms-bell-badge {
+   zone status-badges (elle est en bas à droite de l'écran). Tons :
+   rouge s'il y a des alertes supervision non lues, ambre s'il ne
+   reste que des SMS — un SMS en attente n'est pas une panne. */
+.notif-bell { position: relative; }
+.notif-bell-badge {
   font-family: ui-monospace, monospace;
   font-size: 10px;
   color: var(--muted);
@@ -394,9 +395,10 @@ button.secondary { background: var(--panel); }
   align-items: center;
   gap: 4px;
 }
-.sms-bell-badge:hover { opacity: 1; }
-.sms-bell-badge.warn { color: var(--warning); border-color: var(--warning); opacity: 1; }
-.sms-bell-count {
+.notif-bell-badge:hover { opacity: 1; }
+.notif-bell-badge.warn { color: var(--warning); border-color: var(--warning); opacity: 1; }
+.notif-bell-badge.bad { color: var(--danger); border-color: var(--danger); opacity: 1; }
+.notif-bell-count {
   background: var(--warning);
   color: #fff;
   border-radius: 8px;
@@ -404,11 +406,12 @@ button.secondary { background: var(--panel); }
   font-weight: 700;
   line-height: 14px;
 }
-.sms-bell-panel {
+.notif-bell-count.bad { background: var(--danger); }
+.notif-bell-panel {
   position: absolute;
   bottom: calc(100% + 8px);
   right: 0;
-  width: 320px;
+  width: 340px;
   max-height: 60vh;
   overflow-y: auto;
   background: var(--panel);
@@ -419,13 +422,18 @@ button.secondary { background: var(--panel); }
   z-index: 1000;
   text-align: left;
 }
-.sms-bell-head {
+.notif-bell-section + .notif-bell-section {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 2px solid var(--border);
+}
+.notif-bell-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 6px;
 }
-.sms-bell-ack-all {
+.notif-bell-ack-all {
   background: none;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -434,10 +442,10 @@ button.secondary { background: var(--panel); }
   padding: 2px 8px;
   cursor: pointer;
 }
-.sms-bell-ack-all:hover { color: var(--fg, inherit); border-color: var(--warning); }
-.sms-bell-empty { font-size: 12px; padding: 8px 2px; }
-.sms-bell-list { list-style: none; margin: 0; padding: 0; }
-.sms-bell-item {
+.notif-bell-ack-all:hover { color: var(--fg, inherit); border-color: var(--warning); }
+.notif-bell-empty { font-size: 12px; padding: 8px 2px; }
+.notif-bell-list { list-style: none; margin: 0; padding: 0; }
+.notif-bell-item {
   display: block;
   width: 100%;
   text-align: left;
@@ -449,22 +457,25 @@ button.secondary { background: var(--panel); }
   color: inherit;
   font: inherit;
 }
-.sms-bell-item:hover { background: var(--warning-bg); }
-.sms-bell-item-head {
+.notif-bell-item:hover { background: var(--warning-bg); }
+.notif-bell-item.bad .notif-bell-item-head strong { color: var(--danger); }
+.notif-bell-item.warn .notif-bell-item-head strong { color: var(--warning); }
+.notif-bell-item.ok .notif-bell-item-head strong { color: var(--ok); }
+.notif-bell-item-head {
   display: flex;
   justify-content: space-between;
   gap: 8px;
   font-size: 12px;
 }
-.sms-bell-item-text {
+.notif-bell-item-text {
   display: block;
   font-size: 12px;
   color: var(--muted);
   margin-top: 2px;
 }
-.sms-bell-item-conn { font-size: 10px; }
-.sms-bell-foot { margin-top: 8px; text-align: center; }
-.sms-bell-open {
+.notif-bell-item-conn { font-size: 10px; }
+.notif-bell-foot { margin-top: 8px; text-align: center; }
+.notif-bell-open {
   background: none;
   border: none;
   color: var(--accent);
