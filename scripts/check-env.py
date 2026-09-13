@@ -63,6 +63,7 @@ OTHER_CONSUMER_FILES = [
     "keycloak/group_memberships.py",
     "pki/scripts/generate-ca.sh",
     "pki/scripts/generate-server-cert.sh",
+    "pki/scripts/rotate-ca.sh",
     "apache/render_apache_conf.py",
     # gateway/ (livraison #135) et mayan/ (livraison #158) -- LEURS
     # PROPRES docker-compose.yml, jamais lus par find_compose_vars

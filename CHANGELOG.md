@@ -1,3 +1,34 @@
+## 2026-09-13 — PKI : bascule assistée de la CA sans coupure, `rotate-ca.sh` (livraison #496)
+
+BACKLOG item 3, voie (b) — choix de la personne : « préparer la
+procédure maintenant », exécution planifiée par elle. Décisions du
+même échange : mTLS du frontal public « plus tard » (BACKLOG 69) ;
+purge GitHub par **recréation du dépôt** (BACKLOG item 2, séquence).
+
+- **`pki/scripts/rotate-ca.sh status | prepare | switch --yes |
+  finish`** : CA neuve préparée à côté (`$PKI_DIR/next/ca`, extensions
+  #495) et **bundle ancienne + neuve** (`$PKI_DIR/ca-bundle.crt`) à
+  distribuer AVANT la bascule — agents (`central-ca.crt` par OS +
+  redémarrage), client si-proxy du Mac, dockers à trust store copié,
+  postes — pendant que le hub sert encore l'ancienne CA ; puis bascule
+  (ancienne CA archivée `ca-old-<date>/` clé conservée, cert serveur
+  réémis, pile à redémarrer, `si-proxy/setup-certs.sh` à relancer) ;
+  puis fin de transition (bundle réduit à la neuve). Chaque phase
+  refuse d'avancer sans la précédente (`rotation.state`), `switch`
+  exige `--yes`, retour arrière affiché, aucune clé jamais supprimée,
+  jamais lancé par `run.sh`. Liste des consommateurs imprimée à chaque
+  phase.
+- `pki/README.md` (procédure, pourquoi un bundle), `check-env.py`
+  (script recensé), BACKLOG (item 2 : séquence de recréation GitHub ;
+  item 3 : voie b livrée ; 69 : mTLS frontal).
+- Vérifié (bac à sable, OpenSSL 3.0.2) : chaîne complète ancienne CA
+  sans keyUsage → prepare → cert serveur (ancienne) validé par le
+  bundle → switch → cert réémis validé `-x509_strict` par la neuve et
+  par le bundle → finish (bundle à 1 certificat) ; refus attendus
+  (switch sans prepare, prepare en double, switch sans --yes) ;
+  `ssl.create_default_context(cafile=bundle)` charge le bundle. Non
+  vérifié : exécution sur super avec de vrais agents.
+
 ## 2026-09-13 — PKI : CA interne avec basicConstraints/keyUsage, diagnostic `--check` (livraison #495)
 
 BACKLOG item 3, voie (a) — sans risque : la CA sans extension

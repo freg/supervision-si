@@ -2572,10 +2572,13 @@ de client, de site réel, de personne ou d'adresse réelle ne doit y figurer.
   tuile du hub, `.env.example`, `docker-compose.yml`, `CHANGELOG.md` et
   DEUX messages de commit déjà poussés. Arbre corrigé (marqueur devenu
   `PROJEQTOR_BRIDGE_LABEL`, défaut `SUIVI`), messages de commit
-  réécrits (`git filter-branch --msg-filter` sur `3464bd3..dev`) → push
-  forcé de `dev` et `main` à refaire, puis purge côté GitHub (support ou
-  recréation du dépôt) car les anciens objets restent joignables par
-  hash. **Réflexe avant chaque commit** : `git grep -i -E
+  réécrits (`git filter-branch --msg-filter` sur `3464bd3..dev`) → les
+  anciens objets restent joignables par hash sur GitHub : **décision
+  (2026-09-13) : recréer le dépôt** — supprimer le dépôt GitHub, le
+  recréer vide (même nom), puis depuis le Mac `git push --force
+  origin dev main` (jamais `--tags`), rebrancher la branche par défaut
+  sur `main`, re-cloner toute copie existante ; Framagit (prévu) part
+  directement de l'historique propre. **Réflexe avant chaque commit** : `git grep -i -E
   '<motifs réels>'` sur l'index ET sur le message (`git log -1
   --format=%B`) — les motifs sont dans le script hors dépôt.
 - Historique : les 76 commits antérieurs conservaient les
@@ -2629,6 +2632,24 @@ de client, de site réel, de personne ou d'adresse réelle ne doit y figurer.
      diagnostique une CA existante sans rien écrire (code 3 = à
      renouveler) et le même avertissement s'affiche à chaque `run.sh` ;
      aucune CA existante n'est touchée (voir `pki/README.md`) ;
-     (b) plus tard, bascule en production : régénérer sur le hub puis
-     redéployer `ca.crt` dans l'ordre agents -> postes/navigateurs ->
-     dockers à trust store copié, avec fenêtre de maintenance.
+     (b) **procédure livrée en #496, exécution à planifier par la
+     personne** : `pki/scripts/rotate-ca.sh status | prepare | switch
+     --yes | finish` — CA neuve préparée à côté + BUNDLE ancienne+neuve
+     distribué aux agents / postes / dockers AVANT la bascule (sans
+     coupure : les consommateurs acceptent un PEM à plusieurs CA), puis
+     bascule (ancienne CA archivée `ca-old-<date>/`, cert serveur
+     réémis, pile à redémarrer, `si-proxy/setup-certs.sh` à relancer),
+     puis fin de transition (bundle réduit à la CA neuve, ancienne CA à
+     retirer des magasins). Retour arrière documenté tant que `finish`
+     n'est pas lancé. Jamais lancé par `run.sh`.
+
+69. Frontal public Apache (#471-#473) — option mTLS `CLIENT_CERT_CA`
+    (2026-09-13, décision « plus tard ») : le frontal expose toutes les
+    API du hub, pas toutes authentifiées par Keycloak. Proposition :
+    `SSLVerifyClient require` avec la CA du projet (certificat client
+    émis par `si-proxy/setup-certs.sh --clients` ou un
+    `generate-client-cert.sh` à écrire), exceptions `/api/si-agent/`,
+    `/api/netprobe/` (agents en `--central-fallback`, authentifiés par
+    signature HMAC) et `/.well-known/acme-challenge/`. En attendant :
+    ne publier le frontal que le temps nécessaire, ou restreindre par
+    IP source dans le vhost.
