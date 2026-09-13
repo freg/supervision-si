@@ -1,3 +1,45 @@
+## 2026-09-13 — si-agent : plugin « proxmox », VM dans la supervision SI (livraison #487)
+
+Demandé explicitement : « un agent proxmox qui supervise le host comme
+un agent linux et l'ensemble des vm, snapshot, backup, disques des vm,
+zfs » — 5 hyperviseurs sur le LAN, 3 chez OVH. Architecture validée :
+plugin de si-agent (le host est déjà supervisé par la mesure `host` ;
+le canal signé push couvre LAN et OVH sans rien exposer en entrée).
+
+- **Plugin `proxmox`** (`si-agent/agent/plugins/proxmox/`, privilégié,
+  désactivé par défaut, 15 min) : collecte locale par `pvesh` (aucun
+  mot de passe stocké) — VM/CT (état, CPU, RAM, disques, uptime),
+  snapshots avec âge, dernier backup par VM (stockages `content=backup`),
+  stockages actifs, pools ZFS (`zpool list/status` : santé, capacité,
+  fragmentation, erreurs). Pannes partielles listées dans `warnings`,
+  jamais silencieuses ; sortie en erreur explicite si l'hôte n'est pas
+  un Proxmox.
+- **IP des VM, deux modes** (demandé : « prévois les deux ») :
+  qemu-guest-agent quand il est activé et répond (appel borné à 8 s),
+  interfaces LXC natives sinon ; aucune IP inventée — le hub recoupe
+  par ARP/exploration réseau.
+- **Central** : `store.latest_proxmox` + `GET /proxmox` (même motif
+  que `/netview`), filtre par site.
+- **Supervision SI** : type « VM / conteneur » (origine proxmox) —
+  chaque VM apparaît sur la carte et la table, **fusionnée par IP**
+  avec netprobe/network-agent ; modèles (templates) exclus ; backup
+  absent/ancien (> 7 j) et snapshot oublié (> 30 j) dégradent en
+  avertissement sans passer en critique (risques, pas pannes) ; une
+  VM arrêtée n'est pas un incident. Bouton d'origine → tuile Agents
+  hôtes en attendant la tuile Proxmox dédiée (#488).
+- Tests : parseurs + collecte complète contre un faux `pvesh`/`zpool`
+  (8 tests, `test_proxmox_plugin.py`) ; route `/proxmox` en chaîne
+  signée réelle (`test_si_agent_api.py`) ; fusion et états côté hub
+  (174 tests Node verts). Suites pré-existantes : 3 échecs agent et
+  1 échec API sur macOS, identiques avant ces changements (vérifié
+  par stash) — liés à l'environnement, pas au code.
+- Reste pour #488 : tuile Proxmox dédiée (arbre hôte → VM, ZFS,
+  datastores), apprentissage des URLs entrantes et des ports/services
+  par exploration (« 25 ans de développement à façon, aucune vue
+  globale » — l'agent apprend).
+
+---
+
 ## 2026-09-13 — mikrotik : intégration transversale au hub (livraison #486)
 
 Demandé explicitement : « chaque routeur se retrouve sur un schéma du

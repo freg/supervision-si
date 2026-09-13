@@ -1,0 +1,185 @@
+# -*- coding: utf-8 -*-
+"""Tests du plugin si-agent « proxmox » (livraison #487) : parseurs purs
+sur sorties représentatives de PVE 8 + collecte complète contre un FAUX
+runner (aucun pvesh/zpool réel, aucun sous-processus)."""
+import json
+import os
+import sys
+import unittest
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "plugins", "proxmox"))
+
+import proxmox  # noqa: E402
+
+NOW = 1_780_000_000
+
+
+class TestParseurs(unittest.TestCase):
+    def test_agent_enabled(self):
+        self.assertTrue(proxmox.agent_enabled({"agent": "1"}))
+        self.assertTrue(proxmox.agent_enabled({"agent": "enabled=1,fstrim_cloned_disks=1"}))
+        self.assertFalse(proxmox.agent_enabled({"agent": "0"}))
+        self.assertFalse(proxmox.agent_enabled({"agent": "enabled=0"}))
+        self.assertFalse(proxmox.agent_enabled({}))
+
+    def test_extract_ips_qemu(self):
+        data = {"result": [
+            {"name": "lo", "ip-addresses": [{"ip-address": "127.0.0.1", "ip-address-type": "inet"}]},
+            {"name": "eth0", "ip-addresses": [{"ip-address": "10.0.0.5", "ip-address-type": "inet"},
+                                              {"ip-address": "fe80::1", "ip-address-type": "inet6"},
+                                              {"ip-address": "2a01:cb00::5", "ip-address-type": "inet6"}]}]}
+        self.assertEqual(proxmox.extract_ips_qemu(data), ["10.0.0.5", "2a01:cb00::5"])
+        # Forme déballée (liste directe) acceptée aussi
+        self.assertEqual(proxmox.extract_ips_qemu(data["result"]), ["10.0.0.5", "2a01:cb00::5"])
+        self.assertEqual(proxmox.extract_ips_qemu(None), [])
+
+    def test_extract_ips_lxc(self):
+        rows = [{"name": "eth0", "hwaddr": "aa:bb", "inet": "10.0.0.6/24", "inet6": "fe80::1/64"},
+                {"name": "lo", "inet": "127.0.0.1/8"}]
+        self.assertEqual(proxmox.extract_ips_lxc(rows), ["10.0.0.6"])
+
+    def test_newest_backups(self):
+        rows = [
+            {"volid": "store:backup/vzdump-qemu-100-2026_09_10-02_00_00.vma.zst", "ctime": NOW - 86400},
+            {"volid": "store:backup/vzdump-qemu-100-2026_09_12-02_00_00.vma.zst", "ctime": NOW - 3600},
+            {"volid": "store:backup/vzdump-lxc-101-2026_09_01-02_00_00.vma.zst", "ctime": NOW - 11 * 86400},
+            {"volid": "store:iso/debian.iso", "ctime": NOW},
+        ]
+        b = proxmox.newest_backups(rows, NOW)
+        self.assertEqual(set(b), {100, 101})
+        self.assertEqual(b[100]["age_s"], 3600, "le plus récent des deux l'emporte")
+        self.assertEqual(b[101]["age_s"], 11 * 86400)
+        # Champ vmid explicite (PVE récents) prioritaire, pas de regex nécessaire
+        b2 = proxmox.newest_backups([{"vmid": 100, "volid": "x", "ctime": NOW - 10}], NOW)
+        self.assertEqual(b2[100]["age_s"], 10)
+
+    def test_parse_zpool_list(self):
+        text = "rpool\t960000000000\t480000000000\t480000000000\t12%\t50%\tONLINE\n" \
+               "backup\t4000000000000\t3900000000000\t100000000000\t-\t97%\tDEGRADED\n"
+        pools = proxmox.parse_zpool_list(text)
+        self.assertEqual(len(pools), 2)
+        self.assertEqual(pools[0]["pool"], "rpool")
+        self.assertEqual(pools[0]["cap_pct"], 50)
+        self.assertEqual(pools[1]["health"], "DEGRADED")
+        self.assertIsNone(pools[1]["frag_pct"], "« - » n'est pas un chiffre")
+
+    def test_parse_zpool_status(self):
+        text = ("  pool: rpool\n state: ONLINE\n  scan: scrub repaired 0B\n"
+                "errors: No known data errors\n\n  pool: backup\n state: DEGRADED\n"
+                "errors: Permanent errors have been detected\n")
+        st = proxmox.parse_zpool_status(text)
+        self.assertEqual(st["rpool"]["state"], "ONLINE")
+        self.assertEqual(st["rpool"]["errors"], "No known data errors")
+        self.assertEqual(st["backup"]["state"], "DEGRADED")
+
+
+# -- collecte complète contre un faux runner ------------------------------
+
+def _j(obj):
+    return json.dumps(obj)
+
+
+FAKE = {
+    "/nodes": [{"node": "pve1", "status": "online"}],
+    "/nodes/pve1/status": {"pveversion": "pve-manager/8.2.4", "kversion": "Linux 6.8", "uptime": 400000,
+                           "cpu": 0.12, "memory": {"used": 8_000_000_000, "total": 32_000_000_000}},
+    "/nodes/pve1/storage": [
+        {"storage": "local-zfs", "type": "zfspool", "active": 1, "enabled": 1, "content": "images,rootdir",
+         "used": 100, "total": 200, "avail": 100},
+        {"storage": "nas", "type": "nfs", "active": 1, "enabled": 1, "content": "backup,iso",
+         "used": 300, "total": 400, "avail": 100},
+        {"storage": "off", "type": "dir", "active": 0, "enabled": 0, "content": "backup"},
+    ],
+    "/nodes/pve1/storage/nas/content?content=backup": [
+        {"volid": "nas:backup/vzdump-qemu-100-2026_09_12-02_00_00.vma.zst", "ctime": NOW - 3600},
+    ],
+    "/nodes/pve1/qemu": [
+        {"vmid": 100, "name": "ged", "status": "running", "cpu": 0.03, "mem": 1_000_000, "maxmem": 4_000_000_000,
+         "disk": 5_000_000, "maxdisk": 40_000_000_000, "uptime": 100000},
+        {"vmid": 102, "name": "vieux", "status": "stopped"},
+    ],
+    "/nodes/pve1/qemu/100/snapshot": [
+        {"name": "current", "description": "You are here!"},
+        {"name": "avant-maj", "snaptime": NOW - 40 * 86400, "description": "avant migration"},
+    ],
+    "/nodes/pve1/qemu/102/snapshot": [{"name": "current"}],
+    "/nodes/pve1/qemu/100/config": {"agent": "enabled=1", "memory": "4096"},
+    "/nodes/pve1/qemu/100/agent/network-get-interfaces": {"result": [
+        {"name": "eth0", "ip-addresses": [{"ip-address": "10.0.0.5", "ip-address-type": "inet"}]}]},
+    "/nodes/pve1/lxc": [
+        {"vmid": 101, "name": "cloud", "status": "running", "mem": 500_000, "maxmem": 1_000_000_000},
+    ],
+    "/nodes/pve1/lxc/101/snapshot": [],
+    "/nodes/pve1/lxc/101/interfaces": [{"name": "eth0", "inet": "10.0.0.6/24"}],
+}
+
+ZPOOL_LIST = "rpool\t960000000000\t480000000000\t480000000000\t12%\t50%\tONLINE\n"
+ZPOOL_STATUS = "  pool: rpool\n state: ONLINE\nerrors: No known data errors\n"
+
+
+def fake_runner(cmd, timeout):
+    if cmd[0] == "pvesh":
+        path = cmd[2]
+        if path in FAKE:
+            return 0, _j(FAKE[path]), ""
+        return 1, "", "no such path"
+    if cmd[0] == "zpool":
+        return 0, ZPOOL_LIST if "list" in cmd else ZPOOL_STATUS, ""
+    return 1, "", "commande inconnue"
+
+
+class TestCollecte(unittest.TestCase):
+    def test_collecte_complete(self):
+        # shutil.which("zpool") dépend de la machine de test : on force
+        # le chemin ZFS en patchant which.
+        orig_which = proxmox.shutil.which
+        proxmox.shutil.which = lambda c: "/sbin/zpool" if c == "zpool" else orig_which(c)
+        try:
+            m = proxmox.collect(proxmox.Pve(runner=fake_runner), hostname="pve1", now=NOW)
+        finally:
+            proxmox.shutil.which = orig_which
+
+        self.assertEqual(m["node"]["name"], "pve1")
+        self.assertEqual(m["node"]["pveversion"], "pve-manager/8.2.4")
+        self.assertEqual(m["warnings"], [])
+
+        vms = {v["vmid"]: v for v in m["vms"]}
+        self.assertEqual(set(vms), {100, 101, 102})
+        ged = vms[100]
+        self.assertEqual(ged["ips"], ["10.0.0.5"], "IP via qemu-guest-agent")
+        self.assertTrue(ged["agent"])
+        self.assertEqual(len(ged["snapshots"]), 1, "« current » exclu")
+        self.assertEqual(ged["snapshots"][0]["age_s"], 40 * 86400)
+        self.assertEqual(ged["last_backup"]["age_s"], 3600)
+        cloud = vms[101]
+        self.assertEqual(cloud["ips"], ["10.0.0.6"], "IP via interfaces LXC")
+        self.assertIsNone(cloud["last_backup"], "jamais sauvegardé : None explicite")
+        self.assertEqual(vms[102]["ips"], [], "VM arrêtée : pas d'appel agent")
+
+        self.assertEqual([s["storage"] for s in m["storages"]], ["local-zfs", "nas"],
+                         "stockage désactivé exclu")
+        self.assertEqual(m["zfs"][0]["health"], "ONLINE")
+        self.assertEqual(m["zfs"][0]["errors"], "No known data errors")
+
+    def test_pannes_partielles_listees(self):
+        def runner_panne(cmd, timeout):
+            if cmd[0] == "pvesh" and cmd[2] == "/nodes":
+                return 0, _j(FAKE["/nodes"]), ""
+            if cmd[0] == "pvesh" and "storage" in cmd[2]:
+                return 1, "", "permission denied"
+            if cmd[0] == "pvesh":
+                return 0, _j(FAKE.get(cmd[2], {})), ""
+            return 1, "", "boom"
+        orig_which = proxmox.shutil.which
+        proxmox.shutil.which = lambda c: None  # pas de zpool sur cette machine
+        try:
+            m = proxmox.collect(proxmox.Pve(runner=runner_panne), hostname="pve1", now=NOW)
+        finally:
+            proxmox.shutil.which = orig_which
+        self.assertTrue(any("stockages" in w for w in m["warnings"]),
+                        "panne partielle listée, jamais silencieuse")
+        self.assertEqual(m["zfs"], [])
+
+
+if __name__ == "__main__":
+    unittest.main()

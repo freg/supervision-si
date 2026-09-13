@@ -905,6 +905,37 @@ def latest_netviews(db_path, site=None):
     return out
 
 
+def latest_proxmox(db_path, site=None):
+    """#487 : dernière mesure `plugin:proxmox` de chaque agent (hyperviseurs
+    Proxmox VE : nœud, VM/CT, stockages, ZFS) -- ce que la supervision SI
+    reprend (type « vm », fusion par IP) et que la future tuile Proxmox
+    affichera. Même motif que latest_netviews."""
+    conn = _connect(db_path)
+    try:
+        q = ("SELECT a.agent_id, a.hostname, a.site, a.last_ip, m.at, m.ok, m.error, m.data FROM agents a "
+             "JOIN (SELECT agent_id, MAX(at) AS at FROM measurements WHERE task = 'plugin:proxmox' GROUP BY agent_id) l ON l.agent_id = a.agent_id "
+             "JOIN measurements m ON m.agent_id = l.agent_id AND m.at = l.at AND m.task = 'plugin:proxmox'")
+        params = []
+        if site:
+            q += " WHERE a.site = ?"; params.append(site)
+        rows = conn.execute(q, params).fetchall()
+    finally:
+        conn.close()
+    out = []
+    for r in rows:
+        try:
+            data = json.loads(r["data"]) if isinstance(r["data"], str) else r["data"]
+        except (TypeError, ValueError):
+            data = {}
+        data = data or {}
+        out.append({"agent_id": r["agent_id"], "hostname": r["hostname"], "site": r["site"], "last_ip": r["last_ip"],
+                    "at": r["at"], "ok": bool(r["ok"]), "error": r["error"],
+                    "node": data.get("node") or {}, "vms": data.get("vms") or [],
+                    "storages": data.get("storages") or [], "zfs": data.get("zfs") or [],
+                    "warnings": data.get("warnings") or []})
+    return out
+
+
 def fleet(db_path, site=None, offline_after_seconds=300):
     """Flotte avec, pour chaque agent, la dernière mesure `host` (résumée),
     le dernier `risks` et l'état de contact -- ce que la tuile affiche."""

@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, CircleMarker, Polyline, Popup, useMap } from "
 import "leaflet/dist/leaflet.css";
 import { fetchTargets, fetchLatestSamples, fetchAgents as fetchWifiAgents } from "./netprobeClient.js";
 import { fetchUpsList } from "./upsClient.js";
-import { fetchFleet, fetchNetviews } from "./siAgentClient.js";
+import { fetchFleet, fetchNetviews, fetchProxmox } from "./siAgentClient.js";
 import { fetchProxySummary } from "./siProxyClient.js";
 import { fetchSnmpTargets } from "./snmpClient.js";
 import { fetchTunnels, fetchConnections } from "./sshTunnelsClient.js";
@@ -148,7 +148,7 @@ export default function SupervisionSiView({
     const safe = async (label, fn, fallback) => {
       try { const r = await fn(); if (r && r.error) { errs.push(`${label} : ${r.error}`); return fallback; } return r; } catch (e) { errs.push(`${label} : ${e.message}`); return fallback; }
     };
-    const [netprobeTargets, netprobeLatest, wifiAgents, upsDevices, siAgentFleet, snmpTargets, sshTunnels, sshConnections, sites, suggestions, signals, geolocations, netviews, bastion, mikrotikRouters] = await Promise.all([
+    const [netprobeTargets, netprobeLatest, wifiAgents, upsDevices, siAgentFleet, snmpTargets, sshTunnels, sshConnections, sites, suggestions, signals, geolocations, netviews, bastion, mikrotikRouters, proxmoxNodes] = await Promise.all([
       netprobeApiBase ? safe("Sondes réseau", () => fetchTargets(netprobeApiBase), []) : [],
       netprobeApiBase ? safe("Sondes réseau (relevés)", () => fetchLatestSamples(netprobeApiBase), []) : [],
       netprobeApiBase ? safe("Sondes WiFi", async () => (await fetchWifiAgents(netprobeApiBase)).filter((a) => a.role === "probe"), []) : [],
@@ -166,6 +166,8 @@ export default function SupervisionSiView({
       siProxyApiBase && accessToken ? (async () => { const r = await fetchProxySummary(siProxyApiBase, accessToken, 24 * 7); return r && !r.error ? r : (r?.status === 401 || r?.status === 403 ? null : (r?.error ? { relay: "down", state: "critical", state_text: r.error } : null)); })() : null,
       // #486 : routeurs MikroTik (registre + joignabilité mesurée par mikrotik-api)
       mikrotikApiBase ? safe("Routeurs MikroTik", () => fetchMikrotikRouters(mikrotikApiBase), []) : [],
+      // #487 : hyperviseurs Proxmox (VM/CT, snapshots, backups, ZFS via le plugin si-agent)
+      siAgentApiBase ? safe("Proxmox", () => fetchProxmox(siAgentApiBase), []) : [],
     ]);
     // appareils et flux de chaque segment (exploration réseau)
     const naDevices = [], naLinks = [];
@@ -182,7 +184,7 @@ export default function SupervisionSiView({
       }
     }
     const hubHost = (() => { try { return new URL(siProxyApiBase || siAgentApiBase || window.location.href).hostname || "hub"; } catch { return "hub"; } })();
-    setSources({ netprobeTargets, netprobeLatest, wifiAgents, upsDevices, siAgentFleet, snmpTargets, sshTunnels, sshConnections, sites, suggestions, signals, geolocations, naDevices, naLinks, netviews, bastion, hubHost, mikrotikRouters });
+    setSources({ netprobeTargets, netprobeLatest, wifiAgents, upsDevices, siAgentFleet, snmpTargets, sshTunnels, sshConnections, sites, suggestions, signals, geolocations, naDevices, naLinks, netviews, bastion, hubHost, mikrotikRouters, proxmoxNodes });
     setErrors(errs);
     setLoading(false);
     setNow(Date.now());
@@ -265,6 +267,9 @@ export default function SupervisionSiView({
       if (base) window.open(`${base}/#router=${encodeURIComponent(originId || "")}`, "_blank", "noopener");
       return;
     }
+    // #487 : pas encore de tuile Proxmox dédiée -- la fiche de l'agent
+    // hôte (hyperviseur) est le bon atterrissage en attendant (#488).
+    if (origin === "proxmox") { if (onNavigate) onNavigate("si-agent"); return; }
     if (onNavigate) onNavigate(origin === "netprobe" ? "netprobe" : origin === "ups" ? "ups" : origin === "si-agent" ? "si-agent" : origin === "snmp" ? "snmp" : origin === "ssh-tunnels" ? "ssh-tunnels" : origin);
   };
   // #486 : création d'un ticket depuis la fiche équipement -- sourcé

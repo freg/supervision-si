@@ -1,0 +1,13 @@
+{
+  "id": "proxmox",
+  "version": "1",
+  "runner": "python",
+  "entry": "proxmox.py",
+  "interval_seconds": 900,
+  "timeout_seconds": 120,
+  "args": [],
+  "enabled": false,
+  "description": "Hyperviseur Proxmox VE : VM/CT (état, CPU, RAM, disques, IP via qemu-guest-agent ou interfaces LXC), snapshots (âge), backups (dernier par VM), stockages, pools ZFS. Collecte locale par pvesh + zpool, sans mot de passe. Privilégiée : pvesh exige root.",
+  "source": "bundled",
+  "privileged": true
+}

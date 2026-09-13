@@ -28,6 +28,9 @@ export const ITEM_TYPES = {
   // #486 : routeurs MikroTik (module mikrotik) -- registre déclaré dans
   // mikrotik/routers.json, joignabilité mesurée par mikrotik-api.
   router: { label: "Routeur MikroTik", origin: "mikrotik", icon: "🔀" },
+  // #487 : VM et conteneurs LXC des hyperviseurs Proxmox (plugin
+  // si-agent « proxmox ») -- fusionnés par IP avec le reste.
+  vm: { label: "VM / conteneur", origin: "proxmox", icon: "📦" },
 };
 
 // Tri d'affichage : ce qui demande attention d'abord (l'inconnu avant l'ok).
@@ -136,6 +139,51 @@ export function fromWifiAgents(agents, nowMs = Date.now(), staleAfter = 600) {
 
 // ---- Fusion par identité ------------------------------------------------
 
+// Seuils d'alerte VM (livraison #487) -- jours, convertis en secondes
+// dans fromProxmox. Un backup absent/ancien ou un snapshot oublié
+// DÉGRADE l'état en avertissement sans jamais passer en critique :
+// ce sont des risques, pas des pannes.
+export const VM_BACKUP_WARN_S = 7 * 86400;
+export const VM_SNAPSHOT_WARN_S = 30 * 86400;
+
+// #487 : VM/CT des hyperviseurs Proxmox (mesure plugin:proxmox par
+// agent, route /proxmox du central). L'identité par IP fusionne la VM
+// avec ce que les sondes et l'exploration réseau voient déjà ; sans IP
+// (agent qemu absent ET pas d'interface LXC), repli sur nom@hôte --
+// unique par construction Proxmox (vmid) mais le nom est plus lisible.
+export function fromProxmox(nodes, nowMs = Date.now()) {
+  const items = [];
+  for (const n of nodes || []) {
+    if (!n.ok) continue; // mesure en erreur : l'agent hôte le signale déjà
+    const nodeName = n.node?.name || n.hostname || n.agent_id;
+    const stale = n.at && Number.isFinite(Date.parse(n.at)) && (nowMs - Date.parse(n.at)) / 1000 > 2700;
+    for (const vm of n.vms || []) {
+      if (vm.template) continue; // un modèle n'est pas un équipement à superviser
+      let state = "unknown", stateText = vm.status || "inconnu";
+      if (vm.status === "running") { state = "ok"; stateText = "en marche"; }
+      else if (vm.status === "stopped") { state = "unknown"; stateText = "arrêtée"; }
+      else if (vm.status === "paused" || vm.status === "suspended") { state = "warning"; stateText = vm.status === "paused" ? "en pause" : "suspendue"; }
+      const notes = [];
+      if (vm.status === "running") {
+        if (!vm.last_backup) notes.push("jamais sauvegardée");
+        else if (vm.last_backup.age_s > VM_BACKUP_WARN_S) notes.push(`backup ancien (${Math.round(vm.last_backup.age_s / 86400)} j)`);
+        const oldSnap = (vm.snapshots || []).find((s) => s.age_s != null && s.age_s > VM_SNAPSHOT_WARN_S);
+        if (oldSnap) notes.push(`snapshot « ${oldSnap.name} » oublié (${Math.round(oldSnap.age_s / 86400)} j)`);
+      }
+      if (stale) notes.push("relevé ancien");
+      if (notes.length && state === "ok") { state = "warning"; }
+      if (notes.length) stateText = notes.join(" · ");
+      const ip = (vm.ips || []).find((a) => a && a.includes(".")) || vm.ips?.[0] || null;
+      items.push({ key: `proxmox:${n.agent_id}:${vm.vmid}`, type: "vm", name: vm.name || `vm ${vm.vmid}`, ip, mac: null,
+        site: n.site || null, state, stateText, lastSeen: n.at || null, origin: "proxmox",
+        originId: `${nodeName}/${vm.vmid}`, identity: identity(ip, null, `${vm.name || vm.vmid}@${nodeName}`),
+        vmType: vm.type, node: nodeName });
+    }
+  }
+  return items;
+}
+
+
 function isLoopback(ip) { return /^127\./.test(ip) || ip === "::1"; }
 
 // #486 : routeurs MikroTik (module mikrotik, livraison #485) -- le
@@ -204,6 +252,7 @@ export function aggregateSupervised(sources, nowMs = Date.now()) {
     fromWifiAgents(sources.wifiAgents, nowMs),
     fromSiProxy(sources.bastion, { hubHost: sources.hubHost, site: sources.bastionSite }),
     fromMikrotik(sources.mikrotikRouters, nowMs),
+    fromProxmox(sources.proxmoxNodes, nowMs),
   ]);
 }
 

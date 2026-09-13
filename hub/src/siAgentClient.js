@@ -42,6 +42,12 @@ export async function fetchNetviews(apiBase, site) {
   return Array.isArray(data?.netviews) ? data.netviews : [];
 }
 
+// #487 : hyperviseurs Proxmox (dernière mesure du plugin par agent)
+export async function fetchProxmox(apiBase, site) {
+  const data = await fetchJson(apiBase, `/proxmox${site ? `?site=${encodeURIComponent(site)}` : ""}`);
+  return Array.isArray(data?.proxmox) ? data.proxmox : [];
+}
+
 export async function fetchFleetRisks(apiBase) {
   const data = await fetchJson(apiBase, "/risks");
   return Array.isArray(data?.risks) ? data.risks : [];

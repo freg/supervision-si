@@ -115,6 +115,19 @@ Plugins livrés (exemples des deux runners, désactivés) :
   (trafic réel observé) : à activer par hôte depuis le catalogue ou
   `--enable-plugin capture-relay`. En conteneur (deploy-docker.sh),
   `--network host` suffit (tcpdump dans l'image).
+- `proxmox` (python, privilégié, #487) — **hyperviseur Proxmox VE** :
+  VM/CT (état, CPU, RAM, disques), snapshots (âge), backups (dernier
+  par VM), stockages, pools ZFS (santé, capacité, erreurs). Adressage
+  IP des VM par qemu-guest-agent quand il répond, interfaces LXC
+  natives sinon — aucune IP inventée, le hub recoupe par ailleurs.
+  Collecte locale par `pvesh` (aucun mot de passe stocké) + `zpool` ;
+  toutes les 15 min, désactivé par défaut : à activer sur chaque
+  hyperviseur (`--enable-plugin proxmox` ou catalogue central). Le
+  central sert la synthèse sur `GET /proxmox` ; la supervision SI
+  affiche chaque VM (type « VM / conteneur ») fusionnée par IP avec
+  les autres origines. Le host Proxmox lui-même est déjà supervisé
+  par la mesure `host` de l'agent — ce plugin ne couvre que le
+  spécifique PVE.
 
 ## Installation
 

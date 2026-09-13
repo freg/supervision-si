@@ -201,6 +201,33 @@ class SignedFaceTests(ApiBase):
         self.assertEqual(http.request("POST", "/api/v1/agents/srv-01/measurements", {"measurements": [{"task": "x"}]})[0], 400)
 
 
+class ProxmoxTests(ApiBase):
+    def test_route_proxmox(self):
+        """#487 : la mesure plugin:proxmox remontée par l'agent est servie
+        agrégée par hyperviseur sur /proxmox (supervision SI, type « vm »)."""
+        a = self.enroll("pve1", "siege")
+        http = FlaskHttp(self.c, "pve1", a["secret"])
+        batch = {"measurements": [
+            {"agent_id": "pve1", "task": "plugin:proxmox", "at": "2026-09-13T10:00:00Z", "ok": True,
+             "data": {"node": {"name": "pve1", "pveversion": "pve-manager/8.2.4"},
+                      "vms": [{"vmid": 100, "name": "ged", "type": "qemu", "status": "running", "ips": ["10.0.0.5"]}],
+                      "storages": [{"storage": "local-zfs", "type": "zfspool"}],
+                      "zfs": [{"pool": "rpool", "health": "ONLINE"}], "warnings": []}, "error": None},
+        ]}
+        st, _ = http.request("POST", "/api/v1/agents/pve1/measurements", batch)
+        self.assertEqual(st, 201)
+        out = self.c.get("/proxmox").get_json()["proxmox"]
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["agent_id"], "pve1")
+        self.assertEqual(out[0]["node"]["pveversion"], "pve-manager/8.2.4")
+        self.assertEqual(out[0]["vms"][0]["ips"], ["10.0.0.5"])
+        self.assertEqual(out[0]["zfs"][0]["pool"], "rpool")
+        self.assertTrue(out[0]["ok"])
+        # filtre par site comme /netview
+        self.assertEqual(self.c.get("/proxmox?site=ovh").get_json()["proxmox"], [])
+        self.assertEqual(len(self.c.get("/proxmox?site=siege").get_json()["proxmox"]), 1)
+
+
 class CaptureRelayTests(ApiBase):
     """#436 : mesure plugin:capture-relay -> network-agent-api (relais sous mock)."""
 

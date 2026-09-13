@@ -315,7 +315,7 @@ class PluginTests(unittest.TestCase):
     def test_plugins_livres_valides(self):
         bundled = os.path.join(ROOT, "plugins")
         ids = sorted(os.listdir(bundled))
-        self.assertEqual(ids, ["capture-relay", "docker-containers", "network-neighbors"])  # #436 : relais d'exploration
+        self.assertEqual(ids, ["capture-relay", "docker-containers", "network-neighbors", "proxmox"])  # #436 : relais d'exploration ; #487 : hyperviseurs Proxmox
         for pid in ids:
             with open(os.path.join(bundled, pid, "manifest.json")) as fh:
                 m = json.load(fh)

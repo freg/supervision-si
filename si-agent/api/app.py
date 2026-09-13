@@ -193,6 +193,13 @@ def netview_route():
     return jsonify({"netviews": store.latest_netviews(DB_PATH, site=request.args.get("site"))}), 200
 
 
+@app.route("/proxmox", methods=["GET"])
+def proxmox_route():
+    """#487 : dernière mesure du plugin proxmox par hyperviseur (nœud,
+    VM/CT, stockages, ZFS) -- lue par la supervision SI (type « vm »)."""
+    return jsonify({"proxmox": store.latest_proxmox(DB_PATH, site=request.args.get("site"))}), 200
+
+
 @app.route("/risks", methods=["GET"])
 def risks_route():
     return jsonify({"risks": store.fleet_risks(DB_PATH, site=request.args.get("site"))}), 200
