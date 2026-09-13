@@ -1634,6 +1634,9 @@ services:
       # ProjeQtOr (fork, livraison #476) — tuile visible de tous,
       # embarquable en onglet (même origine via tls-proxy).
       - VITE_PROJEQTOR_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/projeqtor/
+      # MikroTik (livraison #485) — tuile de la thématique Réseau,
+      # embarquable en onglet (même origine via tls-proxy).
+      - VITE_MIKROTIK_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/mikrotik/
       # Adresse LAN DIRECTE (http, pas https via la passerelle) --
       # même raisonnement que vault-admin-portal lui-même, jamais routé
       # par tls-proxy.
@@ -2203,6 +2206,25 @@ services:
     depends_on:
       - projeqtor-app
       - tickets-api
+
+  # mikrotik (livraison #485) — supervision et commande de base des
+  # routeurs MikroTik (API REST RouterOS v7). Registre dans
+  # mikrotik/routers.json (versionné), identifiants dans .env
+  # (secret). Interface servie sous /mikrotik/ (tls-proxy), tuile de
+  # la thématique Réseau du hub.
+  mikrotik-api:
+    build:
+      context: .
+      dockerfile: mikrotik/Dockerfile
+    environment:
+      - MIKROTIK_USER=${MIKROTIK_USER:-}
+      - MIKROTIK_PASSWORD=${MIKROTIK_PASSWORD:-}
+      - MIKROTIK_TLS_VERIFY=${MIKROTIK_TLS_VERIFY:-}
+      - MIKROTIK_REGISTRY=/app/routers.json
+    volumes:
+      # Registre éditable sans rebuild — les identifiants, eux,
+      # restent dans .env (jamais dans ce fichier versionné).
+      - ./mikrotik/routers.json:/app/routers.json:ro
 
 volumes:
   api_data:

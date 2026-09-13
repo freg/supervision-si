@@ -1,3 +1,25 @@
+## 2026-09-13 — mikrotik : supervision/commande des routeurs MikroTik (livraison #485)
+
+Demandé explicitement : reprendre le volet routeurs de
+l'infrastructure (le backlog l'avait, aucun module n'existait —
+vérifié dans le code ET l'historique git) et l'intégrer au hub.
+
+- **Nouveau service `mikrotik-api`** : client API REST RouterOS v7
+  (www-ssl, Basic auth — v6 non couvert, pas d'API REST), registre
+  dans `mikrotik/routers.json` (versionné, bind mount), identifiants
+  dans `.env` (partagés ou par routeur via `credential`).
+- **Supervision** : identité, version, uptime, CPU/mémoire/disque,
+  santé matérielle quand exposée, interfaces + compteurs.
+- **Commande** (v1 prudente, corps JSON explicite) : toggle
+  interface, ping depuis le routeur (borné à 20), reboot (double
+  confirmation + `{"confirm":"REBOOT"}`).
+- **Interface hub** : tuile « Routeurs MikroTik » de la thématique
+  Réseau, servie sous `/mikrotik/` (route tls-proxy ajoutée).
+- Jamais testé contre un vrai routeur : tout est couvert par
+  `mikrotik/tests/smoke_test.py` (faux RouterOS en mémoire, vert).
+
+---
+
 ## 2026-09-12 — projeqtor-bridge : pont OPTLINE / ProjeQtOr / hub (livraison #484)
 
 Demandé explicitement (format Excel « Tableau des suivis des demandes —

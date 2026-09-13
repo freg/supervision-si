@@ -12,6 +12,17 @@ regarder l'entrée la plus récente en haut — si elle correspond à ce
 que vous avez déjà en `.env`, rien à faire. Sinon, copier/ajouter les
 clés listées, dans votre `.env` existant.
 
+## 2026-09-13 — mikrotik (livraison #485)
+
+- `MIKROTIK_USER` / `MIKROTIK_PASSWORD` (vides — secret, identifiants
+  de l'API REST RouterOS, partagés ; surcharge par routeur :
+  `MIKROTIK_<NOM>_USER` / `MIKROTIK_<NOM>_PASSWORD`) ;
+- `MIKROTIK_TLS_VERIFY` (vide = certificats auto-signés acceptés,
+  posture LAN) ; `MIKROTIK_API_PORT` (vide, variable historique
+  tls-proxy).
+
+---
+
 ## 2026-09-12 — projeqtor-bridge (livraison #484)
 
 Nouvelles clés (insérées automatiquement par sync-env.py #479 si

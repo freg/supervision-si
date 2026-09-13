@@ -62,6 +62,9 @@ const LDAP_ADMIN_URL = import.meta.env.VITE_LDAP_ADMIN_PORTAL_URL || "";
 // ProjeQtOr (fork, livraison #476) — tuile visible de tous, embarquable
 // en onglet de la coquille (même origine via tls-proxy, /projeqtor/).
 const PROJEQTOR_URL = import.meta.env.VITE_PROJEQTOR_URL || "";
+// MikroTik (livraison #485) — supervision/commande des routeurs,
+// tuile de la thématique Réseau, même origine via tls-proxy.
+const MIKROTIK_URL = import.meta.env.VITE_MIKROTIK_URL || "";
 const VAULT_URL = import.meta.env.VITE_VAULT_PORTAL_URL || "";
 // Portail d'administration du coffre-fort (rôles) -- JAMAIS routé par
 // la passerelle publique (voir vault-standalone/README.md/docker-
@@ -1154,6 +1157,7 @@ export default function App() {
     vaultAdminUrl: VAULT_ADMIN_URL,
     ldapAdminUrl: LDAP_ADMIN_URL,
     projeqtorUrl: PROJEQTOR_URL,
+    mikrotikUrl: MIKROTIK_URL,
     groups,
     externalLinks,
   });

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<!-- Interface hub « Routeurs MikroTik » (livraison #485) — servie par
+mikrotik-api sous /mikrotik/, embarquée en onglet de la thématique
+Réseau. Page unique, aucune dépendance externe (posture LAN).
+Charte sombre du hub, sans couleur hors palette (#2980b9/#b7791f). -->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Routeurs MikroTik</title>
+<style>
+  :root { --bg: #1a1d24; --card: #242933; --text: #e8eaed; --muted: #9aa3b2;
+          --accent: #2980b9; --warn: #b7791f; --ok: #27ae60; --err: #c0392b; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font-family: system-ui, -apple-system, "Segoe UI", sans-serif; padding: 20px; }
+  h1 { font-size: 1.3rem; margin: 0 0 16px; }
+  h2 { font-size: 1rem; margin: 0 0 10px; }
+  .grid { display: grid; grid-template-columns: 260px 1fr; gap: 16px; align-items: start; }
+  .card { background: var(--card); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .router { padding: 10px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 6px;
+            background: var(--bg); border: 1px solid transparent; }
+  .router:hover { border-color: var(--accent); }
+  .router.active { border-color: var(--accent); background: rgba(41,128,185,.12); }
+  .router .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 8px; }
+  .dot.up { background: var(--ok); } .dot.down { background: var(--err); }
+  .muted { color: var(--muted); font-size: .85rem; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #333a47; }
+  th { color: var(--muted); font-weight: 600; }
+  .pill { padding: 2px 8px; border-radius: 10px; font-size: .78rem; }
+  .pill.up { background: rgba(39,174,96,.18); color: var(--ok); }
+  .pill.down { background: rgba(192,57,43,.18); color: var(--err); }
+  .pill.off { background: rgba(154,163,178,.18); color: var(--muted); }
+  button { padding: 6px 12px; border: 0; border-radius: 6px; background: var(--accent);
+           color: #fff; font: inherit; font-size: .85rem; cursor: pointer; }
+  button.danger { background: var(--err); }
+  button:disabled { opacity: .5; cursor: wait; }
+  input { padding: 8px; border-radius: 6px; border: 1px solid #3a4150;
+          background: var(--bg); color: var(--text); font: inherit; }
+  .kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .kv .k { color: var(--muted); font-size: .75rem; }
+  .kv .v { font-size: 1.05rem; font-weight: 600; }
+  #msg { border-radius: 8px; padding: 10px; margin-top: 10px; display: none; font-size: .9rem; }
+  #msg.ok { display: block; background: rgba(39,174,96,.15); border: 1px solid var(--ok); }
+  #msg.err { display: block; background: rgba(192,57,43,.15); border: 1px solid var(--err); }
+  pre { background: var(--bg); border-radius: 8px; padding: 10px; font-size: .8rem;
+        white-space: pre-wrap; max-height: 180px; overflow: auto; }
+</style>
+</head>
+<body>
+<h1>📡 Routeurs MikroTik</h1>
+<div class="grid">
+  <div>
+    <div class="card">
+      <h2>Registre</h2>
+      <div id="routers" class="muted">chargement…</div>
+    </div>
+  </div>
+  <div id="detail"><div class="card muted">Sélectionne un routeur.</div></div>
+</div>
+
+<script>
+const api = location.pathname.replace(/\/$/, "");
+let current = null;
+
+function fmtBytes(n) {
+  n = Number(n || 0);
+  for (const u of ["o", "Ko", "Mo", "Go"]) { if (n < 1024) return n.toFixed(n < 10 ? 1 : 0) + " " + u; n /= 1024; }
+  return n.toFixed(1) + " To";
+}
+function fmtUptime(s) { return s || "—"; }
+function showMsg(text, ok) {
+  const m = document.getElementById("msg");
+  m.className = ok ? "ok" : "err";
+  m.textContent = text;
+}
+
+async function loadRouters() {
+  const box = document.getElementById("routers");
+  try {
+    const r = await fetch(api + "/routers");
+    const data = await r.json();
+    if (data.registry_error) box.innerHTML = `<p class="muted">⚠️ ${data.registry_error}</p>`;
+    if (!data.routers.length) { box.innerHTML += `<p class="muted">Aucun routeur — voir mikrotik/routers.json</p>`; return; }
+    box.innerHTML = "";
+    for (const rt of data.routers) {
+      const div = document.createElement("div");
+      div.className = "router" + (current === rt.name ? " active" : "");
+      div.innerHTML = `<span class="dot ${rt.reachable ? "up" : "down"}"></span><b>${rt.identity || rt.name}</b>
+        <div class="muted">${rt.host}:${rt.port}${rt.error ? " — " + rt.error : ""}</div>`;
+      div.onclick = () => selectRouter(rt.name);
+      box.appendChild(div);
+    }
+  } catch (e) { box.innerHTML = `<p class="muted">registre indisponible : ${e.message}</p>`; }
+}
+
+async function selectRouter(name) {
+  current = name;
+  loadRouters();
+  const d = document.getElementById("detail");
+  d.innerHTML = `<div class="card muted">Chargement de ${name}…</div>`;
+  try {
+    const [summaryR, ifacesR] = await Promise.all([
+      fetch(`${api}/routers/${name}/summary`),
+      fetch(`${api}/routers/${name}/interfaces`),
+    ]);
+    const summary = await summaryR.json();
+    const ifaces = await ifacesR.json();
+    if (summary.error) { d.innerHTML = `<div class="card">⚠️ ${summary.error}</div>`; return; }
+    renderDetail(name, summary, ifaces.interfaces || []);
+  } catch (e) { d.innerHTML = `<div class="card">⚠️ ${e.message}</div>`; }
+}
+
+function renderDetail(name, summary, ifaces) {
+  const r = summary.resource || {};
+  const h = summary.health || {};
+  const d = document.getElementById("detail");
+  const rows = ifaces.map(i => `
+    <tr>
+      <td>${i.name || ""}</td>
+      <td>${i.type || ""}</td>
+      <td><span class="pill ${i.disabled === "true" ? "off" : (i.running === "true" ? "up" : "down")}">
+        ${i.disabled === "true" ? "désactivée" : (i.running === "true" ? "active" : "inactive")}</span></td>
+      <td>↓ ${fmtBytes(i["rx-byte"])} &nbsp;↑ ${fmtBytes(i["tx-byte"])}</td>
+      <td><button data-id="${i[".id"]}" data-name="${i.name}" data-disabled="${i.disabled}"
+           onclick="toggleIface(this)">${i.disabled === "true" ? "Activer" : "Désactiver"}</button></td>
+    </tr>`).join("");
+  d.innerHTML = `
+    <div class="card">
+      <h2>${summary.identity?.name || name} <span class="muted">— RouterOS ${r.version || "?"} (${r["architecture-name"] || "?"})</span></h2>
+      <div class="kv">
+        <div><div class="k">Uptime</div><div class="v">${fmtUptime(r.uptime)}</div></div>
+        <div><div class="k">CPU</div><div class="v">${r["cpu-load"] ?? "—"} %</div></div>
+        <div><div class="k">Mémoire libre</div><div class="v">${fmtBytes(r["free-memory"])}</div></div>
+        <div><div class="k">Disque libre</div><div class="v">${fmtBytes(r["free-hdd-space"])}</div></div>
+        ${h.temperature ? `<div><div class="k">Température</div><div class="v">${h.temperature} °C</div></div>` : ""}
+        ${h.voltage ? `<div><div class="k">Tension</div><div class="v">${h.voltage} V</div></div>` : ""}
+      </div>
+    </div>
+    <div class="card">
+      <h2>Interfaces</h2>
+      <table><tr><th>Nom</th><th>Type</th><th>État</th><th>Compteurs</th><th></th></tr>${rows}</table>
+    </div>
+    <div class="card">
+      <h2>Outils</h2>
+      <input id="pingAddr" placeholder="adresse à pinger (ex. 192.168.1.1)">
+      <button onclick="ping('${name}')">Ping depuis le routeur</button>
+      <button class="danger" onclick="reboot('${name}')">Redémarrer…</button>
+      <div id="msg"></div>
+      <pre id="pingOut" style="display:none"></pre>
+    </div>`;
+}
+
+async function toggleIface(btn) {
+  const enable = btn.dataset.disabled === "true";
+  if (!enable && !confirm(`Désactiver l'interface ${btn.dataset.name} ?\n⚠️ Si c'est l'interface de gestion, la connexion sera coupée.`)) return;
+  btn.disabled = true;
+  try {
+    const r = await fetch(`${api}/routers/${current}/interfaces/toggle`, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({id: btn.dataset.id, enable}),
+    });
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.error);
+    showMsg(`Interface ${btn.dataset.name} ${enable ? "activée" : "désactivée"}.`, true);
+    setTimeout(() => selectRouter(current), 800);
+  } catch (e) { showMsg(e.message, false); btn.disabled = false; }
+}
+
+async function ping(name) {
+  const addr = document.getElementById("pingAddr").value.trim();
+  const out = document.getElementById("pingOut");
+  if (!addr) return;
+  out.style.display = "block"; out.textContent = "ping en cours…";
+  try {
+    const r = await fetch(`${api}/routers/${name}/ping`, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({address: addr, count: 4}),
+    });
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.error);
+    out.textContent = JSON.stringify(body.result, null, 2);
+  } catch (e) { out.textContent = "échec : " + e.message; }
+}
+
+async function reboot(name) {
+  if (!confirm(`REDÉMARRER ${name} ?\nLe routeur sera indisponible pendant ~1 minute.`)) return;
+  if (!confirm("Vraiment sûr ?")) return;
+  try {
+    const r = await fetch(`${api}/routers/${name}/reboot`, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({confirm: "REBOOT"}),
+    });
+    const body = await r.json();
+    showMsg(body.message || body.error, r.ok);
+  } catch (e) { showMsg(e.message, false); }
+}
+
+loadRouters();
+setInterval(() => { if (!current) loadRouters(); }, 30000);
+</script>
+</body>
+</html>

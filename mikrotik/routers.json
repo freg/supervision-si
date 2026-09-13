@@ -1,0 +1,10 @@
+{
+  "routers": [
+    {
+      "name": "exemple",
+      "host": "192.168.88.1",
+      "port": 443,
+      "credential": "default"
+    }
+  ]
+}

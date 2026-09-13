@@ -99,7 +99,7 @@ export function isTechnicien(groups) {
 // que des droits de gestion de realm n'ont pas été accordés séparément
 // dans Keycloak).
 export function buildFrontsList({
-  frontendUrl, portalUrl, keycloakConsoleUrl, dbaUrl, vaultUrl, vaultAdminUrl, ldapAdminUrl, projeqtorUrl,
+  frontendUrl, portalUrl, keycloakConsoleUrl, dbaUrl, vaultUrl, vaultAdminUrl, ldapAdminUrl, projeqtorUrl, mikrotikUrl,
   groups, externalLinks,
 }) {
   const roles = groupsToRoles(groups);
@@ -185,6 +185,19 @@ export function buildFrontsList({
       name: "ProjeQtOr",
       description: "Gestion de projets — fork maison, ergonomie en cours de refonte",
       url: projeqtorUrl,
+      embeddable: true,
+    });
+  }
+  // MikroTik (livraison #485) — supervision/commande des routeurs de
+  // l'infrastructure. Visible de tous (lecture ; les commandes
+  // restent des gestes explicites côté mikrotik-api), embarquable en
+  // onglet de la thématique Réseau (même origine via tls-proxy).
+  if (mikrotikUrl) {
+    fronts.push({
+      id: "mikrotik",
+      name: "Routeurs MikroTik",
+      description: "Supervision et commande des routeurs — ressources, interfaces, outils",
+      url: mikrotikUrl,
       embeddable: true,
     });
   }

@@ -231,6 +231,11 @@ SERVICES = [
     # format imposé + statut de la sync. Le service sert lui-même ses
     # pages sous ce préfixe (jamais de rewrite, comme projeqtor-app).
     ("PROJEQTOR_BRIDGE_PORT", "projeqtor-bridge", 5000, "/demande/", "spa"),
+    # mikrotik (livraison #485) — supervision/commande des routeurs
+    # MikroTik (API REST RouterOS v7). Le service sert lui-même son
+    # interface sous ce préfixe (jamais de rewrite, même patron que
+    # projeqtor-bridge).
+    ("MIKROTIK_API_PORT", "mikrotik-api", 5000, "/mikrotik/", "spa"),
     ("SUPERVISION_HUB_PORT", "hub", 5173, "/", "spa"),
     ("TICKETS_PORTAL_PORT", "tickets-portal", 5173, "/tickets/", "spa"),
     ("DBA_PORTAL_PORT", "dba-portal", 5173, "/dba/", "spa"),

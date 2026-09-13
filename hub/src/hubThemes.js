@@ -29,7 +29,7 @@ export const THEMES = [
       { view: "history", label: "Historique" },
       { view: "memory", label: "Mémoire" },
     ] },
-  { id: "reseau", name: "Réseau", icon: "🕸", description: "Exploration, cycle agile, orchestrateur, architecture, fusion IP/MAC, Nebula, tunnels SSH",
+  { id: "reseau", name: "Réseau", icon: "🕸", description: "Exploration, cycle agile, orchestrateur, architecture, fusion IP/MAC, Nebula, tunnels SSH, routeurs MikroTik",
     entries: [
       { view: "network-agent", label: "Exploration réseau" },
       { view: "network-cycle", label: "Cycle agile réseau" },
@@ -38,6 +38,7 @@ export const THEMES = [
       { view: "fusion", label: "Fusion IP/MAC" },
       { view: "nebula", label: "Nebula" },
       { view: "ssh-tunnels", label: "Tunnels SSH" },
+      { front: "mikrotik", label: "Routeurs MikroTik" },
     ] },
   { id: "donnees", name: "Données & référentiels", icon: "🗄", description: "Bases externes, GLPI, positions, classification, schémas, rétro-ingénierie, DBA",
     entries: [
