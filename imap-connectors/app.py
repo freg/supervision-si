@@ -83,6 +83,19 @@ def poll_connector(connector, fetch=None, deliver_kw=None):
                      % (connector["name"], target, (msg.get("subject") or "?")[:60], detail))
         handled += 1
         last_at = msg.get("date") or None
+        # Auto-acquittement (#492, paramétrable : auto_ack du
+        # connecteur) : une résolution acquitte les alertes actives
+        # non lues du même équipement, ET elle-même — avec l'option
+        # active, la cloche reflète l'état courant, pas l'historique.
+        if (all_ok and parsed.get("kind") == "zenoss-clear"
+                and connector.get("auto_ack", True) and message_id):
+            device = (parsed.get("fields") or {}).get("device")
+            if device:
+                n = store.ack_active_alerts_for_device(DB_PATH, device)
+                store.ack_messages(DB_PATH, ids=[message_id])
+                if n:
+                    _log("info", "%s : résolution %s — %d alerte(s) acquittée(s) automatiquement"
+                         % (connector["name"], device, n))
         # Marquage « lu » : message interprété ET routé (ou stockage
         # seul pour sms/notification). Un échec laisse le message non
         # lu — la boîte est la file de secours.

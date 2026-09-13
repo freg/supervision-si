@@ -26,7 +26,7 @@ const TARGETS = [
 const EMPTY_FORM = {
   name: "", host: "", port: "993", tls: true, username: "", password: "",
   folder: "INBOX", target: "tickets", interval_seconds: "300",
-  mark_seen: true, enabled: false, notes: "",
+  mark_seen: true, auto_ack: true, enabled: false, notes: "",
 };
 
 function Tone({ tone, children }) {
@@ -133,7 +133,7 @@ export default function ImapConnectorsView({ onBack, imapConnectorsApiBase }) {
   const edit = (c) => {
     setForm({ name: c.name, host: c.host, port: String(c.port), tls: c.tls, username: c.username,
       password: "", folder: c.folder, target: c.target, interval_seconds: String(c.interval_seconds),
-      mark_seen: c.mark_seen, enabled: c.enabled, notes: c.notes || "" });
+      mark_seen: c.mark_seen, auto_ack: c.auto_ack !== false, enabled: c.enabled, notes: c.notes || "" });
     setEditingId(c.id); setShowForm(true);
   };
 
@@ -174,6 +174,11 @@ export default function ImapConnectorsView({ onBack, imapConnectorsApiBase }) {
             </select>
             <input style={{ width: 90 }} title="intervalle entre relevés (secondes)" placeholder="intervalle s" value={form.interval_seconds} onChange={(e) => setForm({ ...form, interval_seconds: e.target.value })} />
             <label style={{ fontSize: 12 }}><input type="checkbox" checked={form.mark_seen} onChange={(e) => setForm({ ...form, mark_seen: e.target.checked })} /> marquer lu</label>
+            {form.target === "zenoss" && (
+              <label style={{ fontSize: 12 }} title="Une résolution Zenoss acquitte automatiquement les alertes actives non lues du même équipement (cloche du hub)">
+                <input type="checkbox" checked={form.auto_ack} onChange={(e) => setForm({ ...form, auto_ack: e.target.checked })} /> acquitter à la résolution
+              </label>
+            )}
             <label style={{ fontSize: 12 }}><input type="checkbox" checked={form.enabled} onChange={(e) => setForm({ ...form, enabled: e.target.checked })} /> activé</label>
             <button type="submit" disabled={busy}>{editingId ? "Enregistrer" : "Créer"}</button>
           </form>
@@ -194,7 +199,7 @@ export default function ImapConnectorsView({ onBack, imapConnectorsApiBase }) {
                   <td><Tone tone={!c.enabled ? "neutral" : c.last_ok === false ? "critical" : c.last_ok ? "ok" : "neutral"}>{c.enabled ? (c.last_ok === false ? "en échec" : c.last_ok ? "actif" : "jamais relevé") : "désactivé"}</Tone></td>
                   <td><strong>{c.name}</strong>{c.notes && <div className="muted" style={{ fontSize: 11 }}>{c.notes}</div>}</td>
                   <td style={{ fontSize: 12 }}><code>{c.username}@{c.host}:{c.port}</code><div className="muted">{c.folder}{c.tls ? " · SSL" : ""} · {c.interval_seconds}s</div></td>
-                  <td style={{ fontSize: 12 }}>{TARGETS.find((t) => t.id === c.target)?.label || c.target}</td>
+                  <td style={{ fontSize: 12 }}>{TARGETS.find((t) => t.id === c.target)?.label || c.target}{c.target === "zenoss" && c.auto_ack !== false && <div className="muted" style={{ fontSize: 11 }}>acquittement auto à la résolution</div>}</td>
                   <td className="muted" style={{ fontSize: 12 }}>{when(c.last_poll_at)}{c.last_error && <div><Tone tone="critical">{c.last_error}</Tone></div>}</td>
                   <td style={{ fontSize: 12 }}>{s.messages ?? 0}{(s.non_interpretes ?? 0) > 0 && <Tone tone="warning"> dont {s.non_interpretes} non interprétés</Tone>}</td>
                   <td style={{ fontSize: 12 }}><Tone tone="ok">{s.livraisons_ok ?? 0} ok</Tone>{(s.livraisons_ko ?? 0) > 0 && <> <Tone tone="critical">{s.livraisons_ko} ko</Tone></>}</td>

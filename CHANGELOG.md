@@ -1,3 +1,29 @@
+## 2026-09-13 — auto-acquittement des alertes à la résolution, paramétrable (livraison #492)
+
+Demandé explicitement : l'auto-acquittement (« quand une résolution
+Zenoss arrive pour un équipement, ses alertes actives non lues sont
+marquées lues automatiquement ») — « oui mais paramétrable stp ».
+
+- **Option `auto_ack` par connecteur** (cible `zenoss`), activée par
+  défaut : une résolution interprétée ET livrée à pixel-grid avec
+  succès acquitte d'office les alertes actives non lues du même
+  équipement (`json_extract` sur les champs interprétés), ainsi
+  qu'elle-même — la cloche reflète l'état courant, pas l'historique.
+  Une résolution mal routée n'acquitte rien : la boîte reste la file
+  de secours. Option décochée : alertes et résolutions attendent un
+  acquittement manuel.
+- **Formulaire du connecteur** : case « acquitter à la résolution »
+  (visible pour la cible zenoss, avec title d'explication) ; le
+  tableau des connecteurs rappelle « acquittement auto à la
+  résolution » sous la cible.
+- **Migration automatique** : `auto_ack` ajouté par `ensure_schema`
+  (`ALTER TABLE`, défaut 1) — les connecteurs existants héritent de
+  l'option activée, testé sur une base au schéma #489.
+- Tests : 7 tests de chaîne API (nouveaux : auto-ack activé → cloche
+  vidée par la résolution ; désactivé → tout attend l'acquittement
+  manuel ; migration #489 → #492 sans perte) ; 181 tests Node verts ;
+  syntaxe validée à l'esbuild.
+
 ## 2026-09-13 — cloche généralisée : alertes supervision Zenoss en rouge + bascule supervision (livraison #491)
 
 Demandé explicitement : « étendre la cloche aux alertes Zenoss

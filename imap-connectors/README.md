@@ -75,6 +75,20 @@ Sondage 30 s, jamais bloquant (API injoignable = cloche discrète).
 Migration automatique : `ack_at` est ajouté par `ensure_schema` aux
 bases créées en #489.
 
+## Auto-acquittement à la résolution (#492, paramétrable)
+
+Sur un connecteur de cible `zenoss`, l'option **« acquitter à la
+résolution »** (`auto_ack`, activée par défaut — y compris pour les
+connecteurs créés avant #492, migrés automatiquement) fait qu'une
+résolution Zenoss acquitte d'office les alertes **actives non lues
+du même équipement**, ainsi qu'elle-même : la cloche reflète l'état
+courant, pas l'historique. L'acquittement n'a lieu que si la
+résolution a été interprétée ET livrée à pixel-grid avec succès —
+une résolution mal routée reste non lue (file de secours). Option
+décochée : alertes et résolutions restent visibles jusqu'à
+acquittement manuel. Case présente dans le formulaire du connecteur
+(cible `zenoss`) et rappelée dans le tableau des connecteurs.
+
 ## Configuration (.env)
 
 - `IMAP_CONNECTORS_API_PORT` (6443 côté tls-proxy) ;

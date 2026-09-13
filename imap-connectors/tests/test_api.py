@@ -22,6 +22,11 @@ ZENOSS_BODY = """Alert generated at 2026/08/11 10:30:12.000 Equipement : sw-coeu
 Message : Ping degrade Localisation : /Parc Composants : 
 Severite : Warning"""
 
+CLEARED_BODY = """Event Cleared At: 2026/08/11 11:05:00.000 Alert generated at
+2026/08/11 10:30:12.000 Clear Message : retour a la normale Message : Ping degrade
+Localisation : /Parc Composants : 
+Severite : Warning"""
+
 FAKE_MESSAGES = [
     {"uid": "101", "message_id": "<a@b>", "from_addr": "zenoss@exemple.fr",
      "subject": "[Site A] sw-coeur Ping degrade", "date": "Tue, 11 Aug 2026 12:31:00 +0200",
@@ -175,6 +180,73 @@ class ChainTests(unittest.TestCase):
         # garde-fous
         self.assertEqual(self.c.post("/notifications/ack", json={}).status_code, 400)
         self.assertEqual(self.c.post("/notifications/ack", json={"ids": ["abc"]}).status_code, 400)
+
+    def test_auto_ack_a_la_resolution(self):
+        """#492 : une résolution acquitte les alertes actives non lues
+        du même équipement (et elle-même) — paramétrable par auto_ack."""
+        # base pixel-grid créée par le livreur lui-même (comme en
+        # production) — ne PAS pré-créer les tables ici
+        pixel_kw = {"db_path": os.path.join(TMP, "pixel-auto.db"), "backend": "sqlite"}
+        active = {"uid": "401", "message_id": "<z1@z>", "from_addr": "zenoss@exemple.fr",
+                  "subject": "[Site A] sw-coeur Ping degrade", "date": "Tue, 11 Aug 2026 12:31:00 +0200",
+                  "body": ZENOSS_BODY, "_num": b"1"}
+        clear = {"uid": "402", "message_id": "<z2@z>", "from_addr": "zenoss@exemple.fr",
+                 "subject": "[Site A] clear: sw-coeur Ping degrade", "date": "Tue, 11 Aug 2026 13:05:00 +0200",
+                 "body": CLEARED_BODY, "_num": b"2"}
+        app_mod.imap_fetch.mark_seen = lambda cfg, nums: None
+
+        # auto_ack ACTIVÉ (défaut) : la résolution vide la cloche
+        c = self._create(name="zen-auto")
+        poll = lambda m: app_mod.poll_connector(  # noqa: E731
+            store.get_connector(app_mod.DB_PATH, c["id"], with_secret=True),
+            fetch=lambda cfg, limit=50: ([m], None), deliver_kw=pixel_kw)
+        poll(active)
+        self.assertEqual(self.c.get("/notifications?targets=zenoss").get_json()["unread"], 1)
+        poll(clear)
+        n = self.c.get("/notifications?targets=zenoss").get_json()
+        self.assertEqual(n["unread"], 0, "résolution : alerte active ET résolution acquittées")
+
+        # auto_ack DÉSACTIVÉ : tout reste visible, acquittement manuel
+        c2 = self._create(name="zen-manuel", auto_ack=False)
+        self.assertFalse([x for x in self.c.get("/connectors").get_json()["connectors"]
+                          if x["id"] == c2["id"]][0]["auto_ack"])
+        poll2 = lambda m: app_mod.poll_connector(  # noqa: E731
+            store.get_connector(app_mod.DB_PATH, c2["id"], with_secret=True),
+            fetch=lambda cfg, limit=50: ([m], None), deliver_kw=pixel_kw)
+        poll2(dict(active, uid="501", _num=b"3"))
+        poll2(dict(clear, uid="502", _num=b"4"))
+        n = self.c.get("/notifications?targets=zenoss").get_json()
+        self.assertEqual(n["unread"], 2, "sans auto_ack : alerte et résolution restent à acquitter")
+
+    def test_migration_schema_489_vers_492(self):
+        """Une base créée en #489 (sans ack_at ni auto_ack) est migrée
+        par ensure_schema, sans perte."""
+        import sqlite3 as _s
+        old_db = os.path.join(TMP, "old-489.db")
+        conn = _s.connect(old_db)
+        conn.execute("CREATE TABLE connectors (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, "
+                     "host TEXT NOT NULL, port INTEGER NOT NULL DEFAULT 993, tls INTEGER NOT NULL DEFAULT 1, "
+                     "username TEXT NOT NULL, password TEXT NOT NULL, folder TEXT NOT NULL DEFAULT 'INBOX', "
+                     "target TEXT NOT NULL, interval_seconds INTEGER NOT NULL DEFAULT 300, "
+                     "mark_seen INTEGER NOT NULL DEFAULT 1, enabled INTEGER NOT NULL DEFAULT 0, "
+                     "default_type_id INTEGER, default_level_id INTEGER, notes TEXT, "
+                     "last_poll_at TEXT, last_ok INTEGER, last_error TEXT, last_message_at TEXT, created_at TEXT NOT NULL)")
+        conn.execute("INSERT INTO connectors (name, host, username, password, target, created_at) "
+                     "VALUES ('vieux', 'h', 'u', 'p', 'zenoss', '2026-09-13T00:00:00+00:00')")
+        conn.execute("CREATE TABLE messages (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                     "connector_id INTEGER NOT NULL, uid TEXT NOT NULL, message_id TEXT, from_addr TEXT, "
+                     "subject TEXT, date TEXT, fetched_at TEXT NOT NULL, parsed INTEGER NOT NULL DEFAULT 0, "
+                     "kind TEXT, summary TEXT, fields TEXT, UNIQUE(connector_id, uid))")
+        conn.commit(); conn.close()
+        store.ensure_schema(old_db)
+        conn = _s.connect(old_db)
+        msg_cols = {r[1] for r in conn.execute("PRAGMA table_info(messages)")}
+        con_cols = {r[1] for r in conn.execute("PRAGMA table_info(connectors)")}
+        auto = conn.execute("SELECT auto_ack FROM connectors WHERE name = 'vieux'").fetchone()[0]
+        conn.close()
+        self.assertIn("ack_at", msg_cols)
+        self.assertIn("auto_ack", con_cols)
+        self.assertEqual(auto, 1, "les connecteurs existants héritent de l'auto-acquittement activé")
 
     def test_routage_tickets(self):
         c = self._create(name="sav-in", target="tickets")

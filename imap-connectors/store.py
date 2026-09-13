@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS connectors (
     target TEXT NOT NULL,
     interval_seconds INTEGER NOT NULL DEFAULT 300,
     mark_seen INTEGER NOT NULL DEFAULT 1,
+    auto_ack INTEGER NOT NULL DEFAULT 1,
     enabled INTEGER NOT NULL DEFAULT 0,
     default_type_id INTEGER,
     default_level_id INTEGER,
@@ -81,6 +82,11 @@ def ensure_schema(db_path):
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(messages)").fetchall()}
         if "ack_at" not in cols:
             conn.execute("ALTER TABLE messages ADD COLUMN ack_at TEXT")
+        # Migration #492 : auto_ack (acquittement automatique des
+        # alertes à la résolution, paramétrable par connecteur).
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(connectors)").fetchall()}
+        if "auto_ack" not in cols:
+            conn.execute("ALTER TABLE connectors ADD COLUMN auto_ack INTEGER NOT NULL DEFAULT 1")
         conn.commit()
     finally:
         conn.close()
@@ -89,7 +95,7 @@ def ensure_schema(db_path):
 def _public(row):
     d = dict(row)
     d.pop("password", None)  # jamais vers l'API
-    for k in ("tls", "mark_seen", "enabled", "last_ok"):
+    for k in ("tls", "mark_seen", "auto_ack", "enabled", "last_ok"):
         if k in d and d[k] is not None:
             d[k] = bool(d[k])
     return d
@@ -119,9 +125,9 @@ def get_connector(db_path, connector_id, with_secret=False):
 
 def upsert_connector(db_path, fields, connector_id=None):
     allowed = {"name", "host", "port", "tls", "username", "password", "folder", "target",
-               "interval_seconds", "mark_seen", "enabled", "default_type_id", "default_level_id", "notes"}
+               "interval_seconds", "mark_seen", "auto_ack", "enabled", "default_type_id", "default_level_id", "notes"}
     data = {k: v for k, v in fields.items() if k in allowed}
-    for k in ("tls", "mark_seen", "enabled"):
+    for k in ("tls", "mark_seen", "auto_ack", "enabled"):
         if k in data:
             data[k] = 1 if data[k] else 0
     conn = connect(db_path)
@@ -290,6 +296,24 @@ def ack_messages(db_path, ids=None, targets=("sms",)):
                 "UPDATE messages SET ack_at = ? WHERE ack_at IS NULL AND connector_id IN "
                 "(SELECT id FROM connectors WHERE target IN (%s))" % marks,
                 [now_iso()] + list(targets))
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
+
+def ack_active_alerts_for_device(db_path, device):
+    """Auto-acquittement (#492, paramétrable par connecteur via
+    auto_ack) : une résolution Zenoss acquitte les alertes ACTIVES
+    non lues du même équipement — la cloche reflète l'état courant,
+    pas l'historique. json_extract (JSON1) : disponible partout où
+    Python sqlite3 est compilé normalement."""
+    conn = connect(db_path)
+    try:
+        cur = conn.execute(
+            "UPDATE messages SET ack_at = ? WHERE ack_at IS NULL AND kind = 'zenoss-active' "
+            "AND json_extract(fields, '$.device') = ?",
+            (now_iso(), device))
         conn.commit()
         return cur.rowcount
     finally:
