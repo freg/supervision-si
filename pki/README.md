@@ -33,6 +33,31 @@ pki/scripts/generate-ca.sh
 pki/scripts/generate-server-cert.sh
 ```
 
+## Extensions de la CA et diagnostic (`--check`, #495)
+
+Une CA générée **avant #495** n'a pas d'extension `keyUsage` : OpenSSL
+≥ 3 (Python 3.14, agents macOS récents) refuse alors la chaîne
+(« CA cert does not include key usage extension »), constaté sur le
+premier agent macOS réel (BACKLOG item 3). Depuis #495,
+`generate-ca.sh` émet `basicConstraints=critical,CA:TRUE`,
+`keyUsage=critical,keyCertSign,cRLSign` et un `subjectKeyIdentifier`,
+avec un numéro de série aléatoire (jamais réutilisé entre deux
+générations — `SEC_ERROR_REUSED_ISSUER_AND_SERIAL`). **Une CA
+existante n'est jamais modifiée** : seuls les nouveaux déploiements
+en bénéficient. Pour savoir où en est la vôtre, sans rien écrire :
+
+```bash
+PKI_DIR=<chemin de .env> pki/scripts/generate-ca.sh --check   # 0 = conforme, 3 = à renouveler
+```
+
+Le même diagnostic s'affiche (en avertissement, jamais bloquant)
+quand `gateway/scripts/run.sh` (ou `vault-standalone/scripts/run.sh`)
+relance `generate-ca.sh` sur une CA déjà présente. Le
+renouvellement d'une CA ancienne est une opération planifiée (voie b
+du BACKLOG item 3 : régénérer, puis redistribuer `ca.crt` dans l'ordre
+agents → postes/navigateurs → dockers à trust store copié, en retirant
+l'ancienne CA des magasins avant d'importer la nouvelle).
+
 ## Distribuer la CA aux postes clients — l'étape qui compte vraiment
 
 Sans ça, chaque navigateur affichera un avertissement de sécurité à
@@ -146,7 +171,10 @@ manquer après chaque étape critique.
 cryptographiquement** (`openssl verify -CAfile ca.crt server.crt` →
 `OK`), SAN corrects avec un `HOST_IP` réaliste et `TLS_EXTRA_SAN`,
 idempotence de `generate-ca.sh` (relancé deux fois, rien refait la
-seconde). Bug réel trouvé et corrigé en testant l'enchaînement complet
+seconde). #495 : CA neuve validée en `openssl verify -x509_strict`
+(OpenSSL 3.0) et chargée par `ssl.create_default_context` ; une CA
+« ancienne » (sans keyUsage) régénérée pour l'essai est bien refusée
+en strict et signalée par `--check` (code 3), sans être modifiée. Bug réel trouvé et corrigé en testant l'enchaînement complet
 depuis `scripts/run.sh` : `generate-server-cert.sh` ne lisait `HOST_IP`
 que depuis `.env`, jamais depuis la variable d'environnement déjà
 exportée par `run.sh` après détection automatique (`hostname -I`) —

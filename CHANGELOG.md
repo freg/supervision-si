@@ -1,3 +1,27 @@
+## 2026-09-13 — PKI : CA interne avec basicConstraints/keyUsage, diagnostic `--check` (livraison #495)
+
+BACKLOG item 3, voie (a) — sans risque : la CA sans extension
+`keyUsage` est refusée par OpenSSL ≥ 3 (constaté sur le premier agent
+macOS réel) ; une CA existante n'est jamais modifiée.
+
+- **`pki/scripts/generate-ca.sh`** : les nouvelles CA portent
+  `basicConstraints=critical,CA:TRUE`, `keyUsage=critical,keyCertSign,
+  cRLSign`, `subjectKeyIdentifier=hash` (via `-addext`), série
+  aléatoire (jamais réutilisée entre deux générations).
+- **`--check`** : diagnostic SANS RIEN ÉCRIRE de la CA en place (sujet,
+  dates, série, extensions ; code 0 conforme / 3 à renouveler / 2
+  absente). Sur une CA déjà présente, le script affiche le même
+  diagnostic en avertissement (jamais bloquant pour `run.sh`).
+- `pki/README.md` : section « Extensions de la CA et diagnostic »,
+  ordre de redistribution pour la voie (b) ; BACKLOG item 3 mis à jour.
+- Vérifié (OpenSSL 3.0.2) : génération neuve → `--check` code 0,
+  idempotence, chaîne feuille validée en `openssl verify -x509_strict`,
+  chargement par `ssl.create_default_context` ; CA « ancienne » (sans
+  keyUsage) → `--check` code 3, refusée en strict, laissée intacte.
+  Non vérifié : `run.sh` complet sur super (le script y est appelé à
+  chaque lancement — seul l'avertissement change), agent macOS avec
+  Python OpenSSL 3 contre une CA régénérée (voie b, à planifier).
+
 ## 2026-09-13 — anonymisation : le nom du service de support hors du dépôt (livraison #494)
 
 Règle #467 (dépôt personnel destiné à la communauté : aucune

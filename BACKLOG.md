@@ -2623,11 +2623,12 @@ de client, de site réel, de personne ou d'adresse réelle ne doit y figurer.
      magasin système -> impact NUL sur ce chemin. Mais LE ne peut PAS
      remplacer la CA interne pour le LAN (pas de certificat public pour
      une IP privée / un nom interne). Les deux coexistent.
-   - VOIE RECOMMANDÉE : (a) dès maintenant, SANS RISQUE -- corriger
-     `generate-ca.sh` (ajouter `basicConstraints=critical,CA:TRUE` et
-     `keyUsage=critical,keyCertSign,cRLSign`, série neuf) : le script
-     ne régénère JAMAIS une CA existante, donc aucun impact sur le hub
-     en production, seuls les futurs déploiements en bénéficient ;
+   - VOIE RECOMMANDÉE : (a) **FAIT en #495** -- `generate-ca.sh` émet
+     `basicConstraints=critical,CA:TRUE`, `keyUsage=critical,keyCertSign,
+     cRLSign`, `subjectKeyIdentifier`, série aléatoire ; `--check`
+     diagnostique une CA existante sans rien écrire (code 3 = à
+     renouveler) et le même avertissement s'affiche à chaque `run.sh` ;
+     aucune CA existante n'est touchée (voir `pki/README.md`) ;
      (b) plus tard, bascule en production : régénérer sur le hub puis
      redéployer `ca.crt` dans l'ordre agents -> postes/navigateurs ->
      dockers à trust store copié, avec fenêtre de maintenance.
