@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  fromNetprobe, fromUps, fromSiAgent, fromSnmp, fromSshTunnels, fromWifiAgents, mergeItems, aggregateSupervised,
+  fromNetprobe, fromUps, fromSiAgent, fromSnmp, fromSshTunnels, fromWifiAgents, fromMikrotik, mergeItems, aggregateSupervised,
   buildProposals, filterSupervised, prioritizeSupervised, setPriority, movePriority,
   buildLinks, knownPositions, deducePositions, describeChain, frameLayout, normalizeFrames, summarizeByState, loadPref, savePref,
   appliedMatch, displaySite, resolveSubjects, resolveKey, geoRows, geoSummary,
@@ -204,4 +204,30 @@ test("#433 alerte UPS active -> état dégradé dans Supervision SI", () => {
   ], NOW);
   assert.equal(a.state, "warning"); assert.equal(a.stateText, "input_voltage_min");
   assert.equal(b.state, "ok", "acquittée : n'altère plus l'état");
+});
+
+test("#486 routeurs MikroTik : états homogènes + fusion par IP avec les autres tuiles", () => {
+  const routers = fromMikrotik([
+    { name: "cœur", host: "10.0.0.1", port: 443, reachable: true, identity: "rb5009-coeur" },
+    { name: "agence", host: "10.0.0.2", port: 443, reachable: false, error: "délai dépassé" },
+    { name: "sans-creds", host: "10.0.0.3", port: 443, reachable: false, error: "identifiants absents du .env (MIKROTIK_AGENCE_USER / MIKROTIK_AGENCE_PASSWORD)" },
+  ], NOW);
+  assert.deepEqual(routers.map((r) => r.state), ["ok", "critical", "unknown"]);
+  assert.equal(routers[0].name, "rb5009-coeur", "l'identité RouterOS prime sur le nom du registre pour l'affichage");
+  assert.equal(routers[0].identity, "ip:10.0.0.1");
+  assert.equal(routers[0].type, "router");
+  assert.equal(routers[2].stateText, "identifiants absents (.env)", "pas un incident : un réglage manquant");
+  // Fusion : le routeur déjà sondé par netprobe reste UN équipement,
+  // l'origine mikrotik s'ajoute ; l'état mesuré le pire l'emporte.
+  const items = mergeItems([
+    fromNetprobe([{ id: 1, ip_address: "10.0.0.1", label: "Routeur", active: 1 }], [{ target_id: 1, success: 1, latency_ms: 1 }]),
+    routers,
+  ]);
+  assert.equal(items.length, 3);
+  const r = items.find((i) => i.ip === "10.0.0.1");
+  assert.deepEqual(r.origins.map((o) => o.origin).sort(), ["mikrotik", "netprobe"]);
+  assert.equal(r.state, "ok");
+  const agg = aggregateSupervised({ mikrotikRouters: [{ name: "cœur", host: "10.0.0.1", reachable: true }], snmpTargets: [{ id: 1, host: "10.0.0.1" }] });
+  assert.equal(agg.length, 1);
+  assert.equal(agg[0].origins.length, 2);
 });

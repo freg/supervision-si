@@ -1,3 +1,38 @@
+## 2026-09-13 — mikrotik : intégration transversale au hub (livraison #486)
+
+Demandé explicitement : « chaque routeur se retrouve sur un schéma du
+réseau et l'accès à un router puisse se faire depuis toutes les
+interfaces du hub qui y font référence, la map, la supervision, les
+tickets ». Pivot retenu : l'**IP** du routeur (déjà la clé de fusion
+de la supervision SI — même IP = un seul équipement).
+
+- **Supervision SI (carte + table)** : nouveau type d'équipement
+  « Routeur MikroTik » (origine mikrotik, `fromMikrotik` dans
+  `supervisedItems.js`, client `mikrotikClient.js`). Chaque routeur du
+  registre apparaît sur la carte et la table, **fusionné par IP** avec
+  ce que netprobe / network-agent voient déjà ; position géographique
+  par le mécanisme commun (nom, site, liens déduits) — rien de spécial
+  à coder, vérifié dans le code avant de promettre.
+- **Liens profonds** : le bouton d'origine de la table ouvre la tuile
+  MikroTik sur `/mikrotik/#router=<nom>` ; l'interface comprend
+  l'ancre (sélection initiale, `hashchange`, `replaceState` à la
+  sélection — ancre partageable).
+- **Tickets** : bouton « Créer un ticket » dans la fiche équipement
+  (cadre Liens) — `source_type="mikrotik"` + `source_nom=<nom>` pour
+  un routeur déclaré (`supervision` sinon) ; le détail du portail
+  tickets affiche « ouvrir le routeur » (lien racine-relatif, même
+  origine tls-proxy, aucun réglage).
+- Aucune nouvelle clé `.env` : la base API est `VITE_MIKROTIK_URL`
+  sans sa barre finale (SPA et API partagent `/mikrotik/`).
+- Tests : `hub/tests/supervisedItems.test.mjs` étendu (états,
+  identifiants absents ≠ incident, fusion netprobe+mikrotik) —
+  173 tests Node verts ; smoke test mikrotik toujours vert. Build
+  Vite local incomplet (react-leaflet absent de node_modules, échec
+  identique AVANT ces changements — vérifié par stash) ; chaque
+  fichier modifié validé individuellement à l'esbuild.
+
+---
+
 ## 2026-09-13 — mikrotik : supervision/commande des routeurs MikroTik (livraison #485)
 
 Demandé explicitement : reprendre le volet routeurs de

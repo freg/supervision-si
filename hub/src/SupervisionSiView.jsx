@@ -10,6 +10,7 @@ import { fetchTunnels, fetchConnections } from "./sshTunnelsClient.js";
 import { fetchSites, fetchDevices, fetchLinks } from "./networkAgentClient.js";
 import { fetchSuggestions } from "./netmapOrchestratorClient.js";
 import { fetchSignals } from "./vigilanceClient.js";
+import { fetchMikrotikRouters } from "./mikrotikClient.js";
 import {
   ITEM_TYPES, STATE_ORDER, aggregateSupervised, buildProposals, filterSupervised, prioritizeSupervised, movePriority, setPriority,
   buildLinks, knownPositions, deducePositions, describeChain, FRAME_KINDS, frameLayout, normalizeFrames, summarizeByState,
@@ -111,6 +112,7 @@ export default function SupervisionSiView({
   onBack, onNavigate, legacyFrontendUrl,
   netprobeApiBase, upsApiBase, siAgentApiBase, siProxyApiBase, accessToken, snmpApiBase, sshTunnelsApiBase, networkAgentApiBase,
   netmapOrchestratorApiBase, vigilanceApiBase, pixelGridApiBase, groups = [],
+  mikrotikApiBase, mikrotikUrl, ticketsApiBase,
 }) {
   const [sources, setSources] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -146,7 +148,7 @@ export default function SupervisionSiView({
     const safe = async (label, fn, fallback) => {
       try { const r = await fn(); if (r && r.error) { errs.push(`${label} : ${r.error}`); return fallback; } return r; } catch (e) { errs.push(`${label} : ${e.message}`); return fallback; }
     };
-    const [netprobeTargets, netprobeLatest, wifiAgents, upsDevices, siAgentFleet, snmpTargets, sshTunnels, sshConnections, sites, suggestions, signals, geolocations, netviews, bastion] = await Promise.all([
+    const [netprobeTargets, netprobeLatest, wifiAgents, upsDevices, siAgentFleet, snmpTargets, sshTunnels, sshConnections, sites, suggestions, signals, geolocations, netviews, bastion, mikrotikRouters] = await Promise.all([
       netprobeApiBase ? safe("Sondes réseau", () => fetchTargets(netprobeApiBase), []) : [],
       netprobeApiBase ? safe("Sondes réseau (relevés)", () => fetchLatestSamples(netprobeApiBase), []) : [],
       netprobeApiBase ? safe("Sondes WiFi", async () => (await fetchWifiAgents(netprobeApiBase)).filter((a) => a.role === "probe"), []) : [],
@@ -162,6 +164,8 @@ export default function SupervisionSiView({
       siAgentApiBase ? safe("Agents hôtes (vue réseau)", () => fetchNetviews(siAgentApiBase), []) : [],
       // #454 : catégorie Bastion (réservée : le pont refuse les autres -> null, sans erreur affichée)
       siProxyApiBase && accessToken ? (async () => { const r = await fetchProxySummary(siProxyApiBase, accessToken, 24 * 7); return r && !r.error ? r : (r?.status === 401 || r?.status === 403 ? null : (r?.error ? { relay: "down", state: "critical", state_text: r.error } : null)); })() : null,
+      // #486 : routeurs MikroTik (registre + joignabilité mesurée par mikrotik-api)
+      mikrotikApiBase ? safe("Routeurs MikroTik", () => fetchMikrotikRouters(mikrotikApiBase), []) : [],
     ]);
     // appareils et flux de chaque segment (exploration réseau)
     const naDevices = [], naLinks = [];
@@ -178,11 +182,11 @@ export default function SupervisionSiView({
       }
     }
     const hubHost = (() => { try { return new URL(siProxyApiBase || siAgentApiBase || window.location.href).hostname || "hub"; } catch { return "hub"; } })();
-    setSources({ netprobeTargets, netprobeLatest, wifiAgents, upsDevices, siAgentFleet, snmpTargets, sshTunnels, sshConnections, sites, suggestions, signals, geolocations, naDevices, naLinks, netviews, bastion, hubHost });
+    setSources({ netprobeTargets, netprobeLatest, wifiAgents, upsDevices, siAgentFleet, snmpTargets, sshTunnels, sshConnections, sites, suggestions, signals, geolocations, naDevices, naLinks, netviews, bastion, hubHost, mikrotikRouters });
     setErrors(errs);
     setLoading(false);
     setNow(Date.now());
-  }, [netprobeApiBase, upsApiBase, siAgentApiBase, siProxyApiBase, accessToken, snmpApiBase, sshTunnelsApiBase, networkAgentApiBase, netmapOrchestratorApiBase, vigilanceApiBase, pixelGridApiBase]);
+  }, [netprobeApiBase, upsApiBase, siAgentApiBase, siProxyApiBase, accessToken, snmpApiBase, sshTunnelsApiBase, networkAgentApiBase, netmapOrchestratorApiBase, vigilanceApiBase, pixelGridApiBase, mikrotikApiBase]);
 
   useEffect(() => { load(); const id = setInterval(load, REFRESH_MS); return () => clearInterval(id); }, [load]);
 
@@ -253,7 +257,36 @@ export default function SupervisionSiView({
     const r = await addAlias(pixelGridApiBase, aliasForm.alias, aliasForm.localisation, groups);
     if (r?.error) setMatchesError(r.error); else { setAliasForm({ alias: "", localisation: "" }); await refreshMatches(); }
   };
-  const goto = (origin) => { if (onNavigate) onNavigate(origin === "netprobe" ? "netprobe" : origin === "ups" ? "ups" : origin === "si-agent" ? "si-agent" : origin === "snmp" ? "snmp" : origin === "ssh-tunnels" ? "ssh-tunnels" : origin); };
+  const goto = (origin, originId) => {
+    // #486 : la tuile MikroTik est un front (SPA /mikrotik/), pas une
+    // vue du hub -- ouverture directe sur l'ancre du routeur concerné.
+    if (origin === "mikrotik") {
+      const base = (mikrotikUrl || mikrotikApiBase || "").replace(/\/+$/, "");
+      if (base) window.open(`${base}/#router=${encodeURIComponent(originId || "")}`, "_blank", "noopener");
+      return;
+    }
+    if (onNavigate) onNavigate(origin === "netprobe" ? "netprobe" : origin === "ups" ? "ups" : origin === "si-agent" ? "si-agent" : origin === "snmp" ? "snmp" : origin === "ssh-tunnels" ? "ssh-tunnels" : origin);
+  };
+  // #486 : création d'un ticket depuis la fiche équipement -- sourcé
+  // « mikrotik » quand l'équipement est un routeur déclaré (le portail
+  // tickets affiche alors un lien retour vers la tuile MikroTik).
+  const [ticketMsg, setTicketMsg] = useState(null);
+  useEffect(() => setTicketMsg(null), [selected]);
+  const createTicket = async (it) => {
+    const mt = it.origins.find((o) => o.origin === "mikrotik");
+    const subject = `[Supervision] ${it.name}${it.ip ? ` (${it.ip})` : ""}`;
+    const description = `Ticket créé depuis la supervision SI.\nÉtat : ${it.stateText || it.state}\nOrigines : ${it.origins.map((o) => o.origin).join(", ")}`;
+    setTicketMsg(null);
+    try {
+      const res = await fetch(`${ticketsApiBase}/tickets`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject, description, source_type: mt ? "mikrotik" : "supervision", source_nom: mt ? mt.originId : it.name }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.id) throw new Error(data?.error || `HTTP ${res.status}`);
+      setTicketMsg({ ok: true, text: `ticket #${data.id} créé — visible dans le portail tickets` });
+    } catch (e) { setTicketMsg({ ok: false, text: `échec : ${e.message}` }); }
+  };
 
   // --- Cadres ---
   const layout = frameLayout(frames.length);
@@ -309,7 +342,7 @@ export default function SupervisionSiView({
                   <td>{(() => { const d = displaySite(it, matches); return d.site ? <>{d.site}{d.resolved && <span className="muted ss-resolved" title={`localisation ${MATCH_STATUS[d.status]?.label} d'après le nom`}> ({MATCH_STATUS[d.status]?.label})</span>}</> : <span className="muted">—</span>; })()}</td>
                   <td><Tone state={it.state}>{STATE_LABELS[it.state]}</Tone> <span className="muted" style={{ fontSize: 11 }}>{it.stateText}</span></td>
                   <td className="muted">{when(it.lastSeen)}</td>
-                  <td onClick={(e) => e.stopPropagation()}>{it.origins.map((o) => <button key={o.key} className="secondary ss-origin" onClick={() => goto(o.origin)} title={`ouvrir la tuile ${o.origin}`}>{ITEM_TYPES[o.type]?.label || o.origin}</button>)}</td>
+                  <td onClick={(e) => e.stopPropagation()}>{it.origins.map((o) => <button key={o.key} className="secondary ss-origin" onClick={() => goto(o.origin, o.originId)} title={`ouvrir la tuile ${o.origin}`}>{ITEM_TYPES[o.type]?.label || o.origin}</button>)}</td>
                   <td className="muted" style={{ fontSize: 11 }}>{p ? p.source : "—"}</td>
                 </tr>
               );
@@ -326,6 +359,12 @@ export default function SupervisionSiView({
             <>
               <p style={{ margin: "4px 0 4px" }}><strong>{selectedItem.name}</strong> — position : {describeChain(positions.get(selectedItem.identity))}</p>
               {pixelGridApiBase && <MatchLine item={selectedItem} match={matches[selectedItem.identity]} places={placeNames} onDecide={decide} onReset={undecide} />}
+              {ticketsApiBase && (
+                <p style={{ margin: "4px 0" }}>
+                  <button className="secondary" onClick={() => createTicket(selectedItem)}>Créer un ticket</button>
+                  {ticketMsg && <span className="muted" style={{ marginLeft: 8 }}>{ticketMsg.text}</span>}
+                </p>
+              )}
             </>
           ) : <p className="muted" style={{ margin: "4px 0 8px" }}>Sélectionner un équipement pour voir sa chaîne de déduction ; ci-dessous les {shown.length} premiers liens.</p>}
           <div className="hub-table-scroll">

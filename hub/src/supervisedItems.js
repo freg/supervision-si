@@ -25,6 +25,9 @@ export const ITEM_TYPES = {
   // sont supervisés comme des équipements ; visible seulement pour les
   // personnes autorisées sur la tuile Bastion (le pont refuse les autres).
   bastion: { label: "Bastion", origin: "si-proxy", icon: "🛡" },
+  // #486 : routeurs MikroTik (module mikrotik) -- registre déclaré dans
+  // mikrotik/routers.json, joignabilité mesurée par mikrotik-api.
+  router: { label: "Routeur MikroTik", origin: "mikrotik", icon: "🔀" },
 };
 
 // Tri d'affichage : ce qui demande attention d'abord (l'inconnu avant l'ok).
@@ -135,6 +138,23 @@ export function fromWifiAgents(agents, nowMs = Date.now(), staleAfter = 600) {
 
 function isLoopback(ip) { return /^127\./.test(ip) || ip === "::1"; }
 
+// #486 : routeurs MikroTik (module mikrotik, livraison #485) -- le
+// registre déclaré (mikrotik/routers.json) + la joignabilité mesurée
+// par mikrotik-api (GET system/identity). L'identité par IP fusionne
+// le routeur avec ce que les sondes et l'exploration réseau voient
+// déjà de la même adresse : un seul équipement, plusieurs origines.
+export function fromMikrotik(routers, nowMs = Date.now()) {
+  return (routers || []).map((r) => {
+    let state = "unknown", stateText = "jamais sondé";
+    if (r.reachable) { state = "ok"; stateText = "joignable"; }
+    else if (r.error && /identifiants/.test(r.error)) { state = "unknown"; stateText = "identifiants absents (.env)"; }
+    else if (r.error) { state = "critical"; stateText = r.error; }
+    return { key: `mikrotik:${r.name}`, type: "router", name: r.identity || r.name, ip: r.host || null, mac: null, site: null,
+      state, stateText, lastSeen: r.reachable ? new Date(nowMs).toISOString() : null, origin: "mikrotik", originId: r.name,
+      identity: identity(r.host, null, r.name) };
+  });
+}
+
 // #454 : synthèse du bastion (si-proxy-admin-api /summary) -> deux
 // supervisés : le relais (conteneur du hub) et le shim host (VM). Ni l'un
 // ni l'autre n'a d'IP propre différente du hub : identité par NOM, pour
@@ -183,6 +203,7 @@ export function aggregateSupervised(sources, nowMs = Date.now()) {
     fromSshTunnels(sources.sshTunnels, sources.sshConnections),
     fromWifiAgents(sources.wifiAgents, nowMs),
     fromSiProxy(sources.bastion, { hubHost: sources.hubHost, site: sources.bastionSite }),
+    fromMikrotik(sources.mikrotikRouters, nowMs),
   ]);
 }
 

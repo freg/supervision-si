@@ -97,6 +97,9 @@ async function loadRouters() {
 
 async function selectRouter(name) {
   current = name;
+  // #486 : ancre partageable — la supervision, la carte et les tickets
+  // du hub ouvrent la tuile sur /mikrotik/#router=<nom>.
+  history.replaceState(null, "", `#router=${encodeURIComponent(name)}`);
   loadRouters();
   const d = document.getElementById("detail");
   d.innerHTML = `<div class="card muted">Chargement de ${name}…</div>`;
@@ -198,6 +201,18 @@ async function reboot(name) {
 }
 
 loadRouters();
+// Sélection initiale depuis l'ancre (#router=<nom>) + navigation par
+// ancre pendant que la tuile reste ouverte.
+const fromHash = () => {
+  const m = location.hash.match(/router=([^&]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+};
+const initial = fromHash();
+if (initial) selectRouter(initial);
+window.addEventListener("hashchange", () => {
+  const name = fromHash();
+  if (name && name !== current) selectRouter(name);
+});
 setInterval(() => { if (!current) loadRouters(); }, 30000);
 </script>
 </body>

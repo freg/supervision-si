@@ -55,10 +55,22 @@ POST /mikrotik/routers/<n>/reboot             {"confirm":"REBOOT"}
 GET  /mikrotik/health | /mikrotik/version
 ```
 
-## Intégration transversale (objectif #486)
+## Intégration transversale (livraison #486)
 
 Chaque routeur du registre a une **IP** — c'est la clé de croisement
-naturelle avec la carte réseau (netmap), la supervision (cortex) et
-les tickets : un nœud dont l'IP correspond à un routeur du registre
-pourra ouvrir directement sa fiche `/mikrotik/`. À construire une fois
-le module validé en conditions réelles.
+avec le reste du hub. Mis en œuvre :
+
+- **Supervision SI** (carte + table) : type d'équipement « Routeur
+  MikroTik » (origine mikrotik), fusionné par IP avec ce que les
+  sondes et l'exploration réseau voient déjà — un seul équipement,
+  plusieurs origines. L'état vient de la joignabilité mesurée par
+  mikrotik-api ; la position sur la carte suit le mécanisme commun
+  (nom, site, liens déduits).
+- **Liens profonds** : le bouton d'origine « Routeur MikroTik » (table
+  Supervision SI) ouvre la tuile sur `/mikrotik/#router=<nom>` —
+  ancre comprise par l'interface (sélection initiale + hashchange).
+- **Tickets** : bouton « Créer un ticket » dans la fiche équipement
+  (cadre Liens) — `source_type="mikrotik"`, `source_nom=<nom>` quand
+  l'équipement est un routeur déclaré ; le portail tickets affiche
+  alors un lien « ouvrir le routeur » vers la même ancre.
+

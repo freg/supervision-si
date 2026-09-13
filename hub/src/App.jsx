@@ -64,7 +64,10 @@ const LDAP_ADMIN_URL = import.meta.env.VITE_LDAP_ADMIN_PORTAL_URL || "";
 const PROJEQTOR_URL = import.meta.env.VITE_PROJEQTOR_URL || "";
 // MikroTik (livraison #485) — supervision/commande des routeurs,
 // tuile de la thématique Réseau, même origine via tls-proxy.
+// #486 : la SPA et l'API partagent le même préfixe (/mikrotik/) --
+// la base API est l'URL de la tuile sans sa barre finale.
 const MIKROTIK_URL = import.meta.env.VITE_MIKROTIK_URL || "";
+const MIKROTIK_API_BASE = MIKROTIK_URL.replace(/\/+$/, "");
 const VAULT_URL = import.meta.env.VITE_VAULT_PORTAL_URL || "";
 // Portail d'administration du coffre-fort (rôles) -- JAMAIS routé par
 // la passerelle publique (voir vault-standalone/README.md/docker-
@@ -1556,6 +1559,9 @@ vm === "settings" ? (
           netmapOrchestratorApiBase={NETMAP_ORCHESTRATOR_API_BASE_URL}
           vigilanceApiBase={VIGILANCE_API_BASE_URL}
           pixelGridApiBase={PIXEL_GRID_API_BASE_URL}
+          mikrotikApiBase={MIKROTIK_API_BASE}
+          mikrotikUrl={MIKROTIK_URL}
+          ticketsApiBase={TICKETS_API_BASE_URL}
           groups={groups}
         />
       ) : vm === "si-agent" ? (
