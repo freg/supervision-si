@@ -2653,3 +2653,23 @@ de client, de site réel, de personne ou d'adresse réelle ne doit y figurer.
     signature HMAC) et `/.well-known/acme-challenge/`. En attendant :
     ne publier le frontal que le temps nécessaire, ou restreindre par
     IP source dans le vhost.
+
+70. Coffre des accès d'équipements (#498) — suites (2026-09-13) :
+    - authentifier les routes de GESTION (`/credentials/list*`) par le
+      jeton Keycloak (pont vérifiant le groupe, même patron que
+      `si-proxy-admin-api` #454) : aujourd'hui posture LAN comme
+      ups-monitor, seule la tuile est filtrée par rôle côté hub ;
+    - rapatrier dans le coffre les mots de passe encore stockés
+      module par module (ups-monitor `password`/`snmp_community`,
+      snmp, ssh-tunnels) — même clé `credential` par équipement, une
+      seule phrase de passe à garder dans le PRA au lieu de trois ;
+    - consommateurs futurs : agent hôte (commandes distantes), Proxmox
+      (#487), Nebula, si-proxy (jetons clients) ;
+    - export chiffré du coffre dans la sauvegarde totale (déjà couvert
+      par le volume `CREDENTIALS_DATA_DIR`, à vérifier au prochain
+      `backup-full.sh`).
+71. Import de tableaux SAV (#497) — fichier réel de la personne non
+    reçu dans la session : à passer d'abord par « Analyser sans
+    importer » ; si des en-têtes ne sont pas reconnus, ajouter les
+    synonymes dans `HEADER_SYNONYMS` (`suivi_format.py`).
+
