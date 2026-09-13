@@ -16,7 +16,7 @@ par router.py :
              reste l'outil HORS LIGNE sur export Thunderbird) ;
 - sms      : e-mail de passerelle SMS (expéditeur = n° ou sujet) ;
 - tickets  : demande SAV → ticket du hub ;
-- projeqtor: demande → pont OPTLINE (champs sujet/demandeur/…) ;
+- projeqtor: demande → pont « suivi » (champs sujet/demandeur/…) ;
 - notification : stockage générique.
 
 Fonctions PURES — testées dans tests/test_interpreters.py."""
@@ -161,7 +161,7 @@ def parse_ticket(msg):
 
 
 def parse_demande(msg):
-    """Demande → pont OPTLINE/ProjeQtOr (champs du formulaire public)."""
+    """Demande → pont « suivi »/ProjeQtOr (champs du formulaire public)."""
     subject = (msg.get("subject") or "").strip() or "(sans objet)"
     body = (msg.get("body") or "").strip()
     sender = msg.get("from_addr") or "inconnu"

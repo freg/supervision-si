@@ -1,42 +1,52 @@
-"""Traduction entre une « demande OPTLINE » (dict plat, voir
-optline_format.py) et un ticket ProjeQtOr (champs API, voir
+"""Traduction entre une « demande » du tableau de suivi (dict plat, voir
+suivi_format.py) et un ticket ProjeQtOr (champs API, voir
 model/TicketMain.php). Livraison #484.
 
 Correspondance :
 
     Sujet              -> name
-    Commentaire        -> description (+ ligne récapitulative [OPTLINE])
+    Commentaire        -> description (+ ligne récapitulative [<LABEL>])
     Demandeur          -> idContact     (résolu par nom, classe Contact)
     Niveau de priorité -> idUrgency     (résolu par nom, classe Urgency)
     Catégorie          -> idTicketType  (résolu par nom, classe TicketType)
     Date de demande    -> creationDateTime
     Date de clôture    -> done=1 + doneDateTime
-    Id (colonne A)     -> externalReference (« OPTLINE:<id> »)
+    Id (colonne A)     -> externalReference (« <LABEL>:<id> »)
 
 Principe « RIEN DE PERDU » : priorité, catégorie, durée et
 accomplissement sont TOUJOURS inscrits en clair dans la description
-(ligne « [OPTLINE] ... »), même quand la résolution par nom réussit —
+(ligne « [<LABEL>] ... »), même quand la résolution par nom réussit —
 ProjeQtOr n'a pas de colonne native pour la durée en jours ni
 l'accomplissement du tableau, et une valeur non résolue (nom absent
 des référentiels) ne doit jamais disparaître. L'export relit cette
 ligne pour remplir les colonnes que ProjeQtOr ne stocke pas.
 
+<LABEL> est le marqueur inscrit dans ProjeQtOr (ligne récap et
+externalReference) : `PROJEQTOR_BRIDGE_LABEL`, défaut « SUIVI »
+(livraison #494 — le nom réel du service de support est une valeur de
+déploiement, jamais dans le dépôt). Le changer sur une instance qui a
+déjà importé des demandes casse la relecture des anciennes lignes :
+choisir une fois, à l'installation.
+
 Les noms non résolus sont RETOURNÉS (jamais silencieux) : l'appelant
 les affiche dans le compte rendu d'import pour que la personne crée
 les entrées manquantes dans ProjeQtOr ou corrige le fichier.
 """
+import os
 import re
 from datetime import datetime
 
-from optline_format import (
+from suivi_format import (
     COL_CATEGORY, COL_CLOSED, COL_COMMENT, COL_DATE, COL_DURATION,
     COL_ID, COL_PRIORITY, COL_PROGRESS, COL_REQUESTER, COL_SUBJECT,
     normalize_key,
 )
 
-RECAP_PREFIX = "[OPTLINE]"
+LABEL = (os.environ.get("PROJEQTOR_BRIDGE_LABEL") or "SUIVI").strip() or "SUIVI"
+RECAP_PREFIX = "[%s]" % LABEL
+REF_PREFIX = "%s:" % LABEL
 RECAP_RE = re.compile(
-    r"^\[OPTLINE\] Demandeur\s*:\s*(?P<demandeur>.*?)\s*\| "
+    r"^\[" + re.escape(LABEL) + r"\] Demandeur\s*:\s*(?P<demandeur>.*?)\s*\| "
     r"Priorité\s*:\s*(?P<priorite>.*?)\s*\| "
     r"Catégorie\s*:\s*(?P<categorie>.*?)\s*\| "
     r"Durée\s*:\s*(?P<duree>.*?)\s*\| "
@@ -59,7 +69,7 @@ def build_recap(demand):
 
 
 def parse_recap(description):
-    """Retrouve les valeurs OPTLINE dans une description (ou None)."""
+    """Retrouve les valeurs du tableau dans une description (ou None)."""
     if not description:
         return None
     match = RECAP_RE.search(description)
@@ -109,7 +119,7 @@ def demand_to_ticket(demand, referentiels):
         fields["done"] = 1
         fields["doneDateTime"] = demand[COL_CLOSED].strftime("%Y-%m-%d %H:%M:%S")
     if demand.get(COL_ID) not in (None, ""):
-        fields["externalReference"] = f"OPTLINE:{demand[COL_ID]}"
+        fields["externalReference"] = f"{REF_PREFIX}{demand[COL_ID]}"
 
     return fields, unresolved
 
@@ -133,11 +143,11 @@ def _name_of(referentiel_inverse, raw_id):
 
 
 def ticket_to_demand(ticket, referentiels_inverses):
-    """Ticket ProjeQtOr (dict API) -> demande OPTLINE pour l'export.
+    """Ticket ProjeQtOr (dict API) -> demande du tableau pour l'export.
 
     `referentiels_inverses` : {"contacts": {id: nom}, ...}. Les
     colonnes sans équivalent ProjeQtOr (durée, accomplissement) sont
-    relues depuis la ligne [OPTLINE] de la description quand elle
+    relues depuis la ligne [<LABEL>] de la description quand elle
     existe (demandes entrées par le pont), sinon laissées vides.
     """
     description = ticket.get("description") or ""
@@ -159,7 +169,7 @@ def ticket_to_demand(ticket, referentiels_inverses):
             progress = None
 
     external = ticket.get("externalReference") or ""
-    ref_id = external.split(":", 1)[1] if external.startswith("OPTLINE:") else None
+    ref_id = external.split(":", 1)[1] if external.startswith(REF_PREFIX) else None
 
     return {
         COL_ID: ref_id if ref_id is not None else ticket.get("id"),

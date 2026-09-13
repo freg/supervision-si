@@ -1637,8 +1637,8 @@ services:
       # MikroTik (livraison #485) — tuile de la thématique Réseau,
       # embarquable en onglet (même origine via tls-proxy).
       - VITE_MIKROTIK_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/mikrotik/
-      # Pont OPTLINE (#484) — page d'ADMINISTRATION (import/export
-      # Excel, synchro) pour la tuile « Demandes OPTLINE » (#489).
+      # Pont « suivi » (#484) — page d'ADMINISTRATION (import/export
+      # Excel, synchro) pour la tuile « Demandes (suivi) » (#489).
       - VITE_DEMANDE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/demande/admin
       # Adresse LAN DIRECTE (http, pas https via la passerelle) --
       # même raisonnement que vault-admin-portal lui-même, jamais routé
@@ -2165,7 +2165,7 @@ services:
     depends_on:
       - projeqtor-db
 
-  # projeqtor-bridge (livraison #484) — pont entre le format OPTLINE
+  # projeqtor-bridge (livraison #484) — pont entre le format « suivi des demandes »
   # imposé, ProjeQtOr et la gestion de tickets du hub : formulaire
   # PUBLIC de dépôt (LAN, sans authentification, confirmé par la
   # personne) sur /demande/, import/export xlsx, synchronisation des
@@ -2191,6 +2191,8 @@ services:
       - TICKETS_API_INTERNAL_URL=http://tickets-api:5000
       - BRIDGE_SYNC_INTERVAL_SECONDS=${PROJEQTOR_BRIDGE_SYNC_SECONDS:-120}
       - BRIDGE_STATE_PATH=/data/sync_state.json
+      # Marqueur des demandes dans ProjeQtOr (#494) — voir .env.example.
+      - PROJEQTOR_BRIDGE_LABEL=${PROJEQTOR_BRIDGE_LABEL:-SUIVI}
       # Annuaire LDAP CENTRAL de la société (externe au hub) — secret,
       # renseigné à la main dans .env (sync-env.py insère les clés
       # vides si absentes). Vides = import LDAP impossible mais tout
@@ -2234,7 +2236,7 @@ services:
 
   imap-connectors:
     # Livraison #489 — gestionnaire de connecteurs IMAP : boîtes de
-    # réception → API du hub (tickets, pont OPTLINE/ProjeQtOr, alertes
+    # réception → API du hub (tickets, pont « suivi »/ProjeQtOr, alertes
     # Zenoss → pixel-grid, SMS, notifications), avec journal, base et
     # statistiques. Identifiants des boîtes en base (posture UPS),
     # configurés depuis la tuile hub « Connecteurs IMAP ».

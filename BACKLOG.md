@@ -2563,9 +2563,24 @@ de client, de site réel, de personne ou d'adresse réelle ne doit y figurer.
   lieux / prénoms / IP / chemins → valeurs fictives), fichiers générés ou
   locaux retirés et ignorés (`keycloak/.last-imported-realm.json`,
   `.DS_Store`, `pki/scripts/.srl`, journaux).
-- **À faire — historique git** : les 76 commits antérieurs conservent les
+- Fait (#467 bis) : historique réécrit (`git filter-repo`, 77 commits
+  conservés, valeurs remplacées, chemins retirés) — `dev`/`main` locales
+  et distantes sur l'historique réécrit.
+- **Rechute #484/#489, corrigée en #494** : le nom du service de
+  support était revenu dans `projeqtor-bridge` (nom de fichier,
+  marqueur codé en dur écrit dans ProjeQtOr), `imap-connectors`, la
+  tuile du hub, `.env.example`, `docker-compose.yml`, `CHANGELOG.md` et
+  DEUX messages de commit déjà poussés. Arbre corrigé (marqueur devenu
+  `PROJEQTOR_BRIDGE_LABEL`, défaut `SUIVI`), messages de commit
+  réécrits (`git filter-branch --msg-filter` sur `3464bd3..dev`) → push
+  forcé de `dev` et `main` à refaire, puis purge côté GitHub (support ou
+  recréation du dépôt) car les anciens objets restent joignables par
+  hash. **Réflexe avant chaque commit** : `git grep -i -E
+  '<motifs réels>'` sur l'index ET sur le message (`git log -1
+  --format=%B`) — les motifs sont dans le script hors dépôt.
+- Historique : les 76 commits antérieurs conservaient les
   valeurs d'origine (CHANGELOG, README, tests, fichier de realm). Deux
-  voies : (a) réécriture `git filter-repo --replace-text` + suppression
+  voies (a retenue) : (a) réécriture `git filter-repo --replace-text` + suppression
   des chemins retirés, puis push forcé de `dev` et `main` (toute copie
   clonée doit être re-clonée ; GitHub garde des objets en cache jusqu'à
   son nettoyage — demander la purge au support ou recréer le dépôt) ;

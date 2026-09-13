@@ -12,6 +12,19 @@ regarder l'entrée la plus récente en haut — si elle correspond à ce
 que vous avez déjà en `.env`, rien à faire. Sinon, copier/ajouter les
 clés listées, dans votre `.env` existant.
 
+## 2026-09-13 — projeqtor-bridge : libellé du pont (livraison #494)
+
+Nouvelle clé (insérée automatiquement par sync-env.py si votre `.env`
+date d'avant) :
+
+- `PROJEQTOR_BRIDGE_LABEL` (défaut `SUIVI`) — marqueur inscrit dans
+  ProjeQtOr par le pont (ligne récap `[LABEL] …`, `externalReference`
+  `LABEL:<id>`). **Si votre instance a déjà importé des demandes avec
+  le pont #484, mettre ici le libellé utilisé jusqu'alors** (l'ancien
+  marqueur codé en dur, nom du service de support) — sinon l'export
+  ne relira plus les colonnes durée/accomplissement/id des anciennes
+  demandes. Le dépôt ne contient plus ce nom (anonymisation #494).
+
 ## 2026-09-13 — imap-connectors (livraison #489)
 
 Nouvelles clés (insérées automatiquement par sync-env.py #479 si

@@ -1,10 +1,10 @@
-"""Format OPTLINE — « Tableau des suivis des demandes » imposé par la
+"""Format « suivi des demandes » — « Tableau des suivis des demandes » imposé par la
 société (livraison #484). SOURCE UNIQUE du format, utilisée par
 l'import (parse_workbook) ET l'export (build_workbook) : les deux ne
 peuvent jamais dériver l'un de l'autre.
 
-Format analysé sur le fichier réel « Copie de Tableau des suivis des
-demandes_Support OPTLINE.xlsx » :
+Format analysé sur le fichier réel « Tableau des suivis des
+demandes.xlsx » :
 
 - titre « Synthèse des demandes » en B7, fusionné B7:L7 ;
 - en-têtes ligne 8 (fond rouge, gras) : A=Id, B=Date de demande,

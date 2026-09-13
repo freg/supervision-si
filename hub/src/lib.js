@@ -188,7 +188,7 @@ export function buildFrontsList({
       embeddable: true,
     });
   }
-  // Pont OPTLINE (livraison #484, tuile ajoutée #489) — la page
+  // Pont « suivi » (livraison #484, tuile ajoutée #489) — la page
   // d'administration du pont : IMPORT/EXPORT Excel au format imposé,
   // état de synchronisation ProjeQtOr ↔ hub. Le formulaire public de
   // dépôt vit sur /demande/ (cette tuile vise /demande/admin). Visible
@@ -196,7 +196,7 @@ export function buildFrontsList({
   if (demandeUrl) {
     fronts.push({
       id: "demande",
-      name: "Demandes OPTLINE",
+      name: "Demandes (suivi)",
       description: "Dépôt de demandes — import/export Excel au format imposé, synchronisation ProjeQtOr",
       url: demandeUrl,
       embeddable: true,

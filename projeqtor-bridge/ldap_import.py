@@ -40,7 +40,7 @@ import sys
 from ldap3 import Connection, Server
 from ldap3.core.exceptions import LDAPException
 
-from optline_format import normalize_key
+from suivi_format import normalize_key
 from projeqtor_client import ProjeqtorApiError, ProjeqtorClient
 
 

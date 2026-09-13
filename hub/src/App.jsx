@@ -71,8 +71,8 @@ const PROJEQTOR_URL = import.meta.env.VITE_PROJEQTOR_URL || "";
 // la base API est l'URL de la tuile sans sa barre finale.
 const MIKROTIK_URL = import.meta.env.VITE_MIKROTIK_URL || "";
 const MIKROTIK_API_BASE = MIKROTIK_URL.replace(/\/+$/, "");
-// Pont OPTLINE (#484) — page d'administration (import/export Excel,
-// synchro) ; tuile « Demandes OPTLINE » de la thématique ProjeQtOr (#489).
+// Pont « suivi » (#484) — page d'administration (import/export Excel,
+// synchro) ; tuile « Demandes (suivi) » de la thématique ProjeQtOr (#489).
 const DEMANDE_URL = import.meta.env.VITE_DEMANDE_URL || "";
 const VAULT_URL = import.meta.env.VITE_VAULT_PORTAL_URL || "";
 // Portail d'administration du coffre-fort (rôles) -- JAMAIS routé par

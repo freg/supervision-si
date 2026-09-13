@@ -1,3 +1,34 @@
+## 2026-09-13 — anonymisation : le nom du service de support hors du dépôt (livraison #494)
+
+Règle #467 (dépôt personnel destiné à la communauté : aucune
+information précise, personnelle ou professionnelle). Le nom réel du
+service de support était revenu avec les livraisons #484 (pont
+ProjeQtOr) et #489 (tuile, connecteurs IMAP) — dans le code, un nom de
+fichier, la doc, le journal ET deux messages de commit déjà poussés.
+
+- **`projeqtor-bridge`** : le module de format (nommé d'après le
+  service) devient `suivi_format.py` (format « suivi des demandes ») ; le marqueur écrit dans ProjeQtOr
+  (ligne récap `[LABEL] …`, `externalReference` `LABEL:<id>`) n'est
+  plus codé en dur : `PROJEQTOR_BRIDGE_LABEL` (défaut `SUIVI`), lu par
+  `mapping.py` — l'import et l'export relisent le même marqueur.
+  **Instance existante** : mettre dans `.env` le libellé employé
+  jusqu'ici, sinon l'export ne relira plus durée / accomplissement /
+  id des demandes déjà importées (ENV_CHANGELOG).
+- **Hub / imap-connectors / compose / tls-proxy / `.env.example` /
+  CHANGELOG (#484, #489)** : « Demandes (suivi) », « pont « suivi » »,
+  variable `SUIVI_SAMPLE` du test de fumée.
+- **Messages de commit** : les deux messages fautifs sont réécrits
+  (`git filter-branch --msg-filter`, hashes de `dev` changés à partir
+  de #484) → push forcé de `dev` et `main` nécessaire, puis purge côté
+  GitHub (BACKLOG item 2).
+- Vérifié : `python3 projeqtor-bridge/tests/test_mapping.py` (4 tests :
+  défaut, repli, aller-retour import/export avec un libellé, libellé
+  différent non relu) ; `git grep` du motif : 0 résultat sur l'arbre ;
+  182 tests Node hub verts ; syntaxe Python vérifiée (`ast`). Non
+  vérifié : `imap-connectors/tests/test_api.py` (Flask absent de
+  l'environnement de test, code inchangé), test de fumée du pont
+  contre un ProjeQtOr réel.
+
 ## 2026-09-13 — cloche : troisième section « Notifications diverses » (livraison #493)
 
 Prolongement de la cloche généralisée (#491) : la cible `notification`
@@ -97,7 +128,7 @@ lus) ».
   (4 nouveaux sur les helpers purs : temps relatif, titre, extrait,
   ton) ; syntaxe validée à l'esbuild.
 
-## 2026-09-13 — imap-connectors : boîtes IMAP → tickets/ProjeQtOr/Zenoss/SMS + tuile Demandes OPTLINE (livraison #489)
+## 2026-09-13 — imap-connectors : boîtes IMAP → tickets/ProjeQtOr/Zenoss/SMS + tuile Demandes (suivi) (livraison #489)
 
 Demandé explicitement : « un gestionnaire de connecteur imap chacun
 sur une adresse de réception pour plusieurs api : demandes
@@ -116,7 +147,7 @@ forme de fichier excel ».
   message non interprété ou mal routé reste non lu et sera retenté.
 - **Cinq cibles** : `tickets` (POST tickets-api, source `imap` — la
   demande arrive dans la liste des imports à valider du hub),
-  `projeqtor` (POST pont OPTLINE `/demande/demandes` — inséré dans
+  `projeqtor` (POST pont « suivi » `/demande/demandes` — inséré dans
   ProjeQtOr), `zenoss` (corps interprété → événement pixel-grid
   `alerte_zenoss_email`, backends sqlite ET postgres), `sms` et
   `notification` (journalisés, socle pour cibles futures).
@@ -125,7 +156,7 @@ forme de fichier excel ».
   connecteurs avec Tester / Relever / Modifier / Supprimer,
   formulaire CRUD, journal des messages avec livraisons. Le mot de
   passe d'une boîte n'est jamais ressorti par l'API.
-- **Tuile « Demandes OPTLINE »** (thématique ProjeQtOr) : l'import
+- **Tuile « Demandes (suivi) »** (thématique ProjeQtOr) : l'import
   Excel des demandes SAV existait (pont #484, page `/demande/admin`)
   mais aucune tuile n'y menait — c'est maintenant réparé.
 - Tests : 11 tests interpréteurs + 4 tests de chaîne API (faux IMAP,
@@ -268,10 +299,11 @@ vérifié dans le code ET l'historique git) et l'intégrer au hub.
 
 ---
 
-## 2026-09-12 — projeqtor-bridge : pont OPTLINE / ProjeQtOr / hub (livraison #484)
+## 2026-09-12 — projeqtor-bridge : pont « suivi » / ProjeQtOr / hub (livraison #484)
 
 Demandé explicitement (format Excel « Tableau des suivis des demandes —
-Support OPTLINE » imposé par la société) :
+Tableau des suivis
+des demandes » imposé par la société) :
 
 - **Import xlsx** : `POST /demande/import` (+ bouton sur
   `/demande/admin`) — parse le tableau imposé, crée chaque demande

@@ -1,4 +1,4 @@
-"""projeqtor-bridge — pont entre le format OPTLINE imposé, ProjeQtOr
+"""projeqtor-bridge — pont entre le format « suivi des demandes » imposé, ProjeQtOr
 et la gestion de tickets du hub (livraison #484). Voir
 projeqtor-bridge/README.md pour le raisonnement complet.
 
@@ -12,8 +12,8 @@ Routes (toutes sous le préfixe /demande/, routé par tls-proxy) :
     POST /demande/demandes       dépôt d'une demande -> ticket ProjeQtOr
     GET  /demande/admin          page import/export (posture LAN, même
                                  confiance que le formulaire)
-    POST /demande/import         fichier xlsx OPTLINE -> tickets ProjeQtOr
-    GET  /demande/export         tickets ProjeQtOr -> xlsx OPTLINE
+    POST /demande/import         fichier xlsx « suivi » -> tickets ProjeQtOr
+    GET  /demande/export         tickets ProjeQtOr -> xlsx « suivi »
     GET  /demande/sync/status    état de la synchronisation vers le hub
     POST /demande/sync/now       tour de synchronisation immédiat
     GET  /demande/health         vivant (pas de dépendance à ProjeQtOr)
@@ -30,7 +30,7 @@ from datetime import datetime
 from flask import Flask, jsonify, request, send_file, send_from_directory
 
 from mapping import demand_to_ticket, ticket_to_demand
-from optline_format import (
+from suivi_format import (
     COL_CATEGORY, COL_COMMENT, COL_DURATION, COL_PRIORITY,
     COL_REQUESTER, COL_SUBJECT, build_workbook, normalize_key,
     parse_workbook,

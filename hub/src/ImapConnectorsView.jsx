@@ -5,7 +5,7 @@ import {
 } from "./imapConnectorsClient.js";
 
 // Tuile « Connecteurs IMAP » (livraison #489) : gestion des boîtes de
-// réception routées vers les API du hub (tickets SAV, pont OPTLINE/
+// réception routées vers les API du hub (tickets SAV, pont « suivi »/
 // ProjeQtOr, alertes Zenoss → pixel-grid, SMS des passerelles,
 // notifications), avec journal, statistiques et grille d'activité
 // dense (jour × connecteur, esprit pixel-grid).
@@ -17,7 +17,7 @@ const TONE_HEX = { ok: "#2f9e5b", warning: "#d69a2b", critical: "#d64545", none:
 
 const TARGETS = [
   { id: "tickets", label: "Tickets SAV (hub)" },
-  { id: "projeqtor", label: "Demandes ProjeQtOr (pont OPTLINE)" },
+  { id: "projeqtor", label: "Demandes ProjeQtOr (pont suivi)" },
   { id: "zenoss", label: "Alertes Zenoss → pixel-grid" },
   { id: "sms", label: "SMS entrants (passerelles)" },
   { id: "notification", label: "Notifications diverses" },

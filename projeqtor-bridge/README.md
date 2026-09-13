@@ -1,7 +1,7 @@
-# projeqtor-bridge — pont OPTLINE / ProjeQtOr / hub
+# projeqtor-bridge — pont « suivi » / ProjeQtOr / hub
 
 Livraison #484. Pont entre le **format Excel imposé par la société**
-(« Tableau des suivis des demandes — Support OPTLINE »), **ProjeQtOr**
+(« Tableau des suivis des demandes »), **ProjeQtOr**
 (source de vérité des demandes) et la **gestion de tickets du hub**
 (file « imports à valider », même mécanisme que les imports ICS #273).
 
@@ -26,30 +26,37 @@ demande vers tickets-api — qui **déduplique** par
 (`data/sync_state.json`) n'est qu'une optimisation de trafic : sa perte
 ne crée jamais de doublon.
 
-## Format OPTLINE
+## Format « suivi des demandes »
 
-Source unique : `optline_format.py` (colonnes, listes de référence,
+Source unique : `suivi_format.py` (colonnes, listes de référence,
 validations, formules J/K/L/M, table `Tableau1` A8:K104). Le même code
 sert à l'import **et** à l'export — les deux ne peuvent pas dériver.
 
 Correspondance ProjeQtOr (voir `mapping.py`) :
 
-| Colonne OPTLINE | Champ ProjeQtOr |
+| Colonne du tableau | Champ ProjeQtOr |
 | --- | --- |
 | Sujet | `name` |
-| Commentaire | `description` + ligne récap `[OPTLINE]` |
+| Commentaire | `description` + ligne récap `[<LABEL>]` |
 | Demandeur | `idContact` (résolu par nom) |
 | Niveau de priorité | `idUrgency` (résolu par nom) |
 | Catégorie | `idTicketType` (résolu par nom) |
 | Date de demande | `creationDateTime` |
 | Date de clôture | `done=1` + `doneDateTime` |
-| Id | `externalReference` (`OPTLINE:<id>`) |
+| Id | `externalReference` (`<LABEL>:<id>`) |
 
 **Rien de perdu** : durée (j) et accomplissement n'ont pas de colonne
-ProjeQtOr native — ils sont inscrits dans la ligne `[OPTLINE]` de la
+ProjeQtOr native — ils sont inscrits dans la ligne `[<LABEL>]` de la
 description et relus par l'export. Un nom non résolu (absent des
 référentiels ProjeQtOr) n'empêche jamais la création : il est signalé
 dans le compte rendu et conservé en clair.
+
+`<LABEL>` est le marqueur choisi au déploiement : `PROJEQTOR_BRIDGE_LABEL`
+dans `.env` (défaut `SUIVI`), typiquement le nom du service de support
+— une valeur de déploiement, jamais dans le dépôt (#494). Le choisir
+une fois : le changer après des imports casse la relecture des
+anciennes demandes à l'export (`tests/test_mapping.py` couvre les
+deux sens).
 
 ## Mise en route
 
@@ -93,7 +100,7 @@ exposer `/demande/` hors du LAN sans reconsidérer ce choix.
 
 `tests/smoke_test.py` — app Flask contre un faux ProjeQtOr et un faux
 tickets-api en mémoire : formulaire, référentiels, dépôt (résolu, non
-résolu, validations), import du fichier OPTLINE réel, export relu,
+résolu, validations), import du fichier xlsx réel, export relu,
 synchronisation avec déduplication (état local **et** côté hub).
 Le format xlsx a en plus son propre round-trip vérifié
 (parse → régénère → reparse) pendant le développement.

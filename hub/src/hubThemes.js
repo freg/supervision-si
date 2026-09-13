@@ -78,7 +78,7 @@ export const THEMES = [
   { id: "projeqtor", name: "ProjeQtOr", icon: "📋", description: "Gestion de projets — fork maison, ergonomie en cours de refonte",
     entries: [
       { front: "projeqtor", label: "ProjeQtOr" },
-      { front: "demande", label: "Demandes OPTLINE" },
+      { front: "demande", label: "Demandes (suivi)" },
     ] },
 ];
 

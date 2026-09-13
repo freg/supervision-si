@@ -24,7 +24,7 @@ SSL) + une **cible** parmi :
 | Cible | Routage |
 |---|---|
 | `tickets` | `POST $TICKETS_API_URL/tickets` (source_type `imap`, source_nom = nom du connecteur) — la demande arrive dans la liste des imports à valider du hub |
-| `projeqtor` | `POST $PROJEQTOR_BRIDGE_URL/demande/demandes` (sujet, demandeur, commentaire) — inséré dans ProjeQtOr via le pont OPTLINE |
+| `projeqtor` | `POST $PROJEQTOR_BRIDGE_URL/demande/demandes` (sujet, demandeur, commentaire) — inséré dans ProjeQtOr via le pont « suivi » |
 | `zenoss` | interprétation du corps (équipement, message, sévérité) → événement pixel-grid `alerte_zenoss_email` (valeur 1 actif / 0 rétabli) — visible dans la vue pixelgrid |
 | `sms` | journalisé (expéditeur = n° dans le sujet sinon le From) — socle pour une cible future |
 | `notification` | journalisé seul |

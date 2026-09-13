@@ -1,4 +1,4 @@
-# projeqtor-bridge (livraison #484) — pont OPTLINE/ProjeQtOr/hub.
+# projeqtor-bridge (livraison #484) — pont « suivi »/ProjeQtOr/hub.
 # Même patron que les autres services Python du projet (contexte de
 # build = racine du dépôt, pour partager shared/version_endpoint.py).
 FROM python:3.12-slim
@@ -8,7 +8,7 @@ WORKDIR /app
 COPY projeqtor-bridge/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY projeqtor-bridge/app.py projeqtor-bridge/optline_format.py \
+COPY projeqtor-bridge/app.py projeqtor-bridge/suivi_format.py \
      projeqtor-bridge/mapping.py projeqtor-bridge/projeqtor_client.py \
      projeqtor-bridge/sync.py projeqtor-bridge/ldap_import.py .
 COPY projeqtor-bridge/static/ ./static/

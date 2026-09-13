@@ -5,7 +5,7 @@
                  source_nom = nom du connecteur — même convention que
                  les tickets sourcés mikrotik de la #486) ;
 - projeqtor    → POST <bridge>/demande/demandes (contrat du formulaire
-                 public OPTLINE, livraison #484) ;
+                 public « suivi », livraison #484) ;
 - zenoss       → INSERT dans la base pixel-grid (events + type_meta,
                  type « alerte_zenoss_email » — la liaison directe
                  Zenoss ↔ pixel-grid que le hors-ligne attendait) ;

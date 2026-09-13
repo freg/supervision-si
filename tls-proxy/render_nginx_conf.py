@@ -205,7 +205,7 @@ SERVICES = [
     ("RELATIONS_API_PORT", "relations-api", 5000, "/api/relations/", "api"),
     ("IMAP_CLIENT_API_PORT", "imap-client-api", 5000, "/api/imap-client/", "api"),
     # imap-connectors (livraison #489) — gestionnaire de connecteurs
-    # IMAP : boîtes de réception → API du hub (tickets, OPTLINE,
+    # IMAP : boîtes de réception → API du hub (tickets, pont « suivi »,
     # Zenoss→pixel-grid, SMS, notifications), journal + statistiques.
     ("IMAP_CONNECTORS_API_PORT", "imap-connectors", 5000, "/api/imap-connectors/", "api"),
     # glpi-api (livraison #192) -- import Excel pour l'instant, base
@@ -229,7 +229,7 @@ SERVICES = [
     # les URLs /projeqtor/... s'y résolvent donc directement, comme
     # dans le déploiement traditionnel de ProjeQtOr en sous-dossier.
     ("PROJEQTOR_PORT", "projeqtor-app", 80, "/projeqtor/", "spa"),
-    # projeqtor-bridge (livraison #484) — pont OPTLINE/ProjeQtOr/hub.
+    # projeqtor-bridge (livraison #484) — pont « suivi »/ProjeQtOr/hub.
     # URI À PART, demandée explicitement : formulaire PUBLIC de dépôt
     # de demande (LAN, sans authentification) + import/export xlsx au
     # format imposé + statut de la sync. Le service sert lui-même ses

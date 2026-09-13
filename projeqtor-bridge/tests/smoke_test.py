@@ -1,6 +1,6 @@
 """Test de fumée de projeqtor-bridge (livraison #484) : app Flask contre
 un faux ProjeQtOr et un faux tickets-api en mémoire — couvre le
-formulaire, les référentiels, le dépôt, l'import xlsx OPTLINE réel,
+formulaire, les référentiels, le dépôt, l'import xlsx réel,
 l'export xlsx et la synchronisation vers le hub.
 
 Lancé localement (venv avec flask/requests/openpyxl) :
@@ -112,20 +112,20 @@ def main():
     assert c.post("/demande/demandes", json={"demandeur": "X", "sujet": "Y", "duree_j": "-3"}).status_code == 400
     print("✓ dépôt public (résolu, non résolu, validations 400)")
 
-    # 4. import du fichier OPTLINE réel
-    xlsx = os.environ.get("OPTLINE_SAMPLE")
+    # 4. import du fichier xlsx réel
+    xlsx = os.environ.get("SUIVI_SAMPLE")
     if xlsx and os.path.exists(xlsx):
         r = c.post("/demande/import", data={"file": (open(xlsx, "rb"), "tableau.xlsx")})
         body = r.get_json()
         assert r.status_code == 200 and body["importees"] == 1, body
         print("✓ import xlsx réel :", body["importees"], "/", body["total"])
     else:
-        print("⚠ OPTLINE_SAMPLE absent — import xlsx non testé")
+        print("⚠ SUIVI_SAMPLE absent — import xlsx non testé")
 
     # 5. export xlsx — relire ce qui a été créé
     r = c.get("/demande/export")
     assert r.status_code == 200
-    import optline_format as of
+    import suivi_format as of
     demands, errors = of.parse_workbook(r.data)
     assert not errors and len(demands) == len(CREATED_TICKETS), (errors, len(demands), len(CREATED_TICKETS))
     subjects = {d[of.COL_SUBJECT] for d in demands}
