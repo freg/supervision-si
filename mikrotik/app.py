@@ -4,10 +4,15 @@ de l'infrastructure (livraison #485, demandé explicitement :
 commande/paramétrage dans une interface du hub »).
 
 Registre : mikrotik/routers.json (versionné — noms, hôtes, ports).
-Identifiants : .env (SECRET, jamais versionné) — partagés
-(MIKROTIK_USER / MIKROTIK_PASSWORD) ou par routeur via la clé
-"credential" du registre (MIKROTIK_<NOM>_USER / ..._PASSWORD, nom en
-MAJUSCULES, tirets → underscores).
+Identifiants : le coffre des accès d'équipements du hub (credentials-api,
+livraison #498 — demandé explicitement : « retirer du .env les clés
+mikrotik, ça doit être géré dans les secrets du hub »). La clé
+"credential" du registre est le NOM de l'accès dans ce coffre ;
+"default" (ou absente) = l'accès nommé « mikrotik ». Révélation par
+jeton interne (CREDENTIALS_INTERNAL_TOKEN), jamais transmis au
+navigateur ; cache mémoire court (CREDENTIALS_CACHE_SECONDS, 60 s) pour
+ne pas interroger le coffre à chaque sonde. Plus AUCUN identifiant dans
+.env ni dans le JSON versionné.
 
 Routes (préfixe /mikrotik/, servi par tls-proxy, sans rewrite) :
 
@@ -27,8 +32,9 @@ pouvoir RIEN déclencher).
 import json
 import logging
 import os
-import re
+import time
 
+import requests
 from flask import Flask, jsonify, request, send_from_directory
 
 from routeros_client import RouterOSClient, RouterOSError
@@ -40,6 +46,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(HERE, "static")
 REGISTRY_PATH = os.environ.get("MIKROTIK_REGISTRY", os.path.join(HERE, "routers.json"))
 TLS_VERIFY = os.environ.get("MIKROTIK_TLS_VERIFY", "") == "1"
+CREDENTIALS_API_URL = os.environ.get("CREDENTIALS_API_URL", "http://credentials-api:5000").rstrip("/")
+CREDENTIALS_TOKEN = os.environ.get("CREDENTIALS_INTERNAL_TOKEN", "").strip()
+CREDENTIALS_CACHE_S = int(os.environ.get("CREDENTIALS_CACHE_SECONDS", "60") or 0)
+DEFAULT_CREDENTIAL_NAME = "mikrotik"
 
 app = Flask(__name__)
 
@@ -68,16 +78,49 @@ def load_registry():
         return [], f"registre invalide : {exc}"
 
 
+_cred_cache = {}  # nom -> (expire_monotonic, user, password)
+
+
+def credential_name(credential):
+    return DEFAULT_CREDENTIAL_NAME if not credential or credential == "default" else credential
+
+
 def credentials_for(credential):
-    """Identifiants d'un routeur depuis .env — jamais dans le JSON
-    versionné. Retourne (user, password, erreur_éventuelle)."""
-    suffix = "" if credential == "default" else "_" + re.sub(r"[^A-Z0-9]", "_", credential.upper())
-    user = os.environ.get(f"MIKROTIK{suffix}_USER", "")
-    password = os.environ.get(f"MIKROTIK{suffix}_PASSWORD", "")
+    """Identifiants depuis le coffre des accès d'équipements (#498).
+    Retourne (user, password, erreur_éventuelle) ; l'erreur est une
+    phrase lisible dans la tuile, jamais une valeur secrète."""
+    name = credential_name(credential)
+    now = time.monotonic()
+    hit = _cred_cache.get(name)
+    if hit and hit[0] > now:
+        return hit[1], hit[2], None
+    if not CREDENTIALS_TOKEN:
+        return None, None, "coffre des accès non configuré côté mikrotik (CREDENTIALS_INTERNAL_TOKEN)"
+    try:
+        resp = requests.get(f"{CREDENTIALS_API_URL}/credentials/reveal/{name}", timeout=5,
+                            headers={"X-Credentials-Token": CREDENTIALS_TOKEN, "X-Credentials-Consumer": "mikrotik-api"})
+    except requests.RequestException as exc:
+        log.warning("coffre des accès injoignable pour « %s » : %s", name, exc.__class__.__name__)
+        return None, None, "coffre des accès injoignable (credentials-api)"
+    if resp.status_code == 404:
+        return None, None, f"accès « {name} » absent du coffre -- à créer dans la tuile Accès d'équipements (Sécurité & accès)"
+    if resp.status_code != 200:
+        try:
+            detail = resp.json().get("error", "")
+        except ValueError:
+            detail = ""
+        return None, None, f"coffre des accès : refus {resp.status_code} {detail}".strip()
+    body = resp.json()
+    user, password = body.get("username") or "", body.get("password") or ""
     if not user or not password:
-        expected = f"MIKROTIK{suffix}_USER / MIKROTIK{suffix}_PASSWORD"
-        return None, None, f"identifiants absents du .env ({expected})"
+        return None, None, f"accès « {name} » incomplet dans le coffre (identifiant ou mot de passe vide)"
+    if CREDENTIALS_CACHE_S > 0:
+        _cred_cache[name] = (now + CREDENTIALS_CACHE_S, user, password)
     return user, password, None
+
+
+def forget_credentials():
+    _cred_cache.clear()
 
 
 def client_for(router):
@@ -126,6 +169,8 @@ def list_routers():
                 identity = client.get("system/identity")
                 entry.update(reachable=True, identity=identity.get("name", ""))
             except RouterOSError as exc:
+                if "authentification refusée" in str(exc):
+                    forget_credentials()  # un accès corrigé dans le coffre prend effet à la sonde suivante
                 entry.update(reachable=False, error=str(exc))
         out.append(entry)
     return jsonify({"routers": out, "registry_error": registry_error}), 200

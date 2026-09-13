@@ -60,9 +60,10 @@ export const THEMES = [
       { view: "imap-connectors", label: "Connecteurs IMAP" },
       { front: "tickets", label: "Portail tickets" },
     ] },
-  { id: "securite", name: "Sécurité & accès", icon: "🛡", description: "Bastion, droits, sauvegardes, coffre-fort, Keycloak, annuaire",
+  { id: "securite", name: "Sécurité & accès", icon: "🛡", description: "Bastion, accès d'équipements, droits, sauvegardes, coffre-fort, Keycloak, annuaire",
     entries: [
       { view: "si-proxy", label: "Bastion" },
+      { front: "credentials", label: "Accès d'équipements" },
       { view: "rights", label: "Droits" },
       { view: "backup-restore", label: "Sauvegardes" },
       { front: "vault", label: "Coffre-fort" },

@@ -12,6 +12,23 @@ regarder l'entrée la plus récente en haut — si elle correspond à ce
 que vous avez déjà en `.env`, rien à faire. Sinon, copier/ajouter les
 clés listées, dans votre `.env` existant.
 
+## 2026-09-13 — coffre des accès d'équipements (livraison #498)
+
+Nouvelles clés (insérées par sync-env.py, valeurs aléatoires pour les
+`change-me`) :
+
+- `CREDENTIALS_PASSPHRASE` (générée) — chiffrement des mots de passe
+  d'équipements ; **à consigner dans le PRA**.
+- `CREDENTIALS_INTERNAL_TOKEN` (générée) — jeton des services internes.
+- `CREDENTIALS_SALT` (vide : sel dans le volume), `CREDENTIALS_DATA_DIR`
+  (`./credentials/data`), `CREDENTIALS_API_PORT` (vide, tls-proxy).
+
+Clés **supprimées** : `MIKROTIK_USER`, `MIKROTIK_PASSWORD` (et toute
+variante `MIKROTIK_<NOM>_USER/_PASSWORD`). Reporter leurs valeurs dans
+la tuile **Accès d'équipements** (Sécurité & accès) : un accès nommé
+`mikrotik` pour les routeurs en `"credential": "default"`, un accès du
+nom indiqué pour les autres. Puis retirer ces lignes du `.env`.
+
 ## 2026-09-13 — projeqtor-bridge : libellé du pont (livraison #494)
 
 Nouvelle clé (insérée automatiquement par sync-env.py si votre `.env`

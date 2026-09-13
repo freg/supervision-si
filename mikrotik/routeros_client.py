@@ -61,7 +61,7 @@ class RouterOSClient:
                 "port www-ssl fermé, ou RouterOS v6 (pas d'API REST)"
             ) from exc
         if resp.status_code == 401:
-            raise RouterOSError("authentification refusée (identifiants .env ?)")
+            raise RouterOSError("authentification refusée (accès du coffre à corriger dans la tuile Accès d'équipements ?)")
         if resp.status_code >= 400:
             detail = ""
             try:

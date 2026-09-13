@@ -1,3 +1,49 @@
+## 2026-09-13 — coffre des accès d'équipements : identifiants MikroTik hors du .env (livraison #498)
+
+Demandé explicitement : « je veux ajouter une gestion des user/password
+des routeurs et autres accès de gestion d'équipement et retirer du .env
+les clés mikrotik, ça doit être géré dans les secrets du hub ».
+
+- **Nouveau service `credentials-api`** (`credentials/`) : un coffre
+  pour les identifiants que les SERVICES du hub utilisent eux-mêmes
+  (RouterOS, SSH, HTTP, SNMP, autre) — distinct du coffre-fort de codes
+  `vault/` (bout en bout, pour les humains). Mots de passe **chiffrés
+  au repos** (`shared/secret_crypto.py`, `CREDENTIALS_PASSPHRASE`
+  générée par sync-env.py, sel conservé dans le volume) ; **sans phrase
+  de passe le service refuse d'enregistrer** (503) plutôt que de
+  stocker en clair ; le mot de passe n'est **jamais renvoyé au
+  navigateur** (liste : `has_password` / `password_encrypted`,
+  modification sans ressaisie = conservé).
+- **Révélation réservée aux services internes** :
+  `GET /credentials/reveal/<nom>` avec `X-Credentials-Token` =
+  `CREDENTIALS_INTERNAL_TOKEN` ; route inexistante (404) sans jeton
+  configuré ou si la requête porte les en-têtes `X-Forwarded-*` de la
+  passerelle (donc un navigateur) ; chaque lecture **journalisée**
+  (service, accès, date, résultat — jamais la valeur), visible dans la
+  tuile. Rechiffrement des valeurs en clair d'une base antérieure.
+- **Tuile « Accès d'équipements »** (thématique Sécurité & accès,
+  administrateurs et techniciens) : liste, création, modification,
+  suppression, bannières d'état (chiffrement, jeton, valeurs en clair),
+  journal des révélations.
+- **MikroTik** : `MIKROTIK_USER` / `MIKROTIK_PASSWORD` (et variantes
+  par routeur) **supprimées** du `.env`, du compose et de la doc ; la
+  clé `"credential"` du registre est le nom de l'accès dans le coffre
+  (`"default"` = accès `mikrotik`) ; cache 60 s invalidé sur refus
+  d'authentification ; accès absent signalé avec lien vers la tuile.
+  Migration : ENV_CHANGELOG (reporter les valeurs dans la tuile).
+- Compose (`credentials-api`, volume `CREDENTIALS_DATA_DIR`,
+  `depends_on` côté mikrotik), tls-proxy (`/credentials/`),
+  `.env.example`, `.gitignore`, `VITE_CREDENTIALS_URL`.
+- Vérifié : `credentials/api/tests/smoke_test.py` (chiffrement réel :
+  refus sans phrase, base sans clair, jeton / passerelle / journal,
+  modification, rechiffrement, phrase changée → 503 sans fuite) ;
+  `mikrotik/tests/smoke_test.py` (faux coffre, cache, accès absent) ;
+  185 tests Node hub (tuile par rôle, thématique) ; syntaxe validée à
+  l'esbuild. Non vérifié : conteneurs reconstruits sur super
+  (`--build` + `sync-env.py` pour les nouvelles clés), routeur réel,
+  sauvegarde totale incluant le nouveau volume (pris par le parseur
+  générique des volumes du compose, non rejoué).
+
 ## 2026-09-13 — import de tableaux de demandes SAV : tolérant, branché sur les tickets du hub (livraison #497)
 
 Demandé explicitement (fichier d'exemple annoncé mais non reçu dans la

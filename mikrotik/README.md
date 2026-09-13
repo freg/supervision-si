@@ -24,10 +24,16 @@ défaut (certificats auto-signés quasi systématiques, posture LAN) ;
 - **Registre** : `mikrotik/routers.json` (versionné) — nom, hôte,
   port, et la clé `credential` optionnelle. Éditable sans rebuild
   (bind mount en lecture seule, rechargé à chaque requête).
-- **Identifiants** : `.env` (SECRET, jamais versionné) —
-  `MIKROTIK_USER` / `MIKROTIK_PASSWORD` partagés, ou par routeur via
-  `"credential": "agence"` → `MIKROTIK_AGENCE_USER` /
-  `MIKROTIK_AGENCE_PASSWORD` (nom en majuscules, tirets → `_`).
+- **Identifiants** (depuis #498) : le **coffre des accès
+  d'équipements** du hub (`credentials/`, tuile « Accès d'équipements »
+  de la thématique Sécurité & accès), plus rien dans `.env`. La clé
+  `"credential"` du registre est le nom de l'accès dans le coffre ;
+  `"default"` (ou absente) = l'accès nommé **`mikrotik`**. Révélation
+  par jeton interne (`CREDENTIALS_INTERNAL_TOKEN`, jamais exposé au
+  navigateur), cache mémoire 60 s (`CREDENTIALS_CACHE_SECONDS`)
+  invalidé sur refus d'authentification : un accès corrigé dans la
+  tuile prend effet à la sonde suivante. Un accès absent est signalé
+  dans la liste avec un lien vers la tuile.
 
 ## Fonctionnalités
 

@@ -99,7 +99,7 @@ export function isTechnicien(groups) {
 // que des droits de gestion de realm n'ont pas été accordés séparément
 // dans Keycloak).
 export function buildFrontsList({
-  frontendUrl, portalUrl, keycloakConsoleUrl, dbaUrl, vaultUrl, vaultAdminUrl, ldapAdminUrl, projeqtorUrl, mikrotikUrl, demandeUrl,
+  frontendUrl, portalUrl, keycloakConsoleUrl, dbaUrl, vaultUrl, vaultAdminUrl, ldapAdminUrl, projeqtorUrl, mikrotikUrl, credentialsUrl, demandeUrl,
   groups, externalLinks,
 }) {
   const roles = groupsToRoles(groups);
@@ -212,6 +212,19 @@ export function buildFrontsList({
       name: "Routeurs MikroTik",
       description: "Supervision et commande des routeurs — ressources, interfaces, outils",
       url: mikrotikUrl,
+      embeddable: true,
+    });
+  }
+  // Accès d'équipements (livraison #498) — coffre des identifiants que
+  // les services du hub utilisent (RouterOS, SSH, HTTP, SNMP). Réservé
+  // aux administrateurs et techniciens (même posture que le bastion) ;
+  // embarquable en onglet de la thématique Sécurité & accès.
+  if (credentialsUrl && (hasValue(roles, "admin") || hasValue(roles, "technicien"))) {
+    fronts.push({
+      id: "credentials",
+      name: "Accès d'équipements",
+      description: "Identifiants des équipements utilisés par les services du hub — chiffrés, jamais réaffichés, journal des lectures",
+      url: credentialsUrl,
       embeddable: true,
     });
   }

@@ -88,7 +88,7 @@ async function loadRouters() {
       const div = document.createElement("div");
       div.className = "router" + (current === rt.name ? " active" : "");
       div.innerHTML = `<span class="dot ${rt.reachable ? "up" : "down"}"></span><b>${rt.identity || rt.name}</b>
-        <div class="muted">${rt.host}:${rt.port}${rt.error ? " — " + rt.error : ""}</div>`;
+        <div class="muted">${rt.host}:${rt.port}${rt.error ? " — " + rt.error : ""}${rt.error && /coffre/.test(rt.error) ? ' — <a href="../credentials/" target="_top" style="color:#2980b9">ouvrir les Accès d\'équipements</a>' : ""}</div>`;
       div.onclick = () => selectRouter(rt.name);
       box.appendChild(div);
     }

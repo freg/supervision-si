@@ -1637,6 +1637,9 @@ services:
       # MikroTik (livraison #485) — tuile de la thématique Réseau,
       # embarquable en onglet (même origine via tls-proxy).
       - VITE_MIKROTIK_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/mikrotik/
+      # Accès d'équipements (livraison #498) — tuile de la thématique
+      # Sécurité & accès, embarquable en onglet (même origine).
+      - VITE_CREDENTIALS_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/credentials/
       # Pont « suivi » (#484) — page d'ADMINISTRATION (import/export
       # Excel, synchro) pour la tuile « Demandes (suivi) » (#489).
       - VITE_DEMANDE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/demande/admin
@@ -2215,23 +2218,50 @@ services:
       - projeqtor-app
       - tickets-api
 
+  # credentials-api (livraison #498) — coffre des accès d'équipements :
+  # identifiants utilisés par les SERVICES du hub (API RouterOS, SSH,
+  # HTTP, SNMP), chiffrés au repos (CREDENTIALS_PASSPHRASE, sel dans le
+  # volume), jamais renvoyés au navigateur ; révélation réservée aux
+  # services du réseau Docker par jeton interne. Interface servie sous
+  # /credentials/ (tls-proxy), tuile « Accès d'équipements » de la
+  # thématique Sécurité & accès. Voir credentials/README.md.
+  credentials-api:
+    build:
+      context: .
+      dockerfile: credentials/api/Dockerfile
+    environment:
+      - CREDENTIALS_PASSPHRASE=${CREDENTIALS_PASSPHRASE:-}
+      - CREDENTIALS_SALT=${CREDENTIALS_SALT:-}
+      - CREDENTIALS_INTERNAL_TOKEN=${CREDENTIALS_INTERNAL_TOKEN:-}
+      - CREDENTIALS_DATA_DIR=/data
+    volumes:
+      # Base SQLite + sel de chiffrement : À SAUVEGARDER (perdre le sel
+      # ou la phrase de passe rend les mots de passe illisibles).
+      - ${CREDENTIALS_DATA_DIR:-./credentials/data}:/data
+
   # mikrotik (livraison #485) — supervision et commande de base des
   # routeurs MikroTik (API REST RouterOS v7). Registre dans
-  # mikrotik/routers.json (versionné), identifiants dans .env
-  # (secret). Interface servie sous /mikrotik/ (tls-proxy), tuile de
-  # la thématique Réseau du hub.
+  # mikrotik/routers.json (versionné) ; identifiants dans le coffre des
+  # accès d'équipements (credentials-api, #498 — plus rien dans .env).
+  # Interface servie sous /mikrotik/ (tls-proxy), tuile de la
+  # thématique Réseau du hub.
   mikrotik-api:
     build:
       context: .
       dockerfile: mikrotik/Dockerfile
     environment:
-      - MIKROTIK_USER=${MIKROTIK_USER:-}
-      - MIKROTIK_PASSWORD=${MIKROTIK_PASSWORD:-}
       - MIKROTIK_TLS_VERIFY=${MIKROTIK_TLS_VERIFY:-}
       - MIKROTIK_REGISTRY=/app/routers.json
+      # Coffre des accès (#498) : clé "credential" du registre = nom de
+      # l'accès ; "default" = accès « mikrotik ». Jeton interne partagé
+      # avec credentials-api, jamais exposé par tls-proxy.
+      - CREDENTIALS_API_URL=http://credentials-api:5000
+      - CREDENTIALS_INTERNAL_TOKEN=${CREDENTIALS_INTERNAL_TOKEN:-}
+      - CREDENTIALS_CACHE_SECONDS=60
+    depends_on:
+      - credentials-api
     volumes:
-      # Registre éditable sans rebuild — les identifiants, eux,
-      # restent dans .env (jamais dans ce fichier versionné).
+      # Registre éditable sans rebuild — jamais d'identifiant dedans.
       - ./mikrotik/routers.json:/app/routers.json:ro
 
   imap-connectors:

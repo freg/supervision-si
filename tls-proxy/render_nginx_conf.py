@@ -240,6 +240,11 @@ SERVICES = [
     # interface sous ce préfixe (jamais de rewrite, même patron que
     # projeqtor-bridge).
     ("MIKROTIK_API_PORT", "mikrotik-api", 5000, "/mikrotik/", "spa"),
+    # credentials-api (livraison #498) — coffre des accès d'équipements.
+    # Le service sert sa page sous ce préfixe ; la révélation
+    # (/credentials/reveal/) répond 404 dès que la requête porte les
+    # en-têtes X-Forwarded-* posés ici : jamais accessible du navigateur.
+    ("CREDENTIALS_API_PORT", "credentials-api", 5000, "/credentials/", "spa"),
     ("SUPERVISION_HUB_PORT", "hub", 5173, "/", "spa"),
     ("TICKETS_PORTAL_PORT", "tickets-portal", 5173, "/tickets/", "spa"),
     ("DBA_PORTAL_PORT", "dba-portal", 5173, "/dba/", "spa"),

@@ -81,6 +81,32 @@ class FakeRouterOS(BaseHTTPRequestHandler):
         self._json(404, {"detail": "no such command"})
 
 
+REVEALS = []
+
+
+class FakeCredentials(BaseHTTPRequestHandler):
+    """Faux credentials-api : un seul accès « mikrotik » (admin/secret)."""
+    def log_message(self, *args):
+        pass
+
+    def _json(self, code, obj):
+        body = json.dumps(obj).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self):
+        if self.headers.get("X-Credentials-Token") != "jeton-test":
+            return self._json(403, {"error": "jeton interne invalide"})
+        name = self.path.rsplit("/", 1)[-1]
+        REVEALS.append((name, self.headers.get("X-Credentials-Consumer")))
+        if name == "mikrotik":
+            return self._json(200, {"name": name, "username": "admin", "password": "secret"})
+        self._json(404, {"error": f"accès inconnu : {name} -- à créer dans la tuile Accès d'équipements"})
+
+
 def main():
     fake = HTTPServer(("127.0.0.1", 0), FakeRouterOS)
     port = fake.server_address[1]
@@ -96,8 +122,13 @@ def main():
     # Le client impose https:// — pour le test, on détourne vers http
     # en patchant la construction de l'URL (le comportement testé est
     # l'app, pas TLS).
-    os.environ["MIKROTIK_USER"] = "admin"
-    os.environ["MIKROTIK_PASSWORD"] = "secret"
+    # Identifiants : faux coffre des accès (#498) -- plus rien dans l'env.
+    os.environ.pop("MIKROTIK_USER", None); os.environ.pop("MIKROTIK_PASSWORD", None)
+    cred = HTTPServer(("127.0.0.1", 0), FakeCredentials)
+    threading.Thread(target=cred.serve_forever, daemon=True).start()
+    os.environ["CREDENTIALS_API_URL"] = f"http://127.0.0.1:{cred.server_address[1]}"
+    os.environ["CREDENTIALS_INTERNAL_TOKEN"] = "jeton-test"
+    os.environ["CREDENTIALS_CACHE_SECONDS"] = "60"
     os.environ["MIKROTIK_REGISTRY"] = registry
 
     import routeros_client
@@ -116,8 +147,12 @@ def main():
 
     routers = c.get("/mikrotik/routers").get_json()["routers"]
     assert routers[0]["reachable"] and routers[0]["identity"] == "rb-test"
-    assert not routers[1]["reachable"] and "identifiants absents" in routers[1]["error"]
-    print("✓ registre : joignable + identifiants manquants signalés proprement")
+    assert not routers[1]["reachable"] and "absent du coffre" in routers[1]["error"], routers[1]
+    assert REVEALS[0] == ("mikrotik", "mikrotik-api") and ("inconnu", "mikrotik-api") in REVEALS
+    n = len(REVEALS)
+    c.get("/mikrotik/routers")
+    assert len([r for r in REVEALS[n:] if r[0] == "mikrotik"]) == 0, "cache : pas de nouvelle révélation dans la minute"
+    print("✓ registre : identifiants lus dans le coffre (jamais .env), cache, accès manquant signalé proprement")
 
     summary = c.get("/mikrotik/routers/rb-test/summary").get_json()
     assert summary["resource"]["version"] == "7.15.1" and summary["health"]["temperature"] == "41"

@@ -100,3 +100,7 @@ pki/scripts/.srl
 # projeqtor-bridge : etat de synchronisation (regenerable, dedup cote tickets-api)
 projeqtor-bridge/data/*
 !projeqtor-bridge/data/README.md
+
+# credentials (#498) : base SQLite + sel de chiffrement, jamais versionnés
+credentials/data/*
+!credentials/data/.gitkeep
