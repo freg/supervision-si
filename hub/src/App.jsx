@@ -29,6 +29,7 @@ import RightsView from "./RightsView.jsx";
 import NetprobeView from "./NetprobeView.jsx";
 import UpsView from "./UpsView.jsx";
 import SiAgentView from "./SiAgentView.jsx";
+import ProxmoxView from "./ProxmoxView.jsx";
 import BastionView from "./BastionView.jsx";
 import CortexView from "./CortexView.jsx";
 import ThemeView from "./ThemeView.jsx";
@@ -1566,6 +1567,11 @@ vm === "settings" ? (
         />
       ) : vm === "si-agent" ? (
         <SiAgentView
+          onBack={goBack}
+          siAgentApiBase={SI_AGENT_API_BASE_URL}
+        />
+      ) : vm === "proxmox" ? (
+        <ProxmoxView
           onBack={goBack}
           siAgentApiBase={SI_AGENT_API_BASE_URL}
         />

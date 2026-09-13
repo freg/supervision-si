@@ -22,18 +22,42 @@ pas un Proxmox (pvesh absent) -- mesure en erreur, explicite.
 Les fonctions de PUR TRAITEMENT (sans sous-processus) sont testées dans
 si-agent/agent/tests/test_proxmox_plugin.py sur des sorties
 représentatives de PVE 8 réels."""
+import concurrent.futures
 import json
 import re
 import shutil
 import socket
+import ssl
 import subprocess
 import sys
+import tempfile
 import time
 
 PVESH_TIMEOUT = 20          # appel pvesh courant
 GUEST_AGENT_TIMEOUT = 8     # appel qemu-guest-agent (peut pendre)
 LOOPBACK_RE = re.compile(r"^(127\.|::1$|fe80:)", re.I)
 VZDUMP_RE = re.compile(r"vzdump-(?:qemu|lxc)-(\d+)-")
+
+# -- apprentissage par exploration (#488) ----------------------------------
+# « 25 ans de développement à façon, aucune vue globale » : les services
+# et URLs ne sont pas DÉCLARÉS, ils sont APPRIS. L'agent a le point de
+# vue LAN (DNS interne, VMs joignables) -- c'est lui qui explore.
+# Balayage TCP connect BORNÉ : ports courants seulement, 0,4 s par
+# tentative, parallélisé (16 fils) -- jamais un nmap.
+SCAN_PORTS = [21, 22, 25, 53, 80, 110, 143, 389, 443, 445, 465, 587, 636,
+              873, 993, 995, 2049, 3000, 3306, 5000, 5432, 6379, 8006,
+              8080, 8443, 9000, 27017]
+TLS_PORTS = {443, 465, 587, 636, 993, 995, 8006, 8443, 9443}
+HTTP_PORTS = {80, 3000, 5000, 8000, 8080, 9000}
+CONNECT_TIMEOUT = 0.4
+PROBE_TIMEOUT = 3.0
+SCAN_WORKERS = 16
+SERVICE_NAMES = {21: "ftp", 22: "ssh", 25: "smtp", 53: "dns", 80: "http", 110: "pop3",
+                 143: "imap", 389: "ldap", 443: "https", 445: "smb", 465: "smtps",
+                 587: "submission", 636: "ldaps", 873: "rsync", 993: "imaps", 995: "pop3s",
+                 2049: "nfs", 3000: "http-alt", 3306: "mysql", 5000: "http-alt",
+                 5432: "postgres", 6379: "redis", 8006: "proxmox", 8080: "http-alt",
+                 8443: "https-alt", 9000: "http-alt", 27017: "mongodb"}
 
 
 # ---------------------------------------------------------------- pur
@@ -198,9 +222,11 @@ class Pve(object):
         return out
 
 
-def collect(pve, hostname=None, now=None):
+def collect(pve, hostname=None, now=None, connector=None):
     """Collecte complète, tolérante aux pannes partielles : chaque
-    section en échec est listée dans `warnings`, jamais silencieuse."""
+    section en échec est listée dans `warnings`, jamais silencieuse.
+    `connector` (facultatif, #488) active l'apprentissage par
+    exploration : ports ouverts, sondes TLS/HTTP, URLs apprises."""
     now = time.time() if now is None else now
     warnings = []
     hostname = hostname or socket.gethostname().split(".")[0]
@@ -299,7 +325,189 @@ def collect(pve, hostname=None, now=None):
         except (RuntimeError, subprocess.TimeoutExpired) as exc:
             warnings.append("zfs : %s" % exc)
 
+    if connector is not None:
+        learn_host(vms, connector, warnings)
+
     return assemble(node_info, vms, storages, zfs, warnings)
+
+
+# ------------------------------------------------- apprentissage (#488)
+
+def learn_urls(candidates, vm_ips, resolver):
+    """Noms candidats -> URLs entrantes APRISES. `candidates` : liste de
+    (nom, source) où source ∈ cert-san / cert-cn / ptr / redirect ;
+    `resolver(nom)` -> liste d'IPs ([] si le nom ne résout pas). Un nom
+    qui résout vers l'IP de la VM est une URL entrante probable de
+    cette VM ; un nom qui ne résout pas est quand même rapporté (trou
+    DNS à corriger -- c'est aussi de la supervision)."""
+    by_host = {}
+    for host, source in candidates or []:
+        host = (host or "").strip().lower().rstrip(".")
+        if not host or " " in host or "*" in host:
+            continue
+        by_host.setdefault(host, set()).add(source)
+    out = []
+    for host in sorted(by_host):
+        ips = resolver(host) or []
+        out.append({"host": host, "sources": sorted(by_host[host]),
+                    "resolves": bool(ips), "ips": ips,
+                    "matches_vm": bool(set(ips) & set(vm_ips or []))})
+    return out
+
+
+def assemble_services(open_ports, tls_by_port, http_by_port):
+    """Ports ouverts + sondes -> liste de services lisible."""
+    services = []
+    for port in sorted(open_ports or []):
+        svc = {"port": port, "service": SERVICE_NAMES.get(port, "tcp")}
+        if port in (tls_by_port or {}):
+            svc["tls"] = tls_by_port[port]
+        if port in (http_by_port or {}):
+            svc["http"] = http_by_port[port]
+        services.append(svc)
+    return services
+
+
+class RealConnector(object):
+    """Sondes réseau réelles (socket/ssl), toutes bornées. Injectée dans
+    learn_host() -- les tests passent un faux connecteur sans réseau."""
+
+    def scan(self, ip, ports=SCAN_PORTS, timeout=CONNECT_TIMEOUT):
+        def probe(port):
+            try:
+                with socket.create_connection((ip, port), timeout=timeout):
+                    return port
+            except (OSError, OverflowError):
+                return None
+        with concurrent.futures.ThreadPoolExecutor(max_workers=SCAN_WORKERS) as ex:
+            return [p for p in ex.map(probe, ports) if p is not None]
+
+    def tls_cert(self, ip, port, timeout=PROBE_TIMEOUT):
+        """Certificat servi (même auto-signé/expiré : on veut le LIRE,
+        la validité est un constat, pas un filtre)."""
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        with socket.create_connection((ip, port), timeout=timeout) as raw:
+            with ctx.wrap_socket(raw, server_hostname=ip) as tls:
+                der = tls.getpeercert(binary_form=True)
+        if not der:
+            return None
+        pem = ssl.DER_cert_to_PEM_cert(der)
+        with tempfile.NamedTemporaryFile("w", suffix=".pem", delete=True) as fh:
+            fh.write(pem)
+            fh.flush()
+            try:
+                decoded = ssl._ssl._test_decode_cert(fh.name)  # stdlib, stable en 3.x
+            except Exception:
+                return None
+        subject = dict(x[0] for x in decoded.get("subject", ()))
+        issuer = dict(x[0] for x in decoded.get("issuer", ()))
+        sans = [v for t, v in decoded.get("subjectAltName", ()) if t.lower() == "dns"]
+        not_after = decoded.get("notAfter")
+        days = None
+        if not_after:
+            try:
+                days = int((ssl.cert_time_to_seconds(not_after) - time.time()) / 86400)
+            except (ValueError, OverflowError):
+                days = None
+        return {"cn": subject.get("commonName"), "sans": sans, "days_left": days,
+                "self_signed": subject == issuer}
+
+    def http_get(self, ip, port, timeout=PROBE_TIMEOUT):
+        """GET / minimal : statut, Server, Location, <title>."""
+        req = ("GET / HTTP/1.0\r\nHost: %s\r\nUser-Agent: si-agent-proxmox/1\r\n\r\n" % ip).encode()
+        with socket.create_connection((ip, port), timeout=timeout) as s:
+            s.settimeout(timeout)
+            s.sendall(req)
+            data = b""
+            while len(data) < 4096:
+                chunk = s.recv(4096 - len(data))
+                if not chunk:
+                    break
+                data += chunk
+        text = data.decode("utf-8", "replace")
+        head, _, body = text.partition("\r\n\r\n")
+        lines = head.split("\r\n")
+        m = re.match(r"HTTP/\S+\s+(\d+)", lines[0] if lines else "")
+        headers = {}
+        for line in lines[1:]:
+            k, _, v = line.partition(":")
+            if k:
+                headers[k.strip().lower()] = v.strip()
+        title = None
+        mt = re.search(r"<title[^>]*>([^<]{1,120})", body or "", re.I)
+        if mt:
+            title = mt.group(1).strip()
+        location = headers.get("location")
+        redirect_host = None
+        if location:
+            ml = re.match(r"https?://([^/:]+)", location)
+            if ml:
+                redirect_host = ml.group(1)
+        return {"status": int(m.group(1)) if m else None, "server": headers.get("server"),
+                "title": title, "redirect_host": redirect_host}
+
+    def ptr(self, ip, timeout=PROBE_TIMEOUT):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+            try:
+                return ex.submit(lambda: socket.gethostbyaddr(ip)[0]).result(timeout=timeout)
+            except Exception:
+                return None
+
+    def resolve(self, host, timeout=PROBE_TIMEOUT):
+        def lookup():
+            return sorted({ai[4][0] for ai in socket.getaddrinfo(host, None) if _ip_ok(ai[4][0])})
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+            try:
+                return ex.submit(lookup).result(timeout=timeout)
+            except Exception:
+                return []
+
+
+def learn_host(vms, connector, warnings):
+    """Exploration par VM en marche avec IP connue : ports ouverts,
+    sondes TLS/HTTP, PTR, puis apprentissage des URLs. Modifie les VM
+    en place (services, urls) ; les échecs de sonde grossissent
+    `warnings` sans interrompre le reste."""
+    for vm in vms:
+        if vm.get("status") != "running" or not vm.get("ips"):
+            continue
+        ips = vm["ips"]
+        open_ports, tls_by_port, http_by_port = [], {}, {}
+        candidates = []
+        for ip in ips:
+            try:
+                open_ports += connector.scan(ip)
+            except Exception as exc:
+                warnings.append("balayage de %s : %s" % (ip, exc))
+            ptr = connector.ptr(ip)
+            if ptr:
+                candidates.append((ptr, "ptr"))
+        for port in sorted(set(open_ports)):
+            ip = ips[0]  # sondes sur la première IP (services identiques d'une VM)
+            if port in TLS_PORTS:
+                try:
+                    cert = connector.tls_cert(ip, port)
+                    if cert:
+                        tls_by_port[port] = cert
+                        if cert.get("cn"):
+                            candidates.append((cert["cn"], "cert-cn"))
+                        for name in cert.get("sans") or []:
+                            candidates.append((name, "cert-san"))
+                except Exception:
+                    pass  # port fermé entre-temps ou TLS exotique : pas un warning
+            if port in HTTP_PORTS:
+                try:
+                    page = connector.http_get(ip, port)
+                    if page:
+                        http_by_port[port] = page
+                        if page.get("redirect_host"):
+                            candidates.append((page["redirect_host"], "redirect"))
+                except Exception:
+                    pass
+        vm["services"] = assemble_services(sorted(set(open_ports)), tls_by_port, http_by_port)
+        vm["urls"] = learn_urls(candidates, ips, connector.resolve)
 
 
 def main():
@@ -307,7 +515,7 @@ def main():
         print(json.dumps({"error": "pvesh absent — cet hôte n'est pas un Proxmox VE"}))
         return 2
     try:
-        print(json.dumps(collect(Pve())))
+        print(json.dumps(collect(Pve(), connector=RealConnector())))
         return 0
     except Exception as exc:  # la mesure ne doit jamais être muette
         print(json.dumps({"error": "collecte échouée : %s" % exc}))

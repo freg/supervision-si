@@ -1,3 +1,39 @@
+## 2026-09-13 — proxmox : tuile dédiée + apprentissage URLs/services (livraison #488)
+
+Demandé explicitement : « il faudra les apprendre — 25 ans de
+développement à façon dont je n'ai aucune vue globale, d'où
+l'exploration par l'agent » (supervision DNS des URLs entrantes,
+adressage, ports ouverts, activité des services des VM — majoritairement
+GED/cloud).
+
+- **Apprentissage par exploration** (plugin si-agent `proxmox` v2) :
+  pour chaque VM en marche avec IP connue — balayage TCP connect
+  BORNÉ (27 ports courants, 0,4 s/essai, 16 fils, jamais un nmap) ;
+  sondes TLS (certificat lu même auto-signé/expiré : CN, SAN, jours
+  restants — la validité est un constat, pas un filtre) et HTTP
+  (statut, Server, titre, hôte de redirection) ; PTR de chaque IP ;
+  puis **URLs entrantes apprises** (SAN, CN, PTR, redirections) avec
+  résolution DNS interne depuis l'hyperviseur : le nom qui résout vers
+  l'IP de la VM est marqué « → cette VM », le nom qui ne résout pas
+  est rapporté comme trou DNS, jamais masqué. Intervalle porté à
+  30 min (balayage), connecteur injectable — tests sans aucun réseau.
+- **Tuile hub « Proxmox »** (thématique Réseau, vue `proxmox`) : par
+  hyperviseur — version, uptime, CPU/RAM, avertissements ; table des
+  VM (état, IP apprises, CPU/RAM, disque, snapshots avec âge, dernier
+  backup, nombre de services/URLs) avec fiche dépliée (services
+  appris + URLs entrantes avec verdict de résolution) ; stockages ;
+  pools ZFS (santé, capacité, fragmentation, erreurs). Lecture seule.
+- Le bouton d'origine « VM / conteneur » de la supervision SI mène
+  désormais à cette tuile (plus à « Agents hôtes »).
+- Tests : 11 tests plugin (parseurs, collecte, apprentissage contre
+  connecteur factice) ; 174 tests Node hub verts ; syntaxe validée à
+  l'esbuild sur chaque fichier. Échecs pré-existants macOS inchangés.
+- Reste à éprouver en réel : la couche d'apprentissage n'a tourné que
+  contre des connecteurs factices — premier relevé sur un vrai
+  hyperviseur à surveiller (avertissements `warnings` de la mesure).
+
+---
+
 ## 2026-09-13 — si-agent : plugin « proxmox », VM dans la supervision SI (livraison #487)
 
 Demandé explicitement : « un agent proxmox qui supervise le host comme

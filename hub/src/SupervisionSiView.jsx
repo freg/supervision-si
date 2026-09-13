@@ -267,9 +267,8 @@ export default function SupervisionSiView({
       if (base) window.open(`${base}/#router=${encodeURIComponent(originId || "")}`, "_blank", "noopener");
       return;
     }
-    // #487 : pas encore de tuile Proxmox dédiée -- la fiche de l'agent
-    // hôte (hyperviseur) est le bon atterrissage en attendant (#488).
-    if (origin === "proxmox") { if (onNavigate) onNavigate("si-agent"); return; }
+    // #488 : la tuile Proxmox dédiée existe -- la fiche VM y mène.
+    if (origin === "proxmox") { if (onNavigate) onNavigate("proxmox"); return; }
     if (onNavigate) onNavigate(origin === "netprobe" ? "netprobe" : origin === "ups" ? "ups" : origin === "si-agent" ? "si-agent" : origin === "snmp" ? "snmp" : origin === "ssh-tunnels" ? "ssh-tunnels" : origin);
   };
   // #486 : création d'un ticket depuis la fiche équipement -- sourcé

@@ -181,5 +181,80 @@ class TestCollecte(unittest.TestCase):
         self.assertEqual(m["zfs"], [])
 
 
+
+
+# -- apprentissage par exploration (#488) ----------------------------------
+
+class FakeConnector(object):
+    """Aucun réseau : ports, certificats, pages, PTR et DNS en mémoire."""
+
+    OPEN = {"10.0.0.5": [22, 80, 443], "10.0.0.6": [443]}
+    CERTS = {("10.0.0.5", 443): {"cn": "ged.example.lan", "sans": ["ged.example.lan", "docs.example.lan"],
+                                 "days_left": 210, "self_signed": False},
+             ("10.0.0.6", 443): {"cn": "cloud.example.lan", "sans": [], "days_left": -12, "self_signed": True}}
+    PAGES = {("10.0.0.5", 80): {"status": 302, "server": "nginx", "title": None, "redirect_host": "ged.example.lan"}}
+    PTRS = {"10.0.0.5": "ged.internal.lan"}
+    DNS = {"ged.example.lan": ["10.0.0.5"], "docs.example.lan": ["10.0.0.5"],
+           "cloud.example.lan": ["192.0.2.9"], "ged.internal.lan": ["10.0.0.5"]}
+
+    def scan(self, ip, ports=None, timeout=0.4):
+        return list(self.OPEN.get(ip, []))
+
+    def tls_cert(self, ip, port, timeout=3.0):
+        return self.CERTS.get((ip, port))
+
+    def http_get(self, ip, port, timeout=3.0):
+        return self.PAGES.get((ip, port))
+
+    def ptr(self, ip, timeout=3.0):
+        return self.PTRS.get(ip)
+
+    def resolve(self, host, timeout=3.0):
+        return self.DNS.get(host, [])
+
+
+class TestApprentissage(unittest.TestCase):
+    def test_learn_urls(self):
+        urls = proxmox.learn_urls(
+            [("ged.example.lan", "cert-san"), ("ged.example.lan", "redirect"),
+             ("docs.example.lan", "cert-san"), ("introuvable.lan", "ptr"), ("*.wild.lan", "cert-san")],
+            ["10.0.0.5"], FakeConnector().resolve)
+        by_host = {u["host"]: u for u in urls}
+        self.assertNotIn("*.wild.lan", by_host, "joker ignoré")
+        self.assertEqual(by_host["ged.example.lan"]["sources"], ["cert-san", "redirect"])
+        self.assertTrue(by_host["ged.example.lan"]["matches_vm"])
+        self.assertFalse(by_host["introuvable.lan"]["resolves"], "trou DNS rapporté, pas masqué")
+        self.assertFalse(by_host["introuvable.lan"]["matches_vm"])
+
+    def test_assemble_services(self):
+        svcs = proxmox.assemble_services([22, 443], {443: {"cn": "x", "days_left": 3}}, {})
+        self.assertEqual([s["service"] for s in svcs], ["ssh", "https"])
+        self.assertEqual(svcs[1]["tls"]["days_left"], 3)
+
+    def test_learn_host(self):
+        vms = [
+            {"vmid": 100, "name": "ged", "status": "running", "ips": ["10.0.0.5"]},
+            {"vmid": 101, "name": "cloud", "status": "running", "ips": ["10.0.0.6"]},
+            {"vmid": 102, "name": "eteinte", "status": "stopped", "ips": ["10.0.0.7"]},
+            {"vmid": 103, "name": "sans-ip", "status": "running", "ips": []},
+        ]
+        warnings = []
+        proxmox.learn_host(vms, FakeConnector(), warnings)
+        self.assertEqual(warnings, [])
+        ged, cloud, eteinte, sans_ip = vms
+        self.assertEqual([s["port"] for s in ged["services"]], [22, 80, 443])
+        self.assertEqual(ged["services"][2]["tls"]["cn"], "ged.example.lan")
+        self.assertEqual(ged["services"][1]["http"]["status"], 302)
+        hosts = {u["host"]: u for u in ged["urls"]}
+        self.assertTrue(hosts["ged.example.lan"]["matches_vm"], "URL apprise par SAN + redirection")
+        self.assertIn("ptr", hosts["ged.internal.lan"]["sources"])
+        self.assertEqual(cloud["services"][0]["tls"]["days_left"], -12,
+                         "certificat expiré : constat négatif explicite")
+        self.assertFalse({u["host"]: u for u in cloud["urls"]}["cloud.example.lan"]["matches_vm"],
+                         "le nom résout ailleurs : l'URL ne pointe PAS vers cette VM")
+        self.assertNotIn("services", eteinte, "VM arrêtée : pas de balayage")
+        self.assertNotIn("services", sans_ip, "sans IP : pas de balayage")
+
+
 if __name__ == "__main__":
     unittest.main()
