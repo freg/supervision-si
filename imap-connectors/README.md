@@ -51,25 +51,28 @@ marqué lu (et seulement si `mark_seen` est activé sur le connecteur).
   leurs livraisons ;
 - `GET /stats` — compteurs par connecteur + grille jour × connecteur
   (30 jours) pour la vue pixelgrid ;
-- `GET /notifications?targets=sms` — la cloche du hub (#490) :
-  compteur de non lus + derniers messages des cibles demandées ;
+- `GET /notifications?targets=sms,zenoss,notification` — la cloche
+  du hub (#490) : compteur de non lus + derniers messages des cibles
+  demandées (cibles filtrées sur les valeurs connues) ;
 - `POST /notifications/ack` — accusé de réception : `{ids: [...]}`
   ou `{all: true, targets: ["sms"]}` ; l'état « lu » (`ack_at`) est
   en base, partagé entre navigateurs du LAN ;
 - `GET /logs` — journal applicatif (300 dernières entrées).
 
-## Cloche de notifications du hub (#490, généralisée #491)
+## Cloche de notifications du hub (#490, généralisée #491 et #493)
 
-Les messages des connecteurs de cible `sms` ET `zenoss` alimentent
-la **cloche** de la barre d'état du hub (à côté de l'horloge et du
-n° de livraison) : compteur total de non lus — **rouge** s'il y a
-des alertes supervision non lues, **ambre** s'il ne reste que des
-SMS. Panneau au clic, deux sections : « Alertes supervision »
-(équipement, message, sévérité avec ton par ligne — résolution en
-vert, jamais confondue avec une alerte — et bascule directe vers la
-supervision SI dont la mosaïque pixel-grid affiche l'état) et « SMS
-entrants » (expéditeur, extrait, temps relatif, lien vers la tuile
-Connecteurs IMAP). « Marquer lu » par message ou par section. L'état
+Les messages des connecteurs de cible `sms`, `zenoss` ET
+`notification` alimentent la **cloche** de la barre d'état du hub (à
+côté de l'horloge et du n° de livraison) : compteur total de non lus
+— **rouge** s'il y a des alertes supervision non lues, **ambre** s'il
+ne reste que des SMS ou des notifications diverses. Panneau au clic,
+trois sections : « Alertes supervision » (équipement, message,
+sévérité avec ton par ligne — résolution en vert, jamais confondue
+avec une alerte — et bascule directe vers la supervision SI dont la
+mosaïque pixel-grid affiche l'état), « SMS entrants » (expéditeur,
+extrait, temps relatif) et « Notifications diverses » (sujet en
+titre, expéditeur en extrait, lien vers la tuile Connecteurs IMAP).
+« Marquer lu » par message ou par section. L'état
 lu (`ack_at`) est en base : partagé entre navigateurs du LAN.
 Sondage 30 s, jamais bloquant (API injoignable = cloche discrète).
 Migration automatique : `ack_at` est ajouté par `ensure_schema` aux

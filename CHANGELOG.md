@@ -1,3 +1,24 @@
+## 2026-09-13 — cloche : troisième section « Notifications diverses » (livraison #493)
+
+Prolongement de la cloche généralisée (#491) : la cible `notification`
+des connecteurs IMAP (journalisée depuis #489, « socle pour cibles
+futures ») remonte désormais aussi dans la cloche du hub.
+
+- **Troisième section** du panneau : « Notifications diverses » —
+  sujet interprété en titre, expéditeur en extrait (« de … »), ton
+  neutre, lien « Ouvrir Connecteurs IMAP » (déplacé depuis la section
+  SMS, qui n'a plus de pied). Compteur = total des trois cibles ;
+  badge **ambre** dès qu'un SMS *ou* une notification est non lu, la
+  supervision (rouge) prime toujours. Accusé par message ou par
+  section (`targets: ["notification"]`), API déjà générique.
+- `bellTone` prend `notifUnread` ; nouveaux helpers purs
+  `notificationTitle` / `notificationExcerpt` (repli : expéditeur
+  d'enveloppe, puis « ? » / résumé).
+- Aucun changement backend ; README imap-connectors mis à jour.
+- Vérifié : 182 tests Node hub verts (8 sur la cloche, 2 nouveaux) ;
+  syntaxe `NotifBell.jsx` validée à l'esbuild. Non vérifié : rendu
+  réel du panneau avec trois sections sur un hub déployé.
+
 ## 2026-09-13 — auto-acquittement des alertes à la résolution, paramétrable (livraison #492)
 
 Demandé explicitement : l'auto-acquittement (« quand une résolution

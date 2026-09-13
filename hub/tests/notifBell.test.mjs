@@ -1,8 +1,8 @@
 // Tests des helpers purs de la cloche de notifications (livraison
-// #490, généralisée #491 : SMS + alertes Zenoss).
+// #490, généralisée #491 : SMS + alertes Zenoss, #493 : notifications diverses).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { relativeTime, smsTitle, notifExcerpt, zenossTitle, zenossExcerpt, zenossLineTone, bellTone } from "../src/notifBell.js";
+import { relativeTime, smsTitle, notifExcerpt, zenossTitle, zenossExcerpt, zenossLineTone, notificationTitle, notificationExcerpt, bellTone } from "../src/notifBell.js";
 
 const NOW = new Date("2026-09-13T12:00:00Z");
 
@@ -55,10 +55,21 @@ test("zenossLineTone : sévérité → ton, tolérant au texte libre", () => {
   assert.equal(zenossLineTone({ fields: {} }), "neutral");
 });
 
-test("bellTone : rouge si alertes supervision, ambre si seulement SMS", () => {
+test("notificationTitle/Excerpt : sujet en titre, expéditeur en extrait (#493)", () => {
+  const n = { fields: { subject: "Sauvegarde terminee", from: "backup@lan" } };
+  assert.equal(notificationTitle(n), "Sauvegarde terminee");
+  assert.equal(notificationExcerpt(n), "de backup@lan");
+  assert.equal(notificationTitle({ from_addr: "cron@lan" }), "cron@lan");
+  assert.equal(notificationTitle({}), "?");
+  assert.equal(notificationExcerpt({ summary: "notif" }), "notif");
+  assert.equal(notificationExcerpt({}), "");
+});
+
+test("bellTone : rouge si alertes supervision, ambre si SMS ou notifications", () => {
   assert.equal(bellTone({}), "neutral");
   assert.equal(bellTone({ smsUnread: 3 }), "warn");
+  assert.equal(bellTone({ notifUnread: 1 }), "warn", "notifications diverses : ambre aussi (#493)");
   assert.equal(bellTone({ zenossUnread: 1 }), "bad");
-  assert.equal(bellTone({ smsUnread: 3, zenossUnread: 1 }), "bad", "la supervision prime sur les SMS");
+  assert.equal(bellTone({ smsUnread: 3, notifUnread: 2, zenossUnread: 1 }), "bad", "la supervision prime");
   assert.equal(bellTone({ zenossUnread: 2, failed: true }), "neutral", "API injoignable : neutre, signalé par le title");
 });

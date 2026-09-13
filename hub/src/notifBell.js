@@ -76,12 +76,26 @@ export function zenossLineTone(item) {
   return "neutral";
 }
 
+/** Titre d'une notification diverse : le sujet interprété (c'est le
+ * contenu, pour cette cible), sinon l'expéditeur d'enveloppe. */
+export function notificationTitle(item) {
+  return item?.fields?.subject || item?.subject || item?.from_addr || "?";
+}
+
+/** Extrait d'une notification diverse : l'expéditeur — le sujet est
+ * déjà le titre. */
+export function notificationExcerpt(item) {
+  const from = item?.fields?.from || item?.from_addr;
+  return from ? `de ${from}` : (item?.summary || "");
+}
+
 /** Ton du badge : rouge s'il y a des alertes supervision non lues,
- * ambre s'il reste des SMS non lus, neutre sinon. `failed` (API
- * injoignable) reste neutre, signalé par le title. */
-export function bellTone({ smsUnread = 0, zenossUnread = 0, failed = false } = {}) {
+ * ambre s'il reste des SMS ou des notifications diverses non lus,
+ * neutre sinon. `failed` (API injoignable) reste neutre, signalé par
+ * le title. */
+export function bellTone({ smsUnread = 0, zenossUnread = 0, notifUnread = 0, failed = false } = {}) {
   if (failed) return "neutral";
   if (zenossUnread > 0) return "bad";
-  if (smsUnread > 0) return "warn";
+  if (smsUnread + notifUnread > 0) return "warn";
   return "neutral";
 }

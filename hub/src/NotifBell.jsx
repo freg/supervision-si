@@ -1,22 +1,23 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { fetchNotifications, ackNotifications } from "./imapConnectorsClient.js";
-import { relativeTime, smsTitle, notifExcerpt, zenossTitle, zenossExcerpt, zenossLineTone, bellTone } from "./notifBell.js";
+import { relativeTime, smsTitle, notifExcerpt, zenossTitle, zenossExcerpt, zenossLineTone, notificationTitle, notificationExcerpt, bellTone } from "./notifBell.js";
 
-// Cloche de notifications du hub (livraison #490, généralisée #491)
-// — demandé explicitement : « brancher les SMS entrants des
-// passerelles sur une notification temps réel du hub (cloche +
-// compteur non lus) », puis « étendre la cloche aux alertes Zenoss
-// (badge rouge cette fois, avec bascule directe vers la vue
-// pixelgrid) ».
+// Cloche de notifications du hub (livraison #490, généralisée #491
+// aux alertes Zenoss, #493 aux notifications diverses) — demandé
+// explicitement : « brancher les SMS entrants des passerelles sur
+// une notification temps réel du hub (cloche + compteur non lus) »,
+// puis « étendre la cloche aux alertes Zenoss (badge rouge cette
+// fois, avec bascule directe vers la vue pixelgrid) ».
 //
 // Badge dans la zone status-badges : compteur total de non lus,
 // ROUGE s'il y a des alertes supervision (Zenoss) non lues, ambre
-// s'il ne reste que des SMS. Panneau au clic : deux sections
-// (alertes supervision avec ton par sévérité + bascule vers la
-// supervision SI dont la mosaïque pixel-grid affiche l'état ; SMS
-// entrants), accusé de réception par message ou par section. L'état
-// « lu » est côté serveur (ack_at en base) : partagé entre
-// navigateurs du LAN.
+// s'il ne reste que des SMS ou des notifications diverses. Panneau
+// au clic : trois sections (alertes supervision avec ton par
+// sévérité + bascule vers la supervision SI dont la mosaïque
+// pixel-grid affiche l'état ; SMS entrants ; notifications diverses
+// avec lien vers la tuile Connecteurs IMAP), accusé de réception par
+// message ou par section. L'état « lu » est côté serveur (ack_at en
+// base) : partagé entre navigateurs du LAN.
 //
 // JAMAIS bloquant : API injoignable = cloche discrète avec un title
 // d'explication. Sondage 30 s — « temps réel » à l'échelle d'une
@@ -62,19 +63,22 @@ function NotifSection({ title, items, toneOf, titleOf, excerptOf, onAck, onAckAl
 export default function NotifBell({ apiBase, onOpenConnectors, onOpenSupervision }) {
   const [sms, setSms] = useState({ unread: 0, items: [] });
   const [zenoss, setZenoss] = useState({ unread: 0, items: [] });
+  const [notifs, setNotifs] = useState({ unread: 0, items: [] });
   const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState(false);
   const panelRef = useRef(null);
 
   const load = useCallback(async () => {
-    const [s, z] = await Promise.all([
+    const [s, z, n] = await Promise.all([
       fetchNotifications(apiBase, ["sms"]),
       fetchNotifications(apiBase, ["zenoss"]),
+      fetchNotifications(apiBase, ["notification"]),
     ]);
-    if (s?.error && z?.error) { setFailed(true); return; }
+    if (s?.error && z?.error && n?.error) { setFailed(true); return; }
     setFailed(false);
     if (!s?.error) setSms({ unread: s.unread || 0, items: Array.isArray(s.items) ? s.items : [] });
     if (!z?.error) setZenoss({ unread: z.unread || 0, items: Array.isArray(z.items) ? z.items : [] });
+    if (!n?.error) setNotifs({ unread: n.unread || 0, items: Array.isArray(n.items) ? n.items : [] });
   }, [apiBase]);
 
   useEffect(() => { load(); const id = setInterval(load, REFRESH_MS); return () => clearInterval(id); }, [load]);
@@ -87,26 +91,26 @@ export default function NotifBell({ apiBase, onOpenConnectors, onOpenSupervision
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [open]);
 
+  const SETTERS = { sms: setSms, zenoss: setZenoss, notification: setNotifs };
+
   const ackOne = async (section, id) => {
     const r = await ackNotifications(apiBase, { ids: [id] });
     if (r?.error) return;
-    const set = section === "sms" ? setSms : setZenoss;
-    set((prev) => ({ unread: Math.max(0, prev.unread - 1), items: prev.items.filter((it) => it.id !== id) }));
+    SETTERS[section]((prev) => ({ unread: Math.max(0, prev.unread - 1), items: prev.items.filter((it) => it.id !== id) }));
   };
 
   const ackAll = async (section) => {
     const r = await ackNotifications(apiBase, { all: true, targets: [section] });
     if (r?.error) return;
-    const set = section === "sms" ? setSms : setZenoss;
-    set({ unread: 0, items: [] });
+    SETTERS[section]({ unread: 0, items: [] });
   };
 
-  const total = sms.unread + zenoss.unread;
-  const tone = bellTone({ smsUnread: sms.unread, zenossUnread: zenoss.unread, failed });
+  const total = sms.unread + zenoss.unread + notifs.unread;
+  const tone = bellTone({ smsUnread: sms.unread, zenossUnread: zenoss.unread, notifUnread: notifs.unread, failed });
   const title = failed
     ? "Notifications : connecteurs IMAP injoignables"
     : total > 0
-      ? `${zenoss.unread} alerte${zenoss.unread > 1 ? "s" : ""} supervision · ${sms.unread} SMS — cliquer pour voir`
+      ? `${zenoss.unread} alerte${zenoss.unread > 1 ? "s" : ""} supervision · ${sms.unread} SMS · ${notifs.unread} notification${notifs.unread > 1 ? "s" : ""} — cliquer pour voir`
       : "Notifications — rien en attente";
 
   return (
@@ -146,6 +150,15 @@ export default function NotifBell({ apiBase, onOpenConnectors, onOpenSupervision
             excerptOf={notifExcerpt}
             onAck={(id) => ackOne("sms", id)}
             onAckAll={() => ackAll("sms")}
+          />
+          <NotifSection
+            title="Notifications diverses"
+            items={notifs.items}
+            toneOf={() => "neutral"}
+            titleOf={notificationTitle}
+            excerptOf={notificationExcerpt}
+            onAck={(id) => ackOne("notification", id)}
+            onAckAll={() => ackAll("notification")}
             action={onOpenConnectors && (
               <div className="notif-bell-foot">
                 <button type="button" className="notif-bell-open" onClick={() => { setOpen(false); onOpenConnectors(); }}>
