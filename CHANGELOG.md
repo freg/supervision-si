@@ -1,3 +1,42 @@
+## 2026-09-13 — import de tableaux de demandes SAV : tolérant, branché sur les tickets du hub (livraison #497)
+
+Demandé explicitement (fichier d'exemple annoncé mais non reçu dans la
+session — reconstruit d'après le format documenté en #484) : « l'import
+xls de demandes de SAV ne fonctionne pas et n'est pas branché sur les
+tickets du hub, seulement sur ProjeQtOr ».
+
+- **`projeqtor-bridge` — `POST /demande/import`** réécrit : formats
+  xlsx / **xls** (xlrd) / **csv** reconnus à la signature ; en-têtes
+  cherchés par nom (synonymes) où qu'ils soient, repli sur le format
+  imposé ; dates, durées et accomplissements en texte ou en série Excel
+  acceptés ; chaque décision signalée dans les avertissements, jamais
+  silencieuse.
+- **Cible hub** : chaque ligne devient un ticket À VALIDER (même file
+  que ProjeQtOr #484, ICS #273, e-mails #489) via
+  `/tickets/import-external`, `source_type=tableau`, déduplication par
+  `source_nom` (`<LABEL>:<Id>` ou empreinte) — réimport = « déjà
+  connus ». `target` = `tickets` | `projeqtor` | `both` (défaut) ; une
+  cible en panne n'empêche pas l'autre. **`dry_run=1`** : analyse sans
+  création.
+- **Page `/demande/admin`** : choix de la cible, bouton « Analyser sans
+  importer » avec tableau d'aperçu et avertissements, accept
+  `.xlsx,.xls,.csv`.
+- **Hub — écran Validation** : provenance affichée sous chaque ticket
+  (« source : tableau importé — SUIVI:11 », ProjeQtOr, e-mail, …),
+  description à sauts de ligne conservés ; helper pur
+  `validationSource.js` testé.
+- Prénoms du test de fumée remplacés par des valeurs fictives (règle
+  #467).
+- Vérifié : test de fumée du pont (faux ProjeQtOr + faux tickets-api) —
+  analyse sans création, cible hub seule (2 tickets à valider), les
+  deux cibles avec réimport dédupliqué, xlsx libre à en-têtes
+  renommés et valeurs texte, csv cp1252, refus propres (fichier
+  illisible, cible inconnue) ; parseur exercé sur xls réel généré
+  (xlwt) ; `test_mapping.py` ; 183 tests Node hub. Non vérifié : le
+  fichier réel de la personne (non reçu — l'analyser d'abord avec
+  « Analyser sans importer »), rendu de l'écran Validation, image
+  Docker reconstruite avec `xlrd` (`--build` nécessaire).
+
 ## 2026-09-13 — PKI : bascule assistée de la CA sans coupure, `rotate-ca.sh` (livraison #496)
 
 BACKLOG item 3, voie (b) — choix de la personne : « préparer la

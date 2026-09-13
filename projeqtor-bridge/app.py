@@ -29,11 +29,13 @@ from datetime import datetime
 
 from flask import Flask, jsonify, request, send_file, send_from_directory
 
-from mapping import demand_to_ticket, ticket_to_demand
+import requests
+
+from mapping import LABEL, build_recap, demand_to_ticket, ticket_to_demand
 from suivi_format import (
-    COL_CATEGORY, COL_COMMENT, COL_DURATION, COL_PRIORITY,
-    COL_REQUESTER, COL_SUBJECT, build_workbook, normalize_key,
-    parse_workbook,
+    COL_CATEGORY, COL_CLOSED, COL_COMMENT, COL_DATE, COL_DURATION, COL_ID,
+    COL_PRIORITY, COL_PROGRESS, COL_REQUESTER, COL_SUBJECT, build_workbook,
+    normalize_key, parse_workbook,
 )
 from projeqtor_client import ProjeqtorApiError, ProjeqtorClient
 import sync
@@ -165,34 +167,146 @@ def create_demand():
 
 # ------------------------------------------------------------ import xlsx
 
+IMPORT_TARGETS = ("tickets", "projeqtor", "both")
+
+
+def _hub_source_name(demand, index, filename):
+    """Clé de déduplication côté tickets-api (source_type + source_nom) :
+    l'Id du tableau s'il existe (stable d'un import à l'autre), sinon
+    une empreinte de (date, demandeur, sujet) — réimporter le même
+    fichier ne crée jamais de doublon, tickets-api répond 409."""
+    ident = demand.get(COL_ID)
+    if ident not in (None, ""):
+        return f"{LABEL}:{ident}"
+    import hashlib
+    date = demand.get(COL_DATE)
+    raw = "|".join([date.strftime("%Y-%m-%d") if date else "", demand.get(COL_REQUESTER) or "", demand.get(COL_SUBJECT) or ""])
+    return f"{LABEL}:{hashlib.sha1(raw.encode('utf-8')).hexdigest()[:12]}"
+
+
+def _hub_description(demand, filename):
+    parts = []
+    if demand.get(COL_COMMENT):
+        parts.append(demand[COL_COMMENT])
+    parts.append(build_recap(demand))
+    date = demand.get(COL_DATE)
+    meta = f"Importé du tableau « {filename} »" + (f", demande du {date.strftime('%d/%m/%Y')}" if date else "")
+    if demand.get(COL_CLOSED):
+        meta += f", clôturée le {demand[COL_CLOSED].strftime('%d/%m/%Y')}"
+    parts.append(meta)
+    return "\n\n".join(parts)
+
+
+def push_hub_ticket(demand, index, filename):
+    """Une demande du tableau -> un ticket hub À VALIDER (même file que
+    la synchronisation ProjeQtOr et les imports ICS). Retourne created /
+    known / retry / disabled."""
+    if not sync.TICKETS_API:
+        return "disabled"
+    try:
+        resp = requests.post(
+            f"{sync.TICKETS_API}/tickets/import-external",
+            json={"subject": demand[COL_SUBJECT], "description": _hub_description(demand, filename),
+                  "source_type": "tableau", "source_nom": _hub_source_name(demand, index, filename)},
+            timeout=15,
+        )
+    except requests.RequestException as exc:
+        log.warning("tickets-api injoignable pour l'import du tableau : %s", exc)
+        return "retry"
+    if resp.status_code == 201:
+        return "created"
+    if resp.status_code == 409:
+        return "known"
+    log.warning("tickets-api a refusé la demande n°%s : %s %s", index, resp.status_code, resp.text[:200])
+    return "retry"
+
+
+def _demand_preview(demand):
+    date = demand.get(COL_DATE)
+    closed = demand.get(COL_CLOSED)
+    return {"id": demand.get(COL_ID), "date": date.strftime("%Y-%m-%d") if date else None,
+            "demandeur": demand.get(COL_REQUESTER), "sujet": demand.get(COL_SUBJECT),
+            "priorite": demand.get(COL_PRIORITY), "categorie": demand.get(COL_CATEGORY),
+            "duree_j": demand.get(COL_DURATION), "accomplissement": demand.get(COL_PROGRESS),
+            "cloture": closed.strftime("%Y-%m-%d") if closed else None,
+            "commentaire": (demand.get(COL_COMMENT) or "")[:120]}
+
+
 @app.route("/demande/import", methods=["POST"])
 def import_xlsx():
+    """Import d'un tableau (xlsx, xls ou csv) — livraison #497.
+
+    Champs du formulaire : `file` (obligatoire), `target` = tickets |
+    projeqtor | both (défaut both : gestion de tickets du hub, file
+    « imports à valider », ET ProjeQtOr), `dry_run=1` = analyser sans
+    rien créer (aperçu des lignes + avertissements). Un ProjeQtOr
+    injoignable n'empêche jamais l'import côté hub, et inversement ;
+    chaque cible rend son propre compte.
+    """
     if "file" not in request.files:
-        return jsonify({"error": "fichier xlsx manquant (champ 'file')"}), 400
-    content = request.files["file"].read()
-    demands, parse_errors = parse_workbook(content)
-    if not demands and parse_errors:
-        return jsonify({"error": "aucune demande exploitable", "details": parse_errors}), 400
+        return jsonify({"error": "fichier manquant (champ 'file')"}), 400
+    upload = request.files["file"]
+    filename = upload.filename or "tableau"
+    content = upload.read()
+    target = (request.form.get("target") or request.args.get("target") or "both").strip().lower()
+    if target not in IMPORT_TARGETS:
+        return jsonify({"error": f"target inconnu : {target} (attendu : {', '.join(IMPORT_TARGETS)})"}), 400
+    dry_run = (request.form.get("dry_run") or request.args.get("dry_run") or "") in ("1", "true", "yes", "on")
 
-    client = get_client()
-    by_name, _ = load_referentiels(client)
-    created, failed = 0, []
-    for i, demand in enumerate(demands, start=1):
-        fields, unresolved = demand_to_ticket(demand, by_name)
-        try:
-            client.create("Ticket", fields)
-            created += 1
-        except ProjeqtorApiError as exc:
-            failed.append(f"demande n°{i} « {demand['sujet'][:50]} » : {exc}")
-        for name in unresolved:
-            failed.append(f"demande n°{i} : {name} absent des référentiels ProjeQtOr (inscrit en clair dans la description)")
+    demands, parse_errors = parse_workbook(content, filename)
+    if not demands:
+        return jsonify({"error": "aucune demande exploitable", "details": parse_errors, "total": 0}), 400
+    if dry_run:
+        return jsonify({"status": "analyse", "total": len(demands), "avertissements": parse_errors,
+                        "lignes": [_demand_preview(d) for d in demands], "target": target,
+                        "tickets_api": bool(sync.TICKETS_API)}), 200
 
-    return jsonify({
-        "status": "ok" if not failed else "partiel",
-        "importees": created,
-        "total": len(demands),
-        "avertissements": parse_errors + failed,
-    }), 200 if created else 502
+    warnings = list(parse_errors)
+    result = {"tickets": None, "projeqtor": None}
+
+    # --- cible hub (tickets-api, file « imports à valider ») ---
+    if target in ("tickets", "both"):
+        counts = {"crees": 0, "deja_connus": 0, "echecs": 0}
+        if not sync.TICKETS_API:
+            warnings.append("gestion de tickets du hub non configurée (TICKETS_API_INTERNAL_URL) : rien importé côté hub")
+        for i, demand in enumerate(demands, start=1):
+            outcome = push_hub_ticket(demand, i, filename)
+            if outcome == "created":
+                counts["crees"] += 1
+            elif outcome == "known":
+                counts["deja_connus"] += 1
+            elif outcome == "retry":
+                counts["echecs"] += 1
+                warnings.append(f"demande n°{i} « {demand[COL_SUBJECT][:50]} » : non importée côté hub (tickets-api)")
+            elif outcome == "disabled":
+                break
+        result["tickets"] = counts
+
+    # --- cible ProjeQtOr ---
+    if target in ("projeqtor", "both"):
+        counts = {"crees": 0, "echecs": 0}
+        client = get_client()
+        by_name, _ = load_referentiels(client)
+        unreachable = False
+        for i, demand in enumerate(demands, start=1):
+            fields, unresolved = demand_to_ticket(demand, by_name)
+            try:
+                client.create("Ticket", fields)
+                counts["crees"] += 1
+            except ProjeqtorApiError as exc:
+                counts["echecs"] += 1
+                if not unreachable:
+                    warnings.append(f"demande n°{i} « {demand[COL_SUBJECT][:50]} » : refusée par ProjeQtOr ({exc})")
+                    unreachable = True  # une seule ligne d'explication, pas une par demande
+            for name in unresolved:
+                warnings.append(f"demande n°{i} : {name} absent des référentiels ProjeQtOr (inscrit en clair dans la description)")
+        result["projeqtor"] = counts
+
+    created = sum((c or {}).get("crees", 0) for c in result.values() if c)
+    known = (result["tickets"] or {}).get("deja_connus", 0)
+    status = "ok" if created and not any((c or {}).get("echecs") for c in result.values() if c) else ("partiel" if created or known else "echec")
+    return jsonify({"status": status, "total": len(demands), "importees": created, "deja_connus": known,
+                    "cibles": result, "target": target, "avertissements": warnings}), 200 if (created or known) else 502
 
 
 # ------------------------------------------------------------ export xlsx

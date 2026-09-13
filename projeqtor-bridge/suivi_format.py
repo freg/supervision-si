@@ -23,7 +23,7 @@ COL_* ci-dessous) — jamais d'objet métier pour si peu, le module
 entier est un pont de traduction.
 """
 import io
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import openpyxl
 from openpyxl.styles import Font, PatternFill
@@ -118,52 +118,219 @@ def normalize_key(value):
     return "".join(c for c in text if not unicodedata.combining(c)).strip().lower()
 
 
-def parse_workbook(content):
-    """Bytes xlsx -> (demandes, erreurs). Tolérant : une ligne
-    incomplète ou invalide n'arrête jamais l'import, elle part dans
-    `erreurs` avec son numéro de ligne (format imposé => saisi à la
-    main par des humains, les lignes bancales EXISTENT)."""
+# --- Import tolérant (livraison #497) ---------------------------------
+# Constat de la personne : « l'import ne fonctionne pas » sur un fichier
+# réel. Causes possibles couvertes ici, sans rien deviner en silence :
+#   - fichier .xls (BIFF, Excel 97-2003) ou .csv et non .xlsx ;
+#   - en-têtes ailleurs qu'en ligne 8, colonnes dans un autre ordre ou
+#     nommées autrement (Objet / Demande / Priorité / Type / Description…) ;
+#   - dates, durées et accomplissements saisis en TEXTE (« 12/09/2026 »,
+#     « 3 j », « 50 % ») ou en numéro de série Excel.
+# Une feuille sans en-têtes reconnaissables retombe sur le format imposé
+# (ligne 8, colonnes A..O) — le comportement d'origine. Chaque
+# décision (en-têtes trouvés en ligne N, colonne X ignorée) est
+# renvoyée dans `erreurs`/`notes`, jamais silencieuse.
+
+HEADER_SYNONYMS = {
+    COL_ID: ["id", "n°", "no", "numero", "num", "ref", "reference"],
+    COL_DATE: ["date de demande", "date demande", "date", "cree le", "creation", "date de creation"],
+    COL_REQUESTER: ["demandeur", "demandeuse", "demande par", "utilisateur", "client", "contact", "nom"],
+    COL_SUBJECT: ["sujet", "objet", "demande", "titre", "intitule", "probleme", "resume"],
+    COL_PRIORITY: ["niveau de priorite", "priorite", "niveau", "urgence", "criticite"],
+    COL_CATEGORY: ["categorie", "type", "domaine", "famille", "nature"],
+    COL_DURATION: ["duree (j)", "duree", "duree j", "jours", "charge", "charge (j)", "estimation"],
+    COL_COMMENT: ["commentaire", "commentaires", "description", "detail", "details", "observation", "observations"],
+    COL_PROGRESS: ["accomplissement", "avancement", "progression", "realise", "% realise", "pourcentage"],
+    COL_CLOSED: ["date de cloture", "date cloture", "cloture", "clôture", "date de fermeture", "fermeture", "termine le", "resolu le"],
+}
+DEFAULT_LETTERS = COL_TO_LETTER  # format imposé (ligne 8)
+_EXCEL_EPOCH = datetime(1899, 12, 30)
+
+
+def _cell_text(value):
+    return normalize_key(value) if value is not None else ""
+
+
+def _find_header(rows, max_scan=40):
+    """(index de ligne, {clé: index de colonne}) ou (None, {}) — la ligne
+    d'en-têtes est celle qui contient « sujet » (ou synonyme) ET
+    « demandeur » ou « date de demande » (ou synonymes)."""
+    for r, row in enumerate(rows[:max_scan]):
+        cells = [_cell_text(v) for v in row]
+        mapping = {}
+        for key, names in HEADER_SYNONYMS.items():
+            for c, text in enumerate(cells):
+                if text and text in names and c not in mapping.values():
+                    mapping[key] = c
+                    break
+        if COL_SUBJECT in mapping and (COL_REQUESTER in mapping or COL_DATE in mapping):
+            return r, mapping
+    return None, {}
+
+
+def _to_datetime(value, errors, row, label):
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if 20000 < float(value) < 80000:  # numéro de série Excel (1954..2119)
+            return _EXCEL_EPOCH + timedelta(days=float(value))
+        errors.append(f"ligne {row} : {label} invalide ({value!r}), laissée vide")
+        return None
+    text = str(value).strip()
+    for fmt in ("%d/%m/%Y", "%d/%m/%Y %H:%M", "%d/%m/%Y %H:%M:%S", "%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S",
+                "%d-%m-%Y", "%d.%m.%Y", "%d/%m/%y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+    errors.append(f"ligne {row} : {label} invalide ({value!r}), laissée vide")
+    return None
+
+
+def _to_number(value, errors, row, label, percent=False):
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        num = float(value)
+    else:
+        text = str(value).strip().lower().replace(",", ".").replace("%", "").replace("jours", "").replace("j", "").strip()
+        try:
+            num = float(text)
+        except ValueError:
+            errors.append(f"ligne {row} : {label} non numérique ({value!r}), laissé vide")
+            return None
+        if percent and isinstance(value, str) and "%" in value:
+            num = num / 100.0
+    if percent and num > 1.0:
+        num = num / 100.0  # « 50 » saisi pour 50 %
+    return int(num) if num == int(num) and not percent else num
+
+
+def _rows_from_xlsx(content):
+    wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True, read_only=True)
+    ws = wb[SHEET_NAME] if SHEET_NAME in wb.sheetnames else wb.worksheets[0]
+    return [list(r) for r in ws.iter_rows(values_only=True)], ws.title
+
+
+def _rows_from_xls(content):
+    import xlrd  # .xls (BIFF) seulement — openpyxl ne les lit pas
+    book = xlrd.open_workbook(file_contents=content)
+    sheet = book.sheet_by_name(SHEET_NAME) if SHEET_NAME in book.sheet_names() else book.sheet_by_index(0)
+    rows = []
+    for r in range(sheet.nrows):
+        row = []
+        for c in range(sheet.ncols):
+            cell = sheet.cell(r, c)
+            if cell.ctype == xlrd.XL_CELL_DATE:
+                row.append(datetime(*xlrd.xldate_as_tuple(cell.value, book.datemode)))
+            elif cell.ctype == xlrd.XL_CELL_EMPTY:
+                row.append(None)
+            elif cell.ctype == xlrd.XL_CELL_NUMBER:
+                row.append(cell.value)
+            else:
+                row.append(cell.value)
+        rows.append(row)
+    return rows, sheet.name
+
+
+def _rows_from_csv(content):
+    import csv
+    text = None
+    for enc in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
+        try:
+            text = content.decode(enc)
+            break
+        except UnicodeDecodeError:
+            continue
+    if text is None:
+        raise ValueError("encodage du CSV non reconnu")
+    sample = text[:4096]
+    try:
+        dialect = csv.Sniffer().sniff(sample, delimiters=";,\t|")
+    except csv.Error:
+        dialect = csv.excel
+        dialect.delimiter = ";"
+    rows = [[(c if c != "" else None) for c in r] for r in csv.reader(io.StringIO(text), dialect)]
+    return rows, "csv"
+
+
+def load_rows(content, filename=None):
+    """Bytes -> (lignes brutes, nom de feuille, format). Le format est
+    reconnu à la SIGNATURE du fichier, jamais à l'extension seule."""
+    if content[:4] == b"PK\x03\x04":
+        rows, name = _rows_from_xlsx(content)
+        return rows, name, "xlsx"
+    if content[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
+        rows, name = _rows_from_xls(content)
+        return rows, name, "xls"
+    if filename and filename.lower().endswith((".xlsx", ".xls")):
+        raise ValueError("le fichier n'est ni un xlsx ni un xls valide (signature inconnue)")
+    rows, name = _rows_from_csv(content)
+    return rows, name, "csv"
+
+
+def parse_workbook(content, filename=None):
+    """Bytes (xlsx, xls ou csv) -> (demandes, erreurs). Tolérant : une
+    ligne incomplète ou invalide n'arrête jamais l'import, elle part
+    dans `erreurs` avec son numéro de ligne (format imposé => saisi à
+    la main par des humains, les lignes bancales EXISTENT). Les
+    en-têtes sont cherchés par NOM (synonymes) ; à défaut, format
+    imposé (ligne 8, colonnes A..O)."""
     demands, errors = [], []
     try:
-        wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True)
-    except Exception as exc:  # noqa: BLE001 — fichier pas xlsx du tout
+        rows, sheet_name, fmt = load_rows(content, filename)
+    except Exception as exc:  # noqa: BLE001 — fichier pas tableur du tout
         return [], [f"fichier illisible ({exc})"]
-    ws = wb[SHEET_NAME] if SHEET_NAME in wb.sheetnames else wb.worksheets[0]
 
-    for row in range(FIRST_DATA_ROW, ws.max_row + 1):
-        subject = ws[f"D{row}"].value
-        date = ws[f"B{row}"].value
-        requester = ws[f"C{row}"].value
-        if subject is None and date is None and requester is None:
+    header_idx, mapping = _find_header(rows)
+    if header_idx is None:
+        # format imposé : lettres fixes, en-têtes ligne 8
+        col = lambda letter: ord(letter) - ord("A")  # noqa: E731
+        mapping = {key: col(letter) for key, letter in DEFAULT_LETTERS.items()}
+        first = FIRST_DATA_ROW - 1
+        errors.append(f"en-têtes non reconnus (feuille « {sheet_name} », {fmt}) : format imposé supposé (ligne {HEADER_ROW}, colonnes A..O)")
+    else:
+        first = header_idx + 1
+        missing = [k for k in (COL_DATE, COL_REQUESTER, COL_PRIORITY, COL_CATEGORY, COL_DURATION, COL_COMMENT, COL_PROGRESS, COL_CLOSED) if k not in mapping]
+        if missing:
+            errors.append(f"en-têtes ligne {header_idx + 1} (feuille « {sheet_name} », {fmt}) ; colonnes absentes, laissées vides : {', '.join(missing)}")
+
+    def get(row, key):
+        idx = mapping.get(key)
+        if idx is None or idx >= len(row):
+            return None
+        value = row[idx]
+        return value.strip() if isinstance(value, str) else value
+
+    for i in range(first, len(rows)):
+        row = rows[i]
+        rownum = i + 1
+        subject = get(row, COL_SUBJECT)
+        date = get(row, COL_DATE)
+        requester = get(row, COL_REQUESTER)
+        if (subject in (None, "")) and (date in (None, "")) and (requester in (None, "")):
             continue  # ligne vide du tableau (le format en réserve ~100)
-        if subject is None or str(subject).strip() == "":
-            errors.append(f"ligne {row} : sujet vide, ligne ignorée")
+        if subject in (None, ""):
+            errors.append(f"ligne {rownum} : sujet vide, ligne ignorée")
             continue
-        if date is not None and not isinstance(date, datetime):
-            errors.append(f"ligne {row} : date de demande invalide ({date!r}), laissée vide")
-            date = None
-        closed = ws[f"O{row}"].value
-        if closed is not None and not isinstance(closed, datetime):
-            errors.append(f"ligne {row} : date de clôture invalide ({closed!r}), ignorée")
-            closed = None
-        duration = ws[f"G{row}"].value
-        if duration is not None and not isinstance(duration, (int, float)):
-            errors.append(f"ligne {row} : durée non numérique ({duration!r}), laissée vide")
-            duration = None
-        progress = ws[f"I{row}"].value
-        if progress is not None and not isinstance(progress, (int, float)):
-            progress = None
+        ident = get(row, COL_ID)
+        if isinstance(ident, float) and ident == int(ident):
+            ident = int(ident)  # xls / xlsx rendent 7.0 pour 7
         demands.append({
-            COL_ID: ws[f"A{row}"].value,
-            COL_DATE: date,
-            COL_REQUESTER: (str(requester).strip() if requester else ""),
+            COL_ID: ident,
+            COL_DATE: _to_datetime(date, errors, rownum, "date de demande"),
+            COL_REQUESTER: (str(requester).strip() if requester not in (None, "") else ""),
             COL_SUBJECT: str(subject).strip(),
-            COL_PRIORITY: (str(ws[f"E{row}"].value or "").strip()),
-            COL_CATEGORY: (str(ws[f"F{row}"].value or "").strip()),
-            COL_DURATION: duration,
-            COL_COMMENT: (str(ws[f"H{row}"].value or "").strip()),
-            COL_PROGRESS: progress,
-            COL_CLOSED: closed,
+            COL_PRIORITY: str(get(row, COL_PRIORITY) or "").strip(),
+            COL_CATEGORY: str(get(row, COL_CATEGORY) or "").strip(),
+            COL_DURATION: _to_number(get(row, COL_DURATION), errors, rownum, "durée"),
+            COL_COMMENT: str(get(row, COL_COMMENT) or "").strip(),
+            COL_PROGRESS: _to_number(get(row, COL_PROGRESS), errors, rownum, "accomplissement", percent=True),
+            COL_CLOSED: _to_datetime(get(row, COL_CLOSED), errors, rownum, "date de clôture"),
         })
     return demands, errors
 

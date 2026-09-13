@@ -26,6 +26,37 @@ demande vers tickets-api — qui **déduplique** par
 (`data/sync_state.json`) n'est qu'une optimisation de trafic : sa perte
 ne crée jamais de doublon.
 
+## Import d'un tableau (#497) : xlsx, xls, csv → hub et/ou ProjeQtOr
+
+Constat de la personne sur un fichier réel : « l'import ne fonctionne
+pas et n'est pas branché sur les tickets du hub, seulement sur
+ProjeQtOr ». Depuis #497, `POST /demande/import` (page `/demande/admin`) :
+
+- **Formats** reconnus à la signature du fichier, jamais à l'extension :
+  `.xlsx` (openpyxl), `.xls` Excel 97-2003 (xlrd), `.csv` (`;` `,` tab,
+  UTF-8 ou cp1252). Un fichier qui n'est rien de tout cela répond 400
+  « fichier illisible ».
+- **En-têtes cherchés par nom** dans les 40 premières lignes (synonymes :
+  Sujet / Objet / Demande / Titre, Demandeur / Utilisateur / Contact,
+  Date / Date de demande, Priorité / Niveau / Urgence, Catégorie / Type,
+  Durée / Charge, Commentaire / Description, Accomplissement /
+  Avancement, Clôture / Fermeture). Sans en-têtes reconnaissables :
+  format imposé (ligne 8, colonnes A..O), signalé dans les
+  avertissements. Une colonne absente est laissée vide, signalée.
+- **Valeurs tolérées** : dates en texte (`12/09/2026`, `2026-09-12`, …)
+  ou numéro de série Excel, durées `3`, `3 j`, `1,5`, accomplissement
+  `0.5`, `50 %`, `50`. Une valeur inexploitable est laissée vide et
+  signalée ligne par ligne ; seule une ligne sans sujet est ignorée.
+- **Cibles** (`target`) : `tickets` (gestion de tickets du hub, file
+  « imports à valider », `source_type=tableau`, `source_nom=<LABEL>:<Id>`
+  ou empreinte date+demandeur+sujet — réimporter le même fichier ne crée
+  jamais de doublon, tickets-api répond 409 « déjà connu »),
+  `projeqtor`, ou `both` (défaut). ProjeQtOr injoignable n'empêche
+  jamais l'import côté hub, et inversement ; chaque cible rend son
+  compte (`cibles.tickets`, `cibles.projeqtor`).
+- **`dry_run=1`** (« Analyser sans importer ») : aperçu des lignes
+  interprétées + avertissements, rien n'est créé.
+
 ## Format « suivi des demandes »
 
 Source unique : `suivi_format.py` (colonnes, listes de référence,

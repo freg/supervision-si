@@ -4,6 +4,7 @@ import {
   fetchUsers, fetchTypes, fetchLevels, fetchStatuts,
   fetchPendingStatusChanges, validateAllStatusChanges,
 } from "./calendarClient.js";
+import { sourceText } from "./validationSource.js";
 
 // Onglet "Validation" de la tuile ENT (livraison #273, demandé
 // explicitement : "ajoute un écran de validation des tickets
@@ -158,7 +159,8 @@ export default function ValidationView({ embedded, onBack, ticketsApiBase, porta
         tickets.map((t) => (
           <div key={t.id} className="hub-card" style={{ marginBottom: 12 }}>
             <p style={{ margin: 0, fontWeight: "bold" }}>{t.subject}</p>
-            {t.description && <p className="muted" style={{ margin: "4px 0" }}>{t.description}</p>}
+            {sourceText(t) && <p className="muted" style={{ margin: "2px 0", fontSize: "0.85em" }}>source : {sourceText(t)}</p>}
+            {t.description && <p className="muted" style={{ margin: "4px 0", whiteSpace: "pre-wrap" }}>{t.description}</p>}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8, alignItems: "flex-end" }}>
               <div className="hub-settings-row" style={{ margin: 0 }}>
                 <label>Demandeur</label>

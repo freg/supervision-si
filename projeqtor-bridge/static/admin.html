@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Page import/export « suivi » (livraison #484) — posture LAN (même
+<!-- Page import/export « suivi » (livraison #484, import tolérant multi-cibles #497) — posture LAN (même
 confiance que le formulaire public, confirmé par la personne) :
 accessible sans authentification sur /demande/admin. Les opérations
 sont visibles dans les logs du service (docker compose logs
@@ -30,6 +30,12 @@ projeqtor-bridge), jamais silencieuses. -->
         white-space: pre-wrap; word-break: break-word; display: none; max-height: 300px; overflow: auto; }
   pre.show { display: block; }
   .ok { color: var(--ok); } .err { color: var(--err); }
+  .targets { display: grid; gap: 6px; margin: 8px 0 12px; font-size: .9rem; }
+  button.secondary { background: #3b4252; }
+  table.preview { width: 100%; border-collapse: collapse; font-size: .78rem; margin-top: 10px; }
+  table.preview th, table.preview td { border-bottom: 1px solid #333a47; padding: 4px 6px; text-align: left; vertical-align: top; }
+  table.preview th { color: var(--muted); font-weight: 600; }
+  .warn { color: #e0a800; font-size: .8rem; white-space: pre-wrap; margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -43,10 +49,17 @@ projeqtor-bridge), jamais silencieuses. -->
   </div>
 
   <div class="card">
-    <h2>Importer (Excel → ProjeQtOr)</h2>
-    <p>Envoie un fichier au format imposé : chaque ligne crée une demande dans ProjeQtOr. Les noms inconnus (demandeur, priorité, catégorie) sont conservés en clair dans la description et signalés ci-dessous.</p>
-    <input type="file" id="file" accept=".xlsx">
+    <h2>Importer un tableau (Excel / CSV → hub et/ou ProjeQtOr)</h2>
+    <p>Fichier <b>.xlsx</b>, <b>.xls</b> ou <b>.csv</b>. Les en-têtes sont reconnus par leur nom (Sujet / Objet, Demandeur, Date, Priorité, Catégorie / Type, Durée, Commentaire / Description, Accomplissement, Clôture), où qu'ils soient dans la feuille ; à défaut, format imposé (ligne 8, colonnes A..O). Les dates et nombres saisis en texte sont acceptés. « Analyser » montre ce qui serait importé sans rien créer.</p>
+    <input type="file" id="file" accept=".xlsx,.xls,.csv">
+    <div class="targets">
+      <label><input type="radio" name="target" value="both" checked> Hub (imports à valider) <b>et</b> ProjeQtOr</label>
+      <label><input type="radio" name="target" value="tickets"> Hub seulement</label>
+      <label><input type="radio" name="target" value="projeqtor"> ProjeQtOr seulement</label>
+    </div>
+    <button id="analyseBtn" class="secondary">🔍 Analyser sans importer</button>
     <button id="importBtn">⬆ Importer</button>
+    <div id="preview"></div>
     <pre id="result"></pre>
   </div>
 
@@ -81,22 +94,55 @@ document.getElementById("syncBtn").addEventListener("click", async () => {
   } catch (e) { el.textContent = "échec : " + e.message; }
 });
 
-document.getElementById("importBtn").addEventListener("click", async () => {
+function chosenTarget() {
+  const el = document.querySelector('input[name=target]:checked');
+  return el ? el.value : "both";
+}
+
+function renderPreview(body) {
+  const box = document.getElementById("preview");
+  const rows = body.lignes || [];
+  if (!rows.length) { box.innerHTML = ""; return; }
+  const cols = [["id","Id"],["date","Date"],["demandeur","Demandeur"],["sujet","Sujet"],["priorite","Priorité"],["categorie","Catégorie"],["duree_j","Durée"],["accomplissement","Acc."],["cloture","Clôture"],["commentaire","Commentaire"]];
+  const esc = (v) => (v === null || v === undefined) ? "" : String(v).replace(/[&<>]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+  let html = `<table class="preview"><thead><tr>${cols.map(([,l]) => `<th>${l}</th>`).join("")}</tr></thead><tbody>`;
+  for (const r of rows) html += `<tr>${cols.map(([k]) => `<td>${esc(r[k])}</td>`).join("")}</tr>`;
+  html += "</tbody></table>";
+  if ((body.avertissements || []).length) html += `<div class="warn">${body.avertissements.map(esc).join("\n")}</div>`;
+  if (body.tickets_api === false) html += `<div class="warn">gestion de tickets du hub non configurée côté pont (TICKETS_API_INTERNAL_URL)</div>`;
+  box.innerHTML = html;
+}
+
+async function sendFile(dryRun) {
   const f = document.getElementById("file").files[0];
   const out = document.getElementById("result");
-  if (!f) { out.className = "show err"; out.textContent = "Choisis d'abord un fichier .xlsx"; return; }
+  if (!f) { out.className = "show err"; out.textContent = "Choisis d'abord un fichier .xlsx, .xls ou .csv"; return; }
   const data = new FormData();
   data.append("file", f);
-  out.className = "show"; out.textContent = "import en cours…";
+  data.append("target", chosenTarget());
+  if (dryRun) data.append("dry_run", "1");
+  out.className = "show"; out.textContent = dryRun ? "analyse en cours…" : "import en cours…";
+  document.getElementById("importBtn").disabled = true; document.getElementById("analyseBtn").disabled = true;
   try {
     const r = await fetch(api + "/import", {method: "POST", body: data});
     const body = await r.json();
     out.className = "show " + (r.ok ? "ok" : "err");
-    out.textContent = JSON.stringify(body, null, 2);
+    if (dryRun) {
+      renderPreview(body);
+      out.textContent = r.ok ? `${body.total} demande(s) exploitable(s) — rien n'a été créé.` : JSON.stringify(body, null, 2);
+    } else {
+      document.getElementById("preview").innerHTML = "";
+      out.textContent = JSON.stringify(body, null, 2);
+    }
   } catch (e) {
     out.className = "show err"; out.textContent = "échec : " + e.message;
+  } finally {
+    document.getElementById("importBtn").disabled = false; document.getElementById("analyseBtn").disabled = false;
   }
-});
+}
+
+document.getElementById("analyseBtn").addEventListener("click", () => sendFile(true));
+document.getElementById("importBtn").addEventListener("click", () => sendFile(false));
 </script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-"""Test de fumée de projeqtor-bridge (livraison #484) : app Flask contre
+"""Test de fumée de projeqtor-bridge (livraison #484, import multi-cibles #497) : app Flask contre
 un faux ProjeQtOr et un faux tickets-api en mémoire — couvre le
 formulaire, les référentiels, le dépôt, l'import xlsx réel,
 l'export xlsx et la synchronisation vers le hub.
@@ -23,7 +23,7 @@ CREATED_TICKETS = []   # ce que le faux ProjeQtOr a reçu
 HUB_TICKETS = {}       # (source_type, source_nom) -> id, dédup du faux hub
 
 PROJEQTOR_DATA = {
-    "Contact": [{"id": 42, "name": "Benoit"}, {"id": 43, "name": "Laurence"}],
+    "Contact": [{"id": 42, "name": "alice"}, {"id": 43, "name": "bob"}],
     "Urgency": [{"id": 3, "name": "Urgent"}, {"id": 4, "name": "J+1"}],
     "TicketType": [{"id": 7, "name": "logiciel"}, {"id": 8, "name": "réseau"}],
 }
@@ -97,12 +97,12 @@ def main():
 
     # 2. référentiels
     ref = c.get("/demande/referentiels").get_json()
-    assert "Benoit" in ref["demandeurs"] and "Urgent" in ref["priorites"] and "réseau" in ref["categories"]
+    assert "alice" in ref["demandeurs"] and "Urgent" in ref["priorites"] and "réseau" in ref["categories"]
     print("✓ référentiels :", ref)
 
     # 3. dépôt public — complet et nom non résolu
     r = c.post("/demande/demandes", json={
-        "demandeur": "Benoit", "sujet": "Test formulaire",
+        "demandeur": "alice", "sujet": "Test formulaire",
         "priorite": "Urgent", "categorie": "réseau", "duree_j": "2",
         "commentaire": "via formulaire"})
     assert r.status_code == 201, r.get_json()
@@ -112,15 +112,71 @@ def main():
     assert c.post("/demande/demandes", json={"demandeur": "X", "sujet": "Y", "duree_j": "-3"}).status_code == 400
     print("✓ dépôt public (résolu, non résolu, validations 400)")
 
-    # 4. import du fichier xlsx réel
+    # 4. import d'un tableau (#497) : xlsx au format imposé, xlsx libre,
+    #    csv ; cibles hub / ProjeQtOr / les deux ; analyse sans création ;
+    #    réimport = déjà connus côté hub (jamais de doublon).
+    import io as _io
+    from datetime import datetime as _dt
+    import suivi_format as of
+    sample = of.build_workbook([
+        {of.COL_ID: 11, of.COL_DATE: _dt(2026, 9, 1), of.COL_REQUESTER: "alice", of.COL_SUBJECT: "Imprimante bac 2",
+         of.COL_PRIORITY: "Urgent", of.COL_CATEGORY: "réseau", of.COL_DURATION: 2, of.COL_COMMENT: "voyant rouge", of.COL_PROGRESS: 0.5},
+        {of.COL_ID: 12, of.COL_DATE: _dt(2026, 9, 2), of.COL_REQUESTER: "inconnu", of.COL_SUBJECT: "Compte mail",
+         of.COL_PRIORITY: "J+1", of.COL_CATEGORY: "mail", of.COL_DURATION: 1, of.COL_COMMENT: "", of.COL_PROGRESS: 0},
+    ])
+    before_pq, before_hub = len(CREATED_TICKETS), len(HUB_TICKETS)
+    r = c.post("/demande/import", data={"file": (_io.BytesIO(sample), "tableau.xlsx"), "dry_run": "1"})
+    body = r.get_json()
+    assert r.status_code == 200 and body["status"] == "analyse" and body["total"] == 2 and len(body["lignes"]) == 2, body
+    assert body["lignes"][0]["sujet"] == "Imprimante bac 2" and body["lignes"][0]["date"] == "2026-09-01"
+    assert len(CREATED_TICKETS) == before_pq and len(HUB_TICKETS) == before_hub, "dry_run ne crée rien"
+    print("✓ import : analyse sans création (2 lignes)")
+
+    r = c.post("/demande/import", data={"file": (_io.BytesIO(sample), "tableau.xlsx"), "target": "tickets"})
+    body = r.get_json()
+    assert r.status_code == 200 and body["cibles"]["tickets"]["crees"] == 2 and body["cibles"]["projeqtor"] is None, body
+    assert len(HUB_TICKETS) == before_hub + 2 and len(CREATED_TICKETS) == before_pq
+    key = ("tableau", f"{bridge.LABEL}:11")
+    assert key in HUB_TICKETS, HUB_TICKETS.keys()
+    print("✓ import : cible hub seule, 2 tickets à valider, source_nom", key[1])
+
+    r = c.post("/demande/import", data={"file": (_io.BytesIO(sample), "tableau.xlsx"), "target": "both"})
+    body = r.get_json()
+    assert r.status_code == 200 and body["cibles"]["tickets"]["deja_connus"] == 2 and body["cibles"]["tickets"]["crees"] == 0, body
+    assert body["cibles"]["projeqtor"]["crees"] == 2 and len(CREATED_TICKETS) == before_pq + 2
+    assert any("inconnu" in w for w in body["avertissements"]), body["avertissements"]
+    assert CREATED_TICKETS[-1]["externalReference"] == f"{bridge.LABEL}:12"
+    print("✓ import : les deux cibles, réimport dédupliqué côté hub, ProjeQtOr alimenté, demandeur inconnu signalé")
+
+    # xlsx libre (en-têtes ligne 1, autres noms, dates texte) + csv
+    import openpyxl
+    wb = openpyxl.Workbook(); ws = wb.active
+    ws.append(["Objet", "Demandeur", "Date", "Type", "Priorité", "Description", "Charge (j)"])
+    ws.append(["Écran HS", "carol", "12/09/2026", "poste de travail", "J+2", "pixel mort", "1,5"])
+    ws.append(["", "", "", "", "", "", ""])
+    ws.append(["Sans date", "dave", "hier", "", "", "", "beaucoup"])
+    buf = _io.BytesIO(); wb.save(buf)
+    r = c.post("/demande/import", data={"file": (_io.BytesIO(buf.getvalue()), "libre.xlsx"), "target": "tickets"})
+    body = r.get_json()
+    assert r.status_code == 200 and body["cibles"]["tickets"]["crees"] == 2, body
+    assert any("hier" in w for w in body["avertissements"]) and any("beaucoup" in w for w in body["avertissements"]), body
+    csv = "Sujet;Demandeur;Date de demande;Catégorie\nSouris;eve;2026-09-03;accessoire\n".encode("cp1252")
+    r = c.post("/demande/import", data={"file": (_io.BytesIO(csv), "demandes.csv"), "target": "tickets"})
+    assert r.status_code == 200 and r.get_json()["cibles"]["tickets"]["crees"] == 1, r.get_json()
+    r = c.post("/demande/import", data={"file": (_io.BytesIO(b"pas un tableur"), "x.xlsx"), "target": "tickets"})
+    assert r.status_code == 400, r.get_json()
+    r = c.post("/demande/import", data={"file": (_io.BytesIO(sample), "t.xlsx"), "target": "ailleurs"})
+    assert r.status_code == 400
+    print("✓ import : xlsx libre (en-têtes par nom, textes tolérés), csv, refus propres")
+
     xlsx = os.environ.get("SUIVI_SAMPLE")
     if xlsx and os.path.exists(xlsx):
-        r = c.post("/demande/import", data={"file": (open(xlsx, "rb"), "tableau.xlsx")})
+        r = c.post("/demande/import", data={"file": (open(xlsx, "rb"), os.path.basename(xlsx)), "dry_run": "1"})
         body = r.get_json()
-        assert r.status_code == 200 and body["importees"] == 1, body
-        print("✓ import xlsx réel :", body["importees"], "/", body["total"])
+        assert r.status_code == 200, body
+        print("✓ analyse du fichier réel SUIVI_SAMPLE :", body["total"], "demande(s)", body["avertissements"][:3])
     else:
-        print("⚠ SUIVI_SAMPLE absent — import xlsx non testé")
+        print("⚠ SUIVI_SAMPLE absent — fichier réel non analysé")
 
     # 5. export xlsx — relire ce qui a été créé
     r = c.get("/demande/export")
