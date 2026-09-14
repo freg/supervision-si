@@ -1,3 +1,25 @@
+## 2026-09-14 — import de tableaux : fichier réel vérifié (livraison #499)
+
+Le fichier d'exemple de la personne est arrivé après #497 : analysé
+avec le parseur tolérant — format imposé reconnu (en-têtes ligne 8, 1
+demande, 0 avertissement), aller-retour testé contre un faux
+tickets-api et un ProjeQtOr injoignable (cible `both` : 1 ticket hub à
+valider, ProjeQtOr en échec signalé une fois ; réimport en cible
+`tickets` : « déjà connu », aucun doublon). Le fichier lui-même reste
+hors dépôt (nom et contenu réels).
+
+- **Bruit supprimé** : quand les référentiels ProjeQtOr sont
+  illisibles (API injoignable, compte du pont refusé), une seule ligne
+  l'explique au lieu d'un « absent des référentiels » par champ et par
+  demande.
+- Conclusion sur « l'import ne fonctionne pas » : le fichier est
+  conforme ; la cause probable est côté ProjeQtOr (compte `bridge` /
+  `PROJEQTOR_API_PASSWORD` encore à `change-me`, ou API injoignable),
+  ce que la réponse de `/demande/import` nomme désormais explicitement.
+  Avec la cible « Hub seulement », l'import n'en dépend plus.
+- Vérifié : test de fumée du pont (avec `SUIVI_SAMPLE` pointé sur le
+  fichier réel) et `test_mapping.py`. Non vérifié : le vrai ProjeQtOr.
+
 ## 2026-09-13 — coffre des accès d'équipements : identifiants MikroTik hors du .env (livraison #498)
 
 Demandé explicitement : « je veux ajouter une gestion des user/password

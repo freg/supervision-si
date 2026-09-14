@@ -2668,8 +2668,9 @@ de client, de site réel, de personne ou d'adresse réelle ne doit y figurer.
     - export chiffré du coffre dans la sauvegarde totale (déjà couvert
       par le volume `CREDENTIALS_DATA_DIR`, à vérifier au prochain
       `backup-full.sh`).
-71. Import de tableaux SAV (#497) — fichier réel de la personne non
-    reçu dans la session : à passer d'abord par « Analyser sans
-    importer » ; si des en-têtes ne sont pas reconnus, ajouter les
-    synonymes dans `HEADER_SYNONYMS` (`suivi_format.py`).
+71. Import de tableaux SAV (#497) — fichier réel reçu et vérifié en
+    #499 (conforme, 1 demande). Reste : vérifier sur super le compte
+    ProjeQtOr du pont (`PROJEQTOR_API_USER/PASSWORD`) si la cible
+    ProjeQtOr échoue ; synonymes d'en-têtes à enrichir au besoin
+    (`HEADER_SYNONYMS`, `suivi_format.py`).
 

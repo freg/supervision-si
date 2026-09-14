@@ -287,6 +287,10 @@ def import_xlsx():
         counts = {"crees": 0, "echecs": 0}
         client = get_client()
         by_name, _ = load_referentiels(client)
+        refs_ok = any(by_name.values())
+        if not refs_ok:
+            warnings.append("référentiels ProjeQtOr illisibles (API injoignable ou compte du pont refusé) : "
+                            "demandeur / priorité / catégorie inscrits en clair dans la description, non résolus")
         unreachable = False
         for i, demand in enumerate(demands, start=1):
             fields, unresolved = demand_to_ticket(demand, by_name)
@@ -298,8 +302,9 @@ def import_xlsx():
                 if not unreachable:
                     warnings.append(f"demande n°{i} « {demand[COL_SUBJECT][:50]} » : refusée par ProjeQtOr ({exc})")
                     unreachable = True  # une seule ligne d'explication, pas une par demande
-            for name in unresolved:
-                warnings.append(f"demande n°{i} : {name} absent des référentiels ProjeQtOr (inscrit en clair dans la description)")
+            if refs_ok:
+                for name in unresolved:
+                    warnings.append(f"demande n°{i} : {name} absent des référentiels ProjeQtOr (inscrit en clair dans la description)")
         result["projeqtor"] = counts
 
     created = sum((c or {}).get("crees", 0) for c in result.values() if c)
