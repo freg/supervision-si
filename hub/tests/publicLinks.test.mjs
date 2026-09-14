@@ -1,0 +1,36 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { demandeBase, publicLinks, displayUrl } from "../src/publicLinks.js";
+
+test("demandeBase : déduit la racine publique de l'URL d'admin", () => {
+  assert.equal(demandeBase("https://hub.example:6443/demande/admin"), "https://hub.example:6443/demande/");
+  assert.equal(demandeBase("https://hub.example:6443/demande/admin/"), "https://hub.example:6443/demande/");
+  assert.equal(demandeBase("https://hub.example:6443/demande/admin?x=1"), "https://hub.example:6443/demande/");
+  assert.equal(demandeBase("https://hub.example:6443/demande/"), "https://hub.example:6443/demande/");
+  assert.equal(demandeBase("https://hub.example:6443/demande"), "https://hub.example:6443/demande/");
+  assert.equal(demandeBase(""), null);
+  assert.equal(demandeBase(undefined), null);
+});
+
+test("publicLinks : trois pages du pont + application historique", () => {
+  const links = publicLinks({ demandeUrl: "https://h/demande/admin", frontendUrl: "https://h/app/" });
+  assert.deepEqual(links.map((l) => l.id), ["demande", "demande-rapide", "demande-tableau", "supervision"]);
+  assert.deepEqual(links.map((l) => l.url), ["https://h/demande/", "https://h/demande/rapide", "https://h/demande/tableau", "https://h/app/"]);
+  for (const l of links) {
+    assert.ok(l.name && l.description, l.id);
+  }
+});
+
+test("publicLinks : rien sans variable, jamais d'exception", () => {
+  assert.deepEqual(publicLinks({}), []);
+  assert.deepEqual(publicLinks(), []);
+  assert.deepEqual(publicLinks({ frontendUrl: " " }), []);
+  assert.equal(publicLinks({ frontendUrl: "https://h/app/" }).length, 1);
+  assert.equal(publicLinks({ demandeUrl: "https://h/demande/admin" }).length, 3);
+});
+
+test("displayUrl : sans schéma", () => {
+  assert.equal(displayUrl("https://h:6443/demande/rapide"), "h:6443/demande/rapide");
+  assert.equal(displayUrl("http://h/x"), "h/x");
+  assert.equal(displayUrl(""), "");
+});

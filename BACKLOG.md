@@ -2683,3 +2683,11 @@ de client, de site réel, de personne ou d'adresse réelle ne doit y figurer.
     premier hyperviseur ; option pour désactiver la lecture des journaux
     invités par VM (`--no-guest-logs`) si un invité y est sensible.
 
+
+## Accueil : pages ouvertes sans connexion (2026-09-14, #505)
+
+Livré : section « Pages ouvertes — sans connexion » en liste à plat
+(publicLinks.js). Suites possibles, non demandées : laisser un
+administrateur ajouter ses propres pages ouvertes (les « liens
+externes » gérés dans le hub restent des tuiles, avec rôles) ; QR code
+à côté de l'adresse pour l'affichage.

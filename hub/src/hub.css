@@ -2041,3 +2041,22 @@ button.secondary { background: var(--panel); }
 .hub-theme-title { font-size: 16px; }
 .hub-theme-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
 .hub-theme-frame { flex: 1; min-height: 70vh; width: 100%; border: 0; background: var(--bg, #fff); }
+
+/* Pages ouvertes sans connexion (livraison #505) -- liste à plat sous
+   les tuiles de l'accueil (PublicLinks.jsx) : nom, description,
+   adresse copiable. Mêmes variables de thème que le reste, aucune
+   icône, aucune couleur en dur. */
+.hub-public-links { margin-top: 32px; }
+.hub-public-links-lead { margin: -6px 0 10px; font-size: 13px; }
+.hub-public-links-table { border-collapse: collapse; width: 100%; max-width: 1100px; font-size: 14px; }
+.hub-public-links-table th,
+.hub-public-links-table td { padding: 6px 12px 6px 0; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+.hub-public-links-table th { font-weight: 600; white-space: nowrap; color: var(--text); }
+.hub-public-links-table code { font-size: 13px; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; word-break: break-all; }
+.hub-public-links-actions { white-space: nowrap; }
+.hub-public-links-actions a { color: var(--accent); margin-right: 10px; }
+.hub-public-links-actions button { font: inherit; font-size: 13px; padding: 2px 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--panel); color: var(--text); cursor: pointer; }
+.hub-public-links-actions button:hover { border-color: var(--accent); }
+@media (max-width: 900px) {
+  .hub-public-links-table td:nth-child(2) { display: none; }
+}

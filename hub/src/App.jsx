@@ -34,6 +34,8 @@ import BastionView from "./BastionView.jsx";
 import CortexView from "./CortexView.jsx";
 import ThemeView from "./ThemeView.jsx";
 import { buildThemes, themeViewMode, isThemeViewMode, themeIdOf, findTheme, themeOfView, normalizeHomeMode, HOME_MODES } from "./hubThemes.js";
+import PublicLinks from "./PublicLinks.jsx";
+import { publicLinks } from "./publicLinks.js";
 import { canSeeBastion } from "./siProxy.js";
 import SiAgentEventsBanner from "./SiAgentEventsBanner.jsx";
 import SupervisionSiView from "./SupervisionSiView.jsx";
@@ -106,6 +108,8 @@ const NETPROBE_API_BASE_URL = import.meta.env.VITE_NETPROBE_API_BASE_URL || "";
 const UPS_API_BASE_URL = import.meta.env.VITE_UPS_API_BASE_URL || "";
 // Tuile Agents hôtes (livraison #421, backlog 63) -- si-agent-api.
 const SI_AGENT_API_BASE_URL = import.meta.env.VITE_SI_AGENT_API_BASE_URL || "";
+// #505 : pages ouvertes sans connexion (liste à plat sur l'accueil)
+const PUBLIC_LINKS = publicLinks({ demandeUrl: DEMANDE_URL, frontendUrl: FRONTEND_URL });
 // Tuile Bastion (livraison #454) -- si-proxy-admin-api ; réservée aux
 // preferred_username de VITE_SI_PROXY_ADMIN_USERS (le pont vérifie le jeton).
 const SI_PROXY_API_BASE_URL = import.meta.env.VITE_SI_PROXY_API_BASE_URL || "";
@@ -1705,6 +1709,9 @@ vm === "settings" ? (
                 ))}
               </>
             )}
+            {/* #505 : pages ouvertes sans connexion -- liste à plat, pas
+                des tuiles (adresses à lire et à copier). */}
+            <PublicLinks links={PUBLIC_LINKS} />
           </main>
         </div>
 

@@ -1,3 +1,40 @@
+## 2026-09-14 — accueil du hub : pages ouvertes sans connexion, en liste à plat (livraison #505)
+
+Demandé explicitement : « indiquer les liens externes sans
+authentification sur la page d'accueil du hub sous une autre forme que
+les tuiles ». Les tuiles sont des applications que l'utilisateur
+connecté ouvre ; ces pages-ci sont faites pour être TRANSMISES à des
+personnes qui ne se connectent jamais au hub (demandeurs) : ce qui
+compte est l'adresse, lisible et copiable.
+
+- Nouvelle section « Pages ouvertes — sans connexion » en bas de
+  l'accueil (les deux modes, thématiques et classique) : tableau nom /
+  description / adresse (monospace, sans le schéma) / Ouvrir / Copier
+  (presse-papier, repli `execCommand`, retour « Copié » 2 s). Aucune
+  icône, aucune couleur en dur.
+- Contenu déduit des variables déjà présentes, rien à configurer : la
+  racine publique `/demande/` (depuis `VITE_DEMANDE_URL`, qui vise
+  `/demande/admin`) avec ses trois présentations — formulaire classique,
+  saisie rapide (#500), saisie en tableau (#500) — et l'application
+  Supervision SI historique (`VITE_SUPERVISION_FRONTEND_URL`), ouverte
+  sans vérification. Variable absente = pas d'entrée ; aucune entrée =
+  section absente.
+- Fichiers : `hub/src/publicLinks.js` (logique pure : `demandeBase`,
+  `publicLinks`, `displayUrl`), `hub/src/PublicLinks.jsx`,
+  `hub/src/App.jsx` (constante `PUBLIC_LINKS`, insertion dans `<main>`),
+  `hub/src/hub.css` (`.hub-public-links*`), `hub/tests/publicLinks.test.mjs`.
+- Vérifié : 4 nouveaux tests Node (racine déduite de `/demande/admin`,
+  `/demande/admin/`, avec paramètres, déjà racine ; liste complète ;
+  rien sans variable), 194 tests hub au total, analyse syntaxique
+  (`@babel/parser`) de `App.jsx` / `PublicLinks.jsx`.
+- Non vérifié : rendu réel dans le navigateur (`npm run build` impossible
+  depuis ce shell), presse-papier sous HTTPS (API `clipboard` exigeant un
+  contexte sécurisé — repli prévu).
+- Signalé par la personne, en cours de diagnostic (logs demandés) :
+  tuile « Accès d'équipements » en 502 (nginx ne joint pas
+  `credentials-api`, service probablement jamais créé après le build
+  interrompu) et tuile « Agents hôtes » en 500 sur `/api/si-agent/status`.
+
 ## 2026-09-14 — agent Proxmox v3 : disponibilité des VM, suivi des sauvegardes, accès et journaux internes (livraison #504)
 
 Demandé explicitement : « un agent proxmox permettant de superviser

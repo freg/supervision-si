@@ -2509,3 +2509,15 @@ des 29 fichiers de tests du hub. Embarquabilité iframe réelle à
 confirmer en conditions réelles (aucun `X-Frame-Options` attendu, ni
 Apache par défaut ni tls-proxy — jamais vérifié ici, pas de
 navigateur).
+
+## Pages ouvertes sans connexion sur l'accueil (livraison #505)
+
+Section en bas de l'accueil (les deux modes), volontairement pas des
+tuiles : ces adresses sont faites pour être transmises à des personnes
+qui ne se connectent pas au hub. `publicLinks.js` (pur, testé) déduit
+la racine publique `/demande/` de `VITE_DEMANDE_URL` (qui vise
+`/demande/admin`) et y ajoute `rapide` et `tableau` (#500), plus
+l'application Supervision SI historique (`VITE_SUPERVISION_FRONTEND_URL`).
+`PublicLinks.jsx` rend le tableau nom / description / adresse / Ouvrir /
+Copier (presse-papier, repli `execCommand`). Aucune icône, variables de
+thème seulement (`.hub-public-links*` dans `hub.css`).
