@@ -4,6 +4,7 @@ vrai agent (si_agent.agent.Agent) parle au vrai central via le client de
 test Flask -- enrôlement, configuration versionnée, plugin du catalogue
 poussé signé et installé, mesures reçues, commandes acquittées."""
 import json
+from datetime import datetime, timedelta, timezone
 import os
 import shutil
 import sys
@@ -226,6 +227,46 @@ class ProxmoxTests(ApiBase):
         # filtre par site comme /netview
         self.assertEqual(self.c.get("/proxmox?site=ovh").get_json()["proxmox"], [])
         self.assertEqual(len(self.c.get("/proxmox?site=siege").get_json()["proxmox"]), 1)
+
+    def test_disponibilite_et_evenements(self):
+        """#504 : les mesures successives donnent la disponibilité par VM et
+        des événements de changement d'état (arrêt = warning, reprise = info,
+        VM disparue) ; /proxmox expose backups et access."""
+        a = self.enroll("pve1", "siege")
+        http = FlaskHttp(self.c, "pve1", a["secret"])
+        def measure(at, vms):
+            return {"agent_id": "pve1", "task": "plugin:proxmox", "at": at, "ok": True,
+                    "data": {"node": {"name": "pve1"}, "vms": vms, "storages": [], "zfs": [], "warnings": [],
+                             "backups": {"runs": [], "jobs": [], "failed_24h": 1, "ok_24h": 3},
+                             "access": {"host": {"requests": 12, "auth_failures": 2}}}, "error": None}
+        base = datetime.now(timezone.utc).replace(microsecond=0)
+        def iso(minutes_ago):
+            return (base - timedelta(minutes=minutes_ago)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        seq = [
+            (iso(90), [{"vmid": 100, "name": "ged", "type": "qemu", "status": "running"}, {"vmid": 101, "name": "cloud", "type": "lxc", "status": "running"}]),
+            (iso(60), [{"vmid": 100, "name": "ged", "type": "qemu", "status": "stopped"}, {"vmid": 101, "name": "cloud", "type": "lxc", "status": "running"}]),
+            (iso(30), [{"vmid": 100, "name": "ged", "type": "qemu", "status": "running"}, {"vmid": 102, "name": "neuve", "type": "qemu", "status": "running"}]),
+            (iso(0), [{"vmid": 100, "name": "ged", "type": "qemu", "status": "running"}, {"vmid": 102, "name": "neuve", "type": "qemu", "status": "running"}]),
+        ]
+        for at, vms in seq:
+            st, _ = http.request("POST", "/api/v1/agents/pve1/measurements", {"measurements": [measure(at, vms)]})
+            self.assertEqual(st, 201)
+        h = self.c.get("/proxmox/history?agent_id=pve1&hours=24").get_json()
+        self.assertEqual(h["samples"], 4)
+        self.assertEqual(h["vms"]["100"]["availability_percent"], 75.0)
+        self.assertEqual([t["to"] for t in h["vms"]["100"]["transitions"]], ["stopped", "running"])
+        self.assertEqual(h["vms"]["101"]["samples"], 2)
+        self.assertEqual(h["vms"]["102"]["availability_percent"], 100.0)
+        self.assertEqual(self.c.get("/proxmox/history").status_code, 400)
+        events = self.c.get("/events?agent_id=pve1&limit=50").get_json()["events"]
+        kinds = sorted((e["kind"], e["severity"]) for e in events if e["kind"].startswith("vm-"))
+        self.assertIn(("vm-state", "warning"), kinds, "arrêt d'une VM en marche : avertissement")
+        self.assertIn(("vm-state", "info"), kinds, "reprise : information")
+        self.assertIn(("vm-new", "info"), kinds)
+        self.assertIn(("vm-gone", "info"), kinds)
+        out = self.c.get("/proxmox").get_json()["proxmox"][0]
+        self.assertEqual(out["backups"]["failed_24h"], 1)
+        self.assertEqual(out["access"]["host"]["auth_failures"], 2)
 
 
 class CaptureRelayTests(ApiBase):

@@ -1,3 +1,61 @@
+## 2026-09-14 — agent Proxmox v3 : disponibilité des VM, suivi des sauvegardes, accès et journaux internes (livraison #504)
+
+Demandé explicitement : « un agent proxmox permettant de superviser
+l'état / disponibilité des VM, un suivi des backup/snapshot, le log
+des accès VM (ssh, http/https) et la récupération des logs internes ».
+Prolonge le plugin `proxmox` (#487, #488) plutôt qu'un agent parallèle.
+
+- **Disponibilité** : `GET /proxmox/history` (central, échantillons du
+  plugin sur 7 j par défaut : taux « en marche », transitions) et
+  **événements** `vm-state` / `vm-new` / `vm-gone` à la réception de
+  chaque mesure (arrêt d'une VM en marche = avertissement, reprise =
+  info) — journal et notifications existants.
+- **Sauvegardes** : tâches vzdump (résultat, durée, utilisateur, par VM
+  ou job), jobs planifiés (`/cluster/backup`), OK / échecs 24 h par
+  hyperviseur, 5 dernières exécutions et série d'échecs par VM.
+- **Accès** : journal pveproxy (consoles, modifications, consultations,
+  utilisateurs, adresses par VM ; requêtes et 401 pour l'hôte), SSH de
+  l'hyperviseur, échecs d'authentification pvedaemon/pveproxy.
+- **Journaux internes** : sshd et accès web lus DANS chaque VM en marche
+  par qemu-guest-agent (`agent/exec`, borné 10 s) ou `pct exec` pour
+  les conteneurs — résumés + extraits bornés (16 Ko), tourniquet de
+  15 VM par passage, rien d'écrit dans l'invité, VM sans agent
+  signalée.
+- Tuile Proxmox : colonnes Dispo. 7 j / Sauvegarde / Accès 24 h, fiche
+  dépliée (transitions, exécutions, accès, journaux avec extraits),
+  bandeau d'hyperviseur (sauvegardes, accès, SSH). `proxmoxLib.js`.
+- Vérifié : 16 tests plugin (parseurs sur sorties représentatives,
+  exec invité borné, collecte complète contre faux pvesh/pct/journalctl,
+  pannes partielles listées), 12 tests API (dont disponibilité et
+  événements sur mesures successives), 190 tests Node hub, esbuild.
+  Non vérifié : hyperviseur réel (formats `pveproxy` et `tasks` de PVE 8
+  reproduits de mémoire — surveiller `warnings` au premier relevé),
+  durée réelle d'un passage avec journaux invités.
+
+## 2026-09-14 — agent Linux : stockage — volumes, partitions, systèmes de fichiers, ZFS (livraison #503)
+
+Demandé explicitement : « agent linux déjà existant à compléter sur la
+gestion de Z{volume/partition/fs} ».
+
+- **Section `storage` de la mesure `host`** (`si_agent/storage.py`) :
+  périphériques bloc (`lsblk`, arbre aplati avec parent), LVM (PV, VG,
+  LV, thin pools avec occupation), RAID logiciel (`/proc/mdstat`),
+  ZFS (pools : santé, capacité, fragmentation, erreurs par disque,
+  dernier scrub ; datasets et zvols : utilisé, disponible, quota,
+  compression ; snapshots agrégés par dataset). Chaque couche
+  facultative, jamais une erreur.
+- **Risques** (`risks.evaluate_storage`) : pool dégradé/en panne,
+  capacité ZFS ≥ 80/90 %, erreurs, scrub ancien, dataset proche du
+  quota, thin pool ≥ 85/95 %, md dégradé / en reconstruction — seuils
+  surchargeables.
+- Tuile Agents hôtes : section **Stockage** (pools, datasets/zvols,
+  LVM, RAID, blocs indentés) ; `storageSummary` dans `siAgent.js`.
+- Vérifié : `tests/test_storage.py` (9 tests : parseurs sur sorties
+  représentatives, collecte toutes couches / sans outil / outil en
+  panne, risques), suite agent complète (86 tests) ; tests Node hub ;
+  esbuild. Non vérifié : hôte Linux réel avec ZFS/LVM (à regarder sur
+  super, qui a du LVM, et sur un Proxmox pour ZFS).
+
 ## 2026-09-14 — coffre-fort : l'affichage simple devient le défaut (livraison #502)
 
 Demandé explicitement : « inverse le design par défaut du coffre-fort ».

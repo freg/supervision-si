@@ -21,6 +21,7 @@ ne réapplique la configuration que si l'empreinte change.
 import calendar
 import hashlib
 import json
+from datetime import datetime, timedelta, timezone
 import secrets as _secrets
 import sqlite3
 import time
@@ -830,6 +831,14 @@ def ingest_measurements(db_path, agent_id, items, ip=None):
             elif m["task"] == "inventory" and isinstance(data, dict):
                 conn.execute("UPDATE agents SET agent_version = COALESCE(?, agent_version) WHERE agent_id = ?",
                              (data.get("agent_version"), agent_id))
+            elif m["task"] == "plugin:proxmox" and isinstance(data, dict):
+                for ev in proxmox_state_changes(conn, agent_id, m["at"], data):
+                    try:
+                        conn.execute("INSERT INTO events (at, agent_id, site, source, kind, severity, message, details) VALUES (?, ?, ?, 'central', ?, ?, ?, ?)",
+                                     (m["at"], agent_id, site_of(conn, agent_id), ev["kind"], ev["severity"], ev["message"],
+                                      json.dumps(ev["details"], ensure_ascii=False)))
+                    except sqlite3.IntegrityError:
+                        pass
         touch_agent(conn, agent_id, ip)
         conn.commit()
     finally:
@@ -905,6 +914,92 @@ def latest_netviews(db_path, site=None):
     return out
 
 
+def _vm_states(data):
+    out = {}
+    for vm in (data or {}).get("vms") or []:
+        if vm.get("vmid") is not None and not vm.get("template"):
+            out[int(vm["vmid"])] = (vm.get("status") or "?", vm.get("name"), vm.get("type"))
+    return out
+
+
+def proxmox_state_changes(conn, agent_id, at, data):
+    """#504 : compare les états des VM de la nouvelle mesure avec la mesure
+    précédente de cet hyperviseur -> événements (arrêt d'une VM = warning,
+    reprise = info, VM disparue/apparue = info). Une VM arrêtée
+    volontairement n'est pas une panne : c'est un fait journalisé, la
+    sévérité reste warning, jamais critical."""
+    prev = conn.execute("SELECT data FROM measurements WHERE agent_id = ? AND task = 'plugin:proxmox' AND at < ? ORDER BY at DESC LIMIT 1",
+                        (agent_id, at)).fetchone()
+    if not prev or not prev["data"]:
+        return []
+    try:
+        before = _vm_states(json.loads(prev["data"]))
+    except (TypeError, ValueError):
+        return []
+    after = _vm_states(data)
+    events = []
+    for vmid, (st, name, kind) in after.items():
+        old = before.get(vmid)
+        label = "%s (%s %s)" % (name or "?", "CT" if kind == "lxc" else "VM", vmid)
+        if old is None:
+            events.append({"kind": "vm-new", "severity": "info", "message": "nouvelle %s : état %s" % (label, st),
+                           "details": {"vmid": vmid, "status": st}})
+        elif old[0] != st:
+            sev = "warning" if (old[0] == "running" and st != "running") else "info"
+            events.append({"kind": "vm-state", "severity": sev, "message": "%s : %s → %s" % (label, old[0], st),
+                           "details": {"vmid": vmid, "from": old[0], "to": st}})
+    for vmid, (st, name, kind) in before.items():
+        if vmid not in after:
+            events.append({"kind": "vm-gone", "severity": "info", "message": "%s (%s) ne figure plus sur l'hyperviseur" % (name or "?", vmid),
+                           "details": {"vmid": vmid, "last_status": st}})
+    return events
+
+
+def availability_from_states(states):
+    """Copie de proxmox.availability_from_states (plugin) -- calcul PUR."""
+    samples = [(a, s) for a, s in states if a is not None]
+    samples.sort()
+    running = sum(1 for _, s in samples if s == "running")
+    transitions, prev = [], None
+    for at, st in samples:
+        if prev is not None and st != prev:
+            transitions.append({"at": at, "from": prev, "to": st})
+        prev = st
+    return {"samples": len(samples), "running": running,
+            "availability_percent": round(100.0 * running / len(samples), 1) if samples else None,
+            "transitions": transitions[-50:]}
+
+
+def proxmox_history(db_path, agent_id, hours=168, limit=2000):
+    """#504 : disponibilité des VM d'un hyperviseur sur la fenêtre, à partir
+    des mesures plugin:proxmox conservées (un échantillon par passage du
+    plugin, 30 min) : par VM {samples, running, availability_percent,
+    transitions} ; plus le suivi des sauvegardes vu par la dernière mesure."""
+    since = (datetime.now(timezone.utc) - timedelta(hours=max(1, int(hours)))).strftime("%Y-%m-%dT%H:%M:%SZ")
+    conn = _connect(db_path)
+    try:
+        rows = conn.execute("SELECT at, data FROM measurements WHERE agent_id = ? AND task = 'plugin:proxmox' AND at >= ? ORDER BY at DESC LIMIT ?",
+                            (agent_id, since, max(1, min(int(limit), 5000)))).fetchall()
+    finally:
+        conn.close()
+    per_vm = {}
+    names = {}
+    for r in rows:
+        try:
+            data = json.loads(r["data"]) if r["data"] else {}
+        except (TypeError, ValueError):
+            continue
+        for vmid, (st, name, kind) in _vm_states(data).items():
+            per_vm.setdefault(vmid, []).append((r["at"], st))
+            names.setdefault(vmid, (name, kind))
+    out = {}
+    for vmid, states in per_vm.items():
+        a = availability_from_states(states)
+        a["name"], a["type"] = names[vmid]
+        out[str(vmid)] = a
+    return {"agent_id": agent_id, "hours": int(hours), "samples": len(rows), "since": since, "vms": out}
+
+
 def latest_proxmox(db_path, site=None):
     """#487 : dernière mesure `plugin:proxmox` de chaque agent (hyperviseurs
     Proxmox VE : nœud, VM/CT, stockages, ZFS) -- ce que la supervision SI
@@ -932,6 +1027,7 @@ def latest_proxmox(db_path, site=None):
                     "at": r["at"], "ok": bool(r["ok"]), "error": r["error"],
                     "node": data.get("node") or {}, "vms": data.get("vms") or [],
                     "storages": data.get("storages") or [], "zfs": data.get("zfs") or [],
+                    "backups": data.get("backups") or None, "access": data.get("access") or None,
                     "warnings": data.get("warnings") or []})
     return out
 

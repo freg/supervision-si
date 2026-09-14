@@ -200,6 +200,20 @@ def proxmox_route():
     return jsonify({"proxmox": store.latest_proxmox(DB_PATH, site=request.args.get("site"))}), 200
 
 
+@app.route("/proxmox/history", methods=["GET"])
+def proxmox_history_route():
+    """#504 : disponibilité des VM d'un hyperviseur (échantillons du plugin
+    sur `hours`, défaut 7 jours) : taux, transitions d'état."""
+    agent_id = (request.args.get("agent_id") or "").strip()
+    if not agent_id:
+        return jsonify({"error": "agent_id requis"}), 400
+    try:
+        hours = int(request.args.get("hours") or 168)
+    except ValueError:
+        return jsonify({"error": "hours invalide"}), 400
+    return jsonify(store.proxmox_history(DB_PATH, agent_id, hours=max(1, min(hours, 24 * 90)))), 200
+
+
 @app.route("/risks", methods=["GET"])
 def risks_route():
     return jsonify({"risks": store.fleet_risks(DB_PATH, site=request.args.get("site"))}), 200

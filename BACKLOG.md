@@ -2674,3 +2674,12 @@ de client, de site réel, de personne ou d'adresse réelle ne doit y figurer.
     ProjeQtOr échoue ; synonymes d'en-têtes à enrichir au besoin
     (`HEADER_SYNONYMS`, `suivi_format.py`).
 
+72. Agent Proxmox (#503/#504) — suites : commande des VM depuis la
+    tuile (démarrer/arrêter/snapshot) sous confirmation explicite ;
+    corrélation des journaux internes avec Cortex (sshd refusés →
+    événement) ; Proxmox Backup Server (`pvesh /nodes/<n>/storage/<pbs>/
+    content` déjà lu comme stockage backup, vérification `verify`) ;
+    formats réels de `pveproxy/access.log` et `tasks` à confirmer sur le
+    premier hyperviseur ; option pour désactiver la lecture des journaux
+    invités par VM (`--no-guest-logs`) si un invité y est sensible.
+

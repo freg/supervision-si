@@ -1,11 +1,16 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { fetchProxmox } from "./siAgentClient.js";
+import { fetchProxmox, fetchProxmoxHistory } from "./siAgentClient.js";
+import { backupSummary, backupRunTone, accessSummary, guestLogsSummary, availabilityOf, nodeBackupSummary, nodeAccessSummary } from "./proxmoxLib.js";
 
 // Tuile « Proxmox » (livraison #488) : vue dédiée des hyperviseurs
 // remontés par le plugin si-agent « proxmox » (#487) -- arbre hôte →
 // VM/CT, stockages, pools ZFS, et services/URLs APPRIS par exploration
-// (balayage TCP borné, certificats, PTR, redirections). Lecture seule :
-// la commande des VM n'est pas encore de cette livraison.
+// (balayage TCP borné, certificats, PTR, redirections). #504 :
+// disponibilité des VM (échantillons du central), suivi des sauvegardes
+// (tâches vzdump, jobs), accès (consoles/API par VM, SSH et échecs
+// d'authentification de l'hyperviseur), journaux internes des VM (SSH,
+// web) remontés par l'agent invité. Lecture seule : la commande des VM
+// n'est pas encore de cette livraison.
 // Données : GET /proxmox du central si-agent (même base que la tuile
 // « Agents hôtes »).
 
@@ -56,11 +61,82 @@ function certTone(days) {
   return "ok";
 }
 
-function VmDetail({ vm }) {
+function whenEpoch(sec) {
+  if (!sec) return "—";
+  return new Date(sec * 1000).toLocaleString("fr-FR");
+}
+
+function VmFollowUp({ vm, history }) {
+  const [showRaw, setShowRaw] = useState(null);
+  const b = backupSummary(vm);
+  const a = accessSummary(vm);
+  const g = guestLogsSummary(vm);
+  const av = availabilityOf(history, vm.vmid);
+  return (
+    <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 10 }}>
+      <div style={{ minWidth: 260, flex: 1 }}>
+        <h4 style={{ margin: "4px 0" }}>Disponibilité (7 j)</h4>
+        <p style={{ margin: "2px 0" }}><Tone tone={av.tone}>{av.text}</Tone> <span className="muted" style={{ fontSize: 12 }}>sur {av.samples} relevé{av.samples > 1 ? "s" : ""}</span></p>
+        {av.transitions.length > 0 ? (
+          <ul style={{ margin: "4px 0", paddingLeft: 18, fontSize: 12 }}>
+            {av.transitions.slice(-8).reverse().map((t, i) => <li key={i}><span className="muted">{when(t.at)}</span> {t.from} → <strong>{t.to}</strong></li>)}
+          </ul>
+        ) : <p className="muted" style={{ fontSize: 12 }}>Aucun changement d'état sur la fenêtre.</p>}
+      </div>
+      <div style={{ minWidth: 300, flex: 1 }}>
+        <h4 style={{ margin: "4px 0" }}>Sauvegardes {b.jobs.length > 0 && <span className="muted" style={{ fontSize: 12, fontWeight: "normal" }}>· jobs {b.jobs.join(", ")}</span>}</h4>
+        {b.neverRun ? <p className="muted" style={{ fontSize: 12 }}>Aucune tâche vzdump récente pour cette VM{vm.last_backup ? ` (dernier fichier il y a ${fmtAge(vm.last_backup.age_s)})` : ""}.</p> : (
+          <table>
+            <thead><tr><th>Quand</th><th>Résultat</th><th>Durée</th><th>Par</th></tr></thead>
+            <tbody>{b.runs.map((r) => (
+              <tr key={r.upid}><td style={{ fontSize: 12 }}>{whenEpoch(r.at)}</td><td><Tone tone={backupRunTone(r)}>{r.status}</Tone></td>
+                <td className="muted" style={{ fontSize: 12 }}>{r.duration_s == null ? "—" : fmtAge(r.duration_s)}</td><td className="muted" style={{ fontSize: 12 }}>{r.user || "—"}</td></tr>
+            ))}</tbody>
+          </table>
+        )}
+        {b.failStreak >= 2 && <p><Tone tone="critical">{b.failStreak} échecs consécutifs</Tone></p>}
+      </div>
+      <div style={{ minWidth: 300, flex: 1 }}>
+        <h4 style={{ margin: "4px 0" }}>Accès via l'hyperviseur (24 h)</h4>
+        <p style={{ margin: "2px 0" }}><Tone tone={a.tone}>{a.text}</Tone>{a.lastConsoleAt && <span className="muted" style={{ fontSize: 12 }}> · dernière console {whenEpoch(a.lastConsoleAt)}</span>}</p>
+        {a.users.length > 0 && <p className="muted" style={{ fontSize: 12, margin: "2px 0" }}>utilisateurs : {a.users.join(", ")}</p>}
+        {a.ips.length > 0 && <p className="muted" style={{ fontSize: 12, margin: "2px 0" }}>depuis : {a.ips.join(", ")}</p>}
+      </div>
+      <div style={{ minWidth: 320, flex: 1 }}>
+        <h4 style={{ margin: "4px 0" }}>Journaux internes {g && <span className="muted" style={{ fontSize: 12, fontWeight: "normal" }}>· relevés {whenEpoch(g.collectedAt)}</span>}</h4>
+        {!g ? <p className="muted" style={{ fontSize: 12 }}>{vm.status !== "running" ? "VM arrêtée." : vm.type === "qemu" && !vm.agent ? "qemu-guest-agent absent ou désactivé : pas de lecture interne possible." : "Pas encore relevés (tourniquet de 15 VM par passage)."}</p> : (
+          <>
+            {g.ssh ? (
+              <p style={{ margin: "2px 0", fontSize: 12 }}>SSH : <Tone tone={g.ssh.tone}>{g.ssh.accepted} accepté{g.ssh.accepted > 1 ? "s" : ""} · {g.ssh.failed} refusé{g.ssh.failed > 1 ? "s" : ""}{g.ssh.invalid ? ` · ${g.ssh.invalid} utilisateurs inconnus` : ""}</Tone>
+                {g.ssh.lastAccepted && <span className="muted"> · dernier : {g.ssh.lastAccepted}</span>}
+                {g.ssh.failedByIp.length > 0 && <span className="muted"> · refus : {g.ssh.failedByIp.join(", ")}</span>}
+              </p>
+            ) : <p className="muted" style={{ fontSize: 12 }}>SSH : journal non lu{g.errors.length ? ` (${g.errors.join(" ; ")})` : ""}.</p>}
+            {g.web ? (
+              <p style={{ margin: "2px 0", fontSize: 12 }}>Web : <Tone tone={g.web.tone}>{g.web.hits} requête{g.web.hits > 1 ? "s" : ""}</Tone>
+                <span className="muted"> · {Object.entries(g.web.status).map(([k, v]) => `${k} ${v}`).join(" · ")}</span>
+                {g.web.topIps.length > 0 && <span className="muted"> · clients : {g.web.topIps.join(", ")}</span>}
+              </p>
+            ) : <p className="muted" style={{ fontSize: 12 }}>Web : aucun journal d'accès nginx/apache trouvé.</p>}
+            <p style={{ margin: "4px 0", fontSize: 12 }}>
+              {["ssh", "web"].filter((k) => g.raw[k]).map((k) => (
+                <button key={k} className="secondary" style={{ marginRight: 6 }} onClick={() => setShowRaw(showRaw === k ? null : k)}>{showRaw === k ? "Masquer" : "Voir"} l'extrait {k}</button>
+              ))}
+            </p>
+            {showRaw && g.raw[showRaw] && <pre style={{ maxHeight: 260, overflow: "auto", fontSize: 11, whiteSpace: "pre-wrap" }}>{g.raw[showRaw]}</pre>}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function VmDetail({ vm, history }) {
   const services = vm.services || [];
   const urls = vm.urls || [];
   return (
     <div style={{ padding: "6px 8px" }}>
+      <VmFollowUp vm={vm} history={history} />
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
         <div style={{ minWidth: 320, flex: 1 }}>
           <h4 style={{ margin: "4px 0" }}>Services appris ({services.length})</h4>
@@ -105,10 +181,12 @@ function VmDetail({ vm }) {
   );
 }
 
-function NodeCard({ node, selected, onSelect }) {
+function NodeCard({ node, selected, onSelect, history }) {
   const n = node.node || {};
   const vms = (node.vms || []).filter((v) => !v.template);
   const running = vms.filter((v) => v.status === "running").length;
+  const nb = nodeBackupSummary(node);
+  const na = nodeAccessSummary(node);
   return (
     <div className="panel" style={{ marginBottom: 12 }}>
       <h3 style={{ margin: "4px 0 8px" }}>
@@ -125,9 +203,17 @@ function NodeCard({ node, selected, onSelect }) {
       {(node.warnings || []).length > 0 && (
         <p className="muted" style={{ fontSize: 12 }}>⚠️ {node.warnings.join(" · ")}</p>
       )}
+      {(nb || na) && (
+        <p style={{ fontSize: 12, margin: "0 0 8px" }}>
+          {nb && <>Sauvegardes 24 h : <Tone tone={nb.tone}>{nb.ok24} OK · {nb.failed24} en échec</Tone> <span className="muted">· {nb.enabledJobs}/{nb.jobs.length} job(s) actif(s)</span>{" "}</>}
+          {na && <>· Accès hyperviseur 24 h : <Tone tone={na.tone}>{na.requests} requêtes · {na.authFailures} échec(s) d'authentification · SSH {na.sshAccepted} accepté(s) / {na.sshFailed} refusé(s)</Tone>
+            {na.users.length > 0 && <span className="muted"> · {na.users.slice(0, 4).join(", ")}</span>}
+            {na.sshLast && <span className="muted"> · dernier SSH : {na.sshLast}</span>}</>}
+        </p>
+      )}
       <div className="hub-table-scroll">
         <table>
-          <thead><tr><th>VM</th><th>Type</th><th>État</th><th>IP apprises</th><th>CPU/RAM</th><th>Disque</th><th>Snapshots</th><th>Dernier backup</th><th>Services</th></tr></thead>
+          <thead><tr><th>VM</th><th>Type</th><th>État</th><th>Dispo. 7 j</th><th>IP apprises</th><th>CPU/RAM</th><th>Disque</th><th>Snapshots</th><th>Sauvegarde</th><th>Accès 24 h</th><th>Services</th></tr></thead>
           <tbody>{vms.map((vm) => {
             const key = `${node.agent_id}/${vm.vmid}`;
             return (
@@ -136,14 +222,19 @@ function NodeCard({ node, selected, onSelect }) {
                   <td><strong>{vm.name || `vm ${vm.vmid}`}</strong> <span className="muted">#{vm.vmid}</span></td>
                   <td className="muted">{vm.type}</td>
                   <td><Tone tone={vmTone(vm)}>{vm.status === "running" ? "en marche" : vm.status || "?"}</Tone></td>
+                  <td style={{ fontSize: 12 }}>{(() => { const av = availabilityOf(history, vm.vmid); return <Tone tone={av.tone}>{av.text}</Tone>; })()}</td>
                   <td style={{ fontSize: 12 }}>{(vm.ips || []).length ? vm.ips.map((a) => <code key={a} style={{ marginRight: 4 }}>{a}</code>) : <span className="muted">—</span>}</td>
                   <td className="muted" style={{ fontSize: 12 }}>{vm.cpu != null ? `${(vm.cpu * 100).toFixed(0)} %` : "—"} · {fmtBytes(vm.mem)}/{fmtBytes(vm.maxmem)}</td>
                   <td className="muted" style={{ fontSize: 12 }}>{fmtBytes(vm.disk)}/{fmtBytes(vm.maxdisk)}</td>
                   <td style={{ fontSize: 12 }}>{(vm.snapshots || []).length ? vm.snapshots.map((s) => <span key={s.name} title={s.description || ""}>📸 {s.name} <span className="muted">({fmtAge(s.age_s)})</span> </span>) : <span className="muted">—</span>}</td>
-                  <td style={{ fontSize: 12 }}>{vm.last_backup ? <>il y a {fmtAge(vm.last_backup.age_s)}</> : <Tone tone="warning">jamais</Tone>}</td>
+                  <td style={{ fontSize: 12 }}>{(() => { const b = backupSummary(vm); return (
+                    <>{vm.last_backup ? <>il y a {fmtAge(vm.last_backup.age_s)}</> : <Tone tone="warning">jamais</Tone>}
+                      {b.last && <> <Tone tone={backupRunTone(b.last)} title={`dernière tâche vzdump : ${b.last.status}`}>{b.last.ok === true ? "✓" : b.last.ok === false ? "✗" : "…"}</Tone></>}
+                      {b.failStreak >= 2 && <> <Tone tone="critical">{b.failStreak}×</Tone></>}</>); })()}</td>
+                  <td style={{ fontSize: 12 }}>{(() => { const a = accessSummary(vm); return <Tone tone={a.tone}>{a.text}</Tone>; })()}</td>
                   <td className="muted" style={{ fontSize: 12 }}>{(vm.services || []).length ? `${vm.services.length} port(s) · ${(vm.urls || []).length} URL` : "—"}</td>
                 </tr>
-                {selected === key && <tr><td colSpan={9}><VmDetail vm={vm} /></td></tr>}
+                {selected === key && <tr><td colSpan={11}><VmDetail vm={vm} history={history} /></td></tr>}
               </React.Fragment>
             );
           })}</tbody>
@@ -188,12 +279,19 @@ export default function ProxmoxView({ onBack, siAgentApiBase }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [histories, setHistories] = useState({});
 
   const load = useCallback(async () => {
     const data = await fetchProxmox(siAgentApiBase);
     setNodes(data);
     setError(null);
     setLoading(false);
+    // #504 : disponibilité 7 j par hyperviseur, jamais bloquante
+    const next = {};
+    await Promise.all(data.map(async (n) => {
+      try { next[n.agent_id] = await fetchProxmoxHistory(siAgentApiBase, n.agent_id, 168); } catch { next[n.agent_id] = null; }
+    }));
+    setHistories(next);
   }, [siAgentApiBase]);
 
   useEffect(() => { load(); const id = setInterval(load, REFRESH_MS); return () => clearInterval(id); }, [load]);
@@ -204,7 +302,7 @@ export default function ProxmoxView({ onBack, siAgentApiBase }) {
         <button className="secondary" onClick={onBack}>← Retour</button>{" "}
         <strong>Hyperviseurs Proxmox</strong>{" "}
         <span className="muted" style={{ fontSize: 12 }}>
-          — remontés par le plugin si-agent « proxmox » (VM, snapshots, backups, stockages, ZFS, services et URLs appris par exploration)
+          — remontés par le plugin si-agent « proxmox » (VM, disponibilité, snapshots, sauvegardes, accès, journaux internes, stockages, ZFS, services et URLs appris)
         </span>
       </div>
       {error && <p><Tone tone="critical">{error}</Tone></p>}
@@ -214,7 +312,7 @@ export default function ProxmoxView({ onBack, siAgentApiBase }) {
             Aucun hyperviseur ne remonte. Installer si-agent sur chaque Proxmox puis activer le plugin
             (<code>--enable-plugin proxmox</code> ou catalogue central) — premier relevé sous 30 min.
           </p></div>
-        ) : nodes.map((n) => <NodeCard key={n.agent_id} node={n} selected={selected} onSelect={setSelected} />)}
+        ) : nodes.map((n) => <NodeCard key={n.agent_id} node={n} selected={selected} onSelect={setSelected} history={histories[n.agent_id]} />)}
     </div>
   );
 }

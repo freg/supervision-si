@@ -48,6 +48,10 @@ export async function fetchProxmox(apiBase, site) {
   return Array.isArray(data?.proxmox) ? data.proxmox : [];
 }
 
+// #504 : disponibilité des VM d'un hyperviseur (échantillons du plugin)
+export const fetchProxmoxHistory = (apiBase, agentId, hours = 168) =>
+  fetchJson(apiBase, `/proxmox/history?agent_id=${encodeURIComponent(agentId)}&hours=${hours}`);
+
 export async function fetchFleetRisks(apiBase) {
   const data = await fetchJson(apiBase, "/risks");
   return Array.isArray(data?.risks) ? data.risks : [];

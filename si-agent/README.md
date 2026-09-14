@@ -589,6 +589,86 @@ la collecte continue). `measured_as` sur l'entrée, « (uid N) » dans la
 tuile. Agent 0.3.3. Marche à suivre : `README-DEPLOIEMENT.md`, section
 « Montages réseau et FUSE ».
 
+## Stockage de l'hôte Linux : volumes, partitions, systèmes de fichiers (livraison #503)
+
+Demandé : « compléter l'agent linux sur la gestion de Z{volume/partition/fs} ».
+La mesure `host` embarque désormais une section `storage`
+(`si_agent/storage.py`), quatre couches facultatives (outil absent =
+couche absente, jamais une erreur ; `available` dit lesquelles ont
+répondu) :
+
+| Couche | Source | Contenu |
+|---|---|---|
+| blocs | `lsblk -J -b` | disques, partitions, LVM, md, zvols : type, taille, FS, montage, parent, modèle, HDD/SSD, amovible |
+| LVM | `pvs` / `vgs` / `lvs --reportformat json` | PV, VG (taille, libre), LV (genre linear/thin/thin-pool/raid…, pool, origine, **occupation données/métadonnées des thin pools**) |
+| RAID logiciel | `/proc/mdstat` | niveau, membres, actifs/total, **dégradé**, reconstruction en cours |
+| ZFS | `zpool list/status`, `zfs list` | pools (santé, alloué/libre, **capacité**, fragmentation, erreurs par disque, **dernier scrub**), datasets et zvols (utilisé, disponible, quota/volsize, compression), **snapshots agrégés par dataset** (nombre, espace, plus ancien, plus récent — jamais la liste brute) |
+
+Risques dérivés (`risks.evaluate_storage`) : pool ZFS `FAULTED/UNAVAIL`
+ou `DEGRADED` → critique ; capacité ZFS ≥ 80 % avertissement, ≥ 90 %
+critique (seuils plus bas que les FS : copy-on-write) ; erreurs
+d'E/S/checksum → avertissement ; scrub > 35 jours ou jamais → info ;
+dataset ≥ 90 % de son quota → avertissement ; thin pool LVM ≥ 85/95 %
+→ avertissement/critique ; md dégradé → critique, resync → info. Seuils
+surchargeables par `risk_thresholds` comme les autres. Tuile Agents
+hôtes : section **Stockage** (pools, datasets/zvols, LVM, RAID, arbre
+des blocs). Tests : `tests/test_storage.py` (parseurs sur sorties
+représentatives, collecte contre faux runner, risques).
+
+## Proxmox : disponibilité, sauvegardes, accès, journaux internes (livraison #504)
+
+Plugin `proxmox` **v3** (voir aussi #487, #488) — « superviser l'état /
+disponibilité des VM, un suivi des backup/snapshot, le log des accès VM
+(ssh, http/https) et la récupération des logs internes » :
+
+- **Disponibilité** : le central garde chaque passage du plugin
+  (30 min) ; `GET /proxmox/history?agent_id=&hours=168` donne par VM le
+  taux de relevés « en marche », les transitions d'état ; à chaque
+  mesure reçue, un **événement** est journalisé quand une VM change
+  d'état (arrêt d'une VM en marche = avertissement, reprise = info,
+  VM apparue/disparue = info) — visibles dans le journal de la tuile
+  Agents hôtes et notifiés comme les autres.
+- **Sauvegardes** : en plus du dernier fichier par VM (#487), les
+  **tâches vzdump** (`/nodes/<n>/tasks?typefilter=vzdump`, 200
+  dernières : résultat OK / erreur / en cours, durée, utilisateur, par
+  VM ou job global) et les **jobs planifiés** (`/cluster/backup` :
+  planning, stockage, VM couvertes, actif). Par VM : 5 dernières
+  exécutions, dernier résultat, jobs qui la couvrent ; par hyperviseur :
+  OK / échecs sur 24 h. Snapshots inchangés (liste avec âge).
+- **Accès** (fenêtre 24 h) : journal `pveproxy` (`/var/log/pveproxy/
+  access.log`, fin bornée à 2 Mo) → par VM : **sessions console**
+  (vncproxy/termproxy/spice), modifications (POST/PUT/DELETE),
+  consultations, utilisateurs, adresses, dernier accès ; pour
+  l'hyperviseur : requêtes, utilisateurs, adresses, **401**. SSH de
+  l'hyperviseur (`journalctl -u ssh`) : acceptés par utilisateur@IP,
+  refus par IP, dernier accepté. Échecs d'authentification
+  `pvedaemon`/`pveproxy` (journal).
+- **Journaux internes des VM** : pour chaque VM en marche avec
+  qemu-guest-agent (`agent/exec` + `exec-status`, borné à 10 s) ou
+  chaque conteneur (`pct exec`), lecture du journal **sshd**
+  (`journalctl _COMM=sshd`, repli `auth.log`/`secure`) et des journaux
+  **web** (nginx/apache, format combiné) — 300 lignes, résumés
+  (acceptés/refusés/utilisateurs inconnus, requêtes par classe de
+  statut, clients, chemins) + **extrait brut** (16 Ko max par journal)
+  consultable dans la tuile. **Tourniquet de 15 VM par passage** pour
+  borner la durée ; rien n'est jamais écrit dans l'invité ; une VM
+  sans agent ou dont l'agent interdit `exec` est signalée, pas
+  bloquante. Aucun mot de passe : tout passe par `pvesh`/`pct` en
+  root local.
+- Tuile **Proxmox** : colonnes Dispo. 7 j, Sauvegarde (dernier fichier
+  + résultat de la dernière tâche, série d'échecs), Accès 24 h ; fiche
+  dépliée avec transitions d'état, exécutions de sauvegarde, accès
+  (utilisateurs, adresses, dernière console), journaux internes (SSH,
+  web, extraits). En tête d'hyperviseur : sauvegardes 24 h, accès et
+  SSH de l'hôte.
+
+Manifeste : `timeout_seconds` 600 (journaux invités). Tests :
+`test_proxmox_plugin.py` (UPID, tâches, jobs, journal pveproxy avec
+fenêtre, sshd, web, tourniquet, disponibilité, exec borné, collecte
+complète contre faux `pvesh`/`pct`/`journalctl`), `test_si_agent_api.py`
+(disponibilité et événements sur mesures successives), Node
+(`proxmoxLib.test.mjs`).
+
 ## Tests
 
 ```bash

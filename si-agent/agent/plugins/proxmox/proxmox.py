@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Plugin si-agent « proxmox » (livraison #487) -- supervision d'un
-hyperviseur Proxmox VE : VM/CT, snapshots, backups, stockages, ZFS.
+"""Plugin si-agent « proxmox » (livraison #487, apprentissage #488,
+suivi/accès/journaux #504) -- supervision d'un hyperviseur Proxmox VE :
+VM/CT, snapshots, backups (fichiers ET tâches vzdump, jobs planifiés),
+stockages, ZFS, accès (console/API par VM, SSH et échecs
+d'authentification de l'hyperviseur), journaux internes des VM.
 
 Demandé : « un agent proxmox qui supervise le host comme un agent linux
 et l'ensemble des vm, snapshot, backup, disques des vm, zfs ». Le host
@@ -35,6 +38,29 @@ import time
 
 PVESH_TIMEOUT = 20          # appel pvesh courant
 GUEST_AGENT_TIMEOUT = 8     # appel qemu-guest-agent (peut pendre)
+
+# -- suivi et accès (#504) --------------------------------------------------
+# « superviser l'état / disponibilité des VM, un suivi des backup/snapshot,
+# le log des accès VM (ssh, http/https) et la récupération des logs
+# internes ». Tout est BORNÉ : nombre de tâches lues, lignes de journal,
+# taille des extraits rapportés, VM interrogées par passage.
+ACCESS_WINDOW_S = 24 * 3600
+PVEPROXY_ACCESS_LOG = "/var/log/pveproxy/access.log"
+PVEPROXY_TAIL_BYTES = 2 * 1024 * 1024      # ~10 000 lignes d'accès
+TASKS_LIMIT = 200
+GUEST_LOG_LINES = 300
+GUEST_RAW_MAX = 16 * 1024                  # extrait brut conservé par journal et par VM
+GUEST_EXEC_TIMEOUT = 10
+GUEST_LOGS_PER_PASS = 15                   # VM interrogées par passage (tourniquet)
+CONSOLE_RE = re.compile(r"/(vncproxy|termproxy|spiceproxy|vncwebsocket)\b")
+ACCESS_LINE_RE = re.compile(
+    r"^(?P<ip>\S+) - (?P<user>\S+) \[(?P<ts>[^\]]+)\] \"(?P<method>[A-Z]+) (?P<path>\S+)[^\"]*\" (?P<status>\d{3})")
+GUEST_PATH_RE = re.compile(r"/nodes/[^/]+/(qemu|lxc)/(\d+)(/|$|\?)")
+SSH_ACCEPTED_RE = re.compile(r"Accepted (?P<method>\S+) for (?P<user>\S+) from (?P<ip>\S+) port")
+SSH_FAILED_RE = re.compile(r"Failed (?:password|publickey|none) for (?:invalid user )?(?P<user>\S+) from (?P<ip>\S+) port")
+SSH_INVALID_RE = re.compile(r"Invalid user (?P<user>\S+) from (?P<ip>\S+)")
+WEB_LINE_RE = re.compile(r"^(?P<ip>\S+) \S+ \S+ \[(?P<ts>[^\]]+)\] \"(?P<method>[A-Z]+) (?P<path>\S+)[^\"]*\" (?P<status>\d{3})")
+UPID_RE = re.compile(r"^UPID:(?P<node>[^:]+):(?P<pid>[0-9A-Fa-f]+):(?P<pstart>[0-9A-Fa-f]+):(?P<start>[0-9A-Fa-f]+):(?P<type>[^:]+):(?P<id>[^:]*):(?P<user>[^:]*):")
 LOOPBACK_RE = re.compile(r"^(127\.|::1$|fe80:)", re.I)
 VZDUMP_RE = re.compile(r"vzdump-(?:qemu|lxc)-(\d+)-")
 
@@ -191,6 +217,198 @@ def assemble(node, vms, storages, zfs, warnings):
             "warnings": warnings, "collected_at": int(time.time())}
 
 
+# ---------------------------------------------------------------- pur (#504)
+
+def parse_upid(upid):
+    """UPID Proxmox -> {node, type, id, user, starttime} ou None."""
+    m = UPID_RE.match(upid or "")
+    if not m:
+        return None
+    return {"node": m.group("node"), "type": m.group("type"), "id": m.group("id") or None,
+            "user": m.group("user") or None, "starttime": int(m.group("start"), 16)}
+
+
+def backup_runs(tasks, now=None):
+    """Tâches vzdump (`/nodes/<n>/tasks?typefilter=vzdump`) -> exécutions
+    de sauvegarde : {upid, vmid, user, at, ended_at, duration_s, ok,
+    status}, les plus récentes d'abord. Une tâche de JOB (plusieurs VM)
+    a `vmid: None` -- elle compte dans le suivi global, pas par VM."""
+    now = time.time() if now is None else now
+    runs = []
+    for t in tasks or []:
+        if (t.get("type") or "") != "vzdump":
+            continue
+        info = parse_upid(t.get("upid") or "") or {}
+        vmid = t.get("id") if t.get("id") not in (None, "") else info.get("id")
+        try:
+            vmid = int(vmid)
+        except (TypeError, ValueError):
+            vmid = None
+        start = t.get("starttime") or info.get("starttime")
+        end = t.get("endtime")
+        status = t.get("status")
+        running = end in (None, 0, "") and status in (None, "", "RUNNING")
+        runs.append({"upid": t.get("upid"), "vmid": vmid, "user": t.get("user") or info.get("user"),
+                     "at": start, "age_s": max(0, int(now - start)) if start else None,
+                     "ended_at": end or None, "duration_s": (end - start) if (end and start) else None,
+                     "ok": None if running else (status == "OK"), "status": "en cours" if running else (status or "?")})
+    runs.sort(key=lambda r: r["at"] or 0, reverse=True)
+    return runs
+
+
+def backup_jobs(rows):
+    """`/cluster/backup` -> jobs planifiés lisibles."""
+    out = []
+    for j in rows or []:
+        out.append({"id": j.get("id"), "enabled": j.get("enabled") not in (0, "0", False),
+                    "schedule": j.get("schedule") or (("%s %s" % (j.get("dow") or "", j.get("starttime") or "")).strip() or None),
+                    "storage": j.get("storage"), "vmids": [int(x) for x in str(j.get("vmid") or "").split(",") if x.strip().isdigit()],
+                    "all": bool(j.get("all")), "mode": j.get("mode"), "compress": j.get("compress"),
+                    "prune": j.get("prune-backups") or j.get("maxfiles"), "next_run": j.get("next-run"), "comment": j.get("comment")})
+    return out
+
+
+def _parse_clf_time(ts):
+    """`13/Sep/2026:10:22:01 +0200` -> epoch (fuseau appliqué) ou None."""
+    try:
+        base = time.strptime(ts[:20], "%d/%b/%Y:%H:%M:%S")
+        offset = ts[21:26] if len(ts) > 25 else "+0000"
+        sign = -1 if offset[0] == "-" else 1
+        tz = sign * (int(offset[1:3]) * 3600 + int(offset[3:5]) * 60)
+        import calendar
+        return calendar.timegm(base) - tz
+    except (ValueError, IndexError):
+        return None
+
+
+def parse_pveproxy_access(text, now=None, window_s=ACCESS_WINDOW_S):
+    """Journal d'accès pveproxy (HTTPS de l'hyperviseur : GUI, API,
+    consoles) sur la fenêtre -> {host: {...}, by_vm: {vmid: {...}}}.
+    Par VM : sessions console (vncproxy/termproxy/spice), modifications
+    (POST/PUT/DELETE), consultations, utilisateurs, adresses, dernier
+    accès. Pour l'hyperviseur : requêtes, utilisateurs, adresses, échecs
+    d'authentification (401), dernier accès."""
+    now = time.time() if now is None else now
+    since = now - window_s
+    host = {"requests": 0, "auth_failures": 0, "users": {}, "ips": {}, "last_at": None}
+    by_vm = {}
+    for line in (text or "").splitlines():
+        m = ACCESS_LINE_RE.match(line)
+        if not m:
+            continue
+        at = _parse_clf_time(m.group("ts"))
+        if at is not None and at < since:
+            continue
+        user, ip, status, path, method = m.group("user"), m.group("ip"), int(m.group("status")), m.group("path"), m.group("method")
+        host["requests"] += 1
+        if status == 401:
+            host["auth_failures"] += 1
+        if user != "-":
+            host["users"][user] = host["users"].get(user, 0) + 1
+        host["ips"][ip] = host["ips"].get(ip, 0) + 1
+        if at and (host["last_at"] is None or at > host["last_at"]):
+            host["last_at"] = at
+        g = GUEST_PATH_RE.search(path)
+        if not g:
+            continue
+        vmid = int(g.group(2))
+        v = by_vm.setdefault(vmid, {"console_sessions": 0, "changes": 0, "views": 0, "users": {}, "ips": {}, "last_at": None, "last_console_at": None})
+        if CONSOLE_RE.search(path) and method == "POST":
+            v["console_sessions"] += 1
+            if at and (v["last_console_at"] is None or at > v["last_console_at"]):
+                v["last_console_at"] = at
+        elif method in ("POST", "PUT", "DELETE"):
+            v["changes"] += 1
+        else:
+            v["views"] += 1
+        if user != "-":
+            v["users"][user] = v["users"].get(user, 0) + 1
+        v["ips"][ip] = v["ips"].get(ip, 0) + 1
+        if at and (v["last_at"] is None or at > v["last_at"]):
+            v["last_at"] = at
+    return {"host": host, "by_vm": by_vm}
+
+
+def _top(counter, n=5):
+    return [{"key": k, "count": c} for k, c in sorted((counter or {}).items(), key=lambda kv: (-kv[1], kv[0]))[:n]]
+
+
+def parse_ssh_journal(text):
+    """Lignes sshd (journalctl / auth.log) -> {accepted, failed, invalid,
+    accepted_by_user, failed_by_ip, last_accepted}."""
+    out = {"accepted": 0, "failed": 0, "invalid_users": 0, "accepted_by_user": {}, "failed_by_ip": {}, "last_accepted": None}
+    for line in (text or "").splitlines():
+        m = SSH_ACCEPTED_RE.search(line)
+        if m:
+            out["accepted"] += 1
+            key = "%s@%s" % (m.group("user"), m.group("ip"))
+            out["accepted_by_user"][key] = out["accepted_by_user"].get(key, 0) + 1
+            out["last_accepted"] = {"user": m.group("user"), "ip": m.group("ip"), "method": m.group("method"),
+                                    "line": line.strip()[:160]}
+            continue
+        m = SSH_FAILED_RE.search(line)
+        if m:
+            out["failed"] += 1
+            out["failed_by_ip"][m.group("ip")] = out["failed_by_ip"].get(m.group("ip"), 0) + 1
+            continue
+        if SSH_INVALID_RE.search(line):
+            out["invalid_users"] += 1
+    out["accepted_by_user"] = _top(out["accepted_by_user"])
+    out["failed_by_ip"] = _top(out["failed_by_ip"])
+    return out
+
+
+def parse_web_access(text):
+    """Journal d'accès web (format combiné nginx/apache) -> {hits,
+    status: {2xx, 3xx, 4xx, 5xx}, top_ips, top_paths, last_at}."""
+    out = {"hits": 0, "status": {"2xx": 0, "3xx": 0, "4xx": 0, "5xx": 0}, "top_ips": {}, "top_paths": {}, "last_at": None}
+    for line in (text or "").splitlines():
+        m = WEB_LINE_RE.match(line)
+        if not m:
+            continue
+        out["hits"] += 1
+        cls = "%sxx" % m.group("status")[0]
+        if cls in out["status"]:
+            out["status"][cls] += 1
+        out["top_ips"][m.group("ip")] = out["top_ips"].get(m.group("ip"), 0) + 1
+        path = m.group("path").split("?")[0][:120]
+        out["top_paths"][path] = out["top_paths"].get(path, 0) + 1
+        at = _parse_clf_time(m.group("ts"))
+        if at and (out["last_at"] is None or at > out["last_at"]):
+            out["last_at"] = at
+    out["top_ips"] = _top(out["top_ips"])
+    out["top_paths"] = _top(out["top_paths"])
+    return out
+
+
+def pick_guest_batch(vmids, now, per_pass=GUEST_LOGS_PER_PASS):
+    """Tourniquet : les VM interrogées à ce passage (bornage du temps de
+    collecte), décalé à chaque demi-heure."""
+    ids = sorted(vmids)
+    if len(ids) <= per_pass:
+        return ids
+    offset = (int(now // 1800) * per_pass) % len(ids)
+    return (ids + ids)[offset:offset + per_pass]
+
+
+def availability_from_states(states):
+    """[(at, status)] -> {samples, running, availability_percent,
+    transitions: [{at, from, to}]} -- calcul PUR, aussi utilisé côté
+    central (copie dans si-agent/api/store.py)."""
+    samples = [(a, s) for a, s in states if a is not None]
+    samples.sort()
+    running = sum(1 for _, s in samples if s == "running")
+    transitions = []
+    prev = None
+    for at, st in samples:
+        if prev is not None and st != prev:
+            transitions.append({"at": at, "from": prev, "to": st})
+        prev = st
+    return {"samples": len(samples), "running": running,
+            "availability_percent": round(100.0 * running / len(samples), 1) if samples else None,
+            "transitions": transitions[-50:]}
+
+
 # ---------------------------------------------------------------- io
 
 class Pve(object):
@@ -220,6 +438,65 @@ class Pve(object):
         if code != 0:
             raise RuntimeError((err or "zpool a échoué").strip()[:300])
         return out
+
+    def run(self, cmd, timeout=PVESH_TIMEOUT):
+        """Commande locale quelconque (journalctl, pct) ; lève RuntimeError."""
+        code, out, err = self._runner(cmd, timeout)
+        if code != 0:
+            raise RuntimeError((err or out or "%s a échoué" % cmd[0]).strip()[:300])
+        return out
+
+    @staticmethod
+    def tail_file(path, max_bytes=PVEPROXY_TAIL_BYTES):
+        """Fin d'un fichier texte (bornée) ; None s'il est absent/illisible."""
+        try:
+            with open(path, "rb") as fh:
+                fh.seek(0, 2)
+                size = fh.tell()
+                fh.seek(max(0, size - max_bytes))
+                data = fh.read()
+            if size > max_bytes:
+                data = data.split(b"\n", 1)[-1]  # première ligne tronquée écartée
+            return data.decode("utf-8", "replace")
+        except OSError:
+            return None
+
+    def guest_exec(self, node, vmid, kind, argv, timeout=GUEST_EXEC_TIMEOUT):
+        """Exécute `argv` DANS l'invité : qemu-guest-agent (`agent/exec` puis
+        `agent/exec-status` jusqu'à la fin, borné) ou `pct exec` pour un
+        conteneur. Retourne stdout (str) ; lève RuntimeError."""
+        if kind == "lxc":
+            return self.run(["pct", "exec", str(vmid), "--"] + list(argv), timeout)
+        cmd = ["pvesh", "create", "/nodes/%s/qemu/%s/agent/exec" % (node, vmid), "--output-format", "json"]
+        for a in argv:
+            cmd += ["--command", a]
+        code, out, err = self._runner(cmd, timeout)
+        if code != 0:
+            raise RuntimeError((err or out or "agent/exec a échoué").strip()[:300])
+        try:
+            pid = json.loads(out).get("pid")
+        except (ValueError, AttributeError):
+            raise RuntimeError("agent/exec : réponse invalide")
+        if pid is None:
+            raise RuntimeError("agent/exec : pas de pid (agent invité absent ou exec interdit)")
+        deadline = time.time() + timeout
+        while True:
+            code, out, err = self._runner(["pvesh", "get", "/nodes/%s/qemu/%s/agent/exec-status" % (node, vmid),
+                                           "--pid", str(pid), "--output-format", "json"], timeout)
+            if code != 0:
+                raise RuntimeError((err or "agent/exec-status a échoué").strip()[:300])
+            try:
+                st = json.loads(out)
+            except ValueError:
+                raise RuntimeError("agent/exec-status : réponse invalide")
+            if st.get("exited"):
+                data = st.get("out-data") or ""
+                if st.get("out-truncated"):
+                    data += "\n[… tronqué par l'agent invité]"
+                return data
+            if time.time() > deadline:
+                raise RuntimeError("agent/exec : délai dépassé (pid %s)" % pid)
+            time.sleep(0.3)
 
 
 def collect(pve, hostname=None, now=None, connector=None):
@@ -328,7 +605,83 @@ def collect(pve, hostname=None, now=None, connector=None):
     if connector is not None:
         learn_host(vms, connector, warnings)
 
-    return assemble(node_info, vms, storages, zfs, warnings)
+    # -- #504 : suivi des sauvegardes (tâches vzdump + jobs) ----------------
+    runs, jobs = [], []
+    try:
+        runs = backup_runs(pve.pvesh("/nodes/%s/tasks?typefilter=vzdump&limit=%d&source=all" % (node, TASKS_LIMIT)), now)
+    except RuntimeError as exc:
+        warnings.append("tâches de sauvegarde : %s" % exc)
+    try:
+        jobs = backup_jobs(pve.pvesh("/cluster/backup"))
+    except RuntimeError as exc:
+        warnings.append("jobs de sauvegarde : %s" % exc)
+    by_vm_runs = {}
+    for r in runs:
+        if r["vmid"] is not None:
+            by_vm_runs.setdefault(r["vmid"], []).append(r)
+    for vm in vms:
+        vm["backup_runs"] = by_vm_runs.get(vm["vmid"], [])[:5]
+        vm["last_backup_run"] = vm["backup_runs"][0] if vm["backup_runs"] else None
+        vm["backup_jobs"] = [j["id"] for j in jobs if j["all"] or vm["vmid"] in j["vmids"]]
+    backups_section = {"runs": runs[:50], "jobs": jobs,
+                       "failed_24h": sum(1 for r in runs if r["ok"] is False and (r["age_s"] or 0) <= 86400),
+                       "ok_24h": sum(1 for r in runs if r["ok"] and (r["age_s"] or 0) <= 86400)}
+
+    # -- #504 : accès à l'hyperviseur et aux VM (pveproxy, SSH, échecs) ----
+    access = {"host": None, "ssh": None, "auth_failures_24h": None, "window_s": ACCESS_WINDOW_S}
+    txt = pve.tail_file(PVEPROXY_ACCESS_LOG)
+    if txt is None:
+        warnings.append("accès : %s illisible" % PVEPROXY_ACCESS_LOG)
+        by_vm_access = {}
+    else:
+        parsed = parse_pveproxy_access(txt, now)
+        access["host"] = dict(parsed["host"], users=_top(parsed["host"]["users"]), ips=_top(parsed["host"]["ips"]))
+        by_vm_access = parsed["by_vm"]
+    try:
+        access["ssh"] = parse_ssh_journal(pve.run(["journalctl", "-u", "ssh", "-u", "sshd", "-S", "-24h", "-o", "short-iso", "--no-pager", "-q"]))
+    except RuntimeError as exc:
+        warnings.append("accès SSH de l'hyperviseur : %s" % exc)
+    try:
+        auth = pve.run(["journalctl", "-t", "pvedaemon", "-t", "pveproxy", "-S", "-24h", "-g", "authentication failure", "--no-pager", "-q", "-o", "cat"])
+        access["auth_failures_24h"] = sum(1 for line in auth.splitlines() if line.strip())
+    except RuntimeError:
+        access["auth_failures_24h"] = None
+    for vm in vms:
+        a = by_vm_access.get(vm["vmid"])
+        vm["access"] = dict(a, users=_top(a["users"]), ips=_top(a["ips"])) if a else None
+
+    # -- #504 : journaux internes des VM (agent invité / pct), tourniquet --
+    candidates = {vm["vmid"]: vm for vm in vms if vm.get("status") == "running" and not vm.get("template")
+                  and (vm["type"] == "lxc" or vm.get("agent"))}
+    for vmid in pick_guest_batch(list(candidates), now):
+        vm = candidates[vmid]
+        vm["guest_logs"] = collect_guest_logs(pve, node, vm, warnings, now)
+
+    measure = assemble(node_info, vms, storages, zfs, warnings)
+    measure["backups"] = backups_section
+    measure["access"] = access
+    return measure
+
+
+def collect_guest_logs(pve, node, vm, warnings, now=None):
+    """Journaux INTERNES d'une VM (#504) : accès SSH (journal sshd ou
+    auth.log) et accès web (nginx/apache, format combiné), résumés +
+    extrait brut borné. Rien n'est jamais écrit dans l'invité."""
+    now = time.time() if now is None else now
+    out = {"collected_at": int(now), "ssh": None, "web": None, "raw": {}, "errors": []}
+    kind = vm["type"]
+    ssh_cmd = ["sh", "-c", "journalctl -q --no-pager -o short-iso -S -24h -n %d _COMM=sshd 2>/dev/null || tail -n %d /var/log/auth.log /var/log/secure 2>/dev/null" % (GUEST_LOG_LINES, GUEST_LOG_LINES)]
+    web_cmd = ["sh", "-c", "tail -q -n %d /var/log/nginx/access.log /var/log/apache2/access.log /var/log/httpd/access_log 2>/dev/null" % GUEST_LOG_LINES]
+    for key, cmd, parser in (("ssh", ssh_cmd, parse_ssh_journal), ("web", web_cmd, parse_web_access)):
+        try:
+            text = pve.guest_exec(node, vm["vmid"], kind, cmd)
+        except (RuntimeError, subprocess.TimeoutExpired) as exc:
+            out["errors"].append("%s : %s" % (key, exc))
+            warnings.append("journaux de %s (%s) : %s" % (vm["vmid"], key, exc))
+            continue
+        out[key] = parser(text)
+        out["raw"][key] = text[-GUEST_RAW_MAX:] if text else ""
+    return out
 
 
 # ------------------------------------------------- apprentissage (#488)
