@@ -1700,12 +1700,12 @@ est trop riche, la colonne centrale suffit, sans icône, en tableau
 tout aligné à gauche » — puis « conserve le premier design mais en
 option paramétrable ». Deux modes dans l'en-tête du portail :
 
-- **complet** (défaut, design d'origine) : trois colonnes
-  (localisations, codes, utilisation), pictogrammes ;
-- **simple** : colonne centrale seule, liste des codes en **tableau**
+- **simple** (défaut depuis #502) : colonne centrale seule, liste des codes en **tableau**
   (Libellé, Localisation, Collection) aligné à gauche, aucun
   pictogramme dans l'en-tête ni les onglets, filtre et tri conservés,
-  clic sur la ligne (ou Entrée) pour ouvrir le code.
+  clic sur la ligne (ou Entrée) pour ouvrir le code ;
+- **complet** (design d'origine, en option) : trois colonnes
+  (localisations, codes, utilisation), pictogrammes.
 
 Bascule « Affichage simple / Affichage complet » dans l'en-tête,
 mémorisée par navigateur (`localStorage`) ; défaut d'installation

@@ -14,7 +14,7 @@ clés listées, dans votre `.env` existant.
 
 ## 2026-09-14 — coffre-fort, affichage (livraison #501)
 
-- `VAULT_UI_MODE` (défaut `complet`) — affichage par défaut du portail
+- `VAULT_UI_MODE` (défaut `simple` depuis #502) — affichage par défaut du portail
   coffre-fort : `complet` (design d'origine) ou `simple` (colonne
   centrale en tableau, sans pictogramme). Optionnelle.
 

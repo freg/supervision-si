@@ -1575,10 +1575,10 @@ services:
       # lecture seule des géolocalisations (jamais rien de sensible,
       # voir la décision de sécurité assumée) depuis Supervision SI.
       - VITE_PIXEL_GRID_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/pixel-grid
-      # Affichage du coffre (#501) : complet (défaut, trois colonnes) ou
-      # simple (colonne centrale en tableau, sans pictogramme) -- défaut
-      # d'installation, chaque navigateur peut basculer dans l'en-tête.
-      - VITE_VAULT_UI_MODE=${VAULT_UI_MODE:-complet}
+      # Affichage du coffre (#501, défaut inversé #502) : simple (défaut,
+      # colonne centrale en tableau, sans pictogramme) ou complet (trois
+      # colonnes) -- défaut d'installation, chaque navigateur peut basculer.
+      - VITE_VAULT_UI_MODE=${VAULT_UI_MODE:-simple}
     depends_on:
       - vault-api
       # keycloak retiré (livraison #135) -- voir tickets-api plus haut.

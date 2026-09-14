@@ -1,3 +1,12 @@
+## 2026-09-14 — coffre-fort : l'affichage simple devient le défaut (livraison #502)
+
+Demandé explicitement : « inverse le design par défaut du coffre-fort ».
+Le mode *simple* (#501) est désormais le défaut (`uiMode.js`,
+`VAULT_UI_MODE=simple`, valeur inconnue → simple) ; le design complet
+d'origine reste disponible par « Affichage complet » dans l'en-tête, et
+un choix déjà mémorisé par un navigateur est respecté. Test
+`uiMode.test.mjs` mis à jour ; syntaxe validée à l'esbuild.
+
 ## 2026-09-14 — coffre-fort : affichage simple en option, design complet conservé par défaut (livraison #501)
 
 Demandé explicitement : « les utilisateurs de cette appli sont habitués

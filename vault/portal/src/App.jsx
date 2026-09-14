@@ -1276,7 +1276,7 @@ export default function App() {
   const [isSystemMaster, setIsSystemMaster] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [uiMode, setUiMode] = useState(() => loadUiMode(import.meta.env.VITE_VAULT_UI_MODE || "complet"));
+  const [uiMode, setUiMode] = useState(() => loadUiMode(import.meta.env.VITE_VAULT_UI_MODE || "simple"));
   const simple = uiMode === "simple";
   const toggleUiMode = () => { const next = simple ? "complet" : "simple"; saveUiMode(next); setUiMode(next); };
 
