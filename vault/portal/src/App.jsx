@@ -18,6 +18,7 @@ import ObservationsScreen from "./ObservationsScreen.jsx";
 import LocationPicker from "./LocationPicker.jsx";
 import CopyableValue from "./CopyableValue.jsx";
 import FieldsEditor from "./FieldsEditor.jsx";
+import { loadUiMode, saveUiMode } from "./uiMode.js";
 
 // Coffre = identité Keycloak connue (contrairement à DBA/Supervision
 // SI) -- préférences liées au compte, même mécanisme que hub/portail
@@ -878,7 +879,9 @@ function CollectionDetail({ collection, collectionKey, login, isReadOnly }) {
 }
 
 // --- Vue principale une fois déverrouillé : liste des collections ---
-function VaultView({ login, privateKey, publicKeyBase64, onViewModeChange, isSystemMaster, isReadOnly }) {
+function VaultView({ login, privateKey, publicKeyBase64, onViewModeChange, isSystemMaster, isReadOnly, uiMode = "complet" }) {
+  const simple = uiMode === "simple";
+  const ico = (emoji) => (simple ? "" : emoji + " ");
   // "search" (recherche par localisation, PRIORITAIRE -- demandé
   // explicitement comme premier écran) par défaut, "collections"
   // (navigation existante par collection, préservée) en alternative.
@@ -1013,21 +1016,21 @@ function VaultView({ login, privateKey, publicKeyBase64, onViewModeChange, isSys
           className={viewMode === "search" ? "active" : ""}
           onClick={() => setViewMode("search")}
         >
-          🔍 Recherche
+          {ico("🔍")}Recherche
         </button>
         <button
           type="button"
           className={viewMode === "collections" ? "active" : ""}
           onClick={() => setViewMode("collections")}
         >
-          📁 Collections
+          {ico("📁")}Collections
         </button>
         <button
           type="button"
           className={viewMode === "observations" ? "active" : ""}
           onClick={() => setViewMode("observations")}
         >
-          📝 Observations
+          {ico("📝")}Observations
         </button>
         {isSystemMaster && (
           <button
@@ -1036,7 +1039,7 @@ function VaultView({ login, privateKey, publicKeyBase64, onViewModeChange, isSys
             onClick={() => setViewMode("dashboard")}
             title="Vue d'ensemble à travers tout le coffre — accès permanent (maître_système)"
           >
-            📊 Tableau de bord
+            {ico("📊")}Tableau de bord
           </button>
         )}
       </div>
@@ -1049,6 +1052,7 @@ function VaultView({ login, privateKey, publicKeyBase64, onViewModeChange, isSys
           isReadOnly={isReadOnly}
           onOpenSecret={handleOpenSecretFromSearch}
           onCollectionsChanged={loadCollections}
+          simple={simple}
         />
       )}
       {viewMode === "observations" && (
@@ -1272,6 +1276,9 @@ export default function App() {
   const [isSystemMaster, setIsSystemMaster] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [uiMode, setUiMode] = useState(() => loadUiMode(import.meta.env.VITE_VAULT_UI_MODE || "complet"));
+  const simple = uiMode === "simple";
+  const toggleUiMode = () => { const next = simple ? "complet" : "simple"; saveUiMode(next); setUiMode(next); };
 
   const login = auth.user?.profile?.preferred_username;
 
@@ -1337,26 +1344,33 @@ export default function App() {
   }
 
   return (
-    <div className="vault-shell">
+    <div className={`vault-shell${simple ? " vault-ui-simple" : ""}`}>
       <header className="vault-header">
-        <a href="/" className="vault-hub-link" title="Retour au hub">🏠 Hub</a>
-        <a href="/?view=settings" className="vault-hub-link" title="Paramètres (page dédiée dans le hub)">⚙️ Paramètres</a>
+        <a href="/" className="vault-hub-link" title="Retour au hub">{simple ? "Hub" : "🏠 Hub"}</a>
+        <a href="/?view=settings" className="vault-hub-link" title="Paramètres (page dédiée dans le hub)">{simple ? "Paramètres" : "⚙️ Paramètres"}</a>
         <button
           className="vault-hub-link"
           onClick={toggleTheme}
           title={theme === "dark" ? "Passer au thème clair" : "Passer au thème sombre"}
         >
-          {theme === "dark" ? "☀️" : "🌙"}
+          {simple ? (theme === "dark" ? "Thème clair" : "Thème sombre") : (theme === "dark" ? "☀️" : "🌙")}
         </button>
-        <h1>🔐 Coffre-fort</h1>
+        <button
+          className="vault-hub-link"
+          onClick={toggleUiMode}
+          title={simple ? "Revenir au design complet (trois colonnes, pictogrammes)" : "Affichage simple : colonne centrale seule, en tableau, sans pictogramme"}
+        >
+          {simple ? "Affichage complet" : "Affichage simple"}
+        </button>
+        <h1>{simple ? "Coffre-fort" : "🔐 Coffre-fort"}</h1>
         <div className="vault-header-right">
-          <span>👤 {login}</span>
+          <span>{simple ? login : `👤 ${login}`}</span>
           {accountState === "unlocked" && (
             <>
               <button onClick={() => setShowChangePassword(true)} title="Changer le mot de passe maître">
-                🔑 Mot de passe
+                {simple ? "Mot de passe" : "🔑 Mot de passe"}
               </button>
-              <button onClick={handleLock} title="Efface la clé de la mémoire — redemande le mot de passe">🔒 Verrouiller</button>
+              <button onClick={handleLock} title="Efface la clé de la mémoire — redemande le mot de passe">{simple ? "Verrouiller" : "🔒 Verrouiller"}</button>
             </>
           )}
           <button onClick={() => auth.signoutRedirect()}>Se déconnecter</button>
@@ -1391,6 +1405,7 @@ export default function App() {
             onViewModeChange={setVaultViewMode}
             isSystemMaster={isSystemMaster}
             isReadOnly={isReadOnly}
+            uiMode={uiMode}
           />
         )}
         {accountState === "unlocked" && !publicKeyBase64 && <p className="vault-muted">Chargement…</p>}

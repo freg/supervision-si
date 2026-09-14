@@ -815,3 +815,19 @@ button.secondary {
 
 .vault-archived-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
 .vault-secret-row-archived { opacity: 0.75; }
+
+
+/* --- Affichage simple (livraison #501) : colonne centrale seule, en
+   tableau, tout aligné à gauche, sans pictogramme. Le design complet
+   reste le défaut ; ce mode est un choix par navigateur (en-tête
+   « Affichage simple »), défaut d'installation VITE_VAULT_UI_MODE. --- */
+.vault-search-columns-simple { grid-template-columns: 1fr; max-width: 960px; }
+.vault-simple-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.95rem; }
+.vault-simple-table th, .vault-simple-table td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.vault-simple-table th { font-weight: 600; color: var(--muted); }
+.vault-simple-table tbody tr { cursor: pointer; }
+.vault-simple-table tbody tr:hover, .vault-simple-table tbody tr:focus { background: var(--bg-hover, rgba(41,128,185,.10)); outline: none; }
+.vault-ui-simple .vault-view-tabs button { border-radius: 0; }
+.vault-ui-simple .vault-card, .vault-ui-simple .vault-search-col, .vault-ui-simple .vault-search-secret-item { border-radius: 0; }
+.vault-ui-simple .vault-search-center-toolbar { justify-content: flex-start; }
+.vault-ui-simple h1, .vault-ui-simple h2, .vault-ui-simple h3 { text-align: left; }

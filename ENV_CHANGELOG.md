@@ -12,6 +12,12 @@ regarder l'entrée la plus récente en haut — si elle correspond à ce
 que vous avez déjà en `.env`, rien à faire. Sinon, copier/ajouter les
 clés listées, dans votre `.env` existant.
 
+## 2026-09-14 — coffre-fort, affichage (livraison #501)
+
+- `VAULT_UI_MODE` (défaut `complet`) — affichage par défaut du portail
+  coffre-fort : `complet` (design d'origine) ou `simple` (colonne
+  centrale en tableau, sans pictogramme). Optionnelle.
+
 ## 2026-09-13 — coffre des accès d'équipements (livraison #498)
 
 Nouvelles clés (insérées par sync-env.py, valeurs aléatoires pour les

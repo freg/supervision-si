@@ -1,3 +1,26 @@
+## 2026-09-14 — coffre-fort : affichage simple en option, design complet conservé par défaut (livraison #501)
+
+Demandé explicitement : « les utilisateurs de cette appli sont habitués
+à des interfaces très simples sans fioriture ; cet écran est trop
+riche, la colonne centrale suffit, sans icône, en tableau tout aligné
+à gauche » — puis « conserve le premier design mais en option
+paramétrable ».
+
+- **Deux modes** dans l'en-tête du portail coffre-fort : *complet*
+  (défaut, design d'origine à trois colonnes) et *simple* (colonne
+  centrale seule, codes en tableau Libellé / Localisation / Collection
+  aligné à gauche, aucun pictogramme dans l'en-tête, les onglets et le
+  filtre ; clic ou Entrée sur la ligne ouvre le code). Filtre, tri et
+  boutons d'ajout conservés.
+- Bascule mémorisée par navigateur (`uiMode.js`, `localStorage`) ;
+  défaut d'installation `VAULT_UI_MODE` (`.env` → `VITE_VAULT_UI_MODE`
+  sur `vault-portal`).
+- Vérifié : `vault/portal/tests/uiMode.test.mjs` (défaut, valeur
+  inconnue, mémorisation, stockage absent/cassé) ; syntaxe `App.jsx` /
+  `VaultSearchScreen.jsx` validée à l'esbuild. Non vérifié : rendu réel
+  du portail (Keycloak et API du coffre nécessaires) — à regarder sur
+  super après `--build` de `vault-portal`.
+
 ## 2026-09-14 — saisie publique de demandes : deux présentations sans icône, une clé par demande (livraison #500)
 
 Demandé explicitement : « une page hors hub et non authentifiée (mais

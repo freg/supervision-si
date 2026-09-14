@@ -1691,3 +1691,27 @@ et confirmation explicite que `grant_collection_access` reste à 404
   (aucun outil de build React/Vite disponible dans cet environnement,
   même limite que d'habitude) -- vérification visuelle réelle à
   faire par la personne après déploiement.
+
+## Affichage simple (livraison #501)
+
+Demandé explicitement : « les utilisateurs de cette appli sont habitués
+à des interfaces très simples sans fioriture ; l'écran de recherche
+est trop riche, la colonne centrale suffit, sans icône, en tableau
+tout aligné à gauche » — puis « conserve le premier design mais en
+option paramétrable ». Deux modes dans l'en-tête du portail :
+
+- **complet** (défaut, design d'origine) : trois colonnes
+  (localisations, codes, utilisation), pictogrammes ;
+- **simple** : colonne centrale seule, liste des codes en **tableau**
+  (Libellé, Localisation, Collection) aligné à gauche, aucun
+  pictogramme dans l'en-tête ni les onglets, filtre et tri conservés,
+  clic sur la ligne (ou Entrée) pour ouvrir le code.
+
+Bascule « Affichage simple / Affichage complet » dans l'en-tête,
+mémorisée par navigateur (`localStorage`) ; défaut d'installation
+`VAULT_UI_MODE` (`.env`, → `VITE_VAULT_UI_MODE`). Les autres écrans
+(Collections, Observations, Tableau de bord) sont inchangés en dehors
+des coins arrondis. Testé : `node --test vault/portal/tests/uiMode.test.mjs`
+(défaut, mémorisation, stockage absent) ; syntaxe validée à l'esbuild.
+Non vérifié : rendu réel du portail (Keycloak + API nécessaires).
+
