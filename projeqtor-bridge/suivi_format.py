@@ -335,6 +335,41 @@ def parse_workbook(content, filename=None):
     return demands, errors
 
 
+def demands_from_rows(rows):
+    """Lignes JSON de la page « tableau » (#500) -> (demandes, erreurs).
+    Clés = celles du dict demande (id, date_demande, demandeur, sujet,
+    priorite, categorie, duree_j, commentaire, accomplissement,
+    date_cloture) ; mêmes tolérances que le fichier (dates et nombres en
+    texte), même règle : sans sujet, ligne ignorée et signalée."""
+    demands, errors = [], []
+    for i, row in enumerate(rows, start=1):
+        if not isinstance(row, dict):
+            errors.append(f"ligne {i} : format inattendu, ignorée")
+            continue
+        get = lambda k: (row.get(k).strip() if isinstance(row.get(k), str) else row.get(k))  # noqa: E731
+        if all(get(k) in (None, "") for k in (COL_SUBJECT, COL_DATE, COL_REQUESTER, COL_COMMENT)):
+            continue
+        if get(COL_SUBJECT) in (None, ""):
+            errors.append(f"ligne {i} : sujet vide, ligne ignorée")
+            continue
+        ident = get(COL_ID)
+        if isinstance(ident, float) and ident == int(ident):
+            ident = int(ident)
+        demands.append({
+            COL_ID: ident if ident not in ("",) else None,
+            COL_DATE: _to_datetime(get(COL_DATE), errors, i, "date de demande"),
+            COL_REQUESTER: str(get(COL_REQUESTER) or ""),
+            COL_SUBJECT: str(get(COL_SUBJECT)),
+            COL_PRIORITY: str(get(COL_PRIORITY) or ""),
+            COL_CATEGORY: str(get(COL_CATEGORY) or ""),
+            COL_DURATION: _to_number(get(COL_DURATION), errors, i, "durée"),
+            COL_COMMENT: str(get(COL_COMMENT) or ""),
+            COL_PROGRESS: _to_number(get(COL_PROGRESS), errors, i, "accomplissement", percent=True),
+            COL_CLOSED: _to_datetime(get(COL_CLOSED), errors, i, "date de clôture"),
+        })
+    return demands, errors
+
+
 def build_workbook(demands, priorities=None, categories=None, requesters=None):
     """(demandes, référentiels) -> bytes xlsx au format imposé.
 

@@ -1,3 +1,39 @@
+## 2026-09-14 — saisie publique de demandes : deux présentations sans icône, une clé par demande (livraison #500)
+
+Demandé explicitement : « une page hors hub et non authentifiée (mais
+propulsée par le même httpd/URL) permettant aux utilisateurs de saisir
+rapidement une demande : pas d'icône, deux designs — dépouillé mode
+tabloïd avec un champ détails ouvrant un volet de texte formaté,
+ajoutable plusieurs fois ; look Excel en ligne identique au fichier
+attendu en import ».
+
+- **`/demande/rapide`** (projeqtor-bridge, posture LAN comme `/demande/`) :
+  page papier, une colonne, aucun pictogramme ; **volet « Détails »**
+  (titre + éditeur gras/italique/listes), blocs multiples modifiables ;
+  HTML converti en texte sûr côté service (`html_to_text` : balises et
+  scripts retirés, `**gras**`, `_italique_`, puces).
+- **`/demande/tableau`** : reproduction du fichier (lettres de colonnes,
+  lignes à partir de 9, en-tête rouge gras, mêmes 10 colonnes), listes
+  déroulantes des référentiels, Entrée ajoute une ligne, « Vérifier »
+  (analyse) et « Envoyer » → `POST /demande/import` en JSON
+  (`demands_from_rows`, mêmes tolérances que le fichier).
+- **Une clé par demande** : `externalReference` ProjeQtOr = `source_nom`
+  hub (`source_type` `demande`) → la synchronisation ProjeQtOr → hub
+  reconnaît les demandes entrées par le pont (« déjà connu ») ; avant,
+  une demande en cible `both` finissait deux fois dans les imports à
+  valider (une fois directe, une fois par la sync). `importees` compte
+  désormais des demandes, pas cibles × demandes.
+- `/demande/referentiels` : listes par défaut du format quand ProjeQtOr
+  n'a rien (`source: "defaut"`) au lieu d'un 502. Écran Validation :
+  libellé « demande (formulaire / tableau / import) ».
+- Vérifié : test de fumée du pont (saisie rapide avec détails → texte
+  sans HTML, hub + ProjeQtOr, sync sans doublon, état local perdu ;
+  lignes JSON vérifiées / envoyées / ligne vide ignorée ; référentiels
+  de repli ; ticket natif ProjeQtOr toujours poussé), `test_mapping.py`,
+  rendu réel des deux pages sous Chromium (volet, envoi, tableau) ;
+  tests Node hub. Non vérifié : vrai ProjeQtOr, déploiement sur super
+  (`--build` du pont).
+
 ## 2026-09-14 — import de tableaux : fichier réel vérifié (livraison #499)
 
 Le fichier d'exemple de la personne est arrivé après #497 : analysé

@@ -26,6 +26,45 @@ demande vers tickets-api — qui **déduplique** par
 (`data/sync_state.json`) n'est qu'une optimisation de trafic : sa perte
 ne crée jamais de doublon.
 
+## Saisie publique : deux présentations sans icône (#500)
+
+Demandé explicitement : « une page hors hub et non authentifiée (mais
+propulsée par le même httpd/URL) permettant aux utilisateurs de saisir
+rapidement une demande : pas d'icône, deux designs ». Même posture LAN
+que `/demande/` (#484), servies par ce service derrière tls-proxy :
+
+- **`/demande/rapide`** — dépouillé « tabloïd » (papier, une colonne,
+  aucun pictogramme) : demandeur, sujet, priorité, catégorie, durée,
+  commentaire, et un champ **Détails** qui ouvre un **volet** de texte
+  formaté (gras, italique, listes) avec un titre ; on peut ajouter
+  autant de blocs qu'on veut, les modifier, les retirer. À l'envoi, le
+  HTML de l'éditeur est converti côté service en texte lisible partout
+  (`**gras**`, `_italique_`, puces `- `), balises et scripts retirés —
+  jamais de HTML stocké.
+- **`/demande/tableau`** — « Excel en ligne » identique au fichier
+  attendu à l'import : lettres de colonnes, numéros de lignes à partir
+  de 9, en-tête ligne 8 rouge et gras, mêmes colonnes (Id, Date de
+  demande, Demandeur, Sujet, Niveau de priorité, Catégorie, Durée (j),
+  Commentaire, Accomplissement, Date de cloture), listes déroulantes
+  alimentées par les référentiels, Entrée en fin de ligne ajoute une
+  ligne. « Vérifier » = analyse sans création ; « Envoyer » passe par
+  `POST /demande/import` en JSON (`{rows: [...]}`) — exactement le
+  chemin du fichier.
+
+Les deux alimentent **la gestion de tickets du hub (imports à valider)
+et ProjeQtOr** (`target` par défaut `both`) ; ProjeQtOr indisponible
+n'empêche jamais l'enregistrement côté hub. `/demande/referentiels`
+renvoie les listes par défaut du format (`source: "defaut"`) quand
+ProjeQtOr n'a rien : une page publique n'est jamais sans liste.
+
+**Une seule clé par demande, jamais de doublon** : chaque demande passée
+par le pont reçoit une clé `<LABEL>:…` (Id du tableau, empreinte, ou
+tirage pour une saisie) qui est à la fois l'`externalReference` du
+ticket ProjeQtOr et le `source_nom` du ticket hub (`source_type`
+`demande`). La synchronisation ProjeQtOr → hub reconnaît cette clé et
+retrouve « déjà connu » ; seuls les tickets nés dans ProjeQtOr arrivent
+par elle (`projeqtor` / `ProjeQtOr #id`).
+
 ## Import d'un tableau (#497) : xlsx, xls, csv → hub et/ou ProjeQtOr
 
 Constat de la personne sur un fichier réel : « l'import ne fonctionne

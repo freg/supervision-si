@@ -5,6 +5,7 @@
 // (testé par node --test), consommé par ValidationView.jsx.
 export const SOURCE_LABELS = {
   calendar: "calendrier", ical: "calendrier", projeqtor: "ProjeQtOr", tableau: "tableau importé",
+  demande: "demande (formulaire / tableau / import)",
   imap: "e-mail", supervision: "supervision", mikrotik: "MikroTik", portal: "portail", projet: "projet",
 };
 

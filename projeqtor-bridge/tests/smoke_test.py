@@ -136,7 +136,7 @@ def main():
     body = r.get_json()
     assert r.status_code == 200 and body["cibles"]["tickets"]["crees"] == 2 and body["cibles"]["projeqtor"] is None, body
     assert len(HUB_TICKETS) == before_hub + 2 and len(CREATED_TICKETS) == before_pq
-    key = ("tableau", f"{bridge.LABEL}:11")
+    key = ("demande", f"{bridge.LABEL}:11")
     assert key in HUB_TICKETS, HUB_TICKETS.keys()
     print("✓ import : cible hub seule, 2 tickets à valider, source_nom", key[1])
 
@@ -146,6 +146,10 @@ def main():
     assert body["cibles"]["projeqtor"]["crees"] == 2 and len(CREATED_TICKETS) == before_pq + 2
     assert any("inconnu" in w for w in body["avertissements"]), body["avertissements"]
     assert CREATED_TICKETS[-1]["externalReference"] == f"{bridge.LABEL}:12"
+    # la sync ProjeQtOr -> hub retrouve ces tickets « déjà connus » (même clé)
+    before_hub2 = len(HUB_TICKETS)
+    r = c.post("/demande/sync/now")
+    assert len(HUB_TICKETS) == before_hub2, "pas de doublon hub pour un ticket entré par le pont"
     print("✓ import : les deux cibles, réimport dédupliqué côté hub, ProjeQtOr alimenté, demandeur inconnu signalé")
 
     # xlsx libre (en-têtes ligne 1, autres noms, dates texte) + csv
@@ -178,6 +182,49 @@ def main():
     else:
         print("⚠ SUIVI_SAMPLE absent — fichier réel non analysé")
 
+    # 4b. saisie rapide (#500) : détails formatés multiples -> texte, ticket hub + ProjeQtOr, même clé
+    assert c.get("/demande/rapide").status_code == 200 and c.get("/demande/tableau").status_code == 200
+    hub_before = len(HUB_TICKETS)
+    r = c.post("/demande/demandes", json={"demandeur": "alice", "sujet": "Écran noir", "priorite": "Urgent", "categorie": "réseau",
+                                          "details": [{"titre": "Message d'erreur", "html": "<div>Code <b>0x80</b> au <i>démarrage</i><br>puis rien</div>"},
+                                                      {"titre": "", "html": "<ul><li>poste bureau 12</li><li>depuis lundi</li></ul><script>alert(1)</script>"}]})
+    body = r.get_json()
+    assert r.status_code == 201 and body["cibles"] == {"projeqtor": "created", "tickets": "created"}, body
+    assert len(HUB_TICKETS) == hub_before + 1
+    key = CREATED_TICKETS[-1]["externalReference"]
+    assert key.startswith(f"{bridge.LABEL}:s:") and ("demande", key) in HUB_TICKETS
+    desc = CREATED_TICKETS[-1]["description"]
+    assert "Message d'erreur\nCode **0x80** au _démarrage_\npuis rien" in desc and "- poste bureau 12\n- depuis lundi" in desc, desc
+    assert "<" not in desc.split("[")[0] and "alert" not in desc
+    r = c.post("/demande/sync/now")
+    assert len(HUB_TICKETS) == hub_before + 1, "sync : la demande du formulaire est déjà connue du hub"
+    assert c.post("/demande/demandes", json={"demandeur": "x", "sujet": "y", "target": "ailleurs"}).status_code == 400
+    print("✓ saisie rapide : détails formatés -> texte sûr, hub + ProjeQtOr, pas de doublon à la sync")
+
+    # 4c. saisie « tableau » (#500) : lignes JSON, même chemin que le fichier
+    r = c.post("/demande/import", json={"rows": [
+        {"id": "", "date_demande": "2026-09-14", "demandeur": "bob", "sujet": "Souris", "priorite": "J+2", "categorie": "accessoire", "duree_j": "0,5", "commentaire": "", "accomplissement": "", "date_cloture": ""},
+        {"id": "", "date_demande": "", "demandeur": "", "sujet": "", "priorite": "", "categorie": "", "duree_j": "", "commentaire": "", "accomplissement": "", "date_cloture": ""},
+        {"id": "", "date_demande": "hier", "demandeur": "carol", "sujet": "VPN", "priorite": "", "categorie": "", "duree_j": "beaucoup", "commentaire": "", "accomplissement": "", "date_cloture": ""},
+    ], "dry_run": 1})
+    body = r.get_json()
+    assert r.status_code == 200 and body["total"] == 2 and len(body["avertissements"]) == 2, body
+    hub_before = len(HUB_TICKETS)
+    r = c.post("/demande/import", json={"rows": [{"date_demande": "2026-09-14", "demandeur": "bob", "sujet": "Souris", "duree_j": "0,5"}], "target": "tickets"})
+    body = r.get_json()
+    assert r.status_code == 200 and body["cibles"]["tickets"]["crees"] == 1 and len(HUB_TICKETS) == hub_before + 1, body
+    assert c.post("/demande/import", json={"rows": []}).status_code == 400
+    print("✓ saisie tableau : lignes JSON vérifiées puis envoyées, ligne vide ignorée, erreurs signalées")
+
+    # 4d. référentiels : repli sur les listes du format quand ProjeQtOr n'a rien
+    saved = dict(PROJEQTOR_DATA)
+    PROJEQTOR_DATA["Urgency"] = []; PROJEQTOR_DATA["TicketType"] = []
+    ref = c.get("/demande/referentiels").get_json()
+    assert ref["source"] == "defaut" and "Urgent" in ref["priorites"] and "accessoire" in ref["categories"], ref
+    PROJEQTOR_DATA.update(saved)
+    assert c.get("/demande/referentiels").get_json()["source"] == "projeqtor"
+    print("✓ référentiels : ProjeQtOr d'abord, listes du format en repli")
+
     # 5. export xlsx — relire ce qui a été créé
     r = c.get("/demande/export")
     assert r.status_code == 200
@@ -188,16 +235,24 @@ def main():
     assert "Test formulaire" in subjects
     print("✓ export xlsx :", len(demands), "demande(s), sujets OK")
 
-    # 6. sync vers le hub — puis déduplication
+    # 6. sync vers le hub : les tickets entrés PAR LE PONT sont déjà
+    #    connus (même clé) ; un ticket natif ProjeQtOr (sans clé du pont)
+    #    est poussé une fois, puis dédupliqué -- même après perte de
+    #    l'état local.
+    CREATED_TICKETS.append({"id": 900, "name": "Natif ProjeQtOr", "description": "saisi dans ProjeQtOr",
+                            "creationDateTime": "2026-09-12 16:00:00"})
+    hub_before = len(HUB_TICKETS)
     r = c.post("/demande/sync/now")
     summary = r.get_json()
-    assert summary["pushed"] == len(CREATED_TICKETS), summary
+    assert summary["pushed"] == 1 and len(HUB_TICKETS) == hub_before + 1, (summary, len(HUB_TICKETS), hub_before)
+    assert ("projeqtor", "ProjeQtOr #900") in HUB_TICKETS
+    assert all(k[0] in ("demande", "projeqtor") for k in HUB_TICKETS), HUB_TICKETS.keys()
     r = c.post("/demande/sync/now")
     assert r.get_json()["pushed"] == 0  # déjà connus (état local)
     # Perte de l'état local : le faux hub doit dédupliquer quand même
     os.remove("/tmp/bridge-test-state.json")
     r = c.post("/demande/sync/now")
-    assert r.get_json()["pushed"] == 0, r.get_json()
+    assert r.get_json()["pushed"] == 0 and len(HUB_TICKETS) == hub_before + 1, r.get_json()
     print("✓ sync :", summary["pushed"], "poussés, déduplication OK (état local ET côté hub)")
 
     assert all(t.get("pending_validation") or True for t in CREATED_TICKETS)

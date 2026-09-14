@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<!-- Saisie « tableau » des demandes (livraison #500) — page PUBLIQUE hors
+hub, sans authentification (même posture LAN que /demande/), servie par
+projeqtor-bridge sous /demande/tableau. Demandé explicitement : « look
+Excel en ligne identique au fichier attendu en import » — mêmes colonnes,
+même ordre, même en-tête (fond rouge, gras), lettres de colonnes et
+numéros de lignes, plusieurs lignes d'un coup. Les lignes partent par
+POST /demande/import (JSON), le même chemin que le fichier. Aucune
+dépendance externe, aucune icône. -->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tableau des suivis des demandes</title>
+<style>
+  :root { --ink: #111; --paper: #fff; --grid: #c8c8c8; --head: #ff0000; --letters: #e6e6e6; --sel: #dbe9f7; --link: #0b4f8a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--paper); color: var(--ink); font-family: Calibri, "Segoe UI", system-ui, sans-serif; font-size: 14px; }
+  main { padding: 14px 16px 60px; }
+  h1 { font-size: 1.15rem; font-weight: 700; margin: 0 0 2px; }
+  .lead { margin: 0 0 12px; color: #555; font-size: .9rem; }
+  .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  button { font: inherit; padding: 6px 14px; border: 1px solid #333; background: #f7f7f7; color: var(--ink); cursor: pointer; border-radius: 2px; }
+  button.primary { background: #217346; border-color: #217346; color: #fff; }
+  button:disabled { opacity: .5; cursor: wait; }
+  .sheet { overflow: auto; border: 1px solid var(--grid); background: var(--paper); }
+  table { border-collapse: collapse; table-layout: fixed; min-width: 1400px; }
+  th, td { border: 1px solid var(--grid); padding: 0; height: 24px; }
+  th { background: var(--letters); font-weight: 400; color: #333; font-size: .8rem; text-align: center; }
+  th.rownum, td.rownum { width: 36px; background: var(--letters); text-align: center; color: #333; font-size: .8rem; }
+  tr.header td { background: var(--head); color: #fff; font-weight: 700; padding: 3px 6px; white-space: nowrap; }
+  tr.title td { border-color: var(--paper) var(--paper) var(--grid); font-weight: 700; padding: 3px 6px; }
+  td input, td select, td textarea { width: 100%; height: 24px; border: 0; padding: 2px 6px; font: inherit; background: transparent; color: var(--ink); border-radius: 0; }
+  td textarea { resize: none; line-height: 18px; }
+  td input:focus, td select:focus, td textarea:focus { outline: 2px solid #217346; outline-offset: -2px; background: var(--sel); }
+  td.num input { text-align: right; }
+  col.c-a { width: 50px; } col.c-b { width: 130px; } col.c-c { width: 150px; } col.c-d { width: 280px; }
+  col.c-e { width: 130px; } col.c-f { width: 140px; } col.c-g { width: 80px; } col.c-h { width: 320px; }
+  col.c-i { width: 120px; } col.c-o { width: 130px; }
+  #msg { display: none; margin-top: 10px; padding: 8px 10px; border: 1px solid #333; font-size: .9rem; white-space: pre-wrap; }
+  #msg.ok, #msg.err { display: block; }
+  #msg.err { border-color: #a00; color: #a00; }
+  footer { margin-top: 24px; font-size: .8rem; color: #555; }
+  footer a { color: var(--link); }
+  .hint { font-size: .8rem; color: #555; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Tableau des suivis des demandes</h1>
+  <p class="lead">Une ligne par demande, comme dans le fichier. Tabulation pour passer de cellule en cellule, Entrée en fin de ligne pour en ajouter une.</p>
+  <div class="bar">
+    <button type="button" id="addRow">Ajouter une ligne</button>
+    <button type="button" id="check">Vérifier</button>
+    <button type="button" class="primary" id="send">Envoyer les lignes</button>
+    <span class="hint" id="count"></span>
+  </div>
+
+  <div class="sheet">
+    <table id="sheet">
+      <colgroup><col style="width:36px"><col class="c-a"><col class="c-b"><col class="c-c"><col class="c-d"><col class="c-e"><col class="c-f"><col class="c-g"><col class="c-h"><col class="c-i"><col class="c-o"></colgroup>
+      <thead>
+        <tr><th class="rownum"></th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th>F</th><th>G</th><th>H</th><th>I</th><th>O</th></tr>
+        <tr class="title"><td class="rownum">7</td><td></td><td colspan="9">Synthèse des demandes</td></tr>
+        <tr class="header"><td class="rownum">8</td><td>Id</td><td>Date de demande</td><td>Demandeur</td><td>Sujet</td><td>Niveau de priorité</td><td>Catégorie</td><td>Durée (j)</td><td>Commentaire</td><td>Accomplissement</td><td>Date de cloture</td></tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <div id="msg" role="status"></div>
+  <datalist id="demandeurs"></datalist>
+  <footer>Autre présentation : <a href="rapide">saisie rapide</a> · <a href="./">formulaire classique</a></footer>
+</main>
+
+<script>
+const api = location.pathname.replace(/\/tableau\/?$/, "");
+const FIRST = 9;
+let refs = {priorites: [], categories: [], demandeurs: []};
+const today = () => new Date().toISOString().slice(0, 10);
+
+function opts(values) { return '<option value=""></option>' + values.map((v) => `<option value="${v.replace(/"/g, "&quot;")}">${v}</option>`).join(""); }
+
+function addRow(focus) {
+  const tb = document.getElementById("rows");
+  const n = FIRST + tb.children.length;
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td class="rownum">${n}</td>
+    <td class="num"><input data-k="id" inputmode="numeric"></td>
+    <td><input data-k="date_demande" type="date" value="${today()}"></td>
+    <td><input data-k="demandeur" list="demandeurs"></td>
+    <td><input data-k="sujet"></td>
+    <td><select data-k="priorite">${opts(refs.priorites)}</select></td>
+    <td><select data-k="categorie">${opts(refs.categories)}</select></td>
+    <td class="num"><input data-k="duree_j" inputmode="decimal"></td>
+    <td><input data-k="commentaire"></td>
+    <td class="num"><input data-k="accomplissement" inputmode="decimal" placeholder="0 à 1"></td>
+    <td><input data-k="date_cloture" type="date"></td>`;
+  tb.appendChild(tr);
+  if (focus) tr.querySelector('[data-k="demandeur"]').focus();
+  updateCount();
+}
+
+function rowData(tr) {
+  const o = {};
+  tr.querySelectorAll("[data-k]").forEach((el) => { o[el.dataset.k] = el.value; });
+  return o;
+}
+function isEmpty(o) { return !(o.sujet || o.demandeur || o.commentaire || o.id); }
+function collect() { return Array.from(document.getElementById("rows").children).map(rowData).filter((o) => !isEmpty(o)); }
+function updateCount() {
+  const n = collect().length;
+  document.getElementById("count").textContent = n ? `${n} ligne${n > 1 ? "s" : ""} à envoyer` : "";
+}
+
+document.getElementById("rows").addEventListener("input", updateCount);
+document.getElementById("rows").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" || e.target.tagName === "TEXTAREA") return;
+  const tr = e.target.closest("tr");
+  if (tr && tr === tr.parentElement.lastElementChild) { e.preventDefault(); addRow(true); }
+});
+document.getElementById("addRow").onclick = () => addRow(true);
+
+async function submit(dryRun) {
+  const rows = collect();
+  const msg = document.getElementById("msg");
+  if (!rows.length) { msg.className = "err"; msg.textContent = "Aucune ligne remplie (le sujet est obligatoire)."; return; }
+  const btns = [document.getElementById("send"), document.getElementById("check")];
+  btns.forEach((b) => b.disabled = true);
+  msg.className = ""; msg.textContent = "";
+  try {
+    const r = await fetch(api + "/import", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({rows, dry_run: dryRun ? 1 : 0})});
+    const body = await r.json();
+    if (!r.ok) throw new Error((body.error || ("erreur " + r.status)) + (body.details ? "\n" + body.details.join("\n") : ""));
+    const warn = (body.avertissements || []).length ? "\n" + body.avertissements.join("\n") : "";
+    if (dryRun) { msg.className = "ok"; msg.textContent = `${body.total} ligne(s) prête(s) à l'envoi.` + warn; }
+    else {
+      msg.className = body.status === "ok" ? "ok" : "err";
+      msg.textContent = `${body.importees} demande(s) enregistrée(s)` + (body.deja_connus ? `, ${body.deja_connus} déjà connue(s)` : "") + "." + warn;
+      if (body.importees) { document.getElementById("rows").innerHTML = ""; for (let i = 0; i < 3; i++) addRow(false); }
+    }
+  } catch (err) { msg.className = "err"; msg.textContent = err.message; }
+  finally { btns.forEach((b) => b.disabled = false); }
+}
+document.getElementById("check").onclick = () => submit(true);
+document.getElementById("send").onclick = () => submit(false);
+
+fetch(api + "/referentiels").then((r) => r.ok ? r.json() : null).then((ref) => {
+  if (ref) { refs = ref; const dl = document.getElementById("demandeurs"); dl.innerHTML = (ref.demandeurs || []).map((v) => `<option value="${v.replace(/"/g, "&quot;")}">`).join(""); }
+}).catch(() => {}).finally(() => { for (let i = 0; i < 3; i++) addRow(false); });
+</script>
+</body>
+</html>

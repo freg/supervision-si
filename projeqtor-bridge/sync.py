@@ -32,6 +32,7 @@ log = logging.getLogger("projeqtor-bridge.sync")
 STATE_PATH = os.environ.get("BRIDGE_STATE_PATH", "/data/sync_state.json")
 INTERVAL = int(os.environ.get("BRIDGE_SYNC_INTERVAL_SECONDS", "120"))
 TICKETS_API = os.environ.get("TICKETS_API_INTERNAL_URL", "").rstrip("/")
+BRIDGE_PREFIX = (os.environ.get("PROJEQTOR_BRIDGE_LABEL") or "SUIVI").strip() + ":"  # même libellé que mapping.LABEL
 
 _status = {"last_run": None, "last_error": None, "pushed_total": 0}
 
@@ -66,6 +67,13 @@ def push_ticket(ticket):
     "created" (201), "known" (409, déjà connu côté hub — JAMAIS un
     doublon) ou "retry" (à réessayer au prochain tour)."""
     ref = f"ProjeQtOr #{ticket.get('id')}"
+    source_type = "projeqtor"
+    external = str(ticket.get("externalReference") or "")
+    if external.startswith(BRIDGE_PREFIX):
+        # Ticket entré PAR LE PONT (formulaire, tableau, import #500) :
+        # même clé que la poussée directe vers le hub -> tickets-api
+        # répond « déjà connu », jamais un doublon.
+        source_type, ref = "demande", external
     description = ticket.get("description") or ""
     try:
         resp = requests.post(
@@ -73,7 +81,7 @@ def push_ticket(ticket):
             json={
                 "subject": ticket.get("name") or "(sans sujet)",
                 "description": description,
-                "source_type": "projeqtor",
+                "source_type": source_type,
                 "source_nom": ref,
             },
             timeout=15,

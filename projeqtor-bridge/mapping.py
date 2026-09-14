@@ -83,7 +83,7 @@ def _resolve(name, referentiel):
     return referentiel.get(normalize_key(name))
 
 
-def demand_to_ticket(demand, referentiels):
+def demand_to_ticket(demand, referentiels, external_ref=None):
     """(demande, référentiels) -> (champs ProjeQtOr, noms non résolus).
 
     `referentiels` : {"contacts": {nom_norm: id}, "urgencies": {...},
@@ -118,7 +118,9 @@ def demand_to_ticket(demand, referentiels):
     if demand.get(COL_CLOSED):
         fields["done"] = 1
         fields["doneDateTime"] = demand[COL_CLOSED].strftime("%Y-%m-%d %H:%M:%S")
-    if demand.get(COL_ID) not in (None, ""):
+    if external_ref:
+        fields["externalReference"] = external_ref  # clé du pont (#500) : dédup hub + sync
+    elif demand.get(COL_ID) not in (None, ""):
         fields["externalReference"] = f"{REF_PREFIX}{demand[COL_ID]}"
 
     return fields, unresolved
@@ -170,6 +172,8 @@ def ticket_to_demand(ticket, referentiels_inverses):
 
     external = ticket.get("externalReference") or ""
     ref_id = external.split(":", 1)[1] if external.startswith(REF_PREFIX) else None
+    if ref_id is not None and not ref_id.isdigit():
+        ref_id = None  # clé de formulaire / empreinte (#500) : pas un Id du tableau
 
     return {
         COL_ID: ref_id if ref_id is not None else ticket.get("id"),

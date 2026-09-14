@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<!-- Saisie rapide d'une demande (livraison #500) — page PUBLIQUE hors
+hub, sans authentification (même posture LAN que /demande/), servie par
+projeqtor-bridge sous /demande/rapide. Demandé explicitement : « design
+dépouillé mode tabloïd, sans icône, un champ Détails ouvrant un volet de
+texte formaté, ajoutable plusieurs fois ». Aucune dépendance externe,
+aucune image, aucun emoji. -->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demande au support informatique</title>
+<style>
+  :root { --ink: #111; --paper: #fff; --rule: #222; --grey: #666; --soft: #f2f2f2; --link: #0b4f8a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--paper); color: var(--ink);
+               font-family: Georgia, "Times New Roman", serif; font-size: 16px; line-height: 1.35; }
+  main { max-width: 720px; margin: 0 auto; padding: 24px 16px 60px; }
+  h1 { font-size: 1.9rem; margin: 0; letter-spacing: -.01em; border-bottom: 3px double var(--rule); padding-bottom: 6px; }
+  .kicker { font-family: system-ui, sans-serif; font-size: .78rem; text-transform: uppercase; letter-spacing: .12em; color: var(--grey); margin: 0 0 4px; }
+  .lead { margin: 10px 0 22px; color: var(--grey); }
+  form { display: grid; gap: 14px; }
+  .field label { display: block; font-family: system-ui, sans-serif; font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--grey); margin-bottom: 4px; }
+  input, select, textarea, button { font: inherit; }
+  input, select, textarea { width: 100%; padding: 8px 6px; border: 0; border-bottom: 1px solid var(--rule); background: transparent; border-radius: 0; color: var(--ink); }
+  input:focus, select:focus, textarea:focus { outline: 0; border-bottom: 2px solid var(--ink); }
+  textarea { min-height: 70px; resize: vertical; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px) { .cols { grid-template-columns: 1fr; } }
+  button { padding: 10px 16px; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); cursor: pointer; border-radius: 0; font-family: system-ui, sans-serif; font-size: .9rem; }
+  button.ghost { background: transparent; color: var(--ink); }
+  button:disabled { opacity: .5; cursor: wait; }
+  .details { border-top: 1px solid var(--rule); padding-top: 10px; }
+  .details .head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .block { border-left: 3px solid var(--rule); padding: 6px 10px; margin: 10px 0; background: var(--soft); }
+  .block h3 { margin: 0 0 4px; font-size: 1rem; font-family: system-ui, sans-serif; }
+  .block .body { white-space: pre-wrap; font-size: .95rem; max-height: 8em; overflow: hidden; }
+  .block .body ul, .block .body ol { margin: 4px 0 4px 20px; }
+  .block .acts { margin-top: 6px; font-family: system-ui, sans-serif; font-size: .8rem; }
+  .block .acts a { color: var(--link); margin-right: 12px; cursor: pointer; text-decoration: underline; }
+  .row-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; border-top: 3px double var(--rule); padding-top: 14px; }
+  #msg { display: none; padding: 10px; border: 1px solid var(--rule); font-family: system-ui, sans-serif; font-size: .9rem; }
+  #msg.ok, #msg.err { display: block; }
+  #msg.err { border-color: #a00; color: #a00; }
+  footer { margin-top: 30px; font-family: system-ui, sans-serif; font-size: .8rem; color: var(--grey); }
+  footer a { color: var(--link); }
+  /* volet */
+  #shade { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; }
+  #panel { position: fixed; top: 0; right: 0; height: 100%; width: min(560px, 100%); background: var(--paper);
+           border-left: 1px solid var(--rule); box-shadow: -8px 0 24px rgba(0,0,0,.15); display: none; flex-direction: column; }
+  #shade.open, #panel.open { display: flex; }
+  #panel header { padding: 14px 16px; border-bottom: 1px solid var(--rule); font-family: system-ui, sans-serif; font-weight: 600; }
+  #panel .inner { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; overflow: auto; }
+  .toolbar { display: flex; gap: 4px; flex-wrap: wrap; font-family: system-ui, sans-serif; }
+  .toolbar button { padding: 4px 10px; font-size: .8rem; background: transparent; color: var(--ink); }
+  .toolbar button.on { background: var(--ink); color: var(--paper); }
+  #editor { flex: 1; min-height: 220px; border: 1px solid var(--rule); padding: 10px; overflow: auto; font-size: .95rem; }
+  #editor:focus { outline: 2px solid var(--ink); }
+  #editor ul, #editor ol { margin: 4px 0 4px 22px; }
+  #panel footer { margin: 0; padding: 12px 16px; border-top: 1px solid var(--rule); display: flex; gap: 8px; justify-content: flex-end; }
+</style>
+</head>
+<body>
+<main>
+  <p class="kicker">Support informatique</p>
+  <h1>Nouvelle demande</h1>
+  <p class="lead">Quelques champs suffisent. Les détails (contexte, poste concerné, messages d'erreur) peuvent être ajoutés en plusieurs blocs.</p>
+
+  <form id="f" autocomplete="off">
+    <div class="field">
+      <label for="demandeur">Demandeur</label>
+      <input id="demandeur" name="demandeur" list="demandeurs" required placeholder="Votre nom">
+      <datalist id="demandeurs"></datalist>
+    </div>
+    <div class="field">
+      <label for="sujet">Sujet</label>
+      <input id="sujet" name="sujet" required placeholder="En une ligne">
+    </div>
+    <div class="cols">
+      <div class="field">
+        <label for="priorite">Priorité</label>
+        <select id="priorite" name="priorite"></select>
+      </div>
+      <div class="field">
+        <label for="categorie">Catégorie</label>
+        <select id="categorie" name="categorie"></select>
+      </div>
+      <div class="field">
+        <label for="duree_j">Durée estimée (jours)</label>
+        <input id="duree_j" name="duree_j" type="number" min="0" step="0.5" inputmode="decimal" placeholder="facultatif">
+      </div>
+    </div>
+    <div class="field">
+      <label for="commentaire">Commentaire</label>
+      <textarea id="commentaire" name="commentaire" placeholder="facultatif"></textarea>
+    </div>
+
+    <div class="details">
+      <div class="head">
+        <span class="field"><label style="margin:0">Détails</label></span>
+        <button type="button" class="ghost" id="addDetail">Ajouter un détail</button>
+      </div>
+      <div id="blocks"></div>
+    </div>
+
+    <div class="row-actions">
+      <button type="submit" id="send">Envoyer la demande</button>
+      <span id="msg" role="status"></span>
+    </div>
+  </form>
+
+  <footer>Autre présentation : <a href="tableau">saisie en tableau</a> · <a href="./">formulaire classique</a></footer>
+</main>
+
+<div id="shade"></div>
+<aside id="panel" aria-label="Détail de la demande">
+  <header id="panelTitle">Détail</header>
+  <div class="inner">
+    <div class="field">
+      <label for="dTitle">Titre du détail</label>
+      <input id="dTitle" placeholder="ex. Message d'erreur, Poste concerné…">
+    </div>
+    <div class="toolbar">
+      <button type="button" data-cmd="bold" title="Gras"><b>Gras</b></button>
+      <button type="button" data-cmd="italic" title="Italique"><i>Italique</i></button>
+      <button type="button" data-cmd="insertUnorderedList" title="Liste à puces">Liste</button>
+      <button type="button" data-cmd="insertOrderedList" title="Liste numérotée">Numéros</button>
+      <button type="button" data-cmd="removeFormat" title="Retirer la mise en forme">Brut</button>
+    </div>
+    <div id="editor" contenteditable="true" spellcheck="true"></div>
+  </div>
+  <footer>
+    <button type="button" class="ghost" id="dCancel">Annuler</button>
+    <button type="button" id="dOk">Ajouter à la demande</button>
+  </footer>
+</aside>
+
+<script>
+const api = location.pathname.replace(/\/rapide\/?$/, "");
+const blocks = [];      // {titre, html}
+let editing = -1;
+
+// Listes : ProjeQtOr si joignable, sinon les listes par défaut du format (le service décide).
+fetch(api + "/referentiels").then(r => r.ok ? r.json() : null).then(ref => {
+  if (!ref) return;
+  const fill = (id, values) => { const el = document.getElementById(id); el.innerHTML = '<option value="">—</option>';
+    for (const v of values) { const o = document.createElement("option"); o.value = v; o.textContent = v; el.appendChild(o); } };
+  fill("priorite", ref.priorites || []); fill("categorie", ref.categories || []);
+  const dl = document.getElementById("demandeurs");
+  for (const v of (ref.demandeurs || [])) { const o = document.createElement("option"); o.value = v; dl.appendChild(o); }
+}).catch(() => {});
+
+const esc = (s) => String(s || "").replace(/[&<>]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+// Seules les balises de mise en forme simples survivent dans l'aperçu.
+function cleanHtml(html) {
+  const div = document.createElement("div"); div.innerHTML = html;
+  div.querySelectorAll("script,style,img,iframe,object,embed,link,meta").forEach((n) => n.remove());
+  div.querySelectorAll("*").forEach((n) => {
+    for (const a of Array.from(n.attributes)) n.removeAttribute(a.name);
+    const ok = ["B","STRONG","I","EM","UL","OL","LI","P","DIV","BR"];
+    if (!ok.includes(n.tagName)) { const t = document.createTextNode(n.textContent); n.replaceWith(t); }
+  });
+  return div.innerHTML;
+}
+
+function renderBlocks() {
+  const box = document.getElementById("blocks");
+  box.innerHTML = blocks.map((b, i) => `<div class="block">
+      ${b.titre ? `<h3>${esc(b.titre)}</h3>` : ""}<div class="body">${b.html}</div>
+      <div class="acts"><a data-edit="${i}">modifier</a><a data-del="${i}">supprimer</a></div></div>`).join("");
+  box.querySelectorAll("[data-edit]").forEach((a) => a.onclick = () => openPanel(+a.dataset.edit));
+  box.querySelectorAll("[data-del]").forEach((a) => a.onclick = () => { blocks.splice(+a.dataset.del, 1); renderBlocks(); });
+}
+
+function openPanel(index) {
+  editing = index;
+  const b = index >= 0 ? blocks[index] : {titre: "", html: ""};
+  document.getElementById("panelTitle").textContent = index >= 0 ? "Modifier le détail" : "Nouveau détail";
+  document.getElementById("dTitle").value = b.titre; document.getElementById("editor").innerHTML = b.html;
+  document.getElementById("dOk").textContent = index >= 0 ? "Enregistrer" : "Ajouter à la demande";
+  document.getElementById("shade").classList.add("open"); document.getElementById("panel").classList.add("open");
+  setTimeout(() => document.getElementById(b.titre ? "editor" : "dTitle").focus(), 30);
+}
+function closePanel() { document.getElementById("shade").classList.remove("open"); document.getElementById("panel").classList.remove("open"); }
+
+document.getElementById("addDetail").onclick = () => openPanel(-1);
+document.getElementById("shade").onclick = closePanel;
+document.getElementById("dCancel").onclick = closePanel;
+document.getElementById("dOk").onclick = () => {
+  const html = cleanHtml(document.getElementById("editor").innerHTML);
+  const titre = document.getElementById("dTitle").value.trim();
+  const text = document.getElementById("editor").textContent.trim();
+  if (!titre && !text) { closePanel(); return; }
+  const b = {titre, html};
+  if (editing >= 0) blocks[editing] = b; else blocks.push(b);
+  renderBlocks(); closePanel();
+};
+document.querySelectorAll(".toolbar button").forEach((btn) => btn.onclick = () => {
+  document.getElementById("editor").focus(); document.execCommand(btn.dataset.cmd, false, null);
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && document.getElementById("panel").classList.contains("open")) closePanel(); });
+
+document.getElementById("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById("msg"); const btn = document.getElementById("send");
+  msg.className = ""; btn.disabled = true;
+  const data = Object.fromEntries(new FormData(e.target).entries());
+  data.details = blocks.slice();
+  try {
+    const r = await fetch(api + "/demandes", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(data)});
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.error || ("erreur " + r.status));
+    msg.className = "ok"; msg.textContent = body.message || "Demande enregistrée.";
+    e.target.reset(); blocks.length = 0; renderBlocks();
+  } catch (err) { msg.className = "err"; msg.textContent = err.message; }
+  finally { btn.disabled = false; }
+});
+</script>
+</body>
+</html>

@@ -22,9 +22,12 @@ Routes (toutes sous le préfixe /demande/, routé par tls-proxy) :
 La version en entête de chaque réponse n'est PAS celle du hub : voir
 /demande/version pour le hash exact déployé.
 """
+import html as _html
 import io
 import logging
 import os
+import re
+import uuid
 from datetime import datetime
 
 from flask import Flask, jsonify, request, send_file, send_from_directory
@@ -34,8 +37,9 @@ import requests
 from mapping import LABEL, build_recap, demand_to_ticket, ticket_to_demand
 from suivi_format import (
     COL_CATEGORY, COL_CLOSED, COL_COMMENT, COL_DATE, COL_DURATION, COL_ID,
-    COL_PRIORITY, COL_PROGRESS, COL_REQUESTER, COL_SUBJECT, build_workbook,
-    normalize_key, parse_workbook,
+    COL_PRIORITY, COL_PROGRESS, COL_REQUESTER, COL_SUBJECT, DEFAULT_CATEGORIES,
+    DEFAULT_PRIORITIES, build_workbook, demands_from_rows, normalize_key,
+    parse_workbook,
 )
 from projeqtor_client import ProjeqtorApiError, ProjeqtorClient
 import sync
@@ -98,6 +102,20 @@ def admin_page():
     return send_from_directory(STATIC_DIR, "admin.html")
 
 
+@app.route("/demande/rapide", methods=["GET"])
+def quick_page():
+    """Saisie rapide dépouillée (livraison #500) : sans icône, détails
+    formatés multiples dans un volet."""
+    return send_from_directory(STATIC_DIR, "rapide.html")
+
+
+@app.route("/demande/tableau", methods=["GET"])
+def sheet_page():
+    """Saisie « tableau » (livraison #500) : mêmes colonnes que le
+    fichier attendu à l'import, plusieurs lignes d'un coup."""
+    return send_from_directory(STATIC_DIR, "tableau.html")
+
+
 @app.route("/demande/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "service": "projeqtor-bridge"}), 200
@@ -107,23 +125,69 @@ def health():
 
 @app.route("/demande/referentiels", methods=["GET"])
 def referentiels():
-    try:
-        _, by_id = load_referentiels(get_client())
-    except ProjeqtorApiError as exc:
-        return jsonify({"error": str(exc)}), 502
-    # Noms d'origine (jamais les clés normalisées) pour le formulaire
-    # public — la source de vérité est ProjeQtOr, jamais un fichier.
+    """Listes du formulaire. Source de vérité : ProjeQtOr ; s'il est
+    injoignable ou vide (#500), les listes PAR DÉFAUT du format imposé
+    (priorités, catégories) sont renvoyées avec `source: "defaut"` --
+    une page publique ne doit jamais rester sans liste déroulante."""
+    _, by_id = load_referentiels(get_client())
+    priorites = sorted(by_id["urgencies"].values())
+    categories = sorted(by_id["types"].values())
+    source = "projeqtor"
+    if not priorites and not categories:
+        priorites, categories, source = list(DEFAULT_PRIORITIES), [c.strip() for c in DEFAULT_CATEGORIES], "defaut"
     return jsonify({
         "demandeurs": sorted(by_id["contacts"].values()),
-        "priorites": sorted(by_id["urgencies"].values()),
-        "categories": sorted(by_id["types"].values()),
+        "priorites": priorites,
+        "categories": categories,
+        "source": source,
     }), 200
 
 
 # ------------------------------------------------------------ dépôt public
 
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def html_to_text(fragment):
+    """HTML d'un éditeur simple (gras, italique, listes, paragraphes) ->
+    texte lisible partout (ticket hub, ProjeQtOr) : **gras**, _italique_,
+    « - » pour les puces, sauts de ligne conservés. Toute autre balise
+    est retirée ; les entités sont décodées ; jamais de HTML restitué."""
+    if not fragment:
+        return ""
+    t = re.sub(r"(?is)<\s*(script|style)[^>]*>.*?<\s*/\s*\1\s*>", "", fragment)
+    t = re.sub(r"(?i)<\s*(br|/p|/div|/li|/h[1-6])\s*/?>", "\n", t)
+    t = re.sub(r"(?i)<\s*li[^>]*>", "- ", t)
+    t = re.sub(r"(?i)<\s*/?\s*(b|strong)\s*>", "**", t)
+    t = re.sub(r"(?i)<\s*/?\s*(i|em)\s*>", "_", t)
+    t = _TAG_RE.sub("", t)
+    t = _html.unescape(t).replace("\xa0", " ")
+    t = re.sub(r"[ \t]+\n", "\n", t)
+    t = re.sub(r"\n{3,}", "\n\n", t)
+    return t.strip()
+
+
+def _details_text(details):
+    """Liste [{titre, html|texte}] -> blocs de texte, chacun titré."""
+    blocks = []
+    for d in details or []:
+        if not isinstance(d, dict):
+            continue
+        title = (d.get("titre") or "").strip()
+        body = html_to_text(d.get("html") or "") or (d.get("texte") or "").strip()
+        if not title and not body:
+            continue
+        blocks.append((f"{title}\n" if title else "") + body)
+    return "\n\n".join(blocks)
+
+
 @app.route("/demande/demandes", methods=["POST"])
 def create_demand():
+    """Dépôt public d'une demande. Depuis #500 : `details` (liste de
+    blocs formatés du volet « Détails ») ajoutés au commentaire, et
+    `target` = both (défaut) | tickets | projeqtor -- une demande
+    saisie au comptoir arrive dans les « imports à valider » du hub
+    même si ProjeQtOr est indisponible."""
     body = request.get_json(silent=True) or request.form.to_dict()
     subject = (body.get("sujet") or "").strip()
     if not subject:
@@ -131,6 +195,9 @@ def create_demand():
     requester = (body.get("demandeur") or "").strip()
     if not requester:
         return jsonify({"error": "le demandeur est obligatoire"}), 400
+    target = (body.get("target") or "both").strip().lower()
+    if target not in IMPORT_TARGETS:
+        return jsonify({"error": f"target inconnu : {target}"}), 400
 
     duration = body.get("duree_j")
     try:
@@ -140,34 +207,62 @@ def create_demand():
     except (ValueError, TypeError):
         return jsonify({"error": "la durée doit être un nombre positif de jours"}), 400
 
+    comment = (body.get("commentaire") or "").strip()
+    details = _details_text(body.get("details"))
+    if details:
+        comment = (comment + "\n\n" + details).strip() if comment else details
+    if len(comment) > 20000:
+        return jsonify({"error": "détails trop longs (20 000 caractères max)"}), 400
+
     demand = {
+        COL_DATE: datetime.now(),
         COL_SUBJECT: subject,
         COL_REQUESTER: requester,
         COL_PRIORITY: (body.get("priorite") or "").strip(),
         COL_CATEGORY: (body.get("categorie") or "").strip(),
         COL_DURATION: duration,
-        COL_COMMENT: (body.get("commentaire") or "").strip(),
+        COL_COMMENT: comment,
     }
 
-    client = get_client()
-    by_name, _ = load_referentiels(client)
-    fields, unresolved = demand_to_ticket(demand, by_name)
-    try:
-        result = client.create("Ticket", fields)
-    except ProjeqtorApiError as exc:
-        return jsonify({"error": f"création refusée par ProjeQtOr : {exc}"}), 502
+    out = {"status": "ok", "non_resolus": [], "cibles": {}}
+    key = bridge_key(demand, unique=True)
+    if target in ("projeqtor", "both"):
+        client = get_client()
+        by_name, _ = load_referentiels(client)
+        fields, unresolved = demand_to_ticket(demand, by_name, external_ref=key)
+        try:
+            out["projeqtor"] = client.create("Ticket", fields)
+            out["cibles"]["projeqtor"] = "created"
+            out["non_resolus"] = unresolved if any(by_name.values()) else []
+        except ProjeqtorApiError as exc:
+            out["cibles"]["projeqtor"] = "failed"
+            if target == "projeqtor":
+                return jsonify({"error": f"création refusée par ProjeQtOr : {exc}"}), 502
+            log.warning("dépôt public : ProjeQtOr en échec, ticket hub seul (%s)", exc)
+    if target in ("tickets", "both"):
+        out["cibles"]["tickets"] = push_hub_ticket(demand, 1, "formulaire", source_type="demande", source_name=key)
 
-    return jsonify({
-        "status": "ok",
-        "projeqtor": result,
-        "non_resolus": unresolved,
-        "message": "demande enregistrée — elle sera prise en charge par le service informatique",
-    }), 201
+    if out["cibles"].get("tickets") not in ("created", "known", None) and out["cibles"].get("projeqtor") != "created":
+        return jsonify({"error": "demande non enregistrée (gestion de tickets du hub injoignable)"}), 502
+    out["message"] = "demande enregistrée — elle sera prise en charge par le service informatique"
+    return jsonify(out), 201
 
 
 # ------------------------------------------------------------ import xlsx
 
 IMPORT_TARGETS = ("tickets", "projeqtor", "both")
+
+
+def bridge_key(demand, unique=False):
+    """Clé UNIQUE d'une demande passée par le pont (#500) : externalReference
+    du ticket ProjeQtOr ET source_nom du ticket hub (source_type
+    « demande »). Import de fichier : l'Id du tableau (stable d'un import
+    à l'autre) sinon une empreinte date+demandeur+sujet ; formulaire et
+    tableau en ligne (`unique`) : un identifiant tiré au sort, chaque
+    saisie est nouvelle."""
+    if unique:
+        return f"{LABEL}:s:{uuid.uuid4().hex[:12]}"
+    return _hub_source_name(demand, 0, "")
 
 
 def _hub_source_name(demand, index, filename):
@@ -190,24 +285,24 @@ def _hub_description(demand, filename):
         parts.append(demand[COL_COMMENT])
     parts.append(build_recap(demand))
     date = demand.get(COL_DATE)
-    meta = f"Importé du tableau « {filename} »" + (f", demande du {date.strftime('%d/%m/%Y')}" if date else "")
+    meta = (f"Saisi via {filename}" if filename in ("formulaire", "tableau en ligne") else f"Importé du tableau « {filename} »") + (f", demande du {date.strftime('%d/%m/%Y')}" if date else "")
     if demand.get(COL_CLOSED):
         meta += f", clôturée le {demand[COL_CLOSED].strftime('%d/%m/%Y')}"
     parts.append(meta)
     return "\n\n".join(parts)
 
 
-def push_hub_ticket(demand, index, filename):
-    """Une demande du tableau -> un ticket hub À VALIDER (même file que
-    la synchronisation ProjeQtOr et les imports ICS). Retourne created /
-    known / retry / disabled."""
+def push_hub_ticket(demand, index, filename, source_type="demande", source_name=None):
+    """Une demande du tableau (ou du formulaire, #500) -> un ticket hub À
+    VALIDER (même file que la synchronisation ProjeQtOr et les imports
+    ICS). Retourne created / known / retry / disabled."""
     if not sync.TICKETS_API:
         return "disabled"
     try:
         resp = requests.post(
             f"{sync.TICKETS_API}/tickets/import-external",
             json={"subject": demand[COL_SUBJECT], "description": _hub_description(demand, filename),
-                  "source_type": "tableau", "source_nom": _hub_source_name(demand, index, filename)},
+                  "source_type": source_type, "source_nom": source_name or _hub_source_name(demand, index, filename)},
             timeout=15,
         )
     except requests.RequestException as exc:
@@ -243,17 +338,30 @@ def import_xlsx():
     injoignable n'empêche jamais l'import côté hub, et inversement ;
     chaque cible rend son propre compte.
     """
-    if "file" not in request.files:
-        return jsonify({"error": "fichier manquant (champ 'file')"}), 400
-    upload = request.files["file"]
-    filename = upload.filename or "tableau"
-    content = upload.read()
-    target = (request.form.get("target") or request.args.get("target") or "both").strip().lower()
+    payload = request.get_json(silent=True) if request.is_json else None
+    if payload is not None:
+        # #500 : lignes saisies dans la page « tableau » (mêmes colonnes
+        # que le fichier), sans passer par un xlsx.
+        rows = payload.get("rows")
+        if not isinstance(rows, list) or not rows:
+            return jsonify({"error": "'rows' (liste de lignes) requis"}), 400
+        filename = "tableau en ligne"
+        target = (payload.get("target") or "both").strip().lower()
+        dry_run = bool(payload.get("dry_run"))
+        demands, parse_errors = demands_from_rows(rows)
+    else:
+        if "file" not in request.files:
+            return jsonify({"error": "fichier manquant (champ 'file')"}), 400
+        upload = request.files["file"]
+        filename = upload.filename or "tableau"
+        content = upload.read()
+        target = (request.form.get("target") or request.args.get("target") or "both").strip().lower()
+        dry_run = (request.form.get("dry_run") or request.args.get("dry_run") or "") in ("1", "true", "yes", "on")
+        demands, parse_errors = (None, None)
     if target not in IMPORT_TARGETS:
         return jsonify({"error": f"target inconnu : {target} (attendu : {', '.join(IMPORT_TARGETS)})"}), 400
-    dry_run = (request.form.get("dry_run") or request.args.get("dry_run") or "") in ("1", "true", "yes", "on")
-
-    demands, parse_errors = parse_workbook(content, filename)
+    if demands is None:
+        demands, parse_errors = parse_workbook(content, filename)
     if not demands:
         return jsonify({"error": "aucune demande exploitable", "details": parse_errors, "total": 0}), 400
     if dry_run:
@@ -263,24 +371,8 @@ def import_xlsx():
 
     warnings = list(parse_errors)
     result = {"tickets": None, "projeqtor": None}
-
-    # --- cible hub (tickets-api, file « imports à valider ») ---
-    if target in ("tickets", "both"):
-        counts = {"crees": 0, "deja_connus": 0, "echecs": 0}
-        if not sync.TICKETS_API:
-            warnings.append("gestion de tickets du hub non configurée (TICKETS_API_INTERNAL_URL) : rien importé côté hub")
-        for i, demand in enumerate(demands, start=1):
-            outcome = push_hub_ticket(demand, i, filename)
-            if outcome == "created":
-                counts["crees"] += 1
-            elif outcome == "known":
-                counts["deja_connus"] += 1
-            elif outcome == "retry":
-                counts["echecs"] += 1
-                warnings.append(f"demande n°{i} « {demand[COL_SUBJECT][:50]} » : non importée côté hub (tickets-api)")
-            elif outcome == "disabled":
-                break
-        result["tickets"] = counts
+    online = filename == "tableau en ligne"
+    keys = {i: bridge_key(d, unique=online) for i, d in enumerate(demands, start=1)}
 
     # --- cible ProjeQtOr ---
     if target in ("projeqtor", "both"):
@@ -293,7 +385,7 @@ def import_xlsx():
                             "demandeur / priorité / catégorie inscrits en clair dans la description, non résolus")
         unreachable = False
         for i, demand in enumerate(demands, start=1):
-            fields, unresolved = demand_to_ticket(demand, by_name)
+            fields, unresolved = demand_to_ticket(demand, by_name, external_ref=keys[i])
             try:
                 client.create("Ticket", fields)
                 counts["crees"] += 1
@@ -307,7 +399,27 @@ def import_xlsx():
                     warnings.append(f"demande n°{i} : {name} absent des référentiels ProjeQtOr (inscrit en clair dans la description)")
         result["projeqtor"] = counts
 
-    created = sum((c or {}).get("crees", 0) for c in result.values() if c)
+    # --- cible hub (tickets-api, file « imports à valider ») : même clé
+    #     que l'externalReference ProjeQtOr -> la synchronisation
+    #     ProjeQtOr -> hub retrouve « déjà connu », jamais de doublon ---
+    if target in ("tickets", "both"):
+        counts = {"crees": 0, "deja_connus": 0, "echecs": 0}
+        if not sync.TICKETS_API:
+            warnings.append("gestion de tickets du hub non configurée (TICKETS_API_INTERNAL_URL) : rien importé côté hub")
+        for i, demand in enumerate(demands, start=1):
+            outcome = push_hub_ticket(demand, i, filename, source_type="demande", source_name=keys[i])
+            if outcome == "created":
+                counts["crees"] += 1
+            elif outcome == "known":
+                counts["deja_connus"] += 1
+            elif outcome == "retry":
+                counts["echecs"] += 1
+                warnings.append(f"demande n°{i} « {demand[COL_SUBJECT][:50]} » : non importée côté hub (tickets-api)")
+            elif outcome == "disabled":
+                break
+        result["tickets"] = counts
+
+    created = max([(c or {}).get("crees", 0) for c in result.values() if c] or [0])  # demandes enregistrées, pas cibles x demandes
     known = (result["tickets"] or {}).get("deja_connus", 0)
     status = "ok" if created and not any((c or {}).get("echecs") for c in result.values() if c) else ("partiel" if created or known else "echec")
     return jsonify({"status": status, "total": len(demands), "importees": created, "deja_connus": known,
