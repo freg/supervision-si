@@ -7,7 +7,7 @@ import {
 } from "./siAgentClient.js";
 import {
   COMMAND_TYPES, CONTACT_LABELS, riskLabel, severityTone, stateTone, contactTone, gauge, formatBytes,
-  formatUptime, formatAge, ageSeconds, sortFleet, riskSummaryText, diskRows, portRows, mergePlugins,
+  formatUptime, formatAge, ageSeconds, sortFleet, riskSummaryText, diskRows, portRows, mergePlugins, storageSummary,
   validatePluginForm, defaultEntry, eventKindLabel, filterEvents, summarizeEvents, isSecurityEvent, EVENT_SEVERITIES,
 } from "./siAgent.js";
 
@@ -68,7 +68,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
   const [cmdPlugin, setCmdPlugin] = useState("");
   const [assignId, setAssignId] = useState("");
   const [settings, setSettings] = useState(null);
-  const [section, setSection] = useState({ risks: true, system: true, network: true, hardware: false, activity: false, disks: true, ports: false, services: false, logs: false, plugins: true, commands: true, settings: false });
+  const [section, setSection] = useState({ risks: true, system: true, network: true, hardware: false, activity: false, disks: true, storage: false, ports: false, services: false, logs: false, plugins: true, commands: true, settings: false });
 
   const [pluginForm, setPluginForm] = useState(EMPTY_PLUGIN_FORM);
   const [showPluginForm, setShowPluginForm] = useState(false);
@@ -309,6 +309,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
   const plugins = useMemo(() => mergePlugins(detail?.plugins, inventory?.plugins), [detail, inventory]);
   const assignable = catalogue.filter((p) => !(detail?.plugins || []).some((ap) => ap.id === p.id));
   const disks = useMemo(() => diskRows(host), [host]);
+  const storage = useMemo(() => storageSummary(host), [host]);
   const ports = useMemo(() => portRows(host), [host]);
   const toggle = (k) => setSection((s) => ({ ...s, [k]: !s[k] }));
 
@@ -494,7 +495,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
               ) : (
                 <>
                   <div className="sa-sections">
-                    {[["risks", "Risques"], ["system", "Système"], ["network", "Réseau vu de l'hôte"], ["hardware", "Matériel"], ["activity", "Activité"], ["disks", "Disques"], ["ports", "Ports"], ["services", "Services"], ["logs", "Journal"], ["plugins", "Sondes"], ["commands", "Commandes"], ["settings", "Réglages"]].map(([k, l]) => (
+                    {[["risks", "Risques"], ["system", "Système"], ["network", "Réseau vu de l'hôte"], ["hardware", "Matériel"], ["activity", "Activité"], ["disks", "Disques"], ["storage", "Stockage"], ["ports", "Ports"], ["services", "Services"], ["logs", "Journal"], ["plugins", "Sondes"], ["commands", "Commandes"], ["settings", "Réglages"]].map(([k, l]) => (
                       <button key={k} className={`secondary na-section-toggle${section[k] ? " active" : ""}`} onClick={() => toggle(k)}>{l}</button>
                     ))}
                     <span className="muted" style={{ fontSize: 12, marginLeft: "auto" }}>mesure du {when(detail.latest.host.at)}{host.partial?.length > 0 && <> · <Tone tone="warn">partielle : {host.partial.join(", ")}</Tone></>}</span>
@@ -651,6 +652,68 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                           ))}</tbody>
                         </table>
                       </div>
+                    </>
+                  )}
+
+                  {section.storage && (
+                    <>
+                      <h3>Stockage {storage ? <span className="muted" style={{ fontWeight: "normal", fontSize: 12 }}>· {storage.available.join(", ")}</span> : null}</h3>
+                      {!storage ? <p className="muted">Pas de couche de stockage remontée (agent antérieur à #503, ou lsblk / LVM / ZFS absents de l'hôte).</p> : (
+                        <>
+                          {storage.pools.length > 0 && (
+                            <>
+                              <h4>Pools ZFS ({storage.pools.length}) · {storage.snapshotTotal} snapshot{storage.snapshotTotal > 1 ? "s" : ""}</h4>
+                              <div className="hub-table-scroll"><table>
+                                <thead><tr><th>Pool</th><th>État</th><th>Alloué</th><th>Libre</th><th>Taille</th><th>Remplissage</th><th>Fragm.</th><th>Dernier scrub</th><th>Erreurs</th></tr></thead>
+                                <tbody>{storage.pools.map((p) => (
+                                  <tr key={p.pool}><td><code>{p.pool}</code></td><td><Tone tone={p.tone}>{p.state}</Tone></td><td>{p.alloc}</td><td>{p.free}</td><td>{p.size}</td><td>{p.gauge ? <Gauge percent={p.gauge.percent} /> : "—"}</td><td>{p.fragmentation}</td><td>{p.scrub}</td><td>{p.errors.length ? <Tone tone="warn">{p.errors.join(", ")}</Tone> : <span className="muted">aucune</span>}</td></tr>
+                                ))}</tbody>
+                              </table></div>
+                              <h4>Datasets et zvols ({storage.datasets.length})</h4>
+                              <div className="hub-table-scroll"><table>
+                                <thead><tr><th>Nom</th><th>Type</th><th>Montage</th><th>Utilisé</th><th>Disponible</th><th>Quota / taille</th><th>Remplissage</th><th>Compr.</th><th>Snapshots</th><th>Plus ancien</th><th>Plus récent</th></tr></thead>
+                                <tbody>{storage.datasets.map((d) => (
+                                  <tr key={d.name}><td><code>{d.name}</code></td><td className="muted">{d.type}</td><td className="muted">{d.mountpoint}</td><td>{d.used}</td><td>{d.avail}</td><td>{d.quota}</td><td>{d.gauge ? <Gauge percent={d.gauge.percent} /> : "—"}</td><td className="muted">{d.ratio}</td><td>{d.snapshots}{d.snapUsed ? <span className="muted"> ({d.snapUsed})</span> : null}</td><td className="muted">{d.snapOldest}</td><td className="muted">{d.snapNewest}</td></tr>
+                                ))}</tbody>
+                              </table></div>
+                            </>
+                          )}
+                          {storage.lvm && (
+                            <>
+                              <h4>LVM · {storage.lvm.groups.length} groupe{storage.lvm.groups.length > 1 ? "s" : ""}</h4>
+                              <div className="hub-table-scroll"><table>
+                                <thead><tr><th>Volume</th><th>Groupe</th><th>Genre</th><th>Taille</th><th>Pool / origine</th><th>Données</th><th>Métadonnées</th></tr></thead>
+                                <tbody>{storage.lvm.volumes.map((v) => (
+                                  <tr key={`${v.vg}/${v.lv}`}><td><code>{v.lv}</code>{v.active === false && <> <span className="na-chip">inactif</span></>}</td><td className="muted">{v.vg}</td><td className="muted">{v.kind}</td><td>{v.size}</td><td className="muted">{v.pool || v.origin}</td><td>{v.data ? <Gauge percent={v.data.percent} /> : "—"}</td><td>{v.meta ? <Gauge percent={v.meta.percent} /> : "—"}</td></tr>
+                                ))}</tbody>
+                              </table></div>
+                              <p className="muted" style={{ fontSize: 12 }}>{storage.lvm.groups.map((g) => `${g.vg} : ${g.size}, libre ${g.free}, ${g.pv} PV, ${g.lv} LV`).join(" · ")}</p>
+                            </>
+                          )}
+                          {storage.md.length > 0 && (
+                            <>
+                              <h4>RAID logiciel ({storage.md.length})</h4>
+                              <div className="hub-table-scroll"><table>
+                                <thead><tr><th>Grappe</th><th>Niveau</th><th>État</th><th>Disques actifs</th><th>Membres</th></tr></thead>
+                                <tbody>{storage.md.map((a) => (
+                                  <tr key={a.array}><td><code>{a.array}</code></td><td>{a.level}</td><td><Tone tone={a.tone}>{a.state}</Tone></td><td>{a.active == null ? "—" : `${a.active} / ${a.total}`}</td><td className="muted">{a.devices}</td></tr>
+                                ))}</tbody>
+                              </table></div>
+                            </>
+                          )}
+                          {storage.blocks.length > 0 && (
+                            <>
+                              <h4>Périphériques bloc ({storage.blocks.length})</h4>
+                              <div className="hub-table-scroll"><table>
+                                <thead><tr><th>Nom</th><th>Type</th><th>Taille</th><th>FS</th><th>Montage</th><th>Modèle</th></tr></thead>
+                                <tbody>{storage.blocks.map((b) => (
+                                  <tr key={b.name}><td style={{ paddingLeft: 8 + b.depth * 16 }}><code>{b.name}</code>{b.removable && <> <span className="na-chip">amovible</span></>}</td><td className="muted">{b.type}{b.media ? ` · ${b.media}` : ""}</td><td>{b.size}</td><td className="muted">{b.fstype}</td><td><code>{b.mountpoint}</code></td><td className="muted">{b.model}</td></tr>
+                                ))}</tbody>
+                              </table></div>
+                            </>
+                          )}
+                        </>
+                      )}
                     </>
                   )}
 

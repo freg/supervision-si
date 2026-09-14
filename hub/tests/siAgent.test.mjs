@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   riskLabel, severityTone, stateTone, contactTone, gauge, formatBytes, formatUptime, formatAge, ageSeconds,
-  sortFleet, riskSummaryText, diskRows, portRows, mergePlugins, validatePluginForm, defaultEntry,
+  sortFleet, riskSummaryText, diskRows, portRows, mergePlugins, validatePluginForm, defaultEntry, storageSummary,
 } from "../src/siAgent.js";
 
 test("jauges : bornes et tons alignés sur les seuils disque de l'agent", () => {
@@ -147,4 +147,26 @@ test("bandeau d'accueil : ton et titre", () => {
   assert.match(bannerHeadline({ fleet_blocked: true, fleet_block_reason: "incident", counts: {} }), /BLOCAGE GÉNÉRAL.*incident/);
   assert.equal(bannerHeadline({ counts: {}, agents_offline: [], agents_blocked: [], window_hours: 24, agents: 3 }), "Agents hôtes : rien à signaler sur 24 h (3 agents)");
   assert.equal(bannerHeadline({ counts: { critical: 1, warning: 2 }, agents_offline: ["a"], agents_blocked: [], window_hours: 24 }), "Agents hôtes, 24 h : 1 critique, 2 avertissements, 1 agent hors ligne");
+});
+
+
+test("storageSummary : couches présentes, profondeur des blocs, tons ZFS/md, snapshots agrégés (#503)", () => {
+  assert.equal(storageSummary({}), null);
+  assert.equal(storageSummary({ storage: { available: [] } }), null);
+  const host = { storage: { available: ["lsblk", "zfs", "md", "lvm"],
+    blocks: [{ name: "sda", type: "disk", size: 1e12, rotational: true }, { name: "sda2", type: "part", parent: "sda", size: 9e11 }, { name: "pve-root", type: "lvm", parent: "sda2", fstype: "ext4", mountpoint: "/" }],
+    zfs: { pools: [{ pool: "tank", state: "DEGRADED", size: 4e12, alloc: 1e12, free: 3e12, capacity_percent: 25, fragmentation_percent: 3, scrub_age_s: null, scan: "none requested", devices: [{ name: "sdd", state: "UNAVAIL", read: 0, write: 0, cksum: 0 }] }],
+           datasets: [{ name: "tank/backup", type: "filesystem", used: 9.5e10, avail: 5e9, quota: 1e11, used_percent: 95, compressratio: 1.0, snapshots: { count: 2, used: 3e6, oldest_age_s: 86400 * 40, newest_age_s: 3600 } }],
+           snapshot_total: 2 },
+    lvm: { groups: [{ vg: "pve", size: 1e12, free: 1e10, pv_count: 1, lv_count: 3 }], volumes: [{ lv: "data", vg: "pve", kind: "thin-pool", size: 8e11, data_percent: 91.2, metadata_percent: 3.1, active: true }] },
+    md: [{ array: "md1", level: "raid10", degraded: true, active: 3, total: 4, devices: ["sdd1", "sde1"] }] } };
+  const s = storageSummary(host);
+  assert.deepEqual(s.blocks.map((b) => b.depth), [0, 1, 2]);
+  assert.equal(s.pools[0].tone, "bad");
+  assert.equal(s.pools[0].scrub, "jamais terminé");
+  assert.equal(s.datasets[0].snapshots, 2);
+  assert.equal(s.datasets[0].gauge.percent, 95);
+  assert.equal(s.lvm.volumes[0].data.percent, 91.2);
+  assert.equal(s.md[0].state, "dégradé");
+  assert.equal(s.snapshotTotal, 2);
 });

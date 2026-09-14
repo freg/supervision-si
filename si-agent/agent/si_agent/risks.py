@@ -18,6 +18,14 @@ DEFAULT_THRESHOLDS = {
     "recent_boot_seconds": 600,
     "log_errors_warning": 20,
     "defender_signatures_max_days": 7,  # #440 Windows
+    # #503 stockage : ZFS se dégrade bien avant 100 % (copy-on-write) ;
+    # un thin pool LVM plein bloque toutes ses écritures.
+    "zfs_capacity_warning_percent": 80,
+    "zfs_capacity_critical_percent": 90,
+    "zfs_scrub_max_days": 35,
+    "thin_pool_warning_percent": 85,
+    "thin_pool_critical_percent": 95,
+    "dataset_quota_warning_percent": 90,
 }
 
 # Ports dont l'exposition sur toutes les interfaces est un risque en soi
@@ -121,6 +129,76 @@ def evaluate(host_data, thresholds=None):
     if is_windows and upd:
         out.append({"id": "updates-pending", "severity": "info", "subject": "windows-update", "message": "%d mise(s) à jour Windows en attente" % upd})
 
+    out.extend(evaluate_storage(d.get("storage"), t))
+    return out
+
+
+def evaluate_storage(storage, t=None):
+    """#503 : risques des volumes (ZFS, LVM thin, RAID logiciel). Pure."""
+    t = dict(DEFAULT_THRESHOLDS, **(t or {}))
+    out = []
+    if not isinstance(storage, dict):
+        return out
+    zfs = storage.get("zfs") or {}
+    for p in zfs.get("pools") or []:
+        name = p.get("pool")
+        state = (p.get("state") or p.get("health") or "").upper()
+        if state in ("FAULTED", "UNAVAIL", "REMOVED"):
+            out.append({"id": "zpool-faulted", "severity": "critical", "subject": "zpool:%s" % name,
+                        "message": "pool ZFS %s en état %s : données inaccessibles" % (name, state)})
+        elif state == "DEGRADED":
+            out.append({"id": "zpool-degraded", "severity": "critical", "subject": "zpool:%s" % name,
+                        "message": "pool ZFS %s DÉGRADÉ : un disque manque ou est en panne, plus de redondance" % name})
+        elif state and state != "ONLINE":
+            out.append({"id": "zpool-state", "severity": "warning", "subject": "zpool:%s" % name,
+                        "message": "pool ZFS %s en état %s" % (name, state)})
+        bad = [dv for dv in p.get("devices") or [] if (dv.get("read") or dv.get("write") or dv.get("cksum"))]
+        if bad or (p.get("errors") and not str(p.get("errors")).lower().startswith("no known")):
+            out.append({"id": "zpool-errors", "severity": "warning", "subject": "zpool:%s" % name,
+                        "message": "pool ZFS %s : erreurs d'E/S ou de somme de contrôle (%s)" % (
+                            name, ", ".join("%s r%d/w%d/c%d" % (dv["name"], dv["read"], dv["write"], dv["cksum"]) for dv in bad) or p.get("errors"))})
+        cap = p.get("capacity_percent")
+        if cap is not None:
+            if cap >= t["zfs_capacity_critical_percent"]:
+                out.append({"id": "zpool-full", "severity": "critical", "subject": "zpool:%s" % name,
+                            "message": "pool ZFS %s rempli à %.0f %% : performances effondrées au-delà de 90 %%" % (name, cap)})
+            elif cap >= t["zfs_capacity_warning_percent"]:
+                out.append({"id": "zpool-high", "severity": "warning", "subject": "zpool:%s" % name,
+                            "message": "pool ZFS %s rempli à %.0f %%" % (name, cap)})
+        age = p.get("scrub_age_s")
+        if age is None and p.get("scan") is not None:
+            out.append({"id": "zpool-scrub-never", "severity": "info", "subject": "zpool:%s" % name,
+                        "message": "pool ZFS %s : aucun scrub terminé connu" % name})
+        elif age is not None and age > t["zfs_scrub_max_days"] * 86400:
+            out.append({"id": "zpool-scrub-old", "severity": "info", "subject": "zpool:%s" % name,
+                        "message": "pool ZFS %s : dernier scrub il y a %d jours" % (name, age // 86400)})
+    for d in zfs.get("datasets") or []:
+        pct = d.get("used_percent")
+        if d.get("quota") and pct is not None and pct >= t["dataset_quota_warning_percent"]:
+            out.append({"id": "dataset-quota", "severity": "warning", "subject": "zfs:%s" % d.get("name"),
+                        "message": "dataset %s à %.0f %% de son quota" % (d.get("name"), pct)})
+    lvm = storage.get("lvm") or {}
+    for lv in lvm.get("volumes") or []:
+        if lv.get("kind") != "thin-pool":
+            continue
+        for key, label in (("data_percent", "données"), ("metadata_percent", "métadonnées")):
+            pct = lv.get(key)
+            if pct is None:
+                continue
+            subj = "lvm:%s/%s" % (lv.get("vg"), lv.get("lv"))
+            if pct >= t["thin_pool_critical_percent"]:
+                out.append({"id": "thin-pool-full", "severity": "critical", "subject": subj,
+                            "message": "thin pool %s/%s : %s à %.0f %% (les volumes fins vont se bloquer)" % (lv.get("vg"), lv.get("lv"), label, pct)})
+            elif pct >= t["thin_pool_warning_percent"]:
+                out.append({"id": "thin-pool-high", "severity": "warning", "subject": subj,
+                            "message": "thin pool %s/%s : %s à %.0f %%" % (lv.get("vg"), lv.get("lv"), label, pct)})
+    for a in storage.get("md") or []:
+        if a.get("degraded"):
+            out.append({"id": "md-degraded", "severity": "critical", "subject": "md:%s" % a.get("array"),
+                        "message": "RAID logiciel %s (%s) dégradé : %s disque(s) actif(s) sur %s" % (a.get("array"), a.get("level"), a.get("active"), a.get("total"))})
+        elif a.get("resync"):
+            out.append({"id": "md-resync", "severity": "info", "subject": "md:%s" % a.get("array"),
+                        "message": "RAID logiciel %s : %s" % (a.get("array"), a.get("resync"))})
     return out
 
 

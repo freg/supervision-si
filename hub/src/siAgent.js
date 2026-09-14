@@ -131,6 +131,52 @@ export function riskSummaryText(summary) {
 // Lignes du tableau des disques d'une mesure host.
 // #438 : un montage illisible (FUSE/sshfs sans allow_other, NFS périmé) ou
 // invisible depuis le conteneur est listé avec sa raison, tailles à « — ».
+/** Stockage de l'hôte (#503) : volumes, partitions et systèmes de fichiers
+ * (lsblk, LVM, RAID logiciel, ZFS) rendus lisibles ; absent = null. */
+export function storageSummary(host) {
+  const st = host?.storage;
+  if (!st || !Array.isArray(st.available) || st.available.length === 0) return null;
+  const blocks = (st.blocks || []).map((b) => ({
+    name: b.name, type: b.type, parent: b.parent || null, size: b.size == null ? "—" : formatBytes(b.size),
+    fstype: b.fstype || "", mountpoint: b.mountpoint || "", model: b.model || "",
+    media: b.rotational == null ? "" : b.rotational ? "HDD" : "SSD", removable: !!b.removable,
+    depth: 0,
+  }));
+  const byName = new Map(blocks.map((b) => [b.name, b]));
+  for (const b of blocks) { let p = b.parent, d = 0; while (p && byName.has(p) && d < 8) { d += 1; p = byName.get(p).parent; } b.depth = d; }
+  const zfs = st.zfs || null;
+  const pools = (zfs?.pools || []).map((p) => ({
+    pool: p.pool, state: p.state || p.health || "?", tone: /^(FAULTED|UNAVAIL|DEGRADED|REMOVED)$/.test(p.state || "") ? "bad" : p.state === "ONLINE" ? "good" : "warn",
+    size: formatBytes(p.size), alloc: formatBytes(p.alloc), free: formatBytes(p.free),
+    gauge: p.capacity_percent == null ? null : gauge(p.capacity_percent, 80, 90),
+    fragmentation: p.fragmentation_percent == null ? "—" : `${Math.round(p.fragmentation_percent)} %`,
+    errors: (p.devices || []).filter((d) => d.read || d.write || d.cksum).map((d) => `${d.name} r${d.read}/w${d.write}/c${d.cksum}`),
+    scrub: p.scrub_age_s == null ? (p.scan ? "jamais terminé" : "—") : p.scrub_age_s === 0 ? "en cours" : `il y a ${formatAge(p.scrub_age_s)}`,
+    devices: p.devices || [],
+  }));
+  const datasets = (zfs?.datasets || []).map((d) => ({
+    name: d.name, type: d.type === "volume" ? "zvol" : "dataset", mountpoint: d.mountpoint || "",
+    used: formatBytes(d.used), avail: d.avail == null ? "—" : formatBytes(d.avail),
+    quota: d.quota ? formatBytes(d.quota) : d.volsize ? formatBytes(d.volsize) : "",
+    gauge: d.used_percent == null ? null : gauge(d.used_percent, 85, 95),
+    ratio: d.compressratio ? `${d.compressratio.toFixed(2)}x` : "",
+    snapshots: d.snapshots?.count || 0, snapUsed: d.snapshots?.used ? formatBytes(d.snapshots.used) : "",
+    snapOldest: d.snapshots?.oldest_age_s == null ? "" : formatAge(d.snapshots.oldest_age_s),
+    snapNewest: d.snapshots?.newest_age_s == null ? "" : formatAge(d.snapshots.newest_age_s),
+  }));
+  const lvm = st.lvm ? {
+    groups: (st.lvm.groups || []).map((g) => ({ vg: g.vg, size: formatBytes(g.size), free: formatBytes(g.free), pv: g.pv_count, lv: g.lv_count })),
+    volumes: (st.lvm.volumes || []).map((v) => ({
+      lv: v.lv, vg: v.vg, kind: v.kind || "", size: formatBytes(v.size), pool: v.pool || "", origin: v.origin || "",
+      data: v.data_percent == null ? null : gauge(v.data_percent, 85, 95), meta: v.metadata_percent == null ? null : gauge(v.metadata_percent, 85, 95),
+      active: v.active,
+    })),
+  } : null;
+  const md = (st.md || []).map((a) => ({ array: a.array, level: a.level, devices: (a.devices || []).join(" "), active: a.active, total: a.total,
+    tone: a.degraded ? "bad" : a.resync ? "warn" : "good", state: a.degraded ? "dégradé" : a.resync || a.state || "actif" }));
+  return { available: st.available, blocks, pools, datasets, snapshotTotal: zfs?.snapshot_total || 0, lvm, md };
+}
+
 export function diskRows(host) {
   return (host?.disks || []).map((d) => ({
     mountpoint: d.mountpoint,

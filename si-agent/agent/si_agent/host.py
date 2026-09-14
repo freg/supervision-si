@@ -588,6 +588,8 @@ def collect_all(files=read_file, cmd=run_cmd, usage=shutil.disk_usage, which=shu
     ports = collect_listening_ports(cmd)
     logs = collect_log_errors(cmd, files)
     accounts = collect_accounts(files)
+    from . import storage as _storage  # import tardif : storage importe host
+    storage = _storage.collect_storage(cmd=cmd, files=files, which=which)
     if system.get("os") is None:
         partial.append("os-release")
     if cpu.get("load1") is None:
@@ -613,6 +615,7 @@ def collect_all(files=read_file, cmd=run_cmd, usage=shutil.disk_usage, which=shu
         "ports": ports,
         "logs": logs,
         "accounts": accounts,
+        "storage": storage,
         "partial": partial,
     }
     if include_tools:
