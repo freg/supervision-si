@@ -124,6 +124,20 @@ def _run_async(coro, timeout):
     except asyncio.TimeoutError:
         _log.debug("_run_async : délai global dépassé (%ss) -- cible probablement injoignable", timeout)
         raise SnmpError(f"délai dépassé ({timeout}s) -- cible injoignable ou trop lente à répondre")
+    except TypeError as exc:
+        # #506 -- constaté contre un simulateur SNMP (snmpsim) avec pysnmp 7.1 :
+        # quand `wait_for` annule la coroutine AVANT que pysnmp n'ait épuisé
+        # ses propres tentatives (retries), la fermeture du dispatcher rappelle
+        # le callback interne avec un argument manquant (« __callback() missing
+        # 1 required positional argument: 'cbCtx' ») -- une TypeError qui
+        # remontait en HTTP 500 au lieu d'un 502 lisible. Les transports sont
+        # désormais créés avec retries=1 (deux envois au plus) pour que pysnmp
+        # abandonne AVANT le délai global, et ce filet transforme le cas
+        # résiduel en erreur SNMP normale.
+        if "cbCtx" in str(exc) or "__callback" in str(exc):
+            _log.debug("_run_async : annulation pendant une requête en cours (%s) -- traitée comme un délai dépassé", exc)
+            raise SnmpError(f"délai dépassé ({timeout}s) -- cible injoignable ou trop lente à répondre")
+        raise
 
 
 async def _get_system_info(host, community, port, timeout):
@@ -134,7 +148,7 @@ async def _get_system_info(host, community, port, timeout):
         error_indication, error_status, error_index, var_binds = await get_cmd(
             dispatcher,
             CommunityData(community, mpModel=1),  # mpModel=1 -- SNMPv2c (community, GETBULK dispo) -- mpModel=0 serait SNMPv1 strict
-            await UdpTransportTarget.create((host, port), timeout=timeout),
+            await UdpTransportTarget.create((host, port), timeout=timeout, retries=1),
             *[ObjectType(oid) for _, oid in SYSTEM_OIDS],
         )
         elapsed_ms = int((time.monotonic() - start) * 1000)
@@ -161,7 +175,7 @@ async def _get_oids(host, community, port, timeout, oids):
         error_indication, error_status, error_index, var_binds = await get_cmd(
             dispatcher,
             CommunityData(community, mpModel=1),
-            await UdpTransportTarget.create((host, port), timeout=timeout),
+            await UdpTransportTarget.create((host, port), timeout=timeout, retries=1),
             *[ObjectType(ObjectIdentity(oid)) for oid in oids],
         )
         if error_indication:
@@ -178,7 +192,7 @@ async def _get_oids(host, community, port, timeout, oids):
 
 def get_oids(host, community, oids, port=161, timeout=5):
     """GET synchrone d'OID arbitraires -> {oid: texte | None}."""
-    return _run_async(_get_oids(host, community, port, timeout, list(oids)), timeout + 2)
+    return _run_async(_get_oids(host, community, port, timeout, list(oids)), timeout * 2 + 2)
 
 
 def get_system_info(host, community, port=161, timeout=5):
@@ -186,7 +200,7 @@ def get_system_info(host, community, port=161, timeout=5):
     lève SnmpError avec un message actionnable en cas d'échec (cible
     injoignable, communauté refusée, délai dépassé) -- jamais une
     exception `pysnmp` brute qui remonterait jusqu'à la route Flask."""
-    return _run_async(_get_system_info(host, community, port, timeout), timeout + 2)
+    return _run_async(_get_system_info(host, community, port, timeout), timeout * 2 + 2)
 
 
 async def _walk_table(host, community, port, timeout, columns, label):
@@ -208,7 +222,7 @@ async def _walk_table(host, community, port, timeout, columns, label):
             error_indication, error_status, error_index, var_bind_table = await bulk_cmd(
                 dispatcher,
                 CommunityData(community, mpModel=1),
-                await UdpTransportTarget.create((host, port), timeout=timeout),
+                await UdpTransportTarget.create((host, port), timeout=timeout, retries=1),
                 0, 25,
                 *var_binds,
             )
@@ -311,3 +325,66 @@ def get_interface_traffic_rate(host, community, port=161, timeout=5, sample_inte
         _get_interface_traffic_rate(host, community, port, timeout, sample_interval),
         (timeout * 4 * 2) + sample_interval + 5,
     )
+
+
+# --- WALK d'un sous-arbre arbitraire (livraison #506, network-equipment) ---
+
+def _oid_text(var_bind):
+    return str(var_bind[0])
+
+
+def take_subtree(var_binds, prefix, acc, max_rows):
+    """Logique PURE (testée sans réseau) : filtre les var_binds d'une
+    réponse GETBULK, garde ceux encore SOUS `prefix`, les ajoute à `acc`
+    -> (fini, dernier_oid_dans_le_prefixe). `fini` dès qu'un OID sort
+    du sous-arbre, qu'une fin de MIB est signalée ou que `max_rows` est
+    atteint. Une réponse vide est une fin."""
+    p = prefix.strip(".")
+    last = None
+    if not var_binds:
+        return True, None
+    for vb in var_binds:
+        oid = _oid_text(vb).strip(".")
+        if not (oid == p or oid.startswith(p + ".")):
+            return True, last
+        text = vb[1].prettyPrint()
+        if text in ("No Such Object currently exists at this OID", "No Such Instance currently exists at this OID",
+                    "No more variables left in this MIB View", "noSuchObject", "noSuchInstance", "endOfMibView"):
+            return True, last
+        acc.append({"oid": oid, "value": text})
+        last = oid
+        if len(acc) >= max_rows:
+            return True, last
+    return False, last
+
+
+async def _walk_subtree(host, community, port, timeout, oid, max_rows):
+    _log.debug("_walk_subtree : démarré -- host=%s port=%s oid=%s max=%d (communauté : %d caractères, jamais sa valeur)",
+               host, port, oid, max_rows, len(community))
+    rows = []
+    current = ObjectType(ObjectIdentity(oid))
+    truncated = False
+    with SnmpDispatcher() as dispatcher:
+        target = await UdpTransportTarget.create((host, port), timeout=timeout, retries=1)
+        while True:
+            error_indication, error_status, error_index, var_bind_table = await bulk_cmd(
+                dispatcher, CommunityData(community, mpModel=1), target, 0, 50, current)
+            if error_indication:
+                raise SnmpError(str(error_indication))
+            if error_status:
+                raise SnmpError(f"{error_status.prettyPrint()} (index {error_index})")
+            done, last = take_subtree(var_bind_table, oid, rows, max_rows)
+            if done:
+                truncated = len(rows) >= max_rows and not is_end_of_mib(var_bind_table)
+                break
+            if is_end_of_mib(var_bind_table) or last is None:
+                break
+            current = ObjectType(ObjectIdentity(last))
+    return rows, truncated
+
+
+def walk_subtree(host, community, oid, port=161, timeout=5, max_rows=2000):
+    """WALK synchrone d'un sous-arbre numérique -> (lignes {oid, value},
+    tronqué). Borné par `max_rows` (une table MAC de gros switch peut
+    dépasser plusieurs milliers d'entrées) et par le délai global."""
+    return _run_async(_walk_subtree(host, community, port, timeout, oid, max_rows), timeout * 6 + 5)

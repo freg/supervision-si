@@ -32,6 +32,7 @@ export const THEMES = [
   { id: "reseau", name: "Réseau", icon: "🕸", description: "Exploration, cycle agile, orchestrateur, architecture, fusion IP/MAC, Nebula, tunnels SSH, routeurs MikroTik, hyperviseurs Proxmox",
     entries: [
       { view: "network-agent", label: "Exploration réseau" },
+      { view: "network-equipment", label: "Équipements réseau" },
       { view: "network-cycle", label: "Cycle agile réseau" },
       { view: "netmap-orchestrator", label: "Orchestrateur" },
       { view: "architecture", label: "Architecture" },

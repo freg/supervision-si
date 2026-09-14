@@ -30,6 +30,7 @@ import NetprobeView from "./NetprobeView.jsx";
 import UpsView from "./UpsView.jsx";
 import SiAgentView from "./SiAgentView.jsx";
 import ProxmoxView from "./ProxmoxView.jsx";
+import NetworkEquipmentView from "./NetworkEquipmentView.jsx";
 import BastionView from "./BastionView.jsx";
 import CortexView from "./CortexView.jsx";
 import ThemeView from "./ThemeView.jsx";
@@ -108,6 +109,9 @@ const NETPROBE_API_BASE_URL = import.meta.env.VITE_NETPROBE_API_BASE_URL || "";
 const UPS_API_BASE_URL = import.meta.env.VITE_UPS_API_BASE_URL || "";
 // Tuile Agents hôtes (livraison #421, backlog 63) -- si-agent-api.
 const SI_AGENT_API_BASE_URL = import.meta.env.VITE_SI_AGENT_API_BASE_URL || "";
+// Équipements réseau (livraison #506) -- network-equipment-api : identification
+// constructeur/modèle/génération, import Zenoss, profils de supervision SNMP.
+const NETWORK_EQUIPMENT_API_BASE_URL = import.meta.env.VITE_NETWORK_EQUIPMENT_API_BASE_URL || "";
 // #505 : pages ouvertes sans connexion (liste à plat sur l'accueil)
 const PUBLIC_LINKS = publicLinks({ demandeUrl: DEMANDE_URL, frontendUrl: FRONTEND_URL });
 // Tuile Bastion (livraison #454) -- si-proxy-admin-api ; réservée aux
@@ -1350,7 +1354,7 @@ export default function App() {
     fronts.some((f) => f.id === "supervision") && "supervision-si",
     SI_AGENT_API_BASE_URL && "si-agent", NETPROBE_API_BASE_URL && "netprobe", UPS_API_BASE_URL && "ups", SNMP_API_BASE_URL && "snmp",
     VIGILANCE_API_BASE_URL && "vigilance", "cyber", "logs", "history", MEMORY_API_BASE_URL && "memory",
-    NETWORK_AGENT_API_BASE_URL && "network-agent", "network-cycle", NETMAP_ORCHESTRATOR_API_BASE_URL && "netmap-orchestrator",
+    NETWORK_AGENT_API_BASE_URL && "network-agent", NETWORK_EQUIPMENT_API_BASE_URL && "network-equipment", "network-cycle", NETMAP_ORCHESTRATOR_API_BASE_URL && "netmap-orchestrator",
     ARCHITECTURE_API_BASE_URL && "architecture", (EXTERNAL_BASES.ipam || EXTERNAL_BASES.zenoss) && "fusion", NEBULA_API_BASE_URL && "nebula",
     SSH_TUNNELS_API_BASE_URL && "ssh-tunnels", HAS_EXTERNAL_BASES && "external-bases", GLPI_API_BASE_URL && "glpi-inventory",
     GEO_CATALOG_API_BASE_URL && "geo-catalog", CLASSIFIER_API_BASE_URL && "classifier", SCHEMA_ANALYZER_API_BASE_URL && "schema-analyzer",
@@ -1589,6 +1593,8 @@ vm === "settings" ? (
           onBack={goBack}
           siAgentApiBase={SI_AGENT_API_BASE_URL}
         />
+      ) : vm === "network-equipment" ? (
+        <NetworkEquipmentView onBack={goBack} networkEquipmentApiBase={NETWORK_EQUIPMENT_API_BASE_URL} />
       ) : vm === "proxmox" ? (
         <ProxmoxView
           onBack={goBack}

@@ -1,3 +1,80 @@
+## 2026-09-14 — équipements réseau : identification (constructeur, modèle, génération), import Zenoss, profils de supervision SNMP (livraison #506)
+
+Demandé explicitement : « dans l'exploration réseau, identifier côté
+LAN la marque et le modèle d'un routeur sachant que les routeurs récents
+sont les MikroTik et que les autres, s'il en reste, datent de l'origine
+de la boucle locale fibre (~25 ans) ; à partir de la base Zenoss / SNMP
+récupérer ces infos et celles des switchs/équipements niveau 2 ; préparer
+des interfaces de supervision génériques Cisco, HP… ». Choix retenus :
+socle complet, et pour Zenoss « les deux » formats (script zendmd +
+CSV). Nouvelle facette de l'exploration, entrée « Équipements réseau »
+de la thématique Réseau. Voir `network-equipment/README.md`.
+
+- **Nouveau service `network-equipment-api`** (`/api/network-equipment/`) :
+  une fiche par équipement rapprochée par MAC → IP → nom, preuves
+  conservées et identification RECALCULÉE à chaque nouvelle preuve
+  (`identify.merge`, logique pure) : constructeur, modèle, système et
+  version, numéro de série, genre (routeur / switch / pare-feu / point
+  d'accès / hôte / hyperviseur / imprimante / onduleur / stockage),
+  **génération** (récent / ancien avec la raison : famille Cisco
+  d'avant 2005, IOS 11-12, CatOS, ProCurve à révision à une lettre,
+  BayStack, SuperStack…, contre RouterOS / IOS 15+ / Aruba), confiance,
+  sources. Le choix manuel a le dernier mot.
+- **Sources** : exploration réseau (MAC → constructeur par OUI —
+  amorce embarquée de ~400 préfixes avec catégorie réseau /
+  virtualisation / hôte, registre IEEE `oui.csv` chargeable depuis la
+  tuile —, rôle observé, services) ; **SNMP via snmp-api** (sysDescr /
+  sysObjectID parsés pour Cisco IOS et CatOS, MikroTik, HP ProCurve /
+  Aruba / Comware, 3Com, Nortel, Alcatel, Juniper, Netgear, D-Link,
+  Zyxel, Ubiquiti, Fortinet, APC, imprimantes, Linux / Windows ;
+  ENTITY-MIB pour le modèle exact et la série ; voisins **LLDP** et
+  **CDP** ; **table des adresses MAC** BRIDGE/Q-BRIDGE avec noms de
+  ports) ; **Zenoss 2.5** (JSON du nouveau script
+  `connectors/zenoss_legacy/zendmd_export_devices.py` — Python 2.4,
+  lecture seule, communauté omise — ou CSV « Export » de la liste,
+  analyse avant import) ; manuel.
+- **Topologie** : voisins rapprochés des fiches, « appris sur le port X
+  du switch Y » pour chaque MAC connue, liens LLDP/CDP/ports d'accès
+  (`/topology`, onglet Topologie).
+- **Profils de supervision génériques** (`profiles.py`, données) :
+  Cisco IOS (CISCO-PROCESS + OLD-CISCO-CPU pour les IOS 11/12, pools
+  mémoire, ENVMON, CDP), Cisco CatOS, HP ProCurve/Aruba (CPU, mémoire,
+  capteurs), HP/H3C Comware, MikroTik (MIKROTIK-MIB + HOST-RESOURCES),
+  Juniper, hôte net-snmp, générique (IF-MIB, ENTITY, LLDP, table MAC) ;
+  relevé à la demande (`/equipment/<id>/poll`) avec synthèse CPU /
+  mémoire / température / alarmes et interfaces. Tous marqués **non
+  vérifiés** tant qu'un relevé réel ne les a pas confirmés.
+- **Accès SNMP sans secret** : nom d'un accès du coffre (#498, genre
+  snmp, mot de passe = communauté, révélé par jeton interne), cible
+  enregistrée de snmp-api, ou communauté ponctuelle jamais conservée.
+- **snmp-api** : nouvelle route `POST /walk` (sous-arbre borné,
+  GETBULK) ; **vrai bug corrigé** constaté contre un simulateur : cible
+  injoignable → `TypeError` interne de pysnmp (HTTP 500) au lieu d'un
+  502 — transports `retries=1`, filet dans `_run_async`.
+- **Hub** : vue `NetworkEquipmentView.jsx` (statut des sources, filtres,
+  tableau, fiche avec preuves / accès SNMP / relevé / voisins / table
+  MAC / correction manuelle / historique, import exploration et Zenoss
+  avec aperçu, registre OUI, identification en lot), `networkEquipment.js`
+  (pur), `networkEquipmentClient.js`, `.ne-*` dans `hub.css`, entrée dans
+  `hubThemes.js`, `VITE_NETWORK_EQUIPMENT_API_BASE_URL`.
+- Compose (`network-equipment-api`), tls-proxy, `.env.example`
+  (`NETWORK_EQUIPMENT_*`), `ENV_CHANGELOG.md`, `snmp/README.md`.
+- Vérifié : 35 tests Python du service (logique pure + API avec faux
+  snmp-api / exploration / coffre), 4 tests du WALK, **bout en bout réel
+  avec pysnmp 7.1 contre un simulateur SNMP (snmpsim) rejouant un
+  Catalyst 2950** (identification WS-C2950-24 / série / switch / ancien,
+  voisins CDP + LLDP, table MAC, relevé cisco-ios : CPU 12 %, mémoire
+  75 %, alarme alimentation, topologie), 8 tests Node du hub, esbuild.
+- Non vérifié : équipements réels (formats sysDescr d'après
+  documentation), rendu navigateur (`npm run build` hors de portée du
+  shell), `/walk-interfaces` sur le simulateur (IF-MIB compilée), script
+  zendmd (Python 2.4 non disponible ici) — à lancer sur le serveur
+  Zenoss avec le retour d'erreur éventuel.
+- Sur super : `python3 scripts/sync-env.py`, `up -d --build hub snmp-api
+  network-equipment-api tls-proxy`, créer un accès de genre `snmp` dans
+  la tuile « Accès d'équipements » (mot de passe = communauté), puis
+  « Importer l'exploration » et identifier les fiches cochées.
+
 ## 2026-09-14 — accueil du hub : pages ouvertes sans connexion, en liste à plat (livraison #505)
 
 Demandé explicitement : « indiquer les liens externes sans

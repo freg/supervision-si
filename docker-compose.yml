@@ -1103,6 +1103,32 @@ services:
     ports:
       - "${UPS_MONITOR_API_PORT:-6128}:5000"
 
+  network-equipment-api:
+    # Livraison #506 -- facette « équipements réseau » de l'exploration :
+    # identification constructeur / modèle / génération (OUI, SNMP via
+    # snmp-api, import Zenoss zendmd ou CSV, choix manuels), voisins
+    # LLDP/CDP et tables MAC, profils de supervision SNMP génériques par
+    # constructeur. Servi sous /api/network-equipment/ (tls-proxy), entrée
+    # « Équipements réseau » de la thématique Réseau. Voir
+    # network-equipment/README.md. Aucune communauté SNMP stockée ici :
+    # coffre des accès (genre snmp), cible snmp-api, ou saisie ponctuelle.
+    build:
+      context: .
+      dockerfile: network-equipment/api/Dockerfile
+    environment:
+      - SNMP_API_INTERNAL_URL=http://snmp-api:5000
+      # network-agent tourne en network_mode: host -- même construction que le hub.
+      - NETWORK_AGENT_API_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
+      - CREDENTIALS_API_URL=http://credentials-api:5000
+      - CREDENTIALS_INTERNAL_TOKEN=${CREDENTIALS_INTERNAL_TOKEN:-}
+      - NETWORK_EQUIPMENT_SNMP_TIMEOUT=${NETWORK_EQUIPMENT_SNMP_TIMEOUT:-5}
+    volumes:
+      # Base SQLite + registre OUI IEEE chargé par la tuile : À SAUVEGARDER.
+      - ${NETWORK_EQUIPMENT_DATA_DIR:-./network-equipment/data}:/data
+    depends_on:
+      - snmp-api
+      - credentials-api
+
   si-agent-api:
     # Livraison #421 (backlog 63) -- central des agents hôtes Linux
     # (si-agent) : flotte et enrôlement (secret HMAC par agent), mesures
@@ -1716,6 +1742,8 @@ services:
       - VITE_UPS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/ups
       # Agents hôtes (livraison #421) -- tuile hub pour si-agent-api.
       - VITE_SI_AGENT_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-agent
+      # Équipements réseau (livraison #506) -- entrée du menu Réseau pour network-equipment-api.
+      - VITE_NETWORK_EQUIPMENT_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/network-equipment
       # Cortex (livraison #462) -- incidents corrélés, hypothèses évaluées.
       - VITE_CORTEX_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/cortex
       # Bastion si-proxy (livraison #454) -- tuile réservée (SI_PROXY_ADMIN_USERS).

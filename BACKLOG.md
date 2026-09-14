@@ -2691,3 +2691,19 @@ Livré : section « Pages ouvertes — sans connexion » en liste à plat
 administrateur ajouter ses propres pages ouvertes (les « liens
 externes » gérés dans le hub restent des tuiles, avec rôles) ; QR code
 à côté de l'adresse pour l'affichage.
+
+## Équipements réseau — suites (2026-09-14, #506) — item 73
+
+Livré : service network-equipment-api (identification OUI/SNMP/Zenoss/
+manuel, génération, voisins LLDP/CDP, tables MAC, profils de supervision),
+script zendmd, vue hub. Suites, non demandées :
+
+- relevé périodique des profils (automate, historique, seuils → alertes
+  via le journal d'événements existant), au lieu du relevé à la demande ;
+- passer `verified` des profils à True après les premiers relevés réels
+  (Cisco IOS ancien, ProCurve, MikroTik) et ajouter les MIB propriétaires
+  manquantes (3Com, Nortel, Netgear, Zyxel, Alcatel) au premier besoin ;
+- carte de topologie graphique (réutiliser le rendu SVG du cycle réseau)
+  et LLDP-MED (téléphones, bornes) ;
+- rapprochement avec l'inventaire GLPI et les positions (geo-catalog) ;
+- SNMPv3 (dépend de snmp-api, toujours v1/v2c seulement).

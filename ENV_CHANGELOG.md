@@ -12,6 +12,22 @@ regarder l'entrée la plus récente en haut — si elle correspond à ce
 que vous avez déjà en `.env`, rien à faire. Sinon, copier/ajouter les
 clés listées, dans votre `.env` existant.
 
+## 2026-09-14 — équipements réseau (livraison #506)
+
+Ajouts (aucune clé existante modifiée) :
+
+- `NETWORK_EQUIPMENT_API_PORT=` (vide : pas de port hôte, tls-proxy
+  dispatche `/api/network-equipment/`), `NETWORK_EQUIPMENT_DATA_DIR=`
+  (défaut `./network-equipment/data`, base SQLite + registre OUI),
+  `NETWORK_EQUIPMENT_SNMP_TIMEOUT=5`.
+- Le service réutilise `CREDENTIALS_INTERNAL_TOKEN` (coffre des accès,
+  #498) et `HOST_IP` / `NETWORK_AGENT_HOST_PORT` (exploration).
+
+`python3 scripts/sync-env.py` insère les clés manquantes.
+
+---
+
+
 ## 2026-09-14 — coffre-fort, affichage (livraison #501)
 
 - `VAULT_UI_MODE` (défaut `simple` depuis #502) — affichage par défaut du portail

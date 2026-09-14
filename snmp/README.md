@@ -251,3 +251,29 @@ autorisé. Testé avec des stubs minimaux pour `pysnmp`/
 `credential_crypto` (non installables dans cet environnement de
 développement, même limite déjà documentée) -- confirme la logique
 de la garde, jamais l'appel SNMP réel lui-même.
+
+## Route `POST /walk` et robustesse aux cibles injoignables (livraison #506)
+
+`POST /walk` : WALK borné d'un sous-arbre numérique arbitraire --
+`{host, community | target_id, oid, max_rows? (défaut 2000, max 5000),
+port?, timeout?}` -> `{rows: [{oid, value}], truncated}` -- GETBULK par
+50, arrêt dès que l'OID sort du préfixe (`take_subtree`, logique pure
+testée dans `test_walk_subtree.py`). Ajoutée pour network-equipment-api
+(ENTITY-MIB, LLDP, CDP, BRIDGE-MIB, colonnes des profils constructeur).
+
+Vrai bug corrigé au passage, constaté contre un simulateur SNMP
+(snmpsim) avec pysnmp 7.1 : une cible injoignable faisait annuler la
+coroutine par `wait_for` AVANT que pysnmp n'ait épuisé ses tentatives,
+et la fermeture du dispatcher levait une `TypeError` interne
+(`__callback() missing 1 required positional argument: 'cbCtx'`) --
+HTTP 500 au lieu d'un 502 lisible. Les transports sont désormais créés
+avec `retries=1` (deux envois au plus, délai global `2 × timeout + 2`
+pour GET/query) et `_run_async` transforme le cas résiduel en `SnmpError`
+normale. Vérifié : « No SNMP response received before timeout » en 502
+en ~2 s pour une mauvaise communauté ou une IP sans agent.
+
+Vérifié en réel contre le simulateur (fiche d'un Catalyst 2950) :
+`/query`, `/get`, `/walk` (ENTITY, CDP, LLDP, FDB, troncature
+`max_rows`, sous-arbre vide, sous-arbre après la fin de MIB).
+`/walk-interfaces` n'a pas pu l'être ici (IF-MIB compilée absente de
+l'environnement de test, pas de réseau vers mibs.pysnmp.com).

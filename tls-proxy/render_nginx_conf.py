@@ -190,6 +190,8 @@ SERVICES = [
     # est retiré ici (même mécanique que netprobe). Ajouté dès la
     # première livraison (piège #301).
     ("SI_AGENT_API_PORT", "si-agent-api", 5000, "/api/si-agent/", "api"),
+    # network-equipment-api (livraison #506) -- équipements réseau (identification, profils SNMP).
+    ("NETWORK_EQUIPMENT_API_PORT", "network-equipment-api", 5000, "/api/network-equipment/", "api"),
     # si-proxy-admin-api (livraison #454) -- pont de la tuile « Bastion »
     # vers l'interface de contrôle du relais si-proxy. Ajouté dès la
     # première livraison (piège #301).
