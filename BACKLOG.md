@@ -2692,6 +2692,12 @@ administrateur ajouter ses propres pages ouvertes (les « liens
 externes » gérés dans le hub restent des tuiles, avec rôles) ; QR code
 à côté de l'adresse pour l'affichage.
 
+## Coffre-fort — affichage tableur (2026-09-14, #507)
+
+Livré en défaut. À ajuster après la première vue réelle (largeurs de
+colonnes, colonnes supplémentaires -- dernier accès, fréquence -- si
+utile, même look pour l'écran d'un code ouvert).
+
 ## Équipements réseau — suites (2026-09-14, #506) — item 73
 
 Livré : service network-equipment-api (identification OUI/SNMP/Zenoss/

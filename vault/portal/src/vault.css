@@ -831,3 +831,25 @@ button.secondary {
 .vault-ui-simple .vault-card, .vault-ui-simple .vault-search-col, .vault-ui-simple .vault-search-secret-item { border-radius: 0; }
 .vault-ui-simple .vault-search-center-toolbar { justify-content: flex-start; }
 .vault-ui-simple h1, .vault-ui-simple h2, .vault-ui-simple h3 { text-align: left; }
+
+/* --- Affichage tableur (livraison #507) : « le même design que les
+   demandes de SAV ». Mêmes valeurs que projeqtor-bridge/static/tableau.html
+   (Calibri, en-tête plein rouge, lettres de colonnes et numéros de
+   lignes gris, quadrillage, fond papier). EXCEPTION ASSUMÉE à la règle
+   « jamais de couleur en dur » : ce bloc reproduit volontairement une
+   feuille de tableur, identique en thème clair et sombre, comme les
+   pages publiques de demandes qu'il imite ; tout le reste du portail
+   garde les variables du thème. --- */
+.vault-ui-tableur { font-family: Calibri, "Segoe UI", system-ui, sans-serif; }
+.vault-ui-tableur .vault-search-columns-simple { max-width: 1100px; }
+.vault-sheet { overflow: auto; border: 1px solid #c8c8c8; background: #fff; color: #111; }
+.vault-sheet-table { border-collapse: collapse; table-layout: fixed; min-width: 640px; width: 100%; font-size: 14px; }
+.vault-sheet-table th, .vault-sheet-table td { border: 1px solid #c8c8c8; padding: 3px 6px; height: 24px; text-align: left; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #111; }
+.vault-sheet-table thead th { background: #e6e6e6; font-weight: 400; color: #333; font-size: .8rem; text-align: center; }
+.vault-sheet-table .vault-sheet-rownum { width: 42px; background: #e6e6e6; text-align: center; color: #333; font-size: .8rem; }
+.vault-sheet-table tr.vault-sheet-header td { background: #ff0000; color: #fff; font-weight: 700; }
+.vault-sheet-table tr.vault-sheet-header td.vault-sheet-rownum { background: #e6e6e6; color: #333; font-weight: 400; }
+.vault-sheet-table tbody tr { cursor: pointer; }
+.vault-sheet-table tbody tr:hover td:not(.vault-sheet-rownum), .vault-sheet-table tbody tr:focus td:not(.vault-sheet-rownum) { background: #dbe9f7; }
+.vault-sheet-table tbody tr:focus { outline: 2px solid #217346; outline-offset: -2px; }
+.vault-ui-tableur .vault-search-label-input, .vault-ui-tableur .vault-search-sort-select { border-radius: 2px; }

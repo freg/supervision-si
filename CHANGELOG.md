@@ -1,3 +1,32 @@
+## 2026-09-14 — coffre-fort : affichage « tableur », le même design que les demandes de SAV, par défaut (livraison #507)
+
+Demandé : « as-tu simplifié la page du coffre-fort dans le même design
+que les demandes de SAV ? » puis « oui fais-le ». Le mode simple
+(#501/#502) avait le principe (colonne centrale seule, tableau, sans
+icône) mais pas l'apparence des pages de demandes (#500).
+
+- Troisième mode d'affichage **tableur**, nouveau défaut : la liste des
+  codes rendue comme la saisie en tableau des demandes — Calibri,
+  en-tête plein rouge en gras, lettres de colonnes A/B/C, numéros de
+  lignes, quadrillage, fond papier (mêmes valeurs CSS que
+  `projeqtor-bridge/static/tableau.html`). Clic sur la ligne = ouvrir le
+  code. `simple` et `complet` restent disponibles ; le bouton de
+  l'en-tête fait le tour des trois, choix mémorisé par navigateur,
+  `VAULT_UI_MODE=tableur|simple|complet` pour le défaut d'installation
+  (`.env.example` et compose passés à `tableur`).
+- Exception assumée à la règle « jamais de couleur en dur » : le bloc
+  `.vault-sheet*` reproduit une feuille de tableur, identique en thème
+  clair et sombre, comme les pages publiques qu'il imite.
+- Fichiers : `vault/portal/src/{uiMode.js,App.jsx,VaultSearchScreen.jsx,vault.css}`,
+  `vault/portal/tests/uiMode.test.mjs`, `vault/README.md`,
+  `docker-compose.yml`, `.env.example`.
+- Vérifié : 3 tests Node (défaut, mémorisation, cycle des modes),
+  analyse syntaxique des composants.
+- Non vérifié : rendu réel (`npm run build` hors de portée du shell) —
+  à regarder demain avec la version déployée ; `--build vault-portal`
+  nécessaire, et `VAULT_UI_MODE=tableur` dans le `.env` de super
+  (sinon le défaut reste ce qui y est écrit).
+
 ## 2026-09-14 — équipements réseau : identification (constructeur, modèle, génération), import Zenoss, profils de supervision SNMP (livraison #506)
 
 Demandé explicitement : « dans l'exploration réseau, identifier côté

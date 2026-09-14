@@ -52,7 +52,7 @@ function saveUsageColumnPrefs(prefs) {
   }
 }
 
-export default function VaultSearchScreen({ login, privateKey, publicKeyBase64, isReadOnly, onOpenSecret, onCollectionsChanged, simple = false }) {
+export default function VaultSearchScreen({ login, privateKey, publicKeyBase64, isReadOnly, onOpenSecret, onCollectionsChanged, simple = false, tableur = false }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [failedCollections, setFailedCollections] = useState([]);
@@ -595,7 +595,32 @@ export default function VaultSearchScreen({ login, privateKey, publicKeyBase64, 
             </div>
           )}
 
-          {simple ? (
+          {tableur ? (
+            // Mode tableur (#507) : « le même design que les demandes de
+            // SAV » -- même construction que projeqtor-bridge/static/tableau.html
+            // (lettres de colonnes, numéros de lignes, en-tête plein,
+            // quadrillage, fond papier). Un clic sur la ligne ouvre le code.
+            <div className="vault-sheet">
+              <table className="vault-sheet-table">
+                <thead>
+                  <tr><th className="vault-sheet-rownum"></th><th>A</th><th>B</th><th>C</th></tr>
+                  <tr className="vault-sheet-header"><td className="vault-sheet-rownum">1</td><td>Libellé</td><td>Localisation</td><td>Collection</td></tr>
+                </thead>
+                <tbody>
+                  {displayedSecrets.map((s, i) => (
+                    <tr key={`${s.collectionId}-${s.id}`} onClick={() => onOpenSecret(s)} tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenSecret(s); } }}>
+                      <td className="vault-sheet-rownum">{i + 2}</td>
+                      <td>{s.label}</td>
+                      <td>{s.localisation || ""}</td>
+                      <td>{s.collectionName}</td>
+                    </tr>
+                  ))}
+                  {displayedSecrets.length === 0 && <tr><td className="vault-sheet-rownum">2</td><td colSpan={3}>Aucun code ne correspond.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          ) : simple ? (
             // Mode simple (#501) : un tableau, tout aligné à gauche, aucun
             // pictogramme -- un clic sur la ligne ouvre le code.
             <table className="vault-simple-table">

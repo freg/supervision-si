@@ -18,7 +18,7 @@ import ObservationsScreen from "./ObservationsScreen.jsx";
 import LocationPicker from "./LocationPicker.jsx";
 import CopyableValue from "./CopyableValue.jsx";
 import FieldsEditor from "./FieldsEditor.jsx";
-import { loadUiMode, saveUiMode } from "./uiMode.js";
+import { loadUiMode, saveUiMode, nextUiMode, isPlainMode, UI_MODE_LABELS, UI_MODE_TITLES } from "./uiMode.js";
 
 // Coffre = identité Keycloak connue (contrairement à DBA/Supervision
 // SI) -- préférences liées au compte, même mécanisme que hub/portail
@@ -880,7 +880,8 @@ function CollectionDetail({ collection, collectionKey, login, isReadOnly }) {
 
 // --- Vue principale une fois déverrouillé : liste des collections ---
 function VaultView({ login, privateKey, publicKeyBase64, onViewModeChange, isSystemMaster, isReadOnly, uiMode = "complet" }) {
-  const simple = uiMode === "simple";
+  const simple = isPlainMode(uiMode);
+  const tableur = uiMode === "tableur";
   const ico = (emoji) => (simple ? "" : emoji + " ");
   // "search" (recherche par localisation, PRIORITAIRE -- demandé
   // explicitement comme premier écran) par défaut, "collections"
@@ -1053,6 +1054,7 @@ function VaultView({ login, privateKey, publicKeyBase64, onViewModeChange, isSys
           onOpenSecret={handleOpenSecretFromSearch}
           onCollectionsChanged={loadCollections}
           simple={simple}
+          tableur={tableur}
         />
       )}
       {viewMode === "observations" && (
@@ -1276,9 +1278,11 @@ export default function App() {
   const [isSystemMaster, setIsSystemMaster] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [uiMode, setUiMode] = useState(() => loadUiMode(import.meta.env.VITE_VAULT_UI_MODE || "simple"));
-  const simple = uiMode === "simple";
-  const toggleUiMode = () => { const next = simple ? "complet" : "simple"; saveUiMode(next); setUiMode(next); };
+  const [uiMode, setUiMode] = useState(() => loadUiMode(import.meta.env.VITE_VAULT_UI_MODE || undefined));
+  const simple = isPlainMode(uiMode);
+  const tableur = uiMode === "tableur";
+  // #507 : le bouton fait le tour des trois modes (tableur -> simple -> complet).
+  const toggleUiMode = () => { const next = nextUiMode(uiMode); saveUiMode(next); setUiMode(next); };
 
   const login = auth.user?.profile?.preferred_username;
 
@@ -1344,7 +1348,7 @@ export default function App() {
   }
 
   return (
-    <div className={`vault-shell${simple ? " vault-ui-simple" : ""}`}>
+    <div className={`vault-shell${simple ? " vault-ui-simple" : ""}${tableur ? " vault-ui-tableur" : ""}`}>
       <header className="vault-header">
         <a href="/" className="vault-hub-link" title="Retour au hub">{simple ? "Hub" : "🏠 Hub"}</a>
         <a href="/?view=settings" className="vault-hub-link" title="Paramètres (page dédiée dans le hub)">{simple ? "Paramètres" : "⚙️ Paramètres"}</a>
@@ -1358,9 +1362,9 @@ export default function App() {
         <button
           className="vault-hub-link"
           onClick={toggleUiMode}
-          title={simple ? "Revenir au design complet (trois colonnes, pictogrammes)" : "Affichage simple : colonne centrale seule, en tableau, sans pictogramme"}
+          title={`Actuellement : ${UI_MODE_LABELS[uiMode].toLowerCase()} -- ${UI_MODE_TITLES[uiMode]}. Cliquer : ${UI_MODE_LABELS[nextUiMode(uiMode)].toLowerCase()}.`}
         >
-          {simple ? "Affichage complet" : "Affichage simple"}
+          {UI_MODE_LABELS[nextUiMode(uiMode)]}
         </button>
         <h1>{simple ? "Coffre-fort" : "🔐 Coffre-fort"}</h1>
         <div className="vault-header-right">
