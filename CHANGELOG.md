@@ -1,3 +1,15 @@
+## 2026-09-16 — si-agent-api : « database is locked » (livraison #515)
+
+Constaté sur super : après 29 h de marche, toutes les routes de
+si-agent-api répondaient `sqlite3.OperationalError: database is locked`
+(tuile Agents hôtes en 500, agents « hors ligne » alors qu'ils
+déposaient). `store.py` : connexions avec `timeout=30` (au lieu de 5 s)
+et journal WAL activé à l'initialisation du schéma (les lectures ne
+bloquent plus sur une écriture en cours). Vérifié : schéma créé en WAL,
+`list_agents` sur base neuve. Non vérifié : reproduction de la
+contention réelle (à observer sur super après reconstruction) ; en
+attendant, `./scripts/run.sh restart si-agent-api` libère le verrou.
+
 ## 2026-09-16 — installeur : marqueur de construction lié à la version (livraison #514)
 
 Constaté sur super : après passage des sources en #513, le hub restait

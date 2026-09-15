@@ -146,14 +146,22 @@ def now_iso():
 
 
 def _connect(db_path):
-    conn = sqlite3.connect(db_path)
+    # #515 : « database is locked » vu sur super après 29 h (8 threads gunicorn,
+    # agents qui déposent pendant que le hub lit) -- attente jusqu'à 30 s au
+    # lieu de 5, et journal WAL (ensure_schema) : les lectures ne bloquent plus
+    # sur une écriture en cours.
+    conn = sqlite3.connect(db_path, timeout=30)
     conn.row_factory = sqlite3.Row
     return conn
 
 
 def ensure_schema(db_path):
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, timeout=30)
     try:
+        try:
+            conn.execute("PRAGMA journal_mode=WAL")  # #515 ; sans effet si le système de fichiers refuse
+        except sqlite3.OperationalError:
+            pass
         conn.executescript(SCHEMA)
         for table, col, decl in MIGRATIONS:
             cols = [r[1] for r in conn.execute("PRAGMA table_info(%s)" % table).fetchall()]
