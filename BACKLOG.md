@@ -2722,3 +2722,11 @@ relevé périodique + historique + alertes vers le journal d'événements ;
 la GED/PBS ; rapprochement avec la facette Équipements réseau (#506) ;
 ajustements après la première session réelle (invite, colonnes,
 algorithmes SSH des IOS 12.x).
+
+## Déploiement réparti — suites (2026-09-15, #509) — item 75
+
+Livré : cohortes + Swarm sur VPN + scripts (deploy/). Suites : premiers
+tests sur VM (retours attendus), tuile hub « Répartition » (API Swarm :
+charge des nœuds, cohortes, migrer), NFS pour lever l'épinglage des
+données, sauvegarde totale par nœud, `gateway/scripts/run.sh` en mode
+pile, exposition publique via le nœud OVH (cohorte agents / frontal).

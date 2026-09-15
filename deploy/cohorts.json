@@ -1,0 +1,28 @@
+{
+  "_doc": "Cohortes de déploiement (livraison #509) : une tuile ou une famille de tuiles et sa cohorte de dépendances/ressources, déployée d'un bloc sur un nœud Swarm portant le label si.cohort.<name>=true. zone : local (Proxmox sur site) ou ovh. pinned : données locales au nœud (bind mounts) — la migration déplace le dossier de données. isolated : aucune dépendance sortante hors allowed_dependencies. memcached (core) est joint par tous via le réseau overlay.",
+  "cohorts": [
+    {"name": "core", "title": "Passerelle, identité, hub, coffre des accès, bastion", "zone": "local", "pinned": true, "manager": true,
+     "services": ["tls-proxy", "keycloak", "keycloak-backup", "openldap-test", "memcached", "prefs-api", "hub", "launcher", "docker-monitor-api", "rights-api",
+                  "credentials-api", "si-proxy", "si-proxy-admin-api", "rsyslog-listener", "network-explorer", "ldap-admin-api", "ldap-admin-portal"],
+     "notes": "Reste sur le manager : entrée TLS unique (ports publiés), PKI montée ici seulement, jeton d'admin du bastion, annuaire."},
+    {"name": "supervision", "title": "Supervision SI, Pixel Grid, géo, ENT", "zone": "local", "pinned": true,
+     "services": ["api", "pipeline", "frontend", "pixel-grid-postgres", "pixel-grid-api", "pixel-grid-bridge", "imap-client-api", "geo-catalog-postgres", "geo-catalog-api",
+                  "geo-postgres", "geo-import-api", "relations-api", "tasks-api"]},
+    {"name": "tickets", "title": "Tickets, ProjeQtOr, pont des demandes, connecteurs IMAP", "zone": "local", "pinned": true,
+     "services": ["tickets-postgres", "tickets-api", "tickets-portal", "projeqtor-db", "projeqtor-app", "projeqtor-bridge", "imap-connectors"]},
+    {"name": "externes", "title": "Bases externes (lecture seule) et recherche", "zone": "local", "pinned": true,
+     "services": ["ipam-api", "optick-api", "zenoss-api", "tts-gu-api", "owncloud-api", "cacti-api", "elasticsearch", "owncloud-search-api", "glpi-api"],
+     "notes": "Sans données propres sauf elasticsearch ; accès aux bases du LAN : zone local."},
+    {"name": "donnees", "title": "DBA, schémas, GED, fichiers, tunnels, mémoire, classification, sauvegardes, architecture", "zone": "local", "pinned": true,
+     "services": ["dba-api", "dba-portal", "schema-analyzer-api", "retro-api", "ged-api", "file-manager-api", "ssh-tunnels-api", "memory-api", "classifier-api",
+                  "backup-restore-api", "architecture-api"]},
+    {"name": "reseau", "title": "Réseau : SNMP, sondes, orchestrateur, Nebula, MikroTik, Cisco, équipements", "zone": "local", "pinned": true,
+     "services": ["snmp-api", "netprobe-api", "netmap-orchestrator-api", "nebula-api", "mikrotik-api", "cisco-api", "network-equipment-api", "network-agent-api"],
+     "notes": "network-agent-api est en network_mode: host : hors Swarm, lancé avec compose sur le nœud de cette cohorte (HOST_IP)."},
+    {"name": "agents", "title": "Agents hôtes, UPS, vigilance, Cortex", "zone": "local", "pinned": true,
+     "services": ["si-agent-api", "ups-monitor-api", "vigilance-api", "cortex-api"],
+     "notes": "Candidate à la zone ovh si des agents externes doivent joindre le central sans passer par le LAN (ports publiés en mode host sur ce nœud)."},
+    {"name": "coffre", "title": "Coffre-fort de codes", "zone": "local", "pinned": true, "isolated": true, "allowed_dependencies": ["core"],
+     "services": ["vault-api", "vault-portal", "vault-admin-api", "vault-admin-portal"]}
+  ]
+}

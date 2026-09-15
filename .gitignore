@@ -104,3 +104,6 @@ projeqtor-bridge/data/*
 # credentials (#498) : base SQLite + sel de chiffrement, jamais versionnés
 credentials/data/*
 !credentials/data/.gitkeep
+deploy/generated/
+deploy/nodes.json
+deploy/registry/

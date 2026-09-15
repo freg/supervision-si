@@ -1,3 +1,28 @@
+## 2026-09-15 — déploiement réparti : cohortes, Swarm sur VPN WireGuard, migration (livraison #509)
+
+Demandé : « la charge devient trop importante sur la VM hôte du hub :
+revoir l'architecture, répartir les conteneurs sur plusieurs hôtes (deux
+Proxmox locaux, un Proxmox OVH, VPN inter-Proxmox), un gestionnaire de
+répartition/migration qui déploie une tuile et sa cohorte sur un nouvel
+hôte en respectant isolation et dépendances ». Premier incrément
+testable, choix documentés dans `deploy/README.md`.
+
+- `deploy/cohorts.json` : 8 cohortes couvrant les 73 services (core sur
+  le manager, supervision, tickets, externes, donnees, reseau, agents,
+  coffre isolée) ; `deploy/cohorts.py` : cartographie (dépendances
+  déduites, volumes, host network), contrôle, génération de la pile
+  Swarm (placement par label `si.cohort.<n>`, zone local/ovh, registre
+  privé, ports en mode host, `network-agent-api` hors Swarm).
+- VPN WireGuard maillé entre les VM (endpoint public pour OVH, NAT sur
+  site), support des réseaux de contrôle et de données Swarm chiffrés :
+  `deploy/wg-mesh.sh`, `deploy/nodes.example.json`.
+- `swarm-init.sh`, `build-push.sh` (registre + images), `deploy.sh`,
+  `migrate.sh <cohorte> <nœud>` (arrêt, copie des données par le VPN,
+  label, redéploiement). `.env.example` : `SI_REGISTRY`, `SI_TAG`.
+- Vérifié : `cohorts.py check/stack/report` sur le dépôt réel ;
+  syntaxe des scripts. Non vérifié : aucune VM ni Swarm ici — à tester
+  sur une première VM avant d'y mettre des données.
+
 ## 2026-09-15 — équipements Cisco : supervision, sauvegarde/restauration des configurations, gestes d'urgence (livraison #508)
 
 Demandé : « compléter les outils de contrôle de routeur/switch par un
