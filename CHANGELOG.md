@@ -1,3 +1,11 @@
+## 2026-09-16 — installeur : marqueur de construction lié à la version (livraison #514)
+
+Constaté sur super : après passage des sources en #513, le hub restait
+en #512 -- `deploy/generated/install.done` marquait l'image comme
+construite. Le marqueur devient `install.done.<DELIVERY_NUMBER>` : chaque
+livraison reconstruit ce qui a changé (cache Docker pour le reste).
+Vérifié : syntaxe bash. Non vérifié : lancement réel.
+
 ## 2026-09-16 — répartition par nœud : Swarm retiré, agent de nœud, migration compose (livraison #513)
 
 Demandé : « un mécanisme de migration géré par un module indépendant sur

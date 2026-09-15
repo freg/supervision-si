@@ -23,7 +23,9 @@
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd); cd "$ROOT"
 GEN="$ROOT/deploy/generated"; mkdir -p "$GEN"
-DONE="$GEN/install.done"; LOG="$GEN/install.log"
+# #514 : marqueur lié à la version livrée -- une nouvelle livraison reconstruit
+# ce qui a changé (cache Docker), l'ancien marqueur ne masque plus les images périmées.
+DONE="$GEN/install.done.$(tr -d '[:space:]' < shared/DELIVERY_NUMBER 2>/dev/null || echo 0)"; LOG="$GEN/install.log"
 ANSWERS=""; RESUME=0
 [ "${SI_INSTALL_SOURCE_ONLY:-0}" = 1 ] && set -- 
 LOT=${SI_INSTALL_LOT:-4}
