@@ -2736,3 +2736,13 @@ charge des nœuds), sauvegarde totale par nœud, exposition publique via
 le nœud OVH (bordure), relais en `expose` réels plutôt que socat si un
 service parle UDP, port interne à déclarer pour les services joints par
 `*_HOST` sans port.
+
+## Disposition du hub — suites (2026-09-16, #516) — item 76
+
+Livré : arbre de disposition (menus, tuiles, outils, options) en
+glisser-déposer, feuilles réutilisables, arbre personnel / du site.
+Suites : retour d'usage du glisser-déposer réel ; profils de disposition
+nommés (astreinte, réseau, direction) à choisir dans l'en-tête ;
+proposer la disposition du site aux personnes qui en ont une
+personnelle (« nouveautés ») ; mode « toutes les tuiles » (#133) à
+faire passer par le même arbre.

@@ -2078,3 +2078,33 @@ button.secondary { background: var(--panel); }
   .ne-layout { grid-template-columns: 1fr; }
   .ne-detail { position: static; max-height: none; }
 }
+
+
+/* --- Disposition du hub en arborescence (livraison #516) --- */
+.hub-tree-view { padding: 0 16px 24px; }
+.hub-tree-help { font-size: 0.9em; margin: 8px 0; }
+.hub-tree-columns { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.hub-tree-pane { flex: 1 1 420px; min-width: 320px; border: 1px solid var(--border, #444); border-radius: 8px; padding: 10px; background: var(--card-bg, rgba(127,127,127,0.06)); }
+.hub-tree-toolbar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+.hub-tree-toolbar input[type="search"] { flex: 1 1 140px; }
+.hub-tree, .hub-tree-children, .hub-tree-catalog-section ul { list-style: none; margin: 0; padding: 0; }
+.hub-tree-row, .hub-tree-leaf { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 6px; border: 1px solid transparent; cursor: grab; user-select: none; }
+.hub-tree-row:hover, .hub-tree-leaf:hover { background: rgba(127,127,127,0.12); }
+.hub-tree-row.selected { border-color: var(--accent, #4a90d9); }
+.hub-tree-row.group { font-weight: 600; }
+.hub-tree-row.unavailable .hub-tree-label { opacity: 0.55; font-style: italic; }
+.hub-tree-row.drop-before, .hub-tree-leaf.drop-before { box-shadow: inset 0 3px 0 var(--accent, #4a90d9); }
+.hub-tree-row.drop-after { box-shadow: inset 0 -3px 0 var(--accent, #4a90d9); }
+.hub-tree-row.drop-into { background: rgba(74,144,217,0.2); border-color: var(--accent, #4a90d9); }
+.hub-tree-handle { opacity: 0.5; cursor: grab; font-size: 0.9em; }
+.hub-tree-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hub-tree-actions { display: none; gap: 4px; }
+.hub-tree-row:hover .hub-tree-actions, .hub-tree-row.selected .hub-tree-actions { display: inline-flex; }
+.hub-tree-actions button, .hub-tree-leaf button { padding: 1px 6px; font-size: 0.8em; }
+.hub-tree-edit { flex: 1 1 auto; font: inherit; }
+.hub-tree-catalog-section h4 { margin: 10px 0 4px; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7; }
+.hub-tree-json textarea { width: 100%; font-family: ui-monospace, monospace; font-size: 0.85em; box-sizing: border-box; }
+button.danger { color: #e06666; }
+/* sections d'un menu déroulant (sous-groupes de l'arbre) */
+.hub-nav-section { border-top: 1px solid rgba(127,127,127,0.3); margin-top: 4px; padding-top: 4px; }
+.hub-nav-section-title { display: block; font-size: 0.75em; text-transform: uppercase; opacity: 0.7; padding: 2px 10px; }

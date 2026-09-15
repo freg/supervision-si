@@ -1,4 +1,4 @@
-import React, { Fragment, useEffect, useRef, useState } from "react";
+import React, { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "react-oidc-context";
 import { buildFrontsList, formatUserRoles, isAdmin, isTechnicien, ROLE_LABELS } from "./lib.js";
 import { createAccountThemeStore } from "./preferences.js";
@@ -13,9 +13,13 @@ import {
   fetchExternalLinks, createExternalLink, updateExternalLink, deleteExternalLink,
   provisionKeycloakClient, deprovisionKeycloakClient,
   fetchHubLayout, saveHubLayout,
+  fetchHubTree, saveHubTree,
   fetchInfraStatus,
 } from "./settingsClient.js";
 import { applyHubLayout } from "./hubLayoutLib.js";
+// #516 : disposition du hub en arborescence (menus, tuiles, outils, options).
+import HubTreeView from "./HubTreeView.jsx";
+import { buildCatalog, defaultTree, normalizeTree, resolveTree, themesOf, rootLeaves, viewLabelsFromThemes } from "./hubTree.js";
 import LogsManagerView from "./LogsManagerView.jsx";
 import SchemaAnalyzerView from "./SchemaAnalyzerView.jsx";
 import RetroView from "./RetroView.jsx";
@@ -34,7 +38,7 @@ import NetworkEquipmentView from "./NetworkEquipmentView.jsx";
 import BastionView from "./BastionView.jsx";
 import CortexView from "./CortexView.jsx";
 import ThemeView from "./ThemeView.jsx";
-import { buildThemes, themeViewMode, isThemeViewMode, themeIdOf, findTheme, themeOfView, normalizeHomeMode, HOME_MODES } from "./hubThemes.js";
+import { THEMES, buildThemes, themeViewMode, isThemeViewMode, themeIdOf, findTheme, themeOfView, normalizeHomeMode, HOME_MODES } from "./hubThemes.js";
 import PublicLinks from "./PublicLinks.jsx";
 import { publicLinks } from "./publicLinks.js";
 import { canSeeBastion } from "./siProxy.js";
@@ -1110,6 +1114,20 @@ export default function App() {
     if (!loginForLayout) return;
     fetchHubLayout(PREFS_API_BASE_URL, loginForLayout).then(setHubLayout);
   };
+  // #516 : arbre de disposition -- personnel (préférences, clé hubTree) et
+  // du site (app-settings « hub », posé par un administrateur). Mémorisé :
+  // l'éditeur repart de `tree` à chaque changement de référence, il ne doit
+  // donc changer QUE quand une des deux sources change.
+  const [hubTreeUser, setHubTreeUser] = useState(undefined);
+  const [hubTreeSite, setHubTreeSite] = useState(undefined);
+  useEffect(() => {
+    if (!loginForLayout) return;
+    fetchHubTree(PREFS_API_BASE_URL, loginForLayout).then(setHubTreeUser);
+    fetchAppSettings(PREFS_API_BASE_URL, "hub").then((d) => setHubTreeSite(d && d.hubTree ? d.hubTree : null));
+  }, [loginForLayout]);
+  const hubTreeSiteNorm = useMemo(() => normalizeTree(hubTreeSite), [hubTreeSite]);
+  const hubTree = useMemo(() => normalizeTree(hubTreeUser) || hubTreeSiteNorm || defaultTree(THEMES), [hubTreeUser, hubTreeSiteNorm]);
+
   useEffect(() => {
     loadHubLayout();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1366,9 +1384,39 @@ export default function App() {
     IMAP_CONNECTORS_API_BASE_URL && "imap-connectors", bastionAllowed && "si-proxy",
     RIGHTS_API_BASE_URL && groups.includes("admin_hub") && "rights", BACKUP_RESTORE_API_BASE_URL && "backup-restore",
   ].filter(Boolean));
-  const { themes: visibleThemes, leftover: leftoverFronts } = buildThemes({ available: availableViews, fronts });
+  const { leftover: leftoverFronts } = buildThemes({ available: availableViews, fronts });
+  // #516 : l'en-tête et l'accueil se construisent depuis l'ARBRE de
+  // disposition (hubTree.js) résolu contre le catalogue des feuilles
+  // disponibles ici (mêmes conditions que les tuiles d'origine) ; les
+  // groupes de premier niveau sont les « thématiques » de #457 (menus +
+  // super-tuiles), les feuilles de premier niveau des boutons/tuiles seuls.
+  const runAction = (a) => {
+    setOpenNavMenu(null);
+    const toggle = (name) => setViewMode((v) => (v === name ? "grid" : name));
+    if (a === "home-mode") setHomeMode((m) => (m === "themes" ? "tiles" : "themes"));
+    else if (a === "debug") setShowDebug((v) => !v);
+    else if (["aide", "tabs", "settings", "personalize", "layout", "external-links"].includes(a)) toggle(a);
+  };
+  const hubCatalog = buildCatalog({ availableViews, viewLabels: viewLabelsFromThemes(THEMES), fronts, isAdmin: isAdmin(groups) });
+  const decorateLeaf = (l) => (l.kind === "action" ? { ...l, onClick: () => runAction(l.action) } : l);
+  const resolvedTree = resolveTree(hubTree, hubCatalog, { leftover: leftoverFronts });
+  const visibleThemes = themesOf(resolvedTree).map((t) => ({ ...t, entries: t.entries.map(decorateLeaf) }));
+  const hubRootOrder = resolvedTree.children.map((n) => (n.type === "ref" ? { ...n, leaf: decorateLeaf(n.leaf) } : n));
   const currentTheme = isThemeViewMode(viewMode) ? findTheme(visibleThemes, themeIdOf(viewMode)) : null;
-  const openInTheme = (themeId, view) => { setThemeEntry(view); setViewMode(themeViewMode(themeId)); setOpenNavMenu(null); };
+  const openInTheme = (themeId, entryId) => { setThemeEntry(entryId); setViewMode(themeViewMode(themeId)); setOpenNavMenu(null); };
+  const openLeaf = (leaf, themeId) => {
+    setOpenNavMenu(null);
+    if (leaf.kind === "action") { runAction(leaf.action); return; }
+    if (leaf.kind === "view") { if (themeId) openInTheme(themeId, leaf.id); else { setThemeEntry(null); setViewMode(leaf.view); } return; }
+    if (leaf.onClick) { leaf.onClick(); return; }
+    window.open(leaf.url, "_blank", "noopener");
+  };
+  const leafActive = (leaf) => (leaf.kind === "view" && viewMode === leaf.view) || (leaf.kind === "action" && viewMode === leaf.action);
+  const renderMenuItems = (g, themeId) => g.children.map((c) => (c.type === "ref" ? (
+    <button key={c.id} type="button" onClick={() => openLeaf(decorateLeaf(c.leaf), themeId)}>{c.leaf.label}{c.leaf.kind === "link" && !c.leaf.embeddable ? " ↗" : ""}</button>
+  ) : (
+    <div key={c.id} className="hub-nav-section"><span className="hub-nav-section-title">{c.icon} {c.label}</span>{renderMenuItems(c, themeId)}</div>
+  )));
 
   // Horloge permanente -- calcul dérivé de browserNow/serverTimeInfo
   // ci-dessus, à chaque rendu (pas besoin d'un state séparé, c'est une
@@ -1623,6 +1671,36 @@ vm === "settings" ? (
           prefsApiBase={PREFS_API_BASE_URL}
           login={profile.preferred_username}
         />
+      ) : vm === "layout" ? (
+        <HubTreeView
+          tree={hubTree}
+          siteTree={hubTreeSiteNorm}
+          themes={THEMES}
+          catalog={hubCatalog}
+          isAdmin={isAdmin(groups)}
+          login={profile.preferred_username}
+          onBack={goBack}
+          onSave={async (t, scope) => {
+            if (scope === "site") {
+              const r = await saveAppSettings(PREFS_API_BASE_URL, "hub", { hubTree: t }, profile.preferred_username);
+              if (r.ok) setHubTreeSite(t);
+              return r;
+            }
+            const r = await saveHubTree(PREFS_API_BASE_URL, profile.preferred_username, t);
+            if (r.ok) setHubTreeUser(t);
+            return r;
+          }}
+          onReset={async (scope) => {
+            if (scope === "site") {
+              const r = await saveAppSettings(PREFS_API_BASE_URL, "hub", { hubTree: null }, profile.preferred_username);
+              if (r.ok) setHubTreeSite(null);
+              return r;
+            }
+            const r = await saveHubTree(PREFS_API_BASE_URL, profile.preferred_username, null);
+            if (r.ok) setHubTreeUser(null);
+            return r;
+          }}
+        />
       ) : vm === "personalize" ? (
         <PersonalizeHomeView
           fronts={fronts}
@@ -1688,20 +1766,29 @@ vm === "settings" ? (
                 {/* #457 : cinq super-tuiles thématiques (hubThemes.js) ;
                     les liens externes déclarés par les administrateurs
                     restent des tuiles à part, en dessous. */}
+                {/* #516 : dans l'ordre de l'arbre -- un groupe = une super-tuile,
+                    une feuille = une tuile seule (les actions du hub restent
+                    dans l'en-tête) ; les liens externes des administrateurs
+                    arrivent par la feuille automatique auto:external-links. */}
                 <div className="hub-grid hub-grid-themes">
-                  {visibleThemes.map((t) => (
-                    <button key={t.id} type="button" className="hub-card hub-front-card hub-front-tile-button hub-theme-tile" onClick={() => { setThemeEntry(null); setViewMode(themeViewMode(t.id)); }}>
-                      <h2>{t.icon} {t.name}</h2>
-                      <p className="muted" title={t.labels.join(" · ")}>{t.count} outil{t.count > 1 ? "s" : ""} — {t.labels.join(" · ")}</p>
-                    </button>
-                  ))}
+                  {hubRootOrder.map((n) => {
+                    if (n.type === "group") {
+                      const t = visibleThemes.find((x) => x.id === n.id);
+                      return t ? (
+                        <button key={t.id} type="button" className="hub-card hub-front-card hub-front-tile-button hub-theme-tile" onClick={() => { setThemeEntry(null); setViewMode(themeViewMode(t.id)); }}>
+                          <h2>{t.icon} {t.name}</h2>
+                          <p className="muted" title={t.labels.join(" · ")}>{t.count} outil{t.count > 1 ? "s" : ""} — {t.labels.join(" · ")}</p>
+                        </button>
+                      ) : null;
+                    }
+                    if (n.leaf.kind === "action") return null;
+                    return renderFrontTile({
+                      id: n.id, name: n.leaf.label, description: n.leaf.description || n.leaf.id,
+                      url: n.leaf.kind === "link" ? n.leaf.url : null,
+                      onClick: n.leaf.kind === "view" ? () => { setThemeEntry(null); setViewMode(n.leaf.view); } : n.leaf.onClick,
+                    });
+                  })}
                 </div>
-                {leftoverFronts.length > 0 && (
-                  <div className="hub-frame">
-                    <h3 className="hub-frame-title">Liens externes</h3>
-                    <div className="hub-grid">{leftoverFronts.map(renderFrontTile)}</div>
-                  </div>
-                )}
               </>
             ) : (
               <>
@@ -1768,111 +1855,31 @@ vm === "settings" ? (
       <header className="hub-header">
         <h1>Hub SI</h1>
         <nav className="hub-nav">
-          <button
-            type="button"
-            className={viewMode === "aide" ? "active" : ""}
-            onClick={() => setViewMode((v) => (v === "aide" ? "grid" : "aide"))}
-          >
-            Aide
-          </button>
-          <button
-            type="button"
-            className={viewMode === "tabs" ? "active" : ""}
-            onClick={() => setViewMode((v) => (v === "tabs" ? "grid" : "tabs"))}
-          >
-            Onglets
-          </button>
-
-          {/* #457 : les menus Général / Réseau / Data (livraison #236) sont
-              remplacés par UNE entrée par thématique (hubThemes.js, même
-              source que les tuiles de l'accueil) : un choix ouvre l'outil
-              DANS sa thématique (onglets) et ferme le menu. */}
-          {visibleThemes.map((t) => (
-            <div key={t.id} className="hub-nav-dropdown">
+          {/* #516 : en-tête construit depuis l'arbre de disposition : une
+              feuille sous la racine = un bouton, un groupe = un menu
+              déroulant (sous-groupes = sections). Avant : Aide, Onglets,
+              une entrée par thématique (#457) et Paramètres codés en dur --
+              l'arbre par défaut (hubTree.js) les reproduit à l'identique. */}
+          {hubRootOrder.map((n) => (n.type === "ref" ? (
+            <button key={n.id} type="button" className={leafActive(n.leaf) ? "active" : ""} onClick={() => openLeaf(n.leaf, null)}>
+              {n.leaf.label}{n.leaf.kind === "link" && !n.leaf.embeddable ? " ↗" : ""}
+            </button>
+          ) : (
+            <div key={n.id} className="hub-nav-dropdown">
               <button
                 type="button"
-                className={openNavMenu === t.id || themeIdOf(viewMode) === t.id || themeOfView(visibleThemes, viewMode) === t.id ? "active" : ""}
-                onClick={() => setOpenNavMenu((v) => (v === t.id ? null : t.id))}
+                className={openNavMenu === n.id || themeIdOf(viewMode) === n.id || themeOfView(visibleThemes, viewMode) === n.id ? "active" : ""}
+                onClick={() => setOpenNavMenu((v) => (v === n.id ? null : n.id))}
               >
-                {t.name} ▾
+                {n.label} ▾
               </button>
-              {openNavMenu === t.id && (
+              {openNavMenu === n.id && (
                 <div className="hub-nav-dropdown-panel">
-                  {t.entries.map((e) => (
-                    <button key={e.id} type="button" onClick={() => {
-                      if (e.kind === "view") openInTheme(t.id, e.view);
-                      else if (e.onClick) { e.onClick(); setOpenNavMenu(null); }
-                      else { window.open(e.url, "_blank", "noopener"); setOpenNavMenu(null); }
-                    }}>
-                      {e.label}{e.kind === "link" ? " ↗" : ""}
-                    </button>
-                  ))}
+                  {renderMenuItems(n, n.id)}
                 </div>
               )}
             </div>
-          ))}
-          <div className="hub-nav-dropdown">
-            <button
-              type="button"
-              className={
-                openNavMenu === "settings" || ["settings", "personalize", "external-links"].includes(viewMode)
-                  ? "active"
-                  : ""
-              }
-              onClick={() => setOpenNavMenu((v) => (v === "settings" ? null : "settings"))}
-            >
-              Paramètres ▾
-            </button>
-            {openNavMenu === "settings" && (
-              <div className="hub-nav-dropdown-panel">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setViewMode((v) => (v === "settings" ? "grid" : "settings"));
-                    setOpenNavMenu(null);
-                  }}
-                >
-                  Paramètres généraux
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setViewMode((v) => (v === "personalize" ? "grid" : "personalize"));
-                    setOpenNavMenu(null);
-                  }}
-                >
-                  Personnaliser l'accueil
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setHomeMode((m) => (m === "themes" ? "tiles" : "themes")); setOpenNavMenu(null); }}
-                  title="#457 : accueil par thématiques (cinq super-tuiles) ou toutes les tuiles (personnalisation d'origine)"
-                >
-                  Accueil : {HOME_MODES[homeMode]} → {HOME_MODES[homeMode === "themes" ? "tiles" : "themes"]}
-                </button>
-                {isAdmin(groups) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setViewMode((v) => (v === "external-links" ? "grid" : "external-links"));
-                      setOpenNavMenu(null);
-                    }}
-                  >
-                    Liens externes
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowDebug((v) => !v);
-                    setOpenNavMenu(null);
-                  }}
-                >
-                  Diagnostic (jeton Keycloak)
-                </button>
-              </div>
-            )}
-          </div>
+          )))}
         </nav>
         <div className="hub-user">
           <span>👤 {displayName}</span>

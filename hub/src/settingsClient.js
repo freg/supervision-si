@@ -457,6 +457,31 @@ export async function fetchHubLayout(prefsApiBase, login) {
   }
 }
 
+/** #516 : arbre de disposition personnel (clé hubTree du blob /preferences). */
+export async function fetchHubTree(prefsApiBase, login) {
+  try {
+    const res = await fetch(`${prefsApiBase}/preferences?user=${encodeURIComponent(login)}`);
+    if (!res.ok) return undefined;
+    const data = await res.json();
+    return data.hubTree;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function saveHubTree(prefsApiBase, login, hubTree) {
+  try {
+    const res = await fetch(`${prefsApiBase}/preferences?user=${encodeURIComponent(login)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hubTree }),
+    });
+    return { ok: res.ok, error: res.ok ? null : `HTTP ${res.status}` };
+  } catch {
+    return { ok: false, error: "réseau indisponible" };
+  }
+}
+
 /** Sauvegarde le hubLayout personnel -- fusion superficielle déjà
  * gérée côté serveur (voir prefs-api/app.py, put_preferences), jamais
  * besoin de relire/renvoyer les autres préférences (theme, etc.) au

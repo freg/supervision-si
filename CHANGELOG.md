@@ -1,3 +1,45 @@
+## 2026-09-16 — disposition du hub en arborescence, glisser-déposer (livraison #516)
+
+Demandé : « paramétrer totalement la position des tuiles, des menus, des
+outils sous forme d'arborescence JSON, en glisser-déposer, avec une
+racine hub ; n'importe quel outil/tuile/menu/option peut aller n'importe
+où et plusieurs fois pour des regroupements de contexte ».
+
+- `hub/src/hubTree.js` (logique pure) : catalogue des feuilles
+  disponibles (vues internes, fronts externes, actions du hub, liens
+  externes automatiques -- mêmes conditions d'URL et de rôle que les
+  tuiles) ; arbre `{ version, root }` de groupes et de références
+  (une référence = un pointeur vers une feuille, réutilisable à volonté) ;
+  arbre par défaut généré depuis `hubThemes.js` (identique à l'accueil
+  #457) ; résolution défensive (feuille absente omise, groupe vide
+  supprimé) ; opérations immuables (insérer, déplacer, dupliquer,
+  renommer, retirer) ; import/export JSON normalisé.
+- `App.jsx` : l'en-tête et l'accueil par thématiques se construisent
+  depuis l'arbre résolu -- un groupe de premier niveau = un menu
+  déroulant et une super-tuile (sous-groupes = sections du menu, outils
+  en onglets), une feuille de premier niveau = un bouton et une tuile
+  seule. Ordre de résolution : arbre personnel (préférences, clé
+  `hubTree`) > arbre du site (app-settings `hub`, administrateur) >
+  défaut. Les liens externes des administrateurs arrivent par la feuille
+  `auto:external-links`.
+- `HubTreeView.jsx` (Paramètres → « Disposition du hub ») : arbre à
+  gauche, catalogue à droite ; glisser une feuille du catalogue l'ajoute
+  (autant de fois que voulu), glisser un nœud le déplace (Alt : duplique) ;
+  haut d'une ligne = avant, corps d'un groupe = dedans ; nouveau groupe,
+  icône, renommage (double-clic), duplication, retrait ; JSON visible,
+  copiable, appliquable ; « Enregistrer pour moi », « pour tout le monde »
+  (admin), « Charger le défaut / l'arbre du site », « Revenir au défaut »,
+  « Retirer l'arbre du site ».
+- `settingsClient.js` : `fetchHubTree` / `saveHubTree` (blob
+  /preferences, fusion superficielle côté prefs-api, aucun changement
+  de schéma). `hub.css` : styles `.hub-tree*`, `.hub-nav-section*`.
+- Tests : `hub/tests/hubTree.test.mjs` (8) -- catalogue, défaut,
+  résolution, feuille référencée plusieurs fois, sous-groupes, édition et
+  garde-fous, import défensif ; suite complète 210/210.
+
+Vérifié : tests Node, syntaxe JSX. Non vérifié : rendu et glisser-déposer
+dans le navigateur (à essayer sur super après reconstruction du hub).
+
 ## 2026-09-16 — si-agent-api : « database is locked » (livraison #515)
 
 Constaté sur super : après 29 h de marche, toutes les routes de
