@@ -1,23 +1,26 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Cartographie des cohortes et génération de la pile Swarm (livraison #509).
+"""Cartographie des cohortes et plan de déploiement par nœud (livraisons #509, #513).
 
-Lit docker-compose.yml (et gateway/docker-compose.yml s'il existe), en
-déduit pour chaque service ses dépendances (depends_on + toute variable
-d'environnement pointant `http(s)://<service>:port`), ses volumes
-(bind mounts = données locales au nœud) et son mode réseau, puis les
-confronte à `deploy/cohorts.json` (cohortes déclarées : tuile ->
-services, placement, isolation).
+Lit docker-compose.yml (et gateway/docker-compose.yml), en déduit pour chaque
+service ses dépendances (depends_on, URL `scheme://<service>:port` et
+variables `*_HOST=<service>` dans l'environnement), ses ports internes
+(table de tls-proxy, URL, expose, image), ses volumes (bind mounts = données
+locales au nœud) et son mode réseau, puis les confronte à
+`deploy/cohorts.json` (cohortes : tuile -> services, isolation) et à
+`deploy/nodes.json` (nœud -> cohortes, adresse VPN).
 
-  cohorts.py report            rapport lisible : cohortes, dépendances croisées, données, anomalies
-  cohorts.py check             code 1 si un service n'est dans aucune cohorte ou dans deux, ou si une
-                               dépendance croisée viole l'isolation
-  cohorts.py services <cohorte,…>   liste des services de ces cohortes + toutes leurs dépendances (compose), une par ligne
-  cohorts.py stack [-o FILE]   génère deploy/generated/stack.yml pour `docker stack deploy`
-                               (build retiré, image = ${SI_REGISTRY}/si/<service>:${SI_TAG}, contraintes de
-                               placement par cohorte, services en network_mode: host exclus et listés)
+  cohorts.py report                 rapport lisible : cohortes, dépendances croisées, données, anomalies
+  cohorts.py check                  code 1 si un service n'est dans aucune cohorte ou dans deux, ou si une
+                                    dépendance croisée viole l'isolation
+  cohorts.py services <cohorte,…>   services de ces cohortes + toutes leurs dépendances (profil light, un seul hôte)
+  cohorts.py node <nœud>            services de CE nœud (sans dépendances distantes), une par ligne
+  cohorts.py override <nœud> [-o F] génère deploy/generated/node.override.yml : publication des services
+                                    locaux sur l'adresse VPN du nœud + un relais (alias DNS) par service
+                                    distant utilisé ici ; écrit aussi node.plan.json (services, relais)
 
-Aucune modification de docker-compose.yml : la pile Swarm est dérivée.
+Aucune modification de docker-compose.yml : chaque nœud lance compose avec
+l'override généré (scripts/run.sh l'ajoute automatiquement s'il existe).
 """
 import json
 import os
@@ -33,7 +36,12 @@ except ImportError:
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 COMPOSE_FILES = ["docker-compose.yml", "gateway/docker-compose.yml"]
 COHORTS_FILE = os.path.join(ROOT, "deploy", "cohorts.json")
-URL_RE = re.compile(r"https?://([a-z0-9][a-z0-9-]*)(?::\d+)?(?:/|$)")
+NODES_FILE = os.path.join(ROOT, "deploy", "nodes.json")
+PROXY_TABLE = os.path.join(ROOT, "tls-proxy", "render_nginx_conf.py")
+URL_RE = re.compile(r"[a-z][a-z0-9+.-]*://(?:[^@/\s]+@)?([a-z0-9][a-z0-9-]*)(?::(\d+))?(?:/|$)")
+IMAGE_PORTS = (("postgres", 5432), ("memcached", 11211), ("elasticsearch", 9200), ("redis", 6379), ("mariadb", 3306), ("mysql", 3306), ("keycloak", 8080))
+RELAY_IMAGE = "alpine/socat:1.8.0.0"
+PORT_BASE = 20000  # ports VPN : PORT_BASE + 10 * rang du service + rang du port interne
 
 
 def load_services():
@@ -65,23 +73,57 @@ def analyse(services):
     names = set(services)
     info = {}
     for name, svc in services.items():
-        deps = set()
+        deps, ports = set(), set()
         d = svc.get("depends_on") or []
         deps |= set(d.keys() if isinstance(d, dict) else d)
-        for _, v in env_items(svc):
+        env = env_items(svc)
+        envd = dict(env)
+        for k, v in env:
             for m in URL_RE.finditer(v):
                 if m.group(1) in names and m.group(1) != name:
                     deps.add(m.group(1))
+            if v in names and v != name and k.upper().endswith("HOST"):  # MEMCACHED_HOST=memcached
+                deps.add(v)
         binds, named = [], []
         for vol in svc.get("volumes") or []:
             src = vol.split(":")[0] if isinstance(vol, str) else (vol.get("source") or "")
             if not src:
                 continue
             (binds if src.startswith((".", "/", "$", "~")) else named).append(src)
-        info[name] = {"depends": sorted(deps), "binds": binds, "named": named,
-                      "host_network": svc.get("network_mode") == "host", "ports": svc.get("ports") or [],
+        for e in svc.get("expose") or []:
+            ports.add(int(str(e).split("/")[0]))
+        img = str(svc.get("image") or "")
+        for needle, port in IMAGE_PORTS:
+            if needle in img:
+                ports.add(port)
+        info[name] = {"depends": sorted(deps), "binds": binds, "named": named, "ports": ports, "env": envd,
+                      "host_network": svc.get("network_mode") == "host", "published": svc.get("ports") or [],
                       "build": bool(svc.get("build")), "image": svc.get("image")}
+    # ports internes vus depuis les autres services (URL, *_HOST/*_PORT) et depuis tls-proxy
+    for name, i in info.items():
+        for k, v in i["env"].items():
+            for m in URL_RE.finditer(v):
+                if m.group(1) in info and m.group(2):
+                    info[m.group(1)]["ports"].add(int(m.group(2)))
+            if v in info and k.upper().endswith("HOST"):
+                pk = k[:-4] + "PORT"
+                if str(i["env"].get(pk, "")).isdigit():
+                    info[v]["ports"].add(int(i["env"][pk]))
+    for svc, port in proxy_table():
+        if svc in info:
+            info[svc]["ports"].add(port)
+    for i in info.values():
+        i["ports"] = sorted(i["ports"])
     return info
+
+
+def proxy_table():
+    """[(service, port interne)] lus dans la table de tls-proxy/render_nginx_conf.py."""
+    try:
+        src = open(PROXY_TABLE, encoding="utf-8").read()
+    except OSError:
+        return []
+    return [(m.group(1), int(m.group(2))) for m in re.finditer(r'\("[A-Z0-9_]+",\s*"([a-z0-9-]+)",\s*(\d+)', src)]
 
 
 def load_cohorts():
@@ -141,7 +183,7 @@ def report(cohorts, info, where, origin):
                 continue
             flags = []
             if i["host_network"]:
-                flags.append("HOST NETWORK -- hors Swarm")
+                flags.append("HOST NETWORK -- lancé à part sur son nœud")
             if i["binds"]:
                 flags.append("données locales : " + ", ".join(i["binds"]))
             if i["named"]:
@@ -153,68 +195,81 @@ def report(cohorts, info, where, origin):
     return "\n".join(lines)
 
 
-def stack(cohorts, services, info, where, registry="${SI_REGISTRY:-127.0.0.1:5000}", tag="${SI_TAG:-latest}"):
-    out = {"version": "3.8", "services": {}, "networks": {"default": {"external": True, "name": "${SUPERVISION_SI_NETWORK_NAME:-supervision-si-net}"}}}
-    skipped, dropped = [], []
-    named_volumes = set()
-    by_name = {c["name"]: c for c in cohorts["cohorts"]}
-    for name, svc in services.items():
-        i = info[name]
-        if i["host_network"]:
-            skipped.append(name)
+def load_nodes(path=NODES_FILE):
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def node_map(nodes):
+    """cohorte -> nœud, nom -> nœud."""
+    by_cohort, by_name = {}, {}
+    for n in nodes["nodes"]:
+        by_name[n["name"]] = n
+        for c in n.get("cohorts") or []:
+            by_cohort[c] = n["name"]
+    return by_cohort, by_name
+
+
+def vpn_port(info, service, port):
+    """Port publié sur l'adresse VPN : stable (rang alphabétique du service, rang du port interne)."""
+    names = sorted(info)
+    ports = sorted(info[service]["ports"]) if service in info else [port]
+    return PORT_BASE + 10 * names.index(service) + min(9, ports.index(port) if port in ports else 0)
+
+
+def override(cohorts, services, info, where, origin, nodes, me):
+    """Override compose du nœud `me` : services locaux (ceux de ses cohortes, hors gateway/ et
+    hors réseau hôte) publiés sur l'adresse VPN, relais socat (alias DNS = nom du service) vers
+    chaque service distant utilisé ici. Retourne (override, plan)."""
+    by_cohort, by_name = node_map(nodes)
+    node = by_name.get(me)
+    if not node:
+        raise SystemExit("nœud %s inconnu dans deploy/nodes.json" % me)
+    local = [s for c in cohorts["cohorts"] if c["name"] in (node.get("cohorts") or []) for s in c["services"]
+             if s in info and not info[s]["host_network"]]
+    local_main = [s for s in local if not origin[s].startswith("gateway/")]
+    local_gateway = [s for s in local if origin[s].startswith("gateway/")]
+    host_only = [s for c in cohorts["cohorts"] if c["name"] in (node.get("cohorts") or []) for s in c["services"] if s in info and info[s]["host_network"]]
+    edge = bool(node.get("edge"))
+    if edge and "tls-proxy" not in local_gateway and "tls-proxy" in services:
+        local_gateway.append("tls-proxy")  # bordure : jumeau de la passerelle (#510)
+    # services distants à relayer : dépendances des services locaux + backends de la bordure
+    needed = set()
+    for s in local:
+        needed |= set(info[s]["depends"])
+    if "tls-proxy" in local_gateway:
+        needed |= {svc for svc, _ in proxy_table() if svc in info}
+        needed |= set(info.get("tls-proxy", {}).get("depends", []))
+    needed -= set(local)
+    out, out_gateway = {"services": {}}, {"services": {}}
+    plan = {"node": me, "wg_address": node["wg_address"], "edge": edge, "services": sorted(local_main),
+            "gateway": sorted(local_gateway), "host_network": host_only, "relays": [], "published": {}, "missing": []}
+    for s in local_main:  # publication VPN des services locaux joignables
+        if not info[s]["ports"]:
             continue
-        s = dict(svc)
-        s.pop("build", None)
-        s.pop("depends_on", None)  # Swarm ignore depends_on ; les services retentent d'eux-mêmes
-        s.pop("container_name", None)
-        s.pop("restart", None)
-        s.pop("network_mode", None)
-        s["image"] = "%s/si/%s:%s" % (registry, name, tag) if i["build"] else (i["image"] or name)
-        c = by_name.get(where.get(name))
-        constraints = ["node.labels.si.cohort.%s == true" % c["name"]] if c else []
-        if c and c.get("zone"):
-            constraints.append("node.labels.si.zone == %s" % c["zone"])
-        if name in (cohorts.get("edge_services") or []):
-            # #510 : services de bordure (tls-proxy) -- une instance sur CHAQUE nœud
-            # étiqueté si.edge (super pour le LAN, jumeau OVH pour l'entrée publique),
-            # même image, même résolution des backends par le réseau overlay
-            constraints = ["node.labels.si.edge == true"]
-            s["deploy"] = {"mode": "global", "restart_policy": {"condition": "any", "delay": "5s"}, "placement": {"constraints": constraints}}
-        else:
-            s["deploy"] = {"mode": "replicated", "replicas": 1, "restart_policy": {"condition": "any", "delay": "5s"},
-                           "placement": {"constraints": constraints}}
-        # ports publiés en mode host (pas d'ingress mesh : un port = un nœud, comme aujourd'hui)
-        if s.get("ports"):
-            # un port lié à une adresse précise (127.0.0.1:…, ${SI_DB_BIND}) n'existe pas en
-            # Swarm : ces publications locales (bases PostgreSQL pour psql) sont retirées,
-            # les services se joignent par leur nom sur le réseau overlay
-            kept = [p for p in s["ports"] if not (isinstance(p, str) and (p.startswith("${SI_DB_BIND") or re.match(r"^\d+\.\d+\.\d+\.\d+:", p)))]
-            if len(kept) != len(s["ports"]):
-                dropped.append(name)
-            s["ports"] = [_port_host_mode(p) for p in kept]
-            if not s["ports"]:
-                del s["ports"]
-        for v in i["named"]:
-            named_volumes.add(v)
-        out["services"][name] = s
-    if named_volumes:
-        out["volumes"] = {v: {} for v in sorted(named_volumes)}
-    return out, skipped, dropped
-
-
-_PORT_RE = re.compile(r"^(?:(?P<ip>\d+\.\d+\.\d+\.\d+):)?(?P<pub>\$\{[^}]+\}|\d+(?:-\d+)?)(?::(?P<target>\$\{[^}]+\}|\d+))?(?:/(?P<proto>udp|tcp))?$")
-
-
-def _port_host_mode(p):
-    """« 6443:6443 », « ${GATEWAY_PORT:-6443}:5000 », « 5514:5514/udp » ->
-    syntaxe longue en mode host (les variables sont substituées par
-    `docker stack deploy` depuis l'environnement du shell, voir deploy.sh)."""
-    if isinstance(p, dict):
-        return dict(p, mode="host")
-    m = _PORT_RE.match(str(p))
-    if not m:
-        return p
-    return {"target": m.group("target") or m.group("pub"), "published": m.group("pub"), "mode": "host", "protocol": m.group("proto") or "tcp"}
+        pub = ["%s:%d:%d" % (node["wg_address"], vpn_port(info, s, p), p) for p in info[s]["ports"]]
+        out["services"][s] = {"ports": pub}
+        plan["published"][s] = pub
+    for s in local_gateway:  # Keycloak publié sur le VPN pour la bordure distante (#510)
+        if info.get(s, {}).get("ports") and s != "tls-proxy":
+            pub = ["%s:%d:%d" % (node["wg_address"], vpn_port(info, s, p), p) for p in info[s]["ports"]]
+            out_gateway["services"][s] = {"ports": pub}
+            plan["published"][s] = pub
+    for d in sorted(needed):
+        host = by_name.get(by_cohort.get(where.get(d)))
+        if not host:
+            plan["missing"].append(d)  # cohorte non affectée à un nœud : pas de relais, service injoignable ici
+            continue
+        if not info[d]["ports"]:
+            plan["missing"].append(d + " (port interne inconnu)")
+            continue
+        cmd = " & ".join("socat TCP-LISTEN:%d,fork,reuseaddr TCP:%s:%d" % (p, host["wg_address"], vpn_port(info, d, p)) for p in info[d]["ports"]) + " & wait"
+        rname = "relay-" + d
+        out["services"][rname] = {"image": RELAY_IMAGE, "entrypoint": ["/bin/sh", "-c"], "command": [cmd],
+                                  "networks": {"default": {"aliases": [d]}}, "restart": "unless-stopped",
+                                  "labels": {"si.relay": d, "si.relay.node": host["name"]}}
+        plan["relays"].append(rname)
+    return out, out_gateway, plan
 
 
 def main():
@@ -254,18 +309,34 @@ def main():
         if skipped:
             print("# hors compose (network_mode: host, à lancer à part) : " + ", ".join(skipped), file=sys.stderr)
         return 0
-    if cmd == "stack":
+    if cmd in ("node", "override"):
         if problems:
             print("cohortes incohérentes :\n - " + "\n - ".join(problems), file=sys.stderr)
             return 1
-        out, skipped, dropped = stack(cohorts, services, info, where)
-        path = sys.argv[sys.argv.index("-o") + 1] if "-o" in sys.argv else os.path.join(ROOT, "deploy", "generated", "stack.yml")
-        os.makedirs(os.path.dirname(path), exist_ok=True)
+        me = sys.argv[2] if len(sys.argv) > 2 and not sys.argv[2].startswith("-") else None
+        if not me:
+            print("nom du nœud requis (deploy/nodes.json)", file=sys.stderr)
+            return 2
+        nodes = load_nodes(sys.argv[sys.argv.index("--nodes") + 1] if "--nodes" in sys.argv else NODES_FILE)
+        out, out_gateway, plan = override(cohorts, services, info, where, origin, nodes, me)
+        if cmd == "node":
+            for x in plan["services"]:
+                print(x)
+            return 0
+        gen = os.path.join(ROOT, "deploy", "generated")
+        path = sys.argv[sys.argv.index("-o") + 1] if "-o" in sys.argv else os.path.join(gen, "node.override.yml")
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         with open(path, "w", encoding="utf-8") as fh:
-            fh.write("# GÉNÉRÉ par deploy/cohorts.py -- ne pas éditer, relancer le script.\n")
+            fh.write("# GÉNÉRÉ par deploy/cohorts.py override %s -- ne pas éditer, relancer le script.\n" % me)
             yaml.safe_dump(out, fh, allow_unicode=True, sort_keys=False, width=200)
-        print("%s : %d services ; hors Swarm (network_mode: host, à lancer avec compose sur leur nœud) : %s ; ports liés à une adresse locale retirés : %s"
-              % (path, len(out["services"]), ", ".join(skipped) or "aucun", ", ".join(dropped) or "aucun"))
+        with open(os.path.join(os.path.dirname(path) or ".", "gateway.override.yml"), "w", encoding="utf-8") as fh:
+            fh.write("# GÉNÉRÉ par deploy/cohorts.py override %s -- passerelle (gateway/docker-compose.yml).\n" % me)
+            yaml.safe_dump(out_gateway, fh, allow_unicode=True, sort_keys=False, width=200)
+        with open(os.path.join(os.path.dirname(path) or ".", "node.plan.json"), "w", encoding="utf-8") as fh:
+            json.dump(plan, fh, indent=2, ensure_ascii=False)
+        print("%s : %d services locaux, %d relais, %d publiés sur %s%s" % (
+            path, len(plan["services"]), len(plan["relays"]), len(plan["published"]), plan["wg_address"],
+            (" ; SANS RELAIS (cohorte non affectée / port inconnu) : " + ", ".join(plan["missing"])) if plan["missing"] else ""))
         return 0
     print(__doc__)
     return 2

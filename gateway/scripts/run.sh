@@ -93,8 +93,13 @@ compose() {
     --env-file "$PROJECT_ROOT/.env" \
     --project-directory "$PROJECT_ROOT" \
     -f "$HERE_DIR/docker-compose.yml" \
+    $GATEWAY_OVERRIDE \
     "$@"
 }
+# #513 : override généré par deploy/cohorts.py override <nœud> (Keycloak
+# publié sur le VPN pour la bordure distante) -- absent sur un seul hôte.
+GATEWAY_OVERRIDE=""
+[ -f "$PROJECT_ROOT/deploy/generated/gateway.override.yml" ] && GATEWAY_OVERRIDE="-f $PROJECT_ROOT/deploy/generated/gateway.override.yml"
 
 # --- Réseau Docker PARTAGÉ avec le stack principal ------------------
 # Créé de façon IDEMPOTENTE -- voir gateway/docker-compose.yml,

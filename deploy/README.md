@@ -1,127 +1,105 @@
-# Déploiement réparti — plusieurs hôtes, cohortes, VPN, migration (livraison #509)
+# Déploiement réparti — plusieurs hôtes, cohortes, VPN, migration (livraisons #509, #513)
 
 Demande : « la charge devient trop importante sur la VM hôte du hub ;
-répartir les conteneurs sur plusieurs hôtes ; un gestionnaire de
-répartition/migration qui déploie une tuile et sa cohorte de
-dépendances/ressources sur un nouvel hôte en respectant isolation et
-dépendances ». Moyens : deux Proxmox sur site (2-3 VM lourdes chacun),
-un Proxmox libre chez OVH, lien VPN inter-Proxmox au moins pour OVH.
-Choix libres, à revoir après les premiers tests.
+répartir les conteneurs sur plusieurs hôtes ; un mécanisme de migration
+géré par un module indépendant sur chaque nœud, qui déploie une tuile et
+sa cohorte de dépendances/ressources sur un nouvel hôte en respectant
+isolation et dépendances, sans perte de données ». Moyens : deux Proxmox
+sur site (2-3 VM lourdes chacun), un Proxmox libre chez OVH, VPN
+inter-Proxmox au moins pour OVH.
 
-## Choix
+## Choix (#513 : compose par nœud, plus de Swarm)
 
-**Docker Swarm plutôt qu'un orchestrateur maison.** Il est déjà dans
-Docker Engine, il reprend le `docker-compose.yml` existant (déployé en
-pile), son réseau overlay chiffré conserve les **noms de services**
-(donc tls-proxy, `http://xxx-api:5000`, memcached : rien à changer dans
-le code), et le **placement par label** exprime exactement « cette
-cohorte sur ce nœud ». Migrer = déplacer un label et redéployer.
+La première version (#509) reposait sur Docker Swarm. À l'essai, chaque
+pas se battait contre les hypothèses du `docker-compose.yml` existant :
+volumes nommés recréés vides sous un autre préfixe, bind mounts
+relatifs résolus ailleurs, réseau `supervision-si-net` créé en bridge
+par les run.sh alors que Swarm veut un overlay, passerelle lancée deux
+fois. Swarm n'apportait rien d'utilisé (chaque cohorte est de toute
+façon épinglée à un nœud, ports en mode hôte, données locales) et
+imposait une seconde façon de lancer le système. Il est retiré.
 
-**Cohortes** (`deploy/cohorts.json`) : 8 groupes couvrant les 73
-services — `core` (passerelle TLS, Keycloak/LDAP, hub, coffre des accès,
-bastion : reste sur le manager, seul nœud à porter la PKI et les ports
-publiés), `supervision`, `tickets`, `externes`, `donnees`, `reseau`,
-`agents`, `coffre` (isolée : ne dépend que de `core`). Chaque cohorte
-est **épinglée** à un nœud (label `si.cohort.<nom>=true`) parce que ses
-données sont des bind mounts locaux (`./x/data`) : pas de stockage
-partagé, donc pas de réplication, mais un placement stable et une
-migration qui déplace les dossiers.
+**Chaque nœud lance compose tel quel**, avec le dépôt, le même `.env`
+et un **override généré** (`deploy/cohorts.py override <nœud>` →
+`deploy/generated/node.override.yml`, ajouté automatiquement par
+`scripts/run.sh`) :
 
-**VPN WireGuard** en maillage entre toutes les VM (pas seulement OVH) :
-c'est aussi le réseau de contrôle et de données de Swarm
-(`--advertise-addr` / `--data-path-addr` sur l'adresse wg0), chiffré
-même sur le LAN. Le nœud OVH a un endpoint public, les VM du site
-derrière NAT initient vers lui (keepalive) et se parlent en direct entre
-elles. Zones `local` / `ovh` : une cohorte n'est placée chez OVH que si
-sa zone le dit (candidate : `agents`, pour des agents externes).
+- les services **locaux** (ceux des cohortes que `deploy/nodes.json`
+  affecte au nœud) sont publiés sur l'**adresse VPN** du nœud, à un port
+  stable par service (`20000 + 10 × rang + rang du port interne`) ;
+- chaque service **distant** utilisé ici (dépendances `depends_on`,
+  URL `scheme://<service>:port` et `*_HOST=<service>` dans
+  l'environnement, backends de tls-proxy sur une bordure) reçoit un
+  **relais** : conteneur `relay-<service>` (socat) dont l'**alias DNS**
+  sur le réseau compose est le nom du service, qui renvoie vers
+  l'adresse VPN de son nœud. Rien ne change dans le code ni dans
+  `docker-compose.yml` : `http://credentials-api:5000` continue de
+  marcher, il aboutit sur l'autre VM ;
+- la passerelle (Keycloak, tls-proxy, annuaire de test :
+  `gateway/docker-compose.yml`) reste sur le nœud `core` ; une bordure
+  (`edge: true`) lance seulement `tls-proxy` (jumeau OVH, #510), qui
+  joint Keycloak et tous les backends par relais ; Keycloak est publié
+  sur le VPN via `deploy/generated/gateway.override.yml`.
 
-**Registre d'images privé** sur le manager (`registry:2`, volume
-`deploy/registry/`, joignable par le VPN) : `docker stack deploy` ne
-construit pas, on construit sur le manager comme aujourd'hui et on
-pousse.
+**Cohortes** (`deploy/cohorts.json`, inchangées) : 8 groupes couvrant
+les 73 services — `core`, `supervision`, `tickets`, `externes`,
+`donnees`, `reseau` (`network-agent-api` en réseau hôte, lancé à part
+sur le nœud), `agents`, `coffre` (isolée : ne dépend que de `core`).
 
-**Hors Swarm** : `network-agent-api` (`network_mode: host`, non supporté
-par les services Swarm) reste lancé avec compose sur le nœud de la
-cohorte `reseau`, joint par `HOST_IP` comme aujourd'hui.
+**VPN WireGuard** maillé (`deploy/wg-mesh.sh`), sous-réseau dédié
+(`10.99.0.0/24` dans l'exemple) : les VM du site initient vers
+l'endpoint public d'OVH (NAT), keepalive. Les agents et les ports de
+service ne sont exposés que sur l'adresse VPN.
 
-## Bordure : tls-proxy sur super et son jumeau OVH (#510)
+## Module par nœud : `deploy/node_agent.py`
 
-Décision : « le proxy hub reste sur super et peut avoir un jumeau sur
-une VM OVH (DNS et NAT obligent) ». `tls-proxy` est un **service de
-bordure** (`edge_services` dans `cohorts.json`) : mode global sur chaque
-nœud `si.edge=true` — super (entrée LAN, nom interne) et `vm-ovh`
-(entrée publique, nom public). Les deux instances résolvent les mêmes
-backends par leur nom sur l'overlay ; la cohorte `core` ne bouge pas.
-Sur le nœud OVH : `pki/` copié depuis le manager avec un certificat
-serveur portant le nom public (`TLS_EXTRA_SAN`), et le frontal public
-existant (`scripts/front-reverse-proxy.sh`, réécriture d'origine
-`INTERNAL_ORIGIN`, `KEYCLOAK_EXTRA_ORIGINS`) posé devant cette instance
-locale plutôt que devant super à travers le VPN. DNS : nom public →
-OVH, nom LAN → super.
+Bibliothèque standard Python, tourne sur l'hôte (service systemd
+`si-node-agent`, installé par `scripts/install.sh` profil `node`),
+écoute sur l'adresse VPN, jeton `SI_NODE_TOKEN` (même `.env` partout).
 
-## Installeur (`scripts/install.sh`, #511)
+| appel | effet |
+|---|---|
+| `GET /status` | nœud, cohortes, services en marche, plan (relais manquants) |
+| `POST /apply {nodes, build}` | remplace `deploy/nodes.json`, régénère l'override, `compose up -d --no-deps` des services locaux + relais, arrête ce qui n'est plus affecté ici |
+| `POST /stop {cohort}` | arrête une cohorte (données conservées) |
+| `GET /export/<cohorte>` | flux tar.gz : bind mounts (`bind/<chemin relatif>`, `abs/<chemin>`) et volumes nommés (`volume/<nom>.tar`, via `alpine tar`) |
+| `POST /import/<cohorte> {from}` | va chercher l'export sur le nœud source et le restaure (mêmes chemins, volumes créés) |
 
-Menu (whiptail ou questions) ou `--answers fichier` pour rejouer une
-VM, `--resume` pour reprendre. Cinq profils : **light** (standalone :
-compose, cohorte core + cohortes choisies, défaut `reseau,coffre,tickets`
-— pour les tests immédiats, pas de Swarm), **super** (manager Swarm sur
-le VPN, core + coffre, registre, images, pile), **lan** (worker), **ovh-hub**
-(worker zone ovh + bordure : jumeau tls-proxy et frontal public),
-**ovh** (worker zone ovh). Noyau commun : prérequis, `.env` complété,
-passerelle (Keycloak, tls-proxy via `gateway/scripts/run.sh`), puis
-construction **par lots** (`SI_INSTALL_LOT`, 4 par défaut, parallélisme
-2) avec **reprise** (`deploy/generated/install.done`) et isolement du
-service fautif — réponse au `DeadlineExceeded` de BuildKit quand ~70
-images partent d'un coup. Fichier de réponses : `PROFILE=`, `COHORTS=`,
-`NODE_NAME=`, `JOIN_TOKEN=`.
+En ligne de commande : `node_agent.py apply|stop|export|import|status`.
 
-## Outils
+## Gestionnaire : `deploy/repartition.py` (manager)
 
-- `cohorts.py report | check | stack` — cartographie (dépendances
-  déduites de `depends_on` et des URL `http://<service>` des
-  variables, volumes, mode réseau), contrôle (chaque service dans une
-  cohorte et une seule, isolation respectée), génération de
-  `deploy/generated/stack.yml` (build retiré, image
-  `${SI_REGISTRY}/si/<service>:${SI_TAG}`, contraintes de placement,
-  ports publiés en mode host sur le nœud, ports liés à 127.0.0.1
-  retirés).
-- `nodes.example.json` → `nodes.json` (ignoré par git) : nœuds, zones,
-  adresses VPN, endpoint OVH, cohortes par nœud.
-- `wg-mesh.sh` — génère `generated/wg/<nœud>.conf` (clés incluses,
-  dossier ignoré) à copier dans `/etc/wireguard/wg0.conf`.
-- `swarm-init.sh manager|worker|labels` — initialisation sur le VPN,
-  jonction des workers, labels depuis `nodes.json`.
-- `build-push.sh` — registre + construction + push.
-- `deploy.sh` — check → stack → `docker stack deploy` (variables du
-  `.env` exportées : Swarm ne lit pas `.env`).
-- `migrate.sh <cohorte> <nœud>` — arrêt des services de la cohorte,
-  copie des dossiers de données par SSH sur le VPN (même chemin de dépôt
-  sur chaque nœud), déplacement du label, redéploiement.
+```
+deploy/repartition.py status                  chaque nœud : agent, services, relais
+deploy/repartition.py plan                    ce que chaque nœud lancerait
+deploy/repartition.py apply [--build]         pousse nodes.json partout et applique (core d'abord)
+deploy/repartition.py migrate tickets vm-donnees [--yes]
+```
 
-## Mise en route (ordre)
+`migrate` : vérifie zone (`local`/`ovh`), isolation et `manager`
+(`core` reste sur super sauf `--force`) ; arrête la cohorte sur le nœud
+source ; fait copier les données par les agents (source → cible, sur
+le VPN) ; met à jour `nodes.json` ; `apply` sur tous les nœuds (les
+relais des autres nœuds sont re-pointés). Si la copie échoue :
+`nodes.json` inchangé, cohorte relancée sur la source. Sauvegarde
+totale conseillée avant (tuile Sauvegarde).
 
-1. VM : une par cohorte lourde (proposition dans `nodes.example.json` :
-   manager = super, `vm-donnees` (supervision, tickets, donnees),
-   `vm-reseau` (reseau, externes), `vm-ovh` (agents)). Même dépôt au même
-   chemin, même `.env`, Docker installé.
-2. `wg-mesh.sh`, WireGuard sur chaque VM, `ping` des adresses wg.
-3. `swarm-init.sh manager <wg>` sur super, `worker` sur les autres,
-   `labels`.
-4. `daemon.json` insecure-registries sur chaque nœud, `build-push.sh`.
-5. `deploy.sh` ; `docker stack ps si` ; `network-agent-api` par compose
-   sur `vm-reseau`.
-6. Test de migration : `migrate.sh externes vm-donnees` (cohorte sans
-   données propres, sans risque), puis retour.
+## Mise en place
 
-## Limites connues et suites (BACKLOG 75)
+1. `deploy/nodes.json` depuis l'exemple (noms, adresses VPN, cohortes,
+   `edge`), **identique** sur tous les nœuds ; `deploy/wg-mesh.sh` →
+   configurations WireGuard, `wg-quick up wg0` partout.
+2. Sur chaque VM : même dépôt au même chemin, même `.env`
+   (`SI_NODE_TOKEN` généré par le premier `install.sh`), Docker,
+   `python3-yaml`. `sudo scripts/install.sh` → profil `node` : override,
+   passerelle si `core`, images des services locaux construites par
+   lots, agent systemd, `apply`, état. Une bordure OVH copie `pki/`
+   depuis le manager (`TLS_EXTRA_SAN` = nom public).
+3. Depuis le manager : `deploy/repartition.py status`, puis `apply`
+   après toute modification de `nodes.json`.
 
-Non exécuté ici (pas de Swarm ni de VM dans l'environnement de
-développement) : scripts relus, `cohorts.py` exécuté sur le dépôt réel
-(73 services, 8 cohortes, 52 dépendances croisées, stack générée), à
-tester sur une première VM. Keycloak/tls-proxy vivent dans
-`gateway/docker-compose.yml` : la stack les inclut ; `gateway/scripts/run.sh`
-(realm, groupes) reste à jouer sur le manager. Ports UDP (rsyslog) et
-TCP publiés : sur le nœud de la cohorte seulement (pas de mesh ingress,
-volontaire). Suites : tuile hub « Répartition » par-dessus l'API Swarm
-(charge des nœuds, cohortes, bouton migrer), stockage partagé (NFS) pour
-lever l'épinglage, `configure` des sauvegardes totales par nœud.
+Limites connues : un service joint par une variable `*_HOST` sans port
+voisin `*_PORT` ni URL ni table tls-proxy n'a pas de port interne connu
+(listé « SANS RELAIS » par `override`) ; les relais sont du TCP brut
+(pas de TLS entre nœuds : le VPN chiffre) ; `network-agent-api`
+(réseau hôte) explore le LAN du nœud qui le porte.

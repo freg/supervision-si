@@ -1,5 +1,5 @@
 {
-  "_doc": "Cohortes de déploiement (livraison #509) : une tuile ou une famille de tuiles et sa cohorte de dépendances/ressources, déployée d'un bloc sur un nœud Swarm portant le label si.cohort.<name>=true. zone : local (Proxmox sur site) ou ovh. pinned : données locales au nœud (bind mounts) — la migration déplace le dossier de données. isolated : aucune dépendance sortante hors allowed_dependencies. memcached (core) est joint par tous via le réseau overlay.",
+  "_doc": "Cohortes de déploiement (livraisons #509/#513) : une tuile ou une famille de tuiles et sa cohorte de dépendances/ressources, déployée d'un bloc sur le nœud que deploy/nodes.json lui affecte (compose + override généré par deploy/cohorts.py override). zone : local (Proxmox sur site) ou ovh. pinned : données locales au nœud (bind mounts, volumes nommés) — la migration (deploy/repartition.py migrate) copie les données par les agents de nœud. isolated : aucune dépendance sortante hors allowed_dependencies. Les services distants sont joints par un relais local (alias DNS = nom du service) vers l'adresse VPN de leur nœud.",
   "cohorts": [
     {
       "name": "core",
@@ -116,7 +116,7 @@
         "network-equipment-api",
         "network-agent-api"
       ],
-      "notes": "network-agent-api est en network_mode: host : hors Swarm, lancé avec compose sur le nœud de cette cohorte (HOST_IP)."
+      "notes": "network-agent-api est en network_mode: host : lancé à part par l'agent de nœud (compose, réseau de l'hôte, HOST_IP)."
     },
     {
       "name": "agents",
@@ -148,7 +148,7 @@
       ]
     }
   ],
-  "_edge": "edge_services : services de bordure déployés en mode global sur chaque nœud si.edge=true (#510) -- tls-proxy sur super (entrée LAN) et son jumeau sur la VM OVH (entrée publique : DNS et NAT obligent). Les certificats de chaque bordure sont locaux au nœud (pki/ copié, SAN du nom public pour OVH).",
+  "_edge": "edge_services : services de bordure lancés sur chaque nœud edge=true de nodes.json (#510) -- tls-proxy sur super (entrée LAN) et son jumeau sur la VM OVH (entrée publique : DNS et NAT obligent). Les certificats de chaque bordure sont locaux au nœud (pki/ copié, SAN du nom public pour OVH).",
   "edge_services": [
     "tls-proxy"
   ]

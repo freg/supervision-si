@@ -12,6 +12,17 @@ regarder l'entrée la plus récente en haut — si elle correspond à ce
 que vous avez déjà en `.env`, rien à faire. Sinon, copier/ajouter les
 clés listées, dans votre `.env` existant.
 
+## 2026-09-16 — déploiement réparti par nœud (livraison #513)
+
+Ajoutées : `SI_NODE_TOKEN=` (jeton de l'agent de nœud, généré par
+`scripts/install.sh` profil `node`, même valeur sur tous les nœuds) et
+`SI_NODE_PORT=6460`. Retirées (Swarm abandonné) : `SI_REGISTRY`,
+`SI_TAG` — à supprimer d'un `.env` existant, sans effet sinon.
+`python3 scripts/sync-env.py` insère les nouvelles clés.
+
+---
+
+
 ## 2026-09-15 — équipements Cisco (livraison #508)
 
 Ajouts (aucune clé existante modifiée) : `CISCO_API_PORT=`,

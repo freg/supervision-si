@@ -1,3 +1,48 @@
+## 2026-09-16 — répartition par nœud : Swarm retiré, agent de nœud, migration compose (livraison #513)
+
+Demandé : « un mécanisme de migration géré par un module indépendant sur
+chaque nœud », « répartition contrôlée et modulaire avec migration sans
+perte de données ». Avant le premier test Swarm sur super, relecture du
+profil `super` : volumes nommés recréés vides sous le préfixe `si_`
+(Keycloak, bases PostgreSQL), bind mounts relatifs résolus par rapport à
+`deploy/generated/`, réseau `supervision-si-net` bridge (run.sh) contre
+overlay (Swarm), passerelle lancée en compose puis dans la pile. Swarm
+n'apportait rien d'utilisé : retiré (`swarm-init.sh`, `build-push.sh`,
+`deploy.sh`, `migrate.sh`, registre, `SI_REGISTRY`/`SI_TAG`).
+
+- `deploy/cohorts.py override <nœud>` : override compose du nœud
+  (`deploy/generated/node.override.yml`, ajouté automatiquement par
+  `scripts/run.sh`) — services locaux publiés sur l'adresse VPN (port
+  stable par service), un relais `relay-<service>` (socat, alias DNS =
+  nom du service) par service distant utilisé ici ; ports internes
+  déduits de la table tls-proxy, des URL, de `*_HOST/*_PORT`, d'`expose`
+  et de l'image ; `gateway.override.yml` publie Keycloak sur le VPN pour
+  la bordure OVH ; `cohorts.py node <nœud>` liste les services du nœud.
+- `deploy/node_agent.py` (bibliothèque standard, service systemd
+  `si-node-agent`, écoute sur le VPN, jeton `SI_NODE_TOKEN`) : `status`,
+  `apply` (nodes.json → override → `compose up -d --no-deps` locaux +
+  relais, arrêt de ce qui n'est plus affecté, réseau hôte à part),
+  `stop`, `export`/`import` d'une cohorte (bind mounts + volumes nommés
+  en tar, chemins et volumes contrôlés).
+- `deploy/repartition.py` (manager) : `status`, `plan`, `apply`,
+  `migrate <cohorte> <nœud>` (zone, isolation, `core` protégé ; arrêt
+  source → copie par les agents → nodes.json → apply partout ; retour
+  arrière si la copie échoue).
+- `scripts/install.sh` : profil `node` (alias super/lan/ovh-hub/ovh) —
+  override, passerelle si `core` (tls-proxy seul sur une bordure),
+  images des services locaux par lots, agent systemd, `apply`, état ;
+  `SI_NODE_TOKEN` généré s'il manque. `.env.example` : `SI_NODE_TOKEN`,
+  `SI_NODE_PORT=6460`.
+- `deploy/README.md` réécrit ; `deploy/tests/test_deploy.py` (12 tests :
+  dépendances, ports, override manager/worker/bordure, cohorte non
+  affectée, données d'une cohorte, import refusant chemins sortants et
+  volumes inattendus, `.env` non sourçable).
+
+Vérifié : tests unitaires (12/12), `cohorts.py check` et `override` sur
+les quatre nœuds de l'exemple, syntaxe bash des scripts. Non vérifié :
+exécution réelle (agent, relais socat, migration) — premier test prévu
+sur super seul en profil `node`, puis une VM LAN.
+
 ## 2026-09-16 — installeur : lecture du `.env` clé par clé (livraison #512)
 
 Constaté au premier lancement réel sur super : `./.env: ligne 298 :

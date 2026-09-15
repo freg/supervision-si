@@ -264,4 +264,13 @@ if [ -f "$ENV_ENCRYPTED_FILE" ]; then
   echo "✅ Secrets déchiffrés, injectés pour ce lancement uniquement."
 fi
 
+# #513 (déploiement réparti) : l'override du nœud, généré par
+# `deploy/cohorts.py override <nœud>` (publication VPN des services locaux,
+# relais vers les services distants), est ajouté automatiquement s'il
+# existe -- un seul hôte (profil light) : pas de fichier, rien ne change.
+NODE_OVERRIDE="$HERE_DIR/deploy/generated/node.override.yml"
+if [ -z "${COMPOSE_FILE:-}" ] && [ -f "$NODE_OVERRIDE" ]; then
+  export COMPOSE_FILE="$HERE_DIR/docker-compose.yml:$NODE_OVERRIDE"
+fi
+
 docker compose "$@"

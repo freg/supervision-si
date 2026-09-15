@@ -2723,10 +2723,16 @@ la GED/PBS ; rapprochement avec la facette Équipements réseau (#506) ;
 ajustements après la première session réelle (invite, colonnes,
 algorithmes SSH des IOS 12.x).
 
-## Déploiement réparti — suites (2026-09-15, #509) — item 75
+## Déploiement réparti — suites (2026-09-15, #509 → #513) — item 75
 
-Livré : cohortes + Swarm sur VPN + scripts (deploy/). Suites : premiers
-tests sur VM (retours attendus), tuile hub « Répartition » (API Swarm :
-charge des nœuds, cohortes, migrer), NFS pour lever l'épinglage des
-données, sauvegarde totale par nœud, `gateway/scripts/run.sh` en mode
-pile, exposition publique via le nœud OVH (cohorte agents / frontal).
+Livré #513 : Swarm retiré ; compose par nœud avec override généré
+(publication VPN + relais socat à alias DNS), agent de nœud
+(`deploy/node_agent.py`, systemd, API sur le VPN), gestionnaire
+`deploy/repartition.py` (status / plan / apply / migrate avec copie des
+données bind + volumes nommés), installeur profil `node`. Suites :
+premiers tests réels (super seul en `node`, puis une VM LAN),
+tuile hub « Répartition » (lecture des `/status`, bouton migrer,
+charge des nœuds), sauvegarde totale par nœud, exposition publique via
+le nœud OVH (bordure), relais en `expose` réels plutôt que socat si un
+service parle UDP, port interne à déclarer pour les services joints par
+`*_HOST` sans port.

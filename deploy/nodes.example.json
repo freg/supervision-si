@@ -1,12 +1,11 @@
 {
-  "_doc": "Nœuds du déploiement réparti (#509). Copier en deploy/nodes.json (ignoré par git). wg_address : adresse dans le VPN WireGuard (réseau privé dédié, ex. 10.99.0.0/24) ; endpoint : IP:port joignable par les autres (obligatoire pour le nœud OVH, vide pour les VM derrière le NAT du site qui initient vers OVH) ; lan_address : adresse sur le LAN du site (les nœuds locaux se parlent en direct).",
+  "_doc": "Nœuds du déploiement réparti (#509/#513). Copier en deploy/nodes.json (ignoré par git). wg_address : adresse dans le VPN WireGuard (réseau privé dédié, ex. 10.99.0.0/24) ; endpoint : IP:port joignable par les autres (obligatoire pour le nœud OVH, vide pour les VM derrière le NAT du site qui initient vers OVH) ; lan_address : adresse sur le LAN du site (les nœuds locaux se parlent en direct). cohorts : cohortes lancées sur ce nœud (deploy/repartition.py migrate les déplace). Fichier IDENTIQUE sur tous les nœuds (repartition.py apply le pousse).",
   "wg_subnet": "10.99.0.0/24",
   "wg_port": 51820,
   "nodes": [
     {
       "name": "super",
       "zone": "local",
-      "role": "manager",
       "wg_address": "10.99.0.1",
       "lan_address": "192.0.2.10",
       "endpoint": "",
@@ -14,12 +13,12 @@
         "core",
         "coffre"
       ],
-      "edge": true
+      "edge": true,
+      "role": "manager"
     },
     {
       "name": "vm-donnees",
       "zone": "local",
-      "role": "worker",
       "wg_address": "10.99.0.2",
       "lan_address": "192.0.2.11",
       "endpoint": "",
@@ -28,12 +27,12 @@
         "tickets",
         "donnees"
       ],
-      "edge": false
+      "edge": false,
+      "role": "worker"
     },
     {
       "name": "vm-reseau",
       "zone": "local",
-      "role": "worker",
       "wg_address": "10.99.0.3",
       "lan_address": "192.0.2.12",
       "endpoint": "",
@@ -41,19 +40,20 @@
         "reseau",
         "externes"
       ],
-      "edge": false
+      "edge": false,
+      "role": "worker"
     },
     {
       "name": "vm-ovh",
       "zone": "ovh",
-      "role": "worker",
       "wg_address": "10.99.0.4",
       "lan_address": "",
       "endpoint": "203.0.113.10:51820",
       "cohorts": [
         "agents"
       ],
-      "edge": true
+      "edge": true,
+      "role": "worker"
     }
   ],
   "_edge": "edge : true = nœud de bordure portant une instance de tls-proxy (#510)."
