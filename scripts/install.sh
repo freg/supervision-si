@@ -28,6 +28,15 @@ ANSWERS=""; RESUME=0
 LOT=${SI_INSTALL_LOT:-4}
 DEFAULT_LIGHT_COHORTS="core,reseau,coffre,tickets"
 
+load_env() {  # lit .env clé par clé (le fichier n'est pas sourçable : valeurs avec espaces non citées)
+  local k v
+  while IFS= read -r line; do
+    k=${line%%=*}; v=${line#*=}
+    [[ $k =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    v=${v%\"}; v=${v#\"}; v=${v%\'}; v=${v#\'}
+    export "$k=$v"
+  done < <(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "${1:-.env}" 2>/dev/null || true)
+}
 log() { printf '%s %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$LOG"; }
 die() { log "ERREUR : $*"; exit 1; }
 
@@ -82,7 +91,7 @@ preflight() {
   [ "$disk" -ge 15000 ] || log "AVERTISSEMENT : moins de 15 Go libres -- docker system prune conseillé"
   [ -f .env ] || cp .env.example .env
   python3 scripts/sync-env.py >>"$LOG" 2>&1 || log "sync-env.py : voir $LOG"
-  set -a; . ./.env; set +a
+  load_env .env
 }
 
 # --- construction par lots avec reprise ---------------------------------------

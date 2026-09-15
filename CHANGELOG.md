@@ -1,3 +1,12 @@
+## 2026-09-16 — installeur : lecture du `.env` clé par clé (livraison #512)
+
+Constaté au premier lancement réel sur super : `./.env: ligne 298 :
+organizationalPerson : commande introuvable` — le `.env` n'est pas
+sourçable par bash (valeurs avec espaces non citées, déjà connu de
+`run.sh`). `install.sh`, `deploy.sh` et `build-push.sh` lisent désormais
+le fichier clé par clé (`load_env`, guillemets retirés). Vérifié sur un
+`.env` de test ; à relancer sur super.
+
 ## 2026-09-15 — installeur interactif : light / super / secondaire LAN / hub OVH / secondaire OVH (livraison #511)
 
 Demandé : « le déploiement ne se termine jamais bien ; un installeur

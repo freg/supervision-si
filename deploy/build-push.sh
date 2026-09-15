@@ -7,9 +7,18 @@
 # SI_REGISTRY (défaut <wg manager>:5000) et SI_TAG (défaut latest) viennent du .env.
 # Sur chaque nœud : /etc/docker/daemon.json {"insecure-registries":["<wg manager>:5000"]}
 # (réseau privé chiffré par WireGuard) puis systemctl restart docker.
+load_env() {  # lit .env clé par clé (le fichier n'est pas sourçable : valeurs avec espaces non citées)
+  local k v
+  while IFS= read -r line; do
+    k=${line%%=*}; v=${line#*=}
+    [[ $k =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    v=${v%\"}; v=${v#\"}; v=${v%\'}; v=${v#\'}
+    export "$k=$v"
+  done < <(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "${1:-.env}" 2>/dev/null || true)
+}
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd); cd "$ROOT"
-set -a; [ -f .env ] && . ./.env; set +a
+load_env .env
 REG=${SI_REGISTRY:-127.0.0.1:5000}; TAG=${SI_TAG:-latest}
 docker ps --format '{{.Names}}' | grep -q '^si-registry$' || docker run -d --restart=always --name si-registry -p 5000:5000 -v "$ROOT/deploy/registry:/var/lib/registry" registry:2
 services=${*:-$(python3 -c "import yaml;d=yaml.safe_load(open('docker-compose.yml'));print(' '.join(n for n,s in d['services'].items() if s.get('build')))")}
