@@ -173,8 +173,15 @@ def stack(cohorts, services, info, where, registry="${SI_REGISTRY:-127.0.0.1:500
         constraints = ["node.labels.si.cohort.%s == true" % c["name"]] if c else []
         if c and c.get("zone"):
             constraints.append("node.labels.si.zone == %s" % c["zone"])
-        s["deploy"] = {"mode": "replicated", "replicas": 1, "restart_policy": {"condition": "any", "delay": "5s"},
-                       "placement": {"constraints": constraints}}
+        if name in (cohorts.get("edge_services") or []):
+            # #510 : services de bordure (tls-proxy) -- une instance sur CHAQUE nœud
+            # étiqueté si.edge (super pour le LAN, jumeau OVH pour l'entrée publique),
+            # même image, même résolution des backends par le réseau overlay
+            constraints = ["node.labels.si.edge == true"]
+            s["deploy"] = {"mode": "global", "restart_policy": {"condition": "any", "delay": "5s"}, "placement": {"constraints": constraints}}
+        else:
+            s["deploy"] = {"mode": "replicated", "replicas": 1, "restart_policy": {"condition": "any", "delay": "5s"},
+                           "placement": {"constraints": constraints}}
         # ports publiés en mode host (pas d'ingress mesh : un port = un nœud, comme aujourd'hui)
         if s.get("ports"):
             # un port lié à une adresse précise (127.0.0.1:…, ${SI_DB_BIND}) n'existe pas en

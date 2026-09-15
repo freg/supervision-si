@@ -18,7 +18,8 @@ case "${1:-}" in
     NODES=${2:-$HERE/nodes.json}
     for n in $(jq -r '.nodes[].name' "$NODES"); do
       zone=$(jq -r --arg n "$n" '.nodes[] | select(.name==$n) | .zone' "$NODES")
-      args="--label-add si.zone=$zone"
+      edge=$(jq -r --arg n "$n" '.nodes[] | select(.name==$n) | .edge // false' "$NODES")
+      args="--label-add si.zone=$zone --label-add si.edge=$edge"
       for c in $(jq -r --arg n "$n" '.nodes[] | select(.name==$n) | .cohorts[]' "$NODES"); do args="$args --label-add si.cohort.$c=true"; done
       docker node update $args "$n" && echo "$n : $args"
     done ;;

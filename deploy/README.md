@@ -44,6 +44,21 @@ pousse.
 par les services Swarm) reste lancé avec compose sur le nœud de la
 cohorte `reseau`, joint par `HOST_IP` comme aujourd'hui.
 
+## Bordure : tls-proxy sur super et son jumeau OVH (#510)
+
+Décision : « le proxy hub reste sur super et peut avoir un jumeau sur
+une VM OVH (DNS et NAT obligent) ». `tls-proxy` est un **service de
+bordure** (`edge_services` dans `cohorts.json`) : mode global sur chaque
+nœud `si.edge=true` — super (entrée LAN, nom interne) et `vm-ovh`
+(entrée publique, nom public). Les deux instances résolvent les mêmes
+backends par leur nom sur l'overlay ; la cohorte `core` ne bouge pas.
+Sur le nœud OVH : `pki/` copié depuis le manager avec un certificat
+serveur portant le nom public (`TLS_EXTRA_SAN`), et le frontal public
+existant (`scripts/front-reverse-proxy.sh`, réécriture d'origine
+`INTERNAL_ORIGIN`, `KEYCLOAK_EXTRA_ORIGINS`) posé devant cette instance
+locale plutôt que devant super à travers le VPN. DNS : nom public →
+OVH, nom LAN → super.
+
 ## Outils
 
 - `cohorts.py report | check | stack` — cartographie (dépendances

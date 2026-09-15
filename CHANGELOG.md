@@ -1,3 +1,13 @@
+## 2026-09-15 — bordure : tls-proxy sur super et jumeau OVH (livraison #510)
+
+Décision : « le proxy hub reste sur super et peut avoir un jumeau sur une
+VM OVH (DNS et NAT obligent) ». `tls-proxy` devient un service de bordure
+(`edge_services`, mode global sur les nœuds `si.edge=true` : super et
+vm-ovh), mêmes backends par l'overlay ; labels posés par `swarm-init.sh`
+(`edge` dans `nodes.json`) ; procédure certificats/frontal public dans
+`deploy/README.md`. Vérifié : stack régénérée (mode global). Non vérifié
+sur VM.
+
 ## 2026-09-15 — déploiement réparti : cohortes, Swarm sur VPN WireGuard, migration (livraison #509)
 
 Demandé : « la charge devient trop importante sur la VM hôte du hub :
