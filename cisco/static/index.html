@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<!-- Tuile « Équipements Cisco » (livraison #508) : page autonome servie
+par cisco-api sous /cisco/ (même patron que /mikrotik/). Trois volets :
+supervision (état, charge, capteurs, interfaces, journal, alertes),
+configurations (sauvegarde, versions, différences, restauration avec
+aperçu), urgence (shutdown/no shutdown, write memory, reload différé et
+annulation, commande show). Aucune dépendance externe, variables de thème
+du hub reproduites en clair/sombre. -->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Équipements Cisco</title>
+<style>
+  :root { --bg:#f6f7f9; --panel:#fff; --border:#d5d9e0; --text:#1c2430; --muted:#66707d; --accent:#2b6cb0; --danger:#b42318; --danger-bg:#fdecea; --ok:#1f7a3f; --ok-bg:#e6f4ea; --warning:#9a6700; --warning-bg:#fff4d6; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#14181f; --panel:#1c222b; --border:#333c48; --text:#e6e9ee; --muted:#9aa4b1; --accent:#7aa7e0; --danger:#f08c85; --danger-bg:#3a1f1d; --ok:#7bd38e; --ok-bg:#1d3324; --warning:#f0c674; --warning-bg:#3a3016; } }
+  * { box-sizing: border-box; } body { margin:0; font-family: system-ui, sans-serif; font-size:14px; background:var(--bg); color:var(--text); }
+  header { display:flex; gap:12px; align-items:center; padding:10px 16px; border-bottom:1px solid var(--border); background:var(--panel); }
+  header h1 { font-size:1.1rem; margin:0; } header a { color:var(--accent); }
+  main { display:grid; grid-template-columns: 260px 1fr; gap:12px; padding:12px 16px; }
+  @media (max-width:900px) { main { grid-template-columns:1fr; } }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:12px; }
+  .sw { display:block; width:100%; text-align:left; padding:8px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text); cursor:pointer; margin-bottom:6px; font:inherit; }
+  .sw.active { border-color:var(--accent); } .sw small { color:var(--muted); display:block; }
+  button { font:inherit; padding:5px 10px; border:1px solid var(--border); border-radius:6px; background:var(--panel); color:var(--text); cursor:pointer; }
+  button:hover { border-color:var(--accent); } button.danger { color:var(--danger); border-color:var(--danger); } button:disabled { opacity:.5; cursor:wait; }
+  .tabs button.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  table { border-collapse:collapse; width:100%; font-size:13px; } th, td { text-align:left; padding:4px 8px; border-bottom:1px solid var(--border); vertical-align:top; }
+  .muted { color:var(--muted); } .ok { color:var(--ok); } .bad { color:var(--danger); } .warn { color:var(--warning); }
+  .alert { padding:6px 10px; border-radius:6px; margin:4px 0; } .alert.critical { background:var(--danger-bg); color:var(--danger); } .alert.warning { background:var(--warning-bg); color:var(--warning); }
+  pre { background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:8px; overflow:auto; max-height:420px; font-size:12px; white-space:pre-wrap; }
+  #msg { display:none; padding:8px 10px; border:1px solid var(--border); border-radius:6px; margin-bottom:10px; } #msg.err { display:block; border-color:var(--danger); color:var(--danger); } #msg.ok { display:block; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:6px 0; } input, select { font:inherit; padding:4px 6px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text); }
+  .kv { display:grid; grid-template-columns: 160px 1fr; gap:2px 10px; font-size:13px; } .kv dt { color:var(--muted); } .kv dd { margin:0; }
+</style>
+</head>
+<body>
+<header><a href="/">◀ Hub</a><h1>Équipements Cisco</h1><span class="muted" id="health"></span></header>
+<main>
+  <aside>
+    <div class="panel"><div id="list" class="muted">Chargement…</div></div>
+    <div class="panel muted" style="font-size:12px">Identifiants dans le coffre des accès (genre ssh) ; registre <code>cisco/switches.json</code>. Chaque geste demande le nom du switch et est journalisé.</div>
+  </aside>
+  <section>
+    <div id="msg"></div>
+    <div id="empty" class="panel muted">Choisir un switch.</div>
+    <div id="detail" style="display:none">
+      <div class="panel">
+        <div class="row tabs"><button data-tab="sup" class="active">Supervision</button><button data-tab="cfg">Configurations</button><button data-tab="urg">Urgence</button><span style="flex:1"></span><button id="refresh">Rafraîchir</button></div>
+      </div>
+      <div id="tab-sup">
+        <div class="panel"><div id="alerts"></div><dl class="kv" id="kv"></dl></div>
+        <div class="panel"><h3 style="margin:0 0 6px">Interfaces</h3><div id="ifaces"></div></div>
+        <div class="panel"><h3 style="margin:0 0 6px">Capteurs</h3><div id="env"></div></div>
+        <div class="panel"><h3 style="margin:0 0 6px">Journal (show logging)</h3><div id="logs"></div></div>
+      </div>
+      <div id="tab-cfg" style="display:none">
+        <div class="panel"><div class="row"><button id="backup">Sauvegarder maintenant</button><button id="diffrun">Différence dernière sauvegarde ↔ courante</button></div><div id="configs"></div></div>
+        <div class="panel" id="cfgview" style="display:none"><h3 id="cfgtitle" style="margin:0 0 6px"></h3><div class="row"><button id="planbtn">Aperçu de restauration</button><button id="restorebtn" class="danger" disabled>Restaurer (fusion) puis write memory</button></div><pre id="cfgbody"></pre></div>
+      </div>
+      <div id="tab-urg" style="display:none">
+        <div class="panel"><h3 style="margin:0 0 6px">Port</h3><div class="row"><input id="port" placeholder="ex. Gi1/0/3" style="width:160px"><button id="noshut">no shutdown</button><button id="shut" class="danger">shutdown</button></div></div>
+        <div class="panel"><h3 style="margin:0 0 6px">Équipement</h3><div class="row"><button id="write">write memory</button><input id="mins" type="number" min="1" max="60" value="5" style="width:70px"> min <button id="reload" class="danger">Redémarrage différé</button><button id="reloadcancel">Annuler le redémarrage</button></div></div>
+        <div class="panel"><h3 style="margin:0 0 6px">Diagnostic</h3><div class="row"><input id="showcmd" placeholder="show …" style="flex:1"><button id="showbtn">Exécuter</button></div><pre id="showout" style="display:none"></pre></div>
+        <div class="panel"><h3 style="margin:0 0 6px">Journal des gestes</h3><div id="actions"></div></div>
+      </div>
+    </div>
+  </section>
+</main>
+<script>
+const api = location.pathname.replace(/\/$/, "");
+let current = null, currentCfg = null, plan = null;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function msg(text, err) { const m = $("msg"); m.className = err ? "err" : "ok"; m.textContent = text; }
+async function call(path, opts) {
+  const r = await fetch(api + path, opts); let b = null; try { b = await r.json(); } catch {}
+  if (!r.ok || (b && b.error)) throw new Error((b && b.error) || ("HTTP " + r.status));
+  return b;
+}
+const post = (path, body) => call(path, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body || {})});
+function confirmName() { const n = prompt(`Pour confirmer, taper le nom du switch (${current}) :`); return n === current ? n : (n !== null && msg("nom incorrect, geste annulé", true), null); }
+
+async function loadList() {
+  try {
+    const h = await call("/health"); $("health").textContent = `${h.switches} switch(s) · sauvegarde auto toutes les ${h.backup_interval_hours} h` + (h.credentials ? "" : " · ⚠ coffre des accès non relié");
+    const b = await call("/switches");
+    $("list").innerHTML = b.switches.map((s) => `<button class="sw${s.name === current ? " active" : ""}" data-name="${esc(s.name)}"><strong>${esc(s.name)}</strong> <span class="${s.reachable === false ? "bad" : s.reachable ? "ok" : "muted"}">${s.reachable === false ? "injoignable" : s.reachable ? "joignable" : "—"}</span>${s.alerts ? ` <span class="warn">${s.alerts} alerte(s)</span>` : ""}<small>${esc(s.host)} · ${esc(s.platform)}${s.site ? " · " + esc(s.site) : ""} · ${s.configs} sauvegarde(s)${s.last_backup ? " · dernière " + esc(s.last_backup) : ""}</small></button>`).join("") || "<span class='muted'>Aucun switch dans le registre.</span>";
+    document.querySelectorAll(".sw").forEach((el) => el.onclick = () => select(el.dataset.name));
+  } catch (e) { msg(e.message, true); }
+}
+async function select(name) {
+  current = name; currentCfg = null; plan = null; $("empty").style.display = "none"; $("detail").style.display = "";
+  document.querySelectorAll(".sw").forEach((el) => el.classList.toggle("active", el.dataset.name === name));
+  await Promise.all([loadSummary(), loadConfigs(), loadActions()]);
+}
+async function loadSummary() {
+  $("kv").innerHTML = "<dt>…</dt><dd>relevé en cours (SSH)</dd>";
+  try {
+    const s = await call(`/switches/${encodeURIComponent(current)}/summary`);
+    const v = s.version || {};
+    $("alerts").innerHTML = (s.alerts || []).map((a) => `<div class="alert ${a.severity}">${esc(a.message)}</div>`).join("") || "<div class='ok'>Aucune alerte.</div>";
+    $("kv").innerHTML = [["Modèle", v.model], ["Système", `${s.platform === "nxos" ? "NX-OS" : "IOS"} ${v.version || ""}`], ["Nom", v.hostname], ["Série", v.serial], ["Uptime", v.uptime], ["Image", v.image],
+      ["CPU", s.cpu && s.cpu.five_min != null ? `${s.cpu.five_min} % (5 min) · ${s.cpu.one_min} % (1 min)` : "—"],
+      ["Mémoire", s.memory && s.memory.used_percent != null ? `${s.memory.used_percent} % utilisée` : "—"], ["Relevé", s.at]].map(([k, val]) => `<dt>${k}</dt><dd>${esc(val || "—")}</dd>`).join("");
+    $("ifaces").innerHTML = (s.interfaces || []).length ? "<table><tr><th>Port</th><th>Nom</th><th>État</th><th>VLAN</th><th>Duplex</th><th>Vitesse</th><th>Type</th></tr>" + s.interfaces.map((i) => `<tr><td>${esc(i.port)}</td><td>${esc(i.name)}</td><td class="${i.status === "connected" ? "ok" : /err/.test(i.status) ? "bad" : "muted"}">${esc(i.status)}</td><td>${esc(i.vlan)}</td><td>${esc(i.duplex)}</td><td>${esc(i.speed)}</td><td class="muted">${esc(i.type)}</td></tr>`).join("") + "</table>" : "<span class='muted'>—</span>";
+    $("env").innerHTML = (s.environment || []).length ? s.environment.map((e) => `<div class="${e.ok ? "ok" : "bad"}">${esc(e.item)}</div>`).join("") : "<span class='muted'>aucun capteur remonté</span>";
+    $("logs").innerHTML = (s.logs || []).length ? "<pre>" + s.logs.slice(-60).map((l) => esc(l.raw)).join("\n") + "</pre>" : "<span class='muted'>—</span>";
+    loadList();
+  } catch (e) { $("kv").innerHTML = `<dt class="bad">Erreur</dt><dd class="bad">${esc(e.message)}</dd>`; $("alerts").innerHTML = ""; loadList(); }
+}
+async function loadConfigs() {
+  try {
+    const b = await call(`/switches/${encodeURIComponent(current)}/configs`);
+    $("configs").innerHTML = b.configs.length ? "<table><tr><th>Version</th><th>Source</th><th>Par</th><th>Lignes</th><th></th></tr>" + b.configs.slice().reverse().map((c) => `<tr><td>${esc(c.id)}</td><td>${esc(c.source || "")}</td><td>${esc(c.by || "")}</td><td>${c.lines ?? ""}</td><td><button data-cfg="${esc(c.id)}">Voir</button> <button data-diff="${esc(c.id)}">Diff ↔ courante</button></td></tr>`).join("") + "</table>" : "<span class='muted'>Aucune sauvegarde : « Sauvegarder maintenant ».</span>";
+    document.querySelectorAll("[data-cfg]").forEach((el) => el.onclick = () => viewConfig(el.dataset.cfg));
+    document.querySelectorAll("[data-diff]").forEach((el) => el.onclick = () => showDiff(el.dataset.diff, "running"));
+  } catch (e) { msg(e.message, true); }
+}
+async function viewConfig(id) {
+  try { const b = await call(`/switches/${encodeURIComponent(current)}/configs/${id}`); currentCfg = id; plan = null; $("restorebtn").disabled = true; $("cfgview").style.display = ""; $("cfgtitle").textContent = "Version " + id; $("cfgbody").textContent = b.content; } catch (e) { msg(e.message, true); }
+}
+async function showDiff(a, b) {
+  try { const d = await call(`/switches/${encodeURIComponent(current)}/configs/diff?a=${encodeURIComponent(a || "")}&b=${encodeURIComponent(b)}`); $("cfgview").style.display = ""; $("cfgtitle").textContent = `Différence ${d.a} → ${d.b}`; $("cfgbody").textContent = d.identical ? "Identiques (hors lignes volatiles)." : d.diff; currentCfg = null; $("restorebtn").disabled = true; } catch (e) { msg(e.message, true); }
+}
+async function loadActions() {
+  try { const b = await call(`/switches/${encodeURIComponent(current)}/actions`); $("actions").innerHTML = b.actions.length ? "<table>" + b.actions.slice().reverse().map((a) => `<tr><td>${esc(a.at)}</td><td>${esc(a.action)}</td><td>${esc(a.by)}</td><td class="${a.ok ? "ok" : "bad"}">${a.ok ? "ok" : "échec"}</td><td class="muted">${esc(a.detail)}</td></tr>`).join("") + "</table>" : "<span class='muted'>—</span>"; } catch (e) { $("actions").textContent = e.message; }
+}
+async function act(label, fn) { msg(label + "…"); try { const r = await fn(); msg(label + " : fait." + (r && r.errors && r.errors.length ? " Erreurs : " + r.errors.map((x) => x.line + " → " + x.error).join(" ; ") : "")); loadActions(); loadList(); return r; } catch (e) { msg(label + " : " + e.message, true); loadActions(); } }
+
+document.querySelectorAll(".tabs [data-tab]").forEach((b) => b.onclick = () => { document.querySelectorAll(".tabs [data-tab]").forEach((x) => x.classList.toggle("active", x === b)); ["sup", "cfg", "urg"].forEach((t) => $("tab-" + t).style.display = t === b.dataset.tab ? "" : "none"); });
+$("refresh").onclick = () => select(current);
+$("backup").onclick = () => act("Sauvegarde", async () => { const r = await post(`/switches/${encodeURIComponent(current)}/configs/backup`, {}); loadConfigs(); msg(r.created ? `Nouvelle version ${r.id} (${r.lines} lignes).` : `Configuration inchangée depuis ${r.id}.`); return r; });
+$("diffrun").onclick = () => showDiff("", "running");
+$("planbtn").onclick = async () => { if (!currentCfg) return msg("choisir d'abord une version (Voir)", true); try { const p = await post(`/switches/${encodeURIComponent(current)}/configs/${currentCfg}/restore`, {dry_run: true}); plan = p; $("cfgtitle").textContent = `Aperçu de restauration de ${currentCfg}`; $("cfgbody").textContent = (p.count ? `${p.count} ligne(s) seraient envoyées en mode configuration :\n\n` + p.lines.join("\n") : "Rien à réappliquer : la configuration courante contient déjà cette version.") + (p.removed_not_handled.length ? `\n\n⚠ Présent sur l'équipement mais absent de la sauvegarde (NON retiré par la fusion, à traiter à la main si voulu) :\n` + p.removed_not_handled.join("\n") : ""); $("restorebtn").disabled = !p.count; } catch (e) { msg(e.message, true); } };
+$("restorebtn").onclick = () => { if (!plan || !confirmName()) return; act("Restauration", () => post(`/switches/${encodeURIComponent(current)}/configs/${currentCfg}/restore`, {dry_run: false, confirm: current, write: true}).then((r) => { loadConfigs(); return r; })); };
+$("shut").onclick = () => { const p = $("port").value.trim(); if (!p || !confirmName()) return; act("shutdown " + p, () => post(`/switches/${encodeURIComponent(current)}/interfaces/${encodeURIComponent(p)}/shutdown`, {confirm: current})); };
+$("noshut").onclick = () => { const p = $("port").value.trim(); if (!p || !confirmName()) return; act("no shutdown " + p, () => post(`/switches/${encodeURIComponent(current)}/interfaces/${encodeURIComponent(p)}/no-shutdown`, {confirm: current})); };
+$("write").onclick = () => { if (!confirmName()) return; act("write memory", () => post(`/switches/${encodeURIComponent(current)}/write`, {confirm: current})); };
+$("reload").onclick = () => { if (!confirmName()) return; act("Redémarrage différé", () => post(`/switches/${encodeURIComponent(current)}/reload`, {confirm: current, in_minutes: Number($("mins").value) || 5})); };
+$("reloadcancel").onclick = () => { if (!confirmName()) return; act("Annulation du redémarrage", () => post(`/switches/${encodeURIComponent(current)}/reload`, {confirm: current, cancel: true})); };
+$("showbtn").onclick = async () => { const c = $("showcmd").value.trim(); if (!c) return; try { const r = await post(`/switches/${encodeURIComponent(current)}/show`, {command: c}); $("showout").style.display = ""; $("showout").textContent = r.output || "(vide)"; } catch (e) { msg(e.message, true); } };
+loadList();
+</script>
+</body>
+</html>

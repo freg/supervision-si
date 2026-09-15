@@ -86,6 +86,18 @@ class SysDescrTests(unittest.TestCase):
         self.assertEqual(p["model"], "C2960")
         self.assertIsNone(identify.generation_of(p)[0])
 
+    def test_nxos(self):
+        p = identify.parse_sys_descr("Cisco NX-OS(tm) n3000, Software (n3000-uk9), Version 6.0(2)U6(10), RELEASE SOFTWARE Copyright (c) 2002-2015 by Cisco Systems, Inc.")
+        self.assertEqual((p["vendor"], p["os"], p["family"], p["version"], p["kind"]), ("Cisco", "NX-OS", "n3000", "6.0(2)U6(10)", "switch"))
+        self.assertEqual(identify.generation_of(p)[0], "recent")
+        # noms de produit tels que Zenoss les affiche
+        r = identify.merge({"zenoss": {"device_class": "/Network/Switch/Cisco", "hw_product": "C3750"}})
+        self.assertEqual((r["vendor"], r["model"], r["kind"], r["generation"]), ("Cisco", "C3750", "switch", "ancien"))
+        r2 = identify.merge({"zenoss": {"device_class": "/Network/Switch/Cisco", "hw_product": "c2970"}})
+        self.assertEqual(r2["generation"], "ancien")
+        r3 = identify.merge({"zenoss": {"device_class": "/Network/Switch/Cisco/Nexus", "hw_product": "C3064PQ"}})
+        self.assertEqual((r3["vendor"], r3["model"], r3["kind"]), ("Cisco", "C3064PQ", "switch"))
+
     def test_catos(self):
         p = identify.parse_sys_descr("Cisco Systems, Inc. WS-C2948 Cisco Catalyst Operating System Software, Version McpSW: 6.3(3) NmpSW: 6.3(3)")
         self.assertEqual(p["os"], "CatOS")
@@ -288,6 +300,9 @@ class SnmpTablesTests(unittest.TestCase):
 class ZenossImportTests(unittest.TestCase):
     def test_csv(self):
         text = "Device,IP,Device Class,Prod State\nrtr-alpha,192.0.2.1,/Network/Router/Cisco,Production\nsw-b,192.0.2.2,/Network/Switch/BayStack,Production\n,,,\n"
+        # rapport « All Devices » de Zenoss 2.5 (Reports > Device Reports > Export All)
+        rep, _, _ = zenoss_import.parse("Device,Device Class,Product,State,Ping,SNMP\nsw-c,/Network/Switch/Cisco,C3750,Production,Up,Up\n")
+        self.assertEqual((rep[0]["name"], rep[0]["hw_product"], rep[0]["production_state"]), ("sw-c", "C3750", "Production"))
         devices, skipped, fmt = zenoss_import.parse(text, "devices.csv")
         self.assertEqual(fmt, "csv")
         self.assertEqual(len(devices), 2)

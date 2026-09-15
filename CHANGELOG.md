@@ -1,3 +1,39 @@
+## 2026-09-15 — équipements Cisco : supervision, sauvegarde/restauration des configurations, gestes d'urgence (livraison #508)
+
+Demandé : « compléter les outils de contrôle de routeur/switch par un
+module Cisco intégrant a minima C3750, C3064PQ, c2970 ; superviser
+(disponibilité, état, charge, alertes, log), sauvegarder / restaurer les
+configurations, agir en cas d'urgence ». Nouveau module `cisco/`
+(`cisco-api`, page sous `/cisco/`, tuile « Équipements Cisco » de la
+thématique Réseau, réservée admin/technicien). Voir `cisco/README.md`.
+
+- **Supervision** par SSH (IOS 12.x et NX-OS, canal interactif, enable
+  automatique) : version/modèle/série/uptime, CPU, mémoire, capteurs,
+  interfaces (`show interfaces status`), journal (`show logging`
+  décodé) ; alertes dérivées (CPU/mémoire, capteur en défaut, port
+  err-disabled, messages de sévérité ≤ 3) ; joignabilité mémorisée.
+- **Configurations** : `show running-config` archivé et versionné
+  (dédupliqué hors lignes volatiles), sauvegarde automatique
+  périodique, différences entre versions et avec la courante,
+  **restauration par fusion** avec aperçu obligatoire (lignes envoyées,
+  et ce que la fusion ne retire pas), sauvegarde préalable, `write
+  memory`.
+- **Urgence** : shutdown / no shutdown d'un port, write memory,
+  redémarrage différé annulable (jamais immédiat), commande `show`
+  contrôlée ; confirmation par le nom du switch, journal des gestes.
+- Registre `cisco/switches.json` sans secret ; identifiants par le coffre
+  des accès (genre ssh, `enable_credential` optionnel).
+- Hub : tuile (`lib.js`, `App.jsx`, `hubThemes.js`, `VITE_CISCO_URL`),
+  compose `cisco-api` (un worker), tls-proxy `/cisco/`, `.env.example`
+  (`CISCO_*`), `ENV_CHANGELOG.md`.
+- Vérifié : 9 tests (parseurs sur sorties représentatives 3750 / 2970 /
+  Nexus 3064, canal SSH simulé, API complète avec fausse session).
+- Non vérifié : **aucun équipement réel** (formats `show`, invite,
+  algorithmes SSH des IOS anciens), rendu de la page. Sur super :
+  `sync-env.py`, `--build cisco-api hub tls-proxy`, créer l'accès
+  `cisco` (genre ssh) dans la tuile Accès d'équipements, renseigner
+  `cisco/switches.json`.
+
 ## 2026-09-14 — coffre-fort : affichage « tableur », le même design que les demandes de SAV, par défaut (livraison #507)
 
 Demandé : « as-tu simplifié la page du coffre-fort dans le même design

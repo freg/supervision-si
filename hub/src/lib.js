@@ -99,7 +99,7 @@ export function isTechnicien(groups) {
 // que des droits de gestion de realm n'ont pas été accordés séparément
 // dans Keycloak).
 export function buildFrontsList({
-  frontendUrl, portalUrl, keycloakConsoleUrl, dbaUrl, vaultUrl, vaultAdminUrl, ldapAdminUrl, projeqtorUrl, mikrotikUrl, credentialsUrl, demandeUrl,
+  frontendUrl, portalUrl, keycloakConsoleUrl, dbaUrl, vaultUrl, vaultAdminUrl, ldapAdminUrl, projeqtorUrl, mikrotikUrl, ciscoUrl, credentialsUrl, demandeUrl,
   groups, externalLinks,
 }) {
   const roles = groupsToRoles(groups);
@@ -212,6 +212,21 @@ export function buildFrontsList({
       name: "Routeurs MikroTik",
       description: "Supervision et commande des routeurs — ressources, interfaces, outils",
       url: mikrotikUrl,
+      embeddable: true,
+    });
+  }
+  // Équipements Cisco (livraison #508) -- supervision, sauvegarde /
+  // restauration des configurations, gestes d'urgence (IOS, NX-OS) par
+  // SSH ; réservé aux administrateurs et techniciens : chaque geste peut
+  // couper un port ou redémarrer un switch (confirmation + journal côté
+  // cisco-api, mais pas de vérification de rôle serveur -- même posture
+  // que le reste du hub).
+  if (ciscoUrl && (hasValue(roles, "admin") || hasValue(roles, "technicien"))) {
+    fronts.push({
+      id: "cisco",
+      name: "Équipements Cisco",
+      description: "Catalyst / Nexus — état, charge, alertes, journal ; sauvegarde et restauration des configurations ; urgence",
+      url: ciscoUrl,
       embeddable: true,
     });
   }

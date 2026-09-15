@@ -12,6 +12,16 @@ regarder l'entrée la plus récente en haut — si elle correspond à ce
 que vous avez déjà en `.env`, rien à faire. Sinon, copier/ajouter les
 clés listées, dans votre `.env` existant.
 
+## 2026-09-15 — équipements Cisco (livraison #508)
+
+Ajouts (aucune clé existante modifiée) : `CISCO_API_PORT=`,
+`CISCO_SSH_TIMEOUT=15`, `CISCO_BACKUP_INTERVAL_HOURS=24`,
+`CISCO_KEEP_CONFIGS=60`, `CISCO_DATA_DIR=` ; le service réutilise
+`CREDENTIALS_INTERNAL_TOKEN`. `python3 scripts/sync-env.py` insère les clés.
+
+---
+
+
 ## 2026-09-14 — équipements réseau (livraison #506)
 
 Ajouts (aucune clé existante modifiée) :

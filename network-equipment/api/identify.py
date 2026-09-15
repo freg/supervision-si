@@ -92,6 +92,22 @@ _CISCO_SWITCH_FAMILIES = re.compile(r"^(C2900XL|C3500XL|C29[4-7]\d\w*|C2960\w*|C
 _CISCO_ROUTER_FAMILIES = re.compile(r"^(C8\d\d\w*|C1[1-9]\d\d\w*|C25\d\d\w*|C26\d\d\w*|C28\d\d\w*|C29[0-3]\d|C2951|C2921|C2911|C2901|C36[0-4]\d\w*|C37[0-4]\d\w*|C38\d\d\w*|C39\d\d\w*|C72\d\d\w*|C75\d\d\w*|C4000|ISR\w*|ASR\w*|CSR\w*|RSP\w*)$", re.I)
 
 
+def _cisco_nxos(d):
+    # « Cisco NX-OS(tm) n3000, Software (n3000-uk9), Version 6.0(2)U6(10), RELEASE SOFTWARE … »
+    # « Cisco Nexus Operating System (NX-OS) Software 9.3(5) » -- Nexus (2008+) : toujours récent.
+    if "NX-OS" not in d and "Nexus Operating System" not in d:
+        return None
+    out = {"vendor": "Cisco", "os": "NX-OS", "kind": "switch", "generation": "recent", "reason": "NX-OS (Nexus, 2008+)"}
+    m = re.search(r"NX-OS\(tm\) (\S+?),", d)
+    if m:
+        out["family"] = m.group(1)
+        out["model"] = "Nexus " + m.group(1).lstrip("nN").split("-")[0] if m.group(1).lower().startswith("n") else m.group(1)
+    v = re.search(r"Version ([\w.()]+)|Software ([\d][\w.()]*)", d)
+    if v:
+        out["version"] = v.group(1) or v.group(2)
+    return out
+
+
 def _cisco_catos(d):
     # « Cisco Systems, Inc. WS-C2948 Cisco Catalyst Operating System Software, Version McpSW: 6.3(3) »
     # « Cisco Systems WS-C5000 Software, Version McpSW: 4.5(2) NmpSW: 4.5(2) »
@@ -288,7 +304,7 @@ def _linux(d):
     return out
 
 
-SYSDESCR_PARSERS = [_mikrotik, _cisco_catos, _cisco_ios, _hp_procurve, _hp_comware, _threecom, _nortel,
+SYSDESCR_PARSERS = [_mikrotik, _cisco_nxos, _cisco_catos, _cisco_ios, _hp_procurve, _hp_comware, _threecom, _nortel,
                     _alcatel, _juniper, _ubiquiti, _fortinet, _apc, _zyxel, _netgear, _dlink, _printer,
                     _windows, _linux]
 
@@ -334,7 +350,7 @@ def generation_of(info, oui_category=None):
         if _CISCO_RECENT_FAMILIES.match(fam) or info.get("os") == "IOS-XE":
             return "recent", "famille Cisco des années 2010+ / IOS-XE"
         if _CISCO_OLD_FAMILIES.match(fam):
-            return "ancien", "famille Cisco %s (années 1998-2005)" % fam
+            return "ancien", "famille Cisco %s (Catalyst/routeurs des années 1998-2008)" % fam
         m = re.match(r"(\d+)\.(\d+)", version)
         if m:
             major, minor = int(m.group(1)), int(m.group(2))
@@ -372,6 +388,14 @@ _KIND_FROM_ZENOSS = [
 ]
 
 
+_ZENOSS_VENDORS = {"cisco": "Cisco", "hp": "HP ProCurve / HPE", "procurve": "HP ProCurve / HPE", "hpe": "HP ProCurve / HPE", "aruba": "Aruba (HPE)",
+                   "nortel": "Nortel / Bay Networks", "baystack": "Nortel / Bay Networks", "bay": "Nortel / Bay Networks", "3com": "3Com",
+                   "juniper": "Juniper", "mikrotik": "MikroTik", "alcatel": "Alcatel-Lucent Enterprise", "netgear": "Netgear", "zyxel": "Zyxel",
+                   "fortinet": "Fortinet", "dell": "Dell", "dlink": "D-Link", "d-link": "D-Link", "ubiquiti": "Ubiquiti", "extreme": "Extreme Networks",
+                   "huawei": "Huawei", "arista": "Arista", "brocade": "Brocade", "foundry": "Foundry / Brocade", "avaya": "Avaya", "linksys": "Linksys (Cisco)",
+                   "checkpoint": "Check Point", "paloalto": "Palo Alto", "sonicwall": "SonicWall", "watchguard": "WatchGuard", "tplink": "TP-Link", "tp-link": "TP-Link"}
+
+
 def zenoss_class_info(device_class):
     """« /Network/Router/Cisco » -> (kind, vendor hint). Le dernier
     segment d'une classe /Network/* est souvent le constructeur."""
@@ -383,13 +407,14 @@ def zenoss_class_info(device_class):
             break
     vendor = None
     if dc.startswith("/Network/"):
-        parts = [p for p in dc.split("/") if p]
-        if len(parts) >= 3:
-            last = parts[-1]
-            if last not in ("Router", "Switch", "Firewall", "Wireless", "Access"):
-                vendor = {"Cisco": "Cisco", "HP": "HP ProCurve / HPE", "ProCurve": "HP ProCurve / HPE", "Nortel": "Nortel / Bay Networks",
-                          "BayStack": "Nortel / Bay Networks", "3Com": "3Com", "Juniper": "Juniper", "MikroTik": "MikroTik",
-                          "Alcatel": "Alcatel-Lucent Enterprise", "Netgear": "Netgear", "Zyxel": "Zyxel", "Fortinet": "Fortinet"}.get(last, last)
+        # premier segment reconnu comme constructeur (« /Network/Switch/Cisco/Nexus »
+        # -> Cisco) ; un segment inconnu (gamme, modèle, site) ne devient jamais
+        # un constructeur inventé
+        for seg in [p for p in dc.split("/") if p][2:]:
+            hit = _ZENOSS_VENDORS.get(seg.lower())
+            if hit:
+                vendor = hit
+                break
     return kind, vendor
 
 

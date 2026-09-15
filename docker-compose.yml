@@ -1667,6 +1667,8 @@ services:
       # MikroTik (livraison #485) — tuile de la thématique Réseau,
       # embarquable en onglet (même origine via tls-proxy).
       - VITE_MIKROTIK_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/mikrotik/
+      # Équipements Cisco (livraison #508) -- tuile réservée admin/technicien.
+      - VITE_CISCO_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/cisco/
       # Accès d'équipements (livraison #498) — tuile de la thématique
       # Sécurité & accès, embarquable en onglet (même origine).
       - VITE_CREDENTIALS_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/credentials/
@@ -2277,6 +2279,30 @@ services:
   # accès d'équipements (credentials-api, #498 — plus rien dans .env).
   # Interface servie sous /mikrotik/ (tls-proxy), tuile de la
   # thématique Réseau du hub.
+  cisco-api:
+    # Livraison #508 -- switchs/routeurs Cisco (Catalyst 3750/2970 IOS,
+    # Nexus 3064PQ NX-OS…) par SSH : supervision (état, charge, capteurs,
+    # interfaces, journal, alertes), sauvegarde versionnée et restauration
+    # (fusion, aperçu) des configurations, gestes d'urgence journalisés.
+    # Identifiants dans le coffre des accès (genre ssh) ; registre
+    # cisco/switches.json sans secret. Un seul worker (sessions SSH).
+    build:
+      context: .
+      dockerfile: cisco/Dockerfile
+    environment:
+      - CISCO_REGISTRY=/app/switches.json
+      - CREDENTIALS_API_URL=http://credentials-api:5000
+      - CREDENTIALS_INTERNAL_TOKEN=${CREDENTIALS_INTERNAL_TOKEN:-}
+      - CISCO_SSH_TIMEOUT=${CISCO_SSH_TIMEOUT:-15}
+      - CISCO_BACKUP_INTERVAL_HOURS=${CISCO_BACKUP_INTERVAL_HOURS:-24}
+      - CISCO_KEEP_CONFIGS=${CISCO_KEEP_CONFIGS:-60}
+    volumes:
+      - ./cisco/switches.json:/app/switches.json:ro
+      # Configurations archivées + journal des gestes : À SAUVEGARDER.
+      - ${CISCO_DATA_DIR:-./cisco/data}:/data
+    depends_on:
+      - credentials-api
+
   mikrotik-api:
     build:
       context: .

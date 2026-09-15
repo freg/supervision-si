@@ -73,6 +73,8 @@ const PROJEQTOR_URL = import.meta.env.VITE_PROJEQTOR_URL || "";
 // #486 : la SPA et l'API partagent le même préfixe (/mikrotik/) --
 // la base API est l'URL de la tuile sans sa barre finale.
 const MIKROTIK_URL = import.meta.env.VITE_MIKROTIK_URL || "";
+// Équipements Cisco (livraison #508) -- page autonome de cisco-api sous /cisco/.
+const CISCO_URL = import.meta.env.VITE_CISCO_URL || "";
 const CREDENTIALS_URL = import.meta.env.VITE_CREDENTIALS_URL || "";
 const MIKROTIK_API_BASE = MIKROTIK_URL.replace(/\/+$/, "");
 // Pont « suivi » (#484) — page d'administration (import/export Excel,
@@ -1177,6 +1179,7 @@ export default function App() {
     ldapAdminUrl: LDAP_ADMIN_URL,
     projeqtorUrl: PROJEQTOR_URL,
     mikrotikUrl: MIKROTIK_URL,
+    ciscoUrl: CISCO_URL,
     credentialsUrl: CREDENTIALS_URL,
     demandeUrl: DEMANDE_URL,
     groups,

@@ -40,6 +40,7 @@ export const THEMES = [
       { view: "nebula", label: "Nebula" },
       { view: "ssh-tunnels", label: "Tunnels SSH" },
       { front: "mikrotik", label: "Routeurs MikroTik" },
+      { front: "cisco", label: "Équipements Cisco" },
       { view: "proxmox", label: "Proxmox" },
     ] },
   { id: "donnees", name: "Données & référentiels", icon: "🗄", description: "Bases externes, GLPI, positions, classification, schémas, rétro-ingénierie, DBA",

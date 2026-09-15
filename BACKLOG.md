@@ -2713,3 +2713,12 @@ script zendmd, vue hub. Suites, non demandées :
   et LLDP-MED (téléphones, bornes) ;
 - rapprochement avec l'inventaire GLPI et les positions (geo-catalog) ;
 - SNMPv3 (dépend de snmp-api, toujours v1/v2c seulement).
+
+## Équipements Cisco — suites (2026-09-15, #508) — item 74
+
+Livré : module cisco (supervision, configurations, urgence). Suites :
+relevé périodique + historique + alertes vers le journal d'événements ;
+`configure replace` strict via SCP ; sauvegarde des configurations vers
+la GED/PBS ; rapprochement avec la facette Équipements réseau (#506) ;
+ajustements après la première session réelle (invite, colonnes,
+algorithmes SSH des IOS 12.x).

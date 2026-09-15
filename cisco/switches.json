@@ -1,0 +1,7 @@
+{
+  "switches": [
+    {"name": "exemple-c3750", "host": "192.0.2.10", "platform": "ios", "credential": "cisco", "site": "Villexemple", "description": "Catalyst 3750 — coeur de la boucle"},
+    {"name": "exemple-c2970", "host": "192.0.2.11", "platform": "ios", "credential": "cisco"},
+    {"name": "exemple-n3064", "host": "192.0.2.12", "platform": "nxos", "credential": "cisco"}
+  ]
+}
