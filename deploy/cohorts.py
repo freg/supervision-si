@@ -12,6 +12,7 @@ services, placement, isolation).
   cohorts.py report            rapport lisible : cohortes, dépendances croisées, données, anomalies
   cohorts.py check             code 1 si un service n'est dans aucune cohorte ou dans deux, ou si une
                                dépendance croisée viole l'isolation
+  cohorts.py services <cohorte,…>   liste des services de ces cohortes + toutes leurs dépendances (compose), une par ligne
   cohorts.py stack [-o FILE]   génère deploy/generated/stack.yml pour `docker stack deploy`
                                (build retiré, image = ${SI_REGISTRY}/si/<service>:${SI_TAG}, contraintes de
                                placement par cohorte, services en network_mode: host exclus et listés)
@@ -234,6 +235,24 @@ def main():
             print("\n".join(problems))
             return 1
         print("ok : %d services répartis en %d cohortes" % (len(services), len(cohorts["cohorts"])))
+        return 0
+    if cmd == "services":
+        wanted = set((sys.argv[2] if len(sys.argv) > 2 else "core").split(","))
+        chosen = [s for c in cohorts["cohorts"] if c["name"] in wanted for s in c["services"] if s in info]
+        todo, seen = list(chosen), set()
+        while todo:  # fermeture transitive des dépendances : compose les démarrera de toute façon
+            x = todo.pop()
+            if x in seen:
+                continue
+            seen.add(x)
+            todo.extend(d for d in info.get(x, {}).get("depends", []) if d not in seen)
+        skipped = [x for x in seen if info[x]["host_network"]]
+        want_gateway = "--gateway" in sys.argv  # services de gateway/docker-compose.yml (Keycloak, tls-proxy…)
+        for x in sorted(seen):
+            if x not in skipped and (origin[x].startswith("gateway/")) == want_gateway:
+                print(x)
+        if skipped:
+            print("# hors compose (network_mode: host, à lancer à part) : " + ", ".join(skipped), file=sys.stderr)
         return 0
     if cmd == "stack":
         if problems:

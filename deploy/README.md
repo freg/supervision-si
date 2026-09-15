@@ -59,6 +59,22 @@ existant (`scripts/front-reverse-proxy.sh`, réécriture d'origine
 locale plutôt que devant super à travers le VPN. DNS : nom public →
 OVH, nom LAN → super.
 
+## Installeur (`scripts/install.sh`, #511)
+
+Menu (whiptail ou questions) ou `--answers fichier` pour rejouer une
+VM, `--resume` pour reprendre. Cinq profils : **light** (standalone :
+compose, cohorte core + cohortes choisies, défaut `reseau,coffre,tickets`
+— pour les tests immédiats, pas de Swarm), **super** (manager Swarm sur
+le VPN, core + coffre, registre, images, pile), **lan** (worker), **ovh-hub**
+(worker zone ovh + bordure : jumeau tls-proxy et frontal public),
+**ovh** (worker zone ovh). Noyau commun : prérequis, `.env` complété,
+passerelle (Keycloak, tls-proxy via `gateway/scripts/run.sh`), puis
+construction **par lots** (`SI_INSTALL_LOT`, 4 par défaut, parallélisme
+2) avec **reprise** (`deploy/generated/install.done`) et isolement du
+service fautif — réponse au `DeadlineExceeded` de BuildKit quand ~70
+images partent d'un coup. Fichier de réponses : `PROFILE=`, `COHORTS=`,
+`NODE_NAME=`, `JOIN_TOKEN=`.
+
 ## Outils
 
 - `cohorts.py report | check | stack` — cartographie (dépendances

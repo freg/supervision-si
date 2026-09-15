@@ -1,3 +1,23 @@
+## 2026-09-15 — installeur interactif : light / super / secondaire LAN / hub OVH / secondaire OVH (livraison #511)
+
+Demandé : « le déploiement ne se termine jamais bien ; un installeur
+interactif permettant au choix un standalone light (dernières
+évolutions et dépendances), la VM super selon le découpage, une VM
+secondaire LAN, une VM hub OVH, une VM secondaire OVH ».
+
+- `scripts/install.sh` : menu ou fichier de réponses, cinq profils,
+  noyau commun (prérequis, `.env`, passerelle) et **construction par
+  lots avec reprise** (`--resume`, journal `deploy/generated/install.*`),
+  isolement du service dont la construction échoue.
+- `deploy/cohorts.py services <cohortes>` : liste des services d'un
+  jeu de cohortes avec la fermeture de leurs dépendances (compose
+  principal / passerelle séparés, host network exclu) — base du light.
+- Vérifié : logique de lots et de reprise sur un faux `docker`
+  (échec d'un lot → retente service par service → arrêt sur le fautif
+  → relance qui saute les 4 déjà construits), `services` sur le dépôt
+  réel (light par défaut : 36 services), syntaxe. Non vérifié : aucune
+  exécution réelle (Docker absent ici) — commencer par `light` sur super.
+
 ## 2026-09-15 — bordure : tls-proxy sur super et jumeau OVH (livraison #510)
 
 Décision : « le proxy hub reste sur super et peut avoir un jumeau sur une
