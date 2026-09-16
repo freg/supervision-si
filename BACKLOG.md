@@ -2682,6 +2682,32 @@ de client, de site réel, de personne ou d'adresse réelle ne doit y figurer.
     formats réels de `pveproxy/access.log` et `tasks` à confirmer sur le
     premier hyperviseur ; option pour désactiver la lecture des journaux
     invités par VM (`--no-guest-logs`) si un invité y est sensible.
+    Objectifs ajoutés le 16 sept. 2026 (Proxmox à genoux, IO « dans le
+    rouge », redémarrage de l'hôte comme seule issue) -- santé de
+    l'hyperviseur, mesurée par le plugin et RESTITUÉE dans la tuile
+    avec seuils et historique :
+    - IO disque de l'hôte : `zpool iostat -v` (par vdev), `iostat -x`
+      (%util, await, r/s, w/s), remplissage des pools (`zpool list`,
+      alerte > 80 %), état (`zpool status` dégradé / scrub en cours),
+      `atime`, `sync`, `recordsize` des datasets utilisés par les VM ;
+    - mémoire de l'hôte : ARC ZFS (taille courante vs `zfs_arc_max`,
+      taux de hit), swap utilisé (alerte dès le premier Mo), mémoire
+      libre réelle une fois toutes les VM démarrées ;
+    - par VM : ballooning actif (`balloon`), mémoire réellement allouée
+      vs demandée, options du disque (`cache`, `discard`, `iothread`,
+      contrôleur), IO par VM (`/proc/<pid>/io` du processus kvm ou
+      `pvesh get /nodes/<n>/qemu/<id>/rrddata`) -- pour désigner la VM
+      qui sature l'hôte ;
+    - corrélation : quand `%util` ou `await` dépasse un seuil, lister
+      les VM les plus écrivantes à cet instant (événement Cortex) ;
+    - côté invité Docker (agent Linux, déjà en place) : taille des
+      journaux `json-file` par conteneur, absence de rotation dans
+      `daemon.json`, volume de `/var/lib/docker`, dernières
+      reconstructions d'images -- ce qui a saturé super ;
+    - recommandations affichées (jamais appliquées seules) : plafond
+      ARC selon la RAM, `atime=off`, `balloon: 0` pour les VM
+      critiques, `cache=none`/`discard=on`/`iothread=1`, rotation des
+      journaux Docker.
 
 
 ## Accueil : pages ouvertes sans connexion (2026-09-14, #505)
