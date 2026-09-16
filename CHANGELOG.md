@@ -1,3 +1,14 @@
+## 2026-09-16 — agent : CA interne sans keyUsage acceptée par Python 3.13 (livraison #521)
+
+Constaté sur le premier poste d'un site client (Linux, Python 3.13) :
+`CERTIFICATE_VERIFY_FAILED … CA cert does not include key usage
+extension` -- la CA interne d'origine (#495) n'a pas d'extension
+`keyUsage` et OpenSSL 3 en mode strict la refuse (même défaut que sur
+macOS). Quand l'agent utilise sa CA ÉPINGLÉE (jamais le magasin
+système), il relâche `VERIFY_X509_STRICT` : l'épinglage par empreinte
+fait déjà foi. Agent 0.5.2. Vérifié en réel : l'agent est apparu en
+ligne dans la tuile. La bascule de CA (#496) reste la correction de fond.
+
 ## 2026-09-16 — agents : contrôle et alertes antivirus Windows / macOS (livraison #520)
 
 Demande SAV : « un contrôle / alerte sur les antivirus des Windows et des

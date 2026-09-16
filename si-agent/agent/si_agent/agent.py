@@ -157,7 +157,16 @@ class HttpClient(object):
             if insecure:
                 _log.warning("TLS non vérifié vers %s (insecure=true) -- dépannage uniquement", base_url)
                 return ssl._create_unverified_context()  # noqa: SLF001
-            return ssl.create_default_context(cafile=ca_file) if ca_file else ssl.create_default_context()
+            ctx = ssl.create_default_context(cafile=ca_file) if ca_file else ssl.create_default_context()
+            if ca_file:
+                # #521 : la CA interne d'origine (#495) n'a pas d'extension keyUsage ;
+                # Python 3.13 (OpenSSL 3) la refuse en mode strict (« CA cert does not
+                # include key usage extension »). Avec une CA ÉPINGLÉE par l'agent la
+                # vérification stricte n'ajoute rien : on la relâche pour ce seul cas,
+                # jamais pour le magasin système. La bascule de CA (#496) rendra ce
+                # contournement inutile.
+                ctx.verify_flags &= ~getattr(ssl, "VERIFY_X509_STRICT", 0)
+            return ctx
         if not base_url.lower().startswith("http://127.") and not base_url.lower().startswith("http://localhost"):
             _log.warning("central en HTTP clair (%s) -- réservé au test ; utiliser https + ca_file", base_url)
         return None
