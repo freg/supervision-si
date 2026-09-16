@@ -728,3 +728,31 @@ l'accueil en thème sombre).
 extrait Python contre le vrai `/ca`) et le service systemd sur une vraie
 machine ; Raspberry Pi ; build Docker ; passerelle TLS réelle ; canaux SMS
 et courriel réels (fonctions du PRA réutilisées telles quelles).
+
+## Antivirus Windows / macOS (livraison #520)
+
+Demande SAV : « un contrôle / alerte sur les antivirus des Windows et des
+Mac ». Section `antivirus` de la mesure `host`, même forme sur les deux
+plateformes (`si_agent/antivirus.py`, logique pure testée) :
+`{products: [{name, enabled, up_to_date, source}], primary, status, platform}`
+avec `status` = ok · disabled · outdated · none · unknown.
+
+- **Windows** : `host.ps1` interroge le Centre de sécurité
+  (`root/SecurityCenter2`, `AntiVirusProduct`) -- tout antivirus installé y
+  est enregistré (Defender, Bitdefender GravityZone, ESET…) avec un
+  `productState` codé (actif / à jour), décodé côté agent ; Defender reste
+  lu par `Get-MpComputerStatus` (#440). Si le Centre de sécurité est
+  illisible (serveurs), Defender seul fait foi ; rien de lisible = section
+  absente, jamais « aucun antivirus » à tort.
+- **macOS** : pas de registre commun -- produits reconnus par leurs
+  fichiers et leurs démons (`ps -axo comm`) : Bitdefender, Microsoft
+  Defender, Sophos, ESET, Kaspersky, Avast, Malwarebytes, SentinelOne,
+  CrowdStrike, ClamAV ; protections système : XProtect (version, âge du
+  bundle), Gatekeeper (`spctl --status`), SIP (`csrutil status`).
+- **Risques** : `antivirus-none` (warning), `antivirus-off` (critical),
+  `antivirus-outdated` (warning), `antivirus-state-unknown` (info),
+  `gatekeeper-off`, `sip-off` (warning), `xprotect-old` (info, > 60 j).
+  Defender seul garde ses risques détaillés de #440 (pas de doublon).
+- **Tuile** : ligne « Antivirus » dans la section Système de chaque agent.
+
+Agent **0.5.1**.

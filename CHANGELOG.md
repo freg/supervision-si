@@ -1,3 +1,23 @@
+## 2026-09-16 — agents : contrôle et alertes antivirus Windows / macOS (livraison #520)
+
+Demande SAV : « un contrôle / alerte sur les antivirus des Windows et des
+Mac ». Nouveau module `si_agent/antivirus.py` (forme commune aux deux
+plateformes, logique pure, 6 tests) ; Windows : Centre de sécurité
+(`root/SecurityCenter2`, tout antivirus enregistré, état codé décodé,
+Defender conservé), macOS : produits reconnus par fichiers + démons
+(Bitdefender, Microsoft Defender, Sophos, ESET, Kaspersky, Avast,
+Malwarebytes, SentinelOne, CrowdStrike, ClamAV) et protections système
+(XProtect, Gatekeeper, SIP). Risques : aucun antivirus (warning),
+désactivé (critical), définitions périmées (warning), Gatekeeper/SIP
+désactivés (warning), XProtect > 60 j (info) ; jamais « aucun
+antivirus » quand la collecte a échoué. Tuile Agents hôtes : ligne
+« Antivirus » dans la section Système. Agent 0.5.1 (archive servie par
+le central, #518). Vérifié : 59 tests agent, syntaxe JSX. Non vérifié :
+Centre de sécurité et produits réels sur vos postes -- la première
+mesure d'un Windows avec GravityZone dira si le décodage de
+`productState` est juste (sinon « état inconnu », jamais une fausse
+alerte).
+
 ## 2026-09-16 — agent Proxmox : santé de l'hyperviseur (livraison #519)
 
 Demandé après un Proxmox « à genoux », IO dans le rouge, redémarrage

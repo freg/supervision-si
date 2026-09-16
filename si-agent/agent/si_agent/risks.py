@@ -129,6 +129,10 @@ def evaluate(host_data, thresholds=None):
     if is_windows and upd:
         out.append({"id": "updates-pending", "severity": "info", "subject": "windows-update", "message": "%d mise(s) à jour Windows en attente" % upd})
 
+    # #520 : antivirus Windows (Centre de sécurité) / macOS (produits, XProtect, Gatekeeper, SIP)
+    from . import antivirus as _antivirus
+    out.extend(_antivirus.evaluate(d.get("antivirus"), t))
+
     out.extend(evaluate_storage(d.get("storage"), t))
     return out
 

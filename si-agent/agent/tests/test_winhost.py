@@ -87,6 +87,9 @@ class MapTests(unittest.TestCase):
         self.assertEqual(d["accounts"]["sudoers"], ["PC-COMPTA\\Administrateur", "PC-COMPTA\\freg"])
         self.assertEqual(d["services"]["failed"], ["gupdate", "SysMain"])
         self.assertEqual(d["windows"]["defender"]["realtime"], False)
+        # #520 : sans liste du Centre de sécurité, Defender seul forme la section antivirus
+        self.assertEqual(d["antivirus"]["primary"], "Microsoft Defender")
+        self.assertEqual(d["antivirus"]["status"], "outdated")
         # risques : disque plein, redémarrage, services, RDP exposé, Defender, pare-feu
         d["activity"] = winhost.map_activity(ACTIVITY_RAW)
         found = risks.evaluate(d)

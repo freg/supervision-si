@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   fetchSiAgentStatus, fetchFleet, fetchFleetRisks, fetchAgent, createAgent, updateAgent, deleteAgent,
   rotateAgentSecret, fetchInstall, installCmdUrl, fetchPlugins, fetchPlugin, savePlugin, deletePlugin, assignPlugin,
@@ -534,6 +534,15 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                         <div><span className="muted">Machine</span>{host.system?.model || host.system?.cpu_model || "—"}{host.system?.cpus ? ` · ${host.system.cpus} CPU` : ""}</div>
                         <div><span className="muted">Démarré depuis</span>{formatUptime(host.system?.uptime_seconds)}{host.system?.reboot_required && <> · <Tone tone="warn">redémarrage requis</Tone></>}</div>
                         <div><span className="muted">CPU</span>{host.cpu?.percent != null ? `${host.cpu.percent} %` : "—"} · charges {host.cpu?.load1 ?? "—"} / {host.cpu?.load5 ?? "—"} / {host.cpu?.load15 ?? "—"}</div>
+                        {/* #520 : antivirus, même forme Windows / macOS (Centre de sécurité, produits + XProtect / Gatekeeper / SIP) */}
+                        {host.antivirus && (
+                          <div className="sa-wide"><span className="muted">Antivirus</span>
+                            {(host.antivirus.products || []).length === 0 ? <Tone tone="bad">aucun antivirus détecté</Tone> : (host.antivirus.products || []).map((p, i) => (
+                              <Fragment key={p.name}>{i ? " · " : ""}<Tone tone={p.enabled ? (p.up_to_date === false ? "warn" : "good") : p.enabled === false ? "bad" : "neutral"}>{p.name} {p.enabled ? "actif" : p.enabled === false ? "inactif" : "état inconnu"}{p.up_to_date === false ? ", définitions périmées" : ""}{p.definitions_age_days != null ? ` · signatures ${p.definitions_age_days} j` : ""}</Tone></Fragment>
+                            ))}
+                            {host.antivirus.platform && <> · Gatekeeper <Tone tone={host.antivirus.platform.gatekeeper === false ? "bad" : host.antivirus.platform.gatekeeper ? "good" : "neutral"}>{host.antivirus.platform.gatekeeper === false ? "off" : host.antivirus.platform.gatekeeper ? "on" : "?"}</Tone> · SIP <Tone tone={host.antivirus.platform.sip === false ? "bad" : host.antivirus.platform.sip ? "good" : "neutral"}>{host.antivirus.platform.sip === false ? "off" : host.antivirus.platform.sip ? "on" : "?"}</Tone>{host.antivirus.platform.xprotect_version && <> · XProtect {host.antivirus.platform.xprotect_version}{host.antivirus.platform.xprotect_age_days != null ? ` (${host.antivirus.platform.xprotect_age_days} j)` : ""}</>}</>}
+                          </div>
+                        )}
                         {host.windows && (host.windows.defender || host.windows.firewall?.length > 0) && (
                           <div className="sa-wide"><span className="muted">Windows</span>
                             {host.windows.defender ? <Tone tone={host.windows.defender.enabled && host.windows.defender.realtime ? "good" : "bad"}>Defender {host.windows.defender.enabled ? "actif" : "inactif"}{host.windows.defender.realtime === false ? ", temps réel désactivé" : ""}{host.windows.defender.signatures_age_days != null ? ` · signatures ${host.windows.defender.signatures_age_days} j` : ""}</Tone> : "Defender : —"}

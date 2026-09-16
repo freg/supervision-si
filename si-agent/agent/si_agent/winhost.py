@@ -20,7 +20,7 @@ import os
 import re
 import sys
 
-from . import host, netview
+from . import antivirus, host, netview
 
 IS_WINDOWS = sys.platform == "win32"
 WIN_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "win")
@@ -120,11 +120,25 @@ def map_host(raw, hostname=None):
         "accounts": {"sudoers": list(acc.get("admins") or []), "interactive": list(acc.get("local_users") or []), "uid0_not_root": [],
                      "console_user": acc.get("console_user")},
         "windows": raw.get("windows") or {},
+        # #520 : antivirus du Centre de sécurité + Defender, forme commune Windows/macOS
+        "antivirus": _antivirus_section(raw, partial),
         "partial": partial,
     }
     if data["system"].get("os") is None and "os" not in partial:
         partial.append("os")
     return data
+
+
+def _antivirus_section(raw, partial):
+    """#520 : None (inconnu) si rien n'a pu être lu -- jamais « aucun antivirus »
+    sur une collecte en échec ou un agent dont host.ps1 ne renvoie pas encore la liste."""
+    av_raw = raw.get("antivirus")
+    defender = (raw.get("windows") or {}).get("defender")
+    if av_raw is None and not defender:
+        return None
+    if "security-center" in (partial or []) and not defender:
+        return None
+    return antivirus.map_windows(av_raw, defender)
 
 
 def collect_all(files=None, cmd=host.run_cmd, usage=None, which=None, sleep=None, previous_cpu=None, hostname=None, include_tools=True, exists=None):
