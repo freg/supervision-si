@@ -2746,3 +2746,14 @@ nommés (astreinte, réseau, direction) à choisir dans l'en-tête ;
 proposer la disposition du site aux personnes qui en ont une
 personnelle (« nouveautés ») ; mode « toutes les tuiles » (#133) à
 faire passer par le même arbre.
+
+## Agents hôtes autonomes — suites (2026-09-16, #517) — item 77
+
+Livré : pile autonome (si-agent-api + interface statique + auth basique)
+et aiguillage TLS sur super. Suites : premier déploiement réel (VM
+légère + edge), profil `agents` dans scripts/install.sh, plusieurs
+identifiants locaux / rôles lecture seule, TLS entre super et la VM si
+le lien n'est pas maîtrisé, extension du même schéma aux sondes réseau
+(netprobe-api) et aux onduleurs, et -- cause de fond de la charge -- le
+hub servi en STATIQUE (build Vite + nginx) au lieu du serveur de
+développement, comme le fait déjà ce front.

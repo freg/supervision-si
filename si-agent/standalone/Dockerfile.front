@@ -1,0 +1,24 @@
+# Front autonome des agents hôtes (livraison #517) : l'interface est la
+# tuile du hub (hub/src/SiAgentView.jsx) construite en STATIQUE par Vite
+# (aucun serveur de développement à l'exécution : c'est ce qui coûtait
+# le plus sur la VM), servie par nginx avec auth basique.
+FROM node:20-slim AS build
+WORKDIR /build/hub
+COPY hub/package.json .
+RUN npm install
+COPY hub/src ./src
+COPY shared/theme.css src/theme.css
+COPY shared/preferences.js src/preferences.js
+COPY shared/hubEvents.js src/hubEvents.js
+COPY shared/VERSION.json src/VERSION.json
+# L'interface autonome est construite SOUS hub/ : react, vite et le plugin
+# se résolvent depuis hub/node_modules (résolution Node par remontée).
+WORKDIR /build/hub/standalone-ui
+COPY si-agent/standalone/ui .
+RUN SI_HUB_SRC=/build/hub/src ../node_modules/.bin/vite build
+
+FROM nginx:1.27-alpine
+COPY --from=build /build/hub/standalone-ui/dist /usr/share/nginx/html/agents
+COPY si-agent/standalone/front.conf.template /etc/nginx/templates/default.conf.template
+COPY si-agent/standalone/proxy-headers.conf /etc/nginx/proxy-headers.conf
+ENV SI_STANDALONE_HTTP_PORT=6480

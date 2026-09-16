@@ -106,3 +106,5 @@ credentials/data/*
 !credentials/data/.gitkeep
 deploy/generated/
 deploy/nodes.json
+si-agent/standalone/generated/
+si-agent/standalone/ui/dist/

@@ -1,3 +1,42 @@
+## 2026-09-16 — agents hôtes en mode autonome, aiguillage sur super (livraison #517)
+
+Demandé : « le hub même allégé met à genoux le Proxmox et la VM super ;
+déployer la gestion des agents en mode indépendant mais compatible
+(liste des agents, données remontées), un bouchon à la place de
+Keycloak, authentification locale / mode dégradé ; les IP et le NAT ne
+bougent pas : un proxy sur super aiguille vers une VM d'un autre
+Proxmox ».
+
+- `si-agent/standalone/docker-compose.yml` (projet `si-agent-standalone`,
+  VM légère) : `si-agent-api` (même image, même dossier de données
+  `SI_AGENT_DATA_DIR`, même CA), `memcached` 64 Mo, `front` nginx :
+  interface « Agents hôtes » = la tuile du hub (`hub/src/SiAgentView.jsx`
+  importée telle quelle, jamais copiée) construite en STATIQUE par Vite
+  au build de l'image (`Dockerfile.front`, pas de serveur de
+  développement à l'exécution), servie sous `/agents/` ; auth basique
+  locale (`SI_STANDALONE_USER` / `SI_STANDALONE_PASSWORD`, htpasswd
+  généré par `run.sh`) sur l'interface et les routes de gestion ; routes
+  des agents (`/api/si-agent/api/v1/…`, `/ca`, `/health`) sans auth
+  basique -- signature HMAC comme aujourd'hui, préfixe retiré comme le
+  fait tls-proxy.
+- `si-agent/standalone/edge/` (projet `si-agent-edge`, sur super) : un
+  nginx seul sur le port de la passerelle avec le certificat `pki/server`,
+  qui renvoie tout vers `SI_STANDALONE_UPSTREAM` (ip:port du front) --
+  les agents gardent `https://<super>:6443/api/si-agent/…` et la même
+  CA épinglée. Refuse de démarrer si tls-proxy tient déjà le port.
+- `run.sh up|down|ps|logs…` / `run.sh edge …` : lit le `.env` de la
+  racine clé par clé, rend absolus `PKI_DIR` et `SI_AGENT_DATA_DIR`.
+- Retour au hub : `edge down`, `down`, puis mode réparti #513 (cohorte
+  `agents` sur cette VM) -- mêmes données, rien à migrer.
+- `.env.example` : `SI_STANDALONE_USER`, `SI_STANDALONE_PASSWORD`,
+  `SI_STANDALONE_HTTP_PORT=6480`, `SI_STANDALONE_UPSTREAM`.
+- Tests : `si-agent/standalone/tests/test_standalone.py` (5 : templates
+  rendus sans variable oubliée, régimes d'auth, compose, run.sh).
+
+Vérifié : tests, build Vite de l'interface autonome (217 Ko JS + CSS,
+chemins `/agents/assets/…`). Non vérifié : images Docker et nginx en
+réel, auth basique dans le navigateur, agents à travers l'aiguillage.
+
 ## 2026-09-16 — disposition du hub en arborescence, glisser-déposer (livraison #516)
 
 Demandé : « paramétrer totalement la position des tuiles, des menus, des
