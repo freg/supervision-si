@@ -824,6 +824,21 @@ def get_doc(doc_path):
     return jsonify({"content": content, "path": doc_path}), 200
 
 
+@app.route("/synthese", methods=["GET"])
+def get_synthese():
+    """#523 : la synthèse DNS / IP OVH / IPAM / services générée par
+    synthese/generate.py (synthese/generated/synthese.json, hors dépôt car
+    données réelles) -- lue telle quelle, jamais recalculée ici."""
+    path = os.path.join(os.path.normpath(PROJECT_ROOT_PATH), "synthese", "generated", "synthese.json")
+    if not os.path.isfile(path):
+        return jsonify({"error": "synthèse non générée (synthese/generated/synthese.json absent)"}), 404
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return jsonify(json.load(fh)), 200
+    except (OSError, ValueError) as exc:
+        return jsonify({"error": "synthèse illisible : %s" % exc}), 500
+
+
 @app.route("/architecture-diagram", methods=["GET"])
 def get_architecture_diagram():
     """Vue graphique de l'architecture du projet (livraison #207,

@@ -107,4 +107,7 @@ credentials/data/*
 deploy/generated/
 deploy/nodes.json
 si-agent/standalone/generated/
+# #523 : exports réels (DNS, OVH, IPAM) et synthèse générée -- jamais dans le dépôt
+synthese/data/
+synthese/generated/
 si-agent/standalone/ui/dist/

@@ -1,0 +1,8 @@
+Alpha Servers;;;;;;;;;;;
+192.0.2.0/28;;;;;;;;;;;
+vlan: 35 - servers;;;;;;;;;;;
+;;;;;;;;;;;
+ip address;ip state;description;hostname;fw object;mac;owner;device;port;note;location;Reverse
+192.0.2.1;used;wireguard routeur;vpn2;;02:00:00:00:00:01;;rb1;;;Batiment 5;
+192.0.2.2;used;hyperviseur;pve11;;02:00:00:00:00:02;;;;;Batiment 5;
+192.0.2.10;used;hub supervision;super;;02:00:00:00:00:0a;;pve11;;;Batiment 5;hub.exemple.fr

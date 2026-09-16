@@ -1,3 +1,35 @@
+## 2026-09-16 — Infos synthèse SI : DNS, IP OVH, IPAM, services, recoupés et interactifs (livraison #523)
+
+Demandé : « présenter la synthèse (DNS + IPAM) dans une page “infos
+synthèse SI” de la tuile documentation, interactive pour accéder aux
+équipements, outils et autres ; maintien automatique ; liens vers ipam, la
+gestion des IP OVH, les zones DNS, Online ».
+
+- `synthese/generate.py` : lit les exports déposés dans `synthese/data/`
+  (HORS dépôt : données réelles ; `synthese/data.example/` = jeu fictif)
+  -- classeur xlsx (une feuille par source) ou csv/txt, sources reconnues
+  par leur contenu (dump de zone BIND avec hébergeur déduit OVH/Online,
+  blocs d'IP OVH, services OVH avec échéances, sous-réseaux IPAM,
+  équipements IPAM) -- et écrit `synthese/generated/synthese.json` avec un
+  INDEX par adresse recoupant DNS ↔ OVH ↔ IPAM ↔ équipements. Liens
+  (IPAM réel dans `data/links.json`, gabarits OVH/Online par défaut).
+  3 tests sur le jeu fictif ; parsing vérifié sur le classeur réel
+  (2 zones, 137 enregistrements, 19 IP, 21 services, 1 sous-réseau,
+  2 équipements, 46 adresses recoupées -- rien de réel dans le dépôt).
+- prefs-api `GET /synthese` (fichier lu tel quel), `scripts/synthese-si.sh`
+  (cron), `.gitignore` : `synthese/data/`, `synthese/generated/`.
+- Hub : vue « Infos synthèse SI » (Documents & ENT, donc aussi dans le
+  catalogue de disposition #516) -- recherche transversale, clic sur une IP
+  = « à quoi sert-elle ? » (noms DNS, bloc et service OVH, hôte IPAM,
+  équipement), sections repliables (IP OVH et services rattachés, zones
+  DNS par hébergeur, sous-réseaux IPAM, équipements, échéances OVH avec
+  alerte à 60 jours, sources), liens IPAM / IP OVH / zone OVH ou Online /
+  services OVH / console Online, boutons vers Équipements réseau et
+  Exploration du hub. `syntheseLib.js` (3 tests Node), CSS `.sy-*`.
+
+Vérifié : tests (Python 3, Node 214/214), syntaxe. Non vérifié : rendu
+navigateur, URL de recherche phpipam (gabarit `ipam_search` ajustable).
+
 ## 2026-09-16 — agents : auto-mise à jour à déploiement contrôlé (livraison #522)
 
 Demandé : « que les agents soient en mesure de s'auto mettre à jour, que

@@ -55,6 +55,7 @@ export const THEMES = [
     ] },
   { id: "documents", name: "Documents & ENT", icon: "📚", description: "ENT (agenda, tâches, relations), GED, fichiers, messagerie, tickets",
     entries: [
+      { view: "synthese", label: "Infos synthèse SI" },
       { view: "ent", label: "ENT" },
       { view: "ged", label: "GED" },
       { view: "file-manager", label: "Gestionnaire de fichiers" },

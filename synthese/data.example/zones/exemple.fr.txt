@@ -1,0 +1,11 @@
+;; Zone dump from zone OVH version Exemple
+$ORIGIN exemple.fr.
+@ 3600 IN SOA dns100.ovh.net. tech.ovh.net. 2026091501 86400 3600 3600000 60
+@ 3600 IN NS dns100.ovh.net.
+@ 3600 IN NS ns100.ovh.net.
+@ 3600 IN A 203.0.113.10
+www 3600 IN CNAME exemple.fr.
+hub 300 IN A 203.0.113.10
+glpi 300 IN A 203.0.113.11 ancien serveur
+mail 3600 IN MX 10 mx1.mail.ovh.net.
+@ 600 IN TXT "v=spf1 include:mx.ovh.com ~all"

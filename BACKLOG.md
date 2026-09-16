@@ -2798,3 +2798,12 @@ communautés du coffre via le central, identification #506, résultats
 tagués par site dans network-agent-api, choix du site dans le hub) --
 demandé le 16 sept. pour le PC du campus ; sonde de type « conteneur »
 si un site exige le moteur complet sur place.
+
+## Infos synthèse SI — suites (2026-09-16, #523) — item 79
+
+Livré : générateur + page interactive. Suites : tirer les sources sans
+export (API OVH et Online avec jetons du coffre, `ipam-api` pour les
+sous-réseaux et équipements) ; différences entre deux générations (IP
+apparues / disparues, échéances changées) ; ouvrir la fiche d'un
+équipement depuis la synthèse (paramètre `ip` sur Équipements réseau) ;
+export Markdown/PDF de la synthèse pour les documents de bord.

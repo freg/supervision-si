@@ -521,6 +521,18 @@ export async function fetchInfraStatus(prefsApiBase) {
  * blanche stricte côté serveur, cette fonction se contente d'appeler
  * l'API, aucune logique de sécurité à dupliquer ici). Échec réseau --
  * tableau vide, jamais une exception qui viderait l'écran d'aide. */
+/** #523 : synthèse SI générée (prefs-api /synthese) ; {error} si absente. */
+export async function fetchSynthese(apiBase) {
+  try {
+    const res = await fetch(`${apiBase}/synthese`);
+    const data = await res.json().catch(() => null);
+    if (!res.ok) return { error: (data && data.error) || `HTTP ${res.status}` };
+    return data;
+  } catch (err) {
+    return { error: `Requête échouée : ${err.message}` };
+  }
+}
+
 export async function fetchDocsList(apiBase) {
   try {
     const res = await fetch(`${apiBase}/docs`);
