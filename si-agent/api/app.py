@@ -284,6 +284,8 @@ def rotate_secret_route(agent_id):
     if a is None:
         return jsonify({"error": "agent inconnu"}), 404
     a["install_command"] = _install_command(a["agent_id"], a["secret"], a["site"])
+    a["package"] = package.package_info(package.find_package())
+    a["download_command"] = package.download_command(PUBLIC_URL, a["package"])
     _event("secret-rotated", "warning", "secret de l'agent %s renouvelé -- réinstallation requise" % agent_id, agent_id=agent_id)
     return jsonify(a), 200
 

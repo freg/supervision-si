@@ -1,3 +1,18 @@
+## 2026-09-16 — agents : archive de déploiement servie par le central, lien de téléchargement (livraison #518)
+
+Demandé : « ajouter un lien de téléchargement pour le transfert du paquet
+sur l'hôte de l'agent ». L'archive `si-agent-agent-<version>.tar.gz`
+(sans secret) est construite dans l'image de si-agent-api
+(`make-archive.sh` au build) et servie par `GET /package` ;
+`/package/info` et `/status` donnent nom, version, taille et SHA-256.
+La fiche d'un agent (« Commande d'installation ») montre désormais
+1. le lien de téléchargement et la ligne à coller sur l'hôte
+(`curl -k … && sha256sum -c && tar xzf … && cd …`, l'empreinte affichée
+fait foi puisque le certificat est interne), 2. la commande
+d'installation. `si-agent/api/package.py` (logique pure, 3 tests).
+Vérifié : tests, syntaxe ; non vérifié : construction de l'image et
+téléchargement réels.
+
 ## 2026-09-16 — agents hôtes en mode autonome, aiguillage sur super (livraison #517)
 
 Demandé : « le hub même allégé met à genoux le Proxmox et la VM super ;

@@ -170,6 +170,11 @@ segment « vm », l'hôte avec son IP et la passerelle comptée comme relais
 
 ### Archive de déploiement et variante conteneur (#430)
 
+**#518 : l'archive est construite dans l'image de si-agent-api et servie par
+`GET /api/si-agent/package`** (`/package/info` : nom, version, taille,
+SHA-256). Dans la tuile, la fiche d'un agent donne le lien de
+téléchargement et une ligne `curl … && sha256sum -c && tar xzf … && cd …`
+à coller sur l'hôte avant la commande d'installation. En local,
 `si-agent/make-archive.sh [dossier]` produit `si-agent-agent-<version>.tar.gz`
 (paquet, plugins, `install.sh` + systemd, `docker/`, `README-DEPLOIEMENT.md`,
 sans secret). Sur un hôte qui a Docker :

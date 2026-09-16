@@ -201,7 +201,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
     if (!window.confirm("Générer un nouveau secret ? L'agent installé cessera d'être accepté tant qu'il n'est pas réinstallé avec le nouveau.")) return;
     const r = await rotateAgentSecret(siAgentApiBase, agentId);
     if (r?.error) { setError(r.error); return; }
-    setInstall({ agent_id: r.agent_id, secret: r.secret, install_command: r.install_command, site: r.site });
+    setInstall({ agent_id: r.agent_id, secret: r.secret, install_command: r.install_command, site: r.site, package: r.package, download_command: r.download_command });
     setNotice("Nouveau secret généré -- à reporter sur l'hôte.");
   }
 
@@ -456,7 +456,18 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
 
               {install && install.agent_id === selectedId && (
                 <div className="np-secret-box hub-card" style={{ margin: "8px 0" }}>
-                  <p style={{ margin: "0 0 6px" }}>Commande d'installation (secret inclus -- ne pas diffuser) :</p>
+                  {/* #518 : l'archive de l'agent est servie par le central -- lien de
+                      téléchargement (poste) et ligne curl (directement sur l'hôte,
+                      SHA-256 vérifié), avant la commande d'installation. */}
+                  {install.package ? (
+                    <p className="muted" style={{ margin: "0 0 6px", fontSize: 12 }}>
+                      1. Archive de l'agent : <a href={`${siAgentApiBase}/package`} download={install.package.name}>télécharger <code>{install.package.name}</code></a> ({formatBytes(install.package.size)}, SHA-256 <code>{install.package.sha256.slice(0, 16)}…</code>) -- ou directement sur l'hôte :
+                    </p>
+                  ) : (
+                    <p className="muted" style={{ margin: "0 0 6px", fontSize: 12 }}>1. Archive de l'agent : absente de cette image (<code>si-agent/make-archive.sh</code> sur le poste, puis copie sur l'hôte).</p>
+                  )}
+                  {install.download_command && <pre className="np-secret">{install.download_command}</pre>}
+                  <p style={{ margin: "6px 0 6px" }}>2. Commande d'installation, dans le dossier de l'archive (secret inclus -- ne pas diffuser) :</p>
                   <pre className="np-secret">{install.install_command}</pre>
                   {install.install_command_docker && (
                     <>
