@@ -756,3 +756,39 @@ avec `status` = ok · disabled · outdated · none · unknown.
 - **Tuile** : ligne « Antivirus » dans la section Système de chaque agent.
 
 Agent **0.5.1**.
+
+## Auto-mise à jour contrôlée depuis le central (livraison #522)
+
+Demandé : « que les agents soient en mesure de s'auto mettre à jour, que
+dans le front on voie l'état des mises à jour, avec un contrôle sur le
+déploiement : un premier qui bêta-teste, puis activation volontaire de
+l'administrateur ; auto-installation mais déploiement contrôlé depuis le
+central ».
+
+- **Version cible** = l'archive construite dans l'image de si-agent-api
+  (#518, `GET /package`) : mettre à jour les agents = reconstruire
+  si-agent-api avec les nouvelles sources.
+- **Réglages** (`GET/PUT /updates`, réglage `updates`) : `beta_agents`
+  (identifiants servis en premier), `general_enabled` (activation par
+  l'administrateur pour tous les autres), `auto` (planification dès
+  qu'un agent éligible dépose son inventaire ; sinon bouton « Appliquer
+  maintenant », `POST /updates/apply`), `retry_after_s` (6 h avant de
+  réessayer un échec). Statuts : up-to-date · newer · unknown · pending ·
+  started · failed · eligible · not-eligible.
+- **Commande `update`** (acquittée, comme les autres) : `{version, sha256,
+  url}` ; l'agent télécharge par son TLS habituel (central de secours
+  compris), vérifie le SHA-256, extrait (chemins et liens contrôlés),
+  lance l'installeur de sa plateforme en `--upgrade` / `-Upgrade`
+  (configuration, secret, CA et sondes conservés) **détaché** de son
+  processus (`systemd-run` sous Linux, nouvelle session sous macOS,
+  processus détaché sous Windows), acquitte « installation lancée »,
+  puis au redémarrage signale `agent-updated` ou `agent-update-failed`
+  (marqueur `update-pending.json`). La nouvelle version apparaît à
+  l'inventaire suivant.
+- **Tuile** Agents hôtes → onglet « Mises à jour » : version servie, état
+  par agent, cases « bêta », activation générale (confirmation), auto,
+  « Appliquer maintenant », mise à jour unitaire.
+
+Non vérifié en réel : le redémarrage détaché sous macOS (LaunchDaemon) et
+Windows (tâche planifiée) ; sous Linux `systemd-run` isole l'installeur
+du service qu'il redémarre. Agent **0.5.3**.

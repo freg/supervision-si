@@ -17,9 +17,10 @@
 # (mode 600), installe et démarre le service systemd.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-AGENT="" SECRET="" CENTRAL="" FALLBACK="" SITE="default" CA="" CAFP="" INSECURE="false" ENABLE=() PLUGINS_USER="nobody" LOG_LEVEL="INFO"
+AGENT="" SECRET="" CENTRAL="" FALLBACK="" SITE="default" CA="" CAFP="" INSECURE="false" ENABLE=() PLUGINS_USER="nobody" LOG_LEVEL="INFO" UPGRADE="false"
 while [ $# -gt 0 ]; do
   case "$1" in
+    --upgrade) UPGRADE="true"; shift;;   # #522 : code et service seulement, configuration/secret/CA/sondes conservés
     --agent) AGENT="$2"; shift 2;;
     --secret) SECRET="$2"; shift 2;;
     --central) CENTRAL="$2"; shift 2;;
@@ -34,7 +35,11 @@ while [ $# -gt 0 ]; do
     *) echo "argument inconnu : $1" >&2; exit 2;;
   esac
 done
-[ -n "$AGENT" ] && [ -n "$SECRET" ] && [ -n "$CENTRAL" ] || { echo "usage : --agent ID --secret SECRET --central URL [--site S] [--ca CRT|--ca-fingerprint HEX|--insecure] [--enable-plugin ID] [--plugins-user U] [--log-level L]" >&2; exit 2; }
+if [ "$UPGRADE" = "true" ]; then
+  [ -f /etc/si-agent/agent.json ] || { echo "--upgrade : /etc/si-agent/agent.json absent, faire une installation complète" >&2; exit 2; }
+else
+  [ -n "$AGENT" ] && [ -n "$SECRET" ] && [ -n "$CENTRAL" ] || { echo "usage : --agent ID --secret SECRET --central URL [--site S] [--ca CRT|--ca-fingerprint HEX|--insecure] [--enable-plugin ID] [--plugins-user U] [--log-level L] | --upgrade" >&2; exit 2; }
+fi
 command -v python3 >/dev/null || { echo "python3 requis" >&2; exit 1; }
 case "$CENTRAL" in https://*) ;; http://127.*|http://localhost*) ;; *) echo "AVERTISSEMENT : central en HTTP clair ($CENTRAL) -- réservé au test" >&2;; esac
 if [ -n "$CAFP" ]; then
@@ -74,7 +79,7 @@ fi
 chmod 750 /var/lib/si-agent/plugins/*/*.sh /var/lib/si-agent/plugins/*/*.py 2>/dev/null || true
 if [ -n "$CA" ]; then install -m 644 "$CA" /etc/si-agent/central-ca.crt; fi
 
-SI_AGENT_FALLBACK="$FALLBACK" python3 - "$AGENT" "$SECRET" "$CENTRAL" "$SITE" "$INSECURE" "$PLUGINS_USER" "$LOG_LEVEL" "${ENABLE[@]:-}" <<'PY'
+[ "$UPGRADE" = "true" ] || SI_AGENT_FALLBACK="$FALLBACK" python3 - "$AGENT" "$SECRET" "$CENTRAL" "$SITE" "$INSECURE" "$PLUGINS_USER" "$LOG_LEVEL" "${ENABLE[@]:-}" <<'PY'
 import json, sys
 agent, secret, central, site, insecure, plugins_user, log_level = sys.argv[1:8]
 enable = [e for e in sys.argv[8:] if e]
@@ -94,5 +99,6 @@ chmod 600 /etc/si-agent/agent.json
 install -m 644 "$HERE/systemd/si-agent.service" /etc/systemd/system/si-agent.service
 systemctl daemon-reload
 systemctl enable --now si-agent.service
+[ "$UPGRADE" = "true" ] && systemctl restart si-agent.service
 echo "si-agent installé : systemctl status si-agent ; PYTHONPATH=/opt/si-agent python3 -m si_agent.agent --status"
 echo "blocage local d'urgence : touch /etc/si-agent/BLOCKED (ou --block) ; traces : journalctl -u si-agent -f"

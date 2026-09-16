@@ -18,9 +18,10 @@ Rien d'autre n'est modifié sur le poste. Désinstallation : .\windows\uninstall
 #>
 [CmdletBinding()]
 param(
-  [Parameter(Mandatory = $true)][string]$Agent,
-  [Parameter(Mandatory = $true)][string]$Secret,
-  [Parameter(Mandatory = $true)][string]$Central,
+  [string]$Agent,
+  [string]$Secret,
+  [string]$Central,
+  [switch]$Upgrade,   # #522 : code et tâche planifiée seulement, agent.json conservé
   [string]$Site = "default",
   [string]$Ca,
   [string]$CaFingerprint,
@@ -34,7 +35,8 @@ param(
   [string]$TaskName = "si-agent"
 )
 $ErrorActionPreference = "Stop"
-$Central = $Central.TrimEnd("/")
+if (-not $Upgrade -and -not ($Agent -and $Secret -and $Central)) { throw "paramètres -Agent, -Secret et -Central requis (ou -Upgrade pour une mise à jour)" }
+if ($Central) { $Central = $Central.TrimEnd("/") }
 
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) { throw "à lancer dans une console PowerShell « Exécuter en tant qu'administrateur »" }

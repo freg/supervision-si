@@ -199,6 +199,22 @@ class HttpClient(object):
                 break
         return status, data
 
+    def get_raw(self, path, timeout=120):
+        """#522 : GET NON signé d'un contenu brut du central (archive de l'agent
+        servie par /package), même TLS et même CA que les dépôts, central de
+        secours compris. Lève en cas d'échec."""
+        last = None
+        for base, ctx in ((self.base_url, self.ssl_context), (self.fallback_url, self.fallback_context)):
+            if not base:
+                continue
+            try:
+                req = urllib.request.Request(base + path, headers={"User-Agent": "si-agent"})
+                with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+                    return resp.read()
+            except Exception as exc:  # noqa: BLE001
+                last = exc
+        raise RuntimeError(str(last) if last else "aucune URL de central")
+
     def _request_one(self, base_url, ctx, method, path, body, body_bytes, headers):
         req = urllib.request.Request(base_url + path, data=body_bytes if body is not None else None,
                                      method=method, headers=headers)
@@ -485,6 +501,15 @@ class Agent(object):
                 return {"ok": ok, "error": None if ok else "plugin inconnu"}
             if ctype == "flush":
                 return {"ok": True, "result": {"sent": self.flush(force=True)}}
+            if ctype == "update":
+                # #522 : mise à jour décidée par le central (canal bêta / activation
+                # générale) ; téléchargement par le même TLS, SHA-256 vérifié,
+                # installeur --upgrade détaché, acquittement « démarré » avant l'arrêt
+                from . import updater
+                res = updater.run_update(self, dict(params, command_id=c.get("id")), fetch=self.http.get_raw)
+                self.event("agent-update-started" if res.get("ok") and (res.get("result") or {}).get("started") else "agent-update-refused",
+                           "info" if res.get("ok") else "warning", "mise à jour : %s" % (res.get("error") or res.get("result")), {"command": c.get("id")})
+                return res
             self.event("command-unknown", "warning", "commande inconnue reçue : %s" % ctype, {"command": c.get("id")})
             return {"ok": False, "error": "commande inconnue : %s" % ctype}
         except Exception as exc:  # noqa: BLE001
@@ -701,6 +726,13 @@ class Agent(object):
         _log.info("si-agent %s démarré (site %s, central %s)", self.agent_id, self.cfg.get("site"), self.cfg["central_url"])
         self.event("agent-started", "info", "agent démarré (v%s)" % __import__("si_agent").__version__,
                    {"version": __import__("si_agent").__version__, "blocked": self.is_blocked(), "plugins_user": self._plugins_user_effective()})
+        try:  # #522 : issue d'une mise à jour lancée avant ce redémarrage
+            from . import updater
+            pending = updater.check_pending(updater.pending_path(self.cfg.get("state_path")), __import__("si_agent").__version__)
+            if pending:
+                self.event(pending[0], pending[1], pending[2], pending[3])
+        except Exception as exc:  # noqa: BLE001
+            _log.warning("marqueur de mise à jour illisible : %s", exc)
         self.refresh_config(force=True)
         self.flush(force=True)
         last_local_block = self.local_block_file()

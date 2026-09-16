@@ -1,3 +1,37 @@
+## 2026-09-16 — agents : auto-mise à jour à déploiement contrôlé (livraison #522)
+
+Demandé : « que les agents soient en mesure de s'auto mettre à jour, que
+dans le front on voie l'état des mises à jour, avec un contrôle sur le
+déploiement : un premier qui bêta-teste, puis activation volontaire de
+l'administrateur ; auto-installation mais déploiement contrôlé depuis le
+central ».
+
+- Central : `si-agent/api/updates.py` (logique pure, 3 tests) -- réglages
+  `beta_agents` / `general_enabled` / `auto` / `retry_after_s`, statut par
+  agent (up-to-date, pending, started, failed, eligible, not-eligible…) ;
+  routes `GET/PUT /updates`, `POST /updates/apply` ; commande `update`
+  créée pour les agents éligibles (automatiquement à leur inventaire,
+  ou par le bouton) ; événements `update-settings`, `update-scheduled`.
+  Version cible = archive construite dans l'image (#518) -- dont le
+  branchement dans `app.py` et le `Dockerfile`, non écrits à l'époque,
+  sont rétablis ici (`/package`, `/package/info`, statut, fiche).
+- Agent 0.5.3 : `si_agent/updater.py` (3 tests) -- téléchargement par le
+  TLS habituel (`HttpClient.get_raw`), SHA-256 vérifié, extraction sûre,
+  installeur `--upgrade` détaché (`systemd-run` / nouvelle session /
+  processus détaché), marqueur puis événement `agent-updated` ou
+  `agent-update-failed` au redémarrage. `install.sh`, `install-macos.sh`,
+  `windows/install.ps1` : mode `--upgrade` / `-Upgrade` (configuration,
+  secret, CA et sondes conservés).
+- Tuile Agents hôtes : onglet « Mises à jour » (version servie, état par
+  agent, cases bêta, activation générale avec confirmation, auto,
+  « Appliquer maintenant », mise à jour unitaire).
+
+Vérifié : tests unitaires (agent et central), tests d'intégration Flask
+(12/12) et enchaînement réel des routes sur une base de test (réglages
+→ commande `update` créée → fiche et archive servies), syntaxe JSX, bash.
+Non vérifié : mise à jour de bout en bout sur un hôte réel (à faire sur
+le PC bêta), redémarrage détaché macOS / Windows.
+
 ## 2026-09-16 — agent : CA interne sans keyUsage acceptée par Python 3.13 (livraison #521)
 
 Constaté sur le premier poste d'un site client (Linux, Python 3.13) :

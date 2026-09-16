@@ -136,7 +136,7 @@ MIGRATIONS = [
 
 AGENT_ID_MAX = 64
 COMMAND_TYPES = ("collect_now", "run_plugin", "enable_plugin", "disable_plugin", "remove_plugin", "flush",
-                 "block_all", "unblock_all", "block_plugin", "unblock_plugin")
+                 "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update")
 SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
 TASKS_KEPT_LATEST = ("host", "risks", "inventory")
 
@@ -742,6 +742,16 @@ def _command_public(r):
     d["params"] = json.loads(d.get("params") or "{}")
     d["result"] = json.loads(d["result"]) if d.get("result") else None
     return d
+
+
+def last_command(db_path, agent_id, ctype):
+    """#522 : dernière commande d'un type pour un agent (ou None)."""
+    conn = _connect(db_path)
+    try:
+        r = conn.execute("SELECT * FROM commands WHERE agent_id = ? AND type = ? ORDER BY created_at DESC, id LIMIT 1", (agent_id, ctype)).fetchone()
+        return _command_public(r) if r else None
+    finally:
+        conn.close()
 
 
 def get_command(db_path, cid):

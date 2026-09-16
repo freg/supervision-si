@@ -21,7 +21,7 @@ import time
 
 import requests
 
-from flask import Flask, Response, jsonify, request
+from flask import Flask, Response, jsonify, request, send_file
 from flask_cors import CORS
 
 try:
@@ -35,7 +35,9 @@ except ImportError:  # dépôt de développement
     _sys.modules.setdefault("si_agent_plugins", _plugins)
     _sys.modules.setdefault("si_agent_control", control)
 
+import package  # noqa: E402
 import store  # noqa: E402
+import updates  # noqa: E402
 import notify  # noqa: E402
 
 try:
@@ -154,7 +156,26 @@ def status_route():
                     "agents_blocked": sum(1 for a in agents if a["blocked"]),
                     "insecure_agents": [a["agent_id"] for a in agents if a.get("insecure_tls")],
                     "ca": _ca_info(), "notifications": notify.describe(),
-                    "log_level": logging.getLevelName(logging.getLogger().level)}), 200
+                    "log_level": logging.getLevelName(logging.getLogger().level),
+                    "package": package.package_info(package.find_package())}), 200
+
+
+@app.route("/package", methods=["GET"])
+def package_route():
+    """#518 : archive de déploiement de l'agent (sans secret), construite dans
+    l'image -- à télécharger depuis la tuile ou par curl sur l'hôte."""
+    path = package.find_package()
+    if not path:
+        return jsonify({"error": "archive absente de l'image (si-agent/make-archive.sh au build)"}), 404
+    return send_file(path, as_attachment=True, download_name=os.path.basename(path), mimetype="application/gzip")
+
+
+@app.route("/package/info", methods=["GET"])
+def package_info_route():
+    info = package.package_info(package.find_package())
+    if not info:
+        return jsonify({"error": "archive absente"}), 404
+    return jsonify(dict(info, url=(PUBLIC_URL or "") + "/package")), 200
 
 
 def _ca_info():
@@ -479,6 +500,8 @@ def install_route(agent_id):
         return jsonify({"error": "agent inconnu"}), 404
     return jsonify({"agent_id": agent_id, "secret": a["secret"], "site": a["site"],
                     "central_url": PUBLIC_URL or None,
+                    "package": package.package_info(package.find_package()),
+                    "download_command": package.download_command(PUBLIC_URL, package.package_info(package.find_package())),
                     "install_command": _install_command(agent_id, a["secret"], a["site"]),
                     "install_command_docker": _install_command_docker(agent_id, a["secret"], a["site"]),
                     "install_command_windows": _install_command_windows(agent_id, a["secret"], a["site"]),
@@ -616,6 +639,71 @@ def create_command_route(agent_id):
     if c["type"] in control.BLOCK_COMMANDS:
         _event("command-block", "warning", "commande %s envoyée à l'agent %s" % (c["type"], agent_id), agent_id=agent_id, details={"command": c["id"], "params": c["params"]})
     return jsonify(c), 201
+
+
+# -- #522 : mises à jour contrôlées ------------------------------------------
+
+def _updates_settings():
+    return updates.normalize_settings(store.get_setting(DB_PATH, "updates", None))
+
+
+def _updates_plan(settings=None):
+    settings = settings or _updates_settings()
+    pkg = package.package_info(package.find_package())
+    agents = store.list_agents(DB_PATH)
+    last = {a["agent_id"]: store.last_command(DB_PATH, a["agent_id"], "update") for a in agents}
+    return pkg, settings, updates.plan(agents, pkg, settings, last)
+
+
+def _schedule_updates(only_agent=None, actor="central"):
+    """Crée les commandes `update` pour les agents éligibles ; [(agent, commande)]."""
+    pkg, settings, planned = _updates_plan()
+    created = []
+    if not pkg:
+        return created
+    for aid in updates.to_schedule(planned):
+        if only_agent and aid != only_agent:
+            continue
+        c = store.create_command(DB_PATH, aid, "update", updates.command_params(pkg))
+        if c:
+            created.append((aid, c["id"]))
+            _event("update-scheduled", "info", "mise à jour %s → %s planifiée pour l'agent %s (%s)" % (
+                next((p["version"] for p in planned if p["agent_id"] == aid), "?"), pkg["version"], aid, actor), agent_id=aid,
+                details={"command": c["id"], "to": pkg["version"], "by": actor})
+    return created
+
+
+@app.route("/updates", methods=["GET"])
+def updates_route():
+    pkg, settings, planned = _updates_plan()
+    return jsonify(dict(updates.summary(planned, pkg, settings), agents=planned)), 200
+
+
+@app.route("/updates", methods=["PUT"])
+def updates_put_route():
+    body = request.get_json(silent=True) or {}
+    current = _updates_settings()
+    for k in ("beta_agents", "general_enabled", "auto", "retry_after_s"):
+        if k in body:
+            current[k] = body[k]
+    current["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    current["updated_by"] = (body.get("actor") or request.args.get("actor") or "")[:64] or None
+    settings = updates.normalize_settings(current)
+    store.set_setting(DB_PATH, "updates", settings)
+    _event("update-settings", "info", "déploiement des mises à jour : canal bêta %s, activation générale %s, auto %s" % (
+        ", ".join(settings["beta_agents"]) or "vide", "oui" if settings["general_enabled"] else "non", "oui" if settings["auto"] else "non"),
+        details={"by": settings["updated_by"]})
+    created = _schedule_updates(actor=settings["updated_by"] or "réglages") if settings["auto"] else []
+    pkg, settings, planned = _updates_plan(settings)
+    return jsonify(dict(updates.summary(planned, pkg, settings), agents=planned, scheduled=[a for a, _ in created])), 200
+
+
+@app.route("/updates/apply", methods=["POST"])
+def updates_apply_route():
+    body = request.get_json(silent=True) or {}
+    created = _schedule_updates(only_agent=body.get("agent_id"), actor=(body.get("actor") or "bouton")[:64])
+    pkg, settings, planned = _updates_plan()
+    return jsonify(dict(updates.summary(planned, pkg, settings), agents=planned, scheduled=[a for a, _ in created])), 200
 
 
 @app.route("/commands/<cid>", methods=["GET"])
@@ -781,6 +869,13 @@ def agent_measurements_ingest_route(agent_id):
         return jsonify({"error": "lot trop volumineux (max 5000)"}), 400
     accepted, duplicates, rejected, events = store.ingest_measurements(DB_PATH, agent_id, items, ip=_client_ip())
     relay_capture_measurements(agent_id, info, items)  # #436 : relais d'exploration vers network-agent-api
+    if any(m.get("task") == "inventory" for m in items if isinstance(m, dict)):
+        # #522 : la version de l'agent vient de l'inventaire -- planifier sa mise à jour s'il est éligible (auto)
+        try:
+            if _updates_settings()["auto"]:
+                _schedule_updates(only_agent=agent_id, actor="auto")
+        except Exception as exc:  # noqa: BLE001
+            _log.warning("planification de mise à jour pour %s : %s", agent_id, exc)
     _log.debug("agent %s : %d mesure(s) acceptée(s), %d doublon(s), %d rejet(s), %d événement(s)", agent_id, accepted, duplicates, len(rejected), len(events))
     for ev in events:
         notify.dispatch(DB_PATH, dict(ev, source="agent", details={}))

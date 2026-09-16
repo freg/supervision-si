@@ -114,5 +114,10 @@ export async function fetchEvents(apiBase, { agent, severity, minSeverity, kind,
   const data = await fetchJson(apiBase, `/events?${q.toString()}`);
   return Array.isArray(data?.events) ? data.events : [];
 }
+/** #522 : déploiement contrôlé des mises à jour d'agents. */
+export const fetchUpdates = (apiBase) => fetchJson(apiBase, "/updates");
+export const saveUpdates = (apiBase, settings, actor) => fetchJson(apiBase, "/updates", json("PUT", { ...settings, actor }));
+export const applyUpdates = (apiBase, agentId, actor) => fetchJson(apiBase, "/updates/apply", json("POST", { agent_id: agentId || null, actor }));
+
 export const fetchEventsSummary = (apiBase, hours = 24) => fetchJson(apiBase, `/events/summary?hours=${hours}`);
 export const testNotifications = (apiBase) => fetchJson(apiBase, "/notifications/test", json("POST", {}));

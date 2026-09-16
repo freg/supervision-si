@@ -3,7 +3,7 @@ import {
   fetchSiAgentStatus, fetchFleet, fetchFleetRisks, fetchAgent, createAgent, updateAgent, deleteAgent,
   rotateAgentSecret, fetchInstall, installCmdUrl, fetchPlugins, fetchPlugin, savePlugin, deletePlugin, assignPlugin,
   unassignPlugin, sendCommand, fetchCommands, blockFleet, unblockFleet, blockAgent, unblockAgent, setPluginBlocked,
-  fetchEvents, fetchEventsSummary, testNotifications,
+  fetchEvents, fetchEventsSummary, testNotifications, fetchUpdates, saveUpdates, applyUpdates,
 } from "./siAgentClient.js";
 import {
   COMMAND_TYPES, CONTACT_LABELS, riskLabel, severityTone, stateTone, contactTone, gauge, formatBytes,
@@ -360,6 +360,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
         <button className={`secondary na-section-toggle${tab === "fleet" ? " active" : ""}`} onClick={() => setTab("fleet")}>Flotte ({fleet.length})</button>
         <button className={`secondary na-section-toggle${tab === "risks" ? " active" : ""}`} onClick={() => setTab("risks")}>Risques ({risks.length})</button>
         <button className={`secondary na-section-toggle${tab === "catalogue" ? " active" : ""}`} onClick={() => setTab("catalogue")}>Catalogue de sondes ({catalogue.length})</button>
+        <button className={`secondary na-section-toggle${tab === "updates" ? " active" : ""}`} onClick={() => setTab("updates")}>Mises à jour</button>
         <button className={`secondary na-section-toggle${tab === "events" ? " active" : ""}`} onClick={() => setTab("events")}>
           Événements {summary ? <>({summary.counts.critical + summary.counts.warning} sur 24 h)</> : ""}
         </button>
@@ -944,6 +945,8 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
         </>
       )}
 
+      {tab === "updates" && <UpdatesTab base={siAgentApiBase} />}
+
       {tab === "catalogue" && (
         <>
           <div className="ups-toolbar" style={{ marginTop: 0 }}>
@@ -1004,5 +1007,85 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
         </>
       )}
     </div>
+  );
+}
+
+
+// #522 : déploiement contrôlé des mises à jour d'agents -- version servie
+// par le central (archive construite dans l'image), état de chaque agent,
+// canal bêta (cases), activation générale, planification auto ou bouton.
+function UpdatesTab({ base }) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const take = (r) => { if (r && r.error) setError(r.error); else { setData(r); setError(null); } };
+  const load = useCallback(async () => { take(await fetchUpdates(base)); }, [base]);
+  useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, [load]);
+  if (!data) return <p className="muted">{error || "Chargement…"}</p>;
+  const s = data.settings || {};
+  const pkg = data.package;
+  const setSettings = async (patch) => {
+    setBusy(true);
+    take(await saveUpdates(base, { ...s, ...patch }, "hub")); setBusy(false);
+  };
+  const apply = async (agentId) => {
+    setBusy(true);
+    take(await applyUpdates(base, agentId, "hub")); setBusy(false);
+  };
+  const toggleBeta = (id) => {
+    const beta = new Set(s.beta_agents || []);
+    if (beta.has(id)) beta.delete(id); else beta.add(id);
+    setSettings({ beta_agents: [...beta] });
+  };
+  const STATUS = { "up-to-date": ["à jour", "good"], newer: ["plus récent que le central", "neutral"], unknown: ["version inconnue", "neutral"], pending: ["commande envoyée", "warn"],
+    started: ["installation lancée", "warn"], failed: ["échec (réessai plus tard)", "bad"], eligible: ["à planifier", "warn"], "not-eligible": ["en attente d'activation", "neutral"], "no-package": ["archive absente", "bad"] };
+  const agents = data.agents || [];
+  const counts = data.counts || {};
+  return (
+    <>
+      <div className="ups-toolbar" style={{ marginTop: 0 }}>
+        <h2 style={{ margin: 0 }}>Mises à jour des agents</h2>
+        <button className="secondary" onClick={load} disabled={busy}>⟳</button>
+        {error && <Tone tone="bad">{error}</Tone>}
+      </div>
+      <p className="muted" style={{ fontSize: 13 }}>
+        {pkg ? <>Version servie par le central : <strong>{pkg.version}</strong> ({formatBytes(pkg.size)}, SHA-256 <code>{pkg.sha256.slice(0, 16)}…</code>)</> : <Tone tone="bad">aucune archive dans l'image du central</Tone>}
+        {" · "}{agents.length} agent(s) : {Object.entries(counts).map(([k, v]) => `${v} ${(STATUS[k] || [k])[0]}`).join(", ") || "—"}
+      </p>
+      <div className="hub-card" style={{ padding: 10, marginBottom: 10 }}>
+        <p style={{ margin: "0 0 6px" }}><strong>Déploiement contrôlé</strong> — 1. cochez un ou deux agents « bêta » ci-dessous ; 2. quand ils sont passés à jour sans incident, activez pour tous.</p>
+        <label style={{ display: "inline-flex", gap: 6, alignItems: "center", marginRight: 16 }}>
+          <input type="checkbox" checked={!!s.general_enabled} disabled={busy} onChange={(e) => { if (!e.target.checked || window.confirm("Activer la mise à jour pour TOUS les agents (hors bêta) ?")) setSettings({ general_enabled: e.target.checked }); }} />
+          Activation générale (tous les agents)
+        </label>
+        <label style={{ display: "inline-flex", gap: 6, alignItems: "center", marginRight: 16 }}>
+          <input type="checkbox" checked={!!s.auto} disabled={busy} onChange={(e) => setSettings({ auto: e.target.checked })} />
+          Planification automatique (dès qu'un agent éligible dépose son inventaire)
+        </label>
+        <button onClick={() => apply(null)} disabled={busy || !pkg}>Appliquer maintenant aux agents éligibles</button>
+        {s.updated_at && <span className="muted" style={{ fontSize: 12 }}> · réglages modifiés {formatAge(ageSeconds(s.updated_at))} par {s.updated_by || "?"}</span>}
+      </div>
+      <table className="sa-table">
+        <thead><tr><th>Bêta</th><th>Agent</th><th>Hôte</th><th>Site</th><th>Version</th><th>État</th><th>Dernière commande</th><th></th></tr></thead>
+        <tbody>
+          {agents.map((a) => {
+            const [label, tone] = STATUS[a.status] || [a.status, "neutral"];
+            return (
+              <tr key={a.agent_id} className="ups-row">
+                <td><input type="checkbox" checked={(s.beta_agents || []).includes(a.agent_id)} disabled={busy} onChange={() => toggleBeta(a.agent_id)} title="canal bêta : reçoit la nouvelle version en premier" /></td>
+                <td><code>{a.agent_id}</code></td>
+                <td>{a.hostname || "—"}</td>
+                <td className="muted">{a.site || "—"}</td>
+                <td>{a.version || "?"}</td>
+                <td><Tone tone={tone}>{label}</Tone>{a.channel === "beta" && <span className="muted" style={{ fontSize: 11 }}> · bêta</span>}</td>
+                <td className="muted" style={{ fontSize: 12 }}>{a.last ? <>{a.last.to} · {a.last.status}{a.last.acked_at ? ` · acquittée ${formatAge(ageSeconds(a.last.acked_at))}` : a.last.created_at ? ` · envoyée ${formatAge(ageSeconds(a.last.created_at))}` : ""}{a.last.result && a.last.result.error ? ` · ${a.last.result.error}` : ""}</> : "—"}</td>
+                <td>{(a.status === "eligible" || a.status === "not-eligible" || a.status === "failed") && pkg && <button className="secondary" disabled={busy} onClick={() => { if (window.confirm(`Mettre à jour ${a.agent_id} vers ${pkg.version} maintenant ?`)) apply(a.agent_id); }}>Mettre à jour</button>}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <p className="muted" style={{ fontSize: 12 }}>L'agent télécharge l'archive par sa liaison TLS habituelle, vérifie le SHA-256, lance son installeur en mode <code>--upgrade</code> (configuration, secret, CA et sondes conservés) détaché de son processus, acquitte « installation lancée », redémarre puis signale <code>agent-updated</code> (ou <code>agent-update-failed</code>) dans les événements ; sa nouvelle version apparaît à l'inventaire suivant.</p>
+    </>
   );
 }

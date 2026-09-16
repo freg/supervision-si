@@ -21,6 +21,14 @@ COPY shared/secrets_alert.py .
 COPY shared/log_buffer.py .
 COPY shared/version_endpoint.py .
 COPY shared/VERSION.json .
+COPY si-agent/api/package.py .
+COPY si-agent/api/updates.py .
+# #518 : archive de déploiement de l'agent (si-agent-agent-<version>.tar.gz,
+# sans secret) construite ICI et servie par GET /package ; #522 : c'est la
+# version que les agents reçoivent par la mise à jour contrôlée.
+COPY si-agent/make-archive.sh /tmp/agent-src/make-archive.sh
+COPY si-agent/agent /tmp/agent-src/agent
+RUN bash /tmp/agent-src/make-archive.sh /app/package && rm -rf /tmp/agent-src
 
 ENV SI_AGENT_DB_PATH=/data/si-agent.db
 RUN mkdir -p /data

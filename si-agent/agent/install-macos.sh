@@ -18,9 +18,10 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 OPT="/usr/local/opt/si-agent"; ETC="/usr/local/etc/si-agent"; VAR="/usr/local/var/lib/si-agent"; VARLOG="/usr/local/var/log"
 PLIST="/Library/LaunchDaemons/fr.exemple.si-agent.plist"; LABEL="fr.exemple.si-agent"
-AGENT="" SECRET="" CENTRAL="" FALLBACK="" SITE="default" CA="" CAFP="" INSECURE="false" ENABLE=() PLUGINS_USER="nobody" LOG_LEVEL="INFO"
+AGENT="" SECRET="" CENTRAL="" FALLBACK="" SITE="default" CA="" CAFP="" INSECURE="false" ENABLE=() PLUGINS_USER="nobody" LOG_LEVEL="INFO" UPGRADE="false"
 while [ $# -gt 0 ]; do
   case "$1" in
+    --upgrade) UPGRADE="true"; shift;;   # #522 : code et LaunchDaemon seulement, configuration conservée
     --agent) AGENT="$2"; shift 2;;
     --secret) SECRET="$2"; shift 2;;
     --central) CENTRAL="$2"; shift 2;;
@@ -35,7 +36,11 @@ while [ $# -gt 0 ]; do
     *) echo "argument inconnu : $1" >&2; exit 2;;
   esac
 done
-[ -n "$AGENT" ] && [ -n "$SECRET" ] && [ -n "$CENTRAL" ] || { echo "usage : sudo ./install-macos.sh --agent ID --secret SECRET --central URL [--central-fallback URL_PUBLIQUE] [--site S] [--ca CRT|--ca-fingerprint HEX|--insecure] [--enable-plugin ID] [--plugins-user U] [--log-level L]" >&2; exit 2; }
+if [ "$UPGRADE" = "true" ]; then
+  [ -f "/usr/local/etc/si-agent/agent.json" ] || { echo "--upgrade : configuration absente, faire une installation complète" >&2; exit 2; }
+else
+  [ -n "$AGENT" ] && [ -n "$SECRET" ] && [ -n "$CENTRAL" ] || { echo "usage : sudo ./install-macos.sh --agent ID --secret SECRET --central URL [--central-fallback URL_PUBLIQUE] [--site S] [--ca CRT|--ca-fingerprint HEX|--insecure] [--enable-plugin ID] [--plugins-user U] [--log-level L] | --upgrade" >&2; exit 2; }
+fi
 [ "$(id -u)" = "0" ] || { echo "à lancer avec sudo (LaunchDaemon système)" >&2; exit 1; }
 PY="$(command -v python3 || true)"
 [ -n "$PY" ] || { echo "python3 introuvable : installer les outils en ligne de commande (xcode-select --install) puis relancer" >&2; exit 1; }

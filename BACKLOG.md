@@ -2785,3 +2785,16 @@ le lien n'est pas maîtrisé, extension du même schéma aux sondes réseau
 (netprobe-api) et aux onduleurs, et -- cause de fond de la charge -- le
 hub servi en STATIQUE (build Vite + nginx) au lieu du serveur de
 développement, comme le fait déjà ce front.
+
+## Agents — suites (2026-09-16, #520/#522) — item 78
+
+Livré : antivirus Windows/macOS (#520), auto-mise à jour contrôlée
+(#522). Suites : premier test bêta réel puis activation générale ;
+plusieurs versions servies (canal bêta sur une version différente de la
+générale) ; retour arrière (archive précédente conservée dans l'image) ;
+exploration de site par l'agent classique (famille de sondes
+« explorer » : balayage borné des sous-réseaux déclarés, SNMP avec
+communautés du coffre via le central, identification #506, résultats
+tagués par site dans network-agent-api, choix du site dans le hub) --
+demandé le 16 sept. pour le PC du campus ; sonde de type « conteneur »
+si un site exige le moteur complet sur place.
