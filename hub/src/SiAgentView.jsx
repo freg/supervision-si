@@ -10,6 +10,8 @@ import {
   formatUptime, formatAge, ageSeconds, sortFleet, riskSummaryText, diskRows, portRows, mergePlugins, storageSummary,
   validatePluginForm, defaultEntry, eventKindLabel, filterEvents, summarizeEvents, isSecurityEvent, EVENT_SEVERITIES,
 } from "./siAgent.js";
+// #525 : section « Wi-Fi vu du poste » (sonde wifi-probe, famille explorer).
+import WifiProbeSection from "./WifiProbeSection.jsx";
 
 // Tuile « Agents hôtes » (livraison #421, backlog 63) -- flotte des agents
 // si-agent (surveillance de l'hôte : CPU, mémoire, disques, services,
@@ -560,6 +562,10 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                     </>
                   )}
 
+                  {/* #525 : sonde Wi-Fi « expérience client » -- affichée dès qu'une mesure existe */}
+                  {section.network && detail.latest?.["plugin:wifi-probe"] && (
+                    <WifiProbeSection apiBase={siAgentApiBase} agentId={selectedId} latest={detail.latest["plugin:wifi-probe"]} when={when} />
+                  )}
                   {section.network && (
                     <>
                       <h3>Réseau vu de l'hôte {netview ? <span className="muted" style={{ textTransform: "none", letterSpacing: 0 }}>· découverte passive du {when(detail.latest.netview.at)}{netview.partial?.length > 0 && <> · <Tone tone="warn">partielle : {netview.partial.join(", ")}</Tone></>}</span> : null}</h3>

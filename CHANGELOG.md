@@ -1,3 +1,34 @@
+## 2026-09-16 — Sonde Wi-Fi « expérience client » wifi-probe (livraison #525)
+
+Demandé : « comment observer le réseau Wi-Fi et reconnaître les lenteurs de
+transmission » (plainte récurrente : lenteur du cast Wi-Fi sur les écrans
+d'un amphi) -- « on active le module de l'agent wifi et on observe ».
+
+- `si-agent/agent/plugins/wifi-probe/` (v1, python stdlib, privilégiée,
+  toutes les minutes, désactivée par défaut) : le poste est associé comme un
+  utilisateur au SSID observé, sans route par défaut. Mesures : lien (borne,
+  canal/bande, RSSI, débits négociés, retransmissions et échecs sur le delta
+  du passage précédent, réassociation détectée), occupation du canal
+  (survey : occupé / émission / réception / autres, delta si compteurs
+  cumulés), voisinage (bornes par canal, co-canal, autres bornes du même
+  SSID, *BSS Load* : stations et utilisation annoncées par la borne),
+  chemin (ping vers la passerelle du Wi-Fi : latence, gigue, pertes),
+  flux UDP type cast optionnel (`iperf3 -u -b 20M`, argument `--iperf`).
+  Constats : non associé, RSSI, retransmissions, canal saturé, débit bas,
+  gigue, pertes, borne chargée, 2,4 GHz, co-canal ; seuils surchargeables.
+  Passerelle détectée (route de l'interface, puis NetworkManager, puis .1).
+- Hub : section « Wi-Fi vu du poste » dans la fiche agent
+  (`WifiProbeSection.jsx`, `wifiLib.js`) -- dernière mesure, constats,
+  historique des passages (pires valeurs, bornes utilisées, « plus
+  d'historique »).
+- Agent **0.5.5** ; README (famille *explorer*).
+
+Vérifié : 10 tests Python (analyseurs iw link / station / survey / scan,
+ping, iperf3, constats), 217 tests Node, syntaxe JSX. Non vérifié : sur le
+poste réel (formats `iw` du pilote, scan en root, rendu navigateur) --
+prochaine étape : associer le mini PC au SSID (bail DHCP à régler dans
+Nebula) puis activer la sonde depuis la fiche agent.
+
 ## 2026-09-16 — Agent : détection Proxmox à l'installation, redémarrage systématique (livraison #524)
 
 Demandé : « pour l'installation de l'agent Proxmox, ajouter automatiquement

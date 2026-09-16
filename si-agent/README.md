@@ -139,6 +139,25 @@ Plugins livrés (exemples des deux runners, désactivés) :
   l'arbre hôte → VM avec services et URLs appris. Le host Proxmox
   lui-même est déjà supervisé par la mesure `host` de l'agent — ce
   plugin ne couvre que le spécifique PVE.
+- `wifi-probe` (python, privilégié, #525) — **sonde Wi-Fi « expérience
+  client »**, première sonde de la famille *explorer* : le poste qui porte
+  l'agent est associé comme un utilisateur au SSID à observer (interface
+  Wi-Fi **sans route par défaut**, l'Ethernet reste le chemin vers le
+  central : `nmcli connection modify <c> ipv4.never-default yes`). Chaque
+  minute : lien (`iw link` / `station dump` : borne, canal, RSSI, débits
+  négociés, retransmissions et échecs sur le delta du passage précédent),
+  occupation du canal (`survey dump`, y compris le trafic des autres),
+  voisinage (`iw scan` : bornes par canal, co-canal, élément *BSS Load* des
+  balises = stations et utilisation vues par la borne), chemin (`ping -I`
+  vers la passerelle du Wi-Fi : latence, gigue, pertes) et, si `iperf3` est
+  présent et l'argument `--iperf HOTE` donné dans le manifeste, un flux UDP
+  de 20 Mbit/s type cast (gigue, pertes). Constats sans action : non
+  associé, signal faible, retransmissions, canal saturé, débit négocié bas,
+  gigue/pertes, borne chargée, 2,4 GHz. Fiche agent → section « Wi-Fi vu du
+  poste » avec historique des passages (pires valeurs, bornes utilisées).
+  Requiert `iw`, `ping`, `ip` ; état entre deux passages dans
+  `/var/lib/si-agent/wifi-probe.state.json`. Activation : `--enable-plugin
+  wifi-probe` ou depuis la fiche agent.
 
 ## Installation
 
@@ -794,4 +813,5 @@ central ».
 Non vérifié en réel : le redémarrage détaché sous macOS (LaunchDaemon) et
 Windows (tâche planifiée) ; sous Linux `systemd-run` isole l'installeur
 du service qu'il redémarre. Agent **0.5.3** ; **0.5.4** (#524) : `install.sh`
-détecte un hôte Proxmox VE et redémarre toujours le service.
+détecte un hôte Proxmox VE et redémarre toujours le service. **0.5.5** (#525) :
+sonde `wifi-probe`.

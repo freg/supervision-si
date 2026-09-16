@@ -2802,6 +2802,14 @@ Installation (#524) : détection d'autres rôles à l'installation (Docker
 -> `docker-containers`, poste à VLAN multiples -> `network-neighbors`) ;
 case à cocher « hyperviseur Proxmox » dans le bloc d'enrôlement du hub si
 la détection ne suffit pas.
+Exploration Wi-Fi (#525, sonde `wifi-probe`) : source « nebula » (API du
+contrôleur Zyxel : clients / canal / utilisation par borne) corrélée aux
+mesures client ; mode monitor à tour de rôle sur la puce interne (canal de
+la borne : retransmissions globales, clients bas débit, lien P2P Miracast)
+ou clé USB MT7612U/MT7921AU dédiée ; serveur iperf3 sur le LAN du site pour
+le flux type cast ; graphe temporel (créneaux de cours) et alertes Cortex ;
+sonde « bordure » (switch de bordure → firewall : latence/pertes WAN) sur
+le même poste.
 
 ## Infos synthèse SI — suites (2026-09-16, #523) — item 79
 
