@@ -1,13 +1,13 @@
 {
   "id": "proxmox",
-  "version": "3",
+  "version": "4",
   "runner": "python",
   "entry": "proxmox.py",
   "interval_seconds": 1800,
   "timeout_seconds": 600,
   "args": [],
   "enabled": false,
-  "description": "Hyperviseur Proxmox VE : VM/CT (état, CPU, RAM, disques, IP via qemu-guest-agent ou interfaces LXC), snapshots (âge), backups (dernier par VM), stockages, pools ZFS. #488 : apprentissage par exploration — ports ouverts (balayage TCP borné), sondes TLS (certificat, SAN, expiration) et HTTP (titre, redirection), URLs entrantes apprises (SAN, PTR, redirections) avec résolution DNS. #504 : suivi des sauvegardes (tâches vzdump avec résultat et durée, jobs planifiés), accès à l'hyperviseur (journal pveproxy : consoles/API par VM, utilisateurs, adresses ; SSH accepté/refusé ; échecs d'authentification) et journaux internes des VM par l'agent invité ou pct (SSH, accès web, extraits bornés, tourniquet de 15 VM par passage). Collecte locale par pvesh + zpool + journalctl, sans mot de passe. Privilégiée : pvesh exige root.",
+  "description": "Hyperviseur Proxmox VE : VM/CT (état, CPU, RAM, disques, IP via qemu-guest-agent ou interfaces LXC), snapshots (âge), backups (dernier par VM), stockages, pools ZFS. #488 : apprentissage par exploration — ports ouverts (balayage TCP borné), sondes TLS (certificat, SAN, expiration) et HTTP (titre, redirection), URLs entrantes apprises (SAN, PTR, redirections) avec résolution DNS. #504 : suivi des sauvegardes (tâches vzdump avec résultat et durée, jobs planifiés), accès à l'hyperviseur (journal pveproxy : consoles/API par VM, utilisateurs, adresses ; SSH accepté/refusé ; échecs d'authentification) et journaux internes des VM par l'agent invité ou pct (SSH, accès web, extraits bornés, tourniquet de 15 VM par passage). Collecte locale par pvesh + zpool + journalctl, sans mot de passe. Privilégiée : pvesh exige root. #519 : santé de l'hyperviseur — IO par disque et par zvol (donc par VM) depuis /proc/diskstats, swap et mémoire de l'hôte, ARC ZFS, remplissage/état des pools et zpool iostat, ballooning et options des disques des VM (cache, discard, iothread) ; alertes (swap, pool > 80 %, disque saturé avec la VM responsable) et recommandations, jamais appliquées.",
   "source": "bundled",
   "privileged": true
 }

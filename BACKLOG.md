@@ -2682,10 +2682,12 @@ de client, de site réel, de personne ou d'adresse réelle ne doit y figurer.
     formats réels de `pveproxy/access.log` et `tasks` à confirmer sur le
     premier hyperviseur ; option pour désactiver la lecture des journaux
     invités par VM (`--no-guest-logs`) si un invité y est sensible.
-    Objectifs ajoutés le 16 sept. 2026 (Proxmox à genoux, IO « dans le
-    rouge », redémarrage de l'hôte comme seule issue) -- santé de
-    l'hyperviseur, mesurée par le plugin et RESTITUÉE dans la tuile
-    avec seuils et historique :
+    Santé de l'hyperviseur : livrée #519 (IO par disque/zvol/VM, swap,
+    ARC, pools, options des VM, alertes, recommandations). Restent :
+    historique des IO (courbes), corrélation « seuil dépassé → événement
+    Cortex », journaux Docker côté invité (agent Linux), IO par
+    processus kvm (/proc/<pid>/io) en complément des zvols. Objectifs
+    d'origine (16 sept.) :
     - IO disque de l'hôte : `zpool iostat -v` (par vdev), `iostat -x`
       (%util, await, r/s, w/s), remplissage des pools (`zpool list`,
       alerte > 80 %), état (`zpool status` dégradé / scrub en cours),

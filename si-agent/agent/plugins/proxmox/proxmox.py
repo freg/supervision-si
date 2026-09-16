@@ -27,6 +27,7 @@ si-agent/agent/tests/test_proxmox_plugin.py sur des sorties
 représentatives de PVE 8 réels."""
 import concurrent.futures
 import json
+import os
 import re
 import shutil
 import socket
@@ -215,6 +216,259 @@ def assemble(node, vms, storages, zfs, warnings):
     puis type « vm » de la supervision SI)."""
     return {"node": node, "vms": vms, "storages": storages, "zfs": zfs,
             "warnings": warnings, "collected_at": int(time.time())}
+
+
+# ---------------------------------------------------------------- pur (#519 : santé de l'hyperviseur)
+# « le hub met à genoux le Proxmox, IO dans le rouge, redémarrage comme seule
+# issue » : mesurer sur l'HÔTE ce qui l'étouffe -- IO disque (par disque
+# physique ET par zvol, donc par VM), remplissage/état des pools, mémoire et
+# swap de l'hôte, ARC ZFS, options des disques et ballooning des VM -- puis
+# NOMMER la VM qui sature et proposer des réglages, jamais les appliquer.
+# Aucune dépendance (pas d'iostat/sysstat) : /proc/diskstats échantillonné
+# deux fois, /proc/meminfo, arcstats, `zpool iostat`, config des VM.
+DISK_RE = re.compile(r"^(sd[a-z]+|nvme\d+n\d+|vd[a-z]+|md\d+|zd\d+)$")
+POOL_CAP_WARN, POOL_CAP_CRIT = 80, 90
+UTIL_WARN_PCT, AWAIT_WARN_MS = 85.0, 50.0
+BALLOON_RECO_BYTES = 8 * 1024 ** 3
+DISKSTATS_INTERVAL_S = 2.0
+HEALTH_DISKS_MAX = 30
+
+
+def _fmt_bytes(n):
+    try:
+        n = float(n)
+    except (TypeError, ValueError):
+        return "?"
+    for unit in ("o", "Kio", "Mio", "Gio", "Tio"):
+        if n < 1024 or unit == "Tio":
+            return ("%.0f %s" if unit in ("o", "Kio") else "%.1f %s") % (n, unit)
+        n /= 1024.0
+    return "?"
+
+
+def parse_meminfo(text):
+    """/proc/meminfo -> {total, available, swap_total, swap_used} en octets, ou None."""
+    vals = {}
+    for line in (text or "").splitlines():
+        m = re.match(r"^(\w+):\s+(\d+)\s*kB", line)
+        if m:
+            vals[m.group(1)] = int(m.group(2)) * 1024
+    if "MemTotal" not in vals:
+        return None
+    return {"total": vals["MemTotal"], "available": vals.get("MemAvailable"),
+            "swap_total": vals.get("SwapTotal", 0), "swap_used": max(0, vals.get("SwapTotal", 0) - vals.get("SwapFree", 0))}
+
+
+def parse_arcstats(text):
+    """/proc/spl/kstat/zfs/arcstats -> {size, c_max, hit_pct} ou None (pas de ZFS)."""
+    vals = {}
+    for line in (text or "").splitlines():
+        parts = line.split()
+        if len(parts) == 3 and parts[1].isdigit() and parts[2].isdigit():
+            vals[parts[0]] = int(parts[2])
+    if "size" not in vals:
+        return None
+    hits, misses = vals.get("hits", 0), vals.get("misses", 0)
+    return {"size": vals["size"], "c_max": vals.get("c_max"),
+            "hit_pct": round(100.0 * hits / (hits + misses), 1) if hits + misses else None}
+
+
+def parse_diskstats(text):
+    """/proc/diskstats -> {dev: compteurs cumulés} pour les disques entiers et zvols."""
+    out = {}
+    for line in (text or "").splitlines():
+        p = line.split()
+        if len(p) < 14 or not DISK_RE.match(p[2]):
+            continue
+        try:
+            out[p[2]] = {"reads": int(p[3]), "read_sectors": int(p[5]), "read_ms": int(p[6]),
+                         "writes": int(p[7]), "write_sectors": int(p[9]), "write_ms": int(p[10]), "io_ticks": int(p[12])}
+        except ValueError:
+            continue
+    return out
+
+
+def disk_rates(before, after, dt):
+    """Deux relevés de parse_diskstats -> débits par disque : r/s, w/s, Kio/s,
+    %util (temps avec au moins une IO en cours), attente moyenne (ms)."""
+    rows = []
+    if dt <= 0:
+        return rows
+    for dev, b in after.items():
+        a = before.get(dev)
+        if not a:
+            continue
+        d = {k: b[k] - a[k] for k in b}
+        if any(v < 0 for v in d.values()):
+            continue  # compteur remis à zéro (disque retiré/réinséré)
+        ios = d["reads"] + d["writes"]
+        rows.append({"dev": dev, "r_s": round(d["reads"] / dt, 1), "w_s": round(d["writes"] / dt, 1),
+                     "rkb_s": round(d["read_sectors"] * 512 / 1024.0 / dt, 1), "wkb_s": round(d["write_sectors"] * 512 / 1024.0 / dt, 1),
+                     "util_pct": round(min(100.0, 100.0 * d["io_ticks"] / (dt * 1000.0)), 1),
+                     "await_ms": round((d["read_ms"] + d["write_ms"]) / float(ios), 1) if ios else 0.0})
+    return rows
+
+
+def map_zvols(entries):
+    """[(chemin sous /dev/zvol, cible du lien)] -> {zdN: {dataset, vmid}} :
+    relie chaque zvol (zd16) au disque de VM (rpool/data/vm-104-disk-0)."""
+    out = {}
+    for path, target in entries or []:
+        m = re.search(r"(zd\d+)$", target or "")
+        if not m:
+            continue
+        ds = (path or "").replace("\\", "/").strip("/")
+        if ds.startswith("dev/zvol/"):
+            ds = ds[len("dev/zvol/"):]
+        vm = re.search(r"vm-(\d+)-(?:disk|cloudinit|state)", ds)
+        out[m.group(1)] = {"dataset": ds, "vmid": int(vm.group(1)) if vm else None}
+    return out
+
+
+def parse_zpool_iostat(text, pools):
+    """`zpool iostat -H -p <intervalle> 2` : le DERNIER échantillon (le premier
+    est la moyenne depuis le démarrage) -> {pool: {r_ops, w_ops, r_bps, w_bps}}."""
+    names = list(pools or [])
+    rows = []
+    for line in (text or "").splitlines():
+        r = line.split("\t") if "\t" in line else line.split()
+        if len(r) >= 7 and r[0] in names:
+            rows.append(r)
+    out = {}
+    for r in rows[-len(names):] if names else []:
+        try:
+            out[r[0]] = {"r_ops": float(r[3]), "w_ops": float(r[4]), "r_bps": float(r[5]), "w_bps": float(r[6])}
+        except ValueError:
+            continue
+    return out
+
+
+def vm_disk_options(cfg):
+    """Config qemu (pvesh …/config) -> ballooning et options de chaque disque
+    (cache, discard, iothread) -- ce qui pèse sur les IO de l'hôte."""
+    cfg = cfg or {}
+    disks = []
+    for key, val in cfg.items():
+        if not re.match(r"^(scsi|virtio|sata|ide)\d+$", key) or not isinstance(val, str):
+            continue
+        parts = val.split(",")
+        vol = parts[0]
+        if "media=cdrom" in val or vol == "none" or vol.endswith(".iso"):
+            continue
+        opts = dict(p.split("=", 1) for p in parts[1:] if "=" in p)
+        storage, _, volume = vol.partition(":")
+        disks.append({"key": key, "storage": storage, "volume": volume, "cache": opts.get("cache", "default"),
+                      "discard": opts.get("discard", "ignore"), "iothread": opts.get("iothread", "0") == "1", "size": opts.get("size")})
+    bal = cfg.get("balloon")
+    return {"balloon": bal, "ballooning": str(bal) != "0", "scsihw": cfg.get("scsihw"), "disks": sorted(disks, key=lambda d: d["key"])}
+
+
+def vm_io_top(rates, n=5):
+    """Débits des zvols agrégés par VM -> les n VM qui écrivent/lisent le plus."""
+    agg = {}
+    for r in rates:
+        if r.get("vmid") is None:
+            continue
+        a = agg.setdefault(r["vmid"], {"vmid": r["vmid"], "rkb_s": 0.0, "wkb_s": 0.0, "util_pct": 0.0})
+        a["rkb_s"] += r["rkb_s"]
+        a["wkb_s"] += r["wkb_s"]
+        a["util_pct"] = max(a["util_pct"], r["util_pct"])
+    top = sorted(agg.values(), key=lambda a: -(a["rkb_s"] + a["wkb_s"]))[:n]
+    for a in top:
+        a["rkb_s"] = round(a["rkb_s"], 1)
+        a["wkb_s"] = round(a["wkb_s"], 1)
+    return top
+
+
+def host_health_alerts(health, vms):
+    """(alertes, recommandations) -- alertes = état mesuré qui dégrade les VM ;
+    recommandations = réglages à examiner, jamais appliqués par l'agent."""
+    alerts, reco = [], []
+    mem = health.get("memory") or {}
+    if (mem.get("swap_used") or 0) > 0:
+        alerts.append({"severity": "warning", "message": "swap utilisé sur l'hôte (%s) : toutes les VM subissent des latences" % _fmt_bytes(mem["swap_used"])})
+    arc = health.get("arc") or {}
+    if arc.get("c_max") and arc.get("size") and arc["size"] >= 0.97 * arc["c_max"]:
+        free = mem.get("available")
+        if free and free > 4 * 1024 ** 3:
+            reco.append("ARC ZFS au plafond (%s / %s) alors que %s restent disponibles : relever zfs_arc_max soulagerait les lectures disque"
+                        % (_fmt_bytes(arc["size"]), _fmt_bytes(arc["c_max"]), _fmt_bytes(free)))
+    for p in health.get("pools") or []:
+        state = p.get("state") or p.get("health")
+        if state and state != "ONLINE":
+            alerts.append({"severity": "critical", "message": "pool %s : %s" % (p.get("pool"), state)})
+        cap = p.get("cap_pct")
+        if cap is not None and cap >= POOL_CAP_CRIT:
+            alerts.append({"severity": "critical", "message": "pool %s plein à %d %% : ZFS ralentit fortement au-delà de 90 %%" % (p.get("pool"), cap)})
+        elif cap is not None and cap >= POOL_CAP_WARN:
+            alerts.append({"severity": "warning", "message": "pool %s à %d %% : au-delà de 80 %% les écritures ZFS se dégradent" % (p.get("pool"), cap)})
+    by_vm = {vm.get("vmid"): vm for vm in vms or []}
+    for d in health.get("disks") or []:
+        if d["util_pct"] >= UTIL_WARN_PCT or d["await_ms"] >= AWAIT_WARN_MS:
+            who = ""
+            if d.get("vmid") is not None:
+                vm = by_vm.get(d["vmid"]) or {}
+                who = " -- disque de la VM %s%s" % (d["vmid"], (" (%s)" % vm["name"]) if vm.get("name") else "")
+            alerts.append({"severity": "warning", "message": "%s saturé : %.0f %% d'occupation, attente %.0f ms, %.0f Kio/s en écriture%s"
+                           % (d["dev"], d["util_pct"], d["await_ms"], d["wkb_s"], who)})
+    top = health.get("vm_io_top") or []
+    if top and (top[0]["wkb_s"] + top[0]["rkb_s"]) > 0 and any(a["severity"] == "warning" and "saturé" in a["message"] for a in alerts):
+        vm = by_vm.get(top[0]["vmid"]) or {}
+        alerts.append({"severity": "info", "message": "VM la plus écrivante à cet instant : %s%s (%.0f Kio/s)"
+                       % (top[0]["vmid"], (" %s" % vm["name"]) if vm.get("name") else "", top[0]["wkb_s"])})
+    for vm in vms or []:
+        opts = vm.get("disk_options")
+        if not opts or vm.get("template"):
+            continue
+        label = "VM %s%s" % (vm.get("vmid"), (" (%s)" % vm["name"]) if vm.get("name") else "")
+        if opts["ballooning"] and (vm.get("maxmem") or 0) >= BALLOON_RECO_BYTES:
+            reco.append("%s : ballooning actif sur %s de RAM -- `balloon: 0` fixe la mémoire d'une VM critique" % (label, _fmt_bytes(vm.get("maxmem"))))
+        for d in opts["disks"]:
+            hints = []
+            if d["cache"] not in ("none",):
+                hints.append("cache=%s (none conseillé sur ZFS)" % d["cache"])
+            if d["discard"] != "on":
+                hints.append("discard absent (l'espace libéré n'est pas rendu au pool)")
+            if not d["iothread"] and (opts.get("scsihw") or "").startswith("virtio-scsi") and d["key"].startswith("scsi"):
+                hints.append("iothread=0")
+            if hints:
+                reco.append("%s, %s : %s" % (label, d["key"], " ; ".join(hints)))
+    return alerts, reco
+
+
+def collect_host_health(pve, vms, zfs, warnings, interval_s=DISKSTATS_INTERVAL_S):
+    """Section `host_health` de la mesure -- chaque source en échec est notée
+    dans warnings, la section reste partielle plutôt qu'absente."""
+    health = {"memory": None, "arc": None, "pools": [], "disks": [], "vm_io_top": [], "interval_s": interval_s}
+    health["memory"] = parse_meminfo(pve.read_file("/proc/meminfo"))
+    if health["memory"] is None:
+        warnings.append("santé : /proc/meminfo illisible")
+    health["arc"] = parse_arcstats(pve.read_file("/proc/spl/kstat/zfs/arcstats"))
+    before = parse_diskstats(pve.read_file("/proc/diskstats") or "")
+    if before:
+        pve.sleep(interval_s)
+        after = parse_diskstats(pve.read_file("/proc/diskstats") or "")
+        rates = disk_rates(before, after, interval_s)
+        zv = map_zvols(pve.zvol_links())
+        for r in rates:
+            if r["dev"] in zv:
+                r.update(zv[r["dev"]])
+        rates.sort(key=lambda r: (-r["util_pct"], -(r["rkb_s"] + r["wkb_s"])))
+        health["disks"] = rates[:HEALTH_DISKS_MAX]
+        health["vm_io_top"] = vm_io_top(rates)
+    else:
+        warnings.append("santé : /proc/diskstats illisible")
+    pools = [dict(p) for p in zfs or []]
+    if pools:
+        try:
+            io = parse_zpool_iostat(pve.zpool(["iostat", "-H", "-p", str(int(max(1, interval_s))), "2"], timeout=PVESH_TIMEOUT + interval_s), [p["pool"] for p in pools])
+            for p in pools:
+                p["io"] = io.get(p["pool"])
+        except (RuntimeError, subprocess.TimeoutExpired) as exc:
+            warnings.append("santé : zpool iostat : %s" % exc)
+    health["pools"] = pools
+    health["alerts"], health["recommendations"] = host_health_alerts(health, vms)
+    return health
 
 
 # ---------------------------------------------------------------- pur (#504)
@@ -447,6 +701,33 @@ class Pve(object):
         return out
 
     @staticmethod
+    def read_file(path, max_bytes=1 << 20):
+        """Début d'un fichier texte (#519 : /proc/meminfo, diskstats, arcstats) ; None si absent."""
+        try:
+            with open(path, "rb") as fh:
+                return fh.read(max_bytes).decode("utf-8", "replace")
+        except OSError:
+            return None
+
+    @staticmethod
+    def sleep(seconds):
+        time.sleep(seconds)
+
+    @staticmethod
+    def zvol_links(root="/dev/zvol"):
+        """[(lien, cible)] sous /dev/zvol -- relie zdN au disque de VM (#519)."""
+        out = []
+        for dirpath, dirnames, filenames in os.walk(root):
+            for f in filenames + dirnames:
+                p = os.path.join(dirpath, f)
+                if os.path.islink(p):
+                    try:
+                        out.append((p, os.readlink(p)))
+                    except OSError:
+                        continue
+        return out
+
+    @staticmethod
     def tail_file(path, max_bytes=PVEPROXY_TAIL_BYTES):
         """Fin d'un fichier texte (bornée) ; None s'il est absent/illisible."""
         try:
@@ -567,13 +848,18 @@ def collect(pve, hostname=None, now=None, connector=None):
                                     "description": s.get("description")} for s in snaps]
             except RuntimeError as exc:
                 warnings.append("snapshots de %s : %s" % (vmid, exc))
+            if kind == "qemu" and not vm["template"]:
+                # config lue pour TOUTE VM (#519 : ballooning, options des disques),
+                # plus seulement pour l'agent invité des VM en marche
+                try:
+                    cfg = pve.pvesh("/nodes/%s/qemu/%s/config" % (node, vmid))
+                    vm["agent"] = agent_enabled(cfg)
+                    vm["disk_options"] = vm_disk_options(cfg)
+                except RuntimeError as exc:
+                    if g.get("status") == "running":  # une VM arrêtée sans config lisible ne vaut pas une alerte
+                        warnings.append("config de %s : %s" % (vmid, exc))
             if g.get("status") == "running" and not vm["template"]:
                 if kind == "qemu":
-                    try:
-                        cfg = pve.pvesh("/nodes/%s/qemu/%s/config" % (node, vmid))
-                        vm["agent"] = agent_enabled(cfg)
-                    except RuntimeError as exc:
-                        warnings.append("config de %s : %s" % (vmid, exc))
                     if vm["agent"]:
                         try:
                             vm["ips"] = extract_ips_qemu(
@@ -657,9 +943,17 @@ def collect(pve, hostname=None, now=None, connector=None):
         vm = candidates[vmid]
         vm["guest_logs"] = collect_guest_logs(pve, node, vm, warnings, now)
 
+    # -- #519 : santé de l'hyperviseur (IO, mémoire, ARC, pools, options des VM)
+    try:
+        host_health = collect_host_health(pve, vms, zfs, warnings)
+    except Exception as exc:  # noqa: BLE001 -- la section ne doit jamais faire tomber la mesure
+        warnings.append("santé de l'hôte : %s" % exc)
+        host_health = None
+
     measure = assemble(node_info, vms, storages, zfs, warnings)
     measure["backups"] = backups_section
     measure["access"] = access
+    measure["host_health"] = host_health
     return measure
 
 

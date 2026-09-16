@@ -398,5 +398,133 @@ class TestApprentissage(unittest.TestCase):
         self.assertNotIn("services", sans_ip, "sans IP : pas de balayage")
 
 
+
+
+# -- #519 : santé de l'hyperviseur ------------------------------------------
+MEMINFO = """MemTotal:       32768000 kB
+MemFree:         1200000 kB
+MemAvailable:    9000000 kB
+SwapTotal:       8388604 kB
+SwapFree:        8000000 kB
+"""
+ARCSTATS = """13 1 0x01 123 33456 4294967296 1234567890
+name                            type data
+hits                            4    900
+misses                          4    100
+c_max                           4    3299868672
+size                            4    3250000000
+"""
+DISKSTATS_A = """   8       0 sda 1000 0 80000 5000 2000 0 160000 20000 0 10000 25000 0 0 0 0 0 0
+   8       1 sda1 10 0 80 5 20 0 160 20 0 10 25 0 0 0 0 0 0
+ 230       0 zd0 100 0 8000 300 500 0 40000 4000 0 2000 4300 0 0 0 0 0 0
+ 230      16 zd16 100 0 8000 300 500 0 40000 4000 0 2000 4300 0 0 0 0 0 0
+   7       0 loop0 1 0 8 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+"""
+DISKSTATS_B = """   8       0 sda 1100 0 88000 5500 2600 0 208000 26000 0 11900 31500 0 0 0 0 0 0
+   8       1 sda1 10 0 80 5 20 0 160 20 0 10 25 0 0 0 0 0 0
+ 230       0 zd0 110 0 8800 330 520 0 41600 4100 0 2100 4430 0 0 0 0 0 0
+ 230      16 zd16 100 0 8000 300 1100 0 88000 10000 0 3800 6100 0 0 0 0 0 0
+   7       0 loop0 1 0 8 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+"""
+ZVOL_LINKS = [("/dev/zvol/rpool/data/vm-100-disk-0", "../../../zd0"), ("/dev/zvol/rpool/data/vm-111-disk-0", "../../../zd16"),
+              ("/dev/zvol/rpool/data/vm-111-disk-0-part1", "../../../zd16p1")]
+ZPOOL_IOSTAT = "rpool\t500000000000\t400000000000\t12\t340\t100000\t9000000\nrpool\t500000000000\t400000000000\t3\t900\t20000\t45000000\n"
+QM_CFG = {"scsihw": "virtio-scsi-single", "balloon": 0, "memory": 10240,
+          "scsi0": "local-zfs:vm-111-disk-0,discard=on,iothread=1,size=100G",
+          "scsi1": "local-zfs:vm-111-disk-1,cache=writeback,size=50G",
+          "ide2": "local:iso/debian.iso,media=cdrom", "net0": "virtio=02:00:00:00:00:11,bridge=vmbr0"}
+
+
+class FakeHealthPve(proxmox.Pve):
+    def __init__(self, meminfo=MEMINFO, arcstats=ARCSTATS, diskstats=(DISKSTATS_A, DISKSTATS_B), iostat=ZPOOL_IOSTAT):
+        proxmox.Pve.__init__(self, runner=lambda cmd, timeout: (0, iostat, "") if cmd[:2] == ["zpool", "iostat"] else (1, "", "inconnu"))
+        self.files = {"/proc/meminfo": meminfo, "/proc/spl/kstat/zfs/arcstats": arcstats}
+        self.disk = list(diskstats)
+        self.slept = []
+
+    def read_file(self, path, max_bytes=1 << 20):
+        if path == "/proc/diskstats":
+            return self.disk.pop(0) if self.disk else None
+        return self.files.get(path)
+
+    def sleep(self, seconds):
+        self.slept.append(seconds)
+
+    def zvol_links(self, root="/dev/zvol"):
+        return ZVOL_LINKS
+
+
+class TestSanteHyperviseur(unittest.TestCase):
+    def test_meminfo_et_arc(self):
+        m = proxmox.parse_meminfo(MEMINFO)
+        self.assertEqual(m["total"], 32768000 * 1024)
+        self.assertEqual(m["swap_used"], (8388604 - 8000000) * 1024)
+        self.assertIsNone(proxmox.parse_meminfo("n'importe quoi"))
+        a = proxmox.parse_arcstats(ARCSTATS)
+        self.assertEqual((a["size"], a["c_max"], a["hit_pct"]), (3250000000, 3299868672, 90.0))
+        self.assertIsNone(proxmox.parse_arcstats(""))
+
+    def test_diskstats_debits_et_zvols(self):
+        a, b = proxmox.parse_diskstats(DISKSTATS_A), proxmox.parse_diskstats(DISKSTATS_B)
+        self.assertEqual(sorted(a), ["sda", "zd0", "zd16"], "partitions et loop écartés")
+        rates = {r["dev"]: r for r in proxmox.disk_rates(a, b, 2.0)}
+        self.assertEqual(rates["sda"]["util_pct"], 95.0)          # 1900 ms d'IO sur 2000
+        self.assertEqual(rates["sda"]["w_s"], 300.0)
+        self.assertEqual(rates["sda"]["wkb_s"], 12000.0)          # 48000 secteurs * 512 / 1024 / 2
+        self.assertEqual(rates["sda"]["await_ms"], 9.3)           # (500+6000)/700
+        self.assertEqual(rates["zd16"]["wkb_s"], 12000.0)
+        self.assertEqual(proxmox.disk_rates(a, b, 0), [])
+        zv = proxmox.map_zvols(ZVOL_LINKS)
+        self.assertEqual(zv["zd16"], {"dataset": "rpool/data/vm-111-disk-0", "vmid": 111})
+        self.assertNotIn("zd16p1", zv)
+
+    def test_zpool_iostat_dernier_echantillon(self):
+        io = proxmox.parse_zpool_iostat(ZPOOL_IOSTAT, ["rpool"])
+        self.assertEqual(io["rpool"], {"r_ops": 3.0, "w_ops": 900.0, "r_bps": 20000.0, "w_bps": 45000000.0})
+        self.assertEqual(proxmox.parse_zpool_iostat("", ["rpool"]), {})
+
+    def test_options_disques_vm(self):
+        o = proxmox.vm_disk_options(QM_CFG)
+        self.assertFalse(o["ballooning"])
+        self.assertEqual([d["key"] for d in o["disks"]], ["scsi0", "scsi1"], "cdrom écarté")
+        self.assertEqual((o["disks"][0]["discard"], o["disks"][0]["iothread"], o["disks"][0]["cache"]), ("on", True, "default"))
+        self.assertEqual(o["disks"][1]["cache"], "writeback")
+        self.assertTrue(proxmox.vm_disk_options({"memory": 2048})["ballooning"])
+
+    def test_collecte_alertes_et_recommandations(self):
+        pve = FakeHealthPve()
+        vms = [{"vmid": 111, "name": "supervision", "maxmem": 10 * 1024 ** 3, "disk_options": proxmox.vm_disk_options(QM_CFG)},
+               {"vmid": 100, "name": "partages", "maxmem": 4 * 1024 ** 3, "disk_options": proxmox.vm_disk_options({"scsihw": "virtio-scsi-single", "scsi0": "local-zfs:vm-100-disk-0,size=100G"})}]
+        warnings = []
+        h = proxmox.collect_host_health(pve, vms, [{"pool": "rpool", "cap_pct": 84, "state": "ONLINE"}], warnings)
+        self.assertEqual(warnings, [])
+        self.assertEqual(pve.slept, [proxmox.DISKSTATS_INTERVAL_S])
+        self.assertEqual(h["pools"][0]["io"]["w_ops"], 900.0)
+        self.assertEqual(h["disks"][0]["dev"], "sda")
+        top = h["vm_io_top"]
+        self.assertEqual(top[0]["vmid"], 111)
+        msgs = [a["message"] for a in h["alerts"]]
+        self.assertTrue(any("swap utilisé" in m for m in msgs))
+        self.assertTrue(any("rpool à 84 %" in m for m in msgs))
+        self.assertTrue(any(m.startswith("sda saturé") for m in msgs))
+        self.assertTrue(any("zd16 saturé" in m and "VM 111 (supervision)" in m for m in msgs))
+        self.assertTrue(any("VM la plus écrivante" in m and "111" in m for m in msgs))
+        reco = " | ".join(h["recommendations"])
+        self.assertIn("ARC ZFS au plafond", reco)
+        self.assertIn("VM 111 (supervision), scsi1 : cache=writeback", reco)
+        self.assertIn("VM 100 (partages), scsi0 : cache=default (none conseillé sur ZFS) ; discard absent", reco)
+        self.assertIn("iothread=0", reco)
+        self.assertNotIn("VM 111 (supervision) : ballooning", reco, "balloon: 0 -> pas de recommandation")
+
+    def test_collecte_sans_zfs_ni_diskstats(self):
+        pve = FakeHealthPve(arcstats="", diskstats=(None, None), iostat="")
+        warnings = []
+        h = proxmox.collect_host_health(pve, [], [], warnings)
+        self.assertIsNone(h["arc"])
+        self.assertEqual(h["disks"], [])
+        self.assertEqual(h["pools"], [])
+        self.assertIn("santé : /proc/diskstats illisible", warnings)
+        self.assertTrue(any("swap" in a["message"] for a in h["alerts"]))
+
 if __name__ == "__main__":
     unittest.main()

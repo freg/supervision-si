@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { fetchProxmox, fetchProxmoxHistory } from "./siAgentClient.js";
-import { backupSummary, backupRunTone, accessSummary, guestLogsSummary, availabilityOf, nodeBackupSummary, nodeAccessSummary } from "./proxmoxLib.js";
+import { backupSummary, backupRunTone, accessSummary, guestLogsSummary, availabilityOf, nodeBackupSummary, nodeAccessSummary, hostHealthSummary } from "./proxmoxLib.js";
 
 // Tuile « Proxmox » (livraison #488) : vue dédiée des hyperviseurs
 // remontés par le plugin si-agent « proxmox » (#487) -- arbre hôte →
@@ -270,6 +270,77 @@ function NodeCard({ node, selected, onSelect, history }) {
           {(node.zfs || []).length === 0 && <p className="muted">Pas de ZFS sur cet hôte (ou zpool absent).</p>}
         </div>
       </div>
+      <HostHealth node={node} vms={vms} />
+    </div>
+  );
+}
+
+// #519 : santé de l'hyperviseur -- ce qui étouffe l'hôte (IO par disque et par
+// VM, swap, ARC, pools) et les réglages à examiner ; l'agent ne change rien.
+function HostHealth({ node, vms }) {
+  const h = hostHealthSummary(node);
+  if (!h) return null;
+  const nameOf = (vmid) => { const v = vms.find((x) => x.vmid === vmid); return v ? `${vmid} ${v.name}` : String(vmid); };
+  return (
+    <div style={{ marginTop: 10 }}>
+      <h4 style={{ margin: "4px 0" }}>Santé de l'hyperviseur <Tone tone={h.tone}>{h.tone === "ok" ? "rien à signaler" : `${h.alerts.length} alerte${h.alerts.length > 1 ? "s" : ""}`}</Tone></h4>
+      {h.alerts.length > 0 && (
+        <ul style={{ margin: "4px 0 8px 18px", padding: 0, fontSize: 13 }}>
+          {h.alerts.map((a, i) => <li key={i}><Tone tone={a.severity === "info" ? "neutral" : a.severity}>{a.severity}</Tone> {a.message}</li>)}
+        </ul>
+      )}
+      <p className="muted" style={{ fontSize: 12, margin: "4px 0" }}>
+        {h.memory && <>RAM {fmtBytes(h.memory.total)} · disponible {fmtBytes(h.memory.available)} · swap <Tone tone={h.memory.tone}>{fmtBytes(h.memory.swapUsed)}</Tone>{h.memory.swapTotal ? ` / ${fmtBytes(h.memory.swapTotal)}` : ""}</>}
+        {h.arc && <> · ARC ZFS {fmtBytes(h.arc.size)}{h.arc.max ? ` / ${fmtBytes(h.arc.max)}` : ""}{h.arc.hitPct != null ? ` (hit ${h.arc.hitPct} %)` : ""}</>}
+        {h.intervalS && <> · IO mesurées sur {h.intervalS} s</>}
+      </p>
+      <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+        {h.pools.length > 0 && (
+          <div style={{ minWidth: 260 }}>
+            <table>
+              <thead><tr><th>Pool</th><th>IO/s (lect./écr.)</th><th>Débit (lect./écr.)</th></tr></thead>
+              <tbody>{h.pools.map((p) => (
+                <tr key={p.pool}><td>{p.pool} <Tone tone={p.tone}>{p.capPct != null ? `${p.capPct} %` : p.state || "?"}</Tone></td>
+                  <td style={{ fontSize: 12 }}>{p.io ? `${p.io.r_ops.toFixed(0)} / ${p.io.w_ops.toFixed(0)}` : "—"}</td>
+                  <td style={{ fontSize: 12 }}>{p.io ? `${fmtBytes(p.io.r_bps)}/s / ${fmtBytes(p.io.w_bps)}/s` : "—"}</td></tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )}
+        {h.disks.length > 0 && (
+          <div style={{ minWidth: 340, flex: 1 }}>
+            <table>
+              <thead><tr><th>Disque</th><th>Occup.</th><th>Attente</th><th>Lect.</th><th>Écr.</th><th>VM</th></tr></thead>
+              <tbody>{h.disks.slice(0, 8).map((d) => (
+                <tr key={d.dev}>
+                  <td>{d.dev}{d.dataset ? <span className="muted" style={{ fontSize: 11 }}> {d.dataset.split("/").pop()}</span> : null}</td>
+                  <td><Tone tone={d.tone}>{d.util_pct} %</Tone></td>
+                  <td style={{ fontSize: 12 }}>{d.await_ms} ms</td>
+                  <td style={{ fontSize: 12 }}>{d.rkb_s} Kio/s</td>
+                  <td style={{ fontSize: 12 }}>{d.wkb_s} Kio/s</td>
+                  <td style={{ fontSize: 12 }}>{d.vmid != null ? nameOf(d.vmid) : ""}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )}
+        {h.topVms.length > 0 && (
+          <div style={{ minWidth: 220 }}>
+            <table>
+              <thead><tr><th>VM la plus active</th><th>Lect.</th><th>Écr.</th></tr></thead>
+              <tbody>{h.topVms.map((t) => (
+                <tr key={t.vmid}><td>{nameOf(t.vmid)}</td><td style={{ fontSize: 12 }}>{t.rkb_s} Kio/s</td><td style={{ fontSize: 12 }}>{t.wkb_s} Kio/s</td></tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      {h.recommendations.length > 0 && (
+        <details style={{ marginTop: 6 }}>
+          <summary className="muted" style={{ fontSize: 12, cursor: "pointer" }}>Réglages à examiner ({h.recommendations.length}) -- jamais appliqués par l'agent</summary>
+          <ul style={{ margin: "4px 0 0 18px", padding: 0, fontSize: 12 }}>{h.recommendations.map((r, i) => <li key={i}>{r}</li>)}</ul>
+        </details>
+      )}
     </div>
   );
 }

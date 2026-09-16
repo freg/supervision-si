@@ -1,3 +1,37 @@
+## 2026-09-16 — agent Proxmox : santé de l'hyperviseur (livraison #519)
+
+Demandé après un Proxmox « à genoux », IO dans le rouge, redémarrage
+comme seule issue : mesurer sur l'hôte ce qui l'étouffe et nommer la VM
+responsable (backlog item 72, objectifs du 16 sept.).
+
+- Plugin `proxmox` v4 (`si-agent/agent/plugins/proxmox/proxmox.py`),
+  section `host_health` de la mesure, sans dépendance (pas de sysstat) :
+  IO par disque physique ET par zvol -- donc par VM -- depuis
+  `/proc/diskstats` échantillonné deux fois (2 s : r/s, w/s, Kio/s,
+  % d'occupation, attente moyenne), lien zvol → disque de VM par
+  `/dev/zvol`, VM les plus actives ; mémoire et swap de l'hôte
+  (`/proc/meminfo`) ; ARC ZFS (taille, plafond, taux de hit) ; pools
+  (état, remplissage, `zpool iostat`) ; pour chaque VM qemu (config lue
+  pour toutes, plus seulement celles en marche) : ballooning et options
+  des disques (cache, discard, iothread, contrôleur).
+- Alertes : swap utilisé, pool > 80 % / > 90 %, pool non ONLINE, disque
+  saturé (≥ 85 % ou attente ≥ 50 ms) avec la VM propriétaire du zvol,
+  VM la plus écrivante à cet instant. Recommandations (affichées, jamais
+  appliquées) : relever `zfs_arc_max` si l'ARC est au plafond avec de la
+  mémoire libre, `balloon: 0` sur les VM ≥ 8 Go, `cache=none`,
+  `discard=on`, `iothread=1`.
+- Tuile Proxmox : bloc « Santé de l'hyperviseur » par nœud (alertes,
+  mémoire/swap/ARC, pools avec IO, disques les plus occupés avec la VM,
+  VM les plus actives, réglages à examiner repliés) ;
+  `proxmoxLib.hostHealthSummary`.
+- Tests : 6 cas Python (meminfo/arc, diskstats et débits, zvols, zpool
+  iostat, options des disques, collecte avec alertes et
+  recommandations, collecte sans ZFS) -- 22/22 ; Node 211/211.
+
+Vérifié : tests, syntaxe JSX. Non vérifié : formats réels de vos deux
+hôtes (zpool iostat -H -p, arcstats) et rendu de la tuile ; le plugin
+v4 est poussé aux agents par le catalogue de sondes (signature HMAC).
+
 ## 2026-09-16 — agents : archive de déploiement servie par le central, lien de téléchargement (livraison #518)
 
 Demandé : « ajouter un lien de téléchargement pour le transfert du paquet

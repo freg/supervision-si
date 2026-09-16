@@ -65,6 +65,27 @@ export function nodeBackupSummary(node) {
     tone: (b.failed_24h || 0) > 0 ? "critical" : (b.ok_24h || 0) > 0 ? "ok" : "neutral", runs: b.runs || [] };
 }
 
+/** #519 : santé de l'hyperviseur (IO, mémoire, ARC, pools, VM les plus
+ *  écrivantes, options des VM) -- ton global, alertes et recommandations. */
+export function hostHealthSummary(node) {
+  const h = node?.host_health;
+  if (!h) return null;
+  const alerts = h.alerts || [];
+  const tone = alerts.some((a) => a.severity === "critical") ? "critical" : alerts.some((a) => a.severity === "warning") ? "warning" : "ok";
+  const mem = h.memory || null;
+  const arc = h.arc || null;
+  return {
+    tone, alerts, recommendations: h.recommendations || [],
+    memory: mem ? { total: mem.total, available: mem.available, swapUsed: mem.swap_used || 0, swapTotal: mem.swap_total || 0,
+      tone: (mem.swap_used || 0) > 0 ? "warning" : "ok" } : null,
+    arc: arc ? { size: arc.size, max: arc.c_max, hitPct: arc.hit_pct, ratio: arc.c_max ? arc.size / arc.c_max : null } : null,
+    pools: (h.pools || []).map((p) => ({ pool: p.pool, capPct: p.cap_pct, state: p.state || p.health, io: p.io || null,
+      tone: (p.state || p.health) && (p.state || p.health) !== "ONLINE" ? "critical" : p.cap_pct >= 90 ? "critical" : p.cap_pct >= 80 ? "warning" : "ok" })),
+    disks: (h.disks || []).map((d) => ({ ...d, tone: d.util_pct >= 85 || d.await_ms >= 50 ? "warning" : d.util_pct >= 50 ? "neutral" : "ok" })),
+    topVms: h.vm_io_top || [], intervalS: h.interval_s || null,
+  };
+}
+
 /** Accès à l'hyperviseur : requêtes, échecs d'authentification, SSH. */
 export function nodeAccessSummary(node) {
   const a = node?.access;
