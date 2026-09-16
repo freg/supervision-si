@@ -2798,6 +2798,10 @@ communautés du coffre via le central, identification #506, résultats
 tagués par site dans network-agent-api, choix du site dans le hub) --
 demandé le 16 sept. pour le PC du campus ; sonde de type « conteneur »
 si un site exige le moteur complet sur place.
+Installation (#524) : détection d'autres rôles à l'installation (Docker
+-> `docker-containers`, poste à VLAN multiples -> `network-neighbors`) ;
+case à cocher « hyperviseur Proxmox » dans le bloc d'enrôlement du hub si
+la détection ne suffit pas.
 
 ## Infos synthèse SI — suites (2026-09-16, #523) — item 79
 

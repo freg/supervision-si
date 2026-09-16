@@ -4,7 +4,12 @@
 #
 #   sudo ./install.sh --agent srv-01 --secret '...' --central https://VM:6443/api/si-agent \
 #        [--site siege] [--ca /chemin/ca.crt | --ca-fingerprint sha256hex | --insecure] \
-#        [--enable-plugin network-neighbors] [--plugins-user nobody] [--log-level DEBUG]
+#        [--enable-plugin network-neighbors] [--plugins-user nobody] [--log-level DEBUG] [--no-detect]
+#
+# Détection (#524) : sur un hôte Proxmox VE (/etc/pve présent et `pvesh`
+# disponible) le plugin `proxmox` est activé et les sondes tournent en root
+# (pvesh/qm/zpool l'exigent) sans rien ajouter à la ligne du hub ;
+# `--plugins-user` explicite l'emporte, `--no-detect` désactive la détection.
 #
 # TLS (#422) : `--ca` installe un certificat d'autorité fourni ; `--ca-fingerprint`
 # le RÉCUPÈRE du central (GET /ca, sans vérification à ce seul moment) et ne
@@ -17,7 +22,7 @@
 # (mode 600), installe et démarre le service systemd.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-AGENT="" SECRET="" CENTRAL="" FALLBACK="" SITE="default" CA="" CAFP="" INSECURE="false" ENABLE=() PLUGINS_USER="nobody" LOG_LEVEL="INFO" UPGRADE="false"
+AGENT="" SECRET="" CENTRAL="" FALLBACK="" SITE="default" CA="" CAFP="" INSECURE="false" ENABLE=() PLUGINS_USER="" LOG_LEVEL="INFO" UPGRADE="false" DETECT="true"
 while [ $# -gt 0 ]; do
   case "$1" in
     --upgrade) UPGRADE="true"; shift;;   # #522 : code et service seulement, configuration/secret/CA/sondes conservés
@@ -32,6 +37,7 @@ while [ $# -gt 0 ]; do
     --enable-plugin) ENABLE+=("$2"); shift 2;;
     --plugins-user) PLUGINS_USER="$2"; shift 2;;
     --log-level) LOG_LEVEL="$2"; shift 2;;
+    --no-detect) DETECT="false"; shift;;   # #524 : pas d'activation automatique selon l'hôte
     *) echo "argument inconnu : $1" >&2; exit 2;;
   esac
 done
@@ -41,7 +47,14 @@ else
   [ -n "$AGENT" ] && [ -n "$SECRET" ] && [ -n "$CENTRAL" ] || { echo "usage : --agent ID --secret SECRET --central URL [--site S] [--ca CRT|--ca-fingerprint HEX|--insecure] [--enable-plugin ID] [--plugins-user U] [--log-level L] | --upgrade" >&2; exit 2; }
 fi
 command -v python3 >/dev/null || { echo "python3 requis" >&2; exit 1; }
-case "$CENTRAL" in https://*) ;; http://127.*|http://localhost*) ;; *) echo "AVERTISSEMENT : central en HTTP clair ($CENTRAL) -- réservé au test" >&2;; esac
+# #524 : hôte Proxmox VE -> plugin proxmox + sondes en root (sauf choix explicite).
+if [ "$UPGRADE" != "true" ] && [ "$DETECT" = "true" ] && [ -d /etc/pve ] && command -v pvesh >/dev/null; then
+  case " ${ENABLE[*]:-} " in *" proxmox "*) ;; *) ENABLE+=("proxmox");; esac
+  [ -n "$PLUGINS_USER" ] || PLUGINS_USER="root"
+  echo "hôte Proxmox VE détecté : plugin proxmox activé, sondes exécutées en $PLUGINS_USER (--no-detect pour l'éviter)"
+fi
+[ -n "$PLUGINS_USER" ] || PLUGINS_USER="nobody"
+case "$CENTRAL" in https://*|"") ;; http://127.*|http://localhost*) ;; *) echo "AVERTISSEMENT : central en HTTP clair ($CENTRAL) -- réservé au test" >&2;; esac
 if [ -n "$CAFP" ]; then
   install -d /etc/si-agent
   python3 - "$CENTRAL" "$CAFP" <<'PY' || exit 1
@@ -98,7 +111,10 @@ PY
 chmod 600 /etc/si-agent/agent.json
 install -m 644 "$HERE/systemd/si-agent.service" /etc/systemd/system/si-agent.service
 systemctl daemon-reload
-systemctl enable --now si-agent.service
-[ "$UPGRADE" = "true" ] && systemctl restart si-agent.service
+systemctl enable si-agent.service
+# #524 : toujours (re)démarrer -- `enable --now` laissait tourner un ancien
+# process avec l'ancienne configuration lors d'une réinstallation (vu sur
+# deux hyperviseurs : agent démarré sous le mauvais identifiant / sans CA).
+systemctl restart si-agent.service
 echo "si-agent installé : systemctl status si-agent ; PYTHONPATH=/opt/si-agent python3 -m si_agent.agent --status"
 echo "blocage local d'urgence : touch /etc/si-agent/BLOCKED (ou --block) ; traces : journalctl -u si-agent -f"

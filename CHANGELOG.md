@@ -1,3 +1,28 @@
+## 2026-09-16 — Agent : détection Proxmox à l'installation, redémarrage systématique (livraison #524)
+
+Demandé : « pour l'installation de l'agent Proxmox, ajouter automatiquement
+`--enable-plugin proxmox --plugins-user root` … ou en le détectant ».
+
+- `si-agent/agent/install.sh` : sur un hôte Proxmox VE (`/etc/pve` présent
+  et `pvesh` disponible) le plugin `proxmox` est activé et les sondes
+  s'exécutent en root (`pvesh`/`qm`/`zpool` l'exigent), avec message
+  explicite ; `--plugins-user` explicite l'emporte, `--no-detect` désactive
+  la détection ; rien ne change sur un autre hôte (`nobody`, aucun plugin).
+  La ligne copiée depuis le hub suffit donc telle quelle.
+- Correctif révélé par l'installation sur deux hyperviseurs : `systemctl
+  enable --now` ne redémarre pas un service déjà lancé, si bien qu'une
+  réinstallation laissait tourner l'ancien process avec l'ancienne
+  configuration (agent démarré sous un autre identifiant, TLS « unable to
+  get local issuer » jusqu'au `systemctl restart`). Le service est
+  désormais toujours redémarré en fin d'installation. Avertissement « HTTP
+  clair » supprimé en `--upgrade` (central non fourni).
+- Agent **0.5.4** (archive reconstruite par le central : premier vrai test
+  de l'auto-mise à jour #522 -- bêta sur un agent, puis activation).
+
+Vérifié : `bash -n`, scénarios d'installation avec `systemctl`/`pvesh`
+simulés (hôte normal, Proxmox détecté, `--plugins-user` explicite,
+`--no-detect`, `--upgrade`). Non vérifié : sur un vrai hôte Proxmox.
+
 ## 2026-09-16 — Infos synthèse SI : DNS, IP OVH, IPAM, services, recoupés et interactifs (livraison #523)
 
 Demandé : « présenter la synthèse (DNS + IPAM) dans une page “infos

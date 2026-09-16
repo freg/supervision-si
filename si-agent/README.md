@@ -130,8 +130,10 @@ Plugins livrés (exemples des deux runners, désactivés) :
   est une URL entrante probable ; un nom qui ne résout pas est un trou
   DNS rapporté, pas masqué. Collecte locale par `pvesh` (aucun mot de
   passe stocké) + `zpool` ; toutes les 30 min, désactivé par défaut :
-  à activer sur chaque hyperviseur (`--enable-plugin proxmox` ou
-  catalogue central). Le central sert la synthèse sur `GET /proxmox` ;
+  **activé automatiquement par `install.sh` sur un hôte Proxmox VE**
+  (`/etc/pve` + `pvesh` : plugin `proxmox` et sondes en root, #524 ;
+  `--no-detect` pour l'éviter), sinon `--enable-plugin proxmox
+  --plugins-user root` ou catalogue central. Le central sert la synthèse sur `GET /proxmox` ;
   la supervision SI affiche chaque VM (type « VM / conteneur »)
   fusionnée par IP, et la tuile hub **Proxmox** (thématique Réseau)
   l'arbre hôte → VM avec services et URLs appris. Le host Proxmox
@@ -791,4 +793,5 @@ central ».
 
 Non vérifié en réel : le redémarrage détaché sous macOS (LaunchDaemon) et
 Windows (tâche planifiée) ; sous Linux `systemd-run` isole l'installeur
-du service qu'il redémarre. Agent **0.5.3**.
+du service qu'il redémarre. Agent **0.5.3** ; **0.5.4** (#524) : `install.sh`
+détecte un hôte Proxmox VE et redémarre toujours le service.
