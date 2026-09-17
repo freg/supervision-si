@@ -81,6 +81,8 @@ const PROJEQTOR_URL = import.meta.env.VITE_PROJEQTOR_URL || "";
 const MIKROTIK_URL = import.meta.env.VITE_MIKROTIK_URL || "";
 // Équipements Cisco (livraison #508) -- page autonome de cisco-api sous /cisco/.
 const CISCO_URL = import.meta.env.VITE_CISCO_URL || "";
+// Entrées de services (livraison #531) -- page autonome de service-watch-api sous /service-watch/.
+const SERVICE_WATCH_URL = import.meta.env.VITE_SERVICE_WATCH_URL || "";
 const CREDENTIALS_URL = import.meta.env.VITE_CREDENTIALS_URL || "";
 const MIKROTIK_API_BASE = MIKROTIK_URL.replace(/\/+$/, "");
 // Pont « suivi » (#484) — page d'administration (import/export Excel,
@@ -1200,6 +1202,7 @@ export default function App() {
     projeqtorUrl: PROJEQTOR_URL,
     mikrotikUrl: MIKROTIK_URL,
     ciscoUrl: CISCO_URL,
+    serviceWatchUrl: SERVICE_WATCH_URL,
     credentialsUrl: CREDENTIALS_URL,
     demandeUrl: DEMANDE_URL,
     groups,

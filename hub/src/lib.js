@@ -99,7 +99,7 @@ export function isTechnicien(groups) {
 // que des droits de gestion de realm n'ont pas été accordés séparément
 // dans Keycloak).
 export function buildFrontsList({
-  frontendUrl, portalUrl, keycloakConsoleUrl, dbaUrl, vaultUrl, vaultAdminUrl, ldapAdminUrl, projeqtorUrl, mikrotikUrl, ciscoUrl, credentialsUrl, demandeUrl,
+  frontendUrl, portalUrl, keycloakConsoleUrl, dbaUrl, vaultUrl, vaultAdminUrl, ldapAdminUrl, projeqtorUrl, mikrotikUrl, ciscoUrl, serviceWatchUrl, credentialsUrl, demandeUrl,
   groups, externalLinks,
 }) {
   const roles = groupsToRoles(groups);
@@ -227,6 +227,20 @@ export function buildFrontsList({
       name: "Équipements Cisco",
       description: "Catalyst / Nexus — état, charge, alertes, journal ; sauvegarde et restauration des configurations ; urgence",
       url: ciscoUrl,
+      embeddable: true,
+    });
+  }
+  // Entrées de services (livraison #531, backlog item 80) -- ce qu'un
+  // utilisateur d'Internet voit de nos services : inventaire depuis le DNS,
+  // qualification, scénarios avec compte de test, contenu, canaris mail.
+  // Lecture pour tous ceux qui ont la supervision ; les gestes (import,
+  // validation de référence) restent côté service sans rôle serveur.
+  if (serviceWatchUrl && (hasValue(roles, "admin") || hasValue(roles, "technicien") || hasValue(roles, "supervision"))) {
+    fronts.push({
+      id: "service-watch",
+      name: "Entrées de services",
+      description: "Services vus d'Internet — inventaire DNS, ports, certificats, HTTP, scénarios avec compte de test, contenu, canaris mail",
+      url: serviceWatchUrl,
       embeddable: true,
     });
   }

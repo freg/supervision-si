@@ -1669,6 +1669,8 @@ services:
       - VITE_MIKROTIK_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/mikrotik/
       # Équipements Cisco (livraison #508) -- tuile réservée admin/technicien.
       - VITE_CISCO_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/cisco/
+      # Entrées de services (livraison #531) -- tuile de la thématique Supervision.
+      - VITE_SERVICE_WATCH_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/service-watch/
       # Accès d'équipements (livraison #498) — tuile de la thématique
       # Sécurité & accès, embarquable en onglet (même origine).
       - VITE_CREDENTIALS_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/credentials/
@@ -2272,6 +2274,42 @@ services:
       # Base SQLite + sel de chiffrement : À SAUVEGARDER (perdre le sel
       # ou la phrase de passe rend les mots de passe illisibles).
       - ${CREDENTIALS_DATA_DIR:-./credentials/data}:/data
+
+  # service-watch-api (livraison #531, backlog item 80) -- supervision des
+  # entrées de services vues d'Internet : inventaire (zone DNS importée,
+  # registre service-watch/entries.json), qualification périodique (DNS,
+  # ports, TLS, HTTP, page d'hébergeur), scénarios HTTP avec compte de test
+  # du coffre, empreinte de contenu avec différence, canaris mail
+  # (SMTP -> IMAP), constats -> événements -> notifications SECRETS_ALERT_*.
+  # Page servie sous /service-watch/, tuile de la thématique Supervision.
+  service-watch-api:
+    build:
+      context: .
+      dockerfile: service-watch/Dockerfile
+    environment:
+      - SERVICE_WATCH_DATA_DIR=/data
+      - SERVICE_WATCH_REGISTRY=/app/entries.json
+      - SERVICE_WATCH_INTERVAL_MINUTES=${SERVICE_WATCH_INTERVAL_MINUTES:-10}
+      - SERVICE_WATCH_CANARY_INTERVAL_MINUTES=${SERVICE_WATCH_CANARY_INTERVAL_MINUTES:-60}
+      - SERVICE_WATCH_NOTIFY_MIN_SEVERITY=${SERVICE_WATCH_NOTIFY_MIN_SEVERITY:-warning}
+      - CREDENTIALS_API_URL=http://credentials-api:5000
+      - CREDENTIALS_INTERNAL_TOKEN=${CREDENTIALS_INTERNAL_TOKEN:-}
+      - SECRETS_ALERT_SMS_URL=${SECRETS_ALERT_SMS_URL:-}
+      - SECRETS_ALERT_SMS_KEY=${SECRETS_ALERT_SMS_KEY:-}
+      - SECRETS_ALERT_SMS_NUMBER=${SECRETS_ALERT_SMS_NUMBER:-}
+      - SECRETS_ALERT_SMTP_HOST=${SECRETS_ALERT_SMTP_HOST:-}
+      - SECRETS_ALERT_SMTP_PORT=${SECRETS_ALERT_SMTP_PORT:-587}
+      - SECRETS_ALERT_SMTP_USER=${SECRETS_ALERT_SMTP_USER:-}
+      - SECRETS_ALERT_SMTP_PASSWORD=${SECRETS_ALERT_SMTP_PASSWORD:-}
+      - SECRETS_ALERT_SMTP_FROM=${SECRETS_ALERT_SMTP_FROM:-}
+      - SECRETS_ALERT_EMAIL_TO=${SECRETS_ALERT_EMAIL_TO:-}
+    volumes:
+      - ./service-watch/entries.json:/app/entries.json:ro
+      # Base SQLite (entrées, passages, références de contenu, canaris,
+      # événements) : à sauvegarder.
+      - ${SERVICE_WATCH_DATA_DIR:-./service-watch/data}:/data
+    depends_on:
+      - credentials-api
 
   # mikrotik (livraison #485) — supervision et commande de base des
   # routeurs MikroTik (API REST RouterOS v7). Registre dans

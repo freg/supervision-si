@@ -21,6 +21,7 @@ export const THEMES = [
       { view: "supervision-si", label: "Supervision SI" },
       { view: "si-agent", label: "Agents hôtes" },
       { view: "netprobe", label: "Sondes réseau" },
+      { front: "service-watch", label: "Entrées de services" },
       { view: "ups", label: "Onduleurs (UPS)" },
       { view: "snmp", label: "SNMP" },
       { view: "vigilance", label: "Vigilance" },

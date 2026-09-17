@@ -2930,6 +2930,16 @@ arrivé dans l'état attendu, et contrôler les journaux correspondants ».
   2 (scénarios HTTP + compte de test, sans navigateur) → 4 mail (canari le
   plus simple et le plus parlant) → 3 (captures et diff) → 4 GED et autres.
 
+Livré #531 (`service-watch/`) : 1 (import de zone / liste de noms, registre,
+disparitions), 2 (scénarios HTTP + compte de test du coffre, exécution depuis
+le central seulement), 3 en version texte (empreinte du contenu visible,
+différence, validation de référence), 4 mail (canari SMTP externe → IMAP
+interne). Reste : point d'exécution hors du SI (nœud OVH / agent externe,
+comparaison intérieur/extérieur), captures d'écran + différence d'image
+(Playwright), canari GED (dépôt + audit immuable) et autres canaris (demande
+SAV, SMS, webhook), alimentation depuis la synthèse SI (#523), journaux
+Postfix/Dovecot corrélés, règles Cortex.
+
 ## Assistant IA auto-hébergé (modèle ouvert) — étude de capacité (2026-09-17) — item 81
 
 Demandé le 17 sept. 2026 (dicté) : « quantifier les ressources et voir si on

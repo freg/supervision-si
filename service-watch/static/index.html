@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<!-- Tuile « Entrées de services » (livraison #531, backlog item 80) : page
+autonome servie par service-watch-api sous /service-watch/. Volets :
+entrées (inventaire, état, détail des passages, référence de contenu),
+canaris (mail), événements, import d'une zone DNS. Aucune dépendance
+externe ; variables de thème du hub reproduites. -->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrées de services</title>
+<style>
+  :root { --bg:#f6f7f9; --panel:#fff; --border:#d5d9e0; --text:#1c2430; --muted:#66707d; --accent:#2b6cb0; --danger:#b42318; --danger-bg:#fdecea; --ok:#1f7a3f; --ok-bg:#e6f4ea; --warning:#9a6700; --warning-bg:#fff4d6; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#14181f; --panel:#1c222b; --border:#333c48; --text:#e6e9ee; --muted:#9aa4b1; --accent:#7aa7e0; --danger:#f08c85; --danger-bg:#3a1f1d; --ok:#7bd38e; --ok-bg:#1d3324; --warning:#f0c674; --warning-bg:#3a3016; } }
+  * { box-sizing:border-box; } body { margin:0; font-family:system-ui,sans-serif; font-size:14px; background:var(--bg); color:var(--text); }
+  header { display:flex; gap:12px; align-items:center; padding:10px 16px; border-bottom:1px solid var(--border); background:var(--panel); flex-wrap:wrap; }
+  header h1 { font-size:1.1rem; margin:0; } header a { color:var(--accent); }
+  main { padding:12px 16px; } .panel { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:12px; }
+  button { font:inherit; padding:5px 10px; border:1px solid var(--border); border-radius:6px; background:var(--panel); color:var(--text); cursor:pointer; }
+  button:hover { border-color:var(--accent); } button.danger { color:var(--danger); border-color:var(--danger); } button:disabled { opacity:.5; cursor:wait; }
+  .tabs button.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  table { border-collapse:collapse; width:100%; font-size:13px; } th, td { text-align:left; padding:4px 8px; border-bottom:1px solid var(--border); vertical-align:top; }
+  tr.sel td { background:var(--ok-bg); } tbody tr { cursor:pointer; }
+  .muted { color:var(--muted); } .ok { color:var(--ok); } .bad { color:var(--danger); font-weight:600; } .warn { color:var(--warning); font-weight:600; }
+  .pill { display:inline-block; padding:1px 7px; border-radius:10px; font-size:12px; } .pill.ok { background:var(--ok-bg); } .pill.critical { background:var(--danger-bg); color:var(--danger); } .pill.warning { background:var(--warning-bg); color:var(--warning); } .pill.gone { background:var(--border); }
+  pre { background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:8px; overflow:auto; max-height:360px; font-size:12px; white-space:pre-wrap; }
+  #msg { display:none; padding:8px 10px; border:1px solid var(--border); border-radius:6px; margin-bottom:10px; } #msg.err { display:block; border-color:var(--danger); color:var(--danger); } #msg.ok { display:block; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:6px 0; } input, select, textarea { font:inherit; padding:4px 6px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text); }
+  textarea { width:100%; min-height:120px; font-family:ui-monospace,monospace; font-size:12px; }
+  .grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; } @media (max-width:1000px) { .grid { grid-template-columns:1fr; } }
+  .kv { display:grid; grid-template-columns:170px 1fr; gap:2px 10px; font-size:13px; } .kv dt { color:var(--muted); } .kv dd { margin:0; }
+  code { font-size:12px; }
+</style>
+</head>
+<body>
+<header><a href="/">◀ Hub</a><h1>Entrées de services</h1><span class="muted" id="health"></span><span style="flex:1"></span>
+  <div class="row tabs"><button data-tab="entries" class="active">Entrées</button><button data-tab="canaries">Canaris</button><button data-tab="events">Événements</button><button data-tab="import">Importer / ajouter</button><button id="cycle">Passage maintenant</button><button id="refresh">Rafraîchir</button></div>
+</header>
+<main>
+  <div id="msg"></div>
+  <section id="tab-entries">
+    <div class="panel"><div id="summary" class="muted">Chargement…</div></div>
+    <div class="grid">
+      <div class="panel"><table><thead><tr><th>Entrée</th><th>Service</th><th>Source</th><th>État</th><th>Dernier passage</th><th>Constats</th></tr></thead><tbody id="entries"></tbody></table></div>
+      <div class="panel" id="detail"><span class="muted">Choisir une entrée.</span></div>
+    </div>
+  </section>
+  <section id="tab-canaries" style="display:none">
+    <div class="panel"><p class="muted" style="margin:0 0 6px">Canari mail : un message porteur d'un jeton unique est envoyé depuis un compte externe (SMTP, identifiants dans le coffre) vers une boîte interne, puis attendu par IMAP : délai, SPF/DKIM/DMARC, intégrité. Les comptes sont désignés par leur nom dans le coffre des accès (genre http ou autre).</p>
+      <table><thead><tr><th>Canari</th><th>Vers</th><th>Actif</th><th>État</th><th>Dernier passage</th><th>Résultat</th><th></th></tr></thead><tbody id="canaries"></tbody></table></div>
+    <div class="panel"><h3 style="margin:0 0 6px">Ajouter un canari mail</h3>
+      <div class="row"><input id="c-name" placeholder="nom (ex. mail entrant)"><input id="c-to" placeholder="destinataire canari@exemple.test"><input id="c-from" placeholder="expéditeur (optionnel)"></div>
+      <div class="row"><input id="c-smtp" placeholder="smtp_host externe"><input id="c-smtpport" placeholder="587" size="5"><input id="c-smtpcred" placeholder="nom du compte SMTP dans le coffre"></div>
+      <div class="row"><input id="c-imap" placeholder="imap_host interne"><input id="c-imapport" placeholder="993" size="5"><input id="c-imapcred" placeholder="nom du compte IMAP dans le coffre (requis)"><input id="c-wait" placeholder="attente s (300)" size="10"><input id="c-max" placeholder="délai max s (120)" size="12"></div>
+      <div class="row"><button id="c-add">Ajouter</button></div></div>
+  </section>
+  <section id="tab-events" style="display:none"><div class="panel"><table><thead><tr><th>Quand</th><th>Sujet</th><th>Genre</th><th>Sévérité</th><th>Message</th><th>Notifié</th></tr></thead><tbody id="events"></tbody></table></div></section>
+  <section id="tab-import" style="display:none">
+    <div class="grid">
+      <div class="panel"><h3 style="margin:0 0 6px">Importer une zone DNS ou une liste de noms</h3>
+        <p class="muted">Export BIND (OVH, Online…) ou un nom par ligne. Les enregistrements A/AAAA/CNAME/MX/SRV deviennent des entrées candidates ; SOA/NS/TXT et jokers sont ignorés.</p>
+        <div class="row"><input id="i-origin" placeholder="domaine par défaut (si la zone n'a pas $ORIGIN)"><label><input type="checkbox" id="i-replace"> marquer disparues les entrées DNS absentes de cet import</label></div>
+        <textarea id="i-text" placeholder="$ORIGIN exemple.test.&#10;www IN A 203.0.113.10&#10;@ IN MX 10 mail.exemple.test."></textarea>
+        <div class="row"><button id="i-go">Importer</button><span id="i-res" class="muted"></span></div></div>
+      <div class="panel"><h3 style="margin:0 0 6px">Ajouter une entrée à la main</h3>
+        <div class="row"><input id="a-name" placeholder="nom (www.exemple.test)"><input id="a-ports" placeholder="ports attendus 80,443"><input id="a-url" placeholder="URL testée (optionnel)"></div>
+        <div class="row"><input id="a-expecturl" placeholder="l'URL finale doit contenir…"><input id="a-maxms" placeholder="délai max ms (5000)" size="12"><input id="a-diff" placeholder="seuil diff % (30)" size="10"></div>
+        <p class="muted">Scénario HTTP (JSON, optionnel) : liste de pas <code>{name, path, method, form, login:{credential,user_field,password_field}, expect:{status,text,not_text,url,headers,max_ms}}</code>. Le compte de test est le nom d'un accès du coffre ; jamais un mot de passe ici.</p>
+        <textarea id="a-scenario" placeholder='[{"name":"accueil","path":"/","expect":{"status":200,"text":"Bienvenue"}}]' style="min-height:90px"></textarea>
+        <div class="row"><button id="a-add">Ajouter / modifier</button></div>
+        <p class="muted">Le registre versionné <code>service-watch/entries.json</code> alimente aussi la liste au démarrage (source « registry »).</p></div>
+    </div>
+  </section>
+</main>
+<script>
+const B = "/service-watch";
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const when = (iso) => iso ? new Date(iso).toLocaleString("fr-FR") : "—";
+let entries = [], selected = null;
+function msg(t, err) { const m = $("#msg"); m.textContent = t; m.className = err ? "err" : "ok"; if (!t) m.className = ""; }
+async function api(path, opt) { const r = await fetch(B + path, Object.assign({ headers: { "Content-Type": "application/json" } }, opt || {})); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || r.status); return j; }
+function pill(state, gone) { if (gone) return '<span class="pill gone">disparue</span>'; return `<span class="pill ${state || "muted"}">${esc(state || "jamais testée")}</span>`; }
+async function loadStatus() {
+  const s = await api("/status");
+  $("#health").textContent = `${s.counts.entries} entrée(s) · ${s.counts.critical} critique(s), ${s.counts.warning} avertissement(s) · ${s.counts.gone} disparue(s) · ${s.counts.canaries} canari(s) · passage toutes les ${s.interval_minutes} min, canaris ${s.canary_interval_minutes} min · coffre ${s.credentials ? "OK" : "non configuré"} · notifications ${s.notify ? "OK" : "indisponibles"}${s.running ? " · passage en cours…" : ""}`;
+}
+async function loadEntries() {
+  entries = (await api("/entries")).entries;
+  const rows = entries.map((e) => `<tr data-n="${esc(e.name)}" class="${selected === e.name ? "sel" : ""}"><td><strong>${esc(e.name)}</strong>${e.target ? `<br><span class="muted">→ ${esc(e.target)}</span>` : ""}</td><td>${esc(e.kind || e.hint || "?")}</td><td class="muted">${esc(e.source)}</td><td>${pill(e.state, e.gone_at)}</td><td class="muted">${when(e.last_at)}</td><td>${(e.last?.alerts || []).map((a) => `<span class="${a.severity === "critical" ? "bad" : a.severity === "warning" ? "warn" : "muted"}">${esc(a.code)}</span>`).join(" ")}</td></tr>`);
+  $("#entries").innerHTML = rows.join("") || '<tr><td colspan="6" class="muted">Aucune entrée : importer une zone DNS ou ajouter un nom.</td></tr>';
+  const byKind = {}; entries.filter((e) => !e.gone_at).forEach((e) => { byKind[e.kind || "?"] = (byKind[e.kind || "?"] || 0) + 1; });
+  $("#summary").textContent = "Par service détecté : " + (Object.entries(byKind).map(([k, n]) => `${k} ${n}`).join(" · ") || "—");
+  document.querySelectorAll("#entries tr[data-n]").forEach((tr) => tr.onclick = () => showEntry(tr.dataset.n));
+}
+async function showEntry(name) {
+  selected = name; document.querySelectorAll("#entries tr").forEach((tr) => tr.classList.toggle("sel", tr.dataset.n === name));
+  const e = entries.find((x) => x.name === name); const d = $("#detail");
+  const runs = await api(`/entries/${encodeURIComponent(name)}/runs?limit=40`);
+  const last = runs.runs[0]; const r = last?.result || {};
+  const tls = r.tls, http = r.http, sc = r.scenario, diff = r.content_diff;
+  d.innerHTML = `<div class="row"><h3 style="margin:0">${esc(name)}</h3>${pill(e.state, e.gone_at)}<span style="flex:1"></span><button id="d-check">Tester maintenant</button><button id="d-ref" ${diff ? "" : "disabled"}>Valider le contenu comme référence</button><button id="d-del" class="danger">Retirer</button></div>
+  <dl class="kv"><dt>Source</dt><dd>${esc(e.source)}${e.dns_type ? ` (${esc(e.dns_type)})` : ""}${e.gone_at ? ` · disparue le ${when(e.gone_at)}` : ""}</dd>
+  <dt>Adresses</dt><dd>${(r.ips || []).map(esc).join(", ") || "—"}${r.resolved === false ? ' <span class="bad">non résolu</span>' : ""}</dd>
+  <dt>Ports ouverts</dt><dd>${(r.open_ports || []).join(", ") || "aucun"} <span class="muted">(testés : ${(r.ports_tested || []).join(", ")})</span></dd>
+  <dt>HTTP</dt><dd>${http ? (http.error ? `<span class="bad">${esc(http.error)}</span>` : `${http.status} en ${http.elapsed_ms} ms · ${esc(http.title || "")} <span class="muted">${esc(http.server || "")}</span>${http.final_url && !http.final_url.includes(name) ? `<br><span class="warn">→ ${esc(http.final_url)}</span>` : ""}${http.hosting_page ? `<br><span class="bad">page d'hébergeur : ${esc(http.hosting_page)}</span>` : ""}`) : "—"}</dd>
+  <dt>Certificat</dt><dd>${tls ? (tls.error ? `<span class="bad">${esc(tls.error)}</span>` : `${esc(tls.issuer || "")} · expire dans <span class="${tls.days_left < 0 ? "bad" : tls.days_left <= 21 ? "warn" : "ok"}">${tls.days_left} j</span> · ${(tls.names || []).slice(0, 4).map(esc).join(", ")}`) : "—"}</dd>
+  <dt>Scénario</dt><dd>${sc ? (sc.ok ? `<span class="ok">OK</span> (${sc.steps.length} pas : ${sc.steps.map((s) => `${esc(s.name)} ${s.status} ${s.elapsed_ms} ms`).join(" · ")})` : `<span class="bad">échec au pas « ${esc(sc.failed_step)} »</span> : ${esc((sc.reasons || []).join(" ; "))}`) : '<span class="muted">aucun scénario configuré</span>'}</dd>
+  <dt>Contenu</dt><dd>${diff ? (diff.new_reference ? "référence enregistrée à ce passage" : `${diff.change_pct} % de changement depuis la référence du ${when(diff.reference_at)}${runs.reference?.validated_by ? ` (validée par ${esc(runs.reference.validated_by)})` : ""}`) : "—"}</dd></dl>
+  ${(last?.alerts || []).length ? `<ul>${last.alerts.map((a) => `<li class="${a.severity === "critical" ? "bad" : "warn"}">${esc(a.message)}</li>`).join("")}</ul>` : ""}
+  ${diff && diff.lines && diff.lines.length ? `<details><summary class="muted">Différence de contenu</summary><pre>${esc(diff.lines.join("\n"))}</pre></details>` : ""}
+  <details><summary class="muted">Historique (${runs.runs.length} passages)</summary><table><thead><tr><th>Quand</th><th>État</th><th>HTTP</th><th>ms</th><th>Certificat</th><th>Diff %</th><th>Constats</th></tr></thead><tbody>${runs.runs.map((x) => `<tr><td class="muted">${when(x.at)}</td><td>${pill(x.state)}</td><td>${x.result.http?.status ?? "—"}</td><td>${x.result.http?.elapsed_ms ?? "—"}</td><td>${x.result.tls?.days_left ?? "—"}</td><td>${x.result.content_diff?.change_pct ?? "—"}</td><td>${x.alerts.map((a) => esc(a.code)).join(", ")}</td></tr>`).join("")}</tbody></table></details>
+  <details><summary class="muted">Configuration</summary><pre>${esc(JSON.stringify(e.config, null, 1))}</pre></details>`;
+  $("#d-check").onclick = async () => { $("#d-check").disabled = true; try { await api(`/entries/${encodeURIComponent(name)}/check`, { method: "POST" }); await loadAll(); await showEntry(name); msg("Passage effectué."); } catch (err) { msg(err.message, true); } };
+  $("#d-ref").onclick = async () => { try { await api(`/entries/${encodeURIComponent(name)}/reference`, { method: "POST" }); msg("Référence de contenu validée."); await showEntry(name); } catch (err) { msg(err.message, true); } };
+  $("#d-del").onclick = async () => { if (!confirm(`Retirer ${name} de la supervision ?`)) return; await api(`/entries/${encodeURIComponent(name)}`, { method: "DELETE" }); selected = null; $("#detail").innerHTML = '<span class="muted">Choisir une entrée.</span>'; await loadAll(); };
+}
+async function loadCanaries() {
+  const cs = (await api("/canaries")).canaries;
+  $("#canaries").innerHTML = cs.map((c) => { const l = c.last; const r = l?.result || {}; return `<tr><td><strong>${esc(c.name)}</strong></td><td>${esc(c.config.to)}<br><span class="muted">${esc(c.config.smtp_host)} → ${esc(c.config.imap_host)}</span></td><td>${c.enabled ? "oui" : "non"}</td><td>${pill(c.state)}</td><td class="muted">${when(c.last_at)}</td><td>${l ? (r.send_error ? `<span class="bad">${esc(r.send_error)}</span>` : r.received ? `arrivé en ${r.delay_s} s · SPF ${esc(r.auth?.spf || "?")} DKIM ${esc(r.auth?.dkim || "?")} DMARC ${esc(r.auth?.dmarc || "?")} · ${r.hops} sauts${r.altered ? ' · <span class="bad">altéré</span>' : ""}` : `<span class="bad">non arrivé (${r.error || r.waited_s + " s"})</span>`) : "—"}</td><td><button data-run="${esc(c.name)}">Lancer</button> <button data-del="${esc(c.name)}" class="danger">✕</button></td></tr>`; }).join("") || '<tr><td colspan="7" class="muted">Aucun canari.</td></tr>';
+  document.querySelectorAll("[data-run]").forEach((b) => b.onclick = async () => { b.disabled = true; msg("Canari en cours (attente jusqu'au délai configuré)…"); try { const o = await api(`/canaries/${encodeURIComponent(b.dataset.run)}/run`, { method: "POST" }); msg(`Canari terminé : ${o.state}`); } catch (err) { msg(err.message, true); } await loadCanaries(); });
+  document.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => { if (!confirm("Retirer ce canari ?")) return; await api(`/canaries/${encodeURIComponent(b.dataset.del)}`, { method: "DELETE" }); await loadCanaries(); });
+}
+async function loadEvents() {
+  const ev = (await api("/events?limit=300")).events;
+  $("#events").innerHTML = ev.map((e) => `<tr><td class="muted">${when(e.at)}</td><td>${esc(e.subject)}</td><td>${esc(e.kind)}</td><td class="${e.severity === "critical" ? "bad" : e.severity === "warning" ? "warn" : "muted"}">${esc(e.severity)}</td><td>${esc(e.message)}</td><td class="muted">${esc(e.notified || "—")}</td></tr>`).join("") || '<tr><td colspan="6" class="muted">Aucun événement.</td></tr>';
+}
+async function loadAll() { try { await loadStatus(); await loadEntries(); await loadCanaries(); await loadEvents(); } catch (err) { msg(err.message, true); } }
+document.querySelectorAll(".tabs [data-tab]").forEach((b) => b.onclick = () => { document.querySelectorAll(".tabs [data-tab]").forEach((x) => x.classList.toggle("active", x === b)); ["entries", "canaries", "events", "import"].forEach((t) => $("#tab-" + t).style.display = t === b.dataset.tab ? "" : "none"); });
+$("#refresh").onclick = loadAll;
+$("#cycle").onclick = async () => { try { await api("/cycle", { method: "POST", body: JSON.stringify({ what: "entries" }) }); msg("Passage lancé sur toutes les entrées ; rafraîchir dans quelques instants."); } catch (err) { msg(err.message, true); } };
+$("#i-go").onclick = async () => { try { const o = await api("/import", { method: "POST", body: JSON.stringify({ text: $("#i-text").value, origin: $("#i-origin").value, replace: $("#i-replace").checked }) }); $("#i-res").textContent = `${o.candidates} candidat(s), ${o.created} créé(s), ${o.gone.length} disparu(s)`; await loadAll(); } catch (err) { msg(err.message, true); } };
+$("#a-add").onclick = async () => { try { let scenario = null; if ($("#a-scenario").value.trim()) scenario = JSON.parse($("#a-scenario").value); const body = { name: $("#a-name").value, url: $("#a-url").value || undefined, expect_url: $("#a-expecturl").value || undefined, ports: $("#a-ports").value ? $("#a-ports").value.split(",").map((x) => parseInt(x, 10)).filter(Boolean) : undefined, max_ms: parseInt($("#a-maxms").value, 10) || undefined, diff_threshold_pct: parseInt($("#a-diff").value, 10) || undefined, scenario: scenario || undefined }; await api("/entries", { method: "POST", body: JSON.stringify(body) }); msg("Entrée enregistrée."); await loadAll(); } catch (err) { msg(err.message, true); } };
+$("#c-add").onclick = async () => { try { const body = { name: $("#c-name").value, to: $("#c-to").value, from: $("#c-from").value || undefined, smtp_host: $("#c-smtp").value, smtp_port: parseInt($("#c-smtpport").value, 10) || 587, smtp_credential: $("#c-smtpcred").value || undefined, imap_host: $("#c-imap").value, imap_port: parseInt($("#c-imapport").value, 10) || 993, imap_credential: $("#c-imapcred").value, wait_s: parseInt($("#c-wait").value, 10) || 300, max_delay_s: parseInt($("#c-max").value, 10) || 120 }; await api("/canaries", { method: "POST", body: JSON.stringify(body) }); msg("Canari enregistré."); await loadCanaries(); } catch (err) { msg(err.message, true); } };
+loadAll(); setInterval(loadStatus, 30000);
+</script>
+</body>
+</html>

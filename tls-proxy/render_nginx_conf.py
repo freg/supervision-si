@@ -244,6 +244,8 @@ SERVICES = [
     ("MIKROTIK_API_PORT", "mikrotik-api", 5000, "/mikrotik/", "spa"),
     # cisco-api (livraison #508) -- équipements Cisco, page servie par le service.
     ("CISCO_API_PORT", "cisco-api", 5000, "/cisco/", "spa"),
+    # service-watch-api (livraison #531) -- entrées de services, page servie par le service.
+    ("SERVICE_WATCH_API_PORT", "service-watch-api", 5000, "/service-watch/", "spa"),
     # credentials-api (livraison #498) — coffre des accès d'équipements.
     # Le service sert sa page sous ce préfixe ; la révélation
     # (/credentials/reveal/) répond 404 dès que la requête porte les

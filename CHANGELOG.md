@@ -1,3 +1,32 @@
+## 2026-09-17 — Entrées de services vues d'Internet : service-watch (livraison #531, item 80)
+
+Première réalisation de la spécification item 80 (phases 1, 2, 4-mail et
+une version texte de la phase 3) : « superviser toutes nos entrées-sorties
+en termes de services, surtout les entrées visibles d'Internet ».
+
+- `service-watch/` (Flask, un worker + planificateur) : inventaire (import
+  d'une zone DNS BIND ou d'une liste de noms, entrées disparues datées ;
+  registre versionné `entries.json` sans secret ; ajout manuel),
+  qualification périodique (résolution, ports, certificat TLS, HTTP :
+  statut, redirection, titre, serveur, délai, page d'hébergeur / parking),
+  classement web/mail/ged/ssh/autre/silencieux, scénarios HTTP
+  déclaratifs avec compte de test révélé par le coffre credentials-api,
+  empreinte du contenu visible (zones volatiles masquées) et différence
+  mot à mot avec validation de référence journalisée, canaris mail
+  (SMTP externe -> IMAP interne : délai, SPF/DKIM/DMARC, intégrité).
+  Constats -> événements -> notifications `SECRETS_ALERT_*` au changement
+  seulement. Page autonome `/service-watch/` (entrées, détail, canaris,
+  événements, import).
+- Hub : tuile « Entrées de services » (thématique Supervision, rôles
+  admin / technicien / supervision) ; compose, tls-proxy, `.env.example`
+  (`SERVICE_WATCH_*`).
+
+Vérifié : 13 tests (zone DNS, classement, empreinte/diff, scénario avec
+session simulée -- aucun secret dans le résultat --, en-têtes canari,
+constats, API avec sonde simulée : référence, alerte notifiée une fois,
+disparitions), 222 tests Node, syntaxe JSX/JS, rendu nginx. Non vérifié :
+build Docker et passage réel sur un vrai domaine ; canari mail réel.
+
 ## 2026-09-17 — Constats des sondes notifiés, profil horaire Wi-Fi (livraison #530)
 
 Fin du point en cours du backlog item 78 (la source Nebula est mise de

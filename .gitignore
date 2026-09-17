@@ -111,3 +111,6 @@ si-agent/standalone/generated/
 synthese/data/
 synthese/generated/
 si-agent/standalone/ui/dist/
+
+# service-watch (#531) : base SQLite hors dépôt
+service-watch/data/*

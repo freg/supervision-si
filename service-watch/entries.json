@@ -1,0 +1,16 @@
+{
+  "_comment": "Registre versionné des entrées de services (sans secret). Les identifiants de test sont désignés par leur nom dans le coffre credentials-api (genre http). Les entrées importées d'une zone DNS s'ajoutent depuis l'interface (source dns). Exemple fictif.",
+  "entries": [
+    {"name": "www.exemple.test", "expected": "web", "ports": [80, 443], "max_ms": 3000, "diff_threshold_pct": 30, "masks": ["Dernière mise à jour.*"],
+     "scenario": [
+       {"name": "accueil", "path": "/", "expect": {"status": 200, "text": "Bienvenue", "max_ms": 3000}},
+       {"name": "connexion", "path": "/login", "login": {"credential": "test-web-exemple", "user_field": "username", "password_field": "password"}, "expect": {"status": [200, 302], "not_text": "identifiants incorrects"}}
+     ]},
+    {"name": "mail.exemple.test", "expected": "mail", "ports": [25, 587, 993]},
+    {"name": "ged.exemple.test", "expected": "ged", "ports": [443], "expect_url": "ged.exemple.test"}
+  ],
+  "canaries": [
+    {"name": "mail entrant", "to": "canari@exemple.test", "from": "test@fournisseur.exemple", "smtp_host": "smtp.fournisseur.exemple", "smtp_port": 587, "smtp_credential": "canari-smtp-externe",
+     "imap_host": "mail.exemple.test", "imap_port": 993, "imap_credential": "canari-imap-interne", "wait_s": 300, "poll_s": 20, "max_delay_s": 120, "enabled": false}
+  ]
+}
