@@ -2829,3 +2829,90 @@ sous-réseaux et équipements) ; différences entre deux générations (IP
 apparues / disparues, échéances changées) ; ouvrir la fiche d'un
 équipement depuis la synthèse (paramètre `ip` sur Équipements réseau) ;
 export Markdown/PDF de la synthèse pour les documents de bord.
+
+## Supervision des entrées/sorties de services — vue extérieure, jetons traversants (2026-09-17, spécification) — item 80
+
+Demandé le 17 sept. 2026 (dicté) : « superviser toutes nos entrées-sorties en
+termes de services, surtout les entrées visibles d'Internet, avec un jeton de
+test (login/mot de passe dédié) qui teste les services web ; partir du DNS
+pour piocher tout ce qui est déclaré ; gérer des vues d'écran avec un diff et
+une alerte si l'image change ; puis des jetons traversants (mail, GED) :
+injecter depuis l'extérieur avec un compte, vérifier à l'intérieur que c'est
+arrivé dans l'état attendu, et contrôler les journaux correspondants ».
+
+### 1. Inventaire des entrées depuis le DNS
+- Source : la synthèse SI (#523, zones OVH/Online, IP OVH, IPAM) déjà
+  générée -- chaque enregistrement A/AAAA/CNAME/MX/SRV public devient un
+  **point d'entrée candidat** ; liste maintenue automatiquement à chaque
+  génération (apparitions / disparitions signalées, cf. item 79).
+- Qualification automatique de chaque candidat : ports ouverts (80/443/25/
+  465/587/993/22 + ceux déclarés par SRV), certificat TLS (émetteur, SAN,
+  expiration -- reprise des sondes TLS de #488), redirections, titre de page,
+  serveur annoncé ; classement en `web`, `mail`, `ged`, `ssh`, `autre`,
+  `silencieux` (déclaré mais rien ne répond : trou DNS ou service éteint).
+- Vue hub « Entrées de services » : tableau par entrée (nom, IP, hébergeur,
+  service détecté, dernier état, dernier changement) + fusion avec la
+  synthèse et l'IPAM ; export pour les documents de bord.
+
+### 2. Tests fonctionnels avec compte de test
+- Un **compte de test dédié par service** (login/mot de passe ou jeton),
+  droits minimaux, stocké dans le coffre `credentials-api` (#498), jamais
+  dans les scénarios ni les traces ; rotation possible depuis le coffre.
+- Scénarios déclaratifs (JSON/YAML versionné dans `probes/`) : étapes
+  `GET`/`POST`/formulaire de connexion/attendu (code, texte présent, en-tête,
+  délai max, redirection vers…) ; exécution par un runner Playwright (déjà
+  disponible dans le dépôt pour la rétro-ingénierie web #441-448) ou requêtes
+  HTTP simples quand un navigateur est inutile.
+- Point d'exécution **hors du SI** (vue d'un utilisateur d'Internet) : le
+  nœud OVH de la répartition (#513) ou un agent hôte externe ; en parallèle
+  le même scénario depuis l'intérieur pour distinguer « service mort » de
+  « chemin d'accès cassé » (frontal, DNS public, certificat, WAF).
+- Résultat : disponibilité, temps de réponse par étape, écart de
+  comportement extérieur/intérieur ; historique et alertes Cortex.
+
+### 3. Vues d'écran et différence d'image
+- Capture d'écran de chaque page-clé (accueil, page de connexion, page
+  après connexion avec le compte de test) à chaque passage, stockée hors
+  dépôt (`probes/generated/`, chiffrée comme les sauvegardes si elle
+  contient du contenu métier).
+- Comparaison avec la capture de référence : masque des zones volatiles
+  (horloge, compteurs, bandeaux) déclaré dans le scénario ; mesure de
+  différence (pourcentage de pixels, hash perceptuel) et **seuil par page** ;
+  alerte « rendu modifié » avec les deux images côte à côte et le diff
+  surligné dans le hub ; validation d'une nouvelle référence en un clic
+  (déploiement légitime) -- journalisée.
+- Cas d'usage ciblés : défiguration, page d'erreur d'hébergeur, certificat
+  expiré (page d'avertissement), portail captif ou WAF qui s'interpose,
+  bascule involontaire vers un site par défaut.
+
+### 4. Jetons traversants (canaris)
+- **Mail** : envoi depuis l'extérieur (compte de test chez un fournisseur
+  tiers) d'un message porteur d'un jeton unique vers une boîte canari
+  interne ; vérification par IMAP (connecteurs #489-493) que le message est
+  arrivé, dans le délai, non altéré, avec les en-têtes attendus (SPF/DKIM/
+  DMARC pass, passage par l'antispam) ; sens inverse (interne → extérieur)
+  pour vérifier la sortie SMTP et la réputation ; lecture des journaux
+  Postfix/Dovecot correspondants (id de file, délais, rejets) pour expliquer
+  un écart.
+- **GED** : dépôt d'un document canari depuis l'extérieur avec le compte de
+  test (API ou formulaire), puis contrôle interne : présence, empreinte
+  identique, métadonnées et droits attendus, indexation, entrée dans le
+  journal d'audit de la GED (archive immuable #458-460) ; nettoyage
+  automatique des canaris datés.
+- Généralisation : un canari = {injection extérieure, observation
+  intérieure, journaux à corréler, délai max} ; autres candidats : dépôt de
+  demande SAV (#500), formulaire public, passerelle SMS (#489), webhook.
+- Chaque canari produit un chaînage « où ça s'est arrêté » (DNS → frontal →
+  service → stockage → journal) plutôt qu'un simple rouge/vert.
+
+### 5. Contraintes
+- Comptes de test à droits minimaux, cantonnés (dossier/boîte canari),
+  révocables ; aucun secret dans les scénarios, captures ou traces ; les
+  captures d'écran authentifiées ne quittent pas le central.
+- Fréquences modestes (5-15 min pour les tests HTTP, 1 h pour captures et
+  canaris) et identification claire du trafic de test (User-Agent, adresse
+  source, sujet des mails canaris) pour ne pas polluer les statistiques ni
+  déclencher les protections.
+- Ordre de réalisation proposé : 1 (inventaire DNS, gratuit avec #523) →
+  2 (scénarios HTTP + compte de test, sans navigateur) → 4 mail (canari le
+  plus simple et le plus parlant) → 3 (captures et diff) → 4 GED et autres.
