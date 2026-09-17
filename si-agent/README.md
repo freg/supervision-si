@@ -194,6 +194,13 @@ Plugins livrés (exemples des deux runners, désactivés) :
   échec, pires latences). Requiert `ip`, `ping`, `nmcli` (`iw` pour le
   SSID) ; état dans `/var/lib/si-agent/path-probe.state.json`. Activation :
   `--enable-plugin path-probe` ou depuis la fiche agent.
+- Constats des sondes → notifications (#530) : le central compare les
+  constats warning/critical de chaque mesure `plugin:wifi-probe` /
+  `plugin:path-probe` avec la précédente ; nouveaux constats → événement
+  `probe-alert` (sévérité la pire), constats disparus → `probe-recovered`
+  (info) ; ces événements suivent le circuit de notification habituel
+  (`SI_AGENT_NOTIFY_*`, `SECRETS_ALERT_*`). Un constat persistant n'est pas
+  répété.
 
 ## Installation
 

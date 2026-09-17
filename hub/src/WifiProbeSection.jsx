@@ -3,7 +3,7 @@
 // historique des derniers passages pour repérer les créneaux dégradés.
 import { useEffect, useState } from "react";
 import { fetchAgentMeasurements } from "./siAgentClient.js";
-import { wifiRows, wifiWorst, wifiTone, rssiTone, pctTone, fmt, radioSeries, channelCrowd } from "./wifiLib.js";
+import { wifiRows, wifiWorst, wifiTone, rssiTone, pctTone, fmt, radioSeries, channelCrowd, hourlyProfile } from "./wifiLib.js";
 
 function T({ tone, children, title }) {
   return <span className={`np-tone ${tone || "neutral"}`} title={title}>{children}</span>;
@@ -24,6 +24,7 @@ export default function WifiProbeSection({ apiBase, agentId, latest, when }) {
   const worst = wifiWorst(rows);
   const radios = radioSeries(hist.length ? hist : [latest]);
   const crowd = channelCrowd(radios);
+  const hours = hourlyProfile(rows);
   const alerts = d.alerts || [];
   const kv = (label, body) => <div className="sa-wide"><span className="muted">{label}</span><span>{body}</span></div>;
   return (
@@ -69,6 +70,31 @@ export default function WifiProbeSection({ apiBase, agentId, latest, when }) {
                       <td>{fmt(r.stationsMax)}</td>
                       <td><T tone={r.idleBusy ? (r.idleBusy >= r.samples / 2 ? "bad" : "warn") : "neutral"}>{r.idleBusy ? `${r.idleBusy} / ${r.samples}` : "—"}</T></td>
                       <td className="muted">{r.samples}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            </details>
+          )}
+          {hours.length > 1 && (
+            <details style={{ marginTop: 6 }}>
+              <summary className="muted">Profil horaire ({hours.length} créneaux sur {rows.length} passages) — pire créneau : {(() => { const w = [...hours].sort((a, b) => (b.busyMax ?? -1) - (a.busyMax ?? -1) || (b.jitterMax ?? -1) - (a.jitterMax ?? -1))[0]; return w ? `${w.hour}h (occupation max ${fmt(w.busyMax, " %", 0)}, gigue max ${fmt(w.jitterMax, " ms", 0)}, ${w.alerts} constat(s))` : "—"; })()}</summary>
+              <p className="muted" style={{ margin: "4px 0" }}>Les mêmes mesures regroupées par heure de la journée, pour rapprocher les plaintes des créneaux réellement dégradés (utiliser « Plus d'historique » pour couvrir plusieurs jours).</p>
+              <div className="hub-table-scroll">
+                <table>
+                  <thead><tr><th>Heure</th><th>Passages</th><th>Non associé</th><th>Occupation moy.</th><th>Occupation max</th><th>Signal moy.</th><th>Retrans. max</th><th>Gigue max</th><th>Pertes max</th><th>Constats</th></tr></thead>
+                  <tbody>{hours.map((h) => (
+                    <tr key={h.hour}>
+                      <td>{String(h.hour).padStart(2, "0")}h</td>
+                      <td>{h.samples}</td>
+                      <td><T tone={h.disconnected ? "bad" : "neutral"}>{h.disconnected || "—"}</T></td>
+                      <td><T tone={pctTone(h.busyAvg, 60, 80)}>{fmt(h.busyAvg, " %", 0)}</T></td>
+                      <td><T tone={pctTone(h.busyMax, 60, 80)}>{fmt(h.busyMax, " %", 0)}</T></td>
+                      <td><T tone={rssiTone(h.rssiAvg)}>{fmt(h.rssiAvg, " dBm")}</T></td>
+                      <td><T tone={pctTone(h.retryMax, 15, 30)}>{fmt(h.retryMax, " %", 0)}</T></td>
+                      <td><T tone={pctTone(h.jitterMax, 30, 60)}>{fmt(h.jitterMax, " ms", 0)}</T></td>
+                      <td><T tone={pctTone(h.lossMax, 1, 5)}>{fmt(h.lossMax, " %", 1)}</T></td>
+                      <td>{h.alerts || "—"}</td>
                     </tr>
                   ))}</tbody>
                 </table>

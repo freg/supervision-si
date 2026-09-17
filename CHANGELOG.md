@@ -1,3 +1,23 @@
+## 2026-09-17 — Constats des sondes notifiés, profil horaire Wi-Fi (livraison #530)
+
+Fin du point en cours du backlog item 78 (la source Nebula est mise de
+côté : à présenter au client d'abord).
+
+- Central si-agent-api : les constats warning/critical des mesures
+  `plugin:wifi-probe` et `plugin:path-probe` deviennent des événements
+  (source central) à chaque changement -- `probe-alert` (nouveaux
+  constats, sévérité la pire, message regroupé) et `probe-recovered`
+  (constats disparus, info) -- donc des notifications par les canaux
+  configurés (SMS, courriel, webhook ; seuil et anti-tempête inchangés).
+  Un constat qui persiste n'est pas répété. `store.probe_state_changes`.
+- Hub, section Wi-Fi : volet « Profil horaire » -- les passages regroupés
+  par heure de la journée (passages, non associés, occupation moyenne et
+  max, signal moyen, retransmissions / gigue / pertes max, constats), pire
+  créneau en résumé (`hourlyProfile`).
+
+Vérifié : 16 tests si-agent-api (+2), 222 tests Node (+1), syntaxe JSX.
+Non vérifié : notification réelle (aucun canal configuré sur le central).
+
 ## 2026-09-17 — Utilisation des canaux par borne dans le temps, sonde wifi-probe v3 (livraison #529)
 
 Demandé le 17 sept. devant une borne à 50 % d'utilisation 5 GHz sans aucun

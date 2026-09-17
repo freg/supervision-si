@@ -849,6 +849,16 @@ def ingest_measurements(db_path, agent_id, items, ip=None):
             elif m["task"] == "inventory" and isinstance(data, dict):
                 conn.execute("UPDATE agents SET agent_version = COALESCE(?, agent_version) WHERE agent_id = ?",
                              (data.get("agent_version"), agent_id))
+            elif m["task"] in PROBE_TASKS and isinstance(data, dict):
+                # #530 : constats des sondes -> événements (nouveau constat, retour à la normale) -> notifications
+                for ev in probe_state_changes(conn, agent_id, m["task"], m["at"], data):
+                    try:
+                        conn.execute("INSERT INTO events (at, agent_id, site, source, kind, severity, message, details) VALUES (?, ?, ?, 'central', ?, ?, ?, ?)",
+                                     (m["at"], agent_id, site_of(conn, agent_id), ev["kind"], ev["severity"], ev["message"],
+                                      json.dumps(ev["details"], ensure_ascii=False)))
+                        events_seen.append({"at": m["at"], "kind": ev["kind"], "severity": ev["severity"], "message": ev["message"], "agent_id": agent_id})
+                    except sqlite3.IntegrityError:
+                        pass
             elif m["task"] == "plugin:proxmox" and isinstance(data, dict):
                 for ev in proxmox_state_changes(conn, agent_id, m["at"], data):
                     try:
@@ -938,6 +948,53 @@ def _vm_states(data):
         if vm.get("vmid") is not None and not vm.get("template"):
             out[int(vm["vmid"])] = (vm.get("status") or "?", vm.get("name"), vm.get("type"))
     return out
+
+
+PROBE_TASKS = ("plugin:wifi-probe", "plugin:path-probe")
+PROBE_LABELS = {"plugin:wifi-probe": "Wi-Fi vu du poste", "plugin:path-probe": "chemin de service"}
+
+
+def _probe_alerts(data):
+    """{code: (sévérité, message)} des constats warning/critical d'une mesure de sonde."""
+    out = {}
+    for a in (data or {}).get("alerts") or []:
+        if isinstance(a, dict) and a.get("code") and a.get("severity") in ("warning", "critical"):
+            out[str(a["code"])[:64]] = (a["severity"], str(a.get("message") or "")[:300])
+    return out
+
+
+def probe_state_changes(conn, agent_id, task, at, data):
+    """#530 : compare les constats (warning/critical) d'une mesure de sonde
+    wifi-probe / path-probe avec la mesure précédente du même agent ->
+    événements « probe-alert » (nouveau constat, sévérité du constat) et
+    « probe-recovered » (constat disparu, info). Un constat qui persiste
+    n'est pas répété : l'anti-tempête des notifications n'a rien à faire.
+    Première mesure : ses constats sont des nouveautés."""
+    after = _probe_alerts(data)
+    prev = conn.execute("SELECT data FROM measurements WHERE agent_id = ? AND task = ? AND at < ? ORDER BY at DESC LIMIT 1",
+                        (agent_id, task, at)).fetchone()
+    before = {}
+    if prev and prev["data"]:
+        try:
+            before = _probe_alerts(json.loads(prev["data"]))
+        except (TypeError, ValueError):
+            before = {}
+    label = PROBE_LABELS.get(task, task)
+    # UNIQUE(agent, source, at, kind) sur la table events : un seul événement
+    # par genre et par mesure, les constats sont regroupés dedans.
+    new = [(code, sev, msg) for code, (sev, msg) in after.items() if code not in before or before[code][0] != sev]
+    gone = [(code, sev) for code, (sev, msg) in before.items() if code not in after]
+    events = []
+    if new:
+        sev = "critical" if any(n[1] == "critical" for n in new) else "warning"
+        events.append({"kind": "probe-alert", "severity": sev,
+                       "message": "%s : %s" % (label, " ; ".join((n[2] or n[0]) for n in new))[:500],
+                       "details": {"task": task, "codes": [n[0] for n in new], "state": (data.get("summary") or {}).get("state")}})
+    if gone:
+        events.append({"kind": "probe-recovered", "severity": "info",
+                       "message": "%s : fin du constat %s" % (label, ", ".join("« %s »" % g[0] for g in gone)),
+                       "details": {"task": task, "codes": [g[0] for g in gone]}})
+    return events
 
 
 def proxmox_state_changes(conn, agent_id, at, data):

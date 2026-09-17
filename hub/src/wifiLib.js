@@ -105,3 +105,23 @@ export function channelCrowd(series) {
   return Object.entries(by).map(([channel, radios]) => ({ channel: Number(channel), radios: radios.length, utilMax: radios.reduce((m, r) => (r.last?.util != null && (m == null || r.last.util > m) ? r.last.util : m), null) }))
     .sort((a, b) => b.radios - a.radios || a.channel - b.channel);
 }
+
+/** #530 : profil par heure de la journée (créneaux de cours) sur la fenêtre
+ *  d'historique -- passages, non associés, occupation moyenne/max, signal
+ *  moyen, gigue max, pertes max, retransmissions max. Heure locale du
+ *  navigateur (comme l'affichage des mesures). */
+export function hourlyProfile(rows) {
+  const by = {};
+  for (const r of rows || []) {
+    const h = new Date(r.at).getHours();
+    if (Number.isNaN(h)) continue;
+    const e = by[h] || (by[h] = { hour: h, samples: 0, disconnected: 0, busySum: 0, busyN: 0, busyMax: null, rssiSum: 0, rssiN: 0, jitterMax: null, lossMax: null, retryMax: null, alerts: 0 });
+    e.samples += 1;
+    if (!r.connected) { e.disconnected += 1; continue; }
+    if (r.busy != null) { e.busySum += r.busy; e.busyN += 1; if (e.busyMax == null || r.busy > e.busyMax) e.busyMax = r.busy; }
+    if (r.rssi != null) { e.rssiSum += r.rssi; e.rssiN += 1; }
+    for (const [k, m] of [["jitter", "jitterMax"], ["loss", "lossMax"], ["retry", "retryMax"]]) if (r[k] != null && (e[m] == null || r[k] > e[m])) e[m] = r[k];
+    e.alerts += r.alerts || 0;
+  }
+  return Object.values(by).map((e) => ({ ...e, busyAvg: e.busyN ? e.busySum / e.busyN : null, rssiAvg: e.rssiN ? e.rssiSum / e.rssiN : null })).sort((a, b) => a.hour - b.hour);
+}

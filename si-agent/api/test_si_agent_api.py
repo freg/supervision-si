@@ -524,3 +524,40 @@ class BlockAndEventsTests(ApiBase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ProbeEvents(unittest.TestCase):
+    """#530 : constats des sondes -> événements notifiables (nouveau / retour à la normale)."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.db = os.path.join(self.tmp, "t.db")
+        store.ensure_schema(self.db)
+        store.create_agent(self.db, "a1", "exemple")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def measure(self, at, alerts, task="plugin:path-probe"):
+        return {"task": task, "at": at, "data": {"alerts": alerts, "summary": {"state": "critical" if any(a["severity"] == "critical" for a in alerts) else "ok"}}}
+
+    def test_new_and_recovered(self):
+        dns = {"severity": "warning", "code": "dns-server-down", "message": "DNS 192.0.2.5 muet"}
+        portal = {"severity": "critical", "code": "captive-portal", "message": "HTTP intercepté"}
+        _, _, _, ev = store.ingest_measurements(self.db, "a1", [self.measure("2026-09-17T10:00:00Z", [dns])])
+        self.assertEqual([(e["kind"], e["severity"]) for e in ev], [("probe-alert", "warning")])
+        self.assertIn("chemin de service", ev[0]["message"])
+        # constat persistant : rien ; nouveau constat critique : un événement
+        _, _, _, ev = store.ingest_measurements(self.db, "a1", [self.measure("2026-09-17T10:01:00Z", [dns, portal])])
+        self.assertEqual([(e["kind"], e["severity"]) for e in ev], [("probe-alert", "critical")])
+        # les deux disparaissent : UN retour à la normale (info) qui les cite
+        _, _, _, ev = store.ingest_measurements(self.db, "a1", [self.measure("2026-09-17T10:02:00Z", [])])
+        self.assertEqual([(e["kind"], e["severity"]) for e in ev], [("probe-recovered", "info")])
+        self.assertIn("dns-server-down", ev[0]["message"]); self.assertIn("captive-portal", ev[0]["message"])
+        # deux constats nouveaux d'un coup : un seul événement, sévérité la pire
+        _, _, _, ev = store.ingest_measurements(self.db, "a1", [self.measure("2026-09-17T10:03:00Z", [dns, portal])])
+        self.assertEqual([(e["kind"], e["severity"]) for e in ev], [("probe-alert", "critical")])
+
+    def test_info_alerts_ignored(self):
+        _, _, _, ev = store.ingest_measurements(self.db, "a1", [self.measure("2026-09-17T10:00:00Z", [{"severity": "info", "code": "co-channel", "message": "x"}], task="plugin:wifi-probe")])
+        self.assertEqual(ev, [])

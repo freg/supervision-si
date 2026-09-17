@@ -57,3 +57,19 @@ test("radioSeries : utilisation par borne dans le temps (#529)", () => {
   assert.deepEqual(c.map((x) => [x.channel, x.radios, x.utilMax]), [[36, 1, 20], [48, 1, 55]]);
   assert.deepEqual(radioSeries(null), []);
 });
+
+import { hourlyProfile } from "../src/wifiLib.js";
+
+test("hourlyProfile : créneaux horaires (#530)", () => {
+  const rows = [
+    { at: "2026-09-17T08:10:00Z", connected: true, busy: 20, rssi: -50, jitter: 2, loss: 0, retry: 5, alerts: 0 },
+    { at: "2026-09-17T08:40:00Z", connected: true, busy: 60, rssi: -70, jitter: 40, loss: 3, retry: 20, alerts: 2 },
+    { at: "2026-09-17T08:50:00Z", connected: false, alerts: 1 },
+    { at: "2026-09-17T09:05:00Z", connected: true, busy: 10, rssi: -55, jitter: 1, loss: 0, retry: 2, alerts: 0 },
+  ];
+  const p = hourlyProfile(rows);
+  assert.equal(p.length, 2);
+  const h8 = p.find((x) => x.hour === new Date("2026-09-17T08:10:00Z").getHours());
+  assert.deepEqual([h8.samples, h8.disconnected, h8.busyAvg, h8.busyMax, h8.rssiAvg, h8.jitterMax, h8.lossMax, h8.retryMax, h8.alerts], [3, 1, 40, 60, -60, 40, 3, 20, 2]);
+  assert.deepEqual(hourlyProfile(null), []);
+});
