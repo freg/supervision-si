@@ -148,7 +148,9 @@ public static class SiAgentTrustAll {
   Copy-Item $Ca $caFile -Force
 }
 
-# --- 4. configuration ---------------------------------------------------------------------
+# --- 4. configuration (conservée telle quelle en -Upgrade : #528, elle était réécrite à vide) ---
+$cfgPath = Join-Path $DataDir "agent.json"
+if (-not $Upgrade) {
 $plugins = @{}
 foreach ($p in $EnablePlugin) { if ($p) { $plugins[$p] = @{ enabled = $true } } }
 $cfg = [ordered]@{
@@ -159,8 +161,8 @@ $cfg = [ordered]@{
   state_path = (Join-Path $DataDir "state.json"); block_file = (Join-Path $DataDir "BLOCKED")
 }
 if (Test-Path $caFile) { $cfg.ca_file = $caFile }
-$cfgPath = Join-Path $DataDir "agent.json"
 [IO.File]::WriteAllText($cfgPath, ($cfg | ConvertTo-Json -Depth 4), (New-Object Text.UTF8Encoding($false)))
+}
 # lecture réservée à SYSTEM et aux administrateurs (le secret est dedans)
 & icacls $DataDir /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" | Out-Null
 

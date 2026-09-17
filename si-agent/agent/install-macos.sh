@@ -81,7 +81,8 @@ else
 fi
 chmod 750 "$VAR"/plugins/*/*.sh "$VAR"/plugins/*/*.py 2>/dev/null || true
 
-SI_AGENT_FALLBACK="$FALLBACK" "$PY" - "$AGENT" "$SECRET" "$CENTRAL" "$SITE" "$INSECURE" "$PLUGINS_USER" "$LOG_LEVEL" "$ETC" "$VAR" "${ENABLE[@]:-}" <<'PY'
+# --upgrade (#522) : la configuration existante est conservée -- corrigé #528 (elle était réécrite à vide)
+[ "$UPGRADE" = "true" ] || SI_AGENT_FALLBACK="$FALLBACK" "$PY" - "$AGENT" "$SECRET" "$CENTRAL" "$SITE" "$INSECURE" "$PLUGINS_USER" "$LOG_LEVEL" "$ETC" "$VAR" "${ENABLE[@]:-}" <<'PY'
 import json, os, sys
 agent, secret, central, site, insecure, plugins_user, log_level, etc, var = sys.argv[1:10]
 enable = [e for e in sys.argv[10:] if e]

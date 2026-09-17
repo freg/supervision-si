@@ -1,3 +1,23 @@
+## 2026-09-17 — Correctif : `--upgrade` macOS et Windows effaçait la configuration (livraison #528)
+
+Constaté en réel sur un Mac : `install-macos.sh --upgrade` (#522) réécrivait
+`agent.json` avec un identifiant, un secret et un central vides -- l'agent
+ne redémarrait plus (« champ 'agent_id' manquant »). Même défaut dans
+`windows/install.ps1 -Upgrade` (le commentaire promettait la conservation,
+le code écrasait). `install.sh` Linux était correct.
+
+- `install-macos.sh` : le bloc d'écriture de la configuration est sauté en
+  `--upgrade` (même garde que Linux) ; `windows/install.ps1` : idem
+  (`if (-not $Upgrade)`), les droits du dossier sont toujours réappliqués.
+- Agent **0.5.8** (ce sont les installeurs de l'archive qui portent le
+  correctif : un agent macOS/Windows déjà en 0.5.7 doit être mis à jour à
+  partir de la 0.5.8 ; ceux passés par l'auto-mise à jour 0.5.7 sur
+  macOS/Windows ont perdu leur configuration : les réenrôler avec « Nouveau
+  secret » depuis la fiche agent).
+
+Vérifié : `bash -n`, relecture du PowerShell. Non vérifié : passage réel
+`--upgrade` sur macOS et Windows (à faire avec la 0.5.8).
+
 ## 2026-09-17 — Sonde « chemin de service » path-probe (livraison #527)
 
 Demandé après l'incident Wi-Fi du jour (DNS interne mort + VLAN absents

@@ -848,4 +848,5 @@ Windows (tâche planifiée) ; sous Linux `systemd-run` isole l'installeur
 du service qu'il redémarre. Agent **0.5.3** ; **0.5.4** (#524) : `install.sh`
 détecte un hôte Proxmox VE et redémarre toujours le service. **0.5.5** (#525) :
 sonde `wifi-probe` ; **0.5.6** (#526) : sonde v2 ; **0.5.7** (#527) : sonde
-`path-probe`.
+`path-probe` ; **0.5.8** (#528) : `--upgrade` macOS/Windows conserve la
+configuration (elle était effacée).
