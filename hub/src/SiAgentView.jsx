@@ -12,6 +12,7 @@ import {
 } from "./siAgent.js";
 // #525 : section « Wi-Fi vu du poste » (sonde wifi-probe, famille explorer).
 import WifiProbeSection from "./WifiProbeSection.jsx";
+import PathProbeSection from "./PathProbeSection.jsx";
 
 // Tuile « Agents hôtes » (livraison #421, backlog 63) -- flotte des agents
 // si-agent (surveillance de l'hôte : CPU, mémoire, disques, services,
@@ -565,6 +566,9 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                   {/* #525 : sonde Wi-Fi « expérience client » -- affichée dès qu'une mesure existe */}
                   {section.network && detail.latest?.["plugin:wifi-probe"] && (
                     <WifiProbeSection apiBase={siAgentApiBase} agentId={selectedId} latest={detail.latest["plugin:wifi-probe"]} when={when} />
+                  )}
+                  {section.network && detail.latest?.["plugin:path-probe"] && (
+                    <PathProbeSection apiBase={siAgentApiBase} agentId={selectedId} latest={detail.latest["plugin:path-probe"]} when={when} />
                   )}
                   {section.network && (
                     <>

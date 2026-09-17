@@ -1,3 +1,37 @@
+## 2026-09-17 — Sonde « chemin de service » path-probe (livraison #527)
+
+Demandé après l'incident Wi-Fi du jour (DNS interne mort + VLAN absents
+des liaisons inter-switchs, puis un poste « sans Internet » alors que le
+réseau était validé) : « rendre ça durable côté supervision : bail + DNS
+relais + DNS public + HTTP réel par chaque SSID, toutes les minutes » --
+« JE VEUX !!!! ».
+
+- `si-agent/agent/plugins/path-probe/` (python stdlib, privilégiée, toutes
+  les minutes, désactivée par défaut) : par interface IPv4 du poste --
+  bail (adresse, serveur DHCP, passerelle et DNS reçus, âge / durée ;
+  statique signalé), ping de la passerelle, requête DNS brute (UDP/53,
+  sans `dig`) vers CHAQUE serveur distribué puis vers 8.8.8.8 / 1.1.1.1,
+  GET HTTP d'une page de test (portail captif : redirection ou contenu
+  inattendu) et HTTPS (certificat vérifié). Sockets liés à l'adresse de
+  l'interface ; interface sans route par défaut : table de routage
+  temporaire (`ip rule` / `ip route table`) posée puis retirée. Option
+  `--connections c1,c2` : rotation des connexions NetworkManager, un vrai
+  échange DHCP par SSID à tour de rôle. Constats : no-ip, conn-up-failed,
+  gw-unreachable / gw-loss / gw-slow, dns-none, dns-single,
+  dns-server-down (le scénario du jour : un DNS distribué muet parmi
+  d'autres), dns-all-down, dns-slow, dns-public-down, http-/https-failed,
+  captive-portal, http-/https-slow.
+- Hub : section « Chemin de service vu du poste » de la fiche agent
+  (`PathProbeSection.jsx`, `pathLib.js`) -- tableau par chemin, constats,
+  historique par chemin avec pires valeurs et comptes d'échecs.
+- Agent **0.5.7** (nouvelle sonde livrée dans l'archive → auto-mise à
+  jour) ; README agent ; backlog item 78.
+
+Vérifié : 11 tests Python (analyseurs nmcli/ping, requête et réponse DNS
+brutes, constats, rotation), 220 tests Node, syntaxe JSX. Non vérifié :
+passage réel sur le poste du campus (la VM de travail n'a pas d'interface
+IPv4) -- à activer sur le mini PC avec `--connections <conn-ssid-1>,<conn-ssid-2>`.
+
 ## 2026-09-17 — Sonde wifi-probe v2 après premier retour terrain (livraison #526)
 
 Première mesure réelle (poste sur le LAN d'un campus, borne Zyxel, pilote

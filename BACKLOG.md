@@ -2820,6 +2820,13 @@ utilization par bande, clients, canal DCS) tirée par le central toutes les
 5 min avec jeton du coffre ; graphe par borne et par heure, corrélation
 avec les plaintes (créneaux de cours), alerte Cortex « canal saturé sans
 charge = interférence / co-canal ».
+Livré #527 : sonde `path-probe` (bail, passerelle, chaque DNS distribué,
+DNS publics, HTTP/HTTPS, rotation des SSID). Suites : alertes Cortex sur
+`dns-server-down` / `captive-portal` / `no-ip` (un DNS distribué muet = le
+signal précoce de l'incident du 17 sept.) ; vue « par SSID » côté central
+(fusion des passages de tous les postes d'un site) ; cible HTTP interne
+(GED, tickets) en plus de la page publique ; mesurer aussi le renouvellement
+forcé du bail (`nmcli device reapply`) sans rotation ; test IPv6.
 
 ## Infos synthèse SI — suites (2026-09-16, #523) — item 79
 

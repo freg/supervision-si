@@ -162,6 +162,35 @@ Plugins livrés (exemples des deux runners, désactivés) :
   Requiert `iw`, `ping`, `ip` ; état entre deux passages dans
   `/var/lib/si-agent/wifi-probe.state.json`. Activation : `--enable-plugin
   wifi-probe` ou depuis la fiche agent.
+- `path-probe` (python, privilégié, #527) — **sonde « chemin de service »**,
+  deuxième sonde *explorer* : rejoue chaque minute, par interface IPv4 du
+  poste, ce qu'un utilisateur subit quand il dit « je n'ai plus Internet »,
+  dans l'ordre où ça casse -- **bail** (adresse, serveur DHCP, passerelle et
+  DNS reçus, âge / durée du bail ; adresse statique signalée), **passerelle**
+  (ping court : latence, pertes), **DNS distribués** (requête UDP/53 vers
+  CHAQUE serveur reçu du DHCP : un serveur mort parmi d'autres est un
+  constat, un seul serveur distribué en est un autre), **DNS publics**
+  (8.8.8.8, 1.1.1.1 : sortie UDP/53), **HTTP réel** (GET d'une page de test
+  connue ; portail captif / interception détectés sur la redirection ou le
+  contenu) et **HTTPS** (certificat vérifié ; certificat invalide =
+  interception). Sockets liés à l'adresse de l'interface ; interface sans
+  route par défaut (Wi-Fi d'observation) : table de routage dédiée posée le
+  temps du passage (`ip rule from <ip> lookup 250+i`) puis retirée. Option
+  `--connections wifi-a,wifi-b` dans le manifeste : à chaque passage la
+  sonde active la connexion NetworkManager suivante, donc un **vrai échange
+  DHCP sur chaque SSID à tour de rôle** (la sonde `wifi-probe` mesure alors
+  le SSID actif, son historique reste lisible par SSID). Autres arguments :
+  `--name` (nom résolu, défaut `www.google.com`), `--public-dns`, `--http`,
+  `--https` (`none` pour désactiver). Constats sans action : pas d'adresse,
+  activation échouée, passerelle injoignable / pertes / lente, aucun DNS
+  distribué, DNS unique, DNS distribué muet, tous muets, DNS publics coupés,
+  HTTP/HTTPS en échec, portail captif, résolution ou page lente. Fiche agent
+  → section « Chemin de service vu du poste » : tableau par chemin (bail,
+  passerelle, chaque DNS avec sa latence, publics, HTTP, HTTPS, état),
+  constats, historique par chemin (passages sans adresse, DNS muet, HTTP en
+  échec, pires latences). Requiert `ip`, `ping`, `nmcli` (`iw` pour le
+  SSID) ; état dans `/var/lib/si-agent/path-probe.state.json`. Activation :
+  `--enable-plugin path-probe` ou depuis la fiche agent.
 
 ## Installation
 
@@ -818,4 +847,5 @@ Non vérifié en réel : le redémarrage détaché sous macOS (LaunchDaemon) et
 Windows (tâche planifiée) ; sous Linux `systemd-run` isole l'installeur
 du service qu'il redémarre. Agent **0.5.3** ; **0.5.4** (#524) : `install.sh`
 détecte un hôte Proxmox VE et redémarre toujours le service. **0.5.5** (#525) :
-sonde `wifi-probe` ; **0.5.6** (#526) : sonde v2.
+sonde `wifi-probe` ; **0.5.6** (#526) : sonde v2 ; **0.5.7** (#527) : sonde
+`path-probe`.
