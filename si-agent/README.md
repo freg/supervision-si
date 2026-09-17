@@ -155,6 +155,10 @@ Plugins livrés (exemples des deux runners, désactivés) :
   associé, signal faible, retransmissions, canal saturé, débit négocié bas,
   gigue/pertes, borne chargée, 2,4 GHz. Fiche agent → section « Wi-Fi vu du
   poste » avec historique des passages (pires valeurs, bornes utilisées).
+  v2 (#526, premier retour terrain) : trafic généré avant la lecture du
+  lien (au repos le pilote annonce 6 Mbit/s), passerelle lue dans l'option
+  DHCP `routers` (le Wi-Fi n'a pas de route par défaut), co-canal compté
+  par borne et non par SSID, pas d'alerte débit sans échantillon de trafic.
   Requiert `iw`, `ping`, `ip` ; état entre deux passages dans
   `/var/lib/si-agent/wifi-probe.state.json`. Activation : `--enable-plugin
   wifi-probe` ou depuis la fiche agent.
@@ -814,4 +818,4 @@ Non vérifié en réel : le redémarrage détaché sous macOS (LaunchDaemon) et
 Windows (tâche planifiée) ; sous Linux `systemd-run` isole l'installeur
 du service qu'il redémarre. Agent **0.5.3** ; **0.5.4** (#524) : `install.sh`
 détecte un hôte Proxmox VE et redémarre toujours le service. **0.5.5** (#525) :
-sonde `wifi-probe`.
+sonde `wifi-probe` ; **0.5.6** (#526) : sonde v2.

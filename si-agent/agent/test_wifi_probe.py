@@ -62,13 +62,21 @@ SCAN = """BSS 02:11:22:33:44:55(on wlan0) -- associated
 \t\t * available admission capacity: 31250 [*32us]
 \tHT operation:
 \t\t * primary channel: 48
-BSS 02:11:22:33:44:66(on wlan0)
+BSS 02:11:22:33:55:66(on wlan0)
 \tfreq: 5240
 \tsignal: -75.00 dBm
 \tSSID: Campus
 \tBSS Load:
 \t\t * station count: 3
 \t\t * channel utilisation: 20/255
+BSS 02:11:22:33:55:67(on wlan0)
+\tfreq: 5240
+\tsignal: -76.00 dBm
+\tSSID: Campus-invites
+BSS 02:11:22:33:44:56(on wlan0)
+\tfreq: 5240
+\tsignal: -61.00 dBm
+\tSSID: Campus-invites
 BSS 02:aa:bb:cc:dd:ee(on wlan0)
 \tfreq: 2437
 \tsignal: -70.00 dBm
@@ -118,15 +126,21 @@ class TestAnalyseurs(unittest.TestCase):
 
     def test_scan_et_voisinage(self):
         sc = wp.parse_scan(SCAN)
-        self.assertEqual(len(sc), 3)
+        self.assertEqual(len(sc), 5)
         self.assertEqual((sc[0]["stations"], sc[0]["utilisation_pct"], sc[0]["channel"], sc[0]["associated"]), (12, 50.2, 48, True))
-        self.assertEqual(sc[2]["channel"], 6)
+        self.assertEqual(sc[-1]["channel"], 6)
         n = wp.neighbourhood(sc, wp.parse_link(LINK))
-        self.assertEqual(n["bss_count"], 3)
-        self.assertEqual(n["channels"], {"6": 1, "48": 2})
-        self.assertEqual([b["bssid"] for b in n["co_channel"]], ["02:11:22:33:44:66"])
+        self.assertEqual(n["bss_count"], 5)
+        self.assertEqual(n["channels"], {"6": 1, "48": 4})
+        # 3 BSS co-canal, mais un seul appartient à une AUTRE radio (...:55:6x) ;
+        # ...:44:56 est un second SSID de notre propre borne
+        self.assertEqual((n["co_channel_bss"], n["co_channel_radios"]), (3, 1))
+        self.assertEqual([b["bssid"] for b in n["co_channel"]], ["02:11:22:33:55:66"])
         self.assertEqual(n["same_ssid"][0]["signal_dbm"], -75.0)
         self.assertEqual(n["our_bss"], {"stations": 12, "utilisation_pct": 50.2})
+        # balises sans BSS Load (Zyxel) : pas de bloc our_bss plutot que des « ? »
+        sc2 = [{k: v for k, v in b.items() if k not in ("stations", "utilisation_pct")} for b in sc]
+        self.assertIsNone(wp.neighbourhood(sc2, wp.parse_link(LINK))["our_bss"])
 
     def test_ping_iperf(self):
         p = wp.parse_ping(PING)
@@ -151,8 +165,8 @@ class TestConstats(unittest.TestCase):
 
     def test_lien_degrade(self):
         link = dict(wp.parse_link(LINK), signal_dbm=-72, tx_mbit=12.0, band="2.4 GHz")
-        al = wp.evaluate(link, {"retry_pct": 35.0, "failed_pct": 2.0}, {"busy_pct": 85.0, "other_pct": 60.0},
-                         {"our_bss": {"stations": 30, "utilisation_pct": 70}, "co_channel": [1, 2, 3]},
+        al = wp.evaluate(link, {"retry_pct": 35.0, "failed_pct": 2.0, "window_packets": 120}, {"busy_pct": 85.0, "other_pct": 60.0},
+                         {"our_bss": {"stations": 30, "utilisation_pct": 70}, "co_channel": [1, 2, 3], "co_channel_radios": 3, "co_channel_bss": 9},
                          wp.parse_ping(PING), {"loss_pct": 2.0, "jitter_ms": 40.0})
         codes = {a["code"]: a["severity"] for a in al}
         self.assertEqual(codes["rssi"], "warning")
@@ -163,6 +177,17 @@ class TestConstats(unittest.TestCase):
         self.assertEqual((codes["loss"], codes["jitter"]), ("critical", "warning"))
         self.assertEqual((codes["iperf-loss"], codes["iperf-jitter"], codes["bss-load"], codes["co-channel"]), ("warning", "warning", "warning", "info"))
         self.assertEqual(wp.summarize(al)["state"], "critical")
+
+    def test_debit_bas_sans_trafic(self):
+        # au repos le pilote annonce 6 Mbit/s : pas d'alerte sans echantillon de trafic
+        link = dict(wp.parse_link(LINK), tx_mbit=6.0)
+        self.assertEqual([a["code"] for a in wp.evaluate(link, {"window_packets": 19}, None, None, None, None)], [])
+        self.assertIn("low-rate", [a["code"] for a in wp.evaluate(link, {"window_packets": 80}, None, None, None, None)])
+
+    def test_survey_a_zero(self):
+        # pilote qui liste toutes les frequences avec des compteurs nuls (mt76) : pas d'occupation
+        sv = wp.parse_survey("Survey data from w\n\tfrequency: 5180 MHz [in use]\n\tchannel active time: 0 ms\n\tchannel busy time: 0 ms\n")
+        self.assertIsNone(wp.channel_usage(sv, None))
 
     def test_seuils_personnalises(self):
         link = dict(wp.parse_link(LINK), signal_dbm=-66)

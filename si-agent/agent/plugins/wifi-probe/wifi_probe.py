@@ -33,7 +33,7 @@ import subprocess
 import sys
 import time
 
-VERSION = "1"
+VERSION = "2"
 STATE_DEFAULT = "/var/lib/si-agent/wifi-probe.state.json"
 THRESHOLDS = {"rssi_warn": -70, "rssi_crit": -80, "retry_pct_warn": 15.0, "retry_pct_crit": 30.0,
               "busy_pct_warn": 60.0, "busy_pct_crit": 80.0, "tx_mbit_warn": 24.0, "jitter_ms_warn": 30.0,
@@ -106,7 +106,7 @@ def parse_station(text):
         return out
     keys = {"tx packets": "tx_packets", "tx retries": "tx_retries", "tx failed": "tx_failed", "rx packets": "rx_packets",
             "rx drop misc": "rx_drop", "beacon loss": "beacon_loss", "connected time": "connected_s",
-            "inactive time": "inactive_ms"}
+            "inactive time": "inactive_ms", "tx duration": "tx_duration_us", "rx duration": "rx_duration_us"}
     for line in text.splitlines():
         line = line.strip()
         for k, name in keys.items():
@@ -170,7 +170,7 @@ def channel_usage(survey, prev_survey=None):
     (croissants) sinon en absolu ; None si rien d'exploitable."""
     cur = next((s for s in survey if s.get("in_use")), None)
     if not cur or not cur.get("active_ms"):
-        return None
+        return None  # pilote sans relevé d'occupation (compteurs absents ou à zéro)
     prev = next((s for s in (prev_survey or []) if s.get("freq") == cur.get("freq")), None)
     a, b, tx, rx = cur.get("active_ms", 0), cur.get("busy_ms", 0), cur.get("tx_ms", 0), cur.get("rx_ms", 0)
     delta = False
@@ -225,12 +225,27 @@ def neighbourhood(scan, link):
     same_ssid = sorted([b for b in scan if link.get("ssid") and b.get("ssid") == link["ssid"] and b["bssid"] != link.get("bssid")],
                        key=lambda b: -(b.get("signal_dbm") or -100))
     co = [b for b in per_channel.get(link.get("channel"), []) if b["bssid"] != link.get("bssid")] if link.get("channel") else []
-    return {"bss_count": len(scan),
+    # Une borne diffuse plusieurs SSID avec des BSSID voisins (même préfixe, dernier
+    # octet à quelques unités) : on compte les RADIOS co-canal, pas les SSID.
+    def radio_key(b):
+        return b[:14]  # 5 premiers octets
+    ours_key = radio_key(link.get("bssid") or "")
+    radios = {}
+    for b in co:
+        k = radio_key(b["bssid"])
+        if k == ours_key:
+            continue
+        if k not in radios or (b.get("signal_dbm") or -100) > (radios[k].get("signal_dbm") or -100):
+            radios[k] = b
+    co_radios = sorted(radios.values(), key=lambda b: -(b.get("signal_dbm") or -100))
+    return {"bss_count": len(scan), "co_channel_radios": len(co_radios),
+            "co_channel_bss": len(co),
             "channels": {str(k): len(v) for k, v in sorted(per_channel.items(), key=lambda kv: (kv[0] is None, kv[0]))},
-            "co_channel": [{"bssid": b["bssid"], "ssid": b.get("ssid"), "signal_dbm": b.get("signal_dbm")} for b in co][:10],
+            "co_channel": [{"bssid": b["bssid"], "ssid": b.get("ssid"), "signal_dbm": b.get("signal_dbm")} for b in co_radios][:10],
             "same_ssid": [{"bssid": b["bssid"], "channel": b.get("channel"), "signal_dbm": b.get("signal_dbm"),
                            "stations": b.get("stations"), "utilisation_pct": b.get("utilisation_pct")} for b in same_ssid][:10],
-            "our_bss": {"stations": ours.get("stations"), "utilisation_pct": ours.get("utilisation_pct")} if ours else None}
+            "our_bss": ({"stations": ours.get("stations"), "utilisation_pct": ours.get("utilisation_pct")}
+                        if ours and (ours.get("stations") is not None or ours.get("utilisation_pct") is not None) else None)}
 
 
 def parse_ping(text):
@@ -287,7 +302,7 @@ def evaluate(link, station_rates, usage, neigh, ping, iperf, t=None):
         elif b >= t["busy_pct_warn"]:
             add("warning", "busy", "canal occupé à %s %% (dont %s %% par d'autres)" % (b, usage.get("other_pct")))
     tx = link.get("tx_mbit")
-    if tx is not None and tx < t["tx_mbit_warn"]:
+    if tx is not None and tx < t["tx_mbit_warn"] and (station_rates.get("window_packets") or 0) >= 50:
         add("warning", "low-rate", "débit négocié bas (%s Mbit/s) : borne lointaine ou client rétrogradé" % tx)
     if link.get("band") == "2.4 GHz":
         add("info", "band-2g4", "associé en 2,4 GHz : bande encombrée, préférer le 5 GHz pour le cast")
@@ -310,9 +325,11 @@ def evaluate(link, station_rates, usage, neigh, ping, iperf, t=None):
         add("warning", "bss-load", "la borne annonce %s %% d'utilisation de son canal (%s stations)" % (ob["utilisation_pct"], ob.get("stations")))
     elif (ob.get("stations") or 0) >= t["bss_stations_warn"]:
         add("info", "bss-stations", "%s stations sur la borne" % ob["stations"])
-    co = (neigh or {}).get("co_channel") or []
-    if len(co) >= 3:
-        add("info", "co-channel", "%d autres bornes sur le même canal" % len(co))
+    nco = (neigh or {}).get("co_channel_radios")
+    if nco is None:
+        nco = len((neigh or {}).get("co_channel") or [])
+    if nco >= 3:
+        add("info", "co-channel", "%d autres bornes (radios) sur le même canal, %s BSS au total" % (nco, (neigh or {}).get("co_channel_bss", "?")))
     return al
 
 
@@ -344,11 +361,23 @@ def detect_target(iface):
     if m:
         return m.group(1)
     code, out, _ = run(["nmcli", "-g", "IP4.GATEWAY", "device", "show", iface], 10)
-    if code == 0 and out.strip():
+    if code == 0 and out.strip() and out.strip() != "--":
         return out.strip().splitlines()[0]
+    # sans route par défaut sur le Wi-Fi (voulu), la passerelle est dans l'option DHCP `routers`
+    code, out, _ = run(["nmcli", "-f", "DHCP4", "device", "show", iface], 10)
+    m = re.search(r"routers = (\d+\.\d+\.\d+\.\d+)", out or "")
+    if m:
+        return m.group(1)
     code, out, _ = run(["ip", "-4", "-o", "addr", "show", "dev", iface], 10)
-    m = re.search(r"inet (\d+\.\d+\.\d+)\.\d+/", out)
-    return (m.group(1) + ".1") if m else None
+    m = re.search(r"inet (\d+\.\d+\.\d+\.\d+)/(\d+)", out or "")
+    if not m:
+        return None
+    try:
+        import ipaddress
+        net = ipaddress.ip_network("%s/%s" % (m.group(1), m.group(2)), strict=False)
+        return str(net.network_address + 1)
+    except ValueError:
+        return None
 
 
 def load_state(path):
@@ -383,6 +412,16 @@ def collect(iface=None, target=None, iperf_host=None, do_scan=True, state_path=S
     link = parse_link(out) if code == 0 else {"connected": False, "error": (err or out)[:200]}
     station, usage, neigh, ping, iperf = {}, None, None, None, None
     if link.get("connected"):
+        # v2 : générer du trafic d'abord (ping), puis lire lien/station -- au repos le
+        # pilote annonce le débit des trames de gestion (6 Mbit/s), pas celui du lien.
+        target = target if target and target != "auto" else detect_target(iface)
+        if target:
+            code, out, _ = run(["ping", "-I", iface, "-n", "-q", "-c", "20", "-i", "0.2", "-W", "1", target], 40)
+            ping = parse_ping(out)
+            ping["target"] = target
+        code, out, _ = run(["iw", "dev", iface, "link"], 15)
+        if code == 0 and parse_link(out).get("connected"):
+            link = parse_link(out)
         code, out, _ = run(["iw", "dev", iface, "station", "dump"], 15)
         station = parse_station(out) if code == 0 else {}
         code, out, _ = run(["iw", "dev", iface, "survey", "dump"], 15)
@@ -394,11 +433,6 @@ def collect(iface=None, target=None, iperf_host=None, do_scan=True, state_path=S
                 neigh = neighbourhood(parse_scan(out), link)
             else:
                 neigh = {"error": (err or out)[:200].strip() or "scan refusé"}
-        target = target if target and target != "auto" else detect_target(iface)
-        if target:
-            code, out, _ = run(["ping", "-I", iface, "-n", "-q", "-c", "20", "-i", "0.2", "-W", "1", target], 40)
-            ping = parse_ping(out)
-            ping["target"] = target
         if iperf_host:
             code, out, _ = run(["ip", "-4", "-o", "addr", "show", "dev", iface], 10)
             m = re.search(r"inet (\d+\.\d+\.\d+\.\d+)/", out)

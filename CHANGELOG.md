@@ -1,3 +1,27 @@
+## 2026-09-17 — Sonde wifi-probe v2 après premier retour terrain (livraison #526)
+
+Première mesure réelle (poste sur le LAN d'un campus, borne Zyxel, pilote
+mt76) : trois valeurs fausses ou vides, corrigées.
+
+- Passerelle : le Wi-Fi n'ayant pas de route par défaut (voulu), le repli
+  prenait `.1` du 3e octet -- faux sur un /23. Désormais option DHCP
+  `routers` (NetworkManager), sinon adresse réseau + 1.
+- Débit négocié / retransmissions : au repos le pilote annonce 6 Mbit/s et
+  quelques trames ; le ping est lancé AVANT la lecture du lien et de la
+  station, et l'alerte « débit bas » exige un échantillon (≥ 50 trames).
+- Co-canal compté par borne (radio : 5 premiers octets du BSSID) et non par
+  SSID -- 22 BSS sur un canal = 10 bornes ; les SSID de notre propre borne ne
+  comptent pas. `co_channel_radios`, `co_channel_bss`.
+- Balises sans élément BSS Load (Zyxel) : ligne « notre borne » masquée au
+  lieu de « ? stations ». Survey à zéro (pilote sans relevé) : mention
+  explicite, temps d'antenne du poste (`tx/rx duration`) affiché en
+  complément.
+- Agent **0.5.6**.
+
+Vérifié : 12 tests Python, 217 tests Node, syntaxe JSX. Non vérifié :
+occupation du canal sur ce pilote (compteurs à zéro : à confirmer avec
+`iw survey dump` après un scan).
+
 ## 2026-09-16 — Sonde Wi-Fi « expérience client » wifi-probe (livraison #525)
 
 Demandé : « comment observer le réseau Wi-Fi et reconnaître les lenteurs de
