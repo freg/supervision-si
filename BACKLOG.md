@@ -2810,6 +2810,16 @@ ou clé USB MT7612U/MT7921AU dédiée ; serveur iperf3 sur le LAN du site pour
 le flux type cast ; graphe temporel (créneaux de cours) et alertes Cortex ;
 sonde « bordure » (switch de bordure → firewall : latence/pertes WAN) sur
 le même poste.
+Demandé le 17 sept. (constat réel : une borne à 50 % d'utilisation du canal
+5 GHz sans aucun client) : superviser EN CONTINU l'utilisation des canaux
+par borne -- deux sources à croiser : (a) la sonde wifi-probe côté client
+(BSS Load des balises de TOUTES les bornes visibles, déjà collecté à chaque
+scan : stocker par BSSID et tracer dans le temps, alerte quand une borne
+dépasse un seuil sans client), (b) l'API Nebula (Monitor → borne : channel
+utilization par bande, clients, canal DCS) tirée par le central toutes les
+5 min avec jeton du coffre ; graphe par borne et par heure, corrélation
+avec les plaintes (créneaux de cours), alerte Cortex « canal saturé sans
+charge = interférence / co-canal ».
 
 ## Infos synthèse SI — suites (2026-09-16, #523) — item 79
 
