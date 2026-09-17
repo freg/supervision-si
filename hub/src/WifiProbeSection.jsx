@@ -3,7 +3,7 @@
 // historique des derniers passages pour repérer les créneaux dégradés.
 import { useEffect, useState } from "react";
 import { fetchAgentMeasurements } from "./siAgentClient.js";
-import { wifiRows, wifiWorst, wifiTone, rssiTone, pctTone, fmt } from "./wifiLib.js";
+import { wifiRows, wifiWorst, wifiTone, rssiTone, pctTone, fmt, radioSeries, channelCrowd } from "./wifiLib.js";
 
 function T({ tone, children, title }) {
   return <span className={`np-tone ${tone || "neutral"}`} title={title}>{children}</span>;
@@ -22,6 +22,8 @@ export default function WifiProbeSection({ apiBase, agentId, latest, when }) {
   const l = d.link || {};
   const rows = wifiRows(hist);
   const worst = wifiWorst(rows);
+  const radios = radioSeries(hist.length ? hist : [latest]);
+  const crowd = channelCrowd(radios);
   const alerts = d.alerts || [];
   const kv = (label, body) => <div className="sa-wide"><span className="muted">{label}</span><span>{body}</span></div>;
   return (
@@ -46,6 +48,32 @@ export default function WifiProbeSection({ apiBase, agentId, latest, when }) {
             <ul style={{ margin: "6px 0" }}>
               {alerts.map((a, i) => <li key={i}><T tone={wifiTone(a.severity)}>{a.severity}</T> {a.message}</li>)}
             </ul>
+          )}
+          {radios.length > 0 && (
+            <details style={{ marginTop: 6 }}>
+              <summary className="muted">Bornes vues du poste ({radios.length} radios sur {hist.length || 1} passage(s)) — canaux : {crowd.map((c) => `${c.channel}×${c.radios}${c.utilMax != null ? ` (${Math.round(c.utilMax)} %)` : ""}`).join(", ")}{radios.some((r) => r.idleBusy) ? ` · ${radios.filter((r) => r.idleBusy).length} borne(s) vue(s) occupée(s) sans client` : ""}</summary>
+              <p className="muted" style={{ margin: "4px 0" }}>Charge annoncée par les balises de chaque borne (BSS Load) à chaque scan : ce que la borne dit elle-même de son canal. « Occupé sans client » = utilisation ≥ 40 % avec au plus 1 station : interférence ou bornes voisines sur le même canal, pas de charge utilisateur.</p>
+              <div className="hub-table-scroll">
+                <table>
+                  <thead><tr><th>Borne (radio)</th><th>SSID</th><th>Canal</th><th>Signal</th><th>Stations</th><th>Utilisation</th><th>Max</th><th>Moyenne</th><th>Max stations</th><th>Occupé sans client</th><th>Passages</th></tr></thead>
+                  <tbody>{radios.map((r) => (
+                    <tr key={r.radio}>
+                      <td><code style={{ fontSize: 11 }}>{r.radio}</code>{r.ours && <span className="muted"> · la nôtre</span>}</td>
+                      <td>{r.ssid || "—"}</td>
+                      <td>{r.channels.join("/")}</td>
+                      <td><T tone={rssiTone(r.last?.signal)}>{fmt(r.last?.signal, " dBm")}</T></td>
+                      <td>{fmt(r.last?.stations)}</td>
+                      <td><T tone={pctTone(r.last?.util, 40, 70)}>{fmt(r.last?.util, " %", 0)}</T></td>
+                      <td><T tone={pctTone(r.utilMax, 40, 70)}>{fmt(r.utilMax, " %", 0)}</T></td>
+                      <td>{fmt(r.utilAvg, " %", 0)}</td>
+                      <td>{fmt(r.stationsMax)}</td>
+                      <td><T tone={r.idleBusy ? (r.idleBusy >= r.samples / 2 ? "bad" : "warn") : "neutral"}>{r.idleBusy ? `${r.idleBusy} / ${r.samples}` : "—"}</T></td>
+                      <td className="muted">{r.samples}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            </details>
           )}
           {rows.length > 1 && (
             <details style={{ marginTop: 6 }}>

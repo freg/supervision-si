@@ -1,13 +1,13 @@
 {
   "id": "wifi-probe",
-  "version": "2",
+  "version": "3",
   "runner": "python",
   "entry": "wifi_probe.py",
   "interval_seconds": 60,
   "timeout_seconds": 150,
   "args": ["--iface", "auto", "--target", "auto"],
   "enabled": false,
-  "description": "Sonde Wi-Fi « expérience client » (#525, famille explorer) : le poste est associé comme un utilisateur au SSID observé ; à chaque passage -- lien (borne, RSSI, débits négociés, retransmissions, échecs), occupation du canal (survey, y compris le trafic des autres), voisinage (bornes par canal, co-canal, BSS Load des balises : stations et utilisation vues par la borne), chemin (latence, gigue, pertes vers la passerelle du Wi-Fi), et flux UDP type cast si iperf3 et --iperf HOST. v2 : trafic généré avant la lecture du lien, passerelle depuis l'option DHCP routers, co-canal compté par radio. Constats : non associé, signal faible, retransmissions, canal saturé, débit bas, gigue/pertes, borne chargée. Aucune action. Privilégiée : iw scan et ping -i 0.2 exigent root.",
+  "description": "Sonde Wi-Fi « expérience client » (#525, famille explorer) : le poste est associé comme un utilisateur au SSID observé ; à chaque passage -- lien (borne, RSSI, débits négociés, retransmissions, échecs), occupation du canal (survey, y compris le trafic des autres), voisinage (bornes par canal, co-canal, BSS Load des balises : stations et utilisation vues par la borne), chemin (latence, gigue, pertes vers la passerelle du Wi-Fi), et flux UDP type cast si iperf3 et --iperf HOST. v2 : trafic généré avant la lecture du lien, passerelle depuis l'option DHCP routers, co-canal compté par radio. v3 : liste des radios visibles avec leur BSS Load (stations, utilisation) à chaque scan -- utilisation des canaux par borne dans le temps ; constat « canal occupé sans client ». Constats : non associé, signal faible, retransmissions, canal saturé, débit bas, gigue/pertes, borne chargée. Aucune action. Privilégiée : iw scan et ping -i 0.2 exigent root.",
   "source": "bundled",
   "privileged": true
 }

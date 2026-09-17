@@ -1,3 +1,27 @@
+## 2026-09-17 — Utilisation des canaux par borne dans le temps, sonde wifi-probe v3 (livraison #529)
+
+Demandé le 17 sept. devant une borne à 50 % d'utilisation 5 GHz sans aucun
+client : « trouver un moyen de superviser cette info en continu ».
+Première source (a) du backlog item 78 : la sonde côté client.
+
+- `wifi-probe` v3 : à chaque scan, liste des RADIOS visibles (5 premiers
+  octets du BSSID) avec le SSID le plus fort, canal, signal, nombre de SSID,
+  et la charge annoncée par leurs balises (BSS Load : stations, utilisation
+  du canal) -- `neighbourhood.radios`, 40 radios max. Constat
+  `idle-busy-radio` : borne à ≥ 40 % d'utilisation avec ≤ 1 station, vue à
+  ≥ -78 dBm (interférence ou co-canal, pas de charge utilisateur).
+- Hub : dans la section « Wi-Fi vu du poste », volet « Bornes vues du
+  poste » -- une ligne par radio sur la fenêtre d'historique : SSID, canaux
+  vus, signal, stations et utilisation du dernier passage, max et moyenne
+  d'utilisation, max de stations, nombre de passages « occupé sans
+  client », et en résumé le nombre de bornes par canal (`radioSeries`,
+  `channelCrowd`).
+- Agent **0.5.9** ; README agent ; backlog item 78.
+
+Vérifié : 14 tests Python, 221 tests Node, syntaxe JSX. Non vérifié :
+lecture réelle sur le poste du campus (la borne à 50 % sans client doit
+ressortir en « occupé sans client » dès le premier scan).
+
 ## 2026-09-17 — Correctif : `--upgrade` macOS et Windows effaçait la configuration (livraison #528)
 
 Constaté en réel sur un Mac : `install-macos.sh --upgrade` (#522) réécrivait

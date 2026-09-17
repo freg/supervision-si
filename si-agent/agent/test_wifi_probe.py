@@ -196,3 +196,30 @@ class TestConstats(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RadiosLoad(unittest.TestCase):
+    """v3 (#529) : utilisation des canaux par borne, vue du poste."""
+
+    def test_radios_grouped_by_prefix(self):
+        sc = wp.parse_scan(SCAN)
+        rad = wp.radios_load(sc)
+        self.assertTrue(all("radio" in r and len(r["radio"]) == 14 for r in rad))
+        # une radio = un préfixe ; plusieurs SSID d'une même radio comptés dans ssids
+        self.assertEqual(sum(r["ssids"] for r in rad), len(sc))
+        self.assertEqual(rad, sorted(rad, key=lambda r: -(r.get("signal_dbm") or -100)))
+        self.assertIn("radios", wp.neighbourhood(sc, wp.parse_link(LINK)))
+
+    def test_idle_busy_alert(self):
+        neigh = {"radios": [
+            {"bssid": "02:aa:aa:aa:aa:01", "ssid": "Exemple", "channel": 36, "signal_dbm": -60, "stations": 0, "utilisation_pct": 52.0},
+            {"bssid": "02:bb:bb:bb:bb:01", "ssid": "Exemple", "channel": 48, "signal_dbm": -85, "stations": 0, "utilisation_pct": 70.0},  # trop faible : ignorée
+            {"bssid": "02:cc:cc:cc:cc:01", "ssid": "Exemple", "channel": 36, "signal_dbm": -55, "stations": 12, "utilisation_pct": 55.0},  # chargée : normal
+        ]}
+        al = wp.evaluate({"connected": True, "signal_dbm": -50}, {}, None, neigh, None, None)
+        codes = [a["code"] for a in al]
+        self.assertIn("idle-busy-radio", codes)
+        msg = next(a for a in al if a["code"] == "idle-busy-radio")["message"]
+        self.assertIn("1 borne", msg)
+        self.assertIn("canal 36", msg)
+        self.assertNotIn("idle-busy-radio", [a["code"] for a in wp.evaluate({"connected": True, "signal_dbm": -50}, {}, None, {"radios": []}, None, None)])

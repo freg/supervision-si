@@ -33,12 +33,13 @@ import subprocess
 import sys
 import time
 
-VERSION = "2"
+VERSION = "3"
 STATE_DEFAULT = "/var/lib/si-agent/wifi-probe.state.json"
 THRESHOLDS = {"rssi_warn": -70, "rssi_crit": -80, "retry_pct_warn": 15.0, "retry_pct_crit": 30.0,
               "busy_pct_warn": 60.0, "busy_pct_crit": 80.0, "tx_mbit_warn": 24.0, "jitter_ms_warn": 30.0,
               "loss_pct_warn": 1.0, "loss_pct_crit": 5.0, "latency_ms_warn": 50.0,
-              "bss_util_pct_warn": 60.0, "bss_stations_warn": 40, "beacon_loss_warn": 5}
+              "bss_util_pct_warn": 60.0, "bss_stations_warn": 40, "beacon_loss_warn": 5,
+              "idle_busy_pct_warn": 40.0, "idle_busy_stations_max": 1, "idle_busy_min_dbm": -78}
 
 
 def run(cmd, timeout=30):
@@ -215,6 +216,29 @@ def parse_scan(text):
     return [b for b in out if b.get("freq")]
 
 
+def radios_load(scan):
+    """v3 (#529) : une entrée par RADIO visible (5 premiers octets du BSSID),
+    avec la charge annoncée par ses balises (BSS Load : stations, utilisation
+    du canal) -- la matière d'une supervision continue de l'utilisation des
+    canaux par borne, vue du poste. Le SSID retenu est le plus fort ; les
+    stations et l'utilisation sont le max des BSS de la radio (une même radio
+    annonce les mêmes valeurs sur chacun de ses SSID)."""
+    radios = {}
+    for b in scan:
+        k = b["bssid"][:14]
+        r = radios.get(k)
+        if r is None:
+            r = radios[k] = {"radio": k, "bssid": b["bssid"], "ssid": b.get("ssid"), "channel": b.get("channel"),
+                             "freq": b.get("freq"), "signal_dbm": b.get("signal_dbm"), "stations": None, "utilisation_pct": None, "ssids": 0}
+        r["ssids"] += 1
+        if (b.get("signal_dbm") or -100) > (r.get("signal_dbm") or -100):
+            r.update(bssid=b["bssid"], ssid=b.get("ssid"), signal_dbm=b.get("signal_dbm"), channel=b.get("channel"), freq=b.get("freq"))
+        for key in ("stations", "utilisation_pct"):
+            if b.get(key) is not None and (r[key] is None or b[key] > r[key]):
+                r[key] = b[key]
+    return sorted(radios.values(), key=lambda r: -(r.get("signal_dbm") or -100))[:40]
+
+
 def neighbourhood(scan, link):
     """Synthèse du voisinage : bornes par canal, co-canal de la nôtre, autres
     bornes du même SSID (candidates au roaming) et charge de notre borne."""
@@ -239,6 +263,7 @@ def neighbourhood(scan, link):
             radios[k] = b
     co_radios = sorted(radios.values(), key=lambda b: -(b.get("signal_dbm") or -100))
     return {"bss_count": len(scan), "co_channel_radios": len(co_radios),
+            "radios": radios_load(scan),
             "co_channel_bss": len(co),
             "channels": {str(k): len(v) for k, v in sorted(per_channel.items(), key=lambda kv: (kv[0] is None, kv[0]))},
             "co_channel": [{"bssid": b["bssid"], "ssid": b.get("ssid"), "signal_dbm": b.get("signal_dbm")} for b in co_radios][:10],
@@ -325,6 +350,12 @@ def evaluate(link, station_rates, usage, neigh, ping, iperf, t=None):
         add("warning", "bss-load", "la borne annonce %s %% d'utilisation de son canal (%s stations)" % (ob["utilisation_pct"], ob.get("stations")))
     elif (ob.get("stations") or 0) >= t["bss_stations_warn"]:
         add("info", "bss-stations", "%s stations sur la borne" % ob["stations"])
+    idle_busy = [r for r in (neigh or {}).get("radios") or []
+                 if (r.get("utilisation_pct") or 0) >= t["idle_busy_pct_warn"] and (r.get("stations") or 0) <= t["idle_busy_stations_max"]
+                 and (r.get("signal_dbm") or -100) >= t["idle_busy_min_dbm"]]
+    if idle_busy:
+        add("warning", "idle-busy-radio", "%d borne(s) annoncent un canal occupé sans client (%s) : interférence ou co-canal, pas de charge utilisateur"
+            % (len(idle_busy), ", ".join("%s canal %s %.0f %%/%s st." % (r.get("ssid") or r["bssid"], r.get("channel"), r["utilisation_pct"], r.get("stations") or 0) for r in idle_busy[:4])))
     nco = (neigh or {}).get("co_channel_radios")
     if nco is None:
         nco = len((neigh or {}).get("co_channel") or [])

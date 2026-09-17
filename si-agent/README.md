@@ -159,6 +159,9 @@ Plugins livrés (exemples des deux runners, désactivés) :
   lien (au repos le pilote annonce 6 Mbit/s), passerelle lue dans l'option
   DHCP `routers` (le Wi-Fi n'a pas de route par défaut), co-canal compté
   par borne et non par SSID, pas d'alerte débit sans échantillon de trafic.
+  v3 (#529) : liste des radios visibles avec leur *BSS Load* à chaque scan
+  (utilisation des canaux par borne dans le temps, volet « Bornes vues du
+  poste » de la fiche agent), constat « canal occupé sans client ».
   Requiert `iw`, `ping`, `ip` ; état entre deux passages dans
   `/var/lib/si-agent/wifi-probe.state.json`. Activation : `--enable-plugin
   wifi-probe` ou depuis la fiche agent.
@@ -849,4 +852,4 @@ du service qu'il redémarre. Agent **0.5.3** ; **0.5.4** (#524) : `install.sh`
 détecte un hôte Proxmox VE et redémarre toujours le service. **0.5.5** (#525) :
 sonde `wifi-probe` ; **0.5.6** (#526) : sonde v2 ; **0.5.7** (#527) : sonde
 `path-probe` ; **0.5.8** (#528) : `--upgrade` macOS/Windows conserve la
-configuration (elle était effacée).
+configuration (elle était effacée) ; **0.5.9** (#529) : wifi-probe v3.

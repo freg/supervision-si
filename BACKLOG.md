@@ -2820,6 +2820,9 @@ utilization par bande, clients, canal DCS) tirée par le central toutes les
 5 min avec jeton du coffre ; graphe par borne et par heure, corrélation
 avec les plaintes (créneaux de cours), alerte Cortex « canal saturé sans
 charge = interférence / co-canal ».
+Livré #529 : source (a) -- radios visibles + BSS Load à chaque scan, volet
+« Bornes vues du poste », constat `idle-busy-radio`. Reste : source (b) API
+Nebula, graphe par heure, alerte Cortex.
 Livré #527 : sonde `path-probe` (bail, passerelle, chaque DNS distribué,
 DNS publics, HTTP/HTTPS, rotation des SSID). Suites : alertes Cortex sur
 `dns-server-down` / `captive-portal` / `no-ip` (un DNS distribué muet = le

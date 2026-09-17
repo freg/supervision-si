@@ -37,3 +37,23 @@ test("tons et formats", () => {
   assert.deepEqual([pctTone(85, 60, 80), pctTone(65, 60, 80), pctTone(10, 60, 80)], ["bad", "warn", "good"]);
   assert.deepEqual([fmt(null), fmt(12.34, " %", 1), fmt(-61, " dBm")], ["—", "12.3 %", "-61 dBm"]);
 });
+
+import { radioSeries, channelCrowd } from "../src/wifiLib.js";
+
+test("radioSeries : utilisation par borne dans le temps (#529)", () => {
+  const R = (bssid, ch, util, st, sig = -60) => ({ radio: bssid.slice(0, 14), bssid, ssid: "Exemple", channel: ch, signal_dbm: sig, stations: st, utilisation_pct: util });
+  const M = [
+    { at: "2026-09-17T10:02:00Z", data: { link: { bssid: "02:aa:aa:aa:aa:01" }, neighbourhood: { radios: [R("02:aa:aa:aa:aa:01", 36, 20, 5), R("02:bb:bb:bb:bb:03", 48, 55, 0)] } } },
+    { at: "2026-09-17T10:01:00Z", data: { link: { bssid: "02:aa:aa:aa:aa:01" }, neighbourhood: { radios: [R("02:aa:aa:aa:aa:02", 36, 40, 7), R("02:bb:bb:bb:bb:03", 48, 30, 1)] } } },
+    { at: "2026-09-17T10:00:00Z", data: { error: "x" } },
+  ];
+  const s = radioSeries(M);
+  assert.equal(s.length, 2);
+  assert.equal(s[0].radio, "02:bb:bb:bb:bb");   // pire utilisation en tête
+  assert.deepEqual([s[0].samples, s[0].utilMax, s[0].idleBusy, s[0].stationsMax, s[0].last.util], [2, 55, 1, 1, 55]);
+  const a = s[1];
+  assert.deepEqual([a.ours, a.utilMax, a.utilAvg, a.stationsMax, a.channels], [true, 40, 30, 7, [36]]);
+  const c = channelCrowd(s);
+  assert.deepEqual(c.map((x) => [x.channel, x.radios, x.utilMax]), [[36, 1, 20], [48, 1, 55]]);
+  assert.deepEqual(radioSeries(null), []);
+});
