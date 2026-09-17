@@ -1,3 +1,33 @@
+## 2026-09-18 — Assistant IA interne, PoC palier 1 : assistant-api + ollama (livraison #532, item 81)
+
+« Prépare le premier test d'IA interne » -- la démarche de l'étude item 81,
+étape 1, prête à lancer : mesurer jetons/s et qualité sur 20 cas avant toute
+décision GPU.
+
+- `assistant/` : `assistant-api` (Flask) -- index BM25 en mémoire sur les
+  documents locaux (`./docs` par défaut), les dépôts de test, les tickets
+  (`/queue`) et la GED (versions textuelles) ; question avec sources
+  (invite « uniquement à partir des extraits, cite [n] »), classement d'un
+  document GED (JSON : type, site, titre, résumé, mots-clés, date,
+  confiance), résumé d'une demande (JSON : résumé, catégorie, urgence,
+  actions, questions) ; jeu d'évaluation de 20 cas fictifs
+  (`eval/cases.json`, remplaçable par `/data/cases.json` réel) noté
+  automatiquement (mots-clés, JSON valide et champs, sources) avec jetons/s
+  et durées, rapports conservés ; journal des requêtes. Page autonome
+  `/assistant/` (question, classer, résumer, évaluation, journal).
+- Compose : services `ollama` (API compatible OpenAI, modèles hors dépôt,
+  limite mémoire) et `assistant-api` sous le **profil `assistant`** --
+  jamais démarrés par un `up -d` ordinaire ; serveur externe possible par
+  `LLM_BASE_URL`. Tuile « Assistant IA (PoC) » (Documents & ENT,
+  admin/technicien) ; tls-proxy ; `.env.example` (`LLM_*`, `OLLAMA_*`,
+  `ASSISTANT_*`). README : pas à pas du premier test, repères attendus,
+  critère de passage au palier 2.
+
+Vérifié : 7 tests (découpage, BM25, invites, extraction JSON tolérante,
+notation, API avec modèle simulé, évaluation), 222 tests Node, syntaxe
+JSX/JS, rendu nginx. Non vérifié : build Docker, tirage d'un modèle et
+mesure réelle (c'est l'objet du test de demain).
+
 ## 2026-09-17 — Entrées de services vues d'Internet : service-watch (livraison #531, item 80)
 
 Première réalisation de la spécification item 80 (phases 1, 2, 4-mail et

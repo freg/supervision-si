@@ -1671,6 +1671,8 @@ services:
       - VITE_CISCO_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/cisco/
       # Entrées de services (livraison #531) -- tuile de la thématique Supervision.
       - VITE_SERVICE_WATCH_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/service-watch/
+      # Assistant IA PoC (livraison #532) -- tuile Documents & ENT (profil assistant).
+      - VITE_ASSISTANT_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/assistant/
       # Accès d'équipements (livraison #498) — tuile de la thématique
       # Sécurité & accès, embarquable en onglet (même origine).
       - VITE_CREDENTIALS_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/credentials/
@@ -2274,6 +2276,53 @@ services:
       # Base SQLite + sel de chiffrement : À SAUVEGARDER (perdre le sel
       # ou la phrase de passe rend les mots de passe illisibles).
       - ${CREDENTIALS_DATA_DIR:-./credentials/data}:/data
+
+  # ollama (livraison #532, item 81) -- serveur de modèle ouvert LOCAL pour
+  # le PoC assistant (API compatible OpenAI sur 11434). Profil `assistant` :
+  # jamais démarré par un `up -d` ordinaire (un modèle = plusieurs Go de
+  # RAM) ; ./scripts/run.sh up -d ollama assistant-api l'active. Le modèle
+  # est tiré une fois : docker compose exec ollama ollama pull ${LLM_MODEL}.
+  # Un serveur externe (VM GPU, autre Proxmox) se substitue par LLM_BASE_URL.
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["assistant"]
+    environment:
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KV_CACHE_TYPE=q8_0
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-30m}
+    volumes:
+      # Poids des modèles (plusieurs Go) : hors dépôt, à ne pas sauvegarder.
+      - ${OLLAMA_MODELS_DIR:-./assistant/models}:/root/.ollama
+    deploy:
+      resources:
+        limits:
+          memory: ${OLLAMA_MEMORY_LIMIT:-24g}
+
+  # assistant-api (livraison #532, item 81) -- PoC assistant IA interne :
+  # RAG lexical sur documents locaux / tickets / GED, question avec sources,
+  # classement de document, résumé de demande, évaluation (20 cas, jetons/s).
+  # Page servie sous /assistant/, tuile de la thématique Documents & ENT.
+  assistant-api:
+    build:
+      context: .
+      dockerfile: assistant/Dockerfile
+    profiles: ["assistant"]
+    environment:
+      - ASSISTANT_DATA_DIR=/data
+      - ASSISTANT_DOCS_DIR=/docs
+      - LLM_BASE_URL=${LLM_BASE_URL:-http://ollama:11434/v1}
+      - LLM_MODEL=${LLM_MODEL:-qwen3:8b}
+      - LLM_TIMEOUT_SECONDS=${LLM_TIMEOUT_SECONDS:-600}
+      - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-700}
+      - TICKETS_API_URL=http://tickets-api:5000
+      - GED_API_URL=http://ged-api:5000
+    volumes:
+      # Documents indexés (lecture seule) : par défaut la documentation du
+      # dépôt ; pointer ASSISTANT_DOCS_DIR vers un dossier de documents réels.
+      - ${ASSISTANT_DOCS_DIR:-./docs}:/docs:ro
+      # Journal, rapports d'évaluation, dépôts de test : hors dépôt.
+      - ${ASSISTANT_DATA_DIR:-./assistant/data}:/data
 
   # service-watch-api (livraison #531, backlog item 80) -- supervision des
   # entrées de services vues d'Internet : inventaire (zone DNS importée,

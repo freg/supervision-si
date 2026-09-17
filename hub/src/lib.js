@@ -99,7 +99,7 @@ export function isTechnicien(groups) {
 // que des droits de gestion de realm n'ont pas été accordés séparément
 // dans Keycloak).
 export function buildFrontsList({
-  frontendUrl, portalUrl, keycloakConsoleUrl, dbaUrl, vaultUrl, vaultAdminUrl, ldapAdminUrl, projeqtorUrl, mikrotikUrl, ciscoUrl, serviceWatchUrl, credentialsUrl, demandeUrl,
+  frontendUrl, portalUrl, keycloakConsoleUrl, dbaUrl, vaultUrl, vaultAdminUrl, ldapAdminUrl, projeqtorUrl, mikrotikUrl, ciscoUrl, serviceWatchUrl, assistantUrl, credentialsUrl, demandeUrl,
   groups, externalLinks,
 }) {
   const roles = groupsToRoles(groups);
@@ -241,6 +241,18 @@ export function buildFrontsList({
       name: "Entrées de services",
       description: "Services vus d'Internet — inventaire DNS, ports, certificats, HTTP, scénarios avec compte de test, contenu, canaris mail",
       url: serviceWatchUrl,
+      embeddable: true,
+    });
+  }
+  // Assistant IA interne, PoC (livraison #532, item 81) -- modèle ouvert
+  // servi localement, RAG sur documents / tickets / GED, évaluation.
+  // Réservé admin / technicien le temps du PoC (le modèle voit les tickets).
+  if (assistantUrl && (hasValue(roles, "admin") || hasValue(roles, "technicien"))) {
+    fronts.push({
+      id: "assistant",
+      name: "Assistant IA (PoC)",
+      description: "Modèle ouvert local — question avec sources, classement de documents GED, résumé de demandes, évaluation",
+      url: assistantUrl,
       embeddable: true,
     });
   }

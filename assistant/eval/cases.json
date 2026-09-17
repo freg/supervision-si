@@ -1,0 +1,470 @@
+{
+ "_comment": "Jeu d'évaluation du PoC assistant (#532) : 10 documents à classer (GED), 5 demandes à résumer, 5 questions avec RAG sur la documentation du dépôt. Données fictives. Un fichier /data/cases.json remplace celui-ci pour des cas réels (hors dépôt).",
+ "cases": [
+  {
+   "id": "c01",
+   "kind": "classify",
+   "input": "FACTURE N° 2026-0412\nDate : 12/03/2026\nClient : Société Alpha, Villexemple\nDésignation : maintenance annuelle onduleurs — 3 unités\nTotal HT : 1 250,00 € TVA 20 % Total TTC : 1 500,00 €\nÉchéance : 30 jours",
+   "types": [
+    "facture",
+    "contrat",
+    "devis",
+    "procédure",
+    "compte rendu",
+    "plan",
+    "fiche technique",
+    "courrier",
+    "rapport d'intervention",
+    "autre"
+   ],
+   "sites": [
+    "Villexemple",
+    "Parc",
+    "Batiment 5",
+    "siège"
+   ],
+   "expect": {
+    "json": {
+     "type": "facture",
+     "site": [
+      "villexemple"
+     ]
+    },
+    "keywords": [
+     "facture"
+    ]
+   }
+  },
+  {
+   "id": "c02",
+   "kind": "classify",
+   "input": "DEVIS D-2026-118\nObjet : remplacement du switch de bordure, Parc\n1 × switch 48 ports PoE, 1 × pose et configuration\nValidité 30 jours\nSignature bon pour accord",
+   "types": [
+    "facture",
+    "contrat",
+    "devis",
+    "procédure",
+    "compte rendu",
+    "plan",
+    "fiche technique",
+    "courrier",
+    "rapport d'intervention",
+    "autre"
+   ],
+   "sites": [
+    "Villexemple",
+    "Parc",
+    "Batiment 5",
+    "siège"
+   ],
+   "expect": {
+    "json": {
+     "type": "devis",
+     "site": [
+      "parc"
+     ]
+    },
+    "keywords": [
+     "devis"
+    ]
+   }
+  },
+  {
+   "id": "c03",
+   "kind": "classify",
+   "input": "CONTRAT DE MAINTENANCE\nEntre la société Alpha et Exemple SAS\nArticle 1 — Objet : maintenance préventive et corrective du réseau du Batiment 5\nArticle 2 — Durée : 36 mois à compter du 01/01/2026\nArticle 3 — Délais d'intervention : 4 h ouvrées",
+   "types": [
+    "facture",
+    "contrat",
+    "devis",
+    "procédure",
+    "compte rendu",
+    "plan",
+    "fiche technique",
+    "courrier",
+    "rapport d'intervention",
+    "autre"
+   ],
+   "sites": [
+    "Villexemple",
+    "Parc",
+    "Batiment 5",
+    "siège"
+   ],
+   "expect": {
+    "json": {
+     "type": "contrat",
+     "site": [
+      "batiment 5"
+     ]
+    },
+    "keywords": [
+     "contrat"
+    ]
+   }
+  },
+  {
+   "id": "c04",
+   "kind": "classify",
+   "input": "PROCÉDURE — Remplacement d'un disque dans la baie\n1. Identifier le disque en défaut (voyant orange)\n2. Vérifier dans l'interface que la grappe est dégradée et non cassée\n3. Extraire à chaud, insérer le disque neuf\n4. Vérifier la reconstruction\nRévision 3 — mars 2026",
+   "types": [
+    "facture",
+    "contrat",
+    "devis",
+    "procédure",
+    "compte rendu",
+    "plan",
+    "fiche technique",
+    "courrier",
+    "rapport d'intervention",
+    "autre"
+   ],
+   "sites": [
+    "Villexemple",
+    "Parc",
+    "Batiment 5",
+    "siège"
+   ],
+   "expect": {
+    "json": {
+     "type": "procédure"
+    },
+    "keywords": [
+     "procédure"
+    ]
+   }
+  },
+  {
+   "id": "c05",
+   "kind": "classify",
+   "input": "COMPTE RENDU DE RÉUNION — comité SI du 4 mars 2026\nPrésents : alice, bob, carol\nOrdre du jour : migration messagerie, renouvellement des postes, sauvegardes\nDécisions : migration reportée en juin ; 12 postes commandés\nActions : bob — devis sauvegardes avant le 20/03",
+   "types": [
+    "facture",
+    "contrat",
+    "devis",
+    "procédure",
+    "compte rendu",
+    "plan",
+    "fiche technique",
+    "courrier",
+    "rapport d'intervention",
+    "autre"
+   ],
+   "sites": [
+    "Villexemple",
+    "Parc",
+    "Batiment 5",
+    "siège"
+   ],
+   "expect": {
+    "json": {
+     "type": "compte rendu"
+    },
+    "keywords": [
+     "compte rendu"
+    ]
+   }
+  },
+  {
+   "id": "c06",
+   "kind": "classify",
+   "input": "PLAN D'ADRESSAGE — site Parc\nVLAN 10 postes 192.0.2.0/24\nVLAN 20 serveurs 198.51.100.0/24\nVLAN 99 gestion 203.0.113.0/26\nPasserelle .1 sur chaque VLAN, DHCP sur le firewall",
+   "types": [
+    "facture",
+    "contrat",
+    "devis",
+    "procédure",
+    "compte rendu",
+    "plan",
+    "fiche technique",
+    "courrier",
+    "rapport d'intervention",
+    "autre"
+   ],
+   "sites": [
+    "Villexemple",
+    "Parc",
+    "Batiment 5",
+    "siège"
+   ],
+   "expect": {
+    "json": {
+     "type": "plan",
+     "site": [
+      "parc"
+     ]
+    },
+    "keywords": [
+     "plan"
+    ]
+   }
+  },
+  {
+   "id": "c07",
+   "kind": "classify",
+   "input": "FICHE TECHNIQUE — Onduleur EX-3000\nPuissance : 3000 VA / 2700 W\nAutonomie à 50 % : 12 min\nInterfaces : SNMP, USB, contacts secs\nDimensions rack 2U",
+   "types": [
+    "facture",
+    "contrat",
+    "devis",
+    "procédure",
+    "compte rendu",
+    "plan",
+    "fiche technique",
+    "courrier",
+    "rapport d'intervention",
+    "autre"
+   ],
+   "sites": [
+    "Villexemple",
+    "Parc",
+    "Batiment 5",
+    "siège"
+   ],
+   "expect": {
+    "json": {
+     "type": "fiche technique"
+    },
+    "keywords": [
+     "fiche technique"
+    ]
+   }
+  },
+  {
+   "id": "c08",
+   "kind": "classify",
+   "input": "Madame, Monsieur,\nNous accusons réception de votre demande de résiliation du contrat n° 4471 à effet du 30 juin 2026.\nNous restons à votre disposition.\nCordialement,\nLe service clients",
+   "types": [
+    "facture",
+    "contrat",
+    "devis",
+    "procédure",
+    "compte rendu",
+    "plan",
+    "fiche technique",
+    "courrier",
+    "rapport d'intervention",
+    "autre"
+   ],
+   "sites": [
+    "Villexemple",
+    "Parc",
+    "Batiment 5",
+    "siège"
+   ],
+   "expect": {
+    "json": {
+     "type": "courrier"
+    },
+    "keywords": [
+     "courrier"
+    ]
+   }
+  },
+  {
+   "id": "c09",
+   "kind": "classify",
+   "input": "RAPPORT D'INTERVENTION — 17/09/2026 — site Villexemple\nSignalement : plus d'accès Internet en Wi-Fi\nCause 1 : serveur DNS interne injoignable\nCause 2 : VLAN absents des liaisons inter-switchs\nCorrections appliquées : DNS de secours, liaisons complétées\nReste à faire : mise à jour des bornes",
+   "types": [
+    "facture",
+    "contrat",
+    "devis",
+    "procédure",
+    "compte rendu",
+    "plan",
+    "fiche technique",
+    "courrier",
+    "rapport d'intervention",
+    "autre"
+   ],
+   "sites": [
+    "Villexemple",
+    "Parc",
+    "Batiment 5",
+    "siège"
+   ],
+   "expect": {
+    "json": {
+     "type": "rapport d'intervention",
+     "site": [
+      "villexemple"
+     ]
+    },
+    "keywords": [
+     "rapport"
+    ]
+   }
+  },
+  {
+   "id": "c10",
+   "kind": "classify",
+   "input": "Liste de courses de la cafétéria : café, filtres, sucre, gobelets.",
+   "types": [
+    "facture",
+    "contrat",
+    "devis",
+    "procédure",
+    "compte rendu",
+    "plan",
+    "fiche technique",
+    "courrier",
+    "rapport d'intervention",
+    "autre"
+   ],
+   "sites": [
+    "Villexemple",
+    "Parc",
+    "Batiment 5",
+    "siège"
+   ],
+   "expect": {
+    "json": {
+     "type": [
+      "autre"
+     ]
+    },
+    "keywords": []
+   }
+  },
+  {
+   "id": "s01",
+   "kind": "summarize",
+   "input": "Bonjour, depuis ce matin mon PC affiche un écran bleu au démarrage puis redémarre en boucle. J'ai une présentation client à 14 h. Poste n° 42, bureau 3.",
+   "expect": {
+    "json": {
+     "categorie": [
+      "materiel",
+      "logiciel"
+     ],
+     "urgence": [
+      "haute",
+      "critique"
+     ]
+    }
+   }
+  },
+  {
+   "id": "s02",
+   "kind": "summarize",
+   "input": "L'imprimante du 2e étage imprime des pages blanches, le toner a été changé hier.",
+   "expect": {
+    "json": {
+     "categorie": [
+      "impression"
+     ],
+     "urgence": [
+      "normale",
+      "basse"
+     ]
+    }
+   }
+  },
+  {
+   "id": "s03",
+   "kind": "summarize",
+   "input": "Je n'arrive plus à me connecter au VPN depuis mon domicile, message « authentification refusée ». Mon mot de passe fonctionne sur le webmail.",
+   "expect": {
+    "json": {
+     "categorie": [
+      "acces",
+      "reseau"
+     ],
+     "urgence": [
+      "normale",
+      "haute"
+     ]
+    }
+   }
+  },
+  {
+   "id": "s04",
+   "kind": "summarize",
+   "input": "Tout le service commercial n'a plus Internet depuis 10 minutes, le téléphone fonctionne.",
+   "expect": {
+    "json": {
+     "categorie": [
+      "reseau"
+     ],
+     "urgence": [
+      "haute",
+      "critique"
+     ]
+    }
+   }
+  },
+  {
+   "id": "s05",
+   "kind": "summarize",
+   "input": "Pourriez-vous me créer une signature de mail avec le nouveau logo quand vous aurez un moment ? Pas urgent.",
+   "expect": {
+    "json": {
+     "categorie": [
+      "messagerie",
+      "autre"
+     ],
+     "urgence": [
+      "basse"
+     ]
+    }
+   }
+  },
+  {
+   "id": "a01",
+   "kind": "ask",
+   "input": "Quelle est la règle pour les commits sur ce projet : identité, branche, et quel fichier porte le numéro de livraison ?",
+   "k": 5,
+   "expect": {
+    "keywords": [
+     "DELIVERY_NUMBER"
+    ]
+   }
+  },
+  {
+   "id": "a02",
+   "kind": "ask",
+   "input": "À quoi sert la sonde path-probe de l'agent hôte et que teste-t-elle ?",
+   "k": 5,
+   "expect": {
+    "keywords": [
+     "DNS",
+     "HTTP",
+     "bail"
+    ]
+   }
+  },
+  {
+   "id": "a03",
+   "kind": "ask",
+   "input": "Comment un agent hôte se met-il à jour et quelle version minimale connaît la commande update ?",
+   "k": 5,
+   "expect": {
+    "keywords": [
+     "0.5.3"
+    ]
+   }
+  },
+  {
+   "id": "a04",
+   "kind": "ask",
+   "input": "Que fait le service service-watch quand le contenu d'une page change ?",
+   "k": 5,
+   "expect": {
+    "keywords": [
+     "référence",
+     "diff"
+    ]
+   }
+  },
+  {
+   "id": "a05",
+   "kind": "ask",
+   "input": "Quel est le rôle du coffre credentials-api et que ne renvoie-t-il jamais au navigateur ?",
+   "k": 5,
+   "expect": {
+    "keywords": [
+     "mot de passe"
+    ]
+   }
+  }
+ ]
+}

@@ -62,6 +62,7 @@ export const THEMES = [
       { view: "file-manager", label: "Gestionnaire de fichiers" },
       { view: "imap", label: "Client IMAP" },
       { view: "imap-connectors", label: "Connecteurs IMAP" },
+      { front: "assistant", label: "Assistant IA (PoC)" },
       { front: "tickets", label: "Portail tickets" },
     ] },
   { id: "securite", name: "Sécurité & accès", icon: "🛡", description: "Bastion, accès d'équipements, droits, sauvegardes, coffre-fort, Keycloak, annuaire",

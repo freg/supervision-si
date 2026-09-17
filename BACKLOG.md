@@ -3005,3 +3005,11 @@ au moment du PoC, le paysage bouge vite).
 2. Décision GPU sur ces mesures ; palier 2 si le PoC est concluant.
 3. Intégration hub (assistant-api + RAG GED) puis GED automatique en mode
    « propositions à valider ».
+
+Livré #532 : squelette du PoC (assistant-api + ollama sous profil compose,
+RAG lexical, trois usages, évaluation 20 cas, tuile). À faire : lancer la
+mesure (CPU d'abord), remplir `data/cases.json` avec 10 documents GED réels /
+5 tickets / 5 questions, comparer 2-3 modèles (qwen3:8b, qwen3:30b-a3b,
+glm5), décider du palier 2 ; ensuite embeddings (bge-m3) + index persistant,
+extraction de texte des PDF de la GED, outils en lecture seule (API du hub),
+mode « propositions à valider » pour la GED.

@@ -83,6 +83,8 @@ const MIKROTIK_URL = import.meta.env.VITE_MIKROTIK_URL || "";
 const CISCO_URL = import.meta.env.VITE_CISCO_URL || "";
 // Entrées de services (livraison #531) -- page autonome de service-watch-api sous /service-watch/.
 const SERVICE_WATCH_URL = import.meta.env.VITE_SERVICE_WATCH_URL || "";
+// Assistant IA PoC (livraison #532) -- page autonome d'assistant-api sous /assistant/.
+const ASSISTANT_URL = import.meta.env.VITE_ASSISTANT_URL || "";
 const CREDENTIALS_URL = import.meta.env.VITE_CREDENTIALS_URL || "";
 const MIKROTIK_API_BASE = MIKROTIK_URL.replace(/\/+$/, "");
 // Pont « suivi » (#484) — page d'administration (import/export Excel,
@@ -1203,6 +1205,7 @@ export default function App() {
     mikrotikUrl: MIKROTIK_URL,
     ciscoUrl: CISCO_URL,
     serviceWatchUrl: SERVICE_WATCH_URL,
+    assistantUrl: ASSISTANT_URL,
     credentialsUrl: CREDENTIALS_URL,
     demandeUrl: DEMANDE_URL,
     groups,

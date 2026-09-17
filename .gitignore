@@ -114,3 +114,7 @@ si-agent/standalone/ui/dist/
 
 # service-watch (#531) : base SQLite hors dépôt
 service-watch/data/*
+
+# assistant (#532) : données du PoC et poids des modèles hors dépôt
+assistant/data/*
+assistant/models/*

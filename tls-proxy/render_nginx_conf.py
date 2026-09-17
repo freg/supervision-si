@@ -246,6 +246,8 @@ SERVICES = [
     ("CISCO_API_PORT", "cisco-api", 5000, "/cisco/", "spa"),
     # service-watch-api (livraison #531) -- entrées de services, page servie par le service.
     ("SERVICE_WATCH_API_PORT", "service-watch-api", 5000, "/service-watch/", "spa"),
+    # assistant-api (livraison #532) -- PoC assistant IA, page servie par le service (profil assistant).
+    ("ASSISTANT_API_PORT", "assistant-api", 5000, "/assistant/", "spa"),
     # credentials-api (livraison #498) — coffre des accès d'équipements.
     # Le service sert sa page sous ce préfixe ; la révélation
     # (/credentials/reveal/) répond 404 dès que la requête porte les
