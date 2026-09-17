@@ -2916,3 +2916,69 @@ arrivé dans l'état attendu, et contrôler les journaux correspondants ».
 - Ordre de réalisation proposé : 1 (inventaire DNS, gratuit avec #523) →
   2 (scénarios HTTP + compte de test, sans navigateur) → 4 mail (canari le
   plus simple et le plus parlant) → 3 (captures et diff) → 4 GED et autres.
+
+## Assistant IA auto-hébergé (modèle ouvert) — étude de capacité (2026-09-17) — item 81
+
+Demandé le 17 sept. 2026 (dicté) : « quantifier les ressources et voir si on
+est en capacité de déployer une IA type GLM ou Kimi, en open source avec
+l'ensemble d'apprentissage fourni, pour un service d'assistance à toutes nos
+orientations : exploration, débogage, analyse de l'architecture des
+gestionnaires de tickets ou des GED, organisation automatique des GED --
+une IA capable de répondre, dans une moindre mesure, sans grosse puissance
+de calcul ». Étude à faire ; premiers repères (état des modèles à vérifier
+au moment du PoC, le paysage bouge vite).
+
+### Familles de modèles (poids ouverts)
+- **Poids ouverts, licence permissive, pas de données d'entraînement** :
+  GLM-4.x (Zhipu, MIT), Kimi K2 (Moonshot, MIT modifiée), Qwen3 (Alibaba,
+  Apache 2), DeepSeek V3/R1 (MIT), gpt-oss (OpenAI, Apache 2), Mistral /
+  Devstral (Apache 2), Llama (licence Meta). Ce sont les plus capables.
+- **Réellement open source (données d'entraînement publiées)** : OLMo
+  (Ai2), SmolLM3 (Hugging Face), Apertus (EPFL/ETH), Pythia. Nettement moins
+  capables que les précédents ; à réserver si l'exigence « corpus fourni »
+  est contractuelle. Le compromis réaliste : poids ouverts + licence
+  permissive, données non publiées.
+
+### Trois paliers de ressources
+1. **CPU seul, hôte Proxmox existant (32 Go)** : modèles MoE « petits
+   actifs » quantifiés 4 bits -- Qwen3-30B-A3B (~18 Go, ~3 Md de paramètres
+   actifs) ou GLM-4-9B / Qwen3-8B/14B denses (~6-10 Go). 5-15 jetons/s sur un
+   CPU récent : suffisant pour des tâches par lots (classement GED,
+   extraction de métadonnées, résumés de tickets, tri de journaux), trop
+   lent pour un dialogue confortable. Coût : 0 €, une VM de 24 Go de RAM.
+2. **Un GPU 24 Go (RTX 3090/4090 d'occasion ou neuf, 1 000-2 000 €)** :
+   Qwen3-30B-A3B ou gpt-oss-20b entièrement en VRAM à 50-100 jetons/s,
+   modèles « coder » 30B (Qwen3-Coder, Devstral) utilisables pour le
+   débogage ; GLM-4.5-Air (106B-A12B) en 4 bits déborde sur la RAM (2 GPU ou
+   CPU offload, plus lent). C'est le palier « assistant d'équipe ».
+3. **Modèles frontière ouverts (Kimi K2 1T-A32B, GLM-4.5 355B-A32B, DeepSeek
+   V3 671B)** : 4-8 GPU datacenter (H100/H200) ou 0,5-1 To de RAM CPU à
+   quelques jetons/s -- hors de portée « sans grosse puissance ». Le service
+   « comme Claude, dans une moindre mesure » se situe au palier 2.
+
+### Architecture d'intégration proposée
+- Service `assistant-api` (conteneur, cohorte dédiée dans la répartition
+  #513, nœud GPU possible) exposant une API compatible OpenAI via
+  llama.cpp / vLLM / Ollama ; modèle choisi par configuration, jamais de
+  secret ni de donnée envoyée hors du SI.
+- **RAG** sur les sources du hub : GED (versionnée, #458-460), tickets,
+  synthèse SI (#523), documentation, journaux -- modèle d'embeddings ouvert
+  (bge-m3 ou Qwen3-Embedding), index local (SQLite-vec / pgvector).
+- **Outils** exposés au modèle = API existantes du hub (agents, synthèse,
+  équipements, tickets), en lecture seule d'abord ; toute action passe par
+  les gestes confirmés déjà en place (cisco, bastion).
+- Tuile hub « Assistant » (dialogue, contexte = la vue ouverte), et usages
+  par lots : organisation automatique de la GED (classement, métadonnées,
+  doublons, propositions de rangement validées par un humain), triage et
+  résumé des demandes SAV, explication d'un incident Cortex, aide au
+  débogage sur les journaux remontés par les agents.
+- Traçabilité : chaque réponse conserve ses sources ; journal des
+  requêtes ; comptes de test pour l'évaluation.
+
+### Démarche
+1. PoC palier 1 sur une VM du Proxmox libre (Qwen3-30B-A3B quantifié,
+   llama.cpp) : mesurer jetons/s, qualité sur 20 cas réels (10 documents
+   GED à classer, 5 tickets à résumer, 5 questions d'exploration avec RAG).
+2. Décision GPU sur ces mesures ; palier 2 si le PoC est concluant.
+3. Intégration hub (assistant-api + RAG GED) puis GED automatique en mode
+   « propositions à valider ».
