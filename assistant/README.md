@@ -76,4 +76,7 @@ Critère de passage au palier 2 : score ≥ 0,8 sur les classements et résumés
 avec ≥ 8 jetons/s en CPU (usage par lots viable) ; le dialogue confortable
 (≥ 25 jetons/s) demande le GPU.
 
+Infrastructure (VM, postes détournés, GPU low profile pour châssis 2U,
+passthrough) : `docs/assistant-ia-infrastructure.md`.
+
 Tests : `cd assistant && python3 -m unittest discover -s tests`.

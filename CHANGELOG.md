@@ -1,3 +1,14 @@
+## 2026-09-18 — Doc : infrastructure d'inférence de l'assistant IA (item 81)
+
+`docs/assistant-ia-infrastructure.md` : ce qui fixe la vitesse (bande
+passante mémoire), palier 1 sans achat (VM 6 vCPU / 16 Go sur l'hyperviseur
+existant sous la règle des 2/3, poste i9 détourné pour le 30B-A3B, commandes
+`qm create` en q35/OVMF, réglages Ollama), palier 2 contraint par un châssis
+rack 2U demi-hauteur (cartes low profile ≤ 75 W : RTX 2000 Ada 16 Go en
+référence, Arc Pro B50 16 Go en variante économique, alternatives tour),
+procédure de passthrough, critères de décision. Backlog item 81 et README
+assistant renvoient vers ce document. Aucune valeur d'exploitation.
+
 ## 2026-09-18 — Assistant IA interne, PoC palier 1 : assistant-api + ollama (livraison #532, item 81)
 
 « Prépare le premier test d'IA interne » -- la démarche de l'étude item 81,

@@ -3013,3 +3013,8 @@ mesure (CPU d'abord), remplir `data/cases.json` avec 10 documents GED réels /
 glm5), décider du palier 2 ; ensuite embeddings (bge-m3) + index persistant,
 extraction de texte des PDF de la GED, outils en lecture seule (API du hub),
 mode « propositions à valider » pour la GED.
+Infrastructure (18 sept.) : voir `docs/assistant-ia-infrastructure.md` -- palier 1
+sur l'hyperviseur existant (VM 6 vCPU / 16 Go sous la règle des 2/3) et un
+poste i9 détourné pour le 30B-A3B ; palier 2 contraint par le châssis 2U
+demi-hauteur : RTX 2000 Ada 16 Go (référence) ou Arc Pro B50 16 Go
+(économique, pilote à valider) ; passthrough préparé (q35/OVMF, VT-d).
