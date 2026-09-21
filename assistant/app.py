@@ -24,10 +24,18 @@ logging.basicConfig(level=os.environ.get("ASSISTANT_LOG_LEVEL", "INFO"))
 
 DATA_DIR = os.environ.get("ASSISTANT_DATA_DIR", "/data")
 DOCS_DIR = os.environ.get("ASSISTANT_DOCS_DIR", "/docs")
+# Documentation du dépôt copiée dans l'image (README des modules, CHANGELOG,
+# BACKLOG) : indexée en plus des documents (#534).
+REPO_DOCS_DIR = os.environ.get("ASSISTANT_REPO_DOCS_DIR", "/repo-docs")
 LLM_BASE = os.environ.get("LLM_BASE_URL", "http://ollama:11434/v1").rstrip("/")
 LLM_MODEL = os.environ.get("LLM_MODEL", "qwen3:8b")
 LLM_TIMEOUT = int(os.environ.get("LLM_TIMEOUT_SECONDS", "600"))
 LLM_MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "700"))
+# Mode « réflexion » des modèles qui le proposent (Qwen3...) : coupé par
+# défaut (#534) -- la latence est divisée par 3 à 5 sur classification et
+# résumé ; passe par l'API native d'Ollama (/api/chat, champ think) quand
+# LLM_BASE_URL est un Ollama (…/v1), sinon reste sur l'API OpenAI.
+LLM_THINK = os.environ.get("LLM_THINK", "false").strip().lower() in ("1", "true", "yes", "on")
 TICKETS_API = os.environ.get("TICKETS_API_URL", "").rstrip("/")
 GED_API = os.environ.get("GED_API_URL", "").rstrip("/")
 PREFIX = "/assistant"
@@ -52,22 +60,52 @@ def _bad(msg, code=400):
 
 
 # ---------------------------------------------------------------- modèle
+def native_chat_url(base):
+    """URL /api/chat d'Ollama déduite d'une base OpenAI …/v1 ; None sinon."""
+    return base[:-3] + "/api/chat" if base.endswith("/v1") else None
+
+
+def parse_chat_response(j):
+    """Texte + usage, réponse OpenAI (choices) ou native Ollama (message)."""
+    if isinstance(j.get("message"), dict):
+        text = j["message"].get("content") or ""
+        usage = {"prompt_tokens": j.get("prompt_eval_count") or 0, "completion_tokens": j.get("eval_count") or 0}
+        ns = j.get("eval_duration") or 0
+        tok_s = round(usage["completion_tokens"] / (ns / 1e9), 1) if ns and usage["completion_tokens"] else None
+        return text, usage, tok_s
+    text = ((j.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
+    return text, j.get("usage") or {}, None
+
+
 def llm_chat(messages, temperature=0.2, max_tokens=None, json_mode=False):
-    """Appel compatible OpenAI ; renvoie {text, usage, ms, tok_s, error}."""
-    body = {"model": LLM_MODEL, "messages": messages, "temperature": temperature, "max_tokens": max_tokens or LLM_MAX_TOKENS, "stream": False}
-    if json_mode:
-        body["response_format"] = {"type": "json_object"}
+    """Appel du modèle ; renvoie {text, usage, ms, tok_s, error}.
+
+    API native Ollama (think désactivable) quand LLM_THINK est faux et que la
+    base est un Ollama ; API compatible OpenAI sinon."""
+    native = None if LLM_THINK else native_chat_url(LLM_BASE)
+    if native:
+        url = native
+        body = {"model": LLM_MODEL, "messages": messages, "stream": False, "think": False,
+                "options": {"temperature": temperature, "num_predict": max_tokens or LLM_MAX_TOKENS}}
+        if json_mode:
+            body["format"] = "json"
+    else:
+        url = LLM_BASE + "/chat/completions"
+        body = {"model": LLM_MODEL, "messages": messages, "temperature": temperature, "max_tokens": max_tokens or LLM_MAX_TOKENS, "stream": False}
+        if json_mode:
+            body["response_format"] = {"type": "json_object"}
     t0 = time.monotonic()
     try:
-        r = requests.post(LLM_BASE + "/chat/completions", json=body, timeout=LLM_TIMEOUT)
+        r = requests.post(url, json=body, timeout=LLM_TIMEOUT)
         ms = round((time.monotonic() - t0) * 1000.0)
         if r.status_code != 200:
             return {"text": "", "error": "modèle : HTTP %s %s" % (r.status_code, r.text[:200]), "ms": ms}
         j = r.json()
-        text = ((j.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
-        usage = j.get("usage") or {}
+        text, usage, tok_s = parse_chat_response(j)
         comp = usage.get("completion_tokens") or 0
-        return {"text": text, "usage": usage, "ms": ms, "tok_s": round(comp / (max(ms, 1) / 1000.0), 1) if comp else None, "model": j.get("model") or LLM_MODEL}
+        if tok_s is None and comp:
+            tok_s = round(comp / (max(ms, 1) / 1000.0), 1)
+        return {"text": text, "usage": usage, "ms": ms, "tok_s": tok_s, "model": j.get("model") or LLM_MODEL, "think": bool(LLM_THINK)}
     except requests.RequestException as exc:
         return {"text": "", "error": "modèle injoignable (%s) : %s" % (LLM_BASE, str(exc)[:120]), "ms": round((time.monotonic() - t0) * 1000.0)}
 
@@ -81,9 +119,11 @@ def llm_models():
 
 
 # ---------------------------------------------------------------- sources
-def collect_local_docs():
+def _collect_dir(base, prefix, source):
     docs = []
-    for path in sorted(glob.glob(os.path.join(DOCS_DIR, "**", "*"), recursive=True)):
+    if not base or not os.path.isdir(base):
+        return docs
+    for path in sorted(glob.glob(os.path.join(base, "**", "*"), recursive=True)):
         if not os.path.isfile(path) or not path.lower().endswith((".md", ".txt", ".rst", ".csv", ".json", ".html")):
             continue
         try:
@@ -95,9 +135,15 @@ def collect_local_docs():
         if path.lower().endswith(".html"):
             text = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", text)
             text = re.sub(r"(?s)<[^>]+>", " ", text)
-        rel = os.path.relpath(path, DOCS_DIR)
-        docs.append({"id": "doc:" + rel, "source": "documents", "title": rel, "text": text, "meta": {"path": rel}})
+        rel = os.path.relpath(path, base)
+        docs.append({"id": prefix + rel, "source": source, "title": rel, "text": text, "meta": {"path": rel}})
     return docs
+
+
+def collect_local_docs():
+    """Documents (ASSISTANT_DOCS_DIR) + documentation du dépôt (README des
+    modules, CHANGELOG, BACKLOG copiés dans l'image, #534)."""
+    return _collect_dir(DOCS_DIR, "doc:", "documents") + _collect_dir(REPO_DOCS_DIR, "repo:", "repo")
 
 
 def collect_tickets():
@@ -284,7 +330,7 @@ def status():
     models = llm_models()
     return jsonify({"model": LLM_MODEL, "base_url": LLM_BASE, "llm_reachable": models is not None, "models": models or [],
                     "model_available": bool(models) and any(LLM_MODEL == m or LLM_MODEL.split(":")[0] == (m or "").split(":")[0] for m in models),
-                    "index": _index_info, "eval_running": _eval_state["running"], "sources": {"documents": DOCS_DIR, "tickets": bool(TICKETS_API), "ged": bool(GED_API)}}), 200
+                    "index": _index_info, "eval_running": _eval_state["running"], "sources": {"documents": DOCS_DIR, "repo": REPO_DOCS_DIR if os.path.isdir(REPO_DOCS_DIR) else None, "tickets": bool(TICKETS_API), "ged": bool(GED_API)}, "think": LLM_THINK}), 200
 
 
 @app.route(PREFIX + "/index/rebuild", methods=["POST"])

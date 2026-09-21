@@ -2315,6 +2315,7 @@ services:
       - LLM_MODEL=${LLM_MODEL:-qwen3:8b}
       - LLM_TIMEOUT_SECONDS=${LLM_TIMEOUT_SECONDS:-600}
       - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-700}
+      - LLM_THINK=${LLM_THINK:-false}
       - TICKETS_API_URL=http://tickets-api:5000
       - GED_API_URL=http://ged-api:5000
     volumes:

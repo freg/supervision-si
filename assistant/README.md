@@ -38,10 +38,33 @@ trois usages ciblés et un jeu d'évaluation reproductible. Objectif du PoC :
 Serveur de modèle sur une autre machine (GPU) : `LLM_BASE_URL=http://<ip>:11434/v1`
 dans `.env`, sans démarrer `ollama` ici.
 
+## Premier passage réel (2026-09-21, #534) et ce qui en découle
+
+VM 6 vCPU / 16 Go sur l'hyperviseur, `qwen3:8b`, réflexion active :
+classification 9,3/10, résumés 5/5, questions 0/5, 51 à 91 s par cas.
+Les questions échouaient parce que l'index ne contenait que `docs/` : les
+réponses attendues (règle de commit, sonde path-probe, mise à jour d'agent,
+service-watch, coffre) vivent dans les README des modules, le CHANGELOG et
+le BACKLOG -- le modèle a correctement répondu « pas dans les extraits »
+plutôt que d'inventer. Deux corrections :
+
+- **Documentation du dépôt indexée** : à la construction de l'image, les
+  `*/README.md` (renommés `<module>.md`), `README.md`, `CHANGELOG.md` et
+  `BACKLOG.md` sont copiés dans `/repo-docs` (source `repo`, identifiants
+  `repo:<fichier>`), indexés avec les documents. Rien d'autre du dépôt
+  n'entre dans l'image (`.env` exclu).
+- **Réflexion coupée par défaut** (`LLM_THINK=false`) : sur un Ollama
+  (`LLM_BASE_URL` en `…/v1`), assistant-api appelle l'API native `/api/chat`
+  avec `think: false` (et `format: json` pour les usages JSON) ; sur un
+  autre serveur compatible OpenAI, l'API `/chat/completions` reste utilisée.
+  Le préfixe `/no_think` dans l'invite ne suffit pas avec les versions
+  récentes d'Ollama. `LLM_THINK=true` pour comparer la qualité.
+
 ## Ce que fait assistant-api
 
 - **Index** (`/assistant/index/rebuild`, au démarrage) : documents locaux
   (`ASSISTANT_DOCS_DIR`, défaut `./docs` du dépôt : .md/.txt/.csv/.json/.html),
+  documentation du dépôt copiée dans l'image (`/repo-docs`, #534),
   dépôts de test, tickets (`tickets-api /queue`), GED (`ged-api /documents`,
   texte des versions textuelles). Découpage en morceaux ~900 caractères,
   BM25 en mémoire (pas d'embeddings au PoC : mesurer d'abord si le modèle

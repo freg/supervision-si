@@ -1,3 +1,30 @@
+## 2026-09-21 — Assistant IA : documentation du dépôt indexée, réflexion coupée par défaut (livraison #534, item 81)
+
+Premier passage réel de l'évaluation (VM 6 vCPU / 16 Go, `qwen3:8b`) :
+classification 9,3/10, résumés 5/5, questions 0/5, 51 à 91 s par cas. Les
+questions échouaient faute de sources (seul `docs/` était indexé ; les
+réponses sont dans les README des modules, CHANGELOG, BACKLOG) et la
+latence venait du mode réflexion de Qwen3.
+
+- `assistant/Dockerfile` : étape `repodocs` -- `*/README.md` (renommés
+  `<module>.md`), `README.md`, `CHANGELOG.md`, `BACKLOG.md` copiés dans
+  `/repo-docs` de l'image (rien d'autre du contexte n'y passe).
+- `assistant/app.py` : `REPO_DOCS_DIR` indexé (source `repo`, ids
+  `repo:<fichier>`) ; `LLM_THINK` (défaut `false`) -- sur un Ollama
+  (`LLM_BASE_URL` en `…/v1`), appel de l'API native `/api/chat` avec
+  `think: false`, `format: json` pour les usages JSON, jetons/s pris dans
+  `eval_count` / `eval_duration` ; réponses OpenAI et natives analysées
+  par `parse_chat_response` ; `status` expose `think` et la source `repo`.
+- `docker-compose.yml`, `.env.example` : `LLM_THINK`.
+- Tests `assistant/tests/test_rag.py` : 10 (URL native, deux formes de
+  réponse, appel natif sans réflexion, source `repo` dans l'index et la
+  recherche).
+- `assistant/README.md` : section « Premier passage réel ».
+
+Vérifié : tests unitaires (10/10). Non vérifié : reconstruction de l'image
+et second passage d'évaluation sur la VM (à faire : `./scripts/run.sh up -d
+--build assistant-api` puis `POST /assistant/eval/run`).
+
 ## 2026-09-18 — Doc : infrastructure d'inférence de l'assistant IA (item 81)
 
 `docs/assistant-ia-infrastructure.md` : ce qui fixe la vitesse (bande
