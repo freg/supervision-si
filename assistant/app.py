@@ -27,6 +27,7 @@ DOCS_DIR = os.environ.get("ASSISTANT_DOCS_DIR", "/docs")
 # Documentation du dépôt copiée dans l'image (README des modules, CHANGELOG,
 # BACKLOG) : indexée en plus des documents (#534).
 REPO_DOCS_DIR = os.environ.get("ASSISTANT_REPO_DOCS_DIR", "/repo-docs")
+JOURNAL_WEIGHT = float(os.environ.get("ASSISTANT_JOURNAL_WEIGHT", "0.4"))  # #535
 LLM_BASE = os.environ.get("LLM_BASE_URL", "http://ollama:11434/v1").rstrip("/")
 LLM_MODEL = os.environ.get("LLM_MODEL", "qwen3:8b")
 LLM_TIMEOUT = int(os.environ.get("LLM_TIMEOUT_SECONDS", "600"))
@@ -136,7 +137,10 @@ def _collect_dir(base, prefix, source):
             text = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", text)
             text = re.sub(r"(?s)<[^>]+>", " ", text)
         rel = os.path.relpath(path, base)
-        docs.append({"id": prefix + rel, "source": source, "title": rel, "text": text, "meta": {"path": rel}})
+        # Journaux (CHANGELOG, BACKLOG) : longs et bavards, ils écrasaient les
+        # README des modules dans les 5 extraits (#535) -> poids réduit.
+        weight = JOURNAL_WEIGHT if os.path.basename(rel).upper().split(".")[0] in ("CHANGELOG", "BACKLOG") else 1.0
+        docs.append({"id": prefix + rel, "source": source, "title": rel, "text": text, "meta": {"path": rel}, "weight": weight})
     return docs
 
 
@@ -212,7 +216,7 @@ def build_index():
             for d in raw:
                 per[d["source"]] = per.get(d["source"], 0) + 1
                 for i, c in enumerate(rag.chunk_text(d["text"])):
-                    chunks.append({"id": "%s#%d" % (d["id"], i), "doc": d["id"], "source": d["source"], "title": d["title"], "text": c, "meta": d.get("meta") or {}})
+                    chunks.append({"id": "%s#%d" % (d["id"], i), "doc": d["id"], "source": d["source"], "title": d["title"], "text": c, "meta": d.get("meta") or {}, "weight": d.get("weight", 1.0)})
             INDEX.build(chunks)
             _index_info.update(built_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), docs=len(raw), chunks=len(chunks), sources=per)
         except Exception as exc:  # noqa: BLE001

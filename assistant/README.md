@@ -60,6 +60,27 @@ plutôt que d'inventer. Deux corrections :
   Le préfixe `/no_think` dans l'invite ne suffit pas avec les versions
   récentes d'Ollama. `LLM_THINK=true` pour comparer la qualité.
 
+## Second passage (2026-09-21, #534 déployé) et réglage du RAG (#535)
+
+Même VM, 65 fichiers du dépôt indexés (86 documents, 3 313 morceaux),
+réflexion coupée : classification **10/10** (le cas « contrat » passe),
+résumés 4,75/5, questions **2/5**, 47 à 62 s par question. Les trois
+questions ratées avaient reçu presque uniquement des morceaux du CHANGELOG
+et du BACKLOG (a01 : cinq sur cinq), jamais `shared.md` ni le bon passage
+de `si-agent.md` : les journaux sont longs, répètent les mots des
+questions (« livraison », « agent », « update ») et occupaient les cinq
+extraits. La latence restante est le traitement du prompt sur CPU
+(≈ 4 000 jetons d'extraits), pas la génération : c'est ce qu'un GPU
+change.
+
+Réglage #535, sans embeddings : les morceaux de `CHANGELOG.md` et
+`BACKLOG.md` sont pondérés (`ASSISTANT_JOURNAL_WEIGHT`, défaut 0,4), le
+titre du morceau compte triple dans l'index (une question qui nomme le
+module remonte son README) et un même document ne fournit qu'au plus deux
+des `k` extraits (`max_per_doc`). À mesurer au passage suivant ; si les
+questions restent sous 4/5, l'étape d'après est un reclassement par le
+modèle ou des embeddings (`nomic-embed-text`), plus coûteux.
+
 ## Ce que fait assistant-api
 
 - **Index** (`/assistant/index/rebuild`, au démarrage) : documents locaux

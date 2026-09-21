@@ -38,6 +38,19 @@ class Pure(unittest.TestCase):
         self.assertEqual([x["id"] for x in idx.search("mot de passe navigateur", source="documents")], ["c"])
         self.assertEqual(idx.search(""), [])
 
+    def test_weight_title_and_per_doc_cap(self):
+        # #535 : poids réduit d'un journal, titre compté triple, 2 morceaux max par document.
+        idx = rag.BM25().build([
+            {"id": "j#0", "doc": "j", "title": "CHANGELOG.md", "text": "si-agent : la commande update de l'agent hôte", "weight": 0.4},
+            {"id": "j#1", "doc": "j", "title": "CHANGELOG.md", "text": "si-agent : update de l'agent hôte corrigé", "weight": 0.4},
+            {"id": "j#2", "doc": "j", "title": "CHANGELOG.md", "text": "si-agent : agent hôte, update encore", "weight": 0.4},
+            {"id": "r#0", "doc": "r", "title": "si-agent.md", "text": "mise à jour : la commande update connaît la version minimale 0.5.3"},
+        ])
+        h = idx.search("comment un agent hôte se met-il à jour, commande update si-agent ?", k=3)
+        self.assertEqual(h[0]["id"], "r#0")
+        self.assertEqual(sum(1 for x in h if x["doc"] == "j"), 2)
+        self.assertEqual(len(idx.search("agent update", k=5, max_per_doc=0)), 4)
+
     def test_prompts_and_json(self):
         m = rag.build_rag_messages("q ?", [{"source": "documents", "title": "T", "text": "x" * 2000, "id": "1"}], max_chars=1000)
         self.assertEqual(len(m), 2); self.assertLess(len(m[1]["content"]), 1200)

@@ -68,7 +68,10 @@ class BM25:
         self.docs, self.tf, self.df = list(docs), [], Counter()
         total = 0
         for d in self.docs:
-            toks = tokenize("%s %s" % (d.get("title") or "", d.get("text") or ""))
+            # Titre compté triple (#535) : une question qui nomme le module
+            # (si-agent, service-watch...) remonte son README avant le journal.
+            title = tokenize(d.get("title") or "")
+            toks = title * 3 + tokenize(d.get("text") or "")
             c = Counter(toks)
             self.tf.append(c)
             self.df.update(c.keys())
@@ -76,7 +79,10 @@ class BM25:
         self.avgdl = total / len(self.docs) if self.docs else 0.0
         return self
 
-    def search(self, query, k=5, source=None):
+    def search(self, query, k=5, source=None, max_per_doc=2):
+        """k meilleurs morceaux. `weight` du morceau (défaut 1) multiplie le
+        score BM25 ; au plus `max_per_doc` morceaux d'un même document (#535),
+        pour que CHANGELOG/BACKLOG ne remplissent pas tout le contexte."""
         q = tokenize(query)
         if not q or not self.docs:
             return []
@@ -94,9 +100,18 @@ class BM25:
                 idf = math.log(1 + (n - self.df[t] + 0.5) / (self.df[t] + 0.5))
                 s += idf * tf[t] * (self.k1 + 1) / (tf[t] + self.k1 * (1 - self.b + self.b * dl / (self.avgdl or 1)))
             if s > 0:
-                scores.append((s, i))
+                scores.append((s * float(d.get("weight") or 1.0), i))
         scores.sort(reverse=True)
-        return [dict(self.docs[i], score=round(s, 3)) for s, i in scores[:k]]
+        out, per = [], Counter()
+        for s, i in scores:
+            key = self.docs[i].get("doc") or self.docs[i].get("id")
+            if max_per_doc and per[key] >= max_per_doc:
+                continue
+            per[key] += 1
+            out.append(dict(self.docs[i], score=round(s, 3)))
+            if len(out) >= k:
+                break
+        return out
 
 
 # --- invites ------------------------------------------------------------------

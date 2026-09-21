@@ -1,3 +1,24 @@
+## 2026-09-21 — Assistant IA : réglage du RAG après le second passage (livraison #535, item 81)
+
+Second passage réel (VM 6 vCPU / 16 Go, `qwen3:8b`, réflexion coupée, 65
+fichiers du dépôt indexés) : classification 10/10, résumés 4,75/5,
+questions 2/5, 47 à 62 s par question. Les trois questions ratées avaient
+reçu presque uniquement des morceaux du CHANGELOG et du BACKLOG (longs,
+répétant les mots des questions), jamais le README qui porte la réponse.
+
+- `assistant/rag.py` : `BM25.search` -- `weight` du morceau multiplie le
+  score, au plus `max_per_doc` (2) morceaux d'un même document ; titre du
+  morceau compté triple à l'indexation.
+- `assistant/app.py` : `ASSISTANT_JOURNAL_WEIGHT` (défaut 0,4) appliqué aux
+  morceaux de `CHANGELOG.md` / `BACKLOG.md`.
+- Tests `assistant/tests/test_rag.py` : 11 (poids, titre, plafond par
+  document).
+- `assistant/README.md` : section « Second passage et réglage du RAG ».
+
+Vérifié : tests unitaires (11/11). Non vérifié : troisième passage sur la
+VM après `./scripts/run.sh up -d --build assistant-api` (attendu : questions
+≥ 4/5 ; sinon reclassement par le modèle ou embeddings).
+
 ## 2026-09-21 — Assistant IA : documentation du dépôt indexée, réflexion coupée par défaut (livraison #534, item 81)
 
 Premier passage réel de l'évaluation (VM 6 vCPU / 16 Go, `qwen3:8b`) :
@@ -21,9 +42,9 @@ latence venait du mode réflexion de Qwen3.
   recherche).
 - `assistant/README.md` : section « Premier passage réel ».
 
-Vérifié : tests unitaires (10/10). Non vérifié : reconstruction de l'image
-et second passage d'évaluation sur la VM (à faire : `./scripts/run.sh up -d
---build assistant-api` puis `POST /assistant/eval/run`).
+Vérifié (#535) : image reconstruite et déployée, 65 fichiers du dépôt
+indexés, second passage : classification 10/10, résumés 4,75/5, questions
+2/5, 47 à 62 s par question. Tests unitaires 10/10.
 
 ## 2026-09-18 — Doc : infrastructure d'inférence de l'assistant IA (item 81)
 
