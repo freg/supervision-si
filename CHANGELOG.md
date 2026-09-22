@@ -1,3 +1,19 @@
+## 2026-09-22 — Assistant IA : journal avec le produit et l'attendu (livraison #540, item 81)
+
+Demandé : « assistant IA / PoC interne / journal : ajouter le résultat
+produit et l'attendu ».
+
+- `assistant/app.py` : `result` (JSON extrait ou texte tronqué) dans
+  chaque ligne de journal ; en évaluation, une ligne `eval` par cas avec
+  `case`, `usage`, `expected`, `score`, `detail`, sans doublon (`log=False`
+  sur les usages appelés par `run_eval`).
+- `assistant/static/index.html` : onglet Journal -- colonnes Demandé /
+  Produit / Attendu / Note.
+- Tests `assistant/tests/test_rag.py` : 13 (journal d'évaluation).
+
+Vérifié : tests unitaires. Non vérifié : rendu de l'onglet
+(`./scripts/run.sh up -d --build assistant-api`).
+
 ## 2026-09-22 — Vox-cortex : cadrage de l'IA au centre du hub (livraison #539, item 83, doc seulement)
 
 Nouvel item 83 au BACKLOG : portée (résolution de tickets techniques,

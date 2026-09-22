@@ -158,7 +158,16 @@ class Api(unittest.TestCase):
         self.assertEqual(rep["by_kind"]["summarize"]["score"], 1.0)
         self.assertGreaterEqual(rep["by_kind"]["ask"]["score"], 0.5)
         self.assertTrue(self.c.get("/assistant/eval/last").get_json()["history"])
-        self.assertGreaterEqual(len(self.c.get("/assistant/journal").get_json()["journal"]), 3)
+        j = self.c.get("/assistant/journal").get_json()["journal"]
+        ev = [e for e in j if e["kind"] == "eval"]
+        self.assertEqual(len(ev), 3)  # #540 : une ligne par cas, produit + attendu + note
+        c01 = next(e for e in ev if e["case"] == "c01")
+        self.assertEqual(c01["usage"], "classify")
+        self.assertIsInstance(c01["result"], dict)
+        self.assertEqual(c01["expected"], next(c for c in cases if c["id"] == "c01")["expect"])
+        self.assertEqual(c01["score"], 1.0)
+        self.assertIn("json_fields", c01["detail"])
+        self.assertFalse([e for e in j if e["kind"] in ("ask", "classify", "summarize") and e.get("case")])
 
 
 if __name__ == "__main__":

@@ -113,6 +113,17 @@ dès que le bon passage est dans les extraits. Suite : cas réels hors
 dépôt (tickets, GED), puis mesure sur GPU (la latence est le traitement
 du prompt sur CPU).
 
+## Journal : produit et attendu (#540)
+
+Demandé : « journal : ajouter le résultat produit et l'attendu ». Chaque
+ligne du journal porte désormais **Demandé** (question ou début du texte),
+**Produit** (le JSON extrait, sinon le texte tronqué à 700 caractères) et,
+pour un passage d'évaluation, une ligne par cas (`kind: eval`, colonne
+Usage « éval a01 (ask) ») avec **Attendu** (le bloc `expect` du cas :
+mots-clés, champs JSON, source) et la **Note** (survol du « ? » : détail
+par critère, mots-clés manquants). Les usages interactifs gardent une
+ligne par appel ; l'évaluation ne double plus ses lignes.
+
 ## Ce que fait assistant-api
 
 - **Index** (`/assistant/index/rebuild`, au démarrage) : documents locaux

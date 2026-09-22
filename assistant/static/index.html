@@ -8,6 +8,7 @@ qualité + jetons/s), journal. Aucune dépendance externe. -->
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Assistant IA (PoC)</title>
 <style>
+td.wrap { white-space: pre-wrap; max-width: 28em; font-size: .85em; }
   :root { --bg:#f6f7f9; --panel:#fff; --border:#d5d9e0; --text:#1c2430; --muted:#66707d; --accent:#2b6cb0; --danger:#b42318; --ok:#1f7a3f; --warning:#9a6700; --ok-bg:#e6f4ea; --danger-bg:#fdecea; }
   @media (prefers-color-scheme: dark) { :root { --bg:#14181f; --panel:#1c222b; --border:#333c48; --text:#e6e9ee; --muted:#9aa4b1; --accent:#7aa7e0; --danger:#f08c85; --ok:#7bd38e; --warning:#f0c674; --ok-bg:#1d3324; --danger-bg:#3a1f1d; } }
   * { box-sizing:border-box; } body { margin:0; font-family:system-ui,sans-serif; font-size:14px; background:var(--bg); color:var(--text); }
@@ -37,7 +38,7 @@ qualité + jetons/s), journal. Aucune dépendance externe. -->
 <section id="tab-eval" style="display:none"><div class="panel"><p class="muted" style="margin:0 0 6px">Jeu de 20 cas (10 classements GED, 5 résumés, 5 questions RAG) : chaque cas est noté (mots-clés attendus, JSON valide et champs, sources) et chronométré. Comparer les rapports entre modèles ou machines. Un fichier <code>/data/cases.json</code> remplace le jeu fourni par des cas réels.</p>
 <div class="row"><select id="e-kind" style="width:auto"><option value="">tous les cas</option><option value="classify">classements</option><option value="summarize">résumés</option><option value="ask">questions</option></select><button id="e-go">Lancer l'évaluation</button><select id="e-hist" style="width:auto"></select><span id="e-meta" class="muted"></span></div>
 <div id="e-summary"></div><div id="e-table"></div></div></section>
-<section id="tab-journal" style="display:none"><div class="panel"><table><thead><tr><th>Quand</th><th>Usage</th><th>ms</th><th>jetons/s</th><th>Détail</th></tr></thead><tbody id="journal"></tbody></table></div></section>
+<section id="tab-journal" style="display:none"><div class="panel"><p class="muted">Chaque appel au modèle : ce qui a été demandé, ce qui a été produit et, pour les cas d'évaluation, ce qui était attendu et la note (#540).</p><table><thead><tr><th>Quand</th><th>Usage</th><th>ms</th><th>jetons/s</th><th>Demandé</th><th>Produit</th><th>Attendu</th><th>Note</th></tr></thead><tbody id="journal"></tbody></table></div></section>
 </main>
 <script>
 const B = "/assistant"; const $ = (s) => document.querySelector(s);
@@ -58,6 +59,7 @@ function renderReport(rep) { if (!rep) { $("#e-summary").innerHTML = '<span clas
 async function loadEval() { try { const l = await api("/eval/last"); $("#e-meta").textContent = l.running ? "évaluation en cours…" : ""; $("#e-hist").innerHTML = '<option value="">rapport courant</option>' + l.history.map((h) => `<option>${esc(h)}</option>`).join(""); renderReport(l.report); if (l.running) setTimeout(loadEval, 5000); } catch (e) { msg(e.message, true); } }
 $("#e-go").onclick = async () => { try { const r = await api("/eval/run", { method: "POST", body: JSON.stringify({ kind: $("#e-kind").value || undefined }) }); msg(`Évaluation lancée sur ${r.started} cas — compter plusieurs minutes sur CPU.`); setTimeout(loadEval, 3000); } catch (e) { msg(e.message, true); } };
 $("#e-hist").onchange = async () => { const v = $("#e-hist").value; if (!v) return loadEval(); renderReport(await api("/eval/history/" + v)); };
-async function loadJournal() { const j = (await api("/journal")).journal; $("#journal").innerHTML = j.map((e) => `<tr><td class="muted">${esc(e.at)}</td><td>${esc(e.kind)}</td><td>${e.ms ?? ""}</td><td>${e.tok_s ?? ""}</td><td class="muted">${esc(e.question || (e.error || "") || (e.ok === false ? "JSON non extrait" : ""))}${e.sources ? " · " + e.sources.length + " source(s)" : ""}</td></tr>`).join("") || '<tr><td colspan="5" class="muted">Vide.</td></tr>'; }
+const fmt = (v) => v == null ? "" : (typeof v === "object" ? JSON.stringify(v) : String(v));
+async function loadJournal() { const j = (await api("/journal")).journal; $("#journal").innerHTML = j.map((e) => `<tr><td class="muted">${esc(e.at)}</td><td>${esc(e.kind === "eval" ? "éval " + (e.case || "") + " (" + (e.usage || "") + ")" : e.kind)}</td><td>${e.ms ?? ""}</td><td>${e.tok_s ?? ""}</td><td class="muted">${esc(e.question || "")}${e.sources ? " · " + e.sources.length + " source(s)" : ""}</td><td class="wrap">${esc(fmt(e.result) || e.error || (e.ok === false ? "JSON non extrait" : ""))}</td><td class="wrap muted">${esc(fmt(e.expected))}</td><td>${e.score == null ? "" : e.score}${e.detail ? ' <span class="muted" title="' + esc(fmt(e.detail)) + '">?</span>' : ""}</td></tr>`).join("") || '<tr><td colspan="8" class="muted">Vide.</td></tr>'; }
 status(); setInterval(status, 20000);
 </script></body></html>

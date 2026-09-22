@@ -234,7 +234,15 @@ def journal(kind, payload):
 
 
 # ---------------------------------------------------------------- usages
-def ask(question, k=5, source=None, free=False):
+def _produced(out, limit=700):
+    """Ce que le modèle a produit, pour le journal (#540) : le JSON extrait
+    quand il y en a un, sinon le texte, tronqué."""
+    if isinstance(out.get("parsed"), dict):
+        return out["parsed"]
+    return (out.get("text") or "")[:limit]
+
+
+def ask(question, k=5, source=None, free=False, log=True):
     hits = [] if free else INDEX.search(question, k=k, source=source)
     if free:
         msgs = [{"role": "system", "content": "Tu es l'assistant interne du système d'information. Réponds en français, brièvement."}, {"role": "user", "content": question}]
@@ -243,21 +251,24 @@ def ask(question, k=5, source=None, free=False):
     out = llm_chat(msgs)
     out["sources"] = [{"id": h["id"], "doc": h.get("doc"), "source": h["source"], "title": h["title"], "score": h["score"], "excerpt": h["text"][:300]} for h in hits]
     out["question"] = question
-    journal("ask", {"question": question, "ms": out.get("ms"), "tok_s": out.get("tok_s"), "sources": [h["id"] for h in hits], "error": out.get("error")})
+    if log:
+        journal("ask", {"question": question, "ms": out.get("ms"), "tok_s": out.get("tok_s"), "sources": [h["id"] for h in hits], "error": out.get("error"), "result": _produced(out)})
     return out
 
 
-def classify(text, types=None, sites=None):
+def classify(text, types=None, sites=None, log=True):
     out = llm_chat(rag.build_classify_messages(text, types or [], sites or []), temperature=0.0, json_mode=True)
     out["parsed"] = rag.extract_json(out.get("text"))
-    journal("classify", {"ms": out.get("ms"), "tok_s": out.get("tok_s"), "ok": isinstance(out["parsed"], dict), "error": out.get("error")})
+    if log:
+        journal("classify", {"ms": out.get("ms"), "tok_s": out.get("tok_s"), "ok": isinstance(out["parsed"], dict), "error": out.get("error"), "result": _produced(out)})
     return out
 
 
-def summarize(text):
+def summarize(text, log=True):
     out = llm_chat(rag.build_summary_messages(text), temperature=0.0, json_mode=True)
     out["parsed"] = rag.extract_json(out.get("text"))
-    journal("summarize", {"ms": out.get("ms"), "tok_s": out.get("tok_s"), "ok": isinstance(out["parsed"], dict), "error": out.get("error")})
+    if log:
+        journal("summarize", {"ms": out.get("ms"), "tok_s": out.get("tok_s"), "ok": isinstance(out["parsed"], dict), "error": out.get("error"), "result": _produced(out)})
     return out
 
 
@@ -268,16 +279,21 @@ def run_eval(cases):
         kind = c.get("kind")
         t0 = time.monotonic()
         if kind == "ask":
-            r = ask(c["input"], k=c.get("k", 5))
+            r = ask(c["input"], k=c.get("k", 5), log=False)
             sc = rag.score_case(c, r.get("text"), sources=r.get("sources"))
         elif kind == "classify":
-            r = classify(c["input"], c.get("types"), c.get("sites"))
+            r = classify(c["input"], c.get("types"), c.get("sites"), log=False)
             sc = rag.score_case(c, r.get("text"), parsed=r.get("parsed"))
         elif kind == "summarize":
-            r = summarize(c["input"])
+            r = summarize(c["input"], log=False)
             sc = rag.score_case(c, r.get("text"), parsed=r.get("parsed"))
         else:
             continue
+        # #540 : une ligne de journal par cas d'évaluation, avec le produit,
+        # l'attendu et la note -- demandé : « ajouter le résultat produit et l'attendu ».
+        journal("eval", {"case": c.get("id"), "usage": kind, "question": c["input"][:200], "ms": r.get("ms"), "tok_s": r.get("tok_s"),
+                         "sources": [s["id"] for s in r.get("sources") or []], "error": r.get("error"),
+                         "result": _produced(r), "expected": c.get("expect"), "score": sc.get("score"), "detail": {k: v for k, v in sc.items() if k != "score"}})
         results.append({"id": c.get("id"), "kind": kind, "score": sc, "ms": r.get("ms"), "tok_s": r.get("tok_s"), "usage": r.get("usage"),
                         "error": r.get("error"), "answer": (r.get("text") or "")[:1500], "parsed": r.get("parsed"), "sources": [s["id"] for s in r.get("sources") or []],
                         "wall_ms": round((time.monotonic() - t0) * 1000)})
