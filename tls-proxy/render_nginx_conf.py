@@ -177,6 +177,8 @@ SERVICES = [
     ("TASKS_API_PORT", "tasks-api", 5000, "/api/tasks/", "api"),
     # rights-api (livraison #283) -- service central de droits.
     ("RIGHTS_API_PORT", "rights-api", 5000, "/api/rights/", "api"),
+    # accounts-api (livraison #557) -- comptes et groupes (Keycloak).
+    ("ACCOUNTS_API_PORT", "accounts-api", 5000, "/api/accounts/", "api"),
     # netprobe-api (livraisons #295/#297/#301) -- sondage réseau actif.
     # Manque trouvé en finalisant #301 : la tuile hub et son client
     # appelaient déjà /api/netprobe, jamais routé -- 404 systématique

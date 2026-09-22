@@ -1016,6 +1016,25 @@ services:
     environment:
       - RIGHTS_PROJECT_ROOT=/project
 
+  accounts-api:
+    # Livraison #557 -- comptes et groupes du hub en pilotant Keycloak
+    # (API Admin REST) : tuile « Comptes et groupes ». Même compte de
+    # service de bootstrap que tickets-api / keycloak-backup (jamais une
+    # nouvelle variable). Aucun volume : Keycloak est la seule source.
+    build:
+      context: .
+      dockerfile: accounts/api/Dockerfile
+    environment:
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-supervision-si}
+      - KEYCLOAK_SERVICE_CLIENT_ID=${KEYCLOAK_SERVICE_CLIENT_ID:-supervision-si-service}
+      - KEYCLOAK_SERVICE_CLIENT_SECRET=${KEYCLOAK_SERVICE_CLIENT_SECRET:-change-me}
+      - LDAP_EDIT_MODE=${LDAP_EDIT_MODE:-READ_ONLY}
+      - ACCOUNTS_ADMIN_GROUPS=${ACCOUNTS_ADMIN_GROUPS:-administrateurs,admin_hub}
+      - MEMCACHED_HOST=memcached
+    depends_on:
+      - keycloak
+
   netprobe-api:
     # Livraison #295 -- fondation du sondage réseau actif (collecteur
     # d'IP + système de contrôle), demandé explicitement. Module
@@ -1755,6 +1774,8 @@ services:
       - VITE_TASKS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/tasks
       # Droits (livraison #283) -- onglet hub réservé à admin_hub.
       - VITE_RIGHTS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/rights
+      # Comptes et groupes (livraison #557) -- tuile réservée aux administrateurs.
+      - VITE_ACCOUNTS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/accounts
       # Sondes réseau (livraison #301) -- tuile hub pour netprobe-api.
       - VITE_NETPROBE_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/netprobe
       # UPS (livraison #415) -- tuile hub pour ups-monitor-api.

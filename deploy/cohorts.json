@@ -18,6 +18,7 @@
         "launcher",
         "docker-monitor-api",
         "rights-api",
+        "accounts-api",
         "credentials-api",
         "si-proxy",
         "si-proxy-admin-api",

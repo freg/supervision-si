@@ -191,6 +191,13 @@
    "env_var": "RIGHTS_API_PORT"
   },
   {
+   "path": "/api/accounts/",
+   "service": "accounts-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "ACCOUNTS_API_PORT"
+  },
+  {
    "path": "/api/netprobe/",
    "service": "netprobe-api",
    "container_port": 5000,
@@ -210,6 +217,13 @@
    "container_port": 5000,
    "kind": "api",
    "env_var": "SI_AGENT_API_PORT"
+  },
+  {
+   "path": "/api/network-equipment/",
+   "service": "network-equipment-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "NETWORK_EQUIPMENT_API_PORT"
   },
   {
    "path": "/api/si-proxy/",
@@ -245,6 +259,13 @@
    "container_port": 5000,
    "kind": "api",
    "env_var": "IMAP_CLIENT_API_PORT"
+  },
+  {
+   "path": "/api/imap-connectors/",
+   "service": "imap-connectors",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "IMAP_CONNECTORS_API_PORT"
   },
   {
    "path": "/api/glpi/",
@@ -294,6 +315,55 @@
    "container_port": 5173,
    "kind": "spa",
    "env_var": "SUPERVISION_FRONTEND_PORT"
+  },
+  {
+   "path": "/projeqtor/",
+   "service": "projeqtor-app",
+   "container_port": 80,
+   "kind": "spa",
+   "env_var": "PROJEQTOR_PORT"
+  },
+  {
+   "path": "/demande/",
+   "service": "projeqtor-bridge",
+   "container_port": 5000,
+   "kind": "spa",
+   "env_var": "PROJEQTOR_BRIDGE_PORT"
+  },
+  {
+   "path": "/mikrotik/",
+   "service": "mikrotik-api",
+   "container_port": 5000,
+   "kind": "spa",
+   "env_var": "MIKROTIK_API_PORT"
+  },
+  {
+   "path": "/cisco/",
+   "service": "cisco-api",
+   "container_port": 5000,
+   "kind": "spa",
+   "env_var": "CISCO_API_PORT"
+  },
+  {
+   "path": "/service-watch/",
+   "service": "service-watch-api",
+   "container_port": 5000,
+   "kind": "spa",
+   "env_var": "SERVICE_WATCH_API_PORT"
+  },
+  {
+   "path": "/assistant/",
+   "service": "assistant-api",
+   "container_port": 5000,
+   "kind": "spa",
+   "env_var": "ASSISTANT_API_PORT"
+  },
+  {
+   "path": "/credentials/",
+   "service": "credentials-api",
+   "container_port": 5000,
+   "kind": "spa",
+   "env_var": "CREDENTIALS_API_PORT"
   },
   {
    "path": "/",
@@ -500,7 +570,7 @@
   }
  ],
  "counts": {
-  "gateway_routes": 48,
+  "gateway_routes": 58,
   "direct_ports": 17,
   "direct_public": 11,
   "host_network": 1

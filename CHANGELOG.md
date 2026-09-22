@@ -1,3 +1,28 @@
+## 2026-09-22 — Comptes et groupes : tuile pilotant Keycloak (livraison #557, item 86)
+
+Demandé : « créer une interface de gestion des utilisateurs/groupes
+commandant le keycloak ».
+
+- `accounts/api/` (nouveau service `accounts-api`) : `kc.py` (client API
+  Admin REST : groupes, comptes, appartenance rendue égale, mot de passe,
+  invitation, déconnexion ; erreurs présentables), `app.py` (routes, écriture
+  réservée à `administrateurs`/`admin_hub`, journal partagé). Compte de
+  service de bootstrap existant.
+- Hub : `AccountsView.jsx` (comptes : recherche, filtre par groupe, création
+  avec mot de passe temporaire ou invitation, activation, groupes par cases à
+  cocher, mot de passe, suppression ; groupes : création, suppression,
+  membres), `accountsLib.js` (filtre, validation, comptes par groupe),
+  entrée « Comptes et groupes » dans Sécurité & accès (réservée aux
+  administrateurs), source de journaux.
+- Câblage : `docker-compose.yml` (service, `VITE_ACCOUNTS_API_BASE_URL`),
+  tls-proxy `/api/accounts/`, `deploy/cohorts.json` (cohorte core),
+  `shared/EXPOSURE.json`, `.env.example` (`ACCOUNTS_ADMIN_GROUPS`).
+- Tests : `accounts/tests/test_accounts.py` (2, Keycloak simulé),
+  `hub/tests/accountsLib.test.mjs` (3) ; 240 tests hub au vert.
+
+Vérifié : tests. Non vérifié : contre un vrai Keycloak (droits du compte de
+service sur `manage-users`, fédération LDAP en lecture seule).
+
 ## 2026-09-22 — Anomalies Nebula en tableau, règles lisibles pour l'IA, validation applicable (livraison #556, items 83 et 85)
 
 Demandé : « présente la liste des anomalies en tableau de la largeur de la

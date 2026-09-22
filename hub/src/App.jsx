@@ -33,6 +33,7 @@ import ClassifierView from "./ClassifierView.jsx";
 import VigilanceView from "./VigilanceView.jsx";
 import EntView from "./EntView.jsx";
 import RightsView from "./RightsView.jsx";
+import AccountsView from "./AccountsView.jsx";
 import NetprobeView from "./NetprobeView.jsx";
 import UpsView from "./UpsView.jsx";
 import SiAgentView from "./SiAgentView.jsx";
@@ -116,6 +117,7 @@ const CLASSIFIER_API_BASE_URL = import.meta.env.VITE_CLASSIFIER_API_BASE_URL || 
 const VIGILANCE_API_BASE_URL = import.meta.env.VITE_VIGILANCE_API_BASE_URL || "";
 const TASKS_API_BASE_URL = import.meta.env.VITE_TASKS_API_BASE_URL || "";
 const RIGHTS_API_BASE_URL = import.meta.env.VITE_RIGHTS_API_BASE_URL || "";
+const ACCOUNTS_API_BASE_URL = import.meta.env.VITE_ACCOUNTS_API_BASE_URL || "";  // #557
 const NETPROBE_API_BASE_URL = import.meta.env.VITE_NETPROBE_API_BASE_URL || "";
 // Tuile UPS (livraison #415) -- ups-monitor-api.
 const UPS_API_BASE_URL = import.meta.env.VITE_UPS_API_BASE_URL || "";
@@ -1404,6 +1406,7 @@ export default function App() {
     FILE_MANAGER_API_BASE_URL && "file-manager", IMAP_CLIENT_API_BASE_URL && "imap",
     IMAP_CONNECTORS_API_BASE_URL && "imap-connectors", bastionAllowed && "si-proxy",
     RIGHTS_API_BASE_URL && groups.includes("admin_hub") && "rights", BACKUP_RESTORE_API_BASE_URL && "backup-restore",
+    ACCOUNTS_API_BASE_URL && (isAdmin(groups) || groups.includes("admin_hub")) && "accounts",
   ].filter(Boolean));
   const { leftover: leftoverFronts } = buildThemes({ available: availableViews, fronts });
   // #516 : l'en-tête et l'accueil se construisent depuis l'ARBRE de
@@ -1622,6 +1625,8 @@ vm === "settings" ? (
           rightsApiBase={RIGHTS_API_BASE_URL}
           groups={groups}
         />
+      ) : vm === "accounts" ? (
+        <AccountsView onBack={goBack} accountsApiBase={ACCOUNTS_API_BASE_URL} groups={groups} login={profile.preferred_username} />
       ) : vm === "file-manager" ? (
         <FileManagerView
           onBack={goBack}

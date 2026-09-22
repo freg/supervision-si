@@ -3148,3 +3148,20 @@ derrière `NEBULA_ALLOW_WRITE`. Suites : autres corrections applicables
 applications visible dans la tuile, règles pour Cortex et service-watch
 (types `service_down`, `certificate_expiring` déjà décrits dans
 `rules/services.md`), éditeur de règles dans le hub (aujourd'hui : fichier).
+
+## Comptes, groupes et droits du hub (2026-09-22, #557) — item 86
+
+Demandé : une interface de gestion des utilisateurs/groupes commandant
+Keycloak ; une interface de gestion des droits pour toutes les interfaces
+et actions du hub (tableau de tout ce qui doit être paramétré, associant
+utilisateurs et groupes) ; donner accès à la tuile Nebula au groupe
+« site-alpha » (groupe du client) depuis le portail de l'agent du campus.
+
+Livré (#557) : tuile « Comptes et groupes » (accounts-api). À faire (#558) :
+matrice des droits (catalogue des tuiles/vues et actions × groupes et
+utilisateurs, application réelle : une tuile non accordée n'apparaît pas ;
+politique par défaut « tout le monde voit tout » conservée tant qu'aucune
+restriction n'est posée pour un groupe), lien vers le hub sur la page
+publiée par l'agent. Suites : synchronisation des groupes LDAP (mapper
+Keycloak) ; import de comptes par fichier ; journal des actions dans la
+tuile ; désactivation automatique des comptes inactifs.

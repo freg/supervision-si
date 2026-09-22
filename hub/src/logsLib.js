@@ -52,6 +52,7 @@ export const LOG_SERVICES = [
   { id: "vault", label: "Coffre-fort", path: "/api/vault/logs" },
   { id: "dba", label: "DBA", path: "/api/dba/logs" },
   { id: "rights", label: "Droits", path: "/api/rights/logs" },
+  { id: "accounts", label: "Comptes et groupes", path: "/api/accounts/logs" },
   { id: "rsyslog-listener", label: "Écoute syslog (UDP)", path: "/api/rsyslog-listener/logs" },
   { id: "network-agent", label: "Exploration réseau", path: "/api/network-agent/logs" },
   { id: "ged", label: "GED (documents)", path: "/api/ged/logs" },
