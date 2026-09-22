@@ -57,7 +57,7 @@ def check_permission():
     action = body.get("action")
     if not resource_type or not action:
         return jsonify({"error": "'resource_type' et 'action' requis"}), 400
-    allowed = store.has_permission(DB_PATH, groups, resource_type, resource_id, action)
+    allowed = store.has_permission(DB_PATH, groups, resource_type, resource_id, action, user=body.get("user"))
     return jsonify({"allowed": allowed}), 200
 
 
@@ -73,8 +73,83 @@ def filter_items():
     id_key = body.get("id_key", "identifier")
     if not resource_type or not isinstance(items, list):
         return jsonify({"error": "'resource_type' et 'items' (liste) requis"}), 400
-    visible = store.filter_visible(DB_PATH, groups, resource_type, items, action=action, id_key=id_key)
+    visible = store.filter_visible(DB_PATH, groups, resource_type, items, action=action, id_key=id_key, user=body.get("user"))
     return jsonify({"items": visible}), 200
+
+
+# ------------------------------------------------ matrice des droits (#559)
+@app.route("/visible", methods=["POST"])
+def visible():
+    """Identifiants visibles pour la personne (groupes + login) parmi `ids`
+    d'un type : tout si elle n'est pas restreinte, sinon les cases
+    accordées. C'est l'appel que fait le hub pour n'afficher que les tuiles
+    permises."""
+    body = request.get_json(silent=True) or {}
+    ids = body.get("ids")
+    if not body.get("resource_type") or not isinstance(ids, list):
+        return jsonify({"error": "'resource_type' et 'ids' (liste) requis"}), 400
+    groups = body.get("groups") or []
+    user = body.get("user")
+    return jsonify({"ids": store.visible_ids(DB_PATH, groups, body["resource_type"], ids, user=user, action=body.get("action", "view")),
+                    "restricted": store.is_restricted(DB_PATH, groups, user)}), 200
+
+
+@app.route("/catalog", methods=["PUT"])
+def put_catalog():
+    """Le hub publie son catalogue (tuiles, actions) -- admin_hub seulement."""
+    body = request.get_json(silent=True) or {}
+    if not _require_admin(body):
+        return jsonify({"error": "seul le groupe admin_hub peut publier le catalogue"}), 403
+    if not body.get("resource_type") or not isinstance(body.get("items"), list):
+        return jsonify({"error": "'resource_type' et 'items' requis"}), 400
+    store.set_catalog(DB_PATH, body["resource_type"], body["items"])
+    return jsonify({"ok": True, "count": len(body["items"])}), 200
+
+
+@app.route("/matrix", methods=["GET"])
+def matrix():
+    """Catalogue d'un type + tous les octrois (par sujet) + sujets restreints."""
+    rt = request.args.get("resource_type", "hub-tile")
+    perms = store.list_permissions(DB_PATH)
+    return jsonify({"resource_type": rt, "catalog": store.get_catalog(DB_PATH, rt), "permissions": perms,
+                    "restricted": store.restricted_subjects(DB_PATH),
+                    "subjects": sorted({p["group_name"] for p in perms} | set(store.restricted_subjects(DB_PATH)))}), 200
+
+
+@app.route("/matrix", methods=["PUT"])
+def put_matrix():
+    """Lot de cases : {"grants": [{resource_type, resource_id, subject, action, allowed}]} -- admin_hub seulement."""
+    body = request.get_json(silent=True) or {}
+    if not _require_admin(body):
+        return jsonify({"error": "seul le groupe admin_hub peut modifier la matrice"}), 403
+    grants = body.get("grants")
+    if not isinstance(grants, list):
+        return jsonify({"error": "'grants' (liste) requis"}), 400
+    by = body.get("user") or (body.get("groups") or ["?"])[0]
+    n = 0
+    for g in grants:
+        if not isinstance(g, dict) or not g.get("resource_type") or not g.get("subject") or not g.get("action"):
+            continue
+        store.set_grant(DB_PATH, g["resource_type"], g.get("resource_id"), g["subject"], g["action"], bool(g.get("allowed")), by)
+        n += 1
+    return jsonify({"ok": True, "applied": n}), 200
+
+
+@app.route("/restrictions", methods=["GET"])
+def get_restrictions():
+    return jsonify({"restricted": store.restricted_subjects(DB_PATH)}), 200
+
+
+@app.route("/restrictions", methods=["PUT"])
+def put_restrictions():
+    """{"subject": "group:x" | "user:y", "restricted": true|false} -- admin_hub seulement."""
+    body = request.get_json(silent=True) or {}
+    if not _require_admin(body):
+        return jsonify({"error": "seul le groupe admin_hub peut restreindre un accès"}), 403
+    ok = store.set_restricted(DB_PATH, body.get("subject"), bool(body.get("restricted")), body.get("user") or (body.get("groups") or ["?"])[0])
+    if not ok:
+        return jsonify({"error": "sujet invalide ou jamais restreint (admin_hub, administrateurs)"}), 400
+    return jsonify({"restricted": store.restricted_subjects(DB_PATH)}), 200
 
 
 @app.route("/permissions", methods=["GET"])

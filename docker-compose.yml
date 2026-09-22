@@ -1032,8 +1032,7 @@ services:
       - LDAP_EDIT_MODE=${LDAP_EDIT_MODE:-READ_ONLY}
       - ACCOUNTS_ADMIN_GROUPS=${ACCOUNTS_ADMIN_GROUPS:-administrateurs,admin_hub}
       - MEMCACHED_HOST=memcached
-    depends_on:
-      - keycloak
+    # pas de depends_on keycloak : il vit dans gateway/docker-compose.yml (voir #135)
 
   netprobe-api:
     # Livraison #295 -- fondation du sondage réseau actif (collecteur
