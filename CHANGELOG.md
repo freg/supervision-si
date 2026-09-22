@@ -1,3 +1,22 @@
+## 2026-09-22 — Plan du campus vectorisé comme fond par défaut, liste des propositions qui défile (livraison #561)
+
+Demandé : « vectoriser et aligner le plan (il s'inscrit dans un rectangle)
+depuis le jpg et le rendre interactif », « nettoyer le plan jpg du Vous êtes
+ici et de sa flèche », « mettre le plan vectorisé comme fond de placement par
+défaut », « la liste ne défile pas alors qu'elle affiche 7 items sur 500 ».
+
+- `nebula/plans/default.svg` (≈1 Mo, 6 couches potrace) : photo nettoyée
+  (« Vous êtes ici », point rouge, flèche — le mur diagonal traversé par la
+  flèche est redessiné), redressée et recadrée ; servi par nebula-api quand
+  aucun plan n'a été déposé pour le site (#560). Script
+  `nebula/tools/plan_vectorize.py`. L'interactivité (pastilles de santé,
+  clic → équipement, glisser pour placer) est celle de l'onglet Plan du site.
+- `hub/src/hub.css` : `.ss-proposals` en colonne flex — la liste des
+  propositions de Supervision SI défile (522 items étaient coupés à 7).
+
+Vérifié : rendu du SVG hors ligne. Non vérifié : sur super (le plan doit
+apparaître dans Nebula → Plan du site sans rien déposer).
+
 ## 2026-09-22 — Liens lisibles en sombre, menus qui se ferment, aide au secret Keycloak, plan par défaut livré avec l'image (livraison #560)
 
 Demandé : « caractères foncés sur fond sombre : pas lisible » ; « menus qui

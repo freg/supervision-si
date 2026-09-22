@@ -109,6 +109,17 @@ demandée par défaut (`NEBULA_MAC_TABLE=1` pour réessayer : l'API Zyxel
 refuse ses propres réponses). Les voisins LLDP hors inventaire (postes,
 téléphones) sont listés en repli, ce n'est pas une erreur.
 
+**Plan vectorisé livré (#560/#561)** : `nebula/plans/default.svg` (copié dans
+l'image nebula-api) est le fond de placement **par défaut** quand aucun plan
+n'a été déposé pour le site — un plan déposé (volume `/data/plans`) prime,
+et « Retirer » ne touche jamais un plan livré. Le SVG vient de la photo du
+plan d'évacuation du campus : « Vous êtes ici », son point et sa flèche
+retirés (inpainting), image redressée (0,64°) et recadrée sur son rectangle,
+puis vectorisée par couches de couleur (murs/texte noir, traits gris,
+hachures bleues, flèches vertes, zones jaunes, pictogrammes rouges) avec
+potrace — `nebula/tools/plan_vectorize.py <png redressé> <svg>`. Pastilles de
+santé et accès aux équipements par clic : inchangés (onglet Plan du site).
+
 **Plan du site (#555)** : onglet **Plan du site** de la tuile Nebula. Une
 image de plan par site (`PUT /sites/<id>/plan`, multipart `file`, PNG/JPG/
 WebP/SVG ≤ 8 Mo, stockée dans le volume `/data/plans/`, **jamais dans le

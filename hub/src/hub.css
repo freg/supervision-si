@@ -1948,6 +1948,8 @@ button.secondary { background: var(--panel); }
 .ss-map-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vertical-align: middle; }
 .ss-table table { font-size: 12px; }
 .ss-links, .ss-summary, .ss-proposals { padding: 8px; }
+/* #561 : la liste des propositions défile (le conteneur n'était pas une colonne flex : 522 items coupés à 7) */
+.ss-proposals { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .ss-summary { display: flex; flex-wrap: wrap; gap: 10px; }
 .ss-summary-card { flex: 1 1 100px; border: 2px solid; border-radius: 8px; text-align: center; padding: 8px; cursor: pointer; }
 .ss-summary-n { font-size: 28px; font-weight: 700; }
