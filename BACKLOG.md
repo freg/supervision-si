@@ -3105,9 +3105,9 @@ lentement -- accepté par l'objectif.
 
 Livré : brief d'ergonomie (`docs/ergonomie-redesign.md`) et espace
 « Simple » du pont (accueil, suivi par numéro, état des services avec
-dépendances, numéro de suivi à l'envoi). Suites : test à cinq personnes
-(protocole du brief) ; états alimentés par service-watch / Cortex au lieu
-du fichier posé à la main ; référentiel de services partagé avec le hub
+dépendances, numéro de suivi à l'envoi) ; états vivants depuis
+service-watch (#542). Suites : test à cinq personnes (protocole du brief) ;
+Cortex et agents comme sources d'état ; référentiel de services partagé avec le hub
 (Cortex, Infos synthèse) ; appliquer la charte Simple au formulaire
 complet et au tableau ; version « responsable non technicien » du hub
 (tuiles en phrases, sans densité).

@@ -98,6 +98,47 @@ def impacted(services, down_ids):
     return out
 
 
+LIVE_STATE = {"critical": "panne", "warning": "degrade"}
+
+
+def etats_depuis_service_watch(services, entries, now_iso=None):
+    """États déduits de service-watch (#542) : un service du référentiel
+    déclare `sources: {"service_watch": ["nom d'entrée", …]}` ; l'entrée la
+    plus mauvaise fait l'état (critical → panne, warning → dégradé), sa
+    date de dernier passage fait `depuis`. Retourne {id: {etat, depuis,
+    message, source}} pour les services touchés seulement -- les états
+    posés par l'exploitation gardent la priorité (fusion dans
+    `fusion_etats`)."""
+    by_name = {}
+    for e in entries or []:
+        if not isinstance(e, dict) or not e.get("name") or e.get("gone_at"):
+            continue
+        last = e.get("last") or {}
+        by_name[e["name"]] = {"state": last.get("state") or e.get("state") or "ok", "at": last.get("at")}
+    out = {}
+    for s in services or []:
+        names = ((s.get("sources") or {}).get("service_watch")) or []
+        worst, at = None, None
+        for n in names:
+            st = by_name.get(n, {}).get("state")
+            rank = {"critical": 2, "warning": 1}.get(st, 0)
+            if rank and (worst is None or rank > worst[0]):
+                worst, at = (rank, st), by_name[n].get("at")
+        if worst:
+            out[s["id"]] = {"etat": LIVE_STATE[worst[1]], "depuis": at, "message": "Constaté automatiquement par la supervision.", "source": "service-watch"}
+    return out
+
+
+def fusion_etats(manuels, automatiques):
+    """Les états posés par l'exploitation l'emportent (ils portent un
+    message humain et une prévision) ; l'automatique complète."""
+    out = dict(automatiques or {})
+    for k, v in (manuels or {}).items():
+        if k.startswith("_") or isinstance(v, dict):
+            out[k] = v
+    return out
+
+
 def etat_des_services(services, etats, now=None):
     """La page « Est-ce que ça marche ? » : chaque service en français,
     son état (direct ou hérité d'une dépendance), et une phrase pour les

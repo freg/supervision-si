@@ -126,6 +126,8 @@ def sheet_page():
 
 ETAT_SERVICES_FILE = os.environ.get("ETAT_SERVICES_FILE", os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "services.json"))
 ETAT_ETATS_FILE = os.environ.get("ETAT_ETATS_FILE", os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "etats.json"))
+# #542 : états vivants depuis service-watch (URL interne, vide = fichier seul).
+SERVICE_WATCH_API = os.environ.get("SERVICE_WATCH_API_INTERNAL_URL", "").rstrip("/")
 
 
 @app.route("/demande/accueil", methods=["GET"])
@@ -161,11 +163,24 @@ def simple_status_json():
     """Référentiel (`ETAT_SERVICES_FILE`) + états (`ETAT_ETATS_FILE`, posé par
     l'exploitation ; plus tard service-watch / Cortex) -> page calculée."""
     ref = _read_json(ETAT_SERVICES_FILE) or {}
+    services = ref.get("services") or []
     etats_doc = _read_json(ETAT_ETATS_FILE) or {}
-    etats = dict(etats_doc.get("etats") or {})
-    etats["_a"] = etats_doc.get("a")
-    page = simple.etat_des_services(ref.get("services") or [], etats)
-    page["source"] = etats_doc.get("source") or ""
+    manuels = dict(etats_doc.get("etats") or {})
+    auto, sources = {}, []
+    if SERVICE_WATCH_API:
+        try:
+            r = requests.get(f"{SERVICE_WATCH_API}/service-watch/entries", timeout=8)
+            if r.status_code == 200:
+                auto = simple.etats_depuis_service_watch(services, (r.json() or {}).get("entries"))
+                sources.append("supervision automatique")
+        except (requests.RequestException, ValueError) as exc:
+            log.warning("service-watch injoignable pour l'état des services : %s", exc)
+    if manuels:
+        sources.append(etats_doc.get("source") or "exploitation")
+    etats = simple.fusion_etats(manuels, auto)
+    etats["_a"] = etats_doc.get("a") or datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    page = simple.etat_des_services(services, etats)
+    page["source"] = ", ".join(sources)
     return jsonify(page), 200
 
 

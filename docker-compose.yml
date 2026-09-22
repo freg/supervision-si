@@ -2236,6 +2236,9 @@ services:
       # par l'exploitation, dans le volume de données du pont.
       - ETAT_SERVICES_FILE=/data/services.json
       - ETAT_ETATS_FILE=/data/etats.json
+      # #542 : états vivants (critical → panne, warning → dégradé) depuis
+      # service-watch ; vide = fichier seul.
+      - SERVICE_WATCH_API_INTERNAL_URL=http://service-watch-api:5000
       # Marqueur des demandes dans ProjeQtOr (#494) — voir .env.example.
       - PROJEQTOR_BRIDGE_LABEL=${PROJEQTOR_BRIDGE_LABEL:-SUIVI}
       # Annuaire LDAP CENTRAL de la société (externe au hub) — secret,

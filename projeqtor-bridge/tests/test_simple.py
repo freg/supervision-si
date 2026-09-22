@@ -12,7 +12,7 @@ import simple  # noqa: E402
 SERVICES = [
     {"id": "coeur", "nom": "Cœur de réseau", "sert_a": "tout relier"},
     {"id": "reseau-b", "nom": "Réseau du bâtiment B", "sert_a": "se connecter depuis le bâtiment B", "depend_de": ["coeur"]},
-    {"id": "mail", "nom": "Messagerie", "sert_a": "lire et envoyer des courriels", "depend_de": ["coeur"]},
+    {"id": "mail", "nom": "Messagerie", "sert_a": "lire et envoyer des courriels", "depend_de": ["coeur"], "sources": {"service_watch": ["mail", "webmail"]}},
     {"id": "ent", "nom": "Espace numérique de travail", "sert_a": "agenda, tâches", "depend_de": ["reseau-b"]},
     {"id": "imprimante-2", "nom": "Imprimante du 2e étage", "sert_a": "imprimer au 2e", "depend_de": ["reseau-b"]},
 ]
@@ -44,6 +44,25 @@ class Status(unittest.TestCase):
         s = simple.plain_status({"ts_created": now - 3 * 86400, "statut_label": "Nouveau"}, now=now)
         self.assertIn("deux jours", s["conseil"])
         self.assertIsNone(simple.plain_status(None))
+
+
+class Live(unittest.TestCase):
+    def test_service_watch_vers_etats(self):
+        entries = [{"name": "mail", "last": {"state": "warning", "at": "2026-09-22T09:00:00Z"}},
+                   {"name": "webmail", "last": {"state": "critical", "at": "2026-09-22T09:05:00Z"}},
+                   {"name": "www", "last": {"state": "critical", "at": "x"}},
+                   {"name": "old", "gone_at": "y", "last": {"state": "critical"}}]
+        live = simple.etats_depuis_service_watch(SERVICES, entries)
+        self.assertEqual(list(live), ["mail"])
+        self.assertEqual(live["mail"]["etat"], "panne")  # la pire des deux entrées
+        self.assertEqual(live["mail"]["depuis"], "2026-09-22T09:05:00Z")
+        self.assertEqual(simple.etats_depuis_service_watch(SERVICES, [{"name": "mail", "last": {"state": "ok"}}]), {})
+        self.assertEqual(simple.etats_depuis_service_watch(SERVICES, None), {})
+        fus = simple.fusion_etats({"mail": {"etat": "degrade", "message": "retour à 14 h"}, "_a": "t"}, live)
+        self.assertEqual(fus["mail"]["message"], "retour à 14 h")  # l'exploitation l'emporte
+        self.assertEqual(fus["_a"], "t")
+        page = simple.etat_des_services(SERVICES, simple.fusion_etats({}, live))
+        self.assertEqual(page["phrases"], ["Messagerie : en panne."])
 
 
 class Etat(unittest.TestCase):

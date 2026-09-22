@@ -1,3 +1,19 @@
+## 2026-09-22 — Espace Simple : états vivants depuis service-watch (livraison #542, item 84)
+
+- `projeqtor-bridge/simple.py` : `etats_depuis_service_watch` (pire entrée
+  → panne / dégradé, date du dernier passage, entrées disparues ignorées),
+  `fusion_etats` (l'exploitation l'emporte sur l'automatique).
+- `projeqtor-bridge/app.py` : `etat.json` interroge
+  `SERVICE_WATCH_API_INTERNAL_URL` (8 s, panne tolérée) et affiche la
+  source (« supervision automatique, exploitation ») ; date = fichier ou
+  maintenant.
+- `docker-compose.yml`, `data/services.json` : variable et exemple
+  (`sources.service_watch`).
+- Tests `tests/test_simple.py` : 5.
+
+Vérifié : tests. Non vérifié : avec un service-watch réel
+(`./scripts/run.sh up -d --build projeqtor-bridge`).
+
 ## 2026-09-22 — Redesign pour les non-initiés : brief d'ergonomie et espace « Simple » (livraison #541, item 84)
 
 Demandé : « un redesign de l'interface avec pour objectifs lisibilité,

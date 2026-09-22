@@ -194,5 +194,11 @@ le suivi cherche le ticket hub `source_type = demande` correspondant via
 depend_de) ; états : `ETAT_ETATS_FILE` (`/data/etats.json`, posé par
 l'exploitation ; un service absent = ça marche). Logique pure dans
 `simple.py` (`plain_status`, `impacted`, `etat_des_services`,
-`public_ref`), tests `tests/test_simple.py`. Suites : états alimentés par
-service-watch / Cortex, référentiel partagé avec le hub.
+`public_ref`), tests `tests/test_simple.py`.
+
+États vivants (#542) : un service peut déclarer `sources.service_watch`
+(noms d'entrées) ; le pont interroge `SERVICE_WATCH_API_INTERNAL_URL`
+(`/service-watch/entries`), la pire entrée fait l'état (critical → panne,
+warning → dégradé, `depuis` = dernier passage), les états posés par
+l'exploitation l'emportent (message humain, prévision). Suites : Cortex
+et agents comme sources, référentiel partagé avec le hub.
