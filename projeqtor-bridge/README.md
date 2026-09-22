@@ -174,3 +174,25 @@ résolu, validations), import du fichier xlsx réel, export relu,
 synchronisation avec déduplication (état local **et** côté hub).
 Le format xlsx a en plus son propre round-trip vérifié
 (parse → régénère → reparse) pendant le développement.
+
+## Espace « Simple » pour les non-initiés (livraison #541)
+
+Brief et principes : `docs/ergonomie-redesign.md`. Quatre écrans dans la
+charte de la saisie rapide (`static/simple.css`), servis sous `/demande/` :
+
+| Adresse | Question | Ce qu'elle fait |
+|---|---|---|
+| `/demande/accueil` | Que voulez-vous faire ? | quatre portes en phrases ; affiche d'abord les pannes connues |
+| `/demande/rapide` | Quelque chose ne marche pas | l'existant, plus le **numéro de suivi** (`D-…`) après l'envoi |
+| `/demande/suivi` | Où en est ma demande ? | `GET /demande/suivi/<D-…>` : reçue / en cours / résolue, dates, conseil -- jamais le contenu ni un nom |
+| `/demande/etat` | Est-ce que ça marche ? | `GET /demande/etat.json` : services en français, états datés, dépendances propagées (« X en panne, donc Y ne marche pas ») |
+
+Le numéro public dérive de la clé du pont (`<label>:s:<hex>` → `D-<hex>`),
+le suivi cherche le ticket hub `source_type = demande` correspondant via
+`/queue`. Référentiel des services : `ETAT_SERVICES_FILE`
+(`/data/services.json`, exemple fictif fourni : id, nom courant, sert_a,
+depend_de) ; états : `ETAT_ETATS_FILE` (`/data/etats.json`, posé par
+l'exploitation ; un service absent = ça marche). Logique pure dans
+`simple.py` (`plain_status`, `impacted`, `etat_des_services`,
+`public_ref`), tests `tests/test_simple.py`. Suites : états alimentés par
+service-watch / Cortex, référentiel partagé avec le hub.

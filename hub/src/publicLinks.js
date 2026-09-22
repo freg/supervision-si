@@ -31,6 +31,9 @@ export function publicLinks({ demandeUrl, frontendUrl } = {}) {
   const out = [];
   const base = demandeBase(demandeUrl);
   if (base) {
+    // #541 : l'espace Simple (accueil, suivi, état des services) -- à donner
+    // en PREMIER aux non-initiés, les autres pages restent accessibles.
+    out.push({ id: "simple", name: "Support informatique (espace simple)", description: "Accueil en quatre questions : signaler, suivre ma demande, est-ce que ça marche, plusieurs demandes", url: base + "accueil" });
     out.push({ id: "demande", name: "Dépôt de demande", description: "Formulaire classique (une demande, pièces jointes)", url: base });
     out.push({ id: "demande-rapide", name: "Saisie rapide", description: "Une demande en quelques champs, détails formatés", url: base + "rapide" });
     out.push({ id: "demande-tableau", name: "Saisie en tableau", description: "Plusieurs demandes d'un coup, même disposition que le fichier d'import", url: base + "tableau" });

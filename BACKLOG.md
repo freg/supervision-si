@@ -3100,3 +3100,14 @@ historique de propositions justes ; chaque action autonome est réversible
 Matériel : le châssis 2U avec RTX 2000 Ada 16 Go (proposition client) ou
 une machine recyclée par agent ; sans GPU, tout fonctionne sur CPU, plus
 lentement -- accepté par l'objectif.
+
+## Redesign pour les non-initiés (2026-09-22, #541) — item 84
+
+Livré : brief d'ergonomie (`docs/ergonomie-redesign.md`) et espace
+« Simple » du pont (accueil, suivi par numéro, état des services avec
+dépendances, numéro de suivi à l'envoi). Suites : test à cinq personnes
+(protocole du brief) ; états alimentés par service-watch / Cortex au lieu
+du fichier posé à la main ; référentiel de services partagé avec le hub
+(Cortex, Infos synthèse) ; appliquer la charte Simple au formulaire
+complet et au tableau ; version « responsable non technicien » du hub
+(tuiles en phrases, sans densité).

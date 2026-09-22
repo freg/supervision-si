@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<!-- Espace « Simple » (livraison #541) : accueil pour les non-initiés,
+dans la prolongation de la saisie rapide (#500). Quatre portes, en
+phrases, une seule action par porte ; aucune icône, aucune dépendance
+externe. Voir docs/ergonomie-redesign.md. -->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Support informatique</title>
+<link rel="stylesheet" href="simple.css">
+</head>
+<body>
+<main>
+  <p class="kicker">Support informatique</p>
+  <h1>Que voulez-vous faire ?</h1>
+  <p class="lead">Choisissez la phrase qui vous ressemble. Aucun compte n'est nécessaire.</p>
+  <nav class="doors" aria-label="Choix">
+    <a class="door" href="rapide"><strong>Quelque chose ne marche pas</strong><span>Décrivez le problème en une phrase ; nous nous en occupons et vous recevez un numéro de suivi.</span></a>
+    <a class="door" href="suivi"><strong>Où en est ma demande ?</strong><span>Avec votre numéro de suivi, voyez si elle est reçue, en cours ou résolue.</span></a>
+    <a class="door" href="etat"><strong>Est-ce que ça marche ?</strong><span>L'état des services (réseau, messagerie, imprimantes…) et ce qui est touché en cas de panne.</span></a>
+    <a class="door" href="tableau"><strong>J'ai plusieurs demandes à déposer</strong><span>Un tableau, une ligne par demande, comme dans un fichier.</span></a>
+  </nav>
+  <p id="etat-bref" class="stamp" style="margin-top:22px"></p>
+  <footer>Service informatique — <a href="./">formulaire complet</a></footer>
+</main>
+<script>
+// Un mot d'état dès l'accueil : si une panne est connue, la personne le
+// sait AVANT de décrire son problème (règle n° 1 du brief).
+fetch("etat.json").then(r => r.ok ? r.json() : null).then(e => {
+  if (!e) return; const p = document.getElementById("etat-bref");
+  p.textContent = e.phrases.length ? "À savoir : " + e.phrases.join(" ") : "Aucune panne connue en ce moment.";
+}).catch(() => {});
+</script>
+</body>
+</html>

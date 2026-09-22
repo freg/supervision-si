@@ -24,6 +24,7 @@ La version en entête de chaque réponse n'est PAS celle du hub : voir
 """
 import html as _html
 import io
+import json
 import logging
 import os
 import re
@@ -43,6 +44,7 @@ from suivi_format import (
 )
 from projeqtor_client import ProjeqtorApiError, ProjeqtorClient
 import sync
+import simple
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 log = logging.getLogger("projeqtor-bridge")
@@ -114,6 +116,76 @@ def sheet_page():
     """Saisie « tableau » (livraison #500) : mêmes colonnes que le
     fichier attendu à l'import, plusieurs lignes d'un coup."""
     return send_from_directory(STATIC_DIR, "tableau.html")
+
+
+# ------------------------------------------------ espace « Simple » (#541)
+# Écrans pour les non-initiés (docs/ergonomie-redesign.md) : accueil,
+# suivi d'une demande par son numéro, état des services en français avec
+# propagation des dépendances. Même posture LAN que /demande/ ; le suivi ne
+# renvoie que l'état, jamais le contenu ni un nom.
+
+ETAT_SERVICES_FILE = os.environ.get("ETAT_SERVICES_FILE", os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "services.json"))
+ETAT_ETATS_FILE = os.environ.get("ETAT_ETATS_FILE", os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "etats.json"))
+
+
+@app.route("/demande/accueil", methods=["GET"])
+def simple_home():
+    return send_from_directory(STATIC_DIR, "accueil.html")
+
+
+@app.route("/demande/suivi", methods=["GET"])
+def simple_track_page():
+    return send_from_directory(STATIC_DIR, "suivi.html")
+
+
+@app.route("/demande/etat", methods=["GET"])
+def simple_status_page():
+    return send_from_directory(STATIC_DIR, "etat.html")
+
+
+@app.route("/demande/simple.css", methods=["GET"])
+def simple_css():
+    return send_from_directory(STATIC_DIR, "simple.css")
+
+
+def _read_json(path):
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+@app.route("/demande/etat.json", methods=["GET"])
+def simple_status_json():
+    """Référentiel (`ETAT_SERVICES_FILE`) + états (`ETAT_ETATS_FILE`, posé par
+    l'exploitation ; plus tard service-watch / Cortex) -> page calculée."""
+    ref = _read_json(ETAT_SERVICES_FILE) or {}
+    etats_doc = _read_json(ETAT_ETATS_FILE) or {}
+    etats = dict(etats_doc.get("etats") or {})
+    etats["_a"] = etats_doc.get("a")
+    page = simple.etat_des_services(ref.get("services") or [], etats)
+    page["source"] = etats_doc.get("source") or ""
+    return jsonify(page), 200
+
+
+@app.route("/demande/suivi/<ref>", methods=["GET"])
+def simple_track(ref):
+    """État d'une demande par son numéro public (« D-… ») : cherche le ticket
+    hub de source_type « demande » dont la clé correspond."""
+    if not sync.TICKETS_API:
+        return jsonify({"error": "le suivi n'est pas disponible (gestion de tickets non configurée)"}), 503
+    try:
+        resp = requests.get(f"{sync.TICKETS_API}/queue", params={"source_type": "demande", "state": "all", "include_archived": "true"}, timeout=15)
+        rows = resp.json() if resp.status_code == 200 else []
+    except (requests.RequestException, ValueError):
+        return jsonify({"error": "le suivi est momentanément indisponible, réessayez dans quelques minutes"}), 502
+    if isinstance(rows, dict):
+        rows = rows.get("tickets") or rows.get("items") or []
+    hit = next((t for t in rows if simple.ref_matches(ref, t.get("source_nom"))), None)
+    if not hit:
+        return jsonify({"error": "numéro inconnu : vérifiez-le, il commence par D- et vous a été donné après l'envoi"}), 404
+    return jsonify(simple.plain_status(hit)), 200
 
 
 @app.route("/demande/health", methods=["GET"])
@@ -245,6 +317,7 @@ def create_demand():
     if out["cibles"].get("tickets") not in ("created", "known", None) and out["cibles"].get("projeqtor") != "created":
         return jsonify({"error": "demande non enregistrée (gestion de tickets du hub injoignable)"}), 502
     out["message"] = "demande enregistrée — elle sera prise en charge par le service informatique"
+    out["reference"] = simple.public_ref(key)  # #541 : numéro de suivi public
     return jsonify(out), 201
 
 

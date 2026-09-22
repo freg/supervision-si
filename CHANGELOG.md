@@ -1,3 +1,37 @@
+## 2026-09-22 — Redesign pour les non-initiés : brief d'ergonomie et espace « Simple » (livraison #541, item 84)
+
+Demandé : « un redesign de l'interface avec pour objectifs lisibilité,
+simplicité, logique métier / dépendances ; des écrans à présenter aux
+non-initiés dans la prolongation de l'écran externe de gestion de
+tickets ; se cultiver sur l'ergonomie et penser client dans le besoin ou
+dans la confusion ».
+
+- `docs/ergonomie-redesign.md` : repères (Bastien & Scapin, Nielsen, Krug,
+  Norman, charge cognitive, loi de Hick, WCAG), les trois situations de la
+  personne en difficulté et ce qu'elles imposent, parti pris visuel
+  (prolonger le « tabloïd » #500), carte des écrans, ce qu'on ne fait pas,
+  protocole de mesure à cinq personnes.
+- `projeqtor-bridge/static/` : `simple.css` (charte), `accueil.html`
+  (quatre portes), `suivi.html` (numéro → état en français), `etat.html`
+  (services, états datés, dépendances) ; `rapide.html` affiche le numéro
+  de suivi après l'envoi et renvoie à l'accueil.
+- `projeqtor-bridge/simple.py` (pur) : `public_ref` / `ref_matches`,
+  `plain_status` (reçue / en cours / résolue, attente, conseil),
+  `impacted` (propagation dans les dépendances, cycles tolérés),
+  `etat_des_services` (phrases « X : en panne, donc Y ne marche pas »).
+- `projeqtor-bridge/app.py` : routes `/demande/accueil|suivi|etat|simple.css`,
+  `GET /demande/etat.json`, `GET /demande/suivi/<ref>` (via `/queue` de
+  tickets-api, état seulement), `reference` dans la réponse du dépôt.
+- `projeqtor-bridge/data/services.json`, `etats.json` : exemples fictifs ;
+  `docker-compose.yml` : `ETAT_SERVICES_FILE`, `ETAT_ETATS_FILE` dans
+  `/data` ; `Dockerfile` : `simple.py`.
+- `hub/src/publicLinks.js` : l'espace Simple en tête des pages ouvertes.
+- Tests : `projeqtor-bridge/tests/test_simple.py` (4), hub 223 au vert.
+
+Vérifié : tests, client Flask (etat.json calculé, suivi 503 sans
+tickets-api, pages 200). Non vérifié : rendu navigateur et suivi réel
+(`./scripts/run.sh up -d --build projeqtor-bridge hub`).
+
 ## 2026-09-22 — Assistant IA : journal avec le produit et l'attendu (livraison #540, item 81)
 
 Demandé : « assistant IA / PoC interne / journal : ajouter le résultat

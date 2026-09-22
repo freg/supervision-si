@@ -1,0 +1,60 @@
+/* Charte des écrans « Simple » (livraison #541) -- prolonge la saisie
+   rapide #500 : papier, encre, filets, serif pour lire, sans-serif pour
+   agir ; aucune icône, aucune couleur décorative ; les états sont des
+   MOTS soulignés d'un filet, jamais une couleur seule. Largeur de lecture
+   720 px (60-75 caractères par ligne). Voir docs/ergonomie-redesign.md. */
+:root { --ink: #111; --paper: #fff; --rule: #222; --grey: #666; --soft: #f2f2f2; --link: #0b4f8a; --alert: #a00; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--paper); color: var(--ink);
+             font-family: Georgia, "Times New Roman", serif; font-size: 17px; line-height: 1.45; }
+main { max-width: 720px; margin: 0 auto; padding: 24px 16px 60px; }
+h1 { font-size: 1.9rem; margin: 0; letter-spacing: -.01em; border-bottom: 3px double var(--rule); padding-bottom: 6px; }
+h2 { font-size: 1.2rem; margin: 26px 0 8px; border-bottom: 1px solid var(--rule); padding-bottom: 4px; }
+.kicker { font-family: system-ui, sans-serif; font-size: .78rem; text-transform: uppercase; letter-spacing: .12em; color: var(--grey); margin: 0 0 4px; }
+.kicker a { color: var(--grey); text-decoration: none; }
+.kicker a:hover { text-decoration: underline; }
+.lead { margin: 10px 0 22px; color: var(--grey); }
+a { color: var(--link); }
+.stamp { font-family: system-ui, sans-serif; font-size: .8rem; color: var(--grey); }
+/* portes de l'accueil : une question, une phrase, une seule cible large */
+.doors { display: grid; gap: 14px; margin-top: 20px; }
+.door { display: block; text-decoration: none; color: var(--ink); border: 1px solid var(--rule); padding: 16px 18px; background: var(--paper); }
+.door:hover, .door:focus { background: var(--soft); outline: 2px solid var(--ink); outline-offset: 0; }
+.door strong { display: block; font-size: 1.25rem; margin-bottom: 4px; }
+.door span { color: var(--grey); font-size: .95rem; }
+/* champs (identiques à la saisie rapide) */
+.field label { display: block; font-family: system-ui, sans-serif; font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--grey); margin-bottom: 4px; }
+input, select, textarea, button { font: inherit; }
+input, select, textarea { width: 100%; padding: 8px 6px; border: 0; border-bottom: 1px solid var(--rule); background: transparent; border-radius: 0; color: var(--ink); }
+input:focus, select:focus, textarea:focus { outline: 0; border-bottom: 2px solid var(--ink); }
+button { padding: 10px 16px; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); cursor: pointer; border-radius: 0; font-family: system-ui, sans-serif; font-size: .9rem; min-height: 44px; }
+button.ghost { background: transparent; color: var(--ink); }
+button:disabled { opacity: .5; cursor: wait; }
+.row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.row .field { flex: 1; min-width: 200px; }
+/* états : un mot, un filet */
+.etat { font-family: system-ui, sans-serif; font-size: .85rem; text-transform: uppercase; letter-spacing: .06em; padding-bottom: 2px; border-bottom: 3px solid var(--rule); white-space: nowrap; }
+.etat.panne { border-color: var(--alert); color: var(--alert); }
+.etat.degrade { border-color: var(--grey); color: var(--grey); border-style: dashed; }
+.etat.ok { border-color: var(--ink); }
+/* fiche de suivi */
+.card { border: 1px solid var(--rule); padding: 16px 18px; margin-top: 18px; }
+.card .big { font-size: 1.5rem; margin: 4px 0 10px; }
+.card dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+.card dt { font-family: system-ui, sans-serif; font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--grey); }
+.card dd { margin: 0; }
+.advice { border-left: 3px solid var(--rule); padding: 6px 10px; background: var(--soft); margin-top: 12px; }
+/* état des services */
+.summary { font-size: 1.35rem; margin: 18px 0 6px; }
+.phrases { margin: 0 0 16px; padding-left: 0; list-style: none; }
+.phrases li { border-left: 3px solid var(--alert); padding: 6px 10px; margin: 8px 0; background: var(--soft); }
+table.services { width: 100%; border-collapse: collapse; margin-top: 8px; }
+table.services th { text-align: left; font-family: system-ui, sans-serif; font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--grey); border-bottom: 1px solid var(--rule); padding: 6px 4px; }
+table.services td { padding: 10px 4px; border-bottom: 1px solid #ddd; vertical-align: top; }
+table.services td.nom { font-weight: 600; }
+table.services td .why { color: var(--grey); font-size: .9rem; display: block; }
+#msg { display: none; padding: 10px; border: 1px solid var(--rule); font-family: system-ui, sans-serif; font-size: .9rem; margin-top: 14px; }
+#msg.ok, #msg.err { display: block; }
+#msg.err { border-color: var(--alert); color: var(--alert); }
+footer { margin-top: 30px; font-family: system-ui, sans-serif; font-size: .8rem; color: var(--grey); border-top: 1px solid var(--rule); padding-top: 10px; }
+@media (max-width: 640px) { .card dl { grid-template-columns: 1fr; } table.services th:nth-child(3), table.services td:nth-child(3) { display: none; } }

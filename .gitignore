@@ -99,6 +99,9 @@ pki/scripts/.srl
 
 # projeqtor-bridge : etat de synchronisation (regenerable, dedup cote tickets-api)
 projeqtor-bridge/data/*
+# #541 : exemples fictifs du référentiel de services et des états (espace Simple)
+!projeqtor-bridge/data/services.json
+!projeqtor-bridge/data/etats.json
 !projeqtor-bridge/data/README.md
 
 # credentials (#498) : base SQLite + sel de chiffrement, jamais versionnés

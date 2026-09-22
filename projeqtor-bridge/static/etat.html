@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<!-- Espace « Simple » (livraison #541) : « Est-ce que ça marche ? ». Les
+services en langage courant, datés, et pour chaque panne ce qui en dépend
+(propagation calculée par simple.py depuis le référentiel de services). -->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Est-ce que ça marche ?</title>
+<link rel="stylesheet" href="simple.css">
+</head>
+<body>
+<main>
+  <p class="kicker"><a href="accueil">Support informatique</a></p>
+  <h1>Est-ce que ça marche ?</h1>
+  <p class="stamp" id="stamp">Chargement…</p>
+  <p class="summary" id="resume"></p>
+  <ul class="phrases" id="phrases"></ul>
+  <table class="services" id="tbl" hidden>
+    <thead><tr><th>Service</th><th>État</th><th>Sert à</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <div id="msg"></div>
+  <footer>Une panne qui n'est pas dans cette liste ? <a href="rapide">Signalez-la</a>. La page se rafraîchit toute seule.</footer>
+</main>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const when = (iso) => iso ? new Date(iso).toLocaleString("fr-FR", {dateStyle: "long", timeStyle: "short"}) : "";
+async function load() {
+  try {
+    const r = await fetch("etat.json", {cache: "no-store"}); const e = await r.json();
+    if (!r.ok) throw new Error(e.error || "erreur " + r.status);
+    $("#stamp").textContent = "Situation au " + (e.a ? when(e.a) : new Date().toLocaleString("fr-FR", {dateStyle: "long", timeStyle: "short"})) + (e.source ? " · " + e.source : "");
+    $("#resume").textContent = e.resume;
+    $("#phrases").innerHTML = e.phrases.map((p) => "<li>" + esc(p) + "</li>").join("");
+    $("#rows").innerHTML = e.services.map((s) => `<tr><td class="nom">${esc(s.nom)}${s.cause && s.cause.length ? `<span class="why">à cause de : ${esc(s.cause.join(", "))}</span>` : ""}${s.message ? `<span class="why">${esc(s.message)}</span>` : ""}${s.depuis && s.etat !== "ok" ? `<span class="why">depuis le ${esc(when(s.depuis))}</span>` : ""}</td><td><span class="etat ${s.etat}">${esc(s.mot)}</span></td><td>${esc(s.sert_a)}</td></tr>`).join("");
+    $("#tbl").hidden = e.services.length === 0; $("#msg").className = "";
+    if (e.services.length === 0) { $("#resume").textContent = "Aucun service n'est encore décrit."; }
+  } catch (err) { $("#msg").className = "err"; $("#msg").textContent = "Impossible de lire l'état des services : " + err.message; $("#stamp").textContent = ""; }
+}
+load(); setInterval(load, 60000);
+</script>
+</body>
+</html>

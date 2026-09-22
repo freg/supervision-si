@@ -10,7 +10,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY projeqtor-bridge/app.py projeqtor-bridge/suivi_format.py \
      projeqtor-bridge/mapping.py projeqtor-bridge/projeqtor_client.py \
-     projeqtor-bridge/sync.py projeqtor-bridge/ldap_import.py .
+     projeqtor-bridge/sync.py projeqtor-bridge/ldap_import.py \
+     projeqtor-bridge/simple.py .
 COPY projeqtor-bridge/static/ ./static/
 COPY shared/version_endpoint.py .
 COPY shared/VERSION.json .

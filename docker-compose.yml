@@ -2232,6 +2232,10 @@ services:
       - TICKETS_API_INTERNAL_URL=http://tickets-api:5000
       - BRIDGE_SYNC_INTERVAL_SECONDS=${PROJEQTOR_BRIDGE_SYNC_SECONDS:-120}
       - BRIDGE_STATE_PATH=/data/sync_state.json
+      # Espace « Simple » (#541) : référentiel des services et états posés
+      # par l'exploitation, dans le volume de données du pont.
+      - ETAT_SERVICES_FILE=/data/services.json
+      - ETAT_ETATS_FILE=/data/etats.json
       # Marqueur des demandes dans ProjeQtOr (#494) — voir .env.example.
       - PROJEQTOR_BRIDGE_LABEL=${PROJEQTOR_BRIDGE_LABEL:-SUIVI}
       # Annuaire LDAP CENTRAL de la société (externe au hub) — secret,

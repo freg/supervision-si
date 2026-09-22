@@ -1,0 +1,12 @@
+{
+  "_doc": "Référentiel des services vus par les non-initiés (livraison #541). Un service = id stable, nom en français courant, sert_a (une phrase), depend_de (ids). Exemple fictif : à remplacer par le vôtre (ETAT_SERVICES_FILE).",
+  "services": [
+    {"id": "coeur-reseau", "nom": "Cœur de réseau", "sert_a": "relier tous les bâtiments et l'accès à Internet"},
+    {"id": "internet", "nom": "Accès à Internet", "sert_a": "naviguer, messagerie en ligne, mises à jour", "depend_de": ["coeur-reseau"]},
+    {"id": "wifi-batiment-5", "nom": "Wi-Fi du bâtiment 5", "sert_a": "se connecter sans fil depuis le bâtiment 5", "depend_de": ["coeur-reseau"]},
+    {"id": "messagerie", "nom": "Messagerie", "sert_a": "lire et envoyer des courriels", "depend_de": ["internet"]},
+    {"id": "ent", "nom": "Espace numérique de travail", "sert_a": "agenda, tâches, documents partagés", "depend_de": ["coeur-reseau"]},
+    {"id": "imprimante-etage-2", "nom": "Imprimante du 2e étage (bâtiment 5)", "sert_a": "imprimer et scanner au 2e étage", "depend_de": ["wifi-batiment-5"]},
+    {"id": "telephonie", "nom": "Téléphonie", "sert_a": "appeler et recevoir des appels", "depend_de": ["coeur-reseau"]}
+  ]
+}

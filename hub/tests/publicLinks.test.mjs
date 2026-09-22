@@ -12,10 +12,10 @@ test("demandeBase : déduit la racine publique de l'URL d'admin", () => {
   assert.equal(demandeBase(undefined), null);
 });
 
-test("publicLinks : trois pages du pont + application historique", () => {
+test("publicLinks : espace simple (#541) en premier, trois pages du pont + application historique", () => {
   const links = publicLinks({ demandeUrl: "https://h/demande/admin", frontendUrl: "https://h/app/" });
-  assert.deepEqual(links.map((l) => l.id), ["demande", "demande-rapide", "demande-tableau", "supervision"]);
-  assert.deepEqual(links.map((l) => l.url), ["https://h/demande/", "https://h/demande/rapide", "https://h/demande/tableau", "https://h/app/"]);
+  assert.deepEqual(links.map((l) => l.id), ["simple", "demande", "demande-rapide", "demande-tableau", "supervision"]);
+  assert.deepEqual(links.map((l) => l.url), ["https://h/demande/accueil", "https://h/demande/", "https://h/demande/rapide", "https://h/demande/tableau", "https://h/app/"]);
   for (const l of links) {
     assert.ok(l.name && l.description, l.id);
   }
@@ -26,7 +26,7 @@ test("publicLinks : rien sans variable, jamais d'exception", () => {
   assert.deepEqual(publicLinks(), []);
   assert.deepEqual(publicLinks({ frontendUrl: " " }), []);
   assert.equal(publicLinks({ frontendUrl: "https://h/app/" }).length, 1);
-  assert.equal(publicLinks({ demandeUrl: "https://h/demande/admin" }).length, 3);
+  assert.equal(publicLinks({ demandeUrl: "https://h/demande/admin" }).length, 4);
 });
 
 test("displayUrl : sans schéma", () => {
