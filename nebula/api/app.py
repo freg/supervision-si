@@ -394,6 +394,7 @@ def site_transitions(site_id):
 # ------------------------------------------------ carte des VLAN (#548)
 _vlan_cache = {}  # site_id -> {"at", "map", "errors"}
 VLAN_CACHE_SECONDS = int(os.environ.get("NEBULA_VLAN_CACHE_SECONDS", "600") or 600)
+MAC_TABLE_ENABLED = os.environ.get("NEBULA_MAC_TABLE", "0").strip() in ("1", "true", "yes")
 
 
 def collect_vlan_map(client, site_id, with_clients=True):
@@ -415,7 +416,10 @@ def collect_vlan_map(client, site_id, with_clients=True):
     ports = {d: safe("ports %s" % d, client.sw_port_settings, site_id, d) for d in sw_ids}
     lldp = {d: safe("lldp %s" % d, client.sw_lldp_neighbors, site_id, d) for d in sw_ids}
     ip_status = {d: safe("ip %s" % d, client.sw_ip_status, site_id, d) for d in sw_ids}
-    macs = {d: safe("mac %s" % d, client.sw_mac_table, site_id, d) for d in sw_ids}
+    # Table MAC : l'API Zyxel refuse la réponse de ses propres commutateurs
+    # (erreur de validation « portNum », constatée en réel sur 3 modèles) ->
+    # appel désactivé par défaut (NEBULA_MAC_TABLE=1 pour réessayer), #558.
+    macs = {d: safe("mac %s" % d, client.sw_mac_table, site_id, d) for d in sw_ids} if MAC_TABLE_ENABLED else {}
     gw = safe("passerelle", client.gw_interface_settings, site_id, gw_ids[0]) if gw_ids else None
     wlans = safe("ssid", client.ap_wlan_settings, site_id)
     clients = safe("clients", client.sw_clients, site_id, "1d") if with_clients else None

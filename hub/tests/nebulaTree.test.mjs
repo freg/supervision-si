@@ -1,7 +1,7 @@
 // Synoptique en arbre (livraison #555).
 import test from "node:test";
 import assert from "node:assert/strict";
-import { childrenMap, treeLayout, treeEdges, treeSummary } from "../src/nebulaTree.js";
+import { childrenMap, treeLayout, treeEdges, treeSummary, labelWidth } from "../src/nebulaTree.js";
 
 const TREE = { nodes: [
   { id: "gw", name: "USG", kind: "gateway", parent: null, depth: 0, status: "online", clients: [] },
@@ -19,22 +19,47 @@ test("childrenMap : racine, commutateurs avant bornes, plus de clients d'abord",
   assert.deepEqual(k.get("core").map((n) => n.id), ["edge", "ap1"]);
 });
 
-test("treeLayout : parent centré au-dessus de ses enfants, clients regroupés puis dépliés", () => {
-  const l = treeLayout(TREE, { nodeWidth: 100, gap: 10, rowHeight: 100, clientWidth: 50 });
+test("treeLayout vertical étagé : parent centré, frères sur des sous-rangées, étiquettes entières", () => {
+  const l = treeLayout(TREE, { stagger: 3, nodeHeight: 40, rowHeight: 100, clientWidth: 50 });
   const p = (id) => l.positions.get(id);
-  assert.equal(p("gw").y, 50); assert.equal(p("core").y, 150); assert.equal(p("ap2").y, 350);
-  // le cœur est centré sur son sous-arbre (edge + ap1 + son groupe de clients)
-  const kidsMin = Math.min(p("edge").x, p("ap1").x, l.groups.get("core").x), kidsMax = Math.max(p("edge").x, p("ap1").x, l.groups.get("core").x);
-  assert.ok(p("core").x >= kidsMin && p("core").x <= kidsMax);
+  assert.equal(l.orientation, "vertical");
+  assert.equal(p("gw").depth, 0); assert.equal(p("core").depth, 1); assert.equal(p("ap2").depth, 3);
+  assert.ok(p("core").y > p("gw").y && p("ap2").y > p("edge").y);
+  // enfants de core : edge (index 0, sous-rangée 0), groupe de clients (1), ap1 (2) -> trois hauteurs différentes
+  const ys = new Set([p("edge").y, l.groups.get("core").y, p("ap1").y]);
+  assert.equal(ys.size, 3);
+  assert.deepEqual([p("edge").tier, p("ap1").tier], [0, 2]);
+  // le cœur est centré sur son sous-arbre
+  const xs = [p("edge").x, p("ap1").x, l.groups.get("core").x];
+  assert.ok(p("core").x >= Math.min(...xs) && p("core").x <= Math.max(...xs));
   assert.equal(l.groups.get("ap1").count, 3); assert.equal(l.groups.get("ap1").online, 2);
-  assert.equal(l.groups.get("ap1").y, p("ap1").y + 100);
   assert.equal(l.clientPositions.size, 0);
+  // largeur d'étiquette : jamais tronquée, bornée
+  assert.ok(labelWidth({ name: "WBE660S-EU0101F-10", model: "WBE660S", kind: "ap" }) > 140);
+  assert.equal(labelWidth({ name: "x".repeat(200), kind: "ap" }), 280);
+  assert.ok(l.nodeWidth.get("gw") >= 120);
+  // deux frères de même sous-rangée (index 0 et 3) ne se chevauchent pas
+  const many = { nodes: [{ id: "r", name: "R", kind: "switch", parent: null, clients: [] }, ...Array.from({ length: 7 }, (_, i) => ({ id: "a" + i, name: "WBE660S-EU0101F-1" + i, kind: "ap", parent: "r", clients: [] }))] };
+  const m = treeLayout(many, { stagger: 3 });
+  const a0 = m.positions.get("a0"), a3 = m.positions.get("a3");
+  assert.equal(a0.tier, a3.tier);
+  assert.ok(Math.abs(a3.x - a0.x) >= m.nodeWidth.get("a0"));
   // dépliage : 3 feuilles clients sous la borne A, plus de groupe
-  const e = treeLayout(TREE, { nodeWidth: 100, gap: 10, rowHeight: 100, clientWidth: 50, expanded: new Set(["ap1"]) });
+  const e = treeLayout(TREE, { stagger: 3, clientWidth: 50, expanded: new Set(["ap1"]) });
   assert.equal(e.groups.has("ap1"), false);
   assert.equal([...e.clientPositions.keys()].filter((k) => k.startsWith("ap1|")).length, 3);
-  assert.ok(e.width > l.width);
-  assert.equal(e.height, 50 + 4 * 100);
+});
+
+test("treeLayout horizontal : profondeur en colonnes, une ligne par feuille", () => {
+  const l = treeLayout(TREE, { orientation: "horizontal", colWidth: 250, nodeHeight: 40 });
+  const p = (id) => l.positions.get(id);
+  assert.equal(l.orientation, "horizontal");
+  assert.ok(p("core").x > p("gw").x && p("ap2").x > p("edge").x);
+  // feuilles à des hauteurs distinctes, parent centré verticalement sur ses enfants
+  const ys = [p("edge").y, p("ap1").y, l.groups.get("core").y];
+  assert.equal(new Set(ys).size, 3);
+  assert.ok(p("core").y >= Math.min(...ys) && p("core").y <= Math.max(...ys));
+  assert.ok(l.height > l.width / 4);
 });
 
 test("treeEdges : ton par liaison ; treeSummary : comptes", () => {

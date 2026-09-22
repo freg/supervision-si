@@ -1,3 +1,25 @@
+## 2026-09-22 — Synoptique Nebula lisible : étiquettes entières, arbre horizontal façon d3, étages (livraison #558, item 85)
+
+Demandé : « permettre d'afficher et de lire l'étiquette complète des
+équipements (le texte déborde) ; prendre plus en hauteur en inclinant les
+étiquettes ou en les disposant en étages successifs ; regarder les exemples
+d3 pour ce type de données ».
+
+- `hub/src/nebulaTree.js` : `labelWidth` (boîte à la taille du texte),
+  `treeLayout` avec `orientation` horizontal (profondeur en colonnes, une
+  ligne par feuille, parent centré) ou vertical avec `stagger` étages
+  (répartition par rangée, premier étage sans chevauchement), marges pour ne
+  rien couper ; pastilles de clients à slot d'appareil.
+- `hub/src/NebulaTopo.jsx` : sélecteur Disposition / Étages (mémorisé),
+  liaisons et ports dessinés dans les deux sens, noms jamais tronqués,
+  libellé « voisins LLDP hors inventaire ».
+- `nebula/api/app.py` : table MAC non demandée par défaut
+  (`NEBULA_MAC_TABLE`), fin du message d'erreur répété.
+- Tests `nebulaTree.test.mjs` (4) ; vérifié hors ligne sans chevauchement
+  pour 2, 3 et 4 étages sur 18 appareils et 45 clients.
+
+Vérifié : tests, rendu. Non vérifié : sur super.
+
 ## 2026-09-22 — Comptes et groupes : tuile pilotant Keycloak (livraison #557, item 86)
 
 Demandé : « créer une interface de gestion des utilisateurs/groupes

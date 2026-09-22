@@ -97,6 +97,18 @@ manquants, nue), `clients`, `loose_clients` (sans appareil identifié),
 (arbre, parent centré sur ses enfants, clients au milieu des enfants ;
 tests `nebulaTree.test.mjs`), rendu `hub/src/NebulaTopo.jsx`.
 
+**Lisibilité du synoptique (#558)** : étiquettes entières (largeur de
+boîte calculée sur le texte, bornée) ; deux dispositions, inspirées des
+exemples d3 « tree » : **arbre horizontal** (défaut : profondeur en colonnes,
+une ligne par équipement, lisible quel que soit le nombre de bornes) et
+**arbre vertical étagé** (les éléments d'une rangée sont répartis sur 1 à 4
+étages, chacun prenant le premier étage où il ne chevauche pas son voisin ;
+une pastille de clients occupe un slot d'appareil pour ne pas resserrer la
+rangée). Choix mémorisé dans le navigateur. La table MAC n'est plus
+demandée par défaut (`NEBULA_MAC_TABLE=1` pour réessayer : l'API Zyxel
+refuse ses propres réponses). Les voisins LLDP hors inventaire (postes,
+téléphones) sont listés en repli, ce n'est pas une erreur.
+
 **Plan du site (#555)** : onglet **Plan du site** de la tuile Nebula. Une
 image de plan par site (`PUT /sites/<id>/plan`, multipart `file`, PNG/JPG/
 WebP/SVG ≤ 8 Mo, stockée dans le volume `/data/plans/`, **jamais dans le
