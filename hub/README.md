@@ -38,6 +38,27 @@ par un menu par thématique. L'ancien accueil (toutes les tuiles, avec la
 personnalisation de #133) reste disponible : Réglages → « Accueil :
 par thématiques → toutes les tuiles » (mémorisé dans le navigateur).
 
+## « Univers du hub » — menu invariant (livraison #538)
+
+Demandé : « un menu invariant qui donne accès à tous les outils, tuiles,
+onglets, fonctions… un menu déroulant "Univers du hub" qui liste tout par
+ordre alphabétique ou par ordre d'ajout dans le hub ». Dernier menu de
+l'en-tête, **hors de l'arbre de disposition** (#516) : quelle que soit la
+disposition personnelle ou du site, tout reste atteignable ici. Contenu =
+le catalogue de la personne (`buildCatalog`, mêmes conditions que les
+tuiles : vues disponibles, fronts configurés, actions -- les actions
+d'administration seulement pour les administrateurs), sans la feuille
+automatique des liens externes. Chaque ligne : libellé, nature (vue /
+front / fonction) et livraison d'apparition ; un filtre (sans accents ni
+casse) et deux tris, **A→Z** (ordre français) ou **Ajout** (numéro de
+livraison croissant, inconnus à la fin), le tri retenu mémorisé dans le
+navigateur (`hub.universe.sort`). Logique pure `universeEntries` dans
+`src/hubTree.js` (testée) ; la table `SINCE` de `src/hubThemes.js` porte
+la livraison d'apparition de chaque vue, front et action (première mention
+dans l'historique ; 105 = « au plus tard #105 ») -- **une nouvelle tuile
+ajoute sa ligne dans `SINCE`**, sinon elle se classe en fin d'ordre
+d'ajout.
+
 ## Fronts listés — un seul par application déployée séparément
 
 `buildFrontsList()` (`src/lib.js`) liste actuellement 2 fronts :

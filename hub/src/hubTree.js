@@ -77,6 +77,31 @@ export function buildCatalog({ availableViews, viewLabels = {}, fronts = [], isA
   return cat;
 }
 
+/** « Univers du hub » (#538) : TOUTES les feuilles du catalogue (vues, fronts,
+ *  actions -- jamais la feuille automatique des liens externes), triées
+ *  `"alpha"` (libellé, ordre français) ou `"added"` (livraison d'apparition
+ *  croissante via `since` : clé de vue/front ou id d'action -> numéro ;
+ *  inconnue = à la fin, puis libellé). Filtre `query` sur le libellé, sans
+ *  accents ni casse. Menu invariant : ne dépend pas de l'arbre de
+ *  disposition, donc rien n'y est jamais perdu. */
+export function universeEntries(catalog, { sort = "alpha", since = {}, query = "" } = {}) {
+  const fold = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const q = fold(query).trim();
+  const out = [];
+  for (const leaf of catalog.values()) {
+    if (leaf.kind === "auto") continue;
+    if (q && !fold(leaf.label).includes(q)) continue;
+    const key = leaf.kind === "view" ? leaf.view : leaf.kind === "action" ? leaf.id : leaf.front;
+    const n = since[key];
+    out.push({ ...leaf, since: Number.isFinite(n) ? n : null });
+  }
+  const byLabel = (a, b) => a.label.localeCompare(b.label, "fr", { sensitivity: "base" });
+  out.sort(sort === "added"
+    ? (a, b) => ((a.since ?? Infinity) - (b.since ?? Infinity)) || byLabel(a, b)
+    : byLabel);
+  return out;
+}
+
 /** Libellés des vues, tirés des thématiques (hubThemes.js) -- source unique. */
 export function viewLabelsFromThemes(themes) {
   const out = {};

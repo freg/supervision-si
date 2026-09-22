@@ -143,3 +143,20 @@ export const HOME_MODES = { themes: "par thématiques", tiles: "toutes les tuile
 export function normalizeHomeMode(raw) {
   return raw === "tiles" ? "tiles" : "themes";
 }
+
+// Livraison d'apparition de chaque outil dans le hub (menu « Univers du
+// hub », #538) : première mention de la vue ou du front dans l'historique
+// (git pour ≥ #395, CHANGELOG avant) -- 105 = « au plus tard #105 », le
+// journal ne remonte pas plus loin. Une nouvelle tuile ajoute sa ligne ici.
+export const SINCE = {
+  "architecture": 105, "assistant": 532, "backup-restore": 105, "cisco": 508, "classifier": 259, "cortex": 462,
+  "credentials": 498, "cyber": 186, "dba": 105, "demande": 489, "ent": 105, "external-bases": 425, "file-manager": 226,
+  "fusion": 431, "ged": 105, "geo-catalog": 429, "glpi-inventory": 192, "history": 105, "imap": 144, "imap-connectors": 489,
+  "keycloak-admin": 105, "ldap-admin": 105, "logs": 105, "memory": 105, "mikrotik": 485, "nebula": 192,
+  "netmap-orchestrator": 388, "netprobe": 301, "network-agent": 236, "network-cycle": 396, "network-equipment": 506,
+  "projeqtor": 476, "proxmox": 487, "retro": 242, "rights": 105, "schema-analyzer": 173, "service-watch": 531,
+  "si-agent": 421, "si-proxy": 454, "snmp": 181, "ssh-tunnels": 122, "supervision-si": 105, "synthese": 523,
+  "tickets": 105, "ups": 415, "vault": 105, "vault-admin": 105, "vigilance": 105,
+  "action:aide": 105, "action:tabs": 105, "action:settings": 105, "action:personalize": 457, "action:layout": 516,
+  "action:home-mode": 457, "action:external-links": 105, "action:debug": 105,
+};

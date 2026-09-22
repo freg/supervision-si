@@ -21,7 +21,7 @@ import { applyHubLayout } from "./hubLayoutLib.js";
 import HubTreeView from "./HubTreeView.jsx";
 // #523 : Infos synthèse SI (DNS / IP OVH / IPAM / services, recoupés).
 import SyntheseView from "./SyntheseView.jsx";
-import { buildCatalog, defaultTree, normalizeTree, resolveTree, themesOf, rootLeaves, viewLabelsFromThemes } from "./hubTree.js";
+import { buildCatalog, defaultTree, normalizeTree, resolveTree, themesOf, rootLeaves, viewLabelsFromThemes, universeEntries } from "./hubTree.js";
 import LogsManagerView from "./LogsManagerView.jsx";
 import SchemaAnalyzerView from "./SchemaAnalyzerView.jsx";
 import RetroView from "./RetroView.jsx";
@@ -40,7 +40,7 @@ import NetworkEquipmentView from "./NetworkEquipmentView.jsx";
 import BastionView from "./BastionView.jsx";
 import CortexView from "./CortexView.jsx";
 import ThemeView from "./ThemeView.jsx";
-import { THEMES, buildThemes, themeViewMode, isThemeViewMode, themeIdOf, findTheme, themeOfView, normalizeHomeMode, HOME_MODES } from "./hubThemes.js";
+import { THEMES, SINCE, buildThemes, themeViewMode, isThemeViewMode, themeIdOf, findTheme, themeOfView, normalizeHomeMode, HOME_MODES } from "./hubThemes.js";
 import PublicLinks from "./PublicLinks.jsx";
 import { publicLinks } from "./publicLinks.js";
 import { canSeeBastion } from "./siProxy.js";
@@ -977,6 +977,9 @@ export default function App() {
   // (livraison #173) -- même mécanique, juste généralisée aux trois
   // nouveaux menus plutôt que dupliquée quatre fois.
   const [openNavMenu, setOpenNavMenu] = useState(null);
+  // #538 : menu invariant « Univers du hub » -- tri et filtre, tri mémorisé.
+  const [universeSort, setUniverseSort] = useState(() => { try { return localStorage.getItem("hub.universe.sort") === "added" ? "added" : "alpha"; } catch { return "alpha"; } });
+  const [universeQuery, setUniverseQuery] = useState("");
   // #457 : accueil par thématiques (super-tuiles). `themeEntry` = outil
   // ouvert dans la thématique courante ; `homeMode` = "themes" (défaut) ou
   // "tiles" (toutes les tuiles, avec la personnalisation d'origine).
@@ -1420,6 +1423,8 @@ export default function App() {
     window.open(leaf.url, "_blank", "noopener");
   };
   const leafActive = (leaf) => (leaf.kind === "view" && viewMode === leaf.view) || (leaf.kind === "action" && viewMode === leaf.action);
+  const universe = universeEntries(hubCatalog, { sort: universeSort, since: SINCE, query: universeQuery });
+  const setUniverseSortPersist = (v) => { setUniverseSort(v); try { localStorage.setItem("hub.universe.sort", v); } catch { /* stockage indisponible */ } };
   const renderMenuItems = (g, themeId) => g.children.map((c) => (c.type === "ref" ? (
     <button key={c.id} type="button" onClick={() => openLeaf(decorateLeaf(c.leaf), themeId)}>{c.leaf.label}{c.leaf.kind === "link" && !c.leaf.embeddable ? " ↗" : ""}</button>
   ) : (
@@ -1890,6 +1895,35 @@ vm === "settings" ? (
               )}
             </div>
           )))}
+          {/* #538 : « Univers du hub » -- menu INVARIANT, hors de l'arbre de
+              disposition : toutes les vues, fronts et actions du catalogue de
+              cette personne, par ordre alphabétique ou d'ajout au hub (numéro
+              de livraison), avec un filtre. Quoi qu'on fasse de la disposition,
+              tout reste atteignable ici. */}
+          <div className="hub-nav-dropdown hub-universe">
+            <button type="button" className={openNavMenu === "universe" ? "active" : ""} onClick={() => setOpenNavMenu((v) => (v === "universe" ? null : "universe"))} title="Tous les outils, tuiles, onglets et fonctions du hub">
+              Univers du hub ▾
+            </button>
+            {openNavMenu === "universe" && (
+              <div className="hub-nav-dropdown-panel hub-universe-panel">
+                <div className="hub-universe-bar">
+                  <input type="search" autoFocus placeholder="Filtrer…" value={universeQuery} onChange={(e) => setUniverseQuery(e.target.value)} aria-label="Filtrer l'univers du hub" />
+                  <button type="button" className={universeSort === "alpha" ? "active" : ""} onClick={() => setUniverseSortPersist("alpha")} title="Ordre alphabétique">A→Z</button>
+                  <button type="button" className={universeSort === "added" ? "active" : ""} onClick={() => setUniverseSortPersist("added")} title="Ordre d'ajout dans le hub (numéro de livraison)">Ajout</button>
+                  <span className="muted">{universe.length}</span>
+                </div>
+                <div className="hub-universe-list">
+                  {universe.map((leaf) => (
+                    <button key={leaf.id} type="button" className={leafActive(leaf) ? "active" : ""} onClick={() => openLeaf(decorateLeaf(leaf), null)}>
+                      <span className="hub-universe-label">{leaf.label}{leaf.kind === "link" && !leaf.embeddable ? " ↗" : ""}</span>
+                      <span className="muted hub-universe-meta">{leaf.kind === "action" ? "fonction" : leaf.kind === "view" ? "vue" : "front"}{leaf.since ? ` · #${leaf.since}` : ""}</span>
+                    </button>
+                  ))}
+                  {universe.length === 0 && <span className="muted hub-universe-empty">Rien ne correspond.</span>}
+                </div>
+              </div>
+            )}
+          </div>
         </nav>
         <div className="hub-user">
           <span>👤 {displayName}</span>

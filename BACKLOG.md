@@ -3033,3 +3033,12 @@ sur l'hyperviseur existant (VM 6 vCPU / 16 Go sous la règle des 2/3) et un
 poste i9 détourné pour le 30B-A3B ; palier 2 contraint par le châssis 2U
 demi-hauteur : RTX 2000 Ada 16 Go (référence) ou Arc Pro B50 16 Go
 (économique, pilote à valider) ; passthrough préparé (q35/OVMF, VT-d).
+
+## Univers du hub — menu invariant (2026-09-22, #538) — item 82
+
+Livré : menu « Univers du hub » en fin d'en-tête, hors de l'arbre de
+disposition, listant tout le catalogue (vues, fronts, fonctions) par
+ordre alphabétique ou d'ajout, avec filtre. Suites : ordre d'ajout exact
+pour les tuiles antérieures à #105 (le journal ne remonte pas plus loin) ;
+raccourci clavier pour ouvrir le filtre ; mêmes entrées dans la vue
+« toutes les tuiles ».

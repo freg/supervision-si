@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   buildCatalog, defaultTree, normalizeTree, resolveTree, themesOf, rootLeaves, themeOfLeaf,
   insertNode, removeNode, moveNode, cloneNode, updateNode, countRefs, exportTree, importTree,
-  viewLabelsFromThemes, group, ref, ROOT_ID, REF_EXTERNAL_LINKS,
+  viewLabelsFromThemes, universeEntries, group, ref, ROOT_ID, REF_EXTERNAL_LINKS,
 } from "../src/hubTree.js";
 
 const THEMES = [
@@ -122,4 +122,19 @@ test("résolution défensive : arbre absent", () => {
   const r = resolveTree(null, catalog());
   assert.deepEqual(themesOf(r), []);
   assert.deepEqual(rootLeaves(r), []);
+});
+
+test("universeEntries (#538) : tout le catalogue sauf les liens automatiques, tri alpha ou ordre d'ajout, filtre sans accents", () => {
+  const cat = buildCatalog({ availableViews: ["cortex", "ups", "network-agent"], viewLabels: viewLabelsFromThemes(THEMES),
+    fronts: [{ id: "cisco", name: "Équipements Cisco", url: "https://x", onClick: () => {} }], isAdmin: false });
+  const since = { cortex: 462, ups: 415, "network-agent": 236, "action:aide": 105 };
+  const alpha = universeEntries(cat, { sort: "alpha", since });
+  assert.ok(!alpha.some((e) => e.kind === "auto"));
+  assert.deepEqual(alpha.slice(0, 3).map((e) => e.label), ["Accueil : thématiques / toutes les tuiles", "Aide", "Cortex"]);
+  assert.equal(alpha.find((e) => e.id === "view:cortex").since, 462);
+  const added = universeEntries(cat, { sort: "added", since });
+  assert.deepEqual(added.slice(0, 3).map((e) => e.id), ["action:aide", "view:network-agent", "view:ups"]);
+  assert.equal(added[added.length - 1].since, null); // inconnus à la fin
+  assert.deepEqual(universeEntries(cat, { query: "equipements" }).map((e) => e.id), ["front:cisco"]);
+  assert.ok(!cat.has("action:external-links")); // non admin
 });

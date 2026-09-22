@@ -1,3 +1,24 @@
+## 2026-09-22 — Hub : menu invariant « Univers du hub » (livraison #538, item 82)
+
+Demandé : « un menu invariant qui donne accès à tous les outils, tuiles,
+onglets, fonctions… un menu déroulant "Univers du hub" qui liste tout par
+ordre alphabétique ou par ordre d'ajout dans le hub ».
+
+- `hub/src/hubTree.js` : `universeEntries(catalog, {sort, since, query})`
+  -- toutes les feuilles du catalogue sauf les liens automatiques, tri
+  `alpha` (ordre français) ou `added` (livraison d'apparition, inconnus à
+  la fin), filtre sans accents.
+- `hub/src/hubThemes.js` : table `SINCE` (vue/front/action → livraison
+  d'apparition, relevée dans git et le CHANGELOG ; 105 = au plus tard).
+- `hub/src/App.jsx`, `hub/src/hub.css` : dernier menu de l'en-tête, hors
+  de l'arbre de disposition, avec filtre, boutons A→Z / Ajout (choix
+  mémorisé `hub.universe.sort`), nature et numéro de livraison par ligne.
+- Tests `hub/tests/hubTree.test.mjs` : +1 (223 tests hub au vert).
+- `hub/README.md` : section « Univers du hub ».
+
+Vérifié : tests Node, analyse syntaxique des sources. Non vérifié :
+rendu dans le navigateur (`./scripts/run.sh up -d --build hub`).
+
 ## 2026-09-22 — Assistant IA : passage réel #536 consigné (livraison #537, item 81)
 
 Quatrième passage réel (VM 6 vCPU / 16 Go, `qwen3:8b`, réflexion coupée,
