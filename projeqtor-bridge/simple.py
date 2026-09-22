@@ -129,6 +129,67 @@ def etats_depuis_service_watch(services, entries, now_iso=None):
     return out
 
 
+def etats_depuis_cortex(services, incidents):
+    """États déduits des incidents Cortex ouverts (#545) : un service déclare
+    `sources.cortex: ["ip:…", "mac:…", "name:…"]` (clés d'entités Cortex) ;
+    un incident ouvert ou pris en charge dont une entité correspond fait
+    l'état (critical → panne, warning → dégradé), `depuis` = ouverture."""
+    out = {}
+    for s in services or []:
+        keys = set(((s.get("sources") or {}).get("cortex")) or [])
+        if not keys:
+            continue
+        worst = None
+        for inc in incidents or []:
+            if not isinstance(inc, dict) or inc.get("state") not in (None, "open", "acked"):
+                continue
+            ents = set(inc.get("entities") or [])
+            if not (ents & keys):
+                continue
+            rank = {"critical": 2, "warning": 1}.get(inc.get("severity"), 0)
+            if rank and (worst is None or rank > worst[0]):
+                worst = (rank, inc)
+        if worst:
+            inc = worst[1]
+            out[s["id"]] = {"etat": LIVE_STATE["critical" if worst[0] == 2 else "warning"], "depuis": inc.get("opened_at"),
+                            "message": "Incident pris en charge par le service informatique." if inc.get("state") == "acked" else "Incident détecté par la supervision.",
+                            "source": "cortex"}
+    return out
+
+
+def etats_depuis_agents(services, agents):
+    """États déduits des agents hôtes (#545) : `sources.si_agent: ["hostname", …]`
+    -- un agent hors ligne (`online: offline`) fait le service « en
+    panne » ; `never`/`unknown` ne disent rien."""
+    by_host = {}
+    for a in agents or []:
+        if isinstance(a, dict):
+            for k in (a.get("hostname"), a.get("agent_id")):
+                if k:
+                    by_host[str(k).lower()] = a
+    out = {}
+    for s in services or []:
+        names = ((s.get("sources") or {}).get("si_agent")) or []
+        for n in names:
+            a = by_host.get(str(n).lower())
+            if a and a.get("online") == "offline":
+                out[s["id"]] = {"etat": "panne", "depuis": a.get("last_seen_at"), "message": "La machine ne répond plus.", "source": "agents"}
+                break
+    return out
+
+
+def pire_etats(*sources):
+    """Fusion de plusieurs sources automatiques : la pire l'emporte
+    (panne > dégradé) ; à égalité, la première fournie."""
+    rank = {"panne": 2, "degrade": 1}
+    out = {}
+    for src in sources:
+        for k, v in (src or {}).items():
+            if k not in out or rank.get(v.get("etat"), 0) > rank.get(out[k].get("etat"), 0):
+                out[k] = v
+    return out
+
+
 def fusion_etats(manuels, automatiques):
     """Les états posés par l'exploitation l'emportent (ils portent un
     message humain et une prévision) ; l'automatique complète."""

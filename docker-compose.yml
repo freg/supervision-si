@@ -2239,6 +2239,9 @@ services:
       # #542 : états vivants (critical → panne, warning → dégradé) depuis
       # service-watch ; vide = fichier seul.
       - SERVICE_WATCH_API_INTERNAL_URL=http://service-watch-api:5000
+      # #545 : incidents Cortex ouverts et agents hôtes hors ligne.
+      - CORTEX_API_INTERNAL_URL=http://cortex-api:5000
+      - SI_AGENT_API_INTERNAL_URL=http://si-agent-api:5000
       # Marqueur des demandes dans ProjeQtOr (#494) — voir .env.example.
       - PROJEQTOR_BRIDGE_LABEL=${PROJEQTOR_BRIDGE_LABEL:-SUIVI}
       # Annuaire LDAP CENTRAL de la société (externe au hub) — secret,

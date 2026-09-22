@@ -200,5 +200,10 @@ l'exploitation ; un service absent = ça marche). Logique pure dans
 (noms d'entrées) ; le pont interroge `SERVICE_WATCH_API_INTERNAL_URL`
 (`/service-watch/entries`), la pire entrée fait l'état (critical → panne,
 warning → dégradé, `depuis` = dernier passage), les états posés par
-l'exploitation l'emportent (message humain, prévision). Suites : Cortex
-et agents comme sources, référentiel partagé avec le hub.
+l'exploitation l'emportent (message humain, prévision). Depuis #545,
+deux autres sources : `sources.cortex` (clés d'entités `ip:` / `mac:` /
+`name:` ; un incident ouvert ou pris en charge qui les touche → panne ou
+dégradé, message selon la prise en charge, `CORTEX_API_INTERNAL_URL`) et
+`sources.si_agent` (noms d'hôtes ; agent hors ligne → panne,
+`SI_AGENT_API_INTERNAL_URL`, `/fleet`). Entre sources automatiques, la
+pire l'emporte. Suite : référentiel partagé avec le hub.

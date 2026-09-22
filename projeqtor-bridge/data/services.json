@@ -1,10 +1,15 @@
 {
-  "_doc": "Référentiel des services vus par les non-initiés (livraison #541). Un service = id stable, nom en français courant, sert_a (une phrase), depend_de (ids). Exemple fictif : à remplacer par le vôtre (ETAT_SERVICES_FILE). sources.service_watch : noms d'entrées service-watch dont l'état (critical/warning) fait celui du service (#542).",
+  "_doc": "Référentiel des services vus par les non-initiés (livraison #541). Un service = id stable, nom en français courant, sert_a (une phrase), depend_de (ids). Exemple fictif : à remplacer par le vôtre (ETAT_SERVICES_FILE). sources.service_watch : noms d'entrées service-watch dont l'état (critical/warning) fait celui du service (#542). sources.cortex : clés d'entités Cortex (ip:…, mac:…, name:…) ; sources.si_agent : noms d'hôtes d'agents (#545).",
   "services": [
     {
       "id": "coeur-reseau",
       "nom": "Cœur de réseau",
-      "sert_a": "relier tous les bâtiments et l'accès à Internet"
+      "sert_a": "relier tous les bâtiments et l'accès à Internet",
+      "sources": {
+        "cortex": [
+          "ip:192.0.2.1"
+        ]
+      }
     },
     {
       "id": "internet",
@@ -62,7 +67,15 @@
       "sert_a": "appeler et recevoir des appels",
       "depend_de": [
         "coeur-reseau"
-      ]
+      ],
+      "sources": {
+        "cortex": [
+          "name:pabx"
+        ],
+        "si_agent": [
+          "srv-pabx"
+        ]
+      }
     }
   ]
 }

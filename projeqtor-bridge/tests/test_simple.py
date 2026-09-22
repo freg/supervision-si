@@ -13,7 +13,7 @@ SERVICES = [
     {"id": "coeur", "nom": "Cœur de réseau", "sert_a": "tout relier"},
     {"id": "reseau-b", "nom": "Réseau du bâtiment B", "sert_a": "se connecter depuis le bâtiment B", "depend_de": ["coeur"]},
     {"id": "mail", "nom": "Messagerie", "sert_a": "lire et envoyer des courriels", "depend_de": ["coeur"], "sources": {"service_watch": ["mail", "webmail"]}},
-    {"id": "ent", "nom": "Espace numérique de travail", "sert_a": "agenda, tâches", "depend_de": ["reseau-b"]},
+    {"id": "ent", "nom": "Espace numérique de travail", "sert_a": "agenda, tâches", "depend_de": ["reseau-b"], "sources": {"cortex": ["ip:192.0.2.10"], "si_agent": ["srv-ent"]}},
     {"id": "imprimante-2", "nom": "Imprimante du 2e étage", "sert_a": "imprimer au 2e", "depend_de": ["reseau-b"]},
 ]
 
@@ -63,6 +63,25 @@ class Live(unittest.TestCase):
         self.assertEqual(fus["_a"], "t")
         page = simple.etat_des_services(SERVICES, simple.fusion_etats({}, live))
         self.assertEqual(page["phrases"], ["Messagerie : en panne."])
+
+
+    def test_cortex_et_agents(self):
+        inc = [{"key": "k1", "severity": "warning", "state": "open", "entities": ["ip:192.0.2.10"], "opened_at": "2026-09-22T07:00:00Z"},
+               {"key": "k2", "severity": "critical", "state": "closed", "entities": ["ip:192.0.2.10"]},
+               {"key": "k3", "severity": "critical", "state": "acked", "entities": ["mac:02:00:00:00:00:01"]}]
+        c = simple.etats_depuis_cortex(SERVICES, inc)
+        self.assertEqual(c, {"ent": {"etat": "degrade", "depuis": "2026-09-22T07:00:00Z", "message": "Incident détecté par la supervision.", "source": "cortex"}})
+        inc[0]["state"] = "acked"; inc[0]["severity"] = "critical"
+        self.assertEqual(simple.etats_depuis_cortex(SERVICES, inc)["ent"]["message"], "Incident pris en charge par le service informatique.")
+        self.assertEqual(simple.etats_depuis_cortex(SERVICES, None), {})
+        ag = [{"agent_id": "a1", "hostname": "SRV-ENT", "online": "offline", "last_seen_at": "2026-09-22T06:00:00Z"}, {"hostname": "x", "online": "online"}]
+        a = simple.etats_depuis_agents(SERVICES, ag)
+        self.assertEqual(a["ent"]["etat"], "panne")
+        self.assertEqual(simple.etats_depuis_agents(SERVICES, [{"hostname": "srv-ent", "online": "never"}]), {})
+        fus = simple.pire_etats(c, a)
+        self.assertEqual(fus["ent"]["source"], "agents")  # panne > dégradé
+        self.assertEqual(simple.pire_etats(a, c)["ent"]["source"], "agents")
+        self.assertEqual(simple.pire_etats({"ent": {"etat": "degrade", "source": "x"}}, {"ent": {"etat": "degrade", "source": "y"}})["ent"]["source"], "x")
 
 
 class Etat(unittest.TestCase):

@@ -128,6 +128,9 @@ ETAT_SERVICES_FILE = os.environ.get("ETAT_SERVICES_FILE", os.path.join(os.path.d
 ETAT_ETATS_FILE = os.environ.get("ETAT_ETATS_FILE", os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "etats.json"))
 # #542 : états vivants depuis service-watch (URL interne, vide = fichier seul).
 SERVICE_WATCH_API = os.environ.get("SERVICE_WATCH_API_INTERNAL_URL", "").rstrip("/")
+# #545 : Cortex (incidents ouverts) et agents hôtes (hors ligne) comme sources.
+CORTEX_API = os.environ.get("CORTEX_API_INTERNAL_URL", "").rstrip("/")
+SI_AGENT_API = os.environ.get("SI_AGENT_API_INTERNAL_URL", "").rstrip("/")
 
 
 @app.route("/demande/accueil", methods=["GET"])
@@ -166,15 +169,23 @@ def simple_status_json():
     services = ref.get("services") or []
     etats_doc = _read_json(ETAT_ETATS_FILE) or {}
     manuels = dict(etats_doc.get("etats") or {})
-    auto, sources = {}, []
-    if SERVICE_WATCH_API:
+    autos, sources = [], []
+
+    def _live(label, url, fn):
+        if not url:
+            return
         try:
-            r = requests.get(f"{SERVICE_WATCH_API}/service-watch/entries", timeout=8)
+            r = requests.get(url, timeout=8)
             if r.status_code == 200:
-                auto = simple.etats_depuis_service_watch(services, (r.json() or {}).get("entries"))
-                sources.append("supervision automatique")
+                autos.append(fn(r.json() or {}))
+                sources.append(label)
         except (requests.RequestException, ValueError) as exc:
-            log.warning("service-watch injoignable pour l'état des services : %s", exc)
+            log.warning("%s injoignable pour l'état des services : %s", label, exc)
+
+    _live("supervision automatique", SERVICE_WATCH_API and f"{SERVICE_WATCH_API}/service-watch/entries", lambda d: simple.etats_depuis_service_watch(services, d.get("entries")))
+    _live("incidents", CORTEX_API and f"{CORTEX_API}/incidents?state=open", lambda d: simple.etats_depuis_cortex(services, d.get("incidents")))
+    _live("agents", SI_AGENT_API and f"{SI_AGENT_API}/fleet", lambda d: simple.etats_depuis_agents(services, d.get("agents")))
+    auto = simple.pire_etats(*autos)
     if manuels:
         sources.append(etats_doc.get("source") or "exploitation")
     etats = simple.fusion_etats(manuels, auto)

@@ -1,3 +1,20 @@
+## 2026-09-22 — Espace Simple : Cortex et agents hôtes comme sources d'état (livraison #545, item 84)
+
+- `projeqtor-bridge/simple.py` : `etats_depuis_cortex` (incidents ouverts
+  ou pris en charge touchant une clé d'entité déclarée → panne / dégradé,
+  message selon la prise en charge), `etats_depuis_agents` (agent hors
+  ligne → panne, « la machine ne répond plus »), `pire_etats` (fusion des
+  sources automatiques, la pire l'emporte).
+- `projeqtor-bridge/app.py` : `etat.json` interroge aussi
+  `CORTEX_API_INTERNAL_URL` (`/incidents?state=open`) et
+  `SI_AGENT_API_INTERNAL_URL` (`/fleet`) ; sources affichées.
+- `docker-compose.yml`, `data/services.json` : variables et exemples
+  (`sources.cortex`, `sources.si_agent`).
+- Tests `tests/test_simple.py` : 6.
+
+Vérifié : tests. Non vérifié : avec Cortex et si-agent réels
+(`./scripts/run.sh up -d --build projeqtor-bridge`).
+
 ## 2026-09-22 — Hub : vue « Aujourd'hui » pour un responsable non technicien (livraison #544, item 84)
 
 - `hub/src/today.js` (pur) : `servicesSummary`, `ticketsSummary`,
