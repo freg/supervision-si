@@ -21,6 +21,7 @@ ne réapplique la configuration que si l'empreinte change.
 import calendar
 import hashlib
 import json
+import publish as publish_lib
 from datetime import datetime, timedelta, timezone
 import secrets as _secrets
 import sqlite3
@@ -132,6 +133,7 @@ MIGRATIONS = [
     ("plugins", "max_memory_mb", "INTEGER"),
     ("agent_plugins", "blocked", "INTEGER NOT NULL DEFAULT 0"),
     ("agent_plugins", "blocked_reason", "TEXT"),
+    ("agents", "publish", "TEXT"),  # #547 : publication d'un tableau sur le LAN du site
 ]
 
 AGENT_ID_MAX = 64
@@ -184,6 +186,7 @@ def _agent_public(r):
     d["active"] = bool(d.get("active"))
     d["blocked"] = bool(d.get("blocked"))
     d["risk_thresholds"] = json.loads(d.get("risk_thresholds") or "{}")
+    d["publish"] = publish_lib.normalize_publish(json.loads(d["publish"]) if d.get("publish") else None)
     return d
 
 
@@ -470,7 +473,7 @@ def get_secret(db_path, agent_id):
     return {"secret": r["secret"], "site": r["site"]}
 
 
-def update_agent(db_path, agent_id, label=None, active=None, site=None, host_interval_seconds=None, risk_thresholds=None, notes=None):
+def update_agent(db_path, agent_id, label=None, active=None, site=None, host_interval_seconds=None, risk_thresholds=None, notes=None, publish=None):
     sets, params = [], []
     if label is not None:
         sets.append("label = ?"); params.append(label)
@@ -486,6 +489,8 @@ def update_agent(db_path, agent_id, label=None, active=None, site=None, host_int
         sets.append("risk_thresholds = ?"); params.append(json.dumps(_thresholds(risk_thresholds)))
     if notes is not None:
         sets.append("notes = ?"); params.append(notes)
+    if publish is not None:
+        sets.append("publish = ?"); params.append(json.dumps(publish_lib.normalize_publish(publish)))
     if not sets:
         return get_agent(db_path, agent_id)
     sets.append("updated_at = ?"); params.append(now_iso())
@@ -683,7 +688,9 @@ def config_for_agent(db_path, agent_id):
     blocked = bool(fb.get("blocked")) or bool(a["blocked"])
     blocked_reason = (fb.get("reason") or "blocage général de la flotte") if fb.get("blocked") else a["blocked_reason"]
     assigned = []
-    fingerprint = [str(a["host_interval_seconds"]), a["risk_thresholds"] or "{}", "blocked:%d" % (1 if blocked else 0)]
+    publish = publish_lib.normalize_publish(json.loads(a["publish"]) if a["publish"] else None)
+    fingerprint = [str(a["host_interval_seconds"]), a["risk_thresholds"] or "{}", "blocked:%d" % (1 if blocked else 0),
+                   "publish:%s" % json.dumps(publish, sort_keys=True)]
     for r in rows:
         privileged = bool(r["privileged"])
         manifest = {"id": r["id"], "version": r["version"], "runner": r["runner"], "entry": r["entry"],
@@ -712,7 +719,7 @@ def config_for_agent(db_path, agent_id):
     # refuse une configuration plus ancienne que la dernière appliquée (rejeu).
     return {"version": version, "issued_at": int(time.time()), "host_interval_seconds": a["host_interval_seconds"],
             "risk_thresholds": json.loads(a["risk_thresholds"] or "{}"), "plugins": assigned, "remove_plugins": remove,
-            "blocked": blocked, "blocked_reason": blocked_reason if blocked else None}
+            "blocked": blocked, "blocked_reason": blocked_reason if blocked else None, "publish": publish}
 
 
 # ------------------------------------------------------------------

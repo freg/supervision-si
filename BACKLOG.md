@@ -3121,11 +3121,11 @@ et la fenêtre étant assez étroite pour le voir) ; « l'agent mini-PC (sur le
 réseau du campus) devrait porter un service web qui le publie ».
 
 Livré (#546) : sondeur à la minute dans nebula-api, transitions,
-disponibilité, tableau de santé par site, onglet hub. Suites : le service
-web sur l'agent mini-PC du campus — un plugin `health-board` de si-agent
-qui sert une page dans la charte Simple sur le LAN du campus et rafraîchit
-son JSON chaque minute depuis le central (route `/agents/<id>/health-board`
-par le canal agent ↔ central, jamais la clé Nebula sur le poste) ; Nebula
+disponibilité, tableau de santé par site, onglet hub. Livré (#547) : le
+service web sur l'agent (réglage `publish` par agent, relevé signé toutes
+les minutes, page Simple sur `http://<agent>:8081/`, jamais la clé Nebula
+sur le poste). Suites : réglage `publish` dans la tuile Agents hôtes ;
+autres contenus publiables (état des services, demandes) ; Nebula
 comme source d'incidents Cortex (appareil hors ligne → événement) et
 d'état des services de l'espace Simple (`sources.nebula`) ; relevé des
 clients à la demande.

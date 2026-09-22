@@ -37,6 +37,7 @@ except ImportError:  # dépôt de développement
 
 import package  # noqa: E402
 import store  # noqa: E402
+import publish as publish_lib  # noqa: E402
 import updates  # noqa: E402
 import notify  # noqa: E402
 
@@ -279,7 +280,7 @@ def update_agent_route(agent_id):
     try:
         a = store.update_agent(DB_PATH, agent_id, label=body.get("label"), active=body.get("active"), site=body.get("site"),
                                host_interval_seconds=body.get("host_interval_seconds"),
-                               risk_thresholds=body.get("risk_thresholds"), notes=body.get("notes"))
+                               risk_thresholds=body.get("risk_thresholds"), notes=body.get("notes"), publish=body.get("publish"))
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     if a is None:
@@ -787,6 +788,42 @@ def agent_config_route(agent_id):
     if prev and prev.get("last_config_version") != cfg["version"]:
         _log.info("agent %s : configuration %s servie (%d sonde(s)%s)", agent_id, cfg["version"], len(cfg["plugins"]), ", BLOQUÉ" if cfg["blocked"] else "")
     return _signed_json(info["secret"], cfg)
+
+
+NEBULA_API_URL = os.environ.get("NEBULA_API_URL", "").rstrip("/")
+
+
+def _publish_board(pub):
+    """Tableau de santé pour l'agent (#547) : nebula-api, site précis ou tous."""
+    if not NEBULA_API_URL:
+        return None, "NEBULA_API_URL non configurée sur le central"
+    path = ("/sites/%s/health-board" % pub["site_id"]) if pub.get("site_id") else "/health-board"
+    try:
+        r = requests.get("%s%s?hours=%d" % (NEBULA_API_URL, path, pub["hours"]), timeout=10)
+        if r.status_code != 200:
+            return None, "nebula-api : %s" % r.status_code
+        return r.json(), None
+    except (requests.RequestException, ValueError) as exc:
+        return None, "nebula-api injoignable : %s" % exc
+
+
+@app.route(protocol.API_PREFIX + "/agents/<agent_id>/publish", methods=["GET"])
+def agent_publish_route(agent_id):
+    """Contenu à publier par l'agent sur le LAN de son site (#547), signé
+    comme la configuration ; vide si la publication est désactivée."""
+    info, err = _verify_agent(agent_id)
+    if info is None:
+        return jsonify({"error": err}), 401
+    a = store.get_agent(DB_PATH, agent_id)
+    pub = (a or {}).get("publish") or {}
+    if not pub.get("enabled"):
+        return _signed_json(info["secret"], {"enabled": False})
+    board, why = _publish_board(pub)
+    payload = publish_lib.board_payload(board or {}, pub["title"], int(time.time()))
+    payload["enabled"] = True
+    if why:
+        payload["error"] = why
+    return _signed_json(info["secret"], payload)
 
 
 @app.route(protocol.API_PREFIX + "/agents/<agent_id>/commands", methods=["GET"])

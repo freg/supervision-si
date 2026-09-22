@@ -1,3 +1,28 @@
+## 2026-09-22 — Agents hôtes : publication locale du tableau de santé du réseau (livraison #547, item 85, agent 0.5.10)
+
+Demandé : « l'agent mini-PC (sur le réseau du campus) devrait porter un
+service web qui le publie ».
+
+- `si-agent/api/publish.py` (pur) : `normalize_publish` (réglage borné),
+  `board_payload` (contenu sans identifiant interne) ; `store.py` :
+  colonne `agents.publish`, dans la configuration signée et son empreinte ;
+  `app.py` : `PUT /agents/<id>` accepte `publish`, route agent signée
+  `GET /api/v1/agents/<id>/publish` (nebula-api `health-board`, site ou
+  tous) ; `NEBULA_API_URL` sur si-agent-api.
+- `si-agent/agent/si_agent/publish.py` : `PublishServer` (http.server en
+  fil d'exécution, `/` page charte Simple sans dépendance, `/board.json`
+  avec âge et drapeau `stale`), `with_age`, `render_page` ; `agent.py` :
+  `publish_tick` (démarrage/arrêt selon la configuration, relevé toutes
+  les `interval_seconds`, vérification de signature, événements
+  publish-started/-stopped/-failed) ; agent 0.5.10.
+- Tests : `agent/tests/test_publish.py` (3), `api/test_si_agent_api.py`
+  (+1) ; liste des sondes livrées corrigée dans `test_si_agent.py`.
+- `si-agent/README.md` : section et commande de réglage.
+
+Vérifié : tests agent et central. Non vérifié : sur le mini-PC du campus
+(mettre à jour l'agent en 0.5.10 depuis l'onglet Mises à jour, activer
+`publish`, ouvrir `http://<mini-pc>:8081/`).
+
 ## 2026-09-22 — Nebula : API réelle, relevé d'état à la minute, tableau de santé (livraison #546, item 85)
 
 Première connexion réelle à l'OpenAPI Nebula (organisation en Pro Pack,

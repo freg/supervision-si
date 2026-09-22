@@ -860,3 +860,35 @@ détecte un hôte Proxmox VE et redémarre toujours le service. **0.5.5** (#525)
 sonde `wifi-probe` ; **0.5.6** (#526) : sonde v2 ; **0.5.7** (#527) : sonde
 `path-probe` ; **0.5.8** (#528) : `--upgrade` macOS/Windows conserve la
 configuration (elle était effacée) ; **0.5.9** (#529) : wifi-probe v3.
+
+## Publication locale d'un tableau de santé (livraison #547, agent 0.5.10)
+
+Demandé : le responsable du site veut un tableau de bord de l'état de
+santé du réseau ; « l'agent mini-PC (sur le réseau du campus) devrait
+porter un service web qui le publie ».
+
+Principe : le **central prépare le contenu** (tableau de santé Nebula de
+nebula-api, #546 : phrases, disponibilité, incidents, une ligne par
+équipement, sans identifiant interne), l'**agent le relève** toutes les
+`interval_seconds` par son canal signé (`GET /api/v1/agents/<id>/publish`,
+réponse signée comme la configuration) et le **sert sur le LAN du site**
+sur `http://<agent>:<port>/` (page « État du réseau » dans la charte
+Simple, sans dépendance) et `/board.json`. Aucune clé Nebula sur le poste,
+deux chemins en lecture seule, page marquée « information ancienne » au
+delà de cinq minutes sans relevé. Le serveur s'arrête si la publication est
+désactivée ou si l'agent est bloqué.
+
+Réglage par agent (remplacé en bloc), depuis le central :
+
+```
+curl -sk -X PUT https://localhost:6443/api/si-agent/agents/<agent_id> -H "Content-Type: application/json" \
+  -d '{"publish": {"enabled": true, "port": 8081, "title": "Réseau du campus", "site_id": "", "hours": 24, "interval_seconds": 60}}'
+```
+
+`site_id` vide = tous les sites Nebula ; `port` 1024–65535 (ouvrir le port
+sur le pare-feu local du poste si besoin). `NEBULA_API_URL` sur
+si-agent-api (compose). Logique pure `agent/si_agent/publish.py`,
+`api/publish.py` ; tests `agent/tests/test_publish.py`,
+`api/test_si_agent_api.py`. Suites : autres contenus publiables (état des
+services de l'espace Simple, demandes en attente), réglage dans la tuile
+Agents hôtes.

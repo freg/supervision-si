@@ -39,7 +39,7 @@ import time
 import urllib.error
 import urllib.request
 
-from . import control, host, netview, plugins, protocol, review, risks
+from . import control, publish as publish_lib, host, netview, plugins, protocol, review, risks
 from .localqueue import LocalQueue
 
 # #440 : sous Windows 10/11, les collecteurs viennent de winhost.py (scripts
@@ -271,6 +271,10 @@ class Agent(object):
         self._next_netview = 0
         self.last_netview = None
         self._next_plugin = {}
+        # #547 : publication locale (serveur + dernier contenu reçu du central)
+        self._publish_server = None
+        self._next_publish = 0
+        self.publish_payload = None
         self._last_poll = 0
         self._last_commands = 0
         self._last_flush = 0
@@ -397,6 +401,10 @@ class Agent(object):
         for key in ("host_interval_seconds", "inventory_interval_seconds", "netview_interval_seconds"):
             if isinstance(body.get(key), (int, float)) and body[key] >= 10:
                 self.cfg[key] = body[key]
+        if isinstance(body.get("publish"), dict):
+            self.cfg["publish"] = body["publish"]
+        elif "publish" in body:
+            self.cfg["publish"] = None
         if isinstance(body.get("risk_thresholds"), dict):
             self.cfg["risk_thresholds"] = body["risk_thresholds"]
         installed = 0
@@ -643,6 +651,46 @@ class Agent(object):
             produced.append(self.run_one_plugin(m))
         return produced
 
+    # -- publication locale (#547) -------------------------------------------
+    def publish_tick(self):
+        """Sert sur le LAN du site le tableau préparé par le central : serveur
+        démarré / arrêté selon la configuration signée, contenu relevé toutes
+        les `interval_seconds` par le canal signé (jamais de clé sur le poste)."""
+        pub = self.cfg.get("publish") or {}
+        enabled = bool(pub.get("enabled")) and not self.is_blocked()
+        srv = self._publish_server
+        if not enabled:
+            if srv:
+                srv.stop(); self._publish_server = None
+                self.event("publish-stopped", "info", "publication locale arrêtée")
+            return
+        port, title = int(pub.get("port") or 8081), pub.get("title") or "État du réseau"
+        if srv and (srv.port != port or srv.title != title):
+            srv.stop(); srv = self._publish_server = None
+        if not srv:
+            try:
+                srv = self._publish_server = publish_lib.PublishServer(port, title, clock=time.time)
+                srv.start()
+                srv.set_payload(self.publish_payload)
+                self.event("publish-started", "info", "publication locale sur le port %d (%s)" % (port, title))
+            except OSError as exc:
+                self._publish_server = None
+                if self.clock() >= self._next_publish:
+                    self.event("publish-failed", "warning", "publication locale impossible sur le port %d : %s" % (port, exc))
+                    self._next_publish = self.clock() + 300
+                return
+        now = self.clock()
+        if now < self._next_publish:
+            return
+        self._next_publish = now + float(pub.get("interval_seconds") or 60)
+        status, body = self.http.request("GET", "%s/agents/%s/publish" % (protocol.API_PREFIX, self.agent_id))
+        if status != 200 or not isinstance(body, dict) or not self._verified("publication"):
+            return
+        if body.get("enabled"):
+            body["received_at"] = time.time()
+            self.publish_payload = body
+            srv.set_payload(body)
+
     # -- envoi ---------------------------------------------------------------
     def flush(self, force=False):
         now = self.clock()
@@ -749,6 +797,7 @@ class Agent(object):
                 self.collect_inventory()
                 self.run_plugins()
                 self.poll_commands()
+                self.publish_tick()
                 self.flush()
                 self.maintenance()
             except Exception as exc:  # noqa: BLE001 -- la boucle ne meurt jamais

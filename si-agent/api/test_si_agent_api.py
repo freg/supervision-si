@@ -67,6 +67,38 @@ class ApiBase(unittest.TestCase):
 
 
 class DashboardTests(ApiBase):
+    def test_publication_tableau_par_agent(self):
+        # #547 : réglage `publish` par agent, dans la configuration signée, contenu servi à l'agent
+        import publish as publish_lib
+        a = self.enroll()
+        self.assertFalse(self.c.get("/agents/srv-01").get_json()["publish"]["enabled"])
+        self.assertEqual(self.c.put("/agents/srv-01", json={"publish": {"enabled": True, "port": 80}}).status_code, 400)
+        r = self.c.put("/agents/srv-01", json={"publish": {"enabled": True, "port": 8081, "title": "Réseau du campus", "hours": 24}})
+        self.assertEqual(r.status_code, 200, r.get_json())
+        self.assertEqual(r.get_json()["publish"]["title"], "Réseau du campus")
+        http = FlaskHttp(self.c, "srv-01", a["secret"])
+        st, cfg = http.request("GET", protocol.API_PREFIX + "/agents/srv-01/config")
+        self.assertEqual(st, 200); self.assertTrue(cfg["publish"]["enabled"]); v1 = cfg["version"]
+        self.c.put("/agents/srv-01", json={"publish": {"enabled": True, "port": 8082, "title": "Réseau du campus"}})  # le réglage est remplacé en bloc
+        self.assertNotEqual(http.request("GET", protocol.API_PREFIX + "/agents/srv-01/config")[1]["version"], v1)
+        # contenu : nebula-api simulée
+        board = {"sites": [{"site_id": "x", "site_name": "Site", "resume": "Tout le réseau est en ligne (2 équipements).", "phrases": [], "availability": 1.0, "incidents": 0, "online": 2, "total": 2, "hours": 24,
+                            "devices": [{"dev_id": "d", "name": "Borne", "model": "WBE660S", "status": "online", "since": 1, "availability": 1.0, "incidents": 0, "secret": "non"}]}]}
+        app_mod._publish_board = lambda pub: (board, None)
+        st, body = http.request("GET", protocol.API_PREFIX + "/agents/srv-01/publish")
+        self.assertEqual(st, 200); self.assertTrue(body["enabled"])
+        self.assertEqual(body["sites"][0]["devices"][0], {"name": "Borne", "model": "WBE660S", "status": "online", "since": 1, "availability": 1.0, "incidents": 0})
+        self.assertNotIn("site_id", body["sites"][0])
+        self.assertEqual(body["title"], "Réseau du campus")
+        # signé comme la configuration
+        from si_agent import control
+        self.assertTrue(control.verify_response(a["secret"], http.last_headers, http.last_raw)[0])
+        self.c.put("/agents/srv-01", json={"publish": {"enabled": False}})
+        self.assertEqual(http.request("GET", protocol.API_PREFIX + "/agents/srv-01/publish")[1], {"enabled": False})
+        self.assertEqual(publish_lib.normalize_publish(None)["port"], 8081)
+        with self.assertRaises(ValueError):
+            publish_lib.normalize_publish({"hours": 0})
+
     def test_enrolement_secret_et_installation(self):
         a = self.enroll(label="Serveur fichiers")
         self.assertIn("secret", a)

@@ -9,6 +9,7 @@ RUN pip install --no-cache-dir --retries 5 --timeout 60 -r requirements.txt
 
 COPY si-agent/api/app.py .
 COPY si-agent/api/store.py .
+COPY si-agent/api/publish.py .
 COPY si-agent/api/notify.py .
 # COPIES du protocole et du moteur de plugins partagés avec l'agent
 # (source canonique : si-agent/agent/si_agent/), jamais une
