@@ -95,10 +95,23 @@ causes réelles, corrigées en #536.
 
 Résultat hors ligne : mots attendus présents dans les extraits pour 5/5
 questions à k=5 (contre 3,3/5 avec #534 et 1,5/5 avec #535), insensible au
-poids des journaux ; plafond par document désactivé par défaut. À
-confirmer par un passage réel ; si les questions restent sous 4/5 avec
-les bons extraits, le problème sera côté modèle (8b sans réflexion), pas
-côté recherche.
+poids des journaux ; plafond par document désactivé par défaut.
+
+Passage réel #536 (2026-09-22, même VM) : **questions 5/5**, classification
+10/10, résumés 4,5/5, 38 à 68 s par question. Les quatre passages :
+
+| Livraison | Index | Réflexion | Classification | Résumés | Questions | Par question |
+|---|---|---|---|---|---|---|
+| #533 | `docs/` seul | oui | 9,3/10 | 5/5 | 0/5 | 51–91 s |
+| #534 | + dépôt (65 fichiers) | non | 10/10 | 4,75/5 | 2/5 | 47–62 s |
+| #535 | idem, journaux 0,4, 2/doc | non | 10/10 | 4,75/5 | 0,5/5 | 42–65 s |
+| #536 | idem, mots vides, titres | non | 10/10 | 4,5/5 | **5/5** | 38–68 s |
+
+Leçon : sur ce corpus, la qualité des questions ne tenait qu'à la
+recherche lexicale, pas au modèle -- un 8b sans réflexion répond juste
+dès que le bon passage est dans les extraits. Suite : cas réels hors
+dépôt (tickets, GED), puis mesure sur GPU (la latence est le traitement
+du prompt sur CPU).
 
 ## Ce que fait assistant-api
 

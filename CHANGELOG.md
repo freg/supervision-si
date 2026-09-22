@@ -1,3 +1,17 @@
+## 2026-09-22 — Assistant IA : passage réel #536 consigné (livraison #537, item 81)
+
+Quatrième passage réel (VM 6 vCPU / 16 Go, `qwen3:8b`, réflexion coupée,
+65 fichiers du dépôt) : classification 10/10, résumés 4,5/5, questions
+5/5 (0/5 en #533, 2/5 en #534, 0,5/5 en #535), 38 à 68 s par question.
+Les cinq questions ont reçu leur passage ; le modèle 8b répond juste
+quand les extraits sont bons. Documentation seulement.
+
+- `assistant/README.md` : tableau des quatre passages ; suite = cas réels
+  hors dépôt (tickets, GED) et mesure sur GPU.
+- `BACKLOG.md` item 81 : état.
+
+Vérifié : passage réel. Rien à déployer.
+
 ## 2026-09-22 — Assistant IA : recherche rejouée hors ligne, mots vides, titres de section, composés (livraison #536, item 81)
 
 Le réglage #535 a fait reculer les questions (0,5/5). Rejeu de la recherche
@@ -15,9 +29,9 @@ titres Markdown absents des morceaux, composés non décomposés.
 - Tests `assistant/tests/test_rag.py` : 13 (jetons, découpage par titres).
 - `assistant/README.md` : analyse et résultat hors ligne (5/5 à k=5).
 
-Vérifié : tests unitaires (13/13), rejeu hors ligne 5/5. Non vérifié :
-passage réel sur la VM (`./scripts/run.sh up -d --build assistant-api`
-puis `POST /assistant/eval/run`).
+Vérifié : tests unitaires (13/13), rejeu hors ligne 5/5, et passage réel
+sur la VM (#537) : classification 10/10, résumés 4,5/5, **questions 5/5**,
+38 à 68 s par question.
 
 ## 2026-09-21 — Assistant IA : réglage du RAG après le second passage (livraison #535, item 81)
 
