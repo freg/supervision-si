@@ -13,7 +13,14 @@ from collections import Counter
 
 STOP = set("""le la les l un une des du de d et ou où en au aux a à ce cet cette ces se sa son ses sur pour par pas ne
 n est sont été être avec sans dans que qui quoi dont il elle ils elles on nous vous je tu y il ya plus moins très
-the of and to in is are for on with by at from as it this that""".split())
+the of and to in is are for on with by at from as it this that
+quel quelle quels quelles comment pourquoi combien lequel laquelle quand lorsque est-ce
+fait faire font sert servent porte peut peuvent doit doivent met mettent connait connaît ainsi aussi donc alors
+cela ça ceci celui celle ceux mon ma mes ton ta tes leur leurs notre votre nos vos tout tous toute toutes""".split())
+
+# Clitiques interrogatifs (« teste-t-elle », « met-il ») : ôtés avant
+# l'indexation, sinon chaque tournure devient un jeton rare très pondéré (#536).
+_CLITIC = re.compile(r"-t?-?(il|elle|ils|elles|on|je|tu|nous|vous|ce)$")
 
 
 def normalize(text):
@@ -26,13 +33,16 @@ def tokenize(text):
     toks = re.findall(r"[a-z0-9][a-z0-9_.-]{1,}", normalize(text))
     out = []
     for t in toks:
-        t = t.strip(".-_")
-        if len(t) < 2 or t in STOP:
-            continue
-        # racine grossière : pluriels / féminins
-        if len(t) > 5 and t.endswith(("es", "s")):
-            t = t.rstrip("s")
-        out.append(t)
+        t = _CLITIC.sub("", t.strip(".-_"))
+        # mot composé (« auto-mise », « path-probe ») : le composé ET ses parties (#536)
+        parts = [t] + ([p for p in t.split("-") if len(p) > 1] if "-" in t else [])
+        for w in parts:
+            if len(w) < 2 or w in STOP:
+                continue
+            # racine grossière : pluriels / féminins
+            if len(w) > 5 and w.endswith(("es", "s")):
+                w = w.rstrip("s")
+            out.append(w)
     return out
 
 
@@ -58,6 +68,42 @@ def chunk_text(text, size=900, overlap=150):
     return [c for c in out if c]
 
 
+_HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
+
+
+def chunk_markdown(text, size=900, overlap=150):
+    """Comme chunk_text, mais par section Markdown : chaque morceau est
+    préfixé du fil des titres (« § Titre 1 › Titre 2 ») pour que la question
+    qui nomme la section retrouve son passage, et que le modèle sache d'où
+    vient l'extrait (#536). Sans titre, identique à chunk_text."""
+    if not re.search(r"(?m)^#{1,6}\s+\S", text or ""):
+        return chunk_text(text, size, overlap)
+    sections, trail, buf = [], {}, []
+
+    def flush():
+        body = "\n".join(buf).strip()
+        if body:
+            heads = [trail[k] for k in sorted(trail)]
+            sections.append((("§ " + " › ".join(heads) + "\n") if heads else "", body))
+        buf.clear()
+
+    for line in (text or "").splitlines():
+        m = _HEADING.match(line)
+        if m:
+            flush()
+            lvl = len(m.group(1))
+            trail = {k: v for k, v in trail.items() if k < lvl}
+            trail[lvl] = m.group(2).strip()
+            continue
+        buf.append(line)
+    flush()
+    out = []
+    for prefix, body in sections:
+        for c in chunk_text(body, max(200, size - len(prefix)), overlap):
+            out.append(prefix + c)
+    return out
+
+
 class BM25:
     """Index BM25 en mémoire : docs = [{id, source, title, text, meta}]."""
 
@@ -79,10 +125,11 @@ class BM25:
         self.avgdl = total / len(self.docs) if self.docs else 0.0
         return self
 
-    def search(self, query, k=5, source=None, max_per_doc=2):
+    def search(self, query, k=5, source=None, max_per_doc=0):
         """k meilleurs morceaux. `weight` du morceau (défaut 1) multiplie le
-        score BM25 ; au plus `max_per_doc` morceaux d'un même document (#535),
-        pour que CHANGELOG/BACKLOG ne remplissent pas tout le contexte."""
+        score BM25 ; `max_per_doc` > 0 plafonne les morceaux d'un même
+        document (#535) -- désactivé par défaut depuis #536 : le plafond
+        chassait les bons passages au profit de README hors sujet."""
         q = tokenize(query)
         if not q or not self.docs:
             return []

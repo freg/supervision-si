@@ -1,3 +1,24 @@
+## 2026-09-22 — Assistant IA : recherche rejouée hors ligne, mots vides, titres de section, composés (livraison #536, item 81)
+
+Le réglage #535 a fait reculer les questions (0,5/5). Rejeu de la recherche
+hors ligne sur les 65 fichiers du dépôt (présence des mots attendus dans
+les extraits, sans le modèle) : jetons interrogatifs rares surpondérés,
+titres Markdown absents des morceaux, composés non décomposés.
+
+- `assistant/rag.py` : mots vides étendus (interrogatifs, verbes creux),
+  clitiques ôtés (`teste-t-elle` → `teste`), composés indexés avec leurs
+  parties ; `chunk_markdown` -- découpage par section, chaque morceau
+  préfixé du fil des titres ; `max_per_doc` désactivé par défaut.
+- `assistant/app.py` : index construit avec `chunk_markdown`.
+- `assistant/eval/cases.json` : a03 reformulé (le README ne dit pas
+  « version minimale »).
+- Tests `assistant/tests/test_rag.py` : 13 (jetons, découpage par titres).
+- `assistant/README.md` : analyse et résultat hors ligne (5/5 à k=5).
+
+Vérifié : tests unitaires (13/13), rejeu hors ligne 5/5. Non vérifié :
+passage réel sur la VM (`./scripts/run.sh up -d --build assistant-api`
+puis `POST /assistant/eval/run`).
+
 ## 2026-09-21 — Assistant IA : réglage du RAG après le second passage (livraison #535, item 81)
 
 Second passage réel (VM 6 vCPU / 16 Go, `qwen3:8b`, réflexion coupée, 65
@@ -15,9 +36,8 @@ répétant les mots des questions), jamais le README qui porte la réponse.
   document).
 - `assistant/README.md` : section « Second passage et réglage du RAG ».
 
-Vérifié : tests unitaires (11/11). Non vérifié : troisième passage sur la
-VM après `./scripts/run.sh up -d --build assistant-api` (attendu : questions
-≥ 4/5 ; sinon reclassement par le modèle ou embeddings).
+Vérifié (#536) : déployé, troisième passage : questions 0,5/5 -- pire ; le
+plafond par document chassait les bons passages. Corrigé en #536.
 
 ## 2026-09-21 — Assistant IA : documentation du dépôt indexée, réflexion coupée par défaut (livraison #534, item 81)
 

@@ -435,7 +435,7 @@
   {
    "id": "a03",
    "kind": "ask",
-   "input": "Comment un agent hôte se met-il à jour et quelle version minimale connaît la commande update ?",
+   "input": "Comment fonctionne l'auto-mise à jour d'un agent hôte depuis le central, et à partir de quelle version d'agent existe-t-elle ?",
    "k": 5,
    "expect": {
     "keywords": [

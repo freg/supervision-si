@@ -46,10 +46,25 @@ class Pure(unittest.TestCase):
             {"id": "j#2", "doc": "j", "title": "CHANGELOG.md", "text": "si-agent : agent hôte, update encore", "weight": 0.4},
             {"id": "r#0", "doc": "r", "title": "si-agent.md", "text": "mise à jour : la commande update connaît la version minimale 0.5.3"},
         ])
-        h = idx.search("comment un agent hôte se met-il à jour, commande update si-agent ?", k=3)
+        h = idx.search("comment un agent hôte se met-il à jour, commande update si-agent ?", k=3, max_per_doc=2)
         self.assertEqual(h[0]["id"], "r#0")
         self.assertEqual(sum(1 for x in h if x["doc"] == "j"), 2)
-        self.assertEqual(len(idx.search("agent update", k=5, max_per_doc=0)), 4)
+        self.assertEqual(len(idx.search("agent update", k=5)), 4)  # plafond désactivé par défaut (#536)
+
+    def test_tokenize_stop_clitics_compounds(self):
+        # #536 : interrogatifs et verbes creux ignorés, clitiques ôtés, composés indexés avec leurs parties.
+        self.assertEqual(rag.tokenize("À quoi sert la sonde et que teste-t-elle ? Comment se met-il à jour ?"),
+                         ["sonde", "teste", "jour"])
+        self.assertEqual(rag.tokenize("auto-mise à jour path-probe"), ["auto-mise", "auto", "mise", "jour", "path-probe", "path", "probe"])
+
+    def test_chunk_markdown_headings(self):
+        md = "# Module\n\nintro\n\n## Mise à jour\n\n### Version\n\nagent 0.5.3\n\n## Sondes\n\npath-probe"
+        ch = rag.chunk_markdown(md)
+        self.assertEqual(ch[0], "§ Module\nintro")
+        self.assertEqual(ch[1], "§ Module › Mise à jour › Version\nagent 0.5.3")
+        self.assertEqual(ch[2], "§ Module › Sondes\npath-probe")
+        self.assertEqual(rag.chunk_markdown("sans titre"), ["sans titre"])
+        self.assertEqual(rag.chunk_markdown(""), [])
 
     def test_prompts_and_json(self):
         m = rag.build_rag_messages("q ?", [{"source": "documents", "title": "T", "text": "x" * 2000, "id": "1"}], max_chars=1000)

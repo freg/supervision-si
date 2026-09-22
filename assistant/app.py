@@ -215,7 +215,7 @@ def build_index():
             chunks, per = [], {}
             for d in raw:
                 per[d["source"]] = per.get(d["source"], 0) + 1
-                for i, c in enumerate(rag.chunk_text(d["text"])):
+                for i, c in enumerate(rag.chunk_markdown(d["text"])):
                     chunks.append({"id": "%s#%d" % (d["id"], i), "doc": d["id"], "source": d["source"], "title": d["title"], "text": c, "meta": d.get("meta") or {}, "weight": d.get("weight", 1.0)})
             INDEX.build(chunks)
             _index_info.update(built_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), docs=len(raw), chunks=len(chunks), sources=per)

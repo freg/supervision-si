@@ -2942,17 +2942,19 @@ Postfix/Dovecot corrélés, règles Cortex.
 
 ## Assistant IA auto-hébergé (modèle ouvert) — étude de capacité (2026-09-17) — item 81
 
-**État au 2026-09-21 (#535)** : PoC en place (#532), doc infrastructure
+**État au 2026-09-22 (#536)** : PoC en place (#532), doc infrastructure
 (#533), premier passage réel sur une VM 6 vCPU / 16 Go de l'hyperviseur
 avec `qwen3:8b` (8,97 mots/s) : classification 9,3/10, résumés 5/5,
 questions 0/5 par manque de sources → documentation du dépôt indexée et
 réflexion coupée par défaut (#534). Second passage : classification 10/10,
 résumés 4,75/5, questions 2/5 (journaux CHANGELOG/BACKLOG envahissant les
 extraits), 47 à 62 s par question (prompt sur CPU) → journaux pondérés,
-titre triple, 2 extraits max par document (#535). Poste 32 Go :
-`qwen3:30b-a3b` à 14,6 mots/s, deux fois le 8b sur la même RAM. Prochain :
-troisième passage (questions ≥ 4/5 ?), puis 10 cas réels hors dépôt, puis
-mesure sur GPU.
+titre triple, 2 extraits max par document (#535) → pire (0,5/5). Rejeu de
+la recherche hors ligne : mots vides étendus, titres de section dans les
+morceaux, composés décomposés, plafond retiré (#536) : mots attendus dans
+les extraits 5/5 hors ligne. Poste 32 Go : `qwen3:30b-a3b` à 14,6 mots/s,
+deux fois le 8b sur la même RAM. Prochain : passage réel #536, puis 10 cas
+réels hors dépôt, puis mesure sur GPU.
 
 Demandé le 17 sept. 2026 (dicté) : « quantifier les ressources et voir si on
 est en capacité de déployer une IA type GLM ou Kimi, en open source avec

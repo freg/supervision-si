@@ -73,13 +73,32 @@ extraits. La latence restante est le traitement du prompt sur CPU
 (≈ 4 000 jetons d'extraits), pas la génération : c'est ce qu'un GPU
 change.
 
-Réglage #535, sans embeddings : les morceaux de `CHANGELOG.md` et
-`BACKLOG.md` sont pondérés (`ASSISTANT_JOURNAL_WEIGHT`, défaut 0,4), le
-titre du morceau compte triple dans l'index (une question qui nomme le
-module remonte son README) et un même document ne fournit qu'au plus deux
-des `k` extraits (`max_per_doc`). À mesurer au passage suivant ; si les
-questions restent sous 4/5, l'étape d'après est un reclassement par le
-modèle ou des embeddings (`nomic-embed-text`), plus coûteux.
+Réglage #535 (journaux pondérés, titre triple, 2 extraits max par
+document) : **pire**, questions 0,5/5 -- le plafond par document chassait
+les bons passages au profit de README hors sujet. Rejeu hors ligne de la
+recherche sur les mêmes 65 fichiers (les cinq questions, en comptant si
+les mots attendus sont dans les extraits, sans appeler le modèle) : trois
+causes réelles, corrigées en #536.
+
+- **Jetons creux surpondérés** : « quel », « comment », « sert », « porte »,
+  « teste-t-elle », « met-il » n'étaient pas des mots vides ; rares dans le
+  corpus, ils dominaient le score BM25 (a01 remontait la charte des icônes).
+  Mots vides étendus, clitiques interrogatifs ôtés.
+- **Titres de section perdus** : le découpage ignorait la structure
+  Markdown ; le passage « `shared/DELIVERY_NUMBER` » n'avait pas dans son
+  morceau les mots de son titre. `chunk_markdown` préfixe chaque morceau
+  du fil des titres (« § si-agent › Auto-mise à jour… »), ce qui sert aussi
+  au modèle pour situer l'extrait.
+- **Mots composés** : « auto-mise », « path-probe » indexés avec leurs
+  parties.
+- Cas a03 reformulé : le README ne parle pas de « version minimale ».
+
+Résultat hors ligne : mots attendus présents dans les extraits pour 5/5
+questions à k=5 (contre 3,3/5 avec #534 et 1,5/5 avec #535), insensible au
+poids des journaux ; plafond par document désactivé par défaut. À
+confirmer par un passage réel ; si les questions restent sous 4/5 avec
+les bons extraits, le problème sera côté modèle (8b sans réflexion), pas
+côté recherche.
 
 ## Ce que fait assistant-api
 
