@@ -396,7 +396,7 @@ def collect_vlan_map(client, site_id, with_clients=True):
             return None
 
     sw_ids = [d["devId"] for d in devices if str(d.get("type") or "").upper() in ("SW", "SWITCH")]
-    gw_ids = [d["devId"] for d in devices if str(d.get("type") or "").upper() in ("GW", "FIREWALL", "GATEWAY")]
+    gw_ids = [d["devId"] for d in devices if str(d.get("type") or "").upper() in ("GW", "GWH", "FIREWALL", "GATEWAY", "USG")]
     ports = {d: safe("ports %s" % d, client.sw_port_settings, site_id, d) for d in sw_ids}
     lldp = {d: safe("lldp %s" % d, client.sw_lldp_neighbors, site_id, d) for d in sw_ids}
     ip_status = {d: safe("ip %s" % d, client.sw_ip_status, site_id, d) for d in sw_ids}
@@ -457,7 +457,7 @@ def vlan_raw_route(site_id):
         return jsonify({"error": str(exc)}), 502
     devices = _inventory["devices"].get(site_id) or []
     sw_ids = [d["devId"] for d in devices if str(d.get("type") or "").upper() in ("SW", "SWITCH")][:1]
-    gw_ids = [d["devId"] for d in devices if str(d.get("type") or "").upper() in ("GW", "FIREWALL", "GATEWAY")][:1]
+    gw_ids = [d["devId"] for d in devices if str(d.get("type") or "").upper() in ("GW", "GWH", "FIREWALL", "GATEWAY", "USG")][:1]
     out = {"types": sorted({str(d.get("type")) for d in devices})}
     def safe(label, fn, *a):
         try:

@@ -1,3 +1,12 @@
+## 2026-09-22 — Nebula : type de passerelle « GWH » reconnu (livraison #550, item 85)
+
+- `nebula/api/app.py` : l'USG FLEX 700H est de type `GWH` dans
+  l'inventaire OpenAPI (constaté en réel) ; la carte des VLAN et le
+  diagnostic `vlan-raw` l'acceptent désormais (GW, GWH, FIREWALL, GATEWAY,
+  USG), donc les sous-réseaux de la passerelle remontent.
+
+Vérifié : tests. Non vérifié : sous-réseaux réels (`vlan-raw` → `gateway`).
+
 ## 2026-09-22 — Nebula : carte des VLAN recalée sur l'API réelle ; page publiée visible depuis le hub (livraison #549, item 85)
 
 Premier passage réel de la carte des VLAN (1 site, 4 commutateurs, 16 VLAN,
