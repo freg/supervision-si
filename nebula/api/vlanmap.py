@@ -128,19 +128,34 @@ def _port_num(v):
 
 
 def gateway_networks(interface_settings):
-    """{"wan": [...], "lan": [{interface, ipv4Address, ipv4Netmask, guestZone, vlan?}]} -> {vid: {subnet, name, guest}}
-    Le VLAN d'une interface LAN se lit dans `vlan` s'il existe, sinon dans son nom (« vlan10 », « lan2 » sans VLAN)."""
+    """{"wan": [...], "lan": [{interface, ipv4Address, ipv4Netmask, guestZone, vlan?}], "vlan"?: [...]} -> {vid: {subnet, name, guest}}
+    Le VLAN d'une interface se lit dans `vlan` / `vlanId` / `vid` s'il existe,
+    sinon dans son nom (« vlan10 », « lan2 » sans VLAN). Tolère une liste
+    plate et des sections `vlan` / `lan` / `bridge`."""
     out = {}
-    for iface in (interface_settings or {}).get("lan") or []:
+    if isinstance(interface_settings, list):
+        ifaces = interface_settings
+    else:
+        ifaces = []
+        for key in ("lan", "vlan", "bridge", "lan2", "dmz"):
+            v = (interface_settings or {}).get(key)
+            if isinstance(v, list):
+                ifaces.extend(v)
+    for iface in ifaces:
         if not isinstance(iface, dict):
             continue
-        vid = iface.get("vlan")
-        if not isinstance(vid, int):
-            m = re.search(r"vlan\s*(\d+)", str(iface.get("interface") or iface.get("id") or ""), re.I)
+        vid = None
+        for k in ("vlan", "vlanId", "vlan_id", "vid"):
+            if isinstance(iface.get(k), int):
+                vid = iface[k]; break
+            if isinstance(iface.get(k), str) and iface[k].isdigit():
+                vid = int(iface[k]); break
+        if vid is None:
+            m = re.search(r"vlan\s*(\d+)", str(iface.get("interface") or iface.get("name") or iface.get("id") or ""), re.I)
             vid = int(m.group(1)) if m else None
         if vid is None:
             continue
-        out[vid] = {"subnet": _cidr(iface.get("ipv4Address"), iface.get("ipv4Netmask")), "name": iface.get("interface") or iface.get("id"), "guest": bool(iface.get("guestZone"))}
+        out[vid] = {"subnet": _cidr(iface.get("ipv4Address") or iface.get("ip"), iface.get("ipv4Netmask") or iface.get("netmask")), "name": iface.get("interface") or iface.get("name") or iface.get("id"), "guest": bool(iface.get("guestZone"))}
     return out
 
 
@@ -205,11 +220,20 @@ def build_vlan_map(devices, port_settings_by_sw, lldp_by_sw=None, gw_interfaces=
             for name in switches.values():
                 pass
     for l in links:
-        if not l.get("external"):
-            for vid, v in vlans.items():
-                pa = (ports_by_sw.get(l["a"]) or {}).get(l["a_port"]); pb = (ports_by_sw.get(l["b"]) or {}).get(l["b_port"])
-                if v["ssids"] and not port_carries(pa, vid) and not port_carries(pb, vid):
-                    anomalies.append("VLAN %d (SSID %s) n'est pas porté par la liaison %s ↔ %s." % (vid, ", ".join(s["name"] or "?" for s in v["ssids"]), switches.get(l["a"], {}).get("name", l["a"]), switches.get(l["b"], {}).get("name", l["b"])))
+        if l.get("external"):
+            continue
+        pa = (ports_by_sw.get(l["a"]) or {}).get(l["a_port"]); pb = (ports_by_sw.get(l["b"]) or {}).get(l["b_port"])
+        a, b = switches.get(l["a"], {}).get("name", l["a"]), switches.get(l["b"], {}).get("name", l["b"])
+        # Liaison sans aucun VLAN des deux côtés : membre d'un agrégat (LACP,
+        # les VLAN sont sur l'agrégat) ou lien de secours -- signalé, pas une
+        # anomalie par VLAN (constaté en réel : deux liens par commutateur d'accès).
+        if _carried(pa) in (set(), "all") and _carried(pb) in (set(), "all") and not (_carried(pa) == "all" or _carried(pb) == "all"):
+            l["bare"] = True
+            anomalies.append("Liaison %s port %s ↔ %s port %s : aucun VLAN déclaré de part et d'autre (membre d'un agrégat LACP, ou lien inutilisé)." % (a, l["a_port"], b, l["b_port"]))
+            continue
+        for vid, v in vlans.items():
+            if v["ssids"] and not port_carries(pa, vid) and not port_carries(pb, vid):
+                anomalies.append("VLAN %d (SSID %s) n'est pas porté par la liaison %s port %s ↔ %s port %s." % (vid, ", ".join(s["name"] or "?" for s in v["ssids"]), a, l["a_port"], b, l["b_port"]))
     for l in links:
         l["a_name"] = switches.get(l["a"], {}).get("name", l["a"])
         if l.get("b"):

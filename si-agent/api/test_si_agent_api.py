@@ -93,8 +93,15 @@ class DashboardTests(ApiBase):
         # signé comme la configuration
         from si_agent import control
         self.assertTrue(control.verify_response(a["secret"], http.last_headers, http.last_raw)[0])
+        # #549 : la même page, vue depuis le hub
+        r = self.c.get("/agents/srv-01/publish/preview")
+        self.assertEqual(r.status_code, 200); self.assertIn("<h1>Réseau du campus</h1>", r.get_data(as_text=True))
+        pv = self.c.get("/agents/srv-01/publish/board.json").get_json()
+        self.assertEqual(pv["sites"][0]["devices"][0]["name"], "Borne"); self.assertFalse(pv["stale"])
+        self.assertEqual(self.c.get("/agents/inconnu/publish/preview").status_code, 404)
         self.c.put("/agents/srv-01", json={"publish": {"enabled": False}})
         self.assertEqual(http.request("GET", protocol.API_PREFIX + "/agents/srv-01/publish")[1], {"enabled": False})
+        self.assertIn("désactivée", self.c.get("/agents/srv-01/publish/board.json").get_json()["error"])
         self.assertEqual(publish_lib.normalize_publish(None)["port"], 8081)
         with self.assertRaises(ValueError):
             publish_lib.normalize_publish({"hours": 0})

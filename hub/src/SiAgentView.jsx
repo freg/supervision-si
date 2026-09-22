@@ -559,6 +559,10 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                         <div><span className="muted">Mémoire</span>{formatBytes(host.memory?.total_bytes != null && host.memory?.available_bytes != null ? host.memory.total_bytes - host.memory.available_bytes : null)} / {formatBytes(host.memory?.total_bytes)} ({host.memory?.used_percent ?? "—"} %){host.memory?.swap_total_bytes > 0 && <> · swap {host.memory.swap_used_percent} %</>}</div>
                         <div><span className="muted">Comptes</span>{host.system?.os_id === "windows" ? "administrateurs" : "sudo"} : {(host.accounts?.sudoers || []).join(", ") || "—"} · {host.system?.os_id === "windows" ? "locaux actifs" : "interactifs"} : {(host.accounts?.interactive || []).join(", ") || "—"}{host.accounts?.uid0_not_root?.length > 0 && <> · <Tone tone="bad">UID 0 : {host.accounts.uid0_not_root.join(", ")}</Tone></>}</div>
                         <div><span className="muted">Agent</span>v{detail.agent_version || "?"} · dernière IP {detail.last_ip || "—"}{inventory?.tools?.available && <> · outils : {inventory.tools.available.join(", ")}</>}</div>
+                        {/* #549 : la page que l'agent publie sur son LAN, vue d'ici (même gabarit, même contenu) */}
+                        {detail.publish?.enabled && (
+                          <div><span className="muted">Publication</span>page « {detail.publish.title} » servie sur le port {detail.publish.port} du poste · <a href={`${siAgentApiBase}/agents/${encodeURIComponent(selectedId)}/publish/preview`} target="_blank" rel="noopener noreferrer">voir la page telle que publiée ↗</a></div>
+                        )}
                       </div>
                     </>
                   )}

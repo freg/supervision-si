@@ -216,5 +216,8 @@ class NebulaClient:
         return self._get(f"/v1/nebula/{site_id}/ap/wlan-settings", f"SSID du site '{site_id}' échoués")
 
     def sw_clients(self, site_id, period="1d"):
-        return self._post(f"/v2/nebula/{site_id}/sw-clients", {"period": period, "featrues": ["mac_address", "ipv4_address", "connected_to", "connected_port", "vlan", "lldp", "manufacturer", "description"]},
+        # `featrues` (sic, nom du champ dans l'API) : l'énumération acceptée n'est
+        # pas documentée ; "mac_address" seul est accepté et la réponse porte
+        # tous les champs (constaté en réel le 22/09/2026).
+        return self._post(f"/v2/nebula/{site_id}/sw-clients", {"period": period, "featrues": ["mac_address"]},
                           f"clients des commutateurs du site '{site_id}' échoués")

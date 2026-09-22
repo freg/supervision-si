@@ -17,6 +17,7 @@ COPY si-agent/api/notify.py .
 COPY si-agent/agent/si_agent/protocol.py ./si_agent_protocol.py
 COPY si-agent/agent/si_agent/plugins.py ./si_agent_plugins.py
 COPY si-agent/agent/si_agent/control.py ./si_agent_control.py
+COPY si-agent/agent/si_agent/publish.py ./si_agent_publish.py
 # Canaux SMS / courriel du PRA (#206) réutilisés pour les notifications (#422)
 COPY shared/secrets_alert.py .
 COPY shared/log_buffer.py .

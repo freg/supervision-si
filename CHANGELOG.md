@@ -1,3 +1,29 @@
+## 2026-09-22 — Nebula : carte des VLAN recalée sur l'API réelle ; page publiée visible depuis le hub (livraison #549, item 85)
+
+Premier passage réel de la carte des VLAN (1 site, 4 commutateurs, 16 VLAN,
+5 liaisons LLDP) : la carte sort juste ; trois ajustements.
+
+- `nebula/api/nebula_client.py` : `sw-clients` n'accepte que
+  `featrues: ["mac_address"]` (énumération non documentée) ; la table MAC
+  (`l2-mac-table`) est refusée par l'API elle-même (validation de
+  `portNum` côté Zyxel) -- tolérée, colonne MAC vide.
+- `nebula/api/vlanmap.py` : une liaison sans aucun VLAN des deux côtés
+  (membre d'un agrégat LACP ou lien inutilisé -- deux liens par commutateur
+  d'accès en réel) donne une seule ligne au lieu d'une anomalie par SSID ;
+  les anomalies de liaison nomment les ports ; `gateway_networks` tolère
+  liste plate, sections `vlan`/`bridge`, clés `vlanId`/`vid`/`name`/`ip`.
+- `si-agent/api/app.py` : `GET /agents/<id>/publish/preview` et
+  `/publish/board.json` -- la page exacte que l'agent publie, servie par le
+  central ; `Dockerfile` copie `publish.py` de l'agent ;
+  `hub/src/SiAgentView.jsx` : lien « voir la page telle que publiée » dans
+  la fiche de l'agent.
+- Tests `nebula/tests/test_vlanmap.py`, `si-agent/api/test_si_agent_api.py`.
+
+Vérifié : tests, carte des VLAN contre l'API réelle. Non vérifié :
+sous-réseaux de la passerelle (réponse `interface-settings` de l'USG FLEX
+700H à confirmer avec `vlan-raw`), aperçu depuis le hub
+(`./scripts/run.sh up -d --build nebula-api si-agent-api hub`).
+
 ## 2026-09-22 — Nebula : carte des VLAN depuis l'OpenAPI (livraison #548, item 85)
 
 Demandé : « dresser une carte des VLAN à partir de l'API Nebula, ou des

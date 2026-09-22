@@ -889,6 +889,9 @@ curl -sk -X PUT https://localhost:6443/api/si-agent/agents/<agent_id> -H "Conten
 sur le pare-feu local du poste si besoin). `NEBULA_API_URL` sur
 si-agent-api (compose). Logique pure `agent/si_agent/publish.py`,
 `api/publish.py` ; tests `agent/tests/test_publish.py`,
-`api/test_si_agent_api.py`. Suites : autres contenus publiables (état des
-services de l'espace Simple, demandes en attente), réglage dans la tuile
-Agents hôtes.
+`api/test_si_agent_api.py`. Depuis le hub (#549), la même page se voit
+sans être sur le site : fiche de l'agent → « voir la page telle que
+publiée » (`GET /agents/<id>/publish/preview`, même gabarit et même
+contenu, calculé par le central). Suites : autres contenus publiables
+(état des services de l'espace Simple, demandes en attente), réglage
+dans la tuile Agents hôtes.

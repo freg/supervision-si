@@ -27,10 +27,12 @@ from flask_cors import CORS
 try:
     import si_agent_protocol as protocol
     import si_agent_control as control
+    import si_agent_publish as agent_publish
 except ImportError:  # dépôt de développement
     import sys as _sys
     _sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "agent"))
     from si_agent import control, protocol  # noqa: E402
+    from si_agent import publish as agent_publish  # noqa: E402
     import si_agent.plugins as _plugins  # noqa: E402
     _sys.modules.setdefault("si_agent_plugins", _plugins)
     _sys.modules.setdefault("si_agent_control", control)
@@ -805,6 +807,34 @@ def _publish_board(pub):
         return r.json(), None
     except (requests.RequestException, ValueError) as exc:
         return None, "nebula-api injoignable : %s" % exc
+
+
+@app.route("/agents/<agent_id>/publish/preview", methods=["GET"])
+def publish_preview_route(agent_id):
+    """La page EXACTE que l'agent sert sur son LAN (#549 : même gabarit,
+    même contenu, calculé ici), pour la voir depuis le hub sans être sur
+    le site. Le JSON voisin `board.json` est relatif, comme sur l'agent."""
+    a = store.get_agent(DB_PATH, agent_id)
+    if a is None:
+        return jsonify({"error": "agent inconnu"}), 404
+    pub = a.get("publish") or {}
+    return Response(agent_publish.render_page(pub.get("title") or "État du réseau"), mimetype="text/html; charset=utf-8")
+
+
+@app.route("/agents/<agent_id>/publish/board.json", methods=["GET"])
+def publish_preview_board_route(agent_id):
+    a = store.get_agent(DB_PATH, agent_id)
+    if a is None:
+        return jsonify({"error": "agent inconnu"}), 404
+    pub = a.get("publish") or {}
+    if not pub.get("enabled"):
+        return jsonify({"at": None, "stale": True, "sites": [], "error": "publication désactivée pour cet agent"}), 200
+    board, why = _publish_board(pub)
+    payload = publish_lib.board_payload(board or {}, pub["title"], int(time.time()))
+    payload["received_at"] = time.time()
+    if why:
+        payload["error"] = why
+    return jsonify(agent_publish.with_age(payload)), 200
 
 
 @app.route(protocol.API_PREFIX + "/agents/<agent_id>/publish", methods=["GET"])

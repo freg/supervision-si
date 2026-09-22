@@ -70,6 +70,15 @@ class Map(unittest.TestCase):
         # anomalies en phrases
         self.assertTrue(any("VLAN 20, 21 portés côté XS3800-28 mais absents côté GS2220-50HP-1" in a for a in m["anomalies"]), m["anomalies"])
         self.assertTrue(any(a.startswith("VLAN 30 : utilisé par le SSID Robots mais présent sur aucun port") for a in m["anomalies"]))
+        # liaison membre d'agrégat : ports sans VLAN des deux côtés -> une seule ligne, pas une par SSID
+        lldp2 = {"core": LLDP["core"] + [{"lldpRemLocalPortNum": "4", "lldpRemPortId": "50", "lldpRemSysName": "GS2220-50HP-1", "lldpRemChassisId": "02:00:00:00:00:02"}]}
+        ports2 = {"core": PORTS["core"] + [{"portNum": 4, "trunk": True, "portVid": 0, "allowedVLAN": []}], "edge": PORTS["edge"] + [{"portNum": 50, "trunk": True, "portVid": 0, "allowedVLAN": []}]}
+        m2 = vlanmap.build_vlan_map(DEVICES, ports2, lldp2, GW, WLANS)
+        bare = [a for a in m2["anomalies"] if "aucun VLAN déclaré" in a]
+        self.assertEqual(len(bare), 1); self.assertIn("port 4 ↔ GS2220-50HP-1 port 50", bare[0])
+        self.assertFalse(any("port 4 ↔" in a and "SSID" in a for a in m2["anomalies"]))
+        self.assertEqual(vlanmap.gateway_networks([{"name": "vlan30", "ip": "192.0.2.1", "netmask": "255.255.255.0"}])[30]["subnet"], "192.0.2.1/24")
+        self.assertEqual(vlanmap.gateway_networks({"vlan": [{"vlanId": "40", "ipv4Address": "192.0.2.9"}]})[40]["subnet"], "192.0.2.9")
         rows = vlanmap.to_csv_rows(m)
         self.assertEqual(rows[0][0], "vlan"); self.assertTrue(any(r[0] == 30 and r[4] == "" for r in rows[1:]))
 
