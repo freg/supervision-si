@@ -12,6 +12,7 @@ COPY nebula/api/health.py .
 COPY nebula/api/vlanmap.py .
 COPY nebula/api/topology.py .
 COPY nebula/api/rules.py .
+COPY nebula/plans/ ./plans/
 COPY shared/version_endpoint.py .
 COPY shared/VERSION.json .
 COPY shared/log_buffer.py .

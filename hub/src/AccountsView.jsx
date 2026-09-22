@@ -16,7 +16,7 @@ async function call(url, init) {
 
 const EMPTY = { username: "", email: "", first_name: "", last_name: "", password: "", temporary: true, member_of: [], allowKeycloakOnly: false };
 
-export default function AccountsView({ onBack, accountsApiBase, groups, login }) {
+export default function AccountsView({ onBack, accountsApiBase, groups, login, keycloakConsoleUrl = "" }) {
   const [tab, setTab] = useState("users");
   const [info, setInfo] = useState(null);
   const [users, setUsers] = useState([]);
@@ -77,7 +77,16 @@ export default function AccountsView({ onBack, accountsApiBase, groups, login })
         <button className={tab === "groups" ? "active" : ""} onClick={() => setTab("groups")}>Groupes ({allGroups.length})</button>
       </div>
       {info && <p className="muted" style={{ marginTop: 0 }}>Realm {info.realm} · annuaire LDAP {info.ldap_writable ? "en écriture (les comptes créés vont dans l'annuaire)" : "en lecture seule (les comptes créés ici restent dans Keycloak)"} · écriture réservée aux groupes {info.admin_groups.join(", ")}.</p>}
-      {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
+      {error && (
+        <p style={{ color: "var(--danger)" }}>
+          {error}
+          {/compte de service/.test(error) && (
+            <span className="muted" style={{ display: "block", marginTop: 4 }}>
+              Le secret du client de service ne correspond pas à Keycloak. Ouvrir <a href={`${keycloakConsoleUrl}#/${info?.realm || "supervision-si"}/clients`} target="_blank" rel="noopener noreferrer">la console Keycloak → Clients → {info?.service_client_id || "supervision-si-service"} → Credentials</a> (créer le client en « Client authentication » + « Service accounts roles » s'il n'existe pas, lui donner le rôle <code>realm-management / realm-admin</code>), copier le secret dans <code>.env</code> (<code>KEYCLOAK_SERVICE_CLIENT_SECRET</code>), puis <code>./scripts/run.sh up -d accounts-api</code>.
+            </span>
+          )}
+        </p>
+      )}
       {notice && <p style={{ color: "var(--ok, #2e7d32)" }}>{notice}</p>}
 
       {tab === "users" && (

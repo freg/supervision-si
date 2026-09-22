@@ -982,6 +982,16 @@ export default function App() {
   // (livraison #173) -- même mécanique, juste généralisée aux trois
   // nouveaux menus plutôt que dupliquée quatre fois.
   const [openNavMenu, setOpenNavMenu] = useState(null);
+  // #560 : un menu ouvert se ferme dès qu'on clique ailleurs (ou Échap) --
+  // sinon il masque la page tant qu'on ne recliquait pas son bouton.
+  useEffect(() => {
+    if (!openNavMenu) return;
+    const onDown = (e) => { if (!e.target.closest || !e.target.closest(".hub-nav-dropdown")) setOpenNavMenu(null); };
+    const onKey = (e) => { if (e.key === "Escape") setOpenNavMenu(null); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
+  }, [openNavMenu]);
   // #538 : menu invariant « Univers du hub » -- tri et filtre, tri mémorisé.
   const [universeSort, setUniverseSort] = useState(() => { try { return localStorage.getItem("hub.universe.sort") === "added" ? "added" : "alpha"; } catch { return "alpha"; } });
   const [universeQuery, setUniverseQuery] = useState("");
@@ -1650,7 +1660,7 @@ vm === "settings" ? (
           login={profile.preferred_username}
         />
       ) : vm === "accounts" ? (
-        <AccountsView onBack={goBack} accountsApiBase={ACCOUNTS_API_BASE_URL} groups={groups} login={profile.preferred_username} />
+        <AccountsView onBack={goBack} accountsApiBase={ACCOUNTS_API_BASE_URL} groups={groups} login={profile.preferred_username} keycloakConsoleUrl={KEYCLOAK_CONSOLE_URL} />
       ) : vm === "file-manager" ? (
         <FileManagerView
           onBack={goBack}

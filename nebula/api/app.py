@@ -629,13 +629,24 @@ def _safe_site(site_id):
     return "".join(ch for ch in site_id if ch.isalnum() or ch in "-_")[:80] or "site"
 
 
+# #560 : plans LIVRÉS avec l'image (nebula/plans/, copiés dans /app/plans) --
+# fond par défaut quand aucun plan n'a été déposé pour le site : d'abord
+# `<site_id>.<ext>`, sinon `default.<ext>` (un seul site supervisé : le
+# plan vectorisé du campus). Un plan déposé (volume /data) prime toujours.
+DEFAULT_PLAN_DIR = os.environ.get("NEBULA_DEFAULT_PLAN_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "plans"))
+PLAN_EXTS = ("svg", "png", "jpg", "jpeg", "webp")
+
+
 def _plan_path(site_id):
-    if not os.path.isdir(PLAN_DIR):
-        return None
-    for ext in ("png", "jpg", "jpeg", "webp", "svg"):
-        p = os.path.join(PLAN_DIR, "%s.%s" % (_safe_site(site_id), ext))
-        if os.path.exists(p):
-            return p
+    safe = _safe_site(site_id)
+    for d, names in ((PLAN_DIR, (safe,)), (DEFAULT_PLAN_DIR, (safe, "default"))):
+        if not os.path.isdir(d):
+            continue
+        for n in names:
+            for ext in PLAN_EXTS:
+                p = os.path.join(d, "%s.%s" % (n, ext))
+                if os.path.exists(p):
+                    return p
     return None
 
 
@@ -676,9 +687,11 @@ def plan_put(site_id):
 @app.route("/sites/<site_id>/plan", methods=["DELETE"])
 def plan_delete(site_id):
     p = _plan_path(site_id)
-    if p:
+    removed = False
+    if p and os.path.abspath(p).startswith(os.path.abspath(PLAN_DIR) + os.sep):  # jamais un plan livré (#560)
         os.remove(p)
-    return jsonify({"ok": True, "removed": bool(p)}), 200
+        removed = True
+    return jsonify({"ok": True, "removed": removed, "default_plan": bool(_plan_path(site_id))}), 200
 
 
 @app.route("/sites/<site_id>/placements", methods=["GET"])

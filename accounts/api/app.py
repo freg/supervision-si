@@ -99,7 +99,7 @@ def health():
 
 @app.route("/info", methods=["GET"])
 def info():
-    return jsonify({"realm": client().realm, "ldap_edit_mode": LDAP_EDIT_MODE, "ldap_writable": LDAP_EDIT_MODE.upper() == "WRITABLE", "admin_groups": sorted(ADMIN_GROUPS)}), 200
+    return jsonify({"realm": client().realm, "service_client_id": client().client_id, "ldap_edit_mode": LDAP_EDIT_MODE, "ldap_writable": LDAP_EDIT_MODE.upper() == "WRITABLE", "admin_groups": sorted(ADMIN_GROUPS)}), 200
 
 
 @app.route("/groups", methods=["GET"])

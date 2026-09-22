@@ -1,3 +1,28 @@
+## 2026-09-22 — Liens lisibles en sombre, menus qui se ferment, aide au secret Keycloak, plan par défaut livré avec l'image (livraison #560)
+
+Demandé : « caractères foncés sur fond sombre : pas lisible » ; « menus qui
+restent ouverts même quand on clique ailleurs » ; « derrière l'erreur en rouge
+mettre le lien vers la saisie du secret » ; « mettre le plan vectorisé comme
+fond de placement par défaut ».
+
+- `hub/src/theme.css` : liens en couleur d'accent dans les deux thèmes (le
+  bleu marine par défaut du navigateur disparaissait en sombre).
+- `hub/src/App.jsx` : les menus d'en-tête se ferment au clic ailleurs et à
+  Échap.
+- `hub/src/AccountsView.jsx`, `accounts/api/app.py` : sous « authentification
+  du compte de service refusée », lien vers la console Keycloak (Clients →
+  client de service → Credentials) et marche à suivre (`.env`
+  `KEYCLOAK_SERVICE_CLIENT_SECRET`, redémarrage d'accounts-api) ; `/info`
+  renvoie `service_client_id`.
+- `nebula/api/app.py`, `nebula/plans/` : plans livrés avec l'image
+  (`<site_id>.svg` ou `default.svg`) servis quand aucun plan n'a été déposé ;
+  un plan déposé prime ; DELETE ne touche jamais un plan livré. Le plan
+  vectorisé du campus arrive dans la livraison suivante (JPG à fournir).
+- `nebula/tests/test_poll.py` : aligné sur la table MAC désactivée par défaut
+  (#558).
+
+Vérifié : tests. Non vérifié : sur super.
+
 ## 2026-09-22 — Matrice des droits : toutes les tuiles × groupes et personnes, application réelle, lien hub sur la page de l'agent (livraison #559, item 86)
 
 Demandé : « une interface de gestion des droits pour toutes les interfaces et

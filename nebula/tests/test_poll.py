@@ -59,6 +59,12 @@ class Poll(unittest.TestCase):
         vm = app_mod.collect_vlan_map(fake, "s" * 16)
         self.assertEqual([v["vid"] for v in vm["vlans"]], [1, 10])
         self.assertEqual(vm["vlans"][1]["subnet"], "192.0.2.1/24"); self.assertEqual(vm["vlans"][1]["ssids"][0]["name"], "Campus")
+        self.assertEqual(vm["errors"], [])  # #558 : table MAC non demandée par défaut
+        app_mod.MAC_TABLE_ENABLED = True
+        try:
+            vm = app_mod.collect_vlan_map(fake, "s" * 16)
+        finally:
+            app_mod.MAC_TABLE_ENABLED = False
         self.assertEqual(len(vm["errors"]), 1); self.assertIn("mac d2", vm["errors"][0])
         self.assertNotIn("secret", json.dumps(vm))
 
