@@ -26,6 +26,7 @@ from flask_cors import CORS
 
 import nebula_client as nebula
 import csv_import
+import health as health_lib  # `health` est aussi la route /health
 
 try:
     from version_endpoint import register_version_route
@@ -152,6 +153,21 @@ CREATE TABLE IF NOT EXISTS nebula_import_batches (
     ged_archive_error TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_nebula_batches_type ON nebula_import_batches(import_type);
+-- Santé du réseau (livraison #546) : état COURANT par appareil et
+-- TRANSITIONS seulement (jamais un relevé par minute).
+CREATE TABLE IF NOT EXISTS nebula_status_current (
+    site_id TEXT NOT NULL, dev_id TEXT NOT NULL, status TEXT NOT NULL,
+    since INTEGER NOT NULL, last_seen_at INTEGER NOT NULL,
+    PRIMARY KEY (site_id, dev_id)
+);
+CREATE TABLE IF NOT EXISTS nebula_status_transitions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id TEXT NOT NULL, dev_id TEXT NOT NULL, from_status TEXT, to_status TEXT NOT NULL, at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_nebula_tr_site_at ON nebula_status_transitions(site_id, at);
+CREATE TABLE IF NOT EXISTS nebula_poll_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, sites INTEGER, devices INTEGER, transitions INTEGER, error TEXT
+);
 """
 
 
@@ -174,6 +190,91 @@ try:
     ensure_schema()
 except Exception as exc:  # noqa: BLE001 -- la base peut ne pas être prête au tout premier démarrage
     app.logger.warning("Migration au démarrage reportée : %s", exc)
+
+
+# ------------------------------------------------ santé du réseau (#546)
+# Sondage périodique de `online-status` par site (NEBULA_POLL_SECONDS,
+# défaut 60 ; 0 = désactivé). Règle : un incident d'au moins T secondes
+# est vu par un relevé toutes les T secondes ; Nebula ne déclare un
+# appareil hors ligne qu'après quelques minutes, donc 60 s ne loupe rien
+# de ce que Nebula voit. Un seul sondeur pour les N workers gunicorn :
+# verrou fichier (fcntl) sur le volume de données.
+POLL_SECONDS = int(os.environ.get("NEBULA_POLL_SECONDS", "60") or 0)
+INVENTORY_SECONDS = int(os.environ.get("NEBULA_INVENTORY_SECONDS", "3600") or 3600)
+_inventory = {"at": 0, "sites": [], "devices": {}}  # cache de l'inventaire (sites, appareils par site)
+
+
+def _refresh_inventory(client, force=False):
+    now = int(time.time())
+    if not force and _inventory["sites"] and now - _inventory["at"] < INVENTORY_SECONDS:
+        return
+    sites, devices = [], {}
+    for org in client.list_organizations() or []:
+        if not isinstance(org, dict) or not org.get("orgId"):
+            continue
+        for s in client.list_sites(org["orgId"]) or []:
+            if isinstance(s, dict) and s.get("siteId"):
+                sites.append(dict(s, orgId=org["orgId"]))
+        for grp in client.list_devices_from_org(org["orgId"]) or []:
+            if isinstance(grp, dict) and grp.get("siteId"):
+                devices[grp["siteId"]] = [d for d in grp.get("devices") or [] if isinstance(d, dict)]
+    _inventory.update(at=now, sites=sites, devices=devices)
+
+
+def poll_once(client=None, now=None):
+    """Un relevé de tous les sites : transitions enregistrées, état courant
+    mis à jour. Retourne {sites, devices, transitions}."""
+    client = client or _connect()
+    now = now if now is not None else int(time.time())
+    _refresh_inventory(client)
+    conn = get_connection()
+    n_dev = n_tr = 0
+    try:
+        for site in _inventory["sites"]:
+            sid = site["siteId"]
+            statuses = client.get_online_status(sid)
+            prev = {r["dev_id"]: r["status"] for r in conn.execute("SELECT dev_id, status FROM nebula_status_current WHERE site_id = ?", (sid,))}
+            cur, transitions = health_lib.diff_statuses(prev, statuses, at=now)
+            for dev, st in cur.items():
+                if dev in prev and prev[dev] == st:
+                    conn.execute("UPDATE nebula_status_current SET last_seen_at = ? WHERE site_id = ? AND dev_id = ?", (now, sid, dev))
+                else:
+                    conn.execute("INSERT OR REPLACE INTO nebula_status_current (site_id, dev_id, status, since, last_seen_at) VALUES (?, ?, ?, ?, ?)", (sid, dev, st, now, now))
+            for t in transitions:
+                conn.execute("INSERT INTO nebula_status_transitions (site_id, dev_id, from_status, to_status, at) VALUES (?, ?, ?, ?, ?)", (sid, t["dev_id"], t["from"], t["to"], t["at"]))
+            n_dev += len(cur); n_tr += len(transitions)
+        conn.execute("INSERT INTO nebula_poll_runs (at, sites, devices, transitions, error) VALUES (?, ?, ?, ?, NULL)", (now, len(_inventory["sites"]), n_dev, n_tr))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"sites": len(_inventory["sites"]), "devices": n_dev, "transitions": n_tr}
+
+
+def _poll_loop():
+    import fcntl
+    lock_path = os.path.join(os.path.dirname(DB_PATH), "nebula-poll.lock")
+    try:
+        fh = open(lock_path, "w")
+        fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        return  # un autre worker sonde déjà
+    app.logger.info("sondeur Nebula actif (toutes les %s s)", POLL_SECONDS)
+    while True:
+        try:
+            if NEBULA_API_KEY:
+                poll_once()
+        except Exception as exc:  # noqa: BLE001 -- le sondeur ne meurt jamais, l'erreur est journalisée
+            app.logger.warning("sondage Nebula en échec : %s", exc)
+            try:
+                conn = get_connection(); conn.execute("INSERT INTO nebula_poll_runs (at, sites, devices, transitions, error) VALUES (?, 0, 0, 0, ?)", (int(time.time()), str(exc)[:300])); conn.commit(); conn.close()
+            except Exception:  # noqa: BLE001
+                pass
+        time.sleep(max(15, POLL_SECONDS))
+
+
+if POLL_SECONDS > 0 and os.environ.get("NEBULA_POLL_DISABLED") != "1":
+    import threading
+    threading.Thread(target=_poll_loop, name="nebula-poll", daemon=True).start()
 
 
 def _connect():
@@ -205,6 +306,72 @@ def test_connection():
         "status": "ok", "organizations": orgs,
         "warning": f"organisations SANS licence Pro Pack (API indisponible pour elles) : {', '.join(non_pro)}" if non_pro else None,
     }), 200
+
+
+@app.route("/poll/now", methods=["POST"])
+def poll_now():
+    """Relevé immédiat (test, ou après un changement d'inventaire)."""
+    try:
+        return jsonify(poll_once()), 200
+    except nebula.NebulaError as exc:
+        return jsonify({"error": str(exc)}), 502
+
+
+@app.route("/poll/status", methods=["GET"])
+def poll_status():
+    conn = get_connection()
+    try:
+        runs = [dict(r) for r in conn.execute("SELECT at, sites, devices, transitions, error FROM nebula_poll_runs ORDER BY at DESC LIMIT 10")]
+    finally:
+        conn.close()
+    return jsonify({"poll_seconds": POLL_SECONDS, "inventory_seconds": INVENTORY_SECONDS, "inventory_at": _inventory["at"], "runs": runs}), 200
+
+
+def _board(site_id, hours):
+    now = int(time.time()); start = now - hours * 3600
+    conn = get_connection()
+    try:
+        statuses = {r["dev_id"]: {"status": r["status"], "since": r["since"]} for r in conn.execute("SELECT dev_id, status, since FROM nebula_status_current WHERE site_id = ?", (site_id,))}
+        transitions = [{"dev_id": r["dev_id"], "from": r["from_status"], "to": r["to_status"], "at": r["at"]} for r in conn.execute("SELECT dev_id, from_status, to_status, at FROM nebula_status_transitions WHERE site_id = ? AND at >= ? ORDER BY at", (site_id, start - 86400 * 30))]
+    finally:
+        conn.close()
+    devices = _inventory["devices"].get(site_id) or [{"devId": d} for d in statuses]
+    site = next((s for s in _inventory["sites"] if s.get("siteId") == site_id), {})
+    board = health_lib.health_board(devices, statuses, transitions, start, now, now=now)
+    board.update(site_id=site_id, site_name=site.get("name") or site_id, hours=hours, at=now)
+    return board
+
+
+@app.route("/health-board", methods=["GET"])
+def health_board_all():
+    """Tableau de santé de tous les sites (#546) ; `hours` = fenêtre de
+    disponibilité (défaut 24)."""
+    hours = request.args.get("hours", 24, type=int)
+    if not _inventory["sites"]:
+        try:
+            _refresh_inventory(_connect(), force=True)
+        except nebula.NebulaError as exc:
+            return jsonify({"error": str(exc)}), 502
+    return jsonify({"at": int(time.time()), "poll_seconds": POLL_SECONDS, "sites": [_board(s["siteId"], hours) for s in _inventory["sites"]]}), 200
+
+
+@app.route("/sites/<site_id>/health-board", methods=["GET"])
+def health_board_site(site_id):
+    return jsonify(_board(site_id, request.args.get("hours", 24, type=int))), 200
+
+
+@app.route("/sites/<site_id>/transitions", methods=["GET"])
+def site_transitions(site_id):
+    hours = request.args.get("hours", 24, type=int)
+    conn = get_connection()
+    try:
+        rows = [dict(r) for r in conn.execute("SELECT dev_id, from_status, to_status, at FROM nebula_status_transitions WHERE site_id = ? AND at >= ? ORDER BY at DESC", (site_id, int(time.time()) - hours * 3600))]
+    finally:
+        conn.close()
+    names = {d.get("devId"): d.get("name") for d in _inventory["devices"].get(site_id) or []}
+    for r in rows:
+        r["name"] = names.get(r["dev_id"]) or r["dev_id"]
+    return jsonify({"transitions": rows}), 200
 
 
 @app.route("/organizations", methods=["GET"])

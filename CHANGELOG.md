@@ -1,3 +1,32 @@
+## 2026-09-22 — Nebula : API réelle, relevé d'état à la minute, tableau de santé (livraison #546, item 85)
+
+Première connexion réelle à l'OpenAPI Nebula (organisation en Pro Pack,
+clé générée en libre-service dans NCC ; 18 équipements listés).
+
+- `nebula/api/health.py` (pur) : `normalize_status`, `diff_statuses`
+  (transitions seulement), `availability` (taux, secondes hors ligne,
+  incidents sur une fenêtre), `health_board` (phrases, lignes par
+  appareil, tri hors ligne d'abord).
+- `nebula/api/app.py` : sondeur `online-status` par site toutes les
+  `NEBULA_POLL_SECONDS` (60), inventaire toutes les
+  `NEBULA_INVENTORY_SECONDS` (3600), tables `nebula_status_current`,
+  `nebula_status_transitions`, `nebula_poll_runs` ; verrou fichier pour un
+  seul sondeur par service ; routes `GET /health-board`,
+  `GET /sites/<id>/health-board`, `GET /sites/<id>/transitions`,
+  `POST /poll/now`, `GET /poll/status`.
+- `hub/src/NebulaHealth.jsx`, `NebulaView.jsx` : onglet « Santé du
+  réseau » (par défaut), fenêtre 1 h / 24 h / 7 j, phrases, disponibilité,
+  incidents, derniers changements ; message de la tuile corrigé.
+- `docker-compose.yml`, `.env.example`, `nebula/api/Dockerfile`.
+- `nebula/README.md` : prérequis corrigés (clé en libre-service, chemin
+  exact, piège du bloqueur de scripts), règle d'échantillonnage.
+- Tests `nebula/tests/test_health.py` (4), `test_poll.py` (1, client
+  Nebula simulé).
+
+Vérifié : tests, connexion réelle (organisations, sites, appareils). Non
+vérifié : sondeur et onglet sur super (`./scripts/run.sh up -d --build
+nebula-api hub`, puis `GET /api/nebula/poll/status`).
+
 ## 2026-09-22 — Espace Simple : Cortex et agents hôtes comme sources d'état (livraison #545, item 84)
 
 - `projeqtor-bridge/simple.py` : `etats_depuis_cortex` (incidents ouverts

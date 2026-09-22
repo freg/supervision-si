@@ -3111,3 +3111,21 @@ personnes (protocole du brief) ; référentiel de services partagé avec le hub
 (Cortex, Infos synthèse) ; appliquer la charte Simple au formulaire
 complet et au tableau ; version « responsable non technicien » du hub
 (tuiles en phrases, sans densité).
+
+## Santé du réseau Nebula et tableau de bord du responsable de site (2026-09-22, #546) — item 85
+
+Demandé : le responsable du site veut un tableau de bord de l'état de
+santé du réseau ; mesure régulière à la minute ou à un delta t raisonnable
+(charge, observation : ne rien louper, un incident durant un temps minimum
+et la fenêtre étant assez étroite pour le voir) ; « l'agent mini-PC (sur le
+réseau du campus) devrait porter un service web qui le publie ».
+
+Livré (#546) : sondeur à la minute dans nebula-api, transitions,
+disponibilité, tableau de santé par site, onglet hub. Suites : le service
+web sur l'agent mini-PC du campus — un plugin `health-board` de si-agent
+qui sert une page dans la charte Simple sur le LAN du campus et rafraîchit
+son JSON chaque minute depuis le central (route `/agents/<id>/health-board`
+par le canal agent ↔ central, jamais la clé Nebula sur le poste) ; Nebula
+comme source d'incidents Cortex (appareil hors ligne → événement) et
+d'état des services de l'espace Simple (`sources.nebula`) ; relevé des
+clients à la demande.

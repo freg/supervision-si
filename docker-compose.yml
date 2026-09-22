@@ -664,6 +664,11 @@ services:
       - MEMCACHED_HOST=memcached
       - NEBULA_API_KEY=${NEBULA_API_KEY:-}
       - NEBULA_BASE_URL=${NEBULA_BASE_URL:-}
+      # Santé du réseau (#546) : relevé `online-status` par site toutes les
+      # NEBULA_POLL_SECONDS (0 = désactivé), inventaire toutes les
+      # NEBULA_INVENTORY_SECONDS ; transitions seules en base.
+      - NEBULA_POLL_SECONDS=${NEBULA_POLL_SECONDS:-60}
+      - NEBULA_INVENTORY_SECONDS=${NEBULA_INVENTORY_SECONDS:-3600}
       # Archivage des CSV importés dans la GED (livraison #237) --
       # même motif que NEBULA_API_INTERNAL_URL/SNMP_API_INTERNAL_URL
       # déjà utilisés ailleurs dans ce projet.

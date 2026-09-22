@@ -4,45 +4,54 @@ Connexion et consultation de l'API Zyxel Nebula (livraison #196,
 second "besoin immédiat" de la demande GLPI (#192) : "importer les
 données d'un site sous nebula.zyxel.com").
 
-## ⚠️ Deux prérequis BLOQUANTS, à réunir AVANT tout test réel
+## Prérequis (mis à jour le 22 sept. 2026, #546)
 
-1. **L'organisation Nebula visée doit avoir la licence Nebula Pro
-   Pack.** Confirmé explicitement dans la documentation officielle
-   ("Zyxel Nebula OpenAPI only supports PRO mode organizations") et
-   sur la page produit ("Ensure your Nebula devices are registered
-   under a Nebula Professional Pack licensed organization"). Sans
-   Pro Pack, tous les appels échoueront systématiquement, quel que
-   soit le code -- `GET /test-connection` (voir plus bas) le
-   signale explicitement s'il détecte une organisation sans Pro Pack.
-2. **La clé d'API n'est PAS en libre-service.** La documentation
-   officielle recommande explicitement de contacter le bureau
-   régional Zyxel ou d'ouvrir un dossier support NCC Help Center pour
-   en obtenir une ("Since Nebula OpenAPI is still in its early
-   stages... it is not yet generally available"). Rien dans ce
-   module ne peut contourner cette étape administrative.
+1. **L'organisation Nebula visée doit être en Professional Pack** (tous
+   ses équipements licenciés) : l'OpenAPI n'existe que dans ce pack.
+   `GET /test-connection` renvoie le `mode` de chaque organisation.
+2. **La clé d'API est en libre-service** depuis NCC 20 : compte
+   administrateur de l'organisation → rond du compte (en haut à droite)
+   → *My devices & services* → onglet **NCC OpenAPI Key** → *Generate*
+   (cocher *Acknowledge*). Si le clic revient à un écran vide, refaire
+   dans une fenêtre privée sans extension : c'est un bloqueur de scripts
+   qui empêche l'enregistrement (constaté en réel). La clé porte les
+   droits du compte ; elle va dans `NEBULA_API_KEY` du `.env`, jamais
+   dans le dépôt. (L'ancienne mention « clé réservée au support Zyxel »
+   datait de #196 et n'est plus vraie.)
 
-Sans ces deux prérequis réunis, ce module ne pourra jamais se
-connecter réellement, peu importe la configuration.
+Testé en réel le 22 sept. 2026 : `test-connection` OK, organisation en
+mode PRO, 1 site, 18 équipements listés.
 
-## Portée de cette livraison
+## Santé du réseau : relevé à la minute (#546)
 
-Couvre la **connexion** et la **consultation** (organisations, sites,
-appareils d'un site, clients réseau) -- **PAS ENCORE l'import vers
-GLPI**, volontairement laissé pour une étape suivante, une fois la
-connexion elle-même validée en conditions réelles par la personne.
-Empiler un import non testé sur une connexion non testée aurait
-démultiplié le risque sans bénéfice réel avant un premier retour
-concret.
+Demandé : « une mesure régulière à la minute ou un delta t raisonnable en
+termes de charge induite et d'observation : ne rien louper en considérant
+qu'un incident dure un temps minimum et que la fenêtre de consultation est
+assez étroite pour le voir ».
 
-## ⚠️ Jamais testé contre une vraie API Nebula
+Règle : un incident qui dure au moins D est vu par au moins un relevé si la
+période T ≤ D. Nebula ne déclare un appareil hors ligne qu'après son propre
+délai de battement (quelques minutes), donc tout ce que Nebula voit dure
+plus que T = 60 s : rien n'est loupé de ce que Nebula sait. Charge : un
+appel `online-status` par site et par minute (1 440 par jour et par site),
+inventaire (sites, appareils) une fois par heure, clients jamais en
+automatique (coûteux, à la demande). En base : l'état courant par appareil
+et les **transitions** seulement, jamais un relevé par minute — la base ne
+grossit qu'avec les incidents. Un seul sondeur pour les workers gunicorn
+(verrou fichier sur le volume de données).
 
-Aucun accès réseau externe dans cet environnement de développement,
-et les deux prérequis ci-dessus ne peuvent de toute façon pas être
-satisfaits depuis ici. Toute la logique (`nebula_client.py`) est
-construite à partir de la spécification OpenAPI OFFICIELLE
-(https://zyxelnetworks.github.io/NebulaOpenAPI/, consultée le jour
-de cette livraison), mais reste à confirmer contre un vrai compte
-une fois les prérequis réunis -- commencer par `GET /test-connection`.
+- `NEBULA_POLL_SECONDS` (60, 0 = désactivé), `NEBULA_INVENTORY_SECONDS` (3600).
+- `GET /health-board?hours=24` : par site, phrases (« Borne studio (WBE660S) :
+  hors ligne depuis 50 min »), disponibilité moyenne, incidents, ligne par
+  appareil (état, depuis, disponibilité, incidents) ; `GET /sites/<id>/health-board`.
+- `GET /sites/<id>/transitions?hours=24` : changements d'état, nommés.
+- `POST /poll/now`, `GET /poll/status` (dix derniers relevés, erreurs).
+- Hub : tuile Nebula, onglet **Santé du réseau** (fenêtre 1 h / 24 h / 7 j).
+- Logique pure `api/health.py`, tests `tests/test_health.py`, `tests/test_poll.py`.
+
+Suites : publication du tableau de santé pour le responsable de site par
+un service web porté par l'agent mini-PC du campus (item 85) ; Nebula comme
+source d'incidents Cortex et d'état des services de l'espace Simple.
 
 ## Architecture
 

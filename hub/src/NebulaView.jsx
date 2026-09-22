@@ -5,6 +5,7 @@ import {
   fetchImportBatches, deleteImportBatches,
   importNebulaDevicesToGlpi,
 } from "./nebulaClient.js";
+import NebulaHealth from "./NebulaHealth.jsx";
 
 // Onglet Nebula (hub), livraison #228 -- interface pour nebula-api
 // (#196-200) et le pont vers GLPI (#208), jusqu'ici accessibles
@@ -24,6 +25,7 @@ import {
 // bouton qui échouerait systématiquement sans ces prérequis.
 
 const TABS = [
+  { key: "health", label: "Santé du réseau", columns: [] },
   { key: "sites", label: "Sites", columns: ["name", "status", "devices_count", "clients_count", "usage", "offline_devices", "percent_offline"] },
   { key: "devices", label: "Appareils", columns: ["name", "device_type", "model", "site", "mac_address", "status", "clients_count"] },
   { key: "clients", label: "Clients", columns: ["name", "mac_address", "ipv4_address", "connected_to", "manufacturer", "signal_strength", "last_seen"] },
@@ -33,7 +35,7 @@ const IMPORT_FN = { sites: importSitesCsv, devices: importDevicesCsv, clients: i
 const FETCH_FN = { sites: fetchImportedSites, devices: fetchImportedDevices, clients: fetchImportedClients };
 
 export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
-  const [tab, setTab] = useState("sites");
+  const [tab, setTab] = useState("health");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -45,6 +47,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
   const [selectedBatchIds, setSelectedBatchIds] = useState([]);
 
   useEffect(() => {
+    if (tab === "health") return;  // #546 : onglet servi par NebulaHealth
     load(tab);
     setSelectedBatchIds([]);
     if (showHistory) loadBatches();
@@ -149,8 +152,8 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
 
       <div className="hub-card">
         <p className="muted" style={{ margin: 0 }}>
-          Voie CSV (export direct depuis le portail Nebula) -- la voie API directe nécessite le
-          Pro Pack Nebula et une clé support Zyxel, non disponibles dans cet environnement.
+          Santé du réseau : relevé à la minute par l'API Nebula (Pro Pack, clé générée dans NCC → My devices &amp; services → NCC OpenAPI Key, #546).
+          Les onglets Sites / Appareils / Clients restent alimentés par la voie CSV.
         </p>
       </div>
 
@@ -169,6 +172,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
           ))}
         </div>
 
+        {tab === "health" ? <NebulaHealth nebulaApiBase={nebulaApiBase} /> : (<>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <h2 style={{ margin: 0 }}>{activeTab.label} ({rows.length})</h2>
           <label className="secondary" style={{ cursor: "pointer" }}>
@@ -262,6 +266,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
             </tbody>
           </table>
         )}
+        </>)}
       </div>
 
       <div className="hub-card hub-settings-section">
