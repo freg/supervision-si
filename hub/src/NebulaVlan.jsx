@@ -3,6 +3,7 @@
 // commutateur ; les liaisons LLDP entre commutateurs avec les VLAN manquants
 // d'un côté ; les anomalies en phrases. Export CSV.
 import { useEffect, useState } from "react";
+import NebulaTopo from "./NebulaTopo.jsx";
 
 async function getJson(url) {
   const r = await fetch(url, { credentials: "include" });
@@ -43,6 +44,8 @@ export default function NebulaVlan({ nebulaApiBase }) {
       {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
       {map && (
         <div>
+          <h3>Synoptique</h3>
+          <NebulaTopo nebulaApiBase={nebulaApiBase} siteId={siteId} vmap={map} />
           {map.anomalies.length > 0 ? (
             <div className="hub-card" style={{ borderColor: "var(--danger)" }}>
               <strong>{map.anomalies.length} anomalie{map.anomalies.length > 1 ? "s" : ""}</strong>

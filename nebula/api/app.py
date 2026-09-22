@@ -407,6 +407,7 @@ def collect_vlan_map(client, site_id, with_clients=True):
     vmap = vlanmap.build_vlan_map(devices, {k: v for k, v in ports.items() if v is not None}, {k: v for k, v in lldp.items() if v is not None},
                                   gw, wlans, {k: v for k, v in ip_status.items() if v is not None}, {k: v for k, v in macs.items() if v is not None}, clients)
     vmap["errors"] = errors
+    vmap["devices"] = [{"devId": d.get("devId"), "name": d.get("name"), "model": d.get("model"), "type": d.get("type")} for d in devices]
     vmap["site_id"] = site_id
     vmap["site_name"] = next((s.get("name") for s in _inventory["sites"] if s.get("siteId") == site_id), site_id)
     return vmap
@@ -469,6 +470,9 @@ def vlan_raw_route(site_id):
     if gw_ids:
         safe("gateway", client.gw_interface_settings, site_id, gw_ids[0])
     safe("wlans", client.ap_wlan_settings, site_id)
+    safe("sw_clients", client.sw_clients, site_id, "1d")
+    if isinstance(out.get("sw_clients"), dict) and isinstance(out["sw_clients"].get("data"), list):
+        out["sw_clients"]["data"] = out["sw_clients"]["data"][:5]; out["sw_clients"]["total"] = len(out["sw_clients"]["data"])
     import re as _re
     raw = json.dumps(out, ensure_ascii=False)
     raw = _re.sub(r"([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}", "xx:xx:xx:xx:xx:xx", raw)

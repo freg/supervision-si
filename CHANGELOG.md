@@ -1,3 +1,26 @@
+## 2026-09-22 — Nebula : synoptique cliquable du réseau (livraison #553, item 85)
+
+Demandé : « une vraie carte façon synoptique avec des liens et des nœuds
+cliquables ».
+
+- `hub/src/nebulaTopo.js` (pur) : `buildGraph` (nœuds de l'inventaire,
+  voisins LLDP rattachés par nom ou créés, arêtes dédoublonnées avec ton),
+  `assignTiers` (largeur d'abord depuis la passerelle, sinon le nœud le plus
+  connecté ; isolés en bas), `layout` (niveaux, repli des niveaux larges en
+  rangées), `edgeCarries`, `nodeSummary`.
+- `hub/src/NebulaTopo.jsx` : SVG défilant, nœuds colorés par état, liaisons
+  étiquetées (rouge = VLAN manquant, pointillé = sans VLAN), panneau de
+  détail au clic (nœud : VLAN par port / SSID / interfaces ; liaison : VLAN
+  de chaque côté, manquants), filtre par VLAN ; placé en tête de l'onglet
+  « Carte des VLAN ».
+- `nebula/api/app.py` : `vlan-map` renvoie `devices` ; `vlan-raw` inclut
+  cinq clients bruts (diagnostic `sw-clients`).
+- Tests `hub/tests/nebulaTopo.test.mjs` (3) ; 231 tests hub au vert.
+
+Vérifié : tests, rendu Chromium sur un jeu fictif (18 équipements, deux
+rangées de bornes, liaison rouge, filtre VLAN). Non vérifié : dans le hub
+réel (`./scripts/run.sh up -d --build nebula-api hub`).
+
 ## 2026-09-22 — Agents hôtes : lien vers la page publiée par l'agent (livraison #552, item 85)
 
 Demandé : « dans les agents, ajoute un lien vers la page/site publiée par

@@ -73,6 +73,16 @@ brutes (MAC et clés masquées) pour vérifier les noms de champs contre la
 documentation. Hub : tuile Nebula, onglet **Carte des VLAN**. Logique pure
 `api/vlanmap.py`, tests `tests/test_vlanmap.py`.
 
+**Synoptique (#553)** : dans le même onglet, une carte SVG -- passerelle en
+haut, cœur, commutateurs d'accès, bornes (rattachées par LLDP, repliées en
+rangées), voisins inconnus ; liaisons étiquetées des ports, rouges quand un
+VLAN manque d'un côté, pointillées sans VLAN (agrégat ou inutilisées) ;
+nœuds colorés par état (sondeur #546) ; clic sur un nœud (VLAN par port,
+SSID, interfaces) ou une liaison (VLAN de chaque côté, manquants) ; filtre
+« mettre en évidence un VLAN ». Logique pure `hub/src/nebulaTopo.js`
+(graphe, niveaux, positions), rendu `hub/src/NebulaTopo.jsx` ; `vlan-map`
+renvoie aussi `devices`.
+
 ## Architecture
 
 - `nebula_client.py` -- client bas niveau. Authentification par CLÉ
