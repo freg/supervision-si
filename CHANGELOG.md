@@ -1,3 +1,17 @@
+## 2026-09-22 — Agents hôtes : lien vers la page publiée par l'agent (livraison #552, item 85)
+
+Demandé : « dans les agents, ajoute un lien vers la page/site publiée par
+l'agent ».
+
+- `hub/src/siAgent.js` : `publishedPageUrl(agent)` --
+  `http://<hôte ou dernière IP>:<port>/` quand la publication est active.
+- `hub/src/SiAgentView.jsx` : lien « page publiée ↗ » sous l'identifiant
+  dans la liste des agents ; dans la fiche, « ouvrir sur le site » (depuis
+  le réseau du site) et « aperçu depuis le hub ».
+- Tests `hub/tests/siAgent.test.mjs` (+1).
+
+Vérifié : tests. Non vérifié : rendu (`./scripts/run.sh up -d --build hub`).
+
 ## 2026-09-22 — Nebula : passerelle sans adresses, sous-réseaux déduits des clients (livraison #551, item 85)
 
 En réel, `interface-settings` de l'USG FLEX 700H nomme ses interfaces LAN

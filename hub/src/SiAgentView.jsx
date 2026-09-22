@@ -8,8 +8,7 @@ import {
 import {
   COMMAND_TYPES, CONTACT_LABELS, riskLabel, severityTone, stateTone, contactTone, gauge, formatBytes,
   formatUptime, formatAge, ageSeconds, sortFleet, riskSummaryText, diskRows, portRows, mergePlugins, storageSummary,
-  validatePluginForm, defaultEntry, eventKindLabel, filterEvents, summarizeEvents, isSecurityEvent, EVENT_SEVERITIES,
-} from "./siAgent.js";
+  validatePluginForm, defaultEntry, eventKindLabel, filterEvents, summarizeEvents, isSecurityEvent, EVENT_SEVERITIES, publishedPageUrl } from "./siAgent.js";
 // #525 : section « Wi-Fi vu du poste » (sonde wifi-probe, famille explorer).
 import WifiProbeSection from "./WifiProbeSection.jsx";
 import PathProbeSection from "./PathProbeSection.jsx";
@@ -417,7 +416,8 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                     const age = ageSeconds(a.last_seen_at, now);
                     return (
                       <tr key={a.agent_id} className={`ups-row${selectedId === a.agent_id ? " active" : ""}${a.active ? "" : " inactive"}`} onClick={() => setSelectedId(selectedId === a.agent_id ? null : a.agent_id)}>
-                        <td><strong>{a.agent_id}</strong>{a.label && <div className="muted" style={{ fontSize: 11 }}>{a.label}</div>}</td>
+                        <td><strong>{a.agent_id}</strong>{a.label && <div className="muted" style={{ fontSize: 11 }}>{a.label}</div>}
+                          {publishedPageUrl(a) && <div style={{ fontSize: 11 }}><a href={publishedPageUrl(a)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} title="Page publiée par l'agent sur le réseau de son site (#552)">page publiée ↗</a></div>}</td>
                         <td>{a.site}</td>
                         <td>{a.hostname ? <><code>{a.hostname}</code>{a.os && <div className="muted" style={{ fontSize: 11 }}>{a.os}</div>}</> : <span className="muted">—</span>}</td>
                         <td>
@@ -561,7 +561,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                         <div><span className="muted">Agent</span>v{detail.agent_version || "?"} · dernière IP {detail.last_ip || "—"}{inventory?.tools?.available && <> · outils : {inventory.tools.available.join(", ")}</>}</div>
                         {/* #549 : la page que l'agent publie sur son LAN, vue d'ici (même gabarit, même contenu) */}
                         {detail.publish?.enabled && (
-                          <div><span className="muted">Publication</span>page « {detail.publish.title} » servie sur le port {detail.publish.port} du poste · <a href={`${siAgentApiBase}/agents/${encodeURIComponent(selectedId)}/publish/preview`} target="_blank" rel="noopener noreferrer">voir la page telle que publiée ↗</a></div>
+                          <div><span className="muted">Publication</span>page « {detail.publish.title} » sur le port {detail.publish.port} du poste · {publishedPageUrl(detail) && <><a href={publishedPageUrl(detail)} target="_blank" rel="noopener noreferrer">ouvrir sur le site ↗</a> (depuis le réseau du site) · </>}<a href={`${siAgentApiBase}/agents/${encodeURIComponent(selectedId)}/publish/preview`} target="_blank" rel="noopener noreferrer">aperçu depuis le hub ↗</a></div>
                         )}
                       </div>
                     </>

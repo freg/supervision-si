@@ -334,3 +334,14 @@ export function bannerHeadline(summary) {
   if (!parts.length) return `Agents hôtes : rien à signaler sur ${summary.window_hours} h (${summary.agents} agent${summary.agents > 1 ? "s" : ""})`;
   return `Agents hôtes, ${summary.window_hours} h : ${parts.join(", ")}`;
 }
+
+/** #552 : adresse de la page publiée par un agent sur le LAN de son site --
+ *  http://<hôte>:<port>/ avec le nom d'hôte quand il existe (résolu sur le
+ *  site), sinon la dernière IP connue ; null si la publication est inactive. */
+export function publishedPageUrl(agent) {
+  const pub = agent && agent.publish;
+  if (!pub || !pub.enabled) return null;
+  const host = (agent.hostname || agent.last_ip || "").trim();
+  if (!host) return null;
+  return `http://${host}:${pub.port || 8081}/`;
+}

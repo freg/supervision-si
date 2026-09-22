@@ -2,8 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   riskLabel, severityTone, stateTone, contactTone, gauge, formatBytes, formatUptime, formatAge, ageSeconds,
-  sortFleet, riskSummaryText, diskRows, portRows, mergePlugins, validatePluginForm, defaultEntry, storageSummary,
-} from "../src/siAgent.js";
+  sortFleet, riskSummaryText, diskRows, portRows, mergePlugins, validatePluginForm, defaultEntry, storageSummary, publishedPageUrl } from "../src/siAgent.js";
 
 test("jauges : bornes et tons alignés sur les seuils disque de l'agent", () => {
   assert.deepEqual(gauge(null), { percent: null, tone: "neutral", width: 0 });
@@ -169,4 +168,12 @@ test("storageSummary : couches présentes, profondeur des blocs, tons ZFS/md, sn
   assert.equal(s.lvm.volumes[0].data.percent, 91.2);
   assert.equal(s.md[0].state, "dégradé");
   assert.equal(s.snapshotTotal, 2);
+});
+
+test("publishedPageUrl (#552) : hôte puis IP, port, null si inactif", () => {
+  assert.equal(publishedPageUrl({ hostname: "pc-site", last_ip: "192.0.2.10", publish: { enabled: true, port: 8081 } }), "http://pc-site:8081/");
+  assert.equal(publishedPageUrl({ last_ip: "192.0.2.10", publish: { enabled: true, port: 9000 } }), "http://192.0.2.10:9000/");
+  assert.equal(publishedPageUrl({ hostname: "x", publish: { enabled: false, port: 8081 } }), null);
+  assert.equal(publishedPageUrl({ publish: { enabled: true } }), null);
+  assert.equal(publishedPageUrl(null), null);
 });
