@@ -59,6 +59,20 @@ dans l'historique ; 105 = « au plus tard #105 ») -- **une nouvelle tuile
 ajoute sa ligne dans `SINCE`**, sinon elle se classe en fin d'ordre
 d'ajout.
 
+## Vue « Aujourd'hui » pour un responsable non technicien (livraison #544)
+
+Première entrée de la thématique Supervision : trois questions en phrases
+(« Est-ce que ça marche ? », « Où en sont les demandes ? », « Y a-t-il des
+incidents ? ») et un mot du jour (la pire des trois), dans la charte
+Simple posée à l'intérieur du hub (`.today-*`, docs/ergonomie-redesign.md).
+Sources : `/demande/etat.json` du pont (#541), `/queue` de tickets-api
+(en cours, en attente de prise en charge, sans réponse depuis plus de
+deux jours, reçues / résolues sur 24 h), `/incidents?state=open` de Cortex
+(titres, critiques, pris en charge). Une source absente donne une phrase
+honnête (« n'est pas disponible »), jamais une erreur brute ; une action
+par bloc (état des services, demandes, Cortex). Logique pure `src/today.js`
+(testée), rafraîchie chaque minute.
+
 ## Fronts listés — un seul par application déployée séparément
 
 `buildFrontsList()` (`src/lib.js`) liste actuellement 2 fronts :

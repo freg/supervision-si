@@ -21,6 +21,7 @@ import { applyHubLayout } from "./hubLayoutLib.js";
 import HubTreeView from "./HubTreeView.jsx";
 // #523 : Infos synthèse SI (DNS / IP OVH / IPAM / services, recoupés).
 import SyntheseView from "./SyntheseView.jsx";
+import TodayView from "./TodayView.jsx";
 import { buildCatalog, defaultTree, normalizeTree, resolveTree, themesOf, rootLeaves, viewLabelsFromThemes, universeEntries } from "./hubTree.js";
 import LogsManagerView from "./LogsManagerView.jsx";
 import SchemaAnalyzerView from "./SchemaAnalyzerView.jsx";
@@ -1385,7 +1386,7 @@ export default function App() {
     CORTEX_API_BASE_URL && "cortex",
     fronts.some((f) => f.id === "supervision") && "supervision-si",
     SI_AGENT_API_BASE_URL && "si-agent", NETPROBE_API_BASE_URL && "netprobe", UPS_API_BASE_URL && "ups", SNMP_API_BASE_URL && "snmp",
-    VIGILANCE_API_BASE_URL && "vigilance", "cyber", "logs", "history", MEMORY_API_BASE_URL && "memory", "synthese",
+    VIGILANCE_API_BASE_URL && "vigilance", "cyber", "logs", "history", MEMORY_API_BASE_URL && "memory", "synthese", "aujourdhui",
     NETWORK_AGENT_API_BASE_URL && "network-agent", NETWORK_EQUIPMENT_API_BASE_URL && "network-equipment", "network-cycle", NETMAP_ORCHESTRATOR_API_BASE_URL && "netmap-orchestrator",
     ARCHITECTURE_API_BASE_URL && "architecture", (EXTERNAL_BASES.ipam || EXTERNAL_BASES.zenoss) && "fusion", NEBULA_API_BASE_URL && "nebula",
     SSH_TUNNELS_API_BASE_URL && "ssh-tunnels", HAS_EXTERNAL_BASES && "external-bases", GLPI_API_BASE_URL && "glpi-inventory",
@@ -1723,6 +1724,8 @@ vm === "settings" ? (
           login={profile.preferred_username}
           onBack={goBack}
         />
+      ) : vm === "aujourdhui" ? (
+        <TodayView onBack={goBack} onNavigate={(t) => { setThemeEntry(null); setViewMode(t); }} demandeUrl={DEMANDE_URL} ticketsApiBase={TICKETS_API_BASE_URL} cortexApiBase={CORTEX_API_BASE_URL} portalUrl={PORTAL_URL} />
       ) : vm === "synthese" ? (
         <SyntheseView onBack={goBack} prefsApiBase={PREFS_API_BASE_URL} onNavigate={(t) => { setThemeEntry(null); setViewMode(t); }} />
       ) : vm === "external-links" ? (

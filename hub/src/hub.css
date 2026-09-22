@@ -2127,3 +2127,19 @@ button.danger { color: #e06666; }
 .sy-link { font-size: 12px; margin-left: 6px; white-space: nowrap; }
 .sy-soon { color: #e0a030; font-weight: 600; }
 .sy-late { color: #e06666; font-weight: 600; }
+
+/* #544 : vue « Aujourd'hui » -- charte Simple posée dans le hub (papier,
+   encre, filets, aucune icône ; l'état est un mot et un filet). */
+.today-view { padding: 0 16px 24px; }
+.today-paper { max-width: 720px; margin: 0 auto; background: #fff; color: #111; padding: 24px 24px 32px; border: 1px solid #222; font-family: Georgia, "Times New Roman", serif; font-size: 17px; line-height: 1.45; }
+.today-kicker { font-family: system-ui, sans-serif; font-size: .78rem; text-transform: uppercase; letter-spacing: .12em; color: #666; margin: 0 0 4px; }
+.today-title { font-size: 1.9rem; margin: 0 0 18px; border-bottom: 3px double #222; padding-bottom: 6px; color: #111; }
+.today-block { border-left: 3px solid #222; padding: 8px 14px; margin: 16px 0; background: #f2f2f2; }
+.today-block.tone-panne { border-left-color: #a00; }
+.today-block.tone-degrade { border-left-style: dashed; border-left-color: #666; }
+.today-block.tone-unknown { border-left-color: #bbb; color: #666; }
+.today-headline { font-size: 1.25rem; margin: 2px 0 6px; }
+.today-lines { margin: 4px 0 8px 18px; padding: 0; }
+.today-lines li { margin: 2px 0; }
+.today-action { font-family: system-ui, sans-serif; font-size: .9rem; padding: 8px 14px; border: 1px solid #111; background: #111; color: #fff; cursor: pointer; border-radius: 0; margin-top: 4px; }
+.today-foot { font-family: system-ui, sans-serif; font-size: .8rem; color: #666; border-top: 1px solid #222; padding-top: 10px; margin-top: 24px; }

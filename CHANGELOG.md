@@ -1,3 +1,19 @@
+## 2026-09-22 — Hub : vue « Aujourd'hui » pour un responsable non technicien (livraison #544, item 84)
+
+- `hub/src/today.js` (pur) : `servicesSummary`, `ticketsSummary`,
+  `incidentsSummary`, `overall` -- des phrases, jamais un sigle ni une
+  couleur seule.
+- `hub/src/TodayView.jsx`, `hub/src/hub.css` : charte Simple dans le hub,
+  trois blocs (état des services, demandes, incidents) avec une action
+  chacun, rafraîchis chaque minute ; sources absentes = phrase honnête.
+- `hub/src/App.jsx`, `hub/src/hubThemes.js` : vue `aujourdhui`, première
+  entrée de Supervision, `SINCE` 544.
+- Tests `hub/tests/today.test.mjs` : 4 (227 tests hub au vert).
+- `hub/README.md` : section.
+
+Vérifié : tests, analyse syntaxique. Non vérifié : rendu dans le hub
+(`./scripts/run.sh up -d --build hub`).
+
 ## 2026-09-22 — Charte Simple sur le formulaire complet et le tableau ; accueil : la panne avant le formulaire (livraison #543, item 84)
 
 - `projeqtor-bridge/static/form.html` : charte Simple (`simple.css`),

@@ -17,6 +17,7 @@
 export const THEMES = [
   { id: "supervision", name: "Supervision", icon: "🗺", description: "Cortex (incidents corrélés), supervisés, agents, sondes, onduleurs, SNMP, vigilance, cyber, logs",
     entries: [
+      { view: "aujourdhui", label: "Aujourd'hui" },
       { view: "cortex", label: "Cortex" },
       { view: "supervision-si", label: "Supervision SI" },
       { view: "si-agent", label: "Agents hôtes" },
@@ -149,7 +150,7 @@ export function normalizeHomeMode(raw) {
 // (git pour ≥ #395, CHANGELOG avant) -- 105 = « au plus tard #105 », le
 // journal ne remonte pas plus loin. Une nouvelle tuile ajoute sa ligne ici.
 export const SINCE = {
-  "architecture": 105, "assistant": 532, "backup-restore": 105, "cisco": 508, "classifier": 259, "cortex": 462,
+  "aujourdhui": 544, "architecture": 105, "assistant": 532, "backup-restore": 105, "cisco": 508, "classifier": 259, "cortex": 462,
   "credentials": 498, "cyber": 186, "dba": 105, "demande": 489, "ent": 105, "external-bases": 425, "file-manager": 226,
   "fusion": 431, "ged": 105, "geo-catalog": 429, "glpi-inventory": 192, "history": 105, "imap": 144, "imap-connectors": 489,
   "keycloak-admin": 105, "ldap-admin": 105, "logs": 105, "memory": 105, "mikrotik": 485, "nebula": 192,
