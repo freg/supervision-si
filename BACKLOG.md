@@ -3124,7 +3124,10 @@ Livré (#546) : sondeur à la minute dans nebula-api, transitions,
 disponibilité, tableau de santé par site, onglet hub. Livré (#547) : le
 service web sur l'agent (réglage `publish` par agent, relevé signé toutes
 les minutes, page Simple sur `http://<agent>:8081/`, jamais la clé Nebula
-sur le poste). Suites : réglage `publish` dans la tuile Agents hôtes ;
+sur le poste). Livré (#548) : carte des VLAN depuis l'OpenAPI (VLAN ×
+commutateurs, liaisons LLDP avec VLAN manquants, anomalies, CSV). Suites :
+réglage `publish` dans la tuile Agents hôtes ; carte des VLAN comme
+contrôle périodique (alerte Cortex quand une liaison perd un VLAN) ;
 autres contenus publiables (état des services, demandes) ; Nebula
 comme source d'incidents Cortex (appareil hors ligne → événement) et
 d'état des services de l'espace Simple (`sources.nebula`) ; relevé des

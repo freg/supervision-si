@@ -15,6 +15,7 @@ risque sans bénéfice réel avant un premier retour concret).
 **⚠️ Jamais testé contre une vraie API Nebula** -- voir
 nebula_client.py.
 """
+import json
 import logging
 import os
 import sqlite3
@@ -26,7 +27,8 @@ from flask_cors import CORS
 
 import nebula_client as nebula
 import csv_import
-import health as health_lib  # `health` est aussi la route /health
+import health as health_lib
+import vlanmap  # `health` est aussi la route /health
 
 try:
     from version_endpoint import register_version_route
@@ -372,6 +374,106 @@ def site_transitions(site_id):
     for r in rows:
         r["name"] = names.get(r["dev_id"]) or r["dev_id"]
     return jsonify({"transitions": rows}), 200
+
+
+# ------------------------------------------------ carte des VLAN (#548)
+_vlan_cache = {}  # site_id -> {"at", "map", "errors"}
+VLAN_CACHE_SECONDS = int(os.environ.get("NEBULA_VLAN_CACHE_SECONDS", "600") or 600)
+
+
+def collect_vlan_map(client, site_id, with_clients=True):
+    """Tous les appels nécessaires, chacun tolérant : un échec laisse un trou
+    et une ligne dans `errors`, jamais une carte vide pour un seul appel raté."""
+    _refresh_inventory(client)
+    devices = _inventory["devices"].get(site_id) or []
+    errors = []
+
+    def safe(label, fn, *a):
+        try:
+            return fn(*a)
+        except nebula.NebulaError as exc:
+            errors.append("%s : %s" % (label, str(exc)[:160]))
+            return None
+
+    sw_ids = [d["devId"] for d in devices if str(d.get("type") or "").upper() in ("SW", "SWITCH")]
+    gw_ids = [d["devId"] for d in devices if str(d.get("type") or "").upper() in ("GW", "FIREWALL", "GATEWAY")]
+    ports = {d: safe("ports %s" % d, client.sw_port_settings, site_id, d) for d in sw_ids}
+    lldp = {d: safe("lldp %s" % d, client.sw_lldp_neighbors, site_id, d) for d in sw_ids}
+    ip_status = {d: safe("ip %s" % d, client.sw_ip_status, site_id, d) for d in sw_ids}
+    macs = {d: safe("mac %s" % d, client.sw_mac_table, site_id, d) for d in sw_ids}
+    gw = safe("passerelle", client.gw_interface_settings, site_id, gw_ids[0]) if gw_ids else None
+    wlans = safe("ssid", client.ap_wlan_settings, site_id)
+    clients = safe("clients", client.sw_clients, site_id, "1d") if with_clients else None
+    vmap = vlanmap.build_vlan_map(devices, {k: v for k, v in ports.items() if v is not None}, {k: v for k, v in lldp.items() if v is not None},
+                                  gw, wlans, {k: v for k, v in ip_status.items() if v is not None}, {k: v for k, v in macs.items() if v is not None}, clients)
+    vmap["errors"] = errors
+    vmap["site_id"] = site_id
+    vmap["site_name"] = next((s.get("name") for s in _inventory["sites"] if s.get("siteId") == site_id), site_id)
+    return vmap
+
+
+@app.route("/sites/<site_id>/vlan-map", methods=["GET"])
+def vlan_map_route(site_id):
+    """Carte des VLAN du site : VLAN (SSID, sous-réseau, ports par
+    commutateur, MAC, clients), liaisons LLDP avec VLAN manquants, anomalies.
+    `?refresh=1` force le recalcul (cache 10 min) ; `?format=csv` exporte."""
+    now = int(time.time())
+    cached = _vlan_cache.get(site_id)
+    if cached and now - cached["at"] < VLAN_CACHE_SECONDS and request.args.get("refresh") != "1":
+        vmap = cached["map"]
+    else:
+        try:
+            vmap = collect_vlan_map(_connect(), site_id)
+        except nebula.NebulaError as exc:
+            return jsonify({"error": str(exc)}), 502
+        vmap["at"] = now
+        _vlan_cache[site_id] = {"at": now, "map": vmap}
+    if request.args.get("format") == "csv":
+        import csv
+        import io
+        buf = io.StringIO()
+        w = csv.writer(buf, delimiter=";")
+        for row in vlanmap.to_csv_rows(vmap):
+            w.writerow(row)
+        w.writerow([]); w.writerow(["liaison", "a", "port_a", "b", "port_b", "vlan_a", "vlan_b", "manquants_a", "manquants_b"])
+        for l in vmap["links"]:
+            if not l.get("external"):
+                w.writerow(["", l["a_name"], l["a_port"], l["b_name"], l["b_port"], l["a_vlans"], l["b_vlans"], l["missing_on_a"], l["missing_on_b"]])
+        w.writerow([]); w.writerow(["anomalie"])
+        for a in vmap["anomalies"]:
+            w.writerow([a])
+        from flask import Response
+        return Response("\ufeff" + buf.getvalue(), mimetype="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=vlan-map-%s.csv" % site_id[:8]})
+    return jsonify(vmap), 200
+
+
+@app.route("/sites/<site_id>/vlan-raw", methods=["GET"])
+def vlan_raw_route(site_id):
+    """Réponses brutes des appels VLAN (diagnostic quand un champ n'est pas
+    celui attendu) -- adresses MAC masquées."""
+    try:
+        client = _connect(); _refresh_inventory(client)
+    except nebula.NebulaError as exc:
+        return jsonify({"error": str(exc)}), 502
+    devices = _inventory["devices"].get(site_id) or []
+    sw_ids = [d["devId"] for d in devices if str(d.get("type") or "").upper() in ("SW", "SWITCH")][:1]
+    gw_ids = [d["devId"] for d in devices if str(d.get("type") or "").upper() in ("GW", "FIREWALL", "GATEWAY")][:1]
+    out = {"types": sorted({str(d.get("type")) for d in devices})}
+    def safe(label, fn, *a):
+        try:
+            out[label] = fn(*a)
+        except nebula.NebulaError as exc:
+            out[label] = {"error": str(exc)[:200]}
+    if sw_ids:
+        safe("port_settings", client.sw_port_settings, site_id, sw_ids[0]); safe("lldp", client.sw_lldp_neighbors, site_id, sw_ids[0]); safe("ip_status", client.sw_ip_status, site_id, sw_ids[0])
+    if gw_ids:
+        safe("gateway", client.gw_interface_settings, site_id, gw_ids[0])
+    safe("wlans", client.ap_wlan_settings, site_id)
+    import re as _re
+    raw = json.dumps(out, ensure_ascii=False)
+    raw = _re.sub(r"([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}", "xx:xx:xx:xx:xx:xx", raw)
+    raw = _re.sub(r'"wpaKey":\s*"[^"]*"', '"wpaKey": "***"', raw)
+    return app.response_class(raw, mimetype="application/json"), 200
 
 
 @app.route("/organizations", methods=["GET"])

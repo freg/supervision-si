@@ -1,3 +1,28 @@
+## 2026-09-22 — Nebula : carte des VLAN depuis l'OpenAPI (livraison #548, item 85)
+
+Demandé : « dresser une carte des VLAN à partir de l'API Nebula, ou des
+exports ».
+
+- `nebula/api/nebula_client.py` : `sw_port_settings`, `sw_lldp_neighbors`,
+  `sw_mac_table`, `sw_ip_status`, `sw_uplink`, `gw_interface_settings`,
+  `ap_wlan_settings`, `sw_clients`.
+- `nebula/api/vlanmap.py` (pur) : `parse_vlan_list` (listes, plages,
+  « all »), `switch_vlans`, `gateway_networks`, `links_from_lldp`
+  (liaisons dédoublonnées, VLAN manquants par côté), `build_vlan_map`
+  (VLAN, liaisons, anomalies en phrases), `to_csv_rows`.
+- `nebula/api/app.py` : `GET /sites/<id>/vlan-map` (cache 10 min,
+  `refresh`, `format=csv`), `GET /sites/<id>/vlan-raw` (diagnostic, MAC et
+  clés masquées) ; collecte tolérante (`errors`).
+- `hub/src/NebulaVlan.jsx`, `NebulaView.jsx` : onglet « Carte des VLAN »
+  (tableau VLAN × commutateurs U/T, liaisons avec manquants en rouge,
+  anomalies, export CSV).
+- Tests `nebula/tests/test_vlanmap.py` (5), `test_poll.py` (collecte avec
+  un appel en échec, clé Wi-Fi jamais dans la carte).
+
+Vérifié : tests. Non vérifié : contre l'API réelle (noms de champs pris
+dans la documentation OpenAPI ; `vlan-raw` sert à les confirmer) ;
+`./scripts/run.sh up -d --build nebula-api hub`.
+
 ## 2026-09-22 — Agents hôtes : publication locale du tableau de santé du réseau (livraison #547, item 85, agent 0.5.10)
 
 Demandé : « l'agent mini-PC (sur le réseau du campus) devrait porter un

@@ -53,6 +53,26 @@ Suites : publication du tableau de santé pour le responsable de site par
 un service web porté par l'agent mini-PC du campus (item 85) ; Nebula comme
 source d'incidents Cortex et d'état des services de l'espace Simple.
 
+## Carte des VLAN (#548)
+
+Demandé : « dresser une carte des VLAN à partir de l'API Nebula, ou des
+exports ». L'OpenAPI suffit, sans export : par commutateur les réglages de
+ports (`port-settings` : PVID, trunk, VLAN autorisés), les voisins LLDP,
+la table MAC et l'IP de gestion ; les interfaces de la passerelle
+(sous-réseaux) ; les SSID (`wlan-settings` : VLAN par SSID) ; les clients
+des commutateurs (VLAN par client). `GET /sites/<id>/vlan-map` (cache 10
+min, `?refresh=1`, `?format=csv`) renvoie : par VLAN les SSID, le
+sous-réseau, les ports non étiquetés / étiquetés de chaque commutateur,
+les MAC apprises, les clients, la gestion ; les **liaisons LLDP entre
+commutateurs avec les VLAN portés de chaque côté et les manquants** (la
+cause des incidents de septembre) ; des **anomalies** en phrases (VLAN
+manquant sur une liaison, SSID dont le VLAN n'est sur aucun port, VLAN sans
+interface de passerelle). Un appel en échec laisse un trou et une ligne
+dans `errors`, jamais une carte vide. `GET /sites/<id>/vlan-raw` : réponses
+brutes (MAC et clés masquées) pour vérifier les noms de champs contre la
+documentation. Hub : tuile Nebula, onglet **Carte des VLAN**. Logique pure
+`api/vlanmap.py`, tests `tests/test_vlanmap.py`.
+
 ## Architecture
 
 - `nebula_client.py` -- client bas niveau. Authentification par CLÉ

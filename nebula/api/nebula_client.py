@@ -187,3 +187,34 @@ class NebulaClient:
         payload = {"period": period, "featrues": features or default_features}  # "featrues" -- faute de frappe RÉELLE dans la doc officielle Zyxel elle-même, reproduite telle quelle (jamais corrigée de notre côté, l'API ne comprendrait pas la version corrigée)
         result = self._post(f"/v2/nebula/{site_id}/clients", payload, f"clients du site '{site_id}' échoués")
         return result.get("data", []) if isinstance(result, dict) else result
+
+    # ------------------------------------------------ carte des VLAN (#548)
+    # Points d'entrée de l'OpenAPI utilisés pour reconstituer les VLAN :
+    # réglages de ports des commutateurs (PVID, trunk, VLAN autorisés),
+    # voisins LLDP (topologie), table MAC (VLAN vus), IP de gestion,
+    # interfaces de la passerelle (sous-réseaux), SSID (VLAN par SSID),
+    # clients des commutateurs (VLAN par client).
+    def sw_port_settings(self, site_id, dev_id):
+        return self._get(f"/v1/nebula/{site_id}/sw/{dev_id}/port-settings", f"réglages de ports de '{dev_id}' échoués")
+
+    def sw_lldp_neighbors(self, site_id, dev_id):
+        return self._get(f"/v1/nebula/{site_id}/sw/{dev_id}/lldp-neighbor", f"voisins LLDP de '{dev_id}' échoués")
+
+    def sw_mac_table(self, site_id, dev_id):
+        return self._get(f"/v1/nebula/{site_id}/sw/{dev_id}/l2-mac-table", f"table MAC de '{dev_id}' échouée")
+
+    def sw_ip_status(self, site_id, dev_id):
+        return self._get(f"/v1/nebula/{site_id}/sw/{dev_id}/ip-status", f"IP de '{dev_id}' échouée")
+
+    def sw_uplink(self, site_id, dev_id):
+        return self._get(f"/v1/nebula/{site_id}/sw/{dev_id}/uplink", f"liaison montante de '{dev_id}' échouée")
+
+    def gw_interface_settings(self, site_id, dev_id):
+        return self._get(f"/v1/nebula/{site_id}/gw/{dev_id}/interface-settings", f"interfaces de la passerelle '{dev_id}' échouées")
+
+    def ap_wlan_settings(self, site_id):
+        return self._get(f"/v1/nebula/{site_id}/ap/wlan-settings", f"SSID du site '{site_id}' échoués")
+
+    def sw_clients(self, site_id, period="1d"):
+        return self._post(f"/v2/nebula/{site_id}/sw-clients", {"period": period, "featrues": ["mac_address", "ipv4_address", "connected_to", "connected_port", "vlan", "lldp", "manufacturer", "description"]},
+                          f"clients des commutateurs du site '{site_id}' échoués")
