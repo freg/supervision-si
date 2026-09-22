@@ -3157,11 +3157,11 @@ et actions du hub (tableau de tout ce qui doit être paramétré, associant
 utilisateurs et groupes) ; donner accès à la tuile Nebula au groupe
 « site-alpha » (groupe du client) depuis le portail de l'agent du campus.
 
-Livré (#557) : tuile « Comptes et groupes » (accounts-api). À faire (#558) :
-matrice des droits (catalogue des tuiles/vues et actions × groupes et
-utilisateurs, application réelle : une tuile non accordée n'apparaît pas ;
-politique par défaut « tout le monde voit tout » conservée tant qu'aucune
-restriction n'est posée pour un groupe), lien vers le hub sur la page
-publiée par l'agent. Suites : synchronisation des groupes LDAP (mapper
+Livré (#557) : tuile « Comptes et groupes » (accounts-api). Livré (#559) :
+matrice des droits (catalogue des tuiles × groupes et personnes, voir /
+gérer, accès restreint par sujet, application réelle dans le hub), lien
+`publish.hub_url` sur la page publiée par l'agent. Mode d'emploi pour le
+groupe d'un site client : créer le groupe, cocher « accès restreint », cocher
+« voir » sur Nebula, régler `hub_url` sur `https://<hub>/?view=nebula`. Suites : synchronisation des groupes LDAP (mapper
 Keycloak) ; import de comptes par fichier ; journal des actions dans la
 tuile ; désactivation automatique des comptes inactifs.

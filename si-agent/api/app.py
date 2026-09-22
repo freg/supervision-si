@@ -830,7 +830,7 @@ def publish_preview_board_route(agent_id):
     if not pub.get("enabled"):
         return jsonify({"at": None, "stale": True, "sites": [], "error": "publication désactivée pour cet agent"}), 200
     board, why = _publish_board(pub)
-    payload = publish_lib.board_payload(board or {}, pub["title"], int(time.time()))
+    payload = publish_lib.board_payload(board or {}, pub["title"], int(time.time()), pub.get("hub_url") or "")
     payload["received_at"] = time.time()
     if why:
         payload["error"] = why
@@ -849,7 +849,7 @@ def agent_publish_route(agent_id):
     if not pub.get("enabled"):
         return _signed_json(info["secret"], {"enabled": False})
     board, why = _publish_board(pub)
-    payload = publish_lib.board_payload(board or {}, pub["title"], int(time.time()))
+    payload = publish_lib.board_payload(board or {}, pub["title"], int(time.time()), pub.get("hub_url") or "")
     payload["enabled"] = True
     if why:
         payload["error"] = why

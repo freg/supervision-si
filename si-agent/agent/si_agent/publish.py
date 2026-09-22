@@ -36,6 +36,7 @@ footer{margin-top:30px;font-family:system-ui,sans-serif;font-size:.8rem;color:va
 <p class="kicker">Réseau du site</p><h1>__TITLE__</h1>
 <p class="stamp" id="stamp">Chargement…</p>
 <div id="sites"></div>
+<p id="hublink"></p>
 <footer>Page servie sur le réseau local par la sonde de supervision ; se rafraîchit toute seule. Un problème qui n'y figure pas ? Prévenez le service informatique.</footer>
 </main><script>
 var MOTS={online:"en ligne",offline:"hors ligne",alerting:"en alerte",inconnu:"sans relevé"};
@@ -45,6 +46,7 @@ function pct(v){return v==null?"—":(v*100).toFixed(2)+" %"}
 function load(){fetch("board.json",{cache:"no-store"}).then(function(r){return r.json()}).then(function(b){
  var st=document.getElementById("stamp");
  if(!b||!b.at){st.textContent="Aucune information reçue pour le moment.";return}
+ var hl=document.getElementById("hublink");if(hl){hl.innerHTML=b.hub_url?'<a href="'+esc(b.hub_url)+'">Tableau de bord complet (connexion demandée) →</a>':""}
  st.className="stamp"+(b.stale?" stale":"");st.textContent="Situation au "+when(b.at)+(b.stale?" — information ancienne, la sonde n'a pas pu se mettre à jour":"")+(b.error?" — "+b.error:"");
  document.getElementById("sites").innerHTML=(b.sites||[]).map(function(s){return '<section>'+(s.name?'<p class="kicker">'+esc(s.name)+'</p>':'')+'<p class="summary">'+esc(s.resume)+'</p>'+
   '<ul class="phrases">'+(s.phrases||[]).map(function(p){return '<li>'+esc(p)+'</li>'}).join("")+'</ul>'+

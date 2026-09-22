@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { fetchFiles, fetchPermissions, grantPermission, revokePermission, fetchResourceTypes } from "./rightsClient.js";
+import RightsMatrix from "./RightsMatrix.jsx";
 
 // Tuile "Droits" (hub), livraison #283 -- demandé explicitement :
 // "une gestion de droit incluant la visibilité en listing" + "un
@@ -24,8 +25,8 @@ const KNOWN_GROUPS = [
 
 const CATEGORY_LABELS = { configuration: "Configuration", genere: "Généré", secret: "Secret", importe: "Importé" };
 
-export default function RightsView({ onBack, rightsApiBase, groups }) {
-  const [tab, setTab] = useState("fichiers");
+export default function RightsView({ onBack, rightsApiBase, groups, accountsApiBase = "", login = "" }) {
+  const [tab, setTab] = useState("matrice");
   const [files, setFiles] = useState([]);
   const [loadingFiles, setLoadingFiles] = useState(true);
   const [permissions, setPermissions] = useState([]);
@@ -79,11 +80,14 @@ export default function RightsView({ onBack, rightsApiBase, groups }) {
         <h1>🔐 Droits</h1>
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <button className={tab === "matrice" ? "" : "secondary"} onClick={() => setTab("matrice")}>Matrice des droits</button>
         <button className={tab === "fichiers" ? "" : "secondary"} onClick={() => setTab("fichiers")}>📁 Fichiers</button>
         <button className={tab === "permissions" ? "" : "secondary"} onClick={() => setTab("permissions")}>🔑 Permissions</button>
       </div>
 
-      {tab === "fichiers" ? (
+      {tab === "matrice" ? (
+        <div className="hub-card"><RightsMatrix rightsApiBase={rightsApiBase} accountsApiBase={accountsApiBase} groups={groups} login={login} /></div>
+      ) : tab === "fichiers" ? (
         <div className="hub-card">
           <p className="muted" style={{ marginTop: 0 }}>
             Inventaire des fichiers importés, de configuration, générés ou secrets du hub — jamais leur

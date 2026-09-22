@@ -895,3 +895,12 @@ publiée » (`GET /agents/<id>/publish/preview`, même gabarit et même
 contenu, calculé par le central). Suites : autres contenus publiables
 (état des services de l'espace Simple, demandes en attente), réglage
 dans la tuile Agents hôtes.
+
+## Lien vers le hub sur la page publiée (livraison #559, agent 0.5.11)
+
+Réglage `publish.hub_url` (http(s), 200 caractères max) : la page servie
+par l'agent affiche « Tableau de bord complet (connexion demandée) → »
+vers cette adresse, par exemple `https://<hub>/?view=nebula` (le hub ouvre
+directement la tuile ; la personne se connecte avec son compte et ne voit
+que ce que la matrice des droits lui accorde). Le lien voyage dans le
+contenu signé, comme le reste.

@@ -600,3 +600,16 @@ class ProbeEvents(unittest.TestCase):
     def test_info_alerts_ignored(self):
         _, _, _, ev = store.ingest_measurements(self.db, "a1", [self.measure("2026-09-17T10:00:00Z", [{"severity": "info", "code": "co-channel", "message": "x"}], task="plugin:wifi-probe")])
         self.assertEqual(ev, [])
+
+
+class PublishHubLink(unittest.TestCase):
+    def test_hub_url(self):
+        """#559 : lien vers le hub dans le réglage et dans le contenu publié."""
+        import publish as pl
+        pub = pl.normalize_publish({"enabled": True, "hub_url": "https://hub.exemple/?view=nebula"})
+        self.assertEqual(pub["hub_url"], "https://hub.exemple/?view=nebula")
+        with self.assertRaises(ValueError):
+            pl.normalize_publish({"enabled": True, "hub_url": "javascript:alert(1)"})
+        self.assertEqual(pl.normalize_publish({"enabled": True})["hub_url"], "")
+        self.assertEqual(pl.board_payload({}, "T", 1, "https://hub.exemple/")["hub_url"], "https://hub.exemple/")
+        self.assertNotIn("hub_url", pl.board_payload({}, "T", 1))

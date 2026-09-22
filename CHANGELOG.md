@@ -1,3 +1,32 @@
+## 2026-09-22 — Matrice des droits : toutes les tuiles × groupes et personnes, application réelle, lien hub sur la page de l'agent (livraison #559, item 86)
+
+Demandé : « une interface de gestion des droits pour toutes les interfaces et
+actions du hub : un tableau déclinant tout ce qui doit être paramétré et
+permettant d'associer des utilisateurs et des groupes » ; « donner accès à
+la tuile Nebula sur le portail de l'agent du campus au groupe du client ».
+
+- `rights/api/store.py` : sujets `user:<login>` (`subjects_of`), tables
+  `restricted_subjects` et `catalog`, `is_restricted` (login restreint, ou
+  tous les groupes restreints ; admin_hub/administrateurs jamais),
+  `visible_ids`, `set_catalog`/`get_catalog`, `set_grant` idempotent.
+  `rights/api/app.py` : `POST /visible`, `PUT /catalog`, `GET/PUT /matrix`,
+  `GET/PUT /restrictions` ; `user` accepté par `/check` et `/filter`.
+- Hub : `rightsCatalog.js` (catalogue depuis les thématiques, actions
+  `manage` des API connues, état des cases, colonnes), `RightsMatrix.jsx`
+  (onglet « Matrice des droits », défaut de la tuile Droits ; groupes et
+  comptes depuis accounts-api), `rightsClient.js` ; `App.jsx` : `POST
+  /visible` au chargement, vues et fronts filtrés quand la personne est
+  restreinte, tuile non accordée non ouvrable même par `?view=` ; lien
+  profond `?view=<vue>` accepté pour toute vue.
+- si-agent (0.5.11) : `publish.hub_url` (normalisé, http(s)), contenu
+  publié avec `hub_url`, page locale avec le lien « Tableau de bord complet ».
+- Tests : `rights/tests/test_rights_matrix.py` (2), `rightsCatalog.test.mjs`
+  (3), `PublishHubLink` ; 244 tests hub, 16 si-agent-api au vert ; rendu de
+  la matrice vérifié hors ligne.
+
+Vérifié : tests, rendu. Non vérifié : sur super (publication du catalogue à
+l'ouverture de la tuile Droits, restriction réelle d'un groupe).
+
 ## 2026-09-22 — Synoptique Nebula lisible : étiquettes entières, arbre horizontal façon d3, étages (livraison #558, item 85)
 
 Demandé : « permettre d'afficher et de lire l'étiquette complète des

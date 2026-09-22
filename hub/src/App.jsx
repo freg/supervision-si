@@ -42,6 +42,9 @@ import NetworkEquipmentView from "./NetworkEquipmentView.jsx";
 import BastionView from "./BastionView.jsx";
 import CortexView from "./CortexView.jsx";
 import ThemeView from "./ThemeView.jsx";
+import { buildCatalog as buildRightsCatalog } from "./rightsCatalog.js";
+import { fetchVisible } from "./rightsClient.js";
+const RIGHTS_CATALOG_IDS = new Set(buildRightsCatalog().map((c) => c.identifier));  // #559
 import { THEMES, SINCE, buildThemes, themeViewMode, isThemeViewMode, themeIdOf, findTheme, themeOfView, normalizeHomeMode, HOME_MODES } from "./hubThemes.js";
 import { publicLinks, agentPublishedLinks, displayUrl } from "./publicLinks.js";
 import { canSeeBastion } from "./siProxy.js";
@@ -1017,13 +1020,28 @@ export default function App() {
     // supplémentaire une fois arrivé sur le hub.
     const params = new URLSearchParams(window.location.search);
     const requestedView = params.get("view");
-    return ["settings", "history", "tabs", "external-links"].includes(requestedView) ? requestedView : "grid";
+    return requestedView && /^[a-z0-9-]+$/.test(requestedView) ? requestedView : "grid";  // #559 : toute vue (ex. ?view=nebula depuis la page d'un agent)
   }); // "grid" | "settings"
 
   const username = auth.user?.profile?.preferred_username;
   useEffect(() => {
     if (!username) return;
     themeStore.load(username);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [username]);
+  // #559 : tuiles visibles pour cette personne selon la matrice des droits --
+  // null = aucune restriction (sujet non restreint, ou rights-api absent /
+  // injoignable : le hub reste ouvert comme avant) ; un Set = seules ces tuiles.
+  const [visibleTiles, setVisibleTiles] = useState(null);
+  useEffect(() => {
+    if (!RIGHTS_API_BASE_URL || !username) return;
+    const prof = auth.user?.profile || {};
+    const grps = Array.isArray(prof.groups) ? prof.groups : [];
+    let alive = true;
+    fetchVisible(RIGHTS_API_BASE_URL, grps, username, buildRightsCatalog().map((c) => c.identifier)).then((r) => {
+      if (alive) setVisibleTiles(r && r.restricted ? new Set(r.ids || []) : null);
+    });
+    return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [username]);
   useEffect(() => themeStore.onChange(setThemeState), []);
@@ -1208,7 +1226,7 @@ export default function App() {
   const rawRoles = auth.user?.profile?.realm_access?.roles;
   const groups = Array.isArray(profile.groups) ? profile.groups : [];
   const roles = formatUserRoles(groups);
-  const fronts = buildFrontsList({
+  const frontsRaw = buildFrontsList({
     frontendUrl: FRONTEND_URL,
     portalUrl: PORTAL_URL,
     keycloakConsoleUrl: KEYCLOAK_CONSOLE_URL,
@@ -1226,6 +1244,7 @@ export default function App() {
     groups,
     externalLinks,
   });
+  const fronts = visibleTiles ? frontsRaw.filter((f) => visibleTiles.has(f.id)) : frontsRaw;  // #559
   // Nouvelle tuile « Supervision SI » (livraison #423, backlog 64) : la
   // tuile « maquette initiale » (front externe, lib.js) devient une VUE
   // INTERNE du hub -- même identifiant et même rôle (`supervision`) pour
@@ -1393,7 +1412,7 @@ export default function App() {
   const { ungrouped: ungroupedFronts, groups: frontGroups } = applyHubLayout(fronts, hubLayout);
   // #457 : ce qui est disponible pour CETTE personne / ce déploiement --
   // mêmes conditions que les tuiles et menus d'origine.
-  const availableViews = new Set([
+  const availableViewsRaw = new Set([
     CORTEX_API_BASE_URL && "cortex",
     fronts.some((f) => f.id === "supervision") && "supervision-si",
     SI_AGENT_API_BASE_URL && "si-agent", NETPROBE_API_BASE_URL && "netprobe", UPS_API_BASE_URL && "ups", SNMP_API_BASE_URL && "snmp",
@@ -1408,6 +1427,7 @@ export default function App() {
     RIGHTS_API_BASE_URL && groups.includes("admin_hub") && "rights", BACKUP_RESTORE_API_BASE_URL && "backup-restore",
     ACCOUNTS_API_BASE_URL && (isAdmin(groups) || groups.includes("admin_hub")) && "accounts",
   ].filter(Boolean));
+  const availableViews = visibleTiles ? new Set([...availableViewsRaw].filter((v) => visibleTiles.has(v))) : availableViewsRaw;  // #559
   const { leftover: leftoverFronts } = buildThemes({ available: availableViews, fronts });
   // #516 : l'en-tête et l'accueil se construisent depuis l'ARBRE de
   // disposition (hubTree.js) résolu contre le catalogue des feuilles
@@ -1497,6 +1517,8 @@ export default function App() {
   // Chaîne de routage (inchangée) devenue une fonction : ThemeView la
   // réutilise pour rendre l'outil choisi -- jamais deux routages.
   function renderRoute(vm) {
+    // #559 : une tuile non accordée n'est pas ouvrable, même par ?view= ou un lien
+    if (visibleTiles && !visibleTiles.has(vm) && RIGHTS_CATALOG_IDS.has(vm)) vm = "grid";
     return (
 vm === "settings" ? (
         <SettingsView
@@ -1624,6 +1646,8 @@ vm === "settings" ? (
           onBack={goBack}
           rightsApiBase={RIGHTS_API_BASE_URL}
           groups={groups}
+          accountsApiBase={ACCOUNTS_API_BASE_URL}
+          login={profile.preferred_username}
         />
       ) : vm === "accounts" ? (
         <AccountsView onBack={goBack} accountsApiBase={ACCOUNTS_API_BASE_URL} groups={groups} login={profile.preferred_username} />

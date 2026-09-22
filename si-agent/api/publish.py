@@ -8,7 +8,7 @@ le tableau de santé Nebula de nebula-api, #546) ; l'agent le relève chaque
 minute par son canal signé et le sert sur le LAN du site. La clé Nebula ne
 quitte jamais le central."""
 
-PUBLISH_DEFAULTS = {"enabled": False, "port": 8081, "title": "État du réseau", "site_id": "", "hours": 24, "interval_seconds": 60}
+PUBLISH_DEFAULTS = {"enabled": False, "port": 8081, "title": "État du réseau", "site_id": "", "hours": 24, "interval_seconds": 60, "hub_url": ""}
 
 
 def normalize_publish(raw):
@@ -46,10 +46,16 @@ def normalize_publish(raw):
     if not 30 <= interval <= 3600:
         raise ValueError("publish.interval_seconds : entre 30 et 3600")
     out["hours"], out["interval_seconds"] = hours, interval
+    # #559 : lien « tableau de bord complet » vers le hub (avec connexion),
+    # ex. https://hub.exemple/?view=nebula -- facultatif, http(s) seulement.
+    hub_url = raw.get("hub_url", "") or ""
+    if not isinstance(hub_url, str) or len(hub_url) > 200 or (hub_url and not hub_url.startswith(("http://", "https://"))):
+        raise ValueError("publish.hub_url : adresse http(s) de 200 caractères max")
+    out["hub_url"] = hub_url.strip()
     return out
 
 
-def board_payload(board, title, at):
+def board_payload(board, title, at, hub_url=""):
     """Ce que l'agent servira (et rien de plus) : phrases et lignes du
     tableau de santé nebula-api (`/health-board` ou `/sites/<id>/health-board`),
     sans identifiants internes ni adresses."""
@@ -68,4 +74,7 @@ def board_payload(board, title, at):
             "devices": [{"name": d.get("name"), "model": d.get("model"), "status": d.get("status"), "since": d.get("since"),
                          "availability": d.get("availability"), "incidents": d.get("incidents")} for d in s.get("devices") or []],
         })
-    return {"title": title, "at": at, "sites": out_sites}
+    out = {"title": title, "at": at, "sites": out_sites}
+    if hub_url:
+        out["hub_url"] = hub_url
+    return out

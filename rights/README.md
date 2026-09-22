@@ -106,3 +106,44 @@ Structure JSX revérifiée.
   ticket) -- point 5 des spécifications, pas commencé.
 - `WATCHED_PATHS` à étendre au fil de l'eau -- pas encore audité
   service par service.
+
+## Matrice des droits (livraison #559)
+
+Demandé : « une interface de gestion des droits pour toutes les interfaces
+et actions du hub : un tableau déclinant tout ce qui doit être paramétré et
+permettant d'associer des utilisateurs et des groupes ».
+
+- **Catalogue** : le hub publie (`PUT /catalog`, admin_hub) la liste de ses
+  tuiles (toutes les entrées des thématiques, `hub/src/rightsCatalog.js`)
+  avec leurs actions : `view` (la tuile apparaît) et, pour les tuiles dont
+  l'API vérifie déjà un droit `manage` auprès de rights-api (nebula-api,
+  glpi-api, tickets-api…), `manage`.
+- **Sujets** : un groupe Keycloak (nom tel quel, compatibilité avec les
+  octrois existants) ou une personne (`user:<login>`). Le hub envoie
+  désormais `user` avec `groups` dans `/check`, `/filter` et `/visible`.
+- **Restriction** (`restricted_subjects`, `GET/PUT /restrictions`) : par
+  défaut le hub reste **ouvert** (toute personne connectée voit toutes les
+  tuiles disponibles, comportement historique). Un sujet restreint
+  (`group:x` ou `user:y`) ne voit que ses cases cochées. Une personne est
+  restreinte si son login l'est, ou si **tous** ses groupes le sont (un
+  groupe ouvert suffit) ; `admin_hub` et `administrateurs` jamais.
+- **Application réelle** : au chargement, le hub appelle `POST /visible`
+  avec ses identifiants de tuiles ; si la personne est restreinte, seules
+  les tuiles renvoyées apparaissent (accueil, menus, thématiques, univers)
+  et une tuile non accordée ne s'ouvre pas, même par `?view=`. rights-api
+  injoignable = hub ouvert comme avant (jamais une personne enfermée par une
+  panne du service de droits), documenté ici comme choix.
+- **Matrice** (`GET /matrix`, `PUT /matrix` par lot de cases) : onglet
+  « Matrice des droits » de la tuile Droits — lignes par thématique, une
+  colonne par groupe (accounts-api si présent, sinon groupes connus) et par
+  personne ajoutée, cases voir / gérer, ligne « accès restreint », « tout
+  cocher » par colonne.
+
+Exemple : donner au groupe d'un site client l'accès à la seule tuile Nebula
+= créer le groupe (tuile Comptes et groupes), cocher « accès restreint »
+sous sa colonne, cocher « voir » sur la ligne Nebula ; sur la page publiée
+par l'agent du site, régler `publish.hub_url` sur
+`https://<hub>/?view=nebula` pour offrir le lien « Tableau de bord
+complet (connexion demandée) ».
+
+Tests : `rights/tests/test_rights_matrix.py`, `hub/tests/rightsCatalog.test.mjs`.
