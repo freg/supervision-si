@@ -1,3 +1,22 @@
+## 2026-09-22 — Charte Simple sur le formulaire complet et le tableau ; accueil : la panne avant le formulaire (livraison #543, item 84)
+
+- `projeqtor-bridge/static/form.html` : charte Simple (`simple.css`),
+  étiquettes en capitales, sans icône ni emoji, numéro de suivi après
+  l'envoi, pied de page vers les autres écrans (l'ancien thème sombre du
+  hub disparaît de cette page publique).
+- `projeqtor-bridge/static/tableau.html` : le chrome (titre « Plusieurs
+  demandes d'un coup », boutons, messages, pied) suit la charte ; la
+  feuille garde le look « Excel en ligne » demandé en #500.
+- `accueil.html` : la panne connue s'affiche en encart AVANT les portes
+  (« À savoir avant de signaler : … »), avec lien vers l'état ; sinon
+  « Aucune panne connue en ce moment ».
+- `simple.css` : `.notice`, détails des services en graisse normale.
+- `rapide.html` : pied de page aligné (tableau, formulaire complet, suivi).
+
+Vérifié : rendu Chromium des six pages (captures : accueil, état,
+formulaire, tableau, suivi, rapide) sur données fictives. Non vérifié :
+sur super avec le pont réel.
+
 ## 2026-09-22 — Espace Simple : états vivants depuis service-watch (livraison #542, item 84)
 
 - `projeqtor-bridge/simple.py` : `etats_depuis_service_watch` (pire entrée

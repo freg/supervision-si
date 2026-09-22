@@ -52,7 +52,10 @@ table.services { width: 100%; border-collapse: collapse; margin-top: 8px; }
 table.services th { text-align: left; font-family: system-ui, sans-serif; font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--grey); border-bottom: 1px solid var(--rule); padding: 6px 4px; }
 table.services td { padding: 10px 4px; border-bottom: 1px solid #ddd; vertical-align: top; }
 table.services td.nom { font-weight: 600; }
-table.services td .why { color: var(--grey); font-size: .9rem; display: block; }
+table.services td .why { color: var(--grey); font-size: .9rem; display: block; font-weight: 400; }
+/* accueil : la panne connue AVANT le formulaire (règle n° 1 du brief) */
+.notice { border-left: 3px solid var(--alert); padding: 8px 12px; background: var(--soft); margin: 14px 0 0; }
+.notice.calm { border-left-color: var(--rule); color: var(--grey); font-family: system-ui, sans-serif; font-size: .9rem; }
 #msg { display: none; padding: 10px; border: 1px solid var(--rule); font-family: system-ui, sans-serif; font-size: .9rem; margin-top: 14px; }
 #msg.ok, #msg.err { display: block; }
 #msg.err { border-color: var(--alert); color: var(--alert); }

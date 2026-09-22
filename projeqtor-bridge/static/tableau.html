@@ -12,18 +12,17 @@ dépendance externe, aucune icône. -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tableau des suivis des demandes</title>
+<link rel="stylesheet" href="simple.css">
 <style>
-  :root { --ink: #111; --paper: #fff; --grid: #c8c8c8; --head: #ff0000; --letters: #e6e6e6; --sel: #dbe9f7; --link: #0b4f8a; }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; background: var(--paper); color: var(--ink); font-family: Calibri, "Segoe UI", system-ui, sans-serif; font-size: 14px; }
-  main { padding: 14px 16px 60px; }
-  h1 { font-size: 1.15rem; font-weight: 700; margin: 0 0 2px; }
-  .lead { margin: 0 0 12px; color: #555; font-size: .9rem; }
-  .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
-  button { font: inherit; padding: 6px 14px; border: 1px solid #333; background: #f7f7f7; color: var(--ink); cursor: pointer; border-radius: 2px; }
-  button.primary { background: #217346; border-color: #217346; color: #fff; }
-  button:disabled { opacity: .5; cursor: wait; }
-  .sheet { overflow: auto; border: 1px solid var(--grid); background: var(--paper); }
+  /* #543 : le CHROME de la page (titre, boutons, messages) suit la charte
+     Simple ; la FEUILLE garde le look « Excel en ligne » demandé en #500
+     (lettres de colonnes, en-tête rouge, Calibri) -- c'est ce que la
+     personne reconnaît de son fichier. */
+  :root { --grid: #c8c8c8; --head: #ff0000; --letters: #e6e6e6; --sel: #dbe9f7; }
+  main { max-width: none; }
+  .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0 10px; }
+  .bar button { min-height: 36px; padding: 6px 14px; }
+  .sheet { overflow: auto; border: 1px solid var(--grid); background: var(--paper); font-family: Calibri, "Segoe UI", system-ui, sans-serif; font-size: 14px; }
   table { border-collapse: collapse; table-layout: fixed; min-width: 1400px; }
   th, td { border: 1px solid var(--grid); padding: 0; height: 24px; }
   th { background: var(--letters); font-weight: 400; color: #333; font-size: .8rem; text-align: center; }
@@ -37,22 +36,19 @@ dépendance externe, aucune icône. -->
   col.c-a { width: 50px; } col.c-b { width: 130px; } col.c-c { width: 150px; } col.c-d { width: 280px; }
   col.c-e { width: 130px; } col.c-f { width: 140px; } col.c-g { width: 80px; } col.c-h { width: 320px; }
   col.c-i { width: 120px; } col.c-o { width: 130px; }
-  #msg { display: none; margin-top: 10px; padding: 8px 10px; border: 1px solid #333; font-size: .9rem; white-space: pre-wrap; }
-  #msg.ok, #msg.err { display: block; }
-  #msg.err { border-color: #a00; color: #a00; }
-  footer { margin-top: 24px; font-size: .8rem; color: #555; }
-  footer a { color: var(--link); }
-  .hint { font-size: .8rem; color: #555; }
+  #msg { white-space: pre-wrap; }
+  .hint { font-family: system-ui, sans-serif; font-size: .8rem; color: var(--grey); }
 </style>
 </head>
 <body>
 <main>
-  <h1>Tableau des suivis des demandes</h1>
+  <p class="kicker"><a href="accueil">Support informatique</a></p>
+  <h1>Plusieurs demandes d'un coup</h1>
   <p class="lead">Une ligne par demande, comme dans le fichier. Tabulation pour passer de cellule en cellule, Entrée en fin de ligne pour en ajouter une.</p>
   <div class="bar">
-    <button type="button" id="addRow">Ajouter une ligne</button>
-    <button type="button" id="check">Vérifier</button>
-    <button type="button" class="primary" id="send">Envoyer les lignes</button>
+    <button type="button" class="ghost" id="addRow">Ajouter une ligne</button>
+    <button type="button" class="ghost" id="check">Vérifier</button>
+    <button type="button" id="send">Envoyer les lignes</button>
     <span class="hint" id="count"></span>
   </div>
 
@@ -69,7 +65,7 @@ dépendance externe, aucune icône. -->
   </div>
   <div id="msg" role="status"></div>
   <datalist id="demandeurs"></datalist>
-  <footer>Autre présentation : <a href="rapide">saisie rapide</a> · <a href="./">formulaire classique</a></footer>
+  <footer>Une seule demande : <a href="rapide">saisie rapide</a> · <a href="./">formulaire complet</a> · <a href="suivi">où en est ma demande ?</a></footer>
 </main>
 
 <script>

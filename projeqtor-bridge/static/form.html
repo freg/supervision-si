@@ -1,77 +1,62 @@
 <!DOCTYPE html>
 <!-- Formulaire PUBLIC de dépôt de demande (livraison #484) — LAN,
 sans authentification (confirmé explicitement par la personne), sur
-l'URI dédiée /demande/. Aucune dépendance externe : page unique,
-fonctionne hors CDN. Même charte sombre que le hub, sans couleur en
-dur qui ne soit du hub (bleu #2980b9 / ocre #b7791f / fond #1a1d24). -->
+l'URI dédiée /demande/. Aucune dépendance externe. Depuis #543 : charte
+« Simple » (simple.css, docs/ergonomie-redesign.md) -- papier, encre,
+étiquettes en capitales, aucune icône ; numéro de suivi après l'envoi. -->
 <html lang="fr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Déposer une demande — Support informatique</title>
+<link rel="stylesheet" href="simple.css">
 <style>
-  :root { --bg: #1a1d24; --card: #242933; --text: #e8eaed; --muted: #9aa3b2;
-          --accent: #2980b9; --ok: #27ae60; --err: #c0392b; }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text);
-         font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-         min-height: 100vh; display: flex; justify-content: center; padding: 24px 12px; }
-  main { width: 100%; max-width: 560px; }
-  h1 { font-size: 1.35rem; margin: 0 0 4px; }
-  .sub { color: var(--muted); font-size: .9rem; margin-bottom: 20px; }
-  form { background: var(--card); border-radius: 12px; padding: 20px;
-         display: grid; gap: 14px; }
-  label { font-size: .85rem; color: var(--muted); display: block; margin-bottom: 4px; }
-  input, select, textarea { width: 100%; padding: 10px; border-radius: 8px;
-         border: 1px solid #3a4150; background: var(--bg); color: var(--text);
-         font: inherit; }
-  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  /* #543 : charte Simple (simple.css) ; ce qui reste ici est propre au formulaire. */
+  form { display: grid; gap: 14px; }
   textarea { min-height: 90px; resize: vertical; }
-  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  button { padding: 12px; border: 0; border-radius: 8px; background: var(--accent);
-           color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
-  button:disabled { opacity: .5; cursor: wait; }
-  #msg { border-radius: 8px; padding: 12px; display: none; font-size: .95rem; }
-  #msg.ok { display: block; background: rgba(39,174,96,.15); border: 1px solid var(--ok); }
-  #msg.err { display: block; background: rgba(192,57,43,.15); border: 1px solid var(--err); }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px) { .cols { grid-template-columns: 1fr; } }
+  .actions { border-top: 3px double var(--rule); padding-top: 14px; }
 </style>
 </head>
 <body>
 <main>
-  <h1>🛠 Déposer une demande</h1>
-  <p class="sub">Support informatique — votre demande est enregistrée immédiatement et prise en charge par le service.</p>
+  <p class="kicker"><a href="accueil">Support informatique</a></p>
+  <h1>Déposer une demande</h1>
+  <p class="lead">Votre demande est enregistrée immédiatement et prise en charge par le service. Les champs marqués d'un astérisque sont obligatoires.</p>
 
   <form id="f">
-    <div>
+    <div class="field">
       <label for="demandeur">Votre nom (demandeur) *</label>
       <input id="demandeur" name="demandeur" list="demandeurs" required autocomplete="name">
       <datalist id="demandeurs"></datalist>
     </div>
-    <div>
+    <div class="field">
       <label for="sujet">Sujet *</label>
       <input id="sujet" name="sujet" required placeholder="Ex. : renouvellement du compte Office">
     </div>
-    <div class="row">
-      <div>
+    <div class="cols">
+      <div class="field">
         <label for="priorite">Niveau de priorité</label>
         <select id="priorite" name="priorite"></select>
       </div>
-      <div>
+      <div class="field">
         <label for="categorie">Catégorie</label>
         <select id="categorie" name="categorie"></select>
       </div>
     </div>
-    <div>
+    <div class="field">
       <label for="duree_j">Durée estimée (jours, optionnel)</label>
       <input id="duree_j" name="duree_j" type="number" min="0" step="0.5" inputmode="decimal">
     </div>
-    <div>
+    <div class="field">
       <label for="commentaire">Commentaire</label>
       <textarea id="commentaire" name="commentaire" placeholder="Détaillez la demande, le poste concerné, l'urgence réelle…"></textarea>
     </div>
-    <button type="submit" id="send">Envoyer la demande</button>
+    <div class="actions"><button type="submit" id="send">Envoyer la demande</button></div>
     <div id="msg" role="status"></div>
   </form>
+  <footer>Plus court : <a href="rapide">saisie rapide</a> · plusieurs demandes : <a href="tableau">tableau</a> · <a href="suivi">où en est ma demande ?</a></footer>
 </main>
 
 <script>
@@ -116,11 +101,14 @@ document.getElementById("f").addEventListener("submit", async (e) => {
     const body = await r.json();
     if (!r.ok) throw new Error(body.error || ("erreur " + r.status));
     msg.className = "ok";
-    msg.textContent = "✅ " + (body.message || "Demande enregistrée.");
+    msg.textContent = body.message || "Demande enregistrée.";
+    if (body.reference) { // #543 : numéro de suivi, à noter
+      msg.innerHTML += " Votre numéro de suivi : <strong>" + body.reference + "</strong> — notez-le, il permet de <a href=\"suivi?ref=" + encodeURIComponent(body.reference) + "\">suivre votre demande</a>.";
+    }
     e.target.reset();
   } catch (err) {
     msg.className = "err";
-    msg.textContent = "❌ " + err.message;
+    msg.textContent = err.message;
   } finally {
     btn.disabled = false;
   }
