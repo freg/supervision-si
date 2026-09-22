@@ -49,3 +49,17 @@ export function publicLinks({ demandeUrl, frontendUrl } = {}) {
 export function displayUrl(url) {
   return String(url || "").replace(/^https?:\/\//, "");
 }
+
+/** #554 : pages publiées par les agents hôtes (publication #547), à donner
+ *  aux personnes du site : [{id, name, description, url}]. */
+export function agentPublishedLinks(agents) {
+  const out = [];
+  for (const a of agents || []) {
+    const pub = a && a.publish;
+    if (!pub || !pub.enabled) continue;
+    const host = (a.hostname || a.last_ip || "").trim();
+    if (!host) continue;
+    out.push({ id: "agent-" + a.agent_id, name: pub.title || "État du réseau", description: `Publiée par l'agent ${a.agent_id}${a.site ? " (" + a.site + ")" : ""}, depuis le réseau du site`, url: `http://${host}:${pub.port || 8081}/` });
+  }
+  return out;
+}

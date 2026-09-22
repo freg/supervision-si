@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   buildCatalog, defaultTree, normalizeTree, resolveTree, themesOf, rootLeaves, themeOfLeaf,
   insertNode, removeNode, moveNode, cloneNode, updateNode, countRefs, exportTree, importTree,
-  viewLabelsFromThemes, universeEntries, group, ref, ROOT_ID, REF_EXTERNAL_LINKS,
+  viewLabelsFromThemes, universeEntries, splitHeader, sortTiles, group, ref, ROOT_ID, REF_EXTERNAL_LINKS,
 } from "../src/hubTree.js";
 
 const THEMES = [
@@ -137,4 +137,14 @@ test("universeEntries (#538) : tout le catalogue sauf les liens automatiques, tr
   assert.equal(added[added.length - 1].since, null); // inconnus à la fin
   assert.deepEqual(universeEntries(cat, { query: "equipements" }).map((e) => e.id), ["front:cisco"]);
   assert.ok(!cat.has("action:external-links")); // non admin
+});
+
+test("splitHeader / sortTiles (#554)", () => {
+  const t = defaultTree(THEMES);
+  const { pinned, tree, settings } = splitHeader(t.root.children);
+  assert.deepEqual(pinned.map((n) => n.ref), ["action:aide", "action:tabs"]);
+  assert.equal(settings.id, "theme:settings");
+  assert.ok(tree.every((n) => n.id !== "theme:settings" && !["action:aide", "action:tabs"].includes(n.ref)));
+  assert.ok(tree.some((n) => n.id === "theme:supervision"));
+  assert.deepEqual(sortTiles([{ name: "Élan" }, { name: "agents" }, { name: "Zèbre" }, { label: "Bases" }]).map((x) => x.name || x.label), ["agents", "Bases", "Élan", "Zèbre"]);
 });

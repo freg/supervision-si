@@ -1,6 +1,6 @@
 import React, { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "react-oidc-context";
-import { buildFrontsList, formatUserRoles, isAdmin, isTechnicien, ROLE_LABELS } from "./lib.js";
+import { buildFrontsList, formatUserRoles, roleInitials, isAdmin, isTechnicien, ROLE_LABELS } from "./lib.js";
 import { createAccountThemeStore } from "./preferences.js";
 import ReminderWidget from "./ReminderWidget.jsx";
 import TabShell from "./TabShell.jsx";
@@ -22,7 +22,7 @@ import HubTreeView from "./HubTreeView.jsx";
 // #523 : Infos synthèse SI (DNS / IP OVH / IPAM / services, recoupés).
 import SyntheseView from "./SyntheseView.jsx";
 import TodayView from "./TodayView.jsx";
-import { buildCatalog, defaultTree, normalizeTree, resolveTree, themesOf, rootLeaves, viewLabelsFromThemes, universeEntries } from "./hubTree.js";
+import { buildCatalog, defaultTree, normalizeTree, resolveTree, themesOf, rootLeaves, viewLabelsFromThemes, universeEntries, splitHeader, sortTiles } from "./hubTree.js";
 import LogsManagerView from "./LogsManagerView.jsx";
 import SchemaAnalyzerView from "./SchemaAnalyzerView.jsx";
 import RetroView from "./RetroView.jsx";
@@ -42,8 +42,7 @@ import BastionView from "./BastionView.jsx";
 import CortexView from "./CortexView.jsx";
 import ThemeView from "./ThemeView.jsx";
 import { THEMES, SINCE, buildThemes, themeViewMode, isThemeViewMode, themeIdOf, findTheme, themeOfView, normalizeHomeMode, HOME_MODES } from "./hubThemes.js";
-import PublicLinks from "./PublicLinks.jsx";
-import { publicLinks } from "./publicLinks.js";
+import { publicLinks, agentPublishedLinks, displayUrl } from "./publicLinks.js";
 import { canSeeBastion } from "./siProxy.js";
 import SiAgentEventsBanner from "./SiAgentEventsBanner.jsx";
 import SupervisionSiView from "./SupervisionSiView.jsx";
@@ -981,6 +980,16 @@ export default function App() {
   // #538 : menu invariant « Univers du hub » -- tri et filtre, tri mémorisé.
   const [universeSort, setUniverseSort] = useState(() => { try { return localStorage.getItem("hub.universe.sort") === "added" ? "added" : "alpha"; } catch { return "alpha"; } });
   const [universeQuery, setUniverseQuery] = useState("");
+  // #554 : pages publiées par les agents (menu « Pages ouvertes »)
+  const [publishedAgents, setPublishedAgents] = useState([]);
+  useEffect(() => {
+    if (!SI_AGENT_API_BASE_URL) return undefined;
+    let alive = true;
+    const load = () => fetch(`${SI_AGENT_API_BASE_URL}/fleet`, { credentials: "include" }).then((r) => (r.ok ? r.json() : null)).then((d) => { if (alive && d) setPublishedAgents(d.agents || []); }).catch(() => {});
+    load();
+    const id = setInterval(load, 300000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
   // #457 : accueil par thématiques (super-tuiles). `themeEntry` = outil
   // ouvert dans la thématique courante ; `homeMode` = "themes" (défaut) ou
   // "tiles" (toutes les tuiles, avec la personnalisation d'origine).
@@ -1425,6 +1434,8 @@ export default function App() {
   };
   const leafActive = (leaf) => (leaf.kind === "view" && viewMode === leaf.view) || (leaf.kind === "action" && viewMode === leaf.action);
   const universe = universeEntries(hubCatalog, { sort: universeSort, since: SINCE, query: universeQuery });
+  const headerParts = splitHeader(hubRootOrder);  // #554
+  const openPages = [...PUBLIC_LINKS, ...agentPublishedLinks(publishedAgents)];  // #554
   const setUniverseSortPersist = (v) => { setUniverseSort(v); try { localStorage.setItem("hub.universe.sort", v); } catch { /* stockage indisponible */ } };
   const renderMenuItems = (g, themeId) => g.children.map((c) => (c.type === "ref" ? (
     <button key={c.id} type="button" onClick={() => openLeaf(decorateLeaf(c.leaf), themeId)}>{c.leaf.label}{c.leaf.kind === "link" && !c.leaf.embeddable ? " ↗" : ""}</button>
@@ -1810,22 +1821,23 @@ vm === "settings" ? (
               </>
             ) : (
               <>
+                {/* #554 : tuiles en ordre alphabétique */}
                 <div className="hub-grid">
-                  {ungroupedFronts.map(renderFrontTile)}
+                  {sortTiles(ungroupedFronts).map(renderFrontTile)}
                 </div>
                 {frontGroups.map((g) => (
                   <div key={g.id} className="hub-frame">
                     <h3 className="hub-frame-title">{g.title}</h3>
                     <div className="hub-grid">
-                      {g.tiles.map(renderFrontTile)}
+                      {sortTiles(g.tiles).map(renderFrontTile)}
                     </div>
                   </div>
                 ))}
               </>
             )}
-            {/* #505 : pages ouvertes sans connexion -- liste à plat, pas
-                des tuiles (adresses à lire et à copier). */}
-            <PublicLinks links={PUBLIC_LINKS} />
+            {/* #505 : pages ouvertes sans connexion -- depuis #554 dans le
+                menu « Pages ouvertes » de l'en-tête (PublicLinks.jsx conservé
+                pour l'aide). */}
           </main>
         </div>
 
@@ -1878,26 +1890,56 @@ vm === "settings" ? (
               déroulant (sous-groupes = sections). Avant : Aide, Onglets,
               une entrée par thématique (#457) et Paramètres codés en dur --
               l'arbre par défaut (hubTree.js) les reproduit à l'identique. */}
-          {hubRootOrder.map((n) => (n.type === "ref" ? (
-            <button key={n.id} type="button" className={leafActive(n.leaf) ? "active" : ""} onClick={() => openLeaf(n.leaf, null)}>
-              {n.leaf.label}{n.leaf.kind === "link" && !n.leaf.embeddable ? " ↗" : ""}
+          {/* #554 : Aide et Onglets restent des boutons ; TOUT le reste de
+              l'arbre (thématiques, liens externes, feuilles) tient dans un
+              seul menu ARBORESCENT ; Paramètres garde son menu. */}
+          {headerParts.pinned.map((n) => (
+            <button key={n.id} type="button" className={leafActive(n.leaf) ? "active" : ""} onClick={() => openLeaf(n.leaf, null)}>{n.leaf.label}</button>
+          ))}
+          <div className="hub-nav-dropdown">
+            <button type="button" className={openNavMenu === "tree" || headerParts.tree.some((n) => n.type === "group" && (themeIdOf(viewMode) === n.id || themeOfView(visibleThemes, viewMode) === n.id)) ? "active" : ""} onClick={() => setOpenNavMenu((v) => (v === "tree" ? null : "tree"))}>
+              Menu ▾
             </button>
-          ) : (
-            <div key={n.id} className="hub-nav-dropdown">
-              <button
-                type="button"
-                className={openNavMenu === n.id || themeIdOf(viewMode) === n.id || themeOfView(visibleThemes, viewMode) === n.id ? "active" : ""}
-                onClick={() => setOpenNavMenu((v) => (v === n.id ? null : n.id))}
-              >
-                {n.label} ▾
-              </button>
-              {openNavMenu === n.id && (
-                <div className="hub-nav-dropdown-panel">
-                  {renderMenuItems(n, n.id)}
+            {openNavMenu === "tree" && (
+              <div className="hub-nav-dropdown-panel hub-nav-tree">
+                {headerParts.tree.map((n) => (n.type === "ref" ? (
+                  <button key={n.id} type="button" className={leafActive(n.leaf) ? "active" : ""} onClick={() => openLeaf(n.leaf, null)}>{n.leaf.label}{n.leaf.kind === "link" && !n.leaf.embeddable ? " ↗" : ""}</button>
+                ) : (
+                  <details key={n.id} open={themeIdOf(viewMode) === n.id || themeOfView(visibleThemes, viewMode) === n.id}>
+                    <summary>{n.icon} {n.label} <span className="muted">({n.children.length})</span></summary>
+                    <div className="hub-nav-tree-children">
+                      <button type="button" className="hub-nav-tree-all" onClick={() => { setThemeEntry(null); setViewMode(themeViewMode(n.id)); setOpenNavMenu(null); }}>Ouvrir la thématique</button>
+                      {renderMenuItems(n, n.id)}
+                    </div>
+                  </details>
+                )))}
+              </div>
+            )}
+          </div>
+          {/* #554 : pages ouvertes sans connexion + pages publiées par les agents, en menu */}
+          {openPages.length > 0 && (
+            <div className="hub-nav-dropdown">
+              <button type="button" className={openNavMenu === "public" ? "active" : ""} onClick={() => setOpenNavMenu((v) => (v === "public" ? null : "public"))}>Pages ouvertes ▾</button>
+              {openNavMenu === "public" && (
+                <div className="hub-nav-dropdown-panel hub-nav-public">
+                  <span className="hub-nav-section-title">Sans connexion — adresses à transmettre</span>
+                  {openPages.map((l) => (
+                    <div key={l.id} className="hub-nav-public-row">
+                      <a href={l.url} target="_blank" rel="noopener noreferrer" title={l.description}>{l.name} ↗</a>
+                      <code>{displayUrl(l.url)}</code>
+                      <button type="button" className="secondary" onClick={() => { try { navigator.clipboard.writeText(l.url); } catch { /* presse-papiers indisponible */ } }}>Copier</button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
-          )))}
+          )}
+          {headerParts.settings && (
+            <div className="hub-nav-dropdown">
+              <button type="button" className={openNavMenu === headerParts.settings.id ? "active" : ""} onClick={() => setOpenNavMenu((v) => (v === headerParts.settings.id ? null : headerParts.settings.id))}>{headerParts.settings.label} ▾</button>
+              {openNavMenu === headerParts.settings.id && <div className="hub-nav-dropdown-panel">{renderMenuItems(headerParts.settings, headerParts.settings.id)}</div>}
+            </div>
+          )}
           {/* #538 : « Univers du hub » -- menu INVARIANT, hors de l'arbre de
               disposition : toutes les vues, fronts et actions du catalogue de
               cette personne, par ordre alphabétique ou d'ajout au hub (numéro
@@ -1930,7 +1972,7 @@ vm === "settings" ? (
         </nav>
         <div className="hub-user">
           <span>👤 {displayName}</span>
-          {roles.length > 0 && <span className="muted">({roles.join(", ")})</span>}
+          {roles.length > 0 && <span className="muted" title={roles.join(", ")}>({roleInitials(roles).join(" ")})</span>}
           <button onClick={toggleTheme} title={theme === "dark" ? "Passer au thème clair" : "Passer au thème sombre"}>
             {theme === "dark" ? "☀️" : "🌙"}
           </button>

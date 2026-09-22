@@ -292,3 +292,22 @@ export function importTree(text) {
     return null;
   }
 }
+
+/** #554 : partition de la racine pour l'en-tête -- `pinned` (Aide, Onglets :
+ *  boutons), `tree` (tout le reste sauf le groupe Paramètres : un seul menu
+ *  arborescent), `settings` (le groupe Paramètres, menu à part). */
+export function splitHeader(rootChildren) {
+  const pinned = [], tree = [];
+  let settings = null;
+  for (const n of rootChildren || []) {
+    if (n.type === "ref" && (n.ref === "action:aide" || n.ref === "action:tabs" || (n.leaf && (n.leaf.id === "action:aide" || n.leaf.id === "action:tabs")))) pinned.push(n);
+    else if (n.type === "group" && n.id === "theme:settings") settings = n;
+    else tree.push(n);
+  }
+  return { pinned, tree, settings };
+}
+
+/** #554 : tuiles en ordre alphabétique (ordre français, accents ignorés). */
+export function sortTiles(tiles) {
+  return [...(tiles || [])].sort((a, b) => String(a.name || a.label || "").localeCompare(String(b.name || b.label || ""), "fr", { sensitivity: "base" }));
+}

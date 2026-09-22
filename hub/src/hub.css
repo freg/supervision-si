@@ -85,7 +85,7 @@ button.secondary { background: var(--panel); }
   top: 0;
   z-index: 10;
 }
-.hub-header h1 { margin: 0; font-size: 18px; }
+.hub-header h1 { margin: 0; font-size: 24px; white-space: nowrap; letter-spacing: .01em; }  /* #554 : jamais plié */
 /* Menu horizontal en TEXTE (livraison #173) -- remplace le bandeau
    d'icônes précédent, demandé explicitement ("j'en avais trop, je
    préfère le mode menu horizontal texte"). Boutons SANS cadre par
@@ -2143,3 +2143,18 @@ button.danger { color: #e06666; }
 .today-lines li { margin: 2px 0; }
 .today-action { font-family: system-ui, sans-serif; font-size: .9rem; padding: 8px 14px; border: 1px solid #111; background: #111; color: #fff; cursor: pointer; border-radius: 0; margin-top: 4px; }
 .today-foot { font-family: system-ui, sans-serif; font-size: .8rem; color: #666; border-top: 1px solid #222; padding-top: 10px; margin-top: 24px; }
+
+/* #554 : menu arborescent et menu des pages ouvertes */
+.hub-nav-tree { min-width: 300px; max-height: 75vh; overflow-y: auto; }
+.hub-nav-tree details { border-top: 1px solid var(--border); }
+.hub-nav-tree details:first-child { border-top: 0; }
+.hub-nav-tree summary { cursor: pointer; padding: 8px 10px; list-style: none; font-weight: 600; }
+.hub-nav-tree summary::-webkit-details-marker { display: none; }
+.hub-nav-tree summary::before { content: "▸ "; color: var(--muted); }
+.hub-nav-tree details[open] > summary::before { content: "▾ "; }
+.hub-nav-tree-children { display: flex; flex-direction: column; padding: 0 0 6px 18px; }
+.hub-nav-tree-all { font-size: .85em; color: var(--muted) !important; }
+.hub-nav-public { min-width: 520px; }
+.hub-nav-public-row { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 6px 10px; border-top: 1px solid var(--border); }
+.hub-nav-public-row code { font-size: 12px; color: var(--muted); }
+.hub-nav-public-row button { padding: 4px 8px; font-size: .85em; }

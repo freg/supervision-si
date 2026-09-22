@@ -1,3 +1,27 @@
+## 2026-09-22 — Hub : menu arborescent, pages ouvertes en menu, tuiles triées, en-tête (livraison #554, item 76)
+
+Demandé : menu arborescent à la place des menus thématiques ; « Pages
+ouvertes » en menu déroulant avec les liens des sites publiés par les
+agents ; tuiles en ordre alphabétique ; titre « Hub SI » plié, rôles en
+initiales.
+
+- `hub/src/hubTree.js` : `splitHeader` (Aide/Onglets épinglés, Paramètres à
+  part, tout le reste dans l'arbre), `sortTiles` ; `hub/src/lib.js` :
+  `roleInitials` (uniques, allongées si besoin) ; `hub/src/publicLinks.js` :
+  `agentPublishedLinks`.
+- `hub/src/App.jsx` : en-tête Aide · Onglets · Menu ▾ (arborescent, nœuds
+  dépliables, thématique courante ouverte) · Pages ouvertes ▾ (sans
+  connexion + agents, Ouvrir/Copier, flotte relue toutes les 5 min) ·
+  Paramètres ▾ · Univers ▾ ; tuiles triées ; section Pages ouvertes de
+  l'accueil retirée ; rôles en initiales avec info-bulle.
+- `hub/src/hub.css` : titre 24 px jamais plié, styles du menu arborescent
+  et du menu des pages.
+- Tests : `hubTree.test.mjs`, `publicLinks.test.mjs`, `roleInitials.test.mjs`
+  (234 tests hub au vert).
+
+Vérifié : tests, syntaxe. Non vérifié : rendu (`./scripts/run.sh up -d
+--build hub`).
+
 ## 2026-09-22 — Nebula : synoptique cliquable du réseau (livraison #553, item 85)
 
 Demandé : « une vraie carte façon synoptique avec des liens et des nœuds

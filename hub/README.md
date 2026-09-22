@@ -73,6 +73,28 @@ honnête (« n'est pas disponible »), jamais une erreur brute ; une action
 par bloc (état des services, demandes, Cortex). Logique pure `src/today.js`
 (testée), rafraîchie chaque minute.
 
+## En-tête resserré : menu arborescent, pages ouvertes, tuiles triées (livraison #554)
+
+Demandé : « remplace les menus Supervision… jusqu'à Passerelle SMS par un
+menu arborescent ; remplace Pages ouvertes par une ligne de menu déroulant
+et ajoute les liens vers les sites web des agents ; mets les tuiles en
+ordre alphabétique ; agrandis Hub SI qui est plié et réduis aux initiales
+la parenthèse des groupes ». L'en-tête est désormais : **Aide · Onglets ·
+Menu ▾ · Pages ouvertes ▾ · Paramètres ▾ · Univers du hub ▾**. Le menu
+arborescent reprend l'arbre de disposition (#516) tel quel : chaque
+thématique est un nœud dépliable (« Ouvrir la thématique » + ses outils,
+sous-groupes en sections), les feuilles de la racine (liens externes,
+Agents hôtes…) sont des lignes ; la thématique courante est dépliée.
+« Pages ouvertes » liste les pages sans connexion (#505) et les pages
+publiées par les agents hôtes (#547, `publish` actif : titre, agent,
+adresse `http://<hôte>:<port>/`), avec Ouvrir et Copier ; la section de
+l'accueil disparaît. Les tuiles de l'accueil (mode « toutes les tuiles »)
+sont triées par nom (ordre français) ; le mode thématiques garde l'ordre de
+l'arbre. Le titre ne se plie plus ; les rôles s'affichent en initiales
+uniques (« A De Di M Se Su T »), la liste complète en info-bulle.
+Logique pure : `splitHeader`, `sortTiles` (hubTree.js), `roleInitials`
+(lib.js), `agentPublishedLinks` (publicLinks.js), testées.
+
 ## Fronts listés — un seul par application déployée séparément
 
 `buildFrontsList()` (`src/lib.js`) liste actuellement 2 fronts :

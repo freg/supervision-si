@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { demandeBase, publicLinks, displayUrl } from "../src/publicLinks.js";
+import { demandeBase, publicLinks, displayUrl, agentPublishedLinks } from "../src/publicLinks.js";
 
 test("demandeBase : déduit la racine publique de l'URL d'admin", () => {
   assert.equal(demandeBase("https://hub.example:6443/demande/admin"), "https://hub.example:6443/demande/");
@@ -33,4 +33,11 @@ test("displayUrl : sans schéma", () => {
   assert.equal(displayUrl("https://h:6443/demande/rapide"), "h:6443/demande/rapide");
   assert.equal(displayUrl("http://h/x"), "h/x");
   assert.equal(displayUrl(""), "");
+});
+
+test("agentPublishedLinks (#554) : agents qui publient seulement", () => {
+  const links = agentPublishedLinks([{ agent_id: "a1", hostname: "pc-site", site: "campus", publish: { enabled: true, port: 8081, title: "Réseau du campus" } },
+                                     { agent_id: "a2", last_ip: "192.0.2.5", publish: { enabled: false } }, { agent_id: "a3", publish: { enabled: true } }]);
+  assert.deepEqual(links.map((l) => [l.name, l.url]), [["Réseau du campus", "http://pc-site:8081/"]]);
+  assert.deepEqual(agentPublishedLinks(null), []);
 });

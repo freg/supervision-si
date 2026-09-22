@@ -312,3 +312,20 @@ export const ROLE_LABELS = {
 export function formatUserRoles(groups) {
   return groupsToRoles(groups).map((r) => ROLE_LABELS[r]);
 }
+
+/** #554 : initiales des rôles, allongées jusqu'à être uniques
+ *  (« Demandeur », « Direction » -> « De », « Di »). */
+export function roleInitials(labels) {
+  const out = [];
+  for (const label of labels || []) {
+    const word = String(label).replace(/[^\p{L}]/gu, "");
+    let n = 1;
+    let ini = word.slice(0, 1).toUpperCase();
+    while (out.includes(ini) || (labels.filter((l) => String(l).replace(/[^\p{L}]/gu, "").slice(0, n).toLowerCase() === word.slice(0, n).toLowerCase()).length > 1 && n < word.length)) {
+      n += 1;
+      ini = word.slice(0, 1).toUpperCase() + word.slice(1, n).toLowerCase();
+    }
+    out.push(ini);
+  }
+  return out;
+}
