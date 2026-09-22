@@ -198,9 +198,23 @@ def build_vlan_map(devices, port_settings_by_sw, lldp_by_sw=None, gw_interfaces=
         for r in rows or []:
             if isinstance(r, dict) and isinstance(r.get("vlan"), int):
                 vlans.setdefault(r["vlan"], {"vid": r["vlan"], "ssids": [], "subnet": None, "gateway_interface": None, "guest": False, "switches": {}, "mac_count": 0, "clients": 0, "management": []})["mac_count"] += 1
+    prefixes = {}
     for c in (sw_clients or {}).get("data", sw_clients) if isinstance(sw_clients, (dict, list)) else []:
         if isinstance(c, dict) and isinstance(c.get("vlan"), int) and c["vlan"] in vlans:
             vlans[c["vlan"]]["clients"] += 1
+            ip = str(c.get("ipv4Address") or "")
+            m = re.match(r"^(\d+\.\d+\.\d+)\.\d+$", ip)
+            if m:
+                prefixes.setdefault(c["vlan"], {}).setdefault(m.group(1), 0)
+                prefixes[c["vlan"]][m.group(1)] += 1
+    # Sous-réseau déduit des clients quand la passerelle ne donne pas
+    # d'adresse (l'OpenAPI renvoie des adresses vides sur l'USG FLEX en réel) :
+    # le /24 le plus fréquent, marqué comme déduit.
+    for vid, counts in prefixes.items():
+        if vlans[vid]["subnet"] is None and counts:
+            best = max(counts.items(), key=lambda kv: kv[1])
+            vlans[vid]["subnet"] = "%s.0/24" % best[0]
+            vlans[vid]["subnet_inferred"] = True
     links = links_from_lldp(switches, lldp_by_sw, ports_by_sw)
     anomalies = []
     for l in links:
@@ -214,7 +228,7 @@ def build_vlan_map(devices, port_settings_by_sw, lldp_by_sw=None, gw_interfaces=
     for vid, v in sorted(vlans.items()):
         if v["ssids"] and not v["switches"]:
             anomalies.append("VLAN %d : utilisé par le SSID %s mais présent sur aucun port de commutateur." % (vid, ", ".join(s["name"] or "?" for s in v["ssids"])))
-        if v["switches"] and v["subnet"] is None and vid != 1:
+        if v["switches"] and v["gateway_interface"] is None and vid != 1:
             anomalies.append("VLAN %d : présent sur les commutateurs sans interface de passerelle connue (routage ailleurs, ou VLAN de couche 2 seule)." % vid)
         if v["ssids"] or v["subnet"]:
             for name in switches.values():

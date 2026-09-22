@@ -78,6 +78,12 @@ class Map(unittest.TestCase):
         self.assertEqual(len(bare), 1); self.assertIn("port 4 ↔ GS2220-50HP-1 port 50", bare[0])
         self.assertFalse(any("port 4 ↔" in a and "SSID" in a for a in m2["anomalies"]))
         self.assertEqual(vlanmap.gateway_networks([{"name": "vlan30", "ip": "192.0.2.1", "netmask": "255.255.255.0"}])[30]["subnet"], "192.0.2.1/24")
+        # passerelle sans adresse (réel) : interface connue, sous-réseau déduit des clients
+        gw_vide = {"lan": [{"interface": "VLAN20", "ipv4Address": "", "ipv4Netmask": ""}]}
+        m3 = vlanmap.build_vlan_map(DEVICES, PORTS, LLDP, gw_vide, WLANS, sw_clients={"data": [{"vlan": 20, "ipv4Address": "198.51.100.7"}, {"vlan": 20, "ipv4Address": "198.51.100.9"}, {"vlan": 20, "ipv4Address": "203.0.113.1"}]})
+        v20 = next(v for v in m3["vlans"] if v["vid"] == 20)
+        self.assertEqual((v20["gateway_interface"], v20["subnet"], v20.get("subnet_inferred"), v20["clients"]), ("VLAN20", "198.51.100.0/24", True, 3))
+        self.assertFalse(any(a.startswith("VLAN 20 : présent") for a in m3["anomalies"]))
         self.assertEqual(vlanmap.gateway_networks({"vlan": [{"vlanId": "40", "ipv4Address": "192.0.2.9"}]})[40]["subnet"], "192.0.2.9")
         rows = vlanmap.to_csv_rows(m)
         self.assertEqual(rows[0][0], "vlan"); self.assertTrue(any(r[0] == 30 and r[4] == "" for r in rows[1:]))

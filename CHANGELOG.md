@@ -1,3 +1,18 @@
+## 2026-09-22 — Nebula : passerelle sans adresses, sous-réseaux déduits des clients (livraison #551, item 85)
+
+En réel, `interface-settings` de l'USG FLEX 700H nomme ses interfaces LAN
+(`VLAN20`, `VLAN30`, `VLAN40`, `VLAN99`…) mais renvoie des adresses vides.
+
+- `nebula/api/vlanmap.py` : l'interface de passerelle est reconnue par son
+  nom (le VLAN est « routé ici ») ; le sous-réseau est déduit des adresses
+  des clients du VLAN (le /24 le plus fréquent, marqué `subnet_inferred`) ;
+  l'anomalie « sans interface de passerelle » ne se déclenche plus quand
+  l'interface existe sans adresse.
+- `hub/src/NebulaVlan.jsx` : « (déduit) » et nom de l'interface.
+- Tests `nebula/tests/test_vlanmap.py`.
+
+Vérifié : tests. Non vérifié : relecture réelle (`?refresh=1`).
+
 ## 2026-09-22 — Nebula : type de passerelle « GWH » reconnu (livraison #550, item 85)
 
 - `nebula/api/app.py` : l'USG FLEX 700H est de type `GWH` dans

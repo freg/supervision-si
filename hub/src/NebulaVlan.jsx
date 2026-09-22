@@ -57,7 +57,7 @@ export default function NebulaVlan({ nebulaApiBase }) {
               {map.vlans.map((v) => (
                 <tr key={v.vid}>
                   <td><strong>{v.vid}</strong>{v.management.length > 0 && <span className="muted"> (gestion)</span>}</td>
-                  <td>{v.subnet || <span className="muted">—</span>}{v.guest && <span className="muted"> invités</span>}</td>
+                  <td>{v.subnet ? <span title={v.subnet_inferred ? "déduit des adresses des clients (la passerelle ne publie pas ses adresses)" : v.gateway_interface || ""}>{v.subnet}{v.subnet_inferred && <span className="muted"> (déduit)</span>}</span> : v.gateway_interface ? <span className="muted">{v.gateway_interface}</span> : <span className="muted">—</span>}{v.guest && <span className="muted"> invités</span>}</td>
                   <td>{v.ssids.map((s) => <span key={s.name} style={{ opacity: s.enabled ? 1 : 0.5 }}>{s.name}{s.enabled ? "" : " (désactivé)"} </span>)}</td>
                   {switches.map((n) => { const p = v.switches[n]; return <td key={n}>{p ? <span>{p.untagged.length > 0 && <span>U: {p.untagged.join(" ")}</span>}{p.untagged.length > 0 && p.tagged.length > 0 && " · "}{p.tagged.length > 0 && <span className="muted">T: {p.tagged.join(" ")}</span>}</span> : <span className="muted">—</span>}</td>; })}
                   <td>{v.mac_count}</td><td>{v.clients}</td>
