@@ -1567,6 +1567,8 @@ vm === "settings" ? (
           onBack={goBack}
           nebulaApiBase={NEBULA_API_BASE_URL}
           glpiApiBase={GLPI_API_BASE_URL}
+          groups={groups}
+          login={profile.preferred_username}
         />
       ) : vm === "imap" ? (
         <ImapView

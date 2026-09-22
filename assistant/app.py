@@ -27,6 +27,7 @@ DOCS_DIR = os.environ.get("ASSISTANT_DOCS_DIR", "/docs")
 # Documentation du dépôt copiée dans l'image (README des modules, CHANGELOG,
 # BACKLOG) : indexée en plus des documents (#534).
 REPO_DOCS_DIR = os.environ.get("ASSISTANT_REPO_DOCS_DIR", "/repo-docs")
+RULES_DIR = os.environ.get("ASSISTANT_RULES_DIR", "/rules")  # #556 : règles lisibles (rules/), ensemble d'apprentissage
 JOURNAL_WEIGHT = float(os.environ.get("ASSISTANT_JOURNAL_WEIGHT", "0.4"))  # #535
 LLM_BASE = os.environ.get("LLM_BASE_URL", "http://ollama:11434/v1").rstrip("/")
 LLM_MODEL = os.environ.get("LLM_MODEL", "qwen3:8b")
@@ -147,7 +148,7 @@ def _collect_dir(base, prefix, source):
 def collect_local_docs():
     """Documents (ASSISTANT_DOCS_DIR) + documentation du dépôt (README des
     modules, CHANGELOG, BACKLOG copiés dans l'image, #534)."""
-    return _collect_dir(DOCS_DIR, "doc:", "documents") + _collect_dir(REPO_DOCS_DIR, "repo:", "repo")
+    return _collect_dir(DOCS_DIR, "doc:", "documents") + _collect_dir(REPO_DOCS_DIR, "repo:", "repo") + _collect_dir(RULES_DIR, "rules:", "règles")
 
 
 def collect_tickets():

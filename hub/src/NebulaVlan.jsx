@@ -4,6 +4,7 @@
 // d'un côté ; les anomalies en phrases. Export CSV.
 import { useEffect, useState } from "react";
 import NebulaTopo from "./NebulaTopo.jsx";
+import NebulaAnomalies from "./NebulaAnomalies.jsx";
 
 async function getJson(url) {
   const r = await fetch(url, { credentials: "include" });
@@ -12,7 +13,7 @@ async function getJson(url) {
   return j;
 }
 
-export default function NebulaVlan({ nebulaApiBase }) {
+export default function NebulaVlan({ nebulaApiBase, groups = [], login = "" }) {
   const [sites, setSites] = useState([]);
   const [siteId, setSiteId] = useState("");
   const [map, setMap] = useState(null);
@@ -46,12 +47,7 @@ export default function NebulaVlan({ nebulaApiBase }) {
         <div>
           <h3>Synoptique</h3>
           <NebulaTopo nebulaApiBase={nebulaApiBase} siteId={siteId} />
-          {map.anomalies.length > 0 ? (
-            <div className="hub-card" style={{ borderColor: "var(--danger)" }}>
-              <strong>{map.anomalies.length} anomalie{map.anomalies.length > 1 ? "s" : ""}</strong>
-              <ul>{map.anomalies.map((a, i) => <li key={i}>{a}</li>)}</ul>
-            </div>
-          ) : <p className="muted">Aucune anomalie : chaque liaison porte les mêmes VLAN des deux côtés et chaque SSID a son VLAN sur les commutateurs.</p>}
+          <NebulaAnomalies nebulaApiBase={nebulaApiBase} siteId={siteId} groups={groups} login={login} version={map.at} />
           {map.errors.length > 0 && <p className="muted">Appels en échec (carte partielle) : {map.errors.join(" · ")}</p>}
           <h3>VLAN ({map.vlans.length})</h3>
           <table>

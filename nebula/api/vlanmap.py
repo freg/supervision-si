@@ -271,23 +271,33 @@ def build_vlan_map(devices, port_settings_by_sw, lldp_by_sw=None, gw_interfaces=
     others = {d["devId"]: {"name": d.get("name") or d["devId"], "model": d.get("model"), "mac": d.get("mac"), "type": d.get("type")}
               for d in devices or [] if isinstance(d, dict) and d.get("devId") and d["devId"] not in switches}
     links = links_from_lldp(switches, lldp_by_sw, ports_by_sw, others)
-    anomalies = []
+    # #556 : anomalies TYPÉES (kind + element + details) -- la phrase reste
+    # (`message`, et la liste plate `anomalies` pour la compatibilité) ; le
+    # type sert aux règles (rules/reseau-nebula.md : gravité, action proposée)
+    # et à l'application d'une correction (Valider).
+    found = []
+
+    def add(kind, element, message, **details):
+        found.append({"kind": kind, "element": element, "message": message, "details": details})
+
     for l in links:
         if l.get("external") or l.get("device"):
             continue
         a, b = switches.get(l["a"], {}).get("name", l["a"]), switches.get(l["b"], {}).get("name", l["b"])
         if l["missing_on_a"]:
-            anomalies.append("Liaison %s port %s ↔ %s port %s : VLAN %s portés côté %s mais absents côté %s." % (a, l["a_port"], b, l["b_port"], ", ".join(map(str, l["missing_on_a"])), b, a))
+            add("link_missing_vlan", "%s port %s ↔ %s port %s" % (a, l["a_port"], b, l["b_port"]),
+                "Liaison %s port %s ↔ %s port %s : VLAN %s portés côté %s mais absents côté %s." % (a, l["a_port"], b, l["b_port"], ", ".join(map(str, l["missing_on_a"])), b, a),
+                vlans=l["missing_on_a"], missing_on=a, missing_dev=l["a"], missing_port=l["a_port"], carried_by=b, carried_port=l["b_port"], a=a, b=b, a_port=l["a_port"], b_port=l["b_port"])
         if l["missing_on_b"]:
-            anomalies.append("Liaison %s port %s ↔ %s port %s : VLAN %s portés côté %s mais absents côté %s." % (a, l["a_port"], b, l["b_port"], ", ".join(map(str, l["missing_on_b"])), a, b))
+            add("link_missing_vlan", "%s port %s ↔ %s port %s" % (a, l["a_port"], b, l["b_port"]),
+                "Liaison %s port %s ↔ %s port %s : VLAN %s portés côté %s mais absents côté %s." % (a, l["a_port"], b, l["b_port"], ", ".join(map(str, l["missing_on_b"])), a, b),
+                vlans=l["missing_on_b"], missing_on=b, missing_dev=l["b"], missing_port=l["b_port"], carried_by=a, carried_port=l["a_port"], a=a, b=b, a_port=l["a_port"], b_port=l["b_port"])
     for vid, v in sorted(vlans.items()):
+        ssids = ", ".join(s["name"] or "?" for s in v["ssids"])
         if v["ssids"] and not v["switches"]:
-            anomalies.append("VLAN %d : utilisé par le SSID %s mais présent sur aucun port de commutateur." % (vid, ", ".join(s["name"] or "?" for s in v["ssids"])))
+            add("ssid_vlan_no_port", "VLAN %d" % vid, "VLAN %d : utilisé par le SSID %s mais présent sur aucun port de commutateur." % (vid, ssids), vlan=vid, ssids=ssids)
         if v["switches"] and v["gateway_interface"] is None and vid != 1:
-            anomalies.append("VLAN %d : présent sur les commutateurs sans interface de passerelle connue (routage ailleurs, ou VLAN de couche 2 seule)." % vid)
-        if v["ssids"] or v["subnet"]:
-            for name in switches.values():
-                pass
+            add("vlan_no_gateway", "VLAN %d" % vid, "VLAN %d : présent sur les commutateurs sans interface de passerelle connue (routage ailleurs, ou VLAN de couche 2 seule)." % vid, vlan=vid, switches=", ".join(sorted(v["switches"])))
     for l in links:
         if l.get("external") or l.get("device"):
             continue
@@ -298,16 +308,31 @@ def build_vlan_map(devices, port_settings_by_sw, lldp_by_sw=None, gw_interfaces=
         # anomalie par VLAN (constaté en réel : deux liens par commutateur d'accès).
         if _carried(pa) in (set(), "all") and _carried(pb) in (set(), "all") and not (_carried(pa) == "all" or _carried(pb) == "all"):
             l["bare"] = True
-            anomalies.append("Liaison %s port %s ↔ %s port %s : aucun VLAN déclaré de part et d'autre (membre d'un agrégat LACP, ou lien inutilisé)." % (a, l["a_port"], b, l["b_port"]))
+            add("link_bare", "%s port %s ↔ %s port %s" % (a, l["a_port"], b, l["b_port"]),
+                "Liaison %s port %s ↔ %s port %s : aucun VLAN déclaré de part et d'autre (membre d'un agrégat LACP, ou lien inutilisé)." % (a, l["a_port"], b, l["b_port"]),
+                a=a, b=b, a_port=l["a_port"], b_port=l["b_port"])
             continue
         for vid, v in vlans.items():
             if v["ssids"] and not port_carries(pa, vid) and not port_carries(pb, vid):
-                anomalies.append("VLAN %d (SSID %s) n'est pas porté par la liaison %s port %s ↔ %s port %s." % (vid, ", ".join(s["name"] or "?" for s in v["ssids"]), a, l["a_port"], b, l["b_port"]))
+                ssids = ", ".join(s["name"] or "?" for s in v["ssids"])
+                add("ssid_vlan_not_on_link", "%s port %s ↔ %s port %s" % (a, l["a_port"], b, l["b_port"]),
+                    "VLAN %d (SSID %s) n'est pas porté par la liaison %s port %s ↔ %s port %s." % (vid, ssids, a, l["a_port"], b, l["b_port"]),
+                    vlan=vid, ssids=ssids, a=a, b=b, a_port=l["a_port"], b_port=l["b_port"], a_dev=l["a"], b_dev=l["b"])
+    # dédoublonnage par phrase, identifiant stable (sha1 court de kind+element+phrase)
+    import hashlib
+    seen_msg, anomalies_detail = set(), []
+    for f in sorted(found, key=lambda f: f["message"]):
+        if f["message"] in seen_msg:
+            continue
+        seen_msg.add(f["message"])
+        f["id"] = hashlib.sha1((f["kind"] + "|" + f["message"]).encode("utf-8")).hexdigest()[:12]
+        anomalies_detail.append(f)
+    anomalies = [f["message"] for f in anomalies_detail]
     for l in links:
         l["a_name"] = switches.get(l["a"], {}).get("name", l["a"])
         if l.get("b"):
             l["b_name"] = switches.get(l["b"], {}).get("name") or others.get(l["b"], {}).get("name") or l["b"]
-    return {"vlans": [vlans[k] for k in sorted(vlans)], "links": links, "switches": [dict(v, devId=k) for k, v in switches.items()], "anomalies": sorted(set(anomalies))}
+    return {"vlans": [vlans[k] for k in sorted(vlans)], "links": links, "switches": [dict(v, devId=k) for k, v in switches.items()], "anomalies": anomalies, "anomalies_detail": anomalies_detail}
 
 
 def to_csv_rows(vmap):

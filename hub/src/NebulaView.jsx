@@ -38,7 +38,7 @@ const TABS = [
 const IMPORT_FN = { sites: importSitesCsv, devices: importDevicesCsv, clients: importClientsCsv };
 const FETCH_FN = { sites: fetchImportedSites, devices: fetchImportedDevices, clients: fetchImportedClients };
 
-export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
+export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, groups = [], login = "" }) {
   const [tab, setTab] = useState("health");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -176,7 +176,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase }) {
           ))}
         </div>
 
-        {tab === "health" ? <NebulaHealth nebulaApiBase={nebulaApiBase} /> : tab === "vlan" ? <NebulaVlan nebulaApiBase={nebulaApiBase} /> : tab === "plan" ? <NebulaPlan nebulaApiBase={nebulaApiBase} /> : (<>
+        {tab === "health" ? <NebulaHealth nebulaApiBase={nebulaApiBase} /> : tab === "vlan" ? <NebulaVlan nebulaApiBase={nebulaApiBase} groups={groups} login={login} /> : tab === "plan" ? <NebulaPlan nebulaApiBase={nebulaApiBase} /> : (<>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <h2 style={{ margin: 0 }}>{activeTab.label} ({rows.length})</h2>
           <label className="secondary" style={{ cursor: "pointer" }}>

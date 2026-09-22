@@ -1,3 +1,39 @@
+## 2026-09-22 — Anomalies Nebula en tableau, règles lisibles pour l'IA, validation applicable (livraison #556, items 83 et 85)
+
+Demandé : « présente la liste des anomalies en tableau de la largeur de la
+fenêtre aligné à gauche avec les colonnes action proposée, bouton masquer,
+bouton valider (si l'API le permet), un bouton général démasquer » ;
+« préparer un ensemble d'apprentissage ou de ressources pour l'IA intégrée
+avec des règles humainement compréhensibles et configurables ».
+
+- `rules/` (nouveau) : `README.md` (format), `reseau-nebula.md` (R-NET-01 à
+  05), `services.md` (R-SVC-01/02) — règles en Markdown : Quand, Gravité,
+  Action avec {champs}, Applicable, Pourquoi, Vérifier, Exemples. Monté dans
+  nebula-api (`/rules`) et dans l'assistant (indexé comme documents).
+- `nebula/api/vlanmap.py` : anomalies typées (`anomalies_detail`, id stable),
+  liste plate conservée. `nebula/api/rules.py` : lecture des règles,
+  application (tri par gravité, champs remplacés, type sans règle « à
+  qualifier »).
+- `nebula/api/app.py` : `GET /sites/<id>/anomalies`, hide/unhide/unhide-all,
+  `validate` (droit manage ; application réelle si applicable +
+  `NEBULA_ALLOW_WRITE=1` + confirmation ; sinon validation enregistrée) ;
+  `_apply_fix` pour `link_missing_vlan` ; table `nebula_anomaly_state`.
+  `nebula_client.sw_set_port_settings` (seul appel d'écriture du module,
+  vérifié contre la doc OpenAPI : POST port-settings, objet complet).
+- Hub : `NebulaAnomalies.jsx` (tableau pleine largeur, aligné à gauche,
+  « pourquoi ? » dépliant la règle, Masquer/Démasquer, Valider ou « Valider
+  et appliquer » avec confirmation, Tout démasquer, voir les masquées) ;
+  groupes et identifiant transmis à la tuile Nebula.
+- `docker-compose.yml`, `.env.example` : `RULES_DIR`, `NEBULA_ALLOW_WRITE`
+  (0 par défaut), volumes `./rules`.
+- Tests : `nebula/tests/test_rules.py` (3, dont la validité des fichiers du
+  dépôt) ; 16 tests nebula, 237 tests hub au vert ; rendu du tableau vérifié
+  hors ligne.
+
+Vérifié : tests, rendu. Non vérifié : application réelle d'une correction
+sur Nebula (à faire d'abord sur une anomalie sans conséquence, écriture
+activée le temps du test).
+
 ## 2026-09-22 — Nebula : synoptique en arbre façon Nebula, clients rattachés, plan du site (livraison #555, item 85)
 
 Demandé : « la logique de la carte semble faussée, regarde celle présentée

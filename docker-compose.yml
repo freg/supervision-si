@@ -669,6 +669,11 @@ services:
       # NEBULA_INVENTORY_SECONDS ; transitions seules en base.
       - NEBULA_POLL_SECONDS=${NEBULA_POLL_SECONDS:-60}
       - NEBULA_INVENTORY_SECONDS=${NEBULA_INVENTORY_SECONDS:-3600}
+      # #556 : règles lisibles (rules/) et verrou d'ÉCRITURE sur Nebula --
+      # 0 par défaut : « Valider » ne fait qu'enregistrer ; 1 = la correction
+      # d'un VLAN manquant est appliquée par POST port-settings après confirmation.
+      - RULES_DIR=/rules
+      - NEBULA_ALLOW_WRITE=${NEBULA_ALLOW_WRITE:-0}
       # Archivage des CSV importés dans la GED (livraison #237) --
       # même motif que NEBULA_API_INTERNAL_URL/SNMP_API_INTERNAL_URL
       # déjà utilisés ailleurs dans ce projet.
@@ -682,6 +687,7 @@ services:
       # PREFS_DATA_DIR/IMAP_CLIENT_DATA_DIR -- vide = valeur par
       # défaut ci-dessous, jamais un chemin absolu codé en dur.
       - ${NEBULA_DATA_DIR:-./nebula/data}:/data
+      - ./rules:/rules:ro
     depends_on:
       - memcached
       - ged-api
@@ -2339,6 +2345,8 @@ services:
       # Documents indexés (lecture seule) : par défaut la documentation du
       # dépôt ; pointer ASSISTANT_DOCS_DIR vers un dossier de documents réels.
       - ${ASSISTANT_DOCS_DIR:-./docs}:/docs:ro
+      # #556 : règles lisibles, indexées comme documents (ensemble d'apprentissage).
+      - ./rules:/rules:ro
       # Journal, rapports d'évaluation, dépôts de test : hors dépôt.
       - ${ASSISTANT_DATA_DIR:-./assistant/data}:/data
 

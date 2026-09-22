@@ -110,6 +110,25 @@ puis remis en anneau. Positions en fractions de l'image (`PUT
 `hub/src/nebulaPlan.js` (tests `nebulaPlan.test.mjs`), rendu
 `hub/src/NebulaPlan.jsx`.
 
+**Anomalies en tableau, règles lisibles, validation (#556)** : les
+anomalies de la carte sont **typées** (`anomalies_detail` : `kind`,
+`element`, `details`, identifiant stable) et présentées en tableau pleine
+largeur : Élément · Constat (avec « pourquoi ? ») · Gravité · Action
+proposée · État · Masquer · Valider, plus « Tout démasquer ». La gravité et
+l'action viennent des **règles** du dossier `rules/` (format Markdown lisible
+et modifiable, voir `rules/README.md`), relues à chaque appel et indexées
+aussi par l'assistant IA. `GET /sites/<id>/anomalies` (`?all=1`,
+`?refresh=1`), `POST …/anomalies/<id>/hide|unhide`, `POST
+…/anomalies/unhide-all`, `POST …/anomalies/<id>/validate` (droit `manage`).
+**Valider** enregistre la validation ; si la règle est `Applicable : oui`
+et que `NEBULA_ALLOW_WRITE=1`, la correction est exécutée sur Nebula après
+confirmation explicite (`confirm: true`) : aujourd'hui l'ajout d'un VLAN
+manquant sur un port, par `POST /v1/nebula/{site}/sw/{dev}/port-settings`
+(objet complet relu juste avant, jamais reconstruit), résultat journalisé,
+carte recalculée. États : `validated`, `applied`, `failed`, `hidden` (table
+`nebula_anomaly_state`). Logique pure `api/rules.py` (tests
+`tests/test_rules.py`).
+
 ## Architecture
 
 - `nebula_client.py` -- client bas niveau. Authentification par CLÉ

@@ -3140,3 +3140,11 @@ clients en anneau). Suites : plans multiples (par bâtiment/étage) ; zones
 de couverture des bornes sur le plan ; plan publié sur la page de l'agent
 (sans noms de clients) ; recherche d'un client (nom, MAC, IP) qui le
 surligne dans l'arbre et sur le plan ; historique de présence des clients.
+
+Livré (#556) : anomalies en tableau avec règles lisibles (`rules/`),
+masquer/valider/tout démasquer, application réelle d'un VLAN manquant
+derrière `NEBULA_ALLOW_WRITE`. Suites : autres corrections applicables
+(SSID → VLAN par PATCH wlan-settings, à vérifier dans la doc), journal des
+applications visible dans la tuile, règles pour Cortex et service-watch
+(types `service_down`, `certificate_expiring` déjà décrits dans
+`rules/services.md`), éditeur de règles dans le hub (aujourd'hui : fichier).

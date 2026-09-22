@@ -197,6 +197,15 @@ class NebulaClient:
     def sw_port_settings(self, site_id, dev_id):
         return self._get(f"/v1/nebula/{site_id}/sw/{dev_id}/port-settings", f"réglages de ports de '{dev_id}' échoués")
 
+    def sw_set_port_settings(self, site_id, dev_id, port):
+        """POST .../sw/{dev}/port-settings (#556) -- ÉCRITURE : un objet
+        complet {portNum, enabled, trunk, portVid, allowedVLAN, pseEnabled}
+        (tous les champs requis par la doc, pas de mise à jour partielle).
+        Seul appel d'écriture du module ; gardé par NEBULA_ALLOW_WRITE côté app."""
+        body = {"portNum": port["portNum"], "enabled": bool(port.get("enabled", True)), "trunk": bool(port.get("trunk", False)),
+                "portVid": int(port.get("portVid") or 1), "allowedVLAN": [str(v) for v in (port.get("allowedVLAN") or [])], "pseEnabled": port.get("pseEnabled")}
+        return self._post(f"/v1/nebula/{site_id}/sw/{dev_id}/port-settings", body, f"écriture du port {body['portNum']} de '{dev_id}' échouée")
+
     def sw_lldp_neighbors(self, site_id, dev_id):
         return self._get(f"/v1/nebula/{site_id}/sw/{dev_id}/lldp-neighbor", f"voisins LLDP de '{dev_id}' échoués")
 

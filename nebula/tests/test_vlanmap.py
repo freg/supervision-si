@@ -90,7 +90,7 @@ class Map(unittest.TestCase):
 
     def test_empty(self):
         m = vlanmap.build_vlan_map([], {})
-        self.assertEqual(m, {"vlans": [], "links": [], "switches": [], "anomalies": []})
+        self.assertEqual(m, {"vlans": [], "links": [], "switches": [], "anomalies": [], "anomalies_detail": []})
 
 
 if __name__ == "__main__":

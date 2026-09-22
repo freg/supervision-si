@@ -30,6 +30,7 @@ import csv_import
 import health as health_lib
 import vlanmap  # `health` est aussi la route /health
 import topology as topology_lib
+import rules as rules_lib
 
 try:
     from version_endpoint import register_version_route
@@ -174,6 +175,12 @@ CREATE TABLE IF NOT EXISTS nebula_poll_runs (
 
 -- #555 : positions des appareils et clients sur le plan du site (fractions
 -- 0..1 de la largeur/hauteur de l'image ; clé = devId ou "client:<mac>").
+-- #556 : état des anomalies (masquée / validée) par site et identifiant stable.
+CREATE TABLE IF NOT EXISTS nebula_anomaly_state (
+    site_id TEXT NOT NULL, anomaly_id TEXT NOT NULL, state TEXT NOT NULL, by_who TEXT, at INTEGER NOT NULL,
+    note TEXT, result TEXT, PRIMARY KEY (site_id, anomaly_id)
+);
+
 CREATE TABLE IF NOT EXISTS nebula_placements (
     site_id TEXT NOT NULL, key TEXT NOT NULL, x REAL NOT NULL, y REAL NOT NULL, updated_at INTEGER NOT NULL,
     PRIMARY KEY (site_id, key)
@@ -707,6 +714,153 @@ def placements_put(site_id):
     finally:
         conn.close()
     return placements_get(site_id)
+
+
+# ------------------------------------------------ anomalies et règles (#556)
+RULES_DIR = os.environ.get("RULES_DIR", "/rules")
+ALLOW_WRITE = os.environ.get("NEBULA_ALLOW_WRITE", "0").strip() in ("1", "true", "yes")
+
+
+def _vmap_cached(client, site_id, refresh=False):
+    now = int(time.time())
+    cached = _vlan_cache.get(site_id)
+    if cached and now - cached["at"] < VLAN_CACHE_SECONDS and not refresh:
+        return cached["map"]
+    vmap = collect_vlan_map(client, site_id)
+    vmap["at"] = now
+    _vlan_cache[site_id] = {"at": now, "map": vmap}
+    return vmap
+
+
+def _anomaly_states(site_id):
+    conn = get_connection()
+    try:
+        return {r["anomaly_id"]: dict(r) for r in conn.execute("SELECT * FROM nebula_anomaly_state WHERE site_id = ?", (site_id,))}
+    finally:
+        conn.close()
+
+
+def _set_state(site_id, aid, state, who, note=None, result=None):
+    conn = get_connection()
+    try:
+        if state is None:
+            conn.execute("DELETE FROM nebula_anomaly_state WHERE site_id = ? AND anomaly_id = ?", (site_id, aid))
+        else:
+            conn.execute("INSERT INTO nebula_anomaly_state (site_id, anomaly_id, state, by_who, at, note, result) VALUES (?, ?, ?, ?, ?, ?, ?) "
+                         "ON CONFLICT(site_id, anomaly_id) DO UPDATE SET state = excluded.state, by_who = excluded.by_who, at = excluded.at, note = excluded.note, result = excluded.result",
+                         (site_id, aid, state, who, int(time.time()), note, result))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _anomalies(site_id, refresh=False):
+    vmap = _vmap_cached(_connect(), site_id, refresh)
+    rules, errors = rules_lib.load_rules(RULES_DIR)
+    items = rules_lib.apply_rules(vmap.get("anomalies_detail") or [], rules)
+    states = _anomaly_states(site_id)
+    for a in items:
+        st = states.get(a["id"])
+        a["state"] = st["state"] if st else None
+        a["state_by"], a["state_at"], a["state_result"] = (st["by_who"], st["at"], st["result"]) if st else (None, None, None)
+        a["can_apply"] = bool(a["applicable"] and ALLOW_WRITE)
+    return items, errors, vmap
+
+
+@app.route("/sites/<site_id>/anomalies", methods=["GET"])
+def anomalies_route(site_id):
+    """Anomalies typées + règle (gravité, action proposée, applicable) + état
+    (masquée / validée). `?all=1` inclut les masquées ; `?refresh=1`."""
+    try:
+        items, errors, vmap = _anomalies(site_id, request.args.get("refresh") == "1")
+    except nebula.NebulaError as exc:
+        return jsonify({"error": str(exc)}), 502
+    hidden = [a for a in items if a["state"] == "hidden"]
+    shown = items if request.args.get("all") == "1" else [a for a in items if a["state"] != "hidden"]
+    return jsonify({"site_id": site_id, "at": vmap.get("at"), "anomalies": shown, "hidden_count": len(hidden), "total": len(items),
+                    "rules_errors": errors, "write_allowed": ALLOW_WRITE}), 200
+
+
+@app.route("/sites/<site_id>/anomalies/<aid>/hide", methods=["POST"])
+def anomaly_hide(site_id, aid):
+    body = request.get_json(silent=True) or {}
+    _set_state(site_id, aid, "hidden", (body.get("groups") or ["?"])[0] if not body.get("user") else body.get("user"), body.get("note"))
+    return jsonify({"ok": True}), 200
+
+
+@app.route("/sites/<site_id>/anomalies/<aid>/unhide", methods=["POST"])
+def anomaly_unhide(site_id, aid):
+    _set_state(site_id, aid, None, None)
+    return jsonify({"ok": True}), 200
+
+
+@app.route("/sites/<site_id>/anomalies/unhide-all", methods=["POST"])
+def anomaly_unhide_all(site_id):
+    conn = get_connection()
+    try:
+        n = conn.execute("DELETE FROM nebula_anomaly_state WHERE site_id = ? AND state = 'hidden'", (site_id,)).rowcount
+        conn.commit()
+    finally:
+        conn.close()
+    return jsonify({"ok": True, "unhidden": n}), 200
+
+
+def _apply_fix(client, site_id, anomaly):
+    """Exécute l'action d'une règle applicable. Seul cas aujourd'hui :
+    link_missing_vlan -> ajout des VLAN manquants (étiquetés) sur le port
+    qui ne les porte pas, par POST port-settings (objet complet relu juste
+    avant, jamais reconstruit de mémoire)."""
+    if anomaly["kind"] != "link_missing_vlan":
+        raise nebula.NebulaError("aucune correction automatique pour le type %s" % anomaly["kind"])
+    d = anomaly.get("details") or {}
+    dev, port_num, vlans = d.get("missing_dev"), d.get("missing_port"), d.get("vlans") or []
+    ports = client.sw_port_settings(site_id, dev)
+    port = next((p for p in ports or [] if isinstance(p, dict) and str(p.get("portNum")) == str(port_num)), None)
+    if not port:
+        raise nebula.NebulaError("port %s introuvable sur %s" % (port_num, d.get("missing_on")))
+    allowed = [str(v) for v in (port.get("allowedVLAN") or [])]
+    before = list(allowed)
+    for v in vlans:
+        if str(v) not in allowed:
+            allowed.append(str(v))
+    port = dict(port, trunk=True, allowedVLAN=allowed)
+    client.sw_set_port_settings(site_id, dev, port)
+    return "port %s de %s : VLAN autorisés %s -> %s" % (port_num, d.get("missing_on"), ", ".join(before) or "aucun", ", ".join(allowed))
+
+
+@app.route("/sites/<site_id>/anomalies/<aid>/validate", methods=["POST"])
+def anomaly_validate(site_id, aid):
+    """Valider = confirmer l'action proposée. Si la règle est applicable ET
+    que NEBULA_ALLOW_WRITE=1 ET que `confirm` est vrai : la correction est
+    exécutée sur Nebula (droit `manage` requis, résultat journalisé, carte
+    recalculée). Sinon : marquée « validée, à appliquer à la main »."""
+    body = request.get_json(silent=True) or {}
+    allowed, err = _check_manage_right(body)
+    if not allowed:
+        return jsonify({"error": err}), 403
+    try:
+        items, _, _ = _anomalies(site_id)
+    except nebula.NebulaError as exc:
+        return jsonify({"error": str(exc)}), 502
+    a = next((x for x in items if x["id"] == aid), None)
+    if not a:
+        return jsonify({"error": "anomalie introuvable (carte recalculée entre-temps ?)"}), 404
+    who = body.get("user") or (body.get("groups") or ["?"])[0]
+    if a["applicable"] and ALLOW_WRITE:
+        if not body.get("confirm"):
+            return jsonify({"error": "confirmation requise : cette validation ÉCRIT la configuration sur Nebula", "needs_confirm": True, "action": a["action"]}), 409
+        try:
+            result = _apply_fix(_connect(), site_id, a)
+        except nebula.NebulaError as exc:
+            _set_state(site_id, aid, "failed", who, a["action"], str(exc)[:300])
+            return jsonify({"error": "application échouée : %s" % exc}), 502
+        _set_state(site_id, aid, "applied", who, a["action"], result)
+        _vlan_cache.pop(site_id, None)
+        _topo_cache.clear()
+        app.logger.info("Anomalie %s appliquée sur %s par %s : %s", aid, site_id, who, result)
+        return jsonify({"ok": True, "state": "applied", "result": result}), 200
+    _set_state(site_id, aid, "validated", who, a["action"], "à appliquer à la main" if a["applicable"] else "action manuelle")
+    return jsonify({"ok": True, "state": "validated"}), 200
 
 
 @app.route("/sites/<site_id>/clients", methods=["GET"])
