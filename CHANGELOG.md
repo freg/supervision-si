@@ -1,3 +1,37 @@
+## 2026-09-22 — Nebula : synoptique en arbre façon Nebula, clients rattachés, plan du site (livraison #555, item 85)
+
+Demandé : « la logique de la carte semble faussée, regarde celle présentée
+par Nebula, il faudrait s'en approcher, et un plan pour affecter les
+équipements, spots et clients ».
+
+- `nebula/api/vlanmap.py` : `links_from_lldp(..., others)` reconnaît les
+  voisins LLDP parmi tous les appareils (bornes, passerelle) par nom, MAC
+  (±8) ou nom contenu ; liaisons `device` sans calcul de VLAN manquants ;
+  voisins inconnus avec `sysname`/`chassis`.
+- `nebula/api/topology.py` (nouveau) : `build_tree` (racine passerelle,
+  parent par largeur d'abord, commutateurs avant bornes, ports amont/aval,
+  appareils non reliés rattachés à la racine et marqués) ; `attach_clients`
+  (champ `connectedTo` = devId en réel, tolérant aux autres noms, BSSID le
+  plus proche ; nom lisible depuis `osHostname.hostname`).
+- `nebula/api/app.py` : `GET /sites/<id>/topology` (cache 2 min, `?period`),
+  `GET /sites/<id>/clients-raw`, plan `GET/PUT/DELETE /sites/<id>/plan`
+  (fichier dans `/data/plans`), `GET/PUT /sites/<id>/placements` (table
+  `nebula_placements`) ; Dockerfile copie `topology.py`.
+- Hub : `nebulaTree.js` (arbre, parent centré, clients au milieu des
+  enfants, pastilles dépliables, tons des liaisons) et `NebulaTopo.jsx`
+  réécrit (période des clients, déplier/replier, détail nœud et client,
+  clients sans appareil, voisins non reconnus) ; `nebulaPlan.js` +
+  `NebulaPlan.jsx` (dépôt du plan, pose par clic, glisser, anneau de
+  clients, retrait) ; onglet « Plan du site » dans `NebulaView.jsx` ;
+  `nebulaTopo.js` et son test retirés.
+- Tests : `nebula/tests/test_topology.py` (3), `hub/tests/nebulaTree.test.mjs`
+  (3), `nebulaPlan.test.mjs` (3) ; 13 tests nebula et 237 tests hub au vert.
+- Rendu vérifié hors ligne (esbuild + Chromium) sur un site fictif de 18
+  appareils et 48 clients, et sur une photo de plan.
+
+Vérifié : tests, rendu hors ligne. Non vérifié : sur super avec les données
+réelles (rattachement des bornes par LLDP, 92 clients, dépôt du plan).
+
 ## 2026-09-22 — Hub : menu arborescent, pages ouvertes en menu, tuiles triées, en-tête (livraison #554, item 76)
 
 Demandé : menu arborescent à la place des menus thématiques ; « Pages

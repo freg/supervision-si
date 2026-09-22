@@ -72,26 +72,79 @@ def port_carries(port_info, vid):
     return port_info.get("pvid") == vid or port_info.get("all") or vid in (port_info.get("allowed") or [])
 
 
+def _norm_name(s):
+    return re.sub(r"\s+", " ", str(s or "").strip().lower())
+
+
+def _near_mac(mac, table):
+    """MAC à ±8 (dernier octet) d'une MAC connue -> devId, sinon None."""
+    if not mac or len(mac) != 12:
+        return None
+    try:
+        base = int(mac, 16)
+    except ValueError:
+        return None
+    for m, dev in table.items():
+        try:
+            if m[:6] == mac[:6] and abs(int(m, 16) - base) <= 8:
+                return dev
+        except ValueError:
+            continue
+    return None
+
+
+def _name_in(sysname, table):
+    """Nom LLDP contenu dans un nom d'inventaire ou l'inverse (>= 4 caractères)."""
+    if not sysname or len(sysname) < 4:
+        return None
+    for name, dev in table.items():
+        if name and (sysname in name or name in sysname):
+            return dev
+    return None
+
+
 def _norm_mac(s):
     return re.sub(r"[^0-9a-f]", "", str(s or "").lower())
 
 
-def links_from_lldp(switches, lldp_by_sw, ports_by_sw):
+def links_from_lldp(switches, lldp_by_sw, ports_by_sw, others=None):
     """switches : {devId: {"name", "mac"}} ; lldp_by_sw : {devId: [{lldpRemLocalPortNum, lldpRemPortId, lldpRemSysName, lldpRemChassisId}]}.
     Retourne les liaisons entre DEUX commutateurs du site (dédoublonnées) avec
     les VLAN portés de chaque côté et les manquants."""
-    by_name = {v.get("name"): k for k, v in switches.items() if v.get("name")}
+    by_name = {_norm_name(v.get("name")): k for k, v in switches.items() if v.get("name")}
     by_mac = {_norm_mac(v.get("mac")): k for k, v in switches.items() if v.get("mac")}
+    # #555 : les autres appareils de l'inventaire (bornes, passerelle) sont
+    # aussi reconnus -- par nom (insensible à la casse) ou par MAC (une borne
+    # annonce en LLDP sa MAC de base, parfois à quelques unités de celle de
+    # l'inventaire : tolérance ±8 sur le dernier octet).
+    other_name = {_norm_name(v.get("name")): k for k, v in (others or {}).items() if v.get("name")}
+    other_mac = {_norm_mac(v.get("mac")): k for k, v in (others or {}).items() if v.get("mac")}
     links, seen = [], set()
     for dev, neighbors in (lldp_by_sw or {}).items():
         for n in neighbors or []:
             if not isinstance(n, dict):
                 continue
-            other = by_name.get(n.get("lldpRemSysName")) or by_mac.get(_norm_mac(n.get("lldpRemChassisId")))
+            other = by_name.get(_norm_name(n.get("lldpRemSysName"))) or by_mac.get(_norm_mac(n.get("lldpRemChassisId")))
             local_port = _port_num(n.get("lldpRemLocalPortNum"))
             remote_port = _port_num(n.get("lldpRemPortId")) or _port_num(n.get("lldpRemPortDesc"))
+            if (not other or other == dev) and others:
+                sysname = _norm_name(n.get("lldpRemSysName"))
+                chassis = _norm_mac(n.get("lldpRemChassisId"))
+                dev2 = other_name.get(sysname) or other_mac.get(chassis) or _near_mac(chassis, other_mac) or _name_in(sysname, other_name)
+                if dev2:
+                    pa = (ports_by_sw.get(dev) or {}).get(local_port) or {}
+                    va = _carried(pa)
+                    key = (dev, local_port, dev2)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    links.append({"a": dev, "a_port": local_port, "b": dev2, "b_port": remote_port, "external": False, "device": True,
+                                  "b_kind": str((others.get(dev2) or {}).get("type") or "").upper(),
+                                  "a_vlans": sorted(va) if va != "all" else "all", "b_vlans": None, "missing_on_a": [], "missing_on_b": []})
+                    continue
             if not other or other == dev:
-                links.append({"a": dev, "a_port": local_port, "b": None, "b_name": n.get("lldpRemSysName") or n.get("lldpRemChassisId"), "b_port": remote_port, "external": True})
+                links.append({"a": dev, "a_port": local_port, "b": None, "b_name": n.get("lldpRemSysName") or n.get("lldpRemChassisId"), "b_port": remote_port, "external": True,
+                              "chassis": n.get("lldpRemChassisId"), "sysname": n.get("lldpRemSysName")})
                 continue
             key = tuple(sorted([(dev, local_port), (other, remote_port)]))
             if key in seen:
@@ -215,10 +268,12 @@ def build_vlan_map(devices, port_settings_by_sw, lldp_by_sw=None, gw_interfaces=
             best = max(counts.items(), key=lambda kv: kv[1])
             vlans[vid]["subnet"] = "%s.0/24" % best[0]
             vlans[vid]["subnet_inferred"] = True
-    links = links_from_lldp(switches, lldp_by_sw, ports_by_sw)
+    others = {d["devId"]: {"name": d.get("name") or d["devId"], "model": d.get("model"), "mac": d.get("mac"), "type": d.get("type")}
+              for d in devices or [] if isinstance(d, dict) and d.get("devId") and d["devId"] not in switches}
+    links = links_from_lldp(switches, lldp_by_sw, ports_by_sw, others)
     anomalies = []
     for l in links:
-        if l.get("external"):
+        if l.get("external") or l.get("device"):
             continue
         a, b = switches.get(l["a"], {}).get("name", l["a"]), switches.get(l["b"], {}).get("name", l["b"])
         if l["missing_on_a"]:
@@ -234,7 +289,7 @@ def build_vlan_map(devices, port_settings_by_sw, lldp_by_sw=None, gw_interfaces=
             for name in switches.values():
                 pass
     for l in links:
-        if l.get("external"):
+        if l.get("external") or l.get("device"):
             continue
         pa = (ports_by_sw.get(l["a"]) or {}).get(l["a_port"]); pb = (ports_by_sw.get(l["b"]) or {}).get(l["b_port"])
         a, b = switches.get(l["a"], {}).get("name", l["a"]), switches.get(l["b"], {}).get("name", l["b"])
@@ -251,7 +306,7 @@ def build_vlan_map(devices, port_settings_by_sw, lldp_by_sw=None, gw_interfaces=
     for l in links:
         l["a_name"] = switches.get(l["a"], {}).get("name", l["a"])
         if l.get("b"):
-            l["b_name"] = switches.get(l["b"], {}).get("name", l["b"])
+            l["b_name"] = switches.get(l["b"], {}).get("name") or others.get(l["b"], {}).get("name") or l["b"]
     return {"vlans": [vlans[k] for k in sorted(vlans)], "links": links, "switches": [dict(v, devId=k) for k, v in switches.items()], "anomalies": sorted(set(anomalies))}
 
 

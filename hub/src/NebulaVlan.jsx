@@ -45,7 +45,7 @@ export default function NebulaVlan({ nebulaApiBase }) {
       {map && (
         <div>
           <h3>Synoptique</h3>
-          <NebulaTopo nebulaApiBase={nebulaApiBase} siteId={siteId} vmap={map} />
+          <NebulaTopo nebulaApiBase={nebulaApiBase} siteId={siteId} />
           {map.anomalies.length > 0 ? (
             <div className="hub-card" style={{ borderColor: "var(--danger)" }}>
               <strong>{map.anomalies.length} anomalie{map.anomalies.length > 1 ? "s" : ""}</strong>

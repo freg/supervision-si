@@ -3132,3 +3132,11 @@ autres contenus publiables (état des services, demandes) ; Nebula
 comme source d'incidents Cortex (appareil hors ligne → événement) et
 d'état des services de l'espace Simple (`sources.nebula`) ; relevé des
 clients à la demande.
+
+Livré (#555) : synoptique en arbre façon Nebula (bornes et passerelle
+reconnues en LLDP, clients sous chaque appareil via `connectedTo`) et plan
+du site (image déposée par site, appareils posés par clic ou glisser,
+clients en anneau). Suites : plans multiples (par bâtiment/étage) ; zones
+de couverture des bornes sur le plan ; plan publié sur la page de l'agent
+(sans noms de clients) ; recherche d'un client (nom, MAC, IP) qui le
+surligne dans l'arbre et sur le plan ; historique de présence des clients.

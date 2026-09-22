@@ -73,15 +73,42 @@ brutes (MAC et clés masquées) pour vérifier les noms de champs contre la
 documentation. Hub : tuile Nebula, onglet **Carte des VLAN**. Logique pure
 `api/vlanmap.py`, tests `tests/test_vlanmap.py`.
 
-**Synoptique (#553)** : dans le même onglet, une carte SVG -- passerelle en
-haut, cœur, commutateurs d'accès, bornes (rattachées par LLDP, repliées en
-rangées), voisins inconnus ; liaisons étiquetées des ports, rouges quand un
-VLAN manque d'un côté, pointillées sans VLAN (agrégat ou inutilisées) ;
-nœuds colorés par état (sondeur #546) ; clic sur un nœud (VLAN par port,
-SSID, interfaces) ou une liaison (VLAN de chaque côté, manquants) ; filtre
-« mettre en évidence un VLAN ». Logique pure `hub/src/nebulaTopo.js`
-(graphe, niveaux, positions), rendu `hub/src/NebulaTopo.jsx` ; `vlan-map`
-renvoie aussi `devices`.
+**Synoptique en arbre (#555, remplace le graphe par niveaux de #553)** :
+la carte reprend la logique de la topologie Nebula -- un **arbre** :
+passerelle en racine, le cœur sous elle, les commutateurs d'accès et les
+bornes sous celui qui les relie, et **les clients sous chaque appareil**
+(pastille « n clients » dépliable). Les voisins LLDP sont désormais
+reconnus parmi **tous** les appareils de l'inventaire (bornes, passerelle :
+par nom insensible à la casse, par MAC à ±8 du dernier octet, nom contenu),
+plus seulement les commutateurs ; ces liaisons ne déclenchent pas de fausse
+anomalie « VLAN manquant » (une borne n'a pas de réglage de ports). Les
+clients viennent de `POST /v2/nebula/{site}/clients` (92 en réel) : le champ
+`connectedTo` porte le `devId` de l'appareil qui les sert (borne ou
+commutateur) ; `osHostname` est un objet `{os, hostname}` ; `description`
+répète la MAC quand rien n'est connu. Filaire/Wi-Fi = selon l'appareil qui
+sert le client (l'API ne publie pas le SSID par client). `sw-clients`
+renvoie vide sur 1 j, 7 j et 30 j en réel : les clients filaires passent par
+`/clients`. `GET /sites/<id>/topology?period=1d` (cache 2 min,
+`?refresh=1`) : nœuds avec `parent`, ports amont/aval, liaison (VLAN
+manquants, nue), `clients`, `loose_clients` (sans appareil identifié),
+`unmatched` (voisins LLDP inconnus), `counts`. `GET
+/sites/<id>/clients-raw` : champs réels (MAC/IP masquées). Logique pure
+`api/topology.py` (tests `tests/test_topology.py`) et `hub/src/nebulaTree.js`
+(arbre, parent centré sur ses enfants, clients au milieu des enfants ;
+tests `nebulaTree.test.mjs`), rendu `hub/src/NebulaTopo.jsx`.
+
+**Plan du site (#555)** : onglet **Plan du site** de la tuile Nebula. Une
+image de plan par site (`PUT /sites/<id>/plan`, multipart `file`, PNG/JPG/
+WebP/SVG ≤ 8 Mo, stockée dans le volume `/data/plans/`, **jamais dans le
+dépôt** ; `GET` la sert, `DELETE` la retire) ; les appareils se posent par
+clic (« Poser » puis clic sur le plan) ou se déplacent en les glissant ;
+les clients d'un appareil posé s'affichent en anneau autour de lui, colorés
+par état, et peuvent être posés à part (glisser, ou « Déplacer par clic »)
+puis remis en anneau. Positions en fractions de l'image (`PUT
+/sites/<id>/placements` fusionne, `null` retire ; table
+`nebula_placements`). État relu toutes les minutes. Logique pure
+`hub/src/nebulaPlan.js` (tests `nebulaPlan.test.mjs`), rendu
+`hub/src/NebulaPlan.jsx`.
 
 ## Architecture
 

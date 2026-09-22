@@ -29,6 +29,7 @@ import nebula_client as nebula
 import csv_import
 import health as health_lib
 import vlanmap  # `health` est aussi la route /health
+import topology as topology_lib
 
 try:
     from version_endpoint import register_version_route
@@ -169,6 +170,13 @@ CREATE TABLE IF NOT EXISTS nebula_status_transitions (
 CREATE INDEX IF NOT EXISTS idx_nebula_tr_site_at ON nebula_status_transitions(site_id, at);
 CREATE TABLE IF NOT EXISTS nebula_poll_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, sites INTEGER, devices INTEGER, transitions INTEGER, error TEXT
+);
+
+-- #555 : positions des appareils et clients sur le plan du site (fractions
+-- 0..1 de la largeur/hauteur de l'image ; clé = devId ou "client:<mac>").
+CREATE TABLE IF NOT EXISTS nebula_placements (
+    site_id TEXT NOT NULL, key TEXT NOT NULL, x REAL NOT NULL, y REAL NOT NULL, updated_at INTEGER NOT NULL,
+    PRIMARY KEY (site_id, key)
 );
 """
 
@@ -534,6 +542,171 @@ def site_online_status(site_id):
         return jsonify(client.get_online_status(site_id, device_type=device_type)), 200
     except nebula.NebulaError as exc:
         return jsonify({"error": str(exc)}), 502
+
+
+# ------------------------------------------------ topologie et plan (#555)
+_topo_cache = {}
+TOPO_CACHE_SECONDS = int(os.environ.get("NEBULA_TOPO_CACHE_SECONDS", "120") or 120)
+PLAN_DIR = os.environ.get("NEBULA_PLAN_DIR", os.path.join(os.path.dirname(DB_PATH), "plans"))
+PLAN_MAX_BYTES = 8 * 1024 * 1024
+
+
+def _statuses(site_id):
+    conn = get_connection()
+    try:
+        return {r["name"]: r["status"] for r in conn.execute("SELECT name, status FROM nebula_status_current WHERE site_id = ?", (site_id,))}
+    except sqlite3.Error:
+        return {}
+    finally:
+        conn.close()
+
+
+def collect_topology(client, site_id, period="1d"):
+    """Arbre du site : carte des VLAN (cache 10 min) + clients (période
+    `period`) + états courants. Chaque appel tolérant."""
+    now = int(time.time())
+    cached = _vlan_cache.get(site_id)
+    if cached and now - cached["at"] < VLAN_CACHE_SECONDS:
+        vmap = cached["map"]
+    else:
+        vmap = collect_vlan_map(client, site_id)
+        vmap["at"] = now
+        _vlan_cache[site_id] = {"at": now, "map": vmap}
+    devices = _inventory["devices"].get(site_id) or []
+    errors = list(vmap.get("errors") or [])
+    try:
+        clients = client.get_site_clients(site_id, period=period)
+    except nebula.NebulaError as exc:
+        clients, _ = [], errors.append("clients : %s" % str(exc)[:160])
+    tree = topology_lib.build_tree(devices, vmap.get("links") or [], clients, _statuses(site_id))
+    tree.update({"site_id": site_id, "site_name": vmap.get("site_name", site_id), "at": now, "errors": errors, "period": period,
+                 "vlans": [{"vid": v["vid"], "ssids": [x.get("name") for x in v["ssids"]], "subnet": v.get("subnet")} for v in vmap.get("vlans") or []]})
+    return tree
+
+
+@app.route("/sites/<site_id>/topology", methods=["GET"])
+def topology_route(site_id):
+    """Arbre passerelle → commutateurs → bornes → clients (façon Nebula).
+    `?refresh=1` recalcule ; `?period=` (2h, 1d, 7d) pour les clients."""
+    now = int(time.time())
+    period = request.args.get("period", "1d")
+    cached = _topo_cache.get((site_id, period))
+    if cached and now - cached["at"] < TOPO_CACHE_SECONDS and request.args.get("refresh") != "1":
+        return jsonify(cached["tree"]), 200
+    try:
+        tree = collect_topology(_connect(), site_id, period)
+    except nebula.NebulaError as exc:
+        return jsonify({"error": str(exc)}), 502
+    _topo_cache[(site_id, period)] = {"at": now, "tree": tree}
+    return jsonify(tree), 200
+
+
+@app.route("/sites/<site_id>/clients-raw", methods=["GET"])
+def clients_raw_route(site_id):
+    """Sonde : champs publiés par l'OpenAPI pour les clients (MAC et IP
+    masquées) -- pour ajuster le rattachement client → borne."""
+    try:
+        cl = _connect().get_site_clients(site_id, period=request.args.get("period", "1d"))
+    except nebula.NebulaError as exc:
+        return jsonify({"error": str(exc)}), 502
+    def mask(c):
+        return {k: ("…" if "mac" in k.lower() or "ip" in k.lower() or "bssid" in k.lower() else v) for k, v in c.items()} if isinstance(c, dict) else c
+    return jsonify({"count": len(cl), "fields": sorted({k for c in cl if isinstance(c, dict) for k in c}), "sample": [mask(c) for c in cl[:5]]}), 200
+
+
+def _safe_site(site_id):
+    return "".join(ch for ch in site_id if ch.isalnum() or ch in "-_")[:80] or "site"
+
+
+def _plan_path(site_id):
+    if not os.path.isdir(PLAN_DIR):
+        return None
+    for ext in ("png", "jpg", "jpeg", "webp", "svg"):
+        p = os.path.join(PLAN_DIR, "%s.%s" % (_safe_site(site_id), ext))
+        if os.path.exists(p):
+            return p
+    return None
+
+
+@app.route("/sites/<site_id>/plan", methods=["GET"])
+def plan_get(site_id):
+    """Image du plan du site (déposée par PUT). 404 si aucune."""
+    from flask import send_file
+    p = _plan_path(site_id)
+    if not p:
+        return jsonify({"error": "aucun plan déposé pour ce site"}), 404
+    return send_file(p, max_age=0)
+
+
+@app.route("/sites/<site_id>/plan", methods=["PUT", "POST"])
+def plan_put(site_id):
+    """Dépôt du plan (multipart `file`, PNG/JPG/WebP/SVG, 8 Mo max). Un seul
+    plan par site ; le précédent est remplacé. Jamais dans le dépôt git :
+    le plan est une donnée du site (volume /data)."""
+    if "file" not in request.files:
+        return jsonify({"error": "fichier manquant (champ `file`)"}), 400
+    f = request.files["file"]
+    name = (f.filename or "").lower()
+    ext = name.rsplit(".", 1)[-1] if "." in name else ""
+    if ext not in ("png", "jpg", "jpeg", "webp", "svg"):
+        return jsonify({"error": "format accepté : PNG, JPG, WebP, SVG"}), 400
+    data = f.read()
+    if len(data) > PLAN_MAX_BYTES:
+        return jsonify({"error": "plan trop lourd (8 Mo max)"}), 413
+    os.makedirs(PLAN_DIR, exist_ok=True)
+    old = _plan_path(site_id)
+    if old:
+        os.remove(old)
+    with open(os.path.join(PLAN_DIR, "%s.%s" % (_safe_site(site_id), ext)), "wb") as fh:
+        fh.write(data)
+    return jsonify({"ok": True, "bytes": len(data), "ext": ext}), 200
+
+
+@app.route("/sites/<site_id>/plan", methods=["DELETE"])
+def plan_delete(site_id):
+    p = _plan_path(site_id)
+    if p:
+        os.remove(p)
+    return jsonify({"ok": True, "removed": bool(p)}), 200
+
+
+@app.route("/sites/<site_id>/placements", methods=["GET"])
+def placements_get(site_id):
+    """Positions sur le plan : {clé: {x, y}} (fractions 0..1)."""
+    conn = get_connection()
+    try:
+        rows = conn.execute("SELECT key, x, y, updated_at FROM nebula_placements WHERE site_id = ?", (site_id,)).fetchall()
+    finally:
+        conn.close()
+    return jsonify({"site_id": site_id, "placements": {r["key"]: {"x": r["x"], "y": r["y"], "updated_at": r["updated_at"]} for r in rows}}), 200
+
+
+@app.route("/sites/<site_id>/placements", methods=["PUT"])
+def placements_put(site_id):
+    """Fusion : {"placements": {clé: {x, y} | null}} -- null retire du plan.
+    x et y bornés à [0, 1]."""
+    body = request.get_json(silent=True) or {}
+    pl = body.get("placements")
+    if not isinstance(pl, dict):
+        return jsonify({"error": "placements attendu (objet)"}), 400
+    now = int(time.time())
+    conn = get_connection()
+    try:
+        for key, val in pl.items():
+            key = str(key)[:200]
+            if val is None:
+                conn.execute("DELETE FROM nebula_placements WHERE site_id = ? AND key = ?", (site_id, key))
+                continue
+            try:
+                x, y = float(val.get("x")), float(val.get("y"))
+            except (TypeError, ValueError, AttributeError):
+                return jsonify({"error": "position invalide pour %s" % key}), 400
+            x, y = min(1.0, max(0.0, x)), min(1.0, max(0.0, y))
+            conn.execute("INSERT INTO nebula_placements (site_id, key, x, y, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(site_id, key) DO UPDATE SET x = excluded.x, y = excluded.y, updated_at = excluded.updated_at", (site_id, key, x, y, now))
+        conn.commit()
+    finally:
+        conn.close()
+    return placements_get(site_id)
 
 
 @app.route("/sites/<site_id>/clients", methods=["GET"])
