@@ -1,3 +1,15 @@
+## 2026-09-22 — Vox-cortex : cadrage de l'IA au centre du hub (livraison #539, item 83, doc seulement)
+
+Nouvel item 83 au BACKLOG : portée (résolution de tickets techniques,
+supervision autonome réseau/services, optimisation, assistance
+documentaire, minutes et rapports de réunion, correction des données SIG),
+principes (l'IA propose, le hub journalise, une personne confirme ;
+autonomie action par action ; réversible ; aucun secret par le modèle),
+six étapes mesurées, socle existant (assistant #536, Cortex, agents,
+coffre, modules équipements). Le chantier personnel Néopays est mis de
+côté ; ses conclusions (paliers, SMA sur machines recyclées) restent
+valables ici.
+
 ## 2026-09-22 — Hub : menu invariant « Univers du hub » (livraison #538, item 82)
 
 Demandé : « un menu invariant qui donne accès à tous les outils, tuiles,

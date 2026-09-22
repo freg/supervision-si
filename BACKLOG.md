@@ -3042,3 +3042,61 @@ ordre alphabétique ou d'ajout, avec filtre. Suites : ordre d'ajout exact
 pour les tuiles antérieures à #105 (le journal ne remonte pas plus loin) ;
 raccourci clavier pour ouvrir le filtre ; mêmes entrées dans la vue
 « toutes les tuiles ».
+
+## Vox-cortex — l'IA au centre du hub (2026-09-22) — item 83
+
+Demandé (dicté) : « la portée de l'IA dans le hub va être centrale : c'est
+la tuile IA / Vox-cortex qui va prendre en charge la résolution des tickets
+techniques et supervisera de façon autonome les problématiques
+réseau/services et l'optimisation de l'ensemble ; l'IA fera aussi de
+l'assistance documentaire, de la rédaction, de la génération de minutes de
+réunion, de rapports de réunion, elle corrigera les données SIG ». Objectifs
+affirmés : portée et capacité en complexité, pas le temps de réponse.
+Architecture visée : système multi-agents (SMA) réparti, à terme sur des
+machines recyclées.
+
+Ce qui existe déjà et sert de socle : `assistant/` (RAG lexical, questions
+5/5, classification 10/10, résumés 4,5/5 sur `qwen3:8b`, #536), Cortex
+(incidents corrélés, rôles, lieux, politiques d'alerte), agents hôtes et
+sondes (constats → événements), tickets du hub, GED versionnée, coffre
+d'accès d'équipements, modules MikroTik / Cisco (`show` seulement) /
+Proxmox, service-watch, Infos synthèse SI.
+
+Principes non négociables : l'IA PROPOSE, le hub JOURNALISE, une personne
+CONFIRME toute action qui modifie quelque chose (ticket clos, configuration
+poussée, donnée SIG corrigée) tant que la politique d'autonomie de l'action
+n'a pas été passée en « auto » explicitement, action par action, après un
+historique de propositions justes ; chaque action autonome est réversible
+(diff, restauration) et rejouable ; aucun secret ne transite par le modèle
+(le coffre exécute, l'IA demande) ; rien ne sort du SI.
+
+Étapes proposées, chacune mesurée par un jeu de cas :
+
+1. **Tuile « Vox-cortex »** (remplace la tuile assistant) : conversation
+   avec sources, outils déclarés (lecture : tickets, Cortex, agents,
+   sondes, GED, SIG ; écriture : proposée puis confirmée), journal de
+   chaque outil appelé. Boucle agentique simple (plan → outils → réponse)
+   en Python explicite, sans cadre tiers.
+2. **Résolution de tickets techniques** : pour chaque ticket, diagnostic
+   (corrélation Cortex + constats des sondes + historique de tickets
+   similaires), proposition de réponse et d'actions ; cas d'évaluation =
+   tickets passés anonymisés avec leur vraie résolution.
+3. **Supervision autonome réseau/services** : Vox-cortex abonné aux
+   événements (Cortex, service-watch, agents) ; à chaque incident, enquête
+   automatique (outils de lecture), hypothèse, action proposée ; passage
+   en « auto » par politique (ex. relance d'un service, acquittement) ;
+   optimisation = recommandations périodiques (charge, doublons, dérives)
+   avec justification chiffrée.
+4. **Documentaire et rédaction** : minutes et rapports de réunion depuis
+   une transcription ou des notes (modèle de l'entreprise hors dépôt, gabarit
+   fictif dans le dépôt), rédaction assistée, dépôt en GED versionnée.
+5. **Données SIG** : détection et correction proposée d'incohérences
+   (géométries, attributs, doublons, référentiels) sur le géocatalogue,
+   avec diff avant application.
+6. **SMA réparti** : orchestrateur + agents spécialistes (un rôle, un
+   modèle, une machine), tableau noir partagé, juge ; rejouer les cas des
+   étapes 2 à 5 en réparti et comparer au modèle seul.
+
+Matériel : le châssis 2U avec RTX 2000 Ada 16 Go (proposition client) ou
+une machine recyclée par agent ; sans GPU, tout fonctionne sur CPU, plus
+lentement -- accepté par l'objectif.
