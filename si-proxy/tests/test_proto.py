@@ -79,6 +79,19 @@ class TestRedact(unittest.TestCase):
         self.assertEqual(proto.redact({"cmd": "open", "token": "secret", "session": 3}), {"cmd": "open", "token": "***", "session": 3})
 
 
+class Publication(unittest.TestCase):
+    """#583 : publications de port du relais."""
+
+    def test_ok(self):
+        self.assertEqual(proto.parse_publication("6488=campus:192.0.2.10:8006"), {"port": 6488, "via": "campus", "target": "192.0.2.10:8006"})
+        self.assertEqual(proto.parse_publication(" 6489=Hub:[::1]:443 ")["via"], "hub")
+
+    def test_refus(self):
+        for bad in ("", "x", "6488=campus:sans-port", "0=hub:192.0.2.10:5", "70000=hub:192.0.2.10:5", "6488=Bad Name:192.0.2.10:5", "6488=192.0.2.10:5"):
+            with self.assertRaises(ValueError, msg=bad):
+                proto.parse_publication(bad)
+
+
 if __name__ == "__main__":
     unittest.main()
 

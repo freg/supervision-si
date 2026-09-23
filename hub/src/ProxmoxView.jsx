@@ -254,7 +254,7 @@ function NodeCard({ node, selected, onSelect, history, apiBase, onChanged }) {
           {n.mem_total ? <> · RAM {fmtBytes(n.mem_used)}/{fmtBytes(n.mem_total)}</> : null}
           {" · "}{running}/{vms.length} VM en marche · relevé {when(node.at)}
           {node.site && <> · site {node.site}</>}
-          {WEB_URLS[node.agent_id] && <> · <a href={WEB_URLS[node.agent_id]} target="_blank" rel="noopener noreferrer" title="interface web Proxmox par le relais du hub (tunnel SSH via l'agent)">interface web ↗</a></>}
+          {WEB_URLS[node.agent_id] && <> · <a href={WEB_URLS[node.agent_id]} target="_blank" rel="noopener noreferrer" title="interface web Proxmox par le hub (port publié par le bastion, #583, ou relais tls-proxy)">interface web ↗</a></>}
         </span>
       </h3>
       {!node.ok && <p><Tone tone="critical">mesure en erreur : {node.error || "?"}</Tone></p>}

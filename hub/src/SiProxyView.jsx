@@ -82,6 +82,14 @@ export default function SiProxyView({ onBack, siProxyApiBase, accessToken, usern
             <>
               {" · "}relais : <Tone tone="good">joignable</Tone>
               {" · "}shim{(status.hosts || []).length > 1 ? "s" : ""} host : {status.host_connected ? <Tone tone="good">{(status.hosts || ["hub"]).join(", ")}</Tone> : <Tone tone="bad">aucun</Tone>}
+              {(status.publications || []).length > 0 && (
+                <>{" · "}publications : {status.publications.map((p, i) => (
+                  <span key={p.port} title={`port ${p.port} du hub → ${p.target} par le shim « ${p.via} »${p.up ? "" : " (shim non connecté)"}`}>
+                    {i > 0 ? ", " : ""}<Tone tone={p.up ? "good" : "bad"}>{p.port} → {p.target} via {p.via}</Tone>
+                    {p.up && <> <a href={`https://${window.location.hostname}:${p.port}/`} target="_blank" rel="noopener noreferrer">ouvrir ↗</a></>}
+                  </span>
+                ))}</>
+              )}
               {" · "}TLS mutuel : {status.mtls ? <Tone tone="good">oui (CN {status.allow_cn?.join(", ")})</Tone> : <Tone tone="warn">non (jeton seul)</Tone>}
               {" · "}compteurs : {status.counters?.opened ?? 0} ouvertes, {status.counters?.closed ?? 0} fermées, {status.counters?.refused ?? 0} refus
             </>

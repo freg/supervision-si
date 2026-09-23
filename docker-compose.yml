@@ -1245,9 +1245,18 @@ services:
       - SI_PROXY_BAN_THRESHOLD=${SI_PROXY_BAN_THRESHOLD:-5}
       - SI_PROXY_BAN_WINDOW=${SI_PROXY_BAN_WINDOW:-300}
       - SI_PROXY_BAN_MINUTES=${SI_PROXY_BAN_MINUTES:-15}
+      # #583 : publications de port -- « PORT=SHIM:HOTE:PORT » (virgules) ; le
+      # relais écoute PORT (TCP brut) et renvoie vers HOTE:PORT par le shim
+      # nommé (ex. 6488=campus:192.0.2.10:8006 -> interface web d'un Proxmox
+      # distant, joint par le shim « campus » et son tunnel SSH). Deux ports
+      # sont publiés (6488, 6489) ; IP autorisées : SI_PROXY_PUBLISH_ALLOW.
+      - SI_PROXY_PUBLISH=${SI_PROXY_PUBLISH:-}
+      - SI_PROXY_PUBLISH_ALLOW=${SI_PROXY_PUBLISH_ALLOW:-}
     ports:
       - "${SI_PROXY_PORT:-6450}:6450"
       - "127.0.0.1:${SI_PROXY_CONTROL_PORT:-6452}:6452"
+      - "${SI_PROXY_PUBLISH_1_PORT:-6488}:6488"
+      - "${SI_PROXY_PUBLISH_2_PORT:-6489}:6489"
 
   cortex-api:
     # Livraison #462 -- « Cortex » : décloisonne, corrèle, relie, consolide.

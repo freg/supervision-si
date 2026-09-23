@@ -316,3 +316,30 @@ Non vérifié : le déploiement réel sur la VM « super » (systemd, certs de l
 PKI du hub, accès depuis l'extérieur), le TLS mutuel bout-à-bout, et le pont
 contre le vrai Keycloak (JWKS réel) — premier essai à faire côté hub. Le shell sous freg (drop setuid) n'est exercé ici que
 sous l'utilisateur courant de l'environnement de test.
+
+
+## Publications de port (#583)
+
+Sans client `siproxy` sur le poste : le relais écoute un port du hub et
+renvoie chaque connexion TCP vers une cible **par un shim host nommé**
+(#575). Cas d'usage : l'interface web d'un Proxmox sur un site distant,
+joint par le shim du site et son tunnel SSH (`si-proxy-jump`) — rien ne
+transite en direct.
+
+```
+# .env du hub
+SI_PROXY_PUBLISH=6488=campus:192.0.2.10:8006        # PORT=SHIM:HOTE:PORT, virgules
+SI_PROXY_PUBLISH_ALLOW=192.0.2.0/24                  # IP/CIDR admis (vide = toutes)
+VITE_PROXMOX_WEB_URLS=pve-campus=https://hub.exemple:6488   # lien « interface web » de la tuile Proxmox
+cd <dépôt> && ./scripts/run.sh up -d --build si-proxy si-proxy-admin-api hub
+```
+
+Ports publiés : 6488 et 6489 (`SI_PROXY_PUBLISH_n_PORT` pour l'extérieur).
+TCP brut : le TLS de la cible traverse tel quel (le navigateur voit le
+certificat du Proxmox). Pas de HELLO ni de jeton sur ces ports — c'est la
+cible qui authentifie — d'où la liste d'IP, le garde-fou anti-force-brute
+(IP bannies rejetées) et le journal d'audit (client `publication:<port>`,
+cible `hôte:port@shim`). Une publication dont le shim est absent ferme la
+connexion sans réponse. État : `/status` → `publications[{port, via,
+target, up}]`, `publish_allow` ; tuile Bastion : « publications : 6488 →
+… via campus [ouvrir ↗] ». Test : `tests/e2e_local.py`, test 9.

@@ -1,3 +1,36 @@
+## 2026-09-23 — Bastion : publication de port par un shim host, accès web au Proxmox d'un site distant depuis le hub (livraison #583)
+
+Demandé : « sur le hub je trouve où l'accès au pve du campus ? ». Jusqu'ici
+l'accès passait par le client `siproxy` sur le poste (proxy local +
+navigateur réglé dessus). Le relais publie maintenant un port du hub
+renvoyé vers une cible par un shim host nommé (#575), donc par le tunnel
+SSH du site : rien en direct, plus de client ni de réglage de proxy.
+
+- `si-proxy/siproxy/proto.py` : `parse_publication("PORT=SHIM:HOTE:PORT")`.
+- `si-proxy/siproxy/relay.py` : `--publish` (env `SI_PROXY_PUBLISH`,
+  virgules) et `--publish-allow` (IP/CIDR, env `SI_PROXY_PUBLISH_ALLOW`) ;
+  écouteurs TCP bruts (le TLS de la cible traverse), `handle_published`,
+  ouverture de session factorisée (`_open_session`, mode `raw` : ni HELLO
+  ni jeton, la cible authentifie), garde-fou et audit (client
+  `publication:<port>`, cible `hôte:port@shim`), shim absent → fermeture ;
+  `/status` → `publications[{port, via, target, up}]`, `publish_allow`.
+- `docker-compose.yml` / `.env.example` : `SI_PROXY_PUBLISH`,
+  `SI_PROXY_PUBLISH_ALLOW`, ports 6488/6489 publiés
+  (`SI_PROXY_PUBLISH_n_PORT`). `si-proxy/admin/summary.py` : `hosts`,
+  `publications` transmis. `hub/src/SiProxyView.jsx` : « publications :
+  6488 → hôte:port via campus [ouvrir ↗] » ; tuile Proxmox : lien
+  « interface web » via `VITE_PROXMOX_WEB_URLS=<agent>=https://<hub>:6488`.
+- Docs : `si-proxy/README.md` (section « Publications de port »),
+  `tls-proxy/README.md` (préférer ceci aux RELAYn pour un site distant).
+- Tests : `tests/test_proto.py` (`Publication`), `tests/e2e_local.py` test 9
+  (port publié via « campus » sans client ni jeton → page de la cible ;
+  shim absent → fermé ; liste d'IP ; état de contrôle) — tout vert (bac à
+  sable), unitaires OK sur le Mac.
+
+Non vérifié : sur super (`.env` : `SI_PROXY_PUBLISH=6488=campus:<pve>:8006`,
+`SI_PROXY_PUBLISH_ALLOW=<LAN admin>/24`, `VITE_PROXMOX_WEB_URLS`, puis
+`./scripts/run.sh up -d --build si-proxy si-proxy-admin-api hub`).
+
 ## 2026-09-23 — Bastion : CA propre avec extensions (OpenSSL ≥ 3), certificats serveur/client typés (livraison #582)
 
 Constat réel (shim du campus) : « CA cert does not include key usage

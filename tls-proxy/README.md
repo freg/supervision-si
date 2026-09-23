@@ -383,7 +383,7 @@ le VLAN du poste de l'agent, pas depuis le LAN du hub ni depuis les postes.
 Chaîne : tuile **Tunnels SSH** → tunnel « hyperviseur du site » : hôte SSH
 = poste de l'agent (clé), distant = `<ip du Proxmox>:8006`, port local
 `18006` (le tunnel n'ouvre son port que sur le réseau Docker) ; `.env` :
-`RELAY1_TARGET=ssh-tunnels-api:18006`, `RELAY1_LABEL=…` ; relance de
+`RELAY1_TARGET=ssh-tunnels-api:18006` (pour un site distant, préférer la publication de port du bastion, `SI_PROXY_PUBLISH`, #583 : la cible est jointe par le shim du site, rien en direct), `RELAY1_LABEL=…` ; relance de
 tls-proxy → `https://<hub>:6486` sert l'interface Proxmox à la racine
 (websockets relayés : consoles noVNC), avec le certificat du hub. Lien
 « interface web ↗ » sur la tuile Proxmox via `VITE_PROXMOX_WEB_URLS=

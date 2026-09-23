@@ -20,6 +20,8 @@ interface de contrôle HTTP (control.py, port séparé, jeton d'admin).
 """
 import argparse
 import asyncio
+import functools
+import ipaddress
 import itertools
 import logging
 import os
@@ -31,7 +33,7 @@ _log = logging.getLogger("siproxy.relay")
 
 class Relay(object):
     def __init__(self, host_token, client_token, allow_cn=None, require_cn=False, pair_timeout=20.0,
-                 audit=None, guard=None):
+                 audit=None, guard=None, publications=None, publish_allow=None):
         self.host_token = host_token
         self.client_token = client_token
         self.allow_cn = list(allow_cn or [])
@@ -40,6 +42,11 @@ class Relay(object):
         self.audit = audit or audit_mod.Audit()
         self.guard = guard or guard_mod.Guard()
         self.enabled = True
+        # #583 : publications de port -- [{port, via, target}] ; le relais écoute
+        # `port` en TCP brut et pousse chaque connexion vers `target` par le shim
+        # `via` (ex. l'interface web d'un Proxmox distant, sans client siproxy).
+        self.publications = list(publications or [])
+        self.publish_allow = [ipaddress.ip_network(n, strict=False) for n in (publish_allow or [])]
         self._hosts = {}                   # #575 : nom du shim -> (reader, writer) de son canal de contrôle ("hub" = VM du hub)
         self._waiting = {}                 # sid -> Future -> (host_reader, host_writer, finished)
         self._active = {}                  # sid -> {client_writer, host_writer, finished} (pour kill)
@@ -61,7 +68,41 @@ class Relay(object):
     def status(self):
         return {"enabled": self.enabled, "host_connected": bool(self._hosts), "hosts": sorted(self._hosts),
                 "sessions": self.audit.active(), "counters": self.audit.counters(),
-                "banned": self.guard.banned(), "mtls": self.require_cn, "allow_cn": self.allow_cn}
+                "banned": self.guard.banned(), "mtls": self.require_cn, "allow_cn": self.allow_cn,
+                "publications": [dict(p, up=p["via"] in self._hosts) for p in self.publications],
+                "publish_allow": [str(n) for n in self.publish_allow]}
+
+    # -- publications de port (#583) ----------------------------------------
+    def publish_allowed(self, peer_ip):
+        """Vrai si l'IP peut utiliser une publication (liste vide = toutes)."""
+        if not self.publish_allow:
+            return True
+        try:
+            ip = ipaddress.ip_address(peer_ip)
+        except ValueError:
+            return False
+        return any(ip in n for n in self.publish_allow)
+
+    async def handle_published(self, pub, reader, writer):
+        """Connexion TCP brute reçue sur un port publié : pas de HELLO ni de
+        jeton (c'est la cible qui authentifie -- TLS/mot de passe du Proxmox),
+        d'où la liste d'IP `--publish-allow` et le garde-fou habituel."""
+        peer = writer.get_extra_info("peername")
+        peer_ip = peer[0] if peer else None
+        try:
+            if self.guard.is_banned(peer_ip) or not self.publish_allowed(peer_ip):
+                _log.warning("publication %d : connexion rejetée de %s (IP %s)", pub["port"], peer_ip,
+                             "bannie" if self.guard.is_banned(peer_ip) else "hors liste")
+                self.audit.refused("publication:%d" % pub["port"], "IP non autorisée sur le port publié",
+                                   kind=proto.CONNECT, target=pub["target"], peer=peer_ip)
+                return
+            hello = {"kind": proto.CONNECT, "target": pub["target"], "via": pub["via"]}
+            await self._open_session(hello, reader, writer, peer_ip, client="publication:%d" % pub["port"], raw=True)
+        finally:
+            try:
+                writer.close()
+            except OSError:
+                pass
 
     def kill_session(self, sid):
         try:
@@ -154,18 +195,34 @@ class Relay(object):
                 _log.info("canal de contrôle du shim « %s » fermé", name)
 
     async def _client_data(self, hello, reader, writer, peer_ip=None):
+        await self._open_session(hello, reader, writer, peer_ip, client=audit_mod.client_label(aio.peer_cn(writer)))
+
+    async def _refuse(self, writer, why, raw):
+        if raw:  # port publié : pas de protocole si-proxy côté navigateur, on ferme simplement
+            try:
+                writer.close()
+            except OSError:
+                pass
+        else:
+            await self._bye(writer, why)
+
+    async def _open_session(self, hello, reader, writer, peer_ip, client, raw=False):
+        """Ouvre une session vers hello[target] par le shim hello[via] et pompe
+        les octets. raw=True (#583, port publié) : ni réponse {"ok"} ni {"error"}
+        au client, qui parle directement le protocole de la cible."""
         if not self.enabled:
-            self.audit.refused(audit_mod.client_label(aio.peer_cn(writer)), "bastion désactivé",
-                               kind=hello.get("kind"), target=hello.get("target"), peer=peer_ip)
-            await self._bye(writer, "bastion désactivé")
+            self.audit.refused(client, "bastion désactivé", kind=hello.get("kind"), target=hello.get("target"), peer=peer_ip)
+            await self._refuse(writer, "bastion désactivé", raw)
             return
         via = proto.shim_name(hello, key="via")  # #575 : quel shim doit ouvrir la session (défaut « hub »)
         host = self._hosts.get(via)
         if host is None:
-            await self._bye(writer, "aucun shim host « %s » connecté (connectés : %s)" % (via, ", ".join(sorted(self._hosts)) or "aucun"))
+            why = "aucun shim host « %s » connecté (connectés : %s)" % (via, ", ".join(sorted(self._hosts)) or "aucun")
+            if raw:
+                self.audit.refused(client, why, kind=hello.get("kind"), target=hello.get("target"), peer=peer_ip)
+            await self._refuse(writer, why, raw)
             return
         sid = next(self._ids)
-        client = audit_mod.client_label(aio.peer_cn(writer))
         loop = asyncio.get_event_loop()
         fut = loop.create_future()
         self._waiting[sid] = fut
@@ -176,16 +233,17 @@ class Relay(object):
             await host[1].drain()
         except OSError:
             self._waiting.pop(sid, None)
-            await self._bye(writer, "shim host injoignable")
+            await self._refuse(writer, "shim host injoignable", raw)
             return
         try:
             host_reader, host_writer, finished = await asyncio.wait_for(fut, self.pair_timeout)
         except asyncio.TimeoutError:
             self._waiting.pop(sid, None)
-            await self._bye(writer, "le shim host n'a pas ouvert la session à temps")
+            await self._refuse(writer, "le shim host n'a pas ouvert la session à temps", raw)
             return
-        writer.write(proto.encode_line({"ok": True, "session": sid}))
-        await writer.drain()
+        if not raw:
+            writer.write(proto.encode_line({"ok": True, "session": sid}))
+            await writer.drain()
         self.audit.start(sid, client, hello.get("kind"), ("%s@%s" % (hello.get("target"), via)) if via != "hub" and hello.get("target") else hello.get("target"), peer=peer_ip)
         self._active[sid] = {"client_writer": writer, "host_writer": host_writer, "finished": finished}
         up = down = 0
@@ -233,8 +291,24 @@ async def _amain():
     ap.add_argument("--ban-threshold", type=int, default=int(os.environ.get("SI_PROXY_BAN_THRESHOLD", "5")))
     ap.add_argument("--ban-window", type=int, default=int(os.environ.get("SI_PROXY_BAN_WINDOW", "300")))
     ap.add_argument("--ban-minutes", type=int, default=int(os.environ.get("SI_PROXY_BAN_MINUTES", "15")))
+    ap.add_argument("--publish", action="append", default=None,
+                    help="#583 : PORT=SHIM:HOTE:PORT (répétable ; env SI_PROXY_PUBLISH, séparés par des virgules)")
+    ap.add_argument("--publish-allow", action="append", default=None,
+                    help="IP/CIDR autorisés sur les ports publiés (répétable ; env SI_PROXY_PUBLISH_ALLOW ; vide = toutes)")
     ap.add_argument("--log-level", default="INFO")
     args = ap.parse_args()
+    pub_specs = list(args.publish or []) + [s for s in (os.environ.get("SI_PROXY_PUBLISH") or "").split(",") if s.strip()]
+    try:
+        publications = [proto.parse_publication(s) for s in pub_specs]
+    except ValueError as exc:
+        raise SystemExit("--publish : %s" % exc)
+    if len({p["port"] for p in publications}) != len(publications):
+        raise SystemExit("--publish : deux publications sur le même port")
+    publish_allow = list(args.publish_allow or []) + [s.strip() for s in (os.environ.get("SI_PROXY_PUBLISH_ALLOW") or "").split(",") if s.strip()]
+    try:
+        [ipaddress.ip_network(n, strict=False) for n in publish_allow]
+    except ValueError as exc:
+        raise SystemExit("--publish-allow : %s" % exc)
     logging.basicConfig(level=args.log_level, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     if not args.host_token or not args.client_token:
         raise SystemExit("jetons requis : --host-token et --client-token (ou SI_PROXY_HOST_TOKEN / SI_PROXY_CLIENT_TOKEN)")
@@ -242,7 +316,8 @@ async def _amain():
     audit = audit_mod.Audit(path=args.audit_log)
     guard = guard_mod.Guard(threshold=args.ban_threshold, window_s=args.ban_window, ban_s=args.ban_minutes * 60)
     relay = Relay(args.host_token, args.client_token, allow_cn=args.allow_cn or ["freg"],
-                  require_cn=args.require_client_cert, audit=audit, guard=guard)
+                  require_cn=args.require_client_cert, audit=audit, guard=guard,
+                  publications=publications, publish_allow=publish_allow)
     server = await asyncio.start_server(relay.handle, args.bind, args.port, ssl=ctx)
     _log.info("relais si-proxy à l'écoute sur %s:%d (TLS mutuel=%s, audit=%s)",
               args.bind, args.port, args.require_client_cert, args.audit_log or "off")
@@ -252,6 +327,10 @@ async def _amain():
         servers.append(await control_mod.serve(relay, args.admin_token, args.bind, args.control_port, cctx))
     elif args.control_port:
         _log.warning("interface de contrôle non démarrée : --admin-token manquant")
+    for pub in publications:  # #583 : ports publiés, TCP brut (le TLS de la cible traverse tel quel)
+        servers.append(await asyncio.start_server(functools.partial(relay.handle_published, pub), args.bind, pub["port"]))
+        _log.info("publication : port %d -> %s via le shim « %s » (IP autorisées : %s)", pub["port"], pub["target"], pub["via"],
+                  ", ".join(publish_allow) or "toutes")
     async with server:
         await asyncio.gather(*[s.serve_forever() for s in servers])
 

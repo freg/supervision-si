@@ -3237,3 +3237,15 @@ par la page publiée de l'agent et les exports (masquage) ; (3) extraction
 depuis un PDF / une capture (OCR local) ; (4) dédoublonnage assisté
 (rapprocher « Ordi fixe sans nom, Allée immersive » et « LED-01 ») ; (5)
 journal des extractions relisibles dans la tuile Assistant.
+
+## Bastion : publications de port par shim host (2026-09-23, #583) — item 89
+
+Livré : `SI_PROXY_PUBLISH=PORT=SHIM:HOTE:PORT` (relais → cible par le shim
+du site, TCP brut, liste d'IP, audit), lien « interface web » de la tuile
+Proxmox. Suites : (1) publications déclarées depuis la tuile Bastion
+(ajout/retrait sans redémarrer le relais, persistées dans /data) ; (2)
+authentification du hub devant un port publié (jeton Keycloak vérifié par
+l'admin-api, cookie de session) plutôt que la seule liste d'IP ; (3) une
+publication par hôte Proxmox connu de la tuile (lien automatique) ; (4)
+exposition (Bastion → Entrées) : marquer les ports 6488/6489 comme « via
+bastion » avec le shim et la cible.
