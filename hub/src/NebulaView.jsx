@@ -41,7 +41,7 @@ const FETCH_FN = { sites: fetchImportedSites, devices: fetchImportedDevices, cli
 
 const TILE_TITLE = import.meta.env.VITE_NEBULA_TILE_TITLE || "Nebula@Campus";  // #566 : « Nebula@<site> », réglé dans .env
 
-export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, siAgentApiBase = "", agentSite = "", groups = [], login = "" }) {
+export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, siAgentApiBase = "", agentSite = "", assistantUrl = "", groups = [], login = "" }) {
   const [tab, setTab] = useState("health");
   const [pane, setPane] = useState("nebula");  // #566 : volets « Nebula » / « Campus »
   const [focus, setFocus] = useState(null);      // #566 : fiche à montrer dans le synoptique
@@ -182,7 +182,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, siAgent
 
       {pane === "campus" ? (
         <div className="hub-card hub-settings-section">
-          <CampusView nebulaApiBase={nebulaApiBase} siAgentApiBase={siAgentApiBase} agentSite={agentSite} siteId={siteId} login={login}
+          <CampusView nebulaApiBase={nebulaApiBase} siAgentApiBase={siAgentApiBase} agentSite={agentSite} assistantUrl={assistantUrl} siteId={siteId} login={login}
             onShowInTopology={(f) => { setFocus(f); setPane("nebula"); setTab("vlan"); }}
             onShowHealth={() => { setPane("nebula"); setTab("health"); }} />
         </div>

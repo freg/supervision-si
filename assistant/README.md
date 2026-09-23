@@ -167,3 +167,15 @@ Infrastructure (VM, postes détournés, GPU low profile pour châssis 2U,
 passthrough) : `docs/assistant-ia-infrastructure.md`.
 
 Tests : `cd assistant && python3 -m unittest discover -s tests`.
+
+## Extraction de fiches (livraison #571) — `POST /assistant/extract`
+
+`{"text": "...", "schema": "asset" | "service", "fields": [...] (facultatif),
+"context": "..."}` → `parsed = {"fiches": [...], "sensible": [champs],
+"remarques": [...]}`. Sert au volet Campus de la tuile Nebula (« Extraire
+d'un texte (IA interne) ») : on colle un « À propos » Windows, un courriel
+de livraison, une liste ; le modèle local (Ollama sur le SI, rien ne sort)
+renvoie des fiches structurées, signale les champs sensibles (IP, MAC,
+séries, identifiants, comptes ; mots de passe masqués) et les anomalies
+(IP incohérente, doublon) ; la personne relit, corrige, importe en fusion.
+Journalisé (`extract`) comme les autres usages.

@@ -3223,3 +3223,17 @@ matériels avec les clients Nebula (MAC, sinon nom) → état, IP, borne, VLAN,
    « réveiller maintenant » / « redémarrer cette nuit » depuis la fiche.
 4. Prérequis à demander à l'éditeur : nom du processus, ports et protocoles
    réseau, périphériques attendus, préférence arrêt+réveil vs redémarrage.
+
+## Import et classement par l'IA interne (2026-09-23, #571) — item 88
+
+Demandé : « sera-t-il possible de passer par une IA interne pour ce type
+d'import et de classement des infos sensibles ? ». Livré (#571) : extraction
+de fiches depuis un texte collé (assistant-api `/extract`, modèle local),
+champs sensibles signalés, relecture puis import en fusion dans les fiches
+du campus. Suites : (1) classement automatique des colonnes d'un tableur
+inconnu (le modèle propose la correspondance en-têtes → champs, à valider) ;
+(2) étiquette de sensibilité par champ stockée avec la fiche et respectée
+par la page publiée de l'agent et les exports (masquage) ; (3) extraction
+depuis un PDF / une capture (OCR local) ; (4) dédoublonnage assisté
+(rapprocher « Ordi fixe sans nom, Allée immersive » et « LED-01 ») ; (5)
+journal des extractions relisibles dans la tuile Assistant.

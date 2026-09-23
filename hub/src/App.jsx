@@ -1608,6 +1608,7 @@ vm === "agent-page" ? (
           glpiApiBase={GLPI_API_BASE_URL}
           siAgentApiBase={SI_AGENT_API_BASE_URL}
           agentSite={import.meta.env.VITE_NEBULA_AGENT_SITE || ""}
+          assistantUrl={ASSISTANT_URL}
           groups={groups}
           login={profile.preferred_username}
         />

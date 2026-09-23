@@ -1,3 +1,25 @@
+## 2026-09-23 — Fiches du campus : IP, import en fusion, extraction par l'IA interne (livraison #571)
+
+Demandé : intégrer les cinq postes de contrôle de l'allée immersive
+(fichier fourni à part, hors dépôt) ; « passer par une IA interne pour ce
+type d'import et de classement des infos sensibles ».
+
+- `nebula/api/campus.py` : champ `Adresse IP` reconnu, rapprochement
+  Nebula par IP en plus de MAC / nom (test) ; `hub/src/campusCards.js` :
+  rapprochement des hôtes windows-probe par IP, `recordsToCsv`.
+- `CampusView.jsx` : choix « remplacer tout / fusionner (compléter) » à
+  l'import.
+- IA interne : `assistant/rag.py` `build_extract_messages` (schémas asset /
+  service, champs sensibles, remarques), `assistant/app.py` `POST
+  /extract` (journalisé) ; `hub/src/CampusExtract.jsx` : coller un texte →
+  fiches relisibles et modifiables, champs sensibles signalés → import en
+  fusion. BACKLOG item 88 pour les suites (classement de colonnes,
+  étiquette de sensibilité, OCR, dédoublonnage).
+
+Vérifié : tests (249 hub, 20 nebula, assistant au vert). Non vérifié :
+extraction réelle sur le modèle local (qualité selon le modèle : qwen3:8b
+suffit pour ce format tabulaire), import des cinq postes.
+
 ## 2026-09-23 — Règle « activer X » = lien vers l'endroit du hub ; fiches non identifiées non écrasées (livraison #570)
 
 Demandé : « d'une manière générale quand le hub indique "activer" quelque

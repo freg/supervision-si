@@ -2,11 +2,11 @@
 // par lab, filtre « début de mot d'abord », résumé.
 import { rankFilter } from "./textFilter.js";
 
-export const ASSET_LABELS = { kind: "Type", designation: "Désignation", model: "Modèle", serial: "N° de série", mac: "MAC", account: "Compte", klass: "Classe", subclass: "Sous-classe", location: "Localisation", storage: "Stockage", profile: "Profil", commissioned: "Mise en service", comment: "Commentaire" };
+export const ASSET_LABELS = { kind: "Type", designation: "Désignation", model: "Modèle", serial: "N° de série", mac: "MAC", ip: "IP", account: "Compte", klass: "Classe", subclass: "Sous-classe", location: "Localisation", storage: "Stockage", profile: "Profil", commissioned: "Mise en service", comment: "Commentaire" };
 export const SERVICE_LABELS = { course: "Parcours", name: "Atelier", apk: "Livraison APK", hardware: "Matériel", site: "Site / plateforme" };
 
 export function cardText(item) {
-  return [item.name, item.kind, item.course, item.designation, item.model, item.serial, item.mac, item.lab, item.location, item.hardware, item.site, ...Object.values(item.fields || {})].filter(Boolean).join(" ");
+  return [item.name, item.kind, item.course, item.designation, item.model, item.serial, item.mac, item.ip, item.lab, item.location, item.hardware, item.site, ...Object.values(item.fields || {})].filter(Boolean).join(" ");
 }
 
 /** Groupes [{lab, items}] filtrés, labs triés, « (sans lab) » en dernier. */
@@ -35,15 +35,16 @@ export function assetSummary(items) {
 // ---------------------------------------------------------------- #567
 /** Rapproche les hôtes de la sonde windows-probe des fiches matériel (MAC, sinon nom NetBIOS = nom de fiche). */
 export function matchWindowsHosts(hosts, assets) {
-  const byMac = new Map(), byName = new Map();
+  const byMac = new Map(), byName = new Map(), byIp = new Map();
   for (const a of assets || []) {
     for (const m of a.macs || []) byMac.set(m.toLowerCase(), a);
     if (a.name) byName.set(a.name.trim().toLowerCase().replace(/\s+/g, "-"), a);
+    if (a.ip) byIp.set(String(a.ip).trim(), a);
   }
   return (hosts || []).map((h) => {
     const mac = (h.mac || "").toLowerCase().replace(/-/g, ":");
     const nm = (h.name || "").trim().toLowerCase();
-    const asset = (mac && byMac.get(mac)) || (nm && (byName.get(nm) || byName.get(nm.replace(/-/g, " ")))) || null;
+    const asset = (mac && byMac.get(mac)) || (h.ip && byIp.get(h.ip)) || (nm && (byName.get(nm) || byName.get(nm.replace(/-/g, " ")))) || null;
     return { ...h, asset };
   });
 }
@@ -60,4 +61,10 @@ export function accessLinks(h) {
   if (p.winrm || p.winrm_tls) out.push({ kind: "winrm", label: "WinRM", copy: `Enter-PSSession -ComputerName ${h.ip}` });
   if (p.https || p.http) out.push({ kind: "web", label: "Web", href: `${p.https ? "https" : "http"}://${h.ip}/` });
   return out;
+}
+
+/** Fiches -> CSV (BOM, point-virgule) pour l'import du hub (#571). */
+export function recordsToCsv(records, columns) {
+  const esc = (v) => { v = v == null ? "" : String(v); return /[";\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; };
+  return "\ufeff" + [columns.map(esc).join(";"), ...records.map((r) => columns.map((c) => esc(r[c])).join(";"))].join("\r\n");
 }

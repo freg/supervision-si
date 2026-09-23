@@ -172,3 +172,11 @@ class Api(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Extract(unittest.TestCase):
+    def test_build_extract_messages(self):
+        m = rag.build_extract_messages("LED-01\nIP : 192.0.2.10\nNom de l'appareil\tLED-01", "asset", context="postes d'une allée")
+        self.assertEqual(m[0]["role"], "system"); self.assertIn("fiches", m[1]["content"]); self.assertIn("Adresse IP", m[1]["content"]); self.assertIn("allée", m[1]["content"])
+        self.assertIn("Nom de l’atelier", rag.build_extract_messages("x", "service")[1]["content"])
+        self.assertIn("Ref", rag.build_extract_messages("x", "asset", fields=["Ref", "Nom"])[1]["content"])

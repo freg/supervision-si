@@ -385,6 +385,23 @@ def classify_route():
     return jsonify(classify(b["text"], b.get("types"), b.get("sites"))), 200
 
 
+def extract(text, schema="asset", fields=None, context="", log=True):
+    """#571 : fiches structurées depuis un texte libre, sur le modèle interne (rien ne sort du SI)."""
+    out = llm_chat(rag.build_extract_messages(text, schema, fields, context), temperature=0.0, json_mode=True, max_tokens=4000)
+    out["parsed"] = rag.extract_json(out.get("text"))
+    if log:
+        journal("extract", {"schema": schema, "chars": len(text or ""), "ms": out.get("ms"), "count": len((out["parsed"] or {}).get("fiches") or []) if isinstance(out["parsed"], dict) else 0, "error": out.get("error")})
+    return out
+
+
+@app.route(PREFIX + "/extract", methods=["POST"])
+def extract_route():
+    b = request.get_json(silent=True) or {}
+    if not (b.get("text") or "").strip():
+        return _bad("texte vide")
+    return jsonify(extract(b["text"], b.get("schema") or "asset", b.get("fields"), b.get("context") or "")), 200
+
+
 @app.route(PREFIX + "/summarize", methods=["POST"])
 def summarize_route():
     b = request.get_json(silent=True) or {}

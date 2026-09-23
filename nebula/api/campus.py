@@ -21,7 +21,7 @@ import zipfile
 from xml.etree import ElementTree as ET
 
 ASSET_KEYS = {"name": ("nom", "name"), "kind": ("type",), "designation": ("désignation", "designation"), "model": ("modèle", "modele", "model"),
-              "serial": ("numero de série", "numéro de série", "serial", "n° de série"), "mac": ("adresse mac", "mac"), "account": ("compte", "account"),
+              "serial": ("numero de série", "numéro de série", "serial", "n° de série"), "mac": ("adresse mac", "mac"), "ip": ("adresse ip", "ip"), "account": ("compte", "account"),
               "lab": ("lab",), "klass": ("classe",), "subclass": ("sous-classe",), "location": ("localisation",), "storage": ("stockage",),
               "profile": ("profil",), "commissioned": ("date de mise en service",), "comment": ("commentaire", "comment")}
 SERVICE_KEYS = {"course": ("parcours",), "lab": ("lab",), "name": ("nom de l’atelier", "nom de l'atelier", "atelier", "nom"), "apk": ("date de livraison de l’apk", "date de livraison de l'apk", "apk"),
@@ -145,6 +145,7 @@ def match_assets(assets, clients):
     nom) : ajoute `nebula` = {name, ip, status, connected_to, vlan, last_seen}."""
     by_mac = {}
     by_name = {}
+    by_ip = {}
     for c in clients or []:
         m = (c.get("mac") or "").lower().replace("-", ":")
         if m:
@@ -152,12 +153,16 @@ def match_assets(assets, clients):
         n = (c.get("name") or "").strip().lower()
         if n:
             by_name[n] = c
+        if c.get("ip"):
+            by_ip[str(c["ip"]).strip()] = c
     for a in assets:
         hit = None
         for m in a.get("macs") or []:
             if m in by_mac:
                 hit = by_mac[m]
                 break
+        if not hit and a.get("ip"):
+            hit = by_ip.get(str(a["ip"]).strip())
         if not hit and a.get("name"):
             hit = by_name.get(a["name"].strip().lower())
         a["nebula"] = {k: hit.get(k) for k in ("name", "ip", "status", "connected_to", "parent_name", "vlan", "last_seen", "wired")} if hit else None

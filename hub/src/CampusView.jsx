@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { groupByLab, labs, assetSummary, ASSET_LABELS, SERVICE_LABELS, accessLinks } from "./campusCards.js";
 import WindowsHostsView from "./WindowsHostsView.jsx";
 import BroadcastView from "./BroadcastView.jsx";
+import CampusExtract from "./CampusExtract.jsx";
 
 const STATUS = { online: ["● en ligne", "var(--ok)"], offline: ["● hors ligne", "var(--danger)"] };
 
@@ -16,7 +17,7 @@ async function getJson(url, opts) {
   return j;
 }
 
-export default function CampusView({ nebulaApiBase, siAgentApiBase = "", agentSite = "", siteId, login = "", onShowInTopology, onShowHealth }) {
+export default function CampusView({ nebulaApiBase, siAgentApiBase = "", agentSite = "", assistantUrl = "", siteId, login = "", onShowInTopology, onShowHealth }) {
   const [tab, setTab] = useState("assets");
   const [data, setData] = useState({ assets: null, services: null });
   const [query, setQuery] = useState("");
@@ -45,17 +46,21 @@ export default function CampusView({ nebulaApiBase, siAgentApiBase = "", agentSi
   };
   useEffect(() => { load(tab); setLab(""); setOpen(null); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab, siteId, nebulaApiBase]);
 
-  async function importFile(e) {
-    const f = e.target.files?.[0]; e.target.value = "";
-    if (!f) return;
-    const fd = new FormData(); fd.append("file", f); fd.append("mode", "replace"); fd.append("user", login);
+  const [mode, setMode] = useState("replace");  // #571 : remplacer tout, ou fusionner (mise à jour par clé, le reste conservé)
+  const [extracting, setExtracting] = useState(false);  // #571 : extraction par l'IA interne
+  async function importBlob(f, name, m) {
+    const fd = new FormData(); fd.append("file", f, name); fd.append("mode", m); fd.append("user", login);
     setBusy(true); setError(null); setNotice(null);
     try {
       const r = await getJson(`${nebulaApiBase}/campus/${tab}/import`, { method: "PUT", body: fd });
-      setNotice(`${r.count} fiche${r.count > 1 ? "s" : ""} importée${r.count > 1 ? "s" : ""} depuis ${f.name} (colonnes : ${(r.columns || []).join(", ")}).`);
+      setNotice(`${r.count} fiche${r.count > 1 ? "s" : ""} ${m === "merge" ? "fusionnée" : "importée"}${r.count > 1 ? "s" : ""} depuis ${name} (colonnes : ${(r.columns || []).join(", ")}).`);
       await load(tab);
     } catch (err) { setError(err.message); }
     setBusy(false);
+  }
+  async function importFile(e) {
+    const f = e.target.files?.[0]; e.target.value = "";
+    if (f) importBlob(f, f.name, mode);
   }
 
   const cur = data[tab];
@@ -83,11 +88,16 @@ export default function CampusView({ nebulaApiBase, siAgentApiBase = "", agentSi
         {summary && <span className="muted">{summary.total} matériels · {summary.matched} vus par Nebula ({summary.online} en ligne) · {summary.byKind.slice(0, 5).map(([k, n]) => `${k} ${n}`).join(" · ")}</span>}
         <span style={{ flex: 1 }} />
         <span className="muted">dernier import : {when(cur?.imported_at)}</span>
+        <select value={mode} onChange={(e) => setMode(e.target.value)} title="remplacer : la collection est vidée avant l'import ; fusionner : les fiches du fichier mettent à jour ou complètent, les autres restent">
+          <option value="replace">remplacer tout</option><option value="merge">fusionner (compléter)</option>
+        </select>
+        <button type="button" className="secondary" onClick={() => setExtracting((v) => !v)} title="coller un texte, l'IA interne en fait des fiches à relire">✨ Extraire d'un texte (IA interne)</button>
         <label className="secondary" style={{ cursor: "pointer", padding: "4px 10px", border: "1px solid var(--border)", borderRadius: 6 }}>
           📤 Importer {tab === "assets" ? "l'inventaire" : "les expériences"} (xlsx / ods / csv)
           <input type="file" accept=".xlsx,.ods,.csv" onChange={importFile} disabled={busy} style={{ display: "none" }} />
         </label>
       </div>
+      {extracting && <CampusExtract assistantUrl={assistantUrl} collection={tab} onClose={() => setExtracting(false)} onImport={(blob, name) => { importBlob(blob, name, "merge"); setExtracting(false); }} />}
       {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
       {notice && <p style={{ color: "var(--ok)" }}>{notice}</p>}
       {cur && !items.length && <p className="muted">Aucune fiche : importer le tableur (première ligne = en-têtes{tab === "assets" ? " Nom, Type, Désignation, Modèle, Numero de série, Adresse MAC, Compte, Lab, Classe, Localisation…" : " Parcours, Lab, Nom de l’atelier, Matériel, Wifi, Lan, Internet, Site…"}). Le fichier reste sur le serveur du hub, jamais dans le code.</p>}

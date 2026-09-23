@@ -196,6 +196,27 @@ def build_summary_messages(ticket_text, max_chars=5000):
     return [{"role": "system", "content": SYSTEM_JSON}, {"role": "user", "content": user}]
 
 
+EXTRACT_SCHEMAS = {
+    "asset": ["Nom", "Type", "Désignation", "Modèle", "Numero de série", "Adresse MAC", "Adresse IP", "Compte", "Lab", "Localisation", "Date de mise en service",
+              "Processeur", "Mémoire", "Carte graphique", "Disque", "Système", "Passerelle DHCP", "Rôle", "Commentaire"],
+    "service": ["Parcours", "Lab", "Nom de l’atelier", "Matériel", "Wifi", "Lan", "Internet", "Site", "Commentaire"],
+}
+SENSITIVE_HINT = ("Champs sensibles à signaler dans `sensible` (liste de noms de champs) : adresses IP et MAC, numéros de série, "
+                  "identifiants Windows (ID de périphérique, ID de produit), comptes, mots de passe (à NE PAS recopier : mettre \"[masqué]\").")
+
+
+def build_extract_messages(text, schema="asset", fields=None, context="", max_chars=12000):
+    """#571 : extraction de fiches structurées depuis un texte libre (collage
+    d'un « À propos » Windows, courriel, PV de livraison…)."""
+    cols = fields or EXTRACT_SCHEMAS.get(schema) or EXTRACT_SCHEMAS["asset"]
+    user = ("Texte source :\n\"\"\"\n%s\n\"\"\"\n\n%s"
+            "Extrais TOUTES les fiches (un objet par équipement ou atelier) dans un JSON de la forme "
+            "{\"fiches\": [ {%s} ], \"sensible\": [noms de champs], \"remarques\": [anomalies relevées : IP incohérente, doublon, valeur manquante]}. "
+            "Champs : %s. Valeur \"\" si absente, jamais inventée ; dates en AAAA-MM-JJ ; conserve les noms tels quels. %s"
+            % ((text or "")[:max_chars], ("Contexte : %s\n\n" % context) if context else "", ", ".join('"%s": ""' % c for c in cols[:6]) + ", ...", ", ".join(cols), SENSITIVE_HINT))
+    return [{"role": "system", "content": SYSTEM_JSON}, {"role": "user", "content": user}]
+
+
 def extract_json(text):
     """Premier objet JSON d'une réponse (le modèle peut bavarder ou entourer de ```)."""
     if not text:

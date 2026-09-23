@@ -15,6 +15,10 @@ class Campus(unittest.TestCase):
         self.assertEqual(recs[1]["kind"], "Ordi fixe"); self.assertEqual(recs[1]["lab"], "Allée")
         m = campus.match_assets(recs, [{"mac": "AA:BB:CC:DD:EE:02", "ip": "192.0.2.5", "status": "online", "connected_to": "AP-1"}])
         self.assertEqual(m[0]["nebula"]["ip"], "192.0.2.5"); self.assertIsNone(m[1]["nebula"])
+        # rapprochement par IP (#571)
+        r2 = campus.parse_records([["Nom", "Type", "Adresse IP"], ["LED-9", "Ordi fixe", "192.0.2.50"]], "assets")
+        self.assertEqual(r2[0]["ip"], "192.0.2.50")
+        self.assertEqual(campus.match_assets(r2, [{"ip": "192.0.2.50", "status": "online"}])[0]["nebula"]["status"], "online")
 
     def test_services_inherit(self):
         rows = [["Parcours", "Lab", "Nom de l’atelier", "Matériel", "Wifi", "Lan", "Internet", "Site", "Idruide"],
