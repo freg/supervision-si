@@ -1074,7 +1074,7 @@ function UpdatesTab({ base }) {
     setSettings({ beta_agents: [...beta] });
   };
   const STATUS = { "up-to-date": ["à jour", "good"], newer: ["plus récent que le central", "neutral"], unknown: ["version inconnue", "neutral"], pending: ["commande envoyée", "warn"],
-    started: ["installation lancée", "warn"], failed: ["échec (réessai plus tard)", "bad"], eligible: ["à planifier", "warn"], "not-eligible": ["en attente d'activation", "neutral"], "no-package": ["archive absente", "bad"] };
+    started: ["installation lancée", "warn"], stalled: ["installeur lancé, sans effet — voir Événements (agent-update-failed) et le journal update-*.log de l'agent", "bad"], failed: ["échec (réessai plus tard)", "bad"], eligible: ["à planifier", "warn"], "not-eligible": ["en attente d'activation", "neutral"], "no-package": ["archive absente", "bad"] };
   const agents = data.agents || [];
   const counts = data.counts || {};
   return (

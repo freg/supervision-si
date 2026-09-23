@@ -793,8 +793,16 @@ class Agent(object):
         self.refresh_config(force=True)
         self.flush(force=True)
         last_local_block = self.local_block_file()
+        _stall_next = 0.0
         while True:
             try:
+                # #576 : mise à jour lancée mais jamais aboutie (installeur en échec avant de relancer l'agent)
+                if self.clock() >= _stall_next:
+                    _stall_next = self.clock() + 60
+                    from . import updater as _upd
+                    st = _upd.check_stalled(_upd.pending_path(self.cfg.get("state_path")), __import__("si_agent").__version__, now=self.clock())
+                    if st:
+                        self.event(st[0], st[1], st[2], st[3])
                 lb = self.local_block_file()
                 if lb != last_local_block:
                     last_local_block = lb

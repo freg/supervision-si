@@ -32,10 +32,12 @@ class Updates(unittest.TestCase):
         self.assertEqual(st({"agent_id": "beta1", "agent_version": "0.5.2"}), "eligible")
         pend = {"status": "pending", "params": {"version": "0.5.3"}, "created_at": iso(60)}
         self.assertEqual(st({"agent_id": "beta1", "agent_version": "0.5.2"}, pend), "pending")
-        started = {"status": "acked", "params": {"version": "0.5.3"}, "acked_at": iso(120), "result": {"ok": True, "result": {"started": True}}}
+        started = {"status": "done", "params": {"version": "0.5.3"}, "acked_at": iso(120), "result": {"ok": True, "result": {"started": True}}}
         self.assertEqual(st({"agent_id": "beta1", "agent_version": "0.5.2"}, started), "started")
-        failed = {"status": "acked", "params": {"version": "0.5.3"}, "acked_at": iso(120), "result": {"ok": False, "error": "sha"}}
+        failed = {"status": "failed", "params": {"version": "0.5.3"}, "acked_at": iso(120), "result": {"ok": False, "error": "sha"}}
+        stalled = {"status": "done", "params": {"version": "0.5.3"}, "acked_at": iso(1200), "result": {"ok": True, "result": {"started": True}}}
         self.assertEqual(st({"agent_id": "beta1", "agent_version": "0.5.2"}, failed), "failed")
+        self.assertEqual(st({"agent_id": "beta1", "agent_version": "0.5.2"}, stalled), "stalled")  # #576
         old_fail = dict(failed, acked_at=iso(7 * 3600))
         self.assertEqual(st({"agent_id": "beta1", "agent_version": "0.5.2"}, old_fail), "eligible", "réessai après le délai")
         other = {"status": "acked", "params": {"version": "0.5.1"}, "acked_at": iso(60), "result": {"ok": True, "result": {"started": True}}}

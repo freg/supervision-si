@@ -64,13 +64,20 @@ def agent_status(agent, package_version, settings, last_update_cmd, now=None):
     same = (c.get("params") or {}).get("version") == package_version
     if same and c.get("status") == "pending":
         return "pending"
-    if same and c.get("status") == "acked":
+    # #576 : le central note une commande acquittée « done » (ok) ou « failed » (le
+    # test utilisait « acked ») -- avec « acked » seul, une mise à jour lancée
+    # retombait aussitôt en « à planifier » et était renvoyée à chaque passage,
+    # sans jamais dire que l'installeur n'avait rien donné.
+    if same and c.get("status") in ("acked", "done", "failed"):
         r = c.get("result") or {}
+        age = _age(c.get("acked_at"), now)
         if r.get("ok") and (r.get("result") or {}).get("started"):
-            if _age(c.get("acked_at"), now) < settings.get("retry_after_s", 21600):
+            if age < settings.get("stalled_after_s", 900):
                 return "started"
+            if age < settings.get("retry_after_s", 21600):
+                return "stalled"  # installeur lancé, agent toujours en ancienne version
         elif not r.get("ok"):
-            if _age(c.get("acked_at"), now) < settings.get("retry_after_s", 21600):
+            if age < settings.get("retry_after_s", 21600):
                 return "failed"
     return "eligible" if eligible(agent.get("agent_id"), settings) else "not-eligible"
 

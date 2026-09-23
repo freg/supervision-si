@@ -962,3 +962,23 @@ hub ; événement `command-vm` à chaque action. L'agent doit tourner en root
 sur l'hôte (comme la sonde proxmox) ; agent bloqué = action refusée. Pas
 besoin de l'interface web Proxmox ni du port 8006 : tout passe par le
 canal agent → central.
+
+## Mise à jour restée sans effet (livraison #576, agent 0.5.14)
+
+Symptôme : commande `update` « done · acquittée », l'agent reste en
+ancienne version, rien dans les événements. Deux causes corrigées :
+(1) le central testait le statut `acked` alors qu'il note `done` /
+`failed` — une mise à jour lancée retombait en « à planifier » et était
+renvoyée à chaque passage sans jamais signaler l'échec ; l'état
+**« installeur lancé, sans effet »** apparaît désormais après 15 min ;
+(2) l'installeur tournait détaché sans journal : sa sortie va maintenant
+dans `update-<horodatage>.log` à côté de `state.json` de l'agent
+(`/var/lib/si-agent/` ; Windows : dossier de données de l'agent) ; si
+l'agent tourne toujours 15 min après le lancement, il émet
+`agent-update-failed` avec la fin de ce journal ; un lancement impossible
+(binaire, droits) est refusé tout de suite dans le résultat de la commande.
+Pour passer les agents encore en 0.5.x sur cette version, une fois à la
+main : Linux `sudo /opt/si-agent/... install.sh --upgrade` depuis l'archive
+servie (`/api/si-agent/package`), Windows `install.ps1 -Upgrade` en
+administrateur ; ensuite le journal dira pourquoi les précédentes
+échouaient.

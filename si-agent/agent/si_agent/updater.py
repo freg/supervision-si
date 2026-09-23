@@ -71,9 +71,44 @@ def pending_path(state_path):
     return os.path.join(os.path.dirname(state_path or "/var/lib/si-agent/state.json"), "update-pending.json")
 
 
-def write_pending(path, from_version, to_version, command_id, now=None):
+def write_pending(path, from_version, to_version, command_id, now=None, log_path=None):
     with open(path, "w", encoding="utf-8") as fh:
-        json.dump({"from": from_version, "to": to_version, "command": command_id, "at": int(now or time.time())}, fh)
+        json.dump({"from": from_version, "to": to_version, "command": command_id, "at": int(now or time.time()), "log": log_path}, fh)
+
+
+def log_tail(path, lines=30):
+    """#576 : dernières lignes du journal de l'installeur (diagnostic d'une mise à jour qui n'a rien donné)."""
+    if not path:
+        return ""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            return "".join(fh.readlines()[-lines:])[-4000:]
+    except OSError:
+        return ""
+
+
+STALL_SECONDS = 900
+
+
+def check_stalled(path, current_version, now=None):
+    """#576 : l'installeur a été lancé mais l'agent tourne toujours, même
+    version, après STALL_SECONDS -> événement agent-update-failed avec la fin
+    du journal de l'installeur ; le marqueur est consommé. None sinon."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            p = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    if (now or time.time()) - int(p.get("at") or 0) < STALL_SECONDS or p.get("to") == current_version:
+        return None
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+    tail = log_tail(p.get("log"))
+    return ("agent-update-failed", "warning", "mise à jour %s → %s : l'installeur n'a pas relancé l'agent (toujours en %s)%s"
+            % (p.get("from"), p.get("to"), current_version, (" -- " + tail.strip().splitlines()[-1][:200]) if tail.strip() else " -- journal vide"),
+            dict(p, log_tail=tail))
 
 
 def check_pending(path, current_version, now=None):
@@ -89,7 +124,7 @@ def check_pending(path, current_version, now=None):
         pass
     if p.get("to") == current_version:
         return ("agent-updated", "info", "agent mis à jour %s → %s" % (p.get("from"), current_version), p)
-    return ("agent-update-failed", "warning", "mise à jour %s → %s non appliquée (version courante %s)" % (p.get("from"), p.get("to"), current_version), p)
+    return ("agent-update-failed", "warning", "mise à jour %s → %s non appliquée (version courante %s)" % (p.get("from"), p.get("to"), current_version), dict(p, log_tail=log_tail(p.get("log"))))
 
 
 def run_update(agent, params, fetch, spawn=None, current_version=None):
@@ -121,13 +156,26 @@ def run_update(agent, params, fetch, spawn=None, current_version=None):
         shutil.rmtree(dest, ignore_errors=True)
         return {"ok": False, "error": "archive illisible : %s" % exc}
     cmd, mode = installer_command(root)
-    write_pending(pending_path(agent.cfg.get("state_path")), current_version, target, params.get("command_id"))
-    (spawn or _spawn)(cmd, mode)
-    return {"ok": True, "result": {"started": True, "from": current_version, "to": target, "installer": mode}}
+    pend = pending_path(agent.cfg.get("state_path"))
+    log_path = os.path.join(os.path.dirname(pend), "update-%d.log" % int(time.time()))  # #576 : sortie de l'installeur conservée
+    write_pending(pend, current_version, target, params.get("command_id"), log_path=log_path)
+    try:
+        (spawn or _spawn)(cmd, mode, log_path)
+    except Exception as exc:  # noqa: BLE001 -- lancement impossible (droits, binaire) : dit tout de suite
+        try:
+            os.unlink(pend)
+        except OSError:
+            pass
+        return {"ok": False, "error": "lancement de l'installeur impossible : %s" % exc}
+    return {"ok": True, "result": {"started": True, "from": current_version, "to": target, "installer": mode, "log": log_path}}
 
 
-def _spawn(cmd, mode):
-    kw = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL, "close_fds": True}
+def _spawn(cmd, mode, log_path=None):
+    try:
+        out = open(log_path, "ab") if log_path else subprocess.DEVNULL
+    except OSError:
+        out = subprocess.DEVNULL
+    kw = {"stdin": subprocess.DEVNULL, "stdout": out, "stderr": subprocess.STDOUT if out is not subprocess.DEVNULL else subprocess.DEVNULL, "close_fds": True}
     if mode == "detached" and sys.platform == "win32":
         kw["creationflags"] = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
     elif mode == "setsid":

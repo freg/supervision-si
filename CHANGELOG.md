@@ -1,3 +1,22 @@
+## 2026-09-23 — Mises à jour d'agents restées sans effet : statut corrigé, journal de l'installeur, échec signalé (livraison #576)
+
+Demandé : « l'agent i9freg (mon poste) (les autres non plus sauf le mac)
+ne se met pas à jour ».
+
+- `si-agent/api/updates.py` : le statut de commande testé était `acked`
+  alors que le central note `done` / `failed` → la mise à jour lancée
+  retombait en « à planifier » (renvoyée à chaque passage) sans jamais
+  signaler l'échec ; nouvel état `stalled` (installeur lancé, agent
+  toujours en ancienne version après 15 min) affiché dans le hub.
+- Agent 0.5.14 (`updater.py`, `agent.py`, tests) : sortie de l'installeur
+  dans `update-<ts>.log` à côté de `state.json`, marqueur avec le chemin du
+  journal, `check_stalled` toutes les 60 s → événement
+  `agent-update-failed` avec la fin du journal ; lancement impossible refusé
+  immédiatement.
+
+Vérifié : tests (updates, api, agent). Non vérifié : cause réelle sur les
+postes (le journal la dira après un passage manuel en 0.5.14).
+
 ## 2026-09-23 — Bastion multi-shims : un site client joint par le poste de son agent, tout par l'entrée du SI (livraison #575)
 
 Demandé : « rien ne doit transiter directement et tout doit passer par
