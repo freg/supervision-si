@@ -1,3 +1,22 @@
+## 2026-09-23 — Plan RDC vectoriel depuis le PDF du DCE ; aucun plan de client dans le dépôt (livraison #569)
+
+Demandé : « si je trouve les dxf pourras-tu les utiliser ? » — reçu le PDF
+vectoriel du DCE (lot CFO, RDC bas, 1/100).
+
+- `nebula/tools/plan_from_pdf.py` (pymupdf) : garde l'architecture (traits
+  gris/noirs, noms de salles en vrai texte, orientation de page respectée),
+  écarte symboles de lots (couleurs), cotes et cartouche, retire les mots
+  interdits. Le SVG du campus (3,3 Mo, 59 000 tracés, 119 textes) est
+  livré à part, à déposer dans Nebula → Plan du site.
+- `nebula/plans/default.svg` (plan photographié vectorisé, #561) retiré du
+  dépôt : un plan de bâtiment identifie le client — même règle que les IP
+  et les noms. Le mécanisme « plan livré avec l'image » reste pour une
+  installation privée. Le fichier retiré reste dans l'historique git jusqu'à
+  la prochaine purge (BACKLOG item 2).
+
+Vérifié : rendu du SVG hors ligne (murs, mobilier, escaliers, textes
+droits). Non vérifié : dépôt sur super.
+
 ## 2026-09-23 — Sonde « annonces réseau » (broadcast/multicast passif) et onglet Annonces réseau (livraison #568)
 
 Demandé : « il me faudra aussi une vue (sonde et/ou nebula ou à imaginer)

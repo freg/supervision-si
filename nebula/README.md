@@ -120,6 +120,30 @@ demandée par défaut (`NEBULA_MAC_TABLE=1` pour réessayer : l'API Zyxel
 refuse ses propres réponses). Les voisins LLDP hors inventaire (postes,
 téléphones) sont listés en repli, ce n'est pas une erreur.
 
+**Plans du site (#560/#561/#569)** : le fond de placement se dépose dans
+l'onglet Plan du site (PNG/JPG/SVG, volume `/data`) — **jamais dans le
+dépôt** (un plan de bâtiment identifie le client). `nebula/plans/` reste le
+mécanisme de plan livré avec l'image (`<site_id>.svg` ou `default.svg`) pour
+une installation privée qui le souhaite ; le dépôt public n'en contient
+aucun. Outils : `nebula/tools/plan_from_pdf.py` (PDF vectoriel d'architecte
+ou de DCE → SVG : architecture seule, textes réels, symboles de lots et
+cartouche écartés, mots interdits retirés — le meilleur fond) ;
+`nebula/tools/plan_vectorize.py` (photo redressée → SVG par couches de
+couleur, quand il n'y a qu'une photo). Pastilles de santé et accès aux
+équipements par clic : onglet Plan du site.
+
+**Lisibilité du synoptique (#558)** : étiquettes entières (largeur de
+boîte calculée sur le texte, bornée) ; deux dispositions, inspirées des
+exemples d3 « tree » : **arbre horizontal** (défaut : profondeur en colonnes,
+une ligne par équipement, lisible quel que soit le nombre de bornes) et
+**arbre vertical étagé** (les éléments d'une rangée sont répartis sur 1 à 4
+étages, chacun prenant le premier étage où il ne chevauche pas son voisin ;
+une pastille de clients occupe un slot d'appareil pour ne pas resserrer la
+rangée). Choix mémorisé dans le navigateur. La table MAC n'est plus
+demandée par défaut (`NEBULA_MAC_TABLE=1` pour réessayer : l'API Zyxel
+refuse ses propres réponses). Les voisins LLDP hors inventaire (postes,
+téléphones) sont listés en repli, ce n'est pas une erreur.
+
 **Plan vectorisé livré (#560/#561)** : `nebula/plans/default.svg` (copié dans
 l'image nebula-api) est le fond de placement **par défaut** quand aucun plan
 n'a été déposé pour le site — un plan déposé (volume `/data/plans`) prime,
