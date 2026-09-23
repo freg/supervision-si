@@ -40,7 +40,7 @@ class Relay(object):
         self.audit = audit or audit_mod.Audit()
         self.guard = guard or guard_mod.Guard()
         self.enabled = True
-        self._host_control = None          # (reader, writer) du canal de contrôle host
+        self._hosts = {}                   # #575 : nom du shim -> (reader, writer) de son canal de contrôle ("hub" = VM du hub)
         self._waiting = {}                 # sid -> Future -> (host_reader, host_writer, finished)
         self._active = {}                  # sid -> {client_writer, host_writer, finished} (pour kill)
         self._ids = itertools.count(1)
@@ -59,7 +59,7 @@ class Relay(object):
 
     # -- état pour l'interface de contrôle --------------------------------
     def status(self):
-        return {"enabled": self.enabled, "host_connected": self._host_control is not None,
+        return {"enabled": self.enabled, "host_connected": bool(self._hosts), "hosts": sorted(self._hosts),
                 "sessions": self.audit.active(), "counters": self.audit.counters(),
                 "banned": self.guard.banned(), "mtls": self.require_cn, "allow_cn": self.allow_cn}
 
@@ -108,7 +108,7 @@ class Relay(object):
         self.guard.record_success(peer_ip)
         try:
             if role == "host" and typ == proto.CONTROL:
-                await self._host_control_loop(reader, writer)
+                await self._host_control_loop(reader, writer, name=proto.shim_name(hello))
             elif role == "host" and typ == proto.DATA:
                 await self._host_data(hello, reader, writer)
             elif role == "client" and typ == proto.DATA:
@@ -129,18 +129,17 @@ class Relay(object):
         except OSError:
             pass
 
-    async def _host_control_loop(self, reader, writer):
-        if self._host_control is not None:
-            old = self._host_control[1]
-            self._host_control = None
+    async def _host_control_loop(self, reader, writer, name="hub"):
+        old = self._hosts.pop(name, None)
+        if old is not None:
             try:
-                old.close()
+                old[1].close()
             except OSError:
                 pass
-            _log.info("nouveau canal de contrôle host : l'ancien est remplacé")
-        self._host_control = (reader, writer)
-        _log.info("shim host enregistré")
-        writer.write(proto.encode_line({"ok": True, "role": "host"}))
+            _log.info("nouveau canal de contrôle du shim « %s » : l'ancien est remplacé", name)
+        self._hosts[name] = (reader, writer)
+        _log.info("shim host « %s » enregistré (connectés : %s)", name, ", ".join(sorted(self._hosts)))
+        writer.write(proto.encode_line({"ok": True, "role": "host", "name": name}))
         await writer.drain()
         try:
             while True:
@@ -150,9 +149,9 @@ class Relay(object):
         except (asyncio.IncompleteReadError, ConnectionError, OSError):
             pass
         finally:
-            if self._host_control and self._host_control[1] is writer:
-                self._host_control = None
-                _log.info("canal de contrôle host fermé")
+            if self._hosts.get(name) and self._hosts[name][1] is writer:
+                self._hosts.pop(name, None)
+                _log.info("canal de contrôle du shim « %s » fermé", name)
 
     async def _client_data(self, hello, reader, writer, peer_ip=None):
         if not self.enabled:
@@ -160,8 +159,10 @@ class Relay(object):
                                kind=hello.get("kind"), target=hello.get("target"), peer=peer_ip)
             await self._bye(writer, "bastion désactivé")
             return
-        if self._host_control is None:
-            await self._bye(writer, "aucun shim host connecté")
+        via = proto.shim_name(hello, key="via")  # #575 : quel shim doit ouvrir la session (défaut « hub »)
+        host = self._hosts.get(via)
+        if host is None:
+            await self._bye(writer, "aucun shim host « %s » connecté (connectés : %s)" % (via, ", ".join(sorted(self._hosts)) or "aucun"))
             return
         sid = next(self._ids)
         client = audit_mod.client_label(aio.peer_cn(writer))
@@ -169,10 +170,10 @@ class Relay(object):
         fut = loop.create_future()
         self._waiting[sid] = fut
         order = {"cmd": "open", "session": sid, "kind": hello.get("kind"), "target": hello.get("target")}
-        _log.info("session %d : %s %s (client %s, %s)", sid, hello.get("kind"), hello.get("target") or "", client, peer_ip)
+        _log.info("session %d : %s %s via « %s » (client %s, %s)", sid, hello.get("kind"), hello.get("target") or "", via, client, peer_ip)
         try:
-            self._host_control[1].write(proto.encode_line(order))
-            await self._host_control[1].drain()
+            host[1].write(proto.encode_line(order))
+            await host[1].drain()
         except OSError:
             self._waiting.pop(sid, None)
             await self._bye(writer, "shim host injoignable")
@@ -185,7 +186,7 @@ class Relay(object):
             return
         writer.write(proto.encode_line({"ok": True, "session": sid}))
         await writer.drain()
-        self.audit.start(sid, client, hello.get("kind"), hello.get("target"), peer=peer_ip)
+        self.audit.start(sid, client, hello.get("kind"), ("%s@%s" % (hello.get("target"), via)) if via != "hub" and hello.get("target") else hello.get("target"), peer=peer_ip)
         self._active[sid] = {"client_writer": writer, "host_writer": host_writer, "finished": finished}
         up = down = 0
         outcome, error = "closed", None

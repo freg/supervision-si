@@ -81,7 +81,7 @@ export default function SiProxyView({ onBack, siProxyApiBase, accessToken, usern
           {status && !status.error && (
             <>
               {" · "}relais : <Tone tone="good">joignable</Tone>
-              {" · "}shim host : {status.host_connected ? <Tone tone="good">connecté</Tone> : <Tone tone="bad">absent</Tone>}
+              {" · "}shim{(status.hosts || []).length > 1 ? "s" : ""} host : {status.host_connected ? <Tone tone="good">{(status.hosts || ["hub"]).join(", ")}</Tone> : <Tone tone="bad">aucun</Tone>}
               {" · "}TLS mutuel : {status.mtls ? <Tone tone="good">oui (CN {status.allow_cn?.join(", ")})</Tone> : <Tone tone="warn">non (jeton seul)</Tone>}
               {" · "}compteurs : {status.counters?.opened ?? 0} ouvertes, {status.counters?.closed ?? 0} fermées, {status.counters?.refused ?? 0} refus
             </>

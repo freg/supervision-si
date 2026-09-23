@@ -22,7 +22,7 @@ import sys
 from . import aio, proto
 
 
-async def _open_stream(relay, ssl_ctx, token, kind, target=None, server_name=None):
+async def _open_stream(relay, ssl_ctx, token, kind, target=None, server_name=None, via=None):
     """Ouvre un canal de données et attend l'accusé du relais.
     Retourne (reader, writer) prêt au pontage brut, ou lève RuntimeError."""
     host, _, port = relay.rpartition(":")
@@ -32,6 +32,8 @@ async def _open_stream(relay, ssl_ctx, token, kind, target=None, server_name=Non
     hello = {"role": "client", "type": proto.DATA, "token": token, "kind": kind}
     if target:
         hello["target"] = target
+    if via:
+        hello["via"] = via  # #575 : shim qui ouvre la session (hub par défaut, ou un poste d'agent sur un site)
     writer.write(proto.encode_line(hello))
     await writer.drain()
     ack = await aio.read_hello(reader, timeout=25.0)
@@ -47,7 +49,7 @@ async def _open_stream(relay, ssl_ctx, token, kind, target=None, server_name=Non
 
 async def run_shell(args):
     ctx = aio.client_context(ca_file=args.ca, insecure=args.insecure, certfile=args.cert, keyfile=args.key)
-    reader, writer = await _open_stream(args.relay, ctx, args.token, proto.SHELL, server_name=args.server_name)
+    reader, writer = await _open_stream(args.relay, ctx, args.token, proto.SHELL, server_name=args.server_name, via=getattr(args, "via", None))
     sys.stderr.write("si-proxy : shell ouvert sur le host du hub (Ctrl-D pour quitter)\r\n")
     sys.stderr.flush()
     loop = asyncio.get_event_loop()
@@ -155,7 +157,7 @@ async def run_proxy(args):
 
 async def _do_connect(target, b_reader, b_writer, ctx, args):
     try:
-        up_reader, up_writer = await _open_stream(args.relay, ctx, args.token, proto.CONNECT, target=target, server_name=args.server_name)
+        up_reader, up_writer = await _open_stream(args.relay, ctx, args.token, proto.CONNECT, target=target, server_name=args.server_name, via=getattr(args, "via", None))
     except RuntimeError as exc:
         b_writer.write(("HTTP/1.1 502 Bad Gateway\r\n\r\nsi-proxy : %s\r\n" % exc).encode())
         await b_writer.drain()
@@ -174,7 +176,7 @@ async def _do_http(uri, head, b_reader, b_writer, ctx, args):
         b_writer.close()
         return
     try:
-        up_reader, up_writer = await _open_stream(args.relay, ctx, args.token, proto.CONNECT, target=hostport, server_name=args.server_name)
+        up_reader, up_writer = await _open_stream(args.relay, ctx, args.token, proto.CONNECT, target=hostport, server_name=args.server_name, via=getattr(args, "via", None))
     except RuntimeError as exc:
         b_writer.write(("HTTP/1.1 502 Bad Gateway\r\n\r\nsi-proxy : %s\r\n" % exc).encode())
         await b_writer.drain()
@@ -198,6 +200,7 @@ def main(argv=None):
         p.add_argument("--cert")
         p.add_argument("--key")
         p.add_argument("--insecure", action="store_true")
+        p.add_argument("--via", default=os.environ.get("SI_PROXY_VIA") or None, help="#575 : nom du shim host qui ouvre la session (hub par défaut, ou campus…)")
         p.add_argument("--server-name", default=None, help="nom attendu dans le certificat du relais (tunnel SSH : --relay 127.0.0.1:6450 --server-name super)")
         if name == "proxy":
             p.add_argument("--listen", default="127.0.0.1:6451")

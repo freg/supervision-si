@@ -218,6 +218,36 @@ relay.crt --key relay.key --host-token … --client-token … --control-port
 du service `si-proxy-admin-api`. Le port de contrôle 6452 doit alors être
 protégé (jeton + TLS + fail2ban maison, ou restreint à l'IP du hub).
 
+## Plusieurs shims : un site client derrière son propre poste d'agent (#575)
+
+Règle posée : **rien ne transite directement** entre les réseaux ; tout
+passe par l'entrée du SI (`https` 443 / `ssh` 9922 sur le routeur
+supervisé). Un site client (VLAN sans route vers le LAN) est donc joint par
+un **second shim** installé sur le poste de l'agent du site, qui *sort* vers
+le relais : les shims sont nommés (`--name`, défaut `hub`), le relais les
+garde tous (`/status` → `hosts`), et le client choisit lequel ouvre la
+session (`--via campus`, ou `SI_PROXY_VIA`). Audit : cible notée
+`hôte:port@campus`.
+
+Transport du shim de site, sans nouveau port : tunnel SSH permanent vers
+l'entrée SSH du SI (`si-proxy-jump.service`), clé dédiée restreinte côté
+serveur à ce seul port :
+
+```bash
+# sur le poste de l'agent du site (root) -- le relais reste sur super:6450
+sudo ./si-proxy/install-host.sh --name campus --relay super:6450 --token "$HOST_TOKEN" \
+     --ssh-jump saut@<entrée-ssh-du-SI>:9922 --ssh-key /root/.ssh/si-proxy-jump \
+     --shell-user <compte local> --deny 0.0.0.0/0 --deny <sous-réseaux hors périmètre>
+# côté SI, dans ~/.ssh/authorized_keys du compte de saut :
+restrict,port-forwarding,permitopen="super:6450" ssh-ed25519 AAAA… si-proxy-jump-campus
+```
+
+Puis, sur le Mac : `python3 -m siproxy.client proxy --via campus --listen
+127.0.0.1:6453 …` (par le saut SSH habituel) et `https://<proxmox du
+site>:8006` dans le navigateur réglé sur ce proxy — la tuile Bastion
+affiche les shims connectés. Vérifié par `tests/e2e_local.py` (deux shims,
+`--via` inconnu refusé).
+
 ## Durcissement TLS mutuel (recommandé ensuite)
 
 ```bash

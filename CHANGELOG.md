@@ -1,3 +1,25 @@
+## 2026-09-23 — Bastion multi-shims : un site client joint par le poste de son agent, tout par l'entrée du SI (livraison #575)
+
+Demandé : « rien ne doit transiter directement et tout doit passer par
+l'entrée https ou ssh (ou un autre port si nécessaire) du routeur supervisé
+du LAN » — la route statique proposée en #574 est retirée du mode d'emploi.
+
+- `siproxy/relay.py` : shims nommés (`hosts`), session ouverte par le shim
+  `via` demandé, refus explicite sinon ; `proto.shim_name` (test) ;
+  `hostshim.py` : `--name`, `--server-name` ; `client.py` : `--via` /
+  `SI_PROXY_VIA` ; `SiProxyView` : liste des shims connectés.
+- `install-host.sh` : `--name`, `--ssh-jump user@hôte:port`, `--ssh-key`
+  → `si-proxy-jump.service` (tunnel SSH permanent vers l'entrée du SI, clé
+  restreinte `permitopen`), le shim joint 127.0.0.1 en vérifiant le nom du
+  relais.
+- `tests/e2e_local.py` : deux shims, `--via campus` OK, `--via` inconnu
+  refusé — tout vert dans le bac à sable.
+- Le relais HTTPS #574 reste utile pour un service que le hub voit ; pour
+  le site, la voie est : Mac → saut SSH → relais → shim campus → cible.
+
+Vérifié : tests unitaires et e2e hors ligne. Non vérifié : installation du
+shim sur le poste de l'agent, clé de saut restreinte.
+
 ## 2026-09-23 — Relais HTTPS sur port dédié : interface Proxmox d'un site via le tunnel de l'agent (livraison #574)
 
 Demandé : interface web du Proxmox du site joignable seulement en deux

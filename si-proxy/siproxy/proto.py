@@ -65,6 +65,16 @@ def valid_hello(obj, expected_token, roles=("host", "client")):
     return True, None
 
 
+SHIM_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
+
+
+def shim_name(hello, key="name"):
+    """#575 : nom d'un shim host (« hub » par défaut) -- lettres minuscules,
+    chiffres, _ et -, 32 max ; tout autre chose retombe sur « hub »."""
+    v = str((hello or {}).get(key) or "hub").strip().lower()
+    return v if SHIM_NAME_RE.match(v) else "hub"
+
+
 def split_target(target):
     """« host:port » -> (host, port, None) ou (None, None, raison). IPv6
     accepté entre crochets : « [::1]:443 »."""

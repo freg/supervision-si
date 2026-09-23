@@ -81,3 +81,12 @@ class TestRedact(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ShimName(unittest.TestCase):
+    def test_shim_name(self):
+        self.assertEqual(proto.shim_name({}), "hub")
+        self.assertEqual(proto.shim_name({"name": "Campus"}), "campus")
+        self.assertEqual(proto.shim_name({"via": "site-alpha"}, key="via"), "site-alpha")
+        self.assertEqual(proto.shim_name({"name": "../x"}), "hub")
+        self.assertEqual(proto.shim_name({"name": "a" * 40}), "hub")
