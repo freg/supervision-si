@@ -269,6 +269,10 @@ services:
     image: nginx:1.27-alpine
     ports:
       - "${GATEWAY_PORT:-6443}:${GATEWAY_PORT:-6443}"
+      # #574 : relais HTTPS sur ports dédiés (RELAYn_PORT / RELAYn_TARGET dans
+      # .env ; port publié même sans cible, nginx n'y écoute alors pas)
+      - "${RELAY1_PORT:-6486}:${RELAY1_PORT:-6486}"
+      - "${RELAY2_PORT:-6487}:${RELAY2_PORT:-6487}"
     volumes:
       - ./tls-proxy/generated:/etc/nginx/conf.d:ro
       - ${PKI_DIR:-./pki}/server:/etc/nginx/tls:ro

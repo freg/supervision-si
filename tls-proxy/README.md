@@ -375,3 +375,18 @@ verra de toute façon jamais `/etc/hosts`.
 **Vérifié réellement** : `proxy_pass http://192.0.2.10:15000...`
 confirmé avec un `HOST_IP` réaliste, repli sur `127.0.0.1` sans
 `HOST_IP` testé, non-régression des 30 autres routes confirmée.
+
+## Relais HTTPS sur port dédié (livraison #574)
+
+Cas : une interface web (Proxmox d'un site client) joignable seulement depuis
+le VLAN du poste de l'agent, pas depuis le LAN du hub ni depuis les postes.
+Chaîne : tuile **Tunnels SSH** → tunnel « hyperviseur du site » : hôte SSH
+= poste de l'agent (clé), distant = `<ip du Proxmox>:8006`, port local
+`18006` (le tunnel n'ouvre son port que sur le réseau Docker) ; `.env` :
+`RELAY1_TARGET=ssh-tunnels-api:18006`, `RELAY1_LABEL=…` ; relance de
+tls-proxy → `https://<hub>:6486` sert l'interface Proxmox à la racine
+(websockets relayés : consoles noVNC), avec le certificat du hub. Lien
+« interface web ↗ » sur la tuile Proxmox via `VITE_PROXMOX_WEB_URLS=
+<agent_id>=https://<hub>:6486`. Le port 6486 apparaît dans l'exposition
+(Bastion → Entrées) comme tout port publié. Sans `RELAYn_TARGET`, rien
+n'écoute. Tests : `tls-proxy/test_render_nginx_conf.py`.

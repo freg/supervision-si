@@ -1746,6 +1746,7 @@ services:
       - VITE_NEBULA_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/nebula
       - VITE_NEBULA_TILE_TITLE=${VITE_NEBULA_TILE_TITLE:-Nebula@Campus}
       - VITE_NEBULA_AGENT_SITE=${VITE_NEBULA_AGENT_SITE:-}
+      - VITE_PROXMOX_WEB_URLS=${VITE_PROXMOX_WEB_URLS:-}
       - VITE_GLPI_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/glpi
       # Client IMAP -- onglet hub (livraison #230), backend #179-191
       # (PREMIÈRE interface pour ce module, jamais construite avant).

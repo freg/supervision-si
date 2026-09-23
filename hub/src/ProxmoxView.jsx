@@ -16,6 +16,8 @@ import { backupSummary, backupRunTone, accessSummary, guestLogsSummary, availabi
 // « Agents hôtes »).
 
 const REFRESH_MS = 60000;
+// #574 : interface web de chaque hyperviseur, atteinte par un relais du hub (agent_id=url[,…])
+const WEB_URLS = Object.fromEntries((import.meta.env.VITE_PROXMOX_WEB_URLS || "").split(",").map((s) => s.trim()).filter(Boolean).map((s) => { const i = s.indexOf("="); return [s.slice(0, i).trim(), s.slice(i + 1).trim()]; }));
 
 function Tone({ tone, children }) {
   return <span className={`np-tone ${tone || "neutral"}`}>{children}</span>;
@@ -252,6 +254,7 @@ function NodeCard({ node, selected, onSelect, history, apiBase, onChanged }) {
           {n.mem_total ? <> · RAM {fmtBytes(n.mem_used)}/{fmtBytes(n.mem_total)}</> : null}
           {" · "}{running}/{vms.length} VM en marche · relevé {when(node.at)}
           {node.site && <> · site {node.site}</>}
+          {WEB_URLS[node.agent_id] && <> · <a href={WEB_URLS[node.agent_id]} target="_blank" rel="noopener noreferrer" title="interface web Proxmox par le relais du hub (tunnel SSH via l'agent)">interface web ↗</a></>}
         </span>
       </h3>
       {!node.ok && <p><Tone tone="critical">mesure en erreur : {node.error || "?"}</Tone></p>}

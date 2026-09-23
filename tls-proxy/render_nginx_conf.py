@@ -99,6 +99,7 @@ TROIS types de service, traités différemment :
   avec ce préfixe. Non plus vérifié en conditions réelles.
 """
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -452,6 +453,55 @@ server {{
 
 FOOTER = "}\n"
 
+# #574 : relais HTTPS entiers sur un port dédié -- une interface web tierce
+# (ex. Proxmox) servie à la racine (elle ne supporte pas un sous-chemin),
+# atteinte à travers un tunnel SSH du hub (ssh-tunnels-api:<port local>)
+# ouvert depuis un hôte qui, lui, voit la cible. Websockets relayés
+# (consoles noVNC). Réglage .env : RELAY1_PORT / RELAY1_TARGET (et RELAY2_*).
+RELAY_TEMPLATE = """
+# Relais {label} : port {port} -> https://{target} (#574)
+server {{
+    listen {port} ssl;
+    server_name _;
+    resolver 127.0.0.11 valid=10s;
+    ssl_certificate     /etc/nginx/tls/server.crt;
+    ssl_certificate_key /etc/nginx/tls/server.key;
+    client_max_body_size 2G;
+    location / {{
+        set $relay_upstream https://{target};
+        proxy_pass $relay_upstream;
+        proxy_ssl_verify off;
+        proxy_ssl_server_name on;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 3600s;
+        proxy_buffering off;
+    }}
+}}
+"""
+
+
+def relays_from_env(env):
+    """[(port, target, label)] d'après RELAYn_PORT / RELAYn_TARGET / RELAYn_LABEL (n = 1..4)."""
+    out = []
+    for n in range(1, 5):
+        target = os.environ.get("RELAY%d_TARGET" % n, env.get("RELAY%d_TARGET" % n, "")).strip()
+        port = os.environ.get("RELAY%d_PORT" % n, env.get("RELAY%d_PORT" % n, "")).strip()
+        if not target or not port:
+            continue
+        if not port.isdigit() or not (1024 <= int(port) <= 65535):
+            raise ValueError("RELAY%d_PORT invalide : %s" % (n, port))
+        if not re.fullmatch(r"[A-Za-z0-9._-]+:\d{2,5}", target):
+            raise ValueError("RELAY%d_TARGET attendu sous la forme service:port : %s" % (n, target))
+        label = os.environ.get("RELAY%d_LABEL" % n, env.get("RELAY%d_LABEL" % n, "")).strip() or ("relais %d" % n)
+        out.append((int(port), target, label))
+    return out
+
 
 def build_config(env):
     gateway_port = resolve_gateway_port(env)
@@ -476,6 +526,9 @@ def build_config(env):
         summary.append(f"  {path:<20} -> {service}:{container_port}  ({kind}, {var_name} historique)")
 
     config = HEADER_TEMPLATE.format(gateway_port=gateway_port) + "\n".join(locations) + FOOTER
+    for port, target, label in relays_from_env(env):
+        config += RELAY_TEMPLATE.format(port=port, target=target, label=label)
+        summary.append(f"  relais {label} : port {port} -> https://{target}")
     return config, summary
 
 

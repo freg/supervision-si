@@ -1,3 +1,19 @@
+## 2026-09-23 — Relais HTTPS sur port dédié : interface Proxmox d'un site via le tunnel de l'agent (livraison #574)
+
+Demandé : interface web du Proxmox du site joignable seulement en deux
+sauts (poste → agent → hôte), « pas de route vers mon LAN depuis les VLAN
+sauf le 20 ».
+
+- `tls-proxy/render_nginx_conf.py` : `RELAYn_PORT` / `RELAYn_TARGET` /
+  `RELAYn_LABEL` → un `server` TLS par relais, proxy vers `https://cible`
+  (tunnel ssh-tunnels-api), websockets, cible validée ; test.
+- `gateway/docker-compose.yml` : ports 6486 / 6487 publiés (rien n'y écoute
+  sans cible) ; `.env.example` ; `hub/src/ProxmoxView.jsx` : lien
+  « interface web ↗ » par hyperviseur (`VITE_PROXMOX_WEB_URLS`).
+
+Vérifié : rendu nginx (test). Non vérifié : sur super (tunnel + relais
+réels), et que super joint bien le poste de l'agent en SSH.
+
 ## 2026-09-23 — Test « prioriser et automatiser » : les propositions de Supervision SI classées par l'IA interne (livraison #573)
 
 Demandé : « l'IA, qu'en penses-tu pour prioriser et automatiser ? On fait
