@@ -1231,7 +1231,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./si-proxy/certs:/certs:ro
-      - ${PKI_DIR:-./pki}/ca/ca.crt:/ca/ca.crt:ro
+      - ./si-proxy/certs/ca.crt:/ca/ca.crt:ro   # #582 : CA propre au bastion
       - ./si-proxy/data:/data
     environment:
       - SI_PROXY_PORT=6450
@@ -1314,7 +1314,7 @@ services:
       dockerfile: si-proxy/admin/Dockerfile
     restart: unless-stopped
     volumes:
-      - ${PKI_DIR:-./pki}/ca/ca.crt:/ca/ca.crt:ro
+      - ./si-proxy/certs/ca.crt:/ca/ca.crt:ro   # #582 : CA propre au bastion
     environment:
       - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
       - KEYCLOAK_REALM=supervision-si

@@ -248,6 +248,20 @@ site>:8006` dans le navigateur réglé sur ce proxy — la tuile Bastion
 affiche les shims connectés. Vérifié par `tests/e2e_local.py` (deux shims,
 `--via` inconnu refusé).
 
+## CA propre au bastion (#582)
+
+Le relais était signé par la CA générale du projet, émise sans
+`keyUsage` (#495) : un shim sur un système récent (OpenSSL ≥ 3) le refusait
+(« CA cert does not include key usage extension »). Depuis #582
+`setup-certs.sh` crée **sa propre CA** dans `si-proxy/certs/` (ca.crt /
+ca.key, basicConstraints + keyUsage, 10 ans) et l'utilise pour le relais
+(`extendedKeyUsage serverAuth`) et les certificats clients (`clientAuth`) ;
+le conteneur relais et si-proxy-admin-api montent cette CA. Elle est
+indépendante de la CA des agents : la changer (`--new-ca`) ne touche que le
+bastion. Après (re)génération : `docker compose up -d si-proxy
+si-proxy-admin-api`, recopier `ca.crt` sur chaque shim (`/etc/si-proxy/
+ca.crt`, puis `systemctl restart si-proxy-host`) et sur les postes clients.
+
 ## Durcissement TLS mutuel (recommandé ensuite)
 
 ```bash

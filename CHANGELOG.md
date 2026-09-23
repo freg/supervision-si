@@ -1,3 +1,16 @@
+## 2026-09-23 — Bastion : CA propre avec extensions (OpenSSL ≥ 3), certificats serveur/client typés (livraison #582)
+
+Constat réel (shim du campus) : « CA cert does not include key usage
+extension » — la CA générale du projet (#495) signait le relais.
+
+- `si-proxy/setup-certs.sh` : CA du bastion dans `si-proxy/certs/`
+  (basicConstraints, keyUsage keyCertSign ; `--new-ca` pour la remplacer),
+  relais avec `extendedKeyUsage serverAuth`, clients `clientAuth` ;
+  `docker-compose.yml` : relais et admin-api montent cette CA. Vérifié :
+  `openssl verify` des certificats émis, extensions présentes.
+
+Non vérifié : sur super (régénération + recopie de ca.crt sur les shims).
+
 ## 2026-09-23 — Cisco : relevé tolérant (un routeur ancien n'est plus « injoignable » pour une commande refusée) (livraison #581)
 
 Constat réel : routeur du bureau en telnet — session ouverte, puis
