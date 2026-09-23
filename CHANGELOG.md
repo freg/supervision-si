@@ -1,3 +1,30 @@
+## 2026-09-23 — Note design appliquée : page sans défilement, en-têtes de tableau fixes, gabarit de page, filtre « début de mot », site d'agent en aperçu et en réel (livraison #562)
+
+Demandé (note design « à appliquer partout ») : en-tête de tableau fixé,
+contraste fort, pied de page fixe et page qui ne défile pas (cadres et
+tbody défilent), template généralisé à division verticale/horizontale
+(menus gauche/droit fixes, options déroulantes), filtre texte priorisant le
+début de mot, hub présentant en preview et en réel le site d'un agent.
+
+- `hub/src/hub.css`, `App.jsx` : `.hub-shell` à 100vh sans défilement,
+  `<main class="hub-main">` seule zone déroulante, pied de page sorti de la
+  grille pour toutes les vues ; vues à cadres (grille, onglets, Supervision
+  SI, paramètres) remplissent `.hub-main` au lieu de `calc(100vh - 60px)` ;
+  `thead th` collant partout ; classes `.hub-page*`.
+- `hub/src/PageFrame.jsx` : gabarit (titre, cadres latéraux verticaux ou
+  horizontaux à titre fixe / options déroulantes, centre déroulant, pied).
+- `hub/src/textFilter.js` (`rankFilter`, tests) : début de mot d'abord ;
+  appliqué à `universeEntries` (Univers du hub).
+- `hub/src/AgentPageView.jsx` : vue « Site publié par un agent » (aperçu
+  calculé par si-agent-api / réel servi par l'agent, en cadre ; lien
+  « ouvrir le réel ») depuis le menu Pages ouvertes → « voir ».
+- `docs/ergonomie-redesign.md` : la note design comme règle permanente.
+
+Vérifié : 245 tests hub, rendu hors ligne d'AgentPageView. Non vérifié : sur
+super (le gabarit touche toutes les vues : vérifier le défilement des
+paramètres, de l'exploration réseau et des onglets ; le cadre « réel » peut
+être bloqué par le navigateur en http dans une page https).
+
 ## 2026-09-22 — Plan du campus vectorisé comme fond par défaut, liste des propositions qui défile (livraison #561)
 
 Demandé : « vectoriser et aligner le plan (il s'inscrit dans un rectangle)

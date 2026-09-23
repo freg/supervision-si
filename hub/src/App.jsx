@@ -44,6 +44,7 @@ import CortexView from "./CortexView.jsx";
 import ThemeView from "./ThemeView.jsx";
 import { buildCatalog as buildRightsCatalog } from "./rightsCatalog.js";
 import { fetchVisible } from "./rightsClient.js";
+import AgentPageView from "./AgentPageView.jsx";
 const RIGHTS_CATALOG_IDS = new Set(buildRightsCatalog().map((c) => c.identifier));  // #559
 import { THEMES, SINCE, buildThemes, themeViewMode, isThemeViewMode, themeIdOf, findTheme, themeOfView, normalizeHomeMode, HOME_MODES } from "./hubThemes.js";
 import { publicLinks, agentPublishedLinks, displayUrl } from "./publicLinks.js";
@@ -982,6 +983,7 @@ export default function App() {
   // (livraison #173) -- même mécanique, juste généralisée aux trois
   // nouveaux menus plutôt que dupliquée quatre fois.
   const [openNavMenu, setOpenNavMenu] = useState(null);
+  const [agentPageId, setAgentPageId] = useState(null);  // #562 : site publié par un agent, en cadre
   // #560 : un menu ouvert se ferme dès qu'on clique ailleurs (ou Échap) --
   // sinon il masque la page tant qu'on ne recliquait pas son bouton.
   useEffect(() => {
@@ -1530,7 +1532,9 @@ export default function App() {
     // #559 : une tuile non accordée n'est pas ouvrable, même par ?view= ou un lien
     if (visibleTiles && !visibleTiles.has(vm) && RIGHTS_CATALOG_IDS.has(vm)) vm = "grid";
     return (
-vm === "settings" ? (
+vm === "agent-page" ? (
+        <AgentPageView pages={agentPublishedLinks(publishedAgents)} initialId={agentPageId} siAgentApiBase={SI_AGENT_API_BASE_URL} onBack={goBack} />
+      ) : vm === "settings" ? (
         <SettingsView
           groups={groups}
           login={profile.preferred_username}
@@ -1882,32 +1886,6 @@ vm === "settings" ? (
           </main>
         </div>
 
-        <footer className="hub-footer">
-          <button
-            className="hub-footer-toggle"
-            onClick={() => setShowFooterNote((v) => !v)}
-            title={showFooterNote ? "Masquer les informations" : "Afficher les informations"}
-          >
-            {showFooterNote ? "▾ Informations" : "▸ Informations"}
-          </button>
-          {showFooterNote && (
-            <p className="hub-footer-text">
-              Cette page vérifie votre identité. Le portail tickets a lui aussi sa
-              propre connexion Keycloak (retour silencieux si vous êtes déjà
-              connecté ici, même realm) — Supervision SI, elle, reste entièrement
-              ouverte, sans aucune vérification. Et côté API : ni l'une ni
-              l'autre ne vérifie encore de jeton, quel que soit le front.
-              {fronts.some((f) => f.id === "keycloak-admin") && (
-                <>
-                  {" "}La carte "Administration Keycloak" est un lien, pas une garantie
-                  d'accès : elle apparaît parce que vous avez le rôle applicatif "admin"
-                  ou "technicien" dans ce realm, mais la console Keycloak elle-même
-                  exige des droits de gestion de realm accordés séparément.
-                </>
-              )}
-            </p>
-          )}
-        </footer>
       </div>
       </>
       )
@@ -1967,7 +1945,7 @@ vm === "settings" ? (
                   {openPages.map((l) => (
                     <div key={l.id} className="hub-nav-public-row">
                       <a href={l.url} target="_blank" rel="noopener noreferrer" title={l.description}>{l.name} ↗</a>
-                      <code>{displayUrl(l.url)}</code>
+                      <code>{displayUrl(l.url)}{l.id.startsWith("agent-") && <> <button type="button" className="secondary" title="aperçu calculé par le hub et page réelle du site, en cadre" onClick={() => { setAgentPageId(l.id); setViewMode("agent-page"); setOpenNavMenu(null); }}>voir</button></>}</code>
                       <button type="button" className="secondary" onClick={() => { try { navigator.clipboard.writeText(l.url); } catch { /* presse-papiers indisponible */ } }}>Copier</button>
                     </div>
                   ))}
@@ -2021,6 +1999,9 @@ vm === "settings" ? (
         </div>
       </header>
 
+      {/* #562 : gabarit de page -- en-tête et pied fixes, seule la zone
+          centrale (ou les cadres/tbody qu'elle contient) défile. */}
+      <main className="hub-main">
       {isThemeViewMode(viewMode) && currentTheme ? (
         <ThemeView
           theme={currentTheme}
@@ -2030,6 +2011,34 @@ vm === "settings" ? (
           onBack={() => { setThemeEntry(null); setViewMode("grid"); }}
         />
       ) : renderRoute(viewMode)}
+      </main>
+
+      <footer className="hub-footer">
+        <button
+          className="hub-footer-toggle"
+          onClick={() => setShowFooterNote((v) => !v)}
+          title={showFooterNote ? "Masquer les informations" : "Afficher les informations"}
+        >
+          {showFooterNote ? "▾ Informations" : "▸ Informations"}
+        </button>
+        {showFooterNote && (
+          <p className="hub-footer-text">
+            Cette page vérifie votre identité. Le portail tickets a lui aussi sa
+            propre connexion Keycloak (retour silencieux si vous êtes déjà
+            connecté ici, même realm) — Supervision SI, elle, reste entièrement
+            ouverte, sans aucune vérification. Et côté API : ni l'une ni
+            l'autre ne vérifie encore de jeton, quel que soit le front.
+            {fronts.some((f) => f.id === "keycloak-admin") && (
+              <>
+                {" "}La carte "Administration Keycloak" est un lien, pas une garantie
+                d'accès : elle apparaît parce que vous avez le rôle applicatif "admin"
+                ou "technicien" dans ce realm, mais la console Keycloak elle-même
+                exige des droits de gestion de realm accordés séparément.
+              </>
+            )}
+          </p>
+        )}
+      </footer>
       <div className="status-badges">
         <div
           className="clock-badge"

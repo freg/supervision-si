@@ -120,3 +120,26 @@ dire quoi ? »). Un écran échoue dès qu'une personne sur cinq bloque.
 - Norman, D. *The Design of Everyday Things* (éd. 2013).
 - Sweller, J. (1988), charge cognitive ; Hick, W.E. (1952), loi de Hick.
 - WCAG 2.2 (W3C) : contraste ≥ 4,5:1, cibles ≥ 24 px, texte redimensionnable.
+
+## Note design permanente (22 sept. 2026, « à appliquer partout ») — livraison #562
+
+1. L'en-tête d'un tableau reste fixé à l'écran, seul le `tbody` défile
+   (règle globale `thead th { position: sticky }`, valable dans tout cadre
+   qui défile).
+2. Caractères fortement contrastés sur la couleur de fond (liens en couleur
+   d'accent dans les deux thèmes, jamais le bleu marine du navigateur ;
+   texte atténué lisible sur fond accent).
+3. La page ne défile jamais : en-tête et pied du hub fixes (`.hub-shell`
+   en `100vh`, `.hub-main` seule zone qui défile) ; ce sont les cadres et
+   les `tbody` qui bougent.
+4. Gabarit généralisé `PageFrame.jsx` (`.hub-page*`) : barre de titre,
+   cadres latéraux à division **verticale** (colonnes) ou **horizontale**
+   (bandes) dont le titre est fixe et les options défilent, zone centrale
+   déroulante, pied de vue fixe. Nouvelles vues : partir de ce gabarit ;
+   vues existantes : migrer à l'occasion (elles héritent déjà de 1 à 3).
+5. Filtre texte priorisant le début de mot (`textFilter.js`,
+   `rankFilter`) : « n » présente Nebula avant Onduleurs. Appliqué à
+   l'Univers du hub ; à utiliser pour tout nouveau filtre.
+6. Le hub présente le site publié par un agent en **aperçu** (page calculée
+   par le central) et en **réel** (page servie sur le LAN du site), en
+   cadre : menu Pages ouvertes → « voir » (`AgentPageView.jsx`).

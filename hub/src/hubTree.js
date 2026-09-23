@@ -1,3 +1,4 @@
+import { rankFilter } from "./textFilter.js";
 // Arborescence de disposition du hub (livraison #516) -- logique PURE,
 // testée sous Node (hub/tests/hubTree.test.mjs).
 //
@@ -85,21 +86,17 @@ export function buildCatalog({ availableViews, viewLabels = {}, fronts = [], isA
  *  accents ni casse. Menu invariant : ne dépend pas de l'arbre de
  *  disposition, donc rien n'y est jamais perdu. */
 export function universeEntries(catalog, { sort = "alpha", since = {}, query = "" } = {}) {
-  const fold = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  const q = fold(query).trim();
   const out = [];
   for (const leaf of catalog.values()) {
     if (leaf.kind === "auto") continue;
-    if (q && !fold(leaf.label).includes(q)) continue;
     const key = leaf.kind === "view" ? leaf.view : leaf.kind === "action" ? leaf.id : leaf.front;
     const n = since[key];
     out.push({ ...leaf, since: Number.isFinite(n) ? n : null });
   }
   const byLabel = (a, b) => a.label.localeCompare(b.label, "fr", { sensitivity: "base" });
-  out.sort(sort === "added"
-    ? (a, b) => ((a.since ?? Infinity) - (b.since ?? Infinity)) || byLabel(a, b)
-    : byLabel);
-  return out;
+  const cmp = sort === "added" ? (a, b) => ((a.since ?? Infinity) - (b.since ?? Infinity)) || byLabel(a, b) : byLabel;
+  // #562 : débuts de mot d'abord (« n » → Nebula avant Onduleurs), puis le tri choisi
+  return rankFilter(out, query, (l) => l.label, cmp);
 }
 
 /** Libellés des vues, tirés des thématiques (hubThemes.js) -- source unique. */
