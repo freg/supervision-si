@@ -509,6 +509,15 @@ class Agent(object):
                 return {"ok": ok, "error": None if ok else "plugin inconnu"}
             if ctype == "flush":
                 return {"ok": True, "result": {"sent": self.flush(force=True)}}
+            if ctype == "vm_action":
+                # #572 : contrôle d'une VM / d'un conteneur Proxmox (qm / pct) depuis le hub
+                from . import vmctl
+                if self.is_blocked():
+                    return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
+                res = vmctl.run(self.cmd, params)
+                self.event("command-vm", "info" if res.get("ok") else "warning",
+                           "VM %s : %s%s" % (params.get("vmid"), params.get("action"), "" if res.get("ok") else " -- %s" % res.get("error")), {"command": c.get("id"), "params": params})
+                return res
             if ctype == "update":
                 # #522 : mise à jour décidée par le central (canal bêta / activation
                 # générale) ; téléchargement par le même TLS, SHA-256 vérifié,

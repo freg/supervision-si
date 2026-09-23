@@ -138,7 +138,7 @@ MIGRATIONS = [
 
 AGENT_ID_MAX = 64
 COMMAND_TYPES = ("collect_now", "run_plugin", "enable_plugin", "disable_plugin", "remove_plugin", "flush",
-                 "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update")
+                 "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update", "vm_action")
 SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
 TASKS_KEPT_LATEST = ("host", "risks", "inventory")
 
@@ -731,6 +731,8 @@ def create_command(db_path, agent_id, ctype, params=None):
         raise ValueError("type de commande inconnu (%s)" % ", ".join(COMMAND_TYPES))
     if ctype in ("run_plugin", "enable_plugin", "disable_plugin", "remove_plugin", "block_plugin", "unblock_plugin") and not (params or {}).get("id"):
         raise ValueError("params.id (identifiant du plugin) requis")
+    if ctype == "vm_action" and not ((params or {}).get("vmid") and (params or {}).get("action")):
+        raise ValueError("params.vmid et params.action requis")
     cid = "c-" + _secrets.token_hex(6)
     conn = _connect(db_path)
     try:

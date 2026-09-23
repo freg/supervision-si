@@ -121,3 +121,7 @@ export const applyUpdates = (apiBase, agentId, actor) => fetchJson(apiBase, "/up
 
 export const fetchEventsSummary = (apiBase, hours = 24) => fetchJson(apiBase, `/events/summary?hours=${hours}`);
 export const testNotifications = (apiBase) => fetchJson(apiBase, "/notifications/test", json("POST", {}));
+
+// #572 : contrôle d'une VM Proxmox par l'agent (commande vm_action) et suivi du résultat
+export const vmAction = (apiBase, agentId, params) => sendCommand(apiBase, agentId, "vm_action", params);
+export const fetchCommand = (apiBase, cid) => fetchJson(apiBase, `/commands/${encodeURIComponent(cid)}`);

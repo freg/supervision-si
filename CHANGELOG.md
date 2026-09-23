@@ -1,3 +1,23 @@
+## 2026-09-23 — Contrôle des VM Proxmox depuis le hub, par l'agent (livraison #572)
+
+Demandé : « une interface de gestion/contrôle des VM d'un Proxmox depuis le
+hub en passant par l'agent » (interface web Proxmox injoignable, SSH ok).
+
+- Agent 0.5.13 : commande `vm_action` (`si_agent/vmctl.py`, 2 tests) —
+  start / shutdown / reboot / stop / reset / suspend / resume / snapshot /
+  rollback / delsnapshot via `qm` ou `pct`, paramètres validés (vmid
+  entier, action connue, nom de snapshot sûr), événement `command-vm`,
+  refus si agent bloqué.
+- Central : type `vm_action` dans `COMMAND_TYPES` (params vmid + action
+  requis).
+- Hub : `ProxmoxView.jsx` — barre Actions par VM (confirmation pour les
+  actions brutales), snapshots (créer / revenir / supprimer), suivi de la
+  commande jusqu'au résultat, rechargement ; `siAgentClient.js`
+  (`vmAction`, `fetchCommand`).
+
+Vérifié : tests (249 hub, 16 si-agent-api, 2 vmctl). Non vérifié : sur un
+hôte réel (pousser l'agent 0.5.13 depuis Mises à jour).
+
 ## 2026-09-23 — Fiches du campus : IP, import en fusion, extraction par l'IA interne (livraison #571)
 
 Demandé : intégrer les cinq postes de contrôle de l'allée immersive

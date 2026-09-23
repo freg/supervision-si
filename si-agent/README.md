@@ -948,3 +948,17 @@ Steam, Art-Net, MikroTik, Ubiquiti…). Résultat : protocoles (trames,
 `broadcast_rate` (info). Ne voit que le VLAN du poste : une sonde par VLAN
 à écouter. Central : `GET /broadcasts?site=`. Hub : Nebula → Campus →
 **Annonces réseau**. Tests : `test_broadcast_probe.py`.
+
+## Contrôle des VM Proxmox depuis le hub (livraison #572, agent 0.5.13)
+
+Tuile Proxmox → cliquer une VM → barre **Actions** : démarrer, arrêt propre
+(ACPI, 120 s), redémarrer, couper, reset, reprendre ; snapshot (créer,
+revenir, supprimer). Chaque action = commande `vm_action`
+(`{vmid, action, kind: qemu|lxc, snapname?}`) signée, relevée par l'agent de
+l'hôte (≈ 1 min), exécutée par `qm` / `pct` (`si_agent/vmctl.py`, tests
+`test_vmctl.py` : ligne de commande construite depuis des paramètres
+validés, jamais interpolés), résultat renvoyé au central et suivi dans le
+hub ; événement `command-vm` à chaque action. L'agent doit tourner en root
+sur l'hôte (comme la sonde proxmox) ; agent bloqué = action refusée. Pas
+besoin de l'interface web Proxmox ni du port 8006 : tout passe par le
+canal agent → central.

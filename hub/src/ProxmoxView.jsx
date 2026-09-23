@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { fetchProxmox, fetchProxmoxHistory } from "./siAgentClient.js";
+import { fetchProxmox, fetchProxmoxHistory, vmAction, fetchCommand } from "./siAgentClient.js";
 import { hubLink } from "./hubLinks.js";
 import { backupSummary, backupRunTone, accessSummary, guestLogsSummary, availabilityOf, nodeBackupSummary, nodeAccessSummary, hostHealthSummary } from "./proxmoxLib.js";
 
@@ -182,7 +182,61 @@ function VmDetail({ vm, history }) {
   );
 }
 
-function NodeCard({ node, selected, onSelect, history }) {
+// #572 : contrôle d'une VM depuis le hub, par l'agent de l'hôte (qm / pct). Chaque action
+// est une commande signée relevée par l'agent (≈ 1 min), suivie ici jusqu'au résultat.
+const VM_ACTIONS = [
+  ["start", "Démarrer", (vm) => vm.status !== "running", false],
+  ["shutdown", "Arrêt propre", (vm) => vm.status === "running", true],
+  ["reboot", "Redémarrer", (vm) => vm.status === "running", true],
+  ["stop", "Couper", (vm) => vm.status === "running", true],
+  ["reset", "Reset", (vm) => vm.status === "running" && vm.type !== "lxc", true],
+  ["resume", "Reprendre", (vm) => vm.status === "paused" || vm.status === "suspended", false],
+];
+function VmActions({ apiBase, agentId, vm, onDone }) {
+  const [pending, setPending] = useState(null);  // {action, cid, state, error}
+  const [snap, setSnap] = useState("");
+  const run = async (action, extra = {}) => {
+    const dangerous = ["stop", "reset", "shutdown", "reboot", "rollback", "delsnapshot"].includes(action);
+    if (dangerous && !window.confirm(`${action} sur « ${vm.name || vm.vmid} » (#${vm.vmid}) ?`)) return;
+    setPending({ action, state: "envoi" });
+    const r = await vmAction(apiBase, agentId, { vmid: vm.vmid, action, kind: vm.type === "lxc" ? "lxc" : "qemu", ...extra });
+    if (r?.error) { setPending({ action, state: "erreur", error: r.error }); return; }
+    setPending({ action, cid: r.id, state: "en attente de l'agent" });
+    const started = Date.now();
+    const poll = async () => {
+      const c = await fetchCommand(apiBase, r.id);
+      if (c?.result || c?.status === "done" || c?.status === "failed" || c?.acked_at || c?.finished_at) {
+        const ok = c.result ? c.result.ok !== false : c.status !== "failed";
+        setPending({ action, cid: r.id, state: ok ? "fait" : "échec", error: ok ? null : (c.result?.error || c.error || "?") });
+        onDone?.();
+        return;
+      }
+      if (Date.now() - started < 4 * 60 * 1000) setTimeout(poll, 5000);
+      else setPending({ action, cid: r.id, state: "sans réponse (agent hors ligne ?)" });
+    };
+    setTimeout(poll, 5000);
+  };
+  return (
+    <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", margin: "6px 0" }}>
+      <strong style={{ fontSize: 12 }}>Actions</strong>
+      {VM_ACTIONS.filter(([, , show]) => show(vm)).map(([a, label, , danger]) => (
+        <button key={a} type="button" className="secondary" style={{ fontSize: 12, borderColor: danger ? "var(--danger)" : undefined }} disabled={!!pending && !["fait", "échec", "erreur"].includes(pending.state) && !pending.state.startsWith("sans")} onClick={() => run(a)}>{label}</button>
+      ))}
+      <span className="muted" style={{ fontSize: 12 }}>· snapshot</span>
+      <input placeholder="nom (ex. avant-maj)" value={snap} onChange={(e) => setSnap(e.target.value)} style={{ width: 130, fontSize: 12 }} />
+      <button type="button" className="secondary" style={{ fontSize: 12 }} disabled={!snap.trim()} onClick={() => run("snapshot", { snapname: snap.trim() })}>Créer</button>
+      {(vm.snapshots || []).length > 0 && (
+        <select style={{ fontSize: 12 }} defaultValue="" onChange={(e) => { const v = e.target.value; e.target.value = ""; if (!v) return; const [act, name] = v.split(":"); run(act, { snapname: name }); }}>
+          <option value="">revenir / supprimer…</option>
+          {vm.snapshots.map((s) => <React.Fragment key={s.name}><option value={`rollback:${s.name}`}>revenir à {s.name}</option><option value={`delsnapshot:${s.name}`}>supprimer {s.name}</option></React.Fragment>)}
+        </select>
+      )}
+      {pending && <span style={{ fontSize: 12, color: pending.state === "fait" ? "var(--ok)" : pending.state === "échec" || pending.state === "erreur" ? "var(--danger)" : "var(--muted)" }}>{pending.action} : {pending.state}{pending.error ? ` — ${pending.error}` : ""}</span>}
+    </div>
+  );
+}
+
+function NodeCard({ node, selected, onSelect, history, apiBase, onChanged }) {
   const n = node.node || {};
   const vms = (node.vms || []).filter((v) => !v.template);
   const running = vms.filter((v) => v.status === "running").length;
@@ -235,7 +289,7 @@ function NodeCard({ node, selected, onSelect, history }) {
                   <td style={{ fontSize: 12 }}>{(() => { const a = accessSummary(vm); return <Tone tone={a.tone}>{a.text}</Tone>; })()}</td>
                   <td className="muted" style={{ fontSize: 12 }}>{(vm.services || []).length ? `${vm.services.length} port(s) · ${(vm.urls || []).length} URL` : "—"}</td>
                 </tr>
-                {selected === key && <tr><td colSpan={11}><VmDetail vm={vm} history={history} /></td></tr>}
+                {selected === key && <tr><td colSpan={11}><VmActions apiBase={apiBase} agentId={node.agent_id} vm={vm} onDone={onChanged} /><VmDetail vm={vm} history={history} /></td></tr>}
               </React.Fragment>
             );
           })}</tbody>
@@ -384,7 +438,7 @@ export default function ProxmoxView({ onBack, siAgentApiBase }) {
             Aucun hyperviseur ne remonte. <a href={hubLink("si-agent")}>Installer si-agent sur chaque Proxmox</a> (tuile Agents hôtes → Installation) puis activer le plugin
             <code>proxmox</code> dans la section <a href={hubLink("si-agent", { section: "plugins" })}>Sondes de l'agent</a> (ou <code>--enable-plugin proxmox</code> à l'installation) — premier relevé sous 30 min.
           </p></div>
-        ) : nodes.map((n) => <NodeCard key={n.agent_id} node={n} selected={selected} onSelect={setSelected} history={histories[n.agent_id]} />)}
+        ) : nodes.map((n) => <NodeCard key={n.agent_id} node={n} selected={selected} onSelect={setSelected} history={histories[n.agent_id]} apiBase={siAgentApiBase} onChanged={load} />)}
     </div>
   );
 }
