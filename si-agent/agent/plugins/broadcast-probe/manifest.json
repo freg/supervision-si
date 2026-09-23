@@ -1,0 +1,13 @@
+{
+  "id": "broadcast-probe",
+  "version": "1",
+  "runner": "python",
+  "entry": "broadcast_probe.py",
+  "interval_seconds": 300,
+  "timeout_seconds": 120,
+  "args": ["--seconds", "60"],
+  "enabled": false,
+  "description": "Sonde « annonces réseau » (#568, famille explorer) : écoute PASSIVEMENT pendant une fenêtre (60 s) tout ce qui est diffusé sur le segment du poste -- ARP, DHCP, NetBIOS, LLMNR, mDNS/Bonjour (services _ipp, _googlecast, _ndi, _airplay…), SSDP/UPnP, WS-Discovery, LLDP/CDP, STP, IPv6 (RA, ND, MLD), multicast applicatif (AnyDesk, Dropbox, Steam, Art-Net…) -- et en dresse la carte : qui annonce quoi, à quel rythme. Constats : deux serveurs DHCP, annonces RA IPv6 non attendues, conflit ARP (une IP, deux MAC), rafale d'un émetteur (tempête), changement de topologie STP. Rien n'est émis. Privilégiée (socket brut AF_PACKET) ; sans privilège, replie sur l'écoute UDP mDNS / SSDP / NetBIOS / LLMNR.",
+  "source": "bundled",
+  "privileged": true
+}

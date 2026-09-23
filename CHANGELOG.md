@@ -1,3 +1,20 @@
+## 2026-09-23 — Sonde « annonces réseau » (broadcast/multicast passif) et onglet Annonces réseau (livraison #568)
+
+Demandé : « il me faudra aussi une vue (sonde et/ou nebula ou à imaginer)
+des annonces broadcast et autres ».
+
+- `si-agent/agent/plugins/broadcast-probe/` (+ `test_broadcast_probe.py`, 4
+  tests) : capture brute AF_PACKET (repli UDP sans privilège) d'une fenêtre,
+  analyseurs ARP / IPv4-UDP / IPv6 / LLDP / CDP / STP / mDNS-LLMNR (noms,
+  services) / SSDP / NetBIOS / DHCP, agrégation par protocole et par
+  annonceur, constats (DHCP multiple, RA IPv6, conflit ARP, STP, rafale).
+- `si-agent/api` : `GET /broadcasts?site=`, sonde dans `PROBE_TASKS`.
+- Hub : `BroadcastView.jsx` (onglet « Annonces réseau » du volet Campus :
+  constats, protocoles, annonceurs rapprochés des fiches).
+
+Vérifié : tests (248 hub, 16 si-agent-api, 4 sonde), sonde exécutée hors
+ligne en repli UDP. Non vérifié : capture brute sur le LAN du site.
+
 ## 2026-09-23 — Sonde « postes Windows » (NetBIOS, SMB, RDP, AnyDesk…) et onglet Accès Windows dans Nebula (livraison #567)
 
 Demandé : « dans la tuile nebula il me faudra une supervision orientée

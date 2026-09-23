@@ -980,6 +980,31 @@ def latest_windows_hosts(db_path, site=None):
     return {"hosts": sorted(hosts.values(), key=lambda h: tuple(int(x) for x in h["ip"].split(".")) if h["ip"].count(".") == 3 else (0,)), "probes": probes}
 
 
+def latest_broadcasts(db_path, site=None):
+    """#568 : dernière mesure broadcast-probe de chaque agent (`?site=`)."""
+    conn = _connect(db_path)
+    try:
+        q = ("SELECT a.agent_id, a.hostname, a.site, a.last_ip, m.at, m.data FROM agents a "
+             "JOIN (SELECT agent_id, MAX(at) AS at FROM measurements WHERE task = 'plugin:broadcast-probe' AND ok = 1 GROUP BY agent_id) l ON l.agent_id = a.agent_id "
+             "JOIN measurements m ON m.agent_id = l.agent_id AND m.at = l.at AND m.task = 'plugin:broadcast-probe'")
+        params = []
+        if site:
+            q += " WHERE a.site = ?"; params.append(site)
+        rows = conn.execute(q, params).fetchall()
+    finally:
+        conn.close()
+    out = []
+    for r in rows:
+        try:
+            data = json.loads(r["data"]) if isinstance(r["data"], str) else (r["data"] or {})
+        except (TypeError, ValueError):
+            data = {}
+        out.append({"agent_id": r["agent_id"], "hostname": r["hostname"], "site": r["site"], "last_ip": r["last_ip"], "at": r["at"],
+                    "mode": data.get("mode"), "seconds": data.get("seconds"), "frames": data.get("frames"), "protocols": data.get("protocols") or [],
+                    "announcers": data.get("announcers") or [], "findings": data.get("findings") or [], "dhcp_servers": data.get("dhcp_servers") or {}, "lldp": data.get("lldp") or {}})
+    return out
+
+
 def _vm_states(data):
     out = {}
     for vm in (data or {}).get("vms") or []:
@@ -988,8 +1013,8 @@ def _vm_states(data):
     return out
 
 
-PROBE_TASKS = ("plugin:wifi-probe", "plugin:path-probe", "plugin:windows-probe")
-PROBE_LABELS = {"plugin:wifi-probe": "Wi-Fi vu du poste", "plugin:path-probe": "chemin de service", "plugin:windows-probe": "postes Windows"}
+PROBE_TASKS = ("plugin:wifi-probe", "plugin:path-probe", "plugin:windows-probe", "plugin:broadcast-probe")
+PROBE_LABELS = {"plugin:wifi-probe": "Wi-Fi vu du poste", "plugin:path-probe": "chemin de service", "plugin:windows-probe": "postes Windows", "plugin:broadcast-probe": "annonces réseau"}
 
 
 def _probe_alerts(data):

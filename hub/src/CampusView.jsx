@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { groupByLab, labs, assetSummary, ASSET_LABELS, SERVICE_LABELS, accessLinks } from "./campusCards.js";
 import WindowsHostsView from "./WindowsHostsView.jsx";
+import BroadcastView from "./BroadcastView.jsx";
 
 const STATUS = { online: ["● en ligne", "var(--ok)"], offline: ["● hors ligne", "var(--danger)"] };
 
@@ -26,7 +27,7 @@ export default function CampusView({ nebulaApiBase, siAgentApiBase = "", agentSi
   const [open, setOpen] = useState(null);
 
   const load = async (coll) => {
-    if (coll === "windows") { if (!data.assets) coll = "assets"; else return; }  // #567 : l'onglet Accès a besoin des fiches pour le rapprochement
+    if (coll === "windows" || coll === "broadcast") { if (!data.assets) coll = "assets"; else return; }  // #567 : l'onglet Accès a besoin des fiches pour le rapprochement
     setError(null);
     try {
       const q = coll === "assets" && siteId ? `?site_id=${encodeURIComponent(siteId)}` : "";
@@ -63,9 +64,11 @@ export default function CampusView({ nebulaApiBase, siAgentApiBase = "", agentSi
         <button className={tab === "assets" ? "active" : ""} onClick={() => setTab("assets")}>Matériels{data.assets ? ` (${data.assets.count})` : ""}</button>
         <button className={tab === "services" ? "active" : ""} onClick={() => setTab("services")}>Services / logiciels{data.services ? ` (${data.services.count})` : ""}</button>
         <button className={tab === "windows" ? "active" : ""} onClick={() => setTab("windows")}>Accès Windows</button>
+        <button className={tab === "broadcast" ? "active" : ""} onClick={() => setTab("broadcast")}>Annonces réseau</button>
       </div>
       {tab === "windows" && <WindowsHostsView siAgentApiBase={siAgentApiBase} assets={data.assets?.items || []} site={agentSite} />}
-      {tab !== "windows" && <>
+      {tab === "broadcast" && <BroadcastView siAgentApiBase={siAgentApiBase} assets={data.assets?.items || []} site={agentSite} />}
+      {tab !== "windows" && tab !== "broadcast" && <>
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
         <input type="search" placeholder="filtrer (nom, type, modèle, MAC, lab…)" value={query} onChange={(e) => setQuery(e.target.value)} style={{ minWidth: 260 }} />
         <select value={lab} onChange={(e) => setLab(e.target.value)}><option value="">tous les labs</option>{labList.map((l) => <option key={l} value={l}>{l}</option>)}</select>

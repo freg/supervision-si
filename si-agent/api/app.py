@@ -219,6 +219,13 @@ def windows_hosts_route():
     return jsonify(store.latest_windows_hosts(DB_PATH, site=request.args.get("site"))), 200
 
 
+@app.route("/broadcasts", methods=["GET"])
+def broadcasts_route():
+    """#568 : annonces diffusées sur le segment de chaque agent (sonde
+    broadcast-probe, `?site=`) : protocoles, annonceurs, constats."""
+    return jsonify({"probes": store.latest_broadcasts(DB_PATH, site=request.args.get("site"))}), 200
+
+
 @app.route("/netview", methods=["GET"])
 def netview_route():
     """#432 : vue réseau passive de chaque agent (dernière mesure netview)."""

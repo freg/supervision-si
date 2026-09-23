@@ -930,3 +930,21 @@ Central : `GET /windows-hosts?site=` (fusion entre agents). Hub : tuile
 Nebula → Campus → **Accès Windows** (rapprochement avec les fiches matériel
 par MAC ou nom, liens RDP (.rdp), AnyDesk (`anydesk:`), partage (`smb://`,
 `\\ip` à copier), VNC, SSH, WinRM). Tests : `test_windows_probe.py`.
+
+## Sonde « annonces réseau » (livraison #568, plugin `broadcast-probe`)
+
+Famille explorer, privilégiée (socket brut `AF_PACKET` ; sans privilège ou
+sous Windows : écoute UDP mDNS / SSDP / LLMNR / NetBIOS / WS-Discovery).
+Toutes les 5 min, une minute d'écoute **passive** des trames diffusées et
+multidiffusées du segment : ARP (dont gratuit), DHCP (offres, serveurs),
+NetBIOS (enregistrements de noms), mDNS/Bonjour (noms, services `_ipp`,
+`_googlecast`, `_ndi`…), SSDP/UPnP (NOTIFY, SERVER), LLMNR, WS-Discovery,
+LLDP/CDP (voisins, ports), STP (racine, changements de topologie), IPv6
+(RA, ND, MLD), IGMP, VRRP/HSRP, multicast applicatif (AnyDesk, Dropbox,
+Steam, Art-Net, MikroTik, Ubiquiti…). Résultat : protocoles (trames,
+émetteurs), annonceurs (MAC, IP, noms, services, rythme), constats →
+événements (#530) : `dhcp_multiple` (critique), `arp_conflict`,
+`stp_topology_change`, `stp_multiple_roots`, `storm` (warning), `ipv6_ra`,
+`broadcast_rate` (info). Ne voit que le VLAN du poste : une sonde par VLAN
+à écouter. Central : `GET /broadcasts?site=`. Hub : Nebula → Campus →
+**Annonces réseau**. Tests : `test_broadcast_probe.py`.
