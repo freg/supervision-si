@@ -97,6 +97,17 @@ manquants, nue), `clients`, `loose_clients` (sans appareil identifié),
 (arbre, parent centré sur ses enfants, clients au milieu des enfants ;
 tests `nebulaTree.test.mjs`), rendu `hub/src/NebulaTopo.jsx`.
 
+**Volet Campus (#566)** : la tuile s'intitule `VITE_NEBULA_TILE_TITLE`
+(« Nebula@<site> », réglé dans `.env`) et a deux volets : Nebula (onglets
+existants) et Campus (Matériels, Services/logiciels). Fiches importées des
+tableurs du site — `PUT /campus/assets/import`, `PUT /campus/services/import`
+(multipart `file` xlsx/ods/csv, `mode=replace|merge`), `GET /campus/<coll>`
+(`?site_id=` pour rapprocher les matériels des clients Nebula par MAC, sinon
+par nom : état, IP, borne, VLAN). Table `campus_records` dans `/data`,
+jamais dans le dépôt. Depuis une fiche : « Voir dans le synoptique »
+(sélectionne et déplie l'appareil) et « Tableau d'état ». Logique pure
+`nebula/api/campus.py` (tests `test_campus.py`), `hub/src/campusCards.js`.
+
 **Lisibilité du synoptique (#558)** : étiquettes entières (largeur de
 boîte calculée sur le texte, bornée) ; deux dispositions, inspirées des
 exemples d3 « tree » : **arbre horizontal** (défaut : profondeur en colonnes,

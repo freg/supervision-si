@@ -31,6 +31,7 @@ import health as health_lib
 import vlanmap  # `health` est aussi la route /health
 import topology as topology_lib
 import rules as rules_lib
+import campus as campus_lib
 
 try:
     from version_endpoint import register_version_route
@@ -172,6 +173,12 @@ CREATE INDEX IF NOT EXISTS idx_nebula_tr_site_at ON nebula_status_transitions(si
 CREATE TABLE IF NOT EXISTS nebula_poll_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, sites INTEGER, devices INTEGER, transitions INTEGER, error TEXT
 );
+-- #566 : fiches du campus (matériels, services/logiciels) importées des tableurs du site
+CREATE TABLE IF NOT EXISTS campus_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, collection TEXT NOT NULL, key TEXT NOT NULL, name TEXT, kind TEXT, lab TEXT, location TEXT,
+    data TEXT NOT NULL, imported_at INTEGER NOT NULL, imported_by TEXT, UNIQUE(collection, key)
+);
+CREATE INDEX IF NOT EXISTS idx_campus_coll ON campus_records(collection, lab);
 
 -- #555 : positions des appareils et clients sur le plan du site (fractions
 -- 0..1 de la largeur/hauteur de l'image ; clé = devId ou "client:<mac>").
@@ -1230,3 +1237,80 @@ def get_logs():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
+
+# ------------------------------------------------------------------
+# Fiches du campus (livraison #566) : matériels et services/logiciels,
+# importés des tableurs du site (xlsx / ods / csv), stockés dans /data --
+# jamais dans le dépôt. Voir campus.py (logique pure).
+@app.route("/campus/<collection>", methods=["GET"])
+def campus_list(collection):
+    if collection not in ("assets", "services"):
+        return jsonify({"error": "collection inconnue"}), 404
+    conn = get_connection()
+    try:
+        rows = [dict(r) for r in conn.execute("SELECT id, key, data, imported_at, imported_by FROM campus_records WHERE collection = ? ORDER BY lab, name", (collection,))]
+    finally:
+        conn.close()
+    items = []
+    for r in rows:
+        d = json.loads(r["data"]); d["id"] = r["id"]; d["imported_at"] = r["imported_at"]
+        items.append(d)
+    if collection == "assets" and request.args.get("site_id"):
+        # rapprochement avec les clients Nebula (arbre en cache, sinon calculé)
+        site_id = request.args["site_id"]; period = request.args.get("period", "1d")
+        cached = _topo_cache.get((site_id, period))
+        tree = cached["tree"] if cached else None
+        if tree is None:
+            try:
+                tree = collect_topology(_connect(), site_id, period)
+                _topo_cache[(site_id, period)] = {"at": int(time.time()), "tree": tree}
+            except nebula.NebulaError:
+                tree = None
+        if tree:
+            names = {n["id"]: n["name"] for n in tree.get("nodes") or []}
+            clients = []
+            for n in tree.get("nodes") or []:
+                for c in n.get("clients") or []:
+                    c = dict(c); c["parent_name"] = names.get(n["id"], n["id"]); c["connected_to"] = c.get("connected_to") or c["parent_name"]
+                    clients.append(c)
+            for c in tree.get("loose_clients") or []:
+                clients.append(dict(c))
+            campus_lib.match_assets(items, clients)
+    last = max([r["imported_at"] for r in rows] or [None])
+    return jsonify({"items": items, "count": len(items), "imported_at": last}), 200
+
+
+@app.route("/campus/<collection>/import", methods=["POST", "PUT"])
+def campus_import(collection):
+    """Multipart `file` (xlsx / ods / csv). `mode=replace` (défaut) vide la
+    collection avant ; `mode=merge` met à jour par clé et garde le reste."""
+    if collection not in ("assets", "services"):
+        return jsonify({"error": "collection inconnue"}), 404
+    if "file" not in request.files:
+        return jsonify({"error": "fichier manquant (champ `file`)"}), 400
+    f = request.files["file"]
+    try:
+        rows = campus_lib.read_table(f.read(), f.filename or "")
+        records = campus_lib.parse_records(rows, collection)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:  # fichier illisible
+        return jsonify({"error": "fichier illisible : %s" % exc}), 400
+    if not records:
+        return jsonify({"error": "aucune ligne reconnue (première ligne = en-têtes : Nom, Type… ou Parcours, Lab, Nom de l’atelier…)"}), 400
+    mode = request.form.get("mode", "replace")
+    by = request.form.get("user") or request.headers.get("X-User") or ""
+    now = int(time.time())
+    conn = get_connection()
+    try:
+        if mode == "replace":
+            conn.execute("DELETE FROM campus_records WHERE collection = ?", (collection,))
+        for r in records:
+            conn.execute("""INSERT INTO campus_records (collection, key, name, kind, lab, location, data, imported_at, imported_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ON CONFLICT(collection, key) DO UPDATE SET name = excluded.name, kind = excluded.kind, lab = excluded.lab, location = excluded.location, data = excluded.data, imported_at = excluded.imported_at, imported_by = excluded.imported_by""",
+                         (collection, r["key"], r.get("name"), r.get("kind") or r.get("course"), r.get("lab"), r.get("location"), json.dumps(r, ensure_ascii=False), now, by))
+        conn.commit()
+    finally:
+        conn.close()
+    return jsonify({"ok": True, "count": len(records), "mode": mode, "columns": rows[0] if rows else []}), 200

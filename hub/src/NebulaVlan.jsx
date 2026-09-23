@@ -13,7 +13,7 @@ async function getJson(url) {
   return j;
 }
 
-export default function NebulaVlan({ nebulaApiBase, groups = [], login = "" }) {
+export default function NebulaVlan({ nebulaApiBase, groups = [], login = "", focus = null }) {
   const [sites, setSites] = useState([]);
   const [siteId, setSiteId] = useState("");
   const [map, setMap] = useState(null);
@@ -46,7 +46,7 @@ export default function NebulaVlan({ nebulaApiBase, groups = [], login = "" }) {
       {map && (
         <div>
           <h3>Synoptique</h3>
-          <NebulaTopo nebulaApiBase={nebulaApiBase} siteId={siteId} />
+          <NebulaTopo nebulaApiBase={nebulaApiBase} siteId={siteId} focus={focus} />
           <NebulaAnomalies nebulaApiBase={nebulaApiBase} siteId={siteId} groups={groups} login={login} version={map.at} />
           {map.errors.length > 0 && <p className="muted">Appels en échec (carte partielle) : {map.errors.join(" · ")}</p>}
           <h3>VLAN ({map.vlans.length})</h3>

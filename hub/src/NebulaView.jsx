@@ -8,6 +8,7 @@ import {
 import NebulaHealth from "./NebulaHealth.jsx";
 import NebulaVlan from "./NebulaVlan.jsx";
 import NebulaPlan from "./NebulaPlan.jsx";
+import CampusView from "./CampusView.jsx";
 
 // Onglet Nebula (hub), livraison #228 -- interface pour nebula-api
 // (#196-200) et le pont vers GLPI (#208), jusqu'ici accessibles
@@ -38,8 +39,16 @@ const TABS = [
 const IMPORT_FN = { sites: importSitesCsv, devices: importDevicesCsv, clients: importClientsCsv };
 const FETCH_FN = { sites: fetchImportedSites, devices: fetchImportedDevices, clients: fetchImportedClients };
 
+const TILE_TITLE = import.meta.env.VITE_NEBULA_TILE_TITLE || "Nebula@Campus";  // #566 : « Nebula@<site> », réglé dans .env
+
 export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, groups = [], login = "" }) {
   const [tab, setTab] = useState("health");
+  const [pane, setPane] = useState("nebula");  // #566 : volets « Nebula » / « Campus »
+  const [focus, setFocus] = useState(null);      // #566 : fiche à montrer dans le synoptique
+  const [siteId, setSiteId] = useState("");
+  useEffect(() => {
+    fetch(`${nebulaApiBase}/health-board?hours=1`, { credentials: "include" }).then((r) => r.json()).then((d) => { if (d?.sites?.[0]) setSiteId(d.sites[0].site_id); }).catch(() => {});
+  }, [nebulaApiBase]);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -151,7 +160,11 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, groups 
     <div className="hub-settings hub-settings-wide">
       <div className="hub-settings-topbar">
         <button className="secondary" onClick={onBack}>◀ Retour</button>
-        <h1>🌐 Nebula</h1>
+        <h1>🌐 {TILE_TITLE}</h1>
+        <div className="tabs" style={{ marginLeft: 16 }}>
+          <button className={pane === "nebula" ? "active" : ""} onClick={() => setPane("nebula")}>Nebula</button>
+          <button className={pane === "campus" ? "active" : ""} onClick={() => setPane("campus")}>Campus</button>
+        </div>
       </div>
 
       <div className="hub-card">
@@ -167,6 +180,13 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, groups 
         </div>
       )}
 
+      {pane === "campus" ? (
+        <div className="hub-card hub-settings-section">
+          <CampusView nebulaApiBase={nebulaApiBase} siteId={siteId} login={login}
+            onShowInTopology={(f) => { setFocus(f); setPane("nebula"); setTab("vlan"); }}
+            onShowHealth={() => { setPane("nebula"); setTab("health"); }} />
+        </div>
+      ) : (
       <div className="hub-card hub-settings-section">
         <div className="tabs" style={{ marginBottom: 16 }}>
           {TABS.map((t) => (
@@ -176,7 +196,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, groups 
           ))}
         </div>
 
-        {tab === "health" ? <NebulaHealth nebulaApiBase={nebulaApiBase} /> : tab === "vlan" ? <NebulaVlan nebulaApiBase={nebulaApiBase} groups={groups} login={login} /> : tab === "plan" ? <NebulaPlan nebulaApiBase={nebulaApiBase} /> : (<>
+        {tab === "health" ? <NebulaHealth nebulaApiBase={nebulaApiBase} /> : tab === "vlan" ? <NebulaVlan nebulaApiBase={nebulaApiBase} groups={groups} login={login} focus={focus} /> : tab === "plan" ? <NebulaPlan nebulaApiBase={nebulaApiBase} /> : (<>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <h2 style={{ margin: 0 }}>{activeTab.label} ({rows.length})</h2>
           <label className="secondary" style={{ cursor: "pointer" }}>
@@ -272,7 +292,9 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, groups 
         )}
         </>)}
       </div>
+      )}
 
+      {pane === "nebula" && (
       <div className="hub-card hub-settings-section">
         <h2>Import vers GLPI (livraison #208)</h2>
         <p className="muted">
@@ -310,6 +332,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, groups 
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

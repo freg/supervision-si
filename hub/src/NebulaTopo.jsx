@@ -18,12 +18,30 @@ export const STATUS_COLOR = { online: "#2e7d32", offline: "#c62828", alerting: "
 const KIND_GLYPH = { gateway: "⛨", switch: "▤", ap: "((•))", other: "▣" };
 const EDGE_COLOR = { ok: "#607d8b", bad: "#c62828", muted: "#9e9e9e", unlinked: "#bdbdbd" };
 
-export default function NebulaTopo({ nebulaApiBase, siteId }) {
+export default function NebulaTopo({ nebulaApiBase, siteId, focus = null }) {
   const [tree, setTree] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [period, setPeriod] = useState("1d");
   const [expanded, setExpanded] = useState(new Set());
+  // #566 : mise au point depuis une fiche du campus ({mac} ou {name}) -- déplie
+  // l'appareil qui sert le client et le sélectionne
+  useEffect(() => {
+    if (!tree || !focus) return;
+    const macs = (focus.macs || (focus.mac ? [focus.mac] : [])).map((m) => String(m).toLowerCase().replace(/-/g, ":"));
+    const nm = (focus.name || "").trim().toLowerCase();
+    for (const n of tree.nodes) {
+      if (nm && n.name.trim().toLowerCase() === nm) { setSelected({ type: "node", id: n.id }); return; }
+      (n.clients || []).forEach((cl, i) => {
+        const cm = String(cl.mac || "").toLowerCase().replace(/-/g, ":");
+        if ((cm && macs.includes(cm)) || (nm && String(cl.name || "").trim().toLowerCase() === nm)) {
+          setExpanded((e) => new Set([...e, n.id]));
+          setSelected({ type: "client", id: `${n.id}|${cl.mac || i}`, client: cl, parent: n.id });
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tree, focus]);
   const [selected, setSelected] = useState(null); // {type: "node"|"client", id}
   const [orientation, setOrientation] = useState(() => { try { return localStorage.getItem("hub.nebula.topo.orientation") || "horizontal"; } catch { return "horizontal"; } });
   const [stagger, setStagger] = useState(() => { try { return Number(localStorage.getItem("hub.nebula.topo.stagger") || 3); } catch { return 3; } });

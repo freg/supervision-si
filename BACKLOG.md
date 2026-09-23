@@ -3165,3 +3165,61 @@ groupe d'un site client : créer le groupe, cocher « accès restreint », coche
 « voir » sur Nebula, régler `hub_url` sur `https://<hub>/?view=nebula`. Suites : synchronisation des groupes LDAP (mapper
 Keycloak) ; import de comptes par fichier ; journal des actions dans la
 tuile ; désactivation automatique des comptes inactifs.
+
+## Tuile Nebula@site : fiches du campus, sonde « postes métier » (2026-09-23, #566) — item 87
+
+Demandé : la tuile Nebula devient « Nebula@<site> » avec deux volets, Nebula
+(existant) et Campus (onglets Matériels et Services/logiciels alimentés par
+import des tableurs du site, fiches, mise à jour par ré-import, lien vers le
+synoptique et le tableau d'état) ; et « prévoir une sonde de supervision
+logiciel/protocoles » pour la demande du site : quatre PC fixes d'une allée
+immersive instables (logiciel et périphériques), l'éditeur propose un
+redémarrage nocturne (arrêt par script vers minuit, réveil BIOS vers 7 h).
+
+Livré (#566) : volets et fiches, import xlsx/ods/csv (`nebula/api/campus.py`,
+table `campus_records` dans /data, jamais dans le dépôt), rapprochement des
+matériels avec les clients Nebula (MAC, sinon nom) → état, IP, borne, VLAN,
+« Voir dans le synoptique » (sélection et dépliage de l'appareil) et
+« Tableau d'état ».
+
+### Réponse au site (redémarrage nocturne des 4 PC)
+
+- Réveil BIOS à 7 h : possible sur la plupart des cartes (« RTC alarm » /
+  « Auto Power On » / « Wake on RTC »), à régler PC par PC, dépend de
+  l'horloge de chaque BIOS et se perd à la mise à jour ou au changement de
+  pile ; l'arrêt par script (tâche planifiée `shutdown /s /t 0` à minuit)
+  reste nécessaire. Faisable en une visite d'une heure, hors ouverture.
+- Alternative recommandée : **Wake-on-LAN depuis l'agent du campus** (le
+  poste Linux déjà sur le LAN) à 7 h, sans toucher aux BIOS : ordre donné
+  et journalisé par le hub, vérification que le poste répond (ping, port du
+  logiciel) et alerte sinon ; ou, plus simple encore, un **redémarrage**
+  planifié à minuit (`shutdown /r`) au lieu d'un arrêt + réveil, qui règle
+  l'instabilité sans dépendre d'un réveil matériel — à valider avec
+  l'éditeur (certains périphériques USB préfèrent un arrêt complet).
+- Cause de fond : instabilités logiciel + périphériques = pilotes / USB /
+  mémoire qui fuient ; le redémarrage est un contournement, la sonde
+  ci-dessous doit objectiver la dérive (mémoire du processus, périphériques
+  qui disparaissent, erreurs journalisées) pour remonter à l'éditeur.
+
+### Sonde « postes métier » (à faire)
+
+1. **Agent hôte sur les 4 PC** (si-agent Windows, déjà disponible) avec un
+   plugin `workstation-app` : liste de processus attendus (le logiciel de
+   l'allée), mémoire/CPU du processus, périphériques USB/affichage attendus
+   (par VID:PID ou nom) présents ou non, dernières erreurs du journal
+   Windows (Application/System) filtrées sur le logiciel et les pilotes,
+   uptime ; seuils → événements « logiciel absent », « périphérique
+   disparu », « dérive mémoire », « pas redémarré depuis N jours ».
+2. **Sonde réseau depuis l'agent du campus** (déjà sur le LAN) :
+   `flow-probe` = pour chaque poste métier, ping, ports TCP du logiciel
+   ouverts, service réseau utilisé par le logiciel (mDNS/NDI/Art-Net/
+   multicast selon ce que l'éditeur documente) vu en écoute ou en émission
+   (capture courte, comptage de paquets par port) ; et **Wake-on-LAN**
+   planifié (heure par poste, MAC de l'inventaire) avec vérification du
+   réveil.
+3. **Côté hub** : fiches Campus des 4 PC enrichies (état agent, dernière
+   erreur, dernier redémarrage, prochain réveil), règle Nebula/Cortex
+   « poste métier non réveillé à 7 h 10 » → notification ; ordre manuel
+   « réveiller maintenant » / « redémarrer cette nuit » depuis la fiche.
+4. Prérequis à demander à l'éditeur : nom du processus, ports et protocoles
+   réseau, périphériques attendus, préférence arrêt+réveil vs redémarrage.

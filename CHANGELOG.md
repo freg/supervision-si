@@ -1,3 +1,27 @@
+## 2026-09-23 — Tuile Nebula@site : volets Nebula / Campus, fiches Matériels et Services importées, lien synoptique (livraison #566)
+
+Demandé : titre « Nebula@<site> », deux volets (Nebula, Campus), onglets
+Matériels et Services/logiciels alimentés par les tableurs du site (fiches),
+mise à jour par import, lien vers les infos Nebula (synoptique visuel et
+tableau d'état) ; prévoir une sonde logiciel/protocoles pour les postes de
+l'allée immersive (réponse et spécification : BACKLOG item 87).
+
+- `nebula/api/campus.py` (+ tests) : lecture xlsx (openpyxl) / ods (XML) /
+  csv, fiches normalisées (`assets`, `services`, héritage des cellules
+  fusionnées), rapprochement MAC/nom avec les clients Nebula ; `app.py` :
+  table `campus_records` (/data), `GET /campus/<coll>`, `PUT
+  /campus/<coll>/import` (replace / merge).
+- Hub : `CampusView.jsx` (fiches par lab, filtre début de mot, import,
+  état Nebula, boutons synoptique / tableau d'état), `campusCards.js` (+
+  test), `NebulaView.jsx` (titre `VITE_NEBULA_TILE_TITLE`, volets),
+  `NebulaTopo.jsx` (`focus` : sélection et dépliage depuis une fiche).
+- `.env.example`, `docker-compose.yml` : `VITE_NEBULA_TILE_TITLE`.
+- Les deux tableurs fournis ne sont PAS dans le dépôt (données du client) :
+  à importer depuis la tuile.
+
+Vérifié : tests (247 hub, 19 nebula), rendu hors ligne avec les vrais
+tableurs (220 matériels, 32 services, 103 avec MAC). Non vérifié : sur super.
+
 ## 2026-09-23 — Synoptique Nebula : audit des ports de bornes (PVID, « all ») (livraison #565)
 
 Demandé : « côté hub/nebula peut-on vérifier la configuration actuelle ? »
