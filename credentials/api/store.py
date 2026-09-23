@@ -22,7 +22,7 @@ import time
 
 import credential_crypto
 
-KINDS = ("routeros", "ssh", "http", "snmp", "other")
+KINDS = ("routeros", "ssh", "telnet", "cisco", "enable", "http", "snmp", "other")  # #580 : le genre est indicatif (aucun consommateur ne le vérifie)
 NAME_RE = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
 
 

@@ -35,7 +35,7 @@ relevé automatique n'est possible.
 
 Tuile **« Accès d'équipements »** (thématique Sécurité & accès, servie
 sous `/credentials/`) : créer un accès avec un **nom** (clé de
-référence), un genre (routeros, ssh, http, snmp, other), l'identifiant,
+référence), un genre indicatif (routeros, cisco, enable, ssh, telnet, http, snmp, other), l'identifiant,
 le mot de passe, des notes.
 
 Consommateurs :

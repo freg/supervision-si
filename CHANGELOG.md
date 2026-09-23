@@ -1,3 +1,15 @@
+## 2026-09-23 — Coffre des accès : genres cisco, enable et telnet (livraison #580)
+
+Demandé : « dans la liste des genres il n'y a pas cisco ».
+
+- `credentials/api/store.py`, `static/index.html` : genres `cisco` (IOS /
+  NX-OS, SSH ou telnet), `enable` (secret enable), `telnet` ajoutés ; le
+  genre reste indicatif (aucun consommateur ne le vérifie : un accès déjà
+  créé en `routeros` ou `other` fonctionne tel quel). Messages et README
+  alignés.
+
+Vérifié : tests. Non vérifié : sur super.
+
 ## 2026-09-23 — Cisco : transport telnet pour les IOS anciens (livraison #579)
 
 Demandé : « termine l'api pour les accès telnet » (routeur du bureau,

@@ -19,8 +19,8 @@ d'identifiant dedans**) :
 `{"switches": [{"name", "host", "port"?, "platform": "ios"|"nxos",
 "credential": "<accès du coffre>", "enable_credential"?: "<accès>",
 "site"?, "description"?}]}`. Les identifiants viennent du coffre des
-accès d'équipements (#498) : un accès de genre **ssh** (utilisateur +
-mot de passe), révélé par jeton interne, jamais exposé au navigateur.
+accès d'équipements (#498) : un accès de genre **cisco** (ou ssh / telnet : le genre est
+indicatif, utilisateur + mot de passe), révélé par jeton interne, jamais exposé au navigateur.
 `enable_credential` = accès dont le mot de passe est le secret enable
 s'il diffère. **`"transport": "telnet"`** (#579) pour un IOS ancien sans
 SSH : port 23 par défaut, même accès du coffre (genre ssh : utilisateur +

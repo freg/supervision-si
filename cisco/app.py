@@ -119,7 +119,7 @@ def credentials_for(name):
     except requests.RequestException as exc:
         raise CiscoError("coffre des accès injoignable (%s)" % exc.__class__.__name__)
     if resp.status_code == 404:
-        raise CiscoError("accès « %s » absent du coffre -- à créer dans la tuile Accès d'équipements (genre ssh)" % name)
+        raise CiscoError("accès « %s » absent du coffre -- à créer dans la tuile Accès d'équipements (genre cisco, ssh ou telnet)" % name)
     if resp.status_code != 200:
         raise CiscoError("coffre des accès : refus %s" % resp.status_code)
     body = resp.json() or {}
