@@ -101,8 +101,11 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
     const d = await fetchAgent(siAgentApiBase, agentId);
     if (d?.error) { setError(d.error); return; }
     setDetail(d);
+    const pub = d.publish || {};
     setSettings({ host_interval_seconds: d.host_interval_seconds, label: d.label || "", site: d.site || "", notes: d.notes || "",
-      thresholds: JSON.stringify(d.risk_thresholds || {}, null, 0) });
+      thresholds: JSON.stringify(d.risk_thresholds || {}, null, 0),
+      // #563 : publication d'une page d'état sur le LAN du site (#547), réglable ici et plus seulement par l'API
+      pub_enabled: !!pub.enabled, pub_port: pub.port || 8081, pub_title: pub.title || "État du réseau", pub_site_id: pub.site_id || "", pub_hours: pub.hours || 24, pub_hub_url: pub.hub_url || "" });
   }, [siAgentApiBase]);
 
   useEffect(() => { load(); }, [load]);
@@ -213,6 +216,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
     try { thresholds = settings.thresholds ? JSON.parse(settings.thresholds) : {}; } catch { setError("Seuils : JSON invalide"); return; }
     const r = await updateAgent(siAgentApiBase, selectedId, {
       host_interval_seconds: Number(settings.host_interval_seconds) || 60, label: settings.label, site: settings.site, notes: settings.notes, risk_thresholds: thresholds,
+      publish: { enabled: !!settings.pub_enabled, port: Number(settings.pub_port) || 8081, title: settings.pub_title || "État du réseau", site_id: settings.pub_site_id || "", hours: Number(settings.pub_hours) || 24, interval_seconds: 60, hub_url: settings.pub_hub_url || "" },
     });
     if (r?.error) { setError(r.error); return; }
     setNotice("Réglages enregistrés -- appliqués par l'agent à sa prochaine lecture de configuration (5 min au plus).");
@@ -869,6 +873,16 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                         <label>Intervalle hôte (s) <input type="number" min="10" value={settings.host_interval_seconds} onChange={(e) => setSettings({ ...settings, host_interval_seconds: e.target.value })} /></label>
                         <label>Seuils de risques (JSON) <input value={settings.thresholds} onChange={(e) => setSettings({ ...settings, thresholds: e.target.value })} placeholder='{"disk_warning_percent": 80}' /></label>
                         <label className="ups-form-wide">Notes <input value={settings.notes} onChange={(e) => setSettings({ ...settings, notes: e.target.value })} /></label>
+                      </div>
+                      <h3 style={{ marginTop: 10 }}>Page d'état publiée sur le réseau du site</h3>
+                      <p className="muted" style={{ margin: "0 0 6px" }}>L'agent sert sur son LAN une page « santé du réseau » (tableau Nebula du site), sans connexion ; le hub l'affiche en aperçu et en réel (Pages ouvertes → voir).</p>
+                      <div className="ups-form-grid">
+                        <label><input type="checkbox" checked={!!settings.pub_enabled} onChange={(e) => setSettings({ ...settings, pub_enabled: e.target.checked })} /> Publier</label>
+                        <label>Port <input type="number" min="1024" max="65535" value={settings.pub_port} onChange={(e) => setSettings({ ...settings, pub_port: e.target.value })} /></label>
+                        <label>Titre <input value={settings.pub_title} onChange={(e) => setSettings({ ...settings, pub_title: e.target.value })} /></label>
+                        <label>Site Nebula (id, vide = tous) <input value={settings.pub_site_id} onChange={(e) => setSettings({ ...settings, pub_site_id: e.target.value })} /></label>
+                        <label>Fenêtre (h) <input type="number" min="1" max="744" value={settings.pub_hours} onChange={(e) => setSettings({ ...settings, pub_hours: e.target.value })} /></label>
+                        <label className="ups-form-wide">Lien « tableau de bord complet » (hub) <input value={settings.pub_hub_url} onChange={(e) => setSettings({ ...settings, pub_hub_url: e.target.value })} placeholder="https://<hub>:6443/?view=nebula" /></label>
                       </div>
                       <p className="muted" style={{ margin: "6px 0" }}>Clés de seuils : disk_warning_percent, disk_critical_percent, memory_warning_percent, swap_warning_percent, load_per_cpu_warning, recent_boot_seconds, log_errors_warning.</p>
                       <button type="submit" className="primary">Enregistrer</button>

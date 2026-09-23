@@ -1,3 +1,14 @@
+## 2026-09-23 — Publication de la page d'état réglable depuis la tuile Agents hôtes (livraison #563)
+
+Demandé : « l'agent n'est pas configuré » (la page publiée ne se réglait que
+par l'API). Formulaire « Page d'état publiée sur le réseau du site » dans les
+réglages de l'agent : publier, port, titre, site Nebula, fenêtre, lien vers
+le hub (`hub_url`, #559). Enregistré avec les autres réglages, appliqué par
+l'agent à sa prochaine lecture de configuration (agent ≥ 0.5.10 ; 0.5.11
+pour le lien vers le hub).
+
+Vérifié : syntaxe, tests hub. Non vérifié : sur super.
+
 ## 2026-09-23 — Note design appliquée : page sans défilement, en-têtes de tableau fixes, gabarit de page, filtre « début de mot », site d'agent en aperçu et en réel (livraison #562)
 
 Demandé (note design « à appliquer partout ») : en-tête de tableau fixé,
