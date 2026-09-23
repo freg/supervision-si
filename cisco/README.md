@@ -22,7 +22,16 @@ d'identifiant dedans**) :
 accès d'équipements (#498) : un accès de genre **ssh** (utilisateur +
 mot de passe), révélé par jeton interne, jamais exposé au navigateur.
 `enable_credential` = accès dont le mot de passe est le secret enable
-s'il diffère.
+s'il diffère. **`"transport": "telnet"`** (#579) pour un IOS ancien sans
+SSH : port 23 par défaut, même accès du coffre (genre ssh : utilisateur +
+mot de passe ; ligne vty sans `login local` = mot de passe seul, l'invite
+`Username:` est alors absente et gérée), négociation telnet minimale
+(options refusées), puis même canal interactif (enable, pagination,
+show / configure / write). Le mot de passe passe **en clair sur le fil** :
+uniquement sur une patte interne maîtrisée, jamais à travers un réseau
+tiers — préférer SSH dès que l'IOS le permet (`crypto key generate rsa`,
+`transport input ssh`). Test : équipement telnet simulé
+(`tests/test_cisco.py`, `TelnetTests`).
 
 ## 1. Supervision (`GET /cisco/switches/<n>/summary`)
 

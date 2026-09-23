@@ -1,3 +1,20 @@
+## 2026-09-23 — Cisco : transport telnet pour les IOS anciens (livraison #579)
+
+Demandé : « termine l'api pour les accès telnet » (routeur du bureau,
+ancien, joignable en telnet sur sa patte interne).
+
+- `cisco/ssh_client.py` : `TelnetChannel` (socket, négociation IAC
+  minimale, même interface que le canal paramiko), `CiscoSession(…,
+  protocol="telnet")` avec login Username/Password ou Password seule,
+  refus d'authentification détecté ; `cisco/app.py` : clé de registre
+  `"transport"` (ssh par défaut, telnet → port 23) ; exemple dans
+  `switches.json` ; README (mise en garde : mot de passe en clair, patte
+  interne seulement).
+- Tests : équipement telnet simulé (login, enable, show), refus, registre
+  (12 tests cisco au vert).
+
+Vérifié : tests. Non vérifié : sur le routeur réel.
+
 ## 2026-09-23 — Lien vers la tuile Accès d'équipements partout où un accès du coffre manque (livraison #578)
 
 Demandé (capture Cisco : « accès « cisco » absent du coffre ») : « il manque

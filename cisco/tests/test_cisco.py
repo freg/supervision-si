@@ -118,8 +118,8 @@ class FakeSession:
     sent = []
     fail = False
 
-    def __init__(self, host, username, password, port=22, timeout=10, enable_password=None, transport=None):
-        self.host, self.platform = host, "ios"
+    def __init__(self, host, username, password, port=22, timeout=10, enable_password=None, transport=None, protocol="ssh"):
+        self.host, self.platform, self.protocol = host, "ios", protocol
         assert password == "secret-ssh"
 
     def __enter__(self):
@@ -331,3 +331,82 @@ class ApiTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TelnetTests(unittest.TestCase):
+    """#579 : transport telnet -- équipement simulé sur une socket locale (négociation IAC, login, enable, show)."""
+
+    def test_telnet_session(self):
+        import socket, threading
+        from ssh_client import CiscoSession, CiscoError
+        srv = socket.socket(); srv.bind(("127.0.0.1", 0)); srv.listen(1); port = srv.getsockname()[1]
+        seen = []
+        def device():
+            c, _ = srv.accept(); c.settimeout(5)
+            c.sendall(bytes([255, 251, 1, 255, 251, 3, 255, 253, 24]) + b"\r\nUser Access Verification\r\n\r\nUsername: ")
+            def readline():
+                buf = b""
+                while not buf.endswith(b"\r\n"):
+                    d = c.recv(1)
+                    if not d:
+                        return buf
+                    if d == b"\xff":  # réponse de négociation : IAC cmd opt
+                        c.recv(2); continue
+                    buf += d
+                return buf.strip(b"\r\n")
+            seen.append(readline()); c.sendall(b"Password: ")
+            seen.append(readline()); c.sendall(b"\r\nsw-old>")
+            while True:
+                line = readline()
+                if line is None or line == b"" and not seen:
+                    break
+                seen.append(line)
+                if line == b"":
+                    c.sendall(b"\r\nsw-old#" if b"enable" in seen else b"\r\nsw-old>")
+                elif line == b"enable":
+                    c.sendall(b"\r\nPassword: ")
+                elif line == b"secret-ssh" and seen[-2] == b"enable":
+                    c.sendall(b"\r\nsw-old#")
+                elif line.startswith(b"terminal"):
+                    c.sendall(b"\r\nsw-old#")
+                elif line == b"show clock":
+                    c.sendall(b"\r\n*10:00:00.000 UTC Tue Sep 23 2026\r\nsw-old#")
+                elif line == b"quit":
+                    break
+                else:
+                    c.sendall(b"\r\nsw-old#")
+            c.close()
+        t = threading.Thread(target=device, daemon=True); t.start()
+        s = CiscoSession("127.0.0.1", "admin", "secret-ssh", port=port, timeout=3, protocol="telnet")
+        with s:
+            out = s.show("show clock")
+        self.assertIn("Sep 23 2026", out)
+        self.assertEqual(seen[0], b"admin"); self.assertEqual(seen[1], b"secret-ssh")
+        srv.close()
+
+    def test_telnet_refused(self):
+        import socket, threading
+        from ssh_client import CiscoSession, CiscoError
+        srv = socket.socket(); srv.bind(("127.0.0.1", 0)); srv.listen(1); port = srv.getsockname()[1]
+        def device():
+            c, _ = srv.accept(); c.settimeout(5); c.sendall(b"Password: ")
+            c.recv(100); c.sendall(b"\r\n% Login invalid\r\n\r\nPassword: "); c.recv(100); c.close()
+        threading.Thread(target=device, daemon=True).start()
+        with self.assertRaises(CiscoError) as cm:
+            CiscoSession("127.0.0.1", "admin", "bad", port=port, timeout=3, protocol="telnet").open()
+        self.assertIn("refusée", str(cm.exception))
+        srv.close()
+
+    def test_registry_transport(self):
+        import json, tempfile, os, importlib
+        import app as appmod
+        d = tempfile.mkdtemp(); reg = os.path.join(d, "s.json")
+        json.dump({"switches": [{"name": "old", "host": "192.0.2.9", "transport": "telnet", "credential": "c"}, {"name": "new", "host": "192.0.2.8", "credential": "c"}, {"name": "x", "host": "192.0.2.7", "transport": "rsh"}]}, open(reg, "w"))
+        old = appmod.REGISTRY; appmod.REGISTRY = reg
+        try:
+            sw = {s["name"]: s for s in appmod.load_registry()}
+        finally:
+            appmod.REGISTRY = old
+        self.assertEqual((sw["old"]["transport"], sw["old"]["port"]), ("telnet", 23))
+        self.assertEqual((sw["new"]["transport"], sw["new"]["port"]), ("ssh", 22))
+        self.assertEqual(sw["x"]["transport"], "ssh")

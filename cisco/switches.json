@@ -2,6 +2,7 @@
   "switches": [
     {"name": "exemple-c3750", "host": "192.0.2.10", "platform": "ios", "credential": "cisco", "site": "Villexemple", "description": "Catalyst 3750 — coeur de la boucle"},
     {"name": "exemple-c2970", "host": "192.0.2.11", "platform": "ios", "credential": "cisco"},
-    {"name": "exemple-n3064", "host": "192.0.2.12", "platform": "nxos", "credential": "cisco"}
+    {"name": "exemple-n3064", "host": "192.0.2.12", "platform": "nxos", "credential": "cisco"},
+    {"name": "exemple-vieux-routeur", "host": "192.0.2.1", "platform": "ios", "transport": "telnet", "credential": "cisco", "description": "IOS ancien sans SSH -- telnet sur la patte interne seulement"}
   ]
 }

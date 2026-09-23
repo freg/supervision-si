@@ -90,9 +90,12 @@ def load_registry():
     for s in data.get("switches") or []:
         if not isinstance(s, dict) or not s.get("name") or not s.get("host") or not NAME_RE.match(str(s["name"])):
             continue
-        out.append({"name": s["name"], "host": s["host"], "port": int(s.get("port") or 22), "platform": (s.get("platform") or "ios").lower(),
+        proto = (s.get("transport") or "ssh").lower()  # #579 : "telnet" pour les vieux IOS sans SSH (patte interne)
+        if proto not in ("ssh", "telnet"):
+            proto = "ssh"
+        out.append({"name": s["name"], "host": s["host"], "port": int(s.get("port") or (23 if proto == "telnet" else 22)), "platform": (s.get("platform") or "ios").lower(),
                     "credential": s.get("credential") or "cisco", "site": s.get("site"), "description": s.get("description"),
-                    "enable_credential": s.get("enable_credential")})
+                    "enable_credential": s.get("enable_credential"), "transport": proto})
     return out
 
 
@@ -132,7 +135,7 @@ def session_for(sw):
     enable = None
     if sw.get("enable_credential"):
         enable = credentials_for(sw["enable_credential"])[1]
-    s = SESSION_FACTORY(sw["host"], user, pwd, port=sw["port"], timeout=SSH_TIMEOUT, enable_password=enable)
+    s = SESSION_FACTORY(sw["host"], user, pwd, port=sw["port"], timeout=SSH_TIMEOUT, enable_password=enable, protocol=sw.get("transport") or "ssh")
     s.platform = sw["platform"]
     return s
 

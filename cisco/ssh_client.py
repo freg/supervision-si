@@ -21,17 +21,124 @@ class CiscoError(Exception):
     pass
 
 
+class TelnetChannel:
+    """#579 : canal telnet brut sur socket, même interface que le canal paramiko
+    (send / recv / recv_ready / close). Négociation telnet minimale : chaque
+    option proposée par l'équipement est refusée (WONT / DONT), ce que les IOS
+    acceptent ; les octets IAC sont retirés du flux. Réservé à la patte interne
+    (mot de passe en clair sur le fil : jamais à travers un réseau non maîtrisé)."""
+    IAC, DONT, DO, WONT, WILL, SB, SE = 255, 254, 253, 252, 251, 250, 240
+
+    def __init__(self, host, port=23, timeout=10):
+        self.sock = socket.create_connection((host, int(port)), timeout=timeout)
+        self.sock.setblocking(False)
+        self._pending = b""
+
+    def settimeout(self, t):
+        pass
+
+    def recv_ready(self):
+        try:
+            data = self.sock.recv(65535)
+        except (BlockingIOError, socket.timeout):
+            return bool(self._pending)
+        except OSError:
+            return bool(self._pending)
+        if data == b"":
+            raise CiscoError("connexion telnet fermée par l'équipement")
+        self._pending += self._negotiate(data)
+        return bool(self._pending)
+
+    def recv(self, n):
+        out, self._pending = self._pending[:n], self._pending[n:]
+        return out
+
+    def send(self, data):
+        if isinstance(data, str):
+            data = data.encode("utf-8", errors="replace")
+        self.sock.setblocking(True)
+        try:
+            self.sock.sendall(data.replace(b"\n", b"\r\n"))
+        finally:
+            self.sock.setblocking(False)
+
+    def _negotiate(self, data):
+        out = bytearray(); i = 0; reply = bytearray()
+        while i < len(data):
+            b = data[i]
+            if b != self.IAC:
+                out.append(b); i += 1; continue
+            if i + 1 >= len(data):
+                break
+            cmd = data[i + 1]
+            if cmd == self.IAC:
+                out.append(self.IAC); i += 2; continue
+            if cmd in (self.DO, self.DONT, self.WILL, self.WONT) and i + 2 < len(data):
+                opt = data[i + 2]
+                if cmd == self.DO:
+                    reply += bytes([self.IAC, self.WONT, opt])
+                elif cmd == self.WILL:
+                    reply += bytes([self.IAC, self.DONT, opt])
+                i += 3; continue
+            if cmd == self.SB:
+                j = data.find(bytes([self.IAC, self.SE]), i)
+                i = len(data) if j < 0 else j + 2; continue
+            i += 2
+        if reply:
+            try:
+                self.sock.setblocking(True); self.sock.sendall(bytes(reply)); self.sock.setblocking(False)
+            except OSError:
+                pass
+        return bytes(out)
+
+    def close(self):
+        try:
+            self.sock.close()
+        except OSError:
+            pass
+
+
+LOGIN_RE = re.compile(r"(username|login)\s*:\s*$", re.M | re.I)
+PASSWORD_RE = re.compile(r"password\s*:\s*$", re.M | re.I)
+ANY_LOGIN_RE = re.compile(r"(username|login|password)\s*:\s*$", re.M | re.I)
+AFTER_LOGIN_RE = re.compile(r"(^[\w.\-()/:@]+[>#]\s*$|password\s*:\s*$|login invalid|access denied|authentication failed)", re.M | re.I)
+
+
 class CiscoSession:
-    def __init__(self, host, username, password, port=22, timeout=10, enable_password=None, transport=None):
+    def __init__(self, host, username, password, port=22, timeout=10, enable_password=None, transport=None, protocol="ssh"):
         self.host, self.port, self.timeout = host, int(port), timeout
         self._user, self._password, self._enable = username, password, enable_password or password
         self._chan = transport  # objet avec send()/recv(n)/recv_ready()/close() -- faux en test
         self._client = None
         self.platform = "ios"
+        self.protocol = protocol  # #579 : "ssh" (défaut) ou "telnet" (patte interne seulement)
 
     # --- connexion ---------------------------------------------------------
+    def _telnet_login(self):
+        """Invite Username/Password (ou Password seule : ligne vty sans aaa), puis invite IOS."""
+        try:
+            buf = self._read_until(ANY_LOGIN_RE, self.timeout)
+        except CiscoError:
+            raise CiscoError("telnet %s : pas d'invite de connexion" % self.host)
+        if LOGIN_RE.search(buf):
+            self._chan.send(self._user + "\n")
+            self._read_until(PASSWORD_RE, self.timeout)
+        self._chan.send(self._password + "\n")
+        try:
+            out = self._read_until(AFTER_LOGIN_RE, self.timeout)
+        except CiscoError:
+            raise CiscoError("telnet %s : pas d'invite après authentification" % self.host)
+        if re.search(r"(?i)(password\s*:\s*$|login invalid|access denied|authentication failed)", out, re.M):
+            raise CiscoError("telnet %s : authentification refusée" % self.host)
+
     def open(self):
-        if self._chan is None:
+        if self._chan is None and self.protocol == "telnet":
+            try:
+                self._chan = TelnetChannel(self.host, self.port, self.timeout)
+            except (socket.error, OSError) as exc:
+                raise CiscoError("connexion telnet impossible vers %s:%s (%s)" % (self.host, self.port, exc.__class__.__name__))
+            self._telnet_login()
+        elif self._chan is None:
             try:
                 import paramiko
             except ImportError:
