@@ -31,3 +31,33 @@ export function assetSummary(items) {
   }
   return { total: items.length, matched, online, byKind: [...byKind.entries()].sort((a, b) => b[1] - a[1]) };
 }
+
+// ---------------------------------------------------------------- #567
+/** Rapproche les hôtes de la sonde windows-probe des fiches matériel (MAC, sinon nom NetBIOS = nom de fiche). */
+export function matchWindowsHosts(hosts, assets) {
+  const byMac = new Map(), byName = new Map();
+  for (const a of assets || []) {
+    for (const m of a.macs || []) byMac.set(m.toLowerCase(), a);
+    if (a.name) byName.set(a.name.trim().toLowerCase().replace(/\s+/g, "-"), a);
+  }
+  return (hosts || []).map((h) => {
+    const mac = (h.mac || "").toLowerCase().replace(/-/g, ":");
+    const nm = (h.name || "").trim().toLowerCase();
+    const asset = (mac && byMac.get(mac)) || (nm && (byName.get(nm) || byName.get(nm.replace(/-/g, " ")))) || null;
+    return { ...h, asset };
+  });
+}
+
+/** Liens d'accès pour un hôte : [{kind, label, href?, copy?, download?}]. */
+export function accessLinks(h) {
+  const p = h.ports || {};
+  const out = [];
+  if (p.rdp) out.push({ kind: "rdp", label: "RDP", download: { name: `${h.name || h.ip}.rdp`, text: `full address:s:${h.ip}\r\nprompt for credentials:i:1\r\nauthentication level:i:2\r\n` }, href: `rdp://full%20address=s:${h.ip}` });
+  if (p.anydesk) out.push({ kind: "anydesk", label: "AnyDesk", href: `anydesk:${h.ip}` });
+  if (p.smb) out.push({ kind: "smb", label: "Partage", href: `smb://${h.ip}`, copy: `\\\\${h.ip}` });
+  if (p.vnc) out.push({ kind: "vnc", label: "VNC", href: `vnc://${h.ip}` });
+  if (p.ssh) out.push({ kind: "ssh", label: "SSH", href: `ssh://${h.ip}` });
+  if (p.winrm || p.winrm_tls) out.push({ kind: "winrm", label: "WinRM", copy: `Enter-PSSession -ComputerName ${h.ip}` });
+  if (p.https || p.http) out.push({ kind: "web", label: "Web", href: `${p.https ? "https" : "http"}://${h.ip}/` });
+  return out;
+}

@@ -1,3 +1,26 @@
+## 2026-09-23 — Sonde « postes Windows » (NetBIOS, SMB, RDP, AnyDesk…) et onglet Accès Windows dans Nebula (livraison #567)
+
+Demandé : « dans la tuile nebula il me faudra une supervision orientée
+windows : netbios, smb… pour relier ensuite d'accès anydesk ou rdp ou… ».
+
+- `si-agent/agent/plugins/windows-probe/` (+ `test_windows_probe.py`, 4
+  tests) : balayage des /24 du poste ou de cibles données, ports SMB / RDP /
+  AnyDesk / VNC / WinRM / SSH / HTTP(S), NBSTAT (nom, groupe, MAC), SMB2
+  negotiate (dialecte, signature) + essai SMB1, X.224 RDP (NLA / TLS),
+  constats → `alerts` (événements #530). Bibliothèque standard, aucune
+  authentification.
+- `si-agent/api` : `GET /windows-hosts?site=` (`store.latest_windows_hosts`,
+  fusion entre agents), sonde reconnue dans `PROBE_TASKS`.
+- Hub : `WindowsHostsView.jsx` (onglet « Accès Windows » du volet Campus :
+  hôtes, fiche rapprochée par MAC ou nom, liens RDP (.rdp téléchargé),
+  AnyDesk (`anydesk:ip`), partage (`smb://`, copie `\\ip`), VNC, SSH,
+  WinRM, SMB/RDP négociés, constats), `campusCards.js`
+  (`matchWindowsHosts`, `accessLinks`, tests) ; `VITE_NEBULA_AGENT_SITE`.
+
+Vérifié : tests (248 hub, 16 si-agent-api, 4 sonde), sonde exécutée hors
+ligne (hôte local, port ouvert détecté). Non vérifié : sur le LAN du site
+(activer la sonde sur l'agent du campus).
+
 ## 2026-09-23 — Tuile Nebula@site : volets Nebula / Campus, fiches Matériels et Services importées, lien synoptique (livraison #566)
 
 Demandé : titre « Nebula@<site> », deux volets (Nebula, Campus), onglets

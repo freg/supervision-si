@@ -211,6 +211,14 @@ def fleet_route():
     return jsonify({"agents": store.fleet(DB_PATH, site=request.args.get("site"), offline_after_seconds=OFFLINE_AFTER_SECONDS)}), 200
 
 
+@app.route("/windows-hosts", methods=["GET"])
+def windows_hosts_route():
+    """#567 : postes Windows (et autres hôtes) vus par la sonde windows-probe
+    des agents (`?site=`) -- nom NetBIOS, groupe, MAC, ports (SMB, RDP,
+    AnyDesk, VNC, WinRM, SSH), dialecte SMB, NLA, constats."""
+    return jsonify(store.latest_windows_hosts(DB_PATH, site=request.args.get("site"))), 200
+
+
 @app.route("/netview", methods=["GET"])
 def netview_route():
     """#432 : vue réseau passive de chaque agent (dernière mesure netview)."""

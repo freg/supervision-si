@@ -949,6 +949,37 @@ def latest_netviews(db_path, site=None):
     return out
 
 
+def latest_windows_hosts(db_path, site=None):
+    """#567 : hôtes vus par la sonde windows-probe, fusionnés entre agents
+    (même IP vue par deux sondes : la plus récente gagne)."""
+    conn = _connect(db_path)
+    try:
+        q = ("SELECT a.agent_id, a.hostname, a.site, m.at, m.data FROM agents a "
+             "JOIN (SELECT agent_id, MAX(at) AS at FROM measurements WHERE task = 'plugin:windows-probe' AND ok = 1 GROUP BY agent_id) l ON l.agent_id = a.agent_id "
+             "JOIN measurements m ON m.agent_id = l.agent_id AND m.at = l.at AND m.task = 'plugin:windows-probe'")
+        params = []
+        if site:
+            q += " WHERE a.site = ?"; params.append(site)
+        rows = conn.execute(q, params).fetchall()
+    finally:
+        conn.close()
+    hosts = {}
+    probes = []
+    for r in rows:
+        try:
+            data = json.loads(r["data"]) if isinstance(r["data"], str) else (r["data"] or {})
+        except (TypeError, ValueError):
+            data = {}
+        probes.append({"agent_id": r["agent_id"], "hostname": r["hostname"], "site": r["site"], "at": r["at"], "targets": data.get("targets"), "scanned": data.get("scanned"), "stats": data.get("stats")})
+        for h in data.get("hosts") or []:
+            ip = h.get("ip")
+            if not ip:
+                continue
+            if ip not in hosts or (r["at"] or "") > (hosts[ip].get("seen_at") or ""):
+                hosts[ip] = dict(h, agent_id=r["agent_id"], site=r["site"], seen_at=r["at"])
+    return {"hosts": sorted(hosts.values(), key=lambda h: tuple(int(x) for x in h["ip"].split(".")) if h["ip"].count(".") == 3 else (0,)), "probes": probes}
+
+
 def _vm_states(data):
     out = {}
     for vm in (data or {}).get("vms") or []:
@@ -957,8 +988,8 @@ def _vm_states(data):
     return out
 
 
-PROBE_TASKS = ("plugin:wifi-probe", "plugin:path-probe")
-PROBE_LABELS = {"plugin:wifi-probe": "Wi-Fi vu du poste", "plugin:path-probe": "chemin de service"}
+PROBE_TASKS = ("plugin:wifi-probe", "plugin:path-probe", "plugin:windows-probe")
+PROBE_LABELS = {"plugin:wifi-probe": "Wi-Fi vu du poste", "plugin:path-probe": "chemin de service", "plugin:windows-probe": "postes Windows"}
 
 
 def _probe_alerts(data):

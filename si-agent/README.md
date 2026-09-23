@@ -914,3 +914,19 @@ une section **Historique par thématique** (Passerelle, Commutateurs, Bornes
 Wi-Fi, Autres) listant les changements d'état de la fenêtre. Le central
 joint au contenu signé les transitions nebula-api (`/sites/<id>/transitions`)
 avec la thématique déduite du modèle (`publish.device_theme`).
+
+## Sonde « postes Windows » (livraison #567, plugin `windows-probe`)
+
+Famille explorer, à activer sur l'agent placé sur le réseau du site
+(Agents hôtes → l'agent → Sondes → windows-probe ; `--targets auto` = les
+/24 du poste, ou `--targets 192.0.2.0/24,198.51.100.7`). Toutes les 5 min :
+ports SMB 445, RDP 3389, AnyDesk 7070, VNC 5900, WinRM 5985/5986, SSH 22,
+HTTP(S) ; NetBIOS node status (nom, groupe/domaine, MAC) ; négociation SMB2
+(dialecte, signature exigée) et essai SMB1 ; demande de connexion RDP
+(NLA / TLS). Aucune authentification, aucune action ; 254 hôtes en ~10 s.
+Constats → événements du central (#530) : `smb1_enabled`, `rdp_without_nla`
+(warning), `smb_signing_optional`, `vnc_open`, `netbios_silent` (info).
+Central : `GET /windows-hosts?site=` (fusion entre agents). Hub : tuile
+Nebula → Campus → **Accès Windows** (rapprochement avec les fiches matériel
+par MAC ou nom, liens RDP (.rdp), AnyDesk (`anydesk:`), partage (`smb://`,
+`\\ip` à copier), VNC, SSH, WinRM). Tests : `test_windows_probe.py`.

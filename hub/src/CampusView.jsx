@@ -3,7 +3,8 @@
 // matériel son état Nebula (client rapproché par MAC ou par nom) et le lien
 // vers le synoptique / le tableau d'état. Logique pure : campusCards.js.
 import { useEffect, useMemo, useState } from "react";
-import { groupByLab, labs, assetSummary, ASSET_LABELS, SERVICE_LABELS } from "./campusCards.js";
+import { groupByLab, labs, assetSummary, ASSET_LABELS, SERVICE_LABELS, accessLinks } from "./campusCards.js";
+import WindowsHostsView from "./WindowsHostsView.jsx";
 
 const STATUS = { online: ["● en ligne", "var(--ok)"], offline: ["● hors ligne", "var(--danger)"] };
 
@@ -14,7 +15,7 @@ async function getJson(url, opts) {
   return j;
 }
 
-export default function CampusView({ nebulaApiBase, siteId, login = "", onShowInTopology, onShowHealth }) {
+export default function CampusView({ nebulaApiBase, siAgentApiBase = "", agentSite = "", siteId, login = "", onShowInTopology, onShowHealth }) {
   const [tab, setTab] = useState("assets");
   const [data, setData] = useState({ assets: null, services: null });
   const [query, setQuery] = useState("");
@@ -25,6 +26,7 @@ export default function CampusView({ nebulaApiBase, siteId, login = "", onShowIn
   const [open, setOpen] = useState(null);
 
   const load = async (coll) => {
+    if (coll === "windows") { if (!data.assets) coll = "assets"; else return; }  // #567 : l'onglet Accès a besoin des fiches pour le rapprochement
     setError(null);
     try {
       const q = coll === "assets" && siteId ? `?site_id=${encodeURIComponent(siteId)}` : "";
@@ -60,7 +62,10 @@ export default function CampusView({ nebulaApiBase, siteId, login = "", onShowIn
       <div className="tabs" style={{ marginBottom: 10 }}>
         <button className={tab === "assets" ? "active" : ""} onClick={() => setTab("assets")}>Matériels{data.assets ? ` (${data.assets.count})` : ""}</button>
         <button className={tab === "services" ? "active" : ""} onClick={() => setTab("services")}>Services / logiciels{data.services ? ` (${data.services.count})` : ""}</button>
+        <button className={tab === "windows" ? "active" : ""} onClick={() => setTab("windows")}>Accès Windows</button>
       </div>
+      {tab === "windows" && <WindowsHostsView siAgentApiBase={siAgentApiBase} assets={data.assets?.items || []} site={agentSite} />}
+      {tab !== "windows" && <>
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
         <input type="search" placeholder="filtrer (nom, type, modèle, MAC, lab…)" value={query} onChange={(e) => setQuery(e.target.value)} style={{ minWidth: 260 }} />
         <select value={lab} onChange={(e) => setLab(e.target.value)}><option value="">tous les labs</option>{labList.map((l) => <option key={l} value={l}>{l}</option>)}</select>
@@ -114,6 +119,7 @@ export default function CampusView({ nebulaApiBase, siteId, login = "", onShowIn
           </div>
         </section>
       ))}
+      </>}
     </div>
   );
 }

@@ -1606,6 +1606,8 @@ vm === "agent-page" ? (
           onBack={goBack}
           nebulaApiBase={NEBULA_API_BASE_URL}
           glpiApiBase={GLPI_API_BASE_URL}
+          siAgentApiBase={SI_AGENT_API_BASE_URL}
+          agentSite={import.meta.env.VITE_NEBULA_AGENT_SITE || ""}
           groups={groups}
           login={profile.preferred_username}
         />
