@@ -1,3 +1,17 @@
+## 2026-09-23 — Synoptique Nebula : audit des ports de bornes (PVID, « all ») (livraison #565)
+
+Demandé : « côté hub/nebula peut-on vérifier la configuration actuelle ? »
+(après ouverture de tous les VLAN sur la cascade du campus).
+
+- `nebula/api/vlanmap.py`, `topology.py` : les liaisons portent le réglage du
+  port côté parent (`parent_pvid`, `parent_all`, `parent_allowed`).
+- `hub/src/nebulaTree.js` (`apPortAudit`, test) et `NebulaTopo.jsx` : sous
+  le synoptique, repli « Ports des bornes » — borne, commutateur, port,
+  PVID, VLAN autorisés ; PVID attendu = majoritaire, « all » requis, écarts
+  en rouge et repli ouvert d'office s'il y en a.
+
+Vérifié : tests (246 hub, 16 nebula). Non vérifié : sur super.
+
 ## 2026-09-23 — Page publiée par l'agent : export CSV, impression/PDF, historique par thématique (livraison #564)
 
 Demandé : « sur la page de l'agent il faudrait un export pdf/csv et un

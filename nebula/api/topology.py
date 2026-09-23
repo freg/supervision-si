@@ -145,9 +145,11 @@ def build_tree(devices, links, clients=None, statuses=None):
                 continue
             seen.add(nb)
             n = nodes[nb]
+            side = "a" if link.get("a") == cur else "b"  # #565 : réglage du port côté PARENT (PVID, all, allowed)
             n["parent"], n["uplink_port"], n["parent_port"], n["depth"], n["link"] = cur, their_port, my_port, nodes[cur]["depth"] + 1, {
                 "a_vlans": link.get("a_vlans"), "b_vlans": link.get("b_vlans"), "missing_on_a": link.get("missing_on_a") or [],
-                "missing_on_b": link.get("missing_on_b") or [], "bare": bool(link.get("bare"))}
+                "missing_on_b": link.get("missing_on_b") or [], "bare": bool(link.get("bare")),
+                "parent_pvid": link.get(side + "_pvid"), "parent_all": bool(link.get(side + "_all")), "parent_allowed": link.get(side + "_allowed") or []}
             queue.append(nb)
     # appareils non reliés : sous la racine, marqués
     max_depth = max([n["depth"] for n in nodes.values()] + [0])

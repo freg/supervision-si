@@ -140,7 +140,8 @@ def links_from_lldp(switches, lldp_by_sw, ports_by_sw, others=None):
                     seen.add(key)
                     links.append({"a": dev, "a_port": local_port, "b": dev2, "b_port": remote_port, "external": False, "device": True,
                                   "b_kind": str((others.get(dev2) or {}).get("type") or "").upper(),
-                                  "a_vlans": sorted(va) if va != "all" else "all", "b_vlans": None, "missing_on_a": [], "missing_on_b": []})
+                                  "a_vlans": sorted(va) if va != "all" else "all", "b_vlans": None, "missing_on_a": [], "missing_on_b": [],
+                                  "a_pvid": pa.get("pvid"), "a_all": bool(pa.get("all")), "a_allowed": pa.get("allowed") or []})  # #565 : réglage du port côté commutateur
                     continue
             if not other or other == dev:
                 links.append({"a": dev, "a_port": local_port, "b": None, "b_name": n.get("lldpRemSysName") or n.get("lldpRemChassisId"), "b_port": remote_port, "external": True,
@@ -154,6 +155,7 @@ def links_from_lldp(switches, lldp_by_sw, ports_by_sw, others=None):
             pb = (ports_by_sw.get(other) or {}).get(remote_port) or {}
             va = _carried(pa); vb = _carried(pb)
             links.append({"a": dev, "a_port": local_port, "b": other, "b_port": remote_port, "external": False,
+                          "a_pvid": pa.get("pvid"), "a_all": bool(pa.get("all")), "b_pvid": pb.get("pvid"), "b_all": bool(pb.get("all")),
                           "a_vlans": sorted(va) if va != "all" else "all", "b_vlans": sorted(vb) if vb != "all" else "all",
                           "missing_on_a": sorted(vb - va) if isinstance(va, set) and isinstance(vb, set) else [],
                           "missing_on_b": sorted(va - vb) if isinstance(va, set) and isinstance(vb, set) else []})

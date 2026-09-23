@@ -174,3 +174,20 @@ export function treeSummary(tree) {
   return { gateways: by("gateway"), switches: by("switch"), aps: by("ap"), clients, clientsOnline: online, loose: (tree.loose_clients || []).length,
            offline: nodes.filter((n) => n.status === "offline").length, unlinked: nodes.filter((n) => n.unlinked).length };
 }
+
+/** #565 : réglage des ports de commutateur qui desservent les bornes --
+ *  lignes {name, switch, port, pvid, all, allowed, ok} et résumé
+ *  {expectedPvid, differing, notAll} ; attendu = PVID majoritaire, allowed = all. */
+export function apPortAudit(tree) {
+  const byId = new Map((tree.nodes || []).map((n) => [n.id, n]));
+  const rows = (tree.nodes || []).filter((n) => n.kind === "ap" && n.parent && !n.unlinked).map((n) => ({
+    id: n.id, name: n.name, status: n.status, switch: byId.get(n.parent)?.name || n.parent, port: n.parent_port,
+    pvid: n.link?.parent_pvid ?? null, all: !!n.link?.parent_all, allowed: n.link?.parent_allowed || [],
+  }));
+  const counts = new Map();
+  for (const r of rows) if (r.pvid != null) counts.set(r.pvid, (counts.get(r.pvid) || 0) + 1);
+  const expectedPvid = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]?.[0] ?? null;
+  for (const r of rows) r.ok = r.all && r.pvid === expectedPvid;
+  return { rows: rows.sort((a, b) => a.name.localeCompare(b.name, "fr")), expectedPvid,
+    differing: rows.filter((r) => r.pvid !== expectedPvid).length, notAll: rows.filter((r) => !r.all).length };
+}

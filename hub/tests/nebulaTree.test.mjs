@@ -69,3 +69,18 @@ test("treeEdges : ton par liaison ; treeSummary : comptes", () => {
   assert.equal(ed.find((e) => e.b === "edge").a_port, 25);
   assert.deepEqual(treeSummary(TREE), { gateways: 1, switches: 2, aps: 3, clients: 4, clientsOnline: 3, loose: 1, offline: 1, unlinked: 1 });
 });
+
+test("apPortAudit : PVID majoritaire attendu, all requis (#565)", async () => {
+  const { apPortAudit } = await import("../src/nebulaTree.js");
+  const tree = { nodes: [
+    { id: "s", name: "SW", kind: "switch" },
+    { id: "a1", name: "AP-1", kind: "ap", parent: "s", parent_port: 1, link: { parent_pvid: 99, parent_all: true } },
+    { id: "a2", name: "AP-2", kind: "ap", parent: "s", parent_port: 2, link: { parent_pvid: 99, parent_all: false, parent_allowed: [99, 30] } },
+    { id: "a3", name: "AP-3", kind: "ap", parent: "s", parent_port: 3, link: { parent_pvid: 1, parent_all: true } },
+    { id: "a4", name: "AP-4", kind: "ap", parent: "s", unlinked: true },
+  ] };
+  const a = apPortAudit(tree);
+  assert.equal(a.expectedPvid, 99); assert.equal(a.rows.length, 3);
+  assert.deepEqual(a.rows.map((r) => r.ok), [true, false, false]);
+  assert.equal(a.differing, 1); assert.equal(a.notAll, 1);
+});

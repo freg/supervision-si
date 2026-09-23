@@ -4,7 +4,7 @@
 // « n clients » dépliable). Données : /sites/<id>/topology. Nœuds et liaisons
 // cliquables ; la logique (arbre, positions) est dans nebulaTree.js.
 import { useEffect, useMemo, useState } from "react";
-import { treeLayout, treeEdges, treeSummary, KIND_LABEL } from "./nebulaTree.js";
+import { treeLayout, treeEdges, treeSummary, KIND_LABEL, apPortAudit } from "./nebulaTree.js";
 
 async function getJson(url) {
   const r = await fetch(url, { credentials: "include" });
@@ -163,6 +163,16 @@ export default function NebulaTopo({ nebulaApiBase, siteId }) {
         )}
       </div>
       {tree.loose_clients?.length > 0 && <details style={{ marginTop: 8 }}><summary className="muted">{tree.loose_clients.length} client{tree.loose_clients.length > 1 ? "s" : ""} sans appareil identifié</summary><ul>{tree.loose_clients.map((c) => <li key={c.mac}>{c.name} · {c.ip || "—"} · VLAN {c.vlan ?? "—"}</li>)}</ul></details>}
+      {/* #565 : réglage des ports de commutateur qui desservent les bornes (PVID = VLAN de gestion non tagué, allowed = all) */}
+      {(() => { const a = apPortAudit(tree); if (!a.rows.length) return null; return (
+        <details style={{ marginTop: 4 }} open={a.differing + a.notAll > 0}>
+          <summary className="muted">Ports des bornes : {a.rows.length} · PVID attendu {a.expectedPvid ?? "?"}{a.differing ? <span style={{ color: "var(--danger)" }}> · {a.differing} PVID différent{a.differing > 1 ? "s" : ""}</span> : ""}{a.notAll ? <span style={{ color: "var(--danger)" }}> · {a.notAll} sans « all »</span> : " · tous en « all »"}</summary>
+          <table style={{ borderCollapse: "collapse", marginTop: 4 }}>
+            <thead><tr><th>Borne</th><th>Commutateur</th><th>Port</th><th>PVID</th><th>VLAN autorisés</th><th></th></tr></thead>
+            <tbody>{a.rows.map((r) => <tr key={r.id} style={{ color: r.ok ? undefined : "var(--danger)" }}><td>{r.name}</td><td>{r.switch}</td><td>{r.port ?? "?"}</td><td>{r.pvid ?? "?"}</td><td>{r.all ? "all" : (r.allowed.join(", ") || "—")}</td><td>{r.ok ? "✓" : r.pvid !== a.expectedPvid ? `PVID ≠ ${a.expectedPvid}` : "pas « all »"}</td></tr>)}</tbody>
+          </table>
+          <p className="muted" style={{ margin: "4px 0" }}>Lu sur le port du commutateur (Nebula). Le PVID doit être le VLAN de gestion des bornes (celui de leur adresse IP) et identique partout ; « all » laisse passer les VLAN de tous les SSID, présents et futurs.</p>
+        </details>); })()}
       {tree.unmatched?.length > 0 && <details style={{ marginTop: 4 }}><summary className="muted">{tree.unmatched.length} voisin{tree.unmatched.length > 1 ? "s" : ""} LLDP hors inventaire Nebula (postes, téléphones, imprimantes… vus sur les ports des commutateurs)</summary><ul>{tree.unmatched.map((u, i) => <li key={i}>{u.switch} port {u.port} → {u.sysname || "?"} ({u.chassis || "?"})</li>)}</ul></details>}
       {tree.errors?.length > 0 && <p className="muted" style={{ fontSize: 12 }}>Appels en échec (arbre partiel) : {tree.errors.join(" · ")}</p>}
     </div>
