@@ -378,7 +378,7 @@ function EquipmentDetail({ detail, access, setAccess, busy, apiBase, onIdentify,
       <details open>
         <summary><strong>Accès SNMP</strong> <span className="muted">(coffre, cible snmp-api ou communauté ponctuelle -- jamais stockée ici)</span></summary>
         <div className="ne-form">
-          <label>Accès du coffre (genre snmp) <input value={access.credential} placeholder="ex. snmp-lan" onChange={(e) => setAccess((a) => ({ ...a, credential: e.target.value }))} /></label>
+          <label>Accès du coffre (genre snmp, <a href="/credentials/" target="_blank" rel="noopener noreferrer">créer / voir</a>) <input value={access.credential} placeholder="ex. snmp-lan" onChange={(e) => setAccess((a) => ({ ...a, credential: e.target.value }))} /></label>
           <label>Cible snmp-api (id) <input value={access.target_id} placeholder="ex. 3" onChange={(e) => setAccess((a) => ({ ...a, target_id: e.target.value }))} style={{ width: 70 }} /></label>
           <label>Communauté ponctuelle <input type="password" autoComplete="off" value={access.community} onChange={(e) => setAccess((a) => ({ ...a, community: e.target.value }))} /></label>
           <label>Port <input value={access.port} placeholder="161" onChange={(e) => setAccess((a) => ({ ...a, port: e.target.value }))} style={{ width: 60 }} /></label>

@@ -46,7 +46,7 @@ externe ; variables de thème du hub reproduites. -->
     </div>
   </section>
   <section id="tab-canaries" style="display:none">
-    <div class="panel"><p class="muted" style="margin:0 0 6px">Canari mail : un message porteur d'un jeton unique est envoyé depuis un compte externe (SMTP, identifiants dans le coffre) vers une boîte interne, puis attendu par IMAP : délai, SPF/DKIM/DMARC, intégrité. Les comptes sont désignés par leur nom dans le coffre des accès (genre http ou autre).</p>
+    <div class="panel"><p class="muted" style="margin:0 0 6px">Canari mail : un message porteur d'un jeton unique est envoyé depuis un compte externe (SMTP, identifiants dans le coffre) vers une boîte interne, puis attendu par IMAP : délai, SPF/DKIM/DMARC, intégrité. Les comptes sont désignés par leur nom dans <a href="../credentials/" target="_top">le coffre des accès</a> (genre http ou autre).</p>
       <table><thead><tr><th>Canari</th><th>Vers</th><th>Actif</th><th>État</th><th>Dernier passage</th><th>Résultat</th><th></th></tr></thead><tbody id="canaries"></tbody></table></div>
     <div class="panel"><h3 style="margin:0 0 6px">Ajouter un canari mail</h3>
       <div class="row"><input id="c-name" placeholder="nom (ex. mail entrant)"><input id="c-to" placeholder="destinataire canari@exemple.test"><input id="c-from" placeholder="expéditeur (optionnel)"></div>

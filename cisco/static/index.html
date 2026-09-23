@@ -39,7 +39,7 @@ du hub reproduites en clair/sombre. -->
 <main>
   <aside>
     <div class="panel"><div id="list" class="muted">Chargement…</div></div>
-    <div class="panel muted" style="font-size:12px">Identifiants dans le coffre des accès (genre ssh) ; registre <code>cisco/switches.json</code>. Chaque geste demande le nom du switch et est journalisé.</div>
+    <div class="panel muted" style="font-size:12px">Identifiants dans <a href="../credentials/" target="_top">le coffre des accès</a> (genre ssh) ; registre <code>cisco/switches.json</code> sur le serveur du hub. Chaque geste demande le nom du switch et est journalisé.</div>
   </aside>
   <section>
     <div id="msg"></div>
@@ -107,7 +107,7 @@ async function loadSummary() {
     $("env").innerHTML = (s.environment || []).length ? s.environment.map((e) => `<div class="${e.ok ? "ok" : "bad"}">${esc(e.item)}</div>`).join("") : "<span class='muted'>aucun capteur remonté</span>";
     $("logs").innerHTML = (s.logs || []).length ? "<pre>" + s.logs.slice(-60).map((l) => esc(l.raw)).join("\n") + "</pre>" : "<span class='muted'>—</span>";
     loadList();
-  } catch (e) { $("kv").innerHTML = `<dt class="bad">Erreur</dt><dd class="bad">${esc(e.message)}</dd>`; $("alerts").innerHTML = ""; loadList(); }
+  } catch (e) { $("kv").innerHTML = `<dt class="bad">Erreur</dt><dd class="bad">${esc(e.message)}${/coffre/.test(e.message) ? ' — <a href="../credentials/" target="_top">ouvrir les Accès d\'équipements</a>' : ""}</dd>`; $("alerts").innerHTML = ""; loadList(); }
 }
 async function loadConfigs() {
   try {

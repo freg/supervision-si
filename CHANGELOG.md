@@ -1,3 +1,15 @@
+## 2026-09-23 — Lien vers la tuile Accès d'équipements partout où un accès du coffre manque (livraison #578)
+
+Demandé (capture Cisco : « accès « cisco » absent du coffre ») : « il manque
+le lien vers la tuile accès équipements » — règle 7 de la charte.
+
+- `cisco/static/index.html` : l'erreur « absent du coffre » et le bandeau
+  d'aide renvoient vers `../credentials/` (comme MikroTik le faisait déjà).
+- `hub/src/NetworkEquipmentView.jsx` (accès SNMP), `service-watch`
+  (comptes du canari) : lien « créer / voir » vers le coffre.
+
+Vérifié : syntaxe. Non vérifié : sur super.
+
 ## 2026-09-23 — Mise à jour automatique : archive hors du /tmp privé, faux échec après passage manuel, limite mémoire des sondes (livraison #577)
 
 Journaux fournis (postes Linux passés en 0.5.14 à la main) : marqueur de
