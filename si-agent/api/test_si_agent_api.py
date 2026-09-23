@@ -84,10 +84,13 @@ class DashboardTests(ApiBase):
         # contenu : nebula-api simulée
         board = {"sites": [{"site_id": "x", "site_name": "Site", "resume": "Tout le réseau est en ligne (2 équipements).", "phrases": [], "availability": 1.0, "incidents": 0, "online": 2, "total": 2, "hours": 24,
                             "devices": [{"dev_id": "d", "name": "Borne", "model": "WBE660S", "status": "online", "since": 1, "availability": 1.0, "incidents": 0, "secret": "non"}]}]}
-        app_mod._publish_board = lambda pub: (board, None)
+        app_mod._publish_board = lambda pub: (board, {"x": [{"dev_id": "d", "name": "Borne", "from_status": "offline", "to_status": "online", "at": 1}]}, None)
         st, body = http.request("GET", protocol.API_PREFIX + "/agents/srv-01/publish")
         self.assertEqual(st, 200); self.assertTrue(body["enabled"])
-        self.assertEqual(body["sites"][0]["devices"][0], {"name": "Borne", "model": "WBE660S", "status": "online", "since": 1, "availability": 1.0, "incidents": 0})
+        self.assertEqual(body["sites"][0]["devices"][0], {"name": "Borne", "model": "WBE660S", "status": "online", "since": 1, "availability": 1.0, "incidents": 0, "theme": "borne"})
+        # #564 : historique par thématique
+        self.assertEqual(body["sites"][0]["events"], [{"at": 1, "name": "Borne", "from": "offline", "to": "online", "theme": "borne"}])
+        self.assertEqual(publish_lib.device_theme("XS3800-28"), "commutateur"); self.assertEqual(publish_lib.device_theme("USG FLEX 700H"), "passerelle"); self.assertEqual(publish_lib.device_theme("Truc"), "autre")
         self.assertNotIn("site_id", body["sites"][0])
         self.assertEqual(body["title"], "Réseau du campus")
         # signé comme la configuration

@@ -32,10 +32,18 @@ td{padding:8px 4px;border-bottom:1px solid #ddd;vertical-align:top}td.r{text-ali
 .etat.panne{border-color:var(--alert);color:var(--alert)}.etat.degrade{border-color:var(--grey);color:var(--grey);border-style:dashed}
 footer{margin-top:30px;font-family:system-ui,sans-serif;font-size:.8rem;color:var(--grey);border-top:1px solid var(--rule);padding-top:10px}
 @media (max-width:640px){td:nth-child(2),th:nth-child(2){display:none}}
+.tools{font-family:system-ui,sans-serif;font-size:.85rem;margin:10px 0 0;display:flex;gap:8px;flex-wrap:wrap}
+.tools button{font:inherit;padding:4px 10px;border:1px solid var(--rule);background:var(--paper);color:var(--ink);cursor:pointer}
+h2{font-size:1.2rem;margin:22px 0 4px;border-bottom:1px solid var(--rule)}
+details{margin:8px 0}summary{cursor:pointer;font-family:system-ui,sans-serif;font-size:.95rem}
+.ev{font-family:system-ui,sans-serif;font-size:.85rem}.ev td{padding:4px}
+@media print{.tools,#hublink,footer{display:none}main{max-width:none;padding:0}details{display:block}details>*{display:block}}
 </style></head><body><main>
 <p class="kicker">Réseau du site</p><h1>__TITLE__</h1>
 <p class="stamp" id="stamp">Chargement…</p>
+<div class="tools"><button type="button" onclick="csv()">Exporter CSV</button><button type="button" onclick="window.print()">Imprimer / PDF</button></div>
 <div id="sites"></div>
+<div id="history"></div>
 <p id="hublink"></p>
 <footer>Page servie sur le réseau local par la sonde de supervision ; se rafraîchit toute seule. Un problème qui n'y figure pas ? Prévenez le service informatique.</footer>
 </main><script>
@@ -54,7 +62,18 @@ function load(){fetch("board.json",{cache:"no-store"}).then(function(r){return r
   '<table><thead><tr><th>Équipement</th><th>Modèle</th><th>État</th><th>Depuis</th><th class="r">Disponibilité</th></tr></thead><tbody>'+
   (s.devices||[]).map(function(d){var k=d.status==="online"?"ok":d.status==="offline"?"panne":"degrade";return '<tr><td>'+esc(d.name)+'</td><td>'+esc(d.model)+'</td><td><span class="etat '+k+'">'+esc(MOTS[d.status]||d.status)+'</span></td><td>'+when(d.since)+'</td><td class="r">'+pct(d.availability)+'</td></tr>'}).join("")+
   '</tbody></table></section>'}).join("");
+ var TH={passerelle:"Passerelle",commutateur:"Commutateurs",borne:"Bornes Wi-Fi",autre:"Autres"};
+ document.getElementById("history").innerHTML=(b.sites||[]).map(function(s){var ev=s.events||[];if(!ev.length)return '<h2>Historique'+(s.name?" — "+esc(s.name):"")+'</h2><p class="muted">Aucun changement d\'état sur '+esc(s.hours||24)+' h.</p>';
+  return '<h2>Historique par thématique'+(s.name?" — "+esc(s.name):"")+'</h2>'+Object.keys(TH).map(function(k){var l=ev.filter(function(e){return (e.theme||"autre")===k});if(!l.length)return "";
+   return '<details open><summary>'+TH[k]+' — '+l.length+' changement'+(l.length>1?"s":"")+'</summary><table class="ev"><thead><tr><th>Quand</th><th>Équipement</th><th>De</th><th>À</th></tr></thead><tbody>'+
+    l.map(function(e){return '<tr><td>'+when(e.at)+'</td><td>'+esc(e.name)+'</td><td>'+esc(MOTS[e.from]||e.from||"—")+'</td><td>'+esc(MOTS[e.to]||e.to)+'</td></tr>'}).join("")+'</tbody></table></details>'}).join("")}).join("");
+ window.__board=b;
 }).catch(function(){document.getElementById("stamp").textContent="La sonde ne répond pas."})}
+function csv(){var b=window.__board||{};var rows=[["site","section","equipement","modele","thematique","etat","depuis","disponibilite","incidents","de","a"]];
+ (b.sites||[]).forEach(function(s){(s.devices||[]).forEach(function(d){rows.push([s.name,"equipement",d.name,d.model,d.theme,d.status,when(d.since),d.availability==null?"":(d.availability*100).toFixed(2),d.incidents,"",""])});
+  (s.events||[]).forEach(function(e){rows.push([s.name,"historique",e.name,"",e.theme,"",when(e.at),"","",e.from||"",e.to||""])})});
+ var txt=rows.map(function(r){return r.map(function(v){v=String(v==null?"":v);return /[";\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(";")}).join("\r\n");
+ var a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+txt],{type:"text/csv;charset=utf-8"}));a.download="etat-reseau-"+new Date().toISOString().slice(0,10)+".csv";a.click()}
 load();setInterval(load,60000);
 </script></body></html>
 """

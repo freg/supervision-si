@@ -8,6 +8,18 @@ le tableau de santé Nebula de nebula-api, #546) ; l'agent le relève chaque
 minute par son canal signé et le sert sur le LAN du site. La clé Nebula ne
 quitte jamais le central."""
 
+# #564 : thématique d'un appareil d'après son modèle (page publiée : historique par thématique)
+def device_theme(model, dtype=""):
+    m = (model or "").upper(); t = (dtype or "").lower()
+    if t in ("gateway", "router", "firewall") or any(k in m for k in ("USG", "ATP", "NSG", "SCR", "VPN")):
+        return "passerelle"
+    if t in ("ap", "accesspoint", "access_point") or any(k in m for k in ("WAX", "WBE", "NWA", "WAC")):
+        return "borne"
+    if t == "switch" or any(k in m for k in ("GS", "XS", "XGS", "XMG", "MG")):
+        return "commutateur"
+    return "autre"
+
+
 PUBLISH_DEFAULTS = {"enabled": False, "port": 8081, "title": "État du réseau", "site_id": "", "hours": 24, "interval_seconds": 60, "hub_url": ""}
 
 
@@ -55,7 +67,7 @@ def normalize_publish(raw):
     return out
 
 
-def board_payload(board, title, at, hub_url=""):
+def board_payload(board, title, at, hub_url="", transitions=None):
     """Ce que l'agent servira (et rien de plus) : phrases et lignes du
     tableau de santé nebula-api (`/health-board` ou `/sites/<id>/health-board`),
     sans identifiants internes ni adresses."""
@@ -72,7 +84,11 @@ def board_payload(board, title, at, hub_url=""):
             "incidents": s.get("incidents"),
             "online": s.get("online"), "total": s.get("total"), "hours": s.get("hours"),
             "devices": [{"name": d.get("name"), "model": d.get("model"), "status": d.get("status"), "since": d.get("since"),
-                         "availability": d.get("availability"), "incidents": d.get("incidents")} for d in s.get("devices") or []],
+                         "availability": d.get("availability"), "incidents": d.get("incidents"), "theme": device_theme(d.get("model"), d.get("type"))} for d in s.get("devices") or []],
+            # #564 : historique des changements d'état sur la fenêtre, avec la thématique de l'appareil
+            "events": [{"at": t.get("at"), "name": t.get("name") or t.get("dev_id"), "from": t.get("from_status") or t.get("from"), "to": t.get("to_status") or t.get("to"),
+                        "theme": device_theme(next((d.get("model") for d in s.get("devices") or [] if d.get("dev_id") == t.get("dev_id") or d.get("name") == t.get("name")), ""))}
+                       for t in (transitions or {}).get(s.get("site_id"), []) if isinstance(t, dict)],
         })
     out = {"title": title, "at": at, "sites": out_sites}
     if hub_url:

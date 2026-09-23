@@ -796,17 +796,33 @@ NEBULA_API_URL = os.environ.get("NEBULA_API_URL", "").rstrip("/")
 
 
 def _publish_board(pub):
-    """Tableau de santé pour l'agent (#547) : nebula-api, site précis ou tous."""
+    """Tableau de santé pour l'agent (#547) : nebula-api, site précis ou tous.
+    Renvoie (board, transitions par site, erreur) -- #564 : l'historique des
+    changements d'état accompagne le tableau (page publiée : historique par
+    thématique, exports)."""
     if not NEBULA_API_URL:
-        return None, "NEBULA_API_URL non configurée sur le central"
+        return None, {}, "NEBULA_API_URL non configurée sur le central"
     path = ("/sites/%s/health-board" % pub["site_id"]) if pub.get("site_id") else "/health-board"
     try:
         r = requests.get("%s%s?hours=%d" % (NEBULA_API_URL, path, pub["hours"]), timeout=10)
         if r.status_code != 200:
-            return None, "nebula-api : %s" % r.status_code
-        return r.json(), None
+            return None, {}, "nebula-api : %s" % r.status_code
+        board = r.json()
     except (requests.RequestException, ValueError) as exc:
-        return None, "nebula-api injoignable : %s" % exc
+        return None, {}, "nebula-api injoignable : %s" % exc
+    transitions = {}
+    sites = board.get("sites") if isinstance(board, dict) and "sites" in board else [board]
+    for s in sites[:10]:
+        sid = s.get("site_id") if isinstance(s, dict) else None
+        if not sid:
+            continue
+        try:
+            t = requests.get("%s/sites/%s/transitions?hours=%d" % (NEBULA_API_URL, sid, pub["hours"]), timeout=10)
+            if t.status_code == 200:
+                transitions[sid] = (t.json() or {}).get("transitions") or []
+        except (requests.RequestException, ValueError):
+            pass
+    return board, transitions, None
 
 
 @app.route("/agents/<agent_id>/publish/preview", methods=["GET"])
@@ -829,8 +845,8 @@ def publish_preview_board_route(agent_id):
     pub = a.get("publish") or {}
     if not pub.get("enabled"):
         return jsonify({"at": None, "stale": True, "sites": [], "error": "publication désactivée pour cet agent"}), 200
-    board, why = _publish_board(pub)
-    payload = publish_lib.board_payload(board or {}, pub["title"], int(time.time()), pub.get("hub_url") or "")
+    board, transitions, why = _publish_board(pub)
+    payload = publish_lib.board_payload(board or {}, pub["title"], int(time.time()), pub.get("hub_url") or "", transitions)
     payload["received_at"] = time.time()
     if why:
         payload["error"] = why
@@ -848,8 +864,8 @@ def agent_publish_route(agent_id):
     pub = (a or {}).get("publish") or {}
     if not pub.get("enabled"):
         return _signed_json(info["secret"], {"enabled": False})
-    board, why = _publish_board(pub)
-    payload = publish_lib.board_payload(board or {}, pub["title"], int(time.time()), pub.get("hub_url") or "")
+    board, transitions, why = _publish_board(pub)
+    payload = publish_lib.board_payload(board or {}, pub["title"], int(time.time()), pub.get("hub_url") or "", transitions)
     payload["enabled"] = True
     if why:
         payload["error"] = why

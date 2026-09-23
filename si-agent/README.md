@@ -904,3 +904,13 @@ vers cette adresse, par exemple `https://<hub>/?view=nebula` (le hub ouvre
 directement la tuile ; la personne se connecte avec son compte et ne voit
 que ce que la matrice des droits lui accorde). Le lien voyage dans le
 contenu signé, comme le reste.
+
+## Page publiée : exports et historique par thématique (livraison #564, agent 0.5.12)
+
+La page servie par l'agent gagne deux boutons — **Exporter CSV**
+(équipements et historique, `;` et UTF-8 BOM pour Excel) et **Imprimer /
+PDF** (mise en page d'impression, « enregistrer en PDF » du navigateur) — et
+une section **Historique par thématique** (Passerelle, Commutateurs, Bornes
+Wi-Fi, Autres) listant les changements d'état de la fenêtre. Le central
+joint au contenu signé les transitions nebula-api (`/sites/<id>/transitions`)
+avec la thématique déduite du modèle (`publish.device_theme`).

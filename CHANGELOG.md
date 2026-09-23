@@ -1,3 +1,20 @@
+## 2026-09-23 — Page publiée par l'agent : export CSV, impression/PDF, historique par thématique (livraison #564)
+
+Demandé : « sur la page de l'agent il faudrait un export pdf/csv et un
+historique par thématique ».
+
+- `si-agent/api/publish.py` : `device_theme` (passerelle / commutateur /
+  borne / autre d'après le modèle), `board_payload` avec `theme` par appareil
+  et `events` (transitions d'état de la fenêtre) ; `app.py` :
+  `_publish_board` rapporte aussi les transitions nebula-api par site.
+- `si-agent/agent/si_agent/publish.py` (agent 0.5.12) : boutons « Exporter
+  CSV » et « Imprimer / PDF » (CSS d'impression), section « Historique par
+  thématique » repliable.
+- Tests si-agent-api (16) au vert.
+
+Vérifié : tests. Non vérifié : sur super (agent 0.5.12 à pousser depuis
+l'onglet Mises à jour ; l'aperçu du hub montre déjà la nouvelle page).
+
 ## 2026-09-23 — Publication de la page d'état réglable depuis la tuile Agents hôtes (livraison #563)
 
 Demandé : « l'agent n'est pas configuré » (la page publiée ne se réglait que
