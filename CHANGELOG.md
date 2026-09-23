@@ -1,3 +1,17 @@
+## 2026-09-23 — Cisco : relevé tolérant (un routeur ancien n'est plus « injoignable » pour une commande refusée) (livraison #581)
+
+Constat réel : routeur du bureau en telnet — session ouverte, puis
+« commande refusée par l'équipement : show logging » et carte
+« injoignable ».
+
+- `cisco/app.py` : chaque `show` du relevé est indépendant ; les commandes
+  refusées sont listées dans `unavailable` (affiché « Non disponible »),
+  l'équipement reste joignable ; interfaces : repli `show ip interface
+  brief` (routeurs sans « show interfaces status »), `parsers.
+  parse_ip_interface_brief` (test).
+
+Vérifié : 13 tests cisco. Non vérifié : sur le routeur réel.
+
 ## 2026-09-23 — Coffre des accès : genres cisco, enable et telnet (livraison #580)
 
 Demandé : « dans la liste des genres il n'y a pas cisco ».

@@ -116,6 +116,20 @@ def parse_interfaces_status(text):
     return rows
 
 
+def parse_ip_interface_brief(text):
+    """#581 : show ip interface brief (routeurs : pas de « show interfaces status ») ->
+    même forme que parse_interfaces_status (status = up/down/administratively down)."""
+    rows = []
+    for l in (text or "").splitlines():
+        m = re.match(r"^(\S+)\s+(\S+)\s+(YES|NO)\s+(\S+)\s+(administratively down|up|down)\s+(up|down)\s*$", l.strip(), re.I)
+        if not m:
+            continue
+        status, proto = m.group(5).lower(), m.group(6).lower()
+        rows.append({"port": m.group(1), "name": m.group(2) if m.group(2) != "unassigned" else "", "status": "connected" if status == "up" and proto == "up" else ("disabled" if status.startswith("admin") else "notconnect"),
+                     "vlan": "", "duplex": "", "speed": "", "type": "ip %s" % (m.group(2) if m.group(2) != "unassigned" else "-")})
+    return rows
+
+
 _LOG_RE = re.compile(r"%([A-Z0-9_]+)-(\d)-([A-Z0-9_]+):\s*(.*)$")
 
 

@@ -105,6 +105,7 @@ async function loadSummary() {
       ["Mémoire", s.memory && s.memory.used_percent != null ? `${s.memory.used_percent} % utilisée` : "—"], ["Relevé", s.at]].map(([k, val]) => `<dt>${k}</dt><dd>${esc(val || "—")}</dd>`).join("");
     $("ifaces").innerHTML = (s.interfaces || []).length ? "<table><tr><th>Port</th><th>Nom</th><th>État</th><th>VLAN</th><th>Duplex</th><th>Vitesse</th><th>Type</th></tr>" + s.interfaces.map((i) => `<tr><td>${esc(i.port)}</td><td>${esc(i.name)}</td><td class="${i.status === "connected" ? "ok" : /err/.test(i.status) ? "bad" : "muted"}">${esc(i.status)}</td><td>${esc(i.vlan)}</td><td>${esc(i.duplex)}</td><td>${esc(i.speed)}</td><td class="muted">${esc(i.type)}</td></tr>`).join("") + "</table>" : "<span class='muted'>—</span>";
     $("env").innerHTML = (s.environment || []).length ? s.environment.map((e) => `<div class="${e.ok ? "ok" : "bad"}">${esc(e.item)}</div>`).join("") : "<span class='muted'>aucun capteur remonté</span>";
+    if ((s.unavailable || []).length) $("kv").innerHTML += `<dt class="muted">Non disponible</dt><dd class="muted">${s.unavailable.map(esc).join("<br>")}</dd>`;
     $("logs").innerHTML = (s.logs || []).length ? "<pre>" + s.logs.slice(-60).map((l) => esc(l.raw)).join("\n") + "</pre>" : "<span class='muted'>—</span>";
     loadList();
   } catch (e) { $("kv").innerHTML = `<dt class="bad">Erreur</dt><dd class="bad">${esc(e.message)}${/coffre/.test(e.message) ? ' — <a href="../credentials/" target="_top">ouvrir les Accès d\'équipements</a>' : ""}</dd>`; $("alerts").innerHTML = ""; loadList(); }

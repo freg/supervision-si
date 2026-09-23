@@ -261,24 +261,38 @@ _state_cache = {}
 
 
 def collect_summary(sw):
+    """#581 : chaque relevé est indépendant -- une commande que l'équipement refuse
+    (vieux routeur sans « show interfaces status », journal désactivé…) est notée
+    dans `unavailable`, jamais transformée en « injoignable » : la session est
+    ouverte, l'équipement répond."""
+    unavailable = []
+
+    def attempt(label, fn, default):
+        try:
+            return fn()
+        except CiscoError as exc:
+            unavailable.append("%s : %s" % (label, exc))
+            return default
+
     with session_for(sw) as s:
         plat = sw["platform"]
-        version = parsers.parse_version(s.show("show version"))
+        version = attempt("show version", lambda: parsers.parse_version(s.show("show version")), {})
         plat = version.get("platform") or plat
         if plat == "nxos":
-            res = s.show("show system resources")
+            res = attempt("show system resources", lambda: s.show("show system resources"), "")
             cpu, mem = parsers.parse_cpu(res, "nxos"), parsers.parse_memory(res, "nxos")
-            env = parsers.parse_environment(s.show("show environment"))
+            env = attempt("show environment", lambda: parsers.parse_environment(s.show("show environment")), [])
         else:
-            cpu = parsers.parse_cpu(s.show("show processes cpu | include CPU"))
-            mem = parsers.parse_memory(s.show("show memory statistics"))
-            try:
-                env = parsers.parse_environment(s.show("show env all"))
-            except CiscoError:
-                env = parsers.parse_environment(s.show("show environment"))
-        ifaces = parsers.parse_interfaces_status(s.show("show interfaces status" if plat != "nxos" else "show interface status"))
-        logs = parsers.parse_logging(s.show("show logging", timeout=SSH_TIMEOUT * 2), 100)
-    summary = {"version": version, "cpu": cpu, "memory": mem, "environment": env, "platform": plat}
+            cpu = attempt("show processes cpu", lambda: parsers.parse_cpu(s.show("show processes cpu | include CPU")), {})
+            mem = attempt("show memory statistics", lambda: parsers.parse_memory(s.show("show memory statistics")), {})
+            env = attempt("show env all", lambda: parsers.parse_environment(s.show("show env all")), None)
+            if env is None:
+                env = attempt("show environment", lambda: parsers.parse_environment(s.show("show environment")), [])
+        ifaces = attempt("show interfaces status", lambda: parsers.parse_interfaces_status(s.show("show interfaces status" if plat != "nxos" else "show interface status")), None)
+        if ifaces is None or not ifaces:
+            ifaces = attempt("show ip interface brief", lambda: parsers.parse_ip_interface_brief(s.show("show ip interface brief")), ifaces or [])
+        logs = attempt("show logging", lambda: parsers.parse_logging(s.show("show logging", timeout=SSH_TIMEOUT * 2), 100), [])
+    summary = {"version": version, "cpu": cpu, "memory": mem, "environment": env, "platform": plat, "unavailable": unavailable}
     al = parsers.alerts(summary, ifaces, logs)
     summary["alerts"] = al
     summary["interfaces"] = ifaces

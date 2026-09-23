@@ -410,3 +410,16 @@ class TelnetTests(unittest.TestCase):
         self.assertEqual((sw["old"]["transport"], sw["old"]["port"]), ("telnet", 23))
         self.assertEqual((sw["new"]["transport"], sw["new"]["port"]), ("ssh", 22))
         self.assertEqual(sw["x"]["transport"], "ssh")
+
+
+class RouterParsers(unittest.TestCase):
+    def test_ip_interface_brief(self):
+        import parsers
+        txt = """Interface                  IP-Address      OK? Method Status                Protocol
+FastEthernet0/0            192.0.2.1       YES NVRAM  up                    up
+FastEthernet0/1            unassigned      YES NVRAM  administratively down down
+Serial0/0                  198.51.100.2    YES manual down                  down
+"""
+        rows = parsers.parse_ip_interface_brief(txt)
+        self.assertEqual([r["status"] for r in rows], ["connected", "disabled", "notconnect"])
+        self.assertEqual(rows[0]["name"], "192.0.2.1"); self.assertEqual(rows[1]["name"], "")
