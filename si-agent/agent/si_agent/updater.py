@@ -67,6 +67,13 @@ def installer_command(root, platform=None, which=None):
     return ["/bin/bash", script, "--upgrade"], "setsid"
 
 
+def _vt(v):
+    try:
+        return tuple(int(x) for x in str(v or "0").split("."))
+    except ValueError:
+        return (0,)
+
+
 def pending_path(state_path):
     return os.path.join(os.path.dirname(state_path or "/var/lib/si-agent/state.json"), "update-pending.json")
 
@@ -99,7 +106,7 @@ def check_stalled(path, current_version, now=None):
             p = json.load(fh)
     except (OSError, ValueError):
         return None
-    if (now or time.time()) - int(p.get("at") or 0) < STALL_SECONDS or p.get("to") == current_version:
+    if (now or time.time()) - int(p.get("at") or 0) < STALL_SECONDS or _vt(current_version) >= _vt(p.get("to")):
         return None
     try:
         os.unlink(path)
@@ -122,7 +129,7 @@ def check_pending(path, current_version, now=None):
         os.unlink(path)
     except OSError:
         pass
-    if p.get("to") == current_version:
+    if p.get("to") == current_version or _vt(current_version) > _vt(p.get("to")):  # une version plus récente vaut succès
         return ("agent-updated", "info", "agent mis à jour %s → %s" % (p.get("from"), current_version), p)
     return ("agent-update-failed", "warning", "mise à jour %s → %s non appliquée (version courante %s)" % (p.get("from"), p.get("to"), current_version), dict(p, log_tail=log_tail(p.get("log"))))
 
@@ -145,7 +152,18 @@ def run_update(agent, params, fetch, spawn=None, current_version=None):
     ok, got = verify_archive(data, params.get("sha256"))
     if not ok:
         return {"ok": False, "error": "SHA-256 différent (reçu %s…) : archive refusée" % got[:16]}
-    dest = tempfile.mkdtemp(prefix="si-agent-update-")
+    # #577 : JAMAIS dans /tmp -- le service tourne avec PrivateTmp=true, et
+    # l'installeur lancé par systemd-run vit dans une autre unité (autre /tmp) :
+    # il ne trouvait pas le script, d'où des mises à jour « lancées » sans
+    # effet ni journal. L'archive s'extrait dans le dossier d'état de l'agent.
+    base = os.path.join(os.path.dirname(pending_path(agent.cfg.get("state_path"))), "update")
+    try:
+        os.makedirs(base, exist_ok=True)
+        for old in os.listdir(base):  # une seule extraction à la fois
+            shutil.rmtree(os.path.join(base, old), ignore_errors=True)
+    except OSError:
+        base = None
+    dest = tempfile.mkdtemp(prefix="si-agent-update-", dir=base)
     try:
         with tarfile.open(fileobj=__import__("io").BytesIO(data), mode="r:gz") as tar:
             safe_extract(tar, dest)

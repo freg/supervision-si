@@ -22,6 +22,8 @@ class Updater(unittest.TestCase):
         updater.write_pending(pend, "0.5.7", "0.5.13", "cmd2", now=1000, log_path=log)
         self.assertIsNone(updater.check_stalled(pend, "0.5.13", now=5000))               # version atteinte : ce n'est pas un blocage
         ev = updater.check_pending(pend, "0.5.13"); self.assertEqual(ev[0], "agent-updated")
+        updater.write_pending(pend, "0.5.7", "0.5.13", "cmd3", now=1000, log_path=log)
+        self.assertEqual(updater.check_pending(pend, "0.5.14")[0], "agent-updated")  # #577 : plus récent que la cible = réussi
         self.assertEqual(updater.log_tail("/nulle/part"), "")
 
     def test_run_update_spawn_failure(self):
@@ -42,6 +44,7 @@ class Updater(unittest.TestCase):
             seen.update(cmd=cmd, log=log_path)
         r = updater.run_update(A(), params, fetch=lambda u: blob, spawn=ok, current_version="0.5.7")
         self.assertTrue(r["ok"]); self.assertTrue(seen["log"].endswith(".log")); self.assertIn("--upgrade", " ".join(seen["cmd"]))
+        self.assertIn(os.path.join(os.path.dirname(A.cfg["state_path"]), "update"), " ".join(seen["cmd"]))  # #577 : hors /tmp (PrivateTmp)
 
 
 if __name__ == "__main__":

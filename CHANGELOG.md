@@ -1,3 +1,18 @@
+## 2026-09-23 — Mise à jour automatique : archive hors du /tmp privé, faux échec après passage manuel, limite mémoire des sondes (livraison #577)
+
+Journaux fournis (postes Linux passés en 0.5.14 à la main) : marqueur de
+0.5.13 « non appliquée », journal vide ; sonde docker-containers en échec
+« failed to reserve page summary memory ».
+
+- Agent 0.5.15 (`updater.py`, tests) : extraction dans le dossier d'état
+  (`<state>/update/`) au lieu de /tmp — le service a `PrivateTmp=true`,
+  l'unité `systemd-run` ne voyait pas le script ; version courante plus
+  récente que la cible = réussite ; `plugin_max_memory_mb` 512 → 4096
+  (RLIMIT_AS, binaires Go).
+
+Vérifié : tests. Non vérifié : mise à jour automatique réelle 0.5.15 →
+suivante (ce sera le vrai test, dès la prochaine version servie).
+
 ## 2026-09-23 — Mises à jour d'agents restées sans effet : statut corrigé, journal de l'installeur, échec signalé (livraison #576)
 
 Demandé : « l'agent i9freg (mon poste) (les autres non plus sauf le mac)

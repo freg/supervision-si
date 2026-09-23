@@ -103,7 +103,7 @@ DEFAULTS = {
     "block_file": os.path.join(_ETC_DIR, "BLOCKED"),
     "require_signed_responses": True,
     "plugins_user": "nobody",
-    "plugin_max_memory_mb": 512,
+    "plugin_max_memory_mb": 4096,  # #577 : RLIMIT_AS (espace d'adressage, pas la RSS) -- 512 faisait planter les binaires Go (docker : « failed to reserve page summary memory »)
     "log_level": "INFO",
     "log_file": None,
 }

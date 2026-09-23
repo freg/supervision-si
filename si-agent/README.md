@@ -293,7 +293,7 @@ journal, comptes) ; non vérifié : `docker build`/`run` réels.
 `batch_size` 100, `queue_path`, `plugins_dir`, `risk_thresholds`, `plugins`
 (surcharges locales), `ca_file`, `insecure` ; #422 : `state_path`,
 `block_file`, `require_signed_responses` (true), `plugins_user` (nobody),
-`plugin_max_memory_mb` (512), `log_level`, `log_file`.
+`plugin_max_memory_mb` (4096, espace d'adressage), `log_level`, `log_file`.
 
 ## Protocole attendu du central (contrat pour `si-agent-api`, #421)
 
@@ -405,7 +405,7 @@ configuration, identifiants de commandes mémorisés (`state.json`).
 
 **Sondes confinées.** Environnement minimal (jamais celui du service),
 session propre (le délai tue tout le groupe de processus), priorité
-abaissée, limites CPU / mémoire (`max_memory_mb`, 512 Mo par défaut) /
+abaissée, limites CPU / mémoire (`max_memory_mb`, 4096 Mo d'espace d'adressage par défaut depuis #577 : 512 faisait planter les binaires Go) /
 fichiers, umask 077, et abandon des privilèges vers `plugins_user`
 (`nobody`) quand l'agent est root — sauf sonde `privileged: true`, drapeau
 **couvert par la signature** du central et journalisé ; les sondes livrées
@@ -982,3 +982,16 @@ main : Linux `sudo /opt/si-agent/... install.sh --upgrade` depuis l'archive
 servie (`/api/si-agent/package`), Windows `install.ps1 -Upgrade` en
 administrateur ; ensuite le journal dira pourquoi les précédentes
 échouaient.
+
+## Mise à jour automatique : cause réelle (livraison #577, agent 0.5.15)
+
+Journaux des postes après passage manuel en 0.5.14 : l'installeur lancé par
+`systemd-run` ne trouvait pas le script — le service tourne avec
+`PrivateTmp=true`, l'archive était extraite dans le `/tmp` privé de l'agent,
+invisible depuis l'unité transitoire. Depuis 0.5.15 l'archive s'extrait dans
+`/var/lib/si-agent/update/` (dossier d'état, partagé). Une version courante
+plus récente que la cible du marqueur compte comme réussie (plus de faux
+`agent-update-failed` après un passage manuel). `plugin_max_memory_mb`
+passe à 4096 : la limite est un espace d'adressage (RLIMIT_AS) et 512 Mo
+faisait planter les binaires Go (sonde docker-containers : « failed to
+reserve page summary memory »).
