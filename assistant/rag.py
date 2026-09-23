@@ -217,6 +217,35 @@ def build_extract_messages(text, schema="asset", fields=None, context="", max_ch
     return [{"role": "system", "content": SYSTEM_JSON}, {"role": "user", "content": user}]
 
 
+ACTION_CATALOG = {
+    "ouvrir_outil": "ouvrir la tuile d'origine pour traiter à la main",
+    "ignorer": "écarter (bruit, doublon, déjà connu)",
+    "regrouper": "traiter avec d'autres propositions de même cause (indiquer lesquelles dans `groupe`)",
+    "ticket": "créer un ticket (donner `titre`)",
+    "vm_action": "agir sur une VM Proxmox via l'agent (`vmid`, `action` : start/shutdown/reboot)",
+    "run_plugin": "relancer une sonde d'agent (`agent_id`, `plugin`)",
+    "surveiller": "ne rien faire, revoir dans `delai_h` heures",
+}
+
+
+def build_prioritize_messages(items, capacity=10, context="", max_items=80):
+    """#573 : priorisation d'une liste de constats / propositions par le modèle interne,
+    avec action proposée dans un catalogue fermé (automatisable = exécutable par le hub)."""
+    lines = []
+    for it in items[:max_items]:
+        lines.append("- id=%s | source=%s | gravité=%s | %s | %s%s" % (it.get("id"), it.get("source") or "?", it.get("severity") or "?", (it.get("label") or "")[:120], (it.get("detail") or "")[:240], (" | depuis %s" % it["since"]) if it.get("since") else ""))
+    user = ("Constats à prioriser (%d) :\n%s\n\n%s"
+            "Capacité de traitement : %d constats aujourd'hui. Renvoie un JSON : "
+            "{\"synthese\": \"3 phrases : ce qui compte vraiment, ce qui est du bruit, ce qui peut s'automatiser\", "
+            "\"ordre\": [ {\"id\": ..., \"priorite\": \"P1\"|\"P2\"|\"P3\"|\"P4\", \"pourquoi\": \"1 phrase\", \"action\": un des types %s, \"params\": {…}, \"automatisable\": true|false} ] (TOUS les ids, P1 en premier), "
+            "\"groupes\": [ {\"cause\": \"...\", \"ids\": [...]} ] }. "
+            "Règles : P1 = service ou sécurité en jeu maintenant ; P4 = bruit ou doublon ; regroupe les constats de même cause (ex. même seuil sur 20 hôtes semblables = un groupe, une action) ; "
+            "`automatisable` seulement si l'action est dans le catalogue et sans risque de coupure ; ne jamais proposer stop/reset sur une VM en marche. Catalogue : %s"
+            % (len(items[:max_items]), "\n".join(lines), ("Contexte : %s\n\n" % context) if context else "", capacity,
+               "/".join(ACTION_CATALOG), "; ".join("%s = %s" % kv for kv in ACTION_CATALOG.items())))
+    return [{"role": "system", "content": SYSTEM_JSON}, {"role": "user", "content": user}]
+
+
 def extract_json(text):
     """Premier objet JSON d'une réponse (le modèle peut bavarder ou entourer de ```)."""
     if not text:

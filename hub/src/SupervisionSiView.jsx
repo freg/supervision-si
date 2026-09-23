@@ -112,7 +112,7 @@ export default function SupervisionSiView({
   onBack, onNavigate, legacyFrontendUrl,
   netprobeApiBase, upsApiBase, siAgentApiBase, siProxyApiBase, accessToken, snmpApiBase, sshTunnelsApiBase, networkAgentApiBase,
   netmapOrchestratorApiBase, vigilanceApiBase, pixelGridApiBase, groups = [],
-  mikrotikApiBase, mikrotikUrl, ticketsApiBase,
+  mikrotikApiBase, mikrotikUrl, ticketsApiBase, assistantUrl = "",
 }) {
   const [sources, setSources] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -595,7 +595,7 @@ ${when(new Date(sg.start).toISOString())} → ${when(new Date(sg.end).toISOStrin
             </>
           )}
 
-          {tab === "proposals" && <ProposalList proposals={proposals} checked={checkedProposals} onToggle={toggleProposal} onNavigate={onNavigate} />}
+          {tab === "proposals" && <ProposalList proposals={proposals} checked={checkedProposals} onToggle={toggleProposal} onNavigate={onNavigate} assistantUrl={assistantUrl} onKeep={(keys) => setCheckedProposals((c) => { const n = { ...c }; keys.forEach((k) => { n[k] = true; }); return n; })} />}
 
           {tab === "links" && (
             <div className="ss-linkstab">
@@ -624,13 +624,72 @@ ${when(new Date(sg.start).toISOString())} → ${when(new Date(sg.end).toISOStrin
   );
 }
 
-function ProposalList({ proposals, checked, onToggle, onNavigate, compact }) {
+// #573 : priorisation par l'IA interne -- test « prioriser et automatiser » : les
+// propositions partent au modèle local (assistant-api), qui renvoie un ordre,
+// une raison, des groupes de même cause et une action du catalogue ; on retient
+// les N premières d'un clic, rien n'est exécuté sans validation.
+function AiPriorities({ assistantUrl, proposals, onKeep, onNavigate, KIND }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [result, setResult] = useState(null);
+  const [capacity, setCapacity] = useState(10);
+  const base = (assistantUrl || "").replace(/\/$/, "");
+  const run = async () => {
+    setBusy(true); setError(null); setResult(null);
+    const items = proposals.slice(0, 80).map((p) => ({ id: p.key, source: KIND[p.kind]?.label || p.kind, severity: p.severity, label: p.label, detail: p.detail, since: p.at ? new Date(p.at).toISOString() : null }));
+    try {
+      const r = await fetch(`${base}/prioritize`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items, capacity, context: "supervision d'un SI : hôtes, réseau, sondes ; les constats de vigilance « croissance » sur des hôtes semblables ont souvent la même cause" }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.error) throw new Error(j.error || `${r.status}`);
+      const parsed = j.parsed || {};
+      if (!Array.isArray(parsed.ordre)) throw new Error("réponse sans ordre (" + String(j.text || "").slice(0, 160) + ")");
+      setResult({ ...parsed, ms: j.ms, model: j.model, sent: items.length });
+    } catch (e) { setError(e.message); }
+    setBusy(false);
+  };
+  if (!base) return null;
+  const byKey = new Map(proposals.map((p) => [p.key, p]));
+  const PRIO = { P1: "var(--danger)", P2: "var(--warning)", P3: "var(--text)", P4: "var(--muted)" };
+  return (
+    <div style={{ margin: "6px 0" }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <button type="button" className="secondary" disabled={busy || !proposals.length} onClick={run}>{busy ? "L'IA interne analyse…" : "✨ Prioriser par l'IA interne"}</button>
+        <label className="muted" style={{ fontSize: 12 }}>capacité du jour <input type="number" min="1" max="50" value={capacity} onChange={(e) => setCapacity(Number(e.target.value) || 10)} style={{ width: 50 }} /></label>
+        <span className="muted" style={{ fontSize: 12 }}>{proposals.length > 80 ? "les 80 premières partent au modèle" : `${proposals.length} propositions`} · traité sur le SI, rien ne sort</span>
+        {result && <span className="muted" style={{ fontSize: 12 }}>· {result.ordre.length} classées en {result.ms ? (result.ms / 1000).toFixed(0) : "?"} s {result.model ? `(${result.model})` : ""}</span>}
+      </div>
+      {error && <p style={{ color: "var(--danger)", fontSize: 12 }}>{error}</p>}
+      {result && (
+        <div className="hub-card" style={{ padding: 8, marginTop: 6, fontSize: 13 }}>
+          {result.synthese && <p style={{ margin: "0 0 6px" }}>{result.synthese}</p>}
+          {(result.groupes || []).length > 0 && <p className="muted" style={{ margin: "0 0 6px", fontSize: 12 }}>Groupes de même cause : {result.groupes.map((g, i) => <span key={i}>{g.cause} ({(g.ids || []).length}){i < result.groupes.length - 1 ? " · " : ""}</span>)}</p>}
+          <button type="button" className="primary" style={{ fontSize: 12, marginBottom: 6 }} onClick={() => onKeep(result.ordre.slice(0, capacity).map((o) => o.id).filter((k) => byKey.has(k)))}>Retenir les {Math.min(capacity, result.ordre.length)} premières</button>
+          <table style={{ borderCollapse: "collapse", width: "100%", textAlign: "left" }}>
+            <thead><tr><th>#</th><th>Prio</th><th>Constat</th><th>Pourquoi</th><th>Action proposée</th></tr></thead>
+            <tbody>{result.ordre.map((o, i) => { const p = byKey.get(o.id); return (
+              <tr key={o.id + i}>
+                <td className="muted">{i + 1}</td>
+                <td style={{ color: PRIO[o.priorite] || "inherit", fontWeight: 600 }}>{o.priorite}</td>
+                <td>{p ? <>{p.label} <span className="muted">· {KIND[p.kind]?.label}</span></> : <span className="muted">{o.id}</span>}</td>
+                <td className="muted">{o.pourquoi}</td>
+                <td>{o.action}{o.params && Object.keys(o.params).length ? <span className="muted"> {JSON.stringify(o.params)}</span> : null}{o.automatisable ? <span title="l'action est dans le catalogue du hub ; exécution à valider" style={{ color: "var(--ok)" }}> ⚙ automatisable</span> : null}
+                  {p && onNavigate && o.action === "ouvrir_outil" && <button className="secondary" style={{ fontSize: 11, marginLeft: 6 }} onClick={() => onNavigate(KIND[p.kind]?.tool)}>↗</button>}</td>
+              </tr>); })}</tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProposalList({ proposals, checked, onToggle, onNavigate, compact, assistantUrl = "", onKeep }) {
   const KIND = { orchestrateur: { label: "orchestrateur", tool: "network-cycle" }, vigilance: { label: "vigilance", tool: "vigilance" }, decouvert: { label: "découvert", tool: "network-agent" }, agent: { label: "vu par un agent", tool: "si-agent" } };
   if (!proposals.length) return <p className="muted" style={{ padding: 6 }}>Aucune proposition : rien de nouveau côté orchestrateur, vigilance ni exploration.</p>;
   const kept = proposals.filter((p) => checked[p.key]).length;
   return (
     <div className="ss-proposals">
       {!compact && <p className="muted" style={{ margin: "6px 0" }}>{kept} retenue(s) sur {proposals.length} — cocher = à traiter (retenue), décocher = écartée ; le traitement se fait dans la tuile d'origine.</p>}
+      {!compact && onKeep && <AiPriorities assistantUrl={assistantUrl} proposals={proposals} onKeep={onKeep} onNavigate={onNavigate} KIND={KIND} />}
       <ul className="ss-list">
         {proposals.map((p) => (
           <li key={p.key} className={checked[p.key] ? "active" : ""}>

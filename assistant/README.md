@@ -179,3 +179,16 @@ renvoie des fiches structurées, signale les champs sensibles (IP, MAC,
 séries, identifiants, comptes ; mots de passe masqués) et les anomalies
 (IP incohérente, doublon) ; la personne relit, corrige, importe en fusion.
 Journalisé (`extract`) comme les autres usages.
+
+## Priorisation des constats (livraison #573) — `POST /assistant/prioritize`
+
+`{"items": [{id, source, severity, label, detail, since}], "capacity": 10,
+"context": "..."}` → `parsed = {"synthese", "ordre": [{id, priorite P1-P4,
+pourquoi, action, params, automatisable}], "groupes": [{cause, ids}]}`.
+Catalogue d'actions fermé (`rag.ACTION_CATALOG` : ouvrir_outil, ignorer,
+regrouper, ticket, vm_action, run_plugin, surveiller). Test « prioriser et
+automatiser » : Supervision SI → Propositions → « Prioriser par l'IA
+interne » (80 propositions max), « Retenir les N premières » coche la
+sélection ; rien n'est exécuté sans validation. Suite prévue (Vox-cortex,
+item 83) : exécuter les actions `automatisable` du catalogue après clic,
+puis en autonomie sur des règles apprises, journal des décisions.

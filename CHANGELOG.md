@@ -1,3 +1,21 @@
+## 2026-09-23 — Test « prioriser et automatiser » : les propositions de Supervision SI classées par l'IA interne (livraison #573)
+
+Demandé : « l'IA, qu'en penses-tu pour prioriser et automatiser ? On fait
+un test ? ».
+
+- `assistant/rag.py` `build_prioritize_messages` + `ACTION_CATALOG`,
+  `assistant/app.py` `POST /prioritize` (journalisé, test).
+- `hub/src/SupervisionSiView.jsx` : bloc « Prioriser par l'IA interne »
+  dans l'onglet Propositions — capacité du jour, synthèse, groupes de même
+  cause, tableau P1-P4 avec raison et action proposée (⚙ automatisable
+  quand l'action est dans le catalogue du hub), « Retenir les N
+  premières » ; `App.jsx` passe `assistantUrl`.
+
+Vérifié : tests (249 hub, assistant au vert). Non vérifié : qualité du
+classement sur le modèle réel (les 522 propositions de vigilance
+« croissance_volume » devraient sortir en un groupe P3/P4 avec une action
+« régler le seuil »).
+
 ## 2026-09-23 — Contrôle des VM Proxmox depuis le hub, par l'agent (livraison #572)
 
 Demandé : « une interface de gestion/contrôle des VM d'un Proxmox depuis le

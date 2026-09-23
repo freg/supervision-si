@@ -1710,6 +1710,7 @@ vm === "agent-page" ? (
           mikrotikApiBase={MIKROTIK_API_BASE}
           mikrotikUrl={MIKROTIK_URL}
           ticketsApiBase={TICKETS_API_BASE_URL}
+          assistantUrl={ASSISTANT_URL}
           groups={groups}
         />
       ) : vm === "si-agent" ? (

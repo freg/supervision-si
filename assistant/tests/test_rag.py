@@ -180,3 +180,7 @@ class Extract(unittest.TestCase):
         self.assertEqual(m[0]["role"], "system"); self.assertIn("fiches", m[1]["content"]); self.assertIn("Adresse IP", m[1]["content"]); self.assertIn("allée", m[1]["content"])
         self.assertIn("Nom de l’atelier", rag.build_extract_messages("x", "service")[1]["content"])
         self.assertIn("Ref", rag.build_extract_messages("x", "asset", fields=["Ref", "Nom"])[1]["content"])
+
+    def test_build_prioritize_messages(self):
+        m = rag.build_prioritize_messages([{"id": "a", "source": "vigilance", "severity": "warning", "label": "dhcp1 : croissance", "detail": "x"}], capacity=5, context="campus")
+        self.assertIn("id=a", m[1]["content"]); self.assertIn("Capacité de traitement : 5", m[1]["content"]); self.assertIn("vm_action", m[1]["content"]); self.assertIn("campus", m[1]["content"])

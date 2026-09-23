@@ -394,6 +394,24 @@ def extract(text, schema="asset", fields=None, context="", log=True):
     return out
 
 
+def prioritize(items, capacity=10, context="", log=True):
+    """#573 : ordre de traitement + action proposée pour une liste de constats."""
+    out = llm_chat(rag.build_prioritize_messages(items, capacity, context), temperature=0.0, json_mode=True, max_tokens=6000)
+    out["parsed"] = rag.extract_json(out.get("text"))
+    if log:
+        journal("prioritize", {"items": len(items), "ms": out.get("ms"), "ranked": len((out["parsed"] or {}).get("ordre") or []) if isinstance(out["parsed"], dict) else 0, "error": out.get("error")})
+    return out
+
+
+@app.route(PREFIX + "/prioritize", methods=["POST"])
+def prioritize_route():
+    b = request.get_json(silent=True) or {}
+    items = b.get("items")
+    if not isinstance(items, list) or not items:
+        return _bad("items (liste) requis")
+    return jsonify(prioritize(items, int(b.get("capacity") or 10), b.get("context") or "")), 200
+
+
 @app.route(PREFIX + "/extract", methods=["POST"])
 def extract_route():
     b = request.get_json(silent=True) or {}
