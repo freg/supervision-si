@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { fetchProxmox, fetchProxmoxHistory } from "./siAgentClient.js";
+import { hubLink } from "./hubLinks.js";
 import { backupSummary, backupRunTone, accessSummary, guestLogsSummary, availabilityOf, nodeBackupSummary, nodeAccessSummary, hostHealthSummary } from "./proxmoxLib.js";
 
 // Tuile « Proxmox » (livraison #488) : vue dédiée des hyperviseurs
@@ -380,8 +381,8 @@ export default function ProxmoxView({ onBack, siAgentApiBase }) {
       {loading ? <p className="muted">Chargement…</p>
         : nodes.length === 0 ? (
           <div className="panel"><p className="muted">
-            Aucun hyperviseur ne remonte. Installer si-agent sur chaque Proxmox puis activer le plugin
-            (<code>--enable-plugin proxmox</code> ou catalogue central) — premier relevé sous 30 min.
+            Aucun hyperviseur ne remonte. <a href={hubLink("si-agent")}>Installer si-agent sur chaque Proxmox</a> (tuile Agents hôtes → Installation) puis activer le plugin
+            <code>proxmox</code> dans la section <a href={hubLink("si-agent", { section: "plugins" })}>Sondes de l'agent</a> (ou <code>--enable-plugin proxmox</code> à l'installation) — premier relevé sous 30 min.
           </p></div>
         ) : nodes.map((n) => <NodeCard key={n.agent_id} node={n} selected={selected} onSelect={setSelected} history={histories[n.agent_id]} />)}
     </div>

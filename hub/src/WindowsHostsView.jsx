@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { matchWindowsHosts, accessLinks } from "./campusCards.js";
 import { rankFilter } from "./textFilter.js";
+import { hubLink } from "./hubLinks.js";
 
 const SEV = { warning: "var(--warning)", critical: "var(--danger)", info: "var(--muted)" };
 
@@ -13,7 +14,7 @@ function download(name, text) {
   a.href = URL.createObjectURL(new Blob([text], { type: "application/x-rdp" })); a.download = name; a.click();
 }
 
-export default function WindowsHostsView({ siAgentApiBase, assets = [], site = "" }) {
+export default function WindowsHostsView({ siAgentApiBase, assets = [], site = "", agents = [] }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [query, setQuery] = useState("");
@@ -47,7 +48,7 @@ export default function WindowsHostsView({ siAgentApiBase, assets = [], site = "
         <input type="search" placeholder="filtrer (nom, IP, MAC, groupe, fiche, port)" value={query} onChange={(e) => setQuery(e.target.value)} style={{ minWidth: 260 }} />
         <label className="muted"><input type="checkbox" checked={onlyWindows} onChange={(e) => setOnlyWindows(e.target.checked)} /> postes Windows seulement</label>
         <span style={{ flex: 1 }} />
-        {data?.probes?.length ? <span className="muted">{data.probes.map((p) => `${p.agent_id} : ${p.scanned ?? "?"} adresses, ${p.stats?.alive ?? "?"} hôtes, ${when(p.at)}`).join(" · ")}</span> : <span className="muted">aucune mesure : activer la sonde sur l'agent du site</span>}
+        {data?.probes?.length ? <span className="muted">{data.probes.map((p) => `${p.agent_id} : ${p.scanned ?? "?"} adresses, ${p.stats?.alive ?? "?"} hôtes, ${when(p.at)}`).join(" · ")}</span> : <span className="muted">aucune mesure : activer la sonde <code>windows-probe</code> sur {agents.length ? agents.map((a) => <a key={a.agent_id} href={hubLink("si-agent", { agent: a.agent_id, section: "plugins" })} style={{ marginRight: 6 }}>{a.label || a.agent_id}</a>) : <a href={hubLink("si-agent")}>l'agent du site</a>}</span>}
         <button type="button" className="secondary" onClick={load}>Actualiser</button>
       </div>
       {error && <p style={{ color: "var(--danger)" }}>{error}</p>}

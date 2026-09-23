@@ -25,6 +25,14 @@ export default function CampusView({ nebulaApiBase, siAgentApiBase = "", agentSi
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
   const [open, setOpen] = useState(null);
+  const [agents, setAgents] = useState([]);  // #570 : agents du site, pour les liens « activer la sonde sur … »
+  useEffect(() => {
+    if (!siAgentApiBase) return;
+    fetch(`${siAgentApiBase}/agents`, { credentials: "include" }).then((r) => r.json()).then((d) => {
+      const all = d.agents || d.items || [];
+      setAgents(all.filter((a) => !agentSite || a.site === agentSite));
+    }).catch(() => {});
+  }, [siAgentApiBase, agentSite]);
 
   const load = async (coll) => {
     if (coll === "windows" || coll === "broadcast") { if (!data.assets) coll = "assets"; else return; }  // #567 : l'onglet Accès a besoin des fiches pour le rapprochement
@@ -66,8 +74,8 @@ export default function CampusView({ nebulaApiBase, siAgentApiBase = "", agentSi
         <button className={tab === "windows" ? "active" : ""} onClick={() => setTab("windows")}>Accès Windows</button>
         <button className={tab === "broadcast" ? "active" : ""} onClick={() => setTab("broadcast")}>Annonces réseau</button>
       </div>
-      {tab === "windows" && <WindowsHostsView siAgentApiBase={siAgentApiBase} assets={data.assets?.items || []} site={agentSite} />}
-      {tab === "broadcast" && <BroadcastView siAgentApiBase={siAgentApiBase} assets={data.assets?.items || []} site={agentSite} />}
+      {tab === "windows" && <WindowsHostsView siAgentApiBase={siAgentApiBase} assets={data.assets?.items || []} site={agentSite} agents={agents} />}
+      {tab === "broadcast" && <BroadcastView siAgentApiBase={siAgentApiBase} assets={data.assets?.items || []} site={agentSite} agents={agents} />}
       {tab !== "windows" && tab !== "broadcast" && <>
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
         <input type="search" placeholder="filtrer (nom, type, modèle, MAC, lab…)" value={query} onChange={(e) => setQuery(e.target.value)} style={{ minWidth: 260 }} />

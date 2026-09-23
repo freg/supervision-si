@@ -5,11 +5,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { matchWindowsHosts } from "./campusCards.js";
 import { rankFilter } from "./textFilter.js";
+import { hubLink } from "./hubLinks.js";
 
 const SEV = { warning: "var(--warning)", critical: "var(--danger)", info: "var(--muted)" };
 const PROTO_LABEL = { arp: "ARP", dhcp: "DHCP", "netbios-ns": "NetBIOS (noms)", "netbios-dgm": "NetBIOS (datagrammes)", mdns: "mDNS / Bonjour", ssdp: "SSDP / UPnP", llmnr: "LLMNR", "ws-discovery": "WS-Discovery", lldp: "LLDP", cdp: "CDP", stp: "STP", "icmpv6-ra": "IPv6 annonce routeur", "icmpv6-ns": "IPv6 sollicitation voisin", "icmpv6-na": "IPv6 annonce voisin", mld: "MLD", igmp: "IGMP", anydesk: "AnyDesk", "anydesk-discovery": "AnyDesk (découverte)", artnet: "Art-Net", dropbox: "Dropbox LAN", steam: "Steam", "mikrotik-ndp": "MikroTik NDP", vrrp: "VRRP", hsrp: "HSRP", "ubiquiti-discovery": "Ubiquiti", capwap: "CAPWAP", snmp: "SNMP", "snmp-trap": "SNMP trap", ntp: "NTP", plex: "Plex", "wake-on-lan": "Wake-on-LAN", sip: "SIP" };
 
-export default function BroadcastView({ siAgentApiBase, assets = [], site = "" }) {
+export default function BroadcastView({ siAgentApiBase, assets = [], site = "", agents = [] }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [query, setQuery] = useState("");
@@ -45,7 +46,7 @@ export default function BroadcastView({ siAgentApiBase, assets = [], site = "" }
         {data?.probes?.length > 1 && <select value={agent} onChange={(e) => setAgent(e.target.value)}>{data.probes.map((p) => <option key={p.agent_id} value={p.agent_id}>{p.agent_id}{p.site ? ` (${p.site})` : ""}</option>)}</select>}
         <input type="search" placeholder="filtrer (MAC, IP, nom, service, protocole, fiche)" value={query} onChange={(e) => setQuery(e.target.value)} style={{ minWidth: 260 }} />
         <span style={{ flex: 1 }} />
-        {probe ? <span className="muted">{probe.agent_id} · {probe.frames} trames en {probe.seconds} s ({probe.mode === "raw" ? "capture brute" : "écoute UDP sans privilège"}) · {when(probe.at)}</span> : <span className="muted">aucune mesure : activer la sonde sur l'agent du site</span>}
+        {probe ? <span className="muted">{probe.agent_id} · {probe.frames} trames en {probe.seconds} s ({probe.mode === "raw" ? "capture brute" : "écoute UDP sans privilège"}) · {when(probe.at)}</span> : <span className="muted">aucune mesure : activer la sonde <code>broadcast-probe</code> sur {agents.length ? agents.map((a) => <a key={a.agent_id} href={hubLink("si-agent", { agent: a.agent_id, section: "plugins" })} style={{ marginRight: 6 }}>{a.label || a.agent_id}</a>) : <a href={hubLink("si-agent")}>l'agent du site</a>}</span>}
         <button type="button" className="secondary" onClick={load}>Actualiser</button>
       </div>
       {error && <p style={{ color: "var(--danger)" }}>{error}</p>}

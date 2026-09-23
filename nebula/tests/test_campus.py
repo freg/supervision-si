@@ -7,9 +7,10 @@ class Campus(unittest.TestCase):
     def test_assets(self):
         rows = [["Nom", "Type", "Modèle", "Numero de série", "Adresse MAC", "Lab", "Localisation", "Commentaire"],
                 ["PC01 Alpha", "Ordinateur portable", "Book 4", "S123", "AA-BB-CC-DD-EE-01,aa:bb:cc:dd:ee:02", "Lab Alpha", "Stockage", "ok"],
-                ["", "Ordi fixe", "", "", "", "Allée", "", ""], ["", "", "", "", "", "", "", ""]]
+                ["", "Ordi fixe", "", "", "", "Allée", "", ""], ["", "Ordi fixe", "", "", "", "Allée", "", ""], ["", "", "", "", "", "", "", ""]]
         recs = campus.parse_records(rows, "assets")
-        self.assertEqual(len(recs), 2)
+        self.assertEqual(len(recs), 3)
+        self.assertNotEqual(recs[1]["key"], recs[2]["key"])  # deux matériels non identifiés du même lab = deux fiches
         self.assertEqual(recs[0]["macs"], ["aa:bb:cc:dd:ee:01", "aa:bb:cc:dd:ee:02"]); self.assertEqual(recs[0]["comment"], "ok"); self.assertEqual(recs[0]["fields"], {})
         self.assertEqual(recs[1]["kind"], "Ordi fixe"); self.assertEqual(recs[1]["lab"], "Allée")
         m = campus.match_assets(recs, [{"mac": "AA:BB:CC:DD:EE:02", "ip": "192.0.2.5", "status": "online", "connected_to": "AP-1"}])

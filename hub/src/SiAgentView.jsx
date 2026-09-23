@@ -1,4 +1,5 @@
 import React, { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { viewParams, clearViewParams } from "./hubLinks.js";
 import {
   fetchSiAgentStatus, fetchFleet, fetchFleetRisks, fetchAgent, createAgent, updateAgent, deleteAgent,
   rotateAgentSecret, fetchInstall, installCmdUrl, fetchPlugins, fetchPlugin, savePlugin, deletePlugin, assignPlugin,
@@ -63,14 +64,21 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
   const [agentForm, setAgentForm] = useState(EMPTY_AGENT_FORM);
   const [enrolled, setEnrolled] = useState(null);
 
-  const [selectedId, setSelectedId] = useState(null);
+  // #570 : lien profond ?view=si-agent&agent=<id>&section=plugins (depuis « activer la sonde… » ailleurs dans le hub)
+  const initialParams = viewParams();
+  const [selectedId, setSelectedId] = useState(initialParams.agent || null);
   const [detail, setDetail] = useState(null);
   const [install, setInstall] = useState(null);
   const [cmdType, setCmdType] = useState("collect_now");
   const [cmdPlugin, setCmdPlugin] = useState("");
   const [assignId, setAssignId] = useState("");
   const [settings, setSettings] = useState(null);
-  const [section, setSection] = useState({ risks: true, system: true, network: true, hardware: false, activity: false, disks: true, storage: false, ports: false, services: false, logs: false, plugins: true, commands: true, settings: false });
+  const [section, setSection] = useState(() => {
+    const base = { risks: true, system: true, network: true, hardware: false, activity: false, disks: true, storage: false, ports: false, services: false, logs: false, plugins: true, commands: true, settings: false };
+    if (initialParams.section && initialParams.section in base) { for (const k of Object.keys(base)) base[k] = k === initialParams.section || k === "risks"; }
+    clearViewParams();
+    return base;
+  });
 
   const [pluginForm, setPluginForm] = useState(EMPTY_PLUGIN_FORM);
   const [showPluginForm, setShowPluginForm] = useState(false);

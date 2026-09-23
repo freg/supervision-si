@@ -143,3 +143,10 @@ dire quoi ? »). Un écran échoue dès qu'une personne sur cinq bloque.
 6. Le hub présente le site publié par un agent en **aperçu** (page calculée
    par le central) et en **réel** (page servie sur le LAN du site), en
    cadre : menu Pages ouvertes → « voir » (`AgentPageView.jsx`).
+7. (#570) Quand le hub dit « activer X », « déposer Y », « régler Z », il
+   donne le **lien vers l'endroit du hub où on le fait** — jamais une
+   consigne en texte seul. Mécanisme : `hubLinks.js` (`hubLink(view,
+   params)` → `?view=…&agent=…&section=…`, `viewParams()` côté vue cible
+   pour se placer). Exemples : « activer la sonde windows-probe sur
+   <agent> » → tuile Agents hôtes, agent sélectionné, section Sondes ;
+   Proxmox sans hyperviseur → Installation / Sondes de l'agent.

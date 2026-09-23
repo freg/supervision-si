@@ -1,3 +1,22 @@
+## 2026-09-23 — Règle « activer X » = lien vers l'endroit du hub ; fiches non identifiées non écrasées (livraison #570)
+
+Demandé : « d'une manière générale quand le hub indique "activer" quelque
+chose, mets le lien vers l'endroit dans le hub où on active la chose (ici
+la sonde de l'agent → lien vers l'agent) ».
+
+- `hub/src/hubLinks.js` : `hubLink(view, params)` / `viewParams()` ;
+  `SiAgentView` accepte `?view=si-agent&agent=<id>&section=plugins`
+  (agent sélectionné, section Sondes ouverte). Liens posés dans Accès
+  Windows et Annonces réseau (un lien par agent du site) et dans Proxmox
+  (installation / sondes). Règle 7 de `docs/ergonomie-redesign.md`, à
+  appliquer à toute nouvelle consigne.
+- `nebula/api/campus.py` : les matériels sans nom ni numéro de série
+  gardent une fiche chacun (clé par rang de ligne) — 220 fiches au lieu de
+  193 pour l'inventaire du campus (test ajusté).
+
+Vérifié : tests. Non vérifié : sur super (réimporter l'inventaire pour
+retrouver les 220 fiches).
+
 ## 2026-09-23 — Plan RDC vectoriel depuis le PDF du DCE ; aucun plan de client dans le dépôt (livraison #569)
 
 Demandé : « si je trouve les dxf pourras-tu les utiliser ? » — reçu le PDF

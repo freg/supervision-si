@@ -112,7 +112,7 @@ def parse_records(rows, collection):
                 col[field] = i
     out = []
     prev = {}
-    for r in rows[1:]:
+    for idx, r in enumerate(rows[1:], start=2):
         r = list(r) + [""] * (len(headers) - len(r))
         rec = {}
         for field, i in col.items():
@@ -127,7 +127,8 @@ def parse_records(rows, collection):
             rec["macs"] = [m.lower().replace("-", ":") for m in rec["macs"]]
             if not (rec.get("name") or rec.get("serial") or rec.get("kind")):
                 continue
-            rec["key"] = (rec.get("name") or "") + "|" + (rec.get("serial") or "") + "|" + (rec.get("kind") or "") + "|" + (rec.get("lab") or "")
+            # clé stable ; une ligne sans nom ni série (matériel non identifié) garde son rang de ligne pour ne pas écraser ses voisines
+            rec["key"] = (rec.get("name") or "") + "|" + (rec.get("serial") or "") + "|" + (rec.get("kind") or "") + "|" + (rec.get("lab") or "") + ("" if (rec.get("name") or rec.get("serial")) else "|l%d" % idx)
         else:
             if not (rec.get("name") or rec.get("course") or rec.get("hardware")):
                 continue
