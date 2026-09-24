@@ -3,7 +3,11 @@
 // reste), présenté comme une vue JSON dépliable : ▸ / ▾ par branche, feuilles
 // cliquables, nombre d'éléments, « aussi sous … », filtre début de mot,
 // tout déplier / replier. Sélecteur Tuiles ⇄ Arbre en tête de l'accueil.
-import { useMemo, useState } from "react";
+// #605 : arbre par défaut ; rappel des catégories fixé à gauche (clic ->
+// ouvre la branche et positionne la zone défilante) ; étiquettes en avant
+// (racines ×2, branches ×1,5, le reste en italique) ; feuilles = boutons
+// légers à épaisseur ; sans icônes (« elles ne font pas pro »).
+import { useMemo, useRef, useState } from "react";
 
 const LS_KEY = "hub.home.tree.open";
 
@@ -14,8 +18,18 @@ function saveOpen(set) { try { localStorage.setItem(LS_KEY, JSON.stringify([...s
 export default function HomeTree({ roots, query, onQuery, onOpenLeaf, leafActive, mode, onMode, emptyText }) {
   const [open, setOpen] = useState(loadOpen);
   const [allOpen, setAllOpen] = useState(null);  // null = état par nœud ; true / false = forcé
+  const [current, setCurrent] = useState(null);  // #605 : catégorie visée depuis le rappel de gauche
+  const nodeRefs = useRef({});
   const toggle = (id) => { setAllOpen(null); const s = new Set(open); if (s.has(id)) s.delete(id); else s.add(id); setOpen(s); saveOpen(s); };
   const isOpen = (id, depth) => (query ? true : allOpen != null ? allOpen : open.size ? open.has(id) : depth === 0);
+  // #605 : clic dans le rappel des catégories -> ouvre la branche (et ses parents) et positionne la zone défilante dessus
+  const goTo = (id) => {
+    const s = new Set(allOpen === false ? [] : allOpen === true ? Object.keys(nodeRefs.current) : open);
+    const parts = id.split("/");
+    for (let i = 1; i <= parts.length; i += 1) s.add(parts.slice(0, i).join("/"));
+    setAllOpen(null); setOpen(s); saveOpen(s); setCurrent(id);
+    setTimeout(() => { const el = nodeRefs.current[id]; if (el && el.scrollIntoView) el.scrollIntoView({ block: "start", behavior: "smooth" }); }, 30);
+  };
   const total = useMemo(() => roots.reduce((n, r) => n + (r.count || 0), 0), [roots]);
   const renderLeaf = (l, depth) => (
     <div key={`${depth}:${l.id}`} className={`hub-home-tree-leaf${leafActive && leafActive(l) ? " active" : ""}`} style={{ paddingLeft: 14 + depth * 18 }}>
@@ -30,10 +44,10 @@ export default function HomeTree({ roots, query, onQuery, onOpenLeaf, leafActive
     const o = isOpen(n.id, depth);
     const size = (n.leaves || []).length + (n.children || []).length;
     return (
-      <div key={n.id} className="hub-home-tree-node">
+      <div key={n.id} className={`hub-home-tree-node${current === n.id ? " current" : ""}`} ref={(el) => { nodeRefs.current[n.id] = el; }}>
         <div className="hub-home-tree-row" style={{ paddingLeft: depth * 18 }} onClick={() => toggle(n.id)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(n.id); } }}>
           <span className="hub-home-tree-caret">{o ? "▾" : "▸"}</span>
-          <span className={`hub-home-tree-label${depth === 0 ? " root" : ""}`}>{n.icon ? `${n.icon} ` : ""}{n.label}</span>
+          <span className={`hub-home-tree-label${depth === 0 ? " root" : depth === 1 ? " branch" : ""}`}>{n.label}</span>
           <span className="muted hub-home-tree-count">{n.count != null ? `${n.count} outil${n.count > 1 ? "s" : ""}` : `${size}`}</span>
           {depth === 0 && n.description && <span className="muted hub-home-tree-desc">— {n.description}</span>}
           {!o && size > 0 && <span className="muted hub-home-tree-preview">{[...(n.children || []).map((c) => c.label), ...(n.leaves || []).map((l) => l.label)].slice(0, 6).join(", ")}{size > 6 ? "…" : ""}</span>}
@@ -51,17 +65,30 @@ export default function HomeTree({ roots, query, onQuery, onOpenLeaf, leafActive
     <div className="hub-home-tree">
       <div className="hub-home-tree-bar">
         <div className="hub-home-switch" role="group" aria-label="mode d'accueil">
-          <button type="button" className={mode === "tiles" ? "active" : ""} onClick={() => onMode("tiles")} title="accueil en tuiles">▦ Tuiles</button>
-          <button type="button" className={mode === "tree" ? "active" : ""} onClick={() => onMode("tree")} title="accueil en arbre dépliable">⌥ Arbre</button>
+          <button type="button" className={mode === "tiles" ? "active" : ""} onClick={() => onMode("tiles")} title="accueil en tuiles">Tuiles</button>
+          <button type="button" className={mode === "tree" ? "active" : ""} onClick={() => onMode("tree")} title="accueil en arbre dépliable">Arbre</button>
         </div>
         <input type="search" placeholder="filtrer (début de mot)" value={query} onChange={(e) => onQuery(e.target.value)} />
         <button type="button" className="secondary" onClick={() => setAllOpen(true)}>tout déplier</button>
         <button type="button" className="secondary" onClick={() => setAllOpen(false)}>tout replier</button>
         <span className="muted">{total} outil{total > 1 ? "s" : ""} · {roots.length} racine{roots.length > 1 ? "s" : ""}</span>
       </div>
-      <div className="hub-home-tree-body">
-        {roots.map((r) => renderNode(r, 0))}
-        {!roots.length && <p className="muted">{emptyText || "rien à afficher"}</p>}
+      <div className="hub-home-tree-split">
+        {/* #605 : rappel des catégories, fixé à gauche, cliquable -> positionne l'arbre */}
+        <nav className="hub-home-tree-nav" aria-label="catégories">
+          {roots.map((r) => (
+            <div key={r.id} className="hub-home-tree-nav-root">
+              <button type="button" className={`hub-home-tree-nav-btn root${current === r.id ? " current" : ""}`} onClick={() => goTo(r.id)}>{r.label}</button>
+              {(r.children || []).map((c) => (
+                <button key={c.id} type="button" className={`hub-home-tree-nav-btn${current === c.id ? " current" : ""}`} onClick={() => goTo(c.id)}>{c.label} <span className="muted">{c.count}</span></button>
+              ))}
+            </div>
+          ))}
+        </nav>
+        <div className="hub-home-tree-body">
+          {roots.map((r) => renderNode(r, 0))}
+          {!roots.length && <p className="muted">{emptyText || "rien à afficher"}</p>}
+        </div>
       </div>
     </div>
   );

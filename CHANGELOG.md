@@ -1,3 +1,22 @@
+## 2026-09-24 — Accueil en arbre par défaut : rappel des catégories fixé à gauche, étiquettes en avant, boutons légers, sans icônes (livraison #605)
+
+Demandé : « super l'arbre, mets-le par défaut ; mettre en avant les
+étiquettes (fonte double, italique pour le reste) et un bouton léger (cadre
+avec effet épaisseur) ; à gauche un rappel des catégories fixé, toujours
+visible, cliquable, qui positionne la partie défilante sur l'arbre
+déployé ; pas besoin des icônes, elles ne font pas pro ».
+
+- Mode d'accueil `tree` par défaut (`normalizeHomeMode`) ; Tuiles /
+  thématiques toujours disponibles par le sélecteur.
+- `HomeTree.jsx` : colonne gauche fixe (racines + branches de premier
+  niveau, compte d'outils) → clic = ouvre la branche et ses parents,
+  positionne la zone défilante dessus, branche courante encadrée ;
+  racines ×2, branches ×1,5, compléments (comptes, descriptions, aperçus,
+  « aussi sous ») en italique ; feuilles = boutons à cadre et bord épais
+  (enfoncement au clic) ; plus aucune icône dans l'arbre, le rappel ni le
+  sélecteur.
+- Hub 267 tests.
+
 ## 2026-09-24 — Licences : glisser-déposer partout où on importe, export déposé sur le compte vendeur, cartes de formulaire pleine largeur (livraison #604)
 
 Constat réel (capture) : compte vendeur « export du vendeur (fichier) » sans

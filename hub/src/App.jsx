@@ -1033,7 +1033,7 @@ export default function App() {
   // ouvert dans la thématique courante ; `homeMode` = "themes" (défaut) ou
   // "tiles" (toutes les tuiles, avec la personnalisation d'origine).
   const [themeEntry, setThemeEntry] = useState(null);
-  const [homeMode, setHomeMode] = useState(() => { try { return normalizeHomeMode(localStorage.getItem("hub.home.mode")); } catch { return "themes"; } });
+  const [homeMode, setHomeMode] = useState(() => { try { return normalizeHomeMode(localStorage.getItem("hub.home.mode")); } catch { return "tree"; } });  // #605 : arbre par défaut
   useEffect(() => { try { localStorage.setItem("hub.home.mode", homeMode); } catch { /* ignoré */ } }, [homeMode]);
   // Personnalisation de l'accueil, étape 1 (livraison #132).
   const [showFooterNote, setShowFooterNote] = useState(() => loadStoredFooterNoteVisible());
@@ -1903,8 +1903,8 @@ vm === "agent-page" ? (
             {homeMode !== "tree" && (
               <div className="hub-home-tree-bar" style={{ marginBottom: 8 }}>
                 <div className="hub-home-switch" role="group" aria-label="mode d'accueil">
-                  <button type="button" className="active" title="accueil en tuiles">▦ Tuiles</button>
-                  <button type="button" onClick={() => setHomeMode("tree")} title="accueil en arbre dépliable">⌥ Arbre</button>
+                  <button type="button" className="active" title="accueil en tuiles">Tuiles</button>
+                  <button type="button" onClick={() => setHomeMode("tree")} title="accueil en arbre dépliable">Arbre</button>
                 </div>
                 <span className="muted" style={{ fontSize: 12 }}>{homeMode === "themes" ? "par thématiques" : "toutes les tuiles"} · <button type="button" className="secondary" style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => setHomeMode(homeMode === "themes" ? "tiles" : "themes")}>{homeMode === "themes" ? "toutes les tuiles" : "par thématiques"}</button></span>
               </div>

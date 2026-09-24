@@ -145,7 +145,7 @@ export function themeOfView(themes, view) {
 
 export const HOME_MODES = { themes: "par thématiques", tiles: "toutes les tuiles", tree: "arbre dépliable" };  // #603 : arbre
 export function normalizeHomeMode(raw) {
-  return raw === "tiles" || raw === "tree" ? raw : "themes";
+  return raw === "tiles" || raw === "themes" ? raw : "tree";  // #605 : arbre par défaut
 }
 
 // Livraison d'apparition de chaque outil dans le hub (menu « Univers du

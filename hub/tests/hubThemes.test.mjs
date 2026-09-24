@@ -48,6 +48,7 @@ test("thématique d'une vue, mode d'accueil", () => {
   assert.equal(themeOfView(themes, "rights"), "securite");
   assert.equal(themeOfView(themes, "logs"), null);
   assert.equal(normalizeHomeMode("tiles"), "tiles");
-  assert.equal(normalizeHomeMode(undefined), "themes");
-  assert.equal(normalizeHomeMode("nimp"), "themes");
+  assert.equal(normalizeHomeMode(undefined), "tree");  // #605 : arbre par défaut
+  assert.equal(normalizeHomeMode("themes"), "themes");
+  assert.equal(normalizeHomeMode("nimp"), "tree");
 });

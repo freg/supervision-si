@@ -2201,34 +2201,34 @@ button.danger { color: #e06666; }
 .hub-nav-desc { font-weight: 400; font-size: .85em; }
 .hub-nav-also { font-size: .8em; font-weight: 400; }
 
-/* #603 : accueil en arbre dépliable (vue JSON) + sélecteur Tuiles / Arbre */
+/* #603 / #605 : accueil en arbre dépliable (vue JSON) + sélecteur Tuiles / Arbre, rappel des catégories fixé à gauche,
+   étiquettes en avant (racines ×2, branches ×1,5), le reste en italique, feuilles = boutons légers à épaisseur */
 .hub-home-tree { display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 0; }
 .hub-home-tree-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .hub-home-tree-bar input { min-width: 220px; }
 .hub-home-switch { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .hub-home-switch button { border: 0; border-radius: 0; padding: 6px 12px; background: transparent; color: var(--muted); }
-.hub-home-switch button.active { background: var(--accent); color: var(--accent-fg, #fff); font-weight: 600; }
-.hub-home-tree-body { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; line-height: 1.7; }
-.hub-home-tree-row { display: flex; gap: 8px; align-items: baseline; cursor: pointer; border-radius: 4px; padding: 1px 4px; white-space: nowrap; overflow: hidden; }
+.hub-home-switch button.active { background: var(--accent); color: #fff; font-weight: 600; }
+.hub-home-tree-split { display: grid; grid-template-columns: 250px 1fr; gap: 12px; flex: 1; min-height: 0; }
+.hub-home-tree-nav { position: sticky; top: 0; align-self: start; max-height: 100%; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
+.hub-home-tree-nav-root { display: flex; flex-direction: column; gap: 2px; }
+.hub-home-tree-nav-btn { text-align: left; background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 3px 8px 3px 18px; color: var(--text); cursor: pointer; font-size: 13px; font-style: italic; }
+.hub-home-tree-nav-btn.root { font-style: normal; font-weight: 700; font-size: 15px; padding-left: 8px; }
+.hub-home-tree-nav-btn:hover { border-color: var(--border); background: rgba(127,127,127,.12); }
+.hub-home-tree-nav-btn.current { border-color: var(--accent); color: var(--accent); }
+.hub-home-tree-body { min-height: 0; overflow: auto; border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font-size: 13px; line-height: 1.8; }
+.hub-home-tree-node.current > .hub-home-tree-row { outline: 2px solid var(--accent); outline-offset: -2px; }
+.hub-home-tree-row { display: flex; gap: 10px; align-items: baseline; cursor: pointer; border-radius: 6px; padding: 2px 6px; white-space: nowrap; overflow: hidden; }
 .hub-home-tree-row:hover { background: rgba(127,127,127,.12); }
-.hub-home-tree-caret { width: 14px; color: var(--muted); }
-.hub-home-tree-label.root { font-weight: 700; font-size: 14px; }
-.hub-home-tree-count, .hub-home-tree-desc, .hub-home-tree-preview { font-size: 12px; }
+.hub-home-tree-caret { width: 16px; color: var(--muted); }
+.hub-home-tree-label { font-weight: 600; }
+.hub-home-tree-label.root { font-weight: 800; font-size: 2em; line-height: 1.3; }
+.hub-home-tree-label.branch { font-weight: 700; font-size: 1.5em; line-height: 1.3; }
+.hub-home-tree-count, .hub-home-tree-desc, .hub-home-tree-preview, .hub-home-tree-also { font-style: italic; font-size: 12px; }
 .hub-home-tree-preview { overflow: hidden; text-overflow: ellipsis; }
-.hub-home-tree-leaf { display: flex; gap: 8px; align-items: baseline; }
-.hub-home-tree-leaf.active .hub-home-tree-link { color: var(--accent); font-weight: 600; }
-.hub-home-tree-bullet { color: var(--muted); width: 14px; text-align: center; }
-.hub-home-tree-link { background: none; border: 0; padding: 0; color: var(--text); cursor: pointer; font: inherit; }
-.hub-home-tree-link:hover { text-decoration: underline; color: var(--accent); }
-.hub-home-tree-also { font-size: 11px; }
-
-/* #604 : zone de dépôt de fichier (glisser-déposer partout où on importe) + cartes de formulaire pleine largeur */
-.hub-dropzone { display: flex; align-items: center; gap: 10px; padding: 14px; border: 2px dashed var(--border); border-radius: 8px; cursor: pointer; background: rgba(127,127,127,.06); transition: border-color .15s, background .15s; }
-.hub-dropzone.compact { padding: 6px 10px; font-size: 12px; }
-.hub-dropzone:hover, .hub-dropzone.over { border-color: var(--accent); background: rgba(74,158,218,.10); }
-.hub-dropzone.disabled { opacity: .5; cursor: not-allowed; }
-.hub-dropzone-icon { font-size: 18px; }
-.lic-card { max-width: none !important; text-align: left !important; padding: 12px 14px !important; }
-.lic-form { display: grid; gap: 8px; }
-.lic-form label { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 13px; }
-.lic-form input, .lic-form select, .lic-form textarea { width: 100%; min-width: 0; box-sizing: border-box; }
+.hub-home-tree-leaf { display: flex; gap: 8px; align-items: center; padding: 2px 0; }
+.hub-home-tree-bullet { color: var(--muted); width: 16px; text-align: center; }
+.hub-home-tree-link { background: var(--panel); border: 1px solid var(--border); border-bottom-width: 3px; border-radius: 7px; padding: 3px 12px; color: var(--text); cursor: pointer; font: inherit; font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,.15); transition: transform .05s, border-color .15s; }
+.hub-home-tree-link:hover { border-color: var(--accent); color: var(--accent); }
+.hub-home-tree-link:active { transform: translateY(2px); border-bottom-width: 1px; }
+.hub-home-tree-leaf.active .hub-home-tree-link { border-color: var(--accent); color: var(--accent); font-weight: 700; }
