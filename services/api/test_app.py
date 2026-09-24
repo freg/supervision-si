@@ -243,6 +243,15 @@ class TestTower(TestApi):
         self.assertEqual(appmod.heal_once(), ["ged-api"])  # tls-proxy rouge mais protégé ; api-down rouge HTTP seulement -> jamais (#588)
         self.assertEqual(self.cs[2].actions, ["start"])
 
+    def test_check_jobs(self):
+        self.c.post("/services/nebula-api/rebuild", headers=self.h)
+        jid = [f[:-5] for f in os.listdir(os.path.join(PROJ, "services/data/jobs")) if f.endswith(".json")][-1]
+        put("services/data/jobs/%s.rc" % jid, "2\n")
+        put("services/data/jobs/%s.log" % jid, "▶ x\n✗ échec (code 2)\n")
+        self.assertEqual(appmod.check_jobs(), [jid])
+        self.assertEqual(appmod.check_jobs(), [])  # une seule fois
+        self.assertIn("job-failed", [e["event"] for e in self.c.get("/events", headers=self.h).get_json()["events"]])
+
     def test_rebuild_job(self):
         j = self.c.post("/services/nebula-api/rebuild", headers=self.h).get_json()
         self.assertEqual(j["steps"][0]["cmd"], "./scripts/run.sh up -d --build nebula-api")

@@ -20,7 +20,7 @@ import re
 
 # -- livraisons ----------------------------------------------------------------
 PROTECTED = (".env", "*.local.json", "*/certs/*.key", "services/data/*")   # jamais écrasés
-KEEP_IF_EXISTS = ("*/data/*", "data/*", "backups/*")                        # créés s'ils manquent, jamais écrasés
+KEEP_IF_EXISTS = ("*/data/*", "data/*", "backups/*", "gateway/ldap-seed/*")                        # créés s'ils manquent, jamais écrasés
 IGNORED_FOR_PLAN = ("shared/VERSION.json", "shared/EXPOSURE.json", "shared/DELIVERY_NUMBER", "CHANGELOG.md", "BACKLOG.md")
 SERVICE_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
 

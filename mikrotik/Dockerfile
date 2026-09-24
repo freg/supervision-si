@@ -15,6 +15,7 @@ COPY mikrotik/static/ ./static/
 # sert que de valeur de repli si le montage est oublié.
 COPY mikrotik/routers.json ./routers.json
 COPY shared/version_endpoint.py .
+COPY shared/notify_client.py .
 COPY shared/VERSION.json .
 
 EXPOSE 5000

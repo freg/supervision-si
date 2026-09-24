@@ -3272,7 +3272,7 @@ livraison (instantané des fichiers écrasés) ; (5) notification (circuit
 habituel) sur abandon d'auto-réparation et échec de job ; (6) planification
 (appliquer la nuit) ; (7) hôtes répartis (#517).
 
-## Notifications par courriel des actions et des impacts, gestionnaire d'envoi (2026-09-24) — item 92 (à faire)
+## Notifications par courriel des actions et des impacts, gestionnaire d'envoi (2026-09-24, #590) — item 92
 
 Demandé le 24 sept. 2026 : notifier par mail les actions sur les routeurs
 (Cisco, MikroTik : NAT, interfaces, redémarrage, sauvegarde/restauration) et,

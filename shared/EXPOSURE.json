@@ -240,6 +240,13 @@
    "env_var": "SERVICES_API_PORT"
   },
   {
+   "path": "/api/notify/",
+   "service": "notify-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "NOTIFY_API_PORT"
+  },
+  {
    "path": "/api/cortex/",
    "service": "cortex-api",
    "container_port": 5000,
@@ -595,7 +602,7 @@
   }
  ],
  "counts": {
-  "gateway_routes": 59,
+  "gateway_routes": 60,
   "direct_ports": 19,
   "direct_public": 13,
   "host_network": 1

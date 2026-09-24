@@ -204,6 +204,9 @@ SERVICES = [
     # liste d'utilisateurs (même modèle que si-proxy-admin-api), d'où le
     # routage -- contrairement à docker-monitor-api (#376) sans auth.
     ("SERVICES_API_PORT", "services-api", 5000, "/api/services/", "api"),
+    # notify-api (livraison #590) -- notifications et gestionnaire d'envoi ;
+    # routé aussi pour les services EXTERNES (jeton de consommateur).
+    ("NOTIFY_API_PORT", "notify-api", 5000, "/api/notify/", "api"),
     # cortex-api (livraison #462) -- ajouté dès la première livraison (piège #301).
     ("CORTEX_API_PORT", "cortex-api", 5000, "/api/cortex/", "api"),
     # geo-catalog-api (livraison #429) -- catalogue de positions.

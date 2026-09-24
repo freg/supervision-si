@@ -127,3 +127,5 @@ cisco/switches.local.json
 mikrotik/routers.local.json
 # #586 : données de la tour de contrôle (jobs, livraisons reçues, réglages, journal)
 services/data/
+# #590 : base des notifications (file, groupes, jetons hachés)
+notify/data/

@@ -1334,6 +1334,37 @@ services:
     depends_on:
       - si-proxy
 
+  notify-api:
+    # Livraison #590 (backlog item 92) -- notifications par courriel des
+    # actions du hub (routeurs, tour de contrôle...) et GESTIONNAIRE D'ENVOI
+    # détaché : catalogue d'actions « module.action », groupes et
+    # méta-groupes de destinataires, affectation action → groupes (groupe par
+    # défaut généré par module), file persistante (SQLite), regroupement,
+    # retenue des rafales, débit, backoff, disjoncteur SMTP, liste noire.
+    # Producteurs : modules du hub (NOTIFY_INTERNAL_TOKEN) et services
+    # EXTERNES (jeton par consommateur, émis dans la tuile). Administration
+    # par jeton Keycloak vérifié (groupe administrateurs). Voir notify/README.md.
+    build:
+      context: .
+      dockerfile: notify/api/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ${NOTIFY_DATA_DIR:-./notify/data}:/data
+    environment:
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=supervision-si
+      - NOTIFY_INTERNAL_TOKEN=${NOTIFY_INTERNAL_TOKEN:-}
+      - NOTIFY_ADMIN_GROUPS=${NOTIFY_ADMIN_GROUPS:-administrateurs}
+      - NOTIFY_ADMIN_USERS=${NOTIFY_ADMIN_USERS:-}
+      - NOTIFY_SUBJECT_PREFIX=${NOTIFY_SUBJECT_PREFIX:-[Hub SI]}
+      # SMTP propre (NOTIFY_SMTP_*) ; à défaut, les SECRETS_ALERT_SMTP_* du PRA.
+      - NOTIFY_SMTP_HOST=${NOTIFY_SMTP_HOST:-${SECRETS_ALERT_SMTP_HOST:-}}
+      - NOTIFY_SMTP_PORT=${NOTIFY_SMTP_PORT:-${SECRETS_ALERT_SMTP_PORT:-587}}
+      - NOTIFY_SMTP_USER=${NOTIFY_SMTP_USER:-${SECRETS_ALERT_SMTP_USER:-}}
+      - NOTIFY_SMTP_PASSWORD=${NOTIFY_SMTP_PASSWORD:-${SECRETS_ALERT_SMTP_PASSWORD:-}}
+      - NOTIFY_SMTP_FROM=${NOTIFY_SMTP_FROM:-${SECRETS_ALERT_SMTP_FROM:-}}
+      - NOTIFY_SMTP_USE_TLS=${NOTIFY_SMTP_USE_TLS:-${SECRETS_ALERT_SMTP_USE_TLS:-true}}
+
   services-api:
     # Livraison #584 -- « Services du hub » (sous-tuile de Paramétrage) :
     # feu tricolore de TOUS les conteneurs du projet (état Docker,
@@ -1353,6 +1384,10 @@ services:
       # chemins relatifs du compose se résolvent pareil dans le runner.
       - ${PWD}:${PWD}
     environment:
+      # #590 : notifications des actions (file dans notify-api, jamais bloquant)
+      - NOTIFY_API_URL=http://notify-api:5000
+      - NOTIFY_INTERNAL_TOKEN=${NOTIFY_INTERNAL_TOKEN:-}
+      - NOTIFY_CONSUMER=services
       - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
       - KEYCLOAK_REALM=supervision-si
       - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-supervision-si}
@@ -1835,6 +1870,8 @@ services:
       - VITE_SERVICES_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/services
       - VITE_SERVICES_ADMIN_USERS=${SERVICES_ADMIN_USERS:-freg}
       - VITE_SERVICES_ADMIN_GROUPS=${SERVICES_ADMIN_GROUPS:-administrateurs}
+      # Notifications (livraison #590) -- tuile « Notifications » (groupe administrateurs).
+      - VITE_NOTIFY_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/notify
       # Catalogue de positions (livraison #429) -- tuile hub pour geo-catalog-api.
       - VITE_GEO_CATALOG_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/geo-catalog
       # Supervision SI refondue (livraison #423) -- géolocalisations connues.
@@ -2470,6 +2507,10 @@ services:
       context: .
       dockerfile: cisco/Dockerfile
     environment:
+      # #590 : notifications des actions (file dans notify-api, jamais bloquant)
+      - NOTIFY_API_URL=http://notify-api:5000
+      - NOTIFY_INTERNAL_TOKEN=${NOTIFY_INTERNAL_TOKEN:-}
+      - NOTIFY_CONSUMER=cisco
       - CISCO_REGISTRY=/app/registry/switches.json
       # #585 : registre local hors dépôt, prioritaire (jamais écrasé par un déploiement).
       - CISCO_REGISTRY_LOCAL=/app/registry/switches.local.json
@@ -2490,6 +2531,10 @@ services:
       context: .
       dockerfile: mikrotik/Dockerfile
     environment:
+      # #590 : notifications des actions (file dans notify-api, jamais bloquant)
+      - NOTIFY_API_URL=http://notify-api:5000
+      - NOTIFY_INTERNAL_TOKEN=${NOTIFY_INTERNAL_TOKEN:-}
+      - NOTIFY_CONSUMER=mikrotik
       - MIKROTIK_TLS_VERIFY=${MIKROTIK_TLS_VERIFY:-}
       - MIKROTIK_REGISTRY=/app/registry/routers.json
       - MIKROTIK_REGISTRY_LOCAL=/app/registry/routers.local.json   # #585

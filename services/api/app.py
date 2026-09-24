@@ -37,6 +37,24 @@ from flask_cors import CORS
 
 import lights
 import tower
+try:
+    from notify_client import notify as _notify, register_actions as _register_actions  # #590
+except ImportError:  # tests hors conteneur
+    def _notify(*a, **k):
+        return None
+
+    def _register_actions(*a, **k):
+        return None
+
+_register_actions([
+    {"id": "tower.delivery.applied", "label": "Livraison appliquée", "severity": "info"},
+    {"id": "tower.job.failed", "label": "Job de reconstruction en échec", "severity": "critical"},
+    {"id": "tower.job.done", "label": "Job terminé", "severity": "info"},
+    {"id": "tower.heal.restart", "label": "Service relancé automatiquement", "severity": "warning"},
+    {"id": "tower.heal.gave-up", "label": "Auto-réparation : abandon (intervention requise)", "severity": "critical"},
+    {"id": "tower.service.restart", "label": "Service redémarré à la main", "severity": "info"},
+    {"id": "tower.config", "label": "Configuration (registre) modifiée", "severity": "info"},
+])
 from auth import AuthError, KeycloakVerifier, bearer_from_header
 
 try:
@@ -235,6 +253,7 @@ def restart(service):
     except Exception as exc:  # noqa: BLE001
         return jsonify({"error": str(exc)}), 500
     _log.warning("%s : %s (%s) par %s", PROJECT, service, action, g.user["username"])
+    _notify("tower.service.restart", "%s : %s par %s" % (service, action, g.user["username"]), "Tour de contrôle : conteneur %s (%s)." % (service, action), {"service": service, "user": g.user["username"]})
     with _lock:
         _cache["rows"] = None
     return jsonify({"status": "ok", "service": service, "action": action}), 200
@@ -355,6 +374,10 @@ def event(kind, text, **extra):
     rec = {"at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "event": kind, "text": text}
     rec.update(extra)
     _log.info("tour : %s -- %s", kind, text)
+    action = {"delivery-applied": "tower.delivery.applied", "job-failed": "tower.job.failed", "heal-restart": "tower.heal.restart",
+              "heal-gave-up": "tower.heal.gave-up", "config": "tower.config"}.get(kind)
+    if action:  # #590 : chaque événement notable part vers notify-api (file, jamais bloquant)
+        _notify(action, text, "Tour de contrôle du hub -- %s\n%s" % (kind, json.dumps(extra, ensure_ascii=False)), extra)
     if DATA_DIR:
         try:
             with open(_data("events.jsonl"), "a", encoding="utf-8") as fh:
@@ -751,10 +774,41 @@ def heal_once(now=None):
     return todo
 
 
+def check_jobs():
+    """#590 : un job terminé (fichier .rc écrit par le runner) est notifié une
+    fois (marqueur .notified) -- échec = critique."""
+    jobs = os.path.join(DATA_DIR, "jobs") if DATA_DIR else ""
+    if not jobs or not os.path.isdir(jobs):
+        return []
+    out = []
+    for f in sorted(os.listdir(jobs)):
+        if not f.endswith(".rc") or os.path.exists(os.path.join(jobs, f[:-3] + ".notified")):
+            continue
+        jid = f[:-3]
+        meta = job_status(jid) or {"label": jid}
+        rc = meta.get("rc", 1)
+        try:
+            with open(os.path.join(jobs, jid + ".log"), encoding="utf-8", errors="replace") as fh:
+                tail = "\n".join(fh.read().splitlines()[-25:])
+        except OSError:
+            tail = ""
+        event("job-failed" if rc else "job-done", "%s : %s (code %s)" % (meta.get("label"), "échec" if rc else "terminé", rc), job=jid)
+        if not rc:
+            _notify("tower.job.done", "%s : terminé" % meta.get("label"), tail, {"job": jid})
+        try:
+            with open(os.path.join(jobs, jid + ".notified"), "w") as fh:
+                fh.write(time.strftime("%Y-%m-%dT%H:%M:%S"))
+        except OSError:
+            pass
+        out.append(jid)
+    return out
+
+
 def _heal_loop():
     while True:
         time.sleep(HEAL_INTERVAL)
         try:
+            check_jobs()
             heal_once()
         except Exception as exc:  # noqa: BLE001
             _log.warning("auto-réparation : %s", exc)

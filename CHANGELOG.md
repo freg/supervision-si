@@ -1,3 +1,40 @@
+## 2026-09-24 — Notifications par courriel et gestionnaire d'envoi détaché : actions → groupes / méta-groupes → adresses (livraison #590)
+
+Backlog item 92, demandé le jour même : « notifications mail pour les
+actions sur les routeurs et tout ce qui impacte le SI local et les clients ;
+groupes et méta-groupes ; table action → groupe → emails, groupe par défaut
+généré automatiquement ; gestionnaire d'envoi détaché (engorgement,
+emballement, erreur, liste noire) utilisable par d'autres services, y
+compris externes (GED) ».
+
+- `notify/api/core.py` (pur) : validation, groupe par défaut par module,
+  résolution action → groupes → adresses (méta récursif, liste noire),
+  clé de regroupement, backoff, rafale, disjoncteur, débit.
+- `notify/api/app.py` : SQLite (actions, groupes, affectations,
+  consommateurs, liste noire, file, réglages, journal), `POST /notify`
+  (202, jamais bloquant), `POST /actions/register`, administration par
+  jeton Keycloak (groupe administrateurs), fil d'envoi SMTP (regroupement,
+  rafales retenues + résumé, débit, backoff, disjoncteur, abandon,
+  renvoi, libération), jetons de consommateurs externes (hachés).
+- `shared/notify_client.py` : client des producteurs ; branchés MikroTik,
+  Cisco, tour de contrôle (fin de job notifiée, échec = critique).
+- Hub : tuile « 📣 Notifications » (Sécurité & accès) : Affectations
+  (matrice actions × groupes par module, règle `module.*`), Groupes
+  (adresses, membres, défauts non supprimables), File & journal (états,
+  raisons, renvoyer / abandonner / libérer, détail, état SMTP et
+  disjoncteur), Consommateurs & liste noire (jeton montré une fois,
+  révocation), Réglages (débit, regroupement, emballement, disjoncteur,
+  tentatives, test d'envoi).
+- `docker-compose.yml`, `tls-proxy` (`/api/notify/`), `.env.example`
+  (`NOTIFY_*`, repli `SECRETS_ALERT_SMTP_*`), cohortes, `.gitignore`.
+- Tour de contrôle : `gateway/ldap-seed/*` conservé (droits d'un autre
+  utilisateur, constat rsync).
+- Tests : notify-api 11, tour 29, cisco 14, mikrotik 11, hub 260.
+
+Non vérifié : sur super (`NOTIFY_INTERNAL_TOKEN` à générer dans le .env,
+SMTP, `up -d --build notify-api mikrotik-api cisco-api services-api hub`,
+passerelle à recharger pour `/api/notify/`).
+
 ## 2026-09-24 — Tour de contrôle : droits par groupe Keycloak, gérés dans le hub (livraison #589)
 
 Constat réel : connecté « francois », refus « utilisateur non autorisé sur le

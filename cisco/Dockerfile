@@ -11,6 +11,7 @@ COPY cisco/static/ ./static/
 # Registre écrasé au runtime par le bind mount (docker-compose.yml)
 COPY cisco/switches.json ./switches.json
 COPY shared/version_endpoint.py .
+COPY shared/notify_client.py .
 COPY shared/VERSION.json .
 RUN mkdir -p /data
 EXPOSE 5000

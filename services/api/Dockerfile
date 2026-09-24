@@ -17,6 +17,7 @@ COPY services/api/tower.py .
 # Vérificateur de jeton Keycloak partagé avec si-proxy-admin-api (#454).
 COPY si-proxy/admin/auth.py .
 COPY shared/version_endpoint.py .
+COPY shared/notify_client.py .
 COPY shared/VERSION.json .
 EXPOSE 5000
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "8", "--timeout", "300", "app:app"]

@@ -23,6 +23,7 @@
         "si-proxy",
         "si-proxy-admin-api",
         "services-api",
+        "notify-api",
         "rsyslog-listener",
         "network-explorer",
         "ldap-admin-api",

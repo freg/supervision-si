@@ -46,6 +46,22 @@ from flask import Flask, jsonify, request, send_from_directory
 
 import parsers
 from ssh_client import CiscoError, CiscoSession
+try:
+    from notify_client import notify as _notify, register_actions as _register_actions  # #590 (shared/, copié par le Dockerfile)
+except ImportError:  # tests hors conteneur
+    def _notify(*a, **k):
+        return None
+
+    def _register_actions(*a, **k):
+        return None
+
+_register_actions([
+    {"id": "cisco.backup", "label": "Sauvegarde de configuration", "severity": "info"},
+    {"id": "cisco.restore", "label": "Restauration de configuration", "severity": "critical"},
+    {"id": "cisco.interface", "label": "Interface modifiée (shut / no shut / vlan)", "severity": "warning"},
+    {"id": "cisco.write", "label": "Configuration écrite (write memory)", "severity": "warning"},
+    {"id": "cisco.reload", "label": "Redémarrage planifié / annulé", "severity": "critical"},
+])
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 log = logging.getLogger("cisco")
@@ -386,6 +402,8 @@ def backup_route(name):
         return jsonify({"error": str(exc)}), 502
     cid, created = save_config(name, content, "manuel", _by())
     journal(name, "backup", _by(), True, "%s (%s)" % (cid, "nouvelle version" if created else "identique à la précédente"))
+    if created:
+        _notify("cisco.backup", "%s : nouvelle sauvegarde %s" % (name, cid), "Équipement %s (%s) : %d ligne(s)." % (name, sw["host"], content.count("\n")), {"switch": name, "version": cid})
     return jsonify({"id": cid, "created": created, "lines": content.count("\n")}), 200
 
 
@@ -466,6 +484,8 @@ def restore_route(name, cid):
         journal(name, "restore " + cid, _by(), False, str(exc))
         return jsonify({"error": str(exc)}), 502
     journal(name, "restore " + cid, _by(), not errors, "%d ligne(s), %d erreur(s), write=%s" % (len(plan), len(errors), written))
+    _notify("cisco.restore", "%s : restauration de la version %s (%d ligne(s), %d erreur(s))" % (name, cid, len(plan), len(errors)),
+            "Équipement %s (%s)\nLignes appliquées : %d\nErreurs : %s\nÉcrit en mémoire : %s" % (name, sw["host"], len(plan), errors or "aucune", written), {"switch": name, "version": cid})
     return jsonify({"applied": len(plan), "errors": errors, "written": written}), 200 if not errors else 207
 
 
@@ -545,6 +565,7 @@ def port_action_route(name, port, action):
         journal(name, "%s %s" % (action, port), _by(), False, str(exc))
         return jsonify({"error": str(exc)}), 502
     journal(name, "%s %s" % (action, port), _by(), not errors, json.dumps(errors, ensure_ascii=False) if errors else "")
+    _notify("cisco.interface", "%s : %s sur %s" % (name, action, port), "Équipement %s (%s), port %s : %s. Erreurs : %s" % (name, sw["host"], port, action, errors or "aucune"), {"switch": name, "port": port, "action": action})
     return jsonify({"port": port, "action": action, "errors": errors}), 200 if not errors else 207
 
 
@@ -562,6 +583,7 @@ def write_route(name):
         journal(name, "write memory", _by(), False, str(exc))
         return jsonify({"error": str(exc)}), 502
     journal(name, "write memory", _by(), True)
+    _notify("cisco.write", "%s : configuration écrite en mémoire" % name, "Équipement %s (%s) : write memory depuis le hub." % (name, sw["host"]), {"switch": name})
     return jsonify({"written": True}), 200
 
 
@@ -580,6 +602,7 @@ def reload_route(name):
             if body.get("cancel"):
                 out = s.run("reload cancel")
                 journal(name, "reload cancel", _by(), True, out[:200])
+                _notify("cisco.reload", "%s : redémarrage annulé" % name, "Équipement %s (%s)." % (name, sw["host"]), {"switch": name})
                 return jsonify({"cancelled": True, "output": out}), 200
             minutes = max(1, min(int(body.get("in_minutes") or 5), 60))
             if body.get("write", True):
@@ -593,6 +616,7 @@ def reload_route(name):
         journal(name, "reload", _by(), False, str(exc))
         return jsonify({"error": str(exc)}), 502
     journal(name, "reload in %d" % minutes, _by(), True, out[-200:])
+    _notify("cisco.reload", "%s : redémarrage planifié dans %s min" % (name, minutes), "Équipement %s (%s)." % (name, sw["host"]), {"switch": name, "minutes": minutes})
     return jsonify({"scheduled_in_minutes": minutes, "output": out[-500:]}), 200
 
 

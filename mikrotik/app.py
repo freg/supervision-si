@@ -39,6 +39,14 @@ from flask import Flask, jsonify, request, send_from_directory
 
 from routeros_client import RouterOSClient, RouterOSError
 import natrules  # #587
+try:
+    from notify_client import notify as _notify, register_actions as _register_actions  # #590 (shared/, copié par le Dockerfile)
+except ImportError:  # tests hors conteneur
+    def _notify(*a, **k):
+        return None
+
+    def _register_actions(*a, **k):
+        return None
 from ssh_client import RouterOSSsh, read_only_command  # #587 : transport SSH, transparent pour le routeur
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -90,6 +98,14 @@ def load_registry():
     except (ValueError, KeyError) as exc:
         return [], f"registre invalide : {exc}"
 
+
+_register_actions([
+    {"id": "mikrotik.nat.add", "label": "Règle NAT ajoutée", "severity": "warning"},
+    {"id": "mikrotik.nat.change", "label": "Règle NAT modifiée", "severity": "warning"},
+    {"id": "mikrotik.nat.remove", "label": "Règle NAT supprimée", "severity": "warning"},
+    {"id": "mikrotik.interface.toggle", "label": "Interface activée / désactivée", "severity": "warning"},
+    {"id": "mikrotik.reboot", "label": "Redémarrage du routeur", "severity": "critical"},
+])
 
 _cred_cache = {}  # nom -> (expire_monotonic, user, password)
 
@@ -251,6 +267,7 @@ def toggle_interface(name):
     try:
         client.patch(f"interface/{iface_id}", {"disabled": "false" if enable else "true"})
         log.info("routeur %s : interface %s %s", name, iface_id, "activée" if enable else "DÉSACTIVÉE")
+        _notify("mikrotik.interface.toggle", "%s : interface %s %s" % (name, iface_id, "activée" if enable else "désactivée"), "Routeur %s (%s)." % (name, router["host"]), {"router": name})
         return jsonify({"status": "ok"}), 200
     except RouterOSError as exc:
         return jsonify({"error": str(exc)}), 502
@@ -294,6 +311,7 @@ def reboot(name):
     try:
         client.post_action("system/reboot", {})
         log.warning("routeur %s : REDÉMARRAGE demandé via le hub", name)
+        _notify("mikrotik.reboot", "%s : redémarrage demandé" % name, "Routeur %s (%s) redémarré depuis le hub." % (name, router["host"]), {"router": name})
         return jsonify({"status": "ok", "message": "redémarrage demandé"}), 200
     except RouterOSError as exc:
         # Le routeur peut couper la connexion avant de répondre —
@@ -351,6 +369,7 @@ def nat_add(name):
         else:
             res = client._request("PUT", "ip/firewall/nat", json=fields)
         log.warning("routeur %s : règle NAT AJOUTÉE %s (%s)", name, natrules.describe(fields), fields.get("comment") or "")
+        _notify("mikrotik.nat.add", "%s : règle NAT ajoutée %s" % (name, natrules.describe(fields)), "Routeur %s (%s)\nRègle : %s\nCommentaire : %s" % (name, router["host"], json.dumps(fields, ensure_ascii=False), fields.get("comment") or "-"), {"router": name, "rule": fields})
         return jsonify({"status": "ok", "rule": fields, "result": res}), 200
     except RouterOSError as exc:
         return jsonify({"error": str(exc)}), 502
@@ -375,6 +394,7 @@ def nat_edit(name, ident):
             else:
                 client._request("DELETE", f"ip/firewall/nat/{ident}")
             log.warning("routeur %s : règle NAT %s SUPPRIMÉE", name, ident)
+            _notify("mikrotik.nat.remove", "%s : règle NAT %s supprimée" % (name, ident), "Routeur %s (%s), règle %s." % (name, router["host"], ident), {"router": name, "id": ident})
             return jsonify({"status": "ok"}), 200
         fields, errors = natrules.validate(request.get_json(silent=True) or {}, partial=True)
         if errors:
@@ -383,6 +403,7 @@ def nat_edit(name, ident):
             return jsonify({"error": "aucun champ à modifier"}), 400
         client.patch(f"ip/firewall/nat/{ident}", fields)
         log.warning("routeur %s : règle NAT %s modifiée : %s", name, ident, fields)
+        _notify("mikrotik.nat.change", "%s : règle NAT %s modifiée" % (name, ident), "Routeur %s (%s), règle %s : %s" % (name, router["host"], ident, json.dumps(fields, ensure_ascii=False)), {"router": name, "id": ident, "fields": fields})
         return jsonify({"status": "ok", "fields": fields}), 200
     except RouterOSError as exc:
         return jsonify({"error": str(exc)}), 502
