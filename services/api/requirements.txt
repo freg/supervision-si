@@ -1,0 +1,9 @@
+Flask==3.0.3
+flask-cors==4.0.1
+gunicorn==22.0.0
+requests==2.32.3
+# Vérification réelle du jeton Keycloak (RS256 via JWKS) -- comme #454.
+PyJWT==2.9.0
+cryptography==43.0.1
+# SDK Docker officiel, même version que docker-monitor-api (#376).
+docker==7.2.0

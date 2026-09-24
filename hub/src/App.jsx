@@ -40,6 +40,7 @@ import SiAgentView from "./SiAgentView.jsx";
 import ProxmoxView from "./ProxmoxView.jsx";
 import NetworkEquipmentView from "./NetworkEquipmentView.jsx";
 import BastionView from "./BastionView.jsx";
+import ServicesView from "./ServicesView.jsx";  // #584
 import CortexView from "./CortexView.jsx";
 import ThemeView from "./ThemeView.jsx";
 import { buildCatalog as buildRightsCatalog } from "./rightsCatalog.js";
@@ -135,6 +136,8 @@ const PUBLIC_LINKS = publicLinks({ demandeUrl: DEMANDE_URL, frontendUrl: FRONTEN
 // Tuile Bastion (livraison #454) -- si-proxy-admin-api ; réservée aux
 // preferred_username de VITE_SI_PROXY_ADMIN_USERS (le pont vérifie le jeton).
 const SI_PROXY_API_BASE_URL = import.meta.env.VITE_SI_PROXY_API_BASE_URL || "";
+const SERVICES_API_BASE_URL = import.meta.env.VITE_SERVICES_API_BASE_URL || "";  // #584
+const SERVICES_ADMIN_USERS = (import.meta.env.VITE_SERVICES_ADMIN_USERS || "freg").split(",").map((u) => u.trim().toLowerCase()).filter(Boolean);
 // Cortex (livraison #462) -- incidents corrélés, hypothèses évaluées.
 const CORTEX_API_BASE_URL = import.meta.env.VITE_CORTEX_API_BASE_URL || "";
 const SI_PROXY_ADMIN_USERS = import.meta.env.VITE_SI_PROXY_ADMIN_USERS || "freg";
@@ -217,7 +220,7 @@ function loadStoredFooterNoteVisible() {
 // "Mes préférences" (personnel, tout le monde). Fondation prévue pour
 // accueillir d'autres applications/préférences plus tard -- premier
 // cas d'usage concret : le rappel d'activité technicien.
-function SettingsView({ groups, login, apiBase, onBack }) {
+function SettingsView({ groups, login, apiBase, onBack, servicesAllowed = false, onNavigate }) {
   const isAdminUser = isAdmin(groups);
   const isTech = isTechnicien(groups);
 
@@ -279,6 +282,16 @@ function SettingsView({ groups, login, apiBase, onBack }) {
       </div>
 
       <div className="hub-settings-grid">
+      {servicesAllowed && (
+        <div className="hub-card hub-settings-section">
+          <h2>🚦 Services du hub</h2>
+          <p className="muted">
+            Feu tricolore de toutes les API, fronts et bases du hub (état Docker, healthcheck, requête HTTP interne),
+            redémarrage d'un service ou de tous ceux en panne, journal des conteneurs — livraison #584.
+          </p>
+          <button type="button" className="primary" onClick={() => onNavigate?.("services")}>Ouvrir le feu tricolore</button>
+        </div>
+      )}
       {isAdminUser && (
         <div className="hub-card hub-settings-section">
           <h2>🌐 Général</h2>
@@ -1451,7 +1464,7 @@ export default function App() {
     const toggle = (name) => setViewMode((v) => (v === name ? "grid" : name));
     if (a === "home-mode") setHomeMode((m) => (m === "themes" ? "tiles" : "themes"));
     else if (a === "debug") setShowDebug((v) => !v);
-    else if (["aide", "tabs", "settings", "personalize", "layout", "external-links"].includes(a)) toggle(a);
+    else if (["aide", "tabs", "settings", "personalize", "layout", "external-links", "services"].includes(a)) toggle(a);
   };
   const hubCatalog = buildCatalog({ availableViews, viewLabels: viewLabelsFromThemes(THEMES), fronts, isAdmin: isAdmin(groups) });
   const decorateLeaf = (l) => (l.kind === "action" ? { ...l, onClick: () => runAction(l.action) } : l);
@@ -1540,7 +1553,11 @@ vm === "agent-page" ? (
           login={profile.preferred_username}
           apiBase={PREFS_API_BASE_URL}
           onBack={goBack}
+          servicesAllowed={!!SERVICES_API_BASE_URL && SERVICES_ADMIN_USERS.includes((profile.preferred_username || "").toLowerCase())}
+          onNavigate={(t) => setViewMode(t)}
         />
+      ) : vm === "services" ? (
+        <ServicesView apiBase={SERVICES_API_BASE_URL} accessToken={auth.user?.access_token} username={profile.preferred_username} onBack={goBack} />
       ) : vm === "history" ? (
         <HistoryView apiBase={PREFS_API_BASE_URL} onBack={goBack} />
       ) : vm === "aide" ? (

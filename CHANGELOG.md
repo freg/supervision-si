@@ -1,3 +1,31 @@
+## 2026-09-24 — Paramètres → « Services du hub » : feu tricolore et redémarrage de toutes les API / fronts (livraison #584)
+
+Demandé : « ajoute une sous-tuile dans paramétrage pour redémarrer et
+vérifier toutes les api/front avec un joli feu tricolore ».
+
+- `services/api/` : **services-api** — inventaire des conteneurs du projet
+  compose (état Docker, healthcheck, requête HTTP interne `/health` puis
+  `/` sur le port exposé, en parallèle, cache 20 s), classement
+  vert / orange / rouge (`lights.py`, pur), `POST /services/<s>/restart`
+  (start si arrêté), `POST /services/restart-red` (jamais tls-proxy,
+  keycloak, hub, services-api), `GET /services/<s>/logs`. Jeton Keycloak
+  vérifié (auth.py de #454 partagé) + `SERVICES_ADMIN_USERS`.
+- `docker-compose.yml` (service, socket Docker, `VITE_SERVICES_*`),
+  `tls-proxy/render_nginx_conf.py` (route `/api/services/`),
+  `.env.example`, `deploy/cohorts.json`, `shared/EXPOSURE.json`.
+- Hub : `ServicesView.jsx` (feu tricolore à trois lampes avec comptes,
+  verdict, tableau à en-tête figé : lampe, service, rôle, conteneur,
+  depuis, vérification, actions ; journal ; filtre début de mot ;
+  « problèmes seulement »), `servicesClient.js`, `servicesLights.js`
+  (tri, filtre, résumé, durées) ; carte « 🚦 Services du hub » dans
+  Paramètres, entrée « Services du hub (feu tricolore) » du groupe
+  Paramètres de l'arbre (`action:services`), vue `?view=services`.
+- Tests : `services/api/test_lights.py` + `test_app.py` (9, Docker
+  simulé), hub `tests/servicesLights.test.mjs` (4) — 253 tests hub verts.
+
+Non vérifié : sur super (`./scripts/run.sh up -d --build services-api
+tls-proxy hub`, puis Paramètres → Services du hub).
+
 ## 2026-09-23 — Bastion : publication de port par un shim host, accès web au Proxmox d'un site distant depuis le hub (livraison #583)
 
 Demandé : « sur le hub je trouve où l'accès au pve du campus ? ». Jusqu'ici

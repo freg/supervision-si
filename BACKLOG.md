@@ -3249,3 +3249,13 @@ l'admin-api, cookie de session) plutôt que la seule liste d'IP ; (3) une
 publication par hôte Proxmox connu de la tuile (lien automatique) ; (4)
 exposition (Bastion → Entrées) : marquer les ports 6488/6489 comme « via
 bastion » avec le shim et la cible.
+
+## Services du hub : feu tricolore (2026-09-24, #584) — item 90
+
+Livré : services-api + sous-tuile Paramètres. Suites : (1) historique des
+lampes (série par service, dernier passage au rouge, durée) et alerte par
+le circuit de notification quand un service passe rouge ; (2) « Tout
+reconstruire » (`up -d --build` d'un service) — nécessite le dépôt monté,
+à cadrer ; (3) dépendances (depends_on) affichées pour expliquer une
+cascade de rouges ; (4) rattacher chaque service à sa tuile (lien
+« ouvrir la tuile ») ; (5) hôtes répartis (#517) : agréger les nœuds.

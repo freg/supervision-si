@@ -233,6 +233,13 @@
    "env_var": "SI_PROXY_ADMIN_API_PORT"
   },
   {
+   "path": "/api/services/",
+   "service": "services-api",
+   "container_port": 5000,
+   "kind": "api",
+   "env_var": "SERVICES_API_PORT"
+  },
+  {
    "path": "/api/cortex/",
    "service": "cortex-api",
    "container_port": 5000,
@@ -500,6 +507,24 @@
    "comment": "Livraison #452 (backlog) -- bastion RÉSERVÉ à freg : aiguilleur TLS"
   },
   {
+   "service": "si-proxy",
+   "bind": "0.0.0.0",
+   "host_port": "6488",
+   "container_port": "6488",
+   "proto": "tcp",
+   "loopback_only": false,
+   "comment": "Livraison #452 (backlog) -- bastion RÉSERVÉ à freg : aiguilleur TLS"
+  },
+  {
+   "service": "si-proxy",
+   "bind": "0.0.0.0",
+   "host_port": "6489",
+   "container_port": "6489",
+   "proto": "tcp",
+   "loopback_only": false,
+   "comment": "Livraison #452 (backlog) -- bastion RÉSERVÉ à freg : aiguilleur TLS"
+  },
+  {
    "service": "rsyslog-listener",
    "bind": "0.0.0.0",
    "host_port": "5514",
@@ -570,9 +595,9 @@
   }
  ],
  "counts": {
-  "gateway_routes": 58,
-  "direct_ports": 17,
-  "direct_public": 11,
+  "gateway_routes": 59,
+  "direct_ports": 19,
+  "direct_public": 13,
   "host_network": 1
  },
  "generated_from": [

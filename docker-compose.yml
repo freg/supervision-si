@@ -1334,6 +1334,28 @@ services:
     depends_on:
       - si-proxy
 
+  services-api:
+    # Livraison #584 -- « Services du hub » (sous-tuile de Paramétrage) :
+    # feu tricolore de TOUS les conteneurs du projet (état Docker,
+    # healthcheck, requête HTTP interne sur le port exposé) et redémarrage
+    # (start/restart seulement, jamais stop/suppression/image). Socket
+    # Docker monté = root sur l'hôte : la route /api/services/ exige un
+    # jeton Keycloak VÉRIFIÉ (RS256/JWKS, comme si-proxy-admin-api #454) et
+    # un utilisateur de SERVICES_ADMIN_USERS. Voir services/README.md.
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=supervision-si
+      - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-supervision-si}
+      - SERVICES_ADMIN_USERS=${SERVICES_ADMIN_USERS:-freg}
+      - SERVICES_HTTP_TIMEOUT=${SERVICES_HTTP_TIMEOUT:-4}
+      - SERVICES_CACHE_SECONDS=${SERVICES_CACHE_SECONDS:-20}
+
   network-explorer:
     # Livraison #393 -- demandé explicitement : "un docker front qui
     # se branche sur le/les dockers api" -- SANS Keycloak ni
@@ -1800,6 +1822,9 @@ services:
       # Bastion si-proxy (livraison #454) -- tuile réservée (SI_PROXY_ADMIN_USERS).
       - VITE_SI_PROXY_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-proxy
       - VITE_SI_PROXY_ADMIN_USERS=${SI_PROXY_ADMIN_USERS:-freg}
+      # Services du hub (livraison #584) -- feu tricolore + redémarrage (SERVICES_ADMIN_USERS).
+      - VITE_SERVICES_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/services
+      - VITE_SERVICES_ADMIN_USERS=${SERVICES_ADMIN_USERS:-freg}
       # Catalogue de positions (livraison #429) -- tuile hub pour geo-catalog-api.
       - VITE_GEO_CATALOG_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/geo-catalog
       # Supervision SI refondue (livraison #423) -- géolocalisations connues.

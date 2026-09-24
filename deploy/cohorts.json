@@ -22,6 +22,7 @@
         "credentials-api",
         "si-proxy",
         "si-proxy-admin-api",
+        "services-api",
         "rsyslog-listener",
         "network-explorer",
         "ldap-admin-api",

@@ -199,6 +199,11 @@ SERVICES = [
     # vers l'interface de contrôle du relais si-proxy. Ajouté dès la
     # première livraison (piège #301).
     ("SI_PROXY_ADMIN_API_PORT", "si-proxy-admin-api", 5000, "/api/si-proxy/", "api"),
+    # services-api (livraison #584) -- feu tricolore / redémarrage des
+    # conteneurs. Socket Docker derrière, mais jeton Keycloak vérifié +
+    # liste d'utilisateurs (même modèle que si-proxy-admin-api), d'où le
+    # routage -- contrairement à docker-monitor-api (#376) sans auth.
+    ("SERVICES_API_PORT", "services-api", 5000, "/api/services/", "api"),
     # cortex-api (livraison #462) -- ajouté dès la première livraison (piège #301).
     ("CORTEX_API_PORT", "cortex-api", 5000, "/api/cortex/", "api"),
     # geo-catalog-api (livraison #429) -- catalogue de positions.
