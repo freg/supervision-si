@@ -1,3 +1,31 @@
+## 2026-09-24 — MikroTik par SSH, transparent pour le routeur : statut, relevés et règles NAT ip:port → ip:port (livraison #587)
+
+Demandé : « les routeurs sont sous la responsabilité d'un administrateur qui
+ne veut rien faire évoluer, le hub doit être transparent ; j'y accède par
+ssh ; un module d'accès ssh pour les commandes de statut et de paramétrage
+(j'ai le droit de modifier des NAT ip:port/ip:port) ».
+
+- `mikrotik/ssh_client.py` : `RouterOSSsh` (paramiko, `user+ct`, une
+  commande par appel), lecture des objets par `:put [/x get $i]`
+  (`parse_kv_list`, v6 et v7), même surface que le client REST (get /
+  patch / post_action → résumé, interfaces, ping, reboot inchangés),
+  `nat_list/add/set/remove/move`, `read_only_command`.
+- `mikrotik/natrules.py` : validation pure des règles (chaînes, actions,
+  protocoles, IP / réseaux / plages, ports et listes, interfaces,
+  commentaire, cohérence dst-nat ↔ dstnat), `describe`.
+- `mikrotik/app.py` : `"transport": "ssh"` dans le registre (port 22),
+  routes `GET/POST …/nat`, `PATCH/DELETE …/nat/<*id>` (confirmation
+  REMOVE), `POST …/command` (lecture seule, SSH), `GET /mikrotik/commands`.
+- Page MikroTik : sections « Règles NAT » (liste, activer / désactiver,
+  cible…, supprimer, formulaire d'ajout) et « Relevés » (liste proposée +
+  commande libre en lecture seule).
+- Tour de contrôle : champ `transport` (rest / ssh) dans le registre
+  MikroTik ; exemple `exemple-ssh` dans `routers.json`.
+- Tests : 11 (parseurs, session simulée, injections refusées, règles,
+  routes) + tour 10.
+
+Non vérifié : sur super, contre le routeur 192.168.0.253 (v6 attendu).
+
 ## 2026-09-24 — Tour de contrôle : tout depuis le hub — livraisons (zip → plan → build), registres JSON, auto-réparation (livraison #586)
 
 Demandé : « il faut qu'on puisse tout faire par le hub, même l'import de conf

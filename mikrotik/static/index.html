@@ -22,6 +22,8 @@ Charte sombre du hub, sans couleur hors palette (#2980b9/#b7791f). -->
             background: var(--bg); border: 1px solid transparent; }
   a, a:visited { color: var(--accent); }
   .router:hover { border-color: var(--accent); }
+  .natForm { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:6px; }
+  .natForm input, .natForm select { padding:4px 6px; }
   .router.active { border-color: var(--accent); background: rgba(41,128,185,.12); }
   .router .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 8px; }
   .dot.up { background: var(--ok); } .dot.down { background: var(--err); }
@@ -154,7 +156,110 @@ function renderDetail(name, summary, ifaces) {
       <button class="danger" onclick="reboot('${name}')">Redémarrer…</button>
       <div id="msg"></div>
       <pre id="pingOut" style="display:none"></pre>
+    </div>
+    <div class="card" id="natCard">
+      <h2>Règles NAT <span class="muted">— traduction ip:port → ip:port (#587)</span></h2>
+      <div id="natList" class="muted">chargement…</div>
+      <details style="margin-top:8px"><summary>➕ Ajouter une règle</summary>
+        <div class="natForm">
+          <select id="n_chain"><option value="dstnat">dstnat (entrant)</option><option value="srcnat">srcnat (sortant)</option></select>
+          <select id="n_action"><option value="dst-nat">dst-nat</option><option value="redirect">redirect</option><option value="src-nat">src-nat</option><option value="masquerade">masquerade</option></select>
+          <select id="n_proto"><option value="tcp">tcp</option><option value="udp">udp</option><option value="">(tout)</option></select>
+          <input id="n_dst" placeholder="dst-address (IP publique / vide)" style="width:190px">
+          <input id="n_dport" placeholder="dst-port (ex. 8443)" style="width:120px">
+          <span>→</span>
+          <input id="n_to" placeholder="to-addresses (IP interne)" style="width:170px">
+          <input id="n_tports" placeholder="to-ports (ex. 443)" style="width:110px">
+          <input id="n_iface" placeholder="in-interface (option)" style="width:150px">
+          <input id="n_comment" placeholder="commentaire" style="width:200px">
+          <button onclick="natAdd('${name}')">Ajouter</button>
+        </div>
+        <div id="natMsg"></div>
+      </details>
+    </div>
+    <div class="card" id="cmdCard">
+      <h2>Relevés <span class="muted">— commandes en lecture seule (print / export / get), transport SSH</span></h2>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <select id="cmdPick" onchange="document.getElementById('cmdIn').value=this.value"></select>
+        <input id="cmdIn" placeholder="/ip address print" style="width:320px">
+        <button onclick="runCmd('${name}')">Exécuter</button>
+      </div>
+      <pre id="cmdOut" style="display:none"></pre>
     </div>`;
+  loadNat(name);
+  loadCommands();
+}
+
+// ---- #587 : NAT -------------------------------------------------------------
+async function loadNat(name) {
+  const box = document.getElementById("natList");
+  try {
+    const r = await fetch(`${api}/routers/${name}/nat`);
+    const body = await r.json();
+    if (body.error) { box.innerHTML = `⚠️ ${body.error}`; return; }
+    if (!body.rules.length) { box.textContent = "aucune règle NAT."; return; }
+    box.innerHTML = `<table><tr><th></th><th>Chaîne</th><th>Règle</th><th>Interface</th><th>Commentaire</th><th></th></tr>` + body.rules.map(x => `
+      <tr class="${x.disabled === "true" ? "muted" : ""}">
+        <td><span class="pill ${x.disabled === "true" ? "off" : "up"}">${x.disabled === "true" ? "off" : "on"}</span></td>
+        <td>${x.chain || ""}</td><td><code>${x.summary || ""}</code></td><td>${x["in-interface"] || x["out-interface"] || ""}</td><td>${x.comment || ""}</td>
+        <td style="white-space:nowrap">
+          <button onclick="natSet('${name}','${x[".id"]}',{disabled:'${x.disabled === "true" ? "no" : "yes"}'})">${x.disabled === "true" ? "Activer" : "Désactiver"}</button>
+          <button onclick="natEditTo('${name}','${x[".id"]}','${x["to-addresses"] || ""}','${x["to-ports"] || ""}')" title="changer la cible ip:port">Cible…</button>
+          <button class="danger" onclick="natRemove('${name}','${x[".id"]}','${(x.summary || "").replace(/'/g, "")}')">Supprimer</button>
+        </td></tr>`).join("") + `</table>`;
+  } catch (e) { box.textContent = `⚠️ ${e.message}`; }
+}
+function natMsg(text, ok) { const m = document.getElementById("natMsg"); m.className = ok ? "ok" : "err"; m.textContent = text; }
+async function natAdd(name) {
+  const v = (id) => document.getElementById(id).value.trim();
+  const body = { chain: v("n_chain"), action: v("n_action"), protocol: v("n_proto"), "dst-address": v("n_dst"), "dst-port": v("n_dport"),
+    "to-addresses": v("n_to"), "to-ports": v("n_tports"), "in-interface": v("n_iface"), comment: v("n_comment") };
+  for (const k of Object.keys(body)) if (body[k] === "") delete body[k];
+  try {
+    const r = await fetch(`${api}/routers/${name}/nat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const b = await r.json();
+    if (!r.ok) { natMsg((b.errors || [b.error]).join(" ; "), false); return; }
+    natMsg("règle ajoutée.", true); loadNat(name);
+  } catch (e) { natMsg(e.message, false); }
+}
+async function natSet(name, id, fields) {
+  const r = await fetch(`${api}/routers/${name}/nat/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(fields) });
+  const b = await r.json();
+  natMsg(r.ok ? "règle modifiée." : (b.errors || [b.error]).join(" ; "), r.ok);
+  loadNat(name);
+}
+function natEditTo(name, id, to, ports) {
+  const nt = prompt("Nouvelle adresse cible (to-addresses)", to); if (nt === null) return;
+  const np = prompt("Nouveau port cible (to-ports, vide = inchangé)", ports); if (np === null) return;
+  const f = { "to-addresses": nt.trim() }; if (np.trim()) f["to-ports"] = np.trim();
+  natSet(name, id, f);
+}
+async function natRemove(name, id, summary) {
+  if (!confirm(`Supprimer la règle ${summary || id} ?`)) return;
+  const r = await fetch(`${api}/routers/${name}/nat/${encodeURIComponent(id)}`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirm: "REMOVE" }) });
+  const b = await r.json();
+  natMsg(r.ok ? "règle supprimée." : b.error, r.ok);
+  loadNat(name);
+}
+
+// ---- #587 : relevés (lecture seule) ----------------------------------------
+async function loadCommands() {
+  const sel = document.getElementById("cmdPick");
+  if (!sel || sel.options.length) return;
+  try {
+    const b = await (await fetch(`${api}/commands`)).json();
+    sel.innerHTML = `<option value="">— relevés proposés —</option>` + (b.commands || []).map(c => `<option value="${c.command}">${c.label}</option>`).join("");
+  } catch (e) { /* liste facultative */ }
+}
+async function runCmd(name) {
+  const cmd = document.getElementById("cmdIn").value.trim();
+  const out = document.getElementById("cmdOut");
+  out.style.display = "block"; out.textContent = "…";
+  try {
+    const r = await fetch(`${api}/routers/${name}/command`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ command: cmd }) });
+    const b = await r.json();
+    out.textContent = r.ok ? `$ ${b.command}\n` + b.output.join("\n") : `⚠️ ${b.error}`;
+  } catch (e) { out.textContent = `⚠️ ${e.message}`; }
 }
 
 async function toggleIface(btn) {

@@ -38,6 +38,8 @@ import requests
 from flask import Flask, jsonify, request, send_from_directory
 
 from routeros_client import RouterOSClient, RouterOSError
+import natrules  # #587
+from ssh_client import RouterOSSsh, read_only_command  # #587 : transport SSH, transparent pour le routeur
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 log = logging.getLogger("mikrotik")
@@ -48,6 +50,7 @@ REGISTRY_PATH = os.environ.get("MIKROTIK_REGISTRY", os.path.join(HERE, "routers.
 # #585 : registre LOCAL hors dépôt (mikrotik/routers.local.json), prioritaire s'il existe.
 REGISTRY_LOCAL = os.environ.get("MIKROTIK_REGISTRY_LOCAL", os.path.join(HERE, "routers.local.json"))
 TLS_VERIFY = os.environ.get("MIKROTIK_TLS_VERIFY", "") == "1"
+SSH_TIMEOUT = int(os.environ.get("MIKROTIK_SSH_TIMEOUT", "12"))
 CREDENTIALS_API_URL = os.environ.get("CREDENTIALS_API_URL", "http://credentials-api:5000").rstrip("/")
 CREDENTIALS_TOKEN = os.environ.get("CREDENTIALS_INTERNAL_TOKEN", "").strip()
 CREDENTIALS_CACHE_S = int(os.environ.get("CREDENTIALS_CACHE_SECONDS", "60") or 0)
@@ -73,8 +76,15 @@ def load_registry():
         with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
         routers = data.get("routers", [])
-        return [{"name": r["name"], "host": r["host"], "port": int(r.get("port", 443)),
-                 "credential": r.get("credential", "default")} for r in routers], None
+        out = []
+        for r in routers:
+            transport = (r.get("transport") or "rest").lower()  # #587 : "ssh" = CLI par SSH (rien à activer sur le routeur)
+            if transport not in ("rest", "ssh"):
+                transport = "rest"
+            out.append({"name": r["name"], "host": r["host"], "port": int(r.get("port") or (22 if transport == "ssh" else 443)),
+                        "credential": r.get("credential", "default"), "transport": transport,
+                        "site": r.get("site"), "description": r.get("description")})
+        return out, None
     except FileNotFoundError:
         return [], f"registre absent ({path})"
     except (ValueError, KeyError) as exc:
@@ -130,6 +140,8 @@ def client_for(router):
     user, password, error = credentials_for(router["credential"])
     if error:
         return None, error
+    if router.get("transport") == "ssh":
+        return RouterOSSsh(router["host"], router["port"], user, password, timeout=SSH_TIMEOUT), None
     return RouterOSClient(router["host"], router["port"], user, password, tls_verify=TLS_VERIFY), None
 
 
@@ -287,6 +299,130 @@ def reboot(name):
         # Le routeur peut couper la connexion avant de répondre —
         # c'est même le signe que le reboot a bien été pris en compte.
         return jsonify({"status": "ok", "message": f"redémarrage probablement pris en compte (connexion coupée : {exc})"}), 200
+
+
+# ------------------------------------------------------ règles NAT (#587)
+# Périmètre donné : « j'ai le droit de modifier des NAT ip:port/ip:port ».
+# Valeurs validées par natrules.py (jamais de chaîne libre vers le routeur),
+# chaque geste journalisé avec le routeur et la règle.
+
+def _router_or_404(name):
+    router = find_router(name)
+    if not router:
+        return None, (jsonify({"error": f"routeur « {name} » absent du registre"}), 404)
+    return router, None
+
+
+def _nat_rows(client):
+    rows = client.nat_list() if hasattr(client, "nat_list") else client.get("ip/firewall/nat")
+    for r in rows:
+        r["summary"] = natrules.describe(r)
+    return rows
+
+
+@app.route("/mikrotik/routers/<name>/nat", methods=["GET"])
+def nat_list(name):
+    router, err = _router_or_404(name)
+    if err:
+        return err
+    client, error = client_for(router)
+    if error:
+        return jsonify({"error": error}), 500
+    try:
+        return jsonify({"rules": _nat_rows(client), "transport": router["transport"]}), 200
+    except RouterOSError as exc:
+        return jsonify({"error": str(exc)}), 502
+
+
+@app.route("/mikrotik/routers/<name>/nat", methods=["POST"])
+def nat_add(name):
+    router, err = _router_or_404(name)
+    if err:
+        return err
+    fields, errors = natrules.validate(request.get_json(silent=True) or {})
+    if errors:
+        return jsonify({"error": "règle refusée", "errors": errors}), 400
+    client, error = client_for(router)
+    if error:
+        return jsonify({"error": error}), 500
+    try:
+        if hasattr(client, "nat_add"):
+            res = client.nat_add(fields)
+        else:
+            res = client._request("PUT", "ip/firewall/nat", json=fields)
+        log.warning("routeur %s : règle NAT AJOUTÉE %s (%s)", name, natrules.describe(fields), fields.get("comment") or "")
+        return jsonify({"status": "ok", "rule": fields, "result": res}), 200
+    except RouterOSError as exc:
+        return jsonify({"error": str(exc)}), 502
+
+
+@app.route("/mikrotik/routers/<name>/nat/<ident>", methods=["PATCH", "DELETE"])
+def nat_edit(name, ident):
+    router, err = _router_or_404(name)
+    if err:
+        return err
+    if not natrules.re.match(r"^\*[0-9A-Fa-f]{1,8}$", ident):
+        return jsonify({"error": "identifiant de règle attendu (ex. *1A)"}), 400
+    client, error = client_for(router)
+    if error:
+        return jsonify({"error": error}), 500
+    try:
+        if request.method == "DELETE":
+            if (request.get_json(silent=True) or {}).get("confirm") != "REMOVE":
+                return jsonify({"error": "confirmation requise : {\"confirm\": \"REMOVE\"}"}), 400
+            if hasattr(client, "nat_remove"):
+                client.nat_remove(ident)
+            else:
+                client._request("DELETE", f"ip/firewall/nat/{ident}")
+            log.warning("routeur %s : règle NAT %s SUPPRIMÉE", name, ident)
+            return jsonify({"status": "ok"}), 200
+        fields, errors = natrules.validate(request.get_json(silent=True) or {}, partial=True)
+        if errors:
+            return jsonify({"error": "modification refusée", "errors": errors}), 400
+        if not fields:
+            return jsonify({"error": "aucun champ à modifier"}), 400
+        client.patch(f"ip/firewall/nat/{ident}", fields)
+        log.warning("routeur %s : règle NAT %s modifiée : %s", name, ident, fields)
+        return jsonify({"status": "ok", "fields": fields}), 200
+    except RouterOSError as exc:
+        return jsonify({"error": str(exc)}), 502
+
+
+@app.route("/mikrotik/routers/<name>/command", methods=["POST"])
+def command(name):
+    """Commande CLI en LECTURE SEULE (print / export / get / monitor-traffic),
+    transport SSH seulement -- pour les relevés que la tuile ne structure pas
+    (routes, baux DHCP, filtres, journal...). Tout verbe modifiant est refusé
+    avant d'atteindre le routeur."""
+    router, err = _router_or_404(name)
+    if err:
+        return err
+    if router["transport"] != "ssh":
+        return jsonify({"error": "commandes libres : transport ssh seulement (registre : \"transport\": \"ssh\")"}), 400
+    cmd = " ".join(str((request.get_json(silent=True) or {}).get("command") or "").split())
+    if not read_only_command(cmd):
+        return jsonify({"error": "commande refusée : seuls print / export / get / monitor-traffic sont acceptés ici"}), 400
+    client, error = client_for(router)
+    if error:
+        return jsonify({"error": error}), 500
+    try:
+        out = client.run(cmd)
+        log.info("routeur %s : commande « %s »", name, cmd)
+        return jsonify({"command": cmd, "output": out.replace("\r", "").rstrip("\n").split("\n")}), 200
+    except RouterOSError as exc:
+        return jsonify({"error": str(exc)}), 502
+
+
+READ_COMMANDS = [
+    ("Adresses IP", "/ip address print"), ("Routes actives", "/ip route print where active"), ("Baux DHCP", "/ip dhcp-server lease print"),
+    ("Voisins", "/ip neighbor print"), ("Filtres pare-feu", "/ip firewall filter print"), ("Connexions NAT actives", "/ip firewall connection print where nat"),
+    ("Journal (fin)", "/log print"), ("Export de la configuration", "/export"), ("Trafic ether1 (instantané)", "/interface monitor-traffic ether1 once"),
+]
+
+
+@app.route("/mikrotik/commands", methods=["GET"])
+def commands_catalog():
+    return jsonify({"commands": [{"label": l, "command": c} for l, c in READ_COMMANDS]}), 200
 
 
 if __name__ == "__main__":

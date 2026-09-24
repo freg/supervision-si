@@ -1,3 +1,5 @@
 flask>=3.0
 gunicorn>=21.0
 requests>=2.31
+# #587 : transport SSH (RouterOS CLI), comme le module Cisco.
+paramiko>=3.4

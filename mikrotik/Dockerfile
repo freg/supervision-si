@@ -8,7 +8,7 @@ WORKDIR /app
 COPY mikrotik/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY mikrotik/app.py mikrotik/routeros_client.py .
+COPY mikrotik/app.py mikrotik/routeros_client.py mikrotik/ssh_client.py mikrotik/natrules.py .
 COPY mikrotik/static/ ./static/
 # Registre des routeurs — écrasé au RUNTIME par le bind mount
 # (./mikrotik/routers.json, voir docker-compose.yml) : la copie ne

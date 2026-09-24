@@ -10,6 +10,32 @@ testé contre un faux RouterOS en mémoire (`tests/smoke_test.py`). Le
 premier contact réel peut révéler des écarts de champs (les noms de
 compteurs varient selon les versions de RouterOS).
 
+## Transport SSH (#587) — « le hub doit être transparent »
+
+`"transport": "ssh"` dans le registre (port 22 par défaut) : la tuile parle
+au routeur par la CLI RouterOS **en SSH**, l'accès que l'administrateur a déjà
+ouvert — rien à activer ni changer sur le routeur (pas de www-ssl, pas d'API),
+RouterOS v6 et v7. Même accès du coffre (utilisateur + mot de passe ; le hub
+se connecte en `user+ct`, sans couleurs ni pagination). Les objets sont lus
+par le langage de script (`:put [/ip firewall nat get $i]`) et parsés ; les
+gestes sont des commandes CLI dont chaque valeur est validée et citée
+(`mikrotik/ssh_client.py`, `natrules.py`). Même surface que le REST : résumé,
+interfaces, ping, redémarrage, **et** :
+
+- **Règles NAT** (`GET/POST /mikrotik/routers/<n>/nat`, `PATCH/DELETE
+  …/nat/<*id>`) : traduction ip:port → ip:port (dst-nat / redirect), src-nat /
+  masquerade ; champs bornés (chaîne, action, protocole, adresses, ports,
+  interfaces, commentaire, activée) ; suppression confirmée
+  (`{"confirm": "REMOVE"}`) ; chaque geste journalisé. Disponible aussi en
+  REST (PUT / PATCH / DELETE `ip/firewall/nat`).
+- **Relevés** (`POST …/command`, SSH seulement) : commandes en lecture seule
+  — `print`, `export`, `get`, `monitor-traffic` — tout verbe modifiant
+  (`set`, `add`, `remove`, `reboot`, `$`, `;`…) est refusé avant d'atteindre
+  le routeur ; liste de relevés proposés (`GET /mikrotik/commands`).
+- Empreinte SSH non épinglée (patte interne, comme le module Cisco) ;
+  `MIKROTIK_SSH_TIMEOUT` (12 s). Tests : `tests/test_ssh_nat.py` (parseurs,
+  session simulée, règles), `tests/test_api_ssh.py` (routes).
+
 ## Transport : API REST RouterOS v7
 
 HTTPS + authentification Basic sur le service `www-ssl` du routeur

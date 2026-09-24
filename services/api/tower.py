@@ -203,8 +203,11 @@ CONFIGS = {
         "fields": [
             {"name": "name", "label": "nom", "type": "str", "required": True, "pattern": NAME_RE},
             {"name": "host", "label": "hôte / IP", "type": "str", "required": True},
-            {"name": "port", "label": "port HTTPS", "type": "int", "default": 443},
+            {"name": "transport", "label": "transport", "type": "choice", "choices": ["rest", "ssh"], "default": "rest"},
+            {"name": "port", "label": "port (443 REST / 22 SSH)", "type": "int"},
             {"name": "credential", "label": "accès du coffre", "type": "str", "required": True, "default": "default"},
+            {"name": "site", "label": "site", "type": "str"},
+            {"name": "description", "label": "description", "type": "str"},
         ],
     },
 }

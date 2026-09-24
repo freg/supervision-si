@@ -96,6 +96,8 @@ class Configs(unittest.TestCase):
         self.assertTrue(errs)
         doc, errs, _ = tower.validate_config("mikrotik", [{"name": "mt", "host": "192.0.2.253"}])
         self.assertEqual(doc, {"routers": [{"name": "mt", "host": "192.0.2.253", "credential": "default"}]})
+        doc, errs, _ = tower.validate_config("mikrotik", [{"name": "mt", "host": "192.0.2.253", "transport": "SSH", "credential": "mt-ssh"}])
+        self.assertEqual((errs, doc["routers"][0]["transport"]), ([], "ssh"))
 
     def test_merge(self):
         cur = [{"name": "a", "host": "1"}, {"name": "b", "host": "2"}]
