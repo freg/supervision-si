@@ -59,14 +59,35 @@ installé mais non attribué. Rapprochement (`rules.match_installations`) :
 motifs du catalogue sur nom / éditeur relevés, bruit système exclu
 (runtimes, mises à jour, paquets dpkg / rpm sans motif explicite).
 
+## Utilisateurs par site (#597)
+
+Toute l'authentification passe par le LDAP (Keycloak fédéré) ; certaines
+applications ont en plus leur propre table. La table `users` de
+licenses-api suit ce modèle : **l'annuaire fait référence** (`POST
+/users/sync` lit les comptes Keycloak via `accounts-api /users` : login, nom,
+adresse, activé → lignes `directory = 1`, source `ldap`), les personnes
+venues d'un import ou d'un vendeur sont des **infos** (`directory = 0`,
+source `import` / `vendeur` / `manual`) rattachées automatiquement au compte
+LDAP dès qu'il existe — par login, adresse, « Prénom Nom » ↔ `prenom.nom`,
+« M. NOM », initiales uniques ou alias déclarés (`rules.resolve_person`) ;
+les attributions suivent le rattachement. Le **site** est renseigné dans
+la tuile (colonne éditable) ou par l'import (site du formulaire) et n'est
+jamais écrasé par la synchronisation. La grille d'un site liste tous ses
+utilisateurs, attribués ou non. `GET /users?site=`, `POST /users`
+(ajout / modification, alias), `DELETE /users/<login>` (refusé s'il reste
+des attributions).
+
 ## Import des tableurs (`POST /import`, multipart `file`, `site`, `dry_run`)
 
 Formats détectés : **matrice** (en-tête « Logiciel | Éditeur | Licence |
-Date Fin | personne… », une croix par personne), **export Microsoft 365**
+Date Fin | personne… » ; les noms des personnes sur la ligne d'en-tête ou
+la ligne du dessus (en-têtes fusionnés) ; **toute marque non vide** compte —
+croix, « n », « oui », 1, date — sauf « non / 0 / - » ; une colonne
+« Personnes / Utilisateurs » listant des noms est aussi lue), **export Microsoft 365**
 (colonnes « Nom complet », « Nom d'utilisateur », « Licences » séparées par
 `+`), **comparatif** (licences en lignes × initiales en colonnes). `.xlsx`
-(openpyxl) ou `.csv` (séparateur détecté). Analyse d'abord (plan), puis
-import : logiciels et contrats manquants créés sur le site, personnes
+(openpyxl) ou `.csv` (séparateur détecté). Analyse d'abord (plan : logiciels, personnes reconnues → login, personnes
+absentes de l'annuaire signalées), puis import : logiciels et contrats manquants créés sur le site, personnes
 attribuées ; ré-import idempotent.
 
 ## Droits, sécurité

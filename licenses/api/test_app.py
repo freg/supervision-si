@@ -57,7 +57,7 @@ class Base(unittest.TestCase):
     def setUp(self):
         appmod.verifier = auth.KeycloakVerifier("u", [], fetch=lambda _u: jwks(), allowed_groups=["administrateurs"], what="les licences")
         c = appmod.sqlite3.connect(appmod.DB_PATH)
-        for t in ("software", "contracts", "assignments", "vendor_accounts", "actions", "events"):
+        for t in ("software", "contracts", "assignments", "vendor_accounts", "actions", "events", "users"):
             c.execute("DELETE FROM " + t)
         c.execute("DELETE FROM sqlite_sequence")
         c.commit()
@@ -143,11 +143,14 @@ class Installations(Base):
         self.assertEqual(self.c.get("/sites").get_json()["sites"], ["site-alpha", "site-beta"])
 
 
+def _csv_file(rows):
+    buf = io.StringIO()
+    csv.writer(buf, delimiter=";").writerows(rows)
+    return (io.BytesIO(buf.getvalue().encode("utf-8")), "inv.csv")
+
+
 class Import(Base):
-    def _csv(self, rows):
-        buf = io.StringIO()
-        csv.writer(buf, delimiter=";").writerows(rows)
-        return (io.BytesIO(buf.getvalue().encode("utf-8")), "inv.csv")
+    _csv = staticmethod(_csv_file)
 
     def test_matrix_dry_run_then_import(self):
         rows = [["Logiciel", "Éditeur", "Licence", "Date Fin", "alice", "bob", "carol"], ["DraftSight", "Dassault", "abonnement", "31/12/2027", "x", "x", ""], ["eDraw", "Wondershare", "perpétuelle", "", "", "", "x"]]
@@ -155,15 +158,17 @@ class Import(Base):
         self.assertEqual(r.status_code, 200, r.get_json())
         j = r.get_json()
         self.assertEqual((j["format"], j["dry_run"], [p["software"] for p in j["plan"]]), ("matrix", True, ["DraftSight", "eDraw"]))
+        self.assertEqual((j["people"], j["unknown_people"]), (3, ["alice", "bob", "carol"]))
         self.assertEqual(self.c.get("/software").get_json()["software"], [])
         r = self.c.post("/import", headers=self.adm, data={"file": self._csv(rows), "site": "site-alpha"}, content_type="multipart/form-data")
-        self.assertEqual(r.get_json()["created"], {"software": 2, "contracts": 2, "assignments": 3})
+        self.assertEqual(r.get_json()["created"], {"software": 2, "contracts": 2, "assignments": 3, "users": 3})
         cts = self.c.get("/contracts").get_json()["contracts"]
         ds = [c for c in cts if c["site"] == "site-alpha" and c["kind"] == "subscription"][0]
         self.assertEqual((ds["quantity"], ds["end"], ds["assigned"]), (2, "2027-12-31", 2))
         # ré-import : rien de nouveau (idempotent)
         r = self.c.post("/import", headers=self.adm, data={"file": self._csv(rows), "site": "site-alpha"}, content_type="multipart/form-data")
-        self.assertEqual(r.get_json()["created"], {"software": 0, "contracts": 0, "assignments": 0})
+        self.assertEqual(r.get_json()["created"], {"software": 0, "contracts": 0, "assignments": 0, "users": 0})
+        self.assertEqual([(u["login"], u["site"], u["source"]) for u in self.c.get("/users").get_json()["users"]], [("alice", "site-alpha", "import"), ("bob", "site-alpha", "import"), ("carol", "site-alpha", "import")])
         self.assertEqual(self.c.post("/import", headers=self.adm, data={"site": "s"}, content_type="multipart/form-data").status_code, 400)
 
     def test_m365_export(self):
@@ -175,6 +180,42 @@ class Import(Base):
         names = {c["software"]: c for c in self.c.get("/contracts").get_json()["contracts"]}
         self.assertEqual(names["Microsoft 365 Business Standard"]["assigned"], 2)
         self.assertEqual(names["Exchange Online (Plan 1)"]["assigned"], 1)
+
+
+class Users(Base):
+    _csv = staticmethod(_csv_file)
+
+    def test_directory_sync_links_imported_people(self):
+        # annuaire connu d'abord : l'import rattache « Alice A » au compte LDAP
+        appmod.app.fetch_directory = lambda: [{"username": "alice.a", "email": "alice.a@exemple.test", "first_name": "Alice", "last_name": "A", "enabled": True}, {"username": "dan.d", "email": "", "first_name": "Dan", "last_name": "D", "enabled": False}]
+        r = self.c.post("/users/sync", headers=self.adm)
+        self.assertEqual((r.status_code, r.get_json()["added"]), (200, 2))
+        rows = [["Logiciel", "Éditeur", "Licence", "Date Fin", "Alice A", "M. DUPONT"], ["DraftSight", "Dassault", "", "", "x", "x"]]
+        r = self.c.post("/import", headers=self.adm, data={"file": self._csv(rows), "site": "site-alpha", "dry_run": "1"}, content_type="multipart/form-data")
+        self.assertEqual((r.get_json()["people"], r.get_json()["unknown_people"]), (2, ["M. DUPONT"]))
+        r = self.c.post("/import", headers=self.adm, data={"file": self._csv(rows), "site": "site-alpha"}, content_type="multipart/form-data")
+        self.assertEqual(r.get_json()["created"]["users"], 1)
+        users = {u["login"]: u for u in self.c.get("/users").get_json()["users"]}
+        self.assertEqual((users["alice.a"]["directory"], users["alice.a"]["site"], users["alice.a"]["assigned"]), (1, "site-alpha", 1))
+        self.assertEqual((users["dupont"]["directory"], users["dupont"]["source"], users["dupont"]["name"]), (0, "import", "M. DUPONT"))
+        # l'annuaire gagne un compte c.dupont : la ligne « info » est rattachée, l'attribution suit
+        appmod.app.fetch_directory = lambda: [{"username": "c.dupont", "email": "", "first_name": "Carol", "last_name": "Dupont", "enabled": True}]
+        r = self.c.post("/users/sync", headers=self.adm).get_json()
+        self.assertEqual((r["added"], r["linked"]), (1, 1))
+        users = {u["login"]: u for u in self.c.get("/users").get_json()["users"]}
+        self.assertNotIn("dupont", users)
+        self.assertEqual((users["c.dupont"]["site"], users["c.dupont"]["assigned"]), ("site-alpha", 1))
+        self.assertEqual([a["subject"] for a in self.c.get("/assignments").get_json()["assignments"]], ["alice.a", "c.dupont"])
+        # manuel, filtre par site, suppression protégée, grille = tous les utilisateurs du site
+        self.assertEqual(self.c.post("/users", headers=self.adm, json={"login": "Eve.E", "name": "Eve E", "site": "site-beta"}).status_code, 200)
+        self.assertEqual([u["login"] for u in self.c.get("/users?site=site-beta").get_json()["users"]], ["dan.d", "eve.e"])
+        self.assertEqual(self.c.delete("/users/alice.a", headers=self.adm).status_code, 400)
+        self.assertEqual(self.c.delete("/users/eve.e", headers=self.adm).status_code, 200)
+        subjects = [(r["kind"], r["subject"]) for r in self.c.get("/grid?site=site-alpha").get_json()["rows"]]
+        self.assertIn(("user", "c.dupont"), subjects)
+        self.assertNotIn(("user", "dan.d"), subjects)  # sans site -> pas dans la grille d'un site
+        appmod.app.fetch_directory = lambda: (_ for _ in ()).throw(RuntimeError("x"))
+        self.assertEqual(self.c.post("/users/sync", headers=self.adm).status_code, 502)
 
 
 class Vendors(Base):

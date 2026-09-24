@@ -49,6 +49,21 @@ class Gaps(unittest.TestCase):
 
 
 class Imports(unittest.TestCase):
+    def test_matrix_tolerant_marks_and_merged_headers(self):  # #597
+        rows = [[None, None, None, None, "Alice A", "Bob B", None], ["Logiciel", "Éditeur", "Licence", "Date Fin", None, None, "Utilisateurs"],
+                ["DraftSight", "Dassault", "abonnement", "31/12/2027", "V", "non", "Carol C; Dan D"], ["eDraw", "W", None, None, None, dt.datetime(2025, 1, 12), None]]
+        out, err = rules.import_matrix(rows)
+        self.assertIsNone(err)
+        self.assertEqual(out[0]["people"], ["Alice A", "Carol C", "Dan D"])
+        self.assertEqual(out[1]["people"], ["Bob B"])
+
+    def test_resolve_person(self):  # #597
+        users = [{"login": "alice.a", "name": "Alice A", "mail": "alice.a@ex.test", "aliases": []}, {"login": "bob.b", "name": "Bob B", "mail": "", "aliases": ["bobby"]},
+                 {"login": "c.dupont", "name": "Carol Dupont", "mail": "", "aliases": []}]
+        for person, login in [("Alice A", "alice.a"), ("alice.a@ex.test", "alice.a"), ("bobby", "bob.b"), ("M. DUPONT", "c.dupont"), ("Dupont Carol", "c.dupont"), ("AA", "alice.a"), ("zz", None), ("", None)]:
+            self.assertEqual(rules.resolve_person(person, users), login, person)
+        self.assertEqual((rules.login_from("M. DUPONT"), rules.login_from("Jean-Paul Martin"), rules.login_from("x@ex.test")), ("dupont", "jean.paul.martin", "x"))
+
     def test_matrix(self):
         rows = [[None] * 6, ["Logiciel", "Éditeur", "Licence", "Date Fin", "M. DUPONT", "Alice"], ["DraftSight", "Dassault", None, None, None, "n"],
                 ["eDraw", "WonderShare", None, dt.datetime(2024, 10, 10), "n", None], [None, None, None, None, None, None]]

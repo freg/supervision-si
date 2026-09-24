@@ -1,3 +1,30 @@
+## 2026-09-24 — Licences : personnes des tableurs prises en compte, table utilisateurs / site adossée à l'annuaire (livraison #597)
+
+Constat réel : l'analyse et l'import ignoraient les personnes (marques
+autres que x / n / oui, noms en en-tête fusionné). Demandé : « ajouter ça et
+en profiter pour renseigner une table utilisateurs / site » ; cadre donné :
+« toute notre architecture utilisateur passe par le LDAP ; il n'est pas la
+seule source, certaines applications ont une table à part, la plupart ont
+les deux ; l'authentification passe forcément par le LDAP, les autres
+utilisateurs sont simplement des infos ».
+
+- `rules.import_matrix` : toute cellule non vide (hors non / 0 / -) vaut
+  attribution ; noms pris sur la ligne d'en-tête ou celle du dessus ;
+  colonne « Personnes / Utilisateurs » (noms séparés) lue ; comparatif idem.
+- Table `users` (login, nom, adresse, site, source, annuaire, alias) :
+  `POST /users/sync` prend l'annuaire (comptes Keycloak fédérés LDAP via
+  accounts-api) comme référence ; les personnes des imports / vendeurs sont
+  des infos rattachées au compte LDAP quand il existe
+  (`rules.resolve_person` : login, adresse, Prénom Nom ↔ prenom.nom,
+  M. NOM, initiales, alias) — attributions déplacées avec elles ; le site
+  n'est jamais écrasé. `GET/POST /users`, `DELETE /users/<login>`.
+- Analyse d'import : nombre de personnes, personnes absentes de
+  l'annuaire, login résolu par logiciel ; import : `users` créés comptés.
+- Hub : onglet **Utilisateurs** (🗂 annuaire / ℹ info, site éditable en
+  ligne, alias, « Synchroniser l'annuaire » avec état), grille = tous les
+  utilisateurs du site, nom affiché à côté du login.
+- Tests : licenses-api 16, hub 264.
+
 ## 2026-09-24 — Licences : import en un bouton avec prise en compte visible ; règle design n° 8 (livraison #596)
 
 Constat réel : « Importer » cliqué directement ne faisait rien (bouton

@@ -1387,6 +1387,7 @@ services:
       - LICENSES_ADMIN_USERS=${LICENSES_ADMIN_USERS:-}
       - LICENSES_EXPIRING_DAYS=${LICENSES_EXPIRING_DAYS:-60}
       - SI_AGENT_API_URL=http://si-agent-api:5000
+      - ACCOUNTS_API_URL=http://accounts-api:5000   # #597 : annuaire (Keycloak fédéré LDAP) -> table utilisateurs / site
       - CREDENTIALS_API_URL=http://credentials-api:5000
       - CREDENTIALS_INTERNAL_TOKEN=${CREDENTIALS_INTERNAL_TOKEN:-}
       - NOTIFY_API_URL=http://notify-api:5000

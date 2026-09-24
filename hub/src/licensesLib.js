@@ -36,6 +36,9 @@ export function filterGaps(gaps, query, severity = "") {
 export function filterHosts(hosts, query) {
   return rankFilter(hosts || [], query, (h) => [h.hostname, h.site, h.os, ...(h.users || [])].join(" "));
 }
+export function filterUsers(users, query) {
+  return rankFilter(users || [], query, (u) => [u.login, u.name, u.mail, u.site, ...(u.aliases || [])].filter(Boolean).join(" "));
+}
 export function filterRows(rows, query) {
   return rankFilter(rows || [], query, (r) => [r.subject, r.kind === "host" ? "poste" : "utilisateur", r.site].filter(Boolean).join(" "));
 }

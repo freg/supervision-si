@@ -12,12 +12,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import PageFrame from "./PageFrame.jsx";
 import { hubLink, viewParams } from "./hubLinks.js";
 import * as api from "./licensesClient.js";
-import { KIND_LABEL, GAP_LABEL, SEVERITY_TONE, ACTION_STATUS, VENDOR_KIND_LABEL, contractTone, filterContracts, filterSoftware, filterGaps, filterHosts, filterRows, gapSummary, softwareTotals, pickContract, defaultManager, fmtDays } from "./licensesLib.js";
+import { KIND_LABEL, GAP_LABEL, SEVERITY_TONE, ACTION_STATUS, VENDOR_KIND_LABEL, contractTone, filterContracts, filterSoftware, filterGaps, filterHosts, filterRows, filterUsers, gapSummary, softwareTotals, pickContract, defaultManager, fmtDays } from "./licensesLib.js";
 
 const TABS = [
   { id: "dash", label: "📊 Tableau de bord" },
   { id: "contracts", label: "📜 Contrats & catalogue" },
   { id: "grid", label: "🧩 Grille d'affectation" },
+  { id: "users", label: "👤 Utilisateurs" },
   { id: "hosts", label: "💻 Postes & installations" },
   { id: "vendors", label: "🏬 Vendeurs" },
   { id: "log", label: "📒 Journal" },
@@ -131,8 +132,8 @@ function Contracts({ b, t, site, sites, software, contracts, reload, notice }) {
     setImp({ ...imp, busy: dry ? "analyse…" : "import…", done: null });
     const r = await api.importFile(b, t, imp.file, imp.site, dry, imp.format);
     if (r.error) { setImp({ ...imp, busy: "", plan: null }); return notice(r.error, false); }
-    if (dry) { setImp({ ...imp, busy: "", plan: r.plan, detected: r.format }); notice(`analyse : ${r.plan.length} logiciel(s) reconnu(s) (format ${r.format}) — vérifier puis cliquer « Importer »`); return; }
-    const done = `importé : ${r.created.software} logiciel(s), ${r.created.contracts} contrat(s), ${r.created.assignments} attribution(s) créé(s)${r.created.software + r.created.contracts + r.created.assignments === 0 ? " (rien de nouveau : déjà importé)" : ""}`;
+    if (dry) { setImp({ ...imp, busy: "", plan: r.plan, detected: r.format, people: r.people, unknown: r.unknown_people || [] }); notice(`analyse : ${r.plan.length} logiciel(s), ${r.people} personne(s) (format ${r.format}) — vérifier puis cliquer « Importer »`); return; }
+    const done = `importé : ${r.created.software} logiciel(s), ${r.created.contracts} contrat(s), ${r.created.assignments} attribution(s), ${r.created.users} utilisateur(s) créé(s)${r.created.software + r.created.contracts + r.created.assignments + r.created.users === 0 ? " (rien de nouveau : déjà importé)" : ""}`;
     setImp({ ...imp, busy: "", plan: null, done });
     notice(done);
     reload();
@@ -219,8 +220,10 @@ function Contracts({ b, t, site, sites, software, contracts, reload, notice }) {
             {imp.done && <p style={{ margin: "6px 0 0", fontSize: 12 }}><Tone tone="green">✓ {imp.done}</Tone></p>}
             {imp.plan && (
               <div style={{ marginTop: 6, fontSize: 12 }}>
-                <span className="muted">2. Vérifier — format {imp.detected} · {imp.plan.length} logiciel(s) — puis importer</span>
-                <ul style={{ margin: "4px 0", paddingLeft: 18, maxHeight: 180, overflow: "auto" }}>{imp.plan.map((p, i) => <li key={i}><b>{p.software}</b>{p.vendor ? ` (${p.vendor})` : ""} · {p.people.length} personne(s){p.end ? ` · fin ${p.end}` : ""}</li>)}</ul>
+                <span className="muted">2. Vérifier — format {imp.detected} · {imp.plan.length} logiciel(s) · {imp.people} personne(s) — puis importer</span>
+                {imp.unknown?.length > 0 && <p style={{ margin: "4px 0" }}><Tone tone="orange">{imp.unknown.length} personne(s) absente(s) de l'annuaire</Tone> <span className="muted">(créées « info » sur le site, rattachées plus tard par « Utilisateurs → Synchroniser l'annuaire ») : {imp.unknown.join(", ")}</span></p>}
+                <ul style={{ margin: "4px 0", paddingLeft: 18, maxHeight: 180, overflow: "auto" }}>{imp.plan.map((p, i) => <li key={i}><b>{p.software}</b>{p.vendor ? ` (${p.vendor})` : ""} · {p.people.length} personne(s){p.end ? ` · fin ${p.end}` : ""}
+                  {p.people.length > 0 && <span className="muted"> : {(p.resolved || []).map((x) => x.login ? x.login : `${x.person} ?`).join(", ")}</span>}</li>)}</ul>
               </div>
             )}
           </div>
@@ -279,7 +282,7 @@ function Grid({ b, t, site, contracts, reload, notice }) {
           <tbody>
             {rows.map((r) => (
               <tr key={`${r.kind}:${r.subject}`}>
-                <td style={{ position: "sticky", left: 0, background: "var(--panel, #222)", whiteSpace: "nowrap" }}>{r.kind === "host" ? "💻" : "👤"} {r.subject}</td><td className="muted">{r.site || ""}</td>
+                <td style={{ position: "sticky", left: 0, background: "var(--panel, #222)", whiteSpace: "nowrap" }} title={r.name || ""}>{r.kind === "host" ? "💻" : "👤"} {r.subject}{r.name && r.name !== r.subject ? <span className="muted"> {r.name}</span> : null}</td><td className="muted">{r.site || ""}</td>
                 {r.cells.map((cell, i) => {
                   const col = cols[i];
                   const tone = cell.assigned && cell.installed ? "green" : cell.assigned ? (r.kind === "host" ? "orange" : "green") : cell.installed ? "red" : "grey";
@@ -289,6 +292,77 @@ function Grid({ b, t, site, contracts, reload, notice }) {
               </tr>
             ))}
             {grid && !rows.length && <tr><td colSpan={2 + cols.length} className="muted">aucune ligne : ajouter un utilisateur / poste ci-dessus, ou activer la sonde <code>software-inventory</code> sur <a href={hubLink("si-agent", { section: "plugins" })}>les agents des postes</a>.</td></tr>}
+          </tbody>
+        </table>
+      </Scroll>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// #597 : utilisateurs par site -- l'annuaire (Keycloak fédéré LDAP, seule source
+// d'authentification) fait référence ; les personnes des imports / vendeurs sont
+// des « infos » rattachées au compte LDAP dès qu'il existe.
+const EMPTY_U = { login: "", name: "", mail: "", site: "", aliases: "" };
+function Users({ b, t, site, sites, notice, reload }) {
+  const [list, setList] = useState(null);
+  const [query, setQuery] = useState("");
+  const [u, setU] = useState(null);
+  const [busy, setBusy] = useState("");
+  const load = useCallback(() => api.fetchUsers(b, t, site).then((r) => (r.error ? notice(r.error, false) : setList(r.users || []))), [b, t, site]);  // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [load]);
+  const shown = useMemo(() => filterUsers(list, query), [list, query]);
+  const save = async () => {
+    const r = await api.saveUser(b, t, { login: u.login, name: u.name, mail: u.mail, site: u.site, aliases: String(u.aliases || "").split(/[,;\n]/).map((x) => x.trim()).filter(Boolean) });
+    notice(r.error || `utilisateur ${r.login} enregistré`, !r.error);
+    if (!r.error) { setU(null); load(); reload(); }
+  };
+  const setSite = async (x, s) => { const r = await api.saveUser(b, t, { login: x.login, site: s }); notice(r.error || `${x.login} → ${s || "sans site"}`, !r.error); load(); reload(); };
+  const sync = async () => {
+    setBusy("synchronisation…");
+    const r = await api.syncUsers(b, t);
+    setBusy("");
+    notice(r.error || `annuaire : ${r.directory} compte(s), ${r.added} ajouté(s), ${r.linked} rattaché(s)`, !r.error);
+    load(); reload();
+  };
+  const nDir = (list || []).filter((x) => x.directory).length;
+  return (
+    <div>
+      <p className="muted" style={{ marginTop: 0 }}>
+        L'<b>annuaire</b> (comptes Keycloak fédérés LDAP, via la tuile <a href={hubLink("accounts")}>Comptes</a>) est la référence : ces lignes sont marquées 🗂. Les personnes venues d'un import ou d'un vendeur sont des <em>infos</em> (ℹ) rattachées au compte LDAP dès qu'il existe (login, adresse ou « Prénom Nom »). Le <b>site</b> se renseigne ici (jamais écrasé par la synchronisation) et alimente la grille et les contrats.
+      </p>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
+        <input type="search" placeholder="filtrer (login, nom, adresse, site)" value={query} onChange={(e) => setQuery(e.target.value)} style={{ minWidth: 240 }} />
+        <span className="muted">{shown.length} / {(list || []).length} utilisateur(s) · {nDir} de l'annuaire</span>
+        <button type="button" onClick={sync} disabled={!!busy}>{busy ? `⏳ ${busy}` : "Synchroniser l'annuaire"}</button>
+        <button type="button" className="secondary" onClick={() => setU({ ...EMPTY_U, site: site || "" })}>+ utilisateur (info)</button>
+      </div>
+      {u && (
+        <div className="hub-card" style={{ marginBottom: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+            <label>Login (identifiant LDAP si connu)<br /><input value={u.login} onChange={(e) => setU({ ...u, login: e.target.value })} disabled={!!u._edit} /></label>
+            <label>Nom<br /><input value={u.name} onChange={(e) => setU({ ...u, name: e.target.value })} /></label>
+            <label>Adresse<br /><input value={u.mail} onChange={(e) => setU({ ...u, mail: e.target.value })} /></label>
+            <label>Site<br /><input list="lic-sites3" value={u.site} onChange={(e) => setU({ ...u, site: e.target.value })} /><datalist id="lic-sites3">{sites.map((s) => <option key={s} value={s} />)}</datalist></label>
+            <label style={{ gridColumn: "span 4" }}>Autres écritures (initiales, ancien login, surnom — virgules)<br /><input style={{ width: "100%" }} value={u.aliases} onChange={(e) => setU({ ...u, aliases: e.target.value })} /></label>
+          </div>
+          <div style={{ marginTop: 6 }}><button type="button" onClick={save} disabled={!u.login.trim()}>Enregistrer</button> <button type="button" className="secondary" onClick={() => setU(null)}>Annuler</button></div>
+        </div>
+      )}
+      <Scroll>
+        <table style={{ width: "100%", fontSize: 13 }}>
+          <thead style={TH}><tr><th> </th><th>Login</th><th>Nom</th><th>Adresse</th><th>Site</th><th>Attributions</th><th>Autres écritures</th><th> </th></tr></thead>
+          <tbody>
+            {shown.map((x) => (
+              <tr key={x.login} style={{ opacity: x.enabled === 0 ? 0.55 : 1 }}>
+                <td title={x.directory ? "compte de l'annuaire" : `info (${x.source})`}>{x.directory ? "🗂" : "ℹ"}</td><td><b>{x.login}</b>{x.enabled === 0 && <span className="muted"> (désactivé)</span>}</td><td>{x.name}</td><td className="muted">{x.mail}</td>
+                <td><select value={x.site || ""} onChange={(e) => setSite(x, e.target.value)}><option value="">—</option>{[...new Set([...sites, x.site].filter(Boolean))].map((s) => <option key={s} value={s}>{s}</option>)}</select></td>
+                <td>{x.assigned || 0}</td><td className="muted" style={{ fontSize: 12 }}>{(x.aliases || []).join(", ")}</td>
+                <td><button type="button" className="secondary" onClick={() => setU({ ...EMPTY_U, ...x, aliases: (x.aliases || []).join(", "), _edit: true })}>modifier</button>{" "}
+                  {!x.directory && <button type="button" className="secondary" onClick={async () => { const r = await api.deleteUser(b, t, x.login); notice(r.error || `${x.login} supprimé`, !r.error); load(); }}>×</button>}</td>
+              </tr>
+            ))}
+            {list && !shown.length && <tr><td colSpan={8} className="muted">aucun utilisateur : « Synchroniser l'annuaire », importer un tableur, ou ajouter une info.</td></tr>}
           </tbody>
         </table>
       </Scroll>
@@ -511,6 +585,7 @@ export default function LicensesView({ apiBase, accessToken, username, onBack })
       {tab === "dash" && <Dashboard {...common} />}
       {tab === "contracts" && <Contracts {...common} />}
       {tab === "grid" && <Grid {...common} />}
+      {tab === "users" && <Users {...common} />}
       {tab === "hosts" && <Hosts {...common} />}
       {tab === "vendors" && <Vendors {...common} />}
       {tab === "log" && <Log b={b} t={t} />}

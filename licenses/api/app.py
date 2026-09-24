@@ -76,7 +76,9 @@ CREATE TABLE IF NOT EXISTS assignments (id INTEGER PRIMARY KEY AUTOINCREMENT, co
 CREATE TABLE IF NOT EXISTS vendor_accounts (name TEXT PRIMARY KEY, kind TEXT, site TEXT DEFAULT '', config TEXT DEFAULT '{}', credential TEXT DEFAULT '', last_sync REAL, last_error TEXT DEFAULT '', snapshot TEXT DEFAULT '[]');
 CREATE TABLE IF NOT EXISTS actions (id INTEGER PRIMARY KEY AUTOINCREMENT, agent_id TEXT, host TEXT, action TEXT, package TEXT, manager TEXT DEFAULT '', software_id INTEGER, command_id TEXT, status TEXT, result TEXT DEFAULT '', user TEXT, created_at REAL, updated_at REAL);
 CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, at REAL, event TEXT, text TEXT, user TEXT);
+CREATE TABLE IF NOT EXISTS users (login TEXT PRIMARY KEY, name TEXT DEFAULT '', mail TEXT DEFAULT '', site TEXT DEFAULT '', source TEXT DEFAULT 'manual', directory INTEGER DEFAULT 0, enabled INTEGER DEFAULT 1, aliases TEXT DEFAULT '[]', note TEXT DEFAULT '', updated_at REAL);
 """
+ACCOUNTS_API_URL = os.environ.get("ACCOUNTS_API_URL", "http://accounts-api:5000").rstrip("/")
 
 
 def db():
@@ -126,10 +128,10 @@ def _guard():
 
 def _row(r):
     d = dict(r)
-    for k in ("patterns", "package", "config", "snapshot"):
+    for k in ("patterns", "package", "config", "snapshot", "aliases"):
         if k in d and isinstance(d[k], str):
             try:
-                d[k] = json.loads(d[k] or ("[]" if k in ("patterns", "snapshot") else "{}"))
+                d[k] = json.loads(d[k] or ("[]" if k in ("patterns", "snapshot", "aliases") else "{}"))
             except ValueError:
                 pass
     return d
@@ -183,6 +185,42 @@ def _contracts(c, site=None):
 
 def _assignments(c):
     return [dict(r) for r in c.execute("SELECT * FROM assignments")]
+
+
+def _users(c, site=None):
+    q, p = "SELECT * FROM users", ()
+    if site:
+        q, p = q + " WHERE site = ? OR site = ''", (site,)
+    return [_row(r) for r in c.execute(q + " ORDER BY login", p)]
+
+
+def resolve_or_create_user(c, person, site, source, mail=""):
+    """#597 : une personne d'un import / d'un vendeur -> login de la table users
+    (rapprochée avec l'annuaire quand elle y est, créée « info » sinon)."""
+    users = _users(c)
+    login = rules.resolve_person(person, users)
+    if login:
+        if site and not next((u for u in users if u["login"] == login), {}).get("site"):
+            c.execute("UPDATE users SET site = ? WHERE login = ?", (site, login))
+        return login, False
+    login = rules.login_from(person) or rules.fold(person)
+    if not login:
+        return None, False
+    is_mail = "@" in str(person)
+    c.execute("INSERT OR IGNORE INTO users (login, name, mail, site, source, directory, aliases, updated_at) VALUES (?, ?, ?, ?, ?, 0, '[]', ?)",
+              (login, "" if is_mail else str(person).strip(), mail or (str(person).strip() if is_mail else ""), site or "", source, time.time()))
+    return login, True
+
+
+def fetch_directory():
+    """Annuaire : comptes Keycloak (fédérés LDAP) via accounts-api."""
+    r = requests.get(ACCOUNTS_API_URL + "/users", timeout=15)
+    if r.status_code != 200:
+        raise RuntimeError("accounts-api : %s" % r.status_code)
+    return (r.json() or {}).get("users") or []
+
+
+app.fetch_directory = fetch_directory
 
 
 # -- catalogue --------------------------------------------------------------------------
@@ -357,13 +395,15 @@ def gaps_route():
 @app.route("/grid", methods=["GET"])
 def grid_route():
     c = db()
-    return jsonify(rules.grid(_catalog(c), _contracts(c, request.args.get("site")), _assignments(c), app.fetch_inventories(request.args.get("site")))), 200
+    site = request.args.get("site")
+    users = [u for u in _users(c, site) if not site or u.get("site") == site]
+    return jsonify(rules.grid(_catalog(c), _contracts(c, site), _assignments(c), app.fetch_inventories(site), users)), 200
 
 
 @app.route("/sites", methods=["GET"])
 def sites():
     c = db()
-    s = {r[0] for r in c.execute("SELECT DISTINCT site FROM contracts WHERE site != ''")} | {r[0] for r in c.execute("SELECT DISTINCT site FROM vendor_accounts WHERE site != ''")}
+    s = {r[0] for r in c.execute("SELECT DISTINCT site FROM contracts WHERE site != ''")} | {r[0] for r in c.execute("SELECT DISTINCT site FROM vendor_accounts WHERE site != ''")} | {r[0] for r in c.execute("SELECT DISTINCT site FROM users WHERE site != ''")}
     s |= {i.get("site") for i in app.fetch_inventories() if i.get("site")}
     return jsonify({"sites": sorted(x for x in s if x)}), 200
 
@@ -414,10 +454,20 @@ def import_route():
         plan = [{"software": it["software"], "vendor": "", "kind_label": "", "end": None, "people": it["people"]} for it in items]
     if err:
         return jsonify({"error": err, "format": fmt}), 400
-    if dry:
-        return jsonify({"format": fmt, "plan": plan, "dry_run": True}), 200
     c = db()
-    created = {"software": 0, "contracts": 0, "assignments": 0}
+    users = _users(c)
+    people_total, unknown = 0, []
+    for p in plan:
+        p["resolved"] = []
+        for person in p["people"]:
+            login = rules.resolve_person(person, users)
+            p["resolved"].append({"person": person, "login": login})
+            people_total += 1
+            if not login and person not in unknown:
+                unknown.append(person)
+    if dry:
+        return jsonify({"format": fmt, "plan": plan, "dry_run": True, "people": people_total, "unknown_people": unknown}), 200
+    created = {"software": 0, "contracts": 0, "assignments": 0, "users": 0}
     for p in plan:
         row = c.execute("SELECT id FROM software WHERE lower(name) = lower(?)", (p["software"],)).fetchone()
         if row:
@@ -434,14 +484,109 @@ def import_route():
                             (sid, site, "%s%s" % (p["software"], " (%s)" % p["kind_label"] if p["kind_label"] else ""), kind, len(p["people"]), p["end"], "importé de %s" % (f.filename or "tableur"), time.time(), time.time())).lastrowid
             created["contracts"] += 1
         for person in p["people"]:
+            login, new = resolve_or_create_user(c, person, site, "import")
+            if not login:
+                continue
+            created["users"] += 1 if new else 0
             try:
-                c.execute("INSERT INTO assignments (contract_id, subject_kind, subject, site, since, note) VALUES (?, 'user', ?, ?, ?, 'import')", (cid, person, site, _dt.date.today().isoformat()))
+                c.execute("INSERT INTO assignments (contract_id, subject_kind, subject, site, since, note) VALUES (?, 'user', ?, ?, ?, 'import')", (cid, login, site, _dt.date.today().isoformat()))
                 created["assignments"] += 1
             except sqlite3.IntegrityError:
                 pass
     c.commit()
     event("import", "import %s (%s) : %s par %s" % (f.filename, fmt, created, g.user["username"]))
     return jsonify({"format": fmt, "created": created, "plan": plan}), 200
+
+
+# -- utilisateurs par site (#597) : annuaire (Keycloak / LDAP) + personnes « info » des imports -----------
+@app.route("/users", methods=["GET"])
+def users_list():
+    c = db()
+    counts = {r[0]: r[1] for r in c.execute("SELECT subject, COUNT(*) FROM assignments WHERE subject_kind = 'user' GROUP BY subject")}
+    out = []
+    for u in _users(c, request.args.get("site")):
+        u["assigned"] = counts.get(u["login"], 0)
+        out.append(u)
+    return jsonify({"users": out}), 200
+
+
+@app.route("/users", methods=["POST"])
+def user_save():
+    """Ajout / modification manuelle : {login, name?, mail?, site?, aliases?, note?} (login = identifiant LDAP quand il existe)."""
+    b = request.get_json(silent=True) or {}
+    login = rules.fold(str(b.get("login") or "").strip())
+    if not login:
+        return jsonify({"error": "login requis"}), 400
+    c = db()
+    cur = c.execute("SELECT * FROM users WHERE login = ?", (login,)).fetchone()
+    aliases = [str(a).strip() for a in (b.get("aliases") or []) if str(a).strip()] if "aliases" in b else (json.loads(cur["aliases"]) if cur else [])
+    if cur:
+        c.execute("UPDATE users SET name = ?, mail = ?, site = ?, aliases = ?, note = ?, updated_at = ? WHERE login = ?",
+                  (str(b.get("name", cur["name"]) or ""), str(b.get("mail", cur["mail"]) or ""), str(b.get("site", cur["site"]) or ""), json.dumps(aliases), str(b.get("note", cur["note"]) or ""), time.time(), login))
+    else:
+        c.execute("INSERT INTO users (login, name, mail, site, source, directory, aliases, note, updated_at) VALUES (?, ?, ?, ?, 'manual', 0, ?, ?, ?)",
+                  (login, str(b.get("name") or ""), str(b.get("mail") or ""), str(b.get("site") or ""), json.dumps(aliases), str(b.get("note") or ""), time.time()))
+    c.commit()
+    return jsonify({"status": "ok", "login": login}), 200
+
+
+@app.route("/users/<login>", methods=["DELETE"])
+def user_delete(login):
+    c = db()
+    if c.execute("SELECT 1 FROM assignments WHERE subject_kind = 'user' AND subject = ?", (login,)).fetchone():
+        return jsonify({"error": "des attributions référencent cet utilisateur (les retirer d'abord)"}), 400
+    c.execute("DELETE FROM users WHERE login = ?", (login,))
+    c.commit()
+    return jsonify({"status": "ok"}), 200
+
+
+@app.route("/users/sync", methods=["POST"])
+def users_sync():
+    """Annuaire -> table users : les comptes Keycloak (fédérés LDAP) deviennent
+    « annuaire » (login, nom, mail, activé) ; les lignes « info » dont le login
+    ou le mail correspond sont rattachées ; le site n'est jamais écrasé."""
+    try:
+        directory = app.fetch_directory()
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": "annuaire injoignable : %s" % str(exc)[:200]}), 502
+    c = db()
+    users = _users(c)
+    by_login = {u["login"]: u for u in users}
+    by_mail = {rules.fold(u["mail"]): u for u in users if u.get("mail")}
+    added, linked, updated = 0, 0, 0
+    for d in directory:
+        login = rules.fold(d.get("username") or "")
+        if not login:
+            continue
+        name = " ".join(x for x in (d.get("first_name"), d.get("last_name")) if x) or login
+        mail = d.get("email") or ""
+        cur = by_login.get(login) or (by_mail.get(rules.fold(mail)) if mail else None)
+        if cur and cur["login"] != login:  # ligne « info » créée depuis un mail -> renommée au login LDAP
+            c.execute("UPDATE assignments SET subject = ? WHERE subject_kind = 'user' AND subject = ?", (login, cur["login"]))
+            c.execute("DELETE FROM users WHERE login = ?", (cur["login"],))
+            c.execute("INSERT INTO users (login, name, mail, site, source, directory, enabled, aliases, note, updated_at) VALUES (?, ?, ?, ?, 'ldap', 1, ?, ?, ?, ?)",
+                      (login, name, mail, cur["site"], 1 if d.get("enabled", True) else 0, json.dumps(sorted(set(cur["aliases"] + [cur["login"]]))), cur["note"], time.time()))
+            linked += 1
+        elif cur:
+            c.execute("UPDATE users SET name = ?, mail = ?, source = 'ldap', directory = 1, enabled = ?, updated_at = ? WHERE login = ?", (name, mail, 1 if d.get("enabled", True) else 0, time.time(), login))
+            updated += 1 if cur["directory"] else 0
+            linked += 0 if cur["directory"] else 1
+        else:
+            c.execute("INSERT INTO users (login, name, mail, site, source, directory, enabled, aliases, updated_at) VALUES (?, ?, ?, '', 'ldap', 1, ?, '[]', ?)", (login, name, mail, 1 if d.get("enabled", True) else 0, time.time()))
+            added += 1
+    # rattachement des lignes « info » restantes par nom (« Prénom Nom » ↔ prenom.nom)
+    users = _users(c)
+    for u in [x for x in users if not x["directory"]]:
+        login = rules.resolve_person(u["name"] or u["login"], [x for x in users if x["directory"]])
+        if login and login != u["login"]:
+            c.execute("UPDATE assignments SET subject = ? WHERE subject_kind = 'user' AND subject = ?", (login, u["login"]))
+            c.execute("DELETE FROM users WHERE login = ?", (u["login"],))
+            if u["site"]:
+                c.execute("UPDATE users SET site = COALESCE(NULLIF(site, ''), ?) WHERE login = ?", (u["site"], login))
+            linked += 1
+    c.commit()
+    event("users-sync", "annuaire : %d compte(s), %d ajouté(s), %d rattaché(s) par %s" % (len(directory), added, linked, g.user["username"]))
+    return jsonify({"status": "ok", "directory": len(directory), "added": added, "linked": linked, "updated": updated}), 200
 
 
 # -- comptes vendeurs -------------------------------------------------------------------------
@@ -519,8 +664,9 @@ def vendor_sync(name):
         # attributions = utilisateurs du vendeur (remplace celles marquées « vendeur »)
         c.execute("DELETE FROM assignments WHERE contract_id = ? AND note = 'vendeur'", (cid,))
         for upn in s.get("users") or []:
+            login, _new = resolve_or_create_user(c, upn, v["site"], "vendeur", mail=upn)
             try:
-                c.execute("INSERT INTO assignments (contract_id, subject_kind, subject, site, since, note) VALUES (?, 'user', ?, ?, ?, 'vendeur')", (cid, upn, v["site"], _dt.date.today().isoformat()))
+                c.execute("INSERT INTO assignments (contract_id, subject_kind, subject, site, since, note) VALUES (?, 'user', ?, ?, ?, 'vendeur')", (cid, login or upn, v["site"], _dt.date.today().isoformat()))
             except sqlite3.IntegrityError:
                 pass
     c.commit()

@@ -137,31 +137,52 @@ def gaps(catalog, contracts, assignments, found, today=None, expiring_days=60):
 YES = ("n", "o", "x", "oui", "yes", "1", "true", "✓")
 
 
+NO = ("", "non", "no", "n/a", "0", "false", "-", "—", "x?")
+
+
+def _people_from_cell(v):
+    """Colonne « personnes / utilisateurs » : noms séparés par , ; / ou retour à la ligne."""
+    return [p.strip() for p in re.split(r"[,;/\n]", str(v or "")) if p.strip()]
+
+
 def import_matrix(rows):
     """Tableau « Logiciel | Éditeur | Licence | Date Fin | personne1 | … » (une
-    ligne par logiciel, une croix par personne). -> [{software, vendor,
-    kind_label, end, people:[...]}]. La ligne d'en-tête est celle qui commence
-    par « logiciel »."""
+    ligne par logiciel, une marque par personne : croix, « n », « oui », 1,
+    date… -- toute cellule non vide hors « non / 0 / - » compte). Les noms
+    des personnes viennent de la ligne d'en-tête, ou de la ligne juste
+    au-dessus quand la cellule d'en-tête est vide (en-têtes fusionnés). Une
+    colonne « Personnes » / « Utilisateurs » listant des noms est aussi
+    acceptée. -> [{software, vendor, kind_label, end, people:[...]}]."""
     rows = [list(r) for r in rows or []]
     hdr_i = next((i for i, r in enumerate(rows) if r and fold(r[0]).startswith("logiciel")), None)
     if hdr_i is None:
         return [], "en-tête « Logiciel » introuvable"
     hdr = [fold(h) for h in rows[hdr_i]]
-    fixed = {"logiciel": 0}
+    above = rows[hdr_i - 1] if hdr_i > 0 else []
+    fixed, list_col = {"logiciel": 0}, None
     for i, h in enumerate(hdr):
         if h.startswith("editeur"):
             fixed["editeur"] = i
-        elif h.startswith("licence"):
+        elif h.startswith("licence") or h.startswith("type"):
             fixed["licence"] = i
-        elif h.startswith("date"):
+        elif h.startswith("date") or h.startswith("fin") or h.startswith("echeance"):
             fixed["date"] = i
-    people_cols = [(i, str(rows[hdr_i][i]).strip()) for i in range(len(hdr)) if i not in fixed.values() and rows[hdr_i][i] not in (None, "")]
+        elif h.startswith(("personne", "utilisateur", "affect", "attribu", "user")) and list_col is None:
+            list_col = i
+    def name_of(i):
+        v = rows[hdr_i][i] if i < len(rows[hdr_i]) else None
+        if v in (None, "") and i < len(above):
+            v = above[i]
+        return str(v).strip() if v not in (None, "") else ""
+    people_cols = [(i, name_of(i)) for i in range(max(len(hdr), len(above))) if i not in fixed.values() and i != list_col and name_of(i)]
     out = []
     for r in rows[hdr_i + 1:]:
         if not r or r[0] in (None, ""):
             continue
-        rec = {"software": str(r[0]).strip(), "vendor": _cell(r, fixed.get("editeur")), "kind_label": _cell(r, fixed.get("licence")), "end": _date(_cell(r, fixed.get("date"))),
-               "people": [p for i, p in people_cols if i < len(r) and fold(r[i]) in YES]}
+        people = [p for i, p in people_cols if i < len(r) and fold(r[i]) not in NO]
+        if list_col is not None:
+            people += [p for p in _people_from_cell(_cell(r, list_col)) if p not in people]
+        rec = {"software": str(r[0]).strip(), "vendor": _cell(r, fixed.get("editeur")), "kind_label": _cell(r, fixed.get("licence")), "end": _date(_cell(r, fixed.get("date"))), "people": people}
         out.append(rec)
     return out, None
 
@@ -196,7 +217,7 @@ def import_comparatif(rows):
     for r in rows[hdr_i + 1:]:
         if not r or r[0] in (None, ""):
             continue
-        out.append({"software": str(r[0]).strip(), "people": [p for i, p in people if i < len(r) and fold(r[i]) in YES]})
+        out.append({"software": str(r[0]).strip(), "people": [p for i, p in people if i < len(r) and fold(r[i]) not in NO]})
     return out, None
 
 
@@ -228,10 +249,12 @@ def _date(v):
 
 
 # -- grille --------------------------------------------------------------------------
-def grid(catalog, contracts, assignments, inventories):
-    """Lignes = sujets (utilisateurs et postes connus : attributions + inventaires),
-    colonnes = logiciels sous contrat ; case = {assigned, contract_id, installed}."""
+def grid(catalog, contracts, assignments, inventories, users=None):
+    """Lignes = sujets (utilisateurs de la table users, attributions, postes des
+    inventaires), colonnes = logiciels sous contrat ; case = {assigned, contract_id, installed}."""
     subjects = {}
+    for u in users or []:
+        subjects.setdefault(("user", u["login"]), {"kind": "user", "subject": u["login"], "site": u.get("site"), "name": u.get("name")})
     for a in assignments:
         subjects.setdefault((a["subject_kind"], a["subject"]), {"kind": a["subject_kind"], "subject": a["subject"], "site": a.get("site")})
     for inv in inventories or []:
@@ -259,3 +282,44 @@ def grid(catalog, contracts, assignments, inventories):
             cells.append(cell)
         rows.append(dict(meta, cells=cells))
     return {"columns": [{"id": s["id"], "name": s["name"], "contracts": [{"id": c["id"], "label": c.get("label"), "kind": c.get("kind"), "quantity": c.get("quantity")} for c in contracts_by_sw[s["id"]]]} for s in cols], "rows": rows}
+
+
+# -- utilisateurs et annuaire (#597) ------------------------------------------------------------
+def initials(name):
+    parts = [p for p in re.split(r"[\s\-_.]+", fold(name)) if p]
+    return "".join(p[0] for p in parts)
+
+
+def resolve_person(person, users):
+    """Rapproche un nom / UPN / identifiant / initiales avec la table des
+    utilisateurs (login, name, mail, aliases). -> login ou None."""
+    q = fold(person)
+    if not q:
+        return None
+    for u in users:
+        if q in (fold(u.get("login")), fold(u.get("mail")), fold(u.get("name"))) or q in [fold(a) for a in (u.get("aliases") or [])]:
+            return u["login"]
+    # « prenom.nom » ↔ « Prénom Nom », « M. NOM » ↔ nom de famille, initiales
+    q_words = [w for w in re.split(r"[\s.\-_@]+", q) if w and w not in ("m", "mme", "mr", "mlle", "dr")]
+    if not q_words:
+        return None
+    for u in users:
+        n_words = [w for w in re.split(r"[\s.\-_@]+", fold(u.get("name"))) if w]
+        l_words = [w for w in re.split(r"[\s.\-_@]+", fold(u.get("login"))) if w]
+        if q_words and (set(q_words) <= set(n_words) or set(q_words) <= set(l_words) or (len(q_words) >= 2 and set(n_words) and set(n_words) <= set(q_words))):
+            return u["login"]
+    if len(q) <= 3 and q.isalpha():
+        hits = [u for u in users if initials(u.get("name")) == q or initials(u.get("login").replace(".", " ")) == q]
+        if len(hits) == 1:
+            return hits[0]["login"]
+    return None
+
+
+def login_from(person):
+    """Identifiant local pour une personne inconnue de l'annuaire : partie
+    locale d'une adresse, sinon « prenom.nom » replié."""
+    p = str(person or "").strip()
+    if "@" in p:
+        return fold(p.split("@", 1)[0])
+    words = [w for w in re.split(r"[\s.\-_]+", fold(p)) if w and w not in ("m", "mme", "mr", "mlle", "dr")]
+    return ".".join(words)[:64]

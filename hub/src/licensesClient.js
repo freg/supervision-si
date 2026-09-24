@@ -31,6 +31,10 @@ export const importFile = (b, t, file, s, dryRun, format) => {
   if (format) fd.append("format", format);
   return call(b, t, "/import", { method: "POST", body: fd });
 };
+export const fetchUsers = (b, t, s) => call(b, t, `/users${site(s)}`);
+export const saveUser = (b, t, body) => call(b, t, "/users", { method: "POST", body: J(body) });
+export const deleteUser = (b, t, login) => call(b, t, `/users/${encodeURIComponent(login)}`, { method: "DELETE" });
+export const syncUsers = (b, t) => call(b, t, "/users/sync", { method: "POST" });
 export const fetchVendors = (b, t) => call(b, t, "/vendors");
 export const saveVendor = (b, t, body) => call(b, t, "/vendors", { method: "POST", body: J(body) });
 export const deleteVendor = (b, t, name) => call(b, t, `/vendors/${encodeURIComponent(name)}`, { method: "DELETE" });
