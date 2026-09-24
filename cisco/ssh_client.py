@@ -221,10 +221,15 @@ class CiscoSession:
             got = self._read_until(re.compile(r"(?i)password:|[#]\s*$"))
             if "assword" in got:
                 self._chan.send(self._enable + "\n")
-                self._expect_prompt()
-            last = "#"
-        if not last.endswith("#"):
-            raise CiscoError("mode enable indisponible sur %s" % self.host)
+                out = self._expect_prompt()
+                text = out.replace("\r", "")
+                if re.search(r"(?i)bad secret|access denied|% ", text):
+                    raise CiscoError("mot de passe enable refusé par %s : vérifier l'accès enable_credential du coffre" % self.host)
+                last = text.strip().split("\n")[-1]
+            else:
+                last = got.replace("\r", "").strip().split("\n")[-1]
+        if not last.endswith("#"):  # #585 : plus jamais supposé acquis -- un « > » après enable = refus
+            raise CiscoError("mode enable indisponible sur %s (invite « %s ») : mot de passe enable absent ou refusé" % (self.host, last[-24:]))
 
     # --- haut niveau --------------------------------------------------------
     def show(self, command, timeout=None):

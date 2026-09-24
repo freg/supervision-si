@@ -1,3 +1,28 @@
+## 2026-09-24 — Cisco : enable vérifié ; registres locaux hors dépôt (Cisco, MikroTik) ; liens visibles sur fond sombre (livraison #585)
+
+Constats réels (routeur du bureau, telnet) : relevé OK mais « commande
+refusée par l'équipement : show running-config » et sauvegarde en échec ;
+le routeur venait d'être effacé du registre par le déploiement (rsync du
+zip) ; un MikroTik ajouté au coffre n'apparaissait pas ; lien « le coffre
+des accès » violet (visité) sur fond sombre.
+
+- `cisco/ssh_client.py` : `enable()` vérifie l'invite après le mot de
+  passe (« % Bad secrets », « Access denied » ou invite restée « > » →
+  erreur explicite « mot de passe enable refusé … vérifier l'accès
+  enable_credential ») au lieu de supposer le mode enable acquis -- cause
+  du `show running-config` refusé en mode utilisateur. Test
+  `test_enable_refused`.
+- Registres locaux (#585) : `cisco/switches.local.json` et
+  `mikrotik/routers.local.json`, ignorés par git, prioritaires sur
+  l'exemple versionné ; les dossiers `cisco/` et `mikrotik/` sont montés
+  (`/app/registry`) à la place des fichiers → relus sans redémarrage,
+  jamais écrasés par un déploiement. `CISCO_REGISTRY_LOCAL`,
+  `MIKROTIK_REGISTRY_LOCAL`.
+- Pages Cisco et MikroTik : `a, a:visited { color: var(--accent) }`.
+
+Non vérifié : sur super (créer les `.local.json`, `up -d --build
+cisco-api mikrotik-api`).
+
 ## 2026-09-24 — Paramètres → « Services du hub » : feu tricolore et redémarrage de toutes les API / fronts (livraison #584)
 
 Demandé : « ajoute une sous-tuile dans paramétrage pour redémarrer et

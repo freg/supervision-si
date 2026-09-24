@@ -14,8 +14,11 @@ configurations, agir en cas d'urgence ».
 
 ## Registre et identifiants
 
-`cisco/switches.json` (versionné, monté en lecture seule, **jamais
-d'identifiant dedans**) :
+`cisco/switches.json` (exemple versionné) ou, s'il existe,
+**`cisco/switches.local.json`** (#585 : hors dépôt, ignoré par git, jamais
+écrasé par un déploiement -- c'est là qu'on met les vrais équipements ; le
+dossier est monté, toute modification est relue sans redémarrage). Monté en
+lecture seule, **jamais d'identifiant dedans** :
 `{"switches": [{"name", "host", "port"?, "platform": "ios"|"nxos",
 "credential": "<accès du coffre>", "enable_credential"?: "<accès>",
 "site"?, "description"?}]}`. Les identifiants viennent du coffre des
@@ -31,7 +34,10 @@ show / configure / write). Le mot de passe passe **en clair sur le fil** :
 uniquement sur une patte interne maîtrisée, jamais à travers un réseau
 tiers — préférer SSH dès que l'IOS le permet (`crypto key generate rsa`,
 `transport input ssh`). Test : équipement telnet simulé
-(`tests/test_cisco.py`, `TelnetTests`).
+(`tests/test_cisco.py`, `TelnetTests`). Un mot de passe enable faux ou
+absent donne « mot de passe enable refusé » / « mode enable indisponible »
+(#585) -- plus jamais un `show running-config` refusé en mode utilisateur
+alors que le relevé (`show version`) passe.
 
 ## 1. Supervision (`GET /cisco/switches/<n>/summary`)
 

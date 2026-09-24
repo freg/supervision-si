@@ -239,6 +239,17 @@ class SessionTests(unittest.TestCase):
         with self.assertRaises(CiscoError):
             s.show("show bidule")
 
+    def test_enable_refused(self):
+        """#585 : mot de passe enable faux -> erreur explicite, plus jamais un « show running-config » refusé en mode utilisateur."""
+        chan = self.Chan({"": b"\r\nsw>", "enable": b"Password: ", "faux": b"\r\n% Bad secrets\r\n\r\nsw>"})
+        with self.assertRaises(CiscoError) as ctx:
+            CiscoSession("192.0.2.2", "alice", "faux", transport=chan).open()
+        self.assertIn("enable", str(ctx.exception))
+        chan = self.Chan({"": b"\r\nsw>", "enable": b"Password: ", "muet": b"\r\nsw>"})  # refus silencieux : l'invite reste « > »
+        with self.assertRaises(CiscoError) as ctx:
+            CiscoSession("192.0.2.2", "alice", "muet", transport=chan).open()
+        self.assertIn("refusé", str(ctx.exception))
+
 
 class ApiTests(unittest.TestCase):
     @classmethod

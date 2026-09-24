@@ -45,6 +45,8 @@ log = logging.getLogger("mikrotik")
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(HERE, "static")
 REGISTRY_PATH = os.environ.get("MIKROTIK_REGISTRY", os.path.join(HERE, "routers.json"))
+# #585 : registre LOCAL hors dépôt (mikrotik/routers.local.json), prioritaire s'il existe.
+REGISTRY_LOCAL = os.environ.get("MIKROTIK_REGISTRY_LOCAL", os.path.join(HERE, "routers.local.json"))
 TLS_VERIFY = os.environ.get("MIKROTIK_TLS_VERIFY", "") == "1"
 CREDENTIALS_API_URL = os.environ.get("CREDENTIALS_API_URL", "http://credentials-api:5000").rstrip("/")
 CREDENTIALS_TOKEN = os.environ.get("CREDENTIALS_INTERNAL_TOKEN", "").strip()
@@ -66,14 +68,15 @@ def load_registry():
     """Liste des routeurs déclarés. Un fichier absent ou invalide
     donne un registre VIDE (interface fonctionnelle, zéro routeur),
     jamais une 500 — le diagnostic est dans le JSON renvoyé."""
+    path = REGISTRY_LOCAL if os.path.exists(REGISTRY_LOCAL) else REGISTRY_PATH
     try:
-        with open(REGISTRY_PATH, encoding="utf-8") as fh:
+        with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
         routers = data.get("routers", [])
         return [{"name": r["name"], "host": r["host"], "port": int(r.get("port", 443)),
                  "credential": r.get("credential", "default")} for r in routers], None
     except FileNotFoundError:
-        return [], f"registre absent ({REGISTRY_PATH})"
+        return [], f"registre absent ({path})"
     except (ValueError, KeyError) as exc:
         return [], f"registre invalide : {exc}"
 

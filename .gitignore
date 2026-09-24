@@ -121,3 +121,7 @@ service-watch/data/*
 # assistant (#532) : données du PoC et poids des modèles hors dépôt
 assistant/data/*
 assistant/models/*
+
+# #585 : registres locaux des équipements (hors dépôt)
+cisco/switches.local.json
+mikrotik/routers.local.json

@@ -53,6 +53,9 @@ log = logging.getLogger("cisco")
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(HERE, "static")
 REGISTRY = os.environ.get("CISCO_REGISTRY", os.path.join(HERE, "switches.json"))
+# #585 : registre LOCAL (hors dépôt, jamais écrasé par un déploiement) qui
+# remplace l'exemple versionné s'il existe : cisco/switches.local.json.
+REGISTRY_LOCAL = os.environ.get("CISCO_REGISTRY_LOCAL", os.path.join(HERE, "switches.local.json"))
 DATA_DIR = os.environ.get("CISCO_DATA_DIR", "/data")
 CREDENTIALS_API_URL = os.environ.get("CREDENTIALS_API_URL", "").rstrip("/")
 CREDENTIALS_TOKEN = os.environ.get("CREDENTIALS_INTERNAL_TOKEN", "").strip()
@@ -79,12 +82,17 @@ _cred_cache = {}
 
 # ---------------------------------------------------------------- registre / coffre
 
+def registry_path():
+    return REGISTRY_LOCAL if os.path.exists(REGISTRY_LOCAL) else REGISTRY
+
+
 def load_registry():
+    path = registry_path()
     try:
-        with open(REGISTRY, encoding="utf-8") as fh:
+        with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
     except (OSError, ValueError) as exc:
-        log.warning("registre illisible (%s) : %s", REGISTRY, exc)
+        log.warning("registre illisible (%s) : %s", path, exc)
         return []
     out = []
     for s in data.get("switches") or []:

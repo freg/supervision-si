@@ -2460,14 +2460,16 @@ services:
       context: .
       dockerfile: cisco/Dockerfile
     environment:
-      - CISCO_REGISTRY=/app/switches.json
+      - CISCO_REGISTRY=/app/registry/switches.json
+      # #585 : registre local hors dépôt, prioritaire (jamais écrasé par un déploiement).
+      - CISCO_REGISTRY_LOCAL=/app/registry/switches.local.json
       - CREDENTIALS_API_URL=http://credentials-api:5000
       - CREDENTIALS_INTERNAL_TOKEN=${CREDENTIALS_INTERNAL_TOKEN:-}
       - CISCO_SSH_TIMEOUT=${CISCO_SSH_TIMEOUT:-15}
       - CISCO_BACKUP_INTERVAL_HOURS=${CISCO_BACKUP_INTERVAL_HOURS:-24}
       - CISCO_KEEP_CONFIGS=${CISCO_KEEP_CONFIGS:-60}
     volumes:
-      - ./cisco/switches.json:/app/switches.json:ro
+      - ./cisco:/app/registry:ro   # #585 : dossier (switches.json + switches.local.json), relu à chaque appel
       # Configurations archivées + journal des gestes : À SAUVEGARDER.
       - ${CISCO_DATA_DIR:-./cisco/data}:/data
     depends_on:
@@ -2479,7 +2481,8 @@ services:
       dockerfile: mikrotik/Dockerfile
     environment:
       - MIKROTIK_TLS_VERIFY=${MIKROTIK_TLS_VERIFY:-}
-      - MIKROTIK_REGISTRY=/app/routers.json
+      - MIKROTIK_REGISTRY=/app/registry/routers.json
+      - MIKROTIK_REGISTRY_LOCAL=/app/registry/routers.local.json   # #585
       # Coffre des accès (#498) : clé "credential" du registre = nom de
       # l'accès ; "default" = accès « mikrotik ». Jeton interne partagé
       # avec credentials-api, jamais exposé par tls-proxy.
@@ -2490,7 +2493,7 @@ services:
       - credentials-api
     volumes:
       # Registre éditable sans rebuild — jamais d'identifiant dedans.
-      - ./mikrotik/routers.json:/app/routers.json:ro
+      - ./mikrotik:/app/registry:ro   # #585 : dossier (routers.json + routers.local.json)
 
   imap-connectors:
     # Livraison #489 — gestionnaire de connecteurs IMAP : boîtes de
