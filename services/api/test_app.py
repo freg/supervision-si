@@ -50,8 +50,8 @@ def jwks():
     return {"keys": [j]}
 
 
-def token(username="freg"):
-    claims = {"preferred_username": username, "name": username, "exp": int(time.time()) + 300, "iat": int(time.time()), "typ": "Bearer"}
+def token(username="freg", groups=None):
+    claims = {"preferred_username": username, "name": username, "exp": int(time.time()) + 300, "iat": int(time.time()), "typ": "Bearer", "groups": groups or []}
     return jwt.encode(claims, KEY, algorithm="RS256", headers={"kid": "k1"})
 
 
@@ -92,7 +92,7 @@ class FakeDocker(object):
 
 class TestApi(unittest.TestCase):
     def setUp(self):
-        appmod.verifier = auth.KeycloakVerifier("u", ["freg"], fetch=lambda _u: jwks())
+        appmod.verifier = auth.KeycloakVerifier("u", ["freg"], fetch=lambda _u: jwks(), allowed_groups=["administrateurs"], what="la tour de contrôle")
         self.cs = [FakeContainer("nebula-api"), FakeContainer("hub", port=5173), FakeContainer("ged-api", status="exited"),
                    FakeContainer("tls-proxy", status="exited", port=443), FakeContainer("pg", port=None, health="healthy"),
                    FakeContainer("autre", project="ailleurs"), FakeContainer("pg2", port=5432), FakeContainer("api-down", port=5000)]
@@ -107,7 +107,11 @@ class TestApi(unittest.TestCase):
 
     def test_auth(self):
         self.assertEqual(self.c.get("/services").status_code, 401)
-        self.assertEqual(self.c.get("/services", headers={"Authorization": "Bearer " + token("bob")}).status_code, 403)
+        r = self.c.get("/services", headers={"Authorization": "Bearer " + token("bob")})
+        self.assertEqual(r.status_code, 403)
+        self.assertIn("tour de contrôle", r.get_json()["error"])
+        self.assertIn("administrateurs", r.get_json()["error"])
+        self.assertEqual(self.c.get("/services", headers={"Authorization": "Bearer " + token("francois", ["/administrateurs"])}).status_code, 200)  # #589 : par le groupe
         self.assertEqual(self.c.get("/health").status_code, 200)
 
     def test_inventory(self):

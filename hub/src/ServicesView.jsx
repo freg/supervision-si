@@ -7,6 +7,7 @@
 // défile, filtre « début de mot d'abord ».
 import { useCallback, useEffect, useMemo, useState } from "react";
 import PageFrame from "./PageFrame.jsx";
+import { hubLink } from "./hubLinks.js";
 import { fetchServices, restartService, restartRed, fetchServiceLogs, rebuildService } from "./servicesClient.js";
 import { sortServices, filterServices, summarize, verdictText, uptimeText, LIGHT_LABEL, KIND_LABEL } from "./servicesLights.js";
 
@@ -108,7 +109,7 @@ export default function ServicesView({ apiBase, accessToken, username, onBack, e
   return (
     <Frame title="🚦 Services du hub" onBack={onBack} actions={actions}
       foot={<span>{data ? `${data.project} · ${summary.total} conteneurs · vérifié ${new Date((data.at || 0) * 1000).toLocaleTimeString()} (cache ${data.cache_seconds} s, rafraîchi toutes les ${REFRESH_MS / 1000} s)` : "—"} · connecté en tant que {username || "?"}{notice ? ` · ${notice}` : ""}</span>}>
-      {error && <p className="hub-error">{error}{/utilisateur|autoris/i.test(error) ? <> — utilisateurs admis : <code>SERVICES_ADMIN_USERS</code> dans le <code>.env</code> du hub.</> : null}</p>}
+      {error && <p className="hub-error">{error}{/utilisateur|autoris/i.test(error) ? <> — droits : membre d'un groupe admis (<a href={hubLink("accounts")}>Comptes et groupes</a>, groupe <code>administrateurs</code> par défaut) ou <code>SERVICES_ADMIN_USERS</code> / <code>SERVICES_ADMIN_GROUPS</code> dans le <code>.env</code> du hub.</> : null}</p>}
       <div style={{ display: "flex", gap: 24, alignItems: "flex-start", flexWrap: "wrap", marginBottom: 12 }}>
         <TrafficLight summary={summary} />
         <div style={{ flex: 1, minWidth: 260 }}>

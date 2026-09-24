@@ -1357,6 +1357,7 @@ services:
       - KEYCLOAK_REALM=supervision-si
       - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-supervision-si}
       - SERVICES_ADMIN_USERS=${SERVICES_ADMIN_USERS:-freg}
+      - SERVICES_ADMIN_GROUPS=${SERVICES_ADMIN_GROUPS:-administrateurs}   # #589 : droits gérés dans le hub (groupe Keycloak)
       - SERVICES_PROJECT_DIR=${PWD}
       - SERVICES_HOST_IP=${HOST_IP:-}
       - SERVICES_EXTRA_PROJECTS=${SERVICES_EXTRA_PROJECTS:-supervision-si-gateway}
@@ -1833,6 +1834,7 @@ services:
       # Services du hub (livraison #584) -- feu tricolore + redémarrage (SERVICES_ADMIN_USERS).
       - VITE_SERVICES_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/services
       - VITE_SERVICES_ADMIN_USERS=${SERVICES_ADMIN_USERS:-freg}
+      - VITE_SERVICES_ADMIN_GROUPS=${SERVICES_ADMIN_GROUPS:-administrateurs}
       # Catalogue de positions (livraison #429) -- tuile hub pour geo-catalog-api.
       - VITE_GEO_CATALOG_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/geo-catalog
       # Supervision SI refondue (livraison #423) -- géolocalisations connues.

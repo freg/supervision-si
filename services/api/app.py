@@ -51,6 +51,8 @@ KEYCLOAK_INTERNAL_URL = os.environ.get("KEYCLOAK_INTERNAL_URL", "http://keycloak
 KEYCLOAK_REALM = os.environ.get("KEYCLOAK_REALM", "supervision-si")
 JWKS_URL = os.environ.get("SERVICES_JWKS_URL") or "%s/realms/%s/protocol/openid-connect/certs" % (KEYCLOAK_INTERNAL_URL, KEYCLOAK_REALM)
 ADMIN_USERS = [u for u in os.environ.get("SERVICES_ADMIN_USERS", "freg").split(",") if u.strip()]
+# #589 : groupes Keycloak admis (droits gérés dans le hub, tuile Comptes et groupes) -- défaut : administrateurs
+ADMIN_GROUPS = [g.strip() for g in os.environ.get("SERVICES_ADMIN_GROUPS", "administrateurs").split(",") if g.strip()]
 PROJECT = os.environ.get("COMPOSE_PROJECT_NAME", "supervision-si")
 HTTP_TIMEOUT = float(os.environ.get("SERVICES_HTTP_TIMEOUT", "4"))
 CACHE_SECONDS = int(os.environ.get("SERVICES_CACHE_SECONDS", "20"))
@@ -71,7 +73,7 @@ CORS(app)
 if register_version_route:
     register_version_route(app, "services-api")
 
-verifier = KeycloakVerifier(JWKS_URL, ADMIN_USERS, expected_azp=EXPECTED_AZP)
+verifier = KeycloakVerifier(JWKS_URL, ADMIN_USERS, expected_azp=EXPECTED_AZP, allowed_groups=ADMIN_GROUPS, what="la tour de contrôle")
 _client = None
 _cache = {"at": 0, "rows": None}
 _lock = threading.Lock()
@@ -109,7 +111,7 @@ def health():
         dock = True
     except Exception:  # noqa: BLE001
         dock = False
-    return jsonify({"status": "ok" if dock else "degraded", "docker": dock, "project": PROJECT, "admin_users": ADMIN_USERS}), 200
+    return jsonify({"status": "ok" if dock else "degraded", "docker": dock, "project": PROJECT, "admin_users": ADMIN_USERS, "admin_groups": ADMIN_GROUPS}), 200
 
 
 # -- inventaire et santé ---------------------------------------------------

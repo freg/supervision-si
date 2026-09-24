@@ -31,9 +31,13 @@ class KeycloakVerifier(object):
     rafraîchi au plus toutes les `refresh_s` secondes ou sur `kid` inconnu."""
 
     def __init__(self, jwks_url, allowed_users, fetch=None, refresh_s=300, clock=time.time,
-                 expected_azp=None):
+                 expected_azp=None, allowed_groups=None, what="le bastion"):
         self.jwks_url = jwks_url
         self.allowed_users = set(u.strip().lower() for u in (allowed_users or []) if u and u.strip())
+        # #589 : droits gérés EN INTERNE -- un groupe Keycloak (claim `groups`, tuile
+        # « Comptes et groupes ») suffit, sans toucher au .env.
+        self.allowed_groups = set(g.strip() for g in (allowed_groups or []) if g and g.strip())
+        self.what = what
         self.fetch = fetch or self._http_fetch
         self.refresh_s = refresh_s
         self.clock = clock
@@ -97,10 +101,11 @@ class KeycloakVerifier(object):
         username = (claims.get("preferred_username") or "").strip().lower()
         if not username:
             raise AuthError("jeton sans preferred_username")
-        if username not in self.allowed_users:
-            raise AuthError("utilisateur « %s » non autorisé sur le bastion" % username, 403)
-        return {"username": username, "name": claims.get("name") or username,
-                "groups": list(claims.get("groups") or [])}
+        groups = [str(g).strip("/") for g in (claims.get("groups") or [])]
+        if username not in self.allowed_users and not (self.allowed_groups & set(groups)):
+            hint = (" (ou membre du groupe %s)" % " / ".join(sorted(self.allowed_groups))) if self.allowed_groups else ""
+            raise AuthError("utilisateur « %s » non autorisé sur %s%s" % (username, self.what, hint), 403)
+        return {"username": username, "name": claims.get("name") or username, "groups": groups}
 
 
 def bearer_from_header(value):

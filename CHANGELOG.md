@@ -1,3 +1,21 @@
+## 2026-09-24 — Tour de contrôle : droits par groupe Keycloak, gérés dans le hub (livraison #589)
+
+Constat réel : connecté « francois », refus « utilisateur non autorisé sur le
+bastion » (message hérité de #454) — la tour n'admettait que
+`SERVICES_ADMIN_USERS` du `.env`. Demandé : « gestion des droits en interne ? ».
+
+- `si-proxy/admin/auth.py` (vérificateur partagé) : `allowed_groups` (claim
+  `groups` du jeton, `/` de tête toléré) en plus des utilisateurs, libellé
+  `what` (« la tour de contrôle »), message avec le groupe attendu.
+- services-api : `SERVICES_ADMIN_GROUPS` (défaut `administrateurs`) → un
+  membre du groupe Keycloak est admis ; gestion depuis la tuile **Comptes et
+  groupes**, sans toucher au `.env`. Hub : carte de Paramètres visible pour
+  les administrateurs ; message d'erreur avec le lien vers Comptes et groupes.
+- Le bastion (si-proxy-admin-api) reste réservé à sa liste d'utilisateurs.
+
+Non vérifié : sur super — en attendant, `SERVICES_ADMIN_USERS=freg,francois`
+dans le `.env` marche aussi.
+
 ## 2026-09-24 — Tour de contrôle : sonde TCP avant HTTP, auto-réparation limitée aux pannes dures (livraison #588)
 
 Constat réel (super, journal de services-api) : l'auto-réparation a

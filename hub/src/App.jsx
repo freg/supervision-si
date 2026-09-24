@@ -138,6 +138,7 @@ const PUBLIC_LINKS = publicLinks({ demandeUrl: DEMANDE_URL, frontendUrl: FRONTEN
 const SI_PROXY_API_BASE_URL = import.meta.env.VITE_SI_PROXY_API_BASE_URL || "";
 const SERVICES_API_BASE_URL = import.meta.env.VITE_SERVICES_API_BASE_URL || "";  // #584
 const SERVICES_ADMIN_USERS = (import.meta.env.VITE_SERVICES_ADMIN_USERS || "freg").split(",").map((u) => u.trim().toLowerCase()).filter(Boolean);
+const SERVICES_ADMIN_GROUPS = (import.meta.env.VITE_SERVICES_ADMIN_GROUPS || "administrateurs").split(",").map((g) => g.trim()).filter(Boolean);  // #589
 // Cortex (livraison #462) -- incidents corrélés, hypothèses évaluées.
 const CORTEX_API_BASE_URL = import.meta.env.VITE_CORTEX_API_BASE_URL || "";
 const SI_PROXY_ADMIN_USERS = import.meta.env.VITE_SI_PROXY_ADMIN_USERS || "freg";
@@ -1554,7 +1555,7 @@ vm === "agent-page" ? (
           login={profile.preferred_username}
           apiBase={PREFS_API_BASE_URL}
           onBack={goBack}
-          servicesAllowed={!!SERVICES_API_BASE_URL && SERVICES_ADMIN_USERS.includes((profile.preferred_username || "").toLowerCase())}
+          servicesAllowed={!!SERVICES_API_BASE_URL && (SERVICES_ADMIN_USERS.includes((profile.preferred_username || "").toLowerCase()) || groups.some((g) => SERVICES_ADMIN_GROUPS.includes(String(g).replace(/^\//, ""))))}
           onNavigate={(t) => setViewMode(t)}
         />
       ) : vm === "services" || vm === "control" ? (
