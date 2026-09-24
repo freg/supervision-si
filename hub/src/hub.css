@@ -2200,3 +2200,24 @@ button.danger { color: #e06666; }
 .hub-nav-tree details details > summary { font-weight: 500; padding: 5px 10px; font-size: .95em; }
 .hub-nav-desc { font-weight: 400; font-size: .85em; }
 .hub-nav-also { font-size: .8em; font-weight: 400; }
+
+/* #603 : accueil en arbre dépliable (vue JSON) + sélecteur Tuiles / Arbre */
+.hub-home-tree { display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 0; }
+.hub-home-tree-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.hub-home-tree-bar input { min-width: 220px; }
+.hub-home-switch { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.hub-home-switch button { border: 0; border-radius: 0; padding: 6px 12px; background: transparent; color: var(--muted); }
+.hub-home-switch button.active { background: var(--accent); color: var(--accent-fg, #fff); font-weight: 600; }
+.hub-home-tree-body { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; line-height: 1.7; }
+.hub-home-tree-row { display: flex; gap: 8px; align-items: baseline; cursor: pointer; border-radius: 4px; padding: 1px 4px; white-space: nowrap; overflow: hidden; }
+.hub-home-tree-row:hover { background: rgba(127,127,127,.12); }
+.hub-home-tree-caret { width: 14px; color: var(--muted); }
+.hub-home-tree-label.root { font-weight: 700; font-size: 14px; }
+.hub-home-tree-count, .hub-home-tree-desc, .hub-home-tree-preview { font-size: 12px; }
+.hub-home-tree-preview { overflow: hidden; text-overflow: ellipsis; }
+.hub-home-tree-leaf { display: flex; gap: 8px; align-items: baseline; }
+.hub-home-tree-leaf.active .hub-home-tree-link { color: var(--accent); font-weight: 600; }
+.hub-home-tree-bullet { color: var(--muted); width: 14px; text-align: center; }
+.hub-home-tree-link { background: none; border: 0; padding: 0; color: var(--text); cursor: pointer; font: inherit; }
+.hub-home-tree-link:hover { text-decoration: underline; color: var(--accent); }
+.hub-home-tree-also { font-size: 11px; }

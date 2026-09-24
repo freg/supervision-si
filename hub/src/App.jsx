@@ -51,6 +51,7 @@ import { fetchVisible } from "./rightsClient.js";
 import AgentPageView from "./AgentPageView.jsx";
 const RIGHTS_CATALOG_IDS = new Set(buildRightsCatalog().map((c) => c.identifier));  // #559
 import { businessTree, filterBusinessTree, pathsOfLeaf } from "./hubBusiness.js";  // #599 : menu principal en graphe métier
+import HomeTree from "./HomeTree.jsx";  // #603 : accueil en arbre dépliable
 import { THEMES, SINCE, buildThemes, themeViewMode, isThemeViewMode, themeIdOf, findTheme, themeOfView, normalizeHomeMode, HOME_MODES } from "./hubThemes.js";
 import { publicLinks, agentPublishedLinks, displayUrl } from "./publicLinks.js";
 import { canSeeBastion } from "./siProxy.js";
@@ -1480,7 +1481,7 @@ export default function App() {
   const runAction = (a) => {
     setOpenNavMenu(null);
     const toggle = (name) => setViewMode((v) => (v === name ? "grid" : name));
-    if (a === "home-mode") setHomeMode((m) => (m === "themes" ? "tiles" : "themes"));
+    if (a === "home-mode") setHomeMode((m) => (m === "themes" ? "tiles" : m === "tiles" ? "tree" : "themes"));  // #603 : trois modes
     else if (a === "debug") setShowDebug((v) => !v);
     else if (["aide", "tabs", "settings", "personalize", "layout", "external-links", "control"].includes(a)) toggle(a);
   };
@@ -1494,6 +1495,17 @@ export default function App() {
   // anticipés de connexion (règle des hooks : ordre constant).
   const businessFull = businessTree(hubCatalog, { themeOf: (ref) => { const t = themeOfView(visibleThemes, ref.replace(/^(view|front):/, "")); return t || null; } });
   const businessShown = filterBusinessTree(businessFull, menuQuery);
+  // #603 : l'arbre de disposition (#516) sous la même forme générique que le graphe métier
+  const layoutRoots = (() => {  // calcul simple (pas de hook : nous sommes après les retours anticipés)
+    const q = menuQuery.trim().toLowerCase();
+    const conv = (n) => {
+      const leaves = n.children.filter((c) => c.type === "ref").map((c) => c.leaf).filter((l) => !q || l.label.toLowerCase().includes(q));
+      const children = n.children.filter((c) => c.type === "group").map(conv).filter(Boolean);
+      const count = leaves.length + children.reduce((s, c) => s + c.count, 0);
+      return count || (!q && n.children.length === 0) ? { id: n.id, label: n.label, icon: n.icon, children, leaves, count } : null;
+    };
+    return resolvedTree.children.map((n) => (n.type === "group" ? conv(n) : (!q || n.leaf.label.toLowerCase().includes(q)) ? { id: n.id, label: n.leaf.label, children: [], leaves: [n.leaf], count: 1 } : null)).filter(Boolean);
+  })();
   const currentLeafId = viewMode ? `view:${viewMode}` : null;
   const openBusinessPaths = new Set(currentLeafId ? pathsOfLeaf(businessFull, currentLeafId).flatMap((p) => p.split("/").map((_, i, a) => a.slice(0, i + 1).join("/"))) : []);
   const hubRootOrder = resolvedTree.children.map((n) => (n.type === "ref" ? { ...n, leaf: decorateLeaf(n.leaf) } : n));
@@ -1886,7 +1898,33 @@ vm === "agent-page" ? (
                 VITE_TICKETS_PORTAL_URL côté déploiement.
               </p>
             )}
-            {homeMode === "themes" ? (
+            {/* #603 : sélecteur Tuiles / Arbre en tête de l'accueil (l'arbre reprend le
+                contenu du menu déroulant -- vue métier ou disposition -- en vue dépliable) */}
+            {homeMode !== "tree" && (
+              <div className="hub-home-tree-bar" style={{ marginBottom: 8 }}>
+                <div className="hub-home-switch" role="group" aria-label="mode d'accueil">
+                  <button type="button" className="active" title="accueil en tuiles">▦ Tuiles</button>
+                  <button type="button" onClick={() => setHomeMode("tree")} title="accueil en arbre dépliable">⌥ Arbre</button>
+                </div>
+                <span className="muted" style={{ fontSize: 12 }}>{homeMode === "themes" ? "par thématiques" : "toutes les tuiles"} · <button type="button" className="secondary" style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => setHomeMode(homeMode === "themes" ? "tiles" : "themes")}>{homeMode === "themes" ? "toutes les tuiles" : "par thématiques"}</button></span>
+              </div>
+            )}
+            {homeMode === "tree" ? (
+              <>
+                <div className="hub-home-tree-bar" style={{ marginBottom: 4 }}>
+                  <span className="muted" style={{ fontSize: 12 }}>source :</span>
+                  <button type="button" className={`secondary${menuMode === "business" ? " active" : ""}`} style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => setMenuMode("business")}>Vue métier</button>
+                  <button type="button" className={`secondary${menuMode === "layout" ? " active" : ""}`} style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => setMenuMode("layout")}>Disposition</button>
+                </div>
+                <HomeTree
+                  mode="tree" onMode={(m) => setHomeMode(m === "tiles" ? "themes" : m)}
+                  query={menuQuery} onQuery={setMenuQuery}
+                  roots={menuMode === "business" ? businessShown.roots : layoutRoots}
+                  onOpenLeaf={(l) => openLeaf(decorateLeaf(l), null)} leafActive={leafActive}
+                  emptyText={menuQuery ? `rien ne commence par « ${menuQuery} »` : "menu vide"}
+                />
+              </>
+            ) : homeMode === "themes" ? (
               <>
                 {/* #457 : cinq super-tuiles thématiques (hubThemes.js) ;
                     les liens externes déclarés par les administrateurs

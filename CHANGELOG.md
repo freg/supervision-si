@@ -1,3 +1,20 @@
+## 2026-09-24 — Accueil en arbre dépliable (vue JSON du menu) avec sélecteur Tuiles / Arbre (livraison #603)
+
+Demandé : « une page alternative à celle des tuiles (accueil) où placer le
+contenu du menu déroulant (à conserver) sous forme de vue dépliable du type
+de la vue JSON, avec un sélecteur on/off arbre / tuiles ».
+
+- `hub/src/HomeTree.jsx` : arbre ▸ / ▾ par branche (état mémorisé par
+  navigateur), feuilles cliquables, compte d'outils, aperçu des enfants
+  quand replié, « aussi sous … », filtre début de mot, tout déplier /
+  replier ; sélecteur **▦ Tuiles / ⌥ Arbre** en tête de l'accueil dans
+  tous les modes (+ bascule thématiques / toutes les tuiles conservée).
+- Source de l'arbre = celle du menu déroulant (Vue métier #599 ou
+  Disposition #516, choix partagé avec le menu) ; le menu « Menu ▾ » reste.
+- Troisième mode d'accueil `tree` (`HOME_MODES`, action « Accueil :
+  thématiques / tuiles / arbre » cycle sur les trois, choix mémorisé).
+- Hub 267 tests ; aucun hook après les retours anticipés (leçon #601).
+
 ## 2026-09-24 — Licences : import « contrats » (une ligne par contrat) et compte administrateur Microsoft 365 (connexion par code ou e-mail / mot de passe) (livraison #602)
 
 Demandé : « préparer un import pour le hub » (les trois contrats Microsoft
