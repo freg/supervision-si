@@ -457,6 +457,9 @@ def import_route():
     if fmt == "matrix":
         items, err = rules.import_matrix(rows)
         plan = [{"software": it["software"], "vendor": it["vendor"], "kind_label": it["kind_label"], "end": it["end"], "people": it["people"]} for it in items]
+    elif fmt == "contracts":  # #602 : une ligne par contrat, tous les champs
+        items, err = rules.import_contracts(rows)
+        plan = [dict(it, kind_label=it["kind"]) for it in items]
     elif fmt == "m365":
         items, err = rules.import_m365(rows)
         by_lic = {}
@@ -490,21 +493,33 @@ def import_route():
         else:
             sid = c.execute("INSERT INTO software (name, vendor, patterns, created_at) VALUES (?, ?, '[]', ?)", (p["software"], p["vendor"] or "", time.time())).lastrowid
             created["software"] += 1
-        ct = c.execute("SELECT id, quantity FROM contracts WHERE software_id = ? AND site = ?", (sid, site)).fetchone()
+        p_site = p.get("site") or site if fmt == "contracts" else site
+        if fmt == "contracts":  # une ligne = un contrat identifié par logiciel + site + libellé (ou référence)
+            ct = c.execute("SELECT id FROM contracts WHERE software_id = ? AND site = ? AND (label = ? OR (reference != '' AND reference = ?))", (sid, p_site, p.get("label") or "", p.get("reference") or "")).fetchone()
+        else:
+            ct = c.execute("SELECT id, quantity FROM contracts WHERE software_id = ? AND site = ?", (sid, site)).fetchone()
         if ct:
             cid = ct["id"]
+            if fmt == "contracts":  # mise à jour des champs du contrat existant
+                c.execute("UPDATE contracts SET kind = ?, quantity = ?, start = ?, end = ?, cost = ?, currency = ?, renewal = ?, vendor_account = ?, sku = ?, reference = ?, notes = ?, updated_at = ? WHERE id = ?",
+                          (p["kind"], p["quantity"], p["start"], p["end"], p["cost"], p["currency"], p["renewal"], p["vendor_account"], p["sku"], p["reference"], p["notes"], time.time(), cid))
+                created["updated"] = created.get("updated", 0) + 1
+        elif fmt == "contracts":
+            cid = c.execute("INSERT INTO contracts (software_id, site, label, kind, quantity, start, end, cost, currency, renewal, vendor_account, sku, reference, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                            (sid, p_site, p["label"] or p["software"], p["kind"], p["quantity"], p["start"], p["end"], p["cost"], p["currency"], p["renewal"], p["vendor_account"], p["sku"], p["reference"], p["notes"] or "importé de %s" % (f.filename or "tableur"), time.time(), time.time())).lastrowid
+            created["contracts"] += 1
         else:
             kind = "subscription" if "abonnement" in rules.fold(p["kind_label"]) or p["vendor"] == "Microsoft" else "per-user"
             cid = c.execute("INSERT INTO contracts (software_id, site, label, kind, quantity, end, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                             (sid, site, "%s%s" % (p["software"], " (%s)" % p["kind_label"] if p["kind_label"] else ""), kind, len(p["people"]), p["end"], "importé de %s" % (f.filename or "tableur"), time.time(), time.time())).lastrowid
             created["contracts"] += 1
         for person in p["people"]:
-            login, new = resolve_or_create_user(c, person, site, "import")
+            login, new = resolve_or_create_user(c, person, p_site, "import")
             if not login:
                 continue
             created["users"] += 1 if new else 0
             try:
-                c.execute("INSERT INTO assignments (contract_id, subject_kind, subject, site, since, note) VALUES (?, 'user', ?, ?, ?, 'import')", (cid, login, site, _dt.date.today().isoformat()))
+                c.execute("INSERT INTO assignments (contract_id, subject_kind, subject, site, since, note) VALUES (?, 'user', ?, ?, ?, 'import')", (cid, login, p_site, _dt.date.today().isoformat()))
                 created["assignments"] += 1
             except sqlite3.IntegrityError:
                 pass
@@ -795,6 +810,87 @@ def user_fiche(login):
     return jsonify({"login": login, "path": u["fiche_path"], "text": text}), 200
 
 
+# -- #602 : compte Microsoft 365 d'un administrateur (sans inscription d'application) ---------------------
+_device_flows = {}  # name -> {device_code, tenant, expires, user_code, verification_uri}
+
+
+def account_token(c, v):
+    """Jeton d'accès pour un compte « microsoft-account » : jeton de
+    rafraîchissement mémorisé (connexion par code) en priorité, sinon e-mail +
+    mot de passe de l'accès du coffre (ROPC). Le jeton de rafraîchissement vit
+    dans la base (hors dépôt) et n'est jamais renvoyé par l'API."""
+    tenant = (v["config"] or {}).get("tenant") or "organizations"
+    saved = setting_get(c, "vendor_token:" + v["name"], None)
+    if saved and saved.get("refresh_token"):
+        tok = vendors.refresh_token(tenant, saved["refresh_token"])
+        setting_set(c, "vendor_token:" + v["name"], {"refresh_token": tok.get("refresh_token") or saved["refresh_token"], "at": time.time(), "account": saved.get("account")})
+        c.commit()
+        return tok["access_token"]
+    if v.get("credential"):
+        user, password, err = app.reveal(v["credential"])
+        if err:
+            raise RuntimeError(err)
+        tok = vendors.ropc_token(tenant, user, password)
+        if tok.get("refresh_token"):
+            setting_set(c, "vendor_token:" + v["name"], {"refresh_token": tok["refresh_token"], "at": time.time(), "account": user})
+            c.commit()
+        return tok["access_token"]
+    raise RuntimeError("compte non connecté : se connecter par code, ou renseigner un accès du coffre (e-mail + mot de passe)")
+
+
+app.account_token = account_token
+
+
+@app.route("/vendors/<name>/connect", methods=["POST"])
+def vendor_connect(name):
+    """Connexion par code : renvoie le code à saisir sur microsoft.com/devicelogin ; le hub interroge ensuite /connect/status."""
+    c = db()
+    v = c.execute("SELECT * FROM vendor_accounts WHERE name = ?", (name,)).fetchone()
+    if not v or v["kind"] != "microsoft-account":
+        return jsonify({"error": "compte « microsoft-account » requis"}), 404
+    cfg = json.loads(v["config"] or "{}")
+    try:
+        r = vendors.device_code_start(cfg.get("tenant") or "organizations")
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": str(exc)[:300]}), 502
+    _device_flows[name] = {"device_code": r["device_code"], "tenant": cfg.get("tenant") or "organizations", "expires": time.time() + int(r.get("expires_in") or 900), "interval": int(r.get("interval") or 5), "user_code": r["user_code"], "verification_uri": r.get("verification_uri") or "https://microsoft.com/devicelogin"}
+    event("vendor-connect", "connexion par code demandée pour %s par %s" % (name, g.user["username"]))
+    return jsonify({"user_code": r["user_code"], "verification_uri": _device_flows[name]["verification_uri"], "expires_in": r.get("expires_in"), "message": r.get("message")}), 200
+
+
+@app.route("/vendors/<name>/connect/status", methods=["POST"])
+def vendor_connect_status(name):
+    f = _device_flows.get(name)
+    if not f:
+        return jsonify({"status": "none"}), 200
+    if time.time() > f["expires"]:
+        _device_flows.pop(name, None)
+        return jsonify({"status": "expired"}), 200
+    try:
+        st, tok = vendors.device_code_poll(f["tenant"], f["device_code"])
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"status": "error", "error": str(exc)[:300]}), 200
+    if st == "pending":
+        return jsonify({"status": "pending", "user_code": f["user_code"], "verification_uri": f["verification_uri"]}), 200
+    _device_flows.pop(name, None)
+    if st == "error":
+        return jsonify({"status": "error", "error": tok}), 200
+    c = db()
+    setting_set(c, "vendor_token:" + name, {"refresh_token": tok.get("refresh_token"), "at": time.time(), "account": "code"})
+    c.commit()
+    event("vendor-connect", "compte %s connecté par code par %s" % (name, g.user["username"]))
+    return jsonify({"status": "ok"}), 200
+
+
+@app.route("/vendors/<name>/disconnect", methods=["POST"])
+def vendor_disconnect(name):
+    c = db()
+    c.execute("DELETE FROM settings WHERE key = ?", ("vendor_token:" + name,))
+    c.commit()
+    _device_flows.pop(name, None)
+    return jsonify({"status": "ok"}), 200
+
+
 # -- comptes vendeurs -------------------------------------------------------------------------
 @app.route("/vendors", methods=["GET"])
 def vendors_list():
@@ -802,6 +898,11 @@ def vendors_list():
     for r in db().execute("SELECT * FROM vendor_accounts ORDER BY name"):
         d = _row(r)
         d["portal"] = vendors.portal_url(d["kind"], d["config"])  # #598
+        if d["kind"] == "microsoft-account":  # #602 : connecté ? (jamais le jeton)
+            saved = setting_get(db(), "vendor_token:" + d["name"], None) or {}
+            d["connected"] = bool(saved.get("refresh_token"))
+            d["connected_at"] = saved.get("at")
+            d["connected_as"] = saved.get("account")
         out.append(d)
     return jsonify({"vendors": out, "kinds": vendors.KINDS}), 200
 
@@ -814,6 +915,8 @@ def vendor_save():
     if not name or kind not in vendors.KINDS:
         return jsonify({"error": "nom et kind (%s) requis" % " / ".join(vendors.KINDS)}), 400
     config = b.get("config") if isinstance(b.get("config"), dict) else {}
+    if kind == "microsoft-account" and "tenant" not in config:
+        config["tenant"] = ""
     if kind == "microsoft-graph" and not (config.get("tenant") and config.get("client_id") and b.get("credential")):
         return jsonify({"error": "microsoft-graph : config.tenant, config.client_id et credential (accès du coffre dont le mot de passe est le secret client) requis"}), 400
     c = db()
@@ -826,6 +929,7 @@ def vendor_save():
 
 @app.route("/vendors/<name>", methods=["DELETE"])
 def vendor_delete(name):
+    db().execute("DELETE FROM settings WHERE key = ?", ("vendor_token:" + name,))  # #602
     db().execute("DELETE FROM vendor_accounts WHERE name = ?", (name,))
     db().commit()
     return jsonify({"status": "ok"}), 200
@@ -845,6 +949,8 @@ def vendor_sync(name):
             if err:
                 raise RuntimeError(err)
             snapshot = vendors.sync_microsoft_graph(v["config"], secret)
+        elif v["kind"] == "microsoft-account":  # #602 : compte administrateur (code ou e-mail / mot de passe)
+            snapshot = vendors.sync_with_token(app.account_token(c, v))
         else:
             return jsonify({"error": "ce type de compte n'a pas de synchronisation (export ou saisie)"}), 400
     except Exception as exc:  # noqa: BLE001

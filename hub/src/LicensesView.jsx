@@ -206,10 +206,10 @@ function Contracts({ b, t, site, sites, software, contracts, reload, notice }) {
         <div>
           <div className="hub-card" style={{ marginBottom: 10 }}>
             <h3 style={{ marginTop: 0 }}>Importer un tableur</h3>
-            <p className="muted" style={{ marginTop: 0, fontSize: 12 }}>Formats reconnus : matrice « Logiciel | Éditeur | Licence | Date Fin | personnes… » (croix), export utilisateurs Microsoft 365 (colonnes Nom complet / Licences), comparatif licence × initiales. Analyser d'abord, puis importer : logiciels et contrats manquants sont créés sur le site choisi, les personnes attribuées.</p>
+            <p className="muted" style={{ marginTop: 0, fontSize: 12 }}>Formats reconnus : <b>contrats</b> « Logiciel | Éditeur | Site | Libellé | Type | Quantité | Début | Fin | Coût / an | Compte vendeur | SKU | Référence | Notes | Personnes » (une ligne par contrat, ré-import = mise à jour), matrice « Logiciel | Éditeur | Licence | Date Fin | personnes… » (croix), export utilisateurs Microsoft 365 (colonnes Nom complet / Licences), comparatif licence × initiales. Analyser d'abord, puis importer : logiciels et contrats manquants sont créés sur le site choisi, les personnes attribuées.</p>
             <input type="file" accept=".xlsx,.csv" onChange={(e) => setImp({ ...imp, file: e.target.files?.[0] || null, plan: null, done: null })} /><br />
             <input list="lic-sites" placeholder="site" value={imp.site} onChange={(e) => setImp({ ...imp, site: e.target.value })} />{" "}
-            <select value={imp.format} onChange={(e) => setImp({ ...imp, format: e.target.value, plan: null })}><option value="">format : détection</option><option value="matrix">matrice</option><option value="m365">export Microsoft 365</option><option value="comparatif">comparatif</option></select>
+            <select value={imp.format} onChange={(e) => setImp({ ...imp, format: e.target.value, plan: null })}><option value="">format : détection</option><option value="contracts">contrats (une ligne par contrat)</option><option value="matrix">matrice</option><option value="m365">export Microsoft 365</option><option value="comparatif">comparatif</option></select>
             <div style={{ marginTop: 6, display: "flex", gap: 8, alignItems: "center" }}>
               <button type="button" className={imp.plan ? "" : "secondary"} onClick={doImport} disabled={!imp.file || !!imp.busy}>
                 {imp.busy ? `⏳ ${imp.busy}` : imp.plan ? `Importer ${imp.plan.length} logiciel(s)${imp.site ? ` sur ${imp.site}` : ""}` : "1. Analyser le fichier"}
@@ -222,7 +222,7 @@ function Contracts({ b, t, site, sites, software, contracts, reload, notice }) {
               <div style={{ marginTop: 6, fontSize: 12 }}>
                 <span className="muted">2. Vérifier — format {imp.detected} · {imp.plan.length} logiciel(s) · {imp.people} personne(s) — puis importer</span>
                 {imp.unknown?.length > 0 && <p style={{ margin: "4px 0" }}><Tone tone="orange">{imp.unknown.length} personne(s) absente(s) de l'annuaire</Tone> <span className="muted">(créées « info » sur le site, rattachées plus tard par « Utilisateurs → Synchroniser l'annuaire ») : {imp.unknown.join(", ")}</span></p>}
-                <ul style={{ margin: "4px 0", paddingLeft: 18, maxHeight: 180, overflow: "auto" }}>{imp.plan.map((p, i) => <li key={i}><b>{p.software}</b>{p.vendor ? ` (${p.vendor})` : ""} · {p.people.length} personne(s){p.end ? ` · fin ${p.end}` : ""}
+                <ul style={{ margin: "4px 0", paddingLeft: 18, maxHeight: 180, overflow: "auto" }}>{imp.plan.map((p, i) => <li key={i}><b>{p.software}</b>{p.vendor ? ` (${p.vendor})` : ""}{p.quantity != null && imp.detected === "contracts" ? ` · ${p.site || "site du formulaire"} · ${KIND_LABEL[p.kind] || p.kind} × ${p.quantity}${p.start ? ` du ${p.start}` : ""}` : ""} · {p.people.length} personne(s){p.end ? ` · fin ${p.end}` : ""}
                   {p.people.length > 0 && <span className="muted"> : {(p.resolved || []).map((x) => x.login ? x.login : `${x.person} ?`).join(", ")}</span>}</li>)}</ul>
               </div>
             )}
@@ -558,8 +558,25 @@ function Vendors({ b, t, sites, notice, reload }) {
   const [list, setList] = useState([]);
   const [v, setV] = useState(null);
   const [busy, setBusy] = useState("");
+  const [code, setCode] = useState(null);  // #602 : connexion par code en cours {name, user_code, verification_uri, status}
   const load = useCallback(() => api.fetchVendors(b, t).then((r) => (r.error ? notice(r.error, false) : setList(r.vendors || []))), [b, t]);  // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (!code || code.status !== "pending") return undefined;
+    const id = setInterval(async () => {
+      const r = await api.connectStatus(b, t, code.name);
+      if (r.status === "pending") return;
+      setCode({ ...code, status: r.status, error: r.error });
+      if (r.status === "ok") { notice(`compte ${code.name} connecté — synchroniser maintenant`); load(); }
+      else notice(r.error || `connexion ${r.status}`, false);
+    }, 5000);
+    return () => clearInterval(id);
+  }, [code, b, t]);  // eslint-disable-line react-hooks/exhaustive-deps
+  const connect = async (name) => {
+    const r = await api.connectVendor(b, t, name);
+    if (r.error) return notice(r.error, false);
+    setCode({ name, user_code: r.user_code, verification_uri: r.verification_uri, status: "pending" });
+  };
   const save = async () => {
     const r = await api.saveVendor(b, t, { name: v.name, kind: v.kind, site: v.site, config: { tenant: v.tenant, client_id: v.client_id, url: v.url || "" }, credential: v.credential });
     notice(r.error || `compte ${r.name} enregistré`, !r.error);
@@ -576,7 +593,7 @@ function Vendors({ b, t, sites, notice, reload }) {
     <div>
       <p className="muted" style={{ marginTop: 0 }}>
         Un compte vendeur lit l'état des licences chez l'éditeur et met à jour les contrats liés (par SKU) : quantités et utilisateurs attribués (note « vendeur »).
-        <b> Microsoft 365</b> : application Entra ID avec la permission <code>Organization.Read.All</code> + <code>User.Read.All</code> (application) ; le secret client est le mot de passe d'un accès du <a href={hubLink("credentials")}>coffre des accès</a> (nom de l'accès = champ « accès »), jamais saisi ici.
+        <b> Microsoft 365, deux façons</b> : (1) <em>compte administrateur</em> — sans inscription d'application : « Se connecter par code » (le hub affiche un code, vous vous connectez une fois sur microsoft.com/devicelogin avec votre MFA, le hub garde la session) ou un accès du coffre contenant e-mail + mot de passe (refusé par Microsoft dès que l'authentification multifacteur est exigée, ce qui est le cas des comptes administrateurs) ; (2) <em>application Entra ID</em> avec <code>Organization.Read.All</code> + <code>User.Read.All</code>, secret client = mot de passe d'un accès du <a href={hubLink("credentials")}>coffre des accès</a>. Dans les deux cas : lecture seule des abonnements (SKU, quantités, utilisateurs) ; les factures ne sont pas exposées par l'API Microsoft (lien « gérer chez le vendeur »).
         Les autres éditeurs sans API : « export du vendeur » (déposer leur fichier dans « Contrats & catalogue → Importer ») ou saisie manuelle.
       </p>
       <button type="button" onClick={() => setV({ ...EMPTY_V })}>+ compte vendeur</button>
@@ -587,6 +604,10 @@ function Vendors({ b, t, sites, notice, reload }) {
             <label>Type<br /><select value={v.kind} onChange={(e) => setV({ ...v, kind: e.target.value })}>{Object.entries(VENDOR_KIND_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
             <label>Site<br /><input list="lic-sites2" value={v.site} onChange={(e) => setV({ ...v, site: e.target.value })} /><datalist id="lic-sites2">{sites.map((s) => <option key={s} value={s} />)}</datalist></label>
             <label style={{ gridColumn: "span 3" }}>Portail de gestion chez le vendeur (lien « gérer chez le vendeur » ; vide = portail par défaut du type)<br /><input style={{ width: "100%" }} value={v.url || ""} onChange={(e) => setV({ ...v, url: e.target.value })} placeholder="https://admin.microsoft.com/#/licenses" /></label>
+            {v.kind === "microsoft-account" && <>
+              <label>Tenant (domaine ; vide = « organizations »)<br /><input value={v.tenant} onChange={(e) => setV({ ...v, tenant: e.target.value })} placeholder="exemple.onmicrosoft.com" /></label>
+              <label>Accès du coffre e-mail + mot de passe (facultatif si connexion par code)<br /><input value={v.credential} onChange={(e) => setV({ ...v, credential: e.target.value })} placeholder="nom de l'accès" /></label>
+            </>}
             {v.kind === "microsoft-graph" && <>
               <label>Tenant (id ou domaine)<br /><input value={v.tenant} onChange={(e) => setV({ ...v, tenant: e.target.value })} placeholder="exemple.onmicrosoft.com" /></label>
               <label>Client id (application)<br /><input value={v.client_id} onChange={(e) => setV({ ...v, client_id: e.target.value })} /></label>
@@ -596,6 +617,15 @@ function Vendors({ b, t, sites, notice, reload }) {
           <div style={{ marginTop: 6 }}><button type="button" onClick={save} disabled={!v.name}>Enregistrer</button> <button type="button" className="secondary" onClick={() => setV(null)}>Annuler</button></div>
         </div>
       )}
+      {code && (
+        <div className="hub-card" style={{ margin: "8px 0", borderColor: COLORS.orange }}>
+          <b>Connexion par code — {code.name}</b> :{" "}
+          {code.status === "pending" && <>ouvrir <a href={code.verification_uri} target="_blank" rel="noopener noreferrer">{code.verification_uri} ↗</a>, saisir le code <code style={{ fontSize: 16 }}>{code.user_code}</code> et se connecter avec le compte administrateur Microsoft 365 (MFA accepté). <span className="muted">⏳ en attente de la connexion…</span></>}
+          {code.status === "ok" && <Tone tone="green">✓ connecté</Tone>}
+          {code.status !== "pending" && code.status !== "ok" && <Tone tone="red">{code.error || code.status}</Tone>}
+          {" "}<button type="button" className="secondary" onClick={() => setCode(null)}>fermer</button>
+        </div>
+      )}
       <Scroll>
         <table style={{ width: "100%", fontSize: 13 }}>
           <thead style={TH}><tr><th>Compte</th><th>Type</th><th>Site</th><th>Configuration</th><th>Dernière synchronisation</th><th>Dernier relevé</th><th> </th></tr></thead>
@@ -603,11 +633,12 @@ function Vendors({ b, t, sites, notice, reload }) {
             {list.map((x) => (
               <tr key={x.name}>
                 <td><b>{x.name}</b></td><td>{VENDOR_KIND_LABEL[x.kind] || x.kind}</td><td>{x.site}</td>
-                <td className="muted" style={{ fontSize: 12 }}>{x.kind === "microsoft-graph" ? `${x.config?.tenant || "?"} · ${x.config?.client_id || "?"} · accès « ${x.credential || "?"} »` : ""}</td>
+                <td className="muted" style={{ fontSize: 12 }}>{x.kind === "microsoft-graph" ? `${x.config?.tenant || "?"} · ${x.config?.client_id || "?"} · accès « ${x.credential || "?"} »` : x.kind === "microsoft-account" ? <>{x.config?.tenant || "organizations"} · {x.connected ? <Tone tone="green">connecté{x.connected_as && x.connected_as !== "code" ? ` (${x.connected_as})` : " (par code)"}{x.connected_at ? ` le ${when(x.connected_at)}` : ""}</Tone> : <Tone tone="orange">non connecté</Tone>}{x.credential ? ` · accès « ${x.credential} »` : ""}</> : ""}</td>
                 <td>{x.last_sync ? when(x.last_sync) : <span className="muted">jamais</span>}{x.last_error && <><br /><Tone tone="red">{x.last_error}</Tone></>}</td>
                 <td className="muted" style={{ fontSize: 12 }}>{(x.snapshot || []).map((s) => `${s.label} : ${s.consumed ?? "?"}/${s.quantity}`).join(" · ")}</td>
                 <td>{x.portal && <a href={x.portal} target="_blank" rel="noopener noreferrer" title="gestion des licences chez le vendeur (portail d'administration, connexion avec le compte administrateur du client)">gérer chez le vendeur ↗</a>}{" "}
-                  {x.kind === "microsoft-graph" && <button type="button" onClick={() => sync(x.name)} disabled={busy === x.name}>{busy === x.name ? "…" : "Synchroniser"}</button>}{" "}
+                  {x.kind === "microsoft-account" && <><button type="button" className="secondary" onClick={() => connect(x.name)}>Se connecter par code</button>{" "}{x.connected && <button type="button" className="secondary" onClick={async () => { await api.disconnectVendor(b, t, x.name); notice(`${x.name} déconnecté`); load(); }}>déconnecter</button>}{" "}</>}
+                  {(x.kind === "microsoft-graph" || x.kind === "microsoft-account") && <button type="button" onClick={() => sync(x.name)} disabled={busy === x.name}>{busy === x.name ? "…" : "Synchroniser"}</button>}{" "}
                   <button type="button" className="secondary" onClick={() => setV({ ...EMPTY_V, ...x, tenant: x.config?.tenant || "", client_id: x.config?.client_id || "", url: x.config?.url || "" })}>modifier</button>{" "}
                   <button type="button" className="secondary" onClick={async () => { const r = await api.deleteVendor(b, t, x.name); notice(r.error || "compte supprimé", !r.error); load(); }}>×</button></td>
               </tr>

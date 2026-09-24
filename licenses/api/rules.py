@@ -221,13 +221,57 @@ def import_comparatif(rows):
     return out, None
 
 
+CONTRACT_COLS = {"logiciel": "software", "editeur": "vendor", "site": "site", "libelle": "label", "type": "kind", "quantite": "quantity", "debut": "start", "fin": "end", "date fin": "end", "cout": "cost", "cout / an": "cost", "cout/an": "cost",
+                 "devise": "currency", "renouvellement": "renewal", "compte vendeur": "vendor_account", "sku": "sku", "reference": "reference", "notes": "notes", "personnes": "people", "utilisateurs": "people"}
+KIND_WORDS = {"utilisateur": "per-user", "user": "per-user", "poste": "per-device", "device": "per-device", "abonnement": "subscription", "subscription": "subscription", "mensuel": "subscription", "annuel": "subscription",
+              "perpetuel": "perpetual", "perpetuelle": "perpetual", "perpetual": "perpetual", "site": "site", "gratuit": "free", "libre": "free", "free": "free"}
+
+
+def kind_from_label(label):
+    l = fold(label)
+    for w, k in KIND_WORDS.items():
+        if w in l:
+            return k
+    return "per-user"
+
+
+def import_contracts(rows):
+    """#602 : tableau de CONTRATS (une ligne par contrat) : « Logiciel | Éditeur | Site |
+    Libellé | Type | Quantité | Début | Fin | Coût / an | Compte vendeur | SKU |
+    Référence | Notes | Personnes ». Type : utilisateur / poste / abonnement /
+    perpétuelle / site / gratuit (ou code). -> [{software, vendor, site, label,
+    kind, quantity, start, end, cost, currency, renewal, vendor_account, sku,
+    reference, notes, people}]."""
+    rows = [list(r) for r in rows or []]
+    hdr_i = next((i for i, r in enumerate(rows) if r and fold(r[0]).startswith("logiciel") and any(fold(c) in ("quantite", "type", "debut", "fin", "cout", "cout / an", "cout/an") for c in r[1:] if c)), None)
+    if hdr_i is None:
+        return [], "en-tête « Logiciel | … | Quantité | Début | Fin » introuvable"
+    cols = {}
+    for i, h in enumerate(rows[hdr_i]):
+        key = CONTRACT_COLS.get(fold(h).strip())
+        if key and key not in cols:
+            cols[key] = i
+    out = []
+    for r in rows[hdr_i + 1:]:
+        if not r or r[0] in (None, ""):
+            continue
+        g = lambda k: _cell(r, cols.get(k))  # noqa: E731
+        kind = g("kind")
+        rec = {"software": str(r[0]).strip(), "vendor": g("vendor"), "site": g("site"), "label": g("label"), "kind": kind if kind in KINDS else kind_from_label(kind or g("label")),
+               "quantity": int(float(g("quantity").replace(",", ".") or 0)) if g("quantity") else 0, "start": _date(g("start")), "end": _date(g("end")),
+               "cost": float(g("cost").replace(",", ".").replace(" ", "").replace("€", "")) if g("cost") else None, "currency": g("currency") or "EUR", "renewal": g("renewal"),
+               "vendor_account": g("vendor_account"), "sku": g("sku"), "reference": g("reference"), "notes": g("notes"), "people": _people_from_cell(g("people")) if "people" in cols else []}
+        out.append(rec)
+    return out, None
+
+
 def detect_format(rows):
     rows = [list(r) for r in rows or []]
     for r in rows[:5]:
         if any(fold(c) in ("licences", "licenses") or fold(c).startswith("nom complet") for c in r if c):
             return "m365"
         if r and fold(r[0]).startswith("logiciel"):
-            return "matrix"
+            return "contracts" if any(fold(c) in ("quantite", "debut", "fin", "cout", "cout / an", "cout/an") for c in r[1:] if c) else "matrix"
     return "comparatif"
 
 

@@ -12,7 +12,7 @@ export const GAP_LABEL = {
 export const USER_ALERT = { former: { icon: "🚫", tone: "red" }, missing: { icon: "⚠", tone: "orange" }, disabled: { icon: "⛔", tone: "orange" }, unknown: { icon: "ℹ", tone: "grey" } };
 export const SEVERITY_TONE = { critical: "red", warning: "orange", info: "grey" };
 export const ACTION_STATUS = { pending: "en attente", acked: "reçue par l'agent", done: "terminée", failed: "échec" };
-export const VENDOR_KIND_LABEL = { "microsoft-graph": "Microsoft 365 (Graph)", "csv-export": "export du vendeur (fichier)", manual: "saisie manuelle" };
+export const VENDOR_KIND_LABEL = { "microsoft-graph": "Microsoft 365 — application Entra (client + secret)", "microsoft-account": "Microsoft 365 — compte administrateur (code ou e-mail / mot de passe)", "csv-export": "export du vendeur (fichier)", manual: "saisie manuelle" };
 
 /** Lampe d'un contrat : rouge (expiré / dépassé), orange (expire bientôt), vert. */
 export function contractTone(c, expiringDays = 60) {

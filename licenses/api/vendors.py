@@ -14,13 +14,24 @@ secret ici. Un connecteur ne modifie jamais rien chez le vendeur.
 - manual : saisie dans la tuile.
 """
 import json
+import urllib.error
 import urllib.parse
 import urllib.request
 
-KINDS = ("microsoft-graph", "csv-export", "manual")
+KINDS = ("microsoft-graph", "microsoft-account", "csv-export", "manual")
+# #602 : « microsoft-account » = le compte d'un administrateur Microsoft 365 (pas
+# d'inscription d'application) : soit e-mail + mot de passe (accès du coffre,
+# flux ROPC -- refusé par Microsoft dès que l'authentification multifacteur est
+# exigée, ce qui est le cas des comptes administrateurs depuis 2025), soit
+# connexion PAR CODE (flux « device code » : le hub affiche un code, la
+# personne se connecte une fois avec MFA, le hub garde un jeton de
+# rafraîchissement). Client public Microsoft Graph PowerShell, pré-consenti
+# dans la plupart des tenants ; Organization.Read.All + User.Read.All délégués.
+PUBLIC_CLIENT_ID = "14d82eec-204b-4c2f-b7e8-296a70dab67e"
+DELEGATED_SCOPE = "https://graph.microsoft.com/Organization.Read.All https://graph.microsoft.com/User.Read.All offline_access"
 # #598 : portail de gestion des licences chez le vendeur (lien « gérer chez le vendeur »),
 # remplaçable par config.url sur le compte.
-PORTALS = {"microsoft-graph": "https://admin.microsoft.com/#/licenses", "csv-export": "", "manual": ""}
+PORTALS = {"microsoft-graph": "https://admin.microsoft.com/#/licenses", "microsoft-account": "https://admin.microsoft.com/#/licenses", "csv-export": "", "manual": ""}
 
 
 def portal_url(kind, config):
@@ -47,6 +58,72 @@ def graph_token(tenant, client_id, secret, http=None):
     if not tok.get("access_token"):
         raise RuntimeError("jeton Graph refusé : %s" % (tok.get("error_description") or tok.get("error") or "?")[:200])
     return tok["access_token"]
+
+
+def _token_call(tenant, form, http=None):
+    http = http or _http
+    body = urllib.parse.urlencode(form).encode()
+    try:
+        return http("https://login.microsoftonline.com/%s/oauth2/v2.0/token" % (tenant or "organizations"), {"Content-Type": "application/x-www-form-urlencoded"}, body)
+    except urllib.error.HTTPError as exc:  # les refus OAuth arrivent en 400 avec un corps JSON
+        try:
+            return json.loads(exc.read().decode("utf-8") or "{}")
+        except ValueError:
+            return {"error": "http_%s" % exc.code}
+
+
+ROPC_HINTS = {"AADSTS50076": "authentification multifacteur exigée : utiliser la connexion par code", "AADSTS50079": "MFA à enregistrer : utiliser la connexion par code",
+              "AADSTS50126": "e-mail ou mot de passe refusé", "AADSTS65001": "consentement requis : se connecter une fois par code", "AADSTS7000218": "flux mot de passe désactivé sur le tenant : utiliser la connexion par code",
+              "AADSTS50034": "compte inconnu dans ce tenant", "AADSTS50053": "compte verrouillé", "AADSTS50057": "compte désactivé"}
+
+
+def _explain(tok):
+    desc = str(tok.get("error_description") or tok.get("error") or "?")
+    for code, hint in ROPC_HINTS.items():
+        if code in desc:
+            return "%s (%s)" % (hint, code)
+    return desc[:200]
+
+
+def ropc_token(tenant, username, password, client_id=PUBLIC_CLIENT_ID, http=None):
+    """E-mail + mot de passe (flux ROPC). -> {access_token, refresh_token}. Échoue avec MFA."""
+    tok = _token_call(tenant, {"client_id": client_id, "scope": DELEGATED_SCOPE, "grant_type": "password", "username": username, "password": password}, http)
+    if not tok.get("access_token"):
+        raise RuntimeError("connexion Microsoft refusée : %s" % _explain(tok))
+    return tok
+
+
+def device_code_start(tenant, client_id=PUBLIC_CLIENT_ID, http=None):
+    """Connexion par code : -> {device_code, user_code, verification_uri, expires_in, interval, message}."""
+    http = http or _http
+    body = urllib.parse.urlencode({"client_id": client_id, "scope": DELEGATED_SCOPE}).encode()
+    r = http("https://login.microsoftonline.com/%s/oauth2/v2.0/devicecode" % (tenant or "organizations"), {"Content-Type": "application/x-www-form-urlencoded"}, body)
+    if not r.get("device_code"):
+        raise RuntimeError("code de connexion refusé : %s" % _explain(r))
+    return r
+
+
+def device_code_poll(tenant, device_code, client_id=PUBLIC_CLIENT_ID, http=None):
+    """-> ("pending", None) | ("ok", tokens) | ("error", message)."""
+    tok = _token_call(tenant, {"client_id": client_id, "grant_type": "urn:ietf:params:oauth:grant-type:device_code", "device_code": device_code}, http)
+    if tok.get("access_token"):
+        return "ok", tok
+    if tok.get("error") in ("authorization_pending", "slow_down"):
+        return "pending", None
+    return "error", _explain(tok)
+
+
+def refresh_token(tenant, refresh, client_id=PUBLIC_CLIENT_ID, http=None):
+    tok = _token_call(tenant, {"client_id": client_id, "scope": DELEGATED_SCOPE, "grant_type": "refresh_token", "refresh_token": refresh}, http)
+    if not tok.get("access_token"):
+        raise RuntimeError("session Microsoft expirée, se reconnecter par code : %s" % _explain(tok))
+    return tok
+
+
+def sync_with_token(token, http=None):
+    skus = graph_pages(GRAPH + "/subscribedSkus", token, http)
+    users = graph_pages(GRAPH + "/users?$select=userPrincipalName,mail,displayName,assignedLicenses,accountEnabled&$top=999", token, http)
+    return normalize_skus(skus, users)
 
 
 def graph_pages(url, token, http=None):

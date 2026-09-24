@@ -172,6 +172,26 @@ class Import(Base):
         self.assertEqual([(u["login"], u["site"], u["source"]) for u in self.c.get("/users").get_json()["users"]], [("alice", "site-alpha", "import"), ("bob", "site-alpha", "import"), ("carol", "site-alpha", "import")])
         self.assertEqual(self.c.post("/import", headers=self.adm, data={"site": "s"}, content_type="multipart/form-data").status_code, 400)
 
+    def test_contracts_format(self):  # #602
+        rows = [["Logiciel", "Éditeur", "Site", "Libellé", "Type", "Quantité", "Début", "Fin", "Coût / an", "Compte vendeur", "SKU", "Référence", "Notes", "Personnes"],
+                ["Microsoft 365 Business Standard", "Microsoft", "site-alpha", "annuel 2025-2026", "abonnement", "7", "15/11/2025", "14/11/2026", "982,80", "m365", "O365_BUSINESS_PREMIUM", "G124702568", "carte", ""],
+                ["Microsoft 365 Apps for business", "Microsoft", "site-alpha", "mensuel", "abonnement", "14", "09/02/2026", "16/05/2026", "", "", "", "", "résilié", "alice; bob"]]
+        r = self.c.post("/import", headers=self.adm, data={"file": self._csv(rows), "site": "", "dry_run": "1"}, content_type="multipart/form-data")
+        self.assertEqual((r.status_code, r.get_json()["format"]), (200, "contracts"), r.get_json())
+        self.assertEqual(r.get_json()["plan"][0]["quantity"], 7)
+        r = self.c.post("/import", headers=self.adm, data={"file": self._csv(rows), "site": ""}, content_type="multipart/form-data")
+        self.assertEqual(r.get_json()["created"], {"software": 2, "contracts": 2, "assignments": 2, "users": 2})
+        cts = {c["label"]: c for c in self.c.get("/contracts").get_json()["contracts"]}
+        bs = cts["annuel 2025-2026"]
+        self.assertEqual((bs["quantity"], bs["start"], bs["end"], bs["cost"], bs["sku"], bs["reference"], bs["site"], bs["kind"]), (7, "2025-11-15", "2026-11-14", 982.8, "O365_BUSINESS_PREMIUM", "G124702568", "site-alpha", "subscription"))
+        self.assertEqual(cts["mensuel"]["assigned"], 2)
+        # ré-import avec une quantité changée : mise à jour, pas de doublon
+        rows[1][5] = "8"
+        r = self.c.post("/import", headers=self.adm, data={"file": self._csv(rows), "site": ""}, content_type="multipart/form-data")
+        self.assertEqual((r.get_json()["created"]["contracts"], r.get_json()["created"]["updated"]), (0, 2))
+        self.assertEqual(len(self.c.get("/contracts").get_json()["contracts"]), 2)
+        self.assertEqual({c["label"]: c for c in self.c.get("/contracts").get_json()["contracts"]}["annuel 2025-2026"]["quantity"], 8)
+
     def test_m365_export(self):
         rows = [["Nom complet", "Nom d'utilisateur", "Licences"], ["Alice A", "alice@exemple.test", "Microsoft 365 Business Standard+Exchange Online (Plan 1)"], ["Bob B", "bob@exemple.test", "Microsoft 365 Business Standard"]]
         r = self.c.post("/import", headers=self.adm, data={"file": self._csv(rows), "site": "site-alpha"}, content_type="multipart/form-data")
@@ -306,6 +326,31 @@ class Vendors(Base):
             self.assertEqual((r.get_json()["updated"], r.get_json()["created_contracts"]), (1, 0))
         ct = self.c.get("/contracts").get_json()["contracts"][0]
         self.assertEqual((ct["quantity"], ct["assigned"], ct["sku"], ct["vendor_account"]), (12, 1, "SKU1", "m365-alpha"))
+        # #602 : compte administrateur -- connexion par code puis synchronisation avec le jeton mémorisé (jamais renvoyé)
+        self.assertEqual(self.c.post("/vendors", headers=self.adm, json={"name": "m365-admin", "kind": "microsoft-account", "site": "site-alpha"}).status_code, 200)
+        self.assertEqual(self.c.post("/vendors/m365-alpha/connect", headers=self.adm).status_code, 404)
+        self.assertEqual(self.c.post("/vendors/m365-admin/sync", headers=self.adm).status_code, 502)  # non connecté, sans accès
+        with mock.patch.object(appmod.vendors, "device_code_start", lambda tenant, **k: {"device_code": "D", "user_code": "ABCD-EFGH", "verification_uri": "https://microsoft.com/devicelogin", "expires_in": 900, "interval": 5}):
+            r = self.c.post("/vendors/m365-admin/connect", headers=self.adm)
+            self.assertEqual((r.status_code, r.get_json()["user_code"]), (200, "ABCD-EFGH"))
+        with mock.patch.object(appmod.vendors, "device_code_poll", lambda tenant, code, **k: ("pending", None)):
+            self.assertEqual(self.c.post("/vendors/m365-admin/connect/status", headers=self.adm).get_json()["status"], "pending")
+        with mock.patch.object(appmod.vendors, "device_code_poll", lambda tenant, code, **k: ("ok", {"access_token": "A", "refresh_token": "R"})):
+            self.assertEqual(self.c.post("/vendors/m365-admin/connect/status", headers=self.adm).get_json()["status"], "ok")
+        vs = {v["name"]: v for v in self.c.get("/vendors").get_json()["vendors"]}
+        self.assertTrue(vs["m365-admin"]["connected"])
+        self.assertNotIn("R", json.dumps(vs))
+        with mock.patch.object(appmod.vendors, "refresh_token", lambda tenant, r, **k: {"access_token": "A2", "refresh_token": "R2"}), mock.patch.object(appmod.vendors, "sync_with_token", lambda token, http=None: [{"sku": "SKU9", "label": "Power BI Pro", "quantity": 1, "consumed": 1, "users": ["alice@exemple.test"]}]):
+            r = self.c.post("/vendors/m365-admin/sync", headers=self.adm)
+            self.assertEqual((r.status_code, r.get_json()["created_contracts"]), (200, 1), r.get_json())
+        self.assertEqual(self.c.post("/vendors/m365-admin/disconnect", headers=self.adm).status_code, 200)
+        self.assertFalse({v["name"]: v for v in self.c.get("/vendors").get_json()["vendors"]}["m365-admin"]["connected"])
+        # e-mail + mot de passe par le coffre (ROPC) : mémorise le jeton de rafraîchissement
+        self.c.post("/vendors", headers=self.adm, json={"name": "m365-admin", "kind": "microsoft-account", "site": "site-alpha", "credential": "exemple-admin-m365"})
+        appmod.app.reveal = lambda name: ("admin@exemple.test", "pw", None)
+        with mock.patch.object(appmod.vendors, "ropc_token", lambda tenant, u, p, **k: {"access_token": "A", "refresh_token": "R"}), mock.patch.object(appmod.vendors, "sync_with_token", lambda token, http=None: []):
+            self.assertEqual(self.c.post("/vendors/m365-admin/sync", headers=self.adm).status_code, 200)
+        self.assertEqual({v["name"]: v for v in self.c.get("/vendors").get_json()["vendors"]}["m365-admin"]["connected_as"], "admin@exemple.test")
         self.assertEqual(self.c.post("/vendors", headers=self.adm, json={"name": "csv1", "kind": "csv-export"}).status_code, 200)
         self.assertEqual(self.c.post("/vendors/csv1/sync", headers=self.adm).status_code, 400)
         self.assertEqual(self.c.delete("/vendors/csv1", headers=self.adm).status_code, 200)

@@ -1,3 +1,32 @@
+## 2026-09-24 — Licences : import « contrats » (une ligne par contrat) et compte administrateur Microsoft 365 (connexion par code ou e-mail / mot de passe) (livraison #602)
+
+Demandé : « préparer un import pour le hub » (les trois contrats Microsoft
+analysés depuis les factures) et « un module permettant avec un paramétrage
+e-mail / mot de passe de récupérer depuis la gestion Microsoft en ligne ».
+
+- `rules.import_contracts` + `detect_format` → `contracts` : « Logiciel |
+  Éditeur | Site | Libellé | Type | Quantité | Début | Fin | Coût / an |
+  Compte vendeur | SKU | Référence | Notes | Personnes » ; type en mot ;
+  ré-import = mise à jour (`created.updated`). Fichier d'import fourni à
+  part (données client, hors dépôt).
+- `vendors.py` : type `microsoft-account` — `ropc_token` (e-mail + mot de
+  passe, accès du coffre), `device_code_start` / `device_code_poll` /
+  `refresh_token` (connexion par code, compatible MFA), `sync_with_token`,
+  messages traduits des refus Microsoft (MFA exigée, flux désactivé…).
+- licenses-api : `/vendors/<n>/connect`, `/connect/status`, `/disconnect` ;
+  `account_token` (jeton de rafraîchissement en base hors dépôt, jamais
+  renvoyé) ; `sync` pour ce type ; `connected` / `connected_as` dans
+  `GET /vendors`.
+- Hub : type « compte administrateur » dans le formulaire (tenant, accès du
+  coffre facultatif), bouton « Se connecter par code » avec le code et le
+  lien, suivi automatique, « déconnecter » ; import : format contrats dans
+  la liste et dans l'analyse.
+- Tests : licenses-api 23, hub 267.
+
+Limite : l'e-mail / mot de passe est refusé par Microsoft pour un compte
+administrateur soumis à la MFA (cas général depuis 2025) — la connexion par
+code est la voie normale ; les factures ne sont pas accessibles par l'API.
+
 ## 2026-09-24 — Hub : correctif du menu métier (hooks après un retour anticipé → « Rendered more hooks ») (livraison #601)
 
 Constat réel (console Firefox) : `Rendered more hooks than during the

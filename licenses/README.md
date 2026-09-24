@@ -112,6 +112,31 @@ Texte complet : `POST /users/<login>/fiche` (administrateur, journalisé
 `fiche-read`, jamais conservé). Relecture automatique dans le fil
 d'analyse croisée (`interval`, 6 h par défaut).
 
+### Compte administrateur Microsoft 365 (#602)
+
+Type de compte vendeur `microsoft-account` : pas d'inscription d'application.
+Deux façons de s'authentifier, toutes deux avec le client public « Microsoft
+Graph PowerShell » (`vendors.PUBLIC_CLIENT_ID`, pré-consenti dans la plupart
+des tenants, permissions déléguées `Organization.Read.All` +
+`User.Read.All`) :
+
+- **connexion par code** (recommandée, compatible MFA) : `POST
+  /vendors/<n>/connect` renvoie un code ; la personne l'entre sur
+  microsoft.com/devicelogin avec le compte administrateur ; le hub
+  interroge `/connect/status` puis mémorise le **jeton de rafraîchissement**
+  dans `settings` (base hors dépôt, jamais renvoyé par l'API ;
+  `/disconnect` l'efface) ;
+- **e-mail + mot de passe** : accès du coffre (utilisateur = e-mail) → flux
+  ROPC. Microsoft le refuse dès que l'authentification multifacteur est
+  exigée (AADSTS50076 — obligatoire pour les comptes administrateurs depuis
+  2025) ou si le tenant a désactivé ce flux : le message renvoie alors vers
+  la connexion par code.
+
+Synchronisation : mêmes données que l'application Entra (SKU, quantités,
+utilisateurs). Les **factures** ne sont pas exposées par l'API Microsoft :
+elles restent sur le portail (lien « gérer chez le vendeur ») et s'importent
+par le format « contrats ».
+
 ### Chez le vendeur (#598)
 
 Chaque compte vendeur porte un lien **« gérer chez le vendeur ↗ »** vers le
@@ -124,7 +149,11 @@ sur le portail avec le compte administrateur du client.
 
 ## Import des tableurs (`POST /import`, multipart `file`, `site`, `dry_run`)
 
-Formats détectés : **matrice** (en-tête « Logiciel | Éditeur | Licence |
+Formats détectés : **contrats** (#602 : « Logiciel | Éditeur | Site | Libellé |
+Type | Quantité | Début | Fin | Coût / an | Compte vendeur | SKU | Référence |
+Notes | Personnes », une ligne par contrat, type en mot (utilisateur, poste,
+abonnement, perpétuelle, site, gratuit) ; ré-import = mise à jour du contrat
+de même logiciel + site + libellé ou référence), **matrice** (en-tête « Logiciel | Éditeur | Licence |
 Date Fin | personne… » ; les noms des personnes sur la ligne d'en-tête ou
 la ligne du dessus (en-têtes fusionnés) ; **toute marque non vide** compte —
 croix, « n », « oui », 1, date — sauf « non / 0 / - » ; une colonne
