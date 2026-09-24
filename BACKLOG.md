@@ -3305,3 +3305,30 @@ Pistes : service `notify-api` (SQLite, worker d'envoi, SMTP unique
 affectations, file, journal, test d'envoi), déclaration des actions par
 chaque module au démarrage (`POST /actions/register`) → groupe par défaut
 créé, gabarits de courriel, canaux futurs (SMS via TRB140, webhook).
+
+## Décisions typées locales (2026-09-24) — item 93 (étude, rattaché aux items 81/83)
+
+Analyse du modèle « Jev » (TypeSafe AI, « System One Model » : choix parmi
+des options, note sur échelle, oui/non calibré, 70-500 ms, API SaaS à poids
+fermés) : le *pattern* est exactement celui des décisions du hub (classer un
+ticket, router, noter une urgence, décider de notifier, prioriser les
+propositions, évaluer une hypothèse Cortex), mais l'usage direct enverrait
+des données du SI et des clients à un tiers — exclu. À faire localement :
+sorties contraintes par schéma JSON avec Ollama, score par option (log-
+probabilités) → confiance, seuil en dessous duquel la décision part en file
+« à valider » ; brancher sur notifications (gravité) et tour (priorité des
+rouges). Piste ouverte : modèle « Laya » (libre, scores annoncés inférieurs) ;
+autre piste évoquée : modèles très légers embarqués (robotique) pour les
+sondes / agents.
+
+## Menu du hub en graphe métier déployé (2026-09-24) — item 94 (analyse : docs/menu-graphe-metier.md)
+
+Demandé : « un arbre qui prenne la logique métier et les dépendances ; une
+tuile peut être à plusieurs endroits : un graphe déployé ». Cinq racines
+(équipements par type, services, droits, supervision / états, Cortex / IA),
+nœuds outils / objets métier / états, arêtes typées (dépend-de, supervise,
+configure, sécurise, alimente, explique, déclenche) calculées depuis le
+compose, les registres, les agents, Cortex, les notifications et les
+droits. Étapes : catalogue typé + racines métier (petite livraison), arêtes
+calculées + menu déployé avec lampes, pages pivot des objets métier,
+décisions typées pour proposer la racine et l'action.
