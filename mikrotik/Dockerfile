@@ -16,6 +16,7 @@ COPY mikrotik/static/ ./static/
 COPY mikrotik/routers.json ./routers.json
 COPY shared/version_endpoint.py .
 COPY shared/notify_client.py .
+COPY shared/registry_edit.py .
 COPY shared/VERSION.json .
 
 EXPOSE 5000

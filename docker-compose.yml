@@ -2520,7 +2520,7 @@ services:
       - CISCO_BACKUP_INTERVAL_HOURS=${CISCO_BACKUP_INTERVAL_HOURS:-24}
       - CISCO_KEEP_CONFIGS=${CISCO_KEEP_CONFIGS:-60}
     volumes:
-      - ./cisco:/app/registry:ro   # #585 : dossier (switches.json + switches.local.json), relu à chaque appel
+      - ./cisco:/app/registry      # #585 dossier (switches.json + switches.local.json), relu à chaque appel ; #592 : en écriture, la tuile ajoute des équipements
       # Configurations archivées + journal des gestes : À SAUVEGARDER.
       - ${CISCO_DATA_DIR:-./cisco/data}:/data
     depends_on:
@@ -2548,7 +2548,7 @@ services:
       - credentials-api
     volumes:
       # Registre éditable sans rebuild — jamais d'identifiant dedans.
-      - ./mikrotik:/app/registry:ro   # #585 : dossier (routers.json + routers.local.json)
+      - ./mikrotik:/app/registry      # #585 dossier (routers.json + routers.local.json) ; #592 : en écriture, la tuile ajoute des routeurs
 
   imap-connectors:
     # Livraison #489 — gestionnaire de connecteurs IMAP : boîtes de

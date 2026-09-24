@@ -12,6 +12,7 @@ COPY cisco/static/ ./static/
 COPY cisco/switches.json ./switches.json
 COPY shared/version_endpoint.py .
 COPY shared/notify_client.py .
+COPY shared/registry_edit.py .
 COPY shared/VERSION.json .
 RUN mkdir -p /data
 EXPOSE 5000

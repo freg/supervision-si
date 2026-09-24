@@ -66,6 +66,19 @@ class Api(unittest.TestCase):
         self.assertEqual(self.c.delete("/mikrotik/routers/rb/nat/*A", json={"confirm": "REMOVE"}).status_code, 200)
         self.assertEqual(self.c.delete("/mikrotik/routers/rb/nat/1;reboot", json={"confirm": "REMOVE"}).status_code, 400)
 
+    def test_registry_edit(self):
+        """#592 : ajout depuis la tuile -> routers.local.json, puis visible dans le registre."""
+        r = self.c.post("/mikrotik/routers", json={"name": "rb2", "host": "192.0.2.254", "transport": "SSH", "credential": "bureau", "site": "bureau"})
+        self.assertEqual(r.status_code, 200, r.get_json())
+        self.assertEqual(r.get_json()["action"], "added")
+        names = {x["name"]: x for x in appmod.load_registry()[0]}
+        self.assertEqual((names["rb2"]["transport"], names["rb2"]["port"]), ("ssh", 22))
+        self.assertIn("rb", names)  # les entrées existantes (non « exemple ») sont conservées
+        self.assertEqual(self.c.post("/mikrotik/routers", json={"name": "rb2", "host": "x y", "credential": ""}).status_code, 400)
+        self.assertEqual(self.c.delete("/mikrotik/routers/rb2").status_code, 200)
+        self.assertNotIn("rb2", {x["name"] for x in appmod.load_registry()[0]})
+        self.assertEqual(self.c.get("/mikrotik/credentials").status_code, 200)
+
     def test_command(self):
         r = self.c.post("/mikrotik/routers/rb/command", json={"command": "/ip address print"}).get_json()
         self.assertEqual(len(r["output"]), 3)

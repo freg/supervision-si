@@ -408,6 +408,31 @@ class TelnetTests(unittest.TestCase):
         self.assertIn("refusée", str(cm.exception))
         srv.close()
 
+    def test_registry_edit_from_tile(self):
+        """#592 : ajout / modification / suppression depuis la tuile -> switches.local.json (l'exemple n'est jamais réécrit)."""
+        import json, tempfile, os
+        import app as appmod
+        d = tempfile.mkdtemp()
+        old = (appmod.REGISTRY, appmod.REGISTRY_LOCAL)
+        appmod.REGISTRY, appmod.REGISTRY_LOCAL = os.path.join(d, "switches.json"), os.path.join(d, "switches.local.json")
+        json.dump({"switches": [{"name": "exemple-c3750", "host": "192.0.2.10", "credential": "cisco"}]}, open(appmod.REGISTRY, "w"))
+        c = appmod.app.test_client()
+        try:
+            r = c.post("/cisco/switches", json={"name": "routeur-bureau", "host": "192.0.2.249", "transport": "telnet", "credential": "rb", "enable_credential": "rb-en", "platform": "IOS"})
+            self.assertEqual(r.status_code, 200, r.get_json())
+            self.assertEqual(r.get_json()["action"], "added")
+            local = json.load(open(appmod.REGISTRY_LOCAL))["switches"]
+            self.assertEqual([x["name"] for x in local], ["routeur-bureau"])  # l'exemple ne migre pas
+            self.assertEqual((local[0]["transport"], local[0]["enable_credential"]), ("telnet", "rb-en"))
+            self.assertEqual(json.load(open(appmod.REGISTRY))["switches"][0]["name"], "exemple-c3750")  # intact
+            self.assertEqual(c.post("/cisco/switches", json={"name": "routeur-bureau", "host": "192.0.2.250", "credential": "rb"}).get_json()["action"], "updated")
+            self.assertEqual([s["host"] for s in appmod.load_registry()], ["192.0.2.250"])
+            self.assertEqual(c.post("/cisco/switches", json={"name": "a b", "host": "", "platform": "junos"}).status_code, 400)
+            self.assertEqual(c.delete("/cisco/switches/routeur-bureau").status_code, 200)
+            self.assertEqual(c.delete("/cisco/switches/routeur-bureau").status_code, 404)
+        finally:
+            appmod.REGISTRY, appmod.REGISTRY_LOCAL = old
+
     def test_registry_transport(self):
         import json, tempfile, os, importlib
         import app as appmod

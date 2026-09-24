@@ -48,6 +48,12 @@ except ImportError:  # tests hors conteneur
     def _register_actions(*a, **k):
         return None
 from ssh_client import RouterOSSsh, read_only_command  # #587 : transport SSH, transparent pour le routeur
+try:
+    import registry_edit  # #592 (shared/, copié par le Dockerfile)
+except ImportError:  # tests hors conteneur : shared/ du dépôt
+    import sys as _sys
+    _sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "shared"))
+    import registry_edit
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 log = logging.getLogger("mikrotik")
@@ -191,7 +197,8 @@ def list_routers():
     routers, registry_error = load_registry()
     out = []
     for router in routers:
-        entry = {"name": router["name"], "host": router["host"], "port": router["port"]}
+        entry = {"name": router["name"], "host": router["host"], "port": router["port"], "transport": router["transport"],
+                 "credential": router["credential"], "site": router.get("site"), "description": router.get("description")}
         client, error = client_for(router)
         if error:
             entry.update(reachable=False, error=error)
@@ -432,6 +439,50 @@ def command(name):
         return jsonify({"command": cmd, "output": out.replace("\r", "").rstrip("\n").split("\n")}), 200
     except RouterOSError as exc:
         return jsonify({"error": str(exc)}), 502
+
+
+# ------------------------------------------------ registre depuis la tuile (#592)
+@app.route("/mikrotik/credentials", methods=["GET"])
+def credential_names():
+    """Noms des accès du coffre (jamais de secret) pour le formulaire."""
+    if not CREDENTIALS_TOKEN:
+        return jsonify({"credentials": [], "error": "coffre non configuré"}), 200
+    try:
+        resp = requests.get(f"{CREDENTIALS_API_URL}/credentials/list", timeout=5)
+        items = resp.json().get("credentials", []) if resp.status_code == 200 else []
+    except (requests.RequestException, ValueError):
+        items = []
+    return jsonify({"credentials": [{"name": c.get("name"), "kind": c.get("kind"), "username": c.get("username")} for c in items if c.get("name")]}), 200
+
+
+@app.route("/mikrotik/routers", methods=["POST"])
+def router_save():
+    entry, errors = registry_edit.validate_common(request.get_json(silent=True) or {}, ("rest", "ssh"), {"rest": 443, "ssh": 22})
+    if errors:
+        return jsonify({"error": "entrée refusée", "errors": errors}), 400
+    items, _ = registry_edit.read_items(REGISTRY_LOCAL, REGISTRY_PATH, "routers")
+    items = [i for i in items if not str(i.get("name", "")).startswith("exemple")]  # les exemples du dépôt ne migrent pas dans le registre réel
+    items, what = registry_edit.upsert(items, entry)
+    try:
+        registry_edit.write_items(REGISTRY_LOCAL, "routers", items)
+    except PermissionError as exc:
+        return jsonify({"error": str(exc)}), 500
+    log.warning("registre : routeur %s %s (%s, %s)", entry["name"], "modifié" if what == "updated" else "ajouté", entry["host"], entry["transport"])
+    return jsonify({"status": "ok", "action": what, "router": entry, "path": REGISTRY_LOCAL}), 200
+
+
+@app.route("/mikrotik/routers/<name>", methods=["DELETE"])
+def router_delete(name):
+    items, _ = registry_edit.read_items(REGISTRY_LOCAL, REGISTRY_PATH, "routers")
+    items, ok = registry_edit.remove(items, name)
+    if not ok:
+        return jsonify({"error": "routeur inconnu"}), 404
+    try:
+        registry_edit.write_items(REGISTRY_LOCAL, "routers", items)
+    except PermissionError as exc:
+        return jsonify({"error": str(exc)}), 500
+    log.warning("registre : routeur %s retiré", name)
+    return jsonify({"status": "ok"}), 200
 
 
 READ_COMMANDS = [

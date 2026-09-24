@@ -38,7 +38,23 @@ du hub reproduites en clair/sombre. -->
 <header><a href="/">◀ Hub</a><h1>Équipements Cisco</h1><span class="muted" id="health"></span></header>
 <main>
   <aside>
-    <div class="panel"><div id="list" class="muted">Chargement…</div></div>
+    <div class="panel"><div id="list" class="muted">Chargement…</div>
+      <details id="regForm" style="margin-top:8px" ontoggle="if(this.open)loadCredentialNames()"><summary>➕ Ajouter / modifier un équipement</summary>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
+          <input id="f_name" placeholder="nom (ex. routeur-bureau)">
+          <input id="f_host" placeholder="adresse IP ou nom DNS">
+          <select id="f_platform"><option value="ios">IOS (Catalyst, routeurs)</option><option value="nxos">NX-OS (Nexus)</option></select>
+          <select id="f_transport"><option value="ssh">SSH</option><option value="telnet">telnet (IOS ancien sans SSH, patte interne)</option></select>
+          <input id="f_port" placeholder="port (vide = 22 SSH / 23 telnet)">
+          <select id="f_credential"><option value="">— accès du coffre —</option></select>
+          <select id="f_enable"><option value="">— accès enable (si secret différent) —</option></select>
+          <input id="f_site" placeholder="site (option)"><input id="f_desc" placeholder="description (option)">
+          <button onclick="saveSwitch()">Enregistrer dans le registre</button>
+          <div id="regMsg"></div>
+          <div class="muted" style="font-size:12px">Adresse, transport et plateforme vivent ici (<code>cisco/switches.local.json</code>) ; le coffre ne garde que identifiant + mot de passe, référencés par leur nom. Pas besoin de redémarrer.</div>
+        </div>
+      </details>
+    </div>
     <div class="panel muted" style="font-size:12px">Identifiants dans <a href="../credentials/" target="_top">le coffre des accès</a> (genre ssh, aussi pour telnet) ; registre modifiable dans le hub : <a href="/?view=control&tab=configs&config=cisco" target="_top">Tour de contrôle → Configurations → Équipements Cisco</a> (ajout, import JSON ; <code>transport telnet</code> pour un IOS sans SSH). Chaque geste demande le nom du switch et est journalisé.</div>
   </aside>
   <section>
@@ -87,7 +103,42 @@ async function loadList() {
     const b = await call("/switches");
     $("list").innerHTML = b.switches.map((s) => `<button class="sw${s.name === current ? " active" : ""}" data-name="${esc(s.name)}"><strong>${esc(s.name)}</strong> <span class="${s.reachable === false ? "bad" : s.reachable ? "ok" : "muted"}">${s.reachable === false ? "injoignable" : s.reachable ? "joignable" : "—"}</span>${s.alerts ? ` <span class="warn">${s.alerts} alerte(s)</span>` : ""}<small>${esc(s.host)} · ${esc(s.platform)}${s.site ? " · " + esc(s.site) : ""} · ${s.configs} sauvegarde(s)${s.last_backup ? " · dernière " + esc(s.last_backup) : ""}</small></button>`).join("") || "<span class='muted'>Aucun switch dans le registre.</span>";
     document.querySelectorAll(".sw").forEach((el) => el.onclick = () => select(el.dataset.name));
+    window._switches = b.switches;
+    $("list").insertAdjacentHTML("beforeend", b.switches.map((s) => `<div class="muted" style="font-size:12px;margin:-4px 0 6px 8px"><a href="#" onclick="editSwitch('${esc(s.name)}');return false">modifier ${esc(s.name)}</a> · <a href="#" onclick="deleteSwitch('${esc(s.name)}');return false">retirer</a></div>`).join(""));
   } catch (e) { msg(e.message, true); }
+}
+// ---- #592 : registre depuis la tuile (switches.local.json)
+async function loadCredentialNames() {
+  try {
+    const b = await call("/credentials");
+    for (const id of ["f_credential", "f_enable"]) {
+      const sel = $(id), cur = sel.value, first = sel.options[0].outerHTML;
+      sel.innerHTML = first + (b.credentials || []).map((c) => `<option value="${esc(c.name)}">${esc(c.name)} (${esc(c.kind)}${c.username ? ", " + esc(c.username) : ""})</option>`).join("");
+      if (cur) sel.value = cur;
+    }
+  } catch (e) { /* facultatif */ }
+}
+function editSwitch(name) {
+  const s = (window._switches || []).find((x) => x.name === name); if (!s) return;
+  $("f_name").value = s.name; $("f_host").value = s.host; $("f_platform").value = s.platform || "ios"; $("f_transport").value = s.transport || "ssh";
+  $("f_port").value = s.port && s.port !== 22 && s.port !== 23 ? s.port : ""; $("f_site").value = s.site || ""; $("f_desc").value = s.description || "";
+  loadCredentialNames().then(() => { $("f_credential").value = s.credential || ""; $("f_enable").value = s.enable_credential || ""; });
+  $("regForm").open = true; $("f_name").focus();
+}
+async function saveSwitch() {
+  const v = (id) => $(id).value.trim();
+  const body = { name: v("f_name"), host: v("f_host"), platform: v("f_platform"), transport: v("f_transport"), port: v("f_port"), credential: v("f_credential"), enable_credential: v("f_enable"), site: v("f_site"), description: v("f_desc") };
+  const m = $("regMsg");
+  try {
+    const r = await fetch(api + "/switches", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const b = await r.json();
+    if (!r.ok) { m.className = "bad"; m.textContent = (b.errors || [b.error]).join(" ; "); return; }
+    m.className = "ok"; m.textContent = `${body.name} ${b.action === "updated" ? "modifié" : "ajouté"}.`; loadList();
+  } catch (e) { m.className = "bad"; m.textContent = e.message; }
+}
+async function deleteSwitch(name) {
+  if (!confirm(`Retirer « ${name} » du registre ? (accès du coffre et sauvegardes conservés)`)) return;
+  try { await call("/switches/" + encodeURIComponent(name), { method: "DELETE" }); msg(`${name} retiré du registre.`); loadList(); } catch (e) { msg(e.message, true); }
 }
 async function select(name) {
   current = name; currentCfg = null; plan = null; $("empty").style.display = "none"; $("detail").style.display = "";

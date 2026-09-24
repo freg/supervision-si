@@ -45,6 +45,12 @@ import requests
 from flask import Flask, jsonify, request, send_from_directory
 
 import parsers
+try:
+    import registry_edit  # #592 (shared/, copié par le Dockerfile)
+except ImportError:  # tests hors conteneur : shared/ du dépôt
+    import sys as _sys
+    _sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "shared"))
+    import registry_edit
 from ssh_client import CiscoError, CiscoSession
 try:
     from notify_client import notify as _notify, register_actions as _register_actions  # #590 (shared/, copié par le Dockerfile)
@@ -324,6 +330,62 @@ def collect_summary(sw):
     summary["at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     _state_cache[sw["name"]] = {"at": summary["at"], "reachable": True, "alerts": len(al)}
     return summary
+
+
+@app.route("/cisco/credentials", methods=["GET"])
+def credential_names():
+    """#592 : noms des accès du coffre (jamais de secret) pour le formulaire."""
+    if not (CREDENTIALS_API_URL and CREDENTIALS_TOKEN):
+        return jsonify({"credentials": [], "error": "coffre non configuré"}), 200
+    try:
+        resp = requests.get("%s/credentials/list" % CREDENTIALS_API_URL, timeout=5)
+        items = resp.json().get("credentials", []) if resp.status_code == 200 else []
+    except (requests.RequestException, ValueError):
+        items = []
+    return jsonify({"credentials": [{"name": c.get("name"), "kind": c.get("kind"), "username": c.get("username")} for c in items if c.get("name")]}), 200
+
+
+@app.route("/cisco/switches", methods=["POST"])
+def switch_save():
+    """#592 : ajout / modification d'un équipement depuis la tuile -> switches.local.json."""
+    body = request.get_json(silent=True) or {}
+    entry, errors = registry_edit.validate_common(body, ("ssh", "telnet"), {"ssh": 22, "telnet": 23})
+    platform = str(body.get("platform") or "ios").lower()
+    if platform not in ("ios", "nxos"):
+        errors.append("platform : ios ou nxos")
+    else:
+        entry["platform"] = platform
+    en = str(body.get("enable_credential") or "").strip()
+    if en:
+        if not registry_edit.NAME_RE.match(en):
+            errors.append("accès enable invalide")
+        else:
+            entry["enable_credential"] = en
+    if errors:
+        return jsonify({"error": "entrée refusée", "errors": errors}), 400
+    items, _ = registry_edit.read_items(REGISTRY_LOCAL, REGISTRY, "switches")
+    items = [i for i in items if not str(i.get("name", "")).startswith("exemple")]
+    items, what = registry_edit.upsert(items, entry)
+    try:
+        registry_edit.write_items(REGISTRY_LOCAL, "switches", items)
+    except PermissionError as exc:
+        return jsonify({"error": str(exc)}), 500
+    log.warning("registre : équipement %s %s (%s, %s)", entry["name"], "modifié" if what == "updated" else "ajouté", entry["host"], entry["transport"])
+    return jsonify({"status": "ok", "action": what, "switch": entry, "path": REGISTRY_LOCAL}), 200
+
+
+@app.route("/cisco/switches/<name>", methods=["DELETE"])
+def switch_delete(name):
+    items, _ = registry_edit.read_items(REGISTRY_LOCAL, REGISTRY, "switches")
+    items, ok = registry_edit.remove(items, name)
+    if not ok:
+        return jsonify({"error": "équipement inconnu"}), 404
+    try:
+        registry_edit.write_items(REGISTRY_LOCAL, "switches", items)
+    except PermissionError as exc:
+        return jsonify({"error": str(exc)}), 500
+    log.warning("registre : équipement %s retiré", name)
+    return jsonify({"status": "ok"}), 200
 
 
 @app.route("/cisco/switches/<name>/summary", methods=["GET"])

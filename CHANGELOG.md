@@ -1,3 +1,27 @@
+## 2026-09-24 — Registres Cisco / MikroTik saisis directement dans leurs tuiles (adresse IP, transport, accès du coffre) (livraison #592)
+
+Constat réel : « où met-on l'adresse IP ? pourquoi la tuile ne voit pas
+l'accès « bureau » du coffre ? » — le coffre ne porte que identifiant + mot
+de passe ; l'adresse, le transport et le port sont dans le registre du
+module, jusqu'ici éditable seulement dans la tour de contrôle ou le fichier.
+
+- `shared/registry_edit.py` (commun) : lecture (local puis exemple),
+  validation (nom, hôte, transport, port, accès, site, description), ajout /
+  mise à jour par nom, retrait, écriture atomique de `*.local.json` avec le
+  propriétaire du dossier ; les entrées `exemple-*` du dépôt ne migrent pas.
+- mikrotik-api : `POST /mikrotik/routers`, `DELETE /mikrotik/routers/<n>`,
+  `GET /mikrotik/credentials` (noms des accès du coffre, sans secret) ;
+  `/mikrotik/routers` renvoie transport, accès, site. Page : formulaire
+  « Ajouter / modifier un routeur » (IP, SSH recommandé / REST, port, accès
+  du coffre en liste, site, description), liens modifier / retirer, et sur
+  une erreur SSL : « passer en SSH ? ».
+- cisco-api : `POST /cisco/switches`, `DELETE /cisco/switches/<n>`,
+  `GET /cisco/credentials` ; page : même formulaire (+ plateforme, accès
+  enable).
+- `docker-compose.yml` : dossiers `cisco/` et `mikrotik/` montés en
+  écriture (fichiers `.local.json` seulement, relus sans redémarrage).
+- Tests : `shared/test_registry_edit.py` (3), cisco 15, mikrotik 12.
+
 ## 2026-09-24 — Notifications : serveur SMTP réglé dans la tuile (STARTTLS / SSL / aucune, compte, expéditeur) (livraison #591)
 
 Constat réel (test d'envoi) : « 554 5.7.1 Client host rejected: Access

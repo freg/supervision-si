@@ -53,12 +53,26 @@ Charte sombre du hub, sans couleur hors palette (#2980b9/#b7791f). -->
 </head>
 <body>
 <h1>📡 Routeurs MikroTik</h1>
-<p class="muted" style="margin:0 0 8px">Registre modifiable dans le hub : <a href="/?view=control&tab=configs&config=mikrotik" target="_top">Tour de contrôle → Configurations → Routeurs MikroTik</a> ; identifiants dans <a href="/credentials/" target="_top">le coffre des accès</a> ; service <code>www-ssl</code> (API REST RouterOS v7) actif sur le routeur.</p>
+<p class="muted" style="margin:0 0 8px">Ajouter un routeur : formulaire ci-dessous (ou <a href="/?view=control&tab=configs&config=mikrotik" target="_top">Tour de contrôle → Configurations</a>) ; identifiants dans <a href="/credentials/" target="_top">le coffre des accès</a> (référencés par leur nom). Transport SSH recommandé : rien à activer sur le routeur ; REST exige le service <code>www-ssl</code> (RouterOS v7).</p>
 <div class="grid">
   <div>
     <div class="card">
       <h2>Registre</h2>
       <div id="routers" class="muted">chargement…</div>
+      <details id="regForm" style="margin-top:8px" ontoggle="if(this.open)loadCredentialNames()"><summary>➕ Ajouter / modifier un routeur</summary>
+        <div class="natForm" style="flex-direction:column;align-items:stretch">
+          <input id="f_name" placeholder="nom (ex. routeur-bureau)">
+          <input id="f_host" placeholder="adresse IP ou nom DNS">
+          <select id="f_transport"><option value="ssh">SSH (CLI RouterOS, rien à activer — v6 et v7)</option><option value="rest">REST HTTPS (www-ssl, v7 seulement)</option></select>
+          <input id="f_port" placeholder="port (vide = 22 SSH / 443 REST)">
+          <select id="f_credential"><option value="">— accès du coffre —</option></select>
+          <input id="f_site" placeholder="site (option)">
+          <input id="f_desc" placeholder="description (option)">
+          <button onclick="saveRouter()">Enregistrer dans le registre</button>
+          <div id="regMsg"></div>
+          <div class="muted" style="font-size:12px">L'adresse IP et le transport vivent ici (registre <code>mikrotik/routers.local.json</code>) ; le coffre ne garde que identifiant + mot de passe, référencés par leur nom. Pas besoin de redémarrer.</div>
+        </div>
+      </details>
     </div>
   </div>
   <div id="detail"><div class="card muted">Sélectionne un routeur.</div></div>
@@ -92,11 +106,53 @@ async function loadRouters() {
       const div = document.createElement("div");
       div.className = "router" + (current === rt.name ? " active" : "");
       div.innerHTML = `<span class="dot ${rt.reachable ? "up" : "down"}"></span><b>${rt.identity || rt.name}</b>
-        <div class="muted">${rt.host}:${rt.port}${rt.error ? " — " + rt.error : ""}${rt.error && /coffre/.test(rt.error) ? ' — <a href="../credentials/" target="_top" style="color:#2980b9">ouvrir les Accès d\'équipements</a>' : ""}</div>`;
+        <div class="muted">${rt.host}:${rt.port} · ${rt.transport === "ssh" ? "SSH" : "REST"}${rt.error ? " — " + rt.error : ""}${rt.error && /coffre/.test(rt.error) ? ' — <a href="../credentials/" target="_top" style="color:#2980b9">ouvrir les Accès d\'équipements</a>' : ""}${rt.error && /SSLError|www-ssl/.test(rt.error) ? ' — <a href="#" onclick="editRouter(\'' + rt.name + '\');return false" style="color:#2980b9">passer en SSH ?</a>' : ""}</div>
+        <div><a href="#" onclick="event.stopPropagation();editRouter('${rt.name}');return false" class="muted">modifier</a> · <a href="#" onclick="event.stopPropagation();deleteRouter('${rt.name}');return false" class="muted">retirer</a></div>`;
       div.onclick = () => selectRouter(rt.name);
       box.appendChild(div);
     }
+    window._routers = data.routers;
   } catch (e) { box.innerHTML = `<p class="muted">registre indisponible : ${e.message}</p>`; }
+}
+
+// ---- #592 : ajout / modification directe dans le registre (routers.local.json)
+async function loadCredentialNames() {
+  const sel = document.getElementById("f_credential");
+  try {
+    const b = await (await fetch(api + "/credentials")).json();
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">— accès du coffre —</option>` + (b.credentials || []).map(c => `<option value="${c.name}">${c.name} (${c.kind}${c.username ? ", " + c.username : ""})</option>`).join("");
+    if (cur) sel.value = cur;
+  } catch (e) { /* liste facultative */ }
+}
+function editRouter(name) {
+  const rt = (window._routers || []).find(x => x.name === name);
+  if (!rt) return;
+  document.getElementById("f_name").value = rt.name; document.getElementById("f_host").value = rt.host;
+  document.getElementById("f_transport").value = rt.transport || "rest"; document.getElementById("f_port").value = rt.port || "";
+  document.getElementById("f_site").value = rt.site || ""; document.getElementById("f_desc").value = rt.description || "";
+  loadCredentialNames().then(() => { document.getElementById("f_credential").value = rt.credential || ""; });
+  document.getElementById("regForm").open = true;
+  document.getElementById("f_name").focus();
+}
+async function saveRouter() {
+  const v = (id) => document.getElementById(id).value.trim();
+  const body = { name: v("f_name"), host: v("f_host"), transport: v("f_transport"), port: v("f_port"), credential: v("f_credential"), site: v("f_site"), description: v("f_desc") };
+  const m = document.getElementById("regMsg");
+  try {
+    const r = await fetch(api + "/routers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const b = await r.json();
+    if (!r.ok) { m.className = "err"; m.textContent = (b.errors || [b.error]).join(" ; "); return; }
+    m.className = "ok"; m.textContent = `${body.name} ${b.action === "updated" ? "modifié" : "ajouté"} (${b.path}).`;
+    loadRouters();
+  } catch (e) { m.className = "err"; m.textContent = e.message; }
+}
+async function deleteRouter(name) {
+  if (!confirm(`Retirer « ${name} » du registre ? (l'accès du coffre est conservé)`)) return;
+  const r = await fetch(api + "/routers/" + encodeURIComponent(name), { method: "DELETE" });
+  const b = await r.json();
+  const m = document.getElementById("regMsg"); m.className = r.ok ? "ok" : "err"; m.textContent = r.ok ? `${name} retiré.` : b.error;
+  loadRouters();
 }
 
 async function selectRouter(name) {
