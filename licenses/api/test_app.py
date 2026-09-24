@@ -351,8 +351,15 @@ class Vendors(Base):
         with mock.patch.object(appmod.vendors, "ropc_token", lambda tenant, u, p, **k: {"access_token": "A", "refresh_token": "R"}), mock.patch.object(appmod.vendors, "sync_with_token", lambda token, http=None: []):
             self.assertEqual(self.c.post("/vendors/m365-admin/sync", headers=self.adm).status_code, 200)
         self.assertEqual({v["name"]: v for v in self.c.get("/vendors").get_json()["vendors"]}["m365-admin"]["connected_as"], "admin@exemple.test")
-        self.assertEqual(self.c.post("/vendors", headers=self.adm, json={"name": "csv1", "kind": "csv-export"}).status_code, 200)
+        self.assertEqual(self.c.post("/vendors", headers=self.adm, json={"name": "csv1", "kind": "csv-export", "site": "site-alpha"}).status_code, 200)
         self.assertEqual(self.c.post("/vendors/csv1/sync", headers=self.adm).status_code, 400)
+        # #604 : export déposé sur le compte -> contrats rattachés au compte, dernière synchronisation renseignée
+        rows = [["Nom complet", "Nom d'utilisateur", "Licences"], ["Zoé Z", "zoe@exemple.test", "Visio Plan 2"]]
+        r = self.c.post("/import", headers=self.adm, data={"file": _csv_file(rows), "site": "site-alpha", "vendor_account": "csv1"}, content_type="multipart/form-data")
+        self.assertEqual((r.status_code, r.get_json()["created"]["contracts"]), (200, 1), r.get_json())
+        v1 = {v["name"]: v for v in self.c.get("/vendors").get_json()["vendors"]}["csv1"]
+        self.assertTrue(v1["last_sync"] and v1["snapshot"][0]["label"] == "Visio Plan 2")
+        self.assertEqual([c["vendor_account"] for c in self.c.get("/contracts").get_json()["contracts"] if c["software"] == "Visio Plan 2"], ["csv1"])
         self.assertEqual(self.c.delete("/vendors/csv1", headers=self.adm).status_code, 200)
         self.assertEqual(self.c.post("/vendors/nope/sync", headers=self.adm).status_code, 404)
 

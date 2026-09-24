@@ -2221,3 +2221,14 @@ button.danger { color: #e06666; }
 .hub-home-tree-link { background: none; border: 0; padding: 0; color: var(--text); cursor: pointer; font: inherit; }
 .hub-home-tree-link:hover { text-decoration: underline; color: var(--accent); }
 .hub-home-tree-also { font-size: 11px; }
+
+/* #604 : zone de dépôt de fichier (glisser-déposer partout où on importe) + cartes de formulaire pleine largeur */
+.hub-dropzone { display: flex; align-items: center; gap: 10px; padding: 14px; border: 2px dashed var(--border); border-radius: 8px; cursor: pointer; background: rgba(127,127,127,.06); transition: border-color .15s, background .15s; }
+.hub-dropzone.compact { padding: 6px 10px; font-size: 12px; }
+.hub-dropzone:hover, .hub-dropzone.over { border-color: var(--accent); background: rgba(74,158,218,.10); }
+.hub-dropzone.disabled { opacity: .5; cursor: not-allowed; }
+.hub-dropzone-icon { font-size: 18px; }
+.lic-card { max-width: none !important; text-align: left !important; padding: 12px 14px !important; }
+.lic-form { display: grid; gap: 8px; }
+.lic-form label { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 13px; }
+.lic-form input, .lic-form select, .lic-form textarea { width: 100%; min-width: 0; box-sizing: border-box; }

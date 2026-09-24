@@ -23,12 +23,13 @@ export const fetchInstallation = (b, t, agentId, q = "") => call(b, t, `/install
 export const fetchGaps = (b, t, s) => call(b, t, `/gaps${site(s)}`);
 export const fetchGrid = (b, t, s) => call(b, t, `/grid${site(s)}`);
 export const fetchSites = (b, t) => call(b, t, "/sites");
-export const importFile = (b, t, file, s, dryRun, format) => {
+export const importFile = (b, t, file, s, dryRun, format, vendorAccount) => {
   const fd = new FormData();
   fd.append("file", file);
   fd.append("site", s || "");
   fd.append("dry_run", dryRun ? "1" : "0");
   if (format) fd.append("format", format);
+  if (vendorAccount) fd.append("vendor_account", vendorAccount);
   return call(b, t, "/import", { method: "POST", body: fd });
 };
 export const fetchUsers = (b, t, s) => call(b, t, `/users${site(s)}`);

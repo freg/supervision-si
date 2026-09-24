@@ -1,3 +1,21 @@
+## 2026-09-24 — Licences : glisser-déposer partout où on importe, export déposé sur le compte vendeur, cartes de formulaire pleine largeur (livraison #604)
+
+Constat réel (capture) : compte vendeur « export du vendeur (fichier) » sans
+endroit où déposer le fichier ; cadre du formulaire plus étroit que ses
+champs (`.hub-card` limité à 420 px, centré). Demandé : « prévoir un drag
+and drop partout où on importe ».
+
+- `hub/src/DropZone.jsx` (réutilisable) : dépôt ou clic, fichier retenu
+  affiché ; règle design 9.
+- Contrats & catalogue → Importer : zone de dépôt ; Vendeurs : sur chaque
+  compte « export du vendeur », zone de dépôt qui importe l'export
+  (détection du format) **pour ce compte** — `POST /import` accepte
+  `vendor_account` (contrats créés rattachés au compte, dernière
+  synchronisation et relevé du compte mis à jour).
+- `.lic-card` / `.lic-form` : formulaires de la tuile sur toute la largeur,
+  champs à 100 %.
+- Tests : licenses-api 23, hub 267.
+
 ## 2026-09-24 — Accueil en arbre dépliable (vue JSON du menu) avec sélecteur Tuiles / Arbre (livraison #603)
 
 Demandé : « une page alternative à celle des tuiles (accueil) où placer le

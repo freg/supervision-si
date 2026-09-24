@@ -157,3 +157,8 @@ dire quoi ? »). Un écran échoue dès qu'une personne sur cinq bloque.
    obligatoire (analyser puis importer) tient en **un seul bouton** dont le
    libellé avance (« 1. Analyser » → « Importer N éléments ») ; jamais deux
    boutons dont l'un est silencieusement inactif.
+9. (#604) Partout où le hub importe un fichier : **zone de glisser-déposer**
+   (`DropZone.jsx`, cliquable aussi, nom et taille du fichier retenu,
+   formats acceptés affichés). Les cartes de formulaire s'étendent sur
+   toute la largeur disponible (jamais un cadre plus étroit que ses
+   champs) : `.lic-card` / `.lic-form`, champs à 100 % de leur cellule.

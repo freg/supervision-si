@@ -449,6 +449,7 @@ def import_route():
         return jsonify({"error": "fichier .xlsx ou .csv attendu (champ « file »)"}), 400
     site = str(request.form.get("site") or "")
     dry = request.form.get("dry_run") in ("1", "true")
+    vendor_account = str(request.form.get("vendor_account") or "").strip()  # #604 : export déposé sur un compte vendeur
     try:
         rows = _rows_from_upload(f)
     except Exception as exc:  # noqa: BLE001
@@ -506,12 +507,12 @@ def import_route():
                 created["updated"] = created.get("updated", 0) + 1
         elif fmt == "contracts":
             cid = c.execute("INSERT INTO contracts (software_id, site, label, kind, quantity, start, end, cost, currency, renewal, vendor_account, sku, reference, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                            (sid, p_site, p["label"] or p["software"], p["kind"], p["quantity"], p["start"], p["end"], p["cost"], p["currency"], p["renewal"], p["vendor_account"], p["sku"], p["reference"], p["notes"] or "importé de %s" % (f.filename or "tableur"), time.time(), time.time())).lastrowid
+                            (sid, p_site, p["label"] or p["software"], p["kind"], p["quantity"], p["start"], p["end"], p["cost"], p["currency"], p["renewal"], p["vendor_account"] or vendor_account, p["sku"], p["reference"], p["notes"] or "importé de %s" % (f.filename or "tableur"), time.time(), time.time())).lastrowid
             created["contracts"] += 1
         else:
             kind = "subscription" if "abonnement" in rules.fold(p["kind_label"]) or p["vendor"] == "Microsoft" else "per-user"
-            cid = c.execute("INSERT INTO contracts (software_id, site, label, kind, quantity, end, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                            (sid, site, "%s%s" % (p["software"], " (%s)" % p["kind_label"] if p["kind_label"] else ""), kind, len(p["people"]), p["end"], "importé de %s" % (f.filename or "tableur"), time.time(), time.time())).lastrowid
+            cid = c.execute("INSERT INTO contracts (software_id, site, label, kind, quantity, end, vendor_account, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                            (sid, site, "%s%s" % (p["software"], " (%s)" % p["kind_label"] if p["kind_label"] else ""), kind, len(p["people"]), p["end"], vendor_account, "importé de %s" % (f.filename or "tableur"), time.time(), time.time())).lastrowid
             created["contracts"] += 1
         for person in p["people"]:
             login, new = resolve_or_create_user(c, person, p_site, "import")
@@ -523,8 +524,10 @@ def import_route():
                 created["assignments"] += 1
             except sqlite3.IntegrityError:
                 pass
+    if vendor_account:
+        c.execute("UPDATE vendor_accounts SET last_sync = ?, last_error = '', snapshot = ? WHERE name = ?", (time.time(), json.dumps([{"sku": "", "label": p["software"], "quantity": len(p["people"]), "consumed": len(p["people"])} for p in plan], ensure_ascii=False), vendor_account))
     c.commit()
-    event("import", "import %s (%s) : %s par %s" % (f.filename, fmt, created, g.user["username"]))
+    event("import", "import %s (%s)%s : %s par %s" % (f.filename, fmt, " pour le compte " + vendor_account if vendor_account else "", created, g.user["username"]))
     return jsonify({"format": fmt, "created": created, "plan": plan}), 200
 
 

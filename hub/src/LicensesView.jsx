@@ -10,6 +10,7 @@
 // contenu qui défile, filtre « début de mot d'abord », pied fixe.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import PageFrame from "./PageFrame.jsx";
+import DropZone from "./DropZone.jsx";  // #604 : glisser-déposer partout où on importe
 import { hubLink, viewParams } from "./hubLinks.js";
 import * as api from "./licensesClient.js";
 import { KIND_LABEL, GAP_LABEL, SEVERITY_TONE, ACTION_STATUS, VENDOR_KIND_LABEL, USER_ALERT, contractTone, filterContracts, filterSoftware, filterGaps, filterHosts, filterRows, filterUsers, gapSummary, softwareTotals, pickContract, defaultManager, fmtDays } from "./licensesLib.js";
@@ -46,7 +47,7 @@ function Dashboard({ b, t, site, contracts, reload, notice }) {
   const shown = useMemo(() => filterGaps(gaps, query, sev), [gaps, query, sev]);
   return (
     <div>
-      <div className="hub-card" style={{ marginBottom: 10, display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
+      <div className="hub-card lic-card" style={{ marginBottom: 10, display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
         <span><Lamp tone={sum.tone} />{gaps ? `${sum.total} écart(s)` : "…"}</span>
         <span><Tone tone="red">{sum.critical}</Tone> critique(s)</span>
         <span><Tone tone="orange">{sum.warning}</Tone> alerte(s)</span>
@@ -148,9 +149,9 @@ function Contracts({ b, t, site, sites, software, contracts, reload, notice }) {
         <button type="button" className="secondary" onClick={() => setSw({ ...EMPTY_SW })}>+ logiciel</button>
       </div>
       {ct && (
-        <div className="hub-card" style={{ marginBottom: 10 }}>
+        <div className="hub-card lic-card" style={{ marginBottom: 10 }}>
           <h3 style={{ marginTop: 0 }}>{ct.id ? `Contrat #${ct.id}` : "Nouveau contrat"}</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+          <div className="lic-form" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
             <label>Logiciel<br /><select value={ct.software_id} onChange={(e) => setCt({ ...ct, software_id: e.target.value })}><option value="">—</option>{software.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
             <label>Site<br /><input list="lic-sites" value={ct.site} onChange={(e) => setCt({ ...ct, site: e.target.value })} /><datalist id="lic-sites">{sites.map((s) => <option key={s} value={s} />)}</datalist></label>
             <label>Libellé<br />{F("label", { placeholder: "ex. Business Standard annuel" })}</label>
@@ -169,9 +170,9 @@ function Contracts({ b, t, site, sites, software, contracts, reload, notice }) {
         </div>
       )}
       {sw && (
-        <div className="hub-card" style={{ marginBottom: 10 }}>
+        <div className="hub-card lic-card" style={{ marginBottom: 10 }}>
           <h3 style={{ marginTop: 0 }}>{sw.id ? `Logiciel #${sw.id}` : "Nouveau logiciel"}</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+          <div className="lic-form" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
             <label>Nom<br /><input value={sw.name} onChange={(e) => setSw({ ...sw, name: e.target.value })} /></label>
             <label>Éditeur<br /><input value={sw.vendor} onChange={(e) => setSw({ ...sw, vendor: e.target.value })} /></label>
             <label>Catégorie<br /><input value={sw.category} onChange={(e) => setSw({ ...sw, category: e.target.value })} placeholder="bureautique, CAO, sécurité…" /></label>
@@ -204,10 +205,11 @@ function Contracts({ b, t, site, sites, software, contracts, reload, notice }) {
           </table>
         </Scroll>
         <div>
-          <div className="hub-card" style={{ marginBottom: 10 }}>
+          <div className="hub-card lic-card" style={{ marginBottom: 10 }}>
             <h3 style={{ marginTop: 0 }}>Importer un tableur</h3>
             <p className="muted" style={{ marginTop: 0, fontSize: 12 }}>Formats reconnus : <b>contrats</b> « Logiciel | Éditeur | Site | Libellé | Type | Quantité | Début | Fin | Coût / an | Compte vendeur | SKU | Référence | Notes | Personnes » (une ligne par contrat, ré-import = mise à jour), matrice « Logiciel | Éditeur | Licence | Date Fin | personnes… » (croix), export utilisateurs Microsoft 365 (colonnes Nom complet / Licences), comparatif licence × initiales. Analyser d'abord, puis importer : logiciels et contrats manquants sont créés sur le site choisi, les personnes attribuées.</p>
-            <input type="file" accept=".xlsx,.csv" onChange={(e) => setImp({ ...imp, file: e.target.files?.[0] || null, plan: null, done: null })} /><br />
+            <DropZone accept=".xlsx,.csv" file={imp.file} hint=".xlsx ou .csv" onFile={(f) => setImp({ ...imp, file: f, plan: null, done: null })} />
+            <div style={{ height: 6 }} />
             <input list="lic-sites" placeholder="site" value={imp.site} onChange={(e) => setImp({ ...imp, site: e.target.value })} />{" "}
             <select value={imp.format} onChange={(e) => setImp({ ...imp, format: e.target.value, plan: null })}><option value="">format : détection</option><option value="contracts">contrats (une ligne par contrat)</option><option value="matrix">matrice</option><option value="m365">export Microsoft 365</option><option value="comparatif">comparatif</option></select>
             <div style={{ marginTop: 6, display: "flex", gap: 8, alignItems: "center" }}>
@@ -322,7 +324,7 @@ function OwncloudCard({ b, t, notice, onSynced }) {
   const sync = async () => { setBusy("lecture des fiches…"); const r = await api.syncOwncloud(b, t); setBusy(""); notice(r.error || `ownCloud : ${r.fiches} fiche(s) dont ${r.former} ancien(s), ${r.created} créé(s), ${r.linked} rattaché(s)${r.gone?.length ? `, ${r.gone.length} disparue(s)` : ""}`, !r.error); load(); onSynced(); };
   const configured = s && s.url && s.folder && s.credential;
   return (
-    <div className="hub-card" style={{ marginBottom: 10 }}>
+    <div className="hub-card lic-card" style={{ marginBottom: 10 }}>
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <b>☁ Fiches ownCloud</b>
         {s && (configured ? <span className="muted">{s.url} · {s.folder} · accès « {s.credential} » · {state.fiches || 0} fiche(s){state.fiches_former ? `, ${state.fiches_former} dans « ${s.former_subfolder} »` : ""}{state.at ? ` · lu ${when(state.at)}` : ""}</span> : <span className="muted">non configuré</span>)}
@@ -333,7 +335,7 @@ function OwncloudCard({ b, t, notice, onSynced }) {
       {open && s && (
         <div style={{ marginTop: 8 }}>
           <p className="muted" style={{ margin: "0 0 6px", fontSize: 12 }}>Lecture seule par WebDAV (<code>remote.php/webdav</code>, ownCloud 8 à 10, Nextcloud). Une fiche = un fichier texte par personne à la racine du dossier ; le sous-dossier des anciens marque la personne « ancien ». Les clés de licence et mots de passe lus sont <b>masqués</b> dans ce qui est mémorisé ; le texte complet ne s'affiche qu'à la demande (administrateur, journalisé). L'accès est un accès du <a href={hubLink("credentials")}>coffre des accès</a> (utilisateur + mot de passe ownCloud).</p>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 2fr 1fr", gap: 8 }}>
+          <div className="lic-form" style={{ gridTemplateColumns: "2fr 2fr 1fr" }}>
             <label>Adresse ownCloud<br /><input style={{ width: "100%" }} value={s.url} onChange={(e) => setS({ ...s, url: e.target.value })} placeholder="https://cloud.exemple" /></label>
             <label>Dossier des fiches<br /><input style={{ width: "100%" }} value={s.folder} onChange={(e) => setS({ ...s, folder: e.target.value })} placeholder="Secrets/Utilisateurs" /></label>
             <label>Accès du coffre<br /><input style={{ width: "100%" }} value={s.credential} onChange={(e) => setS({ ...s, credential: e.target.value })} placeholder="exemple-owncloud" /></label>
@@ -413,8 +415,8 @@ function Users({ b, t, site, sites, notice, reload }) {
         <button type="button" className="secondary" onClick={() => setU({ ...EMPTY_U, site: site || "" })}>+ utilisateur (info)</button>
       </div>
       {u && (
-        <div className="hub-card" style={{ marginBottom: 10 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+        <div className="hub-card lic-card" style={{ marginBottom: 10 }}>
+          <div className="lic-form" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
             <label>Login (identifiant LDAP si connu)<br /><input value={u.login} onChange={(e) => setU({ ...u, login: e.target.value })} disabled={!!u._edit} /></label>
             <label>Nom<br /><input value={u.name} onChange={(e) => setU({ ...u, name: e.target.value })} /></label>
             <label>Adresse<br /><input value={u.mail} onChange={(e) => setU({ ...u, mail: e.target.value })} /></label>
@@ -511,7 +513,7 @@ function Hosts({ b, t, site, software, notice }) {
       <div>
         {!sel ? <p className="muted">Choisir un poste : logiciels installés (filtre), installation / désinstallation par l'agent du poste, historique des actions.</p> : (
           <>
-            <div className="hub-card" style={{ marginBottom: 8 }}>
+            <div className="hub-card lic-card" style={{ marginBottom: 8 }}>
               <h3 style={{ margin: "0 0 6px" }}>💻 {sel.hostname} <span className="muted" style={{ fontWeight: 400 }}>{sel.os} · {sel.site} · agent {sel.agent_id}</span></h3>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 <select value={act.action} onChange={(e) => setAct({ ...act, action: e.target.value })}><option value="install">installer</option><option value="uninstall">désinstaller</option></select>
@@ -582,6 +584,14 @@ function Vendors({ b, t, sites, notice, reload }) {
     notice(r.error || `compte ${r.name} enregistré`, !r.error);
     if (!r.error) { setV(null); load(); }
   };
+  // #604 : export du vendeur déposé directement sur la ligne du compte (glisser-déposer)
+  const dropExport = async (x, file) => {
+    setBusy(x.name);
+    const r = await api.importFile(b, t, file, x.site, false, "", x.name);
+    setBusy("");
+    notice(r.error || `${x.name} : export ${r.format} importé — ${r.created.software} logiciel(s), ${r.created.contracts} contrat(s), ${r.created.assignments} attribution(s), ${r.created.users} utilisateur(s) créé(s)`, !r.error);
+    load(); reload();
+  };
   const sync = async (name) => {
     setBusy(name);
     const r = await api.syncVendor(b, t, name);
@@ -598,8 +608,8 @@ function Vendors({ b, t, sites, notice, reload }) {
       </p>
       <button type="button" onClick={() => setV({ ...EMPTY_V })}>+ compte vendeur</button>
       {v && (
-        <div className="hub-card" style={{ margin: "8px 0" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+        <div className="hub-card lic-card" style={{ margin: "8px 0" }}>
+          <div className="lic-form" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
             <label>Nom (identifiant)<br /><input value={v.name} onChange={(e) => setV({ ...v, name: e.target.value })} placeholder="m365-site-alpha" /></label>
             <label>Type<br /><select value={v.kind} onChange={(e) => setV({ ...v, kind: e.target.value })}>{Object.entries(VENDOR_KIND_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
             <label>Site<br /><input list="lic-sites2" value={v.site} onChange={(e) => setV({ ...v, site: e.target.value })} /><datalist id="lic-sites2">{sites.map((s) => <option key={s} value={s} />)}</datalist></label>
@@ -618,7 +628,7 @@ function Vendors({ b, t, sites, notice, reload }) {
         </div>
       )}
       {code && (
-        <div className="hub-card" style={{ margin: "8px 0", borderColor: COLORS.orange }}>
+        <div className="hub-card lic-card" style={{ margin: "8px 0", borderColor: COLORS.orange }}>
           <b>Connexion par code — {code.name}</b> :{" "}
           {code.status === "pending" && <>ouvrir <a href={code.verification_uri} target="_blank" rel="noopener noreferrer">{code.verification_uri} ↗</a>, saisir le code <code style={{ fontSize: 16 }}>{code.user_code}</code> et se connecter avec le compte administrateur Microsoft 365 (MFA accepté). <span className="muted">⏳ en attente de la connexion…</span></>}
           {code.status === "ok" && <Tone tone="green">✓ connecté</Tone>}
@@ -637,6 +647,7 @@ function Vendors({ b, t, sites, notice, reload }) {
                 <td>{x.last_sync ? when(x.last_sync) : <span className="muted">jamais</span>}{x.last_error && <><br /><Tone tone="red">{x.last_error}</Tone></>}</td>
                 <td className="muted" style={{ fontSize: 12 }}>{(x.snapshot || []).map((s) => `${s.label} : ${s.consumed ?? "?"}/${s.quantity}`).join(" · ")}</td>
                 <td>{x.portal && <a href={x.portal} target="_blank" rel="noopener noreferrer" title="gestion des licences chez le vendeur (portail d'administration, connexion avec le compte administrateur du client)">gérer chez le vendeur ↗</a>}{" "}
+                  {x.kind === "csv-export" && <div style={{ margin: "4px 0", minWidth: 260 }}><DropZone compact accept=".xlsx,.csv" hint="export du vendeur (.xlsx / .csv)" label={busy === x.name ? "⏳ import…" : "Déposer l'export ici (ou cliquer)"} disabled={busy === x.name} onFile={(f) => dropExport(x, f)} /></div>}
                   {x.kind === "microsoft-account" && <><button type="button" className="secondary" onClick={() => connect(x.name)}>Se connecter par code</button>{" "}{x.connected && <button type="button" className="secondary" onClick={async () => { await api.disconnectVendor(b, t, x.name); notice(`${x.name} déconnecté`); load(); }}>déconnecter</button>}{" "}</>}
                   {(x.kind === "microsoft-graph" || x.kind === "microsoft-account") && <button type="button" onClick={() => sync(x.name)} disabled={busy === x.name}>{busy === x.name ? "…" : "Synchroniser"}</button>}{" "}
                   <button type="button" className="secondary" onClick={() => setV({ ...EMPTY_V, ...x, tenant: x.config?.tenant || "", client_id: x.config?.client_id || "", url: x.config?.url || "" })}>modifier</button>{" "}
