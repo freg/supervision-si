@@ -1205,6 +1205,14 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loginForLayout]);
 
+  // #599 : menu principal en GRAPHE MÉTIER déployé -- cinq racines, une tuile
+  // sous chacun de ses chemins, « aussi sous … », filtre début de mot ;
+  // l'arbre de disposition (#516) reste l'autre porte. Hooks ici, avant tout
+  // retour anticipé.
+  const [menuMode, setMenuMode] = useState(() => { try { return localStorage.getItem("hub.menu.mode") === "layout" ? "layout" : "business"; } catch { return "business"; } });
+  useEffect(() => { try { localStorage.setItem("hub.menu.mode", menuMode); } catch { /* ignoré */ } }, [menuMode]);
+  const [menuQuery, setMenuQuery] = useState("");
+
   useEffect(() => {
     if (auth.isLoading || auth.isAuthenticated || auth.activeNavigator || silentCheckDone) return;
     auth.signinSilent()
@@ -1477,19 +1485,17 @@ export default function App() {
     else if (["aide", "tabs", "settings", "personalize", "layout", "external-links", "control"].includes(a)) toggle(a);
   };
   const hubCatalog = buildCatalog({ availableViews, viewLabels: viewLabelsFromThemes(THEMES), fronts, isAdmin: isAdmin(groups) });
-  // #599 : menu principal en GRAPHE MÉTIER déployé (item 94, étape 1) -- cinq
-  // racines, une tuile sous chacun de ses chemins, « aussi sous … », filtre
-  // début de mot ; l'arbre de disposition (#516) reste l'autre porte.
-  const [menuMode, setMenuMode] = useState(() => { try { return localStorage.getItem("hub.menu.mode") === "layout" ? "layout" : "business"; } catch { return "business"; } });
-  useEffect(() => { try { localStorage.setItem("hub.menu.mode", menuMode); } catch { /* ignoré */ } }, [menuMode]);
-  const [menuQuery, setMenuQuery] = useState("");
-  const businessFull = useMemo(() => businessTree(hubCatalog, { themeOf: (ref) => { const t = themeOfView(visibleThemes, ref.replace(/^(view|front):/, "")); return t || null; } }), [hubCatalog, visibleThemes]);
-  const businessShown = useMemo(() => filterBusinessTree(businessFull, menuQuery), [businessFull, menuQuery]);
-  const currentLeafId = viewMode ? `view:${viewMode}` : null;
-  const openBusinessPaths = useMemo(() => new Set(currentLeafId ? pathsOfLeaf(businessFull, currentLeafId).flatMap((p) => p.split("/").map((_, i, a) => a.slice(0, i + 1).join("/"))) : []), [businessFull, currentLeafId]);
   const decorateLeaf = (l) => (l.kind === "action" ? { ...l, onClick: () => runAction(l.action) } : l);
   const resolvedTree = resolveTree(hubTree, hubCatalog, { leftover: leftoverFronts });
   const visibleThemes = themesOf(resolvedTree).map((t) => ({ ...t, entries: t.entries.map(decorateLeaf) }));
+  // #599 : graphe métier déployé (item 94, étape 1) -- calcul simple à chaque
+  // rendu (catalogue de quelques dizaines de feuilles) ; les hooks du menu
+  // (menuMode, menuQuery) sont déclarés plus haut, AVANT les retours
+  // anticipés de connexion (règle des hooks : ordre constant).
+  const businessFull = businessTree(hubCatalog, { themeOf: (ref) => { const t = themeOfView(visibleThemes, ref.replace(/^(view|front):/, "")); return t || null; } });
+  const businessShown = filterBusinessTree(businessFull, menuQuery);
+  const currentLeafId = viewMode ? `view:${viewMode}` : null;
+  const openBusinessPaths = new Set(currentLeafId ? pathsOfLeaf(businessFull, currentLeafId).flatMap((p) => p.split("/").map((_, i, a) => a.slice(0, i + 1).join("/"))) : []);
   const hubRootOrder = resolvedTree.children.map((n) => (n.type === "ref" ? { ...n, leaf: decorateLeaf(n.leaf) } : n));
   const currentTheme = isThemeViewMode(viewMode) ? findTheme(visibleThemes, themeIdOf(viewMode)) : null;
   const openInTheme = (themeId, entryId) => { setThemeEntry(entryId); setViewMode(themeViewMode(themeId)); setOpenNavMenu(null); };

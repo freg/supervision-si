@@ -1,3 +1,11 @@
+## 2026-09-24 — Hub : correctif du menu métier (hooks après un retour anticipé → « Rendered more hooks ») (livraison #601)
+
+Constat réel (console Firefox) : `Rendered more hooks than during the
+previous render` dès la connexion — les hooks du menu métier (#599)
+étaient déclarés après les retours anticipés de connexion. Déplacés en
+tête ; le graphe est calculé sans `useMemo` après le catalogue et les
+thématiques (ordre de déclaration respecté). Hub 267 tests.
+
 ## 2026-09-24 — Licences : connecteur ownCloud (ancienne version) pour les fiches utilisateurs et les « anciens utilisateurs » (livraison #600)
 
 Demandé : « dans notre ownCloud principal nous avons aussi une gestion des
