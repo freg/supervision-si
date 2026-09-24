@@ -304,6 +304,73 @@ function Grid({ b, t, site, contracts, reload, notice }) {
 // d'authentification) fait référence ; les personnes des imports / vendeurs sont
 // des « infos » rattachées au compte LDAP dès qu'il existe.
 const EMPTY_U = { login: "", name: "", mail: "", site: "", aliases: "" };
+
+// #600 : connecteur ownCloud (ancienne version, WebDAV) -- dossier des fiches
+// utilisateurs (secrets, clés de licence, adresses) + sous-dossier « anciens
+// utilisateurs ». Paramétrable ici ; l'accès (utilisateur + mot de passe
+// ownCloud) est un accès du coffre, jamais saisi dans le hub.
+function OwncloudCard({ b, t, notice, onSynced }) {
+  const [open, setOpen] = useState(false);
+  const [s, setS] = useState(null);
+  const [state, setState] = useState({});
+  const [busy, setBusy] = useState("");
+  const [test, setTest] = useState(null);
+  const load = useCallback(() => api.fetchOwncloud(b, t).then((r) => { if (!r.error) { setS(r.settings); setState({ ...r.state, fiches: r.fiches, fiches_former: r.fiches_former }); } }), [b, t]);
+  useEffect(() => { load(); }, [load]);
+  const save = async () => { setBusy("enregistrement…"); const r = await api.saveOwncloud(b, t, s); setBusy(""); notice(r.error || "réglages ownCloud enregistrés", !r.error); load(); };
+  const doTest = async () => { setBusy("test…"); const r = await api.testOwncloud(b, t); setBusy(""); setTest(r.error ? `✗ ${r.error}` : `✓ ${r.entries} entrée(s), ${r.text_files} fiche(s) texte, sous-dossiers : ${r.folders.join(", ") || "aucun"}`); };
+  const sync = async () => { setBusy("lecture des fiches…"); const r = await api.syncOwncloud(b, t); setBusy(""); notice(r.error || `ownCloud : ${r.fiches} fiche(s) dont ${r.former} ancien(s), ${r.created} créé(s), ${r.linked} rattaché(s)${r.gone?.length ? `, ${r.gone.length} disparue(s)` : ""}`, !r.error); load(); onSynced(); };
+  const configured = s && s.url && s.folder && s.credential;
+  return (
+    <div className="hub-card" style={{ marginBottom: 10 }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <b>☁ Fiches ownCloud</b>
+        {s && (configured ? <span className="muted">{s.url} · {s.folder} · accès « {s.credential} » · {state.fiches || 0} fiche(s){state.fiches_former ? `, ${state.fiches_former} dans « ${s.former_subfolder} »` : ""}{state.at ? ` · lu ${when(state.at)}` : ""}</span> : <span className="muted">non configuré</span>)}
+        {state.error && <Tone tone="red">{state.error}</Tone>}
+        {configured && <button type="button" onClick={sync} disabled={!!busy}>{busy === "lecture des fiches…" ? `⏳ ${busy}` : "Lire les fiches"}</button>}
+        <button type="button" className="secondary" onClick={() => setOpen(!open)}>{open ? "fermer" : "paramétrer"}</button>
+      </div>
+      {open && s && (
+        <div style={{ marginTop: 8 }}>
+          <p className="muted" style={{ margin: "0 0 6px", fontSize: 12 }}>Lecture seule par WebDAV (<code>remote.php/webdav</code>, ownCloud 8 à 10, Nextcloud). Une fiche = un fichier texte par personne à la racine du dossier ; le sous-dossier des anciens marque la personne « ancien ». Les clés de licence et mots de passe lus sont <b>masqués</b> dans ce qui est mémorisé ; le texte complet ne s'affiche qu'à la demande (administrateur, journalisé). L'accès est un accès du <a href={hubLink("credentials")}>coffre des accès</a> (utilisateur + mot de passe ownCloud).</p>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 2fr 1fr", gap: 8 }}>
+            <label>Adresse ownCloud<br /><input style={{ width: "100%" }} value={s.url} onChange={(e) => setS({ ...s, url: e.target.value })} placeholder="https://cloud.exemple" /></label>
+            <label>Dossier des fiches<br /><input style={{ width: "100%" }} value={s.folder} onChange={(e) => setS({ ...s, folder: e.target.value })} placeholder="Secrets/Utilisateurs" /></label>
+            <label>Accès du coffre<br /><input style={{ width: "100%" }} value={s.credential} onChange={(e) => setS({ ...s, credential: e.target.value })} placeholder="exemple-owncloud" /></label>
+            <label>Sous-dossier des anciens<br /><input style={{ width: "100%" }} value={s.former_subfolder} onChange={(e) => setS({ ...s, former_subfolder: e.target.value })} /></label>
+            <label>Relecture automatique (s, 0 = manuelle)<br /><input type="number" min={0} value={s.interval} onChange={(e) => setS({ ...s, interval: Number(e.target.value) })} /></label>
+            <label style={{ display: "flex", alignItems: "end", gap: 6 }}><input type="checkbox" checked={!!s.verify} onChange={(e) => setS({ ...s, verify: e.target.checked })} /> vérifier le certificat TLS</label>
+          </div>
+          <div style={{ marginTop: 6, display: "flex", gap: 8, alignItems: "center" }}>
+            <button type="button" onClick={save} disabled={!!busy}>{busy === "enregistrement…" ? "⏳ enregistrement…" : "Enregistrer"}</button>
+            <button type="button" className="secondary" onClick={doTest} disabled={!!busy || !configured}>{busy === "test…" ? "⏳ test…" : "Tester la connexion"}</button>
+            {test && <span style={{ fontSize: 12 }}><Tone tone={test.startsWith("✓") ? "green" : "red"}>{test}</Tone></span>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FicheCell({ b, t, x, notice }) {
+  const [text, setText] = useState(null);
+  if (!x.fiche_path) return null;
+  const f = x.fiche || {};
+  return (
+    <details onToggle={(e) => { if (!e.target.open) setText(null); }}>
+      <summary style={{ cursor: "pointer" }} title={x.fiche_path}>☁ {(f.licenses || []).length} clé(s){f.software?.length ? ` · ${f.software.join(", ")}` : ""}{x.fiche_former ? " · anciens" : ""}</summary>
+      <div style={{ fontSize: 12, marginTop: 4 }}>
+        {(f.fields || []).map((fl, i) => <div key={i}><span className="muted">{fl.label} :</span> {fl.secret ? <code>{fl.value}</code> : fl.value}</div>)}
+        {(f.licenses || []).filter((l) => !l.product).map((l, i) => <div key={`k${i}`}><span className="muted">clé :</span> <code>{l.key_masked}</code></div>)}
+        <div style={{ marginTop: 4 }}>
+          {text == null ? <button type="button" className="secondary" style={{ fontSize: 11 }} onClick={async () => { const r = await api.readFiche(b, t, x.login); if (r.error) notice(r.error, false); else setText(r.text); }}>afficher la fiche complète (journalisé)</button>
+            : <pre style={{ maxHeight: 220, overflow: "auto", background: "rgba(0,0,0,.2)", padding: 6 }}>{text}</pre>}
+        </div>
+      </div>
+    </details>
+  );
+}
+
 function Users({ b, t, site, sites, notice, reload }) {
   const [list, setList] = useState(null);
   const [meta, setMeta] = useState({});
@@ -334,6 +401,7 @@ function Users({ b, t, site, sites, notice, reload }) {
       <p className="muted" style={{ marginTop: 0 }}>
         L'<b>annuaire</b> (comptes Keycloak fédérés LDAP, via la tuile <a href={hubLink("accounts")}>Comptes</a>) est la référence : ces lignes sont marquées 🗂. L'<b>analyse croisée</b> tourne automatiquement (présence dans l'annuaire, groupes) : 🚫 membre du groupe <code>{(meta.former_groups || ["anciens"]).join(" / ")}</code> (ne travaille plus avec nous — créer ce groupe dans <a href={hubLink("accounts")}>Comptes</a> et y placer les personnes parties) avec des licences encore attribuées = écart critique et notification ; ⚠ compte disparu de l'annuaire ; ⛔ compte désactivé. Les personnes venues d'un import ou d'un vendeur sont des <em>infos</em> (ℹ) rattachées au compte LDAP dès qu'il existe (login, adresse ou « Prénom Nom »). Le <b>site</b> se renseigne ici (jamais écrasé par la synchronisation) et alimente la grille et les contrats.
       </p>
+      <OwncloudCard b={b} t={t} notice={notice} onSynced={() => { load(); reload(); }} />
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
         <input type="search" placeholder="filtrer (login, nom, adresse, site)" value={query} onChange={(e) => setQuery(e.target.value)} style={{ minWidth: 240 }} />
         <span className="muted">{shown.length} / {(list || []).length} utilisateur(s) · {nDir} de l'annuaire</span>
@@ -358,7 +426,7 @@ function Users({ b, t, site, sites, notice, reload }) {
       )}
       <Scroll>
         <table style={{ width: "100%", fontSize: 13 }}>
-          <thead style={TH}><tr><th> </th><th>Login</th><th>Alerte</th><th>Nom</th><th>Adresse</th><th>Groupes</th><th>Site</th><th>Attributions</th><th>Autres écritures</th><th> </th></tr></thead>
+          <thead style={TH}><tr><th> </th><th>Login</th><th>Alerte</th><th>Nom</th><th>Adresse</th><th>Groupes</th><th>Site</th><th>Attributions</th><th>Fiche ownCloud</th><th>Autres écritures</th><th> </th></tr></thead>
           <tbody>
             {shown.map((x) => (
               <tr key={x.login} style={{ opacity: x.enabled === 0 ? 0.6 : 1, background: x.alert === "former" && x.assigned ? "rgba(229,57,53,.12)" : x.alert === "missing" || x.alert === "disabled" ? "rgba(251,140,0,.10)" : undefined }}>
@@ -366,12 +434,12 @@ function Users({ b, t, site, sites, notice, reload }) {
                 <td>{x.alert ? <Tone tone={USER_ALERT[x.alert]?.tone}>{USER_ALERT[x.alert]?.icon} {x.alert_label}{x.alert !== "unknown" && x.assigned ? ` — ${x.assigned} licence(s) à retirer` : ""}</Tone> : <Tone tone="green">✓</Tone>}</td>
                 <td>{x.name}</td><td className="muted">{x.mail}</td><td className="muted" style={{ fontSize: 12 }}>{(x.groups || []).join(", ")}</td>
                 <td><select value={x.site || ""} onChange={(e) => setSite(x, e.target.value)}><option value="">—</option>{[...new Set([...sites, x.site].filter(Boolean))].map((s) => <option key={s} value={s}>{s}</option>)}</select></td>
-                <td>{x.assigned || 0}</td><td className="muted" style={{ fontSize: 12 }}>{(x.aliases || []).join(", ")}</td>
+                <td>{x.assigned || 0}</td><td><FicheCell b={b} t={t} x={x} notice={notice} /></td><td className="muted" style={{ fontSize: 12 }}>{(x.aliases || []).join(", ")}</td>
                 <td><button type="button" className="secondary" onClick={() => setU({ ...EMPTY_U, ...x, aliases: (x.aliases || []).join(", "), _edit: true })}>modifier</button>{" "}
                   {!x.directory && <button type="button" className="secondary" onClick={async () => { const r = await api.deleteUser(b, t, x.login); notice(r.error || `${x.login} supprimé`, !r.error); load(); }}>×</button>}</td>
               </tr>
             ))}
-            {list && !shown.length && <tr><td colSpan={10} className="muted">aucun utilisateur : « Synchroniser l'annuaire », importer un tableur, ou ajouter une info.</td></tr>}
+            {list && !shown.length && <tr><td colSpan={11} className="muted">aucun utilisateur : « Synchroniser l'annuaire », importer un tableur, ou ajouter une info.</td></tr>}
           </tbody>
         </table>
       </Scroll>

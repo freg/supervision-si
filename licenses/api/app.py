@@ -25,6 +25,7 @@ import requests
 from flask import Flask, g, jsonify, request
 from flask_cors import CORS
 
+import owncloud
 import rules
 import vendors
 from auth import AuthError, KeycloakVerifier, bearer_from_header
@@ -77,7 +78,8 @@ CREATE TABLE IF NOT EXISTS vendor_accounts (name TEXT PRIMARY KEY, kind TEXT, si
 CREATE TABLE IF NOT EXISTS actions (id INTEGER PRIMARY KEY AUTOINCREMENT, agent_id TEXT, host TEXT, action TEXT, package TEXT, manager TEXT DEFAULT '', software_id INTEGER, command_id TEXT, status TEXT, result TEXT DEFAULT '', user TEXT, created_at REAL, updated_at REAL);
 CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, at REAL, event TEXT, text TEXT, user TEXT);
 CREATE TABLE IF NOT EXISTS users (login TEXT PRIMARY KEY, name TEXT DEFAULT '', mail TEXT DEFAULT '', site TEXT DEFAULT '', source TEXT DEFAULT 'manual', directory INTEGER DEFAULT 0, enabled INTEGER DEFAULT 1, aliases TEXT DEFAULT '[]', note TEXT DEFAULT '', updated_at REAL,
-    groups TEXT DEFAULT '[]', missing INTEGER DEFAULT 0, synced_at REAL);
+    groups TEXT DEFAULT '[]', missing INTEGER DEFAULT 0, synced_at REAL, fiche TEXT DEFAULT '', fiche_path TEXT DEFAULT '', fiche_former INTEGER DEFAULT 0);
+CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
 """
 ACCOUNTS_API_URL = os.environ.get("ACCOUNTS_API_URL", "http://accounts-api:5000").rstrip("/")
 # #598 : groupe(s) de l'annuaire signalant les personnes qui ne travaillent plus avec nous
@@ -99,7 +101,7 @@ def init_db():
     c = sqlite3.connect(DB_PATH)
     c.executescript(SCHEMA)
     cols = {r[1] for r in c.execute("PRAGMA table_info(users)")}
-    for name, ddl in (("groups", "TEXT DEFAULT '[]'"), ("missing", "INTEGER DEFAULT 0"), ("synced_at", "REAL")):
+    for name, ddl in (("groups", "TEXT DEFAULT '[]'"), ("missing", "INTEGER DEFAULT 0"), ("synced_at", "REAL"), ("fiche", "TEXT DEFAULT ''"), ("fiche_path", "TEXT DEFAULT ''"), ("fiche_former", "INTEGER DEFAULT 0")):
         if name not in cols:
             c.execute("ALTER TABLE users ADD COLUMN %s %s" % (name, ddl))
     c.commit()
@@ -136,7 +138,7 @@ def _guard():
 
 def _row(r):
     d = dict(r)
-    for k in ("patterns", "package", "config", "snapshot", "aliases", "groups"):
+    for k in ("patterns", "package", "config", "snapshot", "aliases", "groups", "fiche"):
         if k in d and isinstance(d[k], str):
             try:
                 d[k] = json.loads(d[k] or ("[]" if k in ("patterns", "snapshot", "aliases", "groups") else "{}"))
@@ -523,7 +525,7 @@ def users_list():
         u["alert"], u["alert_label"] = (al[0], al[1]) if al else (None, None)
         out.append(u)
     last = c.execute("SELECT MAX(synced_at) FROM users").fetchone()[0]
-    return jsonify({"users": out, "former_groups": FORMER_GROUPS, "last_sync": last, "sync_error": _sync_state.get("error")}), 200
+    return jsonify({"users": out, "former_groups": FORMER_GROUPS, "last_sync": last, "sync_error": _sync_state.get("error"), "owncloud": setting_get(c, "owncloud_state", {}) or {}}), 200
 
 
 @app.route("/users", methods=["POST"])
@@ -630,6 +632,15 @@ def _directory_loop():
         try:
             with app.app_context():
                 sync_directory(db())
+                s = owncloud_settings(db())
+                st = setting_get(db(), "owncloud_state", {}) or {}
+                if s["url"] and s["folder"] and s["credential"] and s["interval"] and time.time() - (st.get("at") or 0) >= s["interval"]:
+                    try:
+                        sync_owncloud(db())
+                    except Exception as exc:  # noqa: BLE001
+                        st.update(error=str(exc)[:300], error_at=time.time())
+                        setting_set(db(), "owncloud_state", st)
+                        db().commit()
                 # alerte « type logiciel » : anciens avec licences -> notification (une par passage et par changement)
                 c = db()
                 bad = [x for x in rules.user_gaps(_users(c), _assignments(c), FORMER_GROUPS) if x["severity"] == "critical"]
@@ -646,6 +657,142 @@ def _directory_loop():
 if DIRECTORY_INTERVAL > 0 and os.environ.get("LICENSES_DIRECTORY_WORKER", "1") == "1":
     import threading
     threading.Thread(target=_directory_loop, name="directory-sync", daemon=True).start()
+
+
+# -- connecteur ownCloud (#600) : fiches utilisateurs (secrets, clés de licence, adresses) ---------------------
+OWNCLOUD_DEFAULTS = {"url": "", "folder": "", "former_subfolder": "anciens utilisateurs", "credential": "", "verify": True, "interval": 21600}
+
+
+def setting_get(c, key, default=None):
+    r = c.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    return json.loads(r[0]) if r else default
+
+
+def setting_set(c, key, value):
+    c.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, json.dumps(value)))
+
+
+def owncloud_settings(c):
+    return dict(OWNCLOUD_DEFAULTS, **(setting_get(c, "owncloud", {}) or {}))
+
+
+@app.route("/owncloud", methods=["GET"])
+def owncloud_get():
+    c = db()
+    s = owncloud_settings(c)
+    st = setting_get(c, "owncloud_state", {}) or {}
+    n = c.execute("SELECT COUNT(*), SUM(fiche_former) FROM users WHERE fiche_path != ''").fetchone()
+    return jsonify({"settings": s, "state": st, "fiches": n[0], "fiches_former": n[1] or 0}), 200
+
+
+@app.route("/owncloud", methods=["PUT"])
+def owncloud_put():
+    """{url, folder, former_subfolder, credential (nom d'un accès du coffre : utilisateur + mot de passe ownCloud), verify, interval}"""
+    b = request.get_json(silent=True) or {}
+    c = db()
+    s = owncloud_settings(c)
+    for k in ("url", "folder", "former_subfolder", "credential"):
+        if k in b:
+            s[k] = str(b[k] or "").strip()
+    if "verify" in b:
+        s["verify"] = bool(b["verify"])
+    if "interval" in b:
+        s["interval"] = max(0, int(b["interval"] or 0))
+    setting_set(c, "owncloud", s)
+    c.commit()
+    event("owncloud", "réglages ownCloud : %s %s (accès « %s ») par %s" % (s["url"], s["folder"], s["credential"], g.user["username"]))
+    return jsonify({"status": "ok", "settings": s}), 200
+
+
+def owncloud_client(c):
+    s = owncloud_settings(c)
+    if not (s["url"] and s["folder"] and s["credential"]):
+        raise RuntimeError("connecteur ownCloud non configuré (adresse, dossier, accès du coffre)")
+    user, password, err = app.reveal(s["credential"])
+    if err:
+        raise RuntimeError(err)
+    return owncloud.OwnCloud(s["url"], user, password, verify=s["verify"]), s
+
+
+def sync_owncloud(c, who="automatique"):
+    """Fiches -> table users : rapprochement par adresse / nom, création « info »
+    sinon (source owncloud), sous-dossier des anciens -> fiche_former. Le texte
+    des fiches n'est jamais conservé : seulement le résumé masqué."""
+    client, s = owncloud_client(c)
+    fiches = owncloud.scan(client, s["folder"], s["former_subfolder"])
+    now = time.time()
+    seen, created, linked = set(), 0, 0
+    c.execute("UPDATE users SET fiche_former = 0 WHERE fiche_path != ''")
+    for f in fiches:
+        users = _users(c)
+        login = None
+        for m in f["fiche"]["mails"]:
+            login = rules.resolve_person(m, users)
+            if login:
+                break
+        login = login or rules.resolve_person(f["name"], users)
+        if login:
+            linked += 1
+        else:
+            login = rules.login_from(f["fiche"]["mails"][0] if f["fiche"]["mails"] else f["name"])
+            if not login:
+                continue
+            c.execute("INSERT OR IGNORE INTO users (login, name, mail, site, source, directory, aliases, updated_at) VALUES (?, ?, ?, '', 'owncloud', 0, '[]', ?)", (login, f["name"], f["fiche"]["mails"][0] if f["fiche"]["mails"] else "", now))
+            created += 1
+        if login in seen:
+            continue
+        seen.add(login)
+        c.execute("UPDATE users SET fiche = ?, fiche_path = ?, fiche_former = ?, mail = CASE WHEN mail = '' THEN ? ELSE mail END WHERE login = ?",
+                  (json.dumps(dict(f["fiche"], modified=f["modified"], size=f["size"]), ensure_ascii=False), f["path"], 1 if f["former"] else 0, f["fiche"]["mails"][0] if f["fiche"]["mails"] else "", login))
+    # fiches disparues : on garde la dernière lecture mais on l'indique
+    gone = [r[0] for r in c.execute("SELECT login FROM users WHERE fiche_path != ''") if r[0] not in seen]
+    setting_set(c, "owncloud_state", {"at": now, "error": "", "fiches": len(fiches), "former": sum(1 for f in fiches if f["former"]), "created": created, "linked": linked, "gone": gone})
+    c.commit()
+    if created or who != "automatique":
+        event("owncloud-sync", "ownCloud : %d fiche(s) (%d anciens), %d créé(s), %d rattaché(s), %d disparue(s) par %s" % (len(fiches), sum(1 for f in fiches if f["former"]), created, linked, len(gone), who))
+    return {"fiches": len(fiches), "former": sum(1 for f in fiches if f["former"]), "created": created, "linked": linked, "gone": gone}
+
+
+@app.route("/owncloud/sync", methods=["POST"])
+def owncloud_sync_route():
+    c = db()
+    try:
+        r = sync_owncloud(c, g.user["username"])
+    except Exception as exc:  # noqa: BLE001
+        st = setting_get(c, "owncloud_state", {}) or {}
+        st.update(error=str(exc)[:300], error_at=time.time())
+        setting_set(c, "owncloud_state", st)
+        c.commit()
+        return jsonify({"error": str(exc)[:300]}), 502
+    return jsonify(dict(r, status="ok")), 200
+
+
+@app.route("/owncloud/test", methods=["POST"])
+def owncloud_test():
+    c = db()
+    try:
+        client, s = owncloud_client(c)
+        items = client.list(s["folder"])
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": str(exc)[:300]}), 502
+    return jsonify({"status": "ok", "entries": len(items), "text_files": sum(1 for i in items if owncloud.is_text_file(i)), "folders": [i["path"] for i in items if i["dir"]][:50]}), 200
+
+
+@app.route("/users/<login>/fiche", methods=["POST"])
+def user_fiche(login):
+    """Texte complet de la fiche (secrets en clair) : POST = geste explicite,
+    réservé aux administrateurs (garde), journalisé ; jamais mémorisé ici."""
+    c = db()
+    u = c.execute("SELECT fiche_path FROM users WHERE login = ?", (login,)).fetchone()
+    if not u or not u["fiche_path"]:
+        return jsonify({"error": "pas de fiche ownCloud pour cet utilisateur"}), 404
+    try:
+        client, _s = owncloud_client(c)
+        text = client.read(u["fiche_path"])
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": str(exc)[:300]}), 502
+    event("fiche-read", "fiche de %s lue par %s" % (login, g.user["username"]))
+    return jsonify({"login": login, "path": u["fiche_path"], "text": text}), 200
 
 
 # -- comptes vendeurs -------------------------------------------------------------------------

@@ -90,6 +90,28 @@ l'annuaire = ⚠ `user-missing` (jamais supprimé, ses attributions restent
 visibles) ; compte désactivé = ⛔ `user-disabled` ; personne hors annuaire
 avec licences = ℹ `user-unknown`. Filtre « alertes seulement ».
 
+### Fiches ownCloud (#600)
+
+Le ownCloud principal (ancienne version) tient les **fiches utilisateurs**
+(fichier texte par personne : identifiant, adresse, clés de licence,
+comptes…) et un sous-dossier « anciens utilisateurs ». Connecteur
+`licenses/api/owncloud.py` : WebDAV `remote.php/webdav` (ownCloud 8 à 10,
+Nextcloud), PROPFIND + GET, lecture seule, Basic avec un **accès du
+coffre** (utilisateur + mot de passe ownCloud, jamais stocké ici).
+Paramétrage dans la tuile (Utilisateurs → carte « Fiches ownCloud » :
+adresse, dossier, accès, sous-dossier des anciens, TLS, période ; « Tester
+la connexion », « Lire les fiches ») ; `GET/PUT /owncloud`,
+`POST /owncloud/test`, `POST /owncloud/sync`. Chaque fiche est rapprochée
+d'un utilisateur (adresse, puis nom) ou créée « info » (source `owncloud`)
+; mémorisé : résumé **masqué** (champs, clés `••••LMNO`, logiciels
+détectés, date), jamais le texte ; fiche dans le sous-dossier des anciens →
+alerte « ancien (fiche ownCloud) » et écart critique si licences
+attribuées, plus `user-former-active` (fiche ancien mais compte LDAP
+actif hors groupe anciens) — croisement LDAP ↔ ownCloud ↔ attributions.
+Texte complet : `POST /users/<login>/fiche` (administrateur, journalisé
+`fiche-read`, jamais conservé). Relecture automatique dans le fil
+d'analyse croisée (`interval`, 6 h par défaut).
+
 ### Chez le vendeur (#598)
 
 Chaque compte vendeur porte un lien **« gérer chez le vendeur ↗ »** vers le

@@ -341,10 +341,14 @@ def user_gaps(users, assignments, former_groups=("anciens",)):
     for u in users:
         n = counts.get(u["login"], 0)
         groups = [fold(g) for g in (u.get("groups") or [])]
-        former = bool(fg & set(groups))
+        former = bool(fg & set(groups)) or bool(u.get("fiche_former"))
         if former:
+            where = "dans le groupe « %s »" % next((g for g in groups if g in fg), "") if fg & set(groups) else "fiche dans « anciens utilisateurs » (ownCloud)"
             out.append({"kind": "user-former", "severity": "critical" if n else "info", "software": None, "user": u["login"], "contract": None,
-                        "text": "%s : dans le groupe « %s »%s" % (u["login"], next(g for g in groups if g in fg), " mais %d licence(s) attribuée(s) -- à retirer" % n if n else ", aucune licence"), "detail": None})
+                        "text": "%s : %s%s" % (u["login"], where, " mais %d licence(s) attribuée(s) -- à retirer" % n if n else ", aucune licence"), "detail": None})
+        if u.get("fiche_former") and u.get("directory") and u.get("enabled") != 0 and not (fg & set(groups)):
+            out.append({"kind": "user-former-active", "severity": "warning", "software": None, "user": u["login"], "contract": None,
+                        "text": "%s : fiche rangée dans « anciens utilisateurs » mais compte LDAP actif hors groupe anciens -- à vérifier" % u["login"], "detail": None})
         elif u.get("missing") and n:
             out.append({"kind": "user-missing", "severity": "warning", "software": None, "user": u["login"], "contract": None,
                         "text": "%s : absent de l'annuaire depuis la dernière synchronisation, %d licence(s) attribuée(s)" % (u["login"], n), "detail": None})
@@ -364,6 +368,8 @@ def user_alert(u, former_groups=("anciens",)):
     fg = {fold(g) for g in former_groups if g}
     if fg & {fold(g) for g in (u.get("groups") or [])}:
         return "former", "ancien"
+    if u.get("fiche_former"):
+        return "former", "ancien (fiche ownCloud)"
     if u.get("missing"):
         return "missing", "absent de l'annuaire"
     if u.get("directory") and u.get("enabled") == 0:

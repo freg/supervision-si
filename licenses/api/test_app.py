@@ -58,7 +58,7 @@ class Base(unittest.TestCase):
     def setUp(self):
         appmod.verifier = auth.KeycloakVerifier("u", [], fetch=lambda _u: jwks(), allowed_groups=["administrateurs"], what="les licences")
         c = appmod.sqlite3.connect(appmod.DB_PATH)
-        for t in ("software", "contracts", "assignments", "vendor_accounts", "actions", "events", "users"):
+        for t in ("software", "contracts", "assignments", "vendor_accounts", "actions", "events", "users", "settings"):
             c.execute("DELETE FROM " + t)
         c.execute("DELETE FROM sqlite_sequence")
         c.commit()
@@ -246,6 +246,41 @@ class Users(Base):
         self.assertEqual(self.c.get("/vendors").get_json()["vendors"][0]["portal"], "https://admin.microsoft.com/#/licenses")
         self.c.put("/contracts/%d" % cid, headers=self.adm, json={"software_id": sid, "site": "site-alpha", "kind": "per-user", "quantity": 5, "vendor_account": "m365"})
         self.assertEqual(self.c.get("/contracts").get_json()["contracts"][0]["portal"], "https://admin.microsoft.com/#/licenses")
+
+
+class OwnCloud(Base):
+    def test_settings_sync_fiche(self):
+        import owncloud as oc
+        self.assertEqual(self.c.post("/owncloud/sync", headers=self.adm).status_code, 502)  # non configuré
+        r = self.c.put("/owncloud", headers=self.adm, json={"url": "https://cloud.exemple", "folder": "Secrets/Fiches", "credential": "exemple-owncloud", "verify": False, "interval": 3600})
+        self.assertEqual((r.status_code, r.get_json()["settings"]["former_subfolder"]), (200, "anciens utilisateurs"))
+        appmod.app.reveal = lambda name: ("svc", "pw", None)
+        fiches = [{"path": "Secrets/Fiches/alice a.txt", "name": "alice a", "former": False, "modified": "m", "size": 10, "fiche": {"name": "alice a", "mails": ["alice.a@exemple.test"], "fields": [], "licenses": [{"product": "office 365", "key_masked": "••••LMNO"}], "software": ["office 365"]}},
+                  {"path": "Secrets/Fiches/anciens utilisateurs/bob b.txt", "name": "bob b", "former": True, "modified": "m", "size": 5, "fiche": {"name": "bob b", "mails": [], "fields": [], "licenses": [], "software": []}}]
+        with mock.patch.object(oc, "scan", lambda client, folder, sub: fiches), mock.patch.object(oc.OwnCloud, "__init__", lambda self, *a, **k: None):
+            appmod.app.fetch_directory = lambda: [{"username": "alice.a", "email": "alice.a@exemple.test", "enabled": True, "groups": []}]
+            self.c.post("/users/sync", headers=self.adm)
+            r = self.c.post("/owncloud/sync", headers=self.adm)
+            self.assertEqual(r.status_code, 200, r.get_json())
+            self.assertEqual((r.get_json()["fiches"], r.get_json()["former"], r.get_json()["created"], r.get_json()["linked"]), (2, 1, 1, 1))
+        users = {u["login"]: u for u in self.c.get("/users").get_json()["users"]}
+        self.assertEqual((users["alice.a"]["fiche"]["licenses"][0]["product"], users["alice.a"]["alert"], users["alice.a"]["directory"]), ("office 365", None, 1))
+        self.assertEqual((users["bob.b"]["source"], users["bob.b"]["alert"], users["bob.b"]["alert_label"]), ("owncloud", "former", "ancien (fiche ownCloud)"))
+        sid = self.software("Office 365")
+        cid = self.contract(sid, quantity=5)
+        self.c.post("/assignments", headers=self.adm, json={"contract_id": cid, "subject_kind": "user", "subject": "bob.b"})
+        kinds = {(x["kind"], x["user"]): x["severity"] for x in self.c.get("/gaps").get_json()["gaps"] if x.get("user")}
+        self.assertEqual(kinds[("user-former", "bob.b")], "critical")
+        st = self.c.get("/owncloud").get_json()
+        self.assertEqual((st["fiches"], st["fiches_former"], st["state"]["fiches"]), (2, 1, 2))
+        # lecture à la demande : journalisée, jamais mémorisée
+        with mock.patch.object(oc.OwnCloud, "__init__", lambda self, *a, **k: None), mock.patch.object(oc.OwnCloud, "read", lambda self, path: "Licence : ABCDE-12345"):
+            r = self.c.post("/users/alice.a/fiche", headers=self.adm)
+            self.assertEqual((r.status_code, r.get_json()["text"]), (200, "Licence : ABCDE-12345"))
+            self.assertEqual(self.c.post("/users/alice.a/fiche").status_code, 401)
+            self.assertEqual(self.c.post("/users/nope/fiche", headers=self.adm).status_code, 404)
+        self.assertTrue(any(e["event"] == "fiche-read" for e in self.c.get("/events").get_json()["events"]))
+        self.assertNotIn("ABCDE", json.dumps(self.c.get("/users").get_json()))
 
 
 class Vendors(Base):

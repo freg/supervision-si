@@ -1,3 +1,32 @@
+## 2026-09-24 — Licences : connecteur ownCloud (ancienne version) pour les fiches utilisateurs et les « anciens utilisateurs » (livraison #600)
+
+Demandé : « dans notre ownCloud principal nous avons aussi une gestion des
+secrets utilisateurs avec toutes les clés de licence, les emails… un
+connecteur ownCloud old version pour accéder à un dossier et y prendre les
+fiches (texte) de configuration ; un sous-dossier "anciens utilisateurs" ;
+tout ça paramétrable dans le hub » — « l'idée étant toujours de croiser et
+valider les infos, les droits, les répartitions de licence ».
+
+- `licenses/api/owncloud.py` (3 tests) : WebDAV (`webdav_root`,
+  `parse_propfind`, `OwnCloud.list/read`), `parse_fiche` (champs
+  `label : valeur`, adresses, clés de licence reconnues, valeurs secrètes
+  masquées, logiciels détectés), `scan` (racine du dossier + sous-dossier
+  des anciens).
+- licenses-api : réglages `owncloud` (table `settings`), `/owncloud`,
+  `/owncloud/test`, `/owncloud/sync` (rapprochement adresse / nom, création
+  « info » sinon, `fiche` masquée, `fiche_path`, `fiche_former`),
+  `/users/<login>/fiche` (texte complet à la demande, journalisé),
+  relecture périodique dans le fil d'analyse croisée ; `rules.user_alert`
+  / `user_gaps` : fiche « anciens » = ancien, écart `user-former-active`.
+- Hub : carte « ☁ Fiches ownCloud » (paramétrage, test, lecture, état),
+  colonne « Fiche ownCloud » (résumé masqué dépliable, bouton « afficher
+  la fiche complète (journalisé) »).
+- Tests : licenses-api 21, hub 267.
+
+Non vérifié : ownCloud 9.1.8 réel (PROPFIND sur `remote.php/webdav` avec
+compte de service ; si l'instance n'accepte que `remote.php/dav/files/<user>`,
+mettre cette adresse complète dans « Adresse ownCloud »).
+
 ## 2026-09-24 — Menu principal en graphe métier déployé : cinq racines, une tuile sous chacun de ses chemins (livraison #599, item 94 étape 1)
 
 Demandé : « dans la prochaine version livrée, mettre en place le menu
