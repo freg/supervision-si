@@ -5,6 +5,7 @@ protégés, journal. Le SDK Docker est remplacé par un module factice si
 absent (tests sans Docker)."""
 import io
 import json
+import socket
 import os
 import sys
 import tempfile
@@ -261,8 +262,11 @@ class TestTower(TestApi):
                 self.f_bfree = self.f_bavail = int(1000000 * (100 - pct) / 100)
         appmod.os.statvfs = lambda path: SV(99 if path.endswith("/var") else 40)
         FakeDocker.df = lambda self: {"Images": [{"Size": 100, "Containers": 1}, {"Size": 50, "Containers": 0}], "Containers": [], "Volumes": [], "BuildCache": [{"Size": 7, "InUse": False}]}
+        appmod.app._fetch_proxmox = lambda: [{"agent_id": "pve11", "node": {"name": "pve11", "mem_used": 1, "mem_total": 100}, "vms": [{"vmid": 105, "name": socket.gethostname(), "status": "running", "maxdisk": 10}],
+                                             "storages": [{"storage": "local-zfs", "used": 50 * 2**30, "total": 100 * 2**30, "avail": 50 * 2**30}], "zfs": [{"pool": "rpool", "capacity": 50, "free": 50 * 2**30, "size": 100 * 2**30, "health": "ONLINE"}]}]
         h = self.c.get("/host?refresh=1", headers=self.h).get_json()
         self.assertEqual(h["light"], "red")
+        self.assertEqual((h["hypervisor"]["node"], h["hypervisor"]["vm"]["vmid"], h["hypervisor"]["light"]), ("pve11", 105, "green"))
         self.assertEqual([d["mount"] for d in h["disks"]], ["/", "/var"])
         self.assertEqual(h["docker"]["images_unused"], 50)
         pub = self.c.get("/host/public").get_json()

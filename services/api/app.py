@@ -59,6 +59,8 @@ _register_actions([
     {"id": "tower.host.prune", "label": "Nettoyage Docker effectué", "severity": "info"},
 ])
 HOST_ROOT = os.environ.get("SERVICES_HOST_ROOT", "/host")  # #593 : racine de l'hôte montée en lecture seule
+SI_AGENT_URL = os.environ.get("SERVICES_SI_AGENT_URL", "http://si-agent-api:5000").rstrip("/")  # #594 : hyperviseur via les agents Proxmox
+VM_NAME = os.environ.get("SERVICES_VM_NAME", "")  # nom de la VM du hub côté Proxmox (défaut : hostname de l'hôte)
 from auth import AuthError, KeycloakVerifier, bearer_from_header
 
 try:
@@ -902,10 +904,51 @@ def host_health(force=False):
     except Exception as exc:  # noqa: BLE001
         docker_df = {"error": str(exc)[:120]}
     summary = lights.host_summary(disks, load, cpus, mem_pct)
-    out = {"at": time.time(), "disks": disks, "load": load, "cpus": cpus, "mem": dict(mem, pct=mem_pct), "docker": docker_df,
-           "light": summary["light"], "text": summary["text"], "problems": summary["problems"], "root_mounted": os.path.isdir(HOST_ROOT)}
+    hostname = _host_name()
+    hyper = hypervisor_info(hostname)
+    if hyper and hyper.get("light") not in (None, "green", "grey"):
+        summary["problems"].append("hyperviseur %s : %s" % (hyper.get("node"), hyper.get("text")))
+        order = {"green": 0, "orange": 1, "red": 2}
+        summary["light"] = max(summary["light"], hyper["light"], key=lambda x: order[x])
+        summary["text"] = "; ".join(summary["problems"])
+    out = {"at": time.time(), "hostname": hostname, "disks": disks, "load": load, "cpus": cpus, "mem": dict(mem, pct=mem_pct), "docker": docker_df,
+           "hypervisor": hyper, "light": summary["light"], "text": summary["text"], "problems": summary["problems"], "root_mounted": os.path.isdir(HOST_ROOT)}
     _host_cache.update(at=time.time(), value=out)
     return out
+
+
+def _host_name():
+    for p in (os.path.join(HOST_ROOT, "etc", "hostname"),):
+        try:
+            with open(p, encoding="utf-8") as fh:
+                n = fh.read().strip()
+                if n:
+                    return n
+        except OSError:
+            pass
+    return socket.gethostname()
+
+
+def _fetch_proxmox():
+    """Mesures Proxmox de tous les hyperviseurs connus des agents (si-agent-api /proxmox)."""
+    try:
+        r = requests.get(SI_AGENT_URL + "/proxmox", timeout=5)
+        return (r.json() or {}).get("proxmox") or [] if r.status_code == 200 else []
+    except (requests.RequestException, ValueError):
+        return []
+
+
+app._fetch_proxmox = _fetch_proxmox  # remplaçable dans les tests
+
+
+def hypervisor_info(hostname):
+    """#594 : quel Proxmox porte la VM du hub, et dans quel état (stockages, pools ZFS, mémoire)."""
+    name = VM_NAME or hostname
+    for pve in app._fetch_proxmox():
+        h = lights.hypervisor_summary(pve, name)
+        if h:
+            return h
+    return None
 
 
 @app.route("/host", methods=["GET"])

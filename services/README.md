@@ -134,3 +134,14 @@ mémoire orange ≥ 90 %, rouge ≥ 97 %.
 
 Pour les autres hôtes (agents), les métriques disque / charge existent déjà
 dans si-agent (#503) ; la tour ne couvre que l'hôte du hub.
+
+### Hyperviseur (#594)
+
+La carte « Hôte du hub » identifie le **Proxmox qui porte la VM** (nom de
+la VM = hostname de l'hôte, ou `SERVICES_VM_NAME`) dans les mesures des
+agents Proxmox (`si-agent-api /proxmox`, plugin #487/#504) : nœud et
+version, VM (vmid, état, disque virtuel, RAM, instantanés, disques →
+stockages), **stockages** (ceux qui portent la VM en évidence) et **pools
+ZFS** (capacité, santé — `DEGRADED` = rouge), mémoire du nœud ; ces états
+entrent dans la lampe et le bandeau. Sans agent Proxmox sur l'hyperviseur,
+la carte le dit et renvoie vers la tuile Proxmox.

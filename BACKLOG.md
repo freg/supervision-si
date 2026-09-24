@@ -3333,21 +3333,20 @@ droits. Étapes : catalogue typé + racines métier (petite livraison), arêtes
 calculées + menu déployé avec lampes, pages pivot des objets métier,
 décisions typées pour proposer la racine et l'action.
 
-## Espace disque : agrandissement guidé plutôt qu'un gparted intégré (2026-09-24) — item 95
+## Gestion centralisée du stockage des Proxmox et de la VM du hub — phase chantier (2026-09-24) — item 95 (mis de côté)
 
-Question posée : « un gparted intégré ? ». Réponse : non — un éditeur de
-partitions dans un hub web est le pire endroit pour un geste irréversible
-(réduction impossible à chaud, erreur = perte de données, exige root sur
-l'hôte, pas dans un conteneur). Ce qui est raisonnable et couvre 95 % des
-besoins, avec une couche Proxmox + ZFS : **agrandir à chaud**, guidé et
-journalisé, en deux temps orchestrés par la tour → (1) agent Proxmox :
-`qm resize <vmid> <disque> +NG` (le zvol ZFS grandit, thin) après contrôle
-de `zpool list` (espace libre du pool, quota, refreservation) ; (2) agent
-de la VM : `growpart` de la partition, puis `pvresize` + `lvextend -r`
-(LVM) ou `resize2fs` / `xfs_growfs` (ext4 / xfs), tous en ligne ; contrôle
-avant / après (`df`, `lsblk` #503), aperçu obligatoire, confirmation par le
-nom de la VM, notification. Compléter par les **nettoyages** (là où est le
-vrai gain) : images / cache Docker (#593), `journalctl --vacuum`, `apt
-clean`, vieux noyaux, sauvegardes locales anciennes, avec estimation avant
-exécution. Hors périmètre : réduction, déplacement de partitions, changement
-de table — à faire hors ligne avec les outils dédiés.
+Position de freg : on est déjà sur Proxmox avec une cascade de
+virtualiseurs, et les consoles web d'administration ont toujours accompagné
+les services en ligne ; il veut, pour la **phase chantier**, centraliser
+dans le hub le nécessaire (disques, partitions, agrandissement) **avec
+toutes les précautions de droits et de sauvegarde**, en le **limitant aux
+Proxmox et à l'hôte du hub (une VM)**. Mis de côté pour l'instant ; l'état
+(#593/#594) est livré. Cadre retenu pour plus tard : droit dédié (groupe
+Keycloak + confirmation par le nom de la VM), instantané / sauvegarde
+préalable obligatoire et vérifiée, aperçu avant exécution, gestes en ligne
+d'abord (`qm resize` + `growpart` + `pvresize`/`lvextend -r` /
+`resize2fs` / `xfs_growfs`), journal et notification, retrait de
+l'instantané après validation ; les gestes hors ligne (réduction,
+déplacement) via l'agent Proxmox avec la VM arrêtée, même garde-fous.
+Nettoyages guidés (images Docker #593, `journalctl --vacuum`, `apt clean`,
+vieux noyaux, anciennes sauvegardes) avec estimation avant exécution.

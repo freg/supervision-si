@@ -65,3 +65,17 @@ class HostHealth(unittest.TestCase):
         self.assertIn("/var : 99 % utilisé", s["text"])
         self.assertEqual(lights.host_summary([], [0.1, 0.1, 0.1], 2, 30)["text"], "hôte en bonne santé")
         self.assertEqual(lights.human(3 * 2**30), "3.0 Go")
+
+    def test_hypervisor(self):
+        pve = {"agent_id": "pve11", "node": {"name": "pve11", "pveversion": "8.2", "mem_used": 30 * 2**30, "mem_total": 32 * 2**30},
+               "vms": [{"vmid": 105, "name": "super", "status": "running", "maxdisk": 80 * 2**30, "disk_options": {"disks": [{"key": "scsi0", "storage": "local-zfs", "volume": "vm-105-disk-0"}]}, "snapshots": [1]},
+                       {"vmid": 100, "name": "autre"}],
+               "storages": [{"storage": "local-zfs", "type": "zfspool", "used": 90, "total": 100, "avail": 10}, {"storage": "local", "type": "dir", "used": 10, "total": 100, "avail": 90}],
+               "zfs": [{"pool": "rpool", "size": 1000, "alloc": 900, "free": 100, "capacity": 90, "health": "ONLINE"}]}
+        h = lights.hypervisor_summary(pve, "SUPER")
+        self.assertEqual((h["node"], h["vm"]["vmid"], h["light"]), ("pve11", 105, "red"))  # mémoire 94 % -> orange ; stockage 90 % + avail 10 o -> rouge
+        self.assertTrue(h["storages"][0]["hosts_vm"] and not h["storages"][1]["hosts_vm"])
+        self.assertIn("pool rpool", h["text"])
+        self.assertIsNone(lights.hypervisor_summary(pve, "inconnue"))
+        pve["zfs"][0]["health"] = "DEGRADED"
+        self.assertEqual(lights.hypervisor_summary(pve, "super")["zfs"][0]["light"], "red")

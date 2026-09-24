@@ -74,6 +74,32 @@ function HostCard({ apiBase, accessToken, onNotice }) {
         ))}
         {!h.root_mounted && <span className="muted">racine de l'hôte non montée (SERVICES_HOST_ROOT) : disques non mesurés</span>}
       </div>
+      {h.hypervisor ? (
+        <div style={{ marginTop: 8, padding: 8, border: "1px solid var(--border)", borderRadius: 6 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <Lamp light={h.hypervisor.light} title={h.hypervisor.text} /><strong>Hyperviseur {h.hypervisor.node}</strong>
+            <span className="muted">Proxmox {h.hypervisor.pveversion || "?"} · VM {h.hypervisor.vm.vmid} « {h.hypervisor.vm.name} » {h.hypervisor.vm.status} · disque virtuel {human(h.hypervisor.vm.maxdisk)} · RAM {human(h.hypervisor.vm.maxmem)} · {h.hypervisor.vm.snapshots} instantané(s) · mémoire du nœud {h.hypervisor.mem_pct ?? "?"} %</span>
+            <span style={{ color: COLORS[h.hypervisor.light] }}>{h.hypervisor.text}</span>
+          </div>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 6 }}>
+            {(h.hypervisor.storages || []).map((s) => (
+              <div key={s.storage} style={{ minWidth: 180, opacity: s.hosts_vm ? 1 : 0.7 }} title={s.hosts_vm ? "porte le disque de cette VM" : ""}>
+                <div><Lamp light={s.light} /> <code>{s.storage}</code> <span className="muted">{s.type}{s.hosts_vm ? " · porte la VM" : ""}</span> — <span style={{ color: COLORS[s.light] }}>{s.pct ?? "?"} %</span></div>
+                <div style={{ height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}><div style={{ width: `${Math.min(100, s.pct || 0)}%`, height: "100%", background: COLORS[s.light] }} /></div>
+                <div className="muted" style={{ fontSize: 12 }}>{human(s.used)} / {human(s.total)} · {human(s.avail)} libres</div>
+              </div>
+            ))}
+            {(h.hypervisor.zfs || []).map((z) => (
+              <div key={z.pool} style={{ minWidth: 180 }}>
+                <div><Lamp light={z.light} /> pool <code>{z.pool}</code> <span className="muted">{z.health}</span> — <span style={{ color: COLORS[z.light] }}>{z.capacity ?? "?"} %</span></div>
+                <div style={{ height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}><div style={{ width: `${Math.min(100, z.capacity || 0)}%`, height: "100%", background: COLORS[z.light] }} /></div>
+                <div className="muted" style={{ fontSize: 12 }}>{human(z.free)} libres sur {human(z.size)}</div>
+              </div>
+            ))}
+          </div>
+          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Disques de la VM : {(h.hypervisor.vm.disks || []).map((d) => `${d.key} → ${d.storage}:${d.volume}`).join(", ") || "—"} · mesure {h.hypervisor.agent_id} {h.hypervisor.at ? new Date(h.hypervisor.at * 1000).toLocaleTimeString() : ""}</div>
+        </div>
+      ) : <p className="muted" style={{ margin: "6px 0 0" }}>Hyperviseur : non identifié — la VM « {h.hostname} » n'apparaît dans aucune mesure Proxmox des agents (<a href={hubLink("proxmox")}>tuile Proxmox</a> ; <code>SERVICES_VM_NAME</code> si le nom côté Proxmox diffère).</p>}
       <div className="muted" style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         Docker : {d.error ? d.error : <>{d.images_count} images ({human(d.images)}, dont <strong>{d.images_unused_count} inutilisées : {human(d.images_unused)}</strong>) · cache de build {human(d.build_cache)} · conteneurs {human(d.containers)} · volumes {human(d.volumes)}</>}
         <button type="button" className="secondary" disabled={busy} onClick={() => prune(false)}>🧹 Nettoyer images + cache</button>

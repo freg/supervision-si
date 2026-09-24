@@ -1389,6 +1389,9 @@ services:
       - /:/host:ro
     environment:
       - SERVICES_HOST_ROOT=/host
+      # #594 : hyperviseur qui porte la VM du hub, via les agents Proxmox (si-agent-api)
+      - SERVICES_SI_AGENT_URL=http://si-agent-api:5000
+      - SERVICES_VM_NAME=${SERVICES_VM_NAME:-}
       # #590 : notifications des actions (file dans notify-api, jamais bloquant)
       - NOTIFY_API_URL=http://notify-api:5000
       - NOTIFY_INTERNAL_TOKEN=${NOTIFY_INTERNAL_TOKEN:-}

@@ -1,3 +1,21 @@
+## 2026-09-24 — Hôte du hub : l'hyperviseur Proxmox qui porte la VM (stockages, pools ZFS, mémoire) (livraison #594)
+
+Demandé : « connaître l'état des racines du hub (super) avec une info sur
+le host si c'est possible ». L'agrandissement / partitionnement centralisé
+(phase chantier, limité aux Proxmox et à la VM du hub, avec droits et
+sauvegardes) est mis de côté : BACKLOG item 95 reformulé.
+
+- `lights.hypervisor_summary` (pur) : VM du hub retrouvée par nom dans les
+  mesures Proxmox, stockages (ceux qui portent la VM signalés), pools ZFS
+  (capacité, `health`), mémoire du nœud → lampe et texte.
+- `services-api` : `/host` → `hostname` (de `/host/etc/hostname`) et
+  `hypervisor` (via `si-agent-api /proxmox`), intégré à la lampe globale et
+  au bandeau ; `SERVICES_SI_AGENT_URL`, `SERVICES_VM_NAME`.
+- Carte « Hôte du hub » : bloc « Hyperviseur pveXX » (Proxmox, VM, disque
+  virtuel, RAM, instantanés, barres des stockages et pools, disques de la
+  VM → volumes), ou explication si la VM n'est vue par aucun agent.
+- Tests : services-api 33.
+
 ## 2026-09-24 — Hôte du hub : alerte visuelle et sonde charge / mémoire / espace disque, nettoyage Docker (livraison #593)
 
 Constat réel : `/var` saturé sur super → `NS_ERROR_NET_PARTIAL_TRANSFER`

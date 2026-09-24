@@ -156,3 +156,45 @@ def human(n):
             return ("%.1f %s" if unit not in ("o", "Ko") else "%.0f %s") % (n, unit)
         n /= 1024.0
     return "%.1f To" % n
+
+
+def hypervisor_summary(pve, vm_name):
+    """#594 : mesure Proxmox (si-agent-api /proxmox, un hyperviseur) + nom de la
+    VM du hub -> {node, vm, storages, zfs, light, text} ou None si la VM n'y est pas."""
+    vms = pve.get("vms") or []
+    vm = next((v for v in vms if str(v.get("name") or "").lower() == str(vm_name or "").lower()), None)
+    if vm is None:
+        return None
+    order = {"green": 0, "orange": 1, "red": 2}
+    worst, problems = "green", []
+    used_storages = {d.get("storage") for d in ((vm.get("disk_options") or {}).get("disks") or []) if d.get("storage")}
+    storages = []
+    for st in pve.get("storages") or []:
+        total, used = st.get("total") or 0, st.get("used") or 0
+        pct = int(round(100.0 * used / total)) if total else None
+        light = disk_light(pct, (st.get("avail") or 0)) if pct is not None else "grey"
+        rel = st.get("storage") in used_storages
+        storages.append({"storage": st.get("storage"), "type": st.get("type"), "used": used, "total": total, "avail": st.get("avail"), "pct": pct, "light": light, "hosts_vm": rel})
+        if rel and light != "green":
+            problems.append("stockage %s : %s %% utilisé" % (st.get("storage"), pct))
+            worst = max(worst, light, key=lambda x: order[x])
+    pools = []
+    for z in pve.get("zfs") or []:
+        cap = z.get("capacity")
+        health = (z.get("health") or "").upper()
+        light = "red" if health and health != "ONLINE" else disk_light(cap or 0, z.get("free") or 0)
+        pools.append({"pool": z.get("pool"), "capacity": cap, "free": z.get("free"), "size": z.get("size"), "health": health or "?", "light": light})
+        if light != "green":
+            problems.append("pool %s : %s %% (%s)" % (z.get("pool"), cap, health or "?"))
+            worst = max(worst, light, key=lambda x: order[x])
+    node = pve.get("node") or {}
+    mt, mu = node.get("mem_total") or 0, node.get("mem_used") or 0
+    mem_pct = int(round(100.0 * mu / mt)) if mt else None
+    if mem_pct is not None and mem_light(mem_pct) != "green":
+        problems.append("mémoire de l'hyperviseur à %d %%" % mem_pct)
+        worst = max(worst, mem_light(mem_pct), key=lambda x: order[x])
+    return {"node": node.get("name") or pve.get("hostname"), "pveversion": node.get("pveversion"), "agent_id": pve.get("agent_id"), "at": pve.get("at"),
+            "mem_pct": mem_pct, "mem_total": mt,
+            "vm": {"vmid": vm.get("vmid"), "name": vm.get("name"), "status": vm.get("status"), "maxdisk": vm.get("maxdisk"), "maxmem": vm.get("maxmem"),
+                   "disks": (vm.get("disk_options") or {}).get("disks") or [], "snapshots": len(vm.get("snapshots") or [])},
+            "storages": storages, "zfs": pools, "light": worst, "text": "; ".join(problems) or "hyperviseur en bonne santé"}
