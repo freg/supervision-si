@@ -1,3 +1,17 @@
+## 2026-09-24 — Licences : import en un bouton avec prise en compte visible ; règle design n° 8 (livraison #596)
+
+Constat réel : « Importer » cliqué directement ne faisait rien (bouton
+inactif tant que l'analyse n'était pas faite, sans explication). Désormais
+un seul bouton : « 1. Analyser le fichier » → « ⏳ analyse… » → « Importer N
+logiciel(s) sur <site> » (+ annuler) → « ⏳ import… » → « ✓ importé : … »
+affiché sous le bouton (et « rien de nouveau : déjà importé » si tout
+existait). Changer de fichier ou de format remet à l'étape 1.
+
+- `docs/ergonomie-redesign.md`, note design permanente, règle 8 : tout
+  bouton de traitement montre sa prise en compte et son déroulement ; un
+  enchaînement obligatoire tient en un seul bouton dont le libellé avance.
+- Hub 264 tests.
+
 ## 2026-09-24 — Licences logicielles par site : inventaire des postes, comptes vendeurs, grille d'affectation, installeur (livraison #595)
 
 Demandé : « un gestionnaire de licences logicielles par site : recueillir

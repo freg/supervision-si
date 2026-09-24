@@ -150,3 +150,10 @@ dire quoi ? »). Un écran échoue dès qu'une personne sur cinq bloque.
    pour se placer). Exemples : « activer la sonde windows-probe sur
    <agent> » → tuile Agents hôtes, agent sélectionné, section Sondes ;
    Proxmox sans hyperviseur → Installation / Sondes de l'agent.
+8. (#596) Tout bouton qui déclenche un traitement montre sa **prise en
+   compte** et son **déroulement** : libellé qui change (« ⏳ analyse… »),
+   bouton inactif pendant l'appel, résultat affiché à côté (✓ / erreur en
+   couleur) et pas seulement dans le pied de page. Un enchaînement
+   obligatoire (analyser puis importer) tient en **un seul bouton** dont le
+   libellé avance (« 1. Analyser » → « Importer N éléments ») ; jamais deux
+   boutons dont l'un est silencieusement inactif.

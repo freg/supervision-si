@@ -107,7 +107,9 @@ function Contracts({ b, t, site, sites, software, contracts, reload, notice }) {
   const [query, setQuery] = useState("");
   const [ct, setCt] = useState(null);
   const [sw, setSw] = useState(null);
-  const [imp, setImp] = useState({ file: null, site: site || "", plan: null, format: "" });
+  // #596 : un seul bouton « Analyser » qui devient « Importer N logiciel(s) » une fois
+  // l'analyse faite ; état visible (analyse… / import…) et résultat affiché.
+  const [imp, setImp] = useState({ file: null, site: site || "", plan: null, format: "", busy: "", done: null });
   const shown = useMemo(() => filterContracts(contracts, query), [contracts, query]);
   const shownSw = useMemo(() => filterSoftware(software, query), [software, query]);
   const saveCt = async () => {
@@ -123,12 +125,17 @@ function Contracts({ b, t, site, sites, software, contracts, reload, notice }) {
     if (!r.error) { setSw(null); reload(); }
   };
   const editSw = (s) => setSw({ ...EMPTY_SW, ...s, patterns: (s.patterns || []).join("\n"), pkg_winget: s.package?.winget || "", pkg_apt: s.package?.apt || "", pkg_brew: s.package?.brew || "", pkg_dnf: s.package?.dnf || "" });
-  const doImport = async (dry) => {
+  const doImport = async () => {
     if (!imp.file) return notice("choisir un fichier .xlsx ou .csv", false);
+    const dry = !imp.plan;
+    setImp({ ...imp, busy: dry ? "analyse…" : "import…", done: null });
     const r = await api.importFile(b, t, imp.file, imp.site, dry, imp.format);
-    if (r.error) return notice(r.error, false);
-    setImp({ ...imp, plan: r.plan, detected: r.format, created: r.created || null });
-    if (!dry) { notice(`import ${r.format} : ${r.created.software} logiciel(s), ${r.created.contracts} contrat(s), ${r.created.assignments} attribution(s)`); reload(); }
+    if (r.error) { setImp({ ...imp, busy: "", plan: null }); return notice(r.error, false); }
+    if (dry) { setImp({ ...imp, busy: "", plan: r.plan, detected: r.format }); notice(`analyse : ${r.plan.length} logiciel(s) reconnu(s) (format ${r.format}) — vérifier puis cliquer « Importer »`); return; }
+    const done = `importé : ${r.created.software} logiciel(s), ${r.created.contracts} contrat(s), ${r.created.assignments} attribution(s) créé(s)${r.created.software + r.created.contracts + r.created.assignments === 0 ? " (rien de nouveau : déjà importé)" : ""}`;
+    setImp({ ...imp, busy: "", plan: null, done });
+    notice(done);
+    reload();
   };
   const F = (k, props = {}) => <input value={ct[k] ?? ""} onChange={(e) => setCt({ ...ct, [k]: e.target.value })} {...props} />;
   return (
@@ -199,13 +206,20 @@ function Contracts({ b, t, site, sites, software, contracts, reload, notice }) {
           <div className="hub-card" style={{ marginBottom: 10 }}>
             <h3 style={{ marginTop: 0 }}>Importer un tableur</h3>
             <p className="muted" style={{ marginTop: 0, fontSize: 12 }}>Formats reconnus : matrice « Logiciel | Éditeur | Licence | Date Fin | personnes… » (croix), export utilisateurs Microsoft 365 (colonnes Nom complet / Licences), comparatif licence × initiales. Analyser d'abord, puis importer : logiciels et contrats manquants sont créés sur le site choisi, les personnes attribuées.</p>
-            <input type="file" accept=".xlsx,.csv" onChange={(e) => setImp({ ...imp, file: e.target.files?.[0] || null, plan: null })} /><br />
+            <input type="file" accept=".xlsx,.csv" onChange={(e) => setImp({ ...imp, file: e.target.files?.[0] || null, plan: null, done: null })} /><br />
             <input list="lic-sites" placeholder="site" value={imp.site} onChange={(e) => setImp({ ...imp, site: e.target.value })} />{" "}
-            <select value={imp.format} onChange={(e) => setImp({ ...imp, format: e.target.value })}><option value="">format : détection</option><option value="matrix">matrice</option><option value="m365">export Microsoft 365</option><option value="comparatif">comparatif</option></select>
-            <div style={{ marginTop: 6 }}><button type="button" className="secondary" onClick={() => doImport(true)}>Analyser</button> <button type="button" onClick={() => doImport(false)} disabled={!imp.plan}>Importer</button></div>
+            <select value={imp.format} onChange={(e) => setImp({ ...imp, format: e.target.value, plan: null })}><option value="">format : détection</option><option value="matrix">matrice</option><option value="m365">export Microsoft 365</option><option value="comparatif">comparatif</option></select>
+            <div style={{ marginTop: 6, display: "flex", gap: 8, alignItems: "center" }}>
+              <button type="button" className={imp.plan ? "" : "secondary"} onClick={doImport} disabled={!imp.file || !!imp.busy}>
+                {imp.busy ? `⏳ ${imp.busy}` : imp.plan ? `Importer ${imp.plan.length} logiciel(s)${imp.site ? ` sur ${imp.site}` : ""}` : "1. Analyser le fichier"}
+              </button>
+              {!imp.file && <span className="muted" style={{ fontSize: 12 }}>choisir un fichier d'abord</span>}
+              {imp.plan && !imp.busy && <button type="button" className="secondary" onClick={() => setImp({ ...imp, plan: null })}>annuler</button>}
+            </div>
+            {imp.done && <p style={{ margin: "6px 0 0", fontSize: 12 }}><Tone tone="green">✓ {imp.done}</Tone></p>}
             {imp.plan && (
               <div style={{ marginTop: 6, fontSize: 12 }}>
-                <span className="muted">format {imp.detected} · {imp.plan.length} logiciel(s)</span>
+                <span className="muted">2. Vérifier — format {imp.detected} · {imp.plan.length} logiciel(s) — puis importer</span>
                 <ul style={{ margin: "4px 0", paddingLeft: 18, maxHeight: 180, overflow: "auto" }}>{imp.plan.map((p, i) => <li key={i}><b>{p.software}</b>{p.vendor ? ` (${p.vendor})` : ""} · {p.people.length} personne(s){p.end ? ` · fin ${p.end}` : ""}</li>)}</ul>
               </div>
             )}
