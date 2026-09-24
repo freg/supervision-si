@@ -24,6 +24,7 @@
         "si-proxy-admin-api",
         "services-api",
         "notify-api",
+        "licenses-api",
         "rsyslog-listener",
         "network-explorer",
         "ldap-admin-api",

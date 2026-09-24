@@ -138,7 +138,7 @@ MIGRATIONS = [
 
 AGENT_ID_MAX = 64
 COMMAND_TYPES = ("collect_now", "run_plugin", "enable_plugin", "disable_plugin", "remove_plugin", "flush",
-                 "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update", "vm_action")
+                 "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update", "vm_action", "software_action")
 SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
 TASKS_KEPT_LATEST = ("host", "risks", "inventory")
 
@@ -948,6 +948,31 @@ def latest_netviews(db_path, site=None):
         out.append({"agent_id": r["agent_id"], "hostname": r["hostname"], "site": r["site"], "last_ip": r["last_ip"], "at": r["at"],
                     "summary": (data or {}).get("summary") or {}, "neighbors": (data or {}).get("neighbors") or [],
                     "interfaces": (data or {}).get("interfaces") or [], "dns": (data or {}).get("dns") or {}})
+    return out
+
+
+def latest_software_inventory(db_path, site=None):
+    """#595 : dernier inventaire logiciel (plugin software-inventory) par agent."""
+    conn = _connect(db_path)
+    try:
+        q = ("SELECT a.agent_id, a.hostname, a.site, a.last_ip, m.at, m.data FROM agents a "
+             "JOIN (SELECT agent_id, MAX(at) AS at FROM measurements WHERE task = 'plugin:software-inventory' AND ok = 1 GROUP BY agent_id) l ON l.agent_id = a.agent_id "
+             "JOIN measurements m ON m.agent_id = l.agent_id AND m.at = l.at AND m.task = 'plugin:software-inventory'")
+        params = []
+        if site:
+            q += " WHERE a.site = ?"; params.append(site)
+        rows = conn.execute(q, params).fetchall()
+    finally:
+        conn.close()
+    out = []
+    for r in rows:
+        try:
+            data = json.loads(r["data"]) if isinstance(r["data"], str) else (r["data"] or {})
+        except (TypeError, ValueError):
+            data = {}
+        out.append({"agent_id": r["agent_id"], "hostname": r["hostname"], "site": r["site"], "last_ip": r["last_ip"], "at": r["at"],
+                    "os": data.get("os"), "os_version": data.get("os_version"), "users": data.get("users") or [],
+                    "installed": data.get("installed") or [], "count": data.get("count", len(data.get("installed") or [])), "warnings": data.get("warnings") or []})
     return out
 
 

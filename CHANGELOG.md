@@ -1,3 +1,40 @@
+## 2026-09-24 — Licences logicielles par site : inventaire des postes, comptes vendeurs, grille d'affectation, installeur (livraison #595)
+
+Demandé : « un gestionnaire de licences logicielles par site : recueillir
+les infos sur le réseau et les postes ; une série de gestionnaires
+utilisant les accès sur les sites des vendeurs ; une grille d'affectation
+poste / utilisateur ; un installeur / désinstalleur depuis une tuile du hub
+(licences logicielles) ». Les tableurs fournis ont servi de structure
+seulement (aucune donnée nominative dans le dépôt). Voir `licenses/README.md`.
+
+- Agent **0.5.16** : sonde `software-inventory` (dpkg / rpm / flatpak /
+  snap, `/Applications` / Homebrew, clés Uninstall Windows + Office
+  click-to-run, comptes de session ; désactivée par défaut, 6 h) ; commande
+  `software_action` (`si_agent/swctl.py` : apt-get / dnf / brew / winget /
+  choco, paquet validé, jamais de shell). Central : `GET /software-inventory`.
+- **licenses-api** (nouveau conteneur, SQLite `licenses/data`, routé
+  `/api/licenses/`) : catalogue de logiciels (motifs de reconnaissance,
+  paquets par gestionnaire), contrats par site (6 types, quantité, dates,
+  coût, compte vendeur + SKU), attributions utilisateur / poste (dépassement
+  notifié), installations (rapprochement motifs ↔ relevés, bruit système
+  exclu), écarts (9 sortes, 3 sévérités), grille, import `.xlsx` / `.csv`
+  (matrice, export Microsoft 365, comparatif ; analyse puis import,
+  idempotent), comptes vendeurs (**Microsoft Graph** via un accès du
+  coffre ; export ; manuel), actions installer / désinstaller (confirmation
+  = identifiant de l'agent, suivi de la commande). Lecture libre, écritures
+  = jeton Keycloak vérifié (groupe `LICENSES_ADMIN_GROUPS`).
+- Hub : tuile **Licences logicielles** (Données & référentiels) — sélecteur
+  de site, Tableau de bord, Contrats & catalogue (+ import), Grille
+  d'affectation (✓ attribué / ● installé), Postes & installations (détail,
+  « vus mais absents du catalogue », installer / désinstaller, actions),
+  Vendeurs, Journal. Liens vers les sondes des agents et le coffre.
+- Notifications : `licenses.contract`, `licenses.assignment`,
+  `licenses.action`, `licenses.gap`.
+- Tests : licenses-api 13, agent +7, hub 264.
+
+Non vérifié : relevés Windows réels, Graph avec une vraie application,
+winget sous le service Windows (session 0 ; `choco` en repli).
+
 ## 2026-09-24 — Hôte du hub : l'hyperviseur Proxmox qui porte la VM (stockages, pools ZFS, mémoire) (livraison #594)
 
 Demandé : « connaître l'état des racines du hub (super) avec une info sur

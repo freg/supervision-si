@@ -129,3 +129,5 @@ mikrotik/routers.local.json
 services/data/
 # #590 : base des notifications (file, groupes, jetons hachés)
 notify/data/
+# #595 : base des licences (contrats, attributions, actions)
+licenses/data/

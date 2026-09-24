@@ -995,3 +995,20 @@ plus récente que la cible du marqueur compte comme réussie (plus de faux
 passe à 4096 : la limite est un espace d'adressage (RLIMIT_AS) et 512 Mo
 faisait planter les binaires Go (sonde docker-containers : « failed to
 reserve page summary memory »).
+
+## Inventaire logiciel et installation / désinstallation (livraison #595, agent 0.5.16)
+
+Sonde `software-inventory` (bundled, **désactivée par défaut**, 6 h) :
+liste des logiciels installés — Linux (dpkg / rpm, flatpak, snap), macOS
+(`/Applications`, Homebrew), Windows (clés `Uninstall` 64 / 32 bits et
+utilisateur, Office click-to-run) — nom, version, éditeur, date, source,
+plus les comptes ouvrant des sessions. Lecture seule. Central :
+`GET /software-inventory?site=` (dernier relevé par agent) ; consommé par
+`licenses-api` (tuile Licences logicielles, voir `licenses/README.md`).
+Commande `software_action` `{action: install|uninstall, package, manager?}`
+(`si_agent/swctl.py`, tests `test_swctl.py`) : apt-get / dnf / brew /
+winget / choco, gestionnaire déduit de l'OS, nom de paquet validé
+(`PKG_RE`), jamais de shell, `DEBIAN_FRONTEND=noninteractive`, délai 15
+min, sortie tronquée renvoyée au central ; événement `command-software`.
+Windows : l'agent tourne en service (session 0) où `winget` peut manquer —
+préférer `choco` ou installer winget pour le compte système.

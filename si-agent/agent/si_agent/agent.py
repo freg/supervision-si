@@ -518,6 +518,15 @@ class Agent(object):
                 self.event("command-vm", "info" if res.get("ok") else "warning",
                            "VM %s : %s%s" % (params.get("vmid"), params.get("action"), "" if res.get("ok") else " -- %s" % res.get("error")), {"command": c.get("id"), "params": params})
                 return res
+            if ctype == "software_action":
+                # #595 : installation / désinstallation d'un logiciel (gestionnaire de paquets du poste), depuis la tuile Licences
+                from . import swctl
+                if self.is_blocked():
+                    return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
+                res = swctl.run(self.cmd, params)
+                self.event("command-software", "info" if res.get("ok") else "warning",
+                           "logiciel %s : %s%s" % (params.get("package"), params.get("action"), "" if res.get("ok") else " -- %s" % res.get("error")), {"command": c.get("id"), "params": params})
+                return res
             if ctype == "update":
                 # #522 : mise à jour décidée par le central (canal bêta / activation
                 # générale) ; téléchargement par le même TLS, SHA-256 vérifié,

@@ -1365,6 +1365,37 @@ services:
       - NOTIFY_SMTP_FROM=${NOTIFY_SMTP_FROM:-${SECRETS_ALERT_SMTP_FROM:-}}
       - NOTIFY_SMTP_USE_TLS=${NOTIFY_SMTP_USE_TLS:-${SECRETS_ALERT_SMTP_USE_TLS:-true}}
 
+  licenses-api:
+    # Livraison #595 -- gestionnaire de LICENCES LOGICIELLES par site :
+    # catalogue, contrats, attributions poste / utilisateur (grille),
+    # installations relevées par la sonde « software-inventory » des agents
+    # (si-agent-api), écarts, import des tableurs, comptes vendeurs
+    # (Microsoft Graph via un accès du coffre), installation /
+    # désinstallation depuis la tuile (commande software_action à l'agent,
+    # confirmation obligatoire). Lecture libre, écritures = jeton Keycloak
+    # vérifié (groupe administrateurs). Voir licenses/README.md.
+    build:
+      context: .
+      dockerfile: licenses/api/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ${LICENSES_DATA_DIR:-./licenses/data}:/data
+    environment:
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=supervision-si
+      - LICENSES_ADMIN_GROUPS=${LICENSES_ADMIN_GROUPS:-administrateurs}
+      - LICENSES_ADMIN_USERS=${LICENSES_ADMIN_USERS:-}
+      - LICENSES_EXPIRING_DAYS=${LICENSES_EXPIRING_DAYS:-60}
+      - SI_AGENT_API_URL=http://si-agent-api:5000
+      - CREDENTIALS_API_URL=http://credentials-api:5000
+      - CREDENTIALS_INTERNAL_TOKEN=${CREDENTIALS_INTERNAL_TOKEN:-}
+      - NOTIFY_API_URL=http://notify-api:5000
+      - NOTIFY_INTERNAL_TOKEN=${NOTIFY_INTERNAL_TOKEN:-}
+      - NOTIFY_CONSUMER=licenses
+    depends_on:
+      - si-agent-api
+      - credentials-api
+
   services-api:
     # Livraison #584 -- « Services du hub » (sous-tuile de Paramétrage) :
     # feu tricolore de TOUS les conteneurs du projet (état Docker,
@@ -1880,6 +1911,7 @@ services:
       - VITE_SERVICES_ADMIN_GROUPS=${SERVICES_ADMIN_GROUPS:-administrateurs}
       # Notifications (livraison #590) -- tuile « Notifications » (groupe administrateurs).
       - VITE_NOTIFY_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/notify
+      - VITE_LICENSES_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/licenses   # #595
       # Catalogue de positions (livraison #429) -- tuile hub pour geo-catalog-api.
       - VITE_GEO_CATALOG_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/geo-catalog
       # Supervision SI refondue (livraison #423) -- géolocalisations connues.

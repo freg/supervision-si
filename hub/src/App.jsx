@@ -42,6 +42,7 @@ import NetworkEquipmentView from "./NetworkEquipmentView.jsx";
 import BastionView from "./BastionView.jsx";
 import ControlTowerView from "./ControlTowerView.jsx";  // #586
 import NotificationsView from "./NotificationsView.jsx";  // #590
+import LicensesView from "./LicensesView.jsx";  // #595
 import HostHealthBanner from "./HostHealthBanner.jsx";  // #593
 import CortexView from "./CortexView.jsx";
 import ThemeView from "./ThemeView.jsx";
@@ -140,6 +141,7 @@ const PUBLIC_LINKS = publicLinks({ demandeUrl: DEMANDE_URL, frontendUrl: FRONTEN
 const SI_PROXY_API_BASE_URL = import.meta.env.VITE_SI_PROXY_API_BASE_URL || "";
 const SERVICES_API_BASE_URL = import.meta.env.VITE_SERVICES_API_BASE_URL || "";  // #584
 const NOTIFY_API_BASE_URL = import.meta.env.VITE_NOTIFY_API_BASE_URL || "";  // #590
+const LICENSES_API_BASE_URL = import.meta.env.VITE_LICENSES_API_BASE_URL || "";  // #595
 const SERVICES_ADMIN_USERS = (import.meta.env.VITE_SERVICES_ADMIN_USERS || "freg").split(",").map((u) => u.trim().toLowerCase()).filter(Boolean);
 const SERVICES_ADMIN_GROUPS = (import.meta.env.VITE_SERVICES_ADMIN_GROUPS || "administrateurs").split(",").map((g) => g.trim()).filter(Boolean);  // #589
 // Cortex (livraison #462) -- incidents corrélés, hypothèses évaluées.
@@ -1457,6 +1459,7 @@ export default function App() {
     RIGHTS_API_BASE_URL && groups.includes("admin_hub") && "rights", BACKUP_RESTORE_API_BASE_URL && "backup-restore",
     ACCOUNTS_API_BASE_URL && (isAdmin(groups) || groups.includes("admin_hub")) && "accounts",
     NOTIFY_API_BASE_URL && isAdmin(groups) && "notifications",  // #590
+    LICENSES_API_BASE_URL && "licenses",  // #595 : lecture pour tous, écritures réservées par l'API (groupe administrateurs)
   ].filter(Boolean));
   const availableViews = visibleTiles ? new Set([...availableViewsRaw].filter((v) => visibleTiles.has(v))) : availableViewsRaw;  // #559
   const { leftover: leftoverFronts } = buildThemes({ available: availableViews, fronts });
@@ -1691,6 +1694,8 @@ vm === "agent-page" ? (
         />
       ) : vm === "notifications" ? (
         <NotificationsView apiBase={NOTIFY_API_BASE_URL} accessToken={auth.user?.access_token} username={profile.preferred_username} onBack={goBack} />
+      ) : vm === "licenses" ? (
+        <LicensesView apiBase={LICENSES_API_BASE_URL} accessToken={auth.user?.access_token} username={profile.preferred_username} onBack={goBack} />
       ) : vm === "accounts" ? (
         <AccountsView onBack={goBack} accountsApiBase={ACCOUNTS_API_BASE_URL} groups={groups} login={profile.preferred_username} keycloakConsoleUrl={KEYCLOAK_CONSOLE_URL} />
       ) : vm === "file-manager" ? (

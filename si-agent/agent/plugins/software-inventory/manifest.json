@@ -1,0 +1,13 @@
+{
+  "id": "software-inventory",
+  "version": "1",
+  "runner": "python",
+  "entry": "software_inventory.py",
+  "interval_seconds": 21600,
+  "timeout_seconds": 300,
+  "args": [],
+  "enabled": false,
+  "description": "Inventaire des logiciels installés (#595, gestionnaire de licences) : Linux (dpkg / rpm, flatpak, snap), macOS (/Applications, Homebrew), Windows (clés Uninstall 64/32 bits et utilisateur, Office click-to-run) -- nom, version, éditeur, date d'installation, plus les comptes locaux qui ouvrent des sessions. Lecture seule ; alimente la tuile Licences logicielles (rapprochement contrats / installations).",
+  "source": "bundled",
+  "privileged": false
+}

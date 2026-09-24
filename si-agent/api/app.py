@@ -211,6 +211,12 @@ def fleet_route():
     return jsonify({"agents": store.fleet(DB_PATH, site=request.args.get("site"), offline_after_seconds=OFFLINE_AFTER_SECONDS)}), 200
 
 
+@app.route("/software-inventory", methods=["GET"])
+def software_inventory_route():
+    """#595 : logiciels installés par poste (plugin software-inventory), `?site=` -- lu par licenses-api."""
+    return jsonify({"inventories": store.latest_software_inventory(DB_PATH, site=request.args.get("site"))}), 200
+
+
 @app.route("/windows-hosts", methods=["GET"])
 def windows_hosts_route():
     """#567 : postes Windows (et autres hôtes) vus par la sonde windows-probe

@@ -3350,3 +3350,16 @@ l'instantané après validation ; les gestes hors ligne (réduction,
 déplacement) via l'agent Proxmox avec la VM arrêtée, même garde-fous.
 Nettoyages guidés (images Docker #593, `journalctl --vacuum`, `apt clean`,
 vieux noyaux, anciennes sauvegardes) avec estimation avant exécution.
+
+## Licences logicielles par site (2026-09-24, #595) — item 96
+
+Livré (#595) : sonde `software-inventory`, licenses-api, tuile, Microsoft
+Graph, import des tableurs, grille, installeur. Restes notés pour plus
+tard : autres gestionnaires vendeurs (Adobe Admin Console, Autodesk,
+Dassault, JetBrains — chacun une fonction `sync_<vendeur>` dans
+`vendors.py`) ; rapprochement des utilisateurs Graph (UPN) avec les
+sessions vues par les agents (comptes locaux) via l'annuaire ; alerte
+périodique d'expiration (fil de vérification quotidien → `licenses.gap`)
+; export de la grille en `.xlsx` ; installation groupée (plusieurs postes
+d'un site) avec file d'attente et rapport ; catalogue de paquets winget /
+choco suggéré depuis le nom relevé.

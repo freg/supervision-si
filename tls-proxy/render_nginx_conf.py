@@ -207,6 +207,8 @@ SERVICES = [
     # notify-api (livraison #590) -- notifications et gestionnaire d'envoi ;
     # routé aussi pour les services EXTERNES (jeton de consommateur).
     ("NOTIFY_API_PORT", "notify-api", 5000, "/api/notify/", "api"),
+    # licenses-api (livraison #595) -- licences logicielles par site.
+    ("LICENSES_API_PORT", "licenses-api", 5000, "/api/licenses/", "api"),
     # cortex-api (livraison #462) -- ajouté dès la première livraison (piège #301).
     ("CORTEX_API_PORT", "cortex-api", 5000, "/api/cortex/", "api"),
     # geo-catalog-api (livraison #429) -- catalogue de positions.

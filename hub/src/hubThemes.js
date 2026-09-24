@@ -54,6 +54,7 @@ export const THEMES = [
       { view: "schema-analyzer", label: "Analyse de schémas" },
       { view: "retro", label: "Rétro-ingénierie" },
       { front: "dba", label: "DBA" },
+      { view: "licenses", label: "Licences logicielles" },   // #595
     ] },
   { id: "documents", name: "Documents & ENT", icon: "📚", description: "ENT (agenda, tâches, relations), GED, fichiers, messagerie, tickets",
     entries: [
@@ -155,7 +156,7 @@ export const SINCE = {
   "aujourdhui": 544, "architecture": 105, "assistant": 532, "backup-restore": 105, "cisco": 508, "classifier": 259, "cortex": 462,
   "credentials": 498, "cyber": 186, "dba": 105, "demande": 489, "ent": 105, "external-bases": 425, "file-manager": 226,
   "fusion": 431, "ged": 105, "geo-catalog": 429, "glpi-inventory": 192, "history": 105, "imap": 144, "imap-connectors": 489,
-  "keycloak-admin": 105, "accounts": 557, "notifications": 590, "ldap-admin": 105, "logs": 105, "memory": 105, "mikrotik": 485, "nebula": 192,
+  "keycloak-admin": 105, "accounts": 557, "notifications": 590, "licenses": 595, "ldap-admin": 105, "logs": 105, "memory": 105, "mikrotik": 485, "nebula": 192,
   "netmap-orchestrator": 388, "netprobe": 301, "network-agent": 236, "network-cycle": 396, "network-equipment": 506,
   "projeqtor": 476, "proxmox": 487, "retro": 242, "rights": 105, "schema-analyzer": 173, "service-watch": 531,
   "si-agent": 421, "si-proxy": 454, "snmp": 181, "ssh-tunnels": 122, "supervision-si": 105, "synthese": 523,
