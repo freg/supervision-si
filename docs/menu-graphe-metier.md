@@ -123,6 +123,8 @@ libellés métier) sans jamais casser le calcul automatique.
 
 ## 6. Étapes proposées
 
+État : étape 1 livrée (#599, `hub/src/hubBusiness.js`, menu « Vue métier »).
+
 1. **Catalogue typé** (petite livraison) : donner à chaque tuile un ou
    plusieurs *objets métier* et *types d'arêtes* dans `hubThemes.js` ;
    générer les cinq racines comme thématiques alternatives (« Vue métier »

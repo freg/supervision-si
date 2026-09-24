@@ -50,6 +50,7 @@ import { buildCatalog as buildRightsCatalog } from "./rightsCatalog.js";
 import { fetchVisible } from "./rightsClient.js";
 import AgentPageView from "./AgentPageView.jsx";
 const RIGHTS_CATALOG_IDS = new Set(buildRightsCatalog().map((c) => c.identifier));  // #559
+import { businessTree, filterBusinessTree, pathsOfLeaf } from "./hubBusiness.js";  // #599 : menu principal en graphe métier
 import { THEMES, SINCE, buildThemes, themeViewMode, isThemeViewMode, themeIdOf, findTheme, themeOfView, normalizeHomeMode, HOME_MODES } from "./hubThemes.js";
 import { publicLinks, agentPublishedLinks, displayUrl } from "./publicLinks.js";
 import { canSeeBastion } from "./siProxy.js";
@@ -1476,6 +1477,16 @@ export default function App() {
     else if (["aide", "tabs", "settings", "personalize", "layout", "external-links", "control"].includes(a)) toggle(a);
   };
   const hubCatalog = buildCatalog({ availableViews, viewLabels: viewLabelsFromThemes(THEMES), fronts, isAdmin: isAdmin(groups) });
+  // #599 : menu principal en GRAPHE MÉTIER déployé (item 94, étape 1) -- cinq
+  // racines, une tuile sous chacun de ses chemins, « aussi sous … », filtre
+  // début de mot ; l'arbre de disposition (#516) reste l'autre porte.
+  const [menuMode, setMenuMode] = useState(() => { try { return localStorage.getItem("hub.menu.mode") === "layout" ? "layout" : "business"; } catch { return "business"; } });
+  useEffect(() => { try { localStorage.setItem("hub.menu.mode", menuMode); } catch { /* ignoré */ } }, [menuMode]);
+  const [menuQuery, setMenuQuery] = useState("");
+  const businessFull = useMemo(() => businessTree(hubCatalog, { themeOf: (ref) => { const t = themeOfView(visibleThemes, ref.replace(/^(view|front):/, "")); return t || null; } }), [hubCatalog, visibleThemes]);
+  const businessShown = useMemo(() => filterBusinessTree(businessFull, menuQuery), [businessFull, menuQuery]);
+  const currentLeafId = viewMode ? `view:${viewMode}` : null;
+  const openBusinessPaths = useMemo(() => new Set(currentLeafId ? pathsOfLeaf(businessFull, currentLeafId).flatMap((p) => p.split("/").map((_, i, a) => a.slice(0, i + 1).join("/"))) : []), [businessFull, currentLeafId]);
   const decorateLeaf = (l) => (l.kind === "action" ? { ...l, onClick: () => runAction(l.action) } : l);
   const resolvedTree = resolveTree(hubTree, hubCatalog, { leftover: leftoverFronts });
   const visibleThemes = themesOf(resolvedTree).map((t) => ({ ...t, entries: t.entries.map(decorateLeaf) }));
@@ -1956,7 +1967,29 @@ vm === "agent-page" ? (
             </button>
             {openNavMenu === "tree" && (
               <div className="hub-nav-dropdown-panel hub-nav-tree">
-                {headerParts.tree.map((n) => (n.type === "ref" ? (
+                <div className="hub-nav-menu-bar">
+                  <button type="button" className={`secondary${menuMode === "business" ? " active" : ""}`} onClick={() => setMenuMode("business")} title="cinq racines métier : équipements, services, droits, états, Cortex -- une tuile apparaît sous chacun de ses chemins">Vue métier</button>
+                  <button type="button" className={`secondary${menuMode === "layout" ? " active" : ""}`} onClick={() => setMenuMode("layout")} title="arbre de disposition (thématiques, personnalisable)">Disposition</button>
+                  {menuMode === "business" && <input type="search" placeholder="filtrer (début de mot)" value={menuQuery} onChange={(e) => setMenuQuery(e.target.value)} autoFocus />}
+                </div>
+                {menuMode === "business" && businessShown.roots.map((r) => {
+                  const renderNode = (n, depth) => (
+                    <details key={n.id} open={!!menuQuery || openBusinessPaths.has(n.id) || (depth === 0 && false)}>
+                      <summary>{n.icon ? `${n.icon} ` : ""}{n.label} <span className="muted">({n.count})</span>{depth === 0 && n.description && <span className="muted hub-nav-desc"> — {n.description}</span>}</summary>
+                      <div className="hub-nav-tree-children">
+                        {n.leaves.map((l) => (
+                          <button key={`${n.id}:${l.id}`} type="button" className={leafActive(l) ? "active" : ""} onClick={() => openLeaf(decorateLeaf(l), null)} title={l.also.length ? `aussi sous : ${l.also.join(" ; ")}` : ""}>
+                            {l.label}{l.kind === "link" && !l.embeddable ? " ↗" : ""}{l.also.length > 0 && <span className="muted hub-nav-also"> · aussi {l.also.length === 1 ? `sous ${l.also[0]}` : `sous ${l.also.length} autres`}</span>}
+                          </button>
+                        ))}
+                        {n.children.map((c) => renderNode(c, depth + 1))}
+                      </div>
+                    </details>
+                  );
+                  return renderNode(r, 0);
+                })}
+                {menuMode === "business" && !businessShown.roots.length && <p className="muted" style={{ padding: 10 }}>rien ne commence par « {menuQuery} »</p>}
+                {menuMode === "layout" && headerParts.tree.map((n) => (n.type === "ref" ? (
                   <button key={n.id} type="button" className={leafActive(n.leaf) ? "active" : ""} onClick={() => openLeaf(n.leaf, null)}>{n.leaf.label}{n.leaf.kind === "link" && !n.leaf.embeddable ? " ↗" : ""}</button>
                 ) : (
                   <details key={n.id} open={themeIdOf(viewMode) === n.id || themeOfView(visibleThemes, viewMode) === n.id}>

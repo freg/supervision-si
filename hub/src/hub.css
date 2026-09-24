@@ -2191,3 +2191,12 @@ button.danger { color: #e06666; }
 .hub-nav-public-row { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 6px 10px; border-top: 1px solid var(--border); }
 .hub-nav-public-row code { font-size: 12px; color: var(--muted); }
 .hub-nav-public-row button { padding: 4px 8px; font-size: .85em; }
+/* #599 : menu principal en graphe métier -- barre de mode + filtre, sous-branches indentées, « aussi sous » */
+.hub-nav-tree { min-width: 360px; }
+.hub-nav-menu-bar { display: flex; gap: 6px; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--panel); z-index: 1; }
+.hub-nav-menu-bar input { flex: 1; min-width: 120px; }
+.hub-nav-menu-bar button.active { color: var(--accent) !important; border-color: var(--accent); }
+.hub-nav-tree details details { border-top: 0; }
+.hub-nav-tree details details > summary { font-weight: 500; padding: 5px 10px; font-size: .95em; }
+.hub-nav-desc { font-weight: 400; font-size: .85em; }
+.hub-nav-also { font-size: .8em; font-weight: 400; }

@@ -3323,6 +3323,10 @@ sondes / agents.
 
 ## Menu du hub en graphe métier déployé (2026-09-24) — item 94 (analyse : docs/menu-graphe-metier.md)
 
+Étape 1 livrée (#599) : `hubBusiness.js`, cinq racines, chemins par tuile,
+menu « Vue métier » par défaut dans Menu ▾. Restent : étape 2 (arêtes
+calculées, lampes d'état à côté des objets, pages pivot), étape 3, 4.
+
 Demandé : « un arbre qui prenne la logique métier et les dépendances ; une
 tuile peut être à plusieurs endroits : un graphe déployé ». Cinq racines
 (équipements par type, services, droits, supervision / états, Cortex / IA),

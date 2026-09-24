@@ -1,3 +1,30 @@
+## 2026-09-24 — Menu principal en graphe métier déployé : cinq racines, une tuile sous chacun de ses chemins (livraison #599, item 94 étape 1)
+
+Demandé : « dans la prochaine version livrée, mettre en place le menu
+principal arborescent » (analyse `docs/menu-graphe-metier.md`).
+
+- `hub/src/hubBusiness.js` (pur, 3 tests) : cinq racines — Équipements
+  (réseau : routeurs, switchs, Wi-Fi, tunnels ; hôtes / VM / conteneurs ;
+  sondes matérielles ; postes et logiciels ; inventaire), Services (hub,
+  entrées d'Internet, métier, données, messagerie), Droits et accès
+  (personnes, accès, coffres, licences, qui voit quoi), Supervision et
+  états (maintenant, incidents, feux, journaux, notifications, demandes),
+  Cortex et IA — et `PATHS` : chaque tuile (vue, front, action) rattachée à
+  un ou plusieurs chemins ; `businessTree` déploie le graphe en arbre
+  (feuille répétée sous chaque chemin, `also` = ses autres chemins,
+  branches vides retirées, repli « Autres » sous la racine de sa thématique
+  pour une tuile sans chemin), `filterBusinessTree` (début de mot sur
+  feuilles et branches), `pathsOfLeaf`, `reachability`.
+- Menu « Menu ▾ » de l'en-tête : barre **Vue métier / Disposition**
+  (choix mémorisé, vue métier par défaut) ; en vue métier : filtre début de
+  mot, branches dépliables (celle de la vue courante ouverte), feuille
+  avec « · aussi sous … », description de chaque racine. La disposition
+  #516 reste accessible, inchangée.
+- Hub 267 tests.
+
+Étape 2 (arêtes calculées depuis compose, registres, agents, Cortex,
+notifications, droits ; pages pivot par objet) : item 94.
+
 ## 2026-09-24 — Licences : analyse croisée automatique avec l'annuaire (présence, groupes, « anciens »), lien vers la gestion chez le vendeur (livraison #598)
 
 Demandé : « une analyse croisée automatique qui va vérifier dans le LDAP
