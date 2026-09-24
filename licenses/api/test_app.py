@@ -20,6 +20,7 @@ sys.path.insert(0, HERE)
 sys.path.append(os.path.join(ROOT, "si-proxy", "admin"))
 os.environ["LICENSES_DB"] = os.path.join(tempfile.mkdtemp(prefix="licenses-"), "l.sqlite")
 os.environ["CREDENTIALS_INTERNAL_TOKEN"] = "coffre-test"
+os.environ["LICENSES_DIRECTORY_WORKER"] = "0"
 
 import jwt  # noqa: E402
 from cryptography.hazmat.primitives.asymmetric import rsa  # noqa: E402
@@ -216,6 +217,35 @@ class Users(Base):
         self.assertNotIn(("user", "dan.d"), subjects)  # sans site -> pas dans la grille d'un site
         appmod.app.fetch_directory = lambda: (_ for _ in ()).throw(RuntimeError("x"))
         self.assertEqual(self.c.post("/users/sync", headers=self.adm).status_code, 502)
+
+    def test_cross_check_former_missing(self):  # #598
+        sid = self.software("Office 365")
+        cid = self.contract(sid, quantity=5)
+        appmod.app.fetch_directory = lambda: [{"username": "alice.a", "first_name": "Alice", "last_name": "A", "enabled": True, "groups": ["administrateurs"]},
+                                              {"username": "bob.b", "first_name": "Bob", "last_name": "B", "enabled": True, "groups": ["Anciens"]},
+                                              {"username": "carl.c", "enabled": False, "groups": []}, {"username": "dan.d", "enabled": True, "groups": []}]
+        self.c.post("/users/sync", headers=self.adm)
+        for who in ("alice.a", "bob.b", "carl.c", "dan.d"):
+            self.c.post("/assignments", headers=self.adm, json={"contract_id": cid, "subject_kind": "user", "subject": who})
+        self.c.post("/assignments", headers=self.adm, json={"contract_id": cid, "subject_kind": "user", "subject": "eve"})  # hors annuaire
+        # dan disparaît de l'annuaire
+        appmod.app.fetch_directory = lambda: [{"username": "alice.a", "enabled": True, "groups": ["administrateurs"]}, {"username": "bob.b", "enabled": True, "groups": ["Anciens"]}, {"username": "carl.c", "enabled": False, "groups": []}]
+        r = self.c.post("/users/sync", headers=self.adm).get_json()
+        self.assertEqual((r["missing"], r["former"]), (1, 1))
+        users = {u["login"]: u for u in self.c.get("/users").get_json()["users"]}
+        self.assertEqual((users["bob.b"]["alert"], users["bob.b"]["groups"]), ("former", ["Anciens"]))
+        self.assertEqual((users["dan.d"]["alert"], users["carl.c"]["alert"], users["alice.a"]["alert"]), ("missing", "disabled", None))
+        gaps = {(x["kind"], x["user"]): x["severity"] for x in self.c.get("/gaps").get_json()["gaps"] if x["kind"].startswith("user-")}
+        self.assertEqual(gaps, {("user-former", "bob.b"): "critical", ("user-missing", "dan.d"): "warning", ("user-disabled", "carl.c"): "warning", ("user-unknown", "eve"): "info"})
+        # dan revient : plus d'écart
+        appmod.app.fetch_directory = lambda: [{"username": "dan.d", "enabled": True, "groups": []}]
+        self.c.post("/users/sync", headers=self.adm)
+        self.assertIsNone({u["login"]: u for u in self.c.get("/users").get_json()["users"]}["dan.d"]["alert"])
+        # portail vendeur sur le compte et sur le contrat lié
+        self.c.post("/vendors", headers=self.adm, json={"name": "m365", "kind": "microsoft-graph", "config": {"tenant": "t", "client_id": "c"}, "credential": "x"})
+        self.assertEqual(self.c.get("/vendors").get_json()["vendors"][0]["portal"], "https://admin.microsoft.com/#/licenses")
+        self.c.put("/contracts/%d" % cid, headers=self.adm, json={"software_id": sid, "site": "site-alpha", "kind": "per-user", "quantity": 5, "vendor_account": "m365"})
+        self.assertEqual(self.c.get("/contracts").get_json()["contracts"][0]["portal"], "https://admin.microsoft.com/#/licenses")
 
 
 class Vendors(Base):

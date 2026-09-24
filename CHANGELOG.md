@@ -1,3 +1,28 @@
+## 2026-09-24 — Licences : analyse croisée automatique avec l'annuaire (présence, groupes, « anciens »), lien vers la gestion chez le vendeur (livraison #598)
+
+Demandé : « une analyse croisée automatique qui va vérifier dans le LDAP
+général si l'utilisateur est bien présent et dans quels groupes ; on va
+créer un groupe anciens où apparaîtront ceux qui ne travaillent plus avec
+nous et afficher une alerte dans la table utilisateur type logiciel » ;
+« le lien vers la gestion des licences chez le vendeur ».
+
+- `users` : `groups`, `missing`, `synced_at` ; `sync_directory()` (groupes
+  relevés, comptes disparus marqués, jamais supprimés) ; fil
+  `directory-sync` (`LICENSES_DIRECTORY_INTERVAL`, 3600 s) ; notification
+  `licenses.gap` critique quand la liste des anciens avec licences change.
+- `rules.user_gaps` / `user_alert` : `user-former` (critique),
+  `user-missing`, `user-disabled` (alertes), `user-unknown` (info) — dans
+  `GET /gaps` (tableau de bord) et `GET /users` (`alert`, `alert_label`,
+  `former_groups`, `last_sync`, `sync_error`). `LICENSES_FORMER_GROUPS`.
+- Attribution manuelle d'un utilisateur : la personne rejoint la table
+  (annuaire ou info).
+- Vendeurs : `portal` (`vendors.PORTALS` par type, `config.url` sinon) ;
+  lien « gérer chez le vendeur ↗ » sur le compte et sur les contrats liés.
+- Hub : onglet Utilisateurs — colonne Alerte (🚫 ancien / ⚠ absent / ⛔
+  désactivé / ℹ hors annuaire, licences à retirer), groupes, lignes
+  colorées, filtre « alertes seulement », état de la dernière analyse.
+- Tests : licenses-api 17.
+
 ## 2026-09-24 — Licences : personnes des tableurs prises en compte, table utilisateurs / site adossée à l'annuaire (livraison #597)
 
 Constat réel : l'analyse et l'import ignoraient les personnes (marques

@@ -18,6 +18,13 @@ import urllib.parse
 import urllib.request
 
 KINDS = ("microsoft-graph", "csv-export", "manual")
+# #598 : portail de gestion des licences chez le vendeur (lien « gérer chez le vendeur »),
+# remplaçable par config.url sur le compte.
+PORTALS = {"microsoft-graph": "https://admin.microsoft.com/#/licenses", "csv-export": "", "manual": ""}
+
+
+def portal_url(kind, config):
+    return str((config or {}).get("url") or PORTALS.get(kind) or "")
 GRAPH = "https://graph.microsoft.com/v1.0"
 SKU_LABELS = {  # libellés lisibles des SKU Microsoft les plus courants
     "O365_BUSINESS_PREMIUM": "Microsoft 365 Business Standard", "O365_BUSINESS_ESSENTIALS": "Microsoft 365 Business Basic",

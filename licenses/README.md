@@ -77,6 +77,29 @@ utilisateurs, attribués ou non. `GET /users?site=`, `POST /users`
 (ajout / modification, alias), `DELETE /users/<login>` (refusé s'il reste
 des attributions).
 
+### Analyse croisée avec l'annuaire (#598)
+
+Automatique (`LICENSES_DIRECTORY_INTERVAL`, 3600 s ; bouton « Synchroniser
+l'annuaire » pour forcer) : présence de chaque compte et **groupes**
+relevés depuis l'annuaire. Groupe(s) `LICENSES_FORMER_GROUPS` (défaut
+`anciens`, à créer dans Comptes / LDAP et y placer les personnes parties) :
+membre + licences attribuées = 🚫 alerte rouge dans la table, écart
+critique `user-former` dans le tableau de bord et notification
+`licenses.gap` (une par changement de liste) ; compte disparu de
+l'annuaire = ⚠ `user-missing` (jamais supprimé, ses attributions restent
+visibles) ; compte désactivé = ⛔ `user-disabled` ; personne hors annuaire
+avec licences = ℹ `user-unknown`. Filtre « alertes seulement ».
+
+### Chez le vendeur (#598)
+
+Chaque compte vendeur porte un lien **« gérer chez le vendeur ↗ »** vers le
+portail d'administration des licences (défaut par type : Microsoft 365 →
+centre d'administration, page Licences ; `config.url` pour le remplacer ou
+pour un vendeur sans API) ; les contrats liés à un compte affichent le même
+lien. Le hub ne se connecte pas au portail à la place de la personne : la
+lecture passe par l'API (Graph), les gestes d'achat / résiliation restent
+sur le portail avec le compte administrateur du client.
+
 ## Import des tableurs (`POST /import`, multipart `file`, `site`, `dry_run`)
 
 Formats détectés : **matrice** (en-tête « Logiciel | Éditeur | Licence |

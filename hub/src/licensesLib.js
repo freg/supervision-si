@@ -7,7 +7,9 @@ export const KIND_LABEL = { "per-user": "par utilisateur", "per-device": "par po
 export const GAP_LABEL = {
   "installed-no-contract": "installé sans contrat", expired: "contrat expiré", expiring: "expire bientôt", "over-assigned": "sur-attribué",
   "over-installed": "sur-installé", unused: "payé, inutilisé", spare: "licences disponibles", "assigned-not-installed": "attribué, non installé", "installed-not-assigned": "installé, non attribué",
+  "user-former": "ancien avec licences", "user-missing": "absent de l'annuaire", "user-disabled": "compte désactivé", "user-unknown": "hors annuaire",
 };
+export const USER_ALERT = { former: { icon: "🚫", tone: "red" }, missing: { icon: "⚠", tone: "orange" }, disabled: { icon: "⛔", tone: "orange" }, unknown: { icon: "ℹ", tone: "grey" } };
 export const SEVERITY_TONE = { critical: "red", warning: "orange", info: "grey" };
 export const ACTION_STATUS = { pending: "en attente", acked: "reçue par l'agent", done: "terminée", failed: "échec" };
 export const VENDOR_KIND_LABEL = { "microsoft-graph": "Microsoft 365 (Graph)", "csv-export": "export du vendeur (fichier)", manual: "saisie manuelle" };

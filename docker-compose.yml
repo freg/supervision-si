@@ -1388,6 +1388,10 @@ services:
       - LICENSES_EXPIRING_DAYS=${LICENSES_EXPIRING_DAYS:-60}
       - SI_AGENT_API_URL=http://si-agent-api:5000
       - ACCOUNTS_API_URL=http://accounts-api:5000   # #597 : annuaire (Keycloak fédéré LDAP) -> table utilisateurs / site
+      # #598 : analyse croisée automatique avec l'annuaire (présence, groupes) ; groupe(s) des personnes
+      # qui ne travaillent plus avec nous (créer le groupe « anciens » dans Comptes / LDAP) -> alerte + écart critique.
+      - LICENSES_FORMER_GROUPS=${LICENSES_FORMER_GROUPS:-anciens}
+      - LICENSES_DIRECTORY_INTERVAL=${LICENSES_DIRECTORY_INTERVAL:-3600}
       - CREDENTIALS_API_URL=http://credentials-api:5000
       - CREDENTIALS_INTERNAL_TOKEN=${CREDENTIALS_INTERNAL_TOKEN:-}
       - NOTIFY_API_URL=http://notify-api:5000

@@ -76,9 +76,13 @@ CREATE TABLE IF NOT EXISTS assignments (id INTEGER PRIMARY KEY AUTOINCREMENT, co
 CREATE TABLE IF NOT EXISTS vendor_accounts (name TEXT PRIMARY KEY, kind TEXT, site TEXT DEFAULT '', config TEXT DEFAULT '{}', credential TEXT DEFAULT '', last_sync REAL, last_error TEXT DEFAULT '', snapshot TEXT DEFAULT '[]');
 CREATE TABLE IF NOT EXISTS actions (id INTEGER PRIMARY KEY AUTOINCREMENT, agent_id TEXT, host TEXT, action TEXT, package TEXT, manager TEXT DEFAULT '', software_id INTEGER, command_id TEXT, status TEXT, result TEXT DEFAULT '', user TEXT, created_at REAL, updated_at REAL);
 CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, at REAL, event TEXT, text TEXT, user TEXT);
-CREATE TABLE IF NOT EXISTS users (login TEXT PRIMARY KEY, name TEXT DEFAULT '', mail TEXT DEFAULT '', site TEXT DEFAULT '', source TEXT DEFAULT 'manual', directory INTEGER DEFAULT 0, enabled INTEGER DEFAULT 1, aliases TEXT DEFAULT '[]', note TEXT DEFAULT '', updated_at REAL);
+CREATE TABLE IF NOT EXISTS users (login TEXT PRIMARY KEY, name TEXT DEFAULT '', mail TEXT DEFAULT '', site TEXT DEFAULT '', source TEXT DEFAULT 'manual', directory INTEGER DEFAULT 0, enabled INTEGER DEFAULT 1, aliases TEXT DEFAULT '[]', note TEXT DEFAULT '', updated_at REAL,
+    groups TEXT DEFAULT '[]', missing INTEGER DEFAULT 0, synced_at REAL);
 """
 ACCOUNTS_API_URL = os.environ.get("ACCOUNTS_API_URL", "http://accounts-api:5000").rstrip("/")
+# #598 : groupe(s) de l'annuaire signalant les personnes qui ne travaillent plus avec nous
+FORMER_GROUPS = [x.strip() for x in os.environ.get("LICENSES_FORMER_GROUPS", "anciens").split(",") if x.strip()]
+DIRECTORY_INTERVAL = int(os.environ.get("LICENSES_DIRECTORY_INTERVAL", "3600"))
 
 
 def db():
@@ -94,6 +98,10 @@ def init_db():
     os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
     c = sqlite3.connect(DB_PATH)
     c.executescript(SCHEMA)
+    cols = {r[1] for r in c.execute("PRAGMA table_info(users)")}
+    for name, ddl in (("groups", "TEXT DEFAULT '[]'"), ("missing", "INTEGER DEFAULT 0"), ("synced_at", "REAL")):
+        if name not in cols:
+            c.execute("ALTER TABLE users ADD COLUMN %s %s" % (name, ddl))
     c.commit()
     c.close()
 
@@ -128,10 +136,10 @@ def _guard():
 
 def _row(r):
     d = dict(r)
-    for k in ("patterns", "package", "config", "snapshot", "aliases"):
+    for k in ("patterns", "package", "config", "snapshot", "aliases", "groups"):
         if k in d and isinstance(d[k], str):
             try:
-                d[k] = json.loads(d[k] or ("[]" if k in ("patterns", "snapshot", "aliases") else "{}"))
+                d[k] = json.loads(d[k] or ("[]" if k in ("patterns", "snapshot", "aliases", "groups") else "{}"))
             except ValueError:
                 pass
     return d
@@ -269,8 +277,10 @@ def contracts_list():
     c = db()
     sw = {s["id"]: s for s in _catalog(c)}
     asg = _assignments(c)
+    portals = {r["name"]: vendors.portal_url(r["kind"], json.loads(r["config"] or "{}")) for r in c.execute("SELECT name, kind, config FROM vendor_accounts")}
     out = []
     for ct in _contracts(c, request.args.get("site")):
+        ct["portal"] = portals.get(ct.get("vendor_account") or "", "")  # #598
         ct["software"] = (sw.get(ct["software_id"]) or {}).get("name")
         ct["vendor"] = (sw.get(ct["software_id"]) or {}).get("vendor")
         ct["assigned"] = len([a for a in asg if a["contract_id"] == ct["id"]])
@@ -338,6 +348,8 @@ def assignment_add():
     ct = c.execute("SELECT * FROM contracts WHERE id = ?", (b.get("contract_id"),)).fetchone()
     if not ct:
         return jsonify({"error": "contrat inconnu"}), 404
+    if kind == "user":  # #597 : la personne rejoint la table utilisateurs (annuaire ou info)
+        subject = resolve_or_create_user(c, subject, str(b.get("site") or ct["site"] or ""), "manual")[0] or subject
     try:
         c.execute("INSERT INTO assignments (contract_id, subject_kind, subject, site, since, note) VALUES (?, ?, ?, ?, ?, ?)",
                   (ct["id"], kind, subject, str(b.get("site") or ct["site"] or ""), _dt.date.today().isoformat(), str(b.get("note") or "")))
@@ -386,6 +398,7 @@ def gaps_route():
     cat = _catalog(c)
     found, _ = rules.match_installations(cat, app.fetch_inventories(request.args.get("site")))
     g_ = rules.gaps(cat, _contracts(c, request.args.get("site")), _assignments(c), found, expiring_days=EXPIRING_DAYS)
+    g_ += rules.user_gaps([u for u in _users(c, request.args.get("site")) if not request.args.get("site") or u.get("site") == request.args.get("site")], _assignments(c), FORMER_GROUPS)  # #598
     counts = {"critical": 0, "warning": 0, "info": 0}
     for x in g_:
         counts[x["severity"]] += 1
@@ -506,8 +519,11 @@ def users_list():
     out = []
     for u in _users(c, request.args.get("site")):
         u["assigned"] = counts.get(u["login"], 0)
+        al = rules.user_alert(u, FORMER_GROUPS)
+        u["alert"], u["alert_label"] = (al[0], al[1]) if al else (None, None)
         out.append(u)
-    return jsonify({"users": out}), 200
+    last = c.execute("SELECT MAX(synced_at) FROM users").fetchone()[0]
+    return jsonify({"users": out, "former_groups": FORMER_GROUPS, "last_sync": last, "sync_error": _sync_state.get("error")}), 200
 
 
 @app.route("/users", methods=["POST"])
@@ -540,16 +556,25 @@ def user_delete(login):
     return jsonify({"status": "ok"}), 200
 
 
+_sync_state = {"error": "", "at": 0}
+
+
 @app.route("/users/sync", methods=["POST"])
 def users_sync():
-    """Annuaire -> table users : les comptes Keycloak (fédérés LDAP) deviennent
-    « annuaire » (login, nom, mail, activé) ; les lignes « info » dont le login
-    ou le mail correspond sont rattachées ; le site n'est jamais écrasé."""
     try:
-        directory = app.fetch_directory()
+        r = sync_directory(db(), g.user["username"])
     except Exception as exc:  # noqa: BLE001
         return jsonify({"error": "annuaire injoignable : %s" % str(exc)[:200]}), 502
-    c = db()
+    return jsonify(dict(r, status="ok")), 200
+
+
+def sync_directory(c, who="automatique"):
+    """Annuaire -> table users : les comptes Keycloak (fédérés LDAP) deviennent
+    « annuaire » (login, nom, mail, activé, GROUPES) ; les lignes « info » dont
+    le login ou le mail correspond sont rattachées ; le site n'est jamais
+    écrasé ; un compte d'annuaire qui a disparu est marqué `missing` (#598)."""
+    directory = app.fetch_directory()
+    now = time.time()
     users = _users(c)
     by_login = {u["login"]: u for u in users}
     by_mail = {rules.fold(u["mail"]): u for u in users if u.get("mail")}
@@ -561,19 +586,24 @@ def users_sync():
         name = " ".join(x for x in (d.get("first_name"), d.get("last_name")) if x) or login
         mail = d.get("email") or ""
         cur = by_login.get(login) or (by_mail.get(rules.fold(mail)) if mail else None)
+        groups = json.dumps(sorted({str(x) for x in (d.get("groups") or []) if x}))
+        enabled = 1 if d.get("enabled", True) else 0
         if cur and cur["login"] != login:  # ligne « info » créée depuis un mail -> renommée au login LDAP
             c.execute("UPDATE assignments SET subject = ? WHERE subject_kind = 'user' AND subject = ?", (login, cur["login"]))
             c.execute("DELETE FROM users WHERE login = ?", (cur["login"],))
-            c.execute("INSERT INTO users (login, name, mail, site, source, directory, enabled, aliases, note, updated_at) VALUES (?, ?, ?, ?, 'ldap', 1, ?, ?, ?, ?)",
-                      (login, name, mail, cur["site"], 1 if d.get("enabled", True) else 0, json.dumps(sorted(set(cur["aliases"] + [cur["login"]]))), cur["note"], time.time()))
+            c.execute("INSERT INTO users (login, name, mail, site, source, directory, enabled, aliases, note, updated_at, groups, missing, synced_at) VALUES (?, ?, ?, ?, 'ldap', 1, ?, ?, ?, ?, ?, 0, ?)",
+                      (login, name, mail, cur["site"], enabled, json.dumps(sorted(set(cur["aliases"] + [cur["login"]]))), cur["note"], now, groups, now))
             linked += 1
         elif cur:
-            c.execute("UPDATE users SET name = ?, mail = ?, source = 'ldap', directory = 1, enabled = ?, updated_at = ? WHERE login = ?", (name, mail, 1 if d.get("enabled", True) else 0, time.time(), login))
+            c.execute("UPDATE users SET name = ?, mail = ?, source = 'ldap', directory = 1, enabled = ?, updated_at = ?, groups = ?, missing = 0, synced_at = ? WHERE login = ?", (name, mail, enabled, now, groups, now, login))
             updated += 1 if cur["directory"] else 0
             linked += 0 if cur["directory"] else 1
         else:
-            c.execute("INSERT INTO users (login, name, mail, site, source, directory, enabled, aliases, updated_at) VALUES (?, ?, ?, '', 'ldap', 1, ?, '[]', ?)", (login, name, mail, 1 if d.get("enabled", True) else 0, time.time()))
+            c.execute("INSERT INTO users (login, name, mail, site, source, directory, enabled, aliases, updated_at, groups, missing, synced_at) VALUES (?, ?, ?, '', 'ldap', 1, ?, '[]', ?, ?, 0, ?)", (login, name, mail, enabled, now, groups, now))
             added += 1
+    # comptes d'annuaire disparus (jamais supprimés : leurs attributions restent visibles en écart)
+    c.execute("UPDATE users SET missing = 1 WHERE directory = 1 AND (synced_at IS NULL OR synced_at < ?)", (now,))
+    gone = c.execute("SELECT COUNT(*) FROM users WHERE missing = 1").fetchone()[0]
     # rattachement des lignes « info » restantes par nom (« Prénom Nom » ↔ prenom.nom)
     users = _users(c)
     for u in [x for x in users if not x["directory"]]:
@@ -585,8 +615,37 @@ def users_sync():
                 c.execute("UPDATE users SET site = COALESCE(NULLIF(site, ''), ?) WHERE login = ?", (u["site"], login))
             linked += 1
     c.commit()
-    event("users-sync", "annuaire : %d compte(s), %d ajouté(s), %d rattaché(s) par %s" % (len(directory), added, linked, g.user["username"]))
-    return jsonify({"status": "ok", "directory": len(directory), "added": added, "linked": linked, "updated": updated}), 200
+    former = [u["login"] for u in _users(c) if rules.user_alert(u, FORMER_GROUPS) and rules.user_alert(u, FORMER_GROUPS)[0] == "former"]
+    _sync_state.update(error="", at=now)
+    if added or linked or gone or who != "automatique":
+        event("users-sync", "annuaire : %d compte(s), %d ajouté(s), %d rattaché(s), %d disparu(s), %d ancien(s) par %s" % (len(directory), added, linked, gone, len(former), who))
+    return {"directory": len(directory), "added": added, "linked": linked, "updated": updated, "missing": gone, "former": len(former)}
+
+
+def _directory_loop():
+    """#598 : analyse croisée automatique avec l'annuaire (toutes les LICENSES_DIRECTORY_INTERVAL s)."""
+    import threading  # noqa: F401
+    time.sleep(20)
+    while True:
+        try:
+            with app.app_context():
+                sync_directory(db())
+                # alerte « type logiciel » : anciens avec licences -> notification (une par passage et par changement)
+                c = db()
+                bad = [x for x in rules.user_gaps(_users(c), _assignments(c), FORMER_GROUPS) if x["severity"] == "critical"]
+                key = ",".join(sorted(x["user"] for x in bad))
+                if bad and key != _sync_state.get("notified"):
+                    _notify("licenses.gap", "%d ancien(s) avec des licences attribuées" % len(bad), "\n".join(x["text"] for x in bad), {"users": key}, severity="critical")
+                    _sync_state["notified"] = key
+        except Exception as exc:  # noqa: BLE001
+            _sync_state["error"] = str(exc)[:200]
+            _log.warning("annuaire : %s", exc)
+        time.sleep(max(60, DIRECTORY_INTERVAL))
+
+
+if DIRECTORY_INTERVAL > 0 and os.environ.get("LICENSES_DIRECTORY_WORKER", "1") == "1":
+    import threading
+    threading.Thread(target=_directory_loop, name="directory-sync", daemon=True).start()
 
 
 # -- comptes vendeurs -------------------------------------------------------------------------
@@ -595,6 +654,7 @@ def vendors_list():
     out = []
     for r in db().execute("SELECT * FROM vendor_accounts ORDER BY name"):
         d = _row(r)
+        d["portal"] = vendors.portal_url(d["kind"], d["config"])  # #598
         out.append(d)
     return jsonify({"vendors": out, "kinds": vendors.KINDS}), 200
 

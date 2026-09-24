@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import PageFrame from "./PageFrame.jsx";
 import { hubLink, viewParams } from "./hubLinks.js";
 import * as api from "./licensesClient.js";
-import { KIND_LABEL, GAP_LABEL, SEVERITY_TONE, ACTION_STATUS, VENDOR_KIND_LABEL, contractTone, filterContracts, filterSoftware, filterGaps, filterHosts, filterRows, filterUsers, gapSummary, softwareTotals, pickContract, defaultManager, fmtDays } from "./licensesLib.js";
+import { KIND_LABEL, GAP_LABEL, SEVERITY_TONE, ACTION_STATUS, VENDOR_KIND_LABEL, USER_ALERT, contractTone, filterContracts, filterSoftware, filterGaps, filterHosts, filterRows, filterUsers, gapSummary, softwareTotals, pickContract, defaultManager, fmtDays } from "./licensesLib.js";
 
 const TABS = [
   { id: "dash", label: "📊 Tableau de bord" },
@@ -68,7 +68,7 @@ function Dashboard({ b, t, site, contracts, reload, notice }) {
                 {shown.map((g, i) => (
                   <tr key={i}>
                     <td><Lamp tone={SEVERITY_TONE[g.severity]} title={g.severity} /></td>
-                    <td>{g.software}</td>
+                    <td>{g.software || (g.user ? <>👤 {g.user}</> : "")}</td>
                     <td><b>{GAP_LABEL[g.kind] || g.kind}</b><br /><span className="muted">{g.text}</span></td>
                     <td className="muted" style={{ fontSize: 12 }}>{Array.isArray(g.detail) ? g.detail.join(", ") : g.detail && typeof g.detail === "object" ? Object.values(g.detail).join(" ") : ""}</td>
                   </tr>
@@ -195,7 +195,7 @@ function Contracts({ b, t, site, sites, software, contracts, reload, notice }) {
                   <td><Lamp tone={contractTone(c)} /></td><td><b>{c.software}</b><br /><span className="muted">{c.vendor}</span></td><td>{c.site}</td><td>{c.label}</td><td>{KIND_LABEL[c.kind] || c.kind}</td>
                   <td>{c.quantity || "∞"}</td><td><Tone tone={c.quantity && c.assigned > c.quantity ? "red" : "inherit"}>{c.assigned}</Tone></td>
                   <td>{c.end || ""}{c.days_left != null && <><br /><Tone tone={c.days_left < 0 ? "red" : c.days_left <= 60 ? "orange" : "grey"}>{fmtDays(c.days_left)}</Tone></>}</td>
-                  <td>{c.cost ? `${c.cost} ${c.currency || ""}` : ""}</td><td className="muted" style={{ fontSize: 12 }}>{[c.vendor_account, c.sku].filter(Boolean).join(" / ")}</td>
+                  <td>{c.cost ? `${c.cost} ${c.currency || ""}` : ""}</td><td className="muted" style={{ fontSize: 12 }}>{[c.vendor_account, c.sku].filter(Boolean).join(" / ")}{c.portal && <> <a href={c.portal} target="_blank" rel="noopener noreferrer" title="gérer chez le vendeur">↗</a></>}</td>
                   <td><button type="button" className="secondary" onClick={() => setCt({ ...EMPTY_CT, ...c })}>modifier</button> <button type="button" className="secondary" onClick={async () => { const r = await api.deleteContract(b, t, c.id); notice(r.error || "contrat supprimé", !r.error); reload(); }}>×</button></td>
                 </tr>
               ))}
@@ -306,12 +306,15 @@ function Grid({ b, t, site, contracts, reload, notice }) {
 const EMPTY_U = { login: "", name: "", mail: "", site: "", aliases: "" };
 function Users({ b, t, site, sites, notice, reload }) {
   const [list, setList] = useState(null);
+  const [meta, setMeta] = useState({});
   const [query, setQuery] = useState("");
+  const [onlyAlerts, setOnlyAlerts] = useState(false);
   const [u, setU] = useState(null);
   const [busy, setBusy] = useState("");
-  const load = useCallback(() => api.fetchUsers(b, t, site).then((r) => (r.error ? notice(r.error, false) : setList(r.users || []))), [b, t, site]);  // eslint-disable-line react-hooks/exhaustive-deps
+  const load = useCallback(() => api.fetchUsers(b, t, site).then((r) => (r.error ? notice(r.error, false) : (setList(r.users || []), setMeta({ former_groups: r.former_groups, last_sync: r.last_sync, sync_error: r.sync_error })))), [b, t, site]);  // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [load]);
-  const shown = useMemo(() => filterUsers(list, query), [list, query]);
+  const shown = useMemo(() => filterUsers((list || []).filter((x) => !onlyAlerts || x.alert), query), [list, query, onlyAlerts]);
+  const nAlerts = (list || []).filter((x) => x.alert && x.alert !== "unknown").length;
   const save = async () => {
     const r = await api.saveUser(b, t, { login: u.login, name: u.name, mail: u.mail, site: u.site, aliases: String(u.aliases || "").split(/[,;\n]/).map((x) => x.trim()).filter(Boolean) });
     notice(r.error || `utilisateur ${r.login} enregistré`, !r.error);
@@ -329,12 +332,16 @@ function Users({ b, t, site, sites, notice, reload }) {
   return (
     <div>
       <p className="muted" style={{ marginTop: 0 }}>
-        L'<b>annuaire</b> (comptes Keycloak fédérés LDAP, via la tuile <a href={hubLink("accounts")}>Comptes</a>) est la référence : ces lignes sont marquées 🗂. Les personnes venues d'un import ou d'un vendeur sont des <em>infos</em> (ℹ) rattachées au compte LDAP dès qu'il existe (login, adresse ou « Prénom Nom »). Le <b>site</b> se renseigne ici (jamais écrasé par la synchronisation) et alimente la grille et les contrats.
+        L'<b>annuaire</b> (comptes Keycloak fédérés LDAP, via la tuile <a href={hubLink("accounts")}>Comptes</a>) est la référence : ces lignes sont marquées 🗂. L'<b>analyse croisée</b> tourne automatiquement (présence dans l'annuaire, groupes) : 🚫 membre du groupe <code>{(meta.former_groups || ["anciens"]).join(" / ")}</code> (ne travaille plus avec nous — créer ce groupe dans <a href={hubLink("accounts")}>Comptes</a> et y placer les personnes parties) avec des licences encore attribuées = écart critique et notification ; ⚠ compte disparu de l'annuaire ; ⛔ compte désactivé. Les personnes venues d'un import ou d'un vendeur sont des <em>infos</em> (ℹ) rattachées au compte LDAP dès qu'il existe (login, adresse ou « Prénom Nom »). Le <b>site</b> se renseigne ici (jamais écrasé par la synchronisation) et alimente la grille et les contrats.
       </p>
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
         <input type="search" placeholder="filtrer (login, nom, adresse, site)" value={query} onChange={(e) => setQuery(e.target.value)} style={{ minWidth: 240 }} />
         <span className="muted">{shown.length} / {(list || []).length} utilisateur(s) · {nDir} de l'annuaire</span>
+        <label style={{ display: "flex", alignItems: "center", gap: 4 }}><input type="checkbox" checked={onlyAlerts} onChange={(e) => setOnlyAlerts(e.target.checked)} /> alertes seulement {nAlerts > 0 && <Tone tone="red">({nAlerts})</Tone>}</label>
         <button type="button" onClick={sync} disabled={!!busy}>{busy ? `⏳ ${busy}` : "Synchroniser l'annuaire"}</button>
+        <span className="muted" style={{ fontSize: 12 }} title={`analyse croisée automatique ; groupe(s) « anciens » : ${(meta.former_groups || []).join(", ")}`}>
+          {meta.sync_error ? <Tone tone="red">annuaire : {meta.sync_error}</Tone> : meta.last_sync ? `dernière analyse croisée ${when(meta.last_sync)}` : "jamais synchronisé"}
+        </span>
         <button type="button" className="secondary" onClick={() => setU({ ...EMPTY_U, site: site || "" })}>+ utilisateur (info)</button>
       </div>
       {u && (
@@ -351,18 +358,20 @@ function Users({ b, t, site, sites, notice, reload }) {
       )}
       <Scroll>
         <table style={{ width: "100%", fontSize: 13 }}>
-          <thead style={TH}><tr><th> </th><th>Login</th><th>Nom</th><th>Adresse</th><th>Site</th><th>Attributions</th><th>Autres écritures</th><th> </th></tr></thead>
+          <thead style={TH}><tr><th> </th><th>Login</th><th>Alerte</th><th>Nom</th><th>Adresse</th><th>Groupes</th><th>Site</th><th>Attributions</th><th>Autres écritures</th><th> </th></tr></thead>
           <tbody>
             {shown.map((x) => (
-              <tr key={x.login} style={{ opacity: x.enabled === 0 ? 0.55 : 1 }}>
-                <td title={x.directory ? "compte de l'annuaire" : `info (${x.source})`}>{x.directory ? "🗂" : "ℹ"}</td><td><b>{x.login}</b>{x.enabled === 0 && <span className="muted"> (désactivé)</span>}</td><td>{x.name}</td><td className="muted">{x.mail}</td>
+              <tr key={x.login} style={{ opacity: x.enabled === 0 ? 0.6 : 1, background: x.alert === "former" && x.assigned ? "rgba(229,57,53,.12)" : x.alert === "missing" || x.alert === "disabled" ? "rgba(251,140,0,.10)" : undefined }}>
+                <td title={x.directory ? "compte de l'annuaire" : `info (${x.source})`}>{x.directory ? "🗂" : "ℹ"}</td><td><b>{x.login}</b></td>
+                <td>{x.alert ? <Tone tone={USER_ALERT[x.alert]?.tone}>{USER_ALERT[x.alert]?.icon} {x.alert_label}{x.alert !== "unknown" && x.assigned ? ` — ${x.assigned} licence(s) à retirer` : ""}</Tone> : <Tone tone="green">✓</Tone>}</td>
+                <td>{x.name}</td><td className="muted">{x.mail}</td><td className="muted" style={{ fontSize: 12 }}>{(x.groups || []).join(", ")}</td>
                 <td><select value={x.site || ""} onChange={(e) => setSite(x, e.target.value)}><option value="">—</option>{[...new Set([...sites, x.site].filter(Boolean))].map((s) => <option key={s} value={s}>{s}</option>)}</select></td>
                 <td>{x.assigned || 0}</td><td className="muted" style={{ fontSize: 12 }}>{(x.aliases || []).join(", ")}</td>
                 <td><button type="button" className="secondary" onClick={() => setU({ ...EMPTY_U, ...x, aliases: (x.aliases || []).join(", "), _edit: true })}>modifier</button>{" "}
                   {!x.directory && <button type="button" className="secondary" onClick={async () => { const r = await api.deleteUser(b, t, x.login); notice(r.error || `${x.login} supprimé`, !r.error); load(); }}>×</button>}</td>
               </tr>
             ))}
-            {list && !shown.length && <tr><td colSpan={8} className="muted">aucun utilisateur : « Synchroniser l'annuaire », importer un tableur, ou ajouter une info.</td></tr>}
+            {list && !shown.length && <tr><td colSpan={10} className="muted">aucun utilisateur : « Synchroniser l'annuaire », importer un tableur, ou ajouter une info.</td></tr>}
           </tbody>
         </table>
       </Scroll>
@@ -484,7 +493,7 @@ function Vendors({ b, t, sites, notice, reload }) {
   const load = useCallback(() => api.fetchVendors(b, t).then((r) => (r.error ? notice(r.error, false) : setList(r.vendors || []))), [b, t]);  // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [load]);
   const save = async () => {
-    const r = await api.saveVendor(b, t, { name: v.name, kind: v.kind, site: v.site, config: { tenant: v.tenant, client_id: v.client_id }, credential: v.credential });
+    const r = await api.saveVendor(b, t, { name: v.name, kind: v.kind, site: v.site, config: { tenant: v.tenant, client_id: v.client_id, url: v.url || "" }, credential: v.credential });
     notice(r.error || `compte ${r.name} enregistré`, !r.error);
     if (!r.error) { setV(null); load(); }
   };
@@ -509,6 +518,7 @@ function Vendors({ b, t, sites, notice, reload }) {
             <label>Nom (identifiant)<br /><input value={v.name} onChange={(e) => setV({ ...v, name: e.target.value })} placeholder="m365-site-alpha" /></label>
             <label>Type<br /><select value={v.kind} onChange={(e) => setV({ ...v, kind: e.target.value })}>{Object.entries(VENDOR_KIND_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
             <label>Site<br /><input list="lic-sites2" value={v.site} onChange={(e) => setV({ ...v, site: e.target.value })} /><datalist id="lic-sites2">{sites.map((s) => <option key={s} value={s} />)}</datalist></label>
+            <label style={{ gridColumn: "span 3" }}>Portail de gestion chez le vendeur (lien « gérer chez le vendeur » ; vide = portail par défaut du type)<br /><input style={{ width: "100%" }} value={v.url || ""} onChange={(e) => setV({ ...v, url: e.target.value })} placeholder="https://admin.microsoft.com/#/licenses" /></label>
             {v.kind === "microsoft-graph" && <>
               <label>Tenant (id ou domaine)<br /><input value={v.tenant} onChange={(e) => setV({ ...v, tenant: e.target.value })} placeholder="exemple.onmicrosoft.com" /></label>
               <label>Client id (application)<br /><input value={v.client_id} onChange={(e) => setV({ ...v, client_id: e.target.value })} /></label>
@@ -528,8 +538,9 @@ function Vendors({ b, t, sites, notice, reload }) {
                 <td className="muted" style={{ fontSize: 12 }}>{x.kind === "microsoft-graph" ? `${x.config?.tenant || "?"} · ${x.config?.client_id || "?"} · accès « ${x.credential || "?"} »` : ""}</td>
                 <td>{x.last_sync ? when(x.last_sync) : <span className="muted">jamais</span>}{x.last_error && <><br /><Tone tone="red">{x.last_error}</Tone></>}</td>
                 <td className="muted" style={{ fontSize: 12 }}>{(x.snapshot || []).map((s) => `${s.label} : ${s.consumed ?? "?"}/${s.quantity}`).join(" · ")}</td>
-                <td>{x.kind === "microsoft-graph" && <button type="button" onClick={() => sync(x.name)} disabled={busy === x.name}>{busy === x.name ? "…" : "Synchroniser"}</button>}{" "}
-                  <button type="button" className="secondary" onClick={() => setV({ ...EMPTY_V, ...x, tenant: x.config?.tenant || "", client_id: x.config?.client_id || "" })}>modifier</button>{" "}
+                <td>{x.portal && <a href={x.portal} target="_blank" rel="noopener noreferrer" title="gestion des licences chez le vendeur (portail d'administration, connexion avec le compte administrateur du client)">gérer chez le vendeur ↗</a>}{" "}
+                  {x.kind === "microsoft-graph" && <button type="button" onClick={() => sync(x.name)} disabled={busy === x.name}>{busy === x.name ? "…" : "Synchroniser"}</button>}{" "}
+                  <button type="button" className="secondary" onClick={() => setV({ ...EMPTY_V, ...x, tenant: x.config?.tenant || "", client_id: x.config?.client_id || "", url: x.config?.url || "" })}>modifier</button>{" "}
                   <button type="button" className="secondary" onClick={async () => { const r = await api.deleteVendor(b, t, x.name); notice(r.error || "compte supprimé", !r.error); load(); }}>×</button></td>
               </tr>
             ))}

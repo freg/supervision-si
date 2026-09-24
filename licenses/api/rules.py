@@ -323,3 +323,51 @@ def login_from(person):
         return fold(p.split("@", 1)[0])
     words = [w for w in re.split(r"[\s.\-_]+", fold(p)) if w and w not in ("m", "mme", "mr", "mlle", "dr")]
     return ".".join(words)[:64]
+
+
+# -- #598 : analyse croisée utilisateurs ↔ annuaire -------------------------------------------------
+def user_gaps(users, assignments, former_groups=("anciens",)):
+    """Écarts « type logiciel » sur les personnes : membre d'un groupe
+    « anciens » (ne travaille plus avec nous) mais licences attribuées
+    (critique), compte disparu de l'annuaire avec attributions (alerte),
+    compte désactivé avec attributions (alerte), personne hors annuaire
+    (info seulement) avec attributions (info). -> même forme que gaps()."""
+    fg = {fold(g) for g in former_groups if g}
+    counts = {}
+    for a in assignments:
+        if a.get("subject_kind") == "user":
+            counts[a["subject"]] = counts.get(a["subject"], 0) + 1
+    out = []
+    for u in users:
+        n = counts.get(u["login"], 0)
+        groups = [fold(g) for g in (u.get("groups") or [])]
+        former = bool(fg & set(groups))
+        if former:
+            out.append({"kind": "user-former", "severity": "critical" if n else "info", "software": None, "user": u["login"], "contract": None,
+                        "text": "%s : dans le groupe « %s »%s" % (u["login"], next(g for g in groups if g in fg), " mais %d licence(s) attribuée(s) -- à retirer" % n if n else ", aucune licence"), "detail": None})
+        elif u.get("missing") and n:
+            out.append({"kind": "user-missing", "severity": "warning", "software": None, "user": u["login"], "contract": None,
+                        "text": "%s : absent de l'annuaire depuis la dernière synchronisation, %d licence(s) attribuée(s)" % (u["login"], n), "detail": None})
+        elif u.get("directory") and u.get("enabled") == 0 and n:
+            out.append({"kind": "user-disabled", "severity": "warning", "software": None, "user": u["login"], "contract": None,
+                        "text": "%s : compte désactivé, %d licence(s) attribuée(s)" % (u["login"], n), "detail": None})
+        elif not u.get("directory") and n:
+            out.append({"kind": "user-unknown", "severity": "info", "software": None, "user": u["login"], "contract": None,
+                        "text": "%s : hors annuaire (%s), %d licence(s) attribuée(s)" % (u["login"], u.get("source") or "info", n), "detail": None})
+    sev = {"critical": 0, "warning": 1, "info": 2}
+    out.sort(key=lambda g: (sev[g["severity"]], g["user"]))
+    return out
+
+
+def user_alert(u, former_groups=("anciens",)):
+    """Alerte à afficher sur la ligne d'un utilisateur : (code, libellé) ou None."""
+    fg = {fold(g) for g in former_groups if g}
+    if fg & {fold(g) for g in (u.get("groups") or [])}:
+        return "former", "ancien"
+    if u.get("missing"):
+        return "missing", "absent de l'annuaire"
+    if u.get("directory") and u.get("enabled") == 0:
+        return "disabled", "désactivé"
+    if not u.get("directory"):
+        return "unknown", "hors annuaire"
+    return None
