@@ -95,10 +95,11 @@ class TestApi(unittest.TestCase):
         appmod.verifier = auth.KeycloakVerifier("u", ["freg"], fetch=lambda _u: jwks())
         self.cs = [FakeContainer("nebula-api"), FakeContainer("hub", port=5173), FakeContainer("ged-api", status="exited"),
                    FakeContainer("tls-proxy", status="exited", port=443), FakeContainer("pg", port=None, health="healthy"),
-                   FakeContainer("autre", project="ailleurs")]
+                   FakeContainer("autre", project="ailleurs"), FakeContainer("pg2", port=5432), FakeContainer("api-down", port=5000)]
         appmod.docker_client = lambda: FakeDocker(self.cs)
         appmod.app.docker_client = appmod.docker_client
-        probes = {"proj-nebula-api-1": {"code": 200, "ms": 10, "content": "json", "status": "ok"}, "proj-hub-1": {"code": 200, "ms": 20, "content": "html"}}
+        probes = {"proj-nebula-api-1": {"code": 200, "ms": 10, "content": "json", "status": "ok"}, "proj-hub-1": {"code": 200, "ms": 20, "content": "html"},
+                  "proj-pg2-1": {"tcp_only": True, "ms": 2}}
         appmod._http_probe = lambda host, port: probes.get(host, {"error": "connexion refusée"})
         appmod._cache["rows"] = None
         self.c = appmod.app.test_client()
@@ -115,14 +116,16 @@ class TestApi(unittest.TestCase):
         d = r.get_json()
         names = [s["service"] for s in d["services"]]
         self.assertNotIn("autre", names)  # hors projet
-        self.assertEqual(names[:2], ["ged-api", "tls-proxy"])  # rouges d'abord
+        self.assertEqual(names[:3], ["api-down", "ged-api", "tls-proxy"])  # rouges d'abord
         by = {s["service"]: s for s in d["services"]}
         self.assertEqual(by["nebula-api"]["light"], "green")
         self.assertEqual(by["hub"]["kind"], "front")
         self.assertEqual(by["pg"]["light"], "green")
+        self.assertEqual(by["pg2"]["light"], "green")  # port ouvert non HTTP (#588)
+        self.assertEqual((by["api-down"]["light"], by["api-down"]["hard"]), ("red", False))  # HTTP refusé mais conteneur en marche
         self.assertTrue(by["tls-proxy"]["protected"])
         self.assertEqual(d["summary"]["verdict"], "red")
-        self.assertEqual(d["summary"]["counts"]["red"], 2)
+        self.assertEqual(d["summary"]["counts"]["red"], 3)
 
     def test_restart(self):
         self.assertEqual(self.c.post("/services/ged-api/restart", headers=self.h).get_json()["action"], "start")
@@ -132,7 +135,7 @@ class TestApi(unittest.TestCase):
 
     def test_restart_red(self):
         d = self.c.post("/services/restart-red", headers=self.h).get_json()
-        self.assertEqual(d["restarted"], ["ged-api"])
+        self.assertEqual(d["restarted"], ["api-down", "ged-api"])  # geste humain : les rouges HTTP aussi
         self.assertEqual(d["skipped_protected"], ["tls-proxy"])
         self.assertEqual(self.cs[3].actions, [])
 
@@ -233,7 +236,7 @@ class TestTower(TestApi):
         self.assertEqual(rows["ged-api"]["light"], "grey")
         self.c.put("/settings", headers=self.h, json={"ignored": []})
         appmod._heal_state.clear()
-        self.assertEqual(appmod.heal_once(), ["ged-api"])  # tls-proxy rouge mais protégé
+        self.assertEqual(appmod.heal_once(), ["ged-api"])  # tls-proxy rouge mais protégé ; api-down rouge HTTP seulement -> jamais (#588)
         self.assertEqual(self.cs[2].actions, ["start"])
 
     def test_rebuild_job(self):

@@ -63,6 +63,8 @@ def classify(state, docker_health, http, port):
         return "green", "en marche" + (" (healthcheck OK)" if docker_health == "healthy" else "")
     if http.get("error"):
         return "red", "port %s injoignable : %s" % (port, http["error"])
+    if http.get("tcp_only"):  # #588 : base, relais TLS, service binaire -- le port répond, ce n'est pas du HTTP
+        return "green", "port %s ouvert (protocole non HTTP)" % port
     code = int(http.get("code") or 0)
     ms = int(http.get("ms") or 0)
     if code >= 500:
@@ -77,6 +79,13 @@ def classify(state, docker_health, http, port):
     if code == 404:
         return "orange", "joignable, ni /health ni / (HTTP 404)"
     return "green", "HTTP %d en %d ms" % (code, ms)
+
+
+def hard_red(state, docker_health):
+    """#588 : panne « dure » (conteneur arrêté / en boucle / healthcheck en
+    échec) -- seule base de l'auto-réparation. Un test HTTP en échec sur un
+    conteneur en marche n'entraîne jamais un redémarrage automatique."""
+    return state not in ("running",) or docker_health == "unhealthy"
 
 
 def summarize(rows):

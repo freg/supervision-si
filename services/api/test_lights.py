@@ -22,6 +22,10 @@ class Classify(unittest.TestCase):
         self.assertEqual(lights.classify("running", None, {"code": 200, "ms": 4500}, 5000)[0], "orange")
         self.assertEqual(lights.classify("running", None, {"code": 401, "ms": 5}, 5000)[0], "green")
         self.assertEqual(lights.classify("running", None, {"code": 404, "ms": 5}, 5000)[0], "orange")
+        self.assertEqual(lights.classify("running", None, {"tcp_only": True, "ms": 3}, 5432), ("green", "port 5432 ouvert (protocole non HTTP)"))
+        self.assertTrue(lights.hard_red("exited", None))
+        self.assertTrue(lights.hard_red("running", "unhealthy"))
+        self.assertFalse(lights.hard_red("running", None))
 
     def test_ports_and_kind(self):
         self.assertEqual(lights.exposed_port({"Config": {"ExposedPorts": {"5173/tcp": {}, "5000/tcp": {}, "53/udp": {}}}}), 5000)

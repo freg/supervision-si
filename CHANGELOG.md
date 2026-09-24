@@ -1,3 +1,23 @@
+## 2026-09-24 — Tour de contrôle : sonde TCP avant HTTP, auto-réparation limitée aux pannes dures (livraison #588)
+
+Constat réel (super, journal de services-api) : l'auto-réparation a
+redémarré pixel-grid-postgres, projeqtor-db, tickets-postgres, si-proxy et
+vault-admin-portal — « port injoignable : connexion refusée » — parce que la
+sonde parlait HTTP à des ports qui n'en parlent pas (Postgres, MySQL, relais
+TLS) et qu'une réponse fermée était prise pour un refus.
+
+- `services/api/app.py` : `_tcp_open` (connexion TCP d'abord : refus ou délai
+  = vraie panne) puis HTTP ; une connexion acceptée puis fermée = « port
+  ouvert (protocole non HTTP) » → **vert** (`lights.classify`, `tcp_only`).
+- `lights.hard_red` : panne « dure » = conteneur arrêté / en boucle /
+  healthcheck en échec ; `tower.heal_decide` ne compte que celles-là — un
+  test HTTP en échec sur un conteneur en marche n'entraîne **jamais** de
+  redémarrage automatique (le geste humain « Redémarrer les rouges » les
+  inclut toujours). Champ `hard` dans `/services`.
+- Tests : 28 (port non HTTP vert, rouge HTTP non réparé automatiquement).
+
+Non vérifié : sur super (déposer ce zip dans la tour, ou dernier rsync).
+
 ## 2026-09-24 — MikroTik par SSH, transparent pour le routeur : statut, relevés et règles NAT ip:port → ip:port (livraison #587)
 
 Demandé : « les routeurs sont sous la responsabilité d'un administrateur qui

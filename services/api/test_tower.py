@@ -111,14 +111,14 @@ class Configs(unittest.TestCase):
 class Heal(unittest.TestCase):
     def test_threshold_and_cap(self):
         rows = [{"service": "ged-api", "light": "red", "text": "HTTP 502"}, {"service": "hub", "light": "red", "protected": True},
-                {"service": "x", "light": "red"}]
+                {"service": "x", "light": "red"}, {"service": "pg", "light": "red", "hard": False, "text": "port 5432 injoignable"}]
         st, restarts, events = {}, [], []
         t = 1000.0
         for i in range(20):
             todo, st, ev = tower.heal_decide(st, rows, t + i * 60, threshold=3, max_per_hour=2, ignored=["x"])
             restarts += todo
             events += ev
-        self.assertEqual(restarts, ["ged-api", "ged-api"])
+        self.assertEqual(restarts, ["ged-api", "ged-api"])  # jamais « pg » : rouge HTTP seulement (#588)
         self.assertEqual([e["event"] for e in events], ["heal-restart", "heal-restart", "heal-gave-up"])
         todo, st, ev = tower.heal_decide(st, [{"service": "ged-api", "light": "green"}], t + 3000)
         self.assertEqual([e["event"] for e in ev], ["heal-recovered"])

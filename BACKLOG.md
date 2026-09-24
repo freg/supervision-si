@@ -3271,3 +3271,37 @@ Proxmox web URLs, publications du bastion) ; (4) retour arrière d'une
 livraison (instantané des fichiers écrasés) ; (5) notification (circuit
 habituel) sur abandon d'auto-réparation et échec de job ; (6) planification
 (appliquer la nuit) ; (7) hôtes répartis (#517).
+
+## Notifications par courriel des actions et des impacts, gestionnaire d'envoi (2026-09-24) — item 92 (à faire)
+
+Demandé le 24 sept. 2026 : notifier par mail les actions sur les routeurs
+(Cisco, MikroTik : NAT, interfaces, redémarrage, sauvegarde/restauration) et,
+potentiellement, tout ce qui impacte le fonctionnement du SI local et des
+clients (tour de contrôle : livraisons, reconstructions, auto-réparation ;
+bastion ; agents ; service-watch…).
+
+Modèle demandé :
+- **actions** identifiées (catalogue, `<module>.<action>`, ex.
+  `mikrotik.nat.add`, `cisco.restore`, `tower.delivery.apply`,
+  `tower.heal.gave-up`) ;
+- **groupes** de destinataires (liste d'emails) et **méta-groupes** =
+  plusieurs actions pour un même groupe et plusieurs groupes unifiés ;
+- table d'affectation **action → groupe / méta-groupe → emails** ; par
+  défaut chaque action identifiée est rattachée à un **groupe par défaut
+  généré automatiquement** (nom dérivé du module), l'administrateur regroupe
+  ensuite ;
+- en parallèle un **gestionnaire d'envoi** qui détache la notification de
+  l'envoi réel : file persistante, regroupement / lissage (engorgement,
+  emballement : N messages identiques → un résumé), reprise sur erreur SMTP,
+  liste noire de destinataires ou d'actions, journal, tableau de bord ;
+- le gestionnaire est un **service réutilisable** par les autres modules du
+  hub et par des services **externes** (ex. les GED) : API HTTP `POST
+  /notify {action, subject, body, context}` avec jeton par consommateur,
+  remplaçant à terme les circuits épars (`SECRETS_ALERT_*`,
+  `SI_AGENT_NOTIFY_*`, `VAULT_ADMIN_SMTP_*`, service-watch).
+
+Pistes : service `notify-api` (SQLite, worker d'envoi, SMTP unique
+`NOTIFY_SMTP_*` dans .env), tuile « Notifications » (groupes, méta-groupes,
+affectations, file, journal, test d'envoi), déclaration des actions par
+chaque module au démarrage (`POST /actions/register`) → groupe par défaut
+créé, gabarits de courriel, canaux futurs (SMS via TRB140, webhook).

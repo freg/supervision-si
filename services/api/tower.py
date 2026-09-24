@@ -319,7 +319,7 @@ def heal_decide(state, rows, now, threshold=3, max_per_hour=3, ignored=()):
         if not s or s in ignored or r.get("protected"):
             continue
         st = state.setdefault(s, {"reds": 0, "restarts": [], "gave_up": False})
-        if r.get("light") == "red":
+        if r.get("light") == "red" and r.get("hard", True):  # #588 : jamais sur un simple test HTTP en échec
             st["reds"] = st.get("reds", 0) + 1
             if st["reds"] >= threshold:
                 recent = [t for t in st.get("restarts", []) if now - t < 3600]

@@ -113,15 +113,34 @@ def health():
 
 
 # -- inventaire et santé ---------------------------------------------------
+def _tcp_open(host, port):
+    """-> (ouvert, raison). #588 : distingue un port fermé (refus) d'un port
+    ouvert qui ne parle pas HTTP (Postgres, MySQL, relais TLS...)."""
+    t0 = time.time()
+    try:
+        with socket.create_connection((host, port), timeout=HTTP_TIMEOUT):
+            return True, int((time.time() - t0) * 1000)
+    except ConnectionRefusedError:
+        return False, "connexion refusée"
+    except socket.timeout:
+        return False, "délai dépassé (%.0f s)" % HTTP_TIMEOUT
+    except OSError as exc:
+        return False, str(exc)[:80]
+
+
 def _http_probe(host, port):
-    """GET http://host:port/health puis / -> {code, ms, content, status} ou {error}."""
+    """TCP puis GET http://host:port/health puis / -> {code, ms, content, status},
+    {tcp_only, ms} (port ouvert, pas HTTP) ou {error}."""
+    ok, info = _tcp_open(host, port)
+    if not ok:
+        return {"error": info}
     last = None
     for path in ("/health", "/"):
         t0 = time.time()
         try:
             r = requests.get("http://%s:%d%s" % (host, port, path), timeout=HTTP_TIMEOUT, allow_redirects=False)
         except requests.exceptions.ConnectionError:
-            return {"error": "connexion refusée"}
+            return {"tcp_only": True, "ms": info}  # connexion acceptée puis fermée / protocole non HTTP
         except requests.exceptions.Timeout:
             return {"error": "délai dépassé (%.0f s)" % HTTP_TIMEOUT}
         except requests.exceptions.RequestException as exc:
@@ -154,11 +173,12 @@ def _row(c):
     if c.status == "running" and port:
         http = _http_probe(c.name, port)
     light, text = lights.classify(c.status, health, http, port)
+    hard = lights.hard_red(c.status, health)  # #588 : seule une panne dure déclenche l'auto-réparation
     ignored = service in (_settings().get("ignored") or [])
     if ignored:
         light, text = "grey", "non surveillé (%s) -- réglage « Automatismes »" % text
     return {
-        "ignored": ignored, "project": labels.get("com.docker.compose.project"),
+        "ignored": ignored, "project": labels.get("com.docker.compose.project"), "hard": hard,
         "service": service, "container": c.name, "id": c.id[:12], "status": c.status, "docker_health": health,
         "started_at": state.get("StartedAt"), "restart_count": attrs.get("RestartCount", 0),
         "port": port, "http": http, "kind": lights.guess_kind(service, port, http),
