@@ -1383,7 +1383,12 @@ services:
       # (lancer run.sh depuis la racine du dépôt, comme toujours) : les
       # chemins relatifs du compose se résolvent pareil dans le runner.
       - ${PWD}:${PWD}
+      # #593 : santé de l'hôte -- racine de l'hôte en LECTURE SEULE (bind
+      # récursif : /var, /home… s'ils sont des partitions) pour mesurer
+      # l'espace disque ; charge et mémoire viennent de /proc (noyau hôte).
+      - /:/host:ro
     environment:
+      - SERVICES_HOST_ROOT=/host
       # #590 : notifications des actions (file dans notify-api, jamais bloquant)
       - NOTIFY_API_URL=http://notify-api:5000
       - NOTIFY_INTERNAL_TOKEN=${NOTIFY_INTERNAL_TOKEN:-}

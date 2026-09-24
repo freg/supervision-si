@@ -108,3 +108,29 @@ cd ~/SRC/data2/tickets/supervision-si && ./scripts/run.sh up -d --build services
 ```
 
 Ensuite, plus besoin de `scp` / `rsync` : les livraisons se déposent dans la tour.
+
+
+## Santé de l'hôte (#593)
+
+Après un `/var` saturé qui tronquait les fichiers du hub : la tour mesure
+l'hôte toutes les minutes — **espace disque** de chaque partition (racine
+de l'hôte montée en lecture seule sous `/host`, bind récursif), **charge**
+(1 / 5 / 15 min vs CPU) et **mémoire** (`/proc` du noyau hôte), plus
+`docker system df` (images inutilisées, cache de build, conteneurs,
+volumes). Seuils : disque orange ≥ 85 % ou < 1 Go libre, rouge ≥ 95 % ou
+< 200 Mo ; charge orange ≥ nb CPU (1 min), rouge ≥ 2 × CPU (5 min) ;
+mémoire orange ≥ 90 %, rouge ≥ 97 %.
+
+- **Bandeau d'alerte** en haut de toutes les pages du hub (`/host/public`,
+  sans jeton : lampe + texte seulement), lien vers la tour, masquable
+  jusqu'au prochain changement d'état.
+- Tour → Services : carte **Hôte du hub** (barres par partition, charge,
+  mémoire, Docker) et **🧹 Nettoyer images + cache** (`images.prune` sans
+  filtre dangling = toutes les images sans conteneur, `prune_builds` ;
+  option conteneurs arrêtés hors projet ; **jamais les volumes**),
+  journalisé et notifié (`tower.host.prune`).
+- Notifications `tower.host.disk` (critique) et `tower.host.load` à chaque
+  changement d'état, jamais répétées ; retour au vert notifié.
+
+Pour les autres hôtes (agents), les métriques disque / charge existent déjà
+dans si-agent (#503) ; la tour ne couvre que l'hôte du hub.

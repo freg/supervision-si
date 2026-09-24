@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import PageFrame from "./PageFrame.jsx";
 import { hubLink } from "./hubLinks.js";
-import { fetchServices, restartService, restartRed, fetchServiceLogs, rebuildService } from "./servicesClient.js";
+import { fetchServices, restartService, restartRed, fetchServiceLogs, rebuildService, fetchHost, pruneHost } from "./servicesClient.js";
 import { sortServices, filterServices, summarize, verdictText, uptimeText, LIGHT_LABEL, KIND_LABEL } from "./servicesLights.js";
 
 const REFRESH_MS = 30000;
@@ -33,6 +33,52 @@ export function TrafficLight({ summary, size = 42 }) {
       {lamp("red", c.red || 0, "en panne")}
       {lamp("orange", c.orange || 0, "à surveiller")}
       {lamp("green", c.green || 0, "en marche")}
+    </div>
+  );
+}
+
+const human = (n) => { n = Number(n || 0); for (const u of ["o", "Ko", "Mo", "Go", "To"]) { if (n < 1024 || u === "To") return `${n.toFixed(u === "o" || u === "Ko" ? 0 : 1)} ${u}`; n /= 1024; } return ""; };
+
+/** #593 : santé de l'hôte du hub -- charge, mémoire, disques, Docker, nettoyage. */
+function HostCard({ apiBase, accessToken, onNotice }) {
+  const [h, setH] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback((refresh = false) => fetchHost(apiBase, accessToken, refresh).then((r) => !r.error && setH(r)), [apiBase, accessToken]);
+  useEffect(() => { load(); const id = setInterval(() => load(), 60000); return () => clearInterval(id); }, [load]);
+  if (!h) return null;
+  const prune = async (containers) => {
+    if (!window.confirm(`Supprimer les images Docker non utilisées par un conteneur et le cache de build${containers ? ", et les conteneurs arrêtés hors projet" : ""} ? (jamais les volumes)`)) return;
+    setBusy(true);
+    const r = await pruneHost(apiBase, accessToken, { images: true, build_cache: true, containers });
+    setBusy(false);
+    onNotice?.(r.error || `nettoyage : ${r.freed_text} libérés`);
+    load(true);
+  };
+  const d = h.docker || {};
+  return (
+    <div className="hub-card" style={{ marginBottom: 12, borderLeft: `6px solid ${COLORS[h.light]}` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <Lamp light={h.light} title={h.text} /><strong>Hôte du hub</strong>
+        <span style={{ color: COLORS[h.light] }}>{h.text}</span>
+        <span style={{ flex: 1 }} />
+        <span className="muted">charge {h.load?.map((x) => x.toFixed(2)).join(" / ")} ({h.cpus} CPU) · mémoire {h.mem?.pct ?? "?"} % de {human(h.mem?.total)}</span>
+        <button type="button" className="secondary" onClick={() => load(true)}>↻</button>
+      </div>
+      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 8 }}>
+        {(h.disks || []).map((x) => (
+          <div key={x.mount} style={{ minWidth: 200 }}>
+            <div><Lamp light={x.light} /> <code>{x.mount}</code> <span className="muted">{x.fstype}</span> — <span style={{ color: COLORS[x.light] }}>{x.pct} %</span></div>
+            <div style={{ height: 8, background: "var(--border)", borderRadius: 4, overflow: "hidden" }}><div style={{ width: `${Math.min(100, x.pct)}%`, height: "100%", background: COLORS[x.light] }} /></div>
+            <div className="muted" style={{ fontSize: 12 }}>{human(x.used)} utilisés · {human(x.free)} libres · {human(x.total)}</div>
+          </div>
+        ))}
+        {!h.root_mounted && <span className="muted">racine de l'hôte non montée (SERVICES_HOST_ROOT) : disques non mesurés</span>}
+      </div>
+      <div className="muted" style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        Docker : {d.error ? d.error : <>{d.images_count} images ({human(d.images)}, dont <strong>{d.images_unused_count} inutilisées : {human(d.images_unused)}</strong>) · cache de build {human(d.build_cache)} · conteneurs {human(d.containers)} · volumes {human(d.volumes)}</>}
+        <button type="button" className="secondary" disabled={busy} onClick={() => prune(false)}>🧹 Nettoyer images + cache</button>
+        <button type="button" className="secondary" disabled={busy} onClick={() => prune(true)} title="ajoute les conteneurs arrêtés qui n'appartiennent pas au projet">… et conteneurs orphelins</button>
+      </div>
     </div>
   );
 }
@@ -109,6 +155,7 @@ export default function ServicesView({ apiBase, accessToken, username, onBack, e
   return (
     <Frame title="🚦 Services du hub" onBack={onBack} actions={actions}
       foot={<span>{data ? `${data.project} · ${summary.total} conteneurs · vérifié ${new Date((data.at || 0) * 1000).toLocaleTimeString()} (cache ${data.cache_seconds} s, rafraîchi toutes les ${REFRESH_MS / 1000} s)` : "—"} · connecté en tant que {username || "?"}{notice ? ` · ${notice}` : ""}</span>}>
+      <HostCard apiBase={apiBase} accessToken={accessToken} onNotice={setNotice} />
       {error && <p className="hub-error">{error}{/utilisateur|autoris/i.test(error) ? <> — droits : membre d'un groupe admis (<a href={hubLink("accounts")}>Comptes et groupes</a>, groupe <code>administrateurs</code> par défaut) ou <code>SERVICES_ADMIN_USERS</code> / <code>SERVICES_ADMIN_GROUPS</code> dans le <code>.env</code> du hub.</> : null}</p>}
       <div style={{ display: "flex", gap: 24, alignItems: "flex-start", flexWrap: "wrap", marginBottom: 12 }}>
         <TrafficLight summary={summary} />

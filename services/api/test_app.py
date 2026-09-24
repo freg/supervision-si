@@ -252,6 +252,31 @@ class TestTower(TestApi):
         self.assertEqual(appmod.check_jobs(), [])  # une seule fois
         self.assertIn("job-failed", [e["event"] for e in self.c.get("/events", headers=self.h).get_json()["events"]])
 
+    def test_host_health(self):
+        """#593 : disques (statvfs simulé), charge, mémoire, Docker df ; bandeau public ; changement d'état notifié une fois."""
+        appmod._mounts = lambda: [("/", "/x", "ext4"), ("/var", "/x/var", "ext4")]
+        class SV:  # noqa: D401
+            def __init__(self, pct):
+                self.f_frsize, self.f_blocks = 4096, 1000000
+                self.f_bfree = self.f_bavail = int(1000000 * (100 - pct) / 100)
+        appmod.os.statvfs = lambda path: SV(99 if path.endswith("/var") else 40)
+        FakeDocker.df = lambda self: {"Images": [{"Size": 100, "Containers": 1}, {"Size": 50, "Containers": 0}], "Containers": [], "Volumes": [], "BuildCache": [{"Size": 7, "InUse": False}]}
+        h = self.c.get("/host?refresh=1", headers=self.h).get_json()
+        self.assertEqual(h["light"], "red")
+        self.assertEqual([d["mount"] for d in h["disks"]], ["/", "/var"])
+        self.assertEqual(h["docker"]["images_unused"], 50)
+        pub = self.c.get("/host/public").get_json()
+        self.assertEqual(pub["light"], "red")
+        self.assertIn("/var", pub["text"])
+        appmod._host_state.update(disk="green", load="green")
+        ch = appmod.check_host()
+        self.assertEqual([c[0] for c in ch if c[2] == "red"], ["disk"])
+        self.assertEqual([c for c in appmod.check_host() if c[0] == "disk"], [])  # pas de répétition
+        FakeDocker.images = types.SimpleNamespace(prune=lambda filters=None: {"ImagesDeleted": [1, 2], "SpaceReclaimed": 50})
+        FakeDocker.api = types.SimpleNamespace(prune_builds=lambda: {"CachesDeleted": [1], "SpaceReclaimed": 7})
+        r = self.c.post("/host/prune", headers=self.h, json={"images": True, "build_cache": True}).get_json()
+        self.assertEqual((r["freed"], r["done"]), (57, {"images": 2, "build_cache": 1}))
+
     def test_rebuild_job(self):
         j = self.c.post("/services/nebula-api/rebuild", headers=self.h).get_json()
         self.assertEqual(j["steps"][0]["cmd"], "./scripts/run.sh up -d --build nebula-api")

@@ -42,6 +42,7 @@ import NetworkEquipmentView from "./NetworkEquipmentView.jsx";
 import BastionView from "./BastionView.jsx";
 import ControlTowerView from "./ControlTowerView.jsx";  // #586
 import NotificationsView from "./NotificationsView.jsx";  // #590
+import HostHealthBanner from "./HostHealthBanner.jsx";  // #593
 import CortexView from "./CortexView.jsx";
 import ThemeView from "./ThemeView.jsx";
 import { buildCatalog as buildRightsCatalog } from "./rightsCatalog.js";
@@ -1922,6 +1923,7 @@ vm === "agent-page" ? (
 
   return (
     <div className="hub-shell">
+      <HostHealthBanner apiBase={SERVICES_API_BASE_URL} />
       <ReminderWidget
         login={profile.preferred_username}
         groups={groups}

@@ -1,3 +1,26 @@
+## 2026-09-24 — Hôte du hub : alerte visuelle et sonde charge / mémoire / espace disque, nettoyage Docker (livraison #593)
+
+Constat réel : `/var` saturé sur super → `NS_ERROR_NET_PARTIAL_TRANSFER`
+sur `App.jsx` (nginx ne pouvait plus bufferiser). Demandé : « une alerte
+visuelle sur le hub et une sonde de supervision charge / espace ».
+
+- `services/api/lights.py` : `disk_light`, `load_light`, `mem_light`,
+  `host_summary`, `human` (purs, testés).
+- `services/api/app.py` : `GET /host` (partitions via `/proc/self/mounts` +
+  `statvfs` sous `/host`, charge, mémoire, `docker df`), `GET /host/public`
+  (bandeau, sans jeton, sans chiffres), `POST /host/prune` (images non
+  utilisées, cache de build, conteneurs orphelins en option, jamais les
+  volumes), `check_host()` dans le fil de la tour : événement + notification
+  `tower.host.disk` / `tower.host.load` à chaque changement d'état.
+- `docker-compose.yml` : `/:/host:ro` (lecture seule) + `SERVICES_HOST_ROOT`.
+- Hub : `HostHealthBanner.jsx` en tête de toutes les pages (orange / rouge,
+  lien tour, masquable) ; tour → Services : carte « Hôte du hub » avec
+  barres par partition, Docker et boutons de nettoyage.
+- Tests : services-api 32 (statvfs et Docker simulés), hub 260.
+
+Non vérifié : sur super — d'abord libérer `/var` à la main (voir ci-dessous),
+puis déployer ; le bandeau doit apparaître tant que /var ≥ 85 %.
+
 ## 2026-09-24 — Registres Cisco / MikroTik saisis directement dans leurs tuiles (adresse IP, transport, accès du coffre) (livraison #592)
 
 Constat réel : « où met-on l'adresse IP ? pourquoi la tuile ne voit pas

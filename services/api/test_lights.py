@@ -45,3 +45,23 @@ class Classify(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HostHealth(unittest.TestCase):
+    def test_disk(self):
+        self.assertEqual(lights.disk_light(50, 10 * 2**30), "green")
+        self.assertEqual(lights.disk_light(90, 10 * 2**30), "orange")
+        self.assertEqual(lights.disk_light(96, 10 * 2**30), "red")
+        self.assertEqual(lights.disk_light(60, 100 * 2**20), "red")     # < 200 Mo libres
+        self.assertEqual(lights.disk_light(60, 500 * 2**20), "orange")  # < 1 Go libre
+
+    def test_load_mem_summary(self):
+        self.assertEqual(lights.load_light(0.5, 0.5, 4), "green")
+        self.assertEqual(lights.load_light(4.5, 3, 4), "orange")
+        self.assertEqual(lights.load_light(9, 8.5, 4), "red")
+        self.assertEqual(lights.mem_light(98), "red")
+        s = lights.host_summary([{"mount": "/var", "pct": 99, "free": 50 * 2**20}, {"mount": "/", "pct": 40, "free": 30 * 2**30}], [1.0, 0.8, 0.5], 4, 60)
+        self.assertEqual(s["light"], "red")
+        self.assertIn("/var : 99 % utilisé", s["text"])
+        self.assertEqual(lights.host_summary([], [0.1, 0.1, 0.1], 2, 30)["text"], "hôte en bonne santé")
+        self.assertEqual(lights.human(3 * 2**30), "3.0 Go")

@@ -95,3 +95,64 @@ def summarize(rows):
         counts[r.get("light") or "grey"] = counts.get(r.get("light") or "grey", 0) + 1
     verdict = "red" if counts["red"] else "orange" if counts["orange"] else "green" if counts["green"] else "grey"
     return {"counts": counts, "verdict": verdict, "total": len(rows)}
+
+
+# -- santé de l'hôte (#593) : charge, mémoire, espace disque ---------------------
+DISK_WARN, DISK_CRIT = 85, 95
+MEM_WARN, MEM_CRIT = 90, 97
+
+
+def disk_light(pct, free_bytes):
+    """Pourcentage utilisé + octets libres -> lampe. Un disque presque plein
+    mais avec beaucoup de place absolue reste orange ; < 200 Mo = rouge."""
+    if pct >= DISK_CRIT or free_bytes < 200 * 1024 * 1024:
+        return "red"
+    if pct >= DISK_WARN or free_bytes < 1024 * 1024 * 1024:
+        return "orange"
+    return "green"
+
+
+def load_light(load1, load5, cpus):
+    c = max(1, cpus or 1)
+    if load5 >= 2 * c:
+        return "red"
+    if load1 >= c:
+        return "orange"
+    return "green"
+
+
+def mem_light(pct):
+    return "red" if pct >= MEM_CRIT else "orange" if pct >= MEM_WARN else "green"
+
+
+def host_summary(disks, load, cpus, mem_pct):
+    """-> {light, text, problems[]} ; le pire l'emporte."""
+    order = {"green": 0, "orange": 1, "red": 2}
+    worst, problems = "green", []
+    for d in disks or []:
+        l = disk_light(d.get("pct", 0), d.get("free", 0))
+        d["light"] = l
+        if l != "green":
+            problems.append("%s : %d %% utilisé (%s libre)" % (d.get("mount"), d.get("pct", 0), human(d.get("free", 0))))
+        worst = max(worst, l, key=lambda x: order[x])
+    if load:
+        l = load_light(load[0], load[1] if len(load) > 1 else load[0], cpus)
+        if l != "green":
+            problems.append("charge %.2f / %.2f pour %d CPU" % (load[0], load[1] if len(load) > 1 else load[0], cpus))
+        worst = max(worst, l, key=lambda x: order[x])
+    if mem_pct is not None:
+        l = mem_light(mem_pct)
+        if l != "green":
+            problems.append("mémoire à %d %%" % mem_pct)
+        worst = max(worst, l, key=lambda x: order[x])
+    text = "hôte en bonne santé" if not problems else "; ".join(problems)
+    return {"light": worst, "text": text, "problems": problems}
+
+
+def human(n):
+    n = float(n or 0)
+    for unit in ("o", "Ko", "Mo", "Go", "To"):
+        if n < 1024 or unit == "To":
+            return ("%.1f %s" if unit not in ("o", "Ko") else "%.0f %s") % (n, unit)
+        n /= 1024.0
+    return "%.1f To" % n

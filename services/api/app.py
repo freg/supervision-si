@@ -54,7 +54,11 @@ _register_actions([
     {"id": "tower.heal.gave-up", "label": "Auto-réparation : abandon (intervention requise)", "severity": "critical"},
     {"id": "tower.service.restart", "label": "Service redémarré à la main", "severity": "info"},
     {"id": "tower.config", "label": "Configuration (registre) modifiée", "severity": "info"},
+    {"id": "tower.host.disk", "label": "Espace disque de l'hôte du hub", "severity": "critical"},
+    {"id": "tower.host.load", "label": "Charge / mémoire de l'hôte du hub", "severity": "warning"},
+    {"id": "tower.host.prune", "label": "Nettoyage Docker effectué", "severity": "info"},
 ])
+HOST_ROOT = os.environ.get("SERVICES_HOST_ROOT", "/host")  # #593 : racine de l'hôte montée en lecture seule
 from auth import AuthError, KeycloakVerifier, bearer_from_header
 
 try:
@@ -108,7 +112,7 @@ app.docker_client = docker_client  # remplaçable dans les tests
 
 
 # -- garde d'identité -----------------------------------------------------
-PUBLIC = ("/health", "/version")
+PUBLIC = ("/health", "/version", "/host/public")
 
 
 @app.before_request
@@ -809,6 +813,7 @@ def _heal_loop():
         time.sleep(HEAL_INTERVAL)
         try:
             check_jobs()
+            check_host()
             heal_once()
         except Exception as exc:  # noqa: BLE001
             _log.warning("auto-réparation : %s", exc)
@@ -820,3 +825,149 @@ if os.environ.get("SERVICES_HEAL_THREAD", "1") == "1":
 
 if __name__ == "__main__":  # pragma: no cover
     app.run(host="0.0.0.0", port=5000)
+
+
+# =============================================================================
+# #593 -- santé de l'hôte : charge, mémoire, espace disque, Docker
+# =============================================================================
+_host_cache = {"at": 0, "value": None}
+_host_state = {"disk": "green", "load": "green"}
+FS_TYPES = ("ext2", "ext3", "ext4", "xfs", "btrfs", "zfs", "f2fs", "jfs", "reiserfs", "vfat", "ntfs")
+
+
+def _mounts():
+    """Points de montage réels de l'hôte vus sous HOST_ROOT (bind récursif)."""
+    out = []
+    try:
+        with open("/proc/self/mounts", encoding="utf-8") as fh:
+            for line in fh:
+                parts = line.split()
+                if len(parts) < 3:
+                    continue
+                target, fstype = parts[1], parts[2]
+                if fstype not in FS_TYPES:
+                    continue
+                if target == HOST_ROOT or target.startswith(HOST_ROOT + "/"):
+                    out.append((target[len(HOST_ROOT):] or "/", target, fstype))
+    except OSError:
+        pass
+    if not out and os.path.isdir(HOST_ROOT):
+        out.append(("/", HOST_ROOT, "?"))
+    return out
+
+
+def host_health(force=False):
+    if not force and _host_cache["value"] and time.time() - _host_cache["at"] < 30:
+        return _host_cache["value"]
+    disks = []
+    for mount, path, fstype in _mounts():
+        try:
+            st = os.statvfs(path)
+        except OSError:
+            continue
+        total, free = st.f_blocks * st.f_frsize, st.f_bavail * st.f_frsize
+        if total <= 0:
+            continue
+        used = total - st.f_bfree * st.f_frsize
+        disks.append({"mount": mount, "fstype": fstype, "total": total, "used": used, "free": free, "pct": int(round(100.0 * used / total))})
+    disks.sort(key=lambda d: d["mount"])
+    load, cpus, mem_pct, mem = [], os.cpu_count() or 1, None, {}
+    try:
+        with open("/proc/loadavg") as fh:
+            load = [float(x) for x in fh.read().split()[:3]]
+    except (OSError, ValueError):
+        pass
+    try:
+        info = {}
+        with open("/proc/meminfo") as fh:
+            for line in fh:
+                k, _, v = line.partition(":")
+                info[k] = int(v.split()[0]) * 1024
+        mem = {"total": info.get("MemTotal", 0), "available": info.get("MemAvailable", 0)}
+        if mem["total"]:
+            mem_pct = int(round(100.0 * (mem["total"] - mem["available"]) / mem["total"]))
+    except (OSError, ValueError):
+        pass
+    docker_df = {}
+    try:
+        df = app.docker_client().df()
+        def _sum(key, size="Size"):
+            items = df.get(key) or []
+            return sum(int(i.get(size) or 0) for i in items)
+        images = df.get("Images") or []
+        unused = [i for i in images if not i.get("Containers")]
+        docker_df = {"images": _sum("Images"), "images_unused": sum(int(i.get("Size") or 0) for i in unused), "images_count": len(images), "images_unused_count": len(unused),
+                     "containers": _sum("Containers", "SizeRw"), "volumes": sum(int(((v.get("UsageData") or {}).get("Size")) or 0) for v in (df.get("Volumes") or [])),
+                     "build_cache": sum(int(b.get("Size") or 0) for b in (df.get("BuildCache") or []) if not b.get("InUse"))}
+    except Exception as exc:  # noqa: BLE001
+        docker_df = {"error": str(exc)[:120]}
+    summary = lights.host_summary(disks, load, cpus, mem_pct)
+    out = {"at": time.time(), "disks": disks, "load": load, "cpus": cpus, "mem": dict(mem, pct=mem_pct), "docker": docker_df,
+           "light": summary["light"], "text": summary["text"], "problems": summary["problems"], "root_mounted": os.path.isdir(HOST_ROOT)}
+    _host_cache.update(at=time.time(), value=out)
+    return out
+
+
+@app.route("/host", methods=["GET"])
+def host():
+    return jsonify(host_health(force=request.args.get("refresh") in ("1", "true"))), 200
+
+
+@app.route("/host/public", methods=["GET"])
+def host_public():
+    """Bandeau d'alerte du hub (#593) : lampe et texte seulement, sans détail
+    ni chiffres -- visible par tout utilisateur connecté au hub."""
+    h = host_health()
+    return jsonify({"light": h["light"], "text": h["text"] if h["light"] != "green" else "", "at": h["at"]}), 200
+
+
+@app.route("/host/prune", methods=["POST"])
+def host_prune():
+    """Nettoyage Docker : images non utilisées par un conteneur, cache de
+    build, conteneurs arrêtés HORS projet compose (jamais les volumes)."""
+    body = request.get_json(silent=True) or {}
+    freed, done = 0, {}
+    cli = app.docker_client()
+    try:
+        if body.get("images", True):
+            r = cli.images.prune(filters={"dangling": False})
+            done["images"] = len(r.get("ImagesDeleted") or [])
+            freed += int(r.get("SpaceReclaimed") or 0)
+        if body.get("build_cache", True):
+            r = cli.api.prune_builds()
+            done["build_cache"] = len(r.get("CachesDeleted") or [])
+            freed += int(r.get("SpaceReclaimed") or 0)
+        if body.get("containers", False):
+            r = cli.containers.prune()
+            done["containers"] = len(r.get("ContainersDeleted") or [])
+            freed += int(r.get("SpaceReclaimed") or 0)
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": str(exc)[:200], "done": done, "freed": freed}), 500
+    _host_cache["value"] = None
+    event("host-prune", "nettoyage Docker par %s : %s libérés (%s)" % (g.user["username"], lights.human(freed), done))
+    _notify("tower.host.prune", "nettoyage Docker : %s libérés" % lights.human(freed), "Par %s -- %s" % (g.user["username"], done), {"freed": freed, "done": done})
+    return jsonify({"status": "ok", "freed": freed, "freed_text": lights.human(freed), "done": done, "host": host_health(force=True)}), 200
+
+
+def check_host():
+    """Fil de surveillance (#593) : événement + notification à chaque changement d'état (jamais répété)."""
+    h = host_health(force=True)
+    order = {"green": 0, "orange": 1, "red": 2}
+    disk = max((d["light"] for d in h["disks"]), key=lambda x: order[x], default="green")
+    other = "green"
+    if h["load"]:
+        other = lights.load_light(h["load"][0], h["load"][1], h["cpus"])
+    if h["mem"].get("pct") is not None:
+        other = max(other, lights.mem_light(h["mem"]["pct"]), key=lambda x: order[x])
+    changes = []
+    for key, new, action in (("disk", disk, "tower.host.disk"), ("load", other, "tower.host.load")):
+        old = _host_state.get(key, "green")
+        if new != old:
+            _host_state[key] = new
+            text = h["text"] if new != "green" else "retour à la normale (%s)" % key
+            event("host-" + new, "%s : %s" % (key, text))
+            if new == "red" or (new == "orange" and old == "green") or (new == "green" and old == "red"):
+                _notify(action, "hôte du hub : %s" % text, "Détail : %s" % json.dumps({k: h[k] for k in ("disks", "load", "cpus", "mem")}, ensure_ascii=False, default=str)[:3000],
+                        {"state": new}, severity="critical" if new == "red" else "warning" if new == "orange" else "info")
+            changes.append((key, old, new))
+    return changes

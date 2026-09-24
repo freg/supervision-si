@@ -3332,3 +3332,22 @@ compose, les registres, les agents, Cortex, les notifications et les
 droits. Étapes : catalogue typé + racines métier (petite livraison), arêtes
 calculées + menu déployé avec lampes, pages pivot des objets métier,
 décisions typées pour proposer la racine et l'action.
+
+## Espace disque : agrandissement guidé plutôt qu'un gparted intégré (2026-09-24) — item 95
+
+Question posée : « un gparted intégré ? ». Réponse : non — un éditeur de
+partitions dans un hub web est le pire endroit pour un geste irréversible
+(réduction impossible à chaud, erreur = perte de données, exige root sur
+l'hôte, pas dans un conteneur). Ce qui est raisonnable et couvre 95 % des
+besoins, avec une couche Proxmox + ZFS : **agrandir à chaud**, guidé et
+journalisé, en deux temps orchestrés par la tour → (1) agent Proxmox :
+`qm resize <vmid> <disque> +NG` (le zvol ZFS grandit, thin) après contrôle
+de `zpool list` (espace libre du pool, quota, refreservation) ; (2) agent
+de la VM : `growpart` de la partition, puis `pvresize` + `lvextend -r`
+(LVM) ou `resize2fs` / `xfs_growfs` (ext4 / xfs), tous en ligne ; contrôle
+avant / après (`df`, `lsblk` #503), aperçu obligatoire, confirmation par le
+nom de la VM, notification. Compléter par les **nettoyages** (là où est le
+vrai gain) : images / cache Docker (#593), `journalctl --vacuum`, `apt
+clean`, vieux noyaux, sauvegardes locales anciennes, avec estimation avant
+exécution. Hors périmètre : réduction, déplacement de partitions, changement
+de table — à faire hors ligne avec les outils dédiés.

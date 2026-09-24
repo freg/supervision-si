@@ -56,3 +56,14 @@ export function uploadDelivery(apiBase, token, file, onProgress) {
     xhr.send(fd);
   });
 }
+
+// -- #593 : santé de l'hôte -------------------------------------------------------
+export const fetchHost = (apiBase, token, refresh = false) => call(apiBase, token, `/host${refresh ? "?refresh=1" : ""}`);
+export const pruneHost = (apiBase, token, body) => call(apiBase, token, "/host/prune", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+/** Bandeau : sans jeton (lampe + texte seulement). */
+export async function fetchHostPublic(apiBase) {
+  try {
+    const res = await fetch(`${apiBase}/host/public`);
+    return res.ok ? await res.json() : null;
+  } catch { return null; }
+}
