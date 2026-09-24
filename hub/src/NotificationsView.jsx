@@ -255,16 +255,38 @@ function Consumers({ b, t, notice }) {
 // ---------------------------------------------------------------------------
 function Settings({ b, t, notice }) {
   const [s, setS] = useState(null);
+  const [smtp, setSmtp] = useState(null);
   const [to, setTo] = useState("");
-  useEffect(() => { api.fetchSettings(b, t).then((r) => !r.error && setS(r)); }, [b, t]);
-  if (!s) return <p className="muted">Chargement…</p>;
+  const [testResult, setTestResult] = useState(null);
+  useEffect(() => { api.fetchSettings(b, t).then((r) => { if (!r.error) { setS(r); setSmtp({ ...r.smtp, password: "" }); } }); }, [b, t]);
+  if (!s || !smtp) return <p className="muted">Chargement…</p>;
+  const saveSmtp = async () => {
+    const r = await api.saveSettings(b, t, { smtp });
+    notice(r.error || "réglages SMTP enregistrés (disjoncteur refermé)", !r.error);
+    if (!r.error) { setS(r); setSmtp({ ...r.smtp, password: "" }); }
+  };
   const num = (k, label, help) => (
     <div className="hub-settings-row"><label>{label}</label><input type="number" min={0} value={s[k]} onChange={(e) => setS({ ...s, [k]: Number(e.target.value) })} style={{ width: 90 }} /> <span className="muted">{help}</span></div>
   );
   return (
     <div>
       <div className="hub-card">
-        <p className="muted" style={{ marginTop: 0 }}>SMTP : {s.smtp_host ? <><code>{s.smtp_host}</code>, expéditeur <code>{s.smtp_from}</code></> : <Tone tone="red">non configuré — NOTIFY_SMTP_HOST / NOTIFY_SMTP_FROM (ou SECRETS_ALERT_SMTP_*) dans le .env</Tone>} · préfixe des sujets <code>{s.subject_prefix}</code></p>
+        <h3 style={{ marginTop: 0 }}>Serveur SMTP</h3>
+        <p className="muted" style={{ marginTop: 0 }}>Réglé ici (prioritaire) ou, à défaut, par <code>NOTIFY_SMTP_*</code> / <code>SECRETS_ALERT_SMTP_*</code> du .env{smtp.from_env?.host ? " (valeurs du .env en place)" : ""}. Préfixe des sujets : <code>{s.subject_prefix}</code>.
+          Un refus « Client host rejected: Access denied » signifie que le serveur n'accepte pas de relayer depuis l'adresse du hub sans authentification : renseigner un compte SMTP (utilisateur + mot de passe) ou faire autoriser l'IP du hub par l'administrateur du serveur de mail.</p>
+        <div className="hub-settings-row"><label>Serveur</label><input value={smtp.host || ""} onChange={(e) => setSmtp({ ...smtp, host: e.target.value })} placeholder="mail.exemple.test" /></div>
+        <div className="hub-settings-row"><label>Port</label><input type="number" min={1} max={65535} value={smtp.port || 587} onChange={(e) => setSmtp({ ...smtp, port: Number(e.target.value) })} style={{ width: 90 }} />
+          <select value={smtp.security || "starttls"} onChange={(e) => setSmtp({ ...smtp, security: e.target.value, port: e.target.value === "ssl" && smtp.port === 587 ? 465 : e.target.value === "starttls" && smtp.port === 465 ? 587 : smtp.port })} style={{ marginLeft: 8 }}>
+            <option value="starttls">STARTTLS (587, « normal »)</option><option value="ssl">SSL/TLS implicite (465)</option><option value="none">aucune sécurité (25, réseau interne)</option></select></div>
+        <div className="hub-settings-row"><label>Utilisateur SMTP</label><input value={smtp.user || ""} onChange={(e) => setSmtp({ ...smtp, user: e.target.value })} placeholder="vide = sans authentification" autoComplete="off" /></div>
+        <div className="hub-settings-row"><label>Mot de passe {smtp.password_set ? <Tone tone="green">(enregistré)</Tone> : <span className="muted">(aucun)</span>}</label>
+          <input type="password" value={smtp.password || ""} onChange={(e) => setSmtp({ ...smtp, password: e.target.value })} placeholder={smtp.password_set ? "laisser vide pour conserver" : ""} autoComplete="new-password" />
+          {smtp.password_set && <label className="muted" style={{ marginLeft: 8 }}><input type="checkbox" checked={!!smtp.clear_password} onChange={(e) => setSmtp({ ...smtp, clear_password: e.target.checked })} /> effacer</label>}</div>
+        <div className="hub-settings-row"><label>Expéditeur</label><input value={smtp.from || ""} onChange={(e) => setSmtp({ ...smtp, from: e.target.value })} placeholder="hub@exemple.test" /></div>
+        <button type="button" className="primary" onClick={saveSmtp}>Enregistrer le serveur</button>
+      </div>
+      <div className="hub-card">
+        <h3 style={{ marginTop: 0 }}>Gestionnaire d'envoi</h3>
         <label><input type="checkbox" checked={!!s.enabled} onChange={(e) => setS({ ...s, enabled: e.target.checked })} /> envois actifs (décoché : tout est retenu dans la file, rien n'est perdu)</label>
         {num("max_per_minute", "Débit maximal", "messages par minute (0 = illimité)")}
         {num("coalesce_seconds", "Regroupement", "s : un message identique (action, sujet, destinataires) encore en file est fusionné")}
@@ -277,7 +299,8 @@ function Settings({ b, t, notice }) {
       </div>
       <div className="hub-card">
         <h3 style={{ marginTop: 0 }}>Test d'envoi</h3>
-        <input placeholder="adresse" value={to} onChange={(e) => setTo(e.target.value)} /> <button type="button" className="secondary" onClick={async () => { const r = await api.testSend(b, t, to); notice(r.error || `envoyé à ${to}`, !r.error); }}>Envoyer un message de test</button>
+        <input placeholder="adresse" value={to} onChange={(e) => setTo(e.target.value)} /> <button type="button" className="secondary" onClick={async () => { setTestResult("envoi…"); const r = await api.testSend(b, t, to); setTestResult(r.error || `envoyé à ${to}`); notice(r.error || `envoyé à ${to}`, !r.error); }}>Envoyer un message de test</button>
+        {testResult && <p><Tone tone={/envoyé/.test(testResult) ? "green" : "red"}>{testResult}</Tone></p>}
       </div>
     </div>
   );

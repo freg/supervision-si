@@ -57,6 +57,10 @@ modifié). Variables du producteur : `NOTIFY_API_URL`,
 
 ## Configuration
 
+Le serveur SMTP se règle dans la tuile (Réglages → Serveur SMTP : hôte,
+port, STARTTLS / SSL / aucune, compte, expéditeur ; mot de passe stocké en
+base, jamais renvoyé) — prioritaire sur le `.env` ci-dessous (#591).
+
 ```
 NOTIFY_INTERNAL_TOKEN=<openssl rand -hex 24>   # obligatoire pour les producteurs
 NOTIFY_SMTP_HOST= NOTIFY_SMTP_PORT=587 NOTIFY_SMTP_USER= NOTIFY_SMTP_PASSWORD= NOTIFY_SMTP_FROM= NOTIFY_SMTP_USE_TLS=true

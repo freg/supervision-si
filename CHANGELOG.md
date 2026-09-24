@@ -1,3 +1,23 @@
+## 2026-09-24 — Notifications : serveur SMTP réglé dans la tuile (STARTTLS / SSL / aucune, compte, expéditeur) (livraison #591)
+
+Constat réel (test d'envoi) : « 554 5.7.1 Client host rejected: Access
+denied » — le serveur de mail refuse de relayer depuis l'adresse du hub sans
+authentification ; demandé : « le serveur est en STARTTLS ; ajouter le
+paramétrage dans Réglages ».
+
+- `notify/api/app.py` : `smtp_config()` = base (tuile) puis `.env` ;
+  `PUT /settings {smtp: {host, port, security (starttls | ssl | none), user,
+  password, from, clear_password}}`, mot de passe en écriture seule (jamais
+  renvoyé, vide = conservé), `GET /settings` → `smtp{…, password_set}` ;
+  envoi : `SMTP_SSL` pour ssl, `starttls()` après EHLO, `login` si
+  utilisateur ; erreurs explicites (destinataire refusé avec le code du
+  serveur, authentification refusée) ; disjoncteur refermé à chaque
+  nouveau réglage.
+- Tuile Réglages : formulaire Serveur SMTP avec explication du refus 554
+  (compte SMTP ou IP du hub à autoriser côté serveur de mail), résultat du
+  test d'envoi affiché.
+- Tests : notify-api 12.
+
 ## 2026-09-24 — Notifications par courriel et gestionnaire d'envoi détaché : actions → groupes / méta-groupes → adresses (livraison #590)
 
 Backlog item 92, demandé le jour même : « notifications mail pour les

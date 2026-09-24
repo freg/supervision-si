@@ -50,7 +50,31 @@ KEYCLOAK_REALM = os.environ.get("KEYCLOAK_REALM", "supervision-si")
 JWKS_URL = os.environ.get("NOTIFY_JWKS_URL") or "%s/realms/%s/protocol/openid-connect/certs" % (KEYCLOAK_INTERNAL_URL, KEYCLOAK_REALM)
 ADMIN_USERS = [u for u in os.environ.get("NOTIFY_ADMIN_USERS", "").split(",") if u.strip()]
 ADMIN_GROUPS = [g_ for g_ in os.environ.get("NOTIFY_ADMIN_GROUPS", "administrateurs").split(",") if g_.strip()]
-SMTP = {k: os.environ.get("NOTIFY_SMTP_" + k, os.environ.get("SECRETS_ALERT_SMTP_" + k, "")) for k in ("HOST", "PORT", "USER", "PASSWORD", "FROM", "USE_TLS")}
+ENV_SMTP = {k: os.environ.get("NOTIFY_SMTP_" + k, os.environ.get("SECRETS_ALERT_SMTP_" + k, "")) for k in ("HOST", "PORT", "USER", "PASSWORD", "FROM", "USE_TLS")}
+SMTP_KEYS = ("host", "port", "security", "user", "password", "from")  # #591 : réglages SMTP dans la tuile (base), le .env sert de défaut
+
+
+def smtp_config():
+    """Réglages SMTP effectifs : base (tuile Réglages) puis .env. -> dict host, port, security (starttls|ssl|none), user, password, from."""
+    env = {"host": ENV_SMTP["HOST"], "port": ENV_SMTP["PORT"] or "587", "user": ENV_SMTP["USER"], "password": ENV_SMTP["PASSWORD"], "from": ENV_SMTP["FROM"],
+           "security": "none" if (ENV_SMTP["USE_TLS"] or "true").lower() == "false" else "starttls"}
+    try:
+        c = _conn()
+        rows = {r["key"]: r["value"] for r in c.execute("SELECT key, value FROM settings WHERE key LIKE 'smtp_%'")}
+        c.close()
+    except sqlite3.Error:
+        rows = {}
+    out = dict(env)
+    for k in SMTP_KEYS:
+        v = rows.get("smtp_" + k)
+        if v is not None:
+            try:
+                v = json.loads(v)
+            except ValueError:
+                pass
+            if v not in (None, ""):
+                out[k] = v
+    return out
 SUBJECT_PREFIX = os.environ.get("NOTIFY_SUBJECT_PREFIX", "[Hub SI]")
 DEFAULTS = {"enabled": True, "max_per_minute": 20, "coalesce_seconds": 60, "burst_threshold": 30, "burst_window": 300,
             "breaker_failures": 3, "breaker_cooldown": 300, "retry_max": 6}
@@ -189,7 +213,8 @@ def health():
     c = db()
     st = settings_get(c)
     n = {r["status"]: r["n"] for r in c.execute("SELECT status, COUNT(*) AS n FROM queue GROUP BY status")}
-    return jsonify({"status": "ok" if SMTP["HOST"] else "degraded", "smtp": bool(SMTP["HOST"]), "enabled": st["enabled"], "queue": n,
+    smtp = smtp_config()
+    return jsonify({"status": "ok" if smtp["host"] else "degraded", "smtp": bool(smtp["host"]), "enabled": st["enabled"], "queue": n,
                     "internal_token": bool(INTERNAL_TOKEN)}), 200
 
 
@@ -518,13 +543,39 @@ def queue_release():
 
 @app.route("/settings", methods=["GET"])
 def get_settings():
-    return jsonify(dict(settings_get(db()), smtp_host=SMTP["HOST"] or "", smtp_from=SMTP["FROM"] or "", subject_prefix=SUBJECT_PREFIX)), 200
+    smtp = smtp_config()
+    return jsonify(dict(settings_get(db()), subject_prefix=SUBJECT_PREFIX,
+                        smtp={"host": smtp["host"], "port": int(smtp["port"] or 587), "security": smtp["security"], "user": smtp["user"], "from": smtp["from"],
+                              "password_set": bool(smtp["password"]), "from_env": {k: bool(ENV_SMTP[k.upper()]) for k in ("host", "user", "from")}})), 200
 
 
 @app.route("/settings", methods=["PUT"])
 def put_settings():
     body = request.get_json(silent=True) or {}
     cur = settings_get(db())
+    smtp_in = body.pop("smtp", None)
+    if isinstance(smtp_in, dict):  # #591 : SMTP depuis la tuile ; mot de passe en écriture seule (vide = inchangé)
+        sec = str(smtp_in.get("security") or "starttls").lower()
+        if sec not in ("starttls", "ssl", "none"):
+            return jsonify({"error": "security : starttls, ssl ou none"}), 400
+        try:
+            port = int(smtp_in.get("port") if smtp_in.get("port") not in (None, "") else 587)
+            assert 1 <= port <= 65535
+        except (TypeError, ValueError, AssertionError):
+            return jsonify({"error": "port SMTP invalide"}), 400
+        frm = str(smtp_in.get("from") or "").strip()
+        if frm and not core.valid_email(frm):
+            return jsonify({"error": "expéditeur invalide"}), 400
+        with _lock:
+            for k, v in (("host", str(smtp_in.get("host") or "").strip()[:200]), ("port", port), ("security", sec), ("user", str(smtp_in.get("user") or "").strip()[:200]), ("from", frm)):
+                db().execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", ("smtp_" + k, json.dumps(v)))
+            if smtp_in.get("password"):
+                db().execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", ("smtp_password", json.dumps(str(smtp_in["password"]))))
+            elif smtp_in.get("clear_password"):
+                db().execute("DELETE FROM settings WHERE key = 'smtp_password'")
+            db().commit()
+        SENDER.failures, SENDER.opened_at = 0, None  # nouveau réglage : on referme le disjoncteur
+        event("smtp", "réglages SMTP modifiés par %s (%s:%s, %s, utilisateur %s)" % (g.user["username"], smtp_in.get("host"), port, sec, "oui" if smtp_in.get("user") else "non"))
     with _lock:
         for k, v in body.items():
             if k not in DEFAULTS:
@@ -539,8 +590,10 @@ def put_settings():
             db().execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (k, json.dumps(v)))
         db().commit()
     new = settings_get(db())
-    event("settings", "réglages modifiés par %s : %s" % (g.user["username"], {k: new[k] for k in new if new[k] != cur.get(k)}))
-    return jsonify(new), 200
+    changes = {k: new[k] for k in new if new[k] != cur.get(k)}
+    if changes:
+        event("settings", "réglages modifiés par %s : %s" % (g.user["username"], changes))
+    return get_settings()
 
 
 @app.route("/events", methods=["GET"])
@@ -568,27 +621,39 @@ class Sender(object):
 
     def state(self):
         st = settings_get()
-        return {"smtp": bool(SMTP["HOST"]), "consecutive_failures": self.failures, "last_error": self.last_error, "last_sent": self.last_sent,
+        return {"smtp": bool(smtp_config()["host"]), "consecutive_failures": self.failures, "last_error": self.last_error, "last_sent": self.last_sent,
                 "breaker_open": core.breaker_open(self.failures, st["breaker_failures"], self.opened_at, time.time(), st["breaker_cooldown"]),
                 "sent_last_minute": len([t for t in self.sent_times if time.time() - t < 60])}
 
     def deliver(self, recipients, subject, body):
         """Envoi SMTP réel -> (ok, erreur)."""
-        if not SMTP["HOST"] or not SMTP["FROM"]:
-            return False, "SMTP non configuré (NOTIFY_SMTP_HOST / NOTIFY_SMTP_FROM)"
+        cfg = smtp_config()
+        if not cfg["host"] or not cfg["from"]:
+            return False, "SMTP non configuré (Réglages → serveur et expéditeur)"
         msg = EmailMessage()
-        msg["From"] = SMTP["FROM"]
+        msg["From"] = cfg["from"]
         msg["To"] = ", ".join(recipients)
         msg["Subject"] = subject
         msg.set_content(body)
         try:
-            with smtplib.SMTP(SMTP["HOST"], int(SMTP["PORT"] or "587"), timeout=15) as smtp:
-                if (SMTP["USE_TLS"] or "true").lower() != "false":
+            port = int(cfg["port"] or 587)
+            if cfg["security"] == "ssl":
+                smtp = smtplib.SMTP_SSL(cfg["host"], port, timeout=15)
+            else:
+                smtp = smtplib.SMTP(cfg["host"], port, timeout=15)
+            with smtp:
+                smtp.ehlo()
+                if cfg["security"] == "starttls":
                     smtp.starttls()
-                if SMTP["USER"]:
-                    smtp.login(SMTP["USER"], SMTP["PASSWORD"])
+                    smtp.ehlo()
+                if cfg["user"]:
+                    smtp.login(cfg["user"], cfg["password"] or "")
                 smtp.send_message(msg)
             return True, ""
+        except smtplib.SMTPRecipientsRefused as exc:
+            return False, "destinataire(s) refusé(s) par le serveur : " + "; ".join("%s → %s %s" % (k, v[0], v[1].decode("utf-8", "replace") if isinstance(v[1], bytes) else v[1]) for k, v in exc.recipients.items())[:300]
+        except smtplib.SMTPAuthenticationError as exc:
+            return False, "authentification SMTP refusée (%s)" % str(exc)[:120]
         except (smtplib.SMTPException, OSError) as exc:
             return False, str(exc)[:200]
 

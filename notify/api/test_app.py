@@ -162,6 +162,20 @@ class Delivery(Base):
         self.assertEqual(self.c.post("/queue/%d/retry" % row["id"], headers=self.adm).status_code, 200)
         self.assertEqual(appmod.SENDER.tick(t0 + 500), 1)
 
+    def test_smtp_settings(self):
+        r = self.c.put("/settings", headers=self.adm, json={"smtp": {"host": "mail.exemple.test", "port": 465, "security": "ssl", "user": "hub", "password": "s3cret", "from": "hub@exemple.test"}}).get_json()
+        self.assertEqual((r["smtp"]["host"], r["smtp"]["port"], r["smtp"]["security"], r["smtp"]["password_set"]), ("mail.exemple.test", 465, "ssl", True))
+        self.assertNotIn("password", r["smtp"])  # jamais renvoyé
+        cfg = appmod.smtp_config()
+        self.assertEqual((cfg["password"], cfg["from"]), ("s3cret", "hub@exemple.test"))
+        r = self.c.put("/settings", headers=self.adm, json={"smtp": {"host": "mail.exemple.test", "port": 587, "security": "starttls", "user": "hub", "from": "hub@exemple.test"}}).get_json()
+        self.assertTrue(r["smtp"]["password_set"])  # vide = inchangé
+        self.assertEqual(self.c.put("/settings", headers=self.adm, json={"smtp": {"security": "tls1"}}).status_code, 400)
+        self.assertEqual(self.c.put("/settings", headers=self.adm, json={"smtp": {"port": 0}}).status_code, 400)
+        r = self.c.put("/settings", headers=self.adm, json={"smtp": {"host": "mail.exemple.test", "security": "starttls", "from": "hub@exemple.test", "clear_password": True}}).get_json()
+        self.assertFalse(r["smtp"]["password_set"])
+        self.assertTrue(any(e["event"] == "smtp" for e in self.c.get("/events", headers=self.adm).get_json()["events"]))
+
     def test_disabled_and_rate(self):
         self.notify("cisco.write", "w")
         self.c.put("/groups/auto:cisco", headers=self.adm, json={"emails": ["a@exemple.test"]})
