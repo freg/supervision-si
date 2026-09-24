@@ -1348,11 +1348,19 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      # #586 : tour de contrôle -- le dépôt AU MÊME CHEMIN que sur l'hôte
+      # (lancer run.sh depuis la racine du dépôt, comme toujours) : les
+      # chemins relatifs du compose se résolvent pareil dans le runner.
+      - ${PWD}:${PWD}
     environment:
       - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
       - KEYCLOAK_REALM=supervision-si
       - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-supervision-si}
       - SERVICES_ADMIN_USERS=${SERVICES_ADMIN_USERS:-freg}
+      - SERVICES_PROJECT_DIR=${PWD}
+      - SERVICES_HOST_IP=${HOST_IP:-}
+      - SERVICES_EXTRA_PROJECTS=${SERVICES_EXTRA_PROJECTS:-supervision-si-gateway}
+      - SERVICES_HEAL_INTERVAL=${SERVICES_HEAL_INTERVAL:-60}
       - SERVICES_HTTP_TIMEOUT=${SERVICES_HTTP_TIMEOUT:-4}
       - SERVICES_CACHE_SECONDS=${SERVICES_CACHE_SECONDS:-20}
 

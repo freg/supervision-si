@@ -3259,3 +3259,15 @@ reconstruire » (`up -d --build` d'un service) — nécessite le dépôt monté,
 à cadrer ; (3) dépendances (depends_on) affichées pour expliquer une
 cascade de rouges ; (4) rattacher chaque service à sa tuile (lien
 « ouvrir la tuile ») ; (5) hôtes répartis (#517) : agréger les nœuds.
+
+## Tour de contrôle (2026-09-24, #586) — item 91
+
+Livré : livraisons par le hub (zip → analyse → plan → runner), registres JSON
+Cisco/MikroTik, auto-réparation, journal. Suites : (1) `.env` depuis le hub
+(clés manquantes vs `.env.example`, valeurs non secrètes éditables, secrets
+en écriture seule) ; (2) livraison par `git pull` / URL (Framagit) plutôt que
+zip ; (3) autres registres JSON au même schéma (Nebula sites, service-watch,
+Proxmox web URLs, publications du bastion) ; (4) retour arrière d'une
+livraison (instantané des fichiers écrasés) ; (5) notification (circuit
+habituel) sur abandon d'auto-réparation et échec de job ; (6) planification
+(appliquer la nuit) ; (7) hôtes répartis (#517).

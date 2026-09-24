@@ -7,3 +7,5 @@ PyJWT==2.9.0
 cryptography==43.0.1
 # SDK Docker officiel, même version que docker-monitor-api (#376).
 docker==7.2.0
+# #586 : lecture de docker-compose.yml (plan de reconstruction).
+PyYAML==6.0.2

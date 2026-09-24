@@ -1,4 +1,4 @@
-# Services du hub — feu tricolore et redémarrage (services-api, #584)
+# Tour de contrôle du hub — services-api (#584, #586)
 
 Sous-tuile **Paramètres → Services du hub** (menu Paramètres → « Services du
 hub (feu tricolore) », lien `?view=services`). Pour chaque conteneur du
@@ -48,3 +48,63 @@ cd <dépôt> && ./scripts/run.sh up -d --build services-api tls-proxy hub
 Tests : `services/api/test_lights.py` (classement pur), `test_app.py`
 (jeton, inventaire, redémarrages, protégés, journal — Docker simulé) ;
 hub `tests/servicesLights.test.mjs`.
+
+
+## Tour de contrôle (#586)
+
+Paramètres → **🗼 Tour de contrôle** (`?view=control`, onglet par
+`&tab=services|deliveries|configs|auto|journal`). Tout se fait depuis le hub :
+
+- **Services** : le feu tricolore ci-dessus + **Reconstruire** (build + relance
+  du service, job) ; bouton **↻ Passerelle** (re-rendu nginx + relance de
+  tls-proxy, pour une nouvelle route `/api/…`).
+- **Livraisons & jobs** : déposer le zip (`git archive`) → analyse fichier par
+  fichier (ajouté / modifié / inchangé ; **jamais écrasés** : `.env`,
+  `*.local.json`, clés ; **conservés** si déjà présents : `*/data/*`,
+  `backups/*` ; entrées dangereuses `..`/absolues rejetées) → **plan** :
+  `sync-env.py` si `.env.example` a changé, `run.sh up -d --build` des services
+  dont une source COPY/ADD de leur Dockerfile a changé, `run.sh up -d` des
+  services en marche si `docker-compose.yml` a changé (compose ne recrée que
+  ce qui a bougé), `run.sh restart` pour un fichier monté, rechargement de la
+  passerelle si `tls-proxy/` ou `gateway/` ont changé — **seulement parmi les
+  services en marche** (un profil allégé n'est jamais étendu en douce ; les
+  autres sont listés « non démarrés »). Application **automatique** (réglage)
+  ou bouton ; retour arrière (numéro plus ancien) confirmé.
+- **Jobs** : exécutés par un conteneur **runner** détaché (même image, socket
+  Docker, dépôt monté au même chemin, `HOST_IP` transmis) → il survit à la
+  reconstruction de services-api, du hub ou de la passerelle. Journal en
+  direct, code retour ; `services/data/jobs/`.
+- **Configurations** : registres JSON (Cisco `cisco/switches.local.json`,
+  MikroTik `mikrotik/routers.local.json`) — tableau éditable d'après le schéma,
+  **import JSON** (fusion par nom ou remplacement), export, validation côté
+  serveur (noms, ports, choix, doublons), ancienne version gardée dans
+  `services/data/config-history/`. Relus à chaque appel par cisco-api /
+  mikrotik-api : aucun redémarrage.
+- **Automatismes** : auto-réparation (service rouge N vérifications de suite →
+  relance, plafond par heure, puis abandon signalé ; jamais les protégés),
+  application auto des livraisons, services **non surveillés** (gris, jamais
+  relancés). `services/data/settings.json`.
+- **Journal** : réglages, configurations, livraisons, jobs, auto-réparation
+  (`services/data/events.jsonl`).
+
+Montage : `${PWD}:${PWD}` (lancer `run.sh` depuis la racine du dépôt, comme
+toujours) ; `SERVICES_PROJECT_DIR=${PWD}`, `SERVICES_HOST_IP=${HOST_IP}`,
+`SERVICES_EXTRA_PROJECTS=supervision-si-gateway` (tls-proxy, keycloak dans le
+feu), `SERVICES_HEAL_INTERVAL=60`. Les fichiers écrits prennent le
+propriétaire du dépôt.
+
+API supplémentaires : `GET/PUT /settings`, `GET /events`, `GET /configs`,
+`GET/PUT /configs/<id>`, `POST /deliveries` (multipart `file`),
+`GET /deliveries`, `POST /deliveries/<id>/apply {allow_downgrade}`,
+`GET /jobs`, `GET /jobs/<id>`, `POST /services/<s>/rebuild`,
+`POST /gateway/reload`. Tests : `test_tower.py` (pur),
+`test_app.py::TestTower` (zip réel, plan, runner simulé, réglages,
+auto-réparation), hub `tests/towerLib.test.mjs`.
+
+**Premier passage** (la tour ne peut pas s'installer elle-même) :
+
+```bash
+cd ~/SRC/data2/tickets/supervision-si && ./scripts/run.sh up -d --build services-api hub && ./gateway/scripts/run.sh up -d --force-recreate tls-proxy
+```
+
+Ensuite, plus besoin de `scp` / `rsync` : les livraisons se déposent dans la tour.

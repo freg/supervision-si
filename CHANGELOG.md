@@ -1,3 +1,37 @@
+## 2026-09-24 — Tour de contrôle : tout depuis le hub — livraisons (zip → plan → build), registres JSON, auto-réparation (livraison #586)
+
+Demandé : « il faut qu'on puisse tout faire par le hub, même l'import de conf
+json, et que le hub fasse quand il faut les update/reload/build : une tour de
+contrôle automatisée ».
+
+- `services/api/tower.py` (pur) : chemins sûrs d'archive, fichiers protégés /
+  conservés, sources COPY/ADD des Dockerfile, correspondance fichiers →
+  services (build / montages), **plan** (sync-env, `up -d --build`, `up -d`
+  si compose modifié, `restart`, passerelle — services en marche seulement),
+  schéma + validation + fusion des registres Cisco / MikroTik, décision
+  d'auto-réparation (seuil, plafond horaire, abandon, retour au vert).
+- `services/api/app.py` : `/settings`, `/events`, `/configs`, `/deliveries`
+  (+ `/apply`), `/jobs`, `/services/<s>/rebuild`, `/gateway/reload` ; jobs
+  exécutés par un **conteneur runner détaché** (même image) ; fil
+  d'auto-réparation ; services « non surveillés » (gris) ; feu étendu à la
+  passerelle (tls-proxy, keycloak). Image : CLI Docker + compose, git, PyYAML.
+- `docker-compose.yml` : dépôt monté au même chemin (`${PWD}:${PWD}`),
+  `SERVICES_PROJECT_DIR`, `SERVICES_HOST_IP`, `SERVICES_EXTRA_PROJECTS`,
+  `SERVICES_HEAL_INTERVAL` ; `.gitignore` : `services/data/`.
+- Hub : `ControlTowerView.jsx` (onglets Services / Livraisons & jobs /
+  Configurations / Automatismes / Journal, bouton Passerelle, journal de job
+  en direct avec reprise pendant les reconstructions et invite à recharger),
+  `towerLib.js`, client étendu ; ServicesView embarquable + « Reconstruire » ;
+  carte « 🗼 Tour de contrôle » dans Paramètres, entrée `action:control`,
+  `?view=control` (`?view=services` conservé).
+- Pages Cisco / MikroTik : lien vers « Configurations » de la tour
+  (règle « activer X → lien »).
+- Tests : services-api 28 (dont zip réel, `.env` jamais écrasé, zip slip,
+  retour arrière gardé, runner simulé), hub 257.
+
+Non vérifié : sur super (premier passage manuel, voir services/README.md ;
+le runner réel : CLI docker/compose de l'image, `run.sh` depuis le runner).
+
 ## 2026-09-24 — Cisco : enable vérifié ; registres locaux hors dépôt (Cisco, MikroTik) ; liens visibles sur fond sombre (livraison #585)
 
 Constats réels (routeur du bureau, telnet) : relevé OK mais « commande

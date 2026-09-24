@@ -51,6 +51,7 @@ Charte sombre du hub, sans couleur hors palette (#2980b9/#b7791f). -->
 </head>
 <body>
 <h1>📡 Routeurs MikroTik</h1>
+<p class="muted" style="margin:0 0 8px">Registre modifiable dans le hub : <a href="/?view=control&tab=configs&config=mikrotik" target="_top">Tour de contrôle → Configurations → Routeurs MikroTik</a> ; identifiants dans <a href="/credentials/" target="_top">le coffre des accès</a> ; service <code>www-ssl</code> (API REST RouterOS v7) actif sur le routeur.</p>
 <div class="grid">
   <div>
     <div class="card">
@@ -83,7 +84,7 @@ async function loadRouters() {
     const r = await fetch(api + "/routers");
     const data = await r.json();
     if (data.registry_error) box.innerHTML = `<p class="muted">⚠️ ${data.registry_error}</p>`;
-    if (!data.routers.length) { box.innerHTML += `<p class="muted">Aucun routeur — voir mikrotik/routers.json</p>`; return; }
+    if (!data.routers.length) { box.innerHTML += `<p class="muted">Aucun routeur — <a href="/?view=control&tab=configs&config=mikrotik" target="_top">en ajouter dans la tour de contrôle</a></p>`; return; }
     box.innerHTML = "";
     for (const rt of data.routers) {
       const div = document.createElement("div");

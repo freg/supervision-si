@@ -3,12 +3,15 @@
 (Docker et HTTP simulés), redémarrage limité au projet, « rouges » sans les
 protégés, journal. Le SDK Docker est remplacé par un module factice si
 absent (tests sans Docker)."""
+import io
 import json
 import os
 import sys
+import tempfile
 import time
 import types
 import unittest
+import zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
@@ -16,6 +19,11 @@ sys.path.insert(0, HERE)
 sys.path.append(os.path.join(ROOT, "si-proxy", "admin"))  # auth.py partagé (après HERE : app.py = le nôtre)
 os.environ["SERVICES_ADMIN_USERS"] = "freg"
 os.environ["COMPOSE_PROJECT_NAME"] = "proj"
+PROJ = tempfile.mkdtemp(prefix="tower-")
+os.environ["SERVICES_PROJECT_DIR"] = PROJ
+os.environ["SERVICES_HEAL_THREAD"] = "0"
+os.environ["SERVICES_RUNNER_IMAGE"] = "img:test"
+os.environ["SERVICES_HOST_IP"] = "192.0.2.5"
 if "docker" not in sys.modules:
     try:
         import docker  # noqa: F401
@@ -71,9 +79,12 @@ class FakeContainer(object):
 
 
 class FakeDocker(object):
+    runs = []
+
     def __init__(self, containers):
         self._c = containers
-        self.containers = types.SimpleNamespace(list=lambda all=True: list(self._c))
+        self.containers = types.SimpleNamespace(list=lambda all=True, filters=None: [] if filters else list(self._c),
+                                                run=lambda *a, **k: FakeDocker.runs.append((a, k)))
 
     def ping(self):
         return True
@@ -130,6 +141,106 @@ class TestApi(unittest.TestCase):
         self.assertEqual(d["tail"], 10)  # borne basse
         self.assertEqual(d["lines"], ["l1", "l2", "l3"])
         self.assertEqual(self.c.get("/services/autre/logs", headers=self.h).status_code, 404)
+
+
+
+def put(rel, text):
+    path = os.path.join(PROJ, rel)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(text)
+
+
+class TestTower(TestApi):
+    """#586 : configurations JSON, livraison zip -> plan -> job runner, réglages, auto-réparation."""
+
+    def setUp(self):
+        TestApi.setUp(self)
+        FakeDocker.runs = []
+        put("docker-compose.yml", "services:\n  nebula-api:\n    build: {context: ., dockerfile: nebula/Dockerfile}\n"
+            "  hub:\n    build: {context: ., dockerfile: hub/Dockerfile}\n  ged-api:\n    build: {context: ., dockerfile: ged/Dockerfile}\n")
+        put("nebula/Dockerfile", "COPY nebula/api/ .\n")
+        put("hub/Dockerfile", "COPY hub/ .\n")
+        put("ged/Dockerfile", "COPY ged/ .\n")
+        put("nebula/api/app.py", "v1\n")
+        put("shared/DELIVERY_NUMBER", "585\n")
+        put(".env", "SECRET=1\n")
+        put("cisco/switches.json", '{"switches": [{"name": "exemple", "host": "192.0.2.10", "credential": "cisco"}]}')
+
+    def test_configs(self):
+        d = self.c.get("/configs/cisco", headers=self.h).get_json()
+        self.assertEqual((d["source"], d["items"][0]["name"]), ("exemple", "exemple"))
+        r = self.c.put("/configs/cisco", headers=self.h, json={"data": {"switches": [{"name": "a b", "host": "x"}]}})
+        self.assertEqual(r.status_code, 400)
+        self.assertTrue(r.get_json()["errors"])
+        r = self.c.put("/configs/cisco", headers=self.h, json={"data": [{"name": "routeur-bureau", "host": "192.0.2.249", "transport": "telnet", "credential": "rb"}]})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(json.load(open(os.path.join(PROJ, "cisco/switches.local.json")))["switches"][0]["transport"], "telnet")
+        self.assertEqual(self.c.get("/configs/cisco", headers=self.h).get_json()["source"], "local")
+        self.c.put("/configs/cisco", headers=self.h, json={"data": []})
+        self.assertTrue(os.listdir(os.path.join(PROJ, "services/data/config-history")))  # ancienne version gardée
+        self.assertEqual(self.c.get("/configs/inconnu", headers=self.h).status_code, 404)
+        self.assertEqual(self.c.put("/configs/cisco", json=[]).status_code, 401)
+
+    def _zip(self, files, number="586"):
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            for rel, text in files.items():
+                zf.writestr("supervision-si/" + rel, text)
+            zf.writestr("supervision-si/shared/DELIVERY_NUMBER", number + "\n")
+        buf.seek(0)
+        return buf
+
+    def test_delivery(self):
+        files = {"nebula/api/app.py": "v2\n", "hub/src/New.jsx": "x", ".env": "PIRATE=1", "../evil": "x", "CHANGELOG.md": "c"}
+        r = self.c.post("/deliveries", headers=self.h, data={"file": (self._zip(files), "supervision-si.zip")}, content_type="multipart/form-data")
+        self.assertEqual(r.status_code, 200, r.get_json())
+        d = r.get_json()
+        self.assertEqual((d["current"], d["number"], d["downgrade"]), ("585", "586", False))
+        self.assertIn("nebula/api/app.py", d["changed"])
+        self.assertIn("hub/src/New.jsx", d["added"])
+        self.assertEqual(d["protected"], [".env"])
+        self.assertEqual(d["unsafe"], ["supervision-si/../evil"])
+        # nebula-api en marche -> reconstruit ; hub en marche aussi (fixture) ; ged-api arrêté -> non démarré
+        self.assertEqual(d["plan"]["rebuild"], ["hub", "nebula-api"])
+        a = self.c.post("/deliveries/%s/apply" % d["id"], headers=self.h, json={}).get_json()
+        self.assertTrue(a["applied"])
+        self.assertEqual(open(os.path.join(PROJ, "nebula/api/app.py")).read(), "v2\n")
+        self.assertEqual(open(os.path.join(PROJ, ".env")).read(), "SECRET=1\n")  # jamais écrasé
+        self.assertFalse(os.path.exists(os.path.join(os.path.dirname(PROJ), "evil")))
+        self.assertEqual(len(FakeDocker.runs), 1)
+        args, kw = FakeDocker.runs[0]
+        self.assertEqual(args[0], "img:test")
+        self.assertIn(PROJ, kw["volumes"])
+        self.assertEqual(kw["environment"], {"HOST_IP": "192.0.2.5"})
+        script = open(os.path.join(PROJ, "services/data/jobs/%s.sh" % a["job"])).read()
+        self.assertIn("./scripts/run.sh up -d --build hub nebula-api", script)
+        self.assertEqual(self.c.get("/jobs/%s" % a["job"], headers=self.h).get_json()["status"], "lost")  # runner factice : ni rc ni conteneur
+        self.assertEqual(self.c.post("/deliveries/%s/apply" % d["id"], headers=self.h, json={}).status_code, 409)
+        ev = [e["event"] for e in self.c.get("/events", headers=self.h).get_json()["events"]]
+        self.assertIn("delivery-applied", ev)
+
+    def test_downgrade_guard(self):
+        d = self.c.post("/deliveries", headers=self.h, data={"file": (self._zip({"x.py": "1"}, number="500"), "old.zip")}, content_type="multipart/form-data").get_json()
+        self.assertTrue(d["downgrade"])
+        self.assertEqual(self.c.post("/deliveries/%s/apply" % d["id"], headers=self.h, json={}).status_code, 409)
+        self.assertEqual(self.c.post("/deliveries/%s/apply" % d["id"], headers=self.h, json={"allow_downgrade": True}).status_code, 200)
+
+    def test_settings_ignored_and_heal(self):
+        s = self.c.put("/settings", headers=self.h, json={"ignored": ["ged-api", "x; y"], "heal_threshold": 1, "auto_heal": True}).get_json()
+        self.assertEqual(s["ignored"], ["ged-api"])
+        rows = {r["service"]: r for r in self.c.get("/services?refresh=1", headers=self.h).get_json()["services"]}
+        self.assertEqual(rows["ged-api"]["light"], "grey")
+        self.c.put("/settings", headers=self.h, json={"ignored": []})
+        appmod._heal_state.clear()
+        self.assertEqual(appmod.heal_once(), ["ged-api"])  # tls-proxy rouge mais protégé
+        self.assertEqual(self.cs[2].actions, ["start"])
+
+    def test_rebuild_job(self):
+        j = self.c.post("/services/nebula-api/rebuild", headers=self.h).get_json()
+        self.assertEqual(j["steps"][0]["cmd"], "./scripts/run.sh up -d --build nebula-api")
+        self.assertEqual(self.c.post("/services/tls-proxy/rebuild", headers=self.h).get_json()["kind"], "rebuild")
+        self.assertEqual(self.c.post("/services/inconnu/rebuild", headers=self.h).status_code, 404)
 
 
 if __name__ == "__main__":

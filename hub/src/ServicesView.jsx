@@ -7,7 +7,7 @@
 // défile, filtre « début de mot d'abord ».
 import { useCallback, useEffect, useMemo, useState } from "react";
 import PageFrame from "./PageFrame.jsx";
-import { fetchServices, restartService, restartRed, fetchServiceLogs } from "./servicesClient.js";
+import { fetchServices, restartService, restartRed, fetchServiceLogs, rebuildService } from "./servicesClient.js";
 import { sortServices, filterServices, summarize, verdictText, uptimeText, LIGHT_LABEL, KIND_LABEL } from "./servicesLights.js";
 
 const REFRESH_MS = 30000;
@@ -40,7 +40,18 @@ function Lamp({ light, title }) {
   return <span title={title} style={{ display: "inline-block", width: 14, height: 14, borderRadius: "50%", background: COLORS[light] || COLORS.grey, boxShadow: `0 0 6px ${COLORS[light] || COLORS.grey}`, verticalAlign: "middle" }} />;
 }
 
-export default function ServicesView({ apiBase, accessToken, username, onBack }) {
+/** #586 : cadre allégé quand la vue est un onglet de la tour de contrôle. */
+function Embedded({ actions, foot, children }) {
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginBottom: 8 }}>{actions}</div>
+      {children}
+      <p className="muted" style={{ fontSize: 12 }}>{foot}</p>
+    </div>
+  );
+}
+
+export default function ServicesView({ apiBase, accessToken, username, onBack, embedded = false, onJob }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -72,6 +83,7 @@ export default function ServicesView({ apiBase, accessToken, username, onBack })
     setBusy(label);
     const r = await fn();
     setBusy(null);
+    if (!r?.error && r?.id && r?.steps) { setNotice(`${label} : job ${r.id} lancé`); onJob?.(r); return; }  // #586 : reconstruction = job de la tour
     setNotice(r?.error ? `${label} : ${r.error}` : `${label} : ${r.action === "start" ? "démarré" : r.restarted ? `${r.restarted.length} redémarré(s)${r.skipped_protected?.length ? `, protégés ignorés : ${r.skipped_protected.join(", ")}` : ""}` : "redémarré"} — nouvelle vérification dans quelques secondes`);
     setTimeout(() => load(true), 4000);
   };
@@ -81,6 +93,7 @@ export default function ServicesView({ apiBase, accessToken, username, onBack })
     setLogs(r.error ? { service, lines: [r.error] } : r);
   };
 
+  const Frame = embedded ? Embedded : PageFrame;
   if (!apiBase) return <PageFrame title="🚦 Services du hub" onBack={onBack}><p className="muted">services-api non configurée (<code>VITE_SERVICES_API_BASE_URL</code>).</p></PageFrame>;
 
   const redCount = summary.counts.red;
@@ -93,7 +106,7 @@ export default function ServicesView({ apiBase, accessToken, username, onBack })
   );
 
   return (
-    <PageFrame title="🚦 Services du hub" onBack={onBack} actions={actions}
+    <Frame title="🚦 Services du hub" onBack={onBack} actions={actions}
       foot={<span>{data ? `${data.project} · ${summary.total} conteneurs · vérifié ${new Date((data.at || 0) * 1000).toLocaleTimeString()} (cache ${data.cache_seconds} s, rafraîchi toutes les ${REFRESH_MS / 1000} s)` : "—"} · connecté en tant que {username || "?"}{notice ? ` · ${notice}` : ""}</span>}>
       {error && <p className="hub-error">{error}{/utilisateur|autoris/i.test(error) ? <> — utilisateurs admis : <code>SERVICES_ADMIN_USERS</code> dans le <code>.env</code> du hub.</> : null}</p>}
       <div style={{ display: "flex", gap: 24, alignItems: "flex-start", flexWrap: "wrap", marginBottom: 12 }}>
@@ -125,6 +138,8 @@ export default function ServicesView({ apiBase, accessToken, username, onBack })
               <td style={{ color: COLORS[r.light] }}>{r.text}</td>
               <td style={{ whiteSpace: "nowrap" }}>
                 <button type="button" className="secondary" disabled={!!busy} onClick={() => (r.protected ? window.confirm(`« ${r.service} » porte le hub ou son entrée : le redémarrer coupe la session en cours. Continuer ?`) : true) && act(`Redémarrage de ${r.service}`, () => restartService(apiBase, accessToken, r.service))}>{r.status === "running" ? "Redémarrer" : "Démarrer"}</button>
+                {" "}<button type="button" className="secondary" disabled={!!busy || (/-gateway$/.test(r.project || "") && r.service !== "tls-proxy")} title="reconstruire l'image et relancer (job de la tour, journal dans « Livraisons & jobs »)"
+                  onClick={() => window.confirm(`Reconstruire « ${r.service} » (build + relance) ?`) && act(`Reconstruction de ${r.service}`, () => rebuildService(apiBase, accessToken, r.service))}>Reconstruire</button>
                 {" "}<button type="button" className="secondary" onClick={() => showLogs(r.service)}>Journal</button>
               </td>
             </tr>
@@ -138,6 +153,6 @@ export default function ServicesView({ apiBase, accessToken, username, onBack })
           <pre style={{ maxHeight: 320, overflow: "auto", fontSize: 12, margin: "8px 0 0" }}>{(logs.lines || []).join("\n")}</pre>
         </div>
       )}
-    </PageFrame>
+    </Frame>
   );
 }

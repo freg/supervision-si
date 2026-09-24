@@ -54,7 +54,7 @@ export const ACTIONS = [
   { id: "action:layout", label: "Disposition du hub" },
   { id: "action:home-mode", label: "Accueil : thématiques / toutes les tuiles" },
   { id: "action:external-links", label: "Liens externes (administration)", admin: true },
-  { id: "action:services", label: "Services du hub (feu tricolore)", admin: true },
+  { id: "action:control", label: "Tour de contrôle (services, livraisons, configurations)", admin: true },
   { id: "action:debug", label: "Diagnostic (jeton Keycloak)" },
 ];
 
@@ -119,7 +119,7 @@ export function defaultTree(themes) {
   children.push(ref(REF_EXTERNAL_LINKS, { id: "r-external" }));
   children.push(group("Paramètres", [
     ref("action:settings", { id: "r-settings" }), ref("action:personalize", { id: "r-personalize" }), ref("action:layout", { id: "r-layout" }),
-    ref("action:home-mode", { id: "r-home-mode" }), ref("action:external-links", { id: "r-external-links" }), ref("action:services", { id: "r-services" }), ref("action:debug", { id: "r-debug" }),
+    ref("action:home-mode", { id: "r-home-mode" }), ref("action:external-links", { id: "r-external-links" }), ref("action:control", { id: "r-control" }), ref("action:debug", { id: "r-debug" }),
   ], { id: "theme:settings", icon: "⚙" }));
   return { version: TREE_VERSION, root: { type: "group", id: ROOT_ID, label: "Hub", icon: "", children } };
 }

@@ -40,7 +40,7 @@ import SiAgentView from "./SiAgentView.jsx";
 import ProxmoxView from "./ProxmoxView.jsx";
 import NetworkEquipmentView from "./NetworkEquipmentView.jsx";
 import BastionView from "./BastionView.jsx";
-import ServicesView from "./ServicesView.jsx";  // #584
+import ControlTowerView from "./ControlTowerView.jsx";  // #586
 import CortexView from "./CortexView.jsx";
 import ThemeView from "./ThemeView.jsx";
 import { buildCatalog as buildRightsCatalog } from "./rightsCatalog.js";
@@ -284,12 +284,13 @@ function SettingsView({ groups, login, apiBase, onBack, servicesAllowed = false,
       <div className="hub-settings-grid">
       {servicesAllowed && (
         <div className="hub-card hub-settings-section">
-          <h2>🚦 Services du hub</h2>
+          <h2>🗼 Tour de contrôle</h2>
           <p className="muted">
-            Feu tricolore de toutes les API, fronts et bases du hub (état Docker, healthcheck, requête HTTP interne),
-            redémarrage d'un service ou de tous ceux en panne, journal des conteneurs — livraison #584.
+            Feu tricolore de toutes les API, fronts et bases ; redémarrer, reconstruire ; déposer une livraison (zip) :
+            analyse, plan de reconstruction et application automatiques ; registres JSON (Cisco, MikroTik) éditables et
+            importables ; auto-réparation des services en panne ; journal — livraisons #584/#586.
           </p>
-          <button type="button" className="primary" onClick={() => onNavigate?.("services")}>Ouvrir le feu tricolore</button>
+          <button type="button" className="primary" onClick={() => onNavigate?.("control")}>Ouvrir la tour de contrôle</button>
         </div>
       )}
       {isAdminUser && (
@@ -1464,7 +1465,7 @@ export default function App() {
     const toggle = (name) => setViewMode((v) => (v === name ? "grid" : name));
     if (a === "home-mode") setHomeMode((m) => (m === "themes" ? "tiles" : "themes"));
     else if (a === "debug") setShowDebug((v) => !v);
-    else if (["aide", "tabs", "settings", "personalize", "layout", "external-links", "services"].includes(a)) toggle(a);
+    else if (["aide", "tabs", "settings", "personalize", "layout", "external-links", "control"].includes(a)) toggle(a);
   };
   const hubCatalog = buildCatalog({ availableViews, viewLabels: viewLabelsFromThemes(THEMES), fronts, isAdmin: isAdmin(groups) });
   const decorateLeaf = (l) => (l.kind === "action" ? { ...l, onClick: () => runAction(l.action) } : l);
@@ -1556,8 +1557,8 @@ vm === "agent-page" ? (
           servicesAllowed={!!SERVICES_API_BASE_URL && SERVICES_ADMIN_USERS.includes((profile.preferred_username || "").toLowerCase())}
           onNavigate={(t) => setViewMode(t)}
         />
-      ) : vm === "services" ? (
-        <ServicesView apiBase={SERVICES_API_BASE_URL} accessToken={auth.user?.access_token} username={profile.preferred_username} onBack={goBack} />
+      ) : vm === "services" || vm === "control" ? (
+        <ControlTowerView apiBase={SERVICES_API_BASE_URL} accessToken={auth.user?.access_token} username={profile.preferred_username} onBack={goBack} />
       ) : vm === "history" ? (
         <HistoryView apiBase={PREFS_API_BASE_URL} onBack={goBack} />
       ) : vm === "aide" ? (

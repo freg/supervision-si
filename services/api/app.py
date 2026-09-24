@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 """services-api (livraison #584) -- « Services du hub » : feu tricolore et
 redémarrage de tous les conteneurs du projet, pour la sous-tuile de
-Paramétrage.
+Paramétrage. #586 : « tour de contrôle » -- registres JSON éditables et
+importables, import d'une livraison (zip) avec plan de reconstruction
+calculé et exécuté par un conteneur « runner » détaché, auto-réparation
+des services rouges, journal (voir tower.py et services/README.md).
 
 Sécurité : le socket Docker est monté (équivaut à root sur l'hôte, comme
 docker-monitor-api #376 -- volontairement jamais routé par la passerelle).
@@ -16,11 +19,15 @@ Santé : pour chaque conteneur, état Docker + healthcheck s'il existe +
 requête HTTP interne sur le premier port exposé (`/health`, puis `/`),
 classée par lights.py. Résultats mis en cache `SERVICES_CACHE_SECONDS`.
 """
+import hashlib
 import json
 import logging
 import os
+import secrets
+import socket
 import threading
 import time
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
 
 import docker
@@ -29,6 +36,7 @@ from flask import Flask, g, jsonify, request
 from flask_cors import CORS
 
 import lights
+import tower
 from auth import AuthError, KeycloakVerifier, bearer_from_header
 
 try:
@@ -47,6 +55,16 @@ PROJECT = os.environ.get("COMPOSE_PROJECT_NAME", "supervision-si")
 HTTP_TIMEOUT = float(os.environ.get("SERVICES_HTTP_TIMEOUT", "4"))
 CACHE_SECONDS = int(os.environ.get("SERVICES_CACHE_SECONDS", "20"))
 EXPECTED_AZP = os.environ.get("SERVICES_EXPECTED_AZP") or None
+# #586 : autres projets compose surveillés (la passerelle : tls-proxy, keycloak)
+EXTRA_PROJECTS = [p.strip() for p in os.environ.get("SERVICES_EXTRA_PROJECTS", "supervision-si-gateway").split(",") if p.strip()]
+# #586 : le dépôt, monté AU MÊME CHEMIN que sur l'hôte (les chemins relatifs
+# de docker-compose.yml se résolvent alors pareil dans le runner).
+PROJECT_DIR = (os.environ.get("SERVICES_PROJECT_DIR") or "").rstrip("/")
+HOST_IP = os.environ.get("SERVICES_HOST_IP") or ""
+DATA_DIR = os.path.join(PROJECT_DIR, "services", "data") if PROJECT_DIR else ""
+HEAL_INTERVAL = int(os.environ.get("SERVICES_HEAL_INTERVAL", "60"))
+MAX_ZIP_BYTES = int(os.environ.get("SERVICES_MAX_ZIP_MB", "1500")) * 1024 * 1024
+DEFAULT_SETTINGS = {"auto_heal": True, "auto_apply": True, "heal_threshold": 3, "heal_max_per_hour": 3, "ignored": []}
 
 app = Flask(__name__)
 CORS(app)
@@ -136,7 +154,11 @@ def _row(c):
     if c.status == "running" and port:
         http = _http_probe(c.name, port)
     light, text = lights.classify(c.status, health, http, port)
+    ignored = service in (_settings().get("ignored") or [])
+    if ignored:
+        light, text = "grey", "non surveillé (%s) -- réglage « Automatismes »" % text
     return {
+        "ignored": ignored, "project": labels.get("com.docker.compose.project"),
         "service": service, "container": c.name, "id": c.id[:12], "status": c.status, "docker_health": health,
         "started_at": state.get("StartedAt"), "restart_count": attrs.get("RestartCount", 0),
         "port": port, "http": http, "kind": lights.guess_kind(service, port, http),
@@ -145,8 +167,9 @@ def _row(c):
     }
 
 
-def _project_containers():
-    return [c for c in app.docker_client().containers.list(all=True) if lights.project_of((c.attrs.get("Config") or {}).get("Labels")) == PROJECT]
+def _project_containers(projects=None):
+    wanted = set(projects or [PROJECT] + EXTRA_PROJECTS)
+    return [c for c in app.docker_client().containers.list(all=True) if lights.project_of((c.attrs.get("Config") or {}).get("Labels")) in wanted]
 
 
 def inventory(force=False):
@@ -236,6 +259,487 @@ def logs(service):
     except Exception as exc:  # noqa: BLE001
         return jsonify({"error": str(exc)}), 500
     return jsonify({"service": service, "tail": tail, "lines": text.splitlines()[-tail:]}), 200
+
+
+
+# =============================================================================
+# #586 -- tour de contrôle
+# =============================================================================
+def _need_project():
+    if not PROJECT_DIR or not os.path.isdir(PROJECT_DIR):
+        return jsonify({"error": "dépôt non monté dans services-api (SERVICES_PROJECT_DIR) : redéployer avec le docker-compose.yml de #586"}), 503
+    return None
+
+
+def _owner():
+    try:
+        st = os.stat(PROJECT_DIR)
+        return st.st_uid, st.st_gid
+    except OSError:
+        return None
+
+
+def _write(rel, data, mode=None):
+    """Écriture atomique dans le dépôt, propriétaire = celui du dépôt."""
+    path = os.path.join(PROJECT_DIR, rel)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = "%s.tmp-%s" % (path, secrets.token_hex(3))
+    with open(tmp, "wb") as fh:
+        fh.write(data if isinstance(data, bytes) else data.encode("utf-8"))
+    if mode:
+        os.chmod(tmp, mode)
+    own = _owner()
+    if own:
+        try:
+            os.chown(tmp, *own)
+        except OSError:
+            pass
+    os.replace(tmp, path)
+
+
+def _read(rel):
+    try:
+        with open(os.path.join(PROJECT_DIR, rel), "rb") as fh:
+            return fh.read()
+    except OSError:
+        return None
+
+
+def _data(*parts):
+    path = os.path.join(DATA_DIR, *parts)
+    os.makedirs(os.path.dirname(path) if parts else DATA_DIR, exist_ok=True)
+    return path
+
+
+# -- réglages et journal -------------------------------------------------------
+_settings_cache = {"at": 0, "value": None}
+
+
+def _settings():
+    if not DATA_DIR:
+        return dict(DEFAULT_SETTINGS)
+    if _settings_cache["value"] is not None and time.time() - _settings_cache["at"] < 5:
+        return _settings_cache["value"]
+    try:
+        with open(os.path.join(DATA_DIR, "settings.json"), encoding="utf-8") as fh:
+            v = dict(DEFAULT_SETTINGS, **json.load(fh))
+    except (OSError, ValueError):
+        v = dict(DEFAULT_SETTINGS)
+    _settings_cache.update(at=time.time(), value=v)
+    return v
+
+
+def event(kind, text, **extra):
+    rec = {"at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "event": kind, "text": text}
+    rec.update(extra)
+    _log.info("tour : %s -- %s", kind, text)
+    if DATA_DIR:
+        try:
+            with open(_data("events.jsonl"), "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        except OSError:
+            pass
+    return rec
+
+
+@app.route("/settings", methods=["GET"])
+def get_settings():
+    return jsonify(_settings()), 200
+
+
+@app.route("/settings", methods=["PUT"])
+def put_settings():
+    err = _need_project()
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    cur = _settings()
+    new = dict(cur)
+    for k in ("auto_heal", "auto_apply"):
+        if k in body:
+            new[k] = bool(body[k])
+    for k, lo, hi in (("heal_threshold", 1, 30), ("heal_max_per_hour", 0, 20)):
+        if k in body:
+            try:
+                new[k] = max(lo, min(hi, int(body[k])))
+            except (TypeError, ValueError):
+                return jsonify({"error": "%s : entier attendu" % k}), 400
+    if "ignored" in body:
+        new["ignored"] = sorted({x for x in body.get("ignored") or [] if isinstance(x, str) and tower.SERVICE_RE.match(x)})
+    _write(os.path.relpath(_data("settings.json"), PROJECT_DIR), json.dumps(new, indent=2, ensure_ascii=False))
+    _settings_cache["value"] = None
+    event("settings", "réglages modifiés par %s" % g.user["username"], changes={k: new[k] for k in new if new.get(k) != cur.get(k)})
+    with _lock:
+        _cache["rows"] = None
+    return jsonify(new), 200
+
+
+@app.route("/events", methods=["GET"])
+def events():
+    try:
+        limit = max(10, min(1000, int(request.args.get("limit", "200"))))
+    except ValueError:
+        limit = 200
+    out = []
+    if DATA_DIR and os.path.exists(os.path.join(DATA_DIR, "events.jsonl")):
+        with open(os.path.join(DATA_DIR, "events.jsonl"), encoding="utf-8") as fh:
+            lines = fh.readlines()[-limit:]
+        for line in reversed(lines):
+            try:
+                out.append(json.loads(line))
+            except ValueError:
+                pass
+    return jsonify({"events": out}), 200
+
+
+# -- configurations JSON -------------------------------------------------------
+@app.route("/configs", methods=["GET"])
+def configs():
+    err = _need_project()
+    if err:
+        return err
+    out = []
+    for cid, spec in tower.CONFIGS.items():
+        local = _read(spec["path"])
+        out.append({"id": cid, "label": spec["label"], "path": spec["path"], "example": spec["example"], "consumer": spec["consumer"],
+                    "key": spec["key"], "fields": spec["fields"], "local": local is not None})
+    return jsonify({"configs": out}), 200
+
+
+@app.route("/configs/<cid>", methods=["GET"])
+def config_get(cid):
+    err = _need_project()
+    if err:
+        return err
+    spec = tower.CONFIGS.get(cid)
+    if not spec:
+        return jsonify({"error": "configuration inconnue"}), 404
+    raw, source = _read(spec["path"]), "local"
+    if raw is None:
+        raw, source = _read(spec["example"]), "exemple"
+    try:
+        data = json.loads(raw.decode("utf-8")) if raw else {spec["key"]: []}
+        items = tower.items_of(cid, data)
+    except ValueError as exc:
+        return jsonify({"error": "fichier %s illisible : %s" % (spec["path"] if source == "local" else spec["example"], exc)}), 500
+    return jsonify({"id": cid, "source": source, "path": spec["path"], "items": items}), 200
+
+
+@app.route("/configs/<cid>", methods=["PUT"])
+def config_put(cid):
+    err = _need_project()
+    if err:
+        return err
+    spec = tower.CONFIGS.get(cid)
+    if not spec:
+        return jsonify({"error": "configuration inconnue"}), 404
+    body = request.get_json(silent=True)
+    if body is None:
+        return jsonify({"error": "JSON attendu"}), 400
+    data = body.get("data", body) if isinstance(body, dict) and "data" in body else body
+    doc, errors, warnings = tower.validate_config(cid, data)
+    if errors:
+        return jsonify({"error": "configuration refusée", "errors": errors, "warnings": warnings}), 400
+    old = _read(spec["path"])
+    if old is not None:
+        _write(os.path.relpath(_data("config-history", "%s-%s.json" % (cid, time.strftime("%Y%m%d-%H%M%S"))), PROJECT_DIR), old)
+    _write(spec["path"], json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
+    n = len(doc[spec["key"]])
+    event("config", "%s : %d entrée(s) enregistrée(s) par %s" % (spec["label"], n, g.user["username"]), config=cid)
+    return jsonify({"status": "ok", "count": n, "warnings": warnings, "path": spec["path"]}), 200
+
+
+# -- jobs (conteneur runner détaché) --------------------------------------------
+def _self_image():
+    img = os.environ.get("SERVICES_RUNNER_IMAGE")
+    if img:
+        return img
+    return app.docker_client().containers.get(socket.gethostname()).image.id
+
+
+def launch_job(kind, label, steps, user, extra=None):
+    """Écrit le script, lance un conteneur runner (même image, socket Docker,
+    dépôt au même chemin) qui l'exécute et écrit journal + code retour. Le
+    runner survit à la reconstruction de services-api elle-même."""
+    jid = time.strftime("%Y%m%d-%H%M%S") + "-" + secrets.token_hex(2)
+    jobs = os.path.dirname(_data("jobs", "x"))
+    script = ["set -uo pipefail", "cd %s" % json.dumps(PROJECT_DIR)]
+    if HOST_IP:
+        script.append("export HOST_IP=%s" % json.dumps(HOST_IP))
+    script.append('echo "tour de contrôle -- job %s (%s) lancé par %s"' % (jid, kind, user))
+    for st in steps:
+        script.append('echo; echo "▶ %s"; echo "$ %s"' % (st["label"].replace('"', "'"), st["cmd"].replace('"', "'")))
+        script.append('%s || { rc=$?; echo "✗ échec (code $rc)"; exit $rc; }' % st["cmd"])
+    script.append('echo; echo "✓ terminé"')
+    base = os.path.join(jobs, jid)
+    _write(os.path.relpath(base + ".sh", PROJECT_DIR), "\n".join(script) + "\n")
+    meta = {"id": jid, "kind": kind, "label": label, "steps": steps, "user": user, "at": time.time()}
+    meta.update(extra or {})
+    _write(os.path.relpath(base + ".json", PROJECT_DIR), json.dumps(meta, ensure_ascii=False, indent=2))
+    cmd = "bash %s > %s 2>&1; echo $? > %s" % (json.dumps(base + ".sh"), json.dumps(base + ".log"), json.dumps(base + ".rc"))
+    try:
+        app.docker_client().containers.run(
+            _self_image(), ["bash", "-c", cmd], detach=True, auto_remove=True, working_dir=PROJECT_DIR,
+            name="tower-job-%s" % jid, labels={"supervision-si.tower-job": jid},
+            volumes={"/var/run/docker.sock": {"bind": "/var/run/docker.sock", "mode": "rw"}, PROJECT_DIR: {"bind": PROJECT_DIR, "mode": "rw"}},
+            environment={"HOST_IP": HOST_IP} if HOST_IP else {})
+    except Exception as exc:  # noqa: BLE001
+        _write(os.path.relpath(base + ".log", PROJECT_DIR), "runner non lancé : %s\n" % exc)
+        _write(os.path.relpath(base + ".rc", PROJECT_DIR), "125\n")
+        event("job-failed", "%s : runner non lancé (%s)" % (label, exc), job=jid)
+        return meta
+    event("job", "%s -- lancé par %s" % (label, user), job=jid, job_kind=kind)
+    return meta
+
+
+def job_status(jid):
+    base = os.path.join(DATA_DIR, "jobs", jid)
+    try:
+        with open(base + ".json", encoding="utf-8") as fh:
+            meta = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    rc = None
+    try:
+        with open(base + ".rc", encoding="utf-8") as fh:
+            rc = int(fh.read().strip() or "1")
+    except (OSError, ValueError):
+        pass
+    if rc is not None:
+        meta["status"], meta["rc"] = ("done" if rc == 0 else "failed"), rc
+    else:
+        running = False
+        try:
+            running = bool(app.docker_client().containers.list(filters={"label": "supervision-si.tower-job=%s" % jid}))
+        except Exception:  # noqa: BLE001
+            running = True
+        meta["status"] = "running" if running else "lost"
+    return meta
+
+
+@app.route("/jobs", methods=["GET"])
+def jobs_list():
+    if not DATA_DIR or not os.path.isdir(os.path.join(DATA_DIR, "jobs")):
+        return jsonify({"jobs": []}), 200
+    ids = sorted({f.rsplit(".", 1)[0] for f in os.listdir(os.path.join(DATA_DIR, "jobs")) if f.endswith(".json")}, reverse=True)[:30]
+    return jsonify({"jobs": [j for j in (job_status(i) for i in ids) if j]}), 200
+
+
+@app.route("/jobs/<jid>", methods=["GET"])
+def job_get(jid):
+    if not tower.re.match(r"^[0-9]{8}-[0-9]{6}-[0-9a-f]{4}$", jid):
+        return jsonify({"error": "job inconnu"}), 404
+    meta = job_status(jid)
+    if not meta:
+        return jsonify({"error": "job inconnu"}), 404
+    try:
+        with open(os.path.join(DATA_DIR, "jobs", jid + ".log"), encoding="utf-8", errors="replace") as fh:
+            meta["log"] = fh.read().splitlines()[-600:]
+    except OSError:
+        meta["log"] = []
+    return jsonify(meta), 200
+
+
+def _running_main():
+    return sorted({lights.service_of((c.attrs.get("Config") or {}).get("Labels"), c.name)
+                   for c in _project_containers([PROJECT]) if c.status == "running"})
+
+
+@app.route("/services/<service>/rebuild", methods=["POST"])
+def rebuild(service):
+    err = _need_project()
+    if err:
+        return err
+    if service == "tls-proxy":
+        steps = tower.GATEWAY_RELOAD
+    else:
+        if service not in _running_main() and _find(service) is None:
+            return jsonify({"error": "service « %s » inconnu" % service}), 404
+        steps = tower.rebuild_steps([service])
+    if not steps:
+        return jsonify({"error": "nom de service invalide"}), 400
+    return jsonify(launch_job("rebuild", "reconstruction de %s" % service, steps, g.user["username"])), 200
+
+
+@app.route("/gateway/reload", methods=["POST"])
+def gateway_reload():
+    err = _need_project()
+    if err:
+        return err
+    return jsonify(launch_job("gateway", "rechargement de la passerelle", tower.GATEWAY_RELOAD, g.user["username"])), 200
+
+
+# -- livraisons ----------------------------------------------------------------
+def _compose_paths():
+    import yaml  # dépendance de la tour seulement
+    raw = _read("docker-compose.yml")
+    services = (yaml.safe_load(raw.decode("utf-8")) or {}).get("services") or {} if raw else {}
+
+    def read_file(rel):
+        b = _read(rel)
+        return b.decode("utf-8", "replace") if b else None
+    return tower.service_paths(services, "", read_file)
+
+
+def _sha(b):
+    return hashlib.sha1(b).hexdigest()
+
+
+def analyze_zip(path):
+    with zipfile.ZipFile(path) as zf:
+        infos = [i for i in zf.infolist() if not i.is_dir()]
+        if len(infos) > 60000 or sum(i.file_size for i in infos) > 3 * MAX_ZIP_BYTES:
+            raise ValueError("archive trop volumineuse")
+        prefix = tower.strip_prefix([i.filename for i in infos])
+        buckets = {"added": [], "changed": [], "unchanged": 0, "protected": [], "kept": [], "unsafe": []}
+        number = None
+        for i in infos:
+            rel = tower.safe_member(i.filename, prefix)
+            if rel is None:
+                buckets["unsafe"].append(i.filename)
+                continue
+            data = zf.read(i)
+            if rel == "shared/DELIVERY_NUMBER":
+                number = data.decode("utf-8", "replace").strip()
+            local = _read(rel)
+            kind = tower.classify(rel, _sha(data), _sha(local) if local is not None else None)
+            if kind == "unchanged":
+                buckets["unchanged"] += 1
+            else:
+                buckets[kind].append(rel)
+    return prefix, number, buckets
+
+
+@app.route("/deliveries", methods=["GET"])
+def deliveries():
+    cur = (_read("shared/DELIVERY_NUMBER") or b"").decode().strip() if PROJECT_DIR else ""
+    out = []
+    inc = os.path.join(DATA_DIR, "incoming") if DATA_DIR else ""
+    if inc and os.path.isdir(inc):
+        for f in sorted(os.listdir(inc), reverse=True):
+            if f.endswith(".json"):
+                try:
+                    with open(os.path.join(inc, f), encoding="utf-8") as fh:
+                        out.append(json.load(fh))
+                except (OSError, ValueError):
+                    pass
+    return jsonify({"current": cur, "project_dir": PROJECT_DIR, "deliveries": out[:10]}), 200
+
+
+@app.route("/deliveries", methods=["POST"])
+def delivery_upload():
+    err = _need_project()
+    if err:
+        return err
+    f = request.files.get("file")
+    if not f or not (f.filename or "").lower().endswith(".zip"):
+        return jsonify({"error": "fichier .zip attendu (champ « file »)"}), 400
+    did = time.strftime("%Y%m%d-%H%M%S") + "-" + secrets.token_hex(2)
+    zpath = _data("incoming", did + ".zip")
+    f.save(zpath)
+    if os.path.getsize(zpath) > MAX_ZIP_BYTES:
+        os.remove(zpath)
+        return jsonify({"error": "archive trop volumineuse"}), 413
+    try:
+        prefix, number, b = analyze_zip(zpath)
+    except (zipfile.BadZipFile, ValueError) as exc:
+        os.remove(zpath)
+        return jsonify({"error": "archive refusée : %s" % exc}), 400
+    current = (_read("shared/DELIVERY_NUMBER") or b"").decode().strip()
+    try:
+        plan = tower.plan_for_changes(b["changed"] + b["added"], _compose_paths(), _running_main())
+    except Exception as exc:  # noqa: BLE001
+        plan = {"steps": [], "error": "plan non calculé : %s" % exc}
+    rec = {"id": did, "name": f.filename, "at": time.time(), "user": g.user["username"], "number": number, "current": current,
+           "downgrade": bool(number and current and number.isdigit() and current.isdigit() and int(number) < int(current)),
+           "prefix": prefix, "added": b["added"], "changed": b["changed"], "unchanged": b["unchanged"], "protected": b["protected"],
+           "kept": b["kept"], "unsafe": b["unsafe"], "plan": plan, "applied": False}
+    _write(os.path.relpath(_data("incoming", did + ".json"), PROJECT_DIR), json.dumps(rec, ensure_ascii=False, indent=1))
+    event("delivery-analyzed", "livraison %s (%s → %s) : %d modifié(s), %d ajouté(s)" % (f.filename, current or "?", number or "?", len(b["changed"]), len(b["added"])), delivery=did)
+    return jsonify(rec), 200
+
+
+@app.route("/deliveries/<did>/apply", methods=["POST"])
+def delivery_apply(did):
+    err = _need_project()
+    if err:
+        return err
+    if not tower.re.match(r"^[0-9]{8}-[0-9]{6}-[0-9a-f]{4}$", did):
+        return jsonify({"error": "livraison inconnue"}), 404
+    meta_path, zpath = _data("incoming", did + ".json"), _data("incoming", did + ".zip")
+    try:
+        with open(meta_path, encoding="utf-8") as fh:
+            rec = json.load(fh)
+    except (OSError, ValueError):
+        return jsonify({"error": "livraison inconnue"}), 404
+    body = request.get_json(silent=True) or {}
+    if rec.get("applied"):
+        return jsonify({"error": "livraison déjà appliquée"}), 409
+    if rec.get("downgrade") and not body.get("allow_downgrade"):
+        return jsonify({"error": "livraison plus ancienne que la version en place (%s < %s) : confirmer le retour arrière" % (rec.get("number"), rec.get("current"))}), 409
+    todo = set(rec["changed"]) | set(rec["added"])
+    written = 0
+    with zipfile.ZipFile(zpath) as zf:
+        for i in zf.infolist():
+            rel = tower.safe_member(i.filename, rec.get("prefix") or "")
+            if rel in todo:
+                mode = (i.external_attr >> 16) & 0o777
+                _write(rel, zf.read(i), mode or None)
+                written += 1
+    try:
+        plan = tower.plan_for_changes(sorted(todo), _compose_paths(), _running_main())
+    except Exception as exc:  # noqa: BLE001
+        plan = {"steps": [], "error": "plan non calculé : %s" % exc}
+    rec.update(applied=True, applied_at=time.time(), applied_by=g.user["username"], written=written, plan=plan)
+    job = None
+    if plan.get("steps"):
+        job = launch_job("delivery", "livraison %s" % (rec.get("number") or rec["name"]), plan["steps"], g.user["username"], {"delivery": did})
+        rec["job"] = job["id"]
+    _write(os.path.relpath(meta_path, PROJECT_DIR), json.dumps(rec, ensure_ascii=False, indent=1))
+    try:
+        os.remove(zpath)
+    except OSError:
+        pass
+    event("delivery-applied", "livraison %s appliquée par %s : %d fichier(s) écrit(s), %d étape(s)" % (rec.get("number") or rec["name"], g.user["username"], written, len(plan.get("steps") or [])), delivery=did)
+    return jsonify(rec), 200
+
+
+# -- auto-réparation -----------------------------------------------------------
+_heal_state = {}
+
+
+def heal_once(now=None):
+    st = _settings()
+    if not st.get("auto_heal"):
+        return []
+    rows, _ = inventory(force=True)
+    global _heal_state
+    todo, _heal_state, evs = tower.heal_decide(_heal_state, rows, now or time.time(), st.get("heal_threshold", 3), st.get("heal_max_per_hour", 3), st.get("ignored"))
+    for e in evs:
+        event(e["event"], "%s : %s" % (e["service"], e.get("text") or ""), service=e["service"])
+    for svc in todo:
+        c = _find(svc)
+        try:
+            c.restart(timeout=30) if c.status == "running" else c.start()
+        except Exception as exc:  # noqa: BLE001
+            event("heal-error", "%s : %s" % (svc, exc), service=svc)
+    if todo:
+        with _lock:
+            _cache["rows"] = None
+    return todo
+
+
+def _heal_loop():
+    while True:
+        time.sleep(HEAL_INTERVAL)
+        try:
+            heal_once()
+        except Exception as exc:  # noqa: BLE001
+            _log.warning("auto-réparation : %s", exc)
+
+
+if os.environ.get("SERVICES_HEAL_THREAD", "1") == "1":
+    threading.Thread(target=_heal_loop, name="auto-heal", daemon=True).start()
 
 
 if __name__ == "__main__":  # pragma: no cover

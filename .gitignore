@@ -125,3 +125,5 @@ assistant/models/*
 # #585 : registres locaux des équipements (hors dépôt)
 cisco/switches.local.json
 mikrotik/routers.local.json
+# #586 : données de la tour de contrôle (jobs, livraisons reçues, réglages, journal)
+services/data/
