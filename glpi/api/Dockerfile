@@ -14,6 +14,10 @@ COPY glpi/api/snmp_import.py .
 COPY glpi/api/network_agent_import.py .
 COPY glpi/api/si_agent_import.py .
 COPY shared/version_endpoint.py .
+# A1 (#620) : périmètre de site par groupe -- garde commune + vérification du jeton
+COPY shared/site_scope.py .
+COPY si-proxy/admin/auth.py .
+
 COPY shared/VERSION.json .
 COPY shared/log_buffer.py .
 

@@ -40,6 +40,10 @@ COPY netprobe/api/analyzers/ ./analyzers/
 COPY netprobe/api/agents_store.py .
 COPY netprobe/agent/netprobe_agent/protocol.py ./netprobe_protocol.py
 COPY shared/version_endpoint.py .
+# A1 (#620) : périmètre de site par groupe -- garde commune + vérification du jeton
+COPY shared/site_scope.py .
+COPY si-proxy/admin/auth.py .
+
 COPY shared/VERSION.json .
 
 ENV NETPROBE_DB_PATH=/data/netprobe.db

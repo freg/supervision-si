@@ -1,3 +1,13 @@
+## 2026-09-26 — A1 : périmètre de site par groupe Keycloak, vérifié côté API (livraison #620)
+
+Item 97 : un compte client ne voit que son site. Garde commune
+`shared/site_scope.py` (6 tests) dans 7 API (si-agent, netprobe, mikrotik,
+licences, glpi, équipements réseau, pixel-grid) : sur requête avec jeton,
+`?site=` hors périmètre → 403, absent → injecté, `/agents/<id>` d'un autre
+site → 403 ; réglage `SITE_SCOPE_GROUPS` / `SITE_SCOPE_FULL_GROUPS`. Hub :
+`GET /site-scopes`, `?site=` ajouté aux GET par l'intercepteur, pastille
+« site : … » dans l'en-tête (apiAuth 5 tests).
+
 ## 2026-09-26 — Pied de page (hauteur visible réelle) ; test updater remis d'aplomb (livraison #619)
 
 - Hub : `.hub-shell` en `100dvh` (repli `100vh`) — hauteur réellement visible

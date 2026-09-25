@@ -94,6 +94,11 @@ services:
       context: .
       dockerfile: pixel-grid/api/Dockerfile
     environment:
+      # A1 (#620) : périmètre de site par groupe Keycloak (vide = inchangé)
+      - SITE_SCOPE_GROUPS=${SITE_SCOPE_GROUPS:-}
+      - SITE_SCOPE_FULL_GROUPS=${SITE_SCOPE_FULL_GROUPS:-administrateurs,admin_hub}
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-supervision-si}
       # MEMCACHED_HOST -- livraison #145, tampon de logs partagé (voir
       # shared/log_buffer.py) -- ce service tourne avec 2 workers
       # Gunicorn, mémoire NON partagée entre eux.
@@ -619,6 +624,11 @@ services:
       context: .
       dockerfile: glpi/api/Dockerfile
     environment:
+      # A1 (#620) : périmètre de site par groupe Keycloak (vide = inchangé)
+      - SITE_SCOPE_GROUPS=${SITE_SCOPE_GROUPS:-}
+      - SITE_SCOPE_FULL_GROUPS=${SITE_SCOPE_FULL_GROUPS:-administrateurs,admin_hub}
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-supervision-si}
       - MEMCACHED_HOST=memcached
       # Branchement rights-api (livraison #294) -- OPT-IN, même motif
       # que les services précédents. Jamais actif par défaut.
@@ -1061,6 +1071,11 @@ services:
       - NET_RAW
       - NET_ADMIN
     environment:
+      # A1 (#620) : périmètre de site par groupe Keycloak (vide = inchangé)
+      - SITE_SCOPE_GROUPS=${SITE_SCOPE_GROUPS:-}
+      - SITE_SCOPE_FULL_GROUPS=${SITE_SCOPE_FULL_GROUPS:-administrateurs,admin_hub}
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-supervision-si}
       - NETWORK_AGENT_API_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
 
   netmap-orchestrator-api:
@@ -1147,6 +1162,11 @@ services:
       context: .
       dockerfile: network-equipment/api/Dockerfile
     environment:
+      # A1 (#620) : périmètre de site par groupe Keycloak (vide = inchangé)
+      - SITE_SCOPE_GROUPS=${SITE_SCOPE_GROUPS:-}
+      - SITE_SCOPE_FULL_GROUPS=${SITE_SCOPE_FULL_GROUPS:-administrateurs,admin_hub}
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-supervision-si}
       - SNMP_API_INTERNAL_URL=http://snmp-api:5000
       # network-agent tourne en network_mode: host -- même construction que le hub.
       - NETWORK_AGENT_API_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
@@ -1178,6 +1198,11 @@ services:
       # créait un DOSSIER ./pki/ca/ca.crt et la CA restait « non montée »).
       - ${PKI_DIR:-./pki}/ca/ca.crt:/ca/ca.crt:ro
     environment:
+      # A1 (#620) : périmètre de site par groupe Keycloak (vide = inchangé)
+      - SITE_SCOPE_GROUPS=${SITE_SCOPE_GROUPS:-}
+      - SITE_SCOPE_FULL_GROUPS=${SITE_SCOPE_FULL_GROUPS:-administrateurs,admin_hub}
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-supervision-si}
       - SI_AGENT_ALERT_TZ=${SI_AGENT_ALERT_TZ:-Europe/Paris}   # #607 : heures ouvrées des filtres d'alertes
       - MEMCACHED_HOST=memcached
       # URL que les agents utilisent pour joindre le central (passerelle
@@ -1384,6 +1409,9 @@ services:
     volumes:
       - ${LICENSES_DATA_DIR:-./licenses/data}:/data
     environment:
+      # A1 (#620) : périmètre de site par groupe Keycloak (vide = inchangé)
+      - SITE_SCOPE_GROUPS=${SITE_SCOPE_GROUPS:-}
+      - SITE_SCOPE_FULL_GROUPS=${SITE_SCOPE_FULL_GROUPS:-administrateurs,admin_hub}
       - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
       - KEYCLOAK_REALM=supervision-si
       - LICENSES_ADMIN_GROUPS=${LICENSES_ADMIN_GROUPS:-administrateurs}
@@ -2579,6 +2607,11 @@ services:
       context: .
       dockerfile: mikrotik/Dockerfile
     environment:
+      # A1 (#620) : périmètre de site par groupe Keycloak (vide = inchangé)
+      - SITE_SCOPE_GROUPS=${SITE_SCOPE_GROUPS:-}
+      - SITE_SCOPE_FULL_GROUPS=${SITE_SCOPE_FULL_GROUPS:-administrateurs,admin_hub}
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-supervision-si}
       # #590 : notifications des actions (file dans notify-api, jamais bloquant)
       - NOTIFY_API_URL=http://notify-api:5000
       - NOTIFY_INTERNAL_TOKEN=${NOTIFY_INTERNAL_TOKEN:-}

@@ -49,6 +49,15 @@ CORS(app)
 if register_version_route:
     register_version_route(app, "glpi-api")
 
+# A1 (#620) : périmètre de site par groupe Keycloak (SITE_SCOPE_GROUPS) -- sans jeton rien ne change
+try:
+    import site_scope as _site_scope
+    _site_scope.install(app, os.environ.get("SITE_SCOPE_JWKS_URL") or "%s/realms/%s/protocol/openid-connect/certs" % (
+        os.environ.get("KEYCLOAK_INTERNAL_URL", "http://keycloak:8080/auth"), os.environ.get("KEYCLOAK_REALM", "supervision-si")),
+        resolve_site=None, what="glpi-api")
+except ImportError:
+    _site_scope = None
+
 GLPI_BASE_URL = os.environ.get("GLPI_BASE_URL", "").strip().rstrip("/")
 GLPI_APP_TOKEN = os.environ.get("GLPI_APP_TOKEN", "").strip() or None
 GLPI_USER_TOKEN = os.environ.get("GLPI_USER_TOKEN", "").strip() or None

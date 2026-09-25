@@ -23,6 +23,10 @@ COPY si-agent/agent/si_agent/publish.py ./si_agent_publish.py
 COPY shared/secrets_alert.py .
 COPY shared/log_buffer.py .
 COPY shared/version_endpoint.py .
+# A1 (#620) : périmètre de site par groupe -- garde commune + vérification du jeton
+COPY shared/site_scope.py .
+COPY si-proxy/admin/auth.py .
+
 COPY shared/VERSION.json .
 COPY si-agent/api/package.py .
 COPY si-agent/api/updates.py .

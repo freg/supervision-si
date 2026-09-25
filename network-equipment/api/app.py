@@ -82,6 +82,15 @@ try:
 except Exception:  # noqa: BLE001 -- shared/ absent en test local
     pass
 
+# A1 (#620) : périmètre de site par groupe Keycloak (SITE_SCOPE_GROUPS) -- sans jeton rien ne change
+try:
+    import site_scope as _site_scope
+    _site_scope.install(app, os.environ.get("SITE_SCOPE_JWKS_URL") or "%s/realms/%s/protocol/openid-connect/certs" % (
+        os.environ.get("KEYCLOAK_INTERNAL_URL", "http://keycloak:8080/auth"), os.environ.get("KEYCLOAK_REALM", "supervision-si")),
+        resolve_site=None, what="network-equipment")
+except ImportError:
+    _site_scope = None
+
 
 # ---------------------------------------------------------------- utilitaires
 

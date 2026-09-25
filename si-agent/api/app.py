@@ -21,7 +21,7 @@ import time
 
 import requests
 
-from flask import Flask, Response, jsonify, request, send_file
+from flask import Flask, Response, g, jsonify, request, send_file
 from flask_cors import CORS
 
 try:
@@ -58,6 +58,15 @@ app = Flask(__name__)
 CORS(app)
 if register_version_route:
     register_version_route(app, "si-agent-api")
+
+# A1 (#620) : périmètre de site par groupe Keycloak (SITE_SCOPE_GROUPS) -- sans jeton rien ne change
+try:
+    import site_scope as _site_scope
+    _site_scope.install(app, os.environ.get("SITE_SCOPE_JWKS_URL") or "%s/realms/%s/protocol/openid-connect/certs" % (
+        os.environ.get("KEYCLOAK_INTERNAL_URL", "http://keycloak:8080/auth"), os.environ.get("KEYCLOAK_REALM", "supervision-si")),
+        resolve_site=lambda p: (store.get_agent(DB_PATH, p.split("/")[2]) or {}).get("site") if p.startswith("/agents/") and len(p.split("/")) > 2 else None, what="si-agent-api")
+except ImportError:
+    _site_scope = None
 
 _log = logging.getLogger("si_agent_api")
 # Verbosité (#422) : SI_AGENT_LOG_LEVEL=DEBUG trace chaque requête de la face
@@ -232,6 +241,13 @@ def fleet_route():
 def software_inventory_route():
     """#595 : logiciels installés par poste (plugin software-inventory), `?site=` -- lu par licenses-api."""
     return jsonify({"inventories": store.latest_software_inventory(DB_PATH, site=request.args.get("site"))}), 200
+
+
+@app.route("/site-scopes", methods=["GET"])
+def site_scopes_route():
+    """A1 (#620) : réglage du périmètre de site par groupe (lu par le hub pour verrouiller ses vues)."""
+    return jsonify({"groups": app.config.get("SITE_SCOPE_GROUPS") or {}, "full_groups": app.config.get("SITE_SCOPE_FULL_GROUPS") or [],
+                    "scope": getattr(g, "site_scope", None) if hasattr(g, "site_scope") else None}), 200
 
 
 @app.route("/web-audit", methods=["GET"])

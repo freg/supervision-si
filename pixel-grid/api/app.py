@@ -35,6 +35,15 @@ CORS(app)
 if register_version_route:
     register_version_route(app, "pixel-grid-api")
 
+# A1 (#620) : périmètre de site par groupe Keycloak (SITE_SCOPE_GROUPS) -- sans jeton rien ne change
+try:
+    import site_scope as _site_scope
+    _site_scope.install(app, os.environ.get("SITE_SCOPE_JWKS_URL") or "%s/realms/%s/protocol/openid-connect/certs" % (
+        os.environ.get("KEYCLOAK_INTERNAL_URL", "http://keycloak:8080/auth"), os.environ.get("KEYCLOAK_REALM", "supervision-si")),
+        resolve_site=None, what="pixel-grid-api")
+except ImportError:
+    _site_scope = None
+
 _log = logging.getLogger("pixel_grid_app")
 
 # Branchement rights-api -- livraison #317, item 38 du backlog.

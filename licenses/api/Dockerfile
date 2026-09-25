@@ -7,6 +7,9 @@ RUN pip install --no-cache-dir --retries 5 --timeout 60 -r requirements.txt
 COPY licenses/api/app.py licenses/api/rules.py licenses/api/vendors.py licenses/api/owncloud.py .
 COPY si-proxy/admin/auth.py .
 COPY shared/version_endpoint.py .
+# A1 (#620) : périmètre de site par groupe -- garde commune + vérification du jeton
+COPY shared/site_scope.py .
+
 COPY shared/notify_client.py .
 COPY shared/VERSION.json .
 EXPOSE 5000

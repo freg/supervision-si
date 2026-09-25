@@ -9,6 +9,10 @@ COPY pixel-grid/api/app.py .
 COPY pixel-grid/api/name_resolver.py .
 COPY shared/log_buffer.py .
 COPY shared/version_endpoint.py .
+# A1 (#620) : périmètre de site par groupe -- garde commune + vérification du jeton
+COPY shared/site_scope.py .
+COPY si-proxy/admin/auth.py .
+
 COPY shared/VERSION.json .
 
 ENV PIXEL_GRID_DB_PATH=/data/timeseries.db

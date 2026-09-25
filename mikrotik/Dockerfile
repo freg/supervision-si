@@ -15,6 +15,10 @@ COPY mikrotik/static/ ./static/
 # sert que de valeur de repli si le montage est oublié.
 COPY mikrotik/routers.json ./routers.json
 COPY shared/version_endpoint.py .
+# A1 (#620) : périmètre de site par groupe -- garde commune + vérification du jeton
+COPY shared/site_scope.py .
+COPY si-proxy/admin/auth.py .
+
 COPY shared/notify_client.py .
 COPY shared/registry_edit.py .
 COPY shared/VERSION.json .

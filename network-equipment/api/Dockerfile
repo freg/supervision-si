@@ -13,6 +13,10 @@ COPY network-equipment/api/app.py network-equipment/api/store.py network-equipme
      network-equipment/api/oui.py network-equipment/api/profiles.py network-equipment/api/snmp_tables.py \
      network-equipment/api/zenoss_import.py .
 COPY shared/version_endpoint.py .
+# A1 (#620) : périmètre de site par groupe -- garde commune + vérification du jeton
+COPY shared/site_scope.py .
+COPY si-proxy/admin/auth.py .
+
 COPY shared/VERSION.json .
 
 # Base SQLite + fichier OUI IEEE optionnel : volume /data (docker-compose.yml)

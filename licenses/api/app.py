@@ -69,6 +69,15 @@ _register_actions([
     {"id": "licenses.gap", "label": "Écart de licence (dépassement, expiration)", "severity": "warning"},
 ])
 
+# A1 (#620) : périmètre de site par groupe Keycloak (SITE_SCOPE_GROUPS) -- sans jeton rien ne change
+try:
+    import site_scope as _site_scope
+    _site_scope.install(app, os.environ.get("SITE_SCOPE_JWKS_URL") or "%s/realms/%s/protocol/openid-connect/certs" % (
+        os.environ.get("KEYCLOAK_INTERNAL_URL", "http://keycloak:8080/auth"), os.environ.get("KEYCLOAK_REALM", "supervision-si")),
+        resolve_site=None, what="licenses-api")
+except ImportError:
+    _site_scope = None
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS software (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, vendor TEXT DEFAULT '', category TEXT DEFAULT '', patterns TEXT DEFAULT '[]', package TEXT DEFAULT '{}', notes TEXT DEFAULT '', created_at REAL);
 CREATE TABLE IF NOT EXISTS contracts (id INTEGER PRIMARY KEY AUTOINCREMENT, software_id INTEGER, site TEXT DEFAULT '', label TEXT DEFAULT '', kind TEXT DEFAULT 'per-user', quantity INTEGER DEFAULT 0,

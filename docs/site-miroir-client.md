@@ -104,6 +104,27 @@ appelant l'API directement. D'où :
   pour A1.
 - A1 s'appuie ensuite sur la même garde (`site_scope(groups)`).
 
+### A1 — fait en #620 (26 sept.)
+
+`shared/site_scope.py` (6 tests), copiée au build dans si-agent-api,
+netprobe-api, mikrotik, licenses-api, glpi-api, network-equipment,
+pixel-grid-api (avec `auth.py` : RS256 / JWKS). Réglage `.env` :
+`SITE_SCOPE_GROUPS={"site-numeria": ["numeria"]}` +
+`SITE_SCOPE_FULL_GROUPS` (défaut administrateurs,admin_hub). Sur toute
+requête portant un jeton : personne « à périmètre » → `?site=` hors
+périmètre = 403, absent = injecté ; ressource dont le site se lit dans le
+chemin (si-agent : `/agents/<id>`) hors périmètre = 403. Sans jeton :
+inchangé (depuis Internet le frontal exige le jeton — A0). Hub :
+`GET /site-scopes` (si-agent-api) → `resolveSiteScope` (même règle),
+`?site=` ajouté par l'intercepteur sur les GET, pastille « site : … » dans
+l'en-tête. Mise en place pour Numeria : groupe Keycloak `site-numeria`
+(Comptes → Groupes), y placer les comptes client (ou un compte démo #608),
+`SITE_SCOPE_GROUPS` dans `.env`, `./scripts/run.sh up -d --build` des 7 API
++ hub. Limites : les API sans notion de site (tickets, GED, coffre…) ne
+sont pas filtrées — la matrice des droits (#559) reste le levier pour les
+masquer ; les routes de détail sans site dans le chemin (hors si-agent)
+restent accessibles par identifiant.
+
 ## 4. Ordre proposé
 
 0. **A0** (lectures authentifiées) — voir constat ci-dessus.

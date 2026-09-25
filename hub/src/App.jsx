@@ -17,7 +17,7 @@ import {
   fetchInfraStatus,
 } from "./settingsClient.js";
 import { applyHubLayout } from "./hubLayoutLib.js";
-import { installApiAuth, setApiToken } from "./apiAuth.js";  // A0 #615 : jeton sur tous les appels d'API
+import { installApiAuth, setApiToken, setSiteScope, resolveSiteScope } from "./apiAuth.js";  // A0 #615 : jeton sur tous les appels d'API ; A1 #620 : périmètre de site
 installApiAuth();
 // #516 : disposition du hub en arborescence (menus, tuiles, outils, options).
 import HubTreeView from "./HubTreeView.jsx";
@@ -998,6 +998,19 @@ function ExternalLinksAdminView({ apiBase, login, links, onLinksChanged, onBack 
 export default function App() {
   const auth = useAuth();
   useEffect(() => { setApiToken(auth.user?.access_token || ""); }, [auth.user?.access_token]);  // A0 #615
+  // A1 (#620) : périmètre de site par groupe -- réglage lu sur si-agent-api, même règle que la garde des API
+  const [siteScope, setSiteScopeState] = useState(null);
+  useEffect(() => {
+    const grp = Array.isArray(auth.user?.profile?.groups) ? auth.user.profile.groups : [];
+    if (!auth.user?.access_token || !SI_AGENT_API_BASE_URL) { setSiteScope(null); setSiteScopeState(null); return; }
+    let cancelled = false;
+    fetch(`${SI_AGENT_API_BASE_URL}/site-scopes`).then((r) => (r.ok ? r.json() : null)).then((d) => {
+      if (cancelled) return;
+      const scope = d ? resolveSiteScope(grp, d.groups, d.full_groups) : null;
+      setSiteScope(scope); setSiteScopeState(scope);
+    }).catch(() => { if (!cancelled) { setSiteScope(null); setSiteScopeState(null); } });
+    return () => { cancelled = true; };
+  }, [auth.user?.access_token]);  // eslint-disable-line react-hooks/exhaustive-deps
   const [showDebug, setShowDebug] = useState(false);
   // Menu de navigation regroupé (livraison #236, réorganisation de
   // l'en-tête demandée explicitement -- "trop d'outils maintenant")
@@ -2111,6 +2124,7 @@ vm === "agent-page" ? (
         <div className="hub-user">
           <span>👤 {displayName}</span>
           {roles.length > 0 && <span className="muted" title={roles.join(", ")}>({roleInitials(roles).join(" ")})</span>}
+          {siteScope && <span className="np-tone warn" title={`Périmètre de site imposé par vos groupes : ${siteScope.join(", ")} (les API refusent les autres sites)`}>site : {siteScope.join(", ")}</span>}
           <button onClick={toggleTheme} title={theme === "dark" ? "Passer au thème clair" : "Passer au thème sombre"}>
             {theme === "dark" ? "☀️" : "🌙"}
           </button>
