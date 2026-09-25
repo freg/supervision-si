@@ -59,3 +59,17 @@ groups, membership, mots de passe) — cycle complet de la bibliothèque et
 droits des routes (refus sans groupe d'appelant, `member_of` distinct de
 `groups`, mot de passe jamais renvoyé). **Non vérifié contre un vrai
 Keycloak** dans cet environnement.
+
+## Utilisateurs de démonstration (livraison #608)
+
+Tuile Comptes → **Démo** : profils `demo-*` (`api/demo.py`, 2 tests ;
+`ACCOUNTS_DEMO_PROFILES` en JSON, sinon demo-admin / demo-technicien /
+demo-lecture) créés comme comptes Keycloak **locaux** (l'annuaire LDAP
+n'est pas touché), rattachés aux groupes du hub (créés au besoin), adresse
+`@demo.invalid`, mot de passe généré (14 caractères lisibles, sans 0/O/1/l)
+affiché **une seule fois** à l'activation, jamais stocké ni renvoyé
+ensuite. `GET /demo` (état), `POST /demo/enable` (`reset_passwords`),
+`POST /demo/disable` (comptes désactivés + sessions fermées),
+`DELETE /demo` — écriture réservée aux groupes administrateurs. Les comptes
+se connectent par le processus normal (Keycloak) et voient le hub selon
+leurs groupes.

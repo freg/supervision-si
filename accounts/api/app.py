@@ -17,6 +17,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 import kc
+import demo  # #608 : utilisateurs de démonstration
 
 try:
     from version_endpoint import register_version_route
@@ -100,6 +101,85 @@ def health():
 @app.route("/info", methods=["GET"])
 def info():
     return jsonify({"realm": client().realm, "service_client_id": client().client_id, "ldap_edit_mode": LDAP_EDIT_MODE, "ldap_writable": LDAP_EDIT_MODE.upper() == "WRITABLE", "admin_groups": sorted(ADMIN_GROUPS)}), 200
+
+
+# ---- #608 : utilisateurs de démonstration (comptes Keycloak locaux, préfixe demo-) ----
+DEMO_PROFILES = demo.profiles(os.environ.get("ACCOUNTS_DEMO_PROFILES"))
+
+
+def _demo_state():
+    return demo.state(DEMO_PROFILES, client().users(search="demo-"))
+
+
+@app.route("/demo", methods=["GET"])
+def demo_get():
+    st = _demo_state()
+    return jsonify({"users": st, "summary": demo.summary(st), "mail_domain": demo.DEMO_MAIL_DOMAIN}), 200
+
+
+@app.route("/demo/enable", methods=["POST"])
+def demo_enable():
+    """Crée les comptes manquants (groupes créés au besoin), réactive les autres,
+    (re)génère les mots de passe si `reset_passwords` ; les mots de passe ne sont
+    renvoyés que dans CETTE réponse, jamais stockés."""
+    b = _body()
+    if not _admin(b):
+        return _forbidden()
+    reset = bool(b.get("reset_passwords"))
+    kcl = client()
+    existing_groups = {g["name"] for g in kcl.groups()}
+    out = []
+    for s in _demo_state():
+        for g in s["groups"]:
+            if g not in existing_groups:
+                kcl.create_group(g); existing_groups.add(g)
+        pw = None
+        if not s["exists"]:
+            pw = demo.generate_password()
+            u = kcl.create_user(s["username"], email="%s@%s" % (s["username"], demo.DEMO_MAIL_DOMAIN), first_name=s["first_name"], last_name=s["last_name"], enabled=True, groups=s["groups"], password=pw, temporary=False)
+        else:
+            u = kcl.update_user(s["id"], enabled=True)
+            if set(s["groups"]) != set(s["groups_current"]):
+                kcl.set_groups(s["id"], s["groups"])
+            if reset:
+                pw = demo.generate_password()
+                kcl.set_password(s["id"], pw, temporary=False)
+        out.append({"username": s["username"], "groups": s["groups"], "password": pw, "enabled": True, "id": u.get("id") if isinstance(u, dict) else s["id"]})
+    log.warning("démo : comptes activés par %s (%s)", _who(b), ", ".join(x["username"] for x in out))
+    return jsonify({"users": out, "summary": demo.summary(_demo_state())}), 200
+
+
+@app.route("/demo/disable", methods=["POST"])
+def demo_disable():
+    b = _body()
+    if not _admin(b):
+        return _forbidden()
+    kcl = client()
+    n = 0
+    for s in _demo_state():
+        if s["exists"]:
+            kcl.update_user(s["id"], enabled=False)
+            try:
+                kcl.logout(s["id"])  # sessions ouvertes fermées : la démo s'arrête vraiment
+            except kc.KeycloakError:
+                pass
+            n += 1
+    log.warning("démo : %d compte(s) désactivé(s) par %s", n, _who(b))
+    return jsonify({"disabled": n, "summary": demo.summary(_demo_state())}), 200
+
+
+@app.route("/demo", methods=["DELETE"])
+def demo_delete():
+    b = _body()
+    if not _admin(b):
+        return _forbidden()
+    kcl = client()
+    n = 0
+    for s in _demo_state():
+        if s["exists"]:
+            kcl.delete_user(s["id"]); n += 1
+    log.warning("démo : %d compte(s) supprimé(s) par %s", n, _who(b))
+    return jsonify({"deleted": n}), 200
 
 
 @app.route("/groups", methods=["GET"])

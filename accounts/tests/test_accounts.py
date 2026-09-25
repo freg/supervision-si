@@ -143,6 +143,31 @@ class Api(unittest.TestCase):
         self.assertEqual(self.app.get(f"/groups/{gid}/members").status_code, 200)
         r = self.app.get("/info"); self.assertIn("ldap_writable", r.get_json())
 
+    def test_demo_users(self):  # #608
+        self.assertEqual(self.app.post("/demo/enable", json={}).status_code, 403)
+        st = self.app.get("/demo").get_json()
+        self.assertEqual((st["summary"]["mode"], [u["username"] for u in st["users"]]), ("off", ["demo-admin", "demo-technicien", "demo-lecture"]))
+        r = self.app.post("/demo/enable", json={"groups": ["administrateurs"], "user": "freg"})
+        self.assertEqual(r.status_code, 200, r.get_json())
+        pw = {u["username"]: u["password"] for u in r.get_json()["users"]}
+        self.assertTrue(all(pw.values()) and len(pw["demo-admin"]) == 15)
+        self.assertEqual(r.get_json()["summary"]["mode"], "on")
+        st = self.app.get("/demo").get_json()
+        self.assertTrue(all(u["exists"] and u["enabled"] for u in st["users"]))
+        self.assertEqual(st["users"][0]["groups_current"], ["administrateurs"])
+        self.assertNotIn(pw["demo-admin"], self.app.get("/demo").get_data(as_text=True))
+        # réactivation sans réinitialisation : pas de mot de passe renvoyé ; avec : nouveaux
+        r = self.app.post("/demo/enable", json={"groups": ["administrateurs"], "user": "freg"})
+        self.assertTrue(all(u["password"] is None for u in r.get_json()["users"]))
+        r = self.app.post("/demo/enable", json={"groups": ["administrateurs"], "user": "freg", "reset_passwords": True})
+        self.assertTrue(all(u["password"] for u in r.get_json()["users"]))
+        r = self.app.post("/demo/disable", json={"groups": ["administrateurs"], "user": "freg"})
+        self.assertEqual((r.get_json()["disabled"], r.get_json()["summary"]["mode"]), (3, "off"))
+        self.assertFalse(any(u["enabled"] for u in self.app.get("/demo").get_json()["users"]))
+        r = self.app.delete("/demo", json={"groups": ["administrateurs"], "user": "freg"})
+        self.assertEqual(r.get_json()["deleted"], 3)
+        self.assertFalse(any(u["exists"] for u in self.app.get("/demo").get_json()["users"]))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,3 +1,20 @@
+## 2026-09-25 — Comptes : utilisateurs de démonstration activables / désactivables depuis le hub (livraison #608)
+
+Demandé : « pour les besoins de démo il faudrait des utilisateurs démo ;
+leur configuration activable / désactivable sur le hub ; ils doivent
+pouvoir se connecter par le processus normal ».
+
+- `accounts/api/demo.py` (pur, 2 tests) : profils (préfixe `demo-`
+  obligatoire), mot de passe généré lisible, état croisé avec Keycloak.
+- accounts-api : `GET /demo`, `POST /demo/enable` (création ou
+  réactivation, groupes créés au besoin, `reset_passwords`), `POST
+  /demo/disable` (désactivation + fermeture des sessions), `DELETE /demo` ;
+  comptes Keycloak locaux, hors LDAP ; `ACCOUNTS_DEMO_PROFILES`.
+- Hub, tuile Comptes → onglet **Démo** : état (active / partielle /
+  inactive), Activer, Activer + nouveaux mots de passe, Désactiver,
+  Supprimer ; mots de passe affichés une seule fois avec « copier ».
+- Tests : accounts 3 + 2, hub 267.
+
 ## 2026-09-25 — Agents : filtres d'alertes par agent et par groupe (postes éteints hors heures ouvrées), catégories d'événements ; liens plus clairs (livraison #607)
 
 Demandé : filtrage des alertes agents (case par agent, groupes de filtres,

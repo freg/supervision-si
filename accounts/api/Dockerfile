@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY accounts/api/app.py .
 COPY accounts/api/kc.py .
+COPY accounts/api/demo.py .
 COPY shared/version_endpoint.py .
 COPY shared/VERSION.json .
 COPY shared/log_buffer.py .
