@@ -1,3 +1,21 @@
+## 2026-09-26 — Agents : déploiement en masse par jeton de site, introspection et banc de charge (livraison #616, agent 0.5.18)
+
+Pour la démonstration Numeria : « sondes Windows pour un maximum de PC » et
+« banc de test lourd … introspection ».
+
+- Onglet *Déploiement* : jetons d'enrôlement par site (bornés, révocables),
+  une ligne PowerShell / shell identique pour tous les postes (GPO, Intune,
+  PsExec), agent nommé d'après la machine, secret délivré à l'enrôlement ;
+  `GET /deploy/<windows|linux>?token=`, `POST /api/v1/enroll`, installeurs
+  `-EnrollToken` / `-SystemCa` (Windows) et variables d'environnement
+  (Linux) ; CA système par nom public, CA interne par adresse LAN.
+- Introspection : mesure `agent-self` (CPU de l'agent et de ses sondes,
+  mémoire, durée par tâche, file) ; colonne *Impact agent* dans la flotte,
+  section *Empreinte* dans la fiche ; commande `bench` (cadence forcée
+  N minutes, comparaison banc / normal, événement de synthèse).
+- 7 tests (enrôlement, introspection) ; frontal : exemptions `deploy` et
+  `enroll` ; test agent-self ajouté aux passages complets.
+
 ## 2026-09-26 — A0 : jeton Keycloak exigé sur toutes les API depuis Internet (livraison #615)
 
 Décidé après le constat de l'item 97 : les lectures des API n'étaient pas

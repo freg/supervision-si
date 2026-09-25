@@ -26,6 +26,8 @@ param(
   [string]$Ca,
   [string]$CaFingerprint,
   [switch]$Insecure,
+  [string]$EnrollToken,   # #616 : enrôlement par jeton de site (agent nommé d'après la machine, secret délivré ici)
+  [switch]$SystemCa,      # #616 : central au certificat public (frontal Let's Encrypt) : magasin Windows, pas de CA épinglée
   [string[]]$EnablePlugin = @(),
   [string]$LogLevel = "INFO",
   [string]$InstallDir = (Join-Path $env:ProgramFiles "si-agent"),
@@ -35,12 +37,13 @@ param(
   [string]$TaskName = "si-agent"
 )
 $ErrorActionPreference = "Stop"
-if (-not $Upgrade -and -not ($Agent -and $Secret -and $Central)) { throw "paramètres -Agent, -Secret et -Central requis (ou -Upgrade pour une mise à jour)" }
+if (-not $Upgrade -and -not $EnrollToken -and -not ($Agent -and $Secret -and $Central)) { throw "paramètres -Agent, -Secret et -Central requis (ou -EnrollToken + -Central, ou -Upgrade pour une mise à jour)" }
+if ($EnrollToken -and -not $Central) { throw "-EnrollToken exige -Central <URL du central>" }
 if ($Central) { $Central = $Central.TrimEnd("/") }
 
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) { throw "à lancer dans une console PowerShell « Exécuter en tant qu'administrateur »" }
-if (-not $Ca -and -not $CaFingerprint -and -not $Insecure) { throw "préciser -CaFingerprint <sha256> (recommandé), -Ca <ca.crt> ou -Insecure (dépannage seulement)" }
+if (-not $Ca -and -not $CaFingerprint -and -not $Insecure -and -not $SystemCa) { throw "préciser -CaFingerprint <sha256> (recommandé), -Ca <ca.crt>, -SystemCa (certificat public) ou -Insecure (dépannage seulement)" }
 # Racine de l'archive (si_agent\, plugins\, windows\) : à côté de windows\ en principe ;
 # sinon (#449, premier essai réel) on cherche autour -- dossier du script, dossier courant,
 # et deux niveaux de sous-dossiers (archive décompressée dans un dossier du même nom,
@@ -146,6 +149,29 @@ public static class SiAgentTrustAll {
   Write-Host "CA du central vérifiée ($($got.Substring(0,16))) et installée"
 } elseif ($Ca) {
   Copy-Item $Ca $caFile -Force
+}
+
+# --- 3 bis. enrôlement par jeton (#616) : le central nomme l'agent d'après la machine et délivre le secret ---
+if ($EnrollToken -and -not $Upgrade) {
+  $payload = @{ token = $EnrollToken; hostname = $env:COMPUTERNAME; platform = "windows" } | ConvertTo-Json -Compress
+  $enrollUrl = "$Central/api/v1/enroll"
+  $resp = $null
+  if ((Test-Path $caFile) -and $PSVersionTable.PSVersion.Major -lt 7) {
+    # CA interne tout juste épinglée mais pas dans le magasin Windows : même délégué que l'amorçage
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    $old = [Net.ServicePointManager]::ServerCertificateValidationCallback
+    [Net.ServicePointManager]::ServerCertificateValidationCallback = [SiAgentTrustAll]::Callback()
+    try { $wc = New-Object System.Net.WebClient; $wc.Headers["Content-Type"] = "application/json"; $resp = $wc.UploadString($enrollUrl, "POST", $payload) | ConvertFrom-Json }
+    finally { [Net.ServicePointManager]::ServerCertificateValidationCallback = $old }
+  } else {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    $resp = Invoke-RestMethod -Method Post -Uri $enrollUrl -ContentType "application/json" -Body $payload -UseBasicParsing
+  }
+  if (-not $resp.agent_id -or -not $resp.secret) { throw "enrôlement refusé par le central : $($resp | ConvertTo-Json -Compress)" }
+  $Agent = $resp.agent_id; $Secret = $resp.secret
+  if ($resp.site) { $Site = $resp.site }
+  if ($resp.plugins) { $EnablePlugin = @($EnablePlugin) + @($resp.plugins) }
+  Write-Host "enrôlé comme « $Agent » (site $Site)"
 }
 
 # --- 4. configuration (conservée telle quelle en -Upgrade : #528, elle était réécrite à vide) ---

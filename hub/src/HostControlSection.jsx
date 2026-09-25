@@ -5,7 +5,7 @@
 // d'applications relancées si absentes). Chaque bouton montre sa prise en
 // compte, puis l'acquittement de l'agent (règle 8).
 import { useEffect, useState } from "react";
-import { powerAction, wakeOnLan, startupAction, watchdogConfig, fetchCommand } from "./siAgentClient.js";
+import { powerAction, wakeOnLan, startupAction, watchdogConfig, benchCommand, fetchCommand } from "./siAgentClient.js";
 
 const KIND_LABELS = { run: "clé Run", runonce: "RunOnce", folder: "dossier Démarrage", task: "tâche planifiée", service: "service" };
 const STATUS = { ok: ["good", "en service"], restart: ["warn", "relance…"], waiting: ["warn", "en attente de relance"], down: ["bad", "arrêtée"], idle: ["neutral", "hors plage"], disabled: ["neutral", "désactivée"] };
@@ -57,6 +57,10 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
   const wol = useCommand(apiBase);
   const start = useCommand(apiBase);
   const wd = useCommand(apiBase);
+  const bench = useCommand(apiBase);  // #616
+  const [benchMin, setBenchMin] = useState(10);
+  const [benchFactor, setBenchFactor] = useState(6);
+  const me = detail?.latest?.["agent-self"]?.data;
   const [delay, setDelay] = useState(60);
   const [message, setMessage] = useState("Redémarrage demandé par la supervision");
   const [force, setForce] = useState(false);
@@ -72,7 +76,7 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
     const first = (nv?.interfaces || []).find((i) => i.mac && i.state === "up" && !/^(lo|docker|veth|br-)/.test(i.name));
     if (first && !mac) setMac(first.mac);
   }, [detail]);  // eslint-disable-line react-hooks/exhaustive-deps
-  const peers = (fleet || []).filter((a) => a.agent_id !== agentId && a.site === detail?.site && a.state === "online");
+  const peers = (fleet || []).filter((a) => a.agent_id !== agentId && a.site === detail?.site && a.online === "online");
   const consoleUser = host?.accounts?.console_user;
   const q = filter.trim().toLowerCase();
   const items = (startup?.data?.items || []).filter((it) => !q || [it.name, it.command, it.location].some((v) => String(v || "").toLowerCase().split(/[\s\\/]+/).some((w) => w.startsWith(q))));
@@ -111,6 +115,27 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
           <Result r={wol.result} />
         </div>
       </div>
+
+      <h3 style={{ marginTop: 12 }}>Empreinte de l'agent {me ? <span className="muted" style={{ textTransform: "none", letterSpacing: 0 }}>· fenêtre de {Math.round((me.summary?.window_seconds || 0) / 60)} min, {me.summary?.points} points{me.bench_until && <> · <Tone tone="warn">banc en cours (×{me.bench_factor})</Tone></>}</span> : null}</h3>
+      {!me ? <p className="muted">Pas encore de mesure d'introspection (agent ≥ 0.5.18, toutes les 60 s).</p> : (
+        <div className="sa-kv">
+          <div><span className="muted">Processeur</span>{me.point?.cpu_core_percent} % d'un cœur maintenant · moyenne {me.summary?.all?.cpu_core_avg} %, pointe {me.summary?.all?.cpu_core_max} % · soit {me.summary?.all?.cpu_machine_avg} % de la machine ({me.point?.cores} cœurs){me.point?.host_load1 != null && <> · charge hôte {me.point.host_load1}</>}</div>
+          <div><span className="muted">Mémoire / file</span>{Math.round((me.point?.rss_bytes || 0) / 1048576)} Mo résidents · {me.point?.queue_size ?? "?"} mesure(s) en attente</div>
+          {me.summary?.bench && me.summary?.normal && (
+            <div className="sa-wide"><span className="muted">Banc vs normal</span>en banc : {me.summary.bench.cpu_core_avg} % cœur en moyenne (pointe {me.summary.bench.cpu_core_max} %) sur {me.summary.bench.points} points · hors banc : {me.summary.normal.cpu_core_avg} % (pointe {me.summary.normal.cpu_core_max} %) sur {me.summary.normal.points} points</div>
+          )}
+          <div className="sa-wide"><span className="muted">Coût par tâche</span>{(me.summary?.costly || []).length === 0 ? "—" : (me.summary.costly || []).map((t) => <span key={t.name} className="na-chip" title={`${t.runs} lancement(s), max ${t.max} s, ${t.failed} échec(s)`}>{t.name.replace("plugin:", "")} {t.avg} s{t.failed ? ` (${t.failed} échec)` : ""}</span>)}</div>
+          <div className="sa-wide"><span className="muted">Banc de charge</span>
+            <span style={{ display: "inline-flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+              <input type="number" min={1} max={60} value={benchMin} onChange={(e) => setBenchMin(Number(e.target.value))} style={{ width: 60 }} /> min · cadence ×<input type="number" min={2} max={20} value={benchFactor} onChange={(e) => setBenchFactor(Number(e.target.value))} style={{ width: 50 }} />
+              <button type="button" className="secondary" disabled={!!bench.busy} onClick={() => window.confirm(`Lancer un banc de charge de ${benchMin} min sur ${detail.hostname || agentId} : toutes les sondes et collectes tourneront ${benchFactor} fois plus souvent. Continuer ?`) && bench.run("banc", () => benchCommand(apiBase, agentId, { minutes: benchMin, factor: benchFactor }))}>{bench.busy ? "⏳…" : "Lancer le banc"}</button>
+              {me.bench_until && <button type="button" className="secondary" disabled={!!bench.busy} onClick={() => bench.run("arrêt du banc", () => benchCommand(apiBase, agentId, { stop: true }))}>Arrêter</button>}
+            </span>
+            <div className="muted" style={{ fontSize: 12 }}>Mesure l'impact réel des sondes : pendant le banc, l'introspection passe à 30 s et la ligne « banc vs normal » compare les deux. Un événement « banc terminé » porte la synthèse.</div>
+            <Result r={bench.result} />
+          </div>
+        </div>
+      )}
 
       {isWindows && (
         <>

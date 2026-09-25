@@ -849,6 +849,122 @@ def _signed_json(secret, payload, status=200):
     return raw, status, headers
 
 
+# ---- #616 : enrôlement en masse (jeton de site) ------------------------------
+@app.route("/enroll-tokens", methods=["GET"])
+def enroll_tokens_list_route():
+    return jsonify({"tokens": store.list_enroll_tokens(DB_PATH), "public_url": PUBLIC_URL}), 200
+
+
+@app.route("/enroll-tokens", methods=["POST"])
+def enroll_tokens_create_route():
+    body = request.get_json(silent=True) or {}
+    try:
+        t = store.create_enroll_token(DB_PATH, body.get("site", ""), label=body.get("label"), central_url=body.get("central_url") or PUBLIC_URL,
+                                      plugins=body.get("plugins") or [], max_uses=body.get("max_uses") or 0,
+                                      expires_hours=body.get("expires_hours", 72), created_by=body.get("created_by"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    _event("enroll-token-created", "info", "jeton d'enrôlement créé pour le site %s (%s)" % (t["site"], t.get("label") or "sans libellé"))
+    t["commands"] = _deploy_commands(t)
+    return jsonify(t), 201
+
+
+@app.route("/enroll-tokens/<token>", methods=["DELETE"])
+def enroll_tokens_revoke_route(token):
+    if not store.revoke_enroll_token(DB_PATH, token):
+        return jsonify({"error": "jeton inconnu"}), 404
+    _event("enroll-token-revoked", "info", "jeton d'enrôlement révoqué")
+    return jsonify({"revoked": True}), 200
+
+
+def _pin_internal_ca(base_url):
+    """Vrai si l'URL du central désigne une adresse IP ou un nom local (.local, .lan, sans point) :
+    c'est la PKI interne qui la sert. Un nom public (frontal) est servi par un certificat public."""
+    import re as _re
+    host = _re.sub(r"^https?://", "", base_url or "").split("/")[0].split(":")[0].strip("[]")
+    return bool(_re.match(r"^\d{1,3}(\.\d{1,3}){3}$", host)) or "." not in host or host.endswith((".local", ".lan", ".home", ".internal"))
+
+
+def _deploy_commands(t):
+    """Lignes à coller (PowerShell administrateur / shell root) ou à pousser par GPO."""
+    base = (t.get("central_url") or PUBLIC_URL or "https://<VM>:6443/api/si-agent").rstrip("/")
+    tok = t["token"]
+    return {
+        "windows": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"iex (iwr -UseBasicParsing '%s/deploy/windows?token=%s').Content\"" % (base, tok),
+        "linux": "curl -fsSL '%s/deploy/linux?token=%s' | sudo bash" % (base, tok),
+        "gpo": "%s/deploy/windows?token=%s" % (base, tok),
+    }
+
+
+@app.route("/deploy/<platform>", methods=["GET"])
+def deploy_script_route(platform):
+    """Script d'amorçage (texte) : télécharge l'archive de l'agent, l'extrait et
+    lance l'installeur avec le jeton ; ne contient AUCUN secret d'agent (le
+    secret est délivré à l'enrôlement, sur ce poste seulement)."""
+    t = store.get_enroll_token(DB_PATH, request.args.get("token", ""))
+    if t is None or not t["usable"]:
+        return Response("jeton d'enrôlement inconnu, révoqué, expiré ou épuisé\n", status=403, mimetype="text/plain")
+    base = (t.get("central_url") or PUBLIC_URL or "").rstrip("/") or request.url_root.rstrip("/")
+    # CA interne épinglée seulement quand le central est joint par son adresse LAN (PKI du projet) ;
+    # par un nom public (frontal Let's Encrypt), le magasin système du poste fait foi.
+    ca_sha = _ca_info().get("sha256") if _pin_internal_ca(base) else ""
+    if platform == "windows":
+        body = _WINDOWS_BOOTSTRAP % {"base": base, "token": t["token"], "site": t["site"], "ca": ca_sha or "", "plugins": ",".join(t["plugins"])}
+        return Response(body, mimetype="text/plain; charset=utf-8")
+    if platform == "linux":
+        body = _LINUX_BOOTSTRAP % {"base": base, "token": t["token"], "site": t["site"], "ca": ca_sha or "", "plugins": " ".join(t["plugins"])}
+        return Response(body, mimetype="text/plain; charset=utf-8")
+    return jsonify({"error": "platform : windows ou linux"}), 404
+
+
+_WINDOWS_BOOTSTRAP = r"""# si-agent -- amorçage Windows (#616) : archive + installeur + enrôlement par jeton
+$ErrorActionPreference = "Stop"
+$base = "%(base)s"; $token = "%(token)s"
+$tmp = Join-Path $env:TEMP ("si-agent-" + [guid]::NewGuid().ToString("N").Substring(0,8))
+New-Item -ItemType Directory -Path $tmp | Out-Null
+Write-Host "si-agent : téléchargement de l'archive depuis $base ..."
+Invoke-WebRequest -UseBasicParsing -Uri "$base/package" -OutFile (Join-Path $tmp "agent.tgz")
+tar -xzf (Join-Path $tmp "agent.tgz") -C $tmp
+$dir = Get-ChildItem -Path $tmp -Directory | Select-Object -First 1
+$ps = Join-Path $dir.FullName "windows\install.ps1"
+$args = @("-EnrollToken", $token, "-Central", $base, "-Site", "%(site)s")
+if ("%(ca)s") { $args += @("-CaFingerprint", "%(ca)s") } else { $args += "-SystemCa" }
+if ("%(plugins)s") { $args += @("-EnablePlugin", ("%(plugins)s" -split ",")) }
+& powershell -NoProfile -ExecutionPolicy Bypass -File $ps @args
+Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
+"""
+
+_LINUX_BOOTSTRAP = r"""#!/bin/sh
+# si-agent -- amorçage Linux (#616) : archive + installeur + enrôlement par jeton
+set -e
+BASE="%(base)s"; TOKEN="%(token)s"
+TMP=$(mktemp -d /tmp/si-agent.XXXXXX)
+echo "si-agent : téléchargement de l'archive depuis $BASE ..."
+curl -fsSL "$BASE/package" -o "$TMP/agent.tgz"
+tar -xzf "$TMP/agent.tgz" -C "$TMP"
+DIR=$(find "$TMP" -mindepth 1 -maxdepth 1 -type d | head -1)
+cd "$DIR"
+SI_AGENT_ENROLL_TOKEN="$TOKEN" SI_AGENT_CENTRAL="$BASE" SI_AGENT_SITE="%(site)s" SI_AGENT_CA_SHA256="%(ca)s" SI_AGENT_PLUGINS="%(plugins)s" ./install.sh
+rm -rf "$TMP"
+"""
+
+
+@app.route(protocol.API_PREFIX + "/enroll", methods=["POST"])
+def enroll_route():
+    """Face machine : {token, hostname, platform} -> {agent_id, secret, site, central_url}.
+    Pas de signature (l'agent n'a pas encore de secret) : le jeton fait foi."""
+    body = request.get_json(silent=True) or {}
+    try:
+        a, t = store.enroll_with_token(DB_PATH, body.get("token", ""), body.get("hostname", ""), body.get("platform"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 403
+    _event("agent-enrolled", "info", "agent %s enrôlé par jeton (site %s, %s)" % (a["agent_id"], a["site"], body.get("platform") or "?"), agent_id=a["agent_id"])
+    return jsonify({"agent_id": a["agent_id"], "secret": a["secret"], "site": a["site"],
+                    "central_url": (t.get("central_url") or PUBLIC_URL or "").rstrip("/"),
+                    "ca_sha256": _ca_info().get("sha256") if _pin_internal_ca(t.get("central_url") or PUBLIC_URL) else None,
+                    "plugins": t["plugins"]}), 201
+
+
 @app.route(protocol.API_PREFIX + "/agents/<agent_id>/config", methods=["GET"])
 def agent_config_route(agent_id):
     info, err = _verify_agent(agent_id)

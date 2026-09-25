@@ -1087,3 +1087,50 @@ cycle relance → repos → quota → retour, fenêtres horaires, analyse de
 `Get-ScheduledTask`, COM WScript.Shell pour les .lnk) et la valeur binaire
 StartupApproved sur Windows 11 — à confirmer sur le poste de test comme en
 #446.
+
+## Déploiement en masse et introspection (livraison #616, agent 0.5.18)
+
+Demandé pour la démonstration Numeria : « les sondes Windows pour un maximum
+de PC » et « un banc de test lourd pour vérifier l'impact d'une sonde sur la
+charge et la stabilité : introspection ».
+
+**Enrôlement par jeton de site** (onglet *Déploiement* de la tuile Agents) :
+un jeton `enr-…` par site (libellé, URL du central vue des postes, usages
+max, validité, sondes activées à l'enrôlement). La même ligne s'exécute sur
+tous les postes — Windows : `powershell -NoProfile -ExecutionPolicy Bypass
+-Command "iex (iwr -UseBasicParsing '<central>/deploy/windows?token=…').Content"`
+(PowerShell administrateur, GPO de démarrage, Intune, PsExec) ; Linux :
+`curl -fsSL '<central>/deploy/linux?token=…' | sudo bash`. Le script
+d'amorçage télécharge l'archive (`GET /package`), lance l'installeur avec
+`-EnrollToken` : `POST /api/v1/enroll` {token, hostname, platform} crée
+l'agent nommé d'après la machine (`slug_agent_id`) et délivre son secret —
+jamais dans la ligne ni dans le script. Relancer la ligne sur un poste déjà
+enrôlé redonne un secret neuf (déploiement GPO rejoué) ; un poste enrôlé par
+un autre jeton est refusé. Jetons révocables, bornés en usages et en durée ;
+événements `enroll-token-created` / `-revoked`, `agent-enrolled`.
+CA : par un nom public (frontal Let's Encrypt) l'installeur prend le magasin
+système (`-SystemCa`) ; par l'adresse LAN du hub il épingle la CA du projet
+comme avant (`_pin_internal_ca`). Frontal : `si-agent/deploy/` et
+`si-agent/api/v1/enroll` sont exemptés de la vérification de jeton A0
+(docs/acces-public-frontal.md). `store.py` : table `enroll_tokens`,
+colonnes `agents.enrolled_by` / `hostname` (3 tests).
+
+**Introspection** (`si_agent/introspect.py`, 4 tests) : mesure `agent-self`
+toutes les 60 s — temps CPU du processus de l'agent ET de ses enfants (les
+sondes) rapporté au temps écoulé (% d'un cœur, % machine), mémoire
+résidente (Linux /proc, Windows GetProcessMemoryInfo, macOS getrusage),
+durée min / moyenne / max et échecs de chaque collecte et sonde, taille de
+la file, charge de l'hôte ; fenêtre glissante de 120 points avec résumé.
+Flotte : colonne *Impact agent* (moyenne % cœur, mémoire). Fiche agent →
+Poste → *Empreinte de l'agent* : détail, coût par tâche.
+
+**Banc de charge** : commande `bench` {minutes 1–60, factor 2–20, stop} —
+collectes et sondes à cadence forcée (intervalle ÷ factor, plancher 15 s),
+introspection toutes les 30 s, événements `bench-started` / `-finished`
+(avec la synthèse) / `-stopped` ; la fiche compare « en banc » et « hors
+banc ». C'est la réponse chiffrée à « quel est l'impact d'une sonde ».
+
+Vérifié réellement : tests agent (80) et central ; JSX compilé. Non vérifié
+sur Windows réel : `-EnrollToken` sous Windows PowerShell 5.1 (chemin
+WebClient), `GetProcessMemoryInfo`. `tests/test_updater.test_run_update`
+échouait déjà avant cette livraison (lambda à 2 arguments) — à reprendre.

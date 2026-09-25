@@ -41,6 +41,29 @@ while [ $# -gt 0 ]; do
     *) echo "argument inconnu : $1" >&2; exit 2;;
   esac
 done
+# #616 : enrôlement par jeton de site (SI_AGENT_ENROLL_TOKEN + SI_AGENT_CENTRAL, posés par le script d'amorçage
+# GET /deploy/linux?token=) -- l'agent est nommé d'après la machine, le secret est délivré ici.
+if [ "$UPGRADE" != "true" ] && [ -n "${SI_AGENT_ENROLL_TOKEN:-}" ]; then
+  CENTRAL="${SI_AGENT_CENTRAL:-$CENTRAL}"; [ -n "${SI_AGENT_SITE:-}" ] && SITE="$SI_AGENT_SITE"
+  [ -n "${SI_AGENT_CA_SHA256:-}" ] && CAFP="$SI_AGENT_CA_SHA256"
+  for p in ${SI_AGENT_PLUGINS:-}; do ENABLE+=("$p"); done
+  [ -n "$CENTRAL" ] || { echo "SI_AGENT_CENTRAL requis avec SI_AGENT_ENROLL_TOKEN" >&2; exit 2; }
+  ENROLL=$(python3 - "$CENTRAL" "$SI_AGENT_ENROLL_TOKEN" "$(hostname)" <<'PY'
+import json, ssl, sys, urllib.request
+central, token, host = sys.argv[1:4]
+ctx = ssl._create_unverified_context() if not central.startswith("https://") or __import__("re").match(r"^https://(\d{1,3}\.){3}\d{1,3}", central) else None
+req = urllib.request.Request(central.rstrip("/") + "/api/v1/enroll", data=json.dumps({"token": token, "hostname": host, "platform": "linux"}).encode(), headers={"Content-Type": "application/json"})
+try:
+    with urllib.request.urlopen(req, timeout=30, context=ctx) as r:
+        d = json.load(r)
+except Exception as exc:  # noqa: BLE001
+    print("enrôlement refusé : %s" % exc, file=sys.stderr); sys.exit(1)
+print(d["agent_id"]); print(d["secret"]); print(d.get("site") or "")
+PY
+) || exit 1
+  AGENT=$(echo "$ENROLL" | sed -n 1p); SECRET=$(echo "$ENROLL" | sed -n 2p); S=$(echo "$ENROLL" | sed -n 3p); [ -n "$S" ] && SITE="$S"
+  echo "enrôlé comme « $AGENT » (site $SITE)"
+fi
 if [ "$UPGRADE" = "true" ]; then
   [ -f /etc/si-agent/agent.json ] || { echo "--upgrade : /etc/si-agent/agent.json absent, faire une installation complète" >&2; exit 2; }
 else

@@ -403,7 +403,7 @@ class AgentTests(unittest.TestCase):
     def test_passage_complet_et_envoi(self):
         out = self.agent.run_once()
         tasks = [m["task"] for m in out]
-        self.assertEqual(tasks, ["host", "risks", "netview", "inventory"])  # #428 : netview
+        self.assertEqual(tasks, ["host", "risks", "netview", "inventory", "agent-self"])  # #428 : netview ; #616 : agent-self
         self.assertIn("config-applied", [e["data"]["kind"] for e in self.agent.queue.latest(task="event")], "événement journalisé")
         self.assertEqual(self.agent.cfg["host_interval_seconds"], 30, "configuration du central appliquée")
         host_m = out[0]
@@ -414,8 +414,8 @@ class AgentTests(unittest.TestCase):
         self.assertIn("disk-high", ids, "seuil abaissé à 50 % par le central : 60 % -> warning")
         self.assertIn("port-exposed", ids, "mariadb exposé")
         self.assertIn("uid0-account", ids)
-        self.assertEqual(self.agent.flush(force=True), 5, "4 mesures (host, risks, netview, inventory) + 1 événement")
-        self.assertEqual([m["task"] for m in self.http.received if m["task"] != "event"], ["host", "risks", "netview", "inventory"])
+        self.assertEqual(self.agent.flush(force=True), 6, "5 mesures (host, risks, netview, inventory, agent-self) + 1 événement")
+        self.assertEqual([m["task"] for m in self.http.received if m["task"] != "event"], ["host", "risks", "netview", "inventory", "agent-self"])
         self.assertEqual(self.agent.queue.stats()["pending"], 0)
         st = self.agent.status()
         self.assertEqual(st["config_version"], "v1")

@@ -15,6 +15,7 @@ import WifiProbeSection from "./WifiProbeSection.jsx";
 import AlertFiltersTab from "./AlertFiltersTab.jsx";  // #607
 import PathProbeSection from "./PathProbeSection.jsx";
 import HostControlSection from "./HostControlSection.jsx";  // #613
+import DeployTab from "./DeployTab.jsx";  // #616
 
 // Tuile « Agents hôtes » (livraison #421, backlog 63) -- flotte des agents
 // si-agent (surveillance de l'hôte : CPU, mémoire, disques, services,
@@ -379,6 +380,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
         <button className={`secondary na-section-toggle${tab === "risks" ? " active" : ""}`} onClick={() => setTab("risks")}>Risques ({risks.length})</button>
         <button className={`secondary na-section-toggle${tab === "catalogue" ? " active" : ""}`} onClick={() => setTab("catalogue")}>Catalogue de sondes ({catalogue.length})</button>
         <button className={`secondary na-section-toggle${tab === "updates" ? " active" : ""}`} onClick={() => setTab("updates")}>Mises à jour</button>
+        <button className={`secondary na-section-toggle${tab === "deploy" ? " active" : ""}`} onClick={() => setTab("deploy")}>Déploiement</button>
         <button className={`secondary na-section-toggle${tab === "filters" ? " active" : ""}`} onClick={() => setTab("filters")}>Filtres d'alertes{fleet.some((a) => a.filter_enabled) ? ` (${fleet.filter((a) => a.filter_enabled).length})` : ""}</button>
         <button className={`secondary na-section-toggle${tab === "events" ? " active" : ""}`} onClick={() => setTab("events")}>
           Événements {summary ? <>({summary.counts.critical + summary.counts.warning} sur 24 h)</> : ""}
@@ -426,7 +428,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
             <div className="hub-table-scroll">
               <table className="sa-fleet">
                 <thead>
-                  <tr><th>Agent</th><th>Site</th><th>Hôte</th><th>Contact</th><th>CPU</th><th>Mémoire</th><th>Disque (max)</th><th>Risques</th><th>Sondes</th><th className="ups-actions-head"></th></tr>
+                  <tr><th>Agent</th><th>Site</th><th>Hôte</th><th>Contact</th><th>CPU</th><th>Mémoire</th><th>Disque (max)</th><th title="Empreinte de l'agent lui-même : % d'un cœur (moyenne de la fenêtre) · mémoire résidente">Impact agent</th><th>Risques</th><th>Sondes</th><th className="ups-actions-head"></th></tr>
                 </thead>
                 <tbody>
                   {sorted.map((a) => {
@@ -447,6 +449,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                         <td><Gauge percent={a.summary?.cpu_percent} label={`charge 5 min ${a.summary?.load5 ?? "—"}`} /></td>
                         <td><Gauge percent={a.summary?.memory_percent} /></td>
                         <td><Gauge percent={a.summary?.disk_max_percent} /></td>
+                        <td style={{ whiteSpace: "nowrap" }}>{a.footprint ? <span title={`dernier point ${a.footprint.cpu_core_percent} % d'un cœur (${a.footprint.cpu_machine_percent} % machine) · max ${a.footprint.cpu_core_max} % · file ${a.footprint.queue_size ?? "?"}`}><Tone tone={a.footprint.cpu_core_avg > 25 ? "bad" : a.footprint.cpu_core_avg > 8 ? "warn" : "good"}>{a.footprint.cpu_core_avg} % cœur</Tone> · {formatBytes(a.footprint.rss_bytes)}{a.footprint.bench && <> · <Tone tone="warn">banc</Tone></>}</span> : <span className="muted">—</span>}</td>
                         <td><Tone tone={stateTone(a.risks?.state)}>{riskSummaryText(a.risks)}</Tone>{a.summary?.partial?.length > 0 && <div className="muted" style={{ fontSize: 11 }} title={a.summary.partial.join(", ")}>collecte partielle</div>}</td>
                         <td className="muted">{a.plugins_assigned > 0 ? `${a.plugins_assigned} affectée${a.plugins_assigned > 1 ? "s" : ""}` : "—"}{a.pending_commands > 0 && <div style={{ fontSize: 11 }}>{a.pending_commands} cmd en attente</div>}</td>
                         <td className="ups-actions" onClick={(e) => e.stopPropagation()}>
@@ -994,6 +997,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
       )}
 
       {tab === "updates" && <UpdatesTab base={siAgentApiBase} />}
+      {tab === "deploy" && <DeployTab base={siAgentApiBase} fleet={fleet} catalogue={catalogue} login="" notice={(t) => { setError(null); setNotice(t); }} error={(t) => { setNotice(null); setError(t); }} />}
       {tab === "filters" && <AlertFiltersTab base={siAgentApiBase} fleet={fleet} onChanged={load} notice={(t, ok = true) => (ok ? setNotice(t) : setError(t))} />}
 
       {tab === "catalogue" && (

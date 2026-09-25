@@ -109,7 +109,7 @@ la vérification est faite **au frontal** : `mod_auth_openidc` en mode
 serveur de ressources OAuth 2.0 vérifie la signature RS256 du jeton d'accès
 contre le JWKS du realm (`OIDCOAuthVerifyJwksUri`, lu via le frontal
 lui-même) sur tout `/api/`, hors faces machine des agents (signature HMAC
-propre) : `si-agent/api/v1/`, `si-agent/package`, `netprobe/api/v1/`,
+propre) : `si-agent/api/v1/` (dont `/enroll`), `si-agent/package`, `si-agent/deploy/`, `netprobe/api/v1/`,
 `netprobe/fleet`, `netprobe/agents/measurements/bulk`. `OPTIONS` passe.
 Défaut activé (`API_AUTH=0` pour désactiver, `KC_REALM` si le realm n'est
 pas supervision-si). Passphrase du module dans `/etc/apache2/oidc-passphrase`.

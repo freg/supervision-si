@@ -87,6 +87,19 @@ CREATE TABLE IF NOT EXISTS agent_plugins (
     PRIMARY KEY (agent_id, plugin_id)
 );
 
+CREATE TABLE IF NOT EXISTS enroll_tokens (
+    token TEXT PRIMARY KEY,
+    site TEXT NOT NULL,
+    label TEXT,
+    central_url TEXT,
+    plugins TEXT NOT NULL DEFAULT '[]',
+    max_uses INTEGER NOT NULL DEFAULT 0,
+    uses INTEGER NOT NULL DEFAULT 0,
+    expires_at TEXT,
+    revoked INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    created_by TEXT
+);
 CREATE TABLE IF NOT EXISTS commands (
     id TEXT PRIMARY KEY,
     agent_id TEXT NOT NULL,
@@ -125,6 +138,8 @@ CREATE TABLE IF NOT EXISTS settings (
 
 # Colonnes ajoutées après coup (#422) -- `ALTER TABLE ... ADD COLUMN` idempotent
 MIGRATIONS = [
+    ("agents", "enrolled_by", "TEXT"),  # #616 : jeton d'enrôlement utilisé
+    ("agents", "hostname", "TEXT"),
     ("agents", "blocked", "INTEGER NOT NULL DEFAULT 0"),
     ("agents", "blocked_reason", "TEXT"),
     ("agents", "blocked_at", "TEXT"),
@@ -143,9 +158,9 @@ MIGRATIONS = [
 AGENT_ID_MAX = 64
 COMMAND_TYPES = ("collect_now", "run_plugin", "enable_plugin", "disable_plugin", "remove_plugin", "flush",
                  "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update", "vm_action", "software_action",
-                 "power_action", "wol", "startup_action", "watchdog_config")  # #613
+                 "power_action", "wol", "startup_action", "watchdog_config", "bench")  # #613, #616
 SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
-TASKS_KEPT_LATEST = ("host", "risks", "inventory", "startup", "watchdog")  # #613
+TASKS_KEPT_LATEST = ("host", "risks", "inventory", "startup", "watchdog", "agent-self")  # #613, #616
 
 
 def now_iso():
@@ -527,6 +542,117 @@ def update_agent(db_path, agent_id, label=None, active=None, site=None, host_int
     finally:
         conn.close()
     return get_agent(db_path, agent_id)
+
+
+# ---- #616 : enrôlement en masse par jeton de site ----------------------------
+def slug_agent_id(hostname, site=None):
+    """Nom de machine -> identifiant d'agent valide (minuscules, [a-z0-9-._])."""
+    base = "".join(c if (c.isalnum() or c in "-._") else "-" for c in str(hostname or "").strip().lower()).strip("-._")
+    base = base[:AGENT_ID_MAX] or "poste"
+    return base if base[0].isalnum() else "p" + base[:AGENT_ID_MAX - 1]
+
+
+def create_enroll_token(db_path, site, label=None, central_url=None, plugins=None, max_uses=0, expires_hours=72, created_by=None):
+    if not isinstance(site, str) or not site.strip():
+        raise ValueError("site requis")
+    try:
+        max_uses = max(0, int(max_uses or 0)); expires_hours = int(expires_hours or 0)
+    except (TypeError, ValueError):
+        raise ValueError("max_uses / expires_hours entiers")
+    token = "enr-" + _secrets.token_urlsafe(24)
+    now = now_iso()
+    expires = None
+    if expires_hours > 0:
+        import datetime as _dt
+        expires = (_dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(hours=expires_hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    conn = _connect(db_path)
+    try:
+        conn.execute("INSERT INTO enroll_tokens (token, site, label, central_url, plugins, max_uses, uses, expires_at, revoked, created_at, created_by) "
+                     "VALUES (?, ?, ?, ?, ?, ?, 0, ?, 0, ?, ?)",
+                     (token, site.strip(), label, (central_url or "").rstrip("/") or None, json.dumps([p for p in (plugins or []) if isinstance(p, str)]), max_uses, expires, now, created_by))
+        conn.commit()
+    finally:
+        conn.close()
+    return get_enroll_token(db_path, token)
+
+
+def _token_public(r):
+    d = dict(r)
+    d["plugins"] = json.loads(d.get("plugins") or "[]")
+    d["revoked"] = bool(d.get("revoked"))
+    d["expired"] = bool(d.get("expires_at")) and d["expires_at"] < now_iso()
+    d["exhausted"] = bool(d.get("max_uses")) and d.get("uses", 0) >= d["max_uses"]
+    d["usable"] = not (d["revoked"] or d["expired"] or d["exhausted"])
+    return d
+
+
+def get_enroll_token(db_path, token):
+    conn = _connect(db_path)
+    try:
+        r = conn.execute("SELECT * FROM enroll_tokens WHERE token = ?", (token,)).fetchone()
+    finally:
+        conn.close()
+    return _token_public(r) if r else None
+
+
+def list_enroll_tokens(db_path):
+    conn = _connect(db_path)
+    try:
+        rows = conn.execute("SELECT * FROM enroll_tokens ORDER BY created_at DESC").fetchall()
+        counts = {r["enrolled_by"]: r["n"] for r in conn.execute("SELECT enrolled_by, COUNT(*) AS n FROM agents WHERE enrolled_by IS NOT NULL GROUP BY enrolled_by")}
+    finally:
+        conn.close()
+    out = []
+    for r in rows:
+        d = _token_public(r); d["agents"] = counts.get(d["token"], 0); out.append(d)
+    return out
+
+
+def revoke_enroll_token(db_path, token):
+    conn = _connect(db_path)
+    try:
+        cur = conn.execute("UPDATE enroll_tokens SET revoked = 1 WHERE token = ?", (token,))
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def enroll_with_token(db_path, token, hostname, platform=None):
+    """Crée (ou ré-arme : nouveau secret) l'agent nommé d'après la machine.
+    -> (agent avec secret, jeton) ou lève ValueError (jeton inutilisable).
+    Une relance du script sur le même poste redonne un secret neuf plutôt
+    que d'échouer : c'est le cas normal d'un déploiement par GPO relancé."""
+    t = get_enroll_token(db_path, token or "")
+    if t is None or not t["usable"]:
+        raise ValueError("jeton d'enrôlement inconnu, révoqué, expiré ou épuisé")
+    agent_id = slug_agent_id(hostname)
+    existing = get_agent(db_path, agent_id)
+    if existing is None:
+        a = create_agent(db_path, agent_id, t["site"], label=str(hostname or "")[:80])
+        conn = _connect(db_path)
+        try:
+            conn.execute("UPDATE agents SET enrolled_by = ?, hostname = ? WHERE agent_id = ?", (token, str(hostname or "")[:120], agent_id))
+            conn.execute("UPDATE enroll_tokens SET uses = uses + 1 WHERE token = ?", (token,))
+            conn.commit()
+        finally:
+            conn.close()
+        for pid in t["plugins"]:
+            try:
+                assign_plugin(db_path, agent_id, pid, True)
+            except Exception:  # noqa: BLE001 -- plugin absent du catalogue : ignoré
+                pass
+        return a, t
+    if existing.get("enrolled_by") != token and existing.get("enrolled_by"):
+        raise ValueError("agent %s déjà enrôlé par un autre jeton" % agent_id)
+    a = rotate_secret(db_path, agent_id)
+    conn = _connect(db_path)
+    try:
+        conn.execute("UPDATE agents SET enrolled_by = ?, hostname = ? WHERE agent_id = ?", (token, str(hostname or "")[:120], agent_id))
+        conn.commit()
+    finally:
+        conn.close()
+    return a, t
 
 
 def rotate_secret(db_path, agent_id):
@@ -1250,6 +1376,12 @@ def fleet(db_path, site=None, offline_after_seconds=300):
         a["summary"] = summary
         a["risks"] = (risks_m.get("data") or {}).get("summary") or {"state": "unknown", "counts": {}, "total": 0}
         a["risks_at"] = risks_m.get("at")
+        # #616 : empreinte de l'agent lui-même (dernier point + moyenne de la fenêtre)
+        me = ((latest.get("agent-self") or {}).get("data") or {})
+        pt, sm = me.get("point") or {}, (me.get("summary") or {}).get("all") or {}
+        a["footprint"] = {"cpu_core_percent": pt.get("cpu_core_percent"), "cpu_machine_percent": pt.get("cpu_machine_percent"),
+                          "cpu_core_avg": sm.get("cpu_core_avg"), "cpu_core_max": sm.get("cpu_core_max"), "rss_bytes": pt.get("rss_bytes"),
+                          "queue_size": pt.get("queue_size"), "bench": bool(me.get("bench_until")), "at": (latest.get("agent-self") or {}).get("at")} if pt else None
         a["online"] = _online(a.get("last_seen_at"), now, offline_after_seconds, a["host_interval_seconds"])
         a["pending_commands"] = len(pending_commands_for_agent(db_path, a["agent_id"]))
         a["plugins_assigned"] = len(agent_plugins(db_path, a["agent_id"]))

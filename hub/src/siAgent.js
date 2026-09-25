@@ -273,6 +273,8 @@ export const EVENT_KIND_LABELS_FR = {
   // #613 : alimentation, réveil, lanceurs, chien de garde
   "command-power": "Redémarrage / arrêt demandé", "command-wol": "Réveil réseau émis", "command-startup": "Lanceur modifié",
   "watchdog-config": "Chien de garde configuré", "watchdog-error": "Chien de garde : erreur",
+  "bench-started": "Banc de charge lancé", "bench-finished": "Banc de charge terminé", "bench-stopped": "Banc de charge arrêté",
+  "enroll-token-created": "Jeton d'enrôlement créé", "enroll-token-revoked": "Jeton d'enrôlement révoqué",
   "app-down": "Application arrêtée", "app-restarted": "Application relancée", "app-restart-failed": "Relance impossible", "app-recovered": "Application de retour",
 };
 

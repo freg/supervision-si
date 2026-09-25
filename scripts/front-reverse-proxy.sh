@@ -137,7 +137,7 @@ EOC
   API_AUTH_LINES="    OIDCOAuthVerifyJwksUri https://${PUBLIC_HOST}/auth/realms/${KC_REALM}/protocol/openid-connect/certs
     OIDCOAuthRemoteUserClaim preferred_username
     OIDCOAuthAcceptTokenAs header
-    <LocationMatch \"^/api/(?!si-agent/api/v1/|si-agent/package|netprobe/api/v1/|netprobe/fleet|netprobe/agents/measurements/bulk)\">
+    <LocationMatch \"^/api/(?!si-agent/api/v1/|si-agent/package|si-agent/deploy/|netprobe/api/v1/|netprobe/fleet|netprobe/agents/measurements/bulk)\">
         <LimitExcept OPTIONS>
             AuthType oauth20
             Require valid-user

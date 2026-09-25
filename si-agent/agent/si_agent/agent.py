@@ -270,6 +270,11 @@ class Agent(object):
         self._next_inventory = 0
         self._next_netview = 0
         self.last_netview = None
+        from . import introspect as _intro
+        self.tracker = _intro.Tracker(clock=time.time)   # #616 : empreinte propre de l'agent
+        self._next_self = 0
+        self._bench_until = 0.0
+        self._bench_factor = 1
         self._next_startup = 0     # #613 : lanceurs au démarrage (Windows)
         self._next_watchdog = 0    # #613 : chien de garde applicatif
         self.last_startup = None
@@ -560,6 +565,22 @@ class Agent(object):
                 if res.get("ok"):
                     self.collect_startup(force=True)
                 return res
+            if ctype == "bench":
+                # #616 : banc de charge -- collectes et sondes à cadence forcée pendant N minutes, introspection toutes les 30 s
+                from . import introspect as _intro
+                until, factor, err = _intro.plan_bench(params, self.clock())
+                if err:
+                    return {"ok": False, "error": err}
+                if params.get("stop"):
+                    self._bench_until = 0.0
+                    self.event("bench-stopped", "info", "banc de charge arrêté", {"command": c.get("id")})
+                    return {"ok": True, "result": {"stopped": True}}
+                self._bench_until, self._bench_factor = until, factor
+                self._next_plugin = {}
+                self._next_host = 0; self._next_netview = 0; self._next_self = 0
+                self.event("bench-started", "warning", "banc de charge : %d min, cadence ×%d (sondes et collectes)" % ((until - self.clock()) // 60, factor),
+                           {"command": c.get("id"), "until": _iso(until), "factor": factor})
+                return {"ok": True, "result": {"until": _iso(until), "factor": factor, "message": "banc lancé pour %d min (×%d)" % ((until - self.clock()) // 60, factor)}}
             if ctype == "watchdog_config":
                 # #613 : liste des applications surveillées, persistée dans state.json
                 from . import watchdog
@@ -590,11 +611,17 @@ class Agent(object):
         now = self.clock()
         if not force and now < self._next_host:
             return []
-        self._next_host = now + float(self.cfg["host_interval_seconds"])
+        _iv = float(self.cfg["host_interval_seconds"])
+        if self._bench_until > now:
+            from . import introspect as _intro
+            _iv = _intro.forced_interval(_iv, self._bench_factor)
+        self._next_host = now + _iv
+        _t0 = time.time()
         data, self._prev_cpu = _collect_all(files=self.files, cmd=self.cmd, usage=self.usage, which=self.which,
                                             previous_cpu=self._prev_cpu, include_tools=False, exists=self.exists)
         # #428 : activité (processus, sessions, connexions, services actifs)
         data["activity"] = _collect_activity(cmd=self.cmd, files=self.files)
+        self.tracker.record("host", time.time() - _t0)  # #616
         self.last_host_data = data
         found = risks.evaluate(data, self.cfg.get("risk_thresholds"))
         self.last_risks = found
@@ -620,6 +647,30 @@ class Agent(object):
         self.last_netview = data
         m = {"agent_id": self.agent_id, "task": "netview", "at": _iso(now), "ok": not data.get("partial"), "data": data,
              "error": ("collecte partielle : " + ", ".join(data["partial"])) if data.get("partial") else None}
+        self.queue.put(m)
+        return m
+
+    def collect_self(self, force=False):
+        """#616 : empreinte de l'agent lui-même (CPU, mémoire, durée des sondes) -- mesure `agent-self`,
+        toutes les 60 s (30 s pendant un banc) ; résumé glissant joint à chaque mesure."""
+        from . import introspect as _intro
+        now = self.clock()
+        bench = self._bench_until > now
+        if not force and now < self._next_self:
+            return None
+        if self._bench_until and not bench and self._bench_factor != 1:
+            self._bench_factor = 1
+            self.event("bench-finished", "info", "banc de charge terminé -- voir la synthèse d'empreinte", {"summary": _intro.summarize(self.tracker.points)})
+        self._next_self = now + (30 if bench else float(self.cfg.get("self_interval_seconds") or 60))
+        host_load = ((self.last_host_data or {}).get("load") or {}).get("load1") if isinstance((self.last_host_data or {}).get("load"), dict) else None
+        try:
+            qsize = self.queue.pending_count() if hasattr(self.queue, "pending_count") else None
+        except Exception:  # noqa: BLE001
+            qsize = None
+        point = self.tracker.snapshot(rss_bytes=_intro.read_rss(), queue_size=qsize, host_load1=host_load, bench=bench)
+        m = {"agent_id": self.agent_id, "task": "agent-self", "at": _iso(now), "ok": True,
+             "data": {"point": point, "summary": _intro.summarize(self.tracker.points), "bench_until": _iso(self._bench_until) if bench else None,
+                      "bench_factor": self._bench_factor if bench else None}, "error": None}
         self.queue.put(m)
         return m
 
@@ -760,9 +811,11 @@ class Agent(object):
         confine = self._confinement(manifest)
         _log.debug("sonde %s : lancement (%s, privilégiée=%s, utilisateur=%s)", manifest["id"], manifest.get("runner"),
                    bool(manifest.get("privileged")), (confine or {}).get("preexec_fn") and self._plugins_user_effective())
+        _t0 = time.time()
         meas = plugins.run_plugin(manifest, self.cmd, now=self.clock(), env=env, confine=confine,
                                   python=sys.executable if IS_WINDOWS else "python3")
         meas["agent_id"] = self.agent_id
+        self.tracker.record("plugin:%s" % manifest["id"], time.time() - _t0, ok=bool(meas.get("ok")))  # #616
         self.queue.put(meas)
         if not meas.get("ok"):
             self.event("plugin-failed", "warning", "sonde %s en échec : %s" % (manifest["id"], (meas.get("error") or "")[:200]),
@@ -785,7 +838,11 @@ class Agent(object):
             if self._next_plugin.get(m["id"], 0) > now:
                 continue
             # Échéance fixée AVANT l'exécution : un plugin lent garde son rythme.
-            self._next_plugin[m["id"]] = now + float(m.get("interval_seconds", 3600))
+            _iv = float(m.get("interval_seconds", 3600))
+            if self._bench_until > now:  # #616 : banc de charge, cadence forcée
+                from . import introspect as _intro
+                _iv = _intro.forced_interval(_iv, self._bench_factor)
+            self._next_plugin[m["id"]] = now + _iv
             produced.append(self.run_one_plugin(m))
         return produced
 
@@ -909,6 +966,9 @@ class Agent(object):
         if su:
             out.append(su)
         out.extend(self.run_plugins())
+        me = self.collect_self(force=True)
+        if me:
+            out.append(me)
         return out
 
     def run_forever(self, sleep=time.sleep):
@@ -947,6 +1007,7 @@ class Agent(object):
                 self.collect_startup()
                 self.run_watchdog()
                 self.run_plugins()
+                self.collect_self()
                 self.poll_commands()
                 self.publish_tick()
                 self.flush()
