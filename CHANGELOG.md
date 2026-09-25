@@ -1,3 +1,18 @@
+## 2026-09-25 — Redirections NAT : carte de tous les routeurs (entrée → routeur → cible), conflits, activer / désactiver (livraison #606)
+
+Demandé : « un outil de visualisation des redirections NAT ». Avant : les
+règles n'étaient visibles que routeur par routeur, en liste, dans la tuile
+MikroTik (#587).
+
+- `mikrotik/natmap.py` (pur, 2 tests) : `normalize`, `build` (routeurs,
+  flux, cibles, conflits, comptes), `conflicts`, `filter_flows`.
+- mikrotik-api : `GET /mikrotik/nat-map[?site=]`.
+- Hub : tuile **Redirections NAT** (`NatMapView.jsx`) — schéma SVG à trois
+  colonnes, cibles nommées par les agents (`/fleet`), conflits en rouge,
+  désactivées en pointillé, filtre, tableau, activer / désactiver, lien
+  tuile MikroTik. Chemins métier : Routeurs, Entrées d'Internet.
+- Tests : mikrotik 15, hub 267.
+
 ## 2026-09-24 — Accueil en arbre par défaut : rappel des catégories fixé à gauche, étiquettes en avant, boutons légers, sans icônes (livraison #605)
 
 Demandé : « super l'arbre, mets-le par défaut ; mettre en avant les

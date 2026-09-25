@@ -106,3 +106,17 @@ avec le reste du hub. Mis en œuvre :
   l'équipement est un routeur déclaré ; le portail tickets affiche
   alors un lien « ouvrir le routeur » vers la même ancre.
 
+## Carte des redirections NAT (livraison #606)
+
+`GET /mikrotik/nat-map[?site=]` (`natmap.py`, pur, testé) : les règles NAT
+de tous les routeurs du registre, normalisées en flux « entrée → routeur →
+cible » (`kind` inbound / outbound), regroupées par cible, avec les
+**conflits** (deux règles actives sur le même port d'entrée d'un routeur :
+la seconde n'est jamais atteinte), les désactivées et les routeurs
+injoignables (jamais une 500). Tuile hub **Redirections NAT** (Réseau ;
+vue métier : Équipements › Réseau › Routeurs et Services › Entrées
+d'Internet) : schéma SVG à trois colonnes (Internet / entrée, routeur,
+cible LAN nommée par les agents hôtes quand l'adresse est connue), flux
+verts / rouges (conflit) / gris pointillés (désactivé), filtre début de mot,
+tableau avec activer / désactiver sur place, lien vers la tuile MikroTik
+pour ajouter ou modifier.

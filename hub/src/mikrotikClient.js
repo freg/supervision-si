@@ -29,3 +29,7 @@ export async function fetchMikrotikRouters(apiBase) {
   const data = await fetchJson(apiBase, "/routers");
   return Array.isArray(data?.routers) ? data.routers : [];
 }
+
+// #606 : carte des redirections NAT de tous les routeurs (entrée → routeur → cible).
+export const fetchNatMap = (apiBase, site = "") => fetchJson(apiBase, `/nat-map${site ? `?site=${encodeURIComponent(site)}` : ""}`);
+export const setNatRule = (apiBase, router, id, patch) => fetchJson(apiBase, `/routers/${encodeURIComponent(router)}/nat/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });

@@ -26,8 +26,8 @@ test("déploiement : une feuille sous plusieurs branches, « aussi sous », bran
   const paths = pathsOfLeaf(t, "front:mikrotik");
   assert.deepEqual(paths, ["equipements/reseau/routeurs", "droits/acces"]);
   const routeurs = t.roots[0].children.find((c) => c.id === "equipements/reseau").children.find((c) => c.id === "equipements/reseau/routeurs");
-  assert.deepEqual(routeurs.leaves.map((l) => l.label), ["Routeurs MikroTik"]);
-  assert.deepEqual(routeurs.leaves[0].also, ["Droits et accès › Accès aux équipements"]);
+  assert.deepEqual(routeurs.leaves.map((l) => l.label), ["Redirections NAT", "Routeurs MikroTik"]);
+  assert.deepEqual(routeurs.leaves[1].also, ["Droits et accès › Accès aux équipements"]);
   assert.ok(t.roots.every((r) => r.count > 0));
   // catalogue réduit : la branche « Switchs » disparaît sans Cisco
   const small = buildCatalog({ availableViews: ["cortex"], viewLabels: { cortex: "Cortex" }, fronts: [], isAdmin: false });

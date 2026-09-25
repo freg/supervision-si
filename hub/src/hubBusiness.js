@@ -84,6 +84,7 @@ export const PATHS = {
   "view:nebula": ["equipements/reseau/wifi", "services/metier"],
   "view:ssh-tunnels": ["equipements/reseau/tunnels", "droits/acces"],
   "front:mikrotik": ["equipements/reseau/routeurs", "droits/acces"],
+  "view:nat-map": ["equipements/reseau/routeurs", "services/internet"],
   "front:cisco": ["equipements/reseau/switchs", "droits/acces"],
   "view:proxmox": ["equipements/hotes/hyperviseurs"],
   "view:external-bases": ["services/donnees"],

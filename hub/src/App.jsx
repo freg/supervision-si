@@ -43,6 +43,7 @@ import BastionView from "./BastionView.jsx";
 import ControlTowerView from "./ControlTowerView.jsx";  // #586
 import NotificationsView from "./NotificationsView.jsx";  // #590
 import LicensesView from "./LicensesView.jsx";  // #595
+import NatMapView from "./NatMapView.jsx";  // #606
 import HostHealthBanner from "./HostHealthBanner.jsx";  // #593
 import CortexView from "./CortexView.jsx";
 import ThemeView from "./ThemeView.jsx";
@@ -1470,6 +1471,7 @@ export default function App() {
     ACCOUNTS_API_BASE_URL && (isAdmin(groups) || groups.includes("admin_hub")) && "accounts",
     NOTIFY_API_BASE_URL && isAdmin(groups) && "notifications",  // #590
     LICENSES_API_BASE_URL && "licenses",  // #595 : lecture pour tous, écritures réservées par l'API (groupe administrateurs)
+    MIKROTIK_API_BASE && "nat-map",  // #606
   ].filter(Boolean));
   const availableViews = visibleTiles ? new Set([...availableViewsRaw].filter((v) => visibleTiles.has(v))) : availableViewsRaw;  // #559
   const { leftover: leftoverFronts } = buildThemes({ available: availableViews, fronts });
@@ -1723,6 +1725,8 @@ vm === "agent-page" ? (
         />
       ) : vm === "notifications" ? (
         <NotificationsView apiBase={NOTIFY_API_BASE_URL} accessToken={auth.user?.access_token} username={profile.preferred_username} onBack={goBack} />
+      ) : vm === "nat-map" ? (
+        <NatMapView apiBase={MIKROTIK_API_BASE} siAgentApiBase={SI_AGENT_API_BASE_URL} mikrotikUrl={MIKROTIK_URL} onBack={goBack} />
       ) : vm === "licenses" ? (
         <LicensesView apiBase={LICENSES_API_BASE_URL} accessToken={auth.user?.access_token} username={profile.preferred_username} onBack={goBack} />
       ) : vm === "accounts" ? (

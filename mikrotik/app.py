@@ -38,6 +38,7 @@ import requests
 from flask import Flask, jsonify, request, send_from_directory
 
 from routeros_client import RouterOSClient, RouterOSError
+import natmap  # #606 : carte des redirections
 import natrules  # #587
 try:
     from notify_client import notify as _notify, register_actions as _register_actions  # #590 (shared/, copié par le Dockerfile)
@@ -357,6 +358,32 @@ def nat_list(name):
         return jsonify({"rules": _nat_rows(client), "transport": router["transport"]}), 200
     except RouterOSError as exc:
         return jsonify({"error": str(exc)}), 502
+
+
+@app.route("/mikrotik/nat-map", methods=["GET"])
+def nat_map():
+    """#606 : carte des redirections NAT de TOUS les routeurs du registre
+    (entrée → routeur → cible), conflits de port, sortants, désactivées.
+    Un routeur injoignable apparaît avec son erreur, jamais une 500."""
+    routers, registry_error = load_registry()
+    site = request.args.get("site")
+    per = []
+    for router in routers:
+        if site and router.get("site") != site:
+            continue
+        entry = {"name": router["name"], "host": router["host"], "site": router.get("site"), "reachable": True, "rules": []}
+        client, error = client_for(router)
+        if error:
+            entry.update(reachable=False, error=error)
+        else:
+            try:
+                entry["rules"] = _nat_rows(client)
+            except RouterOSError as exc:
+                entry.update(reachable=False, error=str(exc))
+        per.append(entry)
+    m = natmap.build(per)
+    m["registry_error"] = registry_error
+    return jsonify(m), 200
 
 
 @app.route("/mikrotik/routers/<name>/nat", methods=["POST"])

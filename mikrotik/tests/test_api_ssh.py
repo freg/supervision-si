@@ -50,6 +50,13 @@ class Api(unittest.TestCase):
         self.assertEqual((routers[0]["transport"], routers[0]["port"]), ("ssh", 22))
         self.assertEqual((routers[1]["transport"], routers[1]["port"]), ("rest", 443))
 
+    def test_nat_map(self):  # #606
+        m = self.c.get("/mikrotik/nat-map").get_json()
+        rb = [r for r in m["routers"] if r["name"] == "rb"][0]
+        self.assertEqual((rb["reachable"], rb["inbound"]), (True, 1))
+        self.assertEqual(m["targets"][0]["address"], "192.0.2.10")
+        self.assertEqual(m["flows"][0]["dst_ports"], ["8443"])
+
     def test_nat_flow(self):
         r = self.c.get("/mikrotik/routers/rb/nat").get_json()
         self.assertEqual(r["rules"][0]["summary"], "tcp *:8443 → 192.0.2.10:443")
