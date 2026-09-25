@@ -1,0 +1,13 @@
+{
+  "id": "web-trace",
+  "version": "1",
+  "runner": "python",
+  "entry": "web_trace.py",
+  "interval_seconds": 1800,
+  "timeout_seconds": 420,
+  "args": ["--seconds", "30"],
+  "enabled": false,
+  "description": "Sonde « trace réseau du poste » (#618, famille explorer) : capture bornée (--seconds 5-300) du trafic du poste -- pktmon natif sous Windows 10/11, tcpdump ailleurs -- analysée SUR PLACE, seul le résumé remonte : hôtes joints avec leur nom (SNI TLS, en-tête Host, réponse DNS), protocoles, connexions sans réponse, RST, retransmissions, DNS en échec ou sans réponse, codes HTTP en clair, RTT de la poignée de main par serveur, latences DNS / TLS / premier octet, URL en clair (HTTP). Constats : connect-failed, connect-partial, slow-rtt, retransmissions, resets, dns-failures, dns-unanswered, slow-dns, http-error, http-client-error, slow-tls. Trafic réel observé : désactivée par défaut ; privilégiée (capture).",
+  "source": "bundled",
+  "privileged": true
+}

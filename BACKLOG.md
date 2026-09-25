@@ -3416,6 +3416,19 @@ services automatiques ; activer/désactiver depuis la tuile), plugin
 relance, délai, fenêtre horaire ; relance et événement `app-restarted` /
 `app-down`).
 
+## Démonstration Numeria — cinq points (2026-09-26) — item 102
+
+Demandé pour lundi : 1. accès depuis le campus / Internet ; 2. sondes
+Windows pour un maximum de PC ; 3. banc de test lourd (impact d'une sonde :
+introspection) ; 4. audit d'un dysfonctionnement partiel d'application web
+depuis le poste ; 5. idem en mode tcpdump (URL, protocoles, erreurs,
+latences). Fait : 1 = #615 (A0 au frontal + intercepteur hub), 2 + 3 = #616
+(jetons d'enrôlement, introspection, banc), 4 = #617 (web-audit), 5 = #618
+(web-trace). Reste après la démo : vérification sur Windows réel
+(`-EnrollToken` PS 5.1, `pktmon etl2pcap`, StartupApproved), matrice
+web-audit par site dans la Tour de contrôle, corrélation web-audit ↔
+web-trace ↔ événements Keycloak par poste et minute.
+
 ## Image complète d'un poste Windows à chaud, pour virtualisation (2026-09-25) — item 101
 
 Demandé : « un agent Windows pourrait-il faire une image complète de son

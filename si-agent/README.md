@@ -1154,3 +1154,27 @@ fiche agent (détail dépliable par URL) et onglet **Audit web** de la tuile :
 matrice URL × poste (`GET /web-audit?site=`) — colonne rouge = l'application,
 ligne rouge = le poste ou son segment. 4 tests (analyse HTML, constats,
 serveur HTTP local réel, ligne de commande).
+
+## Trace réseau du poste : pktmon / tcpdump analysés sur place (livraison #618)
+
+Demandé : « idem en mode tcpdump pour relever les URL, les protocoles, les
+erreurs, les latences ». Sonde `web-trace` (privilégiée, désactivée par
+défaut) : capture bornée (`--seconds` 5–300) avec **pktmon** natif sous
+Windows 10/11 (`pktmon start --capture --comp nics`, `pktmon stop`, `pktmon
+etl2pcap`) ou tcpdump ailleurs, puis analyse **sur le poste** par
+`trace_analyzer.py` (stdlib : pcap et pcapng, Ethernet/VLAN/IPv4/TCP/UDP,
+ClientHello TLS → SNI, HTTP/1 en clair, DNS) ; seul le résumé remonte, la
+capture est effacée. Remonte : serveurs joints avec leur nom (SNI, Host ou
+réponse DNS), protocole (par port), connexions, connexions sans réponse
+(SYN sans SYN-ACK), RST, retransmissions, RTT moyen / max de la poignée de
+main, volume ; DNS (requêtes, réponses, échecs, sans réponse, latences) ;
+requêtes HTTP en clair (hôte, méthode, chemin, code, premier octet) ;
+poignées TLS (SNI, délai ServerHello). Constats : `connect-failed`,
+`connect-partial`, `slow-rtt`, `retransmissions`, `resets`, `dns-failures`,
+`dns-unanswered`, `slow-dns`, `http-error`, `http-client-error`, `slow-tls`.
+Hub : section « Trace réseau du poste » dans la fiche agent (filtre début de
+mot, tableau des serveurs, HTTP en clair, TLS). 5 tests (pcap et pcapng
+synthétiques identiques, scénario complet, robustesse des décodeurs, plan
+de capture, ligne de commande sans outil). Non vérifié sur Windows réel :
+`pktmon etl2pcap` (format pcapng attendu ; les versions antérieures à
+Windows 10 2004 n'ont pas cette sous-commande → erreur explicite).

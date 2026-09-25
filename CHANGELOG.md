@@ -1,3 +1,13 @@
+## 2026-09-26 — Sonde web-trace : capture pktmon / tcpdump analysée sur le poste (livraison #618)
+
+Demandé : « idem en mode tcpdump pour relever les URL, les protocoles, les
+erreurs, les latences ». Sonde `web-trace` : capture bornée (pktmon natif
+Windows 10/11, tcpdump ailleurs) puis analyse locale stdlib (pcap/pcapng,
+SNI TLS, HTTP en clair, DNS) — serveurs nommés, protocoles, connexions sans
+réponse, RST, retransmissions, RTT, DNS, HTTP, TLS, 11 constats ; seul le
+résumé remonte. Section « Trace réseau du poste » dans la fiche agent.
+5 tests.
+
 ## 2026-09-26 — Sonde web-audit : dysfonctionnement partiel d'une application web vu du poste (livraison #617)
 
 Demandé : « un module sur sonde Windows permettant d'auditer un
