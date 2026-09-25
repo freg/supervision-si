@@ -310,12 +310,23 @@ if [ "${1:-}" = "service-account" ]; then
   ENV_CID="$(grep -E '^KEYCLOAK_SERVICE_CLIENT_ID=' "$PROJECT_ROOT/.env" 2>/dev/null | tail -1 | cut -d= -f2-)"
   CID="${2:-${ENV_CID:-supervision-si-service}}"
   echo "Création du compte de service Keycloak « $CID » (secret = KEYCLOAK_SERVICE_CLIENT_SECRET de .env)..."
-  compose exec -T keycloak /opt/keycloak/bin/kc.sh bootstrap-admin service --client-id "$CID" --client-secret:env KC_BOOTSTRAP_ADMIN_CLIENT_SECRET \
-    || { echo "❌ échec -- si « already exists » : relancer avec un autre identifiant (ex. ${CID}-2) puis mettre KEYCLOAK_SERVICE_CLIENT_ID=${CID}-2 dans .env" >&2; exit 1; }
-  echo "Vérification (jeton client_credentials sur le realm master)..."
-  compose exec -T keycloak sh -c 'curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:8080/auth/realms/master/protocol/openid-connect/token -d client_id="$KC_BOOTSTRAP_ADMIN_CLIENT_ID" -d client_secret="$KC_BOOTSTRAP_ADMIN_CLIENT_SECRET" -d grant_type=client_credentials' 2>/dev/null \
-    | grep -q '^200' && echo "✅ compte de service opérationnel -- redémarrer les consommateurs : cd $PROJECT_ROOT && ./scripts/run.sh up -d accounts-api tickets-api keycloak-backup" \
-    || echo "⚠️  jeton non obtenu (curl absent dans l'image ou secret différent) -- tester depuis la tuile Comptes après ./scripts/run.sh up -d accounts-api"
+  # Base H2 embarquée (start-dev) : verrouillée par le serveur -> Keycloak est ARRÊTÉ le
+  # temps de la commande (une minute), puis relancé. Conteneur éphémère sur le même volume.
+  compose stop keycloak
+  if compose run --rm --no-deps -T keycloak bootstrap-admin service --client-id "$CID" --client-secret:env KC_BOOTSTRAP_ADMIN_CLIENT_SECRET; then
+    echo "✅ compte « $CID » créé"
+  else
+    echo "❌ échec (si « already exists » : relancer avec un autre identifiant, ex. ${CID}-2, puis KEYCLOAK_SERVICE_CLIENT_ID=${CID}-2 dans .env)" >&2
+  fi
+  compose up -d keycloak
+  echo "Attente du redémarrage de Keycloak puis vérification du jeton (realm master)..."
+  for i in $(seq 1 24); do
+    sleep 5
+    CODE=$(compose exec -T keycloak sh -c 'curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8080/auth/realms/master/protocol/openid-connect/token -d client_id="'"$CID"'" -d client_secret="$KC_BOOTSTRAP_ADMIN_CLIENT_SECRET" -d grant_type=client_credentials' 2>/dev/null || echo "000")
+    [ "$CODE" = "200" ] && { echo "✅ jeton obtenu : compte de service opérationnel -- puis : cd $PROJECT_ROOT && ./scripts/run.sh up -d --force-recreate accounts-api tickets-api keycloak-backup"; exit 0; }
+    [ "$CODE" = "401" ] && { echo "❌ 401 : le secret de .env n'est pas celui du compte « $CID » -- relancer avec un nouvel identifiant" >&2; exit 1; }
+  done
+  echo "⚠️  pas de réponse 200 en 2 min (code $CODE) -- Keycloak encore en démarrage ou curl absent : tester depuis la tuile Comptes"
   exit 0
 fi
 

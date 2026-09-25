@@ -860,7 +860,8 @@ cd ~/SRC/data2/tickets/supervision-si && ./gateway/scripts/run.sh service-accoun
 cd ~/SRC/data2/tickets/supervision-si && ./scripts/run.sh up -d accounts-api tickets-api keycloak-backup
 ```
 
-(`kc.sh bootstrap-admin service` sur la base existante, secret pris dans
+(`kc.sh bootstrap-admin service` sur la base existante -- Keycloak arrêté une minute
+(base H2 verrouillée par le serveur), secret pris dans
 l'environnement du conteneur = `KEYCLOAK_SERVICE_CLIENT_SECRET` de `.env`.
 Si le client existe déjà : `service-account supervision-si-service-2` puis
 `KEYCLOAK_SERVICE_CLIENT_ID=supervision-si-service-2` dans `.env`.)
