@@ -234,6 +234,14 @@ def software_inventory_route():
     return jsonify({"inventories": store.latest_software_inventory(DB_PATH, site=request.args.get("site"))}), 200
 
 
+@app.route("/web-audit", methods=["GET"])
+def web_audit_route():
+    """#617 : dernier audit d'application web par poste (plugin web-audit), `?site=` -- matrice URL × poste."""
+    rows = store.latest_web_audit(DB_PATH, site=request.args.get("site"))
+    urls = sorted({u["url"] for r in rows for u in r["urls"]})
+    return jsonify({"audits": rows, "urls": urls}), 200
+
+
 @app.route("/windows-hosts", methods=["GET"])
 def windows_hosts_route():
     """#567 : postes Windows (et autres hôtes) vus par la sonde windows-probe

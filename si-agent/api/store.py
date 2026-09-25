@@ -1108,6 +1108,37 @@ def latest_netviews(db_path, site=None):
     return out
 
 
+def latest_web_audit(db_path, site=None):
+    """#617 : dernier audit web (plugin web-audit) par agent, pour la comparaison entre postes."""
+    conn = _connect(db_path)
+    try:
+        q = ("SELECT a.agent_id, a.hostname, a.site, a.last_ip, m.at, m.ok, m.error, m.data FROM agents a "
+             "JOIN (SELECT agent_id, MAX(at) AS at FROM measurements WHERE task = 'plugin:web-audit' GROUP BY agent_id) l ON l.agent_id = a.agent_id "
+             "JOIN measurements m ON m.agent_id = l.agent_id AND m.at = l.at AND m.task = 'plugin:web-audit'")
+        params = []
+        if site:
+            q += " WHERE a.site = ?"; params.append(site)
+        rows = conn.execute(q, params).fetchall()
+    finally:
+        conn.close()
+    out = []
+    for r in rows:
+        try:
+            data = json.loads(r["data"]) if isinstance(r["data"], str) else (r["data"] or {})
+        except (TypeError, ValueError):
+            data = {}
+        urls = []
+        for u in (data.get("urls") or []):
+            m = u.get("main") or {}
+            urls.append({"url": u.get("url"), "final_url": u.get("final_url"), "state": u.get("state"), "status": m.get("status"), "ttfb_ms": m.get("ttfb_ms"),
+                         "total_ms": m.get("total_ms"), "dns_ms": m.get("dns_ms"), "connect_ms": m.get("connect_ms"), "tls_ms": m.get("tls_ms"), "error": m.get("error"),
+                         "findings": u.get("findings") or [], "sub_total": len(u.get("subresources") or []),
+                         "sub_failed": sum(1 for s in (u.get("subresources") or []) if s.get("error") or (s.get("status") or 0) >= 400), "title": u.get("title")})
+        out.append({"agent_id": r["agent_id"], "hostname": r["hostname"], "site": r["site"], "last_ip": r["last_ip"], "at": r["at"], "ok": bool(r["ok"]),
+                    "error": r["error"] or data.get("error"), "summary": data.get("summary") or {}, "urls": urls})
+    return out
+
+
 def latest_software_inventory(db_path, site=None):
     """#595 : dernier inventaire logiciel (plugin software-inventory) par agent."""
     conn = _connect(db_path)

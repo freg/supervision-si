@@ -1134,3 +1134,23 @@ Vérifié réellement : tests agent (80) et central ; JSX compilé. Non vérifi�
 sur Windows réel : `-EnrollToken` sous Windows PowerShell 5.1 (chemin
 WebClient), `GetProcessMemoryInfo`. `tests/test_updater.test_run_update`
 échouait déjà avant cette livraison (lambda à 2 arguments) — à reprendre.
+
+## Audit d'application web depuis le poste (livraison #617)
+
+Demandé : « un module sur sonde Windows permettant d'auditer un
+dysfonctionnement partiel d'application web ». Sonde `web-audit` (famille
+explorer, Python stdlib, Windows / Linux / macOS, non privilégiée) : pour
+chaque URL (`--urls a,b` dans le catalogue, ou `web-audit.txt` dans
+`%ProgramData%\si-agent` / `/etc/si-agent`), décompose l'accès tel que le
+poste le subit — DNS, TCP, TLS (version, expiration), premier octet,
+téléchargement, code, redirections — puis chaque script / style / image /
+cadre de la page avec son code et sa durée. Constats : `dns-failed`,
+`connect-failed`, `tls-failed`, `http-error`, `http-client-error`,
+`slow-ttfb`, `slow-total`, `sub-errors`, `sub-slow`, `cert-expiring`,
+`redirect-chain`, `empty-body`, `mixed-content`. Sans authentification : une
+application derrière une connexion renvoie sa page de connexion (302/401),
+déjà une information. Hub : section « Audit d'application web » dans la
+fiche agent (détail dépliable par URL) et onglet **Audit web** de la tuile :
+matrice URL × poste (`GET /web-audit?site=`) — colonne rouge = l'application,
+ligne rouge = le poste ou son segment. 4 tests (analyse HTML, constats,
+serveur HTTP local réel, ligne de commande).

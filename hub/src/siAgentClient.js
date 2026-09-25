@@ -130,6 +130,7 @@ export const wakeOnLan = (apiBase, viaAgentId, params) => sendCommand(apiBase, v
 export const startupAction = (apiBase, agentId, params) => sendCommand(apiBase, agentId, "startup_action", params);
 export const watchdogConfig = (apiBase, agentId, params) => sendCommand(apiBase, agentId, "watchdog_config", params);
 export const benchCommand = (apiBase, agentId, params) => sendCommand(apiBase, agentId, "bench", params);  // #616
+export const fetchWebAudit = (apiBase, site) => fetchJson(apiBase, `/web-audit${site ? `?site=${encodeURIComponent(site)}` : ""}`);  // #617
 export const fetchCommand = (apiBase, cid) => fetchJson(apiBase, `/commands/${encodeURIComponent(cid)}`);
 
 /** #607 : filtres d'alertes (catégories, groupes de règles), test à blanc ; `include_muted` sur le journal. */

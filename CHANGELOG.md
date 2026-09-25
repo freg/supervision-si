@@ -1,3 +1,12 @@
+## 2026-09-26 — Sonde web-audit : dysfonctionnement partiel d'une application web vu du poste (livraison #617)
+
+Demandé : « un module sur sonde Windows permettant d'auditer un
+dysfonctionnement partiel d'application web ». Sonde `web-audit` (stdlib,
+toutes plateformes) : DNS / TCP / TLS / premier octet / total / code /
+redirections par URL, puis sous-ressources (scripts, styles, images, cadres)
+avec code et durée ; 13 constats. Fiche agent : section détaillée ; tuile
+Agents : onglet Audit web, matrice URL × poste (`GET /web-audit`). 4 tests.
+
 ## 2026-09-26 — Agents : déploiement en masse par jeton de site, introspection et banc de charge (livraison #616, agent 0.5.18)
 
 Pour la démonstration Numeria : « sondes Windows pour un maximum de PC » et

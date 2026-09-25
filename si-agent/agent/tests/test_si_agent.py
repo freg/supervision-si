@@ -315,7 +315,7 @@ class PluginTests(unittest.TestCase):
     def test_plugins_livres_valides(self):
         bundled = os.path.join(ROOT, "plugins")
         ids = sorted(os.listdir(bundled))
-        self.assertEqual(ids, ["broadcast-probe", "capture-relay", "docker-containers", "network-neighbors", "path-probe", "proxmox", "software-inventory", "wifi-probe", "windows-probe"])  # #436 relais ; #487 Proxmox ; #525 wifi-probe ; #527 path-probe ; #567 windows/broadcast ; #595 software-inventory
+        self.assertEqual(ids, ["broadcast-probe", "capture-relay", "docker-containers", "network-neighbors", "path-probe", "proxmox", "software-inventory", "web-audit", "wifi-probe", "windows-probe"])  # #436 relais ; #487 Proxmox ; #525 wifi-probe ; #527 path-probe ; #567 windows/broadcast ; #595 software-inventory
         for pid in ids:
             with open(os.path.join(bundled, pid, "manifest.json")) as fh:
                 m = json.load(fh)

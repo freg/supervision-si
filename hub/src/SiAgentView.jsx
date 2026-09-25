@@ -16,6 +16,7 @@ import AlertFiltersTab from "./AlertFiltersTab.jsx";  // #607
 import PathProbeSection from "./PathProbeSection.jsx";
 import HostControlSection from "./HostControlSection.jsx";  // #613
 import DeployTab from "./DeployTab.jsx";  // #616
+import WebAuditTab, { WebAuditSection } from "./WebAuditSection.jsx";  // #617
 
 // Tuile « Agents hôtes » (livraison #421, backlog 63) -- flotte des agents
 // si-agent (surveillance de l'hôte : CPU, mémoire, disques, services,
@@ -381,6 +382,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
         <button className={`secondary na-section-toggle${tab === "catalogue" ? " active" : ""}`} onClick={() => setTab("catalogue")}>Catalogue de sondes ({catalogue.length})</button>
         <button className={`secondary na-section-toggle${tab === "updates" ? " active" : ""}`} onClick={() => setTab("updates")}>Mises à jour</button>
         <button className={`secondary na-section-toggle${tab === "deploy" ? " active" : ""}`} onClick={() => setTab("deploy")}>Déploiement</button>
+        <button className={`secondary na-section-toggle${tab === "webaudit" ? " active" : ""}`} onClick={() => setTab("webaudit")}>Audit web</button>
         <button className={`secondary na-section-toggle${tab === "filters" ? " active" : ""}`} onClick={() => setTab("filters")}>Filtres d'alertes{fleet.some((a) => a.filter_enabled) ? ` (${fleet.filter((a) => a.filter_enabled).length})` : ""}</button>
         <button className={`secondary na-section-toggle${tab === "events" ? " active" : ""}`} onClick={() => setTab("events")}>
           Événements {summary ? <>({summary.counts.critical + summary.counts.warning} sur 24 h)</> : ""}
@@ -590,6 +592,9 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                   {/* #525 : sonde Wi-Fi « expérience client » -- affichée dès qu'une mesure existe */}
                   {section.network && detail.latest?.["plugin:wifi-probe"] && (
                     <WifiProbeSection apiBase={siAgentApiBase} agentId={selectedId} latest={detail.latest["plugin:wifi-probe"]} when={when} />
+                  )}
+                  {section.network && detail.latest?.["plugin:web-audit"] && (
+                    <WebAuditSection latest={detail.latest["plugin:web-audit"]} when={when} />
                   )}
                   {section.network && detail.latest?.["plugin:path-probe"] && (
                     <PathProbeSection apiBase={siAgentApiBase} agentId={selectedId} latest={detail.latest["plugin:path-probe"]} when={when} />
@@ -997,6 +1002,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
       )}
 
       {tab === "updates" && <UpdatesTab base={siAgentApiBase} />}
+      {tab === "webaudit" && <WebAuditTab base={siAgentApiBase} fleet={fleet} when={when} />}
       {tab === "deploy" && <DeployTab base={siAgentApiBase} fleet={fleet} catalogue={catalogue} login="" notice={(t) => { setError(null); setNotice(t); }} error={(t) => { setNotice(null); setError(t); }} />}
       {tab === "filters" && <AlertFiltersTab base={siAgentApiBase} fleet={fleet} onChanged={load} notice={(t, ok = true) => (ok ? setNotice(t) : setError(t))} />}
 
