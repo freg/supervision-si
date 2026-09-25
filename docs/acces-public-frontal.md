@@ -93,6 +93,14 @@ Depuis le LAN, `https://<nom public>` ne répond que si le routeur d'entrée
 fait du hairpin NAT ; tester depuis l'extérieur (4G) ou forcer la
 résolution : `curl -kI --resolve <nom>:443:<IP frontal> https://<nom>/`.
 
+**Certificat Let's Encrypt aussi en interne (piste, non faite)** : DNS
+interne (BIND, zone dédiée `supervision.optline.fr` → IP du frontal, TTL
+300) ; tout le monde passe par le frontal, hairpin inutile, hub et agents
+inchangés (toujours `https://HOST_IP:6443` + PKI interne). Le porter sur la
+passerelle du hub (copie fullchain/privkey par hook certbot) exigerait en
+plus de reconstruire le hub sur le nom public et le port 443 et de
+repointer agents et realm : migration, pas réglage.
+
 ## 3. Vérifier
 
 ```bash

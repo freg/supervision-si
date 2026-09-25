@@ -3416,6 +3416,21 @@ services automatiques ; activer/désactiver depuis la tuile), plugin
 relance, délai, fenêtre horaire ; relance et événement `app-restarted` /
 `app-down`).
 
+## Image complète d'un poste Windows à chaud, pour virtualisation (2026-09-25) — item 101
+
+Demandé : « un agent Windows pourrait-il faire une image complète de son
+host en vue d'une virtualisation, en parallèle de son fonctionnement
+continu ? » — cas : portable de test qui supervise / pilote 4 postes
+Windows contrôleurs d'écrans projetés interactifs. Plan : commande
+`image_host` (Windows) dans la section Poste : Disk2vhd (Sysinternals,
+téléchargé avec empreinte vérifiée) avec instantané VSS (`* <cible>.vhdx
+-c -v`), contrôles préalables (BitLocker suspendu, espace cible, pilotes
+VirtIO présents), cible = partage SMB indiqué depuis le hub, progression et
+événement de fin ; doc : import Proxmox (`qm importdisk`, OVMF, TPM pour
+Windows 11, SATA puis VirtIO), activation OEM, logiciel de pilotage lié au
+matériel (USB/série/carte réseau → passthrough), jamais les deux machines
+en même temps sur le LAN.
+
 ## Réglages Keycloak depuis le hub, parties névralgiques protégées (2026-09-25) — item 98
 
 **Fait en #614** (onglet Réglages Keycloak : liste blanche, simulation avant /
