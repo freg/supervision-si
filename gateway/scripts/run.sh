@@ -23,6 +23,8 @@
 #     jour depuis -- même principe que reset-keycloak ci-dessus).
 #   ./gateway/scripts/run.sh restore-groups
 #     Réapplique la dernière capture des appartenances aux groupes.
+#   ./gateway/scripts/run.sh service-account [client-id]
+#     (#609) Recrée le compte de service d'administration (401 dans Comptes).
 #
 # Prompt "realm Keycloak changé" (livraison #155) : si le fichier
 # realm-template.json semble différent du dernier import ET qu'aucun
@@ -291,6 +293,29 @@ if [ "${1:-}" = "reset-ldap-test" ]; then
   fi
   echo ""
   echo "Relance avec : ./gateway/scripts/run.sh up -d --build"
+  exit 0
+fi
+
+# --- #609 : (re)créer le compte de service Keycloak sans la console ------
+# Cas réel : « authentification du compte de service refusée (401) » dans la
+# tuile Comptes -- le secret de .env ne correspond plus au compte créé au
+# tout premier démarrage (bootstrap appliqué une seule fois, .env régénéré
+# depuis). Keycloak 26 fournit `kc.sh bootstrap-admin service` : crée un
+# compte de service d'administration (realm master) sur une base EXISTANTE,
+# avec le client id / secret pris dans l'environnement du conteneur (les
+# mêmes variables que .env). Si le client existe déjà : passer un autre
+# identifiant en argument et reporter KEYCLOAK_SERVICE_CLIENT_ID dans .env.
+#   ./gateway/scripts/run.sh service-account [client-id]
+if [ "${1:-}" = "service-account" ]; then
+  ENV_CID="$(grep -E '^KEYCLOAK_SERVICE_CLIENT_ID=' "$PROJECT_ROOT/.env" 2>/dev/null | tail -1 | cut -d= -f2-)"
+  CID="${2:-${ENV_CID:-supervision-si-service}}"
+  echo "Création du compte de service Keycloak « $CID » (secret = KEYCLOAK_SERVICE_CLIENT_SECRET de .env)..."
+  compose exec -T keycloak /opt/keycloak/bin/kc.sh bootstrap-admin service --client-id "$CID" --client-secret:env KC_BOOTSTRAP_ADMIN_CLIENT_SECRET \
+    || { echo "❌ échec -- si « already exists » : relancer avec un autre identifiant (ex. ${CID}-2) puis mettre KEYCLOAK_SERVICE_CLIENT_ID=${CID}-2 dans .env" >&2; exit 1; }
+  echo "Vérification (jeton client_credentials sur le realm master)..."
+  compose exec -T keycloak sh -c 'curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:8080/auth/realms/master/protocol/openid-connect/token -d client_id="$KC_BOOTSTRAP_ADMIN_CLIENT_ID" -d client_secret="$KC_BOOTSTRAP_ADMIN_CLIENT_SECRET" -d grant_type=client_credentials' 2>/dev/null \
+    | grep -q '^200' && echo "✅ compte de service opérationnel -- redémarrer les consommateurs : cd $PROJECT_ROOT && ./scripts/run.sh up -d accounts-api tickets-api keycloak-backup" \
+    || echo "⚠️  jeton non obtenu (curl absent dans l'image ou secret différent) -- tester depuis la tuile Comptes après ./scripts/run.sh up -d accounts-api"
   exit 0
 fi
 

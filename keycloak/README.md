@@ -848,3 +848,19 @@ faire tourner tous les conteneurs de ce projet à la fois. Réduire le
 nombre de stacks lancés simultanément (`gateway`/`mayan`/`main`/
 `vault-standalone` -- voir `scripts/run-all.sh`) reste une autre
 option si augmenter la mémoire de Docker Desktop n'est pas possible.
+
+## « authentification du compte de service refusée (401) » (livraison #609)
+
+Le compte de service `supervision-si-service` est créé au **tout premier**
+démarrage de Keycloak (bootstrap) ; si `.env` a été régénéré depuis, le
+secret ne correspond plus. Sans passer par la console :
+
+```
+cd ~/SRC/data2/tickets/supervision-si && ./gateway/scripts/run.sh service-account
+cd ~/SRC/data2/tickets/supervision-si && ./scripts/run.sh up -d accounts-api tickets-api keycloak-backup
+```
+
+(`kc.sh bootstrap-admin service` sur la base existante, secret pris dans
+l'environnement du conteneur = `KEYCLOAK_SERVICE_CLIENT_SECRET` de `.env`.
+Si le client existe déjà : `service-account supervision-si-service-2` puis
+`KEYCLOAK_SERVICE_CLIENT_ID=supervision-si-service-2` dans `.env`.)

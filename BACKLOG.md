@@ -3378,3 +3378,26 @@ par le groupe Keycloak et vérifié côté API, matrice des droits #559,
 habillage) ; B — miroir autonome (cohorte « site » du compose sur une VM
 du client, fédération miroir → central par HTTPS et jeton de consommateur,
 livraisons par la tour via le shim du site). Prochaine étape : A1 + A3.
+
+## Réglages Keycloak depuis le hub, parties névralgiques protégées (2026-09-25) — item 98
+
+Demandé : « rester (ou créer une interface) dans le hub pour modifier la
+configuration du Keycloak, en limitant ou protégeant les parties
+névralgiques ». Existant : Comptes (#557, utilisateurs / groupes / démo
+#608), Liens externes (clients OIDC par prefs-api-service, droit
+`manage-clients` seulement), matrice des droits (#559), sauvegarde du
+realm (keycloak-backup). Plan « tuile Réglages Keycloak » (dans Comptes,
+groupe administrateurs) sur l'API Admin via le compte de service :
+**liste blanche** de réglages modifiables — nom affiché et langue du
+realm, durées de session (SSO idle / max, jeton d'accès), politique de
+mots de passe, protection force brute, actions requises (OTP), événements
+(durée de rétention), synchronisation LDAP (déclencher « sync all »,
+tester la connexion, voir les réglages sans le mot de passe), URIs de
+redirection du client du hub, thème de connexion ; **protégé / interdit**
+: realm master, suppression ou renommage du realm, clients de service et
+leurs secrets (rotation en écriture seule avec confirmation), rôles
+`realm-management`, comptes administrateurs, mot de passe de liaison
+LDAP (écriture seule). Chaque écriture : aperçu avant / après, export
+partiel du realm avant application (retour arrière en un clic),
+journal + notification `keycloak.settings`. Prochaine étape après A1 du
+site miroir (item 97) si validé.

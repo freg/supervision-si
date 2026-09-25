@@ -1,3 +1,12 @@
+## 2026-09-25 — Keycloak : recréer le compte de service depuis la ligne de commande (401 dans Comptes) (livraison #609)
+
+Constat réel : « authentification du compte de service refusée (401) »
+dans la tuile Comptes — le secret de `.env` ne correspond plus au compte
+créé au premier démarrage. `./gateway/scripts/run.sh service-account
+[client-id]` : `kc.sh bootstrap-admin service` sur la base existante,
+vérification du jeton, sans console. Item 98 (réglages Keycloak depuis le
+hub, liste blanche) noté au backlog.
+
 ## 2026-09-25 — Comptes : utilisateurs de démonstration activables / désactivables depuis le hub (livraison #608)
 
 Demandé : « pour les besoins de démo il faudrait des utilisateurs démo ;
