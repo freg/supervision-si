@@ -1176,6 +1176,7 @@ services:
       # créait un DOSSIER ./pki/ca/ca.crt et la CA restait « non montée »).
       - ${PKI_DIR:-./pki}/ca/ca.crt:/ca/ca.crt:ro
     environment:
+      - SI_AGENT_ALERT_TZ=${SI_AGENT_ALERT_TZ:-Europe/Paris}   # #607 : heures ouvrées des filtres d'alertes
       - MEMCACHED_HOST=memcached
       # URL que les agents utilisent pour joindre le central (passerelle
       # TLS) -- affichée dans la commande d'installation.

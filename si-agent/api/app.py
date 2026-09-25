@@ -42,6 +42,7 @@ import store  # noqa: E402
 import publish as publish_lib  # noqa: E402
 import updates  # noqa: E402
 import notify  # noqa: E402
+import alertfilters  # noqa: E402  (#607)
 
 try:
     from version_endpoint import register_version_route
@@ -104,10 +105,26 @@ def _purge_loop():
             _log.warning("purge impossible : %s", exc)
 
 
+ALERT_TZ = os.environ.get("SI_AGENT_ALERT_TZ", alertfilters.DEFAULT_TZ)
+
+
+def alert_groups():
+    g = store.get_setting(DB_PATH, "alert_filters", None)
+    return g.get("groups") if isinstance(g, dict) and isinstance(g.get("groups"), list) else alertfilters.DEFAULT_GROUPS
+
+
 def _event(kind, severity, message, agent_id=None, details=None, source="central"):
-    """Journalise (base + traces) et notifie si la sévérité le mérite."""
+    """Journalise (base + traces) et notifie si la sévérité le mérite.
+    #607 : un événement filtré par le groupe de l'agent est conservé mais
+    marqué `muted` -- ni bandeau, ni synthèse, ni notification."""
     ev = store.add_event(DB_PATH, kind, severity, message, agent_id=agent_id, details=details, source=source)
     if ev:
+        agent = store.get_agent(DB_PATH, agent_id) if agent_id else None
+        muted, why = alertfilters.evaluate(ev, alert_groups(), {"filter_enabled": (agent or {}).get("filter_enabled"), "filter_group": (agent or {}).get("filter_group")}, ALERT_TZ)
+        if muted:
+            store.mark_muted(DB_PATH, ev["id"], why)
+            ev["muted"], ev["muted_by"] = 1, why
+            return ev
         notify.dispatch(DB_PATH, ev)
     return ev
 
@@ -303,7 +320,8 @@ def update_agent_route(agent_id):
     try:
         a = store.update_agent(DB_PATH, agent_id, label=body.get("label"), active=body.get("active"), site=body.get("site"),
                                host_interval_seconds=body.get("host_interval_seconds"),
-                               risk_thresholds=body.get("risk_thresholds"), notes=body.get("notes"), publish=body.get("publish"))
+                               risk_thresholds=body.get("risk_thresholds"), notes=body.get("notes"), publish=body.get("publish"),
+                               filter_enabled=body.get("filter_enabled"), filter_group=body.get("filter_group"))  # #607
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     if a is None:
@@ -394,7 +412,43 @@ def unblock_agent_route(agent_id):
 def events_route():
     return jsonify({"events": store.list_events(
         DB_PATH, agent_id=request.args.get("agent"), severity=request.args.get("severity"), kind=request.args.get("kind"),
-        since=request.args.get("since"), limit=request.args.get("limit", 200, type=int), min_severity=request.args.get("min_severity"))}), 200
+        since=request.args.get("since"), limit=request.args.get("limit", 200, type=int), min_severity=request.args.get("min_severity"),
+        include_muted=request.args.get("include_muted") in ("1", "true"))}), 200
+
+
+# ---- #607 : filtres d'alertes (catégories, groupes de règles, réglage par agent) ----
+@app.route("/alert-filters", methods=["GET"])
+def alert_filters_get():
+    groups = alert_groups()
+    usage = {}
+    for a in store.fleet(DB_PATH, offline_after_seconds=OFFLINE_AFTER_SECONDS):
+        if a.get("filter_enabled"):
+            usage[a.get("filter_group") or ""] = usage.get(a.get("filter_group") or "", 0) + 1
+    return jsonify({"groups": groups, "categories": alertfilters.CATEGORIES, "kinds": sorted(alertfilters.KIND_CATEGORY), "weekdays": alertfilters.WEEKDAYS,
+                    "tz": ALERT_TZ, "usage": usage, "default": store.get_setting(DB_PATH, "alert_filters", None) is None}), 200
+
+
+@app.route("/alert-filters", methods=["PUT"])
+def alert_filters_put():
+    body = request.get_json(silent=True) or {}
+    try:
+        groups = alertfilters.normalize_groups(body.get("groups"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    store.set_setting(DB_PATH, "alert_filters", {"groups": groups})
+    _event("alert-filters", "info", "filtres d'alertes : %d groupe(s) enregistré(s)" % len(groups), details={"groups": [g["id"] for g in groups]})
+    return jsonify({"groups": groups}), 200
+
+
+@app.route("/alert-filters/test", methods=["POST"])
+def alert_filters_test():
+    """{kind, at?, agent_id? | filter_group} -> l'événement serait-il filtré ? (pour régler sans attendre la nuit)"""
+    body = request.get_json(silent=True) or {}
+    agent = store.get_agent(DB_PATH, body.get("agent_id")) if body.get("agent_id") else None
+    ag = {"filter_enabled": 1, "filter_group": body.get("filter_group")} if body.get("filter_group") else {"filter_enabled": (agent or {}).get("filter_enabled"), "filter_group": (agent or {}).get("filter_group")}
+    ev = {"kind": body.get("kind") or "agent-offline", "at": body.get("at") or store.now_iso()}
+    muted, why = alertfilters.evaluate(ev, alert_groups(), ag, ALERT_TZ)
+    return jsonify({"muted": muted, "reason": why, "category": alertfilters.category_of(ev["kind"]), "at": ev["at"]}), 200
 
 
 @app.route("/events/summary", methods=["GET"])

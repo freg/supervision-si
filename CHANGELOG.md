@@ -1,3 +1,26 @@
+## 2026-09-25 — Agents : filtres d'alertes par agent et par groupe (postes éteints hors heures ouvrées), catégories d'événements ; liens plus clairs (livraison #607)
+
+Demandé : filtrage des alertes agents (case par agent, groupes de filtres,
+catégories, paramétrage fin ; besoin immédiat : postes de travail éteints
+hors 8 h 30 – 18 h) et « design : toujours des liens trop sombres ».
+
+- `si-agent/api/alertfilters.py` (pur, 4 tests) : catégories, groupes par
+  défaut, `in_hours` (fuseau, jours, plage), `evaluate`,
+  `normalize_groups`. `_event()` marque `muted` / `muted_by` et ne notifie
+  pas ; `list_events(include_muted)`, synthèse sans les filtrées + compte
+  `muted` ; colonnes `agents.filter_enabled / filter_group`,
+  `events.muted / muted_by` (migrations) ; `GET/PUT /alert-filters`,
+  `POST /alert-filters/test` ; `SI_AGENT_ALERT_TZ`.
+- Hub, tuile Agents hôtes : onglet **Filtres d'alertes** (par agent : case
+  + groupe ; éditeur de groupes et de règles ; test à blanc), case et groupe
+  dans les réglages de l'agent, « afficher les filtrées » dans le journal
+  (lignes atténuées, raison au survol).
+- Liens : variable `--link` (hub sombre `#8fc6f7`, clair `#1b5e93` ; pages
+  MikroTik et ProjeQtOr-bridge `#7ab8f5`) — règle design 10 ; page
+  MikroTik : réponse non JSON → message lisible au lieu de
+  « JSON.parse: unexpected character ».
+- Tests : si-agent-api 17 + 4, hub 267.
+
 ## 2026-09-25 — Redirections NAT : carte de tous les routeurs (entrée → routeur → cible), conflits, activer / désactiver (livraison #606)
 
 Demandé : « un outil de visualisation des redirections NAT ». Avant : les

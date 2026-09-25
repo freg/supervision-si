@@ -1012,3 +1012,26 @@ winget / choco, gestionnaire déduit de l'OS, nom de paquet validé
 min, sortie tronquée renvoyée au central ; événement `command-software`.
 Windows : l'agent tourne en service (session 0) où `winget` peut manquer —
 préférer `choco` ou installer winget pour le compte système.
+
+## Filtres d'alertes (livraison #607)
+
+Demandé : « les alertes agents sont inutiles pour une partie des cas ; une
+case à cocher sur chaque agent pour activer / désactiver un filtrage ; des
+groupes de filtres ; classer / catégoriser les alertes ; paramétrage fin ;
+besoin immédiat : filtrer les postes de travail éteints hors des heures de
+travail (8 h 30 – 18 h) ». `api/alertfilters.py` (pur, 4 tests) : chaque
+`kind` d'événement a une **catégorie** (disponibilité, sécurité, sondes,
+mises à jour, commandes, flotte, captures, risques, autres) ; un **groupe**
+= règles {catégories et/ou genres, `when` toujours / hors / pendant les
+heures ouvrées, jours, début, fin, action filtrer / laisser passer} ; un
+agent = `filter_enabled` + `filter_group`. Groupes par défaut : « Postes
+de travail (heures ouvrées) » (disponibilité hors lun.–ven. 08:30–18:00,
+fuseau `SI_AGENT_ALERT_TZ`) et « Silencieux ». Un événement filtré est
+conservé (`muted`, `muted_by`) mais absent du bandeau, de la synthèse
+(`muted` compté à part), de la liste par défaut (`?include_muted=1`) et des
+notifications. Routes : `GET/PUT /alert-filters`, `POST /alert-filters/test`
+(« un hors-ligne à telle heure serait-il filtré ? »), `PUT /agents/<id>`
+(`filter_enabled`, `filter_group`). Tuile : onglet **Filtres d'alertes**
+(tableau par agent avec case + groupe, éditeur de groupes, test à blanc),
+case « Filtrer les alertes » dans les réglages de l'agent, « afficher les
+filtrées » dans le journal.

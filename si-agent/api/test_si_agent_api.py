@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "agent"))
 
 import app as app_mod  # noqa: E402
 import notify  # noqa: E402
+import alertfilters  # noqa: E402
 import store  # noqa: E402
 from si_agent import agent as agent_mod  # noqa: E402
 from si_agent import control, host, protocol  # noqa: E402
@@ -616,3 +617,40 @@ class PublishHubLink(unittest.TestCase):
         self.assertEqual(pl.normalize_publish({"enabled": True})["hub_url"], "")
         self.assertEqual(pl.board_payload({}, "T", 1, "https://hub.exemple/")["hub_url"], "https://hub.exemple/")
         self.assertNotIn("hub_url", pl.board_payload({}, "T", 1))
+
+
+class AlertFilterTests(ApiBase):
+    """#607 : filtrage des alertes par agent et groupe (postes éteints hors heures ouvrées)."""
+
+    def test_filter_mutes_offline_outside_hours(self):
+        self.enroll("pc-01", site="bureau")
+        self.enroll("srv-01", site="bureau")
+        # paramétrage par défaut exposé ; agent pc-01 filtré par le groupe « postes-travail »
+        g = self.c.get("/alert-filters").get_json()
+        self.assertEqual([x["id"] for x in g["groups"]], ["postes-travail", "silencieux"])
+        self.assertTrue(g["default"])
+        r = self.c.put("/agents/pc-01", json={"filter_enabled": True, "filter_group": "postes-travail"})
+        self.assertEqual((r.status_code, r.get_json()["filter_enabled"], r.get_json()["filter_group"]), (200, 1, "postes-travail"))
+        # test à blanc : un « hors ligne » à 21 h (19:00 UTC en été) est filtré ; à 10 h non ; le serveur jamais
+        t = self.c.post("/alert-filters/test", json={"agent_id": "pc-01", "kind": "agent-offline", "at": "2026-09-22T19:00:00Z"}).get_json()
+        self.assertTrue(t["muted"]); self.assertIn("Postes de travail", t["reason"])
+        self.assertFalse(self.c.post("/alert-filters/test", json={"agent_id": "pc-01", "kind": "agent-offline", "at": "2026-09-22T08:00:00Z"}).get_json()["muted"])
+        self.assertFalse(self.c.post("/alert-filters/test", json={"agent_id": "srv-01", "kind": "agent-offline", "at": "2026-09-22T19:00:00Z"}).get_json()["muted"])
+        # événement réel : hors ligne la nuit -> journal (include_muted) mais ni liste par défaut, ni synthèse
+        app_mod._event("agent-offline", "warning", "agent pc-01 ne répond plus", agent_id="pc-01")  # horodaté maintenant : filtré ou non selon l'heure
+        conn = store._connect(app_mod.DB_PATH); conn.execute("DELETE FROM events"); conn.commit(); conn.close()
+        stored = store.add_event(app_mod.DB_PATH, "agent-offline", "warning", "agent pc-01 ne répond plus", agent_id="pc-01", at="2026-09-22T19:00:00Z")
+        muted, why = alertfilters.evaluate(stored, app_mod.alert_groups(), {"filter_enabled": 1, "filter_group": "postes-travail"}, app_mod.ALERT_TZ)
+        self.assertTrue(muted)
+        store.mark_muted(app_mod.DB_PATH, stored["id"], why)
+        self.assertEqual(self.kinds(), [])
+        self.assertEqual(self.kinds(include_muted="1"), ["agent-offline"])
+        s = self.c.get("/events/summary?hours=720").get_json()  # fenêtre large : l'événement de test est daté
+        self.assertEqual((s["counts"]["warning"], s["muted"]), (0, 1))
+        # paramétrage : un groupe personnalisé, refus d'une règle vide, usage par agent
+        r = self.c.put("/alert-filters", json={"groups": [{"id": "postes-travail", "label": "Postes", "rules": [{"categories": ["availability"], "when": "outside", "days": [0, 1, 2, 3, 4], "start": "07:00", "end": "20:00"}]}]})
+        self.assertEqual(r.status_code, 200, r.get_json())
+        self.assertFalse(self.c.post("/alert-filters/test", json={"agent_id": "pc-01", "kind": "agent-offline", "at": "2026-09-22T17:30:00Z"}).get_json()["muted"])  # 19:30 Paris < 20:00
+        self.assertEqual(self.c.put("/alert-filters", json={"groups": [{"id": "x", "rules": [{"categories": []}]}]}).status_code, 400)
+        g = self.c.get("/alert-filters").get_json()
+        self.assertEqual((g["default"], g["usage"]), (False, {"postes-travail": 1}))

@@ -125,3 +125,12 @@ export const testNotifications = (apiBase) => fetchJson(apiBase, "/notifications
 // #572 : contrôle d'une VM Proxmox par l'agent (commande vm_action) et suivi du résultat
 export const vmAction = (apiBase, agentId, params) => sendCommand(apiBase, agentId, "vm_action", params);
 export const fetchCommand = (apiBase, cid) => fetchJson(apiBase, `/commands/${encodeURIComponent(cid)}`);
+
+/** #607 : filtres d'alertes (catégories, groupes de règles), test à blanc ; `include_muted` sur le journal. */
+export const fetchAlertFilters = (apiBase) => fetchJson(apiBase, "/alert-filters");
+export const saveAlertFilters = (apiBase, groups) => fetchJson(apiBase, "/alert-filters", json("PUT", { groups }));
+export const testAlertFilter = (apiBase, body) => fetchJson(apiBase, "/alert-filters/test", json("POST", body));
+export async function fetchEventsMuted(apiBase, limit = 300) {
+  const data = await fetchJson(apiBase, `/events?include_muted=1&limit=${limit}`);
+  return Array.isArray(data?.events) ? data.events : [];
+}

@@ -275,6 +275,7 @@ export const EVENT_KIND_LABELS_FR = {
 export const EVENT_SEVERITIES = ["critical", "warning", "info"];
 
 export function eventKindLabel(kind) {
+  if (kind === "alert-filters") return "filtres d'alertes modifiés";  // #607
   return EVENT_KIND_LABELS_FR[kind] || kind || "—";
 }
 

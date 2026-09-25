@@ -134,6 +134,10 @@ MIGRATIONS = [
     ("agent_plugins", "blocked", "INTEGER NOT NULL DEFAULT 0"),
     ("agent_plugins", "blocked_reason", "TEXT"),
     ("agents", "publish", "TEXT"),  # #547 : publication d'un tableau sur le LAN du site
+    ("agents", "filter_enabled", "INTEGER NOT NULL DEFAULT 0"),  # #607 : filtrage des alertes
+    ("agents", "filter_group", "TEXT"),
+    ("events", "muted", "INTEGER NOT NULL DEFAULT 0"),  # #607 : événement filtré (journal seulement)
+    ("events", "muted_by", "TEXT"),
 ]
 
 AGENT_ID_MAX = 64
@@ -253,9 +257,21 @@ def _event_public(r):
     return d
 
 
-def list_events(db_path, agent_id=None, severity=None, kind=None, since=None, limit=200, min_severity=None):
+def mark_muted(db_path, event_id, reason):
+    """#607 : l'événement reste dans le journal mais ne compte plus (bandeau, synthèse, notifications)."""
+    conn = _connect(db_path)
+    try:
+        conn.execute("UPDATE events SET muted = 1, muted_by = ? WHERE id = ?", (reason, event_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def list_events(db_path, agent_id=None, severity=None, kind=None, since=None, limit=200, min_severity=None, include_muted=False):
     q = "SELECT * FROM events WHERE 1=1"
     params = []
+    if not include_muted:
+        q += " AND COALESCE(muted, 0) = 0"
     if agent_id:
         q += " AND agent_id = ?"; params.append(agent_id)
     if severity:
@@ -292,12 +308,13 @@ def events_summary(db_path, hours=24, offline_after_seconds=300):
     conn = _connect(db_path)
     try:
         counts = {r["severity"]: r["n"] for r in conn.execute(
-            "SELECT severity, COUNT(*) AS n FROM events WHERE at >= ? GROUP BY severity", (since,)).fetchall()}
+            "SELECT severity, COUNT(*) AS n FROM events WHERE at >= ? AND COALESCE(muted, 0) = 0 GROUP BY severity", (since,)).fetchall()}
+        muted = conn.execute("SELECT COUNT(*) FROM events WHERE at >= ? AND muted = 1", (since,)).fetchone()[0]  # #607
         kinds = [{"kind": r["kind"], "severity": r["severity"], "count": r["n"]} for r in conn.execute(
-            "SELECT kind, severity, COUNT(*) AS n FROM events WHERE at >= ? GROUP BY kind, severity ORDER BY n DESC LIMIT 12", (since,)).fetchall()]
+            "SELECT kind, severity, COUNT(*) AS n FROM events WHERE at >= ? AND COALESCE(muted, 0) = 0 GROUP BY kind, severity ORDER BY n DESC LIMIT 12", (since,)).fetchall()]
         notable = [_event_public(r) for r in conn.execute(
-            "SELECT * FROM events WHERE at >= ? AND severity IN ('critical', 'warning') ORDER BY at DESC, id DESC LIMIT 8", (since,)).fetchall()]
-        latest = [_event_public(r) for r in conn.execute("SELECT * FROM events ORDER BY at DESC, id DESC LIMIT 5").fetchall()]
+            "SELECT * FROM events WHERE at >= ? AND severity IN ('critical', 'warning') AND COALESCE(muted, 0) = 0 ORDER BY at DESC, id DESC LIMIT 8", (since,)).fetchall()]
+        latest = [_event_public(r) for r in conn.execute("SELECT * FROM events WHERE COALESCE(muted, 0) = 0 ORDER BY at DESC, id DESC LIMIT 5").fetchall()]
     finally:
         conn.close()
     agents = fleet(db_path, offline_after_seconds=offline_after_seconds)
@@ -305,6 +322,7 @@ def events_summary(db_path, hours=24, offline_after_seconds=300):
     return {
         "window_hours": hours, "since": since,
         "counts": {"critical": counts.get("critical", 0), "warning": counts.get("warning", 0), "info": counts.get("info", 0)},
+        "muted": muted,  # #607
         "kinds": kinds, "notable": notable, "latest": latest,
         "fleet_blocked": bool(fb.get("blocked")), "fleet_block_reason": fb.get("reason"), "fleet_blocked_at": fb.get("at"),
         "agents": len(agents),
@@ -473,8 +491,12 @@ def get_secret(db_path, agent_id):
     return {"secret": r["secret"], "site": r["site"]}
 
 
-def update_agent(db_path, agent_id, label=None, active=None, site=None, host_interval_seconds=None, risk_thresholds=None, notes=None, publish=None):
+def update_agent(db_path, agent_id, label=None, active=None, site=None, host_interval_seconds=None, risk_thresholds=None, notes=None, publish=None, filter_enabled=None, filter_group=None):
     sets, params = [], []
+    if filter_enabled is not None:  # #607
+        sets.append("filter_enabled = ?"); params.append(1 if filter_enabled else 0)
+    if filter_group is not None:
+        sets.append("filter_group = ?"); params.append(str(filter_group or ""))
     if label is not None:
         sets.append("label = ?"); params.append(label)
     if active is not None:

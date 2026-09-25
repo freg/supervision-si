@@ -162,3 +162,7 @@ dire quoi ? »). Un écran échoue dès qu'une personne sur cinq bloque.
    formats acceptés affichés). Les cartes de formulaire s'étendent sur
    toute la largeur disponible (jamais un cadre plus étroit que ses
    champs) : `.lic-card` / `.lic-form`, champs à 100 % de leur cellule.
+10. (#607) Les liens ont leur propre couleur `--link` (hub : `#8fc6f7` en
+    sombre, `#1b5e93` en clair ; pages statiques sombres : `#7ab8f5`),
+    jamais l'accent ni le bleu du navigateur : sur fond sombre l'accent
+    (#2980b9 / #4a9eda) reste trop foncé pour un lien.

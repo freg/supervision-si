@@ -10,7 +10,8 @@ Charte sombre du hub, sans couleur hors palette (#2980b9/#b7791f). -->
 <title>Routeurs MikroTik</title>
 <style>
   :root { --bg: #1a1d24; --card: #242933; --text: #e8eaed; --muted: #9aa3b2;
-          --accent: #2980b9; --warn: #b7791f; --ok: #27ae60; --err: #c0392b; }
+          --accent: #2980b9; --link: #7ab8f5; --warn: #b7791f; --ok: #27ae60; --err: #c0392b; }
+  /* #607 (note design 2) : liens toujours clairs sur fond sombre -- jamais le bleu foncé de l'accent */
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text);
          font-family: system-ui, -apple-system, "Segoe UI", sans-serif; padding: 20px; }
@@ -20,7 +21,7 @@ Charte sombre du hub, sans couleur hors palette (#2980b9/#b7791f). -->
   .card { background: var(--card); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
   .router { padding: 10px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 6px;
             background: var(--bg); border: 1px solid transparent; }
-  a, a:visited { color: var(--accent); }
+  a, a:visited { color: var(--link); text-decoration-color: rgba(122,184,245,.5); }
   .router:hover { border-color: var(--accent); }
   .natForm { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:6px; }
   .natForm input, .natForm select { padding:4px 6px; }
@@ -98,7 +99,7 @@ async function loadRouters() {
   const box = document.getElementById("routers");
   try {
     const r = await fetch(api + "/routers");
-    const data = await r.json();
+    const data = await readJson(r);
     if (data.registry_error) box.innerHTML = `<p class="muted">⚠️ ${data.registry_error}</p>`;
     if (!data.routers.length) { box.innerHTML += `<p class="muted">Aucun routeur — <a href="/?view=control&tab=configs&config=mikrotik" target="_top">en ajouter dans la tour de contrôle</a></p>`; return; }
     box.innerHTML = "";
@@ -106,7 +107,7 @@ async function loadRouters() {
       const div = document.createElement("div");
       div.className = "router" + (current === rt.name ? " active" : "");
       div.innerHTML = `<span class="dot ${rt.reachable ? "up" : "down"}"></span><b>${rt.identity || rt.name}</b>
-        <div class="muted">${rt.host}:${rt.port} · ${rt.transport === "ssh" ? "SSH" : "REST"}${rt.error ? " — " + rt.error : ""}${rt.error && /coffre/.test(rt.error) ? ' — <a href="../credentials/" target="_top" style="color:#2980b9">ouvrir les Accès d\'équipements</a>' : ""}${rt.error && /SSLError|www-ssl/.test(rt.error) ? ' — <a href="#" onclick="editRouter(\'' + rt.name + '\');return false" style="color:#2980b9">passer en SSH ?</a>' : ""}</div>
+        <div class="muted">${rt.host}:${rt.port} · ${rt.transport === "ssh" ? "SSH" : "REST"}${rt.error ? " — " + rt.error : ""}${rt.error && /coffre/.test(rt.error) ? ' — <a href="../credentials/" target="_top" style="color:var(--link)">ouvrir les Accès d\'équipements</a>' : ""}${rt.error && /SSLError|www-ssl/.test(rt.error) ? ' — <a href="#" onclick="editRouter(\'' + rt.name + '\');return false" style="color:var(--link)">passer en SSH ?</a>' : ""}</div>
         <div><a href="#" onclick="event.stopPropagation();editRouter('${rt.name}');return false" class="muted">modifier</a> · <a href="#" onclick="event.stopPropagation();deleteRouter('${rt.name}');return false" class="muted">retirer</a></div>`;
       div.onclick = () => selectRouter(rt.name);
       box.appendChild(div);
@@ -264,6 +265,11 @@ async function loadNat(name) {
           <button class="danger" onclick="natRemove('${name}','${x[".id"]}','${(x.summary || "").replace(/'/g, "")}')">Supprimer</button>
         </td></tr>`).join("") + `</table>`;
   } catch (e) { box.textContent = `⚠️ ${e.message}`; }
+}
+// #607 : une réponse qui n'est pas du JSON (passerelle 502/504, API en redémarrage) donne un message lisible
+async function readJson(r) {
+  const t = await r.text();
+  try { return JSON.parse(t); } catch (e) { throw new Error(`HTTP ${r.status} : réponse non JSON (API indisponible ou trop lente -- réessayer dans quelques secondes)`); }
 }
 function natMsg(text, ok) { const m = document.getElementById("natMsg"); m.className = ok ? "ok" : "err"; m.textContent = text; }
 async function natAdd(name) {

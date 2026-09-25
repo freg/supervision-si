@@ -4,7 +4,7 @@ import {
   fetchSiAgentStatus, fetchFleet, fetchFleetRisks, fetchAgent, createAgent, updateAgent, deleteAgent,
   rotateAgentSecret, fetchInstall, installCmdUrl, fetchPlugins, fetchPlugin, savePlugin, deletePlugin, assignPlugin,
   unassignPlugin, sendCommand, fetchCommands, blockFleet, unblockFleet, blockAgent, unblockAgent, setPluginBlocked,
-  fetchEvents, fetchEventsSummary, testNotifications, fetchUpdates, saveUpdates, applyUpdates,
+  fetchEvents, fetchEventsSummary, testNotifications, fetchUpdates, saveUpdates, applyUpdates, fetchEventsMuted,
 } from "./siAgentClient.js";
 import {
   COMMAND_TYPES, CONTACT_LABELS, riskLabel, severityTone, stateTone, contactTone, gauge, formatBytes,
@@ -12,6 +12,7 @@ import {
   validatePluginForm, defaultEntry, eventKindLabel, filterEvents, summarizeEvents, isSecurityEvent, EVENT_SEVERITIES, publishedPageUrl } from "./siAgent.js";
 // #525 : section « Wi-Fi vu du poste » (sonde wifi-probe, famille explorer).
 import WifiProbeSection from "./WifiProbeSection.jsx";
+import AlertFiltersTab from "./AlertFiltersTab.jsx";  // #607
 import PathProbeSection from "./PathProbeSection.jsx";
 
 // Tuile « Agents hôtes » (livraison #421, backlog 63) -- flotte des agents
@@ -113,7 +114,8 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
     setSettings({ host_interval_seconds: d.host_interval_seconds, label: d.label || "", site: d.site || "", notes: d.notes || "",
       thresholds: JSON.stringify(d.risk_thresholds || {}, null, 0),
       // #563 : publication d'une page d'état sur le LAN du site (#547), réglable ici et plus seulement par l'API
-      pub_enabled: !!pub.enabled, pub_port: pub.port || 8081, pub_title: pub.title || "État du réseau", pub_site_id: pub.site_id || "", pub_hours: pub.hours || 24, pub_hub_url: pub.hub_url || "" });
+      pub_enabled: !!pub.enabled, pub_port: pub.port || 8081, pub_title: pub.title || "État du réseau", pub_site_id: pub.site_id || "", pub_hours: pub.hours || 24, pub_hub_url: pub.hub_url || "",
+      filter_enabled: !!d.filter_enabled, filter_group: d.filter_group || "" });  // #607
   }, [siAgentApiBase]);
 
   useEffect(() => { load(); }, [load]);
@@ -225,6 +227,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
     const r = await updateAgent(siAgentApiBase, selectedId, {
       host_interval_seconds: Number(settings.host_interval_seconds) || 60, label: settings.label, site: settings.site, notes: settings.notes, risk_thresholds: thresholds,
       publish: { enabled: !!settings.pub_enabled, port: Number(settings.pub_port) || 8081, title: settings.pub_title || "État du réseau", site_id: settings.pub_site_id || "", hours: Number(settings.pub_hours) || 24, interval_seconds: 60, hub_url: settings.pub_hub_url || "" },
+      filter_enabled: !!settings.filter_enabled, filter_group: settings.filter_group || "",  // #607
     });
     if (r?.error) { setError(r.error); return; }
     setNotice("Réglages enregistrés -- appliqués par l'agent à sa prochaine lecture de configuration (5 min au plus).");
@@ -375,6 +378,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
         <button className={`secondary na-section-toggle${tab === "risks" ? " active" : ""}`} onClick={() => setTab("risks")}>Risques ({risks.length})</button>
         <button className={`secondary na-section-toggle${tab === "catalogue" ? " active" : ""}`} onClick={() => setTab("catalogue")}>Catalogue de sondes ({catalogue.length})</button>
         <button className={`secondary na-section-toggle${tab === "updates" ? " active" : ""}`} onClick={() => setTab("updates")}>Mises à jour</button>
+        <button className={`secondary na-section-toggle${tab === "filters" ? " active" : ""}`} onClick={() => setTab("filters")}>Filtres d'alertes{fleet.some((a) => a.filter_enabled) ? ` (${fleet.filter((a) => a.filter_enabled).length})` : ""}</button>
         <button className={`secondary na-section-toggle${tab === "events" ? " active" : ""}`} onClick={() => setTab("events")}>
           Événements {summary ? <>({summary.counts.critical + summary.counts.warning} sur 24 h)</> : ""}
         </button>
@@ -881,6 +885,8 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                         <label>Intervalle hôte (s) <input type="number" min="10" value={settings.host_interval_seconds} onChange={(e) => setSettings({ ...settings, host_interval_seconds: e.target.value })} /></label>
                         <label>Seuils de risques (JSON) <input value={settings.thresholds} onChange={(e) => setSettings({ ...settings, thresholds: e.target.value })} placeholder='{"disk_warning_percent": 80}' /></label>
                         <label className="ups-form-wide">Notes <input value={settings.notes} onChange={(e) => setSettings({ ...settings, notes: e.target.value })} /></label>
+                        <label><input type="checkbox" checked={!!settings.filter_enabled} onChange={(e) => setSettings({ ...settings, filter_enabled: e.target.checked })} /> Filtrer les alertes (#607)</label>
+                        <label>Groupe de filtres <input value={settings.filter_group} onChange={(e) => setSettings({ ...settings, filter_group: e.target.value })} placeholder="postes-travail" list="sa-filter-groups" /><datalist id="sa-filter-groups"><option value="postes-travail" /><option value="silencieux" /></datalist></label>
                       </div>
                       <h3 style={{ marginTop: 10 }}>Page d'état publiée sur le réseau du site</h3>
                       <p className="muted" style={{ margin: "0 0 6px" }}>L'agent sert sur son LAN une page « santé du réseau » (tableau Nebula du site), sans connexion ; le hub l'affiche en aperçu et en réel (Pages ouvertes → voir).</p>
@@ -951,6 +957,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
               </select>
             </label>
             <label><input type="checkbox" checked={evFilter.securityOnly} onChange={(e) => setEvFilter({ ...evFilter, securityOnly: e.target.checked })} /> sécurité seulement</label>
+            <label title="#607 : événements filtrés par le groupe de leur agent (journal seulement)"><input type="checkbox" checked={!!evFilter.showMuted} onChange={async (e) => { setEvFilter({ ...evFilter, showMuted: e.target.checked }); setEvents(e.target.checked ? await fetchEventsMuted(siAgentApiBase, 300) : await fetchEvents(siAgentApiBase, { limit: 300 })); }} /> afficher les filtrées{summary?.muted ? ` (${summary.muted} sur 24 h)` : ""}</label>
             <label>Recherche <input value={evFilter.text} onChange={(e) => setEvFilter({ ...evFilter, text: e.target.value })} placeholder="genre, message, agent" /></label>
           </div>
           {(() => {
@@ -963,12 +970,12 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                   <table>
                     <thead><tr><th>Quand</th><th>Sévérité</th><th>Agent</th><th>Événement</th><th>Message</th><th>Source</th><th>Notifié</th></tr></thead>
                     <tbody>{shown.map((e) => (
-                      <tr key={e.id} className={`ups-row${isSecurityEvent(e) ? " sa-event-security" : ""}`} onClick={() => { if (e.agent_id) { setTab("fleet"); setSelectedId(e.agent_id); } }} title={e.details && Object.keys(e.details).length ? JSON.stringify(e.details) : ""}>
+                      <tr key={e.id} className={`ups-row${isSecurityEvent(e) ? " sa-event-security" : ""}`} style={{ opacity: e.muted ? 0.55 : 1 }} onClick={() => { if (e.agent_id) { setTab("fleet"); setSelectedId(e.agent_id); } }} title={e.muted ? `filtré : ${e.muted_by}` : e.details && Object.keys(e.details).length ? JSON.stringify(e.details) : ""}>
                         <td className="muted" style={{ whiteSpace: "nowrap" }}>{when(e.at)}</td>
                         <td><Tone tone={severityTone(e.severity)}>{e.severity === "critical" ? "⛔" : e.severity === "warning" ? "⚠" : "ℹ"} {e.severity}</Tone></td>
                         <td>{e.agent_id ? <strong>{e.agent_id}</strong> : <span className="muted">central</span>}</td>
                         <td>{isSecurityEvent(e) && <span title="sécurité">🔒 </span>}{eventKindLabel(e.kind)}</td>
-                        <td>{e.message}</td>
+                        <td>{e.muted ? <span className="muted">[filtré] </span> : null}{e.message}</td>
                         <td className="muted">{e.source}</td>
                         <td className="muted" style={{ fontSize: 11 }}>{e.notified ? Object.entries(e.notified).filter(([k]) => k !== "at").map(([k, v]) => `${k}${v ? "✔" : "✖"}`).join(" ") : ""}</td>
                       </tr>
@@ -982,6 +989,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
       )}
 
       {tab === "updates" && <UpdatesTab base={siAgentApiBase} />}
+      {tab === "filters" && <AlertFiltersTab base={siAgentApiBase} fleet={fleet} onChanged={load} notice={(t, ok = true) => (ok ? setNotice(t) : setError(t))} />}
 
       {tab === "catalogue" && (
         <>
