@@ -3367,3 +3367,14 @@ périodique d'expiration (fil de vérification quotidien → `licenses.gap`)
 ; export de la grille en `.xlsx` ; installation groupée (plusieurs postes
 d'un site) avec file d'attente et rapport ; catalogue de paquets winget /
 choco suggéré depuis le nom relevé.
+
+## Site miroir pour un client — projeté ou autonome (2026-09-25) — item 97 (analyse : docs/site-miroir-client.md)
+
+Demandé : « pour les clients (Numeria pour le moment) il faut un site
+miroir soit en interne et potentiellement autonome soit projeté par
+supervision.optline.fr ». Plan en deux formes complémentaires : A —
+projeté (vhost par client sur le frontal #471, périmètre de site imposé
+par le groupe Keycloak et vérifié côté API, matrice des droits #559,
+habillage) ; B — miroir autonome (cohorte « site » du compose sur une VM
+du client, fédération miroir → central par HTTPS et jeton de consommateur,
+livraisons par la tour via le shim du site). Prochaine étape : A1 + A3.
