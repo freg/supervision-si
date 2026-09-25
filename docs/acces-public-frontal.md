@@ -59,7 +59,10 @@ seul le frontal est publié.
 ## 2. Côté frontal — Apache + certbot
 
 ```bash
-scp freg@super:SRC/data2/tickets/supervision-si/si-proxy/certs/ca.crt /root/hub-ca.crt   # CA de la PKI (public)
+# CA qui signe le certificat servi sur :6443 = ${PKI_DIR}/ca/ca.crt (PKI_DIR dans .env,
+# hors dépôt) -- PAS si-proxy/certs/ca.crt ni vault-standalone/pki (même CN, autre clé).
+# Contrôle : echo | openssl s_client -connect super:6443 -CAfile hub-ca.crt | grep "Verify return" -> 0 (ok)
+scp freg@super:supervision-si-pki/ca/ca.crt /root/hub-ca.crt
 PUBLIC_HOST=hub.mondomaine.fr LE_EMAIL=moi@mondomaine.fr HUB_UPSTREAM=https://super:6443 \
 INTERNAL_ORIGIN=https://192.0.2.10:6443 HUB_CA=/root/hub-ca.crt sudo -E ./front-reverse-proxy.sh
 #   (mode reconstruction : HUB_UPSTREAM=https://super:443, sans INTERNAL_ORIGIN)
@@ -73,9 +76,22 @@ installe un hook de renouvellement qui recharge Apache (`certbot.timer`,
 deux essais par jour). `STAGING=1` pour un premier essai sans consommer le
 quota Let's Encrypt. Relançable : la configuration est régénérée.
 
-Avec `HUB_CA`, Apache **vérifie** le certificat de la passerelle (nom +
-chaîne) ; sans, il chiffre sans vérifier — acceptable sur un LAN maîtrisé,
-pas au-delà.
+Avec `HUB_CA`, Apache **vérifie la chaîne** du certificat de la passerelle
+(`SSLProxyVerify require`) mais pas son nom : `ProxyPreserveHost` lui fait
+présenter le nom public en SNI, que le certificat interne (HOST_IP,
+localhost) ne porte pas — sinon `AH00898 Error during SSL Handshake` et
+`500 Proxy Error` (#610). Sans `HUB_CA`, il chiffre sans vérifier —
+acceptable sur un LAN maîtrisé, pas au-delà.
+
+Passage `STAGING=1` → réel : relancer sans `STAGING` ; le script détecte le
+certificat de test et le remplace (sinon `--keep-until-expiring` l'aurait
+gardé). Les commandes doivent être passées **à travers** `ssh -t … 'sudo env
+… bash front-reverse-proxy.sh'` : tapées après un `ssh` interactif fermé,
+elles s'exécutent sur le poste local.
+
+Depuis le LAN, `https://<nom public>` ne répond que si le routeur d'entrée
+fait du hairpin NAT ; tester depuis l'extérieur (4G) ou forcer la
+résolution : `curl -kI --resolve <nom>:443:<IP frontal> https://<nom>/`.
 
 ## 3. Vérifier
 

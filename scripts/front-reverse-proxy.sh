@@ -110,8 +110,14 @@ a2enmod -q ssl proxy proxy_http proxy_wstunnel headers rewrite >/dev/null
 echo "== 2/5 CA du hub"
 if [ -n "$HUB_CA" ] && [ -f "$HUB_CA" ]; then
   install -m 644 "$HUB_CA" /etc/ssl/certs/supervision-si-ca.crt
-  CA_LINES="SSLProxyCACertificateFile /etc/ssl/certs/supervision-si-ca.crt"
-  echo "   certificat du hub vérifié avec $HUB_CA"
+  # chaîne vérifiée par le CA de la PKI interne ; le NOM n'est pas contrôlé :
+  # avec ProxyPreserveHost, Apache présente PUBLIC_HOST en SNI au hub, dont le
+  # certificat ne porte que HOST_IP/localhost (#610 : AH00898 sinon)
+  CA_LINES="SSLProxyCACertificateFile /etc/ssl/certs/supervision-si-ca.crt
+    SSLProxyVerify require
+    SSLProxyCheckPeerName off
+    SSLProxyCheckPeerCN off"
+  echo "   certificat du hub vérifié avec $HUB_CA (chaîne seulement, nom non contrôlé)"
 else
   CA_LINES="SSLProxyCheckPeerName off
     SSLProxyCheckPeerCN off"
@@ -144,6 +150,12 @@ apache2ctl configtest >/dev/null && systemctl reload apache2
 
 echo "== 4/5 certificat Let's Encrypt"
 STAGE=""; [ "${STAGING:-0}" = "1" ] && STAGE="--staging"
+# passage staging -> réel (#610) : un certificat de test encore valide serait
+# conservé par --keep-until-expiring ; on le supprime d'abord
+if [ -z "$STAGE" ] && [ -f "$CERT_DIR/cert.pem" ] && openssl x509 -in "$CERT_DIR/cert.pem" -noout -issuer 2>/dev/null | grep -qi staging; then
+  echo "   certificat de test présent -> remplacé par un certificat réel"
+  certbot delete --cert-name "$PUBLIC_HOST" --non-interactive >/dev/null 2>&1 || true
+fi
 certbot certonly --webroot -w /var/www/acme -d "$PUBLIC_HOST" -m "$LE_EMAIL" --agree-tos --non-interactive --keep-until-expiring $STAGE
 [ -f "$CERT_DIR/fullchain.pem" ] || { echo "certificat absent : $CERT_DIR" >&2; exit 1; }
 # renouvellement : certbot.timer (paquet, 2 essais/jour) + rechargement d'Apache après un renouvellement

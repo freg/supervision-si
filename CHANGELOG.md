@@ -1,3 +1,15 @@
+## 2026-09-25 — Frontal public : poignée de main TLS vers le hub, staging → réel (livraison #610)
+
+Mise en service réelle d'un frontal `front-reverse-proxy.sh` : `500 Proxy
+Error`, journal `AH00898 Error during SSL Handshake with remote server`.
+Cause : `ProxyPreserveHost On` fait présenter le nom public en SNI au hub,
+dont le certificat interne ne porte que HOST_IP/localhost ; avec `HUB_CA`
+Apache exigeait ce nom. Correctif : chaîne vérifiée par le CA
+(`SSLProxyVerify require`), nom non contrôlé. Le script remplace aussi de
+lui-même un certificat Let's Encrypt de test quand on relance sans
+`STAGING`. Doc : le bon CA est `${PKI_DIR}/ca/ca.crt` (deux autres CA du
+dépôt portent le même CN), commandes à passer à travers `ssh -t`, hairpin.
+
 ## 2026-09-25 — Keycloak : recréer le compte de service depuis la ligne de commande (401 dans Comptes) (livraison #609)
 
 Constat réel : « authentification du compte de service refusée (401) »
