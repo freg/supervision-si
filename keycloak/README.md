@@ -90,6 +90,14 @@ ce qui n'existe QUE dans Keycloak lui-même (mot de passe LDAP corrigé
 sessions actives...). Répondre autre chose que "oui" (y compris juste
 Entrée) laisse tout en l'état.
 
+**Sans purge, pour les seules URL de redirection / origines** (cas le plus
+fréquent : `KEYCLOAK_EXTRA_ORIGINS`, nouveau nom public, changement de
+port) : `python3 keycloak/render.py && python3 keycloak/sync_clients.py`
+(#611) — ajoute par l'API Admin, client par client, les entrées rendues
+absentes du realm vivant, ne retire rien, `--dry-run` pour simuler. Un
+client rendu qui n'existe pas encore dans Keycloak reste du ressort du
+réimport.
+
 Pour forcer une purge complète volontairement, sans passer par cette
 détection : `./scripts/run.sh reset-keycloak` (demande de taper
 `RESET` en toutes lettres, plus strict qu'un simple oui/non vu que

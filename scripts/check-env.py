@@ -61,6 +61,7 @@ OTHER_CONSUMER_FILES = [
     "tls-proxy/render_nginx_conf.py",
     "keycloak/backup/backup-loop.sh",
     "keycloak/group_memberships.py",
+    "keycloak/sync_clients.py",
     "pki/scripts/generate-ca.sh",
     "pki/scripts/generate-server-cert.sh",
     "pki/scripts/rotate-ca.sh",

@@ -1,3 +1,14 @@
+## 2026-09-25 — Keycloak : URL de redirection poussées dans le realm vivant sans purge (livraison #611)
+
+Mise en service du frontal public : « paramètre invalide : redirect_uri »
+après `KEYCLOAK_EXTRA_ORIGINS` + `render.py` — Keycloak n'importe le realm
+qu'au premier démarrage et la seule voie était `reset-keycloak` (perte des
+sessions, réglages manuels, comptes locaux démo et compte de service).
+`keycloak/sync_clients.py` (4 tests) : compare le realm rendu au realm
+vivant via l'API Admin (compte de service, realm master) et ajoute les
+`redirectUris` / `webOrigins` manquants, sans retrait, `--dry-run`. Doc
+frontal + README Keycloak.
+
 ## 2026-09-25 — Frontal public : poignée de main TLS vers le hub, staging → réel (livraison #610)
 
 Mise en service réelle d'un frontal `front-reverse-proxy.sh` : `500 Proxy

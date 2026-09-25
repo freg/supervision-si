@@ -105,6 +105,19 @@ Puis connexion au hub : Keycloak doit rediriger vers `https://hub.mondomaine.fr/
 (si la page de connexion renvoie vers une IP LAN, `HOST_IP` n'a pas été
 reconstruit ou le realm n'a pas été ré-importé).
 
+**« Nous sommes désolés… paramètre invalide : redirect_uri »** après avoir
+renseigné `KEYCLOAK_EXTRA_ORIGINS` et rendu le realm : Keycloak n'importe le
+realm qu'au premier démarrage, le realm vivant n'a pas les nouvelles URL.
+Sans purge (#611), depuis la racine sur super :
+
+```bash
+python3 keycloak/render.py && python3 keycloak/sync_clients.py
+```
+
+Le script pousse par l'API Admin (compte de service) les `redirectUris` /
+`webOrigins` manquants de chaque client OIDC, en gardant ce qui existe ;
+`--dry-run` pour voir sans appliquer. Effet immédiat, sans redémarrage.
+
 ## 4. Les agents hôtes depuis Internet (#474)
 
 Un portable qui sort du LAN garde son agent joignable par le frontal : le
