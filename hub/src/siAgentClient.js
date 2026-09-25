@@ -124,6 +124,11 @@ export const testNotifications = (apiBase) => fetchJson(apiBase, "/notifications
 
 // #572 : contrôle d'une VM Proxmox par l'agent (commande vm_action) et suivi du résultat
 export const vmAction = (apiBase, agentId, params) => sendCommand(apiBase, agentId, "vm_action", params);
+// #613 : poste -- alimentation (reboot/shutdown/cancel), réveil par un agent du même segment, lanceurs, chien de garde
+export const powerAction = (apiBase, agentId, params) => sendCommand(apiBase, agentId, "power_action", params);
+export const wakeOnLan = (apiBase, viaAgentId, params) => sendCommand(apiBase, viaAgentId, "wol", params);
+export const startupAction = (apiBase, agentId, params) => sendCommand(apiBase, agentId, "startup_action", params);
+export const watchdogConfig = (apiBase, agentId, params) => sendCommand(apiBase, agentId, "watchdog_config", params);
 export const fetchCommand = (apiBase, cid) => fetchJson(apiBase, `/commands/${encodeURIComponent(cid)}`);
 
 /** #607 : filtres d'alertes (catégories, groupes de règles), test à blanc ; `include_muted` sur le journal. */

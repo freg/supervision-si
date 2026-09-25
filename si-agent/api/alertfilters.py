@@ -30,6 +30,7 @@ CATEGORIES = {
     "fleet": "Flotte (enrôlement, activation, suppression)",
     "capture": "Captures et relais réseau",
     "risks": "Risques internes de l'hôte",
+    "applications": "Applications surveillées (chien de garde)",
     "other": "Autres",
 }
 KIND_CATEGORY = {
@@ -40,6 +41,9 @@ KIND_CATEGORY = {
     "command-acked": "commands", "command-failed": "commands", "command-block": "commands", "command-vm": "commands", "command-software": "commands",
     "agent-enrolled": "fleet", "agent-activated": "fleet", "agent-deactivated": "fleet", "agent-deleted": "fleet",
     "capture-relay-failed": "capture", "notification-test": "other",
+    # #613 : alimentation, réveil, lanceurs, chien de garde
+    "command-power": "commands", "command-wol": "commands", "command-startup": "commands", "watchdog-config": "commands",
+    "app-down": "applications", "app-restarted": "applications", "app-restart-failed": "applications", "app-recovered": "applications", "watchdog-error": "applications",
 }
 WEEKDAYS = ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"]
 DEFAULT_TZ = "Europe/Paris"

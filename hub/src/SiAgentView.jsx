@@ -14,6 +14,7 @@ import {
 import WifiProbeSection from "./WifiProbeSection.jsx";
 import AlertFiltersTab from "./AlertFiltersTab.jsx";  // #607
 import PathProbeSection from "./PathProbeSection.jsx";
+import HostControlSection from "./HostControlSection.jsx";  // #613
 
 // Tuile « Agents hôtes » (livraison #421, backlog 63) -- flotte des agents
 // si-agent (surveillance de l'hôte : CPU, mémoire, disques, services,
@@ -75,7 +76,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
   const [assignId, setAssignId] = useState("");
   const [settings, setSettings] = useState(null);
   const [section, setSection] = useState(() => {
-    const base = { risks: true, system: true, network: true, hardware: false, activity: false, disks: true, storage: false, ports: false, services: false, logs: false, plugins: true, commands: true, settings: false };
+    const base = { risks: true, system: true, network: true, hardware: false, activity: false, disks: true, storage: false, ports: false, services: false, logs: false, plugins: true, commands: true, control: false, settings: false };
     if (initialParams.section && initialParams.section in base) { for (const k of Object.keys(base)) base[k] = k === initialParams.section || k === "risks"; }
     clearViewParams();
     return base;
@@ -526,7 +527,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
               ) : (
                 <>
                   <div className="sa-sections">
-                    {[["risks", "Risques"], ["system", "Système"], ["network", "Réseau vu de l'hôte"], ["hardware", "Matériel"], ["activity", "Activité"], ["disks", "Disques"], ["storage", "Stockage"], ["ports", "Ports"], ["services", "Services"], ["logs", "Journal"], ["plugins", "Sondes"], ["commands", "Commandes"], ["settings", "Réglages"]].map(([k, l]) => (
+                    {[["risks", "Risques"], ["system", "Système"], ["network", "Réseau vu de l'hôte"], ["hardware", "Matériel"], ["activity", "Activité"], ["disks", "Disques"], ["storage", "Stockage"], ["ports", "Ports"], ["services", "Services"], ["logs", "Journal"], ["plugins", "Sondes"], ["commands", "Commandes"], ["control", "Poste"], ["settings", "Réglages"]].map(([k, l]) => (
                       <button key={k} className={`secondary na-section-toggle${section[k] ? " active" : ""}`} onClick={() => toggle(k)}>{l}</button>
                     ))}
                     <span className="muted" style={{ fontSize: 12, marginLeft: "auto" }}>mesure du {when(detail.latest.host.at)}{host.partial?.length > 0 && <> · <Tone tone="warn">partielle : {host.partial.join(", ")}</Tone></>}</span>
@@ -794,6 +795,10 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                       <h3>Erreurs du journal 24 h ({host.logs?.lines?.length || 0}) <span className="muted" style={{ textTransform: "none", letterSpacing: 0 }}>· source {host.logs?.source || "—"}</span></h3>
                       {host.logs?.lines?.length ? <pre className="sa-log">{host.logs.lines.slice(0, 50).join("\n")}</pre> : <p className="muted">Aucune.</p>}
                     </>
+                  )}
+
+                  {section.control && (
+                    <HostControlSection apiBase={siAgentApiBase} agentId={selectedId} detail={detail} fleet={fleet} host={host} when={when} onRefresh={() => loadDetail && loadDetail(selectedId)} />
                   )}
 
                   {section.plugins && (

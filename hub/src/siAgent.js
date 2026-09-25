@@ -270,6 +270,10 @@ export const EVENT_KIND_LABELS_FR = {
   "command-unknown": "Commande inconnue",
   "tls-insecure": "TLS non vérifié",
   "notification-test": "Test de notification",
+  // #613 : alimentation, réveil, lanceurs, chien de garde
+  "command-power": "Redémarrage / arrêt demandé", "command-wol": "Réveil réseau émis", "command-startup": "Lanceur modifié",
+  "watchdog-config": "Chien de garde configuré", "watchdog-error": "Chien de garde : erreur",
+  "app-down": "Application arrêtée", "app-restarted": "Application relancée", "app-restart-failed": "Relance impossible", "app-recovered": "Application de retour",
 };
 
 export const EVENT_SEVERITIES = ["critical", "warning", "info"];

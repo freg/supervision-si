@@ -3393,6 +3393,11 @@ code HTTP, cible, volumes, erreurs 5xx = hub injoignable) croisée avec les
 
 ## Agent Windows : redémarrage, réveil, lanceurs, chien de garde (2026-09-25) — item 100
 
+**Fait en #613** (agent 0.5.17, section « Poste »). Reste : réveil par le
+MikroTik du site depuis le hub (`/tool wol` via mikrotik-api) quand aucun
+agent n'est en ligne sur le segment ; vérification de `startup.ps1` et de
+StartupApproved sur un Windows 11 réel.
+
 Demandé : « un agent Windows capable de gérer un reboot Windows et si
 possible un wake-on-LAN ; accès à la liste des lanceurs d'application au
 démarrage ; watchdog appli ». Plan (#613) : commandes acquittées `reboot`

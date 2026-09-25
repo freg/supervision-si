@@ -1,3 +1,26 @@
+## 2026-09-25 — Agent : redémarrage / arrêt, réveil réseau, lanceurs au démarrage, chien de garde applicatif (livraison #613, agent 0.5.17)
+
+Demandé : « un agent Windows capable de gérer un reboot Windows et si
+possible un wake-on-LAN ; accès à la liste des lanceurs d'application au
+démarrage ; watchdog appli ».
+
+- Section « Poste » de la fiche agent : Redémarrer / Arrêter (délai,
+  message, forcer ; refus si session console sans forcer) / Annuler ;
+  réveil par un autre agent du site (paquet magique, MAC préremplie) ;
+  lanceurs Windows (Run, dossier Démarrage, tâches, services) avec
+  Activer / Désactiver ; chien de garde : liste d'applications (processus,
+  commande de relance, plage, repos, quota), état en direct. Chaque bouton
+  suit l'acquittement de l'agent.
+- Agent 0.5.17 : `powerctl.py`, `startupctl.py`, `watchdog.py`,
+  `win/startup.ps1` ; commandes `power_action`, `wol`, `startup_action`,
+  `watchdog_config` ; mesures `startup`, `watchdog` ; événements
+  `command-power`, `command-wol`, `command-startup`, `app-down`,
+  `app-restarted`, `app-restart-failed`, `app-recovered`. 13 tests ;
+  test des plugins livrés remis à jour (#567/#595).
+- Central : types de commandes et validation, catégorie d'alertes
+  « Applications surveillées ». Backlog item 100 réalisé (reste : WoL par le
+  MikroTik depuis le hub, vérification sur Windows réel).
+
 ## 2026-09-25 — Comptes : journal des connexions Keycloak ; cadres pleine largeur partout (livraison #612)
 
 Demandé : « y a-t-il un log des échecs de connexion côté proxy et côté

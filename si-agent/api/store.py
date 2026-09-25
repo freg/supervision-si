@@ -142,9 +142,10 @@ MIGRATIONS = [
 
 AGENT_ID_MAX = 64
 COMMAND_TYPES = ("collect_now", "run_plugin", "enable_plugin", "disable_plugin", "remove_plugin", "flush",
-                 "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update", "vm_action", "software_action")
+                 "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update", "vm_action", "software_action",
+                 "power_action", "wol", "startup_action", "watchdog_config")  # #613
 SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
-TASKS_KEPT_LATEST = ("host", "risks", "inventory")
+TASKS_KEPT_LATEST = ("host", "risks", "inventory", "startup", "watchdog")  # #613
 
 
 def now_iso():
@@ -755,6 +756,14 @@ def create_command(db_path, agent_id, ctype, params=None):
         raise ValueError("params.id (identifiant du plugin) requis")
     if ctype == "vm_action" and not ((params or {}).get("vmid") and (params or {}).get("action")):
         raise ValueError("params.vmid et params.action requis")
+    if ctype == "power_action" and (params or {}).get("action") not in ("reboot", "shutdown", "cancel"):
+        raise ValueError("params.action : reboot, shutdown ou cancel")
+    if ctype == "wol" and not (params or {}).get("mac"):
+        raise ValueError("params.mac requis")
+    if ctype == "startup_action" and not ((params or {}).get("kind") and (params or {}).get("name")):
+        raise ValueError("params.kind et params.name requis")
+    if ctype == "watchdog_config" and not isinstance((params or {}).get("apps"), list):
+        raise ValueError("params.apps (liste) requis")
     cid = "c-" + _secrets.token_hex(6)
     conn = _connect(db_path)
     try:

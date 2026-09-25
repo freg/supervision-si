@@ -1035,3 +1035,55 @@ notifications. Routes : `GET/PUT /alert-filters`, `POST /alert-filters/test`
 (tableau par agent avec case + groupe, éditeur de groupes, test à blanc),
 case « Filtrer les alertes » dans les réglages de l'agent, « afficher les
 filtrées » dans le journal.
+
+## Poste : redémarrage, réveil, lanceurs, chien de garde (livraison #613, agent 0.5.17)
+
+Demandé : « un agent Windows capable de gérer un reboot Windows et si
+possible un wake-on-LAN ; accès à la liste des lanceurs d'application au
+démarrage ; watchdog appli ». Section **Poste** de la fiche agent (bouton
+« Poste » dans les sections), sur toute plateforme sauf mention.
+
+- **Alimentation** — commande `power_action` {action: reboot|shutdown|cancel,
+  delay_seconds, message, force}. Windows `shutdown.exe /r|/s /t N /c
+  "message" [/f]`, Linux/macOS `shutdown -r|-h +M`. Refus si une session
+  est ouverte sur la console (utilisateur affiché) sauf `force`. Acquittée
+  avant l'exécution, événement `command-power` (warning). `si_agent/powerctl.py`.
+- **Réveil réseau** — commande `wol` {mac, broadcast?, port?} envoyée à **un
+  autre agent en ligne du même site** (le paquet magique ne traverse pas les
+  routeurs) ; le MikroTik du site peut aussi le faire (`/tool wol`). MAC
+  préremplie depuis la vue réseau de l'agent visé. Le poste doit avoir le
+  Wake-on-LAN activé (BIOS + carte) ; le seul retour est l'agent qui revient
+  en ligne.
+- **Lanceurs au démarrage** (Windows) — mesure `startup` toutes les 30 min
+  (`win/startup.ps1`) : clés Run / RunOnce machine et utilisateur (y compris
+  WOW6432Node), dossiers Démarrage, tâches planifiées à l'ouverture de session
+  ou au démarrage (hors \Microsoft\), services automatiques hors Windows.
+  État activé/désactivé lu dans `Explorer\StartupApproved` (même source que le
+  Gestionnaire des tâches). Commande `startup_action` {kind, scope, name,
+  enable} : Run / dossier → valeur StartupApproved (02 = activé, 03 =
+  désactivé, l'entrée n'est jamais supprimée), tâche → `schtasks /Change
+  /Enable|/Disable`, service → `sc config start= auto|disabled` (effet au
+  prochain démarrage). Refusés : tâches \Microsoft\, services système
+  (wuauserv, WinDefend, mpssvc, BFE, Dhcp, Dnscache, EventLog, RpcSs,
+  Winmgmt, TermService, si-agent…). `si_agent/startupctl.py`.
+- **Chien de garde applicatif** — commande `watchdog_config`
+  {interval_seconds, apps: [{id, label, process, command, cwd, hours, days,
+  cooldown_seconds, max_restarts_per_hour, enabled}]}, persistée dans
+  `state.json` et rappelée dans la mesure `inventory`. Toutes les
+  `interval_seconds` (15–3600) l'agent liste les processus (`tasklist` /
+  `ps`) ; application absente dans sa plage → relance détachée (jamais
+  attendue, jamais rattachée à l'agent), au plus `max_restarts_per_hour` par
+  heure et à `cooldown_seconds` d'écart ; quota atteint ou pas de commande →
+  événement `app-down` (critical, une fois) ; retour → `app-recovered`.
+  Mesure `watchdog` (état par application). Catégorie d'alertes
+  « Applications surveillées » (#607) pour les grouper ou les filtrer.
+  `si_agent/watchdog.py`.
+
+Vérifié réellement : 13 tests (`test_winctl.py` : lignes de commande,
+bornes, refus console, paquet magique, StartupApproved, protections,
+cycle relance → repos → quota → retour, fenêtres horaires, analyse de
+`tasklist`), non-régression agent (80 tests) et central ; JSX compilé.
+**Non vérifié sur un Windows réel** : `startup.ps1` (PowerShell 5.1,
+`Get-ScheduledTask`, COM WScript.Shell pour les .lnk) et la valeur binaire
+StartupApproved sur Windows 11 — à confirmer sur le poste de test comme en
+#446.

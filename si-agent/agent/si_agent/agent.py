@@ -270,6 +270,10 @@ class Agent(object):
         self._next_inventory = 0
         self._next_netview = 0
         self.last_netview = None
+        self._next_startup = 0     # #613 : lanceurs au démarrage (Windows)
+        self._next_watchdog = 0    # #613 : chien de garde applicatif
+        self.last_startup = None
+        self.last_watchdog = None
         self._next_plugin = {}
         # #547 : publication locale (serveur + dernier contenu reçu du central)
         self._publish_server = None
@@ -527,6 +531,46 @@ class Agent(object):
                 self.event("command-software", "info" if res.get("ok") else "warning",
                            "logiciel %s : %s%s" % (params.get("package"), params.get("action"), "" if res.get("ok") else " -- %s" % res.get("error")), {"command": c.get("id"), "params": params})
                 return res
+            if ctype == "power_action":
+                # #613 : redémarrage / arrêt du poste (ou annulation), acquitté avant l'exécution
+                from . import powerctl
+                if self.is_blocked():
+                    return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
+                res = powerctl.run(self.cmd, params, platform=sys.platform, console_active=self._console_active())
+                self.event("command-power", "warning" if res.get("ok") and params.get("action") != "cancel" else "info" if res.get("ok") else "warning",
+                           "alimentation : %s%s" % (params.get("action"), "" if res.get("ok") else " -- %s" % res.get("error")), {"command": c.get("id"), "params": params})
+                return res
+            if ctype == "wol":
+                # #613 : réveil d'un poste du même segment (paquet magique émis par cet agent)
+                from . import powerctl
+                res = powerctl.send_wol(params)
+                self.event("command-wol", "info" if res.get("ok") else "warning",
+                           "réveil %s%s" % (params.get("mac"), "" if res.get("ok") else " -- %s" % res.get("error")), {"command": c.get("id"), "params": params})
+                return res
+            if ctype == "startup_action":
+                # #613 : activer / désactiver un lanceur au démarrage (Windows), puis recollecte
+                from . import startupctl
+                if not IS_WINDOWS:
+                    return {"ok": False, "error": "lanceurs au démarrage : Windows seulement"}
+                if self.is_blocked():
+                    return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
+                res = startupctl.run(self.cmd, params)
+                self.event("command-startup", "info" if res.get("ok") else "warning",
+                           "lanceur %s : %s%s" % (params.get("name"), "activé" if params.get("enable") else "désactivé", "" if res.get("ok") else " -- %s" % res.get("error")), {"command": c.get("id"), "params": params})
+                if res.get("ok"):
+                    self.collect_startup(force=True)
+                return res
+            if ctype == "watchdog_config":
+                # #613 : liste des applications surveillées, persistée dans state.json
+                from . import watchdog
+                cfg, errors = watchdog.normalize_config(params)
+                self.state["watchdog"] = cfg
+                self.state["watchdog_state"] = {}
+                self._save_state()
+                self._next_watchdog = 0
+                self.event("watchdog-config", "info", "chien de garde : %d application(s) surveillée(s)%s" % (len(cfg["apps"]), " ; ignorées : " + " ; ".join(errors) if errors else ""), {"command": c.get("id")})
+                self.run_watchdog(force=True)
+                return {"ok": True, "result": {"config": cfg, "errors": errors}, "error": None}
             if ctype == "update":
                 # #522 : mise à jour décidée par le central (canal bêta / activation
                 # générale) ; téléchargement par le même TLS, SHA-256 vérifié,
@@ -579,6 +623,81 @@ class Agent(object):
         self.queue.put(m)
         return m
 
+    def _console_active(self):
+        """Une session interactive sur la console (Windows : console_user ; ailleurs : tty)."""
+        d = self.last_host_data or {}
+        if (d.get("accounts") or {}).get("console_user"):
+            return True
+        return any((s.get("tty") or "") in ("console", "tty1", "tty2") for s in ((d.get("activity") or {}).get("sessions") or []))
+
+    def collect_startup(self, force=False):
+        """#613 : lanceurs au démarrage (Windows) -- mesure `startup`, toutes les 30 min."""
+        if not IS_WINDOWS:
+            return None
+        now = self.clock()
+        if not force and now < self._next_startup:
+            return None
+        self._next_startup = now + float(self.cfg.get("startup_interval_seconds") or 1800)
+        from . import winhost, startupctl
+        data, err = winhost.run_ps(self.cmd, "startup", timeout=120)
+        if data is None:
+            m = {"agent_id": self.agent_id, "task": "startup", "at": _iso(now), "ok": False, "data": None, "error": err}
+        else:
+            items = data.get("items") or []
+            data["summary"] = startupctl.summarize(items)
+            m = {"agent_id": self.agent_id, "task": "startup", "at": _iso(now), "ok": not data.get("partial"), "data": data,
+                 "error": ("collecte partielle : " + ", ".join(data["partial"])) if data.get("partial") else None}
+        self.last_startup = m
+        self.queue.put(m)
+        return m
+
+    def run_watchdog(self, force=False):
+        """#613 : chien de garde applicatif -- relance les applications absentes,
+        événements `app-restarted` / `app-down` / `app-recovered`, mesure `watchdog`."""
+        from . import watchdog
+        cfg = self.state.get("watchdog") or {}
+        if not cfg.get("apps"):
+            return None
+        now = self.clock()
+        if not force and now < self._next_watchdog:
+            return None
+        self._next_watchdog = now + float(cfg.get("interval_seconds") or watchdog.DEFAULT_INTERVAL)
+        r = self.cmd(watchdog.process_list_argv(sys.platform), timeout=30)
+        if getattr(r, "returncode", -1) != 0:
+            self.event("watchdog-error", "warning", "liste des processus indisponible : %s" % ((r.stderr or "")[:200] or r.returncode))
+            return None
+        running = watchdog.parse_process_list(r.stdout, sys.platform)
+        actions, st, meas = watchdog.evaluate(cfg, running, now, self.state.get("watchdog_state") or {})
+        self.state["watchdog_state"] = st
+        self._save_state()
+        for a in actions:
+            if a["action"] == "restart":
+                ok, err = self._spawn_detached(a["command"], a.get("cwd"))
+                self.event("app-restarted" if ok else "app-restart-failed", "warning", "%s : %s (tentative %d)%s" % (a["label"], "relancée" if ok else "relance impossible", a["attempt"], " -- %s" % err if err else ""), a)
+            elif a["action"] == "down-alert":
+                self.event("app-down", "critical", "%s : arrêtée, %s" % (a["label"], a["reason"]), a)
+            elif a["action"] == "recovered":
+                self.event("app-recovered", "info", "%s : de nouveau en service (arrêt %d s)" % (a["label"], a["down_for"]), a)
+        m = {"agent_id": self.agent_id, "task": "watchdog", "at": _iso(now), "ok": True, "data": meas, "error": None}
+        self.last_watchdog = m
+        self.queue.put(m)
+        return m
+
+    def _spawn_detached(self, command, cwd=None):
+        """Lance une application sans l'attendre ni la rattacher à l'agent."""
+        import subprocess
+        try:
+            kw = {"cwd": cwd or None, "stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+            if IS_WINDOWS:
+                kw["creationflags"] = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+                subprocess.Popen(command, shell=True, **kw)
+            else:
+                kw["start_new_session"] = True
+                subprocess.Popen(command, shell=True, **kw)
+            return True, None
+        except (OSError, ValueError) as exc:
+            return False, str(exc)
+
     def collect_inventory(self, force=False):
         now = self.clock()
         if not force and now < self._next_inventory:
@@ -597,7 +716,8 @@ class Agent(object):
                       "blocked_plugins": sorted((self.state.get("blocked_plugins") or {}).keys()),
                       "insecure_tls": bool(self.cfg.get("insecure")), "plugins_user": self._plugins_user_effective(),
                       "log_level": self.cfg.get("log_level"), "platform": "windows" if IS_WINDOWS else ("macos" if IS_MACOS else "linux"),
-                      "python": sys.version.split()[0]}, "error": None}
+                      "python": sys.version.split()[0],
+                      "watchdog": self.state.get("watchdog") or {"interval_seconds": 60, "apps": []}}, "error": None}  # #613
         self.queue.put(m)
         return m
 
@@ -785,6 +905,9 @@ class Agent(object):
         inv = self.collect_inventory(force=True)
         if inv:
             out.append(inv)
+        su = self.collect_startup(force=True)
+        if su:
+            out.append(su)
         out.extend(self.run_plugins())
         return out
 
@@ -821,6 +944,8 @@ class Agent(object):
                 self.collect_host()
                 self.collect_netview()
                 self.collect_inventory()
+                self.collect_startup()
+                self.run_watchdog()
                 self.run_plugins()
                 self.poll_commands()
                 self.publish_tick()
