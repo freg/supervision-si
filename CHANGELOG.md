@@ -1,3 +1,10 @@
+## 2026-09-26 — Agent 0.5.19 : image complète du poste à chaud (Disk2vhd, VSS) pour virtualisation (livraison #621, item 101)
+
+Commande `image_host` depuis la section Poste : contrôles (image en cours,
+BitLocker, espace cible), outil téléchargé et vérifié, Disk2vhd lancé
+détaché, suivi par événements (lancée, en cours, terminée avec mode
+d'emploi Proxmox, échouée). `imagectl.py` pur (4 tests).
+
 ## 2026-09-26 — A1 : périmètre de site par groupe Keycloak, vérifié côté API (livraison #620)
 
 Item 97 : un compte client ne voit que son site. Garde commune

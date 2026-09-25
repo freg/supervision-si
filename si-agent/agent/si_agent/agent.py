@@ -275,6 +275,7 @@ class Agent(object):
         self._next_self = 0
         self._bench_until = 0.0
         self._bench_factor = 1
+        self._image_job = None     # #621 : image P2V en cours {started, target_file, pid, last_report}
         self._next_startup = 0     # #613 : lanceurs au démarrage (Windows)
         self._next_watchdog = 0    # #613 : chien de garde applicatif
         self.last_startup = None
@@ -565,6 +566,10 @@ class Agent(object):
                 if res.get("ok"):
                     self.collect_startup(force=True)
                 return res
+            if ctype == "image_host":
+                # #621 : image complète du poste à chaud (Disk2vhd, VSS), détachée ; suivi dans la boucle
+                res = self.start_image(params, c.get("id"))
+                return res
             if ctype == "bench":
                 # #616 : banc de charge -- collectes et sondes à cadence forcée pendant N minutes, introspection toutes les 30 s
                 from . import introspect as _intro
@@ -673,6 +678,92 @@ class Agent(object):
                       "bench_factor": self._bench_factor if bench else None}, "error": None}
         self.queue.put(m)
         return m
+
+    def start_image(self, params, command_id=None):
+        """#621 : contrôles (Windows, pas d'image en cours, BitLocker, espace), outil téléchargé et
+        vérifié, disk2vhd lancé détaché ; la fin est constatée par follow_image()."""
+        from . import imagectl
+        if not IS_WINDOWS:
+            return {"ok": False, "error": "image à chaud : Windows seulement (Disk2vhd)"}
+        if self.is_blocked():
+            return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
+        if self._image_job:
+            return {"ok": False, "error": "une image est déjà en cours depuis %s" % _iso(self._image_job["started"])}
+        plan, err = imagectl.validate(params)
+        if err:
+            return {"ok": False, "error": err}
+        # BitLocker : une image d'un volume protégé est illisible
+        r = self.cmd(["manage-bde.exe", "-status"], timeout=60)
+        blocked = imagectl.bitlocker_blocks(imagectl.parse_bitlocker(getattr(r, "stdout", "") or ""), plan["drives"])
+        if blocked and not plan["force"]:
+            return {"ok": False, "error": "BitLocker actif sur %s : suspendre (manage-bde -protectors -disable X:) ou déchiffrer avant l'image, ou force" % ", ".join(blocked)}
+        # espace cible vs espace utilisé des volumes visés
+        used = 0
+        for d in (plan["drives"] if plan["drives"] != ["*"] else ["C:"]):
+            r = self.cmd(["fsutil.exe", "volume", "diskfree", d], timeout=30)
+            total, free = imagectl.parse_used_bytes(getattr(r, "stdout", "") or "")
+            if total is not None and free is not None:
+                used += total - free
+        try:
+            import shutil as _sh
+            free_target = _sh.disk_usage(plan["target_dir"]).free
+        except OSError as exc:
+            return {"ok": False, "error": "cible inaccessible : %s" % exc}
+        if not imagectl.enough_space(used or None, free_target) and not plan["force"]:
+            return {"ok": False, "error": "espace insuffisant sur la cible : %d Go libres pour ~%d Go à écrire (force pour passer outre)" % (free_target // 2**30, int(used * 1.1) // 2**30)}
+        # outil
+        tools_dir = os.path.join(os.path.dirname(self.cfg.get("state_path") or "."), "tools")
+        os.makedirs(tools_dir, exist_ok=True)
+        tool = os.path.join(tools_dir, "disk2vhd64.exe")
+        if not os.path.exists(tool):
+            try:
+                import urllib.request as _ur
+                with _ur.urlopen(plan["tool_url"], timeout=120) as resp, open(tool + ".part", "wb") as fh:
+                    fh.write(resp.read())
+                os.replace(tool + ".part", tool)
+            except Exception as exc:  # noqa: BLE001
+                return {"ok": False, "error": "téléchargement de Disk2vhd impossible (%s) : déposer disk2vhd64.exe dans %s" % (exc, tools_dir)}
+        if plan["tool_sha256"]:
+            import hashlib as _h
+            with open(tool, "rb") as fh:
+                got = _h.sha256(fh.read()).hexdigest()
+            if got != plan["tool_sha256"]:
+                os.remove(tool)
+                return {"ok": False, "error": "empreinte de disk2vhd64.exe différente (%s) : outil refusé et supprimé" % got[:16]}
+        out_file = imagectl.target_file(plan, os.environ.get("COMPUTERNAME") or self.agent_id)
+        argv = imagectl.build_argv(tool, plan, out_file)
+        log_path = os.path.join(tools_dir, "disk2vhd.log")
+        try:
+            import subprocess
+            with open(log_path, "ab") as logf:
+                proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=logf, stderr=subprocess.STDOUT,
+                                        creationflags=0x00000008 | 0x00000200)
+        except (OSError, ValueError) as exc:
+            return {"ok": False, "error": "lancement de Disk2vhd impossible : %s" % exc}
+        self._image_job = {"started": self.clock(), "target_file": out_file, "pid": proc.pid, "last_report": self.clock(), "command": command_id, "proc": proc}
+        self.event("image-started", "warning", "image du poste lancée vers %s (%s)" % (out_file, ", ".join(plan["drives"])),
+                   {"command": command_id, "target": out_file, "used_bytes": used, "free_target_bytes": free_target})
+        return {"ok": True, "result": {"target": out_file, "message": "image lancée (Disk2vhd, instantané VSS) -- suivi par événements", "used_bytes": used}, "error": None}
+
+    def follow_image(self):
+        """#621 : à chaque tour, état du travail d'image détaché."""
+        job = self._image_job
+        if not job:
+            return
+        from . import imagectl
+        proc = job.get("proc")
+        state, det = imagectl.follow(job, os.path.exists, lambda p: os.path.getsize(p) if os.path.exists(p) else 0,
+                                     lambda pid: proc is not None and proc.poll() is None, self.clock())
+        if state == "progress":
+            job["last_report"] = self.clock()
+            self.event("image-progress", "info", "image en cours : %.1f Go écrits en %d min" % (det["bytes"] / 2**30, det["seconds"] // 60), dict(det, target=job["target_file"]))
+        elif state == "finished":
+            self._image_job = None
+            self.event("image-finished", "info", "image terminée : %.1f Go en %d min -> %s" % (det["bytes"] / 2**30, det["seconds"] // 60, job["target_file"]),
+                       dict(det, target=job["target_file"], command=job.get("command"), proxmox=imagectl.PROXMOX_RUNBOOK))
+        elif state == "failed":
+            self._image_job = None
+            self.event("image-failed", "critical", "image échouée : %s" % det["reason"], dict(det, target=job["target_file"], command=job.get("command")))
 
     def _console_active(self):
         """Une session interactive sur la console (Windows : console_user ; ailleurs : tty)."""
@@ -1006,6 +1097,7 @@ class Agent(object):
                 self.collect_inventory()
                 self.collect_startup()
                 self.run_watchdog()
+                self.follow_image()
                 self.run_plugins()
                 self.collect_self()
                 self.poll_commands()

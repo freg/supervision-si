@@ -1178,3 +1178,31 @@ synthétiques identiques, scénario complet, robustesse des décodeurs, plan
 de capture, ligne de commande sans outil). Non vérifié sur Windows réel :
 `pktmon etl2pcap` (format pcapng attendu ; les versions antérieures à
 Windows 10 2004 n'ont pas cette sous-commande → erreur explicite).
+
+## Image complète du poste à chaud, pour virtualisation (livraison #621, agent 0.5.19)
+
+Demandé : « un agent Windows pourrait-il faire une image complète de son host
+en vue d'une virtualisation, en parallèle de son fonctionnement continu ? »
+(portable de test pilotant 4 postes d'écrans interactifs). Commande
+`image_host` {target, drives ("*" ou "C: D:"), tool_url?, tool_sha256?,
+force?} depuis la section Poste. L'agent : refuse si une image est déjà en
+cours ; lit `manage-bde -status` et refuse si BitLocker protège un lecteur
+visé (image illisible) ; compare l'espace utilisé (`fsutil volume diskfree`)
+× 1,1 à l'espace libre de la cible ; télécharge `disk2vhd64.exe`
+(live.sysinternals.com par défaut, ou miroir interne / dépôt manuel dans
+`ProgramData\si-agent\tools`, empreinte SHA-256 vérifiée si fournie) ;
+lance `disk2vhd64.exe <lecteurs> <cible>\<poste>-<date>.vhdx -c -v
+-accepteula` DÉTACHÉ (instantané VSS : la machine reste en service, 30–60
+min pour 200–300 Go sur Gigabit) et suit le travail à chaque tour :
+`image-started`, `image-progress` (toutes les 5 min, Go écrits),
+`image-finished` (taille, durée, mode d'emploi Proxmox dans les détails),
+`image-failed`. `si_agent/imagectl.py` (pur, 4 tests).
+
+Import Proxmox (détails de l'événement de fin) : `qm create` en OVMF + TPM
+(Windows 11), `qm importdisk <vmid> <image>.vhdx <stockage> --format qcow2`,
+disque en SATA au premier démarrage puis VirtIO après installation des
+pilotes ; démarrer réseau coupé (`link_down=1`) — même nom et même IP que
+l'original ; activation Windows et logiciel de pilotage lié au matériel
+(USB / série / carte réseau → passthrough) à vérifier. Non vérifié sur
+Windows réel : options de Disk2vhd 2.02 (`-c` instantané, `-v` VHDX) et
+`manage-bde` localisé.

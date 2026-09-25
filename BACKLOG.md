@@ -3431,6 +3431,10 @@ web-trace ↔ événements Keycloak par poste et minute.
 
 ## Image complète d'un poste Windows à chaud, pour virtualisation (2026-09-25) — item 101
 
+**Fait en #621** (commande `image_host`, agent 0.5.19). Reste : vérification
+sur Windows réel, choix du stockage Proxmox depuis le hub et import
+automatique par l'agent du nœud (`qm importdisk` piloté par `vm_action`).
+
 Demandé : « un agent Windows pourrait-il faire une image complète de son
 host en vue d'une virtualisation, en parallèle de son fonctionnement
 continu ? » — cas : portable de test qui supervise / pilote 4 postes

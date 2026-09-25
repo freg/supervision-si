@@ -5,7 +5,7 @@
 // d'applications relancées si absentes). Chaque bouton montre sa prise en
 // compte, puis l'acquittement de l'agent (règle 8).
 import { useEffect, useState } from "react";
-import { powerAction, wakeOnLan, startupAction, watchdogConfig, benchCommand, fetchCommand } from "./siAgentClient.js";
+import { powerAction, wakeOnLan, startupAction, watchdogConfig, benchCommand, imageHost, fetchCommand } from "./siAgentClient.js";
 
 const KIND_LABELS = { run: "clé Run", runonce: "RunOnce", folder: "dossier Démarrage", task: "tâche planifiée", service: "service" };
 const STATUS = { ok: ["good", "en service"], restart: ["warn", "relance…"], waiting: ["warn", "en attente de relance"], down: ["bad", "arrêtée"], idle: ["neutral", "hors plage"], disabled: ["neutral", "désactivée"] };
@@ -58,6 +58,10 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
   const start = useCommand(apiBase);
   const wd = useCommand(apiBase);
   const bench = useCommand(apiBase);  // #616
+  const img = useCommand(apiBase);  // #621
+  const [imgTarget, setImgTarget] = useState("");
+  const [imgDrives, setImgDrives] = useState("*");
+  const [imgSha, setImgSha] = useState("");
   const [benchMin, setBenchMin] = useState(10);
   const [benchFactor, setBenchFactor] = useState(6);
   const me = detail?.latest?.["agent-self"]?.data;
@@ -175,6 +179,24 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
               </div>
             </>
           )}
+        </>
+      )}
+
+      {isWindows && (
+        <>
+          <h3 style={{ marginTop: 12 }}>Image du poste à chaud (P2V)</h3>
+          <div className="sa-kv">
+            <div className="sa-wide"><span className="muted">Cible</span>
+              <span style={{ display: "inline-flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                <input value={imgTarget} onChange={(e) => setImgTarget(e.target.value)} placeholder={"\\\\nas\\images\\p2v  ou  D:\\images"} style={{ minWidth: 280 }} />
+                lecteurs <input value={imgDrives} onChange={(e) => setImgDrives(e.target.value)} style={{ width: 80 }} title="* = tous, ou C: D:" />
+                <input value={imgSha} onChange={(e) => setImgSha(e.target.value)} placeholder="SHA-256 de disk2vhd64.exe (facultatif)" style={{ minWidth: 300 }} />
+                <button type="button" className="secondary" disabled={!!img.busy || !imgTarget} onClick={() => window.confirm(`Créer une image complète de ${detail.hostname || agentId} vers ${imgTarget} ? La machine reste en service (instantané VSS) ; 30 à 60 min pour 200-300 Go sur Gigabit.`) && img.run("image", () => imageHost(apiBase, agentId, { target: imgTarget, drives: imgDrives, tool_sha256: imgSha || undefined }))}>{img.busy ? "⏳ lancement…" : "Créer l'image"}</button>
+              </span>
+              <div className="muted" style={{ fontSize: 12 }}>Disk2vhd (Sysinternals, téléchargé par l'agent ou déposé dans <code>ProgramData\si-agent\tools</code>), VHDX importable dans Proxmox (<code>qm importdisk</code>). Refus si BitLocker protège un lecteur visé ou si la cible manque de place. Suivi dans le journal : image lancée / en cours (toutes les 5 min) / terminée (avec le mode d'emploi Proxmox) / échouée.</div>
+              <Result r={img.result} />
+            </div>
+          </div>
         </>
       )}
 

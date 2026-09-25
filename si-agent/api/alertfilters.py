@@ -43,6 +43,7 @@ KIND_CATEGORY = {
     "capture-relay-failed": "capture", "notification-test": "other",
     # #613 : alimentation, réveil, lanceurs, chien de garde
     "command-power": "commands", "command-wol": "commands", "command-startup": "commands", "watchdog-config": "commands",
+    "image-started": "commands", "image-progress": "commands", "image-finished": "commands", "image-failed": "commands",
     "bench-started": "commands", "bench-finished": "commands", "bench-stopped": "commands", "enroll-token-created": "fleet", "enroll-token-revoked": "fleet",
     "app-down": "applications", "app-restarted": "applications", "app-restart-failed": "applications", "app-recovered": "applications", "watchdog-error": "applications",
 }
