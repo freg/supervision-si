@@ -3412,6 +3412,11 @@ relance, délai, fenêtre horaire ; relance et événement `app-restarted` /
 
 ## Réglages Keycloak depuis le hub, parties névralgiques protégées (2026-09-25) — item 98
 
+**Fait en #614** (onglet Réglages Keycloak : liste blanche, simulation avant /
+après, origines OIDC, synchronisation LDAP). Reste : actions requises (OTP),
+rotation du secret d'un client de service en écriture seule avec
+confirmation, export du realm avant chaque écriture.
+
 Demandé : « rester (ou créer une interface) dans le hub pour modifier la
 configuration du Keycloak, en limitant ou protégeant les parties
 névralgiques ». Existant : Comptes (#557, utilisateurs / groupes / démo

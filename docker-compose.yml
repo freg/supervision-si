@@ -1032,6 +1032,7 @@ services:
       - LDAP_EDIT_MODE=${LDAP_EDIT_MODE:-READ_ONLY}
       - ACCOUNTS_ADMIN_GROUPS=${ACCOUNTS_ADMIN_GROUPS:-administrateurs,admin_hub}
       - ACCOUNTS_DEMO_PROFILES=${ACCOUNTS_DEMO_PROFILES:-}   # #608 : profils de démonstration (JSON), vide = demo-admin / demo-technicien / demo-lecture
+      - HUB_INTERNAL_ORIGIN=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}   # #614 : origine de référence des clients OIDC (ajout d'une origine publique depuis le hub)
       - MEMCACHED_HOST=memcached
     # pas de depends_on keycloak : il vit dans gateway/docker-compose.yml (voir #135)
 

@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { filterUsers, validateNewUser, membersByGroup } from "./accountsLib.js";
 import DemoUsersTab from "./DemoUsersTab.jsx";  // #608
 import LoginEventsTab from "./LoginEventsTab.jsx";  // #612
+import KeycloakSettingsTab from "./KeycloakSettingsTab.jsx";  // #614
 
 async function call(url, init) {
   const r = await fetch(url, { credentials: "include", ...(init || {}) });
@@ -37,6 +38,7 @@ export default function AccountsView({ onBack, accountsApiBase, groups, login, k
   const [newGroup, setNewGroup] = useState("");
   const [members, setMembers] = useState({});
   const me = { groups, user: login };
+  const isAdmin = !!info && (groups || []).some((g) => (info.admin_groups || []).includes(g));  // #614
 
   const load = async () => {
     setBusy(true); setError(null);
@@ -79,6 +81,7 @@ export default function AccountsView({ onBack, accountsApiBase, groups, login, k
         <button className={tab === "groups" ? "active" : ""} onClick={() => setTab("groups")}>Groupes ({allGroups.length})</button>
         <button className={tab === "demo" ? "active" : ""} onClick={() => setTab("demo")}>Démo</button>
         <button className={tab === "events" ? "active" : ""} onClick={() => setTab("events")}>Connexions</button>
+        <button className={tab === "settings" ? "active" : ""} onClick={() => setTab("settings")}>Réglages Keycloak</button>
       </div>
       {info && <p className="muted" style={{ marginTop: 0 }}>Realm {info.realm} · annuaire LDAP {info.ldap_writable ? "en écriture (les comptes créés vont dans l'annuaire)" : "en lecture seule (les comptes créés ici restent dans Keycloak)"} · écriture réservée aux groupes {info.admin_groups.join(", ")}.</p>}
       {error && (
@@ -162,6 +165,7 @@ export default function AccountsView({ onBack, accountsApiBase, groups, login, k
         </div>
       )}
 
+      {tab === "settings" && <KeycloakSettingsTab apiBase={accountsApiBase} me={me} isAdmin={isAdmin} notice={(t) => { setError(null); setNotice(t); }} error={(t) => { setNotice(null); setError(t); }} />}
       {tab === "events" && <LoginEventsTab apiBase={accountsApiBase} me={me} notice={(t) => { setError(null); setNotice(t); }} error={(t) => { setNotice(null); setError(t); }} />}
       {tab === "demo" && <DemoUsersTab apiBase={accountsApiBase} me={me} notice={(t) => { setError(null); setNotice(t); }} error={(t) => { setNotice(null); setError(t); }} />}
 

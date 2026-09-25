@@ -89,6 +89,25 @@ class Keycloak:
     def set_events_config(self, cfg):
         self.req("PUT", "/events/config", cfg)
 
+    # ------------------------------------------------------------ réglages du realm (#614, liste blanche dans kcsettings.py)
+    def realm(self):
+        return self.req("GET", "") or {}
+
+    def update_realm(self, body):
+        self.req("PUT", "", body)
+
+    def oidc_clients(self):
+        return [c for c in (self.req("GET", "/clients", params={"max": 500}) or []) if c.get("protocol", "openid-connect") == "openid-connect"]
+
+    def update_client_uris(self, live_id, updates):
+        self.req("PUT", f"/clients/{live_id}", {"id": live_id, **updates})
+
+    def user_storage_components(self):
+        return self.req("GET", "/components", params={"type": "org.keycloak.storage.UserStorageProvider"}) or []
+
+    def ldap_sync(self, component_id, full=True):
+        return self.req("POST", f"/user-storage/{component_id}/sync", params={"action": "triggerFullSync" if full else "triggerChangedUsersSync"}) or {}
+
     # ------------------------------------------------------------ groupes
     def groups(self):
         out = []

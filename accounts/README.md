@@ -95,3 +95,31 @@ Le journal du frontal public (Apache sur la VM frontale) n'est pas ici :
 `/var/log/apache2/hub-<nom>-access.log` sur cette VM (voir
 docs/acces-public-frontal.md) ; rapatriement par l'agent hôte / rsyslog au
 backlog.
+
+## Réglages Keycloak depuis le hub, liste blanche (livraison #614, item 98)
+
+Onglet « Réglages Keycloak » (Comptes). Modifiables : nom affiché, thème et
+langue, page de connexion (se souvenir de moi, mot de passe oublié, connexion
+par e-mail), sessions et jetons (inactivité, durée maximale, jeton d'accès,
+session hors ligne), protection force brute (activation, blocage permanent,
+échecs, attentes, fenêtre), politique de mots de passe, conservation des
+événements. Chaque champ a un type et des bornes (`accounts/api/kcsettings.py`,
+5 tests) ; une clé hors liste est refusée et signalée, jamais transmise.
+Parcours : « Simuler » (avant / après) → « Appliquer » (`PUT
+/keycloak-settings`, corps partiel du realm = seuls les champs changés) ;
+tracé dans les Journaux avec l'auteur.
+
+Origines des clients OIDC : liste des URL de retour / origines web ; « Ajouter
+cette origine » (`POST /keycloak-settings/origins`) dérive pour chaque client
+les entrées existantes de l'origine interne (`HUB_INTERNAL_ORIGIN` =
+https://HOST_IP:GATEWAY_PORT) vers la nouvelle, aperçu puis application —
+équivalent de `KEYCLOAK_EXTRA_ORIGINS` + `keycloak/sync_clients.py`, sans
+redémarrage. Aucun retrait possible d'ici.
+
+Fédération LDAP : URL, DN, mode, périodes, boutons « synchroniser les
+changements » / « synchronisation complète » (`POST
+/keycloak-settings/ldap-sync`). Le mot de passe de liaison n'est ni lu ni
+modifiable.
+
+Hors de portée par construction : realm master, nom / suppression du realm,
+clients de service et secrets, rôles realm-management, comptes, OTP requis.

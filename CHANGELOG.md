@@ -1,3 +1,18 @@
+## 2026-09-25 — Comptes : réglages Keycloak depuis le hub, en liste blanche (livraison #614, item 98)
+
+Demandé : « rester (ou créer une interface) dans le hub pour modifier la
+configuration du Keycloak, en limitant ou protégeant les parties
+névralgiques ». Onglet « Réglages Keycloak » : général, page de connexion,
+sessions et jetons, protection force brute, politique de mots de passe,
+conservation des événements — types et bornes côté API
+(`accounts/api/kcsettings.py`, 5 tests), simulation avant / après puis
+application, journalisée. Origines des clients OIDC (ajout dérivé de
+l'origine interne, aperçu, sans redémarrage) ; fédération LDAP
+(synchronisation changements / complète, secret jamais lu). Realm master,
+clients de service, rôles, comptes hors de portée. accounts-api :
+`GET/PUT /keycloak-settings`, `POST /keycloak-settings/origins`,
+`POST /keycloak-settings/ldap-sync` ; compose `HUB_INTERNAL_ORIGIN`.
+
 ## 2026-09-25 — Agent : redémarrage / arrêt, réveil réseau, lanceurs au démarrage, chien de garde applicatif (livraison #613, agent 0.5.17)
 
 Demandé : « un agent Windows capable de gérer un reboot Windows et si

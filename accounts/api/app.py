@@ -19,6 +19,7 @@ from flask_cors import CORS
 import kc
 import demo  # #608 : utilisateurs de démonstration
 import events as ev  # #612 : journal des connexions
+import kcsettings as ks  # #614 : réglages Keycloak en liste blanche
 
 try:
     from version_endpoint import register_version_route
@@ -208,6 +209,73 @@ def events_enable():
         c.set_events_config(cfg)
         log.info("conservation des événements Keycloak activée (%s j) par %s", ev.EXPIRATION_DAYS, _who(body))
     return jsonify({"changed": changed, "config": ev.config_state(cfg)}), 200
+
+
+# ---- #614 : réglages Keycloak depuis le hub, liste blanche (item 98) ----
+HUB_ORIGIN = os.environ.get("HUB_INTERNAL_ORIGIN", "")  # https://HOST_IP:GATEWAY_PORT, origine de référence des clients OIDC
+
+
+@app.route("/keycloak-settings", methods=["GET"])
+def kc_settings_get():
+    c = client()
+    realm = c.realm()
+    clients = c.oidc_clients()
+    return jsonify({"fields": ks.describe(), "groups": ks.GROUPS, "values": ks.current(realm), "realm": realm.get("realm"),
+                    "clients": [{"clientId": x.get("clientId"), "redirectUris": x.get("redirectUris") or [], "webOrigins": x.get("webOrigins") or []}
+                                for x in clients if not x.get("bearerOnly") and x.get("clientId") not in ("admin-cli", "broker", "realm-management", "security-admin-console", "account", "account-console")],
+                    "hub_origin": HUB_ORIGIN, "ldap": ks.ldap_providers(c.user_storage_components())}), 200
+
+
+@app.route("/keycloak-settings", methods=["PUT"])
+def kc_settings_put():
+    body = request.get_json(silent=True) or {}
+    if not _admin(body):
+        return _forbidden()
+    c = client()
+    changes, errors = ks.plan(c.realm(), body.get("values") or {})
+    if errors and not changes:
+        return jsonify({"error": " ; ".join(errors)}), 400
+    if body.get("dry_run"):
+        return jsonify({"changes": changes, "errors": errors, "applied": False}), 200
+    if changes:
+        c.update_realm(ks.apply_body(changes))
+        log.info("réglages Keycloak modifiés par %s : %s", _who(body), ", ".join("%s %r -> %r" % (k, v["before"], v["after"]) for k, v in changes.items()))
+    return jsonify({"changes": changes, "errors": errors, "applied": bool(changes), "values": ks.current(c.realm())}), 200
+
+
+@app.route("/keycloak-settings/origins", methods=["POST"])
+def kc_settings_origin():
+    body = request.get_json(silent=True) or {}
+    if not _admin(body):
+        return _forbidden()
+    c = client()
+    base = body.get("base_origin") or HUB_ORIGIN
+    plan, err = ks.origin_plan(c.oidc_clients(), base, body.get("origin"))
+    if err:
+        return jsonify({"error": err}), 400
+    if not base:
+        return jsonify({"error": "origine interne de référence inconnue (HUB_INTERNAL_ORIGIN)"}), 400
+    if not body.get("dry_run"):
+        for cid, live_id, updates in plan:
+            c.update_client_uris(live_id, updates)
+        if plan:
+            log.info("origine %s ajoutée aux clients %s par %s", body.get("origin"), ", ".join(p[0] for p in plan), _who(body))
+    return jsonify({"clients": [{"clientId": p[0], **p[2]} for p in plan], "applied": not body.get("dry_run") and bool(plan)}), 200
+
+
+@app.route("/keycloak-settings/ldap-sync", methods=["POST"])
+def kc_settings_ldap_sync():
+    body = request.get_json(silent=True) or {}
+    if not _admin(body):
+        return _forbidden()
+    c = client()
+    providers = ks.ldap_providers(c.user_storage_components())
+    target = next((p for p in providers if p["id"] == body.get("id")), providers[0] if providers else None)
+    if not target:
+        return jsonify({"error": "aucune fédération LDAP dans le realm"}), 404
+    res = c.ldap_sync(target["id"], full=body.get("full", True))
+    log.info("synchronisation LDAP %s (%s) par %s : %s", target["name"], "complète" if body.get("full", True) else "changements", _who(body), res)
+    return jsonify({"provider": target["name"], "result": res}), 200
 
 
 @app.route("/groups", methods=["GET"])
