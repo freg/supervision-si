@@ -101,6 +101,32 @@ passerelle du hub (copie fullchain/privkey par hook certbot) exigerait en
 plus de reconstruire le hub sur le nom public et le port 443 et de
 repointer agents et realm : migration, pas réglage.
 
+## 2 bis. A0 — jeton Keycloak exigé sur `/api/` depuis Internet (livraison #615)
+
+Constat (docs/site-miroir-client.md) : les lectures des API ne sont pas
+authentifiées (modèle LAN de confiance). Plutôt que de modifier 60 API,
+la vérification est faite **au frontal** : `mod_auth_openidc` en mode
+serveur de ressources OAuth 2.0 vérifie la signature RS256 du jeton d'accès
+contre le JWKS du realm (`OIDCOAuthVerifyJwksUri`, lu via le frontal
+lui-même) sur tout `/api/`, hors faces machine des agents (signature HMAC
+propre) : `si-agent/api/v1/`, `si-agent/package`, `netprobe/api/v1/`,
+`netprobe/fleet`, `netprobe/agents/measurements/bulk`. `OPTIONS` passe.
+Défaut activé (`API_AUTH=0` pour désactiver, `KC_REALM` si le realm n'est
+pas supervision-si). Passphrase du module dans `/etc/apache2/oidc-passphrase`.
+
+Côté hub, `hub/src/apiAuth.js` intercepte `fetch` : toute requête vers une
+base `VITE_*_API_BASE_URL` ou `/api/` de la même origine reçoit
+`Authorization: Bearer <jeton de session>` (renouvelé par react-oidc-context),
+sans écraser un en-tête déjà posé. Sur le LAN rien ne change (les API
+ignorent l'en-tête qu'elles ne lisent pas).
+
+Limites connues : les autres pages servies par le frontal (`/app`,
+`/tickets`, `/vault`) n'envoient pas encore le jeton → leurs appels d'API
+depuis Internet reçoivent 401 tant que leurs clients ne sont pas adaptés
+(le hub seul est visé pour la démo). Test : `curl -sI
+https://<nom>/api/si-agent/fleet | head -1` → `401` ; depuis le hub
+connecté, la tuile Agents fonctionne.
+
 ## 3. Vérifier
 
 ```bash

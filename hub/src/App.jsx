@@ -17,6 +17,8 @@ import {
   fetchInfraStatus,
 } from "./settingsClient.js";
 import { applyHubLayout } from "./hubLayoutLib.js";
+import { installApiAuth, setApiToken } from "./apiAuth.js";  // A0 #615 : jeton sur tous les appels d'API
+installApiAuth();
 // #516 : disposition du hub en arborescence (menus, tuiles, outils, options).
 import HubTreeView from "./HubTreeView.jsx";
 // #523 : Infos synthèse SI (DNS / IP OVH / IPAM / services, recoupés).
@@ -995,6 +997,7 @@ function ExternalLinksAdminView({ apiBase, login, links, onLinksChanged, onBack 
 
 export default function App() {
   const auth = useAuth();
+  useEffect(() => { setApiToken(auth.user?.access_token || ""); }, [auth.user?.access_token]);  // A0 #615
   const [showDebug, setShowDebug] = useState(false);
   // Menu de navigation regroupé (livraison #236, réorganisation de
   // l'en-tête demandée explicitement -- "trop d'outils maintenant")

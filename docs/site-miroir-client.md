@@ -98,6 +98,10 @@ appelant l'API directement. D'où :
   anonymes depuis Internet ; les vues dont le client n'envoie pas encore le
   jeton cessent de fonctionner depuis l'extérieur jusqu'à A0 (liste = ce
   qu'A0 doit traiter).
+- **Fait en #615, à la frontière** : mod_auth_openidc sur le frontal (voir
+  docs/acces-public-frontal.md § 2 bis) + intercepteur hub. La garde
+  par API (`g.user`, périmètre de site A1) reste à faire pour le LAN et
+  pour A1.
 - A1 s'appuie ensuite sur la même garde (`site_scope(groups)`).
 
 ## 4. Ordre proposé

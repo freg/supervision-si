@@ -1,3 +1,14 @@
+## 2026-09-26 — A0 : jeton Keycloak exigé sur toutes les API depuis Internet (livraison #615)
+
+Décidé après le constat de l'item 97 : les lectures des API n'étaient pas
+authentifiées. Fait à la frontière pour tenir le délai : sur le frontal
+public, `mod_auth_openidc` vérifie la signature du jeton d'accès Keycloak
+(JWKS du realm) sur tout `/api/`, faces machine des agents exceptées ;
+côté hub, `apiAuth.js` (4 tests) ajoute le jeton à tous les appels d'API
+par un intercepteur `fetch` unique. LAN inchangé. Limites : `/app`,
+`/tickets`, `/vault` depuis Internet (clients sans jeton) ; garde par API
+et périmètre de site (A1) à suivre.
+
 ## 2026-09-25 — Comptes : réglages Keycloak depuis le hub, en liste blanche (livraison #614, item 98)
 
 Demandé : « rester (ou créer une interface) dans le hub pour modifier la
