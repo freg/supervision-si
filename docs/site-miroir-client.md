@@ -75,8 +75,34 @@ robots — la supervision doit vivre sans Internet).
    personnes du client) ; mode 2 fédération LDAP du miroir vers l'annuaire
    central par le bastion, avec cache de session pour tenir sans lien.
 
+### Constat du 25 sept. (avant A1) — prérequis A0
+
+Vérifié dans le code : seules licenses-api, notify-api et services-api
+vérifient le jeton Keycloak, et uniquement sur les écritures. **Toutes les
+lectures de toutes les API passent sans jeton** derrière la passerelle
+(modèle « LAN de confiance »). Depuis l'exposition publique du hub
+(supervision.optline.fr, 25 sept.), c'est une faiblesse en soi, et un
+périmètre de site imposé côté navigateur seul serait contournable en
+appelant l'API directement. D'où :
+
+- **A0 — lectures authentifiées** (prérequis) : garde commune
+  `shared/api_guard.py` (dérivée de `si-proxy/admin/auth.py`) en
+  `before_request` sur chaque API : jeton exigé sur tout sauf `/health`,
+  `/version` et les routes des agents / sondes (secret propre) ; `g.user`
+  avec `groups`. Côté hub : envoyer `Authorization: Bearer` dans tous les
+  clients JS (trois le font déjà). Non-régression : agents, sondes,
+  keycloak-backup, licenses → si-agent, scripts hôte.
+- **Mesure conservatoire** sur le frontal public, sans toucher aux API :
+  refuser `/api/` aux requêtes sans en-tête `Authorization: Bearer`
+  (`RewriteCond %{HTTP:Authorization} !^Bearer`), ce qui ferme les lectures
+  anonymes depuis Internet ; les vues dont le client n'envoie pas encore le
+  jeton cessent de fonctionner depuis l'extérieur jusqu'à A0 (liste = ce
+  qu'A0 doit traiter).
+- A1 s'appuie ensuite sur la même garde (`site_scope(groups)`).
+
 ## 4. Ordre proposé
 
+0. **A0** (lectures authentifiées) — voir constat ci-dessus.
 1. **A1 + A3** (une livraison) : périmètre de site par groupe (hub + garde
    d'API), vhost `numeria.supervision.optline.fr`, groupe `site-numeria`,
    matrice des droits réglée, comptes de démo → démo Numeria possible.

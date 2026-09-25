@@ -3370,6 +3370,12 @@ choco suggéré depuis le nom relevé.
 
 ## Site miroir pour un client — projeté ou autonome (2026-09-25) — item 97 (analyse : docs/site-miroir-client.md)
 
+**25/09, avant A1** : les lectures des API ne sont pas authentifiées (sauf
+écritures de 3 API) ; prérequis **A0 lectures authentifiées** ajouté à
+l'analyse (garde commune + jeton dans tous les clients JS), avec une mesure
+conservatoire possible sur le frontal (refus de `/api/` sans Bearer). En
+attente de décision : A0 d'abord, ou mesure conservatoire d'abord.
+
 Demandé : « pour les clients (Numeria pour le moment) il faut un site
 miroir soit en interne et potentiellement autonome soit projeté par
 supervision.optline.fr ». Plan en deux formes complémentaires : A —
