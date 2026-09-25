@@ -1,3 +1,12 @@
+## 2026-09-26 — Pied de page (hauteur visible réelle) ; test updater remis d'aplomb (livraison #619)
+
+- Hub : `.hub-shell` en `100dvh` (repli `100vh`) — hauteur réellement visible
+  du navigateur, pour le pied de page (numéro de version) coupé signalé sur
+  Firefox / Mac ; si le symptôme persiste, c'est la fenêtre qui déborde de
+  l'écran (Fenêtre → Zoom).
+- si-agent : `tests/test_updater.test_run_update` échouait depuis #576
+  (signature `spawn(cmd, mode, log_path)`) — test aligné.
+
 ## 2026-09-26 — Sonde web-trace : capture pktmon / tcpdump analysée sur le poste (livraison #618)
 
 Demandé : « idem en mode tcpdump pour relever les URL, les protocoles, les

@@ -42,6 +42,7 @@ button.secondary { background: var(--panel); }
 
 .hub-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -49,7 +50,7 @@ button.secondary { background: var(--panel); }
    et pied fixes, .hub-main (zone centrale) défile, et les vues qui ont
    leurs propres cadres (grille, onglets, Supervision SI, paramètres)
    remplissent .hub-main et font défiler leurs cadres/tbody. */
-.hub-shell:not(.hub-center) { height: 100vh; overflow: hidden; }
+.hub-shell:not(.hub-center) { height: 100vh; height: 100dvh; overflow: hidden; }  /* dvh : hauteur réellement visible (barres du navigateur) */
 .hub-main { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
 .hub-main > * { flex-shrink: 0; }
 .hub-main > .hub-grid-view, .hub-main > .hub-settings, .hub-main > .hub-tabshell, .hub-main > .ss-root, .hub-main > .hub-page { flex: 1 1 auto; min-height: 0; }

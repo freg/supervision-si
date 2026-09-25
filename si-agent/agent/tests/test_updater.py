@@ -57,7 +57,7 @@ class Updater(unittest.TestCase):
         data = make_archive()
         spawned = []
         res = updater.run_update(agent, {"version": "9.9.9", "sha256": hashlib.sha256(data).hexdigest(), "url": "/package", "command_id": "c1"},
-                                 fetch=lambda url: data, spawn=lambda cmd, mode: spawned.append((cmd, mode)), current_version="0.5.2")
+                                 fetch=lambda url: data, spawn=lambda cmd, mode, log_path=None: spawned.append((cmd, mode)), current_version="0.5.2")  # #576 : log_path
         self.assertTrue(res["ok"], res)
         self.assertEqual(res["result"]["to"], "9.9.9")
         self.assertEqual(len(spawned), 1)
