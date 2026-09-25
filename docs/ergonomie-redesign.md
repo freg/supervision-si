@@ -166,3 +166,8 @@ dire quoi ? »). Un écran échoue dès qu'une personne sur cinq bloque.
     sombre, `#1b5e93` en clair ; pages statiques sombres : `#7ab8f5`),
     jamais l'accent ni le bleu du navigateur : sur fond sombre l'accent
     (#2980b9 / #4a9eda) reste trop foncé pour un lien.
+11. (#612) Un cadre de contenu (`.hub-card`) prend **toute la largeur** de
+    sa vue et s'aligne à gauche ; seul un écran centré (`.hub-center` :
+    connexion, erreur) le plafonne à 420 px. Un tableau long défile **dans
+    le cadre** (`hub-fill-column` + `hub-fill-scroll`), en-tête fixé, jamais
+    la page. Symptôme corrigé : « le contenu déborde du cadre ».

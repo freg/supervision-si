@@ -18,6 +18,7 @@ from flask_cors import CORS
 
 import kc
 import demo  # #608 : utilisateurs de démonstration
+import events as ev  # #612 : journal des connexions
 
 try:
     from version_endpoint import register_version_route
@@ -180,6 +181,33 @@ def demo_delete():
             kcl.delete_user(s["id"]); n += 1
     log.warning("démo : %d compte(s) supprimé(s) par %s", n, _who(b))
     return jsonify({"deleted": n}), 200
+
+
+# ---- #612 : journal des connexions (événements Keycloak du realm) ----
+@app.route("/events", methods=["GET"])
+def events_get():
+    kind = request.args.get("kind", "")            # '' | errors | <TYPE>
+    query = request.args.get("q", "")
+    limit = min(max(request.args.get("limit", 300, type=int), 1), 1000)
+    c = client()
+    cfg = ev.config_state(c.events_config())
+    rows = ev.normalize(c.events(types=ev.SHOWN_TYPES, max_results=limit)) if cfg["enabled"] else []
+    shown = ev.filter_rows(rows, kind, query)
+    return jsonify({"events": shown, "summary": ev.summary(rows), "config": cfg, "types": ev.SHOWN_TYPES,
+                    "labels": {t: ev.label_type(t) for t in ev.SHOWN_TYPES}}), 200
+
+
+@app.route("/events/enable", methods=["POST"])
+def events_enable():
+    body = request.get_json(silent=True) or {}
+    if not _admin(body):
+        return _forbidden()
+    c = client()
+    cfg, changed = ev.config_plan(c.events_config())
+    if changed:
+        c.set_events_config(cfg)
+        log.info("conservation des événements Keycloak activée (%s j) par %s", ev.EXPIRATION_DAYS, _who(body))
+    return jsonify({"changed": changed, "config": ev.config_state(cfg)}), 200
 
 
 @app.route("/groups", methods=["GET"])

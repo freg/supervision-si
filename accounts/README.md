@@ -73,3 +73,25 @@ ensuite. `GET /demo` (état), `POST /demo/enable` (`reset_passwords`),
 `DELETE /demo` — écriture réservée aux groupes administrateurs. Les comptes
 se connectent par le processus normal (Keycloak) et voient le hub selon
 leurs groupes.
+
+## Journal des connexions (livraison #612)
+
+Onglet « Connexions » : événements Keycloak du realm — connexions, échecs,
+déconnexions, échecs des clients de service, échecs de rafraîchissement —
+avec date, utilisateur, adresse IP, client OIDC et raison traduite
+(`invalid_redirect_uri` → « URL de retour non autorisée (origine du hub
+inconnue de Keycloak) », `invalid_user_credentials` → « mot de passe
+incorrect »…). Filtre début de mot (utilisateur, IP, client, raison),
+sélecteur de type ou « échecs seulement », en-tête de tableau fixé.
+
+Keycloak ne conserve pas ses événements par défaut : l'onglet le signale et
+propose « Activer la conservation (30 jours) » (`POST /events/enable`,
+administrateurs) — `PUT /events/config` du realm avec `eventsEnabled`,
+types utiles ajoutés aux existants et expiration de 30 jours si absente,
+sans purge ni redémarrage. `accounts/api/events.py` (pur, 4 tests) :
+normalisation, filtre, résumé, plan de configuration.
+
+Le journal du frontal public (Apache sur la VM frontale) n'est pas ici :
+`/var/log/apache2/hub-<nom>-access.log` sur cette VM (voir
+docs/acces-public-frontal.md) ; rapatriement par l'agent hôte / rsyslog au
+backlog.

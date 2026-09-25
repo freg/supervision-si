@@ -1,3 +1,22 @@
+## 2026-09-25 — Comptes : journal des connexions Keycloak ; cadres pleine largeur partout (livraison #612)
+
+Demandé : « y a-t-il un log des échecs de connexion côté proxy et côté
+Keycloak ? peut-on en créer un visible sur le hub ? » et « le contenu
+déborde du cadre, c'est le cas dans plein d'écrans ».
+
+- Onglet « Connexions » (Comptes) : événements Keycloak du realm (connexion,
+  échec, déconnexion, échec client, échec de rafraîchissement) avec
+  utilisateur, IP, client, raison traduite ; filtre début de mot, type ou
+  « échecs seulement », résumé ; conservation activable (30 j) sans purge.
+  accounts-api `GET /events`, `POST /events/enable` ; `events.py` (4 tests).
+- Cadres : `.hub-card` était plafonné à 420 px et centré (écran de
+  connexion) alors que 58 vues l'utilisent comme cadre principal — désormais
+  pleine largeur et aligné à gauche, le plafond ne s'applique que sous
+  `.hub-center` ; classes `hub-fill-column` / `hub-fill-scroll` (tableau qui
+  défile dans le cadre, en-tête fixé).
+- Backlog : item 99 (journal du frontal dans le hub), item 100 (agent
+  Windows : reboot, WoL, lanceurs, chien de garde).
+
 ## 2026-09-25 — Keycloak : URL de redirection poussées dans le realm vivant sans purge (livraison #611)
 
 Mise en service du frontal public : « paramètre invalide : redirect_uri »

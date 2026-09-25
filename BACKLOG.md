@@ -3379,6 +3379,32 @@ habillage) ; B — miroir autonome (cohorte « site » du compose sur une VM
 du client, fédération miroir → central par HTTPS et jeton de consommateur,
 livraisons par la tour via le shim du site). Prochaine étape : A1 + A3.
 
+## Journal du frontal public dans le hub (2026-09-25) — item 99
+
+Demandé après la mise en service de supervision.optline.fr : « y a-t-il un
+log des échecs de connexion côté proxy et côté Keycloak ? peut-on en créer
+un visible sur le hub ? ». Fait en #612 : côté Keycloak (onglet Connexions
+de Comptes, conservation activable). Reste : côté frontal — installer
+l'agent hôte sur la VM frontale et lui faire remonter
+`/var/log/apache2/hub-<nom>-access.log` / `-error.log` (sonde `path-probe`
+ou rsyslog → rsyslog-listener), puis une vue « accès publics » (IP source,
+code HTTP, cible, volumes, erreurs 5xx = hub injoignable) croisée avec les
+événements Keycloak par IP et minute.
+
+## Agent Windows : redémarrage, réveil, lanceurs, chien de garde (2026-09-25) — item 100
+
+Demandé : « un agent Windows capable de gérer un reboot Windows et si
+possible un wake-on-LAN ; accès à la liste des lanceurs d'application au
+démarrage ; watchdog appli ». Plan (#613) : commandes acquittées `reboot`
+/ `shutdown` (délai, message aux utilisateurs, refus si session console
+active sauf `force`), réveil par `/tool wol` du MikroTik du site ou par un
+autre agent du même LAN (magic packet), sonde `startup-items` (Run/RunOnce
+HKLM+HKCU, dossiers Démarrage, tâches planifiées à l'ouverture de session,
+services automatiques ; activer/désactiver depuis la tuile), plugin
+`app-watchdog` (liste d'applications : processus attendu, commande de
+relance, délai, fenêtre horaire ; relance et événement `app-restarted` /
+`app-down`).
+
 ## Réglages Keycloak depuis le hub, parties névralgiques protégées (2026-09-25) — item 98
 
 Demandé : « rester (ou créer une interface) dans le hub pour modifier la

@@ -72,6 +72,23 @@ class Keycloak:
         except ValueError:
             return r
 
+    # ------------------------------------------------------------ événements (#612)
+    def events(self, types=None, max_results=300, first=0, user_id=None, ip=None):
+        params = [("max", max_results), ("first", first)]
+        for t in types or []:
+            params.append(("type", t))
+        if user_id:
+            params.append(("user", user_id))
+        if ip:
+            params.append(("ipAddress", ip))
+        return self.req("GET", "/events", params=params) or []
+
+    def events_config(self):
+        return self.req("GET", "/events/config") or {}
+
+    def set_events_config(self, cfg):
+        self.req("PUT", "/events/config", cfg)
+
     # ------------------------------------------------------------ groupes
     def groups(self):
         out = []

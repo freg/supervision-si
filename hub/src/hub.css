@@ -89,11 +89,20 @@ thead tr + tr th { top: 0; }
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 28px;
-  max-width: 420px;
-  text-align: center;
+  padding: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  /* #612 : cadre de contenu PLEINE LARGEUR, aligné à gauche -- 58 vues
+     l'utilisent comme cadre principal ; le plafond de 420 px centré ne vaut
+     que pour les écrans centrés (connexion, erreur : .hub-center), cause
+     réelle de « le contenu déborde du cadre, dans plein d'écrans ». */
+  max-width: none;
+  text-align: left;
+  min-width: 0;
 }
+.hub-center .hub-card { max-width: 420px; text-align: center; padding: 28px; }
+/* #612 : tableau qui défile DANS le cadre (en-tête fixé), jamais la page */
+.hub-fill-column { display: flex; flex-direction: column; min-height: 0; }
+.hub-fill-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; max-height: calc(100vh - 300px); }
 .hub-card h1 { margin: 0 0 8px; font-size: 22px; }
 .hub-card .primary { margin-top: 16px; }
 .hub-error-card { border-color: var(--danger); }

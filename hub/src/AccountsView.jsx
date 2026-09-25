@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { filterUsers, validateNewUser, membersByGroup } from "./accountsLib.js";
 import DemoUsersTab from "./DemoUsersTab.jsx";  // #608
+import LoginEventsTab from "./LoginEventsTab.jsx";  // #612
 
 async function call(url, init) {
   const r = await fetch(url, { credentials: "include", ...(init || {}) });
@@ -77,6 +78,7 @@ export default function AccountsView({ onBack, accountsApiBase, groups, login, k
         <button className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}>Comptes ({users.length})</button>
         <button className={tab === "groups" ? "active" : ""} onClick={() => setTab("groups")}>Groupes ({allGroups.length})</button>
         <button className={tab === "demo" ? "active" : ""} onClick={() => setTab("demo")}>Démo</button>
+        <button className={tab === "events" ? "active" : ""} onClick={() => setTab("events")}>Connexions</button>
       </div>
       {info && <p className="muted" style={{ marginTop: 0 }}>Realm {info.realm} · annuaire LDAP {info.ldap_writable ? "en écriture (les comptes créés vont dans l'annuaire)" : "en lecture seule (les comptes créés ici restent dans Keycloak)"} · écriture réservée aux groupes {info.admin_groups.join(", ")}.</p>}
       {error && (
@@ -160,6 +162,7 @@ export default function AccountsView({ onBack, accountsApiBase, groups, login, k
         </div>
       )}
 
+      {tab === "events" && <LoginEventsTab apiBase={accountsApiBase} me={me} notice={(t) => { setError(null); setNotice(t); }} error={(t) => { setNotice(null); setError(t); }} />}
       {tab === "demo" && <DemoUsersTab apiBase={accountsApiBase} me={me} notice={(t) => { setError(null); setNotice(t); }} error={(t) => { setNotice(null); setError(t); }} />}
 
       {tab === "groups" && (
