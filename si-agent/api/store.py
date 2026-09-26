@@ -905,9 +905,17 @@ def create_command(db_path, agent_id, ctype, params=None):
     return get_command(db_path, cid)
 
 
+def redact_params(params):
+    """#628 : mot de passe d'autologon jamais renvoyé au hub."""
+    p = dict(params or {})
+    if isinstance(p.get("autologon"), dict) and "password" in p["autologon"]:
+        p["autologon"] = dict(p["autologon"], password="***")
+    return p
+
+
 def _command_public(r):
     d = dict(r)
-    d["params"] = json.loads(d.get("params") or "{}")
+    d["params"] = redact_params(json.loads(d.get("params") or "{}"))
     d["result"] = json.loads(d["result"]) if d.get("result") else None
     return d
 
@@ -959,8 +967,10 @@ def pending_commands_for_agent(db_path, agent_id):
 def ack_command(db_path, agent_id, cid, result):
     conn = _connect(db_path)
     try:
-        cur = conn.execute("UPDATE commands SET status = ?, result = ?, acked_at = ? WHERE id = ? AND agent_id = ? AND status = 'pending'",
-                           ("done" if (result or {}).get("ok") else "failed", json.dumps(result or {}), now_iso(), cid, agent_id))
+        row = conn.execute("SELECT params FROM commands WHERE id = ? AND agent_id = ?", (cid, agent_id)).fetchone()
+        params = redact_params(json.loads(row["params"] or "{}")) if row else {}
+        cur = conn.execute("UPDATE commands SET status = ?, result = ?, acked_at = ?, params = ? WHERE id = ? AND agent_id = ? AND status = 'pending'",
+                           ("done" if (result or {}).get("ok") else "failed", json.dumps(result or {}), now_iso(), json.dumps(params), cid, agent_id))
         conn.commit()
         return cur.rowcount > 0
     finally:

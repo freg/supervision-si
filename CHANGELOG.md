@@ -1,3 +1,17 @@
+## 2026-09-26 — Agent 0.5.22 : redémarrer et rouvrir la session UNE fois, sans autologon permanent (livraison #628, item 100)
+
+`power_action` {action: reboot, autologon: {user, password, domain?}} :
+Winlogon `AutoAdminLogon=1` + `AutoLogonCount=1` (mécanisme natif, celui de
+Sysprep/MDT) -- la session s'ouvre au démarrage suivant, Windows efface
+lui-même le mot de passe et l'autologon ; l'agent vérifie au démarrage
+suivant (`autologon-cleared`) et nettoie si le redémarrage a échoué.
+Registre écrit par `winreg` (jamais de ligne de commande). Le mot de passe
+ne fait que passer : masqué dans le stockage du central dès l'acquittement
+et dans tout ce que voit le hub, jamais journalisé ni acquitté. Champs
+« rouvrir la session (une fois) » dans la section Poste du hub et dans le
+central local. Module pur `autologon.py`, 4 tests. Central local : en-tête
+d'agent lisible avec la mesure `host` Windows (`system.hostname`).
+
 ## 2026-09-26 — Agent 0.5.21 : parcours de l'arborescence du poste pour choisir une cible (livraison #627, items 101/103)
 
 Commande `browse` {path?} (module pur `browsectl.py`, 3 tests) : lecteurs

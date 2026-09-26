@@ -108,6 +108,13 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
   const [message, setMessage] = useState("Redémarrage demandé par la supervision");
   const [force, setForce] = useState(false);
   const [bootTarget, setBootTarget] = useState("");
+  const [aluUser, setAluUser] = useState("");
+  const [aluPass, setAluPass] = useState("");
+  const autologon = () => {  // #628 : réouverture de session une fois ; "DOMAINE\compte" accepté
+    if (!aluUser.trim() || !aluPass) return undefined;
+    const m = aluUser.trim().match(/^([^\\]+)\\(.+)$/);
+    return m ? { domain: m[1], user: m[2], password: aluPass } : { user: aluUser.trim(), password: aluPass };
+  };
   const [mac, setMac] = useState("");
   const [via, setVia] = useState("");
   const [apps, setApps] = useState(wdCfg.apps || []);
@@ -143,7 +150,8 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
               <option value="linux">→ Linux / GRUB (une fois)</option>
               <option value="firmware">→ réglages UEFI</option>
             </select>
-            <button type="button" className="secondary" disabled={!!power.busy} onClick={() => window.confirm(`Redémarrer ${detail.hostname || agentId} dans ${delay} s${bootTarget ? ` vers ${bootTarget}` : ""} ?`) && power.run("redémarrage", () => powerAction(apiBase, agentId, { action: "reboot", delay_seconds: delay, message, force, target: bootTarget || undefined }))}>{power.busy === "redémarrage" ? "⏳ redémarrage…" : "Redémarrer"}</button>
+            <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }} title="Windows : Winlogon rouvre cette session UNE fois au démarrage suivant (AutoLogonCount=1), puis efface le mot de passe ; l'agent vérifie au démarrage suivant. Compte local ou de domaine avec mot de passe.">rouvrir la session (une fois) <input value={aluUser} onChange={(e) => setAluUser(e.target.value)} placeholder="compte ou DOMAINE\compte" style={{ width: 170 }} /><input type="password" value={aluPass} onChange={(e) => setAluPass(e.target.value)} placeholder="mot de passe" autoComplete="new-password" style={{ width: 130 }} /></span>
+            <button type="button" className="secondary" disabled={!!power.busy} onClick={() => window.confirm(`Redémarrer ${detail.hostname || agentId} dans ${delay} s${bootTarget ? ` vers ${bootTarget}` : ""}${autologon() ? ` puis rouvrir la session de ${aluUser}` : ""} ?`) && power.run("redémarrage", () => { const r = powerAction(apiBase, agentId, { action: "reboot", delay_seconds: delay, message, force, target: bootTarget || undefined, autologon: autologon() }); setAluPass(""); return r; })}>{power.busy === "redémarrage" ? "⏳ redémarrage…" : "Redémarrer"}</button>
             <button type="button" className="secondary" disabled={!!power.busy} onClick={() => window.confirm(`Arrêter ${detail.hostname || agentId} dans ${delay} s ? (il faudra un réveil réseau ou une présence sur place pour le rallumer)`) && power.run("arrêt", () => powerAction(apiBase, agentId, { action: "shutdown", delay_seconds: delay, message, force }))}>{power.busy === "arrêt" ? "⏳ arrêt…" : "Arrêter"}</button>
             <button type="button" className="secondary" disabled={!!power.busy} onClick={() => power.run("annulation", () => powerAction(apiBase, agentId, { action: "cancel" }))}>{power.busy === "annulation" ? "⏳…" : "Annuler l'arrêt programmé"}</button>
           </span>

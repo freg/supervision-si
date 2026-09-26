@@ -123,6 +123,7 @@ class State:
             for c in self.data["commands"]:
                 if c["id"] == cid and c["agent_id"] == aid:
                     c["status"] = "done" if (result or {}).get("ok") else "failed"
+                    c["params"] = redact_params(c["params"])  # #628 : mot de passe d'autologon effacé dès l'acquittement
                     c["result"] = result; c["acked_at"] = _now_iso()
                     self.save()
                     return True
@@ -148,6 +149,13 @@ class State:
                     m.pop(k, None)
             self.save()
             return n
+
+
+def redact_params(params):
+    p = dict(params or {})
+    if isinstance(p.get("autologon"), dict) and "password" in p["autologon"]:
+        p["autologon"] = dict(p["autologon"], password="***")
+    return p
 
 
 def _now_iso():
@@ -318,7 +326,7 @@ class Central:
             agents = [{k: v for k, v in a.items() if k != "secret"} for a in st.data["agents"].values()]
             return {"base": self.base, "token": st.data["token"], "ca_sha256": self.ca_sha, "site": self.site, "package": self.package_info,
                     "plugins": self.plugin_ids, "one_liners": self.one_liners(), "agents": agents,
-                    "commands": list(reversed(st.data["commands"][-60:])), "events": list(reversed(st.data["events"][-150:])),
+                    "commands": [dict(c, params=redact_params(c["params"])) for c in reversed(st.data["commands"][-60:])], "events": list(reversed(st.data["events"][-150:])),
                     "measurements": st.data["measurements"], "runbook": imagectl.PROXMOX_RUNBOOK, "uptime": int(time.time() - self.started)}
 
 
@@ -524,6 +532,7 @@ function cmd(type,params){if(!sel)return;if(document.activeElement)document.acti
 let br={cid:null,busy:false,res:null,agent:null};
 function browse(path){if(!sel)return;if(document.activeElement)document.activeElement.blur();br={cid:null,busy:true,res:br.agent===sel?br.res:null,agent:sel};
  post('/ui/command',{agent_id:sel,type:'browse',params:path?{path}:{}}).then(c=>{br.cid=c.id;load()})}
+function autologonParam(){const u=(fv('p-alu')||'').trim(),p=fv('p-alp')||'';if(!u||!p)return undefined;const m=u.match(/^([^\\]+)\\(.+)$/);if(m)return {domain:m[1],user:m[2],password:p};return {user:u,password:p}}
 function pick(path){const e=$('i-target');if(e){e.value=path}render()}
 function gb(n){return n==null?'?':n>=1e12?(n/1e12).toFixed(2)+' To':n>=1e9?(n/1e9).toFixed(1)+' Go':Math.round(n/1e6)+' Mo'}
 function browserHtml(){
@@ -556,14 +565,17 @@ function render(){
  const img=S.events.filter(e=>e.agent_id===sel&&/^image-/.test(e.kind));
  const tabs=['poste','image','lanceurs','watchdog','sondes','commandes'];
  const pt=self.point||{};
- let h=`<div class="card"><h2>${esc(sel)} <span class="muted">— ${esc(host.hostname||'')} ${esc(typeof host.os==='string'?host.os:(host.os||{}).name||'')} · CPU ${esc((host.cpu||{}).percent??'?')} % · mémoire ${esc((host.memory||{}).used_percent??'?')} % · empreinte agent ${esc(pt.cpu_core_percent??'?')} % d'un cœur / ${pt.rss_bytes?Math.round(pt.rss_bytes/1048576):'?'} Mo</span>
+ const hs=host.system||host;
+ let h=`<div class="card"><h2>${esc(sel)} <span class="muted">— ${esc(hs.hostname||'')} ${esc(typeof hs.os==='string'?hs.os:(hs.os||{}).name||'')} · CPU ${esc((host.cpu||{}).percent??'?')} % · mémoire ${esc((host.memory||{}).used_percent??'?')} % · empreinte agent ${esc(pt.cpu_core_percent??'?')} % d'un cœur / ${pt.rss_bytes?Math.round(pt.rss_bytes/1048576):'?'} Mo</span>
 </h2>
  <div class="tabs">${tabs.map(t=>`<button class="${t===tab?'on':''}" onclick="tab='${t}';render()">${t}</button>`).join('')}</div>`;
  if(tab==='poste'){h+=`<div class="row"><button onclick="cmd('collect_now',{})">Collecter maintenant</button></div>
   <h2>Alimentation</h2><div class="row"><label>action<select id="p-act"><option value="reboot">redémarrer</option><option value="shutdown">arrêter</option><option value="cancel">annuler</option></select></label>
   <label>délai (s)<input id="p-delay" value="60"></label><label>message<input id="p-msg" value="Redémarrage demandé par la supervision"></label><label><input type="checkbox" id="p-force" style="width:auto"> forcer (session ouverte)</label>
+  <label>rouvrir la session après le redémarrage (une fois) : compte<input id="p-alu" placeholder="pilote ou DOMAINE\\pilote"></label><label>mot de passe<input id="p-alp" type="password" autocomplete="new-password"></label>
   <label>prochain démarrage (multi-amorçage, via UEFI)<select id="p-target"><option value="">normal</option><option value="windows">→ Windows (saute GRUB, une fois)</option><option value="linux">→ Linux / GRUB (une fois)</option><option value="firmware">→ réglages UEFI</option></select></label>
-  <button onclick="cmd('power_action',{action:fv('p-act'),delay_seconds:+fv('p-delay'),message:fv('p-msg'),force:fv('p-force'),target:fv('p-target')||undefined})">Envoyer</button></div>
+  <button onclick="cmd('power_action',{action:fv('p-act'),delay_seconds:+fv('p-delay'),message:fv('p-msg'),force:fv('p-force'),target:fv('p-target')||undefined,autologon:autologonParam()})">Envoyer</button></div>
+  <div class="muted">Réouverture de session : AutoLogonCount=1 de Winlogon (le mot de passe est effacé du registre par Windows après cette unique ouverture, l'agent vérifie au démarrage suivant) ; compte local ou de domaine avec mot de passe. Le mot de passe ne fait que passer : masqué ici dès l'envoi, jamais dans les journaux.</div>
   <h2>Réveil réseau (paquet magique émis par cet agent)</h2><div class="row"><label>MAC du poste à réveiller<input id="w-mac" placeholder="AA:BB:CC:DD:EE:FF"></label><label>diffusion<input id="w-bc" value="255.255.255.255"></label>
   <button onclick="cmd('wol',{mac:fv('w-mac'),broadcast:fv('w-bc')})">Réveiller</button></div>
   <h2>Banc de charge (introspection)</h2><div class="row"><label>minutes<input id="b-min" value="10"></label><label>facteur de cadence<input id="b-f" value="6"></label>

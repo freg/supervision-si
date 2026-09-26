@@ -1179,6 +1179,18 @@ de capture, ligne de commande sans outil). Non vérifié sur Windows réel :
 `pktmon etl2pcap` (format pcapng attendu ; les versions antérieures à
 Windows 10 2004 n'ont pas cette sous-commande → erreur explicite).
 
+## Redémarrer et rouvrir la session une fois (livraison #628, agent 0.5.22)
+
+`power_action` {action: reboot, autologon: {user, password, domain?}} (Windows) :
+l'agent écrit dans Winlogon `AutoAdminLogon=1`, `AutoLogonCount=1`,
+`DefaultUserName/DomainName/Password` ; Winlogon ouvre la session au
+démarrage suivant puis efface lui-même le mot de passe et l'autologon
+(compteur à zéro). L'agent repasse 2 min après son démarrage : événement
+`autologon-cleared` (« déjà nettoyé par Windows » ou « traces retirées »).
+Le mot de passe est masqué (`***`) dans le central dès l'acquittement et
+dans tout ce que renvoie l'API ; il n'est jamais journalisé. Compte local ou
+de domaine avec mot de passe (pas un compte Microsoft à PIN seul).
+
 ## Parcours de l'arborescence du poste (livraison #627, agent 0.5.21)
 
 Commande `browse` {path?} : sans chemin, les lecteurs (lettre, libre /

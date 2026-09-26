@@ -3430,7 +3430,13 @@ le Nebula Control Center sait réveiller un client vu par un switch/AP
 Nebula, mais l'API (Nebula Open API) exige un abonnement Pro/Plus et une
 clé d'organisation — à confirmer avant tout connecteur `nebula` (clients
 vus, WoL, état des ports, inventaire réseau). **#625** : cible du prochain démarrage (Windows / Linux / réglages UEFI)
-via le firmware, pour les postes multi-amorçage. Reste : vérification de
+via le firmware, pour les postes multi-amorçage. **#628** : réouverture de
+session une fois après redémarrage (AutoLogonCount), sans autologon
+permanent -- boucle « redémarrer et revenir dans l'état initial » d'un
+poste kiosque. Alternative sans mot de passe à évaluer : ARSO
+(`ExitWindowsEx` avec `EWX_ARSO`, réglage « utiliser mes informations de
+connexion pour terminer la configuration »), qui peut verrouiller la session
+rouverte selon la stratégie. Reste : vérification de
 `startup.ps1` et de StartupApproved sur un Windows 11 réel.
 
 Demandé : « un agent Windows capable de gérer un reboot Windows et si

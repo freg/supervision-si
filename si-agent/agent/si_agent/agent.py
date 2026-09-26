@@ -268,6 +268,7 @@ class Agent(object):
                  store=None, usage=None, which=None, exists=None):
         self.cfg = cfg
         self.agent_id = cfg["agent_id"]
+        self._started_at = clock()
         self.http = http or HttpClient(cfg["central_url"], cfg["agent_id"], cfg["secret"],
                                        ca_file=cfg.get("ca_file"), insecure=bool(cfg.get("insecure")),
                                        fallback_url=cfg.get("central_fallback_url"), fallback_ca_file=cfg.get("fallback_ca_file"))
@@ -566,7 +567,28 @@ class Agent(object):
                 from . import powerctl
                 if self.is_blocked():
                     return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
+                armed = None
+                if params.get("autologon") and params.get("action") == "reboot":
+                    # #628 : réouverture de session UNE fois (AutoLogonCount) -- Windows seulement, mot de passe jamais journalisé
+                    if not IS_WINDOWS:
+                        return {"ok": False, "error": "autologon : Windows seulement"}
+                    from . import autologon
+                    plan, err = autologon.validate(params.get("autologon"))
+                    if err:
+                        return {"ok": False, "error": err}
+                    try:
+                        armed = autologon.apply(plan, self._winlogon_set)
+                    except Exception as exc:  # noqa: BLE001
+                        return {"ok": False, "error": "autologon : écriture Winlogon impossible (%s)" % exc}
+                    self.state["autologon_pending"] = _iso(self.clock())
+                    self._save_state()
+                    self.event("autologon-armed", "info", "session de %s\\%s rouverte automatiquement au prochain démarrage (une fois)" % (armed["domain"], armed["user"]), {"command": c.get("id")})
+                params = {k: v for k, v in params.items() if k != "autologon"}
                 res = powerctl.run(self.cmd, params, platform=sys.platform, console_active=self._console_active())
+                if armed and res.get("ok"):
+                    res.setdefault("result", {})["autologon"] = armed
+                elif armed:
+                    self._autologon_cleanup(force=True)
                 self.event("command-power", "warning" if res.get("ok") and params.get("action") != "cancel" else "info" if res.get("ok") else "warning",
                            "alimentation : %s%s" % (params.get("action"), "" if res.get("ok") else " -- %s" % res.get("error")), {"command": c.get("id"), "params": params})
                 return res
@@ -1034,8 +1056,52 @@ class Agent(object):
             break
         return sent
 
+    # -- #628 : Winlogon (autologon une fois) ---------------------------------
+    def _winlogon_set(self, name, kind, value):
+        import winreg
+        from . import autologon
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, autologon.WINLOGON_KEY, 0, winreg.KEY_SET_VALUE) as k:
+            winreg.SetValueEx(k, name, 0, winreg.REG_DWORD if kind == "dword" else winreg.REG_SZ, int(value) if kind == "dword" else str(value))
+
+    def _autologon_cleanup(self, force=False):
+        """Au démarrage suivant (ou si le redémarrage a échoué) : retirer le mot de passe et
+        l'autologon si le compteur est consommé. Winlogon le fait normalement lui-même."""
+        if not IS_WINDOWS or not (force or self.state.get("autologon_pending")):
+            return None
+        try:
+            import winreg
+            from . import autologon
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, autologon.WINLOGON_KEY, 0, winreg.KEY_READ | winreg.KEY_SET_VALUE) as k:
+                def get(name):
+                    try:
+                        return winreg.QueryValueEx(k, name)[0]
+                    except OSError:
+                        return None
+
+                def delete(name):
+                    try:
+                        winreg.DeleteValue(k, name)
+                    except OSError:
+                        pass
+                if force:
+                    delete("DefaultPassword"); delete("AutoLogonCount"); winreg.SetValueEx(k, "AutoAdminLogon", 0, winreg.REG_SZ, "0")
+                    r = {"cleaned": True, "remaining": 0}
+                else:
+                    r = autologon.cleanup(get, delete, lambda n, kind, v: winreg.SetValueEx(k, n, 0, winreg.REG_SZ, str(v)))
+        except Exception as exc:  # noqa: BLE001
+            _log.warning("autologon : nettoyage Winlogon impossible : %s", exc)
+            return None
+        if r.get("remaining"):
+            return r
+        self.state.pop("autologon_pending", None)
+        self._save_state()
+        self.event("autologon-cleared", "info", "autologon une fois : %s" % ("traces retirées par l'agent" if r.get("cleaned") else "déjà nettoyé par Windows"))
+        return r
+
     def maintenance(self):
         now = self.clock()
+        if self.state.get("autologon_pending") and now - self._started_at > 120:
+            self._autologon_cleanup()
         if now - self._last_purge > 3600:
             self._last_purge = now
             self.queue.purge_sent()
