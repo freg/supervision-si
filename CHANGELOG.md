@@ -1,3 +1,13 @@
+## 2026-09-26 — Agent 0.5.24 : ligne Disk2vhd corrigée, garde-fou contre un Disk2vhd bloqué (livraison #630, item 101)
+
+Sur le poste réel, Disk2vhd restait vivant sans rien écrire : options passées
+après les volumes (`-c -v`, `-v` inexistant) -> boîte d'usage invisible sous
+SYSTEM. Ligne rétablie : `disk2vhd64.exe -accepteula -h -c <volumes> <cible>`
+(`-h` VHDX, `-c` cliché VSS), `tool_args` pour remplacer les options si
+Sysinternals les change. Garde-fou : processus vivant mais aucun fichier créé
+après 3 min -> processus tué, `image-failed` explicite, au lieu de
+« 0 Go écrits » sans fin.
+
 ## 2026-09-26 — Agent 0.5.23 : instance unique, espace utilisé lu sur la vraie sortie fsutil (livraison #629, items 101/103)
 
 Retours du poste réel : trois instances d'agent en vie après des relances

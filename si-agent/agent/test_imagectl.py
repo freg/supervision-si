@@ -71,7 +71,15 @@ class ImageTests(unittest.TestCase):
     def test_argv_et_suivi(self):
         plan, _ = imagectl.validate({"target": "\\\\nas\\p2v", "drives": "C:"})
         argv = imagectl.build_argv("C:\\ProgramData\\si-agent\\tools\\disk2vhd64.exe", plan, "\\\\nas\\p2v\\x.vhdx")
-        self.assertEqual(argv[1:], ["C:", "\\\\nas\\p2v\\x.vhdx", "-c", "-v", "-accepteula"])
+        self.assertEqual(argv[1:], ["-accepteula", "-h", "-c", "C:", "\\\\nas\\p2v\\x.vhdx"])
+        plan2, _ = imagectl.validate({"target": "\\\\nas\\p2v", "tool_args": "-accepteula -c"})
+        self.assertEqual(imagectl.build_argv("d.exe", plan2, "o")[1:], ["-accepteula", "-c", "*", "o"])
+        self.assertIsNotNone(imagectl.validate({"target": "\\\\nas\\p2v", "tool_args": ["-c", "rm -rf"]})[1])
+        # #630 : vivant sans fichier après 3 min -> bloqué
+        job2 = {"started": 1000, "target_file": "t", "pid": 5, "last_report": 1000}
+        self.assertEqual(imagectl.follow(job2, lambda p: False, lambda p: 0, lambda pid: True, 1100)[0], "running")
+        self.assertEqual(imagectl.follow(job2, lambda p: False, lambda p: 0, lambda pid: True, 1200)[0], "stalled")
+        self.assertEqual(imagectl.follow(job2, lambda p: True, lambda p: 10, lambda pid: True, 1200)[0], "running")
         job = {"started": 1000, "target_file": "t", "pid": 5, "last_report": 1000}
         self.assertEqual(imagectl.follow(job, lambda p: True, lambda p: 10, lambda pid: True, 1100)[0], "running")
         st, d = imagectl.follow(job, lambda p: True, lambda p: 10, lambda pid: True, 1400); self.assertEqual(st, "progress"); self.assertEqual(d["bytes"], 10)

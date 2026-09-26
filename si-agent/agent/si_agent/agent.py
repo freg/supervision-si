@@ -813,7 +813,12 @@ class Agent(object):
             self._image_job = None
             self.event("image-finished", "info", "image terminée : %.1f Go en %d min -> %s" % (det["bytes"] / 2**30, det["seconds"] // 60, job["target_file"]),
                        dict(det, target=job["target_file"], command=job.get("command"), proxmox=imagectl.PROXMOX_RUNBOOK))
-        elif state == "failed":
+        elif state in ("failed", "stalled"):
+            if state == "stalled" and proc is not None:
+                try:
+                    proc.kill()
+                except OSError:
+                    pass
             self._image_job = None
             self.event("image-failed", "critical", "image échouée : %s" % det["reason"], dict(det, target=job["target_file"], command=job.get("command")))
 

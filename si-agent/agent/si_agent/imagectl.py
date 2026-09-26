@@ -46,7 +46,13 @@ def validate(params):
     if sha and not re.match(r"^[0-9a-f]{64}$", sha):
         return None, "tool_sha256 : 64 caractères hexadécimaux"
     name = str(p.get("name") or "").strip() or None
-    return {"target_dir": target, "name": name, "drives": drives, "tool_url": url, "tool_sha256": sha or None, "force": bool(p.get("force"))}, None
+    tool_args = p.get("tool_args")
+    if isinstance(tool_args, str):
+        tool_args = tool_args.split()
+    if tool_args is not None and (not isinstance(tool_args, list) or not all(re.match(r"^-[A-Za-z]+$", str(a)) for a in tool_args)):
+        return None, "tool_args : options Disk2vhd (-accepteula -h -c)"
+    return {"target_dir": target, "name": name, "drives": drives, "tool_url": url, "tool_sha256": sha or None, "force": bool(p.get("force")),
+            "tool_args": tool_args}, None
 
 
 def target_file(plan, hostname, now=None):
@@ -130,9 +136,16 @@ def enough_space(used_bytes, free_target_bytes, margin=1.1):
     return free_target_bytes >= used_bytes * margin
 
 
+STALL_SECONDS = 180
+
+
 def build_argv(tool_path, plan, out_file):
-    argv = [tool_path] + (["*"] if plan["drives"] == ["*"] else plan["drives"]) + [out_file, "-c", "-v", "-accepteula"]
-    return argv
+    """Disk2vhd : options AVANT les volumes -- `-accepteula`, `-h` (VHDX), `-c` (cliché VSS).
+    (#630 : l'ancienne forme `… -c -v -accepteula` en fin de ligne n'était pas comprise ;
+    Disk2vhd affichait alors sa boîte d'usage, invisible sous SYSTEM, et attendait.)
+    `tool_args` du paramétrage remplace les options par défaut si Sysinternals les change."""
+    opts = plan.get("tool_args") or ["-accepteula", "-h", "-c"]
+    return [tool_path] + list(opts) + (["*"] if plan["drives"] == ["*"] else plan["drives"]) + [out_file]
 
 
 def follow(job, exists, size_of, alive, now):
@@ -145,6 +158,10 @@ def follow(job, exists, size_of, alive, now):
         if present and size > 0:
             return "finished", {"bytes": size, "seconds": int(now - job["started"])}
         return "failed", {"reason": "processus terminé sans image (voir le journal disk2vhd)", "seconds": int(now - job["started"])}
+    if not present and now - job["started"] >= STALL_SECONDS:
+        # #630 : vivant mais rien d'écrit après 3 min = Disk2vhd bloqué sur une boîte de dialogue (usage, EULA, erreur)
+        return "stalled", {"reason": "aucun fichier créé après %d s : Disk2vhd attend sur une boîte de dialogue (options, licence ou erreur) -- processus arrêté" % STALL_SECONDS,
+                           "seconds": int(now - job["started"])}
     if now - job.get("last_report", job["started"]) >= 300:
         return "progress", {"bytes": size, "seconds": int(now - job["started"])}
     return "running", {"bytes": size}
