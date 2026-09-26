@@ -1,3 +1,17 @@
+## 2026-09-26 — Agent 0.5.27 : image écrite directement sur un partage du serveur (livraison #635, item 101)
+
+`image_host` {…, share: {unc, user, password, domain?}} : l'agent (SYSTEM)
+monte le partage avec identifiants par `WNetAddConnection2` (aucune ligne
+de commande, mot de passe nulle part), Disk2vhd écrit directement sur l'UNC
+(la cible doit être sous le partage), le partage est démonté à la fin ;
+plus de copie locale ni de transfert -- la voie pour les postes sans disque
+libre (campus). Mot de passe masqué dès l'envoi (central local et API).
+Champs « partage du serveur » dans l'onglet image du central local et le
+bloc Image du hub. Côté serveur : Samba sur le mini-PC Linux (compte
+dédié, dossier p2v), Partage de fichiers SMB sur le Mac -- voir README.
+Suite : provisionnement automatique du partage (compte jetable par image)
+par le central Linux. 1 test.
+
 ## 2026-09-26 — Agent 0.5.26 : transfert de l'image P2V vers le serveur (livraison #634, item 101)
 
 `image_host` {…, transfer: true, delete_after?} : une fois Disk2vhd terminé,

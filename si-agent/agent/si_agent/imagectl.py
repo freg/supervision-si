@@ -51,8 +51,42 @@ def validate(params):
         tool_args = tool_args.split()
     if tool_args is not None and (not isinstance(tool_args, list) or not all(re.match(r"^-[A-Za-z]+$", str(a)) for a in tool_args)):
         return None, "tool_args : options Disk2vhd (-accepteula -h -c)"
+    share, err = validate_share(p.get("share"), target)
+    if err:
+        return None, err
     return {"target_dir": target, "name": name, "drives": drives, "tool_url": url, "tool_sha256": sha or None, "force": bool(p.get("force")),
-            "tool_args": tool_args, "transfer": bool(p.get("transfer")), "delete_after": bool(p.get("delete_after"))}, None
+            "tool_args": tool_args, "transfer": bool(p.get("transfer")) and not share, "delete_after": bool(p.get("delete_after")), "share": share}, None
+
+
+SHARE_RE = re.compile(r"^\\\\[^\\/:*?\"<>|]+\\[^\\/:*?\"<>|]+$")
+
+
+def validate_share(share, target):
+    """#635 : partage du serveur monté par l'agent (SYSTEM) le temps de l'image :
+    {unc: \\\\serveur\\partage, user, password, domain?} ; la cible doit être sous ce partage."""
+    if not share:
+        return None, None
+    if not isinstance(share, dict):
+        return None, "share : {unc, user, password}"
+    unc = str(share.get("unc") or "").strip().rstrip("\\")
+    if not SHARE_RE.match(unc):
+        return None, "share.unc : \\\\serveur\\partage"
+    user = str(share.get("user") or "").strip()
+    pwd = share.get("password")
+    if not user or not isinstance(pwd, str) or not pwd:
+        return None, "share.user / share.password requis"
+    if not target.lower().startswith(unc.lower()):
+        return None, "target doit être sous le partage %s" % unc
+    domain = str(share.get("domain") or "").strip() or None
+    return {"unc": unc, "user": ("%s\\%s" % (domain, user)) if domain else user, "password": pwd}, None
+
+
+def redact(params):
+    """Paramètres sans mot de passe de partage (stockage / affichage)."""
+    p = dict(params or {})
+    if isinstance(p.get("share"), dict) and "password" in p["share"]:
+        p["share"] = dict(p["share"], password="***")
+    return p
 
 
 def target_file(plan, hostname, now=None):

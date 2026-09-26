@@ -910,6 +910,8 @@ def redact_params(params):
     p = dict(params or {})
     if isinstance(p.get("autologon"), dict) and "password" in p["autologon"]:
         p["autologon"] = dict(p["autologon"], password="***")
+    if isinstance(p.get("share"), dict) and "password" in p["share"]:  # #635
+        p["share"] = dict(p["share"], password="***")
     return p
 
 

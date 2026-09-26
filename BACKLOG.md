@@ -3408,7 +3408,11 @@ ou programmée, redémarrage ensuite), pare-feu / Defender (état, bascule),
 logiciels, différé générique `at`. Demandé : « une gestion des mises à jour
 -> état, forçage immédiat et programmée ; une gestion d'installation de
 logiciels ; une gestion d'activation / désactivation antivirus et firewall ».
-**#634** : transfert de l'image vers le serveur après création (canal signé,
+**#635** : écriture directe sur un partage du serveur monté par l'agent
+(`share`), pour les postes sans disque libre ; suite : provisionnement
+automatique du partage par le central Linux (compte Samba jetable par image,
+révoqué à `image-finished`), demandé comme « l'agent et le serveur créent et
+montent un partage réservé ». **#634** : transfert de l'image vers le serveur après création (canal signé,
 reprise, vérification), `image_transfer` pour reprendre ; à valider en réel
 sur 60-200 Go (débit, tenue du mandataire tls-proxy en 8 Mo par requête).
 Reste : mêmes commandes dans la section Poste du hub (le central local les

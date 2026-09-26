@@ -840,10 +840,17 @@ class Agent(object):
             u = imagectl.used_bytes(getattr(r, "stdout", "") or "")
             if u is not None:
                 used += u
+        if plan.get("share"):
+            # #635 : montage du partage du serveur avec identifiants (WNetAddConnection2, aucune ligne de commande :
+            # le mot de passe n'apparaît nulle part), démonté à la fin de l'image
+            err = self._mount_share(plan["share"])
+            if err:
+                return {"ok": False, "error": "partage %s : %s" % (plan["share"]["unc"], err)}
         try:
             import shutil as _sh
             free_target = _sh.disk_usage(plan["target_dir"]).free
         except OSError as exc:
+            self._unmount_share(plan.get("share"))
             return {"ok": False, "error": "cible inaccessible : %s" % exc}
         if not imagectl.enough_space(used or None, free_target) and not plan["force"]:
             return {"ok": False, "error": "espace insuffisant sur la cible : %d Go libres pour ~%d Go à écrire (force pour passer outre)" % (free_target // 2**30, int(used * 1.1) // 2**30)}
@@ -877,7 +884,7 @@ class Agent(object):
         except (OSError, ValueError) as exc:
             return {"ok": False, "error": "lancement de Disk2vhd impossible : %s" % exc}
         self._image_job = {"started": self.clock(), "target_file": out_file, "pid": proc.pid, "last_report": self.clock(), "command": command_id, "proc": proc,
-                           "transfer": plan["transfer"], "delete_after": plan["delete_after"]}
+                           "transfer": plan["transfer"], "delete_after": plan["delete_after"], "share": plan.get("share")}
         self.event("image-started", "warning", "image du poste lancée vers %s (%s)" % (out_file, ", ".join(plan["drives"])),
                    {"command": command_id, "target": out_file, "used_bytes": used, "free_target_bytes": free_target})
         return {"ok": True, "result": {"target": out_file, "message": "image lancée (Disk2vhd, instantané VSS) -- suivi par événements", "used_bytes": used}, "error": None}
@@ -896,6 +903,7 @@ class Agent(object):
             self.event("image-progress", "info", "image en cours : %.1f Go écrits en %d min" % (det["bytes"] / 2**30, det["seconds"] // 60), dict(det, target=job["target_file"]))
         elif state == "finished":
             self._image_job = None
+            self._unmount_share(job.get("share"))
             self.event("image-finished", "info", "image terminée : %.1f Go en %d min -> %s" % (det["bytes"] / 2**30, det["seconds"] // 60, job["target_file"]),
                        dict(det, target=job["target_file"], command=job.get("command"), proxmox=imagectl.PROXMOX_RUNBOOK))
             if job.get("transfer"):
@@ -907,6 +915,7 @@ class Agent(object):
                 except OSError:
                     pass
             self._image_job = None
+            self._unmount_share(job.get("share"))
             self.event("image-failed", "critical", "image échouée : %s" % det["reason"], dict(det, target=job["target_file"], command=job.get("command")))
 
     def _console_active(self):
@@ -1147,6 +1156,39 @@ class Agent(object):
                 continue
             break
         return sent
+
+    # -- #635 : partage du serveur monté le temps de l'image ------------------
+    def _mount_share(self, share):
+        """WNetAddConnection2W sans lettre de lecteur : le chemin UNC devient accessible à ce compte (SYSTEM)."""
+        if not IS_WINDOWS:
+            return "montage de partage : Windows seulement"
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            class NETRESOURCE(ctypes.Structure):
+                _fields_ = [("dwScope", wintypes.DWORD), ("dwType", wintypes.DWORD), ("dwDisplayType", wintypes.DWORD), ("dwUsage", wintypes.DWORD),
+                            ("lpLocalName", wintypes.LPWSTR), ("lpRemoteName", wintypes.LPWSTR), ("lpComment", wintypes.LPWSTR), ("lpProvider", wintypes.LPWSTR)]
+            nr = NETRESOURCE(); nr.dwType = 1; nr.lpRemoteName = share["unc"]  # RESOURCETYPE_DISK
+            rc = ctypes.windll.mpr.WNetAddConnection2W(ctypes.byref(nr), share["password"], share["user"], 0)
+            if rc == 1219:  # déjà une session avec d'autres identifiants : on la coupe et on réessaie
+                ctypes.windll.mpr.WNetCancelConnection2W(share["unc"], 0, True)
+                rc = ctypes.windll.mpr.WNetAddConnection2W(ctypes.byref(nr), share["password"], share["user"], 0)
+            if rc != 0:
+                return {5: "accès refusé", 53: "chemin réseau introuvable", 67: "nom de partage introuvable", 86: "mot de passe incorrect", 1326: "identifiants refusés",
+                        1219: "conflit de session existante"}.get(rc, "code WNet %d" % rc)
+            return None
+        except Exception as exc:  # noqa: BLE001
+            return str(exc)
+
+    def _unmount_share(self, share):
+        if not share or not IS_WINDOWS:
+            return
+        try:
+            import ctypes
+            ctypes.windll.mpr.WNetCancelConnection2W(share["unc"], 0, True)
+        except Exception:  # noqa: BLE001
+            pass
 
     # -- #634 : transfert de l'image vers le central --------------------------
     def start_upload(self, path, command_id=None, delete_after=False):

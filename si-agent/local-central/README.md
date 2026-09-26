@@ -66,6 +66,30 @@ oblige à le réenrôler ; le poste garde son `agent.json` : relancer
 l'amorçage ou l'installeur avec `-Upgrade` n'y touche pas, utiliser
 `uninstall.ps1` puis réenrôler.
 
+## Partage pour les images (P2V) -- #635
+
+L'agent peut écrire l'image directement sur un partage SMB du serveur
+(champs « partage du serveur » de l'onglet image ; la cible doit être sous
+l'UNC). À préparer une fois :
+
+- macOS : Réglages → Général → Partage → Partage de fichiers → dossier
+  (ex. `~/p2v`), Options → « Partager les fichiers et dossiers via SMB »,
+  cocher le compte. UNC : `\\\\<IP du Mac>\\p2v`, compte = compte macOS.
+- Linux (mini-PC de site) : `apt install samba`, un compte dédié
+  `useradd -M -s /usr/sbin/nologin p2v && smbpasswd -a p2v`, et dans
+  `/etc/samba/smb.conf` :
+
+      [p2v]
+        path = /srv/p2v
+        valid users = p2v
+        writable = yes
+        create mask = 0660
+
+  puis `mkdir -p /srv/p2v && chown p2v /srv/p2v && systemctl restart smbd`.
+
+Sans partage, l'image est écrite sur le poste puis transférée par le canal
+de l'agent (#634).
+
 ## Page
 
 `ui.js` (à côté du module) est relu à chaque affichage : modifiable sans

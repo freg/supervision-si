@@ -49,6 +49,7 @@ function browserHtml(){
     h+='<div style="max-height:220px;overflow:auto;margin-top:6px">'+(r.entries||[]).map(e=>`<div><button class="sec" style="padding:2px 8px" onclick="browse(brPaths[${bp(e.path)}],this)">📁 ${esc(e.name)}</button></div>`).join('')+(r.truncated?'<div class="muted">liste tronquée</div>':'')+((r.entries||[]).length?'':'<div class="muted">aucun sous-dossier</div>')+'</div>'}}}
  return h+'</div>';
 }
+function shareParam(){const u=(fv('i-sunc')||'').trim();if(!u)return undefined;const acct=(fv('i-suser')||'').trim();const m=acct.match(/^([^\\]+)\\(.+)$/);return {unc:u,user:m?m[2]:acct,domain:m?m[1]:undefined,password:fv('i-spass')||''}}
 function autologonParam(){const u=(fv('p-alu')||'').trim(),p=fv('p-alp')||'';if(!u||!p)return undefined;const m=u.match(/^([^\\]+)\\(.+)$/);if(m)return {domain:m[1],user:m[2],password:p};return {user:u,password:p}}
 
 // -- chargement / rendu ---------------------------------------------------------------
@@ -89,8 +90,10 @@ function renderPanel(){
   <div class="row"><label>dossier cible (partage ou disque local)<input id="i-target" placeholder="\\\\nas\\images\\p2v ou D:\\images"></label><label>nom<input id="i-name" placeholder="(nom du poste)"></label>
   <label>lecteurs<input id="i-drives" value="C:"></label></div><div class="row"><label>URL de disk2vhd64.exe<input id="i-url" value="https://live.sysinternals.com/disk2vhd64.exe"></label><label>SHA-256 attendu (optionnel)<input id="i-sha"></label>
   <label><input type="checkbox" id="i-force" style="width:auto"> forcer (ignorer l'espace)</label></div>
-  <div class="row"><label><input type="checkbox" id="i-transfer" style="width:auto" checked> transférer ensuite vers ce serveur (dossier <code id="i-imgdir"></code>)</label><label><input type="checkbox" id="i-delete" style="width:auto"> supprimer l'image du poste après transfert vérifié</label>
-  <button onclick="cmd('image_host',{target:fv('i-target'),name:fv('i-name')||undefined,drives:fv('i-drives'),tool_url:fv('i-url'),tool_sha256:fv('i-sha')||undefined,force:fv('i-force'),transfer:fv('i-transfer'),delete_after:fv('i-delete')},'image',this)">Lancer l'image</button></div>
+  <div class="row"><label>partage du serveur monté par l'agent (écriture directe, sans copie locale) : UNC<input id="i-sunc" placeholder="\\\\192.168.1.178\\p2v"></label><label>compte<input id="i-suser" placeholder="p2v ou DOMAINE\\p2v"></label><label>mot de passe<input id="i-spass" type="password" autocomplete="new-password"></label></div>
+  <div class="muted">Avec un partage : la cible doit être sous l'UNC (ex. <code>\\\\serveur\\p2v\\pc1</code>), Disk2vhd écrit directement dessus, l'agent monte le partage le temps de l'image puis le démonte ; le mot de passe est masqué dès l'envoi. Sans partage : image locale puis transfert par le canal de l'agent.</div>
+  <div class="row"><label><input type="checkbox" id="i-transfer" style="width:auto" checked> transférer ensuite vers ce serveur (dossier <code id="i-imgdir"></code>) — ignoré avec un partage</label><label><input type="checkbox" id="i-delete" style="width:auto"> supprimer l'image du poste après transfert vérifié</label>
+  <button onclick="cmd('image_host',{target:fv('i-target'),name:fv('i-name')||undefined,drives:fv('i-drives'),tool_url:fv('i-url'),tool_sha256:fv('i-sha')||undefined,force:fv('i-force'),transfer:fv('i-transfer'),delete_after:fv('i-delete'),share:shareParam()},'image',this)">Lancer l'image</button></div>
   <div class="row"><label>image déjà présente sur le poste à (re)transférer<input id="i-existing" placeholder="d:\\papa\\PC-20260926.vhdx"></label><button class="sec" onclick="cmd('image_transfer',{path:fv('i-existing'),delete_after:fv('i-delete')},'transfert',this)">Transférer / reprendre</button></div>
   <div class="row"><button class="sec" onclick="browse(fv('i-target')||null,this)">Parcourir depuis le poste…</button></div>
   <div class="muted">Refusé si BitLocker protège un volume visé, si la cible manque d'espace (utilisé × 1,1) ou si une image est déjà en cours. 30 à 60 min pour 200-300 Go en Gigabit ; le poste reste en service.</div>

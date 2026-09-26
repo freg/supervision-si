@@ -102,6 +102,8 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
   const [imgTransfer, setImgTransfer] = useState(true);   // #634 : transfert vers le serveur après l'image
   const [imgDelete, setImgDelete] = useState(false);
   const [imgExisting, setImgExisting] = useState("");
+  const [shUnc, setShUnc] = useState(""); const [shUser, setShUser] = useState(""); const [shPass, setShPass] = useState("");  // #635
+  const shareParam = () => { if (!shUnc.trim()) return undefined; const m = shUser.trim().match(/^([^\\]+)\\(.+)$/); return { unc: shUnc.trim(), user: m ? m[2] : shUser.trim(), domain: m ? m[1] : undefined, password: shPass }; };
   const [images, setImages] = useState([]);
   const xfer = useCommand(apiBase);
   useEffect(() => { fetchImages(apiBase).then((r) => setImages((r?.images || []).filter((i) => i.agent_id === agentId))).catch(() => setImages([])); }, [apiBase, agentId, img.result, xfer.result]);
@@ -251,7 +253,10 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
                 <input value={imgTarget} onChange={(e) => setImgTarget(e.target.value)} placeholder={"\\\\nas\\images\\p2v  ou  D:\\images"} style={{ minWidth: 280 }} />
                 lecteurs <input value={imgDrives} onChange={(e) => setImgDrives(e.target.value)} style={{ width: 80 }} title="* = tous, ou C: D:" />
                 <input value={imgSha} onChange={(e) => setImgSha(e.target.value)} placeholder="SHA-256 de disk2vhd64.exe (facultatif)" style={{ minWidth: 300 }} />
-                <button type="button" className="secondary" disabled={!!img.busy || !imgTarget} onClick={() => window.confirm(`Créer une image complète de ${detail.hostname || agentId} vers ${imgTarget} ? La machine reste en service (instantané VSS) ; 30 à 60 min pour 200-300 Go sur Gigabit.${imgTransfer ? " Elle sera ensuite transférée vers le serveur." : ""}`) && img.run("image", () => imageHost(apiBase, agentId, { target: imgTarget, drives: imgDrives, tool_sha256: imgSha || undefined, transfer: imgTransfer, delete_after: imgDelete }))}>{img.busy ? "⏳ lancement…" : "Créer l'image"}</button>
+                <button type="button" className="secondary" disabled={!!img.busy || !imgTarget} onClick={() => window.confirm(`Créer une image complète de ${detail.hostname || agentId} vers ${imgTarget} ? La machine reste en service (instantané VSS) ; 30 à 60 min pour 200-300 Go sur Gigabit.${imgTransfer ? " Elle sera ensuite transférée vers le serveur." : ""}`) && img.run("image", () => imageHost(apiBase, agentId, { target: imgTarget, drives: imgDrives, tool_sha256: imgSha || undefined, transfer: imgTransfer, delete_after: imgDelete, share: shareParam() }).then((r) => { setShPass(""); return r; }))}>{img.busy ? "⏳ lancement…" : "Créer l'image"}</button>
+              </span>
+              <span style={{ display: "inline-flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginTop: 4 }} title="Écriture directe sur un partage du serveur, monté par l'agent (SYSTEM) le temps de l'image : pas de copie locale. La cible doit être sous l'UNC.">
+                partage du serveur <input value={shUnc} onChange={(e) => setShUnc(e.target.value)} placeholder={"\\\\serveur\\p2v"} style={{ width: 200 }} /><input value={shUser} onChange={(e) => setShUser(e.target.value)} placeholder="compte ou DOMAINE\compte" style={{ width: 170 }} /><input type="password" value={shPass} onChange={(e) => setShPass(e.target.value)} placeholder="mot de passe" autoComplete="new-password" style={{ width: 130 }} />
               </span>
               <span style={{ display: "inline-flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 4 }}>
                 <label style={{ display: "inline-flex", gap: 4, alignItems: "center" }}><input type="checkbox" checked={imgTransfer} onChange={(e) => setImgTransfer(e.target.checked)} /> transférer ensuite vers le serveur (canal de l'agent, signé, reprise sur coupure)</label>

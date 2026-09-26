@@ -51,6 +51,16 @@ class ImageTests(unittest.TestCase):
         f = imagectl.target_file(plan, "PC-PILOTE 01", now=0)
         self.assertTrue(f.startswith("D:\\images" + os.sep + "PC-PILOTE-01-")); self.assertTrue(f.endswith(".vhdx"))
 
+    def test_partage(self):
+        # #635 : partage monté par l'agent ; la cible doit être sous le partage ; mot de passe masqué
+        plan, err = imagectl.validate({"target": "\\\\srv\\p2v\\pc1", "share": {"unc": "\\\\srv\\p2v\\", "user": "img", "password": "s", "domain": "EX"}, "transfer": True})
+        self.assertIsNone(err); self.assertEqual(plan["share"], {"unc": "\\\\srv\\p2v", "user": "EX\\img", "password": "s"}); self.assertFalse(plan["transfer"])
+        self.assertIsNotNone(imagectl.validate({"target": "D:\\x", "share": {"unc": "\\\\srv\\p2v", "user": "u", "password": "p"}})[1])
+        self.assertIsNotNone(imagectl.validate({"target": "\\\\srv\\p2v", "share": {"unc": "\\\\srv", "user": "u", "password": "p"}})[1])
+        self.assertIsNotNone(imagectl.validate({"target": "\\\\srv\\p2v", "share": {"unc": "\\\\srv\\p2v", "user": "u"}})[1])
+        self.assertEqual(imagectl.redact({"share": {"unc": "x", "user": "u", "password": "p"}})["share"]["password"], "***")
+        self.assertIsNone(imagectl.validate({"target": "D:\\x"})[0]["share"])
+
     def test_bitlocker(self):
         self.assertEqual(imagectl.parse_bitlocker(BDE_FR), {"C:": "on", "D:": "off"})
         self.assertEqual(imagectl.parse_bitlocker(BDE_EN), {"C:": "off", "E:": "suspended"})
