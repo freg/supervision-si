@@ -1,3 +1,21 @@
+## 2026-09-26 — Agent 0.5.25 : Windows Update, pare-feu / Defender, logiciels, commandes programmées (livraison #633, item 104)
+
+Onglet « système » du central local. `windows_update` {action: status|install,
+kbs?, reboot?} : API COM Microsoft.Update (`win/winupdate.ps1`, sans module) --
+mises à jour en attente, historique, redémarrage requis, réglage auto ;
+installation DÉTACHÉE suivie par `update-started / update-finished`, mesure
+`winupdate`, redémarrage forcé après coup sur demande. `protection`
+{firewall?: on|off, profiles?, defender?: on|off} (`win/protection.ps1`) :
+état et bascule du pare-feu par profil et de Defender temps réel (refus
+explicite si la protection contre les falsifications est active) ; un
+antivirus tiers est signalé, jamais piloté ; mesure `protection`.
+Logiciels : `software_action` (existant) exposé. Différé générique : tout
+`params.at` (heure locale du poste) reporte l'exécution -- acquittée
+« programmée », conservée dans l'état de l'agent, exécutée à l'heure dite
+(`deferred-run`), pour les mises à jour nocturnes, redémarrages et images
+hors heures. Page : les blocs dépliés le restent au rafraîchissement.
+`sysctl.py` pur, 6 tests ; test du différé dans test_si_agent.
+
 ## 2026-09-26 — Central local : retour visuel sur chaque clic, formulaires stables (livraison #632, item 103)
 
 Script de la page sorti dans `ui.js` (relu à chaque affichage). Formulaires

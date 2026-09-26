@@ -68,7 +68,7 @@ function render(){
  const key=sel+'|'+tab;if(key!==panelKey){panelKey=key;renderPanel()}
  renderDyn();
 }
-const TABS=['poste','image','lanceurs','watchdog','sondes','commandes'];
+const TABS=['poste','image','système','lanceurs','watchdog','sondes','commandes'];
 function renderPanel(){
  const cmds=S.commands.filter(c=>c.agent_id===sel);
  let h=`<div class="card"><h2>${esc(sel)} <span class="muted" id="agent-hdr"></span></h2><div id="pending"></div>
@@ -97,6 +97,20 @@ function renderPanel(){
   <textarea id="wd-txt" rows="5" placeholder="pilotage | pilotage.exe | C:\\Apps\\pilotage.exe | 07:00-20:00">${esc(apps.map(a=>[a.id,a.process,a.command||'',a.hours||''].join(' | ')).join('\n'))}</textarea>
   <div class="row"><button onclick="cmd('watchdog_config',{apps:fv('wd-txt').split('\\n').filter(l=>l.trim()).map(l=>{const p=l.split('|').map(s=>s.trim());return {id:p[0],label:p[0],process:p[1],command:p[2]||null,hours:p[3]||null}})},'chien de garde',this)">Appliquer</button><button class="sec" onclick="cmd('watchdog_config',{apps:[]},'chien de garde (vide)',this)">Tout retirer</button></div>
   <div id="dyn"></div>`}
+ if(tab==='système'){h+=`<h2>Windows Update</h2><div class="row"><button class="sec" onclick="cmd('windows_update',{action:'status'},'état des mises à jour',this)">Relever l'état</button>
+  <label>KB à installer (vide = toutes)<input id="u-kbs" placeholder="KB5049624, KB5050000"></label><label><input type="checkbox" id="u-reboot" style="width:auto"> redémarrer ensuite si requis (forcé, 60 s)</label>
+  <button onclick="if(confirm('Installer maintenant ? (peut durer longtemps, le poste reste en service)'))cmd('windows_update',{action:'install',kbs:fv('u-kbs'),reboot:fv('u-reboot')},'installation des mises à jour',this)">Installer maintenant</button></div>
+  <div class="row"><label>installation programmée (heure du poste)<input id="u-at" type="datetime-local"></label><button class="sec" onclick="if(!fv('u-at')){toast('choisir une date-heure','warn');return}cmd('windows_update',{action:'install',kbs:fv('u-kbs'),reboot:fv('u-reboot'),at:fv('u-at')},'mises à jour programmées',this)">Programmer</button></div>
+  <div class="muted">API Windows Update du poste (COM), sans module : l'état liste les mises à jour en attente et l'historique ; l'installation tourne détachée, suivie par les événements <code>update-started / update-finished</code>. Une commande programmée est conservée par l'agent et exécutée à l'heure dite (événement <code>deferred-run</code>).</div>
+  <h2>Protection (pare-feu, Microsoft Defender)</h2><div class="row"><button class="sec" onclick="cmd('protection',{},'état de la protection',this)">Relever l'état</button>
+  <label>profils du pare-feu<input id="f-prof" value="Domain,Private,Public"></label>
+  <button class="sec" onclick="if(confirm('Désactiver le pare-feu Windows sur ces profils ?'))cmd('protection',{firewall:'off',profiles:fv('f-prof')},'pare-feu OFF',this)">Pare-feu OFF</button><button onclick="cmd('protection',{firewall:'on',profiles:fv('f-prof')},'pare-feu ON',this)">Pare-feu ON</button>
+  <button class="sec" onclick="if(confirm('Désactiver la protection en temps réel de Defender ? (refusé si la protection contre les falsifications est active)'))cmd('protection',{defender:'off'},'Defender OFF',this)">Defender temps réel OFF</button><button onclick="cmd('protection',{defender:'on'},'Defender ON',this)">Defender temps réel ON</button></div>
+  <div class="muted">Un antivirus tiers (AVG, ESET…) est seulement signalé : il se pilote dans sa propre console.</div>
+  <h2>Logiciels</h2><div class="row"><label>action<select id="s-act"><option value="install">installer</option><option value="uninstall">désinstaller</option></select></label><label>paquet (winget « Editeur.Produit », choco, apt…)<input id="s-pkg" placeholder="Mozilla.Firefox"></label><label>gestionnaire<select id="s-mgr"><option value="">auto</option><option>winget</option><option>choco</option><option>apt</option><option>dnf</option><option>brew</option></select></label>
+  <button onclick="cmd('software_action',{action:fv('s-act'),package:fv('s-pkg'),manager:fv('s-mgr')||undefined},fv('s-act')+' '+fv('s-pkg'),this)">Exécuter</button></div>
+  <div class="muted">Mode silencieux, paquet strictement validé, jamais de script arbitraire. Sous Windows, winget n'est pas toujours disponible pour le compte SYSTEM (application par utilisateur) : choco est alors le gestionnaire de secours.</div>
+  <div id="dyn"></div>`}
  if(tab==='lanceurs'||tab==='sondes')h+='<div id="dyn"></div>';
  if(tab==='commandes'){h+=`<h2>Commande brute</h2><div class="row"><label>type<select id="r-type">${['collect_now','power_action','wol','startup_action','watchdog_config','bench','image_host','browse','block_all','unblock_all','update'].map(t=>`<option>${t}</option>`).join('')}</select></label><label>paramètres (JSON)<input id="r-params" value="{}"></label><button onclick="try{cmd(fv('r-type'),JSON.parse(fv('r-params')||'{}'),'commande '+fv('r-type'),this)}catch(e){toast('JSON invalide : '+e.message,'crit',0)}">Envoyer</button></div>
   <div id="dyn"></div>
@@ -115,10 +129,27 @@ function renderDyn(){
  if(tab==='lanceurs'){const items=st.items||[];h=`<h2>Lanceurs au démarrage <span class="muted">(${items.length}, collecte ${ago((m.startup||{}).at)})</span></h2>
   <table><thead><tr><th>type</th><th>nom</th><th>commande</th><th>état</th><th></th></tr></thead><tbody>${items.map((it,i)=>`<tr><td>${esc(it.kind)}<br><span class="muted">${esc(it.scope||'')}</span></td><td>${esc(it.name)}</td><td><code>${esc((it.command||'').slice(0,120))}</code></td><td>${it.enabled===false?'<span class="warning">désactivé</span>':'<span class="ok">actif</span>'}</td>
   <td>${['run','folder','task','service'].includes(it.kind)?`<button class="sec" onclick="toggleStartup(${i},this)">${it.enabled===false?'activer':'désactiver'}</button>`:''}</td></tr>`).join('')||'<tr><td colspan=5 class="muted">pas encore collecté (Windows seulement, toutes les 30 min ou après « Collecter maintenant »)</td></tr>'}</tbody></table>`}
+ if(tab==='système'){const wu=(m.winupdate||{}).data||{}, pr=(m.protection||{}).data||{}, defer=S.events.filter(e=>e.agent_id===sel&&/^(deferred|update-)/.test(e.kind)).slice(0,10);
+  const R={0:'non démarré',1:'en cours',2:'réussi',3:'réussi avec erreurs',4:'échec',5:'annulé'};
+  h=`<h2>État Windows Update <span class="muted">(${(m.winupdate||{}).at?ago((m.winupdate||{}).at):'jamais relevé'})</span></h2>`;
+  if(wu.error)h+=`<div class="critical">${esc(wu.error)}</div>`;
+  if(wu.pending){h+=`<div>${wu.pending.length} en attente${wu.reboot_required?' · <span class="warning">redémarrage requis</span>':''}${wu.au_level!=null?' · réglage auto : '+esc({1:'désactivé',2:'notifier',3:'télécharger',4:'planifié'}[wu.au_level]||wu.au_level):''}</div>
+   <table><thead><tr><th>KB</th><th>titre</th><th>Mo</th><th>gravité</th><th></th></tr></thead><tbody>${wu.pending.map(u=>`<tr><td>${esc(u.kb)}</td><td>${esc(u.title)}</td><td>${esc(u.size_mb)}</td><td>${esc(u.severity||'')}</td><td>${u.downloaded?'téléchargée':''}${u.reboot_required?' redémarrage':''}</td></tr>`).join('')||'<tr><td colspan=5 class="muted">rien en attente</td></tr>'}</tbody></table>`;
+   if(wu.install)h+=`<div style="margin-top:6px"><b>Dernière installation :</b> ${wu.install.count||0} mise(s) à jour, résultat ${esc(R[wu.install.result]??wu.install.message??'')}${wu.install.reboot_required?' · redémarrage requis':''}</div>`;
+   h+=`<details><summary>historique (${(wu.history||[]).length})</summary>${(wu.history||[]).map(x=>`<div class="muted">${esc((x.date||'').replace('T',' ').slice(0,16))} ${esc(R[x.result]||x.result)} — ${esc(x.title)}</div>`).join('')}</details>`}
+  h+=`<h2 style="margin-top:10px">Protection <span class="muted">(${(m.protection||{}).at?ago((m.protection||{}).at):'jamais relevée'})</span></h2>`;
+  if(pr.firewall)h+=`<div>pare-feu : ${pr.firewall.map(f=>`${esc(f.profile)} <b class="${f.enabled?'ok':'critical'}">${f.enabled?'actif':'INACTIF'}</b>`).join(' · ')}</div>`;
+  if(pr.defender)h+=`<div>Defender temps réel : <b class="${pr.defender.realtime?'ok':'critical'}">${pr.defender.realtime?'actif':'INACTIF'}</b>${pr.defender.tamper_protected?' · protection contre les falsifications active':''}${pr.defender.signature_age_days!=null?' · signatures : '+esc(pr.defender.signature_age_days)+' j':''}</div>`;
+  if(pr.third_party&&pr.third_party.length)h+=`<div>antivirus tiers : ${pr.third_party.map(t=>esc(t.name)).join(', ')}</div>`;
+  if(pr.errors&&pr.errors.length)h+=`<div class="critical">${pr.errors.map(esc).join(' ; ')}</div>`;
+  const dj=(S.agents.find(a=>a.agent_id===sel)||{});
+  h+=`<h2 style="margin-top:10px">Programmées / suivi</h2>${defer.map(e=>`<div class="muted">${esc((e.at||'').replace('T',' ').slice(0,19))} <span class="pill ${esc(e.severity)}">${esc(e.kind)}</span> ${esc(e.message)}</div>`).join('')||'<div class="muted">rien</div>'}`}
  if(tab==='watchdog')h=`<details open><summary>dernier état (${ago((m.watchdog||{}).at)})</summary><pre>${esc(JSON.stringify(wd,null,1))}</pre></details>`;
  if(tab==='sondes')h=`<h2>Mesures reçues</h2>`+(Object.keys(m).sort().map(t=>`<details><summary>${esc(t)} — ${ago(m[t].at)} ${m[t].ok===false?'<span class="warning">erreur</span>':''}</summary><pre>${esc(JSON.stringify(m[t].data??m[t].error,null,1))}</pre></details>`).join('')||'<span class="muted">rien encore</span>');
  if(tab==='commandes')h=`<h2>Historique</h2><table><thead><tr><th>id</th><th>type</th><th>état</th><th>résultat</th></tr></thead><tbody>${cmds.map(c=>`<tr><td>${esc(c.id)}<br><span class="muted">${ago(c.created_at)}</span></td><td>${esc(c.type)}<br><code>${esc(JSON.stringify(c.params)).slice(0,100)}</code></td><td class="${c.status==='done'?'ok':c.status==='failed'?'critical':'warning'}">${c.status==='pending'?'⏳ en attente':esc(c.status)}</td><td><pre style="max-height:120px">${esc(c.result?JSON.stringify(c.result.result??c.result.error??c.result,null,1):'')}</pre></td></tr>`).join('')||'<tr><td colspan=4 class="muted">aucune</td></tr>'}</tbody></table>`;
+ const open=new Set([...d.querySelectorAll('details[open]')].map(x=>x.querySelector('summary')?.textContent.split(' — ')[0].split(' (')[0]));
  d.innerHTML=h;
+ d.querySelectorAll('details').forEach(x=>{const k=x.querySelector('summary')?.textContent.split(' — ')[0].split(' (')[0];if(open.has(k))x.open=true});
 }
 function toggleStartup(i,btn){const items=(((S.measurements[sel]||{}).startup||{}).data||{}).items||[];const it=items[i];if(!it)return;cmd('startup_action',{kind:it.kind,name:it.name,scope:it.scope||'machine',enable:it.enabled===false},(it.enabled===false?'activer ':'désactiver ')+it.name,btn)}
 load();setInterval(load,5000);

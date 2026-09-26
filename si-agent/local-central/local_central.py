@@ -44,7 +44,7 @@ sys.path.insert(0, AGENT_DIR)
 from si_agent import control, protocol  # noqa: E402
 from si_agent import imagectl  # noqa: E402
 
-COMMAND_TYPES = ("collect_now", "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse",
+COMMAND_TYPES = ("collect_now", "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse", "windows_update", "protection",
                  "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update")
 KEPT_TASKS = 40
 MAX_EVENTS = 500

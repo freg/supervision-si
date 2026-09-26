@@ -3401,6 +3401,19 @@ ou rsyslog → rsyslog-listener), puis une vue « accès publics » (IP source,
 code HTTP, cible, volumes, erreurs 5xx = hub injoignable) croisée avec les
 événements Keycloak par IP et minute.
 
+## Gestion système du poste Windows depuis le central (2026-09-26) — item 104
+
+**Fait en #633** (agent 0.5.25) : Windows Update (état, installation immédiate
+ou programmée, redémarrage ensuite), pare-feu / Defender (état, bascule),
+logiciels, différé générique `at`. Demandé : « une gestion des mises à jour
+-> état, forçage immédiat et programmée ; une gestion d'installation de
+logiciels ; une gestion d'activation / désactivation antivirus et firewall ».
+Reste : mêmes commandes dans la section Poste du hub (le central local les
+a) ; winget sous SYSTEM (localiser `winget.exe` dans WindowsApps ou passer
+par choco) ; règle Cortex « pare-feu inactif / Defender inactif » depuis la
+mesure `protection` ; vérification sur Windows réel de `Set-MpPreference`
+avec protection contre les falsifications.
+
 ## Central local de test pour l'agent (2026-09-26) — item 103
 
 **Fait en #624** : `si-agent/local-central/` (voir son README). **#626** :

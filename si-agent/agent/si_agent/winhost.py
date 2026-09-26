@@ -36,6 +36,11 @@ def run_ps(cmd, name, timeout=None):
     """(objet JSON | None, erreur | None) -- un script `win/<name>.ps1`."""
     argv = [POWERSHELL, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script_path(name)]
     r = cmd(argv, timeout=timeout or PS_TIMEOUTS.get(name, 60))
+    return parse_ps(r, name)
+
+
+def parse_ps(r, name):
+    """#633 : analyse de la sortie d'un script win/*.ps1 lancé par l'appelant (avec arguments)."""
     out = (r.stdout or "").strip().lstrip("\ufeff")
     if r.returncode < 0:
         return None, r.stderr or ("échec %s" % name)

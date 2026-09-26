@@ -269,6 +269,7 @@ class Agent(object):
         self.cfg = cfg
         self.agent_id = cfg["agent_id"]
         self._started_at = clock()
+        self._update_job = None
         self.http = http or HttpClient(cfg["central_url"], cfg["agent_id"], cfg["secret"],
                                        ca_file=cfg.get("ca_file"), insecure=bool(cfg.get("insecure")),
                                        fallback_url=cfg.get("central_fallback_url"), fallback_ca_file=cfg.get("fallback_ca_file"))
@@ -506,10 +507,70 @@ class Agent(object):
             done.append((c, result))
         return done
 
-    def execute_command(self, c):
+    def execute_command(self, c, deferred=False):
         ctype = (c or {}).get("type")
         params = (c or {}).get("params") or {}
         try:
+            if params.get("at") and not deferred:
+                # #633 : exécution différée (heure locale du poste) -- conservée dans l'état, exécutée par run_deferred()
+                from . import sysctl
+                due, err = sysctl.parse_at(params.get("at"), self.clock())
+                if err:
+                    return {"ok": False, "error": err}
+                job = {"id": str(c.get("id")), "type": ctype, "params": {k: v for k, v in params.items() if k != "at"}, "due": due, "at": params.get("at")}
+                self.state.setdefault("deferred", []).append(job)
+                self._save_state()
+                self.event("deferred", "info", "commande %s programmée pour %s" % (ctype, params.get("at")), {"command": c.get("id"), "due": _iso(due)})
+                return {"ok": True, "result": {"deferred_until": _iso(due), "message": "programmé pour %s (heure du poste)" % params.get("at")}}
+            if ctype == "windows_update":
+                # #633 : état (synchrone) ou installation (détachée, suivie) via win/winupdate.ps1
+                if not IS_WINDOWS:
+                    return {"ok": False, "error": "Windows Update : Windows seulement"}
+                from . import sysctl, winhost
+                plan, err = sysctl.validate_update(params)
+                if err:
+                    return {"ok": False, "error": err}
+                script = winhost.script_path("winupdate")
+                if plan["action"] == "status":
+                    r = self.cmd(sysctl.update_argv(winhost.POWERSHELL, script, plan), timeout=300)
+                    data, err = winhost.parse_ps(r, "winupdate")
+                    if data is None:
+                        return {"ok": False, "error": err}
+                    self._store_measure("winupdate", data)
+                    return {"ok": not data.get("error"), "error": data.get("error"), "result": dict(data, message=sysctl.summarize_update(data))}
+                if self._update_job:
+                    return {"ok": False, "error": "une installation de mises à jour est déjà en cours"}
+                out_file = os.path.join(os.path.dirname(os.path.abspath(self.cfg.get("state_path") or ".")), "winupdate-result.json")
+                try:
+                    os.remove(out_file)
+                except OSError:
+                    pass
+                import subprocess
+                proc = subprocess.Popen(sysctl.update_argv(winhost.POWERSHELL, script, plan, out_file), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                        creationflags=0x00000008 | 0x00000200)
+                self._update_job = {"proc": proc, "out": out_file, "started": self.clock(), "reboot": plan["reboot"], "command": c.get("id"), "kbs": plan["kbs"]}
+                self.event("update-started", "info", "installation Windows Update lancée (%s)" % (", ".join(plan["kbs"]) or "toutes les mises à jour en attente"), {"command": c.get("id")})
+                return {"ok": True, "result": {"message": "installation lancée -- suivi par événements (update-finished)", "kbs": plan["kbs"], "reboot_after": plan["reboot"]}}
+            if ctype == "protection":
+                # #633 : pare-feu / Defender temps réel (état ou bascule) via win/protection.ps1
+                if not IS_WINDOWS:
+                    return {"ok": False, "error": "protection : Windows seulement"}
+                from . import sysctl, winhost
+                plan, err = sysctl.validate_protection(params)
+                if err:
+                    return {"ok": False, "error": err}
+                if self.is_blocked() and not plan["status_only"]:
+                    return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
+                r = self.cmd(sysctl.protection_argv(winhost.POWERSHELL, winhost.script_path("protection"), plan), timeout=120)
+                data, err = winhost.parse_ps(r, "protection")
+                if data is None:
+                    return {"ok": False, "error": err}
+                self._store_measure("protection", data)
+                if not plan["status_only"]:
+                    self.event("command-protection", "warning", "protection : %s%s" % (", ".join("%s=%s" % (k, v) for k, v in (("pare-feu", plan["firewall"]), ("defender", plan["defender"])) if v),
+                               " -- " + " ; ".join(data.get("errors")) if data.get("errors") else ""), {"command": c.get("id"), "profiles": plan["profiles"]})
+                ok = not data.get("errors")
+                return {"ok": ok, "error": " ; ".join(data.get("errors")) if not ok else None, "result": dict(data, message=sysctl.summarize_protection(data))}
             if ctype == "collect_now":
                 m = self.collect_host(force=True)
                 return {"ok": True, "result": {"measurements": len(m)}}
@@ -1061,6 +1122,61 @@ class Agent(object):
             break
         return sent
 
+    def _store_measure(self, task, data, ok=True, error=None):
+        m = {"agent_id": self.agent_id, "task": task, "at": _iso(self.clock()), "ok": ok, "data": data, "error": error}
+        self.queue.put(m)
+        return m
+
+    def run_deferred(self):
+        """#633 : exécute les commandes différées arrivées à échéance."""
+        jobs = self.state.get("deferred") or []
+        if not jobs:
+            return
+        now = self.clock()
+        due = [j for j in jobs if j.get("due", 0) <= now]
+        if not due:
+            return
+        self.state["deferred"] = [j for j in jobs if j not in due]
+        self._save_state()
+        for j in due:
+            self.event("deferred-run", "info", "exécution de la commande %s programmée pour %s" % (j["type"], j.get("at")), {"command": j["id"]})
+            res = self.execute_command({"id": j["id"], "type": j["type"], "params": j["params"]}, deferred=True)
+            self.event("deferred-done" if res.get("ok") else "deferred-failed", "info" if res.get("ok") else "warning",
+                       "commande différée %s : %s" % (j["type"], (res.get("result") or {}).get("message") if res.get("ok") else res.get("error")), {"command": j["id"]})
+
+    def follow_update(self):
+        """#633 : fin de l'installation Windows Update détachée."""
+        job = self._update_job
+        if not job:
+            return
+        proc = job["proc"]
+        if proc.poll() is None and not os.path.exists(job["out"]):
+            if self.clock() - job["started"] > 4 * 3600:
+                proc.kill(); self._update_job = None
+                self.event("update-failed", "warning", "installation Windows Update sans résultat après 4 h -- arrêtée", {"command": job["command"]})
+            return
+        data = None
+        try:
+            with open(job["out"], encoding="utf-8-sig") as fh:
+                data = json.load(fh)
+        except (OSError, ValueError):
+            if proc.poll() is None:
+                return  # fichier en cours d'écriture
+        self._update_job = None
+        from . import sysctl
+        if data is None:
+            self.event("update-failed", "warning", "installation Windows Update terminée sans résultat (code %s)" % proc.poll(), {"command": job["command"]})
+            return
+        self._store_measure("winupdate", data)
+        inst = data.get("install") or {}
+        ok = not data.get("error") and inst.get("result") in (2, 3, None)
+        self.event("update-finished" if ok else "update-failed", "info" if ok else "warning", "Windows Update : %s" % sysctl.summarize_update(data),
+                   {"command": job["command"], "seconds": int(self.clock() - job["started"]), "reboot_required": inst.get("reboot_required")})
+        if ok and job.get("reboot") and inst.get("reboot_required"):
+            from . import powerctl
+            res = powerctl.run(self.cmd, {"action": "reboot", "delay_seconds": 60, "force": True, "message": "Redémarrage après mises à jour Windows (supervision)"}, platform=sys.platform, console_active=False)
+            self.event("command-power", "warning", "redémarrage après mises à jour : %s" % (res.get("result", {}).get("message") if res.get("ok") else res.get("error")), {"command": job["command"]})
+
     # -- #628 : Winlogon (autologon une fois) ---------------------------------
     def _winlogon_set(self, name, kind, value):
         import winreg
@@ -1199,6 +1315,8 @@ class Agent(object):
                 self.collect_startup()
                 self.run_watchdog()
                 self.follow_image()
+                self.follow_update()
+                self.run_deferred()
                 self.run_plugins()
                 self.collect_self()
                 self.poll_commands()

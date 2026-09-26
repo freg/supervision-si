@@ -400,6 +400,18 @@ class AgentTests(unittest.TestCase):
                                      usage=lambda mp: Usage(100, 60), which=lambda t: "/usr/bin/" + t if t == "python3" else None,
                                      exists=lambda p: False)
 
+    def test_commande_differee(self):
+        # #633 : `at` -> acquittée « programmée », exécutée à l'échéance par run_deferred()
+        r = self.agent.execute_command({"id": "c1", "type": "collect_now", "params": {"at": self.clock[0] + 600}})
+        self.assertTrue(r["ok"]); self.assertIn("programmé", r["result"]["message"]); self.assertEqual(len(self.agent.state["deferred"]), 1)
+        self.agent.run_deferred(); self.assertEqual(len(self.agent.state["deferred"]), 1)
+        self.clock[0] += 601
+        self.agent.run_deferred(); self.assertEqual(self.agent.state["deferred"], [])
+        kinds = [m["data"]["kind"] for m in self.agent.queue.pending(limit=50) if m["task"] == "event"]
+        self.assertIn("deferred", kinds); self.assertIn("deferred-run", kinds); self.assertIn("deferred-done", kinds)
+        self.assertIsNotNone(self.agent.execute_command({"id": "c2", "type": "collect_now", "params": {"at": "hier"}})["error"])
+        self.assertFalse(self.agent.execute_command({"id": "c3", "type": "windows_update", "params": {}})["ok"])  # pas Windows ici
+
     def test_passage_complet_et_envoi(self):
         out = self.agent.run_once()
         tasks = [m["task"] for m in out]
