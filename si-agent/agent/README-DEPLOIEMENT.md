@@ -195,3 +195,9 @@ pairs).
 `PYTHONPATH=/opt/si-agent python3 -m si_agent.agent --once -v`) montre la
 requête et la réponse : 401 = secret ou identifiant ; erreur TLS =
 empreinte / certificat ; délai = filtrage réseau vers le port 6443.
+
+## Sans hub : central local de test
+
+Pour essayer un agent depuis un poste de travail sans le hub (Mac, Linux) :
+`si-agent/local-central/local_central.py` (voir `si-agent/local-central/README.md`) —
+PKI auto-signée épinglée, archive, jeton, ligne d'amorçage et interface de pilotage.

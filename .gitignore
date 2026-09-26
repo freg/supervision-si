@@ -131,3 +131,4 @@ services/data/
 notify/data/
 # #595 : base des licences (contrats, attributions, actions)
 licenses/data/
+si-agent/local-central/data/

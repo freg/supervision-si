@@ -3401,6 +3401,15 @@ ou rsyslog → rsyslog-listener), puis une vue « accès publics » (IP source,
 code HTTP, cible, volumes, erreurs 5xx = hub injoignable) croisée avec les
 événements Keycloak par IP et minute.
 
+## Central local de test pour l'agent (2026-09-26) — item 103
+
+**Fait en #624** : `si-agent/local-central/` (voir son README). Demandé :
+« une interface de contrôle de l'agent avec frontal web local sur le Mac,
+remplaçant le hub, pour le PC Windows de virtualisation / clonage ».
+Suites possibles : export des mesures vers le hub (rejouer `data/state.json`
+dans si-agent-api), onglets Audit web / Trace dans l'interface locale,
+lancement en application macOS (py2app) si l'usage se répète.
+
 ## Agent Windows : redémarrage, réveil, lanceurs, chien de garde (2026-09-25) — item 100
 
 **Fait en #613** (agent 0.5.17, section « Poste »). Réveil réseau = paquet

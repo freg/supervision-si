@@ -1,3 +1,14 @@
+## 2026-09-26 — Central local de test : piloter l'agent Windows sans le hub (livraison #624, item 103)
+
+`si-agent/local-central/local_central.py` (stdlib) remplace le hub sur un
+Mac ou un Linux : PKI auto-signée épinglée, archive de l'agent, jeton et
+ligne d'amorçage Windows/Linux, face agents identique à si-agent-api
+(protocol.py / control.py importés, réponses et plugins signés), interface
+sur / : poste (redémarrage, réveil, banc), image P2V à chaud avec suivi et
+aide-mémoire Proxmox, lanceurs, chien de garde, sondes, commandes brutes.
+Vérifié de bout en bout avec l'agent réel (TLS, enrôlement, plugin
+web-audit, mesures, commande acquittée). 2 tests.
+
 ## 2026-09-26 — Réveil réseau : agent relais seul, MikroTik abandonné pour les sites Zyxel/Nebula (livraison #623, item 100)
 
 Le réveil d'un poste passe par un autre agent du même segment (paquet
