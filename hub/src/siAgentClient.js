@@ -131,6 +131,7 @@ export const startupAction = (apiBase, agentId, params) => sendCommand(apiBase, 
 export const watchdogConfig = (apiBase, agentId, params) => sendCommand(apiBase, agentId, "watchdog_config", params);
 export const benchCommand = (apiBase, agentId, params) => sendCommand(apiBase, agentId, "bench", params);  // #616
 export const imageHost = (apiBase, agentId, params) => sendCommand(apiBase, agentId, "image_host", params);  // #621
+export const browsePath = (apiBase, agentId, path) => sendCommand(apiBase, agentId, "browse", path ? { path } : {});  // #627
 export const fetchWebAudit = (apiBase, site) => fetchJson(apiBase, `/web-audit${site ? `?site=${encodeURIComponent(site)}` : ""}`);  // #617
 export const fetchCommand = (apiBase, cid) => fetchJson(apiBase, `/commands/${encodeURIComponent(cid)}`);
 

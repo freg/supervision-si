@@ -1179,6 +1179,16 @@ de capture, ligne de commande sans outil). Non vérifié sur Windows réel :
 `pktmon etl2pcap` (format pcapng attendu ; les versions antérieures à
 Windows 10 2004 n'ont pas cette sous-commande → erreur explicite).
 
+## Parcours de l'arborescence du poste (livraison #627, agent 0.5.21)
+
+Commande `browse` {path?} : sans chemin, les lecteurs (lettre, libre /
+total) ; avec un chemin (dossier ou partage UNC), ses sous-dossiers. Lecture
+seule, 300 entrées au plus, vue du compte de l'agent (SYSTEM : pas les
+lecteurs réseau mappés d'une session -- taper le chemin UNC). Bouton
+« Parcourir depuis le poste… » dans le bloc Image de la section Poste.
+Le central peut imposer `commands_poll_seconds` (5 s mini) dans la
+configuration ; le hub ne le fait pas (60 s par défaut sur le poste).
+
 ## Poste multi-amorçage : cible du prochain démarrage (livraison #625, agent 0.5.20)
 
 `power_action` accepte `target` : `windows` (depuis Windows : `bcdedit /set

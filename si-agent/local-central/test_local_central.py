@@ -16,7 +16,7 @@ from si_agent import control, protocol  # noqa: E402
 
 class Args:
     listen = "127.0.0.1"; port = 0; site = "test"; http = True; advertise_ip = "127.0.0.1"; interval = 30
-    plugins = "web-audit"; plugin_arg = ["web-audit=--urls https://exemple.test"]; rebuild_archive = False; no_archive = True; verbose = False
+    plugins = "web-audit"; plugin_arg = ["web-audit=--urls https://exemple.test"]; rebuild_archive = False; no_archive = True; verbose = False; commands_poll = 5
 
     def __init__(self, data):
         self.data = data
@@ -64,7 +64,7 @@ class LocalCentralTests(unittest.TestCase):
         # configuration signée, plugin signé avec le secret de l'agent
         st, b, h = self.signed("GET", "/api/v1/agents/%s/config" % aid, aid, sec)
         self.assertEqual(st, 200); self.assertTrue(control.verify_response(sec, h, b)[0])
-        cfg = json.loads(b); self.assertEqual(cfg["host_interval_seconds"], 30); man = cfg["plugins"][0]["manifest"]
+        cfg = json.loads(b); self.assertEqual(cfg["host_interval_seconds"], 30); self.assertEqual(cfg["commands_poll_seconds"], 5); man = cfg["plugins"][0]["manifest"]
         self.assertEqual(man["args"], ["--urls", "https://exemple.test"])
         import hmac, hashlib
         self.assertEqual(man["signature"], hmac.new(sec.encode(), control.plugin_signature_message("web-audit", man["version"], man["sha256"]).encode(), hashlib.sha256).hexdigest())

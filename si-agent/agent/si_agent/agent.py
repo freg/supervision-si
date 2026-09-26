@@ -431,6 +431,10 @@ class Agent(object):
         for key in ("host_interval_seconds", "inventory_interval_seconds", "netview_interval_seconds"):
             if isinstance(body.get(key), (int, float)) and body[key] >= 10:
                 self.cfg[key] = body[key]
+        # #627 : cadence de relevé des commandes imposée par le central (5 s mini) -- le central local
+        # la resserre pour le parcours interactif ; le hub laisse la valeur du poste (60 s)
+        if isinstance(body.get("commands_poll_seconds"), (int, float)) and body["commands_poll_seconds"] >= 5:
+            self.cfg["commands_poll_seconds"] = body["commands_poll_seconds"]
         if isinstance(body.get("publish"), dict):
             self.cfg["publish"] = body["publish"]
         elif "publish" in body:
@@ -586,6 +590,12 @@ class Agent(object):
                 if res.get("ok"):
                     self.collect_startup(force=True)
                 return res
+            if ctype == "browse":
+                # #627 : lecteurs / sous-dossiers du poste, lecture seule, pour choisir une cible depuis le hub
+                from . import browsectl
+                import shutil as _sh
+                res = browsectl.run(params, usage=_sh.disk_usage)
+                return {"ok": res.get("ok", False), "error": res.get("error"), "result": res}
             if ctype == "image_host":
                 # #621 : image complète du poste à chaud (Disk2vhd, VSS), détachée ; suivi dans la boucle
                 res = self.start_image(params, c.get("id"))

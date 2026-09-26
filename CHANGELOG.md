@@ -1,3 +1,14 @@
+## 2026-09-26 — Agent 0.5.21 : parcours de l'arborescence du poste pour choisir une cible (livraison #627, items 101/103)
+
+Commande `browse` {path?} (module pur `browsectl.py`, 3 tests) : lecteurs
+avec espace libre, sous-dossiers d'un chemin ou d'un partage UNC, lecture
+seule, bornée. Bouton « Parcourir depuis le poste… » dans le bloc Image du
+hub (`PathBrowser`) et dans l'onglet image du central local, avec choix du
+dossier comme cible. Le central local impose `commands_poll_seconds` (5 s,
+réglable `--commands-poll`) pour un parcours interactif ; le hub laisse la
+cadence du poste. Central local : les boutons retirent le focus du champ
+avant d'envoyer, pour que le rafraîchissement reprenne.
+
 ## 2026-09-26 — Retours du premier poste Windows réel (livraison #626, items 100/103)
 
 Central local : champs du panneau conservés entre deux rafraîchissements

@@ -5,7 +5,7 @@
 // d'applications relancées si absentes). Chaque bouton montre sa prise en
 // compte, puis l'acquittement de l'agent (règle 8).
 import { useEffect, useState } from "react";
-import { powerAction, wakeOnLan, startupAction, watchdogConfig, benchCommand, imageHost, fetchCommand } from "./siAgentClient.js";
+import { powerAction, wakeOnLan, startupAction, watchdogConfig, benchCommand, imageHost, browsePath, fetchCommand } from "./siAgentClient.js";
 
 const KIND_LABELS = { run: "clé Run", runonce: "RunOnce", folder: "dossier Démarrage", task: "tâche planifiée", service: "service" };
 const STATUS = { ok: ["good", "en service"], restart: ["warn", "relance…"], waiting: ["warn", "en attente de relance"], down: ["bad", "arrêtée"], idle: ["neutral", "hors plage"], disabled: ["neutral", "désactivée"] };
@@ -40,6 +40,45 @@ function useCommand(apiBase) {
     setBusy("");
   };
   return { busy, result, run };
+}
+
+const gb = (n) => (n == null ? "?" : n >= 1e12 ? (n / 1e12).toFixed(2) + " To" : n >= 1e9 ? (n / 1e9).toFixed(1) + " Go" : Math.round(n / 1e6) + " Mo");
+
+// #627 : parcours de l'arborescence du poste par l'agent (lecteurs, sous-dossiers, espace libre) pour choisir une cible
+function PathBrowser({ apiBase, agentId, onPick, start }) {
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState(null);
+  const [open, setOpen] = useState(false);
+  const go = async (path) => {
+    setOpen(true); setBusy(true);
+    try {
+      const r = await browsePath(apiBase, agentId, path);
+      const cid = r?.command?.id || r?.id;
+      const c = cid ? await follow(apiBase, cid, () => {}) : null;
+      setRes(c ? (c.result?.result || { ok: false, error: c.result?.error || c.error || "sans résultat" }) : { ok: false, error: "l'agent n'a pas répondu (il relève ses commandes toutes les minutes)" });
+    } catch (e) { setRes({ ok: false, error: e.message }); }
+    setBusy(false);
+  };
+  return (
+    <div style={{ marginTop: 6 }}>
+      <button type="button" className="secondary" disabled={busy} onClick={() => go(start || null)}>{busy ? "⏳ parcours…" : "Parcourir depuis le poste…"}</button>
+      {open && res && (
+        <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 8, marginTop: 6 }}>
+          {res.ok === false && <div style={{ color: "var(--danger)" }}>{res.error}</div>}
+          {res.ok !== false && res.drives && <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{res.drives.map((d) => <button key={d.path} type="button" className="secondary" onClick={() => go(d.path)}>{d.path} <span className="muted">{gb(d.free)} libres / {gb(d.total)}</span></button>)}</div>}
+          {res.ok !== false && res.path && (
+            <>
+              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}><b>{res.path}</b><span className="muted">{res.free != null ? `${gb(res.free)} libres / ${gb(res.total)}` : ""}</span>
+                <button type="button" className="secondary" onClick={() => { onPick(res.path); setOpen(false); }}>Choisir ce dossier comme cible</button>
+                <button type="button" className="secondary" onClick={() => go(res.parent || null)}>↑ {res.parent || "lecteurs"}</button></div>
+              <div style={{ maxHeight: 200, overflow: "auto", marginTop: 4 }}>{(res.entries || []).map((e) => <div key={e.path}><button type="button" className="secondary" style={{ padding: "1px 8px" }} onClick={() => go(e.path)}>📁 {e.name}</button></div>)}{res.truncated && <div className="muted">liste tronquée</div>}{!(res.entries || []).length && <div className="muted">aucun sous-dossier</div>}</div>
+            </>
+          )}
+          <div className="muted" style={{ fontSize: 12 }}>Vu par le compte de l'agent (SYSTEM) : les lecteurs réseau d'une session n'y figurent pas ; pour un partage, taper <code>\\serveur\partage</code> dans la cible puis Parcourir depuis ce chemin.</div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function Result({ r }) {
@@ -200,6 +239,7 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
                 <input value={imgSha} onChange={(e) => setImgSha(e.target.value)} placeholder="SHA-256 de disk2vhd64.exe (facultatif)" style={{ minWidth: 300 }} />
                 <button type="button" className="secondary" disabled={!!img.busy || !imgTarget} onClick={() => window.confirm(`Créer une image complète de ${detail.hostname || agentId} vers ${imgTarget} ? La machine reste en service (instantané VSS) ; 30 à 60 min pour 200-300 Go sur Gigabit.`) && img.run("image", () => imageHost(apiBase, agentId, { target: imgTarget, drives: imgDrives, tool_sha256: imgSha || undefined }))}>{img.busy ? "⏳ lancement…" : "Créer l'image"}</button>
               </span>
+              <PathBrowser apiBase={apiBase} agentId={agentId} onPick={setImgTarget} start={imgTarget} />
               <div className="muted" style={{ fontSize: 12 }}>Disk2vhd (Sysinternals, téléchargé par l'agent ou déposé dans <code>ProgramData\si-agent\tools</code>), VHDX importable dans Proxmox (<code>qm importdisk</code>). Refus si BitLocker protège un lecteur visé ou si la cible manque de place. Suivi dans le journal : image lancée / en cours (toutes les 5 min) / terminée (avec le mode d'emploi Proxmox) / échouée.</div>
               <Result r={img.result} />
             </div>

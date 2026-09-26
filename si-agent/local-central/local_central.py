@@ -44,7 +44,7 @@ sys.path.insert(0, AGENT_DIR)
 from si_agent import control, protocol  # noqa: E402
 from si_agent import imagectl  # noqa: E402
 
-COMMAND_TYPES = ("collect_now", "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host",
+COMMAND_TYPES = ("collect_now", "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse",
                  "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update")
 KEPT_TASKS = 40
 MAX_EVENTS = 500
@@ -210,9 +210,9 @@ def load_plugins(ids, plugin_args):
     return out
 
 
-def config_for(agent, plugins, interval):
+def config_for(agent, plugins, interval, commands_poll=5):
     assigned = []
-    fp = [str(interval)]
+    fp = [str(interval), "poll:%d" % commands_poll]
     for p in plugins:
         man = dict(p["manifest"])
         msg = control.plugin_signature_message(man["id"], man["version"], man["sha256"], man.get("privileged", False))
@@ -220,7 +220,7 @@ def config_for(agent, plugins, interval):
         assigned.append({"manifest": man, "body": p["body"]})
         fp.append("%s@%s:%s" % (man["id"], man["version"], man["sha256"][:12]))
     version = hashlib.sha256("\n".join(fp).encode("utf-8")).hexdigest()[:16]
-    return {"version": version, "issued_at": int(time.time()), "host_interval_seconds": interval, "risk_thresholds": {},
+    return {"version": version, "issued_at": int(time.time()), "host_interval_seconds": interval, "commands_poll_seconds": commands_poll, "risk_thresholds": {},
             "plugins": assigned, "remove_plugins": [], "blocked": False, "blocked_reason": None, "publish": None}
 
 
@@ -401,7 +401,7 @@ class Handler(BaseHTTPRequestHandler):
             if a is None:
                 return self._send(401, {"error": why})
             if leaf == "config":
-                cfg = config_for(a, c.plugins, c.interval)
+                cfg = config_for(a, c.plugins, c.interval, c.args.commands_poll)
                 c.state.touch(aid, self.client_address[0], cfg["version"])
                 return self._signed(a["secret"], cfg)
             if leaf == "commands":
@@ -519,7 +519,24 @@ async function post(u,b){const r=await fetch(u,{method:'POST',headers:{'Content-
 function copy(id){navigator.clipboard&&navigator.clipboard.writeText($(id).textContent)}
 function ago(iso){if(!iso)return '—';const d=(Date.now()-Date.parse(iso))/1000;return d<90?Math.round(d)+' s':d<5400?Math.round(d/60)+' min':Math.round(d/3600)+' h'}
 async function load(){S=await (await fetch('/ui/state')).json();render()}
-function cmd(type,params){if(!sel)return;return post('/ui/command',{agent_id:sel,type,params}).then(load)}
+function cmd(type,params){if(!sel)return;if(document.activeElement)document.activeElement.blur();return post('/ui/command',{agent_id:sel,type,params}).then(load)}
+// #627 : parcours de l'arborescence du poste par l'agent (commande browse, résultat relevé au rafraîchissement)
+let br={cid:null,busy:false,res:null,agent:null};
+function browse(path){if(!sel)return;if(document.activeElement)document.activeElement.blur();br={cid:null,busy:true,res:br.agent===sel?br.res:null,agent:sel};
+ post('/ui/command',{agent_id:sel,type:'browse',params:path?{path}:{}}).then(c=>{br.cid=c.id;load()})}
+function pick(path){const e=$('i-target');if(e){e.value=path}render()}
+function gb(n){return n==null?'?':n>=1e12?(n/1e12).toFixed(2)+' To':n>=1e9?(n/1e9).toFixed(1)+' Go':Math.round(n/1e6)+' Mo'}
+function browserHtml(){
+ if(br.agent!==sel)return '';
+ let h='<div class="card" style="margin-top:8px"><h2>Parcourir depuis le poste <span class="muted">(vu par le compte de l\'agent : les lecteurs réseau d\'une session ne s\'y trouvent pas, taper le chemin UNC \\\\serveur\\partage puis Parcourir)</span></h2>';
+ if(br.busy)h+='<div class="muted">⏳ attente de l\'agent (≤ 10 s)…</div>';
+ const r=br.res;
+ if(r){ if(r.ok===false)h+=`<div class="critical">${esc(r.error)}</div>`;
+  else{ if(r.drives)h+='<div class="row">'+r.drives.map(d=>`<button class="sec" onclick="browse(${JSON.stringify(d.path)})">${esc(d.path)} <span class="muted">${gb(d.free)} libres / ${gb(d.total)}</span></button>`).join('')+'</div>';
+   if(r.path){h+=`<div><b>${esc(r.path)}</b> <span class="muted">${r.free!=null?gb(r.free)+' libres / '+gb(r.total):''}</span> <button class="sec" onclick="pick(${JSON.stringify(r.path)})">Choisir ce dossier comme cible</button> ${r.parent?`<button class="sec" onclick="browse(${JSON.stringify(r.parent)})">↑ ${esc(r.parent)}</button>`:'<button class="sec" onclick="browse(null)">↑ lecteurs</button>'}</div>`;
+    h+='<div style="max-height:220px;overflow:auto;margin-top:6px">'+(r.entries||[]).map(e=>`<div><button class="sec" style="padding:2px 8px" onclick="browse(${JSON.stringify(e.path)})">📁 ${esc(e.name)}</button></div>`).join('')+(r.truncated?'<div class="muted">liste tronquée</div>':'')+((r.entries||[]).length?'':'<div class="muted">aucun sous-dossier</div>')+'</div>'}}}
+ return h+'</div>';
+}
 function fv(id){const e=$(id);return e?(e.type==='checkbox'?e.checked:e.value):undefined}
 function render(){
  // #626 : la page se redessine toutes les 5 s -- on garde les champs saisis (cases, textes) et on ne
@@ -533,6 +550,7 @@ function render(){
  $('agents').innerHTML=S.agents.map(a=>`<tr class="agent ${a.agent_id===sel?'sel':''}" onclick="sel='${esc(a.agent_id)}';render()"><td><b>${esc(a.agent_id)}</b><br><span class="muted">${esc(a.platform||'')}</span></td><td>${ago(a.last_seen)}</td><td>${esc(a.ip||'')}</td><td>${esc(a.hostname||'')}</td></tr>`).join('')||'<tr><td colspan=4 class="muted">aucun</td></tr>';
  $('events').innerHTML=S.events.map(e=>`<div><span class="muted">${esc((e.at||'').replace('T',' ').slice(0,19))}</span> <span class="pill ${esc(e.severity)}">${esc(e.kind)}</span> <b>${esc(e.agent_id)}</b> ${esc(e.message)}${e.details&&Object.keys(e.details).length?` <details><summary>détails</summary><pre>${esc(JSON.stringify(e.details,null,1))}</pre></details>`:''}</div>`).join('')||'<span class="muted">aucun</span>';
  if(!sel||!S.agents.find(a=>a.agent_id===sel)){return}
+ if(br.cid){const c=S.commands.find(x=>x.id===br.cid);if(c&&c.status!=='pending'){br.res=c.result?(c.result.result||{ok:false,error:c.result.error||'sans résultat'}):{ok:false,error:'sans résultat'};br.busy=false;br.cid=null}}
  const m=S.measurements[sel]||{}, host=(m.host||{}).data||{}, st=(m.startup||{}).data||{}, self=(m['agent-self']||{}).data||{}, wd=(m.watchdog||{}).data||{};
  const cmds=S.commands.filter(c=>c.agent_id===sel);
  const img=S.events.filter(e=>e.agent_id===sel&&/^image-/.test(e.kind));
@@ -556,6 +574,7 @@ function render(){
   <div class="row"><label>dossier cible (partage ou disque local)<input id="i-target" placeholder="\\\\nas\\images\\p2v ou D:\\images"></label><label>nom<input id="i-name" placeholder="(nom du poste)"></label>
   <label>lecteurs<input id="i-drives" value="*"></label></div><div class="row"><label>URL de disk2vhd64.exe<input id="i-url" value="https://live.sysinternals.com/disk2vhd64.exe"></label><label>SHA-256 attendu (optionnel)<input id="i-sha"></label>
   <label><input type="checkbox" id="i-force" style="width:auto"> forcer (ignorer l'espace)</label><button onclick="cmd('image_host',{target:fv('i-target'),name:fv('i-name')||undefined,drives:fv('i-drives'),tool_url:fv('i-url'),tool_sha256:fv('i-sha')||undefined,force:fv('i-force')})">Lancer l'image</button></div>
+  <div class="row"><button class="sec" onclick="browse(fv('i-target')||null)">Parcourir depuis le poste…</button></div>${browserHtml()}
   <div class="muted">Refusé si BitLocker protège un volume visé, si la cible manque d'espace (utilisé × 1,1) ou si une image est déjà en cours. 30 à 60 min pour 200-300 Go en Gigabit ; le poste reste en service.</div>
   <h2 style="margin-top:10px">Suivi</h2>${last?`<div><span class="pill ${esc(last.severity)}">${esc(last.kind)}</span> ${esc(last.message)} <span class="muted">${ago(last.at)}</span></div>`:'<div class="muted">aucune image lancée</div>'}
   ${img.slice(0,12).map(e=>`<div class="muted">${esc((e.at||'').replace('T',' ').slice(0,19))} ${esc(e.kind)} — ${esc(e.message)}</div>`).join('')}
@@ -589,6 +608,7 @@ def main(argv=None):
     ap.add_argument("--http", action="store_true", help="HTTP clair (test seulement)")
     ap.add_argument("--advertise-ip", help="adresse annoncée aux agents (défaut : IP de sortie du poste)")
     ap.add_argument("--interval", type=int, default=60, help="host_interval_seconds servi aux agents")
+    ap.add_argument("--commands-poll", type=int, default=5, help="cadence de relevé des commandes imposée aux agents (s, 5 mini) -- parcours interactif")
     ap.add_argument("--plugins", default="", help="plugins livrés à activer : web-audit,windows-probe,...")
     ap.add_argument("--plugin-arg", action="append", help='arguments d\'un plugin : web-audit="--urls https://x"')
     ap.add_argument("--rebuild-archive", action="store_true")

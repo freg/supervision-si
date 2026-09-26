@@ -3406,8 +3406,10 @@ code HTTP, cible, volumes, erreurs 5xx = hub injoignable) croisée avec les
 **Fait en #624** : `si-agent/local-central/` (voir son README). **#626** :
 retours du premier poste Windows réel (champs conservés, Oublier en zone
 sensible, chemin manuel pour antivirus, BOM des .ps1, indice d'horloge).
-Vérifié sur Windows 11 : enrôlement par jeton, Python embarqué, tâche
-planifiée, redémarrage forcé ; reste à confirmer : StartupApproved
+**#627** : commande `browse` et parcours graphique de la cible (hub +
+central local). Vérifié sur Windows 11 : enrôlement par jeton, Python
+embarqué, tâche planifiée, redémarrage forcé, cible UEFI Windows/Linux dans
+les deux sens ; reste à confirmer : StartupApproved
 (lanceurs), pktmon, Disk2vhd, `manage-bde` en français. Demandé :
 « une interface de contrôle de l'agent avec frontal web local sur le Mac,
 remplaçant le hub, pour le PC Windows de virtualisation / clonage ».
