@@ -81,7 +81,10 @@ def bitlocker_blocks(status, drives):
 
 
 def parse_used_bytes(diskfree_text):
-    """`fsutil volume diskfree X:` (fr/en) -> (total, libre) ou (None, None)."""
+    """`fsutil volume diskfree X:` (fr/en) -> (total, libre) ou (None, None).
+    Sortie réelle (#629, Windows 11 fr) : « Nombre total d'octets libres », « Nombre
+    total d'octets », « … libres dans le quota », « … réservés », « Octets utilisés »…
+    -> premier total sans libre/quota/réservé, premier libre sans quota."""
     total = free = None
     for line in (diskfree_text or "").splitlines():
         m = re.search(r":\s*([\d][\d\s\xa0]*)", line)
@@ -89,13 +92,36 @@ def parse_used_bytes(diskfree_text):
             continue
         v = int(re.sub(r"\D", "", m.group(1)))
         low = line.lower()
-        if "quota" in low:
+        if "quota" in low or "pool" in low or "reserv" in low or "réserv" in low or "commit" in low or "valid" in low or "disponible" in low or "available" in low:
             continue
-        if ("free" in low or "libre" in low) and free is None:
-            free = v
-        elif ("total bytes" in low or "total d'octets" in low) and "free" not in low and "libre" not in low:
+        if ("free" in low or "libre" in low):
+            if free is None:
+                free = v
+        elif ("total bytes" in low or "total d'octets" in low) and total is None:
             total = v
     return total, free
+
+
+def parse_used_direct(diskfree_text):
+    """Ligne « Used bytes » / « Octets utilisés » quand fsutil la donne (Windows 10+)."""
+    for line in (diskfree_text or "").splitlines():
+        low = line.lower()
+        if ("used bytes" in low or "octets utilis" in low) and ":" in line:
+            m = re.search(r":\s*([\d][\d\s\xa0]*)", line)
+            if m:
+                return int(re.sub(r"\D", "", m.group(1)))
+    return None
+
+
+def used_bytes(diskfree_text):
+    """Espace occupé du volume : « Octets utilisés » si présent, sinon total - libre, sinon None."""
+    direct = parse_used_direct(diskfree_text)
+    if direct is not None:
+        return direct
+    total, free = parse_used_bytes(diskfree_text)
+    if total is not None and free is not None and total >= free:
+        return total - free
+    return None
 
 
 def enough_space(used_bytes, free_target_bytes, margin=1.1):

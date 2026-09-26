@@ -1,3 +1,15 @@
+## 2026-09-26 — Agent 0.5.23 : instance unique, espace utilisé lu sur la vraie sortie fsutil (livraison #629, items 101/103)
+
+Retours du poste réel : trois instances d'agent en vie après des relances
+de l'installeur (la tâche relancée ne tuait pas l'ancienne, qui bouclait en
+401 avec un secret périmé) -> verrou d'instance `si-agent.lock` (msvcrt /
+fcntl, sortie code 3 si déjà tenu) et l'installeur arrête la tâche puis les
+`python.exe` restants du dossier d'installation. `fsutil volume diskfree`
+en français : « Nombre total d'octets réservés » écrasait le total (espace
+utilisé négatif) -> `used_bytes()` lit « Octets utilisés » quand la ligne
+existe, sinon total − libre en ignorant quota / réservé / pool. Sortie
+réelle ajoutée aux tests.
+
 ## 2026-09-26 — Agent 0.5.22 : redémarrer et rouvrir la session UNE fois, sans autologon permanent (livraison #628, item 100)
 
 `power_action` {action: reboot, autologon: {user, password, domain?}} :

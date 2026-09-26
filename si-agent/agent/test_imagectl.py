@@ -23,6 +23,17 @@ FSUTIL_EN = """Total free bytes                : 120 000 000 000 (111,8 GB)
 Total bytes                     : 512 000 000 000 (476,8 GB)
 Total quota free bytes          : 120 000 000 000 (111,8 GB)
 """
+FSUTIL_FR_REEL = """Nombre total d'octets libres                : 116 819 386 368 (108,8 Go)
+Nombre total d'octets                     : 195 149 426 688 (181,7 Go)
+Nombre total d'octets libres dans le quota          : 116 819 386 368 (108,8 Go)
+Octets de pool non disponibles          :               0 (  0,0 Ko)
+Octets de pool non disponibles dans le quota    :               0 (  0,0 Ko)
+Octets utilisés                      :  72 338 055 168 ( 67,4 Go)
+Nombre total d'octets réservés            :   5 991 985 152 (  5,6 Go)
+Volume de stockage des octets réservés   :   5 946 667 008 (  5,5 Go)
+Octets validés disponibles       :               0 (  0,0 Ko)
+Octets disponibles dans le pool            :               0 (  0,0 Ko)
+"""
 FSUTIL_FR = """Total d'octets libres           : 300 000 000 000 (279,4 Go)
 Total d'octets                  : 1 000 000 000 000 (931,3 Go)
 Total d'octets libres de quota  : 300 000 000 000
@@ -51,6 +62,10 @@ class ImageTests(unittest.TestCase):
         self.assertEqual(imagectl.parse_used_bytes(FSUTIL_EN), (512_000_000_000, 120_000_000_000))
         self.assertEqual(imagectl.parse_used_bytes(FSUTIL_FR), (1_000_000_000_000, 300_000_000_000))
         self.assertEqual(imagectl.parse_used_bytes("rien"), (None, None))
+        # #629 : sortie réelle Windows 11 fr -- « réservés » ne doit pas écraser le total, « Octets utilisés » prime
+        self.assertEqual(imagectl.parse_used_bytes(FSUTIL_FR_REEL), (195_149_426_688, 116_819_386_368))
+        self.assertEqual(imagectl.used_bytes(FSUTIL_FR_REEL), 72_338_055_168)
+        self.assertEqual(imagectl.used_bytes(FSUTIL_EN), 392_000_000_000); self.assertIsNone(imagectl.used_bytes("rien"))
         self.assertTrue(imagectl.enough_space(100, 111)); self.assertFalse(imagectl.enough_space(100, 109)); self.assertTrue(imagectl.enough_space(None, 5))
 
     def test_argv_et_suivi(self):

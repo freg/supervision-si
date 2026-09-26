@@ -753,9 +753,9 @@ class Agent(object):
         used = 0
         for d in (plan["drives"] if plan["drives"] != ["*"] else ["C:"]):
             r = self.cmd(["fsutil.exe", "volume", "diskfree", d], timeout=30)
-            total, free = imagectl.parse_used_bytes(getattr(r, "stdout", "") or "")
-            if total is not None and free is not None:
-                used += total - free
+            u = imagectl.used_bytes(getattr(r, "stdout", "") or "")
+            if u is not None:
+                used += u
         try:
             import shutil as _sh
             free_target = _sh.disk_usage(plan["target_dir"]).free
@@ -1257,8 +1257,32 @@ def main(argv=None):
             print(json.dumps({k: v for k, v in m.items() if k != "data"}, ensure_ascii=False))
         print("envoyées :", agent.flush(force=True))
         return 0
+    # #629 : une seule instance par configuration (l'installeur relancé laissait tourner l'ancienne,
+    # qui parlait au central avec un secret périmé -> 401 en boucle)
+    lock = acquire_instance_lock(cfg.get("state_path") or cfg.get("queue_path") or args.config)
+    if lock is None:
+        _log.error("une autre instance de si-agent tourne déjà pour cette configuration -- sortie")
+        return 3
     agent.run_forever()
     return 0
+
+
+def acquire_instance_lock(anchor_path):
+    """Verrou exclusif sur <état>.lock : None si une autre instance le tient."""
+    path = os.path.join(os.path.dirname(os.path.abspath(anchor_path)), "si-agent.lock")
+    try:
+        fh = open(path, "a+")
+        if sys.platform == "win32":
+            import msvcrt
+            fh.seek(0)
+            msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        fh.seek(0); fh.truncate(); fh.write(str(os.getpid())); fh.flush()
+        return fh
+    except OSError:
+        return None
 
 
 if __name__ == "__main__":
