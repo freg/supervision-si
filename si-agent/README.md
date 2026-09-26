@@ -1206,3 +1206,20 @@ l'original ; activation Windows et logiciel de pilotage lié au matériel
 (USB / série / carte réseau → passthrough) à vérifier. Non vérifié sur
 Windows réel : options de Disk2vhd 2.02 (`-c` instantané, `-v` VHDX) et
 `manage-bde` localisé.
+
+## Accès publics du frontal dans le hub (livraison #622, item 99)
+
+Un agent Linux installé sur la VM frontale (ligne Linux de l'onglet
+Déploiement, ou installeur classique) avec la sonde `front-access`
+(privilégiée) lit le journal d'accès Apache des 60 dernières minutes
+(`--log /var/log/apache2/hub-*-access.log`, `--minutes`) et remonte un
+résumé, jamais le journal : requêtes, codes (401 = jeton exigé par A0,
+403 = périmètre, 5xx = hub / Keycloak injoignable), clients par IP publique
+(volume, refus, navigateur, chemin le plus demandé, dernier accès), chemins
+les plus demandés, requêtes lentes, erreurs 5xx, latence moyenne / max.
+Constats : `hub-unreachable`, `auth-refused-burst`, `scan-404`,
+`slow-backend`. `front-reverse-proxy.sh` journalise désormais la durée de
+chaque requête (`%D`, format `hub_timed`) — relancer le script sur le
+frontal pour l'activer. Hub : section « Accès publics (frontal) » dans la
+fiche de cet agent. 3 tests (analyse du format, constats, ligne de
+commande sur fichiers réels).

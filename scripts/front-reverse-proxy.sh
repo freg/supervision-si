@@ -106,7 +106,9 @@ ${SUBST_LINES}
 ${API_AUTH_LINES}
 
     ErrorLog \${APACHE_LOG_DIR}/${SITE}-error.log
-    CustomLog \${APACHE_LOG_DIR}/${SITE}-access.log combined
+    # #622 : format combined + durée de la requête en µs (%D), lu par la sonde front-access
+    LogFormat "%h %l %u %t \\"%r\\" %>s %O \\"%{Referer}i\\" \\"%{User-Agent}i\\" %D" hub_timed
+    CustomLog \${APACHE_LOG_DIR}/${SITE}-access.log hub_timed
 </VirtualHost>
 EOF
 }

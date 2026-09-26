@@ -1,0 +1,13 @@
+{
+  "id": "front-access",
+  "version": "1",
+  "runner": "python",
+  "entry": "front_access.py",
+  "interval_seconds": 300,
+  "timeout_seconds": 120,
+  "args": ["--log", "/var/log/apache2/hub-*-access.log", "--minutes", "60"],
+  "enabled": false,
+  "description": "Sonde « accès publics du frontal » (#622, item 99) : sur la VM frontale (agent Linux), lit le journal d'accès Apache des 60 dernières minutes (format combined + durée %D) et remonte un résumé : requêtes, codes (401 = jeton exigé A0, 403 = périmètre, 5xx = hub injoignable), clients par IP publique (volume, refus, navigateur), chemins les plus demandés, requêtes lentes, erreurs 5xx, latence moyenne / max. Constats : hub-unreachable, auth-refused-burst, scan-404, slow-backend. Jamais le journal lui-même. Privilégiée (lecture de /var/log/apache2).",
+  "source": "bundled",
+  "privileged": true
+}

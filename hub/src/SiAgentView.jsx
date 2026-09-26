@@ -18,6 +18,7 @@ import HostControlSection from "./HostControlSection.jsx";  // #613
 import DeployTab from "./DeployTab.jsx";  // #616
 import WebAuditTab, { WebAuditSection } from "./WebAuditSection.jsx";  // #617
 import WebTraceSection from "./WebTraceSection.jsx";  // #618
+import FrontAccessSection from "./FrontAccessSection.jsx";  // #622
 
 // Tuile « Agents hôtes » (livraison #421, backlog 63) -- flotte des agents
 // si-agent (surveillance de l'hôte : CPU, mémoire, disques, services,
@@ -596,6 +597,9 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                   )}
                   {section.network && detail.latest?.["plugin:web-audit"] && (
                     <WebAuditSection latest={detail.latest["plugin:web-audit"]} when={when} />
+                  )}
+                  {section.network && detail.latest?.["plugin:front-access"] && (
+                    <FrontAccessSection latest={detail.latest["plugin:front-access"]} when={when} />
                   )}
                   {section.network && detail.latest?.["plugin:web-trace"] && (
                     <WebTraceSection latest={detail.latest["plugin:web-trace"]} when={when} />

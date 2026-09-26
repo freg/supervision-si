@@ -1,3 +1,11 @@
+## 2026-09-26 — Sonde front-access : journal du frontal public résumé dans le hub (livraison #622, item 99)
+
+Agent sur la VM frontale + sonde `front-access` : codes (401 A0, 403
+périmètre, 5xx hub injoignable), clients par IP publique, chemins,
+lenteurs, erreurs 5xx, latence (`%D` ajouté au vhost par
+front-reverse-proxy.sh), 4 constats. Section « Accès publics (frontal) »
+dans la fiche agent. 3 tests.
+
 ## 2026-09-26 — Agent 0.5.19 : image complète du poste à chaud (Disk2vhd, VSS) pour virtualisation (livraison #621, item 101)
 
 Commande `image_host` depuis la section Poste : contrôles (image en cours,

@@ -3387,6 +3387,10 @@ livraisons par la tour via le shim du site). Prochaine étape : A1 + A3.
 
 ## Journal du frontal public dans le hub (2026-09-25) — item 99
 
+**Fait en #622** (sonde `front-access` sur l'agent de la VM frontale, `%D` dans
+le vhost). Reste : corrélation par IP et minute avec les événements Keycloak
+(onglet Connexions) et la vue « accès publics » dans la Tour de contrôle.
+
 Demandé après la mise en service de supervision.optline.fr : « y a-t-il un
 log des échecs de connexion côté proxy et côté Keycloak ? peut-on en créer
 un visible sur le hub ? ». Fait en #612 : côté Keycloak (onglet Connexions
