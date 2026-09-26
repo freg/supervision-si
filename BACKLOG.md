@@ -3422,7 +3422,8 @@ il ne sera fait que si un site équipé MikroTik le demande. Piste Nebula :
 le Nebula Control Center sait réveiller un client vu par un switch/AP
 Nebula, mais l'API (Nebula Open API) exige un abonnement Pro/Plus et une
 clé d'organisation — à confirmer avant tout connecteur `nebula` (clients
-vus, WoL, état des ports, inventaire réseau). Reste : vérification de
+vus, WoL, état des ports, inventaire réseau). **#625** : cible du prochain démarrage (Windows / Linux / réglages UEFI)
+via le firmware, pour les postes multi-amorçage. Reste : vérification de
 `startup.ps1` et de StartupApproved sur un Windows 11 réel.
 
 Demandé : « un agent Windows capable de gérer un reboot Windows et si

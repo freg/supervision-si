@@ -1179,6 +1179,19 @@ de capture, ligne de commande sans outil). Non vérifié sur Windows réel :
 `pktmon etl2pcap` (format pcapng attendu ; les versions antérieures à
 Windows 10 2004 n'ont pas cette sous-commande → erreur explicite).
 
+## Poste multi-amorçage : cible du prochain démarrage (livraison #625, agent 0.5.20)
+
+`power_action` accepte `target` : `windows` (depuis Windows : `bcdedit /set
+{fwbootmgr} bootsequence {bootmgr}`, GRUB est sauté ; depuis Linux :
+`efibootmgr -n` de l'entrée « Windows Boot Manager »), `linux` (depuis
+Windows : entrée UEFI ubuntu/grub/debian/… de `bcdedit /enum firmware`) ou
+`firmware` (`shutdown /r /fw`, `systemctl reboot --firmware-setup`). C'est
+`BootNext` du firmware : une seule fois, l'ordre habituel reprend ensuite.
+L'agent ne modifie jamais GRUB (grubenv est sur ext4, invisible de Windows).
+Si le menu GRUB reste affiché après un passage sous Windows, c'est
+`recordfail` (Ubuntu) : `GRUB_RECORDFAIL_TIMEOUT=5` dans `/etc/default/grub`
+puis `update-grub`.
+
 ## Image complète du poste à chaud, pour virtualisation (livraison #621, agent 0.5.19)
 
 Demandé : « un agent Windows pourrait-il faire une image complète de son host

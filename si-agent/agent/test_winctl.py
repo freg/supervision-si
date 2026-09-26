@@ -41,6 +41,35 @@ class PowerTests(unittest.TestCase):
         r = powerctl.run(lambda argv, timeout: (calls.append(argv), NS(returncode=0, stdout="", stderr=""))[1], {"action": "reboot"}, "win32")
         self.assertTrue(r["ok"]); self.assertEqual(calls[0][0], "shutdown.exe")
 
+    EFI = "BootCurrent: 0001\nBootOrder: 0001,0000\nBoot0000* Windows Boot Manager\tHD(1,GPT)/File(\\\\EFI\\\\MICROSOFT\\\\BOOT\\\\BOOTMGFW.EFI)\nBoot0001* ubuntu\tHD(1,GPT)/File(shimx64.efi)\n"
+    BCD = ("Gestionnaire de démarrage du microprogramme\n---\nidentificateur          {fwbootmgr}\ndisplayorder            {bootmgr}\n"
+           "                        {a1b2c3d4-1111-2222-3333-444455556666}\n\nGestionnaire de démarrage Windows\n---\nidentificateur          {bootmgr}\n"
+           "description             Windows Boot Manager\n\nApplication du microprogramme (101fffff)\n---\nidentificateur          {a1b2c3d4-1111-2222-3333-444455556666}\n"
+           "description             ubuntu\n")
+
+    def test_cible_demarrage_uefi(self):
+        # #625 : jamais les fichiers de GRUB, toujours le firmware (BootNext une fois)
+        self.assertEqual(powerctl.parse_efibootmgr(self.EFI), "0000"); self.assertIsNone(powerctl.parse_efibootmgr("rien"))
+        self.assertEqual(powerctl.parse_bcdedit_firmware(self.BCD), "{a1b2c3d4-1111-2222-3333-444455556666}")
+        self.assertIsNone(powerctl.parse_bcdedit_firmware(self.BCD.replace("ubuntu", "Onboard NIC")))
+        calls = []
+
+        def cmd(argv, timeout=30):
+            calls.append(argv)
+            return NS(returncode=0, stdout=self.BCD if argv[:2] == ["bcdedit.exe", "/enum"] else self.EFI if argv == ["efibootmgr"] else "", stderr="")
+        r = powerctl.run(cmd, {"action": "reboot", "target": "windows", "delay_seconds": 5}, "win32")
+        self.assertTrue(r["ok"]); self.assertEqual(calls[0], ["bcdedit.exe", "/set", "{fwbootmgr}", "bootsequence", "{bootmgr}"]); self.assertIn("windows", r["result"]["message"])
+        calls.clear(); r = powerctl.run(cmd, {"action": "reboot", "target": "linux"}, "win32")
+        self.assertTrue(r["ok"]); self.assertEqual(calls[1][-1], "{a1b2c3d4-1111-2222-3333-444455556666}")
+        calls.clear(); r = powerctl.run(cmd, {"action": "reboot", "target": "windows"}, "linux")
+        self.assertTrue(r["ok"]); self.assertEqual(calls[1], ["efibootmgr", "-n", "0000"]); self.assertEqual(calls[2][0], "shutdown")
+        self.assertEqual(powerctl.run(cmd, {"action": "reboot", "target": "firmware"}, "win32")["result"]["argv"][-1], "/fw")
+        self.assertEqual(powerctl.run(cmd, {"action": "reboot", "target": "firmware"}, "linux")["result"]["argv"], ["systemctl", "reboot", "--firmware-setup"])
+        self.assertFalse(powerctl.run(cmd, {"action": "reboot", "target": "mars"}, "win32")["ok"])
+        self.assertFalse(powerctl.run(cmd, {"action": "shutdown", "target": "windows"}, "win32")["result"].get("target"))  # cible ignorée hors reboot
+        bad = lambda argv, timeout=30: NS(returncode=1, stdout="", stderr="Accès refusé") if argv[0] == "bcdedit.exe" else NS(returncode=0, stdout="", stderr="")
+        self.assertIn("refusée", powerctl.run(bad, {"action": "reboot", "target": "windows"}, "win32")["error"])
+
     def test_wol(self):
         self.assertEqual(powerctl.normalize_mac("AA-BB-CC-DD-EE-FF"), "aa:bb:cc:dd:ee:ff")
         self.assertIsNone(powerctl.normalize_mac("aa:bb"))

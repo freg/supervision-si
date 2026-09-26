@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """Alimentation du poste et réveil réseau (livraison #613) -- commandes du
 central `power_action` {action: reboot|shutdown|cancel, delay_seconds?,
-message?, force?} et `wol` {mac, broadcast?, port?}.
+message?, force?, target?: windows|linux|firmware (#625, poste multi-amorçage :
+cible du prochain démarrage via le firmware UEFI, jamais via les fichiers de GRUB)}
+et `wol` {mac, broadcast?, port?}.
 
 Windows : `shutdown.exe /r|/s /t N /c "message" [/f]` ; `/a` pour annuler.
 Linux : `shutdown -r|-h +M "message"` (M minutes, 0 = now), `shutdown -c`.
@@ -77,12 +79,105 @@ def interpret(r, action, delay):
             "message": "%s programmé dans %d s" % (what, delay) if action != "cancel" else "arrêt programmé annulé"}
 
 
+# -- cible du prochain démarrage (#625) : poste multi-amorçage (GRUB + Windows) ---
+# On ne touche JAMAIS aux fichiers de GRUB (partition ext4 illisible depuis
+# Windows, et fragile) : on parle au firmware UEFI, qui fait autorité au-dessus
+# de GRUB. `BootNext` = une seule fois, puis l'ordre normal reprend.
+#   Windows -> windows  : bcdedit /set {fwbootmgr} bootsequence {bootmgr}   (saute GRUB)
+#   Windows -> linux    : bcdedit /enum firmware -> entrée ubuntu/grub/… -> bootsequence {GUID}
+#   Windows -> firmware : shutdown /r /fw (réglages UEFI)
+#   Linux   -> windows  : efibootmgr -n <Boot#### « Windows Boot Manager »>
+#   Linux   -> firmware : systemctl reboot --firmware-setup
+#   Linux   -> linux    : rien (GRUB par défaut)
+TARGETS = ("windows", "linux", "firmware")
+_GUID_RE = re.compile(r"\{[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\}")
+_LINUX_RE = re.compile(r"ubuntu|grub|debian|fedora|linux|shim|opensuse|arch|mint", re.I)
+_WINDOWS_RE = re.compile(r"windows boot manager", re.I)
+
+
+def listing_argv(target, platform="win32"):
+    """Commande d'inventaire des entrées UEFI nécessaire avant de choisir la cible, ou None."""
+    if target == "linux" and platform == "win32":
+        return ["bcdedit.exe", "/enum", "firmware"]
+    if target == "windows" and platform != "win32":
+        return ["efibootmgr"]
+    return None
+
+
+def parse_efibootmgr(text, pattern=_WINDOWS_RE):
+    """`efibootmgr` -> numéro (0003) de la première entrée dont le libellé correspond."""
+    for line in (text or "").splitlines():
+        m = re.match(r"^Boot([0-9A-Fa-f]{4})\*?\s+(.*)$", line.strip())
+        if m and pattern.search(m.group(2)):
+            return m.group(1)
+    return None
+
+
+def parse_bcdedit_firmware(text, pattern=_LINUX_RE):
+    """`bcdedit /enum firmware` (toute langue) -> GUID du premier bloc dont la
+    description correspond (blocs séparés par une ligne vide ; le gestionnaire
+    {fwbootmgr} et {bootmgr} sont ignorés)."""
+    for block in re.split(r"\n\s*\n", (text or "").replace("\r", "")):
+        if "{fwbootmgr}" in block or "{bootmgr}" in block:
+            continue
+        g = _GUID_RE.search(block)
+        if g and pattern.search(_GUID_RE.sub("", block)):
+            return g.group(0)
+    return None
+
+
+def target_argv(target, platform, listing_text=None):
+    """-> (commande préalable ou None, option supplémentaire pour shutdown, erreur). Pure."""
+    if target not in TARGETS:
+        return None, None, "target : windows, linux ou firmware"
+    if platform == "win32":
+        if target == "windows":
+            return ["bcdedit.exe", "/set", "{fwbootmgr}", "bootsequence", "{bootmgr}"], None, None
+        if target == "firmware":
+            return None, "/fw", None
+        guid = parse_bcdedit_firmware(listing_text)
+        if not guid:
+            return None, None, "aucune entrée UEFI Linux (ubuntu/grub/…) dans bcdedit /enum firmware"
+        return ["bcdedit.exe", "/set", "{fwbootmgr}", "bootsequence", guid], None, None
+    if target == "windows":
+        num = parse_efibootmgr(listing_text)
+        if not num:
+            return None, None, "aucune entrée « Windows Boot Manager » dans efibootmgr"
+        return ["efibootmgr", "-n", num], None, None
+    if target == "firmware":
+        return None, "--firmware-setup", None
+    return None, None, None
+
+
 def run(cmd, params, platform="win32", console_active=False, timeout=30):
     argv, err, delay = build_argv(params or {}, platform, console_active)
     if err:
         return {"ok": False, "error": err}
-    res = interpret(cmd(argv, timeout=timeout), str(params.get("action")).lower(), delay)
+    action = str(params.get("action")).lower()
+    target = str((params or {}).get("target") or "").strip().lower()
+    if target and action == "reboot":
+        listing = listing_argv(target, platform)
+        text = ""
+        if listing:
+            r = cmd(listing, timeout=timeout)
+            text = (getattr(r, "stdout", "") or "")
+        pre, extra, err = target_argv(target, platform, text)
+        if err:
+            return {"ok": False, "error": err}
+        if pre:
+            r = cmd(pre, timeout=timeout)
+            if getattr(r, "returncode", -1) != 0:
+                return {"ok": False, "error": "sélection de la cible %s refusée : %s" % (target, ((getattr(r, "stderr", "") or getattr(r, "stdout", "") or "").strip()[-300:] or "code %s" % getattr(r, "returncode", "?")))}
+        if extra == "/fw":
+            argv = argv + ["/fw"]
+        elif extra == "--firmware-setup":
+            argv = ["systemctl", "reboot", "--firmware-setup"]
+    res = interpret(cmd(argv, timeout=timeout), action, delay)
     res["argv"] = argv
+    if target and action == "reboot":
+        res["target"] = target
+        if res.get("ok"):
+            res["message"] += " -- prochain démarrage : %s (une fois)" % target
     return {"ok": res["ok"], "error": res["error"], "result": res}
 
 

@@ -537,7 +537,8 @@ function render(){
  if(tab==='poste'){h+=`<div class="row"><button onclick="cmd('collect_now',{})">Collecter maintenant</button></div>
   <h2>Alimentation</h2><div class="row"><label>action<select id="p-act"><option value="reboot">redémarrer</option><option value="shutdown">arrêter</option><option value="cancel">annuler</option></select></label>
   <label>délai (s)<input id="p-delay" value="60"></label><label>message<input id="p-msg" value="Redémarrage demandé par la supervision"></label><label><input type="checkbox" id="p-force" style="width:auto"> forcer (session ouverte)</label>
-  <button onclick="cmd('power_action',{action:fv('p-act'),delay:+fv('p-delay'),message:fv('p-msg'),force:fv('p-force')})">Envoyer</button></div>
+  <label>prochain démarrage (multi-amorçage, via UEFI)<select id="p-target"><option value="">normal</option><option value="windows">→ Windows (saute GRUB, une fois)</option><option value="linux">→ Linux / GRUB (une fois)</option><option value="firmware">→ réglages UEFI</option></select></label>
+  <button onclick="cmd('power_action',{action:fv('p-act'),delay_seconds:+fv('p-delay'),message:fv('p-msg'),force:fv('p-force'),target:fv('p-target')||undefined})">Envoyer</button></div>
   <h2>Réveil réseau (paquet magique émis par cet agent)</h2><div class="row"><label>MAC du poste à réveiller<input id="w-mac" placeholder="AA:BB:CC:DD:EE:FF"></label><label>diffusion<input id="w-bc" value="255.255.255.255"></label>
   <button onclick="cmd('wol',{mac:fv('w-mac'),broadcast:fv('w-bc')})">Réveiller</button></div>
   <h2>Banc de charge (introspection)</h2><div class="row"><label>minutes<input id="b-min" value="10"></label><label>facteur de cadence<input id="b-f" value="6"></label>

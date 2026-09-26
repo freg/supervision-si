@@ -1,3 +1,15 @@
+## 2026-09-26 — Agent 0.5.20 : cible du prochain démarrage sur un poste multi-amorçage (livraison #625, item 100)
+
+`power_action` {action: reboot, target: windows|linux|firmware} : la cible est
+choisie via le firmware UEFI (BootNext, une seule fois), jamais via les
+fichiers de GRUB (ext4 illisible depuis Windows, et fragile). Windows :
+`bcdedit /set {fwbootmgr} bootsequence {bootmgr}` (saute GRUB) ou entrée
+Linux trouvée dans `bcdedit /enum firmware` (toute langue), `/fw` pour les
+réglages UEFI ; Linux : `efibootmgr -n <Windows Boot Manager>`, `systemctl
+reboot --firmware-setup`. Sélecteur dans la section Poste du hub et dans le
+central local. Cas d'usage : portable de test GRUB + Windows qui reste sur le
+menu GRUB (recordfail) après un redémarrage. 1 test (8 cas).
+
 ## 2026-09-26 — Central local de test : piloter l'agent Windows sans le hub (livraison #624, item 103)
 
 `si-agent/local-central/local_central.py` (stdlib) remplace le hub sur un

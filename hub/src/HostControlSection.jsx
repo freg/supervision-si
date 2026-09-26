@@ -68,6 +68,7 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
   const [delay, setDelay] = useState(60);
   const [message, setMessage] = useState("Redémarrage demandé par la supervision");
   const [force, setForce] = useState(false);
+  const [bootTarget, setBootTarget] = useState("");
   const [mac, setMac] = useState("");
   const [via, setVia] = useState("");
   const [apps, setApps] = useState(wdCfg.apps || []);
@@ -97,7 +98,13 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
             délai <input type="number" min={0} max={3600} value={delay} onChange={(e) => setDelay(Number(e.target.value))} style={{ width: 70 }} /> s ·
             message <input value={message} onChange={(e) => setMessage(e.target.value)} style={{ minWidth: 260 }} maxLength={200} />
             <label style={{ display: "inline-flex", gap: 4, alignItems: "center" }}><input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} /> forcer (fermer les applications sans attendre)</label>
-            <button type="button" className="secondary" disabled={!!power.busy} onClick={() => window.confirm(`Redémarrer ${detail.hostname || agentId} dans ${delay} s ?`) && power.run("redémarrage", () => powerAction(apiBase, agentId, { action: "reboot", delay_seconds: delay, message, force }))}>{power.busy === "redémarrage" ? "⏳ redémarrage…" : "Redémarrer"}</button>
+            <select value={bootTarget} onChange={(e) => setBootTarget(e.target.value)} title="Poste multi-amorçage : cible du prochain démarrage, choisie via le firmware UEFI (une fois), sans toucher à GRUB">
+              <option value="">redémarrer normalement</option>
+              <option value="windows">→ Windows (saute GRUB, une fois)</option>
+              <option value="linux">→ Linux / GRUB (une fois)</option>
+              <option value="firmware">→ réglages UEFI</option>
+            </select>
+            <button type="button" className="secondary" disabled={!!power.busy} onClick={() => window.confirm(`Redémarrer ${detail.hostname || agentId} dans ${delay} s${bootTarget ? ` vers ${bootTarget}` : ""} ?`) && power.run("redémarrage", () => powerAction(apiBase, agentId, { action: "reboot", delay_seconds: delay, message, force, target: bootTarget || undefined }))}>{power.busy === "redémarrage" ? "⏳ redémarrage…" : "Redémarrer"}</button>
             <button type="button" className="secondary" disabled={!!power.busy} onClick={() => window.confirm(`Arrêter ${detail.hostname || agentId} dans ${delay} s ? (il faudra un réveil réseau ou une présence sur place pour le rallumer)`) && power.run("arrêt", () => powerAction(apiBase, agentId, { action: "shutdown", delay_seconds: delay, message, force }))}>{power.busy === "arrêt" ? "⏳ arrêt…" : "Arrêter"}</button>
             <button type="button" className="secondary" disabled={!!power.busy} onClick={() => power.run("annulation", () => powerAction(apiBase, agentId, { action: "cancel" }))}>{power.busy === "annulation" ? "⏳…" : "Annuler l'arrêt programmé"}</button>
           </span>
