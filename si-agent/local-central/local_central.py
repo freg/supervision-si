@@ -512,7 +512,7 @@ button:disabled{opacity:.5;cursor:default}input,select,textarea{font:inherit;pad
   <div class="muted" style="margin-top:6px">Linux / macOS (racine) :</div><pre id="ol-lin"></pre><button class="sec" onclick="copy('ol-lin')">Copier</button>
   <div class="muted" id="pkg" style="margin-top:6px"></div>
   <details style="margin-top:8px"><summary>poste sous antivirus (la ligne unique est bloquée : « téléchargement + exécution ») — chemin manuel</summary>
-   <div class="muted">1. télécharger <a id="pkg-link" href="/package">l'archive</a> avec le navigateur (accepter l'avertissement de certificat) ; 2. PowerShell administrateur :</div><pre id="ol-manual"></pre><button class="sec" onclick="copy('ol-manual')">Copier</button></details>
+   <div class="muted">PowerShell ou cmd administrateur, une ligne à la fois (curl.exe est fourni par Windows ; <a id="pkg-link" href="/package">l'archive</a> peut aussi être téléchargée par le navigateur) :</div><pre id="ol-manual"></pre><button class="sec" onclick="copy('ol-manual')">Copier</button></details>
  </div>
  <div class="card"><h2>Agents</h2><table><thead><tr><th>agent</th><th>vu</th><th>IP</th><th>hôte</th></tr></thead><tbody id="agents"></tbody></table></div>
  <div class="card"><h2>Événements</h2><div id="events" style="max-height:420px;overflow:auto"></div></div>
@@ -535,15 +535,19 @@ function browse(path){if(!sel)return;if(document.activeElement)document.activeEl
 function autologonParam(){const u=(fv('p-alu')||'').trim(),p=fv('p-alp')||'';if(!u||!p)return undefined;const m=u.match(/^([^\\]+)\\(.+)$/);if(m)return {domain:m[1],user:m[2],password:p};return {user:u,password:p}}
 function pick(path){const e=$('i-target');if(e){e.value=path}render()}
 function gb(n){return n==null?'?':n>=1e12?(n/1e12).toFixed(2)+' To':n>=1e9?(n/1e9).toFixed(1)+' Go':Math.round(n/1e6)+' Mo'}
+let brPaths=[];const bp=p=>{brPaths.push(p);return brPaths.length-1};
 function browserHtml(){
  if(br.agent!==sel)return '';
+ brPaths=[];
+ // #631 : les chemins Windows contiennent des « \\ » et des guillemets une fois sérialisés -- jamais dans un attribut onclick,
+ // on les range dans brPaths et l'attribut ne porte qu'un indice
  let h='<div class="card" style="margin-top:8px"><h2>Parcourir depuis le poste <span class="muted">(vu par le compte de l\'agent : les lecteurs réseau d\'une session ne s\'y trouvent pas, taper le chemin UNC \\\\serveur\\partage puis Parcourir)</span></h2>';
  if(br.busy)h+='<div class="muted">⏳ attente de l\'agent (≤ 10 s)…</div>';
  const r=br.res;
  if(r){ if(r.ok===false)h+=`<div class="critical">${esc(r.error)}</div>`;
-  else{ if(r.drives)h+='<div class="row">'+r.drives.map(d=>`<button class="sec" onclick="browse(${JSON.stringify(d.path)})">${esc(d.path)} <span class="muted">${gb(d.free)} libres / ${gb(d.total)}</span></button>`).join('')+'</div>';
-   if(r.path){h+=`<div><b>${esc(r.path)}</b> <span class="muted">${r.free!=null?gb(r.free)+' libres / '+gb(r.total):''}</span> <button class="sec" onclick="pick(${JSON.stringify(r.path)})">Choisir ce dossier comme cible</button> ${r.parent?`<button class="sec" onclick="browse(${JSON.stringify(r.parent)})">↑ ${esc(r.parent)}</button>`:'<button class="sec" onclick="browse(null)">↑ lecteurs</button>'}</div>`;
-    h+='<div style="max-height:220px;overflow:auto;margin-top:6px">'+(r.entries||[]).map(e=>`<div><button class="sec" style="padding:2px 8px" onclick="browse(${JSON.stringify(e.path)})">📁 ${esc(e.name)}</button></div>`).join('')+(r.truncated?'<div class="muted">liste tronquée</div>':'')+((r.entries||[]).length?'':'<div class="muted">aucun sous-dossier</div>')+'</div>'}}}
+  else{ if(r.drives)h+='<div class="row">'+r.drives.map(d=>`<button class="sec" onclick="browse(brPaths[${bp(d.path)}])">${esc(d.path)} <span class="muted">${gb(d.free)} libres / ${gb(d.total)}</span></button>`).join('')+'</div>';
+   if(r.path){h+=`<div><b>${esc(r.path)}</b> <span class="muted">${r.free!=null?gb(r.free)+' libres / '+gb(r.total):''}</span> <button class="sec" onclick="pick(brPaths[${bp(r.path)}])">Choisir ce dossier comme cible</button> ${r.parent?`<button class="sec" onclick="browse(brPaths[${bp(r.parent)}])">↑ ${esc(r.parent)}</button>`:'<button class="sec" onclick="browse(null)">↑ lecteurs</button>'}</div>`;
+    h+='<div style="max-height:220px;overflow:auto;margin-top:6px">'+(r.entries||[]).map(e=>`<div><button class="sec" style="padding:2px 8px" onclick="browse(brPaths[${bp(e.path)}])">📁 ${esc(e.name)}</button></div>`).join('')+(r.truncated?'<div class="muted">liste tronquée</div>':'')+((r.entries||[]).length?'':'<div class="muted">aucun sous-dossier</div>')+'</div>'}}}
  return h+'</div>';
 }
 function fv(id){const e=$(id);return e?(e.type==='checkbox'?e.checked:e.value):undefined}
@@ -554,7 +558,7 @@ function render(){
  const typing=document.activeElement&&$('panel').contains(document.activeElement)&&/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
  $('hdr').textContent=S.base+' · site '+S.site+' · '+S.agents.length+' agent(s)'+(S.ca_sha256?' · CA '+S.ca_sha256.slice(0,16)+'…':' · HTTP clair');
  $('tok').textContent=S.token;$('ol-win').textContent=S.one_liners.windows;$('ol-lin').textContent=S.one_liners.linux;
- $('ol-manual').textContent=S.package?`cd $env:USERPROFILE\\Downloads\ntar -xzf ${S.package.name}\ncd ${S.package.name.replace(/\.tar\.gz$/,'')}\npowershell -NoProfile -ExecutionPolicy Bypass -File .\\windows\\install.ps1 -EnrollToken ${S.token} -Central ${S.base} -Site ${S.site}${S.ca_sha256?' -CaFingerprint '+S.ca_sha256:' -SystemCa'}${S.plugins.length?' -EnablePlugin '+S.plugins.join(','):''}`:'archive absente';
+ $('ol-manual').textContent=S.package?`cd $env:USERPROFILE\\Downloads\ncurl.exe ${S.ca_sha256?'-k ':''}-o ${S.package.name} ${S.base}/package\ntar -xzf ${S.package.name}\ncd ${S.package.name.replace(/\.tar\.gz$/,'')}\npowershell -NoProfile -ExecutionPolicy Bypass -File .\\windows\\install.ps1 -EnrollToken ${S.token} -Central ${S.base} -Site ${S.site}${S.ca_sha256?' -CaFingerprint '+S.ca_sha256:' -SystemCa'}${S.plugins.length?' -EnablePlugin '+S.plugins.join(','):''}`:'archive absente';
  $('pkg').textContent=S.package?('archive '+S.package.name+' ('+Math.round(S.package.size/1024)+' Ko)'):'archive absente (--no-archive)';
  $('agents').innerHTML=S.agents.map(a=>`<tr class="agent ${a.agent_id===sel?'sel':''}" onclick="sel='${esc(a.agent_id)}';render()"><td><b>${esc(a.agent_id)}</b><br><span class="muted">${esc(a.platform||'')}</span></td><td>${ago(a.last_seen)}</td><td>${esc(a.ip||'')}</td><td>${esc(a.hostname||'')}</td></tr>`).join('')||'<tr><td colspan=4 class="muted">aucun</td></tr>';
  $('events').innerHTML=S.events.map(e=>`<div><span class="muted">${esc((e.at||'').replace('T',' ').slice(0,19))}</span> <span class="pill ${esc(e.severity)}">${esc(e.kind)}</span> <b>${esc(e.agent_id)}</b> ${esc(e.message)}${e.details&&Object.keys(e.details).length?` <details><summary>détails</summary><pre>${esc(JSON.stringify(e.details,null,1))}</pre></details>`:''}</div>`).join('')||'<span class="muted">aucun</span>';

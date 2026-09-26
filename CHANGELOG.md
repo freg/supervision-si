@@ -1,3 +1,12 @@
+## 2026-09-26 — Central local : navigation dans l'arborescence réparée, chemin manuel avec curl.exe (livraison #631, item 103)
+
+Les boutons du parcours (lecteur, sous-dossier, parent, choisir) portaient
+le chemin sérialisé dans l'attribut `onclick` : les guillemets et les
+« \\ » cassaient l'attribut, rien ne réagissait après la liste des
+lecteurs. Les chemins sont rangés dans un tableau, l'attribut ne porte qu'un
+indice. Chemin manuel : ligne `curl.exe -k -o … /package` (fourni par
+Windows) ajoutée devant `tar` et `install.ps1`.
+
 ## 2026-09-26 — Agent 0.5.24 : ligne Disk2vhd corrigée, garde-fou contre un Disk2vhd bloqué (livraison #630, item 101)
 
 Sur le poste réel, Disk2vhd restait vivant sans rien écrire : options passées
