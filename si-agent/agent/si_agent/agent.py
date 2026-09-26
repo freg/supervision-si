@@ -148,6 +148,7 @@ class HttpClient(object):
         # change pour les appelants.
         self.last_raw = b""
         self.last_headers = {}
+        self.clock_hint_reported = None
 
     @staticmethod
     def _context(base_url, ca_file, insecure):
@@ -238,8 +239,24 @@ class HttpClient(object):
             except Exception:  # noqa: BLE001
                 return exc.code, None
         except (urllib.error.URLError, socket.timeout, OSError) as exc:
-            _log.warning("central injoignable (%s %s) : %s", method, path, exc)
+            hint = clock_hint(str(exc))
+            _log.warning("central injoignable (%s %s) : %s%s", method, path, exc, (" -- " + hint) if hint else "")
+            if hint and not self.clock_hint_reported:
+                self.clock_hint_reported = hint
             return 0, None
+
+
+def clock_hint(err):
+    """#626 : un certificat « pas encore valide » ou « expiré » alors que le central
+    vient d'être installé trahit presque toujours l'horloge DU POSTE (double
+    amorçage Windows/Linux : horloge matérielle en UTC lue comme heure locale,
+    pile vide, VM restaurée). Pure."""
+    e = (err or "").lower()
+    if "not yet valid" in e:
+        return "horloge du poste EN RETARD (certificat pas encore valide) : régler l'heure (double amorçage : RealTimeIsUniversal=1 sous Windows)"
+    if "has expired" in e or "certificate expired" in e:
+        return "certificat du central expiré, ou horloge du poste EN AVANCE : vérifier l'heure du poste puis le certificat"
+    return None
 
 
 def _iso(ts):
@@ -390,6 +407,9 @@ class Agent(object):
             return False
         self.last_central_contact = now
         self._auth_refused_reported = False
+        if getattr(self.http, "clock_hint_reported", None):
+            self.event("clock-skew", "warning", "le central a été injoignable pour cause d'horloge : " + self.http.clock_hint_reported)
+            self.http.clock_hint_reported = None
         # Blocage déclaratif : appliqué à CHAQUE lecture, même version inchangée
         central_blocked = bool(body.get("blocked"))
         if central_blocked != self.central_blocked:

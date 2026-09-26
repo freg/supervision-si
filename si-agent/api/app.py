@@ -913,10 +913,17 @@ def _deploy_commands(t):
     """Lignes à coller (PowerShell administrateur / shell root) ou à pousser par GPO."""
     base = (t.get("central_url") or PUBLIC_URL or "https://<VM>:6443/api/si-agent").rstrip("/")
     tok = t["token"]
+    ca = _ca_info().get("sha256") if _pin_internal_ca(base) else None
     return {
         "windows": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"iex (iwr -UseBasicParsing '%s/deploy/windows?token=%s').Content\"" % (base, tok),
         "linux": "curl -fsSL '%s/deploy/linux?token=%s' | sudo bash" % (base, tok),
         "gpo": "%s/deploy/windows?token=%s" % (base, tok),
+        # #626 : poste sous antivirus (la ligne « télécharge + exécute » est bloquée par heuristique) --
+        # archive téléchargée par le navigateur, installeur lancé à la main, aucun secret dans la ligne
+        "windows_manual": "cd $env:USERPROFILE\\Downloads ; tar -xzf si-agent-agent-*.tar.gz ; cd si-agent-agent-* ; "
+                          "powershell -NoProfile -ExecutionPolicy Bypass -File .\\windows\\install.ps1 -EnrollToken %s -Central %s -Site %s %s%s"
+                          % (tok, base, t["site"], ("-CaFingerprint " + ca) if ca else "-SystemCa", (" -EnablePlugin " + ",".join(t["plugins"])) if t.get("plugins") else ""),
+        "package": base + "/package",
     }
 
 

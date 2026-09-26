@@ -1,4 +1,4 @@
-<# si-agent -- désinstallation Windows (#440) : tâche planifiée, fichiers du programme ;
+﻿<# si-agent -- désinstallation Windows (#440) : tâche planifiée, fichiers du programme ;
    -KeepData conserve C:\ProgramData\si-agent (configuration, file locale, journal). #>
 [CmdletBinding()]
 param([string]$InstallDir = (Join-Path $env:ProgramFiles "si-agent"), [string]$DataDir = (Join-Path $env:ProgramData "si-agent"), [string]$TaskName = "si-agent", [switch]$KeepData)

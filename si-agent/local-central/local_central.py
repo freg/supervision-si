@@ -503,6 +503,8 @@ button:disabled{opacity:.5;cursor:default}input,select,textarea{font:inherit;pad
   <div class="muted" style="margin-top:6px">Windows (PowerShell administrateur) :</div><pre id="ol-win"></pre><button class="sec" onclick="copy('ol-win')">Copier</button>
   <div class="muted" style="margin-top:6px">Linux / macOS (racine) :</div><pre id="ol-lin"></pre><button class="sec" onclick="copy('ol-lin')">Copier</button>
   <div class="muted" id="pkg" style="margin-top:6px"></div>
+  <details style="margin-top:8px"><summary>poste sous antivirus (la ligne unique est bloquée : « téléchargement + exécution ») — chemin manuel</summary>
+   <div class="muted">1. télécharger <a id="pkg-link" href="/package">l'archive</a> avec le navigateur (accepter l'avertissement de certificat) ; 2. PowerShell administrateur :</div><pre id="ol-manual"></pre><button class="sec" onclick="copy('ol-manual')">Copier</button></details>
  </div>
  <div class="card"><h2>Agents</h2><table><thead><tr><th>agent</th><th>vu</th><th>IP</th><th>hôte</th></tr></thead><tbody id="agents"></tbody></table></div>
  <div class="card"><h2>Événements</h2><div id="events" style="max-height:420px;overflow:auto"></div></div>
@@ -520,8 +522,13 @@ async function load(){S=await (await fetch('/ui/state')).json();render()}
 function cmd(type,params){if(!sel)return;return post('/ui/command',{agent_id:sel,type,params}).then(load)}
 function fv(id){const e=$(id);return e?(e.type==='checkbox'?e.checked:e.value):undefined}
 function render(){
+ // #626 : la page se redessine toutes les 5 s -- on garde les champs saisis (cases, textes) et on ne
+ // touche pas au panneau pendant qu'un champ y a le focus
+ const saved={};document.querySelectorAll('#panel input,#panel select,#panel textarea').forEach(e=>{if(e.id)saved[e.id]=e.type==='checkbox'?e.checked:e.value});
+ const typing=document.activeElement&&$('panel').contains(document.activeElement)&&/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
  $('hdr').textContent=S.base+' · site '+S.site+' · '+S.agents.length+' agent(s)'+(S.ca_sha256?' · CA '+S.ca_sha256.slice(0,16)+'…':' · HTTP clair');
  $('tok').textContent=S.token;$('ol-win').textContent=S.one_liners.windows;$('ol-lin').textContent=S.one_liners.linux;
+ $('ol-manual').textContent=S.package?`cd $env:USERPROFILE\\Downloads\ntar -xzf ${S.package.name}\ncd ${S.package.name.replace(/\.tar\.gz$/,'')}\npowershell -NoProfile -ExecutionPolicy Bypass -File .\\windows\\install.ps1 -EnrollToken ${S.token} -Central ${S.base} -Site ${S.site}${S.ca_sha256?' -CaFingerprint '+S.ca_sha256:' -SystemCa'}${S.plugins.length?' -EnablePlugin '+S.plugins.join(','):''}`:'archive absente';
  $('pkg').textContent=S.package?('archive '+S.package.name+' ('+Math.round(S.package.size/1024)+' Ko)'):'archive absente (--no-archive)';
  $('agents').innerHTML=S.agents.map(a=>`<tr class="agent ${a.agent_id===sel?'sel':''}" onclick="sel='${esc(a.agent_id)}';render()"><td><b>${esc(a.agent_id)}</b><br><span class="muted">${esc(a.platform||'')}</span></td><td>${ago(a.last_seen)}</td><td>${esc(a.ip||'')}</td><td>${esc(a.hostname||'')}</td></tr>`).join('')||'<tr><td colspan=4 class="muted">aucun</td></tr>';
  $('events').innerHTML=S.events.map(e=>`<div><span class="muted">${esc((e.at||'').replace('T',' ').slice(0,19))}</span> <span class="pill ${esc(e.severity)}">${esc(e.kind)}</span> <b>${esc(e.agent_id)}</b> ${esc(e.message)}${e.details&&Object.keys(e.details).length?` <details><summary>détails</summary><pre>${esc(JSON.stringify(e.details,null,1))}</pre></details>`:''}</div>`).join('')||'<span class="muted">aucun</span>';
@@ -532,7 +539,7 @@ function render(){
  const tabs=['poste','image','lanceurs','watchdog','sondes','commandes'];
  const pt=self.point||{};
  let h=`<div class="card"><h2>${esc(sel)} <span class="muted">— ${esc(host.hostname||'')} ${esc(typeof host.os==='string'?host.os:(host.os||{}).name||'')} · CPU ${esc((host.cpu||{}).percent??'?')} % · mémoire ${esc((host.memory||{}).used_percent??'?')} % · empreinte agent ${esc(pt.cpu_core_percent??'?')} % d'un cœur / ${pt.rss_bytes?Math.round(pt.rss_bytes/1048576):'?'} Mo</span>
- <button class="sec" style="float:right" onclick="if(confirm('Oublier cet agent (il devra être réenrôlé) ?'))post('/ui/forget',{agent_id:sel}).then(()=>{sel=null;load()})">Oublier</button></h2>
+</h2>
  <div class="tabs">${tabs.map(t=>`<button class="${t===tab?'on':''}" onclick="tab='${t}';render()">${t}</button>`).join('')}</div>`;
  if(tab==='poste'){h+=`<div class="row"><button onclick="cmd('collect_now',{})">Collecter maintenant</button></div>
   <h2>Alimentation</h2><div class="row"><label>action<select id="p-act"><option value="reboot">redémarrer</option><option value="shutdown">arrêter</option><option value="cancel">annuler</option></select></label>
@@ -562,8 +569,12 @@ function render(){
   <details open><summary>dernier état</summary><pre>${esc(JSON.stringify(wd,null,1))}</pre></details>`}
  if(tab==='sondes'){h+=`<h2>Mesures reçues</h2>`+Object.keys(m).sort().map(t=>`<details><summary>${esc(t)} — ${ago(m[t].at)} ${m[t].ok===false?'<span class="warning">erreur</span>':''}</summary><pre>${esc(JSON.stringify(m[t].data??m[t].error,null,1))}</pre></details>`).join('')||'<span class="muted">rien encore</span>'}
  if(tab==='commandes'){h+=`<h2>Commande brute</h2><div class="row"><label>type<select id="r-type">${['collect_now','power_action','wol','startup_action','watchdog_config','bench','image_host','block_all','unblock_all','update'].map(t=>`<option>${t}</option>`).join('')}</select></label><label>paramètres (JSON)<input id="r-params" value="{}"></label><button onclick="cmd(fv('r-type'),JSON.parse(fv('r-params')||'{}'))">Envoyer</button></div>
-  <h2>Historique</h2><table><thead><tr><th>id</th><th>type</th><th>état</th><th>résultat</th></tr></thead><tbody>${cmds.map(c=>`<tr><td>${esc(c.id)}<br><span class="muted">${ago(c.created_at)}</span></td><td>${esc(c.type)}<br><code>${esc(JSON.stringify(c.params)).slice(0,100)}</code></td><td class="${c.status==='done'?'ok':c.status==='failed'?'critical':'muted'}">${esc(c.status)}</td><td><pre style="max-height:120px">${esc(c.result?JSON.stringify(c.result.result??c.result.error??c.result,null,1):'')}</pre></td></tr>`).join('')||'<tr><td colspan=4 class="muted">aucune</td></tr>'}</tbody></table>`}
- h+='</div>';$('panel').innerHTML=h;
+  <h2>Historique</h2><table><thead><tr><th>id</th><th>type</th><th>état</th><th>résultat</th></tr></thead><tbody>${cmds.map(c=>`<tr><td>${esc(c.id)}<br><span class="muted">${ago(c.created_at)}</span></td><td>${esc(c.type)}<br><code>${esc(JSON.stringify(c.params)).slice(0,100)}</code></td><td class="${c.status==='done'?'ok':c.status==='failed'?'critical':'muted'}">${esc(c.status)}</td><td><pre style="max-height:120px">${esc(c.result?JSON.stringify(c.result.result??c.result.error??c.result,null,1):'')}</pre></td></tr>`).join('')||'<tr><td colspan=4 class="muted">aucune</td></tr>'}</tbody></table>
+  <details style="margin-top:14px"><summary>zone sensible</summary><div class="row"><button class="sec" onclick="if(confirm('Oublier cet agent ? Son secret est supprimé : il devra être réenrôlé (installeur avec -EnrollToken).'))post('/ui/forget',{agent_id:sel}).then(()=>{sel=null;load()})">Oublier cet agent</button></div></details>`}
+ h+='</div>';
+ if(typing)return;
+ $('panel').innerHTML=h;
+ for(const id in saved){const e=$(id);if(!e)continue;if(e.type==='checkbox')e.checked=saved[id];else e.value=saved[id]}
 }
 load();setInterval(load,5000);
 </script></body></html>"""

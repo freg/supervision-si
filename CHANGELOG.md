@@ -1,3 +1,18 @@
+## 2026-09-26 — Retours du premier poste Windows réel (livraison #626, items 100/103)
+
+Central local : champs du panneau conservés entre deux rafraîchissements
+(la case « forcer » se décochait), « Oublier » déplacé en zone sensible,
+chemin de déploiement manuel affiché (archive par le navigateur +
+`install.ps1`) pour les postes dont l'antivirus bloque la ligne
+« téléchargement + exécution » (AVG IDP.HELU) ; même chemin dans l'onglet
+Déploiement du hub (`windows_manual`, `package`). `install.ps1` /
+`uninstall.ps1` en UTF-8 avec BOM (PowerShell 5.1 lisait les accents en
+ANSI). Agent : indice d'horloge dans le journal quand TLS échoue sur la
+validité du certificat (poste en double amorçage 2 h en retard :
+« certificate is not yet valid »), événement `clock-skew` au retour du
+contact. Validé sur Windows 11 réel : `-EnrollToken`/`-CaFingerprint` en
+PowerShell 5.1, Python embarqué, tâche planifiée, redémarrage forcé.
+
 ## 2026-09-26 — Agent 0.5.20 : cible du prochain démarrage sur un poste multi-amorçage (livraison #625, item 100)
 
 `power_action` {action: reboot, target: windows|linux|firmware} : la cible est

@@ -606,6 +606,21 @@ class ProbeEvents(unittest.TestCase):
         self.assertEqual(ev, [])
 
 
+class DeployCommandsTests(unittest.TestCase):
+    def test_chemin_manuel_antivirus(self):
+        # #626 : ligne manuelle (archive par le navigateur + install.ps1), aucun secret, CA épinglée seulement en LAN
+        old = app_mod._ca_info
+        app_mod._ca_info = lambda: {"available": True, "sha256": "ab" * 32}
+        try:
+            c = app_mod._deploy_commands({"token": "tok", "site": "siege", "plugins": ["web-audit"], "central_url": "https://192.0.2.10:6443/api/si-agent"})
+            self.assertIn("-EnrollToken tok -Central https://192.0.2.10:6443/api/si-agent -Site siege -CaFingerprint " + "ab" * 32 + " -EnablePlugin web-audit", c["windows_manual"])
+            self.assertIn("install.ps1", c["windows_manual"]); self.assertEqual(c["package"], "https://192.0.2.10:6443/api/si-agent/package")
+            c = app_mod._deploy_commands({"token": "tok", "site": "siege", "plugins": [], "central_url": "https://supervision.exemple.test/api/si-agent"})
+            self.assertIn("-SystemCa", c["windows_manual"]); self.assertNotIn("CaFingerprint", c["windows_manual"])
+        finally:
+            app_mod._ca_info = old
+
+
 class PublishHubLink(unittest.TestCase):
     def test_hub_url(self):
         """#559 : lien vers le hub dans le réglage et dans le contenu publié."""

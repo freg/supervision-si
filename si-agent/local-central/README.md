@@ -27,6 +27,13 @@ et l'interface affichent la ligne à coller :
   l'empreinte de la CA) ;
 - Linux / macOS : `curl -fsSL -k '…/deploy/linux?token=…' | sudo sh`.
 
+Poste sous antivirus (AVG, etc.) : la ligne unique « télécharge + exécute »
+est bloquée par heuristique ; la page propose le chemin manuel (archive
+téléchargée par le navigateur, puis `install.ps1 -EnrollToken … -CaFingerprint …`).
+Poste en double amorçage Linux/Windows : si l'agent journalise « certificate
+is not yet valid », l'horloge Windows est en retard (horloge matérielle en
+UTC) -- `RealTimeIsUniversal=1` puis régler l'heure.
+
 Le pare-feu du poste doit laisser entrer le port 6444 (macOS demande
 l'autorisation pour `python3` au premier lancement).
 

@@ -1,4 +1,4 @@
-<#
+﻿<#
 si-agent -- installation sous Windows 10 / 11 (livraison #440).
 Usage (PowerShell en administrateur, depuis le dossier de l'archive) :
   .\windows\install.ps1 -Agent ID -Secret SECRET -Central https://VM:6443/api/si-agent -Site siege `
