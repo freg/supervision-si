@@ -1,3 +1,13 @@
+## 2026-09-26 — Central local : retour visuel sur chaque clic, formulaires stables (livraison #632, item 103)
+
+Script de la page sorti dans `ui.js` (relu à chaque affichage). Formulaires
+rendus une seule fois par onglet, seules les zones dynamiques sont
+rafraîchies : plus aucun champ vidé, plus de blocage quand un champ a le
+focus. Chaque bouton passe en « ⏳ » jusqu'à l'acquittement ; bandeaux
+(toasts) « envoyé (id) → ✅ résultat / ❌ erreur » (erreur affichée jusqu'au
+clic) ; pastille des commandes en attente ; « ⏳ en attente » dans
+l'historique. Lecteurs `C:` par défaut pour l'image.
+
 ## 2026-09-26 — Central local : navigation dans l'arborescence réparée, chemin manuel avec curl.exe (livraison #631, item 103)
 
 Les boutons du parcours (lecteur, sous-dossier, parent, choisir) portaient

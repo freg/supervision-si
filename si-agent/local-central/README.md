@@ -66,6 +66,12 @@ oblige à le réenrôler ; le poste garde son `agent.json` : relancer
 l'amorçage ou l'installeur avec `-Upgrade` n'y touche pas, utiliser
 `uninstall.ps1` puis réenrôler.
 
+## Page
+
+`ui.js` (à côté du module) est relu à chaque affichage : modifiable sans
+relancer le central. Chaque action montre un bandeau « envoyé » puis
+« ✅ / ❌ » à l'acquittement de l'agent.
+
 ## Tests
 
     cd si-agent/local-central && python3 -m unittest test_local_central

@@ -382,7 +382,7 @@ class Handler(BaseHTTPRequestHandler):
         path, qs = url.path, urllib.parse.parse_qs(url.query)
         parts = path.strip("/").split("/")
         if path in ("/", "/index.html"):
-            return self._send(200, UI_HTML, "text/html; charset=utf-8")
+            return self._send(200, page_html(), "text/html; charset=utf-8")
         if path == "/ui/state":
             return self._send(200, c.ui_state())
         if path == "/ca":
@@ -501,6 +501,7 @@ button:disabled{opacity:.5;cursor:default}input,select,textarea{font:inherit;pad
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin:6px 0}.row>label{flex:1 1 140px;font-size:12px;color:var(--muted)}.row>label input,.row>label select{margin-top:2px}
 .pill{display:inline-block;padding:1px 7px;border-radius:999px;font-size:11px;border:1px solid var(--line)}.ok{color:var(--ok)}.warning{color:var(--warn)}.critical{color:var(--crit)}.info{color:var(--muted)}
 .agent{cursor:pointer}.agent.sel{outline:2px solid var(--acc)}details summary{cursor:pointer;color:var(--muted);font-size:12px}
+#toasts{position:fixed;top:56px;right:16px;z-index:9;display:flex;flex-direction:column;gap:6px;max-width:460px}.toast{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:8px;padding:8px 12px;box-shadow:0 4px 16px rgba(0,0,0,.18);cursor:pointer;font-size:13px}.toast.ok{border-left-color:var(--ok)}.toast.warn{border-left-color:var(--warn)}.toast.crit{border-left-color:var(--crit)}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}.tabs button{background:transparent;color:var(--ink);border:1px solid var(--line)}.tabs button.on{border-color:var(--acc);color:var(--acc)}
 </style></head><body>
 <header><h1>si-agent — central local</h1><span class="muted" id="hdr">…</span><span style="flex:1"></span><button class="sec" onclick="load()">Rafraîchir</button></header>
@@ -519,100 +520,19 @@ button:disabled{opacity:.5;cursor:default}input,select,textarea{font:inherit;pad
 </div>
 <div id="panel"><div class="card muted">Choisir un agent dans la liste (il apparaît après son enrôlement et sa première prise de configuration, ~1 min).</div></div>
 </main>
-<script>
-let S=null, sel=null, tab='poste';
-const $=id=>document.getElementById(id);
-const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-async function post(u,b){const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});const j=await r.json();if(!r.ok){alert(j.error||r.status);throw j}return j}
-function copy(id){navigator.clipboard&&navigator.clipboard.writeText($(id).textContent)}
-function ago(iso){if(!iso)return '—';const d=(Date.now()-Date.parse(iso))/1000;return d<90?Math.round(d)+' s':d<5400?Math.round(d/60)+' min':Math.round(d/3600)+' h'}
-async function load(){S=await (await fetch('/ui/state')).json();render()}
-function cmd(type,params){if(!sel)return;if(document.activeElement)document.activeElement.blur();return post('/ui/command',{agent_id:sel,type,params}).then(load)}
-// #627 : parcours de l'arborescence du poste par l'agent (commande browse, résultat relevé au rafraîchissement)
-let br={cid:null,busy:false,res:null,agent:null};
-function browse(path){if(!sel)return;if(document.activeElement)document.activeElement.blur();br={cid:null,busy:true,res:br.agent===sel?br.res:null,agent:sel};
- post('/ui/command',{agent_id:sel,type:'browse',params:path?{path}:{}}).then(c=>{br.cid=c.id;load()})}
-function autologonParam(){const u=(fv('p-alu')||'').trim(),p=fv('p-alp')||'';if(!u||!p)return undefined;const m=u.match(/^([^\\]+)\\(.+)$/);if(m)return {domain:m[1],user:m[2],password:p};return {user:u,password:p}}
-function pick(path){const e=$('i-target');if(e){e.value=path}render()}
-function gb(n){return n==null?'?':n>=1e12?(n/1e12).toFixed(2)+' To':n>=1e9?(n/1e9).toFixed(1)+' Go':Math.round(n/1e6)+' Mo'}
-let brPaths=[];const bp=p=>{brPaths.push(p);return brPaths.length-1};
-function browserHtml(){
- if(br.agent!==sel)return '';
- brPaths=[];
- // #631 : les chemins Windows contiennent des « \\ » et des guillemets une fois sérialisés -- jamais dans un attribut onclick,
- // on les range dans brPaths et l'attribut ne porte qu'un indice
- let h='<div class="card" style="margin-top:8px"><h2>Parcourir depuis le poste <span class="muted">(vu par le compte de l\'agent : les lecteurs réseau d\'une session ne s\'y trouvent pas, taper le chemin UNC \\\\serveur\\partage puis Parcourir)</span></h2>';
- if(br.busy)h+='<div class="muted">⏳ attente de l\'agent (≤ 10 s)…</div>';
- const r=br.res;
- if(r){ if(r.ok===false)h+=`<div class="critical">${esc(r.error)}</div>`;
-  else{ if(r.drives)h+='<div class="row">'+r.drives.map(d=>`<button class="sec" onclick="browse(brPaths[${bp(d.path)}])">${esc(d.path)} <span class="muted">${gb(d.free)} libres / ${gb(d.total)}</span></button>`).join('')+'</div>';
-   if(r.path){h+=`<div><b>${esc(r.path)}</b> <span class="muted">${r.free!=null?gb(r.free)+' libres / '+gb(r.total):''}</span> <button class="sec" onclick="pick(brPaths[${bp(r.path)}])">Choisir ce dossier comme cible</button> ${r.parent?`<button class="sec" onclick="browse(brPaths[${bp(r.parent)}])">↑ ${esc(r.parent)}</button>`:'<button class="sec" onclick="browse(null)">↑ lecteurs</button>'}</div>`;
-    h+='<div style="max-height:220px;overflow:auto;margin-top:6px">'+(r.entries||[]).map(e=>`<div><button class="sec" style="padding:2px 8px" onclick="browse(brPaths[${bp(e.path)}])">📁 ${esc(e.name)}</button></div>`).join('')+(r.truncated?'<div class="muted">liste tronquée</div>':'')+((r.entries||[]).length?'':'<div class="muted">aucun sous-dossier</div>')+'</div>'}}}
- return h+'</div>';
-}
-function fv(id){const e=$(id);return e?(e.type==='checkbox'?e.checked:e.value):undefined}
-function render(){
- // #626 : la page se redessine toutes les 5 s -- on garde les champs saisis (cases, textes) et on ne
- // touche pas au panneau pendant qu'un champ y a le focus
- const saved={};document.querySelectorAll('#panel input,#panel select,#panel textarea').forEach(e=>{if(e.id)saved[e.id]=e.type==='checkbox'?e.checked:e.value});
- const typing=document.activeElement&&$('panel').contains(document.activeElement)&&/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
- $('hdr').textContent=S.base+' · site '+S.site+' · '+S.agents.length+' agent(s)'+(S.ca_sha256?' · CA '+S.ca_sha256.slice(0,16)+'…':' · HTTP clair');
- $('tok').textContent=S.token;$('ol-win').textContent=S.one_liners.windows;$('ol-lin').textContent=S.one_liners.linux;
- $('ol-manual').textContent=S.package?`cd $env:USERPROFILE\\Downloads\ncurl.exe ${S.ca_sha256?'-k ':''}-o ${S.package.name} ${S.base}/package\ntar -xzf ${S.package.name}\ncd ${S.package.name.replace(/\.tar\.gz$/,'')}\npowershell -NoProfile -ExecutionPolicy Bypass -File .\\windows\\install.ps1 -EnrollToken ${S.token} -Central ${S.base} -Site ${S.site}${S.ca_sha256?' -CaFingerprint '+S.ca_sha256:' -SystemCa'}${S.plugins.length?' -EnablePlugin '+S.plugins.join(','):''}`:'archive absente';
- $('pkg').textContent=S.package?('archive '+S.package.name+' ('+Math.round(S.package.size/1024)+' Ko)'):'archive absente (--no-archive)';
- $('agents').innerHTML=S.agents.map(a=>`<tr class="agent ${a.agent_id===sel?'sel':''}" onclick="sel='${esc(a.agent_id)}';render()"><td><b>${esc(a.agent_id)}</b><br><span class="muted">${esc(a.platform||'')}</span></td><td>${ago(a.last_seen)}</td><td>${esc(a.ip||'')}</td><td>${esc(a.hostname||'')}</td></tr>`).join('')||'<tr><td colspan=4 class="muted">aucun</td></tr>';
- $('events').innerHTML=S.events.map(e=>`<div><span class="muted">${esc((e.at||'').replace('T',' ').slice(0,19))}</span> <span class="pill ${esc(e.severity)}">${esc(e.kind)}</span> <b>${esc(e.agent_id)}</b> ${esc(e.message)}${e.details&&Object.keys(e.details).length?` <details><summary>détails</summary><pre>${esc(JSON.stringify(e.details,null,1))}</pre></details>`:''}</div>`).join('')||'<span class="muted">aucun</span>';
- if(!sel||!S.agents.find(a=>a.agent_id===sel)){return}
- if(br.cid){const c=S.commands.find(x=>x.id===br.cid);if(c&&c.status!=='pending'){br.res=c.result?(c.result.result||{ok:false,error:c.result.error||'sans résultat'}):{ok:false,error:'sans résultat'};br.busy=false;br.cid=null}}
- const m=S.measurements[sel]||{}, host=(m.host||{}).data||{}, st=(m.startup||{}).data||{}, self=(m['agent-self']||{}).data||{}, wd=(m.watchdog||{}).data||{};
- const cmds=S.commands.filter(c=>c.agent_id===sel);
- const img=S.events.filter(e=>e.agent_id===sel&&/^image-/.test(e.kind));
- const tabs=['poste','image','lanceurs','watchdog','sondes','commandes'];
- const pt=self.point||{};
- const hs=host.system||host;
- let h=`<div class="card"><h2>${esc(sel)} <span class="muted">— ${esc(hs.hostname||'')} ${esc(typeof hs.os==='string'?hs.os:(hs.os||{}).name||'')} · CPU ${esc((host.cpu||{}).percent??'?')} % · mémoire ${esc((host.memory||{}).used_percent??'?')} % · empreinte agent ${esc(pt.cpu_core_percent??'?')} % d'un cœur / ${pt.rss_bytes?Math.round(pt.rss_bytes/1048576):'?'} Mo</span>
-</h2>
- <div class="tabs">${tabs.map(t=>`<button class="${t===tab?'on':''}" onclick="tab='${t}';render()">${t}</button>`).join('')}</div>`;
- if(tab==='poste'){h+=`<div class="row"><button onclick="cmd('collect_now',{})">Collecter maintenant</button></div>
-  <h2>Alimentation</h2><div class="row"><label>action<select id="p-act"><option value="reboot">redémarrer</option><option value="shutdown">arrêter</option><option value="cancel">annuler</option></select></label>
-  <label>délai (s)<input id="p-delay" value="60"></label><label>message<input id="p-msg" value="Redémarrage demandé par la supervision"></label><label><input type="checkbox" id="p-force" style="width:auto"> forcer (session ouverte)</label>
-  <label>rouvrir la session après le redémarrage (une fois) : compte<input id="p-alu" placeholder="pilote ou DOMAINE\\pilote"></label><label>mot de passe<input id="p-alp" type="password" autocomplete="new-password"></label>
-  <label>prochain démarrage (multi-amorçage, via UEFI)<select id="p-target"><option value="">normal</option><option value="windows">→ Windows (saute GRUB, une fois)</option><option value="linux">→ Linux / GRUB (une fois)</option><option value="firmware">→ réglages UEFI</option></select></label>
-  <button onclick="cmd('power_action',{action:fv('p-act'),delay_seconds:+fv('p-delay'),message:fv('p-msg'),force:fv('p-force'),target:fv('p-target')||undefined,autologon:autologonParam()})">Envoyer</button></div>
-  <div class="muted">Réouverture de session : AutoLogonCount=1 de Winlogon (le mot de passe est effacé du registre par Windows après cette unique ouverture, l'agent vérifie au démarrage suivant) ; compte local ou de domaine avec mot de passe. Le mot de passe ne fait que passer : masqué ici dès l'envoi, jamais dans les journaux.</div>
-  <h2>Réveil réseau (paquet magique émis par cet agent)</h2><div class="row"><label>MAC du poste à réveiller<input id="w-mac" placeholder="AA:BB:CC:DD:EE:FF"></label><label>diffusion<input id="w-bc" value="255.255.255.255"></label>
-  <button onclick="cmd('wol',{mac:fv('w-mac'),broadcast:fv('w-bc')})">Réveiller</button></div>
-  <h2>Banc de charge (introspection)</h2><div class="row"><label>minutes<input id="b-min" value="10"></label><label>facteur de cadence<input id="b-f" value="6"></label>
-  <button onclick="cmd('bench',{minutes:+fv('b-min'),factor:+fv('b-f')})">Lancer</button><button class="sec" onclick="cmd('bench',{stop:true})">Arrêter</button></div>
-  <details><summary>dernière collecte hôte (brut)</summary><pre>${esc(JSON.stringify(host,null,1))}</pre></details>
-  <details><summary>empreinte de l'agent (brut)</summary><pre>${esc(JSON.stringify(self,null,1))}</pre></details>`}
- if(tab==='image'){const last=img[0];h+=`<h2>Image complète du poste à chaud (Disk2vhd, VSS)</h2>
-  <div class="row"><label>dossier cible (partage ou disque local)<input id="i-target" placeholder="\\\\nas\\images\\p2v ou D:\\images"></label><label>nom<input id="i-name" placeholder="(nom du poste)"></label>
-  <label>lecteurs<input id="i-drives" value="*"></label></div><div class="row"><label>URL de disk2vhd64.exe<input id="i-url" value="https://live.sysinternals.com/disk2vhd64.exe"></label><label>SHA-256 attendu (optionnel)<input id="i-sha"></label>
-  <label><input type="checkbox" id="i-force" style="width:auto"> forcer (ignorer l'espace)</label><button onclick="cmd('image_host',{target:fv('i-target'),name:fv('i-name')||undefined,drives:fv('i-drives'),tool_url:fv('i-url'),tool_sha256:fv('i-sha')||undefined,force:fv('i-force')})">Lancer l'image</button></div>
-  <div class="row"><button class="sec" onclick="browse(fv('i-target')||null)">Parcourir depuis le poste…</button></div>${browserHtml()}
-  <div class="muted">Refusé si BitLocker protège un volume visé, si la cible manque d'espace (utilisé × 1,1) ou si une image est déjà en cours. 30 à 60 min pour 200-300 Go en Gigabit ; le poste reste en service.</div>
-  <h2 style="margin-top:10px">Suivi</h2>${last?`<div><span class="pill ${esc(last.severity)}">${esc(last.kind)}</span> ${esc(last.message)} <span class="muted">${ago(last.at)}</span></div>`:'<div class="muted">aucune image lancée</div>'}
-  ${img.slice(0,12).map(e=>`<div class="muted">${esc((e.at||'').replace('T',' ').slice(0,19))} ${esc(e.kind)} — ${esc(e.message)}</div>`).join('')}
-  <h2 style="margin-top:10px">Import Proxmox</h2><pre>${esc(S.runbook)}</pre>`}
- if(tab==='lanceurs'){const items=st.items||[];h+=`<h2>Lanceurs au démarrage <span class="muted">(${items.length}, collecte ${ago((m.startup||{}).at)})</span></h2>
-  <table><thead><tr><th>type</th><th>nom</th><th>commande</th><th>état</th><th></th></tr></thead><tbody>${items.map(it=>`<tr><td>${esc(it.kind)}<br><span class="muted">${esc(it.scope||'')}</span></td><td>${esc(it.name)}</td><td><code>${esc((it.command||'').slice(0,120))}</code></td><td>${it.enabled===false?'<span class="warning">désactivé</span>':'<span class="ok">actif</span>'}</td>
-  <td>${['run','folder','task','service'].includes(it.kind)?`<button class="sec" onclick='cmd("startup_action",{kind:"${esc(it.kind)}",name:${JSON.stringify(it.name).replace(/'/g,"&#39;")},scope:"${esc(it.scope||'machine')}",enable:${it.enabled===false}})'>${it.enabled===false?'activer':'désactiver'}</button>`:''}</td></tr>`).join('')||'<tr><td colspan=5 class="muted">pas encore collecté (Windows seulement)</td></tr>'}</tbody></table>`}
- if(tab==='watchdog'){const lw=cmds.find(c=>c.type==='watchdog_config'&&c.result&&c.result.result&&c.result.result.config);const apps=lw?lw.result.result.config.apps:[];h+=`<h2>Chien de garde applicatif</h2><div class="muted">Une application par ligne : <code>identifiant | processus attendu | commande de relance | heures HH:MM-HH:MM (optionnel)</code></div>
-  <textarea id="wd-txt" rows="5" placeholder="pilotage | pilotage.exe | C:\\Apps\\pilotage.exe | 07:00-20:00">${esc(apps.map(a=>[a.id,a.process,a.command||'',a.hours||''].join(' | ')).join('\n'))}</textarea>
-  <div class="row"><button onclick="cmd('watchdog_config',{apps:fv('wd-txt').split('\\n').filter(l=>l.trim()).map(l=>{const p=l.split('|').map(s=>s.trim());return {id:p[0],label:p[0],process:p[1],command:p[2]||null,hours:p[3]||null}})})">Appliquer</button><button class="sec" onclick="cmd('watchdog_config',{apps:[]})">Tout retirer</button></div>
-  <details open><summary>dernier état</summary><pre>${esc(JSON.stringify(wd,null,1))}</pre></details>`}
- if(tab==='sondes'){h+=`<h2>Mesures reçues</h2>`+Object.keys(m).sort().map(t=>`<details><summary>${esc(t)} — ${ago(m[t].at)} ${m[t].ok===false?'<span class="warning">erreur</span>':''}</summary><pre>${esc(JSON.stringify(m[t].data??m[t].error,null,1))}</pre></details>`).join('')||'<span class="muted">rien encore</span>'}
- if(tab==='commandes'){h+=`<h2>Commande brute</h2><div class="row"><label>type<select id="r-type">${['collect_now','power_action','wol','startup_action','watchdog_config','bench','image_host','block_all','unblock_all','update'].map(t=>`<option>${t}</option>`).join('')}</select></label><label>paramètres (JSON)<input id="r-params" value="{}"></label><button onclick="cmd(fv('r-type'),JSON.parse(fv('r-params')||'{}'))">Envoyer</button></div>
-  <h2>Historique</h2><table><thead><tr><th>id</th><th>type</th><th>état</th><th>résultat</th></tr></thead><tbody>${cmds.map(c=>`<tr><td>${esc(c.id)}<br><span class="muted">${ago(c.created_at)}</span></td><td>${esc(c.type)}<br><code>${esc(JSON.stringify(c.params)).slice(0,100)}</code></td><td class="${c.status==='done'?'ok':c.status==='failed'?'critical':'muted'}">${esc(c.status)}</td><td><pre style="max-height:120px">${esc(c.result?JSON.stringify(c.result.result??c.result.error??c.result,null,1):'')}</pre></td></tr>`).join('')||'<tr><td colspan=4 class="muted">aucune</td></tr>'}</tbody></table>
-  <details style="margin-top:14px"><summary>zone sensible</summary><div class="row"><button class="sec" onclick="if(confirm('Oublier cet agent ? Son secret est supprimé : il devra être réenrôlé (installeur avec -EnrollToken).'))post('/ui/forget',{agent_id:sel}).then(()=>{sel=null;load()})">Oublier cet agent</button></div></details>`}
- h+='</div>';
- if(typing)return;
- $('panel').innerHTML=h;
- for(const id in saved){const e=$(id);if(!e)continue;if(e.type==='checkbox')e.checked=saved[id];else e.value=saved[id]}
-}
-load();setInterval(load,5000);
-</script></body></html>"""
+<div id="toasts"></div>
+<!--SCRIPT-->
+</body></html>"""
+
+
+def page_html():
+    """Page + script (ui.js à côté du module, relu à chaque affichage : modifiable sans relancer)."""
+    try:
+        with open(os.path.join(HERE, "ui.js"), encoding="utf-8") as fh:
+            js = fh.read()
+    except OSError:
+        js = "document.body.innerHTML='<p>ui.js manquant à côté de local_central.py</p>';"
+    return UI_HTML.replace("<!--SCRIPT-->", "<script>\n" + js + "\n</script>")
 
 
 def main(argv=None):
