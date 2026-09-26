@@ -95,6 +95,42 @@ class LocalCentralTests(unittest.TestCase):
         self.assertIn("central local", self.call("GET", "/")[1].decode())
         self.assertEqual(self.call("GET", "/ca")[0], 404)
 
+    def test_transfert_image(self):
+        # #634 : morceaux signés avec reprise, clôture vérifiée (via l'agent réel : HttpClient.send_raw + fil de transfert)
+        import hashlib, tempfile, time as _t
+        from si_agent import agent as agent_mod, uploadctl
+        c = self.central
+        st, b, _ = self.call("POST", "/api/v1/enroll", {"token": c.state.data["token"], "hostname": "pc-img", "platform": "windows"})
+        e = json.loads(b); aid, sec = e["agent_id"], e["secret"]
+        tmp = tempfile.mkdtemp(); path = os.path.join(tmp, "PC-IMG-20260926.vhdx")
+        data = os.urandom(3_000_000); open(path, "wb").write(data)
+        http = agent_mod.HttpClient(self.base, aid, sec)
+        base = "/api/v1/agents/%s/images/%s" % (aid, "PC-IMG-20260926.vhdx")
+        # 1er morceau puis « coupure »
+        st, body = http.send_raw("PUT", base + "?offset=0", data[:1_000_000]); self.assertEqual(st, 201); self.assertEqual(body["size"], 1_000_000)
+        st, body = http.send_raw("PUT", base + "?offset=0", data[:10]); self.assertEqual(st, 409)  # mauvais décalage
+        self.assertEqual(self.call("PUT", base + "?offset=1000000")[0], 401)  # non signé
+        # reprise par le fil de l'agent lui-même
+        old_chunk = uploadctl.CHUNK; uploadctl.CHUNK = 700_000
+        try:
+            cfg = dict(agent_mod.DEFAULTS, agent_id=aid, secret=sec, central_url=self.base, site="test", queue_path=os.path.join(tmp, "q.db"), plugins_dir=tmp, state_path=os.path.join(tmp, "s.json"))
+            ag = agent_mod.Agent(cfg, http=http)
+            r = ag.start_upload(path, "c1", delete_after=True); self.assertTrue(r["ok"])
+            for _ in range(200):
+                if ag._upload_job["state"] != "running":
+                    break
+                _t.sleep(0.05)
+            self.assertEqual(ag._upload_job["state"], "finished", ag._upload_job.get("error"))
+            ag.follow_upload()
+        finally:
+            uploadctl.CHUNK = old_chunk
+        final = os.path.join(c.images.root, aid, "PC-IMG-20260926.vhdx")
+        self.assertTrue(os.path.exists(final)); self.assertEqual(hashlib.sha256(open(final, "rb").read()).hexdigest(), hashlib.sha256(data).hexdigest())
+        self.assertFalse(os.path.exists(path))  # delete_after
+        kinds = [m["data"]["kind"] for m in ag.queue.pending(limit=50) if m["task"] == "event"]
+        self.assertIn("image-upload-started", kinds); self.assertIn("image-upload-finished", kinds); self.assertIn("image-deleted", kinds)
+        self.assertEqual(c.ui_state()["images"][0]["name"], "PC-IMG-20260926.vhdx"); self.assertTrue(c.ui_state()["images"][0]["complete"])
+
     def test_bootstrap_tls(self):
         win, lin = lc.bootstrap_lines("https://192.0.2.10:6444", "tok", "s", "ab" * 32, ["web-audit"])
         self.assertIn("-CaFingerprint", win); self.assertIn("SiAgentTrustAll", win); self.assertIn("-EnablePlugin", win)

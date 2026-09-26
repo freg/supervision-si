@@ -276,6 +276,7 @@ export const EVENT_KIND_LABELS_FR = {
   "image-started": "Image du poste lancée", "image-progress": "Image du poste en cours", "image-finished": "Image du poste terminée", "image-failed": "Image du poste échouée",
   "autologon-armed": "Session rouverte au prochain démarrage (une fois)", "autologon-cleared": "Autologon une fois : nettoyé", "clock-skew": "Horloge du poste décalée",
   "deferred": "Commande programmée", "deferred-run": "Commande programmée : exécution", "deferred-done": "Commande programmée : faite", "deferred-failed": "Commande programmée : échec",
+  "image-upload-started": "Transfert de l'image vers le serveur lancé", "image-upload-progress": "Transfert de l'image en cours", "image-upload-finished": "Transfert de l'image terminé", "image-upload-failed": "Transfert de l'image échoué", "image-received": "Image reçue sur le serveur", "image-deleted": "Image locale supprimée", "image-delete-failed": "Suppression locale de l'image impossible",
   "update-started": "Windows Update : installation lancée", "update-finished": "Windows Update : installation terminée", "update-failed": "Windows Update : échec", "command-protection": "Pare-feu / Defender modifié",
   "bench-started": "Banc de charge lancé", "bench-finished": "Banc de charge terminé", "bench-stopped": "Banc de charge arrêté",
   "enroll-token-created": "Jeton d'enrôlement créé", "enroll-token-revoked": "Jeton d'enrôlement révoqué",

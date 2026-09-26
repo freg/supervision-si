@@ -3408,6 +3408,9 @@ ou programmée, redémarrage ensuite), pare-feu / Defender (état, bascule),
 logiciels, différé générique `at`. Demandé : « une gestion des mises à jour
 -> état, forçage immédiat et programmée ; une gestion d'installation de
 logiciels ; une gestion d'activation / désactivation antivirus et firewall ».
+**#634** : transfert de l'image vers le serveur après création (canal signé,
+reprise, vérification), `image_transfer` pour reprendre ; à valider en réel
+sur 60-200 Go (débit, tenue du mandataire tls-proxy en 8 Mo par requête).
 Reste : mêmes commandes dans la section Poste du hub (le central local les
 a) ; winget sous SYSTEM (localiser `winget.exe` dans WindowsApps ou passer
 par choco) ; règle Cortex « pare-feu inactif / Defender inactif » depuis la

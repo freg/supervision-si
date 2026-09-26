@@ -1,3 +1,20 @@
+## 2026-09-26 — Agent 0.5.26 : transfert de l'image P2V vers le serveur (livraison #634, item 101)
+
+`image_host` {…, transfer: true, delete_after?} : une fois Disk2vhd terminé,
+l'agent envoie le VHDX au central (Mac du test, mini-PC Linux du site) par
+son canal habituel -- HTTPS, morceaux de 8 Mo SIGNÉS (HMAC sur le condensé de
+chaque morceau), reprise sur coupure (`GET …/status`), clôture avec taille et
+SHA-256 vérifiés, puis suppression locale sur demande. Fil d'exécution à
+part : la boucle de l'agent continue ; événements `image-upload-started /
+progress (5 min, débit, reste) / finished / failed`. `image_transfer`
+{path, delete_after?} relance ou reprend une image déjà sur le poste.
+Réception : `si_agent/imagestore.py` (partagé), central local sous
+`data/images/<agent>/`, si-agent-api sous `/data/images` (`SI_AGENT_IMAGES_DIR`),
+`GET /images` pour le hub, événement `image-received`. Cases « transférer
+ensuite » / « supprimer après transfert » et liste des images reçues dans
+l'onglet image du central local et le bloc Image du hub. Vérifié de bout en
+bout avec l'agent réel (reprise après coupure, condensé). 3 + 1 + 1 tests.
+
 ## 2026-09-26 — Agent 0.5.25 : Windows Update, pare-feu / Defender, logiciels, commandes programmées (livraison #633, item 104)
 
 Onglet « système » du central local. `windows_update` {action: status|install,

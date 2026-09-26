@@ -45,6 +45,7 @@ KIND_CATEGORY = {
     "command-power": "commands", "command-wol": "commands", "command-startup": "commands", "watchdog-config": "commands",
     "image-started": "commands", "image-progress": "commands", "image-finished": "commands", "image-failed": "commands",
     "autologon-armed": "commands", "autologon-cleared": "commands", "clock-skew": "agent", "deferred": "commands", "deferred-run": "commands", "deferred-done": "commands", "deferred-failed": "commands",
+    "image-upload-started": "commands", "image-upload-progress": "commands", "image-upload-finished": "commands", "image-upload-failed": "commands", "image-received": "commands", "image-deleted": "commands", "image-delete-failed": "commands",
     "update-started": "commands", "update-finished": "commands", "update-failed": "commands", "command-protection": "commands",
     "bench-started": "commands", "bench-finished": "commands", "bench-stopped": "commands", "enroll-token-created": "fleet", "enroll-token-revoked": "fleet",
     "app-down": "applications", "app-restarted": "applications", "app-restart-failed": "applications", "app-recovered": "applications", "watchdog-error": "applications",

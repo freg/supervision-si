@@ -1191,6 +1191,16 @@ Le mot de passe est masqué (`***`) dans le central dès l'acquittement et
 dans tout ce que renvoie l'API ; il n'est jamais journalisé. Compte local ou
 de domaine avec mot de passe (pas un compte Microsoft à PIN seul).
 
+## Transfert de l'image vers le serveur (livraison #634, agent 0.5.26)
+
+`image_host` avec `transfer: true` : à la fin de Disk2vhd, l'agent envoie le
+VHDX au central par morceaux de 8 Mo signés (`PUT /api/v1/agents/<id>/images/<nom>?offset=`),
+reprend après coupure (`GET …/status`), clôt avec taille et SHA-256
+(`POST …/complete`) ; `delete_after` supprime l'image du poste une fois le
+condensé vérifié. `image_transfer` {path} envoie ou reprend une image déjà
+présente. Reçu sous `SI_AGENT_IMAGES_DIR` (`/data/images` dans le conteneur ;
+`data/images/` pour le central local), `GET /images` liste pour le hub.
+
 ## Parcours de l'arborescence du poste (livraison #627, agent 0.5.21)
 
 Commande `browse` {path?} : sans chemin, les lecteurs (lettre, libre /

@@ -606,6 +606,31 @@ class ProbeEvents(unittest.TestCase):
         self.assertEqual(ev, [])
 
 
+class ImageReceiveTests(ApiBase):
+    def test_reception_image_signee(self):
+        # #634 : morceaux signés avec reprise, clôture vérifiée, liste pour le hub
+        import hashlib, tempfile
+        app_mod.IMAGES_DIR = tempfile.mkdtemp(); app_mod._images = None
+        a = self.enroll("srv-img")
+        sec = a["secret"]
+
+        def put(path, data):
+            h = protocol.auth_headers("srv-img", sec, "PUT", path, data)
+            return self.c.open(path, method="PUT", data=data, headers=h, content_type="application/octet-stream")
+        http = FlaskHttp(self.c, "srv-img", sec)
+        data = os.urandom(50_000)
+        base = "/api/v1/agents/srv-img/images/SRV-IMG.vhdx"
+        r = put(base + "?offset=0", data[:20_000]); self.assertEqual(r.status_code, 201, r.get_json())
+        self.assertEqual(put(base + "?offset=0", data[:5]).status_code, 409)
+        st, body = http.request("GET", base + "/status"); self.assertEqual((st, body["size"]), (200, 20_000))
+        self.assertEqual(put(base + "?offset=20000", data[20_000:]).status_code, 201)
+        st, _ = http.request("POST", base + "/complete", {"size": 50_000, "sha256": "00" * 32}); self.assertEqual(st, 409)
+        st, _ = http.request("POST", base + "/complete", {"size": 50_000, "sha256": hashlib.sha256(data).hexdigest()}); self.assertEqual(st, 200)
+        self.assertEqual(self.c.put(base + "?offset=0", data=b"x").status_code, 401)
+        imgs = self.c.get("/images").get_json()["images"]
+        self.assertEqual((imgs[0]["agent_id"], imgs[0]["name"], imgs[0]["complete"], imgs[0]["size"]), ("srv-img", "SRV-IMG.vhdx", True, 50_000))
+
+
 class DeployCommandsTests(unittest.TestCase):
     def test_chemin_manuel_antivirus(self):
         # #626 : ligne manuelle (archive par le navigateur + install.ps1), aucun secret, CA épinglée seulement en LAN

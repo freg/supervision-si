@@ -200,6 +200,25 @@ class HttpClient(object):
                 break
         return status, data
 
+    def send_raw(self, method, path, data=b"", timeout=120, content_type="application/octet-stream"):
+        """#634 : requête signée à corps brut (morceau d'image). Le chemin signé inclut la requête (?offset=)."""
+        headers = protocol.auth_headers(self.device_id, self.secret, method, path, data)
+        headers["Content-Type"] = content_type
+        req = urllib.request.Request(self.current_url + path, data=data, method=method, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout, context=self.fallback_context if self.on_fallback else self.ssl_context) as resp:
+                raw = resp.read()
+                try:
+                    return resp.status, json.loads(raw.decode("utf-8")) if raw else {}
+                except ValueError:
+                    return resp.status, None
+        except urllib.error.HTTPError as exc:
+            raw = exc.read()
+            try:
+                return exc.code, json.loads(raw.decode("utf-8"))
+            except Exception:  # noqa: BLE001
+                return exc.code, {"error": raw[:200].decode("utf-8", "replace")}
+
     def get_raw(self, path, timeout=120):
         """#522 : GET NON signé d'un contenu brut du central (archive de l'agent
         servie par /package), même TLS et même CA que les dépôts, central de
@@ -270,6 +289,7 @@ class Agent(object):
         self.agent_id = cfg["agent_id"]
         self._started_at = clock()
         self._update_job = None
+        self._upload_job = None
         self.http = http or HttpClient(cfg["central_url"], cfg["agent_id"], cfg["secret"],
                                        ca_file=cfg.get("ca_file"), insecure=bool(cfg.get("insecure")),
                                        fallback_url=cfg.get("central_fallback_url"), fallback_ca_file=cfg.get("fallback_ca_file"))
@@ -679,6 +699,9 @@ class Agent(object):
                 import shutil as _sh
                 res = browsectl.run(params, usage=_sh.disk_usage)
                 return {"ok": res.get("ok", False), "error": res.get("error"), "result": res}
+            if ctype == "image_transfer":
+                # #634 : transférer (ou reprendre) une image déjà sur le poste
+                return self.start_upload(str(params.get("path") or ""), c.get("id"), delete_after=bool(params.get("delete_after")))
             if ctype == "image_host":
                 # #621 : image complète du poste à chaud (Disk2vhd, VSS), détachée ; suivi dans la boucle
                 res = self.start_image(params, c.get("id"))
@@ -853,7 +876,8 @@ class Agent(object):
                                         creationflags=0x00000008 | 0x00000200)
         except (OSError, ValueError) as exc:
             return {"ok": False, "error": "lancement de Disk2vhd impossible : %s" % exc}
-        self._image_job = {"started": self.clock(), "target_file": out_file, "pid": proc.pid, "last_report": self.clock(), "command": command_id, "proc": proc}
+        self._image_job = {"started": self.clock(), "target_file": out_file, "pid": proc.pid, "last_report": self.clock(), "command": command_id, "proc": proc,
+                           "transfer": plan["transfer"], "delete_after": plan["delete_after"]}
         self.event("image-started", "warning", "image du poste lancée vers %s (%s)" % (out_file, ", ".join(plan["drives"])),
                    {"command": command_id, "target": out_file, "used_bytes": used, "free_target_bytes": free_target})
         return {"ok": True, "result": {"target": out_file, "message": "image lancée (Disk2vhd, instantané VSS) -- suivi par événements", "used_bytes": used}, "error": None}
@@ -874,6 +898,8 @@ class Agent(object):
             self._image_job = None
             self.event("image-finished", "info", "image terminée : %.1f Go en %d min -> %s" % (det["bytes"] / 2**30, det["seconds"] // 60, job["target_file"]),
                        dict(det, target=job["target_file"], command=job.get("command"), proxmox=imagectl.PROXMOX_RUNBOOK))
+            if job.get("transfer"):
+                self.start_upload(job["target_file"], job.get("command"), delete_after=job.get("delete_after"))
         elif state in ("failed", "stalled"):
             if state == "stalled" and proc is not None:
                 try:
@@ -1122,6 +1148,85 @@ class Agent(object):
             break
         return sent
 
+    # -- #634 : transfert de l'image vers le central --------------------------
+    def start_upload(self, path, command_id=None, delete_after=False):
+        from . import uploadctl
+        import threading
+        if self._upload_job and self._upload_job.get("state") == "running":
+            return {"ok": False, "error": "un transfert est déjà en cours"}
+        name = uploadctl.safe_name(path)
+        if not name or not os.path.isfile(path):
+            return {"ok": False, "error": "fichier introuvable : %s" % path}
+        total = os.path.getsize(path)
+        job = {"path": path, "name": name, "total": total, "sent": 0, "state": "running", "error": None, "started": self.clock(),
+               "last_report": self.clock(), "command": command_id, "delete_after": bool(delete_after), "sha256": None}
+        self._upload_job = job
+        threading.Thread(target=self._upload_worker, args=(job,), daemon=True, name="si-agent-upload").start()
+        self.event("image-upload-started", "info", "transfert de %s vers le central (%.1f Go)" % (name, total / 2**30), {"command": command_id, "file": path, "bytes": total})
+        return {"ok": True, "result": {"file": path, "bytes": total, "message": "transfert lancé -- suivi par événements"}}
+
+    def _upload_worker(self, job):
+        """Fil à part : reprise (GET status), morceaux signés (PUT), clôture (POST complete)."""
+        from . import uploadctl
+        base = "%s/agents/%s/images/%s" % (protocol.API_PREFIX, self.agent_id, job["name"])
+        try:
+            st, body = self.http.request("GET", base + "/status")
+            offset = int((body or {}).get("size") or 0) if st == 200 else 0
+            if offset > job["total"]:
+                offset = 0
+            with open(job["path"], "rb") as fh:
+                def read(pos, n):
+                    fh.seek(pos)
+                    return fh.read(n)
+                h = uploadctl.prefix_digest(read, offset)
+                job["sent"] = offset
+                for pos, n in uploadctl.plan_chunks(job["total"], offset):
+                    data = read(pos, n)
+                    h.update(data)
+                    for attempt in range(5):
+                        st, body = self.http.send_raw("PUT", "%s?offset=%d" % (base, pos), data, timeout=300)
+                        if st in (200, 201):
+                            break
+                        if st == 409 and isinstance(body, dict) and "size" in body:
+                            raise RuntimeError("décalage de reprise : %s" % body.get("error"))
+                        time.sleep(5 * (attempt + 1))
+                    else:
+                        raise RuntimeError("morceau à %d refusé (%s %s)" % (pos, st, (body or {}).get("error") if isinstance(body, dict) else ""))
+                    job["sent"] = pos + n
+            job["sha256"] = h.hexdigest()
+            st, body = self.http.request("POST", base + "/complete", {"size": job["total"], "sha256": job["sha256"]})
+            if st not in (200, 201):
+                raise RuntimeError("clôture refusée (%s %s)" % (st, (body or {}).get("error") if isinstance(body, dict) else ""))
+            job["state"] = "finished"
+        except Exception as exc:  # noqa: BLE001
+            job["state"] = "failed"; job["error"] = str(exc)
+
+    def follow_upload(self):
+        job = self._upload_job
+        if not job:
+            return
+        from . import uploadctl
+        now = self.clock()
+        if job["state"] == "running":
+            if now - job["last_report"] >= 300:
+                job["last_report"] = now
+                p = uploadctl.progress(job["sent"], job["total"], job["started"], now)
+                self.event("image-upload-progress", "info", "transfert %s : %.0f %% (%s Mbit/s, reste ~%s min)" % (job["name"], p["percent"], p["rate_mbps"], (p["eta_seconds"] or 0) // 60), dict(p, command=job["command"]))
+            return
+        self._upload_job = None
+        if job["state"] == "finished":
+            self.event("image-upload-finished", "info", "transfert terminé : %s (%.1f Go en %d min, sha256 %s)" % (job["name"], job["total"] / 2**30, (now - job["started"]) // 60, job["sha256"][:12]),
+                       {"command": job["command"], "file": job["path"], "bytes": job["total"], "sha256": job["sha256"], "seconds": int(now - job["started"])})
+            if job.get("delete_after"):
+                try:
+                    os.remove(job["path"])
+                    self.event("image-deleted", "info", "image locale supprimée après transfert : %s" % job["path"], {"command": job["command"]})
+                except OSError as exc:
+                    self.event("image-delete-failed", "warning", "suppression locale impossible : %s" % exc, {"command": job["command"]})
+        else:
+            self.event("image-upload-failed", "warning", "transfert échoué : %s (relancer image_transfer, il reprend où il s'est arrêté)" % job["error"],
+                       {"command": job["command"], "file": job["path"], "sent": job["sent"]})
+
     def _store_measure(self, task, data, ok=True, error=None):
         m = {"agent_id": self.agent_id, "task": task, "at": _iso(self.clock()), "ok": ok, "data": data, "error": error}
         self.queue.put(m)
@@ -1316,6 +1421,7 @@ class Agent(object):
                 self.run_watchdog()
                 self.follow_image()
                 self.follow_update()
+                self.follow_upload()
                 self.run_deferred()
                 self.run_plugins()
                 self.collect_self()

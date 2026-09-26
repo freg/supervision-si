@@ -5,7 +5,7 @@
 // d'applications relancées si absentes). Chaque bouton montre sa prise en
 // compte, puis l'acquittement de l'agent (règle 8).
 import { useEffect, useState } from "react";
-import { powerAction, wakeOnLan, startupAction, watchdogConfig, benchCommand, imageHost, browsePath, fetchCommand } from "./siAgentClient.js";
+import { powerAction, wakeOnLan, startupAction, watchdogConfig, benchCommand, imageHost, browsePath, imageTransfer, fetchImages, fetchCommand } from "./siAgentClient.js";
 
 const KIND_LABELS = { run: "clé Run", runonce: "RunOnce", folder: "dossier Démarrage", task: "tâche planifiée", service: "service" };
 const STATUS = { ok: ["good", "en service"], restart: ["warn", "relance…"], waiting: ["warn", "en attente de relance"], down: ["bad", "arrêtée"], idle: ["neutral", "hors plage"], disabled: ["neutral", "désactivée"] };
@@ -99,6 +99,12 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
   const bench = useCommand(apiBase);  // #616
   const img = useCommand(apiBase);  // #621
   const [imgTarget, setImgTarget] = useState("");
+  const [imgTransfer, setImgTransfer] = useState(true);   // #634 : transfert vers le serveur après l'image
+  const [imgDelete, setImgDelete] = useState(false);
+  const [imgExisting, setImgExisting] = useState("");
+  const [images, setImages] = useState([]);
+  const xfer = useCommand(apiBase);
+  useEffect(() => { fetchImages(apiBase).then((r) => setImages((r?.images || []).filter((i) => i.agent_id === agentId))).catch(() => setImages([])); }, [apiBase, agentId, img.result, xfer.result]);
   const [imgDrives, setImgDrives] = useState("*");
   const [imgSha, setImgSha] = useState("");
   const [benchMin, setBenchMin] = useState(10);
@@ -245,8 +251,18 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
                 <input value={imgTarget} onChange={(e) => setImgTarget(e.target.value)} placeholder={"\\\\nas\\images\\p2v  ou  D:\\images"} style={{ minWidth: 280 }} />
                 lecteurs <input value={imgDrives} onChange={(e) => setImgDrives(e.target.value)} style={{ width: 80 }} title="* = tous, ou C: D:" />
                 <input value={imgSha} onChange={(e) => setImgSha(e.target.value)} placeholder="SHA-256 de disk2vhd64.exe (facultatif)" style={{ minWidth: 300 }} />
-                <button type="button" className="secondary" disabled={!!img.busy || !imgTarget} onClick={() => window.confirm(`Créer une image complète de ${detail.hostname || agentId} vers ${imgTarget} ? La machine reste en service (instantané VSS) ; 30 à 60 min pour 200-300 Go sur Gigabit.`) && img.run("image", () => imageHost(apiBase, agentId, { target: imgTarget, drives: imgDrives, tool_sha256: imgSha || undefined }))}>{img.busy ? "⏳ lancement…" : "Créer l'image"}</button>
+                <button type="button" className="secondary" disabled={!!img.busy || !imgTarget} onClick={() => window.confirm(`Créer une image complète de ${detail.hostname || agentId} vers ${imgTarget} ? La machine reste en service (instantané VSS) ; 30 à 60 min pour 200-300 Go sur Gigabit.${imgTransfer ? " Elle sera ensuite transférée vers le serveur." : ""}`) && img.run("image", () => imageHost(apiBase, agentId, { target: imgTarget, drives: imgDrives, tool_sha256: imgSha || undefined, transfer: imgTransfer, delete_after: imgDelete }))}>{img.busy ? "⏳ lancement…" : "Créer l'image"}</button>
               </span>
+              <span style={{ display: "inline-flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 4 }}>
+                <label style={{ display: "inline-flex", gap: 4, alignItems: "center" }}><input type="checkbox" checked={imgTransfer} onChange={(e) => setImgTransfer(e.target.checked)} /> transférer ensuite vers le serveur (canal de l'agent, signé, reprise sur coupure)</label>
+                <label style={{ display: "inline-flex", gap: 4, alignItems: "center" }}><input type="checkbox" checked={imgDelete} onChange={(e) => setImgDelete(e.target.checked)} /> supprimer du poste après transfert vérifié</label>
+              </span>
+              <span style={{ display: "inline-flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginTop: 4 }}>
+                <input value={imgExisting} onChange={(e) => setImgExisting(e.target.value)} placeholder={"image déjà sur le poste : D:\\images\\PC-20260926.vhdx"} style={{ minWidth: 320 }} />
+                <button type="button" className="secondary" disabled={!!xfer.busy || !imgExisting} onClick={() => xfer.run("transfert", () => imageTransfer(apiBase, agentId, { path: imgExisting, delete_after: imgDelete }))}>{xfer.busy ? "⏳…" : "Transférer / reprendre"}</button>
+              </span>
+              <Result r={xfer.result} />
+              {images.length > 0 && <div style={{ marginTop: 4 }}><span className="muted">Images reçues sur le serveur : </span>{images.map((i) => <div key={i.path}>{i.complete ? "✅" : "⏳"} <code>{i.path}</code> <span className="muted">{gb(i.size)}</span></div>)}</div>}
               <PathBrowser apiBase={apiBase} agentId={agentId} onPick={setImgTarget} start={imgTarget} />
               <div className="muted" style={{ fontSize: 12 }}>Disk2vhd (Sysinternals, téléchargé par l'agent ou déposé dans <code>ProgramData\si-agent\tools</code>), VHDX importable dans Proxmox (<code>qm importdisk</code>). Refus si BitLocker protège un lecteur visé ou si la cible manque de place. Suivi dans le journal : image lancée / en cours (toutes les 5 min) / terminée (avec le mode d'emploi Proxmox) / échouée.</div>
               <Result r={img.result} />

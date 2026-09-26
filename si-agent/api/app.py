@@ -28,11 +28,13 @@ try:
     import si_agent_protocol as protocol
     import si_agent_control as control
     import si_agent_publish as agent_publish
+    import si_agent_imagestore as imagestore
 except ImportError:  # dépôt de développement
     import sys as _sys
     _sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "agent"))
     from si_agent import control, protocol  # noqa: E402
     from si_agent import publish as agent_publish  # noqa: E402
+    from si_agent import imagestore  # noqa: E402
     import si_agent.plugins as _plugins  # noqa: E402
     _sys.modules.setdefault("si_agent_plugins", _plugins)
     _sys.modules.setdefault("si_agent_control", control)
@@ -1073,6 +1075,62 @@ def publish_preview_board_route(agent_id):
     if why:
         payload["error"] = why
     return jsonify(agent_publish.with_age(payload)), 200
+
+
+# ---- #634 : réception des images P2V envoyées par les agents (morceaux signés, reprise) ----
+IMAGES_DIR = os.environ.get("SI_AGENT_IMAGES_DIR", os.path.join(os.path.dirname(DB_PATH), "images"))
+_images = None
+
+
+def _image_store():
+    global _images
+    if _images is None:
+        _images = imagestore.ImageStore(IMAGES_DIR)
+    return _images
+
+
+@app.route(protocol.API_PREFIX + "/agents/<agent_id>/images/<name>/status", methods=["GET"])
+def image_status_route(agent_id, name):
+    info, err = _verify_agent(agent_id)
+    if info is None:
+        return jsonify({"error": err}), 401
+    size, done = _image_store().size(agent_id, name)
+    return jsonify({"size": size, "complete": done}), 200
+
+
+@app.route(protocol.API_PREFIX + "/agents/<agent_id>/images/<name>", methods=["PUT"])
+def image_chunk_route(agent_id, name):
+    info, err = _verify_agent(agent_id)
+    if info is None:
+        return jsonify({"error": err}), 401
+    safe = re.sub(r"[^A-Za-z0-9._-]", "-", name)[:120]
+    if not safe or safe.startswith("."):
+        return jsonify({"error": "nom invalide"}), 400
+    st, out = _image_store().append(agent_id, safe, request.args.get("offset"), request.get_data())
+    return jsonify(out), st
+
+
+@app.route(protocol.API_PREFIX + "/agents/<agent_id>/images/<name>/complete", methods=["POST"])
+def image_complete_route(agent_id, name):
+    info, err = _verify_agent(agent_id)
+    if info is None:
+        return jsonify({"error": err}), 401
+    body = request.get_json(silent=True) or {}
+    st, out = _image_store().complete(agent_id, name, body.get("size"), body.get("sha256"))
+    if st == 200:
+        _event("image-received", "info", "image %s reçue de %s (%d octets)" % (name, agent_id, out["size"]), agent_id=agent_id, details={"path": out["path"], "sha256": out["sha256"]})
+    return jsonify(out), st
+
+
+@app.route("/images", methods=["GET"])
+def images_list_route():
+    """Images reçues (hub) : agent, nom, taille, complète, chemin sur le serveur."""
+    site = request.args.get("site")
+    items = _image_store().list()
+    if site:
+        allowed = {a["agent_id"] for a in store.list_agents(DB_PATH) if a.get("site") == site}
+        items = [i for i in items if i["agent_id"] in allowed]
+    return jsonify({"images": items, "dir": IMAGES_DIR}), 200
 
 
 @app.route(protocol.API_PREFIX + "/agents/<agent_id>/publish", methods=["GET"])

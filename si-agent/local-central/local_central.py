@@ -43,8 +43,10 @@ AGENT_DIR = os.path.join(os.path.dirname(HERE), "agent")
 sys.path.insert(0, AGENT_DIR)
 from si_agent import control, protocol  # noqa: E402
 from si_agent import imagectl  # noqa: E402
+from si_agent import uploadctl as uploadctl_local  # noqa: E402
+from si_agent.imagestore import ImageStore  # noqa: E402
 
-COMMAND_TYPES = ("collect_now", "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse", "windows_update", "protection",
+COMMAND_TYPES = ("collect_now", "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse", "windows_update", "protection", "image_transfer",
                  "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update")
 KEPT_TASKS = 40
 MAX_EVENTS = 500
@@ -303,6 +305,7 @@ class Central:
         self.plugins = load_plugins(self.plugin_ids, pa)
         self.interval = args.interval
         self.site = args.site
+        self.images = ImageStore(os.path.join(self.data_dir, "images"))
         self.started = time.time()
 
     def bootstraps(self):
@@ -327,7 +330,8 @@ class Central:
             return {"base": self.base, "token": st.data["token"], "ca_sha256": self.ca_sha, "site": self.site, "package": self.package_info,
                     "plugins": self.plugin_ids, "one_liners": self.one_liners(), "agents": agents,
                     "commands": [dict(c, params=redact_params(c["params"])) for c in reversed(st.data["commands"][-60:])], "events": list(reversed(st.data["events"][-150:])),
-                    "measurements": st.data["measurements"], "runbook": imagectl.PROXMOX_RUNBOOK, "uptime": int(time.time() - self.started)}
+                    "measurements": st.data["measurements"], "runbook": imagectl.PROXMOX_RUNBOOK, "uptime": int(time.time() - self.started),
+                    "images": self.images.list(), "images_dir": self.images.root}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -417,6 +421,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._signed(a["secret"], {"commands": c.state.pending(aid)})
             if leaf == "publish":
                 return self._signed(a["secret"], {"publish": None, "items": []})
+            if leaf == "images" and len(parts) == 7 and parts[6] == "status":
+                size, done = c.images.size(aid, parts[5])
+                return self._send(200, {"size": size, "complete": done})
         if path in ("/health", "/version"):
             return self._send(200, {"ok": True, "local_central": True, "agents": len(c.state.data["agents"])})
         return self._send(404, {"error": "inconnu"})
@@ -450,6 +457,11 @@ class Handler(BaseHTTPRequestHandler):
             if leaf == "measurements":
                 n = c.state.store_measurements(aid, body.get("measurements"))
                 return self._send(201, {"stored": n})
+            if leaf == "images" and len(parts) == 7 and parts[6] == "complete":
+                st_, out = c.images.complete(aid, parts[5], body.get("size"), body.get("sha256"))
+                if st_ == 200:
+                    print("* image reçue : %s (%s octets)" % (out["path"], out["size"]))
+                return self._send(st_, out)
             if leaf == "commands" and len(parts) == 7 and parts[6] == "ack":
                 ok = c.state.ack(aid, parts[5], body)
                 return self._send(200 if ok else 404, {"ok": ok})
@@ -474,6 +486,24 @@ class Handler(BaseHTTPRequestHandler):
             with c.state.lock:
                 c.state.data["agents"].pop(body.get("agent_id"), None); c.state.data["measurements"].pop(body.get("agent_id"), None); c.state.save()
             return self._send(200, {"ok": True})
+        return self._send(404, {"error": "inconnu"})
+
+    def do_PUT(self):
+        c = self.central
+        url = urllib.parse.urlsplit(self.path)
+        parts = url.path.strip("/").split("/")
+        qs = urllib.parse.parse_qs(url.query)
+        if parts[:3] == ["api", "v1", "agents"] and len(parts) == 6 and parts[4] == "images":
+            raw = self._body()
+            a, why = self._verify(parts[3], raw)
+            if a is None:
+                return self._send(401, {"error": why})
+            name = uploadctl_local.safe_name(parts[5])
+            if not name:
+                return self._send(400, {"error": "nom de fichier invalide"})
+            st_, out = c.images.append(parts[3], name, (qs.get("offset") or ["x"])[0], raw)
+            c.state.touch(parts[3], self.client_address[0])
+            return self._send(st_, out)
         return self._send(404, {"error": "inconnu"})
 
     def do_HEAD(self):

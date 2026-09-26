@@ -52,7 +52,7 @@ def validate(params):
     if tool_args is not None and (not isinstance(tool_args, list) or not all(re.match(r"^-[A-Za-z]+$", str(a)) for a in tool_args)):
         return None, "tool_args : options Disk2vhd (-accepteula -h -c)"
     return {"target_dir": target, "name": name, "drives": drives, "tool_url": url, "tool_sha256": sha or None, "force": bool(p.get("force")),
-            "tool_args": tool_args}, None
+            "tool_args": tool_args, "transfer": bool(p.get("transfer")), "delete_after": bool(p.get("delete_after"))}, None
 
 
 def target_file(plan, hostname, now=None):
