@@ -1,3 +1,11 @@
+## 2026-09-26 — Réveil réseau : agent relais seul, MikroTik abandonné pour les sites Zyxel/Nebula (livraison #623, item 100)
+
+Le réveil d'un poste passe par un autre agent du même segment (paquet
+magique, livré en #613) ; le réveil par `/tool wol` du MikroTik n'est plus
+prévu pour Numeria (postes derrière un pare-feu Zyxel géré par Nebula).
+Piste Nebula Open API notée au backlog (abonnement Pro/Plus requis).
+Aide de la section Poste ajustée.
+
 ## 2026-09-26 — Sonde front-access : journal du frontal public résumé dans le hub (livraison #622, item 99)
 
 Agent sur la VM frontale + sonde `front-access` : codes (401 A0, 403

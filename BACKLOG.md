@@ -3403,10 +3403,18 @@ code HTTP, cible, volumes, erreurs 5xx = hub injoignable) croisée avec les
 
 ## Agent Windows : redémarrage, réveil, lanceurs, chien de garde (2026-09-25) — item 100
 
-**Fait en #613** (agent 0.5.17, section « Poste »). Reste : réveil par le
-MikroTik du site depuis le hub (`/tool wol` via mikrotik-api) quand aucun
-agent n'est en ligne sur le segment ; vérification de `startup.ps1` et de
-StartupApproved sur un Windows 11 réel.
+**Fait en #613** (agent 0.5.17, section « Poste »). Réveil réseau = paquet
+magique émis par un autre agent du même segment (n'importe quel poste
+allumé du site, ou un petit Linux sur le VLAN des postes) : c'est la voie
+retenue, indépendante de l'équipement réseau. **Requalifié en #623** : le
+réveil par le MikroTik (`/tool wol`) est abandonné pour Numeria — les
+postes sont derrière un pare-feu Zyxel géré par Nebula, pas un MikroTik ;
+il ne sera fait que si un site équipé MikroTik le demande. Piste Nebula :
+le Nebula Control Center sait réveiller un client vu par un switch/AP
+Nebula, mais l'API (Nebula Open API) exige un abonnement Pro/Plus et une
+clé d'organisation — à confirmer avant tout connecteur `nebula` (clients
+vus, WoL, état des ports, inventaire réseau). Reste : vérification de
+`startup.ps1` et de StartupApproved sur un Windows 11 réel.
 
 Demandé : « un agent Windows capable de gérer un reboot Windows et si
 possible un wake-on-LAN ; accès à la liste des lanceurs d'application au

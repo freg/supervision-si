@@ -115,7 +115,7 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
             </select>
             <button type="button" className="secondary" disabled={!!wol.busy || !via || !mac} onClick={() => wol.run("réveil", () => wakeOnLan(apiBase, via, { mac }))}>{wol.busy ? "⏳ réveil…" : "Réveiller ce poste"}</button>
           </span>
-          <div className="muted" style={{ fontSize: 12 }}>Le paquet magique doit partir d'une machine du même segment : un autre agent du site l'émet (le routeur MikroTik du site peut aussi le faire : <code>/tool wol mac=…</code>). Le poste doit avoir le Wake-on-LAN activé (BIOS + carte réseau) ; {peers.length === 0 && <b>aucun autre agent en ligne sur ce site pour l'instant. </b>}Le hub ne voit le résultat que par le retour en ligne de l'agent.</div>
+          <div className="muted" style={{ fontSize: 12 }}>Le paquet magique doit partir d'une machine du même segment : un autre agent du site l'émet (n'importe quel poste allumé du même VLAN, ou un petit Linux qui y est posé). Le poste doit avoir le Wake-on-LAN activé (BIOS + carte réseau) ; {peers.length === 0 && <b>aucun autre agent en ligne sur ce site pour l'instant. </b>}Le hub ne voit le résultat que par le retour en ligne de l'agent.</div>
           <Result r={wol.result} />
         </div>
       </div>
