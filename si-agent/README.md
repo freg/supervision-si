@@ -1179,6 +1179,18 @@ de capture, ligne de commande sans outil). Non vérifié sur Windows réel :
 `pktmon etl2pcap` (format pcapng attendu ; les versions antérieures à
 Windows 10 2004 n'ont pas cette sous-commande → erreur explicite).
 
+## Bureau à distance ; mise à jour de l'agent (livraison #636, agent 0.5.28)
+
+`remote_desktop` {action: status|enable|disable, nla?} : bascule le RDP
+intégré (service + règle de pare-feu « Remote Desktop »), NLA exigée par
+défaut. Aucun compte n'est créé ni stocké : la connexion se fait avec un
+compte déjà autorisé sur le poste, avec les identifiants de l'administrateur.
+Mise à jour : le central pousse `update {version, sha256, url}` (#522),
+l'agent télécharge par son canal signé, vérifie le SHA-256 et relance
+l'installeur en `--upgrade` -- sans intervention sur le poste. Un antivirus
+tiers (AVG) n'est pas pilotable par script ; seul Microsoft Defender l'est
+(`protection`, #633).
+
 ## Redémarrer et rouvrir la session une fois (livraison #628, agent 0.5.22)
 
 `power_action` {action: reboot, autologon: {user, password, domain?}} (Windows) :

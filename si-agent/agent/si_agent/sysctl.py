@@ -129,3 +129,40 @@ def summarize_protection(data):
     if data.get("errors"):
         parts.append("erreurs : " + " ; ".join(data["errors"]))
     return " · ".join(parts)
+
+
+# -- #636 : Bureau à distance (RDP intégré) -----------------------------------
+RDP_ACTIONS = ("status", "enable", "disable")
+
+
+def validate_rdp(params):
+    p = params or {}
+    action = str(p.get("action") or "status").strip().lower()
+    if action not in RDP_ACTIONS:
+        return None, "action : status, enable ou disable"
+    nla = str(p.get("nla") or "on").strip().lower()
+    if nla not in ("on", "off"):
+        return None, "nla : on ou off (laisser on : authentification au niveau réseau)"
+    return {"action": action, "nla": nla}, None
+
+
+def rdp_argv(powershell, script, plan):
+    argv = [powershell, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script, "-Action", plan["action"]]
+    if plan["action"] == "enable":
+        argv += ["-Nla", plan["nla"]]
+    return argv
+
+
+def summarize_rdp(data):
+    if not isinstance(data, dict):
+        return "sans résultat"
+    parts = ["Bureau à distance : %s" % ("ACTIVÉ" if data.get("enabled") else "désactivé")]
+    if data.get("enabled"):
+        parts.append("pare-feu %s" % ("ouvert" if data.get("firewall_enabled") else "FERMÉ (règle Remote Desktop désactivée)"))
+        parts.append("NLA %s" % ("exigée" if data.get("nla") else "désactivée"))
+        parts.append("port %s" % data.get("port", 3389))
+    if data.get("rdp_users"):
+        parts.append("utilisateurs autorisés : " + ", ".join(data["rdp_users"]))
+    if data.get("errors"):
+        parts.append("erreurs : " + " ; ".join(data["errors"]))
+    return " · ".join(parts)

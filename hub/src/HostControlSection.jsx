@@ -5,7 +5,7 @@
 // d'applications relancées si absentes). Chaque bouton montre sa prise en
 // compte, puis l'acquittement de l'agent (règle 8).
 import { useEffect, useState } from "react";
-import { powerAction, wakeOnLan, startupAction, watchdogConfig, benchCommand, imageHost, browsePath, imageTransfer, fetchImages, fetchCommand } from "./siAgentClient.js";
+import { powerAction, wakeOnLan, startupAction, watchdogConfig, benchCommand, imageHost, browsePath, imageTransfer, fetchImages, sendCommand, fetchCommand } from "./siAgentClient.js";
 
 const KIND_LABELS = { run: "clé Run", runonce: "RunOnce", folder: "dossier Démarrage", task: "tâche planifiée", service: "service" };
 const STATUS = { ok: ["good", "en service"], restart: ["warn", "relance…"], waiting: ["warn", "en attente de relance"], down: ["bad", "arrêtée"], idle: ["neutral", "hors plage"], disabled: ["neutral", "désactivée"] };
@@ -94,6 +94,7 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
   const wdCfg = detail?.latest?.inventory?.data?.watchdog || { interval_seconds: 60, apps: [] };
   const power = useCommand(apiBase);
   const wol = useCommand(apiBase);
+  const rdp = useCommand(apiBase);
   const start = useCommand(apiBase);
   const wd = useCommand(apiBase);
   const bench = useCommand(apiBase);  // #616
@@ -179,6 +180,15 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
           </span>
           <div className="muted" style={{ fontSize: 12 }}>Le paquet magique doit partir d'une machine du même segment : un autre agent du site l'émet (n'importe quel poste allumé du même VLAN, ou un petit Linux qui y est posé). Le poste doit avoir le Wake-on-LAN activé (BIOS + carte réseau) ; {peers.length === 0 && <b>aucun autre agent en ligne sur ce site pour l'instant. </b>}Le hub ne voit le résultat que par le retour en ligne de l'agent.</div>
           <Result r={wol.result} />
+        </div>
+        <div className="sa-wide"><span className="muted">Bureau à distance</span>
+          <span style={{ display: "inline-flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            <button type="button" className="secondary" disabled={!!rdp.busy} onClick={() => rdp.run("état RDP", () => sendCommand(apiBase, agentId, "remote_desktop", { action: "status" }))}>État</button>
+            <button type="button" className="secondary" disabled={!!rdp.busy} onClick={() => window.confirm(`Activer le Bureau à distance sur ${detail.hostname || agentId} ? Connexion avec un compte déjà autorisé sur le poste ; NLA exigée.`) && rdp.run("RDP activé", () => sendCommand(apiBase, agentId, "remote_desktop", { action: "enable" }))}>Activer</button>
+            <button type="button" className="secondary" disabled={!!rdp.busy} onClick={() => rdp.run("RDP désactivé", () => sendCommand(apiBase, agentId, "remote_desktop", { action: "disable" }))}>Désactiver</button>
+          </span>
+          <div className="muted" style={{ fontSize: 12 }}>Active le RDP intégré (service + règle de pare-feu « Remote Desktop ») ; aucun compte n'est créé — connexion avec tes identifiants d'administration. Chaque bascule est journalisée.</div>
+          <Result r={rdp.result} />
         </div>
       </div>
 

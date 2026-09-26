@@ -3401,6 +3401,20 @@ ou rsyslog → rsyslog-listener), puis une vue « accès publics » (IP source,
 code HTTP, cible, volumes, erreurs 5xx = hub injoignable) croisée avec les
 événements Keycloak par IP et minute.
 
+## Bureau à distance et mise à jour poussée (2026-09-26) — item 104
+
+**Fait en #636** (agent 0.5.28) : `remote_desktop` (RDP intégré, service +
+pare-feu, sans création de compte) et mise à jour de l'agent depuis le
+serveur (bouton central local, mécanisme #522). Demandé : « update de
+l'agent depuis le serveur sans intervention sur le poste ; désactiver
+firewall et antivirus ; utiliser le bureau distant avec mes identifiants ».
+Limites assumées : un antivirus tiers (AVG) n'est pas pilotable par script
+(protection contre les falsifications) -- seul Defender l'est (`protection`,
+#633) ; le RDP se connecte avec un compte déjà autorisé sur le poste, l'agent
+ne stocke aucun identifiant. Suite possible : ouvrir le RDP à un compte
+donné (ajout au groupe « Remote Desktop Users »), et un tunnel RDP par le
+bastion pour joindre un poste sans exposer 3389.
+
 ## Gestion système du poste Windows depuis le central (2026-09-26) — item 104
 
 **Fait en #633** (agent 0.5.25) : Windows Update (état, installation immédiate

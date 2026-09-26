@@ -53,5 +53,16 @@ class ProtectionTests(unittest.TestCase):
         self.assertIn("Public INACTIF", s); self.assertIn("falsification", s); self.assertIn("AVG", s); self.assertIn("refusé", s)
 
 
+class RdpTests(unittest.TestCase):
+    def test_validate_argv_resume(self):
+        plan, err = sysctl.validate_rdp({"action": "enable"})
+        self.assertIsNone(err); self.assertEqual(plan["nla"], "on")
+        self.assertIsNotNone(sysctl.validate_rdp({"action": "on"})[1]); self.assertIsNotNone(sysctl.validate_rdp({"action": "enable", "nla": "maybe"})[1])
+        self.assertEqual(sysctl.rdp_argv("p", "s", plan)[-4:], ["-Action", "enable", "-Nla", "on"])
+        self.assertNotIn("-Nla", sysctl.rdp_argv("p", "s", sysctl.validate_rdp({})[0]))
+        s = sysctl.summarize_rdp({"enabled": True, "firewall_enabled": False, "nla": True, "port": 3389, "rdp_users": ["EX\\tech"], "errors": []})
+        self.assertIn("ACTIVÉ", s); self.assertIn("FERMÉ", s); self.assertIn("NLA exigée", s); self.assertIn("EX\\tech", s)
+
+
 if __name__ == "__main__":
     unittest.main()

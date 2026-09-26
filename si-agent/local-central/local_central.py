@@ -28,6 +28,7 @@ import hmac
 import html
 import json
 import os
+import re
 import secrets
 import socket
 import ssl
@@ -46,7 +47,7 @@ from si_agent import imagectl  # noqa: E402
 from si_agent import uploadctl as uploadctl_local  # noqa: E402
 from si_agent.imagestore import ImageStore  # noqa: E402
 
-COMMAND_TYPES = ("collect_now", "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse", "windows_update", "protection", "image_transfer",
+COMMAND_TYPES = ("collect_now", "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse", "windows_update", "protection", "image_transfer", "remote_desktop",
                  "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update")
 KEPT_TASKS = 40
 MAX_EVENTS = 500
@@ -298,7 +299,8 @@ class Central:
         if not args.http:
             self.key, self.crt, self.ca_pem, self.ca_sha = ensure_pki(os.path.join(self.data_dir, "pki"), self.ip, self.hostname)
         self.package = ensure_archive(self.data_dir, args.rebuild_archive) if not args.no_archive else None
-        self.package_info = {"name": os.path.basename(self.package), "size": os.path.getsize(self.package), "sha256": sha256_file(self.package)} if self.package else None
+        self.package_info = {"name": os.path.basename(self.package), "size": os.path.getsize(self.package), "sha256": sha256_file(self.package),
+                             "version": (re.search(r"si-agent-agent-([\d.]+)\.tar\.gz", os.path.basename(self.package)) or [None, None])[1]} if self.package else None
         pa = {}
         for item in args.plugin_arg or []:
             pid, _, val = item.partition("=")

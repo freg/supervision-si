@@ -1,3 +1,20 @@
+## 2026-09-26 — Agent 0.5.28 : Bureau à distance, mise à jour de l'agent depuis le serveur (livraison #636, items 100/104)
+
+`remote_desktop` {action: status|enable|disable, nla?} (`win/rdp.ps1`) :
+active/désactive le RDP INTÉGRÉ de Windows (service Terminal Server +
+règle de pare-feu « Remote Desktop »), NLA exigée par défaut ; état
+(activé, pare-feu, NLA, port, utilisateurs autorisés). AUCUN compte ni mot
+de passe créé ou stocké : l'administrateur se connecte avec ses propres
+identifiants ; chaque bascule émet `command-rdp`. Mise à jour de l'agent
+sans intervention sur le poste : bouton dans le central local qui pousse
+`update {version, sha256, url}` (mécanisme #522 -- téléchargement par le
+canal signé de l'agent, SHA-256 vérifié, installeur `--upgrade` détaché) ;
+la version de l'archive servie est lue depuis son nom. Boutons RDP dans la
+section Poste du hub et l'onglet système du central local. `rdp.ps1` en
+UTF-8 BOM. Rappels honnêtes dans l'UI : un antivirus tiers (AVG) ne se
+coupe pas par script ; le RDP se connecte avec un compte déjà autorisé.
+2 tests sysctl.
+
 ## 2026-09-26 — Agent 0.5.27 : image écrite directement sur un partage du serveur (livraison #635, item 101)
 
 `image_host` {…, share: {unc, user, password, domain?}} : l'agent (SYSTEM)

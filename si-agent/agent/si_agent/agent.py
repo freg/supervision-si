@@ -591,6 +591,26 @@ class Agent(object):
                                " -- " + " ; ".join(data.get("errors")) if data.get("errors") else ""), {"command": c.get("id"), "profiles": plan["profiles"]})
                 ok = not data.get("errors")
                 return {"ok": ok, "error": " ; ".join(data.get("errors")) if not ok else None, "result": dict(data, message=sysctl.summarize_protection(data))}
+            if ctype == "remote_desktop":
+                # #636 : Bureau à distance intégré de Windows (service + pare-feu). L'admin se connecte avec SES
+                # identifiants ; aucun compte créé ici. Chaque bascule est journalisée.
+                if not IS_WINDOWS:
+                    return {"ok": False, "error": "Bureau à distance : Windows seulement"}
+                from . import sysctl, winhost
+                plan, err = sysctl.validate_rdp(params)
+                if err:
+                    return {"ok": False, "error": err}
+                if self.is_blocked() and plan["action"] != "status":
+                    return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
+                r = self.cmd(sysctl.rdp_argv(winhost.POWERSHELL, winhost.script_path("rdp"), plan), timeout=120)
+                data, err = winhost.parse_ps(r, "rdp")
+                if data is None:
+                    return {"ok": False, "error": err}
+                self._store_measure("rdp", data)
+                if plan["action"] != "status":
+                    self.event("command-rdp", "warning", "Bureau à distance %s%s" % (plan["action"], " -- " + " ; ".join(data.get("errors")) if data.get("errors") else ""), {"command": c.get("id")})
+                ok = not data.get("errors")
+                return {"ok": ok, "error": " ; ".join(data.get("errors")) if not ok else None, "result": dict(data, message=sysctl.summarize_rdp(data))}
             if ctype == "collect_now":
                 m = self.collect_host(force=True)
                 return {"ok": True, "result": {"measurements": len(m)}}
