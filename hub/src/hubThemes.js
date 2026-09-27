@@ -74,6 +74,7 @@ export const THEMES = [
       { front: "credentials", label: "Accès d'équipements" },
       { view: "rights", label: "Droits" },
       { view: "accounts", label: "Comptes et groupes" },
+      { view: "personal", label: "Données personnelles" },
       { view: "notifications", label: "Notifications" },
       { view: "backup-restore", label: "Sauvegardes" },
       { front: "vault", label: "Coffre-fort" },

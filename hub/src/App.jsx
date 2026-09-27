@@ -36,6 +36,7 @@ import VigilanceView from "./VigilanceView.jsx";
 import EntView from "./EntView.jsx";
 import RightsView from "./RightsView.jsx";
 import AccountsView from "./AccountsView.jsx";
+import PersonalDataView from "./PersonalDataView.jsx";  // #638
 import NetprobeView from "./NetprobeView.jsx";
 import UpsView from "./UpsView.jsx";
 import SiAgentView from "./SiAgentView.jsx";
@@ -1485,6 +1486,7 @@ export default function App() {
     IMAP_CONNECTORS_API_BASE_URL && "imap-connectors", bastionAllowed && "si-proxy",
     RIGHTS_API_BASE_URL && groups.includes("admin_hub") && "rights", BACKUP_RESTORE_API_BASE_URL && "backup-restore",
     ACCOUNTS_API_BASE_URL && (isAdmin(groups) || groups.includes("admin_hub")) && "accounts",
+    ACCOUNTS_API_BASE_URL && (isAdmin(groups) || groups.includes("admin_hub")) && "personal",  // #638
     NOTIFY_API_BASE_URL && isAdmin(groups) && "notifications",  // #590
     LICENSES_API_BASE_URL && "licenses",  // #595 : lecture pour tous, écritures réservées par l'API (groupe administrateurs)
     MIKROTIK_API_BASE && "nat-map",  // #606
@@ -1747,6 +1749,8 @@ vm === "agent-page" ? (
         <LicensesView apiBase={LICENSES_API_BASE_URL} accessToken={auth.user?.access_token} username={profile.preferred_username} onBack={goBack} />
       ) : vm === "accounts" ? (
         <AccountsView onBack={goBack} accountsApiBase={ACCOUNTS_API_BASE_URL} groups={groups} login={profile.preferred_username} keycloakConsoleUrl={KEYCLOAK_CONSOLE_URL} />
+      ) : vm === "personal" ? (
+        <PersonalDataView apiBase={ACCOUNTS_API_BASE_URL} me={{ groups, user: profile.preferred_username }} onBack={goBack} />
       ) : vm === "file-manager" ? (
         <FileManagerView
           onBack={goBack}

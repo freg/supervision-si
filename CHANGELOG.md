@@ -1,3 +1,15 @@
+## 2026-09-27 — Tuile « Données personnelles » : journal catégorisé de nos interactions + accès au hub (livraison #638)
+
+Nouvelle tuile (réservée aux administrateurs) : **frise** de nos livraisons
+lue dans le CHANGELOG et catégorisée (Sécurité & accès, IA, Réseau & infra,
+Agent & postes, Hub & ergonomie, Exploitation), filtrable par catégorie et
+recherche ; **comptes-rendus** par jour/semaine/mois (« minutes » = synthèses,
+pas de durée — non journalisée) ; **accès au hub** via le journal de connexions
+Keycloak existant (#612). Backend : `accounts/api/interactions.py` (pur, 4
+tests) + route `/interactions` ; CHANGELOG cuit dans l'image accounts-api au
+build (rafraîchi à chaque déploiement, aucun volume). Aucune donnée inventée
+ni confidentielle client : seulement le CHANGELOG du projet et les connexions.
+
 ## 2026-09-27 — Tuile Proxmox : MAC des VM (livraison #637)
 
 L'agent Proxmox extrait la ou les MAC de chaque VM depuis sa config

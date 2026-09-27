@@ -20,6 +20,7 @@ import kc
 import demo  # #608 : utilisateurs de démonstration
 import events as ev  # #612 : journal des connexions
 import kcsettings as ks  # #614 : réglages Keycloak en liste blanche
+import interactions as itx  # #638 : journal de nos interactions (CHANGELOG)
 
 try:
     from version_endpoint import register_version_route
@@ -196,6 +197,43 @@ def events_get():
     shown = ev.filter_rows(rows, kind, query)
     return jsonify({"events": shown, "summary": ev.summary(rows), "config": cfg, "types": ev.SHOWN_TYPES,
                     "labels": {t: ev.label_type(t) for t in ev.SHOWN_TYPES}}), 200
+
+
+CHANGELOG_PATH = os.environ.get("CHANGELOG_PATH", "/app/CHANGELOG.md")
+_changelog_cache = {}
+
+
+def _changelog_text():
+    """CHANGELOG cuit dans l'image (rafraîchi à chaque build/déploiement) ; cache par mtime."""
+    try:
+        st = os.stat(CHANGELOG_PATH)
+    except OSError:
+        return ""
+    key = (st.st_mtime, st.st_size)
+    if _changelog_cache.get("key") != key:
+        try:
+            with open(CHANGELOG_PATH, encoding="utf-8") as fh:
+                _changelog_cache["text"] = fh.read()
+            _changelog_cache["key"] = key
+        except OSError:
+            return _changelog_cache.get("text", "")
+    return _changelog_cache.get("text", "")
+
+
+@app.route("/interactions", methods=["GET"])
+def interactions_get():
+    """#638 : frise catégorisée de nos livraisons + comptes-rendus par période, depuis le CHANGELOG.
+    Paramètres : category, q (recherche), by (day|week|month)."""
+    text = _changelog_text()
+    if not text:
+        return jsonify({"error": "CHANGELOG indisponible (chemin %s)" % CHANGELOG_PATH, "entries": [], "minutes": []}), 200
+    by = request.args.get("by", "week")
+    if by not in ("day", "week", "month"):
+        by = "week"
+    tl = itx.timeline(text, category=request.args.get("category") or None, query=request.args.get("q") or None)
+    tl["minutes"] = itx.period_minutes(tl["entries"], by=by)
+    tl["by"] = by
+    return jsonify(tl), 200
 
 
 @app.route("/events/enable", methods=["POST"])
