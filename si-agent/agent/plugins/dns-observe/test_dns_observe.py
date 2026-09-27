@@ -60,6 +60,17 @@ class AnalysisTests(unittest.TestCase):
         chg = [a for a in alerts if a["code"] == "dns-answer-changed"]
         self.assertEqual(len(chg), 1); self.assertIn("203.0.113.99 → 203.0.113.5", chg[0]["message"])
 
+    def test_gateway_findings(self):
+        obs = [
+            {"source": "eth0", "resolver": "172.16.10.1", "kind": "distributed", "name": "a", "ok": True, "ips": ["1.2.3.4"]},
+            {"source": "wlan0", "resolver": "8.8.8.8", "kind": "distributed", "name": "a", "ok": True, "ips": ["1.2.3.4"]},
+        ]
+        al = d.gateway_findings(obs, {"eth0": "172.16.10.1", "wlan0": "172.16.20.1"})
+        codes = [a["code"] for a in al]
+        self.assertEqual(codes, ["dns-not-gateway"])            # eth0 OK (.1 = passerelle), wlan0 non
+        self.assertIn("wlan0", al[0]["message"]); self.assertIn("172.16.20.1", al[0]["message"])
+        self.assertEqual(d.gateway_findings(obs, {}), [])        # sans passerelle connue : rien
+
     def test_summary(self):
         alerts = d.compare(OBS)[0]
         s = d.summarize(OBS, alerts)

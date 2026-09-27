@@ -190,6 +190,23 @@ def compare(observations, expected_dns=None, previous=None):
     return uniq, kb, state
 
 
+def gateway_findings(observations, gateways):
+    """#642 : sur chaque segment, le résolveur légitime est la passerelle (firewall .1).
+    gateways = {source(iface): ip_passerelle}. Signale un DNS distribué qui n'est pas la
+    passerelle du segment (DHCP mal réglé / résolveur imposé)."""
+    alerts = []
+    by_src = {}
+    for o in observations:
+        if o.get("kind") == "distributed":
+            by_src.setdefault(o.get("source", "?"), set()).add(o["resolver"])
+    for src, resolvers in sorted(by_src.items()):
+        gw = gateways.get(src)
+        if gw and gw not in resolvers:
+            alerts.append({"code": "dns-not-gateway", "severity": "warning",
+                           "message": "%s : DNS distribué %s ≠ passerelle %s (le firewall du VLAN devrait être le résolveur)" % (src, ", ".join(sorted(resolvers)) or "aucun", gw)})
+    return alerts
+
+
 def summarize(observations, alerts):
     ok = sum(1 for o in observations if o.get("ok"))
     state = "critical" if any(a["severity"] == "critical" for a in alerts) else "warning" if any(a["severity"] == "warning" for a in alerts) else "ok"
@@ -228,7 +245,14 @@ def iface_source(iface):
     return src, dns
 
 
-def collect(names, ifaces, public, expected, state_path):
+def iface_gateway(iface):
+    """Passerelle par défaut d'une interface (ip route), ou None."""
+    rc, out, _e = _run(["ip", "-o", "route", "show", "default", "dev", iface])
+    m = re.search(r"default via (\d+\.\d+\.\d+\.\d+)", out or "")
+    return m.group(1) if m else None
+
+
+def collect(names, ifaces, public, expected, state_path, expect_gateway=False):
     if ifaces == ["auto"] or not ifaces:
         ifaces = detect_ifaces()
     observations = []
@@ -247,6 +271,9 @@ def collect(names, ifaces, public, expected, state_path):
     except (OSError, ValueError):
         pass
     alerts, kb, new_state = compare(observations, expected_dns=expected, previous=previous)
+    if expect_gateway:
+        gateways = {iface: iface_gateway(iface) for iface in ifaces}
+        alerts = alerts + gateway_findings(observations, gateways)
     try:
         os.makedirs(os.path.dirname(state_path), exist_ok=True)
         with open(state_path, "w", encoding="utf-8") as fh:
@@ -259,7 +286,7 @@ def collect(names, ifaces, public, expected, state_path):
 
 
 def main(argv):
-    names, ifaces, public, expected, state = [], ["auto"], None, None, STATE_DEFAULT
+    names, ifaces, public, expected, state, expect_gw = [], ["auto"], None, None, STATE_DEFAULT, False
     i = 0
     while i < len(argv):
         a, v = argv[i], argv[i + 1] if i + 1 < len(argv) else None
@@ -279,11 +306,13 @@ def main(argv):
             expected = [x for x in v.split(",") if x]; i += 2; continue
         if a == "--state" and v is not None:
             state = v; i += 2; continue
+        if a == "--expected-gateway":
+            expect_gw = True; i += 1; continue
         i += 1
     if not names:
         names = ["www.gouv.fr", "detectportal.firefox.com"]
     try:
-        print(json.dumps(collect(names, ifaces, public, expected, state)))
+        print(json.dumps(collect(names, ifaces, public, expected, state, expect_gateway=expect_gw)))
     except Exception as exc:  # noqa: BLE001 -- une sonde ne plante jamais l'agent
         print(json.dumps({"error": "collecte échouée : %s" % exc, "alerts": []}))
     return 0

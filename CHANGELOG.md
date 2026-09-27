@@ -1,3 +1,12 @@
+## 2026-09-27 — dns-observe : contrôle « le résolveur du segment doit être sa passerelle » (livraison #642, item 105)
+
+Option `--expected-gateway` : la sonde détecte la passerelle par défaut de
+chaque interface et signale (`dns-not-gateway`) un DNS distribué qui n'est
+pas cette passerelle -- encode la règle du campus où le firewall (172.16.x.1,
+une patte par VLAN) est passerelle ET DNS sur chaque segment. Repère un DHCP
+qui distribue un autre résolveur, ou un segment qui ne pointe pas le firewall.
+1 test.
+
 ## 2026-09-27 — Bande passante par tranche horaire + fenêtre unitaire estimée (livraison #641, item 107)
 
 `shared/bandwidth.py` (pur, 4 tests) : d'une série de compteurs d'interface
