@@ -205,7 +205,7 @@ pas. Le jeton ne doit jamais désigner un clone dont l'état n'est pas à jour.
 
 ## Prochaines actions
 
-1. [ ] Valider le découpage en **paquets** (liste + dépendances) — atelier court.
+1. [x] Découpage en **paquets** — fait : `docs/paquets-distribution-hub.md` (53 paquets atomiques + 9 bundles fonctionnels, état et liens inter-bundles). Reste à **valider le placement initial** proposé.
 2. [ ] Étape 1 : profil compose « socle », doc de reprise `.env`/PKI, tests.
 3. [ ] Étape 2 : format du fichier de **placement** + extension `plan_for_changes`
    (filtre placement) + génération conf passerelle multi-hôtes + IHM tour.
