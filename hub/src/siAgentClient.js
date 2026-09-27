@@ -48,6 +48,13 @@ export async function fetchProxmox(apiBase, site) {
   return Array.isArray(data?.proxmox) ? data.proxmox : [];
 }
 
+// #643 : panneau Observabilité réseau -- dernière mesure dns-observe (105) et
+// resource-access (106) par agent, en un seul appel.
+export async function fetchNetworkObservability(apiBase, site) {
+  const data = await fetchJson(apiBase, `/network-observability${site ? `?site=${encodeURIComponent(site)}` : ""}`);
+  return { dns: Array.isArray(data?.dns) ? data.dns : [], resources: Array.isArray(data?.resources) ? data.resources : [] };
+}
+
 // #504 : disponibilité des VM d'un hyperviseur (échantillons du plugin)
 export const fetchProxmoxHistory = (apiBase, agentId, hours = 168) =>
   fetchJson(apiBase, `/proxmox/history?agent_id=${encodeURIComponent(agentId)}&hours=${hours}`);

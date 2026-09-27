@@ -694,3 +694,41 @@ class AlertFilterTests(ApiBase):
         self.assertEqual(self.c.put("/alert-filters", json={"groups": [{"id": "x", "rules": [{"categories": []}]}]}).status_code, 400)
         g = self.c.get("/alert-filters").get_json()
         self.assertEqual((g["default"], g["usage"]), (False, {"postes-travail": 1}))
+
+
+class NetworkObservabilityTests(ApiBase):
+    def test_route_network_observability(self):
+        """#643 : dns-observe (105) et resource-access (106) remontés par
+        l'agent sont servis agrégés sur /network-observability, filtrable par site."""
+        a = self.enroll("mini-pc", "numeria")
+        http = FlaskHttp(self.c, "mini-pc", a["secret"])
+        batch = {"measurements": [
+            {"agent_id": "mini-pc", "task": "plugin:dns-observe", "at": "2026-09-27T10:00:00Z", "ok": True,
+             "data": {"names": ["numeria.keepic.net"], "ifaces": ["eth0", "wlan0"],
+                      "summary": {"state": "warning", "queries": 4, "resolved": 4, "alerts": 1},
+                      "learned": {"numeria.keepic.net": {"answers": {"51.15.207.13": ["eth0→172.16.1.1"], "10.0.0.9": ["wlan0→172.16.2.1"]}, "fail": []}},
+                      "by_source": {}, "by_destination": {},
+                      "alerts": [{"code": "dns-divergent", "severity": "warning", "message": "numeria.keepic.net résout différemment selon la source"}]},
+             "error": None},
+            {"agent_id": "mini-pc", "task": "plugin:resource-access", "at": "2026-09-27T10:00:00Z", "ok": True,
+             "data": {"summary": {"state": "warning", "resources": 2, "clients": 1, "bytes": 4200, "alerts": 1},
+                      "resources": [{"key": "51.15.207.13:443/tcp", "dst": "51.15.207.13", "port": 443, "proto": "tcp", "name": "numeria-keepic", "clients": ["172.16.1.50"], "flows": 3, "bytes": 4000},
+                                    {"key": "203.0.113.9:80/tcp", "dst": "203.0.113.9", "port": 80, "proto": "tcp", "name": None, "clients": ["172.16.1.51"], "flows": 1, "bytes": 200}],
+                      "clients": [{"ip": "172.16.1.50", "resources": 1, "flows": 3, "bytes": 4000}],
+                      "alerts": [{"code": "resource-cleartext", "severity": "warning", "message": "accès en clair vers une ressource externe"}]},
+             "error": None},
+        ]}
+        st, _ = http.request("POST", "/api/v1/agents/mini-pc/measurements", batch)
+        self.assertEqual(st, 201)
+        out = self.c.get("/network-observability").get_json()
+        self.assertEqual(len(out["dns"]), 1)
+        self.assertEqual(out["dns"][0]["agent_id"], "mini-pc")
+        self.assertEqual(out["dns"][0]["alerts"][0]["code"], "dns-divergent")
+        self.assertIn("numeria.keepic.net", out["dns"][0]["learned"])
+        self.assertEqual(len(out["resources"]), 1)
+        self.assertEqual(out["resources"][0]["summary"]["resources"], 2)
+        self.assertEqual(len(out["resources"][0]["resources"]), 2)
+        self.assertEqual(out["resources"][0]["alerts"][0]["code"], "resource-cleartext")
+        # filtre par site
+        self.assertEqual(self.c.get("/network-observability?site=ovh").get_json()["dns"], [])
+        self.assertEqual(len(self.c.get("/network-observability?site=numeria").get_json()["resources"]), 1)

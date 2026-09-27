@@ -288,6 +288,16 @@ def proxmox_route():
     return jsonify({"proxmox": store.latest_proxmox(DB_PATH, site=request.args.get("site"))}), 200
 
 
+@app.route("/network-observability", methods=["GET"])
+def network_observability_route():
+    """#643 : panneau « Observabilité réseau » -- regroupe la dernière mesure
+    des sondes dns-observe (105, divergences de résolution) et resource-access
+    (106, qui accède à quoi) par agent, filtrable par `?site=`."""
+    site = request.args.get("site")
+    return jsonify({"dns": store.latest_dns_observe(DB_PATH, site=site),
+                    "resources": store.latest_resource_access(DB_PATH, site=site)}), 200
+
+
 @app.route("/proxmox/history", methods=["GET"])
 def proxmox_history_route():
     """#504 : disponibilité des VM d'un hyperviseur (échantillons du plugin

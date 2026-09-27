@@ -17,6 +17,7 @@ import PathProbeSection from "./PathProbeSection.jsx";
 import HostControlSection from "./HostControlSection.jsx";  // #613
 import DeployTab from "./DeployTab.jsx";  // #616
 import WebAuditTab, { WebAuditSection } from "./WebAuditSection.jsx";  // #617
+import NetworkObservabilityTab from "./NetworkObservabilityTab.jsx";  // #643
 import WebTraceSection from "./WebTraceSection.jsx";  // #618
 import FrontAccessSection from "./FrontAccessSection.jsx";  // #622
 
@@ -385,6 +386,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
         <button className={`secondary na-section-toggle${tab === "updates" ? " active" : ""}`} onClick={() => setTab("updates")}>Mises à jour</button>
         <button className={`secondary na-section-toggle${tab === "deploy" ? " active" : ""}`} onClick={() => setTab("deploy")}>Déploiement</button>
         <button className={`secondary na-section-toggle${tab === "webaudit" ? " active" : ""}`} onClick={() => setTab("webaudit")}>Audit web</button>
+        <button className={`secondary na-section-toggle${tab === "netobs" ? " active" : ""}`} onClick={() => setTab("netobs")}>Observabilité réseau</button>
         <button className={`secondary na-section-toggle${tab === "filters" ? " active" : ""}`} onClick={() => setTab("filters")}>Filtres d'alertes{fleet.some((a) => a.filter_enabled) ? ` (${fleet.filter((a) => a.filter_enabled).length})` : ""}</button>
         <button className={`secondary na-section-toggle${tab === "events" ? " active" : ""}`} onClick={() => setTab("events")}>
           Événements {summary ? <>({summary.counts.critical + summary.counts.warning} sur 24 h)</> : ""}
@@ -1011,6 +1013,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
 
       {tab === "updates" && <UpdatesTab base={siAgentApiBase} />}
       {tab === "webaudit" && <WebAuditTab base={siAgentApiBase} fleet={fleet} when={when} />}
+      {tab === "netobs" && <NetworkObservabilityTab base={siAgentApiBase} fleet={fleet} when={when} />}
       {tab === "deploy" && <DeployTab base={siAgentApiBase} fleet={fleet} catalogue={catalogue} login="" notice={(t) => { setError(null); setNotice(t); }} error={(t) => { setNotice(null); setError(t); }} />}
       {tab === "filters" && <AlertFiltersTab base={siAgentApiBase} fleet={fleet} onChanged={load} notice={(t, ok = true) => (ok ? setNotice(t) : setError(t))} />}
 

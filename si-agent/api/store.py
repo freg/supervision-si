@@ -1234,6 +1234,59 @@ def latest_broadcasts(db_path, site=None):
     return out
 
 
+def latest_dns_observe(db_path, site=None):
+    """#643 : dernière mesure dns-observe (105) par agent -- divergences de
+    résolution DNS entre segments, répartition résolveurs/destinations."""
+    conn = _connect(db_path)
+    try:
+        q = ("SELECT a.agent_id, a.hostname, a.site, a.last_ip, m.at, m.data FROM agents a "
+             "JOIN (SELECT agent_id, MAX(at) AS at FROM measurements WHERE task = 'plugin:dns-observe' AND ok = 1 GROUP BY agent_id) l ON l.agent_id = a.agent_id "
+             "JOIN measurements m ON m.agent_id = l.agent_id AND m.at = l.at AND m.task = 'plugin:dns-observe'")
+        params = []
+        if site:
+            q += " WHERE a.site = ?"; params.append(site)
+        rows = conn.execute(q, params).fetchall()
+    finally:
+        conn.close()
+    out = []
+    for r in rows:
+        try:
+            data = json.loads(r["data"]) if isinstance(r["data"], str) else (r["data"] or {})
+        except (TypeError, ValueError):
+            data = {}
+        out.append({"agent_id": r["agent_id"], "hostname": r["hostname"], "site": r["site"], "last_ip": r["last_ip"], "at": r["at"],
+                    "names": data.get("names") or [], "ifaces": data.get("ifaces") or [], "summary": data.get("summary") or {},
+                    "by_source": data.get("by_source") or {}, "by_destination": data.get("by_destination") or {},
+                    "learned": data.get("learned") or {}, "alerts": data.get("alerts") or []})
+    return out
+
+
+def latest_resource_access(db_path, site=None):
+    """#643 : dernière mesure resource-access (106) par agent -- qui (client)
+    accede a quoi (ressource externe dst:port/proto), volumes, accès en clair."""
+    conn = _connect(db_path)
+    try:
+        q = ("SELECT a.agent_id, a.hostname, a.site, a.last_ip, m.at, m.data FROM agents a "
+             "JOIN (SELECT agent_id, MAX(at) AS at FROM measurements WHERE task = 'plugin:resource-access' AND ok = 1 GROUP BY agent_id) l ON l.agent_id = a.agent_id "
+             "JOIN measurements m ON m.agent_id = l.agent_id AND m.at = l.at AND m.task = 'plugin:resource-access'")
+        params = []
+        if site:
+            q += " WHERE a.site = ?"; params.append(site)
+        rows = conn.execute(q, params).fetchall()
+    finally:
+        conn.close()
+    out = []
+    for r in rows:
+        try:
+            data = json.loads(r["data"]) if isinstance(r["data"], str) else (r["data"] or {})
+        except (TypeError, ValueError):
+            data = {}
+        out.append({"agent_id": r["agent_id"], "hostname": r["hostname"], "site": r["site"], "last_ip": r["last_ip"], "at": r["at"],
+                    "summary": data.get("summary") or {}, "resources": data.get("resources") or [],
+                    "clients": data.get("clients") or [], "alerts": data.get("alerts") or [], "note": data.get("note")})
+    return out
+
+
 def _vm_states(data):
     out = {}
     for vm in (data or {}).get("vms") or []:

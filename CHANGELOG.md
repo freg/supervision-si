@@ -1,3 +1,19 @@
+## 2026-09-27 — Panneau « Observabilité réseau » dans la tuile Agents hôtes (livraison #643, items 105-106)
+
+Nouvel onglet **Observabilité réseau** de `SiAgentView` (tuile Agents hôtes),
+qui regroupe sur toute la flotte (filtrable par site) les deux sondes réseau
+natives : **dns-observe (105)** — constats de divergence de résolution triés
+par gravité, plus un détail dépliable « qui résout quoi, et vers quoi » par
+poste (issu de `learned`) ; **resource-access (106)** — constats (accès en
+clair, nouvelle ressource, gros consommateur) et tableau des principales
+ressources externes agrégées entre postes (clients, flux, volume, ports en
+clair surlignés). Nouvelle route `GET /network-observability?site=` +
+helpers `store.latest_dns_observe` / `latest_resource_access` (dernière
+mesure par agent, motif `latest_*` existant). L'onglet étant dans
+`SiAgentView`, il est aussi servi par le front autonome d'un site (pile
+`si-agent/standalone`) : lecture des relevés sur place, sans route vers le
+hub. 1 test de route (`NetworkObservabilityTests`), JSX vérifié (esbuild).
+
 ## 2026-09-27 — dns-observe : contrôle « le résolveur du segment doit être sa passerelle » (livraison #642, item 105)
 
 Option `--expected-gateway` : la sonde détecte la passerelle par défaut de
