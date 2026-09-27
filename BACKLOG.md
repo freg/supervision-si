@@ -16,7 +16,7 @@ confirmer avec le mini-PC depuis chaque VLAN).
 
 ## Haute disponibilité et répartition du hub, agent miroir portail (2026-09-27) — items 108-110
 
-Demandé, non commencé. À rattacher à l'item 97 (site miroir) et à la pile
+**Cadrage : `docs/architecture-clonage-distribution-hub.md`** (ADR, trois étapes : socle commun → paquets cohérents → miroir complet ; pivot = entrée unique par chemin + front adressant la passerelle → distribution = conf passerelle, pas de rebuild front). Non commencé côté code. À rattacher à l'item 97 (site miroir) et à la pile
 autonome `si-agent/standalone` (#517), qui posent déjà les briques (API sur
 mêmes données, aiguillage nginx sur super, front statique).
 
