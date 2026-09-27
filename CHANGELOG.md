@@ -1,3 +1,10 @@
+## 2026-09-27 — Tuile Proxmox : MAC des VM (livraison #637)
+
+L'agent Proxmox extrait la ou les MAC de chaque VM depuis sa config
+(`net0..netN`), toujours disponibles même sans qemu-guest-agent
+(contrairement aux IP, qui exigent l'agent invité) ; affichées sous les IP
+dans la tuile. `extract_macs`, 1 test.
+
 ## 2026-09-26 — Agent 0.5.28 : Bureau à distance, mise à jour de l'agent depuis le serveur (livraison #636, items 100/104)
 
 `remote_desktop` {action: status|enable|disable, nla?} (`win/rdp.ps1`) :

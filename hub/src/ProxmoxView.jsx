@@ -281,7 +281,7 @@ function NodeCard({ node, selected, onSelect, history, apiBase, onChanged }) {
                   <td className="muted">{vm.type}</td>
                   <td><Tone tone={vmTone(vm)}>{vm.status === "running" ? "en marche" : vm.status || "?"}</Tone></td>
                   <td style={{ fontSize: 12 }}>{(() => { const av = availabilityOf(history, vm.vmid); return <Tone tone={av.tone}>{av.text}</Tone>; })()}</td>
-                  <td style={{ fontSize: 12 }}>{(vm.ips || []).length ? vm.ips.map((a) => <code key={a} style={{ marginRight: 4 }}>{a}</code>) : <span className="muted">—</span>}</td>
+                  <td style={{ fontSize: 12 }}>{(vm.ips || []).length ? vm.ips.map((a) => <code key={a} style={{ marginRight: 4 }}>{a}</code>) : <span className="muted">—</span>}{(vm.macs || []).length > 0 && <div className="muted" style={{ fontSize: 11 }}>{vm.macs.map((m) => <code key={m} style={{ marginRight: 4 }}>{m}</code>)}</div>}</td>
                   <td className="muted" style={{ fontSize: 12 }}>{vm.cpu != null ? `${(vm.cpu * 100).toFixed(0)} %` : "—"} · {fmtBytes(vm.mem)}/{fmtBytes(vm.maxmem)}</td>
                   <td className="muted" style={{ fontSize: 12 }}>{fmtBytes(vm.disk)}/{fmtBytes(vm.maxdisk)}</td>
                   <td style={{ fontSize: 12 }}>{(vm.snapshots || []).length ? vm.snapshots.map((s) => <span key={s.name} title={s.description || ""}>📸 {s.name} <span className="muted">({fmtAge(s.age_s)})</span> </span>) : <span className="muted">—</span>}</td>

@@ -343,6 +343,22 @@ def parse_zpool_iostat(text, pools):
     return out
 
 
+MAC_IN_NET_RE = re.compile(r"\b([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})\b")
+
+
+def extract_macs(cfg):
+    """MAC des interfaces d'une VM depuis sa config qemu (clés net0..netN,
+    valeur « <modèle>=AA:BB:CC:DD:EE:FF,bridge=... ») -- toujours disponible,
+    même sans qemu-guest-agent, contrairement aux IP. Ordonné par n° d'interface."""
+    cfg = cfg or {}
+    out = []
+    for key in sorted((k for k in cfg if re.match(r"^net\d+$", k)), key=lambda k: int(k[3:])):
+        m = MAC_IN_NET_RE.search(str(cfg[key]) or "")
+        if m:
+            out.append(m.group(1).lower())
+    return out
+
+
 def vm_disk_options(cfg):
     """Config qemu (pvesh …/config) -> ballooning et options de chaque disque
     (cache, discard, iothread) -- ce qui pèse sur les IO de l'hôte."""
@@ -855,6 +871,7 @@ def collect(pve, hostname=None, now=None, connector=None):
                     cfg = pve.pvesh("/nodes/%s/qemu/%s/config" % (node, vmid))
                     vm["agent"] = agent_enabled(cfg)
                     vm["disk_options"] = vm_disk_options(cfg)
+                    vm["macs"] = extract_macs(cfg)  # #637 : MAC depuis la config (sans guest-agent)
                 except RuntimeError as exc:
                     if g.get("status") == "running":  # une VM arrêtée sans config lisible ne vaut pas une alerte
                         warnings.append("config de %s : %s" % (vmid, exc))

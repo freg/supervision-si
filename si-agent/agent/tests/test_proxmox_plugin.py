@@ -483,6 +483,12 @@ class TestSanteHyperviseur(unittest.TestCase):
         self.assertEqual(io["rpool"], {"r_ops": 3.0, "w_ops": 900.0, "r_bps": 20000.0, "w_bps": 45000000.0})
         self.assertEqual(proxmox.parse_zpool_iostat("", ["rpool"]), {})
 
+    def test_extract_macs(self):
+        self.assertEqual(proxmox.extract_macs(QM_CFG), ["02:00:00:00:00:11"])
+        cfg = {"net0": "virtio=AA:BB:CC:DD:EE:01,bridge=vmbr0", "net2": "e1000=aa:bb:cc:dd:ee:03,bridge=vmbr1", "net1": "virtio=AA:BB:CC:DD:EE:02,bridge=vmbr0"}
+        self.assertEqual(proxmox.extract_macs(cfg), ["aa:bb:cc:dd:ee:01", "aa:bb:cc:dd:ee:02", "aa:bb:cc:dd:ee:03"])
+        self.assertEqual(proxmox.extract_macs({"memory": 2048}), []); self.assertEqual(proxmox.extract_macs(None), [])
+
     def test_options_disques_vm(self):
         o = proxmox.vm_disk_options(QM_CFG)
         self.assertFalse(o["ballooning"])
