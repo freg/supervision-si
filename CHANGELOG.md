@@ -1,3 +1,15 @@
+## 2026-09-27 — Sonde « accès aux ressources » : qui accède à quoi, façon ntopng mais native (livraison #640, item 106)
+
+Nouveau plugin `resource-access` (famille explorer, privilégié) : lit la table
+conntrack du poste (`/proc/net/nf_conntrack`, sinon `conntrack -L`) et restitue
+QUI (client, source locale) accède à QUOI (ressource externe dst:port/proto),
+avec volumes, protocole et noms DNS (`--names-map`). Pas de conteneur ntopng :
+natif, dans le modèle de sécurité du projet. Observe ce qui passe par ce poste
+(vue réseau sur passerelle/miroir, sinon ce poste seul — signalé dans la
+mesure). Constats en événements : `resource-new`, `resource-cleartext`
+(HTTP/FTP/Telnet en clair), `talker-heavy`, `resource-silent`. Lecture seule,
+stdlib. Enregistré dans PROBE_TASKS. 5 tests.
+
 ## 2026-09-27 — Sonde « observabilité DNS » : divergences de résolution par source (livraison #639, item 105)
 
 Nouveau plugin `dns-observe` (famille explorer, privilégié) : pour une liste

@@ -1,0 +1,13 @@
+{
+  "id": "resource-access",
+  "version": "1",
+  "runner": "python",
+  "entry": "resource_access.py",
+  "interval_seconds": 300,
+  "timeout_seconds": 60,
+  "args": [],
+  "enabled": false,
+  "description": "Sonde « accès aux ressources » (#640, famille explorer) : inspirée de ntopng mais native, sans conteneur. Lit la table conntrack du poste (/proc/net/nf_conntrack ou conntrack -L) et restitue QUI (client, src local) accède à QUOI (ressource externe, dst:port/proto), avec volumes et protocole, enrichi par les noms DNS (--names-map). Observe ce qui passe par ce poste : vue réseau seulement sur une passerelle ou un port miroir, sinon flux de ce poste. Constats repris en événements : resource-new (nouvelle ressource externe), resource-cleartext (HTTP/FTP/Telnet en clair), talker-heavy (--heavy-mb), resource-silent. Lecture seule, stdlib. Privilégiée (lecture conntrack).",
+  "source": "bundled",
+  "privileged": true
+}
