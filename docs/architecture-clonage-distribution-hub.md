@@ -141,6 +141,43 @@ vérification de cohérence.
 | Risque | Élevé (cohérence, split-brain si actif/actif — écarté) |
 | Prérequis | Étapes 1 et 2 |
 
+## Mécanismes dynamiques d'équilibrage (à noter — raffinement 108/109)
+
+Passer d'un placement **statique** (fichier de conf) à un équilibrage
+**dynamique** : les clones se partagent les services selon la charge réelle,
+sous contrôle. Trois pièces, en boucle fermée.
+
+1. **Jeton de responsabilité par service (élection + notification)** — pour chaque
+   service, un **jeton** (bail/lease) désigne le **clone responsable** à l'instant
+   T ; c'est la source de vérité de « qui sert ce service ». L'attribution
+   (élection) est **notifiée** (via `notify-api`, événement `service.elected`), et
+   c'est ce jeton qui pilote la régénération de la conf passerelle (route vers le
+   porteur du jeton). Le bail est **borné dans le temps** (renouvellement) pour
+   qu'un clone muet perde le service au lieu de le bloquer. Garde-fou
+   **anti-split-brain** : un seul jeton par service à la fois (coordination via
+   `services-api` comme arbitre, ou un verrou partagé) — jamais deux porteurs.
+
+2. **Analyse permanente de charge et de temps de réponse** — mesure continue, par
+   service **et** par clone : charge (CPU/mémoire/nb requêtes) et **temps de
+   réponse** (latence, file d'attente). Étend le feu tricolore de la tour de
+   contrôle (#584/#586) et s'appuie sur les sondes/observabilité déjà en place.
+   C'est l'entrée de décision : où un service tourne-t-il le mieux, quel clone
+   sature.
+
+3. **Translation automatique du jeton sur charge déséquilibrée** — quand la
+   mesure révèle un déséquilibre durable (seuil + **hystérésis** pour éviter le
+   battement), le jeton d'un service **migre** vers un clone moins chargé :
+   démarrage sur la cible → bascule de la route (passerelle) → arrêt sur la
+   source. Automatique, mais **journalisé, notifié et réversible**, avec un
+   interrupteur manuel (comme l'auto-heal de la tour : activable/désactivable).
+
+**Contrainte d'état (lien étape 3)** : translater librement un jeton n'est sûr que
+pour un service **sans état** (ou en lecture). Un service **avec état** ne peut
+migrer que si son état est **co-localisé ou répliqué** au préalable — donc la
+translation automatique vise d'abord les **paquets sans état** ; les paquets avec
+état restent en placement contrôlé tant que l'étape 3 (réplication) ne les couvre
+pas. Le jeton ne doit jamais désigner un clone dont l'état n'est pas à jour.
+
 ## Analyse des compromis (transversale)
 
 - **L'entrée unique par chemin + front adressant la passerelle** est ce qui rend
@@ -175,3 +212,6 @@ vérification de cohérence.
 4. [ ] Étape 3 : PoC ZFS send/recv d'un dossier de données + export/import realm ;
    fixer RPO/RTO ; procédure de bascule/retour via aiguillage.
 5. [ ] Étape 1 packagée → dériver l'**agent miroir portail** (110).
+6. [ ] Jeton de responsabilité par service (bail borné, élection, notif `service.elected`, arbitrage anti-split-brain).
+7. [ ] Télémétrie continue charge + temps de réponse par service/clone (extension tour de contrôle).
+8. [ ] Translation automatique de jeton sur déséquilibre (seuil + hystérésis, journal/notif/réversible, interrupteur) — d'abord paquets sans état.
