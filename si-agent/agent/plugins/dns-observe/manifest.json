@@ -1,0 +1,13 @@
+{
+  "id": "dns-observe",
+  "version": "1",
+  "runner": "python",
+  "entry": "dns_observe.py",
+  "interval_seconds": 300,
+  "timeout_seconds": 120,
+  "args": ["--names", "", "--ifaces", "auto"],
+  "enabled": false,
+  "description": "Sonde « observabilité DNS » (#639, famille explorer) : pour une liste de noms (--names a,b ou dns-observe.txt), interroge depuis CHAQUE interface (et connexion Wi-Fi en rotation) chaque DNS distribué par le DHCP + les DNS publics, et enregistre la réponse (IP renvoyées, rcode, latence). Analyse : apprend les résolutions, compare les répartitions par SOURCE (interface/VLAN/route) et par DESTINATION (IP), et détecte les divergences -- même nom résolu différemment selon la source, NXDOMAIN partiel, résolveur inattendu (--expected-dns), réponse changée depuis le dernier passage. Cible l'incident « la ressource marche depuis un segment, pas depuis un autre ». Lecture seule, stdlib. Constats repris en événements par le central. Privilégiée (sockets liés par interface).",
+  "source": "bundled",
+  "privileged": true
+}

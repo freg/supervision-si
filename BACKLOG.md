@@ -1,6 +1,6 @@
 ## Réseau : observabilité DNS, accès aux ressources (ntopng natif), bande passante horaire — items 105-107
 
-Demandé 26/09/2026, validé « enchaîne » : (105) **observabilité DNS** —
+Demandé 26/09/2026, validé « enchaîne » : (105, **FAIT #639**) **observabilité DNS** —
 extension de path-probe : apprendre les résolutions toutes sources, comparer
 la répartition par source (VLAN/route) et par destination, tester
 résolution+accès par sonde Ethernet et Wi-Fi (et par route) ; constats « DNS
@@ -9,7 +9,7 @@ ressources façon ntopng, en NATIF** (pas de conteneur ntopng chez le client) :
 flux conntrack du mini-PC + logs DNS/pare-feu → sous-tuile réseau. (107)
 **bande passante par tranche horaire** via API (compteurs Proxmox/Nebula/
 switch) avec estimation automatique de la fenêtre unitaire (durée d'activité
-minimale). Ordre retenu : 105 → 106 → 107. Contexte incident campus : accès à
+minimale). Ordre retenu : 105 (fait) → 106 → 107. Reste pour 105 : panneau hub dédié (visualisation des répartitions par source/destination ; les données by_source/by_destination/learned sont déjà dans la mesure), et déploiement sur l'agent du campus avec la liste de noms des ressources. Contexte incident campus : accès à
 une ressource vidéo en ligne OK depuis les postes assistants, KO depuis un
 poste contrôleur d'écrans — piste DNS/VLAN différent selon segment (à
 confirmer avec le mini-PC depuis chaque VLAN).

@@ -1,3 +1,17 @@
+## 2026-09-27 — Sonde « observabilité DNS » : divergences de résolution par source (livraison #639, item 105)
+
+Nouveau plugin `dns-observe` (famille explorer, privilégié) : pour une liste
+de noms, interroge depuis CHAQUE interface (et connexion Wi-Fi en rotation)
+chaque DNS distribué + les DNS publics, enregistre la réponse (IP, rcode,
+latence), puis **apprend** les résolutions et **compare les répartitions par
+source (interface/VLAN/route) et par destination (IP)**. Constats repris en
+événements : `dns-divergent` (même nom, IP différentes selon la source),
+`dns-partial-nxdomain` (résout ici, échoue là), `dns-all-down`,
+`dns-unexpected-resolver` (`--expected-dns`), `dns-answer-changed` (depuis le
+passage précédent, état local). Cible l'incident campus « la ressource marche
+depuis un segment, pas depuis un autre ». Lecture seule, stdlib, codec DNS A/AAAA.
+Enregistré dans PROBE_TASKS (constats→notifications). 5 tests.
+
 ## 2026-09-27 — Tuile « Données personnelles » : journal catégorisé de nos interactions + accès au hub (livraison #638)
 
 Nouvelle tuile (réservée aux administrateurs) : **frise** de nos livraisons
