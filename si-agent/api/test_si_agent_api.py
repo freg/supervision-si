@@ -256,7 +256,8 @@ class ProxmoxTests(ApiBase):
              "data": {"node": {"name": "pve1", "pveversion": "pve-manager/8.2.4"},
                       "vms": [{"vmid": 100, "name": "ged", "type": "qemu", "status": "running", "ips": ["10.0.0.5"]}],
                       "storages": [{"storage": "local-zfs", "type": "zfspool"}],
-                      "zfs": [{"pool": "rpool", "health": "ONLINE"}], "warnings": []}, "error": None},
+                      "zfs": [{"pool": "rpool", "health": "ONLINE"}], "warnings": [],
+                      "bandwidth": {"timeframe": "day", "node": {"hourly": [{"start": 1700000000, "end": 1700003600, "avg_bps": 1200000.0, "peak_bps": 1600000.0, "bytes": 540000000, "active_fraction": 0.9}], "window": {"suggested_slot_seconds": 3600, "unit_seconds": 3200.0}, "peak_bps": 1600000.0, "total_bytes": 540000000}, "by_vm": {"100": {"hourly": [{"start": 1700000000, "end": 1700003600, "avg_bps": 800000.0, "peak_bps": 900000.0, "bytes": 360000000, "active_fraction": 0.8}], "window": {"suggested_slot_seconds": 3600}, "peak_bps": 900000.0, "total_bytes": 360000000}}}}, "error": None},
         ]}
         st, _ = http.request("POST", "/api/v1/agents/pve1/measurements", batch)
         self.assertEqual(st, 201)
@@ -266,6 +267,10 @@ class ProxmoxTests(ApiBase):
         self.assertEqual(out[0]["node"]["pveversion"], "pve-manager/8.2.4")
         self.assertEqual(out[0]["vms"][0]["ips"], ["10.0.0.5"])
         self.assertEqual(out[0]["zfs"][0]["pool"], "rpool")
+        # #644 : la bande passante (#641) est laissée passer par latest_proxmox
+        self.assertEqual(out[0]["bandwidth"]["node"]["peak_bps"], 1600000.0)
+        self.assertEqual(out[0]["bandwidth"]["node"]["window"]["suggested_slot_seconds"], 3600)
+        self.assertEqual(out[0]["bandwidth"]["by_vm"]["100"]["total_bytes"], 360000000)
         self.assertTrue(out[0]["ok"])
         # filtre par site comme /netview
         self.assertEqual(self.c.get("/proxmox?site=ovh").get_json()["proxmox"], [])

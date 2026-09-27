@@ -1448,6 +1448,7 @@ def latest_proxmox(db_path, site=None):
                     "node": data.get("node") or {}, "vms": data.get("vms") or [],
                     "storages": data.get("storages") or [], "zfs": data.get("zfs") or [],
                     "backups": data.get("backups") or None, "access": data.get("access") or None,
+                    "bandwidth": data.get("bandwidth") or None,
                     "warnings": data.get("warnings") or []})
     return out
 

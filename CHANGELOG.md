@@ -1,3 +1,18 @@
+## 2026-09-27 — Bande passante Proxmox affichée dans le hub + runbook démo Numeria (livraison #644, item 107)
+
+La bande passante par tranche horaire, déjà collectée par le plugin proxmox
+(#641, `measure["bandwidth"]` : nœud + par VM), était **perdue** avant le
+hub : `store.latest_proxmox` ne la laissait pas passer. Corrigé (champ
+`bandwidth`), et **graphe ajouté dans la tuile Proxmox** (`ProxmoxView`,
+composant `BandwidthSection`) : barres des tranches (moyenne + repère de pic,
+survol détaillé), pic et total du nœud, fenêtre unitaire estimée, et tableau
+des VM les plus consommatrices avec leur profil horaire. Complète l'item 107
+côté visualisation. 1 test (passe-plat `bandwidth` sur `/proxmox`). JSX
+vérifié (esbuild). Ajout de `docs/demo-numeria-runbook.md` : runbook de
+préparation de la démo campus (central local sur le minipc, jeton, sondes
+pc-numeria, install prudente de l'agent Proxmox, activation surveillée du
+plugin, inventaire VM, kill switches).
+
 ## 2026-09-27 — Panneau « Observabilité réseau » dans la tuile Agents hôtes (livraison #643, items 105-106)
 
 Nouvel onglet **Observabilité réseau** de `SiAgentView` (tuile Agents hôtes),

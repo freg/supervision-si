@@ -30,6 +30,85 @@ function fmtBytes(n) {
   return `${n.toFixed(1)} Po`;
 }
 
+function fmtBps(bps) {
+  let n = Number(bps || 0);
+  if (!n) return "0";
+  for (const u of ["b/s", "kb/s", "Mb/s", "Gb/s"]) { if (n < 1000) return `${n.toFixed(n < 10 ? 1 : 0)} ${u}`; n /= 1000; }
+  return `${n.toFixed(1)} Tb/s`;
+}
+
+function fmtSlot(seconds) {
+  if (!seconds) return "?";
+  if (seconds < 60) return `${seconds} s`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)} min`;
+  return `${Math.round(seconds / 3600)} h`;
+}
+
+// Petit graphe en barres des tranches (avg + repère de pic), thème clair/sombre.
+function SlotBars({ hourly, height = 44 }) {
+  const slots = hourly || [];
+  if (!slots.length) return <span className="muted" style={{ fontSize: 12 }}>pas de série</span>;
+  const max = Math.max(1, ...slots.map((h) => h.peak_bps || 0));
+  const w = 10, gap = 2, W = slots.length * (w + gap);
+  const fmtH = (start) => { const d = new Date(start * 1000); return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }); };
+  return (
+    <svg width={W} height={height + 14} role="img" aria-label="bande passante par tranche" style={{ display: "block" }}>
+      {slots.map((h, i) => {
+        const x = i * (w + gap);
+        const ah = Math.max(1, Math.round(((h.avg_bps || 0) / max) * height));
+        const ph = Math.round(((h.peak_bps || 0) / max) * height);
+        const title = `${fmtH(h.start)} · moy ${fmtBps(h.avg_bps)} · pic ${fmtBps(h.peak_bps)} · ${fmtBytes(h.bytes)}${h.active_fraction != null ? ` · actif ${Math.round(h.active_fraction * 100)} %` : ""}`;
+        return (
+          <g key={i}>
+            <title>{title}</title>
+            <rect x={x} y={height - ah} width={w} height={ah} rx={1} fill="var(--accent, #4a90d9)" opacity={0.85} />
+            <line x1={x} x2={x + w} y1={height - ph} y2={height - ph} stroke="var(--danger, #d9534f)" strokeWidth={1} />
+            {i % 6 === 0 && <text x={x} y={height + 11} fontSize={9} fill="var(--muted, #888)">{fmtH(h.start)}</text>}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function BandwidthSection({ bandwidth, vms }) {
+  const bw = bandwidth;
+  if (!bw) return null;
+  const nameOf = (vmid) => { const v = (vms || []).find((x) => String(x.vmid) === String(vmid)); return v ? (v.name || `vm ${vmid}`) : `vm ${vmid}`; };
+  const byVm = Object.entries(bw.by_vm || {})
+    .map(([vmid, a]) => ({ vmid, name: nameOf(vmid), ...a }))
+    .sort((a, b) => (b.total_bytes || 0) - (a.total_bytes || 0));
+  const node = bw.node;
+  return (
+    <div style={{ marginTop: 10 }}>
+      <h4 style={{ margin: "4px 0" }}>Bande passante <span className="muted" style={{ fontSize: 12, fontWeight: "normal" }}>· {bw.timeframe === "day" ? "24 h" : bw.timeframe} · tranche horaire{node?.window?.suggested_slot_seconds ? ` · fenêtre unitaire estimée ${fmtSlot(node.window.suggested_slot_seconds)}` : ""}</span></h4>
+      {!node && byVm.length === 0 && <p className="muted" style={{ fontSize: 12 }}>Pas de série de bande passante remontée (rrddata indisponible).</p>}
+      {node && (
+        <div style={{ marginBottom: 8 }}>
+          <div className="muted" style={{ fontSize: 12 }}>Nœud · pic {fmtBps(node.peak_bps)} · total {fmtBytes(node.total_bytes)}</div>
+          <SlotBars hourly={node.hourly} />
+        </div>
+      )}
+      {byVm.length > 0 && (
+        <div className="hub-table-scroll">
+          <table>
+            <thead><tr><th>VM</th><th>Pic</th><th>Total</th><th>Fenêtre</th><th>Profil horaire</th></tr></thead>
+            <tbody>{byVm.slice(0, 12).map((v) => (
+              <tr key={v.vmid}>
+                <td><strong>{v.name}</strong> <span className="muted">#{v.vmid}</span></td>
+                <td style={{ fontSize: 12 }}>{fmtBps(v.peak_bps)}</td>
+                <td style={{ fontSize: 12 }}>{fmtBytes(v.total_bytes)}</td>
+                <td style={{ fontSize: 12 }} className="muted">{v.window?.suggested_slot_seconds ? fmtSlot(v.window.suggested_slot_seconds) : "—"}</td>
+                <td><SlotBars hourly={v.hourly} height={28} /></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function fmtAge(seconds) {
   if (seconds == null) return "—";
   const s = Number(seconds);
@@ -328,6 +407,7 @@ function NodeCard({ node, selected, onSelect, history, apiBase, onChanged }) {
           {(node.zfs || []).length === 0 && <p className="muted">Pas de ZFS sur cet hôte (ou zpool absent).</p>}
         </div>
       </div>
+      <BandwidthSection bandwidth={node.bandwidth} vms={vms} />
       <HostHealth node={node} vms={vms} />
     </div>
   );
