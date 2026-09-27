@@ -159,6 +159,8 @@ def fake_runner(cmd, timeout):
         if path.endswith("/agent/exec-status"):
             pid = cmd[cmd.index("--pid") + 1]
             return 0, _j({"exited": 1, "out-data": SSH_JOURNAL if pid == "7" else WEB_LOG}), ""
+        if path.endswith("/rrddata"):
+            return 0, _j([{"time": 1000 + 60 * i, "netin": 100000 if i % 3 else 0, "netout": 50000 if i % 3 else 0} for i in range(20)]), ""
         if path in FAKE:
             return 0, _j(FAKE[path]), ""
         return 1, "", "no such path"
@@ -195,6 +197,7 @@ class TestCollecte(unittest.TestCase):
         self.assertEqual(m["node"]["name"], "pve1")
         self.assertEqual(m["node"]["pveversion"], "pve-manager/8.2.4")
         self.assertEqual(m["warnings"], [])
+        self.assertIn("bandwidth", m); self.assertIsNotNone(m["bandwidth"]["node"])  # #641
 
         vms = {v["vmid"]: v for v in m["vms"]}
         self.assertEqual(set(vms), {100, 101, 102})
@@ -482,6 +485,15 @@ class TestSanteHyperviseur(unittest.TestCase):
         io = proxmox.parse_zpool_iostat(ZPOOL_IOSTAT, ["rpool"])
         self.assertEqual(io["rpool"], {"r_ops": 3.0, "w_ops": 900.0, "r_bps": 20000.0, "w_bps": 45000000.0})
         self.assertEqual(proxmox.parse_zpool_iostat("", ["rpool"]), {})
+
+    def test_bandwidth_rrd(self):
+        # #641 : rrddata (netin/netout octets/s moyens) -> débits, tranche horaire, fenêtre unitaire
+        rows = [{"time": 1000 + 60 * i, "netin": 100000 if 5 <= i < 20 else 0, "netout": 50000 if 5 <= i < 20 else 0} for i in range(40)]
+        a = proxmox.bw_analyze_rrd(rows)
+        self.assertEqual(len(a["hourly"]), 1)  # 40 min -> une heure
+        self.assertGreater(a["peak_bps"], 0); self.assertGreater(a["total_bytes"], 0)
+        self.assertEqual(proxmox.bw_analyze_rrd([])["hourly"], [])
+        self.assertIsNone(proxmox.bw_analyze_rrd([{"time": 1, "netin": 0, "netout": 0}])["window"]["unit_seconds"])
 
     def test_extract_macs(self):
         self.assertEqual(proxmox.extract_macs(QM_CFG), ["02:00:00:00:00:11"])

@@ -211,6 +211,106 @@ def parse_zpool_status(text):
     return out
 
 
+# --- #641 : bande passante par tranche horaire + fenêtre unitaire (copie compacte de
+# shared/bandwidth.py, testée dans shared/test_bandwidth.py) -------------------------
+_BW_IDLE = 8000  # bits/s
+
+
+def _bw_round_slot(sec):
+    for step in (1, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600):
+        if sec <= step:
+            return step
+    return 3600
+
+
+def bw_series_from_rrd(rows):
+    """rrddata Proxmox -> [(t0, t1, bps)] (netin+netout, octets/s moyens par pas -> bits/s)."""
+    pts = []
+    for r in rows or []:
+        t = r.get("time")
+        if t is None:
+            continue
+        bps = 8.0 * ((r.get("netin") or 0) + (r.get("netout") or 0))
+        pts.append((float(t), bps))
+    pts.sort()
+    series, prev_t = [], None
+    step = (pts[1][0] - pts[0][0]) if len(pts) >= 2 else 60.0
+    for t, bps in pts:
+        t0 = prev_t if prev_t is not None else t - step
+        if t > t0:
+            series.append((t0, t, bps))
+        prev_t = t
+    return series
+
+
+def bw_estimate_unit(series):
+    nz = sorted(r for _, _, r in series if r > _BW_IDLE)
+    idle = max(_BW_IDLE, 0.10 * nz[len(nz) // 2]) if nz else _BW_IDLE
+    runs, cur = [], 0.0
+    for t0, t1, r in series:
+        if r > idle:
+            cur += t1 - t0
+        elif cur > 0:
+            runs.append(cur); cur = 0.0
+    if cur > 0:
+        runs.append(cur)
+    if not runs:
+        return {"unit_seconds": None, "runs": 0, "idle_bps": round(idle, 1), "suggested_slot_seconds": None}
+    rs = sorted(runs)
+    import math as _m
+    unit = rs[max(0, int(_m.ceil(0.10 * len(rs)) - 1))]
+    return {"unit_seconds": round(unit, 1), "min_run_seconds": round(rs[0], 1), "max_run_seconds": round(rs[-1], 1),
+            "runs": len(runs), "idle_bps": round(idle, 1), "suggested_slot_seconds": _bw_round_slot(unit)}
+
+
+def bw_per_slot(series, slot):
+    if not series or not slot:
+        return []
+    origin = series[0][0]
+    slots = {}
+    for t0, t1, r in series:
+        k = int((t0 - origin) // slot)
+        sl = slots.setdefault(k, {"start": origin + k * slot, "bits": 0.0, "seconds": 0.0, "peak": 0.0})
+        dt = t1 - t0
+        sl["bits"] += r * dt; sl["seconds"] += dt; sl["peak"] = max(sl["peak"], r)
+    out = []
+    for k in sorted(slots):
+        sl = slots[k]
+        out.append({"start": int(sl["start"]), "end": int(sl["start"] + slot),
+                    "avg_bps": round(sl["bits"] / sl["seconds"], 1) if sl["seconds"] else 0.0,
+                    "peak_bps": round(sl["peak"], 1), "bytes": int(sl["bits"] / 8)})
+    return out
+
+
+def bw_analyze_rrd(rows):
+    series = bw_series_from_rrd(rows)
+    window = bw_estimate_unit(series)
+    hourly = bw_per_slot(series, 3600)
+    return {"hourly": hourly, "window": window,
+            "peak_bps": round(max((h["peak_bps"] for h in hourly), default=0.0), 1),
+            "total_bytes": sum(h["bytes"] for h in hourly)}
+
+
+def collect_bandwidth(pve, node, vms, warnings, timeframe="day"):
+    """Bande passante du nœud et des VM en marche (rrddata). À valider sur un PVE réel
+    (champs netin/netout attendus en octets/s moyens)."""
+    out = {"timeframe": timeframe, "node": None, "by_vm": {}}
+    try:
+        out["node"] = bw_analyze_rrd(pve.pvesh("/nodes/%s/rrddata" % node, params={"timeframe": timeframe, "cf": "AVERAGE"}))
+    except (RuntimeError, subprocess.TimeoutExpired) as exc:
+        warnings.append("bande passante du nœud : %s" % exc)
+    for vm in vms:
+        if vm.get("status") != "running" or vm.get("template"):
+            continue
+        try:
+            out["by_vm"][str(vm["vmid"])] = bw_analyze_rrd(
+                pve.pvesh("/nodes/%s/%s/%s/rrddata" % (node, "qemu" if vm.get("type") == "qemu" else "lxc", vm["vmid"]),
+                          params={"timeframe": timeframe, "cf": "AVERAGE"}))
+        except (RuntimeError, subprocess.TimeoutExpired) as exc:
+            warnings.append("bande passante de %s : %s" % (vm["vmid"], exc))
+    return out
+
+
 def assemble(node, vms, storages, zfs, warnings):
     """Mesure finale -- la forme lue côté hub (store.latest_proxmox,
     puis type « vm » de la supervision SI)."""
@@ -693,9 +793,12 @@ class Pve(object):
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
         return p.returncode, p.stdout, p.stderr
 
-    def pvesh(self, path, timeout=PVESH_TIMEOUT):
-        """JSON d'un chemin pvesh ; lève RuntimeError sur échec."""
-        code, out, err = self._runner(["pvesh", "get", path, "--output-format", "json"], timeout)
+    def pvesh(self, path, timeout=PVESH_TIMEOUT, params=None):
+        """JSON d'un chemin pvesh ; lève RuntimeError sur échec. `params` -> options -k v."""
+        argv = ["pvesh", "get", path, "--output-format", "json"]
+        for k, v in (params or {}).items():
+            argv += ["-%s" % k, str(v)]
+        code, out, err = self._runner(argv, timeout)
         if code != 0:
             raise RuntimeError((err or out or "pvesh a échoué").strip()[:300])
         try:
@@ -971,6 +1074,10 @@ def collect(pve, hostname=None, now=None, connector=None):
     measure["backups"] = backups_section
     measure["access"] = access
     measure["host_health"] = host_health
+    try:
+        measure["bandwidth"] = collect_bandwidth(pve, node, vms, warnings)  # #641
+    except Exception as exc:  # noqa: BLE001
+        warnings.append("bande passante : %s" % exc); measure["bandwidth"] = None
     return measure
 
 

@@ -6,10 +6,10 @@ la répartition par source (VLAN/route) et par destination, tester
 résolution+accès par sonde Ethernet et Wi-Fi (et par route) ; constats « DNS
 divergent selon segment », « NXDOMAIN sur telle route ». (106, **FAIT #640**) **accès aux
 ressources façon ntopng, en NATIF** (pas de conteneur ntopng chez le client) :
-flux conntrack du mini-PC + logs DNS/pare-feu → sous-tuile réseau. (107)
+flux conntrack du mini-PC + logs DNS/pare-feu → sous-tuile réseau. (107, **FAIT #641**)
 **bande passante par tranche horaire** via API (compteurs Proxmox/Nebula/
 switch) avec estimation automatique de la fenêtre unitaire (durée d'activité
-minimale). Ordre retenu : 105 (fait) → 106 (fait) → 107. Reste : un panneau hub « Observabilité réseau » regroupant les vues 105 (divergences DNS) et 106 (accès ressources : ressources/clients/top talkers) ; et lecture des logs pare-feu/DNS Zyxel en source complémentaire de conntrack. Reste pour 105 : panneau hub dédié (visualisation des répartitions par source/destination ; les données by_source/by_destination/learned sont déjà dans la mesure), et déploiement sur l'agent du campus avec la liste de noms des ressources. Contexte incident campus : accès à
+minimale). Ordre retenu : 105 (fait) → 106 (fait) → 107 (fait, source Proxmox ; MikroTik/switch = sources à ajouter, et graphe hub des tranches). Reste : un panneau hub « Observabilité réseau » regroupant les vues 105 (divergences DNS) et 106 (accès ressources : ressources/clients/top talkers) ; et lecture des logs pare-feu/DNS Zyxel en source complémentaire de conntrack. Reste pour 105 : panneau hub dédié (visualisation des répartitions par source/destination ; les données by_source/by_destination/learned sont déjà dans la mesure), et déploiement sur l'agent du campus avec la liste de noms des ressources. Contexte incident campus : accès à
 une ressource vidéo en ligne OK depuis les postes assistants, KO depuis un
 poste contrôleur d'écrans — piste DNS/VLAN différent selon segment (à
 confirmer avec le mini-PC depuis chaque VLAN).

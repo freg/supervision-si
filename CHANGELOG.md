@@ -1,3 +1,16 @@
+## 2026-09-27 — Bande passante par tranche horaire + fenêtre unitaire estimée (livraison #641, item 107)
+
+`shared/bandwidth.py` (pur, 4 tests) : d'une série de compteurs d'interface
+(API), calcule les débits (gère les remises à zéro), agrège **par tranche
+horaire** (avg/pic/octets/part active), et **estime automatiquement la
+fenêtre temporelle unitaire** = la plus petite durée d'activité continue
+(10e centile des plages, seuil de repos auto), avec un pas d'agrégation
+lisible suggéré. Branché sur **Proxmox** (rrddata réseau du nœud et des VM en
+marche via `pvesh -timeframe`) : la mesure du plugin porte désormais
+`bandwidth` (par heure + fenêtre estimée), nœud et par VM. Analyse copiée de
+façon compacte dans le plugin (comme protocol.py) ; à valider sur un PVE réel
+(champs netin/netout). Tests Proxmox mis à jour.
+
 ## 2026-09-27 — Sonde « accès aux ressources » : qui accède à quoi, façon ntopng mais native (livraison #640, item 106)
 
 Nouveau plugin `resource-access` (famille explorer, privilégié) : lit la table
