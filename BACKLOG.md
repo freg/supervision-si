@@ -14,6 +14,27 @@ une ressource vidéo en ligne OK depuis les postes assistants, KO depuis un
 poste contrôleur d'écrans — piste DNS/VLAN différent selon segment (à
 confirmer avec le mini-PC depuis chaque VLAN).
 
+## Haute disponibilité et répartition du hub, agent miroir portail (2026-09-27) — items 108-110
+
+Demandé, non commencé. À rattacher à l'item 97 (site miroir) et à la pile
+autonome `si-agent/standalone` (#517), qui posent déjà les briques (API sur
+mêmes données, aiguillage nginx sur super, front statique).
+
+- (108) **Réplication du hub sur un autre hôte** : mécanisme + IHM pour
+  dupliquer le hub (données et services) vers un second hôte — bascule /
+  reprise. Étudier la portée : réplication du dossier de données des agents
+  (déjà partageable), realm Keycloak, bases des API. Lien avec la pile
+  autonome (mêmes données) et l'aiguillage (#517).
+- (109) **Répartition des tuiles / API / charges** : mécanisme + IHM pour
+  répartir les backends (tuiles et leurs API) sur plusieurs hôtes selon la
+  charge — le hub allégé met déjà à genoux le Proxmox et la VM super (cf.
+  #517). Placement par tuile, suivi de charge, déplacement à chaud.
+- (110) **Agent miroir portail/hub déployable sous Linux ou Windows** : un
+  agent qui expose un miroir du portail/hub, installable des deux côtés
+  (comme l'agent si-agent l'est déjà) — portail de secours / lecture locale
+  sur un site sans route vers le super (cf. Proxmox campus sans route vers
+  le hub).
+
 # Backlog — demandes notées, pas encore commencées
 
 Chantiers explicitement mis de côté pour plus tard (contrairement aux
