@@ -376,6 +376,16 @@ button.danger:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 .version-badge:hover { opacity: 1; }
 
+/* Lisibilité des champs dans les deux thèmes (#647) : sans background/color
+   explicites, les champs héritaient d'un fond sombre avec un texte sombre
+   (noir sur gris foncé illisible en thème sombre). */
+.ldap-shell input, .ldap-shell select, .ldap-shell textarea,
+.ldap-unlock-panel input {
+  background: var(--bg);
+  color: var(--text);
+}
+.ldap-shell input::placeholder, .ldap-shell textarea::placeholder { color: var(--muted); }
+
 /* Création de compte / affectation de groupe (livraison LDAP) */
 .ldap-account-form { padding: 16px 24px; max-width: 720px; }
 .ldap-form-hint { color: var(--muted); font-size: 13px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }

@@ -1,3 +1,17 @@
+## 2026-09-28 — Portail LDAP : lisibilité des champs en thème sombre (livraison #647)
+
+Les champs de saisie du portail Gestion OpenLDAP n'avaient ni `background` ni
+`color` explicites : en thème sombre le texte apparaissait en noir sur gris
+foncé, illisible (signalé par capture). Règle ajoutée sur tous les champs
+(`.ldap-shell input/select/textarea` + écran de déverrouillage) : `background:
+var(--bg)` et `color: var(--text)`, placeholders en `var(--muted)` -- lisible
+dans les deux thèmes. Rappel : les nouveaux onglets « Créer un compte » et
+« Groupes » (#645) n'apparaissent qu'après reconstruction du portail
+(`ldap-admin-portal`).
+
+Vérifié : variables de thème uniquement (aucune couleur en dur ajoutée), CSS
+relu. Non vérifié : rendu navigateur. Fichier : ldap-admin/portal/src/ldap.css.
+
 ## 2026-09-28 — install.sh : garde-fou Python >= 3.7 + option --python (livraison #646)
 
 Suite à un agent installé sur un vieux Proxmox (Debian 9 / Python 3.5) qui
