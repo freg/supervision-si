@@ -17,6 +17,8 @@ import os
 import re
 import shlex
 import threading
+import tempfile
+import urllib.request
 import time
 
 import requests
@@ -577,7 +579,7 @@ def _install_cmd_windows(agent_id, secret, site):
         "  exit /b",
         ")",
         'set "LOG=%TEMP%\\si-agent-install.log"',
-        'powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%%PS1%%" -Agent "%s" -Secret "%s" -Central "%s" -Site "%s" -CaFingerprint %s > "%%LOG%%" 2>&1' % (aid, sec, central, st, ca["sha256"]),
+        'powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%%PS1%%" -Agent "%s" -Secret "%s" -Central "%s" -Site "%s" -CaFingerprint %s -PythonUrl "%s/deploy/python" > "%%LOG%%" 2>&1' % (aid, sec, central, st, ca["sha256"], central),
         'if not "%errorlevel%"=="0" goto :erreur',
         "echo OK - agent %s installe et demarre (journal : %%LOG%%)" % aid,
         "timeout /t 10 >nul",
@@ -939,6 +941,82 @@ def _deploy_commands(t):
     }
 
 
+_PYTHON_EMBED_URL = os.environ.get("SI_AGENT_PYTHON_EMBED_URL", "https://www.python.org/ftp/python/3.12.7/python-3.12.7-embed-amd64.zip")
+_PYTHON_EMBED_CACHE = os.environ.get("SI_AGENT_PYTHON_EMBED_CACHE", os.path.join(tempfile.gettempdir(), "si-agent-python-embed.zip"))
+_PYTHON_EMBED_LOCK = threading.Lock()
+
+
+@app.route("/deploy/python", methods=["GET"])
+def deploy_python_route():
+    """Sert la distribution Python « embeddable » aux postes qui n'ont pas accès
+    à python.org : le central (qui, lui, a Internet) la récupère une fois et la
+    met en cache, le poste la télécharge depuis le central. install.ps1 la reçoit
+    via -PythonUrl. Aucun secret ici -- fichier public, comme /package."""
+    path = _PYTHON_EMBED_CACHE
+    ok = os.path.exists(path) and os.path.getsize(path) > 1_000_000
+    if not ok:
+        with _PYTHON_EMBED_LOCK:
+            if not (os.path.exists(path) and os.path.getsize(path) > 1_000_000):
+                try:
+                    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+                    tmp = path + ".part"
+                    urllib.request.urlretrieve(_PYTHON_EMBED_URL, tmp)
+                    if os.path.getsize(tmp) < 1_000_000:
+                        os.remove(tmp)
+                        raise RuntimeError("archive trop petite, téléchargement incomplet")
+                    os.replace(tmp, path)
+                except Exception as exc:  # noqa: BLE001
+                    return jsonify({"error": "python embarqué indisponible (le central n'a pas pu le récupérer depuis %s) : %s" % (_PYTHON_EMBED_URL, exc)}), 502
+    return send_file(path, mimetype="application/zip", as_attachment=True, download_name="python-embed.zip")
+
+
+_INSTALL_PAGE = (
+    '<!doctype html><html lang="fr"><head><meta charset="utf-8">'
+    '<meta name="viewport" content="width=device-width, initial-scale=1">'
+    '<title>si-agent - installation</title><style>'
+    'body{font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:760px;margin:24px auto;padding:0 16px;line-height:1.5;color:#111;background:#fff}'
+    'h1{font-size:1.4rem}h2{font-size:1.1rem;margin-top:22px}'
+    'pre{background:#0d1117;color:#e6edf3;padding:12px;border-radius:6px;overflow:auto;white-space:pre-wrap;word-break:break-all}'
+    'button{padding:6px 12px;margin-top:6px;cursor:pointer}code{background:#eee;padding:1px 4px;border-radius:3px}'
+    '.err{color:#b00020}.note{color:#444;font-size:.95rem}a{color:#0b62c4}</style></head><body>__BODY__</body></html>'
+)
+
+
+@app.route("/install", methods=["GET"])
+def install_page_route():
+    """Page d'aide, ATTEIGNABLE DEPUIS LE POSTE (navigateur, 443), protegee par
+    le jeton (?token=). Donne la ligne a coller (script telecharge puis execute,
+    pas de iex -> compatible antivirus) et les liens : agent + Python servis par
+    le central. Aucune option a saisir."""
+    import html as _html
+    token = request.args.get("token", "")
+    t = store.get_enroll_token(DB_PATH, token) if token else None
+    base = ((t.get("central_url") if t else None) or PUBLIC_URL or request.url_root.rstrip("/")).rstrip("/")
+    if t is None or not t.get("usable"):
+        body = ("<h1>si-agent - installation</h1>"
+                "<p class=err>Jeton d'enrolement absent, invalide ou expire.</p>"
+                "<p class=note>Cree un jeton dans le hub (Agents hotes -> Deploiement), puis ouvre cette page avec <code>?token=LE-JETON</code>.</p>")
+        return Response(_INSTALL_PAGE.replace("__BODY__", body), mimetype="text/html; charset=utf-8"), 403
+    site = t.get("site") or "default"
+    cmd = "\n".join([
+        "$b = '" + base + "'",
+        'iwr "$b/deploy/windows?token=' + token + '" -OutFile si-agent-install.ps1 -UseBasicParsing',
+        'powershell -NoProfile -ExecutionPolicy Bypass -File .\\si-agent-install.ps1',
+    ])
+    body = (
+        "<h1>si-agent - installation du poste</h1>"
+        "<p>Site : <b>" + _html.escape(site) + "</b>. Ouvre <b>PowerShell en administrateur</b>, colle ces lignes :</p>"
+        "<pre id=cmd>" + _html.escape(cmd) + "</pre>"
+        "<button onclick=\"navigator.clipboard.writeText(document.getElementById('cmd').innerText)\">Copier</button>"
+        "<p class=note>Le script telecharge l'agent <b>et Python depuis ce serveur</b> (pas besoin de python.org), s'enrole sous le nom de la machine et demarre le service.</p>"
+        "<h2>Telechargements manuels</h2><ul>"
+        "<li><a href=\"" + base + "/deploy/windows?token=" + token + "\">Script d'installation (.ps1)</a></li>"
+        "<li><a href=\"" + base + "/package\" download>Archive de l'agent (.tgz)</a></li>"
+        "<li><a href=\"" + base + "/deploy/python\" download>Python embarque (.zip)</a></li>"
+        "</ul>"
+    )
+    return Response(_INSTALL_PAGE.replace("__BODY__", body), mimetype="text/html; charset=utf-8")
+
 @app.route("/deploy/<platform>", methods=["GET"])
 def deploy_script_route(platform):
     """Script d'amorçage (texte) : télécharge l'archive de l'agent, l'extrait et
@@ -970,7 +1048,7 @@ Invoke-WebRequest -UseBasicParsing -Uri "$base/package" -OutFile (Join-Path $tmp
 tar -xzf (Join-Path $tmp "agent.tgz") -C $tmp
 $dir = Get-ChildItem -Path $tmp -Directory | Select-Object -First 1
 $ps = Join-Path $dir.FullName "windows\install.ps1"
-$args = @("-EnrollToken", $token, "-Central", $base, "-Site", "%(site)s")
+$args = @("-EnrollToken", $token, "-Central", $base, "-Site", "%(site)s", "-PythonUrl", "$base/deploy/python")
 if ("%(ca)s") { $args += @("-CaFingerprint", "%(ca)s") } else { $args += "-SystemCa" }
 if ("%(plugins)s") { $args += @("-EnablePlugin", ("%(plugins)s" -split ",")) }
 & powershell -NoProfile -ExecutionPolicy Bypass -File $ps @args

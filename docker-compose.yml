@@ -1208,6 +1208,11 @@ services:
       # URL que les agents utilisent pour joindre le central (passerelle
       # TLS) -- affichée dans la commande d'installation.
       - SI_AGENT_PUBLIC_URL=${SI_AGENT_PUBLIC_URL:-https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/si-agent}
+      # #648 : Python embarqué servi par le hub (/deploy/python) pour les postes
+      # sans accès à python.org -- récupéré une fois par le serveur, mis en cache
+      # sur le volume /data (persistant entre redémarrages).
+      - SI_AGENT_PYTHON_EMBED_URL=${SI_AGENT_PYTHON_EMBED_URL:-https://www.python.org/ftp/python/3.12.7/python-3.12.7-embed-amd64.zip}
+      - SI_AGENT_PYTHON_EMBED_CACHE=${SI_AGENT_PYTHON_EMBED_CACHE:-/data/python-embed.zip}
       - SI_AGENT_OFFLINE_SECONDS=${SI_AGENT_OFFLINE_SECONDS:-300}
       - SI_AGENT_RETENTION_DAYS=${SI_AGENT_RETENTION_DAYS:-90}
       # #422 : sécurité, traces, notifications (SMS/courriel via les

@@ -1,3 +1,27 @@
+## 2026-09-28 — Installation d'agent depuis un poste sans accès à python.org (livraison #648)
+
+Pour poser l'agent sur un poste qui ne joint que le hub public en 443 (VLAN
+cloisonné, pas d'Internet général — cas du PC contrôleur d'écrans) : le hub
+sert lui-même le Python et une page d'install atteignable depuis le poste.
+
+- `GET /deploy/python` : le hub récupère une fois la distribution Python
+  embarquée (le serveur a Internet) et la met en cache (`/data`), le poste la
+  télécharge depuis le hub. Bootstrap Windows et `.cmd` silencieux passent
+  `-PythonUrl <base>/deploy/python` à install.ps1 → agent + Python 100 % depuis
+  le hub, plus de dépendance à python.org.
+- `GET /install?token=` : page (protégée par le jeton) ouverte dans le
+  navigateur du poste, qui donne la ligne à coller (script téléchargé puis
+  exécuté, pas de `iex` → antivirus-friendly) et les liens. Aucune option à
+  taper ; l'agent communique via `-Central` (supervision.optline.fr), modifiable.
+
+Variables : `SI_AGENT_PYTHON_EMBED_URL`, `SI_AGENT_PYTHON_EMBED_CACHE`
+(docker-compose + .env.example). Vérifié : 23 tests API (dont
+DeployInstallTests : service Python simulé, `-PythonUrl` dans le bootstrap,
+page /install jeton valide→200 / invalide→403), non-régression du `.cmd`
+silencieux mise à jour. Non vérifié : téléchargement réel depuis python.org
+côté serveur, rendu navigateur de la page. Fichiers : si-agent/api/app.py,
+test_si_agent_api.py, README.md, docker-compose.yml, .env.example.
+
 ## 2026-09-28 — Portail LDAP : lisibilité des champs en thème sombre (livraison #647)
 
 Les champs de saisie du portail Gestion OpenLDAP n'avaient ni `background` ni

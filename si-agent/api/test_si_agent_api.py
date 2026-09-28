@@ -142,7 +142,7 @@ class DashboardTests(ApiBase):
             self.assertIn('attachment; filename="si-agent-install-srv-01.cmd"', r.headers["Content-Disposition"])
             body = r.get_data(as_text=True)
             self.assertTrue(body.startswith("@echo off\r\n"))
-            self.assertIn('-Agent "srv-01" -Secret "%s" -Central "https://vm:6443/api/si-agent" -Site "siege" -CaFingerprint %s > "%%LOG%%"' % (a["secret"], "ab" * 32), body)
+            self.assertIn('-Agent "srv-01" -Secret "%s" -Central "https://vm:6443/api/si-agent" -Site "siege" -CaFingerprint %s -PythonUrl "https://vm:6443/api/si-agent/deploy/python" > "%%LOG%%"' % (a["secret"], "ab" * 32), body)
             self.assertIn("-NonInteractive", body)
             self.assertIn('cd /d "%~dp0"', body)
             self.assertIn("-Verb RunAs", body)
@@ -737,3 +737,42 @@ class NetworkObservabilityTests(ApiBase):
         # filtre par site
         self.assertEqual(self.c.get("/network-observability?site=ovh").get_json()["dns"], [])
         self.assertEqual(len(self.c.get("/network-observability?site=numeria").get_json()["resources"]), 1)
+
+
+class DeployInstallTests(ApiBase):
+    def test_deploy_python_sert_le_zip(self):
+        """Le central récupère (ici simulé) et sert le Python embarqué."""
+        import os, tempfile, urllib.request
+        import app as appmod
+        cache = os.path.join(tempfile.mkdtemp(), "py.zip")
+        appmod._PYTHON_EMBED_CACHE = cache
+        orig = urllib.request.urlretrieve
+        urllib.request.urlretrieve = lambda url, dst: open(dst, "wb").write(b"PK" + b"0" * 2_000_000)
+        try:
+            r = self.c.get("/deploy/python")
+        finally:
+            urllib.request.urlretrieve = orig
+        self.assertEqual(r.status_code, 200)
+        self.assertGreater(len(r.data), 1_000_000)
+        self.assertTrue(os.path.exists(cache))  # mis en cache
+
+    def test_bootstrap_windows_pointe_python_sur_le_hub(self):
+        import app as appmod, store
+        tok = store.create_enroll_token(appmod.DB_PATH, "numeria", central_url="https://sup.example/api/si-agent")
+        body = self.c.get("/deploy/windows?token=%s" % tok["token"]).get_data(as_text=True)
+        self.assertIn("-PythonUrl", body)
+        self.assertIn("/deploy/python", body)
+
+    def test_page_install(self):
+        import app as appmod, store
+        tok = store.create_enroll_token(appmod.DB_PATH, "numeria", central_url="https://sup.example/api/si-agent")
+        r = self.c.get("/install?token=%s" % tok["token"])
+        self.assertEqual(r.status_code, 200)
+        html = r.get_data(as_text=True)
+        self.assertIn("/deploy/windows?token=", html)
+        self.assertIn("/deploy/python", html)
+        self.assertIn("PowerShell", html)
+        # jeton absent/invalide -> 403 avec consigne
+        r2 = self.c.get("/install?token=inexistant")
+        self.assertEqual(r2.status_code, 403)
+        self.assertIn("jeton", r2.get_data(as_text=True).lower())
