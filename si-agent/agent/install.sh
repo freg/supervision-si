@@ -5,6 +5,12 @@
 #   sudo ./install.sh --agent srv-01 --secret '...' --central https://VM:6443/api/si-agent \
 #        [--site siege] [--ca /chemin/ca.crt | --ca-fingerprint sha256hex | --insecure] \
 #        [--enable-plugin network-neighbors] [--plugins-user nobody] [--log-level DEBUG] [--no-detect]
+#        [--python /opt/pyagent/python/bin/python3]   # interpréteur d'EXÉCUTION de l'agent
+#
+# Python : l'agent requiert Python >= 3.7. Sur un hôte trop ancien (Debian 9 /
+# PVE 5 = 3.5), installer un Python autonome (aucun changement système) et le
+# passer via --python -- voir docs/agent-python-autonome.md. À défaut, l'install
+# REFUSE proprement (plutôt qu'un service qui boucle en crash au démarrage).
 #
 # Détection (#524) : sur un hôte Proxmox VE (/etc/pve présent et `pvesh`
 # disponible) le plugin `proxmox` est activé et les sondes tournent en root
@@ -23,6 +29,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 AGENT="" SECRET="" CENTRAL="" FALLBACK="" SITE="default" CA="" CAFP="" INSECURE="false" ENABLE=() PLUGINS_USER="" LOG_LEVEL="INFO" UPGRADE="false" DETECT="true"
+PYAGENT="python3"   # #645 : interpréteur d'exécution de l'agent (peut différer du python3 système)
 while [ $# -gt 0 ]; do
   case "$1" in
     --upgrade) UPGRADE="true"; shift;;   # #522 : code et service seulement, configuration/secret/CA/sondes conservés
@@ -38,9 +45,32 @@ while [ $# -gt 0 ]; do
     --plugins-user) PLUGINS_USER="$2"; shift 2;;
     --log-level) LOG_LEVEL="$2"; shift 2;;
     --no-detect) DETECT="false"; shift;;   # #524 : pas d'activation automatique selon l'hôte
+    --python) PYAGENT="$2"; shift 2;;   # #645 : Python >= 3.7 pour faire tourner l'agent (hôte ancien = Python autonome)
     *) echo "argument inconnu : $1" >&2; exit 2;;
   esac
 done
+# #645 : garde-fou Python -- l'agent tourne sous PYAGENT (>= 3.7). Vérifié AVANT
+# tout enrôlement, pour ne jamais laisser un hôte trop ancien s'enrôler puis
+# boucler en crash. Les petits scripts d'amorçage ci-dessous (enrôlement, CA)
+# restent sous le python3 système : ils sont volontairement compatibles 3.5.
+PYAGENT="${SI_AGENT_PYTHON:-$PYAGENT}"
+PYAGENT_ABS="$(command -v "$PYAGENT" 2>/dev/null || true)"
+[ -n "$PYAGENT_ABS" ] || { [ -x "$PYAGENT" ] && PYAGENT_ABS="$PYAGENT"; }
+[ -n "$PYAGENT_ABS" ] || { echo "interpréteur Python introuvable : $PYAGENT (voir --python)" >&2; exit 1; }
+if ! "$PYAGENT_ABS" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3, 7) else 1)' 2>/dev/null; then
+  ver="$("$PYAGENT_ABS" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo "?")"
+  {
+    echo "ERREUR : si-agent requiert Python >= 3.7, or $PYAGENT_ABS est en $ver."
+    echo "  Hôte trop ancien (ex. Debian 9 / Proxmox VE 5 = Python 3.5)."
+    echo "  Installe un Python AUTONOME (aucun changement système) puis relance avec --python :"
+    echo "    curl -LsSf https://astral.sh/uv/install.sh | sh"
+    echo "    ~/.local/bin/uv python install 3.11"
+    echo '    sudo ./install.sh --python "$(~/.local/bin/uv python find 3.11)" <mêmes options>'
+    echo "  Détails et variante sans uv : docs/agent-python-autonome.md"
+  } >&2
+  exit 1
+fi
+
 # #616 : enrôlement par jeton de site (SI_AGENT_ENROLL_TOKEN + SI_AGENT_CENTRAL, posés par le script d'amorçage
 # GET /deploy/linux?token=) -- l'agent est nommé d'après la machine, le secret est délivré ici.
 if [ "$UPGRADE" != "true" ] && [ -n "${SI_AGENT_ENROLL_TOKEN:-}" ]; then
@@ -133,11 +163,13 @@ with open("/etc/si-agent/agent.json", "w") as fh:
 PY
 chmod 600 /etc/si-agent/agent.json
 install -m 644 "$HERE/systemd/si-agent.service" /etc/systemd/system/si-agent.service
+# #645 : ExecStart pointe sur l'interpréteur choisi (défaut python3 système)
+sed -i "s#^ExecStart=[^ ]*#ExecStart=$PYAGENT_ABS#" /etc/systemd/system/si-agent.service
 systemctl daemon-reload
 systemctl enable si-agent.service
 # #524 : toujours (re)démarrer -- `enable --now` laissait tourner un ancien
 # process avec l'ancienne configuration lors d'une réinstallation (vu sur
 # deux hyperviseurs : agent démarré sous le mauvais identifiant / sans CA).
 systemctl restart si-agent.service
-echo "si-agent installé : systemctl status si-agent ; PYTHONPATH=/opt/si-agent python3 -m si_agent.agent --status"
+echo "si-agent installé ($PYAGENT_ABS) : systemctl status si-agent ; PYTHONPATH=/opt/si-agent $PYAGENT_ABS -m si_agent.agent --status"
 echo "blocage local d'urgence : touch /etc/si-agent/BLOCKED (ou --block) ; traces : journalctl -u si-agent -f"

@@ -1,3 +1,24 @@
+## 2026-09-28 — install.sh : garde-fou Python >= 3.7 + option --python (livraison #646)
+
+Suite à un agent installé sur un vieux Proxmox (Debian 9 / Python 3.5) qui
+bouclait en crash (`ImportError: ThreadingHTTPServer`, plus f-strings et
+`subprocess.run(text=)` en 3.7) : `install.sh` refuse maintenant proprement
+sous 3.7, avec un message expliquant la marche à suivre (Python autonome).
+
+Nouvelle option `--python <chemin>` (ou `SI_AGENT_PYTHON`) : interpréteur
+d'EXÉCUTION de l'agent, distinct du `python3` système. La vérification de
+version a lieu AVANT l'enrôlement (ne consomme pas de jeton, ne crée pas
+d'agent à moitié sur un hôte non supporté). Le service systemd est rendu avec
+cet interpréteur (`ExecStart`). Les scripts d'amorçage (enrôlement, vérif CA)
+restent volontairement compatibles 3.5. Nouvelle doc `docs/agent-python-autonome.md`
+(Python autonome via uv ou archive standalone, puis `install.sh --python`).
+
+Vérifié : `bash -n` (syntaxe), gate accepte le python du conteneur (>=3.7) et
+refuse un python 3.5 simulé (message + sortie en erreur), réécriture de
+l'ExecStart par sed en conservant les arguments. Non vérifié : installation
+complète réelle (root/systemd) ni sur un hôte 3.5 réel. Fichiers :
+si-agent/agent/install.sh, si-agent/agent/README.md, docs/agent-python-autonome.md.
+
 ## 2026-09-28 — Portail LDAP : création de comptes + affectation aux groupes (livraison #645)
 
 Deux pages dans le portail « Gestion OpenLDAP » (onglets « ➕ Créer un compte »
