@@ -1,3 +1,31 @@
+## 2026-09-28 — Portail LDAP : création de comptes + affectation aux groupes (livraison #645)
+
+Deux pages dans le portail « Gestion OpenLDAP » (onglets « ➕ Créer un compte »
+et « 👥 Groupes ») pour la tâche récurrente d'ajout d'utilisateurs, en
+remplacement du script (qui restait silencieux sur une partie des erreurs).
+
+Création : type interne (`uid=…,ou=accounts,dc=groupe-i,dc=fr`) ou externe
+(`uid=…,ou=external,ou=accounts,…`), schéma `top`+`posixAccount`+`inetOrgPerson`,
+**uidNumber alloué automatiquement** (max+1), mot de passe haché par le serveur,
+refus si l'uid existe déjà. Affectation : **sélecteur** des groupes sous
+`ou=groups,ou=accounts`, attribut d'appartenance déduit de la classe du groupe
+(member/uniqueMember/memberUid). Chaque écriture : sauvegarde préalable, droit
+`manage`, et **erreur ldapmodify affichée telle quelle** (fini le silence).
+
+Nouveaux endpoints : `GET /accounts/config`, `POST /accounts`, `GET /groups`,
+`POST /groups/member`. Variables : `LDAP_ACCOUNTS_DN`, `LDAP_EXTERNAL_DN`,
+`LDAP_GROUPS_DN`, `LDAP_DEFAULT_GID`, `LDAP_DEFAULT_SHELL`, `LDAP_UID_FLOOR`
+(docker-compose + .env.example). Nouveau module `ldap_accounts.py` (ajouté au
+COPY du Dockerfile).
+
+Vérifié : logique pure `ldap_accounts` (9 tests) ; routes via test_client avec
+ldapsearch/ldapmodify simulés, dont la remontée d'erreur en 502 et l'uidNumber
+auto (6 tests) ; JSX du portail parsé (@babel/parser). Non vérifié : pas de
+navigateur (rendu des pages), pas de serveur LDAP réel, pas de `npm run build`.
+Fichiers : ldap-admin/api/{ldap_accounts.py,app.py,ldap_client.py,Dockerfile,
+test_accounts.py,test_routes.py}, ldap-admin/portal/src/{App.jsx,ldap.css},
+docker-compose.yml, .env.example, ldap-admin/README.md.
+
 ## 2026-09-27 — Bande passante Proxmox affichée dans le hub + runbook démo Numeria (livraison #644, item 107)
 
 La bande passante par tranche horaire, déjà collectée par le plugin proxmox

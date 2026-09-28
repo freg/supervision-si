@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN apt-get update && apt-get install -y --no-install-recommends ldap-utils \
     && rm -rf /var/lib/apt/lists/*
 
-COPY ldap-admin/api/app.py ldap-admin/api/ldap_client.py ldap-admin/api/ldap_backup.py ldap-admin/api/ldif_tools.py .
+COPY ldap-admin/api/app.py ldap-admin/api/ldap_client.py ldap-admin/api/ldap_accounts.py ldap-admin/api/ldap_backup.py ldap-admin/api/ldif_tools.py .
 COPY shared/version_endpoint.py .
 COPY shared/VERSION.json .
 COPY shared/log_buffer.py .

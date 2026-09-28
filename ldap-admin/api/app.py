@@ -36,6 +36,12 @@ import requests
 import ldap_client
 import ldap_backup
 import ldif_tools
+import ldap_accounts
+import datetime as _dt
+
+
+def _today():
+    return _dt.date.today().isoformat()
 
 # Import DÉFENSIF -- même motif qu'ailleurs dans ce projet (voir
 # dba/api/app.py) : version_endpoint.py n'existe que dans le
@@ -114,6 +120,17 @@ LDAP_ADMIN_BASE_CONFIG = {
 
 BACKUP_DIR = os.environ.get("LDAP_ADMIN_BACKUP_DIR", "/data/backups")
 BACKUP_RETENTION_COUNT = int(os.environ.get("LDAP_ADMIN_BACKUP_RETENTION_COUNT", "30"))
+
+# Conteneurs de comptes/groupes (création + affectation, livraison LDAP).
+# Défauts = conventions Groupe-I (voir ajoute-compte-externe.sh) ; réglables
+# par variable d'environnement pour un autre annuaire. Doivent être SOUS
+# LDAP_ADMIN_BASE_DN (la racine) pour être joignables.
+LDAP_ACCOUNTS_DN = os.environ.get("LDAP_ACCOUNTS_DN", "ou=accounts,dc=groupe-i,dc=fr")
+LDAP_EXTERNAL_DN = os.environ.get("LDAP_EXTERNAL_DN", "ou=external,ou=accounts,dc=groupe-i,dc=fr")
+LDAP_GROUPS_DN = os.environ.get("LDAP_GROUPS_DN", "ou=groups,ou=accounts,dc=groupe-i,dc=fr")
+LDAP_DEFAULT_GID = int(os.environ.get("LDAP_DEFAULT_GID", "65534"))
+LDAP_DEFAULT_SHELL = os.environ.get("LDAP_DEFAULT_SHELL", "/bin/false")
+LDAP_UID_FLOOR = int(os.environ.get("LDAP_UID_FLOOR", "1000"))
 
 
 def base_config_is_complete():
@@ -357,6 +374,211 @@ def update_entry(dn):
 
     app.logger.info("Entrée modifiée %s par %s (attributs : %s)", dn, actor or "(non tracé)", ", ".join(attr_changes.keys()))
     return jsonify({"status": "ok"}), 200
+
+
+def _attr_ci(attrs, name):
+    """Lecture insensible à la casse d'un attribut d'une entrée parse_ldif
+    (l'export peut renvoyer « objectclass » ou « objectClass »)."""
+    low = name.lower()
+    for k, v in (attrs or {}).items():
+        if k.lower() == low:
+            return v
+    return []
+
+
+@app.route("/accounts/config", methods=["GET"])
+def accounts_config():
+    """Conteneurs et défauts utilisés par les pages de création/affectation --
+    lus par le portail pour afficher les DN cibles et pré-remplir."""
+    return jsonify({
+        "base_dn": LDAP_ADMIN_BASE_CONFIG.get("base_dn", ""),
+        "accounts_dn": LDAP_ACCOUNTS_DN,
+        "external_dn": LDAP_EXTERNAL_DN,
+        "groups_dn": LDAP_GROUPS_DN,
+        "default_gid": LDAP_DEFAULT_GID,
+        "default_shell": LDAP_DEFAULT_SHELL,
+    }), 200
+
+
+@app.route("/accounts", methods=["POST"])
+def create_account():
+    """Création d'un compte (interne sous ou=accounts, externe sous
+    ou=external,ou=accounts). uidNumber alloué automatiquement (max+1 des
+    posixAccount sous ou=accounts) sauf override explicite. Sauvegarde avant
+    écriture ; erreur ldapmodify remontée telle quelle (jamais avalée)."""
+    body = request.get_json(silent=True) or {}
+    allowed, error = _check_manage_right(body)
+    if not allowed:
+        return jsonify({"error": error}), 403
+    config, err = require_ready_config()
+    if err:
+        return err
+
+    uid = (body.get("uid") or "").strip()
+    kind = (body.get("kind") or "").strip()
+    sn = (body.get("sn") or "").strip()
+    given = (body.get("given_name") or "").strip()
+    mail = (body.get("mail") or "").strip()
+    password = body.get("password") or ""
+    actor = body.get("actor", "")
+    if not ldap_accounts.valid_uid(uid):
+        return jsonify({"error": "uid invalide (minuscules, chiffres, . _ - ; commence par une lettre/chiffre)"}), 400
+    if kind not in ("interne", "externe"):
+        return jsonify({"error": "type de compte requis : 'interne' ou 'externe'"}), 400
+    if not sn:
+        return jsonify({"error": "nom (sn) requis"}), 400
+    if not password:
+        return jsonify({"error": "mot de passe requis (haché par le serveur à la création)"}), 400
+
+    try:
+        dn = ldap_accounts.account_dn(uid, kind, LDAP_ACCOUNTS_DN, LDAP_EXTERNAL_DN)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    # uid déjà pris ? (portée racine)
+    exists = ldap_client.search(config, LDAP_ADMIN_BASE_CONFIG["base_dn"], "(uid=%s)" % uid, ["dn"])
+    if not exists["ok"]:
+        return jsonify({"error": "vérification d'unicité impossible : %s" % exists["stderr"]}), 502
+    if "dn:" in (exists["stdout"] or ""):
+        return jsonify({"error": "uid « %s » déjà présent dans l'annuaire" % uid}), 409
+
+    # uidNumber : override entier explicite, sinon max+1 des posixAccount
+    uid_number = body.get("uid_number")
+    if uid_number in (None, ""):
+        res = ldap_client.search(config, LDAP_ACCOUNTS_DN, "(objectClass=posixAccount)", ["uidNumber"])
+        if not res["ok"]:
+            return jsonify({"error": "allocation uidNumber impossible : %s" % res["stderr"]}), 502
+        uid_number = ldap_accounts.next_uid_number(res["stdout"], floor=LDAP_UID_FLOOR)
+        if uid_number is None:
+            return jsonify({"error": "aucun uidNumber existant trouvé sous %s -- préciser uid_number" % LDAP_ACCOUNTS_DN}), 500
+    else:
+        try:
+            uid_number = int(uid_number)
+        except (TypeError, ValueError):
+            return jsonify({"error": "uid_number doit être un entier"}), 400
+
+    gid_number = body.get("gid_number")
+    try:
+        gid_number = int(gid_number) if gid_number not in (None, "") else LDAP_DEFAULT_GID
+    except (TypeError, ValueError):
+        return jsonify({"error": "gid_number doit être un entier"}), 400
+    login_shell = (body.get("login_shell") or LDAP_DEFAULT_SHELL).strip()
+    description = body.get("description") or ("compte %s, créé le %s" % (kind, _today()))
+
+    ldif_text = ldap_accounts.build_add_account_ldif(
+        dn, uid, sn, uid_number, gid_number,
+        given_name=given or None, mail=mail or None, password=password,
+        login_shell=login_shell, description=description,
+    )
+
+    try:
+        ldap_backup.create_backup(
+            BACKUP_DIR, "avant-creation-compte", config,
+            ldap_client.export_ldif, retention_count=BACKUP_RETENTION_COUNT,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": "sauvegarde de sécurité impossible, création annulée par prudence : %s" % exc}), 500
+
+    result = ldap_client.apply_ldif(config, ldif_text)
+    if not result["ok"]:
+        return jsonify({"error": "création échouée : %s" % result["stderr"]}), 502
+
+    app.logger.info("Compte créé %s (uidNumber %s) par %s", dn, uid_number, actor or "(non tracé)")
+    return jsonify({"status": "ok", "dn": dn, "uid_number": uid_number}), 201
+
+
+@app.route("/groups", methods=["GET"])
+def list_groups():
+    """Groupes sous LDAP_GROUPS_DN -- alimente le sélecteur d'affectation."""
+    config, err = require_ready_config()
+    if err:
+        return err
+    res = ldap_client.search(
+        config, LDAP_GROUPS_DN,
+        "(|(objectClass=groupOfNames)(objectClass=groupOfUniqueNames)(objectClass=posixGroup))",
+        ["cn", "objectClass", "member", "uniqueMember", "memberUid", "description"],
+    )
+    if not res["ok"]:
+        return jsonify({"error": "lecture des groupes impossible : %s" % res["stderr"]}), 502
+    entries = ldif_tools.parse_ldif(res["stdout"])
+    groups = []
+    for dn, attrs in entries.items():
+        ocs = _attr_ci(attrs, "objectClass")
+        attr = ldap_accounts.group_member_attr(ocs)
+        members = _attr_ci(attrs, "member") + _attr_ci(attrs, "uniqueMember") + _attr_ci(attrs, "memberUid")
+        cn = (_attr_ci(attrs, "cn") or [dn]).__getitem__(0)
+        groups.append({
+            "dn": dn, "cn": cn, "member_attr": attr,
+            "object_classes": ocs, "member_count": len(members),
+            "description": (_attr_ci(attrs, "description") or [""])[0],
+        })
+    groups.sort(key=lambda g: (g["cn"] or "").lower())
+    return jsonify({"groups": groups, "groups_dn": LDAP_GROUPS_DN}), 200
+
+
+@app.route("/groups/member", methods=["POST"])
+def group_member():
+    """Ajoute (ou retire) un utilisateur d'un groupe -- attribut d'appartenance
+    choisi selon la classe du groupe (member / uniqueMember / memberUid).
+    Sauvegarde avant écriture, erreur ldapmodify remontée."""
+    body = request.get_json(silent=True) or {}
+    allowed, error = _check_manage_right(body)
+    if not allowed:
+        return jsonify({"error": error}), 403
+    config, err = require_ready_config()
+    if err:
+        return err
+    group_dn = (body.get("group_dn") or "").strip()
+    uid = (body.get("uid") or "").strip()
+    action = (body.get("action") or "add").strip()
+    actor = body.get("actor", "")
+    if not group_dn or not ldap_accounts.valid_uid(uid):
+        return jsonify({"error": "group_dn et uid valides requis"}), 400
+    if action not in ("add", "remove"):
+        return jsonify({"error": "action : 'add' ou 'remove'"}), 400
+
+    grp = ldap_client.search(config, group_dn, "(objectClass=*)", ["objectClass"], scope="base")
+    if not grp["ok"]:
+        return jsonify({"error": "groupe introuvable : %s" % grp["stderr"]}), 502
+    gentries = ldif_tools.parse_ldif(grp["stdout"])
+    if not gentries:
+        return jsonify({"error": "groupe « %s » absent" % group_dn}), 404
+    gocs = _attr_ci(next(iter(gentries.values())), "objectClass")
+    attr = ldap_accounts.group_member_attr(gocs)
+    if not attr:
+        return jsonify({"error": "type de groupe non reconnu (classes : %s)" % ", ".join(gocs)}), 400
+
+    # valeur : DN complet pour member/uniqueMember, uid pour memberUid
+    if attr == "memberUid":
+        value = uid
+    else:
+        u = ldap_client.search(config, LDAP_ADMIN_BASE_CONFIG["base_dn"], "(uid=%s)" % uid, ["dn"])
+        if not u["ok"]:
+            return jsonify({"error": "recherche de l'utilisateur impossible : %s" % u["stderr"]}), 502
+        udn = None
+        for line in (u["stdout"] or "").splitlines():
+            if line.lower().startswith("dn:"):
+                udn = line.split(":", 1)[1].strip()
+                break
+        if not udn:
+            return jsonify({"error": "utilisateur uid=%s introuvable" % uid}), 404
+        value = udn
+
+    ldif_text = ldap_accounts.build_group_member_ldif(group_dn, attr, value, add=(action == "add"))
+    try:
+        ldap_backup.create_backup(
+            BACKUP_DIR, "avant-affectation-groupe", config,
+            ldap_client.export_ldif, retention_count=BACKUP_RETENTION_COUNT,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": "sauvegarde de sécurité impossible, affectation annulée par prudence : %s" % exc}), 500
+
+    result = ldap_client.apply_ldif(config, ldif_text)
+    if not result["ok"]:
+        return jsonify({"error": "affectation échouée : %s" % result["stderr"]}), 502
+
+    app.logger.info("Groupe %s : %s %s (%s) par %s", group_dn, action, value, attr, actor or "(non tracé)")
+    return jsonify({"status": "ok", "group_dn": group_dn, "member_attr": attr, "value": value, "action": action}), 200
 
 
 @app.route("/backups", methods=["GET"])

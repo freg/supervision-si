@@ -383,3 +383,31 @@ Câblage réel testé sur les 4 routes, confirmant le refus AVANT le
 contrôle de configuration. Non-régression des routes de consultation
 reconfirmée (jamais gatées, toujours 200/503 selon la config, jamais
 403).
+
+
+## Création de comptes et affectation aux groupes (livraison #645)
+
+Deux pages dans le portail (onglets « ➕ Créer un compte » et « 👥 Groupes »),
+adossées à de nouveaux endpoints de l'API. Motif d'écriture identique au reste
+du module : LDIF → `ldapmodify` via `apply_ldif`, **sauvegarde automatique
+avant écriture**, contrôle du droit `manage`, et **remontée intégrale du
+`stderr` de ldapmodify** en cas d'échec (403/409/500/502 avec message clair) --
+correctif de la plainte « le script est silencieux pour une partie des erreurs ».
+
+- `GET /accounts/config` : conteneurs et défauts (lus par le portail).
+- `POST /accounts` : crée un compte `top`+`posixAccount`+`inetOrgPerson`
+  (schéma du script maison). Type **interne** → `uid=…,ou=accounts` ; **externe**
+  → `uid=…,ou=external,ou=accounts`. **uidNumber alloué automatiquement**
+  (max+1 des `posixAccount` sous `ou=accounts`, plancher `LDAP_UID_FLOOR`) sauf
+  override. Refus si `uid` déjà présent (409). Mot de passe envoyé en clair,
+  **haché par le serveur** (ppolicy/olcPasswordHash).
+- `GET /groups` : groupes sous `ou=groups,ou=accounts` (sélecteur).
+- `POST /groups/member` : ajoute/retire un utilisateur ; l'attribut
+  d'appartenance (`member` / `uniqueMember` / `memberUid`) est **déduit de la
+  classe du groupe**, jamais supposé (refus explicite si classe non reconnue).
+
+Conteneurs et défauts réglables : `LDAP_ACCOUNTS_DN`, `LDAP_EXTERNAL_DN`,
+`LDAP_GROUPS_DN`, `LDAP_DEFAULT_GID`, `LDAP_DEFAULT_SHELL`, `LDAP_UID_FLOOR`
+(défauts = conventions Groupe-I). Logique pure testée : `ldap_accounts.py`
+(`test_accounts.py`, 9 tests) ; câblage des routes : `test_routes.py` (6 tests,
+ldapsearch/ldapmodify simulés, y compris la remontée d'erreur).

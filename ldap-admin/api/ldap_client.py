@@ -194,6 +194,34 @@ def run_command(cmd, runner=subprocess.run, timeout=60):
     return {"ok": result.returncode == 0, "stdout": stdout, "stderr": stderr, "returncode": result.returncode}
 
 
+def build_search_command(config, password_file, base, filt, attrs=None, scope=None):
+    """Pure -- ldapsearch paramétré (base/filtre/attributs/portée) pour les
+    besoins ciblés (uid déjà pris, uidNumber max, entrées de groupes) sans
+    exporter tout l'annuaire. -LLL : sortie LDIF nue (sans commentaires)."""
+    cmd = [
+        "ldapsearch", "-x", "-LLL",
+        "-H", config["url"],
+        "-D", config["bind_dn"],
+        "-y", password_file,
+        "-b", base,
+        "-o", "ldif-wrap=no",
+    ]
+    if scope:
+        cmd.extend(["-s", scope])
+    cmd.append(filt)
+    if attrs:
+        cmd.extend(attrs)
+    return cmd
+
+
+def search(config, base, filt, attrs=None, scope=None, runner=subprocess.run):
+    """Point d'entrée unique de recherche ciblée -- mot de passe de liaison
+    jamais sur la ligne de commande (fichier temporaire, supprimé)."""
+    with TempPasswordFile(config["bind_password"]) as password_file:
+        cmd = build_search_command(config, password_file, base, filt, attrs, scope)
+        return run_command(cmd, runner=runner)
+
+
 def export_ldif(config, runner=subprocess.run):
     """Point d'entrée unique -- export complet de l'annuaire en LDIF.
     Le mot de passe de liaison ne transite JAMAIS par la ligne de
