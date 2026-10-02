@@ -2578,3 +2578,9 @@ l'application Supervision SI historique (`VITE_SUPERVISION_FRONTEND_URL`).
 `PublicLinks.jsx` rend le tableau nom / description / adresse / Ouvrir /
 Copier (presse-papier, repli `execCommand`). Aucune icône, variables de
 thème seulement (`.hub-public-links*` dans `hub.css`).
+
+
+## Pastilles d'icônes (livraison #649)
+
+`HubIcon.jsx` + `hubIconSet.js` : jeu Lucide sur disques colorés par le thème, remplaçant les emoji des titres de
+thèmes, sections de menu et groupes de l'arbre (les données gardent leurs emoji). Voir `docs/charte-icones-hub.md`.

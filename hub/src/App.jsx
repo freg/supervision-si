@@ -3,6 +3,7 @@ import { useAuth } from "react-oidc-context";
 import { buildFrontsList, formatUserRoles, roleInitials, isAdmin, isTechnicien, ROLE_LABELS } from "./lib.js";
 import { createAccountThemeStore } from "./preferences.js";
 import ReminderWidget from "./ReminderWidget.jsx";
+import HubIcon from "./HubIcon.jsx";
 import TabShell from "./TabShell.jsx";
 import {
   fetchAppSettings, saveAppSettings, mergeTicketsAppSettings,
@@ -1546,7 +1547,7 @@ export default function App() {
   const renderMenuItems = (g, themeId) => g.children.map((c) => (c.type === "ref" ? (
     <button key={c.id} type="button" onClick={() => openLeaf(decorateLeaf(c.leaf), themeId)}>{c.leaf.label}{c.leaf.kind === "link" && !c.leaf.embeddable ? " ↗" : ""}</button>
   ) : (
-    <div key={c.id} className="hub-nav-section"><span className="hub-nav-section-title">{c.icon} {c.label}</span>{renderMenuItems(c, themeId)}</div>
+    <div key={c.id} className="hub-nav-section"><span className="hub-nav-section-title"><HubIcon icon={c.icon} size={14} />{c.label}</span>{renderMenuItems(c, themeId)}</div>
   )));
 
   // Horloge permanente -- calcul dérivé de browserNow/serverTimeInfo
@@ -1963,7 +1964,7 @@ vm === "agent-page" ? (
                       const t = visibleThemes.find((x) => x.id === n.id);
                       return t ? (
                         <button key={t.id} type="button" className="hub-card hub-front-card hub-front-tile-button hub-theme-tile" onClick={() => { setThemeEntry(null); setViewMode(themeViewMode(t.id)); }}>
-                          <h2>{t.icon} {t.name}</h2>
+                          <h2><HubIcon icon={t.icon} size={22} />{t.name}</h2>
                           <p className="muted" title={t.labels.join(" · ")}>{t.count} outil{t.count > 1 ? "s" : ""} — {t.labels.join(" · ")}</p>
                         </button>
                       ) : null;
@@ -2043,7 +2044,7 @@ vm === "agent-page" ? (
                 {menuMode === "business" && businessShown.roots.map((r) => {
                   const renderNode = (n, depth) => (
                     <details key={n.id} open={!!menuQuery || openBusinessPaths.has(n.id) || (depth === 0 && false)}>
-                      <summary>{n.icon ? `${n.icon} ` : ""}{n.label} <span className="muted">({n.count})</span>{depth === 0 && n.description && <span className="muted hub-nav-desc"> — {n.description}</span>}</summary>
+                      <summary><HubIcon icon={n.icon} size={16} />{n.label} <span className="muted">({n.count})</span>{depth === 0 && n.description && <span className="muted hub-nav-desc"> — {n.description}</span>}</summary>
                       <div className="hub-nav-tree-children">
                         {n.leaves.map((l) => (
                           <button key={`${n.id}:${l.id}`} type="button" className={leafActive(l) ? "active" : ""} onClick={() => openLeaf(decorateLeaf(l), null)} title={l.also.length ? `aussi sous : ${l.also.join(" ; ")}` : ""}>
@@ -2061,7 +2062,7 @@ vm === "agent-page" ? (
                   <button key={n.id} type="button" className={leafActive(n.leaf) ? "active" : ""} onClick={() => openLeaf(n.leaf, null)}>{n.leaf.label}{n.leaf.kind === "link" && !n.leaf.embeddable ? " ↗" : ""}</button>
                 ) : (
                   <details key={n.id} open={themeIdOf(viewMode) === n.id || themeOfView(visibleThemes, viewMode) === n.id}>
-                    <summary>{n.icon} {n.label} <span className="muted">({n.children.length})</span></summary>
+                    <summary><HubIcon icon={n.icon} size={16} />{n.label} <span className="muted">({n.children.length})</span></summary>
                     <div className="hub-nav-tree-children">
                       <button type="button" className="hub-nav-tree-all" onClick={() => { setThemeEntry(null); setViewMode(themeViewMode(n.id)); setOpenNavMenu(null); }}>Ouvrir la thématique</button>
                       {renderMenuItems(n, n.id)}

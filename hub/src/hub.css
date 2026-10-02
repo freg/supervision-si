@@ -1543,6 +1543,20 @@ thead tr + tr th { top: 0; }
 .nc-suggestions { min-width: 0 !important; width: 100%; }
 .nc-suggestions td:nth-child(2) { white-space: normal; min-width: 260px; }
 
+/* Pastilles d'icônes (#649, HubIcon.jsx / hubIconSet.js) : palette d'IDENTITÉ en six teintes, définie pour les
+   deux thèmes (règle 2 de la charte : l'état passe par --ok/--warning/--danger, jamais par ces teintes). */
+:root, :root[data-theme="light"] {
+  --hub-icon-teal: #2f8f8a; --hub-icon-orange: #e3952e; --hub-icon-purple: #6f4ea0;
+  --hub-icon-brick: #d4552c; --hub-icon-green: #4e9a6b; --hub-icon-slate: #5a6b74; --hub-icon-fg: #ffffff;
+}
+:root[data-theme="dark"] {
+  --hub-icon-teal: #3aa8a2; --hub-icon-orange: #e9a64a; --hub-icon-purple: #8a6cc0;
+  --hub-icon-brick: #e0694a; --hub-icon-green: #5fb27e; --hub-icon-slate: #7b8c96; --hub-icon-fg: #ffffff;
+}
+.hub-icon-text { display: inline-block; }
+svg.hub-icon { flex: none; vertical-align: -0.2em; margin-right: 0.3em; }
+.hub-nav-section-title svg.hub-icon, .hub-tile h2 svg.hub-icon, summary svg.hub-icon { margin-right: 0.35em; }
+
 /* Charte d'icônes (#410) -- icons.js / StepIcon.jsx. Les symboles et les
    tracés prennent la couleur passée en `color` (currentColor), les emoji
    gardent la leur : aucune couleur en dur ici. */

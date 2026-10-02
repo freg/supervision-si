@@ -94,3 +94,15 @@ réel des trois jeux dans Chromium (Playwright) en thème clair et sombre,
 menu classique et graphique, sans erreur console. Non vérifié : le rendu
 des emoji sur le poste de la personne (dépend de sa police système), le
 rendu des symboles Unicode sur Windows (police Segoe UI Symbol).
+
+
+## Quatrième jeu : pastilles Lucide (livraison #649)
+
+Pictogrammes [Lucide](https://lucide.dev) (licence ISC) en trait blanc sur un disque coloré, le même jeu que le port
+Python d'Optick3 pour une identité commune aux applications du groupe. Module `hub/src/hubIconSet.js` (78 icônes dont
+un lot réseau), rendu `hub/src/HubIcon.jsx`, correspondance emoji → pastille pour les champs `icon:` existants.
+Règles : la couleur du disque est une **identité** (six teintes `--hub-icon-*`, deux thèmes), jamais un état ; les
+icônes d'état (alerte, stop, Wi-Fi coupé, débranché, bug, ok…) utilisent `--ok/--warning/--danger`. Pour ajouter une
+icône : une entrée dans le générateur de portage-kit (nom Lucide + ton), régénérer le module, compléter
+`EMOJI_TO_ICON` si elle remplace un emoji. Le test `hubIconSet.test.mjs` refuse toute couleur en dur et tout emoji
+sans pastille.

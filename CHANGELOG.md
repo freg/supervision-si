@@ -1,3 +1,27 @@
+## 2026-10-02 — Pastilles d'icônes du hub : jeu Lucide sur disques colorés, icônes réseau (livraison #649)
+
+Demande : « applique le jeu d'icônes dans supervision_si en ajoutant des icônes réseau du même style » — le jeu
+conçu pour le port Python d'Optick3 (pictogrammes Lucide, licence ISC, trait blanc sur pastille). Quatrième jeu de
+la charte (#410) à côté des emoji, symboles et traits : il remplace les emoji des titres de thèmes, sections de
+menu et groupes de l'arbre du hub, sans toucher aux données (les champs `icon:` gardent leur emoji ; une table de
+correspondance les résout, et un emoji inconnu s'affiche comme avant).
+
+- `hub/src/hubIconSet.js` (pur, généré par portage-kit) : 78 pastilles — les 37 emoji en usage + icônes réseau
+  (routeur, serveur, Wi-Fi et Wi-Fi coupé, câble, port Ethernet, parabole, radar, prise/débranché, processeur,
+  disque, cloud, terminal, scan, waypoints, route, branche, conteneur, tour de contrôle, jauge, bug, empreinte…).
+- `hub/src/HubIcon.jsx` : rendu SVG inline ; charte respectée — la pastille porte une couleur d'IDENTITÉ
+  (`--hub-icon-teal/orange/purple/brick/green/slate`, définies dans `hub.css` pour les deux thèmes), les icônes
+  d'état seules utilisent `--ok/--warning/--danger` ; trait `--hub-icon-fg` ; aucune couleur en dur dans les tracés.
+- `App.jsx` : quatre sites de rendu passent par `<HubIcon>` (titres de thèmes, titres de sections de menu, groupes
+  et sous-groupes de l'arbre).
+- Vérifié : `hub/tests/hubIconSet.test.mjs` (4 tests : corps et tons valides, tous les emoji des champs `icon:`
+  résolus, `resolveIcon`, `toneVar`) ; syntaxe `@babel/parser` sur App.jsx/HubIcon.jsx/hubIconSet.js ;
+  275/276 tests du hub verts — l'échec `hubBusiness.test.mjs` (« chaque tuile déclarée a un chemin valide… ») est
+  antérieur à cette livraison (reproduit sur HEAD sans mes changements), à regarder à part.
+- Non vérifié : `npm run build` (impossible depuis ce shell), rendu réel dans le navigateur.
+- Fichiers : hub/src/hubIconSet.js, hub/src/HubIcon.jsx, hub/src/App.jsx, hub/src/hub.css, hub/tests/hubIconSet.test.mjs,
+  docs/charte-icones-hub.md, hub/README.md, shared/DELIVERY_NUMBER.
+
 ## 2026-09-28 — Installation d'agent depuis un poste sans accès à python.org (livraison #648)
 
 Pour poser l'agent sur un poste qui ne joint que le hub public en 443 (VLAN
