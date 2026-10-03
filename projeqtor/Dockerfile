@@ -69,7 +69,10 @@ RUN echo '<?php $parametersLocation="/data/config/parameters.php";' \
                 /data \
     && chown -R www-data:www-data /var/www/html/projeqtor/cache \
                                   /var/www/html/projeqtor/files \
-                                  /data
+                                  /data \
+    # #664 : COPY garde les droits du contexte de build ; un dépôt tiré avec umask 077 (fichiers 600) rendait
+    # index.php illisible par Apache (« Failed opening required ... Permission denied ») -- lecture garantie.
+    && chmod -R a+rX /var/www/html/projeqtor
 
 COPY docker-entrypoint.sh /usr/local/bin/projeqtor-entrypoint.sh
 RUN chmod +x /usr/local/bin/projeqtor-entrypoint.sh
