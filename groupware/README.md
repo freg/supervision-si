@@ -99,7 +99,9 @@ un participant retiré perd sa copie, la suppression par l'organisateur retire t
 `GET /events` renvoie `attendees`, `organizer`, `invite_from` et `my_partstat`.
 
 **Rappel** : `alarm` = minutes avant le début (`VALARM` DISPLAY, lu par les clients CalDAV : Thunderbird, DAVx5, iOS).
-Le hub ne notifie pas lui-même (à faire : rappel dans le bandeau du hub).
+Dans le hub (#670) : `GET /reminders?user=&within=` (occurrences de mes agendas et invitations non déclinées portant un
+rappel, `fire_at`, `due`, `minutes_to_start`) ; bandeau « ⏰ Rappel d'agenda » en haut de toutes les pages, interrogé
+toutes les minutes, rappel écartable par occurrence, notification du navigateur si autorisée (demandée au clic).
 
 Vérifié contre un Radicale réel (`test_live_invite.py`) : copie chez chaque participant, réponse propagée dans les deux
 sens, participant retiré, suppression de la copie = déclin, suppression maître = plus rien nulle part.
@@ -130,5 +132,5 @@ développement des groupes sur l'annuaire réel.
 
 ## Tranches suivantes (voir la note de cadrage)
 
-Les quatre tranches de la note de cadrage sont livrées (#664-#668), invitations et rappels en #669. Suite : Kanban ENT
-comme vue d'InfoLog, rappels affichés par le hub, test réel des clients DAV / LDAP.
+Les quatre tranches de la note de cadrage sont livrées (#664-#668), invitations et rappels en #669, bandeau de rappels en
+#670. Suite : Kanban ENT comme vue d'InfoLog, test réel des clients DAV / LDAP.

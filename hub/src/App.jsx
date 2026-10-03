@@ -32,6 +32,7 @@ import PortageView from "./PortageView.jsx";
 import QaView from "./QaView.jsx";
 import DataSyncView from "./DataSyncView.jsx";
 import GroupwareView from "./GroupwareView.jsx";   // #664
+import GroupwareReminders from "./GroupwareReminders.jsx";   // #670
 import PveOpsView from "./PveOpsView.jsx";
 import RetroView from "./RetroView.jsx";
 import BackupRestoreView from "./BackupRestoreView.jsx";
@@ -1935,6 +1936,9 @@ vm === "agent-page" ? (
           )}
 
           <main className="hub-main">
+            {GROUPWARE_API_BASE_URL && profile.preferred_username && (
+              <GroupwareReminders base={GROUPWARE_API_BASE_URL} login={profile.preferred_username} groups={groups.map((g) => String(g).replace(/^\//, ""))} onOpen={() => setViewMode("groupware")} />
+            )}
             {SI_AGENT_API_BASE_URL && (
               <SiAgentEventsBanner siAgentApiBase={SI_AGENT_API_BASE_URL} onOpen={() => setViewMode("si-agent")} />
             )}

@@ -70,3 +70,14 @@ test("participants : liste texte <-> objets, réponses conservées, rappel", () 
   assert.deepEqual(attendeeSummary([...known, { name: "a" }, { name: "c", partstat: "DECLINED" }]), { ACCEPTED: 1, DECLINED: 1, TENTATIVE: 0, "NEEDS-ACTION": 1 });
   assert.ok(ALARM_CHOICES.some(([v]) => v === "1440"));
 });
+
+// #670 : rappels
+import { dueReminders, reminderKey, reminderText } from "../src/groupwareLib.js";
+test("rappels : échus non écartés, texte", () => {
+  const a = { owner: "me", book: "agenda", uid: "u1", start: "2026-11-03T14:00", title: "Comité", due: true, minutes_to_start: 9, location: "Salle 2" };
+  const b = { ...a, uid: "u2", due: false }; const c = { ...a, start: "2026-11-10T14:00", minutes_to_start: 0 };
+  assert.deepEqual(dueReminders([a, b, c]).map((r) => r.uid), ["u1", "u1"]);
+  assert.deepEqual(dueReminders([a, b, c], new Set([reminderKey(a)])), [c]);
+  assert.equal(reminderText(a), "Comité — dans 9 min · Salle 2"); assert.equal(reminderText(c), "Comité — maintenant · Salle 2");
+  assert.equal(reminderText({ ...a, minutes_to_start: -3, location: "" }), "Comité — commencé il y a 3 min"); assert.equal(reminderText({ ...a, minutes_to_start: 200, location: "" }), "Comité — à 14:00");
+});

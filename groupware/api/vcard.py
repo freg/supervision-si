@@ -12,11 +12,11 @@ def unfold(text):
 
 
 def _unescape(v):
-    return v.replace("\\n", "\n").replace("\\N", "\n").replace("\\,", ",").replace("\;", ";").replace("\\\\", "\\")
+    return v.replace("\\n", "\n").replace("\\N", "\n").replace("\\,", ",").replace("\\;", ";").replace("\\\\", "\\")
 
 
 def _escape(v):
-    return str(v or "").replace("\\", "\\\\").replace("\n", "\\n").replace(",", "\\,").replace(";", "\;")
+    return str(v or "").replace("\\", "\\\\").replace("\n", "\\n").replace(",", "\\,").replace(";", "\\;")
 
 
 def parse(text):

@@ -579,6 +579,36 @@ def events_reply(owner, book, uid):
     journal(user, "réponse %s à %s (%s)" % (ps.lower(), master["title"], src))
     return jsonify(event=ical.public(master, owner=o, book=bk, my_partstat=ps))
 
+@app.route("/reminders", methods=["GET"])
+def reminders():
+    """#670 : ?user=&groups=&within=1440 -> occurrences de MES agendas (et invitations reçues) portant un rappel, qui commencent dans
+    `within` minutes ; `fire_at` = début - rappel, `due` = rappel échu (fire_at <= maintenant, début pas encore passé de plus de 15 min)."""
+    err = _need_service()
+    if err: return err
+    user = request.args.get("user") or ""
+    if not core.NAME_RE.match(user): return jsonify(error="user requis"), 400
+    try: within = max(1, min(int(request.args.get("within") or 1440), 60 * 24 * 7))
+    except ValueError: within = 1440
+    from datetime import datetime, timedelta, timezone
+    now = datetime.now(timezone.utc); ws, we = now - timedelta(minutes=15), now + timedelta(minutes=within)
+    out = []
+    try:
+        d = dav()
+        for c in _readable_calendars(d, user, groups_arg()):
+            if not c["mine"]: continue
+            for ev in _events_in(d, c["owner"], c["name"], ws, we):
+                if ev.get("alarm") is None or ev.get("all_day"): continue
+                mine = next((a["partstat"] for a in ev.get("attendees") or [] if a["name"] == user), "")
+                if mine == "DECLINED": continue
+                for s, e in ical.occurrences(ev, ws, we):
+                    fire = s - timedelta(minutes=int(ev["alarm"]))
+                    if s < ws: continue
+                    out.append(ical.public(ev, s, e, owner=c["owner"], book=c["name"], book_name=c["displayname"], fire_at=ical.iso(fire), due=fire <= now, minutes_to_start=int((s - now).total_seconds() // 60)))
+    except DavError as e:
+        return jsonify(error="serveur CalDAV : %s" % e), 502
+    out.sort(key=lambda x: x["start"])
+    return jsonify(reminders=out, now=ical.iso(now))
+
 @app.route("/freebusy", methods=["GET"])
 def freebusy():
     """?users=a,b&resources=salle-1&from=&to= -> créneaux occupés par principal, sans détail (tous agendas, quels que soient les partages)."""

@@ -52,3 +52,4 @@ export const listInfolog = (b, user, groups, params) => fetchJson(`${b}/infolog?
 export const createInfolog = (b, body) => fetchJson(`${b}/infolog`, json("POST", body));
 export const updateInfolog = (b, id, body) => fetchJson(`${b}/infolog/${id}`, json("PUT", body));
 export const deleteInfolog = (b, id, user) => fetchJson(`${b}/infolog/${id}?user=${encodeURIComponent(user)}`, { method: "DELETE" });
+export const listReminders = (b, user, groups, within) => fetchJson(`${b}/reminders?${q({ user, groups: (groups || []).join(","), within })}`);   // #670

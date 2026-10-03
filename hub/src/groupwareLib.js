@@ -123,3 +123,7 @@ export function linkLabel(l) {
   if (l.app === "ged") return `document ${l.id}`;
   return `${l.app} ${l.id}`;
 }
+// #670 : rappels -- ceux échus et non écartés, clé stable par occurrence
+export const reminderKey = (r) => `${r.owner}/${r.book}/${r.uid}@${r.start}`;
+export function dueReminders(list, dismissed = new Set()) { return (list || []).filter((r) => r.due && !dismissed.has(reminderKey(r))); }
+export function reminderText(r) { const m = Number(r.minutes_to_start); const when = m <= 0 ? (m === 0 ? "maintenant" : `commencé il y a ${-m} min`) : m < 60 ? `dans ${m} min` : `à ${String(r.start).slice(11, 16)}`; return `${r.title} — ${when}${r.location ? ` · ${r.location}` : ""}`; }

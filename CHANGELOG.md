@@ -1,3 +1,18 @@
+## 2026-10-03 — Groupware : rappels d'agenda affichés par le hub (livraison #670)
+
+`GET /reminders?user=&groups=&within=` : occurrences de mes agendas (invitations reçues comprises, déclinées exclues)
+portant un rappel et commençant dans la fenêtre — `fire_at`, `due`, `minutes_to_start`. Bandeau « ⏰ Rappel d'agenda »
+(`GroupwareReminders.jsx`) en tête de toutes les pages, interrogé toutes les minutes : une ligne par rappel échu
+(clic → tuile Groupware), « ✕ » pour l'écarter, notification du navigateur quand elle est autorisée (permission
+demandée au premier clic sur le bandeau). Au passage : `vcard.py` sans avertissement de séquence d'échappement.
+
+- Vérifié : `test_live_invite.test_reminders` contre un Radicale réel (rappel échu / à venir / absent, autre
+  utilisateur vide), hub `node --test` (310), `@babel/parser` (`App.jsx`, `GroupwareReminders.jsx`).
+- Non vérifié : rendu navigateur, notification réelle.
+- Fichiers : `groupware/api/{app.py,vcard.py,test_live_invite.py}`, `groupware/README.md`, `hub/src/{App.jsx,
+  GroupwareReminders.jsx,groupwareClient.js,groupwareLib.js,hub.css}`, `hub/tests/groupwareLib.test.mjs`, `BACKLOG.md`,
+  `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — Groupware : invitations (participants, réponses) et rappels (livraison #669)
 
 Radicale ne fait pas de scheduling : le hub s'en charge. Un événement peut avoir des **participants** (identifiants du

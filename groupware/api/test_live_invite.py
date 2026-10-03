@@ -42,5 +42,20 @@ class LiveInvite(unittest.TestCase):
         self.assertEqual(c.delete("/events/alice/agenda-inv/%s?user=alice" % uid).status_code, 200)
         self.assertEqual(c.get("/events?user=svc" + W).json["total"], 0); self.assertEqual(c.get("/events?user=bob" + W).json["total"], 0)
 
+    def test_reminders(self):
+        from datetime import datetime, timedelta, timezone
+        c = self.c; soon = datetime.now(timezone.utc) + timedelta(minutes=10); later = soon + timedelta(hours=5)
+        for coll in ("agenda-rap",):
+            try: self.m.dav().delete_collection("alice", coll)
+            except Exception: pass
+        self.assertEqual(c.post("/calendars", json={"user": "alice", "name": "rap"}).status_code, 201)
+        c.post("/events", json={"user": "alice", "owner": "alice", "book": "agenda-rap", "event": {"title": "Bientôt", "start": soon.isoformat(), "alarm": 15}})
+        c.post("/events", json={"user": "alice", "owner": "alice", "book": "agenda-rap", "event": {"title": "Plus tard", "start": later.isoformat(), "alarm": 5}})
+        c.post("/events", json={"user": "alice", "owner": "alice", "book": "agenda-rap", "event": {"title": "Sans rappel", "start": later.isoformat()}})
+        r = c.get("/reminders?user=alice&within=600").json; titles = {x["title"]: x for x in r["reminders"]}
+        self.assertEqual(set(titles), {"Bientôt", "Plus tard"}); self.assertTrue(titles["Bientôt"]["due"]); self.assertFalse(titles["Plus tard"]["due"])
+        self.assertEqual(titles["Bientôt"]["minutes_to_start"], 9)
+        self.assertEqual(c.get("/reminders?user=bob&within=600").json["reminders"], [])
+
 if __name__ == "__main__":
     unittest.main()
