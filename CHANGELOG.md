@@ -29,6 +29,8 @@ Vérifié : `portage/api/test_portage.py` (4 scénarios `test_client`, dont les 
 `inventory → smoke` jouée via l'API avec le vrai kit et une vraie MariaDB sur l'application d'exemple du kit
 (6 unités, 4 routes portées, fumée 3×200 / 1×500 attendu sans décision), `node --test hub/tests/portageLib.test.mjs`
 (4), syntaxe `@babel/parser` sur les trois fichiers, aucun setter sans `useState`, aucune couleur en dur.
+`node --test hub/tests/*.test.mjs` : 279 verts, 1 échec PRÉEXISTANT (`hubBusiness` : `view:personal` de #638 n'a qu'un chemin
+métier ; pas touché ici, à traiter séparément). La tuile Portage est déclarée sous Services › métier et Cortex › apprentissage.
 Non vérifié : rendu navigateur (pas de `npm run build` depuis le shell), build de l'image `portage/api`,
 déploiement (`cd ~/SRC/data2/tickets/supervision-si && sudo ./scripts/run.sh up -d --build portage-api portage-db hub tls-proxy`
 puis `git clone` du kit dans `portage/kit` avant le premier lancement d'étapes).
