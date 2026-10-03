@@ -1,3 +1,25 @@
+## Contrôle de tous les PVE, serveurs/services, tour de contrôle (2026-10-03) — items 111-114
+
+Demandé 3 oct. 2026 : « un outil de supervision/contrôle de tous les pve : migration des volumes, backup, vm… ;
+réplication / pra (plan de…) ; idem tous serveurs/services : avec gestion/commande de migration vers virtualisation,
+bascule de rôle (celui qui répond) ; une tour de contrôle : dns, routage, flux → traffics ».
+
+- (111, **FAIT #653**, première brique) **PVE** : opérations migrate / backup / move_disk / clone / replicate par
+  l'agent de chaque hyperviseur, plans (PRA, maintenance, bascule, migration) simulés puis exécutés pas à pas par le
+  central. Reste : déclencheurs automatiques d'un PRA (nœud absent → plan), état des jobs de réplication et des
+  sauvegardes remonté dans la tuile (lecture `pvesr status`, journal vzdump), test sur pve10/pve11.
+- (112) **Serveurs/services → virtualisation** : à cadrer. Pistes : Windows = item 101 (`image_host`, Disk2vhd) + import
+  `qm importdisk` par l'agent du nœud ; Linux = image à chaud (`dd`/`partclone` via l'agent) ou reconstruction par
+  rôle (conteneur/VM + données via datasync #652) ; choix à prendre avec la personne (image brute vs reconstruction).
+- (113) **Bascule de rôle (« celui qui répond »)** : à cadrer — mécanisme : enregistrement DNS (zone interne BIND /
+  OVH / Nebula ?), VIP (keepalived/VRRP), ou règle NAT MikroTik (#587 déjà pilotable). Proposition : un « rôle » =
+  nom de service + liste ordonnée de candidats (VM, serveur) + mécanisme de bascule + vérification (service-watch) ;
+  la bascule devient une étape de plan (#653).
+- (114) **Tour de contrôle DNS / routage / flux** : à cadrer — DNS : quelles zones et quel serveur (BIND interne,
+  OVH, Nebula ?) pour éditer et pas seulement importer (service-watch importe déjà) ; routage : MikroTik (#485/#587)
+  et Cisco (#508) — tables de routes et NAT en lecture, modifications journalisées ; flux → trafic : network-agent
+  (#236+), conntrack (#640), bande passante (#641) — vue consolidée « d'où vers où, combien », par service/rôle.
+
 ## Réseau : observabilité DNS, accès aux ressources (ntopng natif), bande passante horaire — items 105-107
 
 Demandé 26/09/2026, validé « enchaîne » : (105, **FAIT #639**) **observabilité DNS** —

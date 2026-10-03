@@ -152,3 +152,12 @@ export async function fetchEventsMuted(apiBase, limit = 300) {
   const data = await fetchJson(apiBase, `/events?include_muted=1&limit=${limit}`);
   return Array.isArray(data?.events) ? data.events : [];
 }
+
+// #653 : plans PRA / opérations PVE (séquences de vm_action exécutées par le central)
+export const fetchPraPlans = (apiBase) => fetchJson(apiBase, "/pra/plans");
+export const createPraPlan = (apiBase, body) => fetchJson(apiBase, "/pra/plans", json("POST", body));
+export const updatePraPlan = (apiBase, id, body) => fetchJson(apiBase, `/pra/plans/${id}`, json("PUT", body));
+export const deletePraPlan = (apiBase, id) => fetchJson(apiBase, `/pra/plans/${id}`, { method: "DELETE" });
+export const runPraPlan = (apiBase, id, mode, actor) => fetchJson(apiBase, `/pra/plans/${id}/run`, json("POST", { mode, actor }));
+export const fetchPraRun = (apiBase, rid) => fetchJson(apiBase, `/pra/runs/${rid}`);
+export const fetchPraRuns = (apiBase, id) => fetchJson(apiBase, `/pra/plans/${id}/runs`);

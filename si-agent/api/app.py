@@ -45,6 +45,8 @@ import package  # noqa: E402
 import store  # noqa: E402
 import publish as publish_lib  # noqa: E402
 import updates  # noqa: E402
+import pra  # noqa: E402  -- #653 : plans PRA / opérations PVE
+import json  # noqa: E402
 import notify  # noqa: E402
 import alertfilters  # noqa: E402  (#607)
 
@@ -93,6 +95,7 @@ LOG_BUFFER_SIZE = int(os.environ.get("LOG_BUFFER_SIZE", "200"))
 LOG_CAPTURE_LEVEL = os.environ.get("LOG_CAPTURE_LEVEL", "WARNING").strip().upper()
 
 store.ensure_schema(DB_PATH)
+pra.init(DB_PATH)
 
 
 def get_memcache_client():
@@ -820,6 +823,114 @@ def updates_apply_route():
     created = _schedule_updates(only_agent=body.get("agent_id"), actor=(body.get("actor") or "bouton")[:64])
     pkg, settings, planned = _updates_plan()
     return jsonify(dict(updates.summary(planned, pkg, settings), agents=planned, scheduled=[a for a, _ in created])), 200
+
+
+# ============================================================
+# #653 : plans PRA / opérations PVE (séquences de vm_action, simulation puis exécution)
+# ============================================================
+
+@app.route("/pra/plans", methods=["GET"])
+def pra_plans_route():
+    conn = store._connect(DB_PATH)
+    try:
+        plans = [pra.plan_public(r) for r in conn.execute("SELECT * FROM pra_plans ORDER BY name")]
+        for p_ in plans:
+            r = conn.execute("SELECT id, mode, status, started_at, finished_at FROM pra_runs WHERE plan_id = ? ORDER BY id DESC LIMIT 1", (p_["id"],)).fetchone()
+            p_["last_run"] = dict(r) if r else None
+    finally:
+        conn.close()
+    return jsonify({"plans": plans, "actions": list(pra.ACTIONS), "required": pra.REQUIRED}), 200
+
+
+@app.route("/pra/plans", methods=["POST"])
+def pra_plan_create_route():
+    body = request.get_json(silent=True) or {}
+    steps, err = pra.validate_steps(body.get("steps"))
+    if err:
+        return jsonify({"error": err}), 400
+    if not (body.get("name") or "").strip():
+        return jsonify({"error": "nom du plan requis"}), 400
+    conn = store._connect(DB_PATH)
+    try:
+        cur = conn.execute("INSERT INTO pra_plans (name, kind, notes, steps, continue_on_error, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
+                           (body["name"].strip(), body.get("kind") or "pra", body.get("notes") or "", json.dumps(steps, ensure_ascii=False), 1 if body.get("continue_on_error") else 0, store.now_iso(), store.now_iso()))
+        row = conn.execute("SELECT * FROM pra_plans WHERE id = ?", (cur.lastrowid,)).fetchone(); conn.commit()
+    finally:
+        conn.close()
+    return jsonify({"plan": pra.plan_public(row)}), 201
+
+
+@app.route("/pra/plans/<int:pid>", methods=["PUT"])
+def pra_plan_update_route(pid):
+    body = request.get_json(silent=True) or {}
+    conn = store._connect(DB_PATH)
+    try:
+        row = conn.execute("SELECT * FROM pra_plans WHERE id = ?", (pid,)).fetchone()
+        if not row:
+            return jsonify({"error": "plan inconnu"}), 404
+        steps = json.loads(row["steps"])
+        if "steps" in body:
+            steps, err = pra.validate_steps(body["steps"])
+            if err:
+                return jsonify({"error": err}), 400
+        conn.execute("UPDATE pra_plans SET name = ?, kind = ?, notes = ?, steps = ?, continue_on_error = ?, updated_at = ? WHERE id = ?",
+                     ((body.get("name") or row["name"]).strip(), body.get("kind", row["kind"]), body.get("notes", row["notes"]), json.dumps(steps, ensure_ascii=False),
+                      1 if body.get("continue_on_error", row["continue_on_error"]) else 0, store.now_iso(), pid))
+        row = conn.execute("SELECT * FROM pra_plans WHERE id = ?", (pid,)).fetchone(); conn.commit()
+    finally:
+        conn.close()
+    return jsonify({"plan": pra.plan_public(row)}), 200
+
+
+@app.route("/pra/plans/<int:pid>", methods=["DELETE"])
+def pra_plan_delete_route(pid):
+    conn = store._connect(DB_PATH)
+    try:
+        n = conn.execute("DELETE FROM pra_plans WHERE id = ?", (pid,)).rowcount; conn.execute("DELETE FROM pra_runs WHERE plan_id = ?", (pid,)); conn.commit()
+    finally:
+        conn.close()
+    return (jsonify({"ok": True}), 200) if n else (jsonify({"error": "plan inconnu"}), 404)
+
+
+@app.route("/pra/plans/<int:pid>/run", methods=["POST"])
+def pra_plan_run_route(pid):
+    """{mode: simulate|execute, actor}. Exécution réelle : commandes vm_action envoyées une à une aux agents des hyperviseurs."""
+    body = request.get_json(silent=True) or {}
+    mode = body.get("mode") or "simulate"
+    if mode not in ("simulate", "execute"):
+        return jsonify({"error": "mode : simulate ou execute"}), 400
+    conn = store._connect(DB_PATH)
+    try:
+        row = conn.execute("SELECT * FROM pra_plans WHERE id = ?", (pid,)).fetchone()
+        running = conn.execute("SELECT id FROM pra_runs WHERE plan_id = ? AND status = 'running' AND mode = 'execute'", (pid,)).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return jsonify({"error": "plan inconnu"}), 404
+    if running and mode == "execute":
+        return jsonify({"error": "une exécution de ce plan est déjà en cours (n°%s)" % running["id"]}), 409
+    rid = pra.start_run(DB_PATH, pra.plan_public(row), mode, str(body.get("actor") or ""))
+    return jsonify({"run_id": rid}), 202
+
+
+@app.route("/pra/runs/<int:rid>", methods=["GET"])
+def pra_run_route(rid):
+    conn = store._connect(DB_PATH)
+    try:
+        row = conn.execute("SELECT * FROM pra_runs WHERE id = ?", (rid,)).fetchone()
+    finally:
+        conn.close()
+    return (jsonify({"run": pra.run_public(row)}), 200) if row else (jsonify({"error": "exécution inconnue"}), 404)
+
+
+@app.route("/pra/plans/<int:pid>/runs", methods=["GET"])
+def pra_plan_runs_route(pid):
+    conn = store._connect(DB_PATH)
+    try:
+        rows = conn.execute("SELECT * FROM pra_runs WHERE plan_id = ? ORDER BY id DESC LIMIT 20", (pid,)).fetchall()
+    finally:
+        conn.close()
+    return jsonify({"runs": [pra.run_public(r) for r in rows]}), 200
 
 
 @app.route("/commands/<cid>", methods=["GET"])

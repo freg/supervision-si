@@ -31,6 +31,7 @@ import SchemaAnalyzerView from "./SchemaAnalyzerView.jsx";
 import PortageView from "./PortageView.jsx";
 import QaView from "./QaView.jsx";
 import DataSyncView from "./DataSyncView.jsx";
+import PveOpsView from "./PveOpsView.jsx";
 import RetroView from "./RetroView.jsx";
 import BackupRestoreView from "./BackupRestoreView.jsx";
 import ArchitectureView from "./ArchitectureView.jsx";
@@ -1488,7 +1489,7 @@ export default function App() {
     ARCHITECTURE_API_BASE_URL && "architecture", (EXTERNAL_BASES.ipam || EXTERNAL_BASES.zenoss) && "fusion", NEBULA_API_BASE_URL && "nebula",
     SSH_TUNNELS_API_BASE_URL && "ssh-tunnels", HAS_EXTERNAL_BASES && "external-bases", GLPI_API_BASE_URL && "glpi-inventory",
     GEO_CATALOG_API_BASE_URL && "geo-catalog", CLASSIFIER_API_BASE_URL && "classifier", SCHEMA_ANALYZER_API_BASE_URL && "schema-analyzer",
-    RETRO_API_BASE_URL && "retro", PORTAGE_API_BASE_URL && "portage", QA_API_BASE_URL && "qa", DATASYNC_API_BASE_URL && "datasync", (TICKETS_API_BASE_URL || TASKS_API_BASE_URL) && "ent", GED_API_BASE_URL && "ged",
+    RETRO_API_BASE_URL && "retro", PORTAGE_API_BASE_URL && "portage", QA_API_BASE_URL && "qa", DATASYNC_API_BASE_URL && "datasync", SI_AGENT_API_BASE_URL && "pve-ops", (TICKETS_API_BASE_URL || TASKS_API_BASE_URL) && "ent", GED_API_BASE_URL && "ged",
     FILE_MANAGER_API_BASE_URL && "file-manager", IMAP_CLIENT_API_BASE_URL && "imap",
     IMAP_CONNECTORS_API_BASE_URL && "imap-connectors", bastionAllowed && "si-proxy",
     RIGHTS_API_BASE_URL && groups.includes("admin_hub") && "rights", BACKUP_RESTORE_API_BASE_URL && "backup-restore",
@@ -1638,6 +1639,8 @@ vm === "agent-page" ? (
           schemaApiBase={SCHEMA_ANALYZER_API_BASE_URL}
           login={profile.preferred_username}
         />
+      ) : vm === "pve-ops" ? (
+        <PveOpsView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} login={profile.preferred_username} />
       ) : vm === "datasync" ? (
         <DataSyncView onBack={goBack} datasyncApiBase={DATASYNC_API_BASE_URL} login={profile.preferred_username} />
       ) : vm === "qa" ? (

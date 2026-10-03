@@ -1,3 +1,30 @@
+## 2026-10-03 — Contrôle PVE : migration, sauvegarde, disques, clonage, réplication, plans de reprise (livraison #653)
+
+Demande : « un outil de supervision/contrôle de tous les pve : migration des volumes, backup, vm… ; réplication / pra »
+(suite : serveurs/services, migration vers virtualisation, bascule de rôle, tour de contrôle dns/routage/flux — voir
+BACKLOG items 111-114, à cadrer). Première brique livrée sur le socle existant (agents sur les hyperviseurs, commande
+`vm_action` #572, tuile Proxmox #488) : **opérations d'exploitation** et **plans** simulés puis exécutés pas à pas.
+
+- Agent 0.5.29 (`si_agent/vmctl.py`) : `migrate`, `backup` (vzdump), `move_disk`, `clone`, `replicate` / `unreplicate`
+  (pvesr) — paramètres validés par motifs fermés, délai 3600 s ; 4 tests (`tests/test_vmctl_ops.py`), suite agent 76 verts.
+- Central `si-agent-api` (`pra.py`, routes `/pra/*`) : plans (PRA, maintenance, bascule, migration), simulation
+  (agents connus, commandes qui seraient envoyées, rien d'envoyé), exécution séquentielle avec acquittement et arrêt
+  à la première erreur (`continue_on_error` en option), historique ; `test_z_pra.py` (agent simulé) ; suite 38 verts.
+- Hub : tuile Supervision/Réseau → « Contrôle PVE (opérations, PRA) » (`PveOpsView.jsx`, `pveOpsLib.js` testé) : VM par
+  hyperviseur avec formulaire d'opération (cibles = autres nœuds remontés, stockages du nœud), « Exécuter maintenant »
+  (suivi de l'acquittement) ou « Ajouter au plan en cours », éditeur de plan (ordre, libellés), Simuler / Exécuter,
+  exécution suivie étape par étape, historique. `hubThemes.js`, `hubBusiness.js`, `siAgentClient.js`, `hub.css` (`pv-*`).
+
+Vérifié : tests agent (76) et central (38, dont le `test_z_pra` nommé pour passer après `test_si_agent_api` qui fixe
+l'environnement de la suite), `node --test` (289 verts, 1 échec préexistant `view:personal`), `@babel/parser`.
+Non vérifié : sur un vrai Proxmox, rendu navigateur, build. Déploiement :
+`cd ~/SRC/data2/tickets/supervision-si && sudo ./scripts/run.sh up -d --build si-agent-api hub` puis mise à jour des
+agents des hyperviseurs en 0.5.29 (tuile Agents hôtes → Mises à jour).
+
+Fichiers : `si-agent/agent/si_agent/{vmctl.py,__init__.py}`, `si-agent/agent/tests/test_vmctl_ops.py`,
+`si-agent/api/{pra.py,app.py,Dockerfile,test_z_pra.py}`, `si-agent/README.md`, `hub/src/{PveOpsView.jsx,pveOpsLib.js,siAgentClient.js,App.jsx,hubThemes.js,hubBusiness.js,hub.css}`,
+`hub/tests/pveOpsLib.test.mjs`, `BACKLOG.md`, `CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — Synchronisation centrale : liaison unidirectionnelle des sources vers un SGBD central, supervision, analyse, recherches (livraison #652)
 
 Demande : « une liaison de synchronisation unidirectionnelle depuis les différents serveurs/appli/sql vers un sgbd central

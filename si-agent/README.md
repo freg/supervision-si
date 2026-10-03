@@ -1280,3 +1280,28 @@ chaque requête (`%D`, format `hub_timed`) — relancer le script sur le
 frontal pour l'activer. Hub : section « Accès publics (frontal) » dans la
 fiche de cet agent. 3 tests (analyse du format, constats, ligne de
 commande sur fichiers réels).
+
+## Contrôle PVE : opérations d'exploitation et plans de reprise (livraison #653, agent 0.5.29)
+
+Demande : « un outil de supervision/contrôle de tous les PVE : migration des volumes, backup, VM… ; réplication / PRA ».
+Socle : la commande `vm_action` (#572) s'étend aux opérations longues (`si_agent/vmctl.py`, `build_ops_argv`,
+délai 3600 s) — `migrate` (`qm|pct migrate <vmid> <nœud> [--online|--restart] [--with-local-disks]`), `backup`
+(`vzdump <vmid> --storage S --mode snapshot|suspend|stop --compress zstd`), `move_disk` (`qm disk move` /
+`pct move-volume`, suppression de la source), `clone` (`--full`, nom, nœud, stockage), `replicate` /
+`unreplicate` (`pvesr create-local-job <vmid>-<n> <nœud> --schedule`, `pvesr delete`). Chaque paramètre est validé
+par un motif fermé avant de construire la ligne de commande (nœud, stockage, disque, planification), jamais
+interpolé tel quel. L'agent doit tourner en root sur l'hyperviseur (comme la sonde proxmox).
+
+Central (`si-agent/api/pra.py`) : **plans** = suites ordonnées d'étapes `{agent_id, vmid, kind, action, params,
+label, wait_s}` (natures : PRA, maintenance, bascule de rôle, migration). `POST /pra/plans/<id>/run` en mode
+`simulate` (validation, agents connus, commandes qui seraient envoyées — rien n'est envoyé) ou `execute` : fil du
+central qui envoie une commande, attend l'acquittement de l'agent (statut `done`/`failed`, délai 3600 s), s'arrête
+à la première erreur sauf `continue_on_error`, journalise chaque étape (`pra_runs.steps`). Une seule exécution
+réelle à la fois par plan. Hub : tuile « Contrôle PVE (opérations, PRA) » (`PveOpsView.jsx`) — VM par hyperviseur,
+formulaire d'opération (exécuter maintenant / ajouter au plan en cours), plans, simulation, exécution suivie.
+
+Vérifié : `tests/test_vmctl_ops.py` (argv de chaque opération, refus, délai long), `api/test_z_pra.py`
+(validation, simulation, exécution contre un agent simulé : done puis failed → arrêt, 3e jamais envoyée).
+Non vérifié : sur un vrai Proxmox (qm migrate/vzdump/pvesr réels), rendu navigateur. Hors périmètre de cette
+livraison, notés au backlog : migration de serveurs physiques vers la virtualisation (item 101 pour Windows),
+bascule de rôle « celui qui répond » (DNS/VIP), tour de contrôle DNS / routage / flux.
