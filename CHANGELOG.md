@@ -1,3 +1,21 @@
+## 2026-10-03 — Groupware tranche 2 : carnet d'adresses dans le hub sur CardDAV (livraison #665, item 115)
+
+- `groupware/api/carddav.py` : client CalDAV/CardDAV minimal (stdlib) ; `vcard.py` : vCard 3.0 ↔ dict, champs inconnus
+  conservés, pliage des lignes, recherche ; `app.py` : `/addressbooks`, `/contacts` (lecture multi-carnets avec droits
+  effectifs, création / modification / suppression selon les partages a / e / d), compte de service
+  (`GROUPWARE_DAV_SERVICE_USER/PASSWORD`, règle `[service]` générée) ; `radicale/entrypoint.sh` crée le compte de service
+  en htpasswd (bcrypt) sans LDAP.
+- Hub : tuile Groupware → onglet **Carnet d'adresses** (liste, recherche, fiche, fiche d'édition, carnets, création de
+  carnet) ; `groupwareLib` : formulaire ↔ contact, lignes.
+
+Vérifié : `groupware/api/test_vcard.py` (3), `test_core.py`, `test_app.py`, **`test_live.py` contre un Radicale 3.5.10 réel**
+(partages lecture / écriture appliqués par l'API et par Radicale), hub Node 305 / 0 échec, `@babel/parser`.
+Non vérifié : Radicale derrière tls-proxy, auth LDAP, rendu navigateur.
+
+Fichiers : `groupware/{README.md,api/{app.py,core.py,carddav.py,vcard.py,test_vcard.py,test_live.py,Dockerfile},radicale/{Dockerfile,
+entrypoint.sh}}`, `hub/src/{GroupwareView.jsx,groupwareClient.js,groupwareLib.js}`, `hub/tests/groupwareLib.test.mjs`,
+`docker-compose.yml`, `.env.example`, `BACKLOG.md`, `CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — Groupware façon eGroupware, tranche 1 : noyau (partages, catégories, liens, préférences) et CalDAV/CardDAV (livraison #664, item 115)
 
 Cadrage `docs/groupware-egroupware-python.md`, choix de la personne : pour l'équipe et les clients, CalDAV/CardDAV dès le

@@ -868,6 +868,10 @@ services:
       - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD:-}
       - LDAP_USERS_DN=${LDAP_USERS_DN:-}
       - LDAP_GROUPS_DN=${LDAP_GROUPS_DN:-}
+      # #665 : compte de service CardDAV/CalDAV (carnet et agenda dans le hub) -- compte LDAP dédié, ou htpasswd sans LDAP
+      - DAV_INTERNAL_URL=http://radicale:5232
+      - GROUPWARE_DAV_SERVICE_USER=${GROUPWARE_DAV_SERVICE_USER:-}
+      - GROUPWARE_DAV_SERVICE_PASSWORD=${GROUPWARE_DAV_SERVICE_PASSWORD:-}
     volumes:
       - ${GROUPWARE_DATA_DIR:-./groupware/data}:/data
       - ${GROUPWARE_DAV_CONFIG_DIR:-./groupware/dav-config}:/dav-config
@@ -887,6 +891,8 @@ services:
       - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD:-}
       - LDAP_USERS_DN=${LDAP_USERS_DN:-}
       - RADICALE_LDAP_FILTER=${RADICALE_LDAP_FILTER:-}
+      - GROUPWARE_DAV_SERVICE_USER=${GROUPWARE_DAV_SERVICE_USER:-}
+      - GROUPWARE_DAV_SERVICE_PASSWORD=${GROUPWARE_DAV_SERVICE_PASSWORD:-}
       - RADICALE_LOG_LEVEL=${RADICALE_LOG_LEVEL:-info}
     volumes:
       - ${GROUPWARE_DAV_CONFIG_DIR:-./groupware/dav-config}:/config

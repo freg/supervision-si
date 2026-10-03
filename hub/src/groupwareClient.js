@@ -28,3 +28,10 @@ export const deletePref = (b, body) => fetchJson(`${b}/prefs`, json("DELETE", bo
 export const davMe = (b, user) => fetchJson(`${b}/dav/me?user=${encodeURIComponent(user)}`);
 export const rebuildDav = (b) => fetchJson(`${b}/dav/rights/rebuild`, { method: "POST" });
 export const groupwareHealth = (b) => fetchJson(`${b}/health`);
+// #665 : carnet d'adresses (CardDAV via le compte de service, partages vérifiés par l'API)
+export const listAddressbooks = (b, user, groups) => fetchJson(`${b}/addressbooks?${q({ user, groups: (groups || []).join(",") })}`);
+export const createAddressbook = (b, body) => fetchJson(`${b}/addressbooks`, json("POST", body));
+export const listContacts = (b, user, groups, query, owner, book) => fetchJson(`${b}/contacts?${q({ user, groups: (groups || []).join(","), q: query, owner, book })}`);
+export const createContact = (b, body) => fetchJson(`${b}/contacts`, json("POST", body));
+export const updateContact = (b, owner, book, uid, body) => fetchJson(`${b}/contacts/${encodeURIComponent(owner)}/${encodeURIComponent(book)}/${encodeURIComponent(uid)}`, json("PUT", body));
+export const deleteContact = (b, owner, book, uid, user) => fetchJson(`${b}/contacts/${encodeURIComponent(owner)}/${encodeURIComponent(book)}/${encodeURIComponent(uid)}?user=${encodeURIComponent(user)}`, { method: "DELETE" });

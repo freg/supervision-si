@@ -11,7 +11,8 @@ try:
     from version_endpoint import register_version_route
 except ImportError:
     register_version_route = None
-import core
+import core, vcard
+from carddav import Dav, DavError, new_uid, COLL_RE
 
 app = Flask(__name__); CORS(app)
 if register_version_route: register_version_route(app, "groupware")
@@ -20,6 +21,9 @@ DATA = pathlib.Path(os.environ.get("GROUPWARE_DATA_DIR", "/data")); DATA.mkdir(p
 DB_PATH = str(DATA / "groupware.db")
 DAV_CONFIG = pathlib.Path(os.environ.get("DAV_CONFIG_DIR", "/dav-config")); DAV_PUBLIC_URL = os.environ.get("DAV_PUBLIC_URL", "").rstrip("/")
 LDAP = {k: os.environ.get(k, "") for k in ("LDAP_URL", "LDAP_BIND_DN", "LDAP_BIND_PASSWORD", "LDAP_GROUPS_DN", "LDAP_USERS_DN")}
+DAV_INTERNAL_URL = os.environ.get("DAV_INTERNAL_URL", "http://radicale:5232").rstrip("/")
+DAV_SERVICE_USER, DAV_SERVICE_PASSWORD = os.environ.get("GROUPWARE_DAV_SERVICE_USER", ""), os.environ.get("GROUPWARE_DAV_SERVICE_PASSWORD", "")
+def dav(): return Dav(DAV_INTERNAL_URL, DAV_SERVICE_USER, DAV_SERVICE_PASSWORD)
 _lock = threading.Lock(); _log = []
 
 def db():
@@ -69,7 +73,7 @@ def ldap_members(group):
 def rebuild_dav_rights():
     """Fichier rights de Radicale depuis les grants calendar / addressbook (appelé après chaque changement de partage)."""
     cn = db(); grants = [dict(r) for r in cn.execute("SELECT * FROM grants WHERE app IN ('calendar','addressbook')")]; cn.close()
-    txt = core.radicale_rights(grants, ldap_members)
+    txt = core.radicale_rights(grants, ldap_members, service_user=DAV_SERVICE_USER)
     try:
         DAV_CONFIG.mkdir(parents=True, exist_ok=True); tmp = DAV_CONFIG / "rights.tmp"; tmp.write_text(txt, encoding="utf-8"); tmp.replace(DAV_CONFIG / "rights")
         return {"ok": True, "rules": txt.count("[grant-"), "path": str(DAV_CONFIG / "rights")}
@@ -77,7 +81,7 @@ def rebuild_dav_rights():
         return {"ok": False, "error": str(exc)}
 
 @app.route("/health")
-def health(): return jsonify(status="ok", dav=bool(DAV_PUBLIC_URL), ldap=bool(LDAP["LDAP_URL"] and LDAP["LDAP_GROUPS_DN"]))
+def health(): return jsonify(status="ok", dav=bool(DAV_PUBLIC_URL), ldap=bool(LDAP["LDAP_URL"] and LDAP["LDAP_GROUPS_DN"]), contacts=bool(DAV_SERVICE_USER))
 
 # ---------------------------------------------------------------- partages (grants)
 @app.route("/grants", methods=["GET"])
@@ -219,6 +223,110 @@ def dav_me():
 
 @app.route("/dav/rights/rebuild", methods=["POST"])
 def dav_rebuild(): return jsonify(rebuild_dav_rights())
+
+# ---------------------------------------------------------------- #665 : carnet d'adresses (CardDAV via le compte de service, partages vérifiés ici)
+def _rights_on(app_, user, groups, owner):
+    cn = db(); rows = [dict(r) for r in cn.execute("SELECT * FROM grants WHERE app = ?", (app_,))]; cn.close()
+    return core.effective(rows, app_, user, groups).get(owner, 0)
+
+def _need_service():
+    if not DAV_SERVICE_USER: return jsonify(error="GROUPWARE_DAV_SERVICE_USER / PASSWORD absents : carnet dans le hub indisponible (les clients CardDAV fonctionnent)"), 503
+    return None
+
+@app.route("/addressbooks", methods=["GET"])
+def addressbooks():
+    """?user=&groups= -> mes carnets + ceux partagés avec moi (droits effectifs), via le serveur CardDAV."""
+    err = _need_service()
+    if err: return err
+    user, groups = request.args.get("user") or "", groups_arg()
+    if not core.NAME_RE.match(user): return jsonify(error="user requis"), 400
+    eff = {}
+    cn = db(); rows = [dict(r) for r in cn.execute("SELECT * FROM grants WHERE app = 'addressbook'")]; cn.close()
+    eff = core.effective(rows, "addressbook", user, groups)
+    out = []
+    try:
+        d = dav()
+        for owner, mask in sorted(eff.items(), key=lambda x: (x[0] != user, x[0])):
+            if not mask & core.RIGHTS["r"]: continue
+            for c in d.list_collections(owner):
+                if c["kind"] == "addressbook" and re.match(r"^(contacts|carnet|ab|addressbook)", c["name"], re.I):
+                    out.append(dict(c, owner=owner, rights=core.rights_text(mask), mine=owner == user))
+    except DavError as e:
+        return jsonify(error="serveur CardDAV : %s" % e), 502
+    return jsonify(addressbooks=out)
+
+@app.route("/addressbooks", methods=["POST"])
+def addressbook_create():
+    err = _need_service()
+    if err: return err
+    b = request.get_json(silent=True) or {}; user = str(b.get("user") or ""); name = re.sub(r"[^A-Za-z0-9._-]", "-", str(b.get("name") or "")).strip("-").lower()
+    if not core.NAME_RE.match(user) or not name: return jsonify(error="user et name requis"), 400
+    coll = name if re.match(r"^(contacts|carnet|ab|addressbook)", name) else "contacts-" + name
+    if not COLL_RE.match(coll): return jsonify(error="nom invalide"), 400
+    try: c = dav().create_collection(user, coll, "addressbook", str(b.get("displayname") or b.get("name") or coll))
+    except DavError as e: return jsonify(error="serveur CardDAV : %s" % e), 502
+    journal(user, "carnet créé %s/%s" % (user, coll))
+    return jsonify(addressbook=dict(c, owner=user, rights="raedp", mine=True)), 201
+
+@app.route("/contacts", methods=["GET"])
+def contacts_list():
+    """?user=&groups=&q=&owner=&book= -> contacts de tous les carnets lisibles (ou d'un seul), filtrés par q."""
+    err = _need_service()
+    if err: return err
+    user, groups, q = request.args.get("user") or "", groups_arg(), request.args.get("q") or ""
+    only_owner, only_book = request.args.get("owner"), request.args.get("book")
+    if not core.NAME_RE.match(user): return jsonify(error="user requis"), 400
+    cn = db(); rows = [dict(r) for r in cn.execute("SELECT * FROM grants WHERE app = 'addressbook'")]; cn.close()
+    eff = core.effective(rows, "addressbook", user, groups)
+    out = []
+    try:
+        d = dav()
+        for owner, mask in eff.items():
+            if not mask & core.RIGHTS["r"] or (only_owner and owner != only_owner): continue
+            for c in d.list_collections(owner):
+                if c["kind"] != "addressbook" or (only_book and c["name"] != only_book): continue
+                for it in d.list_items(owner, c["name"]):
+                    card = vcard.parse(it["data"]); card["uid"] = card["uid"] or it["uid"]
+                    if vcard.matches(card, q):
+                        out.append(dict(card, owner=owner, book=c["name"], book_name=c["displayname"], etag=it["etag"], rights=core.rights_text(mask), extra=len(card["extra"])))
+    except DavError as e:
+        return jsonify(error="serveur CardDAV : %s" % e), 502
+    out.sort(key=lambda c: (c["fn"] or "").lower())
+    return jsonify(contacts=out, total=len(out))
+
+@app.route("/contacts", methods=["POST"])
+def contacts_create():
+    """{user, groups, owner, book, contact: {...}} -> création (droit a sur le carnet du propriétaire)."""
+    err = _need_service()
+    if err: return err
+    b = request.get_json(silent=True) or {}; user, owner, book = str(b.get("user") or ""), str(b.get("owner") or b.get("user") or ""), str(b.get("book") or "")
+    if not (core.NAME_RE.match(user) and core.NAME_RE.match(owner) and COLL_RE.match(book)): return jsonify(error="user, owner, book requis"), 400
+    if not _rights_on("addressbook", user, b.get("groups") or [], owner) & core.RIGHTS["a"]: return jsonify(error="pas le droit d'ajouter dans le carnet de %s" % owner), 403
+    c = dict(b.get("contact") or {}); c["uid"] = new_uid()
+    try: r = dav().put_item(owner, book, c["uid"], vcard.serialize(c))
+    except DavError as e: return jsonify(error="serveur CardDAV : %s" % e), 502
+    return jsonify(contact=dict(vcard.parse(vcard.serialize(c)), owner=owner, book=book, etag=r["etag"])), 201
+
+@app.route("/contacts/<owner>/<book>/<uid>", methods=["PUT", "DELETE"])
+def contacts_update(owner, book, uid):
+    err = _need_service()
+    if err: return err
+    b = request.get_json(silent=True) or {}; user = str(b.get("user") or request.args.get("user") or "")
+    groups = b.get("groups") or groups_arg()
+    if not (core.NAME_RE.match(user) and core.NAME_RE.match(owner) and COLL_RE.match(book) and re.match(r"^[A-Za-z0-9._@-]{1,120}$", uid)): return jsonify(error="paramètres invalides"), 400
+    need = core.RIGHTS["d"] if request.method == "DELETE" else core.RIGHTS["e"]
+    if not _rights_on("addressbook", user, groups, owner) & need: return jsonify(error="droit insuffisant sur le carnet de %s" % owner), 403
+    try:
+        d = dav()
+        if request.method == "DELETE":
+            d.delete_item(owner, book, uid); return jsonify(ok=True)
+        current = next((it for it in d.list_items(owner, book) if it["uid"] == uid), None)
+        if not current: return jsonify(error="contact inconnu"), 404
+        old = vcard.parse(current["data"]); c = dict(old, **{k: v for k, v in (b.get("contact") or {}).items() if k != "extra"}); c["uid"] = old["uid"] or uid
+        r = d.put_item(owner, book, uid, vcard.serialize(c))
+        return jsonify(contact=dict(vcard.parse(vcard.serialize(c)), owner=owner, book=book, etag=r["etag"]))
+    except DavError as e:
+        return jsonify(error="serveur CardDAV : %s" % e), 502
 
 @app.route("/journal", methods=["GET"])
 def journal_route():

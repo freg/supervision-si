@@ -31,3 +31,19 @@ export function collectionNameOk(app, name) {
   const n = String(name || "").toLowerCase();
   return app === "calendar" ? /^(agenda|cal|calendar)/.test(n) : app === "addressbook" ? /^(contacts|carnet|ab|addressbook)/.test(n) : true;
 }
+
+// #665 : carnet -- contact vide, lignes du tableau (téléphone / courriel principaux), formulaire <-> contact.
+export const EMPTY_CONTACT = { first: "", last: "", org: "", title: "", tel: "", cell: "", email: "", street: "", zip: "", city: "", country: "", note: "", categories: "" };
+export function contactToForm(c) {
+  const tel = (c.tels || []).find((t) => t.type !== "cell") || {}; const cell = (c.tels || []).find((t) => t.type === "cell") || {};
+  return { first: c.first || "", last: c.last || "", org: c.org || "", title: c.title || "", tel: tel.value || "", cell: cell.value || "", email: (c.emails || [])[0]?.value || "",
+    street: c.adr?.street || "", zip: c.adr?.zip || "", city: c.adr?.city || "", country: c.adr?.country || "", note: c.note || "", categories: (c.categories || []).join(", ") };
+}
+export function formToContact(f) {
+  const tels = []; if (f.tel) tels.push({ type: "work", value: f.tel }); if (f.cell) tels.push({ type: "cell", value: f.cell });
+  return { first: f.first, last: f.last, org: f.org, title: f.title, tels, emails: f.email ? [{ type: "work", value: f.email }] : [], adr: (f.street || f.city || f.zip) ? { type: "work", street: f.street, zip: f.zip, city: f.city, country: f.country } : null,
+    note: f.note, categories: String(f.categories || "").split(",").map((x) => x.trim()).filter(Boolean) };
+}
+export function contactRow(c) {
+  return { name: c.fn || [c.first, c.last].filter(Boolean).join(" ") || c.org || "(sans nom)", org: c.org || "", tel: (c.tels || []).map((t) => t.value).join(" · "), email: (c.emails || []).map((e) => e.value).join(" · "), city: c.adr?.city || "", cats: (c.categories || []).join(", "), writable: /e/.test(c.rights || "") };
+}

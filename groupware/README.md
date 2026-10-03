@@ -22,6 +22,24 @@ par tranches suivantes.
   = fichier généré par groupware-api (volume `GROUPWARE_DAV_CONFIG_DIR`), collections dans `GROUPWARE_DAV_DATA_DIR`,
   interface web `/dav/.web/` (créer une collection, importer .ics / .vcf).
 
+## Tranche 2 : carnet d'adresses dans le hub (#665)
+
+groupware-api dialogue avec Radicale en CardDAV (`carddav.py`, stdlib : PROPFIND, MKCOL étendu, PUT, DELETE) avec un
+**compte de service** (`GROUPWARE_DAV_SERVICE_USER` / `PASSWORD` : compte LDAP dédié, ou htpasswd créé par l'entrypoint
+sans LDAP ; règle `[service]` en tête du fichier de droits) et vérifie lui-même les partages avant chaque opération.
+vCard 3.0 (`vcard.py`) : UID, FN, N, ORG, TITLE, TEL, EMAIL, ADR, URL, NOTE, CATEGORIES, REV ; les champs inconnus d'une
+carte écrite par un autre client (PHOTO…) sont conservés.
+
+- `GET /addressbooks?user=&groups=` — mes carnets + partagés (droits effectifs) ; `POST /addressbooks {user, name}` (nommé `contacts-…`).
+- `GET /contacts?user=&groups=&q=&owner=&book=` — contacts de tous les carnets lisibles, recherche multi-mots ;
+  `POST /contacts {user, groups, owner, book, contact}` (droit `a`) ; `PUT/DELETE /contacts/<owner>/<book>/<uid>` (droits `e` / `d`).
+- Tuile Groupware → onglet **Carnet d'adresses** : liste, recherche, fiche, création / modification dans un carnet où
+  j'ai le droit, création de carnet ; ce qui est créé ici apparaît dans les clients CardDAV et inversement.
+
+Vérifié contre un **Radicale réel** (`test_live.py`, `GROUPWARE_LIVE_DAV=http://…` + compte de service) : carnet créé,
+contact ajouté, lecture refusée sans partage, partage lecture → lecture seule (API et Radicale lui-même : PUT 403),
+partage écriture → création et modification, retrait du partage → plus rien.
+
 ## Convention de nom des collections
 
 Radicale ne connaît pas le type d'une collection dans ses droits : un partage **agenda** s'applique aux collections

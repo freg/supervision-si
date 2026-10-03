@@ -103,12 +103,14 @@ def resolve_prefs(rows, app, user, groups=()):
 DAV_APPS = {"calendar": "(agenda|cal|calendar)[^/]*", "addressbook": "(contacts|carnet|ab|addressbook)[^/]*"}
 
 
-def radicale_rights(grants, members_of, users=()):
+def radicale_rights(grants, members_of, users=(), service_user=""):
     """Fichier `rights` de Radicale (type from_file) : chacun est maître de sa collection ; un grant calendar/addressbook
     lecture -> r (collection) + R (contenu), ajout/modification/suppression -> w/W. Les grants de groupe sont développés
     avec `members_of(group) -> [uid]`. `all` -> tout utilisateur authentifié. Radicale évalue les sections dans l'ordre :
     la première qui correspond (utilisateur ET collection) décide -- d'où les partages avant la règle « soi-même »."""
     lines = ["# GÉNÉRÉ par groupware-api depuis les partages (grants) -- ne pas éditer, voir la tuile Groupware.", ""]
+    if service_user:                   # compte de service de groupware-api (carnet / agenda dans le hub) : tout, les partages sont vérifiés par l'API
+        lines += ["[service]", "user: ^%s$" % re.escape(service_user), "collection: .*", "permissions: RrWw", ""]
     n = 0
     for g in sorted(grants, key=lambda x: (x["owner"], x["app"], x["grantee_kind"], x["grantee"])):
         if g["app"] not in DAV_APPS:

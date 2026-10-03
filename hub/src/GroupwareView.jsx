@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { listGrants, createGrant, deleteGrant, listCategories, createCategory, updateCategory, deleteCategory, rawPrefs, putPref, deletePref, davMe, rebuildDav, groupwareHealth } from "./groupwareClient.js";
-import { APPS, RIGHT_PRESETS, rightsLabel, myGrants, categoryTree } from "./groupwareLib.js";
+import { listGrants, createGrant, deleteGrant, listCategories, createCategory, updateCategory, deleteCategory, rawPrefs, putPref, deletePref, davMe, rebuildDav, groupwareHealth, listAddressbooks, createAddressbook, listContacts, createContact, updateContact, deleteContact } from "./groupwareClient.js";
+import { APPS, RIGHT_PRESETS, rightsLabel, myGrants, categoryTree, EMPTY_CONTACT, contactToForm, formToContact, contactRow } from "./groupwareLib.js";
 import HubIcon from "./HubIcon.jsx";
 
 // Tuile « Groupware » (livraison #664, item 115) -- tranche 1 d'un groupware « façon eGroupware » : mes accès
@@ -8,10 +8,83 @@ import HubIcon from "./HubIcon.jsx";
 // modification, suppression, privé) à un utilisateur ou un groupe, catégories partagées / personnelles, préférences
 // (défaut, groupe, utilisateur, forcées par l'administrateur). Les applications (agenda, carnet, InfoLog) arrivent
 // par tranches ; les clients DAV fonctionnent dès maintenant. Non vérifié en navigateur ; logique pure testée sous Node.
-const TABS = [["dav", "Mon agenda / mes contacts (CalDAV, CardDAV)"], ["grants", "Partages"], ["categories", "Catégories"], ["prefs", "Préférences"]];
+const TABS = [["contacts", "Carnet d'adresses"], ["dav", "Synchronisation (CalDAV, CardDAV)"], ["grants", "Partages"], ["categories", "Catégories"], ["prefs", "Préférences"]];
+
+// #665 : carnet d'adresses dans le hub -- tous les carnets lisibles (les miens + partagés), recherche, fiche, création
+// dans un carnet où j'ai le droit d'ajouter ; les mêmes contacts apparaissent dans les clients CardDAV.
+function Contacts({ base, login, groups, health, setError, setNotice }) {
+  const [books, setBooks] = useState(null);
+  const [rows, setRows] = useState([]);
+  const [q, setQ] = useState("");
+  const [sel, setSel] = useState(null);           // contact ouvert
+  const [form, setForm] = useState(null);         // {mode: new|edit, owner, book, uid, f}
+  const [newBook, setNewBook] = useState("");
+  const load = useCallback(async () => {
+    const [b, c] = await Promise.all([listAddressbooks(base, login, groups), listContacts(base, login, groups, q)]);
+    if (b.error) { setError(b.error); setBooks([]); } else setBooks(b.addressbooks || []);
+    if (!c.error) setRows(c.contacts || []);
+  }, [base, login, groups, q, setError]);
+  useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t); }, [load]);
+  const writable = (books || []).filter((b) => /a/.test(b.rights));
+  async function save() {
+    const body = { user: login, groups, owner: form.owner, book: form.book, contact: formToContact(form.f) };
+    const r = form.mode === "new" ? await createContact(base, body) : await updateContact(base, form.owner, form.book, form.uid, body);
+    if (r.error) { setError(r.error); return; } setForm(null); setSel(null); setNotice(form.mode === "new" ? "Contact créé" : "Contact enregistré"); load();
+  }
+  async function remove(c) { if (!window.confirm(`Supprimer « ${contactRow(c).name} » ?`)) return; const r = await deleteContact(base, c.owner, c.book, c.uid, login); if (r.error) setError(r.error); else { setSel(null); load(); } }
+  async function addBook() { const r = await createAddressbook(base, { user: login, name: newBook, displayname: newBook }); if (r.error) setError(r.error); else { setNewBook(""); setNotice(`Carnet ${r.addressbook.name} créé — visible dans vos clients CardDAV`); load(); } }
+  if (health && health.contacts === false) return <div className="hub-card hub-settings-section"><h2>Carnet d'adresses</h2><p className="ds-error">Compte de service CardDAV non configuré (<code>GROUPWARE_DAV_SERVICE_USER</code> / <code>PASSWORD</code> dans le .env) : le carnet dans le hub est indisponible ; vos clients CardDAV fonctionnent (onglet Synchronisation).</p></div>;
+  return (
+    <div className="pv-columns">
+      <div className="pv-col">
+        <div className="hub-card hub-settings-section">
+          <div className="ds-row-between"><h2 style={{ margin: 0 }}>Carnet d'adresses <span className="muted">({rows.length})</span></h2>
+            <div className="ds-inline" style={{ marginTop: 0 }}><input type="search" value={q} placeholder="rechercher (nom, société, tél, courriel, ville, catégorie)" onChange={(e) => setQ(e.target.value)} style={{ width: 280 }} />
+              <button className="primary" disabled={!writable.length} onClick={() => setForm({ mode: "new", owner: writable[0].owner, book: writable[0].name, f: { ...EMPTY_CONTACT } })}>+ Contact</button></div></div>
+          <table className="ds-table"><thead><tr><th>Nom</th><th>Société</th><th>Téléphone</th><th>Courriel</th><th>Ville</th><th>Carnet</th></tr></thead>
+            <tbody>{rows.map((c) => { const r = contactRow(c); return <tr key={`${c.owner}/${c.book}/${c.uid}`} className={sel && sel.uid === c.uid ? "pv-selected" : ""} style={{ cursor: "pointer" }} onClick={() => { setSel(c); setForm(null); }}><td><b>{r.name}</b>{r.cats && <div className="muted">{r.cats}</div>}</td><td>{r.org}</td><td>{r.tel}</td><td>{r.email}</td><td>{r.city}</td><td className="muted">{c.book_name}{c.owner !== login ? ` (${c.owner})` : ""}</td></tr>; })}
+              {!rows.length && <tr><td colSpan={6} className="muted">{books === null ? "chargement…" : q ? "Aucun contact ne correspond." : "Aucun contact : créez un carnet puis un contact, ou importez un .vcf dans l'interface Radicale."}</td></tr>}</tbody></table>
+        </div>
+        <div className="hub-card hub-settings-section">
+          <h3>Mes carnets {books && <span className="muted">({books.length})</span>}</h3>
+          <table className="ds-table"><tbody>{(books || []).map((b) => <tr key={`${b.owner}/${b.name}`}><td><b>{b.displayname}</b> <span className="muted">{b.name}</span></td><td>{b.mine ? "à moi" : `partagé par ${b.owner}`}</td><td>{rightsLabel(b.rights)}</td></tr>)}</tbody></table>
+          <div className="ds-inline"><input type="text" value={newBook} placeholder="nouveau carnet (ex. clients)" onChange={(e) => setNewBook(e.target.value)} /><button className="secondary" disabled={!newBook} onClick={addBook}>Créer le carnet</button><span className="muted">nommé contacts-… automatiquement</span></div>
+        </div>
+      </div>
+      <div className="pv-col">
+        {form && (
+          <div className="hub-card hub-settings-section">
+            <h2>{form.mode === "new" ? "Nouveau contact" : "Modifier"}</h2>
+            {form.mode === "new" && <div className="hub-settings-row"><label>Carnet</label><select value={`${form.owner}/${form.book}`} onChange={(e) => { const [owner, book] = e.target.value.split("/"); setForm({ ...form, owner, book }); }}>{writable.map((b) => <option key={`${b.owner}/${b.name}`} value={`${b.owner}/${b.name}`}>{b.displayname}{b.mine ? "" : ` (${b.owner})`}</option>)}</select></div>}
+            <div className="pv-grid">
+              {[["first", "Prénom"], ["last", "Nom"], ["org", "Société"], ["title", "Fonction"], ["tel", "Téléphone"], ["cell", "Mobile"], ["email", "Courriel"], ["street", "Rue"], ["zip", "Code postal"], ["city", "Ville"], ["country", "Pays"], ["categories", "Catégories (virgules)"]].map(([k, l]) => <div key={k} className="hub-settings-row"><label>{l}</label><input type="text" value={form.f[k]} onChange={(e) => setForm({ ...form, f: { ...form.f, [k]: e.target.value } })} /></div>)}
+              <div className="hub-settings-row" style={{ gridColumn: "1 / -1" }}><label>Note</label><textarea rows={3} value={form.f.note} onChange={(e) => setForm({ ...form, f: { ...form.f, note: e.target.value } })} /></div>
+            </div>
+            <div className="pv-inline"><button className="primary" onClick={save} disabled={!(form.f.first || form.f.last || form.f.org)}>Enregistrer</button><button className="secondary" onClick={() => setForm(null)}>Annuler</button></div>
+          </div>
+        )}
+        {sel && !form && (() => { const r = contactRow(sel); return (
+          <div className="hub-card hub-settings-section">
+            <div className="ds-row-between"><h2 style={{ margin: 0 }}>{r.name}</h2><div>{r.writable && <button className="secondary pv-mini" onClick={() => setForm({ mode: "edit", owner: sel.owner, book: sel.book, uid: sel.uid, f: contactToForm(sel) })}>modifier</button>}{/d/.test(sel.rights || "") && <button className="secondary pv-mini pv-danger" onClick={() => remove(sel)}>supprimer</button>}</div></div>
+            <table className="ds-table"><tbody>
+              {sel.org && <tr><th>Société</th><td>{sel.org}{sel.title ? ` — ${sel.title}` : ""}</td></tr>}
+              {(sel.tels || []).map((t, i) => <tr key={"t" + i}><th>Tél. {t.type}</th><td><a href={`tel:${t.value}`}>{t.value}</a></td></tr>)}
+              {(sel.emails || []).map((e, i) => <tr key={"e" + i}><th>Courriel</th><td><a href={`mailto:${e.value}`}>{e.value}</a></td></tr>)}
+              {sel.adr && <tr><th>Adresse</th><td>{[sel.adr.street, [sel.adr.zip, sel.adr.city].filter(Boolean).join(" "), sel.adr.country].filter(Boolean).join(", ")}</td></tr>}
+              {sel.url && <tr><th>Web</th><td><a href={sel.url} target="_blank" rel="noreferrer">{sel.url}</a></td></tr>}
+              {sel.note && <tr><th>Note</th><td style={{ whiteSpace: "pre-wrap" }}>{sel.note}</td></tr>}
+              {r.cats && <tr><th>Catégories</th><td>{r.cats}</td></tr>}
+              <tr><th>Carnet</th><td>{sel.book_name} {sel.owner !== login && <span className="muted">(partagé par {sel.owner}, {rightsLabel(sel.rights)})</span>}{sel.extra > 0 && <span className="muted"> · {sel.extra} champ(s) conservé(s) d'un autre client</span>}</td></tr>
+            </tbody></table>
+          </div>); })()}
+        {!sel && !form && <div className="hub-card hub-settings-section"><p className="muted">Cliquez sur un contact pour l'ouvrir. Les carnets et contacts sont ceux du serveur CardDAV : ce que vous créez ici apparaît sur vos téléphones et dans Thunderbird, et inversement.</p></div>}
+      </div>
+    </div>
+  );
+}
 
 export default function GroupwareView({ onBack, groupwareApiBase, login, groups, isAdmin }) {
-  const [tab, setTab] = useState("dav");
+  const [tab, setTab] = useState("contacts");
   const [health, setHealth] = useState(null);
   const [dav, setDav] = useState(null);
   const [grants, setGrants] = useState(null);
@@ -47,6 +120,7 @@ export default function GroupwareView({ onBack, groupwareApiBase, login, groups,
       {error && <div className="hub-card ds-error">⚠️ {error}</div>}
       {notice && <div className="hub-card ds-notice">{notice}</div>}
 
+      {tab === "contacts" && <Contacts base={groupwareApiBase} login={login} groups={groups} health={health} setError={setError} setNotice={setNotice} />}
       {tab === "dav" && (
         <div className="hub-card hub-settings-section">
           <h2>Agendas et carnets d'adresses synchronisés (CalDAV / CardDAV)</h2>

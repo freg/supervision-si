@@ -1,6 +1,6 @@
 ## Groupware « façon eGroupware » en Python, ProjeQtOr mis de côté (2026-10-03) — item 115
 
-**Tranche 1 faite en #664** (noyau : partages, catégories, liens, préférences ; Radicale CalDAV/CardDAV sous /dav/, tuile Groupware). Reste : tranches 2-4 (carnet, agenda dans le hub, InfoLog), test réel des clients DAV. Décisions : pour les deux (interne et clients), CalDAV/CardDAV dès le départ.
+**Tranche 1 faite en #664** (noyau : partages, catégories, liens, préférences ; Radicale CalDAV/CardDAV sous /dav/, tuile Groupware), **tranche 2 en #665** (carnet d'adresses dans le hub sur CardDAV, compte de service, vérifié contre un Radicale réel). Reste : tranches 3-4 (agenda dans le hub, InfoLog), test réel des clients DAV et de l'auth LDAP. Décisions : pour les deux (interne et clients), CalDAV/CardDAV dès le départ.
 
 Demandé 3 oct. 2026 : ProjeQtOr (#476-#484, pont demandes) n'est plus voulu pour l'instant — services
 `projeqtor-app` / `projeqtor-db` / `projeqtor-bridge` arrêtés sur super, code conservé. Préférence nette pour

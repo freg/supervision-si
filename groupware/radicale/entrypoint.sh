@@ -16,6 +16,18 @@ else
 htpasswd_filename = /config/users
 htpasswd_encryption = bcrypt"
 fi
+# compte de service de groupware-api (carnet / agenda dans le hub) : en htpasswd, ajouté ou mis à jour ici (bcrypt) ;
+# en LDAP, il doit exister dans l'annuaire (GROUPWARE_DAV_SERVICE_USER / PASSWORD = un compte LDAP dédié).
+if [ -z "${LDAP_URL:-}" ] && [ -n "${GROUPWARE_DAV_SERVICE_USER:-}" ] && [ -n "${GROUPWARE_DAV_SERVICE_PASSWORD:-}" ]; then
+  touch /config/users
+  python3 - "$GROUPWARE_DAV_SERVICE_USER" "$GROUPWARE_DAV_SERVICE_PASSWORD" <<'PY'
+import sys, bcrypt
+u, p = sys.argv[1], sys.argv[2]
+lines = [l for l in open("/config/users", encoding="utf-8").read().splitlines() if l and not l.startswith(u + ":")]
+lines.append(u + ":" + bcrypt.hashpw(p.encode(), bcrypt.gensalt()).decode())
+open("/config/users", "w", encoding="utf-8").write("\n".join(lines) + "\n")
+PY
+fi
 [ -f /config/rights ] || printf '[owner-write]\nuser: .+\ncollection: ^{user}(/.*)?$\npermissions: RW\n\n[root]\nuser: .+\ncollection: ^$\npermissions: R\n' > /config/rights
 cat > "$CFG" <<CONF
 [server]

@@ -3,7 +3,7 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY groupware/api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY groupware/api/app.py groupware/api/core.py ./
+COPY groupware/api/app.py groupware/api/core.py groupware/api/carddav.py groupware/api/vcard.py ./
 COPY shared/version_endpoint.py .
 COPY shared/VERSION.json .
 RUN mkdir -p /data /dav-config
