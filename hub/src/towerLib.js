@@ -60,6 +60,24 @@ export function deliveryText(d) {
     + (n(d.kept) ? `, ${n(d.kept)} donnée(s) locale(s) conservée(s)` : "") + (n(d.protected) ? `, ${n(d.protected)} protégé(s)` : "");
 }
 
+// #659 : état git -> phrase ("#657 → #659 : 2 commit(s) en retard") et ce qui empêche la mise à jour (ou null).
+export function gitText(g) {
+  if (!g) return "";
+  if (g.error) return g.error;
+  const head = g.head ? `${g.head.hash} ${g.head.subject}` : "?";
+  if (g.behind) return `#${g.current || "?"} → #${g.remote_number || "?"} : ${g.behind} commit(s) en retard sur origin/${g.branch} (en place : ${head})`;
+  return `à jour sur origin/${g.branch} (#${g.current || "?"}, ${head})`;
+}
+export function gitBlocker(g) {
+  if (!g) return null;
+  if (g.error) return g.error;
+  if (g.hint) return g.hint;
+  if (g.fetch_error) return `git fetch impossible : ${g.fetch_error}`;
+  if ((g.dirty || []).length) return `fichiers modifiés localement : ${g.dirty.slice(0, 5).join(", ")}`;
+  if (g.ahead) return `${g.ahead} commit(s) locaux non poussés : avance rapide impossible`;
+  return null;
+}
+
 export const JOB_LABEL = { running: "en cours", done: "terminé", failed: "échec", lost: "interrompu" };
 export const JOB_TONE = { running: "orange", done: "green", failed: "red", lost: "red" };
 

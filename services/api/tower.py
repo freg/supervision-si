@@ -337,3 +337,55 @@ def heal_decide(state, rows, now, threshold=3, max_per_hour=3, ignored=()):
                 events.append({"event": "heal-recovered", "service": s, "text": r.get("text")})
             st["reds"], st["gave_up"] = 0, False
     return todo, state, events
+
+
+# -- #659 : mise à jour depuis le dépôt git (GitHub) ------------------------------
+def mask_remote(url):
+    """URL du dépôt sans identifiant ni jeton (https://user:token@host/… -> https://host/…)."""
+    return re.sub(r"^(\w+://)[^@/]+@", r"\1", str(url or "").strip())
+
+
+def remote_hint(url):
+    """Pourquoi le runner ne pourra pas tirer : dépôt SSH (pas de clé dans le conteneur) ou pas de remote."""
+    u = str(url or "").strip()
+    if not u:
+        return "aucun dépôt distant (origin) : git remote add origin https://github.com/<compte>/supervision-si.git"
+    if u.startswith("git@") or u.startswith("ssh://"):
+        return "dépôt distant en SSH : le conteneur n'a pas de clé -- passer en HTTPS (git remote set-url origin https://github.com/<compte>/supervision-si.git)"
+    return None
+
+
+def parse_log(text):
+    """`git log --format=%h%x09%s HEAD..origin/x` -> [{hash, subject}]."""
+    out = []
+    for line in (text or "").splitlines():
+        if "\t" in line:
+            h, s = line.split("\t", 1)
+            out.append({"hash": h.strip(), "subject": s.strip()[:160]})
+    return out
+
+
+def git_update_plan(mode, changed, main_paths, running, gateway_running=True, nodes=0, agents=False, branch="main"):
+    """Étapes du job : `git pull --ff-only`, puis
+    - central : plan ciblé (plan_for_changes) sur les fichiers modifiés entre HEAD et origin ;
+    - cascade : reconstruction de TOUS les services en marche (+ passerelle), puis les autres nœuds du déploiement
+      réparti (deploy/node_agent.py update-all) ; les agents hôtes sont mis à jour par le central à la fin du job
+      (si-agent-api /updates/apply, commande `update` aux agents éligibles).
+    -> {steps, plan, agents}."""
+    if not re.match(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,100}$", branch or ""):
+        branch = "main"
+    steps = [{"label": "tirer le dépôt (origin/%s, avance rapide seulement)" % branch, "cmd": "git pull --ff-only origin %s" % branch}]
+    plan = plan_for_changes(changed, main_paths, running, gateway_running=gateway_running)
+    if mode == "cascade":
+        if ".env.example" in changed:
+            steps.append({"label": "clés .env manquantes (sync-env)", "cmd": "python3 scripts/sync-env.py"})
+        names = sorted(s for s in (running or []) if SERVICE_RE.match(s))
+        if names:
+            steps.append({"label": "reconstruire les %d service(s) en marche" % len(names), "cmd": "./scripts/run.sh up -d --build " + " ".join(names)})
+        if gateway_running:
+            steps.append({"label": "reconstruire la passerelle (tls-proxy)", "cmd": "./gateway/scripts/run.sh up -d --build tls-proxy"})
+        if nodes and nodes > 1:
+            steps.append({"label": "mettre à jour les %d autre(s) nœud(s) du déploiement réparti" % (nodes - 1), "cmd": "python3 deploy/node_agent.py update-all"})
+    else:
+        steps += plan["steps"]
+    return {"steps": steps, "plan": plan, "agents": bool(agents)}

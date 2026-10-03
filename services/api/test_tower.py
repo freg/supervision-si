@@ -125,6 +125,20 @@ class Heal(unittest.TestCase):
         todo, st, ev = tower.heal_decide(st, rows[:1], t + 9000, threshold=1, max_per_hour=2)
         self.assertEqual(todo, ["ged-api"])  # une heure plus tard, de nouveau autorisé
 
+    def test_git_update(self):
+        """#659 : mise à jour depuis le git -- remote masqué, indices, journal, plans central / cascade."""
+        self.assertEqual(tower.mask_remote("https://freg:ghp_secret@github.com/x/supervision-si.git"), "https://github.com/x/supervision-si.git")
+        self.assertIn("SSH", tower.remote_hint("git@github.com:x/supervision-si.git")); self.assertIn("aucun", tower.remote_hint("")); self.assertIsNone(tower.remote_hint("https://github.com/x/y.git"))
+        self.assertEqual(tower.parse_log("abc1234\tfeat: x (#658)\n\ndef5678\tfix: y"), [{"hash": "abc1234", "subject": "feat: x (#658)"}, {"hash": "def5678", "subject": "fix: y"}])
+        paths = {"cisco-api": {"build": ["cisco"], "mounts": []}, "hub": {"build": ["hub", "shared"], "mounts": ["conf"]}, "ged-api": {"build": ["ged"], "mounts": []}}
+        running = ["cisco-api", "hub"]
+        p = tower.git_update_plan("central", ["cisco/app.py", "CHANGELOG.md"], paths, running, branch="main")
+        self.assertEqual([s["cmd"] for s in p["steps"]], ["git pull --ff-only origin main", "./scripts/run.sh up -d --build cisco-api"]); self.assertFalse(p["agents"])
+        p = tower.git_update_plan("cascade", ["cisco/app.py", ".env.example"], paths, running, gateway_running=True, nodes=3, agents=True, branch="x; rm")
+        self.assertEqual([s["cmd"] for s in p["steps"]], ["git pull --ff-only origin main", "python3 scripts/sync-env.py", "./scripts/run.sh up -d --build cisco-api hub",
+                                                           "./gateway/scripts/run.sh up -d --build tls-proxy", "python3 deploy/node_agent.py update-all"]); self.assertTrue(p["agents"])
+        p = tower.git_update_plan("cascade", [], paths, [], gateway_running=False, nodes=1); self.assertEqual(len(p["steps"]), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -14,9 +14,8 @@ import ServicesView from "./ServicesView.jsx";
 import { viewParams } from "./hubLinks.js";
 import {
   fetchServices, fetchSettings, saveSettings, fetchEvents, fetchConfigs, fetchConfig, saveConfig,
-  fetchJobs, fetchJob, fetchDeliveries, uploadDelivery, applyDelivery, reloadGateway,
-} from "./servicesClient.js";
-import { itemsOf, mergeItems, emptyRow, cleanRow, statsText, deliveryText, JOB_LABEL, JOB_TONE, touchesHub } from "./towerLib.js";
+  fetchJobs, fetchJob, fetchDeliveries, uploadDelivery, applyDelivery, reloadGateway, fetchGit, gitUpdate } from "./servicesClient.js";
+import { itemsOf, mergeItems, emptyRow, cleanRow, statsText, deliveryText, JOB_LABEL, JOB_TONE, touchesHub, gitText, gitBlocker } from "./towerLib.js";
 
 const TABS = [
   { id: "services", label: "🚦 Services" },
@@ -66,6 +65,45 @@ function JobView({ apiBase, token, jobId, onClose }) {
 }
 
 // ---------------------------------------------------------------------------
+// #659 : mise à jour depuis le dépôt git (GitHub) -- un bouton pour le central (plan ciblé sur les fichiers changés),
+// un pour l'ensemble en cascade (tous les services en marche + passerelle + autres nœuds + agents hôtes).
+function GitUpdate({ apiBase, token, openJob }) {
+  const [g, setG] = useState(null);
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState(null);
+  const [agents, setAgents] = useState(true);
+  const [last, setLast] = useState(null);
+  const refresh = useCallback(async (fetch = true) => { setBusy("fetch"); const r = await fetchGit(apiBase, token, fetch); setBusy(""); setG(r); }, [apiBase, token]);
+  useEffect(() => { refresh(false); }, [refresh]);
+  const launch = async (mode) => {
+    const what = mode === "cascade" ? `TOUT mettre à jour en cascade (git pull, reconstruction de ${(g?.running || []).length} service(s) en marche + passerelle${g?.nodes > 1 ? ` + ${g.nodes - 1} autre(s) nœud(s)` : ""}${agents ? " + agents hôtes" : ""}) ?` : `Mettre à jour le central (git pull puis ${(g?.plan?.steps || []).length} étape(s) ciblée(s)) ?`;
+    if (!window.confirm(what + " Le hub et la tour seront momentanément indisponibles.")) return;
+    setBusy(mode); setError(null);
+    const r = await gitUpdate(apiBase, token, { mode, agents: mode === "cascade" && agents, force: false });
+    setBusy("");
+    if (r.error) { setError(r.error); return; }
+    setLast(r); if (r.job?.id) openJob(r.job.id);
+  };
+  const blocker = gitBlocker(g);
+  return (
+    <div className="hub-card" style={{ marginBottom: 12 }}>
+      <h3 style={{ margin: "0 0 6px" }}>⬇️ Mise à jour depuis le git {g?.remote && <code className="muted">{g.remote}</code>}</h3>
+      <p className="muted" style={{ margin: "0 0 6px" }}>{busy === "fetch" ? "interrogation du dépôt…" : gitText(g)}{g && !g.fetched && !g.error && <> — <a href="#git" onClick={(e) => { e.preventDefault(); refresh(true); }}>vérifier sur origin</a></>}</p>
+      {blocker && <p className="hub-error" style={{ margin: "0 0 6px" }}>{blocker}</p>}
+      {(g?.incoming || []).length > 0 && <details style={{ marginBottom: 6 }}><summary className="muted">{g.incoming.length} commit(s) entrant(s)</summary><ul style={{ margin: "4px 0", fontSize: 12 }}>{g.incoming.map((c) => <li key={c.hash}><code>{c.hash}</code> {c.subject}</li>)}</ul></details>}
+      {(g?.plan?.steps || []).length > 0 && <details style={{ marginBottom: 6 }}><summary className="muted">plan ciblé du central : {g.plan.steps.length} étape(s){(g.plan.not_running || []).length ? ` (non démarrés ici : ${g.plan.not_running.join(", ")})` : ""}</summary><ol style={{ margin: "4px 0", fontSize: 12 }}>{g.plan.steps.map((s, i) => <li key={i}>{s.label} — <code>{s.cmd}</code></li>)}</ol></details>}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <button type="button" className="primary" disabled={!!busy || !!blocker || !g?.behind} onClick={() => launch("central")}>⬆️ Mettre à jour le central</button>
+        <button type="button" className="secondary" disabled={!!busy || !!blocker} onClick={() => launch("cascade")}>⛓️ Tout mettre à jour en cascade</button>
+        <label className="muted"><input type="checkbox" checked={agents} onChange={(e) => setAgents(e.target.checked)} /> agents hôtes aussi (commande <code>update</code> aux agents éligibles, réglages de la tuile Agents hôtes)</label>
+        <button type="button" className="secondary" disabled={!!busy} onClick={() => refresh(true)}>↻</button>
+      </div>
+      {error && <p className="hub-error">{error}</p>}
+      {last?.job && <p className="muted">job <a href="#job" onClick={(e) => { e.preventDefault(); openJob(last.job.id); }}>{last.job.id}</a> lancé : {last.steps.length} étape(s). La tour sera injoignable pendant sa propre reconstruction ; le journal reprend ensuite.</p>}
+    </div>
+  );
+}
+
 function Deliveries({ apiBase, token, settings, openJob, jobId }) {
   const [state, setState] = useState(null);
   const [jobs, setJobs] = useState([]);
@@ -109,6 +147,7 @@ function Deliveries({ apiBase, token, settings, openJob, jobId }) {
         <code> docker-compose.yml</code>, recharger la passerelle — <em>seulement parmi les services en marche</em>.
         {settings?.auto_apply ? " Application automatique : activée (onglet Automatismes)." : " Application automatique : désactivée — bouton « Appliquer »."}
       </p>
+      <GitUpdate apiBase={apiBase} token={token} openJob={openJob} />
       <label className="primary" style={{ display: "inline-block", padding: "6px 12px", cursor: "pointer" }}>
         📦 Déposer une livraison (.zip)
         <input type="file" accept=".zip" style={{ display: "none" }} onChange={(e) => onFile(e.target.files?.[0])} />

@@ -110,6 +110,25 @@ cd ~/SRC/data2/tickets/supervision-si && ./scripts/run.sh up -d --build services
 Ensuite, plus besoin de `scp` / `rsync` : les livraisons se déposent dans la tour.
 
 
+## Mise à jour depuis le git (#659)
+
+Onglet **Livraisons & jobs**, carte « Mise à jour depuis le git » : `GET /git` interroge le clone (`git fetch origin
+<branche>` depuis le conteneur : le dépôt distant doit être en **HTTPS** — pas de clé SSH dans l'image), affiche
+version en place → version distante, commits entrants, fichiers modifiés et le plan ciblé (même calcul que les
+livraisons zip : reconstruire les services dont une source a changé, parmi ceux en marche).
+
+- **Mettre à jour le central** : `POST /git/update {mode: central}` → job runner : `git pull --ff-only origin <branche>`
+  puis les étapes du plan ciblé.
+- **Tout mettre à jour en cascade** : `{mode: cascade, agents}` → `git pull`, reconstruction de **tous** les services en
+  marche + passerelle, `python3 deploy/node_agent.py update-all` si `deploy/nodes.json` compte plusieurs nœuds (chaque
+  nœud : `POST /update` sur son agent de nœud = pull + apply --build), puis, à la fin du job (vérification des jobs du
+  central), `POST si-agent-api/updates/apply` : commande `update` aux agents hôtes éligibles (canal bêta / activation
+  générale de la tuile Agents hôtes → Mises à jour ; sinon l'événement l'indique).
+- Refus : dépôt non git, remote SSH ou absent, fichiers suivis modifiés localement (`force` pour passer outre),
+  commits locaux non poussés (pas d'avance rapide), déjà à jour (central).
+- Le runner tire le dépôt en root : sous Linux, les fichiers tirés appartiennent à root (`sudo git …` ensuite, ou
+  `chown -R` du dépôt) ; sous Docker Desktop (Mac), aucun impact.
+
 ## Santé de l'hôte (#593)
 
 Après un `/var` saturé qui tronquait les fichiers du hub : la tour mesure

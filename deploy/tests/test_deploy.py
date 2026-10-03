@@ -144,5 +144,27 @@ class Donnees(unittest.TestCase):
         self.assertNotIn("bad line", env)
 
 
+class GitUpdate(unittest.TestCase):
+    """#659 : mise à jour git d'un nœud -- refus si fichiers modifiés, enchaînement pull puis apply, résultat."""
+    def test_git_update(self):
+        calls = []
+        def fake_run(cmd, check=True, capture=False, stdin=None, env=None):
+            calls.append(cmd)
+            out = {("git", "status"): "", ("git", "rev-parse"): "main" if "--abbrev-ref" in cmd else "abc1234", ("git", "pull"): "Updating abc1234..def5678\nFast-forward"}
+            return type("R", (), {"returncode": 0, "stdout": out.get(tuple(cmd[:2]), ""), "stderr": ""})()
+        old_run, old_apply = na.run, na.apply
+        na.run, na.apply = fake_run, lambda me, build: {"steps": ["up: 3 services"]}
+        try:
+            r = na.git_update("n1", True)
+            self.assertEqual(r["branch"], "main"); self.assertEqual(r["steps"], ["up: 3 services"]); self.assertIn("Fast-forward", r["pull"])
+            self.assertEqual([c[:2] for c in calls][:3], [["git", "status"], ["git", "rev-parse"], ["git", "rev-parse"]]); self.assertIn(["git", "pull", "--ff-only", "origin", "main"], calls)
+            na.run = lambda cmd, **kw: type("R", (), {"returncode": 0, "stdout": " M deploy/x.py\n", "stderr": ""})()
+            with self.assertRaises(RuntimeError) as cm:
+                na.git_update("n1")
+            self.assertIn("deploy/x.py", str(cm.exception))
+        finally:
+            na.run, na.apply = old_run, old_apply
+
+
 if __name__ == "__main__":
     unittest.main()

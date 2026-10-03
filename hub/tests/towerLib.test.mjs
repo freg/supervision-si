@@ -29,3 +29,17 @@ test("résumés", () => {
   assert.equal(touchesHub({ steps: [{ cmd: "./scripts/run.sh up -d --build hub nebula-api" }] }), true);
   assert.equal(touchesHub({ steps: [{ cmd: "./scripts/run.sh up -d --build nebula-api" }] }), false);
 });
+
+// #659 : mise à jour git -- phrase d'état et bloqueurs
+import { gitText, gitBlocker } from "../src/towerLib.js";
+test("git : texte et bloqueurs", () => {
+  const g = { branch: "main", current: "657", remote_number: "659", behind: 2, ahead: 0, dirty: [], head: { hash: "dd4ce73", subject: "feat: x" } };
+  assert.match(gitText(g), /#657 → #659 : 2 commit\(s\) en retard sur origin\/main/);
+  assert.equal(gitBlocker(g), null);
+  assert.match(gitText({ ...g, behind: 0 }), /à jour sur origin\/main/);
+  assert.equal(gitText({ error: "pas un clone" }), "pas un clone");
+  assert.match(gitBlocker({ ...g, dirty: ["a.py"] }), /a\.py/);
+  assert.match(gitBlocker({ ...g, ahead: 1 }), /non poussés/);
+  assert.match(gitBlocker({ ...g, hint: "SSH" }), /SSH/);
+  assert.match(gitBlocker({ ...g, fetch_error: "timeout" }), /fetch/);
+});

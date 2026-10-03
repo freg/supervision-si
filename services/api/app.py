@@ -25,8 +25,10 @@ import logging
 import os
 import secrets
 import socket
+import subprocess
 import threading
 import time
+import urllib.request
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 
@@ -755,6 +757,117 @@ def delivery_apply(did):
     return jsonify(rec), 200
 
 
+# -- #659 : mise à jour depuis le dépôt git (GitHub) ----------------------------
+def _git(args, timeout=120):
+    r = subprocess.run(["git"] + args, cwd=PROJECT_DIR, capture_output=True, text=True, timeout=timeout)
+    return r.returncode, (r.stdout or "").strip("\n"), (r.stderr or "").strip()
+
+
+def git_state(fetch=True):
+    """Branche, HEAD, dépôt distant (masqué), retard/avance, commits entrants, version distante, fichiers modifiés et plan."""
+    rc, branch, _ = _git(["rev-parse", "--abbrev-ref", "HEAD"]); branch = branch.strip()
+    if rc:
+        return {"error": "le dépôt n'est pas un clone git (%s) : déposer les livraisons en zip, ou cloner depuis GitHub" % PROJECT_DIR}
+    _, head, _ = _git(["log", "-1", "--format=%h%x09%s"])
+    _, remote, _ = _git(["remote", "get-url", "origin"])
+    st = {"branch": branch, "head": tower.parse_log(head)[:1] and tower.parse_log(head)[0], "remote": tower.mask_remote(remote), "hint": tower.remote_hint(remote),
+          "current": (_read("shared/DELIVERY_NUMBER") or b"").decode().strip(), "fetched": False}
+    _, dirty, _ = _git(["status", "--porcelain", "--untracked-files=no"])
+    st["dirty"] = [l[3:] if len(l) > 3 else l for l in dirty.splitlines() if l.strip()][:20]
+    if fetch and not st["hint"]:
+        rc, _, err = _git(["fetch", "--quiet", "origin", branch], timeout=180)
+        st["fetched"] = rc == 0
+        if rc:
+            st["fetch_error"] = err[-300:]
+    up = "origin/%s" % branch
+    rc, counts, _ = _git(["rev-list", "--left-right", "--count", "HEAD...%s" % up])
+    if rc == 0 and counts:
+        a, b = (counts.split() + ["0", "0"])[:2]
+        st["ahead"], st["behind"] = int(a), int(b)
+        _, log, _ = _git(["log", "--format=%h%x09%s", "HEAD..%s" % up, "-30"])
+        st["incoming"] = tower.parse_log(log)
+        _, rem_num, _ = _git(["show", "%s:shared/DELIVERY_NUMBER" % up])
+        st["remote_number"] = rem_num.strip()
+        _, diff, _ = _git(["diff", "--name-only", "HEAD..%s" % up])
+        st["changed"] = [l for l in diff.splitlines() if l][:500]
+        try:
+            st["plan"] = tower.plan_for_changes(st["changed"], _compose_paths(), _running_main())
+        except Exception as exc:  # noqa: BLE001
+            st["plan"] = {"steps": [], "error": "plan non calculé : %s" % exc}
+    else:
+        st["ahead"], st["behind"], st["incoming"], st["changed"], st["plan"] = 0, 0, [], [], {"steps": []}
+        st["remote_number"] = None
+    nodes = _read("deploy/nodes.json")
+    try:
+        st["nodes"] = len((json.loads(nodes.decode("utf-8")) or {}).get("nodes") or []) if nodes else 0
+    except ValueError:
+        st["nodes"] = 0
+    st["running"] = _running_main()
+    return st
+
+
+@app.route("/git", methods=["GET"])
+def git_route():
+    err = _need_project()
+    if err:
+        return err
+    return jsonify(git_state(fetch=request.args.get("fetch", "1") != "0")), 200
+
+
+@app.route("/git/update", methods=["POST"])
+def git_update_route():
+    """{mode: central|cascade, agents: bool, force: bool} -- job runner : git pull --ff-only puis reconstruction ciblée (central)
+    ou de tous les services en marche + passerelle + autres nœuds (cascade) ; agents hôtes mis à jour à la fin (check_jobs)."""
+    err = _need_project()
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    mode = "cascade" if body.get("mode") == "cascade" else "central"
+    st = git_state(fetch=True)
+    if st.get("error"):
+        return jsonify({"error": st["error"]}), 400
+    if st.get("hint"):
+        return jsonify({"error": st["hint"]}), 400
+    if st.get("fetch_error"):
+        return jsonify({"error": "git fetch : " + st["fetch_error"]}), 502
+    if st["dirty"] and not body.get("force"):
+        return jsonify({"error": "fichiers suivis modifiés localement (%s) : les commiter ou les remettre (git checkout --), ou forcer" % ", ".join(st["dirty"][:5])}), 409
+    if st.get("ahead"):
+        return jsonify({"error": "la branche locale a %d commit(s) d'avance sur origin : avance rapide impossible, pousser ou rebaser d'abord" % st["ahead"]}), 409
+    if not st.get("behind") and mode == "central" and not body.get("force"):
+        return jsonify({"error": "déjà à jour (#%s)" % st["current"], "state": st}), 409
+    plan = tower.git_update_plan(mode, st["changed"], _compose_paths(), st["running"], gateway_running=_gateway_running(), nodes=st.get("nodes", 0), agents=bool(body.get("agents")), branch=st["branch"])
+    label = "mise à jour git %s : #%s → #%s (%d commit(s))" % ("en cascade" if mode == "cascade" else "du central", st["current"] or "?", st.get("remote_number") or "?", st.get("behind", 0))
+    job = launch_job("git-update", label, plan["steps"], g.user["username"], {"git": {"from": st["head"], "mode": mode, "behind": st.get("behind"), "remote_number": st.get("remote_number")}, "agents": plan["agents"]})
+    event("git-update", "%s lancée par %s (%s)" % (label, g.user["username"], mode), job=job["id"])
+    return jsonify({"job": job, "plan": plan["plan"], "steps": plan["steps"], "state": st}), 200
+
+
+def _gateway_running():
+    try:
+        return any(c.status == "running" for c in _project_containers(EXTRA_PROJECTS) if "tls-proxy" in c.name)
+    except Exception:  # noqa: BLE001
+        return True
+
+
+def _agents_after_update(meta):
+    """Fin d'un job git-update en cascade avec agents : le nouveau paquet d'agent est dans l'image reconstruite de si-agent-api ->
+    commande `update` aux agents éligibles (canal bêta / activation générale, réglages de la tuile Agents hôtes)."""
+    try:
+        req = urllib.request.Request(SI_AGENT_URL + "/updates/apply", data=json.dumps({"actor": "cascade git"}).encode(), headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.loads(resp.read().decode("utf-8") or "{}")
+        sched = data.get("scheduled") or []
+        counts = data.get("counts") or {}
+        msg = "agents hôtes : %d mise(s) à jour planifiée(s)" % len(sched)
+        if not sched and counts.get("not-eligible"):
+            msg += " -- %d agent(s) non éligibles : activer le canal général dans Agents hôtes → Mises à jour" % counts["not-eligible"]
+        event("git-update-agents", msg, job=meta.get("id"))
+        _notify("tower.job.done", msg, "", {"job": meta.get("id")})
+    except Exception as exc:  # noqa: BLE001
+        event("git-update-agents", "agents hôtes : mise à jour non planifiée (%s)" % exc, job=meta.get("id"))
+
+
 # -- auto-réparation -----------------------------------------------------------
 _heal_state = {}
 
@@ -801,6 +914,8 @@ def check_jobs():
         event("job-failed" if rc else "job-done", "%s : %s (code %s)" % (meta.get("label"), "échec" if rc else "terminé", rc), job=jid)
         if not rc:
             _notify("tower.job.done", "%s : terminé" % meta.get("label"), tail, {"job": jid})
+            if meta.get("kind") == "git-update" and meta.get("agents"):
+                _agents_after_update(meta)
         try:
             with open(os.path.join(jobs, jid + ".notified"), "w") as fh:
                 fh.write(time.strftime("%Y-%m-%dT%H:%M:%S"))

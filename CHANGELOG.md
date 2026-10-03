@@ -1,3 +1,24 @@
+## 2026-10-03 — Mise à jour du hub depuis le git : central ciblé, ensemble en cascade, agents hôtes (livraison #659)
+
+Demande : « brancher la mise à jour du hub sur le GitHub : un bouton mise à jour du central depuis le git, un autre pour
+l'ensemble en cascade… côté agents aussi ». S'appuie sur la tour de contrôle (#586 : runner détaché, plan de reconstruction).
+
+- `services/api/app.py` : `GET /git` (branche, HEAD, remote masqué, fetch, retard/avance, commits entrants, version
+  distante, fichiers changés, plan ciblé, nœuds, services en marche), `POST /git/update {mode: central|cascade, agents,
+  force}` → job runner ; `_agents_after_update` à la fin d'un job en cascade (si-agent-api `/updates/apply`).
+  `services/api/tower.py` : `mask_remote`, `remote_hint`, `parse_log`, `git_update_plan`.
+- `deploy/node_agent.py` : `POST /update` et CLI `update` / `update-all` (pull + apply --build sur chaque autre nœud).
+- Hub, tour de contrôle → Livraisons & jobs : carte « Mise à jour depuis le git » (état, commits, plan, boutons
+  « Mettre à jour le central » / « Tout mettre à jour en cascade », case agents hôtes, suivi du job).
+
+Vérifié : `services/api/test_tower.py` (+1), `test_app.py`, `deploy/tests/test_deploy.py` (+1 : pull puis apply, refus si
+fichiers modifiés), hub Node 296 (+1) avec les 2 échecs préexistants, `@babel/parser`.
+Non vérifié : job réel (git pull + reconstruction depuis le runner), rendu navigateur, agents de nœud réels.
+
+Fichiers : `services/api/{app.py,tower.py,test_tower.py}`, `services/README.md`, `deploy/node_agent.py`,
+`deploy/tests/test_deploy.py`, `hub/src/{ControlTowerView.jsx,servicesClient.js,towerLib.js}`, `hub/tests/towerLib.test.mjs`,
+`CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — Migration d'un serveur / service vers la virtualisation : image à chaud ou reconstruction, transitions, retour en arrière (livraison #658, agent 0.5.32)
 
 Item 112 du BACKLOG, choix de la personne : « les deux : permettre le retour en arrière et des étapes de transition ».

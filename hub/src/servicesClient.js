@@ -36,6 +36,9 @@ export async function saveConfig(apiBase, token, id, items) {
 export const fetchJobs = (apiBase, token) => call(apiBase, token, "/jobs");
 export const fetchJob = (apiBase, token, id) => call(apiBase, token, `/jobs/${encodeURIComponent(id)}`);
 export const fetchDeliveries = (apiBase, token) => call(apiBase, token, "/deliveries");
+// #659 : mise à jour depuis le dépôt git (GitHub) -- état (fetch) et lancement (central ciblé / cascade + agents)
+export const fetchGit = (apiBase, token, fetch = true) => call(apiBase, token, `/git${fetch ? "" : "?fetch=0"}`);
+export const gitUpdate = (apiBase, token, body) => call(apiBase, token, "/git/update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
 export const applyDelivery = (apiBase, token, id, allowDowngrade = false) => call(apiBase, token, `/deliveries/${encodeURIComponent(id)}/apply`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ allow_downgrade: allowDowngrade }) });
 
 /** Envoi d'un zip de livraison avec progression (XMLHttpRequest : fetch n'expose pas l'avancement de l'envoi). */

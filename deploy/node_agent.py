@@ -11,6 +11,8 @@ un conteneur : il pilote docker compose du dépôt local).
   node_agent.py export <cohorte> > f  archive tar.gz des données de la cohorte (bind mounts + volumes nommés)
   node_agent.py import <cohorte> < f  restaure une archive ici (mêmes chemins, volumes recréés)
   node_agent.py status                état local (JSON)
+  node_agent.py update                #659 : git pull --ff-only puis apply --build ici
+  node_agent.py update-all            #659 : même chose sur TOUS les autres nœuds de nodes.json (POST /update, jeton du .env)
 
 API (jeton dans l'en-tête X-SI-Node-Token, en clair MAIS uniquement sur le VPN WireGuard) :
   GET  /status                        nœud, cohortes, conteneurs, plan courant
@@ -18,6 +20,7 @@ API (jeton dans l'en-tête X-SI-Node-Token, en clair MAIS uniquement sur le VPN 
   POST /stop     {"cohort": "tickets"}
   GET  /export/<cohorte>              flux tar.gz
   POST /import/<cohorte> {"from": "10.99.0.2"}      va chercher l'export sur le nœud source et le restaure
+  POST /update   {"build": true}      #659 : git pull --ff-only (origin, branche courante) puis apply
 
 Le manager (deploy/repartition.py) enchaîne stop → import → nodes.json → apply partout.
 Aucun secret n'est journalisé ; le jeton n'est jamais renvoyé.
@@ -34,6 +37,7 @@ import tarfile
 import tempfile
 import time
 import urllib.request
+import urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -119,6 +123,43 @@ def apply(me, build=False):
         steps.append("réseau hôte : " + s)
     plan["steps"] = steps
     return plan
+
+
+def git_update(me, build=True):
+    """#659 : dépôt local tiré en avance rapide (origin/<branche courante>), puis apply --build. Refus si des fichiers suivis
+    sont modifiés localement (jamais d'écrasement silencieux)."""
+    dirty = [l for l in (run(["git", "status", "--porcelain", "--untracked-files=no"], capture=True).stdout or "").splitlines() if l.strip()]
+    if dirty:
+        raise RuntimeError("fichiers suivis modifiés sur ce nœud : " + ", ".join(l[3:] if len(l) > 3 else l for l in dirty[:5]))
+    branch = run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture=True).stdout.strip() or "main"
+    before = run(["git", "rev-parse", "--short", "HEAD"], capture=True).stdout.strip()
+    pull = run(["git", "pull", "--ff-only", "origin", branch], capture=True)
+    after = run(["git", "rev-parse", "--short", "HEAD"], capture=True).stdout.strip()
+    plan = apply(me, build)
+    return {"node": me, "branch": branch, "from": before, "to": after, "pull": (pull.stdout or "").strip()[-300:], "steps": plan.get("steps", [])}
+
+
+def update_all(timeout=3600):
+    """#659 : POST /update sur chaque autre nœud (adresse VPN, jeton du .env) ; -> {node: résultat|erreur}, échec global si un nœud échoue."""
+    env = load_env(); me = node_name(); token = env.get("SI_NODE_TOKEN", ""); port = int(env.get("SI_NODE_PORT") or DEFAULT_PORT)
+    if not token:
+        raise RuntimeError("SI_NODE_TOKEN absent du .env")
+    out, failed = {}, []
+    for n in read_json(NODES).get("nodes", []):
+        if n["name"] == me or not n.get("wg_address"):
+            continue
+        req = urllib.request.Request("http://%s:%d/update" % (n["wg_address"], port), data=json.dumps({"build": True}).encode(), method="POST",
+                                     headers={"X-SI-Node-Token": token, "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                out[n["name"]] = json.loads(resp.read().decode("utf-8") or "{}")
+        except urllib.error.HTTPError as e:
+            out[n["name"]] = {"error": (e.read() or b"")[:300].decode("utf-8", "replace")}; failed.append(n["name"])
+        except Exception as e:  # noqa: BLE001
+            out[n["name"]] = {"error": str(e)[:300]}; failed.append(n["name"])
+    if failed:
+        raise RuntimeError("nœud(s) en échec : %s -- %s" % (", ".join(failed), json.dumps(out, ensure_ascii=False)[:800]))
+    return out
 
 
 def stop_cohort(cohort):
@@ -293,6 +334,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(200, apply(self.me, bool(body.get("build"))))
             if self.path == "/stop":
                 return self._json(200, {"stopped": stop_cohort(body["cohort"])})
+            if self.path == "/update":
+                return self._json(200, git_update(self.me, body.get("build", True)))
             if self.path.startswith("/import/"):
                 cohort = self.path[len("/import/"):]
                 url = "http://%s:%d/export/%s" % (body["from"], int(body.get("port") or DEFAULT_PORT), cohort)
@@ -336,6 +379,10 @@ def main():
         print(json.dumps(import_cohort(sys.argv[2], sys.stdin.buffer)))
     elif cmd == "status":
         print(json.dumps(status(me), indent=2, ensure_ascii=False))
+    elif cmd == "update":
+        print(json.dumps(git_update(me, "--no-build" not in sys.argv), indent=2, ensure_ascii=False))
+    elif cmd == "update-all":
+        print(json.dumps(update_all(), indent=2, ensure_ascii=False))
     else:
         print(__doc__)
         return 2
