@@ -1,3 +1,15 @@
+## 2026-10-03 — Mise à jour git : la passerelle ne tombe plus sur la question « realm Keycloak changé » (livraison #671)
+
+Constaté sur un job en cascade : `./gateway/scripts/run.sh up -d --build tls-proxy` détecte un realm-template.json
+différent du dernier import, tente la capture des groupes (401, Keycloak sans jeton) puis pose sa question
+`read -r -p` — sans terminal, `read` échoue sur EOF et `set -e` fait tomber tout le job (code 1), passerelle non
+reconstruite. Désormais sans terminal (job de la tour, cron) : volume Keycloak conservé, message explicite, le stack
+continue avec l'ancien realm et le marqueur n'est pas mis à jour (la question reviendra au prochain lancement à la
+main) ; `GATEWAY_REALM_ANSWER=marquer` accepte le realm courant sans purge.
+
+- Vérifié : `bash -n`. Non vérifié : job réel sur super (à relancer : « Mettre à jour le central »).
+- Fichiers : `gateway/scripts/run.sh`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — Groupware : rappels d'agenda affichés par le hub (livraison #670)
 
 `GET /reminders?user=&groups=&within=` : occurrences de mes agendas (invitations reçues comprises, déclinées exclues)

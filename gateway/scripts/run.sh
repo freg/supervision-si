@@ -431,6 +431,28 @@ check_keycloak_realm_change() {
   echo "    aux groupes réajustées après incident, sessions actives...)."
   echo ""
 
+  # #671 : sans terminal (job de la tour de contrôle, cron, mise à jour
+  # depuis le hub), impossible de poser la question -- `read` échouait
+  # sur EOF et, sous `set -e`, faisait tomber tout le job (vu sur une
+  # mise à jour en cascade). On garde le volume tel quel, on continue,
+  # et le marqueur n'est pas mis à jour : la question reviendra au
+  # prochain lancement À LA MAIN du script (ou GATEWAY_REALM_ANSWER=marquer).
+  if [ ! -t 0 ] || [ -n "${GATEWAY_REALM_ANSWER:-}" ]; then
+    case "${GATEWAY_REALM_ANSWER:-non}" in
+      marquer|MARQUER|m|M)
+        echo "    (sans terminal, GATEWAY_REALM_ANSWER=marquer) Volume conservé, ce contenu de realm marqué comme accepté."
+        ;;
+      *)
+        echo "    (sans terminal) Volume Keycloak conservé tel quel -- le stack continue avec l'ANCIEN realm."
+        echo "    Pour purger/réimporter ou marquer ce realm comme accepté : lancer ce script depuis un terminal,"
+        echo "    ou relancer avec GATEWAY_REALM_ANSWER=marquer pour ne plus voir ce message."
+        REALM_PURGE_DECLINED=1
+        ;;
+    esac
+    echo ""
+    return 0
+  fi
+
   check_ldap_placeholder_and_block
 
   if command -v python3 >/dev/null 2>&1; then
