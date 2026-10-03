@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import tarfile
+import time
 import tempfile
 import unittest
 
@@ -168,3 +169,40 @@ class GitUpdate(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Mirror(unittest.TestCase):
+    """#663 : miroir froid -- archives valides, restauration refusée si des services tournent, chaîne à pousser, âge."""
+    def test_node_agent_mirror(self):
+        import tempfile
+        self.assertTrue(na.ARCHIVE_RE.match("si-full-20261003-1200.tar.gz.enc")); self.assertTrue(na.ARCHIVE_RE.match("si-full-20261003-1200.manifest.json"))
+        self.assertFalse(na.ARCHIVE_RE.match("../etc/passwd")); self.assertFalse(na.ARCHIVE_RE.match("x.sh"))
+        d = tempfile.mkdtemp()
+        open(os.path.join(d, "a.tar.gz.enc"), "wb").write(b"123"); open(os.path.join(d, "a.manifest.json"), "w").write("{}"); open(os.path.join(d, "junk.txt"), "w").write("x")
+        self.assertEqual([a["name"] for a in na.mirror_archives(d)], ["a.manifest.json", "a.tar.gz.enc"])
+        old_running = na.compose_running
+        na.compose_running = lambda: ["hub"]
+        try:
+            with self.assertRaises(RuntimeError) as cm:
+                na.mirror_restore("a.tar.gz.enc")
+            self.assertIn("tournent", str(cm.exception))
+        finally:
+            na.compose_running = old_running
+        with self.assertRaises(RuntimeError):
+            na.mirror_restore("a.manifest.json")
+        with self.assertRaises(RuntimeError):
+            na.mirror_takeover("pas-une-ip")
+
+    def test_mirror_primary(self):
+        import tempfile, mirror
+        d = tempfile.mkdtemp()
+        full, inc = os.path.join(d, "full.tar.gz.enc"), os.path.join(d, "inc.tar.gz.enc")
+        open(full, "wb").write(b"1234"); open(inc, "wb").write(b"12")
+        remote = [{"name": "full.tar.gz.enc", "size": 4}, {"name": "inc.tar.gz.enc", "size": 1}]
+        self.assertEqual(mirror.to_push([full, inc], remote), [inc])          # taille différente = à renvoyer
+        self.assertEqual(mirror.to_push([full], []), [full])
+        self.assertEqual(mirror.age_text(None), "jamais")
+        now = time.mktime(time.strptime("2026-10-03T12:00:00", "%Y-%m-%dT%H:%M:%S"))
+        self.assertEqual(mirror.age_text("2026-10-03T11:30:00", now), "30 min"); self.assertEqual(mirror.age_text("2026-10-03T09:00:00", now), "3.0 h")
+        with self.assertRaises(RuntimeError):
+            mirror.load_config(os.path.join(d, "absent.json"))

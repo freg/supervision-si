@@ -75,3 +75,6 @@ export const fetchRepartition = (apiBase, token, status = true) => call(apiBase,
 export const saveRepartition = (apiBase, token, nodes) => call(apiBase, token, "/repartition", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nodes }) });
 export const applyRepartition = (apiBase, token, body) => call(apiBase, token, "/repartition/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
 export const migrateCohort = (apiBase, token, cohort, target, force = false) => call(apiBase, token, "/repartition/migrate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cohort, target, force }) });
+// #663 : miroir froid (étape 3) -- état et actions (jobs)
+export const fetchMirror = (apiBase, token) => call(apiBase, token, "/mirror");
+export const mirrorAction = (apiBase, token, action) => call(apiBase, token, `/mirror/${action}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });

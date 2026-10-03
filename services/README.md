@@ -139,6 +139,13 @@ au plus une fois, manager toujours affecté), `POST /repartition/apply {build, o
 données, apply partout). Quand `nodes.json` connaît ce nœud, les plans (zip, git) ne reconstruisent **que** les services
 de ses cohortes (`not_here` liste les autres).
 
+## Miroir froid (#663)
+
+`GET /mirror` (config `deploy/mirror.local.json`, état primaire `deploy/generated/mirror-primary.state.json`, âge / RPO,
+état du miroir via son agent de nœud), `POST /mirror/<sync|sync-full|failover|failback|prune>` → job runner
+`deploy/mirror.py …` ; après un failover / failback réussi, la tour bascule le rôle `role_id` (si-agent-api
+`/pra/roles/<id>/switch`) vers le candidat miroir / primaire et le notifie.
+
 ## Santé de l'hôte (#593)
 
 Après un `/var` saturé qui tronquait les fichiers du hub : la tour mesure

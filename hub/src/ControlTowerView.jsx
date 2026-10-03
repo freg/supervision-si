@@ -14,8 +14,8 @@ import ServicesView from "./ServicesView.jsx";
 import { viewParams } from "./hubLinks.js";
 import {
   fetchServices, fetchSettings, saveSettings, fetchEvents, fetchConfigs, fetchConfig, saveConfig,
-  fetchJobs, fetchJob, fetchDeliveries, uploadDelivery, applyDelivery, reloadGateway, fetchGit, gitUpdate, fetchRepartition, saveRepartition, applyRepartition, migrateCohort } from "./servicesClient.js";
-import { itemsOf, mergeItems, emptyRow, cleanRow, statsText, deliveryText, JOB_LABEL, JOB_TONE, touchesHub, gitText, gitBlocker, cohortRows, moveCohort, nodeText } from "./towerLib.js";
+  fetchJobs, fetchJob, fetchDeliveries, uploadDelivery, applyDelivery, reloadGateway, fetchGit, gitUpdate, fetchRepartition, saveRepartition, applyRepartition, migrateCohort, fetchMirror, mirrorAction } from "./servicesClient.js";
+import { itemsOf, mergeItems, emptyRow, cleanRow, statsText, deliveryText, JOB_LABEL, JOB_TONE, touchesHub, gitText, gitBlocker, cohortRows, moveCohort, nodeText, mirrorText, mirrorActions } from "./towerLib.js";
 
 const TABS = [
   { id: "services", label: "🚦 Services" },
@@ -61,6 +61,38 @@ function JobView({ apiBase, token, jobId, onClose }) {
       {lost > 0 && <p className="muted">tour de contrôle momentanément injoignable (reconstruction en cours ?) — nouvelle tentative…</p>}
       {job?.status === "done" && touchesHub(job) && <p><Tone tone="orange">Le hub ou la passerelle ont été relancés : </Tone><button type="button" onClick={() => window.location.reload()}>recharger la page</button></p>}
       <pre ref={pre} style={{ maxHeight: 360, overflow: "auto", fontSize: 12, margin: "8px 0 0" }}>{(job?.log || []).join("\n") || "…"}</pre>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// #663 : miroir froid (étape 3) -- le primaire envoie ses sauvegardes totales/incrémentales à l'agent de nœud du miroir
+// qui les restaure services arrêtés ; bascule = takeover (regenerate + tout démarrer) + rôle « celui qui répond » ;
+// retour = sauvegarde du miroir restaurée ici puis miroir en standby. Tout en jobs (deploy/mirror.py).
+const MIRROR_LABELS = { sync: "Synchroniser (incrémental)", "sync-full": "Synchroniser (totale)", failover: "⚠ Basculer vers le miroir", failback: "↶ Revenir sur le primaire", prune: "Purger les anciennes sauvegardes" };
+function MirrorCard({ apiBase, token, openJob }) {
+  const [m, setM] = useState(null);
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState(null);
+  const load = useCallback(async () => { const r = await fetchMirror(apiBase, token); if (!r.error) setM(r); else setError(r.error); }, [apiBase, token]);
+  useEffect(() => { load(); }, [load]);
+  const run = async (a) => {
+    const warn = { failover: "BASCULER vers le miroir : il régénère ce qui est propre à son hôte, démarre tout, puis le rôle est basculé. Le primaire n'est PAS arrêté par cette action (le faire si l'incident ne l'a pas déjà fait). Continuer ?",
+      failback: "REVENIR sur le primaire : sauvegarde du miroir, arrêt du primaire, restauration par-dessus, redémarrage, miroir en standby. Continuer ?", "sync-full": "Synchronisation totale (longue) : continuer ?" }[a];
+    if (warn && !window.confirm(warn)) return;
+    setBusy(a); setError(null); const r = await mirrorAction(apiBase, token, a); setBusy("");
+    if (r.error) { setError(r.error); return; } if (r.job?.id) openJob(r.job.id);
+  };
+  return (
+    <div className="hub-card" style={{ marginTop: 12 }}>
+      <h3 style={{ margin: "0 0 6px" }}>🪞 Miroir froid {m?.configured && <span className={m.rpo_ok ? "muted" : "hub-error"}>{m.rpo_ok ? "— RPO respecté" : "— RPO dépassé"}</span>}</h3>
+      <p className="muted" style={{ margin: "0 0 6px" }}>{mirrorText(m)}</p>
+      {error && <p className="hub-error">{error}</p>}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {mirrorActions(m).map((a) => <button key={a} type="button" className={a === "failover" || a === "failback" ? "secondary" : "primary"} disabled={!!busy} onClick={() => run(a)}>{MIRROR_LABELS[a]}</button>)}
+        <button type="button" className="secondary" disabled={!!busy} onClick={load}>↻</button>
+      </div>
+      {m?.configured && <p className="muted" style={{ margin: "6px 0 0" }}>RPO = intervalle entre deux synchronisations (planifier « sync » : cron sur l'hôte ou tâche de la tour) ; RTO = durée du job de bascule. Rôle basculé : {m.config?.role_id ? `n°${m.config.role_id} (candidats ${m.config.primary_candidate ?? 0} → ${m.config.mirror_candidate ?? 1})` : "aucun (basculer DNS / NAT à la main)"}.</p>}
     </div>
   );
 }
@@ -116,6 +148,7 @@ function Repartition({ apiBase, token, openJob }) {
           <button type="button" className="secondary" disabled={!mig.cohort || !mig.target || !!busy} onClick={migrate}>Migrer (job)</button>
         </div>
       </>)}
+      <MirrorCard apiBase={apiBase} token={token} openJob={openJob} />
     </div>
   );
 }

@@ -144,3 +144,4 @@ datasync/data/
 dns/data/
 datasync/connector/*.state.json
 datasync/connector/config.json
+deploy/mirror.local.json

@@ -97,6 +97,21 @@ export function nodeText(st) {
   return `v${st.version || "?"} · ${(st.running || []).length} en marche` + (miss ? ` · ${miss} arrêté(s) : ${st.missing.slice(0, 4).join(", ")}` : "") + ((st.plan?.missing || []).length ? ` · sans relais : ${st.plan.missing.join(", ")}` : "");
 }
 
+// #663 : miroir -- phrase d'état et actions possibles (pur).
+export function mirrorText(m) {
+  if (!m) return "";
+  if (!m.configured) return "pas de miroir configuré (deploy/mirror.local.json, modèle deploy/mirror.example.json)";
+  const st = m.state || {}; const mir = m.mirror || {};
+  const age = m.age_s == null ? "jamais synchronisé" : m.age_s < 3600 ? `synchronisé il y a ${Math.round(m.age_s / 60)} min` : `synchronisé il y a ${(m.age_s / 3600).toFixed(1)} h`;
+  const side = mir.error ? `miroir ${m.config?.node} injoignable : ${mir.error}` : `miroir ${mir.node || m.config?.node} : ${(mir.archives || []).filter((a) => !a.name.endsWith(".manifest.json")).length} archive(s), ${(mir.running || []).length} service(s) en marche${mir.state?.last_restore ? `, restauré le ${mir.state.last_restore.replace("T", " ").slice(0, 16)}` : ""}`;
+  return `${age}${st.last_archive ? ` (${st.last_archive})` : ""} · ${side}${st.mirror_active ? " · MIROIR ACTIF (bascule en cours)" : ""}`;
+}
+export function mirrorActions(m) {
+  if (!m?.configured) return [];
+  const active = !!(m.state || {}).mirror_active || ((m.mirror || {}).running || []).length > 0;
+  return active ? ["failback"] : ["sync", "sync-full", "failover", "prune"];
+}
+
 export const JOB_LABEL = { running: "en cours", done: "terminé", failed: "échec", lost: "interrompu" };
 export const JOB_TONE = { running: "orange", done: "green", failed: "red", lost: "red" };
 

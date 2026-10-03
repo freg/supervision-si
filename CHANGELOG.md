@@ -1,3 +1,26 @@
+## 2026-10-03 — Miroir froid du hub : synchronisation, bascule, retour (livraison #663, étape 3 des items 108-110)
+
+Actif/passif, construit sur les briques existantes : sauvegarde totale/incrémentale chiffrée (#458-#460), agent de nœud
+sur le VPN (#513), rôles « celui qui répond » (#654/#656), jobs de la tour (#586).
+
+- `deploy/node_agent.py` : `GET /mirror/status`, `PUT/GET /mirror/archive/<nom>`, `POST /mirror/restore` (refusé si des
+  services tournent), `/mirror/backup`, `/mirror/takeover {host_ip}` (regenerate + run-all all up), `/mirror/standby`.
+- `deploy/mirror.py` (primaire) : `status` (âge, RPO), `sync [--full]` (sauvegarde, chaîne manquante poussée, restauration
+  sur le miroir), `failover`, `failback` (sauvegarde du miroir → restaurée ici, services arrêtés puis relancés, miroir en
+  standby), `prune` ; `deploy/mirror.example.json`.
+- `services/api` : `GET /mirror`, `POST /mirror/<action>` (jobs), bascule de rôle après failover/failback ; hub, tour →
+  Répartition : carte **Miroir froid** (état, RPO, boutons) ; `towerLib` : `mirrorText`, `mirrorActions`.
+
+Vérifié : `deploy/tests/test_deploy.py` (+2 : archives, refus si services en marche, chaîne à pousser, âge), `services/api`
+(test_app), hub Node 301 / 0 échec, `@babel/parser`. Non vérifié : **aucun second hôte dans la session** — sync, bascule et
+retour réels à éprouver (conseillé : sur une VM de test avant le miroir réel), `full_backup.py restore --force` par-dessus
+un dépôt existant, temps de restauration.
+
+Fichiers : `deploy/{node_agent.py,mirror.py,mirror.example.json,README-socle.md,tests/test_deploy.py}`,
+`services/api/app.py`, `services/README.md`, `hub/src/{ControlTowerView.jsx,servicesClient.js,towerLib.js}`,
+`hub/tests/towerLib.test.mjs`, `docs/architecture-clonage-distribution-hub.md`, `.gitignore`, `BACKLOG.md`, `CHANGELOG.md`,
+`shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — Répartition des nœuds depuis la tour de contrôle, plans filtrés par placement (livraison #662)
 
 Étape 2 des items 108-110 (ADR), sur la mécanique #513 (nodes.json, cohortes, agents de nœud, repartition.py) : l'IHM

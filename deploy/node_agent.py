@@ -21,6 +21,14 @@ API (jeton dans l'en-tête X-SI-Node-Token, en clair MAIS uniquement sur le VPN 
   GET  /export/<cohorte>              flux tar.gz
   POST /import/<cohorte> {"from": "10.99.0.2"}      va chercher l'export sur le nœud source et le restaure
   POST /update   {"build": true}      #659 : git pull --ff-only (origin, branche courante) puis apply
+  #663 miroir froid (étape 3) : ce nœud reçoit les archives de sauvegarde totale du primaire et les restaure, services arrêtés
+  GET  /mirror/status                 archives reçues, services en marche, dernière restauration
+  PUT  /mirror/archive/<nom>          corps = archive (ou manifeste .manifest.json), déposée dans backups/mirror/
+  GET  /mirror/archive/<nom>          renvoie une archive (retour arrière : le primaire récupère la sauvegarde du miroir)
+  POST /mirror/restore {"archive": nom, "force": false}   full_backup.py restore --into <dépôt> --force (refusé si des services tournent)
+  POST /mirror/backup                 full_backup.py backup --out backups/mirror (quand ce nœud est actif) -> {archive}
+  POST /mirror/takeover {"host_ip"}   regenerate --host-ip puis run-all.sh all up -d : le miroir devient actif
+  POST /mirror/standby                run-all.sh all down : retour en miroir froid (données conservées)
 
 Le manager (deploy/repartition.py) enchaîne stop → import → nodes.json → apply partout.
 Aucun secret n'est journalisé ; le jeton n'est jamais renvoyé.
@@ -160,6 +168,87 @@ def update_all(timeout=3600):
     if failed:
         raise RuntimeError("nœud(s) en échec : %s -- %s" % (", ".join(failed), json.dumps(out, ensure_ascii=False)[:800]))
     return out
+
+
+# ---------------------------------------------------------------- #663 : miroir froid
+MIRROR_DIR = os.path.join(ROOT, "backups", "mirror")
+MIRROR_STATE = os.path.join(GEN, "mirror.state.json")
+ARCHIVE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,150}\.(tar\.gz(\.enc)?|manifest\.json)$")
+
+
+def mirror_state(update=None):
+    st = {}
+    try:
+        st = read_json(MIRROR_STATE)
+    except (OSError, ValueError):
+        pass
+    if update:
+        st.update(update); os.makedirs(GEN, exist_ok=True)
+        with open(MIRROR_STATE, "w", encoding="utf-8") as fh:
+            json.dump(st, fh, indent=2, ensure_ascii=False)
+    return st
+
+
+def mirror_archives(d=MIRROR_DIR):
+    out = []
+    for f in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+        p = os.path.join(d, f)
+        if os.path.isfile(p) and ARCHIVE_RE.match(f):
+            out.append({"name": f, "size": os.path.getsize(p), "at": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(os.path.getmtime(p)))})
+    return out
+
+
+def mirror_status():
+    return {"node": node_name(), "archives": mirror_archives(), "running": compose_running(), "state": mirror_state(),
+            "version": open(os.path.join(ROOT, "shared", "DELIVERY_NUMBER")).read().strip() if os.path.exists(os.path.join(ROOT, "shared", "DELIVERY_NUMBER")) else None}
+
+
+def mirror_restore(archive, force=False):
+    """Restauration d'une archive reçue PAR-DESSUS ce dépôt (données, volumes, .env, PKI) -- miroir froid : rien ne doit tourner."""
+    if not ARCHIVE_RE.match(archive or "") or archive.endswith(".manifest.json"):
+        raise RuntimeError("archive : nom d'archive .tar.gz(.enc) attendu")
+    running = compose_running()
+    if running and not force:
+        raise RuntimeError("des services tournent sur ce nœud (%s) : miroir actif ? standby d'abord, ou force" % ", ".join(running[:5]))
+    path = os.path.join(MIRROR_DIR, archive)
+    if not os.path.isfile(path):
+        raise RuntimeError("archive absente : " + archive)
+    env = load_env(); e = {"SI_BACKUP_PASSPHRASE": env.get("SI_BACKUP_PASSPHRASE", "")} if env.get("SI_BACKUP_PASSPHRASE") else None
+    t0 = time.time()
+    r = run([sys.executable, os.path.join(ROOT, "scripts", "full_backup.py"), "restore", path, "--into", ROOT, "--force"], capture=True, env=e)
+    st = {"last_restore": time.strftime("%Y-%m-%dT%H:%M:%S"), "last_archive": archive, "restore_seconds": int(time.time() - t0)}
+    mirror_state(st)
+    return dict(st, output=(r.stdout or "")[-800:])
+
+
+def mirror_backup():
+    """Sauvegarde totale de CE nœud (quand il est actif) vers backups/mirror, pour le retour arrière."""
+    env = load_env(); e = {"SI_BACKUP_PASSPHRASE": env.get("SI_BACKUP_PASSPHRASE", "")} if env.get("SI_BACKUP_PASSPHRASE") else None
+    os.makedirs(MIRROR_DIR, exist_ok=True)
+    before = {a["name"] for a in mirror_archives()}
+    run([sys.executable, os.path.join(ROOT, "scripts", "full_backup.py"), "backup", "--out", MIRROR_DIR], capture=True, env=e)
+    new = [a for a in mirror_archives() if a["name"] not in before and not a["name"].endswith(".manifest.json")]
+    if not new:
+        raise RuntimeError("aucune archive produite")
+    return {"archive": new[-1]["name"], "size": new[-1]["size"]}
+
+
+def mirror_takeover(host_ip):
+    """Le miroir devient actif : ce qui est propre à l'hôte est régénéré (HOST_IP, certificat serveur, conf nginx ; CA et sels conservés), puis tout démarre."""
+    if host_ip and not re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", host_ip):
+        raise RuntimeError("host_ip invalide")
+    steps = []
+    args = [sys.executable, os.path.join(ROOT, "scripts", "full_backup.py"), "regenerate"] + (["--host-ip", host_ip] if host_ip else [])
+    r = run(args, capture=True); steps.append("regenerate : " + (r.stdout or "").strip().splitlines()[-1][:200] if (r.stdout or "").strip() else "regenerate")
+    run(["./scripts/run-all.sh", "all", "up", "-d"], capture=True); steps.append("run-all all up -d")
+    mirror_state({"active_since": time.strftime("%Y-%m-%dT%H:%M:%S"), "active": True})
+    return {"steps": steps, "running": compose_running()}
+
+
+def mirror_standby():
+    run(["./scripts/run-all.sh", "all", "down"], capture=True)
+    mirror_state({"active": False, "standby_since": time.strftime("%Y-%m-%dT%H:%M:%S")})
+    return {"running": compose_running()}
 
 
 def stop_cohort(cohort):
@@ -309,6 +398,17 @@ class Handler(BaseHTTPRequestHandler):
             return
         if self.path == "/status":
             return self._json(200, status(self.me))
+        if self.path == "/mirror/status":
+            return self._json(200, mirror_status())
+        if self.path.startswith("/mirror/archive/"):
+            name = self.path[len("/mirror/archive/"):]
+            p = os.path.join(MIRROR_DIR, name)
+            if not ARCHIVE_RE.match(name) or not os.path.isfile(p):
+                return self._json(404, {"error": "archive inconnue"})
+            self.send_response(200); self.send_header("Content-Type", "application/octet-stream"); self.send_header("Content-Length", str(os.path.getsize(p))); self.end_headers()
+            with open(p, "rb") as fh:
+                shutil.copyfileobj(fh, self.wfile, 1 << 20)
+            return
         if self.path.startswith("/export/"):
             cohort = self.path[len("/export/"):]
             try:
@@ -322,11 +422,39 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._json(404, {"error": "inconnu"})
 
+    def do_PUT(self):
+        if not self._auth():
+            return
+        name = self.path[len("/mirror/archive/"):] if self.path.startswith("/mirror/archive/") else ""
+        if not ARCHIVE_RE.match(name):
+            return self._json(400, {"error": "nom d'archive invalide"})
+        os.makedirs(MIRROR_DIR, exist_ok=True)
+        n = int(self.headers.get("Content-Length") or 0); part = os.path.join(MIRROR_DIR, name + ".part")
+        with open(part, "wb") as fh:
+            left = n
+            while left > 0:
+                chunk = self.rfile.read(min(1 << 20, left))
+                if not chunk:
+                    break
+                fh.write(chunk); left -= len(chunk)
+        if left:
+            os.remove(part); return self._json(400, {"error": "corps incomplet"})
+        os.replace(part, os.path.join(MIRROR_DIR, name))
+        return self._json(201, {"name": name, "size": n})
+
     def do_POST(self):
         if not self._auth():
             return
         try:
             body = self._body()
+            if self.path == "/mirror/restore":
+                return self._json(200, mirror_restore(str(body.get("archive") or ""), bool(body.get("force"))))
+            if self.path == "/mirror/backup":
+                return self._json(200, mirror_backup())
+            if self.path == "/mirror/takeover":
+                return self._json(200, mirror_takeover(str(body.get("host_ip") or "")))
+            if self.path == "/mirror/standby":
+                return self._json(200, mirror_standby())
             if self.path == "/apply":
                 if body.get("nodes"):
                     with open(NODES, "w", encoding="utf-8") as fh:

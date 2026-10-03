@@ -33,3 +33,23 @@ liste (hors `network_mode: host`, à lancer à part). `deploy/socle.py list +…
 Étape 2 (paquets cohérents, placement multi-hôtes, conf passerelle) et étape 3 (miroir : réplication + bascule) :
 `docs/architecture-clonage-distribution-hub.md`. Le déploiement réparti par cohortes (#513, `deploy/node_agent.py`,
 `nodes.json`) reste la voie quand plusieurs nœuds sont déjà affectés.
+
+## Miroir froid (#663 — étape 3)
+
+Actif/passif. Le **primaire** envoie ses sauvegardes totales/incrémentales (`scripts/full_backup.py`, chiffrées avec
+`SI_BACKUP_PASSPHRASE`, même `.env` des deux côtés) à l'agent de nœud du **miroir** (`deploy/node_agent.py serve`,
+VPN + `SI_NODE_TOKEN`), qui les restaure par-dessus son dépôt, services arrêtés. Mise en place :
+
+```
+# miroir : socle + agent de nœud, rien de démarré (déjà dans nodes.json avec son adresse VPN)
+# primaire :
+cp deploy/mirror.example.json deploy/mirror.local.json   # node, host_ip du miroir, role_id (#654) facultatif
+python3 deploy/mirror.py sync --full      # première synchronisation (puis `sync` incrémental, à planifier : cron)
+python3 deploy/mirror.py status           # âge de la dernière synchro (RPO), archives et services côté miroir
+```
+
+Tour de contrôle → Répartition → carte **Miroir froid** : Synchroniser, Basculer (`failover` : le miroir régénère ce qui
+est propre à son hôte — HOST_IP, certificat serveur ; CA et sels conservés — démarre tout, puis la tour bascule le rôle),
+Revenir (`failback` : sauvegarde du miroir restaurée sur le primaire, miroir en standby, rôle rendu). RPO = intervalle des
+`sync` ; RTO = durée du job de bascule. Les données modifiées sur le miroir pendant la bascule reviennent par `failback`
+seulement — ne jamais faire tourner les deux en même temps (le rôle désigne « celui qui répond »).

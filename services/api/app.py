@@ -865,6 +865,75 @@ def repartition_migrate_route():
     return jsonify({"job": job}), 200
 
 
+# -- #663 : miroir froid (étape 3) ---------------------------------------------------------------------------------
+MIRROR_ACTIONS = {"sync": ("synchronisation du miroir", "python3 deploy/mirror.py sync"), "sync-full": ("synchronisation TOTALE du miroir", "python3 deploy/mirror.py sync --full"),
+                  "failover": ("BASCULE vers le miroir", "python3 deploy/mirror.py failover"), "failback": ("RETOUR sur le primaire", "python3 deploy/mirror.py failback"), "prune": ("purge des anciennes sauvegardes du miroir", "python3 deploy/mirror.py prune")}
+
+
+@app.route("/mirror", methods=["GET"])
+def mirror_route():
+    """Configuration (deploy/mirror.local.json), état côté primaire (dernière synchro, RPO) et côté miroir (archives, services, dernière restauration)."""
+    err = _need_project()
+    if err:
+        return err
+    cfg = _json_file("deploy/mirror.local.json")
+    out = {"configured": bool(cfg), "config": {k: v for k, v in (cfg or {}).items() if not k.startswith("_")}, "state": _json_file("deploy/generated/mirror-primary.state.json") or {}, "mirror": None}
+    if cfg:
+        node = next((n for n in (_json_file("deploy/nodes.json") or {}).get("nodes", []) if n.get("name") == cfg.get("node")), None)
+        if not node:
+            out["mirror"] = {"error": "nœud %s absent de deploy/nodes.json" % cfg.get("node")}
+        else:
+            env = _node_env()
+            try:
+                req = urllib.request.Request("http://%s:%s/mirror/status" % (node["wg_address"], env.get("SI_NODE_PORT") or 6460), headers={"X-SI-Node-Token": env.get("SI_NODE_TOKEN", "")})
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    out["mirror"] = json.loads(resp.read().decode("utf-8") or "{}")
+            except Exception as exc:  # noqa: BLE001
+                out["mirror"] = {"error": str(exc)[:200]}
+        last = out["state"].get("last_sync")
+        try:
+            age = time.time() - time.mktime(time.strptime(last[:19], "%Y-%m-%dT%H:%M:%S")) if last else None
+        except ValueError:
+            age = None
+        out["age_s"], out["rpo_ok"] = age, (age is not None and age <= int(cfg.get("rpo_warning_s") or 7200))
+    return jsonify(out), 200
+
+
+@app.route("/mirror/<action>", methods=["POST"])
+def mirror_action_route(action):
+    """sync | sync-full | failover | failback | prune -> job runner (deploy/mirror.py). Après un failover / failback réussi, la tour
+    bascule le rôle « celui qui répond » (role_id de mirror.local.json) vers le candidat miroir / primaire."""
+    err = _need_project()
+    if err:
+        return err
+    if action not in MIRROR_ACTIONS:
+        return jsonify({"error": "action : " + ", ".join(MIRROR_ACTIONS)}), 400
+    if not _json_file("deploy/mirror.local.json"):
+        return jsonify({"error": "deploy/mirror.local.json absent (modèle : deploy/mirror.example.json)"}), 400
+    label, cmd = MIRROR_ACTIONS[action]
+    job = launch_job("mirror-" + action, label, [{"label": label, "cmd": cmd}], g.user["username"], {"mirror_action": action})
+    event("mirror-" + action, "%s lancée par %s" % (label, g.user["username"]), job=job["id"])
+    return jsonify({"job": job}), 200
+
+
+def _mirror_after_job(meta):
+    """Bascule de rôle après failover (vers mirror_candidate) ou failback (vers primary_candidate), via si-agent-api (#654/#656)."""
+    cfg = _json_file("deploy/mirror.local.json") or {}
+    action = meta.get("mirror_action")
+    if action not in ("failover", "failback") or not cfg.get("role_id"):
+        return
+    to = cfg.get("mirror_candidate", 1) if action == "failover" else cfg.get("primary_candidate", 0)
+    try:
+        req = urllib.request.Request("%s/pra/roles/%s/switch" % (SI_AGENT_URL, int(cfg["role_id"])), data=json.dumps({"to": int(to), "actor": "miroir : " + action}).encode(), headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=180) as resp:
+            r = json.loads(resp.read().decode("utf-8") or "{}")
+        msg = "rôle « %s » basculé vers %s" % (r.get("role"), (r.get("to") or {}).get("label")) if r.get("ok") else "bascule de rôle : %s" % r.get("error")
+    except Exception as exc:  # noqa: BLE001
+        msg = "bascule de rôle non faite (%s) : basculer à la main (tuile Contrôle PVE → Rôles)" % str(exc)[:150]
+    event("mirror-role", msg, job=meta.get("id"))
+    _notify("tower.job.done", msg, "", {"job": meta.get("id")})
+
+
 # -- #659 : mise à jour depuis le dépôt git (GitHub) ----------------------------
 def _git(args, timeout=120):
     r = subprocess.run(["git"] + args, cwd=PROJECT_DIR, capture_output=True, text=True, timeout=timeout)
@@ -1026,6 +1095,8 @@ def check_jobs():
             _notify("tower.job.done", "%s : terminé" % meta.get("label"), tail, {"job": jid})
             if meta.get("kind") == "git-update" and meta.get("agents"):
                 _agents_after_update(meta)
+            if str(meta.get("kind") or "").startswith("mirror-"):
+                _mirror_after_job(meta)
         try:
             with open(os.path.join(jobs, jid + ".notified"), "w") as fh:
                 fh.write(time.strftime("%Y-%m-%dT%H:%M:%S"))

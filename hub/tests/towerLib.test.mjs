@@ -57,3 +57,14 @@ test("répartition : cohortRows / moveCohort / nodeText", () => {
   assert.equal(nodeText(null), "—"); assert.match(nodeText({ error: "timeout" }), /injoignable/);
   assert.match(nodeText({ version: "661", running: ["a", "b"], missing: ["c"] }), /v661 · 2 en marche · 1 arrêté\(s\) : c/);
 });
+
+// #663 : miroir froid -- texte d'état et actions
+import { mirrorText, mirrorActions } from "../src/towerLib.js";
+test("miroir : texte et actions", () => {
+  assert.match(mirrorText({ configured: false }), /pas de miroir/); assert.deepEqual(mirrorActions({ configured: false }), []);
+  const m = { configured: true, config: { node: "vm-miroir" }, age_s: 1800, state: { last_archive: "a.tar.gz.enc" }, mirror: { node: "vm-miroir", archives: [{ name: "a.tar.gz.enc" }, { name: "a.manifest.json" }], running: [], state: { last_restore: "2026-10-03T12:00:00" } } };
+  assert.match(mirrorText(m), /il y a 30 min \(a\.tar\.gz\.enc\) · miroir vm-miroir : 1 archive\(s\), 0 service\(s\) en marche, restauré le 2026-10-03 12:00/);
+  assert.deepEqual(mirrorActions(m), ["sync", "sync-full", "failover", "prune"]);
+  assert.deepEqual(mirrorActions({ ...m, state: { mirror_active: true } }), ["failback"]);
+  assert.match(mirrorText({ ...m, age_s: null, state: {}, mirror: { error: "timeout" } }), /jamais synchronisé · miroir vm-miroir injoignable : timeout/);
+});
