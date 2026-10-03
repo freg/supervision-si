@@ -7,7 +7,7 @@ reproduire en Python dans le hub. À cadrer avec la personne : périmètre de d�
 gestionnaire de tâches/projets, suivi de temps, notes, ressources ?) ; ce que le hub a déjà (ENT : agenda iCal et
 Kanban #4xx, tickets, tâches, comptes Keycloak/LDAP, GED) ; modèle de droits par application et par groupe
 (point fort d'eGroupware) ; interopérabilité CalDAV/CardDAV ; ergonomie « tout sur une page » (espace de
-travail #541-#545). Pas de code écrit.
+travail #541-#545). Pas de code écrit. **Note de cadrage : `docs/groupware-egroupware-python.md`** (eGroupware 2004 vs briques du hub, options A/B/C, recommandation B par tranches, questions à trancher).
 
 ## Contrôle de tous les PVE, serveurs/services, tour de contrôle (2026-10-03) — items 111-114
 
