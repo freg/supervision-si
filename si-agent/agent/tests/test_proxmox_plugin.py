@@ -38,6 +38,14 @@ class TestParseurs(unittest.TestCase):
                 {"name": "lo", "inet": "127.0.0.1/8"}]
         self.assertEqual(proxmox.extract_ips_lxc(rows), ["10.0.0.6"])
 
+    def test_replication_jobs(self):  # #654
+        rows = [{"id": "101-0", "guest": 101, "target": "pve10", "schedule": "*/15", "last_sync": 1000, "duration": 12.5, "fail_count": 0},
+                {"id": "203-0", "guest": "203", "target": "pve11", "schedule": "2:00", "last_sync": 0, "fail_count": 3, "error": "ssh: connect failed", "disable": 1}]
+        r = proxmox.replication_jobs(rows, now=1600)
+        self.assertEqual(r[0]["vmid"], 101); self.assertEqual(r[0]["last_sync_age_s"], 600); self.assertTrue(r[0]["ok"]); self.assertFalse(r[0]["disabled"])
+        self.assertEqual(r[1]["vmid"], 203); self.assertFalse(r[1]["ok"]); self.assertEqual(r[1]["fail_count"], 3); self.assertIsNone(r[1]["last_sync_age_s"]); self.assertTrue(r[1]["disabled"])
+        self.assertEqual(proxmox.replication_jobs(None), [])
+
     def test_newest_backups(self):
         rows = [
             {"volid": "store:backup/vzdump-qemu-100-2026_09_10-02_00_00.vma.zst", "ctime": NOW - 86400},

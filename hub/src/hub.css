@@ -2353,3 +2353,4 @@ button.danger { color: #e06666; }
 .pv-op { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; }
 .pv-cmd { margin-top: 10px; font-size: 13px; } .pv-log { background: var(--bg); border: 1px solid var(--border); padding: 6px; font-size: 12px; max-height: 200px; overflow: auto; white-space: pre-wrap; }
 .pv-run { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 6px; }
+.pv-form { border-top: 1px solid var(--border); margin-top: 8px; padding-top: 6px; } .pv-candidates { grid-column: 1 / -1; } .pv-candidates input { flex: 1; min-width: 120px; }

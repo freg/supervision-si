@@ -1,3 +1,27 @@
+## 2026-10-03 — Contrôle PVE : état des réplications, plans déclenchés par la perte d'un nœud, rôles et bascule « celui qui répond » (livraison #654)
+
+Suite de #653 sur « continue » : les points de la demande qui se cadraient sans choix externe. Reste des items 112-114
+(serveurs → virtualisation, DNS éditable, tour de contrôle) inchangé.
+
+- Agent 0.5.30 : état des jobs de réplication pvesr par VM (plugin proxmox) ; tuile : colonnes Réplication (✔/✘, échecs,
+  âge) et dernière sauvegarde.
+- Déclencheurs : un plan désigne un agent d'hyperviseur ; à sa perte (chien de garde du central), le plan est proposé par
+  événement notifié, ou lancé automatiquement si la personne l'a choisi pour ce plan (délai de garde). Événements
+  `pra-suggested` / `pra-triggered`.
+- Rôles « celui qui répond » : candidats ordonnés, mécanisme manuel ou règle NAT MikroTik (module #587, `MIKROTIK_API_URL`
+  ajoutée à si-agent-api), bascule avec vérification HTTP du service, bouton « vérifier », étape de plan `role_switch`
+  (simulée et exécutée par le central), événement `role-switch`.
+- Hub `PveOpsView.jsx` : réplication/sauvegarde par VM, déclencheur dans la fiche de plan, panneau Rôles (fiche, bascule,
+  vérification, ajout au plan en cours) ; `pveOpsLib.js` (`replSummary`, `roleStepText`).
+
+Vérifié : agent 77 tests, central 40 tests, Node 290 verts (1 échec préexistant `view:personal`), `@babel/parser`.
+Non vérifié : Proxmox et MikroTik réels, rendu navigateur. Déploiement :
+`cd ~/SRC/data2/tickets/supervision-si && sudo ./scripts/run.sh up -d --build si-agent-api hub` puis agents en 0.5.30.
+
+Fichiers : `si-agent/agent/plugins/proxmox/proxmox.py`, `si-agent/agent/tests/test_proxmox_plugin.py`, `si-agent/agent/si_agent/__init__.py`,
+`si-agent/api/{pra.py,app.py,test_z_pra.py}`, `si-agent/README.md`, `hub/src/{PveOpsView.jsx,pveOpsLib.js,siAgentClient.js,hub.css}`,
+`hub/tests/pveOpsLib.test.mjs`, `docker-compose.yml`, `CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — Contrôle PVE : migration, sauvegarde, disques, clonage, réplication, plans de reprise (livraison #653)
 
 Demande : « un outil de supervision/contrôle de tous les pve : migration des volumes, backup, vm… ; réplication / pra »

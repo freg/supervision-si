@@ -1264,6 +1264,8 @@ services:
       # créait un DOSSIER ./pki/ca/ca.crt et la CA restait « non montée »).
       - ${PKI_DIR:-./pki}/ca/ca.crt:/ca/ca.crt:ro
     environment:
+      # #654 : bascule de rôle par règle NAT MikroTik (mécanisme mikrotik_nat des rôles PRA) -- adresse INTERNE, réseau Docker
+      - MIKROTIK_API_URL=http://mikrotik-api:5000
       # A1 (#620) : périmètre de site par groupe Keycloak (vide = inchangé)
       - SITE_SCOPE_GROUPS=${SITE_SCOPE_GROUPS:-}
       - SITE_SCOPE_FULL_GROUPS=${SITE_SCOPE_FULL_GROUPS:-administrateurs,admin_hub}

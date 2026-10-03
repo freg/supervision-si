@@ -598,6 +598,20 @@ def parse_upid(upid):
             "user": m.group("user") or None, "starttime": int(m.group("start"), 16)}
 
 
+def replication_jobs(rows, now=None):
+    """#654 : `/nodes/<node>/replication` -> jobs de réplication lisibles : {id, vmid, target, schedule, last_sync_age_s, duration_s,
+    fail_count, error, next_sync, ok}. ok = dernier cycle sans erreur et pas d'échecs cumulés."""
+    now = now or time.time(); out = []
+    for j in rows or []:
+        try: vmid = int(j.get("guest") or str(j.get("id", "")).split("-")[0])
+        except (TypeError, ValueError): vmid = None
+        last = j.get("last_sync"); fails = int(j.get("fail_count") or 0); err = (j.get("error") or "").strip() or None
+        out.append({"id": j.get("id"), "vmid": vmid, "target": j.get("target"), "schedule": j.get("schedule"), "last_sync_age_s": (int(now - last) if last else None),
+                    "duration_s": j.get("duration"), "fail_count": fails, "error": err, "next_sync": j.get("next_sync"), "ok": not err and fails == 0,
+                    "disabled": j.get("disable") in (1, "1", True)})
+    return out
+
+
 def backup_runs(tasks, now=None):
     """Tâches vzdump (`/nodes/<n>/tasks?typefilter=vzdump`) -> exécutions
     de sauvegarde : {upid, vmid, user, at, ended_at, duration_s, ok,
@@ -1074,6 +1088,10 @@ def collect(pve, hostname=None, now=None, connector=None):
     measure["backups"] = backups_section
     measure["access"] = access
     measure["host_health"] = host_health
+    try:   # #654 : état des réplications (pvesr) -- lu dans la tuile Contrôle PVE ; absent (pas de job, nœud hors cluster) = liste vide, sans alerte
+        measure["replication"] = replication_jobs(pve.pvesh("/nodes/%s/replication" % node), now)
+    except RuntimeError:
+        measure["replication"] = []
     try:
         measure["bandwidth"] = collect_bandwidth(pve, node, vms, warnings)  # #641
     except Exception as exc:  # noqa: BLE001

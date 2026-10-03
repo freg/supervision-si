@@ -1,13 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { flattenProxmox, otherNodes, makeStep, runSummary, stepText, OPS } from "../src/pveOpsLib.js";
+import { flattenProxmox, otherNodes, makeStep, runSummary, stepText, OPS, replSummary, roleStepText } from "../src/pveOpsLib.js";
 
-const data = [{ agent_id: "pve10", hostname: "pve10", node: { name: "pve10" }, vms: [{ vmid: 101, name: "super", type: "qemu", status: "running" }, { vmid: 900, name: "tpl", template: 1 }], storages: [{ storage: "local-zfs" }, { name: "pbs" }] },
+const data = [{ agent_id: "pve10", hostname: "pve10", node: { name: "pve10" }, vms: [{ vmid: 101, name: "super", type: "qemu", status: "running" }, { vmid: 900, name: "tpl", template: 1 }], storages: [{ storage: "local-zfs" }, { name: "pbs" }],
+  replication: [{ vmid: 101, target: "pve11", ok: true, fail_count: 0, last_sync_age_s: 720 }] },
   { agent_id: "pve11", hostname: "pve11", node: {}, vms: [] }];
 
 test("flattenProxmox et otherNodes", () => {
   const h = flattenProxmox(data);
-  assert.deepEqual(h[0].vms, [{ vmid: 101, name: "super", type: "qemu", status: "running" }]);
+  assert.deepEqual(h[0].vms.map((v) => [v.vmid, v.replication.length]), [[101, 1]]);
+  assert.equal(replSummary(h[0].vms[0].replication), "→ pve11 ✔ il y a 12 min"); assert.equal(replSummary([{ target: "a", ok: false, fail_count: 3 }]), "→ a ✘ 3 échec(s)"); assert.equal(replSummary([]), "");
   assert.deepEqual(h[0].storages, ["local-zfs", "pbs"]); assert.equal(h[1].node, "pve11");
   assert.deepEqual(otherNodes(h, "pve10"), ["pve11"]);
 });
@@ -24,4 +26,10 @@ test("runSummary et stepText", () => {
   assert.equal(runSummary({ steps: [{ index: 1, status: "done" }, { index: 2, status: "failed", result: { error: "refusé" } }, { index: 3, status: "pending" }] }), "1/3 étape(s) — échec à l'étape 2 : refusé");
   assert.equal(runSummary({ steps: [{ index: 1, ok: true }, { index: 2, ok: false, error: "agent inconnu" }] }), "1/2 étape(s) — échec à l'étape 2 : agent inconnu");
   assert.equal(stepText({ agent_id: "pve10", params: { vmid: 101, action: "migrate", kind: "qemu", target: "pve11" } }), "pve10 · VM 101 · Migrer vers un nœud (target=pve11)");
+});
+
+test("étape de bascule de rôle", () => {
+  const roles = [{ id: 4, name: "web", candidates: [{ label: "principal" }, { label: "secours" }] }];
+  assert.equal(stepText({ agent_id: "central", params: { action: "role_switch", role_id: 4, to: 1 } }, roles), "bascule du rôle « web » → secours");
+  assert.equal(roleStepText({ params: { role_id: 9, to: 0 } }, roles), "bascule du rôle n°9 → candidat 0");
 });

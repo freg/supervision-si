@@ -63,3 +63,58 @@ class Pra(unittest.TestCase):
         self.assertEqual(self.c.delete("/pra/plans/%d" % pid).json["ok"], True)
 
 if __name__ == "__main__": unittest.main()
+
+
+class PraTriggersAndRoles(unittest.TestCase):
+    """#654 : déclencheurs à la perte d'un agent (proposé / auto avec délai de garde) et rôles (bascule, vérification, étape de plan)."""
+    @classmethod
+    def setUpClass(cls):
+        cls.c = appmod.app.test_client(); cls.db = appmod.DB_PATH; store.create_agent(cls.db, "pra-pve12", "siege", label="pra-pve12")
+
+    @classmethod
+    def tearDownClass(cls):
+        conn = store._connect(cls.db)
+        try:
+            conn.execute("DELETE FROM agents WHERE agent_id = 'pra-pve12'"); conn.execute("DELETE FROM pra_runs"); conn.execute("DELETE FROM pra_plans"); conn.execute("DELETE FROM pra_roles"); conn.commit()
+        finally: conn.close()
+
+    def test_triggers(self):
+        p1 = self.c.post("/pra/plans", json={"name": "proposé", "trigger_agent_id": "pra-pve12", "steps": [{"agent_id": "pra-pve12", "vmid": 1, "action": "start"}]}).json["plan"]
+        p2 = self.c.post("/pra/plans", json={"name": "auto", "trigger_agent_id": "pra-pve12", "trigger_mode": "auto", "trigger_cooldown_s": 3600, "steps": [{"agent_id": "pra-pve12", "vmid": 1, "action": "start"}]}).json["plan"]
+        self.assertEqual((p1["trigger_mode"], p2["trigger_mode"]), ("notify", "auto"))
+        events, started = [], []
+        emit = lambda kind, sev, msg, aid, det: events.append((kind, sev, aid, det.get("plan_id")))
+        fired = pra.on_agent_offline(self.db, "pra-pve12", emit, start=lambda plan: started.append(plan["id"]) or 77)
+        self.assertEqual(sorted(f[1] for f in fired), ["auto", "notify"]); self.assertEqual(started, [p2["id"]])
+        self.assertIn(("pra-suggested", "warning", "pra-pve12", p1["id"]), events); self.assertIn(("pra-triggered", "critical", "pra-pve12", p2["id"]), events)
+        # exécution réelle récente -> délai de garde : proposé seulement
+        conn = store._connect(self.db); conn.execute("INSERT INTO pra_runs (plan_id, mode, status, started_at) VALUES (?,?,?,?)", (p2["id"], "execute", "done", store.now_iso())); conn.commit(); conn.close()
+        events.clear(); started.clear(); pra.on_agent_offline(self.db, "pra-pve12", emit, start=lambda plan: started.append(plan["id"]))
+        self.assertEqual(started, []); self.assertTrue(any(e[0] == "pra-suggested" and e[3] == p2["id"] for e in events))
+        self.assertEqual(pra.on_agent_offline(self.db, "aucun-plan", emit), [])
+
+    def test_roles_and_switch(self):
+        self.assertEqual(self.c.post("/pra/roles", json={"name": "web", "candidates": []}).status_code, 400)
+        self.assertIn("router et rule_id", self.c.post("/pra/roles", json={"name": "web", "candidates": [{"address": "10.0.0.1"}], "mechanism": {"kind": "mikrotik_nat"}}).json["error"])
+        r = self.c.post("/pra/roles", json={"name": "web", "service_url": "http://web.exemple/", "candidates": [{"label": "principal", "address": "10.0.0.1"}, {"label": "secours", "address": "10.0.0.2:8080"}],
+                                            "mechanism": {"kind": "mikrotik_nat", "router": "rt-bureau", "rule_id": "*1A"}})
+        self.assertEqual(r.status_code, 201, r.json); role = r.json["role"]; self.assertEqual(role["active"], 0)
+        applied, checks = [], []
+        def fake_apply(mech, cand): applied.append((mech["router"], mech["rule_id"], cand["address"])); return {"router": mech["router"], "to_addresses": cand["address"].split(":")[0]}
+        res = pra.switch_role(self.db, role["id"], 1, by_user="freg", apply=fake_apply, http_get=lambda url: checks.append(url) or (200, 12))
+        self.assertTrue(res["ok"]); self.assertEqual(applied, [("rt-bureau", "*1A", "10.0.0.2:8080")]); self.assertEqual(res["applied"]["to_addresses"], "10.0.0.2"); self.assertEqual(checks, ["http://web.exemple/"])
+        self.assertEqual(pra.get_role(self.db, role["id"])["active"], 1); self.assertTrue(pra.get_role(self.db, role["id"])["last_check"]["ok"])
+        res = pra.switch_role(self.db, role["id"], 0, apply=fake_apply, http_get=lambda url: (503, 5)); self.assertFalse(res["ok"]); self.assertIn("ne répond pas", res["error"])
+        self.assertEqual(pra.switch_role(self.db, role["id"], 5)["error"], "candidat inconnu"); self.assertEqual(pra.switch_role(self.db, 999, 0)["error"], "rôle inconnu")
+        res = pra.switch_role(self.db, role["id"], 1, apply=lambda m, c: (_ for _ in ()).throw(RuntimeError("timeout")), http_get=lambda u: (200, 1)); self.assertIn("mécanisme mikrotik_nat : timeout", res["error"])
+        # étape de plan role_switch : simulation puis exécution (mécanisme manuel, sans URL = pas de vérification)
+        m = self.c.post("/pra/roles", json={"name": "dns", "candidates": [{"address": "ns1"}, {"address": "ns2"}], "mechanism": {"kind": "manual"}}).json["role"]
+        p = self.c.post("/pra/plans", json={"name": "bascule", "kind": "bascule", "steps": [{"action": "role_switch", "role_id": m["id"], "to": 1, "label": "dns → ns2"}, {"action": "role_switch", "role_id": 999, "to": 0}]})
+        self.assertEqual(p.status_code, 201, p.json); pid = p.json["plan"]["id"]
+        self.assertEqual(self.c.post("/pra/plans", json={"name": "x", "steps": [{"action": "role_switch", "role_id": "a"}]}).status_code, 400)
+        rid = self.c.post("/pra/plans/%d/run" % pid, json={"mode": "simulate"}).json["run_id"]; run = self.c.get("/pra/runs/%d" % rid).json["run"]
+        self.assertEqual([s["ok"] for s in run["steps"]], [True, False]); self.assertEqual(run["steps"][1]["error"], "rôle inconnu")
+        rid = self.c.post("/pra/plans/%d/run" % pid, json={"mode": "execute"}).json["run_id"]; pra._runs[rid].join(timeout=10); run = self.c.get("/pra/runs/%d" % rid).json["run"]
+        self.assertEqual([s["status"] for s in run["steps"]], ["done", "failed"]); self.assertEqual(pra.get_role(self.db, m["id"])["active"], 1); self.assertEqual(run["status"], "failed")
+        self.assertEqual(self.c.get("/pra/roles").json["roles"][0]["name"], "dns")
+        self.assertEqual(self.c.delete("/pra/roles/%d" % role["id"]).json["ok"], True)

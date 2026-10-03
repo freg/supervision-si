@@ -1305,3 +1305,22 @@ Vérifié : `tests/test_vmctl_ops.py` (argv de chaque opération, refus, délai 
 Non vérifié : sur un vrai Proxmox (qm migrate/vzdump/pvesr réels), rendu navigateur. Hors périmètre de cette
 livraison, notés au backlog : migration de serveurs physiques vers la virtualisation (item 101 pour Windows),
 bascule de rôle « celui qui répond » (DNS/VIP), tour de contrôle DNS / routage / flux.
+
+## Réplication, déclencheurs PRA et rôles « celui qui répond » (livraison #654, agent 0.5.30)
+
+- Plugin proxmox : `measure["replication"]` (`/nodes/<n>/replication` → id, VM, cible, planification, âge de la dernière
+  synchro, échecs, erreur, désactivé) ; absent = liste vide sans alerte. Tuile Contrôle PVE : colonne Réplication et
+  dernière sauvegarde par VM.
+- Déclencheurs (`pra.on_agent_offline`, appelé par le chien de garde à la transition hors ligne) : un plan peut
+  désigner un agent déclencheur ; à sa perte, le plan est **proposé** (événement `pra-suggested`, notifié) — ou,
+  si `trigger_mode = auto`, **lancé** (`pra-triggered`, critique) avec un délai de garde entre deux lancements. Le
+  mode automatique est un choix explicite par plan, jamais le défaut.
+- Rôles (`pra_roles`) : nom, URL de service, candidats ordonnés `{label, address}`, mécanisme `manual` (enregistrement
+  seul) ou `mikrotik_nat` (PATCH `to-addresses` de la règle NAT via mikrotik-api, `MIKROTIK_API_URL` sur
+  si-agent-api) ; `POST /pra/roles/<id>/switch {to}` applique, vérifie l'URL (GET 5 s), journalise (`role-switch`) ;
+  `POST /pra/roles/<id>/check`. Étape de plan `role_switch {role_id, to}` exécutée par le central (simulée aussi).
+  Mécanismes DNS / VIP : à ajouter quand le serveur DNS éditable sera choisi (BACKLOG 113/114).
+
+Vérifié : `tests/test_proxmox_plugin.py::test_replication_jobs`, `api/test_z_pra.py` (déclencheurs proposé/auto/
+délai de garde, rôles : validation, bascule avec mécanisme et vérification simulés, échec de vérification, étape de
+plan simulée puis exécutée). Non vérifié : NAT MikroTik réel, agents réels.

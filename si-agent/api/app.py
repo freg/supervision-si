@@ -150,6 +150,11 @@ def watchdog_tick():
     for agent_id, state in store.online_transitions(DB_PATH, OFFLINE_AFTER_SECONDS):
         _event("agent-offline" if state == "offline" else "agent-online", "warning" if state == "offline" else "info",
                "agent %s %s" % (agent_id, "ne répond plus (hors ligne)" if state == "offline" else "de nouveau en ligne"), agent_id=agent_id)
+        if state == "offline":   # #654 : plans PRA déclenchés par la perte de cet agent (proposés, ou lancés si trigger_mode = auto)
+            try:
+                pra.on_agent_offline(DB_PATH, agent_id, lambda kind, sev, msg, aid, det: _event(kind, sev, msg, agent_id=aid, details=det))
+            except Exception:  # noqa: BLE001 -- jamais bloquer le chien de garde
+                logging.getLogger("si_agent_api").exception("déclencheurs PRA")
 
 
 def _watchdog_loop():
@@ -852,8 +857,9 @@ def pra_plan_create_route():
         return jsonify({"error": "nom du plan requis"}), 400
     conn = store._connect(DB_PATH)
     try:
-        cur = conn.execute("INSERT INTO pra_plans (name, kind, notes, steps, continue_on_error, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
-                           (body["name"].strip(), body.get("kind") or "pra", body.get("notes") or "", json.dumps(steps, ensure_ascii=False), 1 if body.get("continue_on_error") else 0, store.now_iso(), store.now_iso()))
+        cur = conn.execute("INSERT INTO pra_plans (name, kind, notes, steps, continue_on_error, created_at, updated_at, trigger_agent_id, trigger_mode, trigger_cooldown_s) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                           (body["name"].strip(), body.get("kind") or "pra", body.get("notes") or "", json.dumps(steps, ensure_ascii=False), 1 if body.get("continue_on_error") else 0, store.now_iso(), store.now_iso(),
+                            str(body.get("trigger_agent_id") or ""), "auto" if body.get("trigger_mode") == "auto" else "notify", int(body.get("trigger_cooldown_s") or 3600)))
         row = conn.execute("SELECT * FROM pra_plans WHERE id = ?", (cur.lastrowid,)).fetchone(); conn.commit()
     finally:
         conn.close()
@@ -873,9 +879,11 @@ def pra_plan_update_route(pid):
             steps, err = pra.validate_steps(body["steps"])
             if err:
                 return jsonify({"error": err}), 400
-        conn.execute("UPDATE pra_plans SET name = ?, kind = ?, notes = ?, steps = ?, continue_on_error = ?, updated_at = ? WHERE id = ?",
+        conn.execute("UPDATE pra_plans SET name = ?, kind = ?, notes = ?, steps = ?, continue_on_error = ?, updated_at = ?, trigger_agent_id = ?, trigger_mode = ?, trigger_cooldown_s = ? WHERE id = ?",
                      ((body.get("name") or row["name"]).strip(), body.get("kind", row["kind"]), body.get("notes", row["notes"]), json.dumps(steps, ensure_ascii=False),
-                      1 if body.get("continue_on_error", row["continue_on_error"]) else 0, store.now_iso(), pid))
+                      1 if body.get("continue_on_error", row["continue_on_error"]) else 0, store.now_iso(),
+                      str(body.get("trigger_agent_id", row["trigger_agent_id"]) or ""), "auto" if body.get("trigger_mode", row["trigger_mode"]) == "auto" else "notify",
+                      int(body.get("trigger_cooldown_s", row["trigger_cooldown_s"]) or 3600), pid))
         row = conn.execute("SELECT * FROM pra_plans WHERE id = ?", (pid,)).fetchone(); conn.commit()
     finally:
         conn.close()
@@ -911,6 +919,81 @@ def pra_plan_run_route(pid):
         return jsonify({"error": "une exécution de ce plan est déjà en cours (n°%s)" % running["id"]}), 409
     rid = pra.start_run(DB_PATH, pra.plan_public(row), mode, str(body.get("actor") or ""))
     return jsonify({"run_id": rid}), 202
+
+
+@app.route("/pra/roles", methods=["GET"])
+def pra_roles_route():
+    conn = store._connect(DB_PATH)
+    try:
+        roles = [pra.role_public(r) for r in conn.execute("SELECT * FROM pra_roles ORDER BY name")]
+    finally:
+        conn.close()
+    return jsonify({"roles": roles, "mechanisms": list(pra.ROLE_MECHANISMS), "mikrotik": bool(pra.MIKROTIK_API_URL)}), 200
+
+
+@app.route("/pra/roles", methods=["POST"])
+def pra_role_create_route():
+    f, err = pra.validate_role(request.get_json(silent=True) or {})
+    if err:
+        return jsonify({"error": err}), 400
+    conn = store._connect(DB_PATH)
+    try:
+        cur = conn.execute("INSERT INTO pra_roles (name, service_url, candidates, mechanism, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
+                           (f["name"], f["service_url"], json.dumps(f["candidates"], ensure_ascii=False), json.dumps(f["mechanism"]), f["notes"], store.now_iso(), store.now_iso()))
+        row = conn.execute("SELECT * FROM pra_roles WHERE id = ?", (cur.lastrowid,)).fetchone(); conn.commit()
+    finally:
+        conn.close()
+    return jsonify({"role": pra.role_public(row)}), 201
+
+
+@app.route("/pra/roles/<int:rid>", methods=["PUT", "DELETE"])
+def pra_role_edit_route(rid):
+    conn = store._connect(DB_PATH)
+    try:
+        row = conn.execute("SELECT * FROM pra_roles WHERE id = ?", (rid,)).fetchone()
+        if not row:
+            return jsonify({"error": "rôle inconnu"}), 404
+        if request.method == "DELETE":
+            conn.execute("DELETE FROM pra_roles WHERE id = ?", (rid,)); conn.commit()
+            return jsonify({"ok": True}), 200
+        cur = pra.role_public(row); body = {**{k: cur[k] for k in ("name", "service_url", "candidates", "mechanism", "notes")}, **(request.get_json(silent=True) or {})}
+        f, err = pra.validate_role(body)
+        if err:
+            return jsonify({"error": err}), 400
+        conn.execute("UPDATE pra_roles SET name = ?, service_url = ?, candidates = ?, mechanism = ?, notes = ?, updated_at = ? WHERE id = ?",
+                     (f["name"], f["service_url"], json.dumps(f["candidates"], ensure_ascii=False), json.dumps(f["mechanism"]), f["notes"], store.now_iso(), rid))
+        row = conn.execute("SELECT * FROM pra_roles WHERE id = ?", (rid,)).fetchone(); conn.commit()
+    finally:
+        conn.close()
+    return jsonify({"role": pra.role_public(row)}), 200
+
+
+@app.route("/pra/roles/<int:rid>/switch", methods=["POST"])
+def pra_role_switch_route(rid):
+    """{to: indice du candidat, actor} -- bascule « celui qui répond » : mécanisme appliqué, service vérifié, événement."""
+    body = request.get_json(silent=True) or {}
+    try:
+        to = int(body.get("to"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "to (indice du candidat) requis"}), 400
+    r = pra.switch_role(DB_PATH, rid, to, by_user=str(body.get("actor") or ""))
+    if r.get("role"):
+        _event("role-switch", "info" if r["ok"] else "warning", "rôle « %s » basculé vers %s par %s%s" % (r["role"], r["to"]["label"], body.get("actor") or "?", "" if r["ok"] else " -- " + str(r.get("error"))), details=r)
+    return jsonify(r), (200 if r.get("ok") else 502 if r.get("role") else 404)
+
+
+@app.route("/pra/roles/<int:rid>/check", methods=["POST"])
+def pra_role_check_route(rid):
+    role = pra.get_role(DB_PATH, rid)
+    if not role:
+        return jsonify({"error": "rôle inconnu"}), 404
+    chk = pra.check_role(role)
+    conn = store._connect(DB_PATH)
+    try:
+        conn.execute("UPDATE pra_roles SET last_check = ? WHERE id = ?", (json.dumps(chk), rid)); conn.commit()
+    finally:
+        conn.close()
+    return jsonify({"check": chk}), 200
 
 
 @app.route("/pra/runs/<int:rid>", methods=["GET"])

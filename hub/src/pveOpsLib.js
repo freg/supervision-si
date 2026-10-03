@@ -15,9 +15,28 @@ export const FIELD_LABELS = { target: "nœud cible", online: "à chaud", with_lo
 
 // Hyperviseurs et VM aplatis depuis GET /proxmox : [{agent_id, node, vms: [{vmid, name, type, status, node}], storages: [name]}]
 export function flattenProxmox(data) {
-  return (data || []).map((n) => ({ agent_id: n.agent_id, node: (n.node || {}).name || n.hostname || n.agent_id, hostname: n.hostname,
-    vms: (n.vms || []).filter((v) => !v.template).map((v) => ({ vmid: v.vmid, name: v.name, type: v.type || "qemu", status: v.status })),
-    storages: (n.storages || []).map((s) => s.storage || s.name).filter(Boolean) }));
+  return (data || []).map((n) => {
+    const repl = n.replication || [];
+    return { agent_id: n.agent_id, node: (n.node || {}).name || n.hostname || n.agent_id, hostname: n.hostname,
+      vms: (n.vms || []).filter((v) => !v.template).map((v) => ({ vmid: v.vmid, name: v.name, type: v.type || "qemu", status: v.status,
+        replication: repl.filter((r) => r.vmid === v.vmid), last_backup: v.last_backup_run || null })),
+      storages: (n.storages || []).map((s) => s.storage || s.name).filter(Boolean), replication: repl };
+  });
+}
+
+// Résumé de réplication d'une VM : "→ pve10 ✔ il y a 12 min" / "→ pve10 ✘ 3 échecs".
+export function replSummary(jobs) {
+  if (!jobs || jobs.length === 0) return "";
+  return jobs.map((j) => `→ ${j.target} ${j.disabled ? "(désactivée)" : j.ok ? "✔" : "✘"}${j.fail_count ? ` ${j.fail_count} échec(s)` : ""}${j.last_sync_age_s !== null && j.last_sync_age_s !== undefined ? ` il y a ${ageText(j.last_sync_age_s)}` : ""}`).join(" ; ");
+}
+
+export function ageText(s) {
+  if (s < 90) return `${s} s`; if (s < 5400) return `${Math.round(s / 60)} min`; if (s < 172800) return `${Math.round(s / 3600)} h`; return `${Math.round(s / 86400)} j`;
+}
+
+export function roleStepText(s, roles) {
+  const p = s.params || {}; const r = (roles || []).find((x) => x.id === p.role_id); const c = r && r.candidates[p.to];
+  return `bascule du rôle ${r ? "« " + r.name + " »" : "n°" + p.role_id} → ${c ? c.label : "candidat " + p.to}`;
 }
 
 // Autres nœuds (cibles de migration/réplication) que celui de l'agent.
@@ -41,7 +60,8 @@ export function runSummary(run) {
   return `${done}/${st.length} étape(s)` + (bad ? ` — échec à l'étape ${bad.index}${bad.result?.error ? " : " + bad.result.error : bad.error ? " : " + bad.error : ""}` : "");
 }
 
-export function stepText(s) {
-  const p = s.params || {}; const extras = Object.entries(p).filter(([k]) => !["vmid", "action", "kind"].includes(k)).map(([k, v]) => `${k}=${v}`).join(" ");
+export function stepText(s, roles) {
+  const p = s.params || {};
+  if ((p.action || s.action) === "role_switch") return roleStepText(s, roles); const extras = Object.entries(p).filter(([k]) => !["vmid", "action", "kind"].includes(k)).map(([k, v]) => `${k}=${v}`).join(" ");
   return `${s.agent_id} · VM ${p.vmid ?? s.vmid} · ${OPS[p.action || s.action]?.label || p.action || s.action}${extras ? " (" + extras + ")" : ""}`;
 }

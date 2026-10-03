@@ -161,3 +161,10 @@ export const deletePraPlan = (apiBase, id) => fetchJson(apiBase, `/pra/plans/${i
 export const runPraPlan = (apiBase, id, mode, actor) => fetchJson(apiBase, `/pra/plans/${id}/run`, json("POST", { mode, actor }));
 export const fetchPraRun = (apiBase, rid) => fetchJson(apiBase, `/pra/runs/${rid}`);
 export const fetchPraRuns = (apiBase, id) => fetchJson(apiBase, `/pra/plans/${id}/runs`);
+// #654 : rôles (bascule « celui qui répond ») et vérification
+export const fetchPraRoles = (apiBase) => fetchJson(apiBase, "/pra/roles");
+export const createPraRole = (apiBase, body) => fetchJson(apiBase, "/pra/roles", json("POST", body));
+export const updatePraRole = (apiBase, id, body) => fetchJson(apiBase, `/pra/roles/${id}`, json("PUT", body));
+export const deletePraRole = (apiBase, id) => fetchJson(apiBase, `/pra/roles/${id}`, { method: "DELETE" });
+export const switchPraRole = (apiBase, id, to, actor) => fetchJson(apiBase, `/pra/roles/${id}/switch`, json("POST", { to, actor }));
+export const checkPraRole = (apiBase, id) => fetchJson(apiBase, `/pra/roles/${id}/check`, { method: "POST" });
