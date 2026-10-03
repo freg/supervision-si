@@ -510,6 +510,36 @@ def _self_image():
     return app.docker_client().containers.get(socket.gethostname()).image.id
 
 
+def _runner_identity():
+    """#672 : le runner tourne avec l'uid/gid du PROPRIÉTAIRE du dépôt (et le groupe du socket Docker), pas root -- sinon
+    tout ce qu'un job crée dans le dépôt (pki/server, keycloak/import, tls-proxy/generated…) appartient à root et le
+    lancement suivant à la main échoue (« chmod : Opération non permise »). TOWER_JOB_AS_ROOT=1 pour revenir à root."""
+    if os.environ.get("TOWER_JOB_AS_ROOT") == "1":
+        return {}
+    try:
+        st = os.stat(PROJECT_DIR)
+        if st.st_uid == 0:
+            return {}
+        groups = [str(st.st_gid)]
+        try:
+            sk = os.stat("/var/run/docker.sock")
+            if sk.st_gid == 0 and not sk.st_mode & 0o002:
+                return {}                                             # socket réservé à root : le runner doit rester root
+            if sk.st_gid not in (0, st.st_gid): groups.append(str(sk.st_gid))
+        except OSError:
+            pass
+        return {"user": "%d:%d" % (st.st_uid, st.st_gid), "group_add": groups}
+    except OSError:
+        return {}
+
+
+def _runner_env():
+    """Un uid sans entrée passwd dans l'image : HOME et caches dans /tmp pour git, docker et python."""
+    if not _runner_identity():
+        return {}
+    return {"HOME": "/tmp/tower-home", "DOCKER_CONFIG": "/tmp/tower-home/.docker", "XDG_CACHE_HOME": "/tmp/tower-home/.cache", "PYTHONDONTWRITEBYTECODE": "1"}
+
+
 def launch_job(kind, label, steps, user, extra=None):
     """Écrit le script, lance un conteneur runner (même image, socket Docker,
     dépôt au même chemin) qui l'exécute et écrit journal + code retour. Le
@@ -520,11 +550,17 @@ def launch_job(kind, label, steps, user, extra=None):
     if HOST_IP:
         script.append("export HOST_IP=%s" % json.dumps(HOST_IP))
     script.append('echo "tour de contrôle -- job %s (%s) lancé par %s"' % (jid, kind, user))
+    script.append('mkdir -p "${HOME:-/tmp}" 2>/dev/null || true')
     for st in steps:
         script.append('echo; echo "▶ %s"; echo "$ %s"' % (st["label"].replace('"', "'"), st["cmd"].replace('"', "'")))
         script.append('%s || { rc=$?; echo "✗ échec (code $rc)"; exit $rc; }' % st["cmd"])
     script.append('echo; echo "✓ terminé"')
     base = os.path.join(jobs, jid)
+    own = _owner()
+    if own:                                                           # #672 : le runner (uid du dépôt) écrit .log / .rc ici
+        for d in (jobs, os.path.dirname(jobs)):
+            try: os.chown(d, *own)
+            except OSError: pass
     _write(os.path.relpath(base + ".sh", PROJECT_DIR), "\n".join(script) + "\n")
     meta = {"id": jid, "kind": kind, "label": label, "steps": steps, "user": user, "at": time.time()}
     meta.update(extra or {})
@@ -535,7 +571,7 @@ def launch_job(kind, label, steps, user, extra=None):
             _self_image(), ["bash", "-c", cmd], detach=True, auto_remove=True, working_dir=PROJECT_DIR,
             name="tower-job-%s" % jid, labels={"supervision-si.tower-job": jid},
             volumes={"/var/run/docker.sock": {"bind": "/var/run/docker.sock", "mode": "rw"}, PROJECT_DIR: {"bind": PROJECT_DIR, "mode": "rw"}},
-            environment={"HOST_IP": HOST_IP} if HOST_IP else {})
+            environment=dict({"HOST_IP": HOST_IP} if HOST_IP else {}, **_runner_env()), **_runner_identity())
     except Exception as exc:  # noqa: BLE001
         _write(os.path.relpath(base + ".log", PROJECT_DIR), "runner non lancé : %s\n" % exc)
         _write(os.path.relpath(base + ".rc", PROJECT_DIR), "125\n")

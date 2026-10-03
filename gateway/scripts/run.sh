@@ -138,6 +138,14 @@ docker volume create "$KEYCLOAK_VOLUME_NAME" >/dev/null 2>&1 || true
 # silencieusement, laissant HOST_IP vide -- voir ce fichier pour le
 # détail complet.
 source "$PROJECT_ROOT/shared/detect-host-ip.sh"
+# #672 : HOST_IP du .env AVANT la détection automatique -- sinon la valeur
+# choisie (nom public, IP fixe) y est documentée mais jamais lue : le
+# script exportait l'IP détectée, qui primait sur .env dans compose et
+# dans le rendu du realm (URLs Keycloak différentes entre un lancement à
+# la main et un job de la tour, vu sur super).
+if [ -z "${HOST_IP:-}" ] && [ -f "$PROJECT_ROOT/.env" ]; then
+  HOST_IP="$(grep -E '^HOST_IP=' "$PROJECT_ROOT/.env" | tail -1 | cut -d= -f2- | tr -d "\"'" | xargs || true)"
+fi
 if [ -z "${HOST_IP:-}" ]; then
   HOST_IP="$(detect_host_ip)"
 fi

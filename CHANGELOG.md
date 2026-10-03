@@ -1,3 +1,24 @@
+## 2026-10-03 — Tour : le runner des jobs n'est plus root ; HOST_IP lue dans .env par les run.sh (livraison #672)
+
+Constaté sur super après un job en cascade : `./gateway/scripts/run.sh up -d tls-proxy` à la main → « chmod :
+Opération non permise » sur `pki/server` — tout ce qu'un job crée dans le dépôt (pki/server, keycloak/import,
+tls-proxy/generated, objets git du pull…) appartenait à root. Le conteneur runner tourne désormais avec l'uid/gid du
+propriétaire du dépôt + le groupe du socket Docker (`HOME`, `DOCKER_CONFIG` et caches dans /tmp ; le dossier des jobs
+lui est donné) ; retour à root si le dépôt est à root, si le socket est réservé à root, ou avec `TOWER_JOB_AS_ROOT=1`.
+
+Même session : le realm rendu par le job disait `https://supervision.<domaine>` et celui rendu à la main
+`https://<ip>:6443` — `scripts/run.sh` et `gateway/scripts/run.sh` exportaient l'IP détectée sans jamais lire le
+`HOST_IP` du `.env` (pourtant documenté comme la source) ; il est maintenant lu en premier (variable exportée dans le
+shell > .env > détection).
+
+Remise à plat une fois sur un hôte déjà touché (jamais les dossiers `data/` des conteneurs) :
+`sudo find . -user root -not -path './*/data/*' -not -path './data/*' -print0 | sudo xargs -0 chown <user>:<user>`.
+
+- Vérifié : `services/api` unittest (runner : `user`, `HOME`), `bash -n` des deux run.sh, extraction de HOST_IP.
+- Non vérifié : job réel avec le runner non root (docker compose, git pull) — à surveiller au prochain
+  « Mettre à jour le central » ; en cas d'échec, `TOWER_JOB_AS_ROOT=1` dans l'environnement de services-api.
+- Fichiers : `services/api/{app.py,test_app.py}`, `scripts/run.sh`, `gateway/scripts/run.sh`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — Mise à jour git : la passerelle ne tombe plus sur la question « realm Keycloak changé » (livraison #671)
 
 Constaté sur un job en cascade : `./gateway/scripts/run.sh up -d --build tls-proxy` détecte un realm-template.json

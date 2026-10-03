@@ -1619,6 +1619,7 @@ services:
       - SERVICES_HEAL_INTERVAL=${SERVICES_HEAL_INTERVAL:-60}
       - SERVICES_HTTP_TIMEOUT=${SERVICES_HTTP_TIMEOUT:-4}
       - SERVICES_CACHE_SECONDS=${SERVICES_CACHE_SECONDS:-20}
+      - TOWER_JOB_AS_ROOT=${TOWER_JOB_AS_ROOT:-0}   # #672 : 1 = runner des jobs en root (ancien comportement)
 
   network-explorer:
     # Livraison #393 -- demandé explicitement : "un docker front qui

@@ -70,6 +70,14 @@ docker network create "$NETWORK_NAME" >/dev/null 2>&1 || true
 # laissant HOST_IP vide -- voir shared/detect-host-ip.sh pour le
 # détail complet et l'ordre d'essai (macOS d'abord, Linux ensuite).
 source "$HERE_DIR/shared/detect-host-ip.sh"
+# #672 : HOST_IP du .env AVANT la détection automatique -- sinon la valeur
+# choisie (nom public, IP fixe) y est documentée mais jamais lue : le
+# script exportait l'IP détectée, qui primait sur .env dans compose et
+# dans le rendu du realm (URLs Keycloak différentes entre un lancement à
+# la main et un job de la tour, vu sur super).
+if [ -z "${HOST_IP:-}" ] && [ -f "$HERE_DIR/.env" ]; then
+  HOST_IP="$(grep -E '^HOST_IP=' "$HERE_DIR/.env" | tail -1 | cut -d= -f2- | tr -d "\"'" | xargs || true)"
+fi
 if [ -z "${HOST_IP:-}" ]; then
   HOST_IP="$(detect_host_ip)"
 fi

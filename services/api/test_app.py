@@ -220,7 +220,10 @@ class TestTower(TestApi):
         args, kw = FakeDocker.runs[0]
         self.assertEqual(args[0], "img:test")
         self.assertIn(PROJ, kw["volumes"])
-        self.assertEqual(kw["environment"], {"HOST_IP": "192.0.2.5"})
+        self.assertEqual(kw["environment"]["HOST_IP"], "192.0.2.5")
+        if os.stat(PROJ).st_uid != 0:   # #672 : runner avec l'uid du dépôt (sauf dépôt à root ou socket réservé à root)
+            self.assertIn("user", kw)
+            self.assertEqual(kw["environment"].get("HOME"), "/tmp/tower-home")
         script = open(os.path.join(PROJ, "services/data/jobs/%s.sh" % a["job"])).read()
         self.assertIn("./scripts/run.sh up -d --build hub nebula-api", script)
         self.assertEqual(self.c.get("/jobs/%s" % a["job"], headers=self.h).get_json()["status"], "lost")  # runner factice : ni rc ni conteneur
