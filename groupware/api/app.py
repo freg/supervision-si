@@ -11,7 +11,7 @@ try:
     from version_endpoint import register_version_route
 except ImportError:
     register_version_route = None
-import core, vcard
+import core, vcard, ical
 from carddav import Dav, DavError, new_uid, COLL_RE
 
 app = Flask(__name__); CORS(app)
@@ -22,8 +22,30 @@ DB_PATH = str(DATA / "groupware.db")
 DAV_CONFIG = pathlib.Path(os.environ.get("DAV_CONFIG_DIR", "/dav-config")); DAV_PUBLIC_URL = os.environ.get("DAV_PUBLIC_URL", "").rstrip("/")
 LDAP = {k: os.environ.get(k, "") for k in ("LDAP_URL", "LDAP_BIND_DN", "LDAP_BIND_PASSWORD", "LDAP_GROUPS_DN", "LDAP_USERS_DN")}
 DAV_INTERNAL_URL = os.environ.get("DAV_INTERNAL_URL", "http://radicale:5232").rstrip("/")
-DAV_SERVICE_USER, DAV_SERVICE_PASSWORD = os.environ.get("GROUPWARE_DAV_SERVICE_USER", ""), os.environ.get("GROUPWARE_DAV_SERVICE_PASSWORD", "")
-def dav(): return Dav(DAV_INTERNAL_URL, DAV_SERVICE_USER, DAV_SERVICE_PASSWORD)
+# compte de service DAV : d'abord le coffre des accès (#498 : entrée « groupware-dav », gérée depuis la tuile Accès d'équipements),
+# sinon les variables d'environnement. Mis en cache 60 s ; le nom du compte sert aussi à la règle [service] des droits Radicale.
+CREDENTIALS_API_URL = os.environ.get("CREDENTIALS_API_URL", "http://credentials-api:5000").rstrip("/"); CREDENTIALS_TOKEN = os.environ.get("CREDENTIALS_INTERNAL_TOKEN", "").strip()
+DAV_CREDENTIAL_NAME = os.environ.get("GROUPWARE_DAV_CREDENTIAL", "groupware-dav")
+_dav_cred = {"until": 0.0, "user": "", "password": "", "source": ""}
+
+def dav_credentials():
+    """(user, password, source) : coffre si l'entrée existe, sinon .env ; ("", "", "") si rien."""
+    if _dav_cred["until"] > time.monotonic(): return _dav_cred["user"], _dav_cred["password"], _dav_cred["source"]
+    user, pw, src = os.environ.get("GROUPWARE_DAV_SERVICE_USER", ""), os.environ.get("GROUPWARE_DAV_SERVICE_PASSWORD", ""), "env" if os.environ.get("GROUPWARE_DAV_SERVICE_USER") else ""
+    if CREDENTIALS_TOKEN:
+        try:
+            import urllib.request
+            req = urllib.request.Request("%s/credentials/reveal/%s" % (CREDENTIALS_API_URL, DAV_CREDENTIAL_NAME), headers={"X-Credentials-Token": CREDENTIALS_TOKEN, "X-Credentials-Consumer": "groupware-api"})
+            with urllib.request.urlopen(req, timeout=5) as r:
+                d = json.loads(r.read().decode("utf-8") or "{}")
+            if d.get("username") and d.get("password"): user, pw, src = d["username"], d["password"], "coffre"
+        except Exception as exc:  # noqa: BLE001
+            if "404" not in str(exc): log.warning("coffre des accès : %s", exc)
+    _dav_cred.update(until=time.monotonic() + 60, user=user, password=pw, source=src)
+    return user, pw, src
+
+def dav():
+    u, p, _ = dav_credentials(); return Dav(DAV_INTERNAL_URL, u, p)
 _lock = threading.Lock(); _log = []
 
 def db():
@@ -40,6 +62,7 @@ def init_db():
     CREATE TABLE IF NOT EXISTS prefs (id INTEGER PRIMARY KEY AUTOINCREMENT, level TEXT NOT NULL, subject TEXT DEFAULT '', app TEXT DEFAULT '*', key TEXT NOT NULL, value TEXT DEFAULT '', updated_at TEXT, updated_by TEXT,
         UNIQUE(level, subject, app, key));
     CREATE TABLE IF NOT EXISTS journal (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT, who TEXT, what TEXT);
+    CREATE TABLE IF NOT EXISTS resources (id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT UNIQUE NOT NULL, name TEXT NOT NULL, kind TEXT DEFAULT 'salle', capacity INTEGER DEFAULT 0, notes TEXT DEFAULT '', created_at TEXT);
     """); cn.commit(); cn.close()
 init_db()
 
@@ -73,7 +96,7 @@ def ldap_members(group):
 def rebuild_dav_rights():
     """Fichier rights de Radicale depuis les grants calendar / addressbook (appelé après chaque changement de partage)."""
     cn = db(); grants = [dict(r) for r in cn.execute("SELECT * FROM grants WHERE app IN ('calendar','addressbook')")]; cn.close()
-    txt = core.radicale_rights(grants, ldap_members, service_user=DAV_SERVICE_USER)
+    txt = core.radicale_rights(grants, ldap_members, service_user=dav_credentials()[0])
     try:
         DAV_CONFIG.mkdir(parents=True, exist_ok=True); tmp = DAV_CONFIG / "rights.tmp"; tmp.write_text(txt, encoding="utf-8"); tmp.replace(DAV_CONFIG / "rights")
         return {"ok": True, "rules": txt.count("[grant-"), "path": str(DAV_CONFIG / "rights")}
@@ -81,7 +104,9 @@ def rebuild_dav_rights():
         return {"ok": False, "error": str(exc)}
 
 @app.route("/health")
-def health(): return jsonify(status="ok", dav=bool(DAV_PUBLIC_URL), ldap=bool(LDAP["LDAP_URL"] and LDAP["LDAP_GROUPS_DN"]), contacts=bool(DAV_SERVICE_USER))
+def health():
+    u, _, src = dav_credentials()
+    return jsonify(status="ok", dav=bool(DAV_PUBLIC_URL), ldap=bool(LDAP["LDAP_URL"] and LDAP["LDAP_GROUPS_DN"]), contacts=bool(u), service_source=src, credential_name=DAV_CREDENTIAL_NAME)
 
 # ---------------------------------------------------------------- partages (grants)
 @app.route("/grants", methods=["GET"])
@@ -230,7 +255,7 @@ def _rights_on(app_, user, groups, owner):
     return core.effective(rows, app_, user, groups).get(owner, 0)
 
 def _need_service():
-    if not DAV_SERVICE_USER: return jsonify(error="GROUPWARE_DAV_SERVICE_USER / PASSWORD absents : carnet dans le hub indisponible (les clients CardDAV fonctionnent)"), 503
+    if not dav_credentials()[0]: return jsonify(error="compte de service DAV absent : entrée « %s » du coffre des accès (tuile Accès d'équipements) ou GROUPWARE_DAV_SERVICE_USER / PASSWORD" % DAV_CREDENTIAL_NAME), 503
     return None
 
 @app.route("/addressbooks", methods=["GET"])
@@ -327,6 +352,186 @@ def contacts_update(owner, book, uid):
         return jsonify(contact=dict(vcard.parse(vcard.serialize(c)), owner=owner, book=book, etag=r["etag"]))
     except DavError as e:
         return jsonify(error="serveur CardDAV : %s" % e), 502
+
+# ---------------------------------------------------------------- #666 : agenda (CalDAV via le compte de service), disponibilités, ressources
+RESOURCE_OWNER = os.environ.get("GROUPWARE_RESOURCE_OWNER", "ressources")   # principal Radicale qui porte les agendas des ressources (salles, matériel)
+CAL_RE = re.compile(r"^(agenda|cal|calendar)", re.I)
+
+def _readable_calendars(d, user, groups):
+    """[(owner, collection, droits, kind)] : mes agendas, ceux partagés (droits effectifs), ceux des ressources (lecture pour tous)."""
+    cn = db(); rows = [dict(r) for r in cn.execute("SELECT * FROM grants WHERE app = 'calendar'")]; cn.close()
+    eff = core.effective(rows, "calendar", user, groups)
+    out = []
+    for owner, mask in sorted(eff.items(), key=lambda x: (x[0] != user, x[0])):
+        if not mask & core.RIGHTS["r"]: continue
+        for c in d.list_collections(owner):
+            if c["kind"] == "calendar" and CAL_RE.match(c["name"]): out.append(dict(c, owner=owner, rights=core.rights_text(mask), mine=owner == user, resource=False))
+    cn = db(); res = {("agenda-" + r["slug"]): dict(r) for r in cn.execute("SELECT * FROM resources")}; cn.close()
+    if res:
+        try:
+            for c in d.list_collections(RESOURCE_OWNER):
+                if c["name"] in res: out.append(dict(c, owner=RESOURCE_OWNER, rights="ra", mine=False, resource=True, displayname=res[c["name"]]["name"], kind="calendar", resource_info=res[c["name"]]))
+        except DavError: pass
+    return out
+
+def _events_in(d, owner, book, start, end):
+    evs = []
+    for it in d.list_items(owner, book):
+        try: ev = ical.parse(it["data"])
+        except Exception as exc:  # noqa: BLE001
+            log.warning("ics illisible %s/%s/%s : %s", owner, book, it["uid"], exc); continue
+        if not ev: continue
+        ev["uid"] = ev["uid"] or it["uid"]; ev["etag"] = it["etag"]; evs.append(ev)
+    return evs
+
+@app.route("/calendars", methods=["GET"])
+def calendars():
+    err = _need_service()
+    if err: return err
+    user = request.args.get("user") or ""
+    if not core.NAME_RE.match(user): return jsonify(error="user requis"), 400
+    try: cals = _readable_calendars(dav(), user, groups_arg())
+    except DavError as e: return jsonify(error="serveur CalDAV : %s" % e), 502
+    return jsonify(calendars=[{k: v for k, v in c.items() if k != "resource_info"} for c in cals])
+
+@app.route("/calendars", methods=["POST"])
+def calendar_create():
+    err = _need_service()
+    if err: return err
+    b = request.get_json(silent=True) or {}; user = str(b.get("user") or ""); name = re.sub(r"[^A-Za-z0-9._-]", "-", str(b.get("name") or "")).strip("-").lower()
+    if not core.NAME_RE.match(user) or not name: return jsonify(error="user et name requis"), 400
+    coll = name if CAL_RE.match(name) else "agenda-" + name
+    if not COLL_RE.match(coll): return jsonify(error="nom invalide"), 400
+    try: c = dav().create_collection(user, coll, "calendar", str(b.get("displayname") or b.get("name") or coll))
+    except DavError as e: return jsonify(error="serveur CalDAV : %s" % e), 502
+    journal(user, "agenda créé %s/%s" % (user, coll))
+    return jsonify(calendar=dict(c, owner=user, rights="raedp", mine=True, resource=False)), 201
+
+@app.route("/events", methods=["GET"])
+def events_list():
+    """?user=&groups=&from=&to=&owner=&book= -> occurrences (récurrences développées) de tous les agendas lisibles dans la fenêtre."""
+    err = _need_service()
+    if err: return err
+    user, groups = request.args.get("user") or "", groups_arg()
+    if not core.NAME_RE.match(user): return jsonify(error="user requis"), 400
+    try: ws, we = ical.parse_dt(request.args.get("from") or ""), ical.parse_dt(request.args.get("to") or "")
+    except Exception: return jsonify(error="from / to : dates ISO requises"), 400
+    only_owner, only_book = request.args.get("owner"), request.args.get("book")
+    out = []
+    try:
+        d = dav()
+        for c in _readable_calendars(d, user, groups):
+            if (only_owner and c["owner"] != only_owner) or (only_book and c["name"] != only_book): continue
+            for ev in _events_in(d, c["owner"], c["name"], ws, we):
+                for s, e in ical.occurrences(ev, ws, we):
+                    out.append(ical.public(ev, s, e, owner=c["owner"], book=c["name"], book_name=c["displayname"], rights=c["rights"], resource=c["resource"], etag=ev["etag"]))
+    except DavError as e:
+        return jsonify(error="serveur CalDAV : %s" % e), 502
+    out.sort(key=lambda x: x["start"])
+    return jsonify(events=out, total=len(out))
+
+@app.route("/events", methods=["POST"])
+def events_create():
+    """{user, groups, owner, book, event} ; ressource (owner = ressources) : réservation ouverte à tous, refusée en cas de chevauchement (409)."""
+    err = _need_service()
+    if err: return err
+    b = request.get_json(silent=True) or {}; user, owner, book = str(b.get("user") or ""), str(b.get("owner") or b.get("user") or ""), str(b.get("book") or "")
+    if not (core.NAME_RE.match(user) and core.NAME_RE.match(owner) and COLL_RE.match(book)): return jsonify(error="user, owner, book requis"), 400
+    is_res = owner == RESOURCE_OWNER
+    if not is_res and not _rights_on("calendar", user, b.get("groups") or [], owner) & core.RIGHTS["a"]: return jsonify(error="pas le droit d'ajouter dans l'agenda de %s" % owner), 403
+    ev, err = ical.validate(b.get("event") or {})
+    if err: return jsonify(error=err), 400
+    ev["uid"] = new_uid(); ev["extra"] = ["X-SI-BOOKED-BY:" + user] if is_res else []
+    try:
+        d = dav()
+        if is_res:
+            hits = ical.conflicts(ev, _events_in(d, owner, book, ev["start"], ev["end"]))
+            if hits: return jsonify(error="ressource déjà réservée : %s" % ", ".join("%s (%s)" % (h["title"], ical.iso(h["start"])) for h in hits[:3]), conflicts=[ical.public(h) for h in hits]), 409
+        r = d.put_item(owner, book, ev["uid"], ical.serialize(ev), kind="ics")
+    except DavError as e: return jsonify(error="serveur CalDAV : %s" % e), 502
+    journal(user, "%s %s/%s : %s" % ("réservation" if is_res else "événement", owner, book, ev["title"]))
+    return jsonify(event=ical.public(ev, owner=owner, book=book, etag=r["etag"])), 201
+
+@app.route("/events/<owner>/<book>/<uid>", methods=["PUT", "DELETE"])
+def events_update(owner, book, uid):
+    err = _need_service()
+    if err: return err
+    b = request.get_json(silent=True) or {}; user = str(b.get("user") or request.args.get("user") or ""); groups = b.get("groups") or groups_arg()
+    if not (core.NAME_RE.match(user) and core.NAME_RE.match(owner) and COLL_RE.match(book) and re.match(r"^[A-Za-z0-9._@-]{1,120}$", uid)): return jsonify(error="paramètres invalides"), 400
+    is_res = owner == RESOURCE_OWNER
+    try:
+        d = dav()
+        current = next((ev for ev in _events_in(d, owner, book, None, None) if ev["uid"] == uid), None)
+        if not current: return jsonify(error="événement inconnu"), 404
+        if is_res:
+            booker = next((x.split(":", 1)[1] for x in current.get("extra") or [] if x.upper().startswith("X-SI-BOOKED-BY:")), "")
+            if booker != user and not (b.get("admin") or request.args.get("admin")): return jsonify(error="réservation faite par %s" % (booker or "?")), 403
+        else:
+            need = core.RIGHTS["d"] if request.method == "DELETE" else core.RIGHTS["e"]
+            if not _rights_on("calendar", user, groups, owner) & need: return jsonify(error="droit insuffisant sur l'agenda de %s" % owner), 403
+        if request.method == "DELETE":
+            d.delete_item(owner, book, uid, kind="ics"); journal(user, "supprimé %s/%s/%s" % (owner, book, uid)); return jsonify(ok=True)
+        merged = {k: v for k, v in (b.get("event") or {}).items()}
+        body = dict(ical.public(current), **merged)                   # champs non fournis conservés (rrule comprise)
+        ev, err = ical.validate(body)
+        if err: return jsonify(error=err), 400
+        ev["uid"] = uid; ev["extra"] = current.get("extra") or []
+        if is_res:
+            hits = ical.conflicts(ev, _events_in(d, owner, book, ev["start"], ev["end"]))
+            if hits: return jsonify(error="ressource déjà réservée sur ce créneau", conflicts=[ical.public(h) for h in hits]), 409
+        r = d.put_item(owner, book, uid, ical.serialize(ev), kind="ics")
+        return jsonify(event=ical.public(ev, owner=owner, book=book, etag=r["etag"]))
+    except DavError as e:
+        return jsonify(error="serveur CalDAV : %s" % e), 502
+
+@app.route("/freebusy", methods=["GET"])
+def freebusy():
+    """?users=a,b&resources=salle-1&from=&to= -> créneaux occupés par principal, sans détail (tous agendas, quels que soient les partages)."""
+    err = _need_service()
+    if err: return err
+    try: ws, we = ical.parse_dt(request.args.get("from") or ""), ical.parse_dt(request.args.get("to") or "")
+    except Exception: return jsonify(error="from / to requis"), 400
+    users = [u for u in (request.args.get("users") or "").split(",") if core.NAME_RE.match(u)][:20]
+    res = [r for r in (request.args.get("resources") or "").split(",") if r]
+    out = {}
+    try:
+        d = dav()
+        for u in users:
+            evs = []
+            for c in d.list_collections(u):
+                if c["kind"] == "calendar": evs += _events_in(d, u, c["name"], ws, we)
+            out[u] = [{"start": ical.iso(s), "end": ical.iso(e)} for s, e in ical.busy_blocks(evs, ws, we)]
+        for slug in res:
+            evs = _events_in(d, RESOURCE_OWNER, "agenda-" + slug, ws, we)
+            out["ressource:" + slug] = [{"start": ical.iso(s), "end": ical.iso(e)} for s, e in ical.busy_blocks(evs, ws, we)]
+    except DavError as e:
+        return jsonify(error="serveur CalDAV : %s" % e), 502
+    return jsonify(busy=out)
+
+@app.route("/resources", methods=["GET"])
+def resources_list():
+    cn = db(); rows = [dict(r) for r in cn.execute("SELECT * FROM resources ORDER BY kind, name")]; cn.close(); return jsonify(resources=rows, owner=RESOURCE_OWNER)
+
+@app.route("/resources", methods=["POST"])
+def resources_create():
+    err = _need_service()
+    if err: return err
+    b = request.get_json(silent=True) or {}; name = str(b.get("name") or "").strip(); slug = re.sub(r"[^a-z0-9-]", "-", (b.get("slug") or name).lower()).strip("-")
+    if not name or not slug: return jsonify(error="name requis"), 400
+    try: dav().create_collection(RESOURCE_OWNER, "agenda-" + slug, "calendar", name)
+    except DavError as e:
+        if e.code != 405: return jsonify(error="serveur CalDAV : %s" % e), 502      # 405 = existe déjà
+    cn = db()
+    cn.execute("INSERT INTO resources (slug, name, kind, capacity, notes, created_at) VALUES (?,?,?,?,?,?) ON CONFLICT(slug) DO UPDATE SET name = excluded.name, kind = excluded.kind, capacity = excluded.capacity, notes = excluded.notes",
+               (slug, name, str(b.get("kind") or "salle")[:40], int(b.get("capacity") or 0), str(b.get("notes") or "")[:400], now()))
+    cn.commit(); row = dict(cn.execute("SELECT * FROM resources WHERE slug = ?", (slug,)).fetchone()); cn.close()
+    journal(actor(), "ressource %s (%s)" % (name, slug))
+    return jsonify(resource=row, book="agenda-" + slug), 201
+
+@app.route("/resources/<slug>", methods=["DELETE"])
+def resources_delete(slug):
+    cn = db(); n = cn.execute("DELETE FROM resources WHERE slug = ?", (slug,)).rowcount; cn.commit(); cn.close()
+    return (jsonify(ok=True, note="l'agenda %s/agenda-%s est conservé (réservations passées)" % (RESOURCE_OWNER, slug)), 200) if n else (jsonify(error="ressource inconnue"), 404)
 
 @app.route("/journal", methods=["GET"])
 def journal_route():

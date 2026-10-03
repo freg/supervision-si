@@ -40,6 +40,31 @@ Vérifié contre un **Radicale réel** (`test_live.py`, `GROUPWARE_LIVE_DAV=http
 contact ajouté, lecture refusée sans partage, partage lecture → lecture seule (API et Radicale lui-même : PUT 403),
 partage écriture → création et modification, retrait du partage → plus rien.
 
+## Tranche 3 : agenda dans le hub (#666)
+
+`ical.py` (icalendar + dateutil) : VEVENT ↔ dict, récurrences (`rrule {freq, interval, until, count, byday}`) développées sur
+une fenêtre, créneaux occupés fusionnés (hors événements « transparents »), conflits. Routes :
+
+- `GET /calendars?user=&groups=` — mes agendas, partagés (droits effectifs) et agendas des **ressources** ; `POST /calendars`.
+- `GET /events?user=&groups=&from=&to=&owner=&book=` — occurrences de tous les agendas lisibles ; `POST /events` (droit `a`) ;
+  `PUT/DELETE /events/<owner>/<book>/<uid>` (droits `e` / `d` ; champs non fournis conservés, récurrence comprise).
+- `GET /freebusy?users=a,b&resources=salle-1&from=&to=` — créneaux occupés **sans détail**, tous agendas confondus,
+  quels que soient les partages (le free/busy d'eGroupware).
+- Ressources (`/resources`, administration) : salle, véhicule, matériel ; chaque ressource a un agenda sous le principal
+  `GROUPWARE_RESOURCE_OWNER` (`ressources`) ; **réservation ouverte à tous** = événement dans cet agenda, **chevauchement
+  refusé (409)**, modification / suppression réservées au demandeur (`X-SI-BOOKED-BY`) ou à l'administrateur.
+- Compte de service : lu dans le **coffre des accès** (entrée `groupware-dav`, tuile Accès d'équipements) avant les variables
+  d'environnement ; `GET /health` dit d'où il vient (`service_source`).
+
+Tuile Groupware → onglet **Agenda** : jour / semaine (grille horaire, double-clic = nouvel événement) / mois / liste, agendas
+affichés à cocher, fiche, formulaire (journée entière, répétition quotidienne / hebdomadaire par jours / mensuelle / annuelle
+jusqu'à une date, « ne bloque pas mes disponibilités »), disponibilités de plusieurs personnes et ressources (hachures sur la
+grille + créneaux libres communs 8h–19h), ressources réservables.
+
+Vérifié contre un Radicale réel (`test_live_cal.py`) : agenda créé, hebdomadaire développé (4 lundis), partage lecture
+(lecture oui, ajout 403), modification conservant la récurrence, free/busy sans détail, ressource réservée puis conflit 409,
+suppression réservée au demandeur.
+
 ## Convention de nom des collections
 
 Radicale ne connaît pas le type d'une collection dans ses droits : un partage **agenda** s'applique aux collections

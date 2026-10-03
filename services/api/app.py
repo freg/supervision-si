@@ -980,6 +980,11 @@ def git_state(fetch=True):
     except ValueError:
         st["nodes"] = 0
     st["running"] = _running_main()
+    try:   # #666 : services du compose touchés par les commits entrants mais jamais démarrés ici (nouveaux modules)
+        paths = _compose_paths()
+        st["new_services"] = sorted(svc for svc, p in paths.items() if svc not in st["running"] and any(f.startswith(pre.rstrip("/") + "/") or f == pre for pre in p["build"] for f in st.get("changed") or []))
+    except Exception:  # noqa: BLE001
+        st["new_services"] = []
     return st
 
 
@@ -1013,7 +1018,8 @@ def git_update_route():
         return jsonify({"error": "la branche locale a %d commit(s) d'avance sur origin : avance rapide impossible, pousser ou rebaser d'abord" % st["ahead"]}), 409
     if not st.get("behind") and mode == "central" and not body.get("force"):
         return jsonify({"error": "déjà à jour (#%s)" % st["current"], "state": st}), 409
-    plan = tower.git_update_plan(mode, st["changed"], _compose_paths(), st["running"], gateway_running=_gateway_running(), nodes=st.get("nodes", 0), agents=bool(body.get("agents")), branch=st["branch"])
+    start_new = [x for x in (body.get("start_new") or []) if x in (st.get("new_services") or [])]
+    plan = tower.git_update_plan(mode, st["changed"], _compose_paths(), st["running"], gateway_running=_gateway_running(), nodes=st.get("nodes", 0), agents=bool(body.get("agents")), branch=st["branch"], start_new=start_new)
     if mode == "central":
         plan["plan"] = tower.filter_plan(plan["plan"], _placed_here()); plan["steps"] = plan["steps"][:1] + plan["plan"]["steps"]
     label = "mise à jour git %s : #%s → #%s (%d commit(s))" % ("en cascade" if mode == "cascade" else "du central", st["current"] or "?", st.get("remote_number") or "?", st.get("behind", 0))

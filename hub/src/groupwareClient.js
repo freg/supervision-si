@@ -35,3 +35,14 @@ export const listContacts = (b, user, groups, query, owner, book) => fetchJson(`
 export const createContact = (b, body) => fetchJson(`${b}/contacts`, json("POST", body));
 export const updateContact = (b, owner, book, uid, body) => fetchJson(`${b}/contacts/${encodeURIComponent(owner)}/${encodeURIComponent(book)}/${encodeURIComponent(uid)}`, json("PUT", body));
 export const deleteContact = (b, owner, book, uid, user) => fetchJson(`${b}/contacts/${encodeURIComponent(owner)}/${encodeURIComponent(book)}/${encodeURIComponent(uid)}?user=${encodeURIComponent(user)}`, { method: "DELETE" });
+// #666 : agenda, disponibilités, ressources
+export const listCalendars = (b, user, groups) => fetchJson(`${b}/calendars?${q({ user, groups: (groups || []).join(",") })}`);
+export const createCalendar = (b, body) => fetchJson(`${b}/calendars`, json("POST", body));
+export const listEvents = (b, user, groups, from, to, owner, book) => fetchJson(`${b}/events?${q({ user, groups: (groups || []).join(","), from, to, owner, book })}`);
+export const createEvent = (b, body) => fetchJson(`${b}/events`, json("POST", body));
+export const updateEvent = (b, owner, book, uid, body) => fetchJson(`${b}/events/${encodeURIComponent(owner)}/${encodeURIComponent(book)}/${encodeURIComponent(uid)}`, json("PUT", body));
+export const deleteEvent = (b, owner, book, uid, user, admin) => fetchJson(`${b}/events/${encodeURIComponent(owner)}/${encodeURIComponent(book)}/${encodeURIComponent(uid)}?${q({ user, admin: admin ? 1 : "" })}`, { method: "DELETE" });
+export const freeBusy = (b, users, resources, from, to) => fetchJson(`${b}/freebusy?${q({ users: (users || []).join(","), resources: (resources || []).join(","), from, to })}`);
+export const listResources = (b) => fetchJson(`${b}/resources`);
+export const createResource = (b, body) => fetchJson(`${b}/resources`, json("POST", body));
+export const deleteResource = (b, slug) => fetchJson(`${b}/resources/${encodeURIComponent(slug)}`, { method: "DELETE" });

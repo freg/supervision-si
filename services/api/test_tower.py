@@ -138,6 +138,7 @@ class Heal(unittest.TestCase):
         self.assertEqual([s["cmd"] for s in p["steps"]], ["git pull --ff-only origin main", "python3 scripts/sync-env.py", "./scripts/run.sh up -d --build cisco-api hub",
                                                            "./gateway/scripts/run.sh up -d --build tls-proxy", "python3 deploy/node_agent.py update-all"]); self.assertTrue(p["agents"])
         p = tower.git_update_plan("cascade", [], paths, [], gateway_running=False, nodes=1); self.assertEqual(len(p["steps"]), 1)
+        p = tower.git_update_plan("central", ["ged/app.py"], paths, running, start_new=["ged-api", "cisco-api", "x;y"]); self.assertEqual(p["started"], ["ged-api"]); self.assertEqual(p["steps"][-1]["cmd"], "./scripts/run.sh up -d --build ged-api")
 
     def test_repartition(self):
         """#662 : validation de nodes.json, services placés ici, plan filtré par placement."""

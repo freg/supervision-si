@@ -161,6 +161,7 @@ function GitUpdate({ apiBase, token, openJob }) {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState(null);
   const [agents, setAgents] = useState(true);
+  const [startNew, setStartNew] = useState({});       // #666 : nouveaux services (jamais démarrés) à lancer avec la mise à jour
   const [last, setLast] = useState(null);
   const refresh = useCallback(async (fetch = true) => { setBusy("fetch"); const r = await fetchGit(apiBase, token, fetch); setBusy(""); setG(r); }, [apiBase, token]);
   useEffect(() => { refresh(false); }, [refresh]);
@@ -168,7 +169,7 @@ function GitUpdate({ apiBase, token, openJob }) {
     const what = mode === "cascade" ? `TOUT mettre à jour en cascade (git pull, reconstruction de ${(g?.running || []).length} service(s) en marche + passerelle${g?.nodes > 1 ? ` + ${g.nodes - 1} autre(s) nœud(s)` : ""}${agents ? " + agents hôtes" : ""}) ?` : `Mettre à jour le central (git pull puis ${(g?.plan?.steps || []).length} étape(s) ciblée(s)) ?`;
     if (!window.confirm(what + " Le hub et la tour seront momentanément indisponibles.")) return;
     setBusy(mode); setError(null);
-    const r = await gitUpdate(apiBase, token, { mode, agents: mode === "cascade" && agents, force: false });
+    const r = await gitUpdate(apiBase, token, { mode, agents: mode === "cascade" && agents, force: false, start_new: Object.keys(startNew).filter((k) => startNew[k]) });
     setBusy("");
     if (r.error) { setError(r.error); return; }
     setLast(r); if (r.job?.id) openJob(r.job.id);
@@ -181,6 +182,7 @@ function GitUpdate({ apiBase, token, openJob }) {
       {blocker && <p className="hub-error" style={{ margin: "0 0 6px" }}>{blocker}</p>}
       {(g?.incoming || []).length > 0 && <details style={{ marginBottom: 6 }}><summary className="muted">{g.incoming.length} commit(s) entrant(s)</summary><ul style={{ margin: "4px 0", fontSize: 12 }}>{g.incoming.map((c) => <li key={c.hash}><code>{c.hash}</code> {c.subject}</li>)}</ul></details>}
       {(g?.plan?.steps || []).length > 0 && <details style={{ marginBottom: 6 }}><summary className="muted">plan ciblé du central : {g.plan.steps.length} étape(s){(g.plan.not_running || []).length ? ` (non démarrés ici : ${g.plan.not_running.join(", ")})` : ""}</summary><ol style={{ margin: "4px 0", fontSize: 12 }}>{g.plan.steps.map((s, i) => <li key={i}>{s.label} — <code>{s.cmd}</code></li>)}</ol></details>}
+      {(g?.new_services || []).length > 0 && <p className="muted" style={{ margin: "0 0 6px" }}>Nouveaux services dans ces commits, jamais démarrés ici — à lancer avec la mise à jour : {g.new_services.map((s) => <label key={s} style={{ marginRight: 10 }}><input type="checkbox" checked={!!startNew[s]} onChange={(e) => setStartNew({ ...startNew, [s]: e.target.checked })} /> <code>{s}</code></label>)}</p>}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
         <button type="button" className="primary" disabled={!!busy || !!blocker || !g?.behind} onClick={() => launch("central")}>⬆️ Mettre à jour le central</button>
         <button type="button" className="secondary" disabled={!!busy || !!blocker} onClick={() => launch("cascade")}>⛓️ Tout mettre à jour en cascade</button>

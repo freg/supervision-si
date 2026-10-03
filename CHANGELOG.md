@@ -1,3 +1,25 @@
+## 2026-10-03 — Groupware tranche 3 : agenda dans le hub (récurrences, disponibilités, ressources), compte de service depuis le coffre, nouveaux services depuis la tour (livraison #666, item 115)
+
+- `groupware/api/ical.py` (icalendar + dateutil) : VEVENT ↔ dict, récurrences développées, créneaux occupés, conflits ;
+  `app.py` : `/calendars`, `/events` (occurrences multi-agendas, création / modification / suppression selon les partages),
+  `/freebusy` (sans détail), `/resources` (réservation ouverte, chevauchement refusé 409, suppression par le demandeur ou
+  l'admin) ; compte de service DAV lu dans le **coffre des accès** (entrée `groupware-dav`) avant le `.env` ; `carddav.py`
+  tolère un serveur injoignable (503 lisible).
+- Hub : tuile Groupware → onglet **Agenda** (jour / semaine / mois / liste, double-clic = création, formulaire avec
+  récurrence, agendas affichés, disponibilités hachurées + créneaux libres communs, ressources) ; `groupwareLib` :
+  semaine / mois, placement des chevauchements, formulaire ↔ événement, créneaux libres.
+- Tour de contrôle → mise à jour git : les **nouveaux services** touchés par les commits entrants mais jamais démarrés
+  sont proposés à cocher (« démarrer aussi ») ; `tower.git_update_plan(start_new=…)`.
+
+Vérifié : `groupware/api/test_ical.py` (3), `test_live_cal.py` + `test_live.py` **contre un Radicale 3.5.10 réel**, `test_core`,
+`test_app`, `test_vcard`, `services/api/test_tower.py` (+1), hub Node 307 / 0 échec, `@babel/parser`.
+Non vérifié : Radicale derrière tls-proxy, auth LDAP, coffre réel, rendu navigateur de la grille.
+
+Fichiers : `groupware/{README.md,api/{app.py,carddav.py,ical.py,test_ical.py,test_live_cal.py,requirements.txt,Dockerfile}}`,
+`hub/src/{GroupwareView.jsx,groupwareClient.js,groupwareLib.js,ControlTowerView.jsx}`, `hub/tests/groupwareLib.test.mjs`,
+`services/api/{app.py,tower.py,test_tower.py}`, `docker-compose.yml`, `.env.example`, `BACKLOG.md`, `CHANGELOG.md`,
+`shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — Groupware tranche 2 : carnet d'adresses dans le hub sur CardDAV (livraison #665, item 115)
 
 - `groupware/api/carddav.py` : client CalDAV/CardDAV minimal (stdlib) ; `vcard.py` : vCard 3.0 ↔ dict, champs inconnus

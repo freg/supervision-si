@@ -365,7 +365,7 @@ def parse_log(text):
     return out
 
 
-def git_update_plan(mode, changed, main_paths, running, gateway_running=True, nodes=0, agents=False, branch="main"):
+def git_update_plan(mode, changed, main_paths, running, gateway_running=True, nodes=0, agents=False, branch="main", start_new=()):
     """Étapes du job : `git pull --ff-only`, puis
     - central : plan ciblé (plan_for_changes) sur les fichiers modifiés entre HEAD et origin ;
     - cascade : reconstruction de TOUS les services en marche (+ passerelle), puis les autres nœuds du déploiement
@@ -388,7 +388,11 @@ def git_update_plan(mode, changed, main_paths, running, gateway_running=True, no
             steps.append({"label": "mettre à jour les %d autre(s) nœud(s) du déploiement réparti" % (nodes - 1), "cmd": "python3 deploy/node_agent.py update-all"})
     else:
         steps += plan["steps"]
-    return {"steps": steps, "plan": plan, "agents": bool(agents)}
+    # #666 : services définis mais jamais démarrés ici (nouveaux modules) -- lancés seulement sur demande explicite
+    new_names = sorted(s for s in (start_new or []) if SERVICE_RE.match(s) and s not in (running or []))
+    if new_names:
+        steps.append({"label": "démarrer %d nouveau(x) service(s)" % len(new_names), "cmd": "./scripts/run.sh up -d --build " + " ".join(new_names)})
+    return {"steps": steps, "plan": plan, "agents": bool(agents), "started": new_names}
 
 
 # -- #662 : répartition (nœuds / cohortes, #513) pilotée depuis la tour ---------------------------------------------------

@@ -25,6 +25,8 @@ class Dav:
             if e.code in ok:
                 return e.code, e.read().decode("utf-8", "replace"), dict(e.headers)
             raise DavError(e.code, e.read()[:300].decode("utf-8", "replace"), method, path)
+        except (urllib.error.URLError, OSError) as e:
+            raise DavError(503, "serveur DAV injoignable (%s)" % e, method, path)
 
     def ensure_principal(self, user):
         st, _, _ = self.req("PROPFIND", "/%s/" % user, headers={"Depth": "0"}, ok=(207, 404))
