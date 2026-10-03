@@ -93,7 +93,8 @@ export const PATHS = {
   "view:classifier": ["cortex/apprentissage"],
   "view:schema-analyzer": ["services/donnees", "cortex/apprentissage"],
   "view:retro": ["services/donnees"],
-  "view:portage": ["services/metier", "cortex/apprentissage"],   // #650 : porter une application métier, avec l'IA de portage
+  "view:portage": ["services/metier", "cortex/apprentissage"],
+  "view:qa": ["services/metier", "etats/incidents"],   // #651 : tester un site déployé, ticket incident/évolution   // #650 : porter une application métier, avec l'IA de portage
   "front:dba": ["services/donnees"],
   "view:licenses": ["droits/licences", "equipements/postes"],
   "view:synthese": ["etats/maintenant", "services/metier"],

@@ -2282,3 +2282,29 @@ button.danger { color: #e06666; }
 .pt-danger { color: var(--danger); margin-left: auto; }
 .pt-link { align-self: center; color: var(--accent); }
 .pt-smoke { margin-top: 10px; }
+
+/* ---- Tests QA en ligne (#651), préfixe qa- : variables du thème uniquement ---- */
+.qa-view .hub-card { max-width: none; }
+.qa-columns { display: grid; grid-template-columns: minmax(420px, 1fr) minmax(420px, 1.2fr); gap: 16px; align-items: start; }
+@media (max-width: 1150px) { .qa-columns { grid-template-columns: 1fr; } }
+.qa-row-between { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.qa-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 14px; align-items: end; }
+.qa-inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.qa-check { font-size: 13px; display: flex; gap: 6px; align-items: center; margin: 10px 0; }
+.qa-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.qa-table th, .qa-table td { text-align: left; padding: 5px 7px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.qa-table th { color: var(--muted); font-weight: 600; }
+.qa-steps input[type="text"], .qa-steps input[type="password"], .qa-steps select { width: 100%; box-sizing: border-box; }
+.qa-actions { white-space: nowrap; } .qa-actions button { padding: 2px 7px; margin-left: 3px; }
+.qa-clickable { cursor: pointer; } .qa-clickable:hover, .qa-selected { background: var(--bg); }
+.qa-error { border-left: 4px solid var(--danger); background: var(--danger-bg); }
+.qa-notice { border-left: 4px solid var(--ok); background: var(--ok-bg); }
+.qa-ok { color: var(--ok); font-weight: 600; } .qa-ko { color: var(--danger); font-weight: 600; }
+.qa-row-ko { background: var(--danger-bg); }
+.qa-danger { color: var(--danger); margin-left: auto; }
+.qa-thumb { height: 54px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); }
+.qa-details { margin-top: 8px; } .qa-details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.qa-campaign { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 6px; }
+.qa-ticket { border-top: 1px solid var(--border); margin-top: 8px; padding-top: 6px; }
+.qa-ticket textarea { width: 100%; box-sizing: border-box; }
+.qa-mini { font-size: 11px; padding: 1px 6px; margin: 0 3px 3px 0; }

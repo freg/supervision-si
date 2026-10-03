@@ -1,3 +1,41 @@
+## 2026-10-03 — Tests QA en ligne d'un site déployé : scénarios Playwright, ticket incident/évolution, non-régression (livraison #651)
+
+Demande : « construit aussi un module de test en ligne d'un site déployé y compris d'autres sites non portés / des
+tests en mode qa → ticket incident ou évolution → test traversant de non régression ». Nouveau module `qa/` (API)
++ tuile Données → « Tests QA en ligne » (aussi sous Services › métier et Supervision › incidents).
+
+- `qa/api/app.py` : sites (URL de base, étapes de connexion jouées avant chaque scénario, mot de passe masqué en
+  lecture), scénarios pas à pas (13 actions : aller à, saisir, cliquer, choisir, cocher, touche, attendre,
+  vérifier visible / texte / URL / valeur / absent, capture), exécution dans Chromium avec capture par navigation et à
+  chaque échec (`runner.py`, injectable), historique, campagne (non-régression ou tout), **ticket incident ou
+  évolution depuis une exécution** via tickets-api (déroulé pas à pas ✔/✘ dans la description, type résolu par
+  libellé, source `qa`) — le scénario passe alors en « non-régression », un seul ticket par exécution,
+  reconnaissance d'une page (formulaires, champs, liens) pour écrire les étapes d'un site inconnu.
+- `qa/api/qa_steps.py` (pur) : validation des étapes, synthèse d'une exécution, rédaction du ticket.
+- `hub/src/QaView.jsx` (+ `qaClient.js`, `qaLib.js`) : liste des sites, fiche site avec éditeur d'étapes de
+  connexion, reconnaissance et proposition des étapes de connexion, scénarios avec éditeur d'étapes (action,
+  sélecteur, valeur, note, réordonner), exécution avec tableau des étapes et vignettes de capture, boutons « Ticket
+  incident » / « Ticket évolution » avec commentaire, campagne de non-régression avec synthèse, historique.
+  L'éditeur d'étapes est un composant de module (un sous-composant défini dans la vue ferait perdre le focus à
+  chaque frappe). Styles `qa-*` sur les seules variables du thème.
+- `docker-compose.yml` : `qa-api` (image Playwright officielle, `TICKETS_API_INTERNAL_URL`), `VITE_QA_API_BASE_URL` ;
+  `.env.example` : `QA_DATA_DIR`, `QA_STEP_TIMEOUT_MS` ; tls-proxy `/api/qa/` ; `.gitignore` `qa/data/` ;
+  `hubThemes.js`, `hubBusiness.js`, `logsLib.js`.
+
+Vérifié : `qa/api/test_qa.py` (3 scénarios test_client avec runner et tickets-api simulés : masquage et
+conservation du mot de passe, validation, exécution et captures, échec → ticket incident → non-régression → 409,
+campagne, ticket évolution, suppression en cascade) ; `runner.py` réel joué contre une application déployée
+(connexion, navigation, vérification en échec avec capture, reconnaissance) ; `node --test hub/tests/qaLib.test.mjs`
+(3) ; `@babel/parser` ; aucun setter sans `useState` ; aucune couleur en dur dans les nouveaux fichiers.
+`node --test hub/tests/*.test.mjs` : 282 verts, 1 échec préexistant (`view:personal`, #638).
+Non vérifié : build de l'image Playwright, rendu navigateur. Déploiement :
+`cd ~/SRC/data2/tickets/supervision-si && sudo ./scripts/run.sh up -d --build qa-api hub tls-proxy`.
+
+Fichiers : `qa/README.md`, `qa/api/{app.py,qa_steps.py,runner.py,test_qa.py,requirements.txt,Dockerfile}`,
+`hub/src/{QaView.jsx,qaClient.js,qaLib.js,App.jsx,hubThemes.js,hubBusiness.js,logsLib.js,hub.css}`,
+`hub/tests/qaLib.test.mjs`, `docker-compose.yml`, `.env.example`, `tls-proxy/render_nginx_conf.py`, `.gitignore`,
+`CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — Portage PHP → Python : création d'un projet de portage avec import du code et des données (livraison #650)
 
 Demande : « construit une interface de création de projet de portage avec import code et données » — et, posé juste

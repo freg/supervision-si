@@ -1,0 +1,269 @@
+"""qa-api -- module « Tests QA en ligne » du hub (livraison #651).
+
+Teste en ligne un site DÉPLOYÉ -- une application portée par l'IA de portage ou n'importe quel autre site du parc,
+porté ou non : on décrit un site (URL, étapes de connexion), des scénarios pas à pas (aller à, saisir, cliquer,
+vérifier…), on les joue dans un vrai Chromium (Playwright, captures à chaque étape). Mode QA : un scénario qui
+échoue ou révèle un manque crée depuis l'exécution un TICKET (incident ou évolution) dans le module Tickets ; le
+scénario devient alors un test TRAVERSANT de non-régression, rejoué en campagne (tous les scénarios de
+non-régression d'un site) -- la boucle QA → ticket → non-régression demandée.
+
+Décisions :
+- Playwright vit dans ce conteneur (image Playwright officielle) ; le runner (runner.py) est injectable, les tests
+  de l'API tournent sans navigateur (FakeRunner).
+- une exécution = synchrone (délai borné par étape), captures sous /data/runs/<id>/ servies par l'API ;
+- le ticket est créé via TICKETS_API_INTERNAL_URL (réseau Docker), type résolu par libellé (« Incident »,
+  « Évolution ») s'il existe dans le référentiel des types, sinon sans type ; jamais de doublon : un run porte
+  au plus un ticket ;
+- secrets de connexion des sites stockés en clair dans qa.db (même décision assumée que DBA : voir dba/README.md),
+  jamais renvoyés au hub (champ masqué) ;
+- tout nom venant d'une requête est validé (actions dans une liste fermée) avant usage."""
+import os, json, sqlite3, time, pathlib, logging, shutil, requests
+from flask import Flask, jsonify, request, send_from_directory
+from flask_cors import CORS
+import qa_steps
+try:
+    from version_endpoint import register_version_route
+except ImportError:
+    register_version_route = None
+
+app = Flask(__name__); CORS(app)
+if register_version_route: register_version_route(app, "qa")
+log = logging.getLogger("qa_api")
+DATA = pathlib.Path(os.environ.get("QA_DATA_DIR", "/data")); RUNS = DATA / "runs"; RUNS.mkdir(parents=True, exist_ok=True)
+DB_PATH = os.environ.get("QA_DB_PATH", str(DATA / "qa.db"))
+TICKETS = os.environ.get("TICKETS_API_INTERNAL_URL", "").rstrip("/")
+STEP_TIMEOUT = int(os.environ.get("QA_STEP_TIMEOUT_MS", "15000"))
+RUNNER = None     # module injectable (tests) ; défaut : runner.py (Playwright)
+
+def runner():
+    global RUNNER
+    if RUNNER is None:
+        import runner as r; RUNNER = r
+    return RUNNER
+
+def db():
+    cn = sqlite3.connect(DB_PATH); cn.row_factory = sqlite3.Row; cn.execute("PRAGMA foreign_keys = ON"); return cn
+
+def init_db():
+    with db() as cn:
+        cn.executescript("""
+        CREATE TABLE IF NOT EXISTS sites (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, base_url TEXT NOT NULL, login_steps TEXT DEFAULT '[]',
+            notes TEXT DEFAULT '', ported INTEGER DEFAULT 0, created_at TEXT, updated_at TEXT);
+        CREATE TABLE IF NOT EXISTS scenarios (id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+            name TEXT NOT NULL, kind TEXT DEFAULT 'qa', steps TEXT NOT NULL, tags TEXT DEFAULT '', ticket_id INTEGER, created_at TEXT, updated_at TEXT);
+        CREATE TABLE IF NOT EXISTS runs (id INTEGER PRIMARY KEY AUTOINCREMENT, scenario_id INTEGER NOT NULL REFERENCES scenarios(id) ON DELETE CASCADE,
+            campaign_id INTEGER, started_at TEXT, finished_at TEXT, status TEXT, results TEXT DEFAULT '[]', final_url TEXT DEFAULT '', error TEXT DEFAULT '',
+            ticket_id INTEGER, ticket_kind TEXT DEFAULT '', by_user TEXT DEFAULT '');
+        CREATE TABLE IF NOT EXISTS campaigns (id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+            kind TEXT DEFAULT 'non-regression', started_at TEXT, finished_at TEXT, total INTEGER DEFAULT 0, passed INTEGER DEFAULT 0, by_user TEXT DEFAULT '');
+        """)
+init_db()
+def now(): return time.strftime("%Y-%m-%dT%H:%M:%S")
+def d(r): return dict(r) if r is not None else None
+
+def site_out(r, with_login=False):
+    s = d(r); steps = json.loads(s.pop("login_steps") or "[]")
+    s["login_steps"] = [dict(x, value="••••" if x.get("action") == "fill" and ("pass" in (x.get("selector") or "").lower() or "mdp" in (x.get("selector") or "").lower()) and not with_login else x.get("value", "")) for x in steps]
+    s["has_login"] = bool(steps); return s
+
+def scenario_out(r):
+    s = d(r); s["steps"] = json.loads(s.pop("steps") or "[]"); return s
+
+def run_out(r):
+    s = d(r); s["results"] = json.loads(s.pop("results") or "[]"); s["summary"] = qa_steps.summarize([x for x in s["results"] if not x.get("login")]); return s
+
+# ------------------------------------------------------------------ sites
+@app.route("/health")
+def health(): return jsonify(status="ok", tickets=bool(TICKETS))
+
+@app.route("/catalog")
+def catalog(): return jsonify(actions=[dict(id=k, label=v, fields=list(qa_steps.ACTIONS[k])) for k, v in qa_steps.ACTION_LABELS.items()])
+
+@app.route("/sites", methods=["GET"])
+def sites_list():
+    with db() as cn:
+        rows = cn.execute("""SELECT s.*, (SELECT count(*) FROM scenarios x WHERE x.site_id = s.id) AS scenarios,
+                             (SELECT count(*) FROM scenarios x WHERE x.site_id = s.id AND x.kind = 'non-regression') AS nr,
+                             (SELECT status FROM runs r JOIN scenarios x ON x.id = r.scenario_id WHERE x.site_id = s.id ORDER BY r.id DESC LIMIT 1) AS last_status
+                             FROM sites s ORDER BY s.name""").fetchall()
+    return jsonify(sites=[site_out(r) for r in rows])
+
+def _site_body(b):
+    name, url = (b.get("name") or "").strip(), (b.get("base_url") or "").strip()
+    if not name or not url.startswith(("http://", "https://")): raise ValueError("Nom et URL (http(s)://…) obligatoires")
+    login = qa_steps.normalize_steps(b["login_steps"]) if b.get("login_steps") else []
+    return dict(name=name, base_url=url.rstrip("/"), login_steps=json.dumps(login, ensure_ascii=False), notes=b.get("notes") or "", ported=1 if b.get("ported") else 0)
+
+@app.route("/sites", methods=["POST"])
+def sites_create():
+    try: f = _site_body(request.get_json(silent=True) or {})
+    except ValueError as e: return jsonify(error=str(e)), 400
+    with db() as cn:
+        cur = cn.execute("INSERT INTO sites (name, base_url, login_steps, notes, ported, created_at, updated_at) VALUES (?,?,?,?,?,?,?)", (*f.values(), now(), now()))
+        r = cn.execute("SELECT * FROM sites WHERE id = ?", (cur.lastrowid,)).fetchone()
+    return jsonify(site=site_out(r)), 201
+
+@app.route("/sites/<int:sid>", methods=["PUT"])
+def sites_update(sid):
+    b = request.get_json(silent=True) or {}
+    with db() as cn:
+        cur = cn.execute("SELECT * FROM sites WHERE id = ?", (sid,)).fetchone()
+        if not cur: return jsonify(error="Site inconnu"), 404
+        if "login_steps" in b and b["login_steps"] and any(x.get("value") == "••••" for x in b["login_steps"]):     # mot de passe masqué renvoyé tel quel : on garde l'ancien
+            old = json.loads(cur["login_steps"] or "[]")
+            for i, x in enumerate(b["login_steps"]):
+                if x.get("value") == "••••" and i < len(old): x["value"] = old[i].get("value", "")
+        try: f = _site_body({**d(cur), "login_steps": json.loads(cur["login_steps"] or "[]"), **b})
+        except ValueError as e: return jsonify(error=str(e)), 400
+        cn.execute("UPDATE sites SET name=?, base_url=?, login_steps=?, notes=?, ported=?, updated_at=? WHERE id=?", (*f.values(), now(), sid))
+        r = cn.execute("SELECT * FROM sites WHERE id = ?", (sid,)).fetchone()
+    return jsonify(site=site_out(r))
+
+@app.route("/sites/<int:sid>", methods=["DELETE"])
+def sites_delete(sid):
+    with db() as cn:
+        ids = [r[0] for r in cn.execute("SELECT r.id FROM runs r JOIN scenarios x ON x.id = r.scenario_id WHERE x.site_id = ?", (sid,))]
+        n = cn.execute("DELETE FROM sites WHERE id = ?", (sid,)).rowcount
+    for i in ids: shutil.rmtree(RUNS / str(i), ignore_errors=True)
+    return (jsonify(ok=True), 200) if n else (jsonify(error="Site inconnu"), 404)
+
+@app.route("/sites/<int:sid>/probe", methods=["POST"])
+def sites_probe(sid):
+    with db() as cn: s = cn.execute("SELECT * FROM sites WHERE id = ?", (sid,)).fetchone()
+    if not s: return jsonify(error="Site inconnu"), 404
+    try: return jsonify(probe=runner().probe(s["base_url"], STEP_TIMEOUT))
+    except Exception as e: return jsonify(error=f"Reconnaissance impossible : {str(e).splitlines()[0][:200]}"), 502
+
+# ------------------------------------------------------------------ scénarios
+@app.route("/sites/<int:sid>/scenarios", methods=["GET"])
+def scenarios_list(sid):
+    with db() as cn:
+        rows = cn.execute("""SELECT x.*, (SELECT status FROM runs r WHERE r.scenario_id = x.id ORDER BY r.id DESC LIMIT 1) AS last_status,
+                             (SELECT started_at FROM runs r WHERE r.scenario_id = x.id ORDER BY r.id DESC LIMIT 1) AS last_run_at FROM scenarios x WHERE x.site_id = ? ORDER BY x.kind, x.name""", (sid,)).fetchall()
+    return jsonify(scenarios=[scenario_out(r) for r in rows])
+
+@app.route("/sites/<int:sid>/scenarios", methods=["POST"])
+def scenarios_create(sid):
+    b = request.get_json(silent=True) or {}
+    try: steps = qa_steps.normalize_steps(b.get("steps"))
+    except ValueError as e: return jsonify(error=str(e)), 400
+    if not (b.get("name") or "").strip(): return jsonify(error="Nom du scénario obligatoire"), 400
+    kind = b.get("kind") if b.get("kind") in ("qa", "non-regression") else "qa"
+    with db() as cn:
+        if not cn.execute("SELECT 1 FROM sites WHERE id = ?", (sid,)).fetchone(): return jsonify(error="Site inconnu"), 404
+        cur = cn.execute("INSERT INTO scenarios (site_id, name, kind, steps, tags, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
+                         (sid, b["name"].strip(), kind, json.dumps(steps, ensure_ascii=False), b.get("tags") or "", now(), now()))
+        r = cn.execute("SELECT * FROM scenarios WHERE id = ?", (cur.lastrowid,)).fetchone()
+    return jsonify(scenario=scenario_out(r)), 201
+
+@app.route("/scenarios/<int:xid>", methods=["PUT"])
+def scenarios_update(xid):
+    b = request.get_json(silent=True) or {}
+    with db() as cn:
+        cur = cn.execute("SELECT * FROM scenarios WHERE id = ?", (xid,)).fetchone()
+        if not cur: return jsonify(error="Scénario inconnu"), 404
+        try: steps = qa_steps.normalize_steps(b["steps"]) if "steps" in b else json.loads(cur["steps"])
+        except ValueError as e: return jsonify(error=str(e)), 400
+        kind = b.get("kind") if b.get("kind") in ("qa", "non-regression") else cur["kind"]
+        cn.execute("UPDATE scenarios SET name=?, kind=?, steps=?, tags=?, updated_at=? WHERE id=?",
+                   ((b.get("name") or cur["name"]).strip(), kind, json.dumps(steps, ensure_ascii=False), b.get("tags", cur["tags"]) or "", now(), xid))
+        r = cn.execute("SELECT * FROM scenarios WHERE id = ?", (xid,)).fetchone()
+    return jsonify(scenario=scenario_out(r))
+
+@app.route("/scenarios/<int:xid>", methods=["DELETE"])
+def scenarios_delete(xid):
+    with db() as cn:
+        ids = [r[0] for r in cn.execute("SELECT id FROM runs WHERE scenario_id = ?", (xid,))]
+        n = cn.execute("DELETE FROM scenarios WHERE id = ?", (xid,)).rowcount
+    for i in ids: shutil.rmtree(RUNS / str(i), ignore_errors=True)
+    return (jsonify(ok=True), 200) if n else (jsonify(error="Scénario inconnu"), 404)
+
+# ------------------------------------------------------------------ exécutions
+def _execute(cn, scenario, site, campaign_id=None, by_user=""):
+    cur = cn.execute("INSERT INTO runs (scenario_id, campaign_id, started_at, status, by_user) VALUES (?,?,?,?,?)", (scenario["id"], campaign_id, now(), "running", by_user))
+    rid = cur.lastrowid; cn.commit()
+    login = json.loads(site["login_steps"] or "[]"); steps = json.loads(scenario["steps"])
+    try:
+        results, url = runner().run(site["base_url"], login, steps, RUNS / str(rid), STEP_TIMEOUT)
+        st = qa_steps.summarize([r for r in results if not r.get("login")])["status"]
+        if any(r.get("login") and not r["ok"] for r in results): st = "ko"
+        err = ""
+    except Exception as e:
+        results, url, st, err = [], "", "error", f"{type(e).__name__} : {str(e).splitlines()[0][:300]}"
+    cn.execute("UPDATE runs SET finished_at=?, status=?, results=?, final_url=?, error=? WHERE id=?", (now(), st, json.dumps(results, ensure_ascii=False), url, err, rid))
+    cn.commit()
+    return cn.execute("SELECT * FROM runs WHERE id = ?", (rid,)).fetchone()
+
+@app.route("/scenarios/<int:xid>/run", methods=["POST"])
+def scenarios_run(xid):
+    by = (request.get_json(silent=True) or {}).get("by_user", "")
+    with db() as cn:
+        x = cn.execute("SELECT * FROM scenarios WHERE id = ?", (xid,)).fetchone()
+        if not x: return jsonify(error="Scénario inconnu"), 404
+        s = cn.execute("SELECT * FROM sites WHERE id = ?", (x["site_id"],)).fetchone()
+        r = _execute(cn, x, s, by_user=by)
+    return jsonify(run=run_out(r))
+
+@app.route("/sites/<int:sid>/campaign", methods=["POST"])
+def site_campaign(sid):
+    """Campagne : rejoue tous les scénarios de non-régression du site (ou tous si kind=all)."""
+    b = request.get_json(silent=True) or {}; kind = b.get("kind") or "non-regression"
+    with db() as cn:
+        s = cn.execute("SELECT * FROM sites WHERE id = ?", (sid,)).fetchone()
+        if not s: return jsonify(error="Site inconnu"), 404
+        q = "SELECT * FROM scenarios WHERE site_id = ?" + ("" if kind == "all" else " AND kind = 'non-regression'") + " ORDER BY name"
+        xs = cn.execute(q, (sid,)).fetchall()
+        if not xs: return jsonify(error="Aucun scénario à rejouer (marquez des scénarios « non-régression » ou lancez kind=all)"), 400
+        cur = cn.execute("INSERT INTO campaigns (site_id, kind, started_at, total, by_user) VALUES (?,?,?,?,?)", (sid, kind, now(), len(xs), b.get("by_user", ""))); cid = cur.lastrowid; cn.commit()
+        runs = [run_out(_execute(cn, x, s, campaign_id=cid, by_user=b.get("by_user", ""))) for x in xs]
+        passed = sum(1 for r in runs if r["status"] == "ok")
+        cn.execute("UPDATE campaigns SET finished_at=?, passed=? WHERE id=?", (now(), passed, cid))
+        c = cn.execute("SELECT * FROM campaigns WHERE id = ?", (cid,)).fetchone()
+    return jsonify(campaign=d(c), runs=[dict(r, scenario_name=next(x["name"] for x in xs if x["id"] == r["scenario_id"])) for r in runs])
+
+@app.route("/sites/<int:sid>/campaigns", methods=["GET"])
+def site_campaigns(sid):
+    with db() as cn: rows = cn.execute("SELECT * FROM campaigns WHERE site_id = ? ORDER BY id DESC LIMIT 30", (sid,)).fetchall()
+    return jsonify(campaigns=[d(r) for r in rows])
+
+@app.route("/scenarios/<int:xid>/runs", methods=["GET"])
+def scenario_runs(xid):
+    with db() as cn: rows = cn.execute("SELECT * FROM runs WHERE scenario_id = ? ORDER BY id DESC LIMIT 20", (xid,)).fetchall()
+    return jsonify(runs=[run_out(r) for r in rows])
+
+@app.route("/runs/<int:rid>/shot/<name>", methods=["GET"])
+def run_shot(rid, name):
+    if not name.startswith("step") or not name.endswith(".png") or "/" in name: return jsonify(error="capture inconnue"), 404
+    return send_from_directory(RUNS / str(rid), name)
+
+# ------------------------------------------------------------------ ticket depuis une exécution
+def _ticket_type_id(label):
+    try:
+        for t in requests.get(f"{TICKETS}/types", timeout=5).json():
+            if (t.get("label") or "").strip().lower().startswith(label.lower()): return t["id"]
+    except Exception: pass
+    return None
+
+@app.route("/runs/<int:rid>/ticket", methods=["POST"])
+def run_ticket(rid):
+    """Crée un ticket Incident ou Évolution depuis l'exécution ; le scénario devient test traversant de non-régression."""
+    if not TICKETS: return jsonify(error="Module Tickets non relié (TICKETS_API_INTERNAL_URL)"), 503
+    b = request.get_json(silent=True) or {}; kind = b.get("kind") if b.get("kind") in ("incident", "evolution") else "incident"
+    with db() as cn:
+        r = cn.execute("SELECT * FROM runs WHERE id = ?", (rid,)).fetchone()
+        if not r: return jsonify(error="Exécution inconnue"), 404
+        if r["ticket_id"]: return jsonify(error=f"Cette exécution a déjà créé le ticket n°{r['ticket_id']}"), 409
+        x = cn.execute("SELECT * FROM scenarios WHERE id = ?", (r["scenario_id"],)).fetchone(); s = cn.execute("SELECT * FROM sites WHERE id = ?", (x["site_id"],)).fetchone()
+        subject, desc = qa_steps.ticket_text(kind, d(s), d(x), run_out(r), json.loads(x["steps"]))
+        if b.get("subject"): subject = b["subject"].strip()
+        if b.get("comment"): desc = b["comment"].strip() + "\n\n" + desc
+        payload = dict(subject=subject, description=desc, type_id=_ticket_type_id("incident" if kind == "incident" else "évolution"), source_type="qa", source_nom=s["name"],
+                       user_id=b.get("user_id"), level_id=b.get("level_id"), statut_id=b.get("statut_id"), site_id=b.get("site_id"))
+        try:
+            resp = requests.post(f"{TICKETS}/tickets", json=payload, timeout=10); data = resp.json()
+            if resp.status_code >= 400 or not data.get("id"): return jsonify(error="Tickets : " + str(data.get("error") or resp.status_code)), 502
+        except Exception as e: return jsonify(error=f"Tickets injoignable : {e}"), 502
+        cn.execute("UPDATE runs SET ticket_id=?, ticket_kind=? WHERE id=?", (data["id"], kind, rid))
+        cn.execute("UPDATE scenarios SET kind='non-regression', ticket_id=COALESCE(ticket_id, ?), updated_at=? WHERE id=?", (data["id"], now(), x["id"]))
+        r = cn.execute("SELECT * FROM runs WHERE id = ?", (rid,)).fetchone(); x = cn.execute("SELECT * FROM scenarios WHERE id = ?", (x["id"],)).fetchone()
+    return jsonify(ticket_id=data["id"], kind=kind, run=run_out(r), scenario=scenario_out(x)), 201

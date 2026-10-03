@@ -55,6 +55,7 @@ export const THEMES = [
       { view: "schema-analyzer", label: "Analyse de schémas" },
       { view: "retro", label: "Rétro-ingénierie" },
       { view: "portage", label: "Portage PHP → Python" },   // #650
+      { view: "qa", label: "Tests QA en ligne" },   // #651
       { front: "dba", label: "DBA" },
       { view: "licenses", label: "Licences logicielles" },   // #595
     ] },
@@ -161,7 +162,7 @@ export const SINCE = {
   "fusion": 431, "ged": 105, "geo-catalog": 429, "glpi-inventory": 192, "history": 105, "imap": 144, "imap-connectors": 489,
   "keycloak-admin": 105, "accounts": 557, "notifications": 590, "licenses": 595, "nat-map": 606, "ldap-admin": 105, "logs": 105, "memory": 105, "mikrotik": 485, "nebula": 192,
   "netmap-orchestrator": 388, "netprobe": 301, "network-agent": 236, "network-cycle": 396, "network-equipment": 506,
-  "portage": 650, "projeqtor": 476, "proxmox": 487, "retro": 242, "rights": 105, "schema-analyzer": 173, "service-watch": 531,
+  "portage": 650, "qa": 651, "projeqtor": 476, "proxmox": 487, "retro": 242, "rights": 105, "schema-analyzer": 173, "service-watch": 531,
   "si-agent": 421, "si-proxy": 454, "snmp": 181, "ssh-tunnels": 122, "supervision-si": 105, "synthese": 523,
   "tickets": 105, "ups": 415, "vault": 105, "vault-admin": 105, "vigilance": 105,
   "action:aide": 105, "action:tabs": 105, "action:settings": 105, "action:personalize": 457, "action:layout": 516,

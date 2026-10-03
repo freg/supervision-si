@@ -161,6 +161,8 @@ SERVICES = [
     ("RETRO_API_PORT", "retro-api", 5000, "/api/retro/", "api"),
     # portage-api (livraison #650) -- projets de portage PHP → Python (imports volumineux : voir client_max_body_size).
     ("PORTAGE_API_PORT", "portage-api", 5000, "/api/portage/", "api"),
+    # qa-api (livraison #651) -- tests QA en ligne d'un site déployé (Playwright), captures servies par l'API.
+    ("QA_API_PORT", "qa-api", 5000, "/api/qa/", "api"),
     # backup-restore-api (livraison #249) -- sous-volet "backup-restore",
     # item 27 du backlog, marqué URGENT par la personne.
     ("BACKUP_RESTORE_API_PORT", "backup-restore-api", 5000, "/api/backup-restore/", "api"),

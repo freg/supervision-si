@@ -136,3 +136,5 @@ si-agent/local-central/data/
 # portage (#650) : projets importés et checkout local de portage-kit, jamais versionnés
 portage/data/
 portage/kit/
+# qa (#651) : scénarios, exécutions et captures
+qa/data/
