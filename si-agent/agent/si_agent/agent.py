@@ -32,6 +32,7 @@ Mesures produites : `host` (collecte complète), `risks` (constats),
 import json
 import logging
 import os
+import re
 import socket
 import ssl
 import sys
@@ -234,6 +235,26 @@ class HttpClient(object):
             except Exception as exc:  # noqa: BLE001
                 last = exc
         raise RuntimeError(str(last) if last else "aucune URL de central")
+
+    def download_signed(self, path, dest, chunk=8 * 1024 * 1024, timeout=600):
+        """#658 : GET signé d'un gros fichier du central écrit en continu dans `dest` (reprise par Range sur un .part)."""
+        part = dest + ".part"
+        have = os.path.getsize(part) if os.path.exists(part) else 0
+        headers = protocol.auth_headers(self.device_id, self.secret, "GET", path, b"")
+        if have:
+            headers["Range"] = "bytes=%d-" % have
+        req = urllib.request.Request(self.current_url + path, method="GET", headers=headers)
+        with urllib.request.urlopen(req, timeout=timeout, context=self.fallback_context if self.on_fallback else self.ssl_context) as resp:
+            if have and resp.status != 206:
+                have = 0
+            with open(part, "ab" if have else "wb") as fh:
+                while True:
+                    data = resp.read(chunk)
+                    if not data:
+                        break
+                    fh.write(data)
+        os.replace(part, dest)
+        return dest
 
     def _request_one(self, base_url, ctx, method, path, body, body_bytes, headers):
         req = urllib.request.Request(base_url + path, data=body_bytes if body is not None else None,
@@ -650,7 +671,10 @@ class Agent(object):
                 from . import vmctl
                 if self.is_blocked():
                     return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
-                res = vmctl.run(self.cmd, params)
+                if str(params.get("action") or "") == "import_disk":
+                    res = self.import_disk(params)          # #658 : image depuis le central, décompression, importdisk, rattachement
+                else:
+                    res = vmctl.run(self.cmd, params)
                 self.event("command-vm", "info" if res.get("ok") else "warning",
                            "VM %s : %s%s" % (params.get("vmid"), params.get("action"), "" if res.get("ok") else " -- %s" % res.get("error")), {"command": c.get("id"), "params": params})
                 return res
@@ -849,7 +873,7 @@ class Agent(object):
         vérifié, disk2vhd lancé détaché ; la fin est constatée par follow_image()."""
         from . import imagectl
         if not IS_WINDOWS:
-            return {"ok": False, "error": "image à chaud : Windows seulement (Disk2vhd)"}
+            return self.start_image_linux(params, command_id)
         if self.is_blocked():
             return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
         if self._image_job:
@@ -917,6 +941,97 @@ class Agent(object):
         self.event("image-started", "warning", "image du poste lancée vers %s (%s)" % (out_file, ", ".join(plan["drives"])),
                    {"command": command_id, "target": out_file, "used_bytes": used, "free_target_bytes": free_target})
         return {"ok": True, "result": {"target": out_file, "message": "image lancée (Disk2vhd, instantané VSS) -- suivi par événements", "used_bytes": used}, "error": None}
+
+    def import_disk(self, params):
+        """#658 : `source` = central:<agent>/<nom> (image reçue par le central, téléchargée ici par requête signée, reprise
+        par Range) ou chemin local sur le nœud ; .zst décompressé ; `qm importdisk` ; puis le disque `unusedN` est
+        rattaché (`attach`: scsi0 par défaut, sata0 conseillé pour Windows avant les pilotes VirtIO) et mis en premier au démarrage."""
+        from . import vmctl
+        p = dict(params or {})
+        source = str(p.get("source") or p.get("path") or "")
+        import_dir = str(p.get("import_dir") or "/var/lib/vz/import")
+        if source.startswith("central:"):
+            m = re.match(r"^central:([A-Za-z0-9._-]{1,64})/([A-Za-z0-9._-]{1,120})$", source)
+            if not m:
+                return {"ok": False, "error": "source : central:<agent>/<nom d'image>"}
+            try:
+                os.makedirs(import_dir, exist_ok=True)
+                local = os.path.join(import_dir, m.group(2))
+                self.http.download_signed("%s/agents/%s/images/%s/%s/download" % (protocol.API_PREFIX, self.agent_id, m.group(1), m.group(2)), local)
+            except Exception as exc:  # noqa: BLE001
+                return {"ok": False, "error": "téléchargement de l'image depuis le central : %s" % exc}
+            source = local
+        if source.endswith(".zst"):
+            r = self.cmd(["zstd", "-d", "--rm", "-q", "-f", source], timeout=vmctl.LONG_TIMEOUT)
+            if getattr(r, "returncode", 1) != 0:
+                return {"ok": False, "error": "décompression zstd : %s" % ((getattr(r, "stderr", "") or "")[-300:] or "échec")}
+            source = source[:-4]
+        res = vmctl.run(self.cmd, dict(p, action="import_disk", path=source))
+        if not res.get("ok"):
+            return res
+        if p.get("attach", "scsi0"):
+            cfg = self.cmd(["qm", "config", str(p.get("vmid"))], timeout=60)
+            vol = vmctl.parse_unused(getattr(cfg, "stdout", "") or "")
+            argv, err = vmctl.build_attach_argv(int(p.get("vmid")), p.get("attach", "scsi0"), vol, boot=p.get("boot", True))
+            if err:
+                return {"ok": False, "error": err, "result": res.get("result")}
+            r2 = vmctl.interpret(self.cmd(argv, timeout=120))
+            if not r2["ok"]:
+                return {"ok": False, "error": "rattachement du disque : %s" % r2["error"], "result": res.get("result")}
+            res.setdefault("result", {})["attached"] = {"bus": p.get("attach", "scsi0"), "volume": vol}
+        if p.get("delete_after", True) and source.startswith(import_dir + "/"):
+            try:
+                os.remove(source)
+            except OSError:
+                pass
+        return res
+
+    def start_image_linux(self, params, command_id=None):
+        """#658 : image à chaud d'un serveur Linux -- dd du disque système (ou `device`) compressé zstd vers `target`
+        (stockage SÉPARÉ : refusé si la cible est sur le disque imagé), détachée, suivie par follow_image()."""
+        from . import imagectl
+        if self.is_blocked():
+            return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
+        if self._image_job:
+            return {"ok": False, "error": "une image est déjà en cours depuis %s" % _iso(self._image_job["started"])}
+        plan, err = imagectl.validate_linux(params)
+        if err:
+            return {"ok": False, "error": err}
+        if not os.path.isdir(plan["target_dir"]):
+            return {"ok": False, "error": "cible %s absente (monter le partage / le disque d'abord)" % plan["target_dir"]}
+        pk = lambda dev: getattr(self.cmd(["lsblk", "-no", "pkname", dev], timeout=20), "stdout", "") or ""
+        src = lambda path: (getattr(self.cmd(["findmnt", "-no", "SOURCE", path], timeout=20), "stdout", "") or "").strip().splitlines()
+        root_src = src("/")
+        device = plan["device"] or imagectl.parent_disk(root_src[0] if root_src else "", pk)
+        if not device or not imagectl.DEVICE_RE.match(device):
+            return {"ok": False, "error": "disque de la racine introuvable (findmnt/lsblk) : indiquer device"}
+        tgt_src = src(plan["target_dir"])
+        if tgt_src and imagectl.parent_disk(tgt_src[0], pk) == device and not plan["force"]:
+            return {"ok": False, "error": "la cible %s est sur le disque imagé (%s) : utiliser un partage ou un disque séparé" % (plan["target_dir"], device)}
+        if self.which("zstd") is None:
+            return {"ok": False, "error": "zstd absent : apt install zstd"}
+        import shutil as _sh
+        try:
+            used = _sh.disk_usage("/").used
+            free_target = _sh.disk_usage(plan["target_dir"]).free
+        except OSError as exc:
+            return {"ok": False, "error": "cible inaccessible : %s" % exc}
+        if not imagectl.enough_space(used, free_target, margin=0.8) and not plan["force"]:
+            return {"ok": False, "error": "espace insuffisant sur la cible : %d Go libres pour ~%d Go utilisés (compressé ; force pour passer outre)" % (free_target // 2**30, used // 2**30)}
+        out_file = imagectl.target_file(plan, socket.gethostname() or self.agent_id, ext="img.zst")
+        argv = imagectl.build_linux_argv(device, out_file)
+        log_path = os.path.join(os.path.dirname(self.cfg.get("state_path") or "."), "image-linux.log")
+        try:
+            import subprocess
+            with open(log_path, "ab") as logf:
+                proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=logf, stderr=subprocess.STDOUT, start_new_session=True)
+        except (OSError, ValueError) as exc:
+            return {"ok": False, "error": "lancement de dd/zstd impossible : %s" % exc}
+        self._image_job = {"started": self.clock(), "target_file": out_file, "pid": proc.pid, "last_report": self.clock(), "command": command_id, "proc": proc,
+                           "transfer": plan["transfer"], "delete_after": plan["delete_after"], "share": None}
+        self.event("image-started", "warning", "image du serveur lancée : %s -> %s (à chaud, dd + zstd)" % (device, out_file),
+                   {"command": command_id, "target": out_file, "device": device, "used_bytes": used, "free_target_bytes": free_target})
+        return {"ok": True, "result": {"target": out_file, "device": device, "message": "image lancée (dd | zstd) -- suivi par événements", "used_bytes": used}, "error": None}
 
     def follow_image(self):
         """#621 : à chaque tour, état du travail d'image détaché."""

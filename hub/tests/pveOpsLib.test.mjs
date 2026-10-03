@@ -33,3 +33,38 @@ test("étape de bascule de rôle", () => {
   assert.equal(stepText({ agent_id: "central", params: { action: "role_switch", role_id: 4, to: 1 } }, roles), "bascule du rôle « web » → secours");
   assert.equal(roleStepText({ params: { role_id: 9, to: 0 } }, roles), "bascule du rôle n°9 → candidat 0");
 });
+
+// #658 : migration vers la virtualisation -- corps du formulaire, manques, boutons d'exécution, textes des nouvelles étapes
+import { VM_OPS, MIGRATION_DEFAULTS, migrationBody, migrationMissing, runActions, waitingStep } from "../src/pveOpsLib.js";
+test("migration : VM_OPS exclut les étapes de plan, corps nettoyé et typé", () => {
+  assert.ok(!("create" in VM_OPS) && !("checkpoint" in VM_OPS) && ("migrate" in VM_OPS));
+  const b = migrationBody({ ...MIGRATION_DEFAULTS, source_agent_id: "srv", pve_agent_id: "pve", vmid: "200", storage: "local-lvm", image_target: "/mnt/images", role_id: "3", role_to: "1", template: "x" });
+  assert.equal(b.vmid, 200); assert.equal(b.role_id, 3); assert.equal(b.role_to, 1); assert.equal(b.template, undefined); assert.equal(b.ip, undefined); assert.equal(b.image_target, "/mnt/images"); assert.equal(b.purge_on_rollback, false);
+  const r = migrationBody({ ...MIGRATION_DEFAULTS, method: "rebuild", template: "local:vztmpl/d.tar.zst", image_target: "/x" });
+  assert.equal(r.image_target, undefined); assert.equal(r.template, "local:vztmpl/d.tar.zst"); assert.equal(r.ip, "dhcp");
+});
+test("migration : manques dans l'ordre", () => {
+  const f = { ...MIGRATION_DEFAULTS };
+  assert.match(migrationMissing(f), /source/); f.source_agent_id = "srv";
+  assert.match(migrationMissing(f), /Proxmox/); f.pve_agent_id = "pve";
+  assert.match(migrationMissing(f), /vmid/); f.vmid = 200;
+  assert.match(migrationMissing(f), /stockage/); f.storage = "local-lvm";
+  assert.match(migrationMissing(f), /image/); f.image_target = "/mnt/images";
+  assert.equal(migrationMissing(f), null);
+  assert.match(migrationMissing({ ...f, method: "rebuild" }), /modèle/);
+});
+test("exécution : boutons selon l'état et étape en attente", () => {
+  const plan = { rollback_steps: [{ action: "shutdown" }] };
+  assert.deepEqual(runActions({ mode: "simulate", status: "done" }, plan), []);
+  assert.deepEqual(runActions({ mode: "execute", status: "paused" }, plan), ["resume", "abort"]);
+  assert.deepEqual(runActions({ mode: "execute", status: "running" }, plan), ["abort"]);
+  assert.deepEqual(runActions({ mode: "execute", status: "failed" }, plan), ["rollback"]);
+  assert.deepEqual(runActions({ mode: "execute", status: "done" }, { rollback_steps: [] }), []);
+  assert.deepEqual(runActions({ mode: "rollback", status: "done" }, plan), []);
+  const run = { steps: [{ status: "done" }, { status: "waiting", label: "Transition 2 -- vérifier" }] };
+  assert.equal(waitingStep(run).label, "Transition 2 -- vérifier"); assert.equal(waitingStep({ steps: [] }), null);
+  assert.match(stepText({ agent_id: "central", action: "checkpoint", label: "Transition 1" }), /⏸ transition : Transition 1/);
+  assert.match(stepText({ agent_id: "srv", action: "image_host", params: { target: "/mnt/images" } }), /image à chaud → \/mnt\/images/);
+  assert.match(stepText({ agent_id: "srv", action: "host_shutdown", params: {} }), /arrêt du serveur physique/);
+  assert.match(stepText({ agent_id: "pve", vmid: 200, action: "create", params: { name: "srv" } }), /VM 200 · Créer/);
+});

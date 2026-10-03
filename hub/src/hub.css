@@ -2349,6 +2349,7 @@ button.danger { color: #e06666; }
 .pv-actions { white-space: nowrap; } .pv-mini { padding: 2px 7px; margin-left: 3px; font-size: 12px; }
 .pv-ok { color: var(--ok); font-weight: 600; } .pv-ko { color: var(--danger); font-weight: 600; } .pv-danger { color: var(--danger); }
 .pv-error { border-left: 4px solid var(--danger); background: var(--danger-bg); } .pv-notice { border-left: 4px solid var(--ok); background: var(--ok-bg); }
+.pv-paused { color: var(--warning); font-weight: 600; } .pv-transition { border-left-color: var(--warning); background: var(--warning-bg); padding: 8px; margin: 6px 0; }
 .pv-details { margin-top: 8px; } .pv-details summary { cursor: pointer; font-size: 14px; }
 .pv-op { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; }
 .pv-cmd { margin-top: 10px; font-size: 13px; } .pv-log { background: var(--bg); border: 1px solid var(--border); padding: 6px; font-size: 12px; max-height: 200px; overflow: auto; white-space: pre-wrap; }

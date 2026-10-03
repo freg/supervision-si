@@ -168,3 +168,8 @@ export const updatePraRole = (apiBase, id, body) => fetchJson(apiBase, `/pra/rol
 export const deletePraRole = (apiBase, id) => fetchJson(apiBase, `/pra/roles/${id}`, { method: "DELETE" });
 export const switchPraRole = (apiBase, id, to, actor) => fetchJson(apiBase, `/pra/roles/${id}/switch`, json("POST", { to, actor }));
 export const checkPraRole = (apiBase, id) => fetchJson(apiBase, `/pra/roles/${id}/check`, { method: "POST" });
+// #658 : migration serveur -> virtualisation (plan généré), transitions (Reprendre / Abandonner), retour en arrière
+export const previewMigration = (apiBase, body) => fetchJson(apiBase, "/pra/migrations/plan", json("POST", body));
+export const resumePraRun = (apiBase, rid) => fetchJson(apiBase, `/pra/runs/${rid}/resume`, { method: "POST" });
+export const abortPraRun = (apiBase, rid, rollback, actor) => fetchJson(apiBase, `/pra/runs/${rid}/abort`, json("POST", { rollback, actor }));
+export const rollbackPraRun = (apiBase, rid, actor) => fetchJson(apiBase, `/pra/runs/${rid}/rollback`, json("POST", { actor }));

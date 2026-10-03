@@ -1,3 +1,41 @@
+## 2026-10-03 — Migration d'un serveur / service vers la virtualisation : image à chaud ou reconstruction, transitions, retour en arrière (livraison #658, agent 0.5.32)
+
+Item 112 du BACKLOG, choix de la personne : « les deux : permettre le retour en arrière et des étapes de transition ».
+Un plan de migration est un plan PRA (#653) généré, simulable, exécuté pas à pas, qui **s'arrête aux transitions** et
+peut **revenir en arrière** ; le serveur physique n'est jamais détruit.
+
+- `si-agent/api/migration.py` (pur) : `POST /pra/migrations/plan` → aperçu ou plan enregistré. Méthode **image** :
+  transition « geler les écritures », `image_host` (source), `create` (VM réseau coupé, OVMF/TPM si Windows), `import_disk`
+  (image du central), `start`, transition « console », `set net0`, bascule (rôle #654 ou transition manuelle), transition
+  « observation », `host_shutdown`. Méthode **rebuild** : `create` d'un conteneur depuis un modèle, `start`, transition
+  « reconstruire le rôle + datasync », bascule, observation, arrêt. Retour : rôle rendu, VM coupée du réseau puis arrêtée,
+  transition « rallumer le serveur », `destroy` seulement si `purge_on_rollback`.
+- `si-agent/api/pra.py` : actions `create`, `import_disk`, `set`, `destroy`, `image_host`, `host_shutdown`, `checkpoint` ;
+  exécution avec contexte (`{{image}}` → `central:<agent>/<nom>` après l'événement `image-received`), pause/reprise
+  (`POST /pra/runs/<id>/resume`), abandon (`/abort {rollback}`), retour après coup (`/rollback`), `auto_rollback`,
+  `parent_run_id` ; `GET …/agents/<id>/images/<src>/<nom>/download` (signé, Range) pour le nœud.
+- Agent 0.5.32 : `vmctl` `create` (qemu/lxc), `import_disk`, `set` (liste blanche d'options), `destroy` (`confirm` = vmid),
+  rattachement du disque importé (`parse_unused`, `build_attach_argv`) ; `Agent.import_disk` (téléchargement signé avec
+  reprise, zstd, importdisk, rattachement, nettoyage) ; `image_host` sous **Linux** (`dd` du disque de la racine `| zstd -T0`
+  vers un stockage séparé, refus si la cible est sur le disque imagé, suivi et transfert comme Disk2vhd).
+- Hub, tuile Contrôle PVE : carte « Migration serveur → virtualisation » (méthode, serveur source parmi tous les agents,
+  nœud, vmid/stockage/pont, mémoire/cœurs, cible de l'image ou modèle, rôle de/vers, retour automatique, purge) → aperçu
+  (étapes + retour) → plan enregistré ; exécution : état « en transition », consigne affichée, boutons Reprendre /
+  Abandonner (± retour) / Retour en arrière, historique avec les retours ; opérations sur VM limitées aux actions
+  unitaires (`VM_OPS`).
+
+Vérifié : `si-agent/agent/tests/test_p2v_migration.py` (4), agent (80), `si-agent/api/test_z_pra.py::PraMigration` (3 :
+plan généré, aperçu/enregistrement/simulation/exécution avec transitions, image par événement, abandon + retour, retour
+rejouable, téléchargement signé), central (32), hub Node 295 (+3) avec les 2 échecs préexistants (`view:personal` #638,
+pastilles emoji), `@babel/parser`, pas de couleur en dur.
+Non vérifié : Proxmox réel (`qm create/importdisk/set`, OVMF + TPM), `dd | zstd` sur un vrai serveur, Disk2vhd, rendu
+navigateur. Limite connue : les transitions vivent dans le processus du central (relancer le plan après un redémarrage).
+
+Fichiers : `si-agent/api/{migration.py,pra.py,app.py,Dockerfile,test_z_pra.py}`, `si-agent/agent/si_agent/{vmctl.py,
+imagectl.py,agent.py,__init__.py}`, `si-agent/agent/tests/test_p2v_migration.py`, `si-agent/README.md`,
+`hub/src/{PveOpsView.jsx,pveOpsLib.js,siAgentClient.js,hub.css}`, `hub/tests/pveOpsLib.test.mjs`, `BACKLOG.md`,
+`CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — Sondes Wi-Fi Raspberry : kit collecteur Pi 3B + satellite Pi Zero 2 W pour un audit continu d'une journée (livraison #657)
 
 Demande : « une image et un installeur rpi3b et rpi0W2 avec pilotes et outils pour la sonde wifi, premier test simple avec

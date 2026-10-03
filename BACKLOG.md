@@ -8,9 +8,11 @@ bascule de rôle (celui qui répond) ; une tour de contrôle : dns, routage, flu
   l'agent de chaque hyperviseur, plans (PRA, maintenance, bascule, migration) simulés puis exécutés pas à pas par le
   central ; #654 : réplication et dernière sauvegarde par VM, plans déclenchés par la perte d'un nœud (proposés, ou
   lancés sur choix explicite). Reste : test sur pve10/pve11.
-- (112) **Serveurs/services → virtualisation** : à cadrer. Pistes : Windows = item 101 (`image_host`, Disk2vhd) + import
-  `qm importdisk` par l'agent du nœud ; Linux = image à chaud (`dd`/`partclone` via l'agent) ou reconstruction par
-  rôle (conteneur/VM + données via datasync #652) ; choix à prendre avec la personne (image brute vs reconstruction).
+- (112, **FAIT #658** : les deux méthodes, transitions, retour en arrière) **Serveurs/services → virtualisation** :
+  plan de migration généré (`POST /pra/migrations/plan`) — image brute à chaud (Disk2vhd / `dd | zstd`, import par l'agent
+  du nœud) ou reconstruction par rôle (conteneur + datasync) ; étapes `checkpoint` (Reprendre / Abandonner), `rollback_steps`.
+  Reste : test sur Proxmox réel, image Linux par instantané LVM (cohérence) au lieu de `dd` à chaud, `partclone`
+  (image des seuls blocs utilisés), choix du stockage de transit quand le central n'a pas la place.
 - (113, **FAIT #654/#656** : manuel, NAT MikroTik, DNS avec intranet en fallback, keepalived) **Bascule de rôle (« celui qui répond »)** — mécanisme : enregistrement DNS (zone interne BIND /
   OVH / Nebula ?), VIP (keepalived/VRRP), ou règle NAT MikroTik (#587 déjà pilotable). Proposition : un « rôle » =
   nom de service + liste ordonnée de candidats (VM, serveur) + mécanisme de bascule + vérification (service-watch) ;

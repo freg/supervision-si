@@ -46,6 +46,7 @@ import store  # noqa: E402
 import publish as publish_lib  # noqa: E402
 import updates  # noqa: E402
 import pra  # noqa: E402  -- #653 : plans PRA / opérations PVE
+import migration  # noqa: E402  -- #658 : migration serveur -> virtualisation (générateur de plan)
 import json  # noqa: E402
 import notify  # noqa: E402
 import alertfilters  # noqa: E402  (#607)
@@ -844,7 +845,7 @@ def pra_plans_route():
             p_["last_run"] = dict(r) if r else None
     finally:
         conn.close()
-    return jsonify({"plans": plans, "actions": list(pra.ACTIONS), "required": pra.REQUIRED}), 200
+    return jsonify({"plans": plans, "actions": list(pra.ACTIONS), "required": pra.REQUIRED, "migration_methods": list(migration.METHODS)}), 200
 
 
 @app.route("/pra/plans", methods=["POST"])
@@ -853,13 +854,17 @@ def pra_plan_create_route():
     steps, err = pra.validate_steps(body.get("steps"))
     if err:
         return jsonify({"error": err}), 400
+    rb, err = pra.validate_steps(body["rollback_steps"]) if body.get("rollback_steps") else ([], None)
+    if err:
+        return jsonify({"error": "retour en arrière : " + err}), 400
     if not (body.get("name") or "").strip():
         return jsonify({"error": "nom du plan requis"}), 400
     conn = store._connect(DB_PATH)
     try:
-        cur = conn.execute("INSERT INTO pra_plans (name, kind, notes, steps, continue_on_error, created_at, updated_at, trigger_agent_id, trigger_mode, trigger_cooldown_s) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        cur = conn.execute("INSERT INTO pra_plans (name, kind, notes, steps, continue_on_error, created_at, updated_at, trigger_agent_id, trigger_mode, trigger_cooldown_s, rollback_steps, auto_rollback) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                            (body["name"].strip(), body.get("kind") or "pra", body.get("notes") or "", json.dumps(steps, ensure_ascii=False), 1 if body.get("continue_on_error") else 0, store.now_iso(), store.now_iso(),
-                            str(body.get("trigger_agent_id") or ""), "auto" if body.get("trigger_mode") == "auto" else "notify", int(body.get("trigger_cooldown_s") or 3600)))
+                            str(body.get("trigger_agent_id") or ""), "auto" if body.get("trigger_mode") == "auto" else "notify", int(body.get("trigger_cooldown_s") or 3600),
+                            json.dumps(rb, ensure_ascii=False), 1 if body.get("auto_rollback") else 0))
         row = conn.execute("SELECT * FROM pra_plans WHERE id = ?", (cur.lastrowid,)).fetchone(); conn.commit()
     finally:
         conn.close()
@@ -874,16 +879,20 @@ def pra_plan_update_route(pid):
         row = conn.execute("SELECT * FROM pra_plans WHERE id = ?", (pid,)).fetchone()
         if not row:
             return jsonify({"error": "plan inconnu"}), 404
-        steps = json.loads(row["steps"])
+        steps = json.loads(row["steps"]); rb = json.loads(row["rollback_steps"] or "[]")
         if "steps" in body:
             steps, err = pra.validate_steps(body["steps"])
             if err:
                 return jsonify({"error": err}), 400
-        conn.execute("UPDATE pra_plans SET name = ?, kind = ?, notes = ?, steps = ?, continue_on_error = ?, updated_at = ?, trigger_agent_id = ?, trigger_mode = ?, trigger_cooldown_s = ? WHERE id = ?",
+        if "rollback_steps" in body:
+            rb, err = pra.validate_steps(body["rollback_steps"]) if body["rollback_steps"] else ([], None)
+            if err:
+                return jsonify({"error": "retour en arrière : " + err}), 400
+        conn.execute("UPDATE pra_plans SET name = ?, kind = ?, notes = ?, steps = ?, continue_on_error = ?, updated_at = ?, trigger_agent_id = ?, trigger_mode = ?, trigger_cooldown_s = ?, rollback_steps = ?, auto_rollback = ? WHERE id = ?",
                      ((body.get("name") or row["name"]).strip(), body.get("kind", row["kind"]), body.get("notes", row["notes"]), json.dumps(steps, ensure_ascii=False),
                       1 if body.get("continue_on_error", row["continue_on_error"]) else 0, store.now_iso(),
                       str(body.get("trigger_agent_id", row["trigger_agent_id"]) or ""), "auto" if body.get("trigger_mode", row["trigger_mode"]) == "auto" else "notify",
-                      int(body.get("trigger_cooldown_s", row["trigger_cooldown_s"]) or 3600), pid))
+                      int(body.get("trigger_cooldown_s", row["trigger_cooldown_s"]) or 3600), json.dumps(rb, ensure_ascii=False), 1 if body.get("auto_rollback", row["auto_rollback"]) else 0, pid))
         row = conn.execute("SELECT * FROM pra_plans WHERE id = ?", (pid,)).fetchone(); conn.commit()
     finally:
         conn.close()
@@ -1004,6 +1013,79 @@ def pra_run_route(rid):
     finally:
         conn.close()
     return (jsonify({"run": pra.run_public(row)}), 200) if row else (jsonify({"error": "exécution inconnue"}), 404)
+
+
+@app.route("/pra/runs/<int:rid>/resume", methods=["POST"])
+def pra_run_resume_route(rid):
+    """#658 : « Reprendre » une exécution arrêtée à une étape de transition (checkpoint)."""
+    r = pra.resume_run(DB_PATH, rid)
+    return jsonify(r), 200 if r.get("ok") else 409
+
+
+@app.route("/pra/runs/<int:rid>/abort", methods=["POST"])
+def pra_run_abort_route(rid):
+    """#658 : « Abandonner » {rollback: bool, actor} -- l'exécution s'arrête ; avec rollback, les étapes de retour du plan sont lancées."""
+    body = request.get_json(silent=True) or {}
+    conn = store._connect(DB_PATH)
+    try:
+        row = conn.execute("SELECT status FROM pra_runs WHERE id = ?", (rid,)).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return jsonify({"error": "exécution inconnue"}), 404
+    if row["status"] not in ("running", "paused"):
+        return jsonify({"error": "exécution déjà terminée (%s)" % row["status"]}), 409
+    r = pra.abort_run(DB_PATH, rid, rollback=bool(body.get("rollback")), by_user=str(body.get("actor") or ""))
+    return jsonify(r), 200 if r.get("ok") else 400
+
+
+@app.route("/pra/runs/<int:rid>/rollback", methods=["POST"])
+def pra_run_rollback_route(rid):
+    """#658 : retour en arrière après une exécution terminée (rollback_steps du plan)."""
+    body = request.get_json(silent=True) or {}
+    conn = store._connect(DB_PATH)
+    try:
+        run = conn.execute("SELECT plan_id, status FROM pra_runs WHERE id = ?", (rid,)).fetchone()
+        row = conn.execute("SELECT * FROM pra_plans WHERE id = ?", (run["plan_id"],)).fetchone() if run else None
+    finally:
+        conn.close()
+    if not row:
+        return jsonify({"error": "exécution ou plan inconnu"}), 404
+    if run["status"] in ("running", "paused"):
+        return jsonify({"error": "exécution en cours : utiliser Abandonner (avec retour)"}), 409
+    plan = pra.plan_public(row)
+    if not plan["rollback_steps"]:
+        return jsonify({"error": "ce plan n'a pas d'étapes de retour"}), 400
+    rb = pra.start_rollback(DB_PATH, plan, rid, str(body.get("actor") or ""))
+    return jsonify({"run_id": rb}), 202
+
+
+@app.route("/pra/migrations/plan", methods=["POST"])
+def pra_migration_plan_route():
+    """#658 (item 112) : plan de migration d'un serveur vers la virtualisation -- {method: image|rebuild, source_agent_id, pve_agent_id,
+    vmid, storage, bridge, memory, cores, os, image_target | template, role_id/role_from/role_to, purge_on_rollback, auto_rollback, save}.
+    Sans `save` : aperçu (étapes + retour) ; avec : plan enregistré (kind migration)."""
+    body = request.get_json(silent=True) or {}
+    plan, err = migration.build(body)
+    if err:
+        return jsonify({"error": err}), 400
+    steps, err = pra.validate_steps(plan["steps"])
+    if err:
+        return jsonify({"error": err}), 400
+    rb, err = pra.validate_steps(plan["rollback_steps"])
+    if err:
+        return jsonify({"error": "retour : " + err}), 400
+    plan.update(steps=steps, rollback_steps=rb)
+    if not body.get("save"):
+        return jsonify({"plan": plan}), 200
+    conn = store._connect(DB_PATH)
+    try:
+        cur = conn.execute("INSERT INTO pra_plans (name, kind, notes, steps, continue_on_error, created_at, updated_at, rollback_steps, auto_rollback) VALUES (?,?,?,?,?,?,?,?,?)",
+                           (plan["name"], "migration", plan["notes"], json.dumps(steps, ensure_ascii=False), 0, store.now_iso(), store.now_iso(), json.dumps(rb, ensure_ascii=False), 1 if plan["auto_rollback"] else 0))
+        row = conn.execute("SELECT * FROM pra_plans WHERE id = ?", (cur.lastrowid,)).fetchone(); conn.commit()
+    finally:
+        conn.close()
+    return jsonify({"plan": pra.plan_public(row)}), 201
 
 
 @app.route("/pra/plans/<int:pid>/runs", methods=["GET"])
@@ -1361,6 +1443,7 @@ def publish_preview_board_route(agent_id):
 
 # ---- #634 : réception des images P2V envoyées par les agents (morceaux signés, reprise) ----
 IMAGES_DIR = os.environ.get("SI_AGENT_IMAGES_DIR", os.path.join(os.path.dirname(DB_PATH), "images"))
+pra.IMAGES_DIR = IMAGES_DIR
 _images = None
 
 
@@ -1402,6 +1485,19 @@ def image_complete_route(agent_id, name):
     if st == 200:
         _event("image-received", "info", "image %s reçue de %s (%d octets)" % (name, agent_id, out["size"]), agent_id=agent_id, details={"path": out["path"], "sha256": out["sha256"]})
     return jsonify(out), st
+
+
+@app.route(protocol.API_PREFIX + "/agents/<agent_id>/images/<src_agent>/<name>/download", methods=["GET"])
+def image_download_route(agent_id, src_agent, name):
+    """#658 : un agent (nœud Proxmox) télécharge, par requête signée, une image complète reçue d'un autre agent (reprise par Range)."""
+    info, err = _verify_agent(agent_id)
+    if info is None:
+        return jsonify({"error": err}), 401
+    safe_a, safe_n = re.sub(r"[^A-Za-z0-9._-]", "-", src_agent)[:64], re.sub(r"[^A-Za-z0-9._-]", "-", name)[:120]
+    path = os.path.join(IMAGES_DIR, safe_a, safe_n)
+    if not safe_n or safe_n.startswith(".") or not os.path.isfile(path):
+        return jsonify({"error": "image inconnue ou incomplète"}), 404
+    return send_file(path, as_attachment=True, download_name=safe_n, conditional=True, mimetype="application/octet-stream")
 
 
 @app.route("/images", methods=["GET"])

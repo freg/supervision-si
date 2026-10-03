@@ -8,10 +8,20 @@ le fil d'exécution vit dans le processus (motif #522/#586)."""
 import json, time, threading
 import store
 
-ACTIONS = ("migrate", "backup", "move_disk", "clone", "replicate", "unreplicate", "start", "shutdown", "stop", "reboot", "snapshot", "rollback", "role_switch")
-REQUIRED = {"migrate": ("target",), "backup": ("storage",), "move_disk": ("disk", "storage"), "clone": ("newid",), "replicate": ("target",), "snapshot": ("snapname",), "rollback": ("snapname",)}
+ACTIONS = ("migrate", "backup", "move_disk", "clone", "replicate", "unreplicate", "start", "shutdown", "stop", "reboot", "snapshot", "rollback", "role_switch",
+           # #658 (item 112) : migration vers la virtualisation -- create / import_disk / set / destroy (vm_action sur le nœud), image_host
+           # (image à chaud du serveur source), host_shutdown (power_action sur le serveur source), checkpoint (étape de transition :
+           # le plan attend « Reprendre » ou « Abandonner » depuis le hub)
+           "create", "import_disk", "set", "destroy", "image_host", "host_shutdown", "checkpoint")
+REQUIRED = {"migrate": ("target",), "backup": ("storage",), "move_disk": ("disk", "storage"), "clone": ("newid",), "replicate": ("target",), "snapshot": ("snapname",), "rollback": ("snapname",),
+            "create": ("name",), "import_disk": ("source", "storage"), "set": ("options",), "destroy": ("confirm",), "image_host": ("target",)}
+HOST_ACTIONS = ("image_host", "host_shutdown")          # adressées à l'agent du serveur source (pas de vmid)
+CENTRAL_ACTIONS = ("role_switch", "checkpoint")          # exécutées par le central
 STEP_TIMEOUT = 3600
-_runs = {}
+IMAGE_TIMEOUT = 12 * 3600       # image à chaud + transfert au central
+CHECKPOINT_TIMEOUT = 7 * 86400  # une transition attend l'opérateur (au plus une semaine)
+IMAGES_DIR = ""                 # fixé par app.py (SI_AGENT_IMAGES_DIR)
+_runs, _resume, _abort = {}, {}, {}
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS pra_plans (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, kind TEXT DEFAULT 'pra', notes TEXT DEFAULT '',
@@ -21,7 +31,8 @@ CREATE TABLE IF NOT EXISTS pra_runs (id INTEGER PRIMARY KEY AUTOINCREMENT, plan_
 CREATE TABLE IF NOT EXISTS pra_roles (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, service_url TEXT DEFAULT '', candidates TEXT NOT NULL DEFAULT '[]',
     mechanism TEXT NOT NULL DEFAULT '{}', active INTEGER DEFAULT 0, last_switch_at TEXT DEFAULT '', last_check TEXT DEFAULT '{}', notes TEXT DEFAULT '', created_at TEXT, updated_at TEXT);
 """
-MIGRATIONS = (("pra_plans", "trigger_agent_id", "TEXT DEFAULT ''"), ("pra_plans", "trigger_mode", "TEXT DEFAULT 'notify'"), ("pra_plans", "trigger_cooldown_s", "INTEGER DEFAULT 3600"))
+MIGRATIONS = (("pra_plans", "trigger_agent_id", "TEXT DEFAULT ''"), ("pra_plans", "trigger_mode", "TEXT DEFAULT 'notify'"), ("pra_plans", "trigger_cooldown_s", "INTEGER DEFAULT 3600"),
+              ("pra_plans", "rollback_steps", "TEXT DEFAULT '[]'"), ("pra_plans", "auto_rollback", "INTEGER DEFAULT 0"), ("pra_runs", "parent_run_id", "INTEGER DEFAULT 0"))
 ROLE_MECHANISMS = ("manual", "mikrotik_nat", "dns", "keepalived")
 MIKROTIK_API_URL = __import__("os").environ.get("MIKROTIK_API_URL", "").rstrip("/")
 DNS_API_URL = __import__("os").environ.get("DNS_API_URL", "").rstrip("/")        # #656 : bascule par enregistrement DNS (dns-api, fallback intranet inclus)
@@ -44,24 +55,41 @@ def validate_steps(steps):
     for i, s in enumerate(steps, 1):
         if not isinstance(s, dict): return None, "étape %d : objet attendu" % i
         a = str(s.get("action") or "").lower(); kind = str(s.get("kind") or "qemu").lower()
-        try: vmid = int(s.get("vmid")) if a != "role_switch" else 0
+        try: vmid = int(s.get("vmid")) if a not in CENTRAL_ACTIONS + HOST_ACTIONS else 0
         except (TypeError, ValueError): return None, "étape %d : vmid entier requis" % i
         if a == "role_switch":                      # #654 : bascule de rôle (celui qui répond) -- exécutée par le central, pas par un agent
             try: role_id, to = int(s.get("role_id")), int(s.get("to"))
             except (TypeError, ValueError): return None, "étape %d : role_id et to (indice du candidat) requis" % i
             out.append(dict(agent_id="central", vmid=0, kind="qemu", action="role_switch", params=dict(role_id=role_id, to=to), label=str(s.get("label") or "")[:120], wait_s=int(s.get("wait_s") or 0)))
             continue
+        if a == "checkpoint":                       # #658 : étape de transition -- le plan s'arrête et attend l'opérateur
+            if not str(s.get("label") or "").strip(): return None, "étape %d : checkpoint sans consigne (label)" % i
+            out.append(dict(agent_id="central", vmid=0, kind="qemu", action="checkpoint", params=dict(timeout_s=int(s.get("timeout_s") or 0)), label=str(s.get("label") or "")[:300], wait_s=0))
+            continue
+        if a in HOST_ACTIONS:                       # #658 : commande au serveur source (image à chaud, arrêt)
+            if not s.get("agent_id"): return None, "étape %d : agent_id (serveur source) requis" % i
+            params = dict(s.get("params") or {})
+            for k in REQUIRED.get(a, ()):
+                if params.get(k) in (None, ""): return None, "étape %d (%s) : paramètre %s requis" % (i, a, k)
+            out.append(dict(agent_id=str(s["agent_id"]), vmid=0, kind="host", action=a, params=params, label=str(s.get("label") or "")[:200], wait_s=int(s.get("wait_s") or 0)))
+            continue
         if not s.get("agent_id"): return None, "étape %d : agent_id (hyperviseur) requis" % i
         if a not in ACTIONS: return None, "étape %d : action inconnue (%s)" % (i, ", ".join(ACTIONS))
         if kind not in ("qemu", "lxc"): return None, "étape %d : kind qemu ou lxc" % i
-        params = dict(s.get("params") or {})
+        params = {k: v for k, v in dict(s.get("params") or {}).items() if v is not None}
         for k in REQUIRED.get(a, ()):
             if params.get(k) in (None, ""): return None, "étape %d (%s) : paramètre %s requis" % (i, a, k)
-        out.append(dict(agent_id=str(s["agent_id"]), vmid=vmid, kind=kind, action=a, params=params, label=str(s.get("label") or "")[:120], wait_s=int(s.get("wait_s") or 0)))
+        if a == "destroy" and str(params.get("confirm")) != str(vmid): return None, "étape %d (destroy) : confirm doit répéter le vmid" % i
+        out.append(dict(agent_id=str(s["agent_id"]), vmid=vmid, kind=kind, action=a, params=params, label=str(s.get("label") or "")[:200], wait_s=int(s.get("wait_s") or 0)))
     return out, None
 
 def command_params(step):
+    if step["action"] == "host_shutdown": return dict(step["params"], action="shutdown")
+    if step["action"] == "image_host": return dict(step["params"], transfer=True)
     return dict(step["params"], vmid=step["vmid"], action=step["action"], kind=step["kind"])
+
+def command_type(step):
+    return {"host_shutdown": "power_action", "image_host": "image_host"}.get(step["action"], "vm_action")
 
 def simulate(db_path, plan):
     """Ce qui serait envoyé, agent par agent, avec l'état de présence de chaque agent."""
@@ -70,6 +98,8 @@ def simulate(db_path, plan):
     finally: conn.close()
     res = []
     for i, st in enumerate(plan["steps"], 1):
+        if st["action"] == "checkpoint":
+            res.append(dict(index=i, label=st["label"], agent_id="central", agent_known=True, command="checkpoint", params={}, ok=True, error=None, hostname="opérateur")); continue
         if st["action"] == "role_switch":
             role = get_role(db_path, st["params"]["role_id"]); cand = (role or {}).get("candidates", [])
             ok = bool(role) and 0 <= st["params"]["to"] < len(cand)
@@ -78,7 +108,7 @@ def simulate(db_path, plan):
             continue
         a = agents.get(st["agent_id"])
         res.append(dict(index=i, label=st["label"], agent_id=st["agent_id"], agent_known=bool(a), hostname=(a or {}).get("hostname"), last_seen=(a or {}).get("last_seen_at"),
-                        command="vm_action", params=command_params(st), ok=bool(a), error=None if a else "agent inconnu du central"))
+                        command=command_type(st), params=command_params(st), ok=bool(a), error=None if a else "agent inconnu du central"))
     return res
 
 def _save_run(db_path, rid, status, steps, finished=False):
@@ -87,10 +117,13 @@ def _save_run(db_path, rid, status, steps, finished=False):
         conn.execute("UPDATE pra_runs SET status = ?, steps = ?, finished_at = ? WHERE id = ?", (status, json.dumps(steps, ensure_ascii=False), store.now_iso() if finished else "", rid)); conn.commit()
     finally: conn.close()
 
-def execute(db_path, plan, rid, continue_on_error, sleep=time.sleep):
+SLEEP = time.sleep
+
+
+def execute(db_path, plan, rid, continue_on_error, sleep=None):
     """Fil d'exécution : une commande à la fois, acquittement attendu (statut done/failed), arrêt à la première erreur."""
     try:
-        return _execute(db_path, plan, rid, continue_on_error, sleep)
+        return _execute(db_path, plan, rid, continue_on_error, sleep or SLEEP)
     except Exception as e:          # jamais un fil mort en silence : l'exécution est marquée en échec avec la cause
         _save_run(db_path, rid, "failed", [dict(index=0, status="failed", result={"error": "%s : %s" % (type(e).__name__, e)})], finished=True)
         return "failed"
@@ -98,15 +131,28 @@ def execute(db_path, plan, rid, continue_on_error, sleep=time.sleep):
 
 def _execute(db_path, plan, rid, continue_on_error, sleep):
     steps = [dict(index=i, label=st["label"], agent_id=st["agent_id"], params=command_params(st), status="pending", command_id=None, result=None) for i, st in enumerate(plan["steps"], 1)]
-    status = "running"
+    status = "running"; ctx = {}
     for st, src in zip(steps, plan["steps"]):
+        if _abort.get(rid):
+            st["status"] = "aborted"; st["result"] = {"error": "abandonné depuis le hub"}; status = "failed"; break
+        if src["action"] == "checkpoint":          # #658 : transition -- attendre Reprendre / Abandonner
+            st["status"] = "waiting"; _save_run(db_path, rid, "paused", steps)
+            ev = _resume.setdefault(rid, threading.Event()); ev.clear()
+            ok = ev.wait(min(int(src["params"].get("timeout_s") or 0) or CHECKPOINT_TIMEOUT, CHECKPOINT_TIMEOUT))
+            if _abort.get(rid): st["status"] = "aborted"; st["result"] = {"error": "abandonné à la transition"}; status = "failed"; break
+            if not ok: st["status"] = "timeout"; st["result"] = {"error": "transition sans réponse dans le délai"}; status = "failed"; break
+            st["status"] = "done"; st["result"] = {"resumed_at": store.now_iso()}; _save_run(db_path, rid, "running", steps); continue
         if src["action"] == "role_switch":
             r = switch_role(db_path, src["params"]["role_id"], src["params"]["to"], by_user="plan %s" % plan.get("name", ""))
             st["status"] = "done" if r.get("ok") else "failed"; st["result"] = r; status = "failed" if not r.get("ok") else status
             _save_run(db_path, rid, status, steps)
             if not r.get("ok") and not continue_on_error: break
             continue
-        created = store.create_command(db_path, st["agent_id"], "vm_action", st["params"])
+        if st["params"].get("source") == "{{image}}":
+            if not ctx.get("image"): st["status"] = "failed"; st["result"] = {"error": "aucune image reçue par une étape image_host précédente"}; status = "failed"; break
+            st["params"] = dict(st["params"], source=ctx["image"])
+        baseline = _last_event_id(db_path)
+        created = store.create_command(db_path, st["agent_id"], command_type(src), st["params"])
         cid = created["id"] if isinstance(created, dict) else created
         if not cid:
             st["status"] = "failed"; st["result"] = {"error": "agent inconnu"}; status = "failed"
@@ -122,12 +168,82 @@ def _execute(db_path, plan, rid, continue_on_error, sleep):
             st["status"] = "timeout"; st["result"] = {"error": "pas d'acquittement de l'agent dans le délai"}; status = "failed"
         else:
             st["status"] = "done" if c["status"] == "done" else "failed"; st["result"] = c.get("result"); status = "failed" if st["status"] == "failed" else status
+        if st["status"] == "done" and src["action"] == "image_host":      # l'image part en tâche de fond : attendre sa réception par le central
+            _save_run(db_path, rid, status, steps)
+            img = _wait_image(db_path, st["agent_id"], baseline, sleep)
+            if img.get("ok"): ctx["image"] = "central:%s/%s" % (st["agent_id"], img["name"]); st["result"] = dict(st["result"] or {}, image=img)
+            else: st["status"] = "failed"; st["result"] = dict(st["result"] or {}, error=img.get("error")); status = "failed"
         _save_run(db_path, rid, status, steps)
         if st["status"] != "done" and not continue_on_error: break
         if src.get("wait_s"): sleep(min(int(src["wait_s"]), 600))
     if status == "running": status = "done"
     _save_run(db_path, rid, status, steps, finished=True)
+    _resume.pop(rid, None); _abort.pop(rid, None)
+    if status == "failed" and plan.get("auto_rollback") and plan.get("rollback_steps") and plan.get("_mode", "execute") != "rollback":
+        start_rollback(db_path, plan, rid, "retour automatique (échec de l'exécution n°%s)" % rid)
     return status
+
+
+def _last_event_id(db_path):
+    conn = store._connect(db_path)
+    try: r = conn.execute("SELECT MAX(id) AS m FROM events").fetchone(); return int(r["m"] or 0)
+    finally: conn.close()
+
+
+def _wait_image(db_path, agent_id, baseline, sleep):
+    """Après image_host : attend l'événement image-received (image complète sur le central) ou image-failed / image-upload-failed."""
+    t0 = time.time()
+    while time.time() - t0 < IMAGE_TIMEOUT:
+        conn = store._connect(db_path)
+        try: rows = conn.execute("SELECT kind, message, details FROM events WHERE id > ? AND agent_id = ? AND kind IN ('image-received','image-failed','image-upload-failed') ORDER BY id", (baseline, agent_id)).fetchall()
+        finally: conn.close()
+        for r in rows:
+            det = json.loads(r["details"] or "{}") if isinstance(r["details"], str) else (r["details"] or {})
+            if r["kind"] == "image-received": return {"ok": True, "name": str(det.get("path") or "").replace("\\", "/").split("/")[-1], "path": det.get("path"), "sha256": det.get("sha256")}
+            return {"ok": False, "error": r["message"]}
+        sleep(5)
+    return {"ok": False, "error": "image non reçue dans le délai (%d h)" % (IMAGE_TIMEOUT // 3600)}
+
+
+def resume_run(db_path, rid):
+    """#658 : « Reprendre » à une transition."""
+    ev = _resume.get(rid)
+    if not ev: return {"ok": False, "error": "exécution n°%s pas en attente dans ce processus (redémarrage du central ? relancer le plan)" % rid}
+    ev.set(); return {"ok": True}
+
+
+def abort_run(db_path, rid, rollback=False, by_user=""):
+    """#658 : « Abandonner » (à une transition ou entre deux étapes), avec retour en arrière si demandé."""
+    _abort[rid] = True
+    ev = _resume.get(rid)
+    if ev: ev.set()
+    t = _runs.get(rid)
+    if t and t.is_alive(): t.join(10)
+    out = {"ok": True, "aborted": rid}
+    if rollback:
+        conn = store._connect(db_path)
+        try:
+            run = conn.execute("SELECT plan_id FROM pra_runs WHERE id = ?", (rid,)).fetchone()
+            row = conn.execute("SELECT * FROM pra_plans WHERE id = ?", (run["plan_id"],)).fetchone() if run else None
+        finally: conn.close()
+        if not row: return {"ok": False, "error": "plan inconnu"}
+        out["rollback_run_id"] = start_rollback(db_path, plan_public(row), rid, by_user or "abandon")
+    return out
+
+
+def start_rollback(db_path, plan, parent_rid, by_user, background=True):
+    """Exécution des rollback_steps du plan (mode rollback, liée à l'exécution d'origine)."""
+    rb = plan.get("rollback_steps") or []
+    if not rb: return None
+    sub = dict(plan, steps=rb, _mode="rollback", auto_rollback=False)
+    conn = store._connect(db_path)
+    try:
+        cur = conn.execute("INSERT INTO pra_runs (plan_id, mode, status, started_at, by_user, parent_run_id) VALUES (?,?,?,?,?,?)", (plan["id"], "rollback", "running", store.now_iso(), by_user, parent_rid)); rid = cur.lastrowid; conn.commit()
+    finally: conn.close()
+    t = threading.Thread(target=execute, args=(db_path, sub, rid, True), daemon=True); _runs[rid] = t
+    if background: t.start()
+    else: t.run()
+    return rid
 
 def start_run(db_path, plan, mode, by_user, background=True):
     conn = store._connect(db_path)
@@ -142,7 +258,8 @@ def start_run(db_path, plan, mode, by_user, background=True):
     return rid
 
 def plan_public(r):
-    d = dict(r); d["steps"] = json.loads(d.get("steps") or "[]"); d["continue_on_error"] = bool(d.get("continue_on_error")); return d
+    d = dict(r); d["steps"] = json.loads(d.get("steps") or "[]"); d["continue_on_error"] = bool(d.get("continue_on_error"))
+    d["rollback_steps"] = json.loads(d.get("rollback_steps") or "[]"); d["auto_rollback"] = bool(d.get("auto_rollback")); return d
 
 def run_public(r):
     d = dict(r); d["steps"] = json.loads(d.get("steps") or "[]"); return d

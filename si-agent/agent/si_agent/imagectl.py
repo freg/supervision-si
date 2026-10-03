@@ -89,10 +89,53 @@ def redact(params):
     return p
 
 
-def target_file(plan, hostname, now=None):
+def target_file(plan, hostname, now=None, ext="vhdx"):
     stamp = time.strftime("%Y%m%d-%H%M", time.localtime(now or time.time()))
     base = re.sub(r"[^A-Za-z0-9._-]", "-", plan.get("name") or hostname or "poste")[:40]
-    return os.path.join(plan["target_dir"], "%s-%s.vhdx" % (base, stamp))
+    return os.path.join(plan["target_dir"], "%s-%s.%s" % (base, stamp, ext))
+
+
+# ---- #658 (item 112) : image à chaud d'un serveur LINUX (dd du disque système, compressé zstd), même suivi que Disk2vhd
+LINUX_TARGET_RE = re.compile(r"^/[A-Za-z0-9._/+-]{1,250}$")
+DEVICE_RE = re.compile(r"^/dev/[A-Za-z0-9/_-]{1,60}$")
+
+
+def validate_linux(params):
+    """-> (plan, erreur). plan = {target_dir, device?, name, force, transfer, delete_after}. target_dir = dossier
+    ABSOLU (point de montage NFS/CIFS ou disque séparé : jamais le disque imagé, vérifié par l'agent)."""
+    p = params or {}
+    target = str(p.get("target") or "").strip().rstrip("/")
+    if not LINUX_TARGET_RE.match(target):
+        return None, "target : dossier absolu sur un stockage séparé (ex. /mnt/images)"
+    device = str(p.get("device") or "").strip() or None
+    if device and not DEVICE_RE.match(device):
+        return None, "device : /dev/sdX ou /dev/nvme0n1 (vide = disque de la racine)"
+    name = str(p.get("name") or "").strip() or None
+    return {"target_dir": target, "device": device, "name": name, "force": bool(p.get("force")), "transfer": bool(p.get("transfer")),
+            "delete_after": bool(p.get("delete_after")), "share": None}, None
+
+
+def parent_disk(source, pkname_of):
+    """Disque physique derrière un volume (/dev/sda2, /dev/mapper/vg-root -> sda) : remonte `lsblk -no pkname` jusqu'au bout."""
+    cur, seen = (source or "").strip(), 0
+    while cur and seen < 8:
+        up = (pkname_of(cur) or "").strip().splitlines()
+        up = up[0].strip() if up else ""
+        if not up: break
+        cur, seen = "/dev/" + up, seen + 1
+    return cur or None
+
+
+def build_linux_argv(device, out_file):
+    """dd du disque entier, compressé à la volée (zstd multi-fil) ; device et out_file déjà validés par motif fermé."""
+    return ["sh", "-c", "dd if=%s bs=4M status=none | zstd -T0 -3 -q -o %s" % (device, out_file)]
+
+
+LINUX_RUNBOOK = """Import Proxmox de l'image Linux (.img.zst = disque entier) : zstd -d <image>.img.zst -o <vmid>.img ;
+  qm create <vmid> --name <nom> --memory 4096 --cores 2 --ostype l26 --net0 virtio,bridge=vmbr0,link_down=1 --scsihw virtio-scsi-single
+  qm importdisk <vmid> <vmid>.img <stockage> ; qm set <vmid> --scsi0 <stockage>:vm-<vmid>-disk-0 --boot order=scsi0
+Image prise À CHAUD : cohérence comme après une coupure de courant (fsck au premier démarrage) ; geler les
+écritures applicatives (services en lecture seule) pendant l'image. Depuis le hub : plan de migration (#658)."""
 
 
 def parse_bitlocker(text):

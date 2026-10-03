@@ -1324,3 +1324,38 @@ bascule de rôle « celui qui répond » (DNS/VIP), tour de contrôle DNS / rout
 Vérifié : `tests/test_proxmox_plugin.py::test_replication_jobs`, `api/test_z_pra.py` (déclencheurs proposé/auto/
 délai de garde, rôles : validation, bascule avec mécanisme et vérification simulés, échec de vérification, étape de
 plan simulée puis exécutée). Non vérifié : NAT MikroTik réel, agents réels.
+
+## Migration d'un serveur / service vers la virtualisation (livraison #658, agent 0.5.32, item 112)
+
+Un plan de migration = un plan PRA ordinaire (`kind = migration`) généré par `POST /pra/migrations/plan` (aperçu, ou
+`save: true`), simulable et exécuté pas à pas par le central. Deux méthodes, toutes deux avec **étapes de transition**
+et **retour en arrière** :
+
+- **image** (serveur tel quel) : `image_host` sur l'agent du serveur source (Windows : Disk2vhd/VSS, #621 ; Linux :
+  `dd` du disque de la racine — ou `device` — `| zstd -T0` vers `target`, stockage séparé du disque imagé, vérifié par
+  `findmnt`/`lsblk`), transfert au central (#634), puis sur le nœud Proxmox : `create` (VM réseau coupé `link_down=1`,
+  OVMF + TPM si `ostype` Windows), `import_disk {source: central:<agent>/<image>, storage, attach: scsi0|sata0}` (l'agent
+  du nœud télécharge l'image par requête signée `GET …/images/<src>/<nom>/download`, reprise par `Range`, décompresse
+  le `.zst`, `qm importdisk`, rattache le disque `unusedN` et le met en premier au démarrage), `start`, transition
+  « console », `set net0` (mise en réseau), bascule (rôle #654 ou transition manuelle), observation, `host_shutdown`
+  (power_action sur le serveur, qui reste intact).
+- **rebuild** (reconstruction par rôle) : `create` d'un conteneur depuis un modèle (`pct create`, `--unprivileged 1`,
+  `--start 0`), `start`, transition « reconstruire le rôle » (application réinstallée : portage-kit / playbook ; données :
+  connecteur datasync #652 du serveur source vers le central puis vers le conteneur), bascule, observation, arrêt.
+
+Nouvelles actions `vm_action` de l'agent (`vmctl.build_ops_argv`) : `create` (qemu / lxc, paramètres validés par motifs
+fermés), `import_disk`, `set` (options en **liste blanche** : disques, boot, net0, mémoire, cœurs, onboot, nom… — jamais
+`args`), `destroy` (`confirm` doit répéter le vmid). Étapes du central : `checkpoint` (le plan passe en `paused`, étape
+`waiting` ; `POST /pra/runs/<id>/resume` reprend, `POST /pra/runs/<id>/abort {rollback}` abandonne, avec les étapes
+de retour si demandé ; une transition sans réponse expire après 7 jours), `image_host` (attend l'événement
+`image-received` du central, 12 h au plus), `host_shutdown`. Plan : `rollback_steps` (rôle rendu, VM coupée du réseau
+puis arrêtée, transition « rallumer le serveur », `destroy` seulement si `purge_on_rollback`), `auto_rollback`
+(retour automatique à la première étape en échec) ; `POST /pra/runs/<id>/rollback` rejoue le retour après coup ;
+l'exécution de retour porte `parent_run_id`. Les transitions vivent dans le processus du central (un seul worker) : après
+un redémarrage du central, relancer le plan (les étapes déjà faites sont rejouables : `create` refuse un vmid existant,
+à retirer du plan).
+
+Vérifié : `agent/tests/test_p2v_migration.py` (argv create/import/set/destroy, rattachement, image Linux),
+`api/test_z_pra.py::PraMigration` (plan généré image/rebuild, aperçu puis enregistrement, simulation, exécution avec
+transition → Reprendre, image attendue par événement, Abandonner avec retour, retour rejouable, téléchargement signé
+avec Range). Non vérifié : Proxmox réel (`qm importdisk`, OVMF/TPM), `dd` sur un vrai serveur, Disk2vhd.

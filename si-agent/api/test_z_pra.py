@@ -166,3 +166,95 @@ class RoleMechanisms656(unittest.TestCase):
         res = pra.switch_role(self.db, role["id"], 1, http_get=lambda u: (200, 1)); t.join(timeout=5)
         self.assertTrue(res["ok"], res); pr = res["applied"]["priorities"]; self.assertEqual((pr["pra-web2"]["priority"], pr["pra-web1"]["priority"]), (200, 100))
         cmds = store.list_commands(self.db, "pra-web2"); self.assertEqual(cmds[0]["type"], "vrrp_set"); self.assertEqual(cmds[0]["params"]["instance"], "VI_WEB")
+
+
+class PraMigration(unittest.TestCase):
+    """#658 (item 112) : plan de migration généré (image / rebuild, transitions, retour), exécution avec checkpoint (pause ->
+    Reprendre), image attendue par événement, Abandonner avec retour en arrière, téléchargement signé d'une image par un nœud."""
+    @classmethod
+    def setUpClass(cls):
+        cls.c = appmod.app.test_client(); cls.db = appmod.DB_PATH
+        for a in ("mig-srv", "mig-pve"): store.create_agent(cls.db, a, "siege", label=a)
+        pra.IMAGE_TIMEOUT = 20; pra.SLEEP = lambda n: time.sleep(min(n, 0.05))     # wait_s du plan raccourci
+
+    @classmethod
+    def tearDownClass(cls):
+        conn = store._connect(cls.db)
+        try:
+            for t, col in (("commands", "agent_id"), ("events", "agent_id"), ("agents", "agent_id")): conn.execute("DELETE FROM %s WHERE %s LIKE 'mig-%%'" % (t, col))
+            conn.execute("DELETE FROM pra_runs"); conn.execute("DELETE FROM pra_plans"); conn.commit()
+        finally: conn.close()
+
+    def test_build(self):
+        import migration
+        self.assertEqual(migration.build({})[1], "method : image ou rebuild" if False else "source_agent_id (agent du serveur à migrer) requis")
+        self.assertIn("image_target", migration.build({"source_agent_id": "mig-srv", "pve_agent_id": "mig-pve", "vmid": 200, "storage": "local-lvm"})[1])
+        plan, err = migration.build({"source_agent_id": "mig-srv", "pve_agent_id": "mig-pve", "vmid": 200, "storage": "local-lvm", "image_target": "/mnt/images", "os": "windows", "role_id": 3, "role_from": 0, "role_to": 1, "purge_on_rollback": True})
+        self.assertIsNone(err); acts = [s["action"] for s in plan["steps"]]
+        self.assertEqual(acts, ["checkpoint", "image_host", "create", "import_disk", "start", "checkpoint", "set", "role_switch", "checkpoint", "host_shutdown"])
+        self.assertEqual(plan["steps"][3]["params"]["source"], "{{image}}"); self.assertEqual(plan["steps"][3]["params"]["attach"], "sata0"); self.assertEqual(plan["steps"][2]["params"]["ostype"], "win11"); self.assertEqual(plan["steps"][2]["params"]["link_down"], 1)
+        self.assertEqual([s["action"] for s in plan["rollback_steps"]], ["role_switch", "set", "shutdown", "checkpoint", "destroy"]); self.assertEqual(plan["rollback_steps"][0]["to"], 0)
+        plan, err = migration.build({"method": "rebuild", "source_agent_id": "mig-srv", "pve_agent_id": "mig-pve", "vmid": 201, "storage": "local-lvm", "template": "local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst", "ip": "192.0.2.10/24"})
+        self.assertIsNone(err); self.assertEqual([s["action"] for s in plan["steps"]], ["checkpoint", "create", "start", "checkpoint", "checkpoint", "checkpoint", "host_shutdown"]); self.assertEqual(plan["steps"][1]["kind"], "lxc")
+        self.assertEqual([s["action"] for s in plan["rollback_steps"]], ["shutdown", "checkpoint"])
+        # validation des nouvelles actions
+        self.assertIn("confirm", pra.validate_steps([{"agent_id": "mig-pve", "vmid": 200, "action": "destroy", "params": {"confirm": "201"}}])[1])
+        self.assertIn("consigne", pra.validate_steps([{"agent_id": "central", "action": "checkpoint"}])[1])
+        st, err = pra.validate_steps([{"agent_id": "mig-srv", "action": "image_host", "params": {"target": "/mnt/images"}}, {"agent_id": "mig-srv", "action": "host_shutdown"}])
+        self.assertIsNone(err); self.assertEqual(pra.command_type(st[0]), "image_host"); self.assertEqual(pra.command_params(st[1]), {"action": "shutdown"}); self.assertEqual(pra.command_type(st[1]), "power_action")
+
+    def test_preview_save_run_resume_abort(self):
+        body = {"source_agent_id": "mig-srv", "pve_agent_id": "mig-pve", "vmid": 200, "storage": "local-lvm", "image_target": "/mnt/images", "plan_name": "Migration test"}
+        r = self.c.post("/pra/migrations/plan", json=body); self.assertEqual(r.status_code, 200); self.assertEqual(r.json["plan"]["kind"], "migration"); self.assertNotIn("id", r.json["plan"])
+        r = self.c.post("/pra/migrations/plan", json=dict(body, save=True)); self.assertEqual(r.status_code, 201); plan = r.json["plan"]; pid = plan["id"]
+        self.assertEqual(len(plan["rollback_steps"]), 3); self.assertEqual(plan["steps"][0]["action"], "checkpoint")
+        sim = self.c.post("/pra/plans/%d/run" % pid, json={"mode": "simulate"}).json["run_id"]
+        run = self.c.get("/pra/runs/%d" % sim).json["run"]; self.assertEqual(run["status"], "done"); self.assertEqual(run["steps"][1]["command"], "image_host"); self.assertEqual(run["steps"][0]["hostname"], "opérateur")
+        # exécution : checkpoint -> paused ; un faux agent acquitte image_host puis le central reçoit l'événement image-received ;
+        # create / import_disk / start acquittés ; 2e checkpoint -> Abandonner avec retour -> exécution de retour (set, shutdown, checkpoint)
+        def fake_agents():
+            for _ in range(400):
+                time.sleep(0.05)
+                for aid in ("mig-srv", "mig-pve"):
+                    for c in store.list_commands(self.db, aid, status="pending"):
+                        store.ack_command(self.db, aid, c["id"], {"ok": True, "error": None, "result": {"target": "/mnt/images/mig-srv-x.img.zst"} if c["type"] == "image_host" else {}})
+                        if c["type"] == "image_host":
+                            time.sleep(0.2); appmod._event("image-received", "info", "image reçue", agent_id="mig-srv", details={"path": "/data/images/mig-srv/mig-srv-x.img.zst", "sha256": "0"})
+        t = threading.Thread(target=fake_agents, daemon=True); t.start()
+        rid = self.c.post("/pra/plans/%d/run" % pid, json={"mode": "execute", "actor": "freg"}).json["run_id"]
+        for _ in range(100):
+            time.sleep(0.05)
+            if self.c.get("/pra/runs/%d" % rid).json["run"]["status"] == "paused": break
+        run = self.c.get("/pra/runs/%d" % rid).json["run"]; self.assertEqual(run["status"], "paused"); self.assertEqual(run["steps"][0]["status"], "waiting")
+        self.assertEqual(self.c.post("/pra/runs/%d/rollback" % rid, json={}).status_code, 409)
+        self.assertEqual(self.c.post("/pra/runs/%d/resume" % rid).status_code, 200)
+        for _ in range(200):
+            time.sleep(0.05)
+            run = self.c.get("/pra/runs/%d" % rid).json["run"]
+            if run["status"] == "paused" and run["steps"][5]["status"] == "waiting": break
+        self.assertEqual([s["status"] for s in run["steps"][:6]], ["done", "done", "done", "done", "done", "waiting"], run["steps"])
+        self.assertEqual(run["steps"][1]["result"]["image"]["name"], "mig-srv-x.img.zst"); self.assertEqual(run["steps"][3]["params"]["source"], "central:mig-srv/mig-srv-x.img.zst")
+        cmds = store.list_commands(self.db, "mig-pve"); self.assertEqual([c["type"] for c in cmds], ["vm_action"] * 3); self.assertEqual(sorted(c["params"]["action"] for c in cmds), ["create", "import_disk", "start"])
+        r = self.c.post("/pra/runs/%d/abort" % rid, json={"rollback": True, "actor": "freg"}); self.assertEqual(r.status_code, 200, r.json); rb = r.json["rollback_run_id"]
+        pra._runs[rid].join(timeout=10); run = self.c.get("/pra/runs/%d" % rid).json["run"]; self.assertEqual(run["status"], "failed"); self.assertEqual(run["steps"][5]["status"], "aborted")
+        for _ in range(200):
+            time.sleep(0.05)
+            back = self.c.get("/pra/runs/%d" % rb).json["run"]
+            if back["status"] == "paused": break
+        self.assertEqual(back["mode"], "rollback"); self.assertEqual(back["parent_run_id"], rid); self.assertEqual([s["status"] for s in back["steps"]], ["done", "done", "waiting"])
+        self.assertEqual(self.c.post("/pra/runs/%d/resume" % rb).status_code, 200); pra._runs[rb].join(timeout=10)
+        self.assertEqual(self.c.get("/pra/runs/%d" % rb).json["run"]["status"], "done")
+        self.assertEqual(self.c.post("/pra/runs/%d/rollback" % rid, json={}).status_code, 202)      # retour relançable après coup
+        self.assertEqual(self.c.post("/pra/runs/%d/resume" % 99999).status_code, 409)
+
+    def test_image_download(self):
+        protocol = appmod.protocol
+        os.makedirs(os.path.join(appmod.IMAGES_DIR, "mig-srv"), exist_ok=True)
+        with open(os.path.join(appmod.IMAGES_DIR, "mig-srv", "img.bin"), "wb") as fh: fh.write(b"0123456789")
+        secret = store.get_secret(self.db, "mig-pve")["secret"]
+        path = protocol.API_PREFIX + "/agents/mig-pve/images/mig-srv/img.bin/download"
+        r = self.c.get(path, headers=protocol.auth_headers("mig-pve", secret, "GET", path, b"")); self.assertEqual(r.status_code, 200); self.assertEqual(r.data, b"0123456789")
+        r = self.c.get(path, headers=dict(protocol.auth_headers("mig-pve", secret, "GET", path, b""), Range="bytes=6-")); self.assertEqual(r.status_code, 206); self.assertEqual(r.data, b"6789")
+        self.assertEqual(self.c.get(path).status_code, 401)
+        p2 = protocol.API_PREFIX + "/agents/mig-pve/images/mig-srv/absent/download"
+        self.assertEqual(self.c.get(p2, headers=protocol.auth_headers("mig-pve", secret, "GET", p2, b"")).status_code, 404)

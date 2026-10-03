@@ -14,8 +14,19 @@ ACTIONS = {"start": [], "shutdown": ["--timeout", "120"], "stop": [], "reboot": 
            "snapshot": None, "rollback": None, "delsnapshot": None,
            # #653 : opérations d'exploitation / PRA -- migrate (vers un nœud), backup (vzdump), move_disk (stockage), clone,
            # replicate / unreplicate (pvesr, réplication ZFS planifiée vers un nœud) ; argv construits par build_ops_argv
-           "migrate": None, "backup": None, "move_disk": None, "clone": None, "replicate": None, "unreplicate": None}
-OPS = ("migrate", "backup", "move_disk", "clone", "replicate", "unreplicate")
+           "migrate": None, "backup": None, "move_disk": None, "clone": None, "replicate": None, "unreplicate": None,
+           # #658 (item 112) : migration d'un serveur vers la virtualisation -- create (VM vide / conteneur depuis un modèle),
+           # import_disk (image P2V -> disque de la VM, qm importdisk), set (options en liste blanche), destroy (confirm = vmid)
+           "create": None, "import_disk": None, "set": None, "destroy": None}
+OPS = ("migrate", "backup", "move_disk", "clone", "replicate", "unreplicate", "create", "import_disk", "set", "destroy")
+BRIDGE_RE = re.compile(r"^vmbr\d{1,3}$")
+HOSTNAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.-]{0,62}$")
+TEMPLATE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,62}:vztmpl/[A-Za-z0-9._+-]{1,120}$")
+PATH_RE = re.compile(r"^/[A-Za-z0-9._/+-]{1,250}$")
+OPTVAL_RE = re.compile(r"^[A-Za-z0-9=:,._/+ -]{1,200}$")
+SET_KEYS = {"qemu": ("scsi0", "sata0", "virtio0", "ide0", "boot", "net0", "memory", "cores", "onboot", "name", "agent", "bios", "machine", "ostype", "description", "scsihw", "balloon"),
+            "lxc": ("hostname", "memory", "cores", "net0", "onboot", "description", "swap")}
+DISK_BUS_RE = re.compile(r"^(scsi|sata|virtio|ide)\d$")
 NODE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.-]{0,62}$")
 STORAGE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,62}$")
 DISK_RE = re.compile(r"^(scsi|virtio|sata|ide|efidisk|tpmstate|rootfs|mp)\d{0,2}$")
@@ -72,7 +83,79 @@ def build_ops_argv(action, vmid, kind, params):
         try: jobnum = int(params.get("job", 0))
         except (TypeError, ValueError): return None, "job entier"
         return ["pvesr", "delete", "%d-%d" % (vmid, jobnum), "--force", "1"], None
+    if action == "create": return build_create_argv(vmid, kind, params)
+    if action == "import_disk":
+        if kind != "qemu": return None, "import_disk : VM qemu seulement"
+        path, storage = str(params.get("path") or ""), str(params.get("storage") or "")
+        if not PATH_RE.match(path): return None, "path (fichier image sur le nœud : .vhdx, .img, .raw, .qcow2) requis"
+        if not STORAGE_RE.match(storage): return None, "storage (stockage cible) requis"
+        argv = ["qm", "importdisk", str(vmid), path, storage]
+        if params.get("format") in ("raw", "qcow2", "vmdk"): argv += ["--format", params["format"]]
+        return argv, None
+    if action == "set":
+        opts = params.get("options") or {}
+        if not isinstance(opts, dict) or not opts: return None, "options {clé: valeur} requises"
+        argv = [tool, "set", str(vmid)]
+        for k, v in opts.items():
+            if k not in SET_KEYS[kind]: return None, "option %s refusée (liste blanche : %s)" % (k, ", ".join(SET_KEYS[kind]))
+            if not OPTVAL_RE.match(str(v)): return None, "valeur de %s invalide" % k
+            argv += ["--" + k, str(v)]
+        return argv, None
+    if action == "destroy":
+        if str(params.get("confirm") or "") != str(vmid): return None, "destroy : confirm doit répéter le vmid (%d)" % vmid
+        return ([tool, "destroy", str(vmid), "--purge", "1"] + (["--destroy-unreferenced-disks", "1"] if kind == "qemu" else [])), None
     return None, "opération inconnue"
+
+
+def build_create_argv(vmid, kind, params):
+    """#658 : VM vide (qemu, réseau coupé si link_down, OVMF + TPM pour Windows) ou conteneur depuis un modèle (lxc)."""
+    name = str(params.get("name") or "")
+    if not HOSTNAME_RE.match(name): return None, "name (nom de la VM / du conteneur) requis"
+    bridge = str(params.get("bridge") or "vmbr0")
+    if not BRIDGE_RE.match(bridge): return None, "bridge : vmbrN"
+    try: memory, cores = int(params.get("memory") or 2048), int(params.get("cores") or 2)
+    except (TypeError, ValueError): return None, "memory (Mo) et cores entiers"
+    if not (128 <= memory <= 1048576 and 1 <= cores <= 256): return None, "memory / cores hors bornes"
+    storage = str(params.get("storage") or "")
+    if kind == "lxc":
+        template = str(params.get("template") or "")
+        if not TEMPLATE_RE.match(template): return None, "template (ex. local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst) requis"
+        if not STORAGE_RE.match(storage): return None, "storage (rootfs) requis"
+        try: rootfs = int(params.get("rootfs_gb") or 8)
+        except (TypeError, ValueError): return None, "rootfs_gb entier"
+        ip = str(params.get("ip") or "dhcp")
+        if not re.match(r"^(dhcp|\d{1,3}(\.\d{1,3}){3}/\d{1,2})$", ip): return None, "ip : dhcp ou a.b.c.d/nn"
+        net = "name=eth0,bridge=%s,ip=%s" % (bridge, ip)
+        if ip != "dhcp" and params.get("gateway") and re.match(r"^\d{1,3}(\.\d{1,3}){3}$", str(params["gateway"])): net += ",gw=%s" % params["gateway"]
+        if params.get("link_down"): net += ",link_down=1"
+        return ["pct", "create", str(vmid), template, "--hostname", name, "--memory", str(memory), "--cores", str(cores), "--net0", net,
+                "--rootfs", "%s:%d" % (storage, rootfs), "--unprivileged", "1", "--start", "0", "--onboot", "0"], None
+    ostype = str(params.get("ostype") or "l26")
+    if ostype not in ("l26", "l24", "win10", "win11", "w2k19", "w2k22", "other"): return None, "ostype : l26, win10, win11, w2k19, w2k22, other"
+    net = "virtio,bridge=%s" % bridge + (",link_down=1" if params.get("link_down") else "")
+    argv = ["qm", "create", str(vmid), "--name", name, "--memory", str(memory), "--cores", str(cores), "--sockets", "1", "--cpu", "host",
+            "--net0", net, "--scsihw", "virtio-scsi-single", "--ostype", ostype, "--agent", "1", "--onboot", "0"]
+    if ostype.startswith("w"):
+        if not STORAGE_RE.match(storage): return None, "storage requis pour Windows (disque EFI et TPM)"
+        argv += ["--bios", "ovmf", "--machine", "q35", "--efidisk0", "%s:1,efitype=4m,pre-enrolled-keys=1" % storage, "--tpmstate0", "%s:1,version=v2.0" % storage]
+    return argv, None
+
+
+def parse_unused(config_text):
+    """`qm config <vmid>` -> volume du premier disque `unusedN` (celui que vient de créer importdisk), ou None."""
+    for line in (config_text or "").splitlines():
+        m = re.match(r"^unused\d+:\s*(\S+)", line.strip())
+        if m: return m.group(1).split(",")[0]
+    return None
+
+
+def build_attach_argv(vmid, bus, volume, boot=True):
+    """Disque importé rattaché à la VM (scsi0 / sata0 / virtio0 / ide0) et placé en premier dans l'ordre de démarrage."""
+    if not DISK_BUS_RE.match(str(bus or "")): return None, "attach : scsi0, sata0, virtio0 ou ide0"
+    if not OPTVAL_RE.match(str(volume or "")) or ":" not in str(volume): return None, "volume importé introuvable (unused0 absent de la configuration)"
+    argv = ["qm", "set", str(vmid), "--" + bus, volume + (",discard=on" if bus.startswith(("scsi", "virtio")) else "")]
+    if boot: argv += ["--boot", "order=" + bus]
+    return argv, None
 KINDS = {"qemu": "qm", "lxc": "pct"}
 SNAP_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,39}$")
 
