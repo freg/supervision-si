@@ -65,6 +65,27 @@ Vérifié contre un Radicale réel (`test_live_cal.py`) : agenda créé, hebdoma
 (lecture oui, ajout 403), modification conservant la récurrence, free/busy sans détail, ressource réservée puis conflit 409,
 suppression réservée au demandeur.
 
+## Tranche 4 : InfoLog (#668)
+
+Notes, appels et tâches **liées à tout** (contact du carnet, ticket, autre application via `app:id`), le journal partagé
+d'eGroupware. Table `infolog` (SQLite) : `owner`, `type` (note / call / task), `title`, `description`, `status`
+(open / ongoing / done / cancelled), `priority` (0-3), `due`, `start`, `responsible`, `private`, `categories`, liens
+(table `links`, `app1 = infolog`). Routes :
+
+- `GET /infolog?user=&groups=&q=&type=&status=active|…&scope=all|mine|responsible&linked=app:id` — entrées visibles :
+  les miennes et celles dont je suis responsable toujours ; celles des autres selon les partages (`r`, et `p` pour les
+  privées) ; chaque entrée porte ses droits effectifs (`rights`).
+- `POST /infolog {user, groups, entry}` (créer pour quelqu'un d'autre demande `a` sur son InfoLog) ;
+  `GET/PUT/DELETE /infolog/<id>` (`e` / `d` ; champs non fournis conservés, liens remplacés si fournis, `done_at` posé
+  au passage à « terminé »).
+
+Tuile Groupware → onglet **InfoLog** : liste (filtres type / statut / portée, recherche) ou **Kanban** par statut,
+formulaire (liens : recherche de contact dans le carnet, n° de ticket, `app:id` libre), boutons de changement de
+statut, fiche. Les entrées en retard (échéance passée, non terminées) sont marquées.
+
+Reste (tranches suivantes) : le Kanban de l'ENT devient une vue d'InfoLog ; invitations / participants (ATTENDEE) ;
+alarmes ; test réel des clients DAV et de l'auth LDAP.
+
 ## Convention de nom des collections
 
 Radicale ne connaît pas le type d'une collection dans ses droits : un partage **agenda** s'applique aux collections
@@ -84,13 +105,12 @@ et sur le serveur DAV. Le propriétaire a toujours tout sur ses données.
 
 ## Vérifié / non vérifié
 
-`groupware/api/test_core.py` (droits, effectifs avec groupes, validation, préférences, fichier Radicale, URLs),
+`groupware/api/test_core.py` (droits, effectifs avec groupes, validation, préférences, fichier Radicale, URLs, visibilité InfoLog),
 `groupware/api/test_app.py` (routes), `hub/tests/groupwareLib.test.mjs`, rendu nginx (`render_nginx_conf.py --check`).
 Non vérifié : Radicale réel derrière tls-proxy (hrefs `/dav/…`, clients Thunderbird/DAVx5/iOS), authentification LDAP réelle,
 développement des groupes sur l'annuaire réel.
 
 ## Tranches suivantes (voir la note de cadrage)
 
-2. Carnet d'adresses dans le hub (contacts partagés, vCard, lien avec les contacts des tickets) ;
-3. Agenda dans le hub sur Radicale (vues jour/semaine/mois, récurrences `icalendar`, disponibilités, ressources) ;
-4. InfoLog (notes, appels, tâches liées à tout) — le Kanban ENT devient une vue d'InfoLog.
+Les quatre tranches de la note de cadrage sont livrées (#664-#668). Suite : Kanban ENT comme vue d'InfoLog,
+invitations / participants, alarmes, test réel des clients DAV / LDAP.

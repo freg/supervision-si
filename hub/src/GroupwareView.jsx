@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { listGrants, createGrant, deleteGrant, listCategories, createCategory, updateCategory, deleteCategory, rawPrefs, putPref, deletePref, davMe, rebuildDav, groupwareHealth, listAddressbooks, createAddressbook, listContacts, createContact, updateContact, deleteContact, listCalendars, createCalendar, listEvents, createEvent, updateEvent, deleteEvent, freeBusy, listResources, createResource, deleteResource } from "./groupwareClient.js";
-import { APPS, RIGHT_PRESETS, rightsLabel, myGrants, categoryTree, EMPTY_CONTACT, contactToForm, formToContact, contactRow, weekOf, monthGrid, eventsOfDay, EMPTY_EVENT, eventToForm, formToEvent, defaultSlot, dateKey, localIso, busyOfDay, freeSlots } from "./groupwareLib.js";
+import { listGrants, createGrant, deleteGrant, listCategories, createCategory, updateCategory, deleteCategory, rawPrefs, putPref, deletePref, davMe, rebuildDav, groupwareHealth, listAddressbooks, createAddressbook, listContacts, createContact, updateContact, deleteContact, listCalendars, createCalendar, listEvents, createEvent, updateEvent, deleteEvent, freeBusy, listResources, createResource, deleteResource, listInfolog, createInfolog, updateInfolog, deleteInfolog } from "./groupwareClient.js";
+import { APPS, RIGHT_PRESETS, rightsLabel, myGrants, categoryTree, EMPTY_CONTACT, contactToForm, formToContact, contactRow, weekOf, monthGrid, eventsOfDay, EMPTY_EVENT, eventToForm, formToEvent, defaultSlot, dateKey, localIso, busyOfDay, freeSlots, INFOLOG_TYPES, INFOLOG_STATUS, PRIORITIES, EMPTY_INFOLOG, isLate, kanban, infologToForm, formToInfolog, linkLabel } from "./groupwareLib.js";
 import HubIcon from "./HubIcon.jsx";
 
 // Tuile « Groupware » (livraison #664, item 115) -- tranche 1 d'un groupware « façon eGroupware » : mes accès
@@ -8,7 +8,97 @@ import HubIcon from "./HubIcon.jsx";
 // modification, suppression, privé) à un utilisateur ou un groupe, catégories partagées / personnelles, préférences
 // (défaut, groupe, utilisateur, forcées par l'administrateur). Les applications (agenda, carnet, InfoLog) arrivent
 // par tranches ; les clients DAV fonctionnent dès maintenant. Non vérifié en navigateur ; logique pure testée sous Node.
-const TABS = [["agenda", "Agenda"], ["contacts", "Carnet d'adresses"], ["dav", "Synchronisation (CalDAV, CardDAV)"], ["grants", "Partages"], ["categories", "Catégories"], ["prefs", "Préférences"]];
+const TABS = [["agenda", "Agenda"], ["infolog", "InfoLog"], ["contacts", "Carnet d'adresses"], ["dav", "Synchronisation (CalDAV, CardDAV)"], ["grants", "Partages"], ["categories", "Catégories"], ["prefs", "Préférences"]];
+
+// #668 : InfoLog -- notes, appels, tâches, liés à tout (contact, événement, ticket, document), responsable, échéance, privé ;
+// liste ou Kanban par statut ; visibilité selon les partages « InfoLog » et le droit « privé ». Le journal du cabinet d'eGroupware.
+function InfoLog({ base, login, groups, setError, setNotice }) {
+  const [entries, setEntries] = useState([]);
+  const [filters, setFilters] = useState({ scope: "all", status: "active", type: "", q: "" });
+  const [mode, setMode] = useState("list");
+  const [sel, setSel] = useState(null);
+  const [form, setForm] = useState(null);
+  const [contactQ, setContactQ] = useState(""); const [contactHits, setContactHits] = useState([]);
+  const load = useCallback(async () => { const r = await listInfolog(base, login, groups, filters); if (r.error) setError(r.error); else setEntries(r.entries || []); }, [base, login, groups, filters, setError]);
+  useEffect(() => { const t = setTimeout(load, 200); return () => clearTimeout(t); }, [load]);
+  async function save() {
+    const body = { user: login, groups, entry: formToInfolog(form.f) };
+    const r = form.mode === "new" ? await createInfolog(base, body) : await updateInfolog(base, form.id, body);
+    if (r.error) { setError(r.error); return; } setForm(null); setSel(r.entry); setNotice(form.mode === "new" ? "Entrée créée" : "Entrée enregistrée"); load();
+  }
+  async function setStatus(e, status) { const r = await updateInfolog(base, e.id, { user: login, groups, entry: { status } }); if (r.error) setError(r.error); else { if (sel?.id === e.id) setSel(r.entry); load(); } }
+  async function remove(e) { if (!window.confirm(`Supprimer « ${e.title} » ?`)) return; const r = await deleteInfolog(base, e.id, login); if (r.error) setError(r.error); else { setSel(null); load(); } }
+  async function searchContacts(q) { setContactQ(q); if (q.length < 2) { setContactHits([]); return; } const r = await listContacts(base, login, groups, q); setContactHits(r.error ? [] : (r.contacts || []).slice(0, 8)); }
+  const Row = ({ e }) => <tr className={sel && sel.id === e.id ? "pv-selected" : ""} style={{ cursor: "pointer" }} onClick={() => { setSel(e); setForm(null); }}>
+    <td>{INFOLOG_TYPES[e.type]}</td><td><b>{e.title}</b>{e.private ? " 🔒" : ""}{e.links?.length ? <div className="muted">{e.links.map(linkLabel).join(" · ")}</div> : null}</td>
+    <td className={isLate(e) ? "pv-ko" : ""}>{e.due ? e.due.slice(0, 10) : ""}{isLate(e) ? " (retard)" : ""}</td><td>{PRIORITIES[e.priority]}</td><td>{e.responsible || <span className="muted">—</span>}</td><td className="muted">{e.owner === login ? "moi" : e.owner}</td><td>{INFOLOG_STATUS[e.status]}</td></tr>;
+  return (
+    <div className="pv-columns">
+      <div className="pv-col" style={{ flex: 3 }}>
+        <div className="hub-card hub-settings-section">
+          <div className="ds-row-between">
+            <h2 style={{ margin: 0 }}>InfoLog <span className="muted">({entries.length})</span></h2>
+            <div className="ds-inline" style={{ marginTop: 0 }}>
+              <select value={filters.scope} onChange={(e) => setFilters({ ...filters, scope: e.target.value })}><option value="all">tout ce que je vois</option><option value="mine">mes entrées</option><option value="responsible">dont je suis responsable</option></select>
+              <select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}><option value="active">à faire + en cours</option><option value="">tous les statuts</option>{Object.entries(INFOLOG_STATUS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+              <select value={filters.type} onChange={(e) => setFilters({ ...filters, type: e.target.value })}><option value="">tous les types</option>{Object.entries(INFOLOG_TYPES).map(([k, l]) => <option key={k} value={k}>{l}s</option>)}</select>
+              <input type="search" value={filters.q} placeholder="rechercher" onChange={(e) => setFilters({ ...filters, q: e.target.value })} style={{ width: 160 }} />
+              <button className={mode === "list" ? "primary pv-mini" : "secondary pv-mini"} onClick={() => setMode("list")}>liste</button><button className={mode === "kanban" ? "primary pv-mini" : "secondary pv-mini"} onClick={() => setMode("kanban")}>kanban</button>
+              <button className="primary" onClick={() => { setSel(null); setForm({ mode: "new", f: { ...EMPTY_INFOLOG } }); }}>+ Entrée</button>
+            </div>
+          </div>
+          {mode === "list" && <table className="ds-table"><thead><tr><th>Type</th><th>Titre</th><th>Échéance</th><th>Priorité</th><th>Responsable</th><th>De</th><th>Statut</th></tr></thead><tbody>{entries.map((e) => <Row key={e.id} e={e} />)}{!entries.length && <tr><td colSpan={7} className="muted">Rien pour ces filtres.</td></tr>}</tbody></table>}
+          {mode === "kanban" && <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginTop: 8 }}>{Object.entries(kanban(entries)).map(([st, list]) => <div key={st} style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 6, padding: 6, minHeight: 120 }}>
+            <div className="muted" style={{ fontWeight: 600, marginBottom: 4 }}>{INFOLOG_STATUS[st]} ({list.length})</div>
+            {list.map((e) => <div key={e.id} onClick={() => { setSel(e); setForm(null); }} style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 4, padding: "4px 6px", marginBottom: 4, cursor: "pointer", fontSize: 12 }}>
+              <div><b>{e.title}</b>{e.private ? " 🔒" : ""}</div><div className={isLate(e) ? "pv-ko" : "muted"}>{INFOLOG_TYPES[e.type]}{e.due ? " · " + e.due.slice(0, 10) : ""}{e.responsible ? " · " + e.responsible : ""}</div>
+              {/e/.test(e.rights || "") && <div className="ds-inline" style={{ marginTop: 2 }}>{Object.keys(INFOLOG_STATUS).filter((k) => k !== st).map((k) => <button key={k} className="secondary pv-mini" onClick={(ev) => { ev.stopPropagation(); setStatus(e, k); }}>{INFOLOG_STATUS[k]}</button>)}</div>}
+            </div>)}</div>)}</div>}
+        </div>
+      </div>
+      <div className="pv-col" style={{ flex: 2 }}>
+        {form && (
+          <div className="hub-card hub-settings-section">
+            <h2>{form.mode === "new" ? "Nouvelle entrée" : "Modifier"}</h2>
+            <div className="pv-grid">
+              <div className="hub-settings-row"><label>Type</label><select value={form.f.type} onChange={(e) => setForm({ ...form, f: { ...form.f, type: e.target.value } })}>{Object.entries(INFOLOG_TYPES).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
+              <div className="hub-settings-row"><label>Statut</label><select value={form.f.status} onChange={(e) => setForm({ ...form, f: { ...form.f, status: e.target.value } })}>{Object.entries(INFOLOG_STATUS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
+              <div className="hub-settings-row" style={{ gridColumn: "1 / -1" }}><label>Titre</label><input type="text" value={form.f.title} onChange={(e) => setForm({ ...form, f: { ...form.f, title: e.target.value } })} /></div>
+              <div className="hub-settings-row"><label>Échéance</label><input type="date" value={form.f.due.slice(0, 10)} onChange={(e) => setForm({ ...form, f: { ...form.f, due: e.target.value } })} /></div>
+              <div className="hub-settings-row"><label>Priorité</label><select value={form.f.priority} onChange={(e) => setForm({ ...form, f: { ...form.f, priority: e.target.value } })}>{PRIORITIES.map((l, i) => <option key={i} value={i}>{l}</option>)}</select></div>
+              <div className="hub-settings-row"><label>Responsable (uid)</label><input type="text" value={form.f.responsible} onChange={(e) => setForm({ ...form, f: { ...form.f, responsible: e.target.value } })} /></div>
+              <div className="hub-settings-row"><label>Catégories (virgules)</label><input type="text" value={form.f.categories} onChange={(e) => setForm({ ...form, f: { ...form.f, categories: e.target.value } })} /></div>
+              <label className="pv-check"><input type="checkbox" checked={form.f.private} onChange={(e) => setForm({ ...form, f: { ...form.f, private: e.target.checked } })} /> privé (visible de moi, du responsable, et des partages « voir le privé »)</label>
+              <div className="hub-settings-row" style={{ gridColumn: "1 / -1" }}><label>Description</label><textarea rows={4} value={form.f.description} onChange={(e) => setForm({ ...form, f: { ...form.f, description: e.target.value } })} /></div>
+              <div className="hub-settings-row" style={{ gridColumn: "1 / -1" }}><label>Liens</label>
+                <div>{form.f.links.map((l, i) => <span key={i} className="muted" style={{ marginRight: 8 }}>{linkLabel(l)} <button className="secondary pv-mini" onClick={() => setForm({ ...form, f: { ...form.f, links: form.f.links.filter((_, j) => j !== i) } })}>✕</button></span>)}</div>
+                <div className="ds-inline"><input type="search" value={contactQ} placeholder="lier un contact (nom, société…)" onChange={(e) => searchContacts(e.target.value)} />
+                  {contactHits.map((c) => <button key={`${c.owner}/${c.book}/${c.uid}`} className="secondary pv-mini" onClick={() => { setForm({ ...form, f: { ...form.f, links: [...form.f.links, { app: "contact", id: `${c.owner}/${c.book}/${c.uid}` }] } }); setContactQ(""); setContactHits([]); }}>{contactRow(c).name}</button>)}</div>
+                <div className="ds-inline"><input type="text" placeholder="ticket n°" style={{ width: 90 }} id="il-ticket" /><button className="secondary pv-mini" onClick={() => { const v = document.getElementById("il-ticket").value.trim(); if (v) { setForm({ ...form, f: { ...form.f, links: [...form.f.links, { app: "ticket", id: v }] } }); document.getElementById("il-ticket").value = ""; } }}>+ ticket</button>
+                  <input type="text" placeholder="autre : app:id (ged:123, event:…)" style={{ width: 200 }} id="il-other" /><button className="secondary pv-mini" onClick={() => { const v = document.getElementById("il-other").value.trim(); const [app, ...rest] = v.split(":"); if (app && rest.length) { setForm({ ...form, f: { ...form.f, links: [...form.f.links, { app, id: rest.join(":") }] } }); document.getElementById("il-other").value = ""; } }}>+ lien</button></div></div>
+            </div>
+            <div className="pv-inline"><button className="primary" onClick={save} disabled={!form.f.title}>Enregistrer</button><button className="secondary" onClick={() => setForm(null)}>Annuler</button></div>
+          </div>
+        )}
+        {sel && !form && (
+          <div className="hub-card hub-settings-section">
+            <div className="ds-row-between"><h2 style={{ margin: 0 }}>{INFOLOG_TYPES[sel.type]} : {sel.title}</h2><div>{/e/.test(sel.rights || "") && <button className="secondary pv-mini" onClick={() => setForm({ mode: "edit", id: sel.id, f: infologToForm(sel) })}>modifier</button>}{/d/.test(sel.rights || "") && <button className="secondary pv-mini pv-danger" onClick={() => remove(sel)}>supprimer</button>}</div></div>
+            <table className="ds-table"><tbody>
+              <tr><th>Statut</th><td>{INFOLOG_STATUS[sel.status]}{/e/.test(sel.rights || "") && <span> {Object.keys(INFOLOG_STATUS).filter((k) => k !== sel.status).map((k) => <button key={k} className="secondary pv-mini" onClick={() => setStatus(sel, k)}>{INFOLOG_STATUS[k]}</button>)}</span>}{sel.done_at ? <div className="muted">terminé le {sel.done_at.replace("T", " ").slice(0, 16)}</div> : null}</td></tr>
+              <tr><th>Échéance / priorité</th><td className={isLate(sel) ? "pv-ko" : ""}>{sel.due ? sel.due.slice(0, 10) : "—"} · {PRIORITIES[sel.priority]}</td></tr>
+              <tr><th>Responsable</th><td>{sel.responsible || "—"} <span className="muted">(créé par {sel.created_by}{sel.owner !== login ? `, InfoLog de ${sel.owner}` : ""})</span></td></tr>
+              {sel.description && <tr><th>Description</th><td style={{ whiteSpace: "pre-wrap" }}>{sel.description}</td></tr>}
+              {(sel.categories || []).length > 0 && <tr><th>Catégories</th><td>{sel.categories.join(", ")}</td></tr>}
+              {(sel.links || []).length > 0 && <tr><th>Liens</th><td>{sel.links.map((l) => <div key={l.link_id}>{linkLabel(l)}</div>)}</td></tr>}
+              <tr><th>Mis à jour</th><td className="muted">{(sel.updated_at || "").replace("T", " ").slice(0, 16)}{sel.private ? " · privé" : ""}</td></tr>
+            </tbody></table>
+          </div>
+        )}
+        {!sel && !form && <div className="hub-card hub-settings-section"><p className="muted">Notes, appels et tâches, rattachés à un contact, un ticket, un événement ou un document. Une entrée se partage comme le reste (onglet Partages, application InfoLog) ; le responsable la voit et peut changer son statut même sans partage.</p></div>}
+      </div>
+    </div>
+  );
+}
 
 // #666 : agenda dans le hub -- semaine (grille horaire) / mois / liste, tous les agendas lisibles + ressources, création dans un
 // agenda où j'ai le droit, récurrences simples, disponibilités de plusieurs personnes (sans détail), ressources réservables
@@ -251,6 +341,7 @@ export default function GroupwareView({ onBack, groupwareApiBase, login, groups,
       {error && <div className="hub-card ds-error">⚠️ {error}</div>}
       {notice && <div className="hub-card ds-notice">{notice}</div>}
 
+      {tab === "infolog" && <InfoLog base={groupwareApiBase} login={login} groups={groups} setError={setError} setNotice={setNotice} />}
       {tab === "agenda" && <Agenda base={groupwareApiBase} login={login} groups={groups} health={health} isAdmin={isAdmin} setError={setError} setNotice={setNotice} />}
       {tab === "contacts" && <Contacts base={groupwareApiBase} login={login} groups={groups} health={health} setError={setError} setNotice={setNotice} />}
       {tab === "dav" && (

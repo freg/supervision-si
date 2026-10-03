@@ -98,3 +98,21 @@ export function freeSlots(busyByPrincipal, day, fromH = 8, toH = 19, minMinutes 
   if (cur < toH * 60 && toH * 60 - cur >= minMinutes) out.push([cur, toH * 60]);
   return out.filter(([a, b]) => b > a).map(([a, b]) => `${pad(Math.floor(a / 60))}:${pad(a % 60)}–${pad(Math.floor(b / 60))}:${pad(b % 60)}`);
 }
+
+// #668 : InfoLog -- libellés, colonnes Kanban, retard, formulaire <-> entrée, lien lisible.
+export const INFOLOG_TYPES = { note: "Note", call: "Appel", task: "Tâche" };
+export const INFOLOG_STATUS = { open: "À faire", ongoing: "En cours", done: "Terminé", cancelled: "Annulé" };
+export const PRIORITIES = ["basse", "normale", "haute", "urgente"];
+export const EMPTY_INFOLOG = { type: "task", title: "", description: "", status: "open", priority: 1, due: "", start: "", responsible: "", private: false, categories: "", links: [] };
+export function isLate(e, today = new Date()) { return !!e.due && ["open", "ongoing"].includes(e.status) && e.due.slice(0, 10) < dateKey(today); }
+export function kanban(entries) { const cols = {}; for (const k of Object.keys(INFOLOG_STATUS)) cols[k] = []; for (const e of entries || []) (cols[e.status] = cols[e.status] || []).push(e); return cols; }
+export function infologToForm(e) { return { ...EMPTY_INFOLOG, ...e, private: !!e.private, categories: (e.categories || []).join(", "), links: (e.links || []).map((l) => ({ app: l.app, id: l.id })) }; }
+export function formToInfolog(f) { return { type: f.type, title: f.title, description: f.description, status: f.status, priority: Number(f.priority), due: f.due, start: f.start, responsible: f.responsible, private: !!f.private, categories: String(f.categories || "").split(",").map((x) => x.trim()).filter(Boolean), links: (f.links || []).filter((l) => l.app && l.id) }; }
+export function linkLabel(l) {
+  if (!l) return "";
+  if (l.app === "contact") { const parts = String(l.id).split("/"); return `contact ${parts[2] || l.id}${parts[0] ? " (" + parts[0] + ")" : ""}`; }
+  if (l.app === "event") return `événement ${String(l.id).split("/").slice(-1)[0]}`;
+  if (l.app === "ticket") return `ticket n°${l.id}`;
+  if (l.app === "ged") return `document ${l.id}`;
+  return `${l.app} ${l.id}`;
+}

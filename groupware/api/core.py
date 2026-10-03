@@ -139,3 +139,63 @@ def dav_urls(public_base, user):
     base = (public_base or "").rstrip("/")
     return {"principal": "%s/%s/" % (base, user), "caldav": "%s/%s/" % (base, user), "carddav": "%s/%s/" % (base, user),
             "discovery": base + "/", "note": "Les clients (Thunderbird, DAVx5, iOS, macOS) découvrent les agendas et carnets à partir de l'URL du principal ; une collection se crée depuis le client ou l'interface Radicale (%s/.web/)." % base}
+
+
+# ---------------------------------------------------------------- #668 : InfoLog (notes, appels, tâches) -- visibilité et validation
+INFOLOG_TYPES = ("note", "call", "task")
+INFOLOG_STATUS = ("open", "ongoing", "done", "cancelled")
+PRIORITIES = (0, 1, 2, 3)   # basse, normale, haute, urgente
+
+
+def infolog_visible(entries, user, groups, grants):
+    """Entrées lisibles par `user` : les siennes, celles dont il est responsable, celles des propriétaires qui lui ont accordé r ;
+    une entrée privée ne se voit que par son propriétaire, son responsable ou avec le droit p. Chaque entrée reçoit `rights`."""
+    eff = effective(grants, "infolog", user, groups)
+    out = []
+    for e in entries:
+        mask = eff.get(e["owner"], 0)
+        mine = e["owner"] == user or e.get("responsible") == user
+        if not mine and not mask & RIGHTS["r"]:
+            continue
+        if e.get("private") and not mine and not mask & RIGHTS["p"]:
+            continue
+        r = 31 if e["owner"] == user else (mask | (RIGHTS["r"] | RIGHTS["e"]) if e.get("responsible") == user else mask)
+        out.append(dict(e, rights=rights_text(r)))
+    return out
+
+
+def validate_infolog(body, user):
+    b = body or {}
+    typ = str(b.get("type") or "note")
+    if typ not in INFOLOG_TYPES:
+        return None, "type : " + ", ".join(INFOLOG_TYPES)
+    title = str(b.get("title") or "").strip()
+    if not title:
+        return None, "title requis"
+    status = str(b.get("status") or "open")
+    if status not in INFOLOG_STATUS:
+        return None, "status : " + ", ".join(INFOLOG_STATUS)
+    try:
+        prio = int(b.get("priority", 1))
+    except (TypeError, ValueError):
+        return None, "priority : 0 à 3"
+    if prio not in PRIORITIES:
+        return None, "priority : 0 à 3"
+    for k in ("due", "start"):
+        v = b.get(k)
+        if v and not re.match(r"^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$", str(v)):
+            return None, "%s : date ISO (AAAA-MM-JJ ou AAAA-MM-JJTHH:MM)" % k
+    owner = str(b.get("owner") or user)
+    if not NAME_RE.match(owner):
+        return None, "owner invalide"
+    resp = str(b.get("responsible") or "")
+    if resp and not NAME_RE.match(resp):
+        return None, "responsible invalide"
+    links = []
+    for l in b.get("links") or []:
+        a, i = str((l or {}).get("app") or "").strip(), str((l or {}).get("id") or "").strip()
+        if a and i and len(a) <= 40 and len(i) <= 120:
+            links.append({"app": a, "id": i})
+    return {"owner": owner, "type": typ, "title": title[:200], "description": str(b.get("description") or "")[:8000], "status": status, "priority": prio,
+            "due": str(b.get("due") or ""), "start": str(b.get("start") or ""), "responsible": resp, "private": 1 if b.get("private") else 0,
+            "categories": ",".join(str(c).strip() for c in (b.get("categories") or []) if str(c).strip())[:400], "links": links}, None

@@ -62,6 +62,8 @@ def init_db():
     CREATE TABLE IF NOT EXISTS prefs (id INTEGER PRIMARY KEY AUTOINCREMENT, level TEXT NOT NULL, subject TEXT DEFAULT '', app TEXT DEFAULT '*', key TEXT NOT NULL, value TEXT DEFAULT '', updated_at TEXT, updated_by TEXT,
         UNIQUE(level, subject, app, key));
     CREATE TABLE IF NOT EXISTS journal (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT, who TEXT, what TEXT);
+    CREATE TABLE IF NOT EXISTS infolog (id INTEGER PRIMARY KEY AUTOINCREMENT, owner TEXT NOT NULL, type TEXT NOT NULL, title TEXT NOT NULL, description TEXT DEFAULT '', status TEXT DEFAULT 'open',
+        priority INTEGER DEFAULT 1, due TEXT DEFAULT '', start TEXT DEFAULT '', responsible TEXT DEFAULT '', private INTEGER DEFAULT 0, categories TEXT DEFAULT '', created_by TEXT, created_at TEXT, updated_at TEXT, done_at TEXT DEFAULT '');
     CREATE TABLE IF NOT EXISTS resources (id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT UNIQUE NOT NULL, name TEXT NOT NULL, kind TEXT DEFAULT 'salle', capacity INTEGER DEFAULT 0, notes TEXT DEFAULT '', created_at TEXT);
     """); cn.commit(); cn.close()
 init_db()
@@ -532,6 +534,90 @@ def resources_create():
 def resources_delete(slug):
     cn = db(); n = cn.execute("DELETE FROM resources WHERE slug = ?", (slug,)).rowcount; cn.commit(); cn.close()
     return (jsonify(ok=True, note="l'agenda %s/agenda-%s est conservé (réservations passées)" % (RESOURCE_OWNER, slug)), 200) if n else (jsonify(error="ressource inconnue"), 404)
+
+# ---------------------------------------------------------------- #668 : InfoLog -- notes, appels, tâches liés à tout (contacts, événements, tickets, documents)
+def _infolog_links(cn, ids):
+    out = {i: [] for i in ids}
+    if ids:
+        q = "SELECT * FROM links WHERE (app1 = 'infolog' AND id1 IN (%s)) OR (app2 = 'infolog' AND id2 IN (%s))" % (",".join("?" * len(ids)), ",".join("?" * len(ids)))
+        for r in cn.execute(q, [str(i) for i in ids] * 2):
+            r = dict(r)
+            me, other = (r["id1"], {"app": r["app2"], "id": r["id2"]}) if r["app1"] == "infolog" else (r["id2"], {"app": r["app1"], "id": r["id1"]})
+            out.setdefault(int(me), []).append(dict(other, link_id=r["id"], remark=r["remark"]))
+    return out
+
+def _infolog_public(rows, cn):
+    links = _infolog_links(cn, [r["id"] for r in rows])
+    return [dict(r, private=bool(r["private"]), categories=[c for c in (r["categories"] or "").split(",") if c], links=links.get(r["id"], [])) for r in rows]
+
+@app.route("/infolog", methods=["GET"])
+def infolog_list():
+    """?user=&groups=&q=&type=&status=&scope=all|mine|responsible&linked=app:id -> entrées visibles (partages infolog, privé)."""
+    user, groups = request.args.get("user") or "", groups_arg()
+    if not core.NAME_RE.match(user): return jsonify(error="user requis"), 400
+    cn = db(); grants = [dict(r) for r in cn.execute("SELECT * FROM grants WHERE app = 'infolog'")]
+    where, args = [], []
+    if request.args.get("type") in core.INFOLOG_TYPES: where.append("type = ?"); args.append(request.args["type"])
+    st = request.args.get("status")
+    if st == "active": where.append("status IN ('open','ongoing')")
+    elif st in core.INFOLOG_STATUS: where.append("status = ?"); args.append(st)
+    scope = request.args.get("scope") or "all"
+    if scope == "mine": where.append("owner = ?"); args.append(user)
+    elif scope == "responsible": where.append("responsible = ?"); args.append(user)
+    linked = request.args.get("linked")
+    if linked and ":" in linked:
+        a, i = linked.split(":", 1)
+        ids = [str(r["id1"] if r["app1"] == "infolog" else r["id2"]) for r in cn.execute("SELECT * FROM links WHERE (app1 = 'infolog' AND app2 = ? AND id2 = ?) OR (app2 = 'infolog' AND app1 = ? AND id1 = ?)", (a, i, a, i))]
+        where.append("id IN (%s)" % (",".join("?" * len(ids)) or "NULL")); args += ids
+    q = (request.args.get("q") or "").strip().lower()
+    rows = [dict(r) for r in cn.execute("SELECT * FROM infolog%s ORDER BY CASE status WHEN 'open' THEN 0 WHEN 'ongoing' THEN 1 ELSE 2 END, priority DESC, CASE WHEN due = '' THEN 1 ELSE 0 END, due, updated_at DESC LIMIT 2000" % ((" WHERE " + " AND ".join(where)) if where else ""), args)]
+    if q: rows = [r for r in rows if all(w in " ".join([r["title"], r["description"], r["categories"], r["responsible"], r["owner"]]).lower() for w in q.split())]
+    vis = core.infolog_visible(rows, user, groups, grants)
+    out = _infolog_public(vis, cn); cn.close()
+    return jsonify(entries=out, total=len(out), types=list(core.INFOLOG_TYPES), status=list(core.INFOLOG_STATUS))
+
+@app.route("/infolog", methods=["POST"])
+def infolog_create():
+    b = request.get_json(silent=True) or {}; user = str(b.get("user") or "")
+    if not core.NAME_RE.match(user): return jsonify(error="user requis"), 400
+    e, err = core.validate_infolog(b.get("entry") or {}, user)
+    if err: return jsonify(error=err), 400
+    if e["owner"] != user and not _rights_on("infolog", user, b.get("groups") or [], e["owner"]) & core.RIGHTS["a"]: return jsonify(error="pas le droit d'ajouter dans l'InfoLog de %s" % e["owner"]), 403
+    cn = db()
+    cur = cn.execute("INSERT INTO infolog (owner, type, title, description, status, priority, due, start, responsible, private, categories, created_by, created_at, updated_at, done_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                     (e["owner"], e["type"], e["title"], e["description"], e["status"], e["priority"], e["due"], e["start"], e["responsible"], e["private"], e["categories"], user, now(), now(), now() if e["status"] == "done" else ""))
+    eid = cur.lastrowid
+    for l in e["links"]: cn.execute("INSERT OR IGNORE INTO links (app1, id1, app2, id2, remark, created_by, created_at) VALUES ('infolog',?,?,?,?,?,?)", (str(eid), l["app"], l["id"], "", user, now()))
+    cn.commit(); row = _infolog_public([dict(cn.execute("SELECT * FROM infolog WHERE id = ?", (eid,)).fetchone())], cn)[0]; cn.close()
+    return jsonify(entry=dict(row, rights="raedp" if e["owner"] == user else core.rights_text(_rights_on("infolog", user, b.get("groups") or [], e["owner"])))), 201
+
+@app.route("/infolog/<int:eid>", methods=["GET", "PUT", "DELETE"])
+def infolog_one(eid):
+    b = request.get_json(silent=True) or {}; user = str(b.get("user") or request.args.get("user") or ""); groups = b.get("groups") or groups_arg()
+    if not core.NAME_RE.match(user): return jsonify(error="user requis"), 400
+    cn = db(); row = cn.execute("SELECT * FROM infolog WHERE id = ?", (eid,)).fetchone()
+    if not row: cn.close(); return jsonify(error="entrée inconnue"), 404
+    grants = [dict(r) for r in cn.execute("SELECT * FROM grants WHERE app = 'infolog'")]
+    vis = core.infolog_visible([dict(row)], user, groups, grants)
+    if not vis: cn.close(); return jsonify(error="entrée non visible"), 403
+    cur = vis[0]
+    if request.method == "GET":
+        out = _infolog_public([cur], cn)[0]; cn.close(); return jsonify(entry=dict(out, rights=cur["rights"]))
+    if request.method == "DELETE":
+        if "d" not in cur["rights"]: cn.close(); return jsonify(error="droit insuffisant"), 403
+        cn.execute("DELETE FROM infolog WHERE id = ?", (eid,)); cn.execute("DELETE FROM links WHERE (app1 = 'infolog' AND id1 = ?) OR (app2 = 'infolog' AND id2 = ?)", (str(eid), str(eid))); cn.commit(); cn.close()
+        return jsonify(ok=True)
+    if "e" not in cur["rights"]: cn.close(); return jsonify(error="droit insuffisant"), 403
+    merged = dict(cur, categories=[c for c in (cur["categories"] or "").split(",") if c]); merged.update({k: v for k, v in (b.get("entry") or {}).items() if k not in ("owner", "links")})
+    e, err = core.validate_infolog(merged, cur["owner"])
+    if err: cn.close(); return jsonify(error=err), 400
+    cn.execute("UPDATE infolog SET type=?, title=?, description=?, status=?, priority=?, due=?, start=?, responsible=?, private=?, categories=?, updated_at=?, done_at=? WHERE id=?",
+               (e["type"], e["title"], e["description"], e["status"], e["priority"], e["due"], e["start"], e["responsible"], e["private"], e["categories"], now(), (cur["done_at"] or now()) if e["status"] == "done" else "", eid))
+    if "links" in (b.get("entry") or {}):
+        cn.execute("DELETE FROM links WHERE app1 = 'infolog' AND id1 = ?", (str(eid),))
+        for l in core.validate_infolog({"title": "x", "links": b["entry"]["links"]}, user)[0]["links"]: cn.execute("INSERT OR IGNORE INTO links (app1, id1, app2, id2, remark, created_by, created_at) VALUES ('infolog',?,?,?,?,?,?)", (str(eid), l["app"], l["id"], "", user, now()))
+    cn.commit(); out = _infolog_public([dict(cn.execute("SELECT * FROM infolog WHERE id = ?", (eid,)).fetchone())], cn)[0]; cn.close()
+    return jsonify(entry=dict(out, rights=cur["rights"]))
 
 @app.route("/journal", methods=["GET"])
 def journal_route():

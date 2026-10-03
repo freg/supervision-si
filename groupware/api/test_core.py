@@ -54,5 +54,14 @@ class Core(unittest.TestCase):
         u = core.dav_urls("https://hub.exemple.fr:6443/dav/", "bob")
         self.assertEqual(u["principal"], "https://hub.exemple.fr:6443/dav/bob/"); self.assertIn("/.web/", u["note"])
 
+    def test_infolog(self):
+        grants = [{"owner": "alice", "app": "infolog", "grantee_kind": "user", "grantee": "bob", "rights": 1}, {"owner": "carol", "app": "infolog", "grantee_kind": "user", "grantee": "bob", "rights": 17}]
+        entries = [{"id": 1, "owner": "alice", "private": 0}, {"id": 2, "owner": "alice", "private": 1}, {"id": 3, "owner": "carol", "private": 1}, {"id": 4, "owner": "dave", "private": 0}, {"id": 5, "owner": "dave", "private": 1, "responsible": "bob"}, {"id": 6, "owner": "bob", "private": 1}]
+        v = core.infolog_visible(entries, "bob", [], grants)
+        self.assertEqual([e["id"] for e in v], [1, 3, 5, 6]); self.assertEqual(v[0]["rights"], "r"); self.assertEqual(v[1]["rights"], "rp"); self.assertEqual(v[2]["rights"], "re"); self.assertEqual(v[3]["rights"], "raedp")
+        e, err = core.validate_infolog({"type": "call", "title": "Rappeler", "due": "2026-10-07", "priority": "2", "links": [{"app": "contact", "id": "alice/contacts-pro/u1"}, {"app": "", "id": "x"}], "categories": ["client", " "]}, "bob")
+        self.assertIsNone(err); self.assertEqual(e["owner"], "bob"); self.assertEqual(e["priority"], 2); self.assertEqual(len(e["links"]), 1); self.assertEqual(e["categories"], "client")
+        self.assertIn("type", core.validate_infolog({"type": "x", "title": "t"}, "bob")[1]); self.assertIn("title", core.validate_infolog({}, "bob")[1]); self.assertIn("due", core.validate_infolog({"title": "t", "due": "demain"}, "bob")[1]); self.assertIn("priority", core.validate_infolog({"title": "t", "priority": 9}, "bob")[1])
+
 if __name__ == "__main__":
     unittest.main()

@@ -43,5 +43,25 @@ class Api(unittest.TestCase):
         self.assertEqual(len(self.c.get("/prefs?raw=1").json["prefs"]), 3); self.assertTrue(self.c.delete("/prefs", json={"level": "user", "subject": "bob", "app": "calendar", "key": "view"}).json["ok"])
         self.assertTrue(self.c.get("/journal").json["journal"]); self.assertEqual(self.c.get("/health").json["status"], "ok")
 
+    def test_infolog(self):
+        c = self.c
+        r = c.post("/infolog", json={"user": "alice", "entry": {"type": "task", "title": "Rappeler le client", "due": "2026-10-07", "priority": 2, "responsible": "bob", "links": [{"app": "contact", "id": "alice/contacts-pro/u1"}, {"app": "ticket", "id": "42"}], "categories": ["client"]}})
+        self.assertEqual(r.status_code, 201, r.json); eid = r.json["entry"]["id"]; self.assertEqual(len(r.json["entry"]["links"]), 2); self.assertEqual(r.json["entry"]["rights"], "raedp")
+        c.post("/infolog", json={"user": "alice", "entry": {"type": "note", "title": "Secret", "private": True}})
+        c.post("/infolog", json={"user": "carol", "entry": {"type": "call", "title": "Appel fournisseur", "status": "done"}})
+        self.assertEqual(c.post("/infolog", json={"user": "bob", "entry": {"title": "x", "owner": "alice"}}).status_code, 403)
+        self.assertEqual(c.get("/infolog?user=alice").json["total"], 2)
+        bob = c.get("/infolog?user=bob").json; self.assertEqual([e["title"] for e in bob["entries"]], ["Rappeler le client"]); self.assertEqual(bob["entries"][0]["rights"], "re")   # responsable, sans partage
+        c.post("/grants", json={"owner": "alice", "app": "infolog", "grantee": "bob", "rights": "r"})
+        self.assertEqual(c.get("/infolog?user=bob").json["total"], 1)            # privé toujours caché sans p
+        c.post("/grants", json={"owner": "alice", "app": "infolog", "grantee": "bob", "rights": "rp"}); self.assertEqual(c.get("/infolog?user=bob").json["total"], 2)
+        self.assertEqual(c.get("/infolog?user=alice&linked=ticket:42").json["total"], 1); self.assertEqual(c.get("/infolog?user=alice&status=done").json["total"], 0); self.assertEqual(c.get("/infolog?user=carol&status=done").json["total"], 1)
+        self.assertEqual(c.get("/infolog?user=bob&scope=responsible").json["total"], 1); self.assertEqual(c.get("/infolog?user=alice&q=client rappeler").json["total"], 1)
+        r = c.put("/infolog/%d" % eid, json={"user": "bob", "entry": {"status": "done"}}); self.assertEqual(r.status_code, 200, r.json); self.assertTrue(r.json["entry"]["done_at"]); self.assertEqual(r.json["entry"]["responsible"], "bob"); self.assertEqual(len(r.json["entry"]["links"]), 2)
+        self.assertEqual(c.delete("/infolog/%d?user=bob" % eid).status_code, 403)
+        r = c.put("/infolog/%d" % eid, json={"user": "alice", "entry": {"links": [{"app": "ticket", "id": "42"}], "status": "open"}}); self.assertEqual(len(r.json["entry"]["links"]), 1); self.assertEqual(r.json["entry"]["done_at"], "")
+        self.assertEqual(c.get("/infolog/%d?user=carol" % eid).status_code, 403); self.assertEqual(c.get("/infolog/%d?user=alice" % eid).json["entry"]["title"], "Rappeler le client")
+        self.assertEqual(c.delete("/infolog/%d?user=alice" % eid).json["ok"], True); self.assertEqual(c.get("/links?app=ticket&id=42").json["links"], [])
+
 if __name__ == "__main__":
     unittest.main()

@@ -60,8 +60,10 @@ thead tr + tr th { top: 0; }
 /* #562 : cadres de page (PageFrame.jsx) -- division verticale (colonnes) ou
    horizontale (bandes) ; cadres de menu à titre fixe et options déroulantes */
 .hub-page { display: flex; flex-direction: column; min-height: 0; }
-.hub-page-head { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 8px 24px; border-bottom: 1px solid var(--border); background: var(--panel); }
-.hub-page-head h1 { margin: 0; font-size: 20px; }
+/* #668 : en fenêtre étroite (écran partagé), les onglets passent à la ligne au lieu de chevaucher le titre et de déborder à droite */
+.hub-page-head { flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 8px 24px; border-bottom: 1px solid var(--border); background: var(--panel); }
+.hub-page-head h1 { margin: 0; font-size: 20px; white-space: nowrap; }
+.hub-page-head > button, .hub-page-head .na-section-toggle { white-space: nowrap; }
 .hub-page-body { flex: 1; min-height: 0; display: flex; gap: 0; }
 .hub-page-body.horizontal { flex-direction: column; }
 .hub-page-side { flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; background: var(--panel); border-right: 1px solid var(--border); width: 260px; }

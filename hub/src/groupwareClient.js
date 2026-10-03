@@ -46,3 +46,8 @@ export const freeBusy = (b, users, resources, from, to) => fetchJson(`${b}/freeb
 export const listResources = (b) => fetchJson(`${b}/resources`);
 export const createResource = (b, body) => fetchJson(`${b}/resources`, json("POST", body));
 export const deleteResource = (b, slug) => fetchJson(`${b}/resources/${encodeURIComponent(slug)}`, { method: "DELETE" });
+// #668 : InfoLog (notes, appels, tâches liés à tout)
+export const listInfolog = (b, user, groups, params) => fetchJson(`${b}/infolog?${q({ user, groups: (groups || []).join(","), ...(params || {}) })}`);
+export const createInfolog = (b, body) => fetchJson(`${b}/infolog`, json("POST", body));
+export const updateInfolog = (b, id, body) => fetchJson(`${b}/infolog/${id}`, json("PUT", body));
+export const deleteInfolog = (b, id, user) => fetchJson(`${b}/infolog/${id}?user=${encodeURIComponent(user)}`, { method: "DELETE" });

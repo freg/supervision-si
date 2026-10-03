@@ -1,3 +1,22 @@
+## 2026-10-03 — Groupware tranche 4 : InfoLog ; tour : en-tête en fenêtre étroite (livraison #668)
+
+Dernière tranche de la note de cadrage (item 115) : **InfoLog**, le journal d'eGroupware — notes, appels et tâches
+**liées à tout** (contact du carnet, ticket, `app:id`). API `groupware-api` : table `infolog`, `GET /infolog` (filtres
+type / statut / portée / recherche / lié à), `POST`, `GET/PUT/DELETE /infolog/<id>` ; visibilité par les partages
+(`r`, `p` pour les privées ; propriétaire et responsable toujours), droits effectifs renvoyés par entrée, `done_at`
+posé au passage à « terminé ». Tuile Groupware → onglet **InfoLog** : liste ou Kanban par statut, filtres, formulaire
+avec recherche de contact, n° de ticket, lien libre ; boutons de statut ; retard signalé.
+
+Tour de contrôle : en fenêtre étroite, le titre et les onglets de l'en-tête se chevauchaient avec le contenu
+(`.hub-page-head` passe à la ligne, titre et onglets sans retour à la ligne interne).
+
+- Vérifié : `groupware/api` (`test_core`, `test_app` avec InfoLog), hub `node --test` (308), `@babel/parser` sur
+  `GroupwareView.jsx`.
+- Non vérifié : rendu dans le navigateur, service réel derrière tls-proxy.
+- Fichiers : `groupware/api/{core.py,app.py,test_core.py,test_app.py}`, `groupware/README.md`,
+  `hub/src/{GroupwareView.jsx,groupwareClient.js,groupwareLib.js,hub.css}`, `hub/tests/groupwareLib.test.mjs`,
+  `BACKLOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — Mise à jour git : les fichiers générés par run.sh ne bloquent plus (livraison #667)
 
 Constaté sur super : « fichiers modifiés localement : shared/EXPOSURE.json, shared/VERSION.json » — ces deux fichiers sont

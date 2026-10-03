@@ -45,3 +45,13 @@ test("agenda : formulaire <-> événement, créneau par défaut, disponibilités
   assert.deepEqual(freeSlots(busy, new Date(2026, 9, 7)), ["08:00–09:00", "10:00–12:00", "14:00–19:00"]);
   assert.deepEqual(freeSlots({}, new Date(2026, 9, 7), 9, 12), ["09:00–12:00"]);
 });
+
+import { isLate, kanban, infologToForm, formToInfolog, linkLabel, INFOLOG_STATUS } from "../src/groupwareLib.js";
+test("infolog : retard, kanban, formulaire, libellés de liens", () => {
+  const today = new Date(2026, 9, 7);
+  assert.ok(isLate({ due: "2026-10-06", status: "open" }, today)); assert.ok(!isLate({ due: "2026-10-06", status: "done" }, today)); assert.ok(!isLate({ due: "", status: "open" }, today)); assert.ok(!isLate({ due: "2026-10-07", status: "open" }, today));
+  const k = kanban([{ id: 1, status: "open" }, { id: 2, status: "done" }, { id: 3, status: "open" }]); assert.deepEqual(Object.keys(k), Object.keys(INFOLOG_STATUS)); assert.equal(k.open.length, 2); assert.equal(k.ongoing.length, 0);
+  const f = infologToForm({ id: 5, type: "call", title: "Rappeler", categories: ["client"], private: 1, links: [{ app: "ticket", id: "42", link_id: 9 }] }); assert.equal(f.categories, "client"); assert.equal(f.private, true); assert.deepEqual(f.links, [{ app: "ticket", id: "42" }]);
+  const e = formToInfolog({ ...f, priority: "2", links: [{ app: "ticket", id: "42" }, { app: "", id: "" }] }); assert.equal(e.priority, 2); assert.deepEqual(e.categories, ["client"]); assert.equal(e.links.length, 1);
+  assert.equal(linkLabel({ app: "contact", id: "alice/contacts-pro/u1" }), "contact u1 (alice)"); assert.equal(linkLabel({ app: "ticket", id: "42" }), "ticket n°42"); assert.equal(linkLabel({ app: "x", id: "y" }), "x y");
+});
