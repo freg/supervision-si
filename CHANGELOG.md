@@ -1,7 +1,47 @@
+## 2026-10-03 — Portage PHP → Python : création d'un projet de portage avec import du code et des données (livraison #650)
+
+Demande : « construit une interface de création de projet de portage avec import code et données » — et, posé juste
+avant : le portage du site et la gestion de tickets ne doivent pas apparaître dans le git ; l'IA de portage, elle,
+peut vivre en projet indépendant ou en extension du hub. Choix : **extension du hub qui pilote le projet indépendant**
+(`portage-kit`, monté par volume, jamais copié ici) — le hub produit les projets, le kit reste seul dépositaire de la
+méthode. Nouveau module `portage/` (API) + tuile Data → « Portage PHP → Python ».
+
+- `portage/api/app.py` : projets (SQLite `/data/portage.db`), import du code (zip/tgz, dossier racine unique remonté,
+  chemins `../` refusés, type et fichier d'entrée détectés : Fat-Free ou monolithe `switch($mode)`), import du dump
+  (`.sql`/`.sql.gz`, chargé dans `portage-db` → base `port_<projet>` recréée, charset du projet), génération du
+  `apps/<projet>.yml` attendu par le kit, exécution des étapes dans un thread (journal `run.log`, statut suivi par le
+  hub), rapports (PORT_SPEC, schéma mesuré, fumée, inventaire, journal, yml), colonne « décision » du PORT_SPEC lue
+  et réécrite (`portspec.py`, pur), archive zip du port généré, suppression (fichiers + base).
+- `portage/api/portspec.py` : logique pure — slug, yml, décisions, détection du type d'application.
+- `hub/src/PortageView.jsx` (+ `portageClient.js`, `portageLib.js`) : liste des projets, fiche (type, charset,
+  préfixe, compte de test, table des utilisateurs/domaines pour la connexion du port), dépôts de fichiers, cases à
+  cocher des étapes (celles qui exigent la base sont décochées sans dump), journal en direct pendant l'exécution,
+  tableau des unités avec sélecteur de décision et enregistrement groupé, rapports, tableau des routes du test de
+  fumée (vert/rouge), lien vers l'archive. Styles `pt-*` sur les seules variables du thème.
+- `docker-compose.yml` : `portage-api` (+ `VITE_PORTAGE_API_BASE_URL` du hub), `portage-db` (MariaDB dédiée, non
+  publiée, volume `portage_db_data`) ; `.env.example` : `PORTAGE_KIT_DIR`, `PORTAGE_DATA_DIR`, `PORTAGE_DB_ROOT_PASSWORD`,
+  `PORTAGE_MAX_UPLOAD_MB` ; tls-proxy : `/api/portage/` ; `.gitignore` : `portage/data/`, `portage/kit/` ;
+  `hubThemes.js` (entrée Data, première livraison 650), `logsLib.js`.
+- Au passage : l'entrée #649 citait l'application pilote du jeu d'icônes ; reformulée (« conçu pour l'IA de portage »)
+  pour respecter la règle énoncée ce jour.
+
+Vérifié : `portage/api/test_portage.py` (4 scénarios `test_client`, dont les refus), chaîne complète
+`inventory → smoke` jouée via l'API avec le vrai kit et une vraie MariaDB sur l'application d'exemple du kit
+(6 unités, 4 routes portées, fumée 3×200 / 1×500 attendu sans décision), `node --test hub/tests/portageLib.test.mjs`
+(4), syntaxe `@babel/parser` sur les trois fichiers, aucun setter sans `useState`, aucune couleur en dur.
+Non vérifié : rendu navigateur (pas de `npm run build` depuis le shell), build de l'image `portage/api`,
+déploiement (`cd ~/SRC/data2/tickets/supervision-si && sudo ./scripts/run.sh up -d --build portage-api portage-db hub tls-proxy`
+puis `git clone` du kit dans `portage/kit` avant le premier lancement d'étapes).
+
+Fichiers : `portage/README.md`, `portage/api/{app.py,portspec.py,test_portage.py,requirements.txt,Dockerfile,entrypoint.sh}`,
+`hub/src/{PortageView.jsx,portageClient.js,portageLib.js,App.jsx,hubThemes.js,logsLib.js,hub.css}`,
+`hub/tests/portageLib.test.mjs`, `docker-compose.yml`, `.env.example`, `tls-proxy/render_nginx_conf.py`, `.gitignore`,
+`CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-02 — Pastilles d'icônes du hub : jeu Lucide sur disques colorés, icônes réseau (livraison #649)
 
 Demande : « applique le jeu d'icônes dans supervision_si en ajoutant des icônes réseau du même style » — le jeu
-conçu pour le port Python d'Optick3 (pictogrammes Lucide, licence ISC, trait blanc sur pastille). Quatrième jeu de
+conçu pour l'IA de portage (pictogrammes Lucide, licence ISC, trait blanc sur pastille). Quatrième jeu de
 la charte (#410) à côté des emoji, symboles et traits : il remplace les emoji des titres de thèmes, sections de
 menu et groupes de l'arbre du hub, sans toucher aux données (les champs `icon:` gardent leur emoji ; une table de
 correspondance les résout, et un emoji inconnu s'affiche comme avant).

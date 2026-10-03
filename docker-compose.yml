@@ -803,6 +803,39 @@ services:
     depends_on:
       - memcached
 
+  portage-api:
+    # Livraison #650 -- tuile « Portage PHP → Python » : projets de
+    # portage (fiche, import du code et du dump, exécution de l'IA de
+    # portage). L'IA de portage (portage-kit) est un PROJET INDÉPENDANT,
+    # jamais copié dans ce dépôt : volume PORTAGE_KIT_DIR, installé par
+    # l'entrypoint au démarrage -- voir portage/README.md.
+    build:
+      context: .
+      dockerfile: portage/api/Dockerfile
+    environment:
+      - PORTAGE_DB_HOST=portage-db
+      - PORTAGE_DB_USER=root
+      - PORTAGE_DB_PASSWORD=${PORTAGE_DB_ROOT_PASSWORD:-portage}
+      - PORTAGE_MAX_UPLOAD_MB=${PORTAGE_MAX_UPLOAD_MB:-512}
+    volumes:
+      # projets (code importé, dumps, ports générés, rapports) -- vide = ./portage/data
+      - ${PORTAGE_DATA_DIR:-./portage/data}:/data
+      # checkout de portage-kit (lecture seule) -- vide = ./portage/kit (dossier ignoré par git)
+      - ${PORTAGE_KIT_DIR:-./portage/kit}:/opt/portage-kit:ro
+    depends_on:
+      - portage-db
+
+  portage-db:
+    # Base MariaDB DÉDIÉE aux dumps des applications à porter (une base
+    # port_<projet> par projet). AUCUN port publié : joignable uniquement
+    # depuis portage-api sur le réseau Docker.
+    image: mariadb:11.4
+    command: --character-set-server=latin1 --sql-mode=
+    environment:
+      - MARIADB_ROOT_PASSWORD=${PORTAGE_DB_ROOT_PASSWORD:-portage}
+    volumes:
+      - portage_db_data:/var/lib/mysql
+
   retro-api:
     # Livraison #243, backlog item 30 -- tuile "Rétro-ingénierie",
     # demandée explicitement en urgence : "vieille application...
@@ -1890,6 +1923,8 @@ services:
       # l'analyser).
       - VITE_DBA_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/dba
       - VITE_SCHEMA_ANALYZER_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/schema-analyzer
+      # Portage PHP → Python (livraison #650)
+      - VITE_PORTAGE_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/portage
       # Documents joints -- onglet GED (livraison #167) -- même API
       # que TicketDocuments.jsx (tickets-portal, #160), consommée ici
       # pour la navigation/gestion générale (pas liée à un ticket en
@@ -2681,6 +2716,7 @@ volumes:
   geo_pg_data:
   geo_catalog_pg_data:
   projeqtor_db_data:
+  portage_db_data:
   # keycloak_data SORTI vers gateway/docker-compose.yml (livraison
   # #135) -- le volume EXISTANT (créé avant cette extraction) y est
   # référencé explicitement (external: true) pour préserver le realm,

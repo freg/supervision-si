@@ -132,3 +132,7 @@ notify/data/
 # #595 : base des licences (contrats, attributions, actions)
 licenses/data/
 si-agent/local-central/data/
+
+# portage (#650) : projets importés et checkout local de portage-kit, jamais versionnés
+portage/data/
+portage/kit/

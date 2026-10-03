@@ -69,6 +69,7 @@ export const LOG_SERVICES = [
   { id: "prefs", label: "Préférences (prefs-api)", path: "/api/prefs/logs" },
   { id: "relations", label: "Relations", path: "/api/relations/logs" },
   { id: "retro", label: "Rétro-ingénierie", path: "/api/retro/logs" },
+  { id: "portage", label: "Portage PHP → Python", path: "/api/portage/logs" },
   { id: "backup-restore", label: "Sauvegardes", path: "/api/backup-restore/logs" },
   { id: "snmp", label: "SNMP", path: "/api/snmp/logs" },
   { id: "netprobe", label: "Sondes réseau", path: "/api/netprobe/logs" },

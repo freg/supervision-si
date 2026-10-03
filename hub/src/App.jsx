@@ -28,6 +28,7 @@ import TodayView from "./TodayView.jsx";
 import { buildCatalog, defaultTree, normalizeTree, resolveTree, themesOf, rootLeaves, viewLabelsFromThemes, universeEntries, splitHeader, sortTiles } from "./hubTree.js";
 import LogsManagerView from "./LogsManagerView.jsx";
 import SchemaAnalyzerView from "./SchemaAnalyzerView.jsx";
+import PortageView from "./PortageView.jsx";
 import RetroView from "./RetroView.jsx";
 import BackupRestoreView from "./BackupRestoreView.jsx";
 import ArchitectureView from "./ArchitectureView.jsx";
@@ -125,6 +126,7 @@ const TICKETS_API_BASE_URL = import.meta.env.VITE_TICKETS_API_BASE_URL || "";
 const DBA_API_BASE_URL = import.meta.env.VITE_DBA_API_BASE_URL || "";
 const SCHEMA_ANALYZER_API_BASE_URL = import.meta.env.VITE_SCHEMA_ANALYZER_API_BASE_URL || "";
 const RETRO_API_BASE_URL = import.meta.env.VITE_RETRO_API_BASE_URL || "";
+const PORTAGE_API_BASE_URL = import.meta.env.VITE_PORTAGE_API_BASE_URL || "";  // #650
 const BACKUP_RESTORE_API_BASE_URL = import.meta.env.VITE_BACKUP_RESTORE_API_BASE_URL || "";
 const ARCHITECTURE_API_BASE_URL = import.meta.env.VITE_ARCHITECTURE_API_BASE_URL || "";
 const MEMORY_API_BASE_URL = import.meta.env.VITE_MEMORY_API_BASE_URL || "";
@@ -1482,7 +1484,7 @@ export default function App() {
     ARCHITECTURE_API_BASE_URL && "architecture", (EXTERNAL_BASES.ipam || EXTERNAL_BASES.zenoss) && "fusion", NEBULA_API_BASE_URL && "nebula",
     SSH_TUNNELS_API_BASE_URL && "ssh-tunnels", HAS_EXTERNAL_BASES && "external-bases", GLPI_API_BASE_URL && "glpi-inventory",
     GEO_CATALOG_API_BASE_URL && "geo-catalog", CLASSIFIER_API_BASE_URL && "classifier", SCHEMA_ANALYZER_API_BASE_URL && "schema-analyzer",
-    RETRO_API_BASE_URL && "retro", (TICKETS_API_BASE_URL || TASKS_API_BASE_URL) && "ent", GED_API_BASE_URL && "ged",
+    RETRO_API_BASE_URL && "retro", PORTAGE_API_BASE_URL && "portage", (TICKETS_API_BASE_URL || TASKS_API_BASE_URL) && "ent", GED_API_BASE_URL && "ged",
     FILE_MANAGER_API_BASE_URL && "file-manager", IMAP_CLIENT_API_BASE_URL && "imap",
     IMAP_CONNECTORS_API_BASE_URL && "imap-connectors", bastionAllowed && "si-proxy",
     RIGHTS_API_BASE_URL && groups.includes("admin_hub") && "rights", BACKUP_RESTORE_API_BASE_URL && "backup-restore",
@@ -1632,6 +1634,8 @@ vm === "agent-page" ? (
           schemaApiBase={SCHEMA_ANALYZER_API_BASE_URL}
           login={profile.preferred_username}
         />
+      ) : vm === "portage" ? (
+        <PortageView onBack={goBack} portageApiBase={PORTAGE_API_BASE_URL} />
       ) : vm === "retro" ? (
         <RetroView
           onBack={goBack}
