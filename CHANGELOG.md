@@ -1,3 +1,21 @@
+## 2026-10-03 — Socle commun d'un nœud : étape 1 de la distribution / du miroir du hub (livraison #661)
+
+Items 108-110, étape 1 de l'ADR `docs/architecture-clonage-distribution-hub.md` : un sous-ensemble installable partout
+(passerelle, Keycloak, tour de contrôle, hub, partagé minimal) qui reçoit les déploiements (zip ou git #659) et sert
+l'interface complète sans les tuiles métier.
+
+- `deploy/socle.py` : `list` (passerelle / principal / dépendances compose non démarrées), `up [--build] [+tuile…]`
+  (gateway `up -d` puis `run.sh up -d --no-deps`), `status`, `check` (`.env`, `pki/ca/ca.crt`, `ca.key`, clés manquantes
+  via sync-env) ; `+tuile` = fermeture de dépendances, hors `network_mode: host`. Stdlib, s'appuie sur `deploy/cohorts.py`.
+- `deploy/README-socle.md` : reprise sur un nouvel hôte (clone, `.env` et `pki/ca/` recopiés hors dépôt, `HOST_IP`,
+  CA du bastion jamais copiée), ajout de tuiles, suite (étapes 2-3).
+
+Vérifié : `deploy/tests/test_socle.py` (4 : découpage, commandes, extension, reprise, vrai compose). Non vérifié :
+démarrage réel du socle sur un hôte vierge.
+
+Fichiers : `deploy/{socle.py,README-socle.md,tests/test_socle.py}`, `docs/architecture-clonage-distribution-hub.md`,
+`BACKLOG.md`, `CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — Routes Cisco dans la tour de contrôle, suite de tests hub au vert (livraison #660)
 
 - `cisco/parsers.py` : `parse_ip_route` (IOS : défaut `S*`, connectées / locales, OSPF… avec interface ; NX-OS : blocs

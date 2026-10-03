@@ -206,7 +206,7 @@ pas. Le jeton ne doit jamais désigner un clone dont l'état n'est pas à jour.
 ## Prochaines actions
 
 1. [x] Découpage en **paquets** — fait : `docs/paquets-distribution-hub.md` (53 paquets atomiques + 9 bundles fonctionnels, état et liens inter-bundles). Reste à **valider le placement initial** proposé.
-2. [ ] Étape 1 : profil compose « socle », doc de reprise `.env`/PKI, tests.
+2. [x] Étape 1 : `deploy/socle.py` (list / up --no-deps / status / check), `deploy/README-socle.md` (reprise `.env`/PKI), tests — fait #661.
 3. [ ] Étape 2 : format du fichier de **placement** + extension `plan_for_changes`
    (filtre placement) + génération conf passerelle multi-hôtes + IHM tour.
 4. [ ] Étape 3 : PoC ZFS send/recv d'un dossier de données + export/import realm ;
