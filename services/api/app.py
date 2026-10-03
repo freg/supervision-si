@@ -700,7 +700,7 @@ def delivery_upload():
         return jsonify({"error": "archive refusée : %s" % exc}), 400
     current = (_read("shared/DELIVERY_NUMBER") or b"").decode().strip()
     try:
-        plan = tower.plan_for_changes(b["changed"] + b["added"], _compose_paths(), _running_main())
+        plan = tower.filter_plan(tower.plan_for_changes(b["changed"] + b["added"], _compose_paths(), _running_main()), _placed_here())
     except Exception as exc:  # noqa: BLE001
         plan = {"steps": [], "error": "plan non calculé : %s" % exc}
     rec = {"id": did, "name": f.filename, "at": time.time(), "user": g.user["username"], "number": number, "current": current,
@@ -740,7 +740,7 @@ def delivery_apply(did):
                 _write(rel, zf.read(i), mode or None)
                 written += 1
     try:
-        plan = tower.plan_for_changes(sorted(todo), _compose_paths(), _running_main())
+        plan = tower.filter_plan(tower.plan_for_changes(sorted(todo), _compose_paths(), _running_main()), _placed_here())
     except Exception as exc:  # noqa: BLE001
         plan = {"steps": [], "error": "plan non calculé : %s" % exc}
     rec.update(applied=True, applied_at=time.time(), applied_by=g.user["username"], written=written, plan=plan)
@@ -755,6 +755,114 @@ def delivery_apply(did):
         pass
     event("delivery-applied", "livraison %s appliquée par %s : %d fichier(s) écrit(s), %d étape(s)" % (rec.get("number") or rec["name"], g.user["username"], written, len(plan.get("steps") or [])), delivery=did)
     return jsonify(rec), 200
+
+
+# -- #662 : répartition nœuds / cohortes (#513) depuis la tour --------------------------------------------------------
+def _json_file(rel):
+    raw = _read(rel)
+    try:
+        return json.loads(raw.decode("utf-8")) if raw else None
+    except ValueError:
+        return None
+
+
+def _node_name():
+    raw = _read("deploy/generated/node.name")
+    return (raw.decode("utf-8").strip() if raw else "") or os.environ.get("SI_NODE_NAME", "") or socket.gethostname().split(".")[0]
+
+
+def _placed_here():
+    nodes, cohorts = _json_file("deploy/nodes.json"), _json_file("deploy/cohorts.json")
+    return tower.placed_here(nodes, cohorts, _node_name()) if nodes and cohorts else None
+
+
+def _node_env():
+    env = {}
+    for line in (_read(".env") or b"").decode("utf-8", "replace").splitlines():
+        m = re.match(r"^\s*(SI_NODE_TOKEN|SI_NODE_PORT)\s*=\s*(.*?)\s*$", line)
+        if m:
+            env[m.group(1)] = m.group(2).strip("'\"")
+    return env
+
+
+def _node_status(node, env):
+    """GET /status de l'agent de nœud (VPN, jeton du .env), 5 s."""
+    if not env.get("SI_NODE_TOKEN"):
+        return {"error": "SI_NODE_TOKEN absent du .env"}
+    try:
+        req = urllib.request.Request("http://%s:%s/status" % (node["wg_address"], env.get("SI_NODE_PORT") or 6460), headers={"X-SI-Node-Token": env["SI_NODE_TOKEN"]})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            st = json.loads(resp.read().decode("utf-8") or "{}")
+        plan = st.get("plan") or {}
+        running = st.get("running") or []
+        st["missing"] = [x for x in (plan.get("services") or []) + (plan.get("relays") or []) if x not in running]
+        return st
+    except Exception as exc:  # noqa: BLE001
+        return {"error": str(exc)[:200]}
+
+
+@app.route("/repartition", methods=["GET"])
+def repartition_route():
+    """Nœuds (deploy/nodes.json), cohortes (deploy/cohorts.json), nœud courant, état de chaque agent de nœud (?status=0 pour l'éviter)."""
+    err = _need_project()
+    if err:
+        return err
+    nodes, cohorts = _json_file("deploy/nodes.json"), _json_file("deploy/cohorts.json")
+    out = {"me": _node_name(), "nodes": (nodes or {}).get("nodes", []), "configured": bool(nodes), "wg_subnet": (nodes or {}).get("wg_subnet"),
+           "cohorts": [{k: c.get(k) for k in ("name", "title", "zone", "pinned", "manager", "isolated", "services", "notes")} for c in (cohorts or {}).get("cohorts", [])], "status": {}}
+    if nodes and request.args.get("status", "1") != "0":
+        env = _node_env()
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            for n, st in zip(out["nodes"], ex.map(lambda n: _node_status(n, env), out["nodes"])):
+                out["status"][n["name"]] = st
+    return jsonify(out), 200
+
+
+@app.route("/repartition", methods=["PUT"])
+def repartition_put_route():
+    """Nouvelle affectation cohortes -> nœuds (nodes.json), validée ; appliquée ensuite par POST /repartition/apply."""
+    err = _need_project()
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    cohorts = _json_file("deploy/cohorts.json") or {}
+    current = _json_file("deploy/nodes.json") or {}
+    cand = dict(current, **{k: v for k, v in body.items() if k in ("nodes", "wg_subnet", "wg_port")})
+    normalized, err = tower.validate_nodes(cand, cohorts)
+    if err:
+        return jsonify({"error": err}), 400
+    _write("deploy/nodes.json", json.dumps(normalized, ensure_ascii=False, indent=2))
+    event("repartition-saved", "répartition enregistrée par %s : %s" % (g.user["username"], ", ".join("%s=%s" % (n["name"], "+".join(n["cohorts"]) or "-") for n in normalized["nodes"])))
+    return jsonify({"nodes": normalized["nodes"]}), 200
+
+
+@app.route("/repartition/apply", methods=["POST"])
+def repartition_apply_route():
+    """{build, only: [nœuds]} -> job : python3 deploy/repartition.py apply (pousse nodes.json à chaque agent de nœud, core d'abord)."""
+    err = _need_project()
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    only = [n for n in (body.get("only") or []) if tower.NODE_NAME_RE.match(str(n))]
+    cmd = "python3 deploy/repartition.py apply" + (" --build" if body.get("build") else "") + ("".join(" " + n for n in only))
+    job = launch_job("repartition", "répartition appliquée%s" % (" sur " + ", ".join(only) if only else " sur tous les nœuds"), [{"label": "appliquer nodes.json à chaque nœud", "cmd": cmd}], g.user["username"])
+    return jsonify({"job": job}), 200
+
+
+@app.route("/repartition/migrate", methods=["POST"])
+def repartition_migrate_route():
+    """{cohort, target, force} -> job : python3 deploy/repartition.py migrate <cohorte> <nœud> --yes (arrêt source, copie des données, apply partout)."""
+    err = _need_project()
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    cohort, target = str(body.get("cohort") or ""), str(body.get("target") or "")
+    if not (tower.NODE_NAME_RE.match(cohort) and tower.NODE_NAME_RE.match(target)):
+        return jsonify({"error": "cohort et target requis"}), 400
+    cmd = "python3 deploy/repartition.py migrate %s %s --yes%s" % (cohort, target, " --force" if body.get("force") else "")
+    job = launch_job("migration", "migration de la cohorte %s vers %s" % (cohort, target), [{"label": "sauvegarde conseillée avant (tuile Sauvegarde) -- arrêt source, copie des données, apply partout", "cmd": cmd}], g.user["username"], {"cohort": cohort, "target": target})
+    event("repartition-migrate", "migration de %s vers %s lancée par %s" % (cohort, target, g.user["username"]), job=job["id"])
+    return jsonify({"job": job}), 200
 
 
 # -- #659 : mise à jour depuis le dépôt git (GitHub) ----------------------------
@@ -791,7 +899,7 @@ def git_state(fetch=True):
         _, diff, _ = _git(["diff", "--name-only", "HEAD..%s" % up])
         st["changed"] = [l for l in diff.splitlines() if l][:500]
         try:
-            st["plan"] = tower.plan_for_changes(st["changed"], _compose_paths(), _running_main())
+            st["plan"] = tower.filter_plan(tower.plan_for_changes(st["changed"], _compose_paths(), _running_main()), _placed_here())
         except Exception as exc:  # noqa: BLE001
             st["plan"] = {"steps": [], "error": "plan non calculé : %s" % exc}
     else:
@@ -837,6 +945,8 @@ def git_update_route():
     if not st.get("behind") and mode == "central" and not body.get("force"):
         return jsonify({"error": "déjà à jour (#%s)" % st["current"], "state": st}), 409
     plan = tower.git_update_plan(mode, st["changed"], _compose_paths(), st["running"], gateway_running=_gateway_running(), nodes=st.get("nodes", 0), agents=bool(body.get("agents")), branch=st["branch"])
+    if mode == "central":
+        plan["plan"] = tower.filter_plan(plan["plan"], _placed_here()); plan["steps"] = plan["steps"][:1] + plan["plan"]["steps"]
     label = "mise à jour git %s : #%s → #%s (%d commit(s))" % ("en cascade" if mode == "cascade" else "du central", st["current"] or "?", st.get("remote_number") or "?", st.get("behind", 0))
     job = launch_job("git-update", label, plan["steps"], g.user["username"], {"git": {"from": st["head"], "mode": mode, "behind": st.get("behind"), "remote_number": st.get("remote_number")}, "agents": plan["agents"]})
     event("git-update", "%s lancée par %s (%s)" % (label, g.user["username"], mode), job=job["id"])

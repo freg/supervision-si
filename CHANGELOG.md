@@ -1,3 +1,22 @@
+## 2026-10-03 — Répartition des nœuds depuis la tour de contrôle, plans filtrés par placement (livraison #662)
+
+Étape 2 des items 108-110 (ADR), sur la mécanique #513 (nodes.json, cohortes, agents de nœud, repartition.py) : l'IHM
+manquait et les plans de la tour ignoraient le placement.
+
+- `services/api/tower.py` : `validate_nodes`, `placed_here`, `filter_plan` (services d'autres nœuds retirés des étapes,
+  listés `not_here`) ; `app.py` : `GET/PUT /repartition`, `POST /repartition/apply`, `POST /repartition/migrate` (jobs
+  runner), filtre appliqué aux plans de livraison zip, de mise à jour git (central) et à l'aperçu.
+- Hub, tour → onglet **Répartition** : nœuds (zone, VPN, rôle, cohortes, état de l'agent de nœud), cohortes → nœud
+  (sélecteur, manager verrouillé, enregistrement validé), « Appliquer partout » / « + reconstruire », migration d'une
+  cohorte avec ses données (job) ; `towerLib` : `cohortRows`, `moveCohort`, `nodeText`.
+
+Vérifié : `services/api/test_tower.py` (+1), `test_app.py`, hub Node 300 / 0 échec, `@babel/parser`. Non vérifié :
+agents de nœud réels (aucun déploiement réparti dans la session), rendu navigateur.
+
+Fichiers : `services/api/{app.py,tower.py,test_tower.py}`, `services/README.md`, `hub/src/{ControlTowerView.jsx,
+servicesClient.js,towerLib.js}`, `hub/tests/towerLib.test.mjs`, `docs/architecture-clonage-distribution-hub.md`,
+`BACKLOG.md`, `CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — Socle commun d'un nœud : étape 1 de la distribution / du miroir du hub (livraison #661)
 
 Items 108-110, étape 1 de l'ADR `docs/architecture-clonage-distribution-hub.md` : un sous-ensemble installable partout

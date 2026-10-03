@@ -129,6 +129,16 @@ livraisons zip : reconstruire les services dont une source a changé, parmi ceux
 - Le runner tire le dépôt en root : sous Linux, les fichiers tirés appartiennent à root (`sudo git …` ensuite, ou
   `chown -R` du dépôt) ; sous Docker Desktop (Mac), aucun impact.
 
+## Répartition des nœuds (#662)
+
+Onglet **Répartition** : `GET /repartition` (nœuds de `deploy/nodes.json`, cohortes de `deploy/cohorts.json`, nœud courant
+= `deploy/generated/node.name` ou `SI_NODE_NAME` ou nom d'hôte, état de chaque agent de nœud par le VPN avec le jeton
+`SI_NODE_TOKEN` du `.env`), `PUT /repartition {nodes}` (affectation validée : noms uniques, adresse VPN, cohorte affectée
+au plus une fois, manager toujours affecté), `POST /repartition/apply {build, only}` (job `deploy/repartition.py apply`),
+`POST /repartition/migrate {cohort, target, force}` (job `deploy/repartition.py migrate … --yes` : arrêt source, copie des
+données, apply partout). Quand `nodes.json` connaît ce nœud, les plans (zip, git) ne reconstruisent **que** les services
+de ses cohortes (`not_here` liste les autres).
+
 ## Santé de l'hôte (#593)
 
 Après un `/var` saturé qui tronquait les fichiers du hub : la tour mesure

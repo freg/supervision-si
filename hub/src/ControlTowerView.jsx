@@ -14,8 +14,8 @@ import ServicesView from "./ServicesView.jsx";
 import { viewParams } from "./hubLinks.js";
 import {
   fetchServices, fetchSettings, saveSettings, fetchEvents, fetchConfigs, fetchConfig, saveConfig,
-  fetchJobs, fetchJob, fetchDeliveries, uploadDelivery, applyDelivery, reloadGateway, fetchGit, gitUpdate } from "./servicesClient.js";
-import { itemsOf, mergeItems, emptyRow, cleanRow, statsText, deliveryText, JOB_LABEL, JOB_TONE, touchesHub, gitText, gitBlocker } from "./towerLib.js";
+  fetchJobs, fetchJob, fetchDeliveries, uploadDelivery, applyDelivery, reloadGateway, fetchGit, gitUpdate, fetchRepartition, saveRepartition, applyRepartition, migrateCohort } from "./servicesClient.js";
+import { itemsOf, mergeItems, emptyRow, cleanRow, statsText, deliveryText, JOB_LABEL, JOB_TONE, touchesHub, gitText, gitBlocker, cohortRows, moveCohort, nodeText } from "./towerLib.js";
 
 const TABS = [
   { id: "services", label: "🚦 Services" },
@@ -24,6 +24,7 @@ const TABS = [
   { id: "auto", label: "⚙ Automatismes" },
   { id: "journal", label: "📜 Journal" },
   { id: "network", label: "🕸 Réseau" },   // #655 : DNS / routage / flux → trafic (lecture seule)
+  { id: "repartition", label: "🗺 Répartition" },   // #662 : nœuds / cohortes (#513), migration d'une cohorte
 ];
 const COLORS = { red: "#e53935", orange: "#fb8c00", green: "#43a047", grey: "#9e9e9e" };
 const when = (t) => (t ? new Date(typeof t === "number" ? t * 1000 : t).toLocaleString() : "");
@@ -60,6 +61,61 @@ function JobView({ apiBase, token, jobId, onClose }) {
       {lost > 0 && <p className="muted">tour de contrôle momentanément injoignable (reconstruction en cours ?) — nouvelle tentative…</p>}
       {job?.status === "done" && touchesHub(job) && <p><Tone tone="orange">Le hub ou la passerelle ont été relancés : </Tone><button type="button" onClick={() => window.location.reload()}>recharger la page</button></p>}
       <pre ref={pre} style={{ maxHeight: 360, overflow: "auto", fontSize: 12, margin: "8px 0 0" }}>{(job?.log || []).join("\n") || "…"}</pre>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// #662 : répartition -- nœuds du déploiement réparti (#513 : deploy/nodes.json, agents de nœud sur le VPN), cohortes et leur
+// nœud, déplacement (nodes.json réécrit puis « Appliquer » = job repartition.py apply) ou migration avec données
+// (job repartition.py migrate : arrêt source, copie, apply partout). Étape 2 des items 108-110.
+function Repartition({ apiBase, token, openJob }) {
+  const [data, setData] = useState(null);
+  const [nodes, setNodes] = useState(null);
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState("");
+  const [mig, setMig] = useState({ cohort: "", target: "" });
+  const load = useCallback(async () => { const d = await fetchRepartition(apiBase, token); if (d.error) setError(d.error); else { setData(d); setNodes(d.nodes); } }, [apiBase, token]);
+  useEffect(() => { load(); }, [load]);
+  const dirty = data && JSON.stringify(nodes) !== JSON.stringify(data.nodes);
+  const rows = cohortRows({ ...(data || {}), nodes: nodes || [] });
+  const save = async () => { setBusy("save"); setError(null); const r = await saveRepartition(apiBase, token, nodes); setBusy(""); if (r.error) { setError(r.error); return; } load(); };
+  const apply = async (build) => { if (!window.confirm(`Appliquer nodes.json sur tous les nœuds${build ? " (avec reconstruction)" : ""} ? Chaque agent de nœud lance ses services et relais, arrête ce qui n'est plus à lui.`)) return; setBusy("apply"); const r = await applyRepartition(apiBase, token, { build }); setBusy(""); if (r.error) { setError(r.error); return; } if (r.job?.id) openJob(r.job.id); };
+  const migrate = async () => {
+    if (!mig.cohort || !mig.target) return;
+    if (!window.confirm(`Migrer la cohorte « ${mig.cohort} » vers ${mig.target} AVEC ses données (arrêt sur la source, copie, relance) ? Une sauvegarde totale est conseillée avant.`)) return;
+    setBusy("migrate"); setError(null); const r = await migrateCohort(apiBase, token, mig.cohort, mig.target); setBusy(""); if (r.error) { setError(r.error); return; } if (r.job?.id) openJob(r.job.id);
+  };
+  if (!data && !error) return <p className="muted">chargement…</p>;
+  return (
+    <div>
+      <p className="muted" style={{ marginTop: 0 }}>
+        Nœud courant : <strong>{data?.me}</strong>. {data?.configured ? <>Déploiement réparti configuré (<code>deploy/nodes.json</code>, VPN {data.wg_subnet || "?"}).</> : <>Pas de <code>deploy/nodes.json</code> : un seul hôte. Pour répartir : copier <code>deploy/nodes.example.json</code>, poser l'agent de nœud sur chaque hôte (<code>deploy/README.md</code>), puis revenir ici.</>}
+        {" "}Les plans de livraison et de mise à jour git ne reconstruisent ici que les services des cohortes de ce nœud.
+      </p>
+      {error && <p className="hub-error">{error}</p>}
+      {data?.configured && (<>
+        <h3>Nœuds</h3>
+        <table className="hub-table"><thead><tr><th>Nœud</th><th>Zone</th><th>VPN</th><th>Rôle</th><th>Cohortes</th><th>État (agent de nœud)</th></tr></thead>
+          <tbody>{(nodes || []).map((n) => <tr key={n.name}><td><b>{n.name}</b>{n.name === data.me ? " (ici)" : ""}</td><td>{n.zone}</td><td><code>{n.wg_address}</code></td><td>{n.role}{n.edge ? " · bordure" : ""}</td><td>{(n.cohorts || []).join(", ") || <span className="muted">—</span>}</td><td className={data.status?.[n.name]?.error || (data.status?.[n.name]?.missing || []).length ? "hub-error" : "muted"}>{nodeText(data.status?.[n.name])}</td></tr>)}</tbody></table>
+        <h3>Cohortes → nœud</h3>
+        <table className="hub-table"><thead><tr><th>Cohorte</th><th>Services</th><th>Zone</th><th>Nœud</th></tr></thead>
+          <tbody>{rows.map((c) => <tr key={c.name}><td><b>{c.name}</b>{c.manager ? " · manager" : ""}{c.isolated ? " · isolée" : ""}<div className="muted">{c.title}</div></td><td title={c.services.join(", ")}>{c.count}</td><td>{c.zone || "local"}</td>
+            <td><select value={c.node} disabled={!!c.manager} onChange={(e) => setNodes(moveCohort(nodes, c.name, e.target.value))}><option value="">— non affectée —</option>{(nodes || []).map((n) => <option key={n.name} value={n.name}>{n.name}</option>)}</select></td></tr>)}</tbody></table>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 8 }}>
+          <button type="button" className="primary" disabled={!dirty || !!busy} onClick={save}>Enregistrer nodes.json</button>
+          <button type="button" className="secondary" disabled={dirty || !!busy} onClick={() => apply(false)}>Appliquer partout</button>
+          <button type="button" className="secondary" disabled={dirty || !!busy} onClick={() => apply(true)}>Appliquer + reconstruire</button>
+          {dirty && <span className="muted">affectation modifiée, non enregistrée (un simple changement d'affectation ne déplace PAS les données : utiliser la migration ci-dessous)</span>}
+        </div>
+        <h3>Migrer une cohorte avec ses données</h3>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <select value={mig.cohort} onChange={(e) => setMig({ ...mig, cohort: e.target.value })}><option value="">cohorte…</option>{rows.filter((c) => !c.manager).map((c) => <option key={c.name} value={c.name}>{c.name} ({c.node || "non affectée"})</option>)}</select>
+          <span className="muted">→</span>
+          <select value={mig.target} onChange={(e) => setMig({ ...mig, target: e.target.value })}><option value="">nœud cible…</option>{(nodes || []).filter((n) => n.name !== rows.find((c) => c.name === mig.cohort)?.node).map((n) => <option key={n.name} value={n.name}>{n.name} ({n.zone})</option>)}</select>
+          <button type="button" className="secondary" disabled={!mig.cohort || !mig.target || !!busy} onClick={migrate}>Migrer (job)</button>
+        </div>
+      </>)}
     </div>
   );
 }
@@ -374,6 +430,7 @@ export default function ControlTowerView({ apiBase, accessToken, username, onBac
       {tab === "configs" && <Configs apiBase={apiBase} token={accessToken} initial={params.config} />}
       {tab === "auto" && <Automations apiBase={apiBase} token={accessToken} settings={settings} onSaved={setSettings} />}
       {tab === "journal" && <Journal apiBase={apiBase} token={accessToken} />}
+      {tab === "repartition" && <Repartition apiBase={apiBase} token={accessToken} openJob={openJob} />}
       {tab === "network" && <TowerNetworkTab serviceWatchUrl={network.serviceWatchUrl} siAgentApiBase={network.siAgentApiBase} mikrotikApiBase={network.mikrotikApiBase} networkAgentApiBase={network.networkAgentApiBase} dnsApiBase={network.dnsApiBase} ciscoApiBase={network.ciscoApiBase} login={username} />}
     </PageFrame>
   );

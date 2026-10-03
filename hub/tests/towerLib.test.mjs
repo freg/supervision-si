@@ -43,3 +43,17 @@ test("git : texte et bloqueurs", () => {
   assert.match(gitBlocker({ ...g, hint: "SSH" }), /SSH/);
   assert.match(gitBlocker({ ...g, fetch_error: "timeout" }), /fetch/);
 });
+
+// #662 : répartition -- lignes cohortes, déplacement, texte d'état d'un nœud
+import { cohortRows, moveCohort, nodeText } from "../src/towerLib.js";
+test("répartition : cohortRows / moveCohort / nodeText", () => {
+  const data = { nodes: [{ name: "super", cohorts: ["core", "tickets"] }, { name: "vm-reseau", cohorts: ["reseau"] }], cohorts: [{ name: "core", services: ["hub"], manager: true }, { name: "reseau", services: ["cisco-api", "snmp-api"] }, { name: "tickets", services: ["tickets-api"] }, { name: "geo", services: ["geo-api"] }] };
+  const rows = cohortRows(data);
+  assert.deepEqual(rows.map((r) => [r.name, r.node, r.count]), [["core", "super", 1], ["reseau", "vm-reseau", 2], ["tickets", "super", 1], ["geo", "", 1]]);
+  const moved = moveCohort(data.nodes, "tickets", "vm-reseau");
+  assert.deepEqual(moved.map((n) => n.cohorts), [["core"], ["reseau", "tickets"]]);
+  assert.deepEqual(moveCohort(data.nodes, "tickets", "").map((n) => n.cohorts), [["core"], ["reseau"]]);
+  assert.deepEqual(data.nodes[0].cohorts, ["core", "tickets"]);   // pur
+  assert.equal(nodeText(null), "—"); assert.match(nodeText({ error: "timeout" }), /injoignable/);
+  assert.match(nodeText({ version: "661", running: ["a", "b"], missing: ["c"] }), /v661 · 2 en marche · 1 arrêté\(s\) : c/);
+});

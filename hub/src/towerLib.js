@@ -78,6 +78,25 @@ export function gitBlocker(g) {
   return null;
 }
 
+// #662 : répartition -- lignes cohorte -> nœud, déplacement (pur), résumé d'un nœud.
+export function cohortRows(data) {
+  const where = {};
+  for (const n of data?.nodes || []) for (const c of n.cohorts || []) where[c] = n.name;
+  return (data?.cohorts || []).map((c) => ({ ...c, node: where[c.name] || "", services: c.services || [], count: (c.services || []).length }));
+}
+export function moveCohort(nodes, cohort, target) {
+  return (nodes || []).map((n) => {
+    const cs = (n.cohorts || []).filter((c) => c !== cohort);
+    return { ...n, cohorts: n.name === target ? [...cs, cohort] : cs };
+  });
+}
+export function nodeText(st) {
+  if (!st) return "—";
+  if (st.error) return `injoignable : ${st.error}`;
+  const miss = (st.missing || []).length;
+  return `v${st.version || "?"} · ${(st.running || []).length} en marche` + (miss ? ` · ${miss} arrêté(s) : ${st.missing.slice(0, 4).join(", ")}` : "") + ((st.plan?.missing || []).length ? ` · sans relais : ${st.plan.missing.join(", ")}` : "");
+}
+
 export const JOB_LABEL = { running: "en cours", done: "terminé", failed: "échec", lost: "interrompu" };
 export const JOB_TONE = { running: "orange", done: "green", failed: "red", lost: "red" };
 

@@ -70,3 +70,8 @@ export async function fetchHostPublic(apiBase) {
     return res.ok ? await res.json() : null;
   } catch { return null; }
 }
+// #662 : répartition nœuds / cohortes (#513) depuis la tour
+export const fetchRepartition = (apiBase, token, status = true) => call(apiBase, token, `/repartition${status ? "" : "?status=0"}`);
+export const saveRepartition = (apiBase, token, nodes) => call(apiBase, token, "/repartition", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nodes }) });
+export const applyRepartition = (apiBase, token, body) => call(apiBase, token, "/repartition/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+export const migrateCohort = (apiBase, token, cohort, target, force = false) => call(apiBase, token, "/repartition/migrate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cohort, target, force }) });

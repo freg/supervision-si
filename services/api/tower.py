@@ -389,3 +389,75 @@ def git_update_plan(mode, changed, main_paths, running, gateway_running=True, no
     else:
         steps += plan["steps"]
     return {"steps": steps, "plan": plan, "agents": bool(agents)}
+
+
+# -- #662 : répartition (nœuds / cohortes, #513) pilotée depuis la tour ---------------------------------------------------
+NODE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+
+
+def validate_nodes(nodes, cohorts):
+    """nodes.json candidat -> (normalisé, erreur). Noms uniques, adresse VPN, cohortes connues et affectées au plus une fois,
+    la cohorte manager reste sur un nœud (le manager)."""
+    known = {c["name"]: c for c in (cohorts or {}).get("cohorts", [])}
+    if not isinstance(nodes, dict) or not isinstance(nodes.get("nodes"), list) or not nodes["nodes"]:
+        return None, "nodes : liste de nœuds attendue"
+    seen_nodes, seen_cohorts, out = set(), {}, []
+    for n in nodes["nodes"]:
+        name = str(n.get("name") or "").strip()
+        if not NODE_NAME_RE.match(name):
+            return None, "nom de nœud invalide : %r" % name
+        if name in seen_nodes:
+            return None, "nœud en double : " + name
+        seen_nodes.add(name)
+        wg = str(n.get("wg_address") or "").strip()
+        if not re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", wg):
+            return None, "nœud %s : wg_address (adresse VPN) requise" % name
+        cs = [str(c).strip() for c in (n.get("cohorts") or []) if str(c).strip()]
+        for c in cs:
+            if c not in known:
+                return None, "nœud %s : cohorte inconnue %s" % (name, c)
+            if c in seen_cohorts:
+                return None, "cohorte %s affectée à %s et %s" % (c, seen_cohorts[c], name)
+            seen_cohorts[c] = name
+        out.append(dict(n, name=name, wg_address=wg, cohorts=cs, zone=str(n.get("zone") or "local"), edge=bool(n.get("edge")), role=str(n.get("role") or "worker")))
+    managers = [c for c, v in known.items() if v.get("manager")]
+    for c in managers:
+        if c not in seen_cohorts:
+            return None, "la cohorte manager %s doit être affectée à un nœud" % c
+    unassigned = sorted(c for c in known if c not in seen_cohorts)
+    return dict(nodes, nodes=out), (None if not unassigned else None)  # cohortes non affectées = tolérées (signalées par l'IHM)
+
+
+def placed_here(nodes, cohorts, me):
+    """Services placés sur le nœud `me` d'après nodes.json / cohorts.json, ou None si pas de répartition (nœud inconnu)."""
+    mine = next((n for n in (nodes or {}).get("nodes", []) if n.get("name") == me), None)
+    if not mine:
+        return None
+    svcs = set()
+    for c in (cohorts or {}).get("cohorts", []):
+        if c["name"] in (mine.get("cohorts") or []):
+            svcs.update(c.get("services") or [])
+    return svcs
+
+
+def filter_plan(plan, placed):
+    """Plan de reconstruction restreint aux services placés ici (None = tout) ; les autres sont listés dans `not_here`."""
+    if placed is None or not plan:
+        return plan
+    out = dict(plan)
+    out["not_here"] = sorted(s for s in (plan.get("rebuild") or []) + (plan.get("restart") or []) if s not in placed)
+    if not out["not_here"]:
+        return out
+    keep = lambda names: [s for s in names if s in placed]  # noqa: E731
+    out["rebuild"], out["restart"] = keep(plan.get("rebuild") or []), keep(plan.get("restart") or [])
+    steps = []
+    for st in plan.get("steps") or []:
+        m = re.match(r"^(\./scripts/run\.sh (?:up -d --build|restart) )(.+)$", st["cmd"])
+        if m:
+            names = keep(m.group(2).split())
+            if not names:
+                continue
+            st = dict(st, cmd=m.group(1) + " ".join(names), label=re.sub(r"\d+ service", "%d service" % len(names), st["label"]))
+        steps.append(st)
+    out["steps"] = steps
+    return out

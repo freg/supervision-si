@@ -207,8 +207,7 @@ pas. Le jeton ne doit jamais désigner un clone dont l'état n'est pas à jour.
 
 1. [x] Découpage en **paquets** — fait : `docs/paquets-distribution-hub.md` (53 paquets atomiques + 9 bundles fonctionnels, état et liens inter-bundles). Reste à **valider le placement initial** proposé.
 2. [x] Étape 1 : `deploy/socle.py` (list / up --no-deps / status / check), `deploy/README-socle.md` (reprise `.env`/PKI), tests — fait #661.
-3. [ ] Étape 2 : format du fichier de **placement** + extension `plan_for_changes`
-   (filtre placement) + génération conf passerelle multi-hôtes + IHM tour.
+3. [~] Étape 2 : placement = `deploy/nodes.json` × `deploy/cohorts.json` (#513) ; filtre de placement dans `plan_for_changes` (`tower.filter_plan`) et IHM « Répartition » de la tour (affectation, apply, migration avec données) — fait #662. Reste : paquets plus fins que les cohortes (53 paquets atomiques) et conf passerelle multi-hôtes sans relais (option A) si les relais #513 ne suffisent pas.
 4. [ ] Étape 3 : PoC ZFS send/recv d'un dossier de données + export/import realm ;
    fixer RPO/RTO ; procédure de bascule/retour via aiguillage.
 5. [ ] Étape 1 packagée → dériver l'**agent miroir portail** (110).

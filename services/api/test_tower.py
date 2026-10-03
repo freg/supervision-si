@@ -139,6 +139,22 @@ class Heal(unittest.TestCase):
                                                            "./gateway/scripts/run.sh up -d --build tls-proxy", "python3 deploy/node_agent.py update-all"]); self.assertTrue(p["agents"])
         p = tower.git_update_plan("cascade", [], paths, [], gateway_running=False, nodes=1); self.assertEqual(len(p["steps"]), 1)
 
+    def test_repartition(self):
+        """#662 : validation de nodes.json, services placés ici, plan filtré par placement."""
+        cohorts = {"cohorts": [{"name": "core", "manager": True, "services": ["hub", "services-api"]}, {"name": "reseau", "services": ["cisco-api", "snmp-api"]}, {"name": "tickets", "services": ["tickets-api"]}]}
+        nodes = {"nodes": [{"name": "super", "wg_address": "10.99.0.1", "cohorts": ["core", "tickets"]}, {"name": "vm-reseau", "wg_address": "10.99.0.3", "cohorts": ["reseau"]}]}
+        norm, err = tower.validate_nodes(nodes, cohorts); self.assertIsNone(err); self.assertEqual(norm["nodes"][1]["zone"], "local")
+        self.assertIn("en double", tower.validate_nodes({"nodes": nodes["nodes"] + [nodes["nodes"][0]]}, cohorts)[1])
+        self.assertIn("affectée à", tower.validate_nodes({"nodes": [dict(nodes["nodes"][0]), dict(nodes["nodes"][1], cohorts=["reseau", "core"])]}, cohorts)[1])
+        self.assertIn("inconnue", tower.validate_nodes({"nodes": [dict(nodes["nodes"][0], cohorts=["x"])]}, cohorts)[1])
+        self.assertIn("manager", tower.validate_nodes({"nodes": [dict(nodes["nodes"][0], cohorts=[])]}, cohorts)[1])
+        self.assertIn("wg_address", tower.validate_nodes({"nodes": [dict(nodes["nodes"][0], wg_address="x")]}, cohorts)[1])
+        self.assertEqual(tower.placed_here(nodes, cohorts, "super"), {"hub", "services-api", "tickets-api"}); self.assertIsNone(tower.placed_here(nodes, cohorts, "ailleurs"))
+        plan = {"steps": [{"label": "reconstruire 3 service(s)", "cmd": "./scripts/run.sh up -d --build cisco-api hub tickets-api"}, {"label": "redémarrer 1 service(s) (fichiers montés)", "cmd": "./scripts/run.sh restart snmp-api"}, {"label": "recharger la passerelle (tls-proxy)", "cmd": "./gateway/scripts/run.sh up -d --force-recreate tls-proxy"}],
+                "rebuild": ["cisco-api", "hub", "tickets-api"], "restart": ["snmp-api"]}
+        f = tower.filter_plan(plan, {"hub", "services-api", "tickets-api"})
+        self.assertEqual(f["not_here"], ["cisco-api", "snmp-api"]); self.assertEqual([st["cmd"] for st in f["steps"]], ["./scripts/run.sh up -d --build hub tickets-api", "./gateway/scripts/run.sh up -d --force-recreate tls-proxy"])
+        self.assertEqual(f["steps"][0]["label"], "reconstruire 2 service(s)"); self.assertIs(tower.filter_plan(plan, None), plan); self.assertEqual(tower.filter_plan(plan, {"cisco-api", "hub", "tickets-api", "snmp-api"})["not_here"], [])
 
 if __name__ == "__main__":
     unittest.main()
