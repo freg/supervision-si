@@ -6,8 +6,8 @@ import tempfile
 import unittest
 
 os.environ.setdefault("LDAP_ADMIN_URL", "ldap://ldap.test")
-os.environ.setdefault("LDAP_ADMIN_BIND_DN", "cn=admin,dc=groupe-i,dc=fr")
-os.environ.setdefault("LDAP_ADMIN_BASE_DN", "dc=groupe-i,dc=fr")
+os.environ.setdefault("LDAP_ADMIN_BIND_DN", "cn=admin,dc=exemple,dc=fr")
+os.environ.setdefault("LDAP_ADMIN_BASE_DN", "dc=exemple,dc=fr")
 os.environ.setdefault("RIGHTS_API_URL", "")  # droit manage passant en test
 os.environ.setdefault("LDAP_ADMIN_BACKUP_DIR", tempfile.mkdtemp())
 
@@ -34,7 +34,7 @@ class RouteTests(unittest.TestCase):
     def test_config(self):
         r = self.c.get("/accounts/config")
         self.assertEqual(r.status_code, 200)
-        self.assertEqual(r.get_json()["external_dn"], "ou=external,ou=accounts,dc=groupe-i,dc=fr")
+        self.assertEqual(r.get_json()["external_dn"], "ou=external,ou=accounts,dc=exemple,dc=fr")
 
     def test_creation_ok_uidnumber_auto(self):
         self._patch_search(lambda base, filt: (
@@ -49,11 +49,11 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(r.status_code, 201, r.get_json())
         body = r.get_json()
         self.assertEqual(body["uid_number"], 17943)   # max+1 auto
-        self.assertEqual(body["dn"], "uid=demo2,ou=external,ou=accounts,dc=groupe-i,dc=fr")
+        self.assertEqual(body["dn"], "uid=demo2,ou=external,ou=accounts,dc=exemple,dc=fr")
         self.assertIn("uidNumber: 17943", applied["ldif"])
 
     def test_creation_uid_existant_409(self):
-        self._patch_search(lambda base, filt: {"ok": True, "stdout": "dn: uid=demo2,ou=external,ou=accounts,dc=groupe-i,dc=fr\n", "stderr": "", "returncode": 0})
+        self._patch_search(lambda base, filt: {"ok": True, "stdout": "dn: uid=demo2,ou=external,ou=accounts,dc=exemple,dc=fr\n", "stderr": "", "returncode": 0})
         r = self.c.post("/accounts", json={"uid": "demo2", "kind": "externe", "sn": "MOA", "password": "x12345678"}, headers=PW)
         self.assertEqual(r.status_code, 409)
         self.assertIn("déjà", r.get_json()["error"])
@@ -83,7 +83,7 @@ class RouteTests(unittest.TestCase):
             applied["ldif"] = ldif
             return {"ok": True, "stdout": "", "stderr": "", "returncode": 0}
         ldap_client.apply_ldif = _ok
-        r = self.c.post("/groups/member", json={"group_dn": "cn=svc,ou=groups,ou=accounts,dc=groupe-i,dc=fr", "uid": "demo2"}, headers=PW)
+        r = self.c.post("/groups/member", json={"group_dn": "cn=svc,ou=groups,ou=accounts,dc=exemple,dc=fr", "uid": "demo2"}, headers=PW)
         self.assertEqual(r.status_code, 200, r.get_json())
         self.assertEqual(r.get_json()["member_attr"], "memberUid")
         self.assertIn("memberUid: demo2", applied["ldif"])
@@ -92,16 +92,16 @@ class RouteTests(unittest.TestCase):
         def responder(base, filt):
             if "objectClass=*" in filt or filt == "(objectClass=*)":
                 return {"ok": True, "stdout": "dn: %s\nobjectClass: groupOfNames\n" % base, "stderr": "", "returncode": 0}
-            return {"ok": True, "stdout": "dn: uid=demo2,ou=external,ou=accounts,dc=groupe-i,dc=fr\n", "stderr": "", "returncode": 0}
+            return {"ok": True, "stdout": "dn: uid=demo2,ou=external,ou=accounts,dc=exemple,dc=fr\n", "stderr": "", "returncode": 0}
         self._patch_search(responder)
-        r = self.c.post("/groups/member", json={"group_dn": "cn=eq,ou=groups,ou=accounts,dc=groupe-i,dc=fr", "uid": "demo2"}, headers=PW)
+        r = self.c.post("/groups/member", json={"group_dn": "cn=eq,ou=groups,ou=accounts,dc=exemple,dc=fr", "uid": "demo2"}, headers=PW)
         self.assertEqual(r.status_code, 200, r.get_json())
         self.assertEqual(r.get_json()["member_attr"], "member")
-        self.assertIn("member: uid=demo2,ou=external,ou=accounts,dc=groupe-i,dc=fr", applied["ldif"])
+        self.assertIn("member: uid=demo2,ou=external,ou=accounts,dc=exemple,dc=fr", applied["ldif"])
 
     def test_liste_groupes(self):
         self._patch_search(lambda base, filt: {"ok": True, "stdout":
-            "dn: cn=svc,ou=groups,ou=accounts,dc=groupe-i,dc=fr\ncn: svc\nobjectClass: posixGroup\nmemberUid: a\nmemberUid: b\n", "stderr": "", "returncode": 0})
+            "dn: cn=svc,ou=groups,ou=accounts,dc=exemple,dc=fr\ncn: svc\nobjectClass: posixGroup\nmemberUid: a\nmemberUid: b\n", "stderr": "", "returncode": 0})
         r = self.c.get("/groups", headers=PW)
         self.assertEqual(r.status_code, 200, r.get_json())
         gs = r.get_json()["groups"]

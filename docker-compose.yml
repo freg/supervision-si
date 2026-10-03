@@ -1622,10 +1622,10 @@ services:
       - LDAP_ADMIN_BASE_DN=${LDAP_ADMIN_BASE_DN:-}
       - LDAP_ADMIN_BACKUP_RETENTION_COUNT=${LDAP_ADMIN_BACKUP_RETENTION_COUNT:-30}
       # Création de comptes / affectation aux groupes (livraison LDAP) :
-      # conteneurs et défauts. Défauts = conventions Groupe-I ; réglables.
-      - LDAP_ACCOUNTS_DN=${LDAP_ACCOUNTS_DN:-ou=accounts,dc=groupe-i,dc=fr}
-      - LDAP_EXTERNAL_DN=${LDAP_EXTERNAL_DN:-ou=external,ou=accounts,dc=groupe-i,dc=fr}
-      - LDAP_GROUPS_DN=${LDAP_GROUPS_DN:-ou=groups,ou=accounts,dc=groupe-i,dc=fr}
+      # conteneurs et défauts. Défauts = conventions du groupe exemple ; réglables.
+      - LDAP_ACCOUNTS_DN=${LDAP_ACCOUNTS_DN:-ou=accounts,dc=exemple,dc=fr}
+      - LDAP_EXTERNAL_DN=${LDAP_EXTERNAL_DN:-ou=external,ou=accounts,dc=exemple,dc=fr}
+      - LDAP_GROUPS_DN=${LDAP_GROUPS_DN:-ou=groups,ou=accounts,dc=exemple,dc=fr}
       - LDAP_DEFAULT_GID=${LDAP_DEFAULT_GID:-65534}
       - LDAP_DEFAULT_SHELL=${LDAP_DEFAULT_SHELL:-/bin/false}
       - LDAP_UID_FLOOR=${LDAP_UID_FLOOR:-1000}

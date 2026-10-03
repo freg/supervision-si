@@ -469,7 +469,7 @@ Deux pages dans le portail « Gestion OpenLDAP » (onglets « ➕ Créer un comp
 et « 👥 Groupes ») pour la tâche récurrente d'ajout d'utilisateurs, en
 remplacement du script (qui restait silencieux sur une partie des erreurs).
 
-Création : type interne (`uid=…,ou=accounts,dc=groupe-i,dc=fr`) ou externe
+Création : type interne (`uid=…,ou=accounts,dc=exemple,dc=fr`) ou externe
 (`uid=…,ou=external,ou=accounts,…`), schéma `top`+`posixAccount`+`inetOrgPerson`,
 **uidNumber alloué automatiquement** (max+1), mot de passe haché par le serveur,
 refus si l'uid existe déjà. Affectation : **sélecteur** des groupes sous

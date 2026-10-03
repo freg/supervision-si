@@ -408,6 +408,6 @@ correctif de la plainte « le script est silencieux pour une partie des erreurs 
 
 Conteneurs et défauts réglables : `LDAP_ACCOUNTS_DN`, `LDAP_EXTERNAL_DN`,
 `LDAP_GROUPS_DN`, `LDAP_DEFAULT_GID`, `LDAP_DEFAULT_SHELL`, `LDAP_UID_FLOOR`
-(défauts = conventions Groupe-I). Logique pure testée : `ldap_accounts.py`
+(défauts = conventions du groupe exemple). Logique pure testée : `ldap_accounts.py`
 (`test_accounts.py`, 9 tests) ; câblage des routes : `test_routes.py` (6 tests,
 ldapsearch/ldapmodify simulés, y compris la remontée d'erreur).

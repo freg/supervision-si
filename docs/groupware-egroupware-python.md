@@ -85,7 +85,7 @@ interface à part.
 
 ## 6. Questions à trancher avant de coder
 
-1. Pour qui ? L'équipe interne (Groupe-I / Omalley / Optline), des clients (ex. campus), les deux ?
+1. Pour qui ? L'équipe interne, des clients, les deux ?
 2. Les trois applications de départ : agenda + contacts + InfoLog — d'accord, ou autre priorité (temps ? ressources ?) ?
 3. Synchronisation téléphones / Thunderbird (CalDAV/CardDAV) : indispensable dès le début, ou plus tard ?
 4. Qu'est-ce qui, dans eGroupware 2004, manquait ou agaçait ? (pour ne pas le reproduire)

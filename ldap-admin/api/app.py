@@ -122,12 +122,12 @@ BACKUP_DIR = os.environ.get("LDAP_ADMIN_BACKUP_DIR", "/data/backups")
 BACKUP_RETENTION_COUNT = int(os.environ.get("LDAP_ADMIN_BACKUP_RETENTION_COUNT", "30"))
 
 # Conteneurs de comptes/groupes (création + affectation, livraison LDAP).
-# Défauts = conventions Groupe-I (voir ajoute-compte-externe.sh) ; réglables
+# Défauts = conventions du groupe exemple (voir ajoute-compte-externe.sh) ; réglables
 # par variable d'environnement pour un autre annuaire. Doivent être SOUS
 # LDAP_ADMIN_BASE_DN (la racine) pour être joignables.
-LDAP_ACCOUNTS_DN = os.environ.get("LDAP_ACCOUNTS_DN", "ou=accounts,dc=groupe-i,dc=fr")
-LDAP_EXTERNAL_DN = os.environ.get("LDAP_EXTERNAL_DN", "ou=external,ou=accounts,dc=groupe-i,dc=fr")
-LDAP_GROUPS_DN = os.environ.get("LDAP_GROUPS_DN", "ou=groups,ou=accounts,dc=groupe-i,dc=fr")
+LDAP_ACCOUNTS_DN = os.environ.get("LDAP_ACCOUNTS_DN", "ou=accounts,dc=exemple,dc=fr")
+LDAP_EXTERNAL_DN = os.environ.get("LDAP_EXTERNAL_DN", "ou=external,ou=accounts,dc=exemple,dc=fr")
+LDAP_GROUPS_DN = os.environ.get("LDAP_GROUPS_DN", "ou=groups,ou=accounts,dc=exemple,dc=fr")
 LDAP_DEFAULT_GID = int(os.environ.get("LDAP_DEFAULT_GID", "65534"))
 LDAP_DEFAULT_SHELL = os.environ.get("LDAP_DEFAULT_SHELL", "/bin/false")
 LDAP_UID_FLOOR = int(os.environ.get("LDAP_UID_FLOOR", "1000"))

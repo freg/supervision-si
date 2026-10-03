@@ -7,10 +7,10 @@ import ldap_accounts as a
 
 class DnTests(unittest.TestCase):
     def test_account_dn(self):
-        self.assertEqual(a.account_dn("alex1", "interne", "ou=accounts,dc=groupe-i,dc=fr", "ou=external,ou=accounts,dc=groupe-i,dc=fr"),
-                         "uid=alex1,ou=accounts,dc=groupe-i,dc=fr")
-        self.assertEqual(a.account_dn("aga1", "externe", "ou=accounts,dc=groupe-i,dc=fr", "ou=external,ou=accounts,dc=groupe-i,dc=fr"),
-                         "uid=aga1,ou=external,ou=accounts,dc=groupe-i,dc=fr")
+        self.assertEqual(a.account_dn("alex1", "interne", "ou=accounts,dc=exemple,dc=fr", "ou=external,ou=accounts,dc=exemple,dc=fr"),
+                         "uid=alex1,ou=accounts,dc=exemple,dc=fr")
+        self.assertEqual(a.account_dn("aga1", "externe", "ou=accounts,dc=exemple,dc=fr", "ou=external,ou=accounts,dc=exemple,dc=fr"),
+                         "uid=aga1,ou=external,ou=accounts,dc=exemple,dc=fr")
         with self.assertRaises(ValueError):
             a.account_dn("x", "autre", "a", "b")
 
@@ -44,8 +44,8 @@ class LdifTests(unittest.TestCase):
 
     def test_build_add_account_ldif(self):
         ldif = a.build_add_account_ldif(
-            "uid=demo_moa,ou=external,ou=accounts,dc=groupe-i,dc=fr", "demo_moa", "MOA",
-            17943, 65534, given_name="Demo", mail="w.leroy@omalleyconsulting.net",
+            "uid=demo_moa,ou=external,ou=accounts,dc=exemple,dc=fr", "demo_moa", "MOA",
+            17943, 65534, given_name="Demo", mail="demo.moa@exemple.fr",
             password="s3cret!!", description="compte externe")
         self.assertIn("changetype: add", ldif)
         self.assertIn("objectClass: posixAccount", ldif)

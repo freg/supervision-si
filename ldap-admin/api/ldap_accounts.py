@@ -5,7 +5,7 @@ Logique PURE, testable sans serveur : construction des DN, des fragments
 LDIF (add compte, add/del membre de groupe), allocation d'un uidNumber libre
 (max+1) et choix de l'attribut d'appartenance selon la classe du groupe.
 
-Schéma repris de l'existant (compte de service Groupe-I) : objectClass top +
+Schéma repris de l'existant (compte de service du groupe exemple) : objectClass top +
 posixAccount + inetOrgPerson ; cn = « prénom nom » ; displayName ; sn ;
 givenName/mail optionnels ; uidNumber alloué ; gidNumber (défaut 65534) ;
 homeDirectory /home/<uid> ; loginShell (défaut /bin/false) ; userPassword en
