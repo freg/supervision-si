@@ -365,6 +365,11 @@ def parse_log(text):
     return out
 
 
+# Fichiers suivis mais RÉGÉNÉRÉS par run.sh à chaque lancement (hash du contenu, inventaire d'exposition) : jamais un motif
+# de refus, remis à la version du dépôt avant le pull (run.sh les réécrira).
+GENERATED = ("shared/VERSION.json", "shared/EXPOSURE.json")
+
+
 def git_update_plan(mode, changed, main_paths, running, gateway_running=True, nodes=0, agents=False, branch="main", start_new=()):
     """Étapes du job : `git pull --ff-only`, puis
     - central : plan ciblé (plan_for_changes) sur les fichiers modifiés entre HEAD et origin ;
@@ -374,7 +379,8 @@ def git_update_plan(mode, changed, main_paths, running, gateway_running=True, no
     -> {steps, plan, agents}."""
     if not re.match(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,100}$", branch or ""):
         branch = "main"
-    steps = [{"label": "tirer le dépôt (origin/%s, avance rapide seulement)" % branch, "cmd": "git pull --ff-only origin %s" % branch}]
+    steps = [{"label": "remettre les fichiers générés (VERSION.json, EXPOSURE.json) à la version du dépôt", "cmd": "git checkout -- " + " ".join(GENERATED)},
+             {"label": "tirer le dépôt (origin/%s, avance rapide seulement)" % branch, "cmd": "git pull --ff-only origin %s" % branch}]
     plan = plan_for_changes(changed, main_paths, running, gateway_running=gateway_running)
     if mode == "cascade":
         if ".env.example" in changed:

@@ -158,7 +158,7 @@ class GitUpdate(unittest.TestCase):
         try:
             r = na.git_update("n1", True)
             self.assertEqual(r["branch"], "main"); self.assertEqual(r["steps"], ["up: 3 services"]); self.assertIn("Fast-forward", r["pull"])
-            self.assertEqual([c[:2] for c in calls][:3], [["git", "status"], ["git", "rev-parse"], ["git", "rev-parse"]]); self.assertIn(["git", "pull", "--ff-only", "origin", "main"], calls)
+            self.assertEqual([c[:2] for c in calls][:4], [["git", "checkout"], ["git", "status"], ["git", "rev-parse"], ["git", "rev-parse"]]); self.assertIn(["git", "pull", "--ff-only", "origin", "main"], calls)
             na.run = lambda cmd, **kw: type("R", (), {"returncode": 0, "stdout": " M deploy/x.py\n", "stderr": ""})()
             with self.assertRaises(RuntimeError) as cm:
                 na.git_update("n1")

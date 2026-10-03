@@ -136,6 +136,7 @@ def apply(me, build=False):
 def git_update(me, build=True):
     """#659 : dépôt local tiré en avance rapide (origin/<branche courante>), puis apply --build. Refus si des fichiers suivis
     sont modifiés localement (jamais d'écrasement silencieux)."""
+    run(["git", "checkout", "--", "shared/VERSION.json", "shared/EXPOSURE.json"], check=False, capture=True)   # régénérés par run.sh
     dirty = [l for l in (run(["git", "status", "--porcelain", "--untracked-files=no"], capture=True).stdout or "").splitlines() if l.strip()]
     if dirty:
         raise RuntimeError("fichiers suivis modifiés sur ce nœud : " + ", ".join(l[3:] if len(l) > 3 else l for l in dirty[:5]))

@@ -950,7 +950,7 @@ def git_state(fetch=True):
     st = {"branch": branch, "head": tower.parse_log(head)[:1] and tower.parse_log(head)[0], "remote": tower.mask_remote(remote), "hint": tower.remote_hint(remote),
           "current": (_read("shared/DELIVERY_NUMBER") or b"").decode().strip(), "fetched": False}
     _, dirty, _ = _git(["status", "--porcelain", "--untracked-files=no"])
-    st["dirty"] = [l[3:] if len(l) > 3 else l for l in dirty.splitlines() if l.strip()][:20]
+    st["dirty"] = [f for f in ((l[3:] if len(l) > 3 else l) for l in dirty.splitlines() if l.strip()) if f.strip() not in tower.GENERATED][:20]
     if fetch and not st["hint"]:
         rc, _, err = _git(["fetch", "--quiet", "origin", branch], timeout=180)
         st["fetched"] = rc == 0
@@ -1021,7 +1021,7 @@ def git_update_route():
     start_new = [x for x in (body.get("start_new") or []) if x in (st.get("new_services") or [])]
     plan = tower.git_update_plan(mode, st["changed"], _compose_paths(), st["running"], gateway_running=_gateway_running(), nodes=st.get("nodes", 0), agents=bool(body.get("agents")), branch=st["branch"], start_new=start_new)
     if mode == "central":
-        plan["plan"] = tower.filter_plan(plan["plan"], _placed_here()); plan["steps"] = plan["steps"][:1] + plan["plan"]["steps"]
+        plan["plan"] = tower.filter_plan(plan["plan"], _placed_here()); plan["steps"] = plan["steps"][:2] + plan["plan"]["steps"] + [st_ for st_ in plan["steps"][2:] if st_["label"].startswith("démarrer")]
     label = "mise à jour git %s : #%s → #%s (%d commit(s))" % ("en cascade" if mode == "cascade" else "du central", st["current"] or "?", st.get("remote_number") or "?", st.get("behind", 0))
     job = launch_job("git-update", label, plan["steps"], g.user["username"], {"git": {"from": st["head"], "mode": mode, "behind": st.get("behind"), "remote_number": st.get("remote_number")}, "agents": plan["agents"]})
     event("git-update", "%s lancée par %s (%s)" % (label, g.user["username"], mode), job=job["id"])

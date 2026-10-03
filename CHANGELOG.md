@@ -1,3 +1,12 @@
+## 2026-10-03 — Mise à jour git : les fichiers générés par run.sh ne bloquent plus (livraison #667)
+
+Constaté sur super : « fichiers modifiés localement : shared/EXPOSURE.json, shared/VERSION.json » — ces deux fichiers sont
+suivis par git mais réécrits par `run.sh` à chaque lancement. Ils sont désormais ignorés par le contrôle et remis à la
+version du dépôt juste avant le `git pull` (premier pas du job), puis régénérés au `up`. Idem pour `deploy/node_agent.py update`.
+
+Vérifié : `services/api/test_tower.py`, `test_app.py`, `deploy/tests` (19). Fichiers : `services/api/{app.py,tower.py,test_tower.py}`,
+`deploy/{node_agent.py,tests/test_deploy.py}`, `CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — Groupware tranche 3 : agenda dans le hub (récurrences, disponibilités, ressources), compte de service depuis le coffre, nouveaux services depuis la tour (livraison #666, item 115)
 
 - `groupware/api/ical.py` (icalendar + dateutil) : VEVENT ↔ dict, récurrences développées, créneaux occupés, conflits ;
