@@ -2354,3 +2354,13 @@ button.danger { color: #e06666; }
 .pv-cmd { margin-top: 10px; font-size: 13px; } .pv-log { background: var(--bg); border: 1px solid var(--border); padding: 6px; font-size: 12px; max-height: 200px; overflow: auto; white-space: pre-wrap; }
 .pv-run { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 6px; }
 .pv-form { border-top: 1px solid var(--border); margin-top: 8px; padding-top: 6px; } .pv-candidates { grid-column: 1 / -1; } .pv-candidates input { flex: 1; min-width: 120px; }
+
+/* ---- Tour de contrôle › Réseau (#655), préfixe tn- : variables du thème uniquement ---- */
+.tn-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 14px; align-items: start; margin-top: 10px; }
+.tn-card { max-width: none; } .tn-card h3 { margin: 0 0 8px; } .tn-card h4 { margin: 12px 0 4px; }
+.tn-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tn-table th, .tn-table td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); }
+.tn-table th { color: var(--muted); font-weight: 600; }
+.tn-row-ko { background: var(--danger-bg); } .tn-ko { color: var(--danger); } .tn-muted { opacity: 0.6; }
+.tn-details { margin: 6px 0; } .tn-details summary { cursor: pointer; }
+.tn-inline { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }

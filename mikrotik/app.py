@@ -262,6 +262,26 @@ def router_interfaces(name):
         return jsonify({"error": str(exc)}), 502
 
 
+@app.route("/mikrotik/routers/<name>/routes", methods=["GET"])
+def router_routes(name):
+    """#655 : table de routage (lecture seule) pour la tour de contrôle réseau -- `/ip route` : dst-address, gateway,
+    distance, actif/désactivé, commentaire. Jamais de modification par ce chemin."""
+    router = find_router(name)
+    if not router:
+        return jsonify({"error": f"routeur « {name} » absent du registre"}), 404
+    client, error = client_for(router)
+    if error:
+        return jsonify({"error": error}), 500
+    try:
+        rows = client.get("ip/route") or []
+        out = [{"id": r.get(".id"), "dst": r.get("dst-address"), "gateway": r.get("gateway"), "distance": r.get("distance"),
+                "active": str(r.get("active", "true")).lower() == "true", "disabled": str(r.get("disabled", "false")).lower() == "true",
+                "dynamic": str(r.get("dynamic", "false")).lower() == "true", "comment": r.get("comment")} for r in rows]
+        return jsonify({"routes": out, "router": name}), 200
+    except RouterOSError as exc:
+        return jsonify({"error": str(exc)}), 502
+
+
 # -------------------------------------------------------------- commandes
 
 @app.route("/mikrotik/routers/<name>/interfaces/toggle", methods=["POST"])

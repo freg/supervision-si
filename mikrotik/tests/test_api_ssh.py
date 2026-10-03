@@ -32,6 +32,8 @@ class FakeSsh(RouterOSSsh):
                 return ".id=*A;chain=dstnat;action=dst-nat;protocol=tcp;dst-port=8443;to-addresses=192.0.2.10;to-ports=443;disabled=false\n", 0
             if cmd.startswith("/ip firewall nat add"):
                 return "*B\n", 0
+            if cmd.startswith(":foreach i in=[/ip route find]"):
+                return ".id=*1;dst-address=0.0.0.0/0;gateway=192.0.2.1;distance=1;active=true;disabled=false;dynamic=false;comment=sortie\n.id=*2;dst-address=198.51.100.0/24;gateway=192.0.2.9;distance=1;active=false;disabled=true;dynamic=false\n", 0
             if cmd == "/ip address print":
                 return "Flags: X - disabled\n #   ADDRESS            NETWORK\n 0   192.0.2.253/24     192.0.2.0\n", 0
             return "", 0
@@ -49,6 +51,13 @@ class Api(unittest.TestCase):
         routers, _ = appmod.load_registry()
         self.assertEqual((routers[0]["transport"], routers[0]["port"]), ("ssh", 22))
         self.assertEqual((routers[1]["transport"], routers[1]["port"]), ("rest", 443))
+
+    def test_routes(self):  # #655
+        r = self.c.get("/mikrotik/routers/rb/routes")
+        self.assertEqual(r.status_code, 200, r.json)
+        self.assertEqual([x["dst"] for x in r.json["routes"]], ["0.0.0.0/0", "198.51.100.0/24"])
+        self.assertTrue(r.json["routes"][0]["active"]); self.assertTrue(r.json["routes"][1]["disabled"]); self.assertEqual(r.json["routes"][0]["comment"], "sortie")
+        self.assertEqual(self.c.get("/mikrotik/routers/absent/routes").status_code, 404)
 
     def test_nat_map(self):  # #606
         m = self.c.get("/mikrotik/nat-map").get_json()

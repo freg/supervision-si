@@ -33,3 +33,6 @@ export async function fetchMikrotikRouters(apiBase) {
 // #606 : carte des redirections NAT de tous les routeurs (entrée → routeur → cible).
 export const fetchNatMap = (apiBase, site = "") => fetchJson(apiBase, `/nat-map${site ? `?site=${encodeURIComponent(site)}` : ""}`);
 export const setNatRule = (apiBase, router, id, patch) => fetchJson(apiBase, `/routers/${encodeURIComponent(router)}/nat/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+// #655 : table de routage d'un routeur (lecture seule), tour de contrôle réseau
+export const fetchRoutes = (apiBase, router) => fetchJson(apiBase, `/routers/${encodeURIComponent(router)}/routes`);
+export const fetchNatRules = (apiBase, router) => fetchJson(apiBase, `/routers/${encodeURIComponent(router)}/nat`);

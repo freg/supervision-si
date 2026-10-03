@@ -120,3 +120,9 @@ cible LAN nommée par les agents hôtes quand l'adresse est connue), flux
 verts / rouges (conflit) / gris pointillés (désactivé), filtre début de mot,
 tableau avec activer / désactiver sur place, lien vers la tuile MikroTik
 pour ajouter ou modifier.
+
+## Table de routage en lecture (livraison #655)
+
+`GET /mikrotik/routers/<name>/routes` : `/ip route` (destination, passerelle, distance, active/désactivée/dynamique,
+commentaire), lecture seule, consommé par la tour de contrôle du hub (onglet Réseau). Aucune écriture par ce chemin.
+Vérifié : `tests/test_api_ssh.py::test_routes` (transport SSH simulé).

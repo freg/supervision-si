@@ -4,18 +4,18 @@ Demandé 3 oct. 2026 : « un outil de supervision/contrôle de tous les pve : mi
 réplication / pra (plan de…) ; idem tous serveurs/services : avec gestion/commande de migration vers virtualisation,
 bascule de rôle (celui qui répond) ; une tour de contrôle : dns, routage, flux → traffics ».
 
-- (111, **FAIT #653**, première brique) **PVE** : opérations migrate / backup / move_disk / clone / replicate par
+- (111, **FAIT #653/#654**) **PVE** : opérations migrate / backup / move_disk / clone / replicate par
   l'agent de chaque hyperviseur, plans (PRA, maintenance, bascule, migration) simulés puis exécutés pas à pas par le
-  central. Reste : déclencheurs automatiques d'un PRA (nœud absent → plan), état des jobs de réplication et des
-  sauvegardes remonté dans la tuile (lecture `pvesr status`, journal vzdump), test sur pve10/pve11.
+  central ; #654 : réplication et dernière sauvegarde par VM, plans déclenchés par la perte d'un nœud (proposés, ou
+  lancés sur choix explicite). Reste : test sur pve10/pve11.
 - (112) **Serveurs/services → virtualisation** : à cadrer. Pistes : Windows = item 101 (`image_host`, Disk2vhd) + import
   `qm importdisk` par l'agent du nœud ; Linux = image à chaud (`dd`/`partclone` via l'agent) ou reconstruction par
   rôle (conteneur/VM + données via datasync #652) ; choix à prendre avec la personne (image brute vs reconstruction).
-- (113) **Bascule de rôle (« celui qui répond »)** : à cadrer — mécanisme : enregistrement DNS (zone interne BIND /
+- (113, **FAIT #654** pour les mécanismes manuel et NAT MikroTik, bascule = étape de plan) **Bascule de rôle (« celui qui répond »)** : reste DNS/VIP — mécanisme : enregistrement DNS (zone interne BIND /
   OVH / Nebula ?), VIP (keepalived/VRRP), ou règle NAT MikroTik (#587 déjà pilotable). Proposition : un « rôle » =
   nom de service + liste ordonnée de candidats (VM, serveur) + mécanisme de bascule + vérification (service-watch) ;
   la bascule devient une étape de plan (#653).
-- (114) **Tour de contrôle DNS / routage / flux** : à cadrer — DNS : quelles zones et quel serveur (BIND interne,
+- (114, **lecture seule FAITE #655** : onglet Réseau de la tour de contrôle) **Tour de contrôle DNS / routage / flux** : reste à cadrer — DNS : quelles zones et quel serveur (BIND interne,
   OVH, Nebula ?) pour éditer et pas seulement importer (service-watch importe déjà) ; routage : MikroTik (#485/#587)
   et Cisco (#508) — tables de routes et NAT en lecture, modifications journalisées ; flux → trafic : network-agent
   (#236+), conntrack (#640), bande passante (#641) — vue consolidée « d'où vers où, combien », par service/rôle.

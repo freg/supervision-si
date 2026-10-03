@@ -9,6 +9,7 @@
 // surveillés), Journal de la tour.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PageFrame from "./PageFrame.jsx";
+import TowerNetworkTab from "./TowerNetworkTab.jsx";
 import ServicesView from "./ServicesView.jsx";
 import { viewParams } from "./hubLinks.js";
 import {
@@ -23,6 +24,7 @@ const TABS = [
   { id: "configs", label: "🗂 Configurations" },
   { id: "auto", label: "⚙ Automatismes" },
   { id: "journal", label: "📜 Journal" },
+  { id: "network", label: "🕸 Réseau" },   // #655 : DNS / routage / flux → trafic (lecture seule)
 ];
 const COLORS = { red: "#e53935", orange: "#fb8c00", green: "#43a047", grey: "#9e9e9e" };
 const when = (t) => (t ? new Date(typeof t === "number" ? t * 1000 : t).toLocaleString() : "");
@@ -309,7 +311,7 @@ function Journal({ apiBase, token }) {
 }
 
 // ---------------------------------------------------------------------------
-export default function ControlTowerView({ apiBase, accessToken, username, onBack }) {
+export default function ControlTowerView({ apiBase, accessToken, username, onBack, network = {} }) {
   const params = useMemo(() => viewParams(), []);
   const [tab, setTab] = useState(TABS.some((t) => t.id === params.tab) ? params.tab : "services");
   const [settings, setSettings] = useState(null);
@@ -333,6 +335,7 @@ export default function ControlTowerView({ apiBase, accessToken, username, onBac
       {tab === "configs" && <Configs apiBase={apiBase} token={accessToken} initial={params.config} />}
       {tab === "auto" && <Automations apiBase={apiBase} token={accessToken} settings={settings} onSaved={setSettings} />}
       {tab === "journal" && <Journal apiBase={apiBase} token={accessToken} />}
+      {tab === "network" && <TowerNetworkTab serviceWatchUrl={network.serviceWatchUrl} siAgentApiBase={network.siAgentApiBase} mikrotikApiBase={network.mikrotikApiBase} networkAgentApiBase={network.networkAgentApiBase} />}
     </PageFrame>
   );
 }

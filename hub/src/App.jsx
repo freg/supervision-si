@@ -1623,7 +1623,8 @@ vm === "agent-page" ? (
           onNavigate={(t) => setViewMode(t)}
         />
       ) : vm === "services" || vm === "control" ? (
-        <ControlTowerView apiBase={SERVICES_API_BASE_URL} accessToken={auth.user?.access_token} username={profile.preferred_username} onBack={goBack} />
+        <ControlTowerView apiBase={SERVICES_API_BASE_URL} accessToken={auth.user?.access_token} username={profile.preferred_username} onBack={goBack}
+          network={{ serviceWatchUrl: SERVICE_WATCH_URL, siAgentApiBase: SI_AGENT_API_BASE_URL, mikrotikApiBase: MIKROTIK_API_BASE, networkAgentApiBase: NETWORK_AGENT_API_BASE_URL }} />
       ) : vm === "history" ? (
         <HistoryView apiBase={PREFS_API_BASE_URL} onBack={goBack} />
       ) : vm === "aide" ? (

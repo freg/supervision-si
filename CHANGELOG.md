@@ -1,3 +1,27 @@
+## 2026-10-03 — Tour de contrôle : onglet Réseau — DNS, routage, flux → trafic, en lecture seule (livraison #655)
+
+Demande : « une tour de contrôle : dns, routage, flux → traffics ». Livré dans la tour de contrôle existante (#586) :
+onglet « 🕸 Réseau » qui AGRÈGE en lecture seule ce que les modules savent déjà, sans dupliquer leurs actions.
+
+- DNS : entrées de services (service-watch : IP résolues, état, alertes) + divergences de résolution relevées par la
+  sonde dns-observe des agents (#639), synthèse (entrées, en défaut, alertes).
+- Routage : par routeur MikroTik, table de routage (`GET /mikrotik/routers/<name>/routes`, nouveau, lecture seule :
+  destination, passerelle, distance, état, commentaire), passerelles par défaut, règles NAT résumées (#587/#606).
+- Flux → trafic : échanges « d'où vers où, combien » du segment choisi (network-agent `/links`, #250/#414), accès aux
+  ressources vus par les sondes resource-access (#640).
+- `hub/src/TowerNetworkTab.jsx` (+ `towerNetworkLib.js` testé, `mikrotikClient.js` : `fetchRoutes`, `fetchNatRules`),
+  `ControlTowerView.jsx` (onglet + prop `network`), `App.jsx`, `hub.css` (`tn-*`). Chaque panneau charge seul et
+  affiche son erreur ; un module non configuré l'indique sans bloquer les autres.
+- Non couvert, à cadrer (BACKLOG 114) : DNS **éditable** (serveur à choisir), routes Cisco (module #508 n'expose pas
+  encore la table de routage), modification de routes depuis la tour (volontairement absente : lecture seule).
+
+Vérifié : `mikrotik/tests` (OK, transport SSH simulé), `node --test` (292 verts, 1 échec préexistant `view:personal`),
+`@babel/parser`, aucune couleur en dur. Non vérifié : rendu navigateur, routeur réel. Déploiement :
+`cd ~/SRC/data2/tickets/supervision-si && sudo ./scripts/run.sh up -d --build mikrotik-api hub`.
+
+Fichiers : `mikrotik/{app.py,README.md,tests/test_api_ssh.py}`, `hub/src/{TowerNetworkTab.jsx,towerNetworkLib.js,ControlTowerView.jsx,mikrotikClient.js,App.jsx,hub.css}`,
+`hub/tests/towerNetworkLib.test.mjs`, `BACKLOG.md`, `CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — Contrôle PVE : état des réplications, plans déclenchés par la perte d'un nœud, rôles et bascule « celui qui répond » (livraison #654)
 
 Suite de #653 sur « continue » : les points de la demande qui se cadraient sans choix externe. Reste des items 112-114
