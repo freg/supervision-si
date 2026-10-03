@@ -426,7 +426,9 @@ def events_list():
             if (only_owner and c["owner"] != only_owner) or (only_book and c["name"] != only_book): continue
             for ev in _events_in(d, c["owner"], c["name"], ws, we):
                 for s, e in ical.occurrences(ev, ws, we):
-                    out.append(ical.public(ev, s, e, owner=c["owner"], book=c["name"], book_name=c["displayname"], rights=c["rights"], resource=c["resource"], etag=ev["etag"]))
+                    mine = next((a["partstat"] for a in ev.get("attendees") or [] if a["name"] == user), "")
+                    out.append(ical.public(ev, s, e, owner=c["owner"], book=c["name"], book_name=c["displayname"], rights=c["rights"], resource=c["resource"], etag=ev["etag"],
+                                           invite_from=_invite_from(ev), my_partstat=mine))
     except DavError as e:
         return jsonify(error="serveur CalDAV : %s" % e), 502
     out.sort(key=lambda x: x["start"])
@@ -444,12 +446,15 @@ def events_create():
     ev, err = ical.validate(b.get("event") or {})
     if err: return jsonify(error=err), 400
     ev["uid"] = new_uid(); ev["extra"] = ["X-SI-BOOKED-BY:" + user] if is_res else []
+    if is_res: ev["attendees"] = []
+    if ev["attendees"]: ev["organizer"] = user
     try:
         d = dav()
         if is_res:
             hits = ical.conflicts(ev, _events_in(d, owner, book, ev["start"], ev["end"]))
             if hits: return jsonify(error="ressource déjà réservée : %s" % ", ".join("%s (%s)" % (h["title"], ical.iso(h["start"])) for h in hits[:3]), conflicts=[ical.public(h) for h in hits]), 409
         r = d.put_item(owner, book, ev["uid"], ical.serialize(ev), kind="ics")
+        if ev["attendees"]: _sync_invites(d, owner, book, ev)
     except DavError as e: return jsonify(error="serveur CalDAV : %s" % e), 502
     journal(user, "%s %s/%s : %s" % ("réservation" if is_res else "événement", owner, book, ev["title"]))
     return jsonify(event=ical.public(ev, owner=owner, book=book, etag=r["etag"])), 201
@@ -472,19 +477,107 @@ def events_update(owner, book, uid):
             need = core.RIGHTS["d"] if request.method == "DELETE" else core.RIGHTS["e"]
             if not _rights_on("calendar", user, groups, owner) & need: return jsonify(error="droit insuffisant sur l'agenda de %s" % owner), 403
         if request.method == "DELETE":
-            d.delete_item(owner, book, uid, kind="ics"); journal(user, "supprimé %s/%s/%s" % (owner, book, uid)); return jsonify(ok=True)
+            d.delete_item(owner, book, uid, kind="ics"); journal(user, "supprimé %s/%s/%s" % (owner, book, uid))
+            inv = _invite_from(current)
+            if inv:                                                   # supprimer sa copie = décliner
+                o, _, bk = inv.partition("/")
+                try: _set_partstat(d, o, bk, uid, owner, "DECLINED")
+                except DavError as e: log.warning("déclin non propagé : %s", e)
+            elif current.get("attendees"):
+                _sync_invites(d, owner, book, dict(current, attendees=[]), prev=current)
+            return jsonify(ok=True)
         merged = {k: v for k, v in (b.get("event") or {}).items()}
         body = dict(ical.public(current), **merged)                   # champs non fournis conservés (rrule comprise)
         ev, err = ical.validate(body)
         if err: return jsonify(error=err), 400
         ev["uid"] = uid; ev["extra"] = current.get("extra") or []
+        if is_res: ev["attendees"] = []
+        if "attendees" in merged:                                     # réponses déjà données conservées
+            old = {a["name"]: a["partstat"] for a in current.get("attendees") or []}
+            for a in ev["attendees"]: a["partstat"] = old.get(a["name"], a["partstat"])
+        if ev["attendees"] and not ev.get("organizer"): ev["organizer"] = current.get("organizer") or user
         if is_res:
             hits = ical.conflicts(ev, _events_in(d, owner, book, ev["start"], ev["end"]))
             if hits: return jsonify(error="ressource déjà réservée sur ce créneau", conflicts=[ical.public(h) for h in hits]), 409
         r = d.put_item(owner, book, uid, ical.serialize(ev), kind="ics")
+        if (ev["attendees"] or current.get("attendees")) and not _invite_from(current): _sync_invites(d, owner, book, ev, prev=current)
         return jsonify(event=ical.public(ev, owner=owner, book=book, etag=r["etag"]))
     except DavError as e:
         return jsonify(error="serveur CalDAV : %s" % e), 502
+
+
+# ---------------------------------------------------------------- #669 : invitations (copie dans l'agenda de chaque participant, réponses) — Radicale n'a pas de scheduling
+INVITE_TAG = "X-SI-INVITE-FROM:"
+
+def _invite_from(ev):
+    return next((x.split(":", 1)[1] for x in ev.get("extra") or [] if x.upper().startswith(INVITE_TAG)), "")
+
+def _find_event(d, user, uid):
+    """Cherche uid dans les agendas de user -> (collection, événement) ou (None, None)."""
+    for c in d.list_collections(user):
+        if c["kind"] != "calendar" or not CAL_RE.match(c["name"]): continue
+        ev = next((e for e in _events_in(d, user, c["name"], None, None) if e["uid"] == uid), None)
+        if ev: return c["name"], ev
+    return None, None
+
+def _default_calendar(d, user):
+    cals = [c["name"] for c in d.list_collections(user) if c["kind"] == "calendar" and CAL_RE.match(c["name"])]
+    if cals: return "agenda" if "agenda" in cals else sorted(cals)[0]
+    d.create_collection(user, "agenda", "calendar", "Agenda"); return "agenda"
+
+def _sync_invites(d, owner, book, ev, prev=None):
+    """Après écriture de l'événement maître (owner/book) : copie à jour chez chaque participant (sa réponse conservée), retrait chez ceux enlevés."""
+    names = [a["name"] for a in ev.get("attendees") or []]
+    for a in ev.get("attendees") or []:
+        if a["name"] == owner: continue
+        try:
+            coll, cur = _find_event(d, a["name"], ev["uid"])
+            if not coll: coll = _default_calendar(d, a["name"])
+            copy = dict(ev, extra=[INVITE_TAG + "%s/%s" % (owner, book)], transparent=ev.get("transparent") or a.get("partstat") == "DECLINED")
+            d.put_item(a["name"], coll, ev["uid"], ical.serialize(copy), kind="ics")
+        except DavError as e:
+            log.warning("invitation %s non déposée chez %s : %s", ev["uid"], a["name"], e)
+    for a in (prev or {}).get("attendees") or []:
+        if a["name"] in names or a["name"] == owner: continue
+        try:
+            coll, cur = _find_event(d, a["name"], ev["uid"])
+            if coll and _invite_from(cur): d.delete_item(a["name"], coll, ev["uid"], kind="ics")
+        except DavError as e:
+            log.warning("retrait de l'invitation chez %s : %s", a["name"], e)
+
+def _set_partstat(d, owner, book, uid, who, partstat):
+    """Réponse de `who` : PARTSTAT mis à jour dans l'événement maître et dans sa copie. -> événement maître."""
+    master = next((e for e in _events_in(d, owner, book, None, None) if e["uid"] == uid), None)
+    if not master: return None
+    if who not in [a["name"] for a in master.get("attendees") or []]: return False
+    for a in master["attendees"]:
+        if a["name"] == who: a["partstat"] = partstat
+    d.put_item(owner, book, uid, ical.serialize(master), kind="ics")
+    coll, cur = _find_event(d, who, uid)
+    if coll and _invite_from(cur):
+        copy = dict(master, extra=cur.get("extra"), transparent=master.get("transparent") or partstat == "DECLINED")
+        d.put_item(who, coll, uid, ical.serialize(copy), kind="ics")
+    return master
+
+@app.route("/events/<owner>/<book>/<uid>/reply", methods=["POST"])
+def events_reply(owner, book, uid):
+    """{user, partstat: accepted|declined|tentative} — réponse à une invitation (depuis la copie ou l'événement maître)."""
+    err = _need_service()
+    if err: return err
+    b = request.get_json(silent=True) or {}; user = str(b.get("user") or ""); ps = str(b.get("partstat") or "").upper().replace("NEEDS_ACTION", "NEEDS-ACTION")
+    if not (core.NAME_RE.match(user) and core.NAME_RE.match(owner) and COLL_RE.match(book)) or ps not in ical.PARTSTAT: return jsonify(error="user et partstat (accepted / declined / tentative) requis"), 400
+    try:
+        d = dav()
+        src = "%s/%s" % (owner, book)
+        cur = next((e for e in _events_in(d, owner, book, None, None) if e["uid"] == uid), None)
+        if cur and _invite_from(cur): src = _invite_from(cur)
+        o, _, bk = src.partition("/")
+        master = _set_partstat(d, o, bk, uid, user, ps)
+        if master is None: return jsonify(error="événement inconnu"), 404
+        if master is False: return jsonify(error="vous n'êtes pas invité à cet événement"), 403
+    except DavError as e: return jsonify(error="serveur CalDAV : %s" % e), 502
+    journal(user, "réponse %s à %s (%s)" % (ps.lower(), master["title"], src))
+    return jsonify(event=ical.public(master, owner=o, book=bk, my_partstat=ps))
 
 @app.route("/freebusy", methods=["GET"])
 def freebusy():

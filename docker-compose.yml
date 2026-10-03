@@ -879,6 +879,7 @@ services:
       # #666 : fuseau des dates sans fuseau, principal Radicale des ressources (salles, matériel)
       - TZ=${TZ:-Europe/Paris}
       - GROUPWARE_RESOURCE_OWNER=${GROUPWARE_RESOURCE_OWNER:-ressources}
+      - GROUPWARE_MAIL_DOMAIN=${GROUPWARE_MAIL_DOMAIN:-groupware.local}
     volumes:
       - ${GROUPWARE_DATA_DIR:-./groupware/data}:/data
       - ${GROUPWARE_DAV_CONFIG_DIR:-./groupware/dav-config}:/dav-config

@@ -75,14 +75,21 @@ export function eventsOfDay(events, day) {
   const cols = Math.max(1, ...placed.map((p) => p.col + 1));
   return { allDay: inDay.filter((e) => e.all_day), timed: placed, cols };
 }
-export const EMPTY_EVENT = { title: "", start: "", end: "", all_day: false, location: "", description: "", categories: "", freq: "", byday: "", until: "", transparent: false };
+export const EMPTY_EVENT = { title: "", start: "", end: "", all_day: false, location: "", description: "", categories: "", freq: "", byday: "", until: "", transparent: false, attendees: "", alarm: "" };
+export const PARTSTAT_LABELS = { "NEEDS-ACTION": "sans réponse", ACCEPTED: "accepté", DECLINED: "décliné", TENTATIVE: "peut-être" };
+export const ALARM_CHOICES = [["", "aucun"], ["0", "à l'heure"], ["5", "5 min avant"], ["15", "15 min avant"], ["30", "30 min avant"], ["60", "1 h avant"], ["1440", "la veille"]];
+// #669 : liste « alice, bob » <-> participants [{name, partstat}] ; les réponses connues sont conservées
+export function parseAttendees(text, known = []) { const seen = new Set(); const out = []; for (const n of String(text || "").split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean)) { if (seen.has(n)) continue; seen.add(n); out.push({ name: n, partstat: (known.find((k) => k.name === n) || {}).partstat || "NEEDS-ACTION" }); } return out; }
+export function attendeeSummary(list) { const c = { ACCEPTED: 0, DECLINED: 0, TENTATIVE: 0, "NEEDS-ACTION": 0 }; for (const a of list || []) c[a.partstat in c ? a.partstat : "NEEDS-ACTION"]++; return c; }
 export function eventToForm(e) {
   return { title: e.title || "", start: (e.start || "").slice(0, e.all_day ? 10 : 16), end: (e.end || "").slice(0, e.all_day ? 10 : 16), all_day: !!e.all_day, location: e.location || "", description: e.description || "",
-    categories: (e.categories || []).join(", "), freq: e.rrule?.freq ? e.rrule.freq.toLowerCase() : "", byday: e.rrule?.byday || "", until: (e.rrule?.until || "").slice(0, 10), transparent: !!e.transparent };
+    categories: (e.categories || []).join(", "), freq: e.rrule?.freq ? e.rrule.freq.toLowerCase() : "", byday: e.rrule?.byday || "", until: (e.rrule?.until || "").slice(0, 10), transparent: !!e.transparent,
+    attendees: (e.attendees || []).map((a) => a.name).join(", "), alarm: e.alarm === null || e.alarm === undefined ? "" : String(e.alarm), known: e.attendees || [] };
 }
 export function formToEvent(f) {
   const ev = { title: f.title, start: f.start, end: f.end || undefined, all_day: !!f.all_day, location: f.location, description: f.description, categories: String(f.categories || "").split(",").map((x) => x.trim()).filter(Boolean), transparent: !!f.transparent };
   ev.rrule = f.freq ? { freq: f.freq, byday: f.byday || undefined, until: f.until ? (f.all_day ? f.until : f.until + "T23:59") : undefined } : null;
+  ev.attendees = parseAttendees(f.attendees, f.known || []); ev.alarm = f.alarm === "" || f.alarm === undefined ? null : Number(f.alarm);
   return ev;
 }
 export function defaultSlot(day, hour = 9) { const s = new Date(day); s.setHours(hour, 0, 0, 0); const e = new Date(s); e.setHours(hour + 1); return { start: localIso(s), end: localIso(e) }; }

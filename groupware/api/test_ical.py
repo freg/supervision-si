@@ -24,3 +24,16 @@ class I(unittest.TestCase):
         self.assertEqual(ical.conflicts(dict(cand, uid="r1"), [room]), [])        # soi-même
         pub = ical.public(room); self.assertEqual(pub["start"], "2026-10-20T10:00+02:00"); self.assertFalse(pub["recurring"])
 if __name__ == "__main__": unittest.main()
+
+
+class Invitations(unittest.TestCase):   # #669
+    def test_roundtrip(self):
+        ev, err = ical.validate({"title": "Comité", "start": "2026-11-03T14:00", "attendees": ["alice", {"name": "bob", "partstat": "accepted"}, "alice"], "alarm": "30", "organizer": "freg"})
+        self.assertIsNone(err); self.assertEqual(len(ev["attendees"]), 2); self.assertEqual(ev["alarm"], 30)
+        p = ical.parse(ical.serialize(ev, "u1"))
+        self.assertEqual(p["attendees"], [{"name": "alice", "partstat": "NEEDS-ACTION"}, {"name": "bob", "partstat": "ACCEPTED"}])
+        self.assertEqual((p["organizer"], p["alarm"]), ("freg", 30))
+        self.assertEqual(ical.public(p)["attendees"][1]["partstat"], "ACCEPTED")
+        self.assertIsNone(ical.parse(ical.serialize(ical.validate({"title": "x", "start": "2026-11-03T14:00"})[0], "u2"))["alarm"])
+        self.assertEqual(ical.validate({"title": "x", "start": "2026-11-03T14:00", "attendees": ["bad name"]})[1][:9], "attendees")
+        self.assertEqual(ical.addr_name("mailto:ext@autre.fr"), "ext@autre.fr")

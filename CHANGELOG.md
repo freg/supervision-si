@@ -1,3 +1,22 @@
+## 2026-10-03 — Groupware : invitations (participants, réponses) et rappels (livraison #669)
+
+Radicale ne fait pas de scheduling : le hub s'en charge. Un événement peut avoir des **participants** (identifiants du
+hub) : écrit chez l'organisateur avec `ORGANIZER` / `ATTENDEE;PARTSTAT`, **copié dans l'agenda de chaque participant**
+(`X-SI-INVITE-FROM`), qui répond depuis sa fiche (`POST /events/<owner>/<book>/<uid>/reply`) — accepté / décliné /
+peut-être, réponse reportée chez l'organisateur et dans sa copie (déclinée = transparente) ; supprimer sa copie =
+décliner ; modifications de l'organisateur propagées (réponses conservées), participant retiré ou événement supprimé =
+copies retirées. **Rappel** (`alarm`, minutes avant) = `VALARM` lu par les clients CalDAV. Tuile Groupware → Agenda :
+champs Participants et Rappel, fiche avec les réponses (compteur) et boutons de réponse pour l'invité.
+`GROUPWARE_MAIL_DOMAIN` (`.env`, défaut `groupware.local`) pour les adresses `mailto:` internes.
+
+- Vérifié : `test_ical` (aller-retour participants / rappel), `test_live_invite.py` contre un Radicale réel 3.5.10
+  (copies, réponses dans les deux sens, retrait, suppression), `test_live_cal` / `test_live` toujours verts, hub
+  `node --test` (309), `@babel/parser`.
+- Non vérifié : rendu navigateur ; alarmes affichées par un client réel.
+- Fichiers : `groupware/api/{ical.py,app.py,test_ical.py,test_live_invite.py}`, `groupware/README.md`,
+  `hub/src/{GroupwareView.jsx,groupwareClient.js,groupwareLib.js,hub.css}`, `hub/tests/groupwareLib.test.mjs`,
+  `.env.example`, `docker-compose.yml`, `BACKLOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — Groupware tranche 4 : InfoLog ; tour : en-tête en fenêtre étroite (livraison #668)
 
 Dernière tranche de la note de cadrage (item 115) : **InfoLog**, le journal d'eGroupware — notes, appels et tâches

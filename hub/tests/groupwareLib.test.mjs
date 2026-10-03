@@ -55,3 +55,18 @@ test("infolog : retard, kanban, formulaire, libellés de liens", () => {
   const e = formToInfolog({ ...f, priority: "2", links: [{ app: "ticket", id: "42" }, { app: "", id: "" }] }); assert.equal(e.priority, 2); assert.deepEqual(e.categories, ["client"]); assert.equal(e.links.length, 1);
   assert.equal(linkLabel({ app: "contact", id: "alice/contacts-pro/u1" }), "contact u1 (alice)"); assert.equal(linkLabel({ app: "ticket", id: "42" }), "ticket n°42"); assert.equal(linkLabel({ app: "x", id: "y" }), "x y");
 });
+
+// #669 : participants et rappel
+import { parseAttendees, attendeeSummary, ALARM_CHOICES } from "../src/groupwareLib.js";
+test("participants : liste texte <-> objets, réponses conservées, rappel", () => {
+  const known = [{ name: "bob", partstat: "ACCEPTED" }];
+  assert.deepEqual(parseAttendees("alice, bob bob;carol", known), [{ name: "alice", partstat: "NEEDS-ACTION" }, { name: "bob", partstat: "ACCEPTED" }, { name: "carol", partstat: "NEEDS-ACTION" }]);
+  assert.deepEqual(parseAttendees("", known), []);
+  const f = eventToForm({ title: "x", start: "2026-11-03T14:00", end: "2026-11-03T15:00", attendees: known, alarm: 15 });
+  assert.equal(f.attendees, "bob"); assert.equal(f.alarm, "15");
+  const ev = formToEvent({ ...f, attendees: "bob, alice", alarm: "" });
+  assert.deepEqual(ev.attendees, [{ name: "bob", partstat: "ACCEPTED" }, { name: "alice", partstat: "NEEDS-ACTION" }]); assert.equal(ev.alarm, null);
+  assert.equal(formToEvent({ ...f, alarm: "0" }).alarm, 0);
+  assert.deepEqual(attendeeSummary([...known, { name: "a" }, { name: "c", partstat: "DECLINED" }]), { ACCEPTED: 1, DECLINED: 1, TENTATIVE: 0, "NEEDS-ACTION": 1 });
+  assert.ok(ALARM_CHOICES.some(([v]) => v === "1440"));
+});

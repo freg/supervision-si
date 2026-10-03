@@ -41,6 +41,7 @@ export const createCalendar = (b, body) => fetchJson(`${b}/calendars`, json("POS
 export const listEvents = (b, user, groups, from, to, owner, book) => fetchJson(`${b}/events?${q({ user, groups: (groups || []).join(","), from, to, owner, book })}`);
 export const createEvent = (b, body) => fetchJson(`${b}/events`, json("POST", body));
 export const updateEvent = (b, owner, book, uid, body) => fetchJson(`${b}/events/${encodeURIComponent(owner)}/${encodeURIComponent(book)}/${encodeURIComponent(uid)}`, json("PUT", body));
+export const replyEvent = (b, owner, book, uid, user, partstat) => fetchJson(`${b}/events/${encodeURIComponent(owner)}/${encodeURIComponent(book)}/${encodeURIComponent(uid)}/reply`, json("POST", { user, partstat }));
 export const deleteEvent = (b, owner, book, uid, user, admin) => fetchJson(`${b}/events/${encodeURIComponent(owner)}/${encodeURIComponent(book)}/${encodeURIComponent(uid)}?${q({ user, admin: admin ? 1 : "" })}`, { method: "DELETE" });
 export const freeBusy = (b, users, resources, from, to) => fetchJson(`${b}/freebusy?${q({ users: (users || []).join(","), resources: (resources || []).join(","), from, to })}`);
 export const listResources = (b) => fetchJson(`${b}/resources`);

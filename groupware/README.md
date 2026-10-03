@@ -86,6 +86,24 @@ statut, fiche. Les entrées en retard (échéance passée, non terminées) sont 
 Reste (tranches suivantes) : le Kanban de l'ENT devient une vue d'InfoLog ; invitations / participants (ATTENDEE) ;
 alarmes ; test réel des clients DAV et de l'auth LDAP.
 
+## Invitations et rappels (#669)
+
+Radicale n'a pas de *scheduling* (iTIP) : le hub le fait lui-même, à la manière d'eGroupware. Un événement avec des
+**participants** (identifiants du hub, séparés par des virgules) est écrit dans l'agenda de l'organisateur avec
+`ORGANIZER` / `ATTENDEE;PARTSTAT=…` (`mailto:identifiant@GROUPWARE_MAIL_DOMAIN`), puis **copié dans l'agenda de chaque
+participant** (son agenda `agenda`, créé au besoin ; marqueur `X-SI-INVITE-FROM:organisateur/agenda`). Le participant
+répond depuis sa fiche — `POST /events/<owner>/<book>/<uid>/reply {user, partstat: accepted|declined|tentative}` —
+la réponse est reportée dans l'événement maître et dans sa copie (déclinée = ne bloque plus ses disponibilités) ;
+supprimer sa copie revient à décliner. Les modifications de l'organisateur sont propagées (réponses conservées),
+un participant retiré perd sa copie, la suppression par l'organisateur retire toutes les copies.
+`GET /events` renvoie `attendees`, `organizer`, `invite_from` et `my_partstat`.
+
+**Rappel** : `alarm` = minutes avant le début (`VALARM` DISPLAY, lu par les clients CalDAV : Thunderbird, DAVx5, iOS).
+Le hub ne notifie pas lui-même (à faire : rappel dans le bandeau du hub).
+
+Vérifié contre un Radicale réel (`test_live_invite.py`) : copie chez chaque participant, réponse propagée dans les deux
+sens, participant retiré, suppression de la copie = déclin, suppression maître = plus rien nulle part.
+
 ## Convention de nom des collections
 
 Radicale ne connaît pas le type d'une collection dans ses droits : un partage **agenda** s'applique aux collections
@@ -112,5 +130,5 @@ développement des groupes sur l'annuaire réel.
 
 ## Tranches suivantes (voir la note de cadrage)
 
-Les quatre tranches de la note de cadrage sont livrées (#664-#668). Suite : Kanban ENT comme vue d'InfoLog,
-invitations / participants, alarmes, test réel des clients DAV / LDAP.
+Les quatre tranches de la note de cadrage sont livrées (#664-#668), invitations et rappels en #669. Suite : Kanban ENT
+comme vue d'InfoLog, rappels affichés par le hub, test réel des clients DAV / LDAP.

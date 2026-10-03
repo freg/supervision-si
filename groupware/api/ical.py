@@ -1,16 +1,31 @@
 # -*- coding: utf-8 -*-
-"""iCalendar (livraison #666) : VEVENT <-> dict, développement des récurrences sur une fenêtre, disponibilités, conflits.
+"""iCalendar (livraison #666, participants et alarmes #669) : VEVENT <-> dict, développement des récurrences sur une fenêtre, disponibilités, conflits.
 Bibliothèques : icalendar (analyse / sérialisation) et dateutil (RRULE). Dates en ISO 8601 ; les événements « journée entière »
 portent des dates sans heure (all_day = true). Fuseau : celui des dates reçues (par défaut TZ, env, ou UTC)."""
 import os, re, uuid
 from datetime import datetime, date, timedelta, timezone
 from zoneinfo import ZoneInfo
-from icalendar import Calendar, Event, vRecur
+from icalendar import Calendar, Event, Alarm, vRecur, vCalAddress, vText
 from dateutil.rrule import rrulestr
 from dateutil import parser as dtparser
 
 TZ = ZoneInfo(os.environ.get("TZ", "Europe/Paris"))
 FREQ = ("DAILY", "WEEKLY", "MONTHLY", "YEARLY")
+MAIL_DOMAIN = os.environ.get("GROUPWARE_MAIL_DOMAIN", "groupware.local")   # adresses CAL-ADDRESS des participants (mailto:nom@domaine)
+PARTSTAT = ("NEEDS-ACTION", "ACCEPTED", "DECLINED", "TENTATIVE")
+NAME_RE = re.compile(r"^[A-Za-z0-9._@-]{1,64}$")
+
+
+def addr(name):
+    return vCalAddress("mailto:%s@%s" % (name, MAIL_DOMAIN)) if "@" not in name else vCalAddress("mailto:" + name)
+
+
+def addr_name(cal_address):
+    """'mailto:alice@domaine' -> 'alice' (nom d'utilisateur du hub) ; conserve une adresse d'un autre domaine telle quelle."""
+    a = str(cal_address or "").strip()
+    a = a[7:] if a.lower().startswith("mailto:") else a
+    local, _, dom = a.partition("@")
+    return local if dom.lower() == MAIL_DOMAIN.lower() or not dom else a
 
 
 def _aware(d):
@@ -67,9 +82,27 @@ def validate(body):
             if not all(d in ("MO", "TU", "WE", "TH", "FR", "SA", "SU") for d in days):
                 return None, "rrule.byday : MO,TU,…"
             rrule["BYDAY"] = days
+    att = []
+    for a in b.get("attendees") or []:
+        a = a if isinstance(a, dict) else {"name": a}
+        name = str(a.get("name") or "").strip()
+        if not NAME_RE.match(name):
+            return None, "attendees : noms d'utilisateurs (%r)" % name
+        ps = str(a.get("partstat") or "NEEDS-ACTION").upper()
+        if name not in [x["name"] for x in att]:
+            att.append({"name": name, "partstat": ps if ps in PARTSTAT else "NEEDS-ACTION"})
+    alarm = b.get("alarm")
+    if alarm not in (None, ""):
+        try:
+            alarm = max(0, min(int(alarm), 60 * 24 * 14))
+        except (TypeError, ValueError):
+            return None, "alarm : minutes avant le début"
+    else:
+        alarm = None
+    organizer = str(b.get("organizer") or "").strip()
     return {"uid": str(b.get("uid") or ""), "title": title[:200], "start": start, "end": end, "all_day": all_day, "location": str(b.get("location") or "")[:200],
             "description": str(b.get("description") or "")[:4000], "categories": [str(c).strip() for c in (b.get("categories") or []) if str(c).strip()], "rrule": rrule,
-            "transparent": bool(b.get("transparent"))}, None
+            "transparent": bool(b.get("transparent")), "attendees": att, "alarm": alarm, "organizer": organizer if NAME_RE.match(organizer) else ""}, None
 
 
 def serialize(ev, uid=None):
@@ -81,6 +114,13 @@ def serialize(ev, uid=None):
     if ev.get("categories"): e.add("categories", ev["categories"])
     if ev.get("transparent"): e.add("transp", "TRANSPARENT")
     if ev.get("rrule"): e.add("rrule", vRecur(ev["rrule"]))
+    if ev.get("organizer"):
+        o = addr(ev["organizer"]); o.params["CN"] = vText(ev["organizer"]); e.add("organizer", o)
+    for a in ev.get("attendees") or []:
+        v = addr(a["name"]); v.params["CN"] = vText(a["name"]); v.params["PARTSTAT"] = vText(a.get("partstat") or "NEEDS-ACTION"); v.params["ROLE"] = vText("REQ-PARTICIPANT")
+        v.params["RSVP"] = vText("TRUE"); e.add("attendee", v, encode=0)
+    if ev.get("alarm") is not None:
+        al = Alarm(); al.add("action", "DISPLAY"); al.add("description", ev["title"]); al.add("trigger", -timedelta(minutes=int(ev["alarm"]))); e.add_component(al)
     for line in ev.get("extra") or []:
         try:
             k, v = line.split(":", 1); e.add(k.split(";")[0].lower(), v)
@@ -107,7 +147,17 @@ def parse(text):
         categories = []
         for c in cats or []:
             categories += [str(x) for x in (c.cats if hasattr(c, "cats") else [c])]
+        atts = comp.get("attendee")
+        atts = [] if atts is None else (atts if isinstance(atts, list) else [atts])
+        attendees = [{"name": addr_name(a), "partstat": str(a.params.get("PARTSTAT", "NEEDS-ACTION")).upper() if hasattr(a, "params") else "NEEDS-ACTION"} for a in atts]
+        alarm = None
+        for al in comp.walk("VALARM"):
+            tr = al.get("trigger")
+            if tr is not None and isinstance(tr.dt, timedelta):
+                alarm = int(-tr.dt.total_seconds() // 60) if tr.dt.total_seconds() <= 0 else 0
+                break
         return {"uid": str(comp.get("uid") or ""), "title": str(comp.get("summary") or ""), "start": _aware(start), "end": _aware(end), "all_day": all_day,
+                "organizer": addr_name(comp.get("organizer")) if comp.get("organizer") else "", "attendees": attendees, "alarm": alarm,
                 "location": str(comp.get("location") or ""), "description": str(comp.get("description") or ""), "categories": categories,
                 "rrule": dict(rr) if rr else None, "rrule_text": rr.to_ical().decode() if rr else "", "transparent": str(comp.get("transp") or "").upper() == "TRANSPARENT",
                 "extra": ["%s:%s" % (k, comp[k].to_ical().decode() if hasattr(comp[k], "to_ical") else comp[k]) for k in comp.keys() if k.upper().startswith("X-")]}
@@ -186,7 +236,8 @@ def rrule_to_form(rr):
 
 
 def public(ev, s=None, e=None, **more):
-    d = {k: ev.get(k) for k in ("uid", "title", "all_day", "location", "description", "categories", "transparent")}
+    d = {k: ev.get(k) for k in ("uid", "title", "all_day", "location", "description", "categories", "transparent", "organizer", "attendees", "alarm")}
+    d["attendees"] = d.get("attendees") or []
     d["start"], d["end"] = iso(s if s is not None else ev["start"]), iso(e if e is not None else ev["end"])
     d["recurring"] = bool(ev.get("rrule") or ev.get("rrule_text")); d["rrule"] = rrule_to_form(ev.get("rrule")) if ev.get("rrule") else None; d["rrule_text"] = ev.get("rrule_text") or ""
     d.update(more)
