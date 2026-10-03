@@ -1,3 +1,13 @@
+## 2026-10-04 — PKI : refus de changer de CA par inadvertance (livraison #673)
+
+Vu en réel : `PKI_DIR` absent du `.env` de l'hôte alors que la PKI en service est ailleurs — le job de la tour puis un
+lancement à la main ont régénéré le certificat serveur avec la CA du dépôt, et le frontal Apache (`SSLProxyVerify
+require` sur l'autre CA) a répondu « Error during SSL Handshake ». `generate-server-cert.sh` s'arrête désormais si le
+certificat existant n'est pas signé par la CA retenue (`openssl verify`), sauf `PKI_ALLOW_CA_CHANGE=1`.
+
+- Vérifié : `bash -n`, test manuel du garde-fou avec deux CA. Fichiers : `pki/scripts/generate-server-cert.sh`,
+  `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — Tour : le runner des jobs n'est plus root ; HOST_IP lue dans .env par les run.sh (livraison #672)
 
 Constaté sur super après un job en cascade : `./gateway/scripts/run.sh up -d tls-proxy` à la main → « chmod :
