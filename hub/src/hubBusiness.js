@@ -94,7 +94,8 @@ export const PATHS = {
   "view:schema-analyzer": ["services/donnees", "cortex/apprentissage"],
   "view:retro": ["services/donnees"],
   "view:portage": ["services/metier", "cortex/apprentissage"],
-  "view:qa": ["services/metier", "etats/incidents"],   // #651 : tester un site déployé, ticket incident/évolution   // #650 : porter une application métier, avec l'IA de portage
+  "view:qa": ["services/metier", "etats/incidents"],
+  "view:datasync": ["services/donnees", "cortex/apprentissage"],   // #652 : SGBD central, analyse et recherche transversales   // #651 : tester un site déployé, ticket incident/évolution   // #650 : porter une application métier, avec l'IA de portage
   "front:dba": ["services/donnees"],
   "view:licenses": ["droits/licences", "equipements/postes"],
   "view:synthese": ["etats/maintenant", "services/metier"],

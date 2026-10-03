@@ -836,6 +836,22 @@ services:
     volumes:
       - portage_db_data:/var/lib/mysql
 
+  datasync-api:
+    # Livraison #652 -- SGBD central de synchronisation unidirectionnelle
+    # (SQLite + FTS5 dans /data) : API source centrale (jeton par source),
+    # supervision des remontées, analyse des correspondances, recherche
+    # plein texte et relationnelle. Les connecteurs (datasync/connector/)
+    # tournent près des sources et poussent via tls-proxy.
+    build:
+      context: .
+      dockerfile: datasync/api/Dockerfile
+    environment:
+      - DATASYNC_PRESENCE_S=${DATASYNC_PRESENCE_S:-600}
+      - DATASYNC_MAX_BATCH_MB=${DATASYNC_MAX_BATCH_MB:-64}
+    volumes:
+      # base centrale (lignes, index, liens) -- vide = ./datasync/data
+      - ${DATASYNC_DATA_DIR:-./datasync/data}:/data
+
   qa-api:
     # Livraison #651 -- tuile « Tests QA en ligne » : scénarios joués dans
     # Chromium (image Playwright officielle, ~1,5 Go) contre un site
@@ -1944,6 +1960,8 @@ services:
       - VITE_PORTAGE_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/portage
       # Tests QA en ligne (livraison #651)
       - VITE_QA_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/qa
+      # Synchronisation centrale (livraison #652)
+      - VITE_DATASYNC_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/datasync
       # Documents joints -- onglet GED (livraison #167) -- même API
       # que TicketDocuments.jsx (tickets-portal, #160), consommée ici
       # pour la navigation/gestion générale (pas liée à un ticket en

@@ -138,3 +138,7 @@ portage/data/
 portage/kit/
 # qa (#651) : scénarios, exécutions et captures
 qa/data/
+# datasync (#652) : base centrale et états des connecteurs
+datasync/data/
+datasync/connector/*.state.json
+datasync/connector/config.json

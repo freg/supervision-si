@@ -1,3 +1,42 @@
+## 2026-10-03 — Synchronisation centrale : liaison unidirectionnelle des sources vers un SGBD central, supervision, analyse, recherches (livraison #652)
+
+Demande : « une liaison de synchronisation unidirectionnelle depuis les différents serveurs/appli/sql vers un sgbd central
+sur le hub, pour les phases de transition de déploiement et pour la remontée vers un système d'agrégation (indexation,
+traitement transversal) » — cinq points : liaison concentrique (une source → le central = une API source centrale),
+supervision des remontées (présence, statistiques), analyse schéma/étiquette/champ/contenu, recherche plein texte
+transversale, recherche relationnelle sur les relations déduites. Nouveau module `datasync/` + tuile Données →
+« Synchronisation centrale ».
+
+- `datasync/api/app.py` : sources à jeton (empreinte en base, rotation), `/ping` `/schema` `/rows` (lots complets avec
+  retrait des lignes disparues, incrémentaux), stockage en lignes génériques JSON + FTS5, statistiques et journal par
+  table, profils de colonnes, analyse (correspondances de champs, relations déduites intra et inter-sources) avec
+  validation proposé/confirmé/rejeté et liens manuels, `/search` (préfixes, expressions, `champ:valeur`, filtres,
+  extraits), `/rows/<src>/<table>/<pk>/related` (1–3 niveaux, deux sens), parcours des tables.
+- `datasync/api/matching.py` (pur) : normalisation des noms avec synonymes, profils de format (courriel, téléphone,
+  date, identifiant…), recouvrement des valeurs, correspondances, déduction des relations, contenu indexé.
+- `datasync/connector/connector.py` : connecteur autonome (stdlib + pymysql/psycopg2/sqlite3), ping périodique,
+  déclaration du schéma, synchronisation complète ou incrémentale (watermark, état local), `--once`, exemple de config.
+- `hub/src/DataSyncView.jsx` (+ `datasyncClient.js`, `datasyncLib.js`) : quatre volets — Sources (présence, lignes,
+  lots, erreurs, journal, jeton affiché une fois avec la configuration du connecteur à copier, tables), Analyse (lancer,
+  relations et correspondances par statut avec confirmer/rejeter, lien manuel, profils des colonnes), Recherche (plein
+  texte, extraits surlignés, saut vers les relations), Relations (exploration à N niveaux groupée par niveau/source/table,
+  parcours d'une table). Styles `ds-*` sur les variables du thème.
+- `docker-compose.yml` : `datasync-api` (+ `VITE_DATASYNC_API_BASE_URL`) ; `.env.example` : `DATASYNC_DATA_DIR`,
+  `DATASYNC_PRESENCE_S`, `DATASYNC_MAX_BATCH_MB` ; tls-proxy `/api/datasync/` ; `.gitignore` ; `hubThemes.js`,
+  `hubBusiness.js`, `logsLib.js`.
+
+Vérifié : `datasync/api/test_datasync.py` (4 scénarios : matching, ingestion/présence/statistiques, analyse +
+plein texte + relationnel, connecteur réel sur SQLite contre l'API servie dans un thread), `node --test
+hub/tests/datasyncLib.test.mjs` (4), `@babel/parser`, aucun setter sans `useState`, aucune couleur en dur.
+`node --test hub/tests/*.test.mjs` : 286 verts, 1 échec préexistant (`view:personal`, #638).
+Non vérifié : build de l'image, rendu navigateur, pilotes MySQL/PostgreSQL du connecteur. Déploiement :
+`cd ~/SRC/data2/tickets/supervision-si && sudo ./scripts/run.sh up -d --build datasync-api hub tls-proxy`.
+
+Fichiers : `datasync/README.md`, `datasync/api/{app.py,matching.py,test_datasync.py,requirements.txt,Dockerfile}`,
+`datasync/connector/{connector.py,config.example.json}`, `hub/src/{DataSyncView.jsx,datasyncClient.js,datasyncLib.js,App.jsx,hubThemes.js,hubBusiness.js,logsLib.js,hub.css}`,
+`hub/tests/datasyncLib.test.mjs`, `docker-compose.yml`, `.env.example`, `tls-proxy/render_nginx_conf.py`, `.gitignore`,
+`CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — Tests QA en ligne d'un site déployé : scénarios Playwright, ticket incident/évolution, non-régression (livraison #651)
 
 Demande : « construit aussi un module de test en ligne d'un site déployé y compris d'autres sites non portés / des
