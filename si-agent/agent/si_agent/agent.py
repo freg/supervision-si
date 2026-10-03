@@ -654,6 +654,15 @@ class Agent(object):
                 self.event("command-vm", "info" if res.get("ok") else "warning",
                            "VM %s : %s%s" % (params.get("vmid"), params.get("action"), "" if res.get("ok") else " -- %s" % res.get("error")), {"command": c.get("id"), "params": params})
                 return res
+            if ctype == "vrrp_set":
+                # #656 : bascule de rôle keepalived -- priorité VRRP de l'instance (le VIP suit la priorité la plus haute)
+                from . import vrrpctl
+                if self.is_blocked():
+                    return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
+                res = vrrpctl.run(self.cmd, params)
+                self.event("command-vrrp", "info" if res.get("ok") else "warning",
+                           "VRRP %s : priorité %s%s" % (params.get("instance"), params.get("priority"), "" if res.get("ok") else " -- %s" % res.get("error")), {"command": c.get("id"), "params": params})
+                return res
             if ctype == "software_action":
                 # #595 : installation / désinstallation d'un logiciel (gestionnaire de paquets du poste), depuis la tuile Licences
                 from . import swctl

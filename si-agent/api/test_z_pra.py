@@ -118,3 +118,51 @@ class PraTriggersAndRoles(unittest.TestCase):
         self.assertEqual([s["status"] for s in run["steps"]], ["done", "failed"]); self.assertEqual(pra.get_role(self.db, m["id"])["active"], 1); self.assertEqual(run["status"], "failed")
         self.assertEqual(self.c.get("/pra/roles").json["roles"][0]["name"], "dns")
         self.assertEqual(self.c.delete("/pra/roles/%d" % role["id"]).json["ok"], True)
+
+
+class RoleMechanisms656(unittest.TestCase):
+    """#656 : mécanismes dns (dns-api simulée) et keepalived (commandes vrrp_set acquittées par un faux agent)."""
+    @classmethod
+    def setUpClass(cls):
+        cls.c = appmod.app.test_client(); cls.db = appmod.DB_PATH
+        for a in ("pra-web1", "pra-web2"): store.create_agent(cls.db, a, "siege", label=a)
+
+    @classmethod
+    def tearDownClass(cls):
+        conn = store._connect(cls.db)
+        try:
+            conn.execute("DELETE FROM commands WHERE agent_id LIKE 'pra-web%'"); conn.execute("DELETE FROM agents WHERE agent_id LIKE 'pra-web%'"); conn.execute("DELETE FROM pra_roles"); conn.commit()
+        finally: conn.close()
+
+    def test_dns_mechanism(self):
+        self.assertIn("zone et record", self.c.post("/pra/roles", json={"name": "web", "candidates": [{"address": "203.0.113.5"}], "mechanism": {"kind": "dns"}}).json["error"])
+        role = self.c.post("/pra/roles", json={"name": "web", "candidates": [{"label": "a", "address": "203.0.113.5"}, {"label": "b", "address": "203.0.113.6:8080"}], "mechanism": {"kind": "dns", "zone": "exemple.fr", "record": "www", "ttl": 60}}).json["role"]
+        seen = {}
+        class Resp:
+            status = 200
+            def __init__(self, body): self._b = body
+            def read(self): return json.dumps(self._b).encode()
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+        import urllib.request
+        def fake_open(req, timeout=0): seen["url"] = req.full_url; seen["body"] = json.loads(req.data); seen["method"] = req.get_method(); return Resp({"status": "partial", "change": {"results": {"ovh": {"ok": False}, "intranet": {"ok": True}}}})
+        old = (urllib.request.urlopen, pra.DNS_API_URL); urllib.request.urlopen = fake_open; pra.DNS_API_URL = "http://dns-api:5000"
+        try: res = pra.switch_role(self.db, role["id"], 1, http_get=lambda u: (200, 1))
+        finally: urllib.request.urlopen, pra.DNS_API_URL = old
+        self.assertTrue(res["ok"], res); self.assertEqual(seen["url"], "http://dns-api:5000/zones/exemple.fr/records"); self.assertEqual(seen["method"], "PUT")
+        self.assertEqual(seen["body"]["value"], "203.0.113.6"); self.assertEqual(seen["body"]["ttl"], 60); self.assertEqual(res["applied"]["status"], "partial")
+
+    def test_keepalived_mechanism(self):
+        self.assertIn("agent_id", self.c.post("/pra/roles", json={"name": "vip", "candidates": [{"address": "192.0.2.11"}], "mechanism": {"kind": "keepalived", "instance": "VI_WEB"}}).json["error"])
+        role = self.c.post("/pra/roles", json={"name": "vip", "candidates": [{"label": "web1", "address": "192.0.2.11", "agent_id": "pra-web1"}, {"label": "web2", "address": "192.0.2.12", "agent_id": "pra-web2"}], "mechanism": {"kind": "keepalived", "instance": "VI_WEB"}}).json["role"]
+        def fake_agents():
+            for _ in range(100):
+                time.sleep(0.05); done = 0
+                for a in ("pra-web1", "pra-web2"):
+                    for cmd in store.list_commands(self.db, a, status="pending"):
+                        store.ack_command(self.db, a, cmd["id"], {"ok": True, "result": cmd["params"]}); done += 1
+                if done: return
+        t = threading.Thread(target=fake_agents, daemon=True); t.start()
+        res = pra.switch_role(self.db, role["id"], 1, http_get=lambda u: (200, 1)); t.join(timeout=5)
+        self.assertTrue(res["ok"], res); pr = res["applied"]["priorities"]; self.assertEqual((pr["pra-web2"]["priority"], pr["pra-web1"]["priority"]), (200, 100))
+        cmds = store.list_commands(self.db, "pra-web2"); self.assertEqual(cmds[0]["type"], "vrrp_set"); self.assertEqual(cmds[0]["params"]["instance"], "VI_WEB")

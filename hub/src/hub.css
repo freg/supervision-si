@@ -2364,3 +2364,11 @@ button.danger { color: #e06666; }
 .tn-row-ko { background: var(--danger-bg); } .tn-ko { color: var(--danger); } .tn-muted { opacity: 0.6; }
 .tn-details { margin: 6px 0; } .tn-details summary { cursor: pointer; }
 .tn-inline { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+
+/* ---- DNS éditable (#656), préfixe td- ---- */
+.tn-wide { grid-column: 1 / -1; }
+.td-head, .td-inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
+.td-mini { padding: 2px 8px; font-size: 12px; } .td-danger { color: var(--danger); }
+.td-ko { color: var(--danger); } .td-ok { color: var(--ok); }
+.td-new { border: 1px solid var(--border); border-radius: 6px; padding: 8px; margin: 6px 0; background: var(--bg); }
+.td-form { border-top: 1px solid var(--border); padding-top: 8px; } .td-actions { white-space: nowrap; }

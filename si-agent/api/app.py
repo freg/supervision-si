@@ -928,7 +928,7 @@ def pra_roles_route():
         roles = [pra.role_public(r) for r in conn.execute("SELECT * FROM pra_roles ORDER BY name")]
     finally:
         conn.close()
-    return jsonify({"roles": roles, "mechanisms": list(pra.ROLE_MECHANISMS), "mikrotik": bool(pra.MIKROTIK_API_URL)}), 200
+    return jsonify({"roles": roles, "mechanisms": list(pra.ROLE_MECHANISMS), "mikrotik": bool(pra.MIKROTIK_API_URL), "dns": bool(pra.DNS_API_URL)}), 200
 
 
 @app.route("/pra/roles", methods=["POST"])

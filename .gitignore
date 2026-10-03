@@ -140,5 +140,7 @@ portage/kit/
 qa/data/
 # datasync (#652) : base centrale et états des connecteurs
 datasync/data/
+# dns (#656) : zones, cache, journal
+dns/data/
 datasync/connector/*.state.json
 datasync/connector/config.json

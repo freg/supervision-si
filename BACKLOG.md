@@ -11,11 +11,11 @@ bascule de rôle (celui qui répond) ; une tour de contrôle : dns, routage, flu
 - (112) **Serveurs/services → virtualisation** : à cadrer. Pistes : Windows = item 101 (`image_host`, Disk2vhd) + import
   `qm importdisk` par l'agent du nœud ; Linux = image à chaud (`dd`/`partclone` via l'agent) ou reconstruction par
   rôle (conteneur/VM + données via datasync #652) ; choix à prendre avec la personne (image brute vs reconstruction).
-- (113, **FAIT #654** pour les mécanismes manuel et NAT MikroTik, bascule = étape de plan) **Bascule de rôle (« celui qui répond »)** : reste DNS/VIP — mécanisme : enregistrement DNS (zone interne BIND /
+- (113, **FAIT #654/#656** : manuel, NAT MikroTik, DNS avec intranet en fallback, keepalived) **Bascule de rôle (« celui qui répond »)** — mécanisme : enregistrement DNS (zone interne BIND /
   OVH / Nebula ?), VIP (keepalived/VRRP), ou règle NAT MikroTik (#587 déjà pilotable). Proposition : un « rôle » =
   nom de service + liste ordonnée de candidats (VM, serveur) + mécanisme de bascule + vérification (service-watch) ;
   la bascule devient une étape de plan (#653).
-- (114, **lecture seule FAITE #655** : onglet Réseau de la tour de contrôle) **Tour de contrôle DNS / routage / flux** : reste à cadrer — DNS : quelles zones et quel serveur (BIND interne,
+- (114, **FAIT #655/#656** : onglet Réseau, DNS éditable OVH/Scaleway + intranet en fallback) **Tour de contrôle DNS / routage / flux** : reste routes Cisco, Nebula côté relais campus — DNS : quelles zones et quel serveur (BIND interne,
   OVH, Nebula ?) pour éditer et pas seulement importer (service-watch importe déjà) ; routage : MikroTik (#485/#587)
   et Cisco (#508) — tables de routes et NAT en lecture, modifications journalisées ; flux → trafic : network-agent
   (#236+), conntrack (#640), bande passante (#641) — vue consolidée « d'où vers où, combien », par service/rôle.

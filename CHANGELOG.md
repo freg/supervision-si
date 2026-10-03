@@ -1,3 +1,27 @@
+## 2026-10-03 — DNS éditable (OVH, Scaleway, intranet en fallback), bascule de rôle par DNS et keepalived (livraison #656)
+
+Choix de la personne : (2) bascule de rôle = DNS avec DNS secondaire en fallback, et keepalived ; (3) DNS éditable = OVH et
+Online/Scaleway avec cache, intranet en fallback (Nebula plus tard, côté relais du hub local au campus).
+
+- Nouveau module `dns/` (`dns-api`) : zones avec fournisseurs ordonnés, fournisseurs OVH (signature API), Scaleway
+  (Domains API) et BIND intranet (nsupdate/dig TSIG) ; cache local avec divergences ; modification appliquée partout
+  avec fallback et rejeu ; journal réversible. Tour de contrôle › Réseau : panneau « DNS éditable » (zones, relecture,
+  édition, suppression, journal avec annulation, rejeu) — `TowerDnsPanel.jsx`, `dnsClient.js`.
+- Rôles : mécanismes `dns` (dns-api, `DNS_API_URL` sur si-agent-api) et `keepalived` (agent 0.5.31 : commande `vrrp_set`,
+  `si_agent/vrrpctl.py`, priorité haute sur l'élu / basse sur les autres, `keepalived -t` puis reload, sauvegarde) ;
+  fiche de rôle du hub complétée.
+- Compose : `dns-api`, `VITE_DNS_API_BASE_URL`, `DNS_API_URL` ; `.env.example` `DNS_DATA_DIR` ; tls-proxy `/api/dns/` ;
+  `.gitignore` ; `logsLib.js`.
+
+Vérifié : `dns/api/test_dns.py` (4), `si-agent/api` (42), `si-agent/agent` (79), `@babel/parser`, pas de couleur en dur.
+Non vérifié : fournisseurs réels, keepalived réel, rendu navigateur, build. Déploiement :
+`cd ~/SRC/data2/tickets/supervision-si && sudo ./scripts/run.sh up -d --build dns-api si-agent-api hub tls-proxy`.
+
+Fichiers : `dns/{README.md,api/app.py,api/providers.py,api/test_dns.py,api/requirements.txt,api/Dockerfile}`,
+`si-agent/agent/si_agent/{vrrpctl.py,agent.py,__init__.py}`, `si-agent/agent/tests/test_vrrpctl.py`, `si-agent/api/{pra.py,app.py,store.py,test_z_pra.py}`,
+`hub/src/{TowerDnsPanel.jsx,dnsClient.js,TowerNetworkTab.jsx,ControlTowerView.jsx,PveOpsView.jsx,App.jsx,logsLib.js,hub.css}`,
+`docker-compose.yml`, `.env.example`, `tls-proxy/render_nginx_conf.py`, `.gitignore`, `CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — Tour de contrôle : onglet Réseau — DNS, routage, flux → trafic, en lecture seule (livraison #655)
 
 Demande : « une tour de contrôle : dns, routage, flux → traffics ». Livré dans la tour de contrôle existante (#586) :

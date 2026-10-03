@@ -22,8 +22,10 @@ CREATE TABLE IF NOT EXISTS pra_roles (id INTEGER PRIMARY KEY AUTOINCREMENT, name
     mechanism TEXT NOT NULL DEFAULT '{}', active INTEGER DEFAULT 0, last_switch_at TEXT DEFAULT '', last_check TEXT DEFAULT '{}', notes TEXT DEFAULT '', created_at TEXT, updated_at TEXT);
 """
 MIGRATIONS = (("pra_plans", "trigger_agent_id", "TEXT DEFAULT ''"), ("pra_plans", "trigger_mode", "TEXT DEFAULT 'notify'"), ("pra_plans", "trigger_cooldown_s", "INTEGER DEFAULT 3600"))
-ROLE_MECHANISMS = ("manual", "mikrotik_nat")
+ROLE_MECHANISMS = ("manual", "mikrotik_nat", "dns", "keepalived")
 MIKROTIK_API_URL = __import__("os").environ.get("MIKROTIK_API_URL", "").rstrip("/")
+DNS_API_URL = __import__("os").environ.get("DNS_API_URL", "").rstrip("/")        # #656 : bascule par enregistrement DNS (dns-api, fallback intranet inclus)
+VRRP_WAIT_S = 120
 
 def init(db_path):
     conn = store._connect(db_path)
@@ -191,6 +193,10 @@ def validate_role(body):
     mech = body.get("mechanism") or {"kind": "manual"}
     if mech.get("kind") not in ROLE_MECHANISMS: return None, "mechanism.kind : %s" % " | ".join(ROLE_MECHANISMS)
     if mech["kind"] == "mikrotik_nat" and not (mech.get("router") and mech.get("rule_id")): return None, "mechanism mikrotik_nat : router et rule_id (ex. *1A) requis"
+    if mech["kind"] == "dns" and not (mech.get("zone") and mech.get("record")): return None, "mechanism dns : zone et record (nom relatif, ex. www) requis"
+    if mech["kind"] == "keepalived":
+        if not mech.get("instance"): return None, "mechanism keepalived : instance VRRP requise"
+        if not all(c.get("agent_id") for c in out): return None, "mechanism keepalived : chaque candidat porte l'agent_id de son hôte"
     return dict(name=name, service_url=str(body.get("service_url") or "").strip(), candidates=out, mechanism=mech, notes=str(body.get("notes") or "")), None
 
 def check_role(role, http_get=None):
@@ -211,7 +217,7 @@ def switch_role(db_path, rid, to, by_user="", apply=None, http_get=None):
     role = get_role(db_path, rid)
     if not role: return {"ok": False, "error": "rôle inconnu"}
     if not (0 <= int(to) < len(role["candidates"])): return {"ok": False, "error": "candidat inconnu"}
-    cand = role["candidates"][int(to)]; mech = role["mechanism"]; applied = {"kind": mech.get("kind")}
+    cand = role["candidates"][int(to)]; mech = dict(role["mechanism"], _db_path=db_path, _candidates=role["candidates"]); applied = {"kind": mech.get("kind")}
     apply = apply or _apply_mechanism
     try: applied.update(apply(mech, cand))
     except Exception as e: return {"ok": False, "error": "mécanisme %s : %s" % (mech.get("kind"), str(e)[:200])}
@@ -224,6 +230,19 @@ def switch_role(db_path, rid, to, by_user="", apply=None, http_get=None):
 
 def _apply_mechanism(mech, cand):
     if mech.get("kind") == "manual": return {"note": "enregistrement seul : la redirection est faite à la main"}
+    if mech.get("kind") == "dns":
+        if not DNS_API_URL: raise RuntimeError("DNS_API_URL non configurée sur si-agent-api")
+        import urllib.request
+        body = json.dumps({"name": mech["record"], "type": mech.get("type") or "A", "value": cand["address"].split(":")[0], "ttl": int(mech.get("ttl") or 60), "by_user": "bascule de rôle"}).encode()
+        req = urllib.request.Request("%s/zones/%s/records" % (DNS_API_URL, mech["zone"]), data=body, headers={"Content-Type": "application/json"}, method="PUT")
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r: data = json.loads(r.read().decode() or "{}"); code = r.status
+        except urllib.error.HTTPError as e:
+            data = json.loads(e.read().decode() or "{}"); code = e.code
+        if code >= 500 or data.get("error"): raise RuntimeError(data.get("error") or ("statut " + str(data.get("status"))))
+        return {"zone": mech["zone"], "record": mech["record"], "value": cand["address"].split(":")[0], "status": data.get("status"), "providers": (data.get("change") or {}).get("results")}
+    if mech.get("kind") == "keepalived":
+        return _apply_keepalived(mech, cand)
     if mech.get("kind") == "mikrotik_nat":
         if not MIKROTIK_API_URL: raise RuntimeError("MIKROTIK_API_URL non configurée sur si-agent-api")
         import urllib.request
@@ -233,3 +252,26 @@ def _apply_mechanism(mech, cand):
         if data.get("error"): raise RuntimeError(data["error"])
         return {"router": mech["router"], "rule_id": mech["rule_id"], "to_addresses": cand["address"].split(":")[0]}
     raise RuntimeError("mécanisme inconnu")
+
+
+def _apply_keepalived(mech, cand, candidates=None, sleep=time.sleep):
+    """Priorité haute (200) sur l'agent du candidat choisi, basse (100) sur les autres candidats du rôle ; acquittements attendus."""
+    db_path = mech.get("_db_path"); others = [c for c in (candidates or mech.get("_candidates") or []) if c.get("agent_id") and c["agent_id"] != cand.get("agent_id")]
+    if not cand.get("agent_id"): raise RuntimeError("candidat sans agent_id")
+    sent = []
+    for c, prio in [(cand, int(mech.get("high") or 200))] + [(o, int(mech.get("low") or 100)) for o in others]:
+        created = store.create_command(db_path, c["agent_id"], "vrrp_set", {"instance": mech["instance"], "priority": prio})
+        cid = created["id"] if isinstance(created, dict) else created
+        if not cid: raise RuntimeError("agent %s inconnu" % c["agent_id"])
+        sent.append((c["agent_id"], cid, prio))
+    results = {}; t0 = time.time()
+    while time.time() - t0 < VRRP_WAIT_S and len(results) < len(sent):
+        for agent_id, cid, prio in sent:
+            if agent_id in results: continue
+            cmd = store.get_command(db_path, cid)
+            if cmd and cmd.get("status") in ("done", "failed"): results[agent_id] = {"ok": cmd["status"] == "done", "priority": prio, "error": (cmd.get("result") or {}).get("error")}
+        if len(results) < len(sent): sleep(1)
+    missing = [a for a, _, _ in sent if a not in results]
+    if missing: raise RuntimeError("pas d'acquittement de : " + ", ".join(missing))
+    if not results[cand["agent_id"]]["ok"]: raise RuntimeError("candidat choisi : " + str(results[cand["agent_id"]]["error"]))
+    return {"instance": mech["instance"], "priorities": results}

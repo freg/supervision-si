@@ -836,6 +836,22 @@ services:
     volumes:
       - portage_db_data:/var/lib/mysql
 
+  dns-api:
+    # Livraison #656 -- DNS éditable de la tour de contrôle : OVH et
+    # Online/Scaleway (API, cache local) + DNS intranet BIND (nsupdate TSIG)
+    # en FALLBACK ; journal réversible. Secrets dans le coffre des accès.
+    build:
+      context: .
+      dockerfile: dns/api/Dockerfile
+    environment:
+      - CREDENTIALS_API_URL=http://credentials-api:5000
+      - CREDENTIALS_INTERNAL_TOKEN=${CREDENTIALS_INTERNAL_TOKEN:-}
+    volumes:
+      # zones, cache des enregistrements, journal -- vide = ./dns/data
+      - ${DNS_DATA_DIR:-./dns/data}:/data
+    depends_on:
+      - credentials-api
+
   datasync-api:
     # Livraison #652 -- SGBD central de synchronisation unidirectionnelle
     # (SQLite + FTS5 dans /data) : API source centrale (jeton par source),
@@ -1266,6 +1282,8 @@ services:
     environment:
       # #654 : bascule de rôle par règle NAT MikroTik (mécanisme mikrotik_nat des rôles PRA) -- adresse INTERNE, réseau Docker
       - MIKROTIK_API_URL=http://mikrotik-api:5000
+      # #656 : bascule de rôle par enregistrement DNS (dns-api, intranet en fallback)
+      - DNS_API_URL=http://dns-api:5000
       # A1 (#620) : périmètre de site par groupe Keycloak (vide = inchangé)
       - SITE_SCOPE_GROUPS=${SITE_SCOPE_GROUPS:-}
       - SITE_SCOPE_FULL_GROUPS=${SITE_SCOPE_FULL_GROUPS:-administrateurs,admin_hub}
@@ -1964,6 +1982,8 @@ services:
       - VITE_QA_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/qa
       # Synchronisation centrale (livraison #652)
       - VITE_DATASYNC_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/datasync
+      # DNS éditable de la tour de contrôle (livraison #656)
+      - VITE_DNS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/dns
       # Documents joints -- onglet GED (livraison #167) -- même API
       # que TicketDocuments.jsx (tickets-portal, #160), consommée ici
       # pour la navigation/gestion générale (pas liée à un ticket en

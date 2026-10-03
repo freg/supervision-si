@@ -132,6 +132,7 @@ const RETRO_API_BASE_URL = import.meta.env.VITE_RETRO_API_BASE_URL || "";
 const PORTAGE_API_BASE_URL = import.meta.env.VITE_PORTAGE_API_BASE_URL || "";  // #650
 const QA_API_BASE_URL = import.meta.env.VITE_QA_API_BASE_URL || "";  // #651
 const DATASYNC_API_BASE_URL = import.meta.env.VITE_DATASYNC_API_BASE_URL || "";  // #652
+const DNS_API_BASE_URL = import.meta.env.VITE_DNS_API_BASE_URL || "";  // #656
 const BACKUP_RESTORE_API_BASE_URL = import.meta.env.VITE_BACKUP_RESTORE_API_BASE_URL || "";
 const ARCHITECTURE_API_BASE_URL = import.meta.env.VITE_ARCHITECTURE_API_BASE_URL || "";
 const MEMORY_API_BASE_URL = import.meta.env.VITE_MEMORY_API_BASE_URL || "";
@@ -1624,7 +1625,7 @@ vm === "agent-page" ? (
         />
       ) : vm === "services" || vm === "control" ? (
         <ControlTowerView apiBase={SERVICES_API_BASE_URL} accessToken={auth.user?.access_token} username={profile.preferred_username} onBack={goBack}
-          network={{ serviceWatchUrl: SERVICE_WATCH_URL, siAgentApiBase: SI_AGENT_API_BASE_URL, mikrotikApiBase: MIKROTIK_API_BASE, networkAgentApiBase: NETWORK_AGENT_API_BASE_URL }} />
+          network={{ serviceWatchUrl: SERVICE_WATCH_URL, siAgentApiBase: SI_AGENT_API_BASE_URL, mikrotikApiBase: MIKROTIK_API_BASE, networkAgentApiBase: NETWORK_AGENT_API_BASE_URL, dnsApiBase: DNS_API_BASE_URL }} />
       ) : vm === "history" ? (
         <HistoryView apiBase={PREFS_API_BASE_URL} onBack={goBack} />
       ) : vm === "aide" ? (

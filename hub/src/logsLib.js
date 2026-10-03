@@ -72,6 +72,7 @@ export const LOG_SERVICES = [
   { id: "portage", label: "Portage PHP → Python", path: "/api/portage/logs" },
   { id: "qa", label: "Tests QA en ligne", path: "/api/qa/logs" },
   { id: "datasync", label: "Synchronisation centrale", path: "/api/datasync/logs" },
+  { id: "dns", label: "DNS éditable", path: "/api/dns/logs" },
   { id: "backup-restore", label: "Sauvegardes", path: "/api/backup-restore/logs" },
   { id: "snmp", label: "SNMP", path: "/api/snmp/logs" },
   { id: "netprobe", label: "Sondes réseau", path: "/api/netprobe/logs" },

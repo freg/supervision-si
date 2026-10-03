@@ -157,7 +157,7 @@ MIGRATIONS = [
 
 AGENT_ID_MAX = 64
 COMMAND_TYPES = ("collect_now", "run_plugin", "enable_plugin", "disable_plugin", "remove_plugin", "flush",
-                 "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update", "vm_action", "software_action",
+                 "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update", "vm_action", "software_action", "vrrp_set",
                  "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse", "windows_update", "protection", "image_transfer", "remote_desktop")  # #613, #616, #621, #627, #633, #634, #636
 SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
 TASKS_KEPT_LATEST = ("host", "risks", "inventory", "startup", "watchdog", "agent-self")  # #613, #616
@@ -880,6 +880,8 @@ def create_command(db_path, agent_id, ctype, params=None):
         raise ValueError("type de commande inconnu (%s)" % ", ".join(COMMAND_TYPES))
     if ctype in ("run_plugin", "enable_plugin", "disable_plugin", "remove_plugin", "block_plugin", "unblock_plugin") and not (params or {}).get("id"):
         raise ValueError("params.id (identifiant du plugin) requis")
+    if ctype == "vrrp_set" and not ((params or {}).get("instance") and (params or {}).get("priority")):
+        raise ValueError("params.instance et params.priority requis")
     if ctype == "vm_action" and not ((params or {}).get("vmid") and (params or {}).get("action")):
         raise ValueError("params.vmid et params.action requis")
     if ctype == "power_action" and (params or {}).get("action") not in ("reboot", "shutdown", "cancel"):

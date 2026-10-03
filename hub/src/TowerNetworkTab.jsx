@@ -3,6 +3,7 @@ import { fetchMikrotikRouters, fetchRoutes, fetchNatRules } from "./mikrotikClie
 import { fetchSites, fetchLinks } from "./networkAgentClient.js";
 import { fetchNetworkObservability } from "./siAgentClient.js";
 import { dnsRows, dnsSummary, routingSummary, topFlows, fmtBytes, resourceRows } from "./towerNetworkLib.js";
+import TowerDnsPanel from "./TowerDnsPanel.jsx";
 
 // Tour de contrôle → onglet « Réseau » (#655) : DNS / routage / flux → trafic, en LECTURE SEULE, agrégés depuis les
 // modules existants (service-watch, sonde dns-observe, MikroTik, network-agent, sonde resource-access). Chaque panneau
@@ -12,7 +13,7 @@ async function getJson(url) {
   try { const r = await fetch(url); const d = await r.json(); return d && d.error ? { error: d.error } : d; } catch (e) { return { error: e.message }; }
 }
 
-export default function TowerNetworkTab({ serviceWatchUrl, siAgentApiBase, mikrotikApiBase, networkAgentApiBase }) {
+export default function TowerNetworkTab({ serviceWatchUrl, siAgentApiBase, mikrotikApiBase, networkAgentApiBase, dnsApiBase, login }) {
   const [dns, setDns] = useState({ loading: true });
   const [routing, setRouting] = useState({ loading: true });
   const [flows, setFlows] = useState({ loading: true });
@@ -53,6 +54,7 @@ export default function TowerNetworkTab({ serviceWatchUrl, siAgentApiBase, mikro
               {(dns.rows || []).length === 0 && <tr><td colSpan={5} className="muted">Aucune entrée : importez une zone dans « Entrées de services » ou activez la sonde dns-observe sur un agent.</td></tr>}</tbody></table>
         )}
       </div>
+      {dnsApiBase && <div className="hub-card tn-card tn-wide"><h3>DNS éditable <span className="muted">— Internet (OVH, Scaleway) avec cache, intranet en fallback</span></h3><TowerDnsPanel dnsApiBase={dnsApiBase} login={login} /></div>}
       <div className="hub-card tn-card">
         <h3>Routage {routing.summary && <span className="muted">— {routing.summary.length} routeur(s)</span>}</h3>
         {routing.error && <p className="tn-ko">{routing.error}</p>}
