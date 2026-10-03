@@ -1,3 +1,14 @@
+## Groupware « façon eGroupware » en Python, ProjeQtOr mis de côté (2026-10-03) — item 115
+
+Demandé 3 oct. 2026 : ProjeQtOr (#476-#484, pont demandes) n'est plus voulu pour l'instant — services
+`projeqtor-app` / `projeqtor-db` / `projeqtor-bridge` arrêtés sur super, code conservé. Préférence nette pour
+**eGroupware** (mis en place en 2004 dans un cabinet de soins : « c'était parfait ») : s'en inspirer et le
+reproduire en Python dans le hub. À cadrer avec la personne : périmètre de départ (agenda partagé, contacts,
+gestionnaire de tâches/projets, suivi de temps, notes, ressources ?) ; ce que le hub a déjà (ENT : agenda iCal et
+Kanban #4xx, tickets, tâches, comptes Keycloak/LDAP, GED) ; modèle de droits par application et par groupe
+(point fort d'eGroupware) ; interopérabilité CalDAV/CardDAV ; ergonomie « tout sur une page » (espace de
+travail #541-#545). Pas de code écrit.
+
 ## Contrôle de tous les PVE, serveurs/services, tour de contrôle (2026-10-03) — items 111-114
 
 Demandé 3 oct. 2026 : « un outil de supervision/contrôle de tous les pve : migration des volumes, backup, vm… ;
