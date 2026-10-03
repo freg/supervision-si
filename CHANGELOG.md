@@ -1,3 +1,32 @@
+## 2026-10-03 — Sondes Wi-Fi Raspberry : kit collecteur Pi 3B + satellite Pi Zero 2 W pour un audit continu d'une journée (livraison #657)
+
+Demande : « une image et un installeur rpi3b et rpi0W2 avec pilotes et outils pour la sonde wifi, premier test simple avec
+un rpi3b et un satellite rpi0W2 pour un audit continu sur une journée ». Pas d'image binaire à reconstruire : Raspberry Pi
+Imager écrit Raspberry Pi OS Lite (64-bit), le kit `netprobe/rpi/` dépose les fichiers de **premier démarrage** sur la
+carte, le Pi s'installe seul (même mécanisme `systemd.run` que l'Imager).
+
+- `netprobe/rpi/make-boot-files.sh` : `si-probe.env` (rôle collecteur/satellite, nom d'hôte, jeton partagé, collecteur,
+  interface, iperf, SSID de path-probe), `firstrun-si.sh`, `report-wifi-day.py`, `si-agent-kit.tar.gz` (agent + central local
+  + make-archive), crochet `cmdline.txt` idempotent.
+- `netprobe/rpi/firstrun-si.sh` : outils (iw, wireless-tools, wavemon, tcpdump, iperf3, mtr, dig, jq), firmwares (brcm80211
+  intégré + Realtek/Atheros/misc pour dongle USB), économie d'énergie Wi-Fi coupée ; collecteur = service `si-local-central`
+  (jeton imposé, historique JSONL, plugins wifi-probe / path-probe / dns-observe) + agent local ; satellite = agent enrôlé
+  sur le collecteur (archive, CA épinglée).
+- `si-agent/local-central/local_central.py` : `--history auto|fichier` (toutes les mesures en JSONL, l'audit d'une journée
+  a besoin de l'historique, pas de la dernière mesure), `--token` (jeton choisi à la préparation).
+- `netprobe/rpi/report-wifi-day.py` : rapport HTML + Markdown depuis l'historique — constats des sondes, courbes SVG
+  (RSSI, occupation du canal, débit négocié, latence/pertes, HTTP réel), synthèse par heure, bornes vues ; `--since/--until`.
+- `netprobe/rpi/README.md` : procédure en 4 étapes, limites (pas de mode moniteur sur le Wi-Fi intégré, satellite
+  administré par le SSID audité, remontée vers le hub principal = installation classique des agents).
+
+Vérifié : `netprobe/rpi/test_report.py` (calculs purs, rapport, CLI), `si-agent/local-central/test_local_central.py` (3),
+`make-boot-files.sh` sur une fausse partition (fichiers, env, crochet idempotent, refus sans collecteur), `bash -n`.
+Non vérifié : **aucun Raspberry dans la session** — premier démarrage réel à faire par la personne (journal
+`/var/log/si-probe-firstrun.log`), noms de paquets Bookworm supposés stables.
+
+Fichiers : `netprobe/rpi/{README.md,make-boot-files.sh,firstrun-si.sh,report-wifi-day.py,test_report.py}`,
+`si-agent/local-central/local_central.py`, `CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — DNS éditable (OVH, Scaleway, intranet en fallback), bascule de rôle par DNS et keepalived (livraison #656)
 
 Choix de la personne : (2) bascule de rôle = DNS avec DNS secondaire en fallback, et keepalived ; (3) DNS éditable = OVH et

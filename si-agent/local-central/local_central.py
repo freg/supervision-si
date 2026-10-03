@@ -58,8 +58,9 @@ MAX_COMMANDS = 200
 # état (JSON sur disque, verrou global : quelques agents, pas une flotte)
 # ---------------------------------------------------------------------------
 class State:
-    def __init__(self, path):
+    def __init__(self, path, history=None, token=None):
         self.path = path
+        self.history = history          # #657 : journal JSONL de toutes les mesures (audit continu), None = dernière mesure seulement
         self.lock = threading.RLock()
         self.data = {"token": None, "agents": {}, "commands": [], "measurements": {}, "events": [], "next_cmd": 1}
         if os.path.isfile(path):
@@ -68,6 +69,8 @@ class State:
                     self.data.update(json.load(fh))
             except (OSError, ValueError):
                 pass
+        if token:
+            self.data["token"] = token          # #657 : jeton choisi à la préparation (partagé par le collecteur et ses satellites)
         if not self.data.get("token"):
             self.data["token"] = secrets.token_urlsafe(18)
         self.save()
@@ -146,6 +149,12 @@ class State:
                     self.data["events"].append(ev)
                 else:
                     m[it["task"]] = {"at": it.get("at"), "ok": it.get("ok"), "error": it.get("error"), "data": it.get("data")}
+                    if self.history:
+                        try:
+                            with open(self.history, "a", encoding="utf-8") as fh:
+                                fh.write(json.dumps({"agent_id": aid, "task": it["task"], "at": it.get("at"), "ok": it.get("ok"), "error": it.get("error"), "data": it.get("data")}, ensure_ascii=False) + "\n")
+                        except OSError:
+                            pass
             self.data["events"] = self.data["events"][-MAX_EVENTS:]
             if len(m) > KEPT_TASKS:
                 for k in sorted(m, key=lambda t: m[t].get("at") or "")[: len(m) - KEPT_TASKS]:
@@ -290,7 +299,9 @@ class Central:
         self.args = args
         self.data_dir = os.path.abspath(args.data)
         os.makedirs(self.data_dir, exist_ok=True)
-        self.state = State(os.path.join(self.data_dir, "state.json"))
+        hist = getattr(args, "history", "") or ""
+        hist = os.path.join(self.data_dir, "history.jsonl") if hist == "auto" else (os.path.abspath(hist) if hist else None)
+        self.state = State(os.path.join(self.data_dir, "state.json"), history=hist, token=(getattr(args, "token", "") or None))
         self.ip = args.advertise_ip or local_ip()
         self.hostname = socket.gethostname().split(".")[0]
         self.scheme = "http" if args.http else "https"
@@ -581,6 +592,8 @@ def main(argv=None):
     ap.add_argument("--commands-poll", type=int, default=5, help="cadence de relevé des commandes imposée aux agents (s, 5 mini) -- parcours interactif")
     ap.add_argument("--plugins", default="", help="plugins livrés à activer : web-audit,windows-probe,...")
     ap.add_argument("--plugin-arg", action="append", help='arguments d\'un plugin : web-audit="--urls https://x"')
+    ap.add_argument("--history", default="", help="#657 : fichier JSONL où chaque mesure est ajoutée (audit continu) ; 'auto' = data/history.jsonl")
+    ap.add_argument("--token", default="", help="#657 : jeton d'enrôlement imposé (préparation d'un kit collecteur + satellites)")
     ap.add_argument("--rebuild-archive", action="store_true")
     ap.add_argument("--no-archive", action="store_true")
     ap.add_argument("--verbose", action="store_true")
