@@ -1625,7 +1625,7 @@ vm === "agent-page" ? (
         />
       ) : vm === "services" || vm === "control" ? (
         <ControlTowerView apiBase={SERVICES_API_BASE_URL} accessToken={auth.user?.access_token} username={profile.preferred_username} onBack={goBack}
-          network={{ serviceWatchUrl: SERVICE_WATCH_URL, siAgentApiBase: SI_AGENT_API_BASE_URL, mikrotikApiBase: MIKROTIK_API_BASE, networkAgentApiBase: NETWORK_AGENT_API_BASE_URL, dnsApiBase: DNS_API_BASE_URL }} />
+          network={{ serviceWatchUrl: SERVICE_WATCH_URL, siAgentApiBase: SI_AGENT_API_BASE_URL, mikrotikApiBase: MIKROTIK_API_BASE, networkAgentApiBase: NETWORK_AGENT_API_BASE_URL, dnsApiBase: DNS_API_BASE_URL, ciscoApiBase: CISCO_URL.replace(/\/+$/, "") }} />
       ) : vm === "history" ? (
         <HistoryView apiBase={PREFS_API_BASE_URL} onBack={goBack} />
       ) : vm === "aide" ? (

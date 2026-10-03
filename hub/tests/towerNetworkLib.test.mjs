@@ -11,7 +11,7 @@ test("dnsRows et dnsSummary", () => {
 
 test("routingSummary", () => {
   const s = routingSummary([{ name: "rb", routes: [{ dst: "0.0.0.0/0", gateway: "192.0.2.1", active: true }, { dst: "10.0.0.0/8", gateway: "192.0.2.9", disabled: true }], nat: 3 }, { name: "rc", error: "injoignable" }]);
-  assert.deepEqual(s[0], { router: "rb", error: null, total: 2, active: 1, disabled: 1, defaults: ["192.0.2.1"], nat: 3 });
+  assert.deepEqual(s[0], { router: "rb", kind: "mikrotik", error: null, total: 2, active: 1, disabled: 1, defaults: ["192.0.2.1"], nat: 3 });
   assert.equal(s[1].error, "injoignable"); assert.equal(s[1].total, 0);
 });
 
@@ -21,4 +21,13 @@ test("topFlows, fmtBytes, resourceRows", () => {
   assert.equal(fmtBytes(1536), "1.5 Ko"); assert.equal(fmtBytes(2 * 1073741824), "2.00 Go");
   const r = resourceRows([{ hostname: "pc", resources: [{ name: "ged", clients: ["a", "b"], hits: 4 }, { host: "x", hits: 9, ok: false }] }], 1);
   assert.deepEqual(r, [{ agent: "pc", name: "x", clients: 0, hits: 9, ok: false }]);
+});
+
+// #660 : routes Cisco normalisées et résumées avec les MikroTik
+import { ciscoRouteRows } from "../src/towerNetworkLib.js";
+test("routes Cisco -> lignes MikroTik-compatibles, résumé mixte", () => {
+  const rows = ciscoRouteRows([{ dst: "0.0.0.0/0", gateway: "192.0.2.1", iface: "", proto: "static", metric: "1/0", active: true }, { dst: "192.0.2.0/24", gateway: "", iface: "Vlan10", proto: "connected", metric: "0/0", active: true }, { dst: "10.1.0.0/16", gateway: "10.0.0.2", iface: "Vlan20", proto: "ospf", metric: "110/20" }]);
+  assert.equal(rows[0].distance, "1"); assert.equal(rows[1].gateway, "(Vlan10)"); assert.equal(rows[2].dynamic, true); assert.equal(rows[0].dynamic, false); assert.equal(rows[2].comment, "ospf · Vlan20"); assert.ok(rows.every((r) => r.active && !r.disabled));
+  const sum = routingSummary([{ name: "rb", routes: [{ dst: "0.0.0.0/0", gateway: "198.51.100.1", active: true }], nat: 2 }, { name: "core (Cisco)", kind: "cisco", routes: rows }]);
+  assert.equal(sum[1].kind, "cisco"); assert.deepEqual(sum[1].defaults, ["192.0.2.1"]); assert.equal(sum[1].active, 3); assert.equal(sum[0].kind, "mikrotik");
 });

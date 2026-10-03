@@ -1,3 +1,19 @@
+## 2026-10-03 — Routes Cisco dans la tour de contrôle, suite de tests hub au vert (livraison #660)
+
+- `cisco/parsers.py` : `parse_ip_route` (IOS : défaut `S*`, connectées / locales, OSPF… avec interface ; NX-OS : blocs
+  `ubest/mbest` + lignes `*via`, multi-chemins) ; `GET /cisco/switches/<name>/routes` (lecture seule).
+- Hub : `ciscoClient.js` ; onglet Réseau de la tour → panneau Routage : équipements Cisco après les MikroTik (`kind`),
+  routes normalisées (`ciscoRouteRows` : passerelle ou interface, distance, protocole en commentaire) ; `ciscoApiBase`
+  passé par App.jsx (`VITE_CISCO_URL`). Reste du point 114 : Nebula côté relais campus.
+- Suite Node du hub de nouveau au vert : `view:personal` (#638) ajouté aux chemins métier (`droits/personnes`, un chemin
+  voulu) ; `hubIconSet.test.mjs` indépendant du dossier courant (il supposait la racine du dépôt).
+
+Vérifié : `cisco/tests` (+1), hub Node 299 / 0 échec, `@babel/parser`. Non vérifié : équipement Cisco réel, rendu navigateur.
+
+Fichiers : `cisco/{parsers.py,app.py,tests/test_cisco.py}`, `hub/src/{ciscoClient.js,TowerNetworkTab.jsx,towerNetworkLib.js,
+App.jsx,ControlTowerView.jsx,hubBusiness.js}`, `hub/tests/{towerNetworkLib.test.mjs,hubBusiness.test.mjs,hubIconSet.test.mjs}`,
+`BACKLOG.md`, `CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — Mise à jour du hub depuis le git : central ciblé, ensemble en cascade, agents hôtes (livraison #659)
 
 Demande : « brancher la mise à jour du hub sur le GitHub : un bouton mise à jour du central depuis le git, un autre pour

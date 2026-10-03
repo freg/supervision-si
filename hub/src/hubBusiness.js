@@ -113,6 +113,7 @@ export const PATHS = {
   "front:credentials": ["droits/acces", "droits/coffres"],
   "view:rights": ["droits/matrice"],
   "view:accounts": ["droits/personnes"],
+  "view:personal": ["droits/personnes"],                                    // #638 : données personnelles (RGPD), un chemin voulu
   "view:notifications": ["etats/notifications"],
   "view:backup-restore": ["services/hub"],
   "front:vault": ["droits/coffres"],

@@ -16,7 +16,7 @@ test("chaque tuile déclarée a un chemin valide et est joignable par au moins d
   const r = reachability(catalog);
   const single = [...r.entries()].filter(([, n]) => n < 2).map(([k]) => k);
   // les actions de réglage n'ont qu'un chemin (services/hub) : c'est voulu ; toute VUE / FRONT en a deux
-  assert.deepEqual(single.filter((k) => !k.startsWith("action:")).filter((k) => !["view:snmp", "view:vigilance", "view:logs", "view:history", "view:memory", "view:netmap-orchestrator", "view:fusion", "view:proxmox", "view:external-bases", "view:classifier", "view:retro", "front:dba", "view:ent", "view:ged", "view:file-manager", "view:imap", "front:assistant", "front:tickets", "front:demande", "view:rights", "view:accounts", "view:notifications", "view:backup-restore", "front:vault", "front:vault-admin", "front:keycloak-admin", "front:ldap-admin"].includes(k)), []);
+  assert.deepEqual(single.filter((k) => !k.startsWith("action:")).filter((k) => !["view:snmp", "view:vigilance", "view:logs", "view:history", "view:memory", "view:netmap-orchestrator", "view:fusion", "view:proxmox", "view:external-bases", "view:classifier", "view:retro", "front:dba", "view:ent", "view:ged", "view:file-manager", "view:imap", "front:assistant", "front:tickets", "front:demande", "view:rights", "view:accounts", "view:notifications", "view:personal", "view:backup-restore", "front:vault", "front:vault-admin", "front:keycloak-admin", "front:ldap-admin"].includes(k)), []);
   for (const leaf of catalog.values()) if (leaf.kind !== "auto") assert.ok(r.get(leaf.id) >= 1, `${leaf.id} injoignable`);
 });
 

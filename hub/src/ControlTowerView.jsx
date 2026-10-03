@@ -374,7 +374,7 @@ export default function ControlTowerView({ apiBase, accessToken, username, onBac
       {tab === "configs" && <Configs apiBase={apiBase} token={accessToken} initial={params.config} />}
       {tab === "auto" && <Automations apiBase={apiBase} token={accessToken} settings={settings} onSaved={setSettings} />}
       {tab === "journal" && <Journal apiBase={apiBase} token={accessToken} />}
-      {tab === "network" && <TowerNetworkTab serviceWatchUrl={network.serviceWatchUrl} siAgentApiBase={network.siAgentApiBase} mikrotikApiBase={network.mikrotikApiBase} networkAgentApiBase={network.networkAgentApiBase} dnsApiBase={network.dnsApiBase} login={username} />}
+      {tab === "network" && <TowerNetworkTab serviceWatchUrl={network.serviceWatchUrl} siAgentApiBase={network.siAgentApiBase} mikrotikApiBase={network.mikrotikApiBase} networkAgentApiBase={network.networkAgentApiBase} dnsApiBase={network.dnsApiBase} ciscoApiBase={network.ciscoApiBase} login={username} />}
     </PageFrame>
   );
 }

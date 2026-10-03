@@ -12,15 +12,21 @@ export function dnsSummary(rows) {
   return { total: rows.length, ko, alerts: rows.reduce((s, r) => s + (r.alerts || 0), 0) };
 }
 
-// Routage : routes MikroTik par routeur (actives/inactives/désactivées), passerelles par défaut.
+// Routage : routes MikroTik (actives/inactives/désactivées) et Cisco (#660, show ip route) par équipement, passerelles par défaut.
 export function routingSummary(routers) {
   const out = [];
   for (const r of routers || []) {
     const routes = r.routes || [];
-    out.push({ router: r.name, error: r.error || null, total: routes.length, active: routes.filter((x) => x.active && !x.disabled).length, disabled: routes.filter((x) => x.disabled).length,
+    out.push({ router: r.name, kind: r.kind || "mikrotik", error: r.error || null, total: routes.length, active: routes.filter((x) => x.active && !x.disabled).length, disabled: routes.filter((x) => x.disabled).length,
       defaults: routes.filter((x) => x.dst === "0.0.0.0/0").map((x) => `${x.gateway}${x.active ? "" : " (inactive)"}`), nat: r.nat || 0 });
   }
   return out;
+}
+
+// #660 : routes Cisco -> même forme que les routes MikroTik (id, dst, gateway, distance, active, disabled, comment = protocole / interface).
+export function ciscoRouteRows(routes) {
+  return (routes || []).map((r, i) => ({ id: `${r.dst}-${r.gateway || r.iface}-${i}`, dst: r.dst, gateway: r.gateway || (r.iface ? `(${r.iface})` : ""), distance: (r.metric || "").split("/")[0],
+    active: r.active !== false, disabled: false, dynamic: !["static", "connected", "local", "direct"].includes(r.proto), comment: [r.proto, r.iface].filter(Boolean).join(" · ") }));
 }
 
 // Flux : échanges « d'où vers où, combien » (network-agent links) + accès aux ressources (sonde) -> top N par volume.

@@ -17,7 +17,7 @@ bascule de rôle (celui qui répond) ; une tour de contrôle : dns, routage, flu
   OVH / Nebula ?), VIP (keepalived/VRRP), ou règle NAT MikroTik (#587 déjà pilotable). Proposition : un « rôle » =
   nom de service + liste ordonnée de candidats (VM, serveur) + mécanisme de bascule + vérification (service-watch) ;
   la bascule devient une étape de plan (#653).
-- (114, **FAIT #655/#656** : onglet Réseau, DNS éditable OVH/Scaleway + intranet en fallback) **Tour de contrôle DNS / routage / flux** : reste routes Cisco, Nebula côté relais campus — DNS : quelles zones et quel serveur (BIND interne,
+- (114, **FAIT #655/#656/#660** : onglet Réseau, DNS éditable OVH/Scaleway + intranet en fallback, routes Cisco) **Tour de contrôle DNS / routage / flux** : reste Nebula côté relais campus — DNS : quelles zones et quel serveur (BIND interne,
   OVH, Nebula ?) pour éditer et pas seulement importer (service-watch importe déjà) ; routage : MikroTik (#485/#587)
   et Cisco (#508) — tables de routes et NAT en lecture, modifications journalisées ; flux → trafic : network-agent
   (#236+), conntrack (#640), bande passante (#641) — vue consolidée « d'où vers où, combien », par service/rôle.

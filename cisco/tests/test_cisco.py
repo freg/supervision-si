@@ -153,6 +153,16 @@ class FakeSession:
 
 
 class ParserTests(unittest.TestCase):
+    def test_parse_ip_route(self):
+        """#660 : table de routage IOS et NX-OS -> lignes normalisées (défaut, connectées, OSPF multi-chemins)."""
+        ios = "S*    0.0.0.0/0 [1/0] via 192.0.2.1\n      192.0.2.0/24 is variably subnetted, 2 subnets, 2 masks\nC        192.0.2.0/24 is directly connected, Vlan10\nO        10.1.0.0/16 [110/20] via 10.0.0.2, 00:12:11, Vlan20\n"
+        rows = parsers.parse_ip_route(ios)
+        self.assertEqual([(r["dst"], r["gateway"], r["iface"], r["proto"]) for r in rows], [("0.0.0.0/0", "192.0.2.1", "", "static"), ("192.0.2.0/24", "", "Vlan10", "connected"), ("10.1.0.0/16", "10.0.0.2", "Vlan20", "ospf")])
+        nx = "192.0.2.0/24, ubest/mbest: 1/0, attached\n    *via 192.0.2.5, Vlan10, [0/0], 1w2d, direct\n10.1.0.0/16, ubest/mbest: 2/0\n    *via 10.0.0.2, Vlan20, [110/20], 1w2d, ospf-1, intra\n    *via 10.0.0.3, Vlan21, [110/20], 1w2d, ospf-1, intra\n"
+        rows = parsers.parse_ip_route(nx, "nxos")
+        self.assertEqual(len(rows), 3); self.assertEqual(rows[2]["gateway"], "10.0.0.3"); self.assertEqual(rows[0]["proto"], "direct"); self.assertTrue(all(r["active"] for r in rows))
+        self.assertEqual(parsers.parse_ip_route(""), [])
+
     def test_version(self):
         v = parsers.parse_version(VERSION_3750)
         self.assertEqual((v["platform"], v["version"], v["model"], v["hostname"], v["serial"]), ("ios", "12.2(55)SE12", "WS-C3750G-24TS-1U", "sw-alpha", "CAT0000AAAA"))

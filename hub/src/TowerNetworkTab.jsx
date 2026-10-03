@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { fetchMikrotikRouters, fetchRoutes, fetchNatRules } from "./mikrotikClient.js";
+import { fetchCiscoSwitches, fetchCiscoRoutes } from "./ciscoClient.js";
 import { fetchSites, fetchLinks } from "./networkAgentClient.js";
 import { fetchNetworkObservability } from "./siAgentClient.js";
-import { dnsRows, dnsSummary, routingSummary, topFlows, fmtBytes, resourceRows } from "./towerNetworkLib.js";
+import { dnsRows, dnsSummary, routingSummary, ciscoRouteRows, topFlows, fmtBytes, resourceRows } from "./towerNetworkLib.js";
 import TowerDnsPanel from "./TowerDnsPanel.jsx";
 
 // Tour de contrôle → onglet « Réseau » (#655) : DNS / routage / flux → trafic, en LECTURE SEULE, agrégés depuis les
@@ -13,7 +14,7 @@ async function getJson(url) {
   try { const r = await fetch(url); const d = await r.json(); return d && d.error ? { error: d.error } : d; } catch (e) { return { error: e.message }; }
 }
 
-export default function TowerNetworkTab({ serviceWatchUrl, siAgentApiBase, mikrotikApiBase, networkAgentApiBase, dnsApiBase, login }) {
+export default function TowerNetworkTab({ serviceWatchUrl, siAgentApiBase, mikrotikApiBase, networkAgentApiBase, dnsApiBase, ciscoApiBase, login }) {
   const [dns, setDns] = useState({ loading: true });
   const [routing, setRouting] = useState({ loading: true });
   const [flows, setFlows] = useState({ loading: true });
@@ -29,13 +30,17 @@ export default function TowerNetworkTab({ serviceWatchUrl, siAgentApiBase, mikro
   }, [serviceWatchUrl, siAgentApiBase]);
 
   useEffect(() => {
-    if (!mikrotikApiBase) { setRouting({ routers: [], error: "MikroTik non configuré" }); return; }
+    if (!mikrotikApiBase && !ciscoApiBase) { setRouting({ routers: [], error: "MikroTik et Cisco non configurés" }); return; }
     (async () => {
-      const routers = await fetchMikrotikRouters(mikrotikApiBase);
-      const detailed = await Promise.all(routers.map(async (r) => { const [rt, nat] = await Promise.all([fetchRoutes(mikrotikApiBase, r.name), fetchNatRules(mikrotikApiBase, r.name)]); return { name: r.name, host: r.host, routes: rt?.routes || [], error: rt?.error || null, nat: (nat?.rules || []).length, natRules: nat?.rules || [] }; }));
-      setRouting({ routers: detailed, summary: routingSummary(detailed) });
+      const routers = mikrotikApiBase ? await fetchMikrotikRouters(mikrotikApiBase) : [];
+      const detailed = await Promise.all(routers.map(async (r) => { const [rt, nat] = await Promise.all([fetchRoutes(mikrotikApiBase, r.name), fetchNatRules(mikrotikApiBase, r.name)]); return { name: r.name, kind: "mikrotik", host: r.host, routes: rt?.routes || [], error: rt?.error || null, nat: (nat?.rules || []).length, natRules: nat?.rules || [] }; }));
+      // #660 : équipements Cisco (routes de niveau 3 : show ip route), lecture seule
+      const switches = ciscoApiBase ? await fetchCiscoSwitches(ciscoApiBase) : [];
+      const cisco = await Promise.all(switches.map(async (sw) => { const rt = await fetchCiscoRoutes(ciscoApiBase, sw.name); return { name: `${sw.name} (Cisco)`, kind: "cisco", host: sw.host, routes: ciscoRouteRows(rt?.routes), error: rt?.error || null, nat: 0, natRules: [] }; }));
+      const all = [...detailed, ...cisco];
+      setRouting({ routers: all, summary: routingSummary(all) });
     })();
-  }, [mikrotikApiBase]);
+  }, [mikrotikApiBase, ciscoApiBase]);
 
   useEffect(() => { if (networkAgentApiBase) fetchSites(networkAgentApiBase).then((s) => { setSegments(s); if (s[0] && !segment) setSegment(String(s[0].id || s[0].segment_id || "")); }); }, [networkAgentApiBase]);  // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -60,7 +65,7 @@ export default function TowerNetworkTab({ serviceWatchUrl, siAgentApiBase, mikro
         {routing.error && <p className="tn-ko">{routing.error}</p>}
         {routing.loading ? <p className="muted">chargement…</p> : (routing.summary || []).map((s, i) => (
           <details key={s.router} className="tn-details" open={i === 0}>
-            <summary><b>{s.router}</b> — {s.error ? <span className="tn-ko">{s.error}</span> : <>{s.active} route(s) active(s), {s.disabled} désactivée(s), {s.nat} règle(s) NAT · défaut : {s.defaults.join(", ") || "—"}</>}</summary>
+            <summary><b>{s.router}</b> — {s.error ? <span className="tn-ko">{s.error}</span> : <>{s.active} route(s) active(s), {s.disabled} désactivée(s), {s.kind === "cisco" ? "" : `${s.nat} règle(s) NAT`} · défaut : {s.defaults.join(", ") || "—"}</>}</summary>
             {!s.error && <table className="tn-table"><thead><tr><th>Destination</th><th>Passerelle</th><th>Dist.</th><th>État</th><th>Commentaire</th></tr></thead>
               <tbody>{routing.routers[i].routes.map((r) => <tr key={r.id} className={r.disabled ? "tn-muted" : !r.active ? "tn-row-ko" : ""}><td>{r.dst}</td><td>{r.gateway}</td><td>{r.distance}</td><td>{r.disabled ? "désactivée" : r.active ? "active" : "inactive"}{r.dynamic ? " (dyn.)" : ""}</td><td className="muted">{r.comment}</td></tr>)}</tbody></table>}
             {!s.error && routing.routers[i].natRules.length > 0 && <p className="muted">NAT : {routing.routers[i].natRules.slice(0, 12).map((n) => `${n.chain || ""} ${n["dst-port"] || ""}→${n["to-addresses"] || ""}${n["to-ports"] ? ":" + n["to-ports"] : ""}`).join(" · ")}</p>}

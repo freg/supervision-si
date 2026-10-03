@@ -413,6 +413,20 @@ def interfaces_route(name):
         return jsonify({"error": str(exc)}), 502
 
 
+@app.route("/cisco/switches/<name>/routes", methods=["GET"])
+def routes_route(name):
+    """#660 : table de routage (show ip route), lecture seule, pour l'onglet Réseau de la tour de contrôle."""
+    sw = switch_or_404(name)
+    if not sw:
+        return jsonify({"error": "switch inconnu"}), 404
+    try:
+        with session_for(sw) as s:
+            rows = parsers.parse_ip_route(s.show("show ip route"), sw["platform"])
+        return jsonify({"routes": rows, "platform": sw["platform"]}), 200
+    except CiscoError as exc:
+        return jsonify({"error": str(exc)}), 502
+
+
 @app.route("/cisco/switches/<name>/logs", methods=["GET"])
 def logs_route(name):
     sw = switch_or_404(name)

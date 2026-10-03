@@ -130,6 +130,40 @@ def parse_ip_interface_brief(text):
     return rows
 
 
+_ROUTE_CODES = {"C": "connected", "L": "local", "S": "static", "O": "ospf", "B": "bgp", "D": "eigrp", "R": "rip", "i": "isis", "I": "igrp", "E": "egp", "M": "mobile", "*": "default"}
+
+
+def parse_ip_route(text, platform="ios"):
+    """#660 : show ip route (IOS : « S*  0.0.0.0/0 [1/0] via 192.0.2.1 », « C  192.0.2.0/24 is directly connected, Vlan10 »,
+    « O  10.1.0.0/16 [110/20] via 10.0.0.2, 00:12:11, Vlan20 » ; NX-OS : « 192.0.2.0/24, ubest/mbest: 1/0 » puis
+    « *via 192.0.2.5, Vlan10, [0/0], 1w2d, direct ») -> [{dst, gateway, iface, proto, metric, active}]."""
+    rows = []
+    if platform == "nxos":
+        dst = None
+        for l in (text or "").splitlines():
+            m = re.match(r"^(\d{1,3}(?:\.\d{1,3}){3}/\d{1,2}),", l.strip())
+            if m:
+                dst = m.group(1); continue
+            m = re.match(r"^\*?via\s+(\S+?),(?:\s*(\S+?),)?\s*\[(\d+/\d+)\],\s*\S+,\s*(\w+)", l.strip())
+            if m and dst:
+                rows.append({"dst": dst, "gateway": m.group(1), "iface": m.group(2) or "", "proto": m.group(4), "metric": m.group(3), "active": l.strip().startswith("*")})
+        return rows
+    for l in (text or "").splitlines():
+        m = re.match(r"^([A-Za-z*]{1,3}(?:\s[A-Z0-9]{1,2})?)\s+(\d{1,3}(?:\.\d{1,3}){3}(?:/\d{1,2})?)\s+(.*)$", l.strip())
+        if not m or "subnetted" in l:
+            continue
+        code, dst, rest = m.group(1), m.group(2), m.group(3)
+        proto = _ROUTE_CODES.get(code[0], code)
+        if "directly connected" in rest:
+            iface = rest.split(",")[-1].strip()
+            rows.append({"dst": dst, "gateway": "", "iface": iface, "proto": proto, "metric": "0/0", "active": True})
+            continue
+        m2 = re.match(r"^\[(\d+/\d+)\]\s+via\s+(\S+?)(?:,\s*\S+)?(?:,\s*(\S+))?\s*$", rest)
+        if m2:
+            rows.append({"dst": dst, "gateway": m2.group(2), "iface": m2.group(3) or "", "proto": proto, "metric": m2.group(1), "active": True})
+    return rows
+
+
 _LOG_RE = re.compile(r"%([A-Z0-9_]+)-(\d)-([A-Z0-9_]+):\s*(.*)$")
 
 

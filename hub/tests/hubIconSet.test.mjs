@@ -13,9 +13,10 @@ test("chaque icône a un corps SVG et un ton de thème valide", () => {
 
 test("tous les emoji des champs icon: du hub ont une pastille", () => {
   const used = new Set();
-  for (const f of readdirSync("hub/src")) {
+  const srcDir = new URL("../src/", import.meta.url);           // indépendant du dossier courant (racine du dépôt ou hub/)
+  for (const f of readdirSync(srcDir)) {
     if (!/\.(js|jsx)$/.test(f) || f === "hubIconSet.js") continue;
-    for (const m of readFileSync(`hub/src/${f}`, "utf8").matchAll(/icon: *"([^"]+)"/g)) if (m[1]) used.add(m[1]);
+    for (const m of readFileSync(new URL(f, srcDir), "utf8").matchAll(/icon: *"([^"]+)"/g)) if (m[1]) used.add(m[1]);
   }
   const missing = [...used].filter((e) => !resolveIcon(e));
   assert.deepEqual(missing, [], `emoji sans pastille : ${missing.join(" ")}`);
