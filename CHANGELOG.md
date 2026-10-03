@@ -1,3 +1,30 @@
+## 2026-10-03 — Groupware façon eGroupware, tranche 1 : noyau (partages, catégories, liens, préférences) et CalDAV/CardDAV (livraison #664, item 115)
+
+Cadrage `docs/groupware-egroupware-python.md`, choix de la personne : pour l'équipe et les clients, CalDAV/CardDAV dès le
+départ (« exactement ce que je voulais »), option B (composition sur les briques du hub + noyau groupware + Radicale).
+
+- `groupware/api` : `core.py` pur (droits r/a/e/d/p, effectifs avec groupes, validation, préférences à quatre niveaux,
+  fichier de droits Radicale depuis les partages agenda / carnet avec convention de nom des collections, URLs DAV) ;
+  `app.py` : `/grants` (+ effectifs, reçus), `/categories`, `/links`, `/prefs`, `/dav/me`, `/dav/rights/rebuild`, journal ;
+  groupes développés en membres via LDAP (`ldap3`).
+- `groupware/radicale` : Radicale 3.5 (auth LDAP ou htpasswd, droits `from_file` générés, collections persistantes, web
+  interne) ; tls-proxy : route `/dav/` (nouveau gabarit `dav` : préfixe retiré + `X-Script-Name`, corps 100 Mo, délai
+  600 s) et `/api/groupware/` ; compose `groupware-api`, `radicale` ; `.env.example` `GROUPWARE_*`, `RADICALE_*`.
+- Hub : tuile **Groupware** (Documents & ENT) — mes URLs CalDAV/CardDAV et consignes clients, partages donnés / reçus,
+  catégories, préférences ; `groupwareClient.js`, `groupwareLib.js` ; chemins métier, journaux.
+- Anonymisation : DN LDAP d'exemple (`dc=exemple,dc=fr`), adresse de démo et noms de sites fictifs dans les tests ;
+  ProjeQtOr : droits de lecture garantis sur les sources copiées (dépôt tiré avec umask 077).
+
+Vérifié : `groupware/api/test_core.py` (6), `test_app.py` (2), hub Node 304 / 0 échec, `@babel/parser`,
+`render_nginx_conf.py --check` + tests tls-proxy, `shared/test_site_scope.py`, `ldap-admin` tests.
+Non vérifié : Radicale réel derrière la passerelle (hrefs, clients Thunderbird / DAVx5 / iOS), LDAP réel, rendu navigateur.
+
+Fichiers : `groupware/{README.md,api/{app.py,core.py,test_core.py,test_app.py,requirements.txt,Dockerfile},radicale/{Dockerfile,
+entrypoint.sh}}`, `hub/src/{GroupwareView.jsx,groupwareClient.js,groupwareLib.js,App.jsx,hubThemes.js,hubBusiness.js,logsLib.js}`,
+`hub/tests/groupwareLib.test.mjs`, `tls-proxy/render_nginx_conf.py`, `docker-compose.yml`, `.env.example`, `.gitignore`,
+`projeqtor/Dockerfile`, `ldap-admin/*`, `shared/test_site_scope.py`, `docs/groupware-egroupware-python.md`, `BACKLOG.md`,
+`CHANGELOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-03 — Miroir froid du hub : synchronisation, bascule, retour (livraison #663, étape 3 des items 108-110)
 
 Actif/passif, construit sur les briques existantes : sauvegarde totale/incrémentale chiffrée (#458-#460), agent de nœud

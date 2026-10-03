@@ -852,6 +852,46 @@ services:
     depends_on:
       - credentials-api
 
+  groupware-api:
+    # Livraison #664 (item 115) -- noyau groupware « façon eGroupware » :
+    # partages (grants) par application, catégories, liens universels,
+    # préférences à quatre niveaux ; génère le fichier de droits de
+    # radicale (volume partagé /dav-config) depuis les partages agenda /
+    # carnet. Groupes développés en membres via LDAP (LDAP_* du .env).
+    build:
+      context: .
+      dockerfile: groupware/api/Dockerfile
+    environment:
+      - DAV_PUBLIC_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/dav
+      - LDAP_URL=${LDAP_URL:-}
+      - LDAP_BIND_DN=${LDAP_BIND_DN:-}
+      - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD:-}
+      - LDAP_USERS_DN=${LDAP_USERS_DN:-}
+      - LDAP_GROUPS_DN=${LDAP_GROUPS_DN:-}
+    volumes:
+      - ${GROUPWARE_DATA_DIR:-./groupware/data}:/data
+      - ${GROUPWARE_DAV_CONFIG_DIR:-./groupware/dav-config}:/dav-config
+
+  radicale:
+    # Livraison #664 -- serveur CalDAV / CardDAV (Radicale, Python) du
+    # groupware : comptes LDAP (mêmes identifiants que le hub), droits
+    # depuis le fichier généré par groupware-api, collections dans
+    # GROUPWARE_DAV_DATA_DIR. Servi sous /dav/ par tls-proxy ; clients :
+    # Thunderbird, DAVx5, iOS/macOS (voir tuile Groupware).
+    build:
+      context: .
+      dockerfile: groupware/radicale/Dockerfile
+    environment:
+      - LDAP_URL=${LDAP_URL:-}
+      - LDAP_BIND_DN=${LDAP_BIND_DN:-}
+      - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD:-}
+      - LDAP_USERS_DN=${LDAP_USERS_DN:-}
+      - RADICALE_LDAP_FILTER=${RADICALE_LDAP_FILTER:-}
+      - RADICALE_LOG_LEVEL=${RADICALE_LOG_LEVEL:-info}
+    volumes:
+      - ${GROUPWARE_DAV_CONFIG_DIR:-./groupware/dav-config}:/config
+      - ${GROUPWARE_DAV_DATA_DIR:-./groupware/dav-data}:/data
+
   datasync-api:
     # Livraison #652 -- SGBD central de synchronisation unidirectionnelle
     # (SQLite + FTS5 dans /data) : API source centrale (jeton par source),
@@ -1982,6 +2022,7 @@ services:
       - VITE_QA_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/qa
       # Synchronisation centrale (livraison #652)
       - VITE_DATASYNC_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/datasync
+      - VITE_GROUPWARE_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/groupware
       # DNS éditable de la tour de contrôle (livraison #656)
       - VITE_DNS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/dns
       # Documents joints -- onglet GED (livraison #167) -- même API

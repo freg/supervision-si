@@ -31,6 +31,7 @@ import SchemaAnalyzerView from "./SchemaAnalyzerView.jsx";
 import PortageView from "./PortageView.jsx";
 import QaView from "./QaView.jsx";
 import DataSyncView from "./DataSyncView.jsx";
+import GroupwareView from "./GroupwareView.jsx";   // #664
 import PveOpsView from "./PveOpsView.jsx";
 import RetroView from "./RetroView.jsx";
 import BackupRestoreView from "./BackupRestoreView.jsx";
@@ -132,6 +133,7 @@ const RETRO_API_BASE_URL = import.meta.env.VITE_RETRO_API_BASE_URL || "";
 const PORTAGE_API_BASE_URL = import.meta.env.VITE_PORTAGE_API_BASE_URL || "";  // #650
 const QA_API_BASE_URL = import.meta.env.VITE_QA_API_BASE_URL || "";  // #651
 const DATASYNC_API_BASE_URL = import.meta.env.VITE_DATASYNC_API_BASE_URL || "";  // #652
+const GROUPWARE_API_BASE_URL = import.meta.env.VITE_GROUPWARE_API_BASE_URL || "";  // #664
 const DNS_API_BASE_URL = import.meta.env.VITE_DNS_API_BASE_URL || "";  // #656
 const BACKUP_RESTORE_API_BASE_URL = import.meta.env.VITE_BACKUP_RESTORE_API_BASE_URL || "";
 const ARCHITECTURE_API_BASE_URL = import.meta.env.VITE_ARCHITECTURE_API_BASE_URL || "";
@@ -1490,7 +1492,7 @@ export default function App() {
     ARCHITECTURE_API_BASE_URL && "architecture", (EXTERNAL_BASES.ipam || EXTERNAL_BASES.zenoss) && "fusion", NEBULA_API_BASE_URL && "nebula",
     SSH_TUNNELS_API_BASE_URL && "ssh-tunnels", HAS_EXTERNAL_BASES && "external-bases", GLPI_API_BASE_URL && "glpi-inventory",
     GEO_CATALOG_API_BASE_URL && "geo-catalog", CLASSIFIER_API_BASE_URL && "classifier", SCHEMA_ANALYZER_API_BASE_URL && "schema-analyzer",
-    RETRO_API_BASE_URL && "retro", PORTAGE_API_BASE_URL && "portage", QA_API_BASE_URL && "qa", DATASYNC_API_BASE_URL && "datasync", SI_AGENT_API_BASE_URL && "pve-ops", (TICKETS_API_BASE_URL || TASKS_API_BASE_URL) && "ent", GED_API_BASE_URL && "ged",
+    RETRO_API_BASE_URL && "retro", PORTAGE_API_BASE_URL && "portage", QA_API_BASE_URL && "qa", DATASYNC_API_BASE_URL && "datasync", GROUPWARE_API_BASE_URL && "groupware", SI_AGENT_API_BASE_URL && "pve-ops", (TICKETS_API_BASE_URL || TASKS_API_BASE_URL) && "ent", GED_API_BASE_URL && "ged",
     FILE_MANAGER_API_BASE_URL && "file-manager", IMAP_CLIENT_API_BASE_URL && "imap",
     IMAP_CONNECTORS_API_BASE_URL && "imap-connectors", bastionAllowed && "si-proxy",
     RIGHTS_API_BASE_URL && groups.includes("admin_hub") && "rights", BACKUP_RESTORE_API_BASE_URL && "backup-restore",
@@ -1645,6 +1647,8 @@ vm === "agent-page" ? (
         <PveOpsView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} login={profile.preferred_username} />
       ) : vm === "datasync" ? (
         <DataSyncView onBack={goBack} datasyncApiBase={DATASYNC_API_BASE_URL} login={profile.preferred_username} />
+      ) : vm === "groupware" ? (
+        <GroupwareView onBack={goBack} groupwareApiBase={GROUPWARE_API_BASE_URL} login={profile.preferred_username} groups={groups.map((g) => String(g).replace(/^\//, ""))} isAdmin={isAdmin(groups)} />
       ) : vm === "qa" ? (
         <QaView onBack={goBack} qaApiBase={QA_API_BASE_URL} login={profile.preferred_username} />
       ) : vm === "portage" ? (

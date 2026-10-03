@@ -96,6 +96,7 @@ export const PATHS = {
   "view:retro": ["services/donnees"],
   "view:portage": ["services/metier", "cortex/apprentissage"],
   "view:qa": ["services/metier", "etats/incidents"],
+  "view:groupware": ["services/metier", "droits/personnes"],        // #664 : partages, agenda / contacts CalDAV-CardDAV
   "view:datasync": ["services/donnees", "cortex/apprentissage"],   // #652 : SGBD central, analyse et recherche transversales   // #651 : tester un site déployé, ticket incident/évolution   // #650 : porter une application métier, avec l'IA de portage
   "front:dba": ["services/donnees"],
   "view:licenses": ["droits/licences", "equipements/postes"],

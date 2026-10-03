@@ -165,6 +165,10 @@ SERVICES = [
     ("QA_API_PORT", "qa-api", 5000, "/api/qa/", "api"),
     # datasync-api (livraison #652) -- API source centrale : les connecteurs du parc poussent ici (lots jusqu'à 64 Mo).
     ("DATASYNC_API_PORT", "datasync-api", 5000, "/api/datasync/", "api"),
+    # groupware-api (livraison #664) -- noyau groupware (partages, catégories, liens, préférences) ; radicale = CalDAV/CardDAV
+    # sous /dav/ (préfixe retiré, X-Script-Name pour que Radicale génère des hrefs en /dav/…, méthodes WebDAV passées telles quelles).
+    ("GROUPWARE_API_PORT", "groupware-api", 5000, "/api/groupware/", "api"),
+    ("RADICALE_PORT", "radicale", 5232, "/dav/", "dav"),
     # dns-api (livraison #656) -- DNS éditable (OVH / Scaleway / intranet BIND).
     ("DNS_API_PORT", "dns-api", 5000, "/api/dns/", "api"),
     # backup-restore-api (livraison #249) -- sous-volet "backup-restore",
@@ -377,6 +381,24 @@ API_LOCATION_TEMPLATE = """\
     }}
 """
 
+# WebDAV (Radicale, #664) : comme "api" (préfixe retiré) + X-Script-Name = préfixe pour que les hrefs renvoyés (PROPFIND)
+# soient en /dav/… ; corps jusqu'à 100 Mo (import d'un agenda), délai long (synchronisation initiale d'un téléphone).
+DAV_LOCATION_TEMPLATE = """\
+    location {path} {{
+        set $backend {service}:{container_port};
+        rewrite ^{path}(.*)$ /$1 break;
+        proxy_pass http://$backend$uri$is_args$args;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Script-Name /dav;
+        proxy_pass_header Authorization;
+        proxy_read_timeout 600s;
+        client_max_body_size 100m;
+    }}
+"""
+
 # SPA/Keycloak : préfixe CONSERVÉ -- AUCUN `rewrite` (contrairement à
 # "api" ci-dessus) : sans rewrite, $uri reste le chemin ORIGINAL reçu
 # tel quel, transmis explicitement (voir API_LOCATION_TEMPLATE
@@ -536,6 +558,8 @@ def build_config(env):
 
         if kind == "api":
             template = API_LOCATION_TEMPLATE
+        elif kind == "dav":
+            template = DAV_LOCATION_TEMPLATE
         elif kind == "api-static":
             template = API_LOCATION_TEMPLATE_STATIC
         else:

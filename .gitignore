@@ -145,3 +145,8 @@ dns/data/
 datasync/connector/*.state.json
 datasync/connector/config.json
 deploy/mirror.local.json
+
+# groupware (#664) : base du noyau, droits Radicale générés, collections CalDAV/CardDAV
+groupware/data/
+groupware/dav-config/
+groupware/dav-data/
