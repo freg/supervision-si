@@ -22,15 +22,29 @@ def service_of(labels, name=""):
     return (labels or {}).get("com.docker.compose.service") or name
 
 
-def exposed_port(attrs):
-    """Premier port TCP exposé par l'image (ExposedPorts) -> int ou None."""
-    ports = ((attrs or {}).get("Config") or {}).get("ExposedPorts") or {}
+def _tcp_ports(mapping):
     nums = []
-    for k in ports:
+    for k in mapping or {}:
         p, _, proto = str(k).partition("/")
         if proto in ("", "tcp") and p.isdigit():
             nums.append(int(p))
+    return nums
+
+
+def exposed_port(attrs):
+    """Port TCP à sonder -> int ou None. #675 : d'abord un port PUBLIÉ sur l'hôte (NetworkSettings.Ports avec liaison --
+    tls-proxy expose 80 par son image mais n'écoute que sur GATEWAY_PORT), sinon le plus petit port exposé par l'image."""
+    attrs = attrs or {}
+    published = _tcp_ports({k: v for k, v in ((attrs.get("NetworkSettings") or {}).get("Ports") or {}).items() if v})
+    if published:
+        return min(published)
+    nums = _tcp_ports((attrs.get("Config") or {}).get("ExposedPorts"))
     return min(nums) if nums else None
+
+
+def host_network(attrs):
+    """#675 : conteneur en réseau hôte (network_mode: host) -> à sonder par l'IP de l'hôte, pas par son nom."""
+    return str(((attrs or {}).get("HostConfig") or {}).get("NetworkMode") or "") == "host"
 
 
 def guess_kind(service, port, http):

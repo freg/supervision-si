@@ -30,6 +30,9 @@ class Classify(unittest.TestCase):
     def test_ports_and_kind(self):
         self.assertEqual(lights.exposed_port({"Config": {"ExposedPorts": {"5173/tcp": {}, "5000/tcp": {}, "53/udp": {}}}}), 5000)
         self.assertIsNone(lights.exposed_port({"Config": {}}))
+        # #675 : port publié prioritaire (tls-proxy : image EXPOSE 80, écoute 6443), réseau hôte
+        self.assertEqual(lights.exposed_port({"Config": {"ExposedPorts": {"80/tcp": {}}}, "NetworkSettings": {"Ports": {"80/tcp": None, "6443/tcp": [{"HostPort": "6443"}]}}}), 6443)
+        self.assertTrue(lights.host_network({"HostConfig": {"NetworkMode": "host"}})); self.assertFalse(lights.host_network({"HostConfig": {"NetworkMode": "bridge"}}))
         self.assertEqual(lights.guess_kind("pixel-grid-postgres", 5432, None), "db")
         self.assertEqual(lights.guess_kind("hub", 5173, {"content": "html"}), "front")
         self.assertEqual(lights.guess_kind("nebula-api", 5000, {"content": "json"}), "api")

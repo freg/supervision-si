@@ -156,6 +156,25 @@ def _tcp_open(host, port):
         return False, str(exc)[:80]
 
 
+def _https_probe(host, port):
+    """#675 : même sonde en HTTPS (certificat interne non vérifié : on mesure la vie du service, pas sa confiance)."""
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    last = None
+    for path in ("/health", "/"):
+        t0 = time.time()
+        try:
+            r = requests.get("https://%s:%d%s" % (host, port, path), timeout=HTTP_TIMEOUT, allow_redirects=False, verify=False)
+        except requests.exceptions.RequestException as exc:
+            return {"error": "HTTPS : %s" % str(exc)[:100]}
+        out = {"code": r.status_code, "ms": int((time.time() - t0) * 1000), "path": path, "tls": True,
+               "content": "json" if "json" in (r.headers.get("content-type") or "").lower() else "html" if "html" in (r.headers.get("content-type") or "").lower() else "other"}
+        if r.status_code != 404:
+            return out
+        last = out
+    return last
+
+
 def _http_probe(host, port):
     """TCP puis GET http://host:port/health puis / -> {code, ms, content, status},
     {tcp_only, ms} (port ouvert, pas HTTP) ou {error}."""
@@ -174,6 +193,8 @@ def _http_probe(host, port):
         except requests.exceptions.RequestException as exc:
             return {"error": str(exc)[:120]}
         ms = int((time.time() - t0) * 1000)
+        if r.status_code == 400 and "https" in (r.text or "").lower()[:300] and path == "/health":   # #675 : port TLS (nginx « plain HTTP request was sent to HTTPS port »)
+            return _https_probe(host, port)
         ctype = (r.headers.get("content-type") or "").lower()
         out = {"code": r.status_code, "ms": ms, "path": path,
                "content": "json" if "json" in ctype else "html" if "html" in ctype else "other"}
@@ -199,7 +220,10 @@ def _row(c):
     port = lights.exposed_port(attrs)
     http = None
     if c.status == "running" and port:
-        http = _http_probe(c.name, port)
+        if lights.host_network(attrs):                                # #675 : pas de nom DNS pour un conteneur en réseau hôte
+            http = _http_probe(HOST_IP, port) if HOST_IP else None
+        else:
+            http = _http_probe(c.name, port)
     light, text = lights.classify(c.status, health, http, port)
     hard = lights.hard_red(c.status, health)  # #588 : seule une panne dure déclenche l'auto-réparation
     ignored = service in (_settings().get("ignored") or [])

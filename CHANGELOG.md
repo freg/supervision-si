@@ -1,3 +1,14 @@
+## 2026-10-04 — Feu tricolore : tls-proxy sondé sur son vrai port (HTTPS), réseau hôte sondé par l'IP (livraison #675)
+
+Deux faux rouges vus dans « Services du hub » : `tls-proxy` « port 80 injoignable » (l'image expose 80, nginx n'écoute
+que sur GATEWAY_PORT en TLS) et `network-agent-api` « Name or service not known » (conteneur en `network_mode: host`,
+donc sans nom DNS Docker). Le port sondé est désormais d'abord un port **publié** sur l'hôte, puis celui de l'image ;
+une réponse 400 « plain HTTP request was sent to HTTPS port » bascule la sonde en HTTPS (certificat non vérifié) ; un
+conteneur en réseau hôte est sondé par `SERVICES_HOST_IP` (ou pas sondé si elle est vide).
+
+- Vérifié : `services/api` unittest (`exposed_port` publié, `host_network`). Non vérifié : sur super (rebuild services-api).
+- Fichiers : `services/api/{lights.py,app.py,test_lights.py}`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-04 — run.sh : avertissement quand HOST_IP du .env diffère de l'IP détectée (livraison #674)
 
 Suite de #672 : le `HOST_IP` du `.env` est désormais honoré… et sur l'hôte réel il portait une vieille valeur d'un autre
