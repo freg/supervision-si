@@ -84,7 +84,7 @@ else
   # #674 : valeur du .env ou du shell différente de l'IP détectée -- souvent un .env recopié d'une autre machine
   # ou d'un ancien réseau (vu en réel : Keycloak recréé avec un KC_HOSTNAME faux, hub injoignable).
   _detected="$(detect_host_ip 2>/dev/null || true)"
-  if [ -n "$_detected" ] && [ "$_detected" != "$HOST_IP" ]; then
+  if [ -n "$_detected" ] && [ "$_detected" != "$HOST_IP" ] && [ ! -f /.dockerenv ]; then   # #676 : dans le runner de la tour, l'IP détectée est celle du conteneur
     echo "⚠️  HOST_IP=$HOST_IP (.env ou shell) alors que l'IP détectée de cette machine est $_detected" >&2
     echo "    -- normal si HOST_IP est un nom public ou une autre interface voulue ; sinon corriger HOST_IP dans .env." >&2
   fi

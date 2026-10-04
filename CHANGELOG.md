@@ -1,3 +1,15 @@
+## 2026-10-04 — Tour : les dossiers du .env hors du dépôt (PKI_DIR…) sont montés dans le runner (livraison #676)
+
+Vu sur super : `mkdir: cannot create directory '/home/<user>/supervision-si-pki': Permission denied` à l'étape passerelle
+d'un job — le runner ne monte que le dépôt, or `PKI_DIR` (et `KEYCLOAK_IMPORT_DIR`, `*_DATA_DIR`…) peuvent pointer
+ailleurs ; en root ça « marchait » en créant un dossier vide dans le conteneur, plus maintenant (#672). Tout `*_DIR` du
+`.env` en chemin absolu, hors du dépôt et existant sur l'hôte est monté au même chemin en écriture. Au passage :
+l'avertissement HOST_IP ≠ IP détectée (#674) se tait dans un conteneur (l'IP détectée y est celle du runner).
+
+- Vérifié : `services/api` unittest (montage de PKI_DIR hors dépôt, chemin inexistant / relatif ignorés), `bash -n`.
+- Non vérifié : job réel (à relancer : « Mettre à jour le central »).
+- Fichiers : `services/api/{app.py,test_app.py}`, `scripts/run.sh`, `gateway/scripts/run.sh`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-04 — Feu tricolore : tls-proxy sondé sur son vrai port (HTTPS), réseau hôte sondé par l'IP (livraison #675)
 
 Deux faux rouges vus dans « Services du hub » : `tls-proxy` « port 80 injoignable » (l'image expose 80, nginx n'écoute

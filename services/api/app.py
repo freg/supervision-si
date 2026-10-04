@@ -24,6 +24,7 @@ import json
 import logging
 import os
 import secrets
+import re
 import socket
 import subprocess
 import threading
@@ -557,6 +558,27 @@ def _runner_identity():
         return {}
 
 
+def _extra_mounts():
+    """#676 : dossiers du .env situés HORS du dépôt (PKI_DIR, KEYCLOAK_IMPORT_DIR, *_DATA_DIR…) -- les scripts lancés par
+    le runner y écrivent (certificat serveur, realm rendu) : montés au même chemin, en écriture. Chemins absolus
+    seulement, existants sur l'hôte (vus sous HOST_ROOT), jamais / ni un parent du dépôt."""
+    out = {}
+    try:
+        with open(os.path.join(PROJECT_DIR, ".env"), encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                m = re.match(r"^([A-Z0-9_]+_DIR)=(.*)$", line.strip())
+                if not m: continue
+                val = m.group(2).strip().strip("\"'").rstrip("/")
+                if not val.startswith("/") or val == "/" or val == PROJECT_DIR or val.startswith(PROJECT_DIR + "/") or PROJECT_DIR.startswith(val + "/"):
+                    continue
+                if not os.path.isdir((HOST_ROOT or "") + val):
+                    continue
+                out[val] = {"bind": val, "mode": "rw"}
+    except OSError:
+        pass
+    return out
+
+
 def _runner_env():
     """Un uid sans entrée passwd dans l'image : HOME et caches dans /tmp pour git, docker et python."""
     if not _runner_identity():
@@ -594,7 +616,7 @@ def launch_job(kind, label, steps, user, extra=None):
         app.docker_client().containers.run(
             _self_image(), ["bash", "-c", cmd], detach=True, auto_remove=True, working_dir=PROJECT_DIR,
             name="tower-job-%s" % jid, labels={"supervision-si.tower-job": jid},
-            volumes={"/var/run/docker.sock": {"bind": "/var/run/docker.sock", "mode": "rw"}, PROJECT_DIR: {"bind": PROJECT_DIR, "mode": "rw"}},
+            volumes=dict({"/var/run/docker.sock": {"bind": "/var/run/docker.sock", "mode": "rw"}, PROJECT_DIR: {"bind": PROJECT_DIR, "mode": "rw"}}, **_extra_mounts()),
             environment=dict({"HOST_IP": HOST_IP} if HOST_IP else {}, **_runner_env()), **_runner_identity())
     except Exception as exc:  # noqa: BLE001
         _write(os.path.relpath(base + ".log", PROJECT_DIR), "runner non lancé : %s\n" % exc)

@@ -25,6 +25,7 @@ os.environ["SERVICES_PROJECT_DIR"] = PROJ
 os.environ["SERVICES_HEAL_THREAD"] = "0"
 os.environ["SERVICES_RUNNER_IMAGE"] = "img:test"
 os.environ["SERVICES_HOST_IP"] = "192.0.2.5"
+os.environ["SERVICES_HOST_ROOT"] = ""   # #676 : chemins du .env vérifiés directement (pas de racine hôte en test)
 if "docker" not in sys.modules:
     try:
         import docker  # noqa: F401
@@ -172,7 +173,8 @@ class TestTower(TestApi):
         put("ged/Dockerfile", "COPY ged/ .\n")
         put("nebula/api/app.py", "v1\n")
         put("shared/DELIVERY_NUMBER", "585\n")
-        put(".env", "SECRET=1\n")
+        EXT = os.path.normpath(os.path.join(PROJ, "..", "pki-hors-depot")); os.makedirs(EXT, exist_ok=True)
+        put(".env", "SECRET=1\nPKI_DIR=%s\nVAULT_DATA_DIR=/nulle/part\nGED_DATA_DIR=./ged/data\n" % EXT)
         put("cisco/switches.json", '{"switches": [{"name": "exemple", "host": "192.0.2.10", "credential": "cisco"}]}')
 
     def test_configs(self):
@@ -214,13 +216,15 @@ class TestTower(TestApi):
         a = self.c.post("/deliveries/%s/apply" % d["id"], headers=self.h, json={}).get_json()
         self.assertTrue(a["applied"])
         self.assertEqual(open(os.path.join(PROJ, "nebula/api/app.py")).read(), "v2\n")
-        self.assertEqual(open(os.path.join(PROJ, ".env")).read(), "SECRET=1\n")  # jamais écrasé
+        self.assertEqual(open(os.path.join(PROJ, ".env")).read().splitlines()[0], "SECRET=1")  # jamais écrasé
         self.assertFalse(os.path.exists(os.path.join(os.path.dirname(PROJ), "evil")))
         self.assertEqual(len(FakeDocker.runs), 1)
         args, kw = FakeDocker.runs[0]
         self.assertEqual(args[0], "img:test")
         self.assertIn(PROJ, kw["volumes"])
         self.assertEqual(kw["environment"]["HOST_IP"], "192.0.2.5")
+        vols = [os.path.normpath(k) for k in kw["volumes"]]   # #676 : PKI_DIR hors dépôt monté, chemin inexistant et relatif ignorés
+        self.assertIn(os.path.normpath(os.path.join(PROJ, "..", "pki-hors-depot")), vols); self.assertNotIn("/nulle/part", vols); self.assertEqual(len(vols), 3)
         if os.stat(PROJ).st_uid != 0:   # #672 : runner avec l'uid du dépôt (sauf dépôt à root ou socket réservé à root)
             self.assertIn("user", kw)
             self.assertEqual(kw["environment"].get("HOME"), "/tmp/tower-home")
