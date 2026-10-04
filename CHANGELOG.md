@@ -1,3 +1,12 @@
+## 2026-10-04 — run.sh : avertissement quand HOST_IP du .env diffère de l'IP détectée (livraison #674)
+
+Suite de #672 : le `HOST_IP` du `.env` est désormais honoré… et sur l'hôte réel il portait une vieille valeur d'un autre
+réseau — Keycloak recréé avec ce `KC_HOSTNAME`, redirection vers une adresse injoignable (« IFrame timed out »). Les deux
+`run.sh` affichent maintenant un avertissement explicite quand la valeur retenue diffère de l'IP détectée (légitime pour
+un nom public ou une autre interface, sinon à corriger).
+
+- Vérifié : `bash -n`. Fichiers : `scripts/run.sh`, `gateway/scripts/run.sh`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-04 — PKI : refus de changer de CA par inadvertance (livraison #673)
 
 Vu en réel : `PKI_DIR` absent du `.env` de l'hôte alors que la PKI en service est ailleurs — le job de la tour puis un

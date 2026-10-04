@@ -148,6 +148,14 @@ if [ -z "${HOST_IP:-}" ] && [ -f "$PROJECT_ROOT/.env" ]; then
 fi
 if [ -z "${HOST_IP:-}" ]; then
   HOST_IP="$(detect_host_ip)"
+else
+  # #674 : valeur du .env ou du shell différente de l'IP détectée -- souvent un .env recopié d'une autre machine
+  # ou d'un ancien réseau (vu en réel : Keycloak recréé avec un KC_HOSTNAME faux, hub injoignable).
+  _detected="$(detect_host_ip 2>/dev/null || true)"
+  if [ -n "$_detected" ] && [ "$_detected" != "$HOST_IP" ]; then
+    echo "⚠️  HOST_IP=$HOST_IP (.env ou shell) alors que l'IP détectée de cette machine est $_detected" >&2
+    echo "    -- normal si HOST_IP est un nom public ou une autre interface voulue ; sinon corriger HOST_IP dans .env." >&2
+  fi
 fi
 export HOST_IP
 
