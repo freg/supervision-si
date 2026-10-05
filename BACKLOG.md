@@ -1,3 +1,11 @@
+## Agent Windows : chaîne du central public écrite par l'installeur (2026-10-05) — après le 9 oct.
+
+Vu au campus (agent `numeria-ctrlecran`, v0.5.32) : avec `-SystemCa`, le Python embarqué ne voit que les magasins
+`ROOT`/`CA` de Windows, pas les racines téléchargées à la demande (AuthRoot) ; le certificat Let's Encrypt du frontal
+est en chaîne ECDSA (YE1 → Root YE → ISRG Root X2) → `CERTIFICATE_VERIFY_FAILED`. Contourné à la main : chaîne
+reconstruite par Windows (X509Chain) écrite dans `C:\ProgramData\si-agent\central-ca.pem` + `ca_file` dans agent.json.
+À faire : `install.ps1 -SystemCa` le fait lui-même (et l'agent le régénère si la vérification échoue).
+
 ## Groupware « façon eGroupware » — EN PAUSE jusqu'au 9 oct. 2026 (demande du 4 oct., économie de tokens) en Python, ProjeQtOr mis de côté (2026-10-03) — item 115
 
 **Tranche 1 faite en #664** (noyau : partages, catégories, liens, préférences ; Radicale CalDAV/CardDAV sous /dav/, tuile Groupware), **tranche 2 en #665** (carnet d'adresses dans le hub sur CardDAV, compte de service, vérifié contre un Radicale réel), **tranche 3 en #666** (agenda dans le hub : vues, récurrences, disponibilités, ressources réservables ; compte de service depuis le coffre), **tranche 4 en #668** (InfoLog : notes / appels / tâches liées aux contacts, tickets ou toute application, liste et Kanban dans la tuile), **invitations et rappels en #669** (participants avec copie dans leur agenda et réponses accepté / décliné / peut-être propagées, VALARM), **bandeau de rappels en #670** (toutes les pages du hub, notification navigateur). Reste : Kanban ENT comme vue d'InfoLog, test réel des clients DAV et de l'auth LDAP. Décisions : pour les deux (interne et clients), CalDAV/CardDAV dès le départ.
