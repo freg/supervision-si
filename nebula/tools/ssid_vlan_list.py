@@ -2,7 +2,7 @@
 """Liste SSID -> VLAN -> sous-réseau d'un site Nebula, pour le test d'atteignabilité SSID x VLAN
 (tools/ssid-vlan-check.sh). À exécuter DANS le conteneur nebula-api (clé API déjà dans son environnement) :
 
-  cd ~/SRC/data2/tickets/supervision-si && (umask 077; ./scripts/run.sh exec -T nebula-api python - "NUMERIA" < nebula/tools/ssid_vlan_list.py > ~/ssids-campus.txt)
+  cd ~/SRC/data2/tickets/supervision-si && (umask 077; ./scripts/run.sh exec -T nebula-api python - "NUMERIA" < nebula/tools/ssid_vlan_list.py | sed -n "/^#site/,$$p" > ~/ssids-campus.txt)   # run.sh écrit aussi sur la sortie standard
 
 Sortie, une ligne par SSID actif : SSID;clé;vlan;sous_reseau;passerelle  -- la clé WPA vient de l'OpenAPI (champ wpaKey) :
 fichier à garder en 600, jamais dans le dépôt. Puis une ligne « #vlans;vid=sous_reseau,… » : tous les VLAN routés par
@@ -20,7 +20,7 @@ site = None
 for org in c.list_organizations() or []:
     for s in c.list_sites(org["orgId"]) or []:
         if not want or str(s.get("name", "")).lower().startswith(want) or want in str(s.get("name", "")).lower():
-            site = (org["orgId"], s["siteId"], s.get("name"))
+            site = (org["orgId"], s["siteId"], s.get("name") or s.get("siteName"))
             break
     if site:
         break
@@ -39,7 +39,7 @@ def first_host(cidr):
         return ""
 
 
-print("#site;%s" % name)
+print("#site;%s" % (name or site_id))
 for w in c.ap_wlan_settings(site_id) or []:
     if not isinstance(w, dict) or not w.get("enabled", True):
         continue

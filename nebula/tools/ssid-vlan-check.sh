@@ -7,7 +7,7 @@ IF=${1:?interface wifi}; F=${2:?fichier ssids}; shift 2
 TARGETS="$(grep '^#vlans;' "$F" | cut -d';' -f2 | tr ',' '\n' | while IFS='=' read -r v n; do
   python3 -c "import ipaddress,sys;print(next(ipaddress.ip_network(sys.argv[1],strict=False).hosts()))" "$n"; done | tr '\n' ' ') $* 1.1.1.1"
 printf "%-24s %-6s %-18s" "SSID" "VLAN" "adresse"; for T in $TARGETS; do printf " %-15s" "$T"; done; echo
-grep -v '^#' "$F" | while IFS=';' read -r S K V N G; do
+grep -v '^#' "$F" | grep ';' | while IFS=';' read -r S K V N G; do
   [ -z "$S" ] && continue
   if [ -n "$K" ]; then nmcli dev wifi connect "$S" password "$K" ifname "$IF" >/dev/null 2>&1; else nmcli dev wifi connect "$S" ifname "$IF" >/dev/null 2>&1; fi
   if [ $? -ne 0 ]; then printf "%-24s %-6s %-18s association KO\n" "$S" "$V" "-"; continue; fi
