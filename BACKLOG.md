@@ -1,3 +1,13 @@
+## Agent Windows : redémarrage planifié avec relance des applications (2026-10-05) — après le 9 oct.
+
+Posé à la main sur `numeria-ctrlecran` (scripts dans `C:\ProgramData\si-agent\reboot` + `C:\ProgramData\si-reboot`) :
+tâche SYSTEM à minuit (instantané des applications de la session console, événement `host-reboot`, `shutdown /r /t 60`),
+tâche à l'ouverture de session (relance des applications dans la session de l'utilisateur), tâche SYSTEM au démarrage
+(événement `host-boot` avec le résultat de la relance). À intégrer à l'agent (commande `power_action` planifiable depuis
+le hub). Défaut repéré : le chien de garde #613 (`_spawn_detached`) lance en SYSTEM, donc en session 0 -- une
+application graphique relancée par lui est invisible ; il faut lancer dans la session console (tâche /IT ou
+CreateProcessAsUser).
+
 ## Agent Windows : chaîne du central public écrite par l'installeur (2026-10-05) — après le 9 oct.
 
 Vu au campus (agent `numeria-ctrlecran`, v0.5.32) : avec `-SystemCa`, le Python embarqué ne voit que les magasins
