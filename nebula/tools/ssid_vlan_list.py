@@ -15,7 +15,7 @@ import nebula_client
 import vlanmap
 
 want = (sys.argv[1] if len(sys.argv) > 1 else "").lower()
-c = nebula_client.NebulaClient(os.environ["NEBULA_API_KEY"], os.environ.get("NEBULA_BASE_URL") or None)
+c = nebula_client.NebulaClient(os.environ.get("NEBULA_API_KEY", "").strip(), (os.environ.get("NEBULA_BASE_URL") or "").strip() or None)  # comme app.py
 site = None
 for org in c.list_organizations() or []:
     for s in c.list_sites(org["orgId"]) or []:
