@@ -1,3 +1,13 @@
+## Nebula : architecture active déduite (matrice SSID x VLAN prévue / observée / prouvée) (2026-10-05) — après le 9 oct.
+
+Demandé : « on a des stats de tout, les listes de tout : on doit pouvoir en déduire l'architecture active ». Trois niveaux :
+(1) **prévue** : SSID→VLAN, VLAN sur ports et liaisons LLDP (carte des VLAN #548, déjà là), interfaces de la passerelle,
++ security policies / isolation / zone invité du USG FLEX -- d'abord vérifier si l'OpenAPI les expose ;
+(2) **observée** : clients par SSID avec VLAN et IP (DHCP + étiquetage prouvés sans rien injecter), SSID sans client ;
+(3) **prouvée** : test actif par l'agent du campus (`nebula/tools/ssid-vlan-check.sh`, futur sonde) seulement sur ce qui
+n'est pas déductible ou contredit la déduction. Tuile Nebula : matrice avec écarts expliqués (règle en cause) ; base
+de raisonnement pour l'agent conversationnel.
+
 ## Agent Windows : redémarrage planifié avec relance des applications (2026-10-05) — après le 9 oct.
 
 Posé à la main sur `numeria-ctrlecran` (scripts dans `C:\ProgramData\si-agent\reboot` + `C:\ProgramData\si-reboot`) :
