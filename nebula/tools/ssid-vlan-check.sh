@@ -9,8 +9,8 @@ TARGETS="$(grep '^#vlans;' "$F" | cut -d';' -f2 | tr ',' '\n' | while IFS='=' re
 printf "%-24s %-6s %-18s" "SSID" "VLAN" "adresse"; for T in $TARGETS; do printf " %-15s" "$T"; done; echo
 grep -v '^#' "$F" | grep ';' | while IFS=';' read -r S K V N G; do
   [ -z "$S" ] && continue
-  if [ -n "$K" ]; then nmcli dev wifi connect "$S" password "$K" ifname "$IF" >/dev/null 2>&1; else nmcli dev wifi connect "$S" ifname "$IF" >/dev/null 2>&1; fi
-  if [ $? -ne 0 ]; then printf "%-24s %-6s %-18s association KO\n" "$S" "$V" "-"; continue; fi
+  if [ -n "$K" ]; then E=$(nmcli -w 30 dev wifi connect "$S" password "$K" ifname "$IF" 2>&1); else E=$(nmcli -w 30 dev wifi connect "$S" ifname "$IF" 2>&1); fi
+  if [ $? -ne 0 ]; then printf "%-24s %-6s %-18s association KO : %s\n" "$S" "$V" "-" "$(echo "$E" | tail -1 | cut -c1-110)"; continue; fi
   sleep 5; A=$(ip -4 -br a show "$IF" | awk '{print $3}')
   printf "%-24s %-6s %-18s" "$S" "$V" "${A:-pas de bail}"
   for T in $TARGETS; do ping -I "$IF" -c2 -W1 -q "$T" >/dev/null 2>&1 && R=OK || R=KO; printf " %-15s" "$R"; done; echo
