@@ -9,10 +9,20 @@ TARGETS="$(grep '^#vlans;' "$F" | cut -d';' -f2 | tr ',' '\n' | while IFS='=' re
 printf "%-24s %-6s %-18s" "SSID" "VLAN" "adresse"; for T in $TARGETS; do printf " %-15s" "$T"; done; echo
 grep -v '^#' "$F" | grep ';' | while IFS=';' read -r S K V N G; do
   [ -z "$S" ] && continue
-  if [ -n "$K" ]; then E=$(nmcli -w 30 dev wifi connect "$S" password "$K" ifname "$IF" 2>&1); else E=$(nmcli -w 30 dev wifi connect "$S" ifname "$IF" 2>&1); fi
-  if [ $? -ne 0 ]; then printf "%-24s %-6s %-18s association KO : %s\n" "$S" "$V" "-" "$(echo "$E" | tail -1 | cut -c1-110)"; continue; fi
+  # profil explicite (« dev wifi connect » échoue en « key-mgmt manquante » quand le SSID n'est pas dans le dernier scan
+  # ou qu'un ancien profil existe) ; KM=sae pour un SSID WPA3 seul
+  C="ssidtest-$V-$(echo "$S" | tr -cd 'A-Za-z0-9_-')"; nmcli con delete "$C" >/dev/null 2>&1
+  if [ -n "$K" ]; then
+    nmcli con add type wifi ifname "$IF" con-name "$C" ssid "$S" connection.autoconnect no ipv6.method ignore \
+      wifi-sec.key-mgmt "${KM:-wpa-psk}" wifi-sec.psk "$K" >/dev/null 2>&1
+  else
+    nmcli con add type wifi ifname "$IF" con-name "$C" ssid "$S" connection.autoconnect no ipv6.method ignore >/dev/null 2>&1
+  fi
+  E=$(nmcli -w 40 con up "$C" ifname "$IF" 2>&1)
+  if [ $? -ne 0 ]; then printf "%-24s %-6s %-18s association KO : %s\n" "$S" "$V" "-" "$(echo "$E" | tail -1 | cut -c1-110)"; nmcli con delete "$C" >/dev/null 2>&1; continue; fi
   sleep 5; A=$(ip -4 -br a show "$IF" | awk '{print $3}')
   printf "%-24s %-6s %-18s" "$S" "$V" "${A:-pas de bail}"
   for T in $TARGETS; do ping -I "$IF" -c2 -W1 -q "$T" >/dev/null 2>&1 && R=OK || R=KO; printf " %-15s" "$R"; done; echo
+  nmcli con down "$C" >/dev/null 2>&1; nmcli con delete "$C" >/dev/null 2>&1
 done
 nmcli dev disconnect "$IF" >/dev/null 2>&1
