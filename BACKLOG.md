@@ -10,7 +10,7 @@ de raisonnement pour l'agent conversationnel.
 
 ## Agent Windows : redémarrage planifié avec relance des applications (2026-10-05) — après le 9 oct.
 
-Posé à la main sur `numeria-ctrlecran` (scripts dans `C:\ProgramData\si-agent\reboot` + `C:\ProgramData\si-reboot`) :
+Posé à la main sur `poste-ecran-alpha` (scripts dans `C:\ProgramData\si-agent\reboot` + `C:\ProgramData\si-reboot`) :
 tâche SYSTEM à minuit (instantané des applications de la session console, événement `host-reboot`, `shutdown /r /t 60`),
 tâche à l'ouverture de session (relance des applications dans la session de l'utilisateur), tâche SYSTEM au démarrage
 (événement `host-boot` avec le résultat de la relance). À intégrer à l'agent (commande `power_action` planifiable depuis
@@ -20,7 +20,7 @@ CreateProcessAsUser).
 
 ## Agent Windows : chaîne du central public écrite par l'installeur (2026-10-05) — après le 9 oct.
 
-Vu au campus (agent `numeria-ctrlecran`, v0.5.32) : avec `-SystemCa`, le Python embarqué ne voit que les magasins
+Vu au campus (agent `poste-ecran-alpha`, v0.5.32) : avec `-SystemCa`, le Python embarqué ne voit que les magasins
 `ROOT`/`CA` de Windows, pas les racines téléchargées à la demande (AuthRoot) ; le certificat Let's Encrypt du frontal
 est en chaîne ECDSA (YE1 → Root YE → ISRG Root X2) → `CERTIFICATE_VERIFY_FAILED`. Contourné à la main : chaîne
 reconstruite par Windows (X509Chain) écrite dans `C:\ProgramData\si-agent\central-ca.pem` + `ca_file` dans agent.json.

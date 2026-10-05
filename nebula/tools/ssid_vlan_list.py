@@ -2,7 +2,7 @@
 """Liste SSID -> VLAN -> sous-réseau d'un site Nebula, pour le test d'atteignabilité SSID x VLAN
 (tools/ssid-vlan-check.sh). À exécuter DANS le conteneur nebula-api (clé API déjà dans son environnement) :
 
-  cd ~/SRC/data2/tickets/supervision-si && (umask 077; ./scripts/run.sh exec -T nebula-api python - "NUMERIA" < nebula/tools/ssid_vlan_list.py | sed -n "/^#site/,$p" > ~/ssids-campus.txt)   # run.sh écrit aussi sur la sortie standard
+  cd ~/SRC/data2/tickets/supervision-si && (umask 077; ./scripts/run.sh exec -T nebula-api python - "SITE-ALPHA" < nebula/tools/ssid_vlan_list.py | sed -n "/^#site/,$p" > ~/ssids-site.txt)   # run.sh écrit aussi sur la sortie standard
 
 Sortie, une ligne par SSID actif : SSID;clé;vlan;sous_reseau;passerelle  -- la clé WPA vient de l'OpenAPI (champ wpaKey) :
 fichier à garder en 600, jamais dans le dépôt. Puis une ligne « #vlans;vid=sous_reseau,… » : tous les VLAN routés par
