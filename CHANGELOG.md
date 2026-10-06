@@ -1,3 +1,13 @@
+## 2026-10-06 — Installation d'un agent déclaré : TOKEN='…' en tête, variante entrée extérieure (livraison #679)
+
+Cadre « Installation » d'un agent (tuile Agents hôtes) : ligne `TOKEN='<secret>'` en tête, commande d'installation
+qui réutilise `--secret "$TOKEN"`, et variante complète par l'entrée extérieure (origine du navigateur =
+frontal public, jamais écrite en dur) : `curl -fsSL` sans `-k`, contrôle SHA-256, `./install.sh … --central
+<origine>/api/si-agent` sans empreinte de CA ni `sudo` ; rappel pour les hôtes Debian 9 (`SI_AGENT_PYTHON`, racine X2).
+
+- Vérifié : `@babel/parser`, hub `node --test` (310). Non vérifié : rendu (hub à reconstruire).
+- Fichiers : `hub/src/SiAgentView.jsx`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-06 — Déploiement des agents : jeton sur sa propre ligne, entrée extérieure en un clic (livraison #678)
 
 Demandé après un 403 (jeton mal recopié dans une longue ligne) : à la création d'un jeton d'enrôlement, l'onglet

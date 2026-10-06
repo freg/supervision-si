@@ -496,9 +496,26 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                   ) : (
                     <p className="muted" style={{ margin: "0 0 6px", fontSize: 12 }}>1. Archive de l'agent : absente de cette image (<code>si-agent/make-archive.sh</code> sur le poste, puis copie sur l'hôte).</p>
                   )}
+                  {/* #679 : le secret sur sa propre ligne (TOKEN=…), les commandes ne font que le réutiliser */}
+                  <p style={{ margin: "0 0 4px" }}>0. Secret de l'agent, à coller d'abord dans le shell de l'hôte (ne pas diffuser) :</p>
+                  <pre className="np-secret">{`TOKEN='${install.secret}'`}</pre>
                   {install.download_command && <pre className="np-secret">{install.download_command}</pre>}
-                  <p style={{ margin: "6px 0 6px" }}>2. Commande d'installation, dans le dossier de l'archive (secret inclus -- ne pas diffuser) :</p>
-                  <pre className="np-secret">{install.install_command}</pre>
+                  <p style={{ margin: "6px 0 6px" }}>2. Commande d'installation, dans le dossier de l'archive :</p>
+                  <pre className="np-secret">{String(install.install_command || "").replace(`--secret ${install.secret}`, '--secret "$TOKEN"').replace(`--secret '${install.secret}'`, '--secret "$TOKEN"')}</pre>
+                  {install.package && (() => {
+                    // #679 : même installation par l'entrée extérieure (frontal public = origine de ce navigateur, jamais écrite en dur) :
+                    // certificat public -> ni -k ni empreinte de CA ; pas de sudo (absent des Proxmox, shell root)
+                    const ext = `${window.location.origin}/api/si-agent`;
+                    const name = install.package.name, folder = name.replace(/\.tar\.gz$/, "");
+                    return (
+                      <>
+                        <p style={{ margin: "8px 0 4px" }}>Variante <b>entrée extérieure</b> (<code>{window.location.host}</code> — hôte du campus, d'Internet, OVH) :</p>
+                        <pre className="np-secret">{`curl -fsSL -o ${name} ${ext}/package && echo '${install.package.sha256}  ${name}' | sha256sum -c && tar xzf ${name} && cd ${folder}`}</pre>
+                        <pre className="np-secret">{`./install.sh --agent ${install.agent_id} --secret "$TOKEN" --central ${ext} --site ${install.site || "default"}`}</pre>
+                        <p className="muted" style={{ margin: "2px 0 0", fontSize: 12 }}>Hôte ancien (Debian 9 / Proxmox 5, Python 3.5) : préfixer par <code>SI_AGENT_PYTHON="$PY"</code> (Python ≥ 3.7 autonome, voir <code>docs/agent-python-autonome.md</code>) et ajouter la racine Let's Encrypt X2 au magasin système.</p>
+                      </>
+                    );
+                  })()}
                   {install.install_command_docker && (
                     <>
                       <p className="muted" style={{ margin: "6px 0 2px", fontSize: 12 }}>Variante conteneur (l'hôte a Docker, archive <code>si-agent-agent-&lt;version&gt;.tar.gz</code>, voir <code>si-agent/agent/README-DEPLOIEMENT.md</code>) :</p>
