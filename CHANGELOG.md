@@ -1,3 +1,13 @@
+## 2026-10-06 — Installeur Linux : chaîne du central vérifiée avec l'interpréteur de l'agent, `certifi` au besoin (livraison #691)
+
+Vu sur deux hyperviseurs Debian 9 en Python autonome : `CERTIFICATE_VERIFY_FAILED` vers le nom public du central
+(racine ISRG Root X2 inconnue). Corrigé à la main avec `certifi` ; l'installeur le fait désormais : test de la chaîne
+avec l'interpréteur de l'agent ; en échec, magasin système puis `certifi` (installé par uv dans cet interpréteur),
+inscrit en `ca_file` ; avertissement sinon. Rien ne change quand la vérification passe ou qu'une CA est épinglée.
+
+- Vérifié : `bash -n install.sh`, compilation du bloc Python. Non vérifié : sur un hôte Debian 9.
+- Fichiers : `si-agent/agent/install.sh`, `docs/agent-python-autonome.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-06 — Sondes Python lancées par l'interpréteur de l'agent (livraison #690)
 
 Vu sur un hyperviseur Debian 9 (agent en Python 3.11 autonome) : la sonde `proxmox` échouait (« __init__() got an

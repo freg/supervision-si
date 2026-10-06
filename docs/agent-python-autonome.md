@@ -50,3 +50,17 @@ PYTHONPATH=/opt/si-agent "$PYAGENT" -m si_agent.agent --status
 ```
 
 À terme, mieux vaut **migrer/décommissionner** ces hôtes EOL que maintenir un runtime greffé ; ce montage est un pont, pas une cible.
+
+## Certificat du central non reconnu (Debian 9, #691)
+
+Central joint par son nom public (Let's Encrypt, chaîne ECDSA finissant sur ISRG Root X2) : un Python autonome
+ou le magasin d'un Debian 9 ne connaît pas toujours la racine → `CERTIFICATE_VERIFY_FAILED`. L'installeur le teste
+avec l'interpréteur de l'agent et, si besoin, inscrit en `ca_file` le magasin système ou `certifi` (installé par
+`uv pip install --python <py> --break-system-packages certifi`). À la main :
+
+```
+~/.local/bin/uv pip install --python "$PY" --break-system-packages certifi
+CA="$($PY -c 'import certifi;print(certifi.where())')"
+$PY -c "import json;p='/etc/si-agent/agent.json';c=json.load(open(p));c['ca_file']='$CA';json.dump(c,open(p,'w'),indent=2)"
+systemctl restart si-agent
+```

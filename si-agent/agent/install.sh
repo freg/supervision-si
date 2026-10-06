@@ -173,6 +173,49 @@ if [ "$OBSERVATION" = "true" ]; then   # #687 : vaut aussi en --upgrade (ajout �
   python3 -c 'import json;p="/etc/si-agent/agent.json";c=json.load(open(p));c["audit_enabled"]=True;json.dump(c,open(p,"w"),indent=2)'
   echo "point d'observation : audit extérieur activé (cibles limitées à la liste blanche du central)"
 fi
+# #691 : central en https sans CA épinglée (nom public, Let's Encrypt) : l'interpréteur de l'agent doit
+# vérifier la chaîne. Hôte ancien (Debian 9) ou Python autonome : racines absentes (ISRG Root X2) ->
+# magasin `certifi` installé dans cet interpréteur (uv), inscrit en ca_file. Rien si la vérification passe.
+"$PYAGENT_ABS" - "$PYAGENT_ABS" <<'PY' || true
+import json, os, ssl, subprocess, sys, urllib.request
+p = "/etc/si-agent/agent.json"
+cfg = json.load(open(p))
+url = (cfg.get("central_url") or "").rstrip("/")
+if not url.startswith("https") or cfg.get("ca_file") or cfg.get("insecure"):
+    raise SystemExit(0)
+def ok(cafile=None):
+    try:
+        urllib.request.urlopen(url + "/health", timeout=15, context=ssl.create_default_context(cafile=cafile))
+        return True
+    except urllib.error.HTTPError:
+        return True          # chaîne acceptée, statut applicatif sans importance ici
+    except Exception as exc:  # noqa: BLE001
+        return "CERTIFICATE_VERIFY_FAILED" not in str(exc)
+if ok():
+    raise SystemExit(0)
+for cand in ("/etc/ssl/certs/ca-certificates.crt", "/etc/pki/tls/certs/ca-bundle.crt"):
+    if os.path.exists(cand) and ok(cand):
+        cfg["ca_file"] = cand; break
+else:
+    try:
+        import certifi
+    except ImportError:
+        uv = os.path.expanduser("~/.local/bin/uv")
+        if os.path.exists(uv):
+            subprocess.call([uv, "pip", "install", "--python", sys.argv[1], "--break-system-packages", "-q", "certifi"])
+        try:
+            import importlib, site; importlib.invalidate_caches(); site.main()
+            import certifi
+        except ImportError:
+            certifi = None
+    if certifi and ok(certifi.where()):
+        cfg["ca_file"] = certifi.where()
+if cfg.get("ca_file"):
+    json.dump(cfg, open(p, "w"), indent=2)
+    print("note : chaîne du central vérifiée avec %s (ca_file)" % cfg["ca_file"])
+else:
+    print("ATTENTION : certificat du central non vérifiable par %s -- voir docs/agent-python-autonome.md (certifi)" % sys.argv[1], file=sys.stderr)
+PY
 chmod 600 /etc/si-agent/agent.json
 install -m 644 "$HERE/systemd/si-agent.service" /etc/systemd/system/si-agent.service
 # #645 : ExecStart pointe sur l'interpréteur choisi (défaut python3 système)
