@@ -1,3 +1,18 @@
+## 2026-10-06 — Hub servi compilé, page d'entrée sans cache (livraison #681)
+
+Vu en réel : page blanche après une mise à jour -- le serveur de développement Vite recompilait ses dépendances
+(requêtes pendantes plusieurs minutes sur la VM) et le navigateur redemandait des blocs d'une version antérieure.
+Le conteneur compile désormais le hub au démarrage (`vite build`, les `VITE_*` du compose restent lus à ce moment-là)
+et le sert par `hub/serve.mjs` (sans dépendance) : `index.html` / routes SPA en `no-cache, no-store`, `assets/*`
+immuables, pas de compression (substitution d'origine du frontal), 405 hors GET/HEAD, traversée refusée. Échec de
+compilation : repli sur le serveur de développement. `HUB_MODE=dev` (`.env`) pour l'ancien mode.
+
+- Vérifié : `hub/tests/serve.test.mjs` (résolution, en-têtes, 404/405, traversée), `sh -n entrypoint.sh`.
+- Non vérifié : `vite build` complet du hub (module natif de rollup absent sur le poste de développement) -- premier
+  démarrage sur super à surveiller (`./scripts/run.sh logs -f hub` : « compilé en N s »).
+- Fichiers : `hub/{serve.mjs,entrypoint.sh,Dockerfile,README.md}`, `hub/tests/serve.test.mjs`, `docker-compose.yml`,
+  `.env.example`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-06 — Agents : adresse du hub choisie (historique) pour les lignes d'installation ; refus d'amorçage tracés (livraison #680)
 
 - Cadre « Installation » d'un agent : champ **Adresse du hub vue de l'hôte** (saisie libre + boutons des adresses

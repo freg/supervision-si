@@ -40,6 +40,8 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
     environment:
+      # #681 : prod = compilé au démarrage puis servi statiquement (index.html sans cache) ; dev = serveur Vite
+      - HUB_MODE=${HUB_MODE:-prod}
       # #472 : hôtes acceptés par le serveur Vite (nom LAN / nom public derrière un frontal)
       - HOST_IP=${HOST_IP:-localhost}
       - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-}

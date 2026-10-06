@@ -17,6 +17,6 @@ COPY shared/VERSION.json src/VERSION.json
 
 EXPOSE 5173
 
-# Dev server — même logique que les autres frontends de ce projet : à
-# remplacer par un build statique servi par nginx une fois l'app stabilisée.
-CMD ["npm", "run", "dev"]
+# #681 : compilé au démarrage puis servi statiquement (serve.mjs : index.html sans cache, assets immuables) ;
+# HUB_MODE=dev pour l'ancien serveur de développement Vite. Voir entrypoint.sh.
+CMD ["sh", "/app/entrypoint.sh"]

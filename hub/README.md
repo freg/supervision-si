@@ -2584,3 +2584,13 @@ thème seulement (`.hub-public-links*` dans `hub.css`).
 
 `HubIcon.jsx` + `hubIconSet.js` : jeu Lucide sur disques colorés par le thème, remplaçant les emoji des titres de
 thèmes, sections de menu et groupes de l'arbre (les données gardent leurs emoji). Voir `docs/charte-icones-hub.md`.
+
+
+## Mode de service (#681)
+
+Par défaut (`HUB_MODE=prod`), le conteneur compile le hub au démarrage (`vite build`, les `VITE_*` du compose sont
+figés dans le JavaScript) puis le sert avec `serve.mjs` : `index.html` et les routes de l'application sans cache
+(une mise à jour est vue au rechargement suivant), `assets/*` (noms à empreinte) en cache immuable, aucune
+compression (le frontal public réécrit l'origine dans les corps). Compter une à deux minutes de compilation au
+démarrage. Si la compilation échoue, repli automatique sur le serveur de développement. `HUB_MODE=dev` dans `.env`
+retrouve le serveur Vite (rechargement à chaud) pour développer.
