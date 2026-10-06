@@ -29,6 +29,7 @@ import nebula_client as nebula
 import csv_import
 import health as health_lib
 import vlanmap  # `health` est aussi la route /health
+import ssidmatrix  # #686
 import topology as topology_lib
 import rules as rules_lib
 import campus as campus_lib
@@ -170,6 +171,10 @@ CREATE TABLE IF NOT EXISTS nebula_status_transitions (
     site_id TEXT NOT NULL, dev_id TEXT NOT NULL, from_status TEXT, to_status TEXT NOT NULL, at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_nebula_tr_site_at ON nebula_status_transitions(site_id, at);
+-- #686 : résultats du test actif SSID x VLAN (ssid-vlan-check.sh, SSIDCHECK_CSV), un par import
+CREATE TABLE IF NOT EXISTS nebula_ssid_proofs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, site_id TEXT NOT NULL, imported_at INTEGER NOT NULL, imported_by TEXT, content TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS nebula_poll_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, sites INTEGER, devices INTEGER, transitions INTEGER, error TEXT
 );
@@ -472,6 +477,82 @@ def vlan_map_route(site_id):
         from flask import Response
         return Response("\ufeff" + buf.getvalue(), mimetype="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=vlan-map-%s.csv" % site_id[:8]})
     return jsonify(vmap), 200
+
+
+def _vlan_map_cached(site_id, refresh=False):
+    now = int(time.time())
+    cached = _vlan_cache.get(site_id)
+    if cached and now - cached["at"] < VLAN_CACHE_SECONDS and not refresh:
+        return cached["map"]
+    vmap = collect_vlan_map(_connect(), site_id)
+    vmap["at"] = now
+    _vlan_cache[site_id] = {"at": now, "map": vmap}
+    return vmap
+
+
+def _mac_of(c):
+    return str(c.get("macAddress") or c.get("mac_address") or c.get("mac") or "").lower() or None
+
+
+@app.route("/sites/<site_id>/ssid-matrix", methods=["GET"])
+def ssid_matrix_route(site_id):
+    """#686 : matrice SSID x VLAN prévue (carte des VLAN) / observée (clients
+    sans fil de l'API, complétés par le dernier export CSV) / prouvée (dernier
+    test actif importé)."""
+    try:
+        vmap = _vlan_map_cached(site_id, request.args.get("refresh") == "1")
+    except nebula.NebulaError as exc:
+        return jsonify({"error": str(exc)}), 502
+    errors, clients, seen = [], [], set()
+    try:
+        api_clients = _connect().get_site_clients(site_id, period=request.args.get("period", "1d"))
+    except nebula.NebulaError as exc:
+        api_clients = []
+        errors.append("clients (API) : %s" % str(exc)[:160])
+    csv_clients = _latest_by("nebula_clients_import", "mac_address", CLIENTS_COLUMNS)
+    for c in list(api_clients or []) + list(csv_clients or []):
+        if not isinstance(c, dict):
+            continue
+        mac = _mac_of(c)
+        if mac and mac in seen:
+            continue
+        if mac:
+            seen.add(mac)
+        clients.append(c)
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT content, imported_at, imported_by FROM nebula_ssid_proofs WHERE site_id = ? ORDER BY id DESC LIMIT 1", (site_id,)).fetchone()
+    finally:
+        conn.close()
+    proof = ssidmatrix.parse_check_csv(row["content"]) if row else None
+    m = ssidmatrix.build_matrix(vmap, clients, proof)
+    m.update({"site_id": site_id, "vlan_map_at": vmap.get("at"), "errors": list(vmap.get("errors") or []) + errors,
+              "sources": {"api_clients": len(api_clients or []), "csv_clients": len(csv_clients or []),
+                          "with_ssid": sum(1 for c in clients if any(c.get(k) for k in ssidmatrix.SSID_KEYS))},
+              "proof_imported_at": row["imported_at"] if row else None, "proof_imported_by": row["imported_by"] if row else None})
+    return jsonify(m), 200
+
+
+@app.route("/sites/<site_id>/ssid-proof", methods=["POST", "PUT"])
+def ssid_proof_route(site_id):
+    """#686 : import du résultat de ssid-vlan-check.sh (fichier `SSIDCHECK_CSV`), corps texte ou champ `file`."""
+    if "file" in request.files:
+        text = request.files["file"].read().decode("utf-8", "replace")
+    else:
+        text = request.get_data(as_text=True) or ""
+    if len(text) > 200_000:
+        return jsonify({"error": "fichier trop volumineux"}), 413
+    parsed = ssidmatrix.parse_check_csv(text)
+    if not parsed["rows"]:
+        return jsonify({"error": "aucune ligne reconnue (attendu : ssid;vlan;adresse;association;cible=OK|KO,... -- lancer ssid-vlan-check.sh avec SSIDCHECK_CSV=<fichier>)"}), 400
+    conn = get_connection()
+    try:
+        conn.execute("INSERT INTO nebula_ssid_proofs (site_id, imported_at, imported_by, content) VALUES (?,?,?,?)",
+                     (site_id, int(time.time()), (request.headers.get("X-Forwarded-User") or "")[:80] or None, text))
+        conn.commit()
+    finally:
+        conn.close()
+    return jsonify({"ok": True, "ssids": len(parsed["rows"]), "at": parsed["at"]}), 201
 
 
 @app.route("/sites/<site_id>/vlan-raw", methods=["GET"])

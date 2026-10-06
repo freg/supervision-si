@@ -1,3 +1,22 @@
+## 2026-10-06 — Nebula : matrice SSID × VLAN prévue / observée / prouvée (livraison #686)
+
+- `nebula/api/ssidmatrix.py` (pur) : par SSID, le **prévu** (VLAN, sous-réseau de la passerelle ou déduit, zone invité,
+  anomalies de transport du VLAN de la carte #548), l'**observé** (clients sans fil de l'API complétés par le dernier
+  export CSV « Clients », dédoublonnés par MAC ; sous-réseau de leur adresse, hors plan signalé) et le **prouvé**
+  (dernier test actif importé). Verdict `prouvé` / `observé` / `à prouver` / `désactivé` / `écart`, écarts en phrases
+  (règle en cause) ; cibles injoignables depuis un SSID invité = note « isolation attendue », pas un écart.
+- Routes `GET /sites/<id>/ssid-matrix`, `POST /sites/<id>/ssid-proof` (table `nebula_ssid_proofs`, historique).
+- `ssid-vlan-check.sh` : `SSIDCHECK_CSV=<fichier>` écrit aussi le résultat en CSV importable.
+- Hub, Nebula > VLAN : section « Matrice SSID × VLAN » (verdicts, écarts, import du test actif).
+- Reste (backlog) : security policies / isolation du USG FLEX dans l'OpenAPI, à vérifier.
+
+- Vérifié : `nebula/tests` (+7 `test_ssidmatrix`, +1 route et import dans `test_poll`), `bash -n`, `@babel/parser`.
+  Non vérifié : sur le site réel (champ SSID des clients dans l'API inconnu -- repli sur l'export CSV ; `clients-raw`
+  le dira), rendu du hub.
+- Fichiers : `nebula/api/{ssidmatrix.py,app.py}`, `nebula/tests/{test_ssidmatrix.py,test_poll.py}`,
+  `nebula/tools/ssid-vlan-check.sh`, `hub/src/{NebulaSsidMatrix.jsx,NebulaVlan.jsx}`, `BACKLOG.md`,
+  `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-06 — Mises à jour automatiques de l'agent Linux : interpréteur conservé, journal de l'installeur rempli (livraison #685)
 
 Vu sur un hyperviseur : « l'installeur n'a pas relancé l'agent -- journal vide ». Trois défauts :

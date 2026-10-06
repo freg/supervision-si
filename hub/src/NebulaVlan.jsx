@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import NebulaTopo from "./NebulaTopo.jsx";
 import NebulaAnomalies from "./NebulaAnomalies.jsx";
+import NebulaSsidMatrix from "./NebulaSsidMatrix.jsx";
 
 async function getJson(url) {
   const r = await fetch(url, { credentials: "include" });
@@ -48,6 +49,7 @@ export default function NebulaVlan({ nebulaApiBase, groups = [], login = "", foc
           <h3>Synoptique</h3>
           <NebulaTopo nebulaApiBase={nebulaApiBase} siteId={siteId} focus={focus} />
           <NebulaAnomalies nebulaApiBase={nebulaApiBase} siteId={siteId} groups={groups} login={login} version={map.at} />
+          <NebulaSsidMatrix nebulaApiBase={nebulaApiBase} siteId={siteId} version={map.at} />
           {map.errors.length > 0 && <p className="muted">Appels en échec (carte partielle) : {map.errors.join(" · ")}</p>}
           <h3>VLAN ({map.vlans.length})</h3>
           <table>

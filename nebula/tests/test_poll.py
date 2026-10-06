@@ -31,6 +31,7 @@ class Fake:
     def gw_interface_settings(self, site, dev): return {"lan": [{"interface": "vlan10", "ipv4Address": "192.0.2.1", "ipv4Netmask": "255.255.255.0"}]}
     def ap_wlan_settings(self, site): return [{"name": "Campus", "vlan": 10, "wpaKey": "secret"}]
     def sw_clients(self, site, period="1d"): return {"data": []}
+    def get_site_clients(self, site, period="1d"): return [{"macAddress": "aa", "ssid": "Campus", "ipv4Address": "192.0.2.50"}]
 
 
 class Poll(unittest.TestCase):
@@ -67,6 +68,25 @@ class Poll(unittest.TestCase):
             app_mod.MAC_TABLE_ENABLED = False
         self.assertEqual(len(vm["errors"]), 1); self.assertIn("mac d2", vm["errors"][0])
         self.assertNotIn("secret", json.dumps(vm))
+
+
+class SsidMatrixRoute(unittest.TestCase):
+    """#686 : matrice SSID x VLAN par la route, import du test actif."""
+
+    def test_route_et_preuve(self):
+        fake = Fake()
+        app_mod._connect = lambda: fake
+        app_mod._vlan_cache.clear()
+        c = app_mod.app.test_client()
+        sid = "s" * 16
+        m = c.get("/sites/%s/ssid-matrix" % sid).get_json()
+        row = next(r for r in m["ssids"] if r["ssid"] == "Campus")
+        self.assertEqual((row["planned"]["vlan"], row["observed"]["in_plan"], row["verdict"]), (10, 1, "observé"))
+        self.assertEqual(c.post("/sites/%s/ssid-proof" % sid, data="rien").status_code, 400)
+        r = c.post("/sites/%s/ssid-proof" % sid, data="#ssid-vlan-check;2026-10-06\nCampus;10;192.0.2.77/24;OK;192.0.2.1=OK\n")
+        self.assertEqual(r.status_code, 201)
+        row = next(r for r in c.get("/sites/%s/ssid-matrix" % sid).get_json()["ssids"] if r["ssid"] == "Campus")
+        self.assertEqual(row["verdict"], "prouvé")
 
 
 if __name__ == "__main__":
