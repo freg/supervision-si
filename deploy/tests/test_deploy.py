@@ -103,6 +103,15 @@ class Override(unittest.TestCase):
         self.assertIn("tickets-api", plan["missing"])
         self.assertNotIn("relay-tickets-api", plan["relays"])
 
+    def test_depot_reel_tout_service_affecte(self):
+        # #689 : tout service du compose réel (pile principale + passerelle) est dans une cohorte, une seule fois
+        try:
+            services, _origin = co.load_services()
+        except Exception as exc:  # noqa: BLE001 -- PyYAML absent
+            self.skipTest("compose illisible ici : %s" % exc)
+        _, problems = co.assign(co.load_cohorts(), services)
+        self.assertEqual(problems, [])
+
     def test_noeud_inconnu(self):
         with self.assertRaises(SystemExit):
             self.ov("nulle-part")

@@ -41,8 +41,9 @@ et un **override généré** (`deploy/cohorts.py override <nœud>` →
   joint Keycloak et tous les backends par relais ; Keycloak est publié
   sur le VPN via `deploy/generated/gateway.override.yml`.
 
-**Cohortes** (`deploy/cohorts.json`, inchangées) : 8 groupes couvrant
-les 73 services — `core`, `supervision`, `tickets`, `externes`,
+**Cohortes** (`deploy/cohorts.json`) : 11 groupes couvrant les 89
+services (#689 : `groupware`, `outils`, `ia` ajoutées ; un test vérifie que
+tout service du compose est dans une cohorte) — `core`, `supervision`, `tickets`, `externes`,
 `donnees`, `reseau` (`network-agent-api` en réseau hôte, lancé à part
 sur le nœud), `agents`, `coffre` (isolée : ne dépend que de `core`).
 
@@ -103,3 +104,20 @@ voisin `*_PORT` ni URL ni table tls-proxy n'a pas de port interne connu
 (listé « SANS RELAIS » par `override`) ; les relais sont du TCP brut
 (pas de TLS entre nœuds : le VPN chiffre) ; `network-agent-api`
 (réseau hôte) explore le LAN du nœud qui le porte.
+
+## Recette : une troisième VM locale pour délester super (#689)
+
+Cohortes à déplacer en premier (les plus lourdes, sans rôle d'entrée) : `outils` (QA/Chromium, portage + MariaDB,
+vulnérabilités, Dependency-Track), puis `donnees` ou `externes`. `core` reste sur super.
+
+1. VM Debian 13 sur le Proxmox local (4 vCPU / 8-16 Go / 100 Go), Docker, `python3-yaml`, `jq`, `wireguard-tools`,
+   même dépôt au même chemin (`git clone`), **même `.env`** que super (copie).
+2. `deploy/nodes.json` (copie de l'exemple, identique partout) : `super` (manager, `core`, `coffre` + le reste) et
+   `vm-outils` (worker, `outils`) ; `lan_address` = adresse LAN de chaque VM, `endpoint` = `<lan>:51820` pour les deux
+   (même site : trafic direct), `wg_address` dans `10.99.0.0/24`.
+3. Sur super : `deploy/wg-mesh.sh` puis copier `deploy/generated/wg/<nœud>.conf` vers `/etc/wireguard/wg0.conf` de
+   chaque VM et `systemctl enable --now wg-quick@wg0` (les ports des services ne sont publiés que sur le VPN).
+4. Sur chaque VM : `sudo scripts/install.sh` → profil `node` (agent de nœud systemd, override, construction).
+5. Sur super : `deploy/repartition.py status`, puis `deploy/repartition.py migrate outils vm-outils --yes`
+   (arrêt sur super, copie des données par les agents, relais re-pointés). Sauvegarde totale avant.
+

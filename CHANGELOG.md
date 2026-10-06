@@ -1,3 +1,15 @@
+## 2026-10-06 — Répartition : cohortes complétées (groupware, outils, ia) et recette d'une 3e VM locale (livraison #689)
+
+- `deploy/cohorts.json` : les 12 services ajoutés depuis #513 n'étaient dans aucune cohorte (une VM de répartition ne
+  les aurait pas lancés ni relayés). `dns-api` → `reseau`, `service-watch-api` → `supervision` ; nouvelles cohortes
+  `groupware` (groupware-api + radicale, inséparables), `outils` (portage-api/db, qa-api, datasync-api, vuln-api,
+  dependency-track : la plus lourde, première à délester), `ia` (assistant-api, ollama). 89 services, 11 cohortes.
+- Test : tout service du compose réel est dans une et une seule cohorte (`deploy/tests/test_deploy.py`).
+- `deploy/README.md` : recette « troisième VM locale » (WireGuard sur le LAN, profil `node`, `migrate outils`).
+
+- Vérifié : `cohorts.py check` (ok, isolation comprise), `deploy/tests` (16). Non vérifié : migration réelle.
+- Fichiers : `deploy/{cohorts.json,README.md,tests/test_deploy.py}`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-06 — Vulnérabilités du SI : SBOM (syft) → OSV (osv-scanner) → EPSS + KEV, Dependency-Track en option (livraison #688)
 
 Tranche 1 de « tout superviser avec syft, osv-scanner, Dependency-Track et EPSS ».
