@@ -1,3 +1,13 @@
+## Point d'observation extérieur (VM/CT chez l'hébergeur) : tests et audit des applications en ligne (2026-10-06) — après le 9 oct.
+
+Demandé : un relais sur un nœud de l'hébergeur pour accéder de l'extérieur aux applications en ligne, les tester et
+les auditer (cyber). Décomposition : (1) **point de vue Internet** -- un CT/VM dédié (jamais l'hyperviseur lui-même)
+avec agent + shim si-proxy (déjà possible : `si-proxy/install-host.sh --name <ext>`), sortant seulement ; (2) **exécution
+déportée** des scénarios service-watch (#531, item 80 « exécution hors du SI ») et QA (#651) sur ce point d'observation,
+résultats remontés au hub ; (3) **audit** : outils (nmap, testssl.sh, nuclei, OWASP ZAP) lancés depuis le CT, périmètre
+limité à nos propres domaines/IP (liste blanche côté hub), débit bridé, rapports archivés (GED) et comparés d'une
+campagne à l'autre. À vérifier : conditions de l'hébergeur sur les scans sortants.
+
 ## Nebula : architecture active déduite (matrice SSID x VLAN prévue / observée / prouvée) (2026-10-05) — après le 9 oct.
 
 Demandé : « on a des stats de tout, les listes de tout : on doit pouvoir en déduire l'architecture active ». Trois niveaux :
