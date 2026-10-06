@@ -1,3 +1,15 @@
+## 2026-10-06 — Sondes Python lancées par l'interpréteur de l'agent (livraison #690)
+
+Vu sur un hyperviseur Debian 9 (agent en Python 3.11 autonome) : la sonde `proxmox` échouait (« __init__() got an
+unexpected keyword argument 'text' ») -- les sondes Python étaient lancées par le `python3` système (3.5).
+- Agent 0.5.38 : `plugin_python()` -- l'interpréteur de l'agent (`sys.executable`) pour les sondes Python ; repli sur
+  `python3` seulement si cet interpréteur est sous `/root` ou `/home` et que la sonde tourne sous un utilisateur de
+  confinement qui ne pourrait pas le lire.
+
+- Vérifié : `tests.test_si_agent` (+1), toutes les suites de `si-agent/agent`. Non vérifié : sur l'hôte.
+- Fichiers : `si-agent/agent/si_agent/{agent.py,__init__.py}`, `si-agent/agent/tests/test_si_agent.py`,
+  `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-06 — Répartition : cohortes complétées (groupware, outils, ia) et recette d'une 3e VM locale (livraison #689)
 
 - `deploy/cohorts.json` : les 12 services ajoutés depuis #513 n'étaient dans aucune cohorte (une VM de répartition ne

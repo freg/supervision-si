@@ -330,6 +330,18 @@ def windows_ca_refresher(script, run=None):
     return refresh
 
 
+def plugin_python(executable, is_windows=False, run_as_root=True):
+    """#690 : interpréteur des sondes Python = celui de l'agent (≥ 3.7, ex. Python
+    autonome d'un hôte Debian 9) et non le `python3` système (3.5 : « unexpected
+    keyword argument 'text' »). Repli sur `python3` seulement si l'interpréteur est
+    dans un dossier personnel qu'un utilisateur de confinement ne pourrait pas lire."""
+    if not executable:
+        return "python3"
+    if is_windows or run_as_root:
+        return executable
+    return "python3" if executable.startswith(("/root/", "/home/")) else executable
+
+
 def clock_hint(err):
     """#626 : un certificat « pas encore valide » ou « expiré » alors que le central
     vient d'être installé trahit presque toujours l'horloge DU POSTE (double
@@ -1368,7 +1380,7 @@ class Agent(object):
                 "preexec_fn": control.make_preexec(int(manifest.get("timeout_seconds") or 60),
                                                    int(manifest.get("max_memory_mb") or self.cfg.get("plugin_max_memory_mb") or 0),
                                                    run_as=run_as),
-                "cwd": os.path.dirname(manifest.get("path") or "") or None}
+                "cwd": os.path.dirname(manifest.get("path") or "") or None, "run_as": run_as}
 
     def run_one_plugin(self, manifest):
         env = {"SI_AGENT_ID": self.agent_id, "SI_AGENT_SITE": str(self.cfg.get("site") or "")}
@@ -1377,7 +1389,7 @@ class Agent(object):
                    bool(manifest.get("privileged")), (confine or {}).get("preexec_fn") and self._plugins_user_effective())
         _t0 = time.time()
         meas = plugins.run_plugin(manifest, self.cmd, now=self.clock(), env=env, confine=confine,
-                                  python=sys.executable if IS_WINDOWS else "python3")
+                                  python=plugin_python(sys.executable, IS_WINDOWS, run_as_root=_euid() == 0 and not ((confine or {}).get("run_as") or (0,))[0]))
         meas["agent_id"] = self.agent_id
         self.tracker.record("plugin:%s" % manifest["id"], time.time() - _t0, ok=bool(meas.get("ok")))  # #616
         self.queue.put(meas)

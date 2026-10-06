@@ -806,6 +806,19 @@ class FallbackCentralTests(unittest.TestCase):
         self.assertEqual(len(solo._targets()), 1)
 
 
+class PluginPythonTests(unittest.TestCase):
+    """#690 : les sondes Python tournent sous l'interpréteur de l'agent (Python autonome d'un Debian 9)."""
+
+    def test_choix(self):
+        pp = agent_mod.plugin_python
+        uv = "/root/.local/share/uv/python/cpython-3.11/bin/python3.11"
+        self.assertEqual(pp(uv, False, run_as_root=True), uv)                 # sondes en root (Proxmox)
+        self.assertEqual(pp(uv, False, run_as_root=False), "python3")         # nobody ne lit pas /root
+        self.assertEqual(pp("/opt/pyagent/bin/python3", False, run_as_root=False), "/opt/pyagent/bin/python3")
+        self.assertEqual(pp(r"C:\Program Files\si-agent\python\python.exe", True), r"C:\Program Files\si-agent\python\python.exe")
+        self.assertEqual(pp("", False), "python3")
+
+
 class CaRefreshTests(unittest.TestCase):
     """#682 : faisceau de confiance régénéré sur CERTIFICATE_VERIFY_FAILED."""
 
