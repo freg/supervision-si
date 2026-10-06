@@ -8,8 +8,10 @@ immuables, pas de compression (substitution d'origine du frontal), 405 hors GET/
 compilation : repli sur le serveur de développement. `HUB_MODE=dev` (`.env`) pour l'ancien mode.
 
 - Vérifié : `hub/tests/serve.test.mjs` (résolution, en-têtes, 404/405, traversée), `sh -n entrypoint.sh`.
-- Non vérifié : `vite build` complet du hub (module natif de rollup absent sur le poste de développement) -- premier
-  démarrage sur super à surveiller (`./scripts/run.sh logs -f hub` : « compilé en N s »).
+- Vérifié ensuite (environnement Linux) : `vite build` complet en ~7 s (un bundle JS + CSS), `serve.mjs` sur le
+  `dist/` réel (index sans cache, asset immuable, route SPA 200) et chargement dans Chromium sans erreur JavaScript
+  (écran de connexion, Keycloak injoignable dans ce bac à sable). Premier démarrage sur super à surveiller
+  (`./scripts/run.sh logs -f hub` : « compilé en N s »).
 - Fichiers : `hub/{serve.mjs,entrypoint.sh,Dockerfile,README.md}`, `hub/tests/serve.test.mjs`, `docker-compose.yml`,
   `.env.example`, `shared/DELIVERY_NUMBER`.
 
