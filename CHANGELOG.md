@@ -1,3 +1,26 @@
+## 2026-10-06 — Point d'observation extérieur : audit non intrusif des applications en ligne (livraison #687)
+
+Première tranche de la demande « accès de l'extérieur pour tester et auditer nos applications en ligne ».
+- Agent 0.5.37 : `si_agent/extaudit.py` (stdlib) -- ports TCP d'une courte liste (pause entre deux), TLS (chaîne
+  système, nom, échéance -- relue même si la chaîne est refusée --, version, TLS 1.0/1.1 acceptés), en-têtes de
+  sécurité (HSTS, CSP/frame-ancestors, nosniff, Referrer-Policy, Server versionné), redirection http → https ;
+  constats par gravité. Commande `ext_audit` exécutée dans un fil, mesure `ext-audit` + événement résumé ;
+  REFUSÉE si l'agent n'a pas `audit_enabled` (`install.sh --observation`).
+- Central : liste blanche `SI_AGENT_AUDIT_ALLOWED` (domaines, `*.`sous-domaines, IP/CIDR ; vide = rien), 10 cibles et
+  32 ports max ; mesure `ext-audit` conservée en dernière valeur.
+- Hub, fiche agent : section « Audit extérieur » (cibles, lancement, constats par cible) si l'agent est point
+  d'observation.
+- Reste (backlog) : exécution déportée service-watch / QA, outils lourds après accord de l'hébergeur, comparaison
+  entre campagnes, archivage GED.
+
+- Vérifié : `test_extaudit` (5), `tests.test_si_agent` (+1), `test_si_agent_api` (+2 liste blanche), hub `node --test`
+  (315), `@babel/parser`, `bash -n install.sh`, essai réel sur un site public et sur un serveur TLS autosigné local
+  (chaîne refusée + échéance lue). Non vérifié : depuis un CT de l'hébergeur, rendu du hub.
+- Fichiers : `si-agent/agent/si_agent/{extaudit.py,agent.py,__init__.py}`, `si-agent/agent/{test_extaudit.py,install.sh}`,
+  `si-agent/agent/tests/test_si_agent.py`, `si-agent/api/{store.py,test_si_agent_api.py}`, `si-agent/README.md`,
+  `hub/src/{ExtAuditSection.jsx,HostControlSection.jsx}`, `docker-compose.yml`, `.env.example`, `BACKLOG.md`,
+  `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-06 — Nebula : matrice SSID × VLAN prévue / observée / prouvée (livraison #686)
 
 - `nebula/api/ssidmatrix.py` (pur) : par SSID, le **prévu** (VLAN, sous-réseau de la passerelle ou déduit, zone invité,

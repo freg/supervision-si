@@ -384,6 +384,7 @@ class Agent(object):
         self._image_job = None     # #621 : image P2V en cours {started, target_file, pid, last_report}
         self._next_startup = 0     # #613 : lanceurs au démarrage (Windows)
         self._next_watchdog = 0    # #613 : chien de garde applicatif
+        self._audit_job = None      # #687 : audit extérieur en cours (point d'observation)
         self._next_power_sched = 0  # #684 : redémarrage planifié / relance des applications
         self.last_startup = None
         self.last_watchdog = None
@@ -833,6 +834,24 @@ class Agent(object):
                 self.event("watchdog-config", "info", "chien de garde : %d application(s) surveillée(s)%s" % (len(cfg["apps"]), " ; ignorées : " + " ; ".join(errors) if errors else ""), {"command": c.get("id")})
                 self.run_watchdog(force=True)
                 return {"ok": True, "result": {"config": cfg, "errors": errors}, "error": None}
+            if ctype == "ext_audit":
+                # #687 : audit extérieur non intrusif -- seulement sur un point d'observation déclaré
+                if not self.cfg.get("audit_enabled"):
+                    return {"ok": False, "error": "cet agent n'est pas un point d'observation (audit_enabled absent de agent.json)"}
+                if self._audit_job and self._audit_job.get("thread") and self._audit_job["thread"].is_alive():
+                    return {"ok": False, "error": "un audit est déjà en cours"}
+                import threading
+                from . import extaudit
+                targets = [t for t in (params.get("targets") or []) if isinstance(t, dict) and t.get("host")][:10]
+                job = {"command": c.get("id"), "targets": targets, "results": None, "started": self.clock()}
+
+                def work(job=job):
+                    job["results"] = [extaudit.audit_target(t) for t in job["targets"]]
+                job["thread"] = threading.Thread(target=work, daemon=True)
+                self._audit_job = job
+                job["thread"].start()
+                self.event("ext-audit-started", "info", "audit extérieur lancé : %s" % ", ".join(t["host"] for t in targets), {"command": c.get("id")})
+                return {"ok": True, "result": {"message": "audit lancé sur %d cible(s), résultat dans la section Audit" % len(targets)}}
             if ctype == "power_schedule":
                 # #684 : redémarrage planifié (+ relance des applications de la session console)
                 from . import powersched
@@ -1183,6 +1202,25 @@ class Agent(object):
         self.queue.put(m)
         return m
 
+    def follow_audit(self):
+        """#687 : audit terminé (fil séparé) -> mesure `ext-audit` + événement résumé."""
+        job = self._audit_job
+        if not job or job.get("results") is None:
+            return None
+        self._audit_job = None
+        res = job["results"]
+        tot = {"critical": 0, "warning": 0, "info": 0}
+        for r in res:
+            for k, n in (r.get("score") or {}).items():
+                tot[k] = tot.get(k, 0) + n
+        m = {"agent_id": self.agent_id, "task": "ext-audit", "at": _iso(self.clock()), "ok": True,
+             "data": {"targets": res, "summary": tot, "command": job["command"], "duration_seconds": int(self.clock() - job["started"])}, "error": None}
+        self.queue.put(m)
+        self.event("ext-audit", "warning" if tot["critical"] else "info",
+                   "audit extérieur : %d cible(s), %d critique(s), %d avertissement(s)" % (len(res), tot["critical"], tot["warning"]),
+                   {"command": job["command"], "summary": tot})
+        return m
+
     def run_power_schedule(self, now_dt=None):
         """#684 : toutes les 30 s -- relance en attente (après redémarrage), puis
         créneau du redémarrage planifié."""
@@ -1293,7 +1331,8 @@ class Agent(object):
                       "log_level": self.cfg.get("log_level"), "platform": "windows" if IS_WINDOWS else ("macos" if IS_MACOS else "linux"),
                       "python": sys.version.split()[0],
                       "watchdog": self.state.get("watchdog") or {"interval_seconds": 60, "apps": []},
-                      "power_schedule": self.state.get("power_schedule"), "relaunch_pending": bool(self.state.get("relaunch_pending"))}, "error": None}  # #613
+                      "power_schedule": self.state.get("power_schedule"), "relaunch_pending": bool(self.state.get("relaunch_pending")),
+                      "audit_enabled": bool(self.cfg.get("audit_enabled"))}, "error": None}  # #613
         self.queue.put(m)
         return m
 
@@ -1743,6 +1782,7 @@ class Agent(object):
                 self.collect_startup()
                 self.run_watchdog()
                 self.run_power_schedule()
+                self.follow_audit()
                 self.follow_image()
                 self.follow_update()
                 self.follow_upload()

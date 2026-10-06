@@ -1359,3 +1359,13 @@ Vérifié : `agent/tests/test_p2v_migration.py` (argv create/import/set/destroy,
 `api/test_z_pra.py::PraMigration` (plan généré image/rebuild, aperçu puis enregistrement, simulation, exécution avec
 transition → Reprendre, image attendue par événement, Abandonner avec retour, retour rejouable, téléchargement signé
 avec Range). Non vérifié : Proxmox réel (`qm importdisk`, OVMF/TPM), `dd` sur un vrai serveur, Disk2vhd.
+
+## Point d'observation extérieur : audit non intrusif (livraison #687, agent 0.5.37)
+
+Un agent installé sur un CT/VM **dédié** chez l'hébergeur (jamais l'hyperviseur) avec `install.sh --observation`
+(`audit_enabled: true` dans agent.json) voit nos applications comme Internet les voit. Depuis sa fiche dans le hub,
+« Audit extérieur » : une cible par ligne (ports facultatifs). Contrôles stdlib, une connexion à la fois : ports TCP
+d'une courte liste, TLS (chaîne, nom, échéance, TLS 1.0/1.1 acceptés), en-têtes de sécurité, redirection http → https.
+Le central refuse toute cible hors de `SI_AGENT_AUDIT_ALLOWED` (`.env` : `exemple.fr,*.exemple.fr,192.0.2.0/28` ;
+vide = aucun audit). Résultat : mesure `ext-audit` (historique 90 j), événement résumé.
+Vérifier les conditions de l'hébergeur avant d'ajouter des outils plus lourds (nmap, testssl.sh, ZAP).

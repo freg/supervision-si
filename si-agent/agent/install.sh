@@ -28,7 +28,7 @@
 # (mode 600), installe et démarre le service systemd.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-AGENT="" SECRET="" CENTRAL="" FALLBACK="" SITE="default" CA="" CAFP="" INSECURE="false" ENABLE=() PLUGINS_USER="" LOG_LEVEL="INFO" UPGRADE="false" DETECT="true"
+AGENT="" SECRET="" CENTRAL="" FALLBACK="" SITE="default" CA="" CAFP="" INSECURE="false" ENABLE=() PLUGINS_USER="" LOG_LEVEL="INFO" UPGRADE="false" DETECT="true" OBSERVATION="false"
 PYAGENT="python3"   # #645 : interpréteur d'exécution de l'agent (peut différer du python3 système)
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -45,7 +45,8 @@ while [ $# -gt 0 ]; do
     --plugins-user) PLUGINS_USER="$2"; shift 2;;
     --log-level) LOG_LEVEL="$2"; shift 2;;
     --no-detect) DETECT="false"; shift;;   # #524 : pas d'activation automatique selon l'hôte
-    --python) PYAGENT="$2"; shift 2;;   # #645 : Python >= 3.7 pour faire tourner l'agent (hôte ancien = Python autonome)
+    --python) PYAGENT="$2"; shift 2;;
+    --observation) OBSERVATION="true"; shift;;   # #687 : point d'observation extérieur (audit_enabled), CT/VM dédié seulement   # #645 : Python >= 3.7 pour faire tourner l'agent (hôte ancien = Python autonome)
     *) echo "argument inconnu : $1" >&2; exit 2;;
   esac
 done
@@ -168,6 +169,10 @@ if os.environ.get("SI_AGENT_FALLBACK"):   # #474 : central de secours, vérifié
 with open("/etc/si-agent/agent.json", "w") as fh:
     json.dump(cfg, fh, indent=2)
 PY
+if [ "$OBSERVATION" = "true" ]; then   # #687 : vaut aussi en --upgrade (ajout à une configuration existante)
+  python3 -c 'import json;p="/etc/si-agent/agent.json";c=json.load(open(p));c["audit_enabled"]=True;json.dump(c,open(p,"w"),indent=2)'
+  echo "point d'observation : audit extérieur activé (cibles limitées à la liste blanche du central)"
+fi
 chmod 600 /etc/si-agent/agent.json
 install -m 644 "$HERE/systemd/si-agent.service" /etc/systemd/system/si-agent.service
 # #645 : ExecStart pointe sur l'interpréteur choisi (défaut python3 système)

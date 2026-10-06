@@ -776,3 +776,37 @@ class DeployInstallTests(ApiBase):
         r2 = self.c.get("/install?token=inexistant")
         self.assertEqual(r2.status_code, 403)
         self.assertIn("jeton", r2.get_data(as_text=True).lower())
+
+
+class AuditWhitelist(unittest.TestCase):
+    """#687 : audit extérieur -- cibles limitées à la liste blanche du central."""
+
+    def test_liste_blanche(self):
+        spec = "exemple.fr, *.exemple.org, 192.0.2.0/28"
+        ok = ["exemple.fr", "EXEMPLE.FR.", "app.exemple.org", "192.0.2.5"]
+        ko = ["autre.fr", "sous.exemple.fr", "exemple.org", "192.0.2.20", "exemple.fr:443", "https://exemple.fr", "", None]
+        self.assertEqual([store.audit_allowed(h, spec) for h in ok], [True] * len(ok))
+        self.assertEqual([store.audit_allowed(h, spec) for h in ko], [False] * len(ko))
+        self.assertFalse(store.audit_allowed("exemple.fr", ""))
+
+    def test_commande_refusee_hors_liste(self):
+        old = os.environ.get("SI_AGENT_AUDIT_ALLOWED")
+        os.environ["SI_AGENT_AUDIT_ALLOWED"] = "*.exemple.fr"
+        try:
+            with self.assertRaises(ValueError) as cm:
+                store._check_audit_params({"targets": [{"host": "app.exemple.fr"}, {"host": "cible.tiers.com"}]})
+            self.assertIn("cible.tiers.com", str(cm.exception))
+            with self.assertRaises(ValueError):
+                store._check_audit_params({"targets": [{"host": "app.exemple.fr", "ports": [0]}]})
+            with self.assertRaises(ValueError):
+                store._check_audit_params({"targets": []})
+            store._check_audit_params({"targets": [{"host": "app.exemple.fr", "ports": [443, 8443]}]})
+        finally:
+            if old is None:
+                os.environ.pop("SI_AGENT_AUDIT_ALLOWED", None)
+            else:
+                os.environ["SI_AGENT_AUDIT_ALLOWED"] = old
+
+
+if __name__ == "__main__":
+    unittest.main()

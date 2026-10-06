@@ -5,6 +5,7 @@
 // d'applications relancées si absentes). Chaque bouton montre sa prise en
 // compte, puis l'acquittement de l'agent (règle 8).
 import { useEffect, useState } from "react";
+import ExtAuditSection from "./ExtAuditSection.jsx";
 import { powerAction, wakeOnLan, startupAction, watchdogConfig, benchCommand, imageHost, browsePath, imageTransfer, fetchImages, sendCommand, fetchCommand } from "./siAgentClient.js";
 
 const KIND_LABELS = { run: "clé Run", runonce: "RunOnce", folder: "dossier Démarrage", task: "tâche planifiée", service: "service" };
@@ -365,6 +366,7 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
           </div>
         </form>
       )}
+      <ExtAuditSection apiBase={apiBase} agentId={agentId} detail={detail} />
     </>
   );
 }

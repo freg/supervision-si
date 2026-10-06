@@ -426,6 +426,26 @@ class AgentTests(unittest.TestCase):
         self.assertNotIn("relaunch_pending", self.agent.state)
         self.assertEqual(ev[-1][:2], ("host-boot", "info")); self.assertIn("1/1", ev[-1][2])
 
+    def test_audit_exterieur(self):
+        # #687 : refusé hors point d'observation ; sinon fil séparé puis mesure ext-audit
+        from si_agent import extaudit
+        ev = []
+        self.agent.event = lambda kind, sev, msg, details=None: ev.append((kind, sev, msg))
+        cmd = {"id": "c9", "type": "ext_audit", "params": {"targets": [{"host": "app.exemple.fr"}]}}
+        self.assertIn("point d'observation", self.agent.execute_command(cmd)["error"])
+        self.agent.cfg["audit_enabled"] = True
+        orig = extaudit.audit_target
+        extaudit.audit_target = lambda t: {"host": t["host"], "findings": [], "score": {"critical": 1, "warning": 0, "info": 2}}
+        try:
+            self.assertTrue(self.agent.execute_command(cmd)["ok"])
+            self.agent._audit_job["thread"].join(5)
+            m = self.agent.follow_audit()
+        finally:
+            extaudit.audit_target = orig
+        self.assertEqual((m["task"], m["data"]["summary"]["critical"]), ("ext-audit", 1))
+        self.assertEqual(ev[-1][:2], ("ext-audit", "warning")); self.assertIsNone(self.agent._audit_job)
+        self.assertIsNone(self.agent.follow_audit())
+
     def test_commande_differee(self):
         # #633 : `at` -> acquittée « programmée », exécutée à l'échéance par run_deferred()
         r = self.agent.execute_command({"id": "c1", "type": "collect_now", "params": {"at": self.clock[0] + 600}})

@@ -1,4 +1,4 @@
-## Point d'observation extérieur (VM/CT chez l'hébergeur) : tests et audit des applications en ligne (2026-10-06) — après le 9 oct.
+## Point d'observation extérieur (VM/CT chez l'hébergeur) : tests et audit des applications en ligne (2026-10-06) — audit non intrusif FAIT (#687) ; reste (2) et outils lourds
 
 Demandé : un relais sur un nœud de l'hébergeur pour accéder de l'extérieur aux applications en ligne, les tester et
 les auditer (cyber). Décomposition : (1) **point de vue Internet** -- un CT/VM dédié (jamais l'hyperviseur lui-même)

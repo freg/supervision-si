@@ -21,6 +21,7 @@ ne réapplique la configuration que si l'empreinte change.
 import calendar
 import hashlib
 import json
+import os
 import publish as publish_lib
 from datetime import datetime, timedelta, timezone
 import secrets as _secrets
@@ -158,9 +159,9 @@ MIGRATIONS = [
 AGENT_ID_MAX = 64
 COMMAND_TYPES = ("collect_now", "run_plugin", "enable_plugin", "disable_plugin", "remove_plugin", "flush",
                  "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update", "vm_action", "software_action", "vrrp_set",
-                 "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse", "windows_update", "protection", "image_transfer", "remote_desktop", "power_schedule")  # #613, #616, #621, #627, #633, #634, #636
+                 "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse", "windows_update", "protection", "image_transfer", "remote_desktop", "power_schedule", "ext_audit")  # #613, #616, #621, #627, #633, #634, #636
 SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
-TASKS_KEPT_LATEST = ("host", "risks", "inventory", "startup", "watchdog", "agent-self")  # #613, #616
+TASKS_KEPT_LATEST = ("host", "risks", "inventory", "startup", "watchdog", "agent-self", "ext-audit")  # #613, #616
 
 
 def now_iso():
@@ -875,9 +876,51 @@ def config_for_agent(db_path, agent_id):
 # Commandes
 # ------------------------------------------------------------------
 
+def audit_allowed(host, spec):
+    """#687 : cible d'audit extérieur autorisée ? `spec` = « exemple.fr,*.exemple.fr,192.0.2.0/24 »
+    (domaine exact, sous-domaines par « *. », adresse ou réseau). Pure ; liste vide = rien d'autorisé."""
+    import ipaddress
+    host = str(host or "").strip().lower().rstrip(".")
+    if not host or any(ch in host for ch in "/ :@"):
+        return False
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        ip = None
+    for item in [x.strip().lower().rstrip(".") for x in str(spec or "").split(",") if x.strip()]:
+        if ip is not None:
+            try:
+                if ip in ipaddress.ip_network(item, strict=False):
+                    return True
+            except ValueError:
+                continue
+        elif item.startswith("*."):
+            if host.endswith(item[1:]) and host != item[2:]:
+                return True
+        elif host == item:
+            return True
+    return False
+
+
+def _check_audit_params(params):
+    spec = os.environ.get("SI_AGENT_AUDIT_ALLOWED", "")
+    targets = (params or {}).get("targets")
+    if not isinstance(targets, list) or not targets or len(targets) > 10:
+        raise ValueError("params.targets : 1 à 10 cibles {host, ports?}")
+    refused = [str((t or {}).get("host")) for t in targets if not isinstance(t, dict) or not audit_allowed(t.get("host"), spec)]
+    if refused:
+        raise ValueError("cibles hors de la liste blanche SI_AGENT_AUDIT_ALLOWED (%s) : %s" % (spec or "vide", ", ".join(refused)))
+    for t in targets:
+        ports = t.get("ports")
+        if ports is not None and (not isinstance(ports, list) or len(ports) > 32 or not all(isinstance(x, int) and 0 < x < 65536 for x in ports)):
+            raise ValueError("ports de %s : liste de 1 à 32 entiers" % t.get("host"))
+
+
 def create_command(db_path, agent_id, ctype, params=None):
     if ctype not in COMMAND_TYPES:
         raise ValueError("type de commande inconnu (%s)" % ", ".join(COMMAND_TYPES))
+    if ctype == "ext_audit":
+        _check_audit_params(params)
     if ctype in ("run_plugin", "enable_plugin", "disable_plugin", "remove_plugin", "block_plugin", "unblock_plugin") and not (params or {}).get("id"):
         raise ValueError("params.id (identifiant du plugin) requis")
     if ctype == "vrrp_set" and not ((params or {}).get("instance") and (params or {}).get("priority")):
