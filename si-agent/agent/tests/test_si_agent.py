@@ -4,6 +4,7 @@ plugins (signature, exécution réelle de scripts), boucle de l'agent avec
 un faux central (client HTTP injecté) et une vraie file SQLite."""
 import json
 import os
+import ssl
 import shutil
 import sys
 import tempfile
@@ -758,6 +759,49 @@ class FallbackCentralTests(unittest.TestCase):
         solo._request_one = lambda *a: (0, None)
         self.assertEqual(solo.request("GET", "/x"), (0, None)); self.assertEqual(solo.current_url, "https://lan:6443/api/si-agent")
         self.assertEqual(len(solo._targets()), 1)
+
+
+class CaRefreshTests(unittest.TestCase):
+    """#682 : faisceau de confiance régénéré sur CERTIFICATE_VERIFY_FAILED."""
+
+    def test_regeneration_limitee(self):
+        import tempfile
+        now, calls = [0.0], []
+        d = tempfile.mkdtemp(); ca = os.path.join(d, "ca.pem")
+
+        src = next((f for f in (ssl.get_default_verify_paths().cafile, "/etc/ssl/certs/ca-certificates.crt", "/etc/ssl/cert.pem")
+                    if f and os.path.exists(f)), None)
+        if not src:
+            self.skipTest("pas de magasin CA système lisible")
+
+        def refresher(central, out):
+            calls.append((central, out))
+            with open(src, "rb") as a, open(out, "wb") as b:
+                b.write(a.read())
+            return True
+        c = agent_mod.HttpClient("https://hub.exemple.fr/api/si-agent", "a1", "s", ca_file=None, clock=lambda: now[0], ca_refresher=refresher)
+        self.assertFalse(c.refresh_ca())                       # sans ca_file : rien
+        c.ca_file = ca
+        old = c.ssl_context
+        self.assertTrue(c.refresh_ca()); self.assertEqual(calls, [("https://hub.exemple.fr/api/si-agent", ca)])
+        self.assertIsNot(c.ssl_context, old)
+        now[0] += 60; self.assertFalse(c.refresh_ca()); self.assertEqual(len(calls), 1)   # pas avant une heure
+        now[0] += c.CA_REFRESH_MIN_S; self.assertTrue(c.refresh_ca()); self.assertEqual(len(calls), 2)
+
+    def test_echec_du_regenerateur(self):
+        c = agent_mod.HttpClient("https://hub.exemple.fr/api/si-agent", "a1", "s", clock=lambda: 0.0,
+                                 ca_refresher=lambda central, out: (_ for _ in ()).throw(OSError("powershell absent")))
+        c.ca_file = "x.pem"; old = c.ssl_context
+        self.assertFalse(c.refresh_ca()); self.assertIs(c.ssl_context, old)
+        c2 = agent_mod.HttpClient("https://hub.exemple.fr/api/si-agent", "a1", "s", clock=lambda: 0.0, ca_refresher=lambda central, out: True)
+        c2.ca_file = "/inexistant/ca.pem"; old = c2.ssl_context
+        self.assertFalse(c2.refresh_ca()); self.assertIs(c2.ssl_context, old)   # faisceau illisible : on garde l'ancien contexte
+
+    def test_commande_powershell(self):
+        seen = []
+        r = agent_mod.windows_ca_refresher(r"C:\si-agent\central-ca.ps1", run=lambda cmd: seen.append(cmd) or True)
+        self.assertTrue(r("https://hub.exemple.fr/api/si-agent", r"C:\data\ca.pem"))
+        self.assertEqual(seen[0][-4:], ["-Central", "https://hub.exemple.fr/api/si-agent", "-Out", r"C:\data\ca.pem"])
 
 
 if __name__ == "__main__":

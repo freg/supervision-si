@@ -131,10 +131,14 @@ class HttpClient(object):
     # utilisé ; le principal est réessayé toutes les RETRY_PRIMARY_S secondes.
     RETRY_PRIMARY_S = 600
 
+    # #682 : au plus une régénération du faisceau de confiance par heure
+    CA_REFRESH_MIN_S = 3600
+
     def __init__(self, base_url, device_id, secret, timeout=15, ca_file=None, insecure=False,
-                 fallback_url=None, fallback_ca_file=None, clock=time.monotonic):
+                 fallback_url=None, fallback_ca_file=None, clock=time.monotonic, ca_refresher=None):
         self.base_url, self.device_id, self.secret, self.timeout = base_url.rstrip("/"), device_id, secret, timeout
         self.insecure = bool(insecure)
+        self.ca_file, self.ca_refresher, self._ca_refreshed_at = ca_file, ca_refresher, None
         self.ssl_context = self._context(self.base_url, ca_file, insecure)
         # #474 : central de SECOURS (ex. nom public derrière un frontal, joignable
         # depuis Internet) avec sa propre confiance TLS (fallback_ca_file ; None =
@@ -283,7 +287,47 @@ class HttpClient(object):
             _log.warning("central injoignable (%s %s) : %s%s", method, path, exc, (" -- " + hint) if hint else "")
             if hint and not self.clock_hint_reported:
                 self.clock_hint_reported = hint
+            if not hint and base_url == self.base_url and "CERTIFICATE_VERIFY_FAILED" in str(exc):
+                self.refresh_ca()
             return 0, None
+
+    def refresh_ca(self):
+        """#682 : la chaîne du central a changé (renouvellement Let's Encrypt, autre
+        racine) -- on régénère le faisceau (Windows : central-ca.ps1) et on reconstruit
+        le contexte TLS ; la requête suivante l'utilise. Au plus une fois par heure."""
+        if not self.ca_refresher or not self.ca_file:
+            return False
+        now = self._clock()
+        if self._ca_refreshed_at is not None and now - self._ca_refreshed_at < self.CA_REFRESH_MIN_S:
+            return False
+        self._ca_refreshed_at = now
+        try:
+            ok = self.ca_refresher(self.base_url, self.ca_file)
+        except Exception as exc:  # noqa: BLE001
+            _log.warning("régénération du faisceau de confiance impossible : %s", exc)
+            return False
+        if not ok:
+            _log.warning("régénération du faisceau de confiance échouée (%s)", self.ca_file)
+            return False
+        try:
+            self.ssl_context = self._context(self.base_url, self.ca_file, self.insecure)
+        except (OSError, ssl.SSLError) as exc:
+            _log.warning("faisceau de confiance régénéré illisible (%s) : %s", self.ca_file, exc)
+            return False
+        _log.info("faisceau de confiance régénéré (%s)", self.ca_file)
+        return True
+
+
+def windows_ca_refresher(script, run=None):
+    """#682 : régénérateur Windows -- relance central-ca.ps1 (déposé par
+    install.ps1 -SystemCa) qui reconstruit la chaîne via le magasin Windows."""
+    def refresh(central, out):
+        cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, "-Central", central, "-Out", out]
+        if run is not None:
+            return run(cmd)
+        import subprocess
+        return subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=120).returncode == 0
+    return refresh
 
 
 def clock_hint(err):
@@ -313,7 +357,9 @@ class Agent(object):
         self._upload_job = None
         self.http = http or HttpClient(cfg["central_url"], cfg["agent_id"], cfg["secret"],
                                        ca_file=cfg.get("ca_file"), insecure=bool(cfg.get("insecure")),
-                                       fallback_url=cfg.get("central_fallback_url"), fallback_ca_file=cfg.get("fallback_ca_file"))
+                                       fallback_url=cfg.get("central_fallback_url"), fallback_ca_file=cfg.get("fallback_ca_file"),
+                                       ca_refresher=windows_ca_refresher(cfg["ca_refresh_script"])
+                                       if IS_WINDOWS and cfg.get("ca_system_bundle") and cfg.get("ca_refresh_script") else None)
         self.cmd, self.files, self.clock = cmd, files, clock
         self.usage = usage or __import__("shutil").disk_usage
         self.which = which or __import__("shutil").which

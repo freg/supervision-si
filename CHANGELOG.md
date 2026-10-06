@@ -1,3 +1,20 @@
+## 2026-10-06 — Agent Windows -SystemCa : faisceau de confiance écrit par l'installeur et régénéré par l'agent (livraison #682)
+
+Vu au campus : le Python embarqué ne lit que les magasins `ROOT`/`CA` de Windows, pas les racines téléchargées à la
+demande (AuthRoot, ex. ISRG Root X2 de la chaîne ECDSA Let's Encrypt) → `CERTIFICATE_VERIFY_FAILED` avec `-SystemCa`.
+- Nouveau `windows/central-ca.ps1 -Central <url> -Out <pem>` : construit la chaîne du central par Windows (`X509Chain`,
+  ce qui télécharge la racine manquante) et écrit, atomiquement, un faisceau PEM chaîne + magasins `Root`/`AuthRoot`/`CA`
+  de la machine (dédoublonné).
+- `install.ps1 -SystemCa` l'appelle, copie le script dans le dossier d'installation et inscrit `ca_file`,
+  `ca_system_bundle`, `ca_refresh_script` dans agent.json (aussi en `-Upgrade` d'un agent déjà installé en `-SystemCa`).
+- Agent 0.5.33 : sur `CERTIFICATE_VERIFY_FAILED` vers le central principal, régénère le faisceau (au plus une fois par
+  heure) et reconstruit le contexte TLS ; faisceau illisible ou échec → contexte précédent conservé.
+
+- Vérifié : `si-agent/agent` unittest (+3 `CaRefreshTests`). Non vérifié : `central-ca.ps1` / `install.ps1` sur un
+  poste Windows réel (à valider au prochain `-Upgrade -SystemCa` du poste écran).
+- Fichiers : `si-agent/agent/windows/{central-ca.ps1,install.ps1}`, `si-agent/agent/si_agent/{agent.py,__init__.py}`,
+  `si-agent/agent/tests/test_si_agent.py`, `BACKLOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-06 — Hub servi compilé, page d'entrée sans cache (livraison #681)
 
 Vu en réel : page blanche après une mise à jour -- le serveur de développement Vite recompilait ses dépendances

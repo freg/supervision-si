@@ -149,7 +149,12 @@ public static class SiAgentTrustAll {
   Write-Host "CA du central vérifiée ($($got.Substring(0,16))) et installée"
 } elseif ($Ca) {
   Copy-Item $Ca $caFile -Force
+} elseif ($SystemCa) {
+  # #682 : certificat public -- le Python de l'agent ne voit pas les racines téléchargées à la demande par Windows
+  # (AuthRoot, ex. ISRG Root X2) : faisceau PEM chaîne du central + magasins de la machine, régénéré par l'agent au besoin
+  & (Join-Path $PSScriptRoot "central-ca.ps1") -Central $Central -Out $caFile
 }
+Copy-Item (Join-Path $PSScriptRoot "central-ca.ps1") (Join-Path $InstallDir "central-ca.ps1") -Force
 
 # --- 3 bis. enrôlement par jeton (#616) : le central nomme l'agent d'après la machine et délivre le secret ---
 if ($EnrollToken -and -not $Upgrade) {
@@ -187,7 +192,15 @@ $cfg = [ordered]@{
   state_path = (Join-Path $DataDir "state.json"); block_file = (Join-Path $DataDir "BLOCKED")
 }
 if (Test-Path $caFile) { $cfg.ca_file = $caFile }
+if ($SystemCa) { $cfg.ca_system_bundle = $true; $cfg.ca_refresh_script = (Join-Path $InstallDir "central-ca.ps1") }   # #682 : l'agent régénère le faisceau si la vérification échoue
 [IO.File]::WriteAllText($cfgPath, ($cfg | ConvertTo-Json -Depth 4), (New-Object Text.UTF8Encoding($false)))
+} elseif ($SystemCa -and (Test-Path $cfgPath) -and (Test-Path $caFile)) {
+  # #682 : mise à jour d'un agent installé en -SystemCa avant le faisceau : on ajoute ca_file / ca_system_bundle
+  $old = Get-Content $cfgPath -Raw | ConvertFrom-Json
+  $old | Add-Member -Force NoteProperty ca_file $caFile
+  $old | Add-Member -Force NoteProperty ca_system_bundle $true
+  $old | Add-Member -Force NoteProperty ca_refresh_script (Join-Path $InstallDir "central-ca.ps1")
+  [IO.File]::WriteAllText($cfgPath, ($old | ConvertTo-Json -Depth 6), (New-Object Text.UTF8Encoding($false)))
 }
 # lecture réservée à SYSTEM et aux administrateurs (le secret est dedans)
 & icacls $DataDir /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" | Out-Null

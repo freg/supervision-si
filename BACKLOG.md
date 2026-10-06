@@ -28,7 +28,7 @@ le hub). Défaut repéré : le chien de garde #613 (`_spawn_detached`) lance en 
 application graphique relancée par lui est invisible ; il faut lancer dans la session console (tâche /IT ou
 CreateProcessAsUser).
 
-## Agent Windows : chaîne du central public écrite par l'installeur (2026-10-05) — après le 9 oct.
+## Agent Windows : chaîne du central public écrite par l'installeur (2026-10-05) — FAIT (#682)
 
 Vu au campus (agent `poste-ecran-alpha`, v0.5.32) : avec `-SystemCa`, le Python embarqué ne voit que les magasins
 `ROOT`/`CA` de Windows, pas les racines téléchargées à la demande (AuthRoot) ; le certificat Let's Encrypt du frontal
