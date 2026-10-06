@@ -1300,7 +1300,12 @@ def deploy_script_route(platform):
     secret est délivré à l'enrôlement, sur ce poste seulement)."""
     t = store.get_enroll_token(DB_PATH, request.args.get("token", ""))
     if t is None or not t["usable"]:
-        return Response("jeton d'enrôlement inconnu, révoqué, expiré ou épuisé\n", status=403, mimetype="text/plain")
+        # #680 : refus tracé (jeton masqué) -- motif lisible dans les journaux de si-agent-api
+        tok = request.args.get("token", "")
+        why = "inconnu" if t is None else ("révoqué" if t["revoked"] else "expiré" if t["expired"] else "épuisé (%d/%d usages)" % (t.get("uses", 0), t["max_uses"]))
+        _log.warning("amorçage %s refusé depuis %s : jeton %s (%s…, %d car.)%s", platform, _client_ip(), why, tok[:4], len(tok),
+                     " -- « $ » dans le jeton : variable shell non développée (guillemets simples ?)" if "$" in tok else "")
+        return Response("jeton d'enrôlement %s\n" % why, status=403, mimetype="text/plain")
     base = (t.get("central_url") or PUBLIC_URL or "").rstrip("/") or request.url_root.rstrip("/")
     # CA interne épinglée seulement quand le central est joint par son adresse LAN (PKI du projet) ;
     # par un nom public (frontal Let's Encrypt), le magasin système du poste fait foi.

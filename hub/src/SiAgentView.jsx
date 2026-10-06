@@ -1,3 +1,4 @@
+import { normalizeBase, caFingerprintOf, installLines, pushHistory, loadHistory, saveHistory } from "./agentInstallLib.js";
 import React, { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { viewParams, clearViewParams } from "./hubLinks.js";
 import {
@@ -76,6 +77,8 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
   const [selectedId, setSelectedId] = useState(initialParams.agent || null);
   const [detail, setDetail] = useState(null);
   const [install, setInstall] = useState(null);
+  const [hubHistory, setHubHistory] = useState(() => loadHistory());   // #680 : adresses du hub déjà choisies (ce navigateur)
+  const [hubAddr, setHubAddr] = useState(() => loadHistory()[0] || "");
   const [cmdType, setCmdType] = useState("collect_now");
   const [cmdPlugin, setCmdPlugin] = useState("");
   const [assignId, setAssignId] = useState("");
@@ -486,33 +489,36 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
 
               {install && install.agent_id === selectedId && (
                 <div className="np-secret-box hub-card" style={{ margin: "8px 0" }}>
-                  {/* #518 : l'archive de l'agent est servie par le central -- lien de
-                      téléchargement (poste) et ligne curl (directement sur l'hôte,
-                      SHA-256 vérifié), avant la commande d'installation. */}
-                  {install.package ? (
-                    <p className="muted" style={{ margin: "0 0 6px", fontSize: 12 }}>
-                      1. Archive de l'agent : <a href={`${siAgentApiBase}/package`} download={install.package.name}>télécharger <code>{install.package.name}</code></a> ({formatBytes(install.package.size)}, SHA-256 <code>{install.package.sha256.slice(0, 16)}…</code>) -- ou directement sur l'hôte :
-                    </p>
-                  ) : (
-                    <p className="muted" style={{ margin: "0 0 6px", fontSize: 12 }}>1. Archive de l'agent : absente de cette image (<code>si-agent/make-archive.sh</code> sur le poste, puis copie sur l'hôte).</p>
-                  )}
-                  {/* #679 : le secret sur sa propre ligne (TOKEN=…), les commandes ne font que le réutiliser */}
-                  <p style={{ margin: "0 0 4px" }}>0. Secret de l'agent, à coller d'abord dans le shell de l'hôte (ne pas diffuser) :</p>
-                  <pre className="np-secret">{`TOKEN='${install.secret}'`}</pre>
-                  {install.download_command && <pre className="np-secret">{install.download_command}</pre>}
-                  <p style={{ margin: "6px 0 6px" }}>2. Commande d'installation, dans le dossier de l'archive :</p>
-                  <pre className="np-secret">{String(install.install_command || "").replace(`--secret ${install.secret}`, '--secret "$TOKEN"').replace(`--secret '${install.secret}'`, '--secret "$TOKEN"')}</pre>
-                  {install.package && (() => {
-                    // #679 : même installation par l'entrée extérieure (frontal public = origine de ce navigateur, jamais écrite en dur) :
-                    // certificat public -> ni -k ni empreinte de CA ; pas de sudo (absent des Proxmox, shell root)
-                    const ext = `${window.location.origin}/api/si-agent`;
-                    const name = install.package.name, folder = name.replace(/\.tar\.gz$/, "");
+                  {/* #680 : adresse du hub choisie (historique mémorisé), lignes régénérées : -k + empreinte de CA pour une
+                      adresse interne, certificat public sinon ; le secret sur sa propre ligne (TOKEN=…), réutilisé ensuite. */}
+                  {(() => {
+                    const lanCentral = ((String(install.install_command || "").match(/--central\s+'?([^'\s]+)/) || [])[1]) || "";
+                    const suggestions = [...new Set([...hubHistory, lanCentral, `${window.location.origin}/api/si-agent`].map(normalizeBase).filter(Boolean))];
+                    const base = normalizeBase(hubAddr) || suggestions[0] || "";
+                    const L = installLines({ base, agentId: install.agent_id, site: install.site, pkg: install.package, caFp: caFingerprintOf(install.install_command) });
+                    const choose = (v) => { setHubAddr(v); const n = normalizeBase(v); if (n) { const h = pushHistory(hubHistory, n); setHubHistory(h); saveHistory(h); } };
                     return (
                       <>
-                        <p style={{ margin: "8px 0 4px" }}>Variante <b>entrée extérieure</b> (<code>{window.location.host}</code> — hôte du campus, d'Internet, OVH) :</p>
-                        <pre className="np-secret">{`curl -fsSL -o ${name} ${ext}/package && echo '${install.package.sha256}  ${name}' | sha256sum -c && tar xzf ${name} && cd ${folder}`}</pre>
-                        <pre className="np-secret">{`./install.sh --agent ${install.agent_id} --secret "$TOKEN" --central ${ext} --site ${install.site || "default"}`}</pre>
-                        <p className="muted" style={{ margin: "2px 0 0", fontSize: 12 }}>Hôte ancien (Debian 9 / Proxmox 5, Python 3.5) : préfixer par <code>SI_AGENT_PYTHON="$PY"</code> (Python ≥ 3.7 autonome, voir <code>docs/agent-python-autonome.md</code>) et ajouter la racine Let's Encrypt X2 au magasin système.</p>
+                        <div className="hub-settings-row" style={{ margin: "0 0 6px" }}>
+                          <label>Adresse du hub vue de l'hôte</label>
+                          <input type="text" list="si-agent-hub-addresses" value={hubAddr || base} onChange={(e) => setHubAddr(e.target.value)} onBlur={(e) => choose(e.target.value)} placeholder="https://hub.exemple.fr/api/si-agent" />
+                          <datalist id="si-agent-hub-addresses">{suggestions.map((u) => <option key={u} value={u} />)}</datalist>
+                          <span className="muted" style={{ fontSize: 12 }}>{L.internal ? "adresse interne (LAN du hub) : CA du projet épinglée" : "adresse publique (campus, Internet, OVH) : certificat public, ni -k ni empreinte"}</span>
+                          <div className="ds-inline" style={{ marginTop: 2 }}>{suggestions.map((u) => <button key={u} type="button" className={u === base ? "primary pv-mini" : "secondary pv-mini"} onClick={() => choose(u)}>{u.replace(/^https?:\/\//, "").replace(/\/api\/si-agent$/, "")}</button>)}</div>
+                        </div>
+                        <p style={{ margin: "0 0 4px" }}>0. Secret de l'agent, à coller d'abord dans le shell de l'hôte (ne pas diffuser) :</p>
+                        <pre className="np-secret">{`TOKEN='${install.secret}'`}</pre>
+                        {install.package ? (
+                          <p className="muted" style={{ margin: "6px 0 4px", fontSize: 12 }}>
+                            1. Archive de l'agent : <a href={`${siAgentApiBase}/package`} download={install.package.name}>télécharger <code>{install.package.name}</code></a> ({formatBytes(install.package.size)}, SHA-256 <code>{install.package.sha256.slice(0, 16)}…</code>) -- ou directement sur l'hôte :
+                          </p>
+                        ) : (
+                          <p className="muted" style={{ margin: "6px 0 4px", fontSize: 12 }}>1. Archive de l'agent : absente de cette image (<code>si-agent/make-archive.sh</code> sur le poste, puis copie sur l'hôte).</p>
+                        )}
+                        {L.download && <pre className="np-secret">{L.download}</pre>}
+                        <p style={{ margin: "6px 0 4px" }}>2. Installation, dans le dossier de l'archive (root ; <code>sudo</code> devant sinon) :</p>
+                        <pre className="np-secret">{L.install}</pre>
+                        <p className="muted" style={{ margin: "2px 0 0", fontSize: 12 }}>Hôte ancien (Debian 9 / Proxmox 5, Python 3.5) : préfixer par <code>SI_AGENT_PYTHON="$PY"</code> (Python ≥ 3.7 autonome, voir <code>docs/agent-python-autonome.md</code>){L.internal ? "" : " et ajouter la racine Let's Encrypt X2 au magasin système"}.</p>
                       </>
                     );
                   })()}

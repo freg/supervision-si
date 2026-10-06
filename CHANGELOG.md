@@ -1,3 +1,18 @@
+## 2026-10-06 — Agents : adresse du hub choisie (historique) pour les lignes d'installation ; refus d'amorçage tracés (livraison #680)
+
+- Cadre « Installation » d'un agent : champ **Adresse du hub vue de l'hôte** (saisie libre + boutons des adresses
+  connues : historique de ce navigateur, adresse interne du central, origine du navigateur = entrée extérieure),
+  mémorisé (localStorage, 8 dernières). Lignes régénérées (`agentInstallLib.js`, testé) : adresse interne → `curl -k`
+  + `--ca-fingerprint` ; adresse publique → `curl -L` sans `-k` ni empreinte. `TOKEN='…'` en tête, `--secret "$TOKEN"`.
+- `GET /deploy/<plateforme>` refusé (403) : motif précis renvoyé (inconnu / révoqué / expiré / épuisé n/m) et tracé
+  dans le journal de si-agent-api (jeton masqué, IP) ; un « $ » dans le jeton signale une variable shell non développée
+  (URL entre guillemets simples -- cas réel).
+
+- Vérifié : `hub` `node --test` (313, +3 `agentInstallLib`), `@babel/parser`, `si-agent/api` unittest.
+  Non vérifié : rendu (hub et si-agent-api à reconstruire).
+- Fichiers : `hub/src/{agentInstallLib.js,SiAgentView.jsx}`, `hub/tests/agentInstallLib.test.mjs`, `si-agent/api/app.py`,
+  `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-06 — Installation d'un agent déclaré : TOKEN='…' en tête, variante entrée extérieure (livraison #679)
 
 Cadre « Installation » d'un agent (tuile Agents hôtes) : ligne `TOKEN='<secret>'` en tête, commande d'installation
