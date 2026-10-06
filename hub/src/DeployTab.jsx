@@ -42,6 +42,7 @@ export default function DeployTab({ base, fleet, catalogue, notice, error, login
     load();
   };
   const enrolledBy = (tok) => (fleet || []).filter((a) => a.enrolled_by === tok);
+  const externalUrl = `${window.location.origin}/api/si-agent`;   // #678 : entrée extérieure = origine de ce navigateur
   return (
     <div className="hub-card lic-card">
       <p className="muted" style={{ marginTop: 0 }}>
@@ -50,7 +51,9 @@ export default function DeployTab({ base, fleet, catalogue, notice, error, login
       <form className="lic-form" onSubmit={create} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 8, alignItems: "end" }}>
         <label>Site<input list="deploy-sites" value={form.site} onChange={(e) => setForm({ ...form, site: e.target.value })} placeholder="numeria" required /><datalist id="deploy-sites">{sites.map((s) => <option key={s} value={s} />)}</datalist></label>
         <label>Libellé<input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="postes du campus" /></label>
-        <label>URL du central vue des postes<input value={form.central_url} onChange={(e) => setForm({ ...form, central_url: e.target.value })} placeholder={publicUrl || "https://…/api/si-agent"} /></label>
+        <label>URL du central vue des postes<input value={form.central_url} onChange={(e) => setForm({ ...form, central_url: e.target.value })} placeholder={publicUrl || "https://…/api/si-agent"} />
+          {/* #678 : l'entrée extérieure = l'adresse par laquelle ce navigateur joint le hub (frontal public), jamais écrite en dur */}
+          <button type="button" className="secondary pv-mini" style={{ marginTop: 4 }} onClick={() => setForm({ ...form, central_url: externalUrl })} title={externalUrl}>entrée extérieure ({window.location.host})</button></label>
         <label>Usages max (0 = illimité)<input type="number" min={0} value={form.max_uses} onChange={(e) => setForm({ ...form, max_uses: Number(e.target.value) })} /></label>
         <label>Validité (heures, 0 = sans limite)<input type="number" min={0} value={form.expires_hours} onChange={(e) => setForm({ ...form, expires_hours: Number(e.target.value) })} /></label>
         <label>Sondes activées à l'enrôlement
@@ -63,6 +66,25 @@ export default function DeployTab({ base, fleet, catalogue, notice, error, login
       {created && (
         <div style={{ border: "1px solid var(--ok)", borderRadius: 8, padding: 10, marginTop: 10 }}>
           <b>Jeton créé — lignes à exécuter sur les postes du site {created.site}</b>
+          {(() => {   // #678 : le jeton en clair sur sa propre ligne, puis des lignes qui ne font que le réutiliser
+            const tok = created.token || ((created.commands.linux || "").match(/token=([^'"&\s]+)/) || [])[1] || "";
+            const cbase = (created.commands.package || "").replace(/\/package$/, "");
+            const ext = cbase === externalUrl;
+            const lines = [
+              ["Jeton (à coller d'abord, Linux)", `TOKEN='${tok}'`],
+              ["Puis, Linux (root)", `curl -fsSL "${cbase}/deploy/linux?token=$TOKEN" | bash`],
+              ["Linux ancien (Debian 9 / Proxmox 5 : Python ≥ 3.7 autonome dans $PY, voir docs/agent-python-autonome.md)", `curl -fsSL "${cbase}/deploy/linux?token=$TOKEN" | SI_AGENT_PYTHON="$PY" bash`],
+              ["Jeton (Windows, PowerShell administrateur)", `$TOKEN='${tok}'`],
+              ["Puis, Windows", `iex (iwr -UseBasicParsing "${cbase}/deploy/windows?token=$TOKEN").Content`],
+            ];
+            return (
+              <div style={{ marginTop: 6, padding: 6, background: "var(--bg)", borderRadius: 6 }}>
+                <span className="muted">Central de ce jeton : <code>{cbase}</code> {ext ? "(entrée extérieure : postes du campus, d'Internet, OVH)" : "(adresse interne : postes du LAN du hub seulement ; pour l'extérieur, recréer le jeton avec « entrée extérieure »)"}</span>
+                {lines.map(([label, cmd]) => <div key={label} style={{ marginTop: 4 }}><span className="muted" style={{ fontSize: 12 }}>{label}</span><div style={{ display: "flex", gap: 6, alignItems: "center" }}><code style={{ flex: 1, wordBreak: "break-all", fontSize: 12 }}>{cmd}</code><Copy text={cmd} /></div></div>)}
+                {!ext && <p className="muted" style={{ margin: "4px 0 0", fontSize: 12 }}>Exemple avec l'entrée extérieure (jeton créé avec cette URL) : <code>{`curl -fsSL "${externalUrl}/deploy/linux?token=$TOKEN" | bash`}</code></p>}
+              </div>
+            );
+          })()}
           <div style={{ marginTop: 6 }}><span className="muted">Windows (PowerShell administrateur)</span><div style={{ display: "flex", gap: 6, alignItems: "center" }}><code style={{ flex: 1, wordBreak: "break-all", fontSize: 12 }}>{created.commands.windows}</code><Copy text={created.commands.windows} /></div></div>
           <div style={{ marginTop: 6 }}><span className="muted">Linux (root)</span><div style={{ display: "flex", gap: 6, alignItems: "center" }}><code style={{ flex: 1, wordBreak: "break-all", fontSize: 12 }}>{created.commands.linux}</code><Copy text={created.commands.linux} /></div></div>
           {created.commands.windows_manual && <div style={{ marginTop: 6 }}><span className="muted">Poste sous antivirus (ligne unique bloquée : « téléchargement + exécution ») — télécharger <a href={created.commands.package} target="_blank" rel="noreferrer">l'archive</a> avec le navigateur, puis en PowerShell administrateur</span><div style={{ display: "flex", gap: 6, alignItems: "center" }}><code style={{ flex: 1, wordBreak: "break-all", fontSize: 12 }}>{created.commands.windows_manual}</code><Copy text={created.commands.windows_manual} /></div></div>}

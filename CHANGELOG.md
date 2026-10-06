@@ -1,3 +1,15 @@
+## 2026-10-06 — Déploiement des agents : jeton sur sa propre ligne, entrée extérieure en un clic (livraison #678)
+
+Demandé après un 403 (jeton mal recopié dans une longue ligne) : à la création d'un jeton d'enrôlement, l'onglet
+Déploiement affiche d'abord `TOKEN='…'` (et `$TOKEN='…'` pour PowerShell), puis des lignes qui ne font que le
+réutiliser (`…/deploy/linux?token=$TOKEN | bash`, variante Linux ancien avec `SI_AGENT_PYTHON="$PY"`, Windows
+`iex (iwr …)`), sans `sudo` (absent des Proxmox). Bouton « entrée extérieure » qui remplit l'URL du central avec
+l'origine du navigateur (`<origine>/api/si-agent`, le frontal public quand on passe par lui -- jamais écrite en dur),
+indication interne / extérieure du jeton créé et exemple complet avec l'entrée extérieure.
+
+- Vérifié : `@babel/parser`, hub `node --test` (310). Non vérifié : rendu (hub à reconstruire).
+- Fichiers : `hub/src/DeployTab.jsx`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-06 — Hub : la tuile Proxmox réapparaît (livraison #677)
 
 La tuile « Proxmox » (#488, thème Réseau) était déclarée et rendue mais absente de la liste des vues activées
