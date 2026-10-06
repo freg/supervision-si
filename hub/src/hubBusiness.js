@@ -72,6 +72,7 @@ export const PATHS = {
   "view:snmp": ["equipements/sondes/snmp"],
   "view:vigilance": ["etats/incidents"],
   "view:cyber": ["droits/matrice", "etats/incidents"],
+  "view:vuln": ["equipements/postes", "etats/incidents"],   // #688 : vulnérabilités des logiciels (SBOM, EPSS, KEV)
   "view:logs": ["etats/journaux"],
   "view:history": ["etats/journaux"],
   "view:memory": ["cortex/memoire"],

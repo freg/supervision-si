@@ -1,3 +1,25 @@
+## 2026-10-06 — Vulnérabilités du SI : SBOM (syft) → OSV (osv-scanner) → EPSS + KEV, Dependency-Track en option (livraison #688)
+
+Tranche 1 de « tout superviser avec syft, osv-scanner, Dependency-Track et EPSS ».
+- `vuln/` (`vuln-api`, `/api/vuln/`) : dépôt d'un SBOM CycloneDX par actif (`POST /sbom`), osv-scanner v2
+  (`scan source -L *.cdx.json`), constats regroupés par alias (CVE/GHSA/PYSEC), score (max_severity, vecteur CVSS 3
+  recalculé, ou libellé), versions corrigées ; flux **EPSS** (FIRST, fichier courant) et **KEV** (CISA, miroir GitHub
+  en secours) rechargés chaque jour avec re-priorisation de tout ; priorité P1→P4 avec la raison en clair ; première
+  apparition conservée ; « Analyser le dépôt » (syft sur le dépôt monté en lecture seule) ; dépôt automatique dans
+  **Dependency-Track** si `DT_URL`/`DT_API_KEY` (service `dependency-track`, profil `vuln-dt`, lourd).
+- Hub : tuile « Vulnérabilités » (Supervision et états) : synthèse P1-P4/KEV, actifs (case « Exposé » qui re-priorise),
+  vulnérabilités filtrées, dépôt d'un SBOM, rechargement des flux.
+- Suite au BACKLOG (agents, Dependency-Track, tickets, criticité Cortex, fin de vie, CERT-FR, micrologiciels…).
+
+- Vérifié : `vuln/tests` (10 : syft 1.40 réel sur un projet d'exemple, avis OSV réel GHSA-462w-v97r-4m45, extrait réel
+  du catalogue KEV, format EPSS, CVSS 3 contre les scores publiés, chaîne API complète avec bascule sur le miroir KEV),
+  hub `node --test` (315), `@babel/parser`, `tls-proxy` tests, compose YAML. Non vérifié : image Docker (téléchargement
+  syft/osv-scanner au build), interrogation réelle d'api.osv.dev et du fichier EPSS (bloqués dans l'environnement de
+  développement), Dependency-Track, rendu.
+- Fichiers : `vuln/{app.py,vulnlib.py,Dockerfile,requirements.txt,README.md,tests/}`, `hub/src/{VulnView.jsx,App.jsx,
+  hubThemes.js,hubBusiness.js}`, `docker-compose.yml`, `tls-proxy/render_nginx_conf.py`, `.env.example`, `.gitignore`,
+  `BACKLOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-06 — Point d'observation extérieur : audit non intrusif des applications en ligne (livraison #687)
 
 Première tranche de la demande « accès de l'extérieur pour tester et auditer nos applications en ligne ».

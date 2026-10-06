@@ -924,6 +924,35 @@ services:
       # base centrale (lignes, index, liens) -- vide = ./datasync/data
       - ${DATASYNC_DATA_DIR:-./datasync/data}:/data
 
+  vuln-api:
+    # Livraison #688 -- vulnérabilités du SI : SBOM CycloneDX (syft) →
+    # osv-scanner → priorisation EPSS + KEV × exposition → dépôt dans
+    # Dependency-Track si DT_URL/DT_API_KEY. Flux rechargés chaque jour.
+    build:
+      context: .
+      dockerfile: vuln/Dockerfile
+    environment:
+      - VULN_FEEDS_HOURS=${VULN_FEEDS_HOURS:-24}
+      - EPSS_URL=${EPSS_URL:-https://epss.empiricalsecurity.com/epss_scores-current.csv.gz}
+      - DT_URL=${DT_URL:-}
+      - DT_API_KEY=${DT_API_KEY:-}
+    volumes:
+      # SBOM reçus, constats, flux EPSS/KEV -- vide = ./vuln/data
+      - ${VULN_DATA_DIR:-./vuln/data}:/data
+      # le dépôt lui-même, en lecture seule, pour « Analyser le dépôt » (syft)
+      - ./:/src:ro
+
+  dependency-track:
+    # Livraison #688 (option) -- dépôt de référence des SBOM (historique,
+    # politiques, licences, VEX). LOURD (~4 Go de RAM) : profil `vuln-dt`,
+    # à poser de préférence sur un autre nœud ; vuln-api y dépose chaque SBOM.
+    image: dependencytrack/bundled:latest
+    profiles: ["vuln-dt"]
+    ports:
+      - "${DT_PORT:-6490}:8080"
+    volumes:
+      - dependency_track_data:/data
+
   qa-api:
     # Livraison #651 -- tuile « Tests QA en ligne » : scénarios joués dans
     # Chromium (image Playwright officielle, ~1,5 Go) contre un site
@@ -2040,6 +2069,7 @@ services:
       - VITE_QA_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/qa
       # Synchronisation centrale (livraison #652)
       - VITE_DATASYNC_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/datasync
+      - VITE_VULN_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/vuln
       - VITE_GROUPWARE_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/groupware
       # DNS éditable de la tour de contrôle (livraison #656)
       - VITE_DNS_API_BASE_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/api/dns
@@ -2827,6 +2857,7 @@ services:
       - ./pixel-grid/data-generator:/pixelgrid
 
 volumes:
+  dependency_track_data:
   api_data:
   pixel_grid_pg_data:
   tickets_pg_data:

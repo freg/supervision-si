@@ -165,6 +165,8 @@ SERVICES = [
     ("QA_API_PORT", "qa-api", 5000, "/api/qa/", "api"),
     # datasync-api (livraison #652) -- API source centrale : les connecteurs du parc poussent ici (lots jusqu'à 64 Mo).
     ("DATASYNC_API_PORT", "datasync-api", 5000, "/api/datasync/", "api"),
+    # vuln-api (livraison #688) -- SBOM, OSV, EPSS, KEV (SBOM d'hôte : jusqu'à 100 Mo, voir client_max_body_size).
+    ("VULN_API_PORT", "vuln-api", 5000, "/api/vuln/", "api"),
     # groupware-api (livraison #664) -- noyau groupware (partages, catégories, liens, préférences) ; radicale = CalDAV/CardDAV
     # sous /dav/ (préfixe retiré, X-Script-Name pour que Radicale génère des hrefs en /dav/…, méthodes WebDAV passées telles quelles).
     ("GROUPWARE_API_PORT", "groupware-api", 5000, "/api/groupware/", "api"),

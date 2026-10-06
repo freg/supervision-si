@@ -1,3 +1,19 @@
+## Vulnérabilités du SI : syft, osv-scanner, Dependency-Track, EPSS (+ KEV) (2026-10-06) — tranche 1 FAITE (#688)
+
+Demandé : « tout superviser progressivement » selon ces quatre orientations. Tranche 1 (#688) : `vuln-api` (SBOM
+CycloneDX → osv-scanner → priorité EPSS + KEV × exposition, re-priorisation quotidienne, dépôt Dependency-Track en
+option, tuile « Vulnérabilités », analyse du dépôt lui-même). Suite :
+2. **agents** : commande `sbom` + relevé hebdomadaire (syft embarqué : Linux, Windows, macOS ; images Docker des hôtes
+   Docker ; CT/VM Proxmox par leur agent) → `POST /sbom` signé ; exposition déduite de service-watch / audit extérieur.
+3. **Dependency-Track** sur un autre nœud (profil `vuln-dt`), VEX « non concerné » depuis le hub, politiques et licences
+   (→ gestionnaire de licences, item 95).
+4. **actions** : P1 → ticket (tickets-api) + notification (notify-api) ; échéance KEV ; suivi « corrigée / acceptée ».
+5. **criticité** des actifs par les rôles Cortex (un serveur d'authentification pèse plus qu'un poste).
+Suggestions en plus : **fin de vie** (endoflife.date : OS et produits hors support -- Debian 9, ownCloud 9.1, Zenoss
+2.5.2 relevés au parc) ; **avis CERT-FR** rapprochés de l'inventaire ; **micrologiciels réseau** (versions Cisco /
+MikroTik / Zyxel relevées → CPE → NVD) ; **Trivy** (secrets et mauvaises configurations des images) ;
+**Lynis / OpenSCAP** (durcissement des hôtes, référentiels CIS) ; décision **SSVC** pour trancher P1/P2.
+
 ## Point d'observation extérieur (VM/CT chez l'hébergeur) : tests et audit des applications en ligne (2026-10-06) — audit non intrusif FAIT (#687) ; reste (2) et outils lourds
 
 Demandé : un relais sur un nœud de l'hébergeur pour accéder de l'extérieur aux applications en ligne, les tester et
