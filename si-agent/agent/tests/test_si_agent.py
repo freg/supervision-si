@@ -401,6 +401,31 @@ class AgentTests(unittest.TestCase):
                                      usage=lambda mp: Usage(100, 60), which=lambda t: "/usr/bin/" + t if t == "python3" else None,
                                      exists=lambda p: False)
 
+    def test_redemarrage_planifie_et_relance(self):
+        # #684 : créneau du jour servi une fois ; relance après redémarrage dans la session console
+        import datetime as dt
+        ev = []
+        self.agent.event = lambda kind, sev, msg, details=None: ev.append((kind, sev, msg))
+        self.assertFalse(self.agent.execute_command({"id": "c1", "type": "power_schedule", "params": {"time": "25:00"}})["ok"])
+        r = self.agent.execute_command({"id": "c2", "type": "power_schedule", "params": {"time": "0:00", "days": "1-7"}})
+        self.assertTrue(r["ok"]); self.assertEqual(r["result"]["config"]["time"], "00:00")
+        self.assertIsNone(self.agent.run_power_schedule(now_dt=dt.datetime(2026, 10, 6, 23, 50)))      # hors créneau
+        self.cmd.outputs["shutdown"] = (0, "")
+        res = self.agent.run_power_schedule(now_dt=dt.datetime(2026, 10, 7, 0, 5))
+        self.assertTrue(res["ok"]); self.assertEqual(self.cmd.calls[-1][0][:2], ["shutdown", "-r"])
+        self.assertEqual(ev[-1][0], "host-reboot"); self.assertEqual(self.agent.state["power_schedule_last"], "2026-10-07")
+        self.assertIsNone(self.agent.run_power_schedule(now_dt=dt.datetime(2026, 10, 7, 0, 10)))       # déjà servi
+        # relance : pas d'utilisateur -> on attend ; puis relance et host-boot
+        self.agent.state["relaunch_pending"] = {"at": self.clock[0], "apps": [{"name": "afficheur.exe", "command": '"C:\\A\\afficheur.exe"'}]}
+        self.clock[0] += 120
+        answers = [(False, "aucun utilisateur connecté sur la console (session 1)"), (True, None)]
+        self.agent._spawn_app = lambda cmd, cwd=None, session="console": answers.pop(0)
+        self.agent.run_power_schedule(now_dt=dt.datetime(2026, 10, 7, 0, 20))
+        self.assertIn("relaunch_pending", self.agent.state)
+        self.agent.run_power_schedule(now_dt=dt.datetime(2026, 10, 7, 0, 21))
+        self.assertNotIn("relaunch_pending", self.agent.state)
+        self.assertEqual(ev[-1][:2], ("host-boot", "info")); self.assertIn("1/1", ev[-1][2])
+
     def test_commande_differee(self):
         # #633 : `at` -> acquittée « programmée », exécutée à l'échéance par run_deferred()
         r = self.agent.execute_command({"id": "c1", "type": "collect_now", "params": {"at": self.clock[0] + 600}})

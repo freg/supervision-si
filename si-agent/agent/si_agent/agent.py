@@ -384,6 +384,7 @@ class Agent(object):
         self._image_job = None     # #621 : image P2V en cours {started, target_file, pid, last_report}
         self._next_startup = 0     # #613 : lanceurs au démarrage (Windows)
         self._next_watchdog = 0    # #613 : chien de garde applicatif
+        self._next_power_sched = 0  # #684 : redémarrage planifié / relance des applications
         self.last_startup = None
         self.last_watchdog = None
         self._next_plugin = {}
@@ -832,6 +833,20 @@ class Agent(object):
                 self.event("watchdog-config", "info", "chien de garde : %d application(s) surveillée(s)%s" % (len(cfg["apps"]), " ; ignorées : " + " ; ".join(errors) if errors else ""), {"command": c.get("id")})
                 self.run_watchdog(force=True)
                 return {"ok": True, "result": {"config": cfg, "errors": errors}, "error": None}
+            if ctype == "power_schedule":
+                # #684 : redémarrage planifié (+ relance des applications de la session console)
+                from . import powersched
+                cfg, errors = powersched.normalize(params)
+                if errors and params.get("enabled", True) is not False:
+                    return {"ok": False, "error": " ; ".join(errors)}
+                self.state["power_schedule"] = cfg
+                self._save_state()
+                self._next_power_sched = 0
+                self._next_inventory = 0   # le hub voit la planification au prochain inventaire
+                self.event("power-schedule", "info", "redémarrage planifié : %s" % (
+                    "%s à %s (jours %s)%s" % (cfg["action"], cfg["time"], cfg["days"], ", relance des applications" if cfg["relaunch"] else "")
+                    if cfg["enabled"] else "désactivé"), {"command": c.get("id"), "config": cfg})
+                return {"ok": True, "result": {"config": cfg}, "error": None}
             if ctype == "update":
                 # #522 : mise à jour décidée par le central (canal bêta / activation
                 # générale) ; téléchargement par le même TLS, SHA-256 vérifié,
@@ -1168,6 +1183,69 @@ class Agent(object):
         self.queue.put(m)
         return m
 
+    def run_power_schedule(self, now_dt=None):
+        """#684 : toutes les 30 s -- relance en attente (après redémarrage), puis
+        créneau du redémarrage planifié."""
+        from . import powersched
+        now = self.clock()
+        if now < self._next_power_sched and now_dt is None:
+            return None
+        self._next_power_sched = now + 30
+        pending = self.state.get("relaunch_pending")
+        if pending and now - self._started_at >= 60:
+            self._relaunch(pending, now)
+        cfg = self.state.get("power_schedule")
+        key = powersched.due(cfg, now_dt or __import__("datetime").datetime.fromtimestamp(now), self.state.get("power_schedule_last"))
+        if not key or self.is_blocked():
+            return None
+        self.state["power_schedule_last"] = key
+        apps = []
+        if cfg.get("relaunch") and IS_WINDOWS:
+            r = self.cmd(powersched.snapshot_argv(), timeout=60)
+            apps = powersched.pick_apps(powersched.parse_processes(r.stdout if r.returncode == 0 else ""))
+            if apps:
+                self.state["relaunch_pending"] = {"at": now, "apps": apps}
+        self._save_state()
+        from . import powerctl
+        res = powerctl.run(self.cmd, {"action": cfg["action"], "delay_seconds": cfg["delay_seconds"], "force": True, "message": cfg["message"]},
+                           platform=sys.platform, console_active=self._console_active())
+        if not res.get("ok"):
+            self.state.pop("relaunch_pending", None)
+            self._save_state()
+        self.event("host-reboot" if res.get("ok") else "host-reboot-failed", "warning",
+                   "%s planifié %s%s" % (cfg["action"], "dans %d s" % cfg["delay_seconds"] if res.get("ok") else "impossible",
+                                        " -- %d application(s) à relancer : %s" % (len(apps), ", ".join(a["name"] for a in apps)) if apps else
+                                        "" if res.get("ok") else " -- %s" % res.get("error")),
+                   {"apps": apps, "schedule": cfg})
+        return res
+
+    def _relaunch(self, pending, now):
+        """#684 : relance des applications notées avant le redémarrage, dans la
+        session console ; attend qu'un utilisateur soit connecté (abandon après
+        RELAUNCH_GIVE_UP_S)."""
+        from . import powersched
+        results, waiting = [], False
+        for a in pending.get("apps") or []:
+            ok, err = self._spawn_app(a["command"], None, "console")
+            if not ok and err and "aucun utilisateur" in err:
+                waiting = True
+                break
+            results.append({"name": a.get("name"), "ok": ok, "error": err})
+        if waiting:
+            if now - float(pending.get("at") or now) < powersched.RELAUNCH_GIVE_UP_S:
+                return None
+            self.event("host-boot", "warning", "redémarré ; relance abandonnée : aucun utilisateur connecté sur la console",
+                       {"apps": pending.get("apps")})
+        else:
+            ko = [r for r in results if not r["ok"]]
+            self.event("host-boot", "warning" if ko else "info",
+                       "redémarré ; %d/%d application(s) relancée(s)%s" % (len(results) - len(ko), len(results),
+                                                                         " -- échecs : " + ", ".join("%s (%s)" % (r["name"], r["error"]) for r in ko) if ko else ""),
+                       {"results": results})
+        self.state.pop("relaunch_pending", None)
+        self._save_state()
+        return results
+
     def _spawn_app(self, command, cwd=None, session="console"):
         """#683 : sous Windows, l'agent (service SYSTEM) est en session 0 -- une
         application graphique lancée là est invisible. En mode « console », on la
@@ -1214,7 +1292,8 @@ class Agent(object):
                       "insecure_tls": bool(self.cfg.get("insecure")), "plugins_user": self._plugins_user_effective(),
                       "log_level": self.cfg.get("log_level"), "platform": "windows" if IS_WINDOWS else ("macos" if IS_MACOS else "linux"),
                       "python": sys.version.split()[0],
-                      "watchdog": self.state.get("watchdog") or {"interval_seconds": 60, "apps": []}}, "error": None}  # #613
+                      "watchdog": self.state.get("watchdog") or {"interval_seconds": 60, "apps": []},
+                      "power_schedule": self.state.get("power_schedule"), "relaunch_pending": bool(self.state.get("relaunch_pending"))}, "error": None}  # #613
         self.queue.put(m)
         return m
 
@@ -1663,6 +1742,7 @@ class Agent(object):
                 self.collect_inventory()
                 self.collect_startup()
                 self.run_watchdog()
+                self.run_power_schedule()
                 self.follow_image()
                 self.follow_update()
                 self.follow_upload()

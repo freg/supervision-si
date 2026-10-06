@@ -95,6 +95,11 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
   const power = useCommand(apiBase);
   const wol = useCommand(apiBase);
   const rdp = useCommand(apiBase);
+  const sched = useCommand(apiBase);  // #684
+  const psCfg = detail?.latest?.inventory?.data?.power_schedule;
+  const relaunchPending = detail?.latest?.inventory?.data?.relaunch_pending;
+  const [ps, setPs] = useState(null);
+  const psForm = ps || { enabled: psCfg?.enabled ?? false, time: psCfg?.time || "00:00", days: psCfg?.days || "1-7", relaunch: psCfg?.relaunch ?? true };
   const start = useCommand(apiBase);
   const wd = useCommand(apiBase);
   const bench = useCommand(apiBase);  // #616
@@ -180,6 +185,20 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
           </span>
           <div className="muted" style={{ fontSize: 12 }}>Le paquet magique doit partir d'une machine du même segment : un autre agent du site l'émet (n'importe quel poste allumé du même VLAN, ou un petit Linux qui y est posé). Le poste doit avoir le Wake-on-LAN activé (BIOS + carte réseau) ; {peers.length === 0 && <b>aucun autre agent en ligne sur ce site pour l'instant. </b>}Le hub ne voit le résultat que par le retour en ligne de l'agent.</div>
           <Result r={wol.result} />
+        </div>
+        <div className="sa-wide"><span className="muted">Redémarrage planifié</span>
+          <span style={{ display: "inline-flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            <label style={{ display: "inline-flex", gap: 4, alignItems: "center" }}><input type="checkbox" checked={!!psForm.enabled} onChange={(e) => setPs({ ...psForm, enabled: e.target.checked })} /> chaque jour</label>
+            à <input type="time" value={psForm.time} onChange={(e) => setPs({ ...psForm, time: e.target.value })} style={{ width: 110 }} />
+            jours <input value={psForm.days} onChange={(e) => setPs({ ...psForm, days: e.target.value })} placeholder="1-7" style={{ width: 80 }} title="1-7, lundi = 1 ; ex. 1-5 ou 1,3,5" />
+            <label style={{ display: "inline-flex", gap: 4, alignItems: "center" }}><input type="checkbox" checked={!!psForm.relaunch} onChange={(e) => setPs({ ...psForm, relaunch: e.target.checked })} /> relancer les applications ouvertes</label>
+            <button type="button" className="secondary" disabled={!!sched.busy} onClick={() => sched.run("planification", () => sendCommand(apiBase, agentId, "power_schedule", { ...psForm, action: "reboot", delay_seconds: 60 })).then(() => { setPs(null); onRefresh && onRefresh(); })}>{sched.busy ? "⏳…" : "Enregistrer"}</button>
+          </span>
+          <div className="muted" style={{ fontSize: 12 }}>
+            {psCfg ? (psCfg.enabled ? <>En place : redémarrage à <b>{psCfg.time}</b> (jours {psCfg.days}){psCfg.relaunch ? ", relance des applications" : ""}. </> : "Planification désactivée. ") : "Aucune planification sur cet agent. "}
+            {relaunchPending && <Tone tone="warn">relance en attente d'une session utilisateur</Tone>} L'agent note les applications de la session console (Windows), émet « host-reboot », redémarre, puis les relance dans la session de l'utilisateur et émet « host-boot ». Une session doit se rouvrir (autologon) pour la relance.
+          </div>
+          <Result r={sched.result} />
         </div>
         <div className="sa-wide"><span className="muted">Bureau à distance</span>
           <span style={{ display: "inline-flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>

@@ -1,3 +1,23 @@
+## 2026-10-06 — Redémarrage planifié avec relance des applications, intégré à l'agent (livraison #684)
+
+Remplace les tâches planifiées posées à la main sur le poste écran du campus.
+- Commande `power_schedule` (`{enabled, time, days, relaunch}`), persistée par l'agent ; créneau de 15 min servi une
+  fois par jour (rattrapage si l'agent était occupé), rien si l'agent est bloqué.
+- Au créneau (Windows) : instantané des applications de la session console (`Win32_Process`, lancées par
+  l'explorateur, hors processus système, dédoublonnées, 20 max), événement `host-reboot` (liste des applications),
+  `shutdown /r /t 60 /f`. Au retour : relance dans la session de l'utilisateur (#683) dès qu'il est connecté
+  (autologon), événement `host-boot` « n/m relancée(s) » ; abandon signalé après 4 h sans utilisateur. Linux : le
+  redémarrage seul.
+- Hub, section Poste : bloc « Redémarrage planifié » (heure, jours, relance) avec l'état en place et la relance en
+  attente (inventaire). API : type de commande `power_schedule`. Agent 0.5.35.
+
+- Vérifié : `test_winctl` (+2 : créneau, instantané), `tests.test_si_agent` (+1 : créneau servi une fois, relance qui
+  attend l'utilisateur puis `host-boot`), toutes les suites de `si-agent/agent`, `si-agent/api`, `@babel/parser`.
+  Non vérifié : instantané et relance sur un Windows réel ; retirer ensuite les tâches manuelles du poste écran.
+- Fichiers : `si-agent/agent/si_agent/{powersched.py,agent.py,__init__.py}`, `si-agent/agent/test_winctl.py`,
+  `si-agent/agent/tests/test_si_agent.py`, `si-agent/api/store.py`, `hub/src/HostControlSection.jsx`, `BACKLOG.md`,
+  `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-06 — Chien de garde Windows : applications relancées dans la session de l'utilisateur (livraison #683)
 
 Défaut vu au campus : l'agent est un service SYSTEM (session 0) ; une application graphique relancée par le chien de

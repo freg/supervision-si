@@ -18,7 +18,7 @@ Demandé : « on a des stats de tout, les listes de tout : on doit pouvoir en d�
 n'est pas déductible ou contredit la déduction. Tuile Nebula : matrice avec écarts expliqués (règle en cause) ; base
 de raisonnement pour l'agent conversationnel.
 
-## Agent Windows : redémarrage planifié avec relance des applications (2026-10-05) — après le 9 oct.
+## Agent Windows : redémarrage planifié avec relance des applications (2026-10-05) — FAIT (#684)
 
 Posé à la main sur `poste-ecran-alpha` (scripts dans `C:\ProgramData\si-agent\reboot` + `C:\ProgramData\si-reboot`) :
 tâche SYSTEM à minuit (instantané des applications de la session console, événement `host-reboot`, `shutdown /r /t 60`),

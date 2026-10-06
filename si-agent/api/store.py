@@ -158,7 +158,7 @@ MIGRATIONS = [
 AGENT_ID_MAX = 64
 COMMAND_TYPES = ("collect_now", "run_plugin", "enable_plugin", "disable_plugin", "remove_plugin", "flush",
                  "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update", "vm_action", "software_action", "vrrp_set",
-                 "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse", "windows_update", "protection", "image_transfer", "remote_desktop")  # #613, #616, #621, #627, #633, #634, #636
+                 "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse", "windows_update", "protection", "image_transfer", "remote_desktop", "power_schedule")  # #613, #616, #621, #627, #633, #634, #636
 SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
 TASKS_KEPT_LATEST = ("host", "risks", "inventory", "startup", "watchdog", "agent-self")  # #613, #616
 
@@ -890,6 +890,8 @@ def create_command(db_path, agent_id, ctype, params=None):
         raise ValueError("params.mac requis")
     if ctype == "startup_action" and not ((params or {}).get("kind") and (params or {}).get("name")):
         raise ValueError("params.kind et params.name requis")
+    if ctype == "power_schedule" and not isinstance(params, dict):
+        raise ValueError("params (objet) requis")
     if ctype == "watchdog_config" and not isinstance((params or {}).get("apps"), list):
         raise ValueError("params.apps (liste) requis")
     if ctype == "image_host" and not (params or {}).get("target"):

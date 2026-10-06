@@ -171,5 +171,40 @@ class WinSessionTests(unittest.TestCase):
         self.assertIsNone(winsession.current_session_id())   # hors Windows
 
 
+class PowerScheduleTests(unittest.TestCase):
+    """#684 : redémarrage planifié, instantané des applications de la session console."""
+
+    def test_normalize_et_creneau(self):
+        from si_agent import powersched
+        cfg, err = powersched.normalize({"time": "7:05", "days": "1-5"})
+        self.assertEqual((cfg["time"], cfg["enabled"], cfg["relaunch"], err), ("07:05", True, True, []))
+        self.assertEqual(powersched.normalize({"time": "x"})[1], ["time : HH:MM attendu"])
+        self.assertFalse(powersched.normalize({"action": "shutdown"})[0]["relaunch"])
+        mon = dt.datetime(2026, 10, 5, 7, 10)
+        self.assertEqual(powersched.due(cfg, mon, None), "2026-10-05")
+        self.assertIsNone(powersched.due(cfg, mon, "2026-10-05"))
+        self.assertIsNone(powersched.due(cfg, dt.datetime(2026, 10, 5, 7, 25), None))   # créneau de 15 min passé
+        self.assertIsNone(powersched.due(cfg, dt.datetime(2026, 10, 4, 7, 10), None))   # dimanche
+        self.assertIsNone(powersched.due(dict(cfg, enabled=False), mon, None))
+
+    def test_instantane(self):
+        from si_agent import powersched
+        procs = powersched.parse_processes('''[
+          {"ProcessId": 4, "ParentProcessId": 0, "SessionId": 0, "Name": "System"},
+          {"ProcessId": 10, "ParentProcessId": 2, "SessionId": 1, "Name": "explorer.exe", "ExecutablePath": "C:\\\\Windows\\\\explorer.exe"},
+          {"ProcessId": 11, "ParentProcessId": 10, "SessionId": 1, "Name": "afficheur.exe", "ExecutablePath": "C:\\\\App\\\\afficheur.exe", "CommandLine": "\\"C:\\\\App\\\\afficheur.exe\\" --plein"},
+          {"ProcessId": 12, "ParentProcessId": 11, "SessionId": 1, "Name": "helper.exe", "ExecutablePath": "C:\\\\App\\\\helper.exe"},
+          {"ProcessId": 13, "ParentProcessId": 10, "SessionId": 1, "Name": "OneDrive.exe", "ExecutablePath": "C:\\\\U\\\\OneDrive.exe"},
+          {"ProcessId": 14, "ParentProcessId": 999, "SessionId": 1, "Name": "lecteur.exe", "ExecutablePath": "C:\\\\L\\\\lecteur.exe"},
+          {"ProcessId": 15, "ParentProcessId": 10, "SessionId": 1, "Name": "afficheur.exe", "ExecutablePath": "C:\\\\App\\\\afficheur.exe", "CommandLine": "\\"C:\\\\App\\\\afficheur.exe\\" --plein"}
+        ]''')
+        apps = powersched.pick_apps(procs)
+        self.assertEqual([a["name"] for a in apps], ["afficheur.exe", "lecteur.exe"])
+        self.assertEqual(apps[0]["command"], '"C:\\App\\afficheur.exe" --plein')
+        self.assertEqual(apps[1]["command"], '"C:\\L\\lecteur.exe"')
+        self.assertEqual(powersched.pick_apps([]), [])
+        self.assertEqual(powersched.parse_processes("pas du json"), [])
+
+
 if __name__ == "__main__":
     unittest.main()
