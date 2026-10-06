@@ -151,5 +151,25 @@ class WatchdogTests(unittest.TestCase):
         self.assertIn("caisse", watchdog.parse_process_list("/opt/caisse/caisse\nbash\n", "linux"))
 
 
+class WinSessionTests(unittest.TestCase):
+    """#683 : relance dans la session console (et non en session 0)."""
+
+    def test_option_session(self):
+        cfg, _ = watchdog.normalize_config({"apps": [{"id": "a", "process": "a.exe", "command": "a.exe"},
+                                                     {"id": "b", "process": "b.exe", "command": "b.exe", "session": "service"},
+                                                     {"id": "c", "process": "c.exe", "session": "n'importe"}]})
+        self.assertEqual([x["session"] for x in cfg["apps"]], ["console", "service", "console"])
+        acts, _, _ = watchdog.evaluate(cfg, [], 1000, {}, now_dt=dt.datetime(2026, 9, 28, 10, 0))
+        self.assertEqual({a["app"]: a["session"] for a in acts if a["action"] == "restart"}, {"a": "console", "b": "service"})
+
+    def test_ligne_de_commande(self):
+        from si_agent import winsession
+        self.assertEqual(winsession.command_line(r'"C:\App\a.exe" --kiosque', None, comspec=r"C:\W\cmd.exe"),
+                         r'"C:\W\cmd.exe" /d /c start "" "C:\App\a.exe" --kiosque')
+        self.assertEqual(winsession.command_line("a.exe", '"C:\\App"', comspec="cmd.exe"),
+                         '"cmd.exe" /d /c start "" /D "C:\\App" a.exe')
+        self.assertIsNone(winsession.current_session_id())   # hors Windows
+
+
 if __name__ == "__main__":
     unittest.main()

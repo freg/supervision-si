@@ -9,7 +9,7 @@ import { powerAction, wakeOnLan, startupAction, watchdogConfig, benchCommand, im
 
 const KIND_LABELS = { run: "clé Run", runonce: "RunOnce", folder: "dossier Démarrage", task: "tâche planifiée", service: "service" };
 const STATUS = { ok: ["good", "en service"], restart: ["warn", "relance…"], waiting: ["warn", "en attente de relance"], down: ["bad", "arrêtée"], idle: ["neutral", "hors plage"], disabled: ["neutral", "désactivée"] };
-const EMPTY_APP = { id: "", label: "", process: "", command: "", hours: "", days: "", cooldown_seconds: 120, max_restarts_per_hour: 5, enabled: true };
+const EMPTY_APP = { id: "", label: "", process: "", command: "", hours: "", days: "", cooldown_seconds: 120, max_restarts_per_hour: 5, enabled: true, session: "console" };
 
 function Tone({ tone, children }) { return <span className={`np-tone ${tone || "neutral"}`}>{children}</span>; }
 
@@ -331,6 +331,10 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
           <label>Libellé<input value={editing.label} onChange={(e) => setEditing({ ...editing, label: e.target.value })} placeholder="Logiciel de caisse" /></label>
           <label>Processus attendu<input value={editing.process} onChange={(e) => setEditing({ ...editing, process: e.target.value })} placeholder="caisse.exe" required /></label>
           <label>Commande de relance<input value={editing.command} onChange={(e) => setEditing({ ...editing, command: e.target.value })} placeholder={"C:\\Caisse\\caisse.exe --kiosque"} /></label>
+          <label>Session de lancement (Windows)<select value={editing.session || "console"} onChange={(e) => setEditing({ ...editing, session: e.target.value })}>
+            <option value="console">utilisateur de la console (application visible)</option>
+            <option value="service">service de l'agent (sans fenêtre)</option>
+          </select></label>
           <label>Plage horaire (HH:MM-HH:MM)<input value={editing.hours} onChange={(e) => setEditing({ ...editing, hours: e.target.value })} placeholder="08:00-20:00" /></label>
           <label>Jours (1-7, lundi = 1)<input value={editing.days} onChange={(e) => setEditing({ ...editing, days: e.target.value })} placeholder="1-6" /></label>
           <label>Repos entre deux relances (s)<input type="number" min={10} max={3600} value={editing.cooldown_seconds} onChange={(e) => setEditing({ ...editing, cooldown_seconds: Number(e.target.value) })} /></label>

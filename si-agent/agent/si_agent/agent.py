@@ -1157,7 +1157,7 @@ class Agent(object):
         self._save_state()
         for a in actions:
             if a["action"] == "restart":
-                ok, err = self._spawn_detached(a["command"], a.get("cwd"))
+                ok, err = self._spawn_app(a["command"], a.get("cwd"), a.get("session"))
                 self.event("app-restarted" if ok else "app-restart-failed", "warning", "%s : %s (tentative %d)%s" % (a["label"], "relancée" if ok else "relance impossible", a["attempt"], " -- %s" % err if err else ""), a)
             elif a["action"] == "down-alert":
                 self.event("app-down", "critical", "%s : arrêtée, %s" % (a["label"], a["reason"]), a)
@@ -1167,6 +1167,18 @@ class Agent(object):
         self.last_watchdog = m
         self.queue.put(m)
         return m
+
+    def _spawn_app(self, command, cwd=None, session="console"):
+        """#683 : sous Windows, l'agent (service SYSTEM) est en session 0 -- une
+        application graphique lancée là est invisible. En mode « console », on la
+        lance dans la session de l'utilisateur ouvert sur la console ; sans
+        utilisateur connecté, échec explicite (pas de lancement invisible)."""
+        if IS_WINDOWS and session != "service":
+            from . import winsession
+            if winsession.current_session_id() == 0:
+                ok, err, sid = winsession.spawn_in_console(command, cwd)
+                return ok, err if not ok else None
+        return self._spawn_detached(command, cwd)
 
     def _spawn_detached(self, command, cwd=None):
         """Lance une application sans l'attendre ni la rattacher à l'agent."""

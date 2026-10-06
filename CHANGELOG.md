@@ -1,3 +1,19 @@
+## 2026-10-06 — Chien de garde Windows : applications relancées dans la session de l'utilisateur (livraison #683)
+
+Défaut vu au campus : l'agent est un service SYSTEM (session 0) ; une application graphique relancée par le chien de
+garde #613 y tournait sans fenêtre visible.
+- Nouveau `si_agent/winsession.py` : jeton de l'utilisateur de la session console (`WTSQueryUserToken`), son
+  environnement, `CreateProcessAsUserW` sur `winsta0\default`, commande passée par `cmd /c start` (fenêtre cmd masquée).
+  Sans utilisateur connecté : échec explicite (`app-restart-failed` « aucun utilisateur connecté ») plutôt qu'un
+  lancement invisible.
+- Option par application `session` : `console` (défaut) / `service` (ancien comportement, programmes sans fenêtre) ;
+  champ « Session de lancement (Windows) » dans le formulaire du hub. Agent 0.5.34.
+
+- Vérifié : `test_winctl` (+2 : option `session`, ligne de commande), `tests.test_si_agent`, `@babel/parser`.
+  Non vérifié : lancement réel sous Windows (ctypes) -- à valider sur le poste écran (tuer l'application surveillée).
+- Fichiers : `si-agent/agent/si_agent/{winsession.py,watchdog.py,agent.py,__init__.py}`, `si-agent/agent/test_winctl.py`,
+  `hub/src/HostControlSection.jsx`, `BACKLOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-06 — Agent Windows -SystemCa : faisceau de confiance écrit par l'installeur et régénéré par l'agent (livraison #682)
 
 Vu au campus : le Python embarqué ne lit que les magasins `ROOT`/`CA` de Windows, pas les racines téléchargées à la

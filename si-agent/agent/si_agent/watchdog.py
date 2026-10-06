@@ -8,7 +8,12 @@ state.json sous `watchdog`) :
      {"id": "caisse", "label": "Logiciel de caisse", "process": "caisse.exe",
       "command": "C:\\\\Caisse\\\\caisse.exe", "cwd": null, "enabled": true,
       "cooldown_seconds": 120, "max_restarts_per_hour": 5,
-      "hours": "08:00-20:00", "days": "1-7"}]}
+      "hours": "08:00-20:00", "days": "1-7", "session": "console"}]}
+
+`session` (#683, Windows) : « console » (défaut) = relance dans la session de
+l'utilisateur ouverte sur la console (application graphique visible) ;
+« service » = lancement détaché dans la session de l'agent (programme sans
+fenêtre). Ignoré hors Windows.
 
 Pure : `evaluate(config, running, now, state)` -> (actions, nouvel état,
 mesure). `running` = noms des processus en cours (minuscules) ; `state` =
@@ -24,6 +29,7 @@ import re
 
 DEFAULT_INTERVAL = 60
 LIMITS = {"cooldown_seconds": (10, 3600, 120), "max_restarts_per_hour": (0, 60, 5)}
+SESSIONS = ("console", "service")
 APP_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,39}$")
 
 
@@ -53,7 +59,8 @@ def normalize_config(cfg):
             errors.append("app %s : command trop longue" % aid); continue
         clean = {"id": aid, "label": str(a.get("label") or aid)[:80], "process": proc, "command": cmd or None,
                  "cwd": (str(a.get("cwd")).strip() or None) if a.get("cwd") else None, "enabled": a.get("enabled", True) is not False,
-                 "hours": _hours(a.get("hours")), "days": _days(a.get("days"))}
+                 "hours": _hours(a.get("hours")), "days": _days(a.get("days")),
+                 "session": a.get("session") if a.get("session") in SESSIONS else "console"}
         for key, (lo, hi, default) in LIMITS.items():
             try:
                 clean[key] = max(lo, min(hi, int(a.get(key, default))))
@@ -131,7 +138,7 @@ def evaluate(config, running, now, state, now_dt=None):
                 status = "restart"
                 st["restarts"].append(now); st["last_restart"] = now
                 actions.append({"app": app["id"], "label": app["label"], "action": "restart", "command": app["command"], "cwd": app.get("cwd"),
-                                "attempt": len(st["restarts"])})
+                                "session": app.get("session") or "console", "attempt": len(st["restarts"])})
             elif now - (st.get("last_restart") or 0) < app["cooldown_seconds"]:
                 status = "waiting"
             else:
