@@ -1,3 +1,12 @@
+## 2026-10-06 — Hub : la tuile Proxmox réapparaît (livraison #677)
+
+La tuile « Proxmox » (#488, thème Réseau) était déclarée et rendue mais absente de la liste des vues activées
+d'`App.jsx` : jamais affichée depuis l'introduction de cette liste. Activée comme « Contrôle PVE » dès que
+l'API des agents (si-agent) est configurée.
+
+- Vérifié : `@babel/parser`, hub `node --test` (310). Non vérifié : rendu (hub à reconstruire).
+- Fichiers : `hub/src/App.jsx`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-04 — Tour : les dossiers du .env hors du dépôt (PKI_DIR…) sont montés dans le runner (livraison #676)
 
 Vu sur super : `mkdir: cannot create directory '/home/<user>/supervision-si-pki': Permission denied` à l'étape passerelle
