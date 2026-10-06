@@ -47,5 +47,26 @@ class Updater(unittest.TestCase):
         self.assertIn(os.path.join(os.path.dirname(A.cfg["state_path"]), "update"), " ".join(seen["cmd"]))  # #577 : hors /tmp (PrivateTmp)
 
 
+class InstallerOutput(unittest.TestCase):
+    """#685 : sortie de l'installeur lancé par systemd-run redirigée vers le journal de mise à jour."""
+
+    def test_systemd_run_redirige(self):
+        cmd, mode = updater.installer_command("/var/lib/si-agent/update/x", platform="linux", which=lambda b: "/usr/bin/" + b,
+                                              log_path="/var/lib/si-agent/update-1.log")
+        self.assertEqual(mode, "systemd-run")
+        self.assertEqual(cmd[cmd.index("-c") + 2:], ["/var/lib/si-agent/update/x/install.sh", "/var/lib/si-agent/update-1.log"])
+        import subprocess
+        d = tempfile.mkdtemp(); script = os.path.join(d, "install.sh"); log = os.path.join(d, "u.log")
+        with open(script, "w") as fh:
+            fh.write('echo "args:$*"; echo erreur >&2\n')
+        subprocess.run(["/bin/bash"] + cmd[cmd.index("-c"):cmd.index("-c") + 2] + [script, log], check=True)
+        with open(log) as fh:
+            self.assertEqual(fh.read(), "args:--upgrade\nerreur\n")
+
+    def test_sans_systemd_run(self):
+        cmd, mode = updater.installer_command("/r", platform="linux", which=lambda b: None, log_path="/l")
+        self.assertEqual((cmd, mode), (["/bin/bash", "/r/install.sh", "--upgrade"], "setsid"))
+
+
 if __name__ == "__main__":
     unittest.main()

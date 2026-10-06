@@ -51,8 +51,11 @@ def find_root(dest):
     return os.path.join(dest, dirs[0]) if len(dirs) == 1 else None
 
 
-def installer_command(root, platform=None, which=None):
-    """Commande DÉTACHÉE de l'installeur en mode --upgrade, selon la plateforme."""
+def installer_command(root, platform=None, which=None, log_path=None):
+    """Commande DÉTACHÉE de l'installeur en mode --upgrade, selon la plateforme.
+    #685 : sous systemd-run, la sortie de l'installeur part dans le journal de
+    l'unité transitoire, pas dans la sortie de systemd-run -- d'où des échecs
+    « journal vide » ; elle est redirigée explicitement vers `log_path`."""
     platform = platform or sys.platform
     which = which or shutil.which
     if platform == "win32":
@@ -63,6 +66,9 @@ def installer_command(root, platform=None, which=None):
     script = os.path.join(root, "install.sh")
     if which("systemd-run"):
         unit = "si-agent-update-%d" % int(time.time())
+        if log_path:
+            return ["systemd-run", "--unit", unit, "--collect", "--quiet", "/bin/bash", "-c",
+                    'exec /bin/bash "$0" --upgrade >>"$1" 2>&1', script, log_path], "systemd-run"
         return ["systemd-run", "--unit", unit, "--collect", "--quiet", "/bin/bash", script, "--upgrade"], "systemd-run"
     return ["/bin/bash", script, "--upgrade"], "setsid"
 
@@ -173,9 +179,9 @@ def run_update(agent, params, fetch, spawn=None, current_version=None):
     except (tarfile.TarError, ValueError, OSError) as exc:
         shutil.rmtree(dest, ignore_errors=True)
         return {"ok": False, "error": "archive illisible : %s" % exc}
-    cmd, mode = installer_command(root)
     pend = pending_path(agent.cfg.get("state_path"))
     log_path = os.path.join(os.path.dirname(pend), "update-%d.log" % int(time.time()))  # #576 : sortie de l'installeur conservée
+    cmd, mode = installer_command(root, log_path=log_path)
     write_pending(pend, current_version, target, params.get("command_id"), log_path=log_path)
     try:
         (spawn or _spawn)(cmd, mode, log_path)

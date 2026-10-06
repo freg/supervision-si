@@ -54,6 +54,13 @@ done
 # boucler en crash. Les petits scripts d'amorçage ci-dessous (enrôlement, CA)
 # restent sous le python3 système : ils sont volontairement compatibles 3.5.
 PYAGENT="${SI_AGENT_PYTHON:-$PYAGENT}"
+# #685 : une mise à jour (lancée par l'agent, sans --python ni SI_AGENT_PYTHON) garde l'interpréteur du
+# service en place -- sinon un hôte en Python autonome (Debian 9) retombait sur le python3 système 3.5 et
+# l'installeur s'arrêtait avant de relancer l'agent (« l'installeur n'a pas relancé l'agent »).
+if [ "$UPGRADE" = "true" ] && [ "$PYAGENT" = "python3" ] && [ -f /etc/systemd/system/si-agent.service ]; then
+  CUR_PY="$(sed -n 's#^ExecStart=\([^ ]*\).*#\1#p' /etc/systemd/system/si-agent.service | head -n 1)"
+  [ -n "$CUR_PY" ] && [ -x "$CUR_PY" ] && PYAGENT="$CUR_PY"
+fi
 PYAGENT_ABS="$(command -v "$PYAGENT" 2>/dev/null || true)"
 [ -n "$PYAGENT_ABS" ] || { [ -x "$PYAGENT" ] && PYAGENT_ABS="$PYAGENT"; }
 [ -n "$PYAGENT_ABS" ] || { echo "interpréteur Python introuvable : $PYAGENT (voir --python)" >&2; exit 1; }
@@ -165,6 +172,11 @@ chmod 600 /etc/si-agent/agent.json
 install -m 644 "$HERE/systemd/si-agent.service" /etc/systemd/system/si-agent.service
 # #645 : ExecStart pointe sur l'interpréteur choisi (défaut python3 système)
 sed -i "s#^ExecStart=[^ ]*#ExecStart=$PYAGENT_ABS#" /etc/systemd/system/si-agent.service
+# #685 : interpréteur sous /root ou /home (uv python install) -- ProtectHome=true le rendrait invisible au service
+case "$PYAGENT_ABS" in
+  /root/*|/home/*) sed -i "s#^ProtectHome=true#ProtectHome=read-only#" /etc/systemd/system/si-agent.service
+                   echo "note : $PYAGENT_ABS est sous un dossier personnel -> ProtectHome=read-only";;
+esac
 systemctl daemon-reload
 systemctl enable si-agent.service
 # #524 : toujours (re)démarrer -- `enable --now` laissait tourner un ancien

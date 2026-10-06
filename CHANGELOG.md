@@ -1,3 +1,21 @@
+## 2026-10-06 — Mises à jour automatiques de l'agent Linux : interpréteur conservé, journal de l'installeur rempli (livraison #685)
+
+Vu sur un hyperviseur : « l'installeur n'a pas relancé l'agent -- journal vide ». Trois défauts :
+- `install.sh --upgrade` lancé par l'agent (sans `--python` ni `SI_AGENT_PYTHON`) reprenait le `python3` système : un
+  hôte en Python autonome (Debian 9, 3.5) faisait échouer le garde-fou ≥ 3.7 avant le redémarrage du service, et un
+  autre aurait vu son `ExecStart` réécrit. L'interpréteur de l'`ExecStart` en place est désormais conservé.
+- Sous `systemd-run`, la sortie de l'installeur partait dans le journal de l'unité transitoire, jamais dans
+  `update-N.log` : elle y est redirigée (`bash -c 'exec … >>log 2>&1'`).
+- Interpréteur sous `/root` ou `/home` (`uv python install`) : `ProtectHome=true` le rendait invisible au service →
+  `ProtectHome=read-only` dans ce cas ; doc `agent-python-autonome.md` (variante `UV_PYTHON_INSTALL_DIR=/opt/pyagent`).
+Agent 0.5.36. Un agent antérieur se met à jour avec SON ancien code de mise à jour : pour les hôtes en Python
+autonome, une dernière mise à jour manuelle (`--upgrade --python …`) reste nécessaire.
+
+- Vérifié : `test_updater` (+2, dont exécution réelle de la redirection), `bash -n install.sh`, extraction de
+  l'interpréteur depuis un `ExecStart` uv. Non vérifié : mise à jour complète depuis le hub sur un hôte.
+- Fichiers : `si-agent/agent/{install.sh,test_updater.py}`, `si-agent/agent/si_agent/{updater.py,__init__.py}`,
+  `docs/agent-python-autonome.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-06 — Redémarrage planifié avec relance des applications, intégré à l'agent (livraison #684)
 
 Remplace les tâches planifiées posées à la main sur le poste écran du campus.

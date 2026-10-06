@@ -13,6 +13,13 @@ PYAGENT="$(~/.local/bin/uv python find 3.11)"
 "$PYAGENT" --version                      # doit afficher 3.11.x
 ```
 
+L'interpréteur est alors sous `/root/.local/share/uv/` : l'installeur passe le service en `ProtectHome=read-only`
+(au lieu de `true`, qui le rendrait invisible). Pour l'éviter, installer ailleurs :
+`UV_PYTHON_INSTALL_DIR=/opt/pyagent ~/.local/bin/uv python install 3.11` (#685).
+
+Les mises à jour lancées depuis le hub gardent l'interpréteur du service en place (#685) : pas besoin de
+repasser `--python`.
+
 ## Option B — archive python-build-standalone (sans uv)
 
 Récupérer sur `https://github.com/astral-sh/python-build-standalone/releases/latest` l'asset `cpython-3.11.*-x86_64-unknown-linux-gnu-install_only.tar.gz`, puis :
