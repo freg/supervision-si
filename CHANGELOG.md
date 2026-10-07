@@ -1,3 +1,14 @@
+## 2026-10-07 — Vulnérabilités : inventaire Windows / macOS et images Docker (livraison #711, agent 0.5.49)
+
+Suite de #699 (Linux). `sbomctl` : syft officiel de chaque plateforme (archive `.zip` Windows / `.tar.gz` macOS,
+empreinte SHA-256 vérifiée, `syft.exe`), racine (`C:\` / `/`) et exclusions propres au système (WinSxS, Installer,
+pagefile, profils temporaires ; System/Volumes, System/Library, caches, courrier…), outils dans le dossier de données
+de l'agent ; Windows / macOS : logiciels installés (sonde software-inventory : registre, /Applications) ajoutés au SBOM
+en composants « application » avec éditeur, pour Dependency-Track ; Linux : images des conteneurs Docker en service
+(`docker ps`, 20 au plus, `syft docker:<image>`), chacune déposée comme actif « image » (`?kind=image&name=` dans le
+chemin signé), commande `{"images": false}` pour s'en passer. Central : `kind` host | image. Hub : texte et case
+« images Docker ». Tests : `test_sbomctl.py` (8), central (27).
+
 ## 2026-10-07 — Messagerie : historique indexé six mois, plein texte, index Dovecot signalé (livraison #710, agent 0.5.48)
 
 La recherche « historique » relisait le journal mail à chaque requête (14 jours, 300 Mo au plus). L'agent du serveur

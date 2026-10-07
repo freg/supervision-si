@@ -219,6 +219,7 @@ function DiagPanel({ diag, onRefresh }) {
 function AgentInventory({ base, assets }) {
   const [agents, setAgents] = useState(null);
   const [install, setInstall] = useState(true);
+  const [images, setImages] = useState(true);
   const [msg, setMsg] = useState({});
   useEffect(() => { fetchFleet(base).then((l) => setAgents(l.filter((a) => a.active !== false))); }, [base]);
   if (!agents) return null;
@@ -231,8 +232,10 @@ function AgentInventory({ base, assets }) {
   return (
     <details style={{ marginBottom: 12 }}>
       <summary><strong>Inventaire par les agents</strong> <span className="muted">— syft sur chaque hôte, résultat dans « Actifs » au nom de l'hôte</span></summary>
-      <p className="muted" style={{ fontSize: 12 }}>Linux pour l'instant. Priorité basse, sans les zones de données (boîtes, disques de VM, journaux).
-        <label style={{ marginLeft: 8 }}><input type="checkbox" checked={install} onChange={(e) => setInstall(e.target.checked)} /> installer syft s'il manque (publication officielle, empreinte vérifiée)</label></p>
+      <p className="muted" style={{ fontSize: 12 }}>Linux, Windows et macOS (agent 0.5.49 et plus). Priorité basse, sans les zones de données (boîtes, disques de VM, journaux).
+        Windows / macOS : les logiciels installés (registre, Applications) s'ajoutent à l'inventaire. Linux : chaque image Docker en service devient un actif « image ».
+        <label style={{ marginLeft: 8 }}><input type="checkbox" checked={install} onChange={(e) => setInstall(e.target.checked)} /> installer syft s'il manque (publication officielle, empreinte vérifiée)</label>
+        <label style={{ marginLeft: 8 }}><input type="checkbox" checked={images} onChange={(e) => setImages(e.target.checked)} /> images Docker</label></p>
       <AutoColumns id="VulnView.3"><table>
         <thead><tr><th>Agent</th><th>Hôte</th><th>Contact</th><th>Dernier inventaire</th><th>P1 / P2</th><th>Actions</th></tr></thead>
         <tbody>{agents.map((a) => {
@@ -244,7 +247,7 @@ function AgentInventory({ base, assets }) {
               <td className="muted">{asset ? when(asset.last_sbom_at) : "jamais"}</td>
               <td>{asset ? `${asset.p1 || 0} / ${asset.p2 || 0}` : "—"}</td>
               <td style={{ whiteSpace: "nowrap" }}>
-                <button className="secondary" onClick={() => send(a, { now: true, install }, "inventaire")}>Inventaire maintenant</button>{" "}
+                <button className="secondary" onClick={() => send(a, { now: true, install, images }, "inventaire")}>Inventaire maintenant</button>{" "}
                 <select defaultValue="" onChange={(e) => { if (e.target.value !== "") send(a, { schedule_days: +e.target.value }, e.target.value === "0" ? "relevé périodique arrêté" : `relevé tous les ${e.target.value} j`); e.target.value = ""; }}>
                   <option value="">périodicité…</option><option value="1">chaque jour</option><option value="7">chaque semaine</option><option value="30">chaque mois</option><option value="0">arrêter</option>
                 </select>

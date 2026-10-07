@@ -38,6 +38,7 @@ import ssl
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from . import control, publish as publish_lib, host, netview, plugins, protocol, review, risks
@@ -821,6 +822,8 @@ class Agent(object):
                     self.state["sbom_schedule_days"] = max(0.0, min(90.0, float(params.get("schedule_days") or 0)))
                 if params.get("install"):
                     self.state["sbom_install"] = True
+                if "images" in params:                  # #711 : images Docker des conteneurs en service
+                    self.state["sbom_images"] = bool(params.get("images"))
                 self._save_state()
                 started = self.start_sbom(install=bool(self.state.get("sbom_install")), command_id=c.get("id")) if params.get("now") else False
                 return {"ok": True, "result": {"schedule_days": self.state.get("sbom_schedule_days", 0), "started": started,
@@ -1736,13 +1739,20 @@ class Agent(object):
             with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "si-agent"}), timeout=300, context=ctx) as resp:
                 return resp.read()
 
-        def upload(gz):
-            return self.http.send_raw("POST", protocol.API_PREFIX + "/agents/%s/sbom" % self.agent_id, gz, timeout=600, content_type="application/gzip")
+        def upload(gz, kind="host", name=None):
+            path = protocol.API_PREFIX + "/agents/%s/sbom" % self.agent_id
+            if kind != "host":                         # #711 : la requête fait partie du chemin signé
+                path += "?" + urllib.parse.urlencode({"kind": kind, "name": name or ""})
+            return self.http.send_raw("POST", path, gz, timeout=600, content_type="application/gzip")
 
         def work():
             now = self.clock()
             try:
-                r = sbomctl.inventory(upload, fetch=fetch, install=install)
+                system = sbomctl.system_name()
+                r = sbomctl.inventory(upload, fetch=fetch, install=install, system=system,
+                                      tools_dir=os.path.join(os.path.dirname(self.cfg.get("queue_path") or "/var/lib/si-agent/x"), "tools"),
+                                      installed=self._installed_software() if system != "linux" else None,
+                                      images=system == "linux" and self.state.get("sbom_images", True))
             except Exception as exc:  # noqa: BLE001 -- jamais d'arrêt de l'agent pour un inventaire
                 r = {"ok": False, "error": str(exc)[:300]}
             days = float(self.state.get("sbom_schedule_days") or 7)
@@ -1752,15 +1762,37 @@ class Agent(object):
             # échec : nouvel essai dans 6 h plutôt qu'à la prochaine période
             self.state["sbom_last_at"] = now if r.get("ok") else now - days * 86400 + 6 * 3600
             self._save_state()
+            self.state["sbom_last"]["images"] = [{k: i.get(k) for k in ("name", "ok", "components", "findings", "error")} for i in r.get("images") or []]
+            self._save_state()
             if r.get("ok"):
-                self.event("sbom-sent", "info", "inventaire logiciel envoyé : %s composant(s), %s vulnérabilité(s) relevée(s)"
-                           % (r.get("components"), central.get("findings", "?")), {"components": r.get("components"), "by_type": r.get("by_type")})
+                imgs = r.get("images") or []
+                self.event("sbom-sent", "info", "inventaire logiciel envoyé : %s composant(s), %s vulnérabilité(s) relevée(s)%s"
+                           % (r.get("components"), central.get("findings", "?"), (" ; %d image(s) Docker" % len(imgs)) if imgs else ""),
+                           {"components": r.get("components"), "by_type": r.get("by_type"), "images": len(imgs)})
             else:
                 self.event("sbom-failed", "warning", "inventaire logiciel en échec : %s" % r.get("error"), {"error": r.get("error")})
             self._sbom_running = False
 
         threading.Thread(target=work, name="sbom", daemon=True).start()
         return True
+
+    def _installed_software(self):
+        """#711 : logiciels installés (Windows / macOS) -- dernière mesure de la sonde software-inventory, sinon la
+        sonde elle-même lancée en module (sans l'activer)."""
+        try:
+            rows = self.queue.latest(task="plugin:software-inventory", limit=1)
+            if rows and isinstance(rows[0].get("data"), dict) and rows[0]["data"].get("installed"):
+                return rows[0]["data"]["installed"]
+            path = os.path.join(self.cfg.get("plugins_dir") or "", "software-inventory", "software_inventory.py")
+            if os.path.exists(path):
+                import importlib.util
+                spec = importlib.util.spec_from_file_location("si_software_inventory", path)
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                return (mod.collect() or {}).get("installed") or []
+        except Exception as exc:  # noqa: BLE001
+            _log.warning("logiciels installés pour l'inventaire : %s", exc)
+        return []
 
     def maintenance(self):
         now = self.clock()

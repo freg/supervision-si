@@ -685,6 +685,17 @@ class SbomForwardTests(ApiBase):
             self.assertEqual(seen["data"], bom)
             self.assertIn("sbom-received", self.kinds())
             self.assertEqual(self.c.post(path, data=gz, content_type="application/gzip").status_code, 401)
+            # #711 : image Docker -- la requête fait partie du chemin signé ; actif = l'image
+            ipath = path + "?kind=image&name=registry.exemple%2Fweb%3A1.2"
+            h = protocol.auth_headers("srv-sbom", sec, "POST", ipath, gz)
+            r = self.c.open(ipath, method="POST", data=gz, headers=h, content_type="application/gzip")
+            self.assertEqual(r.status_code, 201, r.get_json())
+            self.assertEqual(seen["params"], {"asset": "registry.exemple/web:1.2", "kind": "image", "source": "agent:srv-sbom"})
+            bad = path + "?kind=disque"
+            r = self.c.open(bad, method="POST", data=gz, headers=protocol.auth_headers("srv-sbom", sec, "POST", bad, gz), content_type="application/gzip")
+            self.assertEqual(r.status_code, 400)
+            h = protocol.auth_headers("srv-sbom", sec, "POST", path, gz)                     # signature du chemin sans la requête
+            self.assertEqual(self.c.open(ipath, method="POST", data=gz, headers=h, content_type="application/gzip").status_code, 401)
         finally:
             app_mod.requests.post = old
 

@@ -1513,9 +1513,17 @@ def sbom_route(agent_id):
     if not bom or len(bom) > 200 * 1024 * 1024:
         return jsonify({"error": "SBOM vide ou trop volumineux"}), 400
     agent = store.get_agent(DB_PATH, agent_id) or {}
-    asset = re.sub(r"[^A-Za-z0-9 ._:@/()+-]", "-", str(agent.get("hostname") or agent_id))[:100] or agent_id
+    kind = request.args.get("kind") or "host"
+    if kind not in ("host", "image"):
+        return jsonify({"error": "kind : host ou image"}), 400
+    if kind == "image":                                  # #711 : image Docker en service sur l'hôte de l'agent -- actif = l'image
+        asset = re.sub(r"[^A-Za-z0-9._:@/+-]", "-", str(request.args.get("name") or ""))[:150]
+        if not asset:
+            return jsonify({"error": "nom de l'image requis"}), 400
+    else:
+        asset = re.sub(r"[^A-Za-z0-9 ._:@/()+-]", "-", str(agent.get("hostname") or agent_id))[:100] or agent_id
     try:
-        r = requests.post(VULN_API_URL + "/sbom", params={"asset": asset, "kind": "host", "source": "agent:%s" % agent_id},
+        r = requests.post(VULN_API_URL + "/sbom", params={"asset": asset, "kind": kind, "source": "agent:%s" % agent_id},
                           data=bom, headers={"Content-Type": "application/json"}, timeout=1200)
         out = r.json() if r.headers.get("Content-Type", "").startswith("application/json") else {"error": r.text[:200]}
     except requests.RequestException as exc:
