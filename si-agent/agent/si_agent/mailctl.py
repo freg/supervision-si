@@ -672,6 +672,16 @@ def mailbox_query(params, now):
     return q
 
 
+def dovecot_fts(runner=run):
+    """#710 : index plein texte de Dovecot (fts + moteur) -- sans lui, une recherche dans le corps parcourt chaque message."""
+    code, out, _err = runner(["doveconf", "-n"], timeout=30)
+    if code != 0:
+        return {"known": False}
+    plugins = " ".join(re.findall(r"^\s*mail_plugins\s*=\s*(.*)$", out, re.M))
+    backend = re.search(r"^\s*fts\s*=\s*(\S+)", out, re.M)
+    return {"known": True, "enabled": bool(re.search(r"\bfts\b", plugins)) and bool(backend), "backend": backend.group(1) if backend else None}
+
+
 def mailbox_search(params, now, runner=run):
     user = str(params.get("user") or "").strip()
     target = ["-u", user] if user else ["-A"]
@@ -691,7 +701,10 @@ def mailbox_search(params, now, runner=run):
             rows.append({"user": r.get("username") or r.get("user") or user, "mailbox": r.get("mailbox"), "guid": r.get("mailbox-guid"),
                          "uid": r.get("uid"), "date": r.get("date.received"), "size": int(r["size.physical"]) if (r.get("size.physical") or "").isdigit() else None,
                          "from": frm, "to": to, "cc": cc, "subject": subj, "message_id": (r.get("hdr.message-id") or "").strip().strip("<>")})
-    return {"ok": True, "total": total, "truncated": total > len(rows), "rows": rows, "query": argv[5:]}
+    res = {"ok": True, "total": total, "truncated": total > len(rows), "rows": rows, "query": argv[5:]}
+    if params.get("text") or params.get("body"):
+        res["fts"] = dovecot_fts(runner)              # #710 : recherche dans le contenu -- indexée ou parcours complet
+    return res
 
 
 # ------------------------------------------------------------------ audit + aiguillage
@@ -729,7 +742,8 @@ def release_one(mid, params, dsn, runner=run):
     return {"ok": ok, "mail_id": mid, "output": text[-500:], "error": None if ok else (text.splitlines() or ["amavisd-release %s" % code])[-1][:300]}
 
 
-def run_action(params, now=None, runner=run, log_path="/var/log/mail.log", dsn_dirs=AMAVIS_CONF, audit_path=AUDIT_LOG):
+def run_action(params, now=None, runner=run, log_path="/var/log/mail.log", dsn_dirs=AMAVIS_CONF, audit_path=AUDIT_LOG, index_db=None):
+    """index_db : base de l'index de l'historique (#710) ; par défaut celle du serveur quand le journal est celui du système."""
     now = now or time.time()
     action = str(params.get("action") or "")
     reason = str(params.get("reason") or "").strip()
@@ -743,6 +757,20 @@ def run_action(params, now=None, runner=run, log_path="/var/log/mail.log", dsn_d
     if action == "log_tree":
         minutes = max(1, min(1440, int(params.get("minutes") or 60)))
         return dict(log_tree(read_logs(log_path, now - minutes * 60, now), now, minutes), ok=True)
+    if action == "log_index":                           # #710 : état / mise à jour de l'index de l'historique
+        from . import maillogidx
+        db = index_db or maillogidx.DB_PATH
+        return maillogidx.update(log_path, db, now=now) if params.get("update") else dict(maillogidx.search({"days": 1, "limit": 1}, db, now=now) or {"ok": True, "indexed": False}, rows=[])
+    if action == "log_search" and params.get("source") != "log" and (index_db or log_path == "/var/log/mail.log"):
+        from . import maillogidx                        # #710 : index local (6 mois) ; repli sur la relecture du journal
+        try:
+            db = index_db or maillogidx.DB_PATH
+            upd = maillogidx.update(log_path, db, now=now)
+            res = maillogidx.search(params, db, now=now) if upd.get("ok") else None
+            if res:
+                return dict(res, index=dict(res["index"], last_update=upd))
+        except Exception as exc:  # noqa: BLE001 -- l'index ne doit jamais empêcher la recherche
+            params = dict(params, index_error=str(exc)[:200])
     if action == "log_search":
         hours = max(1, min(24 * 14, int(params.get("hours") or 24)))
         items = filter_messages(log_messages(read_logs(log_path, now - hours * 3600, now), now, hours), params)

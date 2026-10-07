@@ -1,3 +1,16 @@
+## 2026-10-07 — Messagerie : historique indexé six mois, plein texte, index Dovecot signalé (livraison #710, agent 0.5.48)
+
+La recherche « historique » relisait le journal mail à chaque requête (14 jours, 300 Mo au plus). L'agent du serveur
+tient maintenant un **index local** (`/var/lib/si-agent/mail-log-index.db`, 0600) des métadonnées de chaque message —
+n° de file, expéditeur, destinataires, Message-ID, client, taille, états, verdict Amavis, lignes du journal ; jamais le
+contenu — alimenté toutes les 5 min (sonde mail-server active) et à chaque recherche : rattrapage de 31 jours au premier
+passage, puis suite à la position mémorisée, reprise après rotation (fin du `.1`) ou troncature, n° de file recyclé
+distingué, refus NOQUEUE de lots différents distincts, conservation 183 jours. Recherche par jokers et **plein texte
+FTS5** (`q`), repli sur la relecture du journal si l'index manque (`source: "log"` pour la forcer). Boîtes : la recherche
+dans le contenu signale l'absence d'index plein texte Dovecot (`doveconf -n`) avec la marche à suivre.
+Hub : champ « Historique : plein texte », périodes jusqu'à 183 j, état de l'index. Tests : `test_maillogidx.py` (3),
+agent complet vert.
+
 ## 2026-10-07 — Réponse rapide des agents pendant une session interactive (livraison #709, agent 0.5.47)
 
 Les commandes de la tuile Messagerie (recherche, ouverture, libération) attendaient le relevé de l'agent, environ

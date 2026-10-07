@@ -196,7 +196,7 @@ function MessageTable({ rows }) {
 
 // ------------------------------------------------------------------ Recherche
 
-const EMPTY = { from: "", to: "", user: "", subject: "", text: "", body: "", since: "", before: "", hours: 24, days: 30, onlyQuarantined: true };
+const EMPTY = { from: "", to: "", user: "", subject: "", text: "", body: "", since: "", before: "", hours: 24, days: 30, onlyQuarantined: true, logq: "" };
 
 function Search({ run, onOpen, onRelease }) {
   const [f, setF] = useState(EMPTY);
@@ -207,7 +207,7 @@ function Search({ run, onOpen, onRelease }) {
     e?.preventDefault();
     const jobs = {
       mailbox: () => run({ action: "mailbox_search", from: f.from, to: f.to, user: f.user, subject: f.subject, text: f.text, body: f.body, since: f.since, before: f.before, limit: 200 }),
-      log: () => run({ action: "log_search", from: f.from, to: f.to || f.user, hours: f.hours, limit: 200 }),
+      log: () => run({ action: "log_search", from: f.from, to: f.to || f.user, hours: f.hours, q: f.logq, limit: 200 }),   // #710 : index local, q plein texte
       quarantine: () => run({ action: "quarantine_search", from: f.from, to: f.to || f.user.replace(/^\*$/, ""), subject: f.subject, days: f.days, only_quarantined: f.onlyQuarantined, limit: 200 }),
     };
     const next = {};
@@ -227,25 +227,30 @@ function Search({ run, onOpen, onRelease }) {
         {field("subject", "Sujet (jokers * ?)", "*facture*")}
         {field("text", "Plein texte", "en-têtes + corps", 180)}
         {field("body", "Contenu (corps)", "mot du corps", 180)}
+        {field("logq", "Historique : plein texte", "n° de file, mail_id, IP, état…", 180)}
         <label style={{ display: "flex", flexDirection: "column", fontSize: 13 }}>Depuis<input type="date" value={f.since} onChange={set("since")} /></label>
         <label style={{ display: "flex", flexDirection: "column", fontSize: 13 }}>Avant<input type="date" value={f.before} onChange={set("before")} /></label>
         <span style={{ fontSize: 13 }}>
           {[["mailbox", "boîtes"], ["log", "historique"], ["quarantine", "quarantaine"]].map(([k, l]) =>
             <label key={k} style={{ marginRight: 8 }}><input type="checkbox" checked={scopes[k]} onChange={(e) => setScopes({ ...scopes, [k]: e.target.checked })} /> {l}</label>)}
-          <br />historique <select value={f.hours} onChange={set("hours")}>{[1, 6, 24, 72, 168, 336].map((h) => <option key={h} value={h}>{h < 24 ? `${h} h` : `${h / 24} j`}</option>)}</select>
+          <br />historique <select value={f.hours} onChange={set("hours")}>{[1, 6, 24, 72, 168, 336, 720, 2160, 4392].map((h) => <option key={h} value={h}>{h < 24 ? `${h} h` : `${h / 24} j`}</option>)}</select>
           {" "}quarantaine <select value={f.days} onChange={set("days")}>{[1, 7, 30, 90, 365].map((d) => <option key={d} value={d}>{d} j</option>)}</select>
           {" "}<label><input type="checkbox" checked={f.onlyQuarantined} onChange={set("onlyQuarantined")} /> en quarantaine seulement</label>
         </span>
         <button type="submit">Rechercher</button>
         <button type="button" className="secondary" onClick={() => { setF(EMPTY); setRes({}); }}>Effacer</button>
       </form>
-      <p className="muted" style={{ fontSize: 12 }}>Jokers <code>*</code> et <code>?</code>, sans joker = « contient ». Le sujet et le contenu ne figurent pas dans le journal : l'historique filtre sur l'expéditeur et le destinataire. Plein texte sur toutes les boîtes sans index : plusieurs minutes possibles — restreindre par boîte ou par date.</p>
+      <p className="muted" style={{ fontSize: 12 }}>Jokers <code>*</code> et <code>?</code>, sans joker = « contient ». Le sujet et le contenu ne figurent pas dans le journal : l'historique filtre sur l'expéditeur, le destinataire et son plein texte (n° de file, identifiants, IP, états), sur six mois avec l'index local. Plein texte sur toutes les boîtes sans index : plusieurs minutes possibles — restreindre par boîte ou par date.</p>
 
+      {res.mailbox?.fts && res.mailbox.fts.known && !res.mailbox.fts.enabled && <p className="hub-warning" style={{ fontSize: 13 }}>Recherche dans le contenu sans index Dovecot : chaque message est relu (lent sur toutes les boîtes). Activer l'index plein texte sur le serveur (paquet <code>dovecot-lucene</code> ou <code>dovecot-solr</code>, <code>mail_plugins = $mail_plugins fts fts_lucene</code>, puis <code>doveadm fts rescan -A</code>).</p>}
       {res.mailbox && <Section title="Boîtes" r={res.mailbox}>{(r) => (
         <AutoColumns id="MailServerView.2"><table><thead><tr><th>Reçu</th><th>Boîte</th><th>Dossier</th><th>De</th><th>À</th><th>Sujet</th><th>Taille</th><th /></tr></thead>
           <tbody>{r.rows.map((m) => <tr key={`${m.user}/${m.guid}/${m.uid}`}><td>{m.date}</td><td>{m.user}</td><td>{m.mailbox}</td><td>{m.from}</td><td>{m.to}</td><td>{m.subject}</td><td>{size(m.size)}</td>
             <td><button className="secondary" onClick={() => onOpen("mailbox", m)}>Voir</button></td></tr>)}</tbody></table></AutoColumns>)}</Section>}
-      {res.log && <Section title="Historique de traitement" r={res.log}>{(r) => <MessageTable rows={r.rows} />}</Section>}
+      {res.log && <Section title="Historique de traitement" r={res.log}>{(r) => <>
+        {r.indexed ? <p className="muted" style={{ fontSize: 12 }}>Index local : {r.index?.rows} message(s) depuis le {r.index?.since ? new Date(r.index.since * 1000).toLocaleDateString("fr-FR") : "—"}{r.index?.fts ? ", plein texte indexé" : ""}.</p>
+          : <p className="muted" style={{ fontSize: 12 }}>Journal relu (agent antérieur à 0.5.48 ou index indisponible) : 14 jours au plus.</p>}
+        <MessageTable rows={r.rows} /></>}</Section>}
       {res.quarantine && <Section title="Quarantaine" r={res.quarantine}>{(r) => <QuarantineTable rows={r.rows} onOpen={onOpen} onRelease={onRelease} />}</Section>}
     </>
   );

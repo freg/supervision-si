@@ -1770,11 +1770,34 @@ class Agent(object):
                 self.start_sbom(install=bool(self.state.get("sbom_install")))
         except Exception as exc:  # noqa: BLE001
             _log.warning("inventaire logiciel périodique : %s", exc)
+        self._mail_index_tick(now)
         if self.state.get("autologon_pending") and now - self._started_at > 120:
             self._autologon_cleanup()
         if now - self._last_purge > 3600:
             self._last_purge = now
             self.queue.purge_sent()
+
+    def _mail_index_tick(self, now, log_path="/var/log/mail.log"):
+        """#710 : index de l'historique du courrier tenu à jour toutes les 5 min (sonde mail-server active), en fond."""
+        if now - getattr(self, "_mailidx_at", 0) < 300 or getattr(self, "_mailidx_running", False):
+            return False
+        self._mailidx_at = now
+        m = self.store.get("mail-server")
+        if not m or not plugins.is_enabled(m, self.cfg.get("plugins")) or not os.path.exists(log_path):
+            return False
+        import threading
+
+        def work():
+            self._mailidx_running = True
+            try:
+                from . import maillogidx
+                maillogidx.update(log_path)
+            except Exception as exc:  # noqa: BLE001
+                _log.warning("index de l'historique du courrier : %s", exc)
+            finally:
+                self._mailidx_running = False
+        threading.Thread(target=work, name="mail-index", daemon=True).start()
+        return True
 
     def status(self):
         # `--status` tourne dans un autre processus que le service : les
