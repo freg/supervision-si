@@ -68,6 +68,18 @@ export function gitText(g) {
   if (g.behind) return `#${g.current || "?"} → #${g.remote_number || "?"} : ${g.behind} commit(s) en retard sur origin/${g.branch} (en place : ${head})`;
   return `à jour sur origin/${g.branch} (#${g.current || "?"}, ${head})`;
 }
+// #700 : livraison compilée dans la page vs code du central (HEAD) vs origin.
+// -> {state: ok|update|rebuild|unknown, target, text}
+export function versionStatus(built, g) {
+  const n = (x) => { const v = parseInt(x, 10); return Number.isFinite(v) ? v : null; };
+  const b = n(built), cur = n(g?.current), rem = n(g?.remote_number);
+  if (!g || g.error) return { state: "unknown", target: null, text: g?.error ? `contrôle impossible : ${g.error}` : "non contrôlé" };
+  if (g.behind > 0) return { state: "update", target: rem ?? cur, text: `#${rem ?? "?"} disponible sur origin/${g.branch || "?"} (${g.behind} commit(s)), page en #${b ?? "?"}` };
+  if (b !== null && cur !== null && cur > b) return { state: "rebuild", target: cur, text: `code #${cur} présent sur le central mais page compilée en #${b} : reconstruction à faire` };
+  if (g.fetch_error) return { state: "unknown", target: null, text: `origin injoignable (${g.fetch_error}), page en #${b ?? "?"}` };
+  return { state: "ok", target: cur, text: `à jour : page #${b ?? "?"}, central #${cur ?? "?"}, origin/${g.branch || "?"}` };
+}
+
 export function gitBlocker(g) {
   if (!g) return null;
   if (g.error) return g.error;

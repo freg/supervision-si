@@ -12,10 +12,11 @@ import PageFrame from "./PageFrame.jsx";
 import TowerNetworkTab from "./TowerNetworkTab.jsx";
 import ServicesView from "./ServicesView.jsx";
 import { viewParams } from "./hubLinks.js";
+import versionInfo from "./VERSION.json";  // #700
 import {
   fetchServices, fetchSettings, saveSettings, fetchEvents, fetchConfigs, fetchConfig, saveConfig,
   fetchJobs, fetchJob, fetchDeliveries, uploadDelivery, applyDelivery, reloadGateway, fetchGit, gitUpdate, fetchRepartition, saveRepartition, applyRepartition, migrateCohort, fetchMirror, mirrorAction } from "./servicesClient.js";
-import { itemsOf, mergeItems, emptyRow, cleanRow, statsText, deliveryText, JOB_LABEL, JOB_TONE, touchesHub, gitText, gitBlocker, cohortRows, moveCohort, nodeText, mirrorText, mirrorActions } from "./towerLib.js";
+import { itemsOf, mergeItems, emptyRow, cleanRow, statsText, deliveryText, JOB_LABEL, JOB_TONE, touchesHub, gitText, gitBlocker, versionStatus, cohortRows, moveCohort, nodeText, mirrorText, mirrorActions } from "./towerLib.js";
 
 const TABS = [
   { id: "services", label: "🚦 Services" },
@@ -180,6 +181,10 @@ function GitUpdate({ apiBase, token, openJob }) {
       <h3 style={{ margin: "0 0 6px" }}>⬇️ Mise à jour depuis le git {g?.remote && <code className="muted">{g.remote}</code>}</h3>
       <p className="muted" style={{ margin: "0 0 6px" }}>{busy === "fetch" ? "interrogation du dépôt…" : gitText(g)}{g && !g.fetched && !g.error && <> — <a href="#git" onClick={(e) => { e.preventDefault(); refresh(true); }}>vérifier sur origin</a></>}</p>
       {blocker && <p className="hub-error" style={{ margin: "0 0 6px" }}>{blocker}</p>}
+      {g && versionStatus(versionInfo.delivery_number, g).state === "rebuild" && (
+        <p className="hub-warning" style={{ margin: "0 0 6px" }}>⚠️ {versionStatus(versionInfo.delivery_number, g).text} (code récupéré sans passer par la tour).
+          « ⛓️ Tout mettre à jour en cascade » reconstruit tous les services en marche.</p>
+      )}
       {(g?.incoming || []).length > 0 && <details style={{ marginBottom: 6 }}><summary className="muted">{g.incoming.length} commit(s) entrant(s)</summary><ul style={{ margin: "4px 0", fontSize: 12 }}>{g.incoming.map((c) => <li key={c.hash}><code>{c.hash}</code> {c.subject}</li>)}</ul></details>}
       {(g?.plan?.steps || []).length > 0 && <details style={{ marginBottom: 6 }}><summary className="muted">plan ciblé du central : {g.plan.steps.length} étape(s){(g.plan.not_running || []).length ? ` (non démarrés ici : ${g.plan.not_running.join(", ")})` : ""}</summary><ol style={{ margin: "4px 0", fontSize: 12 }}>{g.plan.steps.map((s, i) => <li key={i}>{s.label} — <code>{s.cmd}</code></li>)}</ol></details>}
       {(g?.new_services || []).length > 0 && <p className="muted" style={{ margin: "0 0 6px" }}>Nouveaux services dans ces commits, jamais démarrés ici — à lancer avec la mise à jour : {g.new_services.map((s) => <label key={s} style={{ marginRight: 10 }}><input type="checkbox" checked={!!startNew[s]} onChange={(e) => setStartNew({ ...startNew, [s]: e.target.checked })} /> <code>{s}</code></label>)}</p>}

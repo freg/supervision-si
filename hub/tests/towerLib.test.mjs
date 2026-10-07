@@ -68,3 +68,16 @@ test("miroir : texte et actions", () => {
   assert.deepEqual(mirrorActions({ ...m, state: { mirror_active: true } }), ["failback"]);
   assert.match(mirrorText({ ...m, age_s: null, state: {}, mirror: { error: "timeout" } }), /jamais synchronisé · miroir vm-miroir injoignable : timeout/);
 });
+
+import { versionStatus } from "../src/towerLib.js";
+test("#700 : version de la page vs central vs origin", () => {
+  assert.equal(versionStatus("699", { current: "699", remote_number: "699", behind: 0, branch: "dev" }).state, "ok");
+  const r = versionStatus("693", { current: "699", remote_number: "699", behind: 0, branch: "dev" });
+  assert.deepEqual([r.state, r.target], ["rebuild", 699]); assert.match(r.text, /reconstruction/);
+  const u = versionStatus("693", { current: "693", remote_number: "699", behind: 4, branch: "dev" });
+  assert.deepEqual([u.state, u.target], ["update", 699]);
+  assert.equal(versionStatus("693", { error: "HTTP 403" }).state, "unknown");
+  assert.equal(versionStatus("699", null).state, "unknown");
+  assert.equal(versionStatus("699", { current: "699", behind: 0, fetch_error: "réseau" }).state, "unknown");
+  assert.equal(versionStatus("?", { current: "699", behind: 0 }).state, "ok");
+});

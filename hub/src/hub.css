@@ -386,6 +386,13 @@ thead tr + tr th { top: 0; }
   opacity: 0.7;
 }
 .version-badge:hover { opacity: 1; }
+/* #700 : contrôle régulier de version (page / central / origin) */
+.version-badge-wrap { display: inline-flex; gap: 4px; align-items: center; }
+.version-badge.version-ok { color: var(--ok, var(--muted)); }
+.version-badge.version-update, .version-badge.version-rebuild { color: var(--warning); border-color: var(--warning); opacity: 1; }
+.version-action { font: 600 10px ui-monospace, monospace; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--warning);
+  background: var(--panel); color: var(--warning); cursor: pointer; }
+.version-action:hover { background: var(--warning); color: var(--panel); }
 
 /* Horloge permanente navigateur/serveur -- demandée explicitement
    ("tout semble désynchronisé sous docker"), livraison #137. Même

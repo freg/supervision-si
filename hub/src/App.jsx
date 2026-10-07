@@ -91,6 +91,7 @@ import FileManagerView from "./FileManagerView.jsx";
 import { logPresenceTransitions } from "./hubLogClient.js";
 import { parseMarkdown } from "./markdown.js";
 import versionInfo from "./VERSION.json";
+import VersionBadge from "./VersionBadge.jsx";  // #700
 
 const FRONTEND_URL = import.meta.env.VITE_SUPERVISION_FRONTEND_URL || "";
 const PORTAL_URL = import.meta.env.VITE_TICKETS_PORTAL_URL || "";
@@ -2255,9 +2256,9 @@ vm === "agent-page" ? (
             onOpenSupervision={availableViews.has("supervision-si") ? () => setViewMode("supervision-si") : null}
           />
         )}
-        <div className="version-badge" title={`hash contenu : ${versionInfo.content_hash} · hash git : ${versionInfo.git_hash} · dernière vérification : ${versionInfo.last_checked_at}`}>
-          #{versionInfo.delivery_number || "?"}
-        </div>
+        <VersionBadge info={versionInfo} apiBase={SERVICES_API_BASE_URL} token={auth.user?.access_token}
+          enabled={!!SERVICES_API_BASE_URL && (SERVICES_ADMIN_USERS.includes((profile.preferred_username || "").toLowerCase()) || groups.some((g) => SERVICES_ADMIN_GROUPS.includes(String(g).replace(/^\//, ""))))}
+          onOpenTower={() => setViewMode("control")} />
       </div>
     </div>
   );

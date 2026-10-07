@@ -1,3 +1,16 @@
+## 2026-10-07 — Pastille de version : contrôle régulier page / central / origin, bouton vers la tour (livraison #700)
+
+Vu : le dépôt du central était en #699 (git pull à la main), la page en #693, et la tour se disait « à jour » (elle
+compare le dépôt à origin, pas ce qui tourne). La pastille en bas à droite contrôle désormais, pour qui a accès à la
+tour, 15 s après l'ouverture puis toutes les 15 min (et au retour sur l'onglet, ou au clic) : livraison compilée
+dans la page vs HEAD du central vs origin. À jour : « ● #N ». Sinon un bouton orange ouvre la tour : « ⬆️ #N »
+(nouveaux commits sur origin) ou « 🔨 #N » (code présent sur le central, page non reconstruite). Rien n'est forcé.
+Dans la tour, le cas « reconstruction à faire » est signalé au-dessus des boutons de mise à jour.
+
+- Vérifié : `versionStatus` (towerLib.test.mjs), hub `node --test` (325), `@babel/parser`. Non vérifié : dans un navigateur.
+- Fichiers : `hub/src/{VersionBadge.jsx,towerLib.js,App.jsx,ControlTowerView.jsx,hub.css}`, `hub/tests/towerLib.test.mjs`,
+  `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-07 — Vulnérabilités, tranche 2 : inventaire logiciel par les agents (syft sur l'hôte → central → vuln-api) (livraison #699)
 
 - Agent : commande `sbom` (`si_agent/sbomctl.py`) -- `{now}` inventaire en arrière-plan, `{schedule_days}` relevé
