@@ -1,3 +1,22 @@
+## Messagerie : supervision du serveur de courrier (Postfix + Amavis + Modoboa) (2026-10-07)
+
+Incident réel (serveur de messagerie `mx-alpha`, Debian 9, Modoboa 1.14) : messages légitimes supprimés en silence
+pendant deux mois (politique Amavis du domaine principal à `spam_kill_level = 3`, `D_DISCARD`, quarantaine purgée
+avant que quiconque s'en aperçoive ; expéditeur Gmail sans DKIM aligné), puis courrier entrant refusé 14 h
+(`451 4.3.0 queue file write error`) : clamd arrêté, Amavis exige l'antivirus. Corrigé à la main (seuils 5 / 10,
+filtre antivirus contourné). À superviser par l'agent (sonde `mail-server`) :
+1. **disponibilité du flux** : compteur de `451 … queue file write error`, `proxy-reject`, file Postfix (taille,
+   ancienneté) -- alerte dès le premier refus temporaire ; état de postfix, amavis, clamd, dovecot, MySQL ;
+2. **antispam** : verdicts Amavis par jour (Passed / Blocked par catégorie), **faux positifs probables** (Blocked SPAM
+   sous un seuil, expéditeurs récurrents, domaines connus), seuils effectifs par domaine (table `policy`, alias
+   compris), mode `D_DISCARD` sans prévenir, durée de la quarantaine et de la rotation des journaux ;
+3. **postscreen** : `postscreen_dnsbl_action` (ignore = listes noires sans effet), rangs DNSBL ;
+4. **antivirus** : âge des signatures, échecs de `freshclam` (blocage du réseau de diffusion pour version en fin de vie) ;
+5. **authentification des expéditeurs** fréquents : SPF / DKIM aligné / DMARC (rapport « à signaler à l'expéditeur ») ;
+6. **fin de support** : OS, Postfix, ClamAV, Modoboa (→ inventaire `vuln`, suggestion endoflife.date) ;
+7. tuile ou section « Messagerie » : verdicts, faux positifs à libérer (lien vers la quarantaine Modoboa), alertes.
+Suite : migration du serveur vers Debian 12 + Modoboa à jour (antivirus fonctionnel), conserver journaux 6 mois.
+
 ## Hub : colonnes des tableaux redimensionnables et masquables, mémorisées (2026-10-06) — prochaine évolution d'interface
 
 Demandé pour le tableau des agents (Agents hôtes) : largeur de chaque colonne modifiable à la souris, colonnes
