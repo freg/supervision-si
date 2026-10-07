@@ -145,7 +145,38 @@ if [ -d "$HERE/plugins" ]; then
   for d in "$HERE"/plugins/*/; do
     [ -e "$d" ] || continue   # glob non résolu : plugins/ vide
     id="$(basename "$d")"
-    [ -d "/var/lib/si-agent/plugins/$id" ] || cp -r "$d" "/var/lib/si-agent/plugins/$id"
+    if [ ! -d "/var/lib/si-agent/plugins/$id" ]; then
+      cp -r "$d" "/var/lib/si-agent/plugins/$id"
+    else
+      # #694 : sonde livrée déjà présente -> code remis à jour (sinon une correction
+      # n'atteint jamais les hôtes), état local conservé (enabled, blocked, args).
+      # Python 3.5 compatible (python3 système d'un Debian 9).
+      python3 - "$d" "/var/lib/si-agent/plugins/$id" <<'PY' || echo "note : sonde $id non mise à jour" >&2
+import json, os, shutil, sys
+src, dst = sys.argv[1].rstrip("/"), sys.argv[2]
+try:
+    old = json.load(open(os.path.join(dst, "manifest.json"), encoding="utf-8"))
+except (OSError, ValueError):
+    old = {}
+if old.get("source", "bundled") != "bundled":
+    sys.exit(0)                      # sonde du central portant le même nom : on n'y touche pas
+new = json.load(open(os.path.join(src, "manifest.json"), encoding="utf-8"))
+for k in ("enabled", "blocked", "args"):
+    if k in old:
+        new[k] = old[k]
+for name in os.listdir(src):
+    if name == "manifest.json":
+        continue
+    a, b = os.path.join(src, name), os.path.join(dst, name)
+    if os.path.isdir(a):
+        shutil.rmtree(b, ignore_errors=True)
+        shutil.copytree(a, b)
+    else:
+        shutil.copy2(a, b)
+with open(os.path.join(dst, "manifest.json"), "w", encoding="utf-8") as fh:
+    json.dump(new, fh, indent=2, ensure_ascii=False)
+PY
+    fi
   done
 else
   echo "note : dossier plugins/ absent de l'archive -- installation poursuivie sans plugin livré" >&2

@@ -88,6 +88,35 @@ class Constats(unittest.TestCase):
         self.assertIn("mysql (failed)", a["service-down"]["message"])
 
 
+class Retours694(unittest.TestCase):
+    """#694 : retours du premier passage réel (clamd désactivé, spamd inactif, blacklist_to anti-hameçonnage)."""
+
+    def test_domaines_locaux(self):
+        self.assertEqual(ms.analyse(LINES, NOW.timestamp(), 60, 8)["local_domains"], ["exemple.fr"])
+
+    def test_blacklist_to_etrangere_ignoree(self):
+        e = [{"address": a} for a in ("bnp*@jetable.example", "*credit*@jetable.example", "*credit*@jetable.example", "Accueil@exemple.fr", "*@exemple.*")]
+        self.assertEqual(ms.local_blacklist_to(e, ["exemple.fr"]), ["accueil@exemple.fr", "*@exemple.*"])
+        self.assertEqual(len(ms.local_blacklist_to(e, [])), 4)          # domaines inconnus : tout, dédoublonné
+        s = {"log": {"local_domains": ["exemple.fr"]}, "blacklist_to": e[:3]}
+        self.assertEqual([a["code"] for a in ms.alerts_from(s)], [])
+
+    def test_service_desactive_et_spamd(self):
+        def runner(argv, timeout=20):
+            st = {"postfix": ("enabled", "active"), "amavis": ("enabled", "active"), "clamav-daemon": ("disabled", "failed"),
+                  "spamassassin": ("enabled", "inactive")}.get(argv[-1])
+            if st is None:
+                return 0, "LoadState=not-found", ""
+            return 0, ("LoadState=loaded\nUnitFileState=%s\n" % st[0]) if argv[1] == "show" else st[1], ""
+        ms.shutil.which = lambda b: "/bin/systemctl"
+        svcs = ms.services_state(runner)
+        self.assertEqual(svcs, {"postfix": "active", "amavis": "active", "clamav-daemon": "disabled", "spamassassin": "inactive"})
+        s = {"services": svcs, "antivirus": {"databases": ["main.cvd"], "age_days": 900, "update_refused": True}}
+        self.assertEqual(ms.alerts_from(s), [])                        # clamd désactivé : ni panne ni signatures
+        s["services"] = dict(svcs, amavis="failed")
+        self.assertIn("spamassassin (inactive)", ms.alerts_from(s)[0]["message"])
+
+
 class Hote(unittest.TestCase):
     def test_blacklist_to_et_antivirus(self):
         d = tempfile.mkdtemp()

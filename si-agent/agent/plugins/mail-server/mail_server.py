@@ -27,6 +27,7 @@ le central transforme en événements (apparition / disparition) :
 Usage : mail_server.py [--log /var/log/mail.log] [--minutes 60] [--fp-below 8]
 """
 import argparse
+import fnmatch
 import glob
 import json
 import os
@@ -85,6 +86,7 @@ def analyse(lines, now, minutes=60, fp_below=8.0):
     since = now - minutes * 60
     verdicts, rejects, postscreen, delivery = Counter(), Counter(), Counter(), Counter()
     fps, trouble, write_errors, top_rcpt_blocked = [], [], 0, Counter()
+    local_domains = set()
     for line in lines or []:
         p = parse_time(line, now)
         if not p or p[0] < since:
@@ -119,11 +121,17 @@ def analyse(lines, now, minutes=60, fp_below=8.0):
             st = re.search(r" status=(\w+)", msg)
             if st:
                 delivery[st.group(1)] += 1
+                # #694 : remise locale (lmtp/virtual/local, Dovecot) -> domaine hébergé ici
+                if st.group(1) == "sent" and (prog.endswith(("/lmtp", "/virtual", "/local")) or "dovecot" in msg):
+                    dm = re.search(r" to=<[^@>]+@([^>]+)>", msg)
+                    if dm:
+                        local_domains.add(dm.group(1).lower())
     fps.sort(key=lambda f: f["hits"])
     return {"window_minutes": minutes, "queue_write_errors": write_errors, "amavis": dict(verdicts),
             "amavis_trouble": trouble[-5:], "false_positive_candidates": fps[:30], "fp_below": fp_below,
             "blocked_by_recipient": dict(top_rcpt_blocked.most_common(10)), "postscreen": dict(postscreen),
-            "smtpd_rejects": dict(rejects.most_common(15)), "delivery": dict(delivery)}
+            "smtpd_rejects": dict(rejects.most_common(15)), "delivery": dict(delivery),
+            "local_domains": sorted(local_domains)}
 
 
 def run(argv, timeout=20):
@@ -135,18 +143,22 @@ def run(argv, timeout=20):
 
 
 def services_state(runner=run, ignore=()):
-    """{service: état} des services présents (LoadState=loaded), hors `ignore`."""
+    """{service: état} des services présents (LoadState=loaded), hors `ignore`.
+    #694 : unité désactivée (`systemctl disable`) = arrêt volontaire -> « disabled », jamais signalé."""
     out = {}
     if not shutil.which("systemctl"):
         return out
     for svc in SERVICES:
         if svc in ignore:
             continue
-        _, show, _ = runner(["systemctl", "show", "-p", "LoadState", svc])
+        _, show, _ = runner(["systemctl", "show", "-p", "LoadState", "-p", "UnitFileState", svc])
         if "LoadState=loaded" not in show:
             continue
         _, st, _ = runner(["systemctl", "is-active", svc])
-        out[svc] = st.strip() or "unknown"
+        st = st.strip() or "unknown"
+        if st not in ("active", "activating") and re.search(r"UnitFileState=(disabled|masked)", show):
+            st = "disabled"
+        out[svc] = st
     return out
 
 
@@ -212,6 +224,25 @@ def os_state():
     return {"debian": v, "eol": EOL_DEBIAN.get(major)}
 
 
+def local_blacklist_to(entries, local_domains):
+    """#694 : adresses `blacklist_to` (dédoublonnées) qui peuvent viser un destinataire HÉBERGÉ ici -- les
+    motifs sur un domaine étranger (ex. *banque*@domaine-jetable) sont de l'anti-hameçonnage, pas un risque.
+    Domaines locaux inconnus (aucune remise locale dans la fenêtre) : toutes les adresses. Pure."""
+    seen = []
+    for e in entries:
+        a = e["address"].lower()
+        if a not in seen:
+            seen.append(a)
+    if not local_domains:
+        return seen
+    out = []
+    for a in seen:
+        dom = a.rsplit("@", 1)[1] if "@" in a else "*"
+        if any(fnmatch.fnmatch(ld, dom) for ld in local_domains):
+            out.append(a)
+    return out
+
+
 def alerts_from(s):
     """Résumé complet -> constats. Pure."""
     a = []
@@ -228,7 +259,9 @@ def alerts_from(s):
         add("amavis-trouble", "critical", "Amavis en erreur : %s" % log["amavis_trouble"][-1][:160])
     svcs = s.get("services") or {}
     dbs = {k: v for k, v in svcs.items() if k in ("mysql", "mariadb", "postgresql")}
-    down = [k for k, v in svcs.items() if k not in dbs and v not in ("active", "activating")]
+    down = [k for k, v in svcs.items() if k not in dbs and v not in ("active", "activating", "disabled")]
+    if svcs.get("amavis") == "active" and "spamassassin" in down:
+        down.remove("spamassassin")   # #694 : Amavis embarque SpamAssassin, le démon spamd est facultatif
     if dbs and not any(v == "active" for v in dbs.values()):
         down += list(dbs)          # une seule base active suffit (mysql / mariadb : même service selon la version)
     if down:
@@ -241,11 +274,11 @@ def alerts_from(s):
         senders = Counter(f["from"] or "<>" for f in fps)
         add("spam-false-positive", "warning", "%d message(s) bloqué(s) comme spam avec un score < %s (faux positifs probables) : %s"
             % (len(fps), log.get("fp_below"), ", ".join("%s ×%d" % kv for kv in senders.most_common(5))))
-    if s.get("blacklist_to"):
-        add("blacklist-to", "warning", "blacklist_to sur %s : +10 sur TOUT leur courrier (légitime compris)"
-            % ", ".join(e["address"] for e in s["blacklist_to"][:5]))
+    bl = local_blacklist_to(s.get("blacklist_to") or [], log.get("local_domains") or [])
+    if bl:
+        add("blacklist-to", "warning", "blacklist_to sur %s : +10 sur TOUT leur courrier (légitime compris)" % ", ".join(bl[:5]))
     av = s.get("antivirus") or {}
-    if av.get("databases") and (s.get("services") or {}).get("clamav-daemon") is not None:
+    if av.get("databases") and (s.get("services") or {}).get("clamav-daemon") not in (None, "disabled"):
         if av.get("update_refused") or (av.get("age_days") or 0) > 7:
             add("antivirus-outdated", "warning", "signatures ClamAV âgées de %s jour(s)%s" % (av.get("age_days"), ", mise à jour refusée (version en fin de vie)" if av.get("update_refused") else ""))
     pc = s.get("postconf") or {}

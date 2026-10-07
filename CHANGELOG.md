@@ -1,3 +1,20 @@
+## 2026-10-07 — Sonde mail-server : retours du premier passage réel ; sondes livrées mises à jour par --upgrade (livraison #694)
+
+Premier passage sur un serveur réel : trois constats étaient du bruit, et la correction ne pouvait pas atteindre l'hôte.
+- Service **désactivé** (`systemctl disable`) = arrêt volontaire : affiché « disabled », jamais signalé ; les signatures
+  ClamAV ne sont plus jugées quand clamd est désactivé (`--ignore-service` reste possible).
+- `spamassassin` (démon spamd) inactif n'est plus une panne quand Amavis tourne (il embarque SpamAssassin).
+- `blacklist_to` : dédoublonné, et seules les adresses pouvant viser un domaine **hébergé** sont signalées (domaines
+  déduits des remises locales du journal) ; les motifs anti-hameçonnage sur un domaine étranger sont ignorés.
+- `install.sh` : une sonde livrée déjà présente sur l'hôte voit son code **remis à jour** (avant : copiée seulement si
+  absente -- aucune correction de sonde livrée n'atteignait les hôtes) ; `enabled`, `blocked` et `args` locaux conservés ;
+  une sonde du central de même nom n'est pas touchée. Agent 0.5.40.
+
+- Vérifié : `test_mail_server` (13), `tests/test_si_agent.py`, `test_updater`, `bash -n install.sh`, bloc de mise à jour
+  joué sous `LANG=C` (manifeste UTF-8, état conservé, code remplacé). Non vérifié : `--upgrade` réel sur l'hôte.
+- Fichiers : `si-agent/agent/plugins/mail-server/{mail_server.py,test_mail_server.py}`, `si-agent/agent/install.sh`,
+  `si-agent/agent/si_agent/__init__.py`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-07 — Vulnérabilités : travaux en arrière-plan, « État de l'installation », exclusions syft (livraison #693)
 
 Signalé : la tuile « Vulnérabilités » (#688) ne semble pas fonctionner. Causes probables corrigées ou rendues visibles :
