@@ -5,6 +5,7 @@ import {
   importFromNetworkAgent,
 } from "./architectureClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile "Architecture réseau" (hub), livraison #253 -- nouveau
 // chantier, demandé explicitement : quand un équipement remonte dans
 // Zenoss ou lors d'un dysfonctionnement, identifier en un seul
@@ -222,7 +223,7 @@ export default function ArchitectureView({ onBack, architectureApiBase }) {
           </form>
         )}
 
-        <table>
+        <AutoColumns id="ArchitectureView.1"><table>
           <thead><tr><th>Nom</th><th>IP</th><th>Type</th><th></th></tr></thead>
           <tbody>
             {equipmentList.map((eq) => (
@@ -234,7 +235,7 @@ export default function ArchitectureView({ onBack, architectureApiBase }) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></AutoColumns>
       </div>
 
       {loading ? (
@@ -370,7 +371,7 @@ export default function ArchitectureView({ onBack, architectureApiBase }) {
                   {overview.usage.history.length === 0 ? (
                     <p className="muted">Aucun relevé encore enregistré.</p>
                   ) : (
-                    <table>
+                    <AutoColumns id="ArchitectureView.2"><table>
                       <thead><tr><th>Relevé</th><th>Volume cumulé</th></tr></thead>
                       <tbody>
                         {overview.usage.history.map((h, idx) => (
@@ -380,7 +381,7 @@ export default function ArchitectureView({ onBack, architectureApiBase }) {
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </table></AutoColumns>
                   )}
                 </>
               )}

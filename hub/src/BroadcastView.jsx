@@ -7,6 +7,7 @@ import { matchWindowsHosts } from "./campusCards.js";
 import { rankFilter } from "./textFilter.js";
 import { hubLink } from "./hubLinks.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const SEV = { warning: "var(--warning)", critical: "var(--danger)", info: "var(--muted)" };
 const PROTO_LABEL = { arp: "ARP", dhcp: "DHCP", "netbios-ns": "NetBIOS (noms)", "netbios-dgm": "NetBIOS (datagrammes)", mdns: "mDNS / Bonjour", ssdp: "SSDP / UPnP", llmnr: "LLMNR", "ws-discovery": "WS-Discovery", lldp: "LLDP", cdp: "CDP", stp: "STP", "icmpv6-ra": "IPv6 annonce routeur", "icmpv6-ns": "IPv6 sollicitation voisin", "icmpv6-na": "IPv6 annonce voisin", mld: "MLD", igmp: "IGMP", anydesk: "AnyDesk", "anydesk-discovery": "AnyDesk (découverte)", artnet: "Art-Net", dropbox: "Dropbox LAN", steam: "Steam", "mikrotik-ndp": "MikroTik NDP", vrrp: "VRRP", hsrp: "HSRP", "ubiquiti-discovery": "Ubiquiti", capwap: "CAPWAP", snmp: "SNMP", "snmp-trap": "SNMP trap", ntp: "NTP", plex: "Plex", "wake-on-lan": "Wake-on-LAN", sip: "SIP" };
 
@@ -61,7 +62,7 @@ export default function BroadcastView({ siAgentApiBase, assets = [], site = "", 
             {probe.protocols.map((p) => <span key={p.proto} className="na-chip" title={`${p.sources} émetteur(s)`}>{PROTO_LABEL[p.proto] || p.proto} <strong>{p.frames}</strong></span>)}
           </div>
           {Object.keys(probe.lldp || {}).length > 0 && <p className="muted" style={{ fontSize: 12 }}>LLDP entendu : {Object.values(probe.lldp).map((l) => `${l.sysname || l.chassis} port ${l.port || "?"}`).join(" · ")}</p>}
-          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+          <AutoColumns id="BroadcastView.1"><table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
             <thead><tr><th>Annonceur</th><th>Adresses</th><th>Fiche</th><th>Protocoles</th><th>Services annoncés</th><th>Trames / min</th></tr></thead>
             <tbody>
               {announcers.map((a) => (
@@ -76,7 +77,7 @@ export default function BroadcastView({ siAgentApiBase, assets = [], site = "", 
               ))}
               {!announcers.length && <tr><td colSpan={6} className="muted">Rien d'entendu sur la fenêtre.</td></tr>}
             </tbody>
-          </table>
+          </table></AutoColumns>
         </>
       )}
     </div>

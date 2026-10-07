@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { hubLink } from "./hubLinks.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 export function recordsToCsv(records, columns) {
   const esc = (v) => { v = v == null ? "" : String(v); return /[";\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; };
   return "﻿" + [columns.map(esc).join(";"), ...records.map((r) => columns.map((c) => esc(r[c])).join(";"))].join("\r\n");
@@ -54,10 +55,10 @@ export default function CampusExtract({ assistantUrl, collection, onImport, onCl
           {result.sensitive.length > 0 && <p className="muted" style={{ margin: "0 0 4px" }}>Champs signalés sensibles : {result.sensitive.join(", ")} — stockés dans la base du hub (volume du serveur), jamais dans le code ni sur la page publiée.</p>}
           {result.remarks.length > 0 && <ul style={{ margin: "0 0 6px", paddingLeft: 18 }}>{result.remarks.map((r, i) => <li key={i} style={{ color: "var(--warning)" }}>{typeof r === "string" ? r : JSON.stringify(r)}</li>)}</ul>}
           <div style={{ overflow: "auto", maxHeight: 300 }}>
-            <table style={{ borderCollapse: "collapse", textAlign: "left", fontSize: 12 }}>
+            <AutoColumns id="CampusExtract.1"><table style={{ borderCollapse: "collapse", textAlign: "left", fontSize: 12 }}>
               <thead><tr>{result.columns.map((c) => <th key={c} style={{ color: result.sensitive.includes(c) ? "var(--warning)" : undefined }}>{c}</th>)}</tr></thead>
               <tbody>{result.fiches.map((f, i) => <tr key={i}>{result.columns.map((c) => <td key={c}><input value={f[c] ?? ""} onChange={(e) => { const fiches = result.fiches.slice(); fiches[i] = { ...fiches[i], [c]: e.target.value }; setResult({ ...result, fiches }); }} style={{ width: Math.max(80, Math.min(260, String(f[c] ?? "").length * 7)) }} /></td>)}</tr>)}</tbody>
-            </table>
+            </table></AutoColumns>
           </div>
           <button type="button" className="primary" style={{ marginTop: 8 }} onClick={() => onImport(new Blob([recordsToCsv(result.fiches, result.columns)], { type: "text/csv" }), "extraction-ia.csv")}>Importer ces fiches (fusion)</button>
         </div>

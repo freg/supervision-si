@@ -4,6 +4,7 @@ import {
   querySnmpSystemInfo, walkSnmpInterfaces, importSnmpTargetsToGlpi,
 } from "./snmpClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Onglet SNMP (hub), livraison #227 -- interface pour snmp-api
 // (#212-213, jusqu'ici accessible seulement via curl). Deux
 // sections : Cibles enregistrées (communauté chiffrée côté serveur,
@@ -236,7 +237,7 @@ export default function SnmpView({ onBack, snmpApiBase, glpiApiBase, login }) {
             {interfaces.length === 0 ? (
               <p className="muted">Aucune interface renvoyée par la cible.</p>
             ) : (
-              <table>
+              <AutoColumns id="SnmpView.1"><table>
                 <thead>
                   <tr><th>Description</th><th>Statut</th><th>Débit</th></tr>
                 </thead>
@@ -249,7 +250,7 @@ export default function SnmpView({ onBack, snmpApiBase, glpiApiBase, login }) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></AutoColumns>
             )}
           </div>
         )}

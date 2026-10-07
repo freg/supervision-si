@@ -11,6 +11,7 @@ import { viewParams } from "./hubLinks.js";
 import * as api from "./notifyClient.js";
 import { byModule, filterActions, effectiveGroups, parseEmails, queueSummary, groupLabel, STATUS_LABEL, STATUS_TONE, SEVERITY_LABEL } from "./notifyLib.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const TABS = [
   { id: "assign", label: "🎯 Affectations" },
   { id: "groups", label: "👥 Groupes" },
@@ -61,7 +62,7 @@ function Assignments({ b, t, groups, notice }) {
             <span style={{ flex: 1 }} />
             {!list.some((a) => a.id === `${module}.*`) && <button type="button" className="secondary" onClick={() => addModuleRule(module)}>règle pour tout le module</button>}
           </div>
-          <table className="hub-table">
+          <AutoColumns id="NotificationsView.1"><table className="hub-table">
             <thead><tr><th>Action</th><th>Gravité</th><th>Vues</th><th>Effectif</th>{(groups || []).map((g) => <th key={g.id} title={g.id}>{g.name}</th>)}</tr></thead>
             <tbody>
               {list.map((a) => {
@@ -77,7 +78,7 @@ function Assignments({ b, t, groups, notice }) {
                 );
               })}
             </tbody>
-          </table>
+          </table></AutoColumns>
         </div>
       ))}
       {!actions.length && <p className="muted">aucune action déclarée encore : les modules s'enregistrent à leur démarrage (Cisco, MikroTik, tour de contrôle) et toute notification reçue crée son action.</p>}
@@ -114,7 +115,7 @@ function Groups({ b, t, groups, reload, notice }) {
         <select value={newKind} onChange={(e) => setNewKind(e.target.value)}><option value="group">groupe (adresses)</option><option value="meta">méta-groupe (union de groupes)</option></select>
         <button type="button" className="primary" disabled={!newName.trim()} onClick={create}>Créer</button>
       </div>
-      <table className="hub-table">
+      <AutoColumns id="NotificationsView.2"><table className="hub-table">
         <thead><tr><th>Groupe</th><th>Type</th><th>Adresses</th><th>Membres</th><th>Adresses effectives</th><th></th></tr></thead>
         <tbody>
           {(groups || []).map((g) => (
@@ -131,7 +132,7 @@ function Groups({ b, t, groups, reload, notice }) {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></AutoColumns>
       {edit && (
         <div className="hub-card" style={{ marginTop: 12 }}>
           <h3 style={{ marginTop: 0 }}>{edit.id}</h3>
@@ -173,7 +174,7 @@ function Queue({ b, t, notice }) {
         <select value={status} onChange={(e) => setStatus(e.target.value)}><option value="">tous les états</option>{Object.entries(STATUS_LABEL).filter(([k]) => k !== "merged").map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
         <button type="button" className="secondary" onClick={load}>↻</button>
       </div>
-      <table className="hub-table">
+      <AutoColumns id="NotificationsView.3"><table className="hub-table">
         <thead><tr><th>#</th><th>Quand</th><th>Action</th><th>Sujet</th><th>Destinataires</th><th>État</th><th></th></tr></thead>
         <tbody>
           {(data?.queue || []).map((q) => (
@@ -191,7 +192,7 @@ function Queue({ b, t, notice }) {
           ))}
           {!(data?.queue || []).length && <tr><td colSpan={7} className="muted">rien</td></tr>}
         </tbody>
-      </table>
+      </table></AutoColumns>
       {detail && (
         <div className="hub-card" style={{ marginTop: 12 }}>
           <div style={{ display: "flex", gap: 8 }}><h3 style={{ margin: 0 }}>#{detail.id} — {detail.subject}</h3><span style={{ flex: 1 }} /><button type="button" className="secondary" onClick={() => setDetail(null)}>Fermer</button></div>
@@ -201,8 +202,8 @@ function Queue({ b, t, notice }) {
         </div>
       )}
       <h3>Journal du gestionnaire</h3>
-      <table className="hub-table"><thead><tr><th>Quand</th><th>Événement</th><th>Détail</th></tr></thead>
-        <tbody>{events.map((e, i) => <tr key={i}><td className="muted" style={{ whiteSpace: "nowrap" }}>{when(e.at)}</td><td>{e.event}</td><td>{e.text}</td></tr>)}</tbody></table>
+      <AutoColumns id="NotificationsView.4"><table className="hub-table"><thead><tr><th>Quand</th><th>Événement</th><th>Détail</th></tr></thead>
+        <tbody>{events.map((e, i) => <tr key={i}><td className="muted" style={{ whiteSpace: "nowrap" }}>{when(e.at)}</td><td>{e.event}</td><td>{e.text}</td></tr>)}</tbody></table></AutoColumns>
     </div>
   );
 }
@@ -230,10 +231,10 @@ function Consumers({ b, t, notice }) {
           <code> POST {apiUrl}</code> avec l'en-tête <code>X-Notify-Token</code> et un corps <code>{"{"}"action": "ged.upload", "subject": "…", "body": "…", "context": {"{}"}{"}"}</code>. L'action est créée au premier appel avec son groupe par défaut.</p>
         <div style={{ display: "flex", gap: 8 }}><input placeholder="nom du service (ex. ged-externe)" value={name} onChange={(e) => setName(e.target.value)} /><button type="button" className="primary" disabled={!name.trim()} onClick={create}>Émettre un jeton</button></div>
         {tokenShown && <p><Tone tone="orange">Jeton de « {tokenShown.name} » (copier maintenant, il ne sera plus affiché) :</Tone> <code>{tokenShown.token}</code></p>}
-        <table className="hub-table"><thead><tr><th>Service</th><th>Créé</th><th>Dernier appel</th><th></th></tr></thead>
+        <AutoColumns id="NotificationsView.5"><table className="hub-table"><thead><tr><th>Service</th><th>Créé</th><th>Dernier appel</th><th></th></tr></thead>
           <tbody>{list.map((c) => <tr key={c.name}><td>{c.name}</td><td className="muted">{when(c.created_at)}</td><td className="muted">{c.last_seen ? when(c.last_seen) : "jamais"}</td>
             <td><button type="button" className="secondary" onClick={async () => { if (window.confirm(`Révoquer le jeton de « ${c.name} » ?`)) { await api.deleteConsumer(b, t, c.name); load(); } }}>Révoquer</button></td></tr>)}
-          {!list.length && <tr><td colSpan={4} className="muted">aucun service externe</td></tr>}</tbody></table>
+          {!list.length && <tr><td colSpan={4} className="muted">aucun service externe</td></tr>}</tbody></table></AutoColumns>
       </div>
       <div className="hub-card">
         <h3 style={{ marginTop: 0 }}>Liste noire</h3>
@@ -244,9 +245,9 @@ function Consumers({ b, t, notice }) {
           <input placeholder="raison" value={blNew.reason} onChange={(e) => setBlNew({ ...blNew, reason: e.target.value })} />
           <button type="button" className="secondary" disabled={!blNew.value.trim()} onClick={async () => { const r = await api.addBlacklist(b, t, blNew); notice(r.error || "ajouté", !r.error); setBlNew({ ...blNew, value: "", reason: "" }); load(); }}>Ajouter</button>
         </div>
-        <table className="hub-table"><thead><tr><th>Type</th><th>Valeur</th><th>Raison</th><th></th></tr></thead>
+        <AutoColumns id="NotificationsView.6"><table className="hub-table"><thead><tr><th>Type</th><th>Valeur</th><th>Raison</th><th></th></tr></thead>
           <tbody>{bl.map((x) => <tr key={x.kind + x.value}><td>{x.kind}</td><td><code>{x.value}</code></td><td className="muted">{x.reason}</td><td><button type="button" className="secondary" onClick={async () => { await api.delBlacklist(b, t, x.kind, x.value); load(); }}>Retirer</button></td></tr>)}
-          {!bl.length && <tr><td colSpan={4} className="muted">vide</td></tr>}</tbody></table>
+          {!bl.length && <tr><td colSpan={4} className="muted">vide</td></tr>}</tbody></table></AutoColumns>
       </div>
     </div>
   );

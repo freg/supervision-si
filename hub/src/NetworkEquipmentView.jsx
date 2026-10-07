@@ -8,6 +8,7 @@ import {
   displayName, pollTone, topologyRows, previewSummary, KIND_CHOICES, isNetworkGear,
 } from "./networkEquipment.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile « Équipements réseau » (livraison #506) -- facette de l'exploration :
 // QUI sont les routeurs/switchs du LAN (constructeur, modèle, système,
 // génération : récent MikroTik ou ancien de l'origine de la boucle locale)
@@ -216,12 +217,12 @@ export default function NetworkEquipmentView({ onBack, networkEquipmentApiBase }
             {zenossPreview.result.preview?.length > 0 && <> Identification prévue : {previewSummary(zenossPreview.result.preview)}.</>}
           </p>
           <div className="hub-table-scroll" style={{ maxHeight: 220 }}>
-            <table>
+            <AutoColumns id="NetworkEquipmentView.1"><table>
               <thead><tr><th>Équipement</th><th>IP</th><th>Classe Zenoss</th><th>Constructeur</th><th>Modèle</th><th>Genre</th><th>Génération</th></tr></thead>
               <tbody>{(zenossPreview.result.preview || []).map((p, i) => (
                 <tr key={i}><td>{p.name}</td><td><code>{p.ip || "—"}</code></td><td className="muted">{p.device_class || "—"}</td><td>{p.vendor || "—"}</td><td>{p.model || "—"}</td><td>{kindLabel(p.kind)}</td><td><Tone tone={generationTone(p.generation)}>{generationLabel(p.generation)}</Tone></td></tr>
               ))}</tbody>
-            </table>
+            </table></AutoColumns>
           </div>
           <p>
             <button disabled={busy} onClick={confirmZenoss}>Importer ces {zenossPreview.result.parsed} fiche(s)</button>{" "}
@@ -255,7 +256,7 @@ export default function NetworkEquipmentView({ onBack, networkEquipmentApiBase }
 
           <div className="ne-layout">
             <div className="hub-table-scroll ne-table">
-              <table>
+              <AutoColumns id="NetworkEquipmentView.2"><table>
                 <thead><tr><th></th><th>Équipement</th><th>IP</th><th>MAC</th><th>Constructeur</th><th>Modèle</th><th>Système</th><th>Genre</th><th>Génération</th><th>Confiance</th><th>Sources</th><th>Profil</th><th>Dernier relevé</th></tr></thead>
                 <tbody>{visible.map((r) => {
                   const conf = confidenceLabel(r.confidence);
@@ -278,7 +279,7 @@ export default function NetworkEquipmentView({ onBack, networkEquipmentApiBase }
                     </tr>
                   );
                 })}</tbody>
-              </table>
+              </table></AutoColumns>
               {visible.length === 0 && <p className="muted">Aucune fiche{rows.length === 0 ? " -- « Importer l'exploration » ou « Importer Zenoss… » pour commencer." : " avec ces filtres."}</p>}
             </div>
 
@@ -302,14 +303,14 @@ export default function NetworkEquipmentView({ onBack, networkEquipmentApiBase }
           {!topology && <p className="muted">Chargement…</p>}
           {topology && topologyRows(topology).length === 0 && <p className="muted">Aucun lien encore : identifier les switchs et routeurs par SNMP (les voisins LLDP/CDP et les ports d'accès des tables MAC sont rapprochés des fiches connues).</p>}
           {topology && topologyRows(topology).length > 0 && (
-            <div className="hub-table-scroll"><table>
+            <div className="hub-table-scroll"><AutoColumns id="NetworkEquipmentView.3"><table>
               <thead><tr><th>De</th><th>Vers</th><th>Vu par</th><th>Ports</th></tr></thead>
               <tbody>{topologyRows(topology).map((l, i) => (
                 <tr key={i}><td><button className="secondary" style={{ padding: "0 6px" }} onClick={() => { setTab("inventory"); setSelectedId(l.fromId); }}>{l.from}</button></td>
                   <td><button className="secondary" style={{ padding: "0 6px" }} onClick={() => { setTab("inventory"); setSelectedId(l.toId); }}>{l.to}</button></td>
                   <td>{l.via}</td><td className="muted">{l.ports}</td></tr>
               ))}</tbody>
-            </table></div>
+            </table></AutoColumns></div>
           )}
         </div>
       )}
@@ -322,14 +323,14 @@ export default function NetworkEquipmentView({ onBack, networkEquipmentApiBase }
             <details key={p.id} style={{ marginBottom: 8 }}>
               <summary><strong>{p.label}</strong> <span className="muted">({p.id})</span> {p.verified ? <Tone tone="good">vérifié</Tone> : <Tone tone="warn">non vérifié</Tone>}</summary>
               {p.notes?.length > 0 && <ul className="muted" style={{ fontSize: 12 }}>{p.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>}
-              <div className="hub-table-scroll"><table style={{ fontSize: 12 }}>
+              <div className="hub-table-scroll"><AutoColumns id="NetworkEquipmentView.4"><table style={{ fontSize: 12 }}>
                 <thead><tr><th>Relevé</th><th>OID</th><th>Type</th></tr></thead>
                 <tbody>
                   {Object.entries(p.gets || {}).map(([k, g]) => <tr key={`g${k}`}><td>{g.label}</td><td><code>{g.oid}</code></td><td className="muted">GET{g.unit ? ` (${g.unit})` : ""}</td></tr>)}
                   {Object.entries(p.walks || {}).map(([k, w]) => <tr key={`w${k}`}><td>{w.label}</td><td><code>{w.oid}</code></td><td className="muted">WALK{w.unit ? ` (${w.unit})` : ""}</td></tr>)}
                   {Object.entries(p.common || {}).map(([k, w]) => <tr key={`c${k}`}><td>{w.label}</td><td><code>{w.oid}</code></td><td className="muted">WALK (commun)</td></tr>)}
                 </tbody>
-              </table></div>
+              </table></AutoColumns></div>
             </details>
           ))}
         </div>
@@ -397,10 +398,10 @@ function EquipmentDetail({ detail, access, setAccess, busy, apiBase, onIdentify,
           {(lp.summary?.alarms || []).length > 0 && <ul style={{ margin: "4px 0" }}>{lp.summary.alarms.map((a, i) => <li key={i}><Tone tone="bad">{a}</Tone></li>)}</ul>}
           {(lp.summary?.components || []).length > 0 && <p className="muted" style={{ fontSize: 12 }}>{lp.summary.components.map((c) => `${c.name} : ${c.state}`).join(" · ")}</p>}
           {(lp.interfaces || []).length > 0 && (
-            <div className="hub-table-scroll" style={{ maxHeight: 180 }}><table style={{ fontSize: 12 }}>
+            <div className="hub-table-scroll" style={{ maxHeight: 180 }}><AutoColumns id="NetworkEquipmentView.5"><table style={{ fontSize: 12 }}>
               <thead><tr><th>Interface</th><th>État</th><th>Vitesse</th></tr></thead>
               <tbody>{lp.interfaces.map((i, k) => <tr key={k}><td>{i.ifDescr}</td><td><Tone tone={i.ifOperStatus === "up" ? "good" : "neutral"}>{i.ifOperStatus}</Tone></td><td className="muted">{i.ifSpeed}</td></tr>)}</tbody>
-            </table></div>
+            </table></AutoColumns></div>
           )}
           {(lp.errors || []).length > 0 && <p className="muted" style={{ fontSize: 12 }}>Non relevé : {lp.errors.join(" ; ")}</p>}
           <details><summary className="muted" style={{ fontSize: 12 }}>valeurs brutes</summary><pre style={{ fontSize: 11, maxHeight: 240, overflow: "auto" }}>{JSON.stringify({ gets: lp.gets, walks: lp.walks }, null, 1)}</pre></details>
@@ -410,21 +411,21 @@ function EquipmentDetail({ detail, access, setAccess, busy, apiBase, onIdentify,
       <details open={(detail.neighbors || []).length > 0}>
         <summary><strong>Voisins</strong> <span className="muted">({(detail.neighbors || []).length} LLDP/CDP · {detail.fdb_count || 0} MAC apprise(s))</span></summary>
         {(detail.neighbors || []).length > 0 && (
-          <table style={{ fontSize: 12 }}><thead><tr><th>Port local</th><th>Voisin</th><th>Port distant</th><th>Vu par</th></tr></thead>
+          <AutoColumns id="NetworkEquipmentView.6"><table style={{ fontSize: 12 }}><thead><tr><th>Port local</th><th>Voisin</th><th>Port distant</th><th>Vu par</th></tr></thead>
             <tbody>{detail.neighbors.map((n) => (
               <tr key={n.id}><td>{n.local_port || "—"}</td>
                 <td>{n.remote_equipment_id ? <button className="secondary" style={{ padding: "0 6px" }} onClick={() => onSelect(n.remote_equipment_id)}>{n.remote_name || n.remote_chassis || n.remote_address}</button> : (n.remote_name || n.remote_chassis || n.remote_address || "?")}{n.remote_platform && <span className="muted"> · {n.remote_platform}</span>}</td>
                 <td className="muted">{n.remote_port || "—"}</td><td className="muted">{n.protocol.toUpperCase()}</td></tr>
-            ))}</tbody></table>
+            ))}</tbody></table></AutoColumns>
         )}
         {(detail.where || []).length > 0 && <p style={{ fontSize: 12, margin: "4px 0" }}>Cet équipement est appris sur : {detail.where.map((w, i) => <span key={i}><button className="secondary" style={{ padding: "0 6px" }} onClick={() => onSelect(w.equipment_id)}>{w.name || w.ip}</button> port {w.port}{w.vlan ? ` (VLAN ${w.vlan})` : ""}{w.port_macs > 1 ? ` (${w.port_macs} MAC sur ce port)` : ""} </span>)}</p>}
         {detail.fdb_count > 0 && !fdb && <button className="secondary" style={{ fontSize: 12 }} onClick={showFdb}>Voir la table des adresses MAC</button>}
         {fdb && (
-          <div className="hub-table-scroll" style={{ maxHeight: 220 }}><table style={{ fontSize: 12 }}>
+          <div className="hub-table-scroll" style={{ maxHeight: 220 }}><AutoColumns id="NetworkEquipmentView.7"><table style={{ fontSize: 12 }}>
             <thead><tr><th>Port</th><th>VLAN</th><th>MAC</th><th>Constructeur</th><th>Fiche</th></tr></thead>
             <tbody>{(fdb.fdb || []).map((f) => <tr key={f.id}><td>{f.port || f.bridge_port}</td><td className="muted">{f.vlan || "—"}</td><td><code>{f.mac}</code></td><td className="muted">{f.oui_vendor || "—"}</td>
               <td>{f.known ? <button className="secondary" style={{ padding: "0 6px" }} onClick={() => onSelect(f.known.id)}>{f.known.name || f.known.ip}</button> : <span className="muted">inconnue</span>}</td></tr>)}</tbody>
-          </table></div>
+          </table></AutoColumns></div>
         )}
       </details>
 

@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchSynthese } from "./settingsClient.js";
 import { filterDoc, fillLink, ipLinks, zoneLink, daysUntil, describeIp } from "./syntheseLib.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 function Ext({ href, children, title }) {
   if (!href) return null;
   return <a href={href} target="_blank" rel="noopener noreferrer" title={title || href} className="sy-link">{children} ↗</a>;
@@ -67,7 +68,7 @@ export default function SyntheseView({ onBack, prefsApiBase, onNavigate }) {
 
           <H k="ips" count={view.ovh_ips.length}>IP OVH et services rattachés</H>
           {open.ips && (
-            <table><thead><tr><th>IP / bloc</th><th>Type</th><th>Service OVH</th><th>Noms DNS</th><th>IPAM</th><th>Liens</th></tr></thead>
+            <AutoColumns id="SyntheseView.1"><table><thead><tr><th>IP / bloc</th><th>Type</th><th>Service OVH</th><th>Noms DNS</th><th>IPAM</th><th>Liens</th></tr></thead>
               <tbody>{view.ovh_ips.map((o) => { const info = doc.index[o.ip] || { dns: [], ipam: [], services: [] }; return (
                 <tr key={o.block}>
                   <td><IpCell ip={o.ip} /><div className="muted" style={{ fontSize: 11 }}>{o.block}{o.country ? ` · ${o.country}` : ""}</div></td>
@@ -76,14 +77,14 @@ export default function SyntheseView({ onBack, prefsApiBase, onNavigate }) {
                   <td style={{ fontSize: 12 }}>{info.dns.join(", ") || <span className="muted">—</span>}</td>
                   <td style={{ fontSize: 12 }}>{info.ipam.map((h) => `${h.hostname || "?"} (${h.subnet})`).join(", ") || <span className="muted">—</span>}</td>
                   <td style={{ fontSize: 12 }}>{ipLinks(o.ip, info, links).map((l) => <Ext key={l.label} href={l.href}>{l.label}</Ext>)}</td>
-                </tr>); })}</tbody></table>
+                </tr>); })}</tbody></table></AutoColumns>
           )}
 
           <H k="zones" count={view.zones.reduce((n, z) => n + z.records.length, 0)}>Zones DNS</H>
           {open.zones && view.zones.map((z) => (
             <div key={z.zone} style={{ marginBottom: 10 }}>
               <h4 style={{ margin: "6px 0 4px" }}>{z.zone} <span className="muted" style={{ fontSize: 12, fontWeight: "normal" }}>· {z.provider || "?"} · {z.records.length} enregistrements</span> <Ext href={zoneLink(z, links)}>gérer la zone</Ext>{z.provider === "ovh" && <Ext href={fillLink(links.ovh_domain, { zone: z.zone })}>domaine</Ext>}</h4>
-              <table><thead><tr><th>Nom</th><th>Type</th><th>Valeur</th><th>TTL</th><th>Note</th></tr></thead>
+              <AutoColumns id="SyntheseView.2"><table><thead><tr><th>Nom</th><th>Type</th><th>Valeur</th><th>TTL</th><th>Note</th></tr></thead>
                 <tbody>{z.records.map((r, i) => (
                   <tr key={i}>
                     <td><code>{r.name}</code>{r.name !== "@" && <span className="muted" style={{ fontSize: 11 }}> {r.fqdn}</span>}</td>
@@ -92,7 +93,7 @@ export default function SyntheseView({ onBack, prefsApiBase, onNavigate }) {
                     <td className="muted" style={{ fontSize: 12 }}>{r.ttl ?? "—"}</td>
                     <td className="muted" style={{ fontSize: 12 }}>{r.comment || ""}</td>
                   </tr>
-                ))}</tbody></table>
+                ))}</tbody></table></AutoColumns>
             </div>
           ))}
 
@@ -100,7 +101,7 @@ export default function SyntheseView({ onBack, prefsApiBase, onNavigate }) {
           {open.ipam && view.ipam.subnets.map((s) => (
             <div key={s.cidr || s.title} style={{ marginBottom: 10 }}>
               <h4 style={{ margin: "6px 0 4px" }}>{s.title || s.cidr} <span className="muted" style={{ fontSize: 12, fontWeight: "normal" }}>· {s.cidr}{s.vlan ? ` · vlan ${s.vlan}` : ""}</span> {links.ipam_url && <Ext href={links.ipam_url}>ouvrir IPAM</Ext>}</h4>
-              <table><thead><tr><th>IP</th><th>Hôte</th><th>Description</th><th>MAC</th><th>Équipement / port</th><th>Lieu</th><th>Reverse</th></tr></thead>
+              <AutoColumns id="SyntheseView.3"><table><thead><tr><th>IP</th><th>Hôte</th><th>Description</th><th>MAC</th><th>Équipement / port</th><th>Lieu</th><th>Reverse</th></tr></thead>
                 <tbody>{s.hosts.map((h) => (
                   <tr key={h.ip}>
                     <td><IpCell ip={h.ip} /></td>
@@ -111,29 +112,29 @@ export default function SyntheseView({ onBack, prefsApiBase, onNavigate }) {
                     <td style={{ fontSize: 12 }}>{h.location || ""}</td>
                     <td style={{ fontSize: 12 }}>{h.reverse || ""}</td>
                   </tr>
-                ))}</tbody></table>
+                ))}</tbody></table></AutoColumns>
             </div>
           ))}
 
           <H k="devices" count={view.ipam.devices.length}>Équipements (IPAM)</H>
           {open.devices && (
-            <table><thead><tr><th>Nom</th><th>IP</th><th>Type</th><th>Constructeur</th><th>Modèle</th><th></th></tr></thead>
+            <AutoColumns id="SyntheseView.4"><table><thead><tr><th>Nom</th><th>IP</th><th>Type</th><th>Constructeur</th><th>Modèle</th><th></th></tr></thead>
               <tbody>{view.ipam.devices.map((d) => (
                 <tr key={d.name + d.ip}>
                   <td>{d.name}</td><td><IpCell ip={d.ip} /></td><td>{d.type || ""}</td><td>{d.vendor || ""}</td><td>{d.model || ""}</td>
                   <td>{onNavigate && <button type="button" className="secondary" onClick={() => onNavigate("network-equipment")}>fiche hub</button>}</td>
                 </tr>
-              ))}</tbody></table>
+              ))}</tbody></table></AutoColumns>
           )}
 
           <H k="services" count={view.ovh_services.length}>Services OVH — échéances</H>
           {open.services && (
-            <table><thead><tr><th>Service</th><th>Type</th><th>Statut</th><th>Renouvellement</th><th>Échéance</th></tr></thead>
+            <AutoColumns id="SyntheseView.5"><table><thead><tr><th>Service</th><th>Type</th><th>Statut</th><th>Renouvellement</th><th>Échéance</th></tr></thead>
               <tbody>{view.ovh_services.map((s, i) => { const d = daysUntil(s.effective_iso); return (
                 <tr key={i}>
                   <td>{s.service}{s.ip && <> <IpCell ip={s.ip} /></>}</td><td>{s.type}</td><td>{s.status}</td><td style={{ fontSize: 12 }}>{s.renewal}</td>
                   <td style={{ fontSize: 12 }}>{s.effective}{d != null && <span className={d < 0 ? "sy-late" : d <= 60 ? "sy-soon" : "muted"}> ({d < 0 ? `dépassée de ${-d} j` : `dans ${d} j`})</span>}</td>
-                </tr>); })}</tbody></table>
+                </tr>); })}</tbody></table></AutoColumns>
           )}
 
           <H k="sources" count={doc.sources.length}>Sources de cette synthèse</H>

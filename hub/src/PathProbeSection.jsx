@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { fetchAgentMeasurements } from "./siAgentClient.js";
 import { pathRows, pathWorst, pathLabel, dnsSummary, pathTone, pctTone, fmt } from "./pathLib.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 function T({ tone, children, title }) {
   return <span className={`np-tone ${tone || "neutral"}`} title={title}>{children}</span>;
 }
@@ -45,7 +46,7 @@ export default function PathProbeSection({ apiBase, agentId, latest, when }) {
       <h3>Chemin de service vu du poste <span className="muted" style={{ textTransform: "none", letterSpacing: 0 }}>· sonde path-probe du {when(latest.at)} · <T tone={pathTone(d.summary?.state)}>{d.summary?.state || "ok"}</T>{d.rotated_to ? ` · connexion activée : ${d.rotated_to}` : ""}</span></h3>
       {d.error ? <p className="muted">⚠️ {d.error}</p> : (
         <div className="hub-table-scroll">
-          <table>
+          <AutoColumns id="PathProbeSection.1"><table>
             <thead><tr><th>Chemin</th><th>Adresse / bail</th><th>Passerelle</th><th>DNS distribués</th><th>DNS publics</th><th>HTTP</th><th>HTTPS</th><th>État</th></tr></thead>
             <tbody>{(d.paths || []).map((p, i) => (
               <tr key={(p.iface || "") + i}>
@@ -59,7 +60,7 @@ export default function PathProbeSection({ apiBase, agentId, latest, when }) {
                 <td><T tone={pathTone(p.summary?.state)}>{p.summary?.state || "ok"}</T></td>
               </tr>
             ))}</tbody>
-          </table>
+          </table></AutoColumns>
         </div>
       )}
       {(d.alerts || []).length > 0 && (
@@ -71,7 +72,7 @@ export default function PathProbeSection({ apiBase, agentId, latest, when }) {
         <details style={{ marginTop: 6 }}>
           <summary className="muted">Historique ({rows.length} lignes) — {worst.map((w) => `${w.label} : ${w.samples} passages, ${w.critical} critique(s), ${w.noIp} sans adresse, ${w.dnsFail} avec un DNS muet, ${w.httpFail} HTTP en échec, pire HTTP ${fmt(w.httpMs, " ms")}`).join(" · ")}</summary>
           <div className="hub-table-scroll">
-            <table>
+            <AutoColumns id="PathProbeSection.2"><table>
               <thead><tr><th>Heure</th><th>Chemin</th><th>Adresse</th><th>Passerelle ms</th><th>Pertes %</th><th>DNS ok</th><th>DNS ms</th><th>Publics ok</th><th>HTTP ms</th><th>HTTPS ms</th><th>État</th></tr></thead>
               <tbody>{rows.map((r, i) => (
                 <tr key={r.at + r.label + i}>
@@ -88,7 +89,7 @@ export default function PathProbeSection({ apiBase, agentId, latest, when }) {
                   <td><T tone={pathTone(r.state)}>{r.state}{r.alerts ? ` (${r.alerts})` : ""}</T></td>
                 </tr>
               ))}</tbody>
-            </table>
+            </table></AutoColumns>
           </div>
           {rows.length >= limit && <button type="button" className="secondary" onClick={() => setLimit(limit + 120)}>Plus d'historique</button>}
         </details>

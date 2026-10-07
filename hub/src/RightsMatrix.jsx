@@ -9,6 +9,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { buildCatalog, grantIndex, cellState, grantFor, columnSubjects, subjectKey } from "./rightsCatalog.js";
 import { fetchMatrix, putCatalog, putMatrix, putRestriction } from "./rightsClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const KNOWN_GROUPS = ["administrateurs", "admin_hub", "techniciens", "demandeurs", "direction", "supervision", "service", "maitre_clefs", "projeqtor"];
 const ALWAYS_ALL = new Set(["admin_hub", "administrateurs"]);
 
@@ -87,7 +88,7 @@ export default function RightsMatrix({ rightsApiBase, accountsApiBase, groups, l
         <button type="button" className="secondary" disabled={busy} onClick={load}>Actualiser</button>
       </div>
       <div style={{ overflow: "auto", maxHeight: "70vh", border: "1px solid var(--border)", borderRadius: 8 }}>
-        <table style={{ width: "100%", textAlign: "left", borderCollapse: "collapse" }}>
+        <AutoColumns id="RightsMatrix.1"><table style={{ width: "100%", textAlign: "left", borderCollapse: "collapse" }}>
           <thead style={{ position: "sticky", top: 0, background: "var(--panel)", zIndex: 1 }}>
             <tr style={{ textAlign: "left" }}>
               <th style={{ minWidth: 220 }}>Tuile</th>
@@ -125,7 +126,7 @@ export default function RightsMatrix({ rightsApiBase, accountsApiBase, groups, l
               </React.Fragment>
             ))}
           </tbody>
-        </table>
+        </table></AutoColumns>
       </div>
     </div>
   );

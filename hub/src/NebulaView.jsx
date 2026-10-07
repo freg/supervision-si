@@ -11,6 +11,7 @@ import NebulaPlan from "./NebulaPlan.jsx";
 import NebulaReports from "./NebulaReports.jsx";  // #703
 import CampusView from "./CampusView.jsx";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Onglet Nebula (hub), livraison #228 -- interface pour nebula-api
 // (#196-200) et le pont vers GLPI (#208), jusqu'ici accessibles
 // seulement via curl.
@@ -236,7 +237,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, siAgent
               <p className="muted">Aucun import enregistré pour ce type.</p>
             ) : (
               <>
-                <table>
+                <AutoColumns id="NebulaView.1"><table>
                   <thead>
                     <tr><th></th><th>Fichier</th><th>Date</th><th>Lignes</th><th>Archive GED</th></tr>
                   </thead>
@@ -257,7 +258,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, siAgent
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></AutoColumns>
                 <button
                   disabled={busy || selectedBatchIds.length === 0}
                   onClick={handleDeleteSelectedBatches}
@@ -279,7 +280,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, siAgent
         ) : rows.length === 0 ? (
           <p className="muted">Aucune donnée importée pour l'instant -- utilisez "Importer un CSV des {activeTab.label}" ci-dessus.</p>
         ) : (
-          <table>
+          <AutoColumns id="NebulaView.2"><table>
             <thead>
               <tr>{activeTab.columns.map((c) => <th key={c}>{c}</th>)}</tr>
             </thead>
@@ -290,7 +291,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, siAgent
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></AutoColumns>
         )}
         </>)}
       </div>

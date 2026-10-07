@@ -3,6 +3,7 @@ import { listProjects, getProject, createProject, updateProject, deleteProject, 
 import { STEP_LABELS, defaultSteps, summarizeDecisions, parseSmoke, statusLabel, slugify } from "./portageLib.js";
 import HubIcon from "./HubIcon.jsx";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile « Portage PHP → Python » (hub), livraison #650 -- interface de
 // création d'un PROJET DE PORTAGE avec import du code et des données, puis
 // exécution de l'IA de portage (portage-kit, projet indépendant monté dans
@@ -167,7 +168,7 @@ export default function PortageView({ onBack, portageApiBase }) {
                 <button className="primary" type="submit" disabled={busy === "create"}>Créer le projet</button>
               </form>
             )}
-            <table className="pt-table">
+            <AutoColumns id="PortageView.1"><table className="pt-table">
               <thead><tr><th>Projet</th><th>Type</th><th>Code</th><th>Dump</th><th>Dernière exécution</th><th>Port généré</th></tr></thead>
               <tbody>
                 {list.map((p) => (
@@ -179,7 +180,7 @@ export default function PortageView({ onBack, portageApiBase }) {
                 ))}
                 {list.length === 0 && <tr><td colSpan={6} className="muted">Aucun projet : créez-en un, puis importez le code et le dump.</td></tr>}
               </tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         </>
       )}
@@ -245,13 +246,13 @@ export default function PortageView({ onBack, portageApiBase }) {
             <div className="hub-card hub-settings-section">
               <h2>4. Décisions du PORT_SPEC <span className="muted">({sum.total} unités : {sum.porter} à porter, {sum.differe} différées, {sum.mort} abandonnées, {sum.vide} sans décision)</span></h2>
               {units.length === 0 ? <p className="muted">Lancez l'inventaire pour obtenir la liste des unités (modes du monolithe ou routes Fat-Free).</p> : (
-                <div className="pt-scroll"><table className="pt-table">
+                <div className="pt-scroll"><AutoColumns id="PortageView.2"><table className="pt-table">
                   <thead><tr><th>Unité</th><th>Fichier</th><th>Lit</th><th>Écrit</th><th>Entrées</th><th>Mail</th><th>Décision</th></tr></thead>
                   <tbody>{units.map((u) => (
                     <tr key={u.unit}><td><code>{u.unit}</code></td><td className="muted">{u.file}</td><td>{u.reads}</td><td>{u.writes}</td><td className="muted">{u.inputs}</td><td>{u.mail}</td>
                       <td><select value={pending[u.unit] !== undefined ? pending[u.unit] : u.decision} onChange={(e) => setPending((p) => ({ ...p, [u.unit]: e.target.value }))}>
                         {choices.map((c) => <option key={c} value={c}>{c || "— (porter)"}</option>)}</select></td></tr>
-                  ))}</tbody></table></div>
+                  ))}</tbody></table></AutoColumns></div>
               )}
               {Object.keys(pending).length > 0 && <button className="primary" onClick={saveDecisions} disabled={busy === "decisions"}>Enregistrer {Object.keys(pending).length} décision(s)</button>}
             </div>
@@ -265,8 +266,8 @@ export default function PortageView({ onBack, portageApiBase }) {
                 {current.files.py && <a className="pt-link" href={archiveUrl(portageApiBase, current.slug)}>⬇ Archive du port généré</a>}
               </div>
               {smoke && smoke.routes.length > 0 && (
-                <table className="pt-table pt-smoke"><thead><tr><th>Route</th><th>Statut</th></tr></thead>
-                  <tbody>{smoke.routes.map((r) => <tr key={r.route}><td><code>{r.route}</code></td><td className={/^2/.test(r.status) ? "pt-ok" : /^(4|5|err)/.test(r.status) ? "pt-ko" : ""}>{r.status}</td></tr>)}</tbody></table>
+                <AutoColumns id="PortageView.3"><table className="pt-table pt-smoke"><thead><tr><th>Route</th><th>Statut</th></tr></thead>
+                  <tbody>{smoke.routes.map((r) => <tr key={r.route}><td><code>{r.route}</code></td><td className={/^2/.test(r.status) ? "pt-ok" : /^(4|5|err)/.test(r.status) ? "pt-ko" : ""}>{r.status}</td></tr>)}</tbody></table></AutoColumns>
               )}
               {smoke && <p className="muted">{smoke.summary}</p>}
               {report.text && report.name !== "smoke" && <pre className="pt-report">{report.text}</pre>}

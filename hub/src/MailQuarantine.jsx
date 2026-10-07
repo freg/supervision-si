@@ -7,6 +7,7 @@
 // une règle exigent le motif saisi en haut de la page (journalisé sur le serveur).
 import { useState } from "react";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const when = (t) => (t ? new Date(t * 1000).toLocaleString("fr-FR") : "—");
 const day = (t) => (t ? new Date(t * 1000).toLocaleDateString("fr-FR") : "—");
 const size = (n) => (n == null ? "" : n > 1e6 ? (n / 1e6).toFixed(1) + " Mo" : n > 1e3 ? Math.round(n / 1e3) + " ko" : n + " o");
@@ -117,12 +118,12 @@ export default function MailQuarantine({ run, reason, onOpen }) {
               g.map((r) => [r.label, r.count, r.recoverable, r.virus, r.released, when(r.first), when(r.last), r.avg_score ?? ""])); }}>⬇ CSV</button>
           </div>
           {Array.isArray(stats.groups[dim]) ? (
-            <table><thead><tr><th>{DIMS.find(([k]) => k === dim)[1]}</th><th>Messages</th><th>Récupérables</th><th>Virus</th><th>Libérés</th><th>Période</th><th>Score moy.</th><th /></tr></thead>
+            <AutoColumns id="MailQuarantine.1"><table><thead><tr><th>{DIMS.find(([k]) => k === dim)[1]}</th><th>Messages</th><th>Récupérables</th><th>Virus</th><th>Libérés</th><th>Période</th><th>Score moy.</th><th /></tr></thead>
               <tbody>{stats.groups[dim].map((r) => (
                 <tr key={r.key}><td>{r.label || <span className="muted">(vide)</span>}</td><td>{r.count}</td><td>{r.recoverable}</td>
                   <td>{r.virus ? <Tone tone="bad">{r.virus}</Tone> : 0}</td><td>{r.released || ""}</td><td>{day(r.first)} → {day(r.last)}</td><td>{r.avg_score ?? "—"}</td>
                   <td style={{ whiteSpace: "nowrap" }}>{dim !== "day" && <button className="secondary" onClick={() => drill(dim, r.key)}>Voir</button>}{" "}
-                    {(dim === "sender" || dim === "sender_domain") && r.key && <button className="secondary" onClick={() => proposeRule(dim === "sender" ? r.key : `@${r.key}`)}>Règle…</button>}</td></tr>))}</tbody></table>
+                    {(dim === "sender" || dim === "sender_domain") && r.key && <button className="secondary" onClick={() => proposeRule(dim === "sender" ? r.key : `@${r.key}`)}>Règle…</button>}</td></tr>))}</tbody></table></AutoColumns>
           ) : <p style={{ color: "var(--danger)" }}>{stats.groups[dim]?.error || "non calculé"}</p>}
         </div>))}
 
@@ -146,7 +147,7 @@ function Rows({ res, level, setRes, onOpen, onRelease, onRule }) {
         {level !== "expired" && <button disabled={!ids.length} onClick={() => onRelease(ids)}>Redistribuer la sélection ({ids.length})</button>}
         <button className="secondary" onClick={exportCsv} disabled={!rows.length}>⬇ CSV</button>
       </div>
-      <table><thead><tr>
+      <AutoColumns id="MailQuarantine.2"><table><thead><tr>
         <th>{level !== "expired" && <input type="checkbox" onChange={(e) => toggleAll(e.target.checked)} />}</th>
         <th>Reçu</th><th>Type</th><th>Score</th><th>De</th><th>À</th><th>Sujet</th><th>Taille</th><th>État</th><th /></tr></thead>
         <tbody>{rows.map((q) => {
@@ -161,7 +162,7 @@ function Rows({ res, level, setRes, onOpen, onRelease, onRule }) {
               <td style={{ whiteSpace: "nowrap" }}>{q.stored && <button className="secondary" onClick={() => onOpen("quarantine", q)}>Voir</button>}{" "}
                 {q.from && <button className="secondary" title="Proposer une règle pour cet expéditeur ou son domaine" onClick={() => onRule(q.from)}>Règle…</button>}</td>
             </tr>);
-        })}</tbody></table>
+        })}</tbody></table></AutoColumns>
     </div>
   );
 }
@@ -199,12 +200,12 @@ function Rules({ rules, reload, draft, setDraft, run, reason, needReason, setRul
         <>
           {!rules.available && <p className="hub-warning">{rules.note || "Tables de règles absentes"} : règles par SQL indisponibles sur ce serveur.</p>}
           {rules.available && !rules.lookup_sql && <p className="hub-warning">Amavis ne consulte pas la base pour les règles (<code>@lookup_sql_dsn</code> absent) : les règles enregistrées ici restent sans effet tant que ce n'est pas activé.</p>}
-          <table><thead><tr><th>Expéditeur</th><th>Destinataire</th><th>Règle</th><th /></tr></thead>
+          <AutoColumns id="MailQuarantine.3"><table><thead><tr><th>Expéditeur</th><th>Destinataire</th><th>Règle</th><th /></tr></thead>
             <tbody>{(rules.rules || []).map((r) => (
               <tr key={`${r.recipient}|${r.sender}`}><td>{r.sender}</td><td>{r.recipient}</td>
                 <td><Tone tone={r.wb === "B" ? "bad" : r.wb === "W" ? "warn" : "neutral"}>{wbLabel(r.wb)}</Tone></td>
                 <td><button className="secondary" disabled={busy} onClick={() => window.confirm(`Supprimer la règle ${r.sender} → ${r.recipient} ?`) && save({ sender: r.sender, recipient: r.recipient, wb: "delete" })}>Supprimer</button></td></tr>))}
-              {!rules.rules?.length && <tr><td colSpan={4} className="muted">Aucune règle.</td></tr>}</tbody></table>
+              {!rules.rules?.length && <tr><td colSpan={4} className="muted">Aucune règle.</td></tr>}</tbody></table></AutoColumns>
           <button className="secondary" onClick={reload} style={{ marginTop: 6 }}>Relire</button>
         </>)}
     </div>

@@ -92,6 +92,7 @@ import FileManagerView from "./FileManagerView.jsx";
 import { logPresenceTransitions } from "./hubLogClient.js";
 import { parseMarkdown } from "./markdown.js";
 import versionInfo from "./VERSION.json";
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 import VersionBadge from "./VersionBadge.jsx";  // #700
 
 const FRONTEND_URL = import.meta.env.VITE_SUPERVISION_FRONTEND_URL || "";
@@ -891,7 +892,7 @@ function ExternalLinksAdminView({ apiBase, login, links, onLinksChanged, onBack 
           {loading && <p className="muted">Chargement…</p>}
           {!loading && links.length === 0 && <p className="muted">Aucun lien externe pour l'instant.</p>}
           {!loading && links.length > 0 && (
-            <table className="hub-external-links-table">
+            <AutoColumns id="App.1"><table className="hub-external-links-table">
               <thead>
                 <tr>
                   <th>Nom</th><th>URL</th><th>Visible par</th><th>Intégré</th><th>Keycloak</th><th></th>
@@ -1006,7 +1007,7 @@ function ExternalLinksAdminView({ apiBase, login, links, onLinksChanged, onBack 
                   </Fragment>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           )}
         </div>
       </div>

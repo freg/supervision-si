@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchProxyStatus, fetchProxyAudit, fetchProxySummary, killProxySession, disableProxy, enableProxy, unbanProxyIp } from "./siProxyClient.js";
 import { KIND_LABELS, EVENT_LABELS, fmtDuration, fmtBytes, clientLabel, describeEvent, sortAudit, refusalsByPeer, headline } from "./siProxy.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const REFRESH_MS = 5000;
 
 function Tone({ tone, children, title }) {
@@ -109,7 +110,7 @@ export default function SiProxyView({ onBack, siProxyApiBase, accessToken, usern
         <h2 style={{ margin: "0 0 6px" }}>Sessions en cours ({sessions.length})</h2>
         {sessions.length === 0 ? <p className="muted" style={{ margin: 0 }}>Aucune session ouverte.</p> : (
           <div className="hub-table-scroll">
-            <table>
+            <AutoColumns id="SiProxyView.1"><table>
               <thead><tr><th>#</th><th>Type</th><th>Cible</th><th>Client</th><th>Depuis</th><th>Ouverte</th><th>Durée</th><th></th></tr></thead>
               <tbody>
                 {sessions.map((s) => (
@@ -120,7 +121,7 @@ export default function SiProxyView({ onBack, siProxyApiBase, accessToken, usern
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         )}
       </div>
@@ -157,10 +158,10 @@ export default function SiProxyView({ onBack, siProxyApiBase, accessToken, usern
         )}
         {!summary?.targets?.length ? <p className="muted" style={{ margin: 0 }}>Aucune cible jointe dans le journal.</p> : (
           <div className="hub-table-scroll">
-            <table>
+            <AutoColumns id="SiProxyView.2"><table>
               <thead><tr><th>Cible</th><th>Sessions</th><th>Types</th><th>Volume</th><th>Dernière</th></tr></thead>
               <tbody>{summary.targets.map((t) => <tr key={t.target}><td>{t.target}</td><td>{t.count}</td><td>{(t.kinds || []).map((k) => KIND_LABELS[k] || k).join(", ")}</td><td>{fmtBytes(t.bytes)}</td><td>{when(t.last)}</td></tr>)}</tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         )}
         <p className="muted" style={{ margin: "6px 0 0" }}>Ces cibles apparaissent aussi comme liens « bastion » dans la tuile Supervision SI (onglet Liens) — catégorie Bastion.</p>
@@ -176,7 +177,7 @@ export default function SiProxyView({ onBack, siProxyApiBase, accessToken, usern
         </h2>
         {rows.length === 0 ? <p className="muted" style={{ margin: 0 }}>Journal vide.</p> : (
           <div className="hub-table-scroll" style={{ maxHeight: 360 }}>
-            <table>
+            <AutoColumns id="SiProxyView.3"><table>
               <thead><tr><th>Quand</th><th>Événement</th><th>Détail</th></tr></thead>
               <tbody>
                 {rows.map((ev, i) => (
@@ -187,7 +188,7 @@ export default function SiProxyView({ onBack, siProxyApiBase, accessToken, usern
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         )}
       </div>

@@ -89,3 +89,55 @@ export function saveLayout(id, layout, fetchImpl = globalThis.fetch, delay = 600
     if (accountPrefs) accountPrefs = accountPrefs.then((all) => ({ ...all, ...body }));
   }, delay);
 }
+
+// ------------------------------------------------------------------ tableaux existants sans réécriture (#707)
+// <AutoColumns> (TableColumns.jsx) enveloppe un <table> ordinaire : les colonnes sont reconnues par le libellé de
+// leur en-tête, masquées et dimensionnées par une feuille de style propre au tableau (nth-child).
+
+/** Libellés d'en-tête -> clés stables (espaces normalisés, flèches de tri retirées, doublons numérotés). */
+export function autoKeys(labels) {
+  const seen = {};
+  return (labels || []).map((l) => {
+    const b = String(l || "").replace(/[▲▼↑↓⇅⬍⏶⏷]/g, "").replace(/\s+/g, " ").trim();
+    const n = (seen[b] = (seen[b] || 0) + 1);
+    return n > 1 ? `${b}#${n}` : b;
+  });
+}
+
+/** Réglages bruts -> {widths, hidden} sans filtrage (les colonnes ne sont connues qu'au rendu). */
+export function rawLayout(raw) {
+  const widths = {};
+  for (const [k, w] of Object.entries((raw && typeof raw === "object" && raw.widths) || {})) {
+    if (Number.isFinite(Number(w))) widths[k] = clampWidth(w);
+  }
+  return { widths, hidden: Array.isArray(raw?.hidden) ? [...new Set(raw.hidden.map(String))] : [] };
+}
+
+/** Masque `k` (jamais la dernière colonne visible nommée) ou le réaffiche. */
+export function autoToggle(layout, keys, k) {
+  if (layout.hidden.includes(k)) return { ...layout, hidden: layout.hidden.filter((x) => x !== k) };
+  const named = keys.filter(Boolean);
+  if (named.filter((x) => !layout.hidden.includes(x)).length <= 1) return layout;
+  return { ...layout, hidden: [...layout.hidden, k] };
+}
+
+/** Feuille de style du tableau `scope` (classe de l'enveloppe) : colonnes masquées et largeurs. */
+export function autoCss(scope, keys, layout) {
+  const rules = [];
+  const cell = (n) => ["thead", "tbody", "tfoot"].map((p) => `.${scope} > table > ${p} > tr > *:not([colspan]):nth-child(${n})`).join(", ");
+  let sized = false;
+  keys.forEach((k, i) => {
+    if (!k) return;
+    if (layout.hidden.includes(k)) rules.push(`${cell(i + 1)} { display: none; }`);
+    const w = layout.widths[k];
+    if (w) {
+      sized = true;
+      rules.push(`.${scope} > table > thead > tr > th:nth-child(${i + 1}) { width: ${w}px; min-width: ${w}px; max-width: ${w}px; }`);
+    }
+  });
+  if (sized) {
+    rules.push(`.${scope} > table { table-layout: fixed; width: max-content; min-width: 100%; }`);
+    rules.push(`.${scope} > table > tbody > tr > td { overflow: hidden; text-overflow: ellipsis; }`);
+  }
+  return rules.join("\n");
+}

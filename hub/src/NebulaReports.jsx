@@ -5,6 +5,7 @@
 // le droit `manage` (comme Valider une anomalie).
 import { useEffect, useState } from "react";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 async function call(url, init) {
   const r = await fetch(url, { credentials: "include", ...(init || {}) });
   const j = await r.json().catch(() => ({}));
@@ -102,9 +103,9 @@ export default function NebulaReports({ nebulaApiBase, groups, login }) {
 
       <details style={box}>
         <summary><strong>Anomalies suivies</strong> ({data.tracked.length}) · résolues depuis 24 h ({data.resolved_24h.length})</summary>
-        <table><thead><tr><th>Gravité</th><th>Site</th><th>Constat</th><th>Depuis</th><th>Alerté</th></tr></thead>
+        <AutoColumns id="NebulaReports.1"><table><thead><tr><th>Gravité</th><th>Site</th><th>Constat</th><th>Depuis</th><th>Alerté</th></tr></thead>
           <tbody>{data.tracked.map((e) => <tr key={`${e.site_id}|${e.id}`}><td>{e.severity}</td><td>{e.site}</td><td>{e.message}</td><td>{when(e.first_seen)}</td><td>{when(e.notified_at)}</td></tr>)}
-            {data.resolved_24h.map((e) => <tr key={`r${e.site_id}|${e.id}|${e.resolved_at}`} className="muted"><td>résolue</td><td>{e.site}</td><td>{e.message}</td><td>{when(e.first_seen)}</td><td>fin {when(e.resolved_at)}</td></tr>)}</tbody></table>
+            {data.resolved_24h.map((e) => <tr key={`r${e.site_id}|${e.id}|${e.resolved_at}`} className="muted"><td>résolue</td><td>{e.site}</td><td>{e.message}</td><td>{when(e.first_seen)}</td><td>fin {when(e.resolved_at)}</td></tr>)}</tbody></table></AutoColumns>
       </details>
       <details style={box}>
         <summary><strong>Journal d'envoi</strong></summary>

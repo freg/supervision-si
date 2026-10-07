@@ -11,6 +11,7 @@ import { hubLink } from "./hubLinks.js";
 import { fetchServices, restartService, restartRed, fetchServiceLogs, rebuildService, fetchHost, pruneHost } from "./servicesClient.js";
 import { sortServices, filterServices, summarize, verdictText, uptimeText, LIGHT_LABEL, KIND_LABEL } from "./servicesLights.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const REFRESH_MS = 30000;
 const COLORS = { red: "#e53935", orange: "#fb8c00", green: "#43a047", grey: "#9e9e9e" };
 
@@ -199,7 +200,7 @@ export default function ServicesView({ apiBase, accessToken, username, onBack, e
           </div>
         </div>
       </div>
-      <table className="hub-table">
+      <AutoColumns id="ServicesView.1"><table className="hub-table">
         <thead><tr><th></th><th>Service</th><th>Rôle</th><th>Conteneur</th><th>Depuis</th><th>Vérification</th><th></th></tr></thead>
         <tbody>
           {shown.map((r) => (
@@ -220,7 +221,7 @@ export default function ServicesView({ apiBase, accessToken, username, onBack, e
           ))}
           {!shown.length && <tr><td colSpan={7} className="muted">{data ? "aucun service ne correspond" : loading ? "Vérification…" : "—"}</td></tr>}
         </tbody>
-      </table>
+      </table></AutoColumns>
       {logs && (
         <div className="hub-card" style={{ marginTop: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}><h3 style={{ margin: 0 }}>Journal de {logs.service} ({logs.lines?.length || 0} lignes)</h3><span style={{ flex: 1 }} /><button type="button" className="secondary" onClick={() => setLogs(null)}>Fermer</button></div>

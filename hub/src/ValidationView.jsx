@@ -6,6 +6,7 @@ import {
 } from "./calendarClient.js";
 import { sourceText } from "./validationSource.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Onglet "Validation" de la tuile ENT (livraison #273, demandé
 // explicitement : "ajoute un écran de validation des tickets
 // automatique"). Liste les tickets créés automatiquement depuis un
@@ -123,7 +124,7 @@ export default function ValidationView({ embedded, onBack, ticketsApiBase, porta
           <p className="muted">Aucun changement en attente.</p>
         ) : (
           <>
-            <table>
+            <AutoColumns id="ValidationView.1"><table>
               <thead><tr><th>Ticket</th><th>Ancien statut</th><th>Nouveau statut</th><th>Motif</th><th>Quand</th></tr></thead>
               <tbody>
                 {statusChanges.map((c) => (
@@ -136,7 +137,7 @@ export default function ValidationView({ embedded, onBack, ticketsApiBase, porta
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
             <button disabled={busy} onClick={handleValidateAllStatusChanges} style={{ marginTop: 8 }}>
               ✅ Valider tout ({statusChanges.length})
             </button>

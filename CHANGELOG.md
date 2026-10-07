@@ -1,3 +1,16 @@
+## 2026-10-07 — Hub : colonnes réglables sur tous les tableaux (livraison #707)
+
+Suite de #698 (tableau des agents) : `<AutoColumns id>` (TableColumns.jsx) enveloppe un `<table>` ordinaire sans le
+réécrire. Colonnes reconnues par le libellé de leur en-tête (espaces et flèches de tri ignorés, doublons numérotés) ;
+poignée de largeur ajoutée à chaque en-tête (glisser ; double-clic = largeur automatique) ; bouton « ⚙ » au survol en
+haut à droite du tableau pour masquer / réafficher (jamais la dernière colonne) et réinitialiser ; feuille de style propre
+au tableau (`nth-child`, cellules fusionnées épargnées) ; réglages mémorisés par compte comme #698 (`table.auto.<id>`
+dans prefs-api, copie locale). Tableau sans `<thead>` d'une seule ligne : rendu inchangé. Branché par script sur
+275 tableaux de 84 vues (ceux qui ont un en-tête ; celui des agents garde #698).
+
+Vérifié : `tests/tableLayout.test.mjs` (5), hub `node --test` (329), `@babel/parser` sur toutes les vues.
+Non vérifié : rendu navigateur, build. Déploiement : `cd ~/SRC/data2/tickets/supervision-si && git pull && ./scripts/run.sh up -d --build hub`.
+
 ## 2026-10-07 — Maintenance des Proxmox : signalements (livraison #706)
 
 Le planificateur de #705 inscrit au journal d'événements du central (source « maintenance ») : échec d'une opération

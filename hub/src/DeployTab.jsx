@@ -6,6 +6,7 @@
 // jeton, révocable et borné (usages, expiration).
 import { useCallback, useEffect, useState } from "react";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 async function call(url, init) {
   const r = await fetch(url, { ...(init || {}) });
   const j = await r.json().catch(() => ({}));
@@ -94,7 +95,7 @@ export default function DeployTab({ base, fleet, catalogue, notice, error, login
       )}
       <h3 style={{ marginTop: 14 }}>Jetons</h3>
       <div className="hub-table-scroll">
-        <table>
+        <AutoColumns id="DeployTab.1"><table>
           <thead><tr><th>Site</th><th>Libellé</th><th>Central</th><th>Usages</th><th>Expire</th><th>État</th><th>Postes enrôlés</th><th></th></tr></thead>
           <tbody>
             {tokens.length === 0 && <tr><td colSpan={8} className="muted">aucun jeton</td></tr>}
@@ -116,7 +117,7 @@ export default function DeployTab({ base, fleet, catalogue, notice, error, login
               );
             })}
           </tbody>
-        </table>
+        </table></AutoColumns>
       </div>
     </div>
   );

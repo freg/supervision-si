@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import LoginEventsTab from "./LoginEventsTab.jsx";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 async function call(url) {
   const r = await fetch(url, { credentials: "include" });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -66,7 +67,7 @@ export default function PersonalDataView({ apiBase, me, onBack }) {
               <span key={c} className="pill" style={{ cursor: "pointer" }} onClick={() => setCat(cat === c ? "" : c)}>{CAT_ICON[c] || "•"} {c} : {n}</span>
             ))}
           </div>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <AutoColumns id="PersonalDataView.1"><table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr><th>date</th><th>#</th><th>catégorie</th><th>interaction</th></tr></thead>
             <tbody>
               {(data.entries || []).map((e, i) => (
@@ -78,7 +79,7 @@ export default function PersonalDataView({ apiBase, me, onBack }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></AutoColumns>
         </div>
       )}
 

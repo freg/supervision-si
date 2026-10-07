@@ -22,6 +22,7 @@ import {
   assignRelation,
 } from "./schemaAnalyzerClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Analyse de schémas (hub), livraison #156 -- interface pour
 // schema-analyzer-api (#151-#154, jusqu'ici accessible seulement via
 // curl). S'appuie sur dba-api en LECTURE SEULE pour lister les
@@ -102,7 +103,7 @@ function AssignTableBrowser({ dbaApiBase, connectionId, database, table, relatio
         {selectedPkValue !== undefined && <> Ligne sélectionnée : <strong>{pkCol} = {String(selectedPkValue)}</strong></>}
       </p>
       <div style={{ overflowX: "auto" }}>
-        <table className="hub-table">
+        <AutoColumns id="SchemaAnalyzerView.1"><table className="hub-table">
           <thead>
             <tr>
               {rows.columns.map((c) => (
@@ -130,7 +131,7 @@ function AssignTableBrowser({ dbaApiBase, connectionId, database, table, relatio
               );
             })}
           </tbody>
-        </table>
+        </table></AutoColumns>
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
         <button className="secondary" disabled={offset === 0 || loading} onClick={() => changePage(Math.max(0, offset - ASSIGN_PAGE_SIZE))}>
@@ -600,7 +601,7 @@ export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, 
             ) : catalogTunnels.length === 0 ? (
               <p className="muted">Aucun tunnel SSH configuré (voir l'onglet Tunnels SSH pour en créer un).</p>
             ) : (
-              <table>
+              <AutoColumns id="SchemaAnalyzerView.2"><table>
                 <thead>
                   <tr><th>Tunnel</th><th>Port local</th><th>Statut</th><th>Connexion(s) DBA utilisant ce port</th><th></th></tr>
                 </thead>
@@ -636,7 +637,7 @@ export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, 
                               ) : catalogHistory[t.connection_id].length === 0 ? (
                                 <span className="muted">Aucun usage enregistré pour cette connexion SSH.</span>
                               ) : (
-                                <table style={{ fontSize: 13 }}>
+                                <AutoColumns id="SchemaAnalyzerView.3"><table style={{ fontSize: 13 }}>
                                   <thead><tr><th>Date</th><th>Action</th><th>Résultat</th></tr></thead>
                                   <tbody>
                                     {catalogHistory[t.connection_id].map((h) => (
@@ -647,7 +648,7 @@ export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, 
                                       </tr>
                                     ))}
                                   </tbody>
-                                </table>
+                                </table></AutoColumns>
                               )}
                             </td>
                           </tr>
@@ -656,7 +657,7 @@ export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, 
                     );
                   })}
                 </tbody>
-              </table>
+              </table></AutoColumns>
             )}
           </>
         )}
@@ -888,7 +889,7 @@ export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, 
               {relations.length === 0 ? (
                 <p className="muted">Aucune relation pour l'instant -- importez les propositions ou ajoutez-en une manuellement.</p>
               ) : (
-                <table className="logs-dashboard-table">
+                <AutoColumns id="SchemaAnalyzerView.4"><table className="logs-dashboard-table">
                   <thead>
                     <tr>
                       <th>De</th>
@@ -964,7 +965,7 @@ export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, 
                       );
                     })}
                   </tbody>
-                </table>
+                </table></AutoColumns>
               )}
             </div>
           )}
@@ -1015,7 +1016,7 @@ export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, 
                     affichage {dataOffset + 1}-{dataOffset + dataRows.rows.length}
                   </p>
                   <div style={{ overflowX: "auto" }}>
-                    <table className="hub-table">
+                    <AutoColumns id="SchemaAnalyzerView.5"><table className="hub-table">
                       <thead>
                         <tr>
                           <th></th>
@@ -1103,7 +1104,7 @@ export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, 
                           );
                         })}
                       </tbody>
-                    </table>
+                    </table></AutoColumns>
                   </div>
 
                   <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
@@ -1199,7 +1200,7 @@ export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, 
                   <p className="muted">
                     {assignRow.pkColumn} = {String(assignRow.pkValue)}
                   </p>
-                  <table className="hub-table" style={{ marginBottom: 16 }}>
+                  <AutoColumns id="SchemaAnalyzerView.6"><table className="hub-table" style={{ marginBottom: 16 }}>
                     <thead>
                       <tr>
                         {dataRows && dataRows.columns.map((c) => (
@@ -1214,7 +1215,7 @@ export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, 
                         ))}
                       </tr>
                     </tbody>
-                  </table>
+                  </table></AutoColumns>
 
                   <h3>Relations résolues</h3>
                   {Object.keys(assignResolved.resolved).length === 0 ? (
@@ -1263,7 +1264,7 @@ export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, 
                           </p>
                         ) : (
                           <div style={{ marginTop: 8, overflowX: "auto" }}>
-                            <table className="hub-table" style={{ fontSize: 13 }}>
+                            <AutoColumns id="SchemaAnalyzerView.7"><table className="hub-table" style={{ fontSize: 13 }}>
                               <thead>
                                 <tr>
                                   {info.target.columns.map((c) => (
@@ -1280,7 +1281,7 @@ export default function SchemaAnalyzerView({ onBack, dbaApiBase, schemaApiBase, 
                                   </tr>
                                 ))}
                               </tbody>
-                            </table>
+                            </table></AutoColumns>
                           </div>
                         )}
                       </div>

@@ -13,6 +13,7 @@ import { layoutGraph, EDGE_STYLE, KIND_ICON, CHANGE_LABEL, changeTone, routesByH
 import { PROVENANCE, provenanceStyle, LAYERS, defaultLayers, SEV_COLOR, boundsOf, sortPositions, provenanceCounts, chainText, whereText, RULE_STATE, OUTCOME, ruleText, minutesLeft, predictionStats, sparkPath, PRIORITY_TONE, NOTIF_KIND, humanizeS, matchText, policyFromForm, formFromPolicy, kpiRows, weeklyBars } from "./cortexPlaces.js";
 import { SEV, STATE_LABEL, KIND_LABEL, confidenceWord, pct, incidentLine, splitHypotheses, collectHealth, principleText, eventsBySource } from "./cortex.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const REFRESH_MS = 30000;
 const TABS = [["incidents", "Incidents"], ["alerts", "Alertes & KPI"], ["anticipation", "Anticipation"], ["graph", "Architecture"], ["map", "Carte"], ["positions", "Positions"], ["changes", "Ce qui a changé"], ["routes", "Routes"], ["entities", "Entités"], ["events", "Événements"], ["principles", "Principes & évaluations"], ["stats", "Statistiques"], ["runs", "Collecte"]];
 
@@ -178,7 +179,7 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
             <span className="muted"> — un incident = des événements proches et reliés ; la cause proposée est l'entité la plus en amont (passerelle, onduleur…).</span>
           </p>
           {incidents.length === 0 ? <p className="muted">Aucun incident{incState === "open" ? " ouvert" : ""}.</p> : (
-            <div className="hub-table-scroll"><table>
+            <div className="hub-table-scroll"><AutoColumns id="CortexView.1"><table>
               <thead><tr><th>Sévérité</th><th>État</th><th>Incident</th><th>Cause proposée</th><th>Confiance</th><th>Depuis</th><th>Contenu</th><th></th></tr></thead>
               <tbody>{incidents.map((i) => (
                 <tr key={i.key} className={detail?.key === i.key ? "active" : ""} style={{ cursor: "pointer" }} onClick={() => openDetail(i.key)}>
@@ -190,7 +191,7 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
                     {" "}{i.state !== "closed" && <button className="secondary ss-origin" disabled={busy} onClick={(e) => { e.stopPropagation(); act("Clôture", () => closeIncident(cortexApiBase, i.key, login)); }}>clore</button>}</td>
                 </tr>
               ))}</tbody>
-            </table></div>
+            </table></AutoColumns></div>
           )}
           {detail && (
             <div className="hub-card hub-settings-section" style={{ marginTop: 10, textAlign: "left" }}>
@@ -216,8 +217,8 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
               {(detail.relations || []).length > 0 && <><h3 style={{ margin: "6px 0 2px" }}>Relations utilisées</h3>
                 <ul className="sa-risks">{detail.relations.slice(0, 20).map((r, k) => <li key={k}><code>{r.a}</code> —{r.kind}→ <code>{r.b}</code> <span className="muted">(principe {r.principle}, {r.evidence}, source {r.source})</span></li>)}</ul></>}
               <h3 style={{ margin: "6px 0 2px" }}>Événements</h3>
-              <div className="hub-table-scroll"><table><thead><tr><th>Quand</th><th>Source</th><th>Type</th><th>Sévérité</th><th>Entité</th><th>Message</th><th>×</th></tr></thead>
-                <tbody>{(detail.event_details || []).map((e) => <tr key={e.fingerprint}><td className="muted">{e.last_at}</td><td>{e.source}</td><td>{e.kind}</td><td><Tone tone={SEV[e.severity]?.tone}>{SEV[e.severity]?.label}</Tone></td><td className="muted">{e.entity}</td><td>{e.message}</td><td>{e.count}</td></tr>)}</tbody></table></div>
+              <div className="hub-table-scroll"><AutoColumns id="CortexView.2"><table><thead><tr><th>Quand</th><th>Source</th><th>Type</th><th>Sévérité</th><th>Entité</th><th>Message</th><th>×</th></tr></thead>
+                <tbody>{(detail.event_details || []).map((e) => <tr key={e.fingerprint}><td className="muted">{e.last_at}</td><td>{e.source}</td><td>{e.kind}</td><td><Tone tone={SEV[e.severity]?.tone}>{SEV[e.severity]?.label}</Tone></td><td className="muted">{e.entity}</td><td>{e.message}</td><td>{e.count}</td></tr>)}</tbody></table></AutoColumns></div>
             </div>
           )}
         </div>
@@ -253,8 +254,8 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
         <div className="hub-card hub-settings-section">
           <p className="muted" style={{ margin: "0 0 6px" }}>Ce qui a changé entre deux collectes (principe <code>change-since</code>) : entités apparues ou plus vues, relations nouvelles ou disparues, rôle dominant ou passerelle qui change. Les disparitions dues à une source en échec ne sont pas comptées.</p>
           {changes.length === 0 ? <p className="muted">Aucun changement enregistré (il faut au moins deux collectes).</p> : (
-            <div className="hub-table-scroll"><table><thead><tr><th>Quand</th><th>Type</th><th>Changement</th></tr></thead>
-              <tbody>{changes.map((c) => <tr key={c.id}><td className="muted">{c.at}</td><td><Tone tone={changeTone(c.kind)}>{CHANGE_LABEL[c.kind] || c.kind}</Tone></td><td>{c.message}</td></tr>)}</tbody></table></div>
+            <div className="hub-table-scroll"><AutoColumns id="CortexView.3"><table><thead><tr><th>Quand</th><th>Type</th><th>Changement</th></tr></thead>
+              <tbody>{changes.map((c) => <tr key={c.id}><td className="muted">{c.at}</td><td><Tone tone={changeTone(c.kind)}>{CHANGE_LABEL[c.kind] || c.kind}</Tone></td><td>{c.message}</td></tr>)}</tbody></table></AutoColumns></div>
           )}
         </div>
       )}
@@ -263,8 +264,8 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
         <div className="hub-card hub-settings-section">
           <p className="muted" style={{ margin: "0 0 6px" }}>Table de routes consolidée (principe <code>route-known</code>) : pour chaque hôte équipé d'un agent, sa passerelle par défaut, ses sous-réseaux attachés et ceux qu'il sait joindre par une autre passerelle.</p>
           {routes.length === 0 ? <p className="muted">Aucune route (aucun agent n'a remonté sa vue réseau).</p> : (
-            <div className="hub-table-scroll"><table><thead><tr><th>Hôte</th><th>Passerelle par défaut</th><th>État</th><th>Sous-réseaux attachés</th><th>Joignables via</th></tr></thead>
-              <tbody>{routesByHost(routes).map((h) => <tr key={h.host}><td><strong>{h.name}</strong> <span className="muted">{h.host}</span></td><td>{h.default?.via || "—"}</td><td>{h.default?.state ? <Tone tone={h.default.state === "reachable" ? "good" : "warn"}>{h.default.state}</Tone> : "—"}</td><td className="muted">{h.attached.join(", ") || "—"}</td><td className="muted">{h.reachable.map((r) => `${r.destination}${r.via ? ` via ${r.via}` : ""}`).join(", ") || "—"}</td></tr>)}</tbody></table></div>
+            <div className="hub-table-scroll"><AutoColumns id="CortexView.4"><table><thead><tr><th>Hôte</th><th>Passerelle par défaut</th><th>État</th><th>Sous-réseaux attachés</th><th>Joignables via</th></tr></thead>
+              <tbody>{routesByHost(routes).map((h) => <tr key={h.host}><td><strong>{h.name}</strong> <span className="muted">{h.host}</span></td><td>{h.default?.via || "—"}</td><td>{h.default?.state ? <Tone tone={h.default.state === "reachable" ? "good" : "warn"}>{h.default.state}</Tone> : "—"}</td><td className="muted">{h.attached.join(", ") || "—"}</td><td className="muted">{h.reachable.map((r) => `${r.destination}${r.via ? ` via ${r.via}` : ""}`).join(", ") || "—"}</td></tr>)}</tbody></table></AutoColumns></div>
           )}
         </div>
       )}
@@ -272,14 +273,14 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
       {tab === "entities" && (
         <div className="hub-card hub-settings-section">
           <p style={{ margin: "0 0 6px" }}><input className="ss-search" placeholder="filtrer : nom, IP, site, clé" value={q} onChange={(e) => setQ(e.target.value)} /> <span className="muted">{entities.length} entité(s) — fusionnées par MAC, IP puis nom ; les rôles sont des hypothèses pondérées.</span></p>
-          <div className="hub-table-scroll"><table><thead><tr><th>Entité</th><th>Type</th><th>Site</th><th>Rôles (confiance)</th><th>Origines</th></tr></thead>
+          <div className="hub-table-scroll"><AutoColumns id="CortexView.5"><table><thead><tr><th>Entité</th><th>Type</th><th>Site</th><th>Rôles (confiance)</th><th>Origines</th></tr></thead>
             <tbody>{entities.map((e) => (
               <tr key={e.key} style={{ cursor: "pointer" }} onClick={async () => { const d = await fetchEntity(cortexApiBase, e.key); if (!d.error) setEntity(d); }}>
                 <td><strong>{e.name || e.ip || e.key}</strong> <span className="muted">{e.ip && e.name ? e.ip : ""} {e.mac || ""}{e.vendor ? ` · ${e.vendor}` : ""}{e.description ? ` · ${e.description}` : ""}</span></td><td>{KIND_LABEL[e.kind] || e.kind}</td><td>{e.site || "—"}</td>
                 <td>{(e.roles || []).length ? e.roles.map((r) => <span key={r.role} title={`${r.evidence.join(" ; ")} — principes ${r.principles.join(", ")}`}><Tone tone={confidenceWord(r.confidence).tone}>{r.role} {pct(r.confidence)}</Tone> </span>) : <span className="muted">aucun indice</span>}</td>
                 <td className="muted">{(e.origins || []).map((o) => o.source).filter((v, i, a) => a.indexOf(v) === i).join(", ")}</td>
               </tr>
-            ))}</tbody></table></div>
+            ))}</tbody></table></AutoColumns></div>
           {entity && (
             <div className="hub-card hub-settings-section" style={{ marginTop: 10, textAlign: "left" }}>
               <h2 style={{ margin: "0 0 4px" }}>{entity.name || entity.ip || entity.key} <span className="muted">{entity.key}</span> <button className="secondary ss-origin" onClick={() => openSheet(entity.key)}>🧭 fiche d'intervention</button> <button className="secondary ss-origin" onClick={() => { setEntity(null); setSheet(null); }}>✕</button></h2>
@@ -306,8 +307,8 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
               <p style={{ margin: "0 0 6px" }}>{kpis.incidents.total} incident(s) ({Object.entries(kpis.incidents.by_severity || {}).map(([k, v]) => `${SEV[k]?.label || k} ${v}`).join(", ") || "—"}), {kpis.incidents.open} ouvert(s) dont {kpis.incidents.acked_open} acquitté(s), âge moyen des ouverts {humanizeS(kpis.incidents.open_age?.mean_s)} · acquittés {kpis.incidents.acked_rate != null ? pct(kpis.incidents.acked_rate) : "—"}, clos {kpis.incidents.closed_rate != null ? pct(kpis.incidents.closed_rate) : "—"} · <strong>MTTA</strong> {humanizeS(kpis.mtta.all?.mean_s)} (médiane {humanizeS(kpis.mtta.all?.median_s)}) · <strong>MTTR</strong> {humanizeS(kpis.mttr.all?.mean_s)} (médiane {humanizeS(kpis.mttr.all?.median_s)}) · {kpis.notifications?.total} notification(s) envoyée(s).</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
                 {[["MTTA par site", kpis.mtta.by_site], ["MTTA par rôle", kpis.mtta.by_role], ["MTTR par site", kpis.mttr.by_site], ["MTTR par rôle", kpis.mttr.by_role], ["MTTA par sévérité", kpis.mtta.by_severity], ["MTTR par sévérité", kpis.mttr.by_severity]].map(([title, data]) => kpiRows(data).length ? (
-                  <div key={title}><strong>{title}</strong><table><thead><tr><th></th><th>n</th><th>moyenne</th><th>médiane</th><th>max</th></tr></thead><tbody>{kpiRows(data).map((r) => <tr key={r.label}><td>{r.label}</td><td>{r.n}</td><td>{r.mean}</td><td>{r.median}</td><td className="muted">{r.max}</td></tr>)}</tbody></table></div>) : null)}
-                <div><strong>Causes racines</strong><table><thead><tr><th>Cause</th><th>Rôle</th><th>Incidents</th></tr></thead><tbody>{kpis.by_root.map((r) => <tr key={r.root}><td>{r.name}</td><td className="muted">{r.role || "—"}</td><td>{r.count}</td></tr>)}</tbody></table></div>
+                  <div key={title}><strong>{title}</strong><AutoColumns id="CortexView.6"><table><thead><tr><th></th><th>n</th><th>moyenne</th><th>médiane</th><th>max</th></tr></thead><tbody>{kpiRows(data).map((r) => <tr key={r.label}><td>{r.label}</td><td>{r.n}</td><td>{r.mean}</td><td>{r.median}</td><td className="muted">{r.max}</td></tr>)}</tbody></table></AutoColumns></div>) : null)}
+                <div><strong>Causes racines</strong><AutoColumns id="CortexView.7"><table><thead><tr><th>Cause</th><th>Rôle</th><th>Incidents</th></tr></thead><tbody>{kpis.by_root.map((r) => <tr key={r.root}><td>{r.name}</td><td className="muted">{r.role || "—"}</td><td>{r.count}</td></tr>)}</tbody></table></AutoColumns></div>
                 <div><strong>Semaine par semaine</strong><div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 70, marginTop: 4 }}>{weeklyBars(kpis.weekly).map((w) => <div key={w.week} title={`${w.week} : ${w.opened} ouvert(s), ${w.critical} critique(s), ${w.closed} clos`} style={{ width: 28, textAlign: "center", fontSize: 10 }}><div style={{ height: Math.max(2, w.h * 50), background: "var(--accent, #2f6fd6)", borderRadius: 3 }} />{w.week.slice(-3)}</div>)}</div></div>
                 <div><strong>Couverture</strong><p className="muted" style={{ margin: 0 }}>{kpis.coverage.entities} entités · {kpis.coverage.unsupervised} sans supervision · {kpis.coverage.unpositioned} sans position · {kpis.coverage.sites} site(s){kpis.coverage.sites_without_position.length ? `, sans position : ${kpis.coverage.sites_without_position.join(", ")}` : ""}</p>
                   <strong>Faux positifs</strong><p className="muted" style={{ margin: 0 }}>{kpis.false_positives.rules.length ? kpis.false_positives.rules.slice(0, 5).map((r) => `${r.rule} ${pct(r.false_rate)} (${r.misses}/${r.hits + r.misses})`).join(" · ") : "aucune règle jugée"}<br />{kpis.false_positives.principles.length ? kpis.false_positives.principles.map((p) => `${p.principle} ${pct(p.false_rate)} (${p.rejected}/${p.confirmed + p.rejected})`).join(" · ") : "aucun retour sur les principes"}</p></div>
@@ -318,13 +319,13 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
           {policies && (
             <div className="hub-card hub-settings-section" style={{ marginBottom: 8, textAlign: "left" }}>
               <h3 style={{ margin: "0 0 4px" }}>🎛 Politiques d'alerte <span className="muted">— la première qui correspond décide (principe <code>policy-role-place</code>)</span> <button className="secondary ss-origin" onClick={() => setPolForm(formFromPolicy(null))}>+ nouvelle</button></h3>
-              <div className="hub-table-scroll"><table><thead><tr><th>Ordre</th><th>Politique</th><th>Critère</th><th>Priorité</th><th>Canaux</th><th>Escalade</th><th>Résolu</th><th></th></tr></thead>
+              <div className="hub-table-scroll"><AutoColumns id="CortexView.8"><table><thead><tr><th>Ordre</th><th>Politique</th><th>Critère</th><th>Priorité</th><th>Canaux</th><th>Escalade</th><th>Résolu</th><th></th></tr></thead>
                 <tbody>{policies.policies.map((p) => (
                   <tr key={p.id} style={{ opacity: p.enabled === false ? 0.5 : 1 }}><td>{p.order}</td><td><strong>{p.name}</strong> <span className="muted">{p.id}</span></td><td className="muted">{matchText(p.match)}</td>
                     <td><Tone tone={PRIORITY_TONE[p.priority]}>{p.priority}</Tone></td><td>{p.notify ? (p.channels || []).join(", ") || "—" : <span className="muted">pas de notification</span>}</td>
                     <td className="muted">{p.escalate_after_s ? `${humanizeS(p.escalate_after_s)} → ${(p.escalation_channels || []).join(", ") || "mêmes canaux"}` : "—"}</td><td>{p.notify_resolved ? "oui" : "non"}</td>
                     <td><button className="secondary ss-origin" onClick={() => setPolForm(formFromPolicy(p))}>modifier</button> <button className="secondary ss-origin" disabled={busy} onClick={() => act("politique supprimée", () => deletePolicy(cortexApiBase, p.id, login, groups))}>supprimer</button></td></tr>
-                ))}</tbody></table></div>
+                ))}</tbody></table></AutoColumns></div>
               {polForm && (
                 <div className="hub-card hub-settings-section" style={{ marginTop: 8, textAlign: "left" }}>
                   <strong>{polForm.id ? `Politique ${polForm.id}` : "Nouvelle politique"}</strong>
@@ -345,9 +346,9 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
 
           <div className="hub-card hub-settings-section" style={{ marginBottom: 8, textAlign: "left" }}>
             <h3 style={{ margin: "0 0 4px" }}>🔕 Silences de maintenance <span className="muted">— les incidents couverts restent visibles mais ne sont pas notifiés (principe <code>silence-maintenance</code>)</span></h3>
-            {silences.length > 0 && <div className="hub-table-scroll"><table><thead><tr><th>Nom</th><th>Ticket</th><th>Du</th><th>Au</th><th>Cible</th><th></th></tr></thead>
+            {silences.length > 0 && <div className="hub-table-scroll"><AutoColumns id="CortexView.9"><table><thead><tr><th>Nom</th><th>Ticket</th><th>Du</th><th>Au</th><th>Cible</th><th></th></tr></thead>
               <tbody>{silences.map((si) => <tr key={si.id}><td>{si.name}</td><td className="muted">{si.ticket || "—"}</td><td className="muted">{si.start_at}</td><td className="muted">{si.end_at}</td><td className="muted">{Object.entries(si.target || {}).map(([k, v]) => `${k} ${v.join(", ")}`).join(" ; ") || "tout"}</td>
-                <td><button className="secondary ss-origin" disabled={busy} onClick={() => act("silence supprimé", () => deleteSilence(cortexApiBase, si.id, login, groups))}>supprimer</button></td></tr>)}</tbody></table></div>}
+                <td><button className="secondary ss-origin" disabled={busy} onClick={() => act("silence supprimé", () => deleteSilence(cortexApiBase, si.id, login, groups))}>supprimer</button></td></tr>)}</tbody></table></AutoColumns></div>}
             <p style={{ margin: "6px 0 0" }}>
               {[["name", "nom"], ["ticket", "ticket"], ["start_at", "début (ISO UTC)"], ["end_at", "fin (ISO UTC)"], ["sites", "sites"], ["entities", "entités"], ["roles", "rôles"]].map(([k, lab]) => <span key={k}><input className="ss-search" style={{ width: 130, marginRight: 4 }} placeholder={lab} value={silForm[k]} onChange={(e) => setSilForm({ ...silForm, [k]: e.target.value })} /></span>)}
               <button className="secondary ss-origin" disabled={busy} onClick={() => act("silence ajouté", () => { const list = (v) => v.split(",").map((x) => x.trim()).filter(Boolean); return addSilence(cortexApiBase, { name: silForm.name, ticket: silForm.ticket, start_at: silForm.start_at, end_at: silForm.end_at, sites: list(silForm.sites), entities: list(silForm.entities), roles: list(silForm.roles), by: login, groups }); })}>ajouter</button>
@@ -357,9 +358,9 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
           <div className="hub-card hub-settings-section" style={{ textAlign: "left" }}>
             <h3 style={{ margin: "0 0 4px" }}>📨 Journal des notifications <span className="muted">— une par incident et par moment (principe <code>notify-per-incident</code>)</span></h3>
             {notifs.length === 0 ? <p className="muted" style={{ margin: 0 }}>Aucune notification envoyée.</p> : (
-              <div className="hub-table-scroll"><table><thead><tr><th>Quand</th><th>Moment</th><th>Incident</th><th>Politique</th><th>Priorité</th><th>Canaux</th><th>Résultat</th><th>Raison</th></tr></thead>
+              <div className="hub-table-scroll"><AutoColumns id="CortexView.10"><table><thead><tr><th>Quand</th><th>Moment</th><th>Incident</th><th>Politique</th><th>Priorité</th><th>Canaux</th><th>Résultat</th><th>Raison</th></tr></thead>
                 <tbody>{notifs.map((n) => <tr key={n.id}><td className="muted">{n.at}</td><td>{NOTIF_KIND[n.kind] || n.kind}</td><td><button className="secondary ss-origin" onClick={() => { setTab("incidents"); openDetail(n.incident_key); }}>{n.incident_key}</button></td><td className="muted">{n.policy}</td><td><Tone tone={PRIORITY_TONE[n.priority]}>{n.priority}</Tone></td><td>{(n.channels || []).join(", ")}</td>
-                  <td>{Object.entries(n.result || {}).filter(([k]) => k !== "at").map(([k, v]) => <span key={k}><Tone tone={v ? "good" : "bad"}>{k} {v ? "✓" : "✗"}</Tone> </span>)}</td><td className="muted">{n.reason}</td></tr>)}</tbody></table></div>
+                  <td>{Object.entries(n.result || {}).filter(([k]) => k !== "at").map(([k, v]) => <span key={k}><Tone tone={v ? "good" : "bad"}>{k} {v ? "✓" : "✗"}</Tone> </span>)}</td><td className="muted">{n.reason}</td></tr>)}</tbody></table></AutoColumns></div>
             )}
           </div>
         </div>
@@ -372,17 +373,17 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
             <div className="hub-card hub-settings-section" style={{ marginBottom: 8, textAlign: "left" }}>
               <h3 style={{ margin: "0 0 4px" }}>🔮 Annonces <span className="muted">— {st.pending} en attente, {st.hits} juste(s), {st.misses} fausse(s){st.accuracy != null ? `, exactitude ${pct(st.accuracy)}` : ""}</span></h3>
               {predictions.length === 0 ? <p className="muted" style={{ margin: 0 }}>Aucune annonce : il faut des règles et un événement déclencheur ouvert.</p> : (
-                <div className="hub-table-scroll"><table><thead><tr><th>Annonce</th><th>Confiance</th><th>Échéance</th><th>Issue</th><th>Règle</th></tr></thead>
+                <div className="hub-table-scroll"><AutoColumns id="CortexView.11"><table><thead><tr><th>Annonce</th><th>Confiance</th><th>Échéance</th><th>Issue</th><th>Règle</th></tr></thead>
                   <tbody>{predictions.slice(0, 40).map((p) => { const ml = minutesLeft(p); return (
                     <tr key={p.id}><td>{p.message}</td><td><Conf c={p.confidence} /></td><td className="muted">{p.expected_at}{!p.outcome && ml != null ? (ml >= 0 ? ` (dans ${ml} min)` : ` (dépassée de ${-ml} min)`) : ""}</td>
-                      <td>{p.outcome ? <Tone tone={OUTCOME[p.outcome]?.tone}>{OUTCOME[p.outcome]?.label}</Tone> : <Tone tone="neutral">en attente</Tone>}</td><td className="muted"><code>{p.rule_id}</code></td></tr>); })}</tbody></table></div>
+                      <td>{p.outcome ? <Tone tone={OUTCOME[p.outcome]?.tone}>{OUTCOME[p.outcome]?.label}</Tone> : <Tone tone="neutral">en attente</Tone>}</td><td className="muted"><code>{p.rule_id}</code></td></tr>); })}</tbody></table></AutoColumns></div>
               )}
             </div>); })()}
           {rules && (
             <div className="hub-card hub-settings-section" style={{ marginBottom: 8, textAlign: "left" }}>
               <h3 style={{ margin: "0 0 4px" }}>📐 Règles apprises <span className="muted">— {rules.counts.proposed} proposée(s), {rules.counts.confirmed} confirmée(s), {rules.counts.rejected} rejetée(s) ; principes <code>sequence-learned</code> / <code>sequence-confirmed</code></span></h3>
               {rules.rules.length === 0 ? <p className="muted" style={{ margin: 0 }}>Aucune séquence assez fréquente (support ≥ 3, confiance ≥ 50 %, ≥ 2 × l'attendu) dans l'historique des occurrences.</p> : (
-                <div className="hub-table-scroll"><table><thead><tr><th>Règle</th><th>Portée</th><th>Confiance</th><th>Attendu / observé</th><th>Jugée</th><th>État</th><th></th></tr></thead>
+                <div className="hub-table-scroll"><AutoColumns id="CortexView.12"><table><thead><tr><th>Règle</th><th>Portée</th><th>Confiance</th><th>Attendu / observé</th><th>Jugée</th><th>État</th><th></th></tr></thead>
                   <tbody>{rules.rules.map((r) => (
                     <tr key={r.id}><td>{ruleText(r)}</td><td className="muted">{r.scope === "role" ? "par rôle" : "entités"}</td><td><Conf c={r.effective} /></td>
                       <td className="muted">{r.expected} / {r.count} (×{r.lift})</td><td className="muted">{r.hits} juste(s), {r.misses} fausse(s)</td>
@@ -390,7 +391,7 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
                       <td>{r.state !== "confirmed" && <button className="secondary ss-origin" disabled={busy} onClick={() => act("règle confirmée", () => ruleAction(cortexApiBase, r.id, "confirm", { by: login, groups }))}>✓ confirmer</button>}{" "}
                         {r.state !== "rejected" && <button className="secondary ss-origin" disabled={busy} onClick={() => act("règle rejetée", () => ruleAction(cortexApiBase, r.id, "reject", { by: login, groups }))}>✗ rejeter</button>}{" "}
                         {r.state !== "proposed" && <button className="secondary ss-origin" disabled={busy} onClick={() => act("règle remise en proposition", () => ruleAction(cortexApiBase, r.id, "reset", { by: login, groups }))}>↺</button>}</td></tr>
-                  ))}</tbody></table></div>
+                  ))}</tbody></table></AutoColumns></div>
               )}
             </div>
           )}
@@ -398,11 +399,11 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
             <div className="hub-card hub-settings-section" style={{ textAlign: "left" }}>
               <h3 style={{ margin: "0 0 4px" }}>📈 Signaux faibles <span className="muted">— {drifts.drifts.length} dérive(s) en cours (événements de source <code>cortex</code>, regroupables en incidents), {drifts.tracked.length} série(s) suivie(s) ; principes <code>drift-zscore</code>, <code>drift-trend</code>, <code>seasonality</code></span></h3>
               {drifts.drifts.length > 0 && <ul className="sa-risks">{drifts.drifts.map((d) => <li key={d.fingerprint}><Tone tone={SEV[d.severity]?.tone}>{SEV[d.severity]?.label}</Tone> {d.message} <span className="muted">({STATE_LABEL[d.state]}, depuis {d.first_at})</span></li>)}</ul>}
-              <div className="hub-table-scroll"><table><thead><tr><th>Entité</th><th>Mesure</th><th>Relevés</th><th>Dernier</th><th>Min – max</th><th>Courbe</th></tr></thead>
+              <div className="hub-table-scroll"><AutoColumns id="CortexView.13"><table><thead><tr><th>Entité</th><th>Mesure</th><th>Relevés</th><th>Dernier</th><th>Min – max</th><th>Courbe</th></tr></thead>
                 <tbody>{drifts.tracked.map((t) => { const k = `${t.entity}|${t.metric}`; return (
                   <tr key={k} style={{ cursor: "pointer" }} onClick={async () => { if (spark[k]) return; const r = await fetchSamples(cortexApiBase, t.entity, t.metric); if (!r.error) setSpark((s) => ({ ...s, [k]: r.points })); }}>
                     <td>{t.entity}</td><td>{t.label}</td><td className="muted">{t.points}</td><td>{t.last}{t.unit} <span className="muted">{t.last_at}</span></td><td className="muted">{t.min} – {t.max}{t.unit}</td>
-                    <td>{spark[k] ? <svg width={120} height={28}><path d={sparkPath(spark[k])} fill="none" stroke="var(--accent, #2f6fd6)" strokeWidth={1.5} /></svg> : <span className="muted">cliquer</span>}</td></tr>); })}</tbody></table></div>
+                    <td>{spark[k] ? <svg width={120} height={28}><path d={sparkPath(spark[k])} fill="none" stroke="var(--accent, #2f6fd6)" strokeWidth={1.5} /></svg> : <span className="muted">cliquer</span>}</td></tr>); })}</tbody></table></AutoColumns></div>
             </div>
           )}
         </div>
@@ -421,13 +422,13 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
               <ul className="sa-risks">{queue.queue.map((g) => <li key={g.site}><strong>{g.site}</strong> ({g.count}) : {g.entities.slice(0, 15).map((e) => `${e.name || e.ip || e.key} [${e.status}]`).join(", ")}{g.entities.length > 15 ? " …" : ""}</li>)}</ul>
             </div>
           )}
-          <div className="hub-table-scroll"><table><thead><tr><th>Entité</th><th>Site</th><th>Provenance</th><th>Confiance</th><th>Lieu</th><th>Coordonnées</th><th>Comment</th><th>Depuis</th></tr></thead>
+          <div className="hub-table-scroll"><AutoColumns id="CortexView.14"><table><thead><tr><th>Entité</th><th>Site</th><th>Provenance</th><th>Confiance</th><th>Lieu</th><th>Coordonnées</th><th>Comment</th><th>Depuis</th></tr></thead>
             <tbody>{sortPositions(positions, provFilter).map((p) => { const st = provenanceStyle(p.provenance); return (
               <tr key={p.entity} style={{ cursor: "pointer" }} onClick={async () => { const d = await fetchEntity(cortexApiBase, p.entity); if (!d.error) { setEntity(d); setTab("entities"); openSheet(p.entity); } }}>
                 <td><strong>{p.name || p.ip || p.entity}</strong> <span className="muted">{p.kind ? KIND_LABEL[p.kind] || p.kind : ""}</span></td><td>{p.site || "—"}</td>
                 <td><Tone tone={st.tone} title={st.help}>{p.provenance}</Tone></td><td>{pct(p.confidence)}</td><td className="muted">{p.place || "—"}</td>
                 <td className="muted">{p.lat?.toFixed(5)}, {p.lon?.toFixed(5)}</td><td className="muted">{chainText(p)} <code>{p.principle}</code></td><td className="muted">{p.changed_at || p.first_at}</td>
-              </tr>); })}</tbody></table></div>
+              </tr>); })}</tbody></table></AutoColumns></div>
         </div>
       )}
 
@@ -453,8 +454,8 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
       {tab === "events" && (
         <div className="hub-card hub-settings-section">
           <p className="muted" style={{ margin: "0 0 6px" }}>{events.length} événement(s) ouvert(s) — {eventsBySource(events).map(([s, n]) => `${s} ${n}`).join(" · ")}. Une empreinte par (source, type, entité) : un événement répété est rafraîchi (×), jamais dupliqué ; une source qui ne le remonte plus le ferme.</p>
-          <div className="hub-table-scroll"><table><thead><tr><th>Dernier</th><th>Source</th><th>Type</th><th>Sévérité</th><th>Entité</th><th>Site</th><th>Message</th><th>×</th></tr></thead>
-            <tbody>{events.map((e) => <tr key={e.fingerprint}><td className="muted">{e.last_at}</td><td>{e.source}</td><td>{e.kind}</td><td><Tone tone={SEV[e.severity]?.tone}>{SEV[e.severity]?.label}</Tone></td><td className="muted">{e.entity}</td><td>{e.site || "—"}</td><td>{e.message}</td><td>{e.count}</td></tr>)}</tbody></table></div>
+          <div className="hub-table-scroll"><AutoColumns id="CortexView.15"><table><thead><tr><th>Dernier</th><th>Source</th><th>Type</th><th>Sévérité</th><th>Entité</th><th>Site</th><th>Message</th><th>×</th></tr></thead>
+            <tbody>{events.map((e) => <tr key={e.fingerprint}><td className="muted">{e.last_at}</td><td>{e.source}</td><td>{e.kind}</td><td><Tone tone={SEV[e.severity]?.tone}>{SEV[e.severity]?.label}</Tone></td><td className="muted">{e.entity}</td><td>{e.site || "—"}</td><td>{e.message}</td><td>{e.count}</td></tr>)}</tbody></table></AutoColumns></div>
         </div>
       )}
 
@@ -486,10 +487,10 @@ export default function CortexView({ onBack, cortexApiBase, login, groups = [], 
       {tab === "runs" && (
         <div className="hub-card hub-settings-section">
           <p className="muted" style={{ margin: "0 0 6px" }}>Journal des collectes : quelle source a répondu, en combien de temps, ce qui en est sorti. Une source en échec n'empêche pas les autres.</p>
-          <div className="hub-table-scroll"><table><thead><tr><th>Quand</th><th>Durée</th><th>Sources</th><th>Résultat</th></tr></thead>
+          <div className="hub-table-scroll"><AutoColumns id="CortexView.16"><table><thead><tr><th>Quand</th><th>Durée</th><th>Sources</th><th>Résultat</th></tr></thead>
             <tbody>{runs.map((r) => <tr key={r.id}><td className="muted">{r.at}</td><td>{r.duration_ms} ms</td>
               <td>{Object.entries(r.sources || {}).map(([k, v]) => <span key={k}><Tone tone={v.ok ? "good" : "bad"} title={v.error || `${v.entities} ent., ${v.relations} rel., ${v.events} év. en ${v.ms} ms`}>{k}</Tone> </span>)}</td>
-              <td className="muted">{r.counts ? `${r.counts.entities} entités, ${r.counts.relations} relations, ${r.counts.events_new} nouveaux / ${r.counts.events_refreshed} rafraîchis / ${r.counts.events_closed} fermés, ${r.counts.incidents} incidents` : ""}</td></tr>)}</tbody></table></div>
+              <td className="muted">{r.counts ? `${r.counts.entities} entités, ${r.counts.relations} relations, ${r.counts.events_new} nouveaux / ${r.counts.events_refreshed} rafraîchis / ${r.counts.events_closed} fermés, ${r.counts.incidents} incidents` : ""}</td></tr>)}</tbody></table></AutoColumns></div>
         </div>
       )}
     </div>

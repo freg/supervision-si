@@ -6,6 +6,7 @@
 // qui montre sa prise en compte.
 import { useCallback, useEffect, useState } from "react";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 async function call(url, init) {
   const r = await fetch(url, { credentials: "include", ...(init || {}) });
   const j = await r.json().catch(() => ({}));
@@ -63,7 +64,7 @@ export default function LoginEventsTab({ apiBase, me, notice, error }) {
         </p>
       )}
       <div className="hub-table-scroll hub-fill-scroll">
-        <table>
+        <AutoColumns id="LoginEventsTab.1"><table>
           <thead><tr><th>Quand</th><th>Événement</th><th>Utilisateur</th><th>Adresse IP</th><th>Client</th><th>Raison / détail</th></tr></thead>
           <tbody>
             {events.length === 0 && <tr><td colSpan={6} className="muted">{config.enabled ? "aucun événement (pour ce filtre)" : "—"}</td></tr>}
@@ -78,7 +79,7 @@ export default function LoginEventsTab({ apiBase, me, notice, error }) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></AutoColumns>
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { fetchAgentMeasurements } from "./siAgentClient.js";
 import { wifiRows, wifiWorst, wifiTone, rssiTone, pctTone, fmt, radioSeries, channelCrowd, hourlyProfile } from "./wifiLib.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 function T({ tone, children, title }) {
   return <span className={`np-tone ${tone || "neutral"}`} title={title}>{children}</span>;
 }
@@ -55,7 +56,7 @@ export default function WifiProbeSection({ apiBase, agentId, latest, when }) {
               <summary className="muted">Bornes vues du poste ({radios.length} radios sur {hist.length || 1} passage(s)) — canaux : {crowd.map((c) => `${c.channel}×${c.radios}${c.utilMax != null ? ` (${Math.round(c.utilMax)} %)` : ""}`).join(", ")}{radios.some((r) => r.idleBusy) ? ` · ${radios.filter((r) => r.idleBusy).length} borne(s) vue(s) occupée(s) sans client` : ""}</summary>
               <p className="muted" style={{ margin: "4px 0" }}>Charge annoncée par les balises de chaque borne (BSS Load) à chaque scan : ce que la borne dit elle-même de son canal. « Occupé sans client » = utilisation ≥ 40 % avec au plus 1 station : interférence ou bornes voisines sur le même canal, pas de charge utilisateur.</p>
               <div className="hub-table-scroll">
-                <table>
+                <AutoColumns id="WifiProbeSection.1"><table>
                   <thead><tr><th>Borne (radio)</th><th>SSID</th><th>Canal</th><th>Signal</th><th>Stations</th><th>Utilisation</th><th>Max</th><th>Moyenne</th><th>Max stations</th><th>Occupé sans client</th><th>Passages</th></tr></thead>
                   <tbody>{radios.map((r) => (
                     <tr key={r.radio}>
@@ -72,7 +73,7 @@ export default function WifiProbeSection({ apiBase, agentId, latest, when }) {
                       <td className="muted">{r.samples}</td>
                     </tr>
                   ))}</tbody>
-                </table>
+                </table></AutoColumns>
               </div>
             </details>
           )}
@@ -81,7 +82,7 @@ export default function WifiProbeSection({ apiBase, agentId, latest, when }) {
               <summary className="muted">Profil horaire ({hours.length} créneaux sur {rows.length} passages) — pire créneau : {(() => { const w = [...hours].sort((a, b) => (b.busyMax ?? -1) - (a.busyMax ?? -1) || (b.jitterMax ?? -1) - (a.jitterMax ?? -1))[0]; return w ? `${w.hour}h (occupation max ${fmt(w.busyMax, " %", 0)}, gigue max ${fmt(w.jitterMax, " ms", 0)}, ${w.alerts} constat(s))` : "—"; })()}</summary>
               <p className="muted" style={{ margin: "4px 0" }}>Les mêmes mesures regroupées par heure de la journée, pour rapprocher les plaintes des créneaux réellement dégradés (utiliser « Plus d'historique » pour couvrir plusieurs jours).</p>
               <div className="hub-table-scroll">
-                <table>
+                <AutoColumns id="WifiProbeSection.2"><table>
                   <thead><tr><th>Heure</th><th>Passages</th><th>Non associé</th><th>Occupation moy.</th><th>Occupation max</th><th>Signal moy.</th><th>Retrans. max</th><th>Gigue max</th><th>Pertes max</th><th>Constats</th></tr></thead>
                   <tbody>{hours.map((h) => (
                     <tr key={h.hour}>
@@ -97,7 +98,7 @@ export default function WifiProbeSection({ apiBase, agentId, latest, when }) {
                       <td>{h.alerts || "—"}</td>
                     </tr>
                   ))}</tbody>
-                </table>
+                </table></AutoColumns>
               </div>
             </details>
           )}
@@ -105,7 +106,7 @@ export default function WifiProbeSection({ apiBase, agentId, latest, when }) {
             <details style={{ marginTop: 6 }}>
               <summary className="muted">Historique ({rows.length} passages{worst.disconnected ? `, ${worst.disconnected} non associé(s)` : ""}) — pires : signal {fmt(worst.rssi?.rssi, " dBm")}, retrans. {fmt(worst.retry?.retry, " %", 1)}, occupation {fmt(worst.busy?.busy, " %", 0)}, gigue {fmt(worst.jitter?.jitter, " ms", 1)}, pertes {fmt(worst.loss?.loss, " %", 1)}{worst.bssids.length > 1 ? ` · ${worst.bssids.length} bornes utilisées` : ""}</summary>
               <div className="hub-table-scroll">
-                <table>
+                <AutoColumns id="WifiProbeSection.3"><table>
                   <thead><tr><th>Heure</th><th>Borne</th><th>Canal</th><th>Signal</th><th>↑ Mbit/s</th><th>Retrans. %</th><th>Occup. %</th><th>Latence ms</th><th>Gigue ms</th><th>Pertes %</th><th>Stations</th><th>État</th></tr></thead>
                   <tbody>{rows.map((r) => (
                     <tr key={r.at}>
@@ -123,7 +124,7 @@ export default function WifiProbeSection({ apiBase, agentId, latest, when }) {
                       <td><T tone={wifiTone(r.state)}>{r.state}{r.alerts ? ` (${r.alerts})` : ""}</T></td>
                     </tr>
                   ))}</tbody>
-                </table>
+                </table></AutoColumns>
               </div>
               {rows.length >= limit && <button type="button" className="secondary" onClick={() => setLimit(limit + 120)}>Plus d'historique</button>}
             </details>

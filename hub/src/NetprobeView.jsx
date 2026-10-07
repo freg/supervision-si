@@ -9,6 +9,7 @@ import {
 } from "./netprobeClient.js";
 import NetprobeAgentsTab from "./NetprobeAgentsTab.jsx";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile "Sondes réseau" (netprobe, livraisons #295/#297/#302/#305/
 // #307) -- six onglets : Cibles (collecteur d'IP), Sondes (système
 // de contrôle), Suivi (échantillons smokeping), Scans (nmap à la
@@ -263,7 +264,7 @@ export default function NetprobeView({ onBack, netprobeApiBase }) {
             <p className="muted">Aucune cible enregistrée pour l'instant.</p>
           ) : (
             <div className="hub-table-scroll">
-            <table>
+            <AutoColumns id="NetprobeView.1"><table>
               <thead><tr><th>IP</th><th>Libellé</th><th>Source</th><th>Actif</th><th></th></tr></thead>
               <tbody>
                 {targets.map((t) => (
@@ -278,7 +279,7 @@ export default function NetprobeView({ onBack, netprobeApiBase }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
             </div>
           )}
         </div>
@@ -331,7 +332,7 @@ export default function NetprobeView({ onBack, netprobeApiBase }) {
             <p className="muted">Aucune configuration enregistrée -- toutes les sondes sont désactivées par défaut.</p>
           ) : (
             <div className="hub-table-scroll">
-            <table>
+            <AutoColumns id="NetprobeView.2"><table>
               <thead><tr><th>Type</th><th>Cible</th><th>Activé</th><th>Fréquence</th><th>Fenêtre</th><th></th></tr></thead>
               <tbody>
                 {configs.map((c) => (
@@ -350,7 +351,7 @@ export default function NetprobeView({ onBack, netprobeApiBase }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
             </div>
           )}
         </div>
@@ -366,7 +367,7 @@ export default function NetprobeView({ onBack, netprobeApiBase }) {
               <p className="muted">Aucun échantillon pour l'instant -- vérifiez que smokeping est activé dans l'onglet Sondes.</p>
             ) : (
               <div className="hub-table-scroll">
-              <table>
+              <AutoColumns id="NetprobeView.3"><table>
                 <thead><tr><th>IP</th><th>État</th><th>Latence</th><th>Perte</th><th>Quand</th></tr></thead>
                 <tbody>
                   {latest.map((s) => {
@@ -382,7 +383,7 @@ export default function NetprobeView({ onBack, netprobeApiBase }) {
                     );
                   })}
                 </tbody>
-              </table>
+              </table></AutoColumns>
               </div>
             )}
           </div>
@@ -396,7 +397,7 @@ export default function NetprobeView({ onBack, netprobeApiBase }) {
                 <p className="muted">Aucun échantillon.</p>
               ) : (
                 <div style={{ maxHeight: 420, overflowY: "auto", overflowX: "auto" }}>
-                  <table>
+                  <AutoColumns id="NetprobeView.4"><table>
                     <thead><tr><th>Quand</th><th>État</th><th>Latence</th><th>Perte</th></tr></thead>
                     <tbody>
                       {history.map((s) => (
@@ -408,7 +409,7 @@ export default function NetprobeView({ onBack, netprobeApiBase }) {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </table></AutoColumns>
                 </div>
               )}
             </div>
@@ -447,7 +448,7 @@ export default function NetprobeView({ onBack, netprobeApiBase }) {
                   <p className="muted">Aucun port ouvert trouvé{scanResult.scan_duration_seconds != null ? ` (${scanResult.scan_duration_seconds.toFixed(1)}s)` : ""}.</p>
                 ) : (
                   <div className="hub-table-scroll">
-                  <table>
+                  <AutoColumns id="NetprobeView.5"><table>
                     <thead><tr><th>Port</th><th>Protocole</th><th>Service</th></tr></thead>
                     <tbody>
                       {scanResult.open_ports.map((p) => (
@@ -458,7 +459,7 @@ export default function NetprobeView({ onBack, netprobeApiBase }) {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </table></AutoColumns>
                   </div>
                 )}
               </div>
@@ -479,7 +480,7 @@ export default function NetprobeView({ onBack, netprobeApiBase }) {
                 <p className="muted">Aucun scan pour cette cible.</p>
               ) : (
                 <div style={{ maxHeight: 420, overflowY: "auto", overflowX: "auto" }}>
-                  <table>
+                  <AutoColumns id="NetprobeView.6"><table>
                     <thead><tr><th>Quand</th><th>État</th><th>Ports ouverts</th></tr></thead>
                     <tbody>
                       {scanHistory.map((s) => (
@@ -490,7 +491,7 @@ export default function NetprobeView({ onBack, netprobeApiBase }) {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </table></AutoColumns>
                 </div>
               )
             )}
@@ -535,14 +536,14 @@ export default function NetprobeView({ onBack, netprobeApiBase }) {
               )}
               {(captureResult.top_ips || []).length > 0 && (
                 <div className="hub-table-scroll">
-                <table>
+                <AutoColumns id="NetprobeView.7"><table>
                   <thead><tr><th>IP</th><th>Occurrences</th></tr></thead>
                   <tbody>
                     {captureResult.top_ips.map((t) => (
                       <tr key={t.ip}><td>{t.ip}</td><td className="muted">{t.count}</td></tr>
                     ))}
                   </tbody>
-                </table>
+                </table></AutoColumns>
                 </div>
               )}
             </div>
@@ -569,7 +570,7 @@ export default function NetprobeView({ onBack, netprobeApiBase }) {
             <p className="muted">Aucun constat pour l'instant -- lancez une analyse, ou activez "analyzer" dans l'onglet Sondes pour un passage automatique périodique.</p>
           ) : (
             <div className="hub-table-scroll">
-            <table>
+            <AutoColumns id="NetprobeView.8"><table>
               <thead><tr><th></th><th>Analyseur</th><th>Cible</th><th>Constat</th><th>Quand</th></tr></thead>
               <tbody>
                 {analysisResults.map((r) => (
@@ -582,7 +583,7 @@ export default function NetprobeView({ onBack, netprobeApiBase }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
             </div>
           )}
         </div>

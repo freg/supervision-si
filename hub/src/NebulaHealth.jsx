@@ -4,6 +4,7 @@
 // montré tel quel à un responsable de site (charte « Aujourd'hui »).
 import { useEffect, useState } from "react";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 async function getJson(url) {
   const r = await fetch(url, { credentials: "include" });
   if (!r.ok) throw new Error(`${r.status}`);
@@ -53,7 +54,7 @@ export default function NebulaHealth({ nebulaApiBase }) {
           <h2 className="today-title" style={{ fontSize: "1.5rem" }}>{s.resume}</h2>
           {s.phrases.length > 0 && <ul className="today-lines">{s.phrases.map((p, i) => <li key={i}>{p}</li>)}</ul>}
           <p>Disponibilité moyenne sur la fenêtre : <strong>{pct(s.availability)}</strong> · incidents : <strong>{s.incidents}</strong> · {s.online} en ligne / {s.total}.</p>
-          <table className="services" style={{ width: "100%", borderCollapse: "collapse" }}>
+          <AutoColumns id="NebulaHealth.1"><table className="services" style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr><th style={{ textAlign: "left" }}>Équipement</th><th style={{ textAlign: "left" }}>Modèle</th><th style={{ textAlign: "left" }}>État</th><th style={{ textAlign: "left" }}>Depuis</th><th style={{ textAlign: "right" }}>Disponibilité</th><th style={{ textAlign: "right" }}>Incidents</th></tr></thead>
             <tbody>
               {s.devices.map((d) => (
@@ -64,7 +65,7 @@ export default function NebulaHealth({ nebulaApiBase }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></AutoColumns>
           {transitions.length > 0 && s.site_id === data.sites[0].site_id && (
             <details style={{ marginTop: 12 }}><summary>Derniers changements d'état ({transitions.length})</summary>
               <ul className="today-lines">{transitions.slice(0, 50).map((t, i) => <li key={i}>{when(t.at)} — {t.name} : {STATUS[t.from_status] || t.from_status || "premier relevé"} → {STATUS[t.to_status] || t.to_status}</li>)}</ul>

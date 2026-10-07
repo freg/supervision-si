@@ -3,6 +3,7 @@ import { scanPhpArchive } from "./retroClient.js";
 import { fetchDbaConnections, createRelation } from "./schemaAnalyzerClient.js";
 import RetroJourneysPanel from "./RetroJourneysPanel.jsx";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile "Rétro-ingénierie" (hub), livraison #243 -- backlog item 30,
 // demandé explicitement en urgence : "vieille application de
 // gestion développée avec fatfree en php... développeur génial
@@ -146,7 +147,7 @@ export default function RetroView({ onBack, retroApiBase, dbaApiBase, schemaApiB
             {result.join_candidates.length === 0 ? (
               <p className="muted">Aucune jointure SQL trouvée dans les fichiers analysés.</p>
             ) : (
-              <table>
+              <AutoColumns id="RetroView.1"><table>
                 <thead>
                   <tr>
                     <th>De</th><th>Vers</th><th>Type</th><th>Occurrences</th><th>1er repérage</th><th>Condition brute</th><th>Action</th>
@@ -181,7 +182,7 @@ export default function RetroView({ onBack, retroApiBase, dbaApiBase, schemaApiB
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></AutoColumns>
             )}
           </div>
 
@@ -206,7 +207,7 @@ export default function RetroView({ onBack, retroApiBase, dbaApiBase, schemaApiB
             {Object.keys(result.template_fields).length === 0 ? (
               <p className="muted">Aucun accès de champ de gabarit trouvé (ni <code>{"{{@var.champ}}"}</code>, ni <code>$var['champ']</code> affiché).</p>
             ) : (
-              <table>
+              <AutoColumns id="RetroView.2"><table>
                 <thead><tr><th>Variable</th><th>Champs</th></tr></thead>
                 <tbody>
                   {Object.entries(result.template_fields).map(([root, fields]) => (
@@ -216,7 +217,7 @@ export default function RetroView({ onBack, retroApiBase, dbaApiBase, schemaApiB
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></AutoColumns>
             )}
           </div>
 
@@ -225,7 +226,7 @@ export default function RetroView({ onBack, retroApiBase, dbaApiBase, schemaApiB
             {result.forms.length === 0 ? (
               <p className="muted">Aucun formulaire avec des champs nommés trouvé.</p>
             ) : (
-              <table>
+              <AutoColumns id="RetroView.3"><table>
                 <thead><tr><th>Fichier</th><th>Action</th><th>Champs</th></tr></thead>
                 <tbody>
                   {result.forms.map((f, idx) => (
@@ -236,7 +237,7 @@ export default function RetroView({ onBack, retroApiBase, dbaApiBase, schemaApiB
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></AutoColumns>
             )}
           </div>
 
@@ -254,7 +255,7 @@ export default function RetroView({ onBack, retroApiBase, dbaApiBase, schemaApiB
               Object.entries(result.routes_by_controller).map(([controller, routes]) => (
                 <div key={controller} style={{ marginBottom: 16 }}>
                   <h3 style={{ marginBottom: 4 }}>{controller}</h3>
-                  <table>
+                  <AutoColumns id="RetroView.4"><table>
                     <thead>
                       <tr><th>Méthode(s)</th><th>Chemin</th><th>Action</th><th>Paramètres</th><th>Alias</th><th>1er repérage</th></tr>
                     </thead>
@@ -270,7 +271,7 @@ export default function RetroView({ onBack, retroApiBase, dbaApiBase, schemaApiB
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </table></AutoColumns>
                 </div>
               ))
             )}

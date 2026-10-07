@@ -4,6 +4,7 @@ import { functionMatrix, fieldOrigin, sourceLabel, unifiedSummary, canCompare, c
 import GeneratedAppView from "./GeneratedAppView.jsx";
 import MetaGraphView from "./MetaGraphView.jsx";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Outil unique (livraison #445, phase 3) : compare les applications
 // enregistrées (écrans remplissant la même fonction : mêmes champs /
 // colonnes après normalisation, titres, tables) et présente UNE interface
@@ -77,7 +78,7 @@ export default function UnifiedToolView({ retroApiBase, dbaApiBase, apps, onClos
             {" "}Rapprochement par champs et colonnes de même nom (préfixes de formulaire, accents, pluriels et synonymes courants FR/EN ignorés), titres et tables ; un score sous {Math.round(0.4 * 100)} % ne rapproche pas.
           </p>
           <div className="hub-table-scroll">
-            <table>
+            <AutoColumns id="UnifiedToolView.1"><table>
               <thead><tr><th>Fonction</th><th>Genre</th>{appList.map((a) => <th key={a}>{a}</th>)}<th>Score · raisons</th><th>Champs communs</th><th>Champs propres</th></tr></thead>
               <tbody>{rows.map((r, i) => (
                 <tr key={i} style={r.shared ? undefined : { opacity: r.score == null ? 0.7 : 1 }}>
@@ -89,7 +90,7 @@ export default function UnifiedToolView({ retroApiBase, dbaApiBase, apps, onClos
                   <td className="muted" style={{ fontSize: 12 }}>{Object.entries(r.specific).filter(([, v]) => v.length).map(([a, v]) => `${a} : ${v.join(", ")}`).join(" · ")}</td>
                 </tr>
               ))}</tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         </>
       )}
@@ -102,7 +103,7 @@ export default function UnifiedToolView({ retroApiBase, dbaApiBase, apps, onClos
                 {s.shared ? <span className="na-chip" style={{ marginLeft: 6 }}>commun</span> : s.apps.length > 1 ? <span className="na-chip" style={{ marginLeft: 6 }}>partiel</span> : <span className="na-chip" style={{ marginLeft: 6 }}>propre</span>}</h3>
               {s.todo?.length > 0 && <p style={{ color: "var(--warning, #b7791f)", fontSize: 12, margin: "0 0 4px" }}>{s.todo.join(" ; ")}</p>}
               <div className="hub-table-scroll">
-                <table>
+                <AutoColumns id="UnifiedToolView.2"><table>
                   <thead><tr><th>{s.kind === "list" ? "Colonne" : "Champ"}</th><th>Origine</th>{unified.apps.map((a) => <th key={a}>{a}</th>)}</tr></thead>
                   <tbody>
                     {(s.kind === "list" ? s.columns : s.fields).map((f) => (
@@ -114,7 +115,7 @@ export default function UnifiedToolView({ retroApiBase, dbaApiBase, apps, onClos
                     ))}
                     {(s.kind === "list" ? s.columns : s.fields).length === 0 && <tr><td colSpan={2 + unified.apps.length} className="muted">aucun champ vu dans les parcours</td></tr>}
                   </tbody>
-                </table>
+                </table></AutoColumns>
               </div>
             </div>
           ))}

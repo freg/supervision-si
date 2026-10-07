@@ -3,6 +3,7 @@ import { getCatalog, listSites, createSite, updateSite, deleteSite, probeSite, l
 import { emptyStep, fieldsFor, validateSteps, loginFromProbe, runBadge, campaignSummary } from "./qaLib.js";
 import HubIcon from "./HubIcon.jsx";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile « Tests QA en ligne » (hub), livraison #651 -- teste un site DÉPLOYÉ,
 // porté par l'IA de portage ou non : sites (URL + étapes de connexion),
 // scénarios pas à pas joués dans Chromium (qa-api, captures par étape),
@@ -16,7 +17,7 @@ import HubIcon from "./HubIcon.jsx";
 // rendu et chaque frappe ferait perdre le focus aux champs (piège React classique).
 function StepsEditor({ steps, catalog, onChange, onMove, onRemove, onAdd }) {
   return (
-    <table className="qa-table qa-steps">
+    <AutoColumns id="QaView.1"><table className="qa-table qa-steps">
       <thead><tr><th>#</th><th>Action</th><th>Sélecteur (CSS)</th><th>Valeur / texte / URL</th><th>Note</th><th></th></tr></thead>
       <tbody>{steps.map((s, i) => { const f = fieldsFor(s.action, catalog); return (
         <tr key={i}><td>{i + 1}</td>
@@ -27,7 +28,7 @@ function StepsEditor({ steps, catalog, onChange, onMove, onRemove, onAdd }) {
           <td className="qa-actions"><button className="secondary" onClick={() => onMove(i, -1)} title="monter">↑</button><button className="secondary" onClick={() => onMove(i, 1)} title="descendre">↓</button><button className="secondary" onClick={() => onRemove(i)} title="retirer">✕</button></td></tr>); })}
       </tbody>
       <tfoot><tr><td colSpan={6}><button className="secondary" onClick={onAdd}>+ Étape</button></td></tr></tfoot>
-    </table>
+    </table></AutoColumns>
   );
 }
 
@@ -130,9 +131,9 @@ export default function QaView({ onBack, qaApiBase, login }) {
           <div className="hub-card hub-settings-section">
             <div className="qa-row-between"><h2 style={{ margin: 0 }}>Sites ({sites.length})</h2>
               <button className="primary" onClick={() => setSiteForm({ name: "", base_url: "https://", notes: "", ported: false, login_steps: [] })}>+ Nouveau site</button></div>
-            <table className="qa-table"><thead><tr><th>Site</th><th>URL</th><th>Porté</th><th>Scénarios</th><th>Non-régression</th><th>Dernière exécution</th></tr></thead>
+            <AutoColumns id="QaView.2"><table className="qa-table"><thead><tr><th>Site</th><th>URL</th><th>Porté</th><th>Scénarios</th><th>Non-régression</th><th>Dernière exécution</th></tr></thead>
               <tbody>{sites.map((s) => <tr key={s.id} className="qa-clickable" onClick={() => openSite(s)}><td><b>{s.name}</b></td><td className="muted">{s.base_url}</td><td>{s.ported ? "✔" : "—"}</td><td>{s.scenarios}</td><td>{s.nr}</td><td>{runBadge(s.last_status)}</td></tr>)}
-                {sites.length === 0 && <tr><td colSpan={6} className="muted">Aucun site : ajoutez-en un (URL de base, étapes de connexion).</td></tr>}</tbody></table>
+                {sites.length === 0 && <tr><td colSpan={6} className="muted">Aucun site : ajoutez-en un (URL de base, étapes de connexion).</td></tr>}</tbody></table></AutoColumns>
           </div>
         </>
       )}
@@ -174,13 +175,13 @@ export default function QaView({ onBack, qaApiBase, login }) {
                     <button className="secondary" onClick={() => playCampaign("all")} disabled={busy === "campaign"}>▶ Tout rejouer</button>
                     <button className="primary" onClick={() => { setEditing({ name: "", kind: "qa", steps: [emptyStep("goto")] }); setRun(null); }}>+ Scénario</button>
                   </div></div>
-                <table className="qa-table"><thead><tr><th>Scénario</th><th>Nature</th><th>Étapes</th><th>Ticket</th><th>Dernier résultat</th><th></th></tr></thead>
+                <AutoColumns id="QaView.3"><table className="qa-table"><thead><tr><th>Scénario</th><th>Nature</th><th>Étapes</th><th>Ticket</th><th>Dernier résultat</th><th></th></tr></thead>
                   <tbody>{scenarios.map((x) => <tr key={x.id} className={editing && editing.id === x.id ? "qa-selected" : ""}>
                     <td><a href="#" onClick={(e) => { e.preventDefault(); setEditing(x); showHistory(x); }}><b>{x.name}</b></a></td>
                     <td>{x.kind === "non-regression" ? "non-régression" : "QA"}</td><td>{x.steps.length}</td><td>{x.ticket_id ? `n°${x.ticket_id}` : "—"}</td>
                     <td>{runBadge(x.last_status)}{x.last_run_at ? <span className="muted"> {x.last_run_at.replace("T", " ")}</span> : null}</td>
                     <td className="qa-actions"><button className="primary" onClick={() => play(x)} disabled={busy === "run" + x.id}>{busy === "run" + x.id ? "…" : "▶"}</button></td></tr>)}
-                    {scenarios.length === 0 && <tr><td colSpan={6} className="muted">Aucun scénario.</td></tr>}</tbody></table>
+                    {scenarios.length === 0 && <tr><td colSpan={6} className="muted">Aucun scénario.</td></tr>}</tbody></table></AutoColumns>
                 {campaign && (
                   <div className="qa-campaign"><h3>Campagne n°{campaign.campaign.id} : {campaignSummary(campaign.runs).passed}/{campaignSummary(campaign.runs).total} réussis ({campaignSummary(campaign.runs).ratio} %)</h3>
                     <table className="qa-table"><tbody>{campaign.runs.map((r) => <tr key={r.id}><td>{r.scenario_name}</td><td className={r.status === "ok" ? "qa-ok" : "qa-ko"}>{runBadge(r.status)}</td><td className="muted">{r.summary.first_failure}</td>
@@ -212,9 +213,9 @@ export default function QaView({ onBack, qaApiBase, login }) {
               <div className="hub-card hub-settings-section">
                 <h2>Exécution n°{run.id} — {run.scenario ? run.scenario.name : ""} <span className={run.status === "ok" ? "qa-ok" : "qa-ko"}>{runBadge(run.status)}</span></h2>
                 <p className="muted">{run.started_at.replace("T", " ")} · {run.summary.passed}/{run.summary.total} étapes · {run.final_url}{run.error ? ` · ${run.error}` : ""}{run.ticket_id ? ` · ticket n°${run.ticket_id} (${run.ticket_kind})` : ""}</p>
-                <table className="qa-table"><thead><tr><th>#</th><th>Action</th><th>Résultat</th><th>ms</th><th>Capture</th></tr></thead>
+                <AutoColumns id="QaView.4"><table className="qa-table"><thead><tr><th>#</th><th>Action</th><th>Résultat</th><th>ms</th><th>Capture</th></tr></thead>
                   <tbody>{run.results.map((r, i) => <tr key={i} className={r.ok ? "" : "qa-row-ko"}><td>{r.login ? `connexion ${-r.index}` : r.index}</td><td>{r.action}</td><td className={r.ok ? "qa-ok" : "qa-ko"}>{r.ok ? "✔" : `✘ ${r.error}`}</td><td className="muted">{r.duration_ms}</td>
-                    <td>{r.shot ? <a href={shotUrl(qaApiBase, run.id, r.shot)} target="_blank" rel="noreferrer"><img className="qa-thumb" src={shotUrl(qaApiBase, run.id, r.shot)} alt={`étape ${r.index}`} /></a> : ""}</td></tr>)}</tbody></table>
+                    <td>{r.shot ? <a href={shotUrl(qaApiBase, run.id, r.shot)} target="_blank" rel="noreferrer"><img className="qa-thumb" src={shotUrl(qaApiBase, run.id, r.shot)} alt={`étape ${r.index}`} /></a> : ""}</td></tr>)}</tbody></table></AutoColumns>
                 {!run.ticket_id && !ticketForm && (
                   <div className="qa-inline"><button className="primary" onClick={() => setTicketForm({ runId: run.id, kind: "incident", comment: "" })}>Ticket incident</button>
                     <button className="secondary" onClick={() => setTicketForm({ runId: run.id, kind: "evolution", comment: "" })}>Ticket évolution</button>

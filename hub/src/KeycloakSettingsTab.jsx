@@ -5,6 +5,7 @@
 // (simulation) puis application ; tout le reste du realm reste hors de portée.
 import { useCallback, useEffect, useState } from "react";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 async function call(url, init) {
   const r = await fetch(url, { credentials: "include", ...(init || {}) });
   const j = await r.json().catch(() => ({}));
@@ -92,10 +93,10 @@ export default function KeycloakSettingsTab({ apiBase, me, notice, error, isAdmi
       <h2 style={{ fontSize: 15, marginTop: 16 }}>Origines des clients OIDC</h2>
       <p className="muted" style={{ margin: "0 0 6px" }}>Origine interne de référence : <code>{data.hub_origin || "?"}</code>. Ajouter une origine publique (frontal, nom de site) recopie pour chaque client les URL de retour et origines existantes vers la nouvelle — équivalent de <code>KEYCLOAK_EXTRA_ORIGINS</code> + <code>keycloak/sync_clients.py</code>, sans redémarrage. Rien n'est retiré d'ici.</p>
       <div className="hub-table-scroll" style={{ maxHeight: 260, overflow: "auto" }}>
-        <table>
+        <AutoColumns id="KeycloakSettingsTab.1"><table>
           <thead><tr><th>Client</th><th>URL de retour</th><th>Origines web</th></tr></thead>
           <tbody>{data.clients.map((c) => <tr key={c.clientId}><td><b>{c.clientId}</b></td><td>{c.redirectUris.map((u) => <div key={u}><code>{u}</code></div>)}</td><td>{c.webOrigins.map((u) => <div key={u}><code>{u}</code></div>)}</td></tr>)}</tbody>
-        </table>
+        </table></AutoColumns>
       </div>
       {isAdmin && (
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8, flexWrap: "wrap" }}>

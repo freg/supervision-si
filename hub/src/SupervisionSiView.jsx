@@ -25,6 +25,7 @@ import {
 import { fetchItemHistory } from "./supervisedHistoryClient.js";
 import ZoomableChart from "./components/ZoomableChart.jsx";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Nouvelle tuile « Supervision SI » (livraison #423, backlog 64) -- « la
 // tuile actuelle était la maquette initiale de la dataviz du hub ; elle doit
 // changer radicalement ». Vit DANS le hub. Colonne de gauche à onglets
@@ -334,7 +335,7 @@ export default function SupervisionSiView({
     } else if (f.kind === "table") {
       body = (
         <div className="hub-table-scroll ss-table">
-          <table>
+          <AutoColumns id="SupervisionSiView.1"><table>
             <thead><tr><th></th><th>Équipement</th><th>Adresse</th><th>Site</th><th>État</th><th>Dernier relevé</th><th>Origine(s)</th><th>Position</th></tr></thead>
             <tbody>{visible.map((it) => {
               const p = positions.get(it.identity);
@@ -351,7 +352,7 @@ export default function SupervisionSiView({
                 </tr>
               );
             })}</tbody>
-          </table>
+          </table></AutoColumns>
           {visible.length === 0 && <p className="muted" style={{ padding: 8 }}>{loading ? "Chargement…" : "Rien de supervisé pour ces critères."}</p>}
         </div>
       );
@@ -372,10 +373,10 @@ export default function SupervisionSiView({
             </>
           ) : <p className="muted" style={{ margin: "4px 0 8px" }}>Sélectionner un équipement pour voir sa chaîne de déduction ; ci-dessous les {shown.length} premiers liens.</p>}
           <div className="hub-table-scroll">
-            <table>
+            <AutoColumns id="SupervisionSiView.2"><table>
               <thead><tr><th>Type</th><th>Lien</th><th>Poids</th><th>Via</th></tr></thead>
               <tbody>{shown.map((l, k) => <tr key={k}><td>{l.kind}</td><td>{l.label}</td><td className="muted">{l.weight ? Math.round(l.weight / 1024) + " Ko" : "—"}</td><td className="muted">{l.via}</td></tr>)}</tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         </div>
       );
@@ -459,7 +460,7 @@ ${when(new Date(sg.start).toISOString())} → ${when(new Date(sg.end).toISOStrin
           {matchesError && <p className="hub-error" style={{ fontSize: 12 }}>{matchesError}</p>}
           {!pixelGridApiBase && <p className="muted">VITE_PIXEL_GRID_API_BASE_URL non configurée : pas de résolution par nom.</p>}
           <div className="hub-table-scroll">
-            <table>
+            <AutoColumns id="SupervisionSiView.3"><table>
               <thead><tr><th>Équipement</th><th>Localisation</th><th>Statut</th><th></th></tr></thead>
               <tbody>{shownRows.map((r) => (
                 <tr key={r.item.identity} className={selected === r.item.identity ? "active" : ""} onClick={() => setSelected(r.item.identity)}>
@@ -469,7 +470,7 @@ ${when(new Date(sg.start).toISOString())} → ${when(new Date(sg.end).toISOStrin
                   <td onClick={(e) => e.stopPropagation()}><MatchActions item={r.item} match={r.match} places={placeNames} onDecide={decide} onReset={undecide} /></td>
                 </tr>
               ))}</tbody>
-            </table>
+            </table></AutoColumns>
             {shownRows.length === 0 && <p className="muted" style={{ padding: 8 }}>Rien pour ce filtre.</p>}
           </div>
           <details className="ss-aliases">
@@ -664,7 +665,7 @@ function AiPriorities({ assistantUrl, proposals, onKeep, onNavigate, KIND }) {
           {result.synthese && <p style={{ margin: "0 0 6px" }}>{result.synthese}</p>}
           {(result.groupes || []).length > 0 && <p className="muted" style={{ margin: "0 0 6px", fontSize: 12 }}>Groupes de même cause : {result.groupes.map((g, i) => <span key={i}>{g.cause} ({(g.ids || []).length}){i < result.groupes.length - 1 ? " · " : ""}</span>)}</p>}
           <button type="button" className="primary" style={{ fontSize: 12, marginBottom: 6 }} onClick={() => onKeep(result.ordre.slice(0, capacity).map((o) => o.id).filter((k) => byKey.has(k)))}>Retenir les {Math.min(capacity, result.ordre.length)} premières</button>
-          <table style={{ borderCollapse: "collapse", width: "100%", textAlign: "left" }}>
+          <AutoColumns id="SupervisionSiView.4"><table style={{ borderCollapse: "collapse", width: "100%", textAlign: "left" }}>
             <thead><tr><th>#</th><th>Prio</th><th>Constat</th><th>Pourquoi</th><th>Action proposée</th></tr></thead>
             <tbody>{result.ordre.map((o, i) => { const p = byKey.get(o.id); return (
               <tr key={o.id + i}>
@@ -675,7 +676,7 @@ function AiPriorities({ assistantUrl, proposals, onKeep, onNavigate, KIND }) {
                 <td>{o.action}{o.params && Object.keys(o.params).length ? <span className="muted"> {JSON.stringify(o.params)}</span> : null}{o.automatisable ? <span title="l'action est dans le catalogue du hub ; exécution à valider" style={{ color: "var(--ok)" }}> ⚙ automatisable</span> : null}
                   {p && onNavigate && o.action === "ouvrir_outil" && <button className="secondary" style={{ fontSize: 11, marginLeft: 6 }} onClick={() => onNavigate(KIND[p.kind]?.tool)}>↗</button>}</td>
               </tr>); })}</tbody>
-          </table>
+          </table></AutoColumns>
         </div>
       )}
     </div>

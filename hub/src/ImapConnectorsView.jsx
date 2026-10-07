@@ -4,6 +4,7 @@ import {
   fetchConnectorStats, fetchConnectorMessages,
 } from "./imapConnectorsClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile « Connecteurs IMAP » (livraison #489) : gestion des boîtes de
 // réception routées vers les API du hub (tickets SAV, pont « suivi »/
 // ProjeQtOr, alertes Zenoss → pixel-grid, SMS des passerelles,
@@ -190,7 +191,7 @@ export default function ImapConnectorsView({ onBack, imapConnectorsApiBase }) {
       <div className="panel" style={{ marginBottom: 12 }}>
         <h4 style={{ margin: "4px 0 8px" }}>Connecteurs ({connectors.length})</h4>
         <div className="hub-table-scroll">
-          <table>
+          <AutoColumns id="ImapConnectorsView.1"><table>
             <thead><tr><th></th><th>Nom</th><th>Boîte</th><th>Cible</th><th>Dernier relevé</th><th>Messages</th><th>Livraisons</th><th>Actions</th></tr></thead>
             <tbody>{connectors.map((c) => {
               const s = per[c.id] || {};
@@ -212,7 +213,7 @@ export default function ImapConnectorsView({ onBack, imapConnectorsApiBase }) {
                 </tr>
               );
             })}</tbody>
-          </table>
+          </table></AutoColumns>
           {connectors.length === 0 && !loading && <p className="muted" style={{ padding: 8 }}>Aucun connecteur — créez le premier (une boîte par adresse de réception).</p>}
         </div>
       </div>
@@ -220,7 +221,7 @@ export default function ImapConnectorsView({ onBack, imapConnectorsApiBase }) {
       <div className="panel">
         <h4 style={{ margin: "4px 0 8px" }}>Journal des messages ({messages.length})</h4>
         <div className="hub-table-scroll">
-          <table>
+          <AutoColumns id="ImapConnectorsView.2"><table>
             <thead><tr><th>Reçu</th><th>Connecteur</th><th>De</th><th>Sujet</th><th>Interprétation</th><th>Livraisons</th></tr></thead>
             <tbody>{messages.map((m) => (
               <tr key={m.id}>
@@ -234,7 +235,7 @@ export default function ImapConnectorsView({ onBack, imapConnectorsApiBase }) {
                 ))}</td>
               </tr>
             ))}</tbody>
-          </table>
+          </table></AutoColumns>
           {messages.length === 0 && !loading && <p className="muted" style={{ padding: 8 }}>Aucun message{onlyErrors ? " en erreur" : ""} pour l'instant.</p>}
         </div>
       </div>

@@ -4,6 +4,7 @@
 // ssid-vlan-check.sh importé), avec un verdict et les écarts en phrases.
 import { useEffect, useState } from "react";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const TONE = { "prouvé": "good", "observé": "good", "à prouver": "warn", "désactivé": "neutral", "écart": "bad" };
 
 export default function NebulaSsidMatrix({ nebulaApiBase, siteId, version }) {
@@ -51,7 +52,7 @@ export default function NebulaSsidMatrix({ nebulaApiBase, siteId, version }) {
       {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
       {m && (
         <>
-          <table>
+          <AutoColumns id="NebulaSsidMatrix.1"><table>
             <thead><tr><th>SSID</th><th>Prévu</th><th>Observé</th><th>Prouvé</th><th>Verdict</th></tr></thead>
             <tbody>{m.ssids.map((r) => (
               <tr key={r.ssid} style={{ opacity: r.enabled ? 1 : 0.6 }}>
@@ -62,7 +63,7 @@ export default function NebulaSsidMatrix({ nebulaApiBase, siteId, version }) {
                 <td><span className={`np-tone ${TONE[r.verdict] || "neutral"}`}>{r.verdict}</span></td>
               </tr>
             ))}</tbody>
-          </table>
+          </table></AutoColumns>
           {m.ssids.some((r) => r.gaps.length || r.notes.length) && (
             <ul>{m.ssids.flatMap((r) => [...r.gaps.map((g, i) => <li key={`${r.ssid}g${i}`}><strong>{r.ssid}</strong> : {g}</li>), ...r.notes.map((n, i) => <li key={`${r.ssid}n${i}`} className="muted"><strong>{r.ssid}</strong> : {n}</li>)])}</ul>
           )}

@@ -19,6 +19,7 @@ import {
 
 import ZoomableChart from "./components/ZoomableChart.jsx";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const REFRESH_MS = 60000;
 const LINE_W = 600;
 const LINE_H = 90;
@@ -229,7 +230,7 @@ export default function NetprobeAgentsTab({ netprobeApiBase }) {
           </p>
         ) : (
           <div className="hub-table-scroll">
-            <table>
+            <AutoColumns id="NetprobeAgentsTab.1"><table>
               <thead>
                 <tr>
                   <th>Appareil</th><th>Rôle</th><th>Site</th><th>Libellé</th><th>Vue</th>
@@ -265,7 +266,7 @@ export default function NetprobeAgentsTab({ netprobeApiBase }) {
                   );
                 })}
               </tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         )}
       </div>
@@ -297,7 +298,7 @@ export default function NetprobeAgentsTab({ netprobeApiBase }) {
                 <p className="muted">Aucun changement de borne sur ces relevés.</p>
               ) : (
                 <div className="hub-table-scroll" style={{ maxHeight: 220, overflowY: "auto" }}>
-                  <table>
+                  <AutoColumns id="NetprobeAgentsTab.2"><table>
                     <thead><tr><th>Quand</th><th>De</th><th>Vers</th><th>Signal avant → après</th><th>Contexte</th></tr></thead>
                     <tbody>
                       {roaming.slice().reverse().map((ev, i) => (
@@ -316,7 +317,7 @@ export default function NetprobeAgentsTab({ netprobeApiBase }) {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </table></AutoColumns>
                 </div>
               )}
             </>
@@ -350,7 +351,7 @@ export default function NetprobeAgentsTab({ netprobeApiBase }) {
             <>
               <h4 style={{ marginBottom: 4 }}>Dernière mesure par tâche</h4>
               <div className="hub-table-scroll">
-                <table>
+                <AutoColumns id="NetprobeAgentsTab.3"><table>
                   <thead><tr><th>Tâche</th><th>Quand</th><th>État</th><th>Données</th></tr></thead>
                   <tbody>
                     {Object.values(byAgent[selected.agent_id]).map((m) => (
@@ -362,7 +363,7 @@ export default function NetprobeAgentsTab({ netprobeApiBase }) {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></AutoColumns>
               </div>
             </>
           )}

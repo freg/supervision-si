@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { fetchOwnCloudRoots, fetchOwnCloudChildren, fetchOwnCloudLongPaths } from "./ownCloudClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Navigateur d'arbre OwnCloud (livraison #354, backlog items 6/9) --
 // LECTURE SEULE par construction (owncloud-api ne propose aucune
 // route d'écriture, voir owncloud/api/app.py) -- fil d'ariane +
@@ -170,7 +171,7 @@ export default function OwnCloudTreeView({ apiBase, frontendUrl }) {
           </div>
           {loadingChildren && <p className="muted">Chargement…</p>}
           {!loadingChildren && currentChildren.length === 0 && <p className="muted">Dossier vide.</p>}
-          <table className="hub-table">
+          <AutoColumns id="OwnCloudTreeView.1"><table className="hub-table">
             <thead>
               <tr>
                 <th>Nom</th>
@@ -195,7 +196,7 @@ export default function OwnCloudTreeView({ apiBase, frontendUrl }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></AutoColumns>
         </div>
       )}
 
@@ -229,7 +230,7 @@ export default function OwnCloudTreeView({ apiBase, frontendUrl }) {
               (200 max affichés).
             </p>
             {longPathResults.results.length > 0 && (
-              <table className="hub-table">
+              <AutoColumns id="OwnCloudTreeView.2"><table className="hub-table">
                 <thead>
                   <tr>
                     <th>Racine</th>
@@ -246,7 +247,7 @@ export default function OwnCloudTreeView({ apiBase, frontendUrl }) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></AutoColumns>
             )}
           </>
         )}

@@ -6,6 +6,7 @@
 // validation. Données : /sites/<id>/anomalies.
 import { useEffect, useState } from "react";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 async function call(url, init) {
   const r = await fetch(url, { credentials: "include", ...(init || {}) });
   const j = await r.json().catch(() => ({}));
@@ -61,7 +62,7 @@ export default function NebulaAnomalies({ nebulaApiBase, siteId, groups, login, 
       {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
       {data.rules_errors?.length > 0 && <p className="muted">Règles illisibles : {data.rules_errors.join(" · ")}</p>}
       {rows.length === 0 ? <p className="muted">Aucune anomalie : chaque liaison porte les mêmes VLAN des deux côtés et chaque SSID a son VLAN sur les commutateurs.</p> : (
-        <table style={{ width: "100%", tableLayout: "auto", textAlign: "left" }}>
+        <AutoColumns id="NebulaAnomalies.1"><table style={{ width: "100%", tableLayout: "auto", textAlign: "left" }}>
           <thead><tr style={{ textAlign: "left" }}><th>Élément</th><th>Constat</th><th>Gravité</th><th>Action proposée</th><th>État</th><th></th><th></th></tr></thead>
           <tbody>
             {rows.map((a) => {
@@ -81,7 +82,7 @@ export default function NebulaAnomalies({ nebulaApiBase, siteId, groups, login, 
               );
             })}
           </tbody>
-        </table>
+        </table></AutoColumns>
       )}
     </div>
   );

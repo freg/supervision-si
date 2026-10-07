@@ -15,6 +15,7 @@ import { hubLink, viewParams } from "./hubLinks.js";
 import * as api from "./licensesClient.js";
 import { KIND_LABEL, GAP_LABEL, SEVERITY_TONE, ACTION_STATUS, VENDOR_KIND_LABEL, USER_ALERT, contractTone, filterContracts, filterSoftware, filterGaps, filterHosts, filterRows, filterUsers, gapSummary, softwareTotals, pickContract, defaultManager, fmtDays } from "./licensesLib.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const TABS = [
   { id: "dash", label: "📊 Tableau de bord" },
   { id: "contracts", label: "📜 Contrats & catalogue" },
@@ -63,7 +64,7 @@ function Dashboard({ b, t, site, contracts, reload, notice }) {
             <span className="muted">{shown.length} / {(gaps || []).length}</span>
           </div>
           <Scroll>
-            <table style={{ width: "100%", fontSize: 13 }}>
+            <AutoColumns id="LicensesView.1"><table style={{ width: "100%", fontSize: 13 }}>
               <thead style={TH}><tr><th> </th><th>Logiciel</th><th>Écart</th><th>Détail</th></tr></thead>
               <tbody>
                 {shown.map((g, i) => (
@@ -76,13 +77,13 @@ function Dashboard({ b, t, site, contracts, reload, notice }) {
                 ))}
                 {gaps && !shown.length && <tr><td colSpan={4} className="muted">aucun écart : contrats, attributions et installations concordent.</td></tr>}
               </tbody>
-            </table>
+            </table></AutoColumns>
           </Scroll>
         </div>
         <div>
           <p className="muted" style={{ margin: "0 0 6px" }}>Par logiciel : licences détenues, attribuées, postes où il est installé, coût annuel connu.</p>
           <Scroll>
-            <table style={{ width: "100%", fontSize: 13 }}>
+            <AutoColumns id="LicensesView.2"><table style={{ width: "100%", fontSize: 13 }}>
               <thead style={TH}><tr><th> </th><th>Logiciel</th><th>Éditeur</th><th>Licences</th><th>Attribuées</th><th>Installé (postes)</th><th>Coût / an</th></tr></thead>
               <tbody>
                 {totals.map((s) => (
@@ -93,7 +94,7 @@ function Dashboard({ b, t, site, contracts, reload, notice }) {
                 ))}
                 {!totals.length && <tr><td colSpan={7} className="muted">aucun contrat : en créer dans « Contrats & catalogue » ou importer un tableur.</td></tr>}
               </tbody>
-            </table>
+            </table></AutoColumns>
           </Scroll>
         </div>
       </div>
@@ -188,7 +189,7 @@ function Contracts({ b, t, site, sites, software, contracts, reload, notice }) {
       )}
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }}>
         <Scroll>
-          <table style={{ width: "100%", fontSize: 13 }}>
+          <AutoColumns id="LicensesView.3"><table style={{ width: "100%", fontSize: 13 }}>
             <thead style={TH}><tr><th> </th><th>Logiciel</th><th>Site</th><th>Libellé</th><th>Type</th><th>Licences</th><th>Attribuées</th><th>Fin</th><th>Coût / an</th><th>Vendeur / SKU</th><th> </th></tr></thead>
             <tbody>
               {shown.map((c) => (
@@ -202,7 +203,7 @@ function Contracts({ b, t, site, sites, software, contracts, reload, notice }) {
               ))}
               {!shown.length && <tr><td colSpan={11} className="muted">aucun contrat.</td></tr>}
             </tbody>
-          </table>
+          </table></AutoColumns>
         </Scroll>
         <div>
           <div className="hub-card lic-card" style={{ marginBottom: 10 }}>
@@ -230,10 +231,10 @@ function Contracts({ b, t, site, sites, software, contracts, reload, notice }) {
             )}
           </div>
           <Scroll max="calc(100vh - 560px)">
-            <table style={{ width: "100%", fontSize: 13 }}>
+            <AutoColumns id="LicensesView.4"><table style={{ width: "100%", fontSize: 13 }}>
               <thead style={TH}><tr><th>Catalogue</th><th>Éditeur</th><th>Motifs</th></tr></thead>
               <tbody>{shownSw.map((s) => <tr key={s.id} style={{ cursor: "pointer" }} onClick={() => editSw(s)}><td>{s.name}</td><td className="muted">{s.vendor}</td><td className="muted" style={{ fontSize: 12 }}>{(s.patterns || []).join(", ") || <em>nom</em>}</td></tr>)}</tbody>
-            </table>
+            </table></AutoColumns>
           </Scroll>
         </div>
       </div>
@@ -276,7 +277,7 @@ function Grid({ b, t, site, contracts, reload, notice }) {
       </div>
       <p className="muted" style={{ margin: "0 0 6px", fontSize: 12 }}>Une case = une attribution (clic pour attribuer / retirer). ✓ attribué · ● installé sur le poste (relevé de l'agent) · ✓● cohérent · ● seul = installé sans attribution · ✓ seul sur un poste = attribué mais absent. Les utilisateurs viennent des attributions et des sessions vues par les agents.</p>
       <Scroll>
-        <table style={{ fontSize: 13, borderCollapse: "collapse" }}>
+        <AutoColumns id="LicensesView.5"><table style={{ fontSize: 13, borderCollapse: "collapse" }}>
           <thead style={TH}>
             <tr><th style={{ textAlign: "left", position: "sticky", left: 0, background: "var(--panel, #222)", zIndex: 2 }}>Sujet</th><th>Site</th>
               {cols.map((c) => <th key={c.id} title={c.contracts.map((x) => `${x.label || x.id} (${KIND_LABEL[x.kind] || x.kind}, ${x.assigned}/${x.quantity || "∞"})`).join("\n")}>{c.name}<br /><span className="muted" style={{ fontWeight: 400 }}>{c.contracts.reduce((n, x) => n + (x.assigned || 0), 0)}/{c.contracts.reduce((n, x) => n + (x.quantity || 0), 0) || "∞"}</span></th>)}</tr>
@@ -295,7 +296,7 @@ function Grid({ b, t, site, contracts, reload, notice }) {
             ))}
             {grid && !rows.length && <tr><td colSpan={2 + cols.length} className="muted">aucune ligne : ajouter un utilisateur / poste ci-dessus, ou activer la sonde <code>software-inventory</code> sur <a href={hubLink("si-agent", { section: "plugins" })}>les agents des postes</a>.</td></tr>}
           </tbody>
-        </table>
+        </table></AutoColumns>
       </Scroll>
     </div>
   );
@@ -427,7 +428,7 @@ function Users({ b, t, site, sites, notice, reload }) {
         </div>
       )}
       <Scroll>
-        <table style={{ width: "100%", fontSize: 13 }}>
+        <AutoColumns id="LicensesView.6"><table style={{ width: "100%", fontSize: 13 }}>
           <thead style={TH}><tr><th> </th><th>Login</th><th>Alerte</th><th>Nom</th><th>Adresse</th><th>Groupes</th><th>Site</th><th>Attributions</th><th>Fiche ownCloud</th><th>Autres écritures</th><th> </th></tr></thead>
           <tbody>
             {shown.map((x) => (
@@ -443,7 +444,7 @@ function Users({ b, t, site, sites, notice, reload }) {
             ))}
             {list && !shown.length && <tr><td colSpan={11} className="muted">aucun utilisateur : « Synchroniser l'annuaire », importer un tableur, ou ajouter une info.</td></tr>}
           </tbody>
-        </table>
+        </table></AutoColumns>
       </Scroll>
     </div>
   );
@@ -491,7 +492,7 @@ function Hosts({ b, t, site, software, notice }) {
           <span className="muted">{hosts.length} poste(s)</span><button type="button" className="secondary" onClick={load}>↻</button>
         </div>
         <Scroll max="calc(100vh - 520px)">
-          <table style={{ width: "100%", fontSize: 13 }}>
+          <AutoColumns id="LicensesView.7"><table style={{ width: "100%", fontSize: 13 }}>
             <thead style={TH}><tr><th>Poste</th><th>Site</th><th>OS</th><th>Sessions</th><th>Logiciels</th><th>Relevé</th></tr></thead>
             <tbody>
               {hosts.map((h) => <tr key={h.agent_id} style={{ cursor: "pointer", background: sel?.agent_id === h.agent_id ? "rgba(255,255,255,.08)" : undefined }} onClick={() => { setSel(h); setDetail(null); setAct({ ...act, manager: "", confirm: "" }); }}>
@@ -499,15 +500,15 @@ function Hosts({ b, t, site, software, notice }) {
               </tr>)}
               {data && !hosts.length && <tr><td colSpan={6} className="muted">aucun relevé : activer la sonde <code>software-inventory</code> (désactivée par défaut, toutes les 6 h) sur <a href={hubLink("si-agent", { section: "plugins" })}>les agents des postes</a> (agent ≥ 0.5.16).</td></tr>}
             </tbody>
-          </table>
+          </table></AutoColumns>
         </Scroll>
         <h4 style={{ margin: "10px 0 4px" }}>Vus sur les postes, absents du catalogue <span className="muted">({unknown.length})</span></h4>
         <p className="muted" style={{ margin: "0 0 4px", fontSize: 12 }}>Bruit système exclu. Un clic ajoute le logiciel au catalogue (motif = nom relevé) : il apparaît alors dans les écarts « installé sans contrat ».</p>
         <Scroll max="220px">
-          <table style={{ width: "100%", fontSize: 12 }}>
+          <AutoColumns id="LicensesView.8"><table style={{ width: "100%", fontSize: 12 }}>
             <thead style={TH}><tr><th>Nom relevé</th><th>Éditeur</th><th>Postes</th></tr></thead>
             <tbody>{unknown.slice(0, 200).map((u, i) => <tr key={i} style={{ cursor: "pointer" }} title="ajouter au catalogue" onClick={async () => { const r = await api.saveSoftware(b, t, { name: u.name, vendor: u.publisher || "", patterns: [u.name] }); notice(r.error || `${u.name} ajouté au catalogue`, !r.error); }}><td>{u.name}</td><td className="muted">{u.publisher}</td><td>{u.hosts?.length ?? u.count ?? ""}</td></tr>)}</tbody>
-          </table>
+          </table></AutoColumns>
         </Scroll>
       </div>
       <div>
@@ -532,20 +533,20 @@ function Hosts({ b, t, site, software, notice }) {
               <span className="muted">{detail ? `${detail.installed.length} logiciel(s)` : "…"}</span>
             </div>
             <Scroll max="calc(100vh - 620px)">
-              <table style={{ width: "100%", fontSize: 12 }}>
+              <AutoColumns id="LicensesView.9"><table style={{ width: "100%", fontSize: 12 }}>
                 <thead style={TH}><tr><th>Nom</th><th>Éditeur</th><th>Version</th><th>Source</th><th> </th></tr></thead>
                 <tbody>{(detail?.installed || []).map((x, i) => <tr key={i}><td>{x.name}</td><td className="muted">{x.publisher}</td><td className="muted">{x.version}</td><td className="muted">{x.source}</td>
                   <td><button type="button" className="secondary" style={{ fontSize: 11 }} onClick={() => setAct({ ...act, action: "uninstall", package: x.id || x.name, manager: { dpkg: "apt", rpm: "dnf", winget: "winget", apt: "apt", dnf: "dnf", brew: "brew" }[x.source] || act.manager })}>désinstaller…</button></td></tr>)}</tbody>
-              </table>
+              </table></AutoColumns>
             </Scroll>
             <h4 style={{ margin: "10px 0 4px" }}>Actions {sel ? `sur ${sel.hostname}` : ""}</h4>
             <Scroll max="160px">
-              <table style={{ width: "100%", fontSize: 12 }}>
+              <AutoColumns id="LicensesView.10"><table style={{ width: "100%", fontSize: 12 }}>
                 <thead style={TH}><tr><th>Quand</th><th>Action</th><th>Paquet</th><th>État</th><th>Résultat</th><th>Par</th></tr></thead>
                 <tbody>{mine.map((a) => <tr key={a.id}><td className="muted">{when(a.created_at)}</td><td>{a.action === "install" ? "installer" : "désinstaller"}</td><td>{a.package}{a.manager ? <span className="muted"> ({a.manager})</span> : null}</td>
                   <td><Tone tone={a.status === "done" ? "green" : a.status === "failed" ? "red" : "orange"}>{ACTION_STATUS[a.status] || a.status}</Tone></td><td className="muted" style={{ maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={a.result}>{a.result}</td><td className="muted">{a.user}</td></tr>)}
                   {!mine.length && <tr><td colSpan={6} className="muted">aucune action.</td></tr>}</tbody>
-              </table>
+              </table></AutoColumns>
             </Scroll>
           </>
         )}
@@ -637,7 +638,7 @@ function Vendors({ b, t, sites, notice, reload }) {
         </div>
       )}
       <Scroll>
-        <table style={{ width: "100%", fontSize: 13 }}>
+        <AutoColumns id="LicensesView.11"><table style={{ width: "100%", fontSize: 13 }}>
           <thead style={TH}><tr><th>Compte</th><th>Type</th><th>Site</th><th>Configuration</th><th>Dernière synchronisation</th><th>Dernier relevé</th><th> </th></tr></thead>
           <tbody>
             {list.map((x) => (
@@ -656,7 +657,7 @@ function Vendors({ b, t, sites, notice, reload }) {
             ))}
             {!list.length && <tr><td colSpan={7} className="muted">aucun compte vendeur.</td></tr>}
           </tbody>
-        </table>
+        </table></AutoColumns>
       </Scroll>
     </div>
   );
@@ -668,10 +669,10 @@ function Log({ b, t }) {
   useEffect(() => { api.fetchEvents(b, t).then((r) => !r.error && setEvents(r.events || [])); }, [b, t]);
   return (
     <Scroll>
-      <table style={{ width: "100%", fontSize: 12 }}>
+      <AutoColumns id="LicensesView.12"><table style={{ width: "100%", fontSize: 12 }}>
         <thead style={TH}><tr><th>Quand</th><th>Événement</th><th>Détail</th><th>Par</th></tr></thead>
         <tbody>{events.map((e, i) => <tr key={i}><td className="muted">{when(e.at)}</td><td>{e.event}</td><td>{e.text}</td><td className="muted">{e.user}</td></tr>)}{!events.length && <tr><td colSpan={4} className="muted">journal vide.</td></tr>}</tbody>
-      </table>
+      </table></AutoColumns>
     </Scroll>
   );
 }

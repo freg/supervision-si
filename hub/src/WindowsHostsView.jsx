@@ -7,6 +7,7 @@ import { matchWindowsHosts, accessLinks } from "./campusCards.js";
 import { rankFilter } from "./textFilter.js";
 import { hubLink } from "./hubLinks.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const SEV = { warning: "var(--warning)", critical: "var(--danger)", info: "var(--muted)" };
 
 function download(name, text) {
@@ -52,7 +53,7 @@ export default function WindowsHostsView({ siAgentApiBase, assets = [], site = "
         <button type="button" className="secondary" onClick={load}>Actualiser</button>
       </div>
       {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
-      <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+      <AutoColumns id="WindowsHostsView.1"><table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
         <thead><tr><th>Hôte</th><th>IP</th><th>Fiche</th><th>Groupe / domaine</th><th>MAC</th><th>Accès</th><th>SMB</th><th>RDP</th><th>Constats</th></tr></thead>
         <tbody>
           {hosts.map((h) => (
@@ -80,7 +81,7 @@ export default function WindowsHostsView({ siAgentApiBase, assets = [], site = "
           ))}
           {data && !hosts.length && <tr><td colSpan={9} className="muted">Aucun hôte{onlyWindows ? " Windows" : ""} vu par la sonde.</td></tr>}
         </tbody>
-      </table>
+      </table></AutoColumns>
     </div>
   );
 }

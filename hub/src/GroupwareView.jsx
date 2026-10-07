@@ -3,6 +3,7 @@ import { listGrants, createGrant, deleteGrant, listCategories, createCategory, u
 import { APPS, RIGHT_PRESETS, rightsLabel, myGrants, categoryTree, EMPTY_CONTACT, contactToForm, formToContact, contactRow, weekOf, monthGrid, eventsOfDay, EMPTY_EVENT, eventToForm, formToEvent, defaultSlot, dateKey, localIso, busyOfDay, freeSlots, INFOLOG_TYPES, INFOLOG_STATUS, PRIORITIES, EMPTY_INFOLOG, isLate, kanban, infologToForm, formToInfolog, linkLabel, PARTSTAT_LABELS, ALARM_CHOICES, attendeeSummary } from "./groupwareLib.js";
 import HubIcon from "./HubIcon.jsx";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile « Groupware » (livraison #664, item 115) -- tranche 1 d'un groupware « façon eGroupware » : mes accès
 // CalDAV / CardDAV (Radicale, comptes LDAP), partages de mes données par application (grants : lecture, ajout,
 // modification, suppression, privé) à un utilisateur ou un groupe, catégories partagées / personnelles, préférences
@@ -47,7 +48,7 @@ function InfoLog({ base, login, groups, setError, setNotice }) {
               <button className="primary" onClick={() => { setSel(null); setForm({ mode: "new", f: { ...EMPTY_INFOLOG } }); }}>+ Entrée</button>
             </div>
           </div>
-          {mode === "list" && <table className="ds-table"><thead><tr><th>Type</th><th>Titre</th><th>Échéance</th><th>Priorité</th><th>Responsable</th><th>De</th><th>Statut</th></tr></thead><tbody>{entries.map((e) => <Row key={e.id} e={e} />)}{!entries.length && <tr><td colSpan={7} className="muted">Rien pour ces filtres.</td></tr>}</tbody></table>}
+          {mode === "list" && <AutoColumns id="GroupwareView.1"><table className="ds-table"><thead><tr><th>Type</th><th>Titre</th><th>Échéance</th><th>Priorité</th><th>Responsable</th><th>De</th><th>Statut</th></tr></thead><tbody>{entries.map((e) => <Row key={e.id} e={e} />)}{!entries.length && <tr><td colSpan={7} className="muted">Rien pour ces filtres.</td></tr>}</tbody></table></AutoColumns>}
           {mode === "kanban" && <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginTop: 8 }}>{Object.entries(kanban(entries)).map(([st, list]) => <div key={st} style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 6, padding: 6, minHeight: 120 }}>
             <div className="muted" style={{ fontWeight: 600, marginBottom: 4 }}>{INFOLOG_STATUS[st]} ({list.length})</div>
             {list.map((e) => <div key={e.id} onClick={() => { setSel(e); setForm(null); }} style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 4, padding: "4px 6px", marginBottom: 4, cursor: "pointer", fontSize: 12 }}>
@@ -171,15 +172,15 @@ function Agenda({ base, login, groups, health, isAdmin, setError, setNotice }) {
               {allDay.length + timed.length > 4 && <div className="muted">+ {allDay.length + timed.length - 4}</div>}
             </div>; })}
           </div>}
-          {view === "list" && <table className="ds-table"><thead><tr><th>Quand</th><th>Quoi</th><th>Où</th><th>Agenda</th></tr></thead><tbody>
+          {view === "list" && <AutoColumns id="GroupwareView.2"><table className="ds-table"><thead><tr><th>Quand</th><th>Quoi</th><th>Où</th><th>Agenda</th></tr></thead><tbody>
             {visible.map((e) => <tr key={e.uid + e.start} style={{ cursor: "pointer" }} className={sel && sel.uid === e.uid && sel.start === e.start ? "pv-selected" : ""} onClick={() => { setSel(e); setForm(null); }}><td>{e.all_day ? e.start : `${e.start.slice(0, 10)} ${e.start.slice(11, 16)}–${e.end.slice(11, 16)}`}{e.recurring ? " ↻" : ""}</td><td><b>{e.title}</b></td><td>{e.location}</td><td className="muted">{e.book_name}{e.owner !== login && !e.resource ? ` (${e.owner})` : ""}</td></tr>)}
-            {!visible.length && <tr><td colSpan={4} className="muted">Rien sur la période.</td></tr>}</tbody></table>}
+            {!visible.length && <tr><td colSpan={4} className="muted">Rien sur la période.</td></tr>}</tbody></table></AutoColumns>}
           <p className="muted" style={{ marginBottom: 0 }}>Double-clic sur un créneau = nouvel événement. {busy ? "Hachures = créneaux occupés des personnes / ressources interrogées." : ""}</p>
         </div>
         <div className="hub-card hub-settings-section">
           <h3>Disponibilités</h3>
           <div className="ds-inline"><input type="text" value={who} placeholder="identifiants séparés par des virgules (ex. alice, bob, salle-1)" style={{ width: 360 }} onChange={(e) => setWho(e.target.value)} /><button className="secondary" onClick={checkBusy} disabled={!who}>Voir les créneaux occupés</button>{busy && <button className="secondary pv-mini" onClick={() => setBusy(null)}>effacer</button>}</div>
-          {busy && view !== "month" && <table className="ds-table"><thead><tr><th>Jour</th><th>Créneaux libres pour tous (8h–19h, ≥ 30 min)</th></tr></thead><tbody>{days.map((d) => <tr key={dateKey(d)}><td>{DAYS[(d.getDay() + 6) % 7]} {d.getDate()}</td><td>{freeSlots(busy, d).join(" · ") || <span className="muted">aucun</span>}</td></tr>)}</tbody></table>}
+          {busy && view !== "month" && <AutoColumns id="GroupwareView.3"><table className="ds-table"><thead><tr><th>Jour</th><th>Créneaux libres pour tous (8h–19h, ≥ 30 min)</th></tr></thead><tbody>{days.map((d) => <tr key={dateKey(d)}><td>{DAYS[(d.getDay() + 6) % 7]} {d.getDate()}</td><td>{freeSlots(busy, d).join(" · ") || <span className="muted">aucun</span>}</td></tr>)}</tbody></table></AutoColumns>}
           <p className="muted">Les disponibilités se calculent sur tous les agendas de chaque personne, sans en révéler le contenu (comme le free/busy d'eGroupware).</p>
         </div>
       </div>
@@ -268,9 +269,9 @@ function Contacts({ base, login, groups, health, setError, setNotice }) {
           <div className="ds-row-between"><h2 style={{ margin: 0 }}>Carnet d'adresses <span className="muted">({rows.length})</span></h2>
             <div className="ds-inline" style={{ marginTop: 0 }}><input type="search" value={q} placeholder="rechercher (nom, société, tél, courriel, ville, catégorie)" onChange={(e) => setQ(e.target.value)} style={{ width: 280 }} />
               <button className="primary" disabled={!writable.length} onClick={() => setForm({ mode: "new", owner: writable[0].owner, book: writable[0].name, f: { ...EMPTY_CONTACT } })}>+ Contact</button></div></div>
-          <table className="ds-table"><thead><tr><th>Nom</th><th>Société</th><th>Téléphone</th><th>Courriel</th><th>Ville</th><th>Carnet</th></tr></thead>
+          <AutoColumns id="GroupwareView.4"><table className="ds-table"><thead><tr><th>Nom</th><th>Société</th><th>Téléphone</th><th>Courriel</th><th>Ville</th><th>Carnet</th></tr></thead>
             <tbody>{rows.map((c) => { const r = contactRow(c); return <tr key={`${c.owner}/${c.book}/${c.uid}`} className={sel && sel.uid === c.uid ? "pv-selected" : ""} style={{ cursor: "pointer" }} onClick={() => { setSel(c); setForm(null); }}><td><b>{r.name}</b>{r.cats && <div className="muted">{r.cats}</div>}</td><td>{r.org}</td><td>{r.tel}</td><td>{r.email}</td><td>{r.city}</td><td className="muted">{c.book_name}{c.owner !== login ? ` (${c.owner})` : ""}</td></tr>; })}
-              {!rows.length && <tr><td colSpan={6} className="muted">{books === null ? "chargement…" : q ? "Aucun contact ne correspond." : "Aucun contact : créez un carnet puis un contact, ou importez un .vcf dans l'interface Radicale."}</td></tr>}</tbody></table>
+              {!rows.length && <tr><td colSpan={6} className="muted">{books === null ? "chargement…" : q ? "Aucun contact ne correspond." : "Aucun contact : créez un carnet puis un contact, ou importez un .vcf dans l'interface Radicale."}</td></tr>}</tbody></table></AutoColumns>
         </div>
         <div className="hub-card hub-settings-section">
           <h3>Mes carnets {books && <span className="muted">({books.length})</span>}</h3>
@@ -383,7 +384,7 @@ export default function GroupwareView({ onBack, groupwareApiBase, login, groups,
         </div>
         <div className="hub-card hub-settings-section">
           <h2>Ce qu'on me partage</h2>
-          {mine.received.length ? <table className="ds-table"><thead><tr><th>Propriétaire</th><th>Application</th><th>Mes droits</th></tr></thead><tbody>{mine.received.map((r, i) => <tr key={i}><td><b>{r.owner}</b></td><td>{APPS[r.app] || r.app}</td><td>{rightsLabel(r.rights)}</td></tr>)}</tbody></table> : <p className="muted">Aucun partage reçu (groupes pris en compte : {(groups || []).join(", ") || "aucun"}).</p>}
+          {mine.received.length ? <AutoColumns id="GroupwareView.5"><table className="ds-table"><thead><tr><th>Propriétaire</th><th>Application</th><th>Mes droits</th></tr></thead><tbody>{mine.received.map((r, i) => <tr key={i}><td><b>{r.owner}</b></td><td>{APPS[r.app] || r.app}</td><td>{rightsLabel(r.rights)}</td></tr>)}</tbody></table></AutoColumns> : <p className="muted">Aucun partage reçu (groupes pris en compte : {(groups || []).join(", ") || "aucun"}).</p>}
           {isAdmin && <p className="muted"><button className="secondary pv-mini" onClick={async () => { const r = await rebuildDav(groupwareApiBase); setNotice(r.ok ? `Droits DAV régénérés : ${r.rules} règle(s)` : r.error); }}>régénérer les droits DAV</button> (après un changement de membres de groupe dans l'annuaire)</p>}
         </div>
       </>)}
@@ -399,10 +400,10 @@ export default function GroupwareView({ onBack, groupwareApiBase, login, groups,
             <label className="pv-check"><input type="checkbox" checked={catForm.shared} onChange={(e) => setCatForm({ ...catForm, shared: e.target.checked })} /> partagée</label>
             <button className="primary" onClick={addCat} disabled={!catForm.name}>Ajouter</button>
           </div>
-          <table className="ds-table"><thead><tr><th>Catégorie</th><th>Application</th><th>Portée</th><th></th></tr></thead>
+          <AutoColumns id="GroupwareView.6"><table className="ds-table"><thead><tr><th>Catégorie</th><th>Application</th><th>Portée</th><th></th></tr></thead>
             <tbody>{categoryTree(cats.filter((c) => !c.owner || c.owner === login)).flatMap((c) => [c, ...c.children.map((x) => ({ ...x, child: true }))]).map((c) => <tr key={c.id}><td style={{ paddingLeft: c.child ? 24 : 7 }}>{c.color && <span style={{ display: "inline-block", width: 10, height: 10, background: c.color, marginRight: 6, borderRadius: 2 }} />}<b>{c.name}</b></td><td>{c.app === "*" ? "toutes" : APPS[c.app] || c.app}</td><td>{c.owner ? "personnelle" : "partagée"}</td>
               <td className="pv-actions"><button className="secondary pv-mini" onClick={async () => { const n = window.prompt("Nouveau nom", c.name); if (n && n !== c.name) { await updateCategory(groupwareApiBase, c.id, { name: n }); load(); } }}>renommer</button>{(c.owner === login || isAdmin) && <button className="secondary pv-mini pv-danger" onClick={async () => { if (window.confirm(`Supprimer « ${c.name} » (et ses sous-catégories) ?`)) { await deleteCategory(groupwareApiBase, c.id); load(); } }}>✕</button>}</td></tr>)}
-              {!cats.length && <tr><td colSpan={4} className="muted">Aucune catégorie.</td></tr>}</tbody></table>
+              {!cats.length && <tr><td colSpan={4} className="muted">Aucune catégorie.</td></tr>}</tbody></table></AutoColumns>
         </div>
       )}
 
@@ -418,8 +419,8 @@ export default function GroupwareView({ onBack, groupwareApiBase, login, groups,
             <input type="text" value={prefForm.value} placeholder="valeur" onChange={(e) => setPrefForm({ ...prefForm, value: e.target.value })} />
             <button className="primary" disabled={!prefForm.key} onClick={() => savePref()}>Enregistrer</button>
           </div>
-          {isAdmin && <table className="ds-table"><thead><tr><th>Niveau</th><th>Sujet</th><th>Application</th><th>Clé</th><th>Valeur</th><th></th></tr></thead>
-            <tbody>{prefs.map((p) => <tr key={p.id}><td>{p.level}</td><td>{p.subject || "—"}</td><td>{p.app === "*" ? "toutes" : p.app}</td><td><code>{p.key}</code></td><td>{p.value}</td><td><button className="secondary pv-mini pv-danger" onClick={async () => { await deletePref(groupwareApiBase, p); load(); }}>✕</button></td></tr>)}{!prefs.length && <tr><td colSpan={6} className="muted">Aucune préférence enregistrée.</td></tr>}</tbody></table>}
+          {isAdmin && <AutoColumns id="GroupwareView.7"><table className="ds-table"><thead><tr><th>Niveau</th><th>Sujet</th><th>Application</th><th>Clé</th><th>Valeur</th><th></th></tr></thead>
+            <tbody>{prefs.map((p) => <tr key={p.id}><td>{p.level}</td><td>{p.subject || "—"}</td><td>{p.app === "*" ? "toutes" : p.app}</td><td><code>{p.key}</code></td><td>{p.value}</td><td><button className="secondary pv-mini pv-danger" onClick={async () => { await deletePref(groupwareApiBase, p); load(); }}>✕</button></td></tr>)}{!prefs.length && <tr><td colSpan={6} className="muted">Aucune préférence enregistrée.</td></tr>}</tbody></table></AutoColumns>}
         </div>
       )}
     </div>

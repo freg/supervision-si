@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import ExtAuditSection from "./ExtAuditSection.jsx";
 import { powerAction, wakeOnLan, startupAction, watchdogConfig, benchCommand, imageHost, browsePath, imageTransfer, fetchImages, sendCommand, fetchCommand } from "./siAgentClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const KIND_LABELS = { run: "clé Run", runonce: "RunOnce", folder: "dossier Démarrage", task: "tâche planifiée", service: "service" };
 const STATUS = { ok: ["good", "en service"], restart: ["warn", "relance…"], waiting: ["warn", "en attente de relance"], down: ["bad", "arrêtée"], idle: ["neutral", "hors plage"], disabled: ["neutral", "désactivée"] };
 const EMPTY_APP = { id: "", label: "", process: "", command: "", hours: "", days: "", cooldown_seconds: 120, max_restarts_per_hour: 5, enabled: true, session: "console" };
@@ -244,7 +245,7 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
                 <Result r={start.result} />
               </div>
               <div className="hub-table-scroll" style={{ maxHeight: 360, overflow: "auto" }}>
-                <table>
+                <AutoColumns id="HostControlSection.1"><table>
                   <thead><tr><th>Type</th><th>Portée</th><th>Nom</th><th>Commande</th><th>Où / quand</th><th>État</th><th></th></tr></thead>
                   <tbody>
                     {items.length === 0 && <tr><td colSpan={7} className="muted">aucun lanceur</td></tr>}
@@ -267,7 +268,7 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
                       );
                     })}
                   </tbody>
-                </table>
+                </table></AutoColumns>
               </div>
             </>
           )}
@@ -309,7 +310,7 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
       <h3 style={{ marginTop: 12 }}>Chien de garde applicatif {watchdog ? <span className="muted" style={{ textTransform: "none", letterSpacing: 0 }}>· contrôle du {when(watchdog.at)} · {watchdog.data?.summary?.ok ?? 0} en service, {watchdog.data?.summary?.down ?? 0} en défaut</span> : null}</h3>
       <p className="muted" style={{ margin: "0 0 6px" }}>L'agent vérifie toutes les {interval} s que chaque application listée tourne (nom de l'exécutable) et la relance sinon (commande, détachée), dans la limite du quota par heure ; événements « application arrêtée / relancée / de retour » dans le journal, filtrables (catégorie Applications surveillées).</p>
       <div className="hub-table-scroll">
-        <table>
+        <AutoColumns id="HostControlSection.2"><table>
           <thead><tr><th>Id</th><th>Libellé</th><th>Processus</th><th>Commande de relance</th><th>Plage</th><th>Repos / quota</th><th>État</th><th></th></tr></thead>
           <tbody>
             {apps.length === 0 && <tr><td colSpan={8} className="muted">aucune application surveillée</td></tr>}
@@ -331,7 +332,7 @@ export default function HostControlSection({ apiBase, agentId, detail, fleet, ho
               );
             })}
           </tbody>
-        </table>
+        </table></AutoColumns>
       </div>
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6, flexWrap: "wrap" }}>
         <button type="button" className="secondary" onClick={() => setEditing({ ...EMPTY_APP })}>Ajouter une application</button>

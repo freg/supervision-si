@@ -22,7 +22,7 @@ import NetworkObservabilityTab from "./NetworkObservabilityTab.jsx";  // #643
 import WebTraceSection from "./WebTraceSection.jsx";  // #618
 import FrontAccessSection from "./FrontAccessSection.jsx";  // #622
 import MailServerSection from "./MailServerSection.jsx";  // #692
-import { useTableColumns, TableColumnsHead, ColumnsMenu } from "./TableColumns.jsx";  // #698
+import { useTableColumns, TableColumnsHead, ColumnsMenu, AutoColumns } from "./TableColumns.jsx";  // #698
 
 // Tuile « Agents hôtes » (livraison #421, backlog 63) -- flotte des agents
 // si-agent (surveillance de l'hôte : CPU, mémoire, disques, services,
@@ -668,12 +668,12 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                               <h4>Pairs des connexions établies ({netview.summary?.peers?.length || 0})</h4>
                               {netview.summary?.peers?.length ? (
                                 <div className="hub-table-scroll" style={{ maxHeight: 220 }}>
-                                  <table>
+                                  <AutoColumns id="SiAgentView.1"><table>
                                     <thead><tr><th>IP</th><th>Conn.</th><th>Ports</th><th>Processus</th><th>Portée</th></tr></thead>
                                     <tbody>{netview.summary.peers.slice(0, 40).map((p) => (
                                       <tr key={p.ip}><td><code>{p.ip}</code></td><td>{p.connections}</td><td className="muted">{p.ports.join(", ")}</td><td>{p.processes.join(", ") || "—"}</td><td>{p.local === true ? "sous-réseau local" : p.local === false ? <Tone tone="neutral">distant / routé</Tone> : "—"}</td></tr>
                                     ))}</tbody>
-                                  </table>
+                                  </table></AutoColumns>
                                 </div>
                               ) : <p className="muted">Aucune connexion établie au moment de la mesure.</p>}
                             </div>
@@ -681,12 +681,12 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                               <h4>Voisins ARP / NDP ({netview.neighbors?.length || 0}){netview.summary?.neighbors_outside_attached?.length > 0 && <> · <Tone tone="warn">{netview.summary.neighbors_outside_attached.length} hors sous-réseau attaché</Tone></>}</h4>
                               {netview.neighbors?.length ? (
                                 <div className="hub-table-scroll" style={{ maxHeight: 220 }}>
-                                  <table>
+                                  <AutoColumns id="SiAgentView.2"><table>
                                     <thead><tr><th>IP</th><th>MAC</th><th>Interface</th><th>État</th></tr></thead>
                                     <tbody>{netview.neighbors.slice(0, 60).map((n, i) => (
                                       <tr key={i}><td><code>{n.ip}</code></td><td className="muted">{n.mac || "—"}</td><td>{n.dev}</td><td>{n.state}</td></tr>
                                     ))}</tbody>
-                                  </table>
+                                  </table></AutoColumns>
                                 </div>
                               ) : <p className="muted">Aucun voisin résolu (l'hôte n'a parlé à personne sur le L2, ou table vidée).</p>}
                             </div>
@@ -727,17 +727,17 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                           <div>
                             <h4>Processus (CPU)</h4>
                             <div className="hub-table-scroll" style={{ maxHeight: 200 }}>
-                              <table>
+                              <AutoColumns id="SiAgentView.3"><table>
                                 <thead><tr><th>PID</th><th>Utilisateur</th><th>CPU</th><th>Mém.</th><th>Commande</th></tr></thead>
                                 <tbody>{(activity.top_cpu || []).map((p) => <tr key={p.pid}><td>{p.pid}</td><td>{p.user}</td><td>{p.cpu_percent} %</td><td>{formatBytes(p.rss_bytes)}</td><td><code>{p.command}</code></td></tr>)}</tbody>
-                              </table>
+                              </table></AutoColumns>
                             </div>
                             <h4>Processus (mémoire)</h4>
                             <div className="hub-table-scroll" style={{ maxHeight: 200 }}>
-                              <table>
+                              <AutoColumns id="SiAgentView.4"><table>
                                 <thead><tr><th>PID</th><th>Utilisateur</th><th>Mém.</th><th>CPU</th><th>Commande</th></tr></thead>
                                 <tbody>{(activity.top_memory || []).map((p) => <tr key={p.pid}><td>{p.pid}</td><td>{p.user}</td><td>{formatBytes(p.rss_bytes)}</td><td>{p.cpu_percent} %</td><td><code>{p.command}</code></td></tr>)}</tbody>
-                              </table>
+                              </table></AutoColumns>
                             </div>
                           </div>
                           <div>
@@ -757,12 +757,12 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                     <>
                       <h3>Disques ({disks.length})</h3>
                       <div className="hub-table-scroll">
-                        <table>
+                        <AutoColumns id="SiAgentView.5"><table>
                           <thead><tr><th>Montage</th><th>Périphérique</th><th>Type</th><th>Utilisé</th><th>Total</th><th>Remplissage</th></tr></thead>
                           <tbody>{disks.map((d) => (
                             <tr key={d.mountpoint}><td><code>{d.mountpoint}</code>{d.remote && <> <span className="na-chip">distant</span></>}{d.readonly && <> <span className="na-chip" title="lecture seule : ne peut pas se remplir, jamais un risque">lecture seule</span></>}{d.removable && <> <span className="na-chip" title="support amovible ou image montée : information seulement">amovible</span></>}</td><td className="muted">{d.device}</td><td className="muted">{d.fstype}{d.measuredAs && <> <span title={`montage FUSE réservé à son utilisateur : mesuré en se présentant comme ${d.measuredAs}`}>({d.measuredAs})</span></>}</td><td>{d.used}</td><td>{d.total}</td><td>{d.gauge ? <Gauge percent={d.gauge.percent} /> : <Tone tone="warn" title={d.error || ""}>{d.invisible ? "invisible du conteneur" : "illisible"}{d.error ? ` — ${d.error}` : ""}</Tone>}</td></tr>
                           ))}</tbody>
-                        </table>
+                        </table></AutoColumns>
                       </div>
                     </>
                   )}
@@ -775,53 +775,53 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                           {storage.pools.length > 0 && (
                             <>
                               <h4>Pools ZFS ({storage.pools.length}) · {storage.snapshotTotal} snapshot{storage.snapshotTotal > 1 ? "s" : ""}</h4>
-                              <div className="hub-table-scroll"><table>
+                              <div className="hub-table-scroll"><AutoColumns id="SiAgentView.6"><table>
                                 <thead><tr><th>Pool</th><th>État</th><th>Alloué</th><th>Libre</th><th>Taille</th><th>Remplissage</th><th>Fragm.</th><th>Dernier scrub</th><th>Erreurs</th></tr></thead>
                                 <tbody>{storage.pools.map((p) => (
                                   <tr key={p.pool}><td><code>{p.pool}</code></td><td><Tone tone={p.tone}>{p.state}</Tone></td><td>{p.alloc}</td><td>{p.free}</td><td>{p.size}</td><td>{p.gauge ? <Gauge percent={p.gauge.percent} /> : "—"}</td><td>{p.fragmentation}</td><td>{p.scrub}</td><td>{p.errors.length ? <Tone tone="warn">{p.errors.join(", ")}</Tone> : <span className="muted">aucune</span>}</td></tr>
                                 ))}</tbody>
-                              </table></div>
+                              </table></AutoColumns></div>
                               <h4>Datasets et zvols ({storage.datasets.length})</h4>
-                              <div className="hub-table-scroll"><table>
+                              <div className="hub-table-scroll"><AutoColumns id="SiAgentView.7"><table>
                                 <thead><tr><th>Nom</th><th>Type</th><th>Montage</th><th>Utilisé</th><th>Disponible</th><th>Quota / taille</th><th>Remplissage</th><th>Compr.</th><th>Snapshots</th><th>Plus ancien</th><th>Plus récent</th></tr></thead>
                                 <tbody>{storage.datasets.map((d) => (
                                   <tr key={d.name}><td><code>{d.name}</code></td><td className="muted">{d.type}</td><td className="muted">{d.mountpoint}</td><td>{d.used}</td><td>{d.avail}</td><td>{d.quota}</td><td>{d.gauge ? <Gauge percent={d.gauge.percent} /> : "—"}</td><td className="muted">{d.ratio}</td><td>{d.snapshots}{d.snapUsed ? <span className="muted"> ({d.snapUsed})</span> : null}</td><td className="muted">{d.snapOldest}</td><td className="muted">{d.snapNewest}</td></tr>
                                 ))}</tbody>
-                              </table></div>
+                              </table></AutoColumns></div>
                             </>
                           )}
                           {storage.lvm && (
                             <>
                               <h4>LVM · {storage.lvm.groups.length} groupe{storage.lvm.groups.length > 1 ? "s" : ""}</h4>
-                              <div className="hub-table-scroll"><table>
+                              <div className="hub-table-scroll"><AutoColumns id="SiAgentView.8"><table>
                                 <thead><tr><th>Volume</th><th>Groupe</th><th>Genre</th><th>Taille</th><th>Pool / origine</th><th>Données</th><th>Métadonnées</th></tr></thead>
                                 <tbody>{storage.lvm.volumes.map((v) => (
                                   <tr key={`${v.vg}/${v.lv}`}><td><code>{v.lv}</code>{v.active === false && <> <span className="na-chip">inactif</span></>}</td><td className="muted">{v.vg}</td><td className="muted">{v.kind}</td><td>{v.size}</td><td className="muted">{v.pool || v.origin}</td><td>{v.data ? <Gauge percent={v.data.percent} /> : "—"}</td><td>{v.meta ? <Gauge percent={v.meta.percent} /> : "—"}</td></tr>
                                 ))}</tbody>
-                              </table></div>
+                              </table></AutoColumns></div>
                               <p className="muted" style={{ fontSize: 12 }}>{storage.lvm.groups.map((g) => `${g.vg} : ${g.size}, libre ${g.free}, ${g.pv} PV, ${g.lv} LV`).join(" · ")}</p>
                             </>
                           )}
                           {storage.md.length > 0 && (
                             <>
                               <h4>RAID logiciel ({storage.md.length})</h4>
-                              <div className="hub-table-scroll"><table>
+                              <div className="hub-table-scroll"><AutoColumns id="SiAgentView.9"><table>
                                 <thead><tr><th>Grappe</th><th>Niveau</th><th>État</th><th>Disques actifs</th><th>Membres</th></tr></thead>
                                 <tbody>{storage.md.map((a) => (
                                   <tr key={a.array}><td><code>{a.array}</code></td><td>{a.level}</td><td><Tone tone={a.tone}>{a.state}</Tone></td><td>{a.active == null ? "—" : `${a.active} / ${a.total}`}</td><td className="muted">{a.devices}</td></tr>
                                 ))}</tbody>
-                              </table></div>
+                              </table></AutoColumns></div>
                             </>
                           )}
                           {storage.blocks.length > 0 && (
                             <>
                               <h4>Périphériques bloc ({storage.blocks.length})</h4>
-                              <div className="hub-table-scroll"><table>
+                              <div className="hub-table-scroll"><AutoColumns id="SiAgentView.10"><table>
                                 <thead><tr><th>Nom</th><th>Type</th><th>Taille</th><th>FS</th><th>Montage</th><th>Modèle</th></tr></thead>
                                 <tbody>{storage.blocks.map((b) => (
                                   <tr key={b.name}><td style={{ paddingLeft: 8 + b.depth * 16 }}><code>{b.name}</code>{b.removable && <> <span className="na-chip">amovible</span></>}</td><td className="muted">{b.type}{b.media ? ` · ${b.media}` : ""}</td><td>{b.size}</td><td className="muted">{b.fstype}</td><td><code>{b.mountpoint}</code></td><td className="muted">{b.model}</td></tr>
                                 ))}</tbody>
-                              </table></div>
+                              </table></AutoColumns></div>
                             </>
                           )}
                         </>
@@ -833,12 +833,12 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                     <>
                       <h3>Ports en écoute ({ports.length}){host.ports?.available === false && <> · <Tone tone="warn">ss indisponible</Tone></>}</h3>
                       <div className="hub-table-scroll">
-                        <table>
+                        <AutoColumns id="SiAgentView.11"><table>
                           <thead><tr><th>Proto</th><th>Port</th><th>Adresse</th><th>Processus</th><th>Exposition</th></tr></thead>
                           <tbody>{ports.map((p, i) => (
                             <tr key={i}><td>{p.proto}</td><td><strong>{p.port}</strong></td><td><code>{p.address}</code></td><td>{p.process || <span className="muted">—</span>}</td><td>{p.exposed ? <Tone tone="warn">toutes interfaces</Tone> : <span className="muted">local</span>}</td></tr>
                           ))}</tbody>
-                        </table>
+                        </table></AutoColumns>
                       </div>
                     </>
                   )}
@@ -874,7 +874,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                       </div>
                       {plugins.length === 0 ? <p className="muted">Aucune sonde affectée ni présente.</p> : (
                         <div className="hub-table-scroll">
-                          <table>
+                          <AutoColumns id="SiAgentView.12"><table>
                             <thead><tr><th>Sonde</th><th>Version</th><th>Origine</th><th>Central</th><th>Sur l'hôte</th><th>Blocage</th><th>Dernier résultat</th><th className="ups-actions-head"></th></tr></thead>
                             <tbody>{plugins.map((p) => {
                               const last = detail.latest?.[`plugin:${p.id}`];
@@ -899,7 +899,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                                 </tr>
                               );
                             })}</tbody>
-                          </table>
+                          </table></AutoColumns>
                         </div>
                       )}
                     </>
@@ -923,7 +923,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                       </div>
                       {!detail.commands?.length ? <p className="muted">Aucune commande.</p> : (
                         <div className="hub-table-scroll">
-                          <table>
+                          <AutoColumns id="SiAgentView.13"><table>
                             <thead><tr><th>Quand</th><th>Commande</th><th>État</th><th>Résultat</th></tr></thead>
                             <tbody>{detail.commands.map((c) => (
                               <tr key={c.id}>
@@ -935,7 +935,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                                 </td>
                               </tr>
                             ))}</tbody>
-                          </table>
+                          </table></AutoColumns>
                         </div>
                       )}
                     </>
@@ -979,7 +979,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
           <h2 style={{ margin: "0 0 8px" }}>Risques internes de la flotte ({risks.length})</h2>
           {risks.length === 0 ? <p className="muted">Aucun constat sur les agents ayant remonté des mesures.</p> : (
             <div className="hub-table-scroll">
-              <table>
+              <AutoColumns id="SiAgentView.14"><table>
                 <thead><tr><th>Sévérité</th><th>Agent</th><th>Site</th><th>Constat</th><th>Détail</th><th>Relevé</th></tr></thead>
                 <tbody>{risks.map((r, i) => (
                   <tr key={i} className="ups-row" onClick={() => { setTab("fleet"); setSelectedId(r.agent_id); }}>
@@ -991,7 +991,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                     <td className="muted">{when(r.at)}</td>
                   </tr>
                 ))}</tbody>
-              </table>
+              </table></AutoColumns>
             </div>
           )}
         </>
@@ -1032,7 +1032,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
               <>
                 <p className="muted" style={{ margin: "4px 0" }}>{sm.total} événement(s) affiché(s) : {sm.agent} remonté(s) par les agents, {sm.central} du central, {sm.security} liés à la sécurité.</p>
                 <div className="hub-table-scroll sa-events">
-                  <table>
+                  <AutoColumns id="SiAgentView.15"><table>
                     <thead><tr><th>Quand</th><th>Sévérité</th><th>Agent</th><th>Événement</th><th>Message</th><th>Source</th><th>Notifié</th></tr></thead>
                     <tbody>{shown.map((e) => (
                       <tr key={e.id} className={`ups-row${isSecurityEvent(e) ? " sa-event-security" : ""}`} style={{ opacity: e.muted ? 0.55 : 1 }} onClick={() => { if (e.agent_id) { setTab("fleet"); setSelectedId(e.agent_id); } }} title={e.muted ? `filtré : ${e.muted_by}` : e.details && Object.keys(e.details).length ? JSON.stringify(e.details) : ""}>
@@ -1045,7 +1045,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                         <td className="muted" style={{ fontSize: 11 }}>{e.notified ? Object.entries(e.notified).filter(([k]) => k !== "at").map(([k, v]) => `${k}${v ? "✔" : "✖"}`).join(" ") : ""}</td>
                       </tr>
                     ))}</tbody>
-                  </table>
+                  </table></AutoColumns>
                 </div>
               </>
             );
@@ -1097,7 +1097,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
 
           {catalogue.length === 0 ? <p className="muted">Catalogue vide -- « + Nouvelle sonde ». Les sondes livrées avec l'agent (network-neighbors, docker-containers) sont sur chaque hôte, désactivées, indépendamment du catalogue.</p> : (
             <div className="hub-table-scroll">
-              <table>
+              <AutoColumns id="SiAgentView.16"><table>
                 <thead><tr><th>Sonde</th><th>Version</th><th>Runner</th><th>Intervalle</th><th>Agents affectés</th><th>Mise à jour</th><th className="ups-actions-head"></th></tr></thead>
                 <tbody>{catalogue.map((p) => (
                   <tr key={p.id}>
@@ -1113,7 +1113,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                     </td>
                   </tr>
                 ))}</tbody>
-              </table>
+              </table></AutoColumns>
             </div>
           )}
         </>
@@ -1177,7 +1177,7 @@ function UpdatesTab({ base }) {
         <button onClick={() => apply(null)} disabled={busy || !pkg}>Appliquer maintenant aux agents éligibles</button>
         {s.updated_at && <span className="muted" style={{ fontSize: 12 }}> · réglages modifiés {formatAge(ageSeconds(s.updated_at))} par {s.updated_by || "?"}</span>}
       </div>
-      <table className="sa-table">
+      <AutoColumns id="SiAgentView.17"><table className="sa-table">
         <thead><tr><th>Bêta</th><th>Agent</th><th>Hôte</th><th>Site</th><th>Version</th><th>État</th><th>Dernière commande</th><th></th></tr></thead>
         <tbody>
           {agents.map((a) => {
@@ -1196,7 +1196,7 @@ function UpdatesTab({ base }) {
             );
           })}
         </tbody>
-      </table>
+      </table></AutoColumns>
       <p className="muted" style={{ fontSize: 12 }}>L'agent télécharge l'archive par sa liaison TLS habituelle, vérifie le SHA-256, lance son installeur en mode <code>--upgrade</code> (configuration, secret, CA et sondes conservés) détaché de son processus, acquitte « installation lancée », redémarre puis signale <code>agent-updated</code> (ou <code>agent-update-failed</code>) dans les événements ; sa nouvelle version apparaît à l'inventaire suivant.</p>
     </>
   );

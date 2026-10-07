@@ -6,6 +6,7 @@ import {
   fetchInterpreters, createInterpreter, updateInterpreter, deleteInterpreter,
 } from "./imapClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Onglet client IMAP (hub), livraison #230 -- PREMIÈRE interface pour
 // imap-client-api : le backend était déjà construit (#179-191) mais
 // AUCUNE interface n'existait, malgré ce que le backlog laissait
@@ -190,7 +191,7 @@ export default function ImapView({ onBack, imapApiBase }) {
             </div>
             <button disabled={busy} onClick={loadMessages}>Actualiser</button>
           </div>
-          <table>
+          <AutoColumns id="ImapView.1"><table>
             <thead><tr><th>Sujet</th><th>De</th><th>Date</th><th></th></tr></thead>
             <tbody>
               {messages.map((m) => (
@@ -205,7 +206,7 @@ export default function ImapView({ onBack, imapApiBase }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></AutoColumns>
 
           {selectedMessage && (
             <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 12 }}>

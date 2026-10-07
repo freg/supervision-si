@@ -3,6 +3,7 @@ import { fetchProxmox, vmAction, fetchCommand, fetchPraPlans, createPraPlan, upd
 import { OPS, VM_OPS, FIELD_LABELS, flattenProxmox, otherNodes, makeStep, runSummary, stepText, replSummary, MIGRATION_DEFAULTS, migrationBody, migrationMissing, runActions, waitingStep } from "./pveOpsLib.js";
 import HubIcon from "./HubIcon.jsx";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile « Contrôle PVE » (hub), livraison #653 -- supervision/contrôle de
 // tous les Proxmox via l'agent de chaque hyperviseur : opérations
 // immédiates (migration d'une VM vers un nœud, sauvegarde vzdump,
@@ -144,7 +145,7 @@ export default function PveOpsView({ onBack, siAgentApiBase, login }) {
             {hosts.map((h) => (
               <details key={h.agent_id} className="pv-details" open>
                 <summary><b>{h.node}</b> <span className="muted">{h.agent_id} · {h.vms.length} VM/CT · stockages : {h.storages.join(", ") || "—"}</span></summary>
-                <table className="pv-table"><thead><tr><th>ID</th><th>Nom</th><th>Type</th><th>État</th><th>Réplication</th><th>Dernière sauvegarde</th><th>Opération</th></tr></thead>
+                <AutoColumns id="PveOpsView.1"><table className="pv-table"><thead><tr><th>ID</th><th>Nom</th><th>Type</th><th>État</th><th>Réplication</th><th>Dernière sauvegarde</th><th>Opération</th></tr></thead>
                   <tbody>{h.vms.map((vm) => (
                     <React.Fragment key={vm.vmid}>
                       <tr className={sel && sel.vm.vmid === vm.vmid && sel.host.agent_id === h.agent_id ? "pv-selected" : ""}><td>{vm.vmid}</td><td>{vm.name}</td><td>{vm.type}</td><td>{vm.status}</td>
@@ -153,7 +154,7 @@ export default function PveOpsView({ onBack, siAgentApiBase, login }) {
                         <td><select value={sel && sel.vm.vmid === vm.vmid && sel.host.agent_id === h.agent_id ? sel.action : ""} onChange={(e) => setSel(e.target.value ? { host: h, vm, action: e.target.value } : null)}>
                           <option value="">—</option>{Object.entries(VM_OPS).map(([k, o]) => <option key={k} value={k}>{o.label}</option>)}</select></td></tr>
                       {sel && sel.vm.vmid === vm.vmid && sel.host.agent_id === h.agent_id && <tr><td colSpan={7}><OpForm key={sel.action} host={h} hosts={hosts} vm={vm} action={sel.action} onSubmit={execNow} onAddStep={addStep} busy={busy === "now"} /></td></tr>}
-                    </React.Fragment>))}</tbody></table>
+                    </React.Fragment>))}</tbody></table></AutoColumns>
               </details>))}
             {cmd && <div className={`pv-cmd ${cmd.status === "done" ? "pv-ok" : cmd.status === "failed" ? "pv-ko" : ""}`}>Commande {cmd.id} : {cmd.status === "pending" ? "en attente d'acquittement de l'agent…" : cmd.status === "done" ? "terminée" : `échec — ${cmd.result?.error || ""}`}{cmd.result?.result?.stdout ? <pre className="pv-log">{cmd.result.result.stdout}</pre> : null}</div>}
           </div>
@@ -161,10 +162,10 @@ export default function PveOpsView({ onBack, siAgentApiBase, login }) {
         <div className="pv-col">
           <div className="hub-card hub-settings-section">
             <div className="pv-row-between"><h2 style={{ margin: 0 }}>Plans ({plans.length})</h2><button className="primary" onClick={() => { setPlan({ name: "Nouveau plan", kind: "pra", notes: "", steps: [], continue_on_error: false }); setRun(null); setRuns([]); }}>+ Plan</button></div>
-            <table className="pv-table"><thead><tr><th>Plan</th><th>Nature</th><th>Étapes</th><th>Dernière exécution</th><th></th></tr></thead>
+            <AutoColumns id="PveOpsView.2"><table className="pv-table"><thead><tr><th>Plan</th><th>Nature</th><th>Étapes</th><th>Dernière exécution</th><th></th></tr></thead>
               <tbody>{plans.map((p) => <tr key={p.id} className={plan && plan.id === p.id ? "pv-selected" : ""}><td><a href="#" onClick={(e) => { e.preventDefault(); openPlan(p); }}><b>{p.name}</b></a></td><td>{p.kind}</td><td>{p.steps.length}</td>
                 <td className="muted">{p.last_run ? `${p.last_run.mode} · ${p.last_run.status} · ${(p.last_run.started_at || "").replace("T", " ").slice(0, 16)}` : "—"}</td><td><button className="secondary pv-mini pv-danger" onClick={() => removePlan(p)}>✕</button></td></tr>)}
-                {plans.length === 0 && <tr><td colSpan={5} className="muted">Aucun plan : choisissez une opération sur une VM puis « Ajouter au plan en cours », ou « + Plan ».</td></tr>}</tbody></table>
+                {plans.length === 0 && <tr><td colSpan={5} className="muted">Aucun plan : choisissez une opération sur une VM puis « Ajouter au plan en cours », ou « + Plan ».</td></tr>}</tbody></table></AutoColumns>
           </div>
           <div className="hub-card hub-settings-section">
             <div className="pv-row-between"><h2 style={{ margin: 0 }}>Migration serveur → virtualisation</h2><button className="primary" onClick={() => { setMig({ ...MIGRATION_DEFAULTS, pve_agent_id: hosts[0]?.agent_id || "", storage: hosts[0]?.storages?.[0] || "" }); setMigPreview(null); }}>+ Migration</button></div>
@@ -189,7 +190,7 @@ export default function PveOpsView({ onBack, siAgentApiBase, login }) {
                 <div className="hub-settings-row"><label>Nom du plan</label><input type="text" value={mig.plan_name} onChange={(e) => setMig({ ...mig, plan_name: e.target.value })} /></div>
                 <div className="pv-inline"><button className="secondary" onClick={() => previewMig(false)} disabled={busy === "mig"}>Aperçu du plan</button>{migPreview && <button className="primary" onClick={() => previewMig(true)} disabled={busy === "mig"}>Enregistrer le plan</button>}<button className="secondary" onClick={() => { setMig(null); setMigPreview(null); }}>Annuler</button></div>
                 {migPreview && (<div className="pv-run"><p className="muted">{migPreview.notes}</p>
-                  <table className="pv-table"><thead><tr><th>#</th><th>Étape</th></tr></thead><tbody>{migPreview.steps.map((s, i) => <tr key={i} className={s.action === "checkpoint" ? "pv-selected" : ""}><td>{i + 1}</td><td>{s.action === "checkpoint" ? stepText(s) : <>{stepText(s)}<div className="muted">{s.label}</div></>}</td></tr>)}</tbody></table>
+                  <AutoColumns id="PveOpsView.3"><table className="pv-table"><thead><tr><th>#</th><th>Étape</th></tr></thead><tbody>{migPreview.steps.map((s, i) => <tr key={i} className={s.action === "checkpoint" ? "pv-selected" : ""}><td>{i + 1}</td><td>{s.action === "checkpoint" ? stepText(s) : <>{stepText(s)}<div className="muted">{s.label}</div></>}</td></tr>)}</tbody></table></AutoColumns>
                   <h3>Retour en arrière ({migPreview.rollback_steps.length} étape(s))</h3>
                   <table className="pv-table"><tbody>{migPreview.rollback_steps.map((s, i) => <tr key={i}><td>{i + 1}</td><td>{stepText(s, roles)}<div className="muted">{s.label}</div></td></tr>)}</tbody></table></div>)}
               </div>
@@ -216,7 +217,7 @@ export default function PveOpsView({ onBack, siAgentApiBase, login }) {
                 <div className="pv-inline"><button className="primary" onClick={saveRole} disabled={busy === "role"}>Enregistrer</button><button className="secondary" onClick={() => setRoleForm(null)}>Annuler</button></div>
               </div>
             )}
-            <table className="pv-table"><thead><tr><th>Rôle</th><th>Répond actuellement</th><th>Mécanisme</th><th>Dernière vérification</th><th>Basculer vers</th><th></th></tr></thead>
+            <AutoColumns id="PveOpsView.4"><table className="pv-table"><thead><tr><th>Rôle</th><th>Répond actuellement</th><th>Mécanisme</th><th>Dernière vérification</th><th>Basculer vers</th><th></th></tr></thead>
               <tbody>{roles.map((r) => (
                 <tr key={r.id}><td><b>{r.name}</b>{r.service_url && <div className="muted">{r.service_url}</div>}</td><td>{r.candidates[r.active] ? `${r.candidates[r.active].label} (${r.candidates[r.active].address})` : "—"}{r.last_switch_at && <div className="muted">{r.last_switch_at.replace("T", " ").slice(0, 16)}</div>}</td>
                   <td>{r.mechanism.kind === "mikrotik_nat" ? `NAT ${r.mechanism.router} ${r.mechanism.rule_id}` : r.mechanism.kind === "dns" ? `DNS ${r.mechanism.record}.${r.mechanism.zone}` : r.mechanism.kind === "keepalived" ? `VRRP ${r.mechanism.instance}` : "manuel"}</td>
@@ -225,7 +226,7 @@ export default function PveOpsView({ onBack, siAgentApiBase, login }) {
                   <td className="pv-actions"><button className="secondary pv-mini" onClick={() => doCheck(r)}>vérifier</button>{r.candidates.map((c, i) => i !== r.active && <button key={i} className="secondary pv-mini" onClick={() => addRoleStep(r, i)} title="ajouter la bascule au plan en cours">+ plan → {c.label}</button>)}
                     <button className="secondary pv-mini" onClick={() => setRoleForm({ id: r.id, name: r.name, service_url: r.service_url, notes: r.notes, candidates: r.candidates, mechanism: { router: "", rule_id: "", ...r.mechanism } })}>éditer</button>
                     <button className="secondary pv-mini pv-danger" onClick={async () => { if (window.confirm(`Supprimer le rôle « ${r.name} » ?`)) { const x = await deletePraRole(siAgentApiBase, r.id); if (x.error) setError(x.error); else load(); } }}>✕</button></td></tr>))}
-                {roles.length === 0 && <tr><td colSpan={6} className="muted">Aucun rôle déclaré.</td></tr>}</tbody></table>
+                {roles.length === 0 && <tr><td colSpan={6} className="muted">Aucun rôle déclaré.</td></tr>}</tbody></table></AutoColumns>
           </div>
           {plan && (
             <div className="hub-card hub-settings-section">
@@ -240,10 +241,10 @@ export default function PveOpsView({ onBack, siAgentApiBase, login }) {
                 {plan.trigger_agent_id && <div className="hub-settings-row"><label>À la perte</label><select value={plan.trigger_mode || "notify"} onChange={(e) => setPlan({ ...plan, trigger_mode: e.target.value })}><option value="notify">proposer le plan (événement notifié)</option><option value="auto">LANCER automatiquement (délai de garde ci-dessous)</option></select></div>}
                 {plan.trigger_agent_id && plan.trigger_mode === "auto" && <div className="hub-settings-row"><label>Délai de garde (s) entre deux lancements</label><input type="number" value={plan.trigger_cooldown_s || 3600} onChange={(e) => setPlan({ ...plan, trigger_cooldown_s: Number(e.target.value) })} /></div>}
               </div>
-              <table className="pv-table"><thead><tr><th>#</th><th>Étape</th><th>Libellé</th><th></th></tr></thead>
+              <AutoColumns id="PveOpsView.5"><table className="pv-table"><thead><tr><th>#</th><th>Étape</th><th>Libellé</th><th></th></tr></thead>
                 <tbody>{plan.steps.map((s, i) => <tr key={i}><td>{i + 1}</td><td>{stepText(s, roles)}</td><td><input type="text" value={s.label || ""} onChange={(e) => setPlan((p) => ({ ...p, steps: p.steps.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) }))} /></td>
                   <td className="pv-actions"><button className="secondary pv-mini" onClick={() => moveStep(i, -1)}>↑</button><button className="secondary pv-mini" onClick={() => moveStep(i, 1)}>↓</button><button className="secondary pv-mini" onClick={() => setPlan((p) => ({ ...p, steps: p.steps.filter((_, j) => j !== i) }))}>✕</button></td></tr>)}
-                  {plan.steps.length === 0 && <tr><td colSpan={4} className="muted">Aucune étape : choisissez une opération sur une VM à gauche puis « Ajouter au plan en cours ».</td></tr>}</tbody></table>
+                  {plan.steps.length === 0 && <tr><td colSpan={4} className="muted">Aucune étape : choisissez une opération sur une VM à gauche puis « Ajouter au plan en cours ».</td></tr>}</tbody></table></AutoColumns>
               {(plan.rollback_steps || []).length > 0 && <details className="pv-details"><summary>Retour en arrière : {plan.rollback_steps.length} étape(s)</summary><table className="pv-table"><tbody>{plan.rollback_steps.map((s, i) => <tr key={i}><td>{i + 1}</td><td>{stepText(s, roles)}<div className="muted">{s.label}</div></td></tr>)}</tbody></table></details>}
               <div className="pv-inline">
                 <button className="primary" onClick={savePlan} disabled={busy === "plan" || plan.steps.length === 0}>Enregistrer</button>
@@ -257,9 +258,9 @@ export default function PveOpsView({ onBack, siAgentApiBase, login }) {
                   {runActions(run, plan).includes("abort") && <button className="secondary pv-danger" onClick={abortRun} disabled={!!busy}>Abandonner{(plan.rollback_steps || []).length ? " (± retour)" : ""}</button>}
                   {runActions(run, plan).includes("rollback") && <button className="secondary pv-danger" onClick={rollbackRun} disabled={!!busy}>↶ Retour en arrière</button>}
                 </div>}
-                <table className="pv-table"><thead><tr><th>#</th><th>Étape</th><th>État</th><th>Détail</th></tr></thead>
+                <AutoColumns id="PveOpsView.6"><table className="pv-table"><thead><tr><th>#</th><th>Étape</th><th>État</th><th>Détail</th></tr></thead>
                   <tbody>{run.steps.map((s, i) => <tr key={i} className={["failed", "timeout"].includes(s.status) || s.ok === false ? "pv-row-ko" : ""}><td>{s.index}</td><td>{stepText(s, roles)}</td>
-                    <td>{run.mode === "simulate" ? (s.ok ? "✔ prêt" : "✘") : s.status === "waiting" ? "⏸ attente" : s.status}</td><td className="muted">{s.error || s.result?.error || (s.hostname ? `${s.hostname}, vu ${(s.last_seen || "").replace("T", " ").slice(0, 16)}` : "") || s.result?.result?.stdout?.slice(0, 200) || ""}</td></tr>)}</tbody></table>
+                    <td>{run.mode === "simulate" ? (s.ok ? "✔ prêt" : "✘") : s.status === "waiting" ? "⏸ attente" : s.status}</td><td className="muted">{s.error || s.result?.error || (s.hostname ? `${s.hostname}, vu ${(s.last_seen || "").replace("T", " ").slice(0, 16)}` : "") || s.result?.result?.stdout?.slice(0, 200) || ""}</td></tr>)}</tbody></table></AutoColumns>
                 {runs.length > 1 && <p className="muted">Historique : {runs.map((r) => <button key={r.id} className={`pv-mini ${run.id === r.id ? "pv-selected" : "secondary"}`} onClick={() => setRun(r)}>{r.mode === "simulate" ? "sim" : r.mode === "rollback" ? "retour" : "exéc"} {r.status} {(r.started_at || "").slice(5, 16).replace("T", " ")}</button>)}</p>}
               </div>)}
             </div>

@@ -3,6 +3,7 @@ import { listSources, createSource, updateSource, deleteSource, rotateToken, sou
 import { presenceBadge, sourceStats, connectorConfig, groupLinks, rowSummary, groupNodes } from "./datasyncLib.js";
 import HubIcon from "./HubIcon.jsx";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile « Synchronisation centrale » (hub), livraison #652 -- liaison de
 // synchronisation unidirectionnelle des serveurs / applications / bases vers le
 // SGBD central du hub (datasync-api) : une source → le central = une API source
@@ -111,23 +112,23 @@ export default function DataSyncView({ onBack, datasyncApiBase, login }) {
                   <p className="muted">Sur le serveur de la source : <code>python3 connector.py config.json</code> (service systemd conseillé) ; SELECT seulement, aucune écriture.</p></details>
                 <button className="secondary" onClick={() => setToken(null)}>Fermer</button></div>
             )}
-            <table className="ds-table"><thead><tr><th>Source</th><th>Type</th><th>Présence</th><th>Lignes</th><th>Lots</th><th>Erreurs</th><th>Dernier lot</th><th></th></tr></thead>
+            <AutoColumns id="DataSyncView.1"><table className="ds-table"><thead><tr><th>Source</th><th>Type</th><th>Présence</th><th>Lignes</th><th>Lots</th><th>Erreurs</th><th>Dernier lot</th><th></th></tr></thead>
               <tbody>{sources.map((s) => { const p = presenceBadge(s); const st = sourceStats(s); return (
                 <tr key={s.id}><td><b>{s.name}</b> <span className="muted">{s.slug}</span>{s.last_ping_info?.host && <div className="muted">{s.last_ping_info.host} · v{s.last_ping_info.version}</div>}</td><td>{s.kind}</td>
                   <td className={p.cls}>{p.label}</td><td>{st.rows}</td><td>{st.batches}</td><td className={st.errors ? "ds-ko" : ""}>{st.errors}</td><td className="muted">{st.last.replace("T", " ")}</td>
                   <td className="ds-actions"><button className="secondary ds-mini" onClick={() => showLog(s)}>journal</button><button className="secondary ds-mini" onClick={() => setForm({ id: s.id, name: s.name, kind: s.kind, notes: s.notes })}>éditer</button>
                     <button className="secondary ds-mini" onClick={() => doRotate(s)}>jeton</button><button className="secondary ds-mini ds-danger" onClick={() => doDelete(s)}>✕</button></td></tr>); })}
-                {sources.length === 0 && <tr><td colSpan={8} className="muted">Aucune source déclarée.</td></tr>}</tbody></table>
+                {sources.length === 0 && <tr><td colSpan={8} className="muted">Aucune source déclarée.</td></tr>}</tbody></table></AutoColumns>
             {sources.map((s) => s.tables.length > 0 && (
               <details key={s.id} className="ds-details"><summary>{s.name} : {s.tables.length} table(s)</summary>
-                <table className="ds-table"><thead><tr><th>Table</th><th>Clé</th><th>Lignes</th><th>Dernier lot</th><th>Lignes du lot</th><th>ms</th><th>Lots</th><th>Erreurs</th><th></th></tr></thead>
+                <AutoColumns id="DataSyncView.2"><table className="ds-table"><thead><tr><th>Table</th><th>Clé</th><th>Lignes</th><th>Dernier lot</th><th>Lignes du lot</th><th>ms</th><th>Lots</th><th>Erreurs</th><th></th></tr></thead>
                   <tbody>{s.tables.map((t) => <tr key={t.name}><td>{t.name}</td><td>{t.pk}</td><td>{t.rows}</td><td className="muted">{(t.last_batch_at || "").replace("T", " ")}</td><td>{t.last_batch_rows}</td><td>{t.last_batch_ms}</td><td>{t.batches}</td>
-                    <td className={t.errors ? "ds-ko" : ""} title={t.last_error}>{t.errors}</td><td><button className="secondary ds-mini" onClick={() => { setTab("relations"); doBrowse(s.id, t.name, 0); }}>parcourir</button></td></tr>)}</tbody></table>
+                    <td className={t.errors ? "ds-ko" : ""} title={t.last_error}>{t.errors}</td><td><button className="secondary ds-mini" onClick={() => { setTab("relations"); doBrowse(s.id, t.name, 0); }}>parcourir</button></td></tr>)}</tbody></table></AutoColumns>
               </details>
             ))}
             {log && (<div className="ds-log"><div className="ds-row-between"><h3 style={{ margin: 0 }}>Journal des remontées — {log.source.name}</h3><button className="secondary ds-mini" onClick={() => setLog(null)}>fermer</button></div>
-              <table className="ds-table"><thead><tr><th>Quand</th><th>Table</th><th>Lignes</th><th>ms</th><th>Mode</th><th>Erreur</th></tr></thead>
-                <tbody>{log.entries.map((e) => <tr key={e.id} className={e.error ? "ds-row-ko" : ""}><td className="muted">{e.at.replace("T", " ")}</td><td>{e.tname}</td><td>{e.rows}</td><td>{e.ms}</td><td>{e.mode}</td><td className="ds-ko">{e.error}</td></tr>)}</tbody></table></div>)}
+              <AutoColumns id="DataSyncView.3"><table className="ds-table"><thead><tr><th>Quand</th><th>Table</th><th>Lignes</th><th>ms</th><th>Mode</th><th>Erreur</th></tr></thead>
+                <tbody>{log.entries.map((e) => <tr key={e.id} className={e.error ? "ds-row-ko" : ""}><td className="muted">{e.at.replace("T", " ")}</td><td>{e.tname}</td><td>{e.rows}</td><td>{e.ms}</td><td>{e.mode}</td><td className="ds-ko">{e.error}</td></tr>)}</tbody></table></AutoColumns></div>)}
           </div>
         </>
       )}
@@ -151,18 +152,18 @@ export default function DataSyncView({ onBack, datasyncApiBase, login }) {
             )}
             {[["relation", "Relations déduites (colonne → clé)"], ["field", "Correspondances de champs"]].map(([k, title]) => (
               <div key={k} className="ds-links"><h3>{title} <span className="muted">({g[k].proposed.length} proposées · {g[k].confirmed.length} confirmées · {g[k].rejected.length} rejetées)</span></h3>
-                <table className="ds-table"><thead><tr><th>De</th><th>{k === "relation" ? "Vers (clé)" : "Avec"}</th><th>Score</th><th>Pourquoi</th><th>Statut</th><th></th></tr></thead>
+                <AutoColumns id="DataSyncView.4"><table className="ds-table"><thead><tr><th>De</th><th>{k === "relation" ? "Vers (clé)" : "Avec"}</th><th>Score</th><th>Pourquoi</th><th>Statut</th><th></th></tr></thead>
                   <tbody>{[...g[k].proposed, ...g[k].confirmed, ...g[k].rejected].map((l) => <tr key={l.id} className={`ds-${l.status}`}>
                     <td>{l.a_source_slug} › {l.a_table}.<b>{l.a_column}</b></td><td>{l.b_source_slug} › {l.b_table}.<b>{l.b_column}</b></td><td>{l.score}</td><td className="muted">{l.reasons}</td>
                     <td>{l.status === "proposed" ? "proposé" : l.status === "confirmed" ? `confirmé${l.by_user ? " (" + l.by_user + ")" : ""}` : "rejeté"}</td>
                     <td className="ds-actions">{l.status !== "confirmed" && <button className="secondary ds-mini" onClick={() => decide(l, "confirmed")}>✔ confirmer</button>}{l.status !== "rejected" && <button className="secondary ds-mini" onClick={() => decide(l, "rejected")}>✘ rejeter</button>}{l.status !== "proposed" && <button className="secondary ds-mini" onClick={() => decide(l, "proposed")}>↺</button>}</td></tr>)}
-                    {links.filter((l) => l.kind === k).length === 0 && <tr><td colSpan={6} className="muted">Rien pour l'instant : lancez l'analyse une fois des lignes remontées.</td></tr>}</tbody></table></div>
+                    {links.filter((l) => l.kind === k).length === 0 && <tr><td colSpan={6} className="muted">Rien pour l'instant : lancez l'analyse une fois des lignes remontées.</td></tr>}</tbody></table></AutoColumns></div>
             ))}
           </div>
           <div className="hub-card hub-settings-section"><h2>Profils des colonnes</h2>
             {prof.map((t) => (<details key={`${t.source_id}-${t.table}`} className="ds-details"><summary>{t.source} › {t.table} <span className="muted">({t.columns.length} colonnes, clé {t.pk || "?"})</span></summary>
-              <table className="ds-table"><thead><tr><th>Colonne</th><th>Format</th><th>Formats observés</th><th>Distinctes</th><th>Vides</th><th>Long. moy.</th><th>Exemples</th></tr></thead>
-                <tbody>{t.columns.map((c) => <tr key={c.name}><td><b>{c.name}</b></td><td>{c.kind}</td><td className="muted">{Object.entries(c.formats || {}).map(([k, v]) => `${k} ${Math.round(v * 100)} %`).join(", ")}</td><td>{c.distinct}/{c.n}</td><td>{Math.round((c.null_ratio || 0) * 100)} %</td><td>{c.avg_len}</td><td className="muted">{(c.sample || []).join(" · ")}</td></tr>)}</tbody></table></details>))}
+              <AutoColumns id="DataSyncView.5"><table className="ds-table"><thead><tr><th>Colonne</th><th>Format</th><th>Formats observés</th><th>Distinctes</th><th>Vides</th><th>Long. moy.</th><th>Exemples</th></tr></thead>
+                <tbody>{t.columns.map((c) => <tr key={c.name}><td><b>{c.name}</b></td><td>{c.kind}</td><td className="muted">{Object.entries(c.formats || {}).map(([k, v]) => `${k} ${Math.round(v * 100)} %`).join(", ")}</td><td>{c.distinct}/{c.n}</td><td>{Math.round((c.null_ratio || 0) * 100)} %</td><td>{c.avg_len}</td><td className="muted">{(c.sample || []).join(" · ")}</td></tr>)}</tbody></table></AutoColumns></details>))}
             {prof.length === 0 && <p className="muted">Aucune table remontée.</p>}
           </div>
         </>

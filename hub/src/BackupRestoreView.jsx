@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { fetchImages, createImage, deleteImage, fetchCoverage, fetchHubBackups, runHubBackup, deleteHubBackup, pruneHubBackups, hubBackupDownloadUrl } from "./backupRestoreClient.js";
 import { fmtSize, KIND_LABEL, restorePoint, chainSummary, scheduleText, lastRunText } from "./hubBackups.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // --- Sauvegardes DU HUB (livraison #459) : catalogue de sessions façon
 // ARCserve (chaînes totale -> incrémentales), exécution, rotation GFS,
 // export de l'archive chiffrée, point de restauration. ---
@@ -44,7 +45,7 @@ function HubBackupsView({ apiBase, groups }) {
         <div key={c.key} className="hub-card hub-settings-section" style={{ margin: "8px 0", padding: 10, textAlign: "left" }}>
           <strong>{c.full ? `Chaîne du ${c.full.created_at}` : "Incrémentales orphelines"}</strong> <span className="muted">— {chainSummary(c)}{data.prune?.why?.[c.key] ? ` · conservée (${data.prune.why[c.key]})` : data.prune?.drop?.includes(c.key) ? " · hors rotation GFS" : ""}</span>
           <div className="hub-table-scroll">
-            <table>
+            <AutoColumns id="BackupRestoreView.1"><table>
               <thead><tr><th>Session</th><th>Type</th><th>Date</th><th>Livraison</th><th>Contenu</th><th>Taille</th><th></th></tr></thead>
               <tbody>{(c.full ? [c.full] : []).concat(c.increments).map((s) => (
                 <tr key={s.name} className={selected?.name === s.name ? "active" : ""} onClick={() => setSelected(s)} style={{ cursor: "pointer" }}>
@@ -58,7 +59,7 @@ function HubBackupsView({ apiBase, groups }) {
                   </td>
                 </tr>
               ))}</tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         </div>
       ))}
@@ -182,7 +183,7 @@ function BackupPCView({ apiBase }) {
         <div className="hub-card">
           <h3>🖥️ Hôtes BackupPC</h3>
           {loading && !hosts.length ? <p className="muted">Chargement…</p> : (
-            <table style={{ width: "100%" }}>
+            <AutoColumns id="BackupRestoreView.2"><table style={{ width: "100%" }}>
               <thead><tr><th>Hôte</th><th>Dernière sauvegarde</th><th>Taille</th><th>Statut</th></tr></thead>
               <tbody>
                 {hosts.map((h) => (
@@ -194,7 +195,7 @@ function BackupPCView({ apiBase }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           )}
         </div>
 
@@ -206,7 +207,7 @@ function BackupPCView({ apiBase }) {
             <p className="muted">Chargement…</p>
           ) : (
             <>
-              <table style={{ width: "100%" }}>
+              <AutoColumns id="BackupRestoreView.3"><table style={{ width: "100%" }}>
                 <thead><tr><th>#</th><th>Type</th><th>Date</th><th>Taille</th><th></th></tr></thead>
                 <tbody>
                   {versions.map((v) => (
@@ -219,7 +220,7 @@ function BackupPCView({ apiBase }) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></AutoColumns>
               {content && content.tree && (
                 <div style={{ marginTop: 16 }}>
                   <h4>Contenu de la sauvegarde</h4>
@@ -291,14 +292,14 @@ function ClonezillaView({ apiBase }) {
           <p><strong>Serveur:</strong> {pxeConfig.pxe_server || "—"}</p>
           <p><strong>Boot par défaut:</strong> {pxeConfig.next_boot_default || "—"}</p>
           {pxeConfig.clients && (
-            <table style={{ width: "100%", marginTop: 8 }}>
+            <AutoColumns id="BackupRestoreView.4"><table style={{ width: "100%", marginTop: 8 }}>
               <thead><tr><th>MAC</th><th>Nom</th><th>Dernier boot</th></tr></thead>
               <tbody>
                 {pxeConfig.clients.map((c) => (
                   <tr key={c.mac}><td className="muted">{c.mac}</td><td>{c.name}</td><td className="muted">{formatDate(c.last_boot)}</td></tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           )}
         </div>
       )}
@@ -306,7 +307,7 @@ function ClonezillaView({ apiBase }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div className="hub-card">
           <h3>💾 Images Clonezilla</h3>
-          <table style={{ width: "100%" }}>
+          <AutoColumns id="BackupRestoreView.5"><table style={{ width: "100%" }}>
             <thead><tr><th>Image</th><th>Périphérique</th><th>Date</th><th>Taille</th></tr></thead>
             <tbody>
               {images.map((img) => (
@@ -318,13 +319,13 @@ function ClonezillaView({ apiBase }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></AutoColumns>
         </div>
 
         <div className="hub-card">
           <h3>⚙️ Jobs en cours</h3>
           {jobs.length === 0 ? <p className="muted">Aucun job actif.</p> : (
-            <table style={{ width: "100%" }}>
+            <AutoColumns id="BackupRestoreView.6"><table style={{ width: "100%" }}>
               <thead><tr><th>ID</th><th>Type</th><th>Statut</th><th>Progression</th></tr></thead>
               <tbody>
                 {jobs.map((j) => (
@@ -336,7 +337,7 @@ function ClonezillaView({ apiBase }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           )}
         </div>
       </div>
@@ -411,7 +412,7 @@ function ResticView({ apiBase }) {
         <div className="hub-card">
           <h3>📸 Snapshots</h3>
           {loading && !snapshots.length ? <p className="muted">Chargement…</p> : (
-            <table style={{ width: "100%" }}>
+            <AutoColumns id="BackupRestoreView.7"><table style={{ width: "100%" }}>
               <thead><tr><th>ID</th><th>Date</th><th>Hôte</th><th>Tags</th><th></th></tr></thead>
               <tbody>
                 {snapshots.map((s) => (
@@ -424,7 +425,7 @@ function ResticView({ apiBase }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           )}
         </div>
 
@@ -560,7 +561,7 @@ export default function BackupRestoreView({ onBack, backupRestoreApiBase, groups
               <p>
                 <strong>{coverage.without_backup}</strong> appareil(s) sur <strong>{coverage.total}</strong> sans image connue.
               </p>
-              <table>
+              <AutoColumns id="BackupRestoreView.8"><table>
                 <thead><tr><th></th><th>Adresse MAC</th><th>IP</th><th>Rôle</th><th>Dernière image</th><th>Depuis</th></tr></thead>
                 <tbody>
                   {coverage.devices.map((d) => (
@@ -574,7 +575,7 @@ export default function BackupRestoreView({ onBack, backupRestoreApiBase, groups
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></AutoColumns>
             </>
           )
         )}
@@ -618,7 +619,7 @@ export default function BackupRestoreView({ onBack, backupRestoreApiBase, groups
             {images.length === 0 ? (
               <p className="muted">Aucune image enregistrée.</p>
             ) : (
-              <table>
+              <AutoColumns id="BackupRestoreView.9"><table>
                 <thead><tr><th>Machine</th><th>MAC</th><th>Outil</th><th>Date</th><th>Emplacement</th><th></th></tr></thead>
                 <tbody>
                   {images.map((img) => (
@@ -632,7 +633,7 @@ export default function BackupRestoreView({ onBack, backupRestoreApiBase, groups
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></AutoColumns>
             )}
           </>
         )}

@@ -13,6 +13,7 @@ import { fetchMaintCatalog, fetchMaintCampaigns, fetchMaintCampaign, createMaint
 import { STATE_LABEL, STATE_TONE, HOW_LABEL, STATUS_LABEL, detectorFields, paramsToText, textToParams, toLocalInput, fromLocalInput,
   emptyAction, plannedList, missingParams, move, gb } from "./pveMaintLib.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const when = (t) => (t ? new Date(t * 1000).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "—");
 function Tone({ tone, children, title }) { return <span className={`np-tone ${tone || "neutral"}`} title={title}>{children}</span>; }
 function Bar({ pct }) {
@@ -289,12 +290,12 @@ function Planning({ list, onOpen }) {
   if (!rows.length) return <p className="muted">Aucune action datée. Une date se pose dans l'édition d'une action (« Prévu le »).</p>;
   const now = Date.now() / 1000;
   return (
-    <table><thead><tr><th>Date</th><th>Campagne</th><th>Étape</th><th>Action</th><th>Mode</th><th>État</th></tr></thead>
+    <AutoColumns id="PveMaintView.1"><table><thead><tr><th>Date</th><th>Campagne</th><th>Étape</th><th>Action</th><th>Mode</th><th>État</th></tr></thead>
       <tbody>{rows.map((r) => (
         <tr key={`${r.campaign_id}|${r.action_id}`} style={{ cursor: "pointer" }} onClick={() => onOpen(r.campaign_id)}>
           <td style={{ whiteSpace: "nowrap", color: r.at < now && r.state !== "done" ? "var(--danger)" : undefined }}>{when(r.at)}</td>
           <td>{r.campaign}</td><td>{r.stage}</td><td>{r.title}</td><td>{r.auto ? "automatique" : "à la main"}</td>
-          <td><Tone tone={STATE_TONE[r.state]}>{STATE_LABEL[r.state]}</Tone></td></tr>))}</tbody></table>
+          <td><Tone tone={STATE_TONE[r.state]}>{STATE_LABEL[r.state]}</Tone></td></tr>))}</tbody></table></AutoColumns>
   );
 }
 
@@ -312,19 +313,19 @@ function Backups({ base }) {
         {" "}<Tone tone={s.failed ? "bad" : "good"}>{s.failed} en échec</Tone> · <Tone tone={s.uncovered ? "warn" : "good"}>{s.uncovered} hors tâche planifiée</Tone> · {s.on_pbs} sur un PBS</p>
       {!d.has_pbs && <p className="hub-warning">Aucun stockage PBS déclaré sur les nœuds : modèle « Mettre en service un PBS » dans l'onglet Campagnes.</p>}
       <div style={box}><strong>Stockages de sauvegarde</strong>
-        <table><thead><tr><th>Nœud</th><th>Stockage</th><th>Type</th><th>Occupation</th></tr></thead>
+        <AutoColumns id="PveMaintView.2"><table><thead><tr><th>Nœud</th><th>Stockage</th><th>Type</th><th>Occupation</th></tr></thead>
           <tbody>{d.stores.map((x) => <tr key={`${x.node}|${x.storage}`}><td>{x.node}</td><td>{x.storage}</td><td>{x.type}</td>
-            <td>{x.total ? <><Bar pct={Math.round(100 * (x.used || 0) / x.total)} /> {gb(x.used)} / {gb(x.total)} ({gb(x.avail)} libres)</> : "—"}</td></tr>)}</tbody></table></div>
+            <td>{x.total ? <><Bar pct={Math.round(100 * (x.used || 0) / x.total)} /> {gb(x.used)} / {gb(x.total)} ({gb(x.avail)} libres)</> : "—"}</td></tr>)}</tbody></table></AutoColumns></div>
       <div style={box}><strong>Tâches planifiées</strong>
-        {d.jobs.length ? <table><thead><tr><th>Tâche</th><th>Active</th><th>Planification</th><th>Stockage</th><th>CT/VM</th><th>Mode</th><th>Rétention</th></tr></thead>
+        {d.jobs.length ? <AutoColumns id="PveMaintView.3"><table><thead><tr><th>Tâche</th><th>Active</th><th>Planification</th><th>Stockage</th><th>CT/VM</th><th>Mode</th><th>Rétention</th></tr></thead>
           <tbody>{d.jobs.map((j) => <tr key={`${j.node}|${j.id}`}><td>{j.id}</td><td>{j.enabled ? "oui" : "non"}</td><td>{j.schedule}</td><td>{j.storage}</td>
-            <td>{j.all ? "tous" : (j.vmids || []).join(", ")}</td><td>{j.mode}</td><td>{typeof j.prune === "object" ? JSON.stringify(j.prune) : j.prune}</td></tr>)}</tbody></table>
+            <td>{j.all ? "tous" : (j.vmids || []).join(", ")}</td><td>{j.mode}</td><td>{typeof j.prune === "object" ? JSON.stringify(j.prune) : j.prune}</td></tr>)}</tbody></table></AutoColumns>
           : <p className="muted">Aucune tâche de sauvegarde planifiée.</p>}</div>
       <div style={box}><strong>Par CT/VM</strong> <label style={{ marginLeft: 8 }}><input type="checkbox" checked={onlyIssues} onChange={(e) => setOnlyIssues(e.target.checked)} /> seulement ceux à traiter</label>
-        <table><thead><tr><th>Nœud</th><th>CT/VM</th><th>État</th><th>Dernière sauvegarde</th><th>Stockage</th><th>Tâches</th><th>À traiter</th></tr></thead>
+        <AutoColumns id="PveMaintView.4"><table><thead><tr><th>Nœud</th><th>CT/VM</th><th>État</th><th>Dernière sauvegarde</th><th>Stockage</th><th>Tâches</th><th>À traiter</th></tr></thead>
           <tbody>{guests.map((g) => <tr key={`${g.node}|${g.vmid}`}><td>{g.node}{g.stale ? " ⚠" : ""}</td><td>{g.vmid} {g.name}</td><td>{g.status}</td>
             <td>{g.last_backup_at ? `${when(g.last_backup_at)} (${g.age_h} h)` : "—"}</td><td>{g.storage || "—"}</td><td>{g.jobs.join(", ") || "—"}</td>
-            <td>{g.flags.map((f) => <Tone key={f} tone={/jamais|échec/.test(f) ? "bad" : "warn"}>{f}</Tone>)}</td></tr>)}</tbody></table></div>
+            <td>{g.flags.map((f) => <Tone key={f} tone={/jamais|échec/.test(f) ? "bad" : "warn"}>{f}</Tone>)}</td></tr>)}</tbody></table></AutoColumns></div>
     </div>
   );
 }

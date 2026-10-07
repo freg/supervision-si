@@ -26,6 +26,7 @@ import { fetchExternalLinks } from "./settingsClient.js";
 import { fetchSources } from "./fileManagerClient.js";
 import { fetchDocuments } from "./gedClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const REFRESH_MS = 30000;
 
 function Tone({ tone, children, title }) {
@@ -127,18 +128,18 @@ export default function BastionView({ onBack, onNavigate, siProxyApiBase, access
             </p>
             {data.exposure.direct.length > 0 && (
               <div className="hub-table-scroll">
-                <table>
+                <AutoColumns id="BastionView.1"><table>
                   <thead><tr><th>Sévérité</th><th>Service</th><th>Port hôte</th><th>Bind</th><th>Pourquoi</th></tr></thead>
                   <tbody>{data.exposure.direct.map((p, i) => (
                     <tr key={i}><td><Tone tone={TONE[p.severity]}>{p.severity}</Tone></td><td>{p.service}</td><td>{p.host_port}/{p.proto} → {p.container_port}</td><td className="muted">{p.bind}</td><td className="muted">{p.why}</td></tr>
                   ))}</tbody>
-                </table>
+                </table></AutoColumns>
               </div>
             )}
             {data.exposure.hostNetwork.length > 0 && <p className="muted" style={{ margin: "6px 0 0" }}>Pile réseau de l'hôte (<code>network_mode: host</code>) : {data.exposure.hostNetwork.map((h) => h.service).join(", ")} — accès LAN complet, aucune isolation Docker.</p>}
             <details style={{ marginTop: 6 }}><summary className="muted">Routes de la passerelle ({data.exposure.gateway.length})</summary>
-              <div className="hub-table-scroll"><table><thead><tr><th>Chemin</th><th>Service</th><th>Type</th></tr></thead>
-                <tbody>{data.exposure.gateway.map((g) => <tr key={g.path}><td><code>{g.path}</code></td><td>{g.service}:{g.container_port}</td><td className="muted">{g.kind}</td></tr>)}</tbody></table></div>
+              <div className="hub-table-scroll"><AutoColumns id="BastionView.2"><table><thead><tr><th>Chemin</th><th>Service</th><th>Type</th></tr></thead>
+                <tbody>{data.exposure.gateway.map((g) => <tr key={g.path}><td><code>{g.path}</code></td><td>{g.service}:{g.container_port}</td><td className="muted">{g.kind}</td></tr>)}</tbody></table></AutoColumns></div>
             </details>
           </div>
           <div className="hub-card hub-settings-section">
@@ -170,7 +171,7 @@ export default function BastionView({ onBack, onNavigate, siProxyApiBase, access
             <h2 style={{ margin: "0 0 6px" }}>Tunnels SSH sortants ({data.outbound.counts.tunnelsRunning} actif(s) / {data.outbound.counts.tunnels}, {data.outbound.counts.hosts} hôte(s) SSH)</h2>
             {data.outbound.tunnels.length === 0 ? <p className="muted" style={{ margin: 0 }}>Aucun tunnel déclaré{b.sshTunnels ? "" : " (ssh-tunnels-api non configuré)"}.</p> : (
               <div className="hub-table-scroll">
-                <table>
+                <AutoColumns id="BastionView.3"><table>
                   <thead><tr><th>État</th><th>Tunnel</th><th>Via</th><th>Vers</th><th>Port local</th><th></th></tr></thead>
                   <tbody>{data.outbound.tunnels.map((t) => (
                     <tr key={t.id}>
@@ -181,7 +182,7 @@ export default function BastionView({ onBack, onNavigate, siProxyApiBase, access
                         : <button className="secondary" disabled={busy} onClick={() => act(`Tunnel ${t.label} démarré`, () => startTunnel(b.sshTunnels, t.id))}>▶ démarrer</button>}</td>
                     </tr>
                   ))}</tbody>
-                </table>
+                </table></AutoColumns>
               </div>
             )}
             <p className="muted" style={{ margin: "6px 0 0" }}>Clés, connexions et création : <button className="secondary ss-origin" onClick={() => onNavigate?.("ssh-tunnels")}>tuile Tunnels SSH</button></p>
@@ -189,7 +190,7 @@ export default function BastionView({ onBack, onNavigate, siProxyApiBase, access
           <div className="hub-card hub-settings-section">
             <h2 style={{ margin: "0 0 6px" }}>Connecteurs vers des services externes</h2>
             <div className="hub-table-scroll">
-              <table>
+              <AutoColumns id="BastionView.4"><table>
                 <thead><tr><th>État</th><th>Connecteur</th><th>Ce qui sort</th><th>Détail</th><th></th></tr></thead>
                 <tbody>{data.outbound.connectors.map((c) => (
                   <tr key={c.id}>
@@ -198,7 +199,7 @@ export default function BastionView({ onBack, onNavigate, siProxyApiBase, access
                     <td>{c.tile && <button className="secondary ss-origin" onClick={() => onNavigate?.(c.tile)}>ouvrir</button>}</td>
                   </tr>
                 ))}</tbody>
-              </table>
+              </table></AutoColumns>
             </div>
           </div>
         </>
@@ -212,9 +213,9 @@ export default function BastionView({ onBack, onNavigate, siProxyApiBase, access
             {data.auth.permissions.length === 0 ? <p className="muted" style={{ margin: 0 }}>Aucune permission déclarée{b.rights ? "" : " (rights-api non configuré)"}.</p> : data.auth.permissions.map((t) => (
               <details key={t.resourceType} style={{ marginBottom: 4 }}>
                 <summary><strong>{t.resourceType}</strong> — {t.count} permission(s), groupes : {t.groups.join(", ")}, actions : {t.actions.join(", ")}</summary>
-                <div className="hub-table-scroll"><table><thead><tr><th>Groupe</th><th>Ressource</th><th>Action</th><th></th></tr></thead>
+                <div className="hub-table-scroll"><AutoColumns id="BastionView.5"><table><thead><tr><th>Groupe</th><th>Ressource</th><th>Action</th><th></th></tr></thead>
                   <tbody>{t.items.map((p) => <tr key={p.id}><td>{p.group_name}</td><td className="muted">{p.resource_id || "(tous)"}</td><td>{p.action}</td>
-                    <td>{groups.includes("admin_hub") && <button className="secondary" disabled={busy} onClick={() => act(`Permission ${p.id} révoquée`, () => revokePermission(b.rights, groups, p.id))}>révoquer</button>}</td></tr>)}</tbody></table></div>
+                    <td>{groups.includes("admin_hub") && <button className="secondary" disabled={busy} onClick={() => act(`Permission ${p.id} révoquée`, () => revokePermission(b.rights, groups, p.id))}>révoquer</button>}</td></tr>)}</tbody></table></AutoColumns></div>
               </details>
             ))}
             <p className="muted" style={{ margin: "6px 0 0" }}>Octroi et inventaire des fichiers : <button className="secondary ss-origin" onClick={() => onNavigate?.("rights")}>tuile Droits</button> (admin_hub).</p>
@@ -222,8 +223,8 @@ export default function BastionView({ onBack, onNavigate, siProxyApiBase, access
           <div className="hub-card hub-settings-section">
             <h2 style={{ margin: "0 0 6px" }}>Liens externes du hub ({data.auth.links.length}) — {data.auth.linksForEveryone} visible(s) de tous</h2>
             {data.auth.links.length === 0 ? <p className="muted" style={{ margin: 0 }}>Aucun lien externe.</p> : (
-              <div className="hub-table-scroll"><table><thead><tr><th>Lien</th><th>URL</th><th>Rôles autorisés</th><th>Keycloak</th></tr></thead>
-                <tbody>{data.auth.links.map((l) => <tr key={l.id}><td>{l.name}</td><td className="muted">{l.url}</td><td>{l.everyone ? <Tone tone="warn">tout le monde</Tone> : l.roles.join(", ")}</td><td className="muted">{l.keycloak ? "client OIDC provisionné" : "—"}</td></tr>)}</tbody></table></div>
+              <div className="hub-table-scroll"><AutoColumns id="BastionView.6"><table><thead><tr><th>Lien</th><th>URL</th><th>Rôles autorisés</th><th>Keycloak</th></tr></thead>
+                <tbody>{data.auth.links.map((l) => <tr key={l.id}><td>{l.name}</td><td className="muted">{l.url}</td><td>{l.everyone ? <Tone tone="warn">tout le monde</Tone> : l.roles.join(", ")}</td><td className="muted">{l.keycloak ? "client OIDC provisionné" : "—"}</td></tr>)}</tbody></table></AutoColumns></div>
             )}
             <p className="muted" style={{ margin: "6px 0 0" }}>Édition : <button className="secondary ss-origin" onClick={() => onNavigate?.("external-links")}>liens externes</button>. Coffre-fort (ACL par collection), annuaire (mots de passe) et console Keycloak : portails dédiés, hors de cette console.</p>
           </div>
@@ -245,9 +246,9 @@ export default function BastionView({ onBack, onNavigate, siProxyApiBase, access
           <div className="hub-card hub-settings-section">
             <h2 style={{ margin: "0 0 6px" }}>Montages SSHFS ({data.shares.counts.mounted} monté(s) / {data.shares.counts.mounts})</h2>
             {data.shares.mounts.length === 0 ? <p className="muted" style={{ margin: 0 }}>Aucun montage déclaré.</p> : (
-              <div className="hub-table-scroll"><table><thead><tr><th>État</th><th>Montage</th><th>Distant</th><th>Local</th><th></th></tr></thead>
+              <div className="hub-table-scroll"><AutoColumns id="BastionView.7"><table><thead><tr><th>État</th><th>Montage</th><th>Distant</th><th>Local</th><th></th></tr></thead>
                 <tbody>{data.shares.mounts.map((m) => <tr key={m.id}><td><Tone tone={m.mounted ? "good" : "neutral"}>{m.mounted ? "monté" : "démonté"}</Tone></td><td>{m.label}</td><td className="muted">{m.remotePath}</td><td className="muted">{m.localPath}</td>
-                  <td>{m.mounted && <button className="secondary" disabled={busy} onClick={() => act(`Montage ${m.label} démonté`, () => unmountAction(b.sshTunnels, m.id))}>⏏ démonter</button>}</td></tr>)}</tbody></table></div>
+                  <td>{m.mounted && <button className="secondary" disabled={busy} onClick={() => act(`Montage ${m.label} démonté`, () => unmountAction(b.sshTunnels, m.id))}>⏏ démonter</button>}</td></tr>)}</tbody></table></AutoColumns></div>
             )}
             <p className="muted" style={{ margin: "6px 0 0" }}>Partages ownCloud (table oc_share) : non exploités par le hub à ce jour — noté au backlog.</p>
           </div>

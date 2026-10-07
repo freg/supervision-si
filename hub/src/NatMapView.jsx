@@ -11,6 +11,7 @@ import { fetchNatMap, setNatRule } from "./mikrotikClient.js";
 import { fetchFleet } from "./siAgentClient.js";
 import { rankFilter } from "./textFilter.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const C = { red: "#e53935", orange: "#fb8c00", green: "#43a047", grey: "#9e9e9e", accent: "#4a9eda" };
 const flowText = (f) => [f.router, f.proto, f.dst_address, f.dst_ports.join(","), f.to_address, f.to_ports.join(","), f.comment, f.in_iface, f.action].join(" ");
 
@@ -120,7 +121,7 @@ export default function NatMapView({ apiBase, siAgentApiBase, mikrotikUrl, onBac
         </svg>
       </div>
       <div style={{ maxHeight: "calc(100vh - 520px)", overflow: "auto", border: "1px solid var(--border)", borderRadius: 8 }}>
-        <table style={{ width: "100%", fontSize: 13 }}>
+        <AutoColumns id="NatMapView.1"><table style={{ width: "100%", fontSize: 13 }}>
           <thead style={{ position: "sticky", top: 0, background: "var(--panel)", zIndex: 1 }}><tr><th> </th><th>Routeur</th><th>Chaîne / action</th><th>Entrée</th><th>Cible</th><th>Commentaire</th><th>Paquets</th><th> </th></tr></thead>
           <tbody>
             {[...inbound, ...outbound].map((f) => {
@@ -138,7 +139,7 @@ export default function NatMapView({ apiBase, siAgentApiBase, mikrotikUrl, onBac
             })}
             {map && !flows.length && <tr><td colSpan={8} className="muted">aucune règle.</td></tr>}
           </tbody>
-        </table>
+        </table></AutoColumns>
       </div>
     </PageFrame>
   );

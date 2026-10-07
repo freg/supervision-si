@@ -34,6 +34,7 @@ import OwnCloudSearchView from "./OwnCloudSearchView.jsx";
 import VersionGraphView from "./VersionGraphView.jsx";
 import { fetchArchiveCatalog, fetchCheckouts, archiveDownloadUrl } from "./gedClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // #460 : onglet « Archive » -- catalogue des copies immuables (sha256
 // vérifié à chaque affichage) et documents sortis (check-out).
 function ArchiveTab({ gedApiBase }) {
@@ -47,10 +48,10 @@ function ArchiveTab({ gedApiBase }) {
       <h2>Archive immuable ({cat.archive.length})</h2>
       <p className="muted">Copies figées (sha256, catalogue jsonl) dans {cat.dir}, indépendantes de Mayan : une version archivée ne change plus, et son intégrité est vérifiée à chaque affichage.</p>
       {cat.archive.length === 0 ? <p className="muted">Aucune version archivée.</p> : (
-        <div className="hub-table-scroll"><table><thead><tr><th>Document</th><th>Version</th><th>Fichier</th><th>Taille</th><th>Archivée</th><th>Par</th><th>Intégrité</th><th></th></tr></thead>
+        <div className="hub-table-scroll"><AutoColumns id="GedView.1"><table><thead><tr><th>Document</th><th>Version</th><th>Fichier</th><th>Taille</th><th>Archivée</th><th>Par</th><th>Intégrité</th><th></th></tr></thead>
           <tbody>{cat.archive.map((e) => <tr key={e.id}><td>{e.document_name || `#${e.document_id}`}</td><td>v{e.version_number}</td><td className="muted">{e.filename}</td><td>{e.size} o</td><td>{e.archived_at}</td><td>{e.archived_by || "—"}</td>
             <td>{e.intact ? <span className="np-tone good">intacte</span> : <span className="np-tone bad">ALTÉRÉE</span>}</td>
-            <td>{e.intact && <a href={archiveDownloadUrl(gedApiBase, e.document_id, e.version_number)} target="_blank" rel="noreferrer">télécharger</a>}</td></tr>)}</tbody></table></div>
+            <td>{e.intact && <a href={archiveDownloadUrl(gedApiBase, e.document_id, e.version_number)} target="_blank" rel="noreferrer">télécharger</a>}</td></tr>)}</tbody></table></AutoColumns></div>
       )}
       <h2 style={{ marginTop: 12 }}>Documents sortis (check-out) ({cos.length})</h2>
       {cos.length === 0 ? <p className="muted">Aucun document en cours de modification.</p> : <ul>{cos.map((c) => <li key={c.document_id}>document #{c.document_id} sorti par <strong>{c.user}</strong> depuis {c.checked_out_at}{c.version_number ? ` (v${c.version_number})` : ""}</li>)}</ul>}

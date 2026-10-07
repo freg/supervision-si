@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchAlertFilters, saveAlertFilters, testAlertFilter, updateAgent } from "./siAgentClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const WHEN = { always: "toujours", outside: "hors des heures ouvrées", inside: "pendant les heures ouvrées" };
 
 export default function AlertFiltersTab({ base, fleet, onChanged, notice }) {
@@ -44,7 +45,7 @@ export default function AlertFiltersTab({ base, fleet, onChanged, notice }) {
 
       <h3 style={{ margin: "10px 0 6px" }}>Par agent</h3>
       <div style={{ maxHeight: 260, overflow: "auto", border: "1px solid var(--border)", borderRadius: 8 }}>
-        <table style={{ width: "100%", fontSize: 13 }}>
+        <AutoColumns id="AlertFiltersTab.1"><table style={{ width: "100%", fontSize: 13 }}>
           <thead style={{ position: "sticky", top: 0, background: "var(--panel)" }}><tr><th>Agent</th><th>Site</th><th>Hôte</th><th>Filtrer</th><th>Groupe</th></tr></thead>
           <tbody>
             {fleet.map((a) => (
@@ -57,7 +58,7 @@ export default function AlertFiltersTab({ base, fleet, onChanged, notice }) {
             ))}
             {!fleet.length && <tr><td colSpan={5} className="muted">aucun agent.</td></tr>}
           </tbody>
-        </table>
+        </table></AutoColumns>
       </div>
 
       <h3 style={{ margin: "14px 0 6px" }}>Groupes de filtres {data.default && <span className="muted" style={{ fontWeight: 400 }}>(paramétrage par défaut, non enregistré)</span>}</h3>

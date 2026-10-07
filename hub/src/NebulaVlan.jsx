@@ -7,6 +7,7 @@ import NebulaTopo from "./NebulaTopo.jsx";
 import NebulaAnomalies from "./NebulaAnomalies.jsx";
 import NebulaSsidMatrix from "./NebulaSsidMatrix.jsx";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 async function getJson(url) {
   const r = await fetch(url, { credentials: "include" });
   const j = await r.json();
@@ -52,7 +53,7 @@ export default function NebulaVlan({ nebulaApiBase, groups = [], login = "", foc
           <NebulaSsidMatrix nebulaApiBase={nebulaApiBase} siteId={siteId} version={map.at} />
           {map.errors.length > 0 && <p className="muted">Appels en échec (carte partielle) : {map.errors.join(" · ")}</p>}
           <h3>VLAN ({map.vlans.length})</h3>
-          <table>
+          <AutoColumns id="NebulaVlan.1"><table>
             <thead><tr><th>VLAN</th><th>Sous-réseau</th><th>SSID</th>{switches.map((n) => <th key={n}>{n}</th>)}<th>MAC</th><th>Clients</th></tr></thead>
             <tbody>
               {map.vlans.map((v) => (
@@ -65,11 +66,11 @@ export default function NebulaVlan({ nebulaApiBase, groups = [], login = "", foc
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></AutoColumns>
           <p className="muted">U = ports non étiquetés (PVID), T = ports étiquetés (trunk).</p>
           <h3>Liaisons entre commutateurs (LLDP)</h3>
           {map.links.filter((l) => !l.external).length === 0 ? <p className="muted">Aucune liaison LLDP entre deux commutateurs du site.</p> : (
-            <table>
+            <AutoColumns id="NebulaVlan.2"><table>
               <thead><tr><th>Commutateur A</th><th>Port</th><th>Commutateur B</th><th>Port</th><th>VLAN côté A</th><th>VLAN côté B</th><th>Manquants</th></tr></thead>
               <tbody>{map.links.filter((l) => !l.external).map((l, i) => (
                 <tr key={i} style={(l.missing_on_a.length || l.missing_on_b.length) ? { color: "var(--danger)" } : undefined}>
@@ -78,7 +79,7 @@ export default function NebulaVlan({ nebulaApiBase, groups = [], login = "", foc
                   <td>{l.missing_on_a.length > 0 && `côté ${l.a_name} : ${l.missing_on_a.join(" ")}`}{l.missing_on_a.length > 0 && l.missing_on_b.length > 0 && " · "}{l.missing_on_b.length > 0 && `côté ${l.b_name} : ${l.missing_on_b.join(" ")}`}</td>
                 </tr>
               ))}</tbody>
-            </table>
+            </table></AutoColumns>
           )}
           {map.links.filter((l) => l.external).length > 0 && (
             <details><summary>Autres voisins LLDP ({map.links.filter((l) => l.external).length})</summary>

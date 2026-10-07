@@ -4,6 +4,7 @@
 // lire à voix haute). Ils se connectent par le processus normal du hub.
 import { useCallback, useEffect, useState } from "react";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 async function call(url, init) {
   const r = await fetch(url, { credentials: "include", ...(init || {}) });
   const j = await r.json().catch(() => ({}));
@@ -63,7 +64,7 @@ export default function DemoUsersTab({ apiBase, me, notice, error }) {
           </tbody></table>
         </div>
       )}
-      <table style={{ width: "100%", fontSize: 13 }}>
+      <AutoColumns id="DemoUsersTab.1"><table style={{ width: "100%", fontSize: 13 }}>
         <thead><tr><th>Compte</th><th>Nom</th><th>Groupes</th><th>Rôle dans la démo</th><th>État</th></tr></thead>
         <tbody>
           {state.users.map((u) => (
@@ -74,7 +75,7 @@ export default function DemoUsersTab({ apiBase, me, notice, error }) {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></AutoColumns>
       <p className="muted" style={{ fontSize: 12, marginBottom: 0 }}>Profils modifiables par <code>ACCOUNTS_DEMO_PROFILES</code> (JSON : username demo-…, groups, first_name, last_name, description) dans <code>.env</code>.</p>
     </div>
   );

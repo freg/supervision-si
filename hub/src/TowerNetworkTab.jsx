@@ -6,6 +6,7 @@ import { fetchNetworkObservability } from "./siAgentClient.js";
 import { dnsRows, dnsSummary, routingSummary, ciscoRouteRows, topFlows, fmtBytes, resourceRows } from "./towerNetworkLib.js";
 import TowerDnsPanel from "./TowerDnsPanel.jsx";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tour de contrôle → onglet « Réseau » (#655) : DNS / routage / flux → trafic, en LECTURE SEULE, agrégés depuis les
 // modules existants (service-watch, sonde dns-observe, MikroTik, network-agent, sonde resource-access). Chaque panneau
 // charge seul et affiche son erreur sans bloquer les autres. Les actions restent dans leurs tuiles (NAT, Cisco…).
@@ -54,9 +55,9 @@ export default function TowerNetworkTab({ serviceWatchUrl, siAgentApiBase, mikro
         <h3>DNS {dns.summary && <span className="muted">— {dns.summary.total} entrée(s), {dns.summary.ko} en défaut, {dns.summary.alerts} alerte(s)</span>}</h3>
         {dns.error && <p className="tn-ko">{dns.error}</p>}
         {dns.loading ? <p className="muted">chargement…</p> : (
-          <table className="tn-table"><thead><tr><th>Nom</th><th>Nature</th><th>Détail</th><th>État</th><th>Vu</th></tr></thead>
+          <AutoColumns id="TowerNetworkTab.1"><table className="tn-table"><thead><tr><th>Nom</th><th>Nature</th><th>Détail</th><th>État</th><th>Vu</th></tr></thead>
             <tbody>{(dns.rows || []).slice(0, 60).map((r, i) => <tr key={i} className={r.state !== "ok" && r.state !== "?" ? "tn-row-ko" : ""}><td><b>{r.name}</b>{r.agent ? <span className="muted"> ({r.agent})</span> : null}</td><td>{r.kind}</td><td className="muted">{r.detail}</td><td>{r.state}</td><td className="muted">{(r.at || "").replace("T", " ").slice(0, 16)}</td></tr>)}
-              {(dns.rows || []).length === 0 && <tr><td colSpan={5} className="muted">Aucune entrée : importez une zone dans « Entrées de services » ou activez la sonde dns-observe sur un agent.</td></tr>}</tbody></table>
+              {(dns.rows || []).length === 0 && <tr><td colSpan={5} className="muted">Aucune entrée : importez une zone dans « Entrées de services » ou activez la sonde dns-observe sur un agent.</td></tr>}</tbody></table></AutoColumns>
         )}
       </div>
       {dnsApiBase && <div className="hub-card tn-card tn-wide"><h3>DNS éditable <span className="muted">— Internet (OVH, Scaleway) avec cache, intranet en fallback</span></h3><TowerDnsPanel dnsApiBase={dnsApiBase} login={login} /></div>}
@@ -66,8 +67,8 @@ export default function TowerNetworkTab({ serviceWatchUrl, siAgentApiBase, mikro
         {routing.loading ? <p className="muted">chargement…</p> : (routing.summary || []).map((s, i) => (
           <details key={s.router} className="tn-details" open={i === 0}>
             <summary><b>{s.router}</b> — {s.error ? <span className="tn-ko">{s.error}</span> : <>{s.active} route(s) active(s), {s.disabled} désactivée(s), {s.kind === "cisco" ? "" : `${s.nat} règle(s) NAT`} · défaut : {s.defaults.join(", ") || "—"}</>}</summary>
-            {!s.error && <table className="tn-table"><thead><tr><th>Destination</th><th>Passerelle</th><th>Dist.</th><th>État</th><th>Commentaire</th></tr></thead>
-              <tbody>{routing.routers[i].routes.map((r) => <tr key={r.id} className={r.disabled ? "tn-muted" : !r.active ? "tn-row-ko" : ""}><td>{r.dst}</td><td>{r.gateway}</td><td>{r.distance}</td><td>{r.disabled ? "désactivée" : r.active ? "active" : "inactive"}{r.dynamic ? " (dyn.)" : ""}</td><td className="muted">{r.comment}</td></tr>)}</tbody></table>}
+            {!s.error && <AutoColumns id="TowerNetworkTab.2"><table className="tn-table"><thead><tr><th>Destination</th><th>Passerelle</th><th>Dist.</th><th>État</th><th>Commentaire</th></tr></thead>
+              <tbody>{routing.routers[i].routes.map((r) => <tr key={r.id} className={r.disabled ? "tn-muted" : !r.active ? "tn-row-ko" : ""}><td>{r.dst}</td><td>{r.gateway}</td><td>{r.distance}</td><td>{r.disabled ? "désactivée" : r.active ? "active" : "inactive"}{r.dynamic ? " (dyn.)" : ""}</td><td className="muted">{r.comment}</td></tr>)}</tbody></table></AutoColumns>}
             {!s.error && routing.routers[i].natRules.length > 0 && <p className="muted">NAT : {routing.routers[i].natRules.slice(0, 12).map((n) => `${n.chain || ""} ${n["dst-port"] || ""}→${n["to-addresses"] || ""}${n["to-ports"] ? ":" + n["to-ports"] : ""}`).join(" · ")}</p>}
           </details>
         ))}
@@ -77,13 +78,13 @@ export default function TowerNetworkTab({ serviceWatchUrl, siAgentApiBase, mikro
         {segments.length > 0 && <div className="tn-inline"><label className="muted">Segment</label><select value={segment} onChange={(e) => setSegment(e.target.value)}>{segments.map((s) => <option key={s.id || s.segment_id} value={s.id || s.segment_id}>{s.name || s.label || s.id}</option>)}</select></div>}
         {flows.error && <p className="tn-ko">{flows.error}</p>}
         {flows.loading ? <p className="muted">chargement…</p> : (
-          <table className="tn-table"><thead><tr><th>D'où</th><th>Vers où</th><th>Volume</th></tr></thead>
+          <AutoColumns id="TowerNetworkTab.3"><table className="tn-table"><thead><tr><th>D'où</th><th>Vers où</th><th>Volume</th></tr></thead>
             <tbody>{topFlows(flows.links).map((f, i) => <tr key={i}><td>{f.a}</td><td>{f.b}</td><td>{fmtBytes(f.bytes)}</td></tr>)}
-              {(flows.links || []).length === 0 && <tr><td colSpan={3} className="muted">Aucun échange relevé sur ce segment.</td></tr>}</tbody></table>
+              {(flows.links || []).length === 0 && <tr><td colSpan={3} className="muted">Aucun échange relevé sur ce segment.</td></tr>}</tbody></table></AutoColumns>
         )}
         {dns.resources && dns.resources.length > 0 && (<><h4>Accès aux ressources (sondes)</h4>
-          <table className="tn-table"><thead><tr><th>Ressource</th><th>Poste</th><th>Clients</th><th>Accès</th></tr></thead>
-            <tbody>{resourceRows(dns.resources).map((r, i) => <tr key={i} className={r.ok ? "" : "tn-row-ko"}><td>{r.name}</td><td className="muted">{r.agent}</td><td>{r.clients}</td><td>{r.hits}</td></tr>)}</tbody></table></>)}
+          <AutoColumns id="TowerNetworkTab.4"><table className="tn-table"><thead><tr><th>Ressource</th><th>Poste</th><th>Clients</th><th>Accès</th></tr></thead>
+            <tbody>{resourceRows(dns.resources).map((r, i) => <tr key={i} className={r.ok ? "" : "tn-row-ko"}><td>{r.name}</td><td className="muted">{r.agent}</td><td>{r.clients}</td><td>{r.hits}</td></tr>)}</tbody></table></AutoColumns></>)}
       </div>
     </div>
   );

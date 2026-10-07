@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { listZones, createZone, deleteZone, zoneRecords, setRecord, deleteRecord, zoneChanges, revertChange, replayZone } from "./dnsClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tour de contrôle › Réseau › DNS ÉDITABLE (#656) : zones avec fournisseurs ordonnés (OVH / Scaleway = Internet avec
 // cache, BIND intranet = fallback), enregistrements consolidés (divergence entre fournisseurs signalée), modification
 // appliquée partout, journal avec retour en arrière, rejeu des modifications partielles. Secrets dans le coffre des accès.
@@ -59,19 +60,19 @@ export default function TowerDnsPanel({ dnsApiBase, login }) {
         <p className="muted">Coffre : OVH = identifiant « app_key/consumer_key », mot de passe = app secret · Scaleway = mot de passe = secret key · intranet = identifiant = nom de la clé TSIG, mot de passe = secret. Un fournisseur sans accès est ignoré.</p>
         <div className="td-inline"><button className="primary td-mini" onClick={addZone}>Créer</button><button className="secondary td-mini" onClick={() => setNewZone(null)}>Annuler</button></div></div>)}
       {z && <p className="muted">Fournisseurs : {z.providers.map((p) => { const st = (z.state || []).find((s) => s.provider === p.label); return `${p.label} (${p.role}${st ? ", " + (st.status === "ok" ? "ok" : "dégradé : " + st.last_error) : ""})`; }).join(" → ")}</p>}
-      {data && (<table className="tn-table"><thead><tr><th>Nom</th><th>Type</th><th>Valeur</th>{data.providers.map((p) => <th key={p}>{p}</th>)}<th></th></tr></thead>
+      {data && (<AutoColumns id="TowerDnsPanel.1"><table className="tn-table"><thead><tr><th>Nom</th><th>Type</th><th>Valeur</th>{data.providers.map((p) => <th key={p}>{p}</th>)}<th></th></tr></thead>
         <tbody>{data.records.map((r) => <tr key={r.name + r.type} className={r.divergent ? "tn-row-ko" : ""}><td><b>{r.name}</b></td><td>{r.type}</td><td>{r.value}{r.divergent && <span className="td-ko"> divergent</span>}</td>
           {data.providers.map((p) => <td key={p} className="muted">{(r.by_provider[p] || []).join(", ") || "—"}</td>)}
           <td className="td-actions"><button className="secondary td-mini" onClick={() => setForm({ name: r.name, type: r.type, value: r.value, ttl: r.ttl || 300 })}>modifier</button><button className="secondary td-mini td-danger" onClick={() => remove(r)}>✕</button></td></tr>)}
-          {data.records.length === 0 && <tr><td colSpan={4 + data.providers.length} className="muted">Cache vide : « relire les fournisseurs ».</td></tr>}</tbody></table>)}
+          {data.records.length === 0 && <tr><td colSpan={4 + data.providers.length} className="muted">Cache vide : « relire les fournisseurs ».</td></tr>}</tbody></table></AutoColumns>)}
       {zone && (<form onSubmit={submit} className="td-inline td-form"><input type="text" placeholder="nom (@, www…)" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} style={{ width: 120 }} />
         <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>{["A", "AAAA", "CNAME", "TXT", "MX", "SRV", "NS"].map((t) => <option key={t}>{t}</option>)}</select>
         <input type="text" placeholder="valeur" value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} style={{ flex: 1 }} /><input type="number" value={form.ttl} onChange={(e) => setForm({ ...form, ttl: Number(e.target.value) })} style={{ width: 80 }} title="TTL" />
         <button className="primary td-mini" type="submit" disabled={busy === "set"}>Appliquer partout</button></form>)}
       {changes.length > 0 && (<details className="tn-details"><summary>Journal ({changes.length})</summary>
-        <table className="tn-table"><thead><tr><th>Quand</th><th>Qui</th><th>Action</th><th>Avant → après</th><th>Fournisseurs</th><th></th></tr></thead>
+        <AutoColumns id="TowerDnsPanel.2"><table className="tn-table"><thead><tr><th>Quand</th><th>Qui</th><th>Action</th><th>Avant → après</th><th>Fournisseurs</th><th></th></tr></thead>
           <tbody>{changes.slice(0, 30).map((c) => <tr key={c.id} className={c.status === "partial" ? "tn-row-ko" : ""}><td className="muted">{(c.at || "").replace("T", " ").slice(0, 16)}</td><td>{c.by_user}</td><td>{c.action} {c.name} {c.type}</td><td>{(c.before || []).join(", ") || "∅"} → {c.after || "∅"}</td>
-            <td className="muted">{Object.entries(c.results).map(([k, v]) => `${k} ${v.ok ? "✔" : "✘"}`).join(" ")}</td><td>{!c.reverted_by && <button className="secondary td-mini" onClick={() => revert(c)}>↶ annuler</button>}{c.reverted_by && <span className="muted">annulée (#{c.reverted_by})</span>}</td></tr>)}</tbody></table></details>)}
+            <td className="muted">{Object.entries(c.results).map(([k, v]) => `${k} ${v.ok ? "✔" : "✘"}`).join(" ")}</td><td>{!c.reverted_by && <button className="secondary td-mini" onClick={() => revert(c)}>↶ annuler</button>}{c.reverted_by && <span className="muted">annulée (#{c.reverted_by})</span>}</td></tr>)}</tbody></table></AutoColumns></details>)}
     </div>
   );
 }

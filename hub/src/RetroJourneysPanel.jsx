@@ -7,6 +7,7 @@ import { STATUS_LABELS, stepTitle, stepSummary, screensByTables, dbTablesLabel, 
 import GeneratedAppView from "./GeneratedAppView.jsx";
 import UnifiedToolView from "./UnifiedToolView.jsx";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Parcours applicatifs (livraison #441, backlog 30 volet 2 -- « schéma
 // fonctionnel de l'interface ») : la personne parcourt l'application réelle
 // avec l'extension Firefox + l'agent relais ; ici on voit les parcours, chaque
@@ -161,7 +162,7 @@ export default function RetroJourneysPanel({ retroApiBase, connections, dbaApiBa
           <h2>Parcours de « {app} » ({journeys.length})</h2>
           {journeys.length === 0 ? <p className="muted">Aucun parcours : démarrez-en un depuis le popup de l'extension (le relais doit tourner).</p> : (
             <div className="hub-table-scroll">
-              <table>
+              <AutoColumns id="RetroJourneysPanel.1"><table>
                 <thead><tr><th>Parcours</th><th>Testeur</th><th>Début</th><th>État</th><th>Événements</th><th>Requêtes SQL</th><th></th></tr></thead>
                 <tbody>{journeyTree(journeys).map((j) => (
                   <tr key={j.id} style={journey?.id === j.id ? { fontWeight: 600 } : undefined}>
@@ -178,7 +179,7 @@ export default function RetroJourneysPanel({ retroApiBase, connections, dbaApiBa
                     </td>
                   </tr>
                 ))}</tbody>
-              </table>
+              </table></AutoColumns>
             </div>
           )}
         </div>
@@ -208,7 +209,7 @@ export default function RetroJourneysPanel({ retroApiBase, connections, dbaApiBa
                     </fieldset>
                   ))}
                   {f.tables.map((t, i) => (
-                    <table key={i} style={{ margin: "8px 0" }}><thead><tr>{t.headers.map((h) => <th key={h}>{h}</th>)}</tr></thead><tbody><tr>{t.headers.map((h) => <td key={h} className="muted">…</td>)}</tr></tbody></table>
+                    <AutoColumns id="RetroJourneysPanel.2"><table key={i} style={{ margin: "8px 0" }}><thead><tr>{t.headers.map((h) => <th key={h}>{h}</th>)}</tr></thead><tbody><tr>{t.headers.map((h) => <td key={h} className="muted">…</td>)}</tr></tbody></table></AutoColumns>
                   ))}
                   {f.links != null && <div className="muted" style={{ fontSize: 12 }}>{f.links} lien(s) sur l'écran</div>}
                 </div>
@@ -228,7 +229,7 @@ export default function RetroJourneysPanel({ retroApiBase, connections, dbaApiBa
         <div className="hub-card hub-settings-section">
           <h2>Rejeu comparé au parcours d'origine — {compare.summary.same} étape(s) identique(s), {compare.summary.different} différente(s)</h2>
           <div className="hub-table-scroll">
-            <table>
+            <AutoColumns id="RetroJourneysPanel.3"><table>
               <thead><tr><th>#</th><th>Origine</th><th>Rejeu</th><th>Différences</th></tr></thead>
               <tbody>{compare.pairs.map((p) => (
                 <tr key={p.n} style={p.same ? undefined : { background: "var(--warning-bg, #fff7e6)" }}>
@@ -238,7 +239,7 @@ export default function RetroJourneysPanel({ retroApiBase, connections, dbaApiBa
                   <td className="muted" style={{ fontSize: 12 }}>{p.same ? "identique" : p.diffs.join(" · ")}</td>
                 </tr>
               ))}</tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         </div>
       )}
@@ -248,7 +249,7 @@ export default function RetroJourneysPanel({ retroApiBase, connections, dbaApiBa
           <h2>Étapes de « {journey.name || journey.id} » ({journey.steps.length})</h2>
           <p className="muted" style={{ marginTop: -4 }}>Une étape par écran demandé (requête de page) ou repère. Tables « code » : déduites de la route et du fichier PHP ; « base » : requêtes SQL réellement exécutées pendant l'étape.</p>
           <div className="hub-table-scroll">
-            <table>
+            <AutoColumns id="RetroJourneysPanel.4"><table>
               <thead><tr><th>#</th><th>Écran / action</th><th>Route (code)</th><th>Résumé</th><th>Formulaires</th><th>Tables (code)</th><th>Tables (base)</th><th>Annotation</th></tr></thead>
               <tbody>{journey.steps.map((s) => {
                 const sc = journey.map.screens.find((x) => x.steps.includes(s.n)) || {};
@@ -265,7 +266,7 @@ export default function RetroJourneysPanel({ retroApiBase, connections, dbaApiBa
                   </tr>
                 );
               })}</tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         </div>
       )}
@@ -274,7 +275,7 @@ export default function RetroJourneysPanel({ retroApiBase, connections, dbaApiBa
         <div className="hub-card hub-settings-section">
           <h2>Schéma fonctionnel de « {app} » — {appMap.counts.screens} écran(s), {appMap.counts.with_route} avec route, {appMap.counts.tables} table(s), {appMap.journeys} parcours</h2>
           <div className="hub-table-scroll">
-            <table>
+            <AutoColumns id="RetroJourneysPanel.5"><table>
               <thead><tr><th>Écran</th><th>Titres</th><th>Route → contrôleur</th><th>Fichiers</th><th>Formulaires (champs ↔ gabarit)</th><th>Tables</th></tr></thead>
               <tbody>{appMap.screens.map((s) => (
                 <tr key={s.screen}>
@@ -286,13 +287,13 @@ export default function RetroJourneysPanel({ retroApiBase, connections, dbaApiBa
                   <td className="muted">{s.tables.map((t) => <span key={t} className="na-chip" title={`${s.code_tables[t] ? "code : " + s.code_tables[t].join(", ") : ""}${s.db_tables[t] ? ` base : ${s.db_tables[t].reads}r/${s.db_tables[t].writes}w` : ""}`}>{t}{s.code_tables[t] && s.db_tables[t] ? " ✓✓" : s.db_tables[t] ? " (base)" : " (code)"}</span>)}</td>
                 </tr>
               ))}</tbody>
-            </table>
+            </table></AutoColumns>
           </div>
           {matrix.tables.length > 0 && (
             <>
               <h3>Écrans × tables</h3>
               <div className="hub-table-scroll">
-                <table>
+                <AutoColumns id="RetroJourneysPanel.6"><table>
                   <thead><tr><th>Écran</th>{matrix.tables.map((t) => <th key={t} style={{ writingMode: "vertical-rl", fontSize: 11 }}>{t}</th>)}</tr></thead>
                   <tbody>{matrix.rows.map((r) => (
                     <tr key={r.screen}><td><code>{r.screen}</code></td>{matrix.tables.map((t) => (
@@ -301,7 +302,7 @@ export default function RetroJourneysPanel({ retroApiBase, connections, dbaApiBa
                       </td>))}
                     </tr>
                   ))}</tbody>
-                </table>
+                </table></AutoColumns>
               </div>
               <p className="muted" style={{ fontSize: 12 }}>● code et journal SQL concordent · ◐ déduit du code seulement · ◑ vu dans le journal SQL seulement (à retrouver dans le code, ou table touchée indirectement)</p>
             </>

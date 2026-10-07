@@ -17,7 +17,7 @@ filtre antivirus contourné). À superviser par l'agent (sonde `mail-server`) :
 7. tuile ou section « Messagerie » : verdicts, faux positifs à libérer (lien vers la quarantaine Modoboa), alertes.
 Suite : migration du serveur vers Debian 12 + Modoboa à jour (antivirus fonctionnel), conserver journaux 6 mois.
 
-## Hub : colonnes des tableaux redimensionnables et masquables, mémorisées (2026-10-06) — FAIT pour les agents (#698) ; à brancher sur les autres tableaux au fil de l'eau
+## Hub : colonnes des tableaux redimensionnables et masquables, mémorisées (2026-10-06) — FAIT pour les agents (#698) et tous les tableaux à en-tête (#707, AutoColumns)
 
 Demandé pour le tableau des agents (Agents hôtes) : largeur de chaque colonne modifiable à la souris, colonnes
 masquables (menu de l'en-tête), réglages mémorisés dans la configuration personnelle (prefs-api, par utilisateur et

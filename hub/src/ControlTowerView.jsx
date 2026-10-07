@@ -18,6 +18,7 @@ import {
   fetchJobs, fetchJob, fetchDeliveries, uploadDelivery, applyDelivery, reloadGateway, fetchGit, gitUpdate, fetchRepartition, saveRepartition, applyRepartition, migrateCohort, fetchMirror, mirrorAction } from "./servicesClient.js";
 import { itemsOf, mergeItems, emptyRow, cleanRow, statsText, deliveryText, JOB_LABEL, JOB_TONE, touchesHub, gitText, gitBlocker, versionStatus, cohortRows, moveCohort, nodeText, mirrorText, mirrorActions } from "./towerLib.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const TABS = [
   { id: "services", label: "🚦 Services" },
   { id: "deliveries", label: "📦 Livraisons & jobs" },
@@ -129,12 +130,12 @@ function Repartition({ apiBase, token, openJob }) {
       {error && <p className="hub-error">{error}</p>}
       {data?.configured && (<>
         <h3>Nœuds</h3>
-        <table className="hub-table"><thead><tr><th>Nœud</th><th>Zone</th><th>VPN</th><th>Rôle</th><th>Cohortes</th><th>État (agent de nœud)</th></tr></thead>
-          <tbody>{(nodes || []).map((n) => <tr key={n.name}><td><b>{n.name}</b>{n.name === data.me ? " (ici)" : ""}</td><td>{n.zone}</td><td><code>{n.wg_address}</code></td><td>{n.role}{n.edge ? " · bordure" : ""}</td><td>{(n.cohorts || []).join(", ") || <span className="muted">—</span>}</td><td className={data.status?.[n.name]?.error || (data.status?.[n.name]?.missing || []).length ? "hub-error" : "muted"}>{nodeText(data.status?.[n.name])}</td></tr>)}</tbody></table>
+        <AutoColumns id="ControlTowerView.1"><table className="hub-table"><thead><tr><th>Nœud</th><th>Zone</th><th>VPN</th><th>Rôle</th><th>Cohortes</th><th>État (agent de nœud)</th></tr></thead>
+          <tbody>{(nodes || []).map((n) => <tr key={n.name}><td><b>{n.name}</b>{n.name === data.me ? " (ici)" : ""}</td><td>{n.zone}</td><td><code>{n.wg_address}</code></td><td>{n.role}{n.edge ? " · bordure" : ""}</td><td>{(n.cohorts || []).join(", ") || <span className="muted">—</span>}</td><td className={data.status?.[n.name]?.error || (data.status?.[n.name]?.missing || []).length ? "hub-error" : "muted"}>{nodeText(data.status?.[n.name])}</td></tr>)}</tbody></table></AutoColumns>
         <h3>Cohortes → nœud</h3>
-        <table className="hub-table"><thead><tr><th>Cohorte</th><th>Services</th><th>Zone</th><th>Nœud</th></tr></thead>
+        <AutoColumns id="ControlTowerView.2"><table className="hub-table"><thead><tr><th>Cohorte</th><th>Services</th><th>Zone</th><th>Nœud</th></tr></thead>
           <tbody>{rows.map((c) => <tr key={c.name}><td><b>{c.name}</b>{c.manager ? " · manager" : ""}{c.isolated ? " · isolée" : ""}<div className="muted">{c.title}</div></td><td title={c.services.join(", ")}>{c.count}</td><td>{c.zone || "local"}</td>
-            <td><select value={c.node} disabled={!!c.manager} onChange={(e) => setNodes(moveCohort(nodes, c.name, e.target.value))}><option value="">— non affectée —</option>{(nodes || []).map((n) => <option key={n.name} value={n.name}>{n.name}</option>)}</select></td></tr>)}</tbody></table>
+            <td><select value={c.node} disabled={!!c.manager} onChange={(e) => setNodes(moveCohort(nodes, c.name, e.target.value))}><option value="">— non affectée —</option>{(nodes || []).map((n) => <option key={n.name} value={n.name}>{n.name}</option>)}</select></td></tr>)}</tbody></table></AutoColumns>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 8 }}>
           <button type="button" className="primary" disabled={!dirty || !!busy} onClick={save}>Enregistrer nodes.json</button>
           <button type="button" className="secondary" disabled={dirty || !!busy} onClick={() => apply(false)}>Appliquer partout</button>
@@ -268,7 +269,7 @@ function Deliveries({ apiBase, token, settings, openJob, jobId }) {
       )}
       {jobId && <JobView apiBase={apiBase} token={token} jobId={jobId} onClose={() => openJob(null)} />}
       <h3>Jobs récents</h3>
-      <table className="hub-table">
+      <AutoColumns id="ControlTowerView.3"><table className="hub-table">
         <thead><tr><th>Job</th><th>Quoi</th><th>Par</th><th>Quand</th><th>État</th></tr></thead>
         <tbody>
           {jobs.map((j) => (
@@ -279,9 +280,9 @@ function Deliveries({ apiBase, token, settings, openJob, jobId }) {
           ))}
           {!jobs.length && <tr><td colSpan={5} className="muted">aucun job</td></tr>}
         </tbody>
-      </table>
+      </table></AutoColumns>
       <h3>Livraisons reçues</h3>
-      <table className="hub-table">
+      <AutoColumns id="ControlTowerView.4"><table className="hub-table">
         <thead><tr><th>Reçue</th><th>Fichier</th><th>Contenu</th><th>État</th></tr></thead>
         <tbody>
           {(state?.deliveries || []).map((d) => (
@@ -292,7 +293,7 @@ function Deliveries({ apiBase, token, settings, openJob, jobId }) {
           ))}
           {!(state?.deliveries || []).length && <tr><td colSpan={4} className="muted">aucune</td></tr>}
         </tbody>
-      </table>
+      </table></AutoColumns>
     </div>
   );
 }
@@ -363,7 +364,7 @@ function Configs({ apiBase, token, initial }) {
       </div>
       {msg && <p><Tone tone="green">{msg}</Tone></p>}
       {errs.length > 0 && <div className="hub-error">{errs.map((e, i) => <div key={i}>{e}</div>)}</div>}
-      <table className="hub-table">
+      <AutoColumns id="ControlTowerView.5"><table className="hub-table">
         <thead><tr>{fields.map((f) => <th key={f.name}>{f.label}{f.required ? " *" : ""}</th>)}<th></th></tr></thead>
         <tbody>
           {items.map((r, i) => (
@@ -380,7 +381,7 @@ function Configs({ apiBase, token, initial }) {
           ))}
           {!items.length && <tr><td colSpan={fields.length + 1} className="muted">aucune entrée — « Ajouter » ou « Importer JSON »</td></tr>}
         </tbody>
-      </table>
+      </table></AutoColumns>
     </div>
   );
 }
@@ -435,13 +436,13 @@ function Journal({ apiBase, token }) {
   useEffect(() => { const f = () => fetchEvents(apiBase, token, 300).then((r) => !r.error && setEv(r.events || [])); f(); const id = setInterval(f, 15000); return () => clearInterval(id); }, [apiBase, token]);
   const tone = (e) => (/gave-up|failed|error/.test(e) ? "red" : /heal|job|delivery/.test(e) ? "orange" : "grey");
   return (
-    <table className="hub-table">
+    <AutoColumns id="ControlTowerView.6"><table className="hub-table">
       <thead><tr><th>Quand</th><th>Événement</th><th>Détail</th></tr></thead>
       <tbody>
         {ev.map((e, i) => <tr key={i}><td className="muted" style={{ whiteSpace: "nowrap" }}>{when(e.at)}</td><td><Tone tone={tone(e.event)}>{e.event}</Tone></td><td>{e.text}</td></tr>)}
         {!ev.length && <tr><td colSpan={3} className="muted">journal vide</td></tr>}
       </tbody>
-    </table>
+    </table></AutoColumns>
   );
 }
 

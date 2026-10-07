@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { fetchCyberRisks, createCyberRisk, updateCyberRisk, deleteCyberRisk, fetchCyberRisksHistory } from "./cyberRisksClient.js";
 import { fetchGovernanceDocuments, governanceDocumentDownloadUrl } from "./settingsClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Écran "Cyber" (livraison #187) -- demandé explicitement : "au même
 // niveau que Logs" (menu horizontal texte, #173), "une matrice en
 // premier", "à destination en premier lieu des politiques et des
@@ -229,7 +230,7 @@ export default function CyberView({ onBack, prefsApiBase, login }) {
               </button>
             ))}
           </div>
-          <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+          <AutoColumns id="CyberView.1"><table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
             <thead>
               <tr>
                 <th style={{ width: "12%" }}></th>
@@ -281,7 +282,7 @@ export default function CyberView({ onBack, prefsApiBase, login }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></AutoColumns>
 
           {toEvaluateRisks.length > 0 && (
             <div style={{ marginTop: 16 }}>
@@ -422,7 +423,7 @@ export default function CyberView({ onBack, prefsApiBase, login }) {
             <p className="muted">Aucun changement enregistré depuis la mise en place de l'historique.</p>
           )}
           {!historyLoading && history && history.length > 0 && (
-            <table className="logs-entries-table">
+            <AutoColumns id="CyberView.2"><table className="logs-entries-table">
               <thead>
                 <tr><th>Date</th><th>Type</th><th>Point</th><th>Portée</th><th>Statut</th></tr>
               </thead>
@@ -437,7 +438,7 @@ export default function CyberView({ onBack, prefsApiBase, login }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           )}
         </div>
       )}

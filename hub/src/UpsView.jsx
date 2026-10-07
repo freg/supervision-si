@@ -11,6 +11,7 @@ import {
 import { buildLinePath } from "./netprobeAgents.js";
 import ZoomableChart from "./components/ZoomableChart.jsx";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile « UPS » (livraison #415), demandée en urgence : liste des
 // onduleurs (site / IP / utilisateur / mot de passe), relevé automatique
 // par ups-monitor-api (page d'état HTTP de la carte réseau, 1 h par
@@ -346,7 +347,7 @@ export default function UpsView({ onBack, upsApiBase }) {
         <p className="muted">Aucun onduleur déclaré -- « + Ajouter » : nom, site, IP, utilisateur, mot de passe.</p>
       ) : (
         <div className="hub-table-scroll">
-          <table>
+          <AutoColumns id="UpsView.1"><table>
             <thead>
               <tr><th>Nom</th><th>Site</th><th>Adresse</th><th>État</th><th>Alertes</th><th>Dernier relevé</th><th>Mesures</th><th>Fréquence</th><th className="ups-actions-head"></th></tr>
             </thead>
@@ -373,7 +374,7 @@ export default function UpsView({ onBack, upsApiBase }) {
                 );
               })}
             </tbody>
-          </table>
+          </table></AutoColumns>
         </div>
       )}
 
@@ -406,7 +407,7 @@ export default function UpsView({ onBack, upsApiBase }) {
                 )}
               </p>
               <div className="hub-table-scroll">
-                <table className="ups-fiche">
+                <AutoColumns id="UpsView.2"><table className="ups-fiche">
                   <thead><tr><th>Section</th><th>Champ</th><th>Valeur</th></tr></thead>
                   <tbody>
                     {fields.map((f) => (
@@ -417,7 +418,7 @@ export default function UpsView({ onBack, upsApiBase }) {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></AutoColumns>
               </div>
             </>
           )}
@@ -459,7 +460,7 @@ export default function UpsView({ onBack, upsApiBase }) {
           </button>
           {showTimelineTable && rows.length > 0 && (
             <div className="hub-table-scroll ups-timeline-table">
-              <table>
+              <AutoColumns id="UpsView.3"><table>
                 <thead><tr><th>Quand</th><th>État</th><th>Entrée</th><th>Sortie</th><th>Charge</th><th>Batterie</th><th>Durée</th></tr></thead>
                 <tbody>
                   {[...rows].reverse().map((r) => (
@@ -478,7 +479,7 @@ export default function UpsView({ onBack, upsApiBase }) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></AutoColumns>
             </div>
           )}
         </div>

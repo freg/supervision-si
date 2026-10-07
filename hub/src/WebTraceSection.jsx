@@ -4,6 +4,7 @@
 // retransmissions, RTT ; DNS ; requêtes HTTP en clair ; poignées TLS ; constats.
 import { useState } from "react";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 function Tone({ tone, children, title }) { return <span className={`np-tone ${tone || "neutral"}`} title={title}>{children}</span>; }
 const ms = (v) => (v == null ? "—" : v >= 1000 ? `${(v / 1000).toFixed(1)} s` : `${Math.round(v)} ms`);
 const kb = (b) => (b == null ? "—" : b >= 1048576 ? `${(b / 1048576).toFixed(1)} Mo` : `${Math.round(b / 1024)} Ko`);
@@ -30,7 +31,7 @@ export default function WebTraceSection({ latest, when }) {
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", margin: "6px 0" }}><input placeholder="Filtrer (hôte, IP, protocole)" value={q} onChange={(e) => setQ(e.target.value)} style={{ minWidth: 240 }} /><span className="muted">{hosts.length} serveur(s)</span></div>
           <div className="hub-table-scroll" style={{ maxHeight: 360, overflow: "auto" }}>
-            <table>
+            <AutoColumns id="WebTraceSection.1"><table>
               <thead><tr><th>Serveur</th><th>Adresse:port</th><th>Protocole</th><th>Connexions</th><th>Sans réponse</th><th>RST</th><th>Retrans.</th><th>RTT moy. / max</th><th>Volume</th></tr></thead>
               <tbody>
                 {hosts.length === 0 && <tr><td colSpan={9} className="muted">aucun serveur joint pendant la capture</td></tr>}
@@ -43,14 +44,14 @@ export default function WebTraceSection({ latest, when }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           </div>
           {(d.http || []).length > 0 && (
             <>
               <h4 style={{ margin: "10px 0 4px" }}>Requêtes HTTP en clair</h4>
               <div className="hub-table-scroll" style={{ maxHeight: 240, overflow: "auto" }}>
-                <table><thead><tr><th>Hôte</th><th>Méthode</th><th>Chemin</th><th>Code</th><th>1er octet</th></tr></thead>
-                  <tbody>{d.http.map((r, i) => <tr key={i} style={r.status >= 400 ? { color: "var(--danger)" } : undefined}><td>{r.host}</td><td>{r.method}</td><td><code style={{ fontSize: 12, wordBreak: "break-all" }}>{r.path}</code></td><td>{r.status}</td><td>{ms(r.ttfb_ms)}</td></tr>)}</tbody></table>
+                <AutoColumns id="WebTraceSection.2"><table><thead><tr><th>Hôte</th><th>Méthode</th><th>Chemin</th><th>Code</th><th>1er octet</th></tr></thead>
+                  <tbody>{d.http.map((r, i) => <tr key={i} style={r.status >= 400 ? { color: "var(--danger)" } : undefined}><td>{r.host}</td><td>{r.method}</td><td><code style={{ fontSize: 12, wordBreak: "break-all" }}>{r.path}</code></td><td>{r.status}</td><td>{ms(r.ttfb_ms)}</td></tr>)}</tbody></table></AutoColumns>
               </div>
             </>
           )}

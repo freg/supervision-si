@@ -3,6 +3,7 @@ import { fetchUiSpec, saveUiSpec } from "./retroClient.js";
 import { fetchTableColumnsForEdit, fetchTableRows, updateTableRow, insertTableRow } from "./schemaAnalyzerClient.js";
 import { navScreens, listColumns, formScreenFor, editableFields, missingFields, rowToValues, filterRows, specSummary } from "./generatedApp.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Application générée (livraison #444, phase 2) : rend, avec la charte du
 // hub (cartes, tableaux, formulaires), les écrans déduits des parcours --
 // listes branchées sur les tables réelles via dba-api, fiches/formulaires
@@ -143,7 +144,7 @@ export default function GeneratedAppView({ retroApiBase, dbaApiBase, app, onClos
                     </div>
                     {rows && (
                       <div className="hub-table-scroll">
-                        <table>
+                        <AutoColumns id="GeneratedAppView.1"><table>
                           <thead><tr>{listColumns(screen, cols).map((c) => <th key={c.column}>{c.label}</th>)}<th /></tr></thead>
                           <tbody>{filterRows(rows.rows, rows.columns, needle).map((r, i) => (
                             <tr key={i}>
@@ -151,7 +152,7 @@ export default function GeneratedAppView({ retroApiBase, dbaApiBase, app, onClos
                               <td><button className="secondary" onClick={() => openRecord(screen, r)}>Ouvrir</button></td>
                             </tr>
                           ))}</tbody>
-                        </table>
+                        </table></AutoColumns>
                       </div>
                     )}
                   </>
@@ -191,7 +192,7 @@ export default function GeneratedAppView({ retroApiBase, dbaApiBase, app, onClos
 
       {mode === "spec" && (
         <div className="hub-table-scroll" style={{ marginTop: 8 }}>
-          <table>
+          <AutoColumns id="GeneratedAppView.2"><table>
             <thead><tr><th>Écran</th><th>Titre</th><th>Genre</th><th>Table</th><th>Colonnes / champs</th><th>Liens · actions</th><th>Nav.</th></tr></thead>
             <tbody>{spec.screens.map((s) => (
               <tr key={s.id} style={s.hidden ? { opacity: 0.5 } : undefined}>
@@ -216,7 +217,7 @@ export default function GeneratedAppView({ retroApiBase, dbaApiBase, app, onClos
                 <td><input type="checkbox" checked={!s.hidden} disabled={readOnly} onChange={(e) => updateScreen(s.id, { hidden: !e.target.checked, nav: e.target.checked && ["list", "form", "detail"].includes(s.kind) })} /></td>
               </tr>
             ))}</tbody>
-          </table>
+          </table></AutoColumns>
         </div>
       )}
     </div>

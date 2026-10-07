@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { fetchFiles, fetchPermissions, grantPermission, revokePermission, fetchResourceTypes } from "./rightsClient.js";
 import RightsMatrix from "./RightsMatrix.jsx";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile "Droits" (hub), livraison #283 -- demandé explicitement :
 // "une gestion de droit incluant la visibilité en listing" + "un
 // nouveau groupe admin_hub donnera les tous les droits à ses
@@ -98,7 +99,7 @@ export default function RightsView({ onBack, rightsApiBase, groups, accountsApiB
           ) : files.length === 0 ? (
             <p className="muted">Aucun fichier visible.</p>
           ) : (
-            <table>
+            <AutoColumns id="RightsView.1"><table>
               <thead><tr><th>Chemin</th><th>Catégorie</th><th>Taille</th><th>Modifié</th><th>Présent</th></tr></thead>
               <tbody>
                 {files.map((f) => (
@@ -111,7 +112,7 @@ export default function RightsView({ onBack, rightsApiBase, groups, accountsApiB
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           )}
         </div>
       ) : (
@@ -151,7 +152,7 @@ export default function RightsView({ onBack, rightsApiBase, groups, accountsApiB
           ) : permissions.length === 0 ? (
             <p className="muted">Aucun droit octroyé pour l'instant (admin_hub voit tout indépendamment de cette liste).</p>
           ) : (
-            <table>
+            <AutoColumns id="RightsView.2"><table>
               <thead><tr><th>Type</th><th>Ressource</th><th>Groupe</th><th>Action</th><th>Octroyé par</th><th></th></tr></thead>
               <tbody>
                 {permissions.map((p) => (
@@ -165,7 +166,7 @@ export default function RightsView({ onBack, rightsApiBase, groups, accountsApiB
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           )}
         </div>
       )}

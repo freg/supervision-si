@@ -3,6 +3,7 @@ import { fetchProxmox, fetchProxmoxHistory, vmAction, fetchCommand } from "./siA
 import { hubLink } from "./hubLinks.js";
 import { backupSummary, backupRunTone, accessSummary, guestLogsSummary, availabilityOf, nodeBackupSummary, nodeAccessSummary, hostHealthSummary } from "./proxmoxLib.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile « Proxmox » (livraison #488) : vue dédiée des hyperviseurs
 // remontés par le plugin si-agent « proxmox » (#487) -- arbre hôte →
 // VM/CT, stockages, pools ZFS, et services/URLs APPRIS par exploration
@@ -91,7 +92,7 @@ function BandwidthSection({ bandwidth, vms }) {
       )}
       {byVm.length > 0 && (
         <div className="hub-table-scroll">
-          <table>
+          <AutoColumns id="ProxmoxView.1"><table>
             <thead><tr><th>VM</th><th>Pic</th><th>Total</th><th>Fenêtre</th><th>Profil horaire</th></tr></thead>
             <tbody>{byVm.slice(0, 12).map((v) => (
               <tr key={v.vmid}>
@@ -102,7 +103,7 @@ function BandwidthSection({ bandwidth, vms }) {
                 <td><SlotBars hourly={v.hourly} height={28} /></td>
               </tr>
             ))}</tbody>
-          </table>
+          </table></AutoColumns>
         </div>
       )}
     </div>
@@ -168,13 +169,13 @@ function VmFollowUp({ vm, history }) {
       <div style={{ minWidth: 300, flex: 1 }}>
         <h4 style={{ margin: "4px 0" }}>Sauvegardes {b.jobs.length > 0 && <span className="muted" style={{ fontSize: 12, fontWeight: "normal" }}>· jobs {b.jobs.join(", ")}</span>}</h4>
         {b.neverRun ? <p className="muted" style={{ fontSize: 12 }}>Aucune tâche vzdump récente pour cette VM{vm.last_backup ? ` (dernier fichier il y a ${fmtAge(vm.last_backup.age_s)})` : ""}.</p> : (
-          <table>
+          <AutoColumns id="ProxmoxView.2"><table>
             <thead><tr><th>Quand</th><th>Résultat</th><th>Durée</th><th>Par</th></tr></thead>
             <tbody>{b.runs.map((r) => (
               <tr key={r.upid}><td style={{ fontSize: 12 }}>{whenEpoch(r.at)}</td><td><Tone tone={backupRunTone(r)}>{r.status}</Tone></td>
                 <td className="muted" style={{ fontSize: 12 }}>{r.duration_s == null ? "—" : fmtAge(r.duration_s)}</td><td className="muted" style={{ fontSize: 12 }}>{r.user || "—"}</td></tr>
             ))}</tbody>
-          </table>
+          </table></AutoColumns>
         )}
         {b.failStreak >= 2 && <p><Tone tone="critical">{b.failStreak} échecs consécutifs</Tone></p>}
       </div>
@@ -223,7 +224,7 @@ function VmDetail({ vm, history }) {
         <div style={{ minWidth: 320, flex: 1 }}>
           <h4 style={{ margin: "4px 0" }}>Services appris ({services.length})</h4>
           {services.length === 0 ? <p className="muted">Aucun port courant ouvert (ou VM sans IP connue).</p> : (
-            <table>
+            <AutoColumns id="ProxmoxView.3"><table>
               <thead><tr><th>Port</th><th>Service</th><th>Détail</th></tr></thead>
               <tbody>{services.map((s) => (
                 <tr key={s.port}>
@@ -236,13 +237,13 @@ function VmDetail({ vm, history }) {
                   </td>
                 </tr>
               ))}</tbody>
-            </table>
+            </table></AutoColumns>
           )}
         </div>
         <div style={{ minWidth: 320, flex: 1 }}>
           <h4 style={{ margin: "4px 0" }}>URLs entrantes apprises ({urls.length})</h4>
           {urls.length === 0 ? <p className="muted">Aucun nom appris (certificat, PTR, redirection).</p> : (
-            <table>
+            <AutoColumns id="ProxmoxView.4"><table>
               <thead><tr><th>Nom</th><th>Appris via</th><th>Résolution</th></tr></thead>
               <tbody>{urls.map((u) => (
                 <tr key={u.host}>
@@ -255,7 +256,7 @@ function VmDetail({ vm, history }) {
                   </td>
                 </tr>
               ))}</tbody>
-            </table>
+            </table></AutoColumns>
           )}
         </div>
       </div>
@@ -349,7 +350,7 @@ function NodeCard({ node, selected, onSelect, history, apiBase, onChanged }) {
         </p>
       )}
       <div className="hub-table-scroll">
-        <table>
+        <AutoColumns id="ProxmoxView.5"><table>
           <thead><tr><th>VM</th><th>Type</th><th>État</th><th>Dispo. 7 j</th><th>IP apprises</th><th>CPU/RAM</th><th>Disque</th><th>Snapshots</th><th>Sauvegarde</th><th>Accès 24 h</th><th>Services</th></tr></thead>
           <tbody>{vms.map((vm) => {
             const key = `${node.agent_id}/${vm.vmid}`;
@@ -375,24 +376,24 @@ function NodeCard({ node, selected, onSelect, history, apiBase, onChanged }) {
               </React.Fragment>
             );
           })}</tbody>
-        </table>
+        </table></AutoColumns>
         {vms.length === 0 && <p className="muted" style={{ padding: 8 }}>Aucune VM remontée.</p>}
       </div>
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 8 }}>
         <div style={{ minWidth: 300, flex: 1 }}>
           <h4 style={{ margin: "4px 0" }}>Stockages</h4>
-          <table>
+          <AutoColumns id="ProxmoxView.6"><table>
             <thead><tr><th>Nom</th><th>Type</th><th>Usage</th></tr></thead>
             <tbody>{(node.storages || []).map((s) => (
               <tr key={s.storage}><td>{s.storage}</td><td className="muted">{s.type}</td>
                 <td style={{ fontSize: 12 }}>{s.total ? <>{fmtBytes(s.used)}/{fmtBytes(s.total)} <span className="muted">({Math.round((s.used / s.total) * 100)} %)</span></> : "—"}</td></tr>
             ))}</tbody>
-          </table>
+          </table></AutoColumns>
           {(node.storages || []).length === 0 && <p className="muted">Aucun stockage actif remonté.</p>}
         </div>
         <div style={{ minWidth: 300, flex: 1 }}>
           <h4 style={{ margin: "4px 0" }}>Pools ZFS</h4>
-          <table>
+          <AutoColumns id="ProxmoxView.7"><table>
             <thead><tr><th>Pool</th><th>Santé</th><th>Capacité</th><th>Frag.</th><th>Erreurs</th></tr></thead>
             <tbody>{(node.zfs || []).map((z) => (
               <tr key={z.pool}>
@@ -403,7 +404,7 @@ function NodeCard({ node, selected, onSelect, history, apiBase, onChanged }) {
                 <td className="muted" style={{ fontSize: 12 }}>{z.errors || "—"}</td>
               </tr>
             ))}</tbody>
-          </table>
+          </table></AutoColumns>
           {(node.zfs || []).length === 0 && <p className="muted">Pas de ZFS sur cet hôte (ou zpool absent).</p>}
         </div>
       </div>
@@ -435,19 +436,19 @@ function HostHealth({ node, vms }) {
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
         {h.pools.length > 0 && (
           <div style={{ minWidth: 260 }}>
-            <table>
+            <AutoColumns id="ProxmoxView.8"><table>
               <thead><tr><th>Pool</th><th>IO/s (lect./écr.)</th><th>Débit (lect./écr.)</th></tr></thead>
               <tbody>{h.pools.map((p) => (
                 <tr key={p.pool}><td>{p.pool} <Tone tone={p.tone}>{p.capPct != null ? `${p.capPct} %` : p.state || "?"}</Tone></td>
                   <td style={{ fontSize: 12 }}>{p.io ? `${p.io.r_ops.toFixed(0)} / ${p.io.w_ops.toFixed(0)}` : "—"}</td>
                   <td style={{ fontSize: 12 }}>{p.io ? `${fmtBytes(p.io.r_bps)}/s / ${fmtBytes(p.io.w_bps)}/s` : "—"}</td></tr>
               ))}</tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         )}
         {h.disks.length > 0 && (
           <div style={{ minWidth: 340, flex: 1 }}>
-            <table>
+            <AutoColumns id="ProxmoxView.9"><table>
               <thead><tr><th>Disque</th><th>Occup.</th><th>Attente</th><th>Lect.</th><th>Écr.</th><th>VM</th></tr></thead>
               <tbody>{h.disks.slice(0, 8).map((d) => (
                 <tr key={d.dev}>
@@ -459,17 +460,17 @@ function HostHealth({ node, vms }) {
                   <td style={{ fontSize: 12 }}>{d.vmid != null ? nameOf(d.vmid) : ""}</td>
                 </tr>
               ))}</tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         )}
         {h.topVms.length > 0 && (
           <div style={{ minWidth: 220 }}>
-            <table>
+            <AutoColumns id="ProxmoxView.10"><table>
               <thead><tr><th>VM la plus active</th><th>Lect.</th><th>Écr.</th></tr></thead>
               <tbody>{h.topVms.map((t) => (
                 <tr key={t.vmid}><td>{nameOf(t.vmid)}</td><td style={{ fontSize: 12 }}>{t.rkb_s} Kio/s</td><td style={{ fontSize: 12 }}>{t.wkb_s} Kio/s</td></tr>
               ))}</tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         )}
       </div>

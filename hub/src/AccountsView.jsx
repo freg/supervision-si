@@ -6,6 +6,7 @@
 // Logique pure dans accountsLib.js.
 import { useEffect, useMemo, useState } from "react";
 import { filterUsers, validateNewUser, membersByGroup } from "./accountsLib.js";
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 import DemoUsersTab from "./DemoUsersTab.jsx";  // #608
 import LoginEventsTab from "./LoginEventsTab.jsx";  // #612
 import KeycloakSettingsTab from "./KeycloakSettingsTab.jsx";  // #614
@@ -118,7 +119,7 @@ export default function AccountsView({ onBack, accountsApiBase, groups, login, k
               <div><button type="submit" disabled={busy || formErrors.length > 0}>Créer</button></div>
             </form>
           )}
-          <table style={{ width: "100%", textAlign: "left" }}>
+          <AutoColumns id="AccountsView.1"><table style={{ width: "100%", textAlign: "left" }}>
             <thead><tr style={{ textAlign: "left" }}><th>Identifiant</th><th>Nom</th><th>E-mail</th><th>Groupes</th><th>Actif</th><th>Source</th><th></th></tr></thead>
             <tbody>
               {shown.map((u) => (
@@ -161,7 +162,7 @@ export default function AccountsView({ onBack, accountsApiBase, groups, login, k
               ))}
               {shown.length === 0 && <tr><td colSpan={7} className="muted">Aucun compte{query || groupFilter ? " pour ce filtre" : ""}.</td></tr>}
             </tbody>
-          </table>
+          </table></AutoColumns>
         </div>
       )}
 
@@ -175,7 +176,7 @@ export default function AccountsView({ onBack, accountsApiBase, groups, login, k
             <input placeholder="nouveau groupe (ex. site-alpha)" value={newGroup} onChange={(e) => setNewGroup(e.target.value)} />
             <button type="submit" disabled={busy || !newGroup.trim()}>Créer le groupe</button>
           </form>
-          <table style={{ width: "100%", textAlign: "left" }}>
+          <AutoColumns id="AccountsView.2"><table style={{ width: "100%", textAlign: "left" }}>
             <thead><tr style={{ textAlign: "left" }}><th>Groupe</th><th>Membres</th><th></th></tr></thead>
             <tbody>
               {allGroups.map((g) => (
@@ -186,7 +187,7 @@ export default function AccountsView({ onBack, accountsApiBase, groups, login, k
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></AutoColumns>
           <p className="muted" style={{ fontSize: 12 }}>Les droits d'un groupe sur les tuiles et actions du hub se règlent dans la tuile Droits.</p>
         </div>
       )}

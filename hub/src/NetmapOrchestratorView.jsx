@@ -3,6 +3,7 @@ import {
   fetchSuggestions, fetchSummary, runAllRules, setSuggestionStatus,
 } from "./netmapOrchestratorClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile hub pour netmap-orchestrator-api (livraison #388-391) --
 // consultation des suggestions d'analyse/supervision réseau
 // proposées à partir des données de network-agent-api. Ce module
@@ -111,7 +112,7 @@ export default function NetmapOrchestratorView({ onBack, netmapOrchestratorApiBa
         ) : suggestions.length === 0 ? (
           <p className="muted">Aucune suggestion {statusFilter ? STATUS_LABELS[statusFilter]?.toLowerCase() : ""} pour l'instant.</p>
         ) : (
-          <table>
+          <AutoColumns id="NetmapOrchestratorView.1"><table>
             <thead>
               <tr>
                 <th></th>
@@ -157,7 +158,7 @@ export default function NetmapOrchestratorView({ onBack, netmapOrchestratorApiBa
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></AutoColumns>
         )}
       </div>
     </div>

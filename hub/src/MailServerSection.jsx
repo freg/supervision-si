@@ -1,4 +1,5 @@
-// Serveur de messagerie (livraison #692) -- section de la fiche d'un agent
+
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables// Serveur de messagerie (livraison #692) -- section de la fiche d'un agent
 // qui porte la sonde mail-server : état, constats, verdicts Amavis, faux
 // positifs probables (à libérer depuis la quarantaine), file, services.
 function Tone({ tone, children }) { return <span className={`np-tone ${tone || "neutral"}`}>{children}</span>; }
@@ -24,12 +25,12 @@ export default function MailServerSection({ latest, when }) {
       {fps.length > 0 && (
         <details open>
           <summary>Faux positifs probables ({fps.length}) — bloqués avec un score &lt; {log.fp_below}</summary>
-          <table>
+          <AutoColumns id="MailServerSection.1"><table>
             <thead><tr><th>Heure</th><th>Score</th><th>Expéditeur</th><th>Destinataire(s)</th><th>Quarantaine</th></tr></thead>
             <tbody>{fps.map((f, i) => (
               <tr key={i}><td>{new Date(f.at * 1000).toLocaleString("fr-FR")}</td><td>{f.hits}</td><td>{f.from || "<>"}</td><td>{(f.to || []).join(", ")}</td><td><code>{f.quarantine || "—"}</code></td></tr>
             ))}</tbody>
-          </table>
+          </table></AutoColumns>
           <p className="muted" style={{ fontSize: 12 }}>À libérer depuis la quarantaine (Modoboa › Quarantaine, ou <code>amavisd-release &lt;id&gt; &lt;secret&gt;</code>) avant la purge automatique.</p>
         </details>
       )}

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { fetchMetagraph } from "./retroClient.js";
 import { layoutGraph, edgePath, edgeMidpoint, edgeLabel, graphSummary, proposalSummary, fieldInventory, EDGE_STYLES, HEAD_H, ROW_H, MAX_ROWS } from "./metaGraph.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Méta-relevé et proposition de fusion (livraison #448, phase 4) : le
 // graphe des entités (tables) de chaque application, leurs attributs, les
 // relations intra-application (code, journal SQL, noms), les équivalences
@@ -93,10 +94,10 @@ export default function MetaGraphView({ retroApiBase, apps }) {
               <h3 style={{ margin: "0 0 4px" }}>{node.app} · {node.table}</h3>
               <p className="muted" style={{ fontSize: 12, margin: "0 0 6px" }}>{node.columns.length} attribut(s) · écrans : {node.screens.length ? node.screens.map((s) => s.title || s.id).join(", ") : "aucun"}</p>
               <div className="hub-table-scroll">
-                <table>
+                <AutoColumns id="MetaGraphView.1"><table>
                   <thead><tr><th>Attribut</th><th>Type</th><th>Écrans</th></tr></thead>
                   <tbody>{node.columns.map((c) => <tr key={c.name}><td>{c.pk ? "🔑 " : ""}{c.name}<div className="muted" style={{ fontSize: 11 }}>{c.term !== c.name ? c.term : ""}</div></td><td className="muted">{c.type || "?"}</td><td className="muted" style={{ fontSize: 11 }}>{(c.screens || []).join(", ")}</td></tr>)}</tbody>
-                </table>
+                </table></AutoColumns>
               </div>
               {nodeEdges.length > 0 && (
                 <>
@@ -121,7 +122,7 @@ export default function MetaGraphView({ retroApiBase, apps }) {
             <span className="muted">{rows.length} attribut(s)</span>
           </div>
           <div className="hub-table-scroll">
-            <table>
+            <AutoColumns id="MetaGraphView.2"><table>
               <thead><tr><th>Application</th><th>Table</th><th>Colonne</th><th>Type</th><th>Terme</th><th>Écrans</th><th>Équivalents</th></tr></thead>
               <tbody>{rows.map((r, i) => (
                 <tr key={i}>
@@ -130,7 +131,7 @@ export default function MetaGraphView({ retroApiBase, apps }) {
                   <td style={{ fontSize: 12 }}>{r.equivalents.length ? r.equivalents.map((x) => <code key={x} style={{ marginRight: 6 }}>{x}</code>) : <span className="muted">—</span>}</td>
                 </tr>
               ))}</tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         </>
       )}
@@ -144,7 +145,7 @@ export default function MetaGraphView({ retroApiBase, apps }) {
                 {e.apps.length > 1 ? <span className="na-chip" style={{ marginLeft: 6 }}>fusion</span> : <span className="na-chip" style={{ marginLeft: 6 }}>reprise</span>}</h3>
               {e.todo?.length > 0 && <p style={{ color: "var(--warning, #b7791f)", fontSize: 12, margin: "0 0 4px" }}>{e.todo.join(" ; ")}</p>}
               <div className="hub-table-scroll">
-                <table>
+                <AutoColumns id="MetaGraphView.3"><table>
                   <thead><tr><th>Attribut cible</th>{e.apps.map((a) => <th key={a}>{a}</th>)}<th>Remarque</th></tr></thead>
                   <tbody>{e.attributes.map((a) => (
                     <tr key={a.name} style={a.orphan ? { opacity: 0.8 } : undefined}>
@@ -155,7 +156,7 @@ export default function MetaGraphView({ retroApiBase, apps }) {
                       </td>
                     </tr>
                   ))}</tbody>
-                </table>
+                </table></AutoColumns>
               </div>
             </div>
           ))}
@@ -163,13 +164,13 @@ export default function MetaGraphView({ retroApiBase, apps }) {
             <div className="hub-card hub-settings-section" style={{ padding: 12 }}>
               <h3 style={{ margin: "0 0 4px" }}>Relations entre entités cibles</h3>
               <div className="hub-table-scroll">
-                <table>
+                <AutoColumns id="MetaGraphView.4"><table>
                   <thead><tr><th>De</th><th>Vers</th><th>Genre</th><th>Sources</th><th>Via</th></tr></thead>
                   <tbody>{graph.proposal.relations.map((r, i) => (
                     <tr key={i}><td>{r.from}</td><td>{r.to}</td><td><span className="na-chip">{r.kind}</span></td><td className="muted" style={{ fontSize: 12 }}>{r.sources.join(", ")}</td>
                       <td className="muted" style={{ fontSize: 12 }}>{r.via.map((v) => `${v.from} → ${v.to} (${(v.columns || []).map((p) => `${p[0]} ↔ ${p[1]}`).join(", ")})`).join(" ; ")}</td></tr>
                   ))}</tbody>
-                </table>
+                </table></AutoColumns>
               </div>
             </div>
           )}

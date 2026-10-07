@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { fetchCalendarEvents, importFromUrl, assignEventsToTickets, fetchOpenTickets, createTicketFromEvent, deleteTicket, recalculateTicketStatus } from "./calendarClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Filtre par motif à joker (livraison #282, demandé explicitement --
 // "un filtre du genre '*SAV*DEV*' avec un on/off sur la casse").
 // Convertit un motif façon glob (jokers `*` = n'importe quoi) en
@@ -239,7 +240,7 @@ export default function CalendarView({ onBack, ticketsApiBase, onViewRelations, 
           <p className="muted">{events.length === 0 ? "Aucun évènement pour ce filtre." : "Aucun évènement ne correspond au motif."}</p>
         ) : (
           <div style={{ maxHeight: 420, overflowY: "auto" }}>
-            <table>
+            <AutoColumns id="CalendarView.1"><table>
               <thead><tr><th></th><th>Date</th><th>Titre</th><th>Statut</th><th></th></tr></thead>
               <tbody>
                 {filteredEvents.map((e) => (
@@ -276,7 +277,7 @@ export default function CalendarView({ onBack, ticketsApiBase, onViewRelations, 
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         )}
 
@@ -319,7 +320,7 @@ export default function CalendarView({ onBack, ticketsApiBase, onViewRelations, 
           <p className="muted">Aucun ticket ouvert.</p>
         ) : (
           <div style={{ maxHeight: 420, overflowY: "auto" }}>
-            <table>
+            <AutoColumns id="CalendarView.2"><table>
               <thead>
                 <tr><th>#</th><th>Sujet</th><th>Demandeur</th><th>Type</th><th>Niveau</th><th>Statut</th><th>Attente</th>{onViewRelations && <th></th>}</tr>
               </thead>
@@ -343,7 +344,7 @@ export default function CalendarView({ onBack, ticketsApiBase, onViewRelations, 
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></AutoColumns>
           </div>
         )}
       </div>

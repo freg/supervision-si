@@ -18,6 +18,7 @@ import MailQuarantine from "./MailQuarantine.jsx";
 import { fetchFleet, fetchAgentMeasurements, sendCommand, fetchCommand } from "./siAgentClient.js";
 import { summarize, safeHtmlDocument } from "./mailMime.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const STORE_KEY = "mailserver.agent";
 const when = (t) => (t ? new Date(t * 1000).toLocaleString("fr-FR") : "—");
 const size = (n) => (n == null ? "" : n > 1e6 ? (n / 1e6).toFixed(1) + " Mo" : n > 1e3 ? Math.round(n / 1e3) + " ko" : n + " o");
@@ -170,7 +171,7 @@ function MessageTable({ rows }) {
   const [open, setOpen] = useState(null);
   if (!rows.length) return <p className="muted">Aucun message.</p>;
   return (
-    <table>
+    <AutoColumns id="MailServerView.1"><table>
       <thead><tr><th>Dernière étape</th><th>De</th><th>À</th><th>Filtre</th><th>États</th><th>N°</th></tr></thead>
       <tbody>{rows.map((m) => (
         <Fragment key={m.key}>
@@ -183,7 +184,7 @@ function MessageTable({ rows }) {
           {open === m.key && <tr><td colSpan={6}><pre style={{ whiteSpace: "pre-wrap", fontSize: 12, margin: 0 }}>{m.lines.map((l) => l.line).join("\n")}</pre></td></tr>}
         </Fragment>
       ))}</tbody>
-    </table>
+    </table></AutoColumns>
   );
 }
 
@@ -235,9 +236,9 @@ function Search({ run, onOpen, onRelease }) {
       <p className="muted" style={{ fontSize: 12 }}>Jokers <code>*</code> et <code>?</code>, sans joker = « contient ». Le sujet et le contenu ne figurent pas dans le journal : l'historique filtre sur l'expéditeur et le destinataire. Plein texte sur toutes les boîtes sans index : plusieurs minutes possibles — restreindre par boîte ou par date.</p>
 
       {res.mailbox && <Section title="Boîtes" r={res.mailbox}>{(r) => (
-        <table><thead><tr><th>Reçu</th><th>Boîte</th><th>Dossier</th><th>De</th><th>À</th><th>Sujet</th><th>Taille</th><th /></tr></thead>
+        <AutoColumns id="MailServerView.2"><table><thead><tr><th>Reçu</th><th>Boîte</th><th>Dossier</th><th>De</th><th>À</th><th>Sujet</th><th>Taille</th><th /></tr></thead>
           <tbody>{r.rows.map((m) => <tr key={`${m.user}/${m.guid}/${m.uid}`}><td>{m.date}</td><td>{m.user}</td><td>{m.mailbox}</td><td>{m.from}</td><td>{m.to}</td><td>{m.subject}</td><td>{size(m.size)}</td>
-            <td><button className="secondary" onClick={() => onOpen("mailbox", m)}>Voir</button></td></tr>)}</tbody></table>)}</Section>}
+            <td><button className="secondary" onClick={() => onOpen("mailbox", m)}>Voir</button></td></tr>)}</tbody></table></AutoColumns>)}</Section>}
       {res.log && <Section title="Historique de traitement" r={res.log}>{(r) => <MessageTable rows={r.rows} />}</Section>}
       {res.quarantine && <Section title="Quarantaine" r={res.quarantine}>{(r) => <QuarantineTable rows={r.rows} onOpen={onOpen} onRelease={onRelease} />}</Section>}
     </>
@@ -257,7 +258,7 @@ function Section({ title, r, children }) {
 function QuarantineTable({ rows, onOpen, onRelease }) {
   const [done, setDone] = useState({});
   return (
-    <table><thead><tr><th>Reçu</th><th>Type</th><th>Score</th><th>De</th><th>À</th><th>Sujet</th><th>Taille</th><th /></tr></thead>
+    <AutoColumns id="MailServerView.3"><table><thead><tr><th>Reçu</th><th>Type</th><th>Score</th><th>De</th><th>À</th><th>Sujet</th><th>Taille</th><th /></tr></thead>
       <tbody>{rows.map((q) => (
         <tr key={q.mail_id}>
           <td>{when(q.at)}</td><td><Tone tone={q.content === "V" ? "bad" : q.content === "S" ? "warn" : "neutral"}>{q.content_label}</Tone></td>
@@ -266,7 +267,7 @@ function QuarantineTable({ rows, onOpen, onRelease }) {
             {q.quarantined && (done[q.mail_id] ? <Tone tone="good">libéré</Tone>
               : <button className="secondary" onClick={async () => { try { if (await onRelease(q)) setDone({ ...done, [q.mail_id]: true }); } catch (e) { window.alert(e.message); } }}>Libérer</button>)}</td>
         </tr>
-      ))}</tbody></table>
+      ))}</tbody></table></AutoColumns>
   );
 }
 

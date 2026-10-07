@@ -2384,3 +2384,13 @@ button.danger { color: #e06666; }
 .td-ko { color: var(--danger); } .td-ok { color: var(--ok); }
 .td-new { border: 1px solid var(--border); border-radius: 6px; padding: 8px; margin: 6px 0; background: var(--bg); }
 .td-form { border-top: 1px solid var(--border); padding-top: 8px; } .td-actions { white-space: nowrap; }
+
+/* #707 : colonnes de n'importe quel tableau (AutoColumns) -- poignée de largeur, bouton au survol */
+.ac-wrap { position: relative; }
+.ac-handle { position: absolute; top: 0; right: -3px; width: 7px; height: 100%; cursor: col-resize; z-index: 3; }
+.ac-handle:hover { background: var(--accent, #1565c0); opacity: 0.35; }
+.ac-menu { position: absolute; right: 0; top: 0; z-index: 6; opacity: 0; transition: opacity .15s; }
+.ac-wrap:hover > .ac-menu, .ac-menu.ac-menu-on { opacity: 1; }
+.ac-menu > button { padding: 1px 6px; font-size: 12px; line-height: 1.4; }
+.ac-menu-panel { position: absolute; right: 0; top: 100%; padding: 8px; min-width: 220px; text-align: left; font-weight: normal; }
+.ac-menu-panel label { display: block; white-space: nowrap; }

@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchNetworkObservability } from "./siAgentClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 function Tone({ tone, children, title }) { return <span className={`np-tone ${tone || "neutral"}`} title={title}>{children}</span>; }
 const toneOfState = (s) => (s === "critical" ? "bad" : s === "warning" ? "warn" : s === "ok" ? "good" : "neutral");
 const toneOfSev = (s) => (s === "critical" ? "bad" : s === "warning" ? "warn" : s === "info" ? "neutral" : "neutral");
@@ -40,7 +41,7 @@ function AlertsTable({ alerts, when, empty }) {
   if (!alerts.length) return <p className="muted" style={{ margin: "4px 0" }}>{empty}</p>;
   return (
     <div className="hub-table-scroll">
-      <table>
+      <AutoColumns id="NetworkObservabilityTab.1"><table>
         <thead><tr><th>Gravité</th><th>Poste</th><th>Site</th><th>Constat</th><th>Relevé</th></tr></thead>
         <tbody>
           {alerts.map((a, i) => (
@@ -53,7 +54,7 @@ function AlertsTable({ alerts, when, empty }) {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></AutoColumns>
     </div>
   );
 }
@@ -71,7 +72,7 @@ function DnsResolutionDetail({ rows, when }) {
       {open && withData.map((r) => (
         <div key={r.agent_id} className="hub-table-scroll" style={{ marginTop: 8 }}>
           <div className="muted" style={{ fontSize: 12, marginBottom: 2 }}><b>{r.hostname || r.agent_id}</b> · {r.site || "—"} · relevé {when(r.at)} · interfaces {(r.ifaces || []).join(", ") || "?"}</div>
-          <table>
+          <AutoColumns id="NetworkObservabilityTab.2"><table>
             <thead><tr><th>Nom</th><th>Réponse</th><th>Source → résolveur</th></tr></thead>
             <tbody>
               {Object.entries(r.learned).map(([name, e]) => {
@@ -95,7 +96,7 @@ function DnsResolutionDetail({ rows, when }) {
                 return rows2;
               })}
             </tbody>
-          </table>
+          </table></AutoColumns>
         </div>
       ))}
     </>
@@ -163,7 +164,7 @@ export default function NetworkObservabilityTab({ base, fleet, when }) {
           <>
             <h4 style={{ margin: "12px 0 4px" }}>Principales ressources externes</h4>
             <div className="hub-table-scroll">
-              <table>
+              <AutoColumns id="NetworkObservabilityTab.3"><table>
                 <thead><tr><th>Ressource</th><th>Port/proto</th><th>Clients</th><th>Flux</th><th>Volume</th><th>Vue par</th></tr></thead>
                 <tbody>
                   {resources.slice(0, 40).map((r) => (
@@ -177,7 +178,7 @@ export default function NetworkObservabilityTab({ base, fleet, when }) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></AutoColumns>
             </div>
           </>
         )}

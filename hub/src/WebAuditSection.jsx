@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchWebAudit } from "./siAgentClient.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 function Tone({ tone, children, title }) { return <span className={`np-tone ${tone || "neutral"}`} title={title}>{children}</span>; }
 const toneOf = (state) => (state === "critical" ? "bad" : state === "warning" ? "warn" : state === "ok" ? "good" : "neutral");
 const ms = (v) => (v == null ? "—" : v >= 1000 ? `${(v / 1000).toFixed(1)} s` : `${Math.round(v)} ms`);
@@ -27,7 +28,7 @@ export function WebAuditSection({ latest, when }) {
       {data.error && <p style={{ color: "var(--danger)" }}>{data.error}</p>}
       {(data.urls || []).length === 0 && !data.error && <p className="muted">Aucune URL configurée : renseigner <code>--urls</code> dans le catalogue (sonde web-audit) ou <code>web-audit.txt</code> dans le dossier de l'agent.</p>}
       <div className="hub-table-scroll">
-        <table>
+        <AutoColumns id="WebAuditSection.1"><table>
           <thead><tr><th>URL</th><th>État</th><th>Code</th><th>DNS</th><th>TCP</th><th>TLS</th><th>1er octet</th><th>Total</th><th>Sous-ressources</th><th>Constats</th></tr></thead>
           <tbody>
             {(data.urls || []).map((u) => {
@@ -50,8 +51,8 @@ export function WebAuditSection({ latest, when }) {
                       {m.addresses?.length > 0 && <div className="muted" style={{ fontSize: 12 }}>adresses : {m.addresses.join(", ")} · serveur : {m.server || "?"} · type : {m.content_type || "?"}</div>}
                       {(u.chain || []).length > 1 && <div className="muted" style={{ fontSize: 12 }}>redirections : {u.chain.map((c) => `${c.status ?? "?"} ${c.url}`).join(" → ")}</div>}
                       {(u.subresources || []).length > 0 && (
-                        <table style={{ marginTop: 6 }}><thead><tr><th>Type</th><th>Ressource</th><th>Code</th><th>Durée</th><th>Erreur</th></tr></thead>
-                          <tbody>{u.subresources.map((s, i) => <tr key={i} style={s.error || (s.status || 0) >= 400 ? { color: "var(--danger)" } : undefined}><td>{s.tag}</td><td><code style={{ fontSize: 12, wordBreak: "break-all" }}>{s.url}</code></td><td>{s.status ?? "—"}</td><td>{ms(s.ms)}</td><td>{s.error || ""}</td></tr>)}</tbody></table>
+                        <AutoColumns id="WebAuditSection.2"><table style={{ marginTop: 6 }}><thead><tr><th>Type</th><th>Ressource</th><th>Code</th><th>Durée</th><th>Erreur</th></tr></thead>
+                          <tbody>{u.subresources.map((s, i) => <tr key={i} style={s.error || (s.status || 0) >= 400 ? { color: "var(--danger)" } : undefined}><td>{s.tag}</td><td><code style={{ fontSize: 12, wordBreak: "break-all" }}>{s.url}</code></td><td>{s.status ?? "—"}</td><td>{ms(s.ms)}</td><td>{s.error || ""}</td></tr>)}</tbody></table></AutoColumns>
                       )}
                       {(u.findings || []).map((f, i) => <div key={i} style={{ fontSize: 12 }}><b>{findingLabel(f.code)}</b> — {f.detail}</div>)}
                     </td></tr>
@@ -60,7 +61,7 @@ export function WebAuditSection({ latest, when }) {
               );
             })}
           </tbody>
-        </table>
+        </table></AutoColumns>
       </div>
     </>
   );
@@ -99,7 +100,7 @@ export default function WebAuditTab({ base, fleet, when }) {
       </div>
       {audits.length === 0 ? <p className="muted">Aucun audit reçu : affecter la sonde <code>web-audit</code> aux postes (onglet Catalogue de sondes → affecter) avec ses URL.</p> : (
         <div className="hub-table-scroll">
-          <table>
+          <AutoColumns id="WebAuditSection.3"><table>
             <thead><tr><th>Poste</th><th>Site</th><th>Relevé</th>{urls.map((u) => <th key={u} title={u}>{u.replace(/^https?:\/\//, "").slice(0, 40)}</th>)}</tr></thead>
             <tbody>
               {audits.map((a) => (
@@ -110,7 +111,7 @@ export default function WebAuditTab({ base, fleet, when }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></AutoColumns>
         </div>
       )}
     </div>

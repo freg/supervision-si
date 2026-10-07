@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { treeLayout, treeEdges, treeSummary, KIND_LABEL, apPortAudit } from "./nebulaTree.js";
 
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 async function getJson(url) {
   const r = await fetch(url, { credentials: "include" });
   const j = await r.json();
@@ -161,8 +162,8 @@ export default function NebulaTopo({ nebulaApiBase, siteId, focus = null }) {
                 {selNode.link && Array.isArray(selNode.link.a_vlans) && <p className="muted" style={{ margin: "4px 0", fontSize: 12 }}>VLAN sur le port amont : {selNode.link.a_vlans.join(" ") || "aucun"}</p>}
                 <p style={{ margin: "4px 0" }}>Enfants : {tree.nodes.filter((n) => n.parent === selNode.id).map((n) => n.name).join(" · ") || "aucun"}</p>
                 {selNode.clients?.length > 0 && (
-                  <table><thead><tr><th>Client</th><th>IP</th><th>VLAN</th><th>État</th></tr></thead>
-                    <tbody>{selNode.clients.map((c) => <tr key={c.mac} style={{ cursor: "pointer" }} onClick={() => setSelected({ type: "client", id: `${selNode.id}|${c.mac}`, client: c, parent: selNode.id })}><td>{c.name}</td><td>{c.ip || "—"}</td><td>{c.vlan ?? "—"}</td><td style={{ color: STATUS_COLOR[c.status] }}>{c.status}</td></tr>)}</tbody></table>
+                  <AutoColumns id="NebulaTopo.1"><table><thead><tr><th>Client</th><th>IP</th><th>VLAN</th><th>État</th></tr></thead>
+                    <tbody>{selNode.clients.map((c) => <tr key={c.mac} style={{ cursor: "pointer" }} onClick={() => setSelected({ type: "client", id: `${selNode.id}|${c.mac}`, client: c, parent: selNode.id })}><td>{c.name}</td><td>{c.ip || "—"}</td><td>{c.vlan ?? "—"}</td><td style={{ color: STATUS_COLOR[c.status] }}>{c.status}</td></tr>)}</tbody></table></AutoColumns>
                 )}
               </div>
             ) : (
@@ -185,10 +186,10 @@ export default function NebulaTopo({ nebulaApiBase, siteId, focus = null }) {
       {(() => { const a = apPortAudit(tree); if (!a.rows.length) return null; return (
         <details style={{ marginTop: 4 }} open={a.differing + a.notAll > 0}>
           <summary className="muted">Ports des bornes : {a.rows.length} · PVID attendu {a.expectedPvid ?? "?"}{a.differing ? <span style={{ color: "var(--danger)" }}> · {a.differing} PVID différent{a.differing > 1 ? "s" : ""}</span> : ""}{a.notAll ? <span style={{ color: "var(--danger)" }}> · {a.notAll} sans « all »</span> : " · tous en « all »"}</summary>
-          <table style={{ borderCollapse: "collapse", marginTop: 4 }}>
+          <AutoColumns id="NebulaTopo.2"><table style={{ borderCollapse: "collapse", marginTop: 4 }}>
             <thead><tr><th>Borne</th><th>Commutateur</th><th>Port</th><th>PVID</th><th>VLAN autorisés</th><th></th></tr></thead>
             <tbody>{a.rows.map((r) => <tr key={r.id} style={{ color: r.ok ? undefined : "var(--danger)" }}><td>{r.name}</td><td>{r.switch}</td><td>{r.port ?? "?"}</td><td>{r.pvid ?? "?"}</td><td>{r.all ? "all" : (r.allowed.join(", ") || "—")}</td><td>{r.ok ? "✓" : r.pvid !== a.expectedPvid ? `PVID ≠ ${a.expectedPvid}` : "pas « all »"}</td></tr>)}</tbody>
-          </table>
+          </table></AutoColumns>
           <p className="muted" style={{ margin: "4px 0" }}>Lu sur le port du commutateur (Nebula). Le PVID doit être le VLAN de gestion des bornes (celui de leur adresse IP) et identique partout ; « all » laisse passer les VLAN de tous les SSID, présents et futurs.</p>
         </details>); })()}
       {tree.unmatched?.length > 0 && <details style={{ marginTop: 4 }}><summary className="muted">{tree.unmatched.length} voisin{tree.unmatched.length > 1 ? "s" : ""} LLDP hors inventaire Nebula (postes, téléphones, imprimantes… vus sur les ports des commutateurs)</summary><ul>{tree.unmatched.map((u, i) => <li key={i}>{u.switch} port {u.port} → {u.sysname || "?"} ({u.chassis || "?"})</li>)}</ul></details>}

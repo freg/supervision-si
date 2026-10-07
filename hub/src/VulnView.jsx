@@ -7,6 +7,7 @@
 // (/diag : outils, stockage, flux, sortie Internet) affiché d'office en cas d'échec.
 import { useEffect, useRef, useState } from "react";
 import HubIcon from "./HubIcon.jsx";
+import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 import { fetchFleet, sendCommand } from "./siAgentClient.js";  // #699
 
 const PRIO_TONE = { P1: "bad", P2: "warn", P3: "neutral", P4: "neutral" };
@@ -144,7 +145,7 @@ export default function VulnView({ onBack, vulnApiBase, siAgentApiBase }) {
 
       <h3>Actifs ({assets.length})</h3>
       {assets.length === 0 ? <p className="muted">Aucun SBOM reçu. Sur un hôte : <code>syft scan dir:/ -o cyclonedx-json &gt; hote.cdx.json</code> puis « Déposer un SBOM » (les agents le feront d'eux-mêmes à la prochaine tranche).</p> : (
-        <table>
+        <AutoColumns id="VulnView.1"><table>
           <thead><tr><th>Actif</th><th>Type</th><th>Exposé</th><th>Composants</th><th>P1</th><th>P2</th><th>P3</th><th>P4</th><th>KEV</th><th>Dernier SBOM</th></tr></thead>
           <tbody>{assets.map((a) => (
             <tr key={a.name} style={{ cursor: "pointer", fontWeight: asset === a.name ? 700 : undefined }} onClick={() => setAsset(asset === a.name ? "" : a.name)}>
@@ -155,7 +156,7 @@ export default function VulnView({ onBack, vulnApiBase, siAgentApiBase }) {
               <td className="muted">{when(a.last_sbom_at)}</td>
             </tr>
           ))}</tbody>
-        </table>
+        </table></AutoColumns>
       )}
 
       <h3>Vulnérabilités {asset ? `de ${asset}` : ""}
@@ -164,7 +165,7 @@ export default function VulnView({ onBack, vulnApiBase, siAgentApiBase }) {
         </select>
       </h3>
       {findings.length === 0 ? <p className="muted">Rien à ce niveau de priorité.</p> : (
-        <table>
+        <AutoColumns id="VulnView.2"><table>
           <thead><tr><th>Priorité</th><th>Actif</th><th>Paquet</th><th>CVE / avis</th><th>CVSS</th><th>EPSS</th><th>Correction</th><th>Pourquoi</th></tr></thead>
           <tbody>{findings.map((f, i) => (
             <tr key={i}>
@@ -178,7 +179,7 @@ export default function VulnView({ onBack, vulnApiBase, siAgentApiBase }) {
               <td className="muted" style={{ fontSize: 12 }}>{f.reason}</td>
             </tr>
           ))}</tbody>
-        </table>
+        </table></AutoColumns>
       )}
       <p className="muted" style={{ fontSize: 12 }}>P1 : exploitée activement (catalogue KEV) ou EPSS ≥ 50 % sur un actif exposé · P2 : EPSS ≥ 10 % (ou centile ≥ 95) ou critique sur un actif exposé · P3 : grave (CVSS ≥ 7) ou EPSS ≥ 1 % · P4 : le reste. Cocher « Exposé » re-priorise l'actif.</p>
     </div>
@@ -232,7 +233,7 @@ function AgentInventory({ base, assets }) {
       <summary><strong>Inventaire par les agents</strong> <span className="muted">— syft sur chaque hôte, résultat dans « Actifs » au nom de l'hôte</span></summary>
       <p className="muted" style={{ fontSize: 12 }}>Linux pour l'instant. Priorité basse, sans les zones de données (boîtes, disques de VM, journaux).
         <label style={{ marginLeft: 8 }}><input type="checkbox" checked={install} onChange={(e) => setInstall(e.target.checked)} /> installer syft s'il manque (publication officielle, empreinte vérifiée)</label></p>
-      <table>
+      <AutoColumns id="VulnView.3"><table>
         <thead><tr><th>Agent</th><th>Hôte</th><th>Contact</th><th>Dernier inventaire</th><th>P1 / P2</th><th>Actions</th></tr></thead>
         <tbody>{agents.map((a) => {
           const asset = byName[a.hostname] || byName[a.agent_id];
@@ -252,7 +253,7 @@ function AgentInventory({ base, assets }) {
             </tr>
           );
         })}</tbody>
-      </table>
+      </table></AutoColumns>
     </details>
   );
 }
