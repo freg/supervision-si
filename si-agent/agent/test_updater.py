@@ -63,6 +63,15 @@ class InstallerOutput(unittest.TestCase):
         with open(log) as fh:
             self.assertEqual(fh.read(), "args:--upgrade\nerreur\n")
 
+    def test_systemd_ancien_sans_collect(self):
+        """#696 : Debian 9 (systemd 232) refuse --collect."""
+        w = lambda b: "/usr/bin/" + b
+        old, _ = updater.installer_command("/r", platform="linux", which=w, log_path="/l", sd_version=232)
+        new, _ = updater.installer_command("/r", platform="linux", which=w, log_path="/l", sd_version=252)
+        self.assertNotIn("--collect", old); self.assertIn("--collect", new)
+        self.assertEqual(updater.systemd_version(lambda a: "systemd 232\n+PAM +AUDIT"), 232)
+        self.assertEqual(updater.systemd_version(lambda a: 1 / 0), 0)
+
     def test_sans_systemd_run(self):
         cmd, mode = updater.installer_command("/r", platform="linux", which=lambda b: None, log_path="/l")
         self.assertEqual((cmd, mode), (["/bin/bash", "/r/install.sh", "--upgrade"], "setsid"))

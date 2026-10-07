@@ -1,3 +1,13 @@
+## 2026-10-07 — Mise à jour depuis le hub sur Debian 9 : `systemd-run --collect` seulement si systemd ≥ 236 (livraison #696)
+
+Vu sur un hôte Debian 9 (systemd 232) : la mise à jour lancée depuis le hub échouait aussitôt
+(`systemd-run: unrecognized option '--collect'`), l'agent restant dans l'ancienne version. L'option n'est plus passée
+qu'à partir de systemd 236. Les agents déjà installés sur ces hôtes portent l'ancien code de mise à jour : une mise à
+jour manuelle (`install.sh --upgrade`) une fois, puis le hub prend le relais. Agent 0.5.42.
+
+- Vérifié : `test_updater` (version de systemd, commande avec / sans `--collect`). Non vérifié : sur l'hôte.
+- Fichiers : `si-agent/agent/si_agent/{updater.py,__init__.py}`, `si-agent/agent/test_updater.py`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-07 — Installeur Linux : secret de l'agent exclu d'etckeeper (livraison #695)
 
 Vu sur un hôte : etckeeper a versionné `/etc/si-agent/agent.json` (secret de l'agent) au premier `apt` suivant

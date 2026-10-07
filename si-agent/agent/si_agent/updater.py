@@ -51,7 +51,20 @@ def find_root(dest):
     return os.path.join(dest, dirs[0]) if len(dirs) == 1 else None
 
 
-def installer_command(root, platform=None, which=None, log_path=None):
+def systemd_version(run=None):
+    """#696 : version de systemd (`systemd-run --version` -> « systemd 232 ... »), 0 si inconnue."""
+    import re
+    import subprocess
+    try:
+        out = (run or (lambda a: subprocess.run(a, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10).stdout.decode("utf-8", "replace")))(
+            ["systemd-run", "--version"])
+        m = re.search(r"systemd (\d+)", out or "")
+        return int(m.group(1)) if m else 0
+    except Exception:  # noqa: BLE001
+        return 0
+
+
+def installer_command(root, platform=None, which=None, log_path=None, sd_version=None):
     """Commande DÉTACHÉE de l'installeur en mode --upgrade, selon la plateforme.
     #685 : sous systemd-run, la sortie de l'installeur part dans le journal de
     l'unité transitoire, pas dans la sortie de systemd-run -- d'où des échecs
@@ -66,10 +79,12 @@ def installer_command(root, platform=None, which=None, log_path=None):
     script = os.path.join(root, "install.sh")
     if which("systemd-run"):
         unit = "si-agent-update-%d" % int(time.time())
+        # #696 : --collect n'existe qu'à partir de systemd 236 (Debian 9 = 232 : « unrecognized option »)
+        sd = systemd_version() if sd_version is None else sd_version
+        base = ["systemd-run", "--unit", unit] + (["--collect"] if sd >= 236 else []) + ["--quiet"]
         if log_path:
-            return ["systemd-run", "--unit", unit, "--collect", "--quiet", "/bin/bash", "-c",
-                    'exec /bin/bash "$0" --upgrade >>"$1" 2>&1', script, log_path], "systemd-run"
-        return ["systemd-run", "--unit", unit, "--collect", "--quiet", "/bin/bash", script, "--upgrade"], "systemd-run"
+            return base + ["/bin/bash", "-c", 'exec /bin/bash "$0" --upgrade >>"$1" 2>&1', script, log_path], "systemd-run"
+        return base + ["/bin/bash", script, "--upgrade"], "systemd-run"
     return ["/bin/bash", script, "--upgrade"], "setsid"
 
 
