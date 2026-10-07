@@ -53,6 +53,11 @@ export function isAdmin(groups) {
   return hasValue(groups, "administrateurs");
 }
 
+/** #713 : tuile Serveur de messagerie -- administrateurs, admin_hub, ou groupe dédié « messagerie ». */
+export function canMail(groups) {
+  return isAdmin(groups) || hasValue(groups, "admin_hub") || hasValue(groups, "messagerie");
+}
+
 /** true si la personne est technicien (groupe Keycloak "techniciens")
  * -- pour n'afficher les préférences personnelles du rappel
  * d'activité qu'aux personnes concernées. */

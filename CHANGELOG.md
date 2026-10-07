@@ -1,3 +1,11 @@
+## 2026-10-07 — Messagerie : groupe dédié et exports CSV (livraison #713)
+
+Fin de l'item « Serveur de messagerie » : la tuile n'est plus réservée aux administrateurs -- groupe / rôle Keycloak
+**`messagerie`** (gabarit du royaume, matrice des droits), en plus de `administrateurs` et `admin_hub` (`canMail`) ;
+consultation toujours motivée et journalisée sur le serveur. Exports CSV (Excel français) des résultats de la recherche :
+boîtes, historique, quarantaine (`mailCsv.js`, métadonnées seules). Royaume déjà en service : créer le groupe
+`messagerie` dans Keycloak (ou réimporter le gabarit). Tests : `mailCsv.test.mjs`, hub 330 verts.
+
 ## 2026-10-07 — Nebula : passerelle USG FLEX -- publications vers Internet et zones invité (livraison #712)
 
 Vérifié dans la documentation officielle de l'OpenAPI Nebula : **aucune route ne publie les règles de sécurité** (security

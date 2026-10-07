@@ -10,7 +10,7 @@ import { buildCatalog, grantIndex, cellState, grantFor, columnSubjects, subjectK
 import { fetchMatrix, putCatalog, putMatrix, putRestriction } from "./rightsClient.js";
 
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
-const KNOWN_GROUPS = ["administrateurs", "admin_hub", "techniciens", "demandeurs", "direction", "supervision", "service", "maitre_clefs", "projeqtor"];
+const KNOWN_GROUPS = ["administrateurs", "admin_hub", "techniciens", "demandeurs", "direction", "supervision", "service", "maitre_clefs", "projeqtor", "messagerie"];
 const ALWAYS_ALL = new Set(["admin_hub", "administrateurs"]);
 
 async function getJson(url) {

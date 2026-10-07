@@ -21,7 +21,7 @@ import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglable
 // manuellement si de nouveaux groupes sont créés.
 const KNOWN_GROUPS = [
   "administrateurs", "demandeurs", "techniciens", "direction",
-  "supervision", "service", "maitre_clefs", "admin_hub",
+  "supervision", "service", "maitre_clefs", "admin_hub", "messagerie",
 ];
 
 const CATEGORY_LABELS = { configuration: "Configuration", genere: "Généré", secret: "Secret", importe: "Importé" };

@@ -1,6 +1,6 @@
 import React, { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "react-oidc-context";
-import { buildFrontsList, formatUserRoles, roleInitials, isAdmin, isTechnicien, ROLE_LABELS } from "./lib.js";
+import { buildFrontsList, formatUserRoles, roleInitials, isAdmin, isTechnicien, canMail, ROLE_LABELS } from "./lib.js";
 import { createAccountThemeStore } from "./preferences.js";
 import ReminderWidget from "./ReminderWidget.jsx";
 import HubIcon from "./HubIcon.jsx";
@@ -1657,7 +1657,7 @@ vm === "agent-page" ? (
       ) : vm === "pve-maint" ? (
         <PveMaintView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} login={profile.preferred_username} />
       ) : vm === "mailserver" ? (
-        <MailServerView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={profile.preferred_username} isAdmin={isAdmin(groups)} />
+        <MailServerView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={profile.preferred_username} isAdmin={canMail(groups)} />
       ) : vm === "vuln" ? (
         <VulnView onBack={goBack} vulnApiBase={VULN_API_BASE_URL} siAgentApiBase={SI_AGENT_API_BASE_URL} />
       ) : vm === "datasync" ? (

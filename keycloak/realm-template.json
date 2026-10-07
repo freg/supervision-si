@@ -31,7 +31,8 @@
       { "name": "inbox", "description": "TRB140 (passerelle SMS) — droit existant côté application, nom repris tel quel" },
       { "name": "filters", "description": "TRB140 (passerelle SMS) — droit existant côté application, nom repris tel quel" },
       { "name": "admin_hub", "description": "Administration du HUB (droits, fichiers internes) — distinct du rôle 'admin' (portail tickets). Donne tous les droits, y compris gérer les droits des autres." },
-      { "name": "projeqtor", "description": "Groupe du fork ProjeQtOr (livraison #476) — la tuile reste visible de tous ; réservé aux filtrages futurs (droits fins, liens restreints)" }
+      { "name": "projeqtor", "description": "Groupe du fork ProjeQtOr (livraison #476) — la tuile reste visible de tous ; réservé aux filtrages futurs (droits fins, liens restreints)" },
+      { "name": "messagerie", "description": "Tuile Serveur de messagerie (livraison #713) : recherche, lecture, libération et règles antispam, sans être administrateur du hub ; chaque consultation reste motivée et journalisée" }
     ]
   },
   "groups": [
@@ -51,7 +52,8 @@
     { "name": "service", "realmRoles": ["service"] },
     { "name": "maitre_clefs", "realmRoles": ["maitre_clefs"] },
     { "name": "admin_hub", "realmRoles": ["admin_hub"] },
-    { "name": "projeqtor", "realmRoles": ["projeqtor"] }
+    { "name": "projeqtor", "realmRoles": ["projeqtor"] },
+    { "name": "messagerie", "realmRoles": ["messagerie"] }
   ],
   "clients": [
     {

@@ -17,6 +17,7 @@ import MailServerSection from "./MailServerSection.jsx";
 import MailQuarantine from "./MailQuarantine.jsx";
 import { fetchFleet, fetchAgentMeasurements, sendCommand, fetchCommand, openInteractive, closeInteractive } from "./siAgentClient.js";
 import { summarize, safeHtmlDocument } from "./mailMime.js";
+import { downloadCsv, MAIL_EXPORTS } from "./mailCsv.js";   // #713
 
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const STORE_KEY = "mailserver.agent";
@@ -110,7 +111,7 @@ export default function MailServerView({ onBack, siAgentApiBase, username, isAdm
       <div className="hub-settings-topbar"><button className="secondary" onClick={onBack}>◀ Retour</button>
         <h1><HubIcon icon="mail" size={22} /> Serveur de messagerie</h1></div>
 
-      {!isAdmin ? <p className="muted">Réservé aux administrateurs (accès au contenu des boîtes et à la quarantaine).</p>
+      {!isAdmin ? <p className="muted">Réservé aux administrateurs et au groupe « messagerie » (accès au contenu des boîtes et à la quarantaine).</p>
         : agents === null ? <p className="muted">⏳ recherche des serveurs équipés de la sonde mail-server…</p>
         : agents.length === 0 ? <p className="muted">Aucun agent ne porte la sonde <code>mail-server</code> : l'activer sur l'agent du serveur de messagerie (fiche de l'agent → Commandes → « Activer une sonde »).</p> : (
         <>
@@ -243,24 +244,27 @@ function Search({ run, onOpen, onRelease }) {
       <p className="muted" style={{ fontSize: 12 }}>Jokers <code>*</code> et <code>?</code>, sans joker = « contient ». Le sujet et le contenu ne figurent pas dans le journal : l'historique filtre sur l'expéditeur, le destinataire et son plein texte (n° de file, identifiants, IP, états), sur six mois avec l'index local. Plein texte sur toutes les boîtes sans index : plusieurs minutes possibles — restreindre par boîte ou par date.</p>
 
       {res.mailbox?.fts && res.mailbox.fts.known && !res.mailbox.fts.enabled && <p className="hub-warning" style={{ fontSize: 13 }}>Recherche dans le contenu sans index Dovecot : chaque message est relu (lent sur toutes les boîtes). Activer l'index plein texte sur le serveur (paquet <code>dovecot-lucene</code> ou <code>dovecot-solr</code>, <code>mail_plugins = $mail_plugins fts fts_lucene</code>, puis <code>doveadm fts rescan -A</code>).</p>}
-      {res.mailbox && <Section title="Boîtes" r={res.mailbox}>{(r) => (
+      {res.mailbox && <Section title="Boîtes" r={res.mailbox} kind="mailbox">{(r) => (
         <AutoColumns id="MailServerView.2"><table><thead><tr><th>Reçu</th><th>Boîte</th><th>Dossier</th><th>De</th><th>À</th><th>Sujet</th><th>Taille</th><th /></tr></thead>
           <tbody>{r.rows.map((m) => <tr key={`${m.user}/${m.guid}/${m.uid}`}><td>{m.date}</td><td>{m.user}</td><td>{m.mailbox}</td><td>{m.from}</td><td>{m.to}</td><td>{m.subject}</td><td>{size(m.size)}</td>
             <td><button className="secondary" onClick={() => onOpen("mailbox", m)}>Voir</button></td></tr>)}</tbody></table></AutoColumns>)}</Section>}
-      {res.log && <Section title="Historique de traitement" r={res.log}>{(r) => <>
+      {res.log && <Section title="Historique de traitement" r={res.log} kind="log">{(r) => <>
         {r.indexed ? <p className="muted" style={{ fontSize: 12 }}>Index local : {r.index?.rows} message(s) depuis le {r.index?.since ? new Date(r.index.since * 1000).toLocaleDateString("fr-FR") : "—"}{r.index?.fts ? ", plein texte indexé" : ""}.</p>
           : <p className="muted" style={{ fontSize: 12 }}>Journal relu (agent antérieur à 0.5.48 ou index indisponible) : 14 jours au plus.</p>}
         <MessageTable rows={r.rows} /></>}</Section>}
-      {res.quarantine && <Section title="Quarantaine" r={res.quarantine}>{(r) => <QuarantineTable rows={r.rows} onOpen={onOpen} onRelease={onRelease} />}</Section>}
+      {res.quarantine && <Section title="Quarantaine" r={res.quarantine} kind="quarantine">{(r) => <QuarantineTable rows={r.rows} onOpen={onOpen} onRelease={onRelease} />}</Section>}
     </>
   );
 }
 
-function Section({ title, r, children }) {
+function Section({ title, r, kind, children }) {
+  const ex = MAIL_EXPORTS[kind];
+  const csv = ex && r.rows?.length ? <button type="button" className="secondary" style={{ marginLeft: 8, padding: "0 6px", fontSize: 12 }}
+    onClick={(e) => { e.preventDefault(); downloadCsv(`messagerie-${kind}-${new Date().toISOString().slice(0, 10)}.csv`, ex.header, r.rows.map(ex.row)); }}>⬇ CSV</button> : null;
   return (
     <details open style={{ marginBottom: 10 }}>
       <summary><strong>{title}</strong> {r.loading ? <span className="muted">⏳ en attente de l'agent…</span> : r.error ? <span style={{ color: "var(--danger)" }}>{r.error}</span>
-        : <span className="muted">{r.total ?? r.rows?.length} résultat(s){r.truncated ? `, ${r.rows.length} affichés` : ""}</span>}</summary>
+        : <span className="muted">{r.total ?? r.rows?.length} résultat(s){r.truncated ? `, ${r.rows.length} affichés` : ""}</span>}{!r.loading && !r.error && csv}</summary>
       {!r.loading && !r.error && (r.rows?.length ? children(r) : <p className="muted">Aucun résultat.</p>)}
     </details>
   );
