@@ -153,6 +153,17 @@ export async function fetchEventsMuted(apiBase, limit = 300) {
   return Array.isArray(data?.events) ? data.events : [];
 }
 
+// #705 : maintenance / réorganisation des Proxmox (campagnes, avancement constaté, planification, sauvegardes)
+export const fetchMaintCatalog = (apiBase) => fetchJson(apiBase, "/maint/catalog");
+export const fetchMaintCampaigns = (apiBase) => fetchJson(apiBase, "/maint/campaigns");
+export const fetchMaintCampaign = (apiBase, id) => fetchJson(apiBase, `/maint/campaigns/${id}`);
+export const createMaintCampaign = (apiBase, body) => fetchJson(apiBase, "/maint/campaigns", json("POST", body));
+export const updateMaintCampaign = (apiBase, id, body) => fetchJson(apiBase, `/maint/campaigns/${id}`, json("PUT", body));
+export const deleteMaintCampaign = (apiBase, id) => fetchJson(apiBase, `/maint/campaigns/${id}`, { method: "DELETE" });
+export const maintAction = (apiBase, id, aid, body) => fetchJson(apiBase, `/maint/campaigns/${id}/actions/${aid}`, json("POST", body));
+export const maintTemplate = (apiBase, kind, body) => fetchJson(apiBase, `/maint/templates/${kind}`, json("POST", body));
+export const fetchMaintBackups = (apiBase) => fetchJson(apiBase, "/maint/backups");
+
 // #653 : plans PRA / opérations PVE (séquences de vm_action exécutées par le central)
 export const fetchPraPlans = (apiBase) => fetchJson(apiBase, "/pra/plans");
 export const createPraPlan = (apiBase, body) => fetchJson(apiBase, "/pra/plans", json("POST", body));

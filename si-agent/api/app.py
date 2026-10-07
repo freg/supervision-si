@@ -46,6 +46,7 @@ import store  # noqa: E402
 import publish as publish_lib  # noqa: E402
 import updates  # noqa: E402
 import pra  # noqa: E402  -- #653 : plans PRA / opérations PVE
+import maint  # noqa: E402  -- #705 : maintenance / réorganisation des Proxmox
 import migration  # noqa: E402  -- #658 : migration serveur -> virtualisation (générateur de plan)
 import json  # noqa: E402
 import notify  # noqa: E402
@@ -1668,6 +1669,10 @@ def get_logs():
     limit = request.args.get("limit", type=int)
     entries = read_shared_log_buffer(SERVICE_NAME, get_memcache_client, limit=limit, buffer_size=LOG_BUFFER_SIZE) if read_shared_log_buffer else []
     return jsonify({"service": SERVICE_NAME, "entries": entries}), 200
+
+
+# #705 : maintenance / réorganisation des Proxmox (campagnes, avancement détecté, planification, sauvegardes)
+maint.register(app, DB_PATH, lambda: store.latest_proxmox(DB_PATH), start_loop=os.environ.get("SI_AGENT_PURGE_THREAD", "1") == "1")
 
 
 if __name__ == "__main__":

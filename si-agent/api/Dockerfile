@@ -33,6 +33,7 @@ COPY si-agent/api/package.py .
 COPY si-agent/api/updates.py .
 COPY si-agent/api/pra.py .
 COPY si-agent/api/migration.py .
+COPY si-agent/api/maint.py .
 # #518 : archive de déploiement de l'agent (si-agent-agent-<version>.tar.gz,
 # sans secret) construite ICI et servie par GET /package ; #522 : c'est la
 # version que les agents reçoivent par la mise à jour contrôlée.

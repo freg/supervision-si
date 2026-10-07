@@ -1,3 +1,32 @@
+## 2026-10-07 — Tuile « Maintenance des Proxmox » : campagnes, avancement constaté, planification, sauvegardes (livraison #705)
+
+Demandé : liste d'étapes et d'actions dans les étapes ; suivi d'avancement détecté ; planification des tâches ; gestion
+des PBS. Contexte : PVE saturés chez l'hébergeur, CT arrêtés à sauvegarder puis supprimer, CT actifs à déplacer en deux
+passes, PBS du LAN à mettre en service.
+
+- Central `si-agent-api` (`maint.py`, routes `/maint/*`) : campagnes (étapes → actions manuelles ou opérations PVE #653
+  exécutées par l'agent du nœud via un plan PRA d'une étape) ; **détecteurs** évalués sur la dernière mesure du plugin
+  proxmox : CT/VM absent / présent / dans un état, sauvegarde récente (option stockage), espace libre, stockage déclaré
+  (type pbs), tâche de sauvegarde planifiée, version d'agent ; « inconnu » si un nœud n'a pas de mesure récente ; un
+  constat acquis le reste quand la donnée disparaît (sauvegarde d'un CT ensuite supprimé) ; étape « après la précédente »
+  bloquée tant que celle-ci n'est pas finie (exécution refusée) ; planificateur (opérations « auto » lancées à l'heure si la
+  campagne est active, une seule fois) ; modèles : libérer un nœud, mettre en service un PBS, déplacer un CT en deux
+  passes ; vue des sauvegardes (stockages, tâches, dernière sauvegarde par CT/VM : jamais, ancienne, en échec, hors tâche).
+- Hub : tuile Supervision/Réseau → « Maintenance des Proxmox » (`PveMaintView.jsx`, `pveMaintLib.js`) : Campagnes
+  (liste avec avancement, lecture avec coches / simuler / exécuter, éditeur d'étapes et d'actions, modèles), Planning,
+  Sauvegardes (PBS).
+
+Vérifié : `si-agent/api/test_maint.py` (9), suites central (44 avec test_si_agent_api et test_z_pra), hub `node --test`
+(328), `@babel/parser`. Non vérifié : sur les vrais PVE, rendu navigateur, build.
+Déploiement : `cd ~/SRC/data2/tickets/supervision-si && git pull && ./scripts/run.sh up -d --build si-agent-api hub`.
+
+## 2026-10-07 — Serveur de messagerie : onglet Quarantaine (livraison #704, agent 0.5.45)
+
+Niveaux récupérable / dépassée / historique complet, statistiques par expéditeur, domaine, destinataire, type, jour et
+origine, redistribution groupée (50 au plus), règles de protection Amavis (wblist : ajustement de score, liste blanche,
+liste noire ; avertissement si `@lookup_sql_dsn` absent), exports CSV. Libérer et modifier une règle exigent un motif
+journalisé. Fichiers : `si-agent/agent/si_agent/mailctl.py`, `test_mailctl.py` (17), `hub/src/{MailQuarantine.jsx,MailServerView.jsx}`.
+
 ## 2026-10-07 — Anomalies réseau : rapports CSV / Excel / PDF, récapitulatif quotidien et alertes d'urgence par courriel (livraison #703)
 
 Demandé : rapport d'anomalies en CSV, Excel mis en forme et PDF ; courriel récapitulatif quotidien et alerte

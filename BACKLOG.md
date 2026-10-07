@@ -23,7 +23,7 @@ Demandé pour le tableau des agents (Agents hôtes) : largeur de chaque colonne 
 masquables (menu de l'en-tête), réglages mémorisés dans la configuration personnelle (prefs-api, par utilisateur et
 par tableau). À faire en composant commun réutilisable par les autres tableaux du hub.
 
-## Tuile « Maintenance / réorganisation des Proxmox » (2026-10-07) — demandée
+## Tuile « Maintenance / réorganisation des Proxmox » (2026-10-07) — FAITE (#705) ; reste : PBS réel (tunnel, jetons), notification des étapes, détecteur « copie à jour » pour la passe 2
 
 Demandé : liste d'étapes et d'actions dans les étapes ; suivi d'avancement DÉTECTÉ (pas seulement coché) ;
 planification des tâches ; gestion des PBS. Contexte réel : PVE saturés chez l'hébergeur, CT arrêtés à sauvegarder

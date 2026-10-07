@@ -89,7 +89,8 @@ export const PATHS = {
   "view:nat-map": ["equipements/reseau/routeurs", "services/internet"],
   "front:cisco": ["equipements/reseau/switchs", "droits/acces"],
   "view:proxmox": ["equipements/hotes/hyperviseurs"],
-  "view:pve-ops": ["equipements/hotes/hyperviseurs", "etats/incidents"],   // #653 : opérations et plans de reprise
+  "view:pve-ops": ["equipements/hotes/hyperviseurs", "etats/incidents"],
+  "view:pve-maint": ["equipements/hotes/hyperviseurs", "etats/incidents"],   // #705 : maintenance / réorganisation, sauvegardes   // #653 : opérations et plans de reprise
   "view:external-bases": ["services/donnees"],
   "view:glpi-inventory": ["equipements/inventaire", "services/donnees"],
   "view:geo-catalog": ["services/donnees", "equipements/inventaire"],
