@@ -5,14 +5,9 @@ WORKDIR /app
 COPY nebula/api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY nebula/api/app.py .
-COPY nebula/api/nebula_client.py .
-COPY nebula/api/csv_import.py .
-COPY nebula/api/health.py .
-COPY nebula/api/vlanmap.py .
-COPY nebula/api/topology.py .
-COPY nebula/api/rules.py .
-COPY nebula/api/campus.py .
+# #702 : tous les modules du dossier (une liste à la main avait oublié ssidmatrix.py
+# depuis #686 -> nebula-api ne démarrait plus après reconstruction)
+COPY nebula/api/*.py ./
 COPY nebula/plans/ ./plans/
 COPY shared/version_endpoint.py .
 COPY shared/VERSION.json .

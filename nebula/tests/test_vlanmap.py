@@ -116,6 +116,18 @@ class Map(unittest.TestCase):
         self.assertEqual(vlanmap.not_host_address("192.0.2.255/24")["suggest"], "192.0.2.254/24")
         self.assertIsNone(vlanmap.not_host_address("192.0.2.1/24")); self.assertIsNone(vlanmap.not_host_address("192.0.2.0/31"))
 
+    def test_image_contient_tous_les_modules(self):
+        """#702 : chaque module local importé par app.py doit être copié dans l'image."""
+        import re
+        api = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "api")
+        docker = open(os.path.join(api, "Dockerfile")).read()
+        src = open(os.path.join(api, "app.py")).read()
+        local = {m for m in re.findall(r"^import (\w+)", src, re.M) if os.path.exists(os.path.join(api, m + ".py"))}
+        self.assertTrue(local)
+        if "COPY nebula/api/*.py" not in docker:
+            for m in local:
+                self.assertIn("nebula/api/%s.py" % m, docker, m)
+
     def test_empty(self):
         m = vlanmap.build_vlan_map([], {})
         self.assertEqual(m, {"vlans": [], "links": [], "switches": [], "anomalies": [], "anomalies_detail": []})

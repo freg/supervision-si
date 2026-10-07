@@ -1,3 +1,13 @@
+## 2026-10-07 — nebula-api ne démarrait plus : module ssidmatrix absent de l'image (livraison #702)
+
+Vu après reconstruction : `ModuleNotFoundError: No module named 'ssidmatrix'` -- le Dockerfile listait les modules
+un à un et `ssidmatrix.py` (#686) n'y avait jamais été ajouté ; l'ancienne image tournait encore, la reconstruction
+de #701 l'a révélé (tuile Nebula : « JSON.parse… », autres modules : nom `nebula-api` introuvable). Le Dockerfile
+copie désormais `nebula/api/*.py` ; test de garde : tout module local importé par app.py est dans l'image.
+
+- Vérifié : `test_vlanmap` (garde comprise). Non vérifié : reconstruction sur le serveur.
+- Fichiers : `nebula/api/Dockerfile`, `nebula/tests/test_vlanmap.py`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-07 — Carte des VLAN Nebula : ports de bornes, « All », adresse de passerelle invalide (livraison #701)
 
 Vu sur un site réel : un nouveau SSID / VLAN n'obtenait pas d'adresse ; deux causes que la carte des VLAN ne
