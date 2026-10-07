@@ -45,7 +45,8 @@ class Rules(unittest.TestCase):
         r, errors = rules.load_rules(RULES_DIR)
         self.assertEqual(errors, [])
         whens = {x["when"] for x in r}
-        for kind in ("link_missing_vlan", "ssid_vlan_not_on_link", "ssid_vlan_no_port", "vlan_no_gateway", "link_bare"):
+        for kind in ("link_missing_vlan", "ssid_vlan_not_on_link", "ssid_vlan_no_port", "vlan_no_gateway", "link_bare",
+                     "ap_port_missing_ssid_vlan", "ap_port_all_vlans", "gateway_ip_not_host"):  # #701
             self.assertIn(kind, whens)
         self.assertTrue(next(x for x in r if x["when"] == "link_missing_vlan")["applicable"])
         self.assertEqual(sum(1 for x in r if x["when"] == "link_bare" and x["applicable"]), 0)

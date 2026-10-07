@@ -1,3 +1,20 @@
+## 2026-10-07 — Carte des VLAN Nebula : ports de bornes, « All », adresse de passerelle invalide (livraison #701)
+
+Vu sur un site réel : un nouveau SSID / VLAN n'obtenait pas d'adresse ; deux causes que la carte des VLAN ne
+voyait pas (elle ne contrôlait que les liaisons entre commutateurs). Trois anomalies typées en plus, avec règles :
+- `ap_port_missing_ssid_vlan` (R-NET-06, haute) : VLAN d'un SSID actif absent des ports de bornes (liaisons
+  commutateur → borne vues par LLDP), regroupé par ensemble de VLAN manquants et nombre de ports -- signe d'un
+  profil de port commun à compléter ;
+- `ap_port_all_vlans` (R-NET-07, moyenne) : ports de bornes en « All » (toute prise de borne donne alors accès à
+  tous les VLAN du site) ;
+- `gateway_ip_not_host` (R-NET-08, haute) : interface de passerelle à l'adresse du réseau ou de diffusion
+  (ex. x.x.x.0/24), avec l'adresse à prendre ; jamais pour un sous-réseau déduit des clients.
+
+- Vérifié : `test_vlanmap` (dont le cas réel reproduit), `test_rules`, suites nebula. Non vérifié : sur l'OpenAPI
+  réelle (type « AP » des bornes et adresse des interfaces de l'USG FLEX parfois vide dans l'OpenAPI).
+- Fichiers : `nebula/api/vlanmap.py`, `nebula/tests/{test_vlanmap.py,test_rules.py}`, `rules/reseau-nebula.md`,
+  `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-07 — Pastille de version : contrôle régulier page / central / origin, bouton vers la tour (livraison #700)
 
 Vu : le dépôt du central était en #699 (git pull à la main), la page en #693, et la tour se disait « à jour » (elle

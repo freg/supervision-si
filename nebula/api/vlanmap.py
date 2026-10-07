@@ -226,6 +226,35 @@ def _cidr(ip, mask):
         return "%s/%s" % (ip, mask)
 
 
+def _is_ap(kind):
+    """Type d'appareil de l'inventaire Nebula désignant une borne (« AP », « WAP »...)."""
+    k = str(kind or "").upper()
+    return k in ("AP", "WAP", "ACCESSPOINT", "ACCESS_POINT") or k.startswith("AP")
+
+
+def _short(items, n=6):
+    return ", ".join(items[:n]) + (" … (+%d)" % (len(items) - n) if len(items) > n else "")
+
+
+def not_host_address(cidr):
+    """« 172.16.22.0/24 » -> {what: "du réseau", suggest: "172.16.22.1/24"} ; adresse de diffusion idem ; sinon None."""
+    import ipaddress
+    if not cidr or "/" not in str(cidr):
+        return None
+    try:
+        iface = ipaddress.ip_interface(str(cidr))
+    except ValueError:
+        return None
+    net = iface.network
+    if net.prefixlen >= 31 or net.version != 4:
+        return None
+    if iface.ip == net.network_address:
+        return {"what": "du réseau", "suggest": "%s/%d" % (net.network_address + 1, net.prefixlen)}
+    if iface.ip == net.broadcast_address:
+        return {"what": "de diffusion", "suggest": "%s/%d" % (net.broadcast_address - 1, net.prefixlen)}
+    return None
+
+
 def build_vlan_map(devices, port_settings_by_sw, lldp_by_sw=None, gw_interfaces=None, wlans=None, ip_status_by_sw=None, mac_tables_by_sw=None, sw_clients=None):
     """devices : inventaire du site [{devId, name, model, type, mac}]. Les autres
     paramètres sont les réponses brutes de l'OpenAPI par commutateur."""
@@ -320,6 +349,45 @@ def build_vlan_map(devices, port_settings_by_sw, lldp_by_sw=None, gw_interfaces=
                 add("ssid_vlan_not_on_link", "%s port %s ↔ %s port %s" % (a, l["a_port"], b, l["b_port"]),
                     "VLAN %d (SSID %s) n'est pas porté par la liaison %s port %s ↔ %s port %s." % (vid, ssids, a, l["a_port"], b, l["b_port"]),
                     vlan=vid, ssids=ssids, a=a, b=b, a_port=l["a_port"], b_port=l["b_port"], a_dev=l["a"], b_dev=l["b"])
+    # #701 : ports de BORNES (liaison commutateur -> appareil de type AP vue par LLDP) :
+    # VLAN d'un SSID actif absent du port (regroupé par ensemble de VLAN manquants, la
+    # cause typique étant un profil de port commun), et ports en « All » (exposition).
+    ssid_vids = sorted(vid for vid, v in vlans.items() if any(s.get("enabled", True) for s in v["ssids"]))
+    ap_missing, ap_all = {}, []
+    for l in links:
+        if not l.get("device") or not _is_ap(l.get("b_kind")):
+            continue
+        p = (ports_by_sw.get(l["a"]) or {}).get(l["a_port"])
+        if not p:
+            continue
+        where = "%s port %s (%s)" % (switches.get(l["a"], {}).get("name", l["a"]), l["a_port"], (others.get(l["b"]) or {}).get("name", l["b"]))
+        if p.get("all"):
+            ap_all.append(where)
+            continue
+        miss = tuple(vid for vid in ssid_vids if not port_carries(p, vid))
+        if miss:
+            ap_missing.setdefault(miss, []).append(where)
+    for miss, where in sorted(ap_missing.items()):
+        ssids = ", ".join(sorted({s["name"] or "?" for vid in miss for s in vlans[vid]["ssids"] if s.get("enabled", True)}))
+        vl = ", ".join(map(str, miss))
+        add("ap_port_missing_ssid_vlan", "VLAN %s sur %d port(s) de borne" % (vl, len(where)),
+            "VLAN %s (SSID %s) absent de %d port(s) de borne : %s. Les clients de ce SSID n'y ont ni passerelle ni DHCP "
+            "(cause fréquente : profil de port commun aux bornes, à compléter)." % (vl, ssids, len(where), _short(where)),
+            vlans=list(miss), ssids=ssids, ports=where, count=len(where))
+    if ap_all:
+        add("ap_port_all_vlans", "%d port(s) de borne" % len(ap_all),
+            "%d port(s) de borne en VLAN « All » : %s. Chaque prise de borne donne accès à tous les VLAN du site ; "
+            "préférer la liste du VLAN de gestion et des VLAN des SSID." % (len(ap_all), _short(ap_all)),
+            ports=ap_all, count=len(ap_all))
+    # #701 : adresse d'interface de passerelle = adresse du réseau ou de diffusion (constaté :
+    # 172.16.22.0/24 saisi pour l'interface d'un nouveau VLAN -> ni passerelle ni DHCP)
+    for vid, v in sorted(vlans.items()):
+        bad = None if v.get("subnet_inferred") else not_host_address(v["subnet"])
+        if bad:
+            add("gateway_ip_not_host", "VLAN %d" % vid,
+                "VLAN %d : l'interface %s de la passerelle a l'adresse %s, adresse %s — ni passerelle ni DHCP pour ce VLAN "
+                "(prendre par exemple %s)." % (vid, v["gateway_interface"] or "?", v["subnet"], bad["what"], bad["suggest"]),
+                vlan=vid, interface=v["gateway_interface"], address=v["subnet"], suggest=bad["suggest"])
     # dédoublonnage par phrase, identifiant stable (sha1 court de kind+element+phrase)
     import hashlib
     seen_msg, anomalies_detail = set(), []

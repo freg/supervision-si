@@ -7,6 +7,9 @@ Types émis par `nebula/api/vlanmap.py` et champs disponibles pour `Action` :
 - `ssid_vlan_no_port` : `vlan`, `ssids`
 - `vlan_no_gateway` : `vlan`, `switches`
 - `link_bare` : `a`, `b`, `a_port`, `b_port`
+- `ap_port_missing_ssid_vlan` : `vlans`, `ssids`, `ports`, `count` (#701)
+- `ap_port_all_vlans` : `ports`, `count` (#701)
+- `gateway_ip_not_host` : `vlan`, `interface`, `address`, `suggest` (#701)
 
 ## R-NET-01 · VLAN porté d'un seul côté d'une liaison entre commutateurs
 - Quand : link_missing_vlan
@@ -49,3 +52,29 @@ Types émis par `nebula/api/vlanmap.py` et champs disponibles pour `Action` :
 - Applicable : non
 - Pourquoi : Deux liens entre les mêmes commutateurs, l'un plein et l'autre nu, est la signature d'un agrégat. Un lien nu isolé est plutôt un port oublié.
 - Vérifier : Le réglage d'agrégation du commutateur liste les deux ports.
+
+## R-NET-06 · VLAN d'un SSID absent des ports de bornes
+- Quand : ap_port_missing_ssid_vlan
+- Gravité : haute
+- Action : Ajouter le VLAN {vlans} (SSID {ssids}) aux VLAN autorisés des {count} port(s) de borne concernés. Si ces ports suivent un profil de port commun (ex. « AP »), compléter le PROFIL plutôt que chaque port, sans passer en « All ».
+- Applicable : non
+- Pourquoi : La borne dépose les clients du SSID dans ce VLAN étiqueté ; si son port ne l'autorise pas, ils restent isolés à la borne : association Wi-Fi réussie, mais ni passerelle ni DHCP.
+- Vérifier : Un client du SSID obtient une adresse DHCP du VLAN et joint la passerelle ; l'anomalie disparaît de la carte.
+- Exemples : 2026-10 (site-alpha) : nouveau SSID sur un nouveau VLAN, absent du profil de port des bornes ; DHCP rétabli après ajout du VLAN au profil.
+
+## R-NET-07 · Ports de bornes en VLAN « All »
+- Quand : ap_port_all_vlans
+- Gravité : moyenne
+- Action : Remplacer « All » par la liste du VLAN de gestion des bornes et des VLAN de leurs SSID sur {count} port(s) (ou dans leur profil de port).
+- Applicable : non
+- Pourquoi : Une prise de borne est souvent accessible (plafond, mur) : en « All », un poste qui s'y branche peut étiqueter n'importe quel VLAN du site, serveurs et administration compris.
+- Vérifier : Les ports de bornes ne listent que la gestion et les VLAN des SSID ; tous les SSID fonctionnent toujours.
+
+## R-NET-08 · Interface de passerelle à l'adresse du réseau ou de diffusion
+- Quand : gateway_ip_not_host
+- Gravité : haute
+- Action : Corriger l'adresse de l'interface {interface} (VLAN {vlan}) : {address} -> {suggest}, puis vérifier la passerelle annoncée par le DHCP.
+- Applicable : non
+- Pourquoi : L'adresse du réseau (ou de diffusion) n'est pas une adresse d'hôte : la passerelle n'existe pas pour les postes du VLAN et son serveur DHCP ne répond pas.
+- Vérifier : Un poste du VLAN obtient une adresse et joint {suggest} sans le masque.
+- Exemples : 2026-10 (site-alpha) : interface d'un nouveau VLAN saisie en x.x.x.0/24.

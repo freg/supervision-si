@@ -88,6 +88,34 @@ class Map(unittest.TestCase):
         rows = vlanmap.to_csv_rows(m)
         self.assertEqual(rows[0][0], "vlan"); self.assertTrue(any(r[0] == 30 and r[4] == "" for r in rows[1:]))
 
+    def test_ports_de_bornes_et_adresse_de_passerelle(self):
+        """#701 (vu en réel) : VLAN d'un nouveau SSID absent du profil de port des bornes ; port de borne en « All » ;
+        interface de passerelle saisie avec l'adresse du réseau."""
+        devices = DEVICES + [{"devId": "ap2", "name": "Borne-2", "model": "WBE660S", "type": "AP"}, {"devId": "ap3", "name": "Borne-3", "model": "WAX300H", "type": "AP"}]
+        ports = {"core": PORTS["core"], "edge": PORTS["edge"] + [
+            {"portNum": 2, "trunk": True, "portVid": 99, "allowedVLAN": ["99", "10"]},           # sans 20 (SSID Invites)
+            {"portNum": 3, "trunk": True, "portVid": 99, "allowedVLAN": ["99", "10"]},
+            {"portNum": 4, "trunk": True, "portVid": 99, "allowedVLAN": ["all"]}]}
+        lldp = {"core": LLDP["core"], "edge": LLDP["edge"] + [
+            {"lldpRemLocalPortNum": "2", "lldpRemPortId": "1", "lldpRemSysName": "Borne", "lldpRemChassisId": "x"},
+            {"lldpRemLocalPortNum": "3", "lldpRemPortId": "1", "lldpRemSysName": "Borne-2", "lldpRemChassisId": "y"},
+            {"lldpRemLocalPortNum": "4", "lldpRemPortId": "1", "lldpRemSysName": "Borne-3", "lldpRemChassisId": "z"}]}
+        gw = {"lan": GW["lan"] + [{"interface": "VLan22", "vlan": 22, "ipv4Address": "192.0.2.128", "ipv4Netmask": "255.255.255.128"}]}
+        m = vlanmap.build_vlan_map(devices, ports, lldp, gw, WLANS)
+        by = {a["kind"]: a for a in m["anomalies_detail"] if a["kind"] in ("ap_port_missing_ssid_vlan", "ap_port_all_vlans", "gateway_ip_not_host")}
+        miss = by["ap_port_missing_ssid_vlan"]
+        self.assertEqual((miss["details"]["vlans"], miss["details"]["count"], miss["details"]["ssids"]), ([20], 2, "Invites"))
+        self.assertIn("GS2220-50HP-1 port 2 (Borne)", miss["message"]); self.assertIn("profil de port", miss["message"])
+        self.assertNotIn("30", str(miss["details"]["vlans"]))                       # SSID Robots désactivé : ignoré
+        self.assertEqual(by["ap_port_all_vlans"]["details"]["ports"], ["GS2220-50HP-1 port 4 (Borne-3)"])
+        g = by["gateway_ip_not_host"]
+        self.assertEqual((g["details"]["vlan"], g["details"]["suggest"]), (22, "192.0.2.129/25")); self.assertIn("adresse du réseau", g["message"])
+        # sous-réseau DÉDUIT des clients (x.0/24) : jamais signalé
+        self.assertFalse(any(a["kind"] == "gateway_ip_not_host" for a in vlanmap.build_vlan_map(DEVICES, PORTS, LLDP, {"lan": [{"interface": "VLAN20", "ipv4Address": ""}]}, WLANS,
+                         sw_clients={"data": [{"vlan": 20, "ipv4Address": "198.51.100.7"}]})["anomalies_detail"]))
+        self.assertEqual(vlanmap.not_host_address("192.0.2.255/24")["suggest"], "192.0.2.254/24")
+        self.assertIsNone(vlanmap.not_host_address("192.0.2.1/24")); self.assertIsNone(vlanmap.not_host_address("192.0.2.0/31"))
+
     def test_empty(self):
         m = vlanmap.build_vlan_map([], {})
         self.assertEqual(m, {"vlans": [], "links": [], "switches": [], "anomalies": [], "anomalies_detail": []})
