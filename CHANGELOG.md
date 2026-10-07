@@ -1,3 +1,25 @@
+## 2026-10-07 — Vulnérabilités : travaux en arrière-plan, « État de l'installation », exclusions syft (livraison #693)
+
+Signalé : la tuile « Vulnérabilités » (#688) ne semble pas fonctionner. Causes probables corrigées ou rendues visibles :
+- « Analyser le dépôt » et « Recharger EPSS et KEV » duraient plus que le délai du tls-proxy (300 s) → 504 côté hub
+  alors que le travail continuait. Ils deviennent des **travaux en arrière-plan** (`202 {id}`, `GET /jobs/<id>`,
+  `GET /jobs`, `?wait=1` = synchrone ; un seul travail par type) ; le hub suit l'avancement et le reprend à
+  l'ouverture de la tuile.
+- syft parcourait tout le dépôt monté, **données des modules comprises** (GED, sauvegardes, bases) : exclusions
+  par défaut `data/`, `dist/`, `node_modules/`, `.git/`, `__pycache__/`, `.venv/`, `backups/`, `*.zip`
+  (`VULN_SELF_SCAN_EXCLUDES`).
+- `GET /diag` + bouton **« État de l'installation »** (ouvert d'office en cas d'échec) : syft et osv-scanner présents
+  (versions), stockage inscriptible et place libre, dépôt monté, flux EPSS/KEV chargés, sortie Internet vers
+  api.osv.dev / EPSS / KEV / Dependency-Track, liste des problèmes en clair.
+- Hub : erreurs sans réponse de vuln-api traduites (404 = route absente du tls-proxy, 502/503 = conteneur arrêté,
+  réponse non JSON = mauvais routage, URL absente = hub à reconstruire).
+- osv-scanner épinglé en 2.6.0 ; `OSV_SCANNER_ARGS` (ex. mode hors ligne sans accès à api.osv.dev).
+
+- Vérifié : `vuln/tests` (12 : travaux, échec syft, travail unique, diagnostic), `@babel/parser` sur `VulnView.jsx`.
+  Non vérifié : sur le serveur (cause exacte de l'échec signalé non encore observée).
+- Fichiers : `vuln/{app.py,Dockerfile,README.md,tests/test_vuln.py}`, `hub/src/VulnView.jsx`, `docker-compose.yml`,
+  `.env.example`, `BACKLOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-07 — Sonde « serveur de messagerie » (Postfix, postscreen, Amavis, ClamAV, Dovecot) (livraison #692)
 
 Après un incident réel (courrier légitime supprimé en silence, puis refusé 14 h en « 451 queue file write error »),

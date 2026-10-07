@@ -23,7 +23,7 @@ Demandé pour le tableau des agents (Agents hôtes) : largeur de chaque colonne 
 masquables (menu de l'en-tête), réglages mémorisés dans la configuration personnelle (prefs-api, par utilisateur et
 par tableau). À faire en composant commun réutilisable par les autres tableaux du hub.
 
-## Vulnérabilités du SI : syft, osv-scanner, Dependency-Track, EPSS (+ KEV) (2026-10-06) — tranche 1 FAITE (#688)
+## Vulnérabilités du SI : syft, osv-scanner, Dependency-Track, EPSS (+ KEV) (2026-10-06) — tranche 1 FAITE (#688), fiabilisée (#693 : travaux en arrière-plan, État de l'installation)
 
 Demandé : « tout superviser progressivement » selon ces quatre orientations. Tranche 1 (#688) : `vuln-api` (SBOM
 CycloneDX → osv-scanner → priorité EPSS + KEV × exposition, re-priorisation quotidienne, dépôt Dependency-Track en

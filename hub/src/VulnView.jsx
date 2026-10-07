@@ -2,17 +2,36 @@
 // → priorisation EPSS + KEV × exposition → (option) Dependency-Track.
 // Ce qui est à traiter d'abord est en haut : P1 = exploitée activement (KEV)
 // ou très probable sur un actif exposé.
-import { useEffect, useState } from "react";
+// #693 : analyse du dépôt et rechargement des flux en arrière-plan (suivi par
+// /jobs/<id>, plus de coupure 504 du tls-proxy) + « État de l'installation »
+// (/diag : outils, stockage, flux, sortie Internet) affiché d'office en cas d'échec.
+import { useEffect, useRef, useState } from "react";
 import HubIcon from "./HubIcon.jsx";
 
 const PRIO_TONE = { P1: "bad", P2: "warn", P3: "neutral", P4: "neutral" };
 
+// Erreurs sans corps JSON = vuln-api jamais atteint : on dit quoi faire.
+export function explainHttp(status) {
+  if (status === 404) return "HTTP 404 : route /api/vuln/ absente du tls-proxy (le recréer)";
+  if (status === 502 || status === 503) return `HTTP ${status} : vuln-api arrêté ou en cours de démarrage (voir ses journaux)`;
+  if (status === 504) return "HTTP 504 : vuln-api n'a pas répondu à temps";
+  if (status === 401 || status === 403) return `HTTP ${status} : session expirée ou droit manquant`;
+  return `HTTP ${status}`;
+}
+
 async function call(base, path, opts = {}) {
-  const r = await fetch(`${base}${path}`, { credentials: "include", ...opts });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error || `${r.status}`);
+  if (!base) throw new Error("VITE_VULN_API_BASE_URL absent du hub : reconstruire le hub");
+  let r;
+  try { r = await fetch(`${base}${path}`, { credentials: "include", ...opts }); }
+  catch (e) { throw new Error(`vuln-api injoignable (${e.message})`); }
+  const j = await r.json().catch(() => null);
+  if (!r.ok) throw new Error(j?.error || explainHttp(r.status));
+  if (j === null) throw new Error("réponse non JSON : la route /api/vuln/ mène ailleurs (tls-proxy à recréer)");
   return j;
 }
+
+const JOB_LABEL = { "scan-self": "analyse du dépôt", feeds: "flux EPSS/KEV" };
+const ok = (b) => (b ? "✓" : "✗");
 
 const when = (t) => (t ? new Date(t * 1000).toLocaleString("fr-FR") : "jamais");
 
@@ -24,6 +43,10 @@ export default function VulnView({ onBack, vulnApiBase }) {
   const [prio, setPrio] = useState("P1,P2");
   const [busy, setBusy] = useState("");
   const [msg, setMsg] = useState(null);
+  const [diag, setDiag] = useState(null);
+  const [diagOpen, setDiagOpen] = useState(false);
+  const [jobs, setJobs] = useState({});          // kind -> travail en cours
+  const timers = useRef({});
 
   const load = async () => {
     try {
@@ -32,16 +55,52 @@ export default function VulnView({ onBack, vulnApiBase }) {
         call(vulnApiBase, `/findings?limit=500${prio ? `&priority=${prio}` : ""}${asset ? `&asset=${encodeURIComponent(asset)}` : ""}`),
       ]);
       setSummary(s); setAssets(a); setFindings(f);
-    } catch (e) { setMsg(e.message); }
+    } catch (e) { setMsg(e.message); runDiag(); }
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [prio, asset]);
 
+  const runDiag = async () => {
+    setDiagOpen(true); setDiag({ loading: true });
+    try { setDiag(await call(vulnApiBase, "/diag")); }
+    catch (e) { setDiag({ unreachable: e.message }); }
+  };
+
+  const follow = (job) => {
+    setJobs((m) => ({ ...m, [job.kind]: job }));
+    clearTimeout(timers.current[job.kind]);
+    if (job.state !== "running") {
+      const label = JOB_LABEL[job.kind] || job.kind;
+      setMsg(job.state === "done" ? `${label} : terminé${job.result?.findings !== undefined ? ` — ${job.result.components} composants, ${job.result.findings} vulnérabilité(s)` : ""}${job.result?.scan_error ? ` (osv-scanner : ${job.result.scan_error})` : ""}`
+        : `${label} : échec — ${job.error}`);
+      if (job.state === "error") runDiag();
+      load();
+      return;
+    }
+    timers.current[job.kind] = setTimeout(async () => {
+      try { follow(await call(vulnApiBase, `/jobs/${job.id}`)); }
+      catch (e) { setJobs((m) => ({ ...m, [job.kind]: undefined })); setMsg(`suivi interrompu : ${e.message}`); }
+    }, 3000);
+  };
+  useEffect(() => {
+    call(vulnApiBase, "/jobs").then((list) => list.filter((j) => j.state === "running").forEach(follow)).catch(() => {});
+    const t = timers.current;
+    return () => Object.values(t).forEach(clearTimeout);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, []);
+
+  const startJob = async (path) => {
+    setMsg(null);
+    try { follow(await call(vulnApiBase, path, { method: "POST" })); }
+    catch (e) { setMsg(e.message); runDiag(); }
+  };
+
   const act = async (label, path, opts) => {
     setBusy(label); setMsg(null);
-    try { const r = await call(vulnApiBase, path, { method: "POST", ...opts }); setMsg(`${label} : ${JSON.stringify(r).slice(0, 300)}`); await load(); }
-    catch (e) { setMsg(`${label} : ${e.message}`); }
+    try { const r = await call(vulnApiBase, path, { method: "POST", ...opts }); setMsg(`${label} : ${r.components} composants, ${r.findings} vulnérabilité(s)${r.scan_error ? ` — osv-scanner : ${r.scan_error}` : ""}`); await load(); }
+    catch (e) { setMsg(`${label} : ${e.message}`); runDiag(); }
     setBusy("");
   };
+  const since = (j) => (j ? ` ${Math.max(0, Math.round(Date.now() / 1000 - j.started))} s` : "");
   const upload = (file) => {
     if (!file) return;
     const name = window.prompt("Nom de l'actif (hôte, image, application) :", file.name.replace(/\.(cdx\.)?json$/, ""));
@@ -70,13 +129,15 @@ export default function VulnView({ onBack, vulnApiBase }) {
         </p>
       )}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
-        <button type="button" className="secondary" disabled={!!busy} onClick={() => act("flux EPSS/KEV", "/feeds/refresh")}>{busy === "flux EPSS/KEV" ? "⏳…" : "Recharger EPSS et KEV"}</button>
-        <button type="button" className="secondary" disabled={!!busy} onClick={() => act("analyse du dépôt", "/scan/self")}>{busy === "analyse du dépôt" ? "⏳ syft…" : "Analyser le dépôt supervision-si"}</button>
+        <button type="button" className="secondary" disabled={!!jobs.feeds} onClick={() => startJob("/feeds/refresh")}>{jobs.feeds ? `⏳ flux…${since(jobs.feeds)}` : "Recharger EPSS et KEV"}</button>
+        <button type="button" className="secondary" disabled={!!jobs["scan-self"]} onClick={() => startJob("/scan/self")}>{jobs["scan-self"] ? `⏳ syft + osv-scanner…${since(jobs["scan-self"])}` : "Analyser le dépôt supervision-si"}</button>
+        <button type="button" className="secondary" onClick={() => (diagOpen ? setDiagOpen(false) : runDiag())}>{diagOpen ? "Masquer l'état" : "État de l'installation"}</button>
         <label className="secondary" style={{ cursor: "pointer" }}>Déposer un SBOM (CycloneDX JSON)
           <input type="file" accept=".json" style={{ display: "none" }} onChange={(e) => { upload(e.target.files[0]); e.target.value = ""; }} />
         </label>
       </div>
-      {msg && <p className="muted" style={{ wordBreak: "break-word" }}>{msg}</p>}
+      {(msg || busy) && <p className="muted" style={{ wordBreak: "break-word" }}>{busy ? `⏳ ${busy}… ` : ""}{msg}</p>}
+      {diagOpen && <DiagPanel diag={diag} onRefresh={runDiag} />}
 
       <h3>Actifs ({assets.length})</h3>
       {assets.length === 0 ? <p className="muted">Aucun SBOM reçu. Sur un hôte : <code>syft scan dir:/ -o cyclonedx-json &gt; hote.cdx.json</code> puis « Déposer un SBOM » (les agents le feront d'eux-mêmes à la prochaine tranche).</p> : (
@@ -117,6 +178,35 @@ export default function VulnView({ onBack, vulnApiBase }) {
         </table>
       )}
       <p className="muted" style={{ fontSize: 12 }}>P1 : exploitée activement (catalogue KEV) ou EPSS ≥ 50 % sur un actif exposé · P2 : EPSS ≥ 10 % (ou centile ≥ 95) ou critique sur un actif exposé · P3 : grave (CVSS ≥ 7) ou EPSS ≥ 1 % · P4 : le reste. Cocher « Exposé » re-priorise l'actif.</p>
+    </div>
+  );
+}
+
+function DiagPanel({ diag, onRefresh }) {
+  if (!diag || diag.loading) return <p className="muted">⏳ vérification de l'installation…</p>;
+  if (diag.unreachable) return (
+    <div className="np-card" style={{ marginBottom: 12 }}>
+      <p><span className="np-tone bad">vuln-api injoignable</span> {diag.unreachable}</p>
+      <p className="muted" style={{ fontSize: 12 }}>Sur le serveur, depuis la racine du dépôt :<br />
+        <code>./scripts/run.sh up -d --build vuln-api && ./scripts/run.sh logs --tail 40 vuln-api</code><br />
+        <code>GATEWAY_REALM_ANSWER=marquer ./gateway/scripts/run.sh up -d --force-recreate tls-proxy</code></p>
+    </div>
+  );
+  const row = (label, good, detail) => <tr key={label}><td>{ok(good)}</td><td>{label}</td><td className="muted">{detail}</td></tr>;
+  return (
+    <div className="np-card" style={{ marginBottom: 12 }}>
+      <p><span className={`np-tone ${diag.ok ? "good" : "bad"}`}>{diag.ok ? "installation opérationnelle" : `${diag.problems.length} problème(s)`}</span>{" "}
+        <button type="button" className="secondary" onClick={onRefresh}>Revérifier</button></p>
+      {diag.problems.length > 0 && <ul>{diag.problems.map((p) => <li key={p}>{p}</li>)}</ul>}
+      <table><tbody>
+        {Object.entries(diag.tools).map(([n, t]) => row(n, t.ok, t.ok ? t.version : t.error))}
+        {row("stockage", diag.storage.writable, diag.storage.writable ? `${diag.storage.path} — ${diag.storage.free_gb} Go libres` : diag.storage.error)}
+        {row("dépôt monté (analyse)", diag.self_scan.present, diag.self_scan.path)}
+        {["epss", "kev"].map((f) => row(`flux ${f.toUpperCase()}`, !!diag.feeds[f]?.at, diag.feeds[f]?.at ? `chargé le ${when(diag.feeds[f].at)}${diag.feeds[f].error ? ` (dernier essai : ${diag.feeds[f].error})` : ""}` : (diag.feeds[f]?.error || "jamais chargé")))}
+        {Object.entries(diag.network).map(([n, v]) => row(`réseau : ${n}`, v.ok, v.status ? `HTTP ${v.status}` : v.error))}
+        {row("base", true, `${diag.counts.assets} actif(s), ${diag.counts.findings} vulnérabilité(s), ${diag.counts.epss} scores EPSS, ${diag.counts.kev} KEV`)}
+        {row("Dependency-Track", true, diag.dependency_track ? "branché" : "non configuré (option, profil vuln-dt)")}
+      </tbody></table>
     </div>
   );
 }

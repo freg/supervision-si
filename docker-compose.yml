@@ -936,6 +936,9 @@ services:
       - EPSS_URL=${EPSS_URL:-https://epss.empiricalsecurity.com/epss_scores-current.csv.gz}
       - DT_URL=${DT_URL:-}
       - DT_API_KEY=${DT_API_KEY:-}
+      # #693 : exclusions de « Analyser le dépôt » ; options osv-scanner (mode hors ligne)
+      - VULN_SELF_SCAN_EXCLUDES=${VULN_SELF_SCAN_EXCLUDES:-}
+      - OSV_SCANNER_ARGS=${OSV_SCANNER_ARGS:-}
     volumes:
       # SBOM reçus, constats, flux EPSS/KEV -- vide = ./vuln/data
       - ${VULN_DATA_DIR:-./vuln/data}:/data

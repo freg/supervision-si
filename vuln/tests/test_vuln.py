@@ -6,6 +6,8 @@ import json
 import os
 import sys
 import tempfile
+import threading
+import time
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -99,7 +101,7 @@ class Api(unittest.TestCase):
         # sans flux : priorités par CVSS seul
         self.assertEqual({f["package"]: f["priority"] for f in self.c.get("/findings?asset=srv-alpha").get_json()}, {"jinja2": "P3", "requests": "P3"})
         # flux : CISA injoignable -> miroir ; requests devient KEV (fixture) -> P1
-        res = self.c.post("/feeds/refresh").get_json()
+        res = self.c.post("/feeds/refresh?wait=1").get_json()
         self.assertEqual(res["kev"]["count"], 4); self.assertEqual(res["epss"]["count"], 3)
         fs = {f["package"]: f for f in self.c.get("/findings?asset=srv-alpha").get_json()}
         self.assertEqual(fs["requests"]["priority"], "P1"); self.assertTrue(fs["requests"]["kev"])
@@ -126,9 +128,55 @@ class Api(unittest.TestCase):
 
     def test_scan_self(self):
         d = tempfile.mkdtemp(); app_mod.SELF_SCAN_DIR = d
-        r = self.c.post("/scan/self")
+        r = self.c.post("/scan/self?wait=1")
         self.assertEqual(r.status_code, 201, r.get_json())
         self.assertEqual(self.calls[0][:3], [app_mod.SYFT_BIN, "scan", "dir:%s" % d])
+        self.assertIn("./**/data/**", self.calls[0])                       # #693 : données des modules exclues
+
+    def test_travaux_en_arriere_plan(self):
+        """#693 : au-delà de 300 s le tls-proxy coupait -> 202 + suivi par /jobs/<id>."""
+        d = tempfile.mkdtemp(); app_mod.SELF_SCAN_DIR = d
+        r = self.c.post("/scan/self")
+        self.assertEqual(r.status_code, 202)
+        jid = r.get_json()["id"]
+        for _ in range(50):
+            j = self.c.get("/jobs/%s" % jid).get_json()
+            if j["state"] != "running":
+                break
+            time.sleep(0.05)
+        self.assertEqual(j["state"], "done", j)
+        self.assertEqual(j["result"]["findings"], 2)
+        self.assertEqual(self.c.get("/jobs/inconnu").status_code, 404)
+        # échec syft : remonté dans le travail
+        app_mod.run_tool = lambda argv, timeout=900: (1, "", "error: permission denied")
+        r = self.c.post("/scan/self?wait=1")
+        self.assertEqual(r.status_code, 502); self.assertIn("permission denied", r.get_json()["error"])
+        # un seul travail du même type à la fois
+        ev = threading.Event()
+        app_mod.run_tool = lambda argv, timeout=900: (ev.wait(5), (0, "", ""))[1]
+        a = self.c.post("/scan/self").get_json(); b = self.c.post("/scan/self").get_json()
+        self.assertEqual(a["id"], b["id"]); self.assertTrue(b["already_running"])
+        ev.set()
+
+    def test_diag(self):
+        app_mod.SELF_SCAN_DIR = tempfile.mkdtemp()
+        app_mod.http_probe = lambda url, timeout=10: (200, "") if "github" in url or "osv" in url else (None, "Name or service not known")
+
+        def tool(argv, timeout=900):
+            if argv[0] == app_mod.SYFT_BIN:
+                return 0, "Application:   syft\nVersion:       1.40.0\n", ""
+            raise FileNotFoundError("osv-scanner")
+        app_mod.run_tool = tool
+        d = self.c.get("/diag").get_json()
+        self.assertFalse(d["ok"])
+        self.assertEqual(d["tools"]["syft"]["version"], "Version:       1.40.0")
+        self.assertFalse(d["tools"]["osv-scanner"]["ok"])
+        self.assertTrue(d["storage"]["writable"])
+        txt = " | ".join(d["problems"])
+        self.assertIn("osv-scanner absent", txt); self.assertIn("flux EPSS injoignable", txt)
+        self.assertNotIn("api.osv.dev injoignable", txt); self.assertNotIn("KEV injoignable", txt)
+        self.assertTrue(d["network"]["KEV 2"]["ok"]); self.assertFalse(d["network"]["KEV 1"]["ok"])
+        self.assertEqual(self.c.get("/diag?network=0").get_json()["network"], {})
 
 
 if __name__ == "__main__":

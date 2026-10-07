@@ -1,7 +1,7 @@
 # vuln-api (livraison #688) -- SBOM (syft) → OSV (osv-scanner) → priorisation EPSS + KEV → Dependency-Track (option).
 FROM python:3.12-slim
 ARG SYFT_VERSION=1.40.0
-ARG OSV_SCANNER_VERSION=latest
+ARG OSV_SCANNER_VERSION=2.6.0
 ARG TARGETARCH=amd64
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/* \
  && A="${TARGETARCH:-amd64}" \
