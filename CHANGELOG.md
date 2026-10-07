@@ -1,3 +1,27 @@
+## 2026-10-07 — Anomalies réseau : rapports CSV / Excel / PDF, récapitulatif quotidien et alertes d'urgence par courriel (livraison #703)
+
+Demandé : rapport d'anomalies en CSV, Excel mis en forme et PDF ; courriel récapitulatif quotidien et alerte
+d'urgence à l'apparition d'une anomalie ; tout paramétrable (marche / arrêt, fréquence, délai avant envoi sans
+retour à la normale, destinataires).
+- nebula-api : `report.py` (lignes à plat triées par gravité ; CSV UTF-8 « ; » ; Excel : feuille Synthèse par
+  gravité et par site + feuille Anomalies colorée, filtres, volets figés ; PDF paysage DejaVu), `alerting.py`
+  (réglages normalisés, suivi première / dernière apparition, alerte après le délai, une fois ou en rappel,
+  retour à la normale, résolues sur 7 jours, échéance du récapitulatif heure + jours), `report_routes.py`
+  (`/report/settings` GET / PUT, `/report/anomalies?format=csv|xlsx|pdf|json`, `/report/send`, boucle de
+  contrôle à un seul worker). Envoi par notify-api : actions `nebula.anomalie-urgente`,
+  `nebula.retour-normale`, `nebula.recapitulatif` (groupes de la tuile Notifications + destinataires du réglage).
+- notify-api : `to` (destinataires explicites, liste noire appliquée) et `attachments` (base64, 5 fichiers,
+  8 Mo ; effacées après envoi) ; `shared/notify_client.notify(..., to=, attachments=)`.
+- Hub, tuile Nebula : onglet « Rapports & alertes » (téléchargements, réglages, envoi de test, anomalies suivies,
+  journal d'envoi). Image nebula-api : police DejaVu, tzdata, TZ=Europe/Paris ; reportlab.
+
+- Vérifié : `test_report` (8), `test_report_routes` (4 : droits, exports, urgence après délai, retour à la normale,
+  récapitulatif une fois par créneau, envoi de test), suites nebula, notify-api `test_app` (pièces jointes, `to`),
+  hub `node --test` (325), `@babel/parser`. Non vérifié : envoi SMTP réel, rendu PDF dans l'image.
+- Fichiers : `nebula/api/{report.py,alerting.py,report_routes.py,app.py,Dockerfile,requirements.txt}`,
+  `nebula/tests/{test_report.py,test_report_routes.py}`, `notify/api/{app.py,test_app.py}`, `shared/notify_client.py`,
+  `hub/src/{NebulaReports.jsx,NebulaView.jsx}`, `docker-compose.yml`, `BACKLOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-07 — nebula-api ne démarrait plus : module ssidmatrix absent de l'image (livraison #702)
 
 Vu après reconstruction : `ModuleNotFoundError: No module named 'ssidmatrix'` -- le Dockerfile listait les modules

@@ -35,14 +35,21 @@ def _post(path, payload, timeout=2.0):
         return None
 
 
-def notify(action, subject, body="", context=None, severity=None, wait=False):
-    """Fire-and-forget (thread) sauf wait=True."""
+def notify(action, subject, body="", context=None, severity=None, wait=False, to=None, attachments=None):
+    """Fire-and-forget (thread) sauf wait=True. #703 : `to` = adresses en plus des
+    groupes de l'action ; `attachments` = [(nom, type MIME, octets)] (8 Mo au total)."""
+    import base64
     payload = {"action": action, "subject": subject, "body": body, "context": context or {}}
     if severity:
         payload["severity"] = severity
+    if to:
+        payload["to"] = list(to)
+    if attachments:
+        payload["attachments"] = [{"filename": n, "content_type": t, "data": base64.b64encode(d).decode("ascii")} for n, t, d in attachments]
+    timeout = 20.0 if attachments else 2.0
     if wait:
-        return _post("/notify", payload)
-    threading.Thread(target=_post, args=("/notify", payload), daemon=True).start()
+        return _post("/notify", payload, timeout)
+    threading.Thread(target=_post, args=("/notify", payload, timeout), daemon=True).start()
     return None
 
 

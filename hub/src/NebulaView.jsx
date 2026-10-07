@@ -8,6 +8,7 @@ import {
 import NebulaHealth from "./NebulaHealth.jsx";
 import NebulaVlan from "./NebulaVlan.jsx";
 import NebulaPlan from "./NebulaPlan.jsx";
+import NebulaReports from "./NebulaReports.jsx";  // #703
 import CampusView from "./CampusView.jsx";
 
 // Onglet Nebula (hub), livraison #228 -- interface pour nebula-api
@@ -31,6 +32,7 @@ const TABS = [
   { key: "health", label: "Santé du réseau", columns: [] },
   { key: "vlan", label: "Carte des VLAN", columns: [] },
   { key: "plan", label: "Plan du site", columns: [] },
+  { key: "reports", label: "Rapports & alertes", columns: [] },   // #703
   { key: "sites", label: "Sites", columns: ["name", "status", "devices_count", "clients_count", "usage", "offline_devices", "percent_offline"] },
   { key: "devices", label: "Appareils", columns: ["name", "device_type", "model", "site", "mac_address", "status", "clients_count"] },
   { key: "clients", label: "Clients", columns: ["name", "mac_address", "ipv4_address", "connected_to", "manufacturer", "signal_strength", "last_seen"] },
@@ -60,7 +62,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, siAgent
   const [selectedBatchIds, setSelectedBatchIds] = useState([]);
 
   useEffect(() => {
-    if (tab === "health" || tab === "vlan" || tab === "plan") return;  // #546/#548/#555 : onglets servis par NebulaHealth / NebulaVlan / NebulaPlan
+    if (tab === "health" || tab === "vlan" || tab === "plan" || tab === "reports") return;  // #546/#548/#555 : onglets servis par NebulaHealth / NebulaVlan / NebulaPlan
     load(tab);
     setSelectedBatchIds([]);
     if (showHistory) loadBatches();
@@ -196,7 +198,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, siAgent
           ))}
         </div>
 
-        {tab === "health" ? <NebulaHealth nebulaApiBase={nebulaApiBase} /> : tab === "vlan" ? <NebulaVlan nebulaApiBase={nebulaApiBase} groups={groups} login={login} focus={focus} /> : tab === "plan" ? <NebulaPlan nebulaApiBase={nebulaApiBase} /> : (<>
+        {tab === "health" ? <NebulaHealth nebulaApiBase={nebulaApiBase} /> : tab === "vlan" ? <NebulaVlan nebulaApiBase={nebulaApiBase} groups={groups} login={login} focus={focus} /> : tab === "plan" ? <NebulaPlan nebulaApiBase={nebulaApiBase} /> : tab === "reports" ? <NebulaReports nebulaApiBase={nebulaApiBase} groups={groups} login={login} /> : (<>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <h2 style={{ margin: 0 }}>{activeTab.label} ({rows.length})</h2>
           <label className="secondary" style={{ cursor: "pointer" }}>

@@ -44,7 +44,7 @@ class Base(unittest.TestCase):
     def setUp(self):
         appmod.verifier = auth.KeycloakVerifier("u", [], fetch=lambda _u: jwks(), allowed_groups=["administrateurs"], what="les notifications")
         c = appmod._conn()
-        for t in ("actions", "groups", "assignments", "consumers", "blacklist", "queue", "settings", "events"):
+        for t in ("actions", "groups", "assignments", "consumers", "blacklist", "queue", "settings", "events", "attachments"):
             c.execute("DELETE FROM " + t)
         c.commit()
         c.close()
@@ -89,6 +89,25 @@ class Producers(Base):
         first = self.c.get("/queue?status=no-recipients", headers=self.adm).get_json()["queue"][0]
         self.assertEqual(self.c.post("/queue/%d/retry" % first["id"], headers=self.adm).status_code, 200)
         self.assertEqual(appmod.SENDER.tick(), 1)
+
+    def test_destinataires_explicites_et_pieces_jointes(self):
+        """#703 : `to` en plus des groupes (liste noire appliquée), pièces jointes base64 envoyées puis effacées."""
+        import base64
+        self.c.post("/blacklist", headers=self.adm, json={"kind": "email", "value": "bloque@exemple.test"})
+        att = [{"filename": "../rapport.xlsx", "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "data": base64.b64encode(b"PK-fichier").decode()}]
+        r = self.notify("nebula.rapport", to=["Alice@exemple.test", "bloque@exemple.test", "pas-une-adresse"], attachments=att)
+        self.assertEqual(r.status_code, 202, r.get_json())
+        self.assertEqual((r.get_json()["status"], r.get_json()["recipients"], r.get_json()["attachments"]), ("queued", 1, 1))
+        got = []
+        appmod.SENDER.deliver = lambda rcpt, subj, body, attachments=None: (got.append((rcpt, attachments)) or (True, ""))
+        appmod.SENDER.tick()
+        self.assertEqual(got[0][0], ["alice@exemple.test"])
+        self.assertEqual((got[0][1][0]["filename"], got[0][1][0]["data"]), ("rapport.xlsx", b"PK-fichier"))
+        self.assertEqual(appmod._conn().execute("SELECT COUNT(*) FROM attachments").fetchone()[0], 0)
+        self.assertEqual(self.notify("nebula.rapport", attachments=[{"filename": "x", "content_type": "text/plain", "data": "@@@"}]).status_code, 400)
+        self.assertEqual(self.notify("nebula.rapport", attachments=[{}] * 6).status_code, 400)
+        # sans `to` ni groupe garni : comportement inchangé
+        self.assertEqual(self.notify("nebula.autre").get_json()["status"], "no-recipients")
 
     def test_meta_group_assignment_and_blacklist(self):
         self.c.put("/groups/auto:mikrotik", headers=self.adm, json={"emails": ["reseau@exemple.test"]}) if False else None

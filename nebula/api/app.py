@@ -1316,6 +1316,19 @@ def get_logs():
     return jsonify({"service": SERVICE_NAME, "entries": entries}), 200
 
 
+# #703 : rapports des anomalies (CSV / Excel / PDF) et alertes par courriel (récapitulatif, urgence)
+import report_routes  # noqa: E402
+
+
+def _report_sites():
+    _refresh_inventory(_connect())
+    return _inventory["sites"]
+
+
+report_routes.register(app, {"conn": get_connection, "sites": _report_sites, "anomalies": _anomalies, "manage": _check_manage_right,
+                             "configured": lambda: bool(NEBULA_API_KEY), "lock_dir": os.path.dirname(DB_PATH)},
+                       start_loop=os.environ.get("NEBULA_REPORT_DISABLED") != "1" and os.environ.get("NEBULA_POLL_DISABLED") != "1")
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
 

@@ -23,6 +23,14 @@ Demandé pour le tableau des agents (Agents hôtes) : largeur de chaque colonne 
 masquables (menu de l'en-tête), réglages mémorisés dans la configuration personnelle (prefs-api, par utilisateur et
 par tableau). À faire en composant commun réutilisable par les autres tableaux du hub.
 
+## Tuile « Maintenance / réorganisation des Proxmox » (2026-10-07) — demandée
+
+Demandé : liste d'étapes et d'actions dans les étapes ; suivi d'avancement DÉTECTÉ (pas seulement coché) ;
+planification des tâches ; gestion des PBS. Contexte réel : PVE saturés chez l'hébergeur, CT arrêtés à sauvegarder
+puis supprimer, CT actifs à copier en deux passes, PBS du LAN à mettre en service (tunnel, datastore, jetons).
+Piste : s'appuyer sur pve-ops (#653, plans / exécutions / rôles PRA) et sur l'agent des PVE (commande vm_action,
+plugin proxmox) ; détection par mesures (espace libre, présence d'une sauvegarde, CT absent, version de l'agent).
+
 ## Tuile « Serveur de messagerie » : traitements, recherche de messages, quarantaine, journaux (2026-10-07) — tranche 1 FAITE (#697) ; reste : réponse plus rapide que le relevé de l'agent, recherche plein texte indexée (FTS), export, rôle dédié
 
 Demandé : vue des différents traitements des messages ; outil pour retrouver un message **dans toutes les boîtes**,

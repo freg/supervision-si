@@ -18,6 +18,7 @@ backoff et disjoncteur SMTP. Rien n'est perdu : tout reste en base (SQLite)
 avec son état. Aucun secret dans les réponses (jetons hachés, mot de passe
 SMTP jamais lu ailleurs qu'à l'envoi).
 """
+import base64
 import hashlib
 import json
 import logging
@@ -98,6 +99,7 @@ CREATE TABLE IF NOT EXISTS queue (id INTEGER PRIMARY KEY AUTOINCREMENT, action T
 CREATE INDEX IF NOT EXISTS queue_status ON queue (status, due_at);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, at REAL, event TEXT, text TEXT);
+CREATE TABLE IF NOT EXISTS attachments (queue_id INTEGER, filename TEXT, content_type TEXT, data BLOB);
 """
 
 
@@ -288,6 +290,12 @@ def notify():
     severity = body.get("severity") if body.get("severity") in core.SEVERITIES else None
     context = body.get("context") if isinstance(body.get("context"), dict) else {}
     consumer = g.consumer["name"]
+    # #703 : destinataires explicites en plus des groupes (liste noire appliquée) et pièces jointes
+    extra = sorted({str(e).strip().lower() for e in (body.get("to") or [])[:50] if core.valid_email(str(e).strip())}) if isinstance(body.get("to"), list) else []
+    try:
+        files = parse_attachments(body.get("attachments"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
     c = db()
     with _lock:
         ensure_action(c, action, seen=True)
@@ -295,13 +303,17 @@ def notify():
         st = settings_get(c)
         sev = severity or c.execute("SELECT severity FROM actions WHERE id = ?", (action,)).fetchone()["severity"]
         recipients, why = core.resolve(action, _assignments(c), _groups(c), _blacklist(c), consumer=consumer)
+        if extra and why not in ("action en liste noire", "consommateur en liste noire"):
+            blocked = {e.lower() for e in (_blacklist(c).get("email") or set())}
+            recipients = sorted(set(recipients) | {e for e in extra if e not in blocked})
+            why = None if recipients else (why or "destinataires explicites en liste noire")
         now = time.time()
         status, reason = ("queued", "") if recipients else ("no-recipients", why)
         if recipients and not st.get("enabled", True):
             status, reason = "held", "envoi suspendu (réglages)"
         ckey = core.coalesce_key(action, subject, recipients)
         # regroupement : même action + même sujet + mêmes destinataires encore en file -> on incrémente
-        if status == "queued" and st.get("coalesce_seconds"):
+        if status == "queued" and st.get("coalesce_seconds") and not files:
             twin = c.execute("SELECT id FROM queue WHERE ckey = ? AND status = 'queued' AND created_at > ? ORDER BY id DESC LIMIT 1",
                              (ckey, now - st["coalesce_seconds"])).fetchone()
             if twin:
@@ -321,8 +333,38 @@ def notify():
                     event("burst", "%s : rafale retenue (%d en %d s), résumé envoyé" % (action, recent + 1, st["burst_window"]))
         cur = c.execute("INSERT INTO queue (action, consumer, severity, subject, body, context, recipients, status, reason, created_at, due_at, ckey) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         (action, consumer, sev, subject, text, json.dumps(context, ensure_ascii=False)[:4000], json.dumps(recipients), status, reason, now, now, ckey))
+        for f in files:
+            c.execute("INSERT INTO attachments (queue_id, filename, content_type, data) VALUES (?, ?, ?, ?)", (cur.lastrowid, f["filename"], f["content_type"], f["data"]))
         c.commit()
-    return jsonify({"status": status, "id": cur.lastrowid, "recipients": len(recipients), "reason": reason}), 202
+    return jsonify({"status": status, "id": cur.lastrowid, "recipients": len(recipients), "reason": reason, "attachments": len(files)}), 202
+
+
+MAX_ATTACH_BYTES = int(os.environ.get("NOTIFY_MAX_ATTACH_BYTES", str(8 * 1024 * 1024)))
+
+
+def parse_attachments(items):
+    """[{filename, content_type, data (base64)}] -> [{filename, content_type, data bytes}] ; 5 fichiers, 8 Mo au total."""
+    if not items:
+        return []
+    if not isinstance(items, list) or len(items) > 5:
+        raise ValueError("attachments : liste de 5 fichiers au plus")
+    out, total = [], 0
+    for it in items:
+        if not isinstance(it, dict):
+            raise ValueError("attachments : objets {filename, content_type, data}")
+        name = os.path.basename(str(it.get("filename") or "piece-jointe"))[:120] or "piece-jointe"
+        ctype = str(it.get("content_type") or "application/octet-stream")
+        if "/" not in ctype or len(ctype) > 100:
+            raise ValueError("attachments : content_type invalide")
+        try:
+            data = base64.b64decode(str(it.get("data") or ""), validate=True)
+        except (ValueError, TypeError):
+            raise ValueError("attachments : %s n'est pas en base64" % name)
+        total += len(data)
+        if total > MAX_ATTACH_BYTES:
+            raise ValueError("attachments : %d octets au plus au total" % MAX_ATTACH_BYTES)
+        out.append({"filename": name, "content_type": ctype, "data": data})
+    return out
 
 
 # -- administration ---------------------------------------------------------------
@@ -625,7 +667,7 @@ class Sender(object):
                 "breaker_open": core.breaker_open(self.failures, st["breaker_failures"], self.opened_at, time.time(), st["breaker_cooldown"]),
                 "sent_last_minute": len([t for t in self.sent_times if time.time() - t < 60])}
 
-    def deliver(self, recipients, subject, body):
+    def deliver(self, recipients, subject, body, attachments=None):
         """Envoi SMTP réel -> (ok, erreur)."""
         cfg = smtp_config()
         if not cfg["host"] or not cfg["from"]:
@@ -635,6 +677,9 @@ class Sender(object):
         msg["To"] = ", ".join(recipients)
         msg["Subject"] = subject
         msg.set_content(body)
+        for f in attachments or []:   # #703
+            maintype, _, subtype = f["content_type"].partition("/")
+            msg.add_attachment(f["data"], maintype=maintype, subtype=subtype or "octet-stream", filename=f["filename"])
         try:
             port = int(cfg["port"] or 587)
             if cfg["security"] == "ssl":
@@ -677,10 +722,12 @@ class Sender(object):
             body = r["body"] or ""
             if r["merged"]:
                 body += "\n\n(%d notification(s) identique(s) regroupée(s) dans ce message.)" % r["merged"]
-            ok, err = self.deliver(recipients, subject, body)
+            files = [dict(a) for a in c.execute("SELECT filename, content_type, data FROM attachments WHERE queue_id = ?", (r["id"],))]
+            ok, err = self.deliver(recipients, subject, body, files) if files else self.deliver(recipients, subject, body)
             with _lock:
                 if ok:
                     c.execute("UPDATE queue SET status = 'sent', sent_at = ?, attempts = attempts + 1, last_error = '' WHERE id = ?", (now, r["id"]))
+                    c.execute("DELETE FROM attachments WHERE queue_id = ?", (r["id"],))   # #703 : pas de stockage durable
                     self.failures, self.opened_at, self.last_sent = 0, None, now
                     self.sent_times.append(now)
                     n += 1

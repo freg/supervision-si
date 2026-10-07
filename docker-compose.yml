@@ -694,6 +694,11 @@ services:
       # Gardé sur les 3 routes d'import CSV et les 2 routes de
       # suppression (lots importés) -- jamais la consultation.
       - RIGHTS_API_URL=${NEBULA_RIGHTS_API_URL:-}
+      # #703 : rapports et alertes des anomalies par courriel (notify-api)
+      - NOTIFY_API_URL=http://notify-api:5000
+      - NOTIFY_INTERNAL_TOKEN=${NOTIFY_INTERNAL_TOKEN:-}
+      - NOTIFY_CONSUMER=nebula
+      - TZ=${TZ:-Europe/Paris}
     volumes:
       # NEBULA_DATA_DIR (.env, optionnel) : même logique que
       # PREFS_DATA_DIR/IMAP_CLIENT_DATA_DIR -- vide = valeur par
