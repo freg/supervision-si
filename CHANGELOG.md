@@ -1,3 +1,12 @@
+## 2026-10-07 — Installeur Linux : secret de l'agent exclu d'etckeeper (livraison #695)
+
+Vu sur un hôte : etckeeper a versionné `/etc/si-agent/agent.json` (secret de l'agent) au premier `apt` suivant
+l'installation. L'installeur l'ajoute désormais à `/etc/.gitignore` et le retire du suivi (l'historique déjà
+enregistré reste à purger ou le secret à renouveler, voir la procédure donnée). Agent 0.5.41.
+
+- Vérifié : `bash -n install.sh`. Non vérifié : sur un hôte avec etckeeper.
+- Fichiers : `si-agent/agent/install.sh`, `si-agent/agent/si_agent/__init__.py`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-07 — Sonde mail-server : retours du premier passage réel ; sondes livrées mises à jour par --upgrade (livraison #694)
 
 Premier passage sur un serveur réel : trois constats étaient du bruit, et la correction ne pouvait pas atteindre l'hôte.

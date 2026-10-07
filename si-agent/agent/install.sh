@@ -248,6 +248,11 @@ else:
     print("ATTENTION : certificat du central non vérifiable par %s -- voir docs/agent-python-autonome.md (certifi)" % sys.argv[1], file=sys.stderr)
 PY
 chmod 600 /etc/si-agent/agent.json
+# #695 : etckeeper versionne /etc à chaque apt -- le secret de l'agent n'a rien à y faire.
+if [ -d /etc/.git ] && [ -f /etc/.gitignore ] || [ -d /etc/.etckeeper ]; then
+  grep -qx 'si-agent/agent.json' /etc/.gitignore 2>/dev/null || echo 'si-agent/agent.json' >> /etc/.gitignore
+  git -C /etc rm --cached -q --ignore-unmatch si-agent/agent.json 2>/dev/null || true
+fi
 install -m 644 "$HERE/systemd/si-agent.service" /etc/systemd/system/si-agent.service
 # #645 : ExecStart pointe sur l'interpréteur choisi (défaut python3 système)
 sed -i "s#^ExecStart=[^ ]*#ExecStart=$PYAGENT_ABS#" /etc/systemd/system/si-agent.service
