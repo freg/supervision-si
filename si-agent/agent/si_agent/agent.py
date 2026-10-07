@@ -806,6 +806,11 @@ class Agent(object):
                 if res.get("ok"):
                     self.collect_startup(force=True)
                 return res
+            if ctype == "mail":
+                # #697 : tuile Serveur de messagerie -- boîtes, historique, quarantaine, lecture, libération (mailctl)
+                from . import mailctl
+                res = mailctl.run_action(params)
+                return {"ok": res.get("ok", False), "error": res.get("error"), "result": res}
             if ctype == "browse":
                 # #627 : lecteurs / sous-dossiers du poste, lecture seule, pour choisir une cible depuis le hub
                 from . import browsectl

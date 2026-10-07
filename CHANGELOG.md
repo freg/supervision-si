@@ -1,3 +1,29 @@
+## 2026-10-07 — Tuile « Serveur de messagerie » : traitements, recherche (boîtes, historique, quarantaine), visualiseur, journal en arbre (livraison #697)
+
+Demandé : vue des traitements des messages ; retrouver un message dans toutes les boîtes, dans l'historique de
+traitement et dans la quarantaine (avec libération) ; filtres expéditeur / destinataire (utilisateur ou domaine) /
+sujet à jokers / plein texte / contenu ; visualiseurs source et HTML ; journal en arbre façon JSON.
+- Agent : commande `mail` (`si_agent/mailctl.py`) -- `log_tree` (programme → évènement → lignes), `log_search`
+  (journal regroupé par message : n° de file, rattachement Amavis par « queued as », refus NOQUEUE, blocages ;
+  rotations .1 / .gz lues), `quarantine_search` / `quarantine_get` / `quarantine_release` (SQL Amavis/Modoboa,
+  identifiants lus dans la configuration et passés à `mysql` par fichier 0600, littéraux X'…' sans injection possible,
+  secret_id lu seulement à la libération, `amavisd-release`), `mailbox_search` / `mailbox_get` (`doveadm fetch`,
+  -A ou -u motif, jamais « tout » sans borne de date). Jokers * ? partout. Secret des correspondances : motif
+  obligatoire pour ouvrir ou libérer ; chaque action (recherches et refus compris) journalisée sur l'hôte avec
+  l'acteur et le motif (`/var/log/si-agent/mail-audit.log`). Central : `mail` ajouté aux commandes admises. Agent 0.5.43.
+- Hub : tuile réservée aux administrateurs -- Traitements (sonde mail-server + historique par message et décompte des
+  issues), Recherche (trois périmètres en parallèle, libération), Visualiseur (aperçu HTML dans un cadre isolé :
+  aucun script, aucun chargement distant, images cid: embarquées ; texte, source, en-têtes, structure MIME, .eml),
+  Journal (arbre filtrable, JSON brut). Lecture MIME pure : `hub/src/mailMime.js`.
+
+- Vérifié : `test_mailctl` (13 : arbre, regroupement, filtres, DSN, SQL sans injection, mot de passe hors ligne de
+  commande et hors résultat, source / libération, audit, doveadm, jokers, rotations), `mailMime.test.mjs` (5), hub
+  `node --test` (320), `@babel/parser`, `test_si_agent.py`, `test_updater`, `test_si_agent_api`.
+  Non vérifié : sur le serveur réel (schéma de la quarantaine Modoboa, champs `hdr.*` de doveadm 2.2, formats réels).
+- Fichiers : `si-agent/agent/si_agent/{mailctl.py,agent.py,__init__.py}`, `si-agent/agent/test_mailctl.py`,
+  `si-agent/api/store.py`, `hub/src/{MailServerView.jsx,mailMime.js,App.jsx,hubThemes.js,hubBusiness.js}`,
+  `hub/tests/mailMime.test.mjs`, `BACKLOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-07 — Mise à jour depuis le hub sur Debian 9 : `systemd-run --collect` seulement si systemd ≥ 236 (livraison #696)
 
 Vu sur un hôte Debian 9 (systemd 232) : la mise à jour lancée depuis le hub échouait aussitôt

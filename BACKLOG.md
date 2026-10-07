@@ -23,7 +23,7 @@ Demandé pour le tableau des agents (Agents hôtes) : largeur de chaque colonne 
 masquables (menu de l'en-tête), réglages mémorisés dans la configuration personnelle (prefs-api, par utilisateur et
 par tableau). À faire en composant commun réutilisable par les autres tableaux du hub.
 
-## Tuile « Serveur de messagerie » : traitements, recherche de messages, quarantaine, journaux (2026-10-07) — EN ATTENTE (demandé, mis en standby)
+## Tuile « Serveur de messagerie » : traitements, recherche de messages, quarantaine, journaux (2026-10-07) — tranche 1 FAITE (#697) ; reste : réponse plus rapide que le relevé de l'agent, recherche plein texte indexée (FTS), export, rôle dédié
 
 Demandé : vue des différents traitements des messages ; outil pour retrouver un message **dans toutes les boîtes**,
 **dans l'historique de traitement** (journal) et **dans la quarantaine** (avec libération) ; filtres émetteur,
