@@ -1492,6 +1492,39 @@ def image_complete_route(agent_id, name):
     return jsonify(out), st
 
 
+VULN_API_URL = os.environ.get("VULN_API_URL", "http://vuln-api:5000").rstrip("/")
+
+
+@app.route(protocol.API_PREFIX + "/agents/<agent_id>/sbom", methods=["POST"])
+def sbom_route(agent_id):
+    """#699 : inventaire logiciel (CycloneDX, gzip) d'un agent -> vuln-api (actif = nom d'hôte, sinon identifiant).
+    L'exposition de l'actif reste celle réglée dans la tuile Vulnérabilités."""
+    import gzip as _gz
+    info, err = _verify_agent(agent_id)
+    if info is None:
+        return jsonify({"error": err}), 401
+    raw = request.get_data()
+    try:
+        bom = _gz.decompress(raw) if raw[:2] == b"\x1f\x8b" else raw
+    except OSError:
+        return jsonify({"error": "archive gzip illisible"}), 400
+    if not bom or len(bom) > 200 * 1024 * 1024:
+        return jsonify({"error": "SBOM vide ou trop volumineux"}), 400
+    agent = store.get_agent(DB_PATH, agent_id) or {}
+    asset = re.sub(r"[^A-Za-z0-9 ._:@/()+-]", "-", str(agent.get("hostname") or agent_id))[:100] or agent_id
+    try:
+        r = requests.post(VULN_API_URL + "/sbom", params={"asset": asset, "kind": "host", "source": "agent:%s" % agent_id},
+                          data=bom, headers={"Content-Type": "application/json"}, timeout=1200)
+        out = r.json() if r.headers.get("Content-Type", "").startswith("application/json") else {"error": r.text[:200]}
+    except requests.RequestException as exc:
+        _event("sbom-failed", "warning", "inventaire de %s non transmis à vuln-api : %s" % (agent_id, exc), agent_id=agent_id)
+        return jsonify({"error": "vuln-api injoignable : %s" % str(exc)[:200]}), 502
+    if r.ok:
+        _event("sbom-received", "info", "inventaire de %s : %s composant(s), %s vulnérabilité(s)" % (agent_id, out.get("components"), out.get("findings")),
+               agent_id=agent_id, details={"asset": asset, "scan_error": out.get("scan_error")})
+    return jsonify(out), r.status_code
+
+
 @app.route(protocol.API_PREFIX + "/agents/<agent_id>/images/<src_agent>/<name>/download", methods=["GET"])
 def image_download_route(agent_id, src_agent, name):
     """#658 : un agent (nœud Proxmox) télécharge, par requête signée, une image complète reçue d'un autre agent (reprise par Range)."""

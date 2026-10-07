@@ -7,6 +7,7 @@
 // (/diag : outils, stockage, flux, sortie Internet) affiché d'office en cas d'échec.
 import { useEffect, useRef, useState } from "react";
 import HubIcon from "./HubIcon.jsx";
+import { fetchFleet, sendCommand } from "./siAgentClient.js";  // #699
 
 const PRIO_TONE = { P1: "bad", P2: "warn", P3: "neutral", P4: "neutral" };
 
@@ -35,7 +36,7 @@ const ok = (b) => (b ? "✓" : "✗");
 
 const when = (t) => (t ? new Date(t * 1000).toLocaleString("fr-FR") : "jamais");
 
-export default function VulnView({ onBack, vulnApiBase }) {
+export default function VulnView({ onBack, vulnApiBase, siAgentApiBase }) {
   const [summary, setSummary] = useState(null);
   const [assets, setAssets] = useState([]);
   const [findings, setFindings] = useState([]);
@@ -139,6 +140,8 @@ export default function VulnView({ onBack, vulnApiBase }) {
       {(msg || busy) && <p className="muted" style={{ wordBreak: "break-word" }}>{busy ? `⏳ ${busy}… ` : ""}{msg}</p>}
       {diagOpen && <DiagPanel diag={diag} onRefresh={runDiag} />}
 
+      {siAgentApiBase && <AgentInventory base={siAgentApiBase} assets={assets} />}
+
       <h3>Actifs ({assets.length})</h3>
       {assets.length === 0 ? <p className="muted">Aucun SBOM reçu. Sur un hôte : <code>syft scan dir:/ -o cyclonedx-json &gt; hote.cdx.json</code> puis « Déposer un SBOM » (les agents le feront d'eux-mêmes à la prochaine tranche).</p> : (
         <table>
@@ -208,5 +211,48 @@ function DiagPanel({ diag, onRefresh }) {
         {row("Dependency-Track", true, diag.dependency_track ? "branché" : "non configuré (option, profil vuln-dt)")}
       </tbody></table>
     </div>
+  );
+}
+
+// #699 : inventaire logiciel par les agents (syft sur l'hôte -> central -> vuln-api), à la demande ou périodique
+function AgentInventory({ base, assets }) {
+  const [agents, setAgents] = useState(null);
+  const [install, setInstall] = useState(true);
+  const [msg, setMsg] = useState({});
+  useEffect(() => { fetchFleet(base).then((l) => setAgents(l.filter((a) => a.active !== false))); }, [base]);
+  if (!agents) return null;
+  const byName = Object.fromEntries(assets.map((a) => [a.name, a]));
+  const send = async (a, params, label) => {
+    setMsg((m) => ({ ...m, [a.agent_id]: "⏳ envoi…" }));
+    const r = await sendCommand(base, a.agent_id, "sbom", params);
+    setMsg((m) => ({ ...m, [a.agent_id]: r?.error ? `refusé : ${r.error}` : `${label} : envoyé (pris au prochain contact de l'agent, inventaire en quelques minutes)` }));
+  };
+  return (
+    <details style={{ marginBottom: 12 }}>
+      <summary><strong>Inventaire par les agents</strong> <span className="muted">— syft sur chaque hôte, résultat dans « Actifs » au nom de l'hôte</span></summary>
+      <p className="muted" style={{ fontSize: 12 }}>Linux pour l'instant. Priorité basse, sans les zones de données (boîtes, disques de VM, journaux).
+        <label style={{ marginLeft: 8 }}><input type="checkbox" checked={install} onChange={(e) => setInstall(e.target.checked)} /> installer syft s'il manque (publication officielle, empreinte vérifiée)</label></p>
+      <table>
+        <thead><tr><th>Agent</th><th>Hôte</th><th>Contact</th><th>Dernier inventaire</th><th>P1 / P2</th><th>Actions</th></tr></thead>
+        <tbody>{agents.map((a) => {
+          const asset = byName[a.hostname] || byName[a.agent_id];
+          return (
+            <tr key={a.agent_id}>
+              <td>{a.agent_id}</td><td>{a.hostname || "—"}{a.os && <div className="muted" style={{ fontSize: 11 }}>{a.os}</div>}</td>
+              <td>{a.online || "—"}</td>
+              <td className="muted">{asset ? when(asset.last_sbom_at) : "jamais"}</td>
+              <td>{asset ? `${asset.p1 || 0} / ${asset.p2 || 0}` : "—"}</td>
+              <td style={{ whiteSpace: "nowrap" }}>
+                <button className="secondary" onClick={() => send(a, { now: true, install }, "inventaire")}>Inventaire maintenant</button>{" "}
+                <select defaultValue="" onChange={(e) => { if (e.target.value !== "") send(a, { schedule_days: +e.target.value }, e.target.value === "0" ? "relevé périodique arrêté" : `relevé tous les ${e.target.value} j`); e.target.value = ""; }}>
+                  <option value="">périodicité…</option><option value="1">chaque jour</option><option value="7">chaque semaine</option><option value="30">chaque mois</option><option value="0">arrêter</option>
+                </select>
+                {msg[a.agent_id] && <div className="muted" style={{ fontSize: 11 }}>{msg[a.agent_id]}</div>}
+              </td>
+            </tr>
+          );
+        })}</tbody>
+      </table>
+    </details>
   );
 }

@@ -32,7 +32,7 @@ journaux présentés en arbre façon JSON (ligne de journal en feuille, branches
 `mailctl` sur l'hôte (doveadm search/fetch, quarantaine SQL Amavis + `amavisd-release`, journal regroupé par n° de file /
 mail_id), visualiseur HTML sans script ni image distante, accès réservé et journalisé (secret des correspondances).
 
-## Vulnérabilités du SI : syft, osv-scanner, Dependency-Track, EPSS (+ KEV) (2026-10-06) — tranche 1 FAITE (#688), fiabilisée (#693 : travaux en arrière-plan, État de l'installation)
+## Vulnérabilités du SI : syft, osv-scanner, Dependency-Track, EPSS (+ KEV) (2026-10-06) — tranche 1 FAITE (#688), fiabilisée (#693), tranche 2 « agents » FAITE pour Linux (#699 ; reste Windows / macOS, images Docker)
 
 Demandé : « tout superviser progressivement » selon ces quatre orientations. Tranche 1 (#688) : `vuln-api` (SBOM
 CycloneDX → osv-scanner → priorité EPSS + KEV × exposition, re-priorisation quotidienne, dépôt Dependency-Track en

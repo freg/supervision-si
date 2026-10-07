@@ -1654,7 +1654,7 @@ vm === "agent-page" ? (
       ) : vm === "mailserver" ? (
         <MailServerView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={profile.preferred_username} isAdmin={isAdmin(groups)} />
       ) : vm === "vuln" ? (
-        <VulnView onBack={goBack} vulnApiBase={VULN_API_BASE_URL} />
+        <VulnView onBack={goBack} vulnApiBase={VULN_API_BASE_URL} siAgentApiBase={SI_AGENT_API_BASE_URL} />
       ) : vm === "datasync" ? (
         <DataSyncView onBack={goBack} datasyncApiBase={DATASYNC_API_BASE_URL} login={profile.preferred_username} />
       ) : vm === "groupware" ? (

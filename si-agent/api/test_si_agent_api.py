@@ -636,6 +636,42 @@ class ImageReceiveTests(ApiBase):
         self.assertEqual((imgs[0]["agent_id"], imgs[0]["name"], imgs[0]["complete"], imgs[0]["size"]), ("srv-img", "SRV-IMG.vhdx", True, 50_000))
 
 
+class SbomForwardTests(ApiBase):
+    def test_inventaire_signe_transmis_a_vuln_api(self):
+        """#699 : SBOM gzip signé par l'agent -> vuln-api (actif = nom d'hôte), refus sans signature."""
+        import gzip
+        a = self.enroll("srv-sbom")
+        sec = a["secret"]
+        store_conn = store._connect(app_mod.DB_PATH)
+        store_conn.execute("UPDATE agents SET hostname = 'mx-alpha' WHERE agent_id = 'srv-sbom'"); store_conn.commit(); store_conn.close()
+        bom = b'{"bomFormat": "CycloneDX", "components": []}'
+        seen = {}
+
+        class R:
+            ok, status_code, headers = True, 201, {"Content-Type": "application/json"}
+            def json(self):
+                return {"asset": "mx-alpha", "components": 0, "findings": 0}
+
+        def fake_post(url, params=None, data=None, headers=None, timeout=None):
+            seen.update(url=url, params=params, data=data)
+            return R()
+        old = app_mod.requests.post
+        app_mod.requests.post = fake_post
+        try:
+            path = "/api/v1/agents/srv-sbom/sbom"
+            gz = gzip.compress(bom)
+            h = protocol.auth_headers("srv-sbom", sec, "POST", path, gz)
+            r = self.c.open(path, method="POST", data=gz, headers=h, content_type="application/gzip")
+            self.assertEqual(r.status_code, 201, r.get_json())
+            self.assertEqual(seen["url"], app_mod.VULN_API_URL + "/sbom")
+            self.assertEqual(seen["params"], {"asset": "mx-alpha", "kind": "host", "source": "agent:srv-sbom"})
+            self.assertEqual(seen["data"], bom)
+            self.assertIn("sbom-received", self.kinds())
+            self.assertEqual(self.c.post(path, data=gz, content_type="application/gzip").status_code, 401)
+        finally:
+            app_mod.requests.post = old
+
+
 class DeployCommandsTests(unittest.TestCase):
     def test_chemin_manuel_antivirus(self):
         # #626 : ligne manuelle (archive par le navigateur + install.ps1), aucun secret, CA épinglée seulement en LAN

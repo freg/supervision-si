@@ -1,3 +1,24 @@
+## 2026-10-07 — Vulnérabilités, tranche 2 : inventaire logiciel par les agents (syft sur l'hôte → central → vuln-api) (livraison #699)
+
+- Agent : commande `sbom` (`si_agent/sbomctl.py`) -- `{now}` inventaire en arrière-plan, `{schedule_days}` relevé
+  périodique mémorisé (0 = arrêt, vérifié dans la maintenance de l'agent, nouvel essai à 6 h en cas d'échec),
+  `{install}` syft installé à la demande dans /var/lib/si-agent/tools depuis la publication officielle, archive
+  vérifiée par l'empreinte SHA-256 publiée. syft en priorité basse (nice / ionice), sans les zones de données
+  (boîtes, disques de VM / CT, bases, journaux, caches, Docker). SBOM compressé, envoyé SIGNÉ ; évènements
+  `sbom-sent` / `sbom-failed`. Linux seulement. Agent 0.5.44.
+- Central : `POST /api/v1/agents/<id>/sbom` (signature vérifiée, gzip) transmis à vuln-api (`VULN_API_URL`), actif
+  = nom d'hôte ; l'exposition réglée dans la tuile est conservée ; évènement `sbom-received`. `sbom` ajouté aux
+  commandes admises.
+- Hub, tuile Vulnérabilités : section « Inventaire par les agents » (dernier inventaire, P1 / P2, « Inventaire
+  maintenant », périodicité jour / semaine / mois / arrêt, installation de syft cochable).
+
+- Vérifié : `test_sbomctl` (5 : installation vérifiée et refus d'une archive altérée, commande, envoi, échecs,
+  échéance), `test_si_agent_api` (26, dont transmission signée et refus non signé), `tests/test_si_agent.py`,
+  `test_mailctl`, `test_updater`, hub `node --test` (324), `@babel/parser`. Non vérifié : syft réel sur un hôte.
+- Fichiers : `si-agent/agent/si_agent/{sbomctl.py,agent.py,__init__.py}`, `si-agent/agent/test_sbomctl.py`,
+  `si-agent/api/{app.py,store.py,test_si_agent_api.py}`, `hub/src/{VulnView.jsx,App.jsx}`, `docker-compose.yml`,
+  `.env.example`, `BACKLOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-07 — Tableaux du hub : colonnes redimensionnables et masquables, mémorisées par compte (livraison #698)
 
 Demandé pour le tableau des agents, fait en composant commun : `useTableColumns(id, colonnes)` + `TableColumnsHead`

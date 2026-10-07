@@ -1377,6 +1377,8 @@ services:
       - SITE_SCOPE_FULL_GROUPS=${SITE_SCOPE_FULL_GROUPS:-administrateurs,admin_hub}
       - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/auth
       - KEYCLOAK_REALM=${KEYCLOAK_REALM:-supervision-si}
+      # #699 : inventaires logiciels des agents transmis à vuln-api (autre nœud : son URL interne)
+      - VULN_API_URL=${VULN_API_URL:-http://vuln-api:5000}
       - SI_AGENT_ALERT_TZ=${SI_AGENT_ALERT_TZ:-Europe/Paris}   # #607 : heures ouvrées des filtres d'alertes
       - MEMCACHED_HOST=memcached
       # URL que les agents utilisent pour joindre le central (passerelle

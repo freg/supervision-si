@@ -806,6 +806,17 @@ class Agent(object):
                 if res.get("ok"):
                     self.collect_startup(force=True)
                 return res
+            if ctype == "sbom":
+                # #699 : inventaire logiciel (syft) -> central -> vuln-api ; relevé périodique mémorisé
+                if "schedule_days" in params:
+                    self.state["sbom_schedule_days"] = max(0.0, min(90.0, float(params.get("schedule_days") or 0)))
+                if params.get("install"):
+                    self.state["sbom_install"] = True
+                self._save_state()
+                started = self.start_sbom(install=bool(self.state.get("sbom_install")), command_id=c.get("id")) if params.get("now") else False
+                return {"ok": True, "result": {"schedule_days": self.state.get("sbom_schedule_days", 0), "started": started,
+                                               "running": bool(getattr(self, "_sbom_running", False)), "last_at": self.state.get("sbom_last_at"),
+                                               "last": self.state.get("sbom_last")}}
             if ctype == "mail":
                 # #697 : tuile Serveur de messagerie -- boîtes, historique, quarantaine, lecture, libération (mailctl)
                 from . import mailctl
@@ -1703,8 +1714,53 @@ class Agent(object):
         self.event("autologon-cleared", "info", "autologon une fois : %s" % ("traces retirées par l'agent" if r.get("cleaned") else "déjà nettoyé par Windows"))
         return r
 
+    def start_sbom(self, install=False, command_id=None):
+        """#699 : inventaire syft en arrière-plan (un seul à la fois) ; compte rendu en état + évènement."""
+        import threading
+        from . import sbomctl
+        if getattr(self, "_sbom_running", False):
+            return False
+        self._sbom_running = True
+
+        def fetch(url):
+            ctx = ssl.create_default_context(cafile=self.cfg.get("ca_file")) if self.cfg.get("ca_file") else ssl.create_default_context()
+            with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "si-agent"}), timeout=300, context=ctx) as resp:
+                return resp.read()
+
+        def upload(gz):
+            return self.http.send_raw("POST", protocol.API_PREFIX + "/agents/%s/sbom" % self.agent_id, gz, timeout=600, content_type="application/gzip")
+
+        def work():
+            now = self.clock()
+            try:
+                r = sbomctl.inventory(upload, fetch=fetch, install=install)
+            except Exception as exc:  # noqa: BLE001 -- jamais d'arrêt de l'agent pour un inventaire
+                r = {"ok": False, "error": str(exc)[:300]}
+            days = float(self.state.get("sbom_schedule_days") or 7)
+            central = r.get("central") if isinstance(r.get("central"), dict) else {}
+            self.state["sbom_last"] = {"at": _iso(now), "ok": r.get("ok"), "error": r.get("error"), "components": r.get("components"),
+                                       "findings": central.get("findings"), "asset": central.get("asset"), "command": command_id}
+            # échec : nouvel essai dans 6 h plutôt qu'à la prochaine période
+            self.state["sbom_last_at"] = now if r.get("ok") else now - days * 86400 + 6 * 3600
+            self._save_state()
+            if r.get("ok"):
+                self.event("sbom-sent", "info", "inventaire logiciel envoyé : %s composant(s), %s vulnérabilité(s) relevée(s)"
+                           % (r.get("components"), central.get("findings", "?")), {"components": r.get("components"), "by_type": r.get("by_type")})
+            else:
+                self.event("sbom-failed", "warning", "inventaire logiciel en échec : %s" % r.get("error"), {"error": r.get("error")})
+            self._sbom_running = False
+
+        threading.Thread(target=work, name="sbom", daemon=True).start()
+        return True
+
     def maintenance(self):
         now = self.clock()
+        try:  # #699 : relevé périodique de l'inventaire logiciel
+            from . import sbomctl
+            if sbomctl.due(self.state, now) and not getattr(self, "_sbom_running", False) and not self.is_blocked():
+                self.start_sbom(install=bool(self.state.get("sbom_install")))
+        except Exception as exc:  # noqa: BLE001
+            _log.warning("inventaire logiciel périodique : %s", exc)
         if self.state.get("autologon_pending") and now - self._started_at > 120:
             self._autologon_cleanup()
         if now - self._last_purge > 3600:
