@@ -1,3 +1,24 @@
+## 2026-10-07 — Sonde « serveur de messagerie » (Postfix, postscreen, Amavis, ClamAV, Dovecot) (livraison #692)
+
+Après un incident réel (courrier légitime supprimé en silence, puis refusé 14 h en « 451 queue file write error »),
+première tranche de l'item « supervision du serveur de courrier » :
+- Plugin livré `mail-server` (agent 0.5.39, désactivé par défaut, privilégié) : sur la dernière heure de
+  `/var/log/mail.log` (formats syslog et ISO) -- refus 451, erreurs Amavis (clamd injoignable, base, délais),
+  verdicts, **faux positifs probables** (bloqués sous `--fp-below`, défaut 8 : expéditeur, destinataires, score,
+  n° de quarantaine ; jamais le contenu), destinataires les plus bloqués, rejets SMTP par motif, postscreen,
+  remises ; plus l'état des services (postfix, amavis, dovecot, clamd, base -- une seule base active suffit),
+  la file Postfix (`postqueue -j`), `postscreen_dnsbl_action`, les `blacklist_to` de SpamAssassin, l'âge des
+  signatures ClamAV et le refus de mise à jour, la fin de support Debian. Constats → événements notifiés
+  (`plugin:mail-server` ajouté aux sondes suivies). `--ignore-service clamav-daemon` pour un arrêt volontaire.
+- Hub, fiche agent : section « Serveur de messagerie » (constats, services, file, verdicts, faux positifs).
+- Tests de l'agent : le faux exécuteur reconnaît l'interpréteur de l'agent (#690) -- test réel de chaîne réparé.
+
+- Vérifié : `test_mail_server` (10, lignes au format Postfix 3.1 / amavisd-new réel, valeurs fictives), suites
+  `si-agent/agent` et `si-agent/api`, hub `node --test` (315), `@babel/parser`. Non vérifié : sur le serveur réel.
+- Fichiers : `si-agent/agent/plugins/mail-server/`, `si-agent/agent/si_agent/__init__.py`,
+  `si-agent/agent/tests/test_si_agent.py`, `si-agent/api/store.py`, `hub/src/{MailServerSection.jsx,SiAgentView.jsx}`,
+  `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-06 — Installeur Linux : chaîne du central vérifiée avec l'interpréteur de l'agent, `certifi` au besoin (livraison #691)
 
 Vu sur deux hyperviseurs Debian 9 en Python autonome : `CERTIFICATE_VERIFY_FAILED` vers le nom public du central

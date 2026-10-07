@@ -48,7 +48,7 @@ class FakeCmd(object):
         if key in self.outputs:
             rc, out = self.outputs[key]
             return host.CmdResult(rc, out, "")
-        if key in ("bash", "python3"):  # plugins : exécution réelle
+        if key in ("bash", "python3") or key == sys.executable:  # plugins : exécution réelle (#690 : interpréteur de l'agent)
             return host.run_cmd(argv, timeout=timeout, env=env)
         return host.CmdResult(-127, "", "binaire introuvable : %s" % key)
 
@@ -316,7 +316,7 @@ class PluginTests(unittest.TestCase):
     def test_plugins_livres_valides(self):
         bundled = os.path.join(ROOT, "plugins")
         ids = sorted(os.listdir(bundled))
-        self.assertEqual(ids, ["broadcast-probe", "capture-relay", "dns-observe", "docker-containers", "front-access", "network-neighbors", "path-probe", "proxmox", "resource-access", "software-inventory", "web-audit", "web-trace", "wifi-probe", "windows-probe"])  # #436 relais ; #487 Proxmox ; #525 wifi-probe ; #527 path-probe ; #567 windows/broadcast ; #595 software-inventory
+        self.assertEqual(ids, ["broadcast-probe", "capture-relay", "dns-observe", "docker-containers", "front-access", "mail-server", "network-neighbors", "path-probe", "proxmox", "resource-access", "software-inventory", "web-audit", "web-trace", "wifi-probe", "windows-probe"])  # #692 mail-server ; #436 relais ; #487 Proxmox ; #525 wifi-probe ; #527 path-probe ; #567 windows/broadcast ; #595 software-inventory
         for pid in ids:
             with open(os.path.join(bundled, pid, "manifest.json")) as fh:
                 m = json.load(fh)

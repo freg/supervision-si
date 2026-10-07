@@ -1,0 +1,13 @@
+{
+  "id": "mail-server",
+  "version": "1",
+  "runner": "python",
+  "entry": "mail_server.py",
+  "interval_seconds": 300,
+  "timeout_seconds": 90,
+  "args": ["--log", "/var/log/mail.log", "--minutes", "60", "--fp-below", "8"],
+  "enabled": false,
+  "description": "Sonde « serveur de messagerie » (#692) : Postfix + postscreen + Amavis (SpamAssassin, ClamAV) + Dovecot (Modoboa). Sur la dernière heure du journal mail : refus temporaires 451 (filtre en échec), erreurs Amavis, verdicts, faux positifs probables (bloqués sous le score --fp-below : expéditeur, destinataires, score, n° de quarantaine -- jamais le contenu), rejets SMTP, postscreen ; plus l'état des services, la file Postfix, postscreen_dnsbl_action, les blacklist_to de SpamAssassin, l'âge des signatures ClamAV, la fin de support du système. Service volontairement arrêté : ajouter --ignore-service <nom> aux arguments. Privilégiée (lecture de /var/log/mail.log, postqueue, configuration).",
+  "source": "bundled",
+  "privileged": true
+}
