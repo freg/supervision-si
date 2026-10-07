@@ -220,5 +220,105 @@ class Boites(unittest.TestCase):
         self.assertFalse(mc.run_action({"action": "rm"}, NOW, audit_path=os.path.join(tempfile.mkdtemp(), "a.log"))["ok"])
 
 
+class QuarantaineNiveaux(unittest.TestCase):
+    """#704 : niveaux (récupérable / dépassée / historique), statistiques, libération groupée, règles wblist."""
+    def setUp(self):
+        self.d = tempfile.mkdtemp()
+        with open(os.path.join(self.d, "50-user"), "w") as fh:
+            fh.write("@lookup_sql_dsn = ( ['DBI:mysql:database=amavis;host=127.0.0.1', 'amavis', 'S3cret'] );\n@storage_sql_dsn = @lookup_sql_dsn;\n")
+        self.kw = dict(dsn_dirs=(self.d,), audit_path=os.path.join(self.d, "a.log"))
+
+    def test_niveaux(self):
+        q = lambda **p: mc.quarantine_sql(p, NOW)
+        self.assertIn("m.quar_type = 'Q' AND EXISTS (SELECT 1 FROM quarantine", q(level="recoverable"))
+        self.assertIn("NOT EXISTS (SELECT 1 FROM quarantine qq", q(level="expired"))
+        h = q(level="history", days=99999)
+        self.assertNotIn("m.quar_type = 'Q'", h.split("WHERE", 1)[1]); self.assertIn("m.time_num >= %d" % int(NOW - 3650 * 86400), h)
+        self.assertIn("m.quar_type = 'Q'", q()); self.assertNotIn("m.quar_type = 'Q'", q(only_quarantined=False).split("WHERE", 1)[1])   # compatibilité #697
+        self.assertIn("m.content IN (X'53', X'56')", q(content="SV")); self.assertNotIn("content IN", q(content="S'; --"))
+        self.assertIn("xr.rs = 'R'", q(hide_released=True))
+
+    def test_statistiques(self):
+        for by in mc.STAT_KEYS:
+            sql = mc.stats_sql({"level": "history", "from": "*@banque.example"}, NOW, by)
+            self.assertIn("GROUP BY k", sql); self.assertEqual("JOIN maddr r" in sql, mc.STAT_KEYS[by][1], by)
+        h = lambda s: s.encode().hex().upper()
+
+        def runner(argv, timeout=120, stdin=None):
+            sql = argv[-1]
+            if sql.startswith("SELECT COUNT(*), IFNULL(MIN"):
+                return 0, "981\t1700000000\t120\t1750000000\t861\t981\t40\t12\n", ""
+            if "SUBSTRING_INDEX" in sql and "s.email" in sql:
+                return 0, "%s\t17\t5\t0\t2\t1750000000\t1760000000\t8.4\n%s\t3\t0\t1\t0\t1750000000\t1750000000\tNULL\n" % (h("phish.example"), h("")), ""
+            if "IFNULL(m.content" in sql.split("FROM")[0]:
+                return 0, "%s\t900\t100\t3\t4\t1\t2\t9.9\n" % h("S"), ""
+            return 0, "", ""
+        r = mc.run_action({"action": "quarantine_stats", "by": ["sender_domain", "content", "faux"]}, NOW, runner, **self.kw)
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(r["overview"]["recoverable"], {"count": 120, "since": 1750000000})
+        self.assertEqual((r["overview"]["expired"]["count"], r["overview"]["last24h"]["quarantined"]), (861, 12))
+        self.assertEqual(sorted(r["groups"]), ["content", "sender_domain"])
+        d = r["groups"]["sender_domain"][0]
+        self.assertEqual((d["key"], d["count"], d["recoverable"], d["released"], d["avg_score"]), ("phish.example", 17, 5, 2, 8.4))
+        self.assertIsNone(r["groups"]["sender_domain"][1]["avg_score"])
+        self.assertEqual(r["groups"]["content"][0]["label"], "spam")
+
+    def test_liberation_groupee(self):
+        seen = []
+
+        def runner(argv, timeout=120, stdin=None):
+            seen.append(argv[-1] if argv[0] == "mysql" else " ".join(argv))
+            if argv[0] == "mysql":
+                if "secret_id" in argv[-1]:
+                    return (0, b"sec".hex() + "\n", "") if "4161414161" in argv[-1] or "41616161" in argv[-1] else (0, "", "")
+                return 0, "", ""
+            return 0, "250 2.0.0 Ok, id=rel, from MTA: 250 2.0.0 Ok: queued as 1A2B3C4D5E\n", ""
+        self.assertFalse(mc.run_action({"action": "quarantine_release", "mail_ids": ["Aaaa1111"]}, NOW, runner, **self.kw)["ok"])   # sans motif
+        r = mc.run_action({"action": "quarantine_release", "mail_ids": ["AaAAa1", "Inconnu1", "x' OR 1"], "reason": "faux positifs"}, NOW, runner, **self.kw)
+        self.assertTrue(r["ok"], r); self.assertEqual((r["released"], r["failed"]), (1, 2))
+        self.assertIn("UPDATE msgrcpt SET rs = 'R' WHERE mail_id = X'%s'" % "AaAAa1".encode().hex(), "\n".join(seen))
+        self.assertNotIn("sec", json.dumps(r).replace("secret", ""))
+
+    def test_regles(self):
+        db = {"users": {"@exemple.fr": 1, "bob@exemple.fr": 2}, "sql": []}
+        h = lambda s: s.encode().hex().upper()
+
+        def runner(argv, timeout=120, stdin=None):
+            sql = argv[-1]; db["sql"].append(sql)
+            if "information_schema" in sql:
+                return 0, "3\n", ""
+            if sql.startswith("SELECT id FROM users"):
+                for e, i in db["users"].items():
+                    if "X'%s'" % e.encode().hex() in sql:
+                        return 0, "%d\n" % i, ""
+                return 0, "", ""
+            if sql.startswith("SELECT HEX(u.email)"):
+                return 0, "%s\t%s\t%s\t7\t10\n" % (h("@exemple.fr"), h("factures@fournisseur.example"), h("-5")), ""
+            if sql.startswith("SELECT HEX(email), priority FROM users"):
+                return 0, "%s\t7\n%s\t10\n" % (h("@exemple.fr"), h("bob@exemple.fr")), ""
+            return 0, "", ""
+        run = lambda p: mc.run_action(dict(p, action="wblist_set"), NOW, runner, **self.kw)
+        self.assertIn("motif", run({"sender": "a@b.example", "recipient": "@exemple.fr", "wb": "W"})["error"])
+        self.assertIn("expéditeur invalide", run({"sender": "x'); DROP--", "recipient": "@exemple.fr", "wb": "W", "reason": "test"})["error"])
+        self.assertIn("règle invalide", run({"sender": "a@b.example", "recipient": "@exemple.fr", "wb": "X; --", "reason": "test"})["error"])
+        self.assertIn("absent de la table users", run({"sender": "a@b.example", "recipient": "@autre.example", "wb": "B", "reason": "test"})["error"])
+        r = run({"sender": "Factures@Fournisseur.example", "recipient": "@exemple.fr", "wb": "-5", "reason": "faux positifs récurrents"})
+        self.assertTrue(r["ok"], r); self.assertTrue(r["lookup_sql"]); self.assertNotIn("warning", r)
+        ins = [x for x in db["sql"] if x.startswith("INSERT IGNORE")][0]
+        self.assertIn("VALUES (10, X'%s')" % "factures@fournisseur.example".encode().hex(), ins)
+        self.assertIn("SELECT 1, id, X'%s'" % b"-5".hex(), ins)
+        self.assertEqual(r["rules"][0], {"recipient": "@exemple.fr", "sender": "factures@fournisseur.example", "wb": "-5", "rcpt_priority": 7, "sender_priority": 10})
+        self.assertEqual(r["recipients"][1]["email"], "bob@exemple.fr")
+        self.assertTrue(run({"sender": "@phish.example", "recipient": "bob@exemple.fr", "wb": "delete", "reason": "nettoyage"})["ok"])
+        self.assertTrue(db["sql"][-4].startswith("DELETE w FROM wblist w"))
+        self.assertEqual((mc.sender_priority("@.") , mc.sender_priority("@a.example"), mc.sender_priority("@x.a.example"), mc.sender_priority("u@a.example")), (0, 4, 5, 10))
+        with open(os.path.join(self.d, "50-user"), "w") as fh:
+            fh.write("# @lookup_sql_dsn = ( ['DBI:mysql:database=amavis', 'a', 'b'] );\n@storage_sql_dsn = ( ['DBI:mysql:database=amavis', 'amavis', 'S3cret'] );\n")
+        r = run({"sender": "a@b.example", "recipient": "@exemple.fr", "wb": "W", "reason": "test"})
+        self.assertFalse(r["lookup_sql"]); self.assertIn("@lookup_sql_dsn", r["warning"])
+        l = mc.run_action({"action": "wblist_list"}, NOW, runner, **self.kw)
+        self.assertTrue(l["available"]); self.assertEqual(len(l["rules"]), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -7,12 +7,14 @@
 //     plein texte / contenu / période ; libération depuis la quarantaine ;
 //   - Visualiseur : aperçu HTML isolé (aucun script, aucun chargement distant),
 //     texte, source, en-têtes, structure MIME, téléchargement .eml ;
+//   - Quarantaine (#704) : niveaux, statistiques, redistribution, règles (MailQuarantine.jsx) ;
 //   - Journal : arbre programme → évènement → lignes.
 // Secret des correspondances : ouvrir un message ou le libérer exige un motif,
 // journalisé sur le serveur avec l'acteur (comme chaque recherche).
 import { Fragment, useEffect, useMemo, useState } from "react";
 import HubIcon from "./HubIcon.jsx";
 import MailServerSection from "./MailServerSection.jsx";
+import MailQuarantine from "./MailQuarantine.jsx";
 import { fetchFleet, fetchAgentMeasurements, sendCommand, fetchCommand } from "./siAgentClient.js";
 import { summarize, safeHtmlDocument } from "./mailMime.js";
 
@@ -113,11 +115,12 @@ export default function MailServerView({ onBack, siAgentApiBase, username, isAdm
               placeholder="ex. demande de l'utilisateur, faux positif signalé (obligatoire pour ouvrir ou libérer, journalisé)" /></label>
           </div>
           <div className="na-section-tabs" style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-            {[["traitements", "Traitements"], ["recherche", "Recherche"], ["journal", "Journal"]].map(([k, l]) =>
+            {[["traitements", "Traitements"], ["recherche", "Recherche"], ["quarantaine", "Quarantaine"], ["journal", "Journal"]].map(([k, l]) =>
               <button key={k} className={`secondary na-section-toggle${tab === k ? " active" : ""}`} onClick={() => setTab(k)}>{l}</button>)}
           </div>
           {tab === "traitements" && <Treatments probe={probe} run={run} />}
           {tab === "recherche" && <Search run={run} onOpen={open} onRelease={release} />}
+          {tab === "quarantaine" && <MailQuarantine run={run} reason={reason} onOpen={open} />}
           {tab === "journal" && <LogTree run={run} />}
           <p className="muted" style={{ fontSize: 12 }}>Chaque action passe par l'agent du serveur, qui relève ses commandes environ chaque minute : compter jusqu'à une minute par recherche.</p>
         </>

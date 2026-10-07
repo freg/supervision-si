@@ -31,7 +31,7 @@ puis supprimer, CT actifs à copier en deux passes, PBS du LAN à mettre en serv
 Piste : s'appuyer sur pve-ops (#653, plans / exécutions / rôles PRA) et sur l'agent des PVE (commande vm_action,
 plugin proxmox) ; détection par mesures (espace libre, présence d'une sauvegarde, CT absent, version de l'agent).
 
-## Tuile « Serveur de messagerie » : traitements, recherche de messages, quarantaine, journaux (2026-10-07) — tranche 1 FAITE (#697) ; reste : réponse plus rapide que le relevé de l'agent, recherche plein texte indexée (FTS), export, rôle dédié
+## Tuile « Serveur de messagerie » : traitements, recherche de messages, quarantaine, journaux (2026-10-07) — tranche 1 FAITE (#697), onglet Quarantaine FAIT (#704 : récupérable / dépassée / historique complet, statistiques par expéditeur / domaine / destinataire / type / jour / origine, redistribution groupée, règles wblist d'Amavis, exports CSV) ; reste : réponse plus rapide que le relevé de l'agent, recherche plein texte indexée (FTS), export, rôle dédié
 
 Demandé : vue des différents traitements des messages ; outil pour retrouver un message **dans toutes les boîtes**,
 **dans l'historique de traitement** (journal) et **dans la quarantaine** (avec libération) ; filtres émetteur,
