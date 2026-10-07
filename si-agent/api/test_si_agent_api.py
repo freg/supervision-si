@@ -68,6 +68,23 @@ class ApiBase(unittest.TestCase):
 
 
 class DashboardTests(ApiBase):
+    def test_session_interactive_709(self):
+        a = self.enroll()
+        http = FlaskHttp(self.c, "srv-01", a["secret"])
+        app_mod._interactive.clear()
+        st, body = http.request("GET", protocol.API_PREFIX + "/agents/srv-01/commands")
+        self.assertEqual(st, 200); self.assertNotIn("fast_poll", body)
+        self.assertEqual(self.c.post("/agents/inconnu/interactive", json={}).status_code, 404)
+        r = self.c.post("/agents/srv-01/interactive", json={"seconds": 99999}).get_json()
+        self.assertEqual(r["fast_poll_seconds"], app_mod.FAST_POLL_SECONDS)
+        st, body = http.request("GET", protocol.API_PREFIX + "/agents/srv-01/commands")
+        self.assertEqual(body["fast_poll"]["seconds"], app_mod.FAST_POLL_SECONDS); self.assertLessEqual(body["fast_poll"]["for"], 900)
+        self.c.post("/agents/srv-01/interactive", json={"close": True})
+        self.assertNotIn("fast_poll", http.request("GET", protocol.API_PREFIX + "/agents/srv-01/commands")[1])
+        self.c.post("/agents/srv-01/commands", json={"type": "collect_now"})            # une commande ouvre une session courte
+        self.assertGreater(http.request("GET", protocol.API_PREFIX + "/agents/srv-01/commands")[1]["fast_poll"]["for"], 60)
+        app_mod._interactive.clear()
+
     def test_publication_tableau_par_agent(self):
         # #547 : réglage `publish` par agent, dans la configuration signée, contenu servi à l'agent
         import publish as publish_lib

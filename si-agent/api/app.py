@@ -762,6 +762,7 @@ def create_command_route(agent_id):
     if c is None:
         return jsonify({"error": "agent inconnu"}), 404
     _log.info("commande %s (%s) créée pour %s", c["id"], c["type"], agent_id)
+    open_interactive(agent_id, 120)                    # #709 : la suite d'une action depuis le hub arrive vite
     if c["type"] in control.BLOCK_COMMANDS:
         _event("command-block", "warning", "commande %s envoyée à l'agent %s" % (c["type"], agent_id), agent_id=agent_id, details={"command": c["id"], "params": c["params"]})
     return jsonify(c), 201
@@ -1580,7 +1581,35 @@ def agent_commands_route(agent_id):
         conn.commit()
     finally:
         conn.close()
-    return _signed_json(info["secret"], {"commands": store.pending_commands_for_agent(DB_PATH, agent_id)})
+    body = {"commands": store.pending_commands_for_agent(DB_PATH, agent_id)}
+    left = _interactive.get(agent_id, 0) - time.time()
+    if left > 0:                                       # #709 : session interactive ouverte depuis le hub
+        body["fast_poll"] = {"seconds": FAST_POLL_SECONDS, "for": int(left)}
+    return _signed_json(info["secret"], body)
+
+
+# #709 : sessions interactives (tuile Messagerie…) -- l'agent relève ses commandes toutes les FAST_POLL_SECONDS
+# au lieu de chaque minute tant que la session vit ; renouvelée par le hub, ouverte aussi par chaque commande créée.
+FAST_POLL_SECONDS = max(2, int(os.environ.get("SI_AGENT_FAST_POLL_SECONDS", "3")))
+_interactive = {}
+
+
+def open_interactive(agent_id, seconds):
+    until = time.time() + max(10, min(900, int(seconds)))
+    _interactive[agent_id] = max(_interactive.get(agent_id, 0), until)
+    return _interactive[agent_id]
+
+
+@app.route("/agents/<agent_id>/interactive", methods=["POST"])
+def interactive_route(agent_id):
+    if store.get_agent(DB_PATH, agent_id) is None:
+        return jsonify({"error": "agent inconnu"}), 404
+    body = request.get_json(silent=True) or {}
+    if body.get("close"):
+        _interactive.pop(agent_id, None)
+        return jsonify({"agent_id": agent_id, "until": None}), 200
+    until = open_interactive(agent_id, body.get("seconds") or 300)
+    return jsonify({"agent_id": agent_id, "until": int(until), "fast_poll_seconds": FAST_POLL_SECONDS}), 200
 
 
 @app.route(protocol.API_PREFIX + "/agents/<agent_id>/commands/<cid>/ack", methods=["POST"])

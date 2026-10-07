@@ -586,7 +586,11 @@ class Agent(object):
     # -- commandes du tableau de bord --------------------------------------
     def poll_commands(self, force=False):
         now = self.clock()
-        if not force and now - self._last_commands < self.cfg["commands_poll_seconds"]:
+        interval = self.cfg["commands_poll_seconds"]
+        fast = getattr(self, "_fast_poll", None)          # #709 : relevé accéléré pendant une session interactive du hub
+        if fast and now < fast[1]:
+            interval = min(interval, fast[0])
+        if not force and now - self._last_commands < interval:
             return []
         self._last_commands = now
         status, body = self.http.request("GET", "%s/agents/%s/commands" % (protocol.API_PREFIX, self.agent_id))
@@ -595,6 +599,11 @@ class Agent(object):
         if not self._verified("commandes"):
             return []
         self.last_central_contact = now
+        fp = body.get("fast_poll")
+        if isinstance(fp, dict) and isinstance(fp.get("seconds"), (int, float)) and isinstance(fp.get("for"), (int, float)):
+            self._fast_poll = (max(2.0, float(fp["seconds"])), now + max(0.0, min(900.0, float(fp["for"]))))
+        else:
+            self._fast_poll = None
         done = []
         for c in body.get("commands") or []:
             cid = str((c or {}).get("id") or "")

@@ -1,3 +1,12 @@
+## 2026-10-07 — Réponse rapide des agents pendant une session interactive (livraison #709, agent 0.5.47)
+
+Les commandes de la tuile Messagerie (recherche, ouverture, libération) attendaient le relevé de l'agent, environ
+chaque minute. Le central ouvre une **session interactive** par agent (`POST /agents/<id>/interactive {seconds}` ou
+`{close}` ; toute commande créée ouvre 2 min) et l'annonce dans la réponse signée du relevé (`fast_poll : {seconds,
+for}`) : l'agent relève alors toutes les `SI_AGENT_FAST_POLL_SECONDS` (3 s par défaut, 2 s au moins) pendant au plus
+15 min, puis revient seul à son rythme. La tuile Messagerie ouvre la session à l'affichage, la renouvelle toutes les
+2 min, la ferme en partant. Agents plus anciens : champ ignoré, rien ne change. Tests : agent (35), central (46).
+
 ## 2026-10-07 — Sonde mail-server : politiques antispam, conservation, authentification des expéditeurs (livraison #708, agent 0.5.46)
 
 Points 2, 3 et 5 du BACKLOG « Messagerie » (postscreen et antivirus déjà couverts par #692). Nouveaux constats :

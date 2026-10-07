@@ -15,7 +15,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import HubIcon from "./HubIcon.jsx";
 import MailServerSection from "./MailServerSection.jsx";
 import MailQuarantine from "./MailQuarantine.jsx";
-import { fetchFleet, fetchAgentMeasurements, sendCommand, fetchCommand } from "./siAgentClient.js";
+import { fetchFleet, fetchAgentMeasurements, sendCommand, fetchCommand, openInteractive, closeInteractive } from "./siAgentClient.js";
 import { summarize, safeHtmlDocument } from "./mailMime.js";
 
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
@@ -76,6 +76,12 @@ export default function MailServerView({ onBack, siAgentApiBase, username, isAdm
     })();
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [base]);
+  useEffect(() => {                                   // #709 : relevé accéléré de l'agent tant que la tuile est ouverte
+    if (!isAdmin || !agentId) return undefined;
+    openInteractive(base, agentId, 300);
+    const t = setInterval(() => openInteractive(base, agentId, 300), 120000);
+    return () => { clearInterval(t); closeInteractive(base, agentId); };
+  }, [base, agentId, isAdmin]);
   useEffect(() => {
     try { if (agentId) localStorage.setItem(STORE_KEY, agentId); } catch { /* stockage indisponible */ }
     setProbe((agents || []).find((a) => a.agent_id === agentId)?.latest || null);
@@ -123,7 +129,7 @@ export default function MailServerView({ onBack, siAgentApiBase, username, isAdm
           {tab === "recherche" && <Search run={run} onOpen={open} onRelease={release} />}
           {tab === "quarantaine" && <MailQuarantine run={run} reason={reason} onOpen={open} />}
           {tab === "journal" && <LogTree run={run} />}
-          <p className="muted" style={{ fontSize: 12 }}>Chaque action passe par l'agent du serveur, qui relève ses commandes environ chaque minute : compter jusqu'à une minute par recherche.</p>
+          <p className="muted" style={{ fontSize: 12 }}>Chaque action passe par l'agent du serveur. Tant que cette page est ouverte, il relève ses commandes toutes les quelques secondes (la toute première réponse peut prendre jusqu'à une minute, le temps qu'il s'en aperçoive).</p>
         </>
       )}
       {viewer && <Viewer v={viewer} onClose={() => setViewer(null)} onRelease={release} />}

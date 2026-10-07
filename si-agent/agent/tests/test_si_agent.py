@@ -353,6 +353,7 @@ class FakeHttp(object):
         self.tamper = None
         self.last_raw = b""
         self.last_headers = {}
+        self.fast_poll = None          # #709
 
     def _reply(self, status, body):
         raw = protocol.canonical_json(body) if body is not None else b""
@@ -375,7 +376,7 @@ class FakeHttp(object):
             return self._reply(200, self.config)
         if path.endswith("/commands"):
             cmds, self.commands = self.commands, []
-            return self._reply(200, {"commands": cmds})
+            return self._reply(200, dict({"commands": cmds}, **({"fast_poll": self.fast_poll} if self.fast_poll else {})))
         if "/commands/" in path and path.endswith("/ack"):
             self.acks.append((path.split("/")[-2], body))
             return 200, {"status": "ok"}
@@ -400,6 +401,20 @@ class AgentTests(unittest.TestCase):
         self.agent = agent_mod.Agent(self.cfg, http=self.http, cmd=self.cmd, files=files(PROC), clock=lambda: self.clock[0],
                                      usage=lambda mp: Usage(100, 60), which=lambda t: "/usr/bin/" + t if t == "python3" else None,
                                      exists=lambda p: False)
+
+    def test_releve_accelere_709(self):
+        n = lambda: sum(1 for m, p in self.http.calls if p.endswith("/commands"))
+        self.agent.poll_commands(force=True); base = n()
+        self.clock[0] += 5; self.agent.poll_commands(); self.assertEqual(n(), base)           # 60 s par défaut
+        self.http.fast_poll = {"seconds": 3, "for": 30}
+        self.clock[0] += 60; self.agent.poll_commands(); self.assertEqual(n(), base + 1)     # relevé normal -> session signalée
+        self.clock[0] += 3; self.agent.poll_commands(); self.assertEqual(n(), base + 2)      # toutes les 3 s
+        self.http.fast_poll = None
+        self.clock[0] += 3; self.agent.poll_commands(); self.assertEqual(n(), base + 3)      # le central n'annonce plus rien
+        self.clock[0] += 3; self.agent.poll_commands(); self.assertEqual(n(), base + 3)      # retour à 60 s
+        self.http.fast_poll = {"seconds": 0.1, "for": 99999}
+        self.clock[0] += 60; self.agent.poll_commands()
+        self.assertEqual(self.agent._fast_poll, (2.0, self.clock[0] + 900.0))                  # bornes : 2 s, 15 min
 
     def test_redemarrage_planifie_et_relance(self):
         # #684 : créneau du jour servi une fois ; relance après redémarrage dans la session console

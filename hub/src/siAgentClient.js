@@ -153,6 +153,10 @@ export async function fetchEventsMuted(apiBase, limit = 300) {
   return Array.isArray(data?.events) ? data.events : [];
 }
 
+// #709 : session interactive -- l'agent relève ses commandes toutes les ~3 s tant qu'elle vit (renouvelée par la vue)
+export const openInteractive = (apiBase, agentId, seconds = 300) => fetchJson(apiBase, `/agents/${encodeURIComponent(agentId)}/interactive`, json("POST", { seconds }));
+export const closeInteractive = (apiBase, agentId) => fetchJson(apiBase, `/agents/${encodeURIComponent(agentId)}/interactive`, json("POST", { close: true }));
+
 // #705 : maintenance / réorganisation des Proxmox (campagnes, avancement constaté, planification, sauvegardes)
 export const fetchMaintCatalog = (apiBase) => fetchJson(apiBase, "/maint/catalog");
 export const fetchMaintCampaigns = (apiBase) => fetchJson(apiBase, "/maint/campaigns");
