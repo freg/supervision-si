@@ -23,6 +23,15 @@ Demandé pour le tableau des agents (Agents hôtes) : largeur de chaque colonne 
 masquables (menu de l'en-tête), réglages mémorisés dans la configuration personnelle (prefs-api, par utilisateur et
 par tableau). À faire en composant commun réutilisable par les autres tableaux du hub.
 
+## Tuile « Serveur de messagerie » : traitements, recherche de messages, quarantaine, journaux (2026-10-07) — EN ATTENTE (demandé, mis en standby)
+
+Demandé : vue des différents traitements des messages ; outil pour retrouver un message **dans toutes les boîtes**,
+**dans l'historique de traitement** (journal) et **dans la quarantaine** (avec libération) ; filtres émetteur,
+destinataire (utilisateur / domaine), sujet avec jokers, plein texte, contenu ; visualiseur **source** et **HTML** ;
+journaux présentés en arbre façon JSON (ligne de journal en feuille, branches par catégorie). Piste : commandes d'agent
+`mailctl` sur l'hôte (doveadm search/fetch, quarantaine SQL Amavis + `amavisd-release`, journal regroupé par n° de file /
+mail_id), visualiseur HTML sans script ni image distante, accès réservé et journalisé (secret des correspondances).
+
 ## Vulnérabilités du SI : syft, osv-scanner, Dependency-Track, EPSS (+ KEV) (2026-10-06) — tranche 1 FAITE (#688), fiabilisée (#693 : travaux en arrière-plan, État de l'installation)
 
 Demandé : « tout superviser progressivement » selon ces quatre orientations. Tranche 1 (#688) : `vuln-api` (SBOM
