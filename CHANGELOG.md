@@ -1,3 +1,13 @@
+## 2026-10-07 — Sonde mail-server : politiques antispam, conservation, authentification des expéditeurs (livraison #708, agent 0.5.46)
+
+Points 2, 3 et 5 du BACKLOG « Messagerie » (postscreen et antivirus déjà couverts par #692). Nouveaux constats :
+`spam-discard-silent` (spam supprimé sans quarantaine, vu au journal ou `D_DISCARD` sans quarantaine),
+`spam-threshold-low` (seuil de blocage < `--kill-min` sur un domaine hébergé ou une boîte : politiques Amavis lues en
+SQL, identifiants dans un fichier 0600 temporaire), `quarantine-short` (quarantaine récupérable < `--quarantine-min-days`),
+`log-retention-short` (journal mail < `--log-min-days` selon logrotate), `sender-unauth-blocked` (expéditeur bloqué sans
+DKIM aligné — `dkim_sd` d'Amavis — ni SPF « pass » — policyd-spf). Fiche de l'agent : politiques, conservation,
+authentification des expéditeurs. Tests : `test_mail_server.py` (16).
+
 ## 2026-10-07 — Hub : colonnes réglables sur tous les tableaux (livraison #707)
 
 Suite de #698 (tableau des agents) : `<AutoColumns id>` (TableColumns.jsx) enveloppe un `<table>` ordinaire sans le

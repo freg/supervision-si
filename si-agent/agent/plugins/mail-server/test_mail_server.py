@@ -156,5 +156,71 @@ class Hote(unittest.TestCase):
         self.assertEqual(ms.services_state(runner, ignore=("clamav-daemon",)), {"postfix": "active", "amavis": "active"})
 
 
+class Politiques708(unittest.TestCase):
+    """#708 : supprimés sans quarantaine, authentification des expéditeurs, politiques Amavis, conservation."""
+    def test_journal(self):
+        lines = [
+            L(30, "amavis[1]: (00001-04) Blocked SPAM {DiscardedInbound}, [192.0.2.20]:4000 [192.0.2.20] <factures@fournisseur.example> -> <compta@exemple.fr>, Message-ID: <g@h>, mail_id: RRR1, Hits: 5.2, size: 900, 800 ms"),
+            L(29, "amavis[1]: (00001-05) Blocked SPAM {DiscardedInbound,Quarantined}, [192.0.2.20]:4000 [192.0.2.20] <factures@fournisseur.example> -> <compta@exemple.fr>, quarantine: RRR2, Message-ID: <i@j>, mail_id: RRR2, Hits: 5.4, size: 900, 800 ms"),
+            L(28, "policyd-spf[5]: prepend Received-SPF: Softfail (mailfrom) identity=mailfrom; client-ip=192.0.2.20; helo=mx; envelope-from=factures@fournisseur.example; receiver=<UNKNOWN>"),
+            L(27, "amavis[1]: (00001-06) Passed CLEAN {RelayedInbound}, [192.0.2.30]:4000 [192.0.2.30] <bob@mail.partenaire.example> -> <compta@exemple.fr>, Message-ID: <k@l>, mail_id: RRR3, Hits: -0.1, size: 900, queued_as: 2, dkim_sd=s1:partenaire.example,s2:esp.example, 300 ms"),
+            L(26, "policyd-spf[5]: prepend Received-SPF: Pass (mailfrom) identity=mailfrom; client-ip=192.0.2.30; envelope-from=<bob@mail.partenaire.example>; receiver=<UNKNOWN>"),
+        ]
+        r = ms.analyse(lines, NOW.timestamp(), 60)
+        self.assertEqual(r["discarded_without_quarantine"], 1)
+        a = {x["domain"]: x for x in r["sender_auth"]}
+        self.assertEqual((a["fournisseur.example"]["blocked"], a["fournisseur.example"]["authenticated"], a["fournisseur.example"]["spf"]), (2, False, {"softfail": 1}))
+        self.assertEqual((a["mail.partenaire.example"]["dkim_aligned"], a["mail.partenaire.example"]["spf_pass"]), (1, 1))
+        self.assertEqual(ms.dkim_domains("x, dkim_sd=a:b.example, 3 ms"), ["b.example"])
+        al = {x["code"] for x in ms.alerts_from({"log": r})}
+        self.assertTrue({"spam-discard-silent", "sender-unauth-blocked"} <= al)
+
+    def test_config_et_sql(self):
+        d = tempfile.mkdtemp()
+        with open(os.path.join(d, "20-debian_defaults"), "w") as fh:
+            fh.write("$final_spam_destiny       = D_BOUNCE;\n$sa_kill_level_deflt = 6.31;\n")
+        with open(os.path.join(d, "50-user"), "w") as fh:
+            fh.write("$final_spam_destiny = D_DISCARD;\n# $sa_kill_level_deflt = 1;\n$spam_quarantine_method = undef;\n"
+                     "@lookup_sql_dsn = ( ['DBI:mysql:database=amavis;host=127.0.0.1', 'amavis', 'S3cret'] );\n")
+        vals, dsn = ms.amavis_config((d,))
+        self.assertEqual((vals["final_spam_destiny"], vals["sa_kill_level_deflt"], vals["spam_quarantine_method"]), ("D_DISCARD", "6.31", "undef"))
+        self.assertEqual((dsn["user"], dsn["database"]), ("amavis", "amavis"))
+        h = lambda x: x.encode().hex().upper()
+        seen = {}
+
+        def runner(argv, timeout=20):
+            seen["argv"] = argv
+            seen["cnf"] = open(argv[1].split("=", 1)[1]).read()
+            if "FROM users" in argv[-1]:
+                return 0, "\n".join(["%s\t7\t%s\t2\t3\t%s\tN\tN" % (h("@exemple.fr"), h("Défaut"), h("spam-quarantine")),
+                                     "%s\t10\t%s\t2\t3\t%s\tN\tN" % (h("bob@exemple.fr"), h("Défaut"), h("spam-quarantine")),
+                                     "%s\t7\t%s\t6\t10\t\tN\tN" % (h("@autre.example"), h("Normal"))]) + "\n", ""
+            return 0, "%d\t%d\t40\n" % (NOW.timestamp() - 200 * 86400, NOW.timestamp() - 3 * 86400), ""
+        st = ms.amavis_state(NOW.timestamp(), runner, (d,))
+        self.assertNotIn("S3cret", " ".join(seen["argv"])); self.assertIn("password=S3cret", seen["cnf"])
+        g = st["policies"][0]
+        self.assertEqual((g["policy"], g["kill"], g["domains"], g["mailboxes"]), ("Défaut", 3.0, ["@exemple.fr"], 1))
+        self.assertEqual((st["retention"]["history_days"], st["retention"]["quarantine_days"]), (200.0, 3.0))
+        s = {"log": {"local_domains": ["exemple.fr"], "window_minutes": 60}, "amavis": st, "log_retention_days": 28,
+             "limits": {"kill_min": 5, "quarantine_min_days": 14, "log_min_days": 30}}
+        al = {x["code"]: x["message"] for x in ms.alerts_from(s)}
+        self.assertIn("3.0 (@exemple.fr + 1 boîte(s))", al["spam-threshold-low"]); self.assertNotIn("autre.example", al["spam-threshold-low"])
+        self.assertIn("D_DISCARD", al["spam-discard-silent"])
+        self.assertIn("3.0 jour(s)", al["quarantine-short"]); self.assertIn("28 jour(s)", al["log-retention-short"])
+        self.assertIsNone(ms.amavis_state(NOW.timestamp(), runner, (tempfile.mkdtemp(),))["policies"])   # sans SQL
+
+    def test_logrotate(self):
+        d = tempfile.mkdtemp()
+        conf = os.path.join(d, "logrotate.conf")
+        with open(conf, "w") as fh:
+            fh.write("weekly\nrotate 4\ncreate\ninclude /etc/logrotate.d\n")
+        os.makedirs(os.path.join(d, "d"))
+        with open(os.path.join(d, "d", "rsyslog"), "w") as fh:
+            fh.write("/var/log/syslog\n{\n\trotate 7\n\tdaily\n}\n\n/var/log/mail.info\n/var/log/mail.warn\n/var/log/mail.err\n/var/log/mail.log\n/var/log/daemon.log\n{\n\trotate 4\n\tweekly\n\tcompress\n}\n")
+        self.assertEqual(ms.logrotate_days("/var/log/mail.log", (os.path.join(d, "d"),), conf), 28)
+        self.assertEqual(ms.logrotate_days("/var/log/syslog", (os.path.join(d, "d"),), conf), 7)
+        self.assertIsNone(ms.logrotate_days("/var/log/autre.log", (os.path.join(d, "d"),), os.path.join(d, "absent")))
+
+
 if __name__ == "__main__":
     unittest.main()

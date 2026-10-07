@@ -1,4 +1,4 @@
-## Messagerie : supervision du serveur de courrier (Postfix + Amavis + Modoboa) (2026-10-07)
+## Messagerie : supervision du serveur de courrier (Postfix + Amavis + Modoboa) (2026-10-07) — points 1 à 7 FAITS (#692, #697, #704, #708) ; reste : migration Debian 12 / Modoboa
 
 Incident réel (serveur de messagerie `mx-alpha`, Debian 9, Modoboa 1.14) : messages légitimes supprimés en silence
 pendant deux mois (politique Amavis du domaine principal à `spam_kill_level = 3`, `D_DISCARD`, quarantaine purgée

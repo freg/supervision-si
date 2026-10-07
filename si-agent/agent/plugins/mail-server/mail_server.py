@@ -23,8 +23,15 @@ le central transforme en événements (apparition / disparition) :
   dnsbl-ignored       warning   postscreen consulte des listes noires sans agir
   os-eol              warning   système hors support
   log-unreadable      warning   journal mail introuvable ou illisible
+  -- #708 --
+  spam-discard-silent warning   spam supprimé sans quarantaine (D_DISCARD sans copie : aucune trace récupérable)
+  spam-threshold-low  warning   seuil de suppression (kill level) bas sur un domaine / une boîte (politiques Amavis)
+  quarantine-short    warning   quarantaine conservée moins de --quarantine-min-days jours
+  log-retention-short warning   journal mail conservé moins de --log-min-days jours (logrotate)
+  sender-unauth-blocked warning expéditeur fréquent bloqué, sans DKIM aligné ni SPF « pass » (à prévenir ou à adoucir)
 
-Usage : mail_server.py [--log /var/log/mail.log] [--minutes 60] [--fp-below 8]
+Usage : mail_server.py [--log /var/log/mail.log] [--minutes 60] [--fp-below 8] [--kill-min 5]
+                      [--quarantine-min-days 14] [--log-min-days 30]
 """
 import argparse
 import fnmatch
@@ -87,6 +94,8 @@ def analyse(lines, now, minutes=60, fp_below=8.0):
     verdicts, rejects, postscreen, delivery = Counter(), Counter(), Counter(), Counter()
     fps, trouble, write_errors, top_rcpt_blocked = [], [], 0, Counter()
     local_domains = set()
+    discarded_silent = 0
+    auth = {}                      # #708 : domaine d'enveloppe -> compteurs (messages, bloqués, DKIM aligné, SPF)
     for line in lines or []:
         p = parse_time(line, now)
         if not p or p[0] < since:
@@ -98,6 +107,16 @@ def analyse(lines, now, minutes=60, fp_below=8.0):
             m = VERDICT_RE.search(msg)
             if m:
                 verdicts["%s %s" % (m.group("verdict"), m.group("cat"))] += 1
+                act = m.group("action") or ""
+                if m.group("verdict") == "Blocked" and "Discarded" in act and "Quarantined" not in act and not QUAR_RE.search(msg):
+                    discarded_silent += 1
+                ad0 = ADDR_RE.search(msg)
+                dom = sender_domain(ad0.group("from")) if ad0 else None
+                if dom:
+                    a = auth.setdefault(dom, {"messages": 0, "blocked": 0, "dkim_aligned": 0, "spf": Counter()})
+                    a["messages"] += 1
+                    a["blocked"] += m.group("verdict") == "Blocked"
+                    a["dkim_aligned"] += any(aligned(dom, d) for d in dkim_domains(msg))
                 if m.group("verdict") == "Blocked" and m.group("cat") == "SPAM":
                     ad, qm, hm = ADDR_RE.search(msg), QUAR_RE.search(msg), HITS_RE.search(msg)
                     hits = float(hm.group("hits")) if hm and hm.group("hits") != "-" else None
@@ -109,6 +128,12 @@ def analyse(lines, now, minutes=60, fp_below=8.0):
                                     "quarantine": qm.group("q") if qm else None, "action": m.group("action")})
             elif re.search(r"TROUBLE|FAILED|Can't connect|timed out|DBI|virus_scan", msg):
                 trouble.append(msg[:200])
+        elif "policyd-spf" in prog or "Received-SPF:" in msg:
+            sm = SPF_RE.search(msg)
+            if sm:
+                dom = sender_domain(sm.group("from"))
+                if dom:
+                    auth.setdefault(dom, {"messages": 0, "blocked": 0, "dkim_aligned": 0, "spf": Counter()})["spf"][sm.group("res").lower()] += 1
         elif prog.endswith("postscreen"):
             for k in ("PASS NEW", "PASS OLD", "DNSBL rank", "PREGREET", "HANGUP", "COMMAND PIPELINING", "BARE NEWLINE"):
                 if k in msg:
@@ -131,7 +156,8 @@ def analyse(lines, now, minutes=60, fp_below=8.0):
             "amavis_trouble": trouble[-5:], "false_positive_candidates": fps[:30], "fp_below": fp_below,
             "blocked_by_recipient": dict(top_rcpt_blocked.most_common(10)), "postscreen": dict(postscreen),
             "smtpd_rejects": dict(rejects.most_common(15)), "delivery": dict(delivery),
-            "local_domains": sorted(local_domains)}
+            "local_domains": sorted(local_domains), "discarded_without_quarantine": discarded_silent,
+            "sender_auth": sender_auth_summary(auth)}
 
 
 def run(argv, timeout=20):
@@ -178,6 +204,180 @@ def queue_state(runner=run, now=None):
     oldest = min((i.get("arrival_time") or now for i in items), default=now)
     return {"count": len(items), "deferred": sum(1 for i in items if i.get("queue_name") == "deferred"),
             "oldest_seconds": int(now - oldest) if items else 0}
+
+
+SPF_RE = re.compile(r"Received-SPF: (?P<res>\w+)\b.*?envelope-from=<?(?P<from>[^>;\s]+)>?")
+DKIM_SD_RE = re.compile(r"dkim_sd=([\w.:,-]+)")
+
+
+def sender_domain(addr):
+    a = (addr or "").strip().lower()
+    return a.rsplit("@", 1)[1] if "@" in a and a.rsplit("@", 1)[1] else None
+
+
+def dkim_domains(msg):
+    """Signatures DKIM valides notées par Amavis (`dkim_sd=sélecteur:domaine,…`) -> domaines."""
+    m = DKIM_SD_RE.search(msg)
+    return [x.split(":", 1)[1].lower() for x in (m.group(1).split(",") if m else []) if ":" in x and x.split(":", 1)[1]]
+
+
+def aligned(a, b):
+    """Alignement « relâché » (DMARC) : même domaine ou l'un sous-domaine de l'autre."""
+    return a == b or a.endswith("." + b) or b.endswith("." + a)
+
+
+def sender_auth_summary(auth, top=25):
+    out = []
+    for dom, a in auth.items():
+        spf = dict(a["spf"])
+        out.append({"domain": dom, "messages": a["messages"], "blocked": a["blocked"], "dkim_aligned": a["dkim_aligned"],
+                    "spf": spf, "spf_pass": spf.get("pass", 0),
+                    "authenticated": a["dkim_aligned"] > 0 or spf.get("pass", 0) > 0})
+    out.sort(key=lambda x: (-x["messages"], x["domain"]))
+    return out[:top]
+
+
+AMAVIS_DIRS = ("/etc/amavis/conf.d", "/etc/amavis", "/etc/amavisd")
+AMAVIS_VARS = ("final_spam_destiny", "sa_kill_level_deflt", "sa_tag2_level_deflt", "spam_quarantine_method", "spam_quarantine_to")
+
+
+def amavis_config(dirs=AMAVIS_DIRS):
+    """Réglages Amavis utiles (dernière affectation non commentée l'emporte) + connexion SQL (sans jamais la remonter)."""
+    vals, dsn = {}, {}
+    for d in dirs:
+        for f in sorted(glob.glob(os.path.join(d, "*"))):
+            if not os.path.isfile(f):
+                continue
+            try:
+                text = open(f, encoding="utf-8", errors="replace").read()
+            except OSError:
+                continue
+            text = "\n".join(l for l in text.splitlines() if not l.lstrip().startswith("#"))
+            for m in re.finditer(r"^\s*\$(\w+)\s*=\s*([^;]+);", text, re.M):
+                if m.group(1) in AMAVIS_VARS:
+                    vals[m.group(1)] = m.group(2).strip().strip("'\"")
+            for var in ("storage_sql_dsn", "lookup_sql_dsn"):
+                m = re.search(r"@%s\s*=\s*\(\s*\[\s*(['\"])DBI:(?P<drv>\w+):(?P<args>[^'\"]*)\1\s*,\s*(['\"])(?P<user>[^'\"]*)\4\s*,\s*(['\"])(?P<pw>[^'\"]*)\6" % var, text)
+                if m and var not in dsn:
+                    args = dict(kv.split("=", 1) for kv in m.group("args").split(";") if "=" in kv)
+                    dsn[var] = {"driver": m.group("drv").lower(), "database": args.get("database") or args.get("dbname") or "amavis",
+                                "host": args.get("host", "localhost"), "port": args.get("port"), "user": m.group("user"), "password": m.group("pw")}
+    return vals, dsn.get("storage_sql_dsn") or dsn.get("lookup_sql_dsn")
+
+
+def mysql_query(dsn, sql, runner=None, timeout=60):
+    """mysql -N -B avec identifiants dans un fichier 0600 temporaire (jamais sur la ligne de commande)."""
+    import tempfile
+    runner = runner or run
+    if not dsn or dsn.get("driver") != "mysql":
+        return None
+    fd, path = tempfile.mkstemp(prefix=".si-agent-my-", suffix=".cnf")
+    try:
+        os.chmod(path, 0o600)
+        with os.fdopen(fd, "w") as fh:
+            fh.write("[client]\nuser=%s\npassword=%s\nhost=%s\n%s" % (dsn["user"], dsn["password"], dsn["host"], ("port=%s\n" % dsn["port"]) if dsn.get("port") else ""))
+        code, out, _err = runner(["mysql", "--defaults-extra-file=%s" % path, "-N", "-B", dsn["database"], "-e", sql], timeout=timeout)
+        return out if code == 0 else None
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+
+
+POLICY_SQL = ("SELECT HEX(u.email), u.priority, HEX(IFNULL(p.policy_name,'')), IFNULL(p.spam_tag2_level,''), IFNULL(p.spam_kill_level,''), "
+              "HEX(IFNULL(p.spam_quarantine_to,'')), IFNULL(p.bypass_spam_checks,''), IFNULL(p.spam_lover,'') "
+              "FROM users u LEFT JOIN policy p ON p.id = u.policy_id ORDER BY u.priority DESC, u.email LIMIT 3000")
+RETENTION_SQL = ("SELECT IFNULL(MIN(m.time_num),0), IFNULL(MIN(IF(m.quar_type = 'Q' AND EXISTS (SELECT 1 FROM quarantine q WHERE q.mail_id = m.mail_id), m.time_num, NULL)),0), "
+                 "SUM(m.quar_type = 'Q') FROM msgs m")
+
+
+def _unhex(h):
+    try:
+        return bytes.fromhex(h).decode("utf-8", "replace")
+    except ValueError:
+        return h
+
+
+def _num(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def parse_policies(out):
+    """Sortie POLICY_SQL -> politiques regroupées : [{policy, tag2, kill, quarantine_to, bypass, lover, domains, mailboxes}]. Pure."""
+    groups = {}
+    for line in (out or "").splitlines():
+        f = line.split("\t")
+        if len(f) < 8:
+            continue
+        email = _unhex(f[0]).lower()
+        key = (_unhex(f[2]), f[3], f[4], _unhex(f[5]), f[6], f[7])
+        g = groups.setdefault(key, {"policy": key[0], "tag2": _num(f[3]), "kill": _num(f[4]), "quarantine_to": key[3] or None,
+                                    "bypass": f[6] == "Y", "lover": f[7] == "Y", "domains": [], "mailboxes": 0})
+        if email.startswith("@"):
+            g["domains"].append(email)
+        else:
+            g["mailboxes"] += 1
+    return sorted(groups.values(), key=lambda g: (g["kill"] if g["kill"] is not None else 99))
+
+
+def parse_retention(out, now):
+    f = (out or "").strip().split("\t")
+    if len(f) < 3:
+        return None
+    oldest, oldest_q = int(float(f[0] or 0)), int(float(f[1] or 0))
+    return {"history_days": round((now - oldest) / 86400, 1) if oldest else None,
+            "quarantine_days": round((now - oldest_q) / 86400, 1) if oldest_q else None,
+            "quarantined_total": int(float(f[2] or 0)) if f[2] not in ("", "NULL") else 0}
+
+
+def amavis_state(now=None, runner=None, dirs=AMAVIS_DIRS):
+    now = now or time.time()
+    vals, dsn = amavis_config(dirs)
+    out = {"config": vals, "sql": bool(dsn), "policies": None, "retention": None}
+    if dsn:
+        out["policies"] = parse_policies(mysql_query(dsn, POLICY_SQL, runner))
+        out["retention"] = parse_retention(mysql_query(dsn, RETENTION_SQL, runner, timeout=120), now)
+    return out
+
+
+def logrotate_days(path="/var/log/mail.log", dirs=("/etc/logrotate.d",), main_conf="/etc/logrotate.conf"):
+    """Durée de conservation du journal mail selon logrotate (rotate N x période) ; None si inconnue. Pure sur fichiers."""
+    period_days = {"daily": 1, "weekly": 7, "monthly": 31, "yearly": 365}
+
+    def scan(text, default_period, default_rotate):
+        for m in re.finditer(r"((?:^[^\n{]*\S[^\n{]*\n?)+?)\{(.*?)\}", text, re.M | re.S):
+            heads, body = m.group(1).split(), m.group(2)
+            if not any(fnmatch.fnmatch(path, h) for h in heads):
+                continue
+            per = default_period
+            for k in period_days:
+                if re.search(r"^\s*%s\s*$" % k, body, re.M):
+                    per = k
+            r = re.search(r"^\s*rotate\s+(\d+)", body, re.M)
+            rot = int(r.group(1)) if r else default_rotate
+            if rot is not None:
+                return rot * period_days[per]
+        return None
+    try:
+        main = open(main_conf, encoding="utf-8", errors="replace").read()
+    except OSError:
+        main = ""
+    dper = next((k for k in period_days if re.search(r"^\s*%s\s*$" % k, main, re.M)), "weekly")
+    r = re.search(r"^\s*rotate\s+(\d+)", main, re.M)
+    drot = int(r.group(1)) if r else None
+    for d in dirs:
+        for f in sorted(glob.glob(os.path.join(d, "*"))):
+            try:
+                v = scan(open(f, encoding="utf-8", errors="replace").read(), dper, drot)
+            except OSError:
+                continue
+            if v is not None:
+                return v
+    return scan(main, dper, drot)
 
 
 def postconf_checks(runner=run):
@@ -284,6 +484,40 @@ def alerts_from(s):
     pc = s.get("postconf") or {}
     if pc.get("dnsbl_sites") and pc.get("dnsbl_action") == "ignore":
         add("dnsbl-ignored", "warning", "postscreen consulte des listes noires DNS mais postscreen_dnsbl_action = ignore (aucun blocage)")
+    # #708 : politiques antispam, quarantaine, conservation, authentification des expéditeurs
+    lim = s.get("limits") or {}
+    am = s.get("amavis") or {}
+    cfg = am.get("config") or {}
+    if log.get("discarded_without_quarantine"):
+        add("spam-discard-silent", "warning", "%d spam(s) supprimé(s) sans quarantaine en %d min : aucune trace récupérable en cas de faux positif"
+            % (log["discarded_without_quarantine"], log.get("window_minutes", 0)))
+    elif cfg.get("final_spam_destiny") == "D_DISCARD" and cfg.get("spam_quarantine_method") in ("undef", ""):
+        add("spam-discard-silent", "warning", "final_spam_destiny = D_DISCARD et quarantaine désactivée : le spam est supprimé sans trace")
+    kill_min = lim.get("kill_min", 5)
+    local = set(log.get("local_domains") or [])
+    low = []
+    for g in am.get("policies") or []:
+        if g.get("kill") is not None and g["kill"] < kill_min and not g.get("lover") and not g.get("bypass"):
+            doms = [d for d in g["domains"] if not local or d.lstrip("@") in local or d == "@."] or g["domains"]
+            if doms or g["mailboxes"]:
+                low.append("%s (%s%s)" % (g["kill"], ", ".join(doms[:3]) or "", (" + %d boîte(s)" % g["mailboxes"]) if g["mailboxes"] else ""))
+    dk = _num(cfg.get("sa_kill_level_deflt"))
+    if dk is not None and dk < kill_min:
+        low.append("%s (valeur par défaut d'Amavis)" % dk)
+    if low:
+        add("spam-threshold-low", "warning", "seuil de suppression du spam sous %s : %s -- courrier légitime supprimé ou bloqué" % (kill_min, "; ".join(low[:4])))
+    ret = am.get("retention") or {}
+    qmin = lim.get("quarantine_min_days", 14)
+    if ret.get("quarantined_total") and ret.get("history_days") and ret["history_days"] > qmin and (ret.get("quarantine_days") or 0) < qmin:
+        add("quarantine-short", "warning", "quarantaine récupérable sur %s jour(s) seulement (historique : %s j) : un faux positif signalé tard est perdu"
+            % (ret.get("quarantine_days") or 0, ret["history_days"]))
+    lr = s.get("log_retention_days")
+    if lr is not None and lr < lim.get("log_min_days", 30):
+        add("log-retention-short", "warning", "journal mail conservé %d jour(s) (logrotate) : trop court pour retrouver un message signalé tard" % lr)
+    weak = [a for a in log.get("sender_auth") or [] if a["blocked"] >= 2 and not a["authenticated"]]
+    if weak:
+        add("sender-unauth-blocked", "warning", "expéditeur(s) bloqué(s) sans DKIM aligné ni SPF « pass » : %s -- à prévenir (authentification) ou à adoucir"
+            % ", ".join("%s ×%d" % (a["domain"], a["blocked"]) for a in weak[:5]))
     o = s.get("os") or {}
     if o.get("eol"):
         add("os-eol", "warning", "Debian %s hors support depuis %s" % (o["debian"], o["eol"]))
@@ -296,12 +530,17 @@ def main(argv=None):
     ap.add_argument("--minutes", type=int, default=60)
     ap.add_argument("--fp-below", type=float, default=8.0)
     ap.add_argument("--ignore-service", action="append", default=[], help="service volontairement arrêté (ex. clamav-daemon)")
+    ap.add_argument("--kill-min", type=float, default=5.0, help="seuil de suppression minimal attendu")
+    ap.add_argument("--quarantine-min-days", type=int, default=14)
+    ap.add_argument("--log-min-days", type=int, default=30)
     args = ap.parse_args(argv)
     now = time.time()
     lines = tail_lines(args.log)
     s = {"at": int(now), "log_file": args.log, "log": analyse(lines, now, args.minutes, args.fp_below) if lines is not None else {"error": "journal illisible : %s" % args.log},
          "services": services_state(ignore=tuple(args.ignore_service)), "queue": queue_state(now=now), "postconf": postconf_checks(),
-         "blacklist_to": blacklist_to_entries(), "antivirus": antivirus_state(now), "os": os_state()}
+         "blacklist_to": blacklist_to_entries(), "antivirus": antivirus_state(now), "os": os_state(),
+         "amavis": amavis_state(now), "log_retention_days": logrotate_days(args.log),
+         "limits": {"kill_min": args.kill_min, "quarantine_min_days": args.quarantine_min_days, "log_min_days": args.log_min_days}}
     s["alerts"] = alerts_from(s)
     sev = {x["severity"] for x in s["alerts"]}
     s["summary"] = {"state": "critical" if "critical" in sev else "warning" if "warning" in sev else "ok",
