@@ -1,3 +1,16 @@
+## 2026-10-07 — Tableaux du hub : colonnes redimensionnables et masquables, mémorisées par compte (livraison #698)
+
+Demandé pour le tableau des agents, fait en composant commun : `useTableColumns(id, colonnes)` + `TableColumnsHead`
++ `ColumnsMenu` (`hub/src/TableColumns.jsx`, logique pure `hub/src/tableLayout.js`). Largeur : glisser le bord droit
+d'un en-tête (double-clic = automatique) ; menu « ⚙ Colonnes » pour masquer / réafficher / réinitialiser (colonnes
+fixes non masquables). Réglages mémorisés dans prefs-api (clé `table.<id>` par tableau, écriture regroupée) et
+localement pour l'affichage immédiat ; le compte prime au chargement (même réglage d'un poste à l'autre).
+Premier tableau branché : Agents hôtes. Aussi : commentaire d'import de VulnView remis à sa place (#697).
+
+- Vérifié : `tableLayout.test.mjs` (4), hub `node --test` (324), `@babel/parser`. Non vérifié : à la souris dans un navigateur.
+- Fichiers : `hub/src/{TableColumns.jsx,tableLayout.js,SiAgentView.jsx,App.jsx}`, `hub/tests/tableLayout.test.mjs`,
+  `BACKLOG.md`, `shared/DELIVERY_NUMBER`.
+
 ## 2026-10-07 — Tuile « Serveur de messagerie » : traitements, recherche (boîtes, historique, quarantaine), visualiseur, journal en arbre (livraison #697)
 
 Demandé : vue des traitements des messages ; retrouver un message dans toutes les boîtes, dans l'historique de

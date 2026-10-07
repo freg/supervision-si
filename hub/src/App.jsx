@@ -31,8 +31,9 @@ import SchemaAnalyzerView from "./SchemaAnalyzerView.jsx";
 import PortageView from "./PortageView.jsx";
 import QaView from "./QaView.jsx";
 import DataSyncView from "./DataSyncView.jsx";
-import VulnView from "./VulnView.jsx";
-import MailServerView from "./MailServerView.jsx";  // #697   // #688
+import VulnView from "./VulnView.jsx";   // #688
+import MailServerView from "./MailServerView.jsx";  // #697
+import { configureTablePrefs } from "./tableLayout.js";  // #698
 import GroupwareView from "./GroupwareView.jsx";   // #664
 import GroupwareReminders from "./GroupwareReminders.jsx";   // #670
 import PveOpsView from "./PveOpsView.jsx";
@@ -1094,6 +1095,7 @@ export default function App() {
   useEffect(() => {
     if (!username) return;
     themeStore.load(username);
+    configureTablePrefs({ apiBase: PREFS_API_BASE_URL, user: username });  // #698 : colonnes des tableaux mémorisées par compte
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [username]);
   // #559 : tuiles visibles pour cette personne selon la matrice des droits --

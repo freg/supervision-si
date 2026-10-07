@@ -22,6 +22,7 @@ import NetworkObservabilityTab from "./NetworkObservabilityTab.jsx";  // #643
 import WebTraceSection from "./WebTraceSection.jsx";  // #618
 import FrontAccessSection from "./FrontAccessSection.jsx";  // #622
 import MailServerSection from "./MailServerSection.jsx";  // #692
+import { useTableColumns, TableColumnsHead, ColumnsMenu } from "./TableColumns.jsx";  // #698
 
 // Tuile « Agents hôtes » (livraison #421, backlog 63) -- flotte des agents
 // si-agent (surveillance de l'hôte : CPU, mémoire, disques, services,
@@ -57,7 +58,17 @@ function Gauge({ percent, label }) {
   );
 }
 
+// #698 : colonnes du tableau des agents -- largeur à la souris, masquables, mémorisées par compte
+const AGENT_COLUMNS = [
+  { id: "agent", label: "Agent", fixed: true }, { id: "site", label: "Site" }, { id: "host", label: "Hôte" }, { id: "contact", label: "Contact" },
+  { id: "cpu", label: "CPU" }, { id: "mem", label: "Mémoire" }, { id: "disk", label: "Disque (max)" },
+  { id: "footprint", label: "Impact agent", title: "Empreinte de l'agent lui-même : % d'un cœur (moyenne de la fenêtre) · mémoire résidente" },
+  { id: "risks", label: "Risques" }, { id: "plugins", label: "Sondes" },
+  { id: "actions", label: "", fixed: true, className: "ups-actions-head", noResize: true },
+];
+
 export default function SiAgentView({ onBack, siAgentApiBase }) {
+  const agentCols = useTableColumns("si-agent.agents", AGENT_COLUMNS);
   const [status, setStatus] = useState(null);
   const [fleet, setFleet] = useState([]);
   const [risks, setRisks] = useState([]);
@@ -436,19 +447,20 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
             <p className="muted">Aucun agent -- « + Enrôler un agent », puis lancer la commande d'installation sur l'hôte Linux.</p>
           ) : (
             <div className="hub-table-scroll">
-              <table className="sa-fleet">
-                <thead>
-                  <tr><th>Agent</th><th>Site</th><th>Hôte</th><th>Contact</th><th>CPU</th><th>Mémoire</th><th>Disque (max)</th><th title="Empreinte de l'agent lui-même : % d'un cœur (moyenne de la fenêtre) · mémoire résidente">Impact agent</th><th>Risques</th><th>Sondes</th><th className="ups-actions-head"></th></tr>
-                </thead>
+              <table className="sa-fleet" style={agentCols.tableStyle}>
+                <TableColumnsHead t={agentCols} render={(c) => (c.id === "actions" ? <ColumnsMenu t={agentCols} /> : undefined)} />
                 <tbody>
                   {sorted.map((a) => {
                     const age = ageSeconds(a.last_seen_at, now);
                     return (
                       <tr key={a.agent_id} className={`ups-row${selectedId === a.agent_id ? " active" : ""}${a.active ? "" : " inactive"}`} onClick={() => setSelectedId(selectedId === a.agent_id ? null : a.agent_id)}>
+                        {agentCols.show("agent") && (
                         <td><strong>{a.agent_id}</strong>{a.label && <div className="muted" style={{ fontSize: 11 }}>{a.label}</div>}
                           {publishedPageUrl(a) && <div style={{ fontSize: 11 }}><a href={publishedPageUrl(a)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} title="Page publiée par l'agent sur le réseau de son site (#552)">page publiée ↗</a></div>}</td>
-                        <td>{a.site}</td>
-                        <td>{a.hostname ? <><code>{a.hostname}</code>{a.os && <div className="muted" style={{ fontSize: 11 }}>{a.os}</div>}</> : <span className="muted">—</span>}</td>
+                        )}
+                        {agentCols.show("site") && <td>{a.site}</td>}
+                        {agentCols.show("host") && <td>{a.hostname ? <><code>{a.hostname}</code>{a.os && <div className="muted" style={{ fontSize: 11 }}>{a.os}</div>}</> : <span className="muted">—</span>}</td>}
+                        {agentCols.show("contact") && (
                         <td>
                           <Tone tone={contactTone(a.online)} title={when(a.last_seen_at)}>{CONTACT_LABELS[a.online] || a.online}</Tone>
                           {age != null && <div className="muted" style={{ fontSize: 11 }}>il y a {formatAge(age)}</div>}
@@ -456,18 +468,21 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
                           {(a.blocked || a.host_blocked || status?.fleet_blocked) && <div><Tone tone="bad" title={a.blocked_reason || a.host_blocked_reason || ""}>⛔ sondes bloquées{a.host_blocked ? " (confirmé)" : ""}</Tone></div>}
                           {a.insecure_tls && <div><Tone tone="warn">TLS non vérifié</Tone></div>}
                         </td>
-                        <td><Gauge percent={a.summary?.cpu_percent} label={`charge 5 min ${a.summary?.load5 ?? "—"}`} /></td>
-                        <td><Gauge percent={a.summary?.memory_percent} /></td>
-                        <td><Gauge percent={a.summary?.disk_max_percent} /></td>
-                        <td style={{ whiteSpace: "nowrap" }}>{a.footprint ? <span title={`dernier point ${a.footprint.cpu_core_percent} % d'un cœur (${a.footprint.cpu_machine_percent} % machine) · max ${a.footprint.cpu_core_max} % · file ${a.footprint.queue_size ?? "?"}`}><Tone tone={a.footprint.cpu_core_avg > 25 ? "bad" : a.footprint.cpu_core_avg > 8 ? "warn" : "good"}>{a.footprint.cpu_core_avg} % cœur</Tone> · {formatBytes(a.footprint.rss_bytes)}{a.footprint.bench && <> · <Tone tone="warn">banc</Tone></>}</span> : <span className="muted">—</span>}</td>
-                        <td><Tone tone={stateTone(a.risks?.state)}>{riskSummaryText(a.risks)}</Tone>{a.summary?.partial?.length > 0 && <div className="muted" style={{ fontSize: 11 }} title={a.summary.partial.join(", ")}>collecte partielle</div>}</td>
-                        <td className="muted">{a.plugins_assigned > 0 ? `${a.plugins_assigned} affectée${a.plugins_assigned > 1 ? "s" : ""}` : "—"}{a.pending_commands > 0 && <div style={{ fontSize: 11 }}>{a.pending_commands} cmd en attente</div>}</td>
+                        )}
+                        {agentCols.show("cpu") && <td><Gauge percent={a.summary?.cpu_percent} label={`charge 5 min ${a.summary?.load5 ?? "—"}`} /></td>}
+                        {agentCols.show("mem") && <td><Gauge percent={a.summary?.memory_percent} /></td>}
+                        {agentCols.show("disk") && <td><Gauge percent={a.summary?.disk_max_percent} /></td>}
+                        {agentCols.show("footprint") && <td style={{ whiteSpace: "nowrap" }}>{a.footprint ? <span title={`dernier point ${a.footprint.cpu_core_percent} % d'un cœur (${a.footprint.cpu_machine_percent} % machine) · max ${a.footprint.cpu_core_max} % · file ${a.footprint.queue_size ?? "?"}`}><Tone tone={a.footprint.cpu_core_avg > 25 ? "bad" : a.footprint.cpu_core_avg > 8 ? "warn" : "good"}>{a.footprint.cpu_core_avg} % cœur</Tone> · {formatBytes(a.footprint.rss_bytes)}{a.footprint.bench && <> · <Tone tone="warn">banc</Tone></>}</span> : <span className="muted">—</span>}</td>}
+                        {agentCols.show("risks") && <td><Tone tone={stateTone(a.risks?.state)}>{riskSummaryText(a.risks)}</Tone>{a.summary?.partial?.length > 0 && <div className="muted" style={{ fontSize: 11 }} title={a.summary.partial.join(", ")}>collecte partielle</div>}</td>}
+                        {agentCols.show("plugins") && <td className="muted">{a.plugins_assigned > 0 ? `${a.plugins_assigned} affectée${a.plugins_assigned > 1 ? "s" : ""}` : "—"}{a.pending_commands > 0 && <div style={{ fontSize: 11 }}>{a.pending_commands} cmd en attente</div>}</td>}
+                        {agentCols.show("actions") && (
                         <td className="ups-actions" onClick={(e) => e.stopPropagation()}>
                           <button className="secondary" onClick={() => { setSelectedId(a.agent_id); handleInstall(a.agent_id); }}>Installation</button>
                           <button className={a.blocked ? "secondary" : "sa-danger"} onClick={() => handleBlockAgent(a)}>{a.blocked ? "Débloquer" : "Bloquer"}</button>
                           <button className="secondary" onClick={() => handleToggleActive(a)}>{a.active ? "Désactiver" : "Activer"}</button>
                           <button className="secondary" onClick={() => handleDelete(a)}>Supprimer</button>
                         </td>
+                        )}
                       </tr>
                     );
                   })}
