@@ -78,3 +78,59 @@ Types émis par `nebula/api/vlanmap.py` et champs disponibles pour `Action` :
 - Pourquoi : L'adresse du réseau (ou de diffusion) n'est pas une adresse d'hôte : la passerelle n'existe pas pour les postes du VLAN et son serveur DHCP ne répond pas.
 - Vérifier : Un poste du VLAN obtient une adresse et joint {suggest} sans le masque.
 - Exemples : 2026-10 (site-alpha) : interface d'un nouveau VLAN saisie en x.x.x.0/24.
+
+## R-NET-09 · Port sensible publié sur Internet
+- Quand : nat_sensitive_port
+- Gravité : haute
+- Action : Retirer la publication des port(s) {ports} ({services}) vers {private_ip}, ou la restreindre aux adresses d'origine connues ; pour l'administration, passer par le VPN de la passerelle.
+- Applicable : non
+- Pourquoi : SSH, bureau à distance, partages Windows, bases de données ou consoles d'administration ouverts à tout Internet sont balayés en permanence : force brute, failles connues, rançongiciels.
+- Vérifier : La publication a disparu (ou n'accepte que les origines prévues) ; un balayage depuis l'extérieur (audit extérieur du hub) ne voit plus le port.
+
+## R-NET-10 · Port sensible publié, origine restreinte
+- Quand : nat_sensitive_port_restricted
+- Gravité : basse
+- Action : Vérifier que les origines autorisées ({remote}) sont toujours les bonnes et que le service vers {private_ip} est à jour.
+- Applicable : non
+- Pourquoi : La restriction d'origine réduit fortement l'exposition, mais une adresse devenue obsolète (ancien prestataire, IP dynamique) rouvre la porte.
+- Vérifier : La liste des origines correspond aux accès réellement nécessaires.
+
+## R-NET-11 · Hôte entièrement publié (NAT 1:1 ouvert)
+- Quand : nat_whole_host
+- Gravité : haute
+- Action : Limiter le NAT 1:1 vers {private_ip} aux seuls ports utiles (règles « inbound ») et, si possible, aux origines connues.
+- Applicable : non
+- Pourquoi : Tous les ports de l'hôte deviennent joignables depuis Internet : chaque service qu'il écoute, même oublié, est exposé.
+- Vérifier : Seuls les ports prévus répondent depuis l'extérieur.
+
+## R-NET-12 · Service publié depuis la zone invité
+- Quand : nat_to_guest
+- Gravité : moyenne
+- Action : Déplacer le service {private_ip} hors du VLAN {vlan} (zone invité) ou supprimer la publication.
+- Applicable : non
+- Pourquoi : Le réseau des invités héberge des appareils non maîtrisés ; y publier un service mélange l'exposition Internet et un réseau sans confiance.
+- Vérifier : Plus aucune publication ne vise une adresse du VLAN invité.
+
+## R-NET-13 · Publication vers une adresse inconnue
+- Quand : nat_unknown_target
+- Gravité : basse
+- Action : Vérifier la cible {private_ip} : la mettre à jour ou supprimer la publication si le service n'existe plus.
+- Applicable : non
+- Pourquoi : Une publication orpheline peut se réactiver le jour où l'adresse est réattribuée à un autre appareil.
+- Vérifier : Chaque publication vise un hôte connu d'un VLAN de la passerelle.
+
+## R-NET-14 · SSID invité hors zone invité
+- Quand : ssid_guest_not_isolated
+- Gravité : moyenne
+- Action : Mettre l'interface {interface} (VLAN {vlan}) en zone invité sur la passerelle, ou vérifier dans Nebula que les règles de sécurité interdisent l'accès des invités ({ssids}) aux réseaux internes.
+- Applicable : non
+- Pourquoi : Les règles de sécurité de la passerelle ne sont pas lisibles par l'API ; seule la zone invité garantit, de façon visible, l'isolation du réseau interne.
+- Vérifier : Depuis le SSID invité, les adresses internes sont injoignables (test actif ssid-vlan-check) et l'anomalie disparaît.
+
+## R-NET-15 · SSID non invité en zone invité
+- Quand : guest_zone_mixed
+- Gravité : basse
+- Action : Déplacer le SSID {ssids} vers un VLAN hors zone invité si ses utilisateurs doivent joindre les ressources internes.
+- Applicable : non
+- Pourquoi : Les clients d'un VLAN en zone invité sont isolés comme des invités : imprimantes, partages et serveurs internes leur sont refusés.
+- Vérifier : Les utilisateurs du SSID joignent les ressources attendues.

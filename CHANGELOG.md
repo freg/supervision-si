@@ -1,3 +1,15 @@
+## 2026-10-07 — Nebula : passerelle USG FLEX -- publications vers Internet et zones invité (livraison #712)
+
+Vérifié dans la documentation officielle de l'OpenAPI Nebula : **aucune route ne publie les règles de sécurité** (security
+policies) ni les zones du pare-feu ; lisibles : interfaces (`guestZone`, déjà exploitée) et NAT
+(`gw/{devId}/nat-settings` : `oneToOne`, `virtualServer`). `nebula/api/gwpolicy.py` en déduit des anomalies de la carte
+des VLAN (donc des rapports et alertes #703) : port sensible publié à tout Internet (SSH, RDP, SMB, bases, Proxmox,
+Docker…, `nat_sensitive_port`, haute) ou à une origine restreinte (basse), NAT 1:1 sans restriction (`nat_whole_host`),
+service publié depuis la zone invité, publication vers une adresse inconnue, SSID invité sur un VLAN hors zone invité
+(isolation à la seule charge de règles invisibles), SSID non invité en zone invité ; règles R-NET-09 à 15. Petites plages
+seulement pour les ports sensibles (8006 au milieu de 8000-8010 n'est pas Proxmox). Hub, carte des VLAN : tableau
+« Publications vers Internet ». Tests : `test_gwpolicy.py` (3), nebula 44 verts.
+
 ## 2026-10-07 — Vulnérabilités : inventaire Windows / macOS et images Docker (livraison #711, agent 0.5.49)
 
 Suite de #699 (Linux). `sbomctl` : syft officiel de chaque plateforme (archive `.zip` Windows / `.tar.gz` macOS,

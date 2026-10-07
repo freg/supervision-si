@@ -86,6 +86,18 @@ export default function NebulaVlan({ nebulaApiBase, groups = [], login = "", foc
               <ul>{map.links.filter((l) => l.external).map((l, i) => <li key={i}>{l.a_name} port {l.a_port} → {l.b_name}{l.b_port ? ` (port ${l.b_port})` : ""}</li>)}</ul>
             </details>
           )}
+          {/* #712 : publications vers Internet (NAT de la passerelle) ; les règles de sécurité ne sont pas lisibles par l'OpenAPI */}
+          <h3>Publications vers Internet (NAT de la passerelle){map.nat ? ` (${map.nat.filter((r) => r.enabled).length})` : ""}</h3>
+          {!map.nat?.length ? <p className="muted">Aucune publication (ou passerelle absente du site).</p> : (
+            <AutoColumns id="NebulaVlan.nat"><table>
+              <thead><tr><th>Type</th><th>Nom</th><th>Adresse publique</th><th>Ports</th><th>Vers</th><th>Origine</th><th>Active</th></tr></thead>
+              <tbody>{map.nat.map((r, i) => (
+                <tr key={i} className={r.enabled ? "" : "muted"}><td>{r.kind}</td><td>{r.name || "—"}</td><td>{r.public_ip || "—"}</td>
+                  <td>{r.all_ports ? "tous" : (r.ports.length > 6 ? `${r.ports[0]}–${r.ports[r.ports.length - 1]} (${r.ports.length})` : r.ports.join(", "))}{r.protocol && r.protocol !== "tout" ? ` ${r.protocol}` : ""}</td>
+                  <td>{r.private_ip || "—"}{r.private_ports?.length ? `:${r.private_ports.join(",")}` : ""}</td>
+                  <td>{r.any_remote ? <span style={{ color: "var(--danger)" }}>tout Internet</span> : r.remote.join(", ")}</td><td>{r.enabled ? "oui" : "non"}</td></tr>))}</tbody>
+            </table></AutoColumns>)}
+          <p className="muted" style={{ fontSize: 12 }}>Les règles de sécurité (security policies) du USG FLEX ne sont pas publiées par l'OpenAPI Nebula : l'isolation se lit par la zone invité des interfaces et se prouve par le test actif (matrice SSID).</p>
         </div>
       )}
     </div>

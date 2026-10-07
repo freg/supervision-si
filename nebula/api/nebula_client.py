@@ -221,6 +221,10 @@ class NebulaClient:
     def gw_interface_settings(self, site_id, dev_id):
         return self._get(f"/v1/nebula/{site_id}/gw/{dev_id}/interface-settings", f"interfaces de la passerelle '{dev_id}' échouées")
 
+    def gw_nat_settings(self, site_id, dev_id):
+        """#712 : NAT de la passerelle -- {"oneToOne": [...], "virtualServer": [...]} (lecture seule)."""
+        return self._get(f"/v1/nebula/{site_id}/gw/{dev_id}/nat-settings", f"NAT de la passerelle '{dev_id}' échoué")
+
     def ap_wlan_settings(self, site_id):
         return self._get(f"/v1/nebula/{site_id}/ap/wlan-settings", f"SSID du site '{site_id}' échoués")
 

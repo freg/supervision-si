@@ -30,6 +30,7 @@ import csv_import
 import health as health_lib
 import vlanmap  # `health` est aussi la route /health
 import ssidmatrix  # #686
+import gwpolicy  # #712 : NAT et zones invité de la passerelle
 import topology as topology_lib
 import rules as rules_lib
 import campus as campus_lib
@@ -437,6 +438,20 @@ def collect_vlan_map(client, site_id, with_clients=True):
     clients = safe("clients", client.sw_clients, site_id, "1d") if with_clients else None
     vmap = vlanmap.build_vlan_map(devices, {k: v for k, v in ports.items() if v is not None}, {k: v for k, v in lldp.items() if v is not None},
                                   gw, wlans, {k: v for k, v in ip_status.items() if v is not None}, {k: v for k, v in macs.items() if v is not None}, clients)
+    # #712 : exposition (NAT) et cohérence des zones invité -- les règles de sécurité ne sont pas publiées par l'OpenAPI
+    nat = safe("NAT", client.gw_nat_settings, site_id, gw_ids[0]) if gw_ids and hasattr(client, "gw_nat_settings") else None
+    vmap["nat"] = gwpolicy.parse_nat(nat) if nat else []
+    extra = gwpolicy.anomalies(vmap["nat"], vmap)
+    if extra:
+        import hashlib
+        known = set(vmap.get("anomalies") or [])
+        for f in extra:
+            if f["message"] in known:
+                continue
+            known.add(f["message"])
+            f["id"] = hashlib.sha1((f["kind"] + "|" + f["message"]).encode("utf-8")).hexdigest()[:12]
+            vmap.setdefault("anomalies_detail", []).append(f)
+            vmap.setdefault("anomalies", []).append(f["message"])
     vmap["errors"] = errors
     vmap["devices"] = [{"devId": d.get("devId"), "name": d.get("name"), "model": d.get("model"), "type": d.get("type")} for d in devices]
     vmap["site_id"] = site_id

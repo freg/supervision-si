@@ -66,7 +66,7 @@ résultats remontés au hub ; (3) **audit** : outils (nmap, testssl.sh, nuclei, 
 limité à nos propres domaines/IP (liste blanche côté hub), débit bridé, rapports archivés (GED) et comparés d'une
 campagne à l'autre. À vérifier : conditions de l'hébergeur sur les scans sortants.
 
-## Nebula : architecture active déduite (matrice SSID x VLAN prévue / observée / prouvée) (2026-10-05) — matrice FAITE (#686) ; reste : security policies USG FLEX
+## Nebula : architecture active déduite (matrice SSID x VLAN prévue / observée / prouvée) (2026-10-05) — matrice FAITE (#686) ; USG FLEX : NAT et zones invité FAITS (#712) — security policies NON exposées par l'OpenAPI (doc officielle vérifiée), isolation prouvée par le test actif
 
 Demandé : « on a des stats de tout, les listes de tout : on doit pouvoir en déduire l'architecture active ». Trois niveaux :
 (1) **prévue** : SSID→VLAN, VLAN sur ports et liaisons LLDP (carte des VLAN #548, déjà là), interfaces de la passerelle,
