@@ -1672,7 +1672,8 @@ def get_logs():
 
 
 # #705 : maintenance / réorganisation des Proxmox (campagnes, avancement détecté, planification, sauvegardes)
-maint.register(app, DB_PATH, lambda: store.latest_proxmox(DB_PATH), start_loop=os.environ.get("SI_AGENT_PURGE_THREAD", "1") == "1")
+maint.register(app, DB_PATH, lambda: store.latest_proxmox(DB_PATH), start_loop=os.environ.get("SI_AGENT_PURGE_THREAD", "1") == "1",
+               emit=lambda kind, sev, msg, details: _event(kind, sev, msg, details=details, source="maintenance"))
 
 
 if __name__ == "__main__":

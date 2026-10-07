@@ -1,3 +1,11 @@
+## 2026-10-07 — Maintenance des Proxmox : signalements (livraison #706)
+
+Le planificateur de #705 inscrit au journal d'événements du central (source « maintenance ») : échec d'une opération
+(`maint.echec`, avertissement), action datée non faite 15 min après l'heure (`maint.retard`, avertissement), étape
+terminée (`maint.etape`), campagne terminée (`maint.campagne`). Chaque changement n'est signalé qu'une fois (marques
+conservées à la modification de la campagne) ; les avertissements partent sur les canaux de notification du central
+(SMS / courriel / webhook, seuil et anti-tempête existants). Campagnes « actives » seulement. Tests : `test_maint.py` (10).
+
 ## 2026-10-07 — Tuile « Maintenance des Proxmox » : campagnes, avancement constaté, planification, sauvegardes (livraison #705)
 
 Demandé : liste d'étapes et d'actions dans les étapes ; suivi d'avancement détecté ; planification des tâches ; gestion

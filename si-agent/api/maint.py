@@ -253,6 +253,40 @@ def due_actions(camp, now):
     return out
 
 
+LATE_S = 15 * 60          # action datée non faite après ce délai : « en retard »
+
+
+def transitions(camp, now):
+    """Changements à signaler depuis le dernier passage (pur, marque ce qui est signalé) -> [(genre, sévérité, message)].
+    À appeler sur une campagne évaluée : échec d'une opération, action en retard, étape terminée, campagne terminée."""
+    out = []
+    name = camp.get("name")
+    for st in camp.get("stages") or []:
+        for a in st.get("actions") or []:
+            n = a.setdefault("notified", {})
+            rid = (a.get("run") or {}).get("run_id")
+            if a.get("state") == "failed" and rid and n.get("failed") != rid:
+                n["failed"] = rid
+                out.append(("maint.echec", "warning", "Maintenance « %s » : échec de « %s » (exécution n°%s)" % (name, a["title"], rid)))
+            late = a.get("at") and a.get("state") not in ("done", "running", "failed") and now - a["at"] > LATE_S and camp.get("status") == "active"
+            if late and not n.get("late"):
+                n["late"] = int(now)
+                out.append(("maint.retard", "warning", "Maintenance « %s » : « %s » prévue le %s n'est pas faite" % (
+                    name, a["title"], time.strftime("%d/%m %H:%M", time.localtime(a["at"])))))
+            elif not late and a.get("state") == "done":
+                n.pop("late", None)
+        if st.get("state") == "done" and not st.get("notified_done"):
+            st["notified_done"] = int(now)
+            out.append(("maint.etape", "info", "Maintenance « %s » : étape « %s » terminée" % (name, st["title"])))
+        elif st.get("state") != "done" and st.get("notified_done"):
+            st.pop("notified_done", None)                  # régression (constat redevenu faux) : resignalée à la prochaine fin
+    total = (camp.get("progress") or {}).get("total")
+    done_before = any(h.get("event") == "completed" for h in camp.get("history") or [])
+    if total and camp["progress"]["done"] == total and not done_before:
+        out.append(("maint.campagne", "info", "Maintenance « %s » terminée (%d actions)" % (name, total)))
+    return out
+
+
 # ------------------------------------------------------------------ pur : validation
 
 def validate(body):
@@ -276,7 +310,8 @@ def validate(body):
                 return None, "%s : type manual ou pra" % where
             act = {"id": str(a.get("id") or uuid.uuid4().hex[:10]), "title": str(a.get("title") or "").strip(), "kind": kind,
                    "notes": str(a.get("notes") or ""), "manual_done": bool(a.get("manual_done")), "manual_by": a.get("manual_by"),
-                   "manual_at": a.get("manual_at"), "detected_at": a.get("detected_at"), "run": a.get("run") or None}
+                   "manual_at": a.get("manual_at"), "detected_at": a.get("detected_at"), "run": a.get("run") or None,
+                   "notified": a.get("notified") or {}}
             if kind == "pra":
                 steps, err = pra.validate_steps([a.get("step") or {}])
                 if err:
@@ -302,7 +337,7 @@ def validate(body):
                 act["auto"] = bool(a.get("auto")) and kind == "pra"
             acts.append(act)
         stages.append({"id": str(st.get("id") or uuid.uuid4().hex[:10]), "title": title, "notes": str(st.get("notes") or ""),
-                       "require_previous": bool(st.get("require_previous")), "actions": acts})
+                       "require_previous": bool(st.get("require_previous")), "actions": acts, "notified_done": st.get("notified_done")})
     return {"name": name, "notes": str(body.get("notes") or ""), "status": status, "stages": stages}, None
 
 
@@ -432,11 +467,11 @@ def pbs_overview(snap, old_h=48):
 SCHEMA = """CREATE TABLE IF NOT EXISTS maint_campaigns (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'draft',
     notes TEXT DEFAULT '', stages TEXT NOT NULL DEFAULT '[]', history TEXT NOT NULL DEFAULT '[]', created_at TEXT, updated_at TEXT, by_user TEXT DEFAULT '')"""
 _lock = threading.Lock()
-_db = {"path": None, "latest": None}
+_db = {"path": None, "latest": None, "emit": None}
 
 
-def init(db_path, latest_proxmox):
-    _db["path"], _db["latest"] = db_path, latest_proxmox
+def init(db_path, latest_proxmox, emit=None):
+    _db["path"], _db["latest"], _db["emit"] = db_path, latest_proxmox, emit
     conn = store._connect(db_path)
     try:
         conn.execute(SCHEMA); conn.commit()
@@ -518,6 +553,16 @@ def tick(now=None, snap=None):
         try:
             for r in conn.execute("SELECT id FROM maint_campaigns WHERE status = 'active'").fetchall():
                 camp = _evaluated(conn, _row(conn, r["id"]), snap)
+                events = transitions(camp, now)
+                if events:
+                    for kind, sev, text in events:
+                        if _db["emit"]:
+                            try:
+                                _db["emit"](kind, sev, text, {"campaign_id": camp["id"], "campaign": camp["name"]})
+                            except Exception:  # noqa: BLE001 -- un événement manqué ne bloque pas la maintenance
+                                pass
+                    _save(conn, camp, {"event": "completed"} if any(k == "maint.campagne" for k, _s, _t in events) else None)
+                    conn.commit()
                 for a in due_actions(camp, now):
                     rid = launch(conn, camp, a, "execute", "planificateur")
                     launched.append(rid)
@@ -544,9 +589,10 @@ def _loop(period=60):
         time.sleep(period)
 
 
-def register(app, db_path, latest_proxmox, start_loop=True):
+def register(app, db_path, latest_proxmox, start_loop=True, emit=None):
+    """emit(kind, severity, message, details) : journal d'événements du central (+ notification selon le seuil)."""
     from flask import jsonify, request
-    init(db_path, latest_proxmox)
+    init(db_path, latest_proxmox, emit)
 
     def conn_():
         return store._connect(db_path)
@@ -626,8 +672,12 @@ def register(app, db_path, latest_proxmox, start_loop=True):
                 for a in st["actions"]:
                     p = prev.get(a["id"])
                     if p:
-                        for k in ("detected_at", "run"):
+                        for k in ("detected_at", "run", "notified"):
                             a[k] = a.get(k) or p.get(k)
+            prev_st = {st_["id"]: st_ for st_ in old["stages"]}
+            for st_ in camp["stages"]:
+                if prev_st.get(st_["id"], {}).get("notified_done"):
+                    st_["notified_done"] = prev_st[st_["id"]]["notified_done"]
             camp.update(id=cid, history=old["history"])
             _save(c, camp, {"event": "updated", "by": body.get("actor"), "status": camp["status"] if camp["status"] != old["status"] else None}); c.commit()
             camp = _evaluated(c, _row(c, cid), current_snapshot())

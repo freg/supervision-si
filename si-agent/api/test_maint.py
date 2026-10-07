@@ -150,6 +150,27 @@ class Evaluation(unittest.TestCase):
         self.assertEqual(o["summary"], {"guests": 3, "uncovered": 2, "never": 1, "old": 1, "failed": 1, "on_pbs": 1})
 
 
+class Signalements(unittest.TestCase):
+    def test_transitions(self):
+        c = CAMP()
+        c["stages"][0]["actions"][0]["run"] = {"run_id": 9}
+        c, _ = maint.evaluate(c, snap(), runs={9: "failed"}, now=NOW)
+        ev = maint.transitions(c, NOW)
+        self.assertEqual([e[0] for e in ev], ["maint.echec"])                          # « Supprimer 101 » prévue il y a 1 min : pas encore en retard
+        self.assertEqual(maint.transitions(c, NOW), [])                                 # signalé une fois
+        ev = maint.transitions(c, NOW + 20 * 60)
+        self.assertEqual([e[0] for e in ev], ["maint.retard"]); self.assertIn("Supprimer 101", ev[0][2])
+        # tout fait : étapes puis campagne terminées
+        vms = [{"vmid": 102, "type": "lxc", "status": "stopped", "last_backup": {"at": NOW - 60, "volid": "local:x"}}]
+        c["stages"][0]["actions"][0]["run"] = {"run_id": 10}
+        c["stages"][2]["actions"][0]["manual_done"] = True
+        c, _ = maint.evaluate(c, snap(vms_a=vms), runs={10: "done"}, now=NOW)
+        kinds = [e[0] for e in maint.transitions(c, NOW + 30 * 60)]
+        self.assertEqual(kinds, ["maint.etape"] * 3 + ["maint.campagne"])
+        c["history"] = [{"event": "completed"}]
+        self.assertEqual(maint.transitions(c, NOW + 31 * 60), [])
+
+
 class Routes(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -157,8 +178,9 @@ class Routes(unittest.TestCase):
         store.ensure_schema(cls.db); pra.init(cls.db)
         store.create_agent(cls.db, "pve-alpha", "siege", label="pve-alpha")
         cls.data = {"px": px()}
+        cls.events = []
         app = Flask("t")
-        maint.register(app, cls.db, lambda: cls.data["px"], start_loop=False)
+        maint.register(app, cls.db, lambda: cls.data["px"], start_loop=False, emit=lambda *a: cls.events.append(a))
         cls.c = app.test_client()
 
     def test_cycle(self):
@@ -208,6 +230,14 @@ class Routes(unittest.TestCase):
         camp = self.c.get("/maint/campaigns/%d" % cid).get_json()["campaign"]
         self.assertEqual(camp["stages"][0]["actions"][0]["run"]["run_id"], 4242)
         self.assertEqual(camp["history"][-1]["event"], "auto-run")
+        self.data["px"] = px(vms_a=[{"vmid": 102, "type": "lxc", "status": "stopped", "last_backup": {"at": time.time() - 60, "volid": "local:x"}}])
+        conn = store._connect(self.db)
+        conn.execute("INSERT INTO pra_runs (id, plan_id, mode, status, started_at) VALUES (4242, 1, 'execute', 'done', '')"); conn.commit(); conn.close()
+        maint.tick()
+        self.assertEqual([e[0] for e in self.events][-2:], ["maint.etape", "maint.campagne"])
+        self.assertEqual(self.events[-1][3]["campaign_id"], cid)
+        n = len(self.events); maint.tick(); self.assertEqual(len(self.events), n)
+        self.data["px"] = px()
         self.c.delete("/maint/campaigns/%d" % cid)
 
 
