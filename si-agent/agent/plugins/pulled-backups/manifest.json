@@ -1,0 +1,13 @@
+{
+  "id": "pulled-backups",
+  "version": "1",
+  "runner": "python",
+  "entry": "pulled_backups.py",
+  "interval_seconds": 900,
+  "timeout_seconds": 60,
+  "args": ["--index", "/srv/backup/dumps/pulls.jsonl", "--max-age-days", "8"],
+  "enabled": false,
+  "description": "Sonde « sauvegardes tirées » (#714), sur le serveur de sauvegarde du LAN : lit le journal de pve-pull-backup.sh (pulls.jsonl) et remonte, par nœud et CT, la dernière sauvegarde (date, taille, empreinte, présence du fichier), les échecs et l'espace libre. Constats : pull-failed (dernière tentative en échec), pull-old (plus vieille que --max-age-days), pull-missing (fichier disparu). Le hub (Maintenance des Proxmox) s'en sert pour constater « sauvegarde faite » sur des PVE trop anciens pour PBS. Lecture seule.",
+  "source": "bundled",
+  "privileged": false
+}

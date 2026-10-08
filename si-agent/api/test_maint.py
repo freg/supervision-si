@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """#705 : maintenance des Proxmox -- détecteurs sur mesures simulées, évaluation (constat acquis, coche, exécution),
 modèles, planificateur, vue des sauvegardes, routes sur une application de test (base temporaire)."""
-import os, sys, tempfile, time, unittest
+import json, os, sys, tempfile, time, unittest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
     import si_agent_plugins  # noqa: F401  (image Docker)
@@ -171,6 +171,26 @@ class Signalements(unittest.TestCase):
         self.assertEqual(maint.transitions(c, NOW + 31 * 60), [])
 
 
+class SauvegardesTirees714(unittest.TestCase):
+    def test_detecteur_modele_vue(self):
+        pulled = [{"host": "pve-1", "vmid": 108, "at": NOW - 5 * 3600, "ok": True, "size": 3 * maint.GIB, "present": True},
+                  {"host": "pve-1", "vmid": 102, "at": None, "ok": False, "last_error": "ssh"},
+                  {"host": "pve-3", "vmid": 113, "at": NOW - 400 * 3600, "ok": True, "present": True}]
+        s = maint.snapshot(px(), NOW, {}, pulled)
+        c = lambda **p: maint.check({"type": "pulled_backup", "params": p}, s)
+        self.assertEqual(c(vmid=108, host="pve-1", max_age_h=24)["state"], "done"); self.assertIn("3.0 Go", c(vmid=108, host="pve-1")["detail"])
+        self.assertEqual(c(vmid=102, host="pve-1")["state"], "pending")
+        self.assertEqual(c(vmid=113, host="pve-3", max_age_h=24)["state"], "pending")
+        self.assertEqual(c(vmid=101, host="pve-1")["state"], "pending")
+        self.assertEqual(maint.check({"type": "pulled_backup", "params": {"vmid": 1, "host": "x"}}, snap())["state"], "unknown")   # aucune sonde
+        t = maint.template("free_node", {"node": "pve-alpha", "agent_id": "pve-alpha", "vmids": [101], "pull_host": "198.51.100.5"}, s)
+        a = t["stages"][0]["actions"][0]
+        self.assertEqual((a["kind"], a["detector"]["type"], a["detector"]["params"]["host"]), ("manual", "pulled_backup", "pve-alpha"))
+        self.assertIn("PULL_NAME=pve-alpha /usr/local/sbin/pve-pull-backup.sh 198.51.100.5 101 stop", a["notes"])
+        self.assertIsNone(maint.validate(dict(t, status="draft"))[1])
+        self.assertEqual(len(maint.pbs_overview(s)["pulled"]), 3)
+
+
 class Routes(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -212,6 +232,12 @@ class Routes(unittest.TestCase):
         lst = self.c.get("/maint/campaigns").get_json()["campaigns"]
         self.assertEqual((lst[0]["name"], lst[0]["progress"]["done"]), ("Libérer alpha (v2)", 1))
         self.assertEqual(self.c.get("/maint/backups").get_json()["summary"]["guests"], 3)
+        # #714 : mesure de la sonde pulled-backups relue par le central
+        conn = store._connect(self.db)
+        conn.execute("INSERT INTO measurements (agent_id, task, at, ok, data, received_at) VALUES ('pve-alpha', 'plugin:pulled-backups', '2026-10-08T09:00:00Z', 1, ?, '2026-10-08T09:00:01Z')",
+                     (json.dumps({"backups": [{"host": "pve-alpha", "vmid": 102, "at": time.time() - 60, "ok": True, "present": True}]}),))
+        conn.commit(); conn.close()
+        self.assertEqual(self.c.get("/maint/backups").get_json()["pulled"][0]["agent_id"], "pve-alpha")
         self.assertEqual(self.c.delete("/maint/campaigns/%d" % cid).status_code, 200)
         self.assertEqual(self.c.get("/maint/campaigns/%d" % cid).status_code, 404)
 

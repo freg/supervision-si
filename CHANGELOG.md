@@ -1,3 +1,14 @@
+## 2026-10-08 — Sauvegardes « tirées » des PVE anciens vers le LAN (livraison #714, agent 0.5.50)
+
+Constat réel : PVE 5.4 sur les trois nœuds en ligne (pas de stockage PBS avant 6.2), nœuds pleins (pas de place pour un
+vzdump local). Le serveur de sauvegarde du LAN tire l'archive : `si-agent/tools/pve-pull-backup.sh <hôte> <vmid> [mode]
+[garder]` (`ssh root@hôte "vzdump --stdout --compress gzip"`, connexion sortante du LAN, aucun espace temporaire sur le
+nœud, archive vérifiée, SHA-256, rétention, journal `pulls.jsonl`) ; essai réel réussi sur un CT arrêté. Sonde
+`pulled-backups` (agent du serveur de sauvegarde) : dernière sauvegarde par nœud / CT, échecs, fichier disparu, ancienneté.
+Maintenance des Proxmox : détecteur `pulled_backup` (constat « sauvegarde faite » sans PBS), modèle « Libérer un nœud »
+avec sauvegarde tirée (commande prête dans la consigne), vue Sauvegardes : tableau des sauvegardes tirées. Tests :
+`test_pulled_backups.py` (script avec ssh simulé + sonde), `test_maint.py` (11).
+
 ## 2026-10-07 — Messagerie : groupe dédié et exports CSV (livraison #713)
 
 Fin de l'item « Serveur de messagerie » : la tuile n'est plus réservée aux administrateurs -- groupe / rôle Keycloak

@@ -256,8 +256,10 @@ function TemplatePicker({ catalog, base, onReady, onError }) {
           {node && <>
             <div style={{ maxHeight: 160, overflow: "auto", fontSize: 13 }}>{node.vms.map((v) => <label key={v.vmid} style={{ display: "block" }}>
               <input type="checkbox" checked={(p.vmids || []).includes(v.vmid)} onChange={() => toggle(v.vmid)} /> {v.vmid} {v.name} <span className="muted">({v.status}, {gb(v.maxdisk)})</span></label>)}</div>
-            <label>Sauvegarder vers <select value={p.backup_storage || ""} onChange={(e) => setP({ ...p, backup_storage: e.target.value })}><option value="">—</option>
-              {node.storages.map((s) => <option key={s.storage} value={s.storage}>{s.storage} ({s.type}, {gb(s.avail)} libres)</option>)}</select></label>
+            <label title="PVE plein ou trop ancien pour PBS (5.x) : le serveur de sauvegarde du LAN tire l'archive par SSH (pve-pull-backup.sh)">
+              Sauvegarde tirée depuis le LAN, adresse du nœud <input value={p.pull_host || ""} onChange={(e) => setP({ ...p, pull_host: e.target.value.trim() })} placeholder="IP publique du nœud (sinon : stockage ci-dessous)" /></label>
+            {!p.pull_host && <label>Sauvegarder vers <select value={p.backup_storage || ""} onChange={(e) => setP({ ...p, backup_storage: e.target.value })}><option value="">—</option>
+              {node.storages.map((s) => <option key={s.storage} value={s.storage}>{s.storage} ({s.type}, {gb(s.avail)} libres)</option>)}</select></label>}
             <label>Espace à constater sur <select value={p.free_storage || ""} onChange={(e) => setP({ ...p, free_storage: e.target.value })}><option value="">(aucun)</option>
               {node.storages.map((s) => <option key={s.storage} value={s.storage}>{s.storage}</option>)}</select>
               {p.free_storage && <> ≥ <input type="number" style={{ width: 70 }} value={p.min_free_gb || ""} onChange={(e) => setP({ ...p, min_free_gb: +e.target.value })} /> Go</>}</label>
@@ -316,6 +318,11 @@ function Backups({ base }) {
         <AutoColumns id="PveMaintView.2"><table><thead><tr><th>Nœud</th><th>Stockage</th><th>Type</th><th>Occupation</th></tr></thead>
           <tbody>{d.stores.map((x) => <tr key={`${x.node}|${x.storage}`}><td>{x.node}</td><td>{x.storage}</td><td>{x.type}</td>
             <td>{x.total ? <><Bar pct={Math.round(100 * (x.used || 0) / x.total)} /> {gb(x.used)} / {gb(x.total)} ({gb(x.avail)} libres)</> : "—"}</td></tr>)}</tbody></table></AutoColumns></div>
+      {d.pulled?.length > 0 && <div style={box}><strong>Sauvegardes tirées vers le LAN</strong> <span className="muted">(pve-pull-backup.sh, sonde pulled-backups)</span>
+        <AutoColumns id="PveMaintView.pulled"><table><thead><tr><th>Nœud</th><th>CT</th><th>Dernière réussie</th><th>Taille</th><th>Fichier</th><th>Dernière tentative</th></tr></thead>
+          <tbody>{d.pulled.map((b) => <tr key={`${b.host}|${b.vmid}`}><td>{b.host}</td><td>{b.vmid}</td>
+            <td>{b.at ? `${when(b.at)} (${b.age_h} h)` : "—"}</td><td>{gb(b.size)}</td><td>{b.present === false ? <Tone tone="bad">absent</Tone> : b.file ? "présent" : "—"}</td>
+            <td>{b.ok ? <Tone tone="good">réussie</Tone> : <Tone tone="bad">{b.last_error || "échec"}</Tone>}</td></tr>)}</tbody></table></AutoColumns></div>}
       <div style={box}><strong>Tâches planifiées</strong>
         {d.jobs.length ? <AutoColumns id="PveMaintView.3"><table><thead><tr><th>Tâche</th><th>Active</th><th>Planification</th><th>Stockage</th><th>CT/VM</th><th>Mode</th><th>Rétention</th></tr></thead>
           <tbody>{d.jobs.map((j) => <tr key={`${j.node}|${j.id}`}><td>{j.id}</td><td>{j.enabled ? "oui" : "non"}</td><td>{j.schedule}</td><td>{j.storage}</td>

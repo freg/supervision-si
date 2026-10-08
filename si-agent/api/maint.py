@@ -30,14 +30,17 @@ DETECTORS = {
     "storage_present": {"label": "Stockage déclaré et actif", "fields": ["node", "storage", "type?"]},
     "backup_job": {"label": "Tâche de sauvegarde planifiée", "fields": ["storage", "vmid?"]},
     "agent_version": {"label": "Version de l'agent", "fields": ["agent_id", "min_version"]},
+    # #714 : sauvegarde tirée vers le LAN (pve-pull-backup.sh + sonde pulled-backups) -- PVE trop anciens pour PBS
+    "pulled_backup": {"label": "Sauvegarde tirée vers le LAN", "fields": ["vmid", "host", "max_age_h"]},
 }
 STATUSES = ("draft", "active", "done", "archived")
 
 
 # ------------------------------------------------------------------ pur : instantané des mesures
 
-def snapshot(px, now=None, agents=None):
-    """latest_proxmox -> {nodes: {nom: {agent_id, at, stale, storages, vms}}, jobs: [...], agents: {id: version}}."""
+def snapshot(px, now=None, agents=None, pulled=None):
+    """latest_proxmox -> {nodes: {nom: {agent_id, at, stale, storages, vms}}, jobs: [...], agents: {id: version},
+    pulled: [sauvegardes tirées (#714)]}."""
     now = now or time.time()
     nodes, jobs, seen = {}, [], set()
     for p in px or []:
@@ -50,7 +53,7 @@ def snapshot(px, now=None, agents=None):
             key = (j.get("id"), j.get("storage"), j.get("schedule"))
             if key not in seen:
                 seen.add(key); jobs.append(dict(j, node=name))
-    return {"nodes": nodes, "jobs": jobs, "agents": dict(agents or {}), "now": now}
+    return {"nodes": nodes, "jobs": jobs, "agents": dict(agents or {}), "now": now, "pulled": list(pulled or [])}
 
 
 def _epoch(v):
@@ -176,6 +179,19 @@ def check(det, snap):
             if j.get("enabled") and j.get("storage") == p.get("storage") and (vmid is None or j.get("all") or vmid in (j.get("vmids") or [])):
                 return _res("done", "tâche %s vers %s (%s)" % (j.get("id"), j.get("storage"), j.get("schedule") or "?"))
         return _res("pending", "aucune tâche active vers %s%s" % (p.get("storage"), " pour %s" % vmid if vmid else ""))
+
+    if t == "pulled_backup":
+        if vmid is None or not p.get("host"):
+            return _res("unknown", "vmid et hôte requis")
+        rows = [b for b in snap.get("pulled") or [] if str(b.get("host")) == str(p["host"]) and int(b.get("vmid") or -1) == vmid]
+        if not rows:
+            return _res("unknown" if not snap.get("pulled") else "pending", "aucune sauvegarde tirée de %s/%s connue (sonde pulled-backups)" % (p["host"], vmid))
+        b = max(rows, key=lambda x: x.get("at") or 0)
+        if not b.get("at"):
+            return _res("pending", "sauvegarde tirée de %s/%s jamais réussie : %s" % (p["host"], vmid, b.get("last_error") or "?"))
+        age = now - float(b["at"])
+        txt = "sauvegarde tirée de %s/%s il y a %.0f h (%.1f Go%s)" % (p["host"], vmid, age / 3600, (b.get("size") or 0) / GIB, "" if b.get("present", True) else ", FICHIER ABSENT")
+        return _res("done" if age <= float(p.get("max_age_h") or 168) * 3600 and b.get("present", True) else "pending", txt)
 
     if t == "agent_version":
         v = snap["agents"].get(p.get("agent_id"))
@@ -354,12 +370,17 @@ def template(kind, p, snap):
     """Modèles de campagne -> {name, notes, stages} (non enregistré)."""
     vmids = [int(x) for x in p.get("vmids") or [] if str(x).isdigit()]
     if kind == "free_node":
-        node, agent, storage = p.get("node"), p.get("agent_id"), p.get("backup_storage")
-        if not (node and agent and storage and vmids):
-            raise ValueError("nœud, agent, stockage de sauvegarde et au moins un CT/VM requis")
-        st1 = [{"title": "Sauvegarder %s" % v, "kind": "pra",
-                "step": {"agent_id": agent, "vmid": v, "kind": _kind_of(snap, v), "action": "backup", "params": {"storage": storage, "mode": "stop"}},
-                "detector": {"type": "backup_recent", "params": {"vmid": v, "max_age_h": 24 * 7, "storage": storage}}} for v in vmids]
+        node, agent, storage, pull = p.get("node"), p.get("agent_id"), p.get("backup_storage"), p.get("pull_host")
+        if not (node and agent and (storage or pull) and vmids):
+            raise ValueError("nœud, agent, stockage de sauvegarde (ou hôte de sauvegarde tirée) et au moins un CT/VM requis")
+        if pull:                                      # #714 : nœud plein ou trop ancien pour PBS -> sauvegarde tirée depuis le LAN
+            st1 = [{"title": "Sauvegarde tirée de %s vers le LAN" % v, "kind": "manual",
+                    "notes": "Sur le serveur de sauvegarde : PULL_NAME=%s /usr/local/sbin/pve-pull-backup.sh %s %d stop" % (node, pull, v),
+                    "detector": {"type": "pulled_backup", "params": {"vmid": v, "host": node, "max_age_h": 24 * 7}}} for v in vmids]
+        else:
+            st1 = [{"title": "Sauvegarder %s" % v, "kind": "pra",
+                    "step": {"agent_id": agent, "vmid": v, "kind": _kind_of(snap, v), "action": "backup", "params": {"storage": storage, "mode": "stop"}},
+                    "detector": {"type": "backup_recent", "params": {"vmid": v, "max_age_h": 24 * 7, "storage": storage}}} for v in vmids]
         st3 = [{"title": "Supprimer %s" % v, "kind": "pra",
                 "step": {"agent_id": agent, "vmid": v, "kind": _kind_of(snap, v), "action": "destroy", "params": {"confirm": v}},
                 "detector": {"type": "guest_absent", "params": {"vmid": v, "node": node}}} for v in vmids]
@@ -454,7 +475,7 @@ def pbs_overview(snap, old_h=48):
                            "storage": str(b.get("volid") or "").split(":")[0] or None, "jobs": vm.get("backup_jobs") or [],
                            "last_run_ok": run.get("ok"), "flags": flags, "stale": n["stale"]})
     pbs = [s for s in stores if s["type"] == "pbs"]
-    return {"stores": stores, "jobs": snap["jobs"], "guests": guests, "has_pbs": bool(pbs),
+    return {"stores": stores, "jobs": snap["jobs"], "guests": guests, "has_pbs": bool(pbs), "pulled": snap.get("pulled") or [],
             "summary": {"guests": len(guests), "uncovered": sum(1 for g in guests if "hors tâche planifiée" in g["flags"]),
                         "never": sum(1 for g in guests if "jamais sauvegardé" in g["flags"]),
                         "old": sum(1 for g in guests if any(f.startswith("sauvegarde de plus") for f in g["flags"])),
@@ -483,9 +504,18 @@ def current_snapshot(now=None):
     conn = store._connect(_db["path"])
     try:
         agents = {r["agent_id"]: r["agent_version"] for r in conn.execute("SELECT agent_id, agent_version FROM agents")}
+        pulled = []
+        for r in conn.execute("SELECT m.agent_id, m.data FROM measurements m JOIN (SELECT agent_id, MAX(at) AS at FROM measurements "
+                              "WHERE task = 'plugin:pulled-backups' GROUP BY agent_id) l ON l.agent_id = m.agent_id AND l.at = m.at "
+                              "AND m.task = 'plugin:pulled-backups'"):
+            try:
+                d = json.loads(r["data"]) if isinstance(r["data"], str) else (r["data"] or {})
+            except (TypeError, ValueError):
+                d = {}
+            pulled += [dict(b, agent_id=r["agent_id"]) for b in (d or {}).get("backups") or []]
     finally:
         conn.close()
-    return snapshot(_db["latest"](), now, agents)
+    return snapshot(_db["latest"](), now, agents, pulled)
 
 
 def _row(conn, cid):
