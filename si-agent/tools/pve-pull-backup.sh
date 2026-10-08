@@ -19,7 +19,7 @@ DEST_ROOT="${PULL_DEST:-/srv/backup/dumps}"; KEY="${PULL_KEY:-/root/.ssh/pve_bac
 DEST="$DEST_ROOT/$NAME"; mkdir -p "$DEST" || exit 3
 STAMP="$(date +%Y_%m_%d-%H_%M_%S)"; OUT="$DEST/vzdump-lxc-$VMID-$STAMP.tar.gz"
 SSHOPT=(-o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=10)
-[ -f "$KEY" ] && SSHOPT+=(-i "$KEY")
+[ -f "$KEY" ] && SSHOPT+=(-i "$KEY" -o IdentitiesOnly=yes)   # clé dédiée seule : un refus est explicite, pas masqué par l agent SSH
 START=$(date +%s); OK=false; ERR=""
 if ssh "${SSHOPT[@]}" "root@$HOST" "vzdump $VMID --mode $MODE --stdout --compress gzip" > "$OUT.part" 2> "$OUT.log"; then
   if gzip -t "$OUT.part" 2>/dev/null; then mv "$OUT.part" "$OUT"; OK=true; else ERR="archive gzip invalide"; fi
