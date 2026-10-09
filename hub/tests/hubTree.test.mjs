@@ -6,6 +6,7 @@ import {
   insertNode, removeNode, moveNode, cloneNode, updateNode, countRefs, exportTree, importTree,
   viewLabelsFromThemes, universeEntries, splitHeader, sortTiles, group, ref, ROOT_ID, REF_EXTERNAL_LINKS,
 } from "../src/hubTree.js";
+import { THEMES as REAL_THEMES } from "../src/hubThemes.js";
 
 const THEMES = [
   { id: "supervision", name: "Supervision", icon: "🗺", entries: [{ view: "cortex", label: "Cortex" }, { view: "si-agent", label: "Agents hôtes" }, { view: "ups", label: "Onduleurs" }] },
@@ -137,6 +138,18 @@ test("universeEntries (#538) : tout le catalogue sauf les liens automatiques, tr
   assert.equal(added[added.length - 1].since, null); // inconnus à la fin
   assert.deepEqual(universeEntries(cat, { query: "equipements" }).map((e) => e.id), ["front:cisco"]);
   assert.ok(!cat.has("action:external-links")); // non admin
+});
+
+test("universeEntries (#718) : recherche aussi par thématique, sans casse ni accents, « & » = « et »", () => {
+  const cat = buildCatalog({ availableViews: ["cortex", "ups", "notifications", "rights"], viewLabels: viewLabelsFromThemes(REAL_THEMES), fronts: [], isAdmin: false });
+  const ids = (q) => universeEntries(cat, { query: q, themes: REAL_THEMES }).map((e) => e.id);
+  for (const q of ["Sécurité et accès", "securite & acces", "SÉCURITÉ", "securite"]) {
+    const r = ids(q);
+    assert.ok(r.includes("view:notifications") && r.includes("view:rights"), q + " -> " + r.join(","));
+    assert.ok(!r.includes("view:ups"), q);
+  }
+  assert.ok(universeEntries(cat, { themes: REAL_THEMES }).find((e) => e.id === "view:notifications").themes.includes("Sécurité & accès"));
+  assert.deepEqual(ids("onduleurs"), ["view:ups"]);   // le libellé reste prioritaire
 });
 
 test("splitHeader / sortTiles (#554)", () => {

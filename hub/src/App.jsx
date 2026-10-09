@@ -1559,7 +1559,7 @@ export default function App() {
     window.open(leaf.url, "_blank", "noopener");
   };
   const leafActive = (leaf) => (leaf.kind === "view" && viewMode === leaf.view) || (leaf.kind === "action" && viewMode === leaf.action);
-  const universe = universeEntries(hubCatalog, { sort: universeSort, since: SINCE, query: universeQuery });
+  const universe = universeEntries(hubCatalog, { sort: universeSort, since: SINCE, query: universeQuery, themes: THEMES });
   const headerParts = splitHeader(hubRootOrder);  // #554
   const openPages = [...PUBLIC_LINKS, ...agentPublishedLinks(publishedAgents)];  // #554
   const setUniverseSortPersist = (v) => { setUniverseSort(v); try { localStorage.setItem("hub.universe.sort", v); } catch { /* stockage indisponible */ } };
@@ -2156,7 +2156,7 @@ vm === "agent-page" ? (
                   {universe.map((leaf) => (
                     <button key={leaf.id} type="button" className={leafActive(leaf) ? "active" : ""} onClick={() => openLeaf(decorateLeaf(leaf), null)}>
                       <span className="hub-universe-label">{leaf.label}{leaf.kind === "link" && !leaf.embeddable ? " ↗" : ""}</span>
-                      <span className="muted hub-universe-meta">{leaf.kind === "action" ? "fonction" : leaf.kind === "view" ? "vue" : "front"}{leaf.since ? ` · #${leaf.since}` : ""}</span>
+                      <span className="muted hub-universe-meta">{leaf.themes && leaf.themes.length ? leaf.themes.join(", ") + " · " : ""}{leaf.kind === "action" ? "fonction" : leaf.kind === "view" ? "vue" : "front"}{leaf.since ? ` · #${leaf.since}` : ""}</span>
                     </button>
                   ))}
                   {universe.length === 0 && <span className="muted hub-universe-empty">Rien ne correspond.</span>}

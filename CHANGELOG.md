@@ -1,3 +1,14 @@
+## 2026-10-09 — « Univers du hub » : recherche par thématique, sans casse ni accents (livraison #718)
+
+Demandé (note d'évolution) : « Sécurité et accès doit être indexé dans la recherche d'univers du hub avec ou sans
+majuscule et accent ». La recherche du menu « Univers du hub » porte désormais aussi sur la thématique de chaque
+entrée (« securite », « SÉCURITÉ », « sécurité et accès » listent toute la thématique Sécurité & accès) ; « & » vaut
+« et » dans le filtre texte commun ; la thématique s'affiche à côté de chaque entrée. Le libellé reste prioritaire.
+
+- Vérifié : `node --test hub/tests/*.test.mjs` (331, dont 1 nouveau sur les vraies thématiques), syntaxe `@babel/parser`.
+- Non vérifié : `npm run build`, rendu navigateur.
+- Fichiers : `hub/src/textFilter.js`, `hub/src/hubTree.js`, `hub/src/App.jsx`, `hub/tests/hubTree.test.mjs`.
+
 ## 2026-10-09 — Campagne de sauvegardes tirées pour vider les PVE hébergés (livraison #717)
 
 Demandé : lancer les sauvegardes des CT des trois PVE hébergés pendant le week-end pour libérer l'hébergeur, avec suivi à

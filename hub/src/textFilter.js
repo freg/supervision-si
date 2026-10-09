@@ -4,7 +4,8 @@
 // saisie est contenue ailleurs ; à rang égal, l'ordre initial (ou le
 // comparateur fourni) est conservé.
 
-export const fold = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+// #718 : « & » vaut « et » (« Sécurité & accès » = « securite et acces »), espaces multiples réduits
+export const fold = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/&/g, " et ").replace(/\s+/g, " ");
 
 /** Rang d'un texte pour une saisie déjà repliée : 0 (début de mot), 1 (contenu), -1 (absent). */
 export function matchRank(text, q) {

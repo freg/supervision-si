@@ -86,18 +86,28 @@ export function buildCatalog({ availableViews, viewLabels = {}, fronts = [], isA
  *  inconnue = à la fin, puis libellé). Filtre `query` sur le libellé, sans
  *  accents ni casse. Menu invariant : ne dépend pas de l'arbre de
  *  disposition, donc rien n'y est jamais perdu. */
-export function universeEntries(catalog, { sort = "alpha", since = {}, query = "" } = {}) {
+export function universeEntries(catalog, { sort = "alpha", since = {}, query = "", themes = [] } = {}) {
+  // #718 : la recherche porte aussi sur la thématique (menu) de chaque feuille : « securite » liste tout
+  // « Sécurité & accès », sans casse ni accents (fold).
+  const themeOf = new Map();
+  for (const t of themes || []) {
+    for (const e of t.entries || []) {
+      const k = e.view ? "view:" + e.view : e.front ? "front:" + e.front : null;
+      if (k) themeOf.set(k, [...(themeOf.get(k) || []), t.name]);
+    }
+  }
   const out = [];
   for (const leaf of catalog.values()) {
     if (leaf.kind === "auto") continue;
     const key = leaf.kind === "view" ? leaf.view : leaf.kind === "action" ? leaf.id : leaf.front;
     const n = since[key];
-    out.push({ ...leaf, since: Number.isFinite(n) ? n : null });
+    const leafKey = leaf.kind === "view" ? "view:" + leaf.view : leaf.kind === "front" ? "front:" + leaf.front : null;
+    out.push({ ...leaf, since: Number.isFinite(n) ? n : null, themes: (leafKey && themeOf.get(leafKey)) || [] });
   }
   const byLabel = (a, b) => a.label.localeCompare(b.label, "fr", { sensitivity: "base" });
   const cmp = sort === "added" ? (a, b) => ((a.since ?? Infinity) - (b.since ?? Infinity)) || byLabel(a, b) : byLabel;
   // #562 : débuts de mot d'abord (« n » → Nebula avant Onduleurs), puis le tri choisi
-  return rankFilter(out, query, (l) => l.label, cmp);
+  return rankFilter(out, query, (l) => [l.label, ...(l.themes || [])].join(" · "), cmp);
 }
 
 /** Libellés des vues, tirés des thématiques (hubThemes.js) -- source unique. */
