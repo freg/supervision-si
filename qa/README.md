@@ -42,3 +42,17 @@ traversant de non-régression**, rejoué en **campagne** (tous les scénarios de
 - `runner.py` réel : joué contre une application déployée (hors de ce dépôt).
 - Front : `hub/tests/qaLib.test.mjs`, syntaxe `@babel/parser`, aucun setter sans `useState`, aucune couleur en dur.
 - Non vérifié : build de l'image, rendu navigateur.
+
+## Conformité visuelle et ergonomique, tour du hub (livraison #721, item 116 tranches 1-2)
+
+- Étape **`audit`** (valeur vide ou `strict`) : relevé dans la page (`qa_design.AUDIT_JS` : couleurs calculées, tailles,
+  défilements, en-têtes de tableau, styles en ligne, textes tronqués) puis règles **pures** (`qa_design.evaluate`, testées
+  sans navigateur) : contraste WCAG (4,5:1, 3:1 grands textes), la page ne défile pas (seuls cadres et tbody), pas de
+  défilement horizontal, en-tête fixe d'un tableau qui défile, cibles ≥ 24 px, couleur en dur hors `theme.css`, textes
+  tronqués. Résultat : `findings` + `score` /100 dans le résultat de l'étape ; `strict` = une erreur fait échouer l'étape.
+- **Tour du hub** : `POST /sites/<id>/hub-tour {views:[{view,label}], wait_ms?, strict?}` → scénario « Tour du hub —
+  conformité visuelle » (aller à `?view=…`, attendre, auditer ; capture à chaque visite), régénéré sans doublon. Le hub
+  envoie la liste de ses vues (thématiques) : bouton « 🧭 Tour du hub (conformité) » d'un site.
+- Décisions (9 oct.) : analyse **locale sans modèle de vision** (DOM, styles, règles ; rien ne sort du SI), **hub seul**
+  d'abord. Suite (item 116) : références et différences de captures (tranche 3), maquettes en étapes (tranche 4).
+- `AUDIT_JS` vérifié dans un vrai Chromium (Playwright) sur une page de test : les 6 règles détectent leur cas.

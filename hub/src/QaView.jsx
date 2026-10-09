@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { getCatalog, listSites, createSite, updateSite, deleteSite, probeSite, listScenarios, createScenario, updateScenario, deleteScenario, runScenario, listRuns, runCampaign, listCampaigns, createTicket, shotUrl } from "./qaClient.js";
-import { emptyStep, fieldsFor, validateSteps, loginFromProbe, runBadge, campaignSummary } from "./qaLib.js";
+import { getCatalog, listSites, createSite, updateSite, deleteSite, probeSite, listScenarios, createScenario, updateScenario, deleteScenario, runScenario, listRuns, runCampaign, listCampaigns, createTicket, shotUrl, hubTour } from "./qaClient.js";
+import { THEMES } from "./hubThemes.js";
+import { emptyStep, fieldsFor, validateSteps, loginFromProbe, runBadge, campaignSummary, hubTourViews, auditSummary } from "./qaLib.js";
 import HubIcon from "./HubIcon.jsx";
 
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
@@ -96,6 +97,12 @@ export default function QaView({ onBack, qaApiBase, login }) {
     const h = await listRuns(qaApiBase, x.id); if (!h.error) setRuns(h.runs);
   }
   async function showHistory(x) { const h = await listRuns(qaApiBase, x.id); if (!h.error) { setRuns(h.runs); setRun(h.runs[0] ? { ...h.runs[0], scenario: x } : null); } }
+  async function makeHubTour() {   // #721 : scénario « Tour du hub » depuis les thématiques du hub
+    setBusy("tour"); const r = await hubTour(qaApiBase, site.id, { views: hubTourViews(THEMES) }); setBusy("");
+    if (r.error) { setError(r.error); return; }
+    setNotice(`Scénario « ${r.scenario.name} » : ${r.views} vue(s) à visiter et auditer -- jouez-le avec ▶.`);
+    const l = await listScenarios(qaApiBase, site.id); if (!l.error) setScenarios(l.scenarios);
+  }
   async function playCampaign(kind) {
     setBusy("campaign"); setError(null); const r = await runCampaign(qaApiBase, site.id, kind, login); setBusy("");
     if (r.error) { setError(r.error); return; }
@@ -174,6 +181,7 @@ export default function QaView({ onBack, qaApiBase, login }) {
                     <button className="secondary" onClick={() => playCampaign("non-regression")} disabled={busy === "campaign"}>{busy === "campaign" ? "Campagne…" : "▶ Campagne de non-régression"}</button>
                     <button className="secondary" onClick={() => playCampaign("all")} disabled={busy === "campaign"}>▶ Tout rejouer</button>
                     <button className="primary" onClick={() => { setEditing({ name: "", kind: "qa", steps: [emptyStep("goto")] }); setRun(null); }}>+ Scénario</button>
+                    <button className="secondary" onClick={makeHubTour} disabled={busy === "tour"} title="Un scénario qui visite chaque vue du hub (?view=…) et en audite la conformité visuelle et ergonomique (#721)">{busy === "tour" ? "…" : "🧭 Tour du hub (conformité)"}</button>
                   </div></div>
                 <AutoColumns id="QaView.3"><table className="qa-table"><thead><tr><th>Scénario</th><th>Nature</th><th>Étapes</th><th>Ticket</th><th>Dernier résultat</th><th></th></tr></thead>
                   <tbody>{scenarios.map((x) => <tr key={x.id} className={editing && editing.id === x.id ? "qa-selected" : ""}>
@@ -213,8 +221,13 @@ export default function QaView({ onBack, qaApiBase, login }) {
               <div className="hub-card hub-settings-section">
                 <h2>Exécution n°{run.id} — {run.scenario ? run.scenario.name : ""} <span className={run.status === "ok" ? "qa-ok" : "qa-ko"}>{runBadge(run.status)}</span></h2>
                 <p className="muted">{run.started_at.replace("T", " ")} · {run.summary.passed}/{run.summary.total} étapes · {run.final_url}{run.error ? ` · ${run.error}` : ""}{run.ticket_id ? ` · ticket n°${run.ticket_id} (${run.ticket_kind})` : ""}</p>
+                {auditSummary(run.results).pages > 0 && (() => { const a = auditSummary(run.results); return (
+                  <p>Conformité visuelle : note moyenne <strong>{a.score}/100</strong> sur {a.pages} page(s) · <span className="qa-ko">{a.erreur} erreur(s)</span> · {a.avertissement} avertissement(s) · <span className="muted">{a.info} info(s)</span></p>); })()}
                 <AutoColumns id="QaView.4"><table className="qa-table"><thead><tr><th>#</th><th>Action</th><th>Résultat</th><th>ms</th><th>Capture</th></tr></thead>
-                  <tbody>{run.results.map((r, i) => <tr key={i} className={r.ok ? "" : "qa-row-ko"}><td>{r.login ? `connexion ${-r.index}` : r.index}</td><td>{r.action}</td><td className={r.ok ? "qa-ok" : "qa-ko"}>{r.ok ? "✔" : `✘ ${r.error}`}</td><td className="muted">{r.duration_ms}</td>
+                  <tbody>{run.results.map((r, i) => <tr key={i} className={r.ok ? "" : "qa-row-ko"}><td>{r.login ? `connexion ${-r.index}` : r.index}</td><td>{r.action}</td><td className={r.ok ? "qa-ok" : "qa-ko"}>{r.ok ? "✔" : `✘ ${r.error}`}{r.findings && r.findings.length > 0 && (
+                      <details className="qa-details"><summary>{r.score}/100 · {r.findings.length} constat(s){r.url ? ` · ${r.url}` : ""}</summary>
+                        <ul>{r.findings.map((f, j) => <li key={j}><span className={f.severity === "erreur" ? "qa-ko" : f.severity === "info" ? "muted" : ""}>{f.severity}</span> — {f.rule} : {f.message}{f.sample ? <span className="muted"> ({f.sample})</span> : null}</li>)}</ul></details>)}
+                      {r.findings && r.findings.length === 0 && <span className="qa-ok"> conforme</span>}</td><td className="muted">{r.duration_ms}</td>
                     <td>{r.shot ? <a href={shotUrl(qaApiBase, run.id, r.shot)} target="_blank" rel="noreferrer"><img className="qa-thumb" src={shotUrl(qaApiBase, run.id, r.shot)} alt={`étape ${r.index}`} /></a> : ""}</td></tr>)}</tbody></table></AutoColumns>
                 {!run.ticket_id && !ticketForm && (
                   <div className="qa-inline"><button className="primary" onClick={() => setTicketForm({ runId: run.id, kind: "incident", comment: "" })}>Ticket incident</button>

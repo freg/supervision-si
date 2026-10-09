@@ -1,3 +1,18 @@
+## 2026-10-09 — QA : tour du hub et conformité visuelle et ergonomique (livraison #721, item 116 tranches 1-2)
+
+Décisions du 9 oct. : analyse locale sans modèle de vision, hub seul d'abord. Nouvelle étape QA `audit` : relevé dans la
+page puis règles de design du hub (contraste WCAG, page qui défile au lieu des cadres, défilement horizontal, en-tête de
+tableau non fixe, cibles < 24 px, couleurs en dur, textes tronqués) → constats et note /100 par page. Bouton
+« 🧭 Tour du hub (conformité) » : un scénario visite chaque vue des thématiques (`?view=…`) et l'audite ; le détail
+d'une exécution montre la note moyenne et les constats par page.
+
+- Vérifié : `qa/api/test_qa_design.py` (3 : contraste, règles, génération du tour), `qa/api/test_qa.py` (4, dont le tour
+  du hub et le refus d'une valeur d'audit invalide), `AUDIT_JS` dans un vrai Chromium sur une page de test (les 6 règles
+  détectent leur cas), `node --test` (333), syntaxe `@babel/parser`.
+- Non vérifié : tour réel du hub (connexion Keycloak via les étapes de connexion du site), build de l'image QA, rendu.
+- Fichiers : `qa/api/{qa_design,qa_steps,runner,app,test_qa,test_qa_design}.py`, `qa/api/Dockerfile`, `qa/README.md`,
+  `hub/src/{QaView.jsx,qaLib.js,qaClient.js}`, `hub/tests/qaLib.test.mjs`, `docs/qa-design-assistant.md`, `BACKLOG.md`.
+
 ## 2026-10-09 — « Univers du hub » : demander à l'assistant depuis la recherche (livraison #720)
 
 Suite de #715 : la recherche du menu « Univers du hub » propose en pied de liste « 💬 Demander à l'assistant : « … » »

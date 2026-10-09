@@ -21,6 +21,7 @@ import os, json, sqlite3, time, pathlib, logging, shutil, requests
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import qa_steps
+import qa_design
 try:
     from version_endpoint import register_version_route
 except ImportError:
@@ -155,6 +156,26 @@ def scenarios_create(sid):
                          (sid, b["name"].strip(), kind, json.dumps(steps, ensure_ascii=False), b.get("tags") or "", now(), now()))
         r = cn.execute("SELECT * FROM scenarios WHERE id = ?", (cur.lastrowid,)).fetchone()
     return jsonify(scenario=scenario_out(r)), 201
+
+@app.route("/sites/<int:sid>/hub-tour", methods=["POST"])
+def hub_tour(sid):
+    """#721 : « Tour du hub » -- un scénario qui visite chaque vue (?view=…) et l'audite (conformité visuelle et ergonomique).
+    Corps : {views: [{view, label}], wait_ms?, strict?, name?} -- la liste vient du hub (catalogue de ses thématiques)."""
+    b = request.get_json(silent=True) or {}
+    steps = qa_design.hub_tour_steps(b.get("views"), int(b.get("wait_ms") or 1500), bool(b.get("strict")))
+    if not steps: return jsonify(error="Aucune vue valide (liste {view, label} attendue)"), 400
+    name = (b.get("name") or "Tour du hub — conformité visuelle").strip()[:120]
+    with db() as cn:
+        if not cn.execute("SELECT 1 FROM sites WHERE id = ?", (sid,)).fetchone(): return jsonify(error="Site inconnu"), 404
+        old = cn.execute("SELECT id FROM scenarios WHERE site_id = ? AND name = ?", (sid, name)).fetchone()
+        if old:   # régénéré : même scénario, étapes à jour (les exécutions passées restent comparables)
+            cn.execute("UPDATE scenarios SET steps = ?, updated_at = ? WHERE id = ?", (json.dumps(qa_steps.normalize_steps(steps), ensure_ascii=False), now(), old["id"])); xid = old["id"]
+        else:
+            xid = cn.execute("INSERT INTO scenarios (site_id, name, kind, steps, tags, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
+                             (sid, name, "qa", json.dumps(qa_steps.normalize_steps(steps), ensure_ascii=False), "design", now(), now())).lastrowid
+        cn.commit()
+        r = cn.execute("SELECT * FROM scenarios WHERE id = ?", (xid,)).fetchone()
+    return jsonify(scenario=scenario_out(r), views=len(steps) // 3), 201 if not old else 200
 
 @app.route("/scenarios/<int:xid>", methods=["PUT"])
 def scenarios_update(xid):

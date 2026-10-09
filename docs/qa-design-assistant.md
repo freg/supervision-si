@@ -32,7 +32,14 @@ contraire une vérification de conformité visuelle et ergonomique. »
 5. **Boucle de conception** : la maquette validée devient une référence (tranche 3) ; la campagne vérifie ensuite que
    le développement la respecte.
 
-## À trancher avant de coder
+## Décisions (9 oct. 2026)
+
+- Vision : **locale sans modèle de vision** (DOM, styles calculés, règles) -- rien ne sort du SI.
+- Périmètre : **hub seul** d'abord (tour par le catalogue des vues).
+- Références de captures : volume `qa/data`, par exécution (défaut, à revoir à la tranche 3).
+- Livré : tranches 1-2 (#721 : tour du hub + étape `audit`).
+
+## Questions initiales
 
 - Modèle de vision pour « refondre » (analyse de captures) : les modèles locaux actuels sont textuels ; tranche 4 en
   local = propositions à partir du DOM et des règles ; un modèle vision (local GPU ou externe) changerait la portée.

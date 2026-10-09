@@ -26,3 +26,4 @@ export const runCampaign = (b, id, kind, byUser) => fetchJson(`${b}/sites/${id}/
 export const listCampaigns = (b, id) => fetchJson(`${b}/sites/${id}/campaigns`);
 export const createTicket = (b, rid, body) => fetchJson(`${b}/runs/${rid}/ticket`, json("POST", body));
 export const shotUrl = (b, rid, name) => `${b}/runs/${rid}/shot/${name}`;
+export const hubTour = (b, id, body) => fetchJson(`${b}/sites/${id}/hub-tour`, json("POST", body));   // #721

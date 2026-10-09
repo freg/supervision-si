@@ -46,3 +46,21 @@ export function campaignSummary(runs) {
   const total = (runs || []).length; const passed = (runs || []).filter((r) => r.status === "ok").length;
   return { total, passed, failed: total - passed, ratio: total ? Math.round((100 * passed) / total) : 0 };
 }
+
+// #721 : vues internes du hub à visiter pour le « tour du hub » (une fois chacune, dans l'ordre des thématiques).
+export function hubTourViews(themes) {
+  const seen = new Set(); const out = [];
+  for (const t of themes || []) for (const e of t.entries || []) {
+    if (e.view && !seen.has(e.view)) { seen.add(e.view); out.push({ view: e.view, label: `${t.name} › ${e.label}` }); }
+  }
+  return out;
+}
+
+// #721 : synthèse des audits d'une exécution -- note moyenne et nombre de constats par gravité.
+export function auditSummary(results) {
+  const audits = (results || []).filter((r) => r.action === "audit" && Array.isArray(r.findings));
+  const count = { erreur: 0, avertissement: 0, info: 0 };
+  audits.forEach((r) => r.findings.forEach((f) => { count[f.severity] = (count[f.severity] || 0) + 1; }));
+  const avg = audits.length ? Math.round(audits.reduce((a, r) => a + (r.score ?? 0), 0) / audits.length) : null;
+  return { pages: audits.length, score: avg, ...count };
+}

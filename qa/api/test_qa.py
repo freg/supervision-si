@@ -59,3 +59,16 @@ def test_scenario_run_campaign_ticket():
 
 def test_catalog():
     r = c.get("/catalog"); assert r.status_code == 200 and any(a["id"] == "expect_text" for a in r.json["actions"])
+
+def test_hub_tour():
+    """#721 : tour du hub généré depuis la liste des vues, régénéré sans doublon, audit accepté par le catalogue."""
+    sid = c.post("/sites", json={"name": "Hub", "base_url": "https://hub.example"}).json["site"]["id"]
+    assert c.post(f"/sites/{sid}/hub-tour", json={"views": [{"view": "../x"}]}).status_code == 400
+    r = c.post(f"/sites/{sid}/hub-tour", json={"views": [{"view": "ups", "label": "Onduleurs"}, {"view": "cortex", "label": "Cortex"}]})
+    assert r.status_code == 201 and r.json["views"] == 2 and [s["action"] for s in r.json["scenario"]["steps"]] == ["goto", "wait", "audit"] * 2
+    r2 = c.post(f"/sites/{sid}/hub-tour", json={"views": [{"view": "ups"}]}); assert r2.status_code == 200 and r2.json["scenario"]["id"] == r.json["scenario"]["id"]
+    assert len(c.get(f"/sites/{sid}/scenarios").json["scenarios"]) == 1
+    assert c.post(f"/sites/{sid}/scenarios", json={"name": "a", "steps": [{"action": "audit", "value": "tout"}]}).status_code == 400
+    assert any(a["id"] == "audit" for a in c.get("/catalog").json["actions"])
+    run = c.post(f"/scenarios/{r.json['scenario']['id']}/run").json["run"]; assert run["status"] == "ok"
+    c.delete(f"/sites/{sid}")

@@ -1,6 +1,10 @@
 """Exécution d'un scénario dans Chromium (Playwright). Isolé d'app.py pour être remplacé dans les tests (FakeRunner).
 run(base_url, login, steps, shots_dir) -> (results, final_url) ; chaque résultat : {index, action, ok, error, duration_ms, shot}."""
 import time, pathlib
+try:
+    import qa_design
+except ImportError:  # pragma: no cover
+    qa_design = None
 
 def _abs(base, v): return v if v.startswith(("http://", "https://")) else base.rstrip("/") + "/" + v.lstrip("/")
 
@@ -13,7 +17,7 @@ def run(base_url, login, steps, shots_dir, timeout_ms=15000, width=1366, height=
         all_steps = list(login or []) + list(steps)
         n_login = len(login or [])
         for i, st in enumerate(all_steps, 1):
-            t0 = time.time(); ok, err = True, ""
+            t0 = time.time(); ok, err, extra = True, "", {}
             a, sel, val = st["action"], st.get("selector", ""), st.get("value", "")
             try:
                 if a == "goto": pg.goto(_abs(base_url, val), wait_until="domcontentloaded")
@@ -34,14 +38,19 @@ def run(base_url, login, steps, shots_dir, timeout_ms=15000, width=1366, height=
                     v = pg.input_value(sel)
                     if v != val: ok, err = False, f"valeur « {v} » au lieu de « {val} »"
                 elif a == "screenshot": pass
+                elif a == "audit":   # #721
+                    findings = qa_design.evaluate(pg.evaluate(qa_design.AUDIT_JS))
+                    extra = dict(findings=findings, score=qa_design.score(findings), url=pg.url)
+                    errs = [f for f in findings if f["severity"] == "erreur"]
+                    if val == "strict" and errs: ok, err = False, f"{len(errs)} erreur(s) de conformité : " + errs[0]["message"]
             except PWTimeout as e: ok, err = False, "délai dépassé : " + str(e).split("\n")[0][:200]
             except Exception as e: ok, err = False, type(e).__name__ + " : " + str(e).split("\n")[0][:200]
             shot = ""
-            if a in ("screenshot", "goto", "click", "press") or not ok:
+            if a in ("screenshot", "goto", "click", "press", "audit") or not ok:
                 shot = f"step{i}.png"
                 try: pg.screenshot(path=str(shots / shot), full_page=False)
                 except Exception: shot = ""
-            results.append(dict(index=i - n_login if i > n_login else -(n_login - i + 1), action=a, ok=ok, error=err, duration_ms=int((time.time() - t0) * 1000), shot=shot, login=i <= n_login))
+            results.append(dict(index=i - n_login if i > n_login else -(n_login - i + 1), action=a, ok=ok, error=err, duration_ms=int((time.time() - t0) * 1000), shot=shot, login=i <= n_login, **extra))
             if not ok: break
         url = pg.url; b.close()
     return results, url

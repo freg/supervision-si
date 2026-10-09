@@ -28,3 +28,12 @@ test("campaignSummary et runBadge", () => {
   assert.deepEqual(campaignSummary([]), { total: 0, passed: 0, failed: 0, ratio: 0 });
   assert.equal(runBadge("ko"), "✘ échec"); assert.equal(runBadge("x"), "—");
 });
+
+test("hubTourViews / auditSummary (#721) : vues du tour sans doublon, synthèse des audits", async () => {
+  const { hubTourViews, auditSummary } = await import("../src/qaLib.js");
+  const themes = [{ name: "Supervision", entries: [{ view: "ups", label: "Onduleurs" }, { front: "x", label: "X" }] }, { name: "Réseau", entries: [{ view: "ups", label: "bis" }, { view: "nebula", label: "Nebula" }] }];
+  assert.deepEqual(hubTourViews(themes), [{ view: "ups", label: "Supervision › Onduleurs" }, { view: "nebula", label: "Réseau › Nebula" }]);
+  const s = auditSummary([{ action: "goto" }, { action: "audit", score: 80, findings: [{ severity: "erreur" }, { severity: "avertissement" }] }, { action: "audit", score: 100, findings: [] }]);
+  assert.deepEqual(s, { pages: 2, score: 90, erreur: 1, avertissement: 1, info: 0 });
+  assert.equal(auditSummary([]).score, null);
+});

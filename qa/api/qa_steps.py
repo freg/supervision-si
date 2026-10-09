@@ -6,11 +6,13 @@ ACTIONS = {
     "goto": ("value",), "click": ("selector",), "fill": ("selector", "value"), "select": ("selector", "value"), "check": ("selector",),
     "press": ("selector", "value"), "wait": ("value",), "expect_visible": ("selector",), "expect_text": ("value",),
     "expect_url": ("value",), "expect_value": ("selector", "value"), "expect_absent": ("selector",), "screenshot": (),
+    "audit": (),   # #721 : conformité visuelle et ergonomique (qa_design) ; valeur « strict » = une erreur fait échouer l'étape
 }
 ACTION_LABELS = {
     "goto": "Aller à (URL ou chemin)", "click": "Cliquer", "fill": "Saisir", "select": "Choisir une option", "check": "Cocher",
     "press": "Touche (Enter…)", "wait": "Attendre (ms)", "expect_visible": "Vérifier : visible", "expect_text": "Vérifier : texte présent (dans le sélecteur, sinon la page)",
     "expect_url": "Vérifier : l'URL contient", "expect_value": "Vérifier : valeur du champ", "expect_absent": "Vérifier : absent", "screenshot": "Capture d'écran",
+    "audit": "Audit visuel et ergonomique (contraste, défilement, en-têtes, cibles, couleurs en dur)",
 }
 
 def normalize_steps(steps):
@@ -26,6 +28,7 @@ def normalize_steps(steps):
             if f == "selector" and not st["selector"]: raise ValueError(f"étape {i} ({a}) : sélecteur manquant")
             if f == "value" and not st["value"] and a != "expect_text": raise ValueError(f"étape {i} ({a}) : valeur manquante")
         if a == "wait" and not re.fullmatch(r"\d+", st["value"]): raise ValueError(f"étape {i} : durée en millisecondes attendue")
+        if a == "audit" and st["value"] not in ("", "strict"): raise ValueError(f"étape {i} : audit -- valeur vide ou « strict »")
         out.append(st)
     if not out: raise ValueError("un scénario a au moins une étape")
     return out

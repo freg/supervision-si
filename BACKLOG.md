@@ -1,4 +1,4 @@
-## Tuile « Déploiement d'application » par clonage de configuration (2026-10-09) — item 117, À CADRER
+## Tuile « Déploiement d'application » par clonage de configuration (2026-10-09) — item 117, DÉCIDÉ : sur un AUTRE nœud, clonage configuration + référentiels (sans données métier)
 
 Demandé : « une tuile de déploiement d'application (GED, tickets…) : clonage configuration ». Lecture proposée :
 déployer une nouvelle instance d'une application du hub (GED, portail tickets…) pour un site ou un client en clonant
@@ -14,7 +14,7 @@ sous Windows xxx, l'ip xx.yy est-elle visible quelque part dans le hub… ». Li
 (voir `assistant/README.md`). Suites possibles : autres intentions (« quel ticket concerne… », « qui a accès à… »),
 bouton « ? » dans l'en-tête du hub ouvrant l'onglet, sources validées sur les vraies API.
 
-## Assistant de design visuel et de parcours dans le module QA (2026-10-09) — item 116, CADRAGE À VALIDER
+## Assistant de design visuel et de parcours dans le module QA (2026-10-09) — item 116 ; tranches 1-2 FAITES (#721), reste 3 (différences de captures) et 4-5 (maquettes)
 
 Demandé : une IA capable de refondre un design visuel du hub avec des étapes de présentation de maquette, intégrée au
 module QA avec des outils d'automatisation de parcours dans le hub et les applications (tickets…), pour assister le
