@@ -1369,3 +1369,26 @@ d'une courte liste, TLS (chaîne, nom, échéance, TLS 1.0/1.1 acceptés), en-t�
 Le central refuse toute cible hors de `SI_AGENT_AUDIT_ALLOWED` (`.env` : `exemple.fr,*.exemple.fr,192.0.2.0/28` ;
 vide = aucun audit). Résultat : mesure `ext-audit` (historique 90 j), événement résumé.
 Vérifier les conditions de l'hébergeur avant d'ajouter des outils plus lourds (nmap, testssl.sh, ZAP).
+
+## Sauvegardes : tâches quelconques, sonde PBS, notifications par le hub (livraison #716, agent 0.5.51)
+
+- **Journal `pulls.jsonl` ouvert à tout script de sauvegarde** (sonde `pulled-backups` v2) : une ligne avec `"job"` au lieu
+  de `"vmid"` décrit une tâche quelconque (base d'une application, archive d'un site…) :
+  `{"host": "appli", "job": "base+site", "ok": true, "size": 25000000, "sha256": "…", "file": "/chemin", "started": 1791…,
+  "ended": 1791…, "error": "", "max_age_h": 26, "notify_ok": true}`. `max_age_h` remplace le délai global ; `file`
+  facultatif ; `notify_ok` = chaque nouvelle réussite devient un événement `backup-done`. Les codes des constats portent
+  désormais la sauvegarde concernée (`pull-old:<hôte> / <tâche>`) : deux tâches en retard font deux constats.
+- **Sonde `pbs`** (privilégiée, sur le serveur Proxmox Backup Server) : datastores (`datastore.cfg`, remplissage 85/95 %),
+  groupes par espace de noms lus dans l'arborescence (dernière sauvegarde, snapshot incomplet ; « en retard » au-delà de
+  `--max-age-h`, « inactif » au-delà de `--forget-after-days`, sans alerte), tâches des 24 h (`proxmox-backup-manager task
+  list` : sauvegarde, GC, vérification, purge en échec ou avec avertissements). `install.sh` l'active seule sur un PBS
+  (avec `pulled-backups` si `/srv/backup/dumps/pulls.jsonl` existe), sondes en root.
+- **Événements** : constats de ces deux sondes -> `backup-alert` / `backup-recovered`, réussites marquées -> `backup-done`
+  (regroupées par mesure ; aucune à la première mesure).
+- **Relais vers notify-api** (`NOTIFY_API_URL`, `NOTIFY_INTERNAL_TOKEN`, consommateur `si-agent`) : actions
+  `si-agent.backup-alert|backup-recovered|backup-done` (toujours) et `si-agent.<genre>` des événements warning/critical,
+  catalogue déclaré au démarrage. Les destinataires se règlent dans la tuile Notifications (groupe + affectation de
+  l'action) : aucune adresse dans le dépôt. Les canaux historiques `SECRETS_ALERT_*` restent inchangés.
+- Tests : `plugins/pbs/test_pbs.py` (configuration, vrai arbre de datastore en dossier temporaire, constats, tâches),
+  `plugins/pulled-backups/test_pulled_backups.py` (+ tâches), `api/test_z_backup_notify.py` (cycle réussite → échec →
+  rétablissement, regroupement, sonde PBS, relais avec client simulé).

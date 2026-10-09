@@ -1409,6 +1409,10 @@ services:
       - SI_AGENT_NOTIFY_MIN_SEVERITY=${SI_AGENT_NOTIFY_MIN_SEVERITY:-warning}
       - SI_AGENT_NOTIFY_COOLDOWN_SECONDS=${SI_AGENT_NOTIFY_COOLDOWN_SECONDS:-900}
       - SI_AGENT_NOTIFY_WEBHOOK_URL=${SI_AGENT_NOTIFY_WEBHOOK_URL:-}
+      # #716 : événements (sauvegardes, constats, agents hors ligne) relayés à notify-api -> groupes d'adresses de la tuile Notifications
+      - NOTIFY_API_URL=http://notify-api:5000
+      - NOTIFY_INTERNAL_TOKEN=${NOTIFY_INTERNAL_TOKEN:-}
+      - NOTIFY_CONSUMER=si-agent
       - SI_AGENT_AUDIT_ALLOWED=${SI_AGENT_AUDIT_ALLOWED:-}   # #687 : cibles de l'audit extérieur (domaines, *.sous-domaines, IP/CIDR)
       - SECRETS_ALERT_SMS_URL=${SECRETS_ALERT_SMS_URL:-}
       - SECRETS_ALERT_SMS_KEY=${SECRETS_ALERT_SMS_KEY:-}

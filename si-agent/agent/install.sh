@@ -114,6 +114,13 @@ if [ "$UPGRADE" != "true" ] && [ "$DETECT" = "true" ] && [ -d /etc/pve ] && comm
   [ -n "$PLUGINS_USER" ] || PLUGINS_USER="root"
   echo "hôte Proxmox VE détecté : plugin proxmox activé, sondes exécutées en $PLUGINS_USER (--no-detect pour l'éviter)"
 fi
+# #716 : serveur Proxmox Backup Server -> plugin pbs (+ pulled-backups si des sauvegardes tirées y sont journalisées), en root.
+if [ "$UPGRADE" != "true" ] && [ "$DETECT" = "true" ] && command -v proxmox-backup-manager >/dev/null; then
+  case " ${ENABLE[*]:-} " in *" pbs "*) ;; *) ENABLE+=("pbs");; esac
+  if [ -f /srv/backup/dumps/pulls.jsonl ]; then case " ${ENABLE[*]:-} " in *" pulled-backups "*) ;; *) ENABLE+=("pulled-backups");; esac; fi
+  [ -n "$PLUGINS_USER" ] || PLUGINS_USER="root"
+  echo "Proxmox Backup Server détecté : plugin(s) ${ENABLE[*]} activé(s), sondes exécutées en $PLUGINS_USER (--no-detect pour l'éviter)"
+fi
 [ -n "$PLUGINS_USER" ] || PLUGINS_USER="nobody"
 case "$CENTRAL" in https://*|"") ;; http://127.*|http://localhost*) ;; *) echo "AVERTISSEMENT : central en HTTP clair ($CENTRAL) -- réservé au test" >&2;; esac
 if [ -n "$CAFP" ]; then

@@ -1,6 +1,6 @@
 {
   "id": "pulled-backups",
-  "version": "1",
+  "version": "2",
   "runner": "python",
   "entry": "pulled_backups.py",
   "interval_seconds": 900,

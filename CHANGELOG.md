@@ -1,3 +1,22 @@
+## 2026-10-09 — Sauvegardes suivies par le hub, sonde PBS, notifications par courriel (livraison #716, agent 0.5.51)
+
+Demandé : « faisons le [suivi de la sauvegarde quotidienne] sur le hub avec émission d'email de notification », puis
+« un petit agent PBS aussi ». Le journal des sauvegardes tirées (`pulls.jsonl`, #714) accepte toute tâche de sauvegarde
+(`job`, délai propre `max_age_h`, `notify_ok`) ; nouvelle sonde `pbs` sur le serveur PBS (datastores, groupes par espace
+de noms, tâches GC / vérification / purge / sauvegarde) ; leurs constats deviennent des événements `backup-alert` /
+`backup-recovered` / `backup-done`, relayés à notify-api (`si-agent.backup-*`) : l'adresse de destination se règle dans
+la tuile Notifications, jamais dans le dépôt. `install.sh` active la sonde sur un PBS.
+
+- Vérifié : `si-agent/api` (65 tests, dont 5 nouveaux), `plugins/pbs/test_pbs.py` (4), `plugins/pulled-backups` (3, dont 1
+  nouveau), `si-agent/agent/tests/test_si_agent.py` (liste des plugins livrés mise à jour : `pulled-backups` y manquait
+  depuis #714), `bash -n install.sh`.
+- Non vérifié : `proxmox-backup-manager task list --output-format json` sur un vrai PBS (en cas d'échec, `tasks_error`
+  dans la mesure, le reste fonctionne), relais réel vers notify-api, envoi SMTP, rendu de la mesure dans le hub.
+- Fichiers : `si-agent/agent/plugins/pbs/*`, `si-agent/agent/plugins/pulled-backups/*`, `si-agent/api/{store,notify,app}.py`,
+  `si-agent/api/Dockerfile`, `si-agent/api/test_z_backup_notify.py`, `si-agent/agent/install.sh`,
+  `si-agent/agent/si_agent/__init__.py`, `si-agent/agent/tests/test_si_agent.py`, `docker-compose.yml`, `si-agent/README.md`,
+  `notify/README.md`.
+
 ## 2026-10-09 — Assistant : « Questions sur le hub » (livraison #715)
 
 Demandé : une micro-IA qui réponde aux questions sur le hub et ses API (« où trouver le dernier reboot du pc Windows

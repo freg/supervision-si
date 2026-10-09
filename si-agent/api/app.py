@@ -66,6 +66,8 @@ app = Flask(__name__)
 CORS(app)
 if register_version_route:
     register_version_route(app, "si-agent-api")
+if notify.notify_client is not None and os.environ.get("NOTIFY_API_URL"):   # #716 : catalogue des actions relayées à notify-api
+    notify.notify_client.register_actions(notify.HUB_ACTIONS)
 
 # A1 (#620) : périmètre de site par groupe Keycloak (SITE_SCOPE_GROUPS) -- sans jeton rien ne change
 try:

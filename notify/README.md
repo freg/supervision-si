@@ -42,7 +42,9 @@ Branchés : **MikroTik** (NAT ajout / modification / suppression, interface,
 redémarrage), **Cisco** (sauvegarde, restauration, interface, write,
 reload), **tour de contrôle** (livraison appliquée, job terminé / en échec,
 auto-réparation : relance et abandon, redémarrage manuel, registre
-modifié). Variables du producteur : `NOTIFY_API_URL`,
+modifié). **Agents hôtes** (#716) : `si-agent.backup-alert`, `backup-recovered`,
+`backup-done` (sauvegardes : sondes pulled-backups et pbs) et `si-agent.<genre>` des
+événements warning/critical. Variables du producteur : `NOTIFY_API_URL`,
 `NOTIFY_INTERNAL_TOKEN`, `NOTIFY_CONSUMER`.
 
 ## API (jeton Keycloak sauf producteurs)

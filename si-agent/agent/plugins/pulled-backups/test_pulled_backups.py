@@ -56,11 +56,24 @@ class Sonde(unittest.TestCase):
         backups, alerts = pb.summarize(rows, now, 8, exists=lambda p: p.endswith("113.tar.gz"))
         b = {(x["host"], x["vmid"]): x for x in backups}
         self.assertEqual((b[("pve-3", 113)]["ok"], b[("pve-3", 113)]["age_h"], b[("pve-3", 113)]["failures"], b[("pve-3", 113)]["present"]), (False, 1.0, 1, True))
-        self.assertEqual(sorted(a["code"] for a in alerts), ["pull-failed", "pull-missing", "pull-old"])
+        self.assertEqual(sorted(a["code"] for a in alerts), ["pull-failed:pve-3 / CT 113", "pull-missing:pve-1 / CT 108", "pull-old:pve-1 / CT 108"])   # #716 : un code par sauvegarde
         d = tempfile.mkdtemp(); idx = os.path.join(d, "pulls.jsonl")
         with open(idx, "w") as fh:
             fh.write(json.dumps(rows[0]) + "\nnon json\n")
         self.assertEqual(len(pb.read_index(idx)), 1); self.assertIsNone(pb.read_index(os.path.join(d, "absent")))
+
+    def test_taches(self):
+        """#716 : tâche de sauvegarde quelconque (job), délai propre en heures, réussite à notifier."""
+        now = 1_800_000_000
+        rows = [{"host": "appli", "job": "base+site", "ok": True, "ended": now - 30 * 3600, "size": 9, "file": "/d/a.sql", "max_age_h": 26, "notify_ok": True},
+                {"host": "appli", "job": "base+site", "ok": True, "ended": now - 3 * 3600, "size": 9, "file": "/d/a.sql", "max_age_h": 26, "notify_ok": True},
+                {"host": "autre", "job": "dump", "ok": True, "ended": now - 30 * 3600, "max_age_h": 26},
+                {"host": "pve-3", "vmid": 113, "ok": True, "ended": now - 3600, "file": "/x/113.tar.gz"}]
+        backups, alerts = pb.summarize(rows, now, 8, exists=lambda p: True)
+        b = {(x["host"], x["job"] or x["vmid"]): x for x in backups}
+        self.assertEqual((b[("appli", "base+site")]["age_h"], b[("appli", "base+site")]["notify_ok"], b[("appli", "base+site")]["vmid"]), (3.0, True, None))
+        self.assertEqual([a["code"] for a in alerts], ["pull-old:autre / dump"])        # 30 h > 26 h ; le CT garde ses 8 jours
+        self.assertIn("30 h", alerts[0]["message"])
 
 
 if __name__ == "__main__":

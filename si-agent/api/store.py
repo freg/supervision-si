@@ -1342,8 +1342,10 @@ def _vm_states(data):
     return out
 
 
-PROBE_TASKS = ("plugin:wifi-probe", "plugin:path-probe", "plugin:windows-probe", "plugin:broadcast-probe", "plugin:dns-observe", "plugin:resource-access", "plugin:mail-server")
-PROBE_LABELS = {"plugin:wifi-probe": "Wi-Fi vu du poste", "plugin:path-probe": "chemin de service", "plugin:windows-probe": "postes Windows", "plugin:broadcast-probe": "annonces réseau", "plugin:dns-observe": "observabilité DNS", "plugin:resource-access": "accès aux ressources", "plugin:mail-server": "serveur de messagerie"}
+PROBE_TASKS = ("plugin:wifi-probe", "plugin:path-probe", "plugin:windows-probe", "plugin:broadcast-probe", "plugin:dns-observe", "plugin:resource-access", "plugin:mail-server",
+               "plugin:pulled-backups", "plugin:pbs")
+BACKUP_TASKS = ("plugin:pulled-backups", "plugin:pbs")   # #716 : genres backup-* (routables à part)
+PROBE_LABELS = {"plugin:pulled-backups": "sauvegardes", "plugin:pbs": "PBS", "plugin:wifi-probe": "Wi-Fi vu du poste", "plugin:path-probe": "chemin de service", "plugin:windows-probe": "postes Windows", "plugin:broadcast-probe": "annonces réseau", "plugin:dns-observe": "observabilité DNS", "plugin:resource-access": "accès aux ressources", "plugin:mail-server": "serveur de messagerie"}
 
 
 def _probe_alerts(data):
@@ -1365,13 +1367,16 @@ def probe_state_changes(conn, agent_id, task, at, data):
     after = _probe_alerts(data)
     prev = conn.execute("SELECT data FROM measurements WHERE agent_id = ? AND task = ? AND at < ? ORDER BY at DESC LIMIT 1",
                         (agent_id, task, at)).fetchone()
-    before = {}
+    before, prev_data = {}, {}
     if prev and prev["data"]:
         try:
-            before = _probe_alerts(json.loads(prev["data"]))
+            prev_data = json.loads(prev["data"]) or {}
+            before = _probe_alerts(prev_data)
         except (TypeError, ValueError):
-            before = {}
+            before, prev_data = {}, {}
     label = PROBE_LABELS.get(task, task)
+    # #716 : les sauvegardes ont leurs propres genres (routables à part dans les notifications : si-agent.backup-*)
+    k_alert, k_rec = ("backup-alert", "backup-recovered") if task in BACKUP_TASKS else ("probe-alert", "probe-recovered")
     # UNIQUE(agent, source, at, kind) sur la table events : un seul événement
     # par genre et par mesure, les constats sont regroupés dedans.
     new = [(code, sev, msg) for code, (sev, msg) in after.items() if code not in before or before[code][0] != sev]
@@ -1379,14 +1384,39 @@ def probe_state_changes(conn, agent_id, task, at, data):
     events = []
     if new:
         sev = "critical" if any(n[1] == "critical" for n in new) else "warning"
-        events.append({"kind": "probe-alert", "severity": sev,
+        events.append({"kind": k_alert, "severity": sev,
                        "message": "%s : %s" % (label, " ; ".join((n[2] or n[0]) for n in new))[:500],
                        "details": {"task": task, "codes": [n[0] for n in new], "state": (data.get("summary") or {}).get("state")}})
     if gone:
-        events.append({"kind": "probe-recovered", "severity": "info",
+        events.append({"kind": k_rec, "severity": "info",
                        "message": "%s : fin du constat %s" % (label, ", ".join("« %s »" % g[0] for g in gone)),
                        "details": {"task": task, "codes": [g[0] for g in gone]}})
+    if task == "plugin:pulled-backups":
+        events += backup_done_events(prev_data, data)
     return events
+
+
+def backup_done_events(prev_data, data):
+    """#716 : chaque NOUVELLE réussite d'une tâche de sauvegarde marquée `notify_ok` -> un événement « backup-done »
+    (info) ; la toute première mesure n'en produit pas (pas d'avalanche à l'activation de la sonde)."""
+    if not prev_data:
+        return []
+    seen = {(b.get("host"), b.get("job") or b.get("vmid")): b.get("at") for b in (prev_data.get("backups") or []) if isinstance(b, dict)}
+    out = []
+    for b in (data or {}).get("backups") or []:
+        if not isinstance(b, dict) or not b.get("notify_ok") or not b.get("ok") or not b.get("at"):
+            continue
+        k = (b.get("host"), b.get("job") or b.get("vmid"))
+        if seen.get(k) == b["at"]:
+            continue
+        size = b.get("size") or 0
+        out.append({"kind": "backup-done", "severity": "info",
+                    "message": "sauvegarde %s / %s réussie (%s)" % (k[0], k[1], "%.1f Mo" % (size / 1e6) if size else "taille inconnue"),
+                    "details": {"task": "plugin:pulled-backups", "host": k[0], "job": k[1], "at": b["at"], "size": size, "sha256": b.get("sha256")}})
+    if len(out) > 1:   # UNIQUE(agent, source, at, kind) : un seul événement par mesure, réussites regroupées
+        out = [{"kind": "backup-done", "severity": "info", "message": " ; ".join(e["message"] for e in out)[:500],
+                "details": {"task": "plugin:pulled-backups", "items": [e["details"] for e in out]}}]
+    return out
 
 
 def proxmox_state_changes(conn, agent_id, at, data):

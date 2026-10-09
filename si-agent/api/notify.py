@@ -19,6 +19,7 @@ dans les traces -- seule leur présence.
 import json
 import logging
 import os
+import re
 import threading
 import time
 import urllib.error
@@ -34,7 +35,55 @@ except ImportError:  # dépôt de développement
     except ImportError:
         secrets_alert = None
 
+try:   # #716 : relais vers notify-api (groupes, affectation par action, file d'envoi)
+    import notify_client
+except ImportError:
+    try:
+        import sys as _sys2
+        _sys2.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "shared"))
+        import notify_client
+    except ImportError:
+        notify_client = None
+
 _log = logging.getLogger("si_agent_notify")
+
+# #716 : genres d'événements relayés à notify-api (action « si-agent.<genre> ») -- au-delà, warning et critical.
+HUB_ACTIONS = [
+    {"id": "si-agent.backup-alert", "label": "Sauvegarde en échec, en retard ou fichier disparu", "severity": "warning"},
+    {"id": "si-agent.backup-recovered", "label": "Sauvegarde de nouveau à jour", "severity": "info"},
+    {"id": "si-agent.backup-done", "label": "Sauvegarde réussie (tâches marquées notify_ok)", "severity": "info"},
+    {"id": "si-agent.probe-alert", "label": "Constat d'une sonde d'agent", "severity": "warning"},
+    {"id": "si-agent.agent-offline", "label": "Agent hors ligne", "severity": "warning"},
+]
+ALWAYS_RELAY = {"backup-alert", "backup-recovered", "backup-done"}
+
+
+def hub_action(event):
+    """Action notify-api d'un événement, ou None s'il n'est pas relayé (pur)."""
+    kind = str(event.get("kind") or "")
+    if not re.match(r"^[a-z0-9][a-z0-9_-]{0,60}$", kind):
+        return None
+    if kind in ALWAYS_RELAY or (event.get("severity") or "info") in ("warning", "critical"):
+        return "si-agent." + kind
+    return None
+
+
+def relay_to_hub(event, client=None):
+    """Envoie l'événement à notify-api (non bloquant, jamais d'exception) ; renvoie l'action ou None."""
+    client = client or notify_client
+    action = hub_action(event)
+    if not action or client is None or not os.environ.get("NOTIFY_API_URL"):
+        return None
+    body = "%s\n\nAgent : %s\nSite : %s\nSévérité : %s\nQuand : %s\n\nDétails :\n%s\n" % (
+        event.get("message"), event.get("agent_id") or "-", event.get("site") or "-", event.get("severity"), event.get("at"),
+        json.dumps(event.get("details") or {}, indent=2, ensure_ascii=False))
+    try:
+        client.notify(action, "[supervision-si] %s" % str(event.get("message") or action)[:150], body,
+                      context={"agent_id": event.get("agent_id"), "kind": event.get("kind")}, severity=event.get("severity"))
+    except Exception as exc:  # noqa: BLE001
+        _log.warning("relais notify-api impossible : %s", exc)
+        return None
+    return action
 SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
 _last_sent = {}
 _lock = threading.Lock()
@@ -127,7 +176,10 @@ def _post_webhook(url, event, text, timeout=10):
 
 
 def dispatch(db_path, event, threaded=True):
-    """Point d'entrée : décide, envoie (en thread), marque l'événement."""
+    """Point d'entrée : décide, envoie (en thread), marque l'événement.
+    #716 : relais à notify-api d'abord (indépendant des canaux SECRETS_ALERT_* et de leur anti-tempête :
+    notify-api a les siens -- regroupement, retenue des rafales)."""
+    relay_to_hub(event)
     ok, why = should_notify(event)
     if not ok:
         _log.debug("événement %s non notifié : %s", event.get("kind"), why)

@@ -22,6 +22,7 @@ COPY si-agent/agent/si_agent/imagestore.py ./si_agent_imagestore.py
 COPY si-agent/agent/si_agent/publish.py ./si_agent_publish.py
 # Canaux SMS / courriel du PRA (#206) réutilisés pour les notifications (#422)
 COPY shared/secrets_alert.py .
+COPY shared/notify_client.py .
 COPY shared/log_buffer.py .
 COPY shared/version_endpoint.py .
 # A1 (#620) : périmètre de site par groupe -- garde commune + vérification du jeton
