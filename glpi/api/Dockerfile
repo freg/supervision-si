@@ -30,4 +30,4 @@ EXPOSE 5000
 # de doublon, dropdowns, création) peut dépasser largement les 60s
 # habituels contre un GLPI réel -- éviter que le worker soit tué EN
 # PLEIN IMPORT, ce qui laisserait un état partiel sans signal clair.
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "300", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "4", "--timeout", "300", "app:app"]

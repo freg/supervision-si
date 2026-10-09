@@ -1,3 +1,18 @@
+## 2026-10-09 — Régime mémoire de la VM du hub et passerelle HTTP/2 + compression (livraison #734)
+
+Mesure sur super : 4 vCPU, 8,7 Go de RAM, 7 Go de swap utilisés, charge 10-11 ; gros consommateurs : Keycloak (deux
+instances), Elasticsearch, Mayan (3 processus web + workers celery à 4), ~90 processus gunicorn. Un service resté
+inactif part en swap et met des secondes à répondre au clic suivant.
+
+- 37 API passent de 2 processus synchrones à 1 processus + 4 threads (gthread) : moitié moins de mémoire, une requête
+  lente ne bloque plus l'API ; pixel-grid garde 2 processus (connexion SQLite partagée au niveau du module).
+- Keycloak de la passerelle : tas borné (`KEYCLOAK_HEAP_OPTS`, défaut `-Xms256m -Xmx512m`).
+- Mayan : 1 processus web, workers à 1 (`MAYAN_GUNICORN_WORKERS`, `MAYAN_WORKER_CONCURRENCY`) -- noms de variables à
+  vérifier sur l'image s4.11.
+- Passerelle nginx : HTTP/2, cache des sessions TLS, compression gzip (le frontal Apache retire déjà Accept-Encoding).
+- Vérifié : rendu nginx (tests + `--check`). Non vérifié : effet réel des réglages Mayan et Keycloak, `nginx -t`
+  sur l'image 1.27.
+
 ## 2026-10-09 — Tuile « Déploiement d'application » : instances clonées depuis le hub (livraison #733)
 
 Item 117 tranche 4 : thématique Données & référentiels → « Déploiement d'application » (onglet « 🧬 Instances » de la

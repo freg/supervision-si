@@ -26,4 +26,4 @@ EXPOSE 5000
 # 2 workers -- SQLite gère bien un accès concurrent LÉGER (simple
 # CRUD + application de règles, pas de vrais processus OS à gérer,
 # contrairement à ssh-tunnels qui EXIGE un seul worker).
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "30", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "4", "--timeout", "30", "app:app"]

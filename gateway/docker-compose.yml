@@ -56,6 +56,8 @@ services:
     command: ["start-dev", "--import-realm"]
     environment:
       # Noms Keycloak >= 26 + anciens noms en tolérance de version.
+      # #734 : tas Java borné (la VM du hub swappait ; défaut Keycloak = 70 % de la limite du conteneur)
+      - JAVA_OPTS_KC_HEAP=${KEYCLOAK_HEAP_OPTS:--Xms256m -Xmx512m}
       - KC_BOOTSTRAP_ADMIN_USERNAME=${KEYCLOAK_ADMIN_USER:-admin}
       - KC_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-change-me}
       - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN_USER:-admin}

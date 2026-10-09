@@ -54,6 +54,17 @@ services:
       # Compte admin créé AUTOMATIQUEMENT au premier démarrage --
       # jamais de dance d'import manuel comme Keycloak (gateway/) :
       # Mayan gère sa propre initialisation via ces variables.
+      # #734 : régime mémoire (défauts de l'image : 3 processus web, workers celery à 4) -- noms à vérifier sur l'image
+      # (docker exec <mayan-app> grep -rh concurrency /etc/supervisor/ ; voir mayan/README.md)
+      MAYAN_GUNICORN_WORKERS: ${MAYAN_GUNICORN_WORKERS:-1}
+      MAYAN_WORKER_A_CONCURRENCY: ${MAYAN_WORKER_CONCURRENCY:-1}
+      MAYAN_WORKER_B_CONCURRENCY: ${MAYAN_WORKER_CONCURRENCY:-1}
+      MAYAN_WORKER_C_CONCURRENCY: ${MAYAN_WORKER_CONCURRENCY:-1}
+      MAYAN_WORKER_D_CONCURRENCY: ${MAYAN_WORKER_CONCURRENCY:-1}
+      MAYAN_WORKER_E_CONCURRENCY: ${MAYAN_WORKER_CONCURRENCY:-1}
+      MAYAN_WORKER_FAST_CONCURRENCY: ${MAYAN_WORKER_CONCURRENCY:-1}
+      MAYAN_WORKER_MEDIUM_CONCURRENCY: ${MAYAN_WORKER_CONCURRENCY:-1}
+      MAYAN_WORKER_SLOW_CONCURRENCY: ${MAYAN_WORKER_CONCURRENCY:-1}
       MAYAN_AUTOADMIN_USERNAME: ${MAYAN_AUTOADMIN_USERNAME:-admin}
       MAYAN_AUTOADMIN_PASSWORD: ${MAYAN_AUTOADMIN_PASSWORD:-change-me}
       MAYAN_AUTOADMIN_EMAIL: ${MAYAN_AUTOADMIN_EMAIL:-admin@example.com}

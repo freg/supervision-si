@@ -468,6 +468,19 @@ server {{
     listen {gateway_port} ssl;
     server_name _;
 
+    # #734 : HTTP/2 (requêtes multiplexées sur une connexion), sessions TLS réutilisées (pas de poignée complète à
+    # chaque connexion), JSON / JS / CSS compressés. Le frontal Apache public retire déjà Accept-Encoding vers
+    # l'amont (scripts/front-reverse-proxy.sh, substitution d'origine) : il reçoit toujours du non compressé.
+    http2 on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1h;
+    gzip on;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_proxied any;
+    gzip_vary on;
+    gzip_types application/json application/javascript text/javascript text/css text/plain application/xml image/svg+xml;
+
     # Résolveur DNS interne de Docker (adresse standard, fixe, sur
     # tout réseau défini par l'utilisateur -- voir docstring du
     # module pour le raisonnement complet). "valid=10s" : durée de
