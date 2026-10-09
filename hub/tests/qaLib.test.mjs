@@ -37,3 +37,15 @@ test("hubTourViews / auditSummary (#721) : vues du tour sans doublon, synthèse 
   assert.deepEqual(s, { pages: 2, score: 90, erreur: 1, avertissement: 1, info: 0 });
   assert.equal(auditSummary([]).score, null);
 });
+
+import { diffSummary, ratioPct, parseMask } from "../src/qaLib.js";
+test("#727 diffSummary / ratioPct / parseMask", () => {
+  assert.equal(diffSummary(null).label, "aucune capture comparable");
+  const same = diffSummary({ steps: [{ index: 1, ratio: 0.001, significant: false }, { index: 2, ratio: 0, significant: false }] });
+  assert.equal(same.significant, 0); assert.match(same.label, /^identique à la référence \(2 capture/);
+  const d = diffSummary({ steps: [{ index: 1, ratio: 0.1234, significant: true }, { index: 2, error: "capture absente" }, { index: 3, ratio: 0.002 }] });
+  assert.deepEqual([d.compared, d.missing, d.significant, d.maxPct], [2, 1, 1, 12.3]);
+  assert.equal(d.label, "1 capture(s) différente(s) sur 2 (écart max 12.3 %)");
+  assert.equal(ratioPct(0.0456), "4.6 %"); assert.equal(ratioPct(undefined), "0 %");
+  assert.deepEqual(parseMask(" .horloge, ,#compteur "), [".horloge", "#compteur"]); assert.deepEqual(parseMask(""), []);
+});

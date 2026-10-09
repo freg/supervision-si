@@ -56,3 +56,15 @@ traversant de non-régression**, rejoué en **campagne** (tous les scénarios de
 - Décisions (9 oct.) : analyse **locale sans modèle de vision** (DOM, styles, règles ; rien ne sort du SI), **hub seul**
   d'abord. Suite (item 116) : références et différences de captures (tranche 3), maquettes en étapes (tranche 4).
 - `AUDIT_JS` vérifié dans un vrai Chromium (Playwright) sur une page de test : les 6 règles détectent leur cas.
+
+## Référence visuelle et différences de captures (livraison #727, item 116 tranche 3)
+
+- **Référence** : `PUT /scenarios/<id>/reference {run_id|null}` -- une exécution du scénario devient la référence
+  (captures attendues). Hub : « ★ Définir comme référence » dans le détail d'une exécution.
+- **Comparaison** : `GET /runs/<id>/diff[?against=<exécution>]` -- étape par étape (hors connexion), écart en % des
+  pixels (seuil par canal 24, significatif au-delà de 0,5 %), zone touchée, taille changée, image de différence
+  (capture assombrie, changements en rouge) mise en cache `diff-<against>-<capture>` dans le dossier de l'exécution.
+  `against` sert à **rejouer un bug** : rejouer le scénario d'un ticket puis comparer à l'exécution jointe au ticket.
+- **Zones masquées** : champ du scénario (sélecteurs CSS séparés par des virgules) passé à la capture Playwright
+  (`mask`) pour neutraliser horloges, compteurs, dates.
+- Calcul pur Pillow (`qa_visual.py`, testé sans navigateur) ; analyse locale, aucun modèle de vision.

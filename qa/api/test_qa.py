@@ -17,7 +17,8 @@ sys.path.insert(0, os.path.dirname(__file__)); import app as appmod; importlib.r
 
 class FakeRunner:
     fail_at = None
-    def run(self, base_url, login, steps, shots_dir, timeout_ms):
+    def run(self, base_url, login, steps, shots_dir, timeout_ms, mask=None):
+        self.mask = mask
         pathlib.Path(shots_dir).mkdir(parents=True, exist_ok=True); res = []
         for i, st in enumerate(login, 1): res.append(dict(index=-(len(login) - i + 1), action=st["action"], ok=True, error="", duration_ms=1, shot="", login=True))
         for i, st in enumerate(steps, 1):
@@ -71,4 +72,26 @@ def test_hub_tour():
     assert c.post(f"/sites/{sid}/scenarios", json={"name": "a", "steps": [{"action": "audit", "value": "tout"}]}).status_code == 400
     assert any(a["id"] == "audit" for a in c.get("/catalog").json["actions"])
     run = c.post(f"/scenarios/{r.json['scenario']['id']}/run").json["run"]; assert run["status"] == "ok"
+    c.delete(f"/sites/{sid}")
+
+def test_reference_and_diff():
+    """#727 : référence visuelle, écarts calculés entre deux exécutions, image de différence servie."""
+    from PIL import Image, ImageDraw
+    sid = c.post("/sites", json={"name": "Hub2", "base_url": "https://hub.example"}).json["site"]["id"]
+    x = c.post(f"/sites/{sid}/scenarios", json={"name": "Accueil", "steps": [{"action": "goto", "value": "/"}, {"action": "screenshot"}]}).json["scenario"]
+    assert c.put(f"/scenarios/{x['id']}", json={"mask": ".horloge, #compteur"}).json["scenario"]["mask"] == ".horloge, #compteur"
+    r1 = c.post(f"/scenarios/{x['id']}/run").json["run"]; assert appmod.RUNNER.mask == [".horloge", "#compteur"]
+    assert c.get(f"/runs/{r1['id']}/diff").status_code == 400                                   # pas de référence
+    for rid, box in ((r1["id"], None), (None, (5, 5, 14, 14))):
+        pass
+    for i in (1, 2): Image.new("RGB", (40, 20), "white").save(pathlib.Path(tmp) / "runs" / str(r1["id"]) / f"step{i}.png")
+    assert c.put(f"/scenarios/{x['id']}/reference", json={"run_id": r1["id"]}).json["scenario"]["ref_run_id"] == r1["id"]
+    assert c.put(f"/scenarios/{x['id']}/reference", json={"run_id": 99999}).status_code == 400
+    r2 = c.post(f"/scenarios/{x['id']}/run").json["run"]
+    im = Image.new("RGB", (40, 20), "white"); ImageDraw.Draw(im).rectangle((5, 5, 14, 14), fill="blue"); im.save(pathlib.Path(tmp) / "runs" / str(r2["id"]) / "step2.png")
+    Image.new("RGB", (40, 20), "white").save(pathlib.Path(tmp) / "runs" / str(r2["id"]) / "step1.png")
+    dd = c.get(f"/runs/{r2['id']}/diff").json
+    assert dd["against"] == r1["id"] and dd["significant"] == 1 and [s["ratio"] > 0 for s in dd["steps"]] == [False, True], dd
+    assert c.get(f"/runs/{r2['id']}/shot/{dd['steps'][1]['diff']}").status_code == 200
+    assert c.get(f"/runs/{r2['id']}/diff?against={r2['id']}").json["significant"] == 0           # rejouer contre une exécution choisie
     c.delete(f"/sites/{sid}")

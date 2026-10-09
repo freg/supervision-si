@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { getCatalog, listSites, createSite, updateSite, deleteSite, probeSite, listScenarios, createScenario, updateScenario, deleteScenario, runScenario, listRuns, runCampaign, listCampaigns, createTicket, shotUrl, hubTour } from "./qaClient.js";
+import { getCatalog, listSites, createSite, updateSite, deleteSite, probeSite, listScenarios, createScenario, updateScenario, deleteScenario, runScenario, listRuns, runCampaign, listCampaigns, createTicket, shotUrl, hubTour, setReference, runDiff } from "./qaClient.js";
 import { THEMES } from "./hubThemes.js";
-import { emptyStep, fieldsFor, validateSteps, loginFromProbe, runBadge, campaignSummary, hubTourViews, auditSummary } from "./qaLib.js";
+import { emptyStep, fieldsFor, validateSteps, loginFromProbe, runBadge, campaignSummary, hubTourViews, auditSummary, diffSummary, ratioPct, parseMask } from "./qaLib.js";
 import HubIcon from "./HubIcon.jsx";
 
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
@@ -49,12 +49,13 @@ export default function QaView({ onBack, qaApiBase, login }) {
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
   const [ticketForm, setTicketForm] = useState(null);   // {runId, kind, comment}
+  const [diff, setDiff] = useState(null);               // #727 : comparaison visuelle de l'exécution affichée
 
   const refreshSites = useCallback(async () => { const r = await listSites(qaApiBase); if (r.error) setError(r.error); else setSites(r.sites || []); }, [qaApiBase]);
   useEffect(() => { getCatalog(qaApiBase).then((r) => !r.error && setCatalog(r.actions || [])); refreshSites(); }, [qaApiBase, refreshSites]);
 
   async function openSite(s) {
-    setSite(s); setEditing(null); setRun(null); setRuns([]); setCampaign(null); setProbe(null); setError(null); setNotice(null); setTicketForm(null);
+    setSite(s); setEditing(null); setRun(null); setRuns([]); setCampaign(null); setProbe(null); setError(null); setNotice(null); setTicketForm(null); setDiff(null);
     setSiteForm({ name: s.name, base_url: s.base_url, notes: s.notes || "", ported: !!s.ported, login_steps: s.login_steps || [] });
     const [x, c] = await Promise.all([listScenarios(qaApiBase, s.id), listCampaigns(qaApiBase, s.id)]);
     if (!x.error) setScenarios(x.scenarios || []); if (!c.error) setCampaigns(c.campaigns || []);
@@ -95,6 +96,19 @@ export default function QaView({ onBack, qaApiBase, login }) {
     if (r.error) { setError(r.error); return; }
     setRun({ ...r.run, scenario: x }); const l = await listScenarios(qaApiBase, site.id); if (!l.error) setScenarios(l.scenarios);
     const h = await listRuns(qaApiBase, x.id); if (!h.error) setRuns(h.runs);
+  }
+  // #727 : référence visuelle et comparaison (« rejouer un bug » : comparer à l'exécution d'un ticket via « against »).
+  useEffect(() => { setDiff(null); }, [run && run.id]);
+  async function markReference(r, clear) {
+    if (!r.scenario) return; setBusy("ref"); const res = await setReference(qaApiBase, r.scenario.id, clear ? null : r.id); setBusy("");
+    if (res.error) { setError(res.error); return; }
+    setRun({ ...r, scenario: res.scenario }); setNotice(clear ? "Référence retirée" : `Exécution n°${r.id} définie comme référence visuelle`);
+    if (editing && editing.id === res.scenario.id) setEditing({ ...editing, ref_run_id: res.scenario.ref_run_id });
+    const l = await listScenarios(qaApiBase, site.id); if (!l.error) setScenarios(l.scenarios);
+  }
+  async function compare(r, against) {
+    setBusy("diff"); const res = await runDiff(qaApiBase, r.id, against); setBusy("");
+    if (res.error) { setError(res.error); setDiff(null); } else setDiff(res);
   }
   async function showHistory(x) { const h = await listRuns(qaApiBase, x.id); if (!h.error) { setRuns(h.runs); setRun(h.runs[0] ? { ...h.runs[0], scenario: x } : null); } }
   async function makeHubTour() {   // #721 : scénario « Tour du hub » depuis les thématiques du hub
@@ -207,6 +221,7 @@ export default function QaView({ onBack, qaApiBase, login }) {
                 <div className="qa-grid">
                   <div className="hub-settings-row"><label>Nom</label><input type="text" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} /></div>
                   <div className="hub-settings-row"><label>Nature</label><select value={editing.kind} onChange={(e) => setEditing({ ...editing, kind: e.target.value })}><option value="qa">QA (exploration)</option><option value="non-regression">non-régression (test traversant)</option></select></div>
+                  <div className="hub-settings-row"><label>Zones masquées aux captures (sélecteurs CSS séparés par des virgules : horloges, compteurs…)</label><input type="text" value={editing.mask || ""} onChange={(e) => setEditing({ ...editing, mask: e.target.value })} onBlur={() => setEditing((x) => ({ ...x, mask: parseMask(x.mask).join(", ") }))} placeholder=".hub-clock, #compteur" /></div>
                 </div>
                 <StepsEditor steps={editing.steps} catalog={catalog} onChange={setStep} onMove={moveStep} onRemove={(i) => setEditing((e) => ({ ...e, steps: e.steps.filter((_, j) => j !== i) }))} onAdd={() => setEditing((e) => ({ ...e, steps: [...e.steps, emptyStep("click")] }))} />
                 <div className="qa-inline">
@@ -229,6 +244,22 @@ export default function QaView({ onBack, qaApiBase, login }) {
                         <ul>{r.findings.map((f, j) => <li key={j}><span className={f.severity === "erreur" ? "qa-ko" : f.severity === "info" ? "muted" : ""}>{f.severity}</span> — {f.rule} : {f.message}{f.sample ? <span className="muted"> ({f.sample})</span> : null}</li>)}</ul></details>)}
                       {r.findings && r.findings.length === 0 && <span className="qa-ok"> conforme</span>}</td><td className="muted">{r.duration_ms}</td>
                     <td>{r.shot ? <a href={shotUrl(qaApiBase, run.id, r.shot)} target="_blank" rel="noreferrer"><img className="qa-thumb" src={shotUrl(qaApiBase, run.id, r.shot)} alt={`étape ${r.index}`} /></a> : ""}</td></tr>)}</tbody></table></AutoColumns>
+                <div className="qa-inline">
+                  {run.scenario && run.scenario.ref_run_id === run.id
+                    ? <><span className="qa-ok">★ exécution de référence</span><button className="secondary" onClick={() => markReference(run, true)} disabled={busy === "ref"}>Retirer la référence</button></>
+                    : <button className="secondary" onClick={() => markReference(run, false)} disabled={busy === "ref"}>★ Définir comme référence</button>}
+                  {run.scenario && run.scenario.ref_run_id && run.scenario.ref_run_id !== run.id && <button className="secondary" onClick={() => compare(run)} disabled={busy === "diff"}>Comparer à la référence (n°{run.scenario.ref_run_id})</button>}
+                  {runs.length > 1 && <select value="" onChange={(e) => e.target.value && compare(run, Number(e.target.value))}><option value="">Comparer à une autre exécution…</option>{runs.filter((r) => r.id !== run.id).map((r) => <option key={r.id} value={r.id}>n°{r.id} · {r.started_at.slice(5, 16).replace("T", " ")}{r.ticket_id ? ` · ticket n°${r.ticket_id}` : ""}</option>)}</select>}
+                </div>
+                {diff && diff.run_id === run.id && (() => { const sm = diffSummary(diff); return (
+                  <div className="qa-diff"><p><strong>Écarts visuels avec l'exécution n°{diff.against}</strong> : <span className={sm.significant ? "qa-ko" : "qa-ok"}>{sm.label}</span>{sm.missing ? <span className="muted"> · {sm.missing} capture(s) absente(s)</span> : null}</p>
+                    <AutoColumns id="QaView.5"><table className="qa-table"><thead><tr><th>#</th><th>Action</th><th>Écart</th><th>Référence</th><th>Cette exécution</th><th>Différences</th></tr></thead>
+                      <tbody>{diff.steps.map((x, i) => <tr key={i} className={x.significant ? "qa-row-ko" : ""}><td>{x.index}</td><td>{x.action}</td>
+                        <td className={x.error ? "qa-ko" : x.significant ? "qa-ko" : "qa-ok"}>{x.error ? x.error : `${ratioPct(x.ratio)}${x.size_changed ? " · taille changée" : ""}`}</td>
+                        {x.error ? <td colSpan={3}></td> : <>
+                          <td><a href={shotUrl(qaApiBase, x.ref_run, x.ref_shot)} target="_blank" rel="noreferrer"><img className="qa-thumb" src={shotUrl(qaApiBase, x.ref_run, x.ref_shot)} alt="référence" /></a></td>
+                          <td><a href={shotUrl(qaApiBase, run.id, x.shot)} target="_blank" rel="noreferrer"><img className="qa-thumb" src={shotUrl(qaApiBase, run.id, x.shot)} alt="nouvelle" /></a></td>
+                          <td><a href={shotUrl(qaApiBase, run.id, x.diff)} target="_blank" rel="noreferrer"><img className="qa-thumb" src={shotUrl(qaApiBase, run.id, x.diff)} alt="différences" /></a></td></>}</tr>)}</tbody></table></AutoColumns></div>); })()}
                 {!run.ticket_id && !ticketForm && (
                   <div className="qa-inline"><button className="primary" onClick={() => setTicketForm({ runId: run.id, kind: "incident", comment: "" })}>Ticket incident</button>
                     <button className="secondary" onClick={() => setTicketForm({ runId: run.id, kind: "evolution", comment: "" })}>Ticket évolution</button>

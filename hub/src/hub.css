@@ -2314,6 +2314,7 @@ button.danger { color: #e06666; }
 .qa-danger { color: var(--danger); margin-left: auto; }
 .qa-thumb { height: 54px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); }
 .qa-details { margin-top: 8px; } .qa-details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.qa-diff { margin: 10px 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); }   /* #727 */
 .qa-campaign { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 6px; }
 .qa-ticket { border-top: 1px solid var(--border); margin-top: 8px; padding-top: 6px; }
 .qa-ticket textarea { width: 100%; box-sizing: border-box; }

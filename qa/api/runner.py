@@ -8,7 +8,7 @@ except ImportError:  # pragma: no cover
 
 def _abs(base, v): return v if v.startswith(("http://", "https://")) else base.rstrip("/") + "/" + v.lstrip("/")
 
-def run(base_url, login, steps, shots_dir, timeout_ms=15000, width=1366, height=900):
+def run(base_url, login, steps, shots_dir, timeout_ms=15000, width=1366, height=900, mask=None):
     from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
     shots = pathlib.Path(shots_dir); shots.mkdir(parents=True, exist_ok=True); results = []
     with sync_playwright() as p:
@@ -48,7 +48,7 @@ def run(base_url, login, steps, shots_dir, timeout_ms=15000, width=1366, height=
             shot = ""
             if a in ("screenshot", "goto", "click", "press", "audit") or not ok:
                 shot = f"step{i}.png"
-                try: pg.screenshot(path=str(shots / shot), full_page=False)
+                try: pg.screenshot(path=str(shots / shot), full_page=False, mask=[pg.locator(m) for m in (mask or [])])   # #727 : zones vivantes masquées
                 except Exception: shot = ""
             results.append(dict(index=i - n_login if i > n_login else -(n_login - i + 1), action=a, ok=ok, error=err, duration_ms=int((time.time() - t0) * 1000), shot=shot, login=i <= n_login, **extra))
             if not ok: break

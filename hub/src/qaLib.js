@@ -64,3 +64,22 @@ export function auditSummary(results) {
   const avg = audits.length ? Math.round(audits.reduce((a, r) => a + (r.score ?? 0), 0) / audits.length) : null;
   return { pages: audits.length, score: avg, ...count };
 }
+
+// #727 : synthèse d'une comparaison visuelle (GET /runs/<id>/diff) -- étapes comparées, écarts significatifs,
+// plus grand écart en %, et libellé prêt à afficher.
+export function diffSummary(diff) {
+  const steps = (diff && diff.steps) || []; const compared = steps.filter((s) => !s.error);
+  const significant = compared.filter((s) => s.significant).length;
+  const max = compared.reduce((m, s) => Math.max(m, s.ratio || 0), 0);
+  const maxPct = Math.round(max * 1000) / 10;
+  const label = compared.length === 0 ? "aucune capture comparable"
+    : significant === 0 ? `identique à la référence (${compared.length} capture(s), écart max ${maxPct} %)`
+    : `${significant} capture(s) différente(s) sur ${compared.length} (écart max ${maxPct} %)`;
+  return { compared: compared.length, missing: steps.length - compared.length, significant, maxPct, label };
+}
+
+// #727 : écart d'une étape en pourcentage lisible.
+export const ratioPct = (r) => `${Math.round((r || 0) * 1000) / 10} %`;
+
+// #727 : zones masquées -- texte saisi « .horloge, #compteur » → sélecteurs nettoyés (vides retirés).
+export const parseMask = (text) => (text || "").split(",").map((x) => x.trim()).filter(Boolean);

@@ -1,3 +1,16 @@
+## 2026-10-09 — Tests QA : référence visuelle, différences de captures, rejouer un bug (livraison #727)
+
+Item 116 tranche 3 (assistant de design et de parcours) : une exécution d'un scénario peut devenir sa **référence
+visuelle** ; toute exécution suivante se compare à elle (ou à n'importe quelle autre, par ex. celle jointe à un ticket
+pour rejouer un bug) étape par étape : écart en %, zone touchée, image de différence en rouge, vignettes référence /
+nouvelle / différences côte à côte. Zones masquées par scénario (horloges, compteurs) neutralisées à la capture.
+
+- Vérifié : `qa/api` (7 tests dont référence + diff de bout en bout avec images Pillow, `against`, image servie),
+  `hub/tests` (336, dont `diffSummary` / `ratioPct` / `parseMask`), syntaxe `@babel/parser`.
+- Non vérifié : capture masquée dans un vrai Chromium, rendu du hub.
+- Fichiers : `qa/api/qa_visual.py`, `qa/api/app.py`, `qa/api/runner.py`, `qa/api/Dockerfile`, `qa/api/requirements.txt`
+  (pillow), `hub/src/QaView.jsx`, `hub/src/qaClient.js`, `hub/src/qaLib.js`, `hub/src/hub.css`.
+
 ## 2026-10-09 — « Questions sur le hub » : sauvegardes et snapshots (livraison #726)
 
 Suite de #715 avec l'inventaire de #724 : « dernière sauvegarde du CT 108 ? », « quels snapshots sur pve-1 ? »,

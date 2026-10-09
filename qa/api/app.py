@@ -22,6 +22,7 @@ from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import qa_steps
 import qa_design
+import qa_visual
 try:
     from version_endpoint import register_version_route
 except ImportError:
@@ -58,6 +59,9 @@ def init_db():
         CREATE TABLE IF NOT EXISTS campaigns (id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
             kind TEXT DEFAULT 'non-regression', started_at TEXT, finished_at TEXT, total INTEGER DEFAULT 0, passed INTEGER DEFAULT 0, by_user TEXT DEFAULT '');
         """)
+        for col in ("ref_run_id INTEGER", "mask TEXT DEFAULT ''"):   # #727 : référence visuelle, zones masquées à la capture
+            try: cn.execute("ALTER TABLE scenarios ADD COLUMN " + col)
+            except sqlite3.OperationalError: pass
 init_db()
 def now(): return time.strftime("%Y-%m-%dT%H:%M:%S")
 def d(r): return dict(r) if r is not None else None
@@ -186,8 +190,9 @@ def scenarios_update(xid):
         try: steps = qa_steps.normalize_steps(b["steps"]) if "steps" in b else json.loads(cur["steps"])
         except ValueError as e: return jsonify(error=str(e)), 400
         kind = b.get("kind") if b.get("kind") in ("qa", "non-regression") else cur["kind"]
-        cn.execute("UPDATE scenarios SET name=?, kind=?, steps=?, tags=?, updated_at=? WHERE id=?",
-                   ((b.get("name") or cur["name"]).strip(), kind, json.dumps(steps, ensure_ascii=False), b.get("tags", cur["tags"]) or "", now(), xid))
+        cn.execute("UPDATE scenarios SET name=?, kind=?, steps=?, tags=?, mask=?, updated_at=? WHERE id=?",
+                   ((b.get("name") or cur["name"]).strip(), kind, json.dumps(steps, ensure_ascii=False), b.get("tags", cur["tags"]) or "",
+                    str(b.get("mask", cur["mask"]) or "")[:500], now(), xid))
         r = cn.execute("SELECT * FROM scenarios WHERE id = ?", (xid,)).fetchone()
     return jsonify(scenario=scenario_out(r))
 
@@ -205,7 +210,8 @@ def _execute(cn, scenario, site, campaign_id=None, by_user=""):
     rid = cur.lastrowid; cn.commit()
     login = json.loads(site["login_steps"] or "[]"); steps = json.loads(scenario["steps"])
     try:
-        results, url = runner().run(site["base_url"], login, steps, RUNS / str(rid), STEP_TIMEOUT)
+        mask = [m.strip() for m in (scenario["mask"] or "").split(",") if m.strip()] if "mask" in scenario.keys() else []
+        results, url = runner().run(site["base_url"], login, steps, RUNS / str(rid), STEP_TIMEOUT, mask=mask)
         st = qa_steps.summarize([r for r in results if not r.get("login")])["status"]
         if any(r.get("login") and not r["ok"] for r in results): st = "ko"
         err = ""
@@ -254,8 +260,44 @@ def scenario_runs(xid):
 
 @app.route("/runs/<int:rid>/shot/<name>", methods=["GET"])
 def run_shot(rid, name):
-    if not name.startswith("step") or not name.endswith(".png") or "/" in name: return jsonify(error="capture inconnue"), 404
+    if not (name.startswith("step") or name.startswith("diff-")) or not name.endswith(".png") or "/" in name or ".." in name: return jsonify(error="capture inconnue"), 404
     return send_from_directory(RUNS / str(rid), name)
+
+# ------------------------------------------------------------------ référence et différences visuelles (#727)
+@app.route("/scenarios/<int:xid>/reference", methods=["PUT"])
+def scenario_reference(xid):
+    """Exécution de référence du scénario (captures attendues) ; run_id nul = aucune."""
+    rid = (request.get_json(silent=True) or {}).get("run_id")
+    with db() as cn:
+        if not cn.execute("SELECT 1 FROM scenarios WHERE id = ?", (xid,)).fetchone(): return jsonify(error="Scénario inconnu"), 404
+        if rid is not None and not cn.execute("SELECT 1 FROM runs WHERE id = ? AND scenario_id = ?", (rid, xid)).fetchone():
+            return jsonify(error="Exécution inconnue pour ce scénario"), 400
+        cn.execute("UPDATE scenarios SET ref_run_id = ?, updated_at = ? WHERE id = ?", (rid, now(), xid)); cn.commit()
+        r = cn.execute("SELECT * FROM scenarios WHERE id = ?", (xid,)).fetchone()
+    return jsonify(scenario=scenario_out(r))
+
+@app.route("/runs/<int:rid>/diff", methods=["GET"])
+def run_diff(rid):
+    """Écarts visuels d'une exécution avec la référence du scénario, ou avec ?against=<exécution> (rejouer un bug :
+    comparer à l'exécution jointe au ticket). Images de différence mises en cache dans le dossier de l'exécution."""
+    with db() as cn:
+        run = cn.execute("SELECT * FROM runs WHERE id = ?", (rid,)).fetchone()
+        if not run: return jsonify(error="Exécution inconnue"), 404
+        x = cn.execute("SELECT * FROM scenarios WHERE id = ?", (run["scenario_id"],)).fetchone()
+        against = request.args.get("against", type=int) or x["ref_run_id"]
+        if not against: return jsonify(error="Aucune référence : choisir une exécution de référence pour ce scénario"), 400
+        ref = cn.execute("SELECT * FROM runs WHERE id = ?", (against,)).fetchone()
+        if not ref: return jsonify(error="Exécution de référence introuvable"), 404
+    out = []
+    for idx, action, rshot, nshot in qa_visual.pairs(json.loads(ref["results"] or "[]"), json.loads(run["results"] or "[]")):
+        rp, np_ = RUNS / str(against) / rshot, RUNS / str(rid) / nshot
+        name = f"diff-{against}-{nshot}"
+        if not rp.exists() or not np_.exists():
+            out.append(dict(index=idx, action=action, error="capture absente")); continue
+        try: res = qa_visual.compare(rp, np_, RUNS / str(rid) / name)
+        except Exception as e: out.append(dict(index=idx, action=action, error=f"{type(e).__name__} : {e}"[:200])); continue
+        out.append(dict(index=idx, action=action, ref_run=against, ref_shot=rshot, shot=nshot, diff=name, **res))
+    return jsonify(run_id=rid, against=against, steps=out, significant=sum(1 for s in out if s.get("significant")))
 
 # ------------------------------------------------------------------ ticket depuis une exécution
 def _ticket_type_id(label):
