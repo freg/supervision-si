@@ -285,3 +285,21 @@ class Routes(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Inventaire(unittest.TestCase):
+    """#724 : inventaire unifié des snapshots et sauvegardes (pur)."""
+
+    def test_sources(self):
+        snap = {"nodes": {"pve-a": {"vms": {101: {"name": "web", "snapshots": [{"name": "avant-maj", "at": 1_790_000_000}]}},
+                                    "backup_files": [{"vmid": 101, "volid": "pbs:backup/ct/101/2026", "at": 1_791_000_000, "size": 5}]}},
+                "remote_pves": [{"name": "pve-1", "guests": [{"vmid": 108, "name": "old"}], "snapshots": [{"vmid": 108, "name": "s1", "at": "2026-01-02 03:04:05"}],
+                                 "backups": [{"vmid": 108, "volid": "local:backup/vzdump-lxc-108-2026_10_01-01_30_00.tar.gz", "at": "2026-10-01 01:30:00", "size": 9}]}],
+                "pbs_servers": [{"agent_id": "pbs10", "groups": [{"ref": "backup:ct/101", "id": "101", "snapshots": [1_791_100_000, 1_791_200_000]}]}],
+                "pulled": [{"host": "appli", "job": "base+site", "vmid": None, "at": 1_791_300_000, "size": 7, "file": "/d/a.sql"}]}
+        rows = maint.backup_inventory(snap)
+        self.assertEqual([(r["source"], r["kind"], r["vmid"]) for r in rows][:2], [("tirée", "sauvegarde", None), ("pbs", "sauvegarde", 101)])
+        self.assertEqual(sorted({r["source"] for r in rows}), ["agent", "pbs", "ssh", "tirée"])
+        ssh_snap = next(r for r in rows if r["source"] == "ssh" and r["kind"] == "snapshot")
+        self.assertEqual((ssh_snap["name"], ssh_snap["at_text"], ssh_snap["at"]), ("old", "2026-01-02 03:04:05", 1767323045))
+        self.assertEqual(len(rows), 7)

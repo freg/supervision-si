@@ -136,6 +136,19 @@ def extract_ips_lxc(rows):
     return ips
 
 
+def backup_inventory(rows, storage, limit=2000):
+    """#724 : toutes les sauvegardes d'un stockage -> [{vmid, volid, storage, at, size, format}] (bornées)."""
+    out = []
+    for row in rows or []:
+        vmid = row.get("vmid")
+        if vmid is None:
+            m = VZDUMP_RE.search(row.get("volid") or "")
+            vmid = int(m.group(1)) if m else None
+        out.append({"vmid": int(vmid) if vmid is not None else None, "volid": row.get("volid"), "storage": storage,
+                    "at": row.get("ctime"), "size": row.get("size"), "format": row.get("format")})
+    return out[:limit]
+
+
 def newest_backups(rows, now=None):
     """Dernier backup par VM depuis le contenu d'un stockage
     (content=backup) : {vmid: {"at": epoch, "age_s": s, "volid": v}}.
@@ -938,6 +951,7 @@ def collect(pve, hostname=None, now=None, connector=None):
                  "mem_total": (status.get("memory") or {}).get("total")}
 
     backups = {}
+    backup_files = []   # #724 : inventaire complet des sauvegardes (pas seulement la dernière par VM)
     storages = []
     try:
         for st in pve.pvesh("/nodes/%s/storage" % node) or []:
@@ -949,6 +963,7 @@ def collect(pve, hostname=None, now=None, connector=None):
             if "backup" in (st.get("content") or ""):
                 try:
                     rows = pve.pvesh("/nodes/%s/storage/%s/content?content=backup" % (node, st.get("storage")))
+                    backup_files += backup_inventory(rows, st.get("storage"))
                     for vmid, b in newest_backups(rows, now).items():
                         if vmid not in backups or b["at"] > backups[vmid]["at"]:
                             backups[vmid] = b
@@ -1043,7 +1058,7 @@ def collect(pve, hostname=None, now=None, connector=None):
         vm["backup_runs"] = by_vm_runs.get(vm["vmid"], [])[:5]
         vm["last_backup_run"] = vm["backup_runs"][0] if vm["backup_runs"] else None
         vm["backup_jobs"] = [j["id"] for j in jobs if j["all"] or vm["vmid"] in j["vmids"]]
-    backups_section = {"runs": runs[:50], "jobs": jobs,
+    backups_section = {"runs": runs[:50], "jobs": jobs, "files": backup_files[:2000],
                        "failed_24h": sum(1 for r in runs if r["ok"] is False and (r["age_s"] or 0) <= 86400),
                        "ok_24h": sum(1 for r in runs if r["ok"] and (r["age_s"] or 0) <= 86400)}
 

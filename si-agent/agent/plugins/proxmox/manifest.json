@@ -1,6 +1,6 @@
 {
   "id": "proxmox",
-  "version": "4",
+  "version": "5",
   "runner": "python",
   "entry": "proxmox.py",
   "interval_seconds": 1800,

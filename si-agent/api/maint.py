@@ -11,6 +11,7 @@ sauvegarde planifiée, état d'un CT, version d'agent) évalué sur la dernière
 pas seulement coché. Un constat acquis reste acquis quand la donnée disparaît (ex. la sauvegarde d'un CT ensuite supprimé).
 
 Partie pure (snapshot, check, evaluate, templates, due_actions, pbs_overview) testée sans base ; routes `/maint/*`."""
+import calendar
 import json
 import threading
 import time
@@ -48,7 +49,8 @@ def snapshot(px, now=None, agents=None, pulled=None, pbs_servers=None, remote_pv
         at = _epoch(p.get("at"))
         nodes[name] = {"agent_id": p.get("agent_id"), "at": at, "stale": (not p.get("ok", True)) or at is None or now - at > STALE_S,
                        "storages": {s.get("storage"): s for s in p.get("storages") or [] if s.get("storage")},
-                       "vms": {int(v["vmid"]): v for v in p.get("vms") or [] if str(v.get("vmid", "")).isdigit()}}
+                       "vms": {int(v["vmid"]): v for v in p.get("vms") or [] if str(v.get("vmid", "")).isdigit()},
+                       "backup_files": list((p.get("backups") or {}).get("files") or [])}   # #724
         for j in ((p.get("backups") or {}).get("jobs") or []):
             key = (j.get("id"), j.get("storage"), j.get("schedule"))
             if key not in seen:
@@ -478,6 +480,7 @@ def pbs_overview(snap, old_h=48):
     pbs = [s for s in stores if s["type"] == "pbs"]
     return {"stores": stores, "jobs": snap["jobs"], "guests": guests, "has_pbs": bool(pbs) or bool(snap.get("pbs_servers")), "pulled": snap.get("pulled") or [],
             "pbs_servers": snap.get("pbs_servers") or [], "remote_pves": snap.get("remote_pves") or [],
+            "inventory": backup_inventory(snap),
             "summary": {"guests": len(guests), "uncovered": sum(1 for g in guests if "hors tâche planifiée" in g["flags"]),
                         "never": sum(1 for g in guests if "jamais sauvegardé" in g["flags"]),
                         "old": sum(1 for g in guests if any(f.startswith("sauvegarde de plus") for f in g["flags"])),
@@ -517,6 +520,49 @@ def current_snapshot(now=None):
     finally:
         conn.close()
     return snapshot(_db["latest"](), now, agents, pulled, pbs_servers, remote)
+
+
+def _text_epoch(s):
+    """« AAAA-MM-JJ hh:mm:ss » (heure du nœud, sans fuseau) -> epoch approximatif (lu comme UTC) ; None sinon."""
+    try:
+        return int(calendar.timegm(time.strptime(str(s), "%Y-%m-%d %H:%M:%S")))
+    except (TypeError, ValueError):
+        return None
+
+
+def backup_inventory(snap, limit=6000):
+    """#724 : inventaire unifié des snapshots et des sauvegardes -- PVE avec agent (sonde proxmox), PVE distants sans
+    agent (sonde pve-remote), groupes PBS (sonde pbs), sauvegardes tirées (pulled-backups). Pur.
+    -> [{source, node, vmid, name, kind: snapshot|sauvegarde, at, at_text, size, where}] du plus récent au plus ancien."""
+    rows = []
+    for name, n in (snap.get("nodes") or {}).items():
+        for vmid, v in (n.get("vms") or {}).items():
+            for sp in v.get("snapshots") or []:
+                rows.append({"source": "agent", "node": name, "vmid": vmid, "name": v.get("name"), "kind": "snapshot", "at": sp.get("at"),
+                             "at_text": None, "size": None, "where": sp.get("name")})
+        for b in n.get("backup_files") or []:
+            v = (n.get("vms") or {}).get(b.get("vmid")) or {}
+            rows.append({"source": "agent", "node": name, "vmid": b.get("vmid"), "name": v.get("name"), "kind": "sauvegarde", "at": b.get("at"),
+                         "at_text": None, "size": b.get("size"), "where": b.get("volid")})
+    for n in snap.get("remote_pves") or []:
+        names = {g.get("vmid"): g.get("name") for g in n.get("guests") or []}
+        for sp in n.get("snapshots") or []:
+            rows.append({"source": "ssh", "node": n.get("name"), "vmid": sp.get("vmid"), "name": names.get(sp.get("vmid")), "kind": "snapshot",
+                         "at": _text_epoch(sp.get("at")), "at_text": sp.get("at"), "size": None, "where": sp.get("name")})
+        for b in n.get("backups") or []:
+            rows.append({"source": "ssh", "node": n.get("name"), "vmid": b.get("vmid"), "name": names.get(b.get("vmid")), "kind": "sauvegarde",
+                         "at": _text_epoch(b.get("at")), "at_text": b.get("at"), "size": b.get("size"), "where": b.get("volid")})
+    for p in snap.get("pbs_servers") or []:
+        for g in p.get("groups") or []:
+            for t in g.get("snapshots") or ([g["last"]] if g.get("last") else []):
+                rows.append({"source": "pbs", "node": p.get("agent_id"), "vmid": int(g["id"]) if str(g.get("id", "")).isdigit() else None,
+                             "name": g.get("id"), "kind": "sauvegarde", "at": t, "at_text": None, "size": None, "where": g.get("ref")})
+    for b in snap.get("pulled") or []:
+        if b.get("at"):
+            rows.append({"source": "tirée", "node": b.get("host"), "vmid": b.get("vmid"), "name": b.get("job"), "kind": "sauvegarde",
+                         "at": b.get("at"), "at_text": None, "size": b.get("size"), "where": b.get("file")})
+    rows.sort(key=lambda r: -(r["at"] or 0))
+    return rows[:limit]
 
 
 def latest_plugin(conn, task):

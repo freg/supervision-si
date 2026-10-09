@@ -65,6 +65,7 @@ def scan_store(path, listdir=os.listdir, isdir=os.path.isdir, exists=os.path.exi
                     continue
                 last = snaps[-1]
                 groups.append({"ns": ns, "type": t, "id": gid, "count": len(snaps), "last": snap_epoch(last),
+                               "first": snap_epoch(snaps[0]), "snapshots": [snap_epoch(x) for x in snaps[-30:]],   # #724 : inventaire
                                "last_complete": exists(os.path.join(gdir, last, "index.json.blob"))})
         nsdir = os.path.join(base, "ns")
         if isdir(nsdir):

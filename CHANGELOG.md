@@ -1,3 +1,17 @@
+## 2026-10-09 — Inventaire des snapshots et des sauvegardes, PBS et PVE hébergés compris (livraison #724, agent 0.5.53)
+
+Demandé : « ajoute l'inventaire des snapshots et des backups, y compris du PBS, y compris des PVE OVH ». Vue Sauvegardes
+de la Maintenance des Proxmox : table unique filtrable (type, ancienneté, texte) des snapshots et sauvegardes de toutes
+les sources -- PVE avec agent (sonde proxmox v5 : toutes les sauvegardes des stockages), PVE hébergés sans agent (sonde
+pve-remote v2 : listsnapshot et pvesm list par ssh), PBS (sonde pbs v2 : 30 derniers snapshots par groupe) et
+sauvegardes tirées ; snapshots de plus de 30 jours signalés. `/maint/backups` renvoie `inventory`.
+
+- Vérifié : `test_pve_remote.py` (4, sorties pct/qm listsnapshot et pvesm list), `test_pbs.py`, `test_proxmox_plugin`,
+  `si-agent/api` (66, inventaire des 4 sources), `node --test` (335), syntaxe `@babel/parser`.
+- Non vérifié : formats réels de `pct listsnapshot` sur PVE 5.4, rendu ; dates des PVE distants lues sans fuseau.
+- Fichiers : `si-agent/agent/plugins/{proxmox,pve-remote,pbs}/*`, `si-agent/api/maint.py`, `si-agent/api/test_maint.py`,
+  `hub/src/{PveMaintView.jsx,pveMaintLib.js}`, `hub/tests/pveMaintLib.test.mjs`, `si-agent/README.md`, agent 0.5.53.
+
 ## 2026-10-09 — Inventaire des PVE distants par le hub et campagne générée (livraison #723, agent 0.5.52)
 
 Demandé : « la liste de CT, c'est quelque chose que le hub devrait pouvoir faire ». Nouvelle sonde `pve-remote` sur le

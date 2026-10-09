@@ -1413,3 +1413,15 @@ Sonde **`pve-remote`** (privilégiée, sur le serveur de sauvegarde) : pour chaq
 existe. Hub, Maintenance des Proxmox › Sauvegardes, section « PVE distants » : CT/VM par nœud (état, disque), stockages,
 et **campagne prête** pour `pve-pull-batch.sh` (#717) : CT arrêtés d'abord, CT en marche seulement si on coche (ils
 seront arrêtés pendant leur copie), exclusions case à case, téléchargement de `campagne.list`.
+
+## Inventaire des snapshots et des sauvegardes (livraison #724, agent 0.5.53)
+
+Maintenance des Proxmox › Sauvegardes, section « Inventaire des snapshots et sauvegardes » : une table unique, filtrable
+(type, ancienneté, texte), de tous les snapshots et sauvegardes connus, quelle que soit leur source :
+- PVE avec agent : snapshots de chaque CT/VM et **toutes** les sauvegardes des stockages (sonde `proxmox` v5 :
+  `backups.files`, et plus seulement la dernière par VM) ;
+- PVE distants sans agent (les PVE hébergés) : sonde `pve-remote` v2, `pct/qm listsnapshot` et `pvesm list` en un appel
+  ssh par famille ; la date d'une sauvegarde vient du nom vzdump ;
+- PBS : sonde `pbs` v2, 30 derniers snapshots de chaque groupe (et le premier) ;
+- sauvegardes tirées (`pulls.jsonl`).
+Les snapshots de plus de 30 jours sont signalés (ils occupent l'espace des nœuds pleins).

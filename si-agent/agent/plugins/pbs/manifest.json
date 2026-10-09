@@ -1,6 +1,6 @@
 {
   "id": "pbs",
-  "version": "1",
+  "version": "2",
   "runner": "python",
   "entry": "pbs.py",
   "interval_seconds": 900,

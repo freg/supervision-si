@@ -11,7 +11,7 @@ import HubIcon from "./HubIcon.jsx";
 import { fetchMaintCatalog, fetchMaintCampaigns, fetchMaintCampaign, createMaintCampaign, updateMaintCampaign, deleteMaintCampaign,
   maintAction, maintTemplate, fetchMaintBackups } from "./siAgentClient.js";
 import { STATE_LABEL, STATE_TONE, HOW_LABEL, STATUS_LABEL, detectorFields, paramsToText, textToParams, toLocalInput, fromLocalInput,
-  emptyAction, plannedList, missingParams, move, gb, campaignLines } from "./pveMaintLib.js";
+  emptyAction, plannedList, missingParams, move, gb, campaignLines, filterInventory, inventorySummary } from "./pveMaintLib.js";
 
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const when = (t) => (t ? new Date(t * 1000).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "—");
@@ -351,6 +351,30 @@ function RemotePves({ nodes }) {
   );
 }
 
+// #724 : inventaire unifié des snapshots et sauvegardes (PVE avec agent, PVE distants par ssh, PBS, sauvegardes tirées).
+const SOURCE_LABEL = { agent: "PVE (agent)", ssh: "PVE distant", pbs: "PBS", "tirée": "tirée vers le LAN" };
+function Inventory({ rows }) {
+  const [kind, setKind] = useState(""); const [q, setQ] = useState(""); const [old, setOld] = useState(0);
+  const now = Date.now() / 1000;
+  const list = filterInventory(rows, { kind, q, olderThanDays: old, now });
+  const s = inventorySummary(rows, now);
+  return (
+    <div style={box}><strong>Inventaire des snapshots et sauvegardes</strong> <span className="muted">
+      {s.snapshot} snapshot(s) · {s.sauvegarde} sauvegarde(s) · {Object.entries(s.bySource).map(([k, v]) => `${SOURCE_LABEL[k] || k} ${v}`).join(" · ")}</span>
+      {s.oldSnapshots > 0 && <> <Tone tone="warn">{s.oldSnapshots} snapshot(s) de plus de 30 jours (ils occupent de l'espace)</Tone></>}
+      <p style={{ margin: "6px 0" }}>
+        <select value={kind} onChange={(e) => setKind(e.target.value)}><option value="">snapshots et sauvegardes</option><option value="snapshot">snapshots</option><option value="sauvegarde">sauvegardes</option></select>{" "}
+        <select value={old} onChange={(e) => setOld(Number(e.target.value))}><option value={0}>toutes dates</option><option value={7}>plus de 7 jours</option><option value={30}>plus de 30 jours</option><option value={90}>plus de 90 jours</option></select>{" "}
+        <input type="search" placeholder="Filtrer (nœud, CT, nom, emplacement)…" value={q} onChange={(e) => setQ(e.target.value)} /> <span className="muted">{list.length} ligne(s)</span></p>
+      <AutoColumns id="PveMaintView.inventory"><table><thead><tr><th>Source</th><th>Nœud</th><th>CT/VM</th><th>Nom</th><th>Type</th><th>Date</th><th>Âge</th><th>Taille</th><th>Emplacement</th></tr></thead>
+        <tbody>{list.slice(0, 1000).map((r, i) => <tr key={i}><td>{SOURCE_LABEL[r.source] || r.source}</td><td>{r.node}</td><td>{r.vmid ?? "—"}</td><td>{r.name || "—"}</td>
+          <td>{r.kind}</td><td>{r.at_text || when(r.at)}</td><td>{r.at ? <Tone tone={r.kind === "snapshot" && now - r.at > 30 * 86400 ? "warn" : "neutral"}>{Math.round((now - r.at) / 86400)} j</Tone> : "—"}</td>
+          <td>{r.size ? gb(r.size) : "—"}</td><td className="muted">{r.where}</td></tr>)}</tbody></table></AutoColumns>
+      {list.length > 1000 && <p className="muted">1000 premières lignes affichées : affinez le filtre.</p>}
+    </div>
+  );
+}
+
 function Backups({ base }) {
   const [d, setD] = useState(null);
   const [onlyIssues, setOnlyIssues] = useState(true);
@@ -370,6 +394,7 @@ function Backups({ base }) {
             <td>{x.total ? <><Bar pct={Math.round(100 * (x.used || 0) / x.total)} /> {gb(x.used)} / {gb(x.total)} ({gb(x.avail)} libres)</> : "—"}</td></tr>)}</tbody></table></AutoColumns></div>
       {(d.pbs_servers || []).map((p) => <PbsServer key={p.agent_id} p={p} />)}
       {(d.remote_pves || []).length > 0 && <RemotePves nodes={d.remote_pves} />}
+      {(d.inventory || []).length > 0 && <Inventory rows={d.inventory} />}
       {d.pulled?.length > 0 && <div style={box}><strong>Sauvegardes tirées vers le LAN</strong> <span className="muted">(pve-pull-backup.sh, sonde pulled-backups)</span>
         <AutoColumns id="PveMaintView.pulled"><table><thead><tr><th>Nœud / hôte</th><th>CT / tâche</th><th>Dernière réussie</th><th>Taille</th><th>Fichier</th><th>Dernière tentative</th></tr></thead>
           <tbody>{d.pulled.map((b) => <tr key={`${b.host}|${b.job || b.vmid}`}><td>{b.host}</td><td>{b.job || b.vmid}{b.notify_ok ? " ✉" : ""}</td>

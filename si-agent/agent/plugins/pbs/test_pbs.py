@@ -39,6 +39,7 @@ class Sonde(unittest.TestCase):
         self.assertEqual(g[("", "ct", "101")]["count"], 2)
         self.assertEqual(g[("", "ct", "101")]["last"], 1791507600)   # 2026-10-09T01:00:00Z
         self.assertFalse(g[("optick", "host", "optick3-prod")]["last_complete"])
+        self.assertEqual((g[("", "ct", "101")]["first"], len(g[("", "ct", "101")]["snapshots"])), (1791507600 - 86400, 2))   # #724
 
     def test_summarize(self):
         now = 1_800_000_000

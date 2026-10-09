@@ -35,3 +35,14 @@ test("campaignLines (#723) : CT arrêtés d'abord, en marche seulement sur deman
   const all = body(campaignLines(nodes, { includeRunning: true, exclude: ["pve-1/108"], keep: 1 }));
   assert.deepEqual(all, ["203.0.113.21 101 stop 1 pve-1   # a", "203.0.113.22 110 stop 1 pve-2   # old", "203.0.113.22 113 stop 1 pve-2   # running : web"]);
 });
+
+test("filterInventory / inventorySummary (#724)", async () => {
+  const { filterInventory, inventorySummary } = await import("../src/pveMaintLib.js");
+  const now = 1_800_000_000;
+  const rows = [{ source: "ssh", node: "pve-1", vmid: 108, name: "Ancien", kind: "snapshot", at: now - 40 * 86400, where: "avant-maj" },
+    { source: "pbs", node: "pbs10", vmid: 101, name: "101", kind: "sauvegarde", at: now - 3600, where: "backup:ct/101" }];
+  assert.equal(filterInventory(rows, { kind: "snapshot", now }).length, 1);
+  assert.equal(filterInventory(rows, { q: "ANCIEN", now }).length, 1);
+  assert.equal(filterInventory(rows, { olderThanDays: 30, now })[0].vmid, 108);
+  assert.deepEqual(inventorySummary(rows, now), { snapshot: 1, sauvegarde: 1, oldSnapshots: 1, bySource: { ssh: 1, pbs: 1 } });
+});

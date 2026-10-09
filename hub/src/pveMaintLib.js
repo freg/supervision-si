@@ -84,3 +84,21 @@ export function campaignLines(nodes, { includeRunning = false, exclude = [], kee
   const head = [`# Campagne de sauvegardes tirées générée par le hub (#723) -- ${rows.length} CT`, "# hôte vmid mode garder nom ; les CT « running » sont ARRÊTÉS pendant leur copie"];
   return head.concat(rows.map(({ n, g }) => `${n.host} ${g.vmid} stop ${keep} ${n.name}${g.status !== "stopped" ? "   # running : " + (g.name || "") : g.name ? "   # " + g.name : ""}`)).join("\n") + "\n";
 }
+
+// #724 : filtre de l'inventaire des snapshots et sauvegardes -- type, texte (sans casse ni accents), ancienneté.
+const foldTxt = (x) => String(x ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+export function filterInventory(rows, { kind = "", q = "", olderThanDays = 0, now = Date.now() / 1000 } = {}) {
+  const f = foldTxt(q).trim();
+  return (rows || []).filter((r) => (!kind || r.kind === kind)
+    && (!olderThanDays || (r.at && now - r.at > olderThanDays * 86400))
+    && (!f || foldTxt([r.source, r.node, r.vmid, r.name, r.where, r.at_text].join(" ")).includes(f)));
+}
+export function inventorySummary(rows, now = Date.now() / 1000) {
+  const out = { snapshot: 0, sauvegarde: 0, oldSnapshots: 0, bySource: {} };
+  for (const r of rows || []) {
+    out[r.kind] = (out[r.kind] || 0) + 1;
+    out.bySource[r.source] = (out.bySource[r.source] || 0) + 1;
+    if (r.kind === "snapshot" && r.at && now - r.at > 30 * 86400) out.oldSnapshots += 1;
+  }
+  return out;
+}

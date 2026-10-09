@@ -46,6 +46,52 @@ def parse_pvesm(text):
     return out
 
 
+# #724 : snapshots et sauvegardes en UN appel ssh par famille (pas un par CT)
+SNAP_CMD = ("for id in $(pct list 2>/dev/null | awk 'NR>1{print $1}'); do echo \"== lxc $id\"; pct listsnapshot $id 2>/dev/null; done; "
+            "for id in $(qm list 2>/dev/null | awk 'NR>1{print $1}'); do echo \"== qemu $id\"; qm listsnapshot $id 2>/dev/null; done")
+BACKUP_CMD = "for s in $(pvesm status 2>/dev/null | awk 'NR>1{print $1}'); do echo \"== $s\"; pvesm list $s 2>/dev/null; done"
+VZDUMP_TS = re.compile(r"vzdump-(lxc|qemu|openvz)-(\d+)-(\d{4})_(\d{2})_(\d{2})-(\d{2})_(\d{2})_(\d{2})")
+SNAP_LINE = re.compile(r"^[\s`|>-]*([A-Za-z0-9_.-]+)(?:\s+(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}))?\s*(.*)$")
+
+
+def parse_snapshots(text):
+    """Sortie de SNAP_CMD -> [{vmid, type, name, at (« AAAA-MM-JJ hh:mm:ss » ou None), description}] (« current » exclu)."""
+    out, cur = [], None
+    for line in (text or "").splitlines():
+        m = re.match(r"^== (lxc|qemu) (\d+)$", line.strip())
+        if m:
+            cur = (m.group(1), int(m.group(2)))
+            continue
+        if not cur or not line.strip():
+            continue
+        m = SNAP_LINE.match(line)
+        if m and m.group(1) != "current" and not line.strip().startswith("You are here"):
+            out.append({"vmid": cur[1], "type": cur[0], "name": m.group(1), "at": m.group(2), "description": (m.group(3) or "").strip()[:120]})
+    return out
+
+
+def parse_backups(text):
+    """Sortie de BACKUP_CMD (pvesm list par stockage) -> sauvegardes [{vmid, volid, storage, at, size, format}] ;
+    la date vient du nom vzdump (aaaa_mm_jj-hh_mm_ss), seule source sur les PVE anciens."""
+    out, store = [], None
+    for line in (text or "").splitlines():
+        m = re.match(r"^== (\S+)$", line.strip())
+        if m:
+            store = m.group(1)
+            continue
+        p = line.split()
+        if store is None or len(p) < 4 or p[0] == "Volid":
+            continue
+        ts = VZDUMP_TS.search(p[0])
+        if p[2] != "backup" and not ts:
+            continue
+        size = int(p[3]) if p[3].isdigit() else None
+        vmid = int(p[4]) if len(p) >= 5 and p[4].isdigit() else (int(ts.group(2)) if ts else None)
+        at = "%s-%s-%s %s:%s:%s" % ts.groups()[2:] if ts else None
+        out.append({"vmid": vmid, "volid": p[0], "storage": store, "at": at, "size": size, "format": p[1]})
+    return out
+
+
 def from_resources(items, node_name=None):
     """pvesh /cluster/resources --type vm -> invités (filtrés sur le nœud si fourni)."""
     out = []
@@ -67,7 +113,7 @@ def ssh(target, key, cmd, runner=subprocess.run, timeout=90):
 
 def inventory(h, runner=subprocess.run):
     name, target, key = h.get("name") or h["host"], "%s@%s" % (h.get("user") or "root", h["host"]), h.get("key")
-    node = {"name": name, "host": h["host"], "ok": True, "error": None, "guests": [], "storages": [], "source": None}
+    node = {"name": name, "host": h["host"], "ok": True, "error": None, "guests": [], "storages": [], "source": None, "snapshots": [], "backups": []}
     try:
         try:
             res = json.loads(ssh(target, key, "pvesh get /cluster/resources --type vm --output-format json", runner) or "[]")
@@ -80,6 +126,11 @@ def inventory(h, runner=subprocess.run):
             node["storages"] = parse_pvesm(ssh(target, key, "pvesm status", runner))
         except RuntimeError:
             pass
+        for k, cmd, parse in (("snapshots", SNAP_CMD, parse_snapshots), ("backups", BACKUP_CMD, parse_backups)):   # #724
+            try:
+                node[k] = parse(ssh(target, key, cmd, runner, timeout=240))[:3000]
+            except RuntimeError as e:
+                node.setdefault("warnings", []).append("%s : %s" % (k, e))
     except Exception as e:  # noqa: BLE001 -- un nœud injoignable n'empêche pas les autres
         node["ok"], node["error"] = False, str(e)[:200]
     return node

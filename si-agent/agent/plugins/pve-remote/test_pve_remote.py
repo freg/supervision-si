@@ -45,6 +45,19 @@ class Inventaire(unittest.TestCase):
         self.assertEqual(out["summary"], {"nodes": 2, "reachable": 1, "guests": 3, "running": 1, "stopped": 2})
         self.assertEqual([a["code"] for a in out["alerts"]], ["pve-remote-unreachable:pve-3"])
 
+    def test_snapshots_et_sauvegardes(self):
+        snaps = "== lxc 101\n`-> avant-maj    2026-09-01 10:00:00     avant la mise à jour\n    `-> current                    You are here!\n== qemu 200\n`-> current  You are here!\n"
+        s = pr.parse_snapshots(snaps)
+        self.assertEqual(s, [{"vmid": 101, "type": "lxc", "name": "avant-maj", "at": "2026-09-01 10:00:00", "description": "avant la mise à jour"}])
+        bk = ("== local\nVolid                                                  Format  Type        Size VMID\n"
+              "local:backup/vzdump-lxc-101-2026_10_01-01_30_00.tar.gz    tgz     backup  123456 101\n"
+              "local:vztmpl/debian-9.0-standard_9.7-1_amd64.tar.gz      tgz     vztmpl  1000\n== nfs\n"
+              "nfs:backup/vzdump-qemu-200-2026_09_30-02_00_00.vma.lzo   vma.lzo backup  999 200\n")
+        b = pr.parse_backups(bk)
+        self.assertEqual([(x["storage"], x["vmid"], x["at"], x["size"]) for x in b], [("local", 101, "2026-10-01 01:30:00", 123456), ("nfs", 200, "2026-09-30 02:00:00", 999)])
+        n = pr.inventory({"name": "pve-2", "host": "h"}, runner=fake({"pct list": PCT, "qm list": QM, "pvesm status": PVESM, "for id": snaps, "for s": bk}))
+        self.assertEqual((len(n["snapshots"]), len(n["backups"])), (1, 2))
+
     def test_sans_configuration(self):
         self.assertEqual(pr.main(["--config", "/nonexistent.json"]), 0)
 

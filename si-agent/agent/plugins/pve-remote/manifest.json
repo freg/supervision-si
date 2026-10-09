@@ -1,13 +1,16 @@
 {
   "id": "pve-remote",
-  "version": "1",
+  "version": "2",
   "runner": "python",
   "entry": "pve_remote.py",
   "interval_seconds": 1800,
   "timeout_seconds": 300,
-  "args": ["--config", "/etc/si-agent/pve-remote.json"],
+  "args": [
+    "--config",
+    "/etc/si-agent/pve-remote.json"
+  ],
   "enabled": false,
-  "description": "Inventaire de Proxmox VE distants SANS agent (#723), depuis le serveur de sauvegarde : par ssh (clé dédiée), CT/VM de chaque nœud (vmid, nom, type, état, disque), stockages et espace libre. Sert à préparer les campagnes de sauvegardes tirées (Maintenance des Proxmox › Sauvegardes). Hôtes dans /etc/si-agent/pve-remote.json : [{\"name\": \"pve-1\", \"host\": \"<ip>\", \"key\": \"/root/.ssh/pve_backup\"}] (jamais dans le dépôt). Lecture seule : pvesh get (ou pct/qm list) et pvesm status. Privilégiée : la clé est celle de root.",
+  "description": "Inventaire de Proxmox VE distants SANS agent (#723), depuis le serveur de sauvegarde : par ssh (clé dédiée), CT/VM de chaque nœud (vmid, nom, type, état, disque), stockages et espace libre ; #724 : snapshots de chaque CT/VM (pct/qm listsnapshot) et sauvegardes de chaque stockage (pvesm list, date tirée du nom vzdump). Sert à préparer les campagnes de sauvegardes tirées (Maintenance des Proxmox › Sauvegardes). Hôtes dans /etc/si-agent/pve-remote.json : [{\"name\": \"pve-1\", \"host\": \"<ip>\", \"key\": \"/root/.ssh/pve_backup\"}] (jamais dans le dépôt). Lecture seule : pvesh get (ou pct/qm list) et pvesm status. Privilégiée : la clé est celle de root.",
   "source": "bundled",
   "privileged": true
 }
