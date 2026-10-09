@@ -1,3 +1,15 @@
+## 2026-10-09 — Campagne de sauvegardes tirées pour vider les PVE hébergés (livraison #717)
+
+Demandé : lancer les sauvegardes des CT des trois PVE hébergés pendant le week-end pour libérer l'hébergeur, avec suivi à
+distance. `si-agent/tools/pve-pull-batch.sh <liste>` : en série, échec non bloquant, arrêt sous un seuil d'espace libre,
+verrou, journal de campagne ; `pve-pull-backup.sh` accepte `PULL_NOTIFY_OK=1` (chaque réussite notifiée via #716).
+Au passage : l'adresse publique réelle d'un hyperviseur figurait dans un exemple et trois tests de #714 → remplacée par
+203.0.113.21 (elle reste dans l'historique git : à purger avec le reste, BACKLOG item 2).
+
+- Vérifié : `test_pulled_backups.py` (4, dont la campagne : ordre, échec au milieu, `notify_ok`, ssh qui ne vole pas la
+  liste sur l'entrée standard, arrêt sur seuil d'espace), `bash -n`.
+- Non vérifié : vrais PVE (bande passante, durée), unité systemd-run.
+
 ## 2026-10-09 — Sauvegardes suivies par le hub, sonde PBS, notifications par courriel (livraison #716, agent 0.5.51)
 
 Demandé : « faisons le [suivi de la sauvegarde quotidienne] sur le hub avec émission d'email de notification », puis

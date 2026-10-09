@@ -45,6 +45,29 @@ class Script(unittest.TestCase):
         self.assertEqual(self.run_script(body, "h; rm -rf /", "1")[0].returncode, 2)                    # arguments refusés
         self.assertEqual(self.run_script(body, "h", "1", "fast")[0].returncode, 2)
 
+    def test_campagne(self):
+        """#717 : pve-pull-batch.sh -- en série, échec non bloquant, notify_ok, verrou, liste commentée."""
+        d = tempfile.mkdtemp()
+        fake = os.path.join(d, "bin"); os.makedirs(fake)
+        with open(os.path.join(fake, "ssh"), "w") as fh:
+            fh.write('#!/bin/bash\ncase "$*" in *"vzdump 999"*) echo "ERROR: CT 999 introuvable" >&2; exit 2;; esac\nread -t 1 x && echo "ssh a lu la liste" >&2\necho contenu | gzip -c\n')
+        os.chmod(os.path.join(fake, "ssh"), 0o755)
+        lst = os.path.join(d, "campagne.list")
+        with open(lst, "w") as fh:
+            fh.write("# CT arrêtés d'abord\n203.0.113.21 101 stop 1 pve-1\n\n203.0.113.21 999 stop 1 pve-1\n203.0.113.22 113\n")
+        env = dict(os.environ, PATH=fake + ":" + os.environ["PATH"], PULL_DEST=os.path.join(d, "dumps"), PULL_KEY="/nonexistent", PULL_MIN_FREE_GB="0")
+        p = subprocess.run(["bash", os.path.join(os.path.dirname(SCRIPT), "pve-pull-batch.sh"), lst], env=env, capture_output=True, text=True)
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)                        # un échec sur trois
+        self.assertIn("2 réussie(s), 1 échec(s), 0 non faite(s)", p.stdout)
+        rows = [json.loads(l) for l in open(os.path.join(d, "dumps", "pulls.jsonl"))]
+        self.assertEqual([(r["host"], r["vmid"], r["ok"], r["notify_ok"]) for r in rows],
+                         [("pve-1", 101, True, True), ("pve-1", 999, False, True), ("203.0.113.22", 113, True, True)])
+        log = open([os.path.join(d, "dumps", f) for f in os.listdir(os.path.join(d, "dumps")) if f.startswith("campagne-")][0]).read()
+        self.assertNotIn("ssh a lu la liste", log)                                      # ssh ne vole pas la liste (stdin)
+        env["PULL_MIN_FREE_GB"] = "999999999"
+        p = subprocess.run(["bash", os.path.join(os.path.dirname(SCRIPT), "pve-pull-batch.sh"), lst], env=env, capture_output=True, text=True)
+        self.assertIn("ARRÊT", p.stdout); self.assertIn("3 non faite(s)", p.stdout)
+
 
 class Sonde(unittest.TestCase):
     def test_resume(self):

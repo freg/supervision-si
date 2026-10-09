@@ -1392,3 +1392,14 @@ Vérifier les conditions de l'hébergeur avant d'ajouter des outils plus lourds 
 - Tests : `plugins/pbs/test_pbs.py` (configuration, vrai arbre de datastore en dossier temporaire, constats, tâches),
   `plugins/pulled-backups/test_pulled_backups.py` (+ tâches), `api/test_z_backup_notify.py` (cycle réussite → échec →
   rétablissement, regroupement, sonde PBS, relais avec client simulé).
+
+## Campagne de sauvegardes tirées pour vider des PVE (livraison #717)
+
+`si-agent/tools/pve-pull-batch.sh <liste>` sur le serveur de sauvegarde, lancé détaché
+(`systemd-run --unit=pull-campagne /usr/local/sbin/pve-pull-batch.sh /root/campagne.list`, suivi :
+`journalctl -fu pull-campagne`). Liste : `hôte vmid [mode=stop] [garder=2] [nom pour le hub]` par ligne, `#` = commentaire.
+Une sauvegarde à la fois, échec non bloquant, arrêt propre sous `PULL_MIN_FREE_GB` (100) Go libres, verrou (une seule
+campagne), journal `campagne-<date>.log` dans `PULL_DEST`. Chaque CT réussi est notifié (`PULL_NOTIFY_OK=1` par défaut →
+`notify_ok` dans `pulls.jsonl` → événement `backup-done` → notify-api) ; un échec donne `backup-alert`.
+**Mode `stop` : le CT est arrêté pendant toute la copie** (redémarré ensuite par vzdump s'il tournait) — pour un CT en
+service, choisir le créneau ou la copie en deux passes de la Maintenance des Proxmox.

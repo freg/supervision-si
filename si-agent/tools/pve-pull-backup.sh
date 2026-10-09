@@ -7,7 +7,8 @@
 #
 # Usage : pve-pull-backup.sh <hôte> <vmid> [stop|snapshot|suspend] [garder=3]
 # Variables : PULL_DEST (/srv/backup/dumps), PULL_KEY (/root/.ssh/pve_backup si présente), PULL_NAME (nom du nœud
-# pour le hub, défaut = hôte).  Exemple cron (pbs10) : 30 1 * * 0 root /usr/local/sbin/pve-pull-backup.sh 203.0.113.21 113
+# pour le hub, défaut = hôte), PULL_NOTIFY_OK=1 (#717 : chaque réussite notifiée par le hub, événement backup-done).
+# Exemple cron : 30 1 * * 0 root /usr/local/sbin/pve-pull-backup.sh 203.0.113.21 113 ; en série : pve-pull-batch.sh
 set -uo pipefail
 HOST="${1:-}"; VMID="${2:-}"; MODE="${3:-stop}"; KEEP="${4:-3}"
 DEST_ROOT="${PULL_DEST:-/srv/backup/dumps}"; KEY="${PULL_KEY:-/root/.ssh/pve_backup}"; NAME="${PULL_NAME:-$HOST}"
@@ -28,8 +29,9 @@ else
 fi
 END=$(date +%s); SIZE=0; SHA=""
 if $OK; then SIZE=$(stat -c %s "$OUT"); SHA=$(sha256sum "$OUT" | cut -d' ' -f1); mv "$OUT.log" "$OUT.log.ok" 2>/dev/null; else rm -f "$OUT.part"; fi
-printf '{"host":"%s","vmid":%s,"mode":"%s","file":"%s","ok":%s,"size":%s,"sha256":"%s","started":%s,"ended":%s,"error":"%s"}\n' \
-  "$NAME" "$VMID" "$MODE" "$( $OK && echo "$OUT" )" "$OK" "$SIZE" "$SHA" "$START" "$END" "$ERR" >> "$DEST_ROOT/pulls.jsonl"
+NOTIFY_OK=false; [ "${PULL_NOTIFY_OK:-0}" = "1" ] && NOTIFY_OK=true
+printf '{"host":"%s","vmid":%s,"mode":"%s","file":"%s","ok":%s,"size":%s,"sha256":"%s","started":%s,"ended":%s,"error":"%s","notify_ok":%s}\n' \
+  "$NAME" "$VMID" "$MODE" "$( $OK && echo "$OUT" )" "$OK" "$SIZE" "$SHA" "$START" "$END" "$ERR" "$NOTIFY_OK" >> "$DEST_ROOT/pulls.jsonl"
 if $OK; then   # rétention : les KEEP dernières archives de ce CT
   ls -1t "$DEST"/vzdump-lxc-"$VMID"-*.tar.gz 2>/dev/null | tail -n +$((KEEP + 1)) | while read -r f; do rm -f -- "$f" "$f.log.ok"; done
   echo "ok : $OUT ($SIZE octets, $((END - START)) s)"; exit 0
