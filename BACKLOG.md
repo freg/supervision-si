@@ -1,3 +1,17 @@
+## Sauvegarde de la VM du PBS sur disque externe / poste de secours (2026-10-09) — item 118, À CADRER
+
+Demandé : « un mécanisme de backup de la VM du PBS sur disque externe / montage d'un poste identifié comme secours
+backup ». Proposition en deux étages, à valider :
+1. **Le système du PBS** (petit) : vzdump de la VM du PBS par son hyperviseur, disque de données exclu (`backup=0` sur le
+   disque du pool `backup`), vers un stockage « secours » de l'hyperviseur = disque USB monté ou partage du poste de
+   secours (NFS ou SMB) ; rétention courte (3-5).
+2. **Les données du PBS** (gros) : second datastore sur le support de secours (datastore amovible PBS pour un disque USB,
+   ou datastore sur le montage du poste) alimenté par une synchronisation locale planifiée ; vérification et purge
+   propres ; le disque peut être débranché et emporté.
+Suivi par le hub : sonde pbs (datastore de secours, dernière synchro), sonde proxmox de l'hyperviseur (dernier vzdump de
+la VM), alerte si le support est absent ou trop ancien. À préciser : USB ou poste du LAN (OS du poste, partage NFS ou
+SMB), hyperviseur qui porte la VM du PBS, fréquence de rotation des disques.
+
 ## Tuile « Déploiement d'application » par clonage de configuration (2026-10-09) — item 117, DÉCIDÉ : sur un AUTRE nœud, clonage configuration + référentiels (sans données métier) ; tranche 1 FAITE (#722), suite : docs/deploiement-instances.md
 
 Demandé : « une tuile de déploiement d'application (GED, tickets…) : clonage configuration ». Lecture proposée :
