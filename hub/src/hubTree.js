@@ -319,3 +319,12 @@ export function splitHeader(rootChildren) {
 export function sortTiles(tiles) {
   return [...(tiles || [])].sort((a, b) => String(a.name || a.label || "").localeCompare(String(b.name || b.label || ""), "fr", { sensitivity: "base" }));
 }
+
+
+/** #720 : lien « demander à l'assistant » depuis la recherche de l'univers -- onglet « Questions sur le hub »
+ *  (#715) de la page de l'assistant, question pré-remplie et posée. null sans adresse ou question trop courte. */
+export function assistantAskUrl(base, query) {
+  const q = String(query || "").trim();
+  if (!base || q.length < 3) return null;
+  return base + (base.includes("?") ? "&" : "?") + "tab=hub&q=" + encodeURIComponent(q);
+}

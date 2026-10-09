@@ -1,3 +1,14 @@
+## 2026-10-09 — « Univers du hub » : demander à l'assistant depuis la recherche (livraison #720)
+
+Suite de #715 : la recherche du menu « Univers du hub » propose en pied de liste « 💬 Demander à l'assistant : « … » »
+(dès 3 caractères, si l'assistant est accessible à la personne) : ouvre l'onglet « Questions sur le hub » avec la
+question posée (vues, API, adresse IP ou MAC, dernier redémarrage d'un poste). Une seule zone de saisie pour trouver un
+écran ou poser une question.
+
+- Vérifié : `node --test hub/tests/*.test.mjs` (332, dont `assistantAskUrl`), syntaxe `@babel/parser`.
+- Non vérifié : `npm run build`, rendu navigateur.
+- Fichiers : `hub/src/hubTree.js`, `hub/src/App.jsx`, `hub/src/hub.css`, `hub/tests/hubTree.test.mjs`.
+
 ## 2026-10-09 — Maintenance des Proxmox, vue Sauvegardes : serveurs PBS et tâches de sauvegarde (livraison #719)
 
 Pour suivre depuis le hub la campagne du week-end et la sauvegarde quotidienne : la vue Sauvegardes (Maintenance des

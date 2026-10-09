@@ -2394,3 +2394,7 @@ button.danger { color: #e06666; }
 .ac-menu > button { padding: 1px 6px; font-size: 12px; line-height: 1.4; }
 .ac-menu-panel { position: absolute; right: 0; top: 100%; padding: 8px; min-width: 220px; text-align: left; font-weight: normal; }
 .ac-menu-panel label { display: block; white-space: nowrap; }
+
+/* #720 : « Demander à l'assistant » en pied de la liste de l'univers */
+.hub-universe-ask { display: block; padding: 6px 8px; margin-top: 4px; border-top: 1px solid var(--border); color: var(--accent); text-decoration: none; }
+.hub-universe-ask:hover { background: var(--bg); }

@@ -25,7 +25,7 @@ import HubTreeView from "./HubTreeView.jsx";
 // #523 : Infos synthèse SI (DNS / IP OVH / IPAM / services, recoupés).
 import SyntheseView from "./SyntheseView.jsx";
 import TodayView from "./TodayView.jsx";
-import { buildCatalog, defaultTree, normalizeTree, resolveTree, themesOf, rootLeaves, viewLabelsFromThemes, universeEntries, splitHeader, sortTiles } from "./hubTree.js";
+import { buildCatalog, defaultTree, normalizeTree, resolveTree, themesOf, rootLeaves, viewLabelsFromThemes, universeEntries, splitHeader, sortTiles, assistantAskUrl } from "./hubTree.js";
 import LogsManagerView from "./LogsManagerView.jsx";
 import SchemaAnalyzerView from "./SchemaAnalyzerView.jsx";
 import PortageView from "./PortageView.jsx";
@@ -2160,6 +2160,10 @@ vm === "agent-page" ? (
                     </button>
                   ))}
                   {universe.length === 0 && <span className="muted hub-universe-empty">Rien ne correspond.</span>}
+                  {hubCatalog.has("front:assistant") && assistantAskUrl(ASSISTANT_URL, universeQuery) && (
+                    <a className="hub-universe-ask" href={assistantAskUrl(ASSISTANT_URL, universeQuery)} target="_blank" rel="noreferrer" title="Questions sur le hub : vues, API, adresse IP ou MAC, dernier redémarrage d'un poste (#715)">
+                      💬 Demander à l'assistant : « {universeQuery.trim()} »
+                    </a>)}
                 </div>
               </div>
             )}

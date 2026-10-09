@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   buildCatalog, defaultTree, normalizeTree, resolveTree, themesOf, rootLeaves, themeOfLeaf,
   insertNode, removeNode, moveNode, cloneNode, updateNode, countRefs, exportTree, importTree,
-  viewLabelsFromThemes, universeEntries, splitHeader, sortTiles, group, ref, ROOT_ID, REF_EXTERNAL_LINKS,
+  viewLabelsFromThemes, universeEntries, assistantAskUrl, splitHeader, sortTiles, group, ref, ROOT_ID, REF_EXTERNAL_LINKS,
 } from "../src/hubTree.js";
 import { THEMES as REAL_THEMES } from "../src/hubThemes.js";
 
@@ -160,4 +160,11 @@ test("splitHeader / sortTiles (#554)", () => {
   assert.ok(tree.every((n) => n.id !== "theme:settings" && !["action:aide", "action:tabs"].includes(n.ref)));
   assert.ok(tree.some((n) => n.id === "theme:supervision"));
   assert.deepEqual(sortTiles([{ name: "Élan" }, { name: "agents" }, { name: "Zèbre" }, { label: "Bases" }]).map((x) => x.name || x.label), ["agents", "Bases", "Élan", "Zèbre"]);
+});
+
+test("assistantAskUrl (#720) : question pré-remplie vers l'onglet Questions sur le hub", () => {
+  assert.equal(assistantAskUrl("/assistant/", "l'ip 192.0.2.4 ?"), "/assistant/?tab=hub&q=l'ip%20192.0.2.4%20%3F");
+  assert.equal(assistantAskUrl("https://h/assistant/?x=1", " ups "), "https://h/assistant/?x=1&tab=hub&q=ups");
+  assert.equal(assistantAskUrl("", "onduleurs"), null);
+  assert.equal(assistantAskUrl("/assistant/", "on"), null);
 });
