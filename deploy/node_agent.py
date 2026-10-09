@@ -13,6 +13,7 @@ un conteneur : il pilote docker compose du dépôt local).
   node_agent.py status                état local (JSON)
   node_agent.py update                #659 : git pull --ff-only puis apply --build ici
   node_agent.py update-all            #659 : même chose sur TOUS les autres nœuds de nodes.json (POST /update, jeton du .env)
+  node_agent.py build-images          #738 (manager) : le nœud « builder » construit et pousse les images du commit
   node_agent.py instance-deploy <nom> #732 (manager) : crée l'instance sur son nœud puis rafraîchit les passerelles
   node_agent.py instance-undeploy <nom> #733 (manager) : arrêt sur son nœud (données gardées), retrait du registre, passerelles
   node_agent.py instance-create <nom> | instance-gateway | instance-stop <nom>   étapes locales correspondantes
@@ -113,10 +114,29 @@ def compose_running():
     return [x.strip() for x in (r.stdout or "").splitlines() if re.match(r"^[a-z0-9][a-z0-9_-]*$", x.strip())]
 
 
+def registry_mode():
+    """#738 : SI_REGISTRY défini (.env) -> images construites par le nœud constructeur et tirées ici."""
+    return bool((os.environ.get("SI_REGISTRY") or load_env().get("SI_REGISTRY") or "").strip())
+
+
+def is_builder(me):
+    try:
+        return any(n.get("name") == me and n.get("builder") for n in read_json(NODES).get("nodes", []))
+    except (OSError, ValueError):
+        return False
+
+
 def apply(me, build=False):
     plan = make_plan(me)
     wanted = plan["services"] + plan["relays"]
     steps = []
+    if registry_mode():   # #738 : jamais de construction ici (sauf constructeur) -- on tire les images du commit courant
+        images = [sys.executable, os.path.join(ROOT, "deploy", "images.py")]
+        if build and is_builder(me):
+            run(images + ["build"], capture=True); steps.append("images construites et poussées (constructeur)")
+        else:
+            run(images + ["pull"] + plan["services"], check=False, capture=True); steps.append("images tirées du registre")
+        build = False
     if plan["gateway"]:
         # passerelle (projet compose distinct) : tout sur le nœud core, tls-proxy seul sur une bordure
         args = ["./gateway/scripts/run.sh", "up", "-d"] + (["--build"] if build else [])
@@ -126,7 +146,7 @@ def apply(me, build=False):
         steps.append("gateway: " + " ".join(plan["gateway"]))
     if wanted:
         # --no-deps : les dépendances distantes (relais = alias DNS) ne doivent pas être lancées ici
-        run(["./scripts/run.sh", "up", "-d", "--no-deps", "--remove-orphans"] + (["--build"] if build else []) + wanted, capture=True)
+        run(["./scripts/run.sh", "up", "-d", "--no-deps", "--remove-orphans"] + (["--build"] if build else ["--no-build"] if registry_mode() else []) + wanted, capture=True)
         steps.append("up: %d services, %d relais" % (len(plan["services"]), len(plan["relays"])))
     extra = [s for s in compose_running() if s not in wanted]
     if extra:
@@ -160,7 +180,8 @@ def update_all(timeout=3600):
     if not token:
         raise RuntimeError("SI_NODE_TOKEN absent du .env")
     out, failed = {}, []
-    for n in read_json(NODES).get("nodes", []):
+    # #738 : le constructeur d'abord (il pousse les images du commit), les autres tirent ensuite
+    for n in sorted(read_json(NODES).get("nodes", []), key=lambda n: not n.get("builder")):
         if n["name"] == me or not n.get("wg_address"):
             continue
         req = urllib.request.Request("http://%s:%d/update" % (n["wg_address"], port), data=json.dumps({"build": True}).encode(), method="POST",
@@ -300,6 +321,20 @@ def instance_undeploy(name, call=None):
     for g in ins.gateway_nodes(nodes):
         out["gateways"][g] = instance_gateway(me) if g == me else call(by[g], "/instance/gateway", {"registry": reg})
     return out
+
+
+def build_images(call=None):
+    """#738 (depuis le manager) : le nœud constructeur tire le dépôt et construit + pousse toutes les images du commit ;
+    ce nœud-ci s'il est lui-même constructeur. Sans constructeur déclaré : erreur explicite."""
+    call = call or node_call
+    me = node_name(); nodes = read_json(NODES)
+    b = next((n for n in nodes.get("nodes", []) if n.get("builder")), None)
+    if not b:
+        raise RuntimeError('aucun nœud "builder": true dans deploy/nodes.json')
+    if b["name"] == me:
+        run([sys.executable, os.path.join(ROOT, "deploy", "images.py"), "build"], capture=True)
+        return {"builder": me, "built": True}
+    return {"builder": b["name"], "result": call(b, "/update", {"build": True}, timeout=7200)}
 
 
 # ---------------------------------------------------------------- #663 : miroir froid
@@ -647,6 +682,8 @@ def main():
         print(json.dumps(status(me), indent=2, ensure_ascii=False))
     elif cmd == "update":
         print(json.dumps(git_update(me, "--no-build" not in sys.argv), indent=2, ensure_ascii=False))
+    elif cmd == "build-images":   # #738
+        print(json.dumps(build_images(), indent=2, ensure_ascii=False))
     elif cmd == "instance-deploy":   # #732 : depuis le manager
         print(json.dumps(instance_deploy(sys.argv[2], "--no-build" not in sys.argv), indent=2, ensure_ascii=False))
     elif cmd == "instance-undeploy":   # #733 : depuis le manager

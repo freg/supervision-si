@@ -859,6 +859,15 @@ def _placed_here():
     return tower.placed_here(nodes, cohorts, _node_name()) if nodes and cohorts else None
 
 
+def _registry_mode():
+    """#738 : SI_REGISTRY dans .env -> images construites par le nœud constructeur, tirées ici."""
+    for line in (_read(".env") or b"").decode("utf-8", "replace").splitlines():
+        m = re.match(r"^\s*SI_REGISTRY\s*=\s*(.*?)\s*$", line)
+        if m and m.group(1).strip("'\""):
+            return True
+    return False
+
+
 def _node_env():
     env = {}
     for line in (_read(".env") or b"").decode("utf-8", "replace").splitlines():
@@ -1212,7 +1221,7 @@ def git_update_route():
     if not st.get("behind") and mode == "central" and not body.get("force"):
         return jsonify({"error": "déjà à jour (#%s)" % st["current"], "state": st}), 409
     start_new = [x for x in (body.get("start_new") or []) if x in (st.get("new_services") or [])]
-    plan = tower.git_update_plan(mode, st["changed"], _compose_paths(), st["running"], gateway_running=_gateway_running(), nodes=st.get("nodes", 0), agents=bool(body.get("agents")), branch=st["branch"], start_new=start_new)
+    plan = tower.git_update_plan(mode, st["changed"], _compose_paths(), st["running"], gateway_running=_gateway_running(), nodes=st.get("nodes", 0), agents=bool(body.get("agents")), branch=st["branch"], start_new=start_new, registry=_registry_mode())
     if mode == "central":
         plan["plan"] = tower.filter_plan(plan["plan"], _placed_here()); plan["steps"] = plan["steps"][:2] + plan["plan"]["steps"] + [st_ for st_ in plan["steps"][2:] if st_["label"].startswith("démarrer")]
     label = "mise à jour git %s : #%s → #%s (%d commit(s))" % ("en cascade" if mode == "cascade" else "du central", st["current"] or "?", st.get("remote_number") or "?", st.get("behind", 0))

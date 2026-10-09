@@ -288,5 +288,12 @@ NODE_OVERRIDE="$HERE_DIR/deploy/generated/node.override.yml"
 if [ -z "${COMPOSE_FILE:-}" ] && [ -f "$NODE_OVERRIDE" ]; then
   export COMPOSE_FILE="$HERE_DIR/docker-compose.yml:$NODE_OVERRIDE"
 fi
+# #738 : images construites ailleurs (registre local, SI_REGISTRY dans .env) -- override des noms d'images
+# (deploy/images.py override) ajouté s'il existe ; « up » utilise alors les images tirées au lieu de construire.
+SI_REGISTRY="${SI_REGISTRY:-$(grep -E '^SI_REGISTRY=' "$HERE_DIR/.env" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d "\"'" | xargs || true)}"
+IMAGES_OVERRIDE="$HERE_DIR/deploy/generated/images.override.yml"
+if [ -n "$SI_REGISTRY" ] && [ -f "$IMAGES_OVERRIDE" ]; then
+  export COMPOSE_FILE="${COMPOSE_FILE:-$HERE_DIR/docker-compose.yml}:$IMAGES_OVERRIDE"
+fi
 
 docker compose "$@"

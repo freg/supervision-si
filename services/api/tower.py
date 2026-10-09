@@ -370,7 +370,21 @@ def parse_log(text):
 GENERATED = ("shared/VERSION.json", "shared/EXPOSURE.json")
 
 
-def git_update_plan(mode, changed, main_paths, running, gateway_running=True, nodes=0, agents=False, branch="main", start_new=()):
+def registry_steps(steps):
+    """#738 : images construites par le nœud constructeur -- d'abord la construction là-bas, puis chaque « up --build »
+    local devient « tirer les images » + « up --no-build » (la passerelle, projet à part, reste construite ici)."""
+    out = [{"label": "construire et pousser les images sur le nœud constructeur (registre local)", "cmd": "python3 deploy/node_agent.py build-images"}]
+    for st in steps:
+        m = re.match(r"^\./scripts/run\.sh up -d --build (.+)$", st["cmd"])
+        if m:
+            out.append({"label": st["label"] + " -- images tirées du registre", "cmd": "python3 deploy/images.py pull " + m.group(1)})
+            out.append({"label": st["label"] + " -- relance sans construction", "cmd": "./scripts/run.sh up -d --no-build " + m.group(1)})
+        else:
+            out.append(st)
+    return out
+
+
+def git_update_plan(mode, changed, main_paths, running, gateway_running=True, nodes=0, agents=False, branch="main", start_new=(), registry=False):
     """Étapes du job : `git pull --ff-only`, puis
     - central : plan ciblé (plan_for_changes) sur les fichiers modifiés entre HEAD et origin ;
     - cascade : reconstruction de TOUS les services en marche (+ passerelle), puis les autres nœuds du déploiement
@@ -398,7 +412,10 @@ def git_update_plan(mode, changed, main_paths, running, gateway_running=True, no
     new_names = sorted(s for s in (start_new or []) if SERVICE_RE.match(s) and s not in (running or []))
     if new_names:
         steps.append({"label": "démarrer %d nouveau(x) service(s)" % len(new_names), "cmd": "./scripts/run.sh up -d --build " + " ".join(new_names)})
-    return {"steps": steps, "plan": plan, "agents": bool(agents), "started": new_names}
+    if registry:   # #738
+        head = steps[:2]
+        steps = head + registry_steps(steps[2:])
+    return {"steps": steps, "plan": plan, "agents": bool(agents), "started": new_names, "registry": bool(registry)}
 
 
 # -- #662 : répartition (nœuds / cohortes, #513) pilotée depuis la tour ---------------------------------------------------

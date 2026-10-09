@@ -159,3 +159,17 @@ class Heal(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RegistryPlan(__import__("unittest").TestCase):
+    def test_registry_steps(self):   # #738
+        import tower as t
+        p = t.git_update_plan("cascade", [], {}, ["hub", "tickets-api"], gateway_running=True, nodes=2, registry=True)
+        cmds = [s["cmd"] for s in p["steps"]]
+        self.assertEqual(cmds[2], "python3 deploy/node_agent.py build-images")
+        self.assertIn("python3 deploy/images.py pull hub tickets-api", cmds)
+        self.assertIn("./scripts/run.sh up -d --no-build hub tickets-api", cmds)
+        self.assertFalse(any(c.startswith("./scripts/run.sh up -d --build") for c in cmds))
+        self.assertIn("./gateway/scripts/run.sh up -d --build tls-proxy", cmds)          # passerelle construite ici
+        self.assertTrue(p["registry"])
+        self.assertFalse(t.git_update_plan("cascade", [], {}, ["hub"], nodes=1)["registry"])

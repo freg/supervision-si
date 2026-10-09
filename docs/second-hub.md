@@ -34,6 +34,22 @@ cd ~/SRC/data2/tickets/supervision-si && python3 deploy/repartition.py apply --b
 Les deux bordures sont équivalentes (même passerelle, même hub, même Keycloak relayé) : DNS interne à deux
 adresses, ou adresse flottante keepalived (#655) devant les deux. Une bordure tombée n'arrête que son entrée.
 
+## Images construites hors de super (#738)
+Un nœud `"builder": true` (ex. la VM de travail sur pve10) construit et pousse les images dans un registre local ;
+les autres nœuds, dont super, ne font que les tirer (tag = commit git). Les fronts et le hub étant pré-compilés avec
+une configuration lue à l'exécution (#736-#737), une même image sert tous les nœuds.
+```
+# sur le constructeur (adresse VPN/LAN 10.99.0.3 par exemple) :
+cd ~/SRC/data2/tickets/supervision-si/deploy/registry && SI_REGISTRY_BIND=10.99.0.3 docker compose up -d
+# sur CHAQUE nœud (registre HTTP, joignable seulement par le VPN/LAN) :
+echo '{"insecure-registries": ["10.99.0.3:5005"]}' | sudo tee /etc/docker/daemon.json && sudo systemctl restart docker
+cd ~/SRC/data2/tickets/supervision-si && echo 'SI_REGISTRY=10.99.0.3:5005' >> .env
+# deploy/nodes.json : "builder": true sur le constructeur ; puis depuis super :
+cd ~/SRC/data2/tickets/supervision-si && python3 deploy/node_agent.py build-images && python3 deploy/images.py pull && ./scripts/run.sh up -d --no-build
+```
+La mise à jour depuis la tour (git, mode central ou cascade) suit ce chemin automatiquement quand `SI_REGISTRY` est
+défini : construction sur le constructeur, puis « tirer + relancer sans construire » ici. La passerelle (tls-proxy,
+image nginx légère) et les services clonés d'instances (#731) restent construits sur leur nœud.
+
 ## Reste
-- Constructions d'images hors de super (registre local, super ne fait que tirer) : lot 3.
-- Fronts encore en serveur de développement Vite (7) : à pré-compiler comme le hub.
+- Portail d'administration du coffre (HTTPS propre au serveur Vite) : non pré-compilé.

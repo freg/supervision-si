@@ -1,3 +1,18 @@
+## 2026-10-09 — Images construites hors de la VM du hub, registre local (livraison #738)
+
+Lot 3 du second hub : un nœud « constructeur » construit les images et les pousse dans un registre local
+(`deploy/registry/`, registry:2 sur le VPN) ; super et les autres nœuds ne font que les tirer (tag = commit git).
+Plus de construction sur la VM du hub pendant les mises à jour. Activé par `SI_REGISTRY` dans `.env`, sinon inchangé.
+
+- `deploy/images.py` (override des noms d'images, `build` 2 en parallèle au plus + `push`, `pull`) ; `scripts/run.sh`
+  ajoute l'override ; `node_agent.py` : `apply` tire au lieu de construire (le constructeur construit et pousse),
+  `build-images` depuis le manager, `update-all` commence par le constructeur ; tour de contrôle : le plan de mise à
+  jour git devient « construire là-bas, tirer + relancer sans construire ici ».
+- Vérifié : `deploy/tests` (35, dont override d'images, apply avec / sans registre, constructeur, build-images),
+  `services/api` (plan de mise à jour avec registre), syntaxe de `run.sh`. Non vérifié : registre et images réels.
+- Fichiers : `deploy/images.py`, `deploy/registry/docker-compose.yml`, `deploy/node_agent.py`, `scripts/run.sh`,
+  `services/api/tower.py`, `services/api/app.py`, `.env.example`, `docs/second-hub.md`, tests.
+
 ## 2026-10-09 — Fronts pré-compilés dans l'image, comme le hub (livraison #737)
 
 Les 6 fronts encore servis par le serveur de développement Vite (Supervision SI `/app/`, portail tickets, DBA,
