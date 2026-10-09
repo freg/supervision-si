@@ -2411,3 +2411,14 @@ button.danger { color: #e06666; }
 .qa-thumb-lg { height: 120px; }
 .qa-scroll { max-height: 520px; overflow: auto; }
 .qa-scroll thead th { position: sticky; top: 0; z-index: 1; background: var(--panel); }
+/* #735 : retour visuel immédiat -- vue en cours de chargement, activité réseau (barre fine en haut), clic marqué */
+.hub-view-loading { display: flex; align-items: center; gap: 10px; padding: 24px; color: var(--muted); }
+.hub-spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: hub-spin .7s linear infinite; }
+@keyframes hub-spin { to { transform: rotate(360deg); } }
+html[data-busy="1"] body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 9999;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent); background-size: 50% 100%; background-repeat: no-repeat;
+  animation: hub-busy 1s ease-in-out infinite; }
+html[data-busy="1"] { cursor: progress; }
+@keyframes hub-busy { from { background-position: -50% 0; } to { background-position: 150% 0; } }
+button:active:not(:disabled), a.hub-card:active, button.hub-card:active { transform: translateY(1px); filter: brightness(.95); }
+@media (prefers-reduced-motion: reduce) { .hub-spinner, html[data-busy="1"] body::before { animation: none; } }

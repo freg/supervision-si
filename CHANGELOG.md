@@ -1,3 +1,18 @@
+## 2026-10-09 — Hub : vues à la demande, retour visuel immédiat, rafraîchissements suspendus onglet caché (livraison #735)
+
+Lot 2 de la répartition / second hub (interface réactive).
+- Les 53 vues du hub sont chargées à la demande (React.lazy) : JavaScript initial de 2,1 Mo → 368 Ko (vite build
+  vérifié). Toutes les vues sont ensuite préchargées une à une quand le navigateur est inactif (3 s après l'ouverture),
+  donc le changement de tuile reste instantané. Pendant un premier chargement : « Chargement… » à la place de la vue,
+  en-tête conservé.
+- Retour visuel des commandes : barre fine en haut de l'écran et curseur d'attente dès qu'une requête dure plus de
+  150 ms ; boutons marqués à l'appui.
+- Onglet du navigateur caché : les GET vers les API du hub attendent son retour, et les GET identiques ne partent
+  qu'une fois (les ~35 rafraîchissements périodiques ne chargent plus le serveur pour un onglet que personne ne regarde).
+- Vérifié : `hub/tests` (342, dont activité réseau et préchargement), `vite build` complet. Non vérifié : rendu.
+- Fichiers : `hub/src/App.jsx`, `hub/src/lazyViews.js`, `hub/src/netActivity.js`, `hub/src/hub.css`,
+  `hub/tests/netActivity.test.mjs`.
+
 ## 2026-10-09 — Régime mémoire de la VM du hub et passerelle HTTP/2 + compression (livraison #734)
 
 Mesure sur super : 4 vCPU, 8,7 Go de RAM, 7 Go de swap utilisés, charge 10-11 ; gros consommateurs : Keycloak (deux

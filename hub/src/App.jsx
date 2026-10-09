@@ -1,4 +1,6 @@
-import React, { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import React, { Fragment, Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import { preloadSequential } from "./lazyViews.js";   // #735
+import { installNetActivity } from "./netActivity.js";   // #735
 import { useAuth } from "react-oidc-context";
 import { buildFrontsList, formatUserRoles, roleInitials, isAdmin, isTechnicien, canMail, ROLE_LABELS } from "./lib.js";
 import { createAccountThemeStore } from "./preferences.js";
@@ -20,50 +22,58 @@ import {
 import { applyHubLayout } from "./hubLayoutLib.js";
 import { installApiAuth, setApiToken, setSiteScope, resolveSiteScope } from "./apiAuth.js";  // A0 #615 : jeton sur tous les appels d'API ; A1 #620 : périmètre de site
 installApiAuth();
+installNetActivity();   // #735 : indicateur d'activité, GET d'API suspendus quand l'onglet est caché
 // #516 : disposition du hub en arborescence (menus, tuiles, outils, options).
-import HubTreeView from "./HubTreeView.jsx";
+// #735 : vues chargées à la demande (un fichier JS par vue au lieu d'un bloc de 2 Mo), puis préchargées en tâche
+// de fond quand le navigateur est inactif -- le changement de tuile reste instantané après le premier affichage.
+const VIEW_IMPORTS = [];
+function lazyView(load) { VIEW_IMPORTS.push(load); return lazy(load); }
+function ViewLoading() {
+  return <div className="hub-view-loading" role="status" aria-live="polite"><span className="hub-spinner" aria-hidden="true" /> Chargement…</div>;
+}
+const HubTreeView = lazyView(() => import("./HubTreeView.jsx"));
 // #523 : Infos synthèse SI (DNS / IP OVH / IPAM / services, recoupés).
-import SyntheseView from "./SyntheseView.jsx";
-import TodayView from "./TodayView.jsx";
+const SyntheseView = lazyView(() => import("./SyntheseView.jsx"));
+const TodayView = lazyView(() => import("./TodayView.jsx"));
 import { buildCatalog, defaultTree, normalizeTree, resolveTree, themesOf, rootLeaves, viewLabelsFromThemes, universeEntries, splitHeader, sortTiles, assistantAskUrl } from "./hubTree.js";
-import LogsManagerView from "./LogsManagerView.jsx";
-import SchemaAnalyzerView from "./SchemaAnalyzerView.jsx";
-import PortageView from "./PortageView.jsx";
-import QaView from "./QaView.jsx";
-import DataSyncView from "./DataSyncView.jsx";
-import VulnView from "./VulnView.jsx";   // #688
-import MailServerView from "./MailServerView.jsx";  // #697
+const LogsManagerView = lazyView(() => import("./LogsManagerView.jsx"));
+const SchemaAnalyzerView = lazyView(() => import("./SchemaAnalyzerView.jsx"));
+const PortageView = lazyView(() => import("./PortageView.jsx"));
+const QaView = lazyView(() => import("./QaView.jsx"));
+const DataSyncView = lazyView(() => import("./DataSyncView.jsx"));
+const VulnView = lazyView(() => import("./VulnView.jsx"));   // #688
+const MailServerView = lazyView(() => import("./MailServerView.jsx"));  // #697
 import { configureTablePrefs } from "./tableLayout.js";  // #698
-import GroupwareView from "./GroupwareView.jsx";   // #664
+const GroupwareView = lazyView(() => import("./GroupwareView.jsx"));   // #664
 import GroupwareReminders from "./GroupwareReminders.jsx";   // #670
-import PveOpsView from "./PveOpsView.jsx";
-import PveMaintView from "./PveMaintView.jsx";
-import RetroView from "./RetroView.jsx";
-import BackupRestoreView from "./BackupRestoreView.jsx";
-import ArchitectureView from "./ArchitectureView.jsx";
-import MemoryView from "./MemoryView.jsx";
-import ClassifierView from "./ClassifierView.jsx";
-import VigilanceView from "./VigilanceView.jsx";
-import EntView from "./EntView.jsx";
-import RightsView from "./RightsView.jsx";
-import AccountsView from "./AccountsView.jsx";
-import PersonalDataView from "./PersonalDataView.jsx";  // #638
-import NetprobeView from "./NetprobeView.jsx";
-import UpsView from "./UpsView.jsx";
-import SiAgentView from "./SiAgentView.jsx";
-import ProxmoxView from "./ProxmoxView.jsx";
-import NetworkEquipmentView from "./NetworkEquipmentView.jsx";
-import BastionView from "./BastionView.jsx";
-import ControlTowerView from "./ControlTowerView.jsx";  // #586
-import NotificationsView from "./NotificationsView.jsx";  // #590
-import LicensesView from "./LicensesView.jsx";  // #595
-import NatMapView from "./NatMapView.jsx";  // #606
+const PveOpsView = lazyView(() => import("./PveOpsView.jsx"));
+const PveMaintView = lazyView(() => import("./PveMaintView.jsx"));
+const RetroView = lazyView(() => import("./RetroView.jsx"));
+const BackupRestoreView = lazyView(() => import("./BackupRestoreView.jsx"));
+const ArchitectureView = lazyView(() => import("./ArchitectureView.jsx"));
+const MemoryView = lazyView(() => import("./MemoryView.jsx"));
+const ClassifierView = lazyView(() => import("./ClassifierView.jsx"));
+const VigilanceView = lazyView(() => import("./VigilanceView.jsx"));
+const EntView = lazyView(() => import("./EntView.jsx"));
+const RightsView = lazyView(() => import("./RightsView.jsx"));
+const AccountsView = lazyView(() => import("./AccountsView.jsx"));
+const PersonalDataView = lazyView(() => import("./PersonalDataView.jsx"));  // #638
+const NetprobeView = lazyView(() => import("./NetprobeView.jsx"));
+const UpsView = lazyView(() => import("./UpsView.jsx"));
+const SiAgentView = lazyView(() => import("./SiAgentView.jsx"));
+const ProxmoxView = lazyView(() => import("./ProxmoxView.jsx"));
+const NetworkEquipmentView = lazyView(() => import("./NetworkEquipmentView.jsx"));
+const BastionView = lazyView(() => import("./BastionView.jsx"));
+const ControlTowerView = lazyView(() => import("./ControlTowerView.jsx"));  // #586
+const NotificationsView = lazyView(() => import("./NotificationsView.jsx"));  // #590
+const LicensesView = lazyView(() => import("./LicensesView.jsx"));  // #595
+const NatMapView = lazyView(() => import("./NatMapView.jsx"));  // #606
 import HostHealthBanner from "./HostHealthBanner.jsx";  // #593
-import CortexView from "./CortexView.jsx";
-import ThemeView from "./ThemeView.jsx";
+const CortexView = lazyView(() => import("./CortexView.jsx"));
+const ThemeView = lazyView(() => import("./ThemeView.jsx"));
 import { buildCatalog as buildRightsCatalog } from "./rightsCatalog.js";
 import { fetchVisible } from "./rightsClient.js";
-import AgentPageView from "./AgentPageView.jsx";
+const AgentPageView = lazyView(() => import("./AgentPageView.jsx"));
 const RIGHTS_CATALOG_IDS = new Set(buildRightsCatalog().map((c) => c.identifier));  // #559
 import { businessTree, filterBusinessTree, pathsOfLeaf } from "./hubBusiness.js";  // #599 : menu principal en graphe métier
 import HomeTree from "./HomeTree.jsx";  // #603 : accueil en arbre dépliable
@@ -71,24 +81,24 @@ import { THEMES, SINCE, buildThemes, themeViewMode, isThemeViewMode, themeIdOf, 
 import { publicLinks, agentPublishedLinks, displayUrl } from "./publicLinks.js";
 import { canSeeBastion } from "./siProxy.js";
 import SiAgentEventsBanner from "./SiAgentEventsBanner.jsx";
-import SupervisionSiView from "./SupervisionSiView.jsx";
-import ExternalBasesView from "./ExternalBasesView.jsx";
-import GeoCatalogView from "./GeoCatalogView.jsx";
-import FusionView from "./FusionView.jsx";
-import GedView from "./GedView.jsx";
-import SshTunnelsView from "./SshTunnelsView.jsx";
-import SnmpView from "./SnmpView.jsx";
-import NetmapOrchestratorView from "./NetmapOrchestratorView.jsx";
-import NebulaView from "./NebulaView.jsx";
-import ImapView from "./ImapView.jsx";
-import ImapConnectorsView from "./ImapConnectorsView.jsx";
+const SupervisionSiView = lazyView(() => import("./SupervisionSiView.jsx"));
+const ExternalBasesView = lazyView(() => import("./ExternalBasesView.jsx"));
+const GeoCatalogView = lazyView(() => import("./GeoCatalogView.jsx"));
+const FusionView = lazyView(() => import("./FusionView.jsx"));
+const GedView = lazyView(() => import("./GedView.jsx"));
+const SshTunnelsView = lazyView(() => import("./SshTunnelsView.jsx"));
+const SnmpView = lazyView(() => import("./SnmpView.jsx"));
+const NetmapOrchestratorView = lazyView(() => import("./NetmapOrchestratorView.jsx"));
+const NebulaView = lazyView(() => import("./NebulaView.jsx"));
+const ImapView = lazyView(() => import("./ImapView.jsx"));
+const ImapConnectorsView = lazyView(() => import("./ImapConnectorsView.jsx"));
 import NotifBell from "./NotifBell.jsx";
-import GlpiInventoryView from "./GlpiInventoryView.jsx";
-import NetworkAgentView from "./NetworkAgentView.jsx";
-import NetworkCycleView from "./NetworkCycleView.jsx";
-import CyberView from "./CyberView.jsx";
-import PersonalizeHomeView from "./PersonalizeHomeView.jsx";
-import FileManagerView from "./FileManagerView.jsx";
+const GlpiInventoryView = lazyView(() => import("./GlpiInventoryView.jsx"));
+const NetworkAgentView = lazyView(() => import("./NetworkAgentView.jsx"));
+const NetworkCycleView = lazyView(() => import("./NetworkCycleView.jsx"));
+const CyberView = lazyView(() => import("./CyberView.jsx"));
+const PersonalizeHomeView = lazyView(() => import("./PersonalizeHomeView.jsx"));
+const FileManagerView = lazyView(() => import("./FileManagerView.jsx"));
 import { logPresenceTransitions } from "./hubLogClient.js";
 import { parseMarkdown } from "./markdown.js";
 import versionInfo from "./VERSION.json";
@@ -1016,6 +1026,8 @@ function ExternalLinksAdminView({ apiBase, login, links, onLinksChanged, onBack 
 }
 
 export default function App() {
+  // #735 : précharge le code des vues en tâche de fond, 3 s après l'ouverture (une vue à la fois, au repos)
+  useEffect(() => { let stop = null; const t = setTimeout(() => { stop = preloadSequential(VIEW_IMPORTS); }, 3000); return () => { clearTimeout(t); if (stop) stop(); }; }, []);
   const auth = useAuth();
   useEffect(() => { setApiToken(auth.user?.access_token || ""); }, [auth.user?.access_token]);  // A0 #615
   // A1 (#620) : périmètre de site par groupe -- réglage lu sur si-agent-api, même règle que la garde des API
@@ -1619,7 +1631,11 @@ export default function App() {
   const goBack = () => { if (isThemeViewMode(viewMode)) setThemeEntry(null); else setViewMode("grid"); };
   // Chaîne de routage (inchangée) devenue une fonction : ThemeView la
   // réutilise pour rendre l'outil choisi -- jamais deux routages.
+  // #735 : frontière de chargement autour de chaque vue -- retour visuel immédiat au clic, en-tête conservé.
   function renderRoute(vm) {
+    return <Suspense fallback={<ViewLoading />}>{renderRouteInner(vm)}</Suspense>;
+  }
+  function renderRouteInner(vm) {
     // #559 : une tuile non accordée n'est pas ouvrable, même par ?view= ou un lien
     if (visibleTiles && !visibleTiles.has(vm) && RIGHTS_CATALOG_IDS.has(vm)) vm = "grid";
     return (
