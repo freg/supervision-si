@@ -49,3 +49,14 @@ test("#727 diffSummary / ratioPct / parseMask", () => {
   assert.equal(ratioPct(0.0456), "4.6 %"); assert.equal(ratioPct(undefined), "0 %");
   assert.deepEqual(parseMask(" .horloge, ,#compteur "), [".horloge", "#compteur"]); assert.deepEqual(parseMask(""), []);
 });
+
+import { mockupStatus, slideIcon, scoreDelta, firstSlide, shotTriples } from "../src/qaLib.js";
+test("#728 maquettes : libellés, écart, première étape, vignettes", () => {
+  assert.equal(mockupStatus("presentee"), "présentée"); assert.equal(mockupStatus(undefined), "—"); assert.equal(slideIcon("regles"), "④");
+  assert.equal(scoreDelta(25), "+25"); assert.equal(scoreDelta(-5), "-5"); assert.equal(scoreDelta(0), "0"); assert.equal(scoreDelta(null), "");
+  assert.equal(firstSlide([{ kind: "avant" }, { kind: "proposition", rendered: true }, { kind: "variante", rendered: false }]), 2);
+  assert.equal(firstSlide([{ kind: "avant" }, { kind: "proposition", rendered: true }]), 0); assert.equal(firstSlide(undefined), 0);
+  const t = shotTriples({ diff: { steps: [{ index: 1, ref_run: 3, ref_shot: "step1.png", shot: "step1.png", diff: "diff-3-step1.png", ratio: 0.2, significant: 1 }, { index: 2, error: "capture absente" }] } });
+  assert.deepEqual(t, [{ index: 1, refRun: 3, refShot: "step1.png", shot: "step1.png", diff: "diff-3-step1.png", ratio: 0.2, significant: true }]);
+  assert.deepEqual(shotTriples({}), []);
+});

@@ -83,3 +83,18 @@ export const ratioPct = (r) => `${Math.round((r || 0) * 1000) / 10} %`;
 
 // #727 : zones masquées -- texte saisi « .horloge, #compteur » → sélecteurs nettoyés (vides retirés).
 export const parseMask = (text) => (text || "").split(",").map((x) => x.trim()).filter(Boolean);
+
+// #728 : maquettes -- libellés d'état et d'étape, écart de note signé, étape suivante utile.
+export const mockupStatus = (s) => ({ brouillon: "brouillon", presentee: "présentée", validee: "✔ validée", rejetee: "✘ rejetée" }[s] || s || "—");
+export const slideIcon = (k) => ({ avant: "①", proposition: "②", variante: "③", regles: "④", decision: "⑤" }[k] || "•");
+export const scoreDelta = (d) => (d === null || d === undefined ? "" : d > 0 ? `+${d}` : `${d}`);
+// Première étape à regarder : la première variante non rendue, sinon la situation actuelle.
+export function firstSlide(slides) {
+  const i = (slides || []).findIndex((s) => (s.kind === "proposition" || s.kind === "variante") && !s.rendered);
+  return i >= 0 ? i : 0;
+}
+// Couples de vignettes d'une variante : capture de la situation actuelle / de la variante / différences.
+export function shotTriples(slide) {
+  return ((slide && slide.diff && slide.diff.steps) || []).filter((s) => !s.error)
+    .map((s) => ({ index: s.index, refRun: s.ref_run, refShot: s.ref_shot, shot: s.shot, diff: s.diff, ratio: s.ratio, significant: !!s.significant }));
+}

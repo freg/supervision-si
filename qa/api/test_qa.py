@@ -17,8 +17,10 @@ sys.path.insert(0, os.path.dirname(__file__)); import app as appmod; importlib.r
 
 class FakeRunner:
     fail_at = None
-    def run(self, base_url, login, steps, shots_dir, timeout_ms, mask=None):
+    css_calls = []
+    def run(self, base_url, login, steps, shots_dir, timeout_ms, mask=None, css=None):
         self.mask = mask
+        if css: self.css_calls.append(css)
         pathlib.Path(shots_dir).mkdir(parents=True, exist_ok=True); res = []
         for i, st in enumerate(login, 1): res.append(dict(index=-(len(login) - i + 1), action=st["action"], ok=True, error="", duration_ms=1, shot="", login=True))
         for i, st in enumerate(steps, 1):
@@ -95,3 +97,33 @@ def test_reference_and_diff():
     assert c.get(f"/runs/{r2['id']}/shot/{dd['steps'][1]['diff']}").status_code == 200
     assert c.get(f"/runs/{r2['id']}/diff?against={r2['id']}").json["significant"] == 0           # rejouer contre une exécution choisie
     c.delete(f"/sites/{sid}")
+
+
+def test_mockups():
+    """#728 : maquette depuis une exécution avec audit -> variantes calculées, rendu (CSS injecté), présentation,
+    exécutions de maquette hors historique, décision validée -> ticket évolution avec le correctif CSS."""
+    sid = c.post("/sites", json={"name": "Hub M", "base_url": "https://hub.example"}).json["site"]["id"]
+    x = c.post(f"/sites/{sid}/scenarios", json={"name": "Vue X", "steps": [{"action": "goto", "value": "/?view=x"}, {"action": "audit"}]}).json["scenario"]
+    assert "Jouez d'abord" in c.post(f"/scenarios/{x['id']}/mockups", json={}).json["error"]
+    base = c.post(f"/scenarios/{x['id']}/run").json["run"]
+    import sqlite3; cn = sqlite3.connect(appmod.DB_PATH)
+    res = base["results"]; res[-1].update(findings=[{"rule": "contraste", "severity": "erreur", "message": "m", "el": "span.muted", "fg": "rgb(170, 170, 170)", "bg": "rgb(255, 255, 255)", "need": 4.5}], score=85)
+    cn.execute("UPDATE runs SET results = ? WHERE id = ?", (json.dumps(res), base["id"])); cn.commit()
+    r = c.post(f"/scenarios/{x['id']}/mockups", json={"by_user": "freg"}); assert r.status_code == 201, r.json
+    mk = r.json["mockup"]; assert [v["name"] for v in mk["variants"]] == ["Corrections de conformité", "Contraste renforcé (AAA)"] and mk["base_run_id"] == base["id"]
+    assert [s["kind"] for s in mk["slides"]] == ["avant", "proposition", "variante", "regles", "decision"] and mk["slides"][0]["score"] == 85
+    assert c.post(f"/mockups/{mk['id']}/decision", json={"status": "validee", "variant": 0}).status_code == 400   # pas encore rendue
+    assert c.put(f"/mockups/{mk['id']}", json={"variants": [{"name": "x", "css": "<script>"}]}).status_code == 400
+    n0 = len(appmod.RUNNER.css_calls); mk = c.post(f"/mockups/{mk['id']}/render").json["mockup"]
+    assert len(appmod.RUNNER.css_calls) == n0 + 2 and "span.muted { color: #" in appmod.RUNNER.css_calls[-2] and mk["status"] == "presentee"
+    assert mk["slides"][1]["rendered"] and mk["slides"][1]["run_id"] and mk["slides"][1]["diff"] is not None
+    assert [r["id"] for r in c.get(f"/scenarios/{x['id']}/runs").json["runs"]] == [base["id"]]           # hors historique
+    c.post(f"/mockups/{mk['id']}/render?variant=1"); assert len(appmod.RUNNER.css_calls) == n0 + 3
+    assert cn.execute("SELECT COUNT(*) FROM runs WHERE mockup_id = ?", (mk["id"],)).fetchone()[0] == 2     # rendu remplacé, pas empilé
+    d = c.post(f"/mockups/{mk['id']}/decision", json={"status": "validee", "variant": 0, "comment": "go"}); assert d.status_code == 200, d.json
+    assert d.json["ticket_id"] and created[-1]["type_id"] == 2 and created[-1]["subject"] == "[QA maquette] Vue X — Corrections de conformité" and "span.muted" in created[-1]["description"]
+    assert d.json["mockup"]["status"] == "validee" and d.json["mockup"]["chosen"] == 0
+    assert c.put(f"/mockups/{mk['id']}", json={"name": "z"}).status_code == 409
+    assert c.get(f"/scenarios/{x['id']}/mockups").json["mockups"][0]["ticket_id"] == d.json["ticket_id"]
+    rids = [r[0] for r in cn.execute("SELECT id FROM runs WHERE mockup_id = ?", (mk["id"],))]
+    assert c.delete(f"/mockups/{mk['id']}").json["ok"] and not (pathlib.Path(tmp) / "runs" / str(rids[0])).exists()

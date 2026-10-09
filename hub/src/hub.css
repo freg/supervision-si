@@ -2399,3 +2399,15 @@ button.danger { color: #e06666; }
 /* #720 : « Demander à l'assistant » en pied de la liste de l'univers */
 .hub-universe-ask { display: block; padding: 6px 8px; margin-top: 4px; border-top: 1px solid var(--border); color: var(--accent); text-decoration: none; }
 .hub-universe-ask:hover { background: var(--bg); }
+/* #728 : maquettes en étapes (module QA) */
+.qa-mockup .qa-variant { border: 1px solid var(--border); border-radius: 6px; padding: 8px; margin: 8px 0; background: var(--bg); }
+.qa-mockup .qa-variant input[type="text"] { min-width: 260px; }
+.qa-css { width: 100%; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; white-space: pre-wrap; margin: 6px 0; }
+.qa-steps-nav { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 12px 0 8px; }
+.qa-slide { border-top: 1px solid var(--border); padding-top: 8px; }
+.qa-slide h3 { margin: 4px 0 8px; }
+.qa-thumbs { display: flex; flex-wrap: wrap; gap: 10px; }
+.qa-thumbs figure { margin: 0; } .qa-thumbs figcaption { font-size: 12px; color: var(--muted); }
+.qa-thumb-lg { height: 120px; }
+.qa-scroll { max-height: 520px; overflow: auto; }
+.qa-scroll thead th { position: sticky; top: 0; z-index: 1; background: var(--panel); }

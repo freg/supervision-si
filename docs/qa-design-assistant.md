@@ -37,7 +37,8 @@ contraire une vérification de conformité visuelle et ergonomique. »
 - Vision : **locale sans modèle de vision** (DOM, styles calculés, règles) -- rien ne sort du SI.
 - Périmètre : **hub seul** d'abord (tour par le catalogue des vues).
 - Références de captures : volume `qa/data`, par exécution (défaut, à revoir à la tranche 3).
-- Livré : tranches 1-2 (#721 : tour du hub + étape `audit`).
+- Livré : tranches 1-2 (#721 : tour du hub + étape `audit`), 3 (#727 : référence, différences, zones masquées),
+  4 (#728 : maquettes en étapes, variantes calculées depuis les constats, décision → ticket évolution).
 
 ## Questions initiales
 

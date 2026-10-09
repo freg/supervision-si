@@ -1,3 +1,17 @@
+## 2026-10-09 — Tests QA : maquettes en étapes, de la proposition au ticket évolution (livraison #728)
+
+Item 116 tranche 4 : depuis une exécution, « 🎨 Maquette » propose des variantes de refonte (feuilles CSS calculées
+depuis les constats de conformité, ou écrites à la main), les rejoue dans le navigateur de test seulement, et les
+présente en étapes : situation actuelle → proposition → variantes (note, vignettes avant / après / différences) →
+règles respectées → décision. Validée, la variante part en ticket évolution avec son correctif CSS.
+
+- Vérifié : `qa/api` (test_qa 6 dont maquette de bout en bout ; test_qa_mockup 4 ; design, visual), `hub/tests` (337),
+  syntaxe `@babel/parser` ; injection + variante calculée dans un vrai Chromium sur une page de test (note 70 → 95).
+- Non vérifié : rendu du hub, maquette sur le hub réel.
+- Fichiers : `qa/api/qa_mockup.py`, `qa/api/app.py`, `qa/api/runner.py`, `qa/api/qa_design.py` (champs el / fg / bg /
+  els des constats), `qa/api/Dockerfile`, `hub/src/QaMockupPanel.jsx`, `hub/src/QaView.jsx`, `hub/src/qaClient.js`,
+  `hub/src/qaLib.js`, `hub/src/hub.css`, `docs/qa-design-assistant.md`.
+
 ## 2026-10-09 — Tests QA : référence visuelle, différences de captures, rejouer un bug (livraison #727)
 
 Item 116 tranche 3 (assistant de design et de parcours) : une exécution d'un scénario peut devenir sa **référence

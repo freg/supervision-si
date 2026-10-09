@@ -4,7 +4,7 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 COPY qa/api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY qa/api/app.py qa/api/qa_steps.py qa/api/qa_design.py qa/api/qa_visual.py qa/api/runner.py ./
+COPY qa/api/app.py qa/api/qa_steps.py qa/api/qa_design.py qa/api/qa_visual.py qa/api/qa_mockup.py qa/api/runner.py ./
 COPY shared/version_endpoint.py .
 COPY shared/VERSION.json .
 RUN mkdir -p /data

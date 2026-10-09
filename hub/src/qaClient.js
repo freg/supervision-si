@@ -29,3 +29,11 @@ export const shotUrl = (b, rid, name) => `${b}/runs/${rid}/shot/${name}`;
 export const hubTour = (b, id, body) => fetchJson(`${b}/sites/${id}/hub-tour`, json("POST", body));   // #721
 export const setReference = (b, xid, runId) => fetchJson(`${b}/scenarios/${xid}/reference`, json("PUT", { run_id: runId }));   // #727
 export const runDiff = (b, rid, against) => fetchJson(`${b}/runs/${rid}/diff${against ? `?against=${against}` : ""}`);       // #727
+// #728 : maquettes en étapes (variantes CSS injectées dans le navigateur de test, présentation, décision → ticket évolution)
+export const listMockups = (b, xid) => fetchJson(`${b}/scenarios/${xid}/mockups`);
+export const createMockup = (b, xid, body) => fetchJson(`${b}/scenarios/${xid}/mockups`, json("POST", body));
+export const getMockup = (b, mid) => fetchJson(`${b}/mockups/${mid}`);
+export const updateMockup = (b, mid, body) => fetchJson(`${b}/mockups/${mid}`, json("PUT", body));
+export const deleteMockup = (b, mid) => fetchJson(`${b}/mockups/${mid}`, { method: "DELETE" });
+export const renderMockup = (b, mid, variant, byUser) => fetchJson(`${b}/mockups/${mid}/render${variant === undefined ? "" : `?variant=${variant}`}`, json("POST", { by_user: byUser }));
+export const decideMockup = (b, mid, body) => fetchJson(`${b}/mockups/${mid}/decision`, json("POST", body));

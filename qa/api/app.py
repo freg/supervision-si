@@ -23,6 +23,7 @@ from flask_cors import CORS
 import qa_steps
 import qa_design
 import qa_visual
+import qa_mockup
 try:
     from version_endpoint import register_version_route
 except ImportError:
@@ -62,6 +63,12 @@ def init_db():
         for col in ("ref_run_id INTEGER", "mask TEXT DEFAULT ''"):   # #727 : référence visuelle, zones masquées à la capture
             try: cn.execute("ALTER TABLE scenarios ADD COLUMN " + col)
             except sqlite3.OperationalError: pass
+        for col in ("mockup_id INTEGER", "variant INTEGER"):   # #728 : exécutions d'une variante de maquette (hors historique)
+            try: cn.execute("ALTER TABLE runs ADD COLUMN " + col)
+            except sqlite3.OperationalError: pass
+        cn.execute("""CREATE TABLE IF NOT EXISTS mockups (id INTEGER PRIMARY KEY AUTOINCREMENT, scenario_id INTEGER NOT NULL REFERENCES scenarios(id) ON DELETE CASCADE,
+            base_run_id INTEGER, name TEXT NOT NULL, variants TEXT DEFAULT '[]', status TEXT DEFAULT 'brouillon', chosen INTEGER, decision_comment TEXT DEFAULT '',
+            ticket_id INTEGER, by_user TEXT DEFAULT '', created_at TEXT, updated_at TEXT)""")
 init_db()
 def now(): return time.strftime("%Y-%m-%dT%H:%M:%S")
 def d(r): return dict(r) if r is not None else None
@@ -205,13 +212,15 @@ def scenarios_delete(xid):
     return (jsonify(ok=True), 200) if n else (jsonify(error="Scénario inconnu"), 404)
 
 # ------------------------------------------------------------------ exécutions
-def _execute(cn, scenario, site, campaign_id=None, by_user=""):
-    cur = cn.execute("INSERT INTO runs (scenario_id, campaign_id, started_at, status, by_user) VALUES (?,?,?,?,?)", (scenario["id"], campaign_id, now(), "running", by_user))
+def _execute(cn, scenario, site, campaign_id=None, by_user="", css=None, mockup_id=None, variant=None):
+    cur = cn.execute("INSERT INTO runs (scenario_id, campaign_id, started_at, status, by_user, mockup_id, variant) VALUES (?,?,?,?,?,?,?)",
+                     (scenario["id"], campaign_id, now(), "running", by_user, mockup_id, variant))
     rid = cur.lastrowid; cn.commit()
     login = json.loads(site["login_steps"] or "[]"); steps = json.loads(scenario["steps"])
     try:
         mask = [m.strip() for m in (scenario["mask"] or "").split(",") if m.strip()] if "mask" in scenario.keys() else []
-        results, url = runner().run(site["base_url"], login, steps, RUNS / str(rid), STEP_TIMEOUT, mask=mask)
+        kw = dict(mask=mask, css=css) if css else dict(mask=mask)
+        results, url = runner().run(site["base_url"], login, steps, RUNS / str(rid), STEP_TIMEOUT, **kw)
         st = qa_steps.summarize([r for r in results if not r.get("login")])["status"]
         if any(r.get("login") and not r["ok"] for r in results): st = "ko"
         err = ""
@@ -255,7 +264,7 @@ def site_campaigns(sid):
 
 @app.route("/scenarios/<int:xid>/runs", methods=["GET"])
 def scenario_runs(xid):
-    with db() as cn: rows = cn.execute("SELECT * FROM runs WHERE scenario_id = ? ORDER BY id DESC LIMIT 20", (xid,)).fetchall()
+    with db() as cn: rows = cn.execute("SELECT * FROM runs WHERE scenario_id = ? AND mockup_id IS NULL ORDER BY id DESC LIMIT 20", (xid,)).fetchall()
     return jsonify(runs=[run_out(r) for r in rows])
 
 @app.route("/runs/<int:rid>/shot/<name>", methods=["GET"])
@@ -288,6 +297,10 @@ def run_diff(rid):
         if not against: return jsonify(error="Aucune référence : choisir une exécution de référence pour ce scénario"), 400
         ref = cn.execute("SELECT * FROM runs WHERE id = ?", (against,)).fetchone()
         if not ref: return jsonify(error="Exécution de référence introuvable"), 404
+    out = _diff_steps(rid, run, against, ref)
+    return jsonify(run_id=rid, against=against, steps=out, significant=sum(1 for s in out if s.get("significant")))
+
+def _diff_steps(rid, run, against, ref):
     out = []
     for idx, action, rshot, nshot in qa_visual.pairs(json.loads(ref["results"] or "[]"), json.loads(run["results"] or "[]")):
         rp, np_ = RUNS / str(against) / rshot, RUNS / str(rid) / nshot
@@ -297,7 +310,129 @@ def run_diff(rid):
         try: res = qa_visual.compare(rp, np_, RUNS / str(rid) / name)
         except Exception as e: out.append(dict(index=idx, action=action, error=f"{type(e).__name__} : {e}"[:200])); continue
         out.append(dict(index=idx, action=action, ref_run=against, ref_shot=rshot, shot=nshot, diff=name, **res))
-    return jsonify(run_id=rid, against=against, steps=out, significant=sum(1 for s in out if s.get("significant")))
+    return out
+
+# ------------------------------------------------------------------ maquettes en étapes (#728, item 116 tranche 4)
+def mockup_out(cn, m):
+    """Maquette + étapes de présentation (exécutions des variantes, comparaison de chacune avec la situation actuelle)."""
+    m = d(m); m["variants"] = json.loads(m["variants"] or "[]")
+    base = cn.execute("SELECT * FROM runs WHERE id = ?", (m["base_run_id"],)).fetchone() if m["base_run_id"] else None
+    vr, diffs = {}, {}
+    for r in cn.execute("SELECT * FROM runs WHERE mockup_id = ? ORDER BY id", (m["id"],)).fetchall():
+        vr[r["variant"]] = r   # la plus récente l'emporte
+    for i, r in vr.items():
+        if base:
+            st = _diff_steps(r["id"], r, base["id"], base)
+            diffs[i] = dict(significant=sum(1 for s in st if s.get("significant")), steps=st)
+    m["slides"] = qa_mockup.presentation(m, run_out(base) if base else None, {i: run_out(r) for i, r in vr.items()}, diffs)
+    return m
+
+@app.route("/scenarios/<int:xid>/mockups", methods=["GET"])
+def mockups_list(xid):
+    with db() as cn: rows = cn.execute("SELECT id, name, status, chosen, ticket_id, base_run_id, created_at FROM mockups WHERE scenario_id = ? ORDER BY id DESC", (xid,)).fetchall()
+    return jsonify(mockups=[d(r) for r in rows])
+
+@app.route("/scenarios/<int:xid>/mockups", methods=["POST"])
+def mockups_create(xid):
+    """{name, base_run_id?, variants?, auto?} -- auto : variantes calculées depuis les constats de la situation actuelle."""
+    b = request.get_json(silent=True) or {}
+    with db() as cn:
+        x = cn.execute("SELECT * FROM scenarios WHERE id = ?", (xid,)).fetchone()
+        if not x: return jsonify(error="Scénario inconnu"), 404
+        rid = b.get("base_run_id") or x["ref_run_id"]
+        if not rid:
+            r = cn.execute("SELECT id FROM runs WHERE scenario_id = ? AND mockup_id IS NULL ORDER BY id DESC LIMIT 1", (xid,)).fetchone(); rid = r["id"] if r else None
+        base = cn.execute("SELECT * FROM runs WHERE id = ? AND scenario_id = ?", (rid, xid)).fetchone() if rid else None
+        if not base: return jsonify(error="Jouez d'abord le scénario : la maquette part d'une exécution (situation actuelle)"), 400
+        variants = list(b.get("variants") or [])
+        if b.get("auto", True):
+            findings = [f for r in json.loads(base["results"] or "[]") if r.get("action") == "audit" for f in r.get("findings") or []]
+            variants += qa_mockup.auto_variants(findings)
+        if not variants: variants = [dict(name="Variante 1", css="", origin="manuel")]
+        try: variants = qa_mockup.clean_variants(variants)
+        except ValueError as e: return jsonify(error=str(e)), 400
+        name = (b.get("name") or "").strip()[:120] or f"Maquette — {x['name']}"
+        cur = cn.execute("INSERT INTO mockups (scenario_id, base_run_id, name, variants, by_user, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
+                         (xid, base["id"], name, json.dumps(variants, ensure_ascii=False), b.get("by_user", ""), now(), now())); cn.commit()
+        return jsonify(mockup=mockup_out(cn, cn.execute("SELECT * FROM mockups WHERE id = ?", (cur.lastrowid,)).fetchone())), 201
+
+@app.route("/mockups/<int:mid>", methods=["GET"])
+def mockups_get(mid):
+    with db() as cn:
+        m = cn.execute("SELECT * FROM mockups WHERE id = ?", (mid,)).fetchone()
+        return jsonify(mockup=mockup_out(cn, m)) if m else (jsonify(error="Maquette inconnue"), 404)
+
+@app.route("/mockups/<int:mid>", methods=["PUT"])
+def mockups_update(mid):
+    b = request.get_json(silent=True) or {}
+    with db() as cn:
+        m = cn.execute("SELECT * FROM mockups WHERE id = ?", (mid,)).fetchone()
+        if not m: return jsonify(error="Maquette inconnue"), 404
+        if m["status"] == "validee": return jsonify(error="Maquette déjà validée : en créer une nouvelle"), 409
+        try: variants = qa_mockup.clean_variants(b.get("variants")) if "variants" in b else json.loads(m["variants"])
+        except ValueError as e: return jsonify(error=str(e)), 400
+        changed = "variants" in b and variants != json.loads(m["variants"])   # variantes changées : captures à refaire
+        cn.execute("UPDATE mockups SET name = ?, variants = ?, status = ?, updated_at = ? WHERE id = ?",
+                   ((b.get("name") or m["name"]).strip()[:120], json.dumps(variants, ensure_ascii=False), "brouillon" if changed else m["status"], now(), mid)); cn.commit()
+        if changed:
+            for r in cn.execute("SELECT id FROM runs WHERE mockup_id = ?", (mid,)).fetchall(): shutil.rmtree(RUNS / str(r["id"]), ignore_errors=True)
+            cn.execute("DELETE FROM runs WHERE mockup_id = ?", (mid,)); cn.commit()
+        return jsonify(mockup=mockup_out(cn, cn.execute("SELECT * FROM mockups WHERE id = ?", (mid,)).fetchone()))
+
+@app.route("/mockups/<int:mid>", methods=["DELETE"])
+def mockups_delete(mid):
+    with db() as cn:
+        rids = [r["id"] for r in cn.execute("SELECT id FROM runs WHERE mockup_id = ?", (mid,)).fetchall()]
+        n = cn.execute("DELETE FROM mockups WHERE id = ?", (mid,)).rowcount; cn.execute("DELETE FROM runs WHERE mockup_id = ?", (mid,)); cn.commit()
+    for r in rids: shutil.rmtree(RUNS / str(r), ignore_errors=True)
+    return (jsonify(ok=True), 200) if n else (jsonify(error="Maquette inconnue"), 404)
+
+@app.route("/mockups/<int:mid>/render", methods=["POST"])
+def mockups_render(mid):
+    """Rejoue le scénario pour chaque variante (ou ?variant=i), feuille injectée dans le navigateur de test."""
+    only = request.args.get("variant", type=int); by = (request.get_json(silent=True) or {}).get("by_user", "")
+    with db() as cn:
+        m = cn.execute("SELECT * FROM mockups WHERE id = ?", (mid,)).fetchone()
+        if not m: return jsonify(error="Maquette inconnue"), 404
+        x = cn.execute("SELECT * FROM scenarios WHERE id = ?", (m["scenario_id"],)).fetchone(); s = cn.execute("SELECT * FROM sites WHERE id = ?", (x["site_id"],)).fetchone()
+        for i, v in enumerate(json.loads(m["variants"] or "[]")):
+            if only is not None and i != only: continue
+            for old in cn.execute("SELECT id FROM runs WHERE mockup_id = ? AND variant = ?", (mid, i)).fetchall():
+                cn.execute("DELETE FROM runs WHERE id = ?", (old["id"],)); shutil.rmtree(RUNS / str(old["id"]), ignore_errors=True)
+            _execute(cn, x, s, by_user=by, css=v["css"] or "/* variante vide */", mockup_id=mid, variant=i)
+        if m["status"] == "brouillon": cn.execute("UPDATE mockups SET status = 'presentee', updated_at = ? WHERE id = ?", (now(), mid))
+        cn.commit()
+        return jsonify(mockup=mockup_out(cn, cn.execute("SELECT * FROM mockups WHERE id = ?", (mid,)).fetchone()))
+
+@app.route("/mockups/<int:mid>/decision", methods=["POST"])
+def mockups_decision(mid):
+    """{status: validee|rejetee, variant, comment, ticket?} -- validée : ticket évolution avec le correctif CSS."""
+    b = request.get_json(silent=True) or {}; st = b.get("status")
+    if st not in ("validee", "rejetee"): return jsonify(error="Décision : validee ou rejetee"), 400
+    with db() as cn:
+        m = cn.execute("SELECT * FROM mockups WHERE id = ?", (mid,)).fetchone()
+        if not m: return jsonify(error="Maquette inconnue"), 404
+        if m["status"] == "validee": return jsonify(error="Maquette déjà validée"), 409
+        variants = json.loads(m["variants"] or "[]"); vi = b.get("variant")
+        if st == "validee" and not (isinstance(vi, int) and 0 <= vi < len(variants)): return jsonify(error="Variante à retenir manquante"), 400
+        if st == "validee" and not cn.execute("SELECT 1 FROM runs WHERE mockup_id = ? AND variant = ?", (mid, vi)).fetchone():
+            return jsonify(error="Générez d'abord les captures de cette variante"), 400
+        cn.execute("UPDATE mockups SET status = ?, chosen = ?, decision_comment = ?, updated_at = ? WHERE id = ?",
+                   (st, vi if st == "validee" else None, (b.get("comment") or "").strip()[:2000], now(), mid)); cn.commit()
+        mo = mockup_out(cn, cn.execute("SELECT * FROM mockups WHERE id = ?", (mid,)).fetchone()); tid = None; warn = ""
+        if st == "validee" and b.get("ticket", True):
+            if not TICKETS: warn = "Module Tickets non relié : décision enregistrée sans ticket"
+            else:
+                x = cn.execute("SELECT * FROM scenarios WHERE id = ?", (m["scenario_id"],)).fetchone(); s = cn.execute("SELECT * FROM sites WHERE id = ?", (x["site_id"],)).fetchone()
+                subject, desc = qa_mockup.ticket_text(mo, d(x), d(s), variants[vi], mo["slides"])
+                try:
+                    r = requests.post(f"{TICKETS}/tickets", json=dict(subject=subject, description=desc, type_id=_ticket_type_id("évolution"),
+                                      source_type="qa", source_nom=s["name"], user_id=b.get("user_id")), timeout=10)
+                    tid = (r.json() or {}).get("id") if r.ok else None
+                    if not tid: warn = f"Ticket non créé (HTTP {r.status_code})"
+                except Exception as e: warn = f"Ticket non créé : {type(e).__name__}"
+                if tid: cn.execute("UPDATE mockups SET ticket_id = ? WHERE id = ?", (tid, mid)); cn.commit(); mo["ticket_id"] = tid; mo["slides"][-1]["ticket_id"] = tid
+        return jsonify(mockup=mo, ticket_id=tid, warning=warn)
 
 # ------------------------------------------------------------------ ticket depuis une exécution
 def _ticket_type_id(label):

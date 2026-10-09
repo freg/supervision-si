@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { getCatalog, listSites, createSite, updateSite, deleteSite, probeSite, listScenarios, createScenario, updateScenario, deleteScenario, runScenario, listRuns, runCampaign, listCampaigns, createTicket, shotUrl, hubTour, setReference, runDiff } from "./qaClient.js";
+import { getCatalog, listSites, createSite, updateSite, deleteSite, probeSite, listScenarios, createScenario, updateScenario, deleteScenario, runScenario, listRuns, runCampaign, listCampaigns, createTicket, shotUrl, hubTour, setReference, runDiff, listMockups, createMockup, getMockup } from "./qaClient.js";
 import { THEMES } from "./hubThemes.js";
-import { emptyStep, fieldsFor, validateSteps, loginFromProbe, runBadge, campaignSummary, hubTourViews, auditSummary, diffSummary, ratioPct, parseMask } from "./qaLib.js";
+import { emptyStep, fieldsFor, validateSteps, loginFromProbe, runBadge, campaignSummary, hubTourViews, auditSummary, diffSummary, ratioPct, parseMask, mockupStatus } from "./qaLib.js";
 import HubIcon from "./HubIcon.jsx";
+import QaMockupPanel from "./QaMockupPanel.jsx";   // #728
 
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 // Tuile « Tests QA en ligne » (hub), livraison #651 -- teste un site DÉPLOYÉ,
@@ -50,12 +51,14 @@ export default function QaView({ onBack, qaApiBase, login }) {
   const [notice, setNotice] = useState(null);
   const [ticketForm, setTicketForm] = useState(null);   // {runId, kind, comment}
   const [diff, setDiff] = useState(null);               // #727 : comparaison visuelle de l'exécution affichée
+  const [mockup, setMockup] = useState(null);           // #728 : maquette ouverte
+  const [mockups, setMockups] = useState([]);           // #728 : maquettes du scénario édité
 
   const refreshSites = useCallback(async () => { const r = await listSites(qaApiBase); if (r.error) setError(r.error); else setSites(r.sites || []); }, [qaApiBase]);
   useEffect(() => { getCatalog(qaApiBase).then((r) => !r.error && setCatalog(r.actions || [])); refreshSites(); }, [qaApiBase, refreshSites]);
 
   async function openSite(s) {
-    setSite(s); setEditing(null); setRun(null); setRuns([]); setCampaign(null); setProbe(null); setError(null); setNotice(null); setTicketForm(null); setDiff(null);
+    setSite(s); setEditing(null); setRun(null); setRuns([]); setCampaign(null); setProbe(null); setError(null); setNotice(null); setTicketForm(null); setDiff(null); setMockup(null); setMockups([]);
     setSiteForm({ name: s.name, base_url: s.base_url, notes: s.notes || "", ported: !!s.ported, login_steps: s.login_steps || [] });
     const [x, c] = await Promise.all([listScenarios(qaApiBase, s.id), listCampaigns(qaApiBase, s.id)]);
     if (!x.error) setScenarios(x.scenarios || []); if (!c.error) setCampaigns(c.campaigns || []);
@@ -109,6 +112,22 @@ export default function QaView({ onBack, qaApiBase, login }) {
   async function compare(r, against) {
     setBusy("diff"); const res = await runDiff(qaApiBase, r.id, against); setBusy("");
     if (res.error) { setError(res.error); setDiff(null); } else setDiff(res);
+  }
+  // #728 : maquettes du scénario édité ; création depuis une exécution (variantes proposées par les règles).
+  useEffect(() => { if (editing && editing.id) listMockups(qaApiBase, editing.id).then((r) => !r.error && setMockups(r.mockups || [])); else setMockups([]); }, [qaApiBase, editing && editing.id]);   // eslint-disable-line react-hooks/exhaustive-deps
+  async function newMockup(r) {
+    if (!r.scenario) return; setBusy("mockup"); const m = await createMockup(qaApiBase, r.scenario.id, { base_run_id: r.id, auto: true, by_user: login }); setBusy("");
+    if (m.error) { setError(m.error); return; }
+    setMockup(m.mockup); setNotice(m.mockup.variants.some((v) => v.origin === "auto") ? "Variantes proposées depuis les constats de conformité : générez les captures" : "Aucun constat corrigeable automatiquement : écrivez une variante CSS");
+    const l = await listMockups(qaApiBase, r.scenario.id); if (!l.error) setMockups(l.mockups || []);
+  }
+  async function openMockup(id) { const m = await getMockup(qaApiBase, id); if (m.error) setError(m.error); else setMockup(m.mockup); }
+  async function mockupChanged(m) {
+    setMockup(m); const l = await listMockups(qaApiBase, m.scenario_id); if (!l.error) setMockups(l.mockups || []);
+  }
+  async function mockupClosed(deleted) {
+    const xid = mockup && mockup.scenario_id; setMockup(null);
+    if (deleted && xid) { const l = await listMockups(qaApiBase, xid); if (!l.error) setMockups(l.mockups || []); }
   }
   async function showHistory(x) { const h = await listRuns(qaApiBase, x.id); if (!h.error) { setRuns(h.runs); setRun(h.runs[0] ? { ...h.runs[0], scenario: x } : null); } }
   async function makeHubTour() {   // #721 : scénario « Tour du hub » depuis les thématiques du hub
@@ -229,6 +248,7 @@ export default function QaView({ onBack, qaApiBase, login }) {
                   {editing.id && <button className="secondary" onClick={() => play(editing)} disabled={busy === "run" + editing.id}>▶ Jouer</button>}
                   {editing.id && <button className="secondary qa-danger" onClick={() => removeScenario(editing)}>Supprimer</button>}
                 </div>
+                {mockups.length > 0 && <p className="muted">Maquettes : {mockups.map((m) => <button key={m.id} className={`qa-mini ${mockup && mockup.id === m.id ? "qa-selected" : ""}`} onClick={() => openMockup(m.id)}>🎨 {m.name} · {mockupStatus(m.status)}</button>)}</p>}
               </div>
             )}
 
@@ -249,6 +269,7 @@ export default function QaView({ onBack, qaApiBase, login }) {
                     ? <><span className="qa-ok">★ exécution de référence</span><button className="secondary" onClick={() => markReference(run, true)} disabled={busy === "ref"}>Retirer la référence</button></>
                     : <button className="secondary" onClick={() => markReference(run, false)} disabled={busy === "ref"}>★ Définir comme référence</button>}
                   {run.scenario && run.scenario.ref_run_id && run.scenario.ref_run_id !== run.id && <button className="secondary" onClick={() => compare(run)} disabled={busy === "diff"}>Comparer à la référence (n°{run.scenario.ref_run_id})</button>}
+                  {run.scenario && !run.mockup_id && <button className="secondary" onClick={() => newMockup(run)} disabled={busy === "mockup"} title="Proposer une refonte (feuilles CSS injectées dans le navigateur de test) et la présenter en étapes (#728)">{busy === "mockup" ? "…" : "🎨 Maquette depuis cette exécution"}</button>}
                   {runs.length > 1 && <select value="" onChange={(e) => e.target.value && compare(run, Number(e.target.value))}><option value="">Comparer à une autre exécution…</option>{runs.filter((r) => r.id !== run.id).map((r) => <option key={r.id} value={r.id}>n°{r.id} · {r.started_at.slice(5, 16).replace("T", " ")}{r.ticket_id ? ` · ticket n°${r.ticket_id}` : ""}</option>)}</select>}
                 </div>
                 {diff && diff.run_id === run.id && (() => { const sm = diffSummary(diff); return (
@@ -273,6 +294,8 @@ export default function QaView({ onBack, qaApiBase, login }) {
                 {runs.length > 1 && <p className="muted">Historique : {runs.map((r) => <button key={r.id} className={`qa-mini ${r.id === run.id ? "qa-selected" : ""}`} onClick={() => setRun({ ...r, scenario: run.scenario })}>{runBadge(r.status).slice(0, 1)} {r.started_at.slice(5, 16).replace("T", " ")}</button>)}</p>}
               </div>
             )}
+
+            {mockup && <QaMockupPanel key={mockup.id} qaApiBase={qaApiBase} mockup={mockup} login={login} onChange={mockupChanged} onClose={mockupClosed} onError={setError} />}
           </div>
         </div>
       )}

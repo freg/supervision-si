@@ -82,7 +82,8 @@ def evaluate(m):
             seen.add(key)
             out.append({"rule": "contraste", "severity": "erreur" if r < 3 else "avertissement",
                         "message": "contraste %.2f:1 < %.1f:1 (%s sur %s)" % (r, need, t.get("color"), t.get("bg")),
-                        "sample": "%s « %s »" % (t.get("el"), t.get("text"))})
+                        "sample": "%s « %s »" % (t.get("el"), t.get("text")),
+                        "el": t.get("el"), "fg": t.get("color"), "bg": t.get("bg"), "need": need})   # #728 : pour les maquettes
     p = (m or {}).get("page") or {}
     if p.get("scroll_h") and p.get("view_h") and p["scroll_h"] > p["view_h"] * 1.02 + 4:
         out.append({"rule": "page-defile", "severity": "avertissement",
@@ -93,12 +94,13 @@ def evaluate(m):
     for t in (m or {}).get("tables") or []:
         if t.get("has_thead") and t.get("overflows") and not t.get("sticky"):
             out.append({"rule": "entete-fixe", "severity": "avertissement",
-                        "message": "en-tête de tableau non fixe alors que le tableau défile (%d lignes)" % (t.get("rows") or 0), "sample": t.get("el")})
+                        "message": "en-tête de tableau non fixe alors que le tableau défile (%d lignes)" % (t.get("rows") or 0), "sample": t.get("el"), "el": t.get("el")})
     small = [x for x in (m or {}).get("targets") or [] if not x.get("inline") and (x.get("w", 99) < 24 or x.get("h", 99) < 24)]
     if small:
         out.append({"rule": "cible-petite", "severity": "avertissement",
                     "message": "%d cible(s) cliquable(s) de moins de 24 px" % len(small),
-                    "sample": ", ".join("%s « %s » %dx%d" % (x["el"], x.get("text") or "", x["w"], x["h"]) for x in small[:5])})
+                    "sample": ", ".join("%s « %s » %dx%d" % (x["el"], x.get("text") or "", x["w"], x["h"]) for x in small[:5]),
+                    "els": sorted({x["el"] for x in small})[:20]})
     inl = (m or {}).get("inline") or []
     if inl:
         out.append({"rule": "couleur-en-dur", "severity": "avertissement",

@@ -1,6 +1,6 @@
 """Exécution d'un scénario dans Chromium (Playwright). Isolé d'app.py pour être remplacé dans les tests (FakeRunner).
 run(base_url, login, steps, shots_dir) -> (results, final_url) ; chaque résultat : {index, action, ok, error, duration_ms, shot}."""
-import time, pathlib
+import json, time, pathlib
 try:
     import qa_design
 except ImportError:  # pragma: no cover
@@ -8,12 +8,17 @@ except ImportError:  # pragma: no cover
 
 def _abs(base, v): return v if v.startswith(("http://", "https://")) else base.rstrip("/") + "/" + v.lstrip("/")
 
-def run(base_url, login, steps, shots_dir, timeout_ms=15000, width=1366, height=900, mask=None):
+INJECT_JS = """(() => { const add = () => { if (document.getElementById('qa-mockup')) return; const s = document.createElement('style');
+  s.id = 'qa-mockup'; s.textContent = %s; (document.head || document.documentElement).appendChild(s); };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add); else add(); })()"""
+
+def run(base_url, login, steps, shots_dir, timeout_ms=15000, width=1366, height=900, mask=None, css=None):
     from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
     shots = pathlib.Path(shots_dir); shots.mkdir(parents=True, exist_ok=True); results = []
     with sync_playwright() as p:
         b = p.chromium.launch(args=["--ignore-certificate-errors"]); pg = b.new_page(viewport={"width": width, "height": height}, ignore_https_errors=True)
         pg.set_default_timeout(timeout_ms)
+        if css: pg.add_init_script(script=INJECT_JS % json.dumps(css))   # #728 : maquette -- feuille injectée dans ce navigateur de test seulement
         all_steps = list(login or []) + list(steps)
         n_login = len(login or [])
         for i, st in enumerate(all_steps, 1):

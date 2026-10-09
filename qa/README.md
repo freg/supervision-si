@@ -68,3 +68,21 @@ traversant de non-régression**, rejoué en **campagne** (tous les scénarios de
 - **Zones masquées** : champ du scénario (sélecteurs CSS séparés par des virgules) passé à la capture Playwright
   (`mask`) pour neutraliser horloges, compteurs, dates.
 - Calcul pur Pillow (`qa_visual.py`, testé sans navigateur) ; analyse locale, aucun modèle de vision.
+
+## Maquettes en étapes (livraison #728, item 116 tranche 4)
+
+- Une **maquette** part d'une exécution (situation actuelle) et porte des **variantes** = feuilles CSS injectées par
+  Playwright (`add_init_script`, balise `style#qa-mockup`) dans le navigateur de test seulement : copie isolée, rien
+  n'est modifié en production.
+- **Variantes calculées** (`qa_mockup.py`, sans modèle de vision) depuis les constats `audit` : couleur de texte la plus
+  proche atteignant le contraste (AA, puis variante AAA 7:1), en-tête de tableau fixe, cibles portées à 24 px ; les
+  règles sans correctif sûr (page qui défile, couleur en dur, texte tronqué) deviennent des notes. Variantes manuelles
+  libres (pas de balise, `@import` ni ressource externe ; 20 000 caractères au plus).
+- **Présentation** : ① situation actuelle (note, captures) → ② proposition → ③ variantes (note et écart, vignettes
+  avant / variante / différences) → ④ règles respectées (constats par règle avant / après) → ⑤ décision.
+- **Décision** validée → ticket **évolution** (module Tickets) avec la variante, le gain de note et le correctif CSS à
+  reporter dans `shared/theme.css` / le composant. Les exécutions de maquette restent hors de l'historique du scénario.
+- API : `GET|POST /scenarios/<id>/mockups`, `GET|PUT|DELETE /mockups/<id>`, `POST /mockups/<id>/render[?variant=i]`,
+  `POST /mockups/<id>/decision {status: validee|rejetee, variant, comment}`.
+- Vérifié dans un vrai Chromium (Playwright) sur une page de test : note 70 → 95 avec la variante calculée
+  (contraste, en-tête fixe, cible petite corrigés ; reste la couleur en dur, non corrigeable par CSS).
