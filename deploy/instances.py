@@ -36,7 +36,8 @@ APPS = {
         "services": {
             "tickets-api": {"port": 5000, "path": "/api/tickets/", "kind": "api", "data": "/data",
                             "force_env": {"DB_BACKEND": "sqlite", "TICKETS_DB_PATH": "/data/tickets.db"}},
-            "tickets-portal": {"port": 5173, "path": "/tickets/", "kind": "spa", "base_env": "VITE_BASE"},
+            "tickets-portal": {"port": 5173, "path": "/tickets/", "kind": "spa", "base_env": "VITE_BASE",
+                               "force_env": {"FRONT_MODE": "dev"}},   # #737 : base /tickets-<nom>/ -> serveur Vite
         },
         "config_export": ("tickets-api", 5000, "/export?scope=config"),
         "config_import": ("tickets-api", 5000, "/import?mode=merge"),

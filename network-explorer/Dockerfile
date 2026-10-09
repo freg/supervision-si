@@ -33,8 +33,18 @@ COPY hub/src/chartZoom.js src/chartZoom.js
 COPY hub/src/chartScales.js src/chartScales.js
 COPY hub/src/components/ZoomableChart.jsx src/components/ZoomableChart.jsx
 COPY hub/src/hub.css src/hub.css
+# #737 : colonnes réglables (#707) importées par NetmapOrchestratorView -- absentes depuis #707 (la vue cassait au chargement)
+COPY hub/src/TableColumns.jsx src/TableColumns.jsx
+COPY hub/src/tableLayout.js src/tableLayout.js
 COPY shared/theme.css src/theme.css
 
+# #737 : pré-compilé dans l'image (configuration lue à l'exécution dans env.js) et servi statiquement ;
+# FRONT_MODE=dev pour l'ancien serveur de développement Vite. Échec de la compilation : repli sur ce serveur.
+COPY shared/front/serve.mjs /app/front-serve.mjs
+COPY shared/front/write-env.mjs /app/front-write-env.mjs
+COPY shared/front/entrypoint.sh /app/front-entrypoint.sh
+ENV FRONT_BASE=/
+RUN FRONT_RUNTIME_ENV=1 NODE_OPTIONS=--max-old-space-size=1536 npx vite build --logLevel warn --outDir dist-prebuilt \
+    || (echo "front : pré-compilation échouée, serveur de développement au démarrage" && rm -rf dist-prebuilt)
 EXPOSE 5173
-
-CMD ["npm", "run", "dev"]
+CMD ["sh", "/app/front-entrypoint.sh"]

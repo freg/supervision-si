@@ -30,7 +30,9 @@ const SERVICES = [
 export const KNOWN_SERVICE_NAMES = SERVICES.map((s) => s.name);
 
 function baseUrlFor(service) {
-  return import.meta.env[service.envVar] || service.defaultUrl;
+  // #737 : configuration d'exécution (front pré-compilé) prioritaire sur les valeurs figées à la compilation
+  const env = { ...(import.meta.env || {}), ...((typeof globalThis !== "undefined" && globalThis.__HUB_ENV__) || {}) };
+  return env[service.envVar] || service.defaultUrl;
 }
 
 /** Interroge les 9 services en parallèle. Ne lève jamais : un service

@@ -1,3 +1,18 @@
+## 2026-10-09 — Fronts pré-compilés dans l'image, comme le hub (livraison #737)
+
+Les 6 fronts encore servis par le serveur de développement Vite (Supervision SI `/app/`, portail tickets, DBA,
+exploration réseau, coffre-fort, administration LDAP) sont compilés à la construction de l'image et servis
+statiquement, avec leur configuration lue à l'exécution (`env.js`). Mécanisme commun `shared/front/` (serveur avec
+chemin de base, écriture de `env.js`, démarrage) ; `FRONT_MODE=dev` rend l'ancien serveur. Fini la compilation à la
+volée et les WebSockets de rechargement à chaud ouverts en permanence par onglet.
+
+- Corrigé au passage : l'exploration réseau autonome ne copiait pas `TableColumns.jsx` / `tableLayout.js` (#707) --
+  la vue orchestrateur cassait au chargement (révélé par la compilation).
+- Le portail d'une instance clonée (#731, base `/tickets-<nom>/`) reste en serveur de développement (`FRONT_MODE=dev`).
+- Non concerné : portail d'administration du coffre (HTTPS propre au serveur Vite, port direct).
+- Vérifié : `vite build` en mode pré-compilé des 6 fronts (configuration lue à l'exécution, aucun `import.meta.env`
+  restant), tests des fronts, `hub/tests` (344, dont serveur commun), `deploy/tests`. Non vérifié : images réelles.
+
 ## 2026-10-09 — Hub pré-compilé dans l'image, second hub sur une bordure (livraison #736)
 
 - Le hub est compilé UNE fois à la construction de l'image (`HUB_RUNTIME_ENV=1` : chaque `import.meta.env.VITE_X`
