@@ -32,9 +32,57 @@ class Detect(unittest.TestCase):
         self.assertEqual(hubqa.detect("quelle API donne les zones DNS ?")["intent"], "api")
         self.assertEqual(hubqa.detect("où sont les onduleurs ?")["intent"], "where")
         self.assertEqual(hubqa.detect("bonjour")["intent"], "other")
+        # #730
+        self.assertEqual(hubqa.detect("quels tickets sont en retard ?"), {"intent": "tickets", "id": None, "late": True, "closed": False})
+        self.assertEqual(hubqa.detect("que dit le ticket n°42 ?")["id"], 42)
+        self.assertEqual(hubqa.detect("résumé du #17")["intent"], "other")
+        self.assertEqual(hubqa.detect("ticket #17 ?")["id"], 17)
+        self.assertEqual(hubqa.detect("quels agents sont hors ligne ?")["intent"], "offline")
+        self.assertEqual(hubqa.detect("Sur quel nœud tourne le CT 108 ?"), {"intent": "vm", "vmids": [108]})
+        self.assertEqual(hubqa.detect("où tourne la vm optick ?")["intent"], "vm")
+        self.assertEqual(hubqa.detect("dernière sauvegarde du CT 108")["intent"], "backup")
 
     def test_ip_bounds(self):
         self.assertEqual(hubqa.detect("version 1.2.3.4.5 et 300.1.1.1")["intent"], "other")   # ni numéro de version ni octet > 255
+
+
+class TicketsOfflineVm(unittest.TestCase):   # #730
+    NOW = 1_800_000_000
+    TK = [{"id": 1, "subject": "Imprimante accueil HS", "site_label": "Alpha", "level_label": "haut", "statut_label": "en cours", "ts_created": NOW - 3 * 86400, "deadline_ts": NOW - 3600},
+          {"id": 2, "subject": "Accès VPN", "description": "le poste PC-COMPTA-02 ne monte pas le VPN", "level_label": "normal", "ts_created": NOW - 3600, "deadline_ts": NOW + 86400},
+          {"id": 3, "subject": "Ancien", "ts_created": NOW - 99 * 86400, "ts_closed": NOW - 50 * 86400}]
+
+    def test_tickets(self):
+        h, i = hubqa.tickets_answer("quels tickets sont en retard ?", self.TK, late=True, now=self.NOW)
+        self.assertEqual([t["id"] for t in h], [1]); self.assertEqual(i["mode"], "late")
+        h, i = hubqa.tickets_answer("tickets ouverts concernant le vpn", self.TK, now=self.NOW)
+        self.assertEqual(([t["id"] for t in h], i["filtered"]), ([2], True))
+        h, i = hubqa.tickets_answer("tickets ouverts pour pc-compta", self.TK, now=self.NOW)
+        self.assertEqual([t["id"] for t in h], [2])                                   # trouvé dans la description
+        h, i = hubqa.tickets_answer("tickets ouverts sur zorglub", self.TK, now=self.NOW)
+        self.assertEqual(([t["id"] for t in h], i["unmatched"]), ([1, 2], True))
+        txt = hubqa.format_tickets(h, i, now=self.NOW)
+        self.assertIn("Aucun ticket ne mentionne « zorglub »", txt); self.assertIn("• n°1 [haut] Imprimante accueil HS — Alpha, échu depuis 1 h 00 min, en cours", txt)
+        h, i = hubqa.tickets_answer("ticket 3", self.TK, ticket_id=3, now=self.NOW)
+        self.assertIn("fermé le", hubqa.format_tickets(h, i, now=self.NOW))
+        self.assertIn("introuvable", hubqa.format_tickets(*hubqa.tickets_answer("x", self.TK, ticket_id=9), now=self.NOW))
+        self.assertEqual([t["id"] for t in hubqa.tickets_answer("tickets fermés", self.TK, closed=True)[0]], [3])
+
+    def test_offline(self):
+        ag = [{"agent_id": "a", "hostname": "pc-a", "site": "alpha", "online": "offline", "last_seen_at": "2026-10-08T10:00:00Z"},
+              {"agent_id": "b", "hostname": "pc-b", "site": "beta", "online": "never"}, {"agent_id": "c", "site": "alpha", "online": "online"}]
+        r, i = hubqa.offline_answer("agents hors ligne ?", ag); self.assertEqual([a["agent_id"] for a in r], ["a", "b"])
+        r, i = hubqa.offline_answer("agents hors ligne sur alpha ?", ag); self.assertEqual(([a["agent_id"] for a in r], i["total_agents"]), (["a"], 2))
+        self.assertIn("2 agent(s) hors ligne sur 3", hubqa.format_offline(*hubqa.offline_answer("x", ag)))
+        self.assertIn("Tous les agents (site alpha) sont en ligne", hubqa.format_offline([], {"sites": ["alpha"], "total_agents": 2}))
+
+    def test_vm(self):
+        guests = [{"node": "pve10", "vmid": 108, "name": "ged", "type": "lxc", "status": "running"}]
+        remote = [{"name": "pve-1", "guests": [{"vmid": 201, "name": "optick-web", "type": "qemu", "status": "running"}]}]
+        r, i = hubqa.vm_answer("sur quel nœud tourne le CT 108 ?", guests, remote, [108]); self.assertEqual(r[0]["node"], "pve10")
+        r, i = hubqa.vm_answer("où tourne la vm optick-web ?", guests, remote); self.assertEqual((r[0]["vmid"], r[0]["node"]), (201, "pve-1"))
+        txt = hubqa.format_vm(r, i); self.assertIn("• VM 201 « optick-web » : nœud pve-1 (PVE distant, relevé ssh), running", txt)
+        self.assertIn("Aucune VM ni CT 999 trouvé parmi 2", hubqa.format_vm(*hubqa.vm_answer("ct 999", guests, remote, [999])))
 
 
 class Backups(unittest.TestCase):
@@ -122,6 +170,8 @@ class Api(unittest.TestCase):
             return {"inventory": Backups.ROWS}
         if url.endswith("/fleet"):
             return FLEET
+        if "/queue" in url:
+            return [{"id": 5, "subject": "Écran noir", "ts_created": 1, "deadline_ts": 2}]
         if url.endswith("/agents/pc-compta-02/latest"):
             return {"latest": {}}
         if "ipam" in url:
@@ -129,6 +179,15 @@ class Api(unittest.TestCase):
         if "dns" in url:
             raise OSError("connexion refusée")
         return {"rien": []}
+
+    def test_tickets_offline_vm_routes(self):   # #730
+        self.app_mod.TICKETS_API = "http://tickets-api:5000"
+        t = self.app_mod.hub_ask("tickets en retard", fetch=self.fake_fetch)
+        self.assertEqual(t["intent"], "tickets"); self.assertIn("n°5", t["answer"])
+        o = self.app_mod.hub_ask("quels postes sont hors ligne ?", fetch=self.fake_fetch)
+        self.assertEqual(o["intent"], "offline"); self.assertIn("Tous les agents", o["answer"])
+        v = self.app_mod.hub_ask("sur quel noeud tourne le ct 108 ?", fetch=self.fake_fetch)
+        self.assertEqual(v["intent"], "vm"); self.assertIn("Aucune VM ni CT 108", v["answer"])
 
     def test_locate_and_boot(self):
         r = self.app_mod.hub_ask("l'ip 192.0.2.42 est-elle quelque part ?", fetch=self.fake_fetch)

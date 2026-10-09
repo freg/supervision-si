@@ -1,3 +1,14 @@
+## 2026-10-09 — « Questions sur le hub » : tickets, agents hors ligne, emplacement des VM/CT (livraison #730)
+
+Trois nouvelles familles de questions, toujours sans modèle : « quels tickets sont en retard ? », « tickets ouverts
+sur le VPN », « ticket n°42 » (file des tickets) ; « quels agents sont hors ligne sur alpha ? » (flotte des agents) ;
+« sur quel nœud tourne le CT 108 / la VM optick-web ? » (invités des PVE avec agent et des PVE distants).
+
+- Vérifié : `assistant/tests` (29, dont détection, filtres, mise en forme, passage par l'API avec sources simulées).
+- Non vérifié : API réelles.
+- Fichiers : `assistant/hubqa.py`, `assistant/app.py`, `assistant/tests/test_hubqa.py`, `assistant/README.md`,
+  `docker-compose.yml` (`TICKETS_PORTAL_URL` de l'assistant).
+
 ## 2026-10-09 — Tests QA : la maquette validée devient la cible des campagnes (livraison #729)
 
 Item 116 tranche 5, fin de la boucle de conception : la variante retenue d'une maquette devient la cible du scénario ;

@@ -204,6 +204,9 @@ Onglet **Questions sur le hub** de la page de l'assistant (ouvert par défaut ; 
 | « où trouver le dernier redémarrage du pc XXX ? » | agents hôtes (`si-agent-api /fleet`) : poste reconnu par son nom (agent, hostname, libellé), puis dernière mesure `host` : `system.last_boot` (Windows) ou relevé − durée de fonctionnement ; lien `?view=si-agent` |
 | « l'ip 192.0.2.10 / la MAC 02:… est-elle visible quelque part ? » | balayage en parallèle des sources (agents, postes Windows, vue réseau, Proxmox, IPAM, exploration réseau, équipements, Nebula, MikroTik et NAT, Cisco, sondes, DNS) : adresse exacte ou sous-réseau CIDR qui la contient, objet englobant et champ ; sources injoignables listées à part |
 | « quelle API donne les zones DNS ? » | index des routes Flask du dépôt (`@app.route`, 1re ligne de docstring), construit dans l'image |
+| « quels tickets sont en retard ? », « tickets ouverts sur le VPN », « ticket n°42 » (#730) | `tickets-api /queue?state=all` : numéro cité → fiche ; « en retard » → échéance passée ; sinon ouverts (ou fermés), filtrés par les mots restants (sujet, description, site, source) ; lien `TICKETS_PORTAL_URL` |
+| « quels agents sont hors ligne (sur alpha) ? » (#730) | `si-agent-api /fleet` : agents hors ligne ou jamais vus, filtre par site cité, dernier contact |
+| « sur quel nœud tourne le CT 108 / la VM optick-web ? » (#730) | `si-agent-api /maint/backups` : invités des PVE à agent et des PVE distants (ssh) par numéro ou par nom ; lien `?view=proxmox` |
 | « où sont les onduleurs ? » | catalogue des vues (`hub/src/hubThemes.js`), lien `?view=…`, + 3 extraits de la documentation indexée |
 
 - Index construit **à la construction de l'image** (`assistant/build_hub_index.py` → `/hub-index/hub-index.json`) :

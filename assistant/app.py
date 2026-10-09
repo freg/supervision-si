@@ -543,6 +543,37 @@ def hub_ask(question, llm=False, fetch=None):
         hits, info = hubqa.backup_answer(question, rows, d.get("vmids") or [], d.get("snapshot"))
         out.update(answer=(out.get("error") + "\n" if out.get("error") else "") + hubqa.format_backups(hits, info, HUB_URL), data=hits,
                    links=[HUB_URL + "?view=pve-maint"])
+    elif d["intent"] == "tickets":   # #730
+        tickets = []
+        if not TICKETS_API:
+            out["error"] = "module Tickets non relié (TICKETS_API_URL)"
+        else:
+            try:
+                tk = fetch(TICKETS_API + "/queue?state=all&limit=2000")
+                tickets = tk if isinstance(tk, list) else (tk or {}).get("tickets") or (tk or {}).get("items") or []
+            except Exception as e:
+                out["error"] = "tickets injoignables : %s" % str(e)[:120]
+        hits, info = hubqa.tickets_answer(question, tickets, d.get("id"), d.get("late"), d.get("closed"))
+        out.update(answer=(out.get("error") + "\n" if out.get("error") else "") + hubqa.format_tickets(hits, info, os.environ.get("TICKETS_PORTAL_URL", "")),
+                   data=hits, links=[os.environ["TICKETS_PORTAL_URL"]] if os.environ.get("TICKETS_PORTAL_URL") else [])
+    elif d["intent"] == "offline":   # #730
+        base = hubqa.env_url("SI_AGENT_API_URL", "http://si-agent-api:5000")
+        try:
+            agents = (fetch(base + "/fleet") or {}).get("agents") or []
+        except Exception as e:
+            agents, out["error"] = [], "agents hôtes injoignables : %s" % str(e)[:120]
+        rows, info = hubqa.offline_answer(question, agents)
+        out.update(answer=(out.get("error") + "\n" if out.get("error") else "") + hubqa.format_offline(rows, info, HUB_URL), data=rows,
+                   links=[HUB_URL + "?view=si-agent"])
+    elif d["intent"] == "vm":   # #730
+        base = hubqa.env_url("SI_AGENT_API_URL", "http://si-agent-api:5000")
+        try:
+            mb = fetch(base + "/maint/backups") or {}
+        except Exception as e:
+            mb, out["error"] = {}, "hyperviseurs injoignables : %s" % str(e)[:120]
+        rows, info = hubqa.vm_answer(question, mb.get("guests"), mb.get("remote_pves"), d.get("vmids") or [])
+        out.update(answer=(out.get("error") + "\n" if out.get("error") else "") + hubqa.format_vm(rows, info, HUB_URL), data=rows,
+                   links=[HUB_URL + "?view=proxmox"])
     elif d["intent"] == "api":
         hits = hubqa.search_routes(question, _hub_index.get("routes") or [])
         out.update(answer=hubqa.format_routes(hits), data=hits)

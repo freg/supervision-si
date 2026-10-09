@@ -46,7 +46,7 @@ def words(s):
 
 # ------------------------------------------------------------------ détection
 def detect(question):
-    """-> {intent: locate|boot|api|where|other, ips, macs}"""
+    """-> {intent: locate|backup|tickets|offline|boot|vm|api|where|other, …}"""
     q = norm(question)
     ips = IPV4.findall(question or "")
     macs = sorted({m.lower().replace("-", ":") for m in MAC.findall(question or "")})
@@ -55,8 +55,18 @@ def detect(question):
     if re.search(r"\b(sauvegard\w*|backups?|snapshots?|instantanes?|vzdump|pbs)\b", q):   # #726 (avant « boot » : « backup »)
         return {"intent": "backup", "snapshot": bool(re.search(r"\b(snapshots?|instantanes?)\b", q)),
                 "vmids": [int(x) for x in re.findall(r"\b(\d{3,6})\b", q)]}
+    if re.search(r"\btickets?\b", q):   # #730
+        m = re.search(r"\bticket\s*(?:n\s*o?\s*|numero\s*|#\s*)?(\d+)\b", q) or re.search(r"#\s*(\d+)\b", question or "")
+        return {"intent": "tickets", "id": int(m.group(1)) if m else None,
+                "late": bool(re.search(r"\b(retard\w*|echeances?|echu\w*|depass\w*|urgent\w*)\b", q)),
+                "closed": bool(re.search(r"\b(ferme\w*|clos\w*|resolu\w*|termine\w*)\b", q))}
+    if re.search(r"\b(hors ligne|hors-ligne|offline|deconnecte\w*|injoignables?|ne repond\w*|muets?|silencieux|perdus?)\b", q) and \
+            re.search(r"\b(agents?|postes?|machines?|serveurs?|hotes?|pc)\b", q):   # #730
+        return {"intent": "offline"}
     if any(w in q for w in BOOT_WORDS):
         return {"intent": "boot"}
+    if re.search(r"\b(vms?|cts?|lxc|qemu|conteneurs?|containers?|virtuelles?|hyperviseurs?|noeuds?|tourne\w*|heberge\w*)\b", q):   # #730
+        return {"intent": "vm", "vmids": [int(x) for x in re.findall(r"\b(\d{3,6})\b", q)]}
     if re.search(r"\b(api|apis|route|routes|endpoint|endpoints)\b", q):
         return {"intent": "api"}
     if re.search(r"\b(ou|trouver|tuile|menu|vue|ecran|page|onglet|acceder)\b", q):
@@ -374,4 +384,120 @@ def format_backups(rows, info, hub_url="/", now=None):
             " (%s)" % r["name"] if r.get("name") else "", r.get("kind"), r.get("at_text") or _fmt_dt(dt.datetime.fromtimestamp(r["at"], dt.timezone.utc).isoformat() if r.get("at") else None),
             age, " — %s" % r["where"] if r.get("where") else ""))
     lines.append("Détail : Maintenance des Proxmox › Sauvegardes → %s" % link)
+    return "\n".join(lines)
+
+
+# ------------------------------------------------------------------ tickets, agents hors ligne, emplacement des VM/CT (#730)
+TICKET_WORDS = {"ticket", "tickets", "ouvert", "ouverts", "ouverte", "ouvertes", "retard", "echeance", "echeances", "combien", "liste",
+                "lister", "lie", "lies", "liee", "liees", "concernant", "sujet", "sont", "ont", "ai", "y", "en", "cours", "attente",
+                "urgent", "urgents", "fermes", "ferme", "clos", "resolus", "numero", "no", "mes", "nos", "derniers", "recents",
+                "depasse", "depasses", "echus", "echu", "quels", "quelles", "y-a-t-il", "t-il", "il", "a"}
+
+
+def tickets_answer(question, tickets, ticket_id=None, late=False, closed=False, now=None, k=10):
+    """File des tickets (/queue?state=all) -> (tickets retenus, filtre). Un numéro cité -> ce ticket ; « en retard »
+    -> ouverts dont l'échéance est passée ; sinon ouverts (ou fermés), filtrés par les mots restants de la question
+    (sujet, description, site, source)."""
+    import time as _t
+    now = now or _t.time()
+    rows = [t for t in tickets or [] if isinstance(t, dict)]
+    if ticket_id is not None:
+        hit = [t for t in rows if t.get("id") == ticket_id]
+        return hit, {"mode": "id", "id": ticket_id, "total": len(hit), "terms": []}
+    rows = [t for t in rows if bool(t.get("ts_closed")) == bool(closed)]
+    if late:
+        rows = sorted([t for t in rows if t.get("deadline_ts") and t["deadline_ts"] < now], key=lambda t: t["deadline_ts"])
+    terms = [w for w in words(question) if w not in TICKET_WORDS and len(w) >= 3]
+    matched = []
+    if terms:
+        def hay(t):
+            return set(words(" ".join(str(t.get(f) or "") for f in ("subject", "description", "site_label", "source_nom", "user_login", "type_label"))))
+        matched = [t for t in rows if any(any(x.startswith(w) for x in hay(t)) for w in terms)]
+    out = matched if matched else rows
+    return out[:k], {"mode": "late" if late else "closed" if closed else "open", "total": len(out), "terms": terms,
+                     "filtered": bool(matched), "unmatched": bool(terms) and not matched}
+
+
+def format_tickets(rows, info, portal_url="", now=None):
+    import time as _t
+    now = now or _t.time()
+    where = "Portail tickets" + (" (%s)" % portal_url if portal_url else " (tuile du hub)")
+    if info["mode"] == "id":
+        if not rows:
+            return "Ticket n°%s introuvable (ou archivé). %s." % (info["id"], where)
+        t = rows[0]
+        return "\n".join(filter(None, [
+            "Ticket n°%s — %s" % (t.get("id"), t.get("subject") or ""),
+            "%s · %s · niveau %s · %s" % (t.get("type_label") or "?", t.get("statut_label") or "?", t.get("level_label") or "?",
+                                         "fermé le %s" % _fmt_ts(t["ts_closed"]) if t.get("ts_closed") else "ouvert depuis %s" % _fmt_age(now - (t.get("ts_created") or now))),
+            "Site : %s" % t["site_label"] if t.get("site_label") else "", "Échéance : %s" % _fmt_ts(t["deadline_ts"]) if t.get("deadline_ts") else "",
+            (t.get("description") or "")[:400], where]))
+    label = {"late": "ouvert(s) en retard sur l'échéance", "closed": "fermé(s)", "open": "ouvert(s)"}[info["mode"]]
+    head = "%d ticket(s) %s%s" % (info["total"], label, " pour « %s »" % " ".join(info["terms"]) if info.get("filtered") else "")
+    lines = [head + (" (les %d premiers)" % len(rows) if info["total"] > len(rows) else "") + (" :" if rows else ".")]
+    if info.get("unmatched"):
+        lines.insert(0, "Aucun ticket ne mentionne « %s » ; liste générale :" % " ".join(info["terms"]))
+    for t in rows:
+        extra = []
+        if t.get("site_label"):
+            extra.append(t["site_label"])
+        if t.get("deadline_ts"):
+            extra.append(("échu depuis %s" % _fmt_age(now - t["deadline_ts"])) if t["deadline_ts"] < now else "échéance %s" % _fmt_ts(t["deadline_ts"]))
+        elif not t.get("ts_closed"):
+            extra.append("ouvert depuis %s" % _fmt_age(now - (t.get("ts_created") or now)))
+        lines.append("• n°%s [%s] %s — %s" % (t.get("id"), t.get("level_label") or "?", (t.get("subject") or "")[:90], ", ".join(extra + [t.get("statut_label") or ""]).strip(", ")))
+    lines.append("Détail : %s." % where)
+    return "\n".join(lines)
+
+
+def _fmt_ts(ts):
+    return _fmt_dt(dt.datetime.fromtimestamp(ts, dt.timezone.utc).isoformat()) if isinstance(ts, (int, float)) else "?"
+
+
+def offline_answer(question, agents):
+    """Agents hors ligne ou jamais vus, filtrés par site si un site connu figure dans la question."""
+    toks = set(words(question))
+    sites = {a.get("site") for a in agents or [] if a.get("site")}
+    want = {s for s in sites if set(words(s)) & toks}
+    rows = [a for a in agents or [] if a.get("online") in ("offline", "never", "unknown") and (not want or a.get("site") in want)]
+    rows.sort(key=lambda a: (a.get("online") != "offline", a.get("last_seen_at") or ""))
+    return rows, {"sites": sorted(want), "total_agents": len([a for a in agents or [] if not want or a.get("site") in want])}
+
+
+def format_offline(rows, info, hub_url="/"):
+    scope = " (site %s)" % ", ".join(info["sites"]) if info["sites"] else ""
+    if not rows:
+        return "Tous les agents%s sont en ligne (%d agent(s)). Agents hôtes → %s?view=si-agent" % (scope, info["total_agents"], hub_url)
+    lines = ["%d agent(s) hors ligne sur %d%s :" % (len(rows), info["total_agents"], scope)]
+    for a in rows[:25]:
+        seen = a.get("last_seen_at")
+        lines.append("• %s (%s%s) — %s" % (a.get("hostname") or a.get("agent_id"), a.get("site") or "?", ", " + a["last_ip"] if a.get("last_ip") else "",
+                                         "jamais vu" if a.get("online") == "never" else "dernier contact %s" % _fmt_dt(seen) if seen else a.get("online")))
+    lines.append("Détail : Agents hôtes → %s?view=si-agent" % hub_url)
+    return "\n".join(lines)
+
+
+def vm_answer(question, guests, remote_pves, vmids=()):
+    """Où tourne une VM / un CT : invités des PVE à agent (/maint/backups guests) et des PVE distants (guests)."""
+    allg = [dict(g, source="agent") for g in guests or []]
+    for n in remote_pves or []:
+        allg += [dict(g, node=n.get("name"), source="ssh") for g in n.get("guests") or []]
+    if vmids:
+        return [g for g in allg if g.get("vmid") in set(vmids)], {"vmids": list(vmids), "total": len(allg)}
+    named = match_hosts(question, [{"agent_id": str(g.get("vmid")), "hostname": g.get("name") or "", "label": "", "_g": g} for g in allg])
+    return [x["_g"] for x in named], {"vmids": [], "total": len(allg)}
+
+
+def format_vm(rows, info, hub_url="/"):
+    link = "%s?view=proxmox" % hub_url
+    if not rows:
+        what = " %s" % ", ".join(map(str, info["vmids"])) if info.get("vmids") else ""
+        return ("Aucune VM ni CT%s trouvé parmi %d invités connus (PVE avec agent et PVE distants). Hyperviseurs → %s, "
+                "Maintenance des Proxmox → %s?view=pve-maint" % (what, info["total"], link, hub_url))
+    lines = []
+    for g in rows:
+        lines.append("• %s %s%s : nœud %s (%s), %s" % ("CT" if g.get("type") == "lxc" else "VM" if g.get("type") == "qemu" else "invité", g.get("vmid"),
+                                                    " « %s »" % g["name"] if g.get("name") else "", g.get("node") or "?",
+                                                    "agent" if g["source"] == "agent" else "PVE distant, relevé ssh", g.get("status") or "état inconnu"))
+    lines.append("Détail : Hyperviseurs → %s ; sauvegardes : %s?view=pve-maint" % (link, hub_url))
     return "\n".join(lines)

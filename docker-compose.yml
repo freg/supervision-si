@@ -2730,6 +2730,7 @@ services:
       - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-700}
       - LLM_THINK=${LLM_THINK:-false}
       - TICKETS_API_URL=http://tickets-api:5000
+      - TICKETS_PORTAL_URL=https://${HOST_IP:-localhost}:${GATEWAY_PORT:-6443}/tickets/   # #730 : lien des réponses « tickets »
       - GED_API_URL=http://ged-api:5000
       # #715 « Questions sur le hub » : API interrogées (lecture seule) et adresse du hub pour les liens ?view=.
       # Sources supplémentaires ou retirées : ${ASSISTANT_DATA_DIR}/hub-sources.json (voir assistant/README.md).
