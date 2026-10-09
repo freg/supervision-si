@@ -26,6 +26,7 @@ import os
 import secrets
 import re
 import socket
+import sys
 import subprocess
 import threading
 import time
@@ -944,6 +945,116 @@ def repartition_migrate_route():
     cmd = "python3 deploy/repartition.py migrate %s %s --yes%s" % (cohort, target, " --force" if body.get("force") else "")
     job = launch_job("migration", "migration de la cohorte %s vers %s" % (cohort, target), [{"label": "sauvegarde conseillée avant (tuile Sauvegarde) -- arrêt source, copie des données, apply partout", "cmd": cmd}], g.user["username"], {"cohort": cohort, "target": target})
     event("repartition-migrate", "migration de %s vers %s lancée par %s" % (cohort, target, g.user["username"]), job=job["id"])
+    return jsonify({"job": job}), 200
+
+
+# -- #733 : instances d'application clonées (item 117 tranche 4) -----------------------------------------------------
+def _instances_mod():
+    try:
+        import instances                       # copié dans l'image (Dockerfile)
+    except ImportError:                        # exécution depuis le dépôt (tests)
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "deploy"))
+        import instances
+    return instances
+
+
+def _registry():
+    return _json_file("deploy/instances.json") or {"instances": []}
+
+
+@app.route("/instances", methods=["GET"])
+def instances_route():
+    """Registre des instances clonées, applications clonables, plan de chaque instance et, sauf ?status=0, services en
+    marche sur son nœud (agent de nœud)."""
+    err = _need_project()
+    if err:
+        return err
+    ins = _instances_mod(); reg = _registry(); nodes = _json_file("deploy/nodes.json") or {"nodes": []}
+    out = {"me": _node_name(), "nodes": [n["name"] for n in nodes.get("nodes", [])], "configured": bool(nodes.get("nodes")),
+           "apps": {k: {"title": v["title"], "front": bool(v.get("front")), "config": bool(v.get("config_export"))} for k, v in ins.APPS.items()},
+           "instances": [], "problems": ins.check(reg, nodes=nodes if nodes.get("nodes") else None)}
+    want = request.args.get("status", "1") != "0"
+    env = _node_env() if want else {}
+    by = {n["name"]: n for n in nodes.get("nodes", [])}
+    cache = {}
+    for i in reg.get("instances", []):
+        row = dict(i)
+        try:
+            row["plan"] = ins.plan(i)
+        except Exception as exc:  # noqa: BLE001 -- application inconnue : signalée par problems
+            row["plan"] = None; row["error"] = str(exc)[:120]
+        if want and row.get("plan") and i.get("node") in by:
+            if i["node"] not in cache:
+                cache[i["node"]] = _node_status(by[i["node"]], env)
+            st = cache[i["node"]]
+            if st.get("error"):
+                row["state"] = {"error": st["error"]}
+            else:
+                run = set(st.get("running") or [])
+                row["state"] = {"running": [x for x in row["plan"]["services"] if x in run], "missing": [x for x in row["plan"]["services"] if x not in run]}
+        out["instances"].append(row)
+    return jsonify(out), 200
+
+
+@app.route("/instances", methods=["POST"])
+def instances_add_route():
+    """{name, app, node, title?, source?} -> ajout au registre (validé : nom, application, nœud, routes libres). Le
+    déploiement est un job à part (POST /instances/<nom>/deploy)."""
+    err = _need_project()
+    if err:
+        return err
+    ins = _instances_mod(); b = request.get_json(silent=True) or {}
+    inst = {k: str(b.get(k) or "").strip() for k in ("name", "app", "node", "title", "source") if b.get(k)}
+    inst["created_by"], inst["created_at"] = g.user["username"], time.strftime("%Y-%m-%dT%H:%M:%S")
+    reg = _registry(); nodes = _json_file("deploy/nodes.json") or {"nodes": []}
+    if any(i.get("name") == inst.get("name") for i in reg["instances"]):
+        return jsonify({"error": "instance %s déjà déclarée" % inst.get("name")}), 409
+    cand = {"instances": reg["instances"] + [inst]}
+    probs = [p for p in ins.check(cand, nodes=nodes if nodes.get("nodes") else None) if "instance %s" % inst.get("name") in p or "instance %d" % len(cand["instances"]) in p]
+    if not nodes.get("nodes"):
+        probs.append("déploiement réparti non configuré (deploy/nodes.json) : une instance va sur un AUTRE nœud")
+    if probs:
+        return jsonify({"error": " ; ".join(probs)}), 400
+    _write("deploy/instances.json", json.dumps(dict(reg, instances=cand["instances"]), ensure_ascii=False, indent=2))
+    event("instance-added", "instance %s (%s) déclarée sur %s par %s" % (inst["name"], inst["app"], inst["node"], g.user["username"]))
+    return jsonify({"instance": inst}), 201
+
+
+@app.route("/instances/<name>", methods=["DELETE"])
+def instances_delete_route(name):
+    """Retire une instance du registre SANS l'arrêter (déclaration jamais déployée) ; sinon POST …/undeploy."""
+    err = _need_project()
+    if err:
+        return err
+    reg = _registry()
+    left = [i for i in reg["instances"] if i.get("name") != name]
+    if len(left) == len(reg["instances"]):
+        return jsonify({"error": "instance inconnue"}), 404
+    _write("deploy/instances.json", json.dumps(dict(reg, instances=left), ensure_ascii=False, indent=2))
+    event("instance-removed", "déclaration de l'instance %s retirée par %s" % (name, g.user["username"]))
+    return jsonify({"ok": True}), 200
+
+
+@app.route("/instances/<name>/<action>", methods=["POST"])
+def instances_action_route(name, action):
+    """deploy {build} -> job node_agent.py instance-deploy ; undeploy -> job node_agent.py instance-undeploy."""
+    err = _need_project()
+    if err:
+        return err
+    ins = _instances_mod()
+    if not ins.NAME_RE.match(name) or not any(i.get("name") == name for i in _registry()["instances"]):
+        return jsonify({"error": "instance inconnue"}), 404
+    body = request.get_json(silent=True) or {}
+    if action == "deploy":
+        cmd = "python3 deploy/node_agent.py instance-deploy %s%s" % (name, "" if body.get("build", True) else " --no-build")
+        label, step = "déploiement de l'instance %s" % name, "créer l'instance sur son nœud (configuration clonée), puis rafraîchir les passerelles"
+    elif action == "undeploy":
+        cmd = "python3 deploy/node_agent.py instance-undeploy %s" % name
+        label, step = "retrait de l'instance %s" % name, "arrêter l'instance (données conservées), la retirer du registre, rafraîchir les passerelles"
+    else:
+        return jsonify({"error": "action inconnue"}), 404
+    job = launch_job("instance", label, [{"label": step, "cmd": cmd}], g.user["username"], {"instance": name, "action": action})
+    event("instance-" + action, "%s lancé par %s" % (label, g.user["username"]), job=job["id"])
     return jsonify({"job": job}), 200
 
 

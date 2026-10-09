@@ -103,6 +103,7 @@ export const PATHS = {
   "view:datasync": ["services/donnees", "cortex/apprentissage"],   // #652 : SGBD central, analyse et recherche transversales   // #651 : tester un site déployé, ticket incident/évolution   // #650 : porter une application métier, avec l'IA de portage
   "front:dba": ["services/donnees"],
   "view:licenses": ["droits/licences", "equipements/postes"],
+  "view:app-instances": ["services/donnees", "services/metier"],   // #733 : déploiement d'application par clonage (tickets, GED…)
   "view:synthese": ["etats/maintenant", "services/metier"],
   "view:ent": ["services/messagerie"],
   "view:ged": ["services/messagerie"],

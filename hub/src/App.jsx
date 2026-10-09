@@ -1634,8 +1634,8 @@ vm === "agent-page" ? (
           servicesAllowed={!!SERVICES_API_BASE_URL && (SERVICES_ADMIN_USERS.includes((profile.preferred_username || "").toLowerCase()) || groups.some((g) => SERVICES_ADMIN_GROUPS.includes(String(g).replace(/^\//, ""))))}
           onNavigate={(t) => setViewMode(t)}
         />
-      ) : vm === "services" || vm === "control" ? (
-        <ControlTowerView apiBase={SERVICES_API_BASE_URL} accessToken={auth.user?.access_token} username={profile.preferred_username} onBack={goBack}
+      ) : vm === "services" || vm === "control" || vm === "app-instances" ? (
+        <ControlTowerView apiBase={SERVICES_API_BASE_URL} accessToken={auth.user?.access_token} username={profile.preferred_username} onBack={goBack} initialTab={vm === "app-instances" ? "instances" : undefined}
           network={{ serviceWatchUrl: SERVICE_WATCH_URL, siAgentApiBase: SI_AGENT_API_BASE_URL, mikrotikApiBase: MIKROTIK_API_BASE, networkAgentApiBase: NETWORK_AGENT_API_BASE_URL, dnsApiBase: DNS_API_BASE_URL, ciscoApiBase: CISCO_URL.replace(/\/+$/, "") }} />
       ) : vm === "history" ? (
         <HistoryView apiBase={PREFS_API_BASE_URL} onBack={goBack} />

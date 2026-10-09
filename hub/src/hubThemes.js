@@ -63,6 +63,7 @@ export const THEMES = [
       { view: "datasync", label: "Synchronisation centrale" },   // #652
       { front: "dba", label: "DBA" },
       { view: "licenses", label: "Licences logicielles" },   // #595
+      { view: "app-instances", label: "Déploiement d'application" },   // #733 : instance clonée (tickets, GED…) sur un autre nœud
     ] },
   { id: "documents", name: "Documents & ENT", icon: "📚", description: "ENT (agenda, tâches, relations), GED, fichiers, messagerie, tickets",
     entries: [

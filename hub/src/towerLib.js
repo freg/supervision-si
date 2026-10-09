@@ -131,3 +131,22 @@ export const JOB_TONE = { running: "orange", done: "green", failed: "red", lost:
 export function touchesHub(job) {
   return (job?.steps || []).some((s) => /\bup -d --build\b.*\bhub\b/.test(s.cmd) || /tls-proxy/.test(s.cmd));
 }
+
+// #733 : instances clonées -- nom valide (même règle que deploy/instances.py) et état lisible d'une instance.
+export const INSTANCE_NAME_RE = /^[a-z][a-z0-9]{1,19}$/;
+export function instanceNameError(name, existing = []) {
+  if (!name) return "nom requis";
+  if (!INSTANCE_NAME_RE.test(name)) return "a-z et chiffres, 2 à 20 caractères, commence par une lettre";
+  if (["api", "auth", "admin", "portal", "hub", "static", "data", "test", "dev", "prod"].includes(name)) return "mot réservé";
+  if (existing.includes(name)) return "déjà déclarée";
+  return "";
+}
+export function instanceState(i) {
+  const st = i && i.state;
+  if (!st) return { tone: "grey", text: "état non lu" };
+  if (st.error) return { tone: "red", text: `agent de nœud : ${st.error}` };
+  const run = (st.running || []).length, miss = (st.missing || []).length;
+  if (!run) return { tone: "grey", text: "non déployée (ou arrêtée)" };
+  if (miss) return { tone: "orange", text: `partielle : ${miss} service(s) arrêté(s) (${st.missing.join(", ")})` };
+  return { tone: "green", text: `en marche (${run} service(s))` };
+}

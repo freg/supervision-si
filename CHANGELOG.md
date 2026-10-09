@@ -1,3 +1,17 @@
+## 2026-10-09 — Tuile « Déploiement d'application » : instances clonées depuis le hub (livraison #733)
+
+Item 117 tranche 4 : thématique Données & référentiels → « Déploiement d'application » (onglet « 🧬 Instances » de la
+tour de contrôle). Liste des instances (application, nœud, adresse, état lu par l'agent de nœud, données), déclaration
+d'une nouvelle instance (application, nom, nœud ; nom et routes vérifiés), puis Déployer / Retirer en jobs suivis dans
+« Livraisons & jobs ». Retirer arrête l'instance et garde ses données sur le nœud.
+
+- Vérifié : `services/api` (test_app dont déclaration validée, état, jobs deploy / undeploy, refus), `deploy/tests`,
+  `hub/tests` (339, dont nom et état d'instance, chemins de la tuile), syntaxe `@babel/parser`.
+- Non vérifié : rendu de l'onglet ; déploiement réel.
+- Fichiers : `services/api/app.py`, `services/api/Dockerfile`, `services/api/test_app.py`, `deploy/node_agent.py`
+  (`instance-undeploy`), `hub/src/TowerInstances.jsx`, `hub/src/ControlTowerView.jsx`, `hub/src/App.jsx`,
+  `hub/src/hubThemes.js`, `hub/src/hubBusiness.js`, `hub/src/servicesClient.js`, `hub/src/towerLib.js`.
+
 ## 2026-10-09 — Instances clonées : création en une commande par les agents de nœud (livraison #732)
 
 Item 117 tranche 3 : `node_agent.py instance-deploy <nom>` (manager) crée l'instance sur son nœud (services clonés,

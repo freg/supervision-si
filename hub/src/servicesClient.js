@@ -78,3 +78,8 @@ export const migrateCohort = (apiBase, token, cohort, target, force = false) => 
 // #663 : miroir froid (étape 3) -- état et actions (jobs)
 export const fetchMirror = (apiBase, token) => call(apiBase, token, "/mirror");
 export const mirrorAction = (apiBase, token, action) => call(apiBase, token, `/mirror/${action}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+// #733 : instances d'application clonées (item 117) -- registre, déploiement / retrait par jobs
+export const fetchInstances = (apiBase, token, status = true) => call(apiBase, token, `/instances${status ? "" : "?status=0"}`);
+export const addInstance = (apiBase, token, body) => call(apiBase, token, "/instances", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+export const removeInstanceDecl = (apiBase, token, name) => call(apiBase, token, `/instances/${encodeURIComponent(name)}`, { method: "DELETE" });
+export const instanceAction = (apiBase, token, name, action, body) => call(apiBase, token, `/instances/${encodeURIComponent(name)}/${action}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });

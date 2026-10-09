@@ -14,6 +14,7 @@ un conteneur : il pilote docker compose du dépôt local).
   node_agent.py update                #659 : git pull --ff-only puis apply --build ici
   node_agent.py update-all            #659 : même chose sur TOUS les autres nœuds de nodes.json (POST /update, jeton du .env)
   node_agent.py instance-deploy <nom> #732 (manager) : crée l'instance sur son nœud puis rafraîchit les passerelles
+  node_agent.py instance-undeploy <nom> #733 (manager) : arrêt sur son nœud (données gardées), retrait du registre, passerelles
   node_agent.py instance-create <nom> | instance-gateway | instance-stop <nom>   étapes locales correspondantes
 
 API (jeton dans l'en-tête X-SI-Node-Token, en clair MAIS uniquement sur le VPN WireGuard) :
@@ -278,6 +279,24 @@ def instance_deploy(name, build=True, call=None):
     by = {n["name"]: n for n in nodes["nodes"]}
     out = {"create": instance_create(me, name, None, build) if inst["node"] == me else call(by[inst["node"]], "/instance", {"registry": reg, "name": name, "build": build}),
            "gateways": {}}
+    for g in ins.gateway_nodes(nodes):
+        out["gateways"][g] = instance_gateway(me) if g == me else call(by[g], "/instance/gateway", {"registry": reg})
+    return out
+
+
+def instance_undeploy(name, call=None):
+    """Depuis le manager (#733) : arrête l'instance sur son nœud (données conservées), la retire du registre, puis
+    rafraîchit chaque passerelle (route et relais retirés)."""
+    call = call or node_call
+    me = node_name(); ins = _ins(); reg = ins.load_registry(REGISTRY); nodes = read_json(NODES)
+    inst = next((i for i in reg["instances"] if i.get("name") == name), None)
+    if not inst:
+        raise RuntimeError("instance %s absente du registre" % name)
+    by = {n["name"]: n for n in nodes["nodes"]}
+    out = {"stop": instance_stop(me, name) if inst.get("node") == me else call(by[inst["node"]], "/instance/stop", {"name": name}) if inst.get("node") in by else None,
+           "gateways": {}}
+    reg["instances"] = [i for i in reg["instances"] if i.get("name") != name]
+    write_registry(reg)
     for g in ins.gateway_nodes(nodes):
         out["gateways"][g] = instance_gateway(me) if g == me else call(by[g], "/instance/gateway", {"registry": reg})
     return out
@@ -630,6 +649,8 @@ def main():
         print(json.dumps(git_update(me, "--no-build" not in sys.argv), indent=2, ensure_ascii=False))
     elif cmd == "instance-deploy":   # #732 : depuis le manager
         print(json.dumps(instance_deploy(sys.argv[2], "--no-build" not in sys.argv), indent=2, ensure_ascii=False))
+    elif cmd == "instance-undeploy":   # #733 : depuis le manager
+        print(json.dumps(instance_undeploy(sys.argv[2]), indent=2, ensure_ascii=False))
     elif cmd == "instance-create":
         print(json.dumps(instance_create(me, sys.argv[2], None, "--no-build" not in sys.argv), indent=2, ensure_ascii=False))
     elif cmd == "instance-gateway":

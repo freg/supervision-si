@@ -21,7 +21,9 @@ de secrets.
    (`tickets-api-<suffixe>`, volume de données propre, ports et relais), et une route `/tickets-<suffixe>/` sur tls-proxy.
 3. **Agent de nœud** — FAIT (#732) : `node_agent.py instance-deploy <nom>` (voir Mode d'emploi). Détail initial : job « créer l'instance » = override + `compose up` des services clonés, attente de santé, import
    de la configuration exportée de la source, client Keycloak du front (même realm, redirections de la nouvelle URL).
-4. **Tuile** (thématique Données ou Sécurité & accès) : liste des instances (application, nœud, URL, état), formulaire
+4. **Tuile** — FAITE (#733) : « Déploiement d'application » (Données & référentiels) = onglet « 🧬 Instances » de la
+   tour de contrôle ; services-api `GET|POST /instances`, `DELETE /instances/<nom>`, `POST /instances/<nom>/deploy|undeploy`
+   (jobs `node_agent.py instance-deploy|instance-undeploy`). Détail initial : liste des instances (application, nœud, URL, état), formulaire
    « nouvelle instance » (application, source, nœud, nom), avancement par la tour de contrôle, suppression (données
    sauvegardées avant).
 5. **Mise à jour** : une instance suit les livraisons comme les autres services (même image, autre nom).
@@ -52,4 +54,6 @@ cd ~/SRC/data2/tickets/supervision-si && python3 deploy/node_agent.py instance-d
    rechargement de tls-proxy, `keycloak/render.py` + `sync_clients.py` (redirections `/tickets-<nom>/*` du client
    `tickets-portal`).
 - Arrêt : `node_agent.py instance-stop <nom>` sur le nœud cible (conteneurs retirés, données conservées).
-- Reste (tranche 4) : la tuile (liste, formulaire, suivi par la tour de contrôle).
+- Retrait : `node_agent.py instance-undeploy <nom>` (manager) : arrêt sur le nœud (données gardées), retrait du
+  registre, passerelles rafraîchies.
+- Reste : copie de configuration de la GED (types, plan de classement) ; front GED d'une instance.

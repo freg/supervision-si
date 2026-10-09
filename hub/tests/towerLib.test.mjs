@@ -81,3 +81,13 @@ test("#700 : version de la page vs central vs origin", () => {
   assert.equal(versionStatus("699", { current: "699", behind: 0, fetch_error: "réseau" }).state, "unknown");
   assert.equal(versionStatus("?", { current: "699", behind: 0 }).state, "ok");
 });
+
+import { instanceNameError, instanceState } from "../src/towerLib.js";
+test("#733 instances : nom et état", () => {
+  assert.equal(instanceNameError(""), "nom requis"); assert.match(instanceNameError("Formation"), /a-z/); assert.equal(instanceNameError("api"), "mot réservé");
+  assert.equal(instanceNameError("formation", ["formation"]), "déjà déclarée"); assert.equal(instanceNameError("formation2"), "");
+  assert.equal(instanceState({}).text, "état non lu"); assert.equal(instanceState({ state: { error: "x" } }).tone, "red");
+  assert.equal(instanceState({ state: { running: [], missing: ["a"] } }).text, "non déployée (ou arrêtée)");
+  assert.deepEqual(instanceState({ state: { running: ["a"], missing: ["b"] } }), { tone: "orange", text: "partielle : 1 service(s) arrêté(s) (b)" });
+  assert.equal(instanceState({ state: { running: ["a", "b"], missing: [] } }).tone, "green");
+});

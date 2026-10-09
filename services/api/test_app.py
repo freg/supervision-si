@@ -297,3 +297,35 @@ class TestTower(TestApi):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestInstances(TestApi):
+    """#733 : registre des instances clonées -- déclaration validée, état par l'agent de nœud, jobs deploy / undeploy."""
+
+    def setUp(self):
+        TestTower.setUp(self)
+
+    def test_instances(self):
+        r = self.c.post("/instances", headers=self.h, json={"name": "formation", "app": "tickets", "node": "worker"})
+        self.assertEqual(r.status_code, 400); self.assertIn("non configuré", r.get_json()["error"])
+        put("deploy/nodes.json", json.dumps({"nodes": [{"name": "super", "wg_address": "10.99.0.1", "cohorts": ["core"], "edge": True},
+                                                       {"name": "worker", "wg_address": "10.99.0.2", "cohorts": []}]}))
+        self.assertIn("nœud « nulle »", self.c.post("/instances", headers=self.h, json={"name": "formation", "app": "tickets", "node": "nulle"}).get_json()["error"])
+        self.assertIn("invalide", self.c.post("/instances", headers=self.h, json={"name": "Api", "app": "tickets", "node": "worker"}).get_json()["error"])
+        r = self.c.post("/instances", headers=self.h, json={"name": "formation", "app": "tickets", "node": "worker", "title": "Formation"})
+        self.assertEqual(r.status_code, 201, r.get_json()); self.assertEqual(r.get_json()["instance"]["created_by"], "freg")
+        self.assertEqual(self.c.post("/instances", headers=self.h, json={"name": "formation", "app": "tickets", "node": "worker"}).status_code, 409)
+        appmod._node_status = lambda node, env: {"running": ["tickets-api-formation"]}
+        d = self.c.get("/instances", headers=self.h).get_json()
+        i = d["instances"][0]
+        self.assertEqual((i["plan"]["front"], i["state"]["running"], i["state"]["missing"]), ("/tickets-formation/", ["tickets-api-formation"], ["tickets-portal-formation"]))
+        self.assertEqual(d["problems"], []); self.assertTrue(d["apps"]["tickets"]["config"]); self.assertEqual(d["nodes"], ["super", "worker"])
+        j = self.c.post("/instances/formation/deploy", headers=self.h, json={"build": False}).get_json()["job"]
+        self.assertEqual(j["steps"][0]["cmd"], "python3 deploy/node_agent.py instance-deploy formation --no-build")
+        j = self.c.post("/instances/formation/undeploy", headers=self.h).get_json()["job"]
+        self.assertEqual(j["steps"][0]["cmd"], "python3 deploy/node_agent.py instance-undeploy formation")
+        self.assertEqual(self.c.post("/instances/formation/reboot", headers=self.h).status_code, 404)
+        self.assertEqual(self.c.post("/instances/x;rm/deploy", headers=self.h).status_code, 404)
+        self.assertEqual(self.c.delete("/instances/formation", headers=self.h).status_code, 200)
+        self.assertEqual(json.load(open(os.path.join(PROJ, "deploy/instances.json")))["instances"], [])
+        self.assertEqual(self.c.get("/instances").status_code, 401)
