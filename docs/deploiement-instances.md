@@ -19,7 +19,7 @@ de secrets.
    `instances.example.json`). Voir « Mode d'emploi » ci-dessous. Détail initial : `deploy/instances.json` : `{nom, application, nœud, suffixe, chemin public, instance
    source}` ; `deploy/cohorts.py override` génère sur le nœud cible les services de l'application **renommés**
    (`tickets-api-<suffixe>`, volume de données propre, ports et relais), et une route `/tickets-<suffixe>/` sur tls-proxy.
-3. **Agent de nœud** : job « créer l'instance » = override + `compose up` des services clonés, attente de santé, import
+3. **Agent de nœud** — FAIT (#732) : `node_agent.py instance-deploy <nom>` (voir Mode d'emploi). Détail initial : job « créer l'instance » = override + `compose up` des services clonés, attente de santé, import
    de la configuration exportée de la source, client Keycloak du front (même realm, redirections de la nouvelle URL).
 4. **Tuile** (thématique Données ou Sécurité & accès) : liste des instances (application, nœud, URL, état), formulaire
    « nouvelle instance » (application, source, nœud, nom), avancement par la tour de contrôle, suppression (données
@@ -40,5 +40,16 @@ cd ~/SRC/data2/tickets/supervision-si && python3 tls-proxy/render_nginx_conf.py 
   forcée** (jamais la base PostgreSQL de l'instance d'origine), étiquettes `si.instance`.
 - `deploy/cohorts.py` intègre le registre : cohorte `inst-<nom>` sur le nœud choisi, définition complète des services
   dans l'override de ce nœud, relais vers eux sur les autres (bordure : routes tls-proxy).
-- Reste (tranche 3) : job de l'agent de nœud (override + `compose up` + santé + import de la configuration de la
-  source + client Keycloak avec les redirections de la nouvelle URL) ; tranche 4 : tuile.
+
+### Création en une commande (#732, sur le manager)
+```
+cd ~/SRC/data2/tickets/supervision-si && python3 deploy/node_agent.py instance-deploy formation
+```
+1. nœud cible (`POST /instance`, registre transmis) : apply → services clonés + relais vers la source
+   (`SI_INSTANCE_SOURCE_URL`) ; puis, DANS le conteneur `tickets-api-<nom>` : attente de `/health`,
+   `GET <source>/export?scope=config`, `POST /import?mode=merge` (référentiels seulement) ;
+2. chaque passerelle (bordure / core, `POST /instance/gateway`) : relais vers l'instance, `render_nginx_conf.py` +
+   rechargement de tls-proxy, `keycloak/render.py` + `sync_clients.py` (redirections `/tickets-<nom>/*` du client
+   `tickets-portal`).
+- Arrêt : `node_agent.py instance-stop <nom>` sur le nœud cible (conteneurs retirés, données conservées).
+- Reste (tranche 4) : la tuile (liste, formulaire, suivi par la tour de contrôle).

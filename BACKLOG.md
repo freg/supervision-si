@@ -12,7 +12,7 @@ Suivi par le hub : sonde pbs (datastore de secours, dernière synchro), sonde pr
 la VM), alerte si le support est absent ou trop ancien. À préciser : USB ou poste du LAN (OS du poste, partage NFS ou
 SMB), hyperviseur qui porte la VM du PBS, fréquence de rotation des disques.
 
-## Tuile « Déploiement d'application » par clonage de configuration (2026-10-09) — item 117, DÉCIDÉ : sur un AUTRE nœud, clonage configuration + référentiels (sans données métier) ; tranches 1-2 FAITES (#722 export config, #731 registre + clonage des services), suite (agent de nœud, tuile) : docs/deploiement-instances.md
+## Tuile « Déploiement d'application » par clonage de configuration (2026-10-09) — item 117, DÉCIDÉ : sur un AUTRE nœud, clonage configuration + référentiels (sans données métier) ; tranches 1-3 FAITES (#722 export config, #731 registre + clonage des services, #732 agent de nœud), suite (tuile) : docs/deploiement-instances.md
 
 Demandé : « une tuile de déploiement d'application (GED, tickets…) : clonage configuration ». Lecture proposée :
 déployer une nouvelle instance d'une application du hub (GED, portail tickets…) pour un site ou un client en clonant

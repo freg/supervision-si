@@ -13,6 +13,8 @@ un conteneur : il pilote docker compose du dépôt local).
   node_agent.py status                état local (JSON)
   node_agent.py update                #659 : git pull --ff-only puis apply --build ici
   node_agent.py update-all            #659 : même chose sur TOUS les autres nœuds de nodes.json (POST /update, jeton du .env)
+  node_agent.py instance-deploy <nom> #732 (manager) : crée l'instance sur son nœud puis rafraîchit les passerelles
+  node_agent.py instance-create <nom> | instance-gateway | instance-stop <nom>   étapes locales correspondantes
 
 API (jeton dans l'en-tête X-SI-Node-Token, en clair MAIS uniquement sur le VPN WireGuard) :
   GET  /status                        nœud, cohortes, conteneurs, plan courant
@@ -21,6 +23,9 @@ API (jeton dans l'en-tête X-SI-Node-Token, en clair MAIS uniquement sur le VPN 
   GET  /export/<cohorte>              flux tar.gz
   POST /import/<cohorte> {"from": "10.99.0.2"}      va chercher l'export sur le nœud source et le restaure
   POST /update   {"build": true}      #659 : git pull --ff-only (origin, branche courante) puis apply
+  POST /instance {"registry", "name", "build"}   #732 : instance clonée ici (apply + clonage de la configuration)
+  POST /instance/gateway {"registry"}  #732 : relais, routes tls-proxy rechargées, redirections Keycloak synchronisées
+  POST /instance/stop {"name"}         #732 : conteneurs de l'instance retirés, données conservées
   #663 miroir froid (étape 3) : ce nœud reçoit les archives de sauvegarde totale du primaire et les restaure, services arrêtés
   GET  /mirror/status                 archives reçues, services en marche, dernière restauration
   PUT  /mirror/archive/<nom>          corps = archive (ou manifeste .manifest.json), déposée dans backups/mirror/
@@ -168,6 +173,113 @@ def update_all(timeout=3600):
             out[n["name"]] = {"error": str(e)[:300]}; failed.append(n["name"])
     if failed:
         raise RuntimeError("nœud(s) en échec : %s -- %s" % (", ".join(failed), json.dumps(out, ensure_ascii=False)[:800]))
+    return out
+
+
+# ---------------------------------------------------------------- #732 : instances d'application clonées
+REGISTRY = os.path.join(ROOT, "deploy", "instances.json")
+
+
+def _ins():
+    sys.path.insert(0, os.path.join(ROOT, "deploy"))
+    import instances
+    return instances
+
+
+def write_registry(reg):
+    if reg is not None:
+        if not isinstance(reg, dict) or not isinstance(reg.get("instances"), list):
+            raise RuntimeError("registre d'instances invalide")
+        with open(REGISTRY, "w", encoding="utf-8") as fh:
+            json.dump(reg, fh, indent=2, ensure_ascii=False)
+
+
+def instance_create(me, name, registry=None, build=True):
+    """Sur le nœud CIBLE : registre, apply (services clonés + relais vers la source), puis clonage de la
+    configuration dans le conteneur API de l'instance. Les données métier ne sont jamais copiées."""
+    write_registry(registry)
+    ins = _ins(); reg = ins.load_registry(REGISTRY)
+    inst = next((i for i in reg["instances"] if i.get("name") == name), None)
+    if not inst:
+        raise RuntimeError("instance %s absente du registre" % name)
+    if inst.get("node") != me:
+        raise RuntimeError("instance %s prévue sur %s, pas sur %s" % (name, inst.get("node"), me))
+    plan = apply(me, build)
+    p = ins.plan(inst)
+    missing = [x for x in p["services"] if x not in plan["services"]]
+    if missing:
+        raise RuntimeError("services de l'instance absents du plan de ce nœud : " + ", ".join(missing))
+    out = {"node": me, "instance": p, "steps": plan.get("steps", []), "config": None}
+    script = ins.config_clone_script(inst["app"])
+    if script:
+        api = ins.svc_name(ins.APPS[inst["app"]]["config_import"][0], name)
+        r = run(["./scripts/run.sh", "exec", "-T", api, "python3", "-c", script], check=False, capture=True)
+        last = ((r.stdout or "").strip().splitlines() or [""])[-1]
+        try:
+            out["config"] = json.loads(last) if r.returncode == 0 else {"error": ((r.stderr or "") + (r.stdout or ""))[-400:]}
+        except ValueError:
+            out["config"] = {"error": last[-400:]}
+    return out
+
+
+def instance_gateway(me, registry=None):
+    """Sur la passerelle (bordure / core) : registre, apply (relais vers l'instance), routes tls-proxy rendues puis
+    rechargées, et URL de redirection Keycloak poussées dans le realm vivant si Keycloak est ici."""
+    write_registry(registry)
+    plan = apply(me, False)
+    steps = list(plan.get("steps", []))
+    if "tls-proxy" in plan.get("gateway", []):
+        run([sys.executable, os.path.join(ROOT, "tls-proxy", "render_nginx_conf.py")], capture=True)
+        r = run(["./gateway/scripts/run.sh", "exec", "-T", "tls-proxy", "nginx", "-s", "reload"], check=False, capture=True)
+        if r.returncode != 0:
+            run(["./gateway/scripts/run.sh", "restart", "tls-proxy"], capture=True)
+        steps.append("tls-proxy : routes rendues et rechargées")
+    if "keycloak" in plan.get("gateway", []):
+        run([sys.executable, os.path.join(ROOT, "keycloak", "render.py")], capture=True)
+        r = run([sys.executable, os.path.join(ROOT, "keycloak", "sync_clients.py")], check=False, capture=True)
+        steps.append("keycloak : redirections %s" % ("synchronisées" if r.returncode == 0 else "NON synchronisées : " + (r.stderr or r.stdout or "")[-200:]))
+    return {"node": me, "steps": steps}
+
+
+def instance_stop(me, name):
+    """Arrête et retire les conteneurs d'une instance sur ce nœud ; données conservées dans ./instances/<nom>/."""
+    ins = _ins(); reg = ins.load_registry(REGISTRY)
+    inst = next((i for i in reg["instances"] if i.get("name") == name), None)
+    if not inst:
+        raise RuntimeError("instance %s absente du registre" % name)
+    svcs = ins.plan(inst)["services"]
+    run(["./scripts/run.sh", "rm", "-s", "-f"] + svcs, check=False, capture=True)
+    return {"node": me, "stopped": svcs, "data_kept": ins.plan(inst)["data"]}
+
+
+def node_call(node, path, body, timeout=3600):
+    env = load_env(); token = env.get("SI_NODE_TOKEN", ""); port = int(env.get("SI_NODE_PORT") or DEFAULT_PORT)
+    if not token:
+        raise RuntimeError("SI_NODE_TOKEN absent du .env")
+    req = urllib.request.Request("http://%s:%d%s" % (node["wg_address"], port, path), data=json.dumps(body).encode(), method="POST",
+                                 headers={"X-SI-Node-Token": token, "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8") or "{}")
+    except urllib.error.HTTPError as e:
+        raise RuntimeError("%s %s : %s" % (node["name"], path, (e.read() or b"")[:300].decode("utf-8", "replace")))
+
+
+def instance_deploy(name, build=True, call=None):
+    """Depuis le manager : crée l'instance sur son nœud (registre transmis), puis rafraîchit chaque passerelle."""
+    call = call or node_call
+    me = node_name(); ins = _ins(); reg = ins.load_registry(REGISTRY); nodes = read_json(NODES)
+    probs = ins.check(reg, nodes=nodes)
+    if probs:
+        raise RuntimeError("registre incohérent : " + " ; ".join(probs))
+    inst = next((i for i in reg["instances"] if i.get("name") == name), None)
+    if not inst:
+        raise RuntimeError("instance %s absente du registre" % name)
+    by = {n["name"]: n for n in nodes["nodes"]}
+    out = {"create": instance_create(me, name, None, build) if inst["node"] == me else call(by[inst["node"]], "/instance", {"registry": reg, "name": name, "build": build}),
+           "gateways": {}}
+    for g in ins.gateway_nodes(nodes):
+        out["gateways"][g] = instance_gateway(me) if g == me else call(by[g], "/instance/gateway", {"registry": reg})
     return out
 
 
@@ -465,6 +577,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(200, {"stopped": stop_cohort(body["cohort"])})
             if self.path == "/update":
                 return self._json(200, git_update(self.me, body.get("build", True)))
+            if self.path == "/instance":   # #732
+                return self._json(200, instance_create(self.me, str(body.get("name") or ""), body.get("registry"), bool(body.get("build", True))))
+            if self.path == "/instance/gateway":
+                return self._json(200, instance_gateway(self.me, body.get("registry")))
+            if self.path == "/instance/stop":
+                return self._json(200, instance_stop(self.me, str(body.get("name") or "")))
             if self.path.startswith("/import/"):
                 cohort = self.path[len("/import/"):]
                 url = "http://%s:%d/export/%s" % (body["from"], int(body.get("port") or DEFAULT_PORT), cohort)
@@ -510,6 +628,14 @@ def main():
         print(json.dumps(status(me), indent=2, ensure_ascii=False))
     elif cmd == "update":
         print(json.dumps(git_update(me, "--no-build" not in sys.argv), indent=2, ensure_ascii=False))
+    elif cmd == "instance-deploy":   # #732 : depuis le manager
+        print(json.dumps(instance_deploy(sys.argv[2], "--no-build" not in sys.argv), indent=2, ensure_ascii=False))
+    elif cmd == "instance-create":
+        print(json.dumps(instance_create(me, sys.argv[2], None, "--no-build" not in sys.argv), indent=2, ensure_ascii=False))
+    elif cmd == "instance-gateway":
+        print(json.dumps(instance_gateway(me), indent=2, ensure_ascii=False))
+    elif cmd == "instance-stop":
+        print(json.dumps(instance_stop(me, sys.argv[2]), indent=2, ensure_ascii=False))
     elif cmd == "update-all":
         print(json.dumps(update_all(), indent=2, ensure_ascii=False))
     else:

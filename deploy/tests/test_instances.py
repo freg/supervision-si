@@ -109,3 +109,77 @@ class Override(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Tranche3(unittest.TestCase):
+    """#732 : source de configuration relayée, script de clonage de la configuration, redirections Keycloak,
+    création sur le nœud cible et orchestration depuis le manager (appels simulés)."""
+
+    def test_source_relayee_sur_le_noeud_cible(self):
+        o = Override(); o.setUp()
+        e = env(o.services["tickets-api-formation"]); self.assertEqual(e["SI_INSTANCE_SOURCE_URL"], "http://tickets-api:5000")
+        out, _, plan = co.override(o.cohorts, o.services, o.info, o.where, o.origin, o.nodes, "worker")
+        self.assertIn("relay-tickets-api", out["services"])                                  # la source reste sur super
+
+    def test_script_de_clonage(self):
+        import json, subprocess, threading
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        got = {}
+
+        class H(BaseHTTPRequestHandler):
+            def log_message(self, *a): pass
+            def _send(self, obj):
+                b = json.dumps(obj).encode(); self.send_response(200); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+            def do_GET(self):
+                self._send({"status": "ok"} if self.path == "/health" else {"types": [{"id": 1}], "path": self.path})
+            def do_POST(self):
+                got["path"] = self.path; got["body"] = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                self._send({"imported": {"types": 1}})
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), H); port = srv.server_address[1]
+        threading.Thread(target=srv.serve_forever, daemon=True).start(); self.addCleanup(srv.shutdown)
+        script = ins.config_clone_script("tickets").replace("127.0.0.1:5000", "127.0.0.1:%d" % port)
+        r = subprocess.run([sys.executable, "-c", script], env=dict(os.environ, SI_INSTANCE_SOURCE_URL="http://127.0.0.1:%d" % port), capture_output=True, text=True, timeout=30)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        res = json.loads(r.stdout.strip().splitlines()[-1])
+        self.assertEqual(res["import"], {"imported": {"types": 1}}); self.assertEqual(got["path"], "/import?mode=merge")
+        self.assertEqual(got["body"]["path"], "/export?scope=config")
+        self.assertIsNone(ins.config_clone_script("ged"))
+
+    def test_keycloak(self):
+        sys.path.insert(0, os.path.join(co.ROOT, "keycloak"))
+        import render
+        red = ins.keycloak_redirects(REG, "https://hub.example:6443/")
+        self.assertEqual(red, {"tickets-portal": ["https://hub.example:6443/tickets-formation/"]})
+        realm = {"clients": [{"clientId": "tickets-portal", "redirectUris": ["https://hub.example:6443/tickets/*"], "webOrigins": ["https://hub.example:6443"],
+                              "attributes": {"post.logout.redirect.uris": "https://hub.example:6443/tickets/*"}}, {"clientId": "hub"}]}
+        self.assertEqual(render.add_instance_redirects(realm, red), 2)
+        self.assertEqual(render.add_instance_redirects(realm, red), 0)                      # idempotent
+        c = realm["clients"][0]
+        self.assertIn("https://hub.example:6443/tickets-formation/*", c["redirectUris"]); self.assertIn("https://hub.example:6443/tickets-formation", c["redirectUris"])
+        self.assertEqual(c["attributes"]["post.logout.redirect.uris"], "https://hub.example:6443/tickets/*##https://hub.example:6443/tickets-formation/*")
+        self.assertNotIn("redirectUris", realm["clients"][1])
+
+    def test_creation_et_orchestration(self):
+        import json, tempfile
+        import node_agent as na
+        d = tempfile.mkdtemp(); reg_path = os.path.join(d, "instances.json"); nodes_path = os.path.join(d, "nodes.json")
+        json.dump({"nodes": [{"name": "super", "wg_address": "10.99.0.1", "cohorts": ["core"], "edge": True}, {"name": "worker", "wg_address": "10.99.0.2", "cohorts": []}]},
+                  open(nodes_path, "w"))
+        calls = []
+        saved = (na.REGISTRY, na.NODES, na.apply, na.run, na.node_name)
+        self.addCleanup(lambda: setattr(na, "REGISTRY", saved[0]) or setattr(na, "NODES", saved[1]) or setattr(na, "apply", saved[2]) or setattr(na, "run", saved[3]) or setattr(na, "node_name", saved[4]))
+        na.REGISTRY, na.NODES = reg_path, nodes_path
+        na.apply = lambda me, build=False: {"services": ["tickets-api-formation", "tickets-portal-formation"], "steps": ["up"], "gateway": []}
+
+        class R:
+            returncode = 0; stdout = '{"exported_bytes": 10, "import": {"ok": true}}\n'; stderr = ""
+        na.run = lambda cmd, check=True, capture=False, **k: calls.append(cmd) or R()
+        r = na.instance_create("worker", "formation", REG, build=False)
+        self.assertEqual(r["config"]["import"], {"ok": True}); self.assertEqual(calls[-1][:4], ["./scripts/run.sh", "exec", "-T", "tickets-api-formation"])
+        self.assertEqual(json.load(open(reg_path)), REG)
+        with self.assertRaises(RuntimeError): na.instance_create("super", "formation")             # pas le bon nœud
+        with self.assertRaises(RuntimeError): na.instance_create("worker", "inconnue")
+        na.node_name = lambda: "super"; sent = []
+        out = na.instance_deploy("formation", call=lambda n, path, body: sent.append((n["name"], path)) or {"ok": path})
+        self.assertEqual(sent, [("worker", "/instance")]); self.assertIn("super", out["gateways"])      # passerelle = ce nœud (local)
+        self.assertEqual(na.instance_stop("worker", "formation")["data_kept"], ["instances/formation/tickets-api"])

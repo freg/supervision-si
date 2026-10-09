@@ -318,6 +318,34 @@ def resolve_import_dir(env):
     return resolve_dir(env, "KEYCLOAK_IMPORT_DIR", DEFAULT_OUT_DIR)
 
 
+def add_instance_redirects(realm, redirects):
+    """#732 : fronts des instances clonées (deploy/instances.json) -- {client: [https://hôte/tickets-x/, …]} ajoutés aux
+    redirectUris (avec et sans « * »), à l'origine (webOrigins) et aux redirections de déconnexion. Idempotent."""
+    added = 0
+    for client in realm.get("clients", []):
+        urls = redirects.get(client.get("clientId")) or []
+        for u in urls:
+            for key, vals in (("redirectUris", [u + "*", u.rstrip("/")]), ("webOrigins", ["/".join(u.split("/")[:3])])):
+                lst = client.setdefault(key, [])
+                for v in vals:
+                    if v not in lst:
+                        lst.append(v); added += 1
+            attrs = client.setdefault("attributes", {})
+            post = [x for x in (attrs.get("post.logout.redirect.uris") or "").split("##") if x]
+            if u + "*" not in post:
+                attrs["post.logout.redirect.uris"] = "##".join(post + [u + "*"])
+    return added
+
+
+def instance_redirects(hub_url):
+    try:
+        sys.path.insert(0, os.path.join(ROOT, "deploy"))
+        import instances
+        return instances.keycloak_redirects(instances.load_registry(), hub_url)
+    except Exception:
+        return {}
+
+
 def main():
     check_only = "--check" in sys.argv
     env = parse_env(os.path.join(ROOT, ".env"))
@@ -337,6 +365,9 @@ def main():
         realm = json.load(fh)
 
     realm = substitute(realm, variables)
+    n_inst = add_instance_redirects(realm, instance_redirects(variables["HUB_PUBLIC_URL"]))
+    if n_inst:
+        print(f"instances clonées (deploy/instances.json) : {n_inst} URL de redirection / origine ajoutée(s)")
     extra = [o.strip() for o in os.environ.get("KEYCLOAK_EXTRA_ORIGINS", env.get("KEYCLOAK_EXTRA_ORIGINS", "")).split(",") if o.strip()]
     n_extra = add_extra_origins(realm, variables["HUB_PUBLIC_URL"], extra)
     if n_extra:

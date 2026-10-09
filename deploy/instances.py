@@ -41,6 +41,7 @@ APPS = {
         "config_export": ("tickets-api", 5000, "/export?scope=config"),
         "config_import": ("tickets-api", 5000, "/import?mode=merge"),
         "front": "tickets-portal",
+        "keycloak_client": "tickets-portal",
     },
     "ged": {
         "title": "GED (API ; le front reste la tuile du hub)",
@@ -48,6 +49,7 @@ APPS = {
         "config_export": None,   # à faire : types et plan de classement (tranche 1 GED)
         "config_import": None,
         "front": None,
+        "keycloak_client": None,
     },
 }
 
@@ -82,7 +84,7 @@ def _rewrite(value, renames, paths):
     return v
 
 
-def clone_app(services, app, name):
+def clone_app(services, app, name, source=None):
     """Définitions compose des services clonés de l'application `app` pour l'instance `name` -> {service: définition}."""
     spec = APPS[app]
     renames = {s: svc_name(s, name) for s in spec["services"]}
@@ -101,6 +103,8 @@ def clone_app(services, app, name):
         if conf.get("base_env"):
             envd[conf["base_env"]] = inst_path(conf["path"], name)
         envd["SI_INSTANCE"] = name
+        if spec.get("config_export") and spec["config_export"][0] == s:   # #732 : source de la configuration (relais créé par cohorts.py)
+            envd["SI_INSTANCE_SOURCE_URL"] = "http://%s:%d" % (source or s, spec["config_export"][1])
         d["environment"] = ["%s=%s" % kv for kv in envd.items()]
         if conf.get("data"):
             vols = [v for v in d.get("volumes") or [] if not (isinstance(v, str) and v.split(":")[-1] in (conf["data"], conf["data"] + ":rw"))]
@@ -152,7 +156,7 @@ def instance_services(registry, services):
     for inst in registry.get("instances") or []:
         if inst.get("app") not in APPS or not NAME_RE.match(str(inst.get("name") or "")):
             continue
-        for s, d in clone_app(services, inst["app"], inst["name"]).items():
+        for s, d in clone_app(services, inst["app"], inst["name"], inst.get("source")).items():
             out[s], origin[s] = d, "instance:%s" % inst["name"]
     return out, origin
 
@@ -204,6 +208,48 @@ def plan(inst):
         s2, port2, q2 = spec["config_import"]
         p["config_import"] = "http://%s:%d%s" % (svc_name(s2, n), port2, q2)
     return p
+
+
+def config_clone_script(app):
+    """Script Python joué DANS le conteneur API de l'instance (#732) : attend sa santé, lit la configuration de la
+    source (SI_INSTANCE_SOURCE_URL, joignable par relais) et l'importe en fusion. Rien d'autre que les référentiels."""
+    spec = APPS[app]
+    if not spec.get("config_export"):
+        return None
+    _, port, exp = spec["config_export"]
+    _, port2, imp = spec["config_import"]
+    return "\n".join([
+        "import json, os, time, urllib.request",
+        "src = os.environ['SI_INSTANCE_SOURCE_URL']; dst = 'http://127.0.0.1:%d'" % port2,
+        "for _ in range(90):",
+        "    try:",
+        "        urllib.request.urlopen(dst + '/health', timeout=3); break",
+        "    except Exception:",
+        "        time.sleep(2)",
+        "else:",
+        "    raise SystemExit('instance non prête (santé)')",
+        "data = urllib.request.urlopen(src + %r, timeout=60).read()" % exp,
+        "req = urllib.request.Request(dst + %r, data=data, headers={'Content-Type': 'application/json'}, method='POST')" % imp,
+        "res = urllib.request.urlopen(req, timeout=180).read()",
+        "print(json.dumps({'exported_bytes': len(data), 'import': json.loads(res or b'{}')}, ensure_ascii=False))",
+    ])
+
+
+def keycloak_redirects(registry, hub_url):
+    """URL de redirection Keycloak à ajouter par client OIDC pour les fronts des instances -> {client: [url/, …]}."""
+    out = {}
+    base = hub_url.rstrip("/")
+    for inst in registry.get("instances") or []:
+        spec = APPS.get(inst.get("app"))
+        if not spec or not spec.get("front") or not spec.get("keycloak_client") or not NAME_RE.match(str(inst.get("name") or "")):
+            continue
+        out.setdefault(spec["keycloak_client"], []).append(base + inst_path(spec["services"][spec["front"]]["path"], inst["name"]))
+    return out
+
+
+def gateway_nodes(nodes):
+    """Nœuds portant la passerelle (bordure ou cohorte core) : routes tls-proxy et Keycloak à rafraîchir."""
+    return [n["name"] for n in (nodes or {}).get("nodes", []) if n.get("edge") or "core" in (n.get("cohorts") or [])]
 
 
 def main(argv=None):

@@ -1,3 +1,16 @@
+## 2026-10-09 — Instances clonées : création en une commande par les agents de nœud (livraison #732)
+
+Item 117 tranche 3 : `node_agent.py instance-deploy <nom>` (manager) crée l'instance sur son nœud (services clonés,
+relais vers l'application source, puis copie de la configuration -- référentiels seulement -- par
+`export?scope=config` / `import?mode=merge` joués dans le conteneur de l'instance), puis rafraîchit chaque passerelle :
+routes tls-proxy rechargées, URL de redirection Keycloak de la nouvelle adresse poussées dans le realm vivant.
+
+- Vérifié : `deploy/tests` (dont script de clonage de configuration joué contre de vrais serveurs HTTP locaux,
+  redirections Keycloak idempotentes, création et orchestration avec appels simulés), `keycloak/render.py --check`.
+- Non vérifié : création réelle sur un nœud (compose, réseau VPN, Keycloak vivant).
+- Fichiers : `deploy/node_agent.py`, `deploy/instances.py`, `keycloak/render.py`, `deploy/tests/test_instances.py`,
+  `docs/deploiement-instances.md`.
+
 ## 2026-10-09 — Instances d'application clonées : registre et génération des services (livraison #731)
 
 Item 117 tranche 2 : `deploy/instances.json` déclare une instance (« formation », portail tickets, sur tel nœud) ;
