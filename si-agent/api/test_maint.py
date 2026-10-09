@@ -238,6 +238,16 @@ class Routes(unittest.TestCase):
                      (json.dumps({"backups": [{"host": "pve-alpha", "vmid": 102, "at": time.time() - 60, "ok": True, "present": True}]}),))
         conn.commit(); conn.close()
         self.assertEqual(self.c.get("/maint/backups").get_json()["pulled"][0]["agent_id"], "pve-alpha")
+        # #719 : sonde pbs (#716) relue par le central -- seules les tâches à problème sont remontées
+        conn = store._connect(self.db)
+        conn.execute("INSERT INTO measurements (agent_id, task, at, ok, data, received_at) VALUES ('pve-alpha', 'plugin:pbs', '2026-10-09T09:00:00Z', 1, ?, '2026-10-09T09:00:01Z')",
+                     (json.dumps({"datastores": [{"name": "backup", "used_percent": 12.5}], "groups": [{"ref": "backup:optick/host/app", "state": "ok"}],
+                                  "tasks": {"recent": [{"kind": "gc", "status": "OK"}, {"kind": "verify", "status": "verification failed"}]},
+                                  "alerts": [], "summary": {"state": "warning"}}),))
+        conn.commit(); conn.close()
+        b = self.c.get("/maint/backups").get_json()
+        self.assertEqual([(x["agent_id"], len(x["groups"]), [t["kind"] for t in x["tasks"]]) for x in b["pbs_servers"]], [("pve-alpha", 1, ["verify"])])
+        self.assertTrue(b["has_pbs"])
         self.assertEqual(self.c.delete("/maint/campaigns/%d" % cid).status_code, 200)
         self.assertEqual(self.c.get("/maint/campaigns/%d" % cid).status_code, 404)
 

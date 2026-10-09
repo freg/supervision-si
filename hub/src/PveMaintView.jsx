@@ -301,6 +301,29 @@ function Planning({ list, onOpen }) {
   );
 }
 
+// #719 : serveur Proxmox Backup Server vu par la sonde pbs de son agent (#716) -- datastores, groupes, tâches à problème.
+const PBS_STATE_TONE = { ok: "good", "en retard": "bad", inactif: "neutral" };
+function PbsServer({ p }) {
+  const [all, setAll] = useState(false);
+  const groups = all ? p.groups : p.groups.filter((g) => g.state !== "inactif");
+  return (
+    <div style={box}><strong>Serveur PBS « {p.agent_id} »</strong> <span className="muted">(sonde pbs, relevé {p.at ? new Date(p.at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "—"})</span>
+      {p.error && <p className="hub-warning">{p.error}</p>}
+      <AutoColumns id="PveMaintView.pbsStores"><table><thead><tr><th>Datastore</th><th>Chemin</th><th>Occupation</th><th>GC</th></tr></thead>
+        <tbody>{p.datastores.map((x) => <tr key={x.name}><td>{x.name}</td><td>{x.path || "—"}</td>
+          <td>{x.used_percent != null ? <><Bar pct={Math.round(x.used_percent)} /> {gb(x.total - x.free)} / {gb(x.total)} ({gb(x.free)} libres)</> : "—"}</td><td>{x.gc_schedule || "—"}</td></tr>)}</tbody></table></AutoColumns>
+      <p style={{ margin: "8px 0 4px" }}><strong>Groupes</strong> <label style={{ marginLeft: 8 }}><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> inclure les inactifs</label></p>
+      {groups.length ? <AutoColumns id="PveMaintView.pbsGroups"><table><thead><tr><th>Groupe</th><th>Dernière sauvegarde</th><th>Snapshots</th><th>État</th></tr></thead>
+        <tbody>{groups.map((g) => <tr key={g.ref}><td>{g.ref}</td><td>{g.last ? `${when(g.last)} (${g.age_h} h)` : "—"}{g.last_complete === false ? <> <Tone tone="warn">incomplet</Tone></> : null}</td>
+          <td>{g.count}</td><td><Tone tone={PBS_STATE_TONE[g.state]}>{g.state}</Tone></td></tr>)}</tbody></table></AutoColumns>
+        : <p className="muted">Aucun groupe de sauvegarde.</p>}
+      {p.tasks.length > 0 && <><p style={{ margin: "8px 0 4px" }}><strong>Tâches à problème (24 h)</strong></p>
+        <AutoColumns id="PveMaintView.pbsTasks"><table><thead><tr><th>Quand</th><th>Type</th><th>Objet</th><th>Résultat</th></tr></thead>
+          <tbody>{p.tasks.map((t, i) => <tr key={i}><td>{when(t.start)}</td><td>{t.kind}</td><td>{t.id}</td><td><Tone tone={/^WARNINGS/i.test(t.status) ? "warn" : "bad"}>{t.status}</Tone></td></tr>)}</tbody></table></AutoColumns></>}
+    </div>
+  );
+}
+
 function Backups({ base }) {
   const [d, setD] = useState(null);
   const [onlyIssues, setOnlyIssues] = useState(true);
@@ -318,9 +341,10 @@ function Backups({ base }) {
         <AutoColumns id="PveMaintView.2"><table><thead><tr><th>Nœud</th><th>Stockage</th><th>Type</th><th>Occupation</th></tr></thead>
           <tbody>{d.stores.map((x) => <tr key={`${x.node}|${x.storage}`}><td>{x.node}</td><td>{x.storage}</td><td>{x.type}</td>
             <td>{x.total ? <><Bar pct={Math.round(100 * (x.used || 0) / x.total)} /> {gb(x.used)} / {gb(x.total)} ({gb(x.avail)} libres)</> : "—"}</td></tr>)}</tbody></table></AutoColumns></div>
+      {(d.pbs_servers || []).map((p) => <PbsServer key={p.agent_id} p={p} />)}
       {d.pulled?.length > 0 && <div style={box}><strong>Sauvegardes tirées vers le LAN</strong> <span className="muted">(pve-pull-backup.sh, sonde pulled-backups)</span>
-        <AutoColumns id="PveMaintView.pulled"><table><thead><tr><th>Nœud</th><th>CT</th><th>Dernière réussie</th><th>Taille</th><th>Fichier</th><th>Dernière tentative</th></tr></thead>
-          <tbody>{d.pulled.map((b) => <tr key={`${b.host}|${b.vmid}`}><td>{b.host}</td><td>{b.vmid}</td>
+        <AutoColumns id="PveMaintView.pulled"><table><thead><tr><th>Nœud / hôte</th><th>CT / tâche</th><th>Dernière réussie</th><th>Taille</th><th>Fichier</th><th>Dernière tentative</th></tr></thead>
+          <tbody>{d.pulled.map((b) => <tr key={`${b.host}|${b.job || b.vmid}`}><td>{b.host}</td><td>{b.job || b.vmid}{b.notify_ok ? " ✉" : ""}</td>
             <td>{b.at ? `${when(b.at)} (${b.age_h} h)` : "—"}</td><td>{gb(b.size)}</td><td>{b.present === false ? <Tone tone="bad">absent</Tone> : b.file ? "présent" : "—"}</td>
             <td>{b.ok ? <Tone tone="good">réussie</Tone> : <Tone tone="bad">{b.last_error || "échec"}</Tone>}</td></tr>)}</tbody></table></AutoColumns></div>}
       <div style={box}><strong>Tâches planifiées</strong>

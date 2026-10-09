@@ -38,7 +38,7 @@ STATUSES = ("draft", "active", "done", "archived")
 
 # ------------------------------------------------------------------ pur : instantané des mesures
 
-def snapshot(px, now=None, agents=None, pulled=None):
+def snapshot(px, now=None, agents=None, pulled=None, pbs_servers=None):
     """latest_proxmox -> {nodes: {nom: {agent_id, at, stale, storages, vms}}, jobs: [...], agents: {id: version},
     pulled: [sauvegardes tirées (#714)]}."""
     now = now or time.time()
@@ -53,7 +53,8 @@ def snapshot(px, now=None, agents=None, pulled=None):
             key = (j.get("id"), j.get("storage"), j.get("schedule"))
             if key not in seen:
                 seen.add(key); jobs.append(dict(j, node=name))
-    return {"nodes": nodes, "jobs": jobs, "agents": dict(agents or {}), "now": now, "pulled": list(pulled or [])}
+    return {"nodes": nodes, "jobs": jobs, "agents": dict(agents or {}), "now": now, "pulled": list(pulled or []),
+            "pbs_servers": list(pbs_servers or [])}
 
 
 def _epoch(v):
@@ -475,7 +476,8 @@ def pbs_overview(snap, old_h=48):
                            "storage": str(b.get("volid") or "").split(":")[0] or None, "jobs": vm.get("backup_jobs") or [],
                            "last_run_ok": run.get("ok"), "flags": flags, "stale": n["stale"]})
     pbs = [s for s in stores if s["type"] == "pbs"]
-    return {"stores": stores, "jobs": snap["jobs"], "guests": guests, "has_pbs": bool(pbs), "pulled": snap.get("pulled") or [],
+    return {"stores": stores, "jobs": snap["jobs"], "guests": guests, "has_pbs": bool(pbs) or bool(snap.get("pbs_servers")), "pulled": snap.get("pulled") or [],
+            "pbs_servers": snap.get("pbs_servers") or [],
             "summary": {"guests": len(guests), "uncovered": sum(1 for g in guests if "hors tâche planifiée" in g["flags"]),
                         "never": sum(1 for g in guests if "jamais sauvegardé" in g["flags"]),
                         "old": sum(1 for g in guests if any(f.startswith("sauvegarde de plus") for f in g["flags"])),
@@ -504,18 +506,28 @@ def current_snapshot(now=None):
     conn = store._connect(_db["path"])
     try:
         agents = {r["agent_id"]: r["agent_version"] for r in conn.execute("SELECT agent_id, agent_version FROM agents")}
-        pulled = []
-        for r in conn.execute("SELECT m.agent_id, m.data FROM measurements m JOIN (SELECT agent_id, MAX(at) AS at FROM measurements "
-                              "WHERE task = 'plugin:pulled-backups' GROUP BY agent_id) l ON l.agent_id = m.agent_id AND l.at = m.at "
-                              "AND m.task = 'plugin:pulled-backups'"):
-            try:
-                d = json.loads(r["data"]) if isinstance(r["data"], str) else (r["data"] or {})
-            except (TypeError, ValueError):
-                d = {}
-            pulled += [dict(b, agent_id=r["agent_id"]) for b in (d or {}).get("backups") or []]
+        pulled = [dict(b, agent_id=aid) for aid, at, d in latest_plugin(conn, "plugin:pulled-backups") for b in d.get("backups") or []]
+        # #719 : serveurs Proxmox Backup Server vus par la sonde pbs (#716)
+        pbs_servers = [{"agent_id": aid, "at": at, "datastores": d.get("datastores") or [], "groups": d.get("groups") or [],
+                        "tasks": [t for t in ((d.get("tasks") or {}).get("recent") or []) if t.get("status") not in ("OK", "en cours")],
+                        "alerts": d.get("alerts") or [], "summary": d.get("summary") or {}, "error": d.get("error") or d.get("tasks_error")}
+                       for aid, at, d in latest_plugin(conn, "plugin:pbs")]
     finally:
         conn.close()
-    return snapshot(_db["latest"](), now, agents, pulled)
+    return snapshot(_db["latest"](), now, agents, pulled, pbs_servers)
+
+
+def latest_plugin(conn, task):
+    """Dernière mesure d'une sonde par agent -> [(agent_id, at, data)]."""
+    out = []
+    for r in conn.execute("SELECT m.agent_id, m.at, m.data FROM measurements m JOIN (SELECT agent_id, MAX(at) AS at FROM measurements "
+                          "WHERE task = ? GROUP BY agent_id) l ON l.agent_id = m.agent_id AND l.at = m.at AND m.task = ?", (task, task)):
+        try:
+            d = json.loads(r["data"]) if isinstance(r["data"], str) else (r["data"] or {})
+        except (TypeError, ValueError):
+            d = {}
+        out.append((r["agent_id"], r["at"], d if isinstance(d, dict) else {}))
+    return out
 
 
 def _row(conn, cid):

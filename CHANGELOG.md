@@ -1,3 +1,16 @@
+## 2026-10-09 — Maintenance des Proxmox, vue Sauvegardes : serveurs PBS et tâches de sauvegarde (livraison #719)
+
+Pour suivre depuis le hub la campagne du week-end et la sauvegarde quotidienne : la vue Sauvegardes (Maintenance des
+Proxmox) affiche chaque serveur PBS vu par la sonde `pbs` (#716) -- datastores et occupation, groupes par espace de noms
+(dernière sauvegarde, snapshot incomplet, état ok / en retard / inactif, inactifs masqués par défaut), tâches à problème
+des 24 h -- et le tableau des sauvegardes tirées montre les tâches (`job`) à côté des CT, ✉ = réussite notifiée.
+`/maint/backups` renvoie `pbs_servers` ; `has_pbs` vrai dès qu'un serveur PBS est vu par un agent.
+
+- Vérifié : `si-agent/api/test_maint.py` (mesure pbs relue, seules les tâches à problème remontées), `node --test`
+  (331), syntaxe `@babel/parser`.
+- Non vérifié : rendu navigateur, mesure réelle de pbs10.
+- Fichiers : `si-agent/api/maint.py`, `si-agent/api/test_maint.py`, `hub/src/PveMaintView.jsx`.
+
 ## 2026-10-09 — « Univers du hub » : recherche par thématique, sans casse ni accents (livraison #718)
 
 Demandé (note d'évolution) : « Sécurité et accès doit être indexé dans la recherche d'univers du hub avec ou sans
