@@ -5,6 +5,7 @@
 //    attente ne partent qu'une fois (chaque appelant reçoit une copie) -- les ~35 rafraîchissements périodiques des
 //    vues ne chargent plus le serveur pour un onglet que personne ne regarde.
 import { apiBases, isApiUrl } from "./apiAuth.js";
+import { hubEnv } from "./runtimeEnv.js";   // #736
 
 export const BUSY_DELAY_MS = 150;
 
@@ -35,7 +36,7 @@ export function createNetActivity({ fetch: base, isHidden, onBusy, isApi, delay 
   return { fetch: wrapped, flush, state: () => ({ inflight, busy, waiting: waiting.size }) };
 }
 
-export function installNetActivity(win = typeof window !== "undefined" ? window : null, env = import.meta.env) {
+export function installNetActivity(win = typeof window !== "undefined" ? window : null, env = hubEnv()) {
   if (!win || win.__netActivityInstalled || typeof win.fetch !== "function" || !win.document) return;
   win.__netActivityInstalled = true;
   const bases = apiBases(env); const origin = win.location ? win.location.origin : "";

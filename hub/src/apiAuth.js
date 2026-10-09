@@ -1,3 +1,4 @@
+import { hubEnv } from "./runtimeEnv.js";   // #736
 // A0 (livraison #615) : jeton Keycloak sur TOUS les appels d'API du hub.
 // Un seul intercepteur `fetch`, plutôt qu'une ligne dans chacun des ~30
 // clients JS : toute requête vers une base d'API du hub (VITE_*_API_BASE_URL,
@@ -11,7 +12,7 @@
 let currentToken = "";
 let currentScope = null;  // A1 (#620) : liste des sites autorisés, null = tout
 
-export function apiBases(env = import.meta.env) {
+export function apiBases(env = hubEnv()) {
   return Object.entries(env || {})
     .filter(([k, v]) => /^VITE_.*_(API_)?BASE_URL$/.test(k) && typeof v === "string" && /^https?:\/\//.test(v))
     .map(([, v]) => v.replace(/\/+$/, ""));
@@ -57,7 +58,7 @@ export function withSiteParam(url, scope) {
   return base + (base.includes("?") ? "&" : "?") + "site=" + encodeURIComponent(scope[0]) + (hash ? "#" + hash : "");
 }
 
-export function installApiAuth(win = typeof window !== "undefined" ? window : null, env = import.meta.env) {
+export function installApiAuth(win = typeof window !== "undefined" ? window : null, env = hubEnv()) {
   if (!win || win.__apiAuthInstalled || typeof win.fetch !== "function") return;
   win.__apiAuthInstalled = true;
   const bases = apiBases(env);

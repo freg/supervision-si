@@ -23,10 +23,11 @@ SERVICES = {
     "network-agent-api": {"build": {"context": "."}, "network_mode": "host"},
     "keycloak": {"image": "quay.io/keycloak/keycloak:24", "volumes": ["keycloak_data:/opt/keycloak/data"]},
     "tls-proxy": {"build": {"context": "."}, "depends_on": ["keycloak"], "ports": ["6443:6443"]},
+    "hub": {"build": {"context": "."}, "environment": ["VITE_TICKETS_API_BASE_URL=https://h:6443/api/tickets"]},
 }
 ORIGIN = {k: ("gateway/docker-compose.yml" if k in ("keycloak", "tls-proxy") else "docker-compose.yml") for k in SERVICES}
 COHORTS = {"cohorts": [
-    {"name": "core", "manager": True, "services": ["memcached", "credentials-api", "keycloak", "tls-proxy"]},
+    {"name": "core", "manager": True, "services": ["memcached", "credentials-api", "keycloak", "tls-proxy", "hub"]},
     {"name": "tickets", "services": ["tickets-postgres", "tickets-api"]},
     {"name": "reseau", "services": ["network-agent-api"]},
 ], "edge_services": ["tls-proxy"]}
@@ -39,7 +40,8 @@ NODES = {"nodes": [
 
 class Analyse(unittest.TestCase):
     def setUp(self):
-        co.proxy_table = lambda: [("tickets-api", 5000), ("credentials-api", 5000)]
+        orig = co.proxy_table; self.addCleanup(setattr, co, "proxy_table", orig)   # pas de fuite vers les autres tests
+        co.proxy_table = lambda: [("tickets-api", 5000), ("credentials-api", 5000), ("hub", 5173)]
         self.info = co.analyse(SERVICES)
         self.where, _ = co.assign(COHORTS, SERVICES)
 
@@ -62,7 +64,8 @@ class Analyse(unittest.TestCase):
 
 class Override(unittest.TestCase):
     def setUp(self):
-        co.proxy_table = lambda: [("tickets-api", 5000), ("credentials-api", 5000)]
+        orig = co.proxy_table; self.addCleanup(setattr, co, "proxy_table", orig)
+        co.proxy_table = lambda: [("tickets-api", 5000), ("credentials-api", 5000), ("hub", 5173)]
         self.info = co.analyse(SERVICES)
         self.where, _ = co.assign(COHORTS, SERVICES)
 
@@ -71,7 +74,7 @@ class Override(unittest.TestCase):
 
     def test_manager_publie_et_relaie_les_backends_distants(self):
         out, gw, plan = self.ov("super")
-        self.assertEqual(plan["services"], ["credentials-api", "memcached"])
+        self.assertEqual(plan["services"], ["credentials-api", "hub", "memcached"])
         self.assertEqual(plan["gateway"], ["keycloak", "tls-proxy"])
         self.assertEqual(out["services"]["credentials-api"]["ports"], ["10.99.0.1:%d:5000" % co.vpn_port(self.info, "credentials-api", 5000)])
         self.assertIn("relay-tickets-api", plan["relays"])       # backend de tls-proxy sur vm-donnees
@@ -93,6 +96,11 @@ class Override(unittest.TestCase):
     def test_bordure_sans_core_relaie_keycloak(self):
         out, gw, plan = self.ov("vm-ovh")
         self.assertEqual(plan["gateway"], ["tls-proxy"])
+        self.assertEqual((plan["replicas"], plan["services"]), (["hub"], ["hub"]))        # #736 : second hub servi sur place
+        self.assertNotIn("relay-hub", plan["relays"])
+        n2 = json.loads(json.dumps(NODES)); [n.update(replicas=[]) for n in n2["nodes"] if n["name"] == "vm-ovh"]
+        _, _, p2 = co.override(COHORTS, SERVICES, self.info, self.where, ORIGIN, n2, "vm-ovh")
+        self.assertEqual(p2["replicas"], []); self.assertIn("relay-hub", p2["relays"])
         self.assertIn("relay-keycloak", plan["relays"])
         self.assertIn("relay-credentials-api", plan["relays"])
 

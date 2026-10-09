@@ -1,3 +1,19 @@
+## 2026-10-09 — Hub pré-compilé dans l'image, second hub sur une bordure (livraison #736)
+
+- Le hub est compilé UNE fois à la construction de l'image (`HUB_RUNTIME_ENV=1` : chaque `import.meta.env.VITE_X`
+  lit `window.__HUB_ENV__`, écrit au démarrage dans `/env.js` depuis le compose par `write-env.mjs`) : le conteneur
+  démarre sans `vite build` (fini le pic CPU de 2 Go à chaque redémarrage) ; repli automatique sur l'ancienne
+  compilation au démarrage si la pré-compilation manque ; `HUB_PREBUILT=0` pour la forcer.
+- Second hub : une bordure (`"edge": true`) sert le hub en local (`replicas`, défaut `["hub"]`) au lieu de le relayer
+  vers le nœud core ; seules les API traversent le VPN. `docs/second-hub.md` : constat chiffré, répartition conseillée,
+  bascule.
+- Vérifié : `vite build` en mode pré-compilé (69 variables lues à l'exécution, aucun `import.meta.env` restant),
+  `hub/tests` (343), `deploy/tests` (30, dont réplique du hub sur la bordure et relais sans réplique),
+  `cohorts.py check`. Non vérifié : image construite et hub servi en réel.
+- Fichiers : `hub/Dockerfile`, `hub/entrypoint.sh`, `hub/write-env.mjs`, `hub/public/env.js`, `hub/index.html`,
+  `hub/vite.config.js`, `hub/src/runtimeEnv.js`, `hub/src/apiAuth.js`, `hub/src/netActivity.js`,
+  `deploy/cohorts.py`, `deploy/tests/test_deploy.py`, `docs/second-hub.md`.
+
 ## 2026-10-09 — Hub : vues à la demande, retour visuel immédiat, rafraîchissements suspendus onglet caché (livraison #735)
 
 Lot 2 de la répartition / second hub (interface réactive).

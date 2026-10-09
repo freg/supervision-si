@@ -263,6 +263,12 @@ def override(cohorts, services, info, where, origin, nodes, me):
     edge = bool(node.get("edge"))
     if edge and "tls-proxy" not in local_gateway and "tls-proxy" in services:
         local_gateway.append("tls-proxy")  # bordure : jumeau de la passerelle (#510)
+    # #736 : second hub -- une bordure sert aussi en LOCAL les fronts sans état (« replicas », défaut : le hub), au lieu
+    # de les relayer vers le nœud core : pages et code servis sur place, seules les API traversent le VPN.
+    replicas = [s for s in (node.get("replicas") if node.get("replicas") is not None else (["hub"] if edge else []))
+                if s in info and s not in local and not info[s]["host_network"] and not info[s]["binds"] and not info[s]["named"]]
+    local += replicas
+    local_main += [s for s in replicas if not origin[s].startswith("gateway/")]
     # services distants à relayer : dépendances des services locaux + backends de la bordure
     needed = set()
     for s in local:
@@ -272,7 +278,7 @@ def override(cohorts, services, info, where, origin, nodes, me):
         needed |= set(info.get("tls-proxy", {}).get("depends", []))
     needed -= set(local)
     out, out_gateway = {"services": {}}, {"services": {}}
-    plan = {"node": me, "wg_address": node["wg_address"], "edge": edge, "services": sorted(local_main),
+    plan = {"node": me, "wg_address": node["wg_address"], "edge": edge, "replicas": sorted(replicas), "services": sorted(local_main),
             "gateway": sorted(local_gateway), "host_network": host_only, "relays": [], "published": {}, "missing": []}
     plan["instances"] = sorted({origin[s].split(":", 1)[1] for s in local_main if origin[s].startswith("instance:")})
     for s in local_main:  # publication VPN des services locaux joignables
