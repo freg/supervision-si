@@ -52,6 +52,9 @@ def detect(question):
     macs = sorted({m.lower().replace("-", ":") for m in MAC.findall(question or "")})
     if ips or macs:
         return {"intent": "locate", "ips": ips, "macs": macs}
+    if re.search(r"\b(sauvegard\w*|backups?|snapshots?|instantanes?|vzdump|pbs)\b", q):   # #726 (avant « boot » : « backup »)
+        return {"intent": "backup", "snapshot": bool(re.search(r"\b(snapshots?|instantanes?)\b", q)),
+                "vmids": [int(x) for x in re.findall(r"\b(\d{3,6})\b", q)]}
     if any(w in q for w in BOOT_WORDS):
         return {"intent": "boot"}
     if re.search(r"\b(api|apis|route|routes|endpoint|endpoints)\b", q):
@@ -331,3 +334,44 @@ def format_routes(hits):
         return "Aucune route d'API ne correspond. Chaque module documente ses routes dans son README (onglet Historique du hub)."
     return "\n".join(["Routes d'API (service interne <module>-api:5000, exposées par la passerelle sous /api/<module>/) :"] +
                      ["• %s %s  [%s]%s" % (r.get("methods", "GET"), r["path"], r["module"], " -- " + r["doc"] if r.get("doc") else "") for r in hits])
+
+
+# ------------------------------------------------------------------ sauvegardes et snapshots (#726)
+def backup_answer(question, rows, vmids=(), snapshot=False, now=None, k=12):
+    """Inventaire unifié (/maint/backups, #724) -> lignes correspondant aux CT/VM cités et aux noms (nœud, CT) présents
+    dans la question ; la plus récente par (source, nœud, CT/VM, type). -> (lignes, filtre appliqué)."""
+    toks = set(words(question))
+    sel = [r for r in rows or [] if (not snapshot or r.get("kind") == "snapshot")]
+    if vmids:
+        sel = [r for r in sel if r.get("vmid") in set(vmids)]
+    named = [r for r in sel if toks & (set(words(r.get("node") or "")) | set(words(r.get("name") or "")))]
+    if named and not vmids:
+        sel = named
+    best = {}
+    for r in sel:
+        key = (r.get("source"), r.get("node"), r.get("vmid"), r.get("name") if r.get("vmid") is None else None, r.get("kind"))
+        if key not in best or (r.get("at") or 0) > (best[key].get("at") or 0):
+            best[key] = r
+    out = sorted(best.values(), key=lambda r: -(r.get("at") or 0))
+    return out[:k], {"vmids": list(vmids), "snapshot": snapshot, "named": bool(named), "total": len(out)}
+
+
+SOURCE_TXT = {"agent": "PVE", "ssh": "PVE distant", "pbs": "PBS", "tirée": "tirée"}
+
+
+def format_backups(rows, info, hub_url="/", now=None):
+    import time as _t
+    now = now or _t.time()
+    link = "%s?view=pve-maint" % hub_url
+    if not rows:
+        return ("Aucune %s trouvée%s. L'inventaire complet est dans Maintenance des Proxmox › Sauvegardes (%s)." %
+                ("snapshot" if info.get("snapshot") else "sauvegarde ni snapshot", " pour " + ", ".join(map(str, info["vmids"])) if info.get("vmids") else "", link))
+    lines = ["%d résultat(s)%s :" % (info["total"], " (les %d plus récents)" % len(rows) if info["total"] > len(rows) else "")]
+    for r in rows:
+        age = "il y a %d j" % ((now - r["at"]) // 86400) if r.get("at") else ""
+        lines.append("• %s %s / %s%s : %s du %s %s%s" % (
+            SOURCE_TXT.get(r.get("source"), r.get("source")), r.get("node"), r.get("vmid") if r.get("vmid") is not None else "",
+            " (%s)" % r["name"] if r.get("name") else "", r.get("kind"), r.get("at_text") or _fmt_dt(dt.datetime.fromtimestamp(r["at"], dt.timezone.utc).isoformat() if r.get("at") else None),
+            age, " — %s" % r["where"] if r.get("where") else ""))
+    lines.append("Détail : Maintenance des Proxmox › Sauvegardes → %s" % link)
+    return "\n".join(lines)

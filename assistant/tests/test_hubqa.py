@@ -37,6 +37,27 @@ class Detect(unittest.TestCase):
         self.assertEqual(hubqa.detect("version 1.2.3.4.5 et 300.1.1.1")["intent"], "other")   # ni numéro de version ni octet > 255
 
 
+class Backups(unittest.TestCase):
+    ROWS = [{"source": "ssh", "node": "pve-1", "vmid": 108, "name": "old", "kind": "snapshot", "at": 1_790_000_000, "at_text": "2026-09-21 10:00:00", "where": "avant-maj"},
+            {"source": "ssh", "node": "pve-1", "vmid": 108, "name": "old", "kind": "sauvegarde", "at": 1_791_000_000, "where": "local:backup/x"},
+            {"source": "ssh", "node": "pve-1", "vmid": 108, "name": "old", "kind": "sauvegarde", "at": 1_790_500_000, "where": "local:backup/y"},
+            {"source": "pbs", "node": "pbs10", "vmid": 101, "name": "101", "kind": "sauvegarde", "at": 1_791_200_000, "where": "backup:ct/101"},
+            {"source": "tirée", "node": "appli", "vmid": None, "name": "base+site", "kind": "sauvegarde", "at": 1_791_300_000, "where": "/d"}]
+
+    def test_detect_and_answer(self):
+        d = hubqa.detect("dernière sauvegarde du CT 108 ?")
+        self.assertEqual((d["intent"], d["vmids"], d["snapshot"]), ("backup", [108], False))
+        rows, info = hubqa.backup_answer("dernière sauvegarde du CT 108 ?", self.ROWS, [108])
+        self.assertEqual([(r["kind"], r["where"]) for r in rows], [("sauvegarde", "local:backup/x"), ("snapshot", "avant-maj")])   # la plus récente par type
+        rows, _ = hubqa.backup_answer("quels snapshots ?", self.ROWS, [], True)
+        self.assertEqual([r["vmid"] for r in rows], [108])
+        rows, info = hubqa.backup_answer("sauvegardes de appli", self.ROWS, [])
+        self.assertEqual((rows[0]["name"], info["named"]), ("base+site", True))
+        txt = hubqa.format_backups(*hubqa.backup_answer("snapshot du 108", self.ROWS, [108], True), hub_url="/", now=1_790_000_000 + 86400 * 20)
+        self.assertIn("2026-09-21 10:00:00", txt); self.assertIn("il y a 20 j", txt); self.assertIn("?view=pve-maint", txt)
+        self.assertIn("Aucune", hubqa.format_backups(*hubqa.backup_answer("sauvegarde du 999", self.ROWS, [999])))
+
+
 class FindInJson(unittest.TestCase):
     def test_exact_subnet_and_context(self):
         doc = {"agents": [{"agent_id": "pc-1", "last_ip": "192.0.2.42"}, {"agent_id": "pc-2", "last_ip": "192.0.2.4"},
@@ -97,6 +118,8 @@ class Api(unittest.TestCase):
         app_mod._hub_index = build_hub_index.build(os.path.dirname(os.path.dirname(HERE)))
 
     def fake_fetch(self, url):
+        if url.endswith("/maint/backups"):
+            return {"inventory": Backups.ROWS}
         if url.endswith("/fleet"):
             return FLEET
         if url.endswith("/agents/pc-compta-02/latest"):
@@ -113,6 +136,8 @@ class Api(unittest.TestCase):
         self.assertEqual(sorted(srcs), ["Agents hôtes", "IPAM"])
         self.assertIn("Zones DNS", [e["source"] for e in r["data"]["errors"]])
         self.assertIn("/?view=si-agent", r["answer"])
+        s = self.app_mod.hub_ask("dernière sauvegarde du CT 108", fetch=self.fake_fetch)
+        self.assertEqual(s["intent"], "backup"); self.assertIn("local:backup/x", s["answer"])
         b = self.app_mod.hub_ask("dernier redémarrage du PC-COMPTA-02", fetch=self.fake_fetch)
         self.assertEqual(b["intent"], "boot"); self.assertIn("06/10/2026", b["answer"])
 

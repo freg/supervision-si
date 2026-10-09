@@ -1,3 +1,14 @@
+## 2026-10-09 — « Questions sur le hub » : sauvegardes et snapshots (livraison #726)
+
+Suite de #715 avec l'inventaire de #724 : « dernière sauvegarde du CT 108 ? », « quels snapshots sur pve-1 ? »,
+« sauvegardes de l'appli … » -- l'assistant interroge `/maint/backups` (PVE avec ou sans agent, PBS, sauvegardes tirées)
+et répond par la plus récente de chaque source et type, avec son âge, son emplacement et le lien vers la vue Sauvegardes.
+
+- Vérifié : `assistant/tests` (25, dont détection, plus récente par type, filtre par nom de nœud ou de tâche, réponse
+  vide, passage par l'API avec sources simulées).
+- Non vérifié : API réelle, rendu.
+- Fichiers : `assistant/hubqa.py`, `assistant/app.py`, `assistant/tests/test_hubqa.py`.
+
 ## 2026-10-09 — Copie de secours ZFS différentielle sur disque externe, ancienneté suivie par le hub (livraison #725, agent 0.5.54)
 
 Demandé : sauvegarder la VM du PBS sur le disque USB de 10 To, en opération ponctuelle (pas de rotation de disques), avec un

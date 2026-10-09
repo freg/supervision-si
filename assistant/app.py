@@ -534,6 +534,15 @@ def hub_ask(question, llm=False, fetch=None):
         names = [a.get("hostname") or a.get("agent_id") for a in agents]
         out.update(answer=(out.get("error") + "\n" if out.get("error") else "") + hubqa.format_boot(infos, HUB_URL, names), data=infos,
                    links=[HUB_URL + "?view=si-agent"])
+    elif d["intent"] == "backup":   # #726 : inventaire des snapshots et sauvegardes (#724)
+        base = hubqa.env_url("SI_AGENT_API_URL", "http://si-agent-api:5000")
+        try:
+            rows = (fetch(base + "/maint/backups") or {}).get("inventory") or []
+        except Exception as e:
+            rows, out["error"] = [], "inventaire injoignable : %s" % str(e)[:120]
+        hits, info = hubqa.backup_answer(question, rows, d.get("vmids") or [], d.get("snapshot"))
+        out.update(answer=(out.get("error") + "\n" if out.get("error") else "") + hubqa.format_backups(hits, info, HUB_URL), data=hits,
+                   links=[HUB_URL + "?view=pve-maint"])
     elif d["intent"] == "api":
         hits = hubqa.search_routes(question, _hub_index.get("routes") or [])
         out.update(answer=hubqa.format_routes(hits), data=hits)
