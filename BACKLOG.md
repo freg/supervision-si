@@ -1,3 +1,26 @@
+## Tuile « Déploiement d'application » par clonage de configuration (2026-10-09) — item 117, À CADRER
+
+Demandé : « une tuile de déploiement d'application (GED, tickets…) : clonage configuration ». Lecture proposée :
+déployer une nouvelle instance d'une application du hub (GED, portail tickets…) pour un site ou un client en clonant
+la configuration d'une instance existante (variables, types/statuts/catégories, droits, habillage), sans les données.
+Briques existantes : tour de contrôle (#586, livraisons et runner), socle de nœud `deploy/socle.py` (#661), répartition
+par nœud (#509-#517), app_settings (prefs-api). À préciser : instance sur le même hub ou sur un autre nœud ; ce qui
+est cloné (configuration seule ou aussi référentiels) ; nommage et URL de la nouvelle instance.
+
+## Assistant IA « Questions sur le hub » (2026-10-09) — FAIT (#715)
+
+Demandé : « une micro IA qui réponde aux questions sur le hub et ses API, du genre où trouver le dernier reboot du pc
+sous Windows xxx, l'ip xx.yy est-elle visible quelque part dans le hub… ». Livré dans assistant-api, sans modèle
+(voir `assistant/README.md`). Suites possibles : autres intentions (« quel ticket concerne… », « qui a accès à… »),
+bouton « ? » dans l'en-tête du hub ouvrant l'onglet, sources validées sur les vraies API.
+
+## Assistant de design visuel et de parcours dans le module QA (2026-10-09) — item 116, CADRAGE À VALIDER
+
+Demandé : une IA capable de refondre un design visuel du hub avec des étapes de présentation de maquette, intégrée au
+module QA avec des outils d'automatisation de parcours dans le hub et les applications (tickets…), pour assister le
+design en évolution, rejouer un bug ou vérifier la conformité visuelle et ergonomique. Cadrage et découpage en 5
+tranches : `docs/qa-design-assistant.md` (trois choix à trancher avant de coder).
+
 ## Messagerie : supervision du serveur de courrier (Postfix + Amavis + Modoboa) (2026-10-07) — points 1 à 7 FAITS (#692, #697, #704, #708) ; reste : migration Debian 12 / Modoboa
 
 Incident réel (serveur de messagerie `mx-alpha`, Debian 9, Modoboa 1.14) : messages légitimes supprimés en silence

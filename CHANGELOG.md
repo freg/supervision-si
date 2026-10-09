@@ -1,3 +1,22 @@
+## 2026-10-09 — Assistant : « Questions sur le hub » (livraison #715)
+
+Demandé : une micro-IA qui réponde aux questions sur le hub et ses API (« où trouver le dernier reboot du pc Windows
+xxx ? », « l'ip xx.yy est-elle visible quelque part dans le hub ? »). `POST /assistant/hub/ask`, onglet par défaut de la
+page de l'assistant : réponses tirées des API elles-mêmes, sans modèle (le modèle seulement sur demande). Dernier
+démarrage d'un poste (agents hôtes, `last_boot` Windows ou relevé − uptime) ; adresse IP/MAC cherchée dans 14 sources
+(exacte ou sous-réseau CIDR, objet et champ) ; routes d'API (index des `@app.route` du dépôt) ; vue du hub (catalogue
+`hubThemes.js`, lien `?view=`). Index construit dans l'image (`build_hub_index.py` : 62 vues, 1130 routes au 9 oct.).
+Cadrage de la demande suivante (assistant de design et de parcours dans QA) : `docs/qa-design-assistant.md`, item 116.
+
+- Vérifié : `assistant/tests` (24 tests, dont 9 nouveaux : détection, bornes d'IP, recherche dans un JSON, MAC sous
+  toutes ses écritures, appariement des postes, dernier démarrage mesuré ou calculé, index construit depuis le dépôt réel,
+  API avec sources simulées dont une en panne) ; syntaxe JS de la page (`new Function`).
+- Non vérifié : formats réels des 14 sources (une source au format inattendu ne fait que ne rien trouver), build de l'image,
+  rendu navigateur.
+- Fichiers : `assistant/hubqa.py`, `assistant/build_hub_index.py`, `assistant/app.py`, `assistant/static/index.html`,
+  `assistant/Dockerfile`, `assistant/requirements.txt` (tzdata), `assistant/tests/test_hubqa.py`, `assistant/README.md`,
+  `docker-compose.yml`, `.env.example`, `docs/qa-design-assistant.md`, `BACKLOG.md`.
+
 ## 2026-10-08 — Sauvegardes « tirées » des PVE anciens vers le LAN (livraison #714, agent 0.5.50)
 
 Constat réel : PVE 5.4 sur les trois nœuds en ligne (pas de stockage PBS avant 6.2), nœuds pleins (pas de place pour un

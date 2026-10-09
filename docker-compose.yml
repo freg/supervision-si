@@ -2727,6 +2727,19 @@ services:
       - LLM_THINK=${LLM_THINK:-false}
       - TICKETS_API_URL=http://tickets-api:5000
       - GED_API_URL=http://ged-api:5000
+      # #715 « Questions sur le hub » : API interrogées (lecture seule) et adresse du hub pour les liens ?view=.
+      # Sources supplémentaires ou retirées : ${ASSISTANT_DATA_DIR}/hub-sources.json (voir assistant/README.md).
+      - HUB_PUBLIC_URL=${HUB_PUBLIC_URL:-/}
+      - TZ=${TZ:-Europe/Paris}
+      - SI_AGENT_API_URL=http://si-agent-api:5000
+      - IPAM_API_URL=http://ipam-api:5000
+      - NETWORK_AGENT_API_URL=http://${HOST_IP:-localhost}:${NETWORK_AGENT_HOST_PORT:-15000}
+      - NETWORK_EQUIPMENT_API_URL=http://network-equipment-api:5000
+      - NEBULA_API_URL=http://nebula-api:5000
+      - MIKROTIK_API_URL=http://mikrotik-api:5000
+      - CISCO_API_URL=http://cisco-api:5000
+      - NETPROBE_API_URL=http://netprobe-api:5000
+      - DNS_API_URL=http://dns-api:5000
     volumes:
       # Documents indexés (lecture seule) : par défaut la documentation du
       # dépôt ; pointer ASSISTANT_DOCS_DIR vers un dossier de documents réels.

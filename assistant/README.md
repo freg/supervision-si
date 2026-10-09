@@ -192,3 +192,27 @@ interne » (80 propositions max), « Retenir les N premières » coche la
 sélection ; rien n'est exécuté sans validation. Suite prévue (Vox-cortex,
 item 83) : exécuter les actions `automatisable` du catalogue après clic,
 puis en autonomie sur des règles apprises, journal des décisions.
+
+## Questions sur le hub (livraison #715) — `POST /assistant/hub/ask`
+
+« Micro-IA » pour les questions pratiques sur le hub et ses API. Elle répond **sans modèle**, en interrogeant les
+API du hub (quelques secondes, même sans GPU) ; le modèle n'est sollicité que si on coche « demander aussi au modèle ».
+Onglet **Questions sur le hub** de la page de l'assistant (ouvert par défaut ; lien direct `/assistant/?tab=hub&q=…`).
+
+| Question | Ce qui est fait |
+|---|---|
+| « où trouver le dernier redémarrage du pc XXX ? » | agents hôtes (`si-agent-api /fleet`) : poste reconnu par son nom (agent, hostname, libellé), puis dernière mesure `host` : `system.last_boot` (Windows) ou relevé − durée de fonctionnement ; lien `?view=si-agent` |
+| « l'ip 192.0.2.10 / la MAC 02:… est-elle visible quelque part ? » | balayage en parallèle des sources (agents, postes Windows, vue réseau, Proxmox, IPAM, exploration réseau, équipements, Nebula, MikroTik et NAT, Cisco, sondes, DNS) : adresse exacte ou sous-réseau CIDR qui la contient, objet englobant et champ ; sources injoignables listées à part |
+| « quelle API donne les zones DNS ? » | index des routes Flask du dépôt (`@app.route`, 1re ligne de docstring), construit dans l'image |
+| « où sont les onduleurs ? » | catalogue des vues (`hub/src/hubThemes.js`), lien `?view=…`, + 3 extraits de la documentation indexée |
+
+- Index construit **à la construction de l'image** (`assistant/build_hub_index.py` → `/hub-index/hub-index.json`) :
+  reconstruire `assistant-api` après l'ajout d'une vue ou d'une API.
+- Sources : défauts dans `hubqa.default_sources()` (URL internes, variables `*_API_URL` de `docker-compose.yml`) ;
+  ajout, remplacement ou retrait par identifiant dans `${ASSISTANT_DATA_DIR}/hub-sources.json` :
+  `[{"id": "glpi", "label": "GLPI", "url": "http://glpi-api:5000/inventory-summary", "view": "glpi-inventory"}, {"id": "dns", "disabled": true}]`.
+  `GET /assistant/hub/sources` liste les sources effectives.
+- Lecture seule, aucune écriture dans les autres modules. Liens : `HUB_PUBLIC_URL` (défaut `/`, même origine).
+- Tests : `assistant/tests/test_hubqa.py` (détection, recherche d'adresses dans un JSON, appariement des postes, dernier
+  démarrage, index construit depuis le vrai dépôt, API avec sources simulées dont une en panne).
+- Non vérifié : appels aux vraies API (formats réels de chaque source, droits), rendu navigateur.

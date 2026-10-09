@@ -17,6 +17,7 @@ import time
 import requests
 from flask import Flask, jsonify, request, send_from_directory
 
+import hubqa  # #715 : questions pratiques sur le hub et ses API
 import rag
 
 log = logging.getLogger("assistant")
@@ -494,6 +495,73 @@ def journal_route():
     except (OSError, ValueError):
         pass
     return jsonify({"journal": list(reversed(out))}), 200
+
+
+# ------------------------------------------------------------------
+# Questions sur le hub (#715) : réponses tirées des API du hub elles-mêmes,
+# sans modèle (hubqa.py) ; le modèle n'est sollicité que sur demande (llm).
+# ------------------------------------------------------------------
+HUB_INDEX_PATH = os.environ.get("ASSISTANT_HUB_INDEX", "/hub-index/hub-index.json")
+HUB_URL = os.environ.get("HUB_PUBLIC_URL", "/").rstrip("/") + "/"
+_hub_index = {"catalog": [], "routes": []}
+try:
+    _hub_index = json.load(open(HUB_INDEX_PATH, encoding="utf-8"))
+except (OSError, ValueError):
+    log.warning("index du hub absent (%s) : catalogue et routes indisponibles", HUB_INDEX_PATH)
+
+
+def hub_ask(question, llm=False, fetch=None):
+    fetch = fetch or hubqa.fetch_json
+    t0 = time.time()
+    d = hubqa.detect(question)
+    out = {"question": question, "intent": d["intent"], "answer": "", "data": None, "links": []}
+    if d["intent"] == "locate":
+        res = hubqa.locate(d["ips"], d["macs"], hubqa.load_sources(os.path.join(DATA_DIR, "hub-sources.json")), fetch=fetch, hub_url=HUB_URL)
+        out.update(answer=hubqa.format_locate(d["ips"] + d["macs"], res), data=res, links=[f["link"] for f in res["found"] if f.get("link")])
+    elif d["intent"] == "boot":
+        base = hubqa.env_url("SI_AGENT_API_URL", "http://si-agent-api:5000")
+        try:
+            agents = (fetch(base + "/fleet") or {}).get("agents") or []
+        except Exception as e:
+            agents, out["error"] = [], "agents hôtes injoignables : %s" % str(e)[:120]
+        infos = []
+        for a in hubqa.match_hosts(question, agents):
+            try:
+                latest = (fetch("%s/agents/%s/latest" % (base, a["agent_id"])) or {}).get("latest")
+            except Exception:
+                latest = None
+            infos.append(hubqa.boot_info(a, latest))
+        names = [a.get("hostname") or a.get("agent_id") for a in agents]
+        out.update(answer=(out.get("error") + "\n" if out.get("error") else "") + hubqa.format_boot(infos, HUB_URL, names), data=infos,
+                   links=[HUB_URL + "?view=si-agent"])
+    elif d["intent"] == "api":
+        hits = hubqa.search_routes(question, _hub_index.get("routes") or [])
+        out.update(answer=hubqa.format_routes(hits), data=hits)
+    else:
+        hits = hubqa.search_catalog(question, _hub_index.get("catalog") or [], HUB_URL)
+        docs = [{"title": h["title"], "source": h["source"], "excerpt": h["text"][:240]} for h in INDEX.search(question, k=3)]
+        out.update(answer=hubqa.format_catalog(hits, HUB_URL), data={"views": hits, "docs": docs}, links=[h["link"] for h in hits if h.get("link")])
+        if llm:
+            a = ask(question, log=True)
+            out["llm"] = {"answer": a.get("answer") or a.get("content") or a.get("text"), "error": a.get("error"), "ms": a.get("ms"), "sources": a.get("sources")}
+    out["ms"] = int((time.time() - t0) * 1000)
+    journal("hub-ask", {"question": question, "ms": out["ms"], "result": out["answer"][:700], "intent": out["intent"]})
+    return out
+
+
+@app.route(PREFIX + "/hub/ask", methods=["POST"])
+def hub_ask_route():
+    b = request.get_json(silent=True) or {}
+    q = (b.get("question") or "").strip()
+    if not q:
+        return _bad("question vide")
+    return jsonify(hub_ask(q, llm=bool(b.get("llm")))), 200
+
+
+@app.route(PREFIX + "/hub/sources", methods=["GET"])
+def hub_sources_route():
+    return jsonify({"sources": hubqa.load_sources(os.path.join(DATA_DIR, "hub-sources.json")), "catalog": len(_hub_index.get("catalog") or []),
+                    "routes": len(_hub_index.get("routes") or []), "hub_url": HUB_URL}), 200
 
 
 if os.environ.get("ASSISTANT_INDEX_AT_START", "1") == "1":

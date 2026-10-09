@@ -10,16 +10,19 @@ COPY . /ctx
 RUN mkdir -p /repo-docs && cp /ctx/README.md /ctx/CHANGELOG.md /ctx/BACKLOG.md /repo-docs/ 2>/dev/null; \
     for f in /ctx/*/README.md; do d=$(basename "$(dirname "$f")"); cp "$f" "/repo-docs/$d.md"; done; \
     ls /repo-docs | wc -l
+# #715 : catalogue des vues (hubThemes.js) et routes d'API des modules, pour « Questions sur le hub ».
+RUN python3 /ctx/assistant/build_hub_index.py /ctx /hub-index/hub-index.json
 
 FROM python:3.12-slim
 WORKDIR /app
 COPY assistant/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY assistant/app.py assistant/rag.py .
+COPY assistant/app.py assistant/rag.py assistant/hubqa.py .
 COPY assistant/static/ ./static/
 COPY assistant/eval/ ./eval/
 COPY shared/version_endpoint.py shared/VERSION.json .
 COPY --from=repodocs /repo-docs /repo-docs
+COPY --from=repodocs /hub-index /hub-index
 RUN mkdir -p /data /docs
 EXPOSE 5000
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "4", "--timeout", "900", "app:app"]
