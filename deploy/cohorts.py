@@ -44,7 +44,14 @@ RELAY_IMAGE = "alpine/socat:1.8.0.0"
 PORT_BASE = 20000  # ports VPN : PORT_BASE + 10 * rang du service + rang du port interne
 
 
-def load_services():
+def _instances():
+    """Module des instances clonées (#731) -- importé à la demande (même dossier)."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import instances
+    return instances
+
+
+def load_services(with_instances=True):
     services, origin = {}, {}
     for f in COMPOSE_FILES:
         p = os.path.join(ROOT, f)
@@ -55,6 +62,10 @@ def load_services():
         for name, svc in (doc.get("services") or {}).items():
             services[name] = svc or {}
             origin[name] = f
+    if with_instances:   # #731 : services clonés des instances du registre deploy/instances.json
+        inst = _instances()
+        clones, corigin = inst.instance_services(inst.load_registry(), services)
+        services.update(clones); origin.update(corigin)
     return services, origin
 
 
@@ -123,12 +134,27 @@ def proxy_table():
         src = open(PROXY_TABLE, encoding="utf-8").read()
     except OSError:
         return []
-    return [(m.group(1), int(m.group(2))) for m in re.finditer(r'\("[A-Z0-9_]+",\s*"([a-z0-9-]+)",\s*(\d+)', src)]
+    base = [(m.group(1), int(m.group(2))) for m in re.finditer(r'\("[A-Z0-9_]+",\s*"([a-z0-9-]+)",\s*(\d+)', src)]
+    inst = _instances()
+    return base + [(svc, port) for _, svc, port, _, _ in inst.routes(inst.load_registry())]
 
 
-def load_cohorts():
+def proxy_paths():
+    """[(service, chemin public)] de la table de tls-proxy (hors instances) -- collisions de routes (#731)."""
+    try:
+        src = open(PROXY_TABLE, encoding="utf-8").read()
+    except OSError:
+        return []
+    return [(m.group(1), m.group(2)) for m in re.finditer(r'\("[A-Z0-9_]+",\s*"([a-z0-9_-]+)",\s*\d+,\s*"([^"]+)"', src)]
+
+
+def load_cohorts(with_instances=True):
     with open(COHORTS_FILE, encoding="utf-8") as fh:
-        return json.load(fh)
+        c = json.load(fh)
+    if with_instances:   # #731 : une cohorte inst-<nom> par instance clonée
+        inst = _instances()
+        c["cohorts"] += inst.instance_cohorts(inst.load_registry())[0]
+    return c
 
 
 def assign(cohorts, services):
@@ -195,9 +221,13 @@ def report(cohorts, info, where, origin):
     return "\n".join(lines)
 
 
-def load_nodes(path=NODES_FILE):
+def load_nodes(path=NODES_FILE, with_instances=True):
     with open(path, encoding="utf-8") as fh:
-        return json.load(fh)
+        nodes = json.load(fh)
+    if with_instances:   # #731 : cohorte de chaque instance affectée à son nœud
+        inst = _instances()
+        inst.attach(nodes, inst.load_registry())
+    return nodes
 
 
 def node_map(nodes):
@@ -244,11 +274,14 @@ def override(cohorts, services, info, where, origin, nodes, me):
     out, out_gateway = {"services": {}}, {"services": {}}
     plan = {"node": me, "wg_address": node["wg_address"], "edge": edge, "services": sorted(local_main),
             "gateway": sorted(local_gateway), "host_network": host_only, "relays": [], "published": {}, "missing": []}
+    plan["instances"] = sorted({origin[s].split(":", 1)[1] for s in local_main if origin[s].startswith("instance:")})
     for s in local_main:  # publication VPN des services locaux joignables
+        if origin[s].startswith("instance:"):   # #731 : service cloné, absent du compose -> définition complète ici
+            out["services"][s] = json.loads(json.dumps(services[s]))
         if not info[s]["ports"]:
             continue
         pub = ["%s:%d:%d" % (node["wg_address"], vpn_port(info, s, p), p) for p in info[s]["ports"]]
-        out["services"][s] = {"ports": pub}
+        out["services"].setdefault(s, {})["ports"] = pub
         plan["published"][s] = pub
     for s in local_gateway:  # Keycloak publié sur le VPN pour la bordure distante (#510)
         if info.get(s, {}).get("ports") and s != "tls-proxy":

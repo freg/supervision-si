@@ -1,3 +1,19 @@
+## 2026-10-09 — Instances d'application clonées : registre et génération des services (livraison #731)
+
+Item 117 tranche 2 : `deploy/instances.json` déclare une instance (« formation », portail tickets, sur tel nœud) ;
+`deploy/instances.py` en déduit les services renommés (`tickets-api-formation`, `tickets-portal-formation`), leurs
+données propres, leurs routes `/tickets-formation/` et `/api/tickets-formation/` ; le plan par nœud
+(`deploy/cohorts.py override`) et la passerelle (`render_nginx_conf.py`) les intègrent. Base SQLite forcée pour un
+clone : il ne peut pas toucher la base de l'instance d'origine.
+
+- Vérifié : `deploy/tests` (26, dont clonage, contrôles du registre, override du nœud cible et relais de la bordure,
+  rendu nginx), `cohorts.py check` et `render_nginx_conf.py --check` sur le dépôt (registre absent : inchangé),
+  `tickets/api` tests.
+- Non vérifié : construction et démarrage réels d'un clone ; le front servi sous `/tickets-<nom>/`.
+- Fichiers : `deploy/instances.py`, `deploy/instances.example.json`, `deploy/cohorts.py`, `deploy/tests/test_instances.py`,
+  `tls-proxy/render_nginx_conf.py`, `tickets/portal/vite.config.js` (`VITE_BASE`), `.gitignore`,
+  `docs/deploiement-instances.md`.
+
 ## 2026-10-09 — « Questions sur le hub » : tickets, agents hors ligne, emplacement des VM/CT (livraison #730)
 
 Trois nouvelles familles de questions, toujours sans modèle : « quels tickets sont en retard ? », « tickets ouverts

@@ -15,7 +15,7 @@ const allowedHosts = ALLOWED.includes("*") ? true : [...new Set([process.env.HOS
 
 export default defineConfig({
   plugins: [react()],
-  base: "/tickets/",
+  base: process.env.VITE_BASE || "/tickets/",   // #731 : instance clonée -> /tickets-<nom>/
   server: {
     allowedHosts,
     host: "0.0.0.0",

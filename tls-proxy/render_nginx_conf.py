@@ -545,13 +545,23 @@ def relays_from_env(env):
     return out
 
 
+def instance_routes():
+    """#731 : routes des instances clonées (deploy/instances.json) -- vide si le registre ou le module manque."""
+    try:
+        sys.path.insert(0, os.path.join(ROOT, "deploy"))
+        import instances
+        return instances.routes(instances.load_registry())
+    except Exception:
+        return []
+
+
 def build_config(env):
     gateway_port = resolve_gateway_port(env)
     host_ip = resolve_host_ip(env)
     locations = []
     summary = [f"  Port unique (GATEWAY_PORT) : {gateway_port}", ""]
     seen_paths = {}
-    for var_name, service, container_port, path, kind in SERVICES:
+    for var_name, service, container_port, path, kind in SERVICES + instance_routes():
         if service == "__HOST_IP__":
             service = host_ip
         if path in seen_paths:

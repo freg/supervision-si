@@ -109,6 +109,8 @@ credentials/data/*
 !credentials/data/.gitkeep
 deploy/generated/
 deploy/nodes.json
+deploy/instances.json
+instances/
 si-agent/standalone/generated/
 # #523 : exports réels (DNS, OVH, IPAM) et synthèse générée -- jamais dans le dépôt
 synthese/data/
