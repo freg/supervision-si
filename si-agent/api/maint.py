@@ -38,7 +38,7 @@ STATUSES = ("draft", "active", "done", "archived")
 
 # ------------------------------------------------------------------ pur : instantané des mesures
 
-def snapshot(px, now=None, agents=None, pulled=None, pbs_servers=None):
+def snapshot(px, now=None, agents=None, pulled=None, pbs_servers=None, remote_pves=None):
     """latest_proxmox -> {nodes: {nom: {agent_id, at, stale, storages, vms}}, jobs: [...], agents: {id: version},
     pulled: [sauvegardes tirées (#714)]}."""
     now = now or time.time()
@@ -54,7 +54,7 @@ def snapshot(px, now=None, agents=None, pulled=None, pbs_servers=None):
             if key not in seen:
                 seen.add(key); jobs.append(dict(j, node=name))
     return {"nodes": nodes, "jobs": jobs, "agents": dict(agents or {}), "now": now, "pulled": list(pulled or []),
-            "pbs_servers": list(pbs_servers or [])}
+            "pbs_servers": list(pbs_servers or []), "remote_pves": list(remote_pves or [])}
 
 
 def _epoch(v):
@@ -477,7 +477,7 @@ def pbs_overview(snap, old_h=48):
                            "last_run_ok": run.get("ok"), "flags": flags, "stale": n["stale"]})
     pbs = [s for s in stores if s["type"] == "pbs"]
     return {"stores": stores, "jobs": snap["jobs"], "guests": guests, "has_pbs": bool(pbs) or bool(snap.get("pbs_servers")), "pulled": snap.get("pulled") or [],
-            "pbs_servers": snap.get("pbs_servers") or [],
+            "pbs_servers": snap.get("pbs_servers") or [], "remote_pves": snap.get("remote_pves") or [],
             "summary": {"guests": len(guests), "uncovered": sum(1 for g in guests if "hors tâche planifiée" in g["flags"]),
                         "never": sum(1 for g in guests if "jamais sauvegardé" in g["flags"]),
                         "old": sum(1 for g in guests if any(f.startswith("sauvegarde de plus") for f in g["flags"])),
@@ -512,9 +512,11 @@ def current_snapshot(now=None):
                         "tasks": [t for t in ((d.get("tasks") or {}).get("recent") or []) if t.get("status") not in ("OK", "en cours")],
                         "alerts": d.get("alerts") or [], "summary": d.get("summary") or {}, "error": d.get("error") or d.get("tasks_error")}
                        for aid, at, d in latest_plugin(conn, "plugin:pbs")]
+        # #723 : PVE distants sans agent, inventoriés par ssh depuis le serveur de sauvegarde (sonde pve-remote)
+        remote = [dict(n, agent_id=aid, at=at) for aid, at, d in latest_plugin(conn, "plugin:pve-remote") for n in d.get("nodes") or []]
     finally:
         conn.close()
-    return snapshot(_db["latest"](), now, agents, pulled, pbs_servers)
+    return snapshot(_db["latest"](), now, agents, pulled, pbs_servers, remote)
 
 
 def latest_plugin(conn, task):

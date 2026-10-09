@@ -11,7 +11,7 @@ import HubIcon from "./HubIcon.jsx";
 import { fetchMaintCatalog, fetchMaintCampaigns, fetchMaintCampaign, createMaintCampaign, updateMaintCampaign, deleteMaintCampaign,
   maintAction, maintTemplate, fetchMaintBackups } from "./siAgentClient.js";
 import { STATE_LABEL, STATE_TONE, HOW_LABEL, STATUS_LABEL, detectorFields, paramsToText, textToParams, toLocalInput, fromLocalInput,
-  emptyAction, plannedList, missingParams, move, gb } from "./pveMaintLib.js";
+  emptyAction, plannedList, missingParams, move, gb, campaignLines } from "./pveMaintLib.js";
 
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const when = (t) => (t ? new Date(t * 1000).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "—");
@@ -324,6 +324,33 @@ function PbsServer({ p }) {
   );
 }
 
+// #723 : PVE distants sans agent (sonde pve-remote du serveur de sauvegarde) et campagne de sauvegardes tirées prête à lancer.
+function RemotePves({ nodes }) {
+  const [running, setRunning] = useState(false);
+  const [exclude, setExclude] = useState([]);
+  const text = campaignLines(nodes, { includeRunning: running, exclude });
+  const toggle = (k) => setExclude((x) => (x.includes(k) ? x.filter((y) => y !== k) : [...x, k]));
+  const download = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" })); a.download = "campagne.list"; a.click(); URL.revokeObjectURL(a.href); };
+  return (
+    <div style={box}><strong>PVE distants (sans agent)</strong> <span className="muted">(sonde pve-remote du serveur de sauvegarde, par ssh)</span>
+      {nodes.map((n) => (
+        <div key={`${n.agent_id}|${n.name}`} style={{ marginTop: 8 }}>
+          <p style={{ margin: "4px 0" }}><strong>{n.name}</strong> <span className="muted">{n.host} · relevé {n.at ? new Date(n.at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "—"}{n.source ? ` · ${n.source}` : ""}</span>
+            {!n.ok && <> <Tone tone="bad">injoignable : {n.error}</Tone></>}
+            {(n.storages || []).map((x) => <span key={x.storage} className="muted"> · {x.storage} {x.total ? `${Math.round(100 * x.used / x.total)} % (${gb(x.avail)} libres)` : ""}</span>)}</p>
+          {n.ok && <AutoColumns id="PveMaintView.remote"><table><thead><tr><th>Campagne</th><th>CT/VM</th><th>Nom</th><th>Type</th><th>État</th><th>Disque</th></tr></thead>
+            <tbody>{(n.guests || []).map((g) => { const k = `${n.name}/${g.vmid}`; const eligible = g.type === "lxc" && (g.status === "stopped" || running); return (
+              <tr key={k}><td><input type="checkbox" disabled={!eligible} checked={eligible && !exclude.includes(k)} onChange={() => toggle(k)} /></td><td>{g.vmid}</td><td>{g.name}</td><td>{g.type}</td>
+                <td><Tone tone={g.status === "running" ? "warn" : "neutral"}>{g.status}</Tone></td><td>{gb(g.maxdisk)}</td></tr>); })}</tbody></table></AutoColumns>}
+        </div>))}
+      <p style={{ margin: "10px 0 4px" }}><strong>Campagne de sauvegardes tirées</strong> <label style={{ marginLeft: 8 }}><input type="checkbox" checked={running} onChange={(e) => setRunning(e.target.checked)} /> inclure les CT en marche (ARRÊTÉS pendant leur copie)</label>
+        <button type="button" style={{ marginLeft: 8 }} onClick={download}>Télécharger campagne.list</button></p>
+      <pre style={{ maxHeight: 220, overflow: "auto", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 6, padding: 8 }}>{text}</pre>
+      <p className="muted">Sur le serveur de sauvegarde : déposer le fichier en /root/campagne.list puis <code>systemd-run --unit=pull-campagne /usr/local/sbin/pve-pull-batch.sh /root/campagne.list</code> ; suivi : <code>journalctl -fu pull-campagne</code>, notifications et cette vue.</p>
+    </div>
+  );
+}
+
 function Backups({ base }) {
   const [d, setD] = useState(null);
   const [onlyIssues, setOnlyIssues] = useState(true);
@@ -342,6 +369,7 @@ function Backups({ base }) {
           <tbody>{d.stores.map((x) => <tr key={`${x.node}|${x.storage}`}><td>{x.node}</td><td>{x.storage}</td><td>{x.type}</td>
             <td>{x.total ? <><Bar pct={Math.round(100 * (x.used || 0) / x.total)} /> {gb(x.used)} / {gb(x.total)} ({gb(x.avail)} libres)</> : "—"}</td></tr>)}</tbody></table></AutoColumns></div>
       {(d.pbs_servers || []).map((p) => <PbsServer key={p.agent_id} p={p} />)}
+      {(d.remote_pves || []).length > 0 && <RemotePves nodes={d.remote_pves} />}
       {d.pulled?.length > 0 && <div style={box}><strong>Sauvegardes tirées vers le LAN</strong> <span className="muted">(pve-pull-backup.sh, sonde pulled-backups)</span>
         <AutoColumns id="PveMaintView.pulled"><table><thead><tr><th>Nœud / hôte</th><th>CT / tâche</th><th>Dernière réussie</th><th>Taille</th><th>Fichier</th><th>Dernière tentative</th></tr></thead>
           <tbody>{d.pulled.map((b) => <tr key={`${b.host}|${b.job || b.vmid}`}><td>{b.host}</td><td>{b.job || b.vmid}{b.notify_ok ? " ✉" : ""}</td>

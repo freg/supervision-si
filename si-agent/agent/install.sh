@@ -118,6 +118,7 @@ fi
 if [ "$UPGRADE" != "true" ] && [ "$DETECT" = "true" ] && command -v proxmox-backup-manager >/dev/null; then
   case " ${ENABLE[*]:-} " in *" pbs "*) ;; *) ENABLE+=("pbs");; esac
   if [ -f /srv/backup/dumps/pulls.jsonl ]; then case " ${ENABLE[*]:-} " in *" pulled-backups "*) ;; *) ENABLE+=("pulled-backups");; esac; fi
+  if [ -f /etc/si-agent/pve-remote.json ]; then case " ${ENABLE[*]:-} " in *" pve-remote "*) ;; *) ENABLE+=("pve-remote");; esac; fi   # #723
   [ -n "$PLUGINS_USER" ] || PLUGINS_USER="root"
   echo "Proxmox Backup Server détecté : plugin(s) ${ENABLE[*]} activé(s), sondes exécutées en $PLUGINS_USER (--no-detect pour l'éviter)"
 fi

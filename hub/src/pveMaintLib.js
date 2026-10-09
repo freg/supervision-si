@@ -64,3 +64,23 @@ export function move(list, i, d) {
 }
 
 export function gb(n) { return n == null ? "—" : `${(n / 1024 ** 3).toFixed(0)} Go`; }
+
+
+// #723 : liste de campagne pour pve-pull-batch.sh (#717) depuis l'inventaire des PVE distants (sonde pve-remote).
+// Une ligne par CT retenu : « hôte vmid stop garder nom » ; CT arrêtés d'abord (aucune coupure de service), puis les CT
+// en marche SEULEMENT si demandés (ils seront ARRÊTÉS pendant leur copie). VM QEMU exclues (le script tire des CT).
+export function campaignLines(nodes, { includeRunning = false, exclude = [], keep = 2 } = {}) {
+  const skip = new Set((exclude || []).map(String));
+  const rows = [];
+  for (const n of nodes || []) {
+    if (!n || !n.ok) continue;
+    for (const g of n.guests || []) {
+      if (g.type !== "lxc" || skip.has(`${n.name}/${g.vmid}`)) continue;
+      if (g.status !== "stopped" && !includeRunning) continue;
+      rows.push({ n, g, order: g.status === "stopped" ? 0 : 1 });
+    }
+  }
+  rows.sort((a, b) => a.order - b.order || String(a.n.name).localeCompare(String(b.n.name)) || a.g.vmid - b.g.vmid);
+  const head = [`# Campagne de sauvegardes tirées générée par le hub (#723) -- ${rows.length} CT`, "# hôte vmid mode garder nom ; les CT « running » sont ARRÊTÉS pendant leur copie"];
+  return head.concat(rows.map(({ n, g }) => `${n.host} ${g.vmid} stop ${keep} ${n.name}${g.status !== "stopped" ? "   # running : " + (g.name || "") : g.name ? "   # " + g.name : ""}`)).join("\n") + "\n";
+}

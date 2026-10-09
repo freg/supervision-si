@@ -1403,3 +1403,13 @@ campagne), journal `campagne-<date>.log` dans `PULL_DEST`. Chaque CT réussi est
 `notify_ok` dans `pulls.jsonl` → événement `backup-done` → notify-api) ; un échec donne `backup-alert`.
 **Mode `stop` : le CT est arrêté pendant toute la copie** (redémarré ensuite par vzdump s'il tournait) — pour un CT en
 service, choisir le créneau ou la copie en deux passes de la Maintenance des Proxmox.
+
+## Inventaire des PVE distants sans agent et campagne générée par le hub (livraison #723, agent 0.5.52)
+
+Sonde **`pve-remote`** (privilégiée, sur le serveur de sauvegarde) : pour chaque hôte de `/etc/si-agent/pve-remote.json`
+(`[{"name": "pve-1", "host": "<ip>", "key": "/root/.ssh/pve_backup"}]`, hors dépôt), par ssh en lecture seule :
+`pvesh get /cluster/resources --type vm --output-format json` (repli `pct list` + `qm list` sur les PVE anciens) et
+`pvesm status`. Nœud injoignable = constat `pve-remote-unreachable:<nom>`. `install.sh` l'active sur un PBS si le fichier
+existe. Hub, Maintenance des Proxmox › Sauvegardes, section « PVE distants » : CT/VM par nœud (état, disque), stockages,
+et **campagne prête** pour `pve-pull-batch.sh` (#717) : CT arrêtés d'abord, CT en marche seulement si on coche (ils
+seront arrêtés pendant leur copie), exclusions case à case, téléchargement de `campagne.list`.

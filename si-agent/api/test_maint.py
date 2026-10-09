@@ -248,6 +248,12 @@ class Routes(unittest.TestCase):
         b = self.c.get("/maint/backups").get_json()
         self.assertEqual([(x["agent_id"], len(x["groups"]), [t["kind"] for t in x["tasks"]]) for x in b["pbs_servers"]], [("pve-alpha", 1, ["verify"])])
         self.assertTrue(b["has_pbs"])
+        # #723 : inventaire des PVE distants (sonde pve-remote) relu par le central
+        conn = store._connect(self.db)
+        conn.execute("INSERT INTO measurements (agent_id, task, at, ok, data, received_at) VALUES ('pve-alpha', 'plugin:pve-remote', '2026-10-09T10:00:00Z', 1, ?, '2026-10-09T10:00:01Z')",
+                     (json.dumps({"nodes": [{"name": "pve-x", "host": "203.0.113.30", "ok": True, "guests": [{"vmid": 101, "status": "stopped", "type": "lxc"}], "storages": []}]}),))
+        conn.commit(); conn.close()
+        self.assertEqual([(n["name"], n["agent_id"], len(n["guests"])) for n in self.c.get("/maint/backups").get_json()["remote_pves"]], [("pve-x", "pve-alpha", 1)])
         self.assertEqual(self.c.delete("/maint/campaigns/%d" % cid).status_code, 200)
         self.assertEqual(self.c.get("/maint/campaigns/%d" % cid).status_code, 404)
 

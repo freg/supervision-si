@@ -1,3 +1,18 @@
+## 2026-10-09 — Inventaire des PVE distants par le hub et campagne générée (livraison #723, agent 0.5.52)
+
+Demandé : « la liste de CT, c'est quelque chose que le hub devrait pouvoir faire ». Nouvelle sonde `pve-remote` sur le
+serveur de sauvegarde : inventaire par ssh, sans agent, des PVE listés dans `/etc/si-agent/pve-remote.json` (CT/VM,
+état, disque, stockages). La vue Sauvegardes de la Maintenance des Proxmox les affiche et génère la liste de campagne
+de `pve-pull-batch.sh` (CT arrêtés d'abord, CT en marche sur demande seulement, exclusions, téléchargement).
+
+- Vérifié : `plugins/pve-remote/test_pve_remote.py` (3 : sorties réelles de pct/qm/pvesm, pvesh filtré par nœud, repli,
+  nœud injoignable), `si-agent/api` (65), `test_si_agent.py` (liste des plugins livrés), `node --test` (334, dont la
+  génération de campagne), syntaxe `@babel/parser`, `bash -n install.sh`.
+- Non vérifié : ssh réel vers des PVE 5.4 (format de `pvesh --output-format` selon la version : repli prévu), rendu.
+- Fichiers : `si-agent/agent/plugins/pve-remote/*`, `si-agent/api/{maint,store}.py`, `si-agent/api/test_maint.py`,
+  `si-agent/agent/install.sh`, `si-agent/agent/si_agent/__init__.py`, `si-agent/agent/tests/test_si_agent.py`,
+  `hub/src/{PveMaintView.jsx,pveMaintLib.js}`, `hub/tests/pveMaintLib.test.mjs`, `si-agent/README.md`.
+
 ## 2026-10-09 — Portail tickets : export « configuration » pour le clonage d'instance (livraison #722, item 117 tranche 1)
 
 Décisions du 9 oct. : la nouvelle instance clonée (GED, tickets…) tourne sur un autre nœud ; le clonage copie
