@@ -86,3 +86,13 @@ traversant de non-régression**, rejoué en **campagne** (tous les scénarios de
   `POST /mockups/<id>/decision {status: validee|rejetee, variant, comment}`.
 - Vérifié dans un vrai Chromium (Playwright) sur une page de test : note 70 → 95 avec la variante calculée
   (contraste, en-tête fixe, cible petite corrigés ; reste la couleur en dur, non corrigeable par CSS).
+
+## Boucle de conception : maquette validée = cible (livraison #729, item 116 tranche 5)
+
+- Valider une variante en fait la **cible** du scénario (`target_run_id`, `target_mockup_id`) et le passe en
+  non-régression. Chaque exécution (unitaire ou en campagne) est comparée aux captures de la variante : `design`
+  `{compared, significant, score, target_score, conforme}` ; conforme = parcours réussi et aucun écart significatif.
+- La première exécution conforme marque la maquette **intégrée** (`integrated_run_id`, `integrated_at`).
+- `GET /runs/<id>/design` (historique), `DELETE /scenarios/<id>/target` (le développement change de direction) ;
+  supprimer la maquette retire aussi la cible. Hub : badge « conforme / écart avec la maquette » dans le détail et
+  dans la campagne, « Voir les écarts avec la maquette ».

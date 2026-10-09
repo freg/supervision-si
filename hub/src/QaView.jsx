@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { getCatalog, listSites, createSite, updateSite, deleteSite, probeSite, listScenarios, createScenario, updateScenario, deleteScenario, runScenario, listRuns, runCampaign, listCampaigns, createTicket, shotUrl, hubTour, setReference, runDiff, listMockups, createMockup, getMockup } from "./qaClient.js";
+import { getCatalog, listSites, createSite, updateSite, deleteSite, probeSite, listScenarios, createScenario, updateScenario, deleteScenario, runScenario, listRuns, runCampaign, listCampaigns, createTicket, shotUrl, hubTour, setReference, runDiff, listMockups, createMockup, getMockup, runDesign, clearTarget } from "./qaClient.js";
 import { THEMES } from "./hubThemes.js";
-import { emptyStep, fieldsFor, validateSteps, loginFromProbe, runBadge, campaignSummary, hubTourViews, auditSummary, diffSummary, ratioPct, parseMask, mockupStatus } from "./qaLib.js";
+import { emptyStep, fieldsFor, validateSteps, loginFromProbe, runBadge, campaignSummary, hubTourViews, auditSummary, diffSummary, ratioPct, parseMask, mockupStatus, designBadge } from "./qaLib.js";
 import HubIcon from "./HubIcon.jsx";
 import QaMockupPanel from "./QaMockupPanel.jsx";   // #728
 
@@ -102,6 +102,16 @@ export default function QaView({ onBack, qaApiBase, login }) {
   }
   // #727 : référence visuelle et comparaison (« rejouer un bug » : comparer à l'exécution d'un ticket via « against »).
   useEffect(() => { setDiff(null); }, [run && run.id]);
+  // #729 : conformité à la maquette validée, calculée à la demande pour une exécution de l'historique
+  useEffect(() => {
+    if (run && run.design === undefined && run.scenario && run.scenario.target_run_id && !run.mockup_id)
+      runDesign(qaApiBase, run.id).then((r) => !r.error && setRun((cur) => (cur && cur.id === run.id ? { ...cur, design: r.design } : cur)));
+  }, [qaApiBase, run && run.id]);   // eslint-disable-line react-hooks/exhaustive-deps
+  async function dropTarget(x) {
+    const r = await clearTarget(qaApiBase, x.id); if (r.error) { setError(r.error); return; }
+    setNotice("Maquette cible retirée du scénario"); if (run && run.scenario && run.scenario.id === x.id) setRun({ ...run, scenario: r.scenario, design: null });
+    const l = await listScenarios(qaApiBase, site.id); if (!l.error) setScenarios(l.scenarios);
+  }
   async function markReference(r, clear) {
     if (!r.scenario) return; setBusy("ref"); const res = await setReference(qaApiBase, r.scenario.id, clear ? null : r.id); setBusy("");
     if (res.error) { setError(res.error); return; }
@@ -226,6 +236,7 @@ export default function QaView({ onBack, qaApiBase, login }) {
                 {campaign && (
                   <div className="qa-campaign"><h3>Campagne n°{campaign.campaign.id} : {campaignSummary(campaign.runs).passed}/{campaignSummary(campaign.runs).total} réussis ({campaignSummary(campaign.runs).ratio} %)</h3>
                     <table className="qa-table"><tbody>{campaign.runs.map((r) => <tr key={r.id}><td>{r.scenario_name}</td><td className={r.status === "ok" ? "qa-ok" : "qa-ko"}>{runBadge(r.status)}</td><td className="muted">{r.summary.first_failure}</td>
+                      <td>{designBadge(r.design) ? <span className={designBadge(r.design).cls}>{designBadge(r.design).text}</span> : null}</td>
                       <td><button className="secondary" onClick={() => { setRun({ ...r, scenario: scenarios.find((x) => x.id === r.scenario_id) }); }}>détail</button></td></tr>)}</tbody></table></div>
                 )}
                 {campaigns.length > 0 && <p className="muted">Campagnes précédentes : {campaigns.slice(0, 8).map((c) => `${c.started_at.replace("T", " ")} ${c.passed}/${c.total}`).join(" · ")}</p>}
@@ -256,6 +267,9 @@ export default function QaView({ onBack, qaApiBase, login }) {
               <div className="hub-card hub-settings-section">
                 <h2>Exécution n°{run.id} — {run.scenario ? run.scenario.name : ""} <span className={run.status === "ok" ? "qa-ok" : "qa-ko"}>{runBadge(run.status)}</span></h2>
                 <p className="muted">{run.started_at.replace("T", " ")} · {run.summary.passed}/{run.summary.total} étapes · {run.final_url}{run.error ? ` · ${run.error}` : ""}{run.ticket_id ? ` · ticket n°${run.ticket_id} (${run.ticket_kind})` : ""}</p>
+                {designBadge(run.design) && <p className={designBadge(run.design).cls}>{designBadge(run.design).text}
+                  {run.design && !run.design.conforme && run.design.compared > 0 && <button className="secondary" onClick={() => compare(run, run.design.target_run_id)} disabled={busy === "diff"}>Voir les écarts avec la maquette</button>}
+                  {run.scenario && <button className="secondary" onClick={() => dropTarget(run.scenario)} title="Le développement a changé de direction : ne plus comparer à cette maquette">Retirer la cible</button>}</p>}
                 {auditSummary(run.results).pages > 0 && (() => { const a = auditSummary(run.results); return (
                   <p>Conformité visuelle : note moyenne <strong>{a.score}/100</strong> sur {a.pages} page(s) · <span className="qa-ko">{a.erreur} erreur(s)</span> · {a.avertissement} avertissement(s) · <span className="muted">{a.info} info(s)</span></p>); })()}
                 <AutoColumns id="QaView.4"><table className="qa-table"><thead><tr><th>#</th><th>Action</th><th>Résultat</th><th>ms</th><th>Capture</th></tr></thead>

@@ -19,7 +19,7 @@ export default function QaMockupPanel({ qaApiBase, mockup, login, onChange, onCl
   const [comment, setComment] = useState("");
   useEffect(() => { setDraft(mockup.variants); }, [mockup.id, mockup.updated_at]);   // eslint-disable-line react-hooks/exhaustive-deps
   const slides = mockup.slides || []; const s = slides[Math.min(i, slides.length - 1)] || {};
-  const locked = mockup.status === "validee";
+  const locked = mockup.status === "validee" || mockup.status === "integree";
   const dirty = JSON.stringify(draft) !== JSON.stringify(mockup.variants);
 
   async function call(tag, fn, after) {
@@ -88,7 +88,8 @@ export default function QaMockupPanel({ qaApiBase, mockup, login, onChange, onCl
           <div className="qa-scroll"><table className="qa-table"><thead><tr><th>Règle</th><th>Situation actuelle</th>{s.variants.map((v) => <th key={v}>{v}</th>)}</tr></thead>
             <tbody>{s.rows.map((r) => <tr key={r.rule}><td>{r.rule}</td><td>{r.before}</td>{r.after.map((a, k) => <td key={k} className={a === null ? "muted" : a < r.before ? "qa-ok" : a > r.before ? "qa-ko" : ""}>{a === null ? "non rendue" : a === 0 ? "✔ 0" : a}</td>)}</tr>)}</tbody></table></div>))}
         {s.kind === "decision" && (locked || mockup.status === "rejetee" ? (
-          <p>{mockup.status === "validee" ? <>✔ Variante retenue : <strong>{mockup.variants[mockup.chosen]?.name}</strong>{mockup.ticket_id ? ` — ticket évolution n°${mockup.ticket_id}` : " — sans ticket"}</> : "✘ Maquette rejetée"}{s.comment ? <span className="muted"> · {s.comment}</span> : null}</p>
+          <p>{locked ? <>✔ Variante retenue : <strong>{mockup.variants[mockup.chosen]?.name}</strong>{mockup.ticket_id ? ` — ticket évolution n°${mockup.ticket_id}` : " — sans ticket"}</> : "✘ Maquette rejetée"}{s.comment ? <span className="muted"> · {s.comment}</span> : null}
+            {locked && <><br /><span className={s.integrated_run_id ? "qa-ok" : "muted"}>{s.integrated_run_id ? `★ Intégrée : exécution n°${s.integrated_run_id} conforme (${(s.integrated_at || "").replace("T", " ")})` : "Cible du scénario : chaque campagne compare le développement à cette variante."}</span></>}</p>
         ) : (<>
           <div className="hub-settings-row"><label>Variante retenue</label>
             <select value={choice} onChange={(e) => setChoice(e.target.value)}>{mockup.variants.map((v, k) => <option key={k} value={k} disabled={!slides.find((x) => x.variant === k)?.rendered}>{v.name}{slides.find((x) => x.variant === k)?.rendered ? "" : " (non rendue)"}</option>)}</select></div>

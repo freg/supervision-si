@@ -121,7 +121,8 @@ def presentation(mockup, base, variant_runs, diffs=None):
                        after=[(s["rules"].get(k, 0) if s else None) for s in stats]) for k in rules],
                        variants=[v["name"] for v in mockup["variants"]]))
     slides.append(dict(kind="decision", title="Décision", status=mockup.get("status"), chosen=mockup.get("chosen"),
-                       ticket_id=mockup.get("ticket_id"), comment=mockup.get("decision_comment") or ""))
+                       ticket_id=mockup.get("ticket_id"), comment=mockup.get("decision_comment") or "",
+                       integrated_run_id=mockup.get("integrated_run_id"), integrated_at=mockup.get("integrated_at")))
     return slides
 
 
@@ -137,5 +138,7 @@ def ticket_text(mockup, scenario, site, variant, slides):
     L += ["", "Correctif CSS proposé (injecté dans une copie isolée pour la maquette ; à intégrer via les variables de shared/theme.css) :", "", variant["css"] or "(aucun)"]
     if variant.get("notes"):
         L += ["", "Points sans correctif automatique :"] + ["- " + n for n in variant["notes"]]
-    L += ["", "Exécutions : situation n°%s, variante n°%s." % (slides[0].get("run_id"), s.get("run_id"))]
+    L += ["", "Exécutions : situation n°%s, variante n°%s." % (slides[0].get("run_id"), s.get("run_id")),
+          "La variante devient la cible du scénario (non-régression) : chaque campagne compare le développement à la maquette ;",
+          "la première exécution conforme marque la maquette « intégrée »."]
     return subject, "\n".join(L)

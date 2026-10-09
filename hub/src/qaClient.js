@@ -37,3 +37,5 @@ export const updateMockup = (b, mid, body) => fetchJson(`${b}/mockups/${mid}`, j
 export const deleteMockup = (b, mid) => fetchJson(`${b}/mockups/${mid}`, { method: "DELETE" });
 export const renderMockup = (b, mid, variant, byUser) => fetchJson(`${b}/mockups/${mid}/render${variant === undefined ? "" : `?variant=${variant}`}`, json("POST", { by_user: byUser }));
 export const decideMockup = (b, mid, body) => fetchJson(`${b}/mockups/${mid}/decision`, json("POST", body));
+export const runDesign = (b, rid) => fetchJson(`${b}/runs/${rid}/design`);                      // #729
+export const clearTarget = (b, xid) => fetchJson(`${b}/scenarios/${xid}/target`, { method: "DELETE" });

@@ -1,3 +1,15 @@
+## 2026-10-09 — Tests QA : la maquette validée devient la cible des campagnes (livraison #729)
+
+Item 116 tranche 5, fin de la boucle de conception : la variante retenue d'une maquette devient la cible du scénario ;
+chaque exécution et chaque campagne indique « conforme à la maquette » ou l'écart (captures différentes, note), et la
+première exécution conforme marque la maquette « intégrée ». Cible retirable si le développement change de direction.
+
+- Vérifié : `qa/api` (maquette → validation → exécution non conforme → campagne conforme → maquette intégrée → cible
+  retirée), `hub/tests` (338, dont `designBadge`), syntaxe `@babel/parser`.
+- Non vérifié : rendu du hub.
+- Fichiers : `qa/api/app.py`, `qa/api/qa_mockup.py`, `qa/api/test_qa.py`, `hub/src/QaView.jsx`,
+  `hub/src/QaMockupPanel.jsx`, `hub/src/qaClient.js`, `hub/src/qaLib.js`.
+
 ## 2026-10-09 — Tests QA : maquettes en étapes, de la proposition au ticket évolution (livraison #728)
 
 Item 116 tranche 4 : depuis une exécution, « 🎨 Maquette » propose des variantes de refonte (feuilles CSS calculées

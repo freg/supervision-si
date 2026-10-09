@@ -28,7 +28,7 @@ sous Windows xxx, l'ip xx.yy est-elle visible quelque part dans le hub… ». Li
 (voir `assistant/README.md`). Suites possibles : autres intentions (« quel ticket concerne… », « qui a accès à… »),
 bouton « ? » dans l'en-tête du hub ouvrant l'onglet, sources validées sur les vraies API.
 
-## Assistant de design visuel et de parcours dans le module QA (2026-10-09) — item 116 ; tranches 1-2 FAITES (#721), 3 FAITE (#727 : référence et différences de captures), 4 FAITE (#728 : maquettes en étapes), reste 5 (boucle de conception)
+## Assistant de design visuel et de parcours dans le module QA (2026-10-09) — item 116 ; tranches 1-2 FAITES (#721), 3 FAITE (#727 : référence et différences de captures), 4 FAITE (#728 : maquettes en étapes), 5 FAITE (#729 : maquette validée = cible des campagnes) ; suite : fronts applicatifs (tickets), modèle local pour proposer des refontes libres
 
 Demandé : une IA capable de refondre un design visuel du hub avec des étapes de présentation de maquette, intégrée au
 module QA avec des outils d'automatisation de parcours dans le hub et les applications (tickets…), pour assister le

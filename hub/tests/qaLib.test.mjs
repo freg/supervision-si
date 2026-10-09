@@ -60,3 +60,12 @@ test("#728 maquettes : libellés, écart, première étape, vignettes", () => {
   assert.deepEqual(t, [{ index: 1, refRun: 3, refShot: "step1.png", shot: "step1.png", diff: "diff-3-step1.png", ratio: 0.2, significant: true }]);
   assert.deepEqual(shotTriples({}), []);
 });
+
+import { designBadge } from "../src/qaLib.js";
+test("#729 designBadge", () => {
+  assert.equal(designBadge(null), null);
+  assert.deepEqual(designBadge({ conforme: true, compared: 2, significant: 0, score: 95 }), { cls: "qa-ok", text: "✔ conforme à la maquette (95/100)" });
+  assert.equal(designBadge({ conforme: false, compared: 0 }).cls, "muted");
+  assert.equal(designBadge({ conforme: false, compared: 3, significant: 1, score: 80, target_score: 95 }).text, "✘ écart avec la maquette : 1/3 capture(s) · note 80/100 pour 95 visés");
+  assert.equal(mockupStatus("integree"), "★ intégrée");
+});

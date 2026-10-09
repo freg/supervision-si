@@ -85,7 +85,7 @@ export const ratioPct = (r) => `${Math.round((r || 0) * 1000) / 10} %`;
 export const parseMask = (text) => (text || "").split(",").map((x) => x.trim()).filter(Boolean);
 
 // #728 : maquettes -- libellés d'état et d'étape, écart de note signé, étape suivante utile.
-export const mockupStatus = (s) => ({ brouillon: "brouillon", presentee: "présentée", validee: "✔ validée", rejetee: "✘ rejetée" }[s] || s || "—");
+export const mockupStatus = (s) => ({ brouillon: "brouillon", presentee: "présentée", validee: "✔ validée", integree: "★ intégrée", rejetee: "✘ rejetée" }[s] || s || "—");
 export const slideIcon = (k) => ({ avant: "①", proposition: "②", variante: "③", regles: "④", decision: "⑤" }[k] || "•");
 export const scoreDelta = (d) => (d === null || d === undefined ? "" : d > 0 ? `+${d}` : `${d}`);
 // Première étape à regarder : la première variante non rendue, sinon la situation actuelle.
@@ -97,4 +97,12 @@ export function firstSlide(slides) {
 export function shotTriples(slide) {
   return ((slide && slide.diff && slide.diff.steps) || []).filter((s) => !s.error)
     .map((s) => ({ index: s.index, refRun: s.ref_run, refShot: s.ref_shot, shot: s.shot, diff: s.diff, ratio: s.ratio, significant: !!s.significant }));
+}
+
+// #729 : conformité à la maquette validée (résultat de design_check) -> {cls, text} ; null si le scénario n'a pas de cible.
+export function designBadge(d) {
+  if (!d) return null;
+  if (d.conforme) return { cls: "qa-ok", text: `✔ conforme à la maquette${d.score !== null && d.score !== undefined ? ` (${d.score}/100)` : ""}` };
+  if (!d.compared) return { cls: "muted", text: "maquette : aucune capture comparable" };
+  return { cls: "qa-ko", text: `✘ écart avec la maquette : ${d.significant}/${d.compared} capture(s)${d.score !== null && d.score !== undefined && d.target_score !== null && d.target_score !== undefined ? ` · note ${d.score}/100 pour ${d.target_score} visés` : ""}` };
 }

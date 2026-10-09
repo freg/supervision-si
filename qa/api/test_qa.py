@@ -123,7 +123,28 @@ def test_mockups():
     d = c.post(f"/mockups/{mk['id']}/decision", json={"status": "validee", "variant": 0, "comment": "go"}); assert d.status_code == 200, d.json
     assert d.json["ticket_id"] and created[-1]["type_id"] == 2 and created[-1]["subject"] == "[QA maquette] Vue X — Corrections de conformité" and "span.muted" in created[-1]["description"]
     assert d.json["mockup"]["status"] == "validee" and d.json["mockup"]["chosen"] == 0
-    assert c.put(f"/mockups/{mk['id']}", json={"name": "z"}).status_code == 409
+    assert c.put(f"/mockups/{mk['id']}", json={"name": "z"}).status_code == 409 and c.post(f"/mockups/{mk['id']}/render").status_code == 409
+    # #729 : la variante validée est la cible ; une exécution aux captures identiques est conforme et marque la maquette intégrée
+    from PIL import Image
+    sc = [x2 for x2 in c.get(f"/sites/{sid}/scenarios").json["scenarios"] if x2["id"] == x["id"]][0]
+    assert sc["target_mockup_id"] == mk["id"] and sc["target_run_id"] and sc["kind"] == "non-regression"
+    tdir = pathlib.Path(tmp) / "runs" / str(sc["target_run_id"])
+    for n in ("step1.png", "step2.png"): Image.new("RGB", (40, 30), (200, 200, 200)).save(tdir / n)
+    orig = appmod.RUNNER.run
+    def same(base_url, login, steps, shots_dir, timeout_ms, mask=None, css=None, color=(200, 200, 200)):
+        res, url = orig(base_url, login, steps, shots_dir, timeout_ms, mask, css)
+        for n in ("step1.png", "step2.png"): Image.new("RGB", (40, 30), color).save(pathlib.Path(shots_dir) / n)
+        return res, url
+    appmod.RUNNER.run = lambda *a, **k: same(*a, **k, color=(10, 10, 10))
+    r1 = c.post(f"/scenarios/{x['id']}/run").json["run"]; assert r1["design"]["conforme"] is False and r1["design"]["significant"] == 2
+    assert c.get(f"/scenarios/{x['id']}/mockups").json["mockups"][0]["status"] == "validee"
+    appmod.RUNNER.run = same
+    camp = c.post(f"/sites/{sid}/campaign").json; dsg = camp["runs"][0]["design"]
+    assert dsg["conforme"] and dsg["mockup_id"] == mk["id"] and dsg["target_run_id"] == sc["target_run_id"]
+    ml = c.get(f"/scenarios/{x['id']}/mockups").json["mockups"][0]; assert ml["status"] == "integree" and ml["integrated_run_id"] == camp["runs"][0]["id"]
+    assert c.get(f"/runs/{r1['id']}/design").json["design"]["conforme"] is False
+    del appmod.RUNNER.run
+    assert c.delete(f"/scenarios/{x['id']}/target").json["scenario"]["target_run_id"] is None
     assert c.get(f"/scenarios/{x['id']}/mockups").json["mockups"][0]["ticket_id"] == d.json["ticket_id"]
     rids = [r[0] for r in cn.execute("SELECT id FROM runs WHERE mockup_id = ?", (mk["id"],))]
     assert c.delete(f"/mockups/{mk['id']}").json["ok"] and not (pathlib.Path(tmp) / "runs" / str(rids[0])).exists()
