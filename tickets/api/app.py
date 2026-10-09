@@ -3387,21 +3387,30 @@ def stats_reopenings():
 
 
 TABLE_ORDER = [
-    "users", "types", "levels", "statuts", "matching_config",
+    "users", "types", "levels", "statuts", "sites", "deadline_escalation_rules", "matching_config",
     "exclusion_rules", "priority_keywords", "oauth_credentials",
     "tickets", "calendar_events", "calendar_filter_rules",
     "ticket_time_entries", "ticket_status_log", "ticket_messages",
 ]
 SERIAL_ID_TABLES = [t for t in TABLE_ORDER if t not in ("matching_config", "oauth_credentials")]  # clés texte, pas de séquence
+# #722 (item 117) : configuration et référentiels d'une instance, SANS données métier ni personnes ni secrets -- ce que
+# copie le clonage d'une instance du portail tickets vers un autre nœud (export ?scope=config puis /import?mode=merge).
+# #722 : sites et règles d'escalade manquaient aussi à l'export complet (ajoutés à TABLE_ORDER).
+CONFIG_TABLES = ["types", "levels", "statuts", "sites", "deadline_escalation_rules", "matching_config",
+                 "exclusion_rules", "priority_keywords", "calendar_filter_rules"]
 
 
 @app.route("/export", methods=["GET"])
 def export_database():
+    """?scope=config (#722) : configuration et référentiels seulement (clonage d'instance)."""
+    scope = request.args.get("scope", "all")
+    if scope not in ("all", "config"):
+        return jsonify({"error": "scope : all ou config"}), 400
     conn = get_connection()
     try:
         cur = conn.cursor()
         dump = {}
-        for table in TABLE_ORDER:
+        for table in (CONFIG_TABLES if scope == "config" else TABLE_ORDER):
             cur.execute(f"SELECT * FROM {table}")
             dump[table] = [row_to_dict(cur, r) for r in cur.fetchall()]
         return jsonify(dump), 200

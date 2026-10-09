@@ -1,4 +1,4 @@
-## Tuile « Déploiement d'application » par clonage de configuration (2026-10-09) — item 117, DÉCIDÉ : sur un AUTRE nœud, clonage configuration + référentiels (sans données métier)
+## Tuile « Déploiement d'application » par clonage de configuration (2026-10-09) — item 117, DÉCIDÉ : sur un AUTRE nœud, clonage configuration + référentiels (sans données métier) ; tranche 1 FAITE (#722), suite : docs/deploiement-instances.md
 
 Demandé : « une tuile de déploiement d'application (GED, tickets…) : clonage configuration ». Lecture proposée :
 déployer une nouvelle instance d'une application du hub (GED, portail tickets…) pour un site ou un client en clonant

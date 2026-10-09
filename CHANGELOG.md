@@ -1,3 +1,16 @@
+## 2026-10-09 — Portail tickets : export « configuration » pour le clonage d'instance (livraison #722, item 117 tranche 1)
+
+Décisions du 9 oct. : la nouvelle instance clonée (GED, tickets…) tourne sur un autre nœud ; le clonage copie
+configuration et référentiels, sans données métier, personnes ni secrets. Première brique : `GET /export?scope=config`
+de tickets-api (types, niveaux, statuts, sites, règles d'escalade, appariement, exclusions, mots-clés de priorité,
+filtres d'agenda), importable par `/import?mode=merge`. Au passage : `sites` et `deadline_escalation_rules` manquaient à
+l'export complet (ajoutés, dans l'ordre des clés étrangères). Cadrage des tranches suivantes : `docs/deploiement-instances.md`.
+
+- Vérifié : tickets-api sur une base SQLite neuve (`scope=config` : 9 tables, export complet avec `sites`, `scope`
+  invalide → 400).
+- Non vérifié : PostgreSQL, import croisé entre deux instances.
+- Fichiers : `tickets/api/app.py`, `docs/deploiement-instances.md`, `BACKLOG.md`.
+
 ## 2026-10-09 — QA : tour du hub et conformité visuelle et ergonomique (livraison #721, item 116 tranches 1-2)
 
 Décisions du 9 oct. : analyse locale sans modèle de vision, hub seul d'abord. Nouvelle étape QA `audit` : relevé dans la
