@@ -1,4 +1,4 @@
-## Sauvegarde de la VM du PBS sur disque externe / poste de secours (2026-10-09) — item 118, À CADRER
+## Sauvegarde de la VM du PBS sur disque externe / poste de secours (2026-10-09) — item 118, FAIT pour le disque USB (#725 : copie ZFS différentielle ponctuelle, ancienneté suivie) ; disques internes de 2 To sur pve10/pve11 prévus le 12 oct. (second datastore ou réplication croisée à voir)
 
 Demandé : « un mécanisme de backup de la VM du PBS sur disque externe / montage d'un poste identifié comme secours
 backup ». Proposition en deux étages, à valider :

@@ -14,6 +14,8 @@ sys.path.insert(0, HERE)
 import pulled_backups as pb  # noqa: E402
 
 SCRIPT = os.path.join(HERE, "..", "..", "..", "tools", "pve-pull-backup.sh")
+FAKE_ZFS = '#!/bin/bash\nS="$FAKE_STATE"; touch "$S/vols" "$S/ds" "$S/snaps"\ncase "$1" in\n  list)\n    if [[ "$*" == *"-t snapshot"* ]]; then t="${@: -1}"; grep "^$t@" "$S/snaps" || true; exit 0; fi\n    if [[ "$*" == *"volume,filesystem"* ]]; then cat "$S/vols" "$S/ds"; exit 0; fi\n    t="${@: -1}"; grep -qx "$t" "$S/vols" "$S/ds" && echo "$t" || exit 1 ;;\n  create) echo "${@: -1}" >> "$S/ds" ;;\n  get) t="${@: -1}"; if [[ "$*" == *mountpoint* ]]; then mkdir -p "$S/mnt/$t"; echo "$S/mnt/$t"; else echo 1048576; fi ;;\n  snapshot) shift; for x in "$@"; do echo "$x" >> "$S/snaps"; done ;;\n  send) echo "SEND $*" >> "$S/log"; echo "${@: -1}" ;;\n  recv) d="${@: -1}"; read -r src; grep -qx "$d" "$S/ds" || echo "$d" >> "$S/ds"; echo "$d@${src##*@}" >> "$S/snaps"; echo "RECV $d" >> "$S/log" ;;\n  destroy) grep -vx "$2" "$S/snaps" > "$S/snaps.n"; mv "$S/snaps.n" "$S/snaps" ;;\nesac\n'
+FAKE_ZPOOL = '#!/bin/bash\nS="$FAKE_STATE"\ncase "$1" in list) [ -f "$S/imported" ] ;; import) [ -f "$S/disk" ] && touch "$S/imported" ;; export) rm -f "$S/imported" ;; esac\n'
 
 
 class Script(unittest.TestCase):
@@ -67,6 +69,39 @@ class Script(unittest.TestCase):
         env["PULL_MIN_FREE_GB"] = "999999999"
         p = subprocess.run(["bash", os.path.join(os.path.dirname(SCRIPT), "pve-pull-batch.sh"), lst], env=env, capture_output=True, text=True)
         self.assertIn("ARRÊT", p.stdout); self.assertIn("3 non faite(s)", p.stdout)
+
+    def test_secours_zfs(self):
+        """#725 : zfs-secours.sh -- copie complète puis différentielle, instantanés communs, journal, pool exporté."""
+        d = tempfile.mkdtemp(); fake = os.path.join(d, "bin"); st = os.path.join(d, "state"); os.makedirs(fake); os.makedirs(st)
+        for name, body in (("zfs", FAKE_ZFS), ("zpool", FAKE_ZPOOL), ("qm", "#!/bin/bash\nexit 1\n")):
+            with open(os.path.join(fake, name), "w") as fh:
+                fh.write(body)
+            os.chmod(os.path.join(fake, name), 0o755)
+        with open(os.path.join(st, "vols"), "w") as fh:
+            fh.write("rpool/data/vm-110-disk-0\nrpool/data/vm-110-disk-1\nrpool/data/vm-111-disk-0\n")
+        env = dict(os.environ, PATH=fake + ":" + os.environ["PATH"], FAKE_STATE=st, SECOURS_JOURNAL=os.path.join(d, "secours.jsonl"), SECOURS_KEEP_SRC="1")
+        script = os.path.join(os.path.dirname(SCRIPT), "zfs-secours.sh")
+        p = subprocess.run(["bash", script, "secours", "110"], env=env, capture_output=True, text=True)
+        self.assertEqual(p.returncode, 2); self.assertIn("brancher le disque", p.stderr)          # disque absent
+        open(os.path.join(st, "disk"), "w").close()
+        p = subprocess.run(["bash", script, "secours", "110"], env=env, capture_output=True, text=True)
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        log = open(os.path.join(st, "log")).read()
+        self.assertNotIn(" -i ", log)                                                              # 1re fois : complète, les 2 disques
+        self.assertEqual(log.count("RECV secours/secours/vm-110-disk-"), 2)
+        self.assertFalse(os.path.exists(os.path.join(st, "imported")))                           # exporté
+        import time; time.sleep(1.1)
+        p = subprocess.run(["bash", script, "secours", "110", "111"], env=env, capture_output=True, text=True)
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        log = open(os.path.join(st, "log")).read().splitlines()
+        self.assertEqual(sum(1 for l in log if l.startswith("SEND send -i @secours-")), 2)       # 2e fois : différentielle pour 110
+        self.assertFalse(any("secours/secours/vm-110-disk-0@" in l for l in log if l.startswith("SEND")))   # jamais la copie elle-même
+        snaps = open(os.path.join(st, "snaps")).read().split()
+        self.assertEqual(sum(1 for x in snaps if x.startswith("rpool/data/vm-110-disk-0@")), 1)  # SECOURS_KEEP_SRC=1
+        rows = [json.loads(l) for l in open(os.path.join(d, "secours.jsonl"))]
+        self.assertEqual([(r["host"], r["job"], r["ok"], r["max_age_h"]) for r in rows],
+                         [("secours-secours", "vm-110", True, 336), ("secours-secours", "vm-110", True, 336), ("secours-secours", "vm-111", True, 336)])
+        self.assertEqual(subprocess.run(["bash", script, "bad pool!", "110"], env=env, capture_output=True).returncode, 2)
 
 
 class Sonde(unittest.TestCase):

@@ -112,6 +112,7 @@ command -v python3 >/dev/null || { echo "python3 requis" >&2; exit 1; }
 if [ "$UPGRADE" != "true" ] && [ "$DETECT" = "true" ] && [ -d /etc/pve ] && command -v pvesh >/dev/null; then
   case " ${ENABLE[*]:-} " in *" proxmox "*) ;; *) ENABLE+=("proxmox");; esac
   [ -n "$PLUGINS_USER" ] || PLUGINS_USER="root"
+  [ -f /var/lib/si-agent/secours.jsonl ] && case " ${ENABLE[*]:-} " in *" pulled-backups "*) ;; *) ENABLE+=("pulled-backups");; esac   # #725 : copies de secours ZFS
   echo "hôte Proxmox VE détecté : plugin proxmox activé, sondes exécutées en $PLUGINS_USER (--no-detect pour l'éviter)"
 fi
 # #716 : serveur Proxmox Backup Server -> plugin pbs (+ pulled-backups si des sauvegardes tirées y sont journalisées), en root.

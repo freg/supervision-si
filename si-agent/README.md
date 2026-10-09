@@ -1425,3 +1425,16 @@ Maintenance des Proxmox › Sauvegardes, section « Inventaire des snapshots et 
 - PBS : sonde `pbs` v2, 30 derniers snapshots de chaque groupe (et le premier) ;
 - sauvegardes tirées (`pulls.jsonl`).
 Les snapshots de plus de 30 jours sont signalés (ils occupent l'espace des nœuds pleins).
+
+## Copie de secours ZFS différentielle sur disque externe (livraison #725, agent 0.5.54)
+
+`si-agent/tools/zfs-secours.sh <pool du disque> <vmid> [vmid…]`, sur l'hyperviseur qui porte la VM (ex. la VM du PBS) :
+opération ponctuelle, sans rotation de disques — brancher le disque USB, lancer, débrancher. Instantané atomique de tous
+les disques de la VM (système de fichiers figé si l'agent invité répond), `zfs send` complet la 1re fois puis
+**différentiel** (`-i` depuis le dernier instantané commun), 2 instantanés gardés côté hyperviseur, 10 sur le disque,
+configuration de la VM copiée (`<pool>/secours-conf`), pool exporté à la fin. Jamais de copie des volumes du disque de
+secours lui-même. Préparer le disque une fois (l'efface) : `zpool create -o ashift=12 -O compression=lz4 secours
+/dev/disk/by-id/usb-…`.
+Le journal `/var/lib/si-agent/secours.jsonl` est lu par la sonde `pulled-backups` v3 (plusieurs `--index`) : le hub
+affiche l'ancienneté de chaque copie (Maintenance des Proxmox › Sauvegardes) et alerte au-delà de 14 jours
+(`SECOURS_MAX_AGE_H`), avec notification. Restauration : `zfs send` en sens inverse depuis le disque, puis la configuration.

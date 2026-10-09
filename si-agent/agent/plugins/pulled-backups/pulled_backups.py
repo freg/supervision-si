@@ -83,20 +83,23 @@ def summarize(rows, now, max_age_days=8, exists=os.path.exists):
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("--index", default="/srv/backup/dumps/pulls.jsonl")
+    ap.add_argument("--index", action="append", help="journal(aux) à lire ; #725 : plusieurs --index (sauvegardes tirées, copies de secours ZFS)")
     ap.add_argument("--max-age-days", type=float, default=8)
     a = ap.parse_args(argv)
+    paths = a.index or ["/srv/backup/dumps/pulls.jsonl", "/var/lib/si-agent/secours.jsonl"]
     now = time.time()
-    rows = read_index(a.index)
-    if rows is None:
-        print(json.dumps({"backups": [], "alerts": [], "error": "journal %s absent (pve-pull-backup.sh pas encore lancé ?)" % a.index}, ensure_ascii=False))
+    found = [(p, read_index(p)) for p in paths]
+    found = [(p, r) for p, r in found if r is not None]
+    if not found:
+        print(json.dumps({"backups": [], "alerts": [], "error": "journal absent (%s) : pve-pull-backup.sh ou zfs-secours.sh pas encore lancé ?" % ", ".join(paths)}, ensure_ascii=False))
         return 0
+    rows = [r for _, rs in found for r in rs]
     backups, alerts = summarize(rows, now, a.max_age_days)
     try:
-        free = shutil.disk_usage(os.path.dirname(a.index) or ".").free
+        free = shutil.disk_usage(os.path.dirname(found[0][0]) or ".").free
     except OSError:
         free = None
-    print(json.dumps({"backups": backups, "alerts": alerts, "free_bytes": free, "index": a.index,
+    print(json.dumps({"backups": backups, "alerts": alerts, "free_bytes": free, "index": [p for p, _ in found],
                       "summary": {"backups": len(backups), "failed": sum(1 for b in backups if not b["ok"]), "alerts": len(alerts)}}, ensure_ascii=False))
     return 0
 

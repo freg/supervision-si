@@ -1,3 +1,18 @@
+## 2026-10-09 — Copie de secours ZFS différentielle sur disque externe, ancienneté suivie par le hub (livraison #725, agent 0.5.54)
+
+Demandé : sauvegarder la VM du PBS sur le disque USB de 10 To, en opération ponctuelle (pas de rotation de disques), avec un
+décompte d'ancienneté dans le hub et des copies différentielles ZFS. `si-agent/tools/zfs-secours.sh <pool> <vmid>…` sur
+l'hyperviseur : instantané atomique (gel du système de fichiers si possible), envoi complet puis différentiel, rétention des
+deux côtés, configuration copiée, pool exporté. La sonde pulled-backups v3 lit aussi ce journal : ancienneté, alerte au-delà
+de 14 jours, notification de chaque copie.
+
+- Vérifié : `test_pulled_backups.py` (5, dont le script avec zfs/zpool simulés : disque absent, copie complète des deux
+  disques, différentielle ensuite, rétention, journal, pool exporté ; un défaut trouvé et corrigé : la 2e passe recopiait
+  les volumes du disque de secours eux-mêmes), sonde sur deux journaux dont un absent, `bash -n`.
+- Non vérifié : vrai ZFS (pool USB, gel par l'agent invité), durée de la 1re copie.
+- Fichiers : `si-agent/tools/zfs-secours.sh`, `si-agent/agent/plugins/pulled-backups/*`, `si-agent/agent/install.sh`,
+  `si-agent/agent/si_agent/__init__.py`, `si-agent/README.md`, `BACKLOG.md`.
+
 ## 2026-10-09 — Inventaire des snapshots et des sauvegardes, PBS et PVE hébergés compris (livraison #724, agent 0.5.53)
 
 Demandé : « ajoute l'inventaire des snapshots et des backups, y compris du PBS, y compris des PVE OVH ». Vue Sauvegardes
