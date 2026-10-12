@@ -102,6 +102,59 @@ Pro B50** en variante économique sous réserve d'un test du pilote.
    noyau récent + `intel-compute-runtime`), Ollama détecte le GPU
    (`ollama ps` montre `100% GPU`).
 
+## Palier 2 réalisé : poste IA sur un autre réseau, joint par le bastion (#741)
+
+Poste « pcia » (tour HP Z4 G4, Intel Arc Pro B60 24 Go, Debian 13, noyau des
+backports pour le pilote `xe`) hors du LAN du hub. Mesures (2026-10-13) :
+qwen3:30b-a3b 100 % GPU, 43 jetons/s ; évaluation des 20 cas 20/20 en 171 s
+(~9 s par cas). Le hub l'appelle **par le bastion**, sans port ouvert chez
+le poste et sans route directe :
+
+```
+assistant-api ──► si-proxy:6489 (publication #583) ──► shim « ia » sur pcia
+                                                       (tunnel SSH sortant vers l'entrée 9922)
+                                                       ──► <IP LAN de pcia>:11434 (Ollama)
+```
+
+Mise en service (une fois) :
+
+1. **Sur pcia** — Ollama écoute `0.0.0.0:11434` (Vulkan, voir `ollama ps`).
+   Le shim refuse la boucle locale : la cible est l'**IP LAN** de pcia.
+   ```bash
+   ssh-keygen -t ed25519 -N '' -C si-proxy-jump-ia -f /root/.ssh/si-proxy-jump
+   cat /root/.ssh/si-proxy-jump.pub
+   ```
+2. **Sur la machine d'entrée SSH du SI** (compte de saut) — ajouter la clé,
+   restreinte au seul relais :
+   ```
+   restrict,port-forwarding,permitopen="super:6450" ssh-ed25519 AAAA… si-proxy-jump-ia
+   ```
+3. **Sur pcia** — shim nommé `ia` (depuis une copie du dépôt) :
+   ```bash
+   cd /opt/supervision-si && sudo ./si-proxy/install-host.sh --name ia --relay super:6450 --token "$HOST_TOKEN" \
+        --ssh-jump saut@<entrée-ssh-du-SI>:9922 --ssh-key /root/.ssh/si-proxy-jump --shell-user freg
+   ```
+   (`HOST_TOKEN` = `SI_PROXY_HOST_TOKEN` du `.env` du hub ; CA du bastion :
+   `si-proxy/certs/ca.crt` du hub, `--ca`.)
+4. **Sur le hub** — `.env` :
+   ```
+   SI_PROXY_PUBLISH=6489=ia:192.0.2.60:11434            # ajouter après une publication existante, virgule
+   SI_PROXY_PUBLISH_ALLOW=<CIDR déjà admis>,172.16.0.0/12  # réseau Docker : assistant-api joint le relais en interne
+   LLM_BASE_URL=http://si-proxy:6489/v1
+   LLM_MODEL=qwen3:30b-a3b
+   ```
+   puis `cd ~/SRC/data2/tickets/supervision-si && ./scripts/run.sh up -d si-proxy assistant-api`.
+5. **Vérifier** — tuile Bastion : shim `ia` connecté, publication 6489
+   « up » ; `docker compose exec assistant-api python3 -c "import urllib.request;
+   print(urllib.request.urlopen('http://si-proxy:6489/api/tags', timeout=10).read()[:200])"` ;
+   tuile Assistant IA : « modèle prêt », puis « Lancer l'évaluation ».
+
+Ollama n'a pas d'authentification : le port 6489 ne doit être admis qu'au
+réseau Docker du hub et au LAN d'administration (`SI_PROXY_PUBLISH_ALLOW`).
+Poste éteint ou shim absent : la publication ferme la connexion, l'assistant
+répond « modèle indisponible » ; pour basculer en secours sur le CPU,
+remettre `LLM_BASE_URL` sur l'ancienne VM.
+
 ## Critères de décision (à alimenter par l'évaluation)
 
 - Palier 1 suffisant si : score ≥ 0,8 sur classements et résumés, ≥ 8

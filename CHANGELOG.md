@@ -1,3 +1,11 @@
+## 2026-10-13 — Assistant IA sur un poste GPU distant par le bastion (livraison #741)
+
+Palier 2 réalisé hors du LAN du hub (Arc Pro B60 24 Go, qwen3:30b-a3b 100 % GPU, 43 jetons/s, évaluation
+20/20 en 171 s). Branchement sans code nouveau, par les mécanismes existants : shim `ia` sur le poste
+(tunnel SSH sortant vers l'entrée 9922, #575) et publication de port du bastion (`6489=ia:<IP>:11434`,
+#583) ; `LLM_BASE_URL=http://si-proxy:6489/v1`. Procédure : `docs/assistant-ia-infrastructure.md`
+(« Palier 2 réalisé »), `.env.example`. Non vérifié : chaîne complète hub → poste (mise en service prévue).
+
 ## 2026-10-12 — netprobe-api : fin des 200 % de CPU sur super (livraison #740)
 
 Constat sur super : gunicorn de netprobe-api à 200-236 % de CPU depuis 2 jours, 109 Go lus, charge 36 pour 4 CPU ;
