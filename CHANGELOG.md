@@ -1,3 +1,18 @@
+## 2026-10-12 — netprobe-api : fin des 200 % de CPU sur super (livraison #740)
+
+Constat sur super : gunicorn de netprobe-api à 200-236 % de CPU depuis 2 jours, 109 Go lus, charge 36 pour 4 CPU ;
+py-spy : `latest_sample_per_target` (route `/smokeping/latest`, appelée par le hub et Cortex).
+
+- Requête « dernier échantillon par cible » : sous-requête corrélée évaluée pour CHAQUE échantillon (table jamais
+  purgée) -> une recherche d'index par cible, nouvel index `smokeping_samples(target_id, id)` (aussi utilisé par
+  `_last_sample_ts` du planificateur à chaque tick de 15 s).
+- Purge enfin branchée : toutes les heures, `NETPROBE_KEEP_SAMPLES` par cible (défaut 10 000) ; purge par plage d'id.
+- Analyseurs : relancés à chaque tick tant qu'ils ne trouvaient rien (dernier passage déduit du dernier constat)
+  -> dernier passage mémorisé.
+- Vérifié : `netprobe/api` test_samples_perf (4, dont plan de requête sans tri temporaire), test_agents_routes ;
+  600 000 échantillons : dernier par cible < 1 ms, purge 0,5 s. Non vérifié : sur la base réelle de super
+  (première purge et création d'index au redémarrage : quelques minutes possibles).
+
 ## 2026-10-12 — Sondes GTB/GTC pour poste Windows : réseau et journaux d'application (livraison #739)
 
 Poste Windows 10 Pro 22H2 portant un superviseur GTB ancien (ex. Neutrino GLT) : trouver pourquoi il perd ses

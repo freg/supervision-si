@@ -83,6 +83,9 @@ CREATE TABLE IF NOT EXISTS smokeping_samples (
     error TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_smokeping_target_time ON smokeping_samples(target_id, sampled_at);
+-- #740 : (target_id, id) -- « dernier échantillon d'une cible » en une lecture d'index (ORDER BY id DESC LIMIT 1) ;
+-- sans lui, chaque appel triait tout l'historique de la cible (CPU à 200 %, 109 Go lus en 2 jours sur super).
+CREATE INDEX IF NOT EXISTS idx_smokeping_target_id ON smokeping_samples(target_id, id);
 
 -- nmap à la demande (volet 2 de la demande #295, livraison #302) --
 -- un scan = un passage, PERMANENT (même raisonnement que
@@ -434,11 +437,13 @@ def latest_sample_per_target(db_path):
     conn = get_connection(db_path)
     try:
         cur = conn.cursor()
+        # #740 : on part des CIBLES (quelques dizaines), pas des échantillons (des millions) : une recherche
+        # d'index par cible au lieu d'une sous-requête corrélée évaluée pour chaque échantillon.
         cur.execute(
-            """SELECT s.* FROM smokeping_samples s
-               WHERE s.id = (
-                   SELECT id FROM smokeping_samples s2
-                   WHERE s2.target_id = s.target_id
+            """SELECT s.* FROM targets t
+               JOIN smokeping_samples s ON s.id = (
+                   SELECT s2.id FROM smokeping_samples s2
+                   WHERE s2.target_id = t.id
                    ORDER BY s2.id DESC LIMIT 1
                )
                ORDER BY s.target_id"""
@@ -460,12 +465,13 @@ def prune_old_samples(db_path, keep_count_per_target=2000):
         target_ids = [r["target_id"] for r in cur.fetchall()]
         total_deleted = 0
         for tid in target_ids:
-            cur.execute(
-                """DELETE FROM smokeping_samples WHERE target_id = ? AND id NOT IN (
-                       SELECT id FROM smokeping_samples WHERE target_id = ? ORDER BY id DESC LIMIT ?
-                   )""",
-                [tid, tid, keep_count_per_target],
-            )
+            # #740 : borne = id du N-ième plus récent (une lecture d'index), puis suppression par plage
+            cur.execute("SELECT id FROM smokeping_samples WHERE target_id = ? ORDER BY id DESC LIMIT 1 OFFSET ?",
+                        [tid, keep_count_per_target - 1])
+            row = cur.fetchone()
+            if row is None:
+                continue
+            cur.execute("DELETE FROM smokeping_samples WHERE target_id = ? AND id < ?", [tid, row["id"]])
             total_deleted += cur.rowcount
         conn.commit()
         return total_deleted

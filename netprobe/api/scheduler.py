@@ -13,6 +13,7 @@ dernier échantillon, jamais plus souvent même si le tick est plus
 rapide que la fréquence configurée.
 """
 import logging
+import os
 import threading
 import time
 from datetime import datetime, timezone
@@ -29,6 +30,11 @@ _log = logging.getLogger("netprobe_scheduler")
 # sur-solliciter les cibles dont la fréquence est plus longue (la
 # vérification "assez de temps écoulé ?" ci-dessous s'en charge).
 DEFAULT_TICK_SECONDS = 15
+# #740 : purge des échantillons smokeping (jamais appelée jusque-là : table sans fin) -- toutes les heures,
+# NETPROBE_KEEP_SAMPLES par cible (défaut 10 000, soit ~7 jours à un échantillon par minute).
+PRUNE_EVERY_SECONDS = 3600
+KEEP_SAMPLES = int(os.environ.get("NETPROBE_KEEP_SAMPLES", "10000"))
+_last_analyzer_run = {}   # #740 : db_path -> epoch du dernier passage des analyseurs (constat ou pas)
 
 
 def _last_sample_ts(db_path, target_id):
@@ -133,9 +139,11 @@ def run_analyzer_tick(db_path, now_ts=None, now_hour=None):
     frequency = config.get("frequency_seconds")
     if frequency is None:
         return {"ran": False, "results": None}
-    last_ts = _last_analyzer_run_ts(db_path)
+    # #740 : le dernier CONSTAT ne suffit pas -- sans constat, les analyseurs repartaient à chaque tick (15 s)
+    last_ts = max(filter(None, [_last_analyzer_run_ts(db_path), _last_analyzer_run.get(db_path)]), default=None)
     if last_ts is not None and (now_ts - last_ts) < frequency:
         return {"ran": False, "results": None}
+    _last_analyzer_run[db_path] = now_ts
 
     results = analyzer_engine.run_all_analyzers(db_path)
     _log.debug("run_analyzer_tick : terminé -- %s", results)
@@ -147,7 +155,16 @@ def start_background_loop(db_path, tick_seconds=DEFAULT_TICK_SECONDS, stop_event
     `stop_event` (threading.Event) permet un arrêt propre en test,
     jamais un thread qui tourne indéfiniment dans un harnais de
     test."""
+    last_prune = 0.0
     while stop_event is None or not stop_event.is_set():
+        if time.time() - last_prune >= PRUNE_EVERY_SECONDS:
+            last_prune = time.time()
+            try:
+                n = store.prune_old_samples(db_path, keep_count_per_target=KEEP_SAMPLES)
+                if n:
+                    _log.info("start_background_loop : %s échantillon(s) ancien(s) purgé(s)", n)
+            except Exception as exc:  # noqa: BLE001 -- la purge ne bloque jamais les sondages
+                _log.debug("start_background_loop : purge en échec -- %s", exc)
         try:
             result = run_smokeping_tick(db_path)
             if result["sampled"] > 0:
