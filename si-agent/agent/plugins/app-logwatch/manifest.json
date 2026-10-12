@@ -1,0 +1,13 @@
+{
+  "id": "app-logwatch",
+  "version": "1",
+  "runner": "python",
+  "entry": "app_logwatch.py",
+  "interval_seconds": 600,
+  "timeout_seconds": 300,
+  "args": ["--match", "neutrino,kieback", "--minutes", "60"],
+  "enabled": false,
+  "description": "Sonde « journaux d'application » (#739) : « lsof » d'un logiciel propriétaire (défaut : superviseur GTB Neutrino GLT de Kieback&Peter). Processus et services présents/arrêtés ; fichiers ouverts par ces processus (Windows : table des handles, ou handle.exe de Sysinternals s'il est présent ; Linux : /proc) ; journaux récents des dossiers de l'application ; lecture incrémentale des lignes d'erreur, d'avertissement et RÉSEAU (délai, refus, injoignable, codes Winsock 10060/10061/10065/10054) avec les IP:port citées, à croiser avec gtb-netwatch ; journal d'événements Windows (plantages 1000/1002/1026, service arrêté 7031/7034). Options : --match motifs, --paths D:\\GLT\\Log, --minutes, --max-kb. Lecture seule. Privilégié (handles des autres processus).",
+  "source": "bundled",
+  "privileged": true
+}

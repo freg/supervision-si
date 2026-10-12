@@ -1438,3 +1438,12 @@ secours lui-même. Préparer le disque une fois (l'efface) : `zpool create -o as
 Le journal `/var/lib/si-agent/secours.jsonl` est lu par la sonde `pulled-backups` v3 (plusieurs `--index`) : le hub
 affiche l'ancienneté de chaque copie (Maintenance des Proxmox › Sauvegardes) et alerte au-delà de 14 jours
 (`SECOURS_MAX_AGE_H`), avec notification. Restauration : `zfs send` en sens inverse depuis le disque, puis la configuration.
+
+## Sondes GTB/GTC sur poste Windows (livraison #739, plugins `gtb-netwatch` et `app-logwatch`)
+
+Pour un poste Windows 10 22H2 qui fait tourner un superviseur GTB ancien (ex. Neutrino GLT) : `gtb-netwatch`
+(capture d'en-têtes par `pktmon` intégré, ou tcpdump/dumpcap) qualifie chaque tentative de connexion vers les
+automates — acceptée, refusée, sans réponse, injoignable, coupée — et les tentatives entrantes refusées ;
+`app-logwatch` liste processus/services, fichiers ouverts (handles), journaux récents et leurs erreurs réseau
+(Winsock 10060/10061…), plantages du journal d'événements. Livrées désactivées, privilégiées, lecture seule ;
+constats → événements `probe-alert`. Mode d'emploi : `docs/sondes-gtb-windows.md`.

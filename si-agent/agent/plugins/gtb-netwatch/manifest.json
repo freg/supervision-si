@@ -1,0 +1,13 @@
+{
+  "id": "gtb-netwatch",
+  "version": "1",
+  "runner": "python",
+  "entry": "gtb_netwatch.py",
+  "interval_seconds": 900,
+  "timeout_seconds": 420,
+  "args": ["--seconds", "120", "--ports", "all"],
+  "enabled": false,
+  "description": "Sonde « réseau GTB/GTC » (#739) : pendant 2 min, capture bornée des seuls en-têtes (SYN, SYN-ACK, RST, ICMP, UDP BACnet/KNX/SNMP…) par pktmon (Windows 10 2004+, intégré) ou tcpdump/dumpcap, et relevé des connexions avec leur processus. Pour chaque équipement distant : connexions acceptées, REFUSÉES (RST), SANS RÉPONSE (pare-feu, équipement éteint, route), INJOIGNABLES (ICMP, avec le routeur qui le dit), sessions coupées ; tentatives ENTRANTES refusées ou ignorées (automates qui remontent leurs alarmes). Constats → alertes. Options : --targets 192.0.2.0/24 (réseau des automates), --process neutrino, --ports all|gtb|liste, --keep DOSSIER (garde la capture). Lecture seule, aucun paquet émis, contenu jamais conservé. Privilégié (capture).",
+  "source": "bundled",
+  "privileged": true
+}

@@ -1,3 +1,20 @@
+## 2026-10-12 — Sondes GTB/GTC pour poste Windows : réseau et journaux d'application (livraison #739)
+
+Poste Windows 10 Pro 22H2 portant un superviseur GTB ancien (ex. Neutrino GLT) : trouver pourquoi il perd ses
+automates ou ses remontées. Deux plugins de l'agent, désactivés par défaut, privilégiés, lecture seule.
+
+- `gtb-netwatch` : capture bornée des en-têtes (SYN, SYN-ACK, RST, ICMP, UDP BACnet/KNX/SNMP) par `pktmon`
+  (intégré à Windows 10 2004+) ou tcpdump/dumpcap, relevé des connexions avec leur processus ; verdict par
+  équipement : acceptée, refusée (RST), sans réponse, injoignable (ICMP + routeur), coupée ; entrants refusés /
+  ignorés ; UDP sans réponse ; lecteur pcap/pcapng en Python pur (`--pcap` pour une capture existante).
+- `app-logwatch` : « lsof » de l'application (processus, services, fichiers ouverts par la table des handles ou
+  `handle.exe`), journaux récents lus en incrémental (rotation, UTF-16), erreurs réseau et codes Winsock, IP:port
+  cités, journal d'événements (plantages 1000/1002/1026, services 7031/7034).
+- Constats → alertes → événements `probe-alert` (store : `PROBE_TASKS`, libellés). Doc `docs/sondes-gtb-windows.md`.
+- Vérifié : tests des deux sondes (capture pcapng synthétique : refus, sans réponse, ICMP, reset, entrants, UDP ;
+  journaux : incrémental, rotation, Winsock ; scénario Linux réel processus + journal ouvert), `si-agent/agent`
+  tests, `si-agent/api` (66). Non vérifié : sur Windows réel (syntaxe des filtres `pktmon`, énumération des handles).
+
 ## 2026-10-09 — Images construites hors de la VM du hub, registre local (livraison #738)
 
 Lot 3 du second hub : un nœud « constructeur » construit les images et les pousse dans un registre local
