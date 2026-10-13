@@ -99,6 +99,10 @@ EXTRA=()
 [ -e /var/run/utmp ] && EXTRA+=(-v /var/run/utmp:/var/run/utmp:ro)          # sessions ouvertes (who)
 [ -e /var/log/wtmp ] && EXTRA+=(-v /var/log/wtmp:/var/log/wtmp:ro)          # dernières connexions (last)
 [ -S /run/dbus/system_bus_socket ] && EXTRA+=(-v /run/dbus/system_bus_socket:/run/dbus/system_bus_socket:ro)  # systemctl --failed via le bus de l'hôte (à confirmer)
+# ss -p / lsof sur les processus de l'hôte (--pid host) : le profil AppArmor docker-default refuse le ptrace en
+# lecture (« apparmor="DENIED" operation="ptrace" comm="ss" » dans dmesg) et les ports restent sans processus.
+# Par défaut : non confiné + SYS_PTRACE (lecture seule de /proc). CONFINED=1 garde docker-default (journal bruyant).
+[ -n "${CONFINED:-}" ] || EXTRA+=(--security-opt apparmor=unconfined --cap-add SYS_PTRACE)
 [ -n "${DOCKER_SOCK:-}" ] && [ -S /var/run/docker.sock ] && EXTRA+=(-v /var/run/docker.sock:/var/run/docker.sock:ro)  # plugin docker-containers (DOCKER_SOCK=1)
 docker run -d --name "$NAME" --restart unless-stopped \
   --network host --pid host \

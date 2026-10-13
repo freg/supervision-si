@@ -3773,3 +3773,9 @@ LDAP (écriture seule). Chaque écriture : aperçu avant / après, export
 partiel du realm avant application (retour arrière en un clic),
 journal + notification `keycloak.settings`. Prochaine étape après A1 du
 site miroir (item 97) si validé.
+
+### 121. Arguments d'une sonde par agent (fiche agent → Sondes)
+Constat (sonde Wi-Fi Raspberry, 13/10) : pas de champ « arguments » sur la fiche ; seul le catalogue (global) les porte,
+et une sonde livrée avec l'agent (wifi-probe, path-probe) ne passe pas par le catalogue. Contournement : manifeste local
+modifié à la main, perdu à la mise à jour. À faire : `args` par affectation (table d'affectation, poussé dans la config),
+champ éditable dans la fiche, priorité affectation > catalogue > manifeste ; valable aussi pour les sondes livrées.

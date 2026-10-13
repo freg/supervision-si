@@ -1,3 +1,13 @@
+## 2026-10-13 — Agent en conteneur : ports et connexions avec leur processus, sans refus AppArmor (livraison #744)
+
+- `si-agent/agent/docker/deploy-docker.sh` : conteneur lancé `--security-opt apparmor=unconfined --cap-add SYS_PTRACE`.
+  Avec `--pid host`, le profil docker-default refusait à `ss -p` la lecture de /proc des processus de l'hôte : refus
+  `apparmor="DENIED" operation="ptrace"` répétés dans dmesg et ports d'écoute / connexions remontés sans processus.
+  `CONFINED=1` garde l'ancien comportement. Redéployer : relancer `deploy-docker.sh` sur l'hôte concerné.
+- BACKLOG item 121 : arguments d'une sonde par agent depuis la fiche (aujourd'hui : catalogue global, ou manifeste local
+  pour les sondes livrées, écrasé à la mise à jour de l'agent).
+- Vérifié : `bash -n`. Non vérifié : sur un hôte réel.
+
 ## 2026-10-13 — Supervision distribuée : tournées de mesures réparties avec suppléance (livraison #743)
 
 Item 120, volet 1 (cadrage `docs/supervision-distribuee.md` : ordonnanceur, chronologie, couverture, architecture).
