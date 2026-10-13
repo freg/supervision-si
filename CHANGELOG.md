@@ -1,3 +1,20 @@
+## 2026-10-13 — Modèles IA déployés depuis le hub : agent ↔ Ollama (livraison #746)
+
+- Agent 0.5.55 : commande `ollama` (`si_agent/ollamactl.py`) -- état (version, modèles, chargés et part GPU, place
+  libre du dossier des modèles, téléchargement en cours), téléchargement détaché en flux (`pull`, progression, événements
+  `ollama-pull-done` / `ollama-pull-failed`), suppression, chargement (keep_alive), déchargement, essai (tokens/s, % GPU).
+  Noms de modèles filtrés ; Ollama joint en local (`OLLAMA_URL`, défaut 127.0.0.1:11434). `ollama`, `nvidia-smi` ajoutés
+  aux outils détectés.
+- Sonde livrée `ollama` (désactivée, non privilégiée, 5 min) : modèles et état ; constats Ollama injoignable, modèle
+  chargé hors GPU, dossier des modèles presque plein (événements « modèles IA »).
+- Central : type de commande `ollama` (actions contrôlées). Hub : section « Modèles IA (Ollama) » de la fiche agent
+  (dès qu'Ollama est détecté) -- tableau des modèles, Charger / Décharger / Tester / Supprimer, champ « Déployer » avec
+  suggestions, suivi de l'acquittement, bouton d'activation de la sonde.
+- Vérifié : `tests/test_ollamactl.py` (faux serveur Ollama : état, chargement à 70 % GPU, essai 16 tokens/s, déchargement,
+  suppression et 404, téléchargement en flux et erreur, double téléchargement refusé, Ollama arrêté, sonde et constats),
+  `test_si_agent` (sondes livrées), `si-agent/api` (72), `node --test` (351, dont tests/ollama.test.mjs), syntaxe
+  `@babel/parser`. Non vérifié : sur pcia avec le vrai Ollama, rendu navigateur.
+
 ## 2026-10-13 — Chien de garde du socle : Keycloak, passerelle et hub relancés seuls (livraison #745)
 
 Cas réel : après la migration de la VM du hub, Keycloak, la passerelle HTTPS et le hub sont restés « Exited (137) »

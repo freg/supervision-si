@@ -829,6 +829,15 @@ class Agent(object):
                 return {"ok": True, "result": {"schedule_days": self.state.get("sbom_schedule_days", 0), "started": started,
                                                "running": bool(getattr(self, "_sbom_running", False)), "last_at": self.state.get("sbom_last_at"),
                                                "last": self.state.get("sbom_last")}}
+            if ctype == "ollama":
+                # #746 : modèles Ollama de l'hôte (état, téléchargement détaché, suppression, chargement, essai)
+                from . import ollamactl
+                url = ollamactl.base_url(self.cfg)
+                res = ollamactl.run_action(params, url, pull_state=getattr(self, "_ollama_pull", None),
+                                           start_pull=lambda m: self.start_ollama_pull(url, m, c.get("id")))
+                if res.get("ok") and params.get("action") in ("delete", "load", "unload", "test"):
+                    self._next_plugin.pop("ollama", None)   # la sonde ollama remonte l'état tout de suite
+                return {"ok": res.get("ok", False), "error": res.get("error"), "result": res}
             if ctype == "mail":
                 # #697 : tuile Serveur de messagerie -- boîtes, historique, quarantaine, lecture, libération (mailctl)
                 from . import mailctl
@@ -1774,6 +1783,25 @@ class Agent(object):
             self._sbom_running = False
 
         threading.Thread(target=work, name="sbom", daemon=True).start()
+        return True
+
+    def start_ollama_pull(self, url, model, command_id=None):
+        """#746 : téléchargement d'un modèle Ollama dans un fil détaché ; progression lue par l'action status."""
+        import threading
+        from . import ollamactl
+        st = {"model": model, "running": True, "started": _iso(self.clock()), "status": "démarrage", "completed": None, "total": None}
+        self._ollama_pull = st
+
+        def work():
+            ok, err = ollamactl.pull(url, model, progress=lambda p: st.update({k: v for k, v in p.items() if v is not None}))
+            st.update({"running": False, "ended": _iso(self.clock()), "ok": ok, "error": err})
+            if ok:
+                self.event("ollama-pull-done", "info", "modèle %s téléchargé" % model, {"model": model, "command": command_id})
+            else:
+                self.event("ollama-pull-failed", "warning", "téléchargement de %s en échec : %s" % (model, err), {"model": model, "error": err})
+            self._next_plugin.pop("ollama", None)
+
+        threading.Thread(target=work, name="ollama-pull", daemon=True).start()
         return True
 
     def _installed_software(self):

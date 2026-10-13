@@ -559,7 +559,7 @@ def collect_accounts(files=read_file):
 
 KNOWN_TOOLS = ["nmap", "iperf3", "tcpdump", "iw", "iwconfig", "snmpwalk", "snmpget", "ss", "ip", "arp",
                "journalctl", "systemctl", "docker", "python3", "curl", "wget", "dig", "nslookup", "ping",
-               "traceroute", "mtr", "lldpctl", "ethtool", "smartctl", "sensors", "vcgencmd", "apt", "dnf"]
+               "traceroute", "mtr", "lldpctl", "ethtool", "smartctl", "sensors", "vcgencmd", "apt", "dnf", "ollama", "nvidia-smi"]  # #746 ollama
 
 
 def collect_tools(which=shutil.which, tools=KNOWN_TOOLS):

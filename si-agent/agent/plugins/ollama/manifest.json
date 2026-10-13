@@ -1,0 +1,13 @@
+{
+  "id": "ollama",
+  "version": "1",
+  "runner": "python",
+  "entry": "ollama_probe.py",
+  "interval_seconds": 300,
+  "timeout_seconds": 30,
+  "args": [],
+  "enabled": false,
+  "description": "Modèles IA Ollama de l'hôte (#746) : version, modèles présents (taille, paramètres, quantification), modèles chargés et part en mémoire GPU, place libre du dossier des modèles. Pilotage depuis la fiche agent (télécharger, charger, décharger, tester, supprimer : commande « ollama »). Constats : Ollama injoignable, modèle chargé hors GPU, dossier des modèles presque plein. Lecture seule. Non privilégiée.",
+  "source": "bundled",
+  "privileged": false
+}
