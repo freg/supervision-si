@@ -52,6 +52,7 @@
 
 services:
   keycloak:
+    restart: unless-stopped   # #745 : remonte seul après un redémarrage de la VM ou un arrêt brutal (OOM)
     image: quay.io/keycloak/keycloak:26.0
     command: ["start-dev", "--import-realm"]
     environment:
@@ -268,6 +269,7 @@ services:
       - ./gateway/ldap-seed:/container/service/slapd/assets/config/bootstrap/ldif/custom
 
   tls-proxy:
+    restart: unless-stopped   # #745 : remonte seul après un redémarrage de la VM ou un arrêt brutal (OOM)
     image: nginx:1.27-alpine
     ports:
       - "${GATEWAY_PORT:-6443}:${GATEWAY_PORT:-6443}"

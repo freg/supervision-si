@@ -153,3 +153,6 @@ deploy/mirror.local.json
 groupware/data/
 groupware/dav-config/
 groupware/dav-data/
+
+# #745 : suspension locale du chien de garde
+.watchdog-pause

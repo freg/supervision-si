@@ -1,3 +1,17 @@
+## 2026-10-13 — Chien de garde du socle : Keycloak, passerelle et hub relancés seuls (livraison #745)
+
+Cas réel : après la migration de la VM du hub, Keycloak, la passerelle HTTPS et le hub sont restés « Exited (137) »
+(le reste du socle tournait) ; supervision.optline.fr a répondu 503 jusqu'à une relance manuelle.
+- `restart: unless-stopped` sur `keycloak` et `tls-proxy` (gateway/docker-compose.yml) et sur `hub` : ils remontent
+  avec Docker après un redémarrage de la VM ou un arrêt brutal.
+- `scripts/watchdog.sh` : relance dans l'ordre les conteneurs indispensables s'ils ne tournent pas
+  (`WATCHDOG_CONTAINERS`), redémarre la passerelle après 3 passages sans aucune réponse HTTPS sur `GATEWAY_PORT`
+  (un 502/503 d'un service derrière ne compte pas) ; `--install` pose un minuteur systemd (2 min), `.watchdog-pause`
+  suspend les relances pendant un chantier.
+- Vérifié : `bash -n`, passages simulés (docker/curl factices) : relance de 2 conteneurs arrêtés, redémarrage de la
+  passerelle au 3e échec, remise à zéro sur réponse 401, pause ; politique de redémarrage lue par PyYAML.
+  Non vérifié : sur super.
+
 ## 2026-10-13 — Agent en conteneur : ports et connexions avec leur processus, sans refus AppArmor (livraison #744)
 
 - `si-agent/agent/docker/deploy-docker.sh` : conteneur lancé `--security-opt apparmor=unconfined --cap-add SYS_PTRACE`.

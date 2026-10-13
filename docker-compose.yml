@@ -2022,6 +2022,7 @@ services:
       - ldap-admin-api
 
   hub:
+    restart: unless-stopped   # #745 : remonte seul après un redémarrage de la VM ou un arrêt brutal (OOM)
     build:
       context: .
       dockerfile: hub/Dockerfile
