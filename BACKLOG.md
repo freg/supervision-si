@@ -1,3 +1,12 @@
+## Supervision réseau distribuée : ordonnanceur, chronologie, couverture, architecture (2026-10-13) — item 120 ; volet 1 tranche 1 FAITE (#743)
+
+Cadrage : `docs/supervision-distribuee.md`. Décisions : commencer par l'ordonnanceur réparti ; carte au choix plans de
+bâtiments ou OSM ; déplacements = clients Wi-Fi entre bornes, équipements changés de port / VLAN, VM / services migrés.
+- FAIT #743 : tournées de mesures (`si-agent/api/rotation.py`, routes `/rotations`, onglet « Tournées ») : à tour de
+  rôle avec suppléance ou réparti, phase stable, heures calmes, plafond par site, créneaux tracés, couverture 24 h.
+- Reste : 1b (charge des agents, cibles réparties), 1c (netprobe dans les tournées) ; volet 2 série commune +
+  corrélations ; volet 3 couverture carte + curseur temporel ; volet 4 déclaré / mesuré / nommé + déplacements.
+
 ## Ordre des listes généralisé et agents par catégorie (2026-10-13) — item 119 ; tranche 1 FAITE (#742)
 
 Demandé : « généraliser : ordre alphabétique par défaut, antéchronologiquement, gravité » ; « séparation des agents en

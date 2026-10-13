@@ -1,3 +1,17 @@
+## 2026-10-13 — Supervision distribuée : tournées de mesures réparties avec suppléance (livraison #743)
+
+Item 120, volet 1 (cadrage `docs/supervision-distribuee.md` : ordonnanceur, chronologie, couverture, architecture).
+- `si-agent/api/rotation.py` : une tournée = sonde + groupe d'agents + période ; *à tour de rôle* (un agent par créneau,
+  le suivant en ligne supplée un titulaire absent) ou *réparti* (chaque agent décalé de période / n) ; phase stable,
+  heures calmes, plafond de lancements simultanés par site ; lancement par commande `run_plugin` (agents inchangés),
+  créneau marqué fait / échec / sauté / sans réponse ; couverture sur 24 h.
+- Routes `/rotations` (liste avec prochains créneaux et couverture, création, modification, suppression, historique) ;
+  tick toutes les 30 s dans le chien de garde du central.
+- Hub : onglet « Tournées » de la tuile Agents hôtes (formulaire, prochains créneaux, taux sur 24 h, historique).
+- Vérifié : `test_z_rotation.py` (créneaux réguliers, décalages, rotation, suppléance, heures calmes, plafond, couverture,
+  validation, tick complet avec commande et acquittement), `si-agent/api` (72), syntaxe `@babel/parser`.
+  Non vérifié : sur la flotte réelle, rendu navigateur.
+
 ## 2026-10-13 — Ordre des listes (A → Z, récent, gravité) et agents par catégorie (livraison #742)
 
 - `hub/src/listOrder.js` + `ListOrder.jsx` : trois ordres pour toute liste (alphabétique par défaut, antéchronologique,

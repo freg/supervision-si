@@ -48,6 +48,7 @@ import updates  # noqa: E402
 import pra  # noqa: E402  -- #653 : plans PRA / opérations PVE
 import maint  # noqa: E402  -- #705 : maintenance / réorganisation des Proxmox
 import migration  # noqa: E402  -- #658 : migration serveur -> virtualisation (générateur de plan)
+import rotation  # noqa: E402  -- #743 : tournées de mesures réparties (supervision distribuée, item 120)
 import json  # noqa: E402
 import notify  # noqa: E402
 import alertfilters  # noqa: E402  (#607)
@@ -100,6 +101,7 @@ LOG_CAPTURE_LEVEL = os.environ.get("LOG_CAPTURE_LEVEL", "WARNING").strip().upper
 
 store.ensure_schema(DB_PATH)
 pra.init(DB_PATH)
+rotation.init(DB_PATH)
 
 
 def get_memcache_client():
@@ -168,6 +170,10 @@ def _watchdog_loop():
             watchdog_tick()
         except Exception as exc:  # noqa: BLE001
             _log.warning("chien de garde : %s", exc)
+        try:
+            rotation.tick(DB_PATH)          # #743 : créneaux des tournées de mesures
+        except Exception as exc:  # noqa: BLE001
+            _log.warning("tournées : %s", exc)
 
 
 if os.environ.get("SI_AGENT_PURGE_THREAD", "1") == "1":
@@ -838,6 +844,56 @@ def updates_apply_route():
 # ============================================================
 # #653 : plans PRA / opérations PVE (séquences de vm_action, simulation puis exécution)
 # ============================================================
+
+# ============================================================
+# #743 : tournées de mesures réparties (supervision distribuée, item 120)
+# ============================================================
+
+@app.route("/rotations", methods=["GET"])
+def rotations_route():
+    now = int(time.time())
+    out = []
+    for p_ in rotation.list_plans(DB_PATH):
+        runs = rotation.list_runs(DB_PATH, p_["id"], 500)
+        p_["coverage_24h"] = rotation.coverage(runs, p_, now - 86400, now)
+        p_["next"] = [{"at": t, "agent": a or rotation.choose_agent(p_, t, set(p_["agents"]))[0]} for t, a in rotation.slots(p_, now, now + 2 * p_["period_seconds"])][:6]
+        out.append(p_)
+    return jsonify({"rotations": out, "now": now}), 200
+
+
+def _rotation_body():
+    body = request.get_json(silent=True) or {}
+    return rotation.validate(body, known_plugins={p_["id"] for p_ in store.list_plugins(DB_PATH)},
+                             known_agents={a["agent_id"] for a in store.list_agents(DB_PATH)})
+
+
+@app.route("/rotations", methods=["POST"])
+def rotation_create_route():
+    p_, err = _rotation_body()
+    if err:
+        return jsonify({"error": err}), 400
+    return jsonify(rotation.save_plan(DB_PATH, p_)), 201
+
+
+@app.route("/rotations/<int:pid>", methods=["PUT"])
+def rotation_update_route(pid):
+    if not rotation.get_plan(DB_PATH, pid):
+        return jsonify({"error": "tournée inconnue"}), 404
+    p_, err = _rotation_body()
+    if err:
+        return jsonify({"error": err}), 400
+    return jsonify(rotation.save_plan(DB_PATH, p_, pid)), 200
+
+
+@app.route("/rotations/<int:pid>", methods=["DELETE"])
+def rotation_delete_route(pid):
+    return (jsonify({"deleted": pid}), 200) if rotation.delete_plan(DB_PATH, pid) else (jsonify({"error": "tournée inconnue"}), 404)
+
+
+@app.route("/rotations/<int:pid>/runs", methods=["GET"])
+def rotation_runs_route(pid):
+    return jsonify({"runs": rotation.list_runs(DB_PATH, pid, int(request.args.get("limit", 200)))}), 200
+
 
 @app.route("/pra/plans", methods=["GET"])
 def pra_plans_route():

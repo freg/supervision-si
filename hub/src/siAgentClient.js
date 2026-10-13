@@ -188,3 +188,9 @@ export const previewMigration = (apiBase, body) => fetchJson(apiBase, "/pra/migr
 export const resumePraRun = (apiBase, rid) => fetchJson(apiBase, `/pra/runs/${rid}/resume`, { method: "POST" });
 export const abortPraRun = (apiBase, rid, rollback, actor) => fetchJson(apiBase, `/pra/runs/${rid}/abort`, json("POST", { rollback, actor }));
 export const rollbackPraRun = (apiBase, rid, actor) => fetchJson(apiBase, `/pra/runs/${rid}/rollback`, json("POST", { actor }));
+
+// #743 : tournées de mesures réparties (supervision distribuée)
+export const fetchRotations = (apiBase) => fetchJson(apiBase, "/rotations");
+export const saveRotation = (apiBase, body, id) => fetchJson(apiBase, id ? `/rotations/${id}` : "/rotations", json(id ? "PUT" : "POST", body));
+export const deleteRotation = (apiBase, id) => fetchJson(apiBase, `/rotations/${id}`, { method: "DELETE" });
+export const fetchRotationRuns = (apiBase, id) => fetchJson(apiBase, `/rotations/${id}/runs?limit=100`);
