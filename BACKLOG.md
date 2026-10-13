@@ -1,3 +1,16 @@
+## Ordre des listes généralisé et agents par catégorie (2026-10-13) — item 119 ; tranche 1 FAITE (#742)
+
+Demandé : « généraliser : ordre alphabétique par défaut, antéchronologiquement, gravité » ; « séparation des agents en
+présentation » : par défaut une catégorisation suivant le rôle et l'OS (Proxmox PVE et PBS, Linux, Windows, VM, sondes).
+- FAIT #742 : `listOrder.js` (alpha / récent / gravité, vocabulaires de gravité unifiés, tri naturel sans casse ni
+  accents) + `ListOrder.jsx` (sélecteur mémorisé par liste) ; tuile Agents hôtes : flotte groupée Proxmox (PVE / PBS) ·
+  Sondes · VM · Windows · Linux · Autres, groupes repliables avec compteurs, ordre au choix dans chaque groupe (A → Z par
+  défaut), étiquette `#pve #pbs #sonde #vm #windows #linux` dans le libellé pour forcer ; journal des événements en
+  « Récent » par défaut avec sélecteur ; catalogue des sondes et mises à jour en A → Z.
+- Reste (tranches suivantes) : brancher le sélecteur sur les autres listes du hub (tickets, sauvegardes, coffre, PVE,
+  équipements réseau, Cortex…), défaut « alpha » pour les inventaires, « récent » pour les journaux ; catégories de la
+  tuile Proxmox (nœuds / VM / CT) et des sondes netprobe sur le même modèle.
+
 ## Sauvegarde de la VM du PBS sur disque externe / poste de secours (2026-10-09) — item 118, FAIT pour le disque USB (#725 : copie ZFS différentielle ponctuelle, ancienneté suivie) ; disques internes de 2 To sur pve10/pve11 prévus le 12 oct. (second datastore ou réplication croisée à voir)
 
 Demandé : « un mécanisme de backup de la VM du PBS sur disque externe / montage d'un poste identifié comme secours

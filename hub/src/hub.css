@@ -2422,3 +2422,10 @@ html[data-busy="1"] { cursor: progress; }
 @keyframes hub-busy { from { background-position: -50% 0; } to { background-position: 150% 0; } }
 button:active:not(:disabled), a.hub-card:active, button.hub-card:active { transform: translateY(1px); filter: brightness(.95); }
 @media (prefers-reduced-motion: reduce) { .hub-spinner, html[data-busy="1"] body::before { animation: none; } }
+
+/* #742 : sélecteur d'ordre des listes (A → Z · Récent · Gravité) */
+.hub-order-switch { display: inline-flex; gap: 0; }
+.hub-order-switch button { border-radius: 0; margin: 0; padding: 2px 10px; }
+.hub-order-switch button:first-child { border-radius: 4px 0 0 4px; }
+.hub-order-switch button:last-child { border-radius: 0 4px 4px 0; }
+.sa-cat-row td { border-top: 2px solid rgba(127, 127, 127, .35); }

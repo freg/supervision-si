@@ -357,3 +357,59 @@ export function publishedPageUrl(agent) {
   if (!host) return null;
   return `http://${host}:${pub.port || 8081}/`;
 }
+
+
+// #742 : présentation de la flotte par catégorie (rôle et OS). Ordre des groupes fixe ; dans un groupe, l'ordre
+// choisi (listOrder.js). Une étiquette dans le libellé de l'agent force la catégorie : #pve #pbs #sonde #vm #windows #linux.
+export const AGENT_CATEGORIES = [
+  { id: "proxmox", label: "Proxmox (PVE / PBS)" },
+  { id: "sonde", label: "Sondes" },
+  { id: "vm", label: "Machines virtuelles" },
+  { id: "windows", label: "Windows" },
+  { id: "linux", label: "Linux" },
+  { id: "other", label: "Autres (macOS…)" },
+];
+const PROBE_PLUGINS = ["wifi-probe", "path-probe", "broadcast-probe", "windows-probe"];
+const TAGS = { pve: "proxmox", pbs: "proxmox", proxmox: "proxmox", sonde: "sonde", probe: "sonde", vm: "vm", windows: "windows", linux: "linux" };
+
+export function agentCategory(a) {
+  const label = String(a?.label || "");
+  const tag = (label.match(/#(pve|pbs|proxmox|sonde|probe|vm|windows|linux)\b/i) || [])[1];
+  if (tag) return TAGS[tag.toLowerCase()];
+  const os = String(a?.os || "").toLowerCase();
+  const names = `${a?.agent_id || ""} ${a?.hostname || ""} ${label}`.toLowerCase();
+  const plugins = a?.plugin_ids || [];
+  if (plugins.includes("proxmox") || plugins.includes("pbs") || /proxmox/.test(os) || /(^|[\s._-])(pve|pbs)[0-9a-z-]*/.test(names)) return "proxmox";
+  if (/raspberry/i.test(a?.hardware_model || "") || /(sonde|probe|rpi|raspberry)/.test(names) || plugins.some((p) => PROBE_PLUGINS.includes(p))) return "sonde";
+  const virt = String(a?.virtualization || "").toLowerCase();
+  if (virt && !["none", "null", "no", "false"].includes(virt)) return "vm";
+  if (/windows/.test(os)) return "windows";
+  if (/darwin|mac ?os|os x/.test(os)) return "other";
+  return "linux";
+}
+
+export function proxmoxRole(a) {
+  const s = `${(a?.plugin_ids || []).join(" ")} ${a?.agent_id || ""} ${a?.hostname || ""} ${a?.label || ""}`.toLowerCase();
+  const pbs = /\bpbs/.test(s), pve = /\bproxmox\b|\bpve/.test(s);
+  return pbs && pve ? "PVE + PBS" : pbs ? "PBS" : "PVE";
+}
+
+// Gravité d'un agent pour l'ordre « Gravité » : risques critiques, hors ligne, avertissements, ok, jamais vu.
+export function agentSeverity(a) {
+  if (a?.risks?.state === "critical") return 0;
+  if (a?.online === "offline") return 1;
+  if (a?.risks?.state === "warning") return 2;
+  if (a?.online === "never") return 4;
+  return 5;
+}
+
+/** Groupes [{id, label, agents, counts}] non vides, dans l'ordre AGENT_CATEGORIES ; `order` = fonction de tri d'une liste. */
+export function groupFleet(agents, order = (xs) => xs) {
+  const by = {};
+  for (const a of agents || []) (by[agentCategory(a)] ||= []).push(a);
+  return AGENT_CATEGORIES.filter((c) => by[c.id]).map((c) => {
+    const list = order(by[c.id]);
+    return { ...c, agents: list, counts: { total: list.length, critical: list.filter((a) => a.risks?.state === "critical").length,
+      offline: list.filter((a) => a.online === "offline").length, warning: list.filter((a) => a.risks?.state === "warning").length } };
+  });
+}

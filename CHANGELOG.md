@@ -1,3 +1,16 @@
+## 2026-10-13 — Ordre des listes (A → Z, récent, gravité) et agents par catégorie (livraison #742)
+
+- `hub/src/listOrder.js` + `ListOrder.jsx` : trois ordres pour toute liste (alphabétique par défaut, antéchronologique,
+  gravité d'abord), gravités de vocabulaires différents ramenées à un rang commun, choix mémorisé par liste.
+- Tuile Agents hôtes : flotte présentée par catégorie (Proxmox PVE / PBS, sondes, VM, Windows, Linux, autres), groupes
+  repliables avec compteurs critique / hors ligne / avertissement, rôle PVE ou PBS affiché ; ordre au choix dans chaque
+  groupe ; case « par catégorie » ; étiquette `#pve #pbs #sonde #vm #windows #linux` dans le libellé pour forcer.
+  Événements : ordre au choix (récent par défaut). Catalogue des sondes et onglet Mises à jour : A → Z.
+- si-agent-api `/fleet` : `plugin_ids`, `virtualization`, `hardware_model` (dernier inventaire) pour la catégorie.
+- Vérifié : `node --test` (349, dont tests/listOrder.test.mjs), `si-agent/api` (66), syntaxe `@babel/parser`.
+  Non vérifié : rendu navigateur ; catégorie VM tant que l'inventaire matériel d'un agent n'est pas remonté.
+- BACKLOG item 119 : brancher le sélecteur sur les autres listes du hub.
+
 ## 2026-10-13 — Assistant IA sur un poste GPU distant par le bastion (livraison #741)
 
 Palier 2 réalisé hors du LAN du hub (Arc Pro B60 24 Go, qwen3:30b-a3b 100 % GPU, 43 jetons/s, évaluation

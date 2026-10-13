@@ -10,7 +10,10 @@ import {
 import {
   COMMAND_TYPES, CONTACT_LABELS, riskLabel, severityTone, stateTone, contactTone, gauge, formatBytes,
   formatUptime, formatAge, ageSeconds, sortFleet, riskSummaryText, diskRows, portRows, mergePlugins, storageSummary,
-  validatePluginForm, defaultEntry, eventKindLabel, filterEvents, summarizeEvents, isSecurityEvent, EVENT_SEVERITIES, publishedPageUrl } from "./siAgent.js";
+  validatePluginForm, defaultEntry, eventKindLabel, filterEvents, summarizeEvents, isSecurityEvent, EVENT_SEVERITIES, publishedPageUrl,
+  groupFleet, agentSeverity, proxmoxRole } from "./siAgent.js";
+import { orderItems } from "./listOrder.js";  // #742
+import { useListOrder, OrderSwitch } from "./ListOrder.jsx";  // #742
 // #525 : section « Wi-Fi vu du poste » (sonde wifi-probe, famille explorer).
 import WifiProbeSection from "./WifiProbeSection.jsx";
 import AlertFiltersTab from "./AlertFiltersTab.jsx";  // #607
@@ -336,7 +339,15 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
   }
 
   // --- Dérivés ---
-  const sorted = useMemo(() => sortFleet(fleet), [fleet]);
+  // #742 : ordre choisi (A → Z par défaut, récent, gravité) et regroupement par catégorie (rôle / OS)
+  const [fleetOrder, setFleetOrder] = useListOrder("si-agent.fleet", "alpha");
+  const [eventsOrder, setEventsOrder] = useListOrder("si-agent.events", "recent");
+  const [byCategory, setByCategory] = useState(() => { try { return localStorage.getItem("hub.si-agent.byCategory") !== "0"; } catch (e) { return true; } });
+  const [foldedCats, setFoldedCats] = useState({});
+  const orderFleet = useCallback((xs) => orderItems(xs, fleetOrder, { name: (a) => a.agent_id, tie: (a) => a.hostname, date: (a) => a.last_seen_at, severity: agentSeverity }), [fleetOrder]);
+  const sorted = useMemo(() => orderFleet(fleet), [fleet, orderFleet]);
+  const fleetGroups = useMemo(() => groupFleet(fleet, orderFleet), [fleet, orderFleet]);
+  const fleetRows = byCategory ? fleetGroups.flatMap((g) => [{ __group: g }, ...(foldedCats[g.id] ? [] : g.agents)]) : sorted;
   const host = detail?.latest?.host?.data || null;
   const hostRisks = detail?.latest?.risks?.data || null;
   const inventory = detail?.latest?.inventory?.data || null;
@@ -441,6 +452,15 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
             </div>
           )}
 
+          {!loading && sorted.length > 0 && (
+            <div className="ups-toolbar" style={{ margin: "4px 0" }}>
+              <OrderSwitch value={fleetOrder} onChange={setFleetOrder} />
+              <label title="Proxmox (PVE / PBS), sondes, VM, Windows, Linux -- étiquette #pve #pbs #sonde #vm #windows #linux dans le libellé pour forcer">
+                <input type="checkbox" checked={byCategory} onChange={(e) => { setByCategory(e.target.checked); try { localStorage.setItem("hub.si-agent.byCategory", e.target.checked ? "1" : "0"); } catch (err) { /* non mémorisé */ } }} /> par catégorie
+              </label>
+              {byCategory && <span className="muted">{fleetGroups.map((g) => `${g.label} ${g.counts.total}`).join(" · ")}</span>}
+            </div>
+          )}
           {loading ? (
             <p className="muted">Chargement…</p>
           ) : sorted.length === 0 ? (
@@ -450,12 +470,25 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
               <table className="sa-fleet" style={agentCols.tableStyle}>
                 <TableColumnsHead t={agentCols} render={(c) => (c.id === "actions" ? <ColumnsMenu t={agentCols} /> : undefined)} />
                 <tbody>
-                  {sorted.map((a) => {
+                  {fleetRows.map((a) => {
+                    if (a.__group) {
+                      const g = a.__group, c = g.counts;
+                      return (
+                        <tr key={`cat-${g.id}`} className="sa-cat-row" onClick={() => setFoldedCats({ ...foldedCats, [g.id]: !foldedCats[g.id] })} style={{ cursor: "pointer" }}>
+                          <td colSpan={agentCols.visible.length} style={{ fontWeight: 600, background: "var(--hub-surface-2, rgba(127,127,127,.12))" }}>
+                            {foldedCats[g.id] ? "▸" : "▾"} {g.label} <span className="muted">({c.total})</span>
+                            {c.critical > 0 && <> <Tone tone="bad">{c.critical} critique{c.critical > 1 ? "s" : ""}</Tone></>}
+                            {c.offline > 0 && <> <Tone tone="warn">{c.offline} hors ligne</Tone></>}
+                            {c.warning > 0 && <> <Tone tone="warn">{c.warning} avertissement{c.warning > 1 ? "s" : ""}</Tone></>}
+                          </td>
+                        </tr>
+                      );
+                    }
                     const age = ageSeconds(a.last_seen_at, now);
                     return (
                       <tr key={a.agent_id} className={`ups-row${selectedId === a.agent_id ? " active" : ""}${a.active ? "" : " inactive"}`} onClick={() => setSelectedId(selectedId === a.agent_id ? null : a.agent_id)}>
                         {agentCols.show("agent") && (
-                        <td><strong>{a.agent_id}</strong>{a.label && <div className="muted" style={{ fontSize: 11 }}>{a.label}</div>}
+                        <td><strong>{a.agent_id}</strong>{byCategory && fleetGroups.some((g) => g.id === "proxmox" && g.agents.includes(a)) && <> <Tone tone="neutral">{proxmoxRole(a)}</Tone></>}{a.label && <div className="muted" style={{ fontSize: 11 }}>{a.label}</div>}
                           {publishedPageUrl(a) && <div style={{ fontSize: 11 }}><a href={publishedPageUrl(a)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} title="Page publiée par l'agent sur le réseau de son site (#552)">page publiée ↗</a></div>}</td>
                         )}
                         {agentCols.show("site") && <td>{a.site}</td>}
@@ -1024,9 +1057,10 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
             <label><input type="checkbox" checked={evFilter.securityOnly} onChange={(e) => setEvFilter({ ...evFilter, securityOnly: e.target.checked })} /> sécurité seulement</label>
             <label title="#607 : événements filtrés par le groupe de leur agent (journal seulement)"><input type="checkbox" checked={!!evFilter.showMuted} onChange={async (e) => { setEvFilter({ ...evFilter, showMuted: e.target.checked }); setEvents(e.target.checked ? await fetchEventsMuted(siAgentApiBase, 300) : await fetchEvents(siAgentApiBase, { limit: 300 })); }} /> afficher les filtrées{summary?.muted ? ` (${summary.muted} sur 24 h)` : ""}</label>
             <label>Recherche <input value={evFilter.text} onChange={(e) => setEvFilter({ ...evFilter, text: e.target.value })} placeholder="genre, message, agent" /></label>
+            <OrderSwitch value={eventsOrder} onChange={setEventsOrder} />
           </div>
           {(() => {
-            const shown = filterEvents(events, evFilter);
+            const shown = orderItems(filterEvents(events, evFilter), eventsOrder, { name: (e) => e.agent_id || e.kind, date: (e) => e.at, severity: (e) => e.severity, tie: (e) => e.message });
             const sm = summarizeEvents(shown);
             return shown.length === 0 ? <p className="muted">Aucun événement pour ces critères.</p> : (
               <>
@@ -1099,7 +1133,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
             <div className="hub-table-scroll">
               <AutoColumns id="SiAgentView.16"><table>
                 <thead><tr><th>Sonde</th><th>Version</th><th>Runner</th><th>Intervalle</th><th>Agents affectés</th><th>Mise à jour</th><th className="ups-actions-head"></th></tr></thead>
-                <tbody>{catalogue.map((p) => (
+                <tbody>{orderItems(catalogue, "alpha", { name: (p) => p.id }).map((p) => (
                   <tr key={p.id}>
                     <td><strong>{p.id}</strong>{p.description && <div className="muted" style={{ fontSize: 11 }}>{p.description}</div>}</td>
                     <td>{p.version}</td>
@@ -1180,7 +1214,7 @@ function UpdatesTab({ base }) {
       <AutoColumns id="SiAgentView.17"><table className="sa-table">
         <thead><tr><th>Bêta</th><th>Agent</th><th>Hôte</th><th>Site</th><th>Version</th><th>État</th><th>Dernière commande</th><th></th></tr></thead>
         <tbody>
-          {agents.map((a) => {
+          {orderItems(agents, "alpha", { name: (a) => a.agent_id }).map((a) => {
             const [label, tone] = STATUS[a.status] || [a.status, "neutral"];
             return (
               <tr key={a.agent_id} className="ups-row">

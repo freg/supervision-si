@@ -1560,8 +1560,13 @@ def fleet(db_path, site=None, offline_after_seconds=300):
                           "queue_size": pt.get("queue_size"), "bench": bool(me.get("bench_until")), "at": (latest.get("agent-self") or {}).get("at")} if pt else None
         a["online"] = _online(a.get("last_seen_at"), now, offline_after_seconds, a["host_interval_seconds"])
         a["pending_commands"] = len(pending_commands_for_agent(db_path, a["agent_id"]))
-        a["plugins_assigned"] = len(agent_plugins(db_path, a["agent_id"]))
+        assigned = agent_plugins(db_path, a["agent_id"])
+        a["plugins_assigned"] = len(assigned)
+        a["plugin_ids"] = [p["id"] for p in assigned]              # #742 : catégorie de présentation (PVE/PBS, sondes…)
         inv = (latest.get("inventory") or {}).get("data") or {}
+        hw = inv.get("hardware") or {}
+        a["virtualization"] = hw.get("virtualization")
+        a["hardware_model"] = " ".join(str(x) for x in (hw.get("vendor"), hw.get("product")) if x) or None
         a["host_blocked"] = bool(inv.get("blocked"))  # ce que l'AGENT dit de lui-même (dernier inventaire)
         a["host_blocked_reason"] = inv.get("blocked_reason")
         a["insecure_tls"] = bool(inv.get("insecure_tls"))
