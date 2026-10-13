@@ -24,7 +24,8 @@ Cas réel : après la migration de la VM du hub, Keycloak, la passerelle HTTPS e
 - `scripts/watchdog.sh` : relance dans l'ordre les conteneurs indispensables s'ils ne tournent pas
   (`WATCHDOG_CONTAINERS`), redémarre la passerelle après 3 passages sans aucune réponse HTTPS sur `GATEWAY_PORT`
   (un 502/503 d'un service derrière ne compte pas) ; `--install` pose un minuteur systemd (2 min), `.watchdog-pause`
-  suspend les relances pendant un chantier.
+  suspend les relances pendant un chantier. Minuteur : `OnActiveSec` ajouté (sans lui, NEXT restait vide après
+  `--install` : `OnBootSec` déjà passé et `OnUnitActiveSec` sans premier passage).
 - Vérifié : `bash -n`, passages simulés (docker/curl factices) : relance de 2 conteneurs arrêtés, redémarrage de la
   passerelle au 3e échec, remise à zéro sur réponse 401, pause ; politique de redémarrage lue par PyYAML.
   Non vérifié : sur super.

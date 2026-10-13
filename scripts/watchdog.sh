@@ -38,6 +38,7 @@ UNIT
 [Unit]
 Description=Chien de garde supervision-si toutes les 2 minutes
 [Timer]
+OnActiveSec=1min
 OnBootSec=3min
 OnUnitActiveSec=2min
 [Install]
