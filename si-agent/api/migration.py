@@ -10,7 +10,7 @@ réseau puis arrêtée ; le serveur physique n'est jamais détruit, la VM seulem
 Le plan produit est un plan PRA ordinaire (kind = migration) : simulable, exécutable pas à pas, rejouable."""
 import re
 
-METHODS = ("image", "rebuild")
+METHODS = ("image", "rebuild", "direct")   # #748 : direct = image relayée de l'agent source à l'agent du nœud, sans stockage complet au central
 _AGENT = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 
 
@@ -18,7 +18,7 @@ def build(body):
     """-> (plan, erreur). plan = {name, kind, notes, steps, rollback_steps, auto_rollback}."""
     b = body or {}
     method = str(b.get("method") or "image")
-    if method not in METHODS: return None, "method : image ou rebuild"
+    if method not in METHODS: return None, "method : image, direct ou rebuild"
     src, pve = str(b.get("source_agent_id") or "").strip(), str(b.get("pve_agent_id") or "").strip()
     if not _AGENT.match(src): return None, "source_agent_id (agent du serveur à migrer) requis"
     if not _AGENT.match(pve): return None, "pve_agent_id (agent du nœud Proxmox cible) requis"
@@ -41,6 +41,19 @@ def build(body):
     steps, rb = [], []
     # --- phase 1 : préparation
     steps.append(dict(agent_id="central", action="checkpoint", label="Transition 1 -- préparer %s : prévenir, geler les écritures applicatives (services en lecture seule ou arrêtés), vérifier l'espace du stockage %s ; puis Reprendre" % (src, storage)))
+    if method == "direct":
+        # #748 : les deux agents préparent leur espace, la VM réceptacle est créée, la cible lit l'image AU FIL DE L'EAU par le
+        # relais du central (fenêtre bornée), débit borné des deux côtés ; import puis suppression du volume temporaire
+        job = "vm%d" % vmid; bw = float(b.get("bwlimit_mbps") or 0); window = float(b.get("window_gb") or 4)
+        steps.append(dict(agent_id=src, action="p2v_prepare_source", params=dict(target=str(b.get("image_target") or "").strip()), label="%s : espace utilisé, emplacement temporaire de l'image" % src))
+        steps.append(dict(agent_id=pve, action="p2v_prepare_target", params=dict(job=job, storage=storage, need_bytes="{{need_bytes}}"), label="%s : volume temporaire dans le pool %s (hors disque système)" % (pve, storage)))
+        create = dict(name=name, bridge=bridge, memory=memory, cores=cores, storage=storage, ostype=ostype, link_down=1)
+        steps.append(dict(agent_id=pve, vmid=vmid, kind="qemu", action="create", params=create, label="VM réceptacle %d « %s » créée sur %s, réseau coupé" % (vmid, name, pve)))
+        steps.append(dict(agent_id=pve, action="p2v_fetch", params=dict(source_agent=src, import_dir="{{import_dir}}", bwlimit_mbps=bw, window_gb=window), label="%s lit l'image de %s par le relais (fenêtre %g Go%s)" % (pve, src, window, (", %g Mbit/s" % bw) if bw else "")))
+        steps.append(dict(agent_id=src, action="image_host", params=dict(target="{{src_target}}", transfer=True, delete_after=True, name=name, bwlimit_mbps=bw), label="image à chaud de %s, envoyée au fil de l'eau puis supprimée du poste" % src, wait_s=0))
+        steps.append(dict(agent_id=pve, vmid=vmid, kind="qemu", action="import_disk", params=dict(source="{{image}}", storage=storage, attach="sata0" if os_ == "windows" else "scsi0", boot=True, format=str(b.get("format") or "") or None), label="image importée dans la VM %d (stockage %s) et rattachée" % (vmid, storage)))
+        steps.append(dict(agent_id=pve, action="p2v_cleanup", params=dict(job=job, vg="{{vg}}"), label="volume temporaire p2v-%s supprimé" % job))
+        rb.append(dict(agent_id=pve, action="p2v_cleanup", params=dict(job=job, vg=str(b.get("vg") or "pve")), label="volume temporaire p2v-%s supprimé (s'il existe)" % job))
     if method == "image":
         target = str(b.get("image_target") or "").strip()
         if not target: return None, "image_target (dossier / partage où le serveur écrit son image) requis pour la méthode image"
@@ -59,7 +72,7 @@ def build(body):
         steps.append(dict(agent_id=pve, vmid=vmid, kind=kind, action="start", params={}, label="démarrage de %d" % vmid))
         steps.append(dict(agent_id="central", action="checkpoint", label="Transition 2 -- reconstruire le rôle dans %d : installer l'application (portage-kit / playbook), poser l'agent si-agent, synchroniser les données (datasync : connecteur %s -> central -> %d), tester ; puis Reprendre" % (vmid, src, vmid)))
     # --- phase 2 : vérification hors réseau (méthode image) puis mise en réseau
-    if method == "image":
+    if method in ("image", "direct"):
         steps.append(dict(agent_id=pve, vmid=vmid, kind="qemu", action="start", params={}, label="premier démarrage de la VM %d, réseau COUPÉ" % vmid, wait_s=30))
         steps.append(dict(agent_id="central", action="checkpoint", label="Transition 2 -- console Proxmox de la VM %d : démarrage, fsck/pilotes (Windows : VirtIO puis passer le disque en scsi), IP/nom inchangés ; puis Reprendre = mise en réseau" % vmid))
         steps.append(dict(agent_id=pve, vmid=vmid, kind="qemu", action="set", params=dict(options={"net0": "virtio,bridge=%s" % bridge}), label="VM %d mise en réseau (%s)" % (vmid, bridge)))
@@ -72,10 +85,10 @@ def build(body):
     steps.append(dict(agent_id=src, action="host_shutdown", params={}, label="arrêt du serveur physique %s (il reste intact : retour possible en le rallumant)" % src))
     # --- retour en arrière : rôle rendu, VM coupée du réseau puis arrêtée, serveur à rallumer
     if role_id is not None: rb.append(dict(agent_id="central", action="role_switch", role_id=role_id, to=role_from, label="rôle rendu à %s (candidat %d)" % (src, role_from)))
-    if method == "image" or kind == "qemu":
+    if method in ("image", "direct") or kind == "qemu":
         rb.append(dict(agent_id=pve, vmid=vmid, kind=kind, action="set", params=dict(options={"net0": "virtio,bridge=%s,link_down=1" % bridge}), label="VM %d coupée du réseau" % vmid))
     rb.append(dict(agent_id=pve, vmid=vmid, kind=kind, action="shutdown", params={}, label="arrêt de %d" % vmid))
     rb.append(dict(agent_id="central", action="checkpoint", label="Retour -- rallumer %s si éteint (WoL / iDRAC / sur place), rétablir DNS / NAT à la main si pas de rôle ; Reprendre quand il répond" % src))
     if b.get("purge_on_rollback"): rb.append(dict(agent_id=pve, vmid=vmid, kind=kind, action="destroy", params=dict(confirm=str(vmid)), label="VM %d détruite (purge demandée)" % vmid))
-    notes = "Migration %s -> %s (vmid %d, %s). Méthode : %s. Rejouable : relancer le plan reprend chaque étape ; retour en arrière = exécution du retour." % (src, pve, vmid, storage, "image brute à chaud" if method == "image" else "reconstruction par rôle")
+    notes = "Migration %s -> %s (vmid %d, %s). Méthode : %s. Rejouable : relancer le plan reprend chaque étape ; retour en arrière = exécution du retour." % (src, pve, vmid, storage, {"image": "image brute à chaud", "direct": "image à chaud relayée directement vers le nœud (#748)"}.get(method, "reconstruction par rôle"))
     return dict(name=str(b.get("plan_name") or "Migration %s" % name)[:120], kind="migration", notes=notes, steps=steps, rollback_steps=rb, auto_rollback=bool(b.get("auto_rollback"))), None

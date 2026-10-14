@@ -241,6 +241,16 @@ class HttpClient(object):
                 last = exc
         raise RuntimeError(str(last) if last else "aucune URL de central")
 
+    def get_raw_signed(self, path, timeout=120):
+        """#748 : GET signé -> (statut, en-têtes, octets) ; 204/4xx renvoyés sans exception."""
+        headers = protocol.auth_headers(self.device_id, self.secret, "GET", path, b"")
+        req = urllib.request.Request(self.current_url + path, method="GET", headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout, context=self.fallback_context if self.on_fallback else self.ssl_context) as resp:
+                return resp.status, dict(resp.headers.items()), resp.read()
+        except urllib.error.HTTPError as exc:
+            return exc.code, dict(exc.headers.items()) if exc.headers else {}, b""
+
     def download_signed(self, path, dest, chunk=8 * 1024 * 1024, timeout=600):
         """#658 : GET signé d'un gros fichier du central écrit en continu dans `dest` (reprise par Range sur un .part)."""
         part = dest + ".part"
@@ -838,6 +848,10 @@ class Agent(object):
                 if res.get("ok") and params.get("action") in ("delete", "load", "unload", "test"):
                     self._next_plugin.pop("ollama", None)   # la sonde ollama remonte l'état tout de suite
                 return {"ok": res.get("ok", False), "error": res.get("error"), "result": res}
+            if ctype == "p2v":
+                # #748 : virtualisation directe pilotée par les deux agents (préparation source / cible, lecture relais, nettoyage)
+                res = self.p2v_action(params, c.get("id"))
+                return {"ok": res.get("ok", False), "error": res.get("error"), "result": res}
             if ctype == "mail":
                 # #697 : tuile Serveur de messagerie -- boîtes, historique, quarantaine, lecture, libération (mailctl)
                 from . import mailctl
@@ -854,6 +868,7 @@ class Agent(object):
                 return self.start_upload(str(params.get("path") or ""), c.get("id"), delete_after=bool(params.get("delete_after")))
             if ctype == "image_host":
                 # #621 : image complète du poste à chaud (Disk2vhd, VSS), détachée ; suivi dans la boucle
+                self._upload_bwlimit = float(params.get("bwlimit_mbps") or 0)   # #748 : débit du transfert qui suivra
                 res = self.start_image(params, c.get("id"))
                 return res
             if ctype == "bench":
@@ -1591,19 +1606,30 @@ class Agent(object):
                     return fh.read(n)
                 h = uploadctl.prefix_digest(read, offset)
                 job["sent"] = offset
+                from . import p2vctl
+                t_start, sent0, mbps = time.time(), offset, float(getattr(self, "_upload_bwlimit", 0) or 0)
                 for pos, n in uploadctl.plan_chunks(job["total"], offset):
                     data = read(pos, n)
                     h.update(data)
-                    for attempt in range(5):
+                    attempt = 0
+                    while attempt < 5:
                         st, body = self.http.send_raw("PUT", "%s?offset=%d" % (base, pos), data, timeout=300)
                         if st in (200, 201):
                             break
+                        if st == 429:                     # #748 : fenêtre du relais pleine -- la cible lit encore, on attend sans compter d'échec
+                            job["waiting"] = True
+                            time.sleep(int((body or {}).get("retry_after") or 15) if isinstance(body, dict) else 15)
+                            continue
+                        attempt += 1
                         if st == 409 and isinstance(body, dict) and "size" in body:
                             raise RuntimeError("décalage de reprise : %s" % body.get("error"))
                         time.sleep(5 * (attempt + 1))
                     else:
                         raise RuntimeError("morceau à %d refusé (%s %s)" % (pos, st, (body or {}).get("error") if isinstance(body, dict) else ""))
-                    job["sent"] = pos + n
+                    job["sent"] = pos + n; job["waiting"] = False
+                    pause = p2vctl.throttle_sleep(job["sent"] - sent0, time.time() - t_start, mbps)
+                    if pause:
+                        time.sleep(min(pause, 30))
             job["sha256"] = h.hexdigest()
             st, body = self.http.request("POST", base + "/complete", {"size": job["total"], "sha256": job["sha256"]})
             if st not in (200, 201):
@@ -1784,6 +1810,172 @@ class Agent(object):
 
         threading.Thread(target=work, name="sbom", daemon=True).start()
         return True
+
+    def p2v_action(self, params, command_id=None):
+        """#748 : voir p2vctl."""
+        from . import p2vctl, imagectl
+        p = dict(params or {})
+        action = str(p.get("action") or "")
+        if action == "prepare_source":
+            drives = [str(d) for d in (p.get("drives") or ["C:"])][:8]
+            used = 0
+            if IS_WINDOWS:
+                for d in drives:
+                    u = imagectl.used_bytes(getattr(self.cmd(["fsutil.exe", "volume", "diskfree", d], timeout=30), "stdout", "") or "")
+                    used += u or 0
+                cands = p2vctl.windows_drives()
+                system = (os.environ.get("SystemDrive") or "C:") + "\\"
+            else:
+                import shutil as _sh
+                used = _sh.disk_usage("/").used
+                try:
+                    cands = p2vctl.linux_mounts(open("/proc/mounts").read())
+                except OSError:
+                    cands = []
+                system = "/"
+            given = str(p.get("target") or "").strip() or None
+            if given and not any(str(c["path"]).rstrip("\\/") == given.rstrip("\\/") for c in cands):
+                try:
+                    import shutil as _sh
+                    cands.append({"path": given, "free": _sh.disk_usage(given).free})
+                except OSError as exc:
+                    return {"ok": False, "error": "cible %s inaccessible : %s" % (given, exc)}
+            target, rows = p2vctl.choose_source_target(used, cands, system, given)
+            if not target:
+                return {"ok": False, "error": "aucun emplacement avec %d Go libres (image ~%d Go) : brancher un disque, un partage, ou libérer de la place" % (p2vctl.need_with_margin(used) // 2**30, used // 2**30),
+                        "need_bytes": used, "candidates": rows}
+            return {"ok": True, "message": "image ~%d Go -> %s" % (used // 2**30, target), "need_bytes": used, "target": target, "candidates": rows}
+        if action == "prepare_target":
+            job = str(p.get("job") or "")
+            if not p2vctl.JOB_RE.match(job):
+                return {"ok": False, "error": "job : minuscules, chiffres, tirets (32 max)"}
+            need = int(p.get("need_bytes") or 0)
+            storage = str(p.get("storage") or "local-lvm")
+            try:
+                cfg = p2vctl.parse_storage_cfg(open("/etc/pve/storage.cfg").read(), storage)
+            except OSError as exc:
+                return {"ok": False, "error": "pas un nœud Proxmox (storage.cfg illisible : %s)" % exc}
+            if not cfg or cfg.get("type") != "lvmthin":
+                return {"ok": False, "error": "stockage %s : LVM-thin attendu pour le volume temporaire (%s)" % (storage, (cfg or {}).get("type") or "inconnu")}
+            vg, pool = cfg.get("vgname"), cfg.get("thinpool")
+            free = p2vctl.thin_free(getattr(self.cmd(["lvs", "--noheadings", "--units", "b", "--nosuffix", "-o", "lv_size,data_percent", "%s/%s" % (vg, pool)], timeout=30), "stdout", "") or "")
+            size_gb = p2vctl.lv_size_gb(need)
+            # place pour le volume temporaire ET le disque importé (les deux coexistent pendant l'import)
+            if free is not None and free < 2 * size_gb * 2**30:
+                return {"ok": False, "error": "pool %s/%s : %d Go libres, il en faut ~%d (volume temporaire + disque importé)" % (vg, pool, free // 2**30, 2 * size_gb)}
+            lv, mnt, steps = p2vctl.target_argv(vg, pool, job, size_gb)
+            if os.path.ismount(mnt):
+                return {"ok": True, "message": "volume %s déjà monté sur %s" % (lv, mnt), "import_dir": mnt, "job": job, "vg": vg}
+            for argv in steps:
+                r = self.cmd(argv, timeout=300)
+                if getattr(r, "returncode", 1) != 0:
+                    return {"ok": False, "error": "%s : %s" % (" ".join(argv[:2]), ((getattr(r, "stderr", "") or "")[-200:] or "échec"))}
+            return {"ok": True, "message": "volume temporaire %s (%d Go) monté sur %s" % (lv, size_gb, mnt), "import_dir": mnt, "job": job, "vg": vg, "size_gb": size_gb, "pool_free": free}
+        if action == "cleanup":
+            job, vg = str(p.get("job") or ""), str(p.get("vg") or "pve")
+            if not p2vctl.JOB_RE.match(job) or not re.match(r"^[A-Za-z0-9_.-]{1,64}$", vg):
+                return {"ok": False, "error": "job / vg invalides"}
+            errs = []
+            for argv in p2vctl.cleanup_argv(vg, job):
+                r = self.cmd(argv, timeout=300)
+                if getattr(r, "returncode", 1) != 0:
+                    errs.append("%s : %s" % (argv[0], (getattr(r, "stderr", "") or "")[-160:]))
+            return {"ok": not errs, "error": "; ".join(errs) or None, "message": "volume temporaire p2v-%s supprimé" % job}
+        if action == "fetch":
+            return self.start_p2v_fetch(p, command_id)
+        if action == "status":
+            j = getattr(self, "_fetch_job", None)
+            return {"ok": True, "fetch": {k: v for k, v in (j or {}).items() if k != "hash"} if j else None}
+        return {"ok": False, "error": "action : prepare_source, prepare_target, fetch, status, cleanup"}
+
+    def start_p2v_fetch(self, p, command_id=None):
+        """#748 : lecture au fil de l'eau, par le relais du central, de l'image de l'agent source ; débit borné ;
+        condensé SHA-256 vérifié contre celui annoncé par la source ; événement image-fetched (chemin local)."""
+        import hashlib
+        import threading
+        from . import p2vctl
+        src = str(p.get("source_agent") or "")
+        import_dir = str(p.get("import_dir") or "")
+        if not re.match(r"^[A-Za-z0-9._-]{1,64}$", src):
+            return {"ok": False, "error": "source_agent invalide"}
+        if not import_dir.startswith(p2vctl.IMPORT_ROOT + "/") or ".." in import_dir or not os.path.isdir(import_dir):
+            return {"ok": False, "error": "import_dir : dossier existant sous %s (prepare_target d'abord)" % p2vctl.IMPORT_ROOT}
+        j = getattr(self, "_fetch_job", None)
+        if j and j.get("state") == "running":
+            return {"ok": False, "error": "lecture déjà en cours (%s)" % j.get("name")}
+        mbps, window = float(p.get("bwlimit_mbps") or 0), float(p.get("window_gb") or 4)
+        job = {"state": "running", "source": src, "import_dir": import_dir, "name": None, "have": 0, "total": None, "started": self.clock(),
+               "command": command_id, "error": None, "path": None}
+        self._fetch_job = job
+
+        def work():
+            h, fh, t0, have0, idle = hashlib.sha256(), None, time.time(), 0, 0
+            try:
+                while True:
+                    path = "%s/agents/%s/relay/%s?offset=%d&window_gb=%s" % (protocol.API_PREFIX, self.agent_id, src, job["have"], window)
+                    st, hdr, data = self.http.get_raw_signed(path)
+                    hdr = {k.lower(): v for k, v in hdr.items()}
+                    name = hdr.get("x-relay-name") or None
+                    if name and not job["name"]:
+                        if not p2vctl.NAME_RE.match(name):
+                            raise RuntimeError("nom d'image refusé : %r" % name)
+                        job["name"] = name
+                        part = os.path.join(import_dir, name + ".part")
+                        if os.path.exists(part):            # reprise : on rattrape le condensé de ce qui est déjà là
+                            with open(part, "rb") as r_:
+                                for chunk in iter(lambda: r_.read(1 << 20), b""):
+                                    h.update(chunk)
+                            job["have"] = have0 = os.path.getsize(part)
+                            continue
+                        fh = open(part, "ab")
+                    if st == 200 and data:
+                        if fh is None:
+                            fh = open(os.path.join(import_dir, job["name"] + ".part"), "ab")
+                        fh.write(data); h.update(data); job["have"] += len(data); idle = 0
+                        pause = p2vctl.throttle_sleep(job["have"] - have0, time.time() - t0, mbps)
+                        if pause:
+                            time.sleep(min(pause, 30))
+                        continue
+                    if st == 204:
+                        if hdr.get("x-relay-complete") == "1" and job["name"] and job["have"] >= int(hdr.get("x-relay-total") or -1):
+                            job["total"] = job["have"]
+                            if fh:
+                                fh.close(); fh = None
+                            want = (hdr.get("x-relay-sha256") or "").lower()
+                            if want and h.hexdigest() != want:
+                                raise RuntimeError("condensé différent de celui de la source : image corrompue")
+                            final = os.path.join(import_dir, job["name"])
+                            os.replace(final + ".part", final)
+                            job.update(state="finished", path=final, sha256=h.hexdigest())
+                            return
+                        idle += 1
+                        if idle > 12 * 360:                 # 12 h sans rien de neuf
+                            raise RuntimeError("source muette depuis 12 h")
+                        time.sleep(10)
+                        continue
+                    raise RuntimeError("relais : HTTP %s" % st)
+            except Exception as exc:  # noqa: BLE001
+                job.update(state="failed", error=str(exc)[:300])
+            finally:
+                if fh:
+                    fh.close()
+
+        def report():
+            last = 0
+            while job["state"] == "running":
+                time.sleep(20)
+                if time.time() - last >= 300 and job["have"]:
+                    last = time.time()
+                    self.event("p2v-fetch-progress", "info", "lecture de %s : %.1f Go reçus" % (job["name"] or "?", job["have"] / 2**30), {"have": job["have"], "source": src})
+            if job["state"] == "finished":
+                self.event("image-fetched", "info", "image %s reçue de %s par le relais (%.1f Go, sha256 %s)" % (job["name"], src, job["have"] / 2**30, job["sha256"][:12]),
+                           {"path": job["path"], "name": job["name"], "sha256": job["sha256"], "bytes": job["have"], "source": src, "command": command_id})
+            else:
+                self.event("image-fetch-failed", "warning", "lecture de l'image de %s en échec : %s (relancer fetch : reprise)" % (src, job["error"]), {"source": src, "have": job["have"]})
+
+        threading.Thread(target=work, name="p2v-fetch", daemon=True).start()
+        threading.Thread(target=report, name="p2v-fetch-report", daemon=True).start()
+        return {"ok": True, "message": "lecture de l'image de %s lancée vers %s (débit %s)" % (src, import_dir, ("%g Mbit/s" % mbps) if mbps else "libre")}
 
     def start_ollama_pull(self, url, model, command_id=None):
         """#746 : téléchargement d'un modèle Ollama dans un fil détaché ; progression lue par l'action status."""

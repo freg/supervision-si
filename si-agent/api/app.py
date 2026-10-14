@@ -1606,6 +1606,31 @@ def image_download_route(agent_id, src_agent, name):
     return send_file(path, as_attachment=True, download_name=safe_n, conditional=True, mimetype="application/octet-stream")
 
 
+@app.route(protocol.API_PREFIX + "/agents/<agent_id>/relay/<src_agent>", methods=["GET"])
+def image_relay_route(agent_id, src_agent):
+    """#748 : relais direct -- l'agent CIBLE (nœud Proxmox) lit l'image de l'agent SOURCE au fil de l'eau, à partir de
+    `offset` (tout ce qui précède est chez lui : le central le libère). Le premier appel ouvre le relais (fenêtre `window_gb`).
+    200 + octets ; 204 = rien de neuf, réessayer ; en-têtes X-Relay-Name / -Available / -Complete / -Total / -Sha256."""
+    info, err = _verify_agent(agent_id)
+    if info is None:
+        return jsonify({"error": err}), 401
+    safe_a = re.sub(r"[^A-Za-z0-9._-]", "-", src_agent)[:64]
+    try:
+        offset = int(request.args.get("offset") or 0)
+        mx = max(1 << 20, min(64 << 20, int(request.args.get("max") or (8 << 20))))
+        window = int(float(request.args.get("window_gb") or 4) * 2**30)
+    except ValueError:
+        return jsonify({"error": "offset / max / window_gb numériques"}), 400
+    store_ = _image_store()
+    if not store_.relay_get(safe_a):
+        store_.relay_open(safe_a, agent_id, window)
+        _event("p2v-relay-opened", "info", "relais direct ouvert : images de %s -> %s (fenêtre %.0f Go)" % (safe_a, agent_id, window / 2**30), agent_id=agent_id, details={"source": safe_a})
+    st, hdr, data = store_.relay_read(safe_a, agent_id, offset, mx)
+    if st in (403, 404, 416):
+        return jsonify({"error": {403: "relais réservé à un autre agent", 404: "aucun relais", 416: "offset au-delà de ce qui est disponible"}[st]}), st, hdr
+    return Response(data, status=st, headers=hdr, mimetype="application/octet-stream")
+
+
 @app.route("/images", methods=["GET"])
 def images_list_route():
     """Images reçues (hub) : agent, nom, taille, complète, chemin sur le serveur."""

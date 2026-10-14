@@ -12,13 +12,19 @@ ACTIONS = ("migrate", "backup", "move_disk", "clone", "replicate", "unreplicate"
            # #658 (item 112) : migration vers la virtualisation -- create / import_disk / set / destroy (vm_action sur le nœud), image_host
            # (image à chaud du serveur source), host_shutdown (power_action sur le serveur source), checkpoint (étape de transition :
            # le plan attend « Reprendre » ou « Abandonner » depuis le hub)
-           "create", "import_disk", "set", "destroy", "image_host", "host_shutdown", "checkpoint")
+           "create", "import_disk", "set", "destroy", "image_host", "host_shutdown", "checkpoint",
+           # #748 : virtualisation directe pilotée par les deux agents (préparation source / cible, lecture par relais, nettoyage)
+           "p2v_prepare_source", "p2v_prepare_target", "p2v_fetch", "p2v_cleanup")
 REQUIRED = {"migrate": ("target",), "backup": ("storage",), "move_disk": ("disk", "storage"), "clone": ("newid",), "replicate": ("target",), "snapshot": ("snapname",), "rollback": ("snapname",),
-            "create": ("name",), "import_disk": ("source", "storage"), "set": ("options",), "destroy": ("confirm",), "image_host": ("target",)}
-HOST_ACTIONS = ("image_host", "host_shutdown")          # adressées à l'agent du serveur source (pas de vmid)
+            "create": ("name",), "import_disk": ("source", "storage"), "set": ("options",), "destroy": ("confirm",), "image_host": ("target",),
+            "p2v_prepare_target": ("job",), "p2v_fetch": ("source_agent",), "p2v_cleanup": ("job",)}
+HOST_ACTIONS = ("image_host", "host_shutdown",          # adressées à l'agent du serveur source (pas de vmid)
+                "p2v_prepare_source", "p2v_prepare_target", "p2v_fetch", "p2v_cleanup")   # #748 : source ou nœud, sans vmid
+P2V = {"p2v_prepare_source": "prepare_source", "p2v_prepare_target": "prepare_target", "p2v_fetch": "fetch", "p2v_cleanup": "cleanup"}
 CENTRAL_ACTIONS = ("role_switch", "checkpoint")          # exécutées par le central
 STEP_TIMEOUT = 3600
 IMAGE_TIMEOUT = 12 * 3600       # image à chaud + transfert au central
+FETCH_TIMEOUT = 48 * 3600       # #748 : image + relais au débit borné
 CHECKPOINT_TIMEOUT = 7 * 86400  # une transition attend l'opérateur (au plus une semaine)
 IMAGES_DIR = ""                 # fixé par app.py (SI_AGENT_IMAGES_DIR)
 _runs, _resume, _abort = {}, {}, {}
@@ -84,11 +90,13 @@ def validate_steps(steps):
     return out, None
 
 def command_params(step):
+    if step["action"] in P2V: return dict(step["params"], action=P2V[step["action"]])
     if step["action"] == "host_shutdown": return dict(step["params"], action="shutdown")
     if step["action"] == "image_host": return dict(step["params"], transfer=True)
     return dict(step["params"], vmid=step["vmid"], action=step["action"], kind=step["kind"])
 
 def command_type(step):
+    if step["action"] in P2V: return "p2v"
     return {"host_shutdown": "power_action", "image_host": "image_host"}.get(step["action"], "vm_action")
 
 def simulate(db_path, plan):
@@ -151,6 +159,10 @@ def _execute(db_path, plan, rid, continue_on_error, sleep):
         if st["params"].get("source") == "{{image}}":
             if not ctx.get("image"): st["status"] = "failed"; st["result"] = {"error": "aucune image reçue par une étape image_host précédente"}; status = "failed"; break
             st["params"] = dict(st["params"], source=ctx["image"])
+        missing = [v[2:-2] for v in st["params"].values() if isinstance(v, str) and v.startswith("{{") and v.endswith("}}") and v[2:-2] not in ctx]
+        if missing:                                 # #748 : valeur produite par une étape précédente (préparation source / cible)
+            st["status"] = "failed"; st["result"] = {"error": "valeur attendue d'une étape précédente : %s" % ", ".join(missing)}; status = "failed"; break
+        st["params"] = {k: (ctx[v[2:-2]] if isinstance(v, str) and v.startswith("{{") and v.endswith("}}") else v) for k, v in st["params"].items()}
         baseline = _last_event_id(db_path)
         created = store.create_command(db_path, st["agent_id"], command_type(src), st["params"])
         cid = created["id"] if isinstance(created, dict) else created
@@ -168,7 +180,17 @@ def _execute(db_path, plan, rid, continue_on_error, sleep):
             st["status"] = "timeout"; st["result"] = {"error": "pas d'acquittement de l'agent dans le délai"}; status = "failed"
         else:
             st["status"] = "done" if c["status"] == "done" else "failed"; st["result"] = c.get("result"); status = "failed" if st["status"] == "failed" else status
-        if st["status"] == "done" and src["action"] == "image_host":      # l'image part en tâche de fond : attendre sa réception par le central
+        if st["status"] == "done" and src["action"] in P2V:          # #748 : ce que la préparation a produit sert aux étapes suivantes
+            r = st["result"] or {}; r = r.get("result") if isinstance(r.get("result"), dict) else r
+            if src["action"] == "p2v_prepare_source": ctx.update(src_target=r.get("target"), need_bytes=r.get("need_bytes"))
+            if src["action"] == "p2v_prepare_target": ctx.update(import_dir=r.get("import_dir"), vg=r.get("vg") or "pve")
+            if src["action"] == "p2v_fetch": ctx["fetch_agent"] = st["agent_id"]
+        if st["status"] == "done" and src["action"] == "image_host" and ctx.get("fetch_agent"):   # #748 : relais direct -- attendre la cible
+            _save_run(db_path, rid, status, steps)
+            img = _wait_fetched(db_path, (st["agent_id"], ctx["fetch_agent"]), baseline, sleep)
+            if img.get("ok"): ctx["image"] = img["path"]; st["result"] = dict(st["result"] or {}, image=img)
+            else: st["status"] = "failed"; st["result"] = dict(st["result"] or {}, error=img.get("error")); status = "failed"
+        elif st["status"] == "done" and src["action"] == "image_host":      # l'image part en tâche de fond : attendre sa réception par le central
             _save_run(db_path, rid, status, steps)
             img = _wait_image(db_path, st["agent_id"], baseline, sleep)
             if img.get("ok"): ctx["image"] = "central:%s/%s" % (st["agent_id"], img["name"]); st["result"] = dict(st["result"] or {}, image=img)
@@ -203,6 +225,22 @@ def _wait_image(db_path, agent_id, baseline, sleep):
             return {"ok": False, "error": r["message"]}
         sleep(5)
     return {"ok": False, "error": "image non reçue dans le délai (%d h)" % (IMAGE_TIMEOUT // 3600)}
+
+
+def _wait_fetched(db_path, agents, baseline, sleep):
+    """#748 : après image_host en relais direct -- attend image-fetched (la cible a toute l'image, condensé vérifié) ou un échec
+    d'un côté ou de l'autre (image-failed, image-upload-failed, image-fetch-failed)."""
+    t0 = time.time(); q = ",".join("?" * len(agents))
+    while time.time() - t0 < FETCH_TIMEOUT:
+        conn = store._connect(db_path)
+        try: rows = conn.execute("SELECT kind, message, details FROM events WHERE id > ? AND agent_id IN (%s) AND kind IN ('image-fetched','image-failed','image-upload-failed','image-fetch-failed') ORDER BY id" % q, (baseline,) + tuple(agents)).fetchall()
+        finally: conn.close()
+        for r in rows:
+            det = json.loads(r["details"] or "{}") if isinstance(r["details"], str) else (r["details"] or {})
+            if r["kind"] == "image-fetched": return {"ok": True, "path": det.get("path"), "name": det.get("name"), "sha256": det.get("sha256"), "bytes": det.get("bytes")}
+            return {"ok": False, "error": r["message"]}
+        sleep(10)
+    return {"ok": False, "error": "image non reçue par la cible dans le délai (%d h)" % (FETCH_TIMEOUT // 3600)}
 
 
 def resume_run(db_path, rid):

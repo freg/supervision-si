@@ -18,14 +18,15 @@ export const OPS = {
 export const VM_OPS = Object.fromEntries(Object.entries(OPS).filter(([, o]) => !o.plan));
 
 // #658 : formulaire de migration -> corps de /pra/migrations/plan (champs vides retirés, nombres convertis).
-export const MIGRATION_DEFAULTS = { method: "image", os: "linux", source_agent_id: "", pve_agent_id: "", vmid: "", storage: "", bridge: "vmbr0", memory: 4096, cores: 2, image_target: "", template: "", ip: "dhcp", role_id: "", role_from: 0, role_to: 1, purge_on_rollback: false, auto_rollback: false, plan_name: "" };
+export const MIGRATION_DEFAULTS = { method: "direct", os: "linux", source_agent_id: "", pve_agent_id: "", vmid: "", storage: "", bridge: "vmbr0", memory: 4096, cores: 2, image_target: "", template: "", ip: "dhcp", role_id: "", role_from: 0, role_to: 1, purge_on_rollback: false, auto_rollback: false, plan_name: "", bwlimit_mbps: 200, window_gb: 4 };
 export function migrationBody(f) {
   const out = {};
   for (const [k, v] of Object.entries({ ...MIGRATION_DEFAULTS, ...f })) {
     if (v === "" || v === null || v === undefined) continue;
-    if (["vmid", "memory", "cores", "role_id", "role_from", "role_to", "rootfs_gb"].includes(k)) out[k] = Number(v); else out[k] = v;
+    if (["vmid", "memory", "cores", "role_id", "role_from", "role_to", "rootfs_gb", "bwlimit_mbps", "window_gb"].includes(k)) out[k] = Number(v); else out[k] = v;
   }
   if (out.method === "rebuild") delete out.image_target; else { delete out.template; delete out.ip; }
+  if (out.method !== "direct") { delete out.bwlimit_mbps; delete out.window_gb; }     // #748
   return out;
 }
 // Ce qui manque avant de demander l'aperçu (message) ou null.

@@ -1447,3 +1447,24 @@ automates — acceptée, refusée, sans réponse, injoignable, coupée — et le
 `app-logwatch` liste processus/services, fichiers ouverts (handles), journaux récents et leurs erreurs réseau
 (Winsock 10060/10061…), plantages du journal d'événements. Livrées désactivées, privilégiées, lecture seule ;
 constats → événements `probe-alert`. Mode d'emploi : `docs/sondes-gtb-windows.md`.
+
+## Virtualisation directe pilotée par deux agents (livraison #748, agent 0.5.56)
+
+Méthode `direct` du plan de migration (tuile Contrôle PVE › Migration, méthode par défaut) : ni le central ni le nœud
+ne stockent l'image entière sur un disque qui pourrait saturer.
+
+1. **Source** (`p2v` `prepare_source`) : espace utilisé des volumes à imager, emplacements possibles (lecteurs Windows,
+   montages Linux) ; l'agent choisit le plus grand hors volume système (ou celui donné), refuse s'il manque de la place.
+2. **Cible** (`p2v` `prepare_target`, nœud Proxmox) : stockage LVM-thin lu dans `/etc/pve/storage.cfg`, place du pool
+   vérifiée (volume temporaire + disque importé), volume `p2v-<job>` créé et monté sous `/var/lib/vz/import/` — jamais
+   sur le disque système ; puis VM réceptacle créée réseau coupé.
+3. **Relais** : la cible lit l'image au fil de l'eau (`GET /api/v1/agents/<cible>/relay/<source>?offset=`) ; le central
+   ne garde qu'une fenêtre (4 Go par défaut) : il libère ce que la cible a déjà (perforation du fichier) et répond 429 à la
+   source tant que la cible n'a pas suivi. Débit borné des deux côtés (`bwlimit_mbps`). Condensé SHA-256 vérifié par la
+   cible ; événement `image-fetched` ; l'image est supprimée du poste après envoi et du central après lecture.
+4. Import (`qm importdisk`, SATA pour Windows), suppression du volume temporaire (`p2v` `cleanup`), puis transitions
+   habituelles (premier démarrage réseau coupé, mise en réseau, bascule, observation).
+
+Limite : Disk2vhd (Windows) écrit l'image complète sur le poste avant l'envoi : il faut un emplacement local ou un
+partage de la taille des données (vérifié à l'étape 1).
+

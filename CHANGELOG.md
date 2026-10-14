@@ -1,3 +1,24 @@
+## 2026-10-14 — Virtualisation directe pilotée par les deux agents, relais à fenêtre bornée (livraison #748)
+
+Cas réel : l'image P2V d'un poste (68 Go) copiée à la main sur le Proxmox du campus a rempli son disque système à 100 %
+et est arrivée tronquée. Demande : l'agent du poste et celui du nœud préparent chacun leur espace, une VM réceptacle est
+créée, et le hub transfère progressivement sans saturer personne.
+- Agent 0.5.56 : commande `p2v` (`si_agent/p2vctl.py`) -- `prepare_source` (espace utilisé, emplacement temporaire
+  choisi), `prepare_target` (volume LVM-thin temporaire monté sous /var/lib/vz/import, place du pool vérifiée),
+  `fetch` (lecture au fil de l'eau par le relais, reprise, débit borné, SHA-256 vérifié, `image-fetched`), `status`,
+  `cleanup` ; envoi de l'image : attente sur 429 (fenêtre pleine) sans compter d'échec, débit borné.
+- Central : relais dans `imagestore` (fenêtre, perforation `FALLOC_FL_PUNCH_HOLE`, clôture sans re-hachage, fichier
+  supprimé quand la cible a tout), route `GET /api/v1/agents/<cible>/relay/<source>`, type de commande `p2v`.
+- Plans : méthode `direct` (`migration.py`) et étapes `p2v_prepare_source`, `p2v_prepare_target`, `p2v_fetch`,
+  `p2v_cleanup` (`pra.py`), valeurs d'une étape reportées dans les suivantes (`{{need_bytes}}`, `{{import_dir}}`,
+  `{{src_target}}`, `{{vg}}`), attente de `image-fetched` (48 h) ; retour en arrière : volume temporaire supprimé.
+- Hub, Contrôle PVE › Migration : méthode « directe » par défaut, débit max et fenêtre du relais.
+- Vérifié : `agent/tests/test_p2v_direct.py` (calculs, relais : 429 quand la cible n'a pas suivi, lecture complète
+  identique, perforation, fichier supprimé ; boucle de lecture de l'agent cible contre le relais réel avec envoi
+  concurrent), `api/test_z_p2v_direct.py` (plan, exécution avec faux agents : valeurs reportées, attente de
+  image-fetched), `si-agent/api` (74), tests agent, `node --test` (352). Non vérifié : sur un vrai poste Windows et le
+  Proxmox du campus (lvcreate/mount réels, débit réel).
+
 ## 2026-10-14 — Occupation des bornes Wi-Fi : statistiques, seuils, alertes Nebula, récapitulatif (livraison #747)
 
 - `nebula/api/occupancy.py` (logique pure) : relevé des clients connectés par borne (rattachement de topology.py : bande,
