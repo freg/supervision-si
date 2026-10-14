@@ -1,3 +1,11 @@
+## 2026-10-14 — Vues de parc : serveurs, postes, serveurs d'IA, postes personnels, en groupes, avec l'en-tête htop de chaque agent (livraison #753)
+
+- si-agent-api : `views.py` (normalisation, ligne htop par agent à partir des mesures host / node-activity / ollama,
+  synthèse par groupe), routes `/views`, `/views/<id>/overview` ; réglage partagé `fleet_views`.
+- Hub : tuile « Vues de parc » (FleetViewsView.jsx, fleetViewsLib.js) -- onglets par vue, tableaux par groupe,
+  organisation (vues, groupes, agents), rangement proposé, étiquette #perso.
+- Vérifié : tests API (3), hub (364), rendu clair / sombre et organisation (capture). Non vérifié : données réelles.
+
 ## 2026-10-14 — Serveur de messagerie : incidents, file d'attente, échecs de distribution, listes blanche / grise / noire, réglages antispam (livraison #752)
 
 - Agent 0.5.60 : `mailadmin.py` -- actions `mail` queue_list, queue_action, delivery_failures, lists, list_set,

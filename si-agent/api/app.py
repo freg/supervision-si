@@ -49,6 +49,7 @@ import pra  # noqa: E402  -- #653 : plans PRA / opérations PVE
 import maint  # noqa: E402  -- #705 : maintenance / réorganisation des Proxmox
 import migration  # noqa: E402  -- #658 : migration serveur -> virtualisation (générateur de plan)
 import infra  # noqa: E402  -- #749 : vue d'ensemble PVE / PBS
+import views  # noqa: E402  -- #753 : vues de parc paramétrables (serveurs, postes, IA, postes personnels)
 import rotation  # noqa: E402  -- #743 : tournées de mesures réparties (supervision distribuée, item 120)
 import json  # noqa: E402
 import notify  # noqa: E402
@@ -1630,6 +1631,33 @@ def image_relay_route(agent_id, src_agent):
     if st in (403, 404, 416):
         return jsonify({"error": {403: "relais réservé à un autre agent", 404: "aucun relais", 416: "offset au-delà de ce qui est disponible"}[st]}), st, hdr
     return Response(data, status=st, headers=hdr, mimetype="application/octet-stream")
+
+
+@app.route("/views", methods=["GET"])
+def views_route():
+    """#753 : vues de parc (groupes d'agents) -- réglage partagé, vues par défaut tant que rien n'est enregistré."""
+    return jsonify({"views": store.get_setting(DB_PATH, "fleet_views", None) or views.DEFAULT_VIEWS}), 200
+
+
+@app.route("/views", methods=["PUT"])
+def views_save_route():
+    body = request.get_json(silent=True) or {}
+    v, err = views.normalize(body.get("views"))
+    if err:
+        return jsonify({"error": err}), 400
+    store.set_setting(DB_PATH, "fleet_views", v)
+    _event("views-saved", "info", "vues de parc enregistrées (%d vue(s)) par %s" % (len(v), body.get("actor") or "?"))
+    return jsonify({"views": v}), 200
+
+
+@app.route("/views/<vid>/overview", methods=["GET"])
+def views_overview_route(vid):
+    """#753 : en-tête « htop » de chaque agent de la vue, groupe par groupe, plus les agents non rangés."""
+    view = next((v for v in (store.get_setting(DB_PATH, "fleet_views", None) or views.DEFAULT_VIEWS) if v["id"] == vid), None)
+    if not view:
+        return jsonify({"error": "vue inconnue"}), 404
+    rows = {a["agent_id"]: views.row(a, store.latest_per_task(DB_PATH, a["agent_id"])) for a in store.fleet(DB_PATH)}
+    return jsonify(views.overview(view, rows)), 200
 
 
 @app.route("/infra/overview", methods=["GET"])

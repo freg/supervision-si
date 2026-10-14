@@ -35,6 +35,7 @@ COPY si-agent/api/updates.py .
 COPY si-agent/api/pra.py .
 COPY si-agent/api/rotation.py .
 COPY si-agent/api/infra.py .
+COPY si-agent/api/views.py .
 COPY si-agent/api/migration.py .
 COPY si-agent/api/maint.py .
 # #518 : archive de déploiement de l'agent (si-agent-agent-<version>.tar.gz,

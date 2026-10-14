@@ -91,6 +91,7 @@ export const PATHS = {
   "view:proxmox": ["equipements/hotes/hyperviseurs"],
   "view:pve-ops": ["equipements/hotes/hyperviseurs", "etats/incidents"],
   "view:infra": ["equipements/hotes/hyperviseurs", "etats/incidents"],   // #749 : vue d'ensemble PVE / PBS
+  "view:fleetviews": ["equipements/hotes", "etats/incidents"],   // #753 : vues de parc
   "view:pve-maint": ["equipements/hotes/hyperviseurs", "etats/incidents"],   // #705 : maintenance / réorganisation, sauvegardes   // #653 : opérations et plans de reprise
   "view:external-bases": ["services/donnees"],
   "view:glpi-inventory": ["equipements/inventaire", "services/donnees"],

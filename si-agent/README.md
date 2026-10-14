@@ -1533,3 +1533,17 @@ exige le motif saisi en haut de la page ; elle est journalisée sur le serveur (
   SpamAssassin (processus, seuils tag / tag2 / kill, destin du spam, virus, pièces interdites, préfixe du sujet) ;
   Postfix : `postconf -e` + `postfix check` + rechargement ; Amavis : `50-user` puis redémarrage vérifié ; en cas
   d'échec, fichier rétabli.
+
+## Vues de parc paramétrables (livraison #753)
+
+Tuile « Vues de parc » (thème Équipements) : listes d'agents organisées en groupes, une vue par onglet -- **Serveurs**,
+**Postes**, **Serveurs d'IA**, **Postes personnels** par défaut, autant d'autres que voulu. Pour chaque agent, l'en-tête de
+htop en tableau trié : CPU (et cœurs si la sonde node-activity tourne), charge 1 / 5 / 15, mémoire, swap, disques (le
+plus rempli, les autres au survol), débit, uptime, services en échec, constats, version de l'agent, modèles Ollama
+chargés et part sur GPU ; synthèse par groupe (en ligne, moyennes, disque max, « à traiter »). Pleine largeur,
+rafraîchie toutes les 30 s ; mode compact.
+
+« Organiser » : vues (ajout, libellé, suppression), groupes (nom, note, ordre), affectation de chaque agent ;
+« Proposer un rangement » remplit les vues encore vides à partir des catégories (#742), de l'OS (Windows Server ->
+serveurs), de la sonde ollama (serveurs d'IA) et de l'étiquette `#perso` dans le libellé d'un agent (postes
+personnels). Réglage partagé côté central : `GET` / `PUT /views`, `GET /views/<id>/overview`.

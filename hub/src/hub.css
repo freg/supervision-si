@@ -2497,3 +2497,9 @@ button:active:not(:disabled), a.hub-card:active, button.hub-card:active { transf
 .infra-cores i.warning { background: var(--st-warning); }
 .infra-cores i.critical { background: var(--st-critical); }
 .infra-root select { padding: 3px 6px; }
+
+/* #753 : vues de parc -- pastille d'état (forme + couleur : lisible sans la couleur) */
+.infra-dot { font-size: 13px; text-align: center; width: 18px; }
+.infra-dot.good { color: var(--st-good, #0ca30c); }
+.infra-dot.warning { color: var(--st-warning, #fab219); }
+.infra-dot.critical { color: var(--st-critical, #d03b3b); }

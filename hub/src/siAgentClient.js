@@ -195,3 +195,6 @@ export const saveRotation = (apiBase, body, id) => fetchJson(apiBase, id ? `/rot
 export const deleteRotation = (apiBase, id) => fetchJson(apiBase, `/rotations/${id}`, { method: "DELETE" });
 export const fetchRotationRuns = (apiBase, id) => fetchJson(apiBase, `/rotations/${id}/runs?limit=100`);
 export const fetchInfraOverview = (apiBase) => fetchJson(apiBase, "/infra/overview");   // #749
+export const fetchViews = (apiBase) => fetchJson(apiBase, "/views");   // #753 : vues de parc
+export const saveViews = (apiBase, views, actor) => fetchJson(apiBase, "/views", json("PUT", { views, actor }));
+export const fetchViewOverview = (apiBase, id) => fetchJson(apiBase, `/views/${encodeURIComponent(id)}/overview`);
