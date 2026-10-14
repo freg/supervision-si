@@ -1,5 +1,11 @@
 [
  {
+  "n": 767,
+  "from": 767,
+  "date": "2026-10-14",
+  "title": "Assistant du hub : base de connaissance privée (sessions de travail, fiches d'exploitation, skills) et questions récurrentes en évaluation"
+ },
+ {
   "n": 766,
   "from": 766,
   "date": "2026-10-14",
@@ -232,11 +238,5 @@
   "from": 728,
   "date": "2026-10-09",
   "title": "Tests QA : maquettes en étapes, de la proposition au ticket évolution"
- },
- {
-  "n": 727,
-  "from": 727,
-  "date": "2026-10-09",
-  "title": "Tests QA : référence visuelle, différences de captures, rejouer un bug"
  }
 ]

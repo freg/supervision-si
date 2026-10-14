@@ -149,7 +149,9 @@ def _collect_dir(base, prefix, source):
 def collect_local_docs():
     """Documents (ASSISTANT_DOCS_DIR) + documentation du dépôt (README des
     modules, CHANGELOG, BACKLOG copiés dans l'image, #534)."""
-    return _collect_dir(DOCS_DIR, "doc:", "documents") + _collect_dir(REPO_DOCS_DIR, "repo:", "repo") + _collect_dir(RULES_DIR, "rules:", "règles")
+    # #767 : base de connaissance privée (fiches d'exploitation, sessions transcrites, skills) dans DATA_DIR/kb, hors dépôt
+    return (_collect_dir(DOCS_DIR, "doc:", "documents") + _collect_dir(REPO_DOCS_DIR, "repo:", "repo") + _collect_dir(RULES_DIR, "rules:", "règles")
+            + _collect_dir(os.path.join(DATA_DIR, "kb"), "kb:", "kb"))
 
 
 def collect_tickets():
@@ -462,7 +464,19 @@ def _load_cases():
     custom = os.path.join(DATA_DIR, "cases.json")
     path = custom if os.path.exists(custom) else os.path.join(HERE, "eval", "cases.json")
     with open(path, encoding="utf-8") as fh:
-        return json.load(fh)
+        data = json.load(fh)
+    # #767 : jeux complémentaires (ex. questions récurrentes d'exploitation) dans DATA_DIR/cases.d/*.json, hors dépôt
+    seen = {c.get("id") for c in data.get("cases") or []}
+    for extra in sorted(glob.glob(os.path.join(DATA_DIR, "cases.d", "*.json"))):
+        try:
+            with open(extra, encoding="utf-8") as fh:
+                more = json.load(fh).get("cases") or []
+        except (OSError, ValueError, AttributeError):
+            continue
+        for c in more:
+            if isinstance(c, dict) and c.get("id") and c["id"] not in seen:
+                seen.add(c["id"]); data.setdefault("cases", []).append(dict(c, origin=os.path.basename(extra)))
+    return data
 
 
 @app.route(PREFIX + "/eval/run", methods=["POST"])

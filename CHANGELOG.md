@@ -1,3 +1,13 @@
+## 2026-10-14 — Assistant du hub : base de connaissance privée (sessions de travail, fiches d'exploitation, skills) et questions récurrentes en évaluation (livraison #767)
+
+- Assistant : nouvelle source « kb » = `DATA_DIR/kb/**` (hors dépôt, ignoré par git) : fiches symptôme → cause →
+  commandes, sessions de travail transcrites, skills du projet ; jeux d'évaluation complémentaires
+  `DATA_DIR/cases.d/*.json` ajoutés aux cas de base (champ `origin`).
+- Outil `assistant/tools/transcript_to_md.py` : journal JSONL d'une session (Claude / Cowork) → Markdown (demandes,
+  réponses, commandes, extraits de résultats et erreurs, résumés de contexte), secrets masqués d'office, `--map` pour
+  une version anonymisée. Test : `assistant/tests/test_transcript.py`.
+- Vérifié hors dépôt sur la base réelle : 18 questions d'exploitation, fiche attendue dans les 5 premiers extraits 18 / 18.
+
 ## 2026-10-14 — Infra PVE / PBS : avancement des tâches Proxmox en cours (sauvegardes vzdump vers PBS) (livraison #766)
 
 - Sonde node-activity v2 (agent 0.5.65) : tâches en cours (`/var/log/pve/tasks/active`) et extrait de leur journal --

@@ -226,3 +226,13 @@ Chaque cas de l'évaluation montre ce qui est **fourni au modèle** (tâche, ent
 utilisateur réellement envoyés), les **indicateurs cibles** (réponse JSON, valeur attendue de chaque champ, mots-clés
 présents ou interdits, source citée) et le **rendu** critère par critère (✔ / ✘), en plus du score, du temps et du
 débit. Le journal porte les mêmes informations pour chaque cas d'évaluation.
+
+
+## Base de connaissance privée et questions récurrentes (#767)
+
+- `DATA_DIR/kb/` (défaut `./assistant/data/kb`, hors dépôt) : indexé avec la source `kb` — fiches d'exploitation,
+  sessions de travail transcrites, skills. Rien de réel ne va dans le dépôt.
+- `DATA_DIR/cases.d/*.json` : cas d'évaluation supplémentaires (même format que `eval/cases.json`), ajoutés aux cas
+  de base ; un identifiant déjà présent est ignoré.
+- Transcrire une session : `python3 assistant/tools/transcript_to_md.py session.jsonl -o kb/conversations/<date>.md`
+  (`--map table.json` pour remplacer noms et adresses réels, `--no-tools` pour le seul dialogue).
