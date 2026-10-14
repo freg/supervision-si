@@ -3779,3 +3779,17 @@ Constat (sonde Wi-Fi Raspberry, 13/10) : pas de champ « arguments » sur la fic
 et une sonde livrée avec l'agent (wifi-probe, path-probe) ne passe pas par le catalogue. Contournement : manifeste local
 modifié à la main, perdu à la mise à jour. À faire : `args` par affectation (table d'affectation, poussé dans la config),
 champ éditable dans la fiche, priorité affectation > catalogue > manifeste ; valable aussi pour les sondes livrées.
+
+### 122. Anticiper les pannes et saturations Wi-Fi à partir de Nebula (suite de #747)
+1. Prévision d'occupation : profil habituel par borne × jour × heure (relevés #747), alerte AVANT le pic attendu
+   (calendrier des séances, événements) ; seuil dynamique = habituel + marge plutôt que fixe.
+2. Battements d'état : borne qui passe plusieurs fois hors ligne / en alerte en 24 h = précurseur (PoE, câble, switch) ;
+   disponibilité par borne sur 7 / 30 j (transitions déjà enregistrées).
+3. Ports des commutateurs vers les bornes : vitesse dégradée (1 G → 100 M), PoE (budget, puissance), erreurs, LLDP
+   perdu (OpenAPI port-settings / uplink / lldp-neighbor déjà appelés).
+4. Pools DHCP par VLAN/SSID : clients vus vs taille du pool (ex. 200 adresses) → alerte à 80 %.
+5. Licences et contrats Nebula (Security / Secure WiFi, CNP) : alerte J-90 / J-30 ; micrologiciels hétérogènes.
+6. Bande et signal : clients 2,4 GHz capables de 5 GHz, clients « collés » à une borne lointaine (signal faible persistant).
+7. Corrélation avec les sondes de terrain (wifi-probe : BSS Load / occupation du canal ; path-probe : DHCP, DNS, HTTP)
+   et Cortex : un constat de sonde + une borne chargée = cause probable proposée.
+

@@ -542,3 +542,13 @@ inchangé tant qu'elle n'est pas configurée.
 FAIL CLOSED si `rights-api` injoignable, 403 confirmé sur les 5
 routes gardées (multipart et JSON) avec un groupe non autorisé,
 lecture confirmée non affectée. Non-régression complète reconfirmée.
+
+## Occupation des bornes Wi-Fi et alertes Nebula (#747)
+
+Tuile Nebula › Rapports, bloc « Occupation des bornes Wi-Fi et alertes Nebula » (désactivé par défaut) : relevé des
+clients connectés par borne toutes les N minutes, seuils par borne / site / signal faible, alerte quand un appareil
+Nebula reste hors ligne ou en alerte, récapitulatif statistique (CSV joint) aux jours et à l'heure choisis. Messages par
+notify-api (`nebula.occupation-seuil`, `nebula.alerte-nebula`, `nebula.occupation-recap`, `nebula.retour-normale`) :
+destinataires du réglage + groupes de la tuile Notifications. API : `GET /report/occupancy?hours=24`,
+`POST /report/occupancy/send {sample: true}`.
+

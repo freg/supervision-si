@@ -19,6 +19,7 @@ from datetime import datetime
 from flask import Response, jsonify, request
 
 import alerting
+import occupancy
 import report
 
 try:
@@ -28,7 +29,12 @@ except ImportError:  # pragma: no cover
 
 ACTIONS = [{"id": "nebula.anomalie-urgente", "label": "Anomalie réseau persistante (alerte d'urgence)", "severity": "critical"},
            {"id": "nebula.retour-normale", "label": "Anomalie réseau résolue après alerte", "severity": "info"},
-           {"id": "nebula.recapitulatif", "label": "Récapitulatif quotidien des anomalies réseau", "severity": "info"}]
+           {"id": "nebula.recapitulatif", "label": "Récapitulatif quotidien des anomalies réseau", "severity": "info"},
+           # #747 : occupation des bornes Wi-Fi et alertes Nebula
+           {"id": "nebula.occupation-seuil", "label": "Borne Wi-Fi : seuil d'occupation ou de signal dépassé", "severity": "warning"},
+           {"id": "nebula.alerte-nebula", "label": "Alerte Nebula : appareil hors ligne ou en alerte", "severity": "critical"},
+           {"id": "nebula.occupation-recap", "label": "Récapitulatif de l'occupation des bornes Wi-Fi", "severity": "info"}]
+OCC_TRACK = {"enabled": True, "min_severity": "moyenne", "delay_minutes": 0, "repeat_hours": 0, "notify_recovery": True}
 MIME = {"csv": "text/csv", "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "pdf": "application/pdf"}
 
 _hooks = {}
@@ -120,6 +126,88 @@ def _notify(action, subject, body, cfg, attachments=None, severity=None):
                                 to=cfg["recipients"], attachments=attachments)
 
 
+def occupancy_pass(cfg, now_ts, now_dt, force_sample=False):
+    """#747 : relevé d'occupation (si dû), seuils et alertes Nebula, récapitulatif si dû."""
+    occ = cfg["occupancy"]
+    out = {"sampled": 0, "alerts": 0, "recovered": 0, "recap": None}
+    if not occ["enabled"]:
+        return out
+    last = kv_get("occ_last_sample") or 0
+    if force_sample or now_ts - last >= occ["sample_minutes"] * 60 - 30:
+        kv_set("occ_last_sample", now_ts)
+        sites = _hooks["sites"]()
+        wanted = [s for s in sites if not cfg["sites"] or s.get("siteId") in cfg["sites"]]
+        rows, snaps = [], {}
+        conn = _hooks["conn"]()
+        try:
+            for s in wanted:
+                sid, sname = s.get("siteId"), s.get("name") or s.get("siteId")
+                try:
+                    clients, devices, statuses, names = _hooks["occupancy_inputs"](sid)
+                except Exception as exc:  # noqa: BLE001
+                    log("occ-error", "%s : %s" % (sname, str(exc)[:200]))
+                    continue
+                snap = occupancy.snapshot(clients, devices, occ["weak_dbm"])
+                snaps[sid] = snap
+                for ap in snap["aps"]:
+                    conn.execute("INSERT INTO nebula_occupancy (site_id, dev_id, name, at, clients, weak) VALUES (?, ?, ?, ?, ?, ?)",
+                                 (sid, ap["dev_id"], ap["name"], int(now_ts), ap["clients"], ap["weak"]))
+                    out["sampled"] += 1
+                rows += occupancy.breaches(sid, sname, snap, statuses, names, occ, now_ts)
+            conn.execute("DELETE FROM nebula_occupancy WHERE at < ?", (int(now_ts) - 35 * 86400,))
+            conn.commit()
+        finally:
+            conn.close()
+        kv_set("occ_current", {"at": int(now_ts), "sites": snaps})
+        state, raised, recovered = alerting.track(kv_get("occ_state", {}), rows, now_ts, OCC_TRACK)
+        kv_set("occ_state", state)
+        for kind, action, sev, label in (("occupation", "nebula.occupation-seuil", "warning", "Occupation Wi-Fi"),
+                                         ("nebula", "nebula.alerte-nebula", "critical", "Alerte Nebula")):
+            sel = [r for r in raised if r.get("kind") == kind]
+            if sel:
+                body = report.text_summary(sel, "%s : %d constat(s)" % (label, len(sel)))
+                res = _notify(action, "%s : %s" % (label, ", ".join(sorted({r["element"] or "?" for r in sel}))[:150]), body, cfg, severity=sev)
+                log("occ-" + kind, "%d constat(s) : %s" % (len(sel), _res_text(res)))
+                out["alerts"] += len(sel)
+        if recovered:
+            body = "Retour à la normale :\n\n" + "\n".join("  ✓ %s — %s (%s)" % (e.get("site"), e.get("element"), e.get("message")) for e in recovered)
+            res = _notify("nebula.retour-normale", "Wi-Fi / Nebula : %d constat(s) résolu(s)" % len(recovered), body, cfg, severity="info")
+            log("occ-recovered", "%d : %s" % (len(recovered), _res_text(res)))
+            out["recovered"] = len(recovered)
+    if alerting.daily_due(occ["recap"], kv_get("occ_recap_last"), now_dt):
+        kv_set("occ_recap_last", now_dt.timestamp())
+        out["recap"] = send_occupancy_recap(cfg, now_dt)
+    return out
+
+
+def occupancy_recap(cfg, hours, now_ts=None):
+    now_ts = now_ts or time.time()
+    conn = _hooks["conn"]()
+    try:
+        rs = conn.execute("SELECT dev_id, at, clients, site_id, name FROM nebula_occupancy WHERE at >= ?", (int(now_ts - hours * 3600),)).fetchall()
+    finally:
+        conn.close()
+    names = {r["dev_id"]: r["name"] for r in rs}
+    return occupancy.recap([(r["dev_id"], r["at"], r["clients"], r["site_id"]) for r in rs], now_ts - hours * 3600, names)
+
+
+def send_occupancy_recap(cfg, now=None, test=False):
+    now = now or datetime.now()
+    hours = cfg["occupancy"]["recap"]["hours"]
+    rec = occupancy_recap(cfg, hours, now.timestamp())
+    title = "Occupation des bornes Wi-Fi — %d h au %s" % (hours, now.strftime("%d/%m/%Y %H:%M"))
+    body = occupancy.recap_text(rec, title, hours)
+    opened = [e for e in (kv_get("occ_state", {}).get("open") or {}).values()]
+    if opened:
+        body += "\n\nConstats en cours :\n" + "\n".join("  • %s — %s" % (e.get("element"), e.get("message")) for e in opened[:30])
+    csv = "borne;moyenne;p95;max;heure_max;releves\n" + "".join("%s;%s;%s;%s;%s;%s\n" % (r["name"], r["avg"], r["p95"], r["max"],
+                                                                 datetime.fromtimestamp(r["max_at"]).strftime("%Y-%m-%d %H:%M"), r["n"]) for r in rec["aps"])
+    res = _notify("nebula.occupation-recap", "%s%s" % ("[TEST] " if test else "", title), body, cfg,
+                  attachments=[("occupation-wifi-%s.csv" % now.strftime("%Y-%m-%d"), "text/csv", csv.encode("utf-8"))], severity="info")
+    log("occ-recap-test" if test else "occ-recap", "%d borne(s), %s" % (len(rec["aps"]), _res_text(res)))
+    return res
+
+
 def check_once(now_ts=None, now_dt=None):
     """Un passage : suivi, alertes d'urgence, retour à la normale, récapitulatif si dû."""
     cfg = settings()
@@ -146,6 +234,11 @@ def check_once(now_ts=None, now_dt=None):
             out["recovered"] = len(recovered)
         if errors:
             log("error", "sites non relus : %s" % "; ".join("%s (%s)" % kv for kv in errors.items()))
+    if "occupancy_inputs" in _hooks:
+        try:
+            out["occupancy"] = occupancy_pass(cfg, now_ts, now_dt)
+        except Exception as exc:  # noqa: BLE001 -- l'occupation ne bloque pas le reste
+            log("occ-error", "passage occupation en échec : %s" % str(exc)[:200])
     if alerting.daily_due(cfg["daily"], kv_get("daily_last"), now_dt):
         kv_set("daily_last", now_dt.timestamp())          # avant l'envoi : jamais deux récapitulatifs pour un créneau
         out["daily"] = send_daily(cfg, now_dt)
@@ -183,6 +276,8 @@ def register(app, hooks, start_loop=True):
     conn = hooks["conn"]()
     try:
         conn.execute("CREATE TABLE IF NOT EXISTS nebula_report_kv (key TEXT PRIMARY KEY, value TEXT)")
+        conn.execute("CREATE TABLE IF NOT EXISTS nebula_occupancy (site_id TEXT, dev_id TEXT, name TEXT, at INTEGER, clients INTEGER, weak INTEGER)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_nebula_occupancy_at ON nebula_occupancy (at)")
         conn.commit()
     finally:
         conn.close()
@@ -237,6 +332,36 @@ def register(app, hooks, start_loop=True):
         if not cfg["recipients"]:
             return jsonify({"error": "aucun destinataire dans les réglages"}), 400
         res = send_daily(cfg, test=body.get("kind") != "daily")
+        if not res:
+            return jsonify({"error": _res_text(res)}), 502
+        return jsonify(res), 200
+
+    @app.route("/report/occupancy", methods=["GET"])
+    def report_occupancy():
+        """#747 : dernier relevé par borne, récapitulatif des `hours` dernières heures, constats en cours."""
+        cfg = settings()
+        try:
+            hours = max(1, min(168, int(request.args.get("hours") or cfg["occupancy"]["recap"]["hours"])))
+        except ValueError:
+            hours = 24
+        state = kv_get("occ_state", {})
+        nr = alerting.next_daily(cfg["occupancy"]["recap"], datetime.now())
+        return jsonify({"current": kv_get("occ_current", {}), "recap": occupancy_recap(cfg, hours), "hours": hours,
+                        "open": list((state.get("open") or {}).values())[:200], "resolved_24h": alerting.resolved_since(state, time.time() - 86400)[-50:],
+                        "next_recap": nr.isoformat(timespec="minutes") if nr else None}), 200
+
+    @app.route("/report/occupancy/send", methods=["POST"])
+    def report_occupancy_send():
+        body = request.get_json(silent=True) or {}
+        ok, err = hooks["manage"](body)
+        if not ok:
+            return jsonify({"error": err}), 403
+        cfg = settings()
+        if body.get("sample"):
+            occupancy_pass(dict(cfg, occupancy=dict(cfg["occupancy"], enabled=True)), time.time(), datetime.now(), force_sample=True)
+        if not cfg["recipients"]:
+            return jsonify({"error": "aucun destinataire dans les réglages"}), 400
+        res = send_occupancy_recap(cfg, test=True)
         if not res:
             return jsonify({"error": _res_text(res)}), 502
         return jsonify(res), 200

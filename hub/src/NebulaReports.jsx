@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
+import NebulaOccupancy from "./NebulaOccupancy.jsx";   // #747
 async function call(url, init) {
   const r = await fetch(url, { credentials: "include", ...(init || {}) });
   const j = await r.json().catch(() => ({}));
@@ -93,6 +94,8 @@ export default function NebulaReports({ nebulaApiBase, groups, login }) {
           </div>
         </div>
       </div>
+
+      {cfg.occupancy && <NebulaOccupancy base={base} cfg={cfg} setCfg={setCfg} call={call} groups={groups} login={login} box={box} />}
 
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
         <button type="button" disabled={!!busy} onClick={save}>{busy === "save" ? "⏳" : "Enregistrer"}</button>

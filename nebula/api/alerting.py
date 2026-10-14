@@ -13,6 +13,8 @@ PURE, testée (nebula/tests/test_report.py) :
 import re
 from datetime import datetime, timedelta
 
+import occupancy
+
 SEV_ORDER = {"haute": 0, "moyenne": 1, "basse": 2, "info": 3}
 FORMATS = ("xlsx", "pdf", "csv")
 EMAIL_RE = re.compile(r"^[^@\s,;<>]+@[^@\s,;<>]+\.[A-Za-z]{2,}$")
@@ -59,7 +61,15 @@ def normalize(cfg):
     recipients = sorted({str(e).strip().lower() for e in rec or [] if EMAIL_RE.match(str(e).strip())})[:50]
     sites = [str(s) for s in cfg.get("sites") or [] if str(s).strip()] if isinstance(cfg.get("sites"), list) else []
     return {"recipients": recipients, "sites": sites, "check_minutes": _int(cfg.get("check_minutes", DEFAULTS["check_minutes"]), 5, 120, 10),
-            "daily": d, "urgent": u}
+            "daily": d, "urgent": u, "occupancy": occupancy.normalize(cfg.get("occupancy"), time_ok, weekdays_of)}   # #747
+
+
+def time_ok(t):
+    return bool(re.match(r"^([01]\d|2[0-3]):[0-5]\d$", str(t)))
+
+
+def weekdays_of(days, default):
+    return sorted({int(x) for x in days if str(x).isdigit() and 1 <= int(x) <= 7}) if isinstance(days, list) else list(default)
 
 
 def invalid_recipients(raw):

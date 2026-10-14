@@ -1,3 +1,21 @@
+## 2026-10-14 — Occupation des bornes Wi-Fi : statistiques, seuils, alertes Nebula, récapitulatif (livraison #747)
+
+- `nebula/api/occupancy.py` (logique pure) : relevé des clients connectés par borne (rattachement de topology.py : bande,
+  SSID, signal faible), seuils par borne (avertissement / critique), part de clients sous N dBm, total du site ; alerte
+  Nebula quand un appareil est hors ligne ou en alerte depuis N minutes (états du sondeur minute) ; récapitulatif par
+  borne (moyenne, p95, maximum et son heure, bornes vides, pic du site).
+- `report_routes.py` : relevé à la période choisie (table `nebula_occupancy`, 35 jours), suivi par alerting.track
+  (une alerte par constat, retour à la normale), messages notify-api `nebula.occupation-seuil`, `nebula.alerte-nebula`,
+  `nebula.occupation-recap` (CSV joint), `nebula.retour-normale` ; routes `GET /report/occupancy?hours=`,
+  `POST /report/occupancy/send` (relevé immédiat + récapitulatif de test, droit `manage`) ; réglages dans
+  `settings.occupancy` (désactivé par défaut).
+- Hub, tuile Nebula › Rapports : bloc « Occupation des bornes Wi-Fi et alertes Nebula » (réglages, dernier relevé,
+  statistiques 6 h à 7 j, constats en cours).
+- BACKLOG item 122 : anticipation des pannes Wi-Fi à partir de Nebula (tendances, battements, PoE, DHCP, licences).
+- Vérifié : `nebula/tests/test_occupancy.py` (réglages, relevé, seuils, signal faible, alerte Nebula retardée, suivi sans
+  doublon et retour, récapitulatif, boucle complète avec notify factice), tests nebula, `node --test` (351), syntaxe
+  `@babel/parser`. Non vérifié : champs réels des clients Nebula (rattachement borne, signal), rendu navigateur.
+
 ## 2026-10-13 — Modèles IA déployés depuis le hub : agent ↔ Ollama (livraison #746)
 
 - Agent 0.5.55 : commande `ollama` (`si_agent/ollamactl.py`) -- état (version, modèles, chargés et part GPU, place

@@ -1340,7 +1340,23 @@ def _report_sites():
     return _inventory["sites"]
 
 
+def _occupancy_inputs(site_id):
+    """#747 : clients connectés (période 2h, filtrés « connectés » ensuite), appareils, états du sondeur, noms."""
+    client = _connect()
+    _refresh_inventory(client)
+    devices = _inventory["devices"].get(site_id) or []
+    clients = client.get_site_clients(site_id, period="2h")
+    conn = get_connection()
+    try:
+        statuses = {r["dev_id"]: {"status": r["status"], "since": r["since"]} for r in conn.execute("SELECT dev_id, status, since FROM nebula_status_current WHERE site_id = ?", (site_id,))}
+    finally:
+        conn.close()
+    names = {d["devId"]: d.get("name") or d["devId"] for d in devices if d.get("devId")}
+    return clients, devices, statuses, names
+
+
 report_routes.register(app, {"conn": get_connection, "sites": _report_sites, "anomalies": _anomalies, "manage": _check_manage_right,
+                             "occupancy_inputs": _occupancy_inputs,
                              "configured": lambda: bool(NEBULA_API_KEY), "lock_dir": os.path.dirname(DB_PATH)},
                        start_loop=os.environ.get("NEBULA_REPORT_DISABLED") != "1" and os.environ.get("NEBULA_POLL_DISABLED") != "1")
 
