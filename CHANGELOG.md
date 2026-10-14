@@ -1,3 +1,9 @@
+## 2026-10-14 — Passe « pleine largeur » : toutes les tuiles utilisent la largeur du navigateur, glissières visibles partout (livraison #757)
+
+- Hub (hub.css) : plafonds de 1400 / 1800 px retirés de l'accueil et de tous les écrans `.hub-settings` (la plupart des
+  tuiles) ; glissières de 14 px contrastées (clair et sombre) sur toute zone qui défile, sur le modèle de la tuile Infra.
+- Vérifié : tests hub. Non vérifié : revue visuelle tuile par tuile (signaler celles dont un formulaire s'étire mal).
+
 ## 2026-10-14 — Parc IA : hôtes, modèles, conteneurs, tests et activité ; gestes encadrés sur l'hôte (livraison #756)
 
 - Hub, tuile « Parc IA » (thème Supervision) : hôtes portant la sonde ollama ou ajoutés à la main (en-tête htop,
