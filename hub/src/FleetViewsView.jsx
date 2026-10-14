@@ -4,6 +4,7 @@
 // Pleine largeur, rafraîchie toutes les 30 s. Mode « Organiser » : vues, groupes, agents (rangement proposé à partir
 // des catégories #742 ; l'étiquette #perso dans le libellé d'un agent le range dans les postes personnels).
 // Données : si-agent-api /views (réglage partagé) et /views/<id>/overview.
+import DataStatus from "./DataStatus.jsx";   // #763 : état des données
 import { useEffect, useMemo, useState } from "react";
 import { fetchFleet, fetchViews, saveViews, fetchViewOverview } from "./siAgentClient.js";
 import { fmtBytes, fmtBps, fmtUptime, fillLevel } from "./infraLib.js";
@@ -142,7 +143,8 @@ export default function FleetViewsView({ onBack, siAgentApiBase, username }) {
         <button className="secondary" onClick={organize}>Organiser</button>
         <span className="infra-muted">{at ? `mis à jour ${at.toLocaleTimeString("fr-FR")}` : "lecture…"}</span>
       </div>
-      {err && <p className="infra-status critical">{err}</p>}
+      <DataStatus base={base} tasks={["host", "plugin:node-activity", "plugin:ollama"]} error={err} stale={900} refreshKey={at ? at.getTime() : 0}
+        labels={{ host: "relevé des hôtes", "plugin:node-activity": "détail des nœuds", "plugin:ollama": "modèles IA" }} />
       {edit && <Organizer views={edit} setViews={setEdit} fleet={fleet} onSave={save} onCancel={() => setEdit(null)} busy={busy} />}
       {data && <>
         {data.groups.length === 0 && <p className="infra-muted">Cette vue n'a pas encore de groupe : « Organiser » puis « Proposer un rangement », ou créer les groupes à la main.</p>}

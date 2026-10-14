@@ -1703,9 +1703,14 @@ def _repa_full(row, refresh_inventory=True):
 def repa_list_route():
     """#761 : campagnes de rapatriement (avancement résumé)."""
     rows = _repa_db("SELECT * FROM repatriation ORDER BY id DESC")
+    conn = store._connect(DB_PATH)
+    try:   # #763 : nœuds locaux = agents qui remontent la sonde proxmox (même si elle n'a pas été affectée depuis le hub)
+        local = [{"agent_id": aid, "hostname": host, "node": (d.get("node") or {}).get("name") or host} for aid, host, _at, d in infra.latest(conn, "plugin:proxmox")]
+    finally:
+        conn.close()
     return jsonify({"campaigns": [dict(id=c["id"], name=c["name"], remote=c["remote"], step=c["step"], updated_at=c["updated_at"],
                                        percent=c["progress"]["percent"]) for c in (_repa_full(r, False) for r in rows)],
-                    "remote_nodes": [n["name"] for n in _infra_now().get("nodes") or [] if n.get("zone") == "distant"]}), 200
+                    "remote_nodes": [n["name"] for n in _infra_now().get("nodes") or [] if n.get("zone") == "distant"], "local_agents": local}), 200
 
 
 @app.route("/repatriation", methods=["POST"])
@@ -1825,6 +1830,44 @@ def repa_guest_route(cid, vmid, action):
     else:
         return jsonify({"error": "action : validate, abort"}), 400
     return jsonify(r), 200 if r.get("ok") else 409
+
+
+DIAG_HINTS = {   # #763 : que faire quand une source ne remonte rien
+    "plugin:proxmox": "sonde proxmox des agents installés sur les PVE (activée à l'installation ; fiche de l'agent › Sondes)",
+    "plugin:pve-remote": "sonde pve-remote sur l'agent qui joint les nœuds distants (PBS ou PVE local) : /etc/si-agent/pve-remote.json puis activer la sonde",
+    "plugin:node-activity": "sonde node-activity sur les agents des PVE / PBS (fiche de l'agent › Sondes) ; nœuds distants : /etc/si-agent/pve-remote.json",
+    "plugin:pbs": "sonde pbs sur l'agent du serveur de sauvegarde",
+    "plugin:ollama": "sonde ollama sur l'agent du poste d'IA",
+    "plugin:docker-containers": "sonde docker-containers sur l'agent de l'hôte Docker",
+    "plugin:mail-server": "sonde mail-server sur l'agent du serveur de messagerie",
+    "host": "relevé de base de tout agent (agent arrêté ou injoignable si absent)",
+}
+
+
+@app.route("/diag/tasks", methods=["GET"])
+def diag_tasks_route():
+    """#763 : état des sources d'un écran -- pour chaque tâche (sonde), les agents qui la remontent, l'âge de la dernière
+    mesure, sa réussite et son erreur ; + une indication quand rien ne remonte. Sert le bandeau « État des données »."""
+    tasks = [t for t in (request.args.get("tasks") or "").split(",") if re.match(r"^[a-z0-9:_-]{1,64}$", t)][:12]
+    now = time.time()
+    conn = store._connect(DB_PATH)
+    out = []
+    try:
+        for t in tasks:
+            rows = conn.execute("SELECT a.agent_id, a.hostname, a.last_seen_at, m.at, m.ok, m.error, m.received_at FROM agents a JOIN (SELECT agent_id, MAX(at) AS at FROM measurements "
+                                "WHERE task = ? GROUP BY agent_id) l ON l.agent_id = a.agent_id JOIN measurements m ON m.agent_id = l.agent_id AND m.at = l.at AND m.task = ?", (t, t)).fetchall()
+            agents = []
+            for r in rows:
+                try:
+                    import calendar as _cal
+                    age = int(now - _cal.timegm(time.strptime(r["at"][:19], "%Y-%m-%dT%H:%M:%S")))
+                except (TypeError, ValueError):
+                    age = None
+                agents.append({"agent_id": r["agent_id"], "hostname": r["hostname"], "at": r["at"], "age_s": age, "ok": bool(r["ok"]), "error": r["error"]})
+            out.append({"task": t, "agents": agents, "hint": DIAG_HINTS.get(t, "")})
+    finally:
+        conn.close()
+    return jsonify({"tasks": out, "at": store.now_iso()}), 200
 
 
 @app.route("/views", methods=["GET"])

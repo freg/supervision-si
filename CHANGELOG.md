@@ -1,3 +1,15 @@
+## 2026-10-14 — État des données sur les écrans : sources, retards, erreurs, lenteur de l'API ; listes du rapatriement corrigées (livraison #763)
+
+- Hub : bandeau « État des données » (DataStatus) sur Rapatriement, Infra PVE / PBS, Vues de parc et Parc IA -- pour
+  chaque source de l'écran (sonde des agents) : nombre d'agents, âge de la dernière mesure, erreur, et ce qu'il faut
+  faire quand rien ne remonte ; temps de réponse de l'API (lent ≥ 2,5 s, engorgement probable ≥ 8 s) ; constats propres
+  à l'écran. Replié : une ligne de pastilles ; déplié : le détail.
+- Rapatriement : la liste des nœuds locaux vient des agents qui remontent la sonde proxmox (elle était vide quand la
+  sonde n'avait pas été affectée depuis le hub) ; le bandeau dit pourquoi la liste des nœuds distants est vide
+  (sonde pve-remote / node-activity absente, ssh refusé…).
+- si-agent-api : `GET /diag/tasks?tasks=…` (état des sources) ; `/repatriation` renvoie `local_agents`.
+- Vérifié : tests API (rapatriement + diag), hub (371), rendu du bandeau (capture). Non vérifié : sur super.
+
 ## 2026-10-14 — Mises à jour en pied de page du hub, avec un bouton vers chaque écran nouveau ou modifié (livraison #762)
 
 - Hub : pied de page « ▸ Mises à jour (dernière : #N du JJ/MM) » -- les 40 dernières livraisons (numéro, date, titre)

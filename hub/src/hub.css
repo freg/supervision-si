@@ -2524,3 +2524,11 @@ button:active:not(:disabled), a.hub-card:active, button.hub-card:active { transf
 .hub-update-date { color: var(--muted); min-width: 44px; }
 .hub-update-title { flex: 1 1 420px; min-width: 260px; }
 .hub-update-link { font-size: 12px; padding: 2px 8px; }
+
+/* #763 : bandeau « État des données » d'un écran */
+.data-status { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 12px; padding: 4px 8px; margin: 0 0 6px;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--panel); }
+.data-status-toggle { background: none; border: none; color: var(--text); cursor: pointer; font-size: 12px; font-weight: 600; padding: 2px 4px; }
+.data-status-chip { white-space: nowrap; color: var(--muted); }
+.data-status-list { margin: 4px 0 2px; padding-left: 4px; list-style: none; width: 100%; }
+.data-status-list li { margin: 3px 0; }

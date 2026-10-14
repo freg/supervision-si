@@ -3,7 +3,8 @@
 // les étapes, le curseur sur l'étape courante et le pourcentage d'avancement mesuré (plans #750 en cours).
 // Données : si-agent-api /repatriation (campagnes) ; chaque CT / VM « à rapatrier » est confié à un plan repatriate.
 import { useEffect, useState } from "react";
-import { fetchFleet, fetchRepatriations, createRepatriation, fetchRepatriation, saveRepatriation, launchRepatriation, repatriationGuest } from "./siAgentClient.js";
+import DataStatus from "./DataStatus.jsx";   // #763
+import { fetchRepatriations, createRepatriation, fetchRepatriation, saveRepatriation, launchRepatriation, repatriationGuest } from "./siAgentClient.js";
 import { fmtBytes } from "./infraLib.js";
 import { blocker, nextStep, prevStep, cursor, summary, launchesOnNext, STEP_IDS } from "./repaLib.js";
 
@@ -59,13 +60,14 @@ const Phase = ({ g }) => <><span className={`infra-status ${TONE[g.phase] === "g
 export default function RepatriationView({ onBack, siAgentApiBase, username }) {
   const base = siAgentApiBase;
   const [list, setList] = useState(null), [cid, setCid] = useState(null), [c, setC] = useState(null), [busy, setBusy] = useState(""), [err, setErr] = useState(null);
-  const [draft, setDraft] = useState(null), [hosts, setHosts] = useState([]);
-  const loadList = () => fetchRepatriations(base).then((r) => { setList(r); if (!cid && r.campaigns?.[0]) setCid(r.campaigns[0].id); }).catch((e) => setErr(e.message));
-  useEffect(() => { loadList(); fetchFleet(base).then((f) => setHosts(f.filter((a) => (a.plugin_ids || []).includes("proxmox")))).catch(() => {}); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [base]);
+  const [draft, setDraft] = useState(null), [ms, setMs] = useState(null), [tick, setTick] = useState(0);
+  const hosts = list?.local_agents || [];
+  const loadList = () => { const t0 = performance.now(); return fetchRepatriations(base).then((r) => { setMs(Math.round(performance.now() - t0)); if (r?.error) throw new Error(r.error); setList(r); if (!cid && r.campaigns?.[0]) setCid(r.campaigns[0].id); }).catch((e) => setErr(e.message)); };
+  useEffect(() => { loadList(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [base]);
   useEffect(() => {
     if (!cid) return undefined;
     let stop = false;
-    const load = () => fetchRepatriation(base, cid).then((r) => { if (!stop) { if (r?.error) setErr(r.error); else setC(r); } }).catch((e) => !stop && setErr(e.message));
+    const load = () => { const t0 = performance.now(); setTick((x) => x + 1); return fetchRepatriation(base, cid).then((r) => { if (!stop) { if (r?.error) setErr(r.error); else setC(r); } }).catch((e) => !stop && setErr(e.message)).finally(() => !stop && setMs(Math.round(performance.now() - t0))); };
     load(); const t = setInterval(load, 10000);
     return () => { stop = true; clearInterval(t); };
   }, [base, cid]);
@@ -94,9 +96,14 @@ export default function RepatriationView({ onBack, siAgentApiBase, username }) {
         {busy && <span className="infra-muted">⏳ {busy}</span>}
         {err && <span className="infra-status critical">{err}</span>}
       </div>
+      <DataStatus base={base} tasks={["plugin:proxmox", "plugin:pve-remote", "plugin:node-activity"]} latencyMs={ms} error={err} refreshKey={tick}
+        labels={{ "plugin:proxmox": "nœuds locaux (sonde proxmox)", "plugin:pve-remote": "nœuds distants (sonde pve-remote)", "plugin:node-activity": "activité des nœuds" }}
+        extra={list ? [
+          { tone: list.remote_nodes?.length ? "good" : "critical", text: `${list.remote_nodes?.length || 0} nœud(s) distant(s) visible(s)`, detail: list.remote_nodes?.length ? list.remote_nodes.join(", ") : "aucun : il faut la sonde pve-remote (ou node-activity) et le nœud déclaré dans /etc/si-agent/pve-remote.json de l'agent qui le joint" },
+          { tone: hosts.length ? "good" : "critical", text: `${hosts.length} nœud(s) local(aux)`, detail: hosts.map((h) => `${h.node} (agent ${h.agent_id})`).join(", ") || "aucun agent ne remonte la sonde proxmox" }] : []} />
       {draft && <div className="infra-card"><div className="infra-top" style={{ margin: 0 }}>
         <label>Nœud distant <select value={draft.remote} onChange={(e) => setDraft({ ...draft, remote: e.target.value })}><option value="">—</option>{(list?.remote_nodes || []).map((n) => <option key={n}>{n}</option>)}</select></label>
-        <label>Vers le nœud local <select value={draft.pve_agent_id} onChange={(e) => setDraft({ ...draft, pve_agent_id: e.target.value })}><option value="">—</option>{hosts.map((h) => <option key={h.agent_id} value={h.agent_id}>{h.hostname || h.agent_id}</option>)}</select></label>
+        <label>Vers le nœud local <select value={draft.pve_agent_id} onChange={(e) => setDraft({ ...draft, pve_agent_id: e.target.value })}><option value="">—</option>{hosts.map((h) => <option key={h.agent_id} value={h.agent_id}>{h.node || h.hostname || h.agent_id}</option>)}</select></label>
         <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder={`Rapatriement ${draft.remote || "…"}`} />
         <button className="primary" disabled={!draft.remote || !draft.pve_agent_id} onClick={async () => { const r = await act("création", () => createRepatriation(base, { ...draft, actor: username })); if (r) { setDraft(null); setC(r); setCid(r.id); loadList(); } }}>Créer</button>
         <button className="secondary" onClick={() => setDraft(null)}>Annuler</button></div>

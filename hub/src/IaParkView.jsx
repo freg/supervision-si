@@ -4,6 +4,7 @@
 //     activité par jour (appels, erreurs, temps moyen, jetons/s) -- relais en lecture si-agent-api /ia/assistant/* ;
 //   - Hôtes : en-tête htop, modèles Ollama (déployer, charger, tester : OllamaSection #746), conteneurs, gestes ;
 //   - hôtes ajoutés à la main (ex. la VM qui porte l'assistant sous Docker) : /ia/hosts.
+import DataStatus from "./DataStatus.jsx";   // #763 : état des données
 import { useEffect, useState } from "react";
 import OllamaSection from "./OllamaSection.jsx";
 import { fetchFleet, sendCommand, fetchCommand, fetchIaOverview, saveIaHosts, fetchIaAssistant } from "./siAgentClient.js";
@@ -126,7 +127,9 @@ export default function IaParkView({ onBack, siAgentApiBase, username }) {
         <div className="infra-tabs">{TABS.map(([k, l]) => <button key={k} className={tab === k ? "active" : ""} onClick={() => setTab(k)}>{l}</button>)}</div>
         <span className="infra-muted">Assistant : {status?.error ? <span className="infra-status critical">injoignable</span> : status ? <>{status.model} {status.llm_reachable ? (status.model_available ? "· modèle présent" : <span className="infra-status warning">⚠ modèle absent du serveur</span>) : <span className="infra-status critical">⛔ serveur de modèles injoignable</span>} · index {status.index?.docs ?? "?"} doc(s){status.eval_running ? " · évaluation en cours" : ""}</> : "…"}</span>
       </div>
-      {err && <p className="infra-status critical">{err}</p>}
+      <DataStatus base={base} tasks={["plugin:ollama", "plugin:docker-containers", "host"]} error={err || status?.error}
+        labels={{ "plugin:ollama": "modèles (sonde ollama)", "plugin:docker-containers": "conteneurs", host: "relevé des hôtes" }}
+        extra={status && !status.error ? [{ tone: status.llm_reachable ? (status.model_available ? "good" : "warning") : "critical", text: `assistant : ${status.model} ${status.llm_reachable ? (status.model_available ? "présent" : "absent du serveur de modèles") : "serveur de modèles injoignable"}`, detail: status.base_url }] : []} />
 
       {tab === "hotes" && ov && <>
         {ov.hosts.length === 0 && <p className="infra-muted">Aucun hôte d'IA : activer la sonde <code>ollama</code> sur l'agent du poste (fiche de l'agent), ou ajouter un hôte ci-dessous.</p>}

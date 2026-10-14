@@ -1,5 +1,11 @@
 [
  {
+  "n": 763,
+  "from": 763,
+  "date": "2026-10-14",
+  "title": "État des données sur les écrans : sources, retards, erreurs, lenteur de l'API ; listes du rapatriement corrigées"
+ },
+ {
   "n": 762,
   "from": 762,
   "date": "2026-10-14",
@@ -232,11 +238,5 @@
   "from": 724,
   "date": "2026-10-09",
   "title": "Inventaire des snapshots et des sauvegardes, PBS et PVE hébergés compris"
- },
- {
-  "n": 723,
-  "from": 723,
-  "date": "2026-10-09",
-  "title": "Inventaire des PVE distants par le hub et campagne générée"
  }
 ]

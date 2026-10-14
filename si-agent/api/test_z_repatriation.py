@@ -88,7 +88,13 @@ class Routes(unittest.TestCase):
         self.assertEqual(c["guests"][0]["phase"], "done")
         self.c.put("/repatriation/%d" % cid, json={"step": "bilan"})
         self.assertEqual(self.c.get("/repatriation/%d" % cid).json["progress"]["percent"], 100.0)
-        self.assertEqual(self.c.get("/repatriation").json["campaigns"][0]["percent"], 100.0)
+        lst = self.c.get("/repatriation").json
+        self.assertEqual(lst["campaigns"][0]["percent"], 100.0)
+        self.assertEqual(lst["local_agents"], [{"agent_id": "rp-pve", "hostname": None, "node": "pve10"}])
+        d = self.c.get("/diag/tasks?tasks=plugin:proxmox,plugin:ollama,bad task!").json["tasks"]   # #763
+        self.assertEqual([t["task"] for t in d], ["plugin:proxmox", "plugin:ollama"])
+        self.assertEqual(d[0]["agents"][0]["agent_id"], "rp-pve"); self.assertTrue(d[0]["agents"][0]["ok"]); self.assertEqual(d[1]["agents"], [])
+        self.assertIn("ollama", d[1]["hint"])
 
 
 if __name__ == "__main__":
