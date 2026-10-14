@@ -1,3 +1,15 @@
+## 2026-10-14 — Mises à jour d'agents : version reconnue dès le redémarrage ; agents 0.5.14 à relancer à la main (livraison #755)
+
+- si-agent-api : la version d'un agent est relevée sur ses événements `agent-started` / `agent-updated`, plus seulement
+  sur l'inventaire (envoyé bien plus tard) : la tuile Mises à jour ne dit plus « installeur lancé, sans effet » pour un
+  agent effectivement mis à jour (cas de pve10, passé 0.5.59 -> 0.5.60 à 14:10:47).
+- Agents encore en 0.5.14 (pve11, i9freg) : leur programme de mise à jour date d'avant #577 (extraction dans un /tmp
+  privé que l'installeur lancé par systemd-run ne voit pas : journal vide). Mise à jour manuelle unique ; ensuite
+  l'auto-mise à jour fonctionne. Même cause pour l'échec de la sonde docker-containers sur i9freg (limite mémoire de
+  512 Mo, relevée à 4 Go en 0.5.15).
+- Agent 0.5.61 : une commande déjà exécutée (acquittement perdu) est acquittée au lieu d'être signalée à chaque relève.
+- Vérifié : test API (version sur événement), tests updates, API et agent existants.
+
 ## 2026-10-14 — Tests d'IA lisibles : ce qu'on fournit au modèle, les indicateurs cibles et le rendu critère par critère (livraison #754)
 
 - Assistant (`rag.describe_case`, `rag.check_case`) : pour chaque cas d'évaluation, la tâche, l'entrée, les consignes

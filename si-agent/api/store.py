@@ -21,6 +21,7 @@ ne réapplique la configuration que si l'empreinte change.
 import calendar
 import hashlib
 import json
+import re
 import os
 import publish as publish_lib
 from datetime import datetime, timedelta, timezone
@@ -1060,6 +1061,13 @@ def ingest_measurements(db_path, agent_id, items, ip=None):
                                   str(ev.get("message") or "")[:500], json.dumps(ev.get("details") or {}, ensure_ascii=False)))
                     accepted += 1
                     events_seen.append({"at": m["at"], "kind": ev.get("kind"), "severity": sev, "message": ev.get("message"), "agent_id": agent_id})
+                    # #755 : version courante dès le (re)démarrage -- l'inventaire, seul à la porter jusque-là, peut
+                    # n'arriver qu'une heure après : la tuile Mises à jour affichait « installeur lancé, sans effet »
+                    # pour des agents bel et bien mis à jour.
+                    det = ev.get("details") if isinstance(ev.get("details"), dict) else {}
+                    ver = det.get("version") if ev.get("kind") == "agent-started" else det.get("to") if ev.get("kind") == "agent-updated" else None
+                    if isinstance(ver, str) and re.match(r"^\d+(\.\d+){1,3}$", ver):
+                        conn.execute("UPDATE agents SET agent_version = ? WHERE agent_id = ?", (ver, agent_id))
                 except sqlite3.IntegrityError:
                     duplicates += 1
                 continue

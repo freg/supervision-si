@@ -620,6 +620,9 @@ class Agent(object):
             cid = str((c or {}).get("id") or "")
             if not cid or not control.remember_command(self.state, cid):
                 self.event("command-replayed", "warning", "commande %s déjà exécutée -- ignorée" % (cid or "?"), {"command": cid})
+                if cid:     # #755 : acquittée quand même, sinon le central la renvoie à chaque relève (une alerte par minute)
+                    self.http.request("POST", "%s/agents/%s/commands/%s/ack" % (protocol.API_PREFIX, self.agent_id, cid),
+                                      {"ok": True, "error": None, "result": {"replayed": True, "message": "déjà exécutée lors d'une relève précédente (acquittement perdu) ; non rejouée"}})
                 continue
             self._save_state()
             result = self.execute_command(c)
