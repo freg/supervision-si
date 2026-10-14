@@ -42,6 +42,13 @@ class Pure(unittest.TestCase):
         checks = repa.preparation({"storage": "local-zfs"}, {"name": "pve10", "storages": [{"storage": "local-zfs", "avail": 300e9}]}, {"name": "pve-a", "ok": True}, g)
         by = {c["label"]: c["ok"] for c in checks}
         self.assertFalse(by["place libre sur le stockage local"]); self.assertTrue(by["nœud distant joignable par l'agent du nœud local"])
+        # #764 : inventaire vide expliqué
+        self.assertIn("aucune remontée", repa.inventory_state("pve-x", [], [])["hint"])
+        st = repa.inventory_state("pve-x", [("plugin:pve-remote", "pbs", "t", {"nodes": [{"name": "pve-x", "ok": False, "error": "timeout"}]})], [])
+        self.assertIn("timeout", st["hint"]); self.assertEqual(len(st["reports"]), 1)
+        st = repa.inventory_state("pve-x", [("plugin:pve-remote", "pbs", "t", {"nodes": [{"name": "pve-x", "ok": True, "guests": [], "source": "pvesh"}]})], [])
+        self.assertIn("aucun CT / VM", st["hint"])
+        self.assertIsNone(repa.inventory_state("pve-x", [], [{"vmid": 1, "present": True}])["hint"])
 
 
 class Routes(unittest.TestCase):

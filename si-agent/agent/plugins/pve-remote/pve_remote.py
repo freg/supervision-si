@@ -95,9 +95,11 @@ def parse_backups(text):
 def from_resources(items, node_name=None):
     """pvesh /cluster/resources --type vm -> invités (filtrés sur le nœud si fourni)."""
     out = []
-    for r in items or []:
-        if r.get("type") not in ("lxc", "qemu") or (node_name and r.get("node") and r["node"] != node_name):
-            continue
+    vm = [r for r in items or [] if r.get("type") in ("lxc", "qemu")]
+    short = lambda x: (x or "").split(".")[0].lower()
+    if node_name and any(short(r.get("node")) == short(node_name) for r in vm):   # #764 : hostname long (OVH) vs nom PVE
+        vm = [r for r in vm if not r.get("node") or short(r["node"]) == short(node_name)]
+    for r in vm:
         out.append({"vmid": int(r.get("vmid") or 0), "name": r.get("name") or "", "type": r["type"], "status": r.get("status") or "",
                     "maxdisk": r.get("maxdisk"), "disk": r.get("disk"), "node": r.get("node"),
                     # #749 : en-tête façon htop des VM (tuile Infra PVE / PBS)
@@ -119,7 +121,7 @@ def inventory(h, runner=subprocess.run):
     try:
         try:
             res = json.loads(ssh(target, key, "pvesh get /cluster/resources --type vm --output-format json", runner) or "[]")
-            hostname = ssh(target, key, "hostname", runner).strip()
+            hostname = ssh(target, key, "hostname -s || hostname", runner).strip()
             node["guests"], node["source"] = from_resources(res, hostname), "pvesh"
         except (RuntimeError, ValueError):
             node["guests"] = parse_pct_list(ssh(target, key, "pct list", runner)) + parse_qm_list(ssh(target, key, "qm list", runner))

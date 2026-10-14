@@ -37,6 +37,9 @@ class Inventaire(unittest.TestCase):
                           {"type": "lxc", "vmid": 300, "name": "ailleurs", "status": "running", "node": "pve2"}, {"type": "storage"}])
         n = pr.inventory({"name": "pve-1", "host": "203.0.113.21"}, runner=fake({"pvesh": res, "hostname": "pve1\n", "pvesm": PVESM}))
         self.assertEqual((n["ok"], n["source"], [g["vmid"] for g in n["guests"]], len(n["storages"])), (True, "pvesh", [101], 1))
+        # #764 : hostname long / différent du nom PVE -> nom court, sinon tous les invités
+        self.assertEqual([g["vmid"] for g in pr.from_resources(json.loads(res), "pve1.example.net")], [101])
+        self.assertEqual([g["vmid"] for g in pr.from_resources(json.loads(res), "ns000")], [101, 300])
         n = pr.inventory({"name": "pve-2", "host": "203.0.113.22"}, runner=fake({"pct list": PCT, "qm list": QM, "pvesm": PVESM}))
         self.assertEqual((n["source"], [g["vmid"] for g in n["guests"]]), ("pct/qm", [101, 106, 200]))
         n = pr.inventory({"name": "pve-3", "host": "203.0.113.23"}, runner=fake({"pvesh": None, "pct": None}))

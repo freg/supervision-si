@@ -1,3 +1,12 @@
+## 2026-10-14 — Rapatriement : inventaire distant vide expliqué, sonde pve-remote tolérante au nom d'hôte (livraison #764)
+
+- Sonde pve-remote (agent 0.5.63) : le filtre des CT / VM par nœud compare les noms courts (`hostname -s`) et, si
+  le nom d'hôte ne correspond à aucun nœud Proxmox (serveurs loués au nom d'hôte constructeur), garde tous les
+  invités au lieu d'un inventaire vide.
+- Assistant de rapatriement, étape Inventaire : ligne « Sources » (pve-remote / node-activity, agent, âge, nombre de
+  CT/VM, erreur) et, si le tableau est vide, la raison et le geste à faire (nœud non déclaré, injoignable, ou joint
+  sans invité vu).
+
 ## 2026-10-14 — État des données sur les écrans : sources, retards, erreurs, lenteur de l'API ; listes du rapatriement corrigées (livraison #763)
 
 - Hub : bandeau « État des données » (DataStatus) sur Rapatriement, Infra PVE / PBS, Vues de parc et Parc IA -- pour

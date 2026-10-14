@@ -1,5 +1,11 @@
 [
  {
+  "n": 764,
+  "from": 764,
+  "date": "2026-10-14",
+  "title": "Rapatriement : inventaire distant vide expliqué, sonde pve-remote tolérante au nom d'hôte"
+ },
+ {
   "n": 763,
   "from": 763,
   "date": "2026-10-14",
@@ -232,11 +238,5 @@
   "from": 725,
   "date": "2026-10-09",
   "title": "Copie de secours ZFS différentielle sur disque externe, ancienneté suivie par le hub"
- },
- {
-  "n": 724,
-  "from": 724,
-  "date": "2026-10-09",
-  "title": "Inventaire des snapshots et des sauvegardes, PBS et PVE hébergés compris"
  }
 ]

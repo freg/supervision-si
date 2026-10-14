@@ -111,3 +111,27 @@ def preparation(campaign, target_node, remote_node, guests):
     ids = [g.get("newid") for g in sel if g.get("newid")]
     out.append({"label": "nouveaux identifiants distincts", "ok": len(ids) == len(set(ids)), "detail": ", ".join(str(i) for i in ids) or "attribués au lancement"})
     return out
+
+
+def inventory_state(remote, reports, guests):
+    """#764 : d'où vient (ou pourquoi manque) l'inventaire du nœud distant. reports : [(task, agent, at, data)] des sondes
+    pve-remote et node-activity -> {reports: [...], hint}."""
+    out = []
+    for task, agent, at, d in reports:
+        for x in (d or {}).get("nodes") or []:
+            if x.get("name") == remote:
+                out.append({"task": task, "agent": agent, "at": at, "ok": x.get("ok", True) is not False and not x.get("error"), "error": x.get("error"),
+                            "guests": len(x.get("guests") or []) if task == "plugin:pve-remote" else None, "source": x.get("source"),
+                            "warnings": (x.get("warnings") or [])[:3]})
+    pr = [r for r in out if r["task"] == "plugin:pve-remote"]
+    if any(g.get("present") for g in guests or []):
+        hint = None
+    elif not pr:
+        hint = ("aucune remontée de la sonde pve-remote pour « %s » : sur l'agent qui joint ce nœud (ex. le PVE local), déclarer "
+                "[{\"name\": \"%s\", \"host\": \"…\"}] dans /etc/si-agent/pve-remote.json et activer la sonde pve-remote" % (remote, remote))
+    elif not any(r["ok"] for r in pr):
+        hint = "la sonde pve-remote ne joint pas « %s » : %s" % (remote, "; ".join("%s : %s" % (r["agent"], r["error"]) for r in pr))
+    else:
+        hint = ("la sonde pve-remote joint « %s » mais ne voit aucun CT / VM (source %s) : mettre à jour l'agent qui porte la sonde "
+                "(≥ 0.5.63, nom de nœud court) ou vérifier « pvesh get /cluster/resources --type vm » sur le nœud" % (remote, ", ".join(sorted({r["source"] or "?" for r in pr}))))
+    return {"reports": out, "hint": hint}

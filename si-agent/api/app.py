@@ -1686,12 +1686,14 @@ def _repa_full(row, refresh_inventory=True):
     conn = store._connect(DB_PATH)
     try:   # nom du nœud Proxmox remonté par l'agent du nœud local (sonde proxmox)
         node_of = {aid: (d.get("node") or {}).get("name") or host for aid, host, _at, d in infra.latest(conn, "plugin:proxmox")}
+        reports = [(t, host or aid, at, d) for t in ("plugin:pve-remote", "plugin:node-activity") for aid, host, at, d in infra.latest(conn, t)]
     finally:
         conn.close()
     tname = node_of.get(c["pve_agent_id"], c["pve_agent_id"])
     target = next((n for n in ov.get("nodes") or [] if n.get("zone") == "local" and (n.get("collected_by") == c["pve_agent_id"] or n.get("name") == tname)), None)
     remote = next((n for n in ov.get("nodes") or [] if n.get("zone") == "distant" and n.get("name") == c["remote"]), None)
     c["checks"] = repa.preparation(c, target, remote, c["guests"])
+    c["inventory"] = repa.inventory_state(c["remote"], reports, c["guests"])   # #764
     c["progress"] = repa.progress(c, phases)
     c["steps_def"] = [{"id": s, "label": l, "weight": w} for s, l, w in repa.STEPS]
     c["remote_nodes"] = [n["name"] for n in ov.get("nodes") or [] if n.get("zone") == "distant"]
