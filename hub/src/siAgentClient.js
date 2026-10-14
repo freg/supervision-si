@@ -207,4 +207,6 @@ export const createRepatriation = (apiBase, body) => fetchJson(apiBase, "/repatr
 export const fetchRepatriation = (apiBase, id) => fetchJson(apiBase, `/repatriation/${id}`);
 export const saveRepatriation = (apiBase, id, body) => fetchJson(apiBase, `/repatriation/${id}`, json("PUT", body));
 export const launchRepatriation = (apiBase, id, actor) => fetchJson(apiBase, `/repatriation/${id}/launch`, json("POST", { actor }));
+export const evaluateLeftovers = (apiBase, body) => fetchJson(apiBase, "/repatriation/cleanup/evaluate", json("POST", body));   // #765
+export const purgeLeftover = (apiBase, body) => fetchJson(apiBase, "/repatriation/cleanup/purge", json("POST", body));
 export const repatriationGuest = (apiBase, id, vmid, action, actor) => fetchJson(apiBase, `/repatriation/${id}/guest/${vmid}/${action}`, json("POST", { actor }));

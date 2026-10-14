@@ -50,6 +50,21 @@ class Pure(unittest.TestCase):
         self.assertIn("aucun CT / VM", st["hint"])
         self.assertIsNone(repa.inventory_state("pve-x", [], [{"vmid": 1, "present": True}])["hint"])
 
+    def test_leftover_checks(self):
+        items = [{"path": "/d/vzdump-lxc-108-x.tar.gz", "kind": "archive", "vmid": 108, "mtime": 1000, "size": 5},
+                 {"path": "/d/vzdump-lxc-102-x.tar.gz", "kind": "archive", "vmid": 102, "mtime": 1000, "size": 7},
+                 {"path": "/d/vzdump-lxc-300-x.tar.gz", "kind": "archive", "vmid": 300, "mtime": 1000, "size": 1},
+                 {"path": "/r/102/disk.raw", "kind": "image", "vmid": 102, "mtime": 900, "size": 9, "loop": {"dev": "/dev/loop0", "mount": "/m"}}]
+        pbs = [{"id": "9108", "type": "ct", "store": "s1", "last": 2000, "last_complete": True}, {"id": "9102", "type": "ct", "store": "s1", "last": 500, "last_complete": True},
+               {"id": "300", "type": "ct", "store": "s1", "last": 3000, "last_complete": True}]
+        out = repa.leftover_checks(items, {9108: "running", 9102: "running", 300: "running"}, pbs, {102: {"newid": 9102, "remote": "pve-a", "original": "présent"}})
+        by = {x["path"]: x for x in out}
+        self.assertTrue(by["/d/vzdump-lxc-108-x.tar.gz"]["ok"]); self.assertEqual(by["/d/vzdump-lxc-108-x.tar.gz"]["copy"], 9108)
+        self.assertFalse(by["/d/vzdump-lxc-102-x.tar.gz"]["ok"])            # PBS de 9102 antérieure à l'archive
+        self.assertTrue(by["/r/102/disk.raw"]["ok"]); self.assertIn("montée", by["/r/102/disk.raw"]["label"])
+        self.assertTrue(by["/d/vzdump-lxc-300-x.tar.gz"]["ok"]); self.assertIn("sauvegarde locale", by["/d/vzdump-lxc-300-x.tar.gz"]["role"])
+        self.assertFalse(repa.leftover_checks(items[:1], {9108: "stopped"}, pbs, {})[0]["ok"])
+
 
 class Routes(unittest.TestCase):
     @classmethod
@@ -60,6 +75,17 @@ class Routes(unittest.TestCase):
         store.ingest_measurements(cls.db, "rp-pbs", [{"task": "plugin:pve-remote", "at": "2026-10-14T12:00:00Z", "data": {"nodes": [{"name": "pve-a", "ok": True, "storages": [],
                                   "guests": [{"vmid": 102, "name": "MED10", "type": "lxc", "status": "stopped", "maxdisk": 400e9}, {"vmid": 109, "name": "ns3", "type": "lxc", "status": "stopped", "maxdisk": 8e9}]}]}}])
         pra.XFER_TIMEOUT = 20; pra.SLEEP = lambda n: time.sleep(min(n, 0.05))
+
+    def test_cleanup_routes(self):
+        it = {"path": "/var/lib/vz/dump/vzdump-lxc-77-2026_10_13-09_08_54.tar.gz", "kind": "archive", "vmid": 77, "mtime": 1, "size": 3}
+        r = self.c.post("/repatriation/cleanup/evaluate", json={"agent_id": "rp-pve", "items": [it]})
+        self.assertEqual(r.status_code, 200); self.assertFalse(r.json["items"][0]["ok"])
+        self.assertEqual(self.c.post("/repatriation/cleanup/purge", json={"agent_id": "rp-pve", "item": it, "reason": "court"}).status_code, 400)
+        self.assertEqual(self.c.post("/repatriation/cleanup/purge", json={"agent_id": "rp-pve", "item": it, "reason": "copie validée à la main"}).status_code, 409)
+        r = self.c.post("/repatriation/cleanup/purge", json={"agent_id": "rp-pve", "item": it, "reason": "copie validée à la main", "force": True})
+        self.assertEqual(r.status_code, 201, r.json)
+        self.assertEqual((r.json["command"]["params"]["action"], r.json["command"]["params"]["confirm"], r.json["command"]["params"]["force"]),
+                         ("purge", "vzdump-lxc-77-2026_10_13-09_08_54.tar.gz", True))
 
     def test_campaign(self):
         r = self.c.post("/repatriation", json={"remote": "pve-a", "pve_agent_id": "rp-pve", "storage": "local-zfs"})

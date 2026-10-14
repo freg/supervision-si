@@ -4,6 +4,7 @@
 // Données : si-agent-api /repatriation (campagnes) ; chaque CT / VM « à rapatrier » est confié à un plan repatriate.
 import { useEffect, useState } from "react";
 import DataStatus from "./DataStatus.jsx";   // #763
+import LocalLeftovers from "./LocalLeftovers.jsx";   // #765
 import { fetchRepatriations, createRepatriation, fetchRepatriation, saveRepatriation, launchRepatriation, repatriationGuest } from "./siAgentClient.js";
 import { fmtBytes } from "./infraLib.js";
 import { blocker, nextStep, prevStep, cursor, summary, launchesOnNext, STEP_IDS } from "./repaLib.js";
@@ -170,6 +171,7 @@ export default function RepatriationView({ onBack, siAgentApiBase, username }) {
           {c.step !== "bilan" && <button className="primary" disabled={!!blk || !!busy} onClick={goNext}>{launchesOnNext(c.step) ? "Lancer le rapatriement ▶" : "Suivant ▶"}</button>}
         </div>
       </>}
+      <LocalLeftovers base={base} hosts={hosts} defaultAgent={c?.pve_agent_id} username={username} open={!c || ["nettoyage", "bilan"].includes(c?.step)} />
     </div>
   );
 }

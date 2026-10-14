@@ -2074,9 +2074,11 @@ class Agent(object):
             j = getattr(self, "_xfer_job", None)
             return {"ok": True, "job": {k: v for k, v in (j or {}).items() if k != "proc"} if j else None,
                     "verified": self.state.get("xfer_verified", {})}
+        if action in ("leftovers", "purge"):          # #765 : restes du rapatriement sur ce nœud
+            return self._xfer_leftovers(action, p)
         need = {"export": ("vmid", "newid", "storage"), "verify": ("vmid", "newid"), "destroy": ("vmid", "copy")}.get(action)
         if not need:
-            return {"ok": False, "error": "action : export, verify, destroy, status"}
+            return {"ok": False, "error": "action : export, verify, destroy, status, leftovers, purge"}
         q, err = xferctl.check(p, need)
         if err:
             return {"ok": False, "error": err}
@@ -2196,6 +2198,90 @@ class Agent(object):
 
         threading.Thread(target={"export": export, "verify": verify, "destroy": destroy}[action], name="xfer-" + action, daemon=True).start()
         return {"ok": True, "message": "%s de %s %d lancé%s" % (action, q["remote"], q["vmid"], (" (plage %s)" % q["window"]) if q["window"] and action == "destroy" else "")}
+
+    def _xfer_leftovers(self, action, p):
+        """#765 : liste des restes (archives, .part, images en boucle) ou purge validée d'un élément."""
+        import glob
+        import subprocess
+        from . import leftovers as lo
+
+        def run(argv):
+            try:
+                r = subprocess.run(argv, capture_output=True, text=True, timeout=120)
+                return r.returncode, r.stdout or "", r.stderr or ""
+            except (OSError, subprocess.SubprocessError) as e:
+                return 1, "", str(e)
+
+        def walk(d):
+            out = []
+            try:
+                for e in os.scandir(d):
+                    if e.is_file(follow_symlinks=False):
+                        st = e.stat(follow_symlinks=False)
+                        out.append((e.path, st.st_size, st.st_mtime))
+            except OSError:
+                pass
+            return out
+
+        def stat(path):
+            try:
+                st = os.stat(path)
+                return st.st_size, st.st_mtime
+            except OSError:
+                return None
+
+        def items():
+            confs = {}
+            for d in lo.CONF_GLOB_DIRS:
+                for f in glob.glob(os.path.join(d, "*.conf")):
+                    try:
+                        with open(f, encoding="utf-8", errors="replace") as fh:
+                            confs[os.path.basename(f)] = fh.read()
+                    except OSError:
+                        pass
+            j = getattr(self, "_xfer_job", None) or {}
+            busy = set()
+            if j.get("state") == "running":
+                busy.update(x for x in glob.glob(os.path.join(lo.DEFAULT_DIRS[0], "vzdump-*-%s-*" % j.get("vmid"))))
+            try:
+                with open("/proc/mounts", encoding="utf-8") as fh:
+                    mounts = fh.read()
+            except OSError:
+                mounts = ""
+            dirs = self.cfg.get("xfer_leftover_dirs") or lo.DEFAULT_DIRS
+            return lo.scan(dirs, walk, run(["losetup", "-J", "-l"])[1], mounts, stat, confs, busy)
+
+        its = items()
+        if action == "leftovers":
+            return {"ok": True, "items": its, "dirs": self.cfg.get("xfer_leftover_dirs") or lo.DEFAULT_DIRS}
+        it, err = lo.check_purge(p, its)
+
+        def audit(ok, msg):
+            try:
+                os.makedirs(os.path.dirname(lo.AUDIT_LOG), exist_ok=True)
+                with open(lo.AUDIT_LOG, "a", encoding="utf-8") as fh:
+                    fh.write(lo.audit_line(it, p, ok, msg) + "\n")
+            except OSError:
+                pass
+        if err:
+            audit(False, err)
+            return {"ok": False, "error": err}
+        for argv in lo.purge_steps(it):
+            rc, _o, e = run(argv)
+            if rc != 0:
+                msg = "%s : %s" % (" ".join(argv), (e.strip().splitlines() or ["code %d" % rc])[-1])
+                audit(False, msg)
+                return {"ok": False, "error": msg}
+        try:
+            if not it.get("missing"):
+                os.unlink(it["path"])
+        except OSError as e:
+            audit(False, str(e))
+            return {"ok": False, "error": "effacement de %s : %s" % (it["path"], e)}
+        msg = "%s supprimé (%.1f Go libérés)%s" % (it["path"], (it.get("size") or 0) / 2**30, " après démontage" if it.get("loop") else "")
+        audit(True, msg)
+        self.event("xfer-purge", "info", msg, {"path": it["path"], "size": it.get("size"), "actor": p.get("actor"), "reason": p.get("reason"), "force": bool(p.get("force"))})
+        return {"ok": True, "message": msg, "freed": it.get("size") or 0}
 
     def start_ollama_pull(self, url, model, command_id=None):
         """#746 : téléchargement d'un modèle Ollama dans un fil détaché ; progression lue par l'action status."""

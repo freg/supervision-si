@@ -38,3 +38,10 @@ export function summary(c) {
   return { rapatrier: by("rapatrier").length, garder: by("garder").length, supprimer: by("supprimer").length, done: done.length,
     freed: done.reduce((s, x) => s + (x.size || 0), 0), failed: by("rapatrier").filter((x) => ["failed", "diff", "aborted"].includes(x.phase)).length };
 }
+
+/** #765 : totaux des restes d'un nœud local (tous / prêts à supprimer). */
+export function leftoverTotals(items) {
+  const l = items || [], r = l.filter((x) => x.ok);
+  const sz = (a) => a.reduce((s, x) => s + (x.size || 0), 0);
+  return { count: l.length, size: sz(l), ready: r.length, readySize: sz(r) };
+}

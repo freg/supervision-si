@@ -1558,3 +1558,13 @@ avec l'acteur dans `/var/log/si-agent/hostops-audit.log`) : `service_restart`, `
     "hostops": {"units": ["ollama", "docker"], "containers": ["open-*"], "compose_dirs": ["/opt/ia"], "enabled": true}
 
 Par défaut : services ollama et docker, tous les conteneurs, aucune pile compose. `"enabled": false` coupe tout.
+
+
+## Restes du rapatriement sur le nœud local (livraison #765, agent 0.5.64)
+
+Commande `xfer` : `{"action": "leftovers"}` liste les archives vzdump, fichiers `.part` et images brutes (≥ 1 Gio) des
+dossiers `xfer_leftover_dirs` (agent.json ; défaut `/var/lib/vz/dump`, `/data/dump`, `/var/lib/vz/import`) et les
+images montées en boucle (`losetup -J -l`). `{"action": "purge", "path", "confirm": <nom du fichier>, "reason"}`
+démonte, détache et efface un élément listé ; refus si le fichier est référencé par `/etc/pve/{lxc,qemu-server}/*.conf`
+ou si un export est en cours. Audit : `/var/log/si-agent/xfer-purge-audit.log`. Les conditions (copie présente,
+démarrée, sauvegarde PBS postérieure) sont évaluées par l'API (`/repatriation/cleanup/*`) et affichées dans la tuile.

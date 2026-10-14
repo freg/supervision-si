@@ -1,5 +1,11 @@
 [
  {
+  "n": 765,
+  "from": 765,
+  "date": "2026-10-14",
+  "title": "Rapatriement : restes sur le nœud local, conditions vérifiées et suppression validée depuis le hub"
+ },
+ {
   "n": 764,
   "from": 764,
   "date": "2026-10-14",
@@ -232,11 +238,5 @@
   "from": 726,
   "date": "2026-10-09",
   "title": "« Questions sur le hub » : sauvegardes et snapshots"
- },
- {
-  "n": 725,
-  "from": 725,
-  "date": "2026-10-09",
-  "title": "Copie de secours ZFS différentielle sur disque externe, ancienneté suivie par le hub"
  }
 ]

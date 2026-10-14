@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { blocker, nextStep, prevStep, cursor, summary, launchesOnNext } from "../src/repaLib.js";
+import { blocker, nextStep, prevStep, cursor, summary, launchesOnNext, leftoverTotals } from "../src/repaLib.js";
+
+test("#765 : totaux des restes locaux", () => {
+  assert.deepEqual(leftoverTotals([{ size: 10, ok: true }, { size: 5, ok: false }, { ok: true }]), { count: 3, size: 15, ready: 2, readySize: 10 });
+  assert.deepEqual(leftoverTotals(null), { count: 0, size: 0, ready: 0, readySize: 0 });
+});
 
 test("#761 : navigation de l'assistant de rapatriement", () => {
   const c = { step: "inventaire", guests: [{ vmid: 102 }, { vmid: 109 }] };

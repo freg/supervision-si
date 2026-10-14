@@ -1715,6 +1715,60 @@ def repa_list_route():
                     "remote_nodes": [n["name"] for n in _infra_now().get("nodes") or [] if n.get("zone") == "distant"], "local_agents": local}), 200
 
 
+def _leftover_ctx(agent_id):
+    """#765 : contexte d'évaluation des restes d'un nœud local -> (local_vms, pbs_groups, copies, base)."""
+    conn = store._connect(DB_PATH)
+    try:
+        local = {}
+        for aid, _h, _at, d in infra.latest(conn, "plugin:proxmox"):
+            if aid == agent_id:
+                local = {int(v["vmid"]): v.get("status") for v in d.get("vms") or [] if v.get("vmid") and not v.get("template")}
+        pbs_groups = [g for _a, _h, _at, d in infra.latest(conn, "plugin:pbs") for g in d.get("groups") or []]
+    finally:
+        conn.close()
+    copies, base = {}, repa.DEFAULT_SETTINGS["newid_base"]
+    for r in _repa_db("SELECT * FROM repatriation WHERE pve_agent_id = ?", (agent_id,)):
+        c = _repa_full(r)
+        base = c["settings"].get("newid_base", base)
+        for g in c["guests"]:
+            if g.get("newid"):
+                copies[int(g["vmid"])] = {"newid": int(g["newid"]), "remote": c["remote"],
+                                          "original": "présent" if g.get("present") else "détruit ou absent de l'inventaire"}
+    return local, pbs_groups, copies, base
+
+
+@app.route("/repatriation/cleanup/evaluate", methods=["POST"])
+def repa_cleanup_eval_route():
+    """#765 : {agent_id, items (action xfer leftovers de l'agent)} -> éléments avec conditions de suppression."""
+    b = request.get_json(silent=True) or {}
+    aid = str(b.get("agent_id") or "")
+    if not re.match(r"^[A-Za-z0-9._-]{1,64}$", aid):
+        return jsonify({"error": "agent_id requis"}), 400
+    local, pbs_groups, copies, base = _leftover_ctx(aid)
+    items = repa.leftover_checks(b.get("items") or [], local, pbs_groups, copies, base)
+    return jsonify({"items": items, "pbs_seen": bool(pbs_groups), "local_vms": len(local)}), 200
+
+
+@app.route("/repatriation/cleanup/purge", methods=["POST"])
+def repa_cleanup_purge_route():
+    """#765 : {agent_id, item, reason, force, actor} -> commande xfer purge (conditions réévaluées ici ; forcer exige un motif)."""
+    b = request.get_json(silent=True) or {}
+    aid, it, reason = str(b.get("agent_id") or ""), b.get("item") or {}, str(b.get("reason") or "").strip()
+    if not re.match(r"^[A-Za-z0-9._-]{1,64}$", aid) or not it.get("path"):
+        return jsonify({"error": "agent_id et item requis"}), 400
+    if len(reason) < 8:
+        return jsonify({"error": "motif requis (8 caractères au moins)"}), 400
+    local, pbs_groups, copies, base = _leftover_ctx(aid)
+    ev = repa.leftover_checks([it], local, pbs_groups, copies, base)[0]
+    if not ev["ok"] and not b.get("force"):
+        ko = [c["label"] for c in ev["checks"] if c["required"] and not c["ok"]]
+        return jsonify({"error": "conditions non remplies : %s (forcer avec un motif)" % ", ".join(ko), "item": ev}), 409
+    params = {"action": "purge", "path": it["path"], "confirm": it["path"].rsplit("/", 1)[-1], "reason": reason,
+              "actor": str(b.get("actor") or ""), "force": bool(b.get("force")) and not ev["ok"]}
+    c = store.create_command(DB_PATH, aid, "xfer", params)
+    return jsonify({"command": c, "item": ev}), 201
+
+
 @app.route("/repatriation", methods=["POST"])
 def repa_create_route():
     b = request.get_json(silent=True) or {}

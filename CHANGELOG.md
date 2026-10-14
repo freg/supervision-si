@@ -1,3 +1,15 @@
+## 2026-10-14 — Rapatriement : restes sur le nœud local, conditions vérifiées et suppression validée depuis le hub (livraison #765)
+
+- Agent 0.5.64 : action xfer `leftovers` (archives vzdump, `.part` d'exports interrompus, images brutes et montages en
+  boucle des dossiers `/var/lib/vz/dump`, `/data/dump`, `/var/lib/vz/import` ou `xfer_leftover_dirs`) et `purge`
+  (démontage, `losetup -d`, effacement) : fichier listé, nom répété, motif, refus si référencé par une conf CT / VM
+  ou export en cours ; journal `/var/log/si-agent/xfer-purge-audit.log`, événement `xfer-purge`.
+- API : `POST /repatriation/cleanup/evaluate` et `/repatriation/cleanup/purge` -- conditions par élément : copie
+  locale présente (campagne ou id 9000+vmid), copie démarrée, sauvegarde PBS complète de la copie postérieure à
+  l'archive ; une archive d'un CT / VM local est traitée comme une sauvegarde ordinaire. Forcer exige un motif.
+- Hub (tuile Rapatriement) : section « Restes sur le nœud local » (ouverte aux étapes Nettoyage et Bilan) : Analyser,
+  conditions ●/■ par élément, Supprimer / Forcer…, « Supprimer les éléments prêts » en un geste avec un motif.
+
 ## 2026-10-14 — Rapatriement : inventaire distant vide expliqué, sonde pve-remote tolérante au nom d'hôte (livraison #764)
 
 - Sonde pve-remote (agent 0.5.63) : le filtre des CT / VM par nœud compare les noms courts (`hostname -s`) et, si

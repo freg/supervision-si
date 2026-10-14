@@ -7,6 +7,7 @@ Chaque CT / VM à rapatrier est confié à un plan PRA « repatriate » (#750 : 
 transition, destruction par tranches dans la plage horaire) : la campagne ne fait qu'orchestrer et MESURER. Ce module
 est pur (calculs d'avancement, contrôles de préparation) ; la base et les routes sont dans app.py."""
 import json
+import time
 
 STEPS = [("inventaire", "Inventaire", 10), ("preparation", "Préparation", 10), ("rapatriement", "Rapatriement", 40),
          ("verification", "Vérification", 15), ("nettoyage", "Nettoyage", 20), ("bilan", "Bilan", 5)]
@@ -135,3 +136,53 @@ def inventory_state(remote, reports, guests):
         hint = ("la sonde pve-remote joint « %s » mais ne voit aucun CT / VM (source %s) : mettre à jour l'agent qui porte la sonde "
                 "(≥ 0.5.63, nom de nœud court) ou vérifier « pvesh get /cluster/resources --type vm » sur le nœud" % (remote, ", ".join(sorted({r["source"] or "?" for r in pr}))))
     return {"reports": out, "hint": hint}
+
+
+# --- #765 : restes du rapatriement sur le nœud local (archives, .part, images en boucle) ---------------------------
+LEFTOVER_KIND = {"archive": "archive vzdump", "part": "export interrompu (.part)", "image": "image brute"}
+
+
+def _pbs_last(pbs_groups, vmid):
+    """Dernière sauvegarde PBS complète d'un CT / d'une VM (tous datastores / espaces de noms) -> (epoch, réf) ou (None, None)."""
+    best = (None, None)
+    for g in pbs_groups or []:
+        if str(g.get("id")) == str(vmid) and g.get("last_complete") and g.get("last") and (best[0] is None or g["last"] > best[0]):
+            best = (g["last"], "%s%s/%s/%s" % (g.get("store") or "?", ("/" + g["ns"]) if g.get("ns") else "", g.get("type"), g.get("id")))
+    return best
+
+
+def leftover_checks(items, local_vms, pbs_groups, copies, newid_base=9000):
+    """items : restes listés par l'agent ; local_vms : {vmid: état} du nœud ; pbs_groups : groupes des sondes PBS ;
+    copies : {vmid d'origine: {newid, remote, original}} tirés des campagnes. -> éléments avec checks [{label, ok, required}],
+    copy, role, ok (suppression possible sans forcer)."""
+    out = []
+    for it in items or []:
+        x = dict(it)
+        v, kind, checks = it.get("vmid"), it.get("kind"), []
+        if it.get("in_use"):
+            checks.append({"label": "pas en cours d'usage", "ok": False, "required": True, "detail": it["in_use"]})
+        cp = (copies or {}).get(v) or {}
+        copy = cp.get("newid")
+        if v is not None and not copy and v in (local_vms or {}) and kind != "image":
+            role, target = "sauvegarde locale de %d" % v, v           # archive d'un CT / VM qui vit ici : sauvegarde ordinaire
+        else:
+            if v is not None and not copy and (newid_base + v) in (local_vms or {}):
+                copy = newid_base + v
+            role, target = ("reste du rapatriement de %d -> copie %s" % (v, copy or "?")) if v is not None else "reste sans identifiant reconnu", copy
+            checks.append({"label": "copie locale %s présente" % (copy or "?"), "ok": bool(copy and copy in (local_vms or {})), "required": True,
+                           "detail": "état %s" % (local_vms or {}).get(copy) if copy in (local_vms or {}) else "introuvable sur ce nœud"})
+            checks.append({"label": "copie %s démarrée" % (copy or "?"), "ok": (local_vms or {}).get(copy) == "running", "required": True,
+                           "detail": (local_vms or {}).get(copy) or "—"})
+        if kind == "part":
+            checks.append({"label": "export terminé (fichier .part abandonné)", "ok": not it.get("in_use"), "required": True, "detail": ""})
+        last, ref = _pbs_last(pbs_groups, target) if target else (None, None)
+        after = it.get("mtime") if kind == "archive" else None
+        checks.append({"label": "sauvegarde PBS complète de %s%s" % (target or "?", " postérieure à l'archive" if after else ""),
+                       "ok": bool(last and (not after or last >= after)), "required": kind != "part",
+                       "detail": ("%s, %s" % (ref, time.strftime("%Y-%m-%d %H:%M", time.localtime(last)))) if last else "aucune sur les PBS supervisés"})
+        if cp.get("remote"):
+            checks.append({"label": "original sur %s" % cp["remote"], "ok": True, "required": False, "detail": cp.get("original") or "?"})
+        x.update(role=role, copy=copy, label=LEFTOVER_KIND.get(kind, kind) + (" montée (%s)" % it["loop"]["dev"] if it.get("loop") else ""),
+                 checks=checks, ok=all(c["ok"] for c in checks if c["required"]))
+        out.append(x)
+    return out
