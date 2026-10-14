@@ -464,5 +464,35 @@ class TestStep5Policies(unittest.TestCase):
         self.assertEqual(po.origin_views({"sources": ["ups", "cortex"], "events": ["f1"]}, {"f1": {"source": "si-agent"}}), [{"source": "si-agent", "view": "si-agent"}, {"source": "ups", "view": "ups"}])
 
 
+class WifiField(unittest.TestCase):
+    """#760 : constat de sonde de terrain + constat Wi-Fi de Nebula -> cause Wi-Fi probable."""
+    def test_correlation(self):
+        hist = [{"id": 7, "agent_id": "pc-campus", "kind": "probe-alert", "severity": "warning", "site": "campus", "at": "2026-10-14T09:58:00Z",
+                 "message": "chemin de service : bail DHCP en échec", "details": {"task": "plugin:path-probe"}},
+                {"id": 8, "agent_id": "pc-campus", "kind": "probe-alert", "severity": "warning", "site": "campus", "at": "2026-10-14T09:58:00Z",
+                 "message": "autre", "details": {"task": "plugin:mail-server"}}]
+        _e, _r, evs = nz.from_si_agent([{"agent_id": "pc-campus", "hostname": "pc-campus", "site": "campus"}], [], hist)
+        self.assertEqual(sorted(e["kind"] for e in evs), ["probe-alert:mail-server", "probe-alert:path-probe"])
+        devs = [{"name": "Borne Amphi", "mac_address": "02:00:00:00:00:10", "device_type": "AP", "site": "Site Alpha"}]
+        rep = {"open": [{"site_id": "s1", "site": "Site Alpha", "id": "dhcp:campus", "severity": "haute", "element": "Borne Amphi", "kind": "anticipation",
+                         "message": "SSID campus : 196 clients connectés pour une étendue DHCP de 200 adresses (98.0 %)", "first_seen": 1791971000, "last_seen": 1791972000}]}
+        wifi = nz.from_nebula_report(rep, devs)
+        self.assertEqual((wifi[0]["kind"], wifi[0]["severity"], wifi[0]["entity"]), ("wifi:anticipation", "critical", nz.entity_key(mac="02:00:00:00:00:10", name="Borne Amphi")))
+        field = [e for e in evs if e["kind"] == "probe-alert:path-probe"]
+        inc = co.build_incidents(field + wifi, [], [], window_s=300)
+        self.assertEqual(len(inc), 1)                                  # un seul site Nebula en cause : regroupés malgré des noms de site différents
+        h = inc[0]["hypotheses"][0]
+        self.assertEqual(h["principle"], "wifi-field-correlation"); self.assertIn("DHCP", h["claim"]); self.assertEqual(inc[0]["root"], wifi[0]["entity"])
+        self.assertEqual(inc[0]["confidence"], h["confidence"])
+        far = [dict(field[0], at="2026-10-14T06:00:00Z", fingerprint="x")]
+        self.assertEqual(len(co.build_incidents(far + wifi, [], [], window_s=300)), 2)     # hors fenêtre de 30 min
+        other = wifi + [dict(wifi[0], site="Site Beta", fingerprint="y", entity="name:borne beta")]
+        self.assertEqual(len(co.build_incidents(field + other, [], [], window_s=300)), 3)  # deux sites Nebula, pas de correspondance : la sonde reste seule
+        self.assertEqual(len(co.build_incidents(field + other, [], [], window_s=300, wifi_sites={"campus": "site alpha"})), 2)
+        inc = co.build_incidents(field + other, [], [], window_s=300, wifi_sites={"campus": "site alpha"})
+        self.assertTrue(any(i["hypotheses"][0]["principle"] == "wifi-field-correlation" for i in inc))
+        self.assertIn("wifi-field-correlation", pr.PRINCIPLES)
+
+
 if __name__ == "__main__":
     unittest.main()

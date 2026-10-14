@@ -1,3 +1,14 @@
+## 2026-10-14 — Cortex : constats des sondes de terrain corrélés aux constats Wi-Fi de Nebula, cause Wi-Fi probable (livraison #760)
+
+- BACKLOG 122, point 7 : Cortex reçoit les constats Wi-Fi en cours de nebula-api (occupation, alertes Nebula,
+  anticipation #758-#759) comme événements rattachés à la borne ; les constats des sondes si-agent gardent leur sonde
+  d'origine (`probe-alert:wifi-probe`, `probe-alert:path-probe`…). Un constat de sonde de terrain et un constat Wi-Fi à
+  moins de 30 min, sur le même site (ou sites mis en correspondance par `CORTEX_WIFI_SITE_MAP`, ou un seul site Nebula
+  en cause) forment un incident dont l'hypothèse causale en tête est « cause Wi-Fi probable : <constat Nebula> », avec
+  le nouveau principe `wifi-field-correlation` (confiance de base 0,65, ajustée par le retour humain comme les autres).
+- Vérifié : tests Cortex (22, dont le nouveau scénario : regroupement, fenêtre, sites, correspondance). Non vérifié :
+  sur les événements réels.
+
 ## 2026-10-14 — Anticipation Wi-Fi (suite) : ports vers les bornes, micrologiciels, licences, bandes et signal (livraison #759)
 
 - nebula-api, `anticipation.py` (BACKLOG 122, points 3, 5, 6) :

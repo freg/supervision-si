@@ -22,6 +22,10 @@ import store
 _log = logging.getLogger("cortex.collect")
 
 
+# #760 : correspondance site d'agent (sonde de terrain) -> site Nebula, quand les noms diffèrent : « campus=Campus Alpha;… »
+import os as _os
+WIFI_SITE_MAP = {a.strip().lower(): b.strip().lower() for a, b in (p.split("=", 1) for p in _os.environ.get("CORTEX_WIFI_SITE_MAP", "").split(";") if "=" in p)}
+
 def _get(base, path, timeout=8):
     if not base:
         return None
@@ -122,7 +126,11 @@ class Collector(object):
                 return nz.from_classifier(r.get("results") if isinstance(r, dict) else r)
             step("classifier", _classifier)
         if u.get("nebula"):
-            step("nebula", lambda: nz.from_nebula(_get(u["nebula"], "/imported/devices"), _get(u["nebula"], "/imported/clients")))
+            def _nebula():
+                devs = _get(u["nebula"], "/imported/devices")
+                ents, rels, _e = nz.from_nebula(devs, _get(u["nebula"], "/imported/clients"))
+                return ents, rels, nz.from_nebula_report(_get(u["nebula"], "/report/occupancy"), devs)   # #760 : constats Wi-Fi
+            step("nebula", _nebula)
         if u.get("ipam"):
             step("ipam", lambda: nz.from_ipam((_get(u["ipam"], "/ip_list") or {}).get("entries")))
         if u.get("backup"):
@@ -278,6 +286,6 @@ class Collector(object):
         relations = store.list_relations(self.db_path)
         entities = store.list_entities(self.db_path, limit=5000)
         feedback = store.feedback_counts(self.db_path)
-        incidents = correlate.build_incidents(events, relations, entities, window_s=self.window_s, feedback=feedback)
+        incidents = correlate.build_incidents(events, relations, entities, window_s=self.window_s, feedback=feedback, wifi_sites=WIFI_SITE_MAP)
         store.sync_incidents(self.db_path, incidents)
         return {"incidents": len(incidents), "incidents_weak": sum(1 for i in incidents if i.get("weak"))}

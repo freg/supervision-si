@@ -1513,6 +1513,7 @@ services:
       # #466 : notifications par incident -- SMS / courriel par les SECRETS_ALERT_* du PRA #206
       # (même module partagé que si-agent et UPS), webhook propre à Cortex ; CORTEX_NOTIFY=0 coupe l'envoi.
       - CORTEX_NOTIFY=${CORTEX_NOTIFY:-1}
+      - CORTEX_WIFI_SITE_MAP=${CORTEX_WIFI_SITE_MAP:-}   # #760 : site d'agent=site Nebula;… (corrélation sondes de terrain × Wi-Fi)
       - CORTEX_NOTIFY_WEBHOOK_URL=${CORTEX_NOTIFY_WEBHOOK_URL:-}
       - SECRETS_ALERT_SMS_URL=${SECRETS_ALERT_SMS_URL:-}
       - SECRETS_ALERT_SMS_KEY=${SECRETS_ALERT_SMS_KEY:-}

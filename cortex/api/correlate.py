@@ -49,7 +49,19 @@ def _adjacency(relations, entities):
     return adj, up, site_of
 
 
-def build_incidents(events, relations, entities, window_s=300, feedback=None, now=None):
+FIELD_PROBES = ("probe-alert:wifi-probe", "probe-alert:path-probe")
+WIFI_WINDOW_S = 1800
+
+
+def _is_field(e):
+    return e.get("source") == "si-agent" and e.get("kind") in FIELD_PROBES
+
+
+def _is_wifi(e):
+    return e.get("source") == "nebula" and str(e.get("kind") or "").startswith("wifi:")
+
+
+def build_incidents(events, relations, entities, window_s=300, feedback=None, now=None, wifi_sites=None):
     """-> [incident] ; incident = {key, severity, opened_at, last_at, entities, events:[fingerprints],
     root, title, confidence, hypotheses:[{claim, confidence, principle, evidence}], weak}"""
     now = now or _dt.datetime.now(_dt.timezone.utc)
@@ -73,6 +85,18 @@ def build_incidents(events, relations, entities, window_s=300, feedback=None, no
 
     linkage = {}   # fingerprint pair -> principe utilisé
     evs_sorted = sorted(evs, key=lambda e: e.get("last_at") or e.get("at") or "")
+    # #760 : sonde de terrain × constat Wi-Fi de Nebula, fenêtre élargie (30 min), même site (ou correspondance déclarée,
+    # ou un seul site Nebula en cause : sans ambiguïté)
+    wifi_sites = wifi_sites or {}
+    neb_sites = {(e.get("site") or "").strip().lower() for e in evs if _is_wifi(e)}
+    for a in [e for e in evs if _is_field(e)]:
+        ta, sa = parse_ts(a.get("last_at") or a.get("at")), (a.get("site") or "").strip().lower()
+        for b in [e for e in evs if _is_wifi(e)]:
+            tb, sb = parse_ts(b.get("last_at") or b.get("at")), (b.get("site") or "").strip().lower()
+            if not ta or not tb or abs((tb - ta).total_seconds()) > max(window_s, WIFI_WINDOW_S):
+                continue
+            if sa == sb or wifi_sites.get(sa) == sb or len(neb_sites) == 1:
+                union(a["fingerprint"], b["fingerprint"]); linkage[(a["fingerprint"], b["fingerprint"])] = "wifi-field-correlation"
     for i, a in enumerate(evs_sorted):
         ta = parse_ts(a.get("last_at") or a.get("at"))
         for b in evs_sorted[i + 1:]:
@@ -140,13 +164,22 @@ def build_incidents(events, relations, entities, window_s=300, feedback=None, no
             if pid in ("window-cluster", "site-cluster") and not any(h["principle"] == pid for h in hyps):
                 p = evaluate(pid, feedback)
                 hyps.append({"claim": p["title"], "confidence": p["effective"], "principle": pid, "evidence": ["%d événements en %d s" % (len(members), window_s)]})
+        field, wifi = [m for m in members if _is_field(m)], [m for m in members if _is_wifi(m)]
+        if field and wifi and "wifi-field-correlation" in principles_used:     # #760 : hypothèse causale en tête
+            p = evaluate("wifi-field-correlation", feedback)
+            top = max(wifi, key=lambda m: (SEV_ORDER.get(m.get("severity"), 0), "instable" in (m.get("message") or "") or "hors ligne" in (m.get("message") or "")))
+            hyps.insert(0, {"claim": "cause Wi-Fi probable : %s" % (top.get("message") or names.get(top.get("entity"), "?")),
+                            "confidence": round(p["effective"], 2), "principle": "wifi-field-correlation",
+                            "evidence": ["sonde : " + (f.get("message") or f.get("kind"))[:160] for f in field[:3]] + ["Nebula : " + (w.get("message") or "")[:160] for w in wifi[:3]]})
+            if top.get("entity"):
+                root = top["entity"]
         sev_p = evaluate("severity-max", feedback)
         hyps.append({"claim": "sévérité %s = pire événement du groupe" % sev, "confidence": sev_p["effective"], "principle": "severity-max", "evidence": []})
         title = "%s — %s" % (names.get(root, root), "; ".join(sorted({m.get("kind", "?") for m in members}))[:120])
         out.append({"key": "inc:" + min(fps), "severity": sev, "opened_at": opened, "last_at": last, "entities": ents, "events": sorted(fps),
                     "root": root, "title": title,
                     # la confiance de l'incident est celle de son hypothèse CAUSALE (la première émise), jamais un maximum flatteur
-                    "confidence": next((h["confidence"] for h in hyps if h["principle"] in ("upstream-first", "single-event", "window-cluster", "site-cluster")), 0.5),
+                    "confidence": next((h["confidence"] for h in hyps if h["principle"] in ("wifi-field-correlation", "upstream-first", "single-event", "window-cluster", "site-cluster")), 0.5),
                     "hypotheses": hyps, "weak": weak, "sources": sorted({m.get("source") for m in members})})
     out.sort(key=lambda i: (-SEV_ORDER.get(i["severity"], 0), i["last_at"]), reverse=False)
     out.sort(key=lambda i: -SEV_ORDER.get(i["severity"], 0))
