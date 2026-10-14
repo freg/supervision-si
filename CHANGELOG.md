@@ -1,3 +1,12 @@
+## 2026-10-14 — Infra PVE / PBS : avancement des tâches Proxmox en cours (sauvegardes vzdump vers PBS) (livraison #766)
+
+- Sonde node-activity v2 (agent 0.5.65) : tâches en cours (`/var/log/pve/tasks/active`) et extrait de leur journal --
+  liste des CT / VM de la tâche vzdump, terminés (durée), en échec, en cours, pourcentage (VM) ; pour un CT sauvegardé
+  vers PBS (pas de pourcentage dans le journal), octets lus par proxmox-backup-client. Nœuds locaux et distants.
+- API : `pve_tasks` dans `/infra/overview`, avancement estimé (octets lus / espace utilisé du CT) et global pondéré
+  par la taille des CT / VM.
+- Hub : tuile Infra PVE / PBS › Transferts, bloc « Tâches Proxmox en cours » (barre d'ensemble, CT en cours, bilans).
+
 ## 2026-10-14 — Rapatriement : restes sur le nœud local, conditions vérifiées et suppression validée depuis le hub (livraison #765)
 
 - Agent 0.5.64 : action xfer `leftovers` (archives vzdump, `.part` d'exports interrompus, images brutes et montages en

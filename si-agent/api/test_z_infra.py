@@ -45,6 +45,16 @@ class Infra(unittest.TestCase):
         self.assertEqual({t["what"] for t in o["transfers"]}, {"processus", "fichier"})
         self.assertEqual(o["alerts"][0]["agent_id"], "a1")
 
+    def test_task_progress(self):   # #766
+        t = {"guests": [1, 2, 3], "done": [{"vmid": 1}], "failed": [], "current": 2, "percent": None, "read_bytes": 50}
+        p = infra.task_progress(t, {1: 100, 2: 100, 3: 200})
+        self.assertEqual((p["current_pct"], p["current_estimated"], p["overall_pct"], p["n_done"], p["n_total"]), (50, True, 37.5, 1, 3))
+        p = infra.task_progress(dict(t, percent=20), {})
+        self.assertEqual((p["current_pct"], p["current_estimated"], p["overall_pct"]), (20, False, 40.0))
+        ov = infra.overview([("a", "pve10", "t", {"nodes": [{"name": "pve10", "zone": "local", "pve_tasks": [dict(t, type="vzdump")]}]})],
+                            [("a", "pve10", "t", {"node": {"name": "pve10"}, "vms": [{"vmid": 2, "disk": 100}]})], [], [])
+        self.assertEqual((ov["pve_tasks"][0]["node"], ov["pve_tasks"][0]["progress"]["current_pct"]), ("pve10", 50))
+
     def test_route(self):
         db = appmod.DB_PATH
         store.create_agent(db, "infra-a", "siege", label="infra-a")

@@ -1,6 +1,6 @@
 {
   "id": "node-activity",
-  "version": "1",
+  "version": "2",
   "runner": "python",
   "entry": "node_activity.py",
   "interval_seconds": 120,

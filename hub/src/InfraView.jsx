@@ -184,6 +184,7 @@ export default function InfraView({ onBack, siAgentApiBase }) {
         </div>
       )}
 
+      {view && tab === "transferts" && <PveTasks tasks={(data.pve_tasks || []).filter((t) => view.nodes.some((n) => n.name === t.node))} />}
       {view && tab === "transferts" && (
         <div className="infra-table-wrap infra-scroll">
           <table className="infra-table">
@@ -208,4 +209,25 @@ export default function InfraView({ onBack, siAgentApiBase }) {
       )}
     </div>
   );
+}
+
+
+// #766 : tâches Proxmox en cours (sauvegardes vzdump : CT / VM en cours, terminés, avancement ; autres tâches : dernière ligne)
+const PBAR = (pct, est) => <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+  <span style={{ display: "inline-block", width: 160, height: 10, borderRadius: 5, background: "var(--border, #ccc)", overflow: "hidden" }}>
+    <span style={{ display: "block", height: "100%", width: `${Math.max(0, Math.min(100, pct || 0))}%`, background: "var(--accent, #2a78d6)", transition: "width .5s" }} /></span>
+  <b>{pct != null ? `${pct} %` : "—"}</b>{est && <span className="infra-muted" title="estimé : octets lus par proxmox-backup-client / espace utilisé du CT">≈</span>}</span>;
+
+function PveTasks({ tasks }) {
+  if (!tasks.length) return <p className="infra-muted">Aucune tâche Proxmox en cours sur les nœuds affichés.</p>;
+  return <div className="infra-card" style={{ marginBottom: 8 }}><h4 style={{ marginTop: 0 }}>Tâches Proxmox en cours</h4>
+    {tasks.map((t) => <div key={t.upid} style={{ marginBottom: 8 }}>
+      <div><b>{t.node}</b> · {t.type}{t.id ? ` ${t.id}` : ""} · {t.user} · depuis {fmtUptime(t.elapsed_s)}</div>
+      {t.progress ? <>
+        <div>Ensemble : {PBAR(t.progress.overall_pct)} <span className="infra-muted">{t.progress.n_done} / {t.progress.n_total} terminé(s){t.done.length ? ` (${t.done.map((d) => `${d.vmid} en ${d.duration}`).join(", ")})` : ""}</span></div>
+        {t.current != null && <div>En cours : <b>{t.current}</b> {PBAR(t.progress.current_pct, t.progress.current_estimated)}{t.detail && <span className="infra-muted"> {t.detail}</span>}{t.read_bytes != null && <span className="infra-muted"> · {fmtBytes(t.read_bytes)} lus</span>}</div>}
+        {t.failed.map((f) => <div key={f.vmid} className="infra-status critical">{f.vmid} : {f.error}</div>)}
+        {t.summary && <div className="infra-muted" style={{ fontSize: 12 }}>Dernier bilan : {t.summary}</div>}
+      </> : <div className="infra-muted" style={{ fontSize: 12 }}>{t.percent != null ? PBAR(t.percent) : null} {t.last}</div>}
+    </div>)}</div>;
 }

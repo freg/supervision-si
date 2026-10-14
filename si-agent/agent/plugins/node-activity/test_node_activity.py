@@ -46,6 +46,20 @@ class Analyse(unittest.TestCase):
         al = na.alerts_for([n2, {"name": "pve-2", "ok": False, "error": "délai"}])
         self.assertEqual({a["code"].split(":")[0] for a in al}, {"disk-full", "zpool-full", "node-unreachable"})
 
+    def test_taches(self):   # #766
+        u = "UPID:pve10:00001A2B:0ABCDEF0:6ACF6000:vzdump::root@pam:"
+        txt = "\n".join(["@@TASK " + u, "INFO: starting new backup job: vzdump 9101 9102 9108 9109 --storage pbs10 --mode snapshot",
+                         "INFO: Starting Backup of VM 9101 (lxc)", "INFO: root.pxar: had to backup 100 GiB of 112 GiB (compressed 50 GiB) in 3600.00 s",
+                         "INFO: Finished Backup of VM 9101 (01:00:12)", "INFO: Starting Backup of VM 9102 (lxc)", "@@LAST INFO: Upload directory '/mnt/vzsnap0'",
+                         "@@TASK UPID:pve10:00001A2C:0ABCDEF1:6ACF6100:qmrestore:211:root@pam:", "INFO:  42% (42.0 GiB of 100.0 GiB) in 5m", "@@PBC 77 5000"])
+        t = na.parse_tasks(txt, 0x6ACF6000 + 7200)
+        self.assertEqual((t[0]["type"], t[0]["guests"], t[0]["done"][0]["vmid"], t[0]["current"], t[0]["read_bytes"], t[0]["elapsed_s"]),
+                         ("vzdump", [9101, 9102, 9108, 9109], 9101, 9102, 5000, 7200))
+        self.assertIn("had to backup", "had to backup") ; self.assertTrue(t[0]["summary"].startswith("root.pxar"))
+        self.assertEqual((t[1]["type"], t[1]["id"], t[1]["percent"], t[1]["read_bytes"]), ("qmrestore", "211", 42, None))
+        n, _ = na.build_node("local", "local", sample(1000, 1, 1, 1) + "\n" + na.SEP + "\n" + txt, None, 0x6ACF6000 + 10)
+        self.assertEqual(len(n["pve_tasks"]), 2)
+
     def test_texte_vide(self):
         n, _ = na.build_node("x", "remote", "", None, 1)
         self.assertEqual((n["disks"], n["net"], n["load"]), ([], [], None))

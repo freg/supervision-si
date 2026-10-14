@@ -14,6 +14,7 @@ export const UPDATE_LINKS = {
   758: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   759: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   760: [{ view: "cortex", hint: "incidents « cause Wi-Fi probable »" }],
+  766: [{ view: "infra", hint: "Transferts › Tâches Proxmox en cours" }],
   765: [{ view: "repatriation", hint: "Restes sur le nœud local" }],
   764: [{ view: "repatriation", hint: "Inventaire distant" }],
   763: [{ view: "repatriation", hint: "État des données" }, { view: "infra", hint: "État des données" }, { view: "fleetviews", hint: "État des données" }, { view: "iapark", hint: "État des données" }],

@@ -1,5 +1,11 @@
 [
  {
+  "n": 766,
+  "from": 766,
+  "date": "2026-10-14",
+  "title": "Infra PVE / PBS : avancement des tâches Proxmox en cours (sauvegardes vzdump vers PBS)"
+ },
+ {
   "n": 765,
   "from": 765,
   "date": "2026-10-14",
@@ -232,11 +238,5 @@
   "from": 727,
   "date": "2026-10-09",
   "title": "Tests QA : référence visuelle, différences de captures, rejouer un bug"
- },
- {
-  "n": 726,
-  "from": 726,
-  "date": "2026-10-09",
-  "title": "« Questions sur le hub » : sauvegardes et snapshots"
  }
 ]

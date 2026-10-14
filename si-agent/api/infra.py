@@ -30,6 +30,26 @@ def _vm(node, g, zone):
             "maxdisk": g.get("maxdisk"), "disk": g.get("disk")}   # #761 : taille des disques (inventaire du rapatriement)
 
 
+def task_progress(t, disks):
+    """#766 : avancement d'une tâche vzdump -> {current_pct, current_estimated, overall_pct, n_done, n_total}. disks : {vmid: octets
+    utilisés} (pondère l'avancement global ; à défaut, au nombre de CT / VM)."""
+    guests = t.get("guests") or sorted({d["vmid"] for d in t.get("done") or []} | ({t["current"]} if t.get("current") else set()))
+    done = {d["vmid"] for d in t.get("done") or []} | {d["vmid"] for d in t.get("failed") or []}
+    cur, pct, est = t.get("current"), t.get("percent"), False
+    if cur is not None and pct is None and t.get("read_bytes") and disks.get(cur):
+        pct, est = min(99, int(100 * t["read_bytes"] / disks[cur])), True
+    w = {g: disks.get(g) or 0 for g in guests}
+    if guests and all(w.values()):
+        tot = sum(w.values())
+        overall = (sum(w[g] for g in guests if g in done) + (w.get(cur, 0) * (pct or 0) / 100.0)) / tot
+    elif guests:
+        overall = (len([g for g in guests if g in done]) + (pct or 0) / 100.0) / len(guests)
+    else:
+        overall = None
+    return {"current_pct": pct, "current_estimated": est, "overall_pct": round(100 * overall, 1) if overall is not None else None,
+            "n_done": len([g for g in guests if g in done]), "n_total": len(guests)}
+
+
 def overview(activity, proxmox, remote, pbs):
     """Chaque argument : liste (agent_id, hostname, at, data) de `latest`. -> {nodes, vms, transfers, totals, alerts}."""
     nodes, vms, alerts = {}, [], []
@@ -74,7 +94,11 @@ def overview(activity, proxmox, remote, pbs):
         if g is not None:
             g["total"] += 1
             g["running" if v["status"] == "running" else "stopped"] += 1
-    transfers = []
+    transfers, tasks = [], []
+    for n in nodes.values():      # #766 : tâches Proxmox en cours et leur avancement
+        disks = {v["vmid"]: v.get("disk") for v in vms if v["node"] == n["name"] and v.get("vmid") is not None}
+        for t in n.get("pve_tasks") or []:
+            tasks.append(dict(t, node=n["name"], zone=n["zone"], progress=task_progress(t, disks) if t.get("type") == "vzdump" else None))
     for n in nodes.values():
         for p in n.get("procs") or []:
             transfers.append(dict(p, node=n["name"], zone=n["zone"], what="processus"))
@@ -96,4 +120,5 @@ def overview(activity, proxmox, remote, pbs):
                      "rx_bps": sum(i.get("rx_bps") or 0 for n in zn for i in n.get("net") or []),
                      "tx_bps": sum(i.get("tx_bps") or 0 for n in zn for i in n.get("net") or []),
                      "estab": sum((n.get("conn") or {}).get("estab") or 0 for n in zn)}
-    return {"nodes": ns, "vms": sorted(vms, key=lambda v: (v["node"] or "", v["vmid"] or 0)), "transfers": transfers, "totals": tot, "alerts": alerts}
+    return {"nodes": ns, "vms": sorted(vms, key=lambda v: (v["node"] or "", v["vmid"] or 0)), "transfers": transfers, "totals": tot, "alerts": alerts,
+            "pve_tasks": tasks}

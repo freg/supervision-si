@@ -15,6 +15,13 @@ import time
 
 SEP = "@@SECTION@@"
 PROC_RE = r"vzdump|pct restore|qmrestore|qm importdisk|zfs (send|recv|receive)|rsync|scp |gzip|zstd|pigz|lzop|pvesr|proxmox-backup-client"
+# #766 : tâches Proxmox en cours (fichier active : une tâche en cours = UPID seul sur sa ligne), extrait de leur journal,
+# octets lus par proxmox-backup-client (sauvegarde de CT vers PBS : pas de pourcentage dans le journal)
+TASK_SH = (r"""for u in $(awk 'NF==1 && /^UPID:/{print $1}' /var/log/pve/tasks/active 2>/dev/null | head -5); do echo "@@TASK $u"; """
+           r"""f=$(ls /var/log/pve/tasks/*/"$u" 2>/dev/null | head -1); [ -n "$f" ] && { grep -E 'starting new backup job|Starting Backup of VM|"""
+           r"""Finished Backup of VM|ERROR|INFO: +[0-9]+% \(|had to backup|Backup job finished|^TASK' "$f" | tail -n 60; """
+           r"""tail -n 1 "$f" | sed 's/^/@@LAST /'; }; done; for p in $(pgrep -f 'proxmox-backup-client backup' 2>/dev/null | head -3); do """
+           r"""echo "@@PBC $p $(awk '/^rchar/{print $2}' /proc/$p/io 2>/dev/null)"; done""")
 SKIP_IF = re.compile(r"^(lo|veth|tap|fwbr|fwpr|fwln|docker|br-|virbr|vnet)")
 
 
@@ -27,7 +34,7 @@ def metric_cmd(watch):
         "zpool list -Hp -o name,size,alloc,free,frag,cap,health 2>/dev/null", "echo %s" % SEP, "nproc", "echo %s" % SEP,
         "ps -eo pid,etimes,args --no-headers | grep -E '%s' | grep -v -E 'grep|node_activity' | head -20" % PROC_RE, "echo %s" % SEP,
         "for d in %s; do find \"$d\" -maxdepth 2 -type f -mmin -30 -printf '%%p\\t%%s\\t%%T@\\n' 2>/dev/null; done" % (dirs or "/nonexistent"),
-        "echo %s" % SEP, "hostname", "echo %s" % SEP, "cat /proc/uptime"])
+        "echo %s" % SEP, "hostname", "echo %s" % SEP, "cat /proc/uptime", "echo %s" % SEP, TASK_SH])
 
 
 def sections(text):
@@ -119,6 +126,65 @@ def parse_procs(text):
     return out
 
 
+def parse_tasks(text, now):
+    """#766 : section des tâches en cours -> [{upid, type, id, user, started, elapsed_s, guests, done, failed, current, percent,
+    detail, read_bytes, last}]."""
+    tasks, pbc, cur = [], 0, None
+    for line in (text or "").splitlines():
+        line = line.rstrip()
+        if line.startswith("@@TASK "):
+            u = line[7:].strip(); f = u.split(":")
+            try:
+                started = int(f[4], 16)
+            except (IndexError, ValueError):
+                started = None
+            cur = {"upid": u, "type": f[5] if len(f) > 5 else "?", "id": f[6] if len(f) > 6 else "", "user": f[7] if len(f) > 7 else "",
+                   "started": started, "elapsed_s": int(now - started) if started else None, "guests": [], "done": [], "failed": [],
+                   "current": None, "percent": None, "detail": None, "read_bytes": None, "last": None, "summary": None}
+            tasks.append(cur)
+            continue
+        if line.startswith("@@PBC "):
+            p = line.split()
+            pbc += int(p[2]) if len(p) > 2 and p[2].isdigit() else 0
+            continue
+        if cur is None:
+            continue
+        if line.startswith("@@LAST "):
+            cur["last"] = line[7:][:200]
+            continue
+        m = re.search(r"starting new backup job: vzdump (.*)", line)
+        if m:
+            cur["guests"] = [int(x) for x in m.group(1).split() if x.isdigit()]
+            continue
+        m = re.search(r"Starting Backup of VM (\d+)", line)
+        if m:
+            cur.update(current=int(m.group(1)), percent=None, detail=None)
+            continue
+        m = re.search(r"Finished Backup of VM (\d+) \(([\d:]+)\)", line)
+        if m:
+            cur["done"].append({"vmid": int(m.group(1)), "duration": m.group(2)})
+            if cur["current"] == int(m.group(1)):
+                cur["current"] = None
+            continue
+        m = re.search(r"ERROR: Backup of VM (\d+) failed - (.*)", line)
+        if m:
+            cur["failed"].append({"vmid": int(m.group(1)), "error": m.group(2)[:200]})
+            if cur["current"] == int(m.group(1)):
+                cur["current"] = None
+            continue
+        m = re.search(r"INFO:\s+(\d+)% \(([^)]*)\)", line)
+        if m:
+            cur["percent"], cur["detail"] = int(m.group(1)), m.group(2)
+            continue
+        m = re.search(r"(\S+): had to backup (.*)", line)
+        if m:
+            cur["summary"] = "%s : %s" % (m.group(1), m.group(2)[:160])
+    for t in tasks:
+        if t["type"] == "vzdump" and t["current"] is not None and pbc:
+            t["read_bytes"] = pbc
+    return tasks
+
+
 def parse_files(text):
     out = []
     for line in (text or "").splitlines():
@@ -149,7 +215,7 @@ def file_rates(files, prev_sizes, dt, now):
 
 def build_node(name, zone, text, prev, now):
     s = sections(text)
-    while len(s) < 12:
+    while len(s) < 13:
         s.append("")
     lf = s[0].split()
     load = lf[:3]
@@ -165,7 +231,7 @@ def build_node(name, zone, text, prev, now):
             "mem_total": mem_total, "mem_used": mem_used, "disks": parse_df(s[5]), "zpools": parse_zpool(s[6]), "conn": parse_ss(s[4]),
             "procs": parse_procs(s[8]), "cpu_pct": None, "net": [], "swap_total": swap_total, "swap_used": swap_used,
             "tasks": {"running": int(lf[3].split("/")[0]), "total": int(lf[3].split("/")[1])} if len(lf) > 3 and "/" in lf[3] else None,
-            "uptime_s": int(float(s[11].split()[0])) if s[11].split() else None, "cores_pct": []}
+            "uptime_s": int(float(s[11].split()[0])) if s[11].split() else None, "cores_pct": [], "pve_tasks": parse_tasks(s[12], now)}
     pc = (prev or {}).get("cpu")
     if cpu and pc and cpu[0] > pc[0]:
         node["cpu_pct"] = round(100.0 * (cpu[1] - pc[1]) / (cpu[0] - pc[0]), 1)
