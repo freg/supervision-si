@@ -219,3 +219,10 @@ Onglet **Questions sur le hub** de la page de l'assistant (ouvert par défaut ; 
 - Tests : `assistant/tests/test_hubqa.py` (détection, recherche d'adresses dans un JSON, appariement des postes, dernier
   démarrage, index construit depuis le vrai dépôt, API avec sources simulées dont une en panne).
 - Non vérifié : appels aux vraies API (formats réels de chaque source, droits), rendu navigateur.
+
+## Lisibilité des tests (#754)
+
+Chaque cas de l'évaluation montre ce qui est **fourni au modèle** (tâche, entrée, consignes, messages système et
+utilisateur réellement envoyés), les **indicateurs cibles** (réponse JSON, valeur attendue de chaque champ, mots-clés
+présents ou interdits, source citée) et le **rendu** critère par critère (✔ / ✘), en plus du score, du temps et du
+débit. Le journal porte les mêmes informations pour chaque cas d'évaluation.

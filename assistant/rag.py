@@ -303,3 +303,65 @@ def score_case(case, answer, parsed=None, sources=None):
     vals = [v for k, v in out.items() if isinstance(v, float)]
     out["score"] = round(sum(vals) / len(vals), 2) if vals else None
     return out
+
+
+# ---------------------------------------------------------------- lisibilité des tests (#754)
+TASKS = {"classify": "Classer un document de la GED : type, site, titre, résumé, mots-clés, date, confiance (réponse JSON)",
+         "summarize": "Résumer une demande / un ticket : résumé, catégorie, urgence, actions suggérées, questions à poser (réponse JSON)",
+         "ask": "Répondre à une question en s'appuyant sur les extraits de la documentation retrouvés (RAG), en citant les sources"}
+
+
+def _short(v, n=4000):
+    s = v if isinstance(v, str) else json.dumps(v, ensure_ascii=False)
+    return s if len(s) <= n else s[:n] + " … [%d caractères de plus]" % (len(s) - n)
+
+
+def describe_case(case, messages=None):
+    """Ce qu'on fournit au modèle pour un cas : la tâche, l'entrée, les consignes (types / sites / nombre d'extraits) et les
+    messages réellement envoyés (système + utilisateur, tronqués)."""
+    kind = case.get("kind")
+    constraints = []
+    if case.get("types"):
+        constraints.append("types possibles : " + ", ".join(case["types"]))
+    if case.get("sites"):
+        constraints.append("sites possibles : " + ", ".join(case["sites"]))
+    if kind == "ask":
+        constraints.append("%d extraits de la documentation au plus, retrouvés par la recherche" % int(case.get("k") or 5))
+    return {"task": TASKS.get(kind, kind), "input": case.get("input") or "", "constraints": constraints,
+            "messages": [{"role": m.get("role"), "content": _short(m.get("content") or "")} for m in messages or []]}
+
+
+def _fmt_target(v):
+    if v is None:
+        return "présent"
+    if isinstance(v, list):
+        return "l'un de : " + ", ".join(str(x) for x in v)
+    return "%s (exactement)" % v
+
+
+def check_case(case, answer, parsed=None, sources=None):
+    """Indicateurs cibles d'un cas et ce que le modèle a rendu, critère par critère :
+    [{indicator, target, got, ok}] -- la note de score_case est la moyenne de ces critères (par famille)."""
+    exp, rows = case.get("expect") or {}, []
+    ans_n = normalize(answer or "")
+    if exp.get("json"):
+        rows.append({"indicator": "réponse JSON", "target": "un objet JSON exploitable", "got": "oui" if isinstance(parsed, dict) else "non (texte libre ou JSON invalide)",
+                     "ok": isinstance(parsed, dict)})
+        for k, v in exp["json"].items():
+            got = parsed.get(k) if isinstance(parsed, dict) else None
+            if v is None:
+                ok = isinstance(parsed, dict) and k in parsed
+            elif isinstance(v, list):
+                ok = normalize(str(got)) in [normalize(x) for x in v]
+            else:
+                ok = normalize(str(got)) == normalize(str(v))
+            rows.append({"indicator": "champ « %s »" % k, "target": _fmt_target(v), "got": "—" if got is None else _short(got, 200), "ok": bool(ok)})
+    for kw in exp.get("keywords") or []:
+        rows.append({"indicator": "mot-clé « %s »" % kw, "target": "présent dans la réponse", "got": "présent" if normalize(kw) in ans_n else "absent", "ok": normalize(kw) in ans_n})
+    for kw in exp.get("forbidden") or []:
+        rows.append({"indicator": "interdit « %s »" % kw, "target": "absent de la réponse", "got": "présent" if normalize(kw) in ans_n else "absent", "ok": normalize(kw) not in ans_n})
+    if exp.get("source"):
+        ids = [s.get("id") or s.get("title") or "" for s in sources or []]
+        ok = any(exp["source"] in (s.get("id") or "") or exp["source"] in (s.get("title") or "") for s in sources or [])
+        rows.append({"indicator": "source citée", "target": "un extrait de « %s »" % exp["source"], "got": ", ".join(ids[:5]) or "aucune source", "ok": ok})
+    return rows

@@ -1,3 +1,13 @@
+## 2026-10-14 — Tests d'IA lisibles : ce qu'on fournit au modèle, les indicateurs cibles et le rendu critère par critère (livraison #754)
+
+- Assistant (`rag.describe_case`, `rag.check_case`) : pour chaque cas d'évaluation, la tâche, l'entrée, les consignes
+  (types, sites, nombre d'extraits) et les messages réellement envoyés au modèle ; les indicateurs cibles (réponse JSON,
+  valeur attendue de chaque champ, mots-clés présents / interdits, source citée) et, en face, ce que le modèle a rendu,
+  ✔ / ✘ par critère. Le score reste la moyenne des critères (par famille).
+- Onglet Évaluation : colonnes Fourni au modèle / Attendu (indicateurs cibles) / Rendu / Score (n critères atteints) ;
+  Journal : mêmes colonnes pour chaque cas d'évaluation (les rapports antérieurs restent lisibles, à l'ancienne).
+- Vérifié : tests assistant (31), rendu de l'onglet (capture). Non vérifié : une évaluation réelle sur pcia.
+
 ## 2026-10-14 — Vues de parc : serveurs, postes, serveurs d'IA, postes personnels, en groupes, avec l'en-tête htop de chaque agent (livraison #753)
 
 - si-agent-api : `views.py` (normalisation, ligne htop par agent à partir des mesures host / node-activity / ollama,

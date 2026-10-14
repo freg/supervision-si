@@ -251,6 +251,7 @@ def ask(question, k=5, source=None, free=False, log=True):
     else:
         msgs = rag.build_rag_messages(question, hits)
     out = llm_chat(msgs)
+    out["messages"] = msgs                          # #754 : ce qui a été fourni au modèle
     out["sources"] = [{"id": h["id"], "doc": h.get("doc"), "source": h["source"], "title": h["title"], "score": h["score"], "excerpt": h["text"][:300]} for h in hits]
     out["question"] = question
     if log:
@@ -259,7 +260,9 @@ def ask(question, k=5, source=None, free=False, log=True):
 
 
 def classify(text, types=None, sites=None, log=True):
-    out = llm_chat(rag.build_classify_messages(text, types or [], sites or []), temperature=0.0, json_mode=True)
+    msgs = rag.build_classify_messages(text, types or [], sites or [])
+    out = llm_chat(msgs, temperature=0.0, json_mode=True)
+    out["messages"] = msgs
     out["parsed"] = rag.extract_json(out.get("text"))
     if log:
         journal("classify", {"ms": out.get("ms"), "tok_s": out.get("tok_s"), "ok": isinstance(out["parsed"], dict), "error": out.get("error"), "result": _produced(out)})
@@ -267,7 +270,9 @@ def classify(text, types=None, sites=None, log=True):
 
 
 def summarize(text, log=True):
-    out = llm_chat(rag.build_summary_messages(text), temperature=0.0, json_mode=True)
+    msgs = rag.build_summary_messages(text)
+    out = llm_chat(msgs, temperature=0.0, json_mode=True)
+    out["messages"] = msgs
     out["parsed"] = rag.extract_json(out.get("text"))
     if log:
         journal("summarize", {"ms": out.get("ms"), "tok_s": out.get("tok_s"), "ok": isinstance(out["parsed"], dict), "error": out.get("error"), "result": _produced(out)})
@@ -291,14 +296,17 @@ def run_eval(cases):
             sc = rag.score_case(c, r.get("text"), parsed=r.get("parsed"))
         else:
             continue
+        provided = rag.describe_case(c, r.get("messages"))             # #754 : fourni au modèle, indicateurs cibles, rendu
+        checks = rag.check_case(c, r.get("text"), parsed=r.get("parsed"), sources=r.get("sources"))
         # #540 : une ligne de journal par cas d'évaluation, avec le produit,
         # l'attendu et la note -- demandé : « ajouter le résultat produit et l'attendu ».
         journal("eval", {"case": c.get("id"), "usage": kind, "question": c["input"][:200], "ms": r.get("ms"), "tok_s": r.get("tok_s"),
                          "sources": [s["id"] for s in r.get("sources") or []], "error": r.get("error"),
-                         "result": _produced(r), "expected": c.get("expect"), "score": sc.get("score"), "detail": {k: v for k, v in sc.items() if k != "score"}})
+                         "result": _produced(r), "expected": c.get("expect"), "score": sc.get("score"), "detail": {k: v for k, v in sc.items() if k != "score"},
+                         "task": provided["task"], "constraints": provided["constraints"], "checks": checks})
         results.append({"id": c.get("id"), "kind": kind, "score": sc, "ms": r.get("ms"), "tok_s": r.get("tok_s"), "usage": r.get("usage"),
                         "error": r.get("error"), "answer": (r.get("text") or "")[:1500], "parsed": r.get("parsed"), "sources": [s["id"] for s in r.get("sources") or []],
-                        "wall_ms": round((time.monotonic() - t0) * 1000)})
+                        "wall_ms": round((time.monotonic() - t0) * 1000), "provided": provided, "checks": checks})
     scored = [x["score"]["score"] for x in results if x["score"].get("score") is not None]
     toks = [x["tok_s"] for x in results if x.get("tok_s")]
     by_kind = {}

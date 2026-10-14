@@ -170,6 +170,30 @@ class Api(unittest.TestCase):
         self.assertFalse([e for e in j if e["kind"] in ("ask", "classify", "summarize") and e.get("case")])
 
 
+
+class CaseReadability(unittest.TestCase):
+    """#754 : ce qu'on fournit au modèle, indicateurs cibles et rendu critère par critère."""
+    CASE = {"id": "c01", "kind": "classify", "input": "FACTURE N° 1", "types": ["facture", "devis"], "sites": ["Parc"],
+            "expect": {"json": {"type": "facture", "site": ["Parc", "siège"], "date": None}, "keywords": ["facture"], "forbidden": ["mot de passe"]}}
+
+    def test_describe(self):
+        d = rag.describe_case(self.CASE, rag.build_classify_messages("FACTURE N° 1", ["facture", "devis"], ["Parc"]))
+        self.assertIn("Classer", d["task"]); self.assertEqual(d["input"], "FACTURE N° 1")
+        self.assertEqual(d["constraints"], ["types possibles : facture, devis", "sites possibles : Parc"])
+        self.assertEqual([m["role"] for m in d["messages"]], ["system", "user"]); self.assertIn("Types possibles", d["messages"][1]["content"])
+        self.assertIn("extraits", rag.describe_case({"kind": "ask", "input": "q", "k": 3})["constraints"][0])
+
+    def test_checks(self):
+        rows = rag.check_case(self.CASE, '{"type": "Facture", "site": "Villexemple"}', parsed={"type": "Facture", "site": "Villexemple"})
+        by = {r["indicator"]: r for r in rows}
+        self.assertTrue(by["réponse JSON"]["ok"]); self.assertTrue(by["champ « type »"]["ok"]); self.assertEqual(by["champ « type »"]["target"], "facture (exactement)")
+        self.assertFalse(by["champ « site »"]["ok"]); self.assertEqual(by["champ « site »"]["target"], "l'un de : Parc, siège"); self.assertEqual(by["champ « site »"]["got"], "Villexemple")
+        self.assertFalse(by["champ « date »"]["ok"]); self.assertEqual(by["champ « date »"]["target"], "présent")
+        self.assertTrue(by["mot-clé « facture »"]["ok"]); self.assertTrue(by["interdit « mot de passe »"]["ok"])
+        rows = rag.check_case({"kind": "ask", "expect": {"source": "BACKLOG"}}, "x", sources=[{"id": "doc:README#1"}])
+        self.assertEqual(rows[0]["got"], "doc:README#1"); self.assertFalse(rows[0]["ok"])
+        self.assertEqual(rag.check_case(self.CASE, "pas du json")[0]["got"], "non (texte libre ou JSON invalide)")
+
 if __name__ == "__main__":
     unittest.main()
 
