@@ -1355,8 +1355,42 @@ def _occupancy_inputs(site_id):
     return clients, devices, statuses, names
 
 
+def _infra_inputs(site_id):
+    """#759 : liaisons commutateur -> borne (carte VLAN en cache), réglages bruts des ports, inventaire, fiche de
+    l'organisation (licences), état en ligne -- chaque appel tolérant."""
+    client = _connect()
+    _refresh_inventory(client)
+    devices = _inventory["devices"].get(site_id) or []
+    errors = []
+    try:
+        links = (_vlan_map_cached(site_id) or {}).get("links") or []
+    except nebula.NebulaError as exc:
+        links = []; errors.append("carte VLAN : %s" % str(exc)[:160])
+    ports = {}
+    for d in devices:
+        if str(d.get("type") or "").upper() in ("SW", "SWITCH") and d.get("devId"):
+            try:
+                ports[d["devId"]] = client.sw_port_settings(site_id, d["devId"]) or []
+            except nebula.NebulaError as exc:
+                errors.append("ports %s : %s" % (d.get("name") or d["devId"], str(exc)[:120]))
+    site = next((s for s in _inventory["sites"] if s.get("siteId") == site_id), {}) or {}
+    org, info = site.get("orgId"), None
+    if org:
+        try:
+            info = client.get_org_info(org)
+        except nebula.NebulaError as exc:
+            errors.append("organisation : %s" % str(exc)[:120])
+    conn = get_connection()
+    try:
+        online = {r["dev_id"]: r["status"] == "online" for r in conn.execute("SELECT dev_id, status FROM nebula_status_current WHERE site_id = ?", (site_id,))}
+    finally:
+        conn.close()
+    return {"links": links, "ports_by_sw": ports, "devices": devices, "org_id": org, "org_name": (info or {}).get("name") or org, "org_info": info,
+            "online": online, "names": {d["devId"]: d.get("name") or d["devId"] for d in devices if d.get("devId")}, "errors": errors}
+
+
 report_routes.register(app, {"conn": get_connection, "sites": _report_sites, "anomalies": _anomalies, "manage": _check_manage_right,
-                             "occupancy_inputs": _occupancy_inputs,
+                             "occupancy_inputs": _occupancy_inputs, "infra_inputs": _infra_inputs,
                              "configured": lambda: bool(NEBULA_API_KEY), "lock_dir": os.path.dirname(DB_PATH)},
                        start_loop=os.environ.get("NEBULA_REPORT_DISABLED") != "1" and os.environ.get("NEBULA_POLL_DISABLED") != "1")
 

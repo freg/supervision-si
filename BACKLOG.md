@@ -3780,7 +3780,7 @@ et une sonde livrée avec l'agent (wifi-probe, path-probe) ne passe pas par le c
 modifié à la main, perdu à la mise à jour. À faire : `args` par affectation (table d'affectation, poussé dans la config),
 champ éditable dans la fiche, priorité affectation > catalogue > manifeste ; valable aussi pour les sondes livrées.
 
-### 122. Anticiper les pannes et saturations Wi-Fi à partir de Nebula (suite de #747) — points 1, 2, 4 LIVRÉS #758
+### 122. Anticiper les pannes et saturations Wi-Fi à partir de Nebula (suite de #747) — points 1, 2, 4 LIVRÉS #758 ; 3, 5, 6 LIVRÉS #759 ; reste le point 7
 1. Prévision d'occupation : profil habituel par borne × jour × heure (relevés #747), alerte AVANT le pic attendu
    (calendrier des séances, événements) ; seuil dynamique = habituel + marge plutôt que fixe.
 2. Battements d'état : borne qui passe plusieurs fois hors ligne / en alerte en 24 h = précurseur (PoE, câble, switch) ;

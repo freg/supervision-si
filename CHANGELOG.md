@@ -1,3 +1,20 @@
+## 2026-10-14 — Anticipation Wi-Fi (suite) : ports vers les bornes, micrologiciels, licences, bandes et signal (livraison #759)
+
+- nebula-api, `anticipation.py` (BACKLOG 122, points 3, 5, 6) :
+  - ports des commutateurs vers les bornes (liaisons LLDP de la carte VLAN #548/#555, réglages bruts des ports) :
+    vitesse < 1 Gbit/s, PoE en défaut, borne en ligne qui n'est plus vue en LLDP ;
+  - micrologiciels hétérogènes par modèle ; licences / abonnements de l'organisation à J-90 / J-30 / échus ;
+  - bandes et signal : part de clients en 2,4 GHz sur une borne chargée (pilotage de bande), clients « collés »
+    (signal faible sur 3 relevés de suite).
+  Les champs exacts de l'OpenAPI pour la vitesse, le PoE, le micrologiciel et les licences ne sont pas documentés : ils
+  sont cherchés par motif et l'écran affiche « non fourni » quand la réponse ne les contient pas (diagnostic :
+  `/sites/<site>/vlan-raw`). Ports, micrologiciels et licences : relevé horaire, constats rejoués entre deux relevés.
+- Hub, section Anticipation : bandes et signal, ports vers les bornes, micrologiciels, licences.
+- Correctif : un crochet de relevé hérité d'un enregistrement précédent n'est plus conservé (report_routes.register).
+- Vérifié : tests nebula anticipation (8) ; deux échecs préexistants de test_report_routes, inchangés. Non vérifié :
+  sur l'OpenAPI réelle (noms de champs).
+- Reste de l'item 122 : point 7, corrélation avec les sondes de terrain (wifi-probe, path-probe) et Cortex.
+
 ## 2026-10-14 — Anticipation Wi-Fi : pic habituel attendu, affluence inhabituelle, bornes instables, disponibilité, étendues DHCP (livraison #758)
 
 - nebula-api, `anticipation.py` (BACKLOG 122, points 1, 2 et 4) : profil habituel par borne × jour × heure (maximum de

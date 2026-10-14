@@ -70,5 +70,41 @@ class Anticipation(unittest.TestCase):
         self.assertEqual(rows[0]["severity"], "haute")
 
 
+class Infra(unittest.TestCase):
+    """#759 : ports vers les bornes, micrologiciels, licences, bandes et signal."""
+    def test_ap_ports(self):
+        links = [{"a": "sw1", "a_port": 3, "b": "ap1", "device": True, "b_kind": "AP"}, {"a": "sw1", "a_port": 4, "b": "ap2", "device": True, "b_kind": "AP"},
+                 {"a": "sw1", "a_port": 24, "b": "sw2", "external": False}]
+        ports = {"sw1": [{"portNum": 3, "linkSpeed": "100M", "poeStatus": "Overload"}, {"portNum": 4, "speed": "1G", "poe": "on"}]}
+        names = {"ap1": "Borne Amphi", "ap2": "Borne Hall", "sw1": "Switch cœur"}
+        table, now_map, rows = an.ap_ports(links, ports, names, {"ap1": "sw1:3", "ap3": "sw1:9"}, {"ap3": True})
+        self.assertEqual(now_map, {"ap1": "sw1:3", "ap2": "sw1:4"})
+        self.assertEqual([t["speed_mbps"] for t in table], [100, 1000])
+        ids = sorted(r["id"] for r in rows)
+        self.assertEqual(ids, ["lldp-lost:ap3", "port-poe:ap1", "port-speed:ap1"])
+        self.assertEqual(an._mbps("Auto (1000F)"), 1000); self.assertEqual(an._mbps("2.5G"), 2500); self.assertIsNone(an._mbps("auto"))
+
+    def test_firmware_licenses(self):
+        devs = [{"name": "a", "model": "NWA210AX", "firmwareVersion": "6.70"}, {"name": "b", "model": "NWA210AX", "productInfo": {"fwVersion": "6.80"}},
+                {"name": "c", "model": "GS2220", "firmwareVersion": "4.80"}, {"name": "d", "model": "GS2220"}]
+        table, rows = an.firmware(devs)
+        self.assertEqual(table[1]["versions"], {"6.70": ["a"], "6.80": ["b"]})
+        self.assertEqual([r["id"] for r in rows], ["fw-mixed:NWA210AX"])
+        now = datetime(2026, 10, 14).timestamp()
+        t, rows = an.licenses("Org", {"name": "Org", "license": {"type": "Pro Pack", "expireDate": "2026-11-01"}, "nebulaSecurityExpiry": 1798761600000}, now)
+        self.assertEqual({r["field"] for r in t}, {"license.type", "license.expireDate", "nebulaSecurityExpiry"})
+        self.assertEqual([(r["id"], r["severity"]) for r in rows], [("lic:Org:license.expireDate", "haute"), ("lic:Org:nebulaSecurityExpiry", "moyenne")])
+
+    def test_band_signal(self):
+        cl = [{"macAddress": "02:00:00:00:00:%02x" % i, "band": "2.4G", "signalStrength": -82} for i in range(4)] + [{"macAddress": "02:00:00:00:01:01", "band": "5G", "signal": -50}]
+        prev = {}
+        for _ in range(3):
+            table, prev, rows = an.band_signal({"ap1": cl}, {"ap1": "Borne"}, -75, prev)
+        self.assertEqual((table[0]["share24"], len(table[0]["sticky"])), (80, 4))
+        self.assertEqual(sorted(r["id"] for r in rows), ["band24:ap1", "sticky:ap1"])
+        table, prev2, rows = an.band_signal({"ap1": cl[4:]}, {}, -75, prev)
+        self.assertEqual(prev2, {}); self.assertEqual(rows, [])
+
+
 if __name__ == "__main__":
     unittest.main()

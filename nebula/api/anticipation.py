@@ -154,3 +154,151 @@ def dhcp(snaps, ant):
                          "message": "SSID %s : %d clients connectés pour une étendue DHCP de %d adresses (%s %%)" % (ssid, n, size, pct),
                          "action": "agrandir l'étendue ou raccourcir la durée des baux avant l'épuisement (nouveaux clients sans adresse)"})
     return table, rows
+
+
+# ---------------------------------------------------------------- #759 : points 3, 5, 6 de l'item 122
+import re as _re
+
+SPEED_RX = _re.compile(r"speed|linkrate|link_rate", _re.I)
+POE_RX = _re.compile(r"poe", _re.I)
+ERR_RX = _re.compile(r"err|crc|drop|discard", _re.I)
+FW_RX = _re.compile(r"firm|^fw|fwversion|firmware", _re.I)
+LIC_RX = _re.compile(r"licen|expir|subscription|pack", _re.I)
+
+
+def find_keys(obj, rx, depth=2, prefix="", children=False, _inside=False):
+    """Clés (jusqu'à `depth` niveaux) dont le nom correspond à `rx` -> {chemin: valeur}. Les champs exacts de l'OpenAPI
+    Nebula ne sont pas tous documentés : on cherche par motif et on montre ce qui a été trouvé. `children` : sous une
+    clé qui correspond (ex. « license »), tout le détail est retenu."""
+    out = {}
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            p = "%s%s" % (prefix, k)
+            hit = _inside or bool(rx.search(str(k)))
+            if hit and not isinstance(v, (dict, list)):
+                out[p] = v
+            if depth > 0 and isinstance(v, dict):
+                out.update(find_keys(v, rx, depth - 1, p + ".", children, children and hit))
+    return out
+
+
+def _mbps(v):
+    """'1000M' / '1G' / 1000 / '100Mbps' / 'Auto (1000F)' -> Mbit/s ou None."""
+    s = str(v or "").upper()
+    m = _re.search(r"(\d+(?:\.\d+)?)\s*([GM]?)", s)
+    if not m:
+        return None
+    n = float(m.group(1))
+    return int(n * 1000) if m.group(2) == "G" or (n <= 10 and "G" in s) else int(n)
+
+
+def ap_ports(links, ports_by_sw, names, prev, online):
+    """links : liaisons de la carte VLAN (#548/#555 : liaison commutateur -> appareil, b_kind « AP ») ;
+    ports_by_sw : {sw: [réglages bruts de port]} ; prev : {ap: "sw:port"} du passage précédent ; online : {ap: bool}.
+    -> (tableau par borne, nouvelle correspondance, lignes d'anomalie)."""
+    table, now_map, rows = [], {}, []
+    by_port = {(sw, str(p.get("portNum"))): p for sw, ps in (ports_by_sw or {}).items() for p in ps or [] if isinstance(p, dict)}
+    for l in links or []:
+        if not l.get("device") or str(l.get("b_kind") or "").upper() != "AP" or not l.get("b"):
+            continue
+        ap, sw, port = l["b"], l["a"], str(l.get("a_port"))
+        now_map[ap] = "%s:%s" % (sw, port)
+        raw = by_port.get((sw, port)) or {}
+        sp, poe, err = find_keys(raw, SPEED_RX), find_keys(raw, POE_RX), find_keys(raw, ERR_RX)
+        speeds = [x for x in (_mbps(v) for v in sp.values()) if x]
+        r = {"ap": ap, "name": names.get(ap, ap), "switch": names.get(sw, sw), "port": port, "speed": sp or None, "poe": poe or None, "errors": err or None,
+             "speed_mbps": min(speeds) if speeds else None}
+        table.append(r)
+        if r["speed_mbps"] and r["speed_mbps"] < 1000:
+            rows.append({"site_id": None, "id": "port-speed:%s" % ap, "severity": "moyenne", "element": r["name"], "kind": "anticipation",
+                         "message": "%s : port %s de %s à %d Mbit/s (attendu 1 Gbit/s)" % (r["name"], port, r["switch"], r["speed_mbps"]),
+                         "action": "câble ou connecteur abîmé, port en négociation forcée : vérifier le câblage et le réglage du port"})
+        bad_poe = [k for k, v in poe.items() if _re.search(r"fault|overload|error|deny|denied|insufficient", str(v), _re.I)]
+        if bad_poe:
+            rows.append({"site_id": None, "id": "port-poe:%s" % ap, "severity": "haute", "element": r["name"], "kind": "anticipation",
+                         "message": "%s : PoE en défaut sur le port %s de %s (%s)" % (r["name"], port, r["switch"], ", ".join("%s=%s" % (k, poe[k]) for k in bad_poe)),
+                         "action": "budget PoE du commutateur, classe de la borne, câble"})
+    for ap, where in (prev or {}).items():
+        if ap not in now_map and online.get(ap):
+            rows.append({"site_id": None, "id": "lldp-lost:%s" % ap, "severity": "moyenne", "element": names.get(ap, ap), "kind": "anticipation",
+                         "message": "%s : plus vue en LLDP sur %s alors qu'elle est en ligne" % (names.get(ap, ap), where.replace(":", " port ")),
+                         "action": "borne déplacée sur un commutateur non géré, LLDP désactivé, ou câble remplacé : vérifier"})
+    return sorted(table, key=lambda r: r["name"]), now_map, rows
+
+
+def firmware(devices):
+    """Versions de micrologiciel par modèle -> (tableau, lignes « hétérogènes »)."""
+    per = {}
+    for d in devices or []:
+        fw = find_keys(d, FW_RX)
+        ver = next((str(v) for v in fw.values() if v not in (None, "")), None)
+        per.setdefault(str(d.get("model") or d.get("type") or "?"), {}).setdefault(ver or "?", []).append(d.get("name") or d.get("devId"))
+    table = [{"model": m, "versions": {v: sorted(n) for v, n in vs.items()}} for m, vs in sorted(per.items())]
+    rows = [{"site_id": None, "id": "fw-mixed:%s" % t["model"], "severity": "moyenne", "element": t["model"], "kind": "anticipation",
+             "message": "%s : %d versions de micrologiciel en service (%s)" % (t["model"], len([v for v in t["versions"] if v != "?"]), ", ".join(sorted(v for v in t["versions"] if v != "?"))),
+             "action": "aligner les micrologiciels (planifier la mise à jour dans Nebula)"}
+            for t in table if len([v for v in t["versions"] if v != "?"]) > 1]
+    return table, rows
+
+
+def _date(v):
+    if isinstance(v, (int, float)):
+        return float(v) / (1000 if v > 1e11 else 1)
+    s = str(v or "").strip()
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d", "%Y/%m/%d", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(s[:19] if "T" in s else s[:10], fmt).timestamp()
+        except ValueError:
+            continue
+    return None
+
+
+def licenses(org_name, info, now):
+    """Champs « licence / expiration » de la fiche d'organisation -> (tableau, lignes J-90 / J-30 / échue)."""
+    found = find_keys(info or {}, LIC_RX, depth=3, children=True)
+    table, rows = [], []
+    for k, v in sorted(found.items()):
+        ts = _date(v) if _re.search(r"expir|date|end|until", k, _re.I) else None
+        days = int((ts - now) // 86400) if ts else None
+        table.append({"org": org_name, "field": k, "value": v, "days_left": days})
+        if days is not None and days <= 90:
+            rows.append({"site_id": None, "id": "lic:%s:%s" % (org_name, k), "severity": "haute" if days <= 30 else "moyenne", "element": org_name, "kind": "anticipation",
+                         "message": "%s : %s %s (%s)" % (org_name, k, "échue depuis %d jour(s)" % -days if days < 0 else "échoit dans %d jour(s)" % days, v),
+                         "action": "renouveler la licence / l'abonnement Nebula avant l'échéance"})
+    return table, rows
+
+
+def band_signal(attached, names, weak_dbm, prev_weak, min_clients=5, share24=60, sticky_samples=3):
+    """attached : {ap: [client brut]} ; prev_weak : {mac: nb de relevés consécutifs au signal faible}.
+    -> (tableau par borne, nouveau prev_weak, lignes). Un client « collé » : signal faible sur `sticky_samples` relevés
+    de suite ; part 2,4 GHz élevée sur une borne chargée : pilotage de bande à vérifier."""
+    def sig(c):
+        for k in ("signalStrength", "signal_strength", "signal", "rssi"):
+            try:
+                return int(float(str(c.get(k)).replace("dBm", "")))
+            except (TypeError, ValueError):
+                continue
+        return None
+    table, new_prev, rows = [], {}, []
+    for ap, cl in sorted((attached or {}).items()):
+        n = len(cl)
+        b24 = sum(1 for c in cl if "2.4" in str(c.get("band") or "") or str(c.get("band") or "").startswith("2"))
+        sticky = []
+        for c in cl:
+            mac = str(c.get("macAddress") or c.get("mac_address") or c.get("mac") or "")
+            s = sig(c)
+            if mac and s is not None and s < weak_dbm:
+                new_prev[mac] = prev_weak.get(mac, 0) + 1
+                if new_prev[mac] >= sticky_samples:
+                    sticky.append({"mac": mac, "signal": s, "name": c.get("osHostname") or c.get("name") or c.get("hostname")})
+        pct = round(100.0 * b24 / n) if n else 0
+        table.append({"ap": ap, "name": names.get(ap, ap), "clients": n, "band24": b24, "share24": pct, "sticky": sticky})
+        if n >= min_clients and pct >= share24:
+            rows.append({"site_id": None, "id": "band24:%s" % ap, "severity": "moyenne", "element": names.get(ap, ap), "kind": "anticipation",
+                         "message": "%s : %d %% des clients en 2,4 GHz (%d sur %d)" % (names.get(ap, ap), pct, b24, n),
+                         "action": "activer / vérifier le pilotage de bande (band steering), SSID 5 GHz, puissance 2,4 GHz réduite"})
+        if len(sticky) >= 3:
+            rows.append({"site_id": None, "id": "sticky:%s" % ap, "severity": "moyenne", "element": names.get(ap, ap), "kind": "anticipation",
+                         "message": "%s : %d client(s) restés sous %d dBm sur %d relevés de suite" % (names.get(ap, ap), len(sticky), weak_dbm, sticky_samples),
+                         "action": "clients « collés » à une borne lointaine : itinérance assistée (802.11k/v), seuil de signal minimal, couverture"})
+    return table, new_prev, rows

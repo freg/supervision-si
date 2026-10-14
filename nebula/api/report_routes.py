@@ -144,6 +144,28 @@ def _transitions(conn, site_id, since):
         return []
 
 
+INFRA_SECONDS = 3600
+
+
+def _infra_rows(sid, sname, now_ts, ant, infra):
+    """#759 : ports vers les bornes, micrologiciels, licences -- relevés au plus une fois par heure (appels OpenAPI plus
+    lourds) ; les constats du dernier relevé sont rejoués à chaque passage pour que le suivi ne les croie pas résolus."""
+    import anticipation
+    cur = infra.get(sid) or {}
+    if now_ts - (cur.get("at") or 0) >= INFRA_SECONDS and "infra_inputs" in _hooks:
+        try:
+            inp = _hooks["infra_inputs"](sid)
+            ptable, apmap, prows = anticipation.ap_ports(inp["links"], inp["ports_by_sw"], inp["names"], cur.get("apmap") or {}, inp["online"])
+            ftable, frows = anticipation.firmware(inp["devices"])
+            ltable, lrows = anticipation.licenses(inp["org_name"] or "organisation", inp["org_info"], now_ts) if inp.get("org_info") else ([], [])
+            cur = {"at": int(now_ts), "apmap": apmap, "ports": ptable, "firmware": ftable, "licenses": ltable, "errors": inp.get("errors") or [],
+                   "rows": prows + frows + lrows}
+        except Exception as exc:  # noqa: BLE001 -- un relevé raté garde le précédent (pas de log() ici : base occupée)
+            cur = dict(cur, at=int(now_ts), errors=["%s : %s" % (sname, str(exc)[:200])])
+        infra[sid] = cur                          # écrit par l'appelant, base libérée (sqlite : un seul écrivain)
+    return cur.get("rows") or []
+
+
 def occupancy_pass(cfg, now_ts, now_dt, force_sample=False):
     """#747 : relevé d'occupation (si dû), seuils et alertes Nebula, récapitulatif si dû."""
     occ = cfg["occupancy"]
@@ -156,6 +178,7 @@ def occupancy_pass(cfg, now_ts, now_dt, force_sample=False):
         sites = _hooks["sites"]()
         wanted = [s for s in sites if not cfg["sites"] or s.get("siteId") in cfg["sites"]]
         rows, snaps = [], {}
+        weak, band, infra = kv_get("ant_weak", {}) or {}, kv_get("ant_band", {}) or {}, kv_get("ant_infra", {}) or {}   # #759
         conn = _hooks["conn"]()
         try:
             for s in wanted:
@@ -180,6 +203,15 @@ def occupancy_pass(cfg, now_ts, now_dt, force_sample=False):
                     rows += anticipation.forecast(prof, nm, sid, sname, now_dt, occ, ant)
                     rows += anticipation.unusual(prof, snap["aps"], nm, sid, sname, now_dt, ant)
                     rows += anticipation.flapping(_transitions(conn, sid, now_ts - 86400), nm, sid, sname, now_ts, ant)
+                    # #759 : bandes et signal (clients rattachés à leur borne, mémoire des signaux faibles d'un relevé à l'autre)
+                    import topology
+                    att, _loose, _f = topology.attach_clients(clients, devices)
+                    ap_ids = {a["dev_id"] for a in snap["aps"]}
+                    att = {k: [c for c in v if (c.get("status") or "") in occupancy.CONNECTED or not c.get("status")] for k, v in att.items() if k in ap_ids}
+                    btable, weak[sid], brows = anticipation.band_signal(att, nm, occ["weak_dbm"], weak.get(sid) or {})
+                    band[sid] = {"at": int(now_ts), "aps": btable}
+                    rows += [dict(r, site_id=sid, site=sname) for r in brows]
+                    rows += [dict(r, site_id=sid, site=sname) for r in _infra_rows(sid, sname, now_ts, ant, infra)]
             if occ["anticipation"]["enabled"] and occ["anticipation"]["dhcp_pools"]:
                 import anticipation
                 rows += anticipation.dhcp(snaps, occ["anticipation"])[1]
@@ -188,6 +220,8 @@ def occupancy_pass(cfg, now_ts, now_dt, force_sample=False):
         finally:
             conn.close()
         kv_set("occ_current", {"at": int(now_ts), "sites": snaps})
+        if occ["anticipation"]["enabled"]:
+            kv_set("ant_weak", weak); kv_set("ant_band", band); kv_set("ant_infra", infra)
         state, raised, recovered = alerting.track(kv_get("occ_state", {}), rows, now_ts, OCC_TRACK)
         kv_set("occ_state", state)
         for kind, action, sev, label in (("occupation", "nebula.occupation-seuil", "warning", "Occupation Wi-Fi"),
@@ -302,7 +336,7 @@ def _loop(lock_dir):
 def register(app, hooks, start_loop=True):
     """hooks : conn() -> sqlite ; sites() -> inventaire ; anomalies(site, refresh) -> (items, errors, vmap) ;
     manage(body) -> (ok, err) ; configured() -> bool ; lock_dir."""
-    _hooks.update(hooks)
+    _hooks.clear(); _hooks.update(hooks)          # #759 : pas de crochet hérité d'un enregistrement précédent
     conn = hooks["conn"]()
     try:
         conn.execute("CREATE TABLE IF NOT EXISTS nebula_report_kv (key TEXT PRIMARY KEY, value TEXT)")
@@ -415,8 +449,10 @@ def register(app, hooks, start_loop=True):
                 nexts.append({"dev_id": dev, "name": names.get(dev) or dev, "hours": [{"at": t.strftime("%H:%M"), "p50": e and e["p50"], "p90": e and e["p90"], "weeks": e and e["weeks"]} for t, e in zip(hours, exp)]})
         table, _rows = anticipation.dhcp(cur.get("sites") or {}, ant)
         forecast = [r for sid in (cur.get("sites") or {}) for r in anticipation.forecast(_site_prof(prof, cur, sid), names, sid, sid, now_dt, occ, ant)]
+        infra = kv_get("ant_infra", {}) or {}
         return jsonify({"settings": ant, "thresholds": {"ap_warn": occ["ap_warn"], "ap_crit": occ["ap_crit"]}, "next_hours": nexts, "forecast": forecast,
-                        "sites": sites, "dhcp": table, "names": names}), 200
+                        "sites": sites, "dhcp": table, "names": names, "band": kv_get("ant_band", {}) or {},
+                        "infra": {sid: {k: v for k, v in i.items() if k != "apmap"} for sid, i in infra.items()}}), 200
 
     def _site_prof(prof, cur, sid):
         devs = {ap["dev_id"] for ap in ((cur.get("sites") or {}).get(sid) or {}).get("aps") or []}
