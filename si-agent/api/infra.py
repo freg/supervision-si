@@ -26,7 +26,8 @@ def _vm(node, g, zone):
     cpu = g.get("cpu")
     return {"node": node, "zone": zone, "vmid": g.get("vmid"), "name": g.get("name") or "", "type": g.get("type"), "status": g.get("status"),
             "cpu_pct": round(100.0 * cpu, 1) if isinstance(cpu, (int, float)) else None, "ncpu": maxcpu,
-            "mem": g.get("mem"), "maxmem": g.get("maxmem"), "uptime_s": g.get("uptime_s", g.get("uptime"))}
+            "mem": g.get("mem"), "maxmem": g.get("maxmem"), "uptime_s": g.get("uptime_s", g.get("uptime")),
+            "maxdisk": g.get("maxdisk"), "disk": g.get("disk")}   # #761 : taille des disques (inventaire du rapatriement)
 
 
 def overview(activity, proxmox, remote, pbs):

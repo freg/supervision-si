@@ -1,3 +1,19 @@
+## 2026-10-14 — Assistant de rapatriement d'un nœud distant : six étapes, synoptique en bandeau, avancement mesuré (livraison #761)
+
+- Hub, tuile « Rapatriement d'un nœud distant (assistant) » (thème Équipements) : une campagne par nœud distant, en
+  six étapes façon assistant d'installation (◀ Précédent / Suivant ▶) -- Inventaire (CT / VM vus par pve-remote :
+  rapatrier, garder, supprimer ; nouvel identifiant), Préparation (stockage, débit, mode, plage des destructions,
+  contrôles au vert ; « Lancer le rapatriement »), Rapatriement (phase de chaque plan), Vérification (comparaison
+  original / copie, « Valider la copie » ou « Abandonner »), Nettoyage (destructions dans la plage ; suppressions
+  manuelles listées avec leur commande), Bilan (rapatriés, gardés, place libérée). Synoptique permanent : étapes,
+  curseur sur l'étape courante, pourcentage pondéré mesuré à partir des plans en cours. Rafraîchi toutes les 10 s.
+- si-agent-api : `repatriation.py` (phases, avancement, inventaire, contrôles), table `repatriation`, routes
+  `/repatriation` (liste, création, lecture, mise à jour, lancement, validate / abort par CT / VM). Chaque CT / VM
+  « rapatrier » est confié à un plan repatriate #750 (transition 1 reprise automatiquement : la Préparation en tient
+  lieu ; transition 2 = « Valider la copie »). Tuile Infra : taille des disques des invités.
+- Vérifié : tests API (3 : phases, avancement, campagne complète jusqu'à 100 %), hub (368), rendu (capture).
+  Non vérifié : sur pve-1 / pve10 réels.
+
 ## 2026-10-14 — Cortex : constats des sondes de terrain corrélés aux constats Wi-Fi de Nebula, cause Wi-Fi probable (livraison #760)
 
 - BACKLOG 122, point 7 : Cortex reçoit les constats Wi-Fi en cours de nebula-api (occupation, alertes Nebula,

@@ -201,3 +201,9 @@ export const fetchViewOverview = (apiBase, id) => fetchJson(apiBase, `/views/${e
 export const fetchIaOverview = (apiBase) => fetchJson(apiBase, "/ia/overview");   // #756 : Parc IA
 export const saveIaHosts = (apiBase, agents) => fetchJson(apiBase, "/ia/hosts", json("PUT", { agents }));
 export const fetchIaAssistant = (apiBase, sub) => fetchJson(apiBase, `/ia/assistant/${sub}`);
+export const fetchRepatriations = (apiBase) => fetchJson(apiBase, "/repatriation");   // #761 : assistant de rapatriement
+export const createRepatriation = (apiBase, body) => fetchJson(apiBase, "/repatriation", json("POST", body));
+export const fetchRepatriation = (apiBase, id) => fetchJson(apiBase, `/repatriation/${id}`);
+export const saveRepatriation = (apiBase, id, body) => fetchJson(apiBase, `/repatriation/${id}`, json("PUT", body));
+export const launchRepatriation = (apiBase, id, actor) => fetchJson(apiBase, `/repatriation/${id}/launch`, json("POST", { actor }));
+export const repatriationGuest = (apiBase, id, vmid, action, actor) => fetchJson(apiBase, `/repatriation/${id}/guest/${vmid}/${action}`, json("POST", { actor }));

@@ -50,6 +50,7 @@ import maint  # noqa: E402  -- #705 : maintenance / réorganisation des Proxmox
 import migration  # noqa: E402  -- #658 : migration serveur -> virtualisation (générateur de plan)
 import infra  # noqa: E402  -- #749 : vue d'ensemble PVE / PBS
 import views  # noqa: E402  -- #753 : vues de parc paramétrables (serveurs, postes, IA, postes personnels)
+import repatriation as repa  # noqa: E402  -- #761 : assistant de rapatriement / nettoyage d'un nœud distant
 import rotation  # noqa: E402  -- #743 : tournées de mesures réparties (supervision distribuée, item 120)
 import json  # noqa: E402
 import notify  # noqa: E402
@@ -1631,6 +1632,199 @@ def image_relay_route(agent_id, src_agent):
     if st in (403, 404, 416):
         return jsonify({"error": {403: "relais réservé à un autre agent", 404: "aucun relais", 416: "offset au-delà de ce qui est disponible"}[st]}), st, hdr
     return Response(data, status=st, headers=hdr, mimetype="application/octet-stream")
+
+
+def _repa_db(sql, args=(), one=False, write=False):
+    conn = store._connect(DB_PATH)
+    try:
+        conn.execute(repa.SCHEMA)
+        cur = conn.execute(sql, args)
+        if write:
+            conn.commit(); return cur.lastrowid
+        rows = cur.fetchall()
+        return (rows[0] if rows else None) if one else rows
+    finally:
+        conn.close()
+
+
+def _infra_now():
+    conn = store._connect(DB_PATH)
+    try:
+        return infra.overview(infra.latest(conn, "plugin:node-activity"), infra.latest(conn, "plugin:proxmox"), infra.latest(conn, "plugin:pve-remote"), infra.latest(conn, "plugin:pbs"))
+    finally:
+        conn.close()
+
+
+def _repa_runs(guests):
+    out = {}
+    ids = [g["run_id"] for g in guests if g.get("run_id")]
+    if ids:
+        conn = store._connect(DB_PATH)
+        try:
+            for r in conn.execute("SELECT * FROM pra_runs WHERE id IN (%s)" % ",".join("?" * len(ids)), ids):
+                out[r["id"]] = pra.run_public(r)
+        finally:
+            conn.close()
+    return out
+
+
+def _repa_full(row, refresh_inventory=True):
+    c = repa.public(row)
+    ov = _infra_now()
+    if refresh_inventory:
+        c["guests"] = repa.merge_inventory(c["guests"], [v for v in ov.get("vms") or [] if v.get("node") == c["remote"] and v.get("zone") == "distant"])
+    runs = _repa_runs(c["guests"])
+    phases = {}
+    for g in c["guests"]:
+        code, detail = repa.guest_phase(runs.get(g.get("run_id")))
+        g["phase"], g["phase_label"], g["phase_detail"] = code, repa.PHASES[code][0], detail
+        if g.get("decision") == "rapatrier":
+            phases[g["vmid"]] = code
+        r = runs.get(g.get("run_id"))
+        if r:
+            g["run"] = {"id": r["id"], "status": r["status"], "steps": [{"label": s.get("label"), "status": s.get("status"), "result": s.get("result")} for s in r.get("steps") or []]}
+    conn = store._connect(DB_PATH)
+    try:   # nom du nœud Proxmox remonté par l'agent du nœud local (sonde proxmox)
+        node_of = {aid: (d.get("node") or {}).get("name") or host for aid, host, _at, d in infra.latest(conn, "plugin:proxmox")}
+    finally:
+        conn.close()
+    tname = node_of.get(c["pve_agent_id"], c["pve_agent_id"])
+    target = next((n for n in ov.get("nodes") or [] if n.get("zone") == "local" and (n.get("collected_by") == c["pve_agent_id"] or n.get("name") == tname)), None)
+    remote = next((n for n in ov.get("nodes") or [] if n.get("zone") == "distant" and n.get("name") == c["remote"]), None)
+    c["checks"] = repa.preparation(c, target, remote, c["guests"])
+    c["progress"] = repa.progress(c, phases)
+    c["steps_def"] = [{"id": s, "label": l, "weight": w} for s, l, w in repa.STEPS]
+    c["remote_nodes"] = [n["name"] for n in ov.get("nodes") or [] if n.get("zone") == "distant"]
+    c["local_storages"] = [s.get("storage") or s.get("name") for s in (target or {}).get("storages") or []]
+    return c
+
+
+@app.route("/repatriation", methods=["GET"])
+def repa_list_route():
+    """#761 : campagnes de rapatriement (avancement résumé)."""
+    rows = _repa_db("SELECT * FROM repatriation ORDER BY id DESC")
+    return jsonify({"campaigns": [dict(id=c["id"], name=c["name"], remote=c["remote"], step=c["step"], updated_at=c["updated_at"],
+                                       percent=c["progress"]["percent"]) for c in (_repa_full(r, False) for r in rows)],
+                    "remote_nodes": [n["name"] for n in _infra_now().get("nodes") or [] if n.get("zone") == "distant"]}), 200
+
+
+@app.route("/repatriation", methods=["POST"])
+def repa_create_route():
+    b = request.get_json(silent=True) or {}
+    remote, pve = str(b.get("remote") or "").strip(), str(b.get("pve_agent_id") or "").strip()
+    if not re.match(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$", remote) or not re.match(r"^[A-Za-z0-9._-]{1,64}$", pve):
+        return jsonify({"error": "remote (nœud distant) et pve_agent_id (agent du nœud local) requis"}), 400
+    name = str(b.get("name") or "Rapatriement %s" % remote)[:100]
+    cid = _repa_db("INSERT INTO repatriation (name, remote, pve_agent_id, storage, settings, created_at, updated_at, by_user) VALUES (?,?,?,?,?,?,?,?)",
+                   (name, remote, pve, str(b.get("storage") or ""), json.dumps(repa.DEFAULT_SETTINGS), store.now_iso(), store.now_iso(), str(b.get("actor") or "")), write=True)
+    return jsonify(_repa_full(_repa_db("SELECT * FROM repatriation WHERE id = ?", (cid,), one=True))), 201
+
+
+@app.route("/repatriation/<int:cid>", methods=["GET"])
+def repa_get_route(cid):
+    row = _repa_db("SELECT * FROM repatriation WHERE id = ?", (cid,), one=True)
+    if not row:
+        return jsonify({"error": "campagne inconnue"}), 404
+    return jsonify(_repa_full(row)), 200
+
+
+@app.route("/repatriation/<int:cid>", methods=["PUT"])
+def repa_put_route(cid):
+    """{step, storage, settings, decisions: {vmid: décision}, newids: {vmid: id}, name}"""
+    row = _repa_db("SELECT * FROM repatriation WHERE id = ?", (cid,), one=True)
+    if not row:
+        return jsonify({"error": "campagne inconnue"}), 404
+    b = request.get_json(silent=True) or {}
+    c = _repa_full(row)
+    if b.get("step") is not None and b["step"] not in repa.STEP_IDS:
+        return jsonify({"error": "étape inconnue"}), 400
+    dec, nid = b.get("decisions") or {}, b.get("newids") or {}
+    for g in c["guests"]:
+        k = str(g["vmid"])
+        if k in dec:
+            if dec[k] not in repa.DECISIONS:
+                return jsonify({"error": "décision : rapatrier, garder, supprimer"}), 400
+            if g.get("run_id") and dec[k] != "rapatrier":
+                return jsonify({"error": "%s : déjà lancé, utiliser Abandonner" % k}), 409
+            g["decision"] = dec[k]
+        if k in nid and not g.get("run_id"):
+            try:
+                g["newid"] = int(nid[k]) if nid[k] not in (None, "") else None
+            except (TypeError, ValueError):
+                return jsonify({"error": "nouvel identifiant entier"}), 400
+    settings = dict(c["settings"], **{k: v for k, v in (b.get("settings") or {}).items() if k in repa.DEFAULT_SETTINGS})
+    keep = [{k: v for k, v in g.items() if k not in ("phase", "phase_label", "phase_detail", "run")} for g in c["guests"]]
+    _repa_db("UPDATE repatriation SET name = ?, step = ?, storage = ?, settings = ?, guests = ?, updated_at = ? WHERE id = ?",
+             (str(b.get("name") or c["name"])[:100], b.get("step") or c["step"], str(b.get("storage") if b.get("storage") is not None else c["storage"]),
+              json.dumps(settings), json.dumps(keep, ensure_ascii=False), store.now_iso(), cid), write=True)
+    return jsonify(_repa_full(_repa_db("SELECT * FROM repatriation WHERE id = ?", (cid,), one=True))), 200
+
+
+def _resume_first_checkpoint(rid):
+    """La transition 1 du plan (« prévenir ») est faite par l'étape Préparation de l'assistant : reprise automatique."""
+    import time as _t
+    for _ in range(60):
+        _t.sleep(1)
+        if pra.resume_run(DB_PATH, rid).get("ok"):
+            return
+
+
+@app.route("/repatriation/<int:cid>/launch", methods=["POST"])
+def repa_launch_route(cid):
+    """Lance un plan repatriate (#750) pour chaque invité « rapatrier » pas encore lancé (ou ceux de `vmids`)."""
+    row = _repa_db("SELECT * FROM repatriation WHERE id = ?", (cid,), one=True)
+    if not row:
+        return jsonify({"error": "campagne inconnue"}), 404
+    b = request.get_json(silent=True) or {}
+    c = _repa_full(row)
+    if not c["storage"]:
+        return jsonify({"error": "stockage local à choisir (étape Préparation)"}), 400
+    only = {int(x) for x in b.get("vmids") or []}
+    used = {g.get("newid") for g in c["guests"] if g.get("newid")}
+    launched, errors = [], []
+    for g in c["guests"]:
+        if g.get("decision") != "rapatrier" or g.get("run_id") or (only and g["vmid"] not in only) or not g.get("present", True):
+            continue
+        if not g.get("newid"):
+            n = int(c["settings"]["newid_base"]) + g["vmid"] if g["vmid"] < 1000 else g["vmid"] + 90000
+            while n in used:
+                n += 1
+            g["newid"] = n; used.add(n)
+        s = c["settings"]
+        plan, err = migration.build({"method": "repatriate", "pve_agent_id": c["pve_agent_id"], "remote": c["remote"], "vmid": g["vmid"], "newid": g["newid"],
+                                     "kind": g.get("kind") or "lxc", "storage": c["storage"], "mode": s["mode"], "bwlimit_mbps": s["bwlimit_mbps"],
+                                     "window": s["window"], "slice_gb": s["slice_gb"], "plan_name": "%s — %s %d %s" % (c["name"], c["remote"], g["vmid"], g.get("name") or "")})
+        steps, err2 = pra.validate_steps(plan["steps"]) if plan else (None, err)
+        if err or err2:
+            errors.append("%d : %s" % (g["vmid"], err or err2)); continue
+        pid = _repa_db("INSERT INTO pra_plans (name, kind, notes, steps, continue_on_error, created_at, updated_at, rollback_steps, auto_rollback) VALUES (?,?,?,?,?,?,?,?,?)",
+                       (plan["name"], "migration", plan["notes"], json.dumps(steps, ensure_ascii=False), 0, store.now_iso(), store.now_iso(), "[]", 0), write=True)
+        prow = _repa_db("SELECT * FROM pra_plans WHERE id = ?", (pid,), one=True)
+        rid = pra.start_run(DB_PATH, pra.plan_public(prow), "execute", str(b.get("actor") or "assistant de rapatriement"))
+        threading.Thread(target=_resume_first_checkpoint, args=(rid,), daemon=True).start()
+        g.update(plan_id=pid, run_id=rid)
+        launched.append(g["vmid"])
+    keep = [{k: v for k, v in g.items() if k not in ("phase", "phase_label", "phase_detail", "run")} for g in c["guests"]]
+    _repa_db("UPDATE repatriation SET guests = ?, step = ?, updated_at = ? WHERE id = ?",
+             (json.dumps(keep, ensure_ascii=False), "rapatriement" if launched else c["step"], store.now_iso(), cid), write=True)
+    _event("repatriation-launched", "info", "rapatriement « %s » : %d plan(s) lancé(s)%s" % (c["name"], len(launched), (" ; erreurs : " + " ; ".join(errors)) if errors else ""))
+    return jsonify({"launched": launched, "errors": errors, "campaign": _repa_full(_repa_db("SELECT * FROM repatriation WHERE id = ?", (cid,), one=True))}), 200
+
+
+@app.route("/repatriation/<int:cid>/guest/<int:vmid>/<action>", methods=["POST"])
+def repa_guest_route(cid, vmid, action):
+    """validate : copie validée -> la destruction de l'original part dans la plage horaire ; abort : abandon du plan."""
+    row = _repa_db("SELECT * FROM repatriation WHERE id = ?", (cid,), one=True)
+    g = next((x for x in repa.public(row)["guests"] if x["vmid"] == vmid), None) if row else None
+    if not g or not g.get("run_id"):
+        return jsonify({"error": "invité sans plan lancé"}), 404
+    if action == "validate":
+        r = pra.resume_run(DB_PATH, g["run_id"])
+    elif action == "abort":
+        r = pra.abort_run(DB_PATH, g["run_id"], by_user=str((request.get_json(silent=True) or {}).get("actor") or ""))
+    else:
+        return jsonify({"error": "action : validate, abort"}), 400
+    return jsonify(r), 200 if r.get("ok") else 409
 
 
 @app.route("/views", methods=["GET"])
