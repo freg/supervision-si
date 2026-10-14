@@ -870,11 +870,13 @@ class Agent(object):
                 res = browsectl.run(params, usage=_sh.disk_usage)
                 return {"ok": res.get("ok", False), "error": res.get("error"), "result": res}
             if ctype == "image_transfer":
-                # #634 : transférer (ou reprendre) une image déjà sur le poste
+                # #634 : transférer (ou reprendre) une image déjà sur le poste ; #751 : vers le récepteur LAN si push_url
+                self._upload_push = self._push_target(params)
                 return self.start_upload(str(params.get("path") or ""), c.get("id"), delete_after=bool(params.get("delete_after")))
             if ctype == "image_host":
                 # #621 : image complète du poste à chaud (Disk2vhd, VSS), détachée ; suivi dans la boucle
                 self._upload_bwlimit = float(params.get("bwlimit_mbps") or 0)   # #748 : débit du transfert qui suivra
+                self._upload_push = self._push_target(params)                     # #751 : récepteur LAN du nœud (sinon central)
                 res = self.start_image(params, c.get("id"))
                 return res
             if ctype == "bench":
@@ -1591,18 +1593,23 @@ class Agent(object):
             return {"ok": False, "error": "fichier introuvable : %s" % path}
         total = os.path.getsize(path)
         job = {"path": path, "name": name, "total": total, "sent": 0, "state": "running", "error": None, "started": self.clock(),
-               "last_report": self.clock(), "command": command_id, "delete_after": bool(delete_after), "sha256": None}
+               "last_report": self.clock(), "command": command_id, "delete_after": bool(delete_after), "sha256": None,
+               "push": getattr(self, "_upload_push", None)}       # #751 : récepteur LAN du nœud au lieu du central
         self._upload_job = job
         threading.Thread(target=self._upload_worker, args=(job,), daemon=True, name="si-agent-upload").start()
-        self.event("image-upload-started", "info", "transfert de %s vers le central (%.1f Go)" % (name, total / 2**30), {"command": command_id, "file": path, "bytes": total})
+        self.event("image-upload-started", "info", "transfert de %s vers %s (%.1f Go)" % (name, "le nœud sur le LAN" if job["push"] else "le central", total / 2**30), {"command": command_id, "file": path, "bytes": total})
         return {"ok": True, "result": {"file": path, "bytes": total, "message": "transfert lancé -- suivi par événements"}}
 
     def _upload_worker(self, job):
         """Fil à part : reprise (GET status), morceaux signés (PUT), clôture (POST complete)."""
         from . import uploadctl
         base = "%s/agents/%s/images/%s" % (protocol.API_PREFIX, self.agent_id, job["name"])
+        cli = self.http
+        if job.get("push"):                     # #751 : directement vers l'agent du nœud, sur le LAN (même protocole)
+            from . import lanpush
+            cli, base = lanpush.Client(job["push"]["url"], job["push"]["token"]), "/p2v/%s" % job["name"]
         try:
-            st, body = self.http.request("GET", base + "/status")
+            st, body = cli.request("GET", base + "/status")
             offset = int((body or {}).get("size") or 0) if st == 200 else 0
             if offset > job["total"]:
                 offset = 0
@@ -1619,7 +1626,7 @@ class Agent(object):
                     h.update(data)
                     attempt = 0
                     while attempt < 5:
-                        st, body = self.http.send_raw("PUT", "%s?offset=%d" % (base, pos), data, timeout=300)
+                        st, body = cli.send_raw("PUT", "%s?offset=%d" % (base, pos), data, timeout=300)
                         if st in (200, 201):
                             break
                         if st == 429:                     # #748 : fenêtre du relais pleine -- la cible lit encore, on attend sans compter d'échec
@@ -1637,7 +1644,7 @@ class Agent(object):
                     if pause:
                         time.sleep(min(pause, 30))
             job["sha256"] = h.hexdigest()
-            st, body = self.http.request("POST", base + "/complete", {"size": job["total"], "sha256": job["sha256"]})
+            st, body = cli.request("POST", base + "/complete", {"size": job["total"], "sha256": job["sha256"]})
             if st not in (200, 201):
                 raise RuntimeError("clôture refusée (%s %s)" % (st, (body or {}).get("error") if isinstance(body, dict) else ""))
             job["state"] = "finished"
@@ -1886,13 +1893,61 @@ class Agent(object):
                 r = self.cmd(argv, timeout=300)
                 if getattr(r, "returncode", 1) != 0:
                     errs.append("%s : %s" % (argv[0], (getattr(r, "stderr", "") or "")[-160:]))
+            rx = getattr(self, "_p2v_rx", None)
+            if rx:                                  # #751 : récepteur LAN fermé avec le volume
+                rx.close(); self._p2v_rx = None
             return {"ok": not errs, "error": "; ".join(errs) or None, "message": "volume temporaire p2v-%s supprimé" % job}
         if action == "fetch":
             return self.start_p2v_fetch(p, command_id)
+        if action == "receive":
+            return self.start_p2v_receive(p, command_id)
         if action == "status":
             j = getattr(self, "_fetch_job", None)
             return {"ok": True, "fetch": {k: v for k, v in (j or {}).items() if k != "hash"} if j else None}
         return {"ok": False, "error": "action : prepare_source, prepare_target, fetch, status, cleanup"}
+
+    @staticmethod
+    def _push_target(params):
+        """#751 : destination LAN d'un envoi d'image ({url, token}) ou None (central)."""
+        url, tok = str(params.get("push_url") or ""), str(params.get("push_token") or "")
+        if url and tok and re.match(r"^http://[0-9A-Za-z.:\[\]-]{1,80}$", url):
+            return {"url": url, "token": tok}
+        return None
+
+    def start_p2v_receive(self, p, command_id=None):
+        """#751 : récepteur temporaire sur l'IP LAN du nœud ; l'agent du poste y pousse son image directement (le hub ne
+        voit passer que les commandes et les événements). Jeton à usage unique ; fermé après clôture ou inactivité."""
+        import ipaddress
+        import secrets
+        import urllib.parse as _up
+        from . import lanpush, p2vctl
+        import_dir = str(p.get("import_dir") or "")
+        if not import_dir.startswith(p2vctl.IMPORT_ROOT + "/") or ".." in import_dir or not os.path.isdir(import_dir):
+            return {"ok": False, "error": "import_dir : dossier existant sous %s (prepare_target d'abord)" % p2vctl.IMPORT_ROOT}
+        src_ip, lan_ip = str(p.get("source_ip") or "") or None, str(p.get("lan_ip") or "") or None
+        try:
+            for ip in (src_ip, lan_ip):
+                if ip:
+                    ipaddress.ip_address(ip)
+            port = int(p.get("port") or 6461)
+        except ValueError:
+            return {"ok": False, "error": "source_ip / lan_ip / port invalides"}
+        old = getattr(self, "_p2v_rx", None)
+        if old:
+            old.close()
+        tok = secrets.token_urlsafe(24)
+
+        def done(d):
+            self.event("image-fetched", "info", "image %s reçue du poste sur le LAN (%.1f Go, sha256 %s)" % (d["name"], d["bytes"] / 2**30, d["sha256"][:12]),
+                       dict(d, source="lan", command=command_id))
+        try:
+            self._p2v_rx = lanpush.Receiver(import_dir, tok, on_complete=done, allow_ip=src_ip, port=port)
+        except OSError as exc:
+            return {"ok": False, "error": "port %d indisponible : %s" % (port, exc)}
+        ip = lan_ip or lanpush.local_ip_towards(src_ip or (_up.urlparse(self.cfg.get("central_url") or "").hostname or "192.0.2.1"))
+        self.event("p2v-receive-open", "info", "récepteur LAN ouvert sur %s:%d -> %s%s" % (ip, self._p2v_rx.port, import_dir, (" (seule source admise : %s)" % src_ip) if src_ip else ""), {"command": command_id})
+        return {"ok": True, "url": "http://%s:%d" % (ip, self._p2v_rx.port), "token": tok, "ip": ip, "port": self._p2v_rx.port,
+                "message": "récepteur ouvert : le poste pousse son image directement sur le LAN"}
 
     def start_p2v_fetch(self, p, command_id=None):
         """#748 : lecture au fil de l'eau, par le relais du central, de l'image de l'agent source ; débit borné ;

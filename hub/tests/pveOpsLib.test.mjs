@@ -43,8 +43,8 @@ test("migration : VM_OPS exclut les étapes de plan, corps nettoyé et typé", (
   const r = migrationBody({ ...MIGRATION_DEFAULTS, method: "rebuild", template: "local:vztmpl/d.tar.zst", image_target: "/x" });
   assert.equal(r.image_target, undefined); assert.equal(r.template, "local:vztmpl/d.tar.zst"); assert.equal(r.ip, "dhcp");
 });
-test("migration directe (#748) : par défaut, débit et fenêtre typés, emplacement facultatif", () => {
-  const d = migrationBody({ ...MIGRATION_DEFAULTS, source_agent_id: "srv", pve_agent_id: "pve", vmid: "300", storage: "local-lvm", bwlimit_mbps: "300" });
+test("migration directe (#748) : débit et fenêtre typés, emplacement facultatif", () => {
+  const d = migrationBody({ ...MIGRATION_DEFAULTS, method: "direct", source_agent_id: "srv", pve_agent_id: "pve", vmid: "300", storage: "local-lvm", bwlimit_mbps: "300" });
   assert.equal(d.method, "direct"); assert.equal(d.bwlimit_mbps, 300); assert.equal(d.window_gb, 4); assert.equal(d.image_target, undefined);
   assert.equal(migrationMissing({ ...MIGRATION_DEFAULTS, source_agent_id: "srv", pve_agent_id: "pve", vmid: 300, storage: "local-lvm" }), null);
   assert.equal(migrationBody({ ...MIGRATION_DEFAULTS, method: "image", image_target: "/x" }).bwlimit_mbps, undefined);
@@ -86,4 +86,12 @@ test("#750 : rapatriement d'un nœud distant -- corps, champs manquants, libell�
   assert.equal(migrationBody({ method: "direct", vmid: 200 }).remote, undefined);       // les champs du rapatriement ne fuient pas
   assert.match(stepText({ agent_id: "pve10", command: "xfer", params: { action: "export", remote: "pve-a", vmid: 102, newid: 9102, kind: "lxc" } }), /pve-a CT 102 · export \+ restauration → 9102/);
   assert.match(stepText({ agent_id: "pve10", action: "xfer_destroy", params: { action: "destroy", remote: "pve-a", vmid: 102, copy: 9102, window: "20:00-07:00" } }), /destruction par tranches \(copie 9102\) · plage 20:00-07:00/);
+});
+
+test("#751 : directe sur le LAN par défaut -- débit gardé, fenêtre du relais retirée, IP facultatives", () => {
+  const d = migrationBody({ ...MIGRATION_DEFAULTS, source_agent_id: "poste", pve_agent_id: "pve", vmid: "301", storage: "local-lvm", source_ip: "192.0.2.20" });
+  assert.equal(d.method, "lan"); assert.equal(d.bwlimit_mbps, 200); assert.equal(d.window_gb, undefined); assert.equal(d.source_ip, "192.0.2.20");
+  assert.equal(d.lan_ip, undefined); assert.equal(d.port, undefined);
+  assert.equal(migrationBody({ ...MIGRATION_DEFAULTS, method: "direct" }).source_ip, undefined);
+  assert.equal(migrationBody({ ...MIGRATION_DEFAULTS, port: "6470" }).port, 6470);
 });

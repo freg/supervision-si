@@ -3801,7 +3801,7 @@ font, les glissières sont peu visibles. Modèle : tuile Infra PVE / PBS (#749) 
 fenêtre, grilles auto-fill, glissières 14 px contrastées (`.infra-scroll`), en-têtes de tableau collants. À généraliser.
 
 
-### 124. Virtualisation directe sur le LAN, d'agent à agent (#751)
+### 124. Virtualisation directe sur le LAN, d'agent à agent (#751) — LIVRÉ #751
 Demande (14/10/2026) : pour un poste du LAN d'un site client (virtualisation et non migration), l'image doit aller directement de
 l'agent du poste à l'agent du Proxmox du site ; le hub orchestre seulement. Cible : récepteur temporaire sur l'IP LAN du
 nœud (jeton à usage unique du hub, fermé à la fin), la source pousse (sortant, rien à ouvrir côté Windows), fenêtre

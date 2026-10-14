@@ -1,3 +1,14 @@
+## 2026-10-14 — Virtualisation directe sur le LAN : le poste pousse son image à l'agent du nœud, le hub orchestre (livraison #751)
+
+- Agent 0.5.59 : `lanpush.py` -- récepteur temporaire (nœud : jeton à usage unique, IP source facultative, reprise par
+  offset, SHA-256 incrémental, fermeture après clôture / inactivité / nettoyage) et client (poste) au même protocole que
+  l'envoi au central ; `p2v` `receive` ; `image_host` / `image_transfer` acceptent `push_url` / `push_token`.
+- si-agent-api : action de plan `p2v_receive` (URL et jeton reportés dans l'étape image_host), méthode `lan` du
+  générateur de migration.
+- Hub : méthode « directe sur le LAN » par défaut (IP LAN du nœud, IP du poste, port, débit).
+- Vérifié : tests agent (récepteur / client sur boucle locale, de bout en bout poste -> nœud avec image-fetched ; 3),
+  API (plan, exécution ; 2), hub (359), syntaxe JSX. Non vérifié : poste Windows réel (Disk2vhd + envoi), pare-feu du nœud.
+
 ## 2026-10-14 — Rapatriement OVH → local piloté depuis le hub : export, vérification, destruction par tranches (livraison #750)
 
 - Agent 0.5.58 : commande `xfer` (`xferctl.py`) -- `export` (vzdump --stdout par ssh vers un nœud de `pve-remote.json`,

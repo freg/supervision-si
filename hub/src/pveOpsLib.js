@@ -21,12 +21,12 @@ export const OPS = {
 export const VM_OPS = Object.fromEntries(Object.entries(OPS).filter(([, o]) => !o.plan));
 
 // #658 : formulaire de migration -> corps de /pra/migrations/plan (champs vides retirés, nombres convertis).
-export const MIGRATION_DEFAULTS = { method: "direct", os: "linux", source_agent_id: "", pve_agent_id: "", vmid: "", storage: "", bridge: "vmbr0", memory: 4096, cores: 2, image_target: "", template: "", ip: "dhcp", role_id: "", role_from: 0, role_to: 1, purge_on_rollback: false, auto_rollback: false, plan_name: "", bwlimit_mbps: 200, window_gb: 4, remote: "", newid: "", kind: "lxc", mode: "stop", window: "20:00-07:00", slice_gb: 10, keep_archive: false };
+export const MIGRATION_DEFAULTS = { method: "lan", os: "linux", source_agent_id: "", pve_agent_id: "", vmid: "", storage: "", bridge: "vmbr0", memory: 4096, cores: 2, image_target: "", template: "", ip: "dhcp", role_id: "", role_from: 0, role_to: 1, purge_on_rollback: false, auto_rollback: false, plan_name: "", bwlimit_mbps: 200, window_gb: 4, remote: "", newid: "", kind: "lxc", mode: "stop", window: "20:00-07:00", slice_gb: 10, keep_archive: false, source_ip: "", lan_ip: "", port: 6461 };
 export function migrationBody(f) {
   const out = {};
   for (const [k, v] of Object.entries({ ...MIGRATION_DEFAULTS, ...f })) {
     if (v === "" || v === null || v === undefined) continue;
-    if (["vmid", "memory", "cores", "role_id", "role_from", "role_to", "rootfs_gb", "bwlimit_mbps", "window_gb", "newid", "slice_gb"].includes(k)) out[k] = Number(v); else out[k] = v;
+    if (["vmid", "memory", "cores", "role_id", "role_from", "role_to", "rootfs_gb", "bwlimit_mbps", "window_gb", "newid", "slice_gb", "port"].includes(k)) out[k] = Number(v); else out[k] = v;
   }
   if (out.method === "repatriate") {         // #750 : seuls les champs du rapatriement
     const keep = ["method", "pve_agent_id", "remote", "vmid", "newid", "kind", "storage", "mode", "bwlimit_mbps", "window", "slice_gb", "keep_archive", "plan_name"];
@@ -34,8 +34,11 @@ export function migrationBody(f) {
     return out;
   }
   for (const k of ["remote", "newid", "kind", "mode", "window", "slice_gb", "keep_archive"]) delete out[k];
+  if (out.method === "lan" && out.port === 6461) delete out.port;
   if (out.method === "rebuild") delete out.image_target; else { delete out.template; delete out.ip; }
-  if (out.method !== "direct") { delete out.bwlimit_mbps; delete out.window_gb; }     // #748
+  if (!["direct", "lan"].includes(out.method)) delete out.bwlimit_mbps;     // #748 / #751
+  if (out.method !== "direct") delete out.window_gb;
+  if (out.method !== "lan") for (const k of ["source_ip", "lan_ip", "port"]) delete out[k];
   return out;
 }
 // Ce qui manque avant de demander l'aperçu (message) ou null.

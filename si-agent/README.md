@@ -1491,3 +1491,22 @@ Commande d'agent `xfer` (détachée, fin signalée par `xfer-done` / `xfer-faile
 Plan généré (`method: repatriate`) : transition 1 → export + restauration → vérification → transition 2 (valider la
 copie ; Abandonner = l'original est gardé) → destruction dans la plage. Pas de retour en arrière : l'original n'est
 touché qu'après la transition 2.
+
+## Virtualisation directe sur le LAN, d'agent à agent (livraison #751, agent 0.5.59)
+
+Méthode `lan` du plan de migration (Contrôle PVE › Migration, méthode par défaut) pour un poste et un nœud Proxmox du
+même LAN : **le hub orchestre seulement, l'image ne passe pas par lui**.
+
+1. Préparations source / cible et VM réceptacle : comme #748 (volume temporaire LVM-thin hors disque système).
+2. Nœud (`p2v` `receive`) : récepteur HTTP temporaire sur son IP LAN (détectée, ou `lan_ip`), port 6461 par défaut,
+   jeton à usage unique (`X-P2V-Token`), éventuellement limité à l'IP du poste (`source_ip`). Écrit dans le volume
+   temporaire au fil de l'eau ; condensé SHA-256 tenu à jour ; fermé après la clôture, après 12 h d'inactivité ou au
+   nettoyage (`cleanup`).
+3. Poste (`image_host` avec `push_url` / `push_token`) : image à chaud puis envoi par le même fil que vers le central
+   (morceaux de 8 Mo, reprise à l'octet près, débit borné `bwlimit_mbps`) mais vers le nœud : connexion SORTANTE du poste,
+   rien à ouvrir dans son pare-feu. Le nœud vérifie taille et condensé et émet `image-fetched` ; le plan enchaîne import,
+   nettoyage et transitions.
+
+Pare-feu du nœud : le port du récepteur doit être joignable depuis le poste (firewall Proxmox désactivé, ou règle
+d'entrée sur 6461/tcp). Le flux est en HTTP clair sur le LAN (jeton à usage unique) : pour un LAN non maîtrisé, garder
+la méthode `direct` (relais par le hub en HTTPS).

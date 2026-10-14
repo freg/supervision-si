@@ -14,18 +14,18 @@ ACTIONS = ("migrate", "backup", "move_disk", "clone", "replicate", "unreplicate"
            # le plan attend « Reprendre » ou « Abandonner » depuis le hub)
            "create", "import_disk", "set", "destroy", "image_host", "host_shutdown", "checkpoint",
            # #748 : virtualisation directe pilotée par les deux agents (préparation source / cible, lecture par relais, nettoyage)
-           "p2v_prepare_source", "p2v_prepare_target", "p2v_fetch", "p2v_cleanup",
+           "p2v_prepare_source", "p2v_prepare_target", "p2v_fetch", "p2v_cleanup", "p2v_receive",   # #751 : récepteur LAN du nœud
            # #750 : rapatriement depuis un nœud distant (pve-remote.json de l'agent du nœud local) -- export + restauration,
            # vérification original / copie, destruction de l'original par tranches (refusée sans vérification réussie)
            "xfer_export", "xfer_verify", "xfer_destroy")
 REQUIRED = {"migrate": ("target",), "backup": ("storage",), "move_disk": ("disk", "storage"), "clone": ("newid",), "replicate": ("target",), "snapshot": ("snapname",), "rollback": ("snapname",),
             "create": ("name",), "import_disk": ("source", "storage"), "set": ("options",), "destroy": ("confirm",), "image_host": ("target",),
-            "p2v_prepare_target": ("job",), "p2v_fetch": ("source_agent",), "p2v_cleanup": ("job",),
+            "p2v_prepare_target": ("job",), "p2v_fetch": ("source_agent",), "p2v_cleanup": ("job",), "p2v_receive": ("import_dir",),
             "xfer_export": ("remote", "vmid", "newid", "storage"), "xfer_verify": ("remote", "vmid", "newid"), "xfer_destroy": ("remote", "vmid", "copy", "confirm")}
 HOST_ACTIONS = ("image_host", "host_shutdown",          # adressées à l'agent du serveur source (pas de vmid)
-                "p2v_prepare_source", "p2v_prepare_target", "p2v_fetch", "p2v_cleanup",   # #748 : source ou nœud, sans vmid
+                "p2v_prepare_source", "p2v_prepare_target", "p2v_fetch", "p2v_cleanup", "p2v_receive",   # #748 / #751 : source ou nœud, sans vmid
                 "xfer_export", "xfer_verify", "xfer_destroy")                             # #750 : vmid distant dans params
-P2V = {"p2v_prepare_source": "prepare_source", "p2v_prepare_target": "prepare_target", "p2v_fetch": "fetch", "p2v_cleanup": "cleanup"}
+P2V = {"p2v_prepare_source": "prepare_source", "p2v_prepare_target": "prepare_target", "p2v_fetch": "fetch", "p2v_cleanup": "cleanup", "p2v_receive": "receive"}
 XFER = {"xfer_export": "export", "xfer_verify": "verify", "xfer_destroy": "destroy"}
 CENTRAL_ACTIONS = ("role_switch", "checkpoint")          # exécutées par le central
 STEP_TIMEOUT = 3600
@@ -195,6 +195,7 @@ def _execute(db_path, plan, rid, continue_on_error, sleep):
             if src["action"] == "p2v_prepare_source": ctx.update(src_target=r.get("target"), need_bytes=r.get("need_bytes"))
             if src["action"] == "p2v_prepare_target": ctx.update(import_dir=r.get("import_dir"), vg=r.get("vg") or "pve")
             if src["action"] == "p2v_fetch": ctx["fetch_agent"] = st["agent_id"]
+            if src["action"] == "p2v_receive": ctx.update(push_url=r.get("url"), push_token=r.get("token"), fetch_agent=st["agent_id"])   # #751
         if st["status"] == "done" and src["action"] in XFER:          # #750 : action détachée -- attendre sa fin (xfer-done / xfer-failed)
             _save_run(db_path, rid, status, steps)
             fin = _wait_xfer(db_path, st["agent_id"], cid, baseline, sleep)
