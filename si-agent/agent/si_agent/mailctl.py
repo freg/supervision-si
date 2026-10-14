@@ -15,6 +15,8 @@
   mailbox_search    toutes les boîtes (doveadm, -A ou -u motif) ; de, à,
                     sujet, corps, plein texte, période, dossier
   mailbox_get       message d'une boîte (source brute)                  [motif]
+  #752 (mailadmin) : queue_list, queue_action [motif], delivery_failures, lists, list_set [motif], settings_get,
+                     settings_set [motif]
 
 Jokers `*` et `?` partout (insensibles à la casse). Secret des
 correspondances : consulter un contenu ou libérer exige un `reason` ; chaque
@@ -39,7 +41,9 @@ AUDIT_LOG = "/var/log/si-agent/mail-audit.log"
 AMAVIS_CONF = ("/etc/amavis/conf.d", "/etc/amavis", "/etc/amavisd")
 MAX_RAW = 3 * 1024 * 1024
 MAX_LIMIT = 300
-CONTENT_ACTIONS = ("quarantine_get", "quarantine_release", "mailbox_get", "wblist_set")   # motif obligatoire, journalisé
+CONTENT_ACTIONS = ("quarantine_get", "quarantine_release", "mailbox_get", "wblist_set",
+                   "queue_action", "list_set", "settings_set")   # #752 : actions d'exploitation (file, listes, réglages)
+ADMIN_ACTIONS = ("queue_list", "queue_action", "delivery_failures", "lists", "list_set", "settings_get", "settings_set")   # #752 : mailadmin   # motif obligatoire, journalisé
 
 MONTHS = {m: i for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)}
 SYSLOG_RE = re.compile(r"^(?P<mon>[A-Z][a-z]{2}) +(?P<day>\d{1,2}) (?P<hms>\d\d:\d\d:\d\d) \S+ (?P<prog>[\w/.-]+)(?:\[\d+\])?: (?P<msg>.*)$")
@@ -811,6 +815,10 @@ def run_action(params, now=None, runner=run, log_path="/var/log/mail.log", dsn_d
                 return {"ok": False, "error": "message absent de la quarantaine (déjà libéré ou purgé ?)"}
             return dict(_raw(data), ok=True, mail_id=mid)
         return release_one(mid, params, dsn, runner)
+    if action in ADMIN_ACTIONS:                         # #752 : file, échecs de distribution, listes, réglages
+        from . import mailadmin
+        return mailadmin.run_admin(action, params, now, runner, log_lines=lambda h: read_logs(log_path, now - h * 3600, now),
+                                   parse_time=parse_time, amavis_dirs=dsn_dirs)
     if action == "mailbox_search":
         return mailbox_search(params, now, runner)
     if action == "mailbox_get":

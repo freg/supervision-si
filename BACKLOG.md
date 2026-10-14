@@ -3807,7 +3807,7 @@ l'agent du poste à l'agent du Proxmox du site ; le hub orchestre seulement. Cib
 nœud (jeton à usage unique du hub, fermé à la fin), la source pousse (sortant, rien à ouvrir côté Windows), fenêtre
 bornée + 429, bwlimit, reprise à l'offset, sha256 ; relais par le hub seulement en repli explicite.
 
-### 125. Tuile serveur de messagerie : exploitation complète (#752)
+### 125. Tuile serveur de messagerie : exploitation complète (#752) — LIVRÉ #752
 Demande (14/10/2026) : faire évoluer la tuile Serveur de messagerie (#697) -- observer, reparamétrer, gérer les incidents
 et leur suivi ; antispam (Amavis/SpamAssassin : scores, quarantaine, réglages) ; listes blanches / grises / noires
 (postscreen, postgrey, expéditeurs, RBL) ; échecs de distribution vers les serveurs distants (file d'attente, reports,

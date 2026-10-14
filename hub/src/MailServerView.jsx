@@ -8,13 +8,16 @@
 //   - Visualiseur : aperçu HTML isolé (aucun script, aucun chargement distant),
 //     texte, source, en-têtes, structure MIME, téléchargement .eml ;
 //   - Quarantaine (#704) : niveaux, statistiques, redistribution, règles (MailQuarantine.jsx) ;
-//   - Journal : arbre programme → évènement → lignes.
+//   - Journal : arbre programme → évènement → lignes ;
+//   - #752 : Incidents (suivi, conduite à tenir), File d'attente, Échecs de distribution, Listes (blanche / grise /
+//     noire : tables Postfix, postscreen, postgrey, DNS), Réglages (Postfix, Amavis / SpamAssassin) -- MailOps.jsx.
 // Secret des correspondances : ouvrir un message ou le libérer exige un motif,
 // journalisé sur le serveur avec l'acteur (comme chaque recherche).
 import { Fragment, useEffect, useMemo, useState } from "react";
 import HubIcon from "./HubIcon.jsx";
 import MailServerSection from "./MailServerSection.jsx";
 import MailQuarantine from "./MailQuarantine.jsx";
+import { MailIncidents, MailQueue, MailFailures, MailLists, MailSettings } from "./MailOps.jsx";   // #752 : exploitation
 import { fetchFleet, fetchAgentMeasurements, sendCommand, fetchCommand, openInteractive, closeInteractive } from "./siAgentClient.js";
 import { summarize, safeHtmlDocument } from "./mailMime.js";
 import { downloadCsv, MAIL_EXPORTS } from "./mailCsv.js";   // #713
@@ -120,16 +123,22 @@ export default function MailServerView({ onBack, siAgentApiBase, username, isAdm
               {agents.map((a) => <option key={a.agent_id} value={a.agent_id}>{a.agent_id}{a.hostname ? ` — ${a.hostname}` : ""}</option>)}
             </select></label>
             <label style={{ flex: "1 1 320px" }}>Motif de consultation <input style={{ width: "100%" }} value={reason} onChange={(e) => setReason(e.target.value)}
-              placeholder="ex. demande de l'utilisateur, faux positif signalé (obligatoire pour ouvrir ou libérer, journalisé)" /></label>
+              placeholder="ex. demande de l'utilisateur, faux positif signalé (obligatoire pour ouvrir, libérer ou modifier ; journalisé)" /></label>
           </div>
           <div className="na-section-tabs" style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-            {[["traitements", "Traitements"], ["recherche", "Recherche"], ["quarantaine", "Quarantaine"], ["journal", "Journal"]].map(([k, l]) =>
+            {[["incidents", "Incidents"], ["traitements", "Traitements"], ["file", "File d'attente"], ["echecs", "Échecs de distribution"], ["recherche", "Recherche"], ["quarantaine", "Quarantaine"],
+              ["listes", "Listes"], ["reglages", "Réglages"], ["journal", "Journal"]].map(([k, l]) =>
               <button key={k} className={`secondary na-section-toggle${tab === k ? " active" : ""}`} onClick={() => setTab(k)}>{l}</button>)}
           </div>
           {tab === "traitements" && <Treatments probe={probe} run={run} />}
           {tab === "recherche" && <Search run={run} onOpen={open} onRelease={release} />}
           {tab === "quarantaine" && <MailQuarantine run={run} reason={reason} onOpen={open} />}
           {tab === "journal" && <LogTree run={run} />}
+          {tab === "incidents" && <MailIncidents base={base} agentId={agentId} probe={probe} onTab={setTab} />}
+          {tab === "file" && <MailQueue run={run} reason={reason} />}
+          {tab === "echecs" && <MailFailures run={run} />}
+          {tab === "listes" && <MailLists run={run} reason={reason} />}
+          {tab === "reglages" && <MailSettings run={run} reason={reason} />}
           <p className="muted" style={{ fontSize: 12 }}>Chaque action passe par l'agent du serveur. Tant que cette page est ouverte, il relève ses commandes toutes les quelques secondes (la toute première réponse peut prendre jusqu'à une minute, le temps qu'il s'en aperçoive).</p>
         </>
       )}

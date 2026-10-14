@@ -1510,3 +1510,26 @@ même LAN : **le hub orchestre seulement, l'image ne passe pas par lui**.
 Pare-feu du nœud : le port du récepteur doit être joignable depuis le poste (firewall Proxmox désactivé, ou règle
 d'entrée sur 6461/tcp). Le flux est en HTTP clair sur le LAN (jeton à usage unique) : pour un LAN non maîtrisé, garder
 la méthode `direct` (relais par le hub en HTTPS).
+
+## Serveur de messagerie : exploitation -- incidents, file, échecs de distribution, listes, réglages (livraison #752, agent 0.5.60)
+
+Nouveaux onglets de la tuile « Serveur de messagerie » (commande `mail`, module `mailadmin.py`). Toute modification
+exige le motif saisi en haut de la page ; elle est journalisée sur le serveur (`/var/log/si-agent/mail-audit.log`).
+
+- **Incidents** : constats en cours de la sonde `mail-server` avec la conduite à tenir et un lien vers l'onglet qui
+  permet d'agir ; suivi sur 7 / 30 / 90 jours (incident ouvert à l'apparition d'un constat, clos à sa disparition,
+  durée, occurrences et durée cumulée par constat).
+- **File d'attente** : `postqueue -j` -- regroupement par domaine distant (messages, plus ancien, motifs normalisés) ;
+  relancer la file, recalculer les routes des reports, tenter / router / retenir / libérer / supprimer une sélection.
+- **Échecs de distribution** : reports et rebonds du journal par domaine, code DSN et motif normalisé, classés par
+  nature (réputation / liste noire, SPF-DKIM-DMARC, boîte inexistante, boîte pleine, limitation / greylisting, serveur
+  injoignable / DNS, TLS).
+- **Listes** : tables d'accès découvertes dans `postconf` (client, expéditeur, destinataire, HELO, postscreen) et listes
+  blanches postgrey, entrées classées blanche (OK / permit) / grise (4xx, HOLD) / noire (REJECT / 5xx) ; ajout,
+  modification, retrait sur les tables hash / lmdb / btree / cidr / texthash et les `.local` de postgrey (sauvegarde
+  `.si-bak-…`, `postmap`, rechargement, retour à l'état antérieur si le rechargement échoue) ; listes DNS de smtpd et de
+  postscreen (action, seuil). Les règles par expéditeur d'Amavis restent dans Quarantaine › Règles de protection.
+- **Réglages** : liste fermée Postfix (délais de file, filtre avant file, limites de débit, postscreen, TLS) et Amavis /
+  SpamAssassin (processus, seuils tag / tag2 / kill, destin du spam, virus, pièces interdites, préfixe du sujet) ;
+  Postfix : `postconf -e` + `postfix check` + rechargement ; Amavis : `50-user` puis redémarrage vérifié ; en cas
+  d'échec, fichier rétabli.

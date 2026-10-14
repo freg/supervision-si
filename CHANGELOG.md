@@ -1,3 +1,12 @@
+## 2026-10-14 — Serveur de messagerie : incidents, file d'attente, échecs de distribution, listes blanche / grise / noire, réglages antispam (livraison #752)
+
+- Agent 0.5.60 : `mailadmin.py` -- actions `mail` queue_list, queue_action, delivery_failures, lists, list_set,
+  settings_get, settings_set ; motif obligatoire et journal d'audit pour les écritures ; sauvegarde et retour à l'état
+  antérieur (postmap / postfix check / reload / redémarrage d'Amavis vérifié).
+- Hub : onglets Incidents, File d'attente, Échecs de distribution, Listes, Réglages (MailOps.jsx, mailOpsLib.js).
+- Vérifié : tests agent (file, échecs, listes, réglages, retours arrière ; 16 + mailctl), hub (362), rendu des onglets.
+  Non vérifié : sur ob1 (postqueue -j demande Postfix ≥ 3.1 ; chemins réels des tables et de 50-user).
+
 ## 2026-10-14 — Virtualisation directe sur le LAN : le poste pousse son image à l'agent du nœud, le hub orchestre (livraison #751)
 
 - Agent 0.5.59 : `lanpush.py` -- récepteur temporaire (nœud : jeton à usage unique, IP source facultative, reprise par
