@@ -1,3 +1,19 @@
+## 2026-10-14 — Parc IA : hôtes, modèles, conteneurs, tests et activité ; gestes encadrés sur l'hôte (livraison #756)
+
+- Hub, tuile « Parc IA » (thème Supervision) : hôtes portant la sonde ollama ou ajoutés à la main (en-tête htop,
+  modèles avec déployer / charger / tester / supprimer, conteneurs Docker), état de l'assistant (modèle, serveur de
+  modèles joignable, index), tests (évaluations par modèle : dernier et meilleur score, critères atteints, jetons/s ;
+  tous les passages), activité par jour (appels, erreurs, temps moyen, jetons/s, usages).
+- Agent 0.5.62 : commande `hostops` -- gestes encadrés, PAS un shell : lecture (état / journal d'un service, conteneurs,
+  journal d'un conteneur, carte graphique, disques) et actions avec motif (redémarrer un service ou un conteneur, mettre à
+  jour une pile compose) ; listes blanches dans agent.json (`hostops` : units, containers, compose_dirs, enabled ;
+  défaut : ollama et docker, tous conteneurs, aucune pile) ; journal d'audit /var/log/si-agent/hostops-audit.log ;
+  sortie bornée à 20 Ko.
+- si-agent-api : `/ia/overview`, `/ia/hosts`, relais en lecture `/ia/assistant/{status,eval/summary,eval/last,journal/stats}`
+  (`ASSISTANT_API_URL`, défaut http://assistant-api:5000/assistant). Assistant : `/eval/summary`, `/journal/stats`.
+- Vérifié : tests agent (gestes : 4), assistant (33), API (1), hub (366), rendu des trois onglets (capture).
+  Non vérifié : sur pcia et super (agent à mettre en 0.5.62, assistant à reconstruire).
+
 ## 2026-10-14 — Mises à jour d'agents : version reconnue dès le redémarrage ; agents 0.5.14 à relancer à la main (livraison #755)
 
 - si-agent-api : la version d'un agent est relevée sur ses événements `agent-started` / `agent-updated`, plus seulement

@@ -64,6 +64,7 @@ export const ROOTS = [
 export const PATHS = {
   "view:aujourdhui": ["etats/maintenant", "etats/feux"],
   "view:cortex": ["cortex/correlation", "etats/incidents"],
+  "view:iapark": ["cortex/assistant", "equipements/hotes"],   // #756 : Parc IA
   "view:supervision-si": ["etats/feux", "services/metier"],
   "view:si-agent": ["equipements/hotes/agents", "etats/feux"],
   "view:netprobe": ["equipements/sondes/sondes-reseau", "equipements/reseau/wifi"],

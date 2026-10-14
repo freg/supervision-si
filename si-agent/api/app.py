@@ -1660,6 +1660,54 @@ def views_overview_route(vid):
     return jsonify(views.overview(view, rows)), 200
 
 
+ASSISTANT_API_URL = os.environ.get("ASSISTANT_API_URL", "http://assistant-api:5000/assistant").rstrip("/")   # #756
+IA_ASSISTANT_PATHS = ("status", "eval/summary", "eval/last", "journal/stats")
+
+
+@app.route("/ia/overview", methods=["GET"])
+def ia_overview_route():
+    """#756 : tuile Parc IA -- hôtes portant Ollama (sonde) ou déclarés (réglage ia_hosts) : en-tête htop, modèles,
+    conteneurs Docker (sonde docker-containers)."""
+    extra = store.get_setting(DB_PATH, "ia_hosts", None) or []
+    hosts = []
+    for a in store.fleet(DB_PATH):
+        if "ollama" not in (a.get("plugin_ids") or []) and a["agent_id"] not in extra:
+            continue
+        latest = store.latest_per_task(DB_PATH, a["agent_id"])
+        r = views.row(a, latest)
+        ol = (latest.get("plugin:ollama") or {}).get("data") or {}
+        dk = (latest.get("plugin:docker-containers") or {})
+        r.update(ollama_data=ol or None, models=ol.get("models") or [], ollama_url=ol.get("url"), ollama_error=ol.get("error"), ollama_at=(latest.get("plugin:ollama") or {}).get("at"),
+                 models_dir=ol.get("models_dir"), ollama_alerts=ol.get("alerts") or [], declared=a["agent_id"] in extra, os_family=a.get("os"),
+                 virtualization=a.get("virtualization"), hardware_model=a.get("hardware_model"),
+                 containers=(dk.get("data") or {}).get("containers"), containers_at=dk.get("at"), containers_error=dk.get("error"))
+        hosts.append(r)
+    return jsonify({"hosts": sorted(hosts, key=lambda h: h["agent_id"]), "declared": extra, "assistant": bool(ASSISTANT_API_URL)}), 200
+
+
+@app.route("/ia/hosts", methods=["PUT"])
+def ia_hosts_route():
+    """#756 : hôtes ajoutés à la main au Parc IA (ex. la VM qui fait tourner l'assistant sous Docker)."""
+    body = request.get_json(silent=True) or {}
+    ids = [str(x) for x in (body.get("agents") or []) if re.match(r"^[A-Za-z0-9._-]{1,64}$", str(x))][:100]
+    store.set_setting(DB_PATH, "ia_hosts", ids)
+    return jsonify({"declared": ids}), 200
+
+
+@app.route("/ia/assistant/<path:sub>", methods=["GET"])
+def ia_assistant_route(sub):
+    """#756 : relais en lecture vers l'assistant (même origine pour le hub) -- état, évaluations, activité."""
+    if sub not in IA_ASSISTANT_PATHS:
+        return jsonify({"error": "chemin non relayé"}), 404
+    try:
+        import urllib.request
+        q = ("?" + request.query_string.decode()) if request.query_string else ""
+        with urllib.request.urlopen(ASSISTANT_API_URL + "/" + sub + q, timeout=20) as r:
+            return app.response_class(r.read(), status=r.status, mimetype="application/json")
+    except Exception as exc:  # noqa: BLE001 -- assistant arrêté ou absent (profil compose « assistant »)
+        return jsonify({"error": "assistant injoignable (%s) : %s" % (ASSISTANT_API_URL, str(exc)[:200])}), 502
+
+
 @app.route("/infra/overview", methods=["GET"])
 def infra_overview_route():
     """#749 : tuile « Infra PVE / PBS » -- nœuds locaux et distants, VM, transferts, totaux, constats."""

@@ -1547,3 +1547,14 @@ rafraîchie toutes les 30 s ; mode compact.
 « Proposer un rangement » remplit les vues encore vides à partir des catégories (#742), de l'OS (Windows Server ->
 serveurs), de la sonde ollama (serveurs d'IA) et de l'étiquette `#perso` dans le libellé d'un agent (postes
 personnels). Réglage partagé côté central : `GET` / `PUT /views`, `GET /views/<id>/overview`.
+
+## Gestes encadrés sur l'hôte (livraison #756, agent 0.5.62)
+
+Commande `hostops`, proposée par la tuile Parc IA : une liste fermée d'actions, jamais un shell.
+Lecture : `service_status`, `journal`, `docker_ps`, `docker_logs`, `gpu`, `disk`. Actions (motif obligatoire, journalisé
+avec l'acteur dans `/var/log/si-agent/hostops-audit.log`) : `service_restart`, `docker_restart`, `compose_update`
+(`docker compose pull` puis `up -d`). Listes blanches dans `/etc/si-agent/agent.json` :
+
+    "hostops": {"units": ["ollama", "docker"], "containers": ["open-*"], "compose_dirs": ["/opt/ia"], "enabled": true}
+
+Par défaut : services ollama et docker, tous les conteneurs, aucune pile compose. `"enabled": false` coupe tout.

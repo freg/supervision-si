@@ -17,7 +17,7 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY assistant/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY assistant/app.py assistant/rag.py assistant/hubqa.py .
+COPY assistant/app.py assistant/rag.py assistant/hubqa.py assistant/stats.py .
 COPY assistant/static/ ./static/
 COPY assistant/eval/ ./eval/
 COPY shared/version_endpoint.py shared/VERSION.json .

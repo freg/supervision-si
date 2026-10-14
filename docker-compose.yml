@@ -1384,6 +1384,7 @@ services:
       - KEYCLOAK_REALM=${KEYCLOAK_REALM:-supervision-si}
       # #699 : inventaires logiciels des agents transmis à vuln-api (autre nœud : son URL interne)
       - VULN_API_URL=${VULN_API_URL:-http://vuln-api:5000}
+      - ASSISTANT_API_URL=${ASSISTANT_API_URL:-http://assistant-api:5000/assistant}   # #756 : tuile Parc IA (relais en lecture)
       - SI_AGENT_ALERT_TZ=${SI_AGENT_ALERT_TZ:-Europe/Paris}   # #607 : heures ouvrées des filtres d'alertes
       - MEMCACHED_HOST=memcached
       # URL que les agents utilisent pour joindre le central (passerelle

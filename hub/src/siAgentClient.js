@@ -198,3 +198,6 @@ export const fetchInfraOverview = (apiBase) => fetchJson(apiBase, "/infra/overvi
 export const fetchViews = (apiBase) => fetchJson(apiBase, "/views");   // #753 : vues de parc
 export const saveViews = (apiBase, views, actor) => fetchJson(apiBase, "/views", json("PUT", { views, actor }));
 export const fetchViewOverview = (apiBase, id) => fetchJson(apiBase, `/views/${encodeURIComponent(id)}/overview`);
+export const fetchIaOverview = (apiBase) => fetchJson(apiBase, "/ia/overview");   // #756 : Parc IA
+export const saveIaHosts = (apiBase, agents) => fetchJson(apiBase, "/ia/hosts", json("PUT", { agents }));
+export const fetchIaAssistant = (apiBase, sub) => fetchJson(apiBase, `/ia/assistant/${sub}`);

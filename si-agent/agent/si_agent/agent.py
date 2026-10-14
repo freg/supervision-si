@@ -855,6 +855,25 @@ class Agent(object):
                 # #748 : virtualisation directe pilotée par les deux agents (préparation source / cible, lecture relais, nettoyage)
                 res = self.p2v_action(params, c.get("id"))
                 return {"ok": res.get("ok", False), "error": res.get("error"), "result": res}
+            if ctype == "hostops":
+                # #756 : gestes encadrés (liste fermée, listes blanches d'agent.json, motif, audit) -- pas un shell
+                from . import hostops
+                if IS_WINDOWS:
+                    return {"ok": False, "error": "gestes encadrés : hôtes Linux seulement"}
+                if self.is_blocked():
+                    return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
+                if params.get("action") == "catalogue":
+                    return {"ok": True, "result": hostops.catalogue(self.cfg)}
+
+                def runner(argv, timeout):
+                    r = self.cmd(argv, timeout=timeout)
+                    return getattr(r, "returncode", 1), getattr(r, "stdout", "") or "", getattr(r, "stderr", "") or ""
+                import shutil as _sh
+                res = hostops.run(params, self.cfg, runner, which=_sh.which)
+                if params.get("action") in hostops.WRITE:
+                    self.event("hostops", "info" if res.get("ok") else "warning", "geste %s %s%s" % (params.get("action"), params.get("unit") or params.get("container") or params.get("dir") or "",
+                               "" if res.get("ok") else " -- " + str(res.get("error"))), {"command": c.get("id"), "actor": params.get("actor"), "reason": params.get("reason")})
+                return {"ok": res.get("ok", False), "error": res.get("error"), "result": res}
             if ctype == "xfer":
                 # #750 : rapatriement d'un CT / d'une VM depuis un nœud Proxmox distant (export, vérification, destruction par tranches)
                 if self.is_blocked():

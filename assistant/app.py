@@ -493,6 +493,34 @@ def eval_history(name):
         return _bad("introuvable", 404)
 
 
+@app.route(PREFIX + "/eval/summary", methods=["GET"])
+def eval_summary_route():
+    """#756 : un résumé par rapport d'évaluation (modèle, score, débit, critères atteints), du plus récent au plus ancien."""
+    import stats
+    out = []
+    for path in sorted(glob.glob(os.path.join(DATA_DIR, "eval-*.json")), reverse=True)[:100]:
+        try:
+            with open(path, encoding="utf-8") as fh:
+                out.append(stats.eval_summary(json.load(fh), os.path.basename(path)))
+        except (OSError, ValueError):
+            continue
+    return jsonify({"reports": out, "model": LLM_MODEL, "base_url": LLM_BASE}), 200
+
+
+@app.route(PREFIX + "/journal/stats", methods=["GET"])
+def journal_stats_route():
+    """#756 : activité par jour (appels, erreurs, temps moyen, jetons/s, usages) sur N jours (journal complet)."""
+    import stats
+    days = max(1, min(365, int(request.args.get("days") or 30)))
+    since = time.strftime("%Y-%m-%d", time.gmtime(time.time() - days * 86400))
+    try:
+        with open(_journal_path, encoding="utf-8") as fh:
+            rows = stats.journal_stats(fh, since)
+    except OSError:
+        rows = []
+    return jsonify({"days": rows, "since": since}), 200
+
+
 @app.route(PREFIX + "/journal", methods=["GET"])
 def journal_route():
     out = []
