@@ -3812,3 +3812,9 @@ Demande (14/10/2026) : faire évoluer la tuile Serveur de messagerie (#697) -- o
 et leur suivi ; antispam (Amavis/SpamAssassin : scores, quarantaine, réglages) ; listes blanches / grises / noires
 (postscreen, postgrey, expéditeurs, RBL) ; échecs de distribution vers les serveurs distants (file d'attente, reports,
 rebonds, motifs par domaine distant, relance).
+
+### 126. Tuile « Clients » (plus tard)
+Demande (14/10/2026) : un tableau des clients, une ligne par client, et un onglet par client ouvert depuis la ligne.
+Colonnes et contenu de l'onglet : sites, serveurs, services, agents, santé. Dans l'onglet d'un client, un volet ou
+sous-onglet « htop » (vues de parc #753 filtrées sur ses agents) et « Nebula » (#555, #747, #758) ; autres sources à
+définir client par client. Rappel : jamais le nom réel d'un client dans le dépôt (exemples `site-alpha`).
