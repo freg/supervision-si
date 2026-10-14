@@ -11,6 +11,7 @@
   chargées, bornes restées vides, pic du site."""
 from datetime import datetime
 
+import anticipation
 import topology
 
 DEFAULTS = {"enabled": False, "sample_minutes": 10, "ap_warn": 25, "ap_crit": 40, "site_warn": 0,
@@ -42,6 +43,7 @@ def normalize(cfg, time_ok, weekdays_of):
            "status_delay_minutes": _int(cfg.get("status_delay_minutes", 5), 0, 1440, 5)}
     if out["ap_crit"] < out["ap_warn"]:
         out["ap_crit"] = out["ap_warn"]
+    out["anticipation"] = anticipation.normalize(cfg.get("anticipation"))   # #758
     r = cfg.get("recap") if isinstance(cfg.get("recap"), dict) else {}
     d = DEFAULTS["recap"]
     t = str(r.get("time") or d["time"]).strip()

@@ -1,3 +1,17 @@
+## 2026-10-14 — Anticipation Wi-Fi : pic habituel attendu, affluence inhabituelle, bornes instables, disponibilité, étendues DHCP (livraison #758)
+
+- nebula-api, `anticipation.py` (BACKLOG 122, points 1, 2 et 4) : profil habituel par borne × jour × heure (maximum de
+  chaque créneau, comparé d'une semaine à l'autre : médiane et p90) ; alerte AVANT un pic habituel (horizon réglable, 2 h
+  par défaut) ; affluence inhabituelle (habituel + marge) ; battements d'état (≥ 3 passages hors ligne / en alerte en
+  24 h : PoE, câble, port) ; disponibilité 7 / 30 jours par appareil ; occupation des étendues DHCP déclarées par SSID
+  (80 / 95 %). Constats suivis comme ceux de l'occupation, action `nebula.anticipation`. Route `GET /report/anticipation`.
+- Hub, tuile Nebula › Rapports › Occupation : section « Anticipation » (réglages, alertes, prochaines heures par borne,
+  disponibilité, étendues DHCP).
+- Vérifié : tests nebula anticipation (5) ; suite nebula : deux échecs préexistants de test_report_routes, inchangés.
+  Non vérifié : sur les relevés réels (il faut 2 semaines de relevés pour les premières prévisions).
+- Reste de l'item 122 : ports des commutateurs vers les bornes, licences / micrologiciels, bandes et signal,
+  corrélation avec les sondes de terrain et Cortex.
+
 ## 2026-10-14 — Passe « pleine largeur » : toutes les tuiles utilisent la largeur du navigateur, glissières visibles partout (livraison #757)
 
 - Hub (hub.css) : plafonds de 1400 / 1800 px retirés de l'accueil et de tous les écrans `.hub-settings` (la plupart des

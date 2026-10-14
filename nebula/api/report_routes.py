@@ -14,7 +14,7 @@ import json
 import os
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask import Response, jsonify, request
 
@@ -33,7 +33,8 @@ ACTIONS = [{"id": "nebula.anomalie-urgente", "label": "Anomalie réseau persista
            # #747 : occupation des bornes Wi-Fi et alertes Nebula
            {"id": "nebula.occupation-seuil", "label": "Borne Wi-Fi : seuil d'occupation ou de signal dépassé", "severity": "warning"},
            {"id": "nebula.alerte-nebula", "label": "Alerte Nebula : appareil hors ligne ou en alerte", "severity": "critical"},
-           {"id": "nebula.occupation-recap", "label": "Récapitulatif de l'occupation des bornes Wi-Fi", "severity": "info"}]
+           {"id": "nebula.occupation-recap", "label": "Récapitulatif de l'occupation des bornes Wi-Fi", "severity": "info"},
+           {"id": "nebula.anticipation", "label": "Wi-Fi : pic attendu, affluence inhabituelle, borne instable, étendue DHCP presque pleine", "severity": "warning"}]   # #758
 OCC_TRACK = {"enabled": True, "min_severity": "moyenne", "delay_minutes": 0, "repeat_hours": 0, "notify_recovery": True}
 MIME = {"csv": "text/csv", "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "pdf": "application/pdf"}
 
@@ -126,6 +127,23 @@ def _notify(action, subject, body, cfg, attachments=None, severity=None):
                                 to=cfg["recipients"], attachments=attachments)
 
 
+def _ant_inputs(conn, now_ts, site_id=None):
+    """#758 : profil habituel (35 jours de relevés) et transitions Nebula des dernières 24 h (ou 30 j pour la disponibilité)."""
+    import anticipation
+    q = "SELECT dev_id, at, clients, name, site_id FROM nebula_occupancy WHERE at >= ?" + (" AND site_id = ?" if site_id else "")
+    rs = conn.execute(q, (int(now_ts) - 35 * 86400,) + ((site_id,) if site_id else ())).fetchall()
+    names = {r["dev_id"]: r["name"] for r in rs}
+    return anticipation.profile([(r["dev_id"], r["at"], r["clients"]) for r in rs]), names
+
+
+def _transitions(conn, site_id, since):
+    try:
+        return [(r["dev_id"], r["from_status"], r["to_status"], r["at"]) for r in conn.execute(
+            "SELECT dev_id, from_status, to_status, at FROM nebula_status_transitions WHERE site_id = ? AND at >= ? ORDER BY at", (site_id, int(since))).fetchall()]
+    except Exception:  # noqa: BLE001 -- base sans sondeur d'état (table absente) : pas de battements
+        return []
+
+
 def occupancy_pass(cfg, now_ts, now_dt, force_sample=False):
     """#747 : relevé d'occupation (si dû), seuils et alertes Nebula, récapitulatif si dû."""
     occ = cfg["occupancy"]
@@ -154,6 +172,17 @@ def occupancy_pass(cfg, now_ts, now_dt, force_sample=False):
                                  (sid, ap["dev_id"], ap["name"], int(now_ts), ap["clients"], ap["weak"]))
                     out["sampled"] += 1
                 rows += occupancy.breaches(sid, sname, snap, statuses, names, occ, now_ts)
+                ant = occ["anticipation"]
+                if ant["enabled"]:                    # #758 : pic attendu, affluence inhabituelle, battements d'état
+                    import anticipation
+                    prof, pnames = _ant_inputs(conn, now_ts, sid)
+                    nm = dict(pnames, **(names or {}))
+                    rows += anticipation.forecast(prof, nm, sid, sname, now_dt, occ, ant)
+                    rows += anticipation.unusual(prof, snap["aps"], nm, sid, sname, now_dt, ant)
+                    rows += anticipation.flapping(_transitions(conn, sid, now_ts - 86400), nm, sid, sname, now_ts, ant)
+            if occ["anticipation"]["enabled"] and occ["anticipation"]["dhcp_pools"]:
+                import anticipation
+                rows += anticipation.dhcp(snaps, occ["anticipation"])[1]
             conn.execute("DELETE FROM nebula_occupancy WHERE at < ?", (int(now_ts) - 35 * 86400,))
             conn.commit()
         finally:
@@ -162,7 +191,8 @@ def occupancy_pass(cfg, now_ts, now_dt, force_sample=False):
         state, raised, recovered = alerting.track(kv_get("occ_state", {}), rows, now_ts, OCC_TRACK)
         kv_set("occ_state", state)
         for kind, action, sev, label in (("occupation", "nebula.occupation-seuil", "warning", "Occupation Wi-Fi"),
-                                         ("nebula", "nebula.alerte-nebula", "critical", "Alerte Nebula")):
+                                         ("nebula", "nebula.alerte-nebula", "critical", "Alerte Nebula"),
+                                         ("anticipation", "nebula.anticipation", "warning", "Anticipation Wi-Fi")):
             sel = [r for r in raised if r.get("kind") == kind]
             if sel:
                 body = report.text_summary(sel, "%s : %d constat(s)" % (label, len(sel)))
@@ -349,6 +379,48 @@ def register(app, hooks, start_loop=True):
         return jsonify({"current": kv_get("occ_current", {}), "recap": occupancy_recap(cfg, hours), "hours": hours,
                         "open": list((state.get("open") or {}).values())[:200], "resolved_24h": alerting.resolved_since(state, time.time() - 86400)[-50:],
                         "next_recap": nr.isoformat(timespec="minutes") if nr else None}), 200
+
+    @app.route("/report/anticipation", methods=["GET"])
+    def report_anticipation():
+        """#758 : prochaines heures attendues par borne, affluence inhabituelle, battements 24 h, disponibilité 7 / 30 j,
+        étendues DHCP -- calculé à la demande sur les relevés et transitions enregistrés."""
+        import anticipation
+        cfg = settings(); occ = cfg["occupancy"]; ant = occ["anticipation"]
+        now_ts, now_dt = time.time(), datetime.now()
+        cur = kv_get("occ_current", {}) or {}
+        conn = _hooks["conn"]()
+        try:
+            prof, names = _ant_inputs(conn, now_ts)
+            sites = {}
+            for sid, snap in (cur.get("sites") or {}).items():
+                for ap in snap.get("aps") or []:
+                    names.setdefault(ap["dev_id"], ap.get("name"))
+                tr30 = _transitions(conn, sid, now_ts - 30 * 86400)
+                try:
+                    cur_status = {r["dev_id"]: r["status"] for r in conn.execute("SELECT dev_id, status FROM nebula_status_current WHERE site_id = ?", (sid,)).fetchall()}
+                except Exception:  # noqa: BLE001
+                    cur_status = {}
+                sites[sid] = {"flapping": anticipation.flapping(tr30, names, sid, sid, now_ts, ant),
+                              "unusual": anticipation.unusual(prof, snap.get("aps"), names, sid, sid, now_dt, ant),
+                              "availability_7": anticipation.availability(tr30, cur_status, now_ts, 7),
+                              "availability_30": anticipation.availability(tr30, cur_status, now_ts, 30)}
+        finally:
+            conn.close()
+        base = now_dt.replace(minute=0, second=0, microsecond=0)
+        hours = [(base + timedelta(hours=h)) for h in range(1, ant["horizon_hours"] + 4)]
+        nexts = []
+        for dev in sorted(prof, key=lambda d: names.get(d) or d):
+            exp = [anticipation.expected(prof, dev, t, ant["min_weeks"]) for t in hours]
+            if any(exp):
+                nexts.append({"dev_id": dev, "name": names.get(dev) or dev, "hours": [{"at": t.strftime("%H:%M"), "p50": e and e["p50"], "p90": e and e["p90"], "weeks": e and e["weeks"]} for t, e in zip(hours, exp)]})
+        table, _rows = anticipation.dhcp(cur.get("sites") or {}, ant)
+        forecast = [r for sid in (cur.get("sites") or {}) for r in anticipation.forecast(_site_prof(prof, cur, sid), names, sid, sid, now_dt, occ, ant)]
+        return jsonify({"settings": ant, "thresholds": {"ap_warn": occ["ap_warn"], "ap_crit": occ["ap_crit"]}, "next_hours": nexts, "forecast": forecast,
+                        "sites": sites, "dhcp": table, "names": names}), 200
+
+    def _site_prof(prof, cur, sid):
+        devs = {ap["dev_id"] for ap in ((cur.get("sites") or {}).get(sid) or {}).get("aps") or []}
+        return {d: v for d, v in prof.items() if d in devs}
 
     @app.route("/report/occupancy/send", methods=["POST"])
     def report_occupancy_send():

@@ -3,6 +3,7 @@
 // en cours. Données : nebula-api /report/occupancy ; réglages enregistrés avec ceux du rapport (PUT /report/settings).
 import { useEffect, useState } from "react";
 import { AutoColumns } from "./TableColumns.jsx";
+import NebulaAnticipation from "./NebulaAnticipation.jsx";   // #758
 
 const DAYS = [[1, "lun"], [2, "mar"], [3, "mer"], [4, "jeu"], [5, "ven"], [6, "sam"], [7, "dim"]];
 const when = (t) => (t ? new Date(t * 1000).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
@@ -61,6 +62,7 @@ export default function NebulaOccupancy({ base, cfg, setCfg, call, groups, login
           <ul style={{ fontSize: 13 }}>{data.open.map((e) => <li key={e.id}><span className={`np-tone ${e.severity === "haute" ? "bad" : "warn"}`}>{e.kind === "nebula" ? "Nebula" : "occupation"}</span> {e.message} · depuis {when(e.first_seen)}</li>)}</ul>
         </details>
       )}
+      {o.anticipation && <div style={{ marginTop: 12, borderTop: "1px solid var(--border)", paddingTop: 8 }}><NebulaAnticipation base={base} cfg={cfg} setCfg={setCfg} call={call} /></div>}
     </div>
   );
 }
