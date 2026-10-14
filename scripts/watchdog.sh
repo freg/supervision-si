@@ -32,7 +32,7 @@ After=docker.service
 Requires=docker.service
 [Service]
 Type=oneshot
-ExecStart=$ROOT/scripts/watchdog.sh
+ExecStart=/bin/bash $ROOT/scripts/watchdog.sh
 UNIT
     cat > /etc/systemd/system/supervision-watchdog.timer <<UNIT
 [Unit]
