@@ -982,7 +982,7 @@ def collect(pve, hostname=None, now=None, connector=None):
         for g in guests:
             vmid = g.get("vmid")
             vm = {"vmid": vmid, "name": g.get("name"), "type": kind, "node": node,
-                  "status": g.get("status"), "cpu": g.get("cpu"),
+                  "status": g.get("status"), "cpu": g.get("cpu"), "maxcpu": g.get("cpus") or g.get("maxcpu"),   # #749 : htop
                   "mem": g.get("mem"), "maxmem": g.get("maxmem"),
                   "disk": g.get("disk"), "maxdisk": g.get("maxdisk"),
                   "uptime_s": g.get("uptime"), "template": bool(g.get("template")),

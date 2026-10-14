@@ -3793,3 +3793,10 @@ champ éditable dans la fiche, priorité affectation > catalogue > manifeste ; v
 7. Corrélation avec les sondes de terrain (wifi-probe : BSS Load / occupation du canal ; path-probe : DHCP, DNS, HTTP)
    et Cortex : un constat de sonde + une borne chargée = cause probable proposée.
 
+
+
+### 123. Passe « pleine largeur » sur toutes les tuiles du hub
+Demande (14/10/2026) : la quasi-totalité des interfaces n'utilise pas toute la largeur du navigateur, et quand elles le
+font, les glissières sont peu visibles. Modèle : tuile Infra PVE / PBS (#749) -- conteneur 100 % largeur et hauteur
+fenêtre, grilles auto-fill, glissières 14 px contrastées (`.infra-scroll`), en-têtes de tableau collants. À généraliser.
+

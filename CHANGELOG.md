@@ -1,3 +1,23 @@
+## 2026-10-14 — Tuile « Infra PVE / PBS » : vue d'ensemble locale + OVH, transferts, onglet htop (livraison #749)
+
+- Sonde livrée `node-activity` (agent 0.5.57, désactivée, 2 min) : un même relevé shell pour l'hôte et pour chaque nœud
+  distant de `pve-remote.json` (un ssh par nœud, lecture seule) -- CPU global et par cœur, charge, tâches, uptime, mémoire,
+  swap, partitions, pools ZFS, débit par interface (rx/tx), connexions (`ss -s`), transferts en cours (vzdump,
+  restaurations, importdisk, zfs send/recv, rsync, scp, compression ; chemins de clé masqués) et fichiers qui grossissent
+  dans les dossiers surveillés (débit) ; constats disque > 90 %, pool > 85 %, nœud injoignable, transfert arrêté.
+- `pve-remote` et `proxmox` : CPU, vCPU, mémoire et uptime par VM (en-tête htop des VM).
+- si-agent-api : `GET /infra/overview` (`infra.py`, assemblage pur : nœuds locaux / distants, PBS, VM, transferts,
+  totaux par zone -- stockages « dir » d'un même système de fichiers comptés une fois -- et constats).
+- Hub : tuile « Infra PVE / PBS » (thème Équipements) PLEINE LARGEUR, glissières visibles ; onglets Synthèse
+  (indicateurs par zone, anneaux stockages et VM, histogrammes remplissage avec seuils 85/95 %, CPU et mémoire,
+  débit, connexions, invités, débit des transferts), htop (une ligne par hôte puis ses VM : CPU, cœurs, mémoire, swap,
+  tâches, charge, uptime, état ; tri par colonne), Transferts, Constats ; filtre local / distant ; rafraîchie 30 s.
+  Palette catégorielle validée (clair / sombre), états avec icône + libellé.
+- Vérifié : `node-activity/test_node_activity.py` (relevé complet, deux passages : CPU, cœurs, débits, fichiers ;
+  constats ; texte vide), `api/test_z_infra.py` (assemblage, route), `si-agent/api`, tests agent, `node --test`
+  (dont tests/infraLib.test.mjs), rendu Chromium de la tuile sur données simulées (clair, sombre, htop).
+  Non vérifié : relevés réels des nœuds OVH (PVE 5.4 : `ss`, `zpool` présents ?).
+
 ## 2026-10-14 — Virtualisation directe pilotée par les deux agents, relais à fenêtre bornée (livraison #748)
 
 Cas réel : l'image P2V d'un poste (68 Go) copiée à la main sur le Proxmox du campus a rempli son disque système à 100 %

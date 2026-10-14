@@ -1,0 +1,13 @@
+{
+  "id": "node-activity",
+  "version": "1",
+  "runner": "python",
+  "entry": "node_activity.py",
+  "interval_seconds": 120,
+  "timeout_seconds": 110,
+  "args": ["--watch", "/var/lib/vz/dump,/var/lib/vz/import,/data/dump", "--remote", "/etc/si-agent/pve-remote.json"],
+  "enabled": false,
+  "description": "Activité des nœuds (#749) : CPU, charge, mémoire, partitions, pools ZFS, débit par interface, connexions (ss -s), transferts en cours (vzdump, restaurations, importdisk, zfs send/recv, rsync, scp, compression) et fichiers qui grossissent dans les dossiers surveillés (débit, fin estimée). Hôte local + nœuds distants du fichier pve-remote.json (un appel ssh par nœud et par passage, lecture seule). Alimente la tuile « Infra PVE / PBS ». Constats : disque > 90 %, pool ZFS > 85 %, transfert arrêté, nœud injoignable. Privilégiée : clé ssh des nœuds distants, état dans /var/lib/si-agent.",
+  "source": "bundled",
+  "privileged": true
+}

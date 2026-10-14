@@ -99,7 +99,9 @@ def from_resources(items, node_name=None):
         if r.get("type") not in ("lxc", "qemu") or (node_name and r.get("node") and r["node"] != node_name):
             continue
         out.append({"vmid": int(r.get("vmid") or 0), "name": r.get("name") or "", "type": r["type"], "status": r.get("status") or "",
-                    "maxdisk": r.get("maxdisk"), "disk": r.get("disk"), "node": r.get("node")})
+                    "maxdisk": r.get("maxdisk"), "disk": r.get("disk"), "node": r.get("node"),
+                    # #749 : en-tête façon htop des VM (tuile Infra PVE / PBS)
+                    "cpu": r.get("cpu"), "maxcpu": r.get("maxcpu"), "mem": r.get("mem"), "maxmem": r.get("maxmem"), "uptime": r.get("uptime")})
     return out
 
 

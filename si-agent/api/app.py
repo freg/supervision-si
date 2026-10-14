@@ -48,6 +48,7 @@ import updates  # noqa: E402
 import pra  # noqa: E402  -- #653 : plans PRA / opérations PVE
 import maint  # noqa: E402  -- #705 : maintenance / réorganisation des Proxmox
 import migration  # noqa: E402  -- #658 : migration serveur -> virtualisation (générateur de plan)
+import infra  # noqa: E402  -- #749 : vue d'ensemble PVE / PBS
 import rotation  # noqa: E402  -- #743 : tournées de mesures réparties (supervision distribuée, item 120)
 import json  # noqa: E402
 import notify  # noqa: E402
@@ -1629,6 +1630,17 @@ def image_relay_route(agent_id, src_agent):
     if st in (403, 404, 416):
         return jsonify({"error": {403: "relais réservé à un autre agent", 404: "aucun relais", 416: "offset au-delà de ce qui est disponible"}[st]}), st, hdr
     return Response(data, status=st, headers=hdr, mimetype="application/octet-stream")
+
+
+@app.route("/infra/overview", methods=["GET"])
+def infra_overview_route():
+    """#749 : tuile « Infra PVE / PBS » -- nœuds locaux et distants, VM, transferts, totaux, constats."""
+    conn = store._connect(DB_PATH)
+    try:
+        args = [infra.latest(conn, t) for t in ("plugin:node-activity", "plugin:proxmox", "plugin:pve-remote", "plugin:pbs")]
+    finally:
+        conn.close()
+    return jsonify(infra.overview(*args)), 200
 
 
 @app.route("/images", methods=["GET"])

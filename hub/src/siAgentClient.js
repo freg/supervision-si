@@ -194,3 +194,4 @@ export const fetchRotations = (apiBase) => fetchJson(apiBase, "/rotations");
 export const saveRotation = (apiBase, body, id) => fetchJson(apiBase, id ? `/rotations/${id}` : "/rotations", json(id ? "PUT" : "POST", body));
 export const deleteRotation = (apiBase, id) => fetchJson(apiBase, `/rotations/${id}`, { method: "DELETE" });
 export const fetchRotationRuns = (apiBase, id) => fetchJson(apiBase, `/rotations/${id}/runs?limit=100`);
+export const fetchInfraOverview = (apiBase) => fetchJson(apiBase, "/infra/overview");   // #749
