@@ -1,3 +1,14 @@
+## 2026-10-14 — Mises à jour en pied de page du hub, avec un bouton vers chaque écran nouveau ou modifié (livraison #762)
+
+- Hub : pied de page « ▸ Mises à jour (dernière : #N du JJ/MM) » -- les 40 dernières livraisons (numéro, date, titre)
+  et, pour chacune, des boutons vers les tuiles nouvelles (« Nouveau · ») et les écrans modifiés (avec l'onglet ou la
+  section concernée) ; bouton grisé si l'écran n'est pas disponible pour la personne ou sur ce déploiement. État
+  ouvert / fermé mémorisé dans le navigateur.
+- `scripts/gen-hub-updates.py` : génère `hub/src/hubUpdates.json` depuis les titres du CHANGELOG ; à relancer à chaque
+  livraison (un test du hub échoue si la dernière livraison n'y figure pas). Écrans modifiés : `UPDATE_LINKS` dans
+  `hub/src/hubUpdatesLib.js`, tuiles nouvelles : `SINCE` de hubThemes.js.
+- Vérifié : tests hub. Non vérifié : rendu dans le hub déployé.
+
 ## 2026-10-14 — Assistant de rapatriement d'un nœud distant : six étapes, synoptique en bandeau, avancement mesuré (livraison #761)
 
 - Hub, tuile « Rapatriement d'un nœud distant (assistant) » (thème Équipements) : une campagne par nœud distant, en

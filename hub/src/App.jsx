@@ -1,4 +1,6 @@
 import React, { Fragment, Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import HUB_UPDATES from "./hubUpdates.json";   // #762 : généré par scripts/gen-hub-updates.py
+import { updatesWithLinks, shortDate } from "./hubUpdatesLib.js";
 import { preloadSequential } from "./lazyViews.js";   // #735
 import { installNetActivity } from "./netActivity.js";   // #735
 import { useAuth } from "react-oidc-context";
@@ -249,6 +251,7 @@ const themeStore = createAccountThemeStore({ apiBase: PREFS_API_BASE_URL });
 // par défaut (comportement inchangé tant que la personne n'a jamais
 // touché au bouton).
 const FOOTER_NOTE_VISIBLE_STORAGE_KEY = "supervision-si:hub:footer-note-visible";
+const FOOTER_UPDATES_STORAGE_KEY = "supervision-si:hub:footer-updates-visible";   // #762
 
 function loadStoredFooterNoteVisible() {
   try {
@@ -1090,6 +1093,10 @@ export default function App() {
   useEffect(() => { try { localStorage.setItem("hub.home.mode", homeMode); } catch { /* ignoré */ } }, [homeMode]);
   // Personnalisation de l'accueil, étape 1 (livraison #132).
   const [showFooterNote, setShowFooterNote] = useState(() => loadStoredFooterNoteVisible());
+  // #762 : mises à jour en pied de page, avec un bouton vers chaque écran nouveau ou modifié
+  const [showUpdates, setShowUpdates] = useState(() => { try { return localStorage.getItem(FOOTER_UPDATES_STORAGE_KEY) === "1"; } catch { return false; } });
+  useEffect(() => { try { localStorage.setItem(FOOTER_UPDATES_STORAGE_KEY, showUpdates ? "1" : "0"); } catch { /* stockage indisponible */ } }, [showUpdates]);
+  const hubUpdates = useMemo(() => updatesWithLinks(HUB_UPDATES), []);
   useEffect(() => {
     try {
       localStorage.setItem(FOOTER_NOTE_VISIBLE_STORAGE_KEY, JSON.stringify(showFooterNote));
@@ -2223,6 +2230,9 @@ vm === "agent-page" ? (
       </main>
 
       <footer className="hub-footer">
+        <button className="hub-footer-toggle" style={{ marginRight: 18 }} onClick={() => setShowUpdates((v) => !v)} title="Dernières livraisons et liens vers les écrans nouveaux ou modifiés">
+          {showUpdates ? "▾" : "▸"} Mises à jour{HUB_UPDATES[0] ? ` (dernière : #${HUB_UPDATES[0].n} du ${shortDate(HUB_UPDATES[0].date)})` : ""}
+        </button>
         <button
           className="hub-footer-toggle"
           onClick={() => setShowFooterNote((v) => !v)}
@@ -2230,6 +2240,27 @@ vm === "agent-page" ? (
         >
           {showFooterNote ? "▾ Informations" : "▸ Informations"}
         </button>
+        {showUpdates && (
+          <div className="hub-updates">
+            {hubUpdates.map((u) => (
+              <div key={u.n} className="hub-update-row">
+                <span className="hub-update-n">#{u.from && u.from !== u.n ? `${u.from}-${u.n}` : u.n}</span>
+                <span className="hub-update-date">{shortDate(u.date)}</span>
+                <span className="hub-update-title">{u.title}</span>
+                {u.links.map((l) => {
+                  const front = l.front ? fronts.find((f) => f.id === l.front) : null;
+                  const ok = l.view ? availableViews.has(l.view) : !!front;
+                  return (
+                    <button key={(l.view || l.front) + (l.hint || "")} type="button" className="secondary hub-update-link" disabled={!ok}
+                      title={ok ? (l.hint ? `${l.label} › ${l.hint}` : l.label) : "écran non disponible pour vous ou sur ce déploiement"}
+                      onClick={() => { if (l.view) { setThemeEntry(null); setViewMode(l.view); } else if (front) window.open(front.url, "_blank", "noopener"); }}>
+                      {l.isNew && <b>Nouveau · </b>}{l.label}{l.hint ? ` › ${l.hint}` : ""} →
+                    </button>);
+                })}
+              </div>
+            ))}
+          </div>
+        )}
         {showFooterNote && (
           <p className="hub-footer-text">
             Cette page vérifie votre identité. Le portail tickets a lui aussi sa

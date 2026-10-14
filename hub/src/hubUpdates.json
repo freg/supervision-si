@@ -1,0 +1,242 @@
+[
+ {
+  "n": 762,
+  "from": 762,
+  "date": "2026-10-14",
+  "title": "Mises à jour en pied de page du hub, avec un bouton vers chaque écran nouveau ou modifié"
+ },
+ {
+  "n": 761,
+  "from": 761,
+  "date": "2026-10-14",
+  "title": "Assistant de rapatriement d'un nœud distant : six étapes, synoptique en bandeau, avancement mesuré"
+ },
+ {
+  "n": 760,
+  "from": 760,
+  "date": "2026-10-14",
+  "title": "Cortex : constats des sondes de terrain corrélés aux constats Wi-Fi de Nebula, cause Wi-Fi probable"
+ },
+ {
+  "n": 759,
+  "from": 759,
+  "date": "2026-10-14",
+  "title": "Anticipation Wi-Fi (suite) : ports vers les bornes, micrologiciels, licences, bandes et signal"
+ },
+ {
+  "n": 758,
+  "from": 758,
+  "date": "2026-10-14",
+  "title": "Anticipation Wi-Fi : pic habituel attendu, affluence inhabituelle, bornes instables, disponibilité, étendues DHCP"
+ },
+ {
+  "n": 757,
+  "from": 757,
+  "date": "2026-10-14",
+  "title": "Passe « pleine largeur » : toutes les tuiles utilisent la largeur du navigateur, glissières visibles partout"
+ },
+ {
+  "n": 756,
+  "from": 756,
+  "date": "2026-10-14",
+  "title": "Parc IA : hôtes, modèles, conteneurs, tests et activité ; gestes encadrés sur l'hôte"
+ },
+ {
+  "n": 755,
+  "from": 755,
+  "date": "2026-10-14",
+  "title": "Mises à jour d'agents : version reconnue dès le redémarrage ; agents 0.5.14 à relancer à la main"
+ },
+ {
+  "n": 754,
+  "from": 754,
+  "date": "2026-10-14",
+  "title": "Tests d'IA lisibles : ce qu'on fournit au modèle, les indicateurs cibles et le rendu critère par critère"
+ },
+ {
+  "n": 753,
+  "from": 753,
+  "date": "2026-10-14",
+  "title": "Vues de parc : serveurs, postes, serveurs d'IA, postes personnels, en groupes, avec l'en-tête htop de chaque agent"
+ },
+ {
+  "n": 752,
+  "from": 752,
+  "date": "2026-10-14",
+  "title": "Serveur de messagerie : incidents, file d'attente, échecs de distribution, listes blanche / grise / noire, réglages antispam"
+ },
+ {
+  "n": 751,
+  "from": 751,
+  "date": "2026-10-14",
+  "title": "Virtualisation directe sur le LAN : le poste pousse son image à l'agent du nœud, le hub orchestre"
+ },
+ {
+  "n": 750,
+  "from": 750,
+  "date": "2026-10-14",
+  "title": "Rapatriement OVH → local piloté depuis le hub : export, vérification, destruction par tranches"
+ },
+ {
+  "n": 749,
+  "from": 749,
+  "date": "2026-10-14",
+  "title": "Tuile « Infra PVE / PBS » : vue d'ensemble locale + OVH, transferts, onglet htop"
+ },
+ {
+  "n": 748,
+  "from": 748,
+  "date": "2026-10-14",
+  "title": "Virtualisation directe pilotée par les deux agents, relais à fenêtre bornée"
+ },
+ {
+  "n": 747,
+  "from": 747,
+  "date": "2026-10-14",
+  "title": "Occupation des bornes Wi-Fi : statistiques, seuils, alertes Nebula, récapitulatif"
+ },
+ {
+  "n": 746,
+  "from": 746,
+  "date": "2026-10-13",
+  "title": "Modèles IA déployés depuis le hub : agent ↔ Ollama"
+ },
+ {
+  "n": 745,
+  "from": 745,
+  "date": "2026-10-13",
+  "title": "Chien de garde du socle : Keycloak, passerelle et hub relancés seuls"
+ },
+ {
+  "n": 744,
+  "from": 744,
+  "date": "2026-10-13",
+  "title": "Agent en conteneur : ports et connexions avec leur processus, sans refus AppArmor"
+ },
+ {
+  "n": 743,
+  "from": 743,
+  "date": "2026-10-13",
+  "title": "Supervision distribuée : tournées de mesures réparties avec suppléance"
+ },
+ {
+  "n": 742,
+  "from": 742,
+  "date": "2026-10-13",
+  "title": "Ordre des listes (A → Z, récent, gravité) et agents par catégorie"
+ },
+ {
+  "n": 741,
+  "from": 741,
+  "date": "2026-10-13",
+  "title": "Assistant IA sur un poste GPU distant par le bastion"
+ },
+ {
+  "n": 740,
+  "from": 740,
+  "date": "2026-10-12",
+  "title": "netprobe-api : fin des 200 % de CPU sur super"
+ },
+ {
+  "n": 739,
+  "from": 739,
+  "date": "2026-10-12",
+  "title": "Sondes GTB/GTC pour poste Windows : réseau et journaux d'application"
+ },
+ {
+  "n": 738,
+  "from": 738,
+  "date": "2026-10-09",
+  "title": "Images construites hors de la VM du hub, registre local"
+ },
+ {
+  "n": 737,
+  "from": 737,
+  "date": "2026-10-09",
+  "title": "Fronts pré-compilés dans l'image, comme le hub"
+ },
+ {
+  "n": 736,
+  "from": 736,
+  "date": "2026-10-09",
+  "title": "Hub pré-compilé dans l'image, second hub sur une bordure"
+ },
+ {
+  "n": 735,
+  "from": 735,
+  "date": "2026-10-09",
+  "title": "Hub : vues à la demande, retour visuel immédiat, rafraîchissements suspendus onglet caché"
+ },
+ {
+  "n": 734,
+  "from": 734,
+  "date": "2026-10-09",
+  "title": "Régime mémoire de la VM du hub et passerelle HTTP/2 + compression"
+ },
+ {
+  "n": 733,
+  "from": 733,
+  "date": "2026-10-09",
+  "title": "Tuile « Déploiement d'application » : instances clonées depuis le hub"
+ },
+ {
+  "n": 732,
+  "from": 732,
+  "date": "2026-10-09",
+  "title": "Instances clonées : création en une commande par les agents de nœud"
+ },
+ {
+  "n": 731,
+  "from": 731,
+  "date": "2026-10-09",
+  "title": "Instances d'application clonées : registre et génération des services"
+ },
+ {
+  "n": 730,
+  "from": 730,
+  "date": "2026-10-09",
+  "title": "« Questions sur le hub » : tickets, agents hors ligne, emplacement des VM/CT"
+ },
+ {
+  "n": 729,
+  "from": 729,
+  "date": "2026-10-09",
+  "title": "Tests QA : la maquette validée devient la cible des campagnes"
+ },
+ {
+  "n": 728,
+  "from": 728,
+  "date": "2026-10-09",
+  "title": "Tests QA : maquettes en étapes, de la proposition au ticket évolution"
+ },
+ {
+  "n": 727,
+  "from": 727,
+  "date": "2026-10-09",
+  "title": "Tests QA : référence visuelle, différences de captures, rejouer un bug"
+ },
+ {
+  "n": 726,
+  "from": 726,
+  "date": "2026-10-09",
+  "title": "« Questions sur le hub » : sauvegardes et snapshots"
+ },
+ {
+  "n": 725,
+  "from": 725,
+  "date": "2026-10-09",
+  "title": "Copie de secours ZFS différentielle sur disque externe, ancienneté suivie par le hub"
+ },
+ {
+  "n": 724,
+  "from": 724,
+  "date": "2026-10-09",
+  "title": "Inventaire des snapshots et des sauvegardes, PBS et PVE hébergés compris"
+ },
+ {
+  "n": 723,
+  "from": 723,
+  "date": "2026-10-09",
+  "title": "Inventaire des PVE distants par le hub et campagne générée"
+ }
+]

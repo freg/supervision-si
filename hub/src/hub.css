@@ -2516,3 +2516,11 @@ button:active:not(:disabled), a.hub-card:active, button.hub-card:active { transf
 *::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 7px; border: 3px solid var(--panel); }
 *::-webkit-scrollbar-thumb:hover { background: var(--text); }
 *::-webkit-scrollbar-corner { background: var(--panel); }
+
+/* #762 : mises à jour en pied de page -- une ligne par livraison, boutons vers les écrans */
+.hub-updates { max-height: 38vh; overflow: auto; margin: 6px 0; padding-right: 6px; font-size: 13px; }
+.hub-update-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 0; border-bottom: 1px solid var(--border); }
+.hub-update-n { font-weight: 700; min-width: 64px; color: var(--accent); }
+.hub-update-date { color: var(--muted); min-width: 44px; }
+.hub-update-title { flex: 1 1 420px; min-width: 260px; }
+.hub-update-link { font-size: 12px; padding: 2px 8px; }
