@@ -3800,3 +3800,15 @@ Demande (14/10/2026) : la quasi-totalité des interfaces n'utilise pas toute la 
 font, les glissières sont peu visibles. Modèle : tuile Infra PVE / PBS (#749) -- conteneur 100 % largeur et hauteur
 fenêtre, grilles auto-fill, glissières 14 px contrastées (`.infra-scroll`), en-têtes de tableau collants. À généraliser.
 
+
+### 124. Virtualisation directe sur le LAN, d'agent à agent (#751)
+Demande (14/10/2026) : pour un poste du LAN d'un site client (virtualisation et non migration), l'image doit aller directement de
+l'agent du poste à l'agent du Proxmox du site ; le hub orchestre seulement. Cible : récepteur temporaire sur l'IP LAN du
+nœud (jeton à usage unique du hub, fermé à la fin), la source pousse (sortant, rien à ouvrir côté Windows), fenêtre
+bornée + 429, bwlimit, reprise à l'offset, sha256 ; relais par le hub seulement en repli explicite.
+
+### 125. Tuile serveur de messagerie : exploitation complète (#752)
+Demande (14/10/2026) : faire évoluer la tuile Serveur de messagerie (#697) -- observer, reparamétrer, gérer les incidents
+et leur suivi ; antispam (Amavis/SpamAssassin : scores, quarantaine, réglages) ; listes blanches / grises / noires
+(postscreen, postgrey, expéditeurs, RBL) ; échecs de distribution vers les serveurs distants (file d'attente, reports,
+rebonds, motifs par domaine distant, relance).

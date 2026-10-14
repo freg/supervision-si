@@ -14,23 +14,41 @@ export const OPS = {
   set: { label: "Modifier des options", fields: [], plan: true }, destroy: { label: "DÉTRUIRE", fields: [], plan: true },
   image_host: { label: "Image à chaud du serveur", fields: [], plan: true }, host_shutdown: { label: "Arrêt du serveur physique", fields: [], plan: true },
   checkpoint: { label: "Transition (attente de l'opérateur)", fields: [], plan: true },
+  // #750 : rapatriement depuis un nœud distant (OVH) -- étapes générées
+  xfer_export: { label: "Export distant + restauration locale", fields: [], plan: true }, xfer_verify: { label: "Vérification original / copie", fields: [], plan: true },
+  xfer_destroy: { label: "Destruction de l'original par tranches", fields: [], plan: true },
 };
 export const VM_OPS = Object.fromEntries(Object.entries(OPS).filter(([, o]) => !o.plan));
 
 // #658 : formulaire de migration -> corps de /pra/migrations/plan (champs vides retirés, nombres convertis).
-export const MIGRATION_DEFAULTS = { method: "direct", os: "linux", source_agent_id: "", pve_agent_id: "", vmid: "", storage: "", bridge: "vmbr0", memory: 4096, cores: 2, image_target: "", template: "", ip: "dhcp", role_id: "", role_from: 0, role_to: 1, purge_on_rollback: false, auto_rollback: false, plan_name: "", bwlimit_mbps: 200, window_gb: 4 };
+export const MIGRATION_DEFAULTS = { method: "direct", os: "linux", source_agent_id: "", pve_agent_id: "", vmid: "", storage: "", bridge: "vmbr0", memory: 4096, cores: 2, image_target: "", template: "", ip: "dhcp", role_id: "", role_from: 0, role_to: 1, purge_on_rollback: false, auto_rollback: false, plan_name: "", bwlimit_mbps: 200, window_gb: 4, remote: "", newid: "", kind: "lxc", mode: "stop", window: "20:00-07:00", slice_gb: 10, keep_archive: false };
 export function migrationBody(f) {
   const out = {};
   for (const [k, v] of Object.entries({ ...MIGRATION_DEFAULTS, ...f })) {
     if (v === "" || v === null || v === undefined) continue;
-    if (["vmid", "memory", "cores", "role_id", "role_from", "role_to", "rootfs_gb", "bwlimit_mbps", "window_gb"].includes(k)) out[k] = Number(v); else out[k] = v;
+    if (["vmid", "memory", "cores", "role_id", "role_from", "role_to", "rootfs_gb", "bwlimit_mbps", "window_gb", "newid", "slice_gb"].includes(k)) out[k] = Number(v); else out[k] = v;
   }
+  if (out.method === "repatriate") {         // #750 : seuls les champs du rapatriement
+    const keep = ["method", "pve_agent_id", "remote", "vmid", "newid", "kind", "storage", "mode", "bwlimit_mbps", "window", "slice_gb", "keep_archive", "plan_name"];
+    for (const k of Object.keys(out)) if (!keep.includes(k)) delete out[k];
+    return out;
+  }
+  for (const k of ["remote", "newid", "kind", "mode", "window", "slice_gb", "keep_archive"]) delete out[k];
   if (out.method === "rebuild") delete out.image_target; else { delete out.template; delete out.ip; }
   if (out.method !== "direct") { delete out.bwlimit_mbps; delete out.window_gb; }     // #748
   return out;
 }
 // Ce qui manque avant de demander l'aperçu (message) ou null.
 export function migrationMissing(f) {
+  if (f.method === "repatriate") {           // #750
+    if (!f.pve_agent_id) return "nœud Proxmox local (agent) à choisir";
+    if (!f.remote) return "nœud distant (nom déclaré dans /etc/si-agent/pve-remote.json de l'agent local)";
+    if (!f.vmid || Number(f.vmid) < 100) return "identifiant du CT / de la VM sur le nœud distant";
+    if (f.newid && Number(f.newid) < 100) return "nouvel identifiant ≥ 100";
+    if (!f.storage) return "stockage Proxmox local";
+    if (f.window && !/^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/.test(f.window)) return "plage de destruction HH:MM-HH:MM";
+    return null;
+  }
   if (!f.source_agent_id) return "serveur source (agent) à choisir";
   if (!f.pve_agent_id) return "nœud Proxmox cible à choisir";
   if (!f.vmid || Number(f.vmid) < 100) return "vmid ≥ 100 libre sur le nœud";
@@ -107,6 +125,11 @@ export function stepText(s, roles) {
   if (a === "role_switch") return roleStepText(s, roles);
   if (a === "checkpoint" || s.command === "checkpoint") return `⏸ transition : ${s.label || "attente de l'opérateur"}`;
   if (s.command === "image_host" || a === "image_host") return `${s.agent_id} · image à chaud → ${p.target || ""} (transférée au central)`;
+  if (s.command === "xfer" || String(s.action || "").startsWith("xfer_")) {     // #750 (exécution : command xfer ; aperçu : action xfer_*)
+    const act = p.action || String(s.action || "").replace("xfer_", "");
+    const verb = { export: "export + restauration", verify: "vérification", destroy: "destruction par tranches" }[act] || act;
+    return `${s.agent_id} · ${p.remote || "?"} ${p.kind === "qemu" ? "VM" : "CT"} ${p.vmid} · ${verb}${p.newid ? " → " + p.newid : ""}${p.copy ? " (copie " + p.copy + ")" : ""}${p.window && act === "destroy" ? " · plage " + p.window : ""}`;
+  }
   if (s.command === "power_action" || a === "host_shutdown" || (a === "shutdown" && !p.vmid && !s.vmid)) return `${s.agent_id} · arrêt du serveur physique`;
   const extras = Object.entries(p).filter(([k]) => !["vmid", "action", "kind"].includes(k)).map(([k, v]) => `${k}=${v}`).join(" ");
   return `${s.agent_id} · VM ${p.vmid ?? s.vmid} · ${OPS[p.action || s.action]?.label || p.action || s.action}${extras ? " (" + extras + ")" : ""}`;

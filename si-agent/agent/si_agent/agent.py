@@ -852,6 +852,12 @@ class Agent(object):
                 # #748 : virtualisation directe pilotée par les deux agents (préparation source / cible, lecture relais, nettoyage)
                 res = self.p2v_action(params, c.get("id"))
                 return {"ok": res.get("ok", False), "error": res.get("error"), "result": res}
+            if ctype == "xfer":
+                # #750 : rapatriement d'un CT / d'une VM depuis un nœud Proxmox distant (export, vérification, destruction par tranches)
+                if self.is_blocked():
+                    return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
+                res = self.xfer_action(params, c.get("id"))
+                return {"ok": res.get("ok", False), "error": res.get("error"), "result": res}
             if ctype == "mail":
                 # #697 : tuile Serveur de messagerie -- boîtes, historique, quarantaine, lecture, libération (mailctl)
                 from . import mailctl
@@ -1976,6 +1982,143 @@ class Agent(object):
         threading.Thread(target=work, name="p2v-fetch", daemon=True).start()
         threading.Thread(target=report, name="p2v-fetch-report", daemon=True).start()
         return {"ok": True, "message": "lecture de l'image de %s lancée vers %s (débit %s)" % (src, import_dir, ("%g Mbit/s" % mbps) if mbps else "libre")}
+
+    def xfer_action(self, params, command_id=None):
+        """#750 : rapatriement d'un CT / d'une VM depuis un nœud Proxmox distant (pve-remote.json) -- export (vzdump --stdout
+        par ssh, débit borné) puis restauration locale, vérification original / copie, destruction de l'original par tranches.
+        Chaque action est détachée ; fin signalée par xfer-done / xfer-failed (details.command = id de la commande)."""
+        import subprocess
+        import tempfile
+        import threading
+        from . import xferctl
+        p = dict(params or {})
+        action = str(p.get("action") or "")
+        if action == "status":
+            j = getattr(self, "_xfer_job", None)
+            return {"ok": True, "job": {k: v for k, v in (j or {}).items() if k != "proc"} if j else None,
+                    "verified": self.state.get("xfer_verified", {})}
+        need = {"export": ("vmid", "newid", "storage"), "verify": ("vmid", "newid"), "destroy": ("vmid", "copy")}.get(action)
+        if not need:
+            return {"ok": False, "error": "action : export, verify, destroy, status"}
+        q, err = xferctl.check(p, need)
+        if err:
+            return {"ok": False, "error": err}
+        try:
+            with open(self.cfg.get("pve_remote") or xferctl.REMOTE_FILE, encoding="utf-8") as fh:
+                h = xferctl.load_remotes(fh.read()).get(q["remote"])
+        except OSError:
+            h = None
+        if not h:
+            return {"ok": False, "error": "nœud distant %s absent de %s" % (q["remote"], self.cfg.get("pve_remote") or xferctl.REMOTE_FILE)}
+        j = getattr(self, "_xfer_job", None)
+        if j and j.get("state") == "running":
+            return {"ok": False, "error": "rapatriement déjà en cours (%s %s)" % (j.get("action"), j.get("vmid"))}
+        tool = xferctl.tool(q["kind"])
+
+        def exists(vmid):
+            try:
+                return subprocess.run([tool, "status", str(vmid)], capture_output=True, text=True, timeout=60).returncode == 0
+            except (OSError, subprocess.SubprocessError):
+                return False
+
+        key = "%s:%d" % (q["remote"], q["vmid"])
+        if action == "export" and exists(q["newid"]):
+            return {"ok": False, "error": "l'identifiant %d existe déjà sur ce nœud" % q["newid"]}
+        if action == "destroy":
+            if q["confirm"] != str(q["vmid"]):
+                return {"ok": False, "error": "confirm doit répéter le vmid distant (%d)" % q["vmid"]}
+            ver = self.state.get("xfer_verified", {}).get(key)
+            if not ver or int(ver.get("copy") or 0) != q["copy"]:
+                return {"ok": False, "error": "destruction refusée : pas de vérification réussie de %s contre la copie %d (action verify d'abord)" % (key, q["copy"])}
+            if not exists(q["copy"]):
+                return {"ok": False, "error": "la copie locale %d n'existe plus : destruction refusée" % q["copy"]}
+        job = {"state": "running", "action": action, "remote": q["remote"], "vmid": q["vmid"], "command": command_id, "started": self.clock(),
+               "bytes": 0, "progress": "", "error": None, "result": None}
+        self._xfer_job = job
+
+        def done(ok, msg, result=None):
+            job.update(state="finished" if ok else "failed", result=result, error=None if ok else msg)
+            self.event("xfer-done" if ok else "xfer-failed", "info" if ok else "warning", "%s %s %d : %s" % (action, q["remote"], q["vmid"], msg),
+                       {"command": command_id, "action": action, "remote": q["remote"], "vmid": q["vmid"], "result": result})
+
+        def export():
+            stamp = time.strftime("%Y_%m_%d-%H_%M_%S")
+            archive = os.path.join(q["dumpdir"], xferctl.archive_name(q["kind"], q["vmid"], stamp))
+            try:
+                with open(archive + ".part", "wb") as out:
+                    proc = subprocess.Popen(xferctl.export_argv(h, q), stdout=out, stderr=subprocess.PIPE)
+                    job["proc"] = proc; last = time.time()
+                    while proc.poll() is None:
+                        time.sleep(10)
+                        job["bytes"] = os.path.getsize(archive + ".part")
+                        if time.time() - last >= 300:
+                            last = time.time()
+                            self.event("xfer-progress", "info", "export de %s %d : %.1f Go reçus" % (q["remote"], q["vmid"], job["bytes"] / 2**30), {"command": command_id, "bytes": job["bytes"]})
+                    errtxt = (proc.stderr.read() or b"").decode("utf-8", "replace")
+                if proc.returncode != 0:
+                    raise RuntimeError("vzdump distant : code %d -- %s" % (proc.returncode, errtxt.strip().splitlines()[-1:] or ""))
+                os.replace(archive + ".part", archive)
+                job["bytes"] = os.path.getsize(archive); job["progress"] = "restauration"
+                r = subprocess.run(xferctl.restore_argv(q, archive), capture_output=True, text=True, timeout=24 * 3600)
+                if r.returncode != 0:
+                    raise RuntimeError("restauration : %s" % ((r.stderr or r.stdout).strip().splitlines()[-1:] or ["code %d" % r.returncode])[0])
+                conf = subprocess.run([tool, "config", str(q["newid"])], capture_output=True, text=True, timeout=60).stdout
+                if not q["keep_archive"]:
+                    os.unlink(archive)
+                done(True, "copié en %d (%.1f Go)" % (q["newid"], job["bytes"] / 2**30),
+                     {"newid": q["newid"], "bytes": job["bytes"], "archive": archive if q["keep_archive"] else None, "config": conf[:2000]})
+            except Exception as exc:  # noqa: BLE001
+                done(False, str(exc)[:300])
+
+        def verify():
+            try:
+                with tempfile.TemporaryDirectory() as d:
+                    lo, re_ = os.path.join(d, "copie"), os.path.join(d, "orig")
+                    with open(lo, "w") as fh:
+                        r1 = subprocess.run(["bash", "-c", xferctl.list_script(q["kind"], q["newid"])], stdout=fh, stderr=subprocess.PIPE, text=True, timeout=6 * 3600)
+                    with open(re_, "w") as fh:
+                        r2 = subprocess.run(xferctl.ssh_argv(h) + [xferctl.list_script(q["kind"], q["vmid"])], stdout=fh, stderr=subprocess.PIPE, text=True, timeout=6 * 3600)
+                    for r, who in ((r1, "copie %d" % q["newid"]), (r2, "original %d" % q["vmid"])):
+                        if r.returncode != 0:
+                            raise RuntimeError("liste de %s impossible : %s" % (who, (r.stderr or "").strip().splitlines()[-1:] or "code %d" % r.returncode))
+                    with open(lo) as a, open(re_) as b:
+                        res = xferctl.compare(xferctl.parse_list(b.read()), xferctl.parse_list(a.read()))
+                res.update(newid=q["newid"])
+                if res["identical"]:
+                    self.state.setdefault("xfer_verified", {})[key] = {"copy": q["newid"], "at": _iso(self.clock())}
+                    self._save_state()
+                    done(True, "copie %d identique (%d fichiers ; %d exclus par vzdump)" % (q["newid"], res["copy_files"], res["vzdump_excluded"]), res)
+                else:
+                    done(False, "différences : %d absents de la copie, %d en trop, %d modifiés" % (res["missing"], res["extra"], res["changed"]), res)
+            except Exception as exc:  # noqa: BLE001
+                done(False, str(exc)[:300])
+
+        def destroy():
+            try:
+                t0 = time.time()
+                while not xferctl.in_window(q["window"], time.strftime("%H:%M")):
+                    job["progress"] = "attente de la plage %s" % q["window"]
+                    if time.time() - t0 > 24 * 3600:
+                        raise RuntimeError("plage %s jamais atteinte en 24 h" % q["window"])
+                    time.sleep(60)
+                job["progress"] = "réduction par tranches"
+                proc = subprocess.Popen(xferctl.ssh_argv(h) + [xferctl.destroy_script(q)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                job["proc"] = proc; last, lines = time.time(), []
+                for line in proc.stdout:
+                    lines = (lines + [line.strip()])[-20:]; job["progress"] = line.strip()[:200]
+                    if time.time() - last >= 300:
+                        last = time.time()
+                        self.event("xfer-progress", "info", "destruction de %s %d : %s" % (q["remote"], q["vmid"], job["progress"]), {"command": command_id})
+                proc.wait()
+                if proc.returncode != 0 or "DESTROY-OK" not in lines:
+                    raise RuntimeError("code %d -- %s" % (proc.returncode, " | ".join(lines[-3:])))
+                self.state.get("xfer_verified", {}).pop(key, None); self._save_state()
+                done(True, "original détruit (copie locale %d)" % q["copy"], {"log": lines})
+            except Exception as exc:  # noqa: BLE001
+                done(False, str(exc)[:300])
+
+        threading.Thread(target={"export": export, "verify": verify, "destroy": destroy}[action], name="xfer-" + action, daemon=True).start()
+        return {"ok": True, "message": "%s de %s %d lancé%s" % (action, q["remote"], q["vmid"], (" (plage %s)" % q["window"]) if q["window"] and action == "destroy" else "")}
 
     def start_ollama_pull(self, url, model, command_id=None):
         """#746 : téléchargement d'un modèle Ollama dans un fil détaché ; progression lue par l'action status."""

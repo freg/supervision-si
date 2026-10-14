@@ -14,17 +14,24 @@ ACTIONS = ("migrate", "backup", "move_disk", "clone", "replicate", "unreplicate"
            # le plan attend « Reprendre » ou « Abandonner » depuis le hub)
            "create", "import_disk", "set", "destroy", "image_host", "host_shutdown", "checkpoint",
            # #748 : virtualisation directe pilotée par les deux agents (préparation source / cible, lecture par relais, nettoyage)
-           "p2v_prepare_source", "p2v_prepare_target", "p2v_fetch", "p2v_cleanup")
+           "p2v_prepare_source", "p2v_prepare_target", "p2v_fetch", "p2v_cleanup",
+           # #750 : rapatriement depuis un nœud distant (pve-remote.json de l'agent du nœud local) -- export + restauration,
+           # vérification original / copie, destruction de l'original par tranches (refusée sans vérification réussie)
+           "xfer_export", "xfer_verify", "xfer_destroy")
 REQUIRED = {"migrate": ("target",), "backup": ("storage",), "move_disk": ("disk", "storage"), "clone": ("newid",), "replicate": ("target",), "snapshot": ("snapname",), "rollback": ("snapname",),
             "create": ("name",), "import_disk": ("source", "storage"), "set": ("options",), "destroy": ("confirm",), "image_host": ("target",),
-            "p2v_prepare_target": ("job",), "p2v_fetch": ("source_agent",), "p2v_cleanup": ("job",)}
+            "p2v_prepare_target": ("job",), "p2v_fetch": ("source_agent",), "p2v_cleanup": ("job",),
+            "xfer_export": ("remote", "vmid", "newid", "storage"), "xfer_verify": ("remote", "vmid", "newid"), "xfer_destroy": ("remote", "vmid", "copy", "confirm")}
 HOST_ACTIONS = ("image_host", "host_shutdown",          # adressées à l'agent du serveur source (pas de vmid)
-                "p2v_prepare_source", "p2v_prepare_target", "p2v_fetch", "p2v_cleanup")   # #748 : source ou nœud, sans vmid
+                "p2v_prepare_source", "p2v_prepare_target", "p2v_fetch", "p2v_cleanup",   # #748 : source ou nœud, sans vmid
+                "xfer_export", "xfer_verify", "xfer_destroy")                             # #750 : vmid distant dans params
 P2V = {"p2v_prepare_source": "prepare_source", "p2v_prepare_target": "prepare_target", "p2v_fetch": "fetch", "p2v_cleanup": "cleanup"}
+XFER = {"xfer_export": "export", "xfer_verify": "verify", "xfer_destroy": "destroy"}
 CENTRAL_ACTIONS = ("role_switch", "checkpoint")          # exécutées par le central
 STEP_TIMEOUT = 3600
 IMAGE_TIMEOUT = 12 * 3600       # image à chaud + transfert au central
 FETCH_TIMEOUT = 48 * 3600       # #748 : image + relais au débit borné
+XFER_TIMEOUT = 72 * 3600        # #750 : export de centaines de Go au débit borné, ou attente de la plage de destruction
 CHECKPOINT_TIMEOUT = 7 * 86400  # une transition attend l'opérateur (au plus une semaine)
 IMAGES_DIR = ""                 # fixé par app.py (SI_AGENT_IMAGES_DIR)
 _runs, _resume, _abort = {}, {}, {}
@@ -77,6 +84,7 @@ def validate_steps(steps):
             params = dict(s.get("params") or {})
             for k in REQUIRED.get(a, ()):
                 if params.get(k) in (None, ""): return None, "étape %d (%s) : paramètre %s requis" % (i, a, k)
+            if a == "xfer_destroy" and str(params.get("confirm")) != str(params.get("vmid")): return None, "étape %d (xfer_destroy) : confirm doit répéter le vmid distant" % i
             out.append(dict(agent_id=str(s["agent_id"]), vmid=0, kind="host", action=a, params=params, label=str(s.get("label") or "")[:200], wait_s=int(s.get("wait_s") or 0)))
             continue
         if not s.get("agent_id"): return None, "étape %d : agent_id (hyperviseur) requis" % i
@@ -91,12 +99,14 @@ def validate_steps(steps):
 
 def command_params(step):
     if step["action"] in P2V: return dict(step["params"], action=P2V[step["action"]])
+    if step["action"] in XFER: return dict(step["params"], action=XFER[step["action"]])
     if step["action"] == "host_shutdown": return dict(step["params"], action="shutdown")
     if step["action"] == "image_host": return dict(step["params"], transfer=True)
     return dict(step["params"], vmid=step["vmid"], action=step["action"], kind=step["kind"])
 
 def command_type(step):
     if step["action"] in P2V: return "p2v"
+    if step["action"] in XFER: return "xfer"
     return {"host_shutdown": "power_action", "image_host": "image_host"}.get(step["action"], "vm_action")
 
 def simulate(db_path, plan):
@@ -185,6 +195,11 @@ def _execute(db_path, plan, rid, continue_on_error, sleep):
             if src["action"] == "p2v_prepare_source": ctx.update(src_target=r.get("target"), need_bytes=r.get("need_bytes"))
             if src["action"] == "p2v_prepare_target": ctx.update(import_dir=r.get("import_dir"), vg=r.get("vg") or "pve")
             if src["action"] == "p2v_fetch": ctx["fetch_agent"] = st["agent_id"]
+        if st["status"] == "done" and src["action"] in XFER:          # #750 : action détachée -- attendre sa fin (xfer-done / xfer-failed)
+            _save_run(db_path, rid, status, steps)
+            fin = _wait_xfer(db_path, st["agent_id"], cid, baseline, sleep)
+            st["result"] = dict(st["result"] or {}, outcome=fin.get("result"), message=fin.get("message"))
+            if not fin.get("ok"): st["status"] = "failed"; st["result"]["error"] = fin.get("error"); status = "failed"
         if st["status"] == "done" and src["action"] == "image_host" and ctx.get("fetch_agent"):   # #748 : relais direct -- attendre la cible
             _save_run(db_path, rid, status, steps)
             img = _wait_fetched(db_path, (st["agent_id"], ctx["fetch_agent"]), baseline, sleep)
@@ -241,6 +256,21 @@ def _wait_fetched(db_path, agents, baseline, sleep):
             return {"ok": False, "error": r["message"]}
         sleep(10)
     return {"ok": False, "error": "image non reçue par la cible dans le délai (%d h)" % (FETCH_TIMEOUT // 3600)}
+
+
+def _wait_xfer(db_path, agent_id, cid, baseline, sleep):
+    """#750 : fin d'une action xfer détachée -- événement xfer-done / xfer-failed portant l'id de la commande."""
+    t0 = time.time()
+    while time.time() - t0 < XFER_TIMEOUT:
+        conn = store._connect(db_path)
+        try: rows = conn.execute("SELECT kind, message, details FROM events WHERE id > ? AND agent_id = ? AND kind IN ('xfer-done','xfer-failed') ORDER BY id", (baseline, agent_id)).fetchall()
+        finally: conn.close()
+        for r in rows:
+            det = json.loads(r["details"] or "{}") if isinstance(r["details"], str) else (r["details"] or {})
+            if str(det.get("command")) != str(cid): continue
+            return {"ok": r["kind"] == "xfer-done", "message": r["message"], "result": det.get("result"), "error": None if r["kind"] == "xfer-done" else r["message"]}
+        sleep(15)
+    return {"ok": False, "error": "pas de fin signalée par l'agent dans le délai (%d h)" % (XFER_TIMEOUT // 3600)}
 
 
 def resume_run(db_path, rid):

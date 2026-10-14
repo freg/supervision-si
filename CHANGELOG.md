@@ -1,3 +1,18 @@
+## 2026-10-14 — Rapatriement OVH → local piloté depuis le hub : export, vérification, destruction par tranches (livraison #750)
+
+- Agent 0.5.58 : commande `xfer` (`xferctl.py`) -- `export` (vzdump --stdout par ssh vers un nœud de `pve-remote.json`,
+  débit borné, restauration `pct restore` / `qmrestore --unique`), `verify` (comparaison fichier à fichier original /
+  copie, exclusions vzdump ignorées), `destroy` (plage horaire, images réduites par tranches, refus sans vérification
+  réussie, si l'original tourne ou si la copie a disparu), `status`. Actions détachées, événements xfer-*.
+- si-agent-api : actions de plan `xfer_export`, `xfer_verify`, `xfer_destroy` (attente de la fin par l'id de commande,
+  72 h max) ; méthode `repatriate` du générateur `/pra/migrations/plan` ; plans sans étapes de retour acceptés.
+- Hub : Contrôle PVE › Migration › « + Rapatriement distant → local » (nœud local, nœud et CT/VM distants proposés depuis
+  la tuile Infra, nouvel identifiant, stockage, mode, débit, plage et tranches) ; libellés des étapes xfer.
+- Motif : le 14/10, l'image de l'original d'un CT rapatrié a été tronquée de 60 Go avant toute comparaison ; la
+  destruction exige désormais une vérification réussie.
+- Vérifié : tests agent (xferctl + garde-fous, 8), API (plan, exécution avec transitions, échec ; 3), hub (358) ; syntaxe
+  JSX. Non vérifié : exécution réelle sur un nœud distant (vzdump --stdout, pct restore, montage pour la liste).
+
 ## 2026-10-14 — Tuile « Infra PVE / PBS » : vue d'ensemble locale + OVH, transferts, onglet htop (livraison #749)
 
 - Sonde livrée `node-activity` (agent 0.5.57, désactivée, 2 min) : un même relevé shell pour l'hôte et pour chaque nœud

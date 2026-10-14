@@ -1468,3 +1468,26 @@ ne stockent l'image entière sur un disque qui pourrait saturer.
 Limite : Disk2vhd (Windows) écrit l'image complète sur le poste avant l'envoi : il faut un emplacement local ou un
 partage de la taille des données (vérifié à l'étape 1).
 
+## Rapatriement d'un CT / d'une VM depuis un nœud Proxmox distant (livraison #750, agent 0.5.58)
+
+Tout ce qui se faisait à la main (vzdump --stdout par ssh, restauration, comparaison, destruction par tranches) se fait
+depuis le hub : tuile Contrôle PVE › Migration › **+ Rapatriement distant → local**. Le nœud distant (OVH, hors cluster)
+est désigné par son NOM dans `/etc/si-agent/pve-remote.json` de l'agent du nœud local (même format que pour la sonde
+`pve-remote` : `[{"name": "pve-a", "host": "<ip>", "key": "/root/.ssh/<clé>"}]`, hors dépôt) ; le hub ne voit ni
+l'adresse ni la clé. Le formulaire propose les nœuds et CT/VM distants vus par la tuile Infra (#749).
+
+Commande d'agent `xfer` (détachée, fin signalée par `xfer-done` / `xfer-failed`, progression `xfer-progress`) :
+
+1. `export` : `vzdump <id> --stdout --compress zstd --mode stop|snapshot|suspend [--bwlimit]` sur le distant, flux écrit
+   dans le dossier de dump local, puis `pct restore` / `qmrestore` sous le nouvel identifiant (`--unique 1`) ; refusé si
+   l'identifiant existe ; archive supprimée sauf `keep_archive`.
+2. `verify` (conteneurs) : liste triée chemin / taille / date de l'original (monté, ou `/proc/<pid>/root` s'il tourne)
+   et de la copie, comparée ; les exclusions par défaut de vzdump (`/tmp`, `/var/tmp`, `*.pid`) ne comptent pas. Une
+   vérification réussie est mémorisée par l'agent (`state.json`, `xfer_verified`).
+3. `destroy` : refusé si l'original tourne, si `confirm` ne répète pas son identifiant, si la copie locale n'existe plus
+   ou **sans vérification réussie contre cette copie** ; attend la plage horaire (`20:00-07:00` par défaut), réduit
+   chaque image brute par tranches (`truncate -s -10G`, pause 20 s : pas de gel d'IO sur le distant), puis `destroy --purge`.
+
+Plan généré (`method: repatriate`) : transition 1 → export + restauration → vérification → transition 2 (valider la
+copie ; Abandonner = l'original est gardé) → destruction dans la plage. Pas de retour en arrière : l'original n'est
+touché qu'après la transition 2.

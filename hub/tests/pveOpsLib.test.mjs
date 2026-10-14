@@ -74,3 +74,16 @@ test("exécution : boutons selon l'état et étape en attente", () => {
   assert.match(stepText({ agent_id: "srv", action: "host_shutdown", params: {} }), /arrêt du serveur physique/);
   assert.match(stepText({ agent_id: "pve", vmid: 200, action: "create", params: { name: "srv" } }), /VM 200 · Créer/);
 });
+
+test("#750 : rapatriement d'un nœud distant -- corps, champs manquants, libellés", () => {
+  const f = { method: "repatriate", pve_agent_id: "pve10", remote: "pve-a", vmid: "109", newid: "9109", kind: "lxc", storage: "local-zfs", bwlimit_mbps: "400", window: "20:00-07:00", image_target: "x", memory: 4096 };
+  const b = migrationBody(f);
+  assert.equal(b.vmid, 109); assert.equal(b.newid, 9109); assert.equal(b.bwlimit_mbps, 400); assert.equal(b.slice_gb, 10);
+  assert.equal(b.memory, undefined); assert.equal(b.image_target, undefined); assert.equal(b.source_agent_id, undefined);
+  assert.equal(migrationMissing(f), null);
+  assert.match(migrationMissing({ ...f, remote: "" }), /nœud distant/);
+  assert.match(migrationMissing({ ...f, window: "20h" }), /plage/);
+  assert.equal(migrationBody({ method: "direct", vmid: 200 }).remote, undefined);       // les champs du rapatriement ne fuient pas
+  assert.match(stepText({ agent_id: "pve10", command: "xfer", params: { action: "export", remote: "pve-a", vmid: 102, newid: 9102, kind: "lxc" } }), /pve-a CT 102 · export \+ restauration → 9102/);
+  assert.match(stepText({ agent_id: "pve10", action: "xfer_destroy", params: { action: "destroy", remote: "pve-a", vmid: 102, copy: 9102, window: "20:00-07:00" } }), /destruction par tranches \(copie 9102\) · plage 20:00-07:00/);
+});

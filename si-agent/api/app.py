@@ -1133,7 +1133,7 @@ def pra_migration_plan_route():
     steps, err = pra.validate_steps(plan["steps"])
     if err:
         return jsonify({"error": err}), 400
-    rb, err = pra.validate_steps(plan["rollback_steps"])
+    rb, err = pra.validate_steps(plan["rollback_steps"]) if plan["rollback_steps"] else ([], None)   # #750 : rapatriement sans retour
     if err:
         return jsonify({"error": "retour : " + err}), 400
     plan.update(steps=steps, rollback_steps=rb)

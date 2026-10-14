@@ -10,7 +10,7 @@ réseau puis arrêtée ; le serveur physique n'est jamais détruit, la VM seulem
 Le plan produit est un plan PRA ordinaire (kind = migration) : simulable, exécutable pas à pas, rejouable."""
 import re
 
-METHODS = ("image", "rebuild", "direct")   # #748 : direct = image relayée de l'agent source à l'agent du nœud, sans stockage complet au central
+METHODS = ("image", "rebuild", "direct", "repatriate")   # #750 : repatriate = CT / VM d'un nœud distant (OVH) rapatrié   # #748 : direct = image relayée de l'agent source à l'agent du nœud, sans stockage complet au central
 _AGENT = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 
 
@@ -18,7 +18,8 @@ def build(body):
     """-> (plan, erreur). plan = {name, kind, notes, steps, rollback_steps, auto_rollback}."""
     b = body or {}
     method = str(b.get("method") or "image")
-    if method not in METHODS: return None, "method : image, direct ou rebuild"
+    if method not in METHODS: return None, "method : image, direct, rebuild ou repatriate"
+    if method == "repatriate": return build_repatriate(b)
     src, pve = str(b.get("source_agent_id") or "").strip(), str(b.get("pve_agent_id") or "").strip()
     if not _AGENT.match(src): return None, "source_agent_id (agent du serveur à migrer) requis"
     if not _AGENT.match(pve): return None, "pve_agent_id (agent du nœud Proxmox cible) requis"
@@ -92,3 +93,42 @@ def build(body):
     if b.get("purge_on_rollback"): rb.append(dict(agent_id=pve, vmid=vmid, kind=kind, action="destroy", params=dict(confirm=str(vmid)), label="VM %d détruite (purge demandée)" % vmid))
     notes = "Migration %s -> %s (vmid %d, %s). Méthode : %s. Rejouable : relancer le plan reprend chaque étape ; retour en arrière = exécution du retour." % (src, pve, vmid, storage, {"image": "image brute à chaud", "direct": "image à chaud relayée directement vers le nœud (#748)"}.get(method, "reconstruction par rôle"))
     return dict(name=str(b.get("plan_name") or "Migration %s" % name)[:120], kind="migration", notes=notes, steps=steps, rollback_steps=rb, auto_rollback=bool(b.get("auto_rollback"))), None
+
+
+_REMOTE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$")
+_WINDOW = re.compile(r"^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$")
+
+
+def build_repatriate(b):
+    """#750 : rapatriement d'un CT / d'une VM d'un nœud Proxmox distant (déclaré dans pve-remote.json de l'agent du nœud local) :
+    export (vzdump --stdout par ssh, débit borné) + restauration sous un nouvel identifiant, vérification original / copie,
+    transition (l'opérateur valide la copie), destruction de l'original par tranches dans la plage horaire choisie.
+    L'original n'est jamais touché avant la transition ; l'agent refuse de toute façon la destruction sans vérification réussie."""
+    pve = str(b.get("pve_agent_id") or "").strip(); remote = str(b.get("remote") or "").strip()
+    if not _AGENT.match(pve): return None, "pve_agent_id (agent du nœud Proxmox local) requis"
+    if not _REMOTE.match(remote): return None, "remote : nom du nœud distant tel que déclaré dans pve-remote.json"
+    try: vmid, newid = int(b.get("vmid")), int(b.get("newid") or 0) or int(b.get("vmid"))
+    except (TypeError, ValueError): return None, "vmid (distant) et newid (local) entiers"
+    if vmid < 100 or newid < 100: return None, "vmid et newid ≥ 100"
+    kind = str(b.get("kind") or "lxc")
+    if kind not in ("lxc", "qemu"): return None, "kind : lxc ou qemu"
+    storage = str(b.get("storage") or "").strip()
+    if not storage: return None, "storage (stockage Proxmox local) requis"
+    window = str(b.get("window") or "20:00-07:00")
+    if window and not _WINDOW.match(window): return None, "window : HH:MM-HH:MM"
+    mode = str(b.get("mode") or "stop")
+    if mode not in ("stop", "snapshot", "suspend"): return None, "mode : stop, snapshot ou suspend"
+    bw = float(b.get("bwlimit_mbps") or 0); slice_gb = int(b.get("slice_gb") or 10)
+    common = dict(remote=remote, vmid=vmid, kind=kind)
+    what = "%s %d de %s" % ("CT" if kind == "lxc" else "VM", vmid, remote)
+    steps = [
+        dict(agent_id="central", action="checkpoint", label="Transition 1 -- %s va être exporté%s ; prévenir ses utilisateurs ; puis Reprendre" % (what, " (arrêté pendant l'export)" if mode == "stop" else "")),
+        dict(agent_id=pve, action="xfer_export", params=dict(common, newid=newid, storage=storage, mode=mode, bwlimit_mbps=bw, keep_archive=bool(b.get("keep_archive"))),
+             label="%s exporté et restauré en %d sur %s (%s%s)" % (what, newid, pve, storage, (", %g Mbit/s" % bw) if bw else "")),
+        dict(agent_id=pve, action="xfer_verify", params=dict(common, newid=newid), label="vérification fichier à fichier : original %d contre copie %d" % (vmid, newid)),
+        dict(agent_id="central", action="checkpoint", label="Transition 2 -- valider la copie %d (démarrage réseau coupé, contenu) ; Reprendre = destruction de l'original sur %s dans la plage %s ; Abandonner = l'original est gardé" % (newid, remote, window or "immédiate")),
+        dict(agent_id=pve, action="xfer_destroy", params=dict(common, copy=newid, confirm=str(vmid), window=window, slice_gb=slice_gb),
+             label="original %d détruit sur %s, images réduites par tranches de %d Go" % (vmid, remote, slice_gb)),
+    ]
+    notes = "Rapatriement %s -> %s (%d, %s). L'original reste intact jusqu'à la transition 2 ; destruction refusée par l'agent sans vérification réussie." % (what, pve, newid, storage)
+    return dict(name=str(b.get("plan_name") or "Rapatriement %s %d" % (remote, vmid))[:120], kind="migration", notes=notes, steps=steps, rollback_steps=[], auto_rollback=False), None
