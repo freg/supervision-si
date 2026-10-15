@@ -82,7 +82,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
   const [now, setNow] = useState(Date.now());
-  const [tab, setTab] = useState("fleet");
+  const [tab, setTab] = useState(() => (["events", "risks", "catalogue", "updates"].includes(viewParams().tab) ? viewParams().tab : "fleet"));   // #768
   const [busy, setBusy] = useState(false);
 
   const [showEnroll, setShowEnroll] = useState(false);
@@ -113,7 +113,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
   // #422 : journal d'événements
   const [events, setEvents] = useState([]);
   const [summary, setSummary] = useState(null);
-  const [evFilter, setEvFilter] = useState({ minSeverity: "info", agent: "", securityOnly: false, text: "" });
+  const [evFilter, setEvFilter] = useState(() => ({ minSeverity: "info", agent: initialParams.tab === "events" ? initialParams.agent || "" : "", securityOnly: false, text: initialParams.q || "" }));   // #768
 
   const load = useCallback(async () => {
     const [st, fl, rk, cat, ev, sm] = await Promise.all([

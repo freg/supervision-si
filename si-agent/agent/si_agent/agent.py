@@ -2089,6 +2089,8 @@ class Agent(object):
             h = None
         if not h:
             return {"ok": False, "error": "nœud distant %s absent de %s" % (q["remote"], self.cfg.get("pve_remote") or xferctl.REMOTE_FILE)}
+        if h.get("key") and not os.path.exists(h["key"]):   # #768
+            return {"ok": False, "error": "clé %s introuvable pour le service si-agent (ProtectHome masque /root et /home) : la placer dans /etc/si-agent/keys/ (chmod 600) et corriger pve-remote.json" % h["key"]}
         j = getattr(self, "_xfer_job", None)
         if j and j.get("state") == "running":
             return {"ok": False, "error": "rapatriement déjà en cours (%s %s)" % (j.get("action"), j.get("vmid"))}

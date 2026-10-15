@@ -1686,7 +1686,7 @@ def _repa_full(row, refresh_inventory=True):
     conn = store._connect(DB_PATH)
     try:   # nom du nœud Proxmox remonté par l'agent du nœud local (sonde proxmox)
         node_of = {aid: (d.get("node") or {}).get("name") or host for aid, host, _at, d in infra.latest(conn, "plugin:proxmox")}
-        reports = [(t, host or aid, at, d) for t in ("plugin:pve-remote", "plugin:node-activity") for aid, host, at, d in infra.latest(conn, t)]
+        reports = [(t, host or aid, at, d, aid) for t in ("plugin:pve-remote", "plugin:node-activity") for aid, host, at, d in infra.latest(conn, t)]
     finally:
         conn.close()
     tname = node_of.get(c["pve_agent_id"], c["pve_agent_id"])

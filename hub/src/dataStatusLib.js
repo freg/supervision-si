@@ -12,8 +12,9 @@ export function sourceState(src, label, stale = 1800) {
   const late = ag.filter((a) => a.age_s != null && a.age_s > stale);
   const freshest = Math.min(...ag.map((a) => (a.age_s == null ? Infinity : a.age_s)));
   const names = (xs) => xs.map((a) => a.hostname || a.agent_id).join(", ");
-  if (bad.length) return { tone: "critical", text: `${label} : ${bad.length} en erreur sur ${ag.length}`, detail: bad.map((a) => `${a.hostname || a.agent_id} : ${a.error || "échec"}`).join(" ; ") };
-  if (late.length) return { tone: "warning", text: `${label} : ${late.length} en retard sur ${ag.length}`, detail: `dernière mesure : ${late.map((a) => `${a.hostname || a.agent_id} il y a ${fmtAge(a.age_s)}`).join(", ")}` };
+  const who = (xs) => xs.map((a) => ({ id: a.agent_id, name: a.hostname || a.agent_id }));   // #768 : liens journal
+  if (bad.length) return { tone: "critical", text: `${label} : ${bad.length} en erreur sur ${ag.length}`, detail: bad.map((a) => `${a.hostname || a.agent_id} : ${a.error || "échec"}`).join(" ; "), agents: who(bad), q: label };
+  if (late.length) return { tone: "warning", text: `${label} : ${late.length} en retard sur ${ag.length}`, detail: `dernière mesure : ${late.map((a) => `${a.hostname || a.agent_id} il y a ${fmtAge(a.age_s)}`).join(", ")}`, agents: who(late), q: label };
   return { tone: "good", text: `${label} : ${ag.length} agent(s), il y a ${fmtAge(freshest)}`, detail: names(ag) };
 }
 

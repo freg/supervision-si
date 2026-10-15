@@ -40,6 +40,8 @@ class Inventaire(unittest.TestCase):
         # #764 : hostname long / différent du nom PVE -> nom court, sinon tous les invités
         self.assertEqual([g["vmid"] for g in pr.from_resources(json.loads(res), "pve1.example.net")], [101])
         self.assertEqual([g["vmid"] for g in pr.from_resources(json.loads(res), "ns000")], [101, 300])
+        n = pr.inventory({"name": "pve-1", "host": "h", "key": "/nonexistent/k"}, runner=fake({}))   # #768
+        self.assertFalse(n["ok"]); self.assertIn("ProtectHome", n["error"])
         n = pr.inventory({"name": "pve-2", "host": "203.0.113.22"}, runner=fake({"pct list": PCT, "qm list": QM, "pvesm": PVESM}))
         self.assertEqual((n["source"], [g["vmid"] for g in n["guests"]]), ("pct/qm", [101, 106, 200]))
         n = pr.inventory({"name": "pve-3", "host": "203.0.113.23"}, runner=fake({"pvesh": None, "pct": None}))

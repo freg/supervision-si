@@ -7,6 +7,7 @@ Hôtes : fichier JSON [{name, host, key?, user?}] (hors dépôt). Sortie : {"nod
 "alerts", "summary"}. Pur : parse_pct_list, parse_qm_list, parse_pvesm, merge."""
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -118,6 +119,9 @@ def ssh(target, key, cmd, runner=subprocess.run, timeout=90):
 def inventory(h, runner=subprocess.run):
     name, target, key = h.get("name") or h["host"], "%s@%s" % (h.get("user") or "root", h["host"]), h.get("key")
     node = {"name": name, "host": h["host"], "ok": True, "error": None, "guests": [], "storages": [], "source": None, "snapshots": [], "backups": []}
+    if key and not os.path.exists(key):          # #768
+        node["ok"], node["error"] = False, "clé %s introuvable pour le service si-agent (ProtectHome masque /root et /home) : la placer dans /etc/si-agent/keys/ (chmod 600) et corriger pve-remote.json" % key
+        return node
     try:
         try:
             res = json.loads(ssh(target, key, "pvesh get /cluster/resources --type vm --output-format json", runner) or "[]")

@@ -291,6 +291,8 @@ def main(argv=None):
             if h is None:
                 out = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True, timeout=40).stdout
             else:
+                if h.get("key") and not os.path.exists(h["key"]):   # #768
+                    raise RuntimeError("clé %s introuvable pour le service si-agent (ProtectHome masque /root et /home) : la placer dans /etc/si-agent/keys/ (chmod 600) et corriger pve-remote.json" % h["key"])
                 args = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=accept-new"]
                 if h.get("key"):
                     args += ["-i", h["key"], "-o", "IdentitiesOnly=yes"]

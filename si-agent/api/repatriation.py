@@ -118,10 +118,12 @@ def inventory_state(remote, reports, guests):
     """#764 : d'où vient (ou pourquoi manque) l'inventaire du nœud distant. reports : [(task, agent, at, data)] des sondes
     pve-remote et node-activity -> {reports: [...], hint}."""
     out = []
-    for task, agent, at, d in reports:
+    for rep in reports:
+        task, agent, at, d = rep[:4]
+        aid = rep[4] if len(rep) > 4 else None          # #768 : identifiant de l'agent (liens vers son journal)
         for x in (d or {}).get("nodes") or []:
             if x.get("name") == remote:
-                out.append({"task": task, "agent": agent, "at": at, "ok": x.get("ok", True) is not False and not x.get("error"), "error": x.get("error"),
+                out.append({"task": task, "agent": agent, "agent_id": aid, "at": at, "ok": x.get("ok", True) is not False and not x.get("error"), "error": x.get("error"),
                             "guests": len(x.get("guests") or []) if task == "plugin:pve-remote" else None, "source": x.get("source"),
                             "warnings": (x.get("warnings") or [])[:3]})
     pr = [r for r in out if r["task"] == "plugin:pve-remote"]

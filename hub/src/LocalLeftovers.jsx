@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { sendCommand, fetchCommand, evaluateLeftovers, purgeLeftover } from "./siAgentClient.js";
 import { fmtBytes } from "./infraLib.js";
 import { leftoverTotals } from "./repaLib.js";
+import JournalLinks from "./JournalLinks.jsx";   // #768
 
 async function waitCommand(base, cid, onWait) {
   const t0 = Date.now();
@@ -69,7 +70,7 @@ export default function LocalLeftovers({ base, hosts, defaultAgent, username, op
         <label>Motif <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="ex. copies 9101/9108 validées et sauvegardées" style={{ width: 320 }} /></label>
         {t && t.ready > 0 && <button className="primary" disabled={!okReason || !!busy} onClick={() => purge(items.filter((x) => x.ok), false)}>Supprimer les {t.ready} élément(s) prêts ({fmtBytes(t.readySize)})</button>}
         {busy && <span className="infra-muted">⏳ {busy}</span>}
-        {err && <span className="infra-status critical">{err}</span>}
+        {err && <span className="infra-status critical">{err}</span>}{err && <JournalLinks agentId={agent} q="xfer" />}
       </div>
       {meta && <p className="infra-muted" style={{ fontSize: 12 }}>Dossiers examinés : {(meta.dirs || []).join(", ")} + images en boucle (losetup). {meta.vms} CT / VM sur ce nœud (sonde proxmox).{!meta.pbs && " Aucune sonde PBS : la condition « sauvegarde PBS » ne peut pas être remplie (forcer avec un motif)."}</p>}
       {items && (items.length ? <>

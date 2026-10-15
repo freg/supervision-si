@@ -1,3 +1,14 @@
+## 2026-10-15 — Messages d'erreur : lien vers le journal de l'agent concerné (livraison #768)
+
+- Règle d'ergonomie : une erreur de sonde ou d'action affiche « → événements · sondes · journal de l'hôte » de
+  l'agent qui l'a remontée (`agentJournalLinks` dans `hubLinks.js`, composant `JournalLinks.jsx`).
+- Branché sur : État des données (sources en erreur ou en retard), Rapatriement (sources de l'inventaire, inventaire
+  vide, restes sur le nœud local). `?view=si-agent&tab=events&agent=…&q=…` ouvre les événements filtrés.
+- Agent 0.5.66, pve-remote v3, node-activity v3 : clé ssh absente pour le service → message explicite (ProtectHome
+  masque /root et /home : clé à placer dans `/etc/si-agent/keys/`) au lieu de « Permission denied ».
+- Vérifié : `node --test hub/tests/*.test.mjs` (373 OK), unittest pve-remote, node-activity, xferctl, leftovers,
+  test_z_repatriation, test_z_infra ; syntaxe JSX par @babel/parser. Non vérifié : `npm run build`, rendu navigateur.
+
 ## 2026-10-14 — Assistant du hub : base de connaissance privée (sessions de travail, fiches d'exploitation, skills) et questions récurrentes en évaluation (livraison #767)
 
 - Assistant : nouvelle source « kb » = `DATA_DIR/kb/**` (hors dépôt, ignoré par git) : fiches symptôme → cause →

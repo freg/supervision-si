@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { sourceState, latencyState } from "./dataStatusLib.js";
 import { fetchDiagTasks } from "./siAgentClient.js";
+import JournalLinks from "./JournalLinks.jsx";   // #768
 
 const DOT = { good: "●", warning: "▲", critical: "■" };
 
@@ -28,7 +29,8 @@ export default function DataStatus({ base, tasks = [], labels = {}, extra = [], 
         <span className={`infra-dot ${worst}`}>{DOT[worst]}</span> État des données {open ? "▾" : "▸"}
       </button>
       {!open && items.map((i, k) => <span key={k} className="data-status-chip" title={i.detail || ""}><span className={`infra-dot ${i.tone}`}>{DOT[i.tone]}</span> {i.text}</span>)}
-      {open && <ul className="data-status-list">{items.map((i, k) => <li key={k}><span className={`infra-dot ${i.tone}`}>{DOT[i.tone]}</span> {i.text}{i.detail && <div className="infra-muted">{i.detail}</div>}</li>)}</ul>}
+      {open && <ul className="data-status-list">{items.map((i, k) => <li key={k}><span className={`infra-dot ${i.tone}`}>{DOT[i.tone]}</span> {i.text}{i.detail && <div className="infra-muted">{i.detail}</div>}
+        {(i.agents || []).map((a) => <div key={a.id} className="infra-muted"><JournalLinks agentId={a.id} name={a.name} q={i.q} /></div>)}</li>)}</ul>}
     </div>
   );
 }

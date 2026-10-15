@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import DataStatus from "./DataStatus.jsx";   // #763
 import LocalLeftovers from "./LocalLeftovers.jsx";   // #765
+import JournalLinks from "./JournalLinks.jsx";   // #768
 import { fetchRepatriations, createRepatriation, fetchRepatriation, saveRepatriation, launchRepatriation, repatriationGuest } from "./siAgentClient.js";
 import { fmtBytes } from "./infraLib.js";
 import { blocker, nextStep, prevStep, cursor, summary, launchesOnNext, STEP_IDS } from "./repaLib.js";
@@ -45,14 +46,14 @@ function Synoptic({ c }) {
   );
 }
 
-function GuestTable({ guests, cols, actions, empty }) {
+function GuestTable({ guests, cols, actions, empty, emptyAgent }) {
   return (
     <div className="infra-table-wrap infra-scroll"><table className="infra-table">
       <thead><tr><th>ID</th><th>Nom</th><th>Type</th><th>Taille</th>{cols.map((c) => <th key={c.h}>{c.h}</th>)}{actions && <th />}</tr></thead>
       <tbody>{guests.map((g) => <tr key={g.vmid} style={g.present === false ? { opacity: 0.55 } : null}>
         <td><b>{g.vmid}</b></td><td>{g.name || "—"}{g.present === false && <div className="infra-muted">absent du nœud distant</div>}</td><td>{g.kind === "lxc" ? "CT" : "VM"}</td><td>{fmtBytes(g.size)}</td>
         {cols.map((c) => <td key={c.h}>{c.v(g)}</td>)}{actions && <td>{actions(g)}</td>}</tr>)}
-        {!guests.length && <tr><td colSpan={4 + cols.length + (actions ? 1 : 0)} style={{ color: "var(--danger, #c33)", whiteSpace: "normal" }}>{empty || "aucun CT / VM"}</td></tr>}</tbody>
+        {!guests.length && <tr><td colSpan={4 + cols.length + (actions ? 1 : 0)} style={{ color: "var(--danger, #c33)", whiteSpace: "normal" }}>{empty || "aucun CT / VM"}{emptyAgent && <JournalLinks agentId={emptyAgent} q="pve-remote" />}</td></tr>}</tbody>
     </table></div>
   );
 }
@@ -63,7 +64,7 @@ function InventorySources({ inv }) {
   if (!r.length) return null;
   const age = (at) => { const s = (Date.now() - Date.parse(at)) / 1000; return isNaN(s) ? "?" : s < 120 ? `${Math.round(s)} s` : s < 7200 ? `${Math.round(s / 60)} min` : `${Math.round(s / 3600)} h`; };
   return <div className="infra-muted" style={{ fontSize: 12, marginBottom: 6 }}>Sources : {r.map((x, i) => <span key={i} style={{ marginRight: 12 }}>
-    <span className={`infra-dot ${x.ok ? "good" : "bad"}`} /> {x.task.replace("plugin:", "")} via {x.agent}, il y a {age(x.at)}{x.guests != null && ` · ${x.guests} CT/VM`}{x.source && ` (${x.source})`}{x.error && ` · ${x.error}`}{x.warnings?.length > 0 && ` · ${x.warnings.join(" ; ")}`}</span>)}</div>;
+    <span className={`infra-dot ${x.ok ? "good" : "bad"}`} /> {x.task.replace("plugin:", "")} via {x.agent}, il y a {age(x.at)}{x.guests != null && ` · ${x.guests} CT/VM`}{x.source && ` (${x.source})`}{x.error && ` · ${x.error}`}{x.warnings?.length > 0 && ` · ${x.warnings.join(" ; ")}`}{(x.error || !x.ok) && <JournalLinks agentId={x.agent_id} q={x.task.replace("plugin:", "")} />}</span>)}</div>;
 }
 
 const Phase = ({ g }) => <><span className={`infra-status ${TONE[g.phase] === "good" ? "" : TONE[g.phase]}`}>{g.phase_label}</span>{g.phase_detail && <div className="infra-muted">{g.phase_detail}</div>}</>;
@@ -127,7 +128,7 @@ export default function RepatriationView({ onBack, siAgentApiBase, username }) {
           <p className="infra-muted">{HELP[c.step]}</p>
 
           {c.step === "inventaire" && <InventorySources inv={c.inventory} />}
-          {c.step === "inventaire" && <GuestTable guests={c.guests} empty={c.inventory?.hint} cols={[
+          {c.step === "inventaire" && <GuestTable guests={c.guests} empty={c.inventory?.hint} emptyAgent={(c.inventory?.reports || []).find((r) => r.task === "plugin:pve-remote")?.agent_id} cols={[
             { h: "État", v: (g) => g.status || "—" },
             { h: "Décision", v: (g) => <span style={{ whiteSpace: "nowrap" }}>{[["rapatrier", "rapatrier"], ["garder", "garder"], ["supprimer", "supprimer"]].map(([v, l]) => <label key={v} style={{ marginRight: 8 }}><input type="radio" name={`d${g.vmid}`} checked={g.decision === v} disabled={!!g.run_id} onChange={() => put({ decisions: { [g.vmid]: v } })} /> {l}</label>)}</span> },
             { h: "Nouvel ID", v: (g) => g.decision === "rapatrier" ? <input type="number" defaultValue={g.newid || ""} placeholder={g.vmid < 1000 ? String(9000 + g.vmid) : "auto"} disabled={!!g.run_id} style={{ width: 90 }} onBlur={(e) => e.target.value !== String(g.newid || "") && put({ newids: { [g.vmid]: e.target.value } })} /> : null }]} />}

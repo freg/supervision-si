@@ -46,6 +46,8 @@ class Pure(unittest.TestCase):
         self.assertIn("aucune remontée", repa.inventory_state("pve-x", [], [])["hint"])
         st = repa.inventory_state("pve-x", [("plugin:pve-remote", "pbs", "t", {"nodes": [{"name": "pve-x", "ok": False, "error": "timeout"}]})], [])
         self.assertIn("timeout", st["hint"]); self.assertEqual(len(st["reports"]), 1)
+        st = repa.inventory_state("pve-x", [("plugin:pve-remote", "pbs", "t", {"nodes": [{"name": "pve-x", "ok": False, "error": "e"}]}, "ag-1")], [])
+        self.assertEqual(st["reports"][0]["agent_id"], "ag-1")   # #768
         st = repa.inventory_state("pve-x", [("plugin:pve-remote", "pbs", "t", {"nodes": [{"name": "pve-x", "ok": True, "guests": [], "source": "pvesh"}]})], [])
         self.assertIn("aucun CT / VM", st["hint"])
         self.assertIsNone(repa.inventory_state("pve-x", [], [{"vmid": 1, "present": True}])["hint"])

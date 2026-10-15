@@ -22,3 +22,14 @@ export function viewParams() {
 export function clearViewParams() {
   try { window.history.replaceState(null, "", window.location.pathname); } catch { /* sans importance */ }
 }
+
+/** #768 : liens « journal » d'un agent à joindre à tout message d'erreur : événements de l'agent (filtrés sur un mot),
+ *  ses sondes, le journal système de l'hôte. -> [{label, href}] */
+export function agentJournalLinks(agentId, q = "") {
+  if (!agentId) return [];
+  return [
+    { label: "événements", href: hubLink("si-agent", { tab: "events", agent: agentId, q }) },
+    { label: "sondes", href: hubLink("si-agent", { agent: agentId, section: "plugins" }) },
+    { label: "journal de l'hôte", href: hubLink("si-agent", { agent: agentId, section: "logs" }) },
+  ];
+}

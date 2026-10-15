@@ -1,6 +1,6 @@
 {
   "id": "pve-remote",
-  "version": "2",
+  "version": "3",
   "runner": "python",
   "entry": "pve_remote.py",
   "interval_seconds": 1800,
