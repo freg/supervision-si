@@ -1,5 +1,17 @@
 [
  {
+  "n": 769,
+  "from": 769,
+  "date": "2026-10-15",
+  "title": "Activité des VM : dernier accès web, MySQL, connexions et CPU de chaque CT / VM de tous les Proxmox, fiche de paramétrage"
+ },
+ {
+  "n": 768,
+  "from": 768,
+  "date": "2026-10-15",
+  "title": "Messages d'erreur : lien vers le journal de l'agent concerné"
+ },
+ {
   "n": 767,
   "from": 767,
   "date": "2026-10-14",
@@ -226,17 +238,5 @@
   "from": 730,
   "date": "2026-10-09",
   "title": "« Questions sur le hub » : tickets, agents hors ligne, emplacement des VM/CT"
- },
- {
-  "n": 729,
-  "from": 729,
-  "date": "2026-10-09",
-  "title": "Tests QA : la maquette validée devient la cible des campagnes"
- },
- {
-  "n": 728,
-  "from": 728,
-  "date": "2026-10-09",
-  "title": "Tests QA : maquettes en étapes, de la proposition au ticket évolution"
  }
 ]

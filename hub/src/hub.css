@@ -2532,3 +2532,25 @@ button:active:not(:disabled), a.hub-card:active, button.hub-card:active { transf
 .data-status-chip { white-space: nowrap; color: var(--muted); }
 .data-status-list { margin: 4px 0 2px; padding-left: 4px; list-style: none; width: 100%; }
 .data-status-list li { margin: 3px 0; }
+
+/* #769 : Activité des VM (GuestUsageView.jsx) -- variables de .infra-root uniquement */
+.infra-status.ok { border-color: var(--st-ok); }
+.gu-table tbody tr { cursor: pointer; }
+.gu-table tbody tr.gu-sel td { background: var(--bg); }
+.gu-table td { vertical-align: top; }
+.gu-who { display: block; color: var(--muted); font-size: 11px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.gu-spark { vertical-align: middle; margin-left: 4px; }
+.gu-spark-bar { fill: var(--viz-1); }
+.gu-gear { padding: 2px 8px; }
+.gu-detail { flex: 0 0 auto; max-height: 48vh; overflow: auto; border-top: 1px solid var(--border); padding-top: 8px; }
+.gu-bars-grid { display: flex; align-items: flex-end; gap: 3px; height: 90px; }
+.gu-bar-col { flex: 1 1 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; }
+.gu-bar { width: 100%; background: var(--viz-1); border-radius: 2px 2px 0 0; }
+.gu-bar-col small { font-size: 10px; color: var(--muted); }
+.gu-form { display: flex; flex-direction: column; gap: 6px; }
+.gu-field { display: grid; grid-template-columns: minmax(140px, 38%) 1fr; gap: 8px; align-items: center; font-size: 13px; }
+.gu-field span { color: var(--muted); }
+.gu-field input, .gu-field textarea { width: 100%; box-sizing: border-box; }
+.gu-form-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.gu-ignored td { color: var(--muted); text-decoration: line-through; }
+.gu-watched td { font-weight: 600; }

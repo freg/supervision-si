@@ -1,0 +1,453 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Activité des CT / VM de tous les Proxmox (#769) : pour chaque invité, dernier accès et fréquentation HTTP/HTTPS
+(dont ownCloud), activité MySQL/MariaDB, connexions des comptes unix, charge processeur.
+
+Un passage = UN script bash par nœud (local si /etc/pve existe, distants de pve-remote.json par ssh, script envoyé
+sur l'entrée standard) qui, pour chaque invité :
+  - lit la charge processeur dans les RRD du nœud (pvesh .../rrddata, jour et semaine) -- tous les invités ;
+  - entre dans l'invité démarré (pct exec ; qm guest exec si l'agent invité répond) et y exécute GUEST_SH :
+    journaux d'accès Apache / nginx AGRÉGÉS sur place par awk (par heure, par IP, dernier accès, accès ownCloud),
+    `last` (wtmp), état MySQL par le compte de maintenance Debian (/etc/mysql/debian.cnf) ou root par socket.
+Aucun mot de passe : root du nœud entre dans l'invité. Lecture seule. Jamais de ligne de journal brute remontée.
+MySQL ne date pas les connexions : le compteur Connections est comparé d'un passage à l'autre (état local), ce qui
+donne les connexions par jour et la dernière activité (à l'intervalle de passage près).
+Pur et testé : parse_driver, parse_guest, parse_web, parse_last, parse_mysql, rrd_stats, mysql_step, build."""
+import argparse
+import datetime as dt
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+
+SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=15", "-o", "ServerAliveInterval=30", "-o", "StrictHostKeyChecking=accept-new"]
+OWN_MYSQL_CONN = 3          # connexions ouvertes par GUEST_SH à chaque passage (status, proc, version)
+KEEP_DAYS = 14
+
+GUEST_SH = r"""LC_ALL=C; export LC_ALL
+echo "## os"; ( . /etc/os-release 2>/dev/null; echo "${PRETTY_NAME:-?}" )
+echo "## web"
+L=""
+for f in /var/log/apache2/*access*.log /var/log/nginx/*access*.log /var/log/httpd/*access_log; do
+  [ -f "$f" ] || continue
+  [ -f "$f.1" ] && L="$L $f.1"
+  L="$L $f"
+done
+for f in $L; do echo "F $f"; done
+[ -n "$L" ] && for f in $L; do tail -n 40000 "$f" 2>/dev/null; done | awk '
+BEGIN { split("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec", M, " "); for (i = 1; i <= 12; i++) m[M[i]] = sprintf("%02d", i) }
+{ t = $4; if (substr(t, 1, 1) != "[") next; t = substr(t, 2); tz = substr($5, 1, 5)
+  n = split(t, a, "[/:]"); if (n < 6 || !(a[2] in m)) next
+  k = a[3] m[a[2]] a[1] a[4] a[5] a[6]; h = substr(k, 1, 10) tz
+  H[h]++
+  if ($7 ~ /(remote|public|status)\.php|\/ocs\/v[12]|index\.php\/login/) { O[h]++; if (k >= ok) { ok = k; ou = $3; otz = tz } }
+  if (k >= lk) { lk = k; li = $1; ltz = tz }
+  c[$1]++; if (k >= ik[$1]) { ik[$1] = k; iz[$1] = tz } }
+END { for (h in H) print "H", h, H[h], O[h] + 0
+      if (lk != "") print "L", lk ltz, li
+      if (ok != "") print "O", ok otz, ou
+      for (i in c) print "I", i, c[i], ik[i] iz[i] }' | sort -k1,1 -k3,3nr | awk '$1 != "I" || n++ < 60'
+echo "## login"
+( last -F -w -n 300 2>/dev/null || last -n 300 2>/dev/null ) | head -n 300
+if command -v mysql >/dev/null 2>&1; then
+  M="mysql -N -B"; [ -r /etc/mysql/debian.cnf ] && M="mysql --defaults-file=/etc/mysql/debian.cnf -N -B"
+  echo "## mysql status"
+  $M -e "SHOW GLOBAL STATUS WHERE Variable_name IN ('Uptime','Connections','Questions','Threads_connected','Max_used_connections','Aborted_connects')" 2>&1 | head -n 20
+  echo "## mysql proc"
+  $M -e "SELECT USER, SUBSTRING_INDEX(HOST, ':', 1), IFNULL(DB, ''), COMMAND, TIME FROM information_schema.PROCESSLIST WHERE ID <> CONNECTION_ID()" 2>&1 | head -n 300
+  echo "## mysql version"; $M -e "SELECT VERSION()" 2>&1 | head -n 1
+fi
+echo "## end"
+"""
+
+# Tout le script est une fonction lue en entier par `bash -s` puis exécutée entrée standard fermée : sans cela,
+# pct / qm / pvesh avaleraient la suite du script envoyé sur l'entrée standard.
+DRIVER_SH = r"""si_main() {
+N=$(basename "$(readlink -f /etc/pve/local 2>/dev/null)" 2>/dev/null)
+[ -n "$N" ] && [ "$N" != "local" ] || N=$(hostname -s)
+echo "@@node $N"
+G=$(cat <<'__SI_GUEST__'
+%s
+__SI_GUEST__
+)
+rrd() { for tf in day week; do echo "## rrd $tf"; pvesh get /nodes/$N/$1/$2/rrddata --timeframe $tf --cf AVERAGE --output-format json </dev/null 2>/dev/null | head -c 200000; echo; done; }
+pct list 2>/dev/null | awk 'NR>1 {print $1, $2, $NF}' | while read id st name; do
+  echo "=== lxc $id $st $name"; rrd lxc $id
+  [ "$st" = running ] && { echo "## exec"; timeout 60 pct exec $id -- sh -c "$G" </dev/null 2>&1 | head -c 600000; echo; }
+done
+qm list 2>/dev/null | awk 'NR>1 {print $1, $3, $2}' | while read id st name; do
+  echo "=== qemu $id $st $name"; rrd qemu $id
+  [ "$st" = running ] && { echo "## qga"; timeout 60 qm guest exec $id --timeout 50 -- sh -c "$G" </dev/null 2>&1 | head -c 2000000; echo; }
+done
+echo "@@done"
+}
+si_main </dev/null
+"""
+
+
+def driver_script():
+    return DRIVER_SH % GUEST_SH.rstrip("\n")
+
+
+# ---------------------------------------------------------------- découpage
+
+def parse_driver(text):
+    """Sortie d'un nœud -> (nom du nœud, [{type, vmid, status, name, sections: {clé: texte}}], complet ?)."""
+    node, guests, cur, sec, done = None, [], None, None, False
+    for line in (text or "").splitlines():
+        if line.startswith("@@node "):
+            node = line[7:].strip() or None
+            continue
+        if line.strip() == "@@done":
+            done = True
+            continue
+        m = re.match(r"^=== (lxc|qemu) (\d+) (\S+)\s*(.*)$", line)
+        if m:
+            cur = {"type": m.group(1), "vmid": int(m.group(2)), "status": m.group(3), "name": m.group(4).strip(), "sections": {}}
+            guests.append(cur)
+            sec = None
+            continue
+        if cur is None:
+            continue
+        m = re.match(r"^## (rrd day|rrd week|exec|qga)$", line.strip())
+        if m:
+            sec = m.group(1)
+            cur["sections"][sec] = []
+            continue
+        if sec:
+            cur["sections"][sec].append(line)
+    for g in guests:
+        g["sections"] = {k: "\n".join(v) for k, v in g["sections"].items()}
+    return node, guests, done
+
+
+def unwrap_qga(text):
+    """Sortie de `qm guest exec` (JSON {exitcode, out-data, err-data}) -> (texte, erreur)."""
+    t = (text or "").strip()
+    i = t.find("{")
+    if i < 0:
+        return "", (t.splitlines() or ["agent invité absent"])[-1][:160] or "agent invité absent"
+    try:
+        d = json.loads(t[i:])
+    except ValueError:
+        return "", "réponse de l'agent invité illisible"
+    return d.get("out-data") or "", None if d.get("exited", 1) else "commande interrompue dans l'invité"
+
+
+def parse_guest(text):
+    """Sortie de GUEST_SH -> {clé de section: texte} (os, web, login, mysql status, mysql proc, mysql version, end)."""
+    out, sec = {}, None
+    for line in (text or "").splitlines():
+        m = re.match(r"^## (os|web|login|mysql status|mysql proc|mysql version|end)$", line.strip())
+        if m:
+            sec = m.group(1)
+            out[sec] = []
+            continue
+        if sec:
+            out[sec].append(line)
+    return {k: "\n".join(v) for k, v in out.items()}
+
+
+# ---------------------------------------------------------------- HTTP
+
+def _web_time(k):
+    """« 20261013101112+0200 » -> datetime UTC (None si illisible)."""
+    m = re.match(r"^(\d{14})([+-]\d{4})?$", k or "")
+    if not m:
+        return None
+    try:
+        d = dt.datetime.strptime(m.group(1), "%Y%m%d%H%M%S")
+        if m.group(2):
+            off = int(m.group(2)[1:3]) * 60 + int(m.group(2)[3:5])
+            d -= dt.timedelta(minutes=off if m.group(2)[0] == "+" else -off)
+        return d.replace(tzinfo=dt.timezone.utc)
+    except ValueError:
+        return None
+
+
+def _hour_time(h):
+    """« 2026101310+0200 » -> datetime UTC du début de l'heure."""
+    m = re.match(r"^(\d{10})([+-]\d{4})?$", h or "")
+    return _web_time(m.group(1) + "0000" + (m.group(2) or "")) if m else None
+
+
+def _iso(d):
+    return d.strftime("%Y-%m-%dT%H:%M:%SZ") if d else None
+
+
+def parse_web(text, now):
+    """Section web (lignes F/H/L/O/I agrégées par awk dans l'invité) -> résumé ; None si aucun journal d'accès."""
+    files, hours, last, oc_last, ips = [], [], None, None, []
+    for line in (text or "").splitlines():
+        p = line.split()
+        if not p:
+            continue
+        if p[0] == "F" and len(p) >= 2:
+            files.append(p[1])
+        elif p[0] == "H" and len(p) >= 4:
+            t = _hour_time(p[1])
+            if t:
+                hours.append((t, int(p[2]), int(p[3])))
+        elif p[0] == "L" and len(p) >= 2:
+            last = {"at": _iso(_web_time(p[1])), "ip": p[2] if len(p) >= 3 else None}
+        elif p[0] == "O" and len(p) >= 2:
+            oc_last = {"at": _iso(_web_time(p[1])), "user": p[2] if len(p) >= 3 and p[2] != "-" else None}
+        elif p[0] == "I" and len(p) >= 4:
+            ips.append({"ip": p[1], "hits": int(p[2]), "last_at": _iso(_web_time(p[3]))})
+    if not files:
+        return None
+    day, week = now - dt.timedelta(hours=24), now - dt.timedelta(days=7)
+    per_day = {}
+    for t, n, oc in hours:
+        if t >= now - dt.timedelta(days=KEEP_DAYS):
+            d = per_day.setdefault(t.strftime("%Y-%m-%d"), {"day": t.strftime("%Y-%m-%d"), "hits": 0, "owncloud": 0})
+            d["hits"] += n
+            d["owncloud"] += oc
+    oc7 = sum(oc for t, _n, oc in hours if t >= week)
+    return {"files": files, "last": last, "hits24": sum(n for t, n, _o in hours if t >= day), "hits7d": sum(n for t, n, _o in hours if t >= week),
+            "per_day": sorted(per_day.values(), key=lambda x: x["day"]), "ips": ips[:60],
+            "owncloud": {"last_at": (oc_last or {}).get("at"), "last_user": (oc_last or {}).get("user"), "hits7d": oc7} if oc_last or oc7 else None}
+
+
+# ---------------------------------------------------------------- connexions (wtmp)
+
+LAST_DATE = re.compile(r"\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) +(\d{1,2}) (\d{2}:\d{2})(?::(\d{2}))? ?(\d{4})?")
+
+
+def parse_last(text, now):
+    """Sortie de `last -F -w` (ou `last` court, année absente) -> {last, users, per_day, count7d} ; heure locale de l'invité."""
+    rows = []
+    for line in (text or "").splitlines():
+        if not line.strip() or line.startswith(("wtmp", "btmp")) or line.split()[0] in ("reboot", "shutdown", "runlevel"):
+            continue
+        m = LAST_DATE.search(line)
+        if not m:
+            continue
+        head = line[:m.start()].split()
+        user = head[0] if head else "?"
+        frm = head[2] if len(head) >= 3 else None
+        year = int(m.group(6)) if m.group(6) else now.year
+        try:
+            t = dt.datetime.strptime("%d %s %s %s:%s" % (year, m.group(2), m.group(3), m.group(4), m.group(5) or "00"), "%Y %b %d %H:%M:%S")
+        except ValueError:
+            continue
+        if not m.group(6) and t > now.replace(tzinfo=None) + dt.timedelta(days=1):
+            t = t.replace(year=year - 1)          # `last` court : décembre lu en janvier
+        rows.append({"user": user, "from": frm if frm and not frm.startswith(":") else None, "at": t})
+    if not rows:
+        return {"last": None, "users": [], "per_day": [], "count7d": 0}
+    naive_now = now.replace(tzinfo=None)
+    users = {}
+    for r in rows:
+        u = users.setdefault(r["user"], {"user": r["user"], "last_at": None, "from": None, "count7d": 0, "count": 0})
+        u["count"] += 1
+        if u["last_at"] is None or r["at"] > u["last_at"]:
+            u["last_at"], u["from"] = r["at"], r["from"]
+        if r["at"] >= naive_now - dt.timedelta(days=7):
+            u["count7d"] += 1
+    per_day = {}
+    for r in rows:
+        if r["at"] >= naive_now - dt.timedelta(days=KEEP_DAYS):
+            k = r["at"].strftime("%Y-%m-%d")
+            per_day[k] = per_day.get(k, 0) + 1
+    last = max(rows, key=lambda r: r["at"])
+    fmt = lambda d: d.strftime("%Y-%m-%dT%H:%M:%S")
+    return {"last": {"user": last["user"], "from": last["from"], "at": fmt(last["at"])},
+            "users": [dict(u, last_at=fmt(u["last_at"])) for u in sorted(users.values(), key=lambda u: u["last_at"], reverse=True)][:30],
+            "per_day": [{"day": k, "logins": v} for k, v in sorted(per_day.items())], "count7d": sum(u["count7d"] for u in users.values())}
+
+
+# ---------------------------------------------------------------- MySQL
+
+def parse_mysql(status, proc, version):
+    """Sections mysql -> {ok, error, version, uptime_s, connections, questions, threads_connected, max_used, sessions}."""
+    txt = "\n".join(x for x in (status, proc) if x)
+    m = re.search(r"ERROR \d+.*", txt)
+    if m:
+        return {"ok": False, "error": m.group(0)[:200], "sessions": []}
+    st = {}
+    for line in (status or "").splitlines():
+        p = line.split()
+        if len(p) == 2 and p[1].isdigit():
+            st[p[0]] = int(p[1])
+    sessions = []
+    for line in (proc or "").splitlines():
+        p = line.split("\t")
+        if len(p) >= 5 and p[0] not in ("system user", "event_scheduler", "debian-sys-maint"):
+            sessions.append({"user": p[0], "host": p[1], "db": p[2] or None, "command": p[3], "time_s": int(p[4]) if p[4].isdigit() else None})
+    if not st:
+        return {"ok": False, "error": "état MySQL illisible", "sessions": []}
+    return {"ok": True, "error": None, "version": (version or "").strip().splitlines()[0][:60] if (version or "").strip() else None,
+            "uptime_s": st.get("Uptime"), "connections": st.get("Connections"), "questions": st.get("Questions"),
+            "threads_connected": st.get("Threads_connected"), "max_used": st.get("Max_used_connections"),
+            "aborted_connects": st.get("Aborted_connects"), "sessions": sessions[:50]}
+
+
+def mysql_step(my, prev, now):
+    """Compare le passage courant au précédent (état local) -> (champs ajoutés au résumé, nouvel état).
+    Connexions extérieures = hausse du compteur - connexions de la sonde ; redémarrage (Uptime recule) = repart du compteur."""
+    ts = now.timestamp()
+    prev = prev or {}
+    st = {"connections": my.get("connections"), "questions": my.get("questions"), "uptime_s": my.get("uptime_s"), "at": ts,
+          "per_day": dict(prev.get("per_day") or {}), "last_activity_at": prev.get("last_activity_at"), "users": dict(prev.get("users") or {})}
+    ext = None
+    if prev.get("connections") is not None and my.get("connections") is not None:
+        restarted = (my.get("uptime_s") or 0) < (prev.get("uptime_s") or 0)
+        delta = my["connections"] if restarted else my["connections"] - prev["connections"]
+        ext = max(0, delta - OWN_MYSQL_CONN)
+        if ext > 0:
+            k = now.strftime("%Y-%m-%d")
+            st["per_day"][k] = st["per_day"].get(k, 0) + ext
+            st["last_activity_at"] = _iso(now)
+    for s in my.get("sessions") or []:
+        st["users"][s["user"]] = _iso(now)
+        st["last_activity_at"] = _iso(now)
+    cut = (now - dt.timedelta(days=KEEP_DAYS)).strftime("%Y-%m-%d")
+    st["per_day"] = {k: v for k, v in st["per_day"].items() if k >= cut}
+    cut60 = _iso(now - dt.timedelta(days=60))
+    st["users"] = {u: t for u, t in st["users"].items() if t >= cut60}
+    window = int(ts - prev["at"]) if prev.get("at") else None
+    add = {"conn_since_last": ext, "window_s": window, "last_activity_at": st["last_activity_at"],
+           "per_day": [{"day": k, "connections": v} for k, v in sorted(st["per_day"].items())],
+           "conn7d": sum(v for k, v in st["per_day"].items() if k >= (now - dt.timedelta(days=7)).strftime("%Y-%m-%d")),
+           "users_seen": [{"user": u, "last_seen": t} for u, t in sorted(st["users"].items(), key=lambda x: x[1], reverse=True)][:30]}
+    return add, st
+
+
+# ---------------------------------------------------------------- charge processeur
+
+def rrd_stats(day_text, week_text, now):
+    """rrddata (JSON, jour et semaine) -> {cpu_now, cpu_avg24, cpu_max24, cpu_avg7d, ncpu, netin24, netout24} en % de l'invité."""
+    def load(t):
+        try:
+            v = json.loads((t or "").strip() or "[]")
+            return [r for r in v if isinstance(r, dict) and r.get("time")] if isinstance(v, list) else []
+        except ValueError:
+            return []
+    d, w = load(day_text), load(week_text)
+    ts = now.timestamp()
+    d24 = [r for r in d if r["time"] >= ts - 86400 and isinstance(r.get("cpu"), (int, float))]
+    w7 = [r for r in w if r["time"] >= ts - 7 * 86400 and isinstance(r.get("cpu"), (int, float))]
+    pct = lambda x: round(100.0 * x, 1)
+    out = {"cpu_now": pct(d24[-1]["cpu"]) if d24 else None, "cpu_avg24": pct(sum(r["cpu"] for r in d24) / len(d24)) if d24 else None,
+           "cpu_max24": pct(max(r["cpu"] for r in d24)) if d24 else None,
+           "cpu_avg7d": pct(sum(r["cpu"] for r in w7) / len(w7)) if w7 else None,
+           "ncpu": next((r.get("maxcpu") for r in reversed(d24) if r.get("maxcpu")), None),
+           "cpu_series": [{"t": int(r["time"]), "cpu": pct(r["cpu"])} for r in w7][-60:]}
+    if len(d24) >= 2:   # débits moyens (octets/s) × durée de chaque point
+        step = (d24[-1]["time"] - d24[0]["time"]) / (len(d24) - 1)
+        out["netin24"] = int(sum((r.get("netin") or 0) for r in d24) * step)
+        out["netout24"] = int(sum((r.get("netout") or 0) for r in d24) * step)
+    return out
+
+
+# ---------------------------------------------------------------- assemblage
+
+def build(node_name, guests, state, now):
+    """Invités découpés -> (invités résumés, nouvel état de ce nœud)."""
+    out, new_state = [], {}
+    for g in guests:
+        s = g["sections"]
+        r = {"vmid": g["vmid"], "type": g["type"], "name": g["name"], "status": g["status"], "collected": False, "error": None,
+             "os": None, "web": None, "login": None, "mysql": None}
+        r.update(rrd_stats(s.get("rrd day"), s.get("rrd week"), now))
+        if g["status"] == "running":
+            raw, err = (s.get("exec"), None) if g["type"] == "lxc" else unwrap_qga(s.get("qga"))
+            parts = parse_guest(raw)
+            if "end" not in parts:
+                r["error"] = err or ((raw or "").strip().splitlines() or ["sortie vide (délai dépassé ?)"])[-1][:160]
+            if parts:
+                r["collected"] = "end" in parts
+                r["os"] = (parts.get("os") or "").strip()[:80] or None
+                r["web"] = parse_web(parts.get("web"), now)
+                r["login"] = parse_last(parts.get("login"), now)
+                if "mysql status" in parts:
+                    my = parse_mysql(parts.get("mysql status"), parts.get("mysql proc"), parts.get("mysql version"))
+                    key = str(g["vmid"])
+                    if my.get("ok"):
+                        add, new_state[key] = mysql_step(my, state.get(key), now)
+                        my.update(add)
+                    elif state.get(key):
+                        new_state[key] = state[key]
+                    r["mysql"] = my
+        out.append(r)
+    for k, v in (state or {}).items():   # invité arrêté : son historique MySQL est gardé
+        new_state.setdefault(k, v)
+    return out, new_state
+
+
+def alerts_for(nodes):
+    out = []
+    for n in nodes:
+        if not n.get("ok"):
+            out.append({"code": "guest-usage-unreachable:%s" % n["name"], "severity": "warning", "message": "%s : activité des CT / VM non relevée (%s)" % (n["name"], n.get("error"))})
+            continue
+        for g in n.get("guests") or []:
+            if g.get("mysql") and not g["mysql"].get("ok"):
+                out.append({"code": "guest-usage-mysql:%s:%s" % (n["name"], g["vmid"]), "severity": "info",
+                            "message": "%s / %s %s : MySQL présent mais non lisible (%s)" % (n["name"], g["vmid"], g["name"], g["mysql"].get("error"))})
+    return out
+
+
+def run_node(h, script, runner=subprocess.run):
+    """h None = nœud local. -> sortie texte du script (exception si injoignable)."""
+    if h is None:
+        p = runner(["bash", "-s"], input=script, capture_output=True, text=True, timeout=1200)
+    else:
+        if h.get("key") and not os.path.exists(h["key"]):
+            raise RuntimeError("clé %s introuvable pour le service si-agent (ProtectHome masque /root et /home) : la placer dans /etc/si-agent/keys/ (chmod 600) et corriger pve-remote.json" % h["key"])
+        args = ["ssh"] + SSH_OPTS + (["-i", h["key"], "-o", "IdentitiesOnly=yes"] if h.get("key") else []) + ["%s@%s" % (h.get("user") or "root", h["host"]), "bash -s"]
+        p = runner(args, input=script, capture_output=True, text=True, timeout=1200)
+    if "@@node" not in (p.stdout or ""):
+        raise RuntimeError(((p.stderr or "").strip().splitlines() or ["code %d" % p.returncode])[-1][:200])
+    return p.stdout
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--remote", default="/etc/si-agent/pve-remote.json")
+    ap.add_argument("--state", default="/var/lib/si-agent/guest-usage.state.json")
+    ap.add_argument("--no-local", action="store_true")
+    a = ap.parse_args(argv)
+    try:
+        with open(a.state) as fh:
+            state = json.load(fh)
+    except (OSError, ValueError):
+        state = {}
+    targets = [] if a.no_local or not os.path.isdir("/etc/pve") else [("local", "local", None)]
+    if a.remote and os.path.exists(a.remote):
+        try:
+            with open(a.remote, encoding="utf-8") as fh:
+                targets += [(h.get("name") or h["host"], "distant", h) for h in json.load(fh) if isinstance(h, dict) and h.get("host")]
+        except (OSError, ValueError):
+            pass
+    script, nodes, new_state = driver_script(), [], {}
+    for name, zone, h in targets:
+        now = dt.datetime.now(dt.timezone.utc)
+        try:
+            node, guests, done = parse_driver(run_node(h, script))
+            label = node if zone == "local" and node else name
+            rows, new_state[label] = build(label, guests, state.get(label) or {}, now)
+            nodes.append({"name": label, "zone": zone, "ok": True, "error": None if done else "relevé incomplet (délai dépassé)", "guests": rows})
+        except Exception as e:  # noqa: BLE001 -- un nœud injoignable n'empêche pas les autres
+            nodes.append({"name": name, "zone": zone, "ok": False, "error": str(e)[:200], "guests": []})
+            if name in state:
+                new_state[name] = state[name]
+    try:
+        os.makedirs(os.path.dirname(a.state), exist_ok=True)
+        with open(a.state + ".tmp", "w") as fh:
+            json.dump(new_state, fh)
+        os.replace(a.state + ".tmp", a.state)
+    except OSError:
+        pass
+    g = [x for n in nodes for x in n["guests"]]
+    print(json.dumps({"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "nodes": nodes, "alerts": alerts_for(nodes),
+                      "summary": {"nodes": len(nodes), "guests": len(g), "collected": sum(1 for x in g if x["collected"]),
+                                  "web": sum(1 for x in g if x.get("web")), "mysql": sum(1 for x in g if x.get("mysql"))}}, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -158,6 +158,7 @@ function VmFollowUp({ vm, history }) {
   return (
     <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 10 }}>
       <div style={{ minWidth: 260, flex: 1 }}>
+        <p style={{ margin: "2px 0", fontSize: 12 }}><a href={hubLink("guest-usage", { q: vm.vmid })}>Activité (derniers accès web, MySQL, connexions, statistiques, CPU) et fiche de la VM →</a></p>
         <h4 style={{ margin: "4px 0" }}>Disponibilité (7 j)</h4>
         <p style={{ margin: "2px 0" }}><Tone tone={av.tone}>{av.text}</Tone> <span className="muted" style={{ fontSize: 12 }}>sur {av.samples} relevé{av.samples > 1 ? "s" : ""}</span></p>
         {av.transitions.length > 0 ? (

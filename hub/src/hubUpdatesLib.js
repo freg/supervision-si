@@ -14,6 +14,7 @@ export const UPDATE_LINKS = {
   758: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   759: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   760: [{ view: "cortex", hint: "incidents « cause Wi-Fi probable »" }],
+  769: [{ view: "guest-usage", hint: "Nouvel écran : activité de chaque CT / VM et fiche de paramétrage" }, { view: "proxmox", hint: "Lien vers l'activité de la VM" }],
   768: [{ view: "repatriation", hint: "Liens vers le journal dans les erreurs" }, { view: "si-agent", hint: "Événements filtrés par lien" }],
   766: [{ view: "infra", hint: "Transferts › Tâches Proxmox en cours" }],
   765: [{ view: "repatriation", hint: "Restes sur le nœud local" }],

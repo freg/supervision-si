@@ -1,3 +1,24 @@
+## 2026-10-15 — Activité des VM : dernier accès web, MySQL, connexions et CPU de chaque CT / VM de tous les Proxmox, fiche de paramétrage (livraison #769)
+
+- Sonde `guest-usage` v1 (agent 0.5.67) : nœud local + nœuds distants de pve-remote.json, un appel ssh par nœud ;
+  par CT / VM : CPU (RRD : instant, moyenne / pic 24 h, moyenne 7 j), HTTP/HTTPS (journaux Apache / nginx agrégés
+  dans l'invité : dernier accès, requêtes 24 h / 7 j / par jour, IP, ownCloud et dernier compte), connexions unix
+  (`last`), MySQL / MariaDB (compte de maintenance Debian ou root par socket : sessions, connexions par jour d'un
+  passage à l'autre, comptes vus). Aucun mot de passe, aucune ligne de journal remontée.
+- API : `GET /infra/guests`, `PUT /infra/guests/profile` (fiche : comptes unix, compte MySQL, URL HTTPS / ownCloud,
+  IP à ignorer, rôle, notes, entrée du coffre-fort ; champ « secret » refusé), table `guest_profiles`.
+- Hub : écran « Activité des VM » (Équipements › Hôtes › Hyperviseurs) : tableau trié / filtré (nœud, classe
+  d'activité actif / récent / calme / dormant, démarrés, recherche), mini-histogramme 14 j ; détail au clic (requêtes,
+  connexions MySQL et unix par jour, clients HTTP, comptes) et fiche ⚙ par VM. La fiche s'applique à l'affichage :
+  IP ignorées (supervision, sauvegardes), comptes unix / MySQL suivis.
+- Tuile Proxmox : le suivi d'une VM (déjà : disponibilité, sauvegardes, accès console / API, extraits de journaux)
+  renvoie vers son activité (statistiques et derniers accès, que la tuile n'avait pas) ; lien `?view=guest-usage&q=<vmid>`.
+- Au passage : `hub/src/hubUpdates.json` n'avait pas été régénéré en #768 (test hubUpdates en échec) : rattrapé.
+- Vérifié : `node --test hub/tests/*.test.mjs`, unittest guest-usage (dont le script de l'invité exécuté pour de vrai
+  par sh / awk / sort sur un journal factice, et `bash -n` du script de nœud), test_z_guestusage, test_z_infra,
+  test_z_repatriation ; syntaxe JSX par @babel/parser. Non vérifié : `npm run build`, rendu navigateur, exécution sur
+  un vrai Proxmox (pct exec / qm guest exec / pvesh rrddata sur PVE 5.4).
+
 ## 2026-10-15 — Messages d'erreur : lien vers le journal de l'agent concerné (livraison #768)
 
 - Règle d'ergonomie : une erreur de sonde ou d'action affiche « → événements · sondes · journal de l'hôte » de

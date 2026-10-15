@@ -51,6 +51,7 @@ import migration  # noqa: E402  -- #658 : migration serveur -> virtualisation (g
 import infra  # noqa: E402  -- #749 : vue d'ensemble PVE / PBS
 import views  # noqa: E402  -- #753 : vues de parc paramétrables (serveurs, postes, IA, postes personnels)
 import repatriation as repa  # noqa: E402  -- #761 : assistant de rapatriement / nettoyage d'un nœud distant
+import guestusage  # noqa: E402  -- #769 : activité des CT / VM de tous les Proxmox
 import rotation  # noqa: E402  -- #743 : tournées de mesures réparties (supervision distribuée, item 120)
 import json  # noqa: E402
 import notify  # noqa: E402
@@ -1893,6 +1894,7 @@ DIAG_HINTS = {   # #763 : que faire quand une source ne remonte rien
     "plugin:pve-remote": "sonde pve-remote sur l'agent qui joint les nœuds distants (PBS ou PVE local) : /etc/si-agent/pve-remote.json puis activer la sonde",
     "plugin:node-activity": "sonde node-activity sur les agents des PVE / PBS (fiche de l'agent › Sondes) ; nœuds distants : /etc/si-agent/pve-remote.json",
     "plugin:pbs": "sonde pbs sur l'agent du serveur de sauvegarde",
+    "plugin:guest-usage": "sonde guest-usage sur l'agent qui joint les Proxmox (nœud local + /etc/si-agent/pve-remote.json), fiche de l'agent › Sondes",
     "plugin:ollama": "sonde ollama sur l'agent du poste d'IA",
     "plugin:docker-containers": "sonde docker-containers sur l'agent de l'hôte Docker",
     "plugin:mail-server": "sonde mail-server sur l'agent du serveur de messagerie",
@@ -2010,6 +2012,39 @@ def infra_overview_route():
     finally:
         conn.close()
     return jsonify(infra.overview(*args)), 200
+
+
+@app.route("/infra/guests", methods=["GET"])
+def guest_usage_route():
+    """#769 : écran « Activité des VM » -- dernière mesure guest-usage de chaque agent + invités de l'inventaire Infra + fiches."""
+    conn = store._connect(DB_PATH)
+    try:
+        reports = infra.latest(conn, "plugin:guest-usage")
+        profiles = guestusage.load_profiles(conn)
+    finally:
+        conn.close()
+    return jsonify(guestusage.assemble(reports, _infra_now().get("vms") or [], profiles)), 200
+
+
+@app.route("/infra/guests/profile", methods=["PUT"])
+def guest_profile_route():
+    """#769 : {node, vmid, profile, actor} -> fiche de paramétrage d'un CT / VM (vide = effacée). Tout champ « secret » est refusé."""
+    b = request.get_json(silent=True) or {}
+    node, vmid = str(b.get("node") or "").strip(), b.get("vmid")
+    if not re.match(r"^[A-Za-z0-9._-]{1,64}$", node) or not isinstance(vmid, int) or not 0 < vmid < 1000000000:
+        return jsonify({"error": "node et vmid requis"}), 400
+    prof, err = guestusage.normalize_profile(b.get("profile") or {})
+    if err:
+        return jsonify({"error": err}), 400
+    actor = str(b.get("actor") or "")[:64]
+    conn = store._connect(DB_PATH)
+    try:
+        guestusage.save_profile(conn, node, vmid, prof, store.now_iso(), actor)
+    finally:
+        conn.close()
+    _event("guest-profile", "info", "fiche de %s/%s %s par %s (%s)" % (node, vmid, "enregistrée" if prof else "effacée", actor or "?", ", ".join(sorted(prof)) or "vide"),
+           details={"node": node, "vmid": vmid, "fields": sorted(prof)})
+    return jsonify({"ok": True, "profile": prof}), 200
 
 
 @app.route("/images", methods=["GET"])

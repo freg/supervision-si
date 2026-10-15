@@ -1568,3 +1568,21 @@ images montées en boucle (`losetup -J -l`). `{"action": "purge", "path", "confi
 démonte, détache et efface un élément listé ; refus si le fichier est référencé par `/etc/pve/{lxc,qemu-server}/*.conf`
 ou si un export est en cours. Audit : `/var/log/si-agent/xfer-purge-audit.log`. Les conditions (copie présente,
 démarrée, sauvegarde PBS postérieure) sont évaluées par l'API (`/repatriation/cleanup/*`) et affichées dans la tuile.
+
+## Activité des CT / VM (livraison #769, sonde guest-usage, agent 0.5.67)
+
+Sonde `guest-usage` (toutes les 30 min) sur l'agent qui joint les Proxmox : nœud local si `/etc/pve` existe, nœuds
+distants de `/etc/si-agent/pve-remote.json` (même clé que pve-remote, un `ssh … bash -s` par nœud et par passage).
+Pour chaque CT / VM : charge processeur (RRD du nœud : instant, moyenne et pic 24 h, moyenne 7 j, réseau 24 h) ; dans
+l'invité démarré (`pct exec`, `qm guest exec` si l'agent invité répond) : journaux d'accès Apache / nginx (fichier
+courant + `.1`) agrégés sur place par awk (requêtes par heure, par IP, dernier accès, accès ownCloud et dernier
+compte), `last` (connexions unix), MySQL / MariaDB par `/etc/mysql/debian.cnf` ou root par socket (état, sessions,
+version). MySQL ne date pas les connexions : le compteur `Connections` est comparé d'un passage à l'autre
+(`/var/lib/si-agent/guest-usage.state.json`, connexions de la sonde déduites). Aucun mot de passe, aucune ligne de
+journal remontée.
+
+API : `GET /infra/guests` (lignes nœud/vmid, invités de l'inventaire Infra non relevés compris), `PUT
+/infra/guests/profile` `{node, vmid, profile, actor}` : fiche de paramétrage (comptes unix suivis, compte MySQL, URL
+HTTPS / ownCloud, compte ownCloud, IP à ignorer, rôle, notes, nom de l'entrée du coffre-fort). Tout champ dont le nom
+évoque un secret est refusé (400) ; table `guest_profiles` ; événement `guest-profile`. Écran du hub : « Activité des
+VM » (Équipements › Hôtes › Hyperviseurs).

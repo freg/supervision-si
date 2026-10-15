@@ -1,0 +1,13 @@
+{
+  "id": "guest-usage",
+  "version": "1",
+  "runner": "python",
+  "entry": "guest_usage.py",
+  "interval_seconds": 1800,
+  "timeout_seconds": 1500,
+  "args": ["--remote", "/etc/si-agent/pve-remote.json"],
+  "enabled": false,
+  "description": "Activité des CT / VM de tous les Proxmox (#769) : pour chaque invité du nœud local et des nœuds distants de pve-remote.json (un appel ssh par nœud et par passage), dernier accès et fréquentation HTTP/HTTPS (journaux Apache / nginx agrégés dans l'invité : par heure, par IP, accès ownCloud et dernier compte), dernières connexions des comptes unix (last), activité MySQL / MariaDB (compte de maintenance Debian ou root par socket : sessions, connexions par jour comparées d'un passage à l'autre), charge processeur (RRD du nœud : instant, moyenne et pic 24 h, moyenne 7 j). Entre dans les CT par pct exec, dans les VM par l'agent invité. Aucun mot de passe, aucune ligne de journal remontée, lecture seule. Alimente l'écran « Activité des VM ». Privilégiée : root du nœud, clé ssh des nœuds distants, état dans /var/lib/si-agent.",
+  "source": "bundled",
+  "privileged": true
+}

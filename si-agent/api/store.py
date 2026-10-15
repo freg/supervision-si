@@ -1353,9 +1353,9 @@ def _vm_states(data):
 
 
 PROBE_TASKS = ("plugin:wifi-probe", "plugin:path-probe", "plugin:windows-probe", "plugin:broadcast-probe", "plugin:dns-observe", "plugin:resource-access", "plugin:mail-server",
-               "plugin:pulled-backups", "plugin:pbs", "plugin:pve-remote", "plugin:gtb-netwatch", "plugin:app-logwatch", "plugin:ollama", "plugin:node-activity")
+               "plugin:pulled-backups", "plugin:pbs", "plugin:pve-remote", "plugin:gtb-netwatch", "plugin:app-logwatch", "plugin:ollama", "plugin:node-activity", "plugin:guest-usage")
 BACKUP_TASKS = ("plugin:pulled-backups", "plugin:pbs")   # #716 : genres backup-* (routables à part)
-PROBE_LABELS = {"plugin:pulled-backups": "sauvegardes", "plugin:pbs": "PBS", "plugin:pve-remote": "PVE distants", "plugin:wifi-probe": "Wi-Fi vu du poste", "plugin:path-probe": "chemin de service", "plugin:windows-probe": "postes Windows", "plugin:broadcast-probe": "annonces réseau", "plugin:dns-observe": "observabilité DNS", "plugin:resource-access": "accès aux ressources", "plugin:mail-server": "serveur de messagerie", "plugin:gtb-netwatch": "réseau GTB/GTC", "plugin:app-logwatch": "journaux d'application", "plugin:ollama": "modèles IA", "plugin:node-activity": "activité des nœuds"}
+PROBE_LABELS = {"plugin:pulled-backups": "sauvegardes", "plugin:pbs": "PBS", "plugin:pve-remote": "PVE distants", "plugin:wifi-probe": "Wi-Fi vu du poste", "plugin:path-probe": "chemin de service", "plugin:windows-probe": "postes Windows", "plugin:broadcast-probe": "annonces réseau", "plugin:dns-observe": "observabilité DNS", "plugin:resource-access": "accès aux ressources", "plugin:mail-server": "serveur de messagerie", "plugin:gtb-netwatch": "réseau GTB/GTC", "plugin:app-logwatch": "journaux d'application", "plugin:ollama": "modèles IA", "plugin:node-activity": "activité des nœuds", "plugin:guest-usage": "activité des CT / VM"}
 
 
 def _probe_alerts(data):
