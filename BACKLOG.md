@@ -3818,3 +3818,15 @@ Demande (14/10/2026) : un tableau des clients, une ligne par client, et un ongle
 Colonnes et contenu de l'onglet : sites, serveurs, services, agents, santé. Dans l'onglet d'un client, un volet ou
 sous-onglet « htop » (vues de parc #753 filtrées sur ses agents) et « Nebula » (#555, #747, #758) ; autres sources à
 définir client par client. Rappel : jamais le nom réel d'un client dans le dépôt (exemples `site-alpha`).
+
+### 127. Intégration de la forge GitLab de l'organisation : gestion et CI depuis le hub (différé)
+Demande (16/10/2026), à reprendre plus tard. Forge visée par `GITLAB_URL` (instance auto-hébergée existante).
+1. **Interface CI** : reproduire l'interface classique GitLab CI (projets, pipelines, jobs, journaux, artefacts, relance,
+   variables) avec le design du hub, par l'API GitLab (jeton dans le coffre, jamais dans le .env).
+2. **Complément CI** : messagerie d'équipe (Mattermost ou équivalent) pour les notifications de pipeline ; environnements
+   dev et préproduction sur des VM « hub-ci » ; accès depuis Internet par le frontal proxy public, **mécanisé** à côté de
+   la configuration Apache existante (non touchée) : liens proxy et certificats (ACME) vers les VM du hub-ci créés,
+   renouvelés et retirés **sous le contrôle du hub** (déclaration, revue, application, journal, retour arrière).
+3. **Inventaire des projets existants** de la forge, puis publication directe de chacun dans le proxy (même mécanique).
+4. **Portail intranet** : ajouter les services/applis ainsi publiés aux liens visibles du portail.
+Rappel : aucun nom réel (forge, frontal, domaines) dans le dépôt ; exemples en `gitlab.exemple`, `ci.exemple`.
