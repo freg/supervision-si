@@ -2021,9 +2021,27 @@ def guest_usage_route():
     try:
         reports = infra.latest(conn, "plugin:guest-usage")
         profiles = guestusage.load_profiles(conn)
+        act = guestusage.activity(conn)   # #771 : activité dans le temps
     finally:
         conn.close()
-    return jsonify(guestusage.assemble(reports, _infra_now().get("vms") or [], profiles)), 200
+    return jsonify(guestusage.assemble(reports, _infra_now().get("vms") or [], profiles, act)), 200
+
+
+@app.route("/infra/guests/history", methods=["GET"])
+def guest_history_route():
+    """#771 : série quotidienne d'un CT / VM (?node=&vmid=&days=400) : web, login, mysql, rrd (jour), rrdw (semaine)."""
+    node, vmid = str(request.args.get("node") or "").strip(), request.args.get("vmid", type=int)
+    days = max(1, min(request.args.get("days", default=400, type=int) or 400, 1500))
+    if not re.match(r"^[A-Za-z0-9._-]{1,64}$", node) or not vmid:
+        return jsonify({"error": "node et vmid requis"}), 400
+    import datetime as _dt
+    since = (_dt.date.today() - _dt.timedelta(days=days)).isoformat()
+    conn = store._connect(DB_PATH)
+    try:
+        h = guestusage.history(conn, node, vmid, since)
+    finally:
+        conn.close()
+    return jsonify({"node": node, "vmid": vmid, "since": since, "series": h}), 200
 
 
 @app.route("/infra/guests/profile", methods=["PUT"])

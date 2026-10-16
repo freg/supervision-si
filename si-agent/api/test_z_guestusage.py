@@ -77,5 +77,70 @@ class Routes(unittest.TestCase):
         self.assertEqual(next(x for x in d["rows"] if x["key"] == "pve-3/106")["profile"], {})
 
 
+def gu_days(web=(), login=(), mysql=(), rrd=(), weeks=(), deep=False, ok=True):
+    return {"nodes": [{"name": "pve-h", "ok": ok, "guests": [{"vmid": 201, "name": "site", "status": "running",
+            "days": {"web": list(web), "login": list(login), "mysql": list(mysql), "rrd": list(rrd), "rrd_weeks": list(weeks), "deep": deep}}]}]}
+
+
+class Activite771(unittest.TestCase):
+    """#771 : historique quotidien accumulé à la réception, résumé dans le temps, décision et suivi de migration."""
+
+    def test_fusion(self):
+        self.assertEqual(gu.merge_day({"req": 10, "bytes": 5}, {"req": 4, "bytes": 9, "visitors": 1}, "max"), {"req": 10, "bytes": 9, "visitors": 1})
+        self.assertEqual(gu.merge_day({"cpu": 9.0}, {"cpu": 2.0}, "replace"), {"cpu": 2.0})
+        rows = gu.daily_rows(gu_days(web=[{"day": "2026-10-01", "req": 3, "bytes": "x", "visitors": True}, {"day": "bad", "req": 1}],
+                                     weeks=[{"week": "2026-01-05", "cpu": 1.5}]))
+        self.assertEqual(rows, [("pve-h", 201, "web", "2026-10-01", {"req": 3}), ("pve-h", 201, "rrdw", "2026-01-05", {"cpu": 1.5})])
+        self.assertEqual(gu.daily_rows(gu_days(web=[{"day": "2026-10-01", "req": 3}], ok=False)), [])   # nœud en échec ignoré
+
+    def test_resume(self):
+        series = {"web": {"2025-11-03": {"req": 40, "visitors": 3, "bytes": 1000, "bot": 5}, "2026-09-20": {"req": 2, "visitors": 1},
+                          "2026-10-10": {"req": 0, "visitors": 0, "bot": 900}},
+                  "login": {"2026-03-01": {"logins": 2, "users": 1}},
+                  "mysql": {"2026-10-12": {"connections": 0, "questions": 10}},
+                  "rrd": {"2026-10-10": {"cpu": 4.0, "netin": 10, "netout": 5}}, "rrdw": {"2025-11-03": {"cpu": 1.0, "netin": 7}}}
+        r = gu.summarize(series, "2026-10-16")
+        self.assertEqual(r["last_active"], {"web": "2025-11-03", "login": "2026-03-01", "mysql": None})   # 2 req. / 10 requêtes : sous les seuils
+        self.assertEqual((r["last_any"], r["idle_days"], r["class"]), ("2026-03-01", 229, "inactif"))
+        self.assertEqual(r["first_day"], "2025-11-03")
+        m = {x["month"]: x for x in r["months"]}
+        self.assertEqual((m["2025-11"]["req"], m["2025-11"]["active_days"], m["2025-11"]["cpu"], m["2025-11"]["net"]), (40, 1, 1.0, 7))
+        self.assertEqual((m["2026-10"]["bot"], m["2026-10"]["cpu"], m["2026-10"]["net"]), (900, 4.0, 15))
+        self.assertEqual(gu.summarize({"web": {"2026-10-14": {"req": 5, "visitors": 2}}}, "2026-10-16")["class"], "actif")
+        self.assertEqual(gu.summarize({"web": {"2026-09-01": {"req": 1, "visitors": 1}}}, "2026-10-16")["class"], "inactif")   # relevé, jamais actif
+        self.assertEqual(gu.summarize({"rrd": {"2026-10-01": {"cpu": 1.0}}}, "2026-10-16")["class"], "inconnu")               # RRD seul
+
+    def test_decision(self):
+        p, e = gu.normalize_profile({"decision": "migrer", "decision_reason": "site encore consulté", "target": "pve10", "planned_for": "2026-11-15",
+                                     "migration_status": "planifiee", "decision_by": "direction"})
+        self.assertIsNone(e)
+        self.assertEqual(p["decision"], "migrer")
+        self.assertIsNotNone(gu.normalize_profile({"decision": "supprimer"})[1])
+        self.assertIsNotNone(gu.normalize_profile({"planned_for": "15/11/2026"})[1])
+
+    def test_reception_et_routes(self):
+        db = appmod.DB_PATH
+        store.create_agent(db, "gu-b", "siege", label="gu-b")
+        m1 = {"task": "plugin:guest-usage", "at": "2026-10-15T10:00:00Z", "data": gu_days(web=[{"day": "2026-10-15", "req": 3, "visitors": 1}],
+                                                                                          rrd=[{"day": "2026-10-15", "cpu": 9.0}])}
+        m2 = {"task": "plugin:guest-usage", "at": "2026-10-15T18:00:00Z", "data": gu_days(web=[{"day": "2026-10-15", "req": 2, "visitors": 1, "bytes": 50}],
+                                                                                          rrd=[{"day": "2026-10-15", "cpu": 2.0}])}
+        bad = {"task": "plugin:guest-usage", "at": "2026-10-15T19:00:00Z", "data": {"nodes": "pas une liste"}}
+        store.ingest_measurements(db, "gu-b", [m1, m2, bad])
+        conn = store._connect(db)
+        try:
+            h = gu.history(conn, "pve-h", 201, "2026-01-01")
+        finally:
+            conn.close()
+        self.assertEqual(h["web"], [{"day": "2026-10-15", "req": 3, "visitors": 1, "bytes": 50}])                  # max par champ
+        self.assertEqual(h["rrd"], [{"day": "2026-10-15", "cpu": 2.0}])                                              # RRD : dernière valeur
+        c = appmod.app.test_client()
+        r = c.get("/infra/guests/history?node=pve-h&vmid=201&days=1500").get_json()
+        self.assertEqual(r["series"]["web"][0]["req"], 3)
+        self.assertEqual(c.get("/infra/guests/history?node=../x&vmid=201").status_code, 400)
+        rows = c.get("/infra/guests").get_json()["rows"]
+        self.assertTrue(all("activity" in x for x in rows))
+
+
 if __name__ == "__main__":
     unittest.main()

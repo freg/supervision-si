@@ -121,6 +121,9 @@ const SORTERS = {
   mysql: (r) => r.mysql?.conn7d ?? (r.mysql ? 0 : -1),
   login: (r) => parseTime(loginLast(r)?.at) ?? -1,
   cpu: (r) => r.cpu?.avg24 ?? -1,
+  idle: (r) => r.activity?.idle_days ?? (actClass(r) === "inactif" ? 1e6 : -1),
+  months: (r) => totals12(r).active_days,
+  decision: (r) => r.profile?.decision || "~",
 };
 
 export function sortGuests(rows, col = "node", dir = 1) {
@@ -128,10 +131,12 @@ export function sortGuests(rows, col = "node", dir = 1) {
   return [...(rows || [])].sort((a, b) => { const x = f(a), y = f(b); return (x < y ? -1 : x > y ? 1 : 0) * dir; });
 }
 
-export function filterGuests(rows, { node = "", q = "", idle = "", running = false } = {}, now = Date.now()) {
+export function filterGuests(rows, { node = "", q = "", idle = "", running = false, act = "", decision = "" } = {}, now = Date.now()) {
   const s = q.trim().toLowerCase();
   return (rows || []).filter((r) => (!node || r.node === node) && (!running || r.status === "running")
     && (!idle || idleClass(r, now) === idle)
+    && (!act || actClass(r) === act)
+    && (!decision || (decision === "aucune" ? !r.profile?.decision : r.profile?.decision === decision))
     && (!s || `${r.vmid} ${r.name} ${r.node} ${r.os || ""} ${r.profile?.role || ""} ${(r.profile?.https_urls || []).join(" ")}`.toLowerCase().includes(s)));
 }
 
@@ -160,6 +165,13 @@ export const PROFILE_FIELDS = [
   ["vault_ref", "Entrée du coffre-fort (mots de passe)", "str", "nom de l'entrée, jamais le mot de passe"],
   ["ignore_ips", "IP à ignorer (supervision, sauvegardes)", "list", "ex. 10.0.0.0/24, 192.0.2.10"],
   ["role", "Rôle", "str", "ex. messagerie, site public"],
+  // #771 : décision et suivi de migration (liste pour les décideurs)
+  ["decision", "Décision", "select:decision", ""],
+  ["decision_reason", "Motif de la décision", "str", "ex. plus consulté depuis 2025"],
+  ["decision_by", "Décidé par", "str", "ex. direction, 16/10/2026"],
+  ["target", "Cible de migration", "str", "ex. pve10, archive PBS"],
+  ["planned_for", "Date prévue", "date", ""],
+  ["migration_status", "État de la migration", "select:status", ""],
   ["notes", "Notes", "text", ""],
 ];
 
@@ -192,4 +204,94 @@ export function fmtCount(n) {
   if (n >= 1e6) return `${(n / 1e6).toFixed(1)} M`;
   if (n >= 1e4) return `${Math.round(n / 1e3)} k`;
   return String(n);
+}
+
+
+// ---------------------------------------------------------------- #771 : activité réelle dans le temps
+
+export const ACT = [
+  ["actif", "activité réelle dans les 7 derniers jours", "ok"],
+  ["faible", "dernière activité réelle il y a 8 à 30 jours", ""],
+  ["dormant", "dernière activité réelle il y a 31 à 180 jours", "warning"],
+  ["inactif", "plus de 180 jours, ou aucune sur toute la période relevée", "critical"],
+  ["inconnu", "pas encore d'historique (sonde à mettre à jour, invité arrêté)", ""],
+];
+export const DECISIONS = [["garder", "garder"], ["migrer", "migrer"], ["archiver", "archiver puis arrêter"], ["arreter", "arrêter"], ["a_etudier", "à étudier"]];
+export const MIG_STATUS = [["a_planifier", "à planifier"], ["planifiee", "planifiée"], ["en_cours", "en cours"], ["faite", "faite"], ["annulee", "annulée"]];
+export const SELECTS = { decision: DECISIONS, status: MIG_STATUS };
+const label = (list, k) => (list.find(([x]) => x === k) || [k, k || ""])[1];
+export const decisionLabel = (k) => label(DECISIONS, k);
+export const statusLabel = (k) => label(MIG_STATUS, k);
+
+export function actClass(row) {
+  return row?.activity?.class || "inconnu";
+}
+
+const frDay = (d) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : "");
+
+/** « depuis le 01/03/2026 » ; « aucune depuis le 03/11/2025 » (début de l'historique) ; « » sans historique. */
+export function idleSince(row) {
+  const a = row?.activity;
+  if (!a) return "";
+  if (a.last_any) return `depuis le ${frDay(a.last_any)}`;
+  return a.first_day ? `aucune depuis le ${frDay(a.first_day)}` : "";
+}
+
+function monthKey(t) {
+  const d = new Date(t);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+/** n derniers mois (du plus ancien au courant), zéros compris : [{month, v, m}] -- v = champ du mois (jours actifs par défaut). */
+export function monthSeries(row, key = "active_days", n = 13, now = Date.now()) {
+  const by = new Map((row?.activity?.months || []).map((m) => [m.month, m]));
+  const d = new Date(now), out = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const k = monthKey(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - i, 1));
+    const m = by.get(k);
+    out.push({ month: k, v: m ? (m[key] || 0) : 0, m: m || null });
+  }
+  return out;
+}
+
+/** Totaux des 12 derniers mois (mois courant compris). */
+export function totals12(row, now = Date.now()) {
+  const t = { req: 0, bytes: 0, logins: 0, mysql_q: 0, active_days: 0, bot: 0 };
+  for (const { m } of monthSeries(row, "active_days", 12, now)) {
+    if (m) for (const k of Object.keys(t)) t[k] += m[k] || 0;
+  }
+  return t;
+}
+
+const ACT_ORDER = { inactif: 0, dormant: 1, faible: 2, actif: 3, inconnu: 4 };
+
+/** Liste pour les décideurs : les moins actifs d'abord. */
+export function decisionOrder(rows) {
+  return [...(rows || [])].sort((a, b) => (ACT_ORDER[actClass(a)] - ACT_ORDER[actClass(b)])
+    || ((b.activity?.idle_days ?? 1e6) - (a.activity?.idle_days ?? 1e6)) || String(a.key).localeCompare(String(b.key)));
+}
+
+function csvCell(v) {
+  const s = v == null ? "" : String(v);
+  return /[;"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+export const CSV_COLUMNS = [
+  ["Nœud", (r) => r.node], ["VMID", (r) => r.vmid], ["Nom", (r) => r.name], ["Type", (r) => (r.type === "qemu" ? "VM" : "CT")],
+  ["État", (r) => r.status], ["Rôle", (r) => r.profile?.role], ["Activité réelle", (r) => actClass(r)],
+  ["Jours sans activité", (r) => r.activity?.idle_days], ["Dernière activité réelle", (r) => frDay(r.activity?.last_any)],
+  ["Dernier accès web (humain)", (r) => frDay(r.activity?.last_active?.web)], ["Dernière connexion", (r) => frDay(r.activity?.last_active?.login)],
+  ["Dernière activité MySQL", (r) => frDay(r.activity?.last_active?.mysql)],
+  ["Accès web 12 mois", (r) => totals12(r).req], ["Volume web 12 mois (Mo)", (r) => Math.round(totals12(r).bytes / 1e6)],
+  ["Connexions 12 mois", (r) => totals12(r).logins], ["Requêtes MySQL 12 mois", (r) => totals12(r).mysql_q],
+  ["Jours actifs 12 mois", (r) => totals12(r).active_days], ["Historique depuis", (r) => frDay(r.activity?.first_day)],
+  ["Décision", (r) => decisionLabel(r.profile?.decision)], ["Motif", (r) => r.profile?.decision_reason], ["Décidé par", (r) => r.profile?.decision_by],
+  ["Cible", (r) => r.profile?.target], ["Date prévue", (r) => frDay(r.profile?.planned_for)], ["État de la migration", (r) => statusLabel(r.profile?.migration_status)],
+];
+
+/** CSV (séparateur « ; », BOM pour Excel) de la liste pour les décideurs. */
+export function decisionsCsv(rows) {
+  const lines = [CSV_COLUMNS.map(([h]) => csvCell(h)).join(";")];
+  for (const r of decisionOrder(rows)) lines.push(CSV_COLUMNS.map(([, f]) => csvCell(f(r))).join(";"));
+  return "\ufeff" + lines.join("\r\n") + "\r\n";
 }

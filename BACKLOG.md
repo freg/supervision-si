@@ -3830,3 +3830,12 @@ Demande (16/10/2026), à reprendre plus tard. Forge visée par `GITLAB_URL` (ins
 3. **Inventaire des projets existants** de la forge, puis publication directe de chacun dans le proxy (même mécanique).
 4. **Portail intranet** : ajouter les services/applis ainsi publiés aux liens visibles du portail.
 Rappel : aucun nom réel (forge, frontal, domaines) dans le dépôt ; exemples en `gitlab.exemple`, `ci.exemple`.
+
+### 128. Activité réelle des VM dans le temps, liste pour les décideurs, suivi de migration — LIVRÉ #771 (tranche 1)
+Demande (16/10/2026) : connaître l'usage réel de chaque VM dans le temps (un an et plus, pas l'uptime : taux d'accès et
+transferts par service) et depuis quand elle est réellement inactive, pour faire une liste aux décideurs, avoir leurs
+instructions, puis planifier, automatiser et suivre la migration / le réaménagement. Livré #771 : historique par jour
+(reprise des journaux encore présents puis accumulation centrale), classe d'activité réelle, décision et état de
+migration par VM, export CSV. Suite possible : relier « migrer » aux opérations du hub (virtualisation directe #748,
+opérations PVE #653) pour lancer et suivre la migration depuis la fiche ; garder l'historique d'une VM migrée
+(rattachement par nom / UUID) ; seuils d'activité réglables par VM (cron, sauvegardes).

@@ -2541,6 +2541,9 @@ button:active:not(:disabled), a.hub-card:active, button.hub-card:active { transf
 .gu-who { display: block; color: var(--muted); font-size: 11px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
 .gu-spark { vertical-align: middle; margin-left: 4px; }
 .gu-spark-bar { fill: var(--viz-1); }
+.gu-months { grid-column: 1 / -1; }
+.gu-months .infra-table td, .gu-months .infra-table th { text-align: right; }
+.gu-months .infra-table td:first-child, .gu-months .infra-table th:first-child { text-align: left; }
 .gu-gear { padding: 2px 8px; }
 .gu-detail { flex: 0 0 auto; max-height: 48vh; overflow: auto; border-top: 1px solid var(--border); padding-top: 8px; }
 .gu-bars-grid { display: flex; align-items: flex-end; gap: 3px; height: 90px; }

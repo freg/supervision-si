@@ -154,5 +154,97 @@ class Analyse(unittest.TestCase):
         self.assertIn("@@node", gu.run_node(None, "x", runner=fake))
 
 
+class Historique771(unittest.TestCase):
+    """#771 : activité par jour, reprise de l'historique (journaux .gz compris), RRD mois / année, MySQL par jour."""
+
+    def setUp(self):
+        if not shutil.which("awk") or not shutil.which("sh") or not shutil.which("zcat"):
+            self.skipTest("awk / zcat absent")
+        import gzip
+        self.d = tempfile.mkdtemp()
+        os.makedirs(os.path.join(self.d, "apache2"))
+        with open(os.path.join(self.d, "apache2", "site-access.log"), "w") as fh:
+            fh.write(LOG)
+        old = ('198.51.100.7 - - [01/Mar/2026:09:00:00 +0100] "GET / HTTP/1.1" 200 1000 "-" "Mozilla/5.0"\n'
+               '198.51.100.8 - - [01/Mar/2026:10:00:00 +0100] "GET /a HTTP/1.1" 200 500 "-" "Mozilla/5.0"\n'
+               '198.51.100.7 - - [01/Mar/2026:11:00:00 +0100] "GET /b HTTP/1.1" 200 1 "-" "Mozilla/5.0"\n'
+               '127.0.0.1 - - [01/Mar/2026:11:00:00 +0100] "GET /status HTTP/1.1" 200 7 "-" "Mozilla/5.0"\n'
+               '192.0.2.50 - - [02/Mar/2026:11:00:00 +0100] "GET / HTTP/1.1" 200 9 "-" "curl/7.88"\n')
+        with gzip.open(os.path.join(self.d, "apache2", "site-access.log.5.gz"), "wt") as fh:
+            fh.write(old)
+
+    def tearDown(self):
+        shutil.rmtree(self.d, ignore_errors=True)
+
+    def run_guest(self, deep):
+        script = gu.GUEST_SH.replace("/var/log/apache2", os.path.join(self.d, "apache2")).replace("command -v mysql", "command -v mysql_absent_pour_le_test")
+        env = dict(os.environ, SI_DEEP="1" if deep else "0")
+        return gu.parse_guest(subprocess.run(["sh", "-c", script], capture_output=True, text=True, timeout=30, env=env).stdout)
+
+    def test_jours_courants_sans_gz(self):
+        days, deep = gu.parse_days(self.run_guest(False)["days"])
+        self.assertFalse(deep)
+        self.assertEqual([d["day"] for d in days], ["2026-10-08", "2026-10-15"])     # le .gz n'est lu qu'en reprise
+        d15 = days[1]
+        self.assertEqual((d15["req"], d15["visitors"], d15["owncloud"], d15["bot"]), (3, 2, 2, 1))   # « bot » à part
+        self.assertEqual(d15["bytes"], 512 + 900 + 90)
+
+    def test_reprise_lit_les_gz(self):
+        days, deep = gu.parse_days(self.run_guest(True)["days"])
+        self.assertTrue(deep)
+        by = {d["day"]: d for d in days}
+        self.assertEqual((by["2026-03-01"]["req"], by["2026-03-01"]["visitors"], by["2026-03-01"]["bytes"]), (3, 2, 1501))
+        self.assertEqual((by["2026-03-01"]["bot"], by["2026-03-01"]["bot_bytes"]), (1, 7))             # boucle locale
+        self.assertEqual((by["2026-03-02"]["req"], by["2026-03-02"]["bot"]), (0, 1))                   # curl = outil
+
+    def test_jours_de_connexion(self):
+        rows = gu._last_rows(LAST, NOW)
+        self.assertEqual(gu.login_days(rows), [{"day": "2026-09-30", "logins": 1, "users": 1},
+                                               {"day": "2026-10-13", "logins": 1, "users": 1},
+                                               {"day": "2026-10-15", "logins": 1, "users": 1}])
+        self.assertEqual(gu.parse_last(LAST, NOW)["last"]["user"], "alice")                            # inchangé
+
+    def test_rrd_jours_et_semaines(self):
+        base = T0 - T0 % 86400
+        month = json.dumps([{"time": base - 86400 + i * 43200, "cpu": c, "netin": 10, "netout": 5, "diskread": 1, "diskwrite": 2}
+                            for i, c in enumerate([0.1, 0.3, 0.2])])
+        d = gu.rrd_days(month)
+        self.assertEqual([x["day"] for x in d], ["2026-10-14", "2026-10-15"])
+        self.assertEqual(d[0]["cpu"], 20.0)
+        self.assertEqual(d[0]["netin"], 10 * 2 * 43200)
+        year = json.dumps([{"time": base - 14 * 86400, "cpu": 0.05, "netin": 1, "netout": 1}, {"time": base - 7 * 86400, "cpu": None}])
+        w = gu.rrd_weeks(year)
+        self.assertEqual([x["week"] for x in w], ["2026-10-01", "2026-10-08"])
+        self.assertEqual((w[0]["cpu"], w[0]["netin"], w[1]["cpu"]), (5.0, 7 * 86400, None))
+
+    def test_mysql_par_jour(self):
+        my = {"connections": 100, "questions": 1000, "uptime_s": 500, "bytes_in": 10, "bytes_out": 90, "sessions": []}
+        _add, st = gu.mysql_step(my, None, NOW)
+        my2 = dict(my, connections=110, questions=1503, uptime_s=2300, bytes_in=110, bytes_out=990)
+        add, st = gu.mysql_step(my2, st, NOW + dt.timedelta(minutes=30))
+        self.assertEqual(add["days"], [{"day": "2026-10-15", "connections": 7, "questions": 500, "bytes": 1000}])
+        add, _ = gu.mysql_step(dict(my2, questions=40, uptime_s=10, bytes_in=1, bytes_out=1), st, NOW + dt.timedelta(minutes=60))
+        self.assertEqual(add["days"][0]["questions"], 500 + 37)                                       # redémarrage
+
+    def test_script_reprise(self):
+        sh = gu.driver_script(["105", "101"])
+        self.assertIn('DONE=" 101 105 "', sh)
+        self.assertIn("rrd day week month year", sh.replace("for tf in day week month year", "rrd day week month year"))
+        if shutil.which("bash"):
+            self.assertEqual(subprocess.run(["bash", "-n"], input=sh, capture_output=True, text=True).returncode, 0)
+
+    def test_build_coupe_hors_reprise(self):
+        txt = "## os\nDebian\n## web\n## days\nM deep 0\nW 20261001 5 50 0 0 1 0\nW 20261015 3 30 0 0 1 0\n## login\n" + LAST + "\n## end\n"
+        g = {"vmid": 101, "type": "lxc", "name": "web", "status": "running", "sections": {"exec": txt}}
+        rows, _ = gu.build("pve-a", [g], {}, NOW, full=False)
+        self.assertEqual([d["day"] for d in rows[0]["days"]["web"]], ["2026-10-15"])
+        self.assertEqual(rows[0]["days"]["rrd_weeks"], [])
+        g["sections"]["exec"] = txt.replace("M deep 0", "M deep 1")
+        rows, _ = gu.build("pve-a", [g], {}, NOW, full=False)
+        self.assertTrue(rows[0]["days"]["deep"])
+        self.assertEqual(len(rows[0]["days"]["web"]), 2)                                               # reprise : tout
+        self.assertEqual(len(rows[0]["days"]["login"]), 3)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1096,6 +1096,13 @@ def ingest_measurements(db_path, agent_id, items, ip=None):
                         events_seen.append({"at": m["at"], "kind": ev["kind"], "severity": ev["severity"], "message": ev["message"], "agent_id": agent_id})
                     except sqlite3.IntegrityError:
                         pass
+            if m["task"] == "plugin:guest-usage" and isinstance(data, dict):
+                # #771 : historique quotidien des CT / VM accumulé à la réception (au-delà de la rotation des journaux)
+                try:
+                    import guestusage
+                    guestusage.ingest_daily(conn, data, now)
+                except Exception:   # noqa: BLE001 -- une mesure mal formée ne bloque jamais la réception
+                    pass
             elif m["task"] == "plugin:proxmox" and isinstance(data, dict):
                 for ev in proxmox_state_changes(conn, agent_id, m["at"], data):
                     try:

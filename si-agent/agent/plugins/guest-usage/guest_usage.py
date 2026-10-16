@@ -12,7 +12,15 @@ sur l'entrée standard) qui, pour chaque invité :
 Aucun mot de passe : root du nœud entre dans l'invité. Lecture seule. Jamais de ligne de journal brute remontée.
 MySQL ne date pas les connexions : le compteur Connections est comparé d'un passage à l'autre (état local), ce qui
 donne les connexions par jour et la dernière activité (à l'intervalle de passage près).
-Pur et testé : parse_driver, parse_guest, parse_web, parse_last, parse_mysql, rrd_stats, mysql_step, build."""
+#771 : activité réelle DANS LE TEMPS -- bloc « days » : par jour et par service (web : requêtes et octets des humains,
+visiteurs distincts, robots / supervision à part, ownCloud ; connexions unix ; MySQL : connexions, requêtes, octets ;
+CPU / réseau / disque des RRD mois (par jour) et année (par semaine)). Reprise de l'historique : une fois par invité
+(au plus un CT et une VM par nœud et par passage), TOUS les journaux d'accès encore présents (.gz compris, 800 j
+au plus) et wtmp.1 sont résumés sur place. Le central (guestusage.ingest_daily) accumule ces jours : l'historique
+continue de s'allonger après la rotation des journaux. Hors reprise, seuls les 3 derniers jours sont envoyés (et
+les séries RRD complètes une fois par jour).
+Pur et testé : parse_driver, parse_guest, parse_web, parse_days, parse_last, login_days, parse_mysql, rrd_stats,
+rrd_days, rrd_weeks, mysql_step, build."""
 import argparse
 import datetime as dt
 import json
@@ -24,7 +32,10 @@ import time
 
 SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=15", "-o", "ServerAliveInterval=30", "-o", "StrictHostKeyChecking=accept-new"]
 OWN_MYSQL_CONN = 3          # connexions ouvertes par GUEST_SH à chaque passage (status, proc, version)
+OWN_MYSQL_Q = 3             # requêtes envoyées par GUEST_SH à chaque passage
 KEEP_DAYS = 14
+RECENT_DAYS = 3             # #771 : jours envoyés hors reprise (le central garde l'historique)
+DEEP_PER_PASS = 1          # reprises d'historique par nœud, par type (CT / VM) et par passage
 
 GUEST_SH = r"""LC_ALL=C; export LC_ALL
 echo "## os"; ( . /etc/os-release 2>/dev/null; echo "${PRETTY_NAME:-?}" )
@@ -49,12 +60,37 @@ END { for (h in H) print "H", h, H[h], O[h] + 0
       if (lk != "") print "L", lk ltz, li
       if (ok != "") print "O", ok otz, ou
       for (i in c) print "I", i, c[i], ik[i] iz[i] }' | sort -k1,1 -k3,3nr | awk '$1 != "I" || n++ < 60'
+echo "## days"
+echo "M deep ${SI_DEEP:-0}"
+D=""
+for f in /var/log/apache2/*access*.log* /var/log/nginx/*access*.log* /var/log/httpd/*access_log*; do
+  [ -f "$f" ] || continue
+  case "$f" in
+    *.log|*.log.1|*access_log|*access_log.1) D="$D $f" ;;
+    *) [ "${SI_DEEP:-0}" = 1 ] && [ -n "$(find "$f" -mtime -800 2>/dev/null)" ] && D="$D $f" ;;
+  esac
+done
+[ -n "$D" ] && for f in $D; do zcat -f "$f" 2>/dev/null; done | awk '
+BEGIN { split("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec", M, " "); for (i = 1; i <= 12; i++) m[M[i]] = sprintf("%02d", i)
+        bot = "bot|crawl|spider|slurp|monitor|nagios|zabbix|uptime|check_http|curl|wget|python|go-http|java/|libwww|httpclient|okhttp|si-agent|zgrab|masscan|nmap|scan|headless|pingdom|statuscake|preview|fetch" }
+{ t = $4; if (substr(t, 1, 1) != "[") next; split(substr(t, 2), a, "[/:]"); if (!(a[2] in m)) next
+  d = a[3] m[a[2]] a[1]; n = split($0, q, "\""); ua = (n >= 6) ? tolower(q[6]) : ""
+  b = ($10 ~ /^[0-9]+$/) ? $10 : 0
+  if ($1 == "127.0.0.1" || $1 == "::1" || ua == "" || ua == "-" || ua ~ bot) { X[d]++; XB[d] += b; next }
+  R[d]++; B[d] += b; if (!((d, $1) in U)) { U[d, $1] = 1; V[d]++ }
+  if ($7 ~ /(remote|public|status)\.php|\/ocs\/v[12]|index\.php\/login/) O[d]++ }
+END { for (d in R) S[d] = 1; for (d in X) S[d] = 1
+      for (d in S) print "W", d, R[d] + 0, B[d] + 0, X[d] + 0, XB[d] + 0, V[d] + 0, O[d] + 0 }'
 echo "## login"
-( last -F -w -n 300 2>/dev/null || last -n 300 2>/dev/null ) | head -n 300
+if [ "${SI_DEEP:-0}" = 1 ]; then
+  for w in /var/log/wtmp /var/log/wtmp.1; do [ -f "$w" ] && last -F -w -f "$w" 2>/dev/null | head -n 20000; done
+else
+  ( last -F -w -n 300 2>/dev/null || last -n 300 2>/dev/null ) | head -n 300
+fi
 if command -v mysql >/dev/null 2>&1; then
   M="mysql -N -B"; [ -r /etc/mysql/debian.cnf ] && M="mysql --defaults-file=/etc/mysql/debian.cnf -N -B"
   echo "## mysql status"
-  $M -e "SHOW GLOBAL STATUS WHERE Variable_name IN ('Uptime','Connections','Questions','Threads_connected','Max_used_connections','Aborted_connects')" 2>&1 | head -n 20
+  $M -e "SHOW GLOBAL STATUS WHERE Variable_name IN ('Uptime','Connections','Questions','Threads_connected','Max_used_connections','Aborted_connects','Bytes_received','Bytes_sent')" 2>&1 | head -n 20
   echo "## mysql proc"
   $M -e "SELECT USER, SUBSTRING_INDEX(HOST, ':', 1), IFNULL(DB, ''), COMMAND, TIME FROM information_schema.PROCESSLIST WHERE ID <> CONNECTION_ID()" 2>&1 | head -n 300
   echo "## mysql version"; $M -e "SELECT VERSION()" 2>&1 | head -n 1
@@ -72,14 +108,17 @@ G=$(cat <<'__SI_GUEST__'
 %s
 __SI_GUEST__
 )
-rrd() { for tf in day week; do echo "## rrd $tf"; pvesh get /nodes/$N/$1/$2/rrddata --timeframe $tf --cf AVERAGE --output-format json </dev/null 2>/dev/null | head -c 200000; echo; done; }
+DONE=" __SI_DONE__ "
+# reprise d'historique : un invité pas encore repris, au plus DEEP_PER_PASS par boucle (CT, VM)
+deep() { P=""; T=60; case "$DONE" in *" $1 "*) return ;; esac; [ "${NDEEP:-0}" -ge __SI_NDEEP__ ] && return; P="SI_DEEP=1; export SI_DEEP; "; T=420; NDEEP=$(( ${NDEEP:-0} + 1 )); }
+rrd() { for tf in day week month year; do echo "## rrd $tf"; pvesh get /nodes/$N/$1/$2/rrddata --timeframe $tf --cf AVERAGE --output-format json </dev/null 2>/dev/null | head -c 200000; echo; done; }
 pct list 2>/dev/null | awk 'NR>1 {print $1, $2, $NF}' | while read id st name; do
   echo "=== lxc $id $st $name"; rrd lxc $id
-  [ "$st" = running ] && { echo "## exec"; timeout 60 pct exec $id -- sh -c "$G" </dev/null 2>&1 | head -c 600000; echo; }
+  [ "$st" = running ] && { deep $id; echo "## exec"; timeout $T pct exec $id -- sh -c "$P$G" </dev/null 2>&1 | head -c 3000000; echo; }
 done
 qm list 2>/dev/null | awk 'NR>1 {print $1, $3, $2}' | while read id st name; do
   echo "=== qemu $id $st $name"; rrd qemu $id
-  [ "$st" = running ] && { echo "## qga"; timeout 60 qm guest exec $id --timeout 50 -- sh -c "$G" </dev/null 2>&1 | head -c 2000000; echo; }
+  [ "$st" = running ] && { deep $id; echo "## qga"; timeout $T qm guest exec $id --timeout $((T - 10)) -- sh -c "$P$G" </dev/null 2>&1 | head -c 4000000; echo; }
 done
 echo "@@done"
 }
@@ -87,8 +126,9 @@ si_main </dev/null
 """
 
 
-def driver_script():
-    return DRIVER_SH % GUEST_SH.rstrip("\n")
+def driver_script(done=(), ndeep=DEEP_PER_PASS):
+    """done : vmid dont l'historique est déjà repris (pas de nouvelle reprise)."""
+    return (DRIVER_SH % GUEST_SH.rstrip("\n")).replace("__SI_DONE__", " ".join(str(int(i)) for i in sorted(done, key=int))).replace("__SI_NDEEP__", str(int(ndeep)))
 
 
 # ---------------------------------------------------------------- découpage
@@ -111,7 +151,7 @@ def parse_driver(text):
             continue
         if cur is None:
             continue
-        m = re.match(r"^## (rrd day|rrd week|exec|qga)$", line.strip())
+        m = re.match(r"^## (rrd day|rrd week|rrd month|rrd year|exec|qga)$", line.strip())
         if m:
             sec = m.group(1)
             cur["sections"][sec] = []
@@ -140,7 +180,7 @@ def parse_guest(text):
     """Sortie de GUEST_SH -> {clé de section: texte} (os, web, login, mysql status, mysql proc, mysql version, end)."""
     out, sec = {}, None
     for line in (text or "").splitlines():
-        m = re.match(r"^## (os|web|login|mysql status|mysql proc|mysql version|end)$", line.strip())
+        m = re.match(r"^## (os|web|days|login|mysql status|mysql proc|mysql version|end)$", line.strip())
         if m:
             sec = m.group(1)
             out[sec] = []
@@ -211,13 +251,30 @@ def parse_web(text, now):
             "owncloud": {"last_at": (oc_last or {}).get("at"), "last_user": (oc_last or {}).get("user"), "hits7d": oc7} if oc_last or oc7 else None}
 
 
+def parse_days(text):
+    """Bloc days (lignes W de l'awk, jour local de l'invité) -> ([{day, req, bytes, bot, bot_bytes, visitors, owncloud}], reprise ?).
+    req / bytes / visitors : humains ; bot / bot_bytes : robots, supervision, outils (curl, wget…) et boucle locale."""
+    out, deep = [], False
+    for line in (text or "").splitlines():
+        p = line.split()
+        if len(p) >= 3 and p[0] == "M" and p[1] == "deep":
+            deep = p[2] == "1"
+        elif len(p) >= 8 and p[0] == "W" and re.match(r"^\d{8}$", p[1]):
+            try:
+                v = [int(x) for x in p[2:8]]
+            except ValueError:
+                continue
+            out.append({"day": "%s-%s-%s" % (p[1][:4], p[1][4:6], p[1][6:]), "req": v[0], "bytes": v[1], "bot": v[2],
+                        "bot_bytes": v[3], "visitors": v[4], "owncloud": v[5]})
+    return sorted(out, key=lambda d: d["day"]), deep
+
+
 # ---------------------------------------------------------------- connexions (wtmp)
 
 LAST_DATE = re.compile(r"\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) +(\d{1,2}) (\d{2}:\d{2})(?::(\d{2}))? ?(\d{4})?")
 
 
-def parse_last(text, now):
-    """Sortie de `last -F -w` (ou `last` court, année absente) -> {last, users, per_day, count7d} ; heure locale de l'invité."""
+def _last_rows(text, now):
     rows = []
     for line in (text or "").splitlines():
         if not line.strip() or line.startswith(("wtmp", "btmp")) or line.split()[0] in ("reboot", "shutdown", "runlevel"):
@@ -236,6 +293,22 @@ def parse_last(text, now):
         if not m.group(6) and t > now.replace(tzinfo=None) + dt.timedelta(days=1):
             t = t.replace(year=year - 1)          # `last` court : décembre lu en janvier
         rows.append({"user": user, "from": frm if frm and not frm.startswith(":") else None, "at": t})
+    return rows
+
+
+def login_days(rows):
+    """Sessions -> [{day, logins, users}] (jour local de l'invité), tout l'historique lu."""
+    days = {}
+    for r in rows:
+        d = days.setdefault(r["at"].strftime("%Y-%m-%d"), [0, set()])
+        d[0] += 1
+        d[1].add(r["user"])
+    return [{"day": k, "logins": v[0], "users": len(v[1])} for k, v in sorted(days.items())]
+
+
+def parse_last(text, now, rows=None):
+    """Sortie de `last -F -w` (ou `last` court, année absente) -> {last, users, per_day, count7d} ; heure locale de l'invité."""
+    rows = _last_rows(text, now) if rows is None else rows
     if not rows:
         return {"last": None, "users": [], "per_day": [], "count7d": 0}
     naive_now = now.replace(tzinfo=None)
@@ -282,7 +355,8 @@ def parse_mysql(status, proc, version):
     return {"ok": True, "error": None, "version": (version or "").strip().splitlines()[0][:60] if (version or "").strip() else None,
             "uptime_s": st.get("Uptime"), "connections": st.get("Connections"), "questions": st.get("Questions"),
             "threads_connected": st.get("Threads_connected"), "max_used": st.get("Max_used_connections"),
-            "aborted_connects": st.get("Aborted_connects"), "sessions": sessions[:50]}
+            "aborted_connects": st.get("Aborted_connects"), "bytes_in": st.get("Bytes_received"), "bytes_out": st.get("Bytes_sent"),
+            "sessions": sessions[:50]}
 
 
 def mysql_step(my, prev, now):
@@ -291,8 +365,18 @@ def mysql_step(my, prev, now):
     ts = now.timestamp()
     prev = prev or {}
     st = {"connections": my.get("connections"), "questions": my.get("questions"), "uptime_s": my.get("uptime_s"), "at": ts,
-          "per_day": dict(prev.get("per_day") or {}), "last_activity_at": prev.get("last_activity_at"), "users": dict(prev.get("users") or {})}
+          "per_day": dict(prev.get("per_day") or {}), "last_activity_at": prev.get("last_activity_at"), "users": dict(prev.get("users") or {}),
+          "qday": dict(prev.get("qday") or {}), "bday": dict(prev.get("bday") or {}),
+          "bytes": (my.get("bytes_in") or 0) + (my.get("bytes_out") or 0) if my.get("bytes_in") is not None else None}
     ext = None
+    today = now.strftime("%Y-%m-%d")
+    restarted = (my.get("uptime_s") or 0) < (prev.get("uptime_s") or 0)
+    if prev.get("questions") is not None and my.get("questions") is not None:   # #771 : requêtes et octets par jour
+        dq = my["questions"] if restarted else my["questions"] - prev["questions"]
+        st["qday"][today] = st["qday"].get(today, 0) + max(0, dq - OWN_MYSQL_Q)
+    if prev.get("bytes") is not None and st["bytes"] is not None:
+        db = st["bytes"] if restarted else st["bytes"] - prev["bytes"]
+        st["bday"][today] = st["bday"].get(today, 0) + max(0, db)
     if prev.get("connections") is not None and my.get("connections") is not None:
         restarted = (my.get("uptime_s") or 0) < (prev.get("uptime_s") or 0)
         delta = my["connections"] if restarted else my["connections"] - prev["connections"]
@@ -306,11 +390,15 @@ def mysql_step(my, prev, now):
         st["last_activity_at"] = _iso(now)
     cut = (now - dt.timedelta(days=KEEP_DAYS)).strftime("%Y-%m-%d")
     st["per_day"] = {k: v for k, v in st["per_day"].items() if k >= cut}
+    st["qday"] = {k: v for k, v in st["qday"].items() if k >= cut}
+    st["bday"] = {k: v for k, v in st["bday"].items() if k >= cut}
     cut60 = _iso(now - dt.timedelta(days=60))
     st["users"] = {u: t for u, t in st["users"].items() if t >= cut60}
     window = int(ts - prev["at"]) if prev.get("at") else None
     add = {"conn_since_last": ext, "window_s": window, "last_activity_at": st["last_activity_at"],
            "per_day": [{"day": k, "connections": v} for k, v in sorted(st["per_day"].items())],
+           "days": [{"day": k, "connections": st["per_day"].get(k, 0), "questions": st["qday"].get(k, 0), "bytes": st["bday"].get(k, 0)}
+                    for k in sorted(set(st["per_day"]) | set(st["qday"]) | set(st["bday"]))],
            "conn7d": sum(v for k, v in st["per_day"].items() if k >= (now - dt.timedelta(days=7)).strftime("%Y-%m-%d")),
            "users_seen": [{"user": u, "last_seen": t} for u, t in sorted(st["users"].items(), key=lambda x: x[1], reverse=True)][:30]}
     return add, st
@@ -343,16 +431,64 @@ def rrd_stats(day_text, week_text, now):
     return out
 
 
+def _rrd_points(text):
+    try:
+        v = json.loads((text or "").strip() or "[]")
+    except ValueError:
+        return []
+    return sorted((r for r in v if isinstance(r, dict) and isinstance(r.get("time"), (int, float))), key=lambda r: r["time"]) if isinstance(v, list) else []
+
+
+def _rrd_step(pts, default):
+    if len(pts) < 2:
+        return default
+    d = sorted(pts[i + 1]["time"] - pts[i]["time"] for i in range(len(pts) - 1))
+    return d[len(d) // 2] or default
+
+
+def _rrd_bucket(pts, step):
+    """Points -> {cpu %, netin, netout, diskread, diskwrite en octets} (débits moyens × durée)."""
+    cpu = [r["cpu"] for r in pts if isinstance(r.get("cpu"), (int, float))]
+    out = {"cpu": round(100.0 * sum(cpu) / len(cpu), 2) if cpu else None}
+    for k in ("netin", "netout", "diskread", "diskwrite"):
+        v = [r[k] for r in pts if isinstance(r.get(k), (int, float))]
+        out[k] = int(sum(v) * step) if v else None
+    return out
+
+
+def rrd_days(month_text):
+    """RRD « month » (un point par 12 h environ) -> [{day (UTC), cpu, netin, netout, diskread, diskwrite}]."""
+    pts = _rrd_points(month_text)
+    step, days = _rrd_step(pts, 43200), {}
+    for r in pts:
+        days.setdefault(dt.datetime.fromtimestamp(r["time"], dt.timezone.utc).strftime("%Y-%m-%d"), []).append(r)
+    return [dict(day=k, **_rrd_bucket(v, step)) for k, v in sorted(days.items())]
+
+
+def rrd_weeks(year_text):
+    """RRD « year » (un point par semaine) -> [{week (jour UTC du point), cpu, netin, netout, diskread, diskwrite}]."""
+    pts = _rrd_points(year_text)
+    step = _rrd_step(pts, 7 * 86400)
+    return [dict(week=dt.datetime.fromtimestamp(r["time"], dt.timezone.utc).strftime("%Y-%m-%d"), **_rrd_bucket([r], step)) for r in pts]
+
+
+def trim_days(lst, now, key="day", days=RECENT_DAYS):
+    cut = (now - dt.timedelta(days=days)).strftime("%Y-%m-%d")
+    return [d for d in lst or [] if (d.get(key) or "") >= cut]
+
+
 # ---------------------------------------------------------------- assemblage
 
-def build(node_name, guests, state, now):
-    """Invités découpés -> (invités résumés, nouvel état de ce nœud)."""
+def build(node_name, guests, state, now, full=True):
+    """Invités découpés -> (invités résumés, nouvel état de ce nœud). full : séries RRD complètes (une fois par jour) ;
+    sinon seuls les RECENT_DAYS derniers jours sont envoyés, sauf pour un invité dont l'historique vient d'être repris."""
     out, new_state = [], {}
     for g in guests:
         s = g["sections"]
         r = {"vmid": g["vmid"], "type": g["type"], "name": g["name"], "status": g["status"], "collected": False, "error": None,
              "os": None, "web": None, "login": None, "mysql": None}
         r.update(rrd_stats(s.get("rrd day"), s.get("rrd week"), now))
+        days = {"web": [], "login": [], "mysql": [], "rrd": rrd_days(s.get("rrd month")), "rrd_weeks": rrd_weeks(s.get("rrd year")), "deep": False}
         if g["status"] == "running":
             raw, err = (s.get("exec"), None) if g["type"] == "lxc" else unwrap_qga(s.get("qga"))
             parts = parse_guest(raw)
@@ -362,16 +498,27 @@ def build(node_name, guests, state, now):
                 r["collected"] = "end" in parts
                 r["os"] = (parts.get("os") or "").strip()[:80] or None
                 r["web"] = parse_web(parts.get("web"), now)
-                r["login"] = parse_last(parts.get("login"), now)
+                days["web"], days["deep"] = parse_days(parts.get("days"))
+                days["deep"] = days["deep"] and "end" in parts
+                rows = _last_rows(parts.get("login"), now)
+                r["login"] = parse_last(None, now, rows)
+                days["login"] = login_days(rows)
                 if "mysql status" in parts:
                     my = parse_mysql(parts.get("mysql status"), parts.get("mysql proc"), parts.get("mysql version"))
                     key = str(g["vmid"])
                     if my.get("ok"):
                         add, new_state[key] = mysql_step(my, state.get(key), now)
+                        days["mysql"] = add.pop("days", [])
                         my.update(add)
                     elif state.get(key):
                         new_state[key] = state[key]
                     r["mysql"] = my
+        if not days["deep"]:
+            for k in ("web", "login", "mysql"):
+                days[k] = trim_days(days[k], now)
+            if not full:
+                days["rrd"], days["rrd_weeks"] = trim_days(days["rrd"], now), []
+        r["days"] = days
         out.append(r)
     for k, v in (state or {}).items():   # invité arrêté : son historique MySQL est gardé
         new_state.setdefault(k, v)
@@ -423,18 +570,29 @@ def main(argv=None):
                 targets += [(h.get("name") or h["host"], "distant", h) for h in json.load(fh) if isinstance(h, dict) and h.get("host")]
         except (OSError, ValueError):
             pass
-    script, nodes, new_state = driver_script(), [], {}
+    nodes, new_state = [], {}
+    deep_state, full_state = dict(state.get("_deep") or {}), dict(state.get("_full") or {})
     for name, zone, h in targets:
         now = dt.datetime.now(dt.timezone.utc)
+        today = now.strftime("%Y-%m-%d")
+        done_ids = deep_state.get(name) or {}
         try:
-            node, guests, done = parse_driver(run_node(h, script))
+            node, guests, done = parse_driver(run_node(h, driver_script(done_ids.keys())))
             label = node if zone == "local" and node else name
-            rows, new_state[label] = build(label, guests, state.get(label) or {}, now)
+            full = full_state.get(name) != today
+            rows, new_state[label] = build(label, guests, state.get(label) or {}, now, full=full)
+            for g in rows:   # #771 : historique repris pour cet invité
+                if (g.get("days") or {}).get("deep"):
+                    done_ids = dict(done_ids, **{str(g["vmid"]): _iso(now)})
+            deep_state[name] = done_ids
+            if full and done:
+                full_state[name] = today
             nodes.append({"name": label, "zone": zone, "ok": True, "error": None if done else "relevé incomplet (délai dépassé)", "guests": rows})
         except Exception as e:  # noqa: BLE001 -- un nœud injoignable n'empêche pas les autres
             nodes.append({"name": name, "zone": zone, "ok": False, "error": str(e)[:200], "guests": []})
             if name in state:
                 new_state[name] = state[name]
+    new_state["_deep"], new_state["_full"] = deep_state, full_state
     try:
         os.makedirs(os.path.dirname(a.state), exist_ok=True)
         with open(a.state + ".tmp", "w") as fh:

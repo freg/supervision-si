@@ -72,3 +72,53 @@ test("#769 : fiche -- listes, aucun mot de passe recopié", () => {
   assert.equal(fmtPct(null), "—");
   assert.equal(fmtCount(25300), "25 k");
 });
+
+// ---------------------------------------------------------------- #771 : activité réelle dans le temps
+import { actClass, idleSince, monthSeries, totals12, decisionOrder, decisionsCsv, formToProfile as f2p, PROFILE_FIELDS as PF } from "../src/guestUsageLib.js";
+
+const NOW771 = Date.parse("2026-10-16T12:00:00Z");
+const ROWA = { key: "pve-a/101", node: "pve-a", vmid: 101, name: "site; ancien", type: "lxc", status: "running",
+  activity: { class: "inactif", idle_days: 229, last_any: "2026-03-01", first_day: "2025-11-03", last_active: { web: "2025-11-03", login: "2026-03-01", mysql: null },
+    months: [{ month: "2025-10", active_days: 9, req: 999 }, { month: "2025-11", active_days: 1, req: 40, bytes: 2e6, logins: 0, mysql_q: 0 },
+      { month: "2026-03", active_days: 1, req: 0, logins: 2, mysql_q: 5 }] },
+  profile: { decision: "archiver", decision_reason: "plus consulté \"du tout\"", planned_for: "2026-11-15", migration_status: "planifiee" } };
+const ROWB = { key: "pve-a/102", node: "pve-a", vmid: 102, name: "mail", type: "qemu", status: "running", activity: { class: "actif", idle_days: 0, last_any: "2026-10-16", months: [] } };
+const ROWC = { key: "pve-b/103", node: "pve-b", vmid: 103, name: "neuf", type: "lxc", status: "stopped" };
+
+test("#771 : classe, inactif depuis", () => {
+  assert.equal(actClass(ROWA), "inactif");
+  assert.equal(actClass(ROWC), "inconnu");
+  assert.equal(idleSince(ROWA), "depuis le 01/03/2026");
+  assert.equal(idleSince({ activity: { first_day: "2025-11-03" } }), "aucune depuis le 03/11/2025");
+  assert.equal(idleSince(ROWC), "");
+});
+
+test("#771 : séries mensuelles et totaux 12 mois", () => {
+  const s = monthSeries(ROWA, "active_days", 13, NOW771);
+  assert.equal(s.length, 13);
+  assert.equal(s[0].month, "2025-10");
+  assert.equal(s[12].month, "2026-10");
+  assert.equal(s[0].v, 9);
+  const t = totals12(ROWA, NOW771);                         // 2025-10 hors des 12 derniers mois
+  assert.deepEqual([t.req, t.active_days, t.logins, t.mysql_q], [40, 2, 2, 5]);
+});
+
+test("#771 : liste pour les décideurs (moins actifs d'abord, CSV Excel)", () => {
+  assert.deepEqual(decisionOrder([ROWB, ROWC, ROWA]).map((r) => r.vmid), [101, 102, 103]);
+  const csv = decisionsCsv([ROWB, ROWA]);
+  assert.ok(csv.startsWith("﻿Nœud;VMID;Nom;"));
+  const lines = csv.trim().split("\r\n");
+  assert.equal(lines.length, 3);
+  assert.ok(lines[1].includes('"site; ancien"'));
+  assert.ok(lines[1].includes('"plus consulté ""du tout"""'));
+  assert.ok(lines[1].includes("archiver puis arrêter"));
+  assert.ok(lines[1].includes("15/11/2026"));
+  assert.ok(lines[1].includes(";229;"));
+});
+
+test("#771 : fiche -- décision et suivi de migration", () => {
+  assert.ok(PF.some(([k]) => k === "decision") && PF.some(([k]) => k === "migration_status"));
+  const { profile, error } = f2p({ decision: "migrer", target: "pve10", planned_for: "2026-11-15", migration_status: "a_planifier" });
+  assert.equal(error, null);
+  assert.deepEqual(profile, { decision: "migrer", target: "pve10", planned_for: "2026-11-15", migration_status: "a_planifier" });
+});

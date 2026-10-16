@@ -3,6 +3,8 @@
 // et fiche de paramétrage par CT / VM (comptes unix, compte MySQL, URL HTTPS / ownCloud, IP à ignorer, entrée du
 // coffre-fort ; JAMAIS de mot de passe). Données : si-agent-api /infra/guests (sonde guest-usage). Logique pure :
 // guestUsageLib.js.
+// #771 : activité réelle DANS LE TEMPS (historique accumulé par le central, un an et plus) -- jours actifs par mois,
+// « inactif réel depuis », classe ; décision par VM et suivi de migration ; export CSV de la liste pour les décideurs.
 import { useEffect, useMemo, useState } from "react";
 import DataStatus from "./DataStatus.jsx";
 import JournalLinks from "./JournalLinks.jsx";
@@ -12,10 +14,32 @@ import { fmtBytes } from "./infraLib.js";
 import {
   ago, webLast, loginLast, mysqlLast, ownLast, lastActivity, idleClass, IDLE, daySeries, sortGuests, filterGuests, counts,
   PROFILE_FIELDS, profileToForm, formToProfile, ipIgnored, fmtPct, fmtCount,
+  ACT, SELECTS, actClass, idleSince, monthSeries, totals12, decisionLabel, statusLabel, decisionsCsv, DECISIONS,
 } from "./guestUsageLib.js";
 
 const KIND = { http: "HTTP", owncloud: "ownCloud", mysql: "MySQL", login: "login" };
 const TONE = { actif: "ok", recent: "", calme: "warning", dormant: "critical", inconnu: "" };
+const ACT_TONE = Object.fromEntries(ACT.map(([k, , t]) => [k, t]));
+
+function MonthSpark({ row, now }) {   // #771 : jours d'activité réelle par mois, 13 mois
+  const s = monthSeries(row, "active_days", 13, now);
+  const tip = s.map(({ month, m }) => `${month} : ${m ? `${m.active_days} j actifs · web ${fmtCount(m.req)} · conn. ${m.logins} · MySQL ${fmtCount(m.mysql_q)}` : "—"}`).join("\n");
+  return <span title={tip}><Spark series={s.map((x) => ({ day: x.month, v: x.v }))} title="jours d'activité réelle par mois (13 mois)" /></span>;
+}
+
+function Months({ row }) {
+  const ms = [...(row.activity?.months || [])].reverse();
+  if (!ms.length) return null;
+  const a = row.activity;
+  return (
+    <figure className="infra-card gu-months">
+      <figcaption>Activité réelle dans le temps <span className="infra-note">historique depuis {a.first_day || "—"} · {a.coverage_days} j relevés · humains seulement (robots, supervision à part)</span></figcaption>
+      <table className="infra-table"><thead><tr><th>mois</th><th>jours actifs</th><th>accès web</th><th>volume</th><th>visiteurs·jours</th><th>robots</th><th>connexions</th><th>MySQL req.</th><th>CPU moy.</th><th>réseau</th></tr></thead><tbody>
+        {ms.map((m) => <tr key={m.month}><td>{m.month}</td><td>{m.active_days}</td><td>{fmtCount(m.req)}</td><td>{fmtBytes(m.bytes)}</td><td>{fmtCount(m.visitor_days)}</td><td>{fmtCount(m.bot)}</td><td>{m.logins}</td><td>{fmtCount(m.mysql_q)}</td><td>{fmtPct(m.cpu)}</td><td>{m.net ? fmtBytes(m.net) : "—"}</td></tr>)}
+      </tbody></table>
+    </figure>
+  );
+}
 
 function Spark({ series, title }) {
   const max = series.reduce((m, d) => Math.max(m, d.v), 0);
@@ -70,7 +94,9 @@ function ProfileForm({ row, onSave, saving }) {
         <label key={k} className="gu-field"><span>{label}</span>
           {kind === "text"
             ? <textarea rows={3} value={form[k]} placeholder={ph} onChange={(e) => setForm({ ...form, [k]: e.target.value })} />
-            : <input value={form[k]} placeholder={ph} autoComplete="off" onChange={(e) => setForm({ ...form, [k]: e.target.value })} />}
+            : kind.startsWith("select:")
+              ? <select value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })}><option value="">—</option>{SELECTS[kind.slice(7)].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+              : <input type={kind === "date" ? "date" : "text"} value={form[k]} placeholder={ph} autoComplete="off" onChange={(e) => setForm({ ...form, [k]: e.target.value })} />}
         </label>))}
       {err && <p className="infra-error">{err}</p>}
       <div className="gu-form-actions">
@@ -93,6 +119,7 @@ function Detail({ row, now, onSave, saving }) {
           {row.source === "inventaire" && <p className="infra-muted">Connu de l'inventaire seulement : sonde guest-usage absente pour ce nœud.</p>}
           <table className="infra-table"><tbody>
             <tr><td>Dernière activité</td><td><When v={lastActivity(row)} now={now} /></td></tr>
+            <tr><td>Activité réelle</td><td><span className={`infra-status ${ACT_TONE[actClass(row)]}`}>{actClass(row)}</span> {idleSince(row)}{row.profile?.decision && <> · décision : <b>{decisionLabel(row.profile.decision)}</b>{row.profile.migration_status ? ` (${statusLabel(row.profile.migration_status)})` : ""}</>}</td></tr>
             <tr><td>HTTP/HTTPS</td><td>{w ? <>{fmtCount(w.hits24)} req. 24 h · {fmtCount(w.hits7d)} 7 j · <span className="infra-muted">{(w.files || []).join(", ")}</span></> : "aucun journal d'accès"}</td></tr>
             {w?.owncloud && <tr><td>ownCloud</td><td><When v={ownLast(row)} now={now} /> · {fmtCount(w.owncloud.hits7d)} req. 7 j{row.profile?.owncloud_user && ownLast(row)?.who === row.profile.owncloud_user ? " · compte suivi" : ""}</td></tr>}
             <tr><td>MySQL</td><td>{m ? (m.ok ? <>{m.version} · {m.threads_connected} connecté(s) · {fmtCount(m.conn7d)} connexions 7 j{m.window_s ? ` · ${m.conn_since_last ?? "?"} depuis le passage précédent` : " · 1er passage"}</> : <span className="infra-error">{m.error}</span>) : "absent"}</td></tr>
@@ -101,6 +128,7 @@ function Detail({ row, now, onSave, saving }) {
             {row.net24?.in != null && <tr><td>Réseau 24 h</td><td>↓ {fmtBytes(row.net24.in)} · ↑ {fmtBytes(row.net24.out)}</td></tr>}
           </tbody></table>
         </figure>
+        <Months row={row} />
         {w && <Bars title="Requêtes HTTP/HTTPS par jour" series={daySeries(w.per_day, "hits", 14, now)} />}
         {m?.ok && <Bars title="Connexions MySQL par jour" series={daySeries(m.per_day, "connections", 14, now)} />}
         {l?.per_day?.length > 0 && <Bars title="Connexions unix par jour" series={daySeries(l.per_day, "logins", 14, now)} />}
@@ -126,7 +154,7 @@ export default function GuestUsageView({ onBack, siAgentApiBase, username }) {
   const [err, setErr] = useState(null);
   const [at, setAt] = useState(null);
   const [initial] = useState(() => viewParams());   // lien depuis la tuile Proxmox : ?view=guest-usage&q=<vmid>&node=<nœud>
-  const [filter, setFilter] = useState({ node: initial.node || "", q: initial.q || "", idle: "", running: false });
+  const [filter, setFilter] = useState({ node: initial.node || "", q: initial.q || "", idle: "", running: false, act: "", decision: "" });
   const [sort, setSort] = useState({ col: "node", dir: 1 });
   const [sel, setSel] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -161,6 +189,17 @@ export default function GuestUsageView({ onBack, siAgentApiBase, username }) {
     } finally { setSaving(false); }
   };
 
+  const exportCsv = () => {   // #771 : liste pour les décideurs (lignes affichées, moins actives d'abord)
+    const url = URL.createObjectURL(new Blob([decisionsCsv(rows)], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `activite-vm-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  const actCount = (k) => all.filter((r) => actClass(r) === k).length;
+  const decided = all.filter((r) => r.profile?.decision).length;
+
   const th = (col, label, title) => <th title={title} onClick={() => setSort({ col, dir: sort.col === col ? -sort.dir : (col === "node" || col === "name" ? 1 : -1) })} className={sort.col === col ? "sorted" : ""}>{label}{sort.col === col ? (sort.dir < 0 ? " ▼" : " ▲") : ""}</th>;
 
   return (
@@ -172,6 +211,13 @@ export default function GuestUsageView({ onBack, siAgentApiBase, username }) {
         <select value={filter.idle} onChange={(e) => setFilter({ ...filter, idle: e.target.value })} aria-label="activité">
           <option value="">toute activité</option>{IDLE.map(([k, l]) => <option key={k} value={k}>{k} ({l})</option>)}<option value="inconnu">non relevé</option>
         </select>
+        <select value={filter.act} onChange={(e) => setFilter({ ...filter, act: e.target.value })} aria-label="activité réelle">
+          <option value="">activité réelle : toutes</option>{ACT.map(([k, l]) => <option key={k} value={k}>{k} ({l})</option>)}
+        </select>
+        <select value={filter.decision} onChange={(e) => setFilter({ ...filter, decision: e.target.value })} aria-label="décision">
+          <option value="">toutes décisions</option><option value="aucune">sans décision</option>{DECISIONS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+        </select>
+        <button className="secondary" onClick={exportCsv} disabled={!rows.length} title="lignes affichées, les moins actives d'abord (CSV pour tableur)">Liste décideurs (CSV)</button>
         <label className="infra-muted"><input type="checkbox" checked={filter.running} onChange={(e) => setFilter({ ...filter, running: e.target.checked })} /> démarrés</label>
         <input type="search" placeholder="vmid, nom, rôle, URL…" value={filter.q} onChange={(e) => setFilter({ ...filter, q: e.target.value })} />
         <span className="infra-muted">{at ? `mis à jour ${at.toLocaleTimeString("fr-FR")}` : "lecture…"}</span>
@@ -187,13 +233,17 @@ export default function GuestUsageView({ onBack, siAgentApiBase, username }) {
           <div className="infra-kpi"><span>avec MySQL</span><b>{c.mysql}</b></div>
           <div className={`infra-kpi ${c.dormant ? "warning" : ""}`}><span>démarrés sans activité depuis 30 j</span><b>{c.dormant}</b></div>
           <div className="infra-kpi"><span>non relevés</span><b>{c.unknown}</b><small>arrêtés, sans agent invité, nœud sans sonde</small></div>
+          <div className={`infra-kpi ${actCount("inactif") ? "critical" : ""}`}><span>inactifs réels (&gt; 180 j)</span><b>{actCount("inactif")}</b><small>{actCount("dormant")} dormants (31-180 j)</small></div>
+          <div className="infra-kpi"><span>décisions prises</span><b>{decided} / {c.total}</b></div>
         </div>)}
       <div className="infra-table-wrap infra-scroll">
         <table className="infra-table gu-table">
           <thead><tr>
             {th("node", "Nœud")}{th("name", "CT / VM")}{th("activity", "Dernière activité", "toutes sources, IP ignorées et comptes suivis de la fiche appliqués")}
             {th("http", "HTTP/HTTPS", "dernier accès · requêtes 24 h / 7 j · 14 derniers jours")}{th("mysql", "MySQL", "dernière activité · connexions 7 j")}
-            {th("login", "Login", "dernière connexion unix (last)")}{th("cpu", "CPU", "moyenne 24 h · pic 24 h · moyenne 7 j")}<th />
+            {th("login", "Login", "dernière connexion unix (last)")}{th("cpu", "CPU", "moyenne 24 h · pic 24 h · moyenne 7 j")}
+            {th("months", "13 mois", "jours d'activité réelle par mois (web humain, connexions, MySQL)")}{th("idle", "Inactif réel", "classe et date de la dernière activité réelle, sur tout l'historique relevé")}
+            {th("decision", "Décision", "décision et état de la migration (fiche ⚙)")}<th />
           </tr></thead>
           <tbody>
             {rows.map((r) => {
@@ -207,10 +257,13 @@ export default function GuestUsageView({ onBack, siAgentApiBase, username }) {
                   <td>{m ? (m.ok ? <><When v={mysqlLast(r)} now={now} /> <small className="infra-muted">{fmtCount(m.conn7d)} conn. 7 j · {m.threads_connected}</small></> : <span className="infra-status warning" title={m.error}>illisible</span>) : <span className="infra-muted">—</span>}</td>
                   <td><When v={loginLast(r)} now={now} /></td>
                   <td>{r.cpu?.avg24 != null ? <span title={`maintenant ${fmtPct(r.cpu.now)}`}>{fmtPct(r.cpu.avg24)} <small className="infra-muted">pic {fmtPct(r.cpu.max24)} · 7 j {fmtPct(r.cpu.avg7d)}</small></span> : <span className="infra-muted">{fmtPct(r.cpu?.now)}</span>}</td>
+                  <td><MonthSpark row={r} now={now} /> <small className="infra-muted">{totals12(r, now).active_days} j</small></td>
+                  <td><span className={`infra-status ${ACT_TONE[actClass(r)]}`} title={ACT.find(([x]) => x === actClass(r))?.[1]}>{actClass(r)}</span> <small className="infra-muted">{idleSince(r)}</small></td>
+                  <td>{r.profile?.decision ? <span title={r.profile.decision_reason || ""}>{decisionLabel(r.profile.decision)}{r.profile.migration_status && <small className="gu-who">{statusLabel(r.profile.migration_status)}{r.profile.planned_for ? ` · ${r.profile.planned_for}` : ""}</small>}</span> : <span className="infra-muted">—</span>}</td>
                   <td><button className="secondary gu-gear" title="Paramétrage de la VM" onClick={(e) => { e.stopPropagation(); setSel(r.key); }}>⚙</button></td>
                 </tr>);
             })}
-            {data && all.length > 0 && !rows.length && <tr><td colSpan={8} className="infra-muted">Aucun CT / VM pour ces filtres.</td></tr>}
+            {data && all.length > 0 && !rows.length && <tr><td colSpan={11} className="infra-muted">Aucun CT / VM pour ces filtres.</td></tr>}
           </tbody>
         </table>
       </div>

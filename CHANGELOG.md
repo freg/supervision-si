@@ -1,3 +1,31 @@
+## 2026-10-16 — Activité réelle des VM dans le temps (un an et plus), « inactif réel depuis », décision et suivi de migration (livraison #771)
+
+- But : connaître l'usage réel de chaque CT / VM dans le temps et depuis quand il est vraiment inactif, pour dresser
+  la liste à soumettre aux décideurs et planifier / suivre la migration.
+- Sonde `guest-usage` v2 (agent 0.5.69) : bloc « days » par jour et par service -- web des **humains** (requêtes,
+  octets, visiteurs distincts ; robots, outils, supervision et boucle locale comptés à part), ownCloud, connexions
+  unix (sessions, comptes), MySQL (connexions, requêtes, octets, d'un passage à l'autre), CPU / réseau / disque (RRD
+  « month » par jour, « year » par semaine). **Reprise de l'historique** une fois par invité : tous les journaux
+  d'accès encore présents (.gz compris, 800 j au plus) et wtmp.1, résumés sur place (aucune ligne brute) -- au plus un
+  CT et une VM par nœud et par passage. Hors reprise : 3 derniers jours seulement (séries RRD complètes une fois par jour).
+- Central : les jours sont **accumulés à la réception** (table `guest_daily`, fusion par jour : un relevé partiel ne fait
+  jamais baisser un jour complet) -- l'historique s'allonge après la rotation des journaux des invités. `GET
+  /infra/guests` porte pour chaque invité l'activité dans le temps (mois par mois, dernière activité réelle par
+  service, jours sans activité, classe actif ≤ 7 j / faible ≤ 30 j / dormant ≤ 180 j / inactif / inconnu) ;
+  `GET /infra/guests/history?node=&vmid=&days=` : série quotidienne. Mesure malformée : ignorée sans casser l'écran.
+- Fiche ⚙ : **décision** (garder, migrer, archiver puis arrêter, arrêter, à étudier), motif, décidé par, cible, date
+  prévue, état de la migration (à planifier, planifiée, en cours, faite, annulée).
+- Hub, écran « Activité des VM » : colonnes « 13 mois » (jours d'activité réelle par mois), « Inactif réel » (classe et
+  date), « Décision » ; filtres activité réelle / décision ; indicateurs inactifs et décisions prises ; détail
+  « Activité réelle dans le temps » mois par mois ; bouton **Liste décideurs (CSV)** (lignes affichées, moins actives
+  d'abord, séparateur « ; » pour tableur).
+- Limites : l'historique dépend des journaux encore présents dans les invités (sinon il commence au déploiement) ;
+  MySQL n'a pas d'historique propre (compté à partir du déploiement) ; une VM migrée change de clé (nœud, vmid).
+- Vérifié : unittest guest-usage (dont l'awk réel sur un journal .gz, robots et boucle locale à part), test_z_guestusage
+  (réception, fusion, résumé, routes, mesure malformée), `node --test hub/tests/*.test.mjs`, syntaxe JSX par
+  @babel/parser. Échec préexistant et indépendant : test_z_repatriation.test_campaign (dépend de l'ordre des tests,
+  identique sur #770). Non vérifié : passage réel sur les Proxmox, rendu navigateur, `npm run build`.
+
 ## 2026-10-16 — Serveur de messagerie : contrôles automatiques, tests fabriqués (spam, virus) et indicateurs extensibles depuis le hub (livraison #770)
 
 - Né d'un constat sur OB1 : Amavis tournait « ANTI-VIRUS code NOT loaded » (base ClamAV quotidienne absente, mises à

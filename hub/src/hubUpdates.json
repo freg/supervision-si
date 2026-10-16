@@ -1,5 +1,11 @@
 [
  {
+  "n": 771,
+  "from": 771,
+  "date": "2026-10-16",
+  "title": "Activité réelle des VM dans le temps (un an et plus), « inactif réel depuis », décision et suivi de migration"
+ },
+ {
   "n": 770,
   "from": 770,
   "date": "2026-10-16",
@@ -232,11 +238,5 @@
   "from": 732,
   "date": "2026-10-09",
   "title": "Instances clonées : création en une commande par les agents de nœud"
- },
- {
-  "n": 731,
-  "from": 731,
-  "date": "2026-10-09",
-  "title": "Instances d'application clonées : registre et génération des services"
  }
 ]
