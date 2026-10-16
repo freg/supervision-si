@@ -222,5 +222,89 @@ class Politiques708(unittest.TestCase):
         self.assertIsNone(ms.logrotate_days("/var/log/autre.log", (os.path.join(d, "d"),), os.path.join(d, "absent")))
 
 
+class ControlesEtTests(unittest.TestCase):
+    """#770 : catalogue extensible, messages fabriqués (GTUBE, EICAR), verdict par Message-ID (filtre local) ou par la
+    réponse du filtre au Postfix émetteur (VM de filtrage distante), indicateurs, constats."""
+
+    def test_catalogue(self):
+        cat, err = ms.merge_checks({"canary": {"to": "test@exemple.org", "every_hours": 2},
+                                    "tests": [{"id": "phishing", "label": "Lien piégé", "template": "custom", "subject": "Votre colis",
+                                               "body": "http://exemple.invalid/x", "expect": ["Blocked SPAM", "Passed SPAMMY"]},
+                                              {"id": "Mauvais id", "template": "clean", "expect": ["Passed CLEAN"]}],
+                                    "indicators": [{"id": "auth-failed", "regex": "authentication failed", "warn_above": 10},
+                                                   {"id": "casse", "regex": "(", "warn_above": 1}],
+                                    "remove": ["banned-exe"]})
+        self.assertEqual(cat["canary"]["to"], "test@exemple.org"); self.assertEqual(cat["canary"]["every_hours"], 2)
+        ids = [t["id"] for t in cat["tests"]]
+        self.assertIn("phishing", ids); self.assertNotIn("banned-exe", ids); self.assertIn("virus-eicar", ids)
+        self.assertEqual(next(i for i in cat["indicators"] if i["id"] == "auth-failed")["warn_above"], 10)
+        self.assertEqual(len(err), 2)                                    # id invalide + expression invalide, ignorés
+        self.assertTrue(ms.merge_checks({"canary": {"to": "pas une adresse"}})[1])
+
+    def test_messages(self):
+        t = {"id": "virus-eicar", "label": "EICAR", "template": "eicar", "expect": ["Blocked INFECTED"]}
+        mid, msg = ms.build_message(t, "sonde@exemple.org", "test@exemple.org", "tok1", "mx-alpha", NOW.timestamp())
+        self.assertEqual(mid, "si-canary.tok1@mx-alpha")
+        self.assertIn("Message-ID: <si-canary.tok1@mx-alpha>", msg)
+        import base64
+        self.assertIn(base64.b64encode(ms.EICAR.encode()).decode(), msg)   # pièce jointe EICAR (fichier de test inoffensif)
+        _, g = ms.build_message({"id": "s", "label": "s", "template": "gtube", "expect": ["Blocked SPAM"]}, "a@x.fr", "b@x.fr", "t", "h", 0)
+        self.assertIn(ms.GTUBE, g)
+
+    def test_passage_complet_filtre_local(self):
+        sent = []
+        cat, _ = ms.merge_checks({"canary": {"to": "test@exemple.org"}})
+        block, st = ms.run_checks([], NOW.timestamp(), cat, {}, sender=lambda m, f, t: sent.append(m) or None, host="mx-alpha")
+        self.assertEqual(len(sent), 3)                                   # clean, gtube, eicar (banned désactivé)
+        self.assertEqual(block["canary"]["sent_now"], ["clean", "spam-gtube", "virus-eicar"])
+        mids = {p["test_id"]: p["message_id"] for p in st["pending"]}
+        lines = [L(-1, "amavis[1]: (01) Passed CLEAN {RelayedInbound}, [10.0.0.1] <s@x> -> <test@exemple.org>, Message-ID: <%s>, Hits: 0.1" % mids["clean"]),
+                 L(-1, "amavis[1]: (02) Blocked SPAM {DiscardedInbound,Quarantined}, [10.0.0.1] <s@x> -> <test@exemple.org>, Message-ID: <%s>, Hits: 999" % mids["spam-gtube"]),
+                 L(-1, "amavis[1]: (03) Passed CLEAN {RelayedInbound}, [10.0.0.1] <s@x> -> <test@exemple.org>, Message-ID: <%s>, Hits: 0" % mids["virus-eicar"])]
+        block, st = ms.run_checks(lines, NOW.timestamp() + 120, cat, st, sender=lambda *a: None)
+        res = {t["id"]: t["last"] for t in block["tests"] if t["last"]}
+        self.assertTrue(res["clean"]["ok"]); self.assertTrue(res["spam-gtube"]["ok"])
+        self.assertFalse(res["virus-eicar"]["ok"])                        # le cas d'OB1 : virus de test accepté
+        self.assertEqual(st["pending"], [])
+        al = {a["code"]: a["severity"] for a in ms.checks_alerts(block)}
+        self.assertEqual(al.get("test-failed:virus-eicar"), "critical")
+
+    def test_filtre_distant_et_delai(self):
+        cat, _ = ms.merge_checks({"canary": {"to": "test@exemple.org", "timeout_minutes": 30}})
+        _, st = ms.run_checks([], NOW.timestamp(), cat, {}, sender=lambda *a: None, host="mx")
+        mids = {p["test_id"]: p["message_id"] for p in st["pending"]}
+        lines = [L(-1, "postfix/cleanup[2]: 4ABC123DEF: message-id=<%s>" % mids["virus-eicar"]),
+                 L(-1, "postfix/smtp[3]: 4ABC123DEF: to=<test@exemple.org>, relay=10.9.0.2[10.9.0.2]:10024, delay=1, status=sent "
+                       "(250 2.7.0 Ok, discarded, id=1234-01 - INFECTED: Eicar-Signature)"),
+                 L(-1, "postfix/cleanup[2]: 5BCD234EF0: message-id=<%s>" % mids["clean"]),
+                 L(-1, "postfix/smtp[3]: 5BCD234EF0: to=<test@exemple.org>, relay=10.9.0.2[10.9.0.2]:10024, status=sent "
+                       "(250 2.0.0 from MTA(smtp:[10.9.0.1]:10025): 250 2.0.0 Ok: queued as 6CDE)")]
+        block, st = ms.run_checks(lines, NOW.timestamp() + 60, cat, st, sender=lambda *a: None)
+        res = {t["id"]: t["last"] for t in block["tests"] if t["last"]}
+        self.assertEqual(res["virus-eicar"]["verdict"], "Blocked INFECTED"); self.assertTrue(res["virus-eicar"]["ok"])
+        self.assertEqual(res["clean"]["verdict"], "Passed"); self.assertTrue(res["clean"]["ok"])
+        self.assertEqual([p["test_id"] for p in st["pending"]], ["spam-gtube"])
+        block, st = ms.run_checks([], NOW.timestamp() + 31 * 60, cat, st, sender=lambda *a: None)
+        last = next(t["last"] for t in block["tests"] if t["id"] == "spam-gtube")
+        self.assertFalse(last["ok"]); self.assertIn("aucun verdict", last["detail"])
+        self.assertFalse(ms.canary_due({"last_run": NOW.timestamp()}, cat["canary"], NOW.timestamp() + 3600))
+        self.assertTrue(ms.canary_due({"last_run": NOW.timestamp()}, cat["canary"], NOW.timestamp() + 7 * 3600))
+        self.assertFalse(ms.canary_due({}, {"to": ""}, NOW.timestamp(), force=True))   # pas de boîte de test : jamais d'envoi
+
+    def test_indicateurs_et_antivirus(self):
+        lines = [L(5, "postfix/smtpd[1]: warning: x[1.2.3.4]: SASL LOGIN authentication failed: x")] * 12 + \
+                [L(200, "postfix/smtpd[1]: warning: x[1.2.3.4]: SASL LOGIN authentication failed: x")] * 50
+        ind = ms.eval_indicators(lines, NOW.timestamp(), [ms.validate_indicator({"id": "auth", "regex": r"SASL \w+ authentication failed", "warn_above": 10})])
+        self.assertEqual((ind[0]["value"], ind[0]["state"]), (12, "warning"))
+        self.assertEqual(ms.amavis_av_loaded([L(9, "amavis[1]: ANTI-VIRUS code      loaded"), L(1, "amavis[2]: ANTI-VIRUS code      NOT loaded")])["loaded"], False)
+        self.assertIsNone(ms.amavis_av_loaded([]))
+        codes = [a["code"] for a in ms.alerts_from({"amavis_av": {"loaded": False}, "antivirus": {"databases": ["main.cld"], "missing": ["daily"]},
+                                                     "services": {"clamav-daemon": "failed"}})]
+        self.assertIn("antivirus-not-loaded", codes); self.assertIn("antivirus-db-missing", codes)
+        self.assertEqual(ms.filter_verdict("250 2.7.0 Ok, discarded, id=1 - spam"), "Blocked SPAM")
+        self.assertEqual(ms.filter_verdict("250 2.7.0 Ok, discarded, id=1 - BANNED: P=p003"), "Blocked BANNED")
+        self.assertTrue(ms.verdict_ok("Passed", ["Passed CLEAN"])); self.assertFalse(ms.verdict_ok("Passed", ["Blocked INFECTED"]))
+
+
 if __name__ == "__main__":
     unittest.main()

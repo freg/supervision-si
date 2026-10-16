@@ -1,3 +1,21 @@
+## 2026-10-16 — Serveur de messagerie : contrôles automatiques, tests fabriqués (spam, virus) et indicateurs extensibles depuis le hub (livraison #770)
+
+- Né d'un constat sur OB1 : Amavis tournait « ANTI-VIRUS code NOT loaded » (base ClamAV quotidienne absente, mises à
+  jour refusées pour version en fin de vie) -- le courrier passait sans analyse virale, sans alerte claire.
+- Sonde mail-server v3 (agent 0.5.68) : constats `antivirus-not-loaded` et `antivirus-db-missing` (critiques) ;
+  **tests fabriqués** envoyés à une boîte de test (courriel ordinaire, spam GTUBE, virus EICAR -- fichier de test
+  inoffensif --, pièce jointe .exe, message libre) avec verdict attendu, relu par Message-ID dans le journal Amavis,
+  ou dans la réponse du filtre au Postfix émetteur quand le filtre est sur une VM spécialisée ; délai dépassé = échec ;
+  historique ; **indicateurs** (expression du journal, fenêtre, seuils). Constats `test-failed:<id>`, `indicator:<id>`.
+- Catalogue `/etc/si-agent/mail-checks.json` (complète les valeurs par défaut, `remove` pour en retirer) ; actions
+  mailctl `checks_get`, `checks_set` et `canary_run` (motif obligatoire, journalisées).
+- Hub : tuile Serveur de messagerie › onglet **Contrôles** : boîte de test et fréquence, tests (actif, verdict attendu,
+  dernier résultat, historique), indicateurs (expression, fenêtre, seuils, valeur), ajout depuis des modèles,
+  « Lancer les tests maintenant », écriture sur le serveur.
+- Vérifié : unittest mail-server (dont un passage complet : 3 messages envoyés, verdicts local et distant, virus de test
+  accepté = critique, délai dépassé), test_mailctl, `node --test hub/tests/*.test.mjs` ; syntaxe JSX par
+  @babel/parser. Non vérifié : envoi réel par sendmail sur OB1, rendu navigateur, `npm run build`.
+
 ## 2026-10-15 — Activité des VM : dernier accès web, MySQL, connexions et CPU de chaque CT / VM de tous les Proxmox, fiche de paramétrage (livraison #769)
 
 - Sonde `guest-usage` v1 (agent 0.5.67) : nœud local + nœuds distants de pve-remote.json, un appel ssh par nœud ;

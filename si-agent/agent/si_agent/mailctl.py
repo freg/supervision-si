@@ -42,7 +42,7 @@ AMAVIS_CONF = ("/etc/amavis/conf.d", "/etc/amavis", "/etc/amavisd")
 MAX_RAW = 3 * 1024 * 1024
 MAX_LIMIT = 300
 CONTENT_ACTIONS = ("quarantine_get", "quarantine_release", "mailbox_get", "wblist_set",
-                   "queue_action", "list_set", "settings_set")   # #752 : actions d'exploitation (file, listes, réglages)
+                   "queue_action", "list_set", "settings_set", "checks_set", "canary_run")   # #770 : contrôles et tests fabriqués   # #752 : actions d'exploitation (file, listes, réglages)
 ADMIN_ACTIONS = ("queue_list", "queue_action", "delivery_failures", "lists", "list_set", "settings_get", "settings_set")   # #752 : mailadmin   # motif obligatoire, journalisé
 
 MONTHS = {m: i for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)}
@@ -746,6 +746,77 @@ def release_one(mid, params, dsn, runner=run):
     return {"ok": ok, "mail_id": mid, "output": text[-500:], "error": None if ok else (text.splitlines() or ["amavisd-release %s" % code])[-1][:300]}
 
 
+# ------------------------------------------------------------------ #770 : catalogue des contrôles et tests fabriqués
+
+CHECKS_PATH = "/etc/si-agent/mail-checks.json"
+CANARY_FORCE = "/var/lib/si-agent/mail-canary.force"
+CHECK_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{1,40}$")
+CHECK_EXPECT = re.compile(r"^(Passed|Blocked) [A-Z][A-Z-]{1,30}$")
+CHECK_TEMPLATES = ("clean", "gtube", "eicar", "banned", "custom")
+
+
+def validate_checks(c):
+    """Catalogue envoyé par le hub -> liste d'erreurs (vide = valide). Même règles que la sonde mail-server. Pure."""
+    errs = []
+    if not isinstance(c, dict):
+        return ["catalogue : objet JSON attendu"]
+    if len(json.dumps(c)) > 64 * 1024:
+        errs.append("catalogue trop volumineux (64 Kio max)")
+    extra = set(c) - {"canary", "tests", "indicators", "remove"}
+    if extra:
+        errs.append("clés inconnues : %s" % ", ".join(sorted(extra)))
+    can = c.get("canary") or {}
+    for k in ("to", "from"):
+        v = str(can.get(k) or "")
+        if v and not re.match(r"^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$", v):
+            errs.append("canary.%s : adresse invalide" % k)
+    for t in c.get("tests") or []:
+        if not isinstance(t, dict) or not CHECK_ID.match(str(t.get("id") or "")):
+            errs.append("test : id invalide"); continue
+        if t.get("template") not in CHECK_TEMPLATES:
+            errs.append("test %s : modèle inconnu" % t["id"])
+        exp = t.get("expect") or []
+        if not exp or any(not CHECK_EXPECT.match(str(e)) for e in (exp if isinstance(exp, list) else [exp])):
+            errs.append("test %s : verdict attendu invalide" % t["id"])
+    for i in c.get("indicators") or []:
+        if not isinstance(i, dict) or not CHECK_ID.match(str(i.get("id") or "")):
+            errs.append("indicateur : id invalide"); continue
+        try:
+            re.compile(str(i.get("regex") or ""))
+            if not i.get("regex"):
+                raise re.error("vide")
+        except re.error as e:
+            errs.append("indicateur %s : expression invalide (%s)" % (i["id"], e))
+    return errs
+
+
+def checks_action(action, params, path=CHECKS_PATH, force_path=CANARY_FORCE):
+    if action == "checks_get":
+        try:
+            with open(path, encoding="utf-8") as fh:
+                return {"ok": True, "checks": json.load(fh), "path": path}
+        except FileNotFoundError:
+            return {"ok": True, "checks": {}, "path": path, "default": True}
+        except (OSError, ValueError) as e:
+            return {"ok": False, "error": "catalogue illisible : %s" % e}
+    if action == "canary_run":
+        os.makedirs(os.path.dirname(force_path), exist_ok=True)
+        with open(force_path, "w") as fh:
+            fh.write(str(int(time.time())))
+        return {"ok": True, "message": "série de tests demandée : envoi au prochain passage de la sonde mail-server"}
+    checks = params.get("checks")
+    errs = validate_checks(checks)
+    if errs:
+        return {"ok": False, "error": "; ".join(errs[:5])}
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(checks, fh, ensure_ascii=False, indent=1)
+    os.chmod(tmp, 0o640)
+    os.replace(tmp, path)
+    return {"ok": True, "path": path, "tests": len(checks.get("tests") or []), "indicators": len(checks.get("indicators") or [])}
+
+
 def run_action(params, now=None, runner=run, log_path="/var/log/mail.log", dsn_dirs=AMAVIS_CONF, audit_path=AUDIT_LOG, index_db=None):
     """index_db : base de l'index de l'historique (#710) ; par défaut celle du serveur quand le journal est celui du système."""
     now = now or time.time()
@@ -758,6 +829,8 @@ def run_action(params, now=None, runner=run, log_path="/var/log/mail.log", dsn_d
     if refused:
         return {"ok": False, "error": "motif obligatoire pour consulter, libérer un message ou modifier une règle (secret des correspondances)"}
 
+    if action in ("checks_get", "checks_set", "canary_run"):   # #770
+        return checks_action(action, params)
     if action == "log_tree":
         minutes = max(1, min(1440, int(params.get("minutes") or 60)))
         return dict(log_tree(read_logs(log_path, now - minutes * 60, now), now, minutes), ok=True)

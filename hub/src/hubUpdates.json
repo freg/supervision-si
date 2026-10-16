@@ -1,5 +1,11 @@
 [
  {
+  "n": 770,
+  "from": 770,
+  "date": "2026-10-16",
+  "title": "Serveur de messagerie : contrôles automatiques, tests fabriqués (spam, virus) et indicateurs extensibles depuis le hub"
+ },
+ {
   "n": 769,
   "from": 769,
   "date": "2026-10-15",
@@ -232,11 +238,5 @@
   "from": 731,
   "date": "2026-10-09",
   "title": "Instances d'application clonées : registre et génération des services"
- },
- {
-  "n": 730,
-  "from": 730,
-  "date": "2026-10-09",
-  "title": "« Questions sur le hub » : tickets, agents hors ligne, emplacement des VM/CT"
  }
 ]

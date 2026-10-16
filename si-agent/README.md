@@ -1586,3 +1586,12 @@ API : `GET /infra/guests` (lignes nœud/vmid, invités de l'inventaire Infra non
 HTTPS / ownCloud, compte ownCloud, IP à ignorer, rôle, notes, nom de l'entrée du coffre-fort). Tout champ dont le nom
 évoque un secret est refusé (400) ; table `guest_profiles` ; événement `guest-profile`. Écran du hub : « Activité des
 VM » (Équipements › Hôtes › Hyperviseurs).
+
+## Contrôles et tests fabriqués du serveur de messagerie (livraison #770, mail-server v3, agent 0.5.68)
+
+Catalogue `/etc/si-agent/mail-checks.json` (écrit depuis le hub, tuile Serveur de messagerie › Contrôles) :
+`canary` (boîte de test `to`, `from`, `every_hours`, `timeout_minutes`), `tests` (`id`, `label`, `template` parmi
+clean / gtube / eicar / banned / custom, `expect` : verdicts admis comme « Blocked INFECTED »), `indicators` (`id`,
+`label`, `regex`, `window_minutes`, `warn_above`, `crit_above`), `remove` (ids par défaut retirés). Sans boîte de test,
+aucun message n'est envoyé. Verdict : ligne Amavis portant le Message-ID du test, ou réponse du filtre au Postfix
+émetteur (VM de filtrage distante). État : `/var/lib/si-agent/mail-canary.json` ; `canary_run` force une série.

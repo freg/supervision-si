@@ -411,8 +411,10 @@ def antivirus_state(now=None, db_dir="/var/lib/clamav", fresh_log="/var/log/clam
     for l in tail[-60:]:
         if "403" in l or "Blocked by CDN" in l or "OUTDATED" in l:
             refused = True
-    return {"databases": [os.path.basename(f) for f in dbs], "age_days": round((now - newest) / 86400, 1) if newest else None,
-            "update_refused": refused}
+    names = [os.path.basename(f) for f in dbs]
+    missing = [b for b in ("main", "daily") if not any(n.startswith(b + ".") for n in names)]   # #770 : base quotidienne absente
+    return {"databases": names, "age_days": round((now - newest) / 86400, 1) if newest else None,
+            "update_refused": refused, "missing": missing}
 
 
 def os_state():
@@ -481,6 +483,11 @@ def alerts_from(s):
     if av.get("databases") and (s.get("services") or {}).get("clamav-daemon") not in (None, "disabled"):
         if av.get("update_refused") or (av.get("age_days") or 0) > 7:
             add("antivirus-outdated", "warning", "signatures ClamAV âgées de %s jour(s)%s" % (av.get("age_days"), ", mise à jour refusée (version en fin de vie)" if av.get("update_refused") else ""))
+    avl = s.get("amavis_av")                                        # #770 : Amavis sans antivirus = courrier non analysé
+    if avl and not avl.get("loaded"):
+        add("antivirus-not-loaded", "critical", "Amavis tourne SANS antivirus (« ANTI-VIRUS code NOT loaded ») : le courrier passe sans analyse virale")
+    if av.get("databases") and av.get("missing"):
+        add("antivirus-db-missing", "critical", "base(s) ClamAV absente(s) : %s -- clamd ne peut pas démarrer ou ne détecte plus les menaces récentes" % ", ".join(av["missing"]))
     pc = s.get("postconf") or {}
     if pc.get("dnsbl_sites") and pc.get("dnsbl_action") == "ignore":
         add("dnsbl-ignored", "warning", "postscreen consulte des listes noires DNS mais postscreen_dnsbl_action = ignore (aucun blocage)")
@@ -524,6 +531,345 @@ def alerts_from(s):
     return a
 
 
+# ------------------------------------------------------------------ #770 : contrôles et tests fabriqués
+# Catalogue extensible depuis le hub (/etc/si-agent/mail-checks.json, écrit par l'action mailctl checks_set) :
+#   canary     : boîte de test, expéditeur, fréquence, délai d'attente du verdict
+#   tests      : messages fabriqués envoyés à la boîte de test (modèles clean, gtube, eicar, banned, custom),
+#                verdict Amavis attendu (« Blocked INFECTED »…) relu dans le journal par leur Message-ID
+#   indicators : comptage d'une expression régulière du journal sur une fenêtre, seuils d'alerte
+# Le fichier complète les valeurs par défaut (même id = remplacé) ; une entrée invalide est ignorée et signalée.
+CHECKS_PATH = "/etc/si-agent/mail-checks.json"
+CANARY_STATE = "/var/lib/si-agent/mail-canary.json"
+CANARY_FORCE = "/var/lib/si-agent/mail-canary.force"
+GTUBE = "XJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-EMAIL*C.34X"
+EICAR = "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
+TEMPLATES = ("clean", "gtube", "eicar", "banned", "custom")
+CHECK_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{1,40}$")
+EXPECT_RE = re.compile(r"^(Passed|Blocked) [A-Z][A-Z-]{1,30}$")
+DEFAULT_CHECKS = {
+    "canary": {"to": "", "from": "", "every_hours": 6, "timeout_minutes": 30},
+    "tests": [
+        {"id": "clean", "label": "Courriel ordinaire accepté", "template": "clean", "expect": ["Passed CLEAN"], "enabled": True},
+        {"id": "spam-gtube", "label": "Spam de test (GTUBE) arrêté ou marqué", "template": "gtube", "expect": ["Blocked SPAM", "Passed SPAM"], "enabled": True},
+        {"id": "virus-eicar", "label": "Virus de test (EICAR) arrêté", "template": "eicar", "expect": ["Blocked INFECTED"], "enabled": True},
+        {"id": "banned-exe", "label": "Pièce jointe interdite (.exe) arrêtée", "template": "banned", "expect": ["Blocked BANNED"], "enabled": False},
+    ],
+    "indicators": [
+        {"id": "auth-failed", "label": "Échecs d'authentification SMTP", "regex": r"SASL \w+ authentication failed", "window_minutes": 60, "warn_above": 300, "crit_above": None, "enabled": True},
+        {"id": "bad-header", "label": "Courriels à en-tête non conforme acceptés", "regex": r"Passed BAD-HEADER", "window_minutes": 60, "warn_above": None, "crit_above": None, "enabled": True},
+        {"id": "dnsbl-rejects", "label": "Rejets par liste noire DNS", "regex": r"blocked using ", "window_minutes": 60, "warn_above": None, "crit_above": None, "enabled": True},
+    ],
+}
+
+
+def _num_or_none(v, lo=0, hi=10 ** 9):
+    if v is None or v == "":
+        return None
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        raise ValueError("nombre attendu : %r" % (v,))
+    if not lo <= f <= hi:
+        raise ValueError("hors limites : %r" % (v,))
+    return int(f) if f == int(f) else f
+
+
+def validate_test(t):
+    """Test du catalogue -> test normalisé (ValueError sinon). Pure."""
+    if not isinstance(t, dict) or not CHECK_ID_RE.match(str(t.get("id") or "")):
+        raise ValueError("test : id invalide (minuscules, chiffres, - _)")
+    if t.get("template") not in TEMPLATES:
+        raise ValueError("test %s : modèle inconnu (%s)" % (t["id"], ", ".join(TEMPLATES)))
+    exp = t.get("expect") or []
+    if isinstance(exp, str):
+        exp = [exp]
+    if not exp or any(not EXPECT_RE.match(str(e)) for e in exp):
+        raise ValueError("test %s : verdict attendu de la forme « Blocked INFECTED », « Passed CLEAN »" % t["id"])
+    out = {"id": t["id"], "label": str(t.get("label") or t["id"])[:120], "template": t["template"], "expect": [str(e) for e in exp][:6],
+           "enabled": bool(t.get("enabled", True))}
+    if t["template"] == "custom":
+        out["subject"] = str(t.get("subject") or "test")[:200].replace("\r", " ").replace("\n", " ")
+        out["body"] = str(t.get("body") or "")[:20000]
+    return out
+
+
+def validate_indicator(i):
+    """Indicateur du catalogue -> indicateur normalisé (ValueError sinon). Pure."""
+    if not isinstance(i, dict) or not CHECK_ID_RE.match(str(i.get("id") or "")):
+        raise ValueError("indicateur : id invalide (minuscules, chiffres, - _)")
+    rx = str(i.get("regex") or "")
+    if not rx or len(rx) > 300:
+        raise ValueError("indicateur %s : expression régulière vide ou trop longue" % i["id"])
+    try:
+        re.compile(rx)
+    except re.error as e:
+        raise ValueError("indicateur %s : expression régulière invalide (%s)" % (i["id"], e))
+    return {"id": i["id"], "label": str(i.get("label") or i["id"])[:120], "regex": rx,
+            "window_minutes": int(_num_or_none(i.get("window_minutes"), 1, 10080) or 60),
+            "warn_above": _num_or_none(i.get("warn_above")), "crit_above": _num_or_none(i.get("crit_above")), "enabled": bool(i.get("enabled", True))}
+
+
+def merge_checks(custom):
+    """Catalogue par défaut + catalogue du hub (même id = remplacé ; « remove » : ids retirés) -> (catalogue, erreurs). Pure."""
+    cat = json.loads(json.dumps(DEFAULT_CHECKS))
+    errors = []
+    custom = custom if isinstance(custom, dict) else {}
+    c = custom.get("canary") or {}
+    if isinstance(c, dict):
+        for k in ("to", "from"):
+            v = str(c.get(k) or "").strip()
+            if v and not re.match(r"^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$", v):
+                errors.append("canary.%s : adresse invalide" % k)
+            elif v:
+                cat["canary"][k] = v
+        for k, lo, hi in (("every_hours", 1, 168), ("timeout_minutes", 5, 240)):
+            try:
+                v = _num_or_none(c.get(k), lo, hi)
+                if v is not None:
+                    cat["canary"][k] = v
+            except ValueError as e:
+                errors.append("canary.%s : %s" % (k, e))
+    removed = set(custom.get("remove") or [])
+    for key, check in (("tests", validate_test), ("indicators", validate_indicator)):
+        items = {x["id"]: x for x in cat[key] if x["id"] not in removed}
+        for x in custom.get(key) or []:
+            try:
+                n = check(x)
+                items[n["id"]] = n
+            except ValueError as e:
+                errors.append(str(e))
+        cat[key] = list(items.values())
+    return cat, errors
+
+
+def load_checks(path=CHECKS_PATH):
+    try:
+        with open(path, encoding="utf-8") as fh:
+            custom = json.load(fh)
+    except FileNotFoundError:
+        custom = {}
+    except (OSError, ValueError) as e:
+        cat, _ = merge_checks({})
+        return cat, ["catalogue %s illisible : %s" % (path, e)]
+    return merge_checks(custom)
+
+
+def build_message(test, frm, to, token, host, now):
+    """Message fabriqué (texte RFC 5322) -> (message-id, texte). Pure. Jamais de vrai virus : EICAR est un fichier de test inoffensif."""
+    mid = "si-canary.%s@%s" % (token, host)
+    date = time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime(now))
+    head = ["From: Sonde si-agent <%s>" % frm, "To: <%s>" % to, "Date: %s" % date, "Message-ID: <%s>" % mid,
+            "Subject: [si-agent test %s] %s" % (token, test.get("subject") if test["template"] == "custom" else test["label"]),
+            "X-SI-Agent-Test: %s" % test["id"], "MIME-Version: 1.0"]
+    intro = "Message de test fabriqué par la sonde mail-server du hub (test « %s »). Il peut être supprimé." % test["label"]
+    tpl = test["template"]
+    if tpl in ("eicar", "banned"):
+        b = "si-canary-%s" % token
+        name, data = ("eicar-test.txt", EICAR.encode()) if tpl == "eicar" else ("facture-test.exe", b"MZ test si-agent, fichier inoffensif")
+        import base64
+        body = ["Content-Type: multipart/mixed; boundary=\"%s\"" % b, "", "--%s" % b, "Content-Type: text/plain; charset=utf-8", "", intro, "",
+                "--%s" % b, "Content-Type: application/octet-stream; name=\"%s\"" % name, "Content-Disposition: attachment; filename=\"%s\"" % name,
+                "Content-Transfer-Encoding: base64", "", base64.b64encode(data).decode(), "", "--%s--" % b, ""]
+    else:
+        text = {"clean": intro, "gtube": intro + "\n\n" + GTUBE, "custom": test.get("body") or intro}[tpl]
+        body = ["Content-Type: text/plain; charset=utf-8", "Content-Transfer-Encoding: 8bit", "", text, ""]
+    return mid, "\r\n".join(head + body)
+
+
+def canary_due(state, canary, now, force=False):
+    """Faut-il envoyer une nouvelle série de tests ? Pure."""
+    if not canary.get("to"):
+        return False
+    if force:
+        return True
+    if any(p for p in state.get("pending") or []):
+        return False
+    return now - (state.get("last_run") or 0) >= canary.get("every_hours", 6) * 3600
+
+
+FILTER_REPLY_RE = re.compile(r"status=sent \((?P<reply>250 [^)]*)\)")
+
+
+def filter_verdict(reply):
+    """Réponse SMTP d'Amavis vue par le Postfix émetteur (filtre local ou VM de filtrage distante) -> verdict. Pure.
+    « 250 2.7.0 Ok, discarded, id=… - INFECTED: Eicar… » -> Blocked INFECTED ; « … - spam » -> Blocked SPAM ;
+    « … - BANNED: … » -> Blocked BANNED ; « 250 2.0.0 from MTA(…): 250 2.0.0 Ok: queued as … » -> Passed (catégorie inconnue)."""
+    r = reply or ""
+    if "discarded" in r or "rejected" in r or "2.7.0" in r:
+        for key, cat in (("INFECTED", "INFECTED"), ("BANNED", "BANNED"), ("spam", "SPAM"), ("SPAM", "SPAM"), ("BAD-HEADER", "BAD-HEADER")):
+            if key in r:
+                return "Blocked %s" % cat
+        return "Blocked"
+    if "from MTA" in r or "queued as" in r:
+        return "Passed"
+    return None
+
+
+def verdict_ok(verdict, expect):
+    """« Passed » seul (filtre distant : catégorie inconnue) satisfait tout « Passed X » attendu. Pure."""
+    if verdict in expect:
+        return True
+    return verdict in ("Passed", "Blocked") and any(e.split(" ")[0] == verdict for e in expect)
+
+
+def correlate(pending, lines, now, timeout_minutes):
+    """Tests envoyés + journal -> (résultats rendus, tests encore en attente). Pure.
+    Verdict : ligne Amavis portant le Message-ID du test (filtre local) ; sinon réponse du filtre au Postfix émetteur,
+    retrouvée par le n° de file Postfix (filtre sur une VM spécialisée) ; rejet sans verdict ou délai dépassé = échec."""
+    by_mid = {p["message_id"]: p for p in pending}
+    found, qids = {}, {}
+    for line in lines or []:
+        if "si-canary." in line:
+            for mid in by_mid:
+                if mid in line:
+                    v = VERDICT_RE.search(line)
+                    if v:
+                        found[mid] = ("verdict", "%s %s" % (v.group("verdict"), v.group("cat")), line[:240])
+                    elif "message-id=" in line:
+                        q = re.search(r": ([0-9A-Za-z]{6,20}): message-id=", line)
+                        if q:
+                            qids[q.group(1)] = mid
+                    elif ("reject" in line or "bounced" in line) and mid not in found:
+                        found[mid] = ("rejected", None, line[:240])
+        elif qids and "status=" in line:
+            q = re.search(r": ([0-9A-Za-z]{6,20}): to=", line)
+            mid = qids.get(q.group(1)) if q else None
+            if mid and found.get(mid, ("",))[0] != "verdict":
+                fr = FILTER_REPLY_RE.search(line)
+                v = filter_verdict(fr.group("reply")) if fr else None
+                if v:
+                    found[mid] = ("verdict", v, line[:240])
+                elif "status=bounced" in line or "status=deferred" in line:
+                    found.setdefault(mid, ("rejected", None, line[:240]))
+    done, still = [], []
+    for p in pending:
+        f = found.get(p["message_id"])
+        r = {"test_id": p["test_id"], "sent_at": p["sent_at"], "at": int(now), "expect": p["expect"], "message_id": p["message_id"]}
+        if p.get("send_error"):
+            done.append(dict(r, ok=False, verdict=None, detail="envoi impossible : %s" % p["send_error"]))
+        elif f and f[0] == "verdict":
+            ok = verdict_ok(f[1], p["expect"])
+            done.append(dict(r, ok=ok, verdict=f[1], detail=None if ok else "verdict obtenu : %s, attendu : %s" % (f[1], " ou ".join(p["expect"]))))
+        elif f and now - p["sent_at"] > 120:
+            done.append(dict(r, ok=False, verdict=None, detail="rejeté ou différé avant analyse : %s" % f[2][-160:]))
+        elif now - p["sent_at"] > timeout_minutes * 60:
+            done.append(dict(r, ok=False, verdict=None, detail="aucun verdict du filtre après %d min (filtre arrêté, file bloquée ou journal incomplet)" % timeout_minutes))
+        else:
+            still.append(p)
+    return done, still
+
+
+def eval_indicators(lines, now, indicators):
+    """Journal -> valeur et état de chaque indicateur actif. Pure."""
+    out = []
+    for ind in indicators:
+        if not ind.get("enabled", True):
+            continue
+        rx = re.compile(ind["regex"])
+        since = now - ind["window_minutes"] * 60
+        n = 0
+        for line in lines or []:
+            if rx.search(line):
+                p = parse_time(line, now)
+                if p and p[0] >= since:
+                    n += 1
+        state = "critical" if ind.get("crit_above") is not None and n > ind["crit_above"] else \
+            "warning" if ind.get("warn_above") is not None and n > ind["warn_above"] else "ok"
+        out.append({"id": ind["id"], "label": ind["label"], "value": n, "window_minutes": ind["window_minutes"],
+                    "warn_above": ind.get("warn_above"), "crit_above": ind.get("crit_above"), "state": state})
+    return out
+
+
+def send_mail(msg, frm, to, timeout=60):
+    try:
+        p = subprocess.run(["/usr/sbin/sendmail", "-i", "-f", frm, to], input=msg.encode("utf-8"), stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE, timeout=timeout)
+        return None if p.returncode == 0 else (p.stderr.decode("utf-8", "replace").strip() or "code %d" % p.returncode)[:200]
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return str(e)[:200]
+
+
+def run_checks(lines, now, checks, state, force=False, sender=send_mail, host=None):
+    """Un passage : relève les tests en attente, envoie une nouvelle série si elle est due, évalue les indicateurs.
+    -> (bloc « checks » du relevé, nouvel état). Les envois passent par `sender` (tests : simulé)."""
+    c = checks["canary"]
+    state = dict(state or {})
+    done, pending = correlate(state.get("pending") or [], lines, now, c.get("timeout_minutes", 30))
+    hist = state.get("results") or {}
+    for r in done:
+        hist.setdefault(r["test_id"], []).append(r)
+        hist[r["test_id"]] = hist[r["test_id"]][-30:]
+    sent = []
+    if canary_due(dict(state, pending=pending), c, now, force):
+        frm = c.get("from") or c["to"]
+        host = host or (os.uname()[1] if hasattr(os, "uname") else "localhost")
+        for t in checks["tests"]:
+            if not t.get("enabled", True):
+                continue
+            token = "%s-%s-%d" % (t["id"], hex(int(now))[2:], len(sent))
+            mid, msg = build_message(t, frm, c["to"], token, host, now)
+            err = sender(msg, frm, c["to"])
+            p = {"test_id": t["id"], "message_id": mid, "sent_at": int(now), "expect": t["expect"], "send_error": err}
+            pending.append(p)
+            sent.append(t["id"])
+        state["last_run"] = int(now)
+    state["pending"], state["results"] = pending, hist
+    tests = []
+    for t in checks["tests"]:
+        h = hist.get(t["id"]) or []
+        tests.append({"id": t["id"], "label": t["label"], "template": t["template"], "expect": t["expect"], "enabled": t.get("enabled", True),
+                      "last": h[-1] if h else None, "history": [{"at": x["at"], "ok": x["ok"], "verdict": x.get("verdict")} for x in h[-14:]],
+                      "pending": any(p["test_id"] == t["id"] for p in pending)})
+    block = {"canary": {"to": c.get("to") or None, "every_hours": c.get("every_hours"), "timeout_minutes": c.get("timeout_minutes"),
+                        "last_run": state.get("last_run"), "next_run": (state.get("last_run") or now) + c.get("every_hours", 6) * 3600 if c.get("to") else None,
+                        "sent_now": sent},
+             "tests": tests, "indicators": eval_indicators(lines, now, checks["indicators"])}
+    return block, state
+
+
+def checks_alerts(block):
+    """Bloc « checks » -> constats (test-failed:<id>, indicator:<id>). Pure."""
+    a = []
+    for t in block.get("tests") or []:
+        last = t.get("last")
+        if t.get("enabled") and last and not last.get("ok"):
+            sev = "critical" if any(e.startswith("Blocked") for e in t["expect"]) and (last.get("verdict") or "").startswith("Passed") else "warning"
+            a.append({"code": "test-failed:%s" % t["id"], "severity": sev, "message": "test « %s » en échec : %s" % (t["label"], last.get("detail") or "?")})
+    for i in block.get("indicators") or []:
+        if i["state"] != "ok":
+            a.append({"code": "indicator:%s" % i["id"], "severity": i["state"],
+                      "message": "%s : %d en %d min (seuil %s)" % (i["label"], i["value"], i["window_minutes"], i["crit_above"] if i["state"] == "critical" else i["warn_above"])})
+    if block.get("errors"):
+        a.append({"code": "checks-invalid", "severity": "warning", "message": "catalogue de contrôles : %s" % "; ".join(block["errors"][:3])})
+    return a
+
+
+def amavis_av_loaded(lines):
+    """Dernier démarrage d'Amavis : antivirus chargé ? -> {loaded, at} (None si aucun démarrage dans le journal lu). Pure."""
+    for line in reversed(lines or []):
+        if "ANTI-VIRUS code" in line:
+            return {"loaded": "NOT loaded" not in line, "line": line[:160]}
+    return None
+
+
+def read_json(path, default):
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return default
+
+
+def write_json(path, data):
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path + ".tmp", "w", encoding="utf-8") as fh:
+            json.dump(data, fh)
+        os.replace(path + ".tmp", path)
+    except OSError:
+        pass
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--log", default="/var/log/mail.log")
@@ -533,6 +879,9 @@ def main(argv=None):
     ap.add_argument("--kill-min", type=float, default=5.0, help="seuil de suppression minimal attendu")
     ap.add_argument("--quarantine-min-days", type=int, default=14)
     ap.add_argument("--log-min-days", type=int, default=30)
+    ap.add_argument("--checks", default=CHECKS_PATH, help="#770 : catalogue des contrôles et tests (écrit depuis le hub)")
+    ap.add_argument("--canary-state", default=CANARY_STATE)
+    ap.add_argument("--no-canary", action="store_true", help="ne jamais envoyer de message de test")
     args = ap.parse_args(argv)
     now = time.time()
     lines = tail_lines(args.log)
@@ -541,7 +890,22 @@ def main(argv=None):
          "blacklist_to": blacklist_to_entries(), "antivirus": antivirus_state(now), "os": os_state(),
          "amavis": amavis_state(now), "log_retention_days": logrotate_days(args.log),
          "limits": {"kill_min": args.kill_min, "quarantine_min_days": args.quarantine_min_days, "log_min_days": args.log_min_days}}
-    s["alerts"] = alerts_from(s)
+    s["amavis_av"] = amavis_av_loaded(lines)
+    # #770 : contrôles et tests fabriqués (catalogue modifiable depuis le hub)
+    checks, errors = load_checks(args.checks)
+    if args.no_canary:
+        checks["canary"]["to"] = ""
+    force = os.path.exists(CANARY_FORCE)
+    block, st = run_checks(lines, now, checks, read_json(args.canary_state, {}), force=force)
+    if force:
+        try:
+            os.remove(CANARY_FORCE)
+        except OSError:
+            pass
+    write_json(args.canary_state, st)
+    block["errors"], block["catalog"] = errors, checks
+    s["checks"] = block
+    s["alerts"] = alerts_from(s) + checks_alerts(block)
     sev = {x["severity"] for x in s["alerts"]}
     s["summary"] = {"state": "critical" if "critical" in sev else "warning" if "warning" in sev else "ok",
                     "alerts": len(s["alerts"]), "blocked_spam": (s["log"].get("amavis") or {}).get("Blocked SPAM", 0),

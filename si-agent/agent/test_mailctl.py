@@ -320,5 +320,26 @@ class QuarantaineNiveaux(unittest.TestCase):
         self.assertTrue(l["available"]); self.assertEqual(len(l["rules"]), 1)
 
 
+class Checks770(unittest.TestCase):
+    """#770 : catalogue des contrôles écrit depuis le hub (motif obligatoire), demande de série de tests."""
+
+    def test_checks(self):
+        import tempfile, json as _j
+        d = tempfile.mkdtemp(); path = os.path.join(d, "etc", "mail-checks.json"); force = os.path.join(d, "lib", "force")
+        ok = {"canary": {"to": "test@exemple.org"}, "tests": [{"id": "phishing", "template": "custom", "expect": ["Blocked SPAM"]}],
+              "indicators": [{"id": "auth", "regex": "authentication failed", "warn_above": 5}]}
+        self.assertEqual(mc.validate_checks(ok), [])
+        self.assertTrue(mc.validate_checks({"tests": [{"id": "x y", "template": "clean"}]}))
+        self.assertTrue(mc.validate_checks({"indicators": [{"id": "casse", "regex": "("}]}))
+        self.assertTrue(mc.validate_checks({"pirate": 1}))
+        self.assertEqual(mc.checks_action("checks_get", {}, path, force)["default"], True)
+        r = mc.checks_action("checks_set", {"checks": ok}, path, force)
+        self.assertTrue(r["ok"]); self.assertEqual(_j.load(open(path))["canary"]["to"], "test@exemple.org")
+        self.assertEqual(mc.checks_action("checks_get", {}, path, force)["checks"]["tests"][0]["id"], "phishing")
+        self.assertTrue(mc.checks_action("canary_run", {}, path, force)["ok"]); self.assertTrue(os.path.exists(force))
+        r = mc.run_action({"action": "checks_set", "checks": ok}, audit_path=os.path.join(d, "audit.log"))
+        self.assertFalse(r["ok"]); self.assertIn("motif", r["error"])      # motif obligatoire
+
+
 if __name__ == "__main__":
     unittest.main()
