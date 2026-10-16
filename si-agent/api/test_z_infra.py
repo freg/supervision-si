@@ -71,5 +71,15 @@ class Infra(unittest.TestCase):
         self.assertIn("pve10", [n["name"] for n in r.json["nodes"]])
 
 
+class Destinations773(unittest.TestCase):
+    def test_destinations_dans_transferts(self):
+        act = [("a1", "pve11", "2026-10-16T18:00:00Z", {"nodes": [{"name": "pve11", "zone": "local", "ok": True, "procs": [], "files": [],
+               "xfers": [{"key": "zfs:data/ovh/pve1", "label": "rsync", "dest": "/data/ovh/pve1/ct103/", "measure": "volume", "size": 10, "rate_bps": 5},
+                         "pas un objet"]}]})]
+        tr = infra.overview(act, [], [], [])["transfers"]
+        d = [t for t in tr if t["what"] == "destination"]
+        self.assertEqual((len(d), d[0]["node"], d[0]["dest"], d[0]["zone"]), (1, "pve11", "/data/ovh/pve1/ct103/", "local"))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -105,6 +105,9 @@ def overview(activity, proxmox, remote, pbs):
         for f in n.get("files") or []:
             transfers.append({"node": n["name"], "zone": n["zone"], "what": "fichier", "path": f.get("path"), "size": f.get("size"),
                               "rate_bps": f.get("rate_bps"), "active": f.get("active")})
+        for x in n.get("xfers") or []:   # #773 : destinations des transferts (fichier, volume ZFS, système de fichiers)
+            if isinstance(x, dict):
+                transfers.append(dict(x, node=n["name"], zone=n["zone"], what="destination", active=True))
     ns = sorted(nodes.values(), key=lambda n: (n["zone"] != "local", n["role"] != "pve", n["name"]))
     tot = {}
     for zone in ("local", "distant"):

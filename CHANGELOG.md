@@ -1,3 +1,17 @@
+## 2026-10-16 — Infra PVE / PBS : suivi des copies en cours (zfs send, zfs recv, rsync) avec avancement, débit et fin estimée (livraison #773)
+
+- Besoin réel : suivre depuis le hub les copies du week-end (stockage PBS vers le disque de 10 To, rsync de pve-1 et
+  envois ZFS vers pve11), qui n'écrivent pas dans les dossiers surveillés.
+- Sonde node-activity v4 (agent 0.5.70), **sans réglage** : pour chaque zfs send/recv, rsync, scp, dd en cours, la
+  destination est retrouvée d'elle-même -- fichier de sortie d'un `zfs send > fichier` (copié / taille du snapshot,
+  pourcentage, fin estimée), volume ZFS d'un `zfs recv`, volume ZFS ou disque de destination d'un `rsync` / `scp` (taille
+  occupée qui grossit) ; débit d'un passage à l'autre ; constat « ne progresse plus » après 3 passages (6 min) sans
+  croissance. Dossiers surveillés en plus : `/etc/si-agent/node-activity.json` `{"watch": [...]}`.
+- Hub : tuile Infra PVE / PBS › Transferts, bloc « Destinations des transferts » (nœud, transfert, destination, copié,
+  avancement, débit, fin estimée).
+- Vérifié : unittest node-activity (dont le relevé shell réel sur un dd vers un fichier et un rsync simulé), test_z_infra,
+  `node --test hub/tests/*.test.mjs`, syntaxe JSX. Non vérifié : zfs send / recv réels sur pve10 et pve11, rendu navigateur.
+
 ## 2026-10-16 — Auto-contrôle de l'hôte du hub : fichiers (inodes), remplissage rapide, saturation passagère, fichiers effacés encore ouverts, garde avant construction (livraison #772)
 
 - Constat réel : `docker compose up --build` en échec « no space left on device » sur super alors que `/var` avait

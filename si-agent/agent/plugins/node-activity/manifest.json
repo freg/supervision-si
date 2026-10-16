@@ -1,13 +1,18 @@
 {
   "id": "node-activity",
-  "version": "3",
+  "version": "4",
   "runner": "python",
   "entry": "node_activity.py",
   "interval_seconds": 120,
   "timeout_seconds": 110,
-  "args": ["--watch", "/var/lib/vz/dump,/var/lib/vz/import,/data/dump", "--remote", "/etc/si-agent/pve-remote.json"],
+  "args": [
+    "--watch",
+    "/var/lib/vz/dump,/var/lib/vz/import,/data/dump",
+    "--remote",
+    "/etc/si-agent/pve-remote.json"
+  ],
   "enabled": false,
-  "description": "Activité des nœuds (#749) : CPU, charge, mémoire, partitions, pools ZFS, débit par interface, connexions (ss -s), transferts en cours (vzdump, restaurations, importdisk, zfs send/recv, rsync, scp, compression) et fichiers qui grossissent dans les dossiers surveillés (débit, fin estimée). Hôte local + nœuds distants du fichier pve-remote.json (un appel ssh par nœud et par passage, lecture seule). Alimente la tuile « Infra PVE / PBS ». Constats : disque > 90 %, pool ZFS > 85 %, transfert arrêté, nœud injoignable. Privilégiée : clé ssh des nœuds distants, état dans /var/lib/si-agent.",
+  "description": "Activité des nœuds (#749) : CPU, charge, mémoire, partitions, pools ZFS, débit par interface, connexions (ss -s), transferts en cours (vzdump, restaurations, importdisk, zfs send/recv, rsync, scp, compression) et fichiers qui grossissent dans les dossiers surveillés (débit, fin estimée). Hôte local + nœuds distants du fichier pve-remote.json (un appel ssh par nœud et par passage, lecture seule). Alimente la tuile « Infra PVE / PBS ». Constats : disque > 90 %, pool ZFS > 85 %, transfert arrêté, nœud injoignable. Privilégiée : clé ssh des nœuds distants, état dans /var/lib/si-agent. #773 (v4) : destinations des transferts sans réglage -- fichier de sortie d'un zfs send (copié / total du snapshot, fin estimée), volume ZFS d'un zfs recv, volume ou disque de destination d'un rsync / scp ; « ne progresse plus » après 6 min ; dossiers surveillés en plus dans /etc/si-agent/node-activity.json {\"watch\": [...]}.",
   "source": "bundled",
   "privileged": true
 }

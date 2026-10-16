@@ -4,7 +4,12 @@
 seule), analysé ici ; débits calculés d'un passage à l'autre (état JSON).
 Usage : node_activity.py [--watch d1,d2] [--remote pve-remote.json] [--state fichier]
 Sortie : {at, nodes: [{name, zone, ok, error, cpu_pct, ncpu, load, mem_total, mem_used, disks, zpools, net, conn, procs,
-files}], alerts}. Pur : parse_*, rates, file_rates."""
+files, xfers}], alerts}. Pur : parse_*, rates, file_rates, xfer_targets.
+
+#773 : destinations des transferts, sans réglage -- pour chaque zfs send/recv, rsync, scp, dd en cours : fichier de
+sortie (zfs send > fichier : taille, total = taille du snapshot envoyé), volume ZFS reçu (zfs recv), volume ZFS ou
+système de fichiers de destination (rsync, scp) ; débit et fin estimée d'un passage à l'autre ; « ne progresse
+plus » après 3 passages sans croissance. Dossiers surveillés en plus : /etc/si-agent/node-activity.json {"watch": [...]}."""
 import argparse
 import json
 import os
@@ -22,6 +27,14 @@ TASK_SH = (r"""for u in $(awk 'NF==1 && /^UPID:/{print $1}' /var/log/pve/tasks/a
            r"""Finished Backup of VM|ERROR|INFO: +[0-9]+% \(|had to backup|Backup job finished|^TASK' "$f" | tail -n 60; """
            r"""tail -n 1 "$f" | sed 's/^/@@LAST /'; }; done; for p in $(pgrep -f 'proxmox-backup-client backup' 2>/dev/null | head -3); do """
            r"""echo "@@PBC $p $(awk '/^rchar/{print $2}' /proc/$p/io 2>/dev/null)"; done""")
+# #773 : destinations des transferts en cours (sortie standard, snapshot envoyé et sa taille, ligne de commande), volumes ZFS
+XFER_SH = (r"""zfs list -Hp -o name,used,mountpoint -t filesystem,volume 2>/dev/null | head -3000; echo @@ZEND; """
+           r"""for p in $(pgrep -f 'zfs (send|recv|receive)|rsync|scp |dd if=' 2>/dev/null | head -16); do """
+           r"""a=$(tr '\0' ' ' < /proc/$p/cmdline 2>/dev/null | cut -c1-400); [ -n "$a" ] || continue; """
+           r"""o=$(readlink /proc/$p/fd/1 2>/dev/null); s=; [ -f "$o" ] && s=$(stat -c %s "$o" 2>/dev/null); """
+           r"""t=$(printf '%s' "$a" | grep -oE '[^ ]+@[^ ]+' | grep -v ':' | tail -1); r=; """
+           r"""case "$a" in *"zfs send"*) [ -n "$t" ] && r=$(zfs get -Hp -o value referenced "$t" 2>/dev/null) ;; esac; """
+           r"""printf '@@XFER %s\t%s\t%s\t%s\t%s\t%s\n' "$p" "$o" "$s" "$t" "$r" "$a"; done""")
 SKIP_IF = re.compile(r"^(lo|veth|tap|fwbr|fwpr|fwln|docker|br-|virbr|vnet)")
 
 
@@ -34,7 +47,7 @@ def metric_cmd(watch):
         "zpool list -Hp -o name,size,alloc,free,frag,cap,health 2>/dev/null", "echo %s" % SEP, "nproc", "echo %s" % SEP,
         "ps -eo pid,etimes,args --no-headers | grep -E '%s' | grep -v -E 'grep|node_activity' | head -20" % PROC_RE, "echo %s" % SEP,
         "for d in %s; do find \"$d\" -maxdepth 2 -type f -mmin -30 -printf '%%p\\t%%s\\t%%T@\\n' 2>/dev/null; done" % (dirs or "/nonexistent"),
-        "echo %s" % SEP, "hostname", "echo %s" % SEP, "cat /proc/uptime", "echo %s" % SEP, TASK_SH])
+        "echo %s" % SEP, "hostname", "echo %s" % SEP, "cat /proc/uptime", "echo %s" % SEP, TASK_SH, "echo %s" % SEP, XFER_SH])
 
 
 def sections(text):
@@ -194,6 +207,98 @@ def parse_files(text):
     return out
 
 
+def parse_xfer_section(text):
+    """#773 : -> ({volume ZFS: (utilisé, point de montage)}, [{pid, out, out_size, snap, snap_ref, args}])."""
+    zl, xf, in_z = {}, [], True
+    for line in (text or "").splitlines():
+        if line.strip() == "@@ZEND":
+            in_z = False
+            continue
+        if in_z:
+            f = line.split("\t")
+            if len(f) >= 3 and f[1].isdigit():
+                zl[f[0]] = (int(f[1]), f[2])
+        elif line.startswith("@@XFER "):
+            f = line[7:].split("\t", 5)
+            if len(f) == 6 and f[0].isdigit():
+                xf.append({"pid": int(f[0]), "out": f[1] or None, "out_size": int(f[2]) if f[2].isdigit() else None,
+                           "snap": f[3] or None, "snap_ref": int(f[4]) if f[4].isdigit() else None, "args": f[5].strip()})
+    return zl, xf
+
+
+def _dataset_for_path(path, zl):
+    best = None
+    for name, (_u, mnt) in zl.items():
+        if mnt.startswith("/") and (path == mnt or path.startswith(mnt.rstrip("/") + "/")) and (best is None or len(mnt) > len(zl[best][1])):
+            best = name
+    return best
+
+
+def _mount_for_path(path, disks):
+    best = None
+    for d in disks or []:
+        m = d["mount"]
+        if path == m or path.startswith(m.rstrip("/") + "/") or m == "/":
+            if best is None or len(m) > len(best["mount"]):
+                best = d
+    return best
+
+
+def xfer_targets(xfers, zl, disks):
+    """Transferts en cours -> destinations mesurables, sans doublon : [{key, kind, label, dest, measure, size, total, cmd}].
+    measure : fichier (sortie de zfs send), volume (ZFS), système de fichiers (df)."""
+    out = {}
+    for x in xfers:
+        a = x["args"]
+        if a.startswith("ssh ") and " rsync " in " %s " % a:      # transport ssh d'un rsync : le rsync local porte la destination
+            continue
+        t = None
+        if x["out"] and x["out"].startswith("/") and not x["out"].startswith(("/dev/", "/proc/")) and x["out_size"] is not None:
+            t = {"key": "file:" + x["out"], "measure": "fichier", "dest": x["out"], "size": x["out_size"],
+                 "total": x["snap_ref"] if "zfs send" in a else None, "label": "zfs send %s" % x["snap"] if x["snap"] else a.split()[0]}
+        elif re.search(r"\bzfs (recv|receive)\b", a):
+            tok = [w for w in a.split() if not w.startswith("-")]
+            ds = tok[-1] if tok else ""
+            name = ds
+            while name and name not in zl:
+                name = name.rsplit("/", 1)[0] if "/" in name else ""
+            if name:
+                t = {"key": "zfs:" + name, "measure": "volume", "dest": ds if name == ds else "%s (dans %s)" % (ds, name),
+                     "size": zl[name][0], "total": None, "label": "zfs recv"}
+        elif re.match(r"^(\S*/)?(rsync|scp)\s", a) and "--server" not in a:
+            paths = [w for w in a.split() if w.startswith("/") and ":" not in w]
+            dest = paths[-1] if paths else None
+            if dest:
+                name = _dataset_for_path(dest, zl)
+                if name:
+                    t = {"key": "zfs:" + name, "measure": "volume", "dest": dest, "size": zl[name][0], "total": None, "label": a.split()[0].rsplit("/", 1)[-1]}
+                else:
+                    d = _mount_for_path(dest, disks)
+                    if d:
+                        t = {"key": "df:" + d["mount"], "measure": "système de fichiers", "dest": dest, "size": d["used"], "total": None,
+                             "label": a.split()[0].rsplit("/", 1)[-1]}
+        if t and t["key"] not in out:
+            t["cmd"] = re.sub(r"(-i|--key|password\S*)\s+\S+", r"\1 …", a)[:200]
+            t["kind"] = "zfs" if t["label"].startswith("zfs") else t["label"]
+            out[t["key"]] = t
+    return list(out.values())
+
+
+def xfer_rates(targets, prev, dt):
+    """-> (destinations avec rate_bps, eta_s, pct, stalled_runs ; état {key: [taille, passages sans croissance]})."""
+    st = {}
+    for t in targets:
+        p = (prev or {}).get(t["key"])
+        rate = (t["size"] - p[0]) / dt if p and dt > 0 and t["size"] >= p[0] else None
+        zero = (p[1] + 1) if p and rate is not None and rate < 1024 else 0
+        t["rate_bps"] = round(rate) if rate is not None else None
+        t["stalled_runs"] = zero
+        t["pct"] = round(min(100.0, 100.0 * t["size"] / t["total"]), 1) if t.get("total") else None
+        t["eta_s"] = int((t["total"] - t["size"]) / rate) if t.get("total") and rate and rate > 0 and t["total"] > t["size"] else None
+        st[t["key"]] = [t["size"], zero]
+    return targets, st
+
+
 def rates(cur, prev, dt):
     """{k: (a, b)} courant / précédent -> {k: (da/dt, db/dt)} (compteurs remis à zéro ignorés)."""
     out = {}
@@ -215,7 +320,7 @@ def file_rates(files, prev_sizes, dt, now):
 
 def build_node(name, zone, text, prev, now):
     s = sections(text)
-    while len(s) < 13:
+    while len(s) < 14:
         s.append("")
     lf = s[0].split()
     load = lf[:3]
@@ -242,7 +347,9 @@ def build_node(name, zone, text, prev, now):
     node["net"] = sorted([{"iface": k, "rx_total": v[0], "tx_total": v[1], "rx_bps": round(r[k][0] * 8) if k in r else None,
                            "tx_bps": round(r[k][1] * 8) if k in r else None} for k, v in net.items()], key=lambda x: x["iface"])
     node["files"] = file_rates(files, (prev or {}).get("files"), dt, now)
-    state = {"at": now, "cpu": cpu, "cores": cores, "net": net, "files": {f["path"]: f["size"] for f in files}}
+    zl, xf = parse_xfer_section(s[13])         # #773
+    node["xfers"], xst = xfer_rates(xfer_targets(xf, zl, node["disks"]), (prev or {}).get("xfers"), dt)
+    state = {"at": now, "cpu": cpu, "cores": cores, "net": net, "files": {f["path"]: f["size"] for f in files}, "xfers": xst}
     return node, state
 
 
@@ -262,6 +369,10 @@ def alerts_for(nodes):
         for f in n.get("files") or []:
             if f.get("rate_bps") == 0 and f["path"].endswith((".part", ".tmp", ".dat")) and f.get("active") is False:
                 out.append({"code": "transfer-stalled:%s:%s" % (n["name"], f["path"]), "severity": "warning", "message": "%s : %s ne grossit plus" % (n["name"], f["path"])})
+        for x in n.get("xfers") or []:   # #773 : 3 passages (6 min) sans croissance alors que le processus tourne
+            if x.get("stalled_runs", 0) >= 3:
+                out.append({"code": "transfer-stalled:%s:%s" % (n["name"], x["key"]), "severity": "warning",
+                            "message": "%s : %s vers %s ne progresse plus" % (n["name"], x["label"], x["dest"])})
     return out
 
 
@@ -272,6 +383,11 @@ def main(argv=None):
     ap.add_argument("--state", default="/var/lib/si-agent/node-activity.state.json")
     a = ap.parse_args(argv)
     watch = [d for d in a.watch.split(",") if d.strip()]
+    try:   # #773 : dossiers surveillés en plus, réglés sur l'hôte
+        with open("/etc/si-agent/node-activity.json", encoding="utf-8") as fh:
+            watch += [d for d in (json.load(fh).get("watch") or []) if isinstance(d, str) and d.startswith("/")][:20]
+    except (OSError, ValueError, AttributeError):
+        pass
     try:
         with open(a.state) as fh:
             state = json.load(fh)

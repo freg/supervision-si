@@ -135,7 +135,7 @@ export default function InfraView({ onBack, siAgentApiBase }) {
               </div>
             ))}
             <div className="infra-kpi-group"><h3>activité</h3>
-              <Kpi label="transferts en cours" value={view.transfers.filter((t) => t.what === "processus" || t.active).length} />
+              <Kpi label="transferts en cours" value={view.transfers.filter((t) => t.what === "processus" || (t.what === "fichier" && t.active)).length} />
               <Kpi label="constats" value={(data.alerts || []).length} tone={(data.alerts || []).some((a) => a.severity === "critical") ? "critical" : (data.alerts || []).length ? "warning" : ""} />
             </div>
           </div>
@@ -185,12 +185,13 @@ export default function InfraView({ onBack, siAgentApiBase }) {
       )}
 
       {view && tab === "transferts" && <PveTasks tasks={(data.pve_tasks || []).filter((t) => view.nodes.some((n) => n.name === t.node))} />}
+      {view && tab === "transferts" && <XferDestinations rows={view.transfers.filter((t) => t.what === "destination")} />}
       {view && tab === "transferts" && (
         <div className="infra-table-wrap infra-scroll">
           <table className="infra-table">
             <thead><tr><th>Nœud</th><th>Zone</th><th>Nature</th><th>Objet</th><th>Taille</th><th>Débit</th><th>Depuis</th><th>Actif</th></tr></thead>
             <tbody>{view.transfers.length === 0 ? <tr><td colSpan={8} className="infra-muted">Aucun transfert en cours (processus vzdump, restauration, importdisk, zfs send/recv, rsync, scp ; fichiers récents des dossiers surveillés).</td></tr>
-              : view.transfers.map((t, i) => (
+              : view.transfers.filter((t) => t.what !== "destination").map((t, i) => (
                 <tr key={i}><td>{t.node}</td><td>{ZONE[t.zone] || t.zone}</td><td>{t.what === "processus" ? t.kind : "fichier"}</td>
                   <td className="infra-mono">{t.what === "processus" ? t.cmd : t.path}</td><td>{fmtBytes(t.size)}</td><td>{t.rate_bps != null ? fmtBps(t.rate_bps * 8) : "—"}</td>
                   <td>{t.elapsed_s != null ? fmtUptime(t.elapsed_s) : "—"}</td><td>{t.what === "processus" || t.active ? "oui" : "non"}</td></tr>))}</tbody>
@@ -207,6 +208,31 @@ export default function InfraView({ onBack, siAgentApiBase }) {
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+
+// #773 : destinations des transferts en cours (zfs send vers un fichier, zfs recv, rsync / scp vers un volume ou un disque) --
+// copié, débit, fin estimée quand la taille totale est connue (snapshot envoyé), blocage après 6 min sans croissance.
+function XferDestinations({ rows }) {
+  if (!rows.length) return null;
+  const eta = (s) => (s == null ? "—" : s < 3600 ? `${Math.max(1, Math.round(s / 60))} min` : s < 172800 ? `${(s / 3600).toFixed(1)} h` : `${Math.round(s / 86400)} j`);
+  return (
+    <div className="infra-card" style={{ marginBottom: 10 }}>
+      <figcaption>Destinations des transferts <span className="infra-note">mesurées toutes les 2 min sur le nœud qui reçoit</span></figcaption>
+      <table className="infra-table">
+        <thead><tr><th>Nœud</th><th>Transfert</th><th>Destination</th><th>Copié</th><th>Avancement</th><th>Débit</th><th>Fin estimée</th></tr></thead>
+        <tbody>{rows.map((t) => (
+          <tr key={`${t.node}${t.key}`} title={t.cmd}>
+            <td>{t.node}</td><td>{t.label}</td>
+            <td className="infra-mono">{t.dest}<div className="infra-muted" style={{ fontSize: 11 }}>{t.measure}{t.measure !== "fichier" ? " (taille occupée du volume)" : ""}</div></td>
+            <td>{fmtBytes(t.size)}{t.total ? ` / ${fmtBytes(t.total)}` : ""}</td>
+            <td style={{ minWidth: 120 }}>{t.pct != null ? (<><div style={{ height: 8, background: "var(--border)", borderRadius: 4, overflow: "hidden" }}><div style={{ width: `${t.pct}%`, height: "100%", background: "var(--viz-1)" }} /></div><small>{t.pct} %</small></>) : <span className="infra-muted">total inconnu</span>}</td>
+            <td>{t.stalled_runs >= 3 ? <Status tone="warning" label="ne progresse plus" /> : t.rate_bps != null ? fmtBps(t.rate_bps * 8) : "mesure au prochain passage"}</td>
+            <td>{eta(t.eta_s)}</td>
+          </tr>))}</tbody>
+      </table>
     </div>
   );
 }

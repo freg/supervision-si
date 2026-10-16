@@ -65,5 +65,39 @@ class Analyse(unittest.TestCase):
         self.assertEqual((n["disks"], n["net"], n["load"]), ([], [], None))
 
 
+class Destinations773(unittest.TestCase):
+    SECTION = "\n".join([
+        "data\t130000000000\t/data", "data/ovh\t2000000000\t/data/ovh", "data/ovh/pve1\t1500000000\t/data/ovh/pve1",
+        "rpool/data/vm-120-disk-0\t2600000000000\t-", "@@ZEND",
+        "@@XFER 10\t/opt/10ToExterne/pbs10/vm-120-disk-0@usb1.zfs\t500000000000\trpool/data/vm-120-disk-0@usb1\t2500000000000\tzfs send -cv rpool/data/vm-120-disk-0@usb1",
+        "@@XFER 11\tpipe:[1]\t\troot@pve-1.groupe-i.fr\t\trsync -aHAX --bwlimit=40000 root@pve-1.groupe-i.fr:/var/lib/lxc/103/rootfs/ /data/ovh/pve1/ct103/",
+        "@@XFER 12\tpipe:[1]\t\t\t\tssh -l root pve-1.groupe-i.fr rsync --server --sender -logDtpHAXre.iLsfxC . /var/lib/lxc/103/rootfs/",
+        "@@XFER 13\tpipe:[2]\t\tdata/ovh/pve3/subvol-102-disk-0\t\tzfs recv -s -u data/ovh/pve3/subvol-102-disk-0",
+        "@@XFER 14\tpipe:[3]\t\t\t\trsync -aHAX root@pve-1.groupe-i.fr:/var/lib/lxc/104/rootfs/ /data/ovh/pve1/ct104/",
+        "@@XFER 15\tpipe:[4]\t\t\t\trsync -a /src/ /mnt/usb/copie/"])
+
+    def test_destinations(self):
+        zl, xf = na.parse_xfer_section(self.SECTION)
+        self.assertEqual(len(xf), 6)
+        t = {x["key"]: x for x in na.xfer_targets(xf, zl, [{"mount": "/", "used": 5}, {"mount": "/mnt/usb", "used": 77}])}
+        self.assertEqual(sorted(t), ["df:/mnt/usb", "file:/opt/10ToExterne/pbs10/vm-120-disk-0@usb1.zfs", "zfs:data/ovh", "zfs:data/ovh/pve1"])
+        f = t["file:/opt/10ToExterne/pbs10/vm-120-disk-0@usb1.zfs"]
+        self.assertEqual((f["measure"], f["size"], f["total"], f["label"]), ("fichier", 500000000000, 2500000000000, "zfs send rpool/data/vm-120-disk-0@usb1"))
+        self.assertEqual(t["zfs:data/ovh/pve1"]["dest"], "/data/ovh/pve1/ct103/")          # un seul rsync retenu par volume
+        self.assertEqual(t["zfs:data/ovh"]["dest"], "data/ovh/pve3/subvol-102-disk-0 (dans data/ovh)")   # volume en cours de réception
+        self.assertEqual(t["df:/mnt/usb"]["measure"], "système de fichiers")
+
+    def test_debit_fin_estimee_et_blocage(self):
+        t = [{"key": "file:/x", "size": 1000 * 2**20, "total": 4000 * 2**20}]
+        r, st = na.xfer_rates(t, {"file:/x": [880 * 2**20, 0]}, 120)
+        self.assertEqual((r[0]["rate_bps"], r[0]["pct"], r[0]["eta_s"]), (2**20, 25.0, 3000))
+        for _ in range(3):
+            r, st = na.xfer_rates([{"key": "file:/x", "size": 1000 * 2**20, "total": None}], st, 120)
+        self.assertEqual(r[0]["stalled_runs"], 3)
+        al = na.alerts_for([{"name": "pve11", "ok": True, "xfers": [dict(r[0], label="rsync", dest="/data/ovh/pve1/ct103/")]}])
+        self.assertIn("ne progresse plus", al[0]["message"])
+        self.assertIsNone(na.xfer_rates([{"key": "k", "size": 5, "total": None}], None, 0)[0][0]["rate_bps"])   # premier passage
+
+
 if __name__ == "__main__":
     unittest.main()
