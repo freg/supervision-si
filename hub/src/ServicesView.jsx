@@ -71,9 +71,16 @@ function HostCard({ apiBase, accessToken, onNotice }) {
             <div><Lamp light={x.light} /> <code>{x.mount}</code> <span className="muted">{x.fstype}</span> — <span style={{ color: COLORS[x.light] }}>{x.pct} %</span></div>
             <div style={{ height: 8, background: "var(--border)", borderRadius: 4, overflow: "hidden" }}><div style={{ width: `${Math.min(100, x.pct)}%`, height: "100%", background: COLORS[x.light] }} /></div>
             <div className="muted" style={{ fontSize: 12 }}>{human(x.used)} utilisés · {human(x.free)} libres · {human(x.total)}</div>
+            {(x.ipct != null || x.eta_full_s != null || (x.min_free_24h != null && x.min_free_24h < x.free * 0.5)) && (
+              <div className="muted" style={{ fontSize: 12 }}>
+                {x.ipct != null && <span style={{ color: x.ipct >= 85 ? COLORS[x.ipct >= 95 ? "red" : "orange"] : undefined }}>fichiers {x.ipct} %</span>}
+                {x.eta_full_s != null && <span style={{ color: COLORS[x.eta_full_s < 3600 ? "red" : "orange"] }}> · plein dans ~{x.eta_full_s < 5400 ? `${Math.max(1, Math.round(x.eta_full_s / 60))} min` : `${(x.eta_full_s / 3600).toFixed(1)} h`} au rythme actuel</span>}
+                {x.min_free_24h != null && x.min_free_24h < x.free * 0.5 && <span title="espace libre le plus bas des dernières 24 h (construction, journal, fichier temporaire…)"> · minimum 24 h : {human(x.min_free_24h)} libres</span>}
+              </div>)}
           </div>
         ))}
         {!h.root_mounted && <span className="muted">racine de l'hôte non montée (SERVICES_HOST_ROOT) : disques non mesurés</span>}
+        {h.deleted_open?.total > 0 && <span className="muted" title={(h.deleted_open.top || []).map((d) => `${d.comm}[${d.pid}] ${d.path} ${human(d.size)}`).join("\n")}>fichiers effacés encore ouverts : {human(h.deleted_open.total)} retenus ({(h.deleted_open.top || []).slice(0, 3).map((d) => `${d.comm}[${d.pid}]`).join(", ")}) -- redémarrer le service concerné rend la place</span>}
       </div>
       {h.hypervisor ? (
         <div style={{ marginTop: 8, padding: 8, border: "1px solid var(--border)", borderRadius: 6 }}>

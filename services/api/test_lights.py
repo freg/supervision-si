@@ -69,6 +69,22 @@ class HostHealth(unittest.TestCase):
         self.assertEqual(lights.host_summary([], [0.1, 0.1, 0.1], 2, 30)["text"], "hôte en bonne santé")
         self.assertEqual(lights.human(3 * 2**30), "3.0 Go")
 
+    def test_inodes_et_remplissage_772(self):
+        self.assertEqual(lights.inode_light(None, None), "green")                 # btrfs / zfs : pas d'inodes fixes
+        self.assertEqual(lights.inode_light(90, 10**6), "orange")
+        self.assertEqual(lights.inode_light(50, 5000), "red")
+        self.assertIsNone(lights.fill_eta((0, 10 * 2**30), (10, 9 * 2**30)))     # mesures trop rapprochées
+        self.assertIsNone(lights.fill_eta((0, 10 * 2**30), (60, 10 * 2**30)))    # stable
+        eta = lights.fill_eta((0, 10 * 2**30), (60, 9 * 2**30))                  # 1 Go/min, 9 Go restants
+        self.assertEqual(eta, 540)
+        self.assertEqual((lights.fill_light(eta), lights.fill_light(4 * 3600), lights.fill_light(None)), ("red", "orange", "green"))
+        self.assertEqual(lights.eta_text(540), "9 min")
+        s = lights.host_summary([{"mount": "/var", "pct": 15, "free": 119 * 2**30, "ipct": 97, "ifree": 40000},
+                                 {"mount": "/", "pct": 10, "free": 18 * 2**30, "eta_full_s": 1800}], [0.1, 0.1, 0.1], 2, 30)
+        self.assertEqual(s["light"], "red")
+        self.assertIn("/var : 97 % des fichiers (inodes) utilisés", s["text"])
+        self.assertIn("/ se remplit vite : plein dans ~30 min", s["text"])
+
     def test_hypervisor(self):
         pve = {"agent_id": "pve11", "node": {"name": "pve11", "pveversion": "8.2", "mem_used": 30 * 2**30, "mem_total": 32 * 2**30},
                "vms": [{"vmid": 105, "name": "super", "status": "running", "maxdisk": 80 * 2**30, "disk_options": {"disks": [{"key": "scsi0", "storage": "local-zfs", "volume": "vm-105-disk-0"}]}, "snapshots": [1]},

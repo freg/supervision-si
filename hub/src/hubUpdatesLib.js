@@ -14,6 +14,7 @@ export const UPDATE_LINKS = {
   758: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   759: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   760: [{ view: "cortex", hint: "incidents « cause Wi-Fi probable »" }],
+  772: [{ view: "services", hint: "Tour › Services › Hôte du hub : fichiers (inodes), « plein dans ~ », minimum 24 h, fichiers effacés encore ouverts" }],
   771: [{ view: "guest-usage", hint: "Colonnes 13 mois, Inactif réel, Décision ; liste décideurs (CSV) ; fiche ⚙ : décision et suivi de migration" }],
   770: [{ view: "mailserver", hint: "Onglet Contrôles : tests fabriqués (spam, virus) et indicateurs" }],
   769: [{ view: "guest-usage", hint: "Nouvel écran : activité de chaque CT / VM et fiche de paramétrage" }, { view: "proxmox", hint: "Lien vers l'activité de la VM" }],

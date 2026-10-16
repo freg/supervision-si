@@ -1338,6 +1338,55 @@ if __name__ == "__main__":  # pragma: no cover
 # =============================================================================
 _host_cache = {"at": 0, "value": None}
 _host_state = {"disk": "green", "load": "green"}
+_disk_samples = {}    # #772 : point de montage -> [(t, octets libres)] sur 24 h (rythme de remplissage, minimum atteint)
+
+
+def _note_sample(mount, t, free):
+    """Garde les mesures de 24 h -> (mesure précédente, minimum de 24 h)."""
+    lst = _disk_samples.setdefault(mount, [])
+    prev = lst[-1] if lst else None
+    lst.append((t, free))
+    while lst and lst[0][0] < t - 86400:
+        lst.pop(0)
+    return prev, min(f for _t, f in lst)
+
+
+def _deleted_open(budget_s=2.0):
+    """#772 : fichiers effacés mais encore ouverts par un processus de l'hôte (place non rendue) -- vus par
+    HOST_ROOT/proc, au mieux (droits, délai) -> {"total": octets, "top": [{pid, comm, path, size}]} ou None."""
+    base = os.path.join(HOST_ROOT or "/", "proc")
+    if not os.path.isdir(base):
+        return None
+    t0, found, readable = time.time(), [], False
+    for pid in os.listdir(base):
+        if not pid.isdigit() or time.time() - t0 > budget_s:
+            continue
+        fd_dir = os.path.join(base, pid, "fd")
+        try:
+            fds = os.listdir(fd_dir)
+            readable = True
+        except OSError:
+            continue
+        for fd in fds:
+            fp = os.path.join(fd_dir, fd)
+            try:
+                target = os.readlink(fp)
+                if not target.endswith(" (deleted)") or not target.startswith("/"):
+                    continue
+                size = os.stat(fp).st_size
+            except OSError:
+                continue
+            if size >= 50 * 1024 * 1024:
+                try:
+                    with open(os.path.join(base, pid, "comm")) as fh:
+                        comm = fh.read().strip()
+                except OSError:
+                    comm = "?"
+                found.append({"pid": int(pid), "comm": comm, "path": target[:-10], "size": size})
+    if not readable:
+        return None
+    found.sort(key=lambda x: -x["size"])
+    return {"total": sum(x["size"] for x in found), "top": found[:5]}
 FS_TYPES = ("ext2", "ext3", "ext4", "xfs", "btrfs", "zfs", "f2fs", "jfs", "reiserfs", "vfat", "ntfs")
 
 
@@ -1375,7 +1424,13 @@ def host_health(force=False):
         if total <= 0:
             continue
         used = total - st.f_bfree * st.f_frsize
-        disks.append({"mount": mount, "fstype": fstype, "total": total, "used": used, "free": free, "pct": int(round(100.0 * used / total))})
+        d = {"mount": mount, "fstype": fstype, "total": total, "used": used, "free": free, "pct": int(round(100.0 * used / total))}
+        files = getattr(st, "f_files", 0) or 0
+        if files:   # #772 : fichiers (inodes) ; btrfs / zfs n'en ont pas de fixe (f_files = 0)
+            d.update(inodes=files, ifree=st.f_favail, ipct=int(round(100.0 * (files - st.f_ffree) / files)))
+        prev, low = _note_sample(mount, time.time(), free)
+        d.update(eta_full_s=lights.fill_eta(prev, (time.time(), free)), min_free_24h=low)
+        disks.append(d)
     disks.sort(key=lambda d: d["mount"])
     load, cpus, mem_pct, mem = [], os.cpu_count() or 1, None, {}
     try:
@@ -1407,7 +1462,15 @@ def host_health(force=False):
                      "build_cache": sum(int(b.get("Size") or 0) for b in (df.get("BuildCache") or []) if not b.get("InUse"))}
     except Exception as exc:  # noqa: BLE001
         docker_df = {"error": str(exc)[:120]}
+    if time.time() - (_host_cache.get("deleted_at") or 0) > 600:   # #772 : parcours de /proc toutes les 10 min au plus
+        _host_cache.update(deleted=_deleted_open(), deleted_at=time.time())
+    deleted = _host_cache.get("deleted")
     summary = lights.host_summary(disks, load, cpus, mem_pct)
+    if deleted and deleted["total"] >= 1024 ** 3:   # #772 : place retenue par des fichiers effacés encore ouverts
+        summary["problems"].append("%s retenus par des fichiers effacés encore ouverts (%s)" % (
+            lights.human(deleted["total"]), ", ".join("%s[%d]" % (x["comm"], x["pid"]) for x in deleted["top"][:3])))
+        summary["light"] = "orange" if summary["light"] == "green" else summary["light"]
+        summary["text"] = "; ".join(summary["problems"])
     hostname = _host_name()
     hyper = hypervisor_info(hostname)
     if hyper and hyper.get("light") not in (None, "green", "grey"):
@@ -1416,6 +1479,7 @@ def host_health(force=False):
         summary["light"] = max(summary["light"], hyper["light"], key=lambda x: order[x])
         summary["text"] = "; ".join(summary["problems"])
     out = {"at": time.time(), "hostname": hostname, "disks": disks, "load": load, "cpus": cpus, "mem": dict(mem, pct=mem_pct), "docker": docker_df,
+           "deleted_open": deleted,
            "hypervisor": hyper, "light": summary["light"], "text": summary["text"], "problems": summary["problems"], "root_mounted": os.path.isdir(HOST_ROOT)}
     _host_cache.update(at=time.time(), value=out)
     return out
@@ -1507,6 +1571,16 @@ def check_host():
     if h["mem"].get("pct") is not None:
         other = max(other, lights.mem_light(h["mem"]["pct"]), key=lambda x: order[x])
     changes = []
+    # #772 : saturation passagère -- le minimum de 24 h est passé sous 200 Mo alors que l'état courant est normal
+    spike = [d["mount"] for d in h["disks"] if (d.get("min_free_24h") is not None and d["min_free_24h"] < 200 * 1024 * 1024 and d["light"] == "green")]
+    if spike and not _host_state.get("spike"):
+        _host_state["spike"] = True
+        event("host-orange", "saturation passagère de %s dans les dernières 24 h (moins de 200 Mo libres), revenue à la normale" % ", ".join(spike))
+        _notify("tower.host.disk", "hôte du hub : saturation passagère de %s" % ", ".join(spike),
+                "L'espace libre est tombé sous 200 Mo puis est revenu (construction Docker, journal, fichier temporaire ?). "
+                "Voir Tour de contrôle › Services › Hôte du hub.", {"state": "spike", "mounts": spike}, severity="warning")
+    elif not spike:
+        _host_state["spike"] = False
     for key, new, action in (("disk", disk, "tower.host.disk"), ("load", other, "tower.host.load")):
         old = _host_state.get(key, "green")
         if new != old:

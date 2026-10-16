@@ -1,3 +1,21 @@
+## 2026-10-16 — Auto-contrôle de l'hôte du hub : fichiers (inodes), remplissage rapide, saturation passagère, fichiers effacés encore ouverts, garde avant construction (livraison #772)
+
+- Constat réel : `docker compose up --build` en échec « no space left on device » sur super alors que `/var` avait
+  ensuite 119 Go libres et 4 % d'inodes utilisés -- saturation passagère que la surveillance #593 (instantané toutes
+  les 60 s) ne voyait pas.
+- Tour de contrôle, surveillance de l'hôte (services-api) : par partition, **fichiers (inodes)** (orange ≥ 85 %, rouge
+  ≥ 95 % ou < 10 000 libres) ; **rythme de remplissage** et « plein dans ~N » (orange < 6 h, rouge < 1 h) ;
+  **minimum de 24 h** : une saturation passagère (< 200 Mo libres puis retour à la normale) donne un événement et une
+  notification `tower.host.disk` ; **fichiers effacés encore ouverts** par un processus de l'hôte (place non rendue,
+  vus par /host/proc au mieux, toutes les 10 min) : signalés au-delà de 1 Go avec le processus en cause.
+- Hub, Tour › Services › Hôte du hub : ces informations sous chaque partition.
+- `scripts/run.sh` : **garde avant construction** (`--build` / `build`) -- place et inodes du dossier Docker affichés ;
+  moins de `SI_BUILD_MIN_FREE_GB` (5 Go) ou inodes ≥ 95 % : cache de construction vidé automatiquement (jamais images
+  en service ni volumes), puis arrêt clair si toujours insuffisant (`SI_BUILD_FORCE=1` pour passer outre).
+- Vérifié : test_lights, test_app (inodes simulés, saturation passagère notifiée une fois), test_tower ; garde de
+  run.sh exécutée sur un docker simulé (sous le seuil, forcée, sans construction) ; syntaxe JSX. Non vérifié : lecture
+  de /host/proc depuis le conteneur services-api sur super (droits), rendu navigateur.
+
 ## 2026-10-16 — Activité réelle des VM dans le temps (un an et plus), « inactif réel depuis », décision et suivi de migration (livraison #771)
 
 - But : connaître l'usage réel de chaque CT / VM dans le temps et depuis quand il est vraiment inactif, pour dresser

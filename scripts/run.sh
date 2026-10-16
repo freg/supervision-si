@@ -296,4 +296,38 @@ if [ -n "$SI_REGISTRY" ] && [ -f "$IMAGES_OVERRIDE" ]; then
   export COMPOSE_FILE="${COMPOSE_FILE:-$HERE_DIR/docker-compose.yml}:$IMAGES_OVERRIDE"
 fi
 
+# #772 : garde avant construction -- place et fichiers (inodes) du dossier Docker de l'hôte. Sous le seuil, le cache de
+# construction est vidé automatiquement (jamais les images en service ni les volumes) ; toujours insuffisant : arrêt
+# clair au lieu de « no space left on device » en pleine construction. SI_BUILD_MIN_FREE_GB (défaut 5) ;
+# SI_BUILD_FORCE=1 pour passer outre.
+build_guard() {
+  case " $* " in *" --build "*|" build "*) ;; *) return 0 ;; esac
+  root="$(docker info -f '{{.DockerRootDir}}' 2>/dev/null || true)"
+  [ -n "$root" ] && [ -d "$root" ] || root=/var/lib/docker
+  [ -d "$root" ] || root=/var
+  min_gb="${SI_BUILD_MIN_FREE_GB:-5}"
+  room_ok() {
+    avail_kb="$(df -Pk "$root" 2>/dev/null | awk 'NR==2 {print $4}')"
+    ipct="$(df -Pi "$root" 2>/dev/null | awk 'NR==2 {gsub("%", "", $5); print $5}')"
+    [ -n "$avail_kb" ] || return 0
+    [ "$avail_kb" -ge $((min_gb * 1024 * 1024)) ] || return 1
+    case "$ipct" in ''|-|*[!0-9]*) return 0 ;; esac
+    [ "$ipct" -lt 95 ]
+  }
+  room_txt() {
+    df -h "$root" 2>/dev/null | awk 'NR==2 {printf "%s libres (%s utilisés)", $4, $5}'
+    df -i "$root" 2>/dev/null | awk 'NR==2 {printf ", fichiers %s utilisés", $5}'
+  }
+  echo "Construction : dossier Docker $root -- $(room_txt)"
+  room_ok && return 0
+  echo "⚠ moins de ${min_gb} Go libres ou fichiers (inodes) presque épuisés : vidage du cache de construction Docker"
+  docker builder prune -af >/dev/null 2>&1 || true
+  if room_ok; then echo "✅ $(room_txt)"; return 0; fi
+  echo "✗ toujours insuffisant : $(room_txt)"
+  echo "  libérer de la place (docker image prune -af, journaux) ou agrandir le disque ; SI_BUILD_FORCE=1 pour passer outre"
+  [ "${SI_BUILD_FORCE:-0}" = 1 ] && return 0
+  exit 1
+}
+build_guard "$@"
+
 docker compose "$@"

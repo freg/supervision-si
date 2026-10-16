@@ -1,5 +1,11 @@
 [
  {
+  "n": 772,
+  "from": 772,
+  "date": "2026-10-16",
+  "title": "Auto-contrôle de l'hôte du hub : fichiers (inodes), remplissage rapide, saturation passagère, fichiers effacés encore ouverts, garde avant construction"
+ },
+ {
   "n": 771,
   "from": 771,
   "date": "2026-10-16",
@@ -232,11 +238,5 @@
   "from": 733,
   "date": "2026-10-09",
   "title": "Tuile « Déploiement d'application » : instances clonées depuis le hub"
- },
- {
-  "n": 732,
-  "from": 732,
-  "date": "2026-10-09",
-  "title": "Instances clonées : création en une commande par les agents de nœud"
  }
 ]

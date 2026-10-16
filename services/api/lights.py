@@ -126,6 +126,40 @@ def disk_light(pct, free_bytes):
     return "green"
 
 
+INODE_WARN, INODE_CRIT = 85, 95
+FILL_WARN_S, FILL_CRIT_S = 6 * 3600, 3600      # #772 : plein dans moins de 6 h / 1 h au rythme mesuré
+
+
+def inode_light(ipct, ifree):
+    """#772 : fichiers (inodes) -- « no space left on device » alors qu'il reste des octets."""
+    if ipct is None:
+        return "green"
+    if ipct >= INODE_CRIT or (ifree is not None and ifree < 10000):
+        return "red"
+    return "orange" if ipct >= INODE_WARN else "green"
+
+
+def fill_eta(prev, cur):
+    """#772 : (t, octets libres) précédent et courant -> secondes avant saturation au rythme mesuré, None si stable
+    ou en baisse d'utilisation (ou mesures trop rapprochées)."""
+    if not prev or not cur or cur[0] - prev[0] < 20:
+        return None
+    rate = (prev[1] - cur[1]) / float(cur[0] - prev[0])     # octets consommés par seconde
+    if rate <= 64 * 1024:                                 # < 64 Ko/s : bruit
+        return None
+    return int(cur[1] / rate)
+
+
+def fill_light(eta):
+    if eta is None:
+        return "green"
+    return "red" if eta < FILL_CRIT_S else "orange" if eta < FILL_WARN_S else "green"
+
+
+def eta_text(eta):
+    return "%d min" % max(1, eta // 60) if eta < 5400 else "%.1f h" % (eta / 3600.0)
+
+
 def load_light(load1, load5, cpus):
     c = max(1, cpus or 1)
     if load5 >= 2 * c:
@@ -145,9 +179,16 @@ def host_summary(disks, load, cpus, mem_pct):
     worst, problems = "green", []
     for d in disks or []:
         l = disk_light(d.get("pct", 0), d.get("free", 0))
-        d["light"] = l
         if l != "green":
             problems.append("%s : %d %% utilisé (%s libre)" % (d.get("mount"), d.get("pct", 0), human(d.get("free", 0))))
+        il = inode_light(d.get("ipct"), d.get("ifree"))      # #772
+        if il != "green":
+            problems.append("%s : %d %% des fichiers (inodes) utilisés" % (d.get("mount"), d.get("ipct")))
+        fl = fill_light(d.get("eta_full_s"))
+        if fl != "green":
+            problems.append("%s se remplit vite : plein dans ~%s" % (d.get("mount"), eta_text(d["eta_full_s"])))
+        l = max(l, il, fl, key=lambda x: order[x])
+        d["light"] = l
         worst = max(worst, l, key=lambda x: order[x])
     if load:
         l = load_light(load[0], load[1] if len(load) > 1 else load[0], cpus)

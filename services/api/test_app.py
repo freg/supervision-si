@@ -287,6 +287,21 @@ class TestTower(TestApi):
         FakeDocker.api = types.SimpleNamespace(prune_builds=lambda: {"CachesDeleted": [1], "SpaceReclaimed": 7})
         r = self.c.post("/host/prune", headers=self.h, json={"images": True, "build_cache": True}).get_json()
         self.assertEqual((r["freed"], r["done"]), (57, {"images": 2, "build_cache": 1}))
+        # #772 : inodes saturés alors qu'il reste des octets ; saturation passagère vue au minimum de 24 h
+        class SVI(SV):
+            def __init__(self, pct):
+                super().__init__(pct)
+                self.f_files, self.f_ffree, self.f_favail = 100000, 2000, 2000
+        appmod.os.statvfs = lambda path: SVI(30)
+        h = self.c.get("/host?refresh=1", headers=self.h).get_json()
+        self.assertIn("/var : 98 % des fichiers (inodes) utilisés", h["text"])
+        appmod._disk_samples.clear()
+        appmod._host_state.update(disk="green", load="green", spike=False)
+        appmod._note_sample("/var", appmod.time.time() - 600, 10 * 2**20)   # passé sous 200 Mo il y a 10 min
+        appmod.os.statvfs = lambda path: SV(30)
+        appmod.check_host()
+        self.assertTrue(appmod._host_state["spike"])
+        self.assertIn("host-orange", [e["event"] for e in self.c.get("/events", headers=self.h).get_json()["events"]])
 
     def test_rebuild_job(self):
         j = self.c.post("/services/nebula-api/rebuild", headers=self.h).get_json()
