@@ -874,6 +874,26 @@ class Agent(object):
                     self.event("hostops", "info" if res.get("ok") else "warning", "geste %s %s%s" % (params.get("action"), params.get("unit") or params.get("container") or params.get("dir") or "",
                                "" if res.get("ok") else " -- " + str(res.get("error"))), {"command": c.get("id"), "actor": params.get("actor"), "reason": params.get("reason")})
                 return {"ok": res.get("ok", False), "error": res.get("error"), "result": res}
+            if ctype == "edge":
+                # #776 : proxy d'entrée (HAProxy) du couple interchangeable -- configuration fabriquée ici, vérifiée, rechargée
+                if IS_WINDOWS:
+                    return {"ok": False, "error": "proxy d'entrée : Linux seulement"}
+                if self.is_blocked():
+                    return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
+                import subprocess as _sp
+                from . import edgectl
+
+                def _erun(argv):
+                    try:
+                        r = _sp.run(argv, capture_output=True, text=True, timeout=60)
+                        return r.returncode, r.stdout or "", r.stderr or ""
+                    except Exception as exc:  # noqa: BLE001
+                        return 1, "", str(exc)
+                res = edgectl.run(params, _erun)
+                if params.get("action") == "apply":
+                    self.event("edge", "info" if res.get("ok") else "warning", "proxy d'entrée : configuration %s%s" % (
+                        "appliquée" if res.get("changed") else "inchangée", "" if res.get("ok") else " -- " + str(res.get("error"))), {"command": c.get("id"), "digest": res.get("digest")})
+                return {"ok": res.get("ok", False), "error": res.get("error"), "result": res}
             if ctype == "latency":
                 # #775 : latence des IP publiques vue d'ici, ou d'un hôte joint par SSH (compte personnel, rebond, sudo)
                 if IS_WINDOWS:

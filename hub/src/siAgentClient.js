@@ -197,6 +197,15 @@ export const fetchRotationRuns = (apiBase, id) => fetchJson(apiBase, `/rotations
 export const fetchInfraOverview = (apiBase) => fetchJson(apiBase, "/infra/overview");   // #749
 export const fetchGuestUsage = (apiBase) => fetchJson(apiBase, "/infra/guests");   // #769 : activité des CT / VM
 export const saveGuestProfile = (apiBase, node, vmid, profile, actor) => fetchJson(apiBase, "/infra/guests/profile", json("PUT", { node, vmid, profile, actor }));
+export const fetchEdge = (apiBase) => fetchJson(apiBase, "/edge");   // #776 : proxys d'entrée
+export const fetchEdgePreview = (apiBase) => fetchJson(apiBase, "/edge/preview");
+export const saveEdgeProxy = (apiBase, proxy, actor) => fetchJson(apiBase, "/edge/proxies", json("PUT", { proxy, actor }));
+export const saveEdgeRoute = (apiBase, route, actor) => fetchJson(apiBase, "/edge/routes", json("PUT", { route, actor }));
+export const deleteEdge = (apiBase, what, id, actor) => fetchJson(apiBase, `/edge/${what}/${encodeURIComponent(id)}?actor=${encodeURIComponent(actor || "")}`, { method: "DELETE" });
+export const switchEdge = (apiBase, route, backend, actor) => fetchJson(apiBase, "/edge/switch", json("POST", { route, backend, actor }));
+export const saveEdgeSettings = (apiBase, settings, actor) => fetchJson(apiBase, "/edge/settings", json("PUT", { settings, actor }));
+export const applyEdge = (apiBase, actor) => fetchJson(apiBase, "/edge/apply", json("POST", { actor }));
+export const checkEdgeDns = (apiBase) => fetchJson(apiBase, "/edge/dns-check", json("POST", {}));
 export const fetchLatency = (apiBase) => fetchJson(apiBase, "/latency");   // #775 : latence des IP publiques
 export const fetchLatencyHistory = (apiBase, target, point, hours = 24) => fetchJson(apiBase, `/latency/history?target=${encodeURIComponent(target)}&point=${encodeURIComponent(point)}&hours=${hours}`);
 export const saveLatencyTarget = (apiBase, target, actor) => fetchJson(apiBase, "/latency/targets", json("PUT", { target, actor }));

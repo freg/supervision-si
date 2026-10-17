@@ -1,3 +1,5 @@
+## Couple de proxys d'entrée interchangeables (2026-10-17) — tranche 1 FAITE (#776 : HAProxy piloté par l'agent, bascule de serveur interne, contrôle DNS et alerte « DNS à configurer ») ; reste : mise à jour DNS directe par le module DNS éditable quand la zone y est gérée, IP de basculement OVH (failover) en option, VM à créer
+
 ## Latence des IP publiques (2026-10-17) — tranche 1 FAITE (#775 : cibles, points de mesure agent / direct / indirect, diagnostic, erreurs et solutions) ; reste : alertes notifiées sur dégradation durable, découpage par tronçon (frontal → serveur interne) à partir de la conf Apache des frontaux
 
 ## Tuile « Migration 2026-2027 » (2026-10-17) — tranche 1 FAITE (#774 : plan d'étapes, pilotage, erreurs et solutions, étape 1 du plan automatisée) ; reste : étapes 2 à 5 en étapes automatiques (envois incrémentaux, bascules, réinstallations), rattachement de l'historique d'une VM migrée (item 128)

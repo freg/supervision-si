@@ -40,6 +40,9 @@ COPY si-agent/api/repatriation.py .
 COPY si-agent/api/guestusage.py .
 COPY si-agent/api/migrun.py .
 COPY si-agent/api/latency.py .
+COPY si-agent/api/edgepair.py .
+COPY si-agent/api/dnsq.py .
+COPY si-agent/agent/si_agent/edgectl.py ./si_agent_edgectl.py
 COPY si-agent/api/migration.py .
 COPY si-agent/api/maint.py .
 # #518 : archive de déploiement de l'agent (si-agent-agent-<version>.tar.gz,

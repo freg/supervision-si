@@ -52,6 +52,7 @@ import infra  # noqa: E402  -- #749 : vue d'ensemble PVE / PBS
 import views  # noqa: E402  -- #753 : vues de parc paramétrables (serveurs, postes, IA, postes personnels)
 import repatriation as repa  # noqa: E402  -- #761 : assistant de rapatriement / nettoyage d'un nœud distant
 import guestusage  # noqa: E402  -- #769 : activité des CT / VM de tous les Proxmox
+import edgepair  # noqa: E402  -- #776 : couple de proxys d'entrée interchangeables (routes, bascule, contrôle DNS)
 import latency  # noqa: E402  -- #775 : latence des IP publiques (cibles, points de mesure, accès)
 import migrun  # noqa: E402  -- #774 : tuile « Migration 2026-2027 » (plan d'étapes, pilotage, erreurs et solutions)
 import rotation  # noqa: E402  -- #743 : tournées de mesures réparties (supervision distribuée, item 120)
@@ -189,6 +190,15 @@ def _watchdog_loop():
                 _c.close()
         except Exception as exc:  # noqa: BLE001
             _log.warning("latence : %s", exc)
+        try:
+            _c = store._connect(DB_PATH)   # #776 : état des proxys d'entrée, contrôle DNS, alertes « DNS à configurer »
+            try:
+                edgepair.tick(_c, event=lambda kind, sev, msg, det: _event(kind, sev, msg, details=det))
+                _c.commit()
+            finally:
+                _c.close()
+        except Exception as exc:  # noqa: BLE001
+            _log.warning("proxys d'entrée : %s", exc)
 
 
 if os.environ.get("SI_AGENT_PURGE_THREAD", "1") == "1":
@@ -2074,6 +2084,90 @@ def guest_profile_route():
     _event("guest-profile", "info", "fiche de %s/%s %s par %s (%s)" % (node, vmid, "enregistrée" if prof else "effacée", actor or "?", ", ".join(sorted(prof)) or "vide"),
            details={"node": node, "vmid": vmid, "fields": sorted(prof)})
     return jsonify({"ok": True, "profile": prof}), 200
+
+
+@app.route("/edge", methods=["GET"])
+def edge_view_route():
+    """#776 : proxys (état, empreinte, serveurs internes joignables), routes (serveur actif, candidats, DNS), problèmes et solutions."""
+    return jsonify(_lat(edgepair.view)), 200
+
+
+@app.route("/edge/preview", methods=["GET"])
+def edge_preview_route():
+    return jsonify(_lat(edgepair.preview)), 200
+
+
+@app.route("/edge/proxies", methods=["PUT"])
+def edge_proxy_route():
+    b = request.get_json(silent=True) or {}
+    p, err = _lat(lambda c: edgepair.save_proxy(c, b.get("proxy") or {}, str(b.get("actor") or "")[:64]))
+    return (jsonify({"error": err}), 400) if err else (jsonify({"ok": True, "proxy": p}), 200)
+
+
+@app.route("/edge/routes", methods=["PUT"])
+def edge_route_route():
+    b = request.get_json(silent=True) or {}
+    actor = str(b.get("actor") or "")[:64]
+
+    def go(c):
+        r, err = edgepair.save_route(c, b.get("route") or {}, actor)
+        if not err and b.get("apply", True):
+            edgepair.apply_all(c, actor)
+        return r, err
+    r, err = _lat(go)
+    return (jsonify({"error": err}), 400) if err else (jsonify({"ok": True, "route": r}), 200)
+
+
+@app.route("/edge/<what>/<oid>", methods=["DELETE"])
+def edge_delete_route(what, oid):
+    if what not in ("route", "proxy"):
+        return jsonify({"error": "route ou proxy"}), 400
+    actor = str(request.args.get("actor") or "")[:64]
+
+    def go(c):
+        ok = edgepair.delete(c, what, oid, actor)
+        if ok and what == "route":
+            edgepair.apply_all(c, actor)
+        return ok
+    return jsonify({"ok": _lat(go)}), 200
+
+
+@app.route("/edge/switch", methods=["POST"])
+def edge_switch_route():
+    """{route, backend, actor} -> le serveur interne actif de la route change, appliqué aux deux proxys."""
+    b = request.get_json(silent=True) or {}
+    actor = str(b.get("actor") or "")[:64]
+
+    def go(c):
+        r, err = edgepair.switch_backend(c, str(b.get("route") or ""), str(b.get("backend") or ""), actor)
+        if not err:
+            edgepair.apply_all(c, actor)
+        return r, err
+    r, err = _lat(go)
+    if err:
+        return jsonify({"error": err}), 400
+    _event("edge", "info", "proxys d'entrée : %s renvoyé vers %s par %s" % (r.get("name") or r["id"], r["backend"], actor or "?"))
+    return jsonify({"ok": True, "route": r, "message": "%s -> %s : appliqué aux deux proxys" % (r.get("name") or r["id"], r["backend"])}), 200
+
+
+@app.route("/edge/settings", methods=["PUT"])
+def edge_settings_route():
+    b = request.get_json(silent=True) or {}
+    s, err = _lat(lambda c: edgepair.set_settings(c, b.get("settings") or {}, str(b.get("actor") or "")[:64]))
+    return (jsonify({"error": err}), 400) if err else (jsonify({"ok": True, "settings": s}), 200)
+
+
+@app.route("/edge/apply", methods=["POST"])
+def edge_apply_route():
+    b = request.get_json(silent=True) or {}
+    n = _lat(lambda c: edgepair.apply_all(c, str(b.get("actor") or "")[:64]))
+    return jsonify({"ok": True, "message": "configuration envoyée à %d proxy(s)" % n}), 200
+
+
+@app.route("/edge/dns-check", methods=["POST"])
+def edge_dns_route():
+    n = _lat(lambda c: edgepair.check_dns(c, time.time(), event=lambda kind, sev, msg, det: _event(kind, sev, msg, details=det), force=True))
+    return jsonify({"ok": True, "message": "%d nom(s) contrôlé(s)" % n}), 200
 
 
 def _lat(fn):

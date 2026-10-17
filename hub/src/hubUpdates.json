@@ -1,5 +1,11 @@
 [
  {
+  "n": 776,
+  "from": 776,
+  "date": "2026-10-17",
+  "title": "Tuile « Proxys d'entrée » : couple de proxys interchangeables sur deux nœuds, redirection dynamique vers un serveur interne, contrôle DNS automatique et alerte « DNS à configurer »"
+ },
+ {
   "n": 775,
   "from": 775,
   "date": "2026-10-17",
@@ -232,11 +238,5 @@
   "from": 737,
   "date": "2026-10-09",
   "title": "Fronts pré-compilés dans l'image, comme le hub"
- },
- {
-  "n": 736,
-  "from": 736,
-  "date": "2026-10-09",
-  "title": "Hub pré-compilé dans l'image, second hub sur une bordure"
  }
 ]

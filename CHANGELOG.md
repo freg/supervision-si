@@ -1,3 +1,28 @@
+## 2026-10-17 — Tuile « Proxys d'entrée » : couple de proxys interchangeables sur deux nœuds, redirection dynamique vers un serveur interne, contrôle DNS automatique et alerte « DNS à configurer » (livraison #776)
+
+- Demandé : un couple interchangeable de proxys sur deux VM chez l'hébergeur, sur deux Proxmox différents, pour
+  rediriger dynamiquement une entrée DNS / IP vers une autre interne, avec un test automatique de la configuration DNS
+  et une alerte de demande de configuration indiquant le serveur DNS à modifier.
+- Agent 0.5.74 : commande `edge` (`si_agent/edgectl.py`) -- l'agent fabrique LUI-MÊME la configuration HAProxy à partir de
+  routes validées (nom HTTPS par SNI en passage direct sur 443 + HTTP 80 pour Let's Encrypt, ou port public → port
+  interne, option PROXY), `haproxy -c`, sauvegarde, rechargement, ancienne remise en cas d'échec ; état : service,
+  empreinte de la configuration, joignabilité de chaque serveur interne vue du proxy.
+- Central (`edgepair.py`, `dnsq.py` client DNS sans dépendance) : deux proxys au plus (avertissement s'ils sont sur le
+  même nœud), routes avec serveurs candidats et bascule appliquée aux deux, état relevé toutes les 5 min, contrôle DNS
+  toutes les 10 min -- serveurs faisant autorité (zone trouvée d'elle-même) et résolveurs publics -- états conforme /
+  à configurer / propagation / erreur ; alerte notifiée au changement d'état avec le fournisseur et les serveurs de la
+  zone à modifier, l'enregistrement exact (TTL conseillé) et la valeur actuelle (CNAME compris) ; mode DNS « les deux »
+  ou « proxy actif ». Problèmes des proxys classés avec solution (agent trop ancien, HAProxy absent, configuration
+  refusée avec le contrôle de haproxy, écart d'empreinte, serveur interne injoignable → tunnel WireGuard).
+- Hub : Réseau › Proxys d'entrée -- alertes en tête, le couple, routes (bascule par liste, joignabilité vue de chaque
+  proxy, détail DNS par serveur), réglages, aperçu de la configuration HAProxy, journal.
+- `deploy/proxy-pair/` : `install-edge.sh` (HAProxy, WireGuard, réglages ; `--check`) et mode d'emploi.
+- Vérifié : unittest edgectl (validation, rendu identique quel que soit l'ordre, **`haproxy -c` réel sur la configuration
+  produite**, application, retour arrière sur échec de rechargement), test_z_edge (paquets DNS fabriqués avec
+  compression, contrôle DNS simulé : conforme / à configurer avec CNAME / propagation / zone introuvable ; parcours par
+  les routes : deux proxys, routes, bascule, acquittements, alerte unique puis retour à la normale, mode actif),
+  `node --test hub/tests/*.test.mjs`, syntaxe JSX. Non vérifié : VM réelles, DNS réel, rendu navigateur.
+
 ## 2026-10-17 — Tuile « Latence des IP publiques » : mesures régulières depuis plusieurs points, configurateur des accès (agent, compte + sudo, rebond), erreurs avec solution (livraison #775)
 
 - Demandé : une page du hub des mesures de latence de toutes les IP publiques du SI, avec un configurateur pour ajouter

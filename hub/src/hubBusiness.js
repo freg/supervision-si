@@ -93,6 +93,7 @@ export const PATHS = {
   "view:pve-ops": ["equipements/hotes/hyperviseurs", "etats/incidents"],
   "view:infra": ["equipements/hotes/hyperviseurs", "etats/incidents"],   // #749 : vue d'ensemble PVE / PBS
   "view:guest-usage": ["equipements/hotes/hyperviseurs", "etats/incidents"],   // #769 : activité des CT / VM
+  "view:edge": ["equipements/reseau", "services/internet"],   // #776 : proxys d'entrée interchangeables
   "view:latency": ["equipements/reseau", "etats/feux"],   // #775 : latence des IP publiques
   "view:migration": ["etats/maintenant", "equipements/hotes/hyperviseurs"],   // #774 : Migration 2026-2027 (suivi pas à pas)
   "view:fleetviews": ["equipements/hotes", "etats/incidents"],   // #753 : vues de parc
