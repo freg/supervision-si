@@ -1,3 +1,17 @@
+## 2026-10-17 — Hub : retour visuel de tous les boutons d'action (occupé pendant l'envoi, second clic bloqué, bandeau « fait » / « échec ») (livraison #778)
+
+- Constat : le bouton « Importer » de la tuile Migration (et bien d'autres) ne montrait aucune prise en compte ; on relançait
+  plusieurs fois et l'action partait plusieurs fois.
+- `hub/src/actionFeedback.js`, installé une fois (`main.jsx`), sans toucher aux vues : tout envoi de modification (POST, PUT,
+  PATCH, DELETE) parti dans les 1,5 s d'un clic est rattaché au bouton cliqué -- bouton « occupé » (roue, curseur
+  d'attente) et second clic ignoré tant que le serveur n'a pas répondu ; bandeau en bas à droite « envoi en cours… », puis
+  « fait » (ou le message du serveur) ou « échec : raison » (erreur du serveur, code HTTP, pas de réponse). Les lectures et
+  les envois sans clic (rafraîchissements) ne changent rien.
+- Migration : l'import du plan répond « plan « … » importé : N étape(s), étapes déjà faites conservées » et le bouton affiche
+  « Import en cours… ».
+- Vérifié : `node --test` (dont actionFeedbackLib), syntaxe JSX, **essai réel dans Chromium** (bouton occupé pendant l'envoi,
+  second clic bloqué, bandeau « déjà en cours… » puis message du serveur), test_z_migrun. Non vérifié : chaque tuile une à une.
+
 ## 2026-10-17 — Activité des VM : analyse interne des invités (SSH, sudo, courriels, fichiers modifiés, journaux, connexions établies) dans le temps (livraison #777)
 
 - Constat réel : CT 103 de pve-1 sans journal d'accès web, sans MySQL et wtmp vide -- « dernière activité » inconnue ;

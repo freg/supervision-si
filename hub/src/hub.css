@@ -2604,3 +2604,15 @@ button:active:not(:disabled), a.hub-card:active, button.hub-card:active { transf
 .lat-sparks figure { margin: 0; font-size: 12px; }
 .lat-spark { fill: none; stroke: var(--accent); stroke-width: 1.5; }
 .lat-detail ul { margin: 4px 0 4px 18px; }
+
+/* #778 : retour visuel des boutons (actionFeedback.js) */
+button[aria-busy="true"], input[aria-busy="true"] { cursor: progress; opacity: .65; position: relative; padding-right: 26px; }
+button[aria-busy="true"]::after { content: ""; position: absolute; right: 8px; top: 50%; width: 11px; height: 11px; margin-top: -6px;
+  border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: hub-spin .7s linear infinite; }
+@keyframes hub-spin { to { transform: rotate(360deg); } }
+.hub-action-toast { position: fixed; z-index: 10000; right: 16px; bottom: 16px; max-width: min(520px, calc(100vw - 32px)); padding: 10px 14px;
+  border-radius: 8px; background: var(--panel, #fff); color: var(--text, #111); border: 1px solid var(--border, #ccc);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .18); font-size: 14px; }
+.hub-action-toast[data-kind="ok"] { border-left: 5px solid var(--ok, #27ae60); }
+.hub-action-toast[data-kind="error"] { border-left: 5px solid var(--danger, #c0392b); }
+.hub-action-toast[data-kind="busy"] { border-left: 5px solid var(--accent, #2980b9); }

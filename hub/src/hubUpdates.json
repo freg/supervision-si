@@ -1,5 +1,11 @@
 [
  {
+  "n": 778,
+  "from": 778,
+  "date": "2026-10-17",
+  "title": "Hub : retour visuel de tous les boutons d'action (occupé pendant l'envoi, second clic bloqué, bandeau « fait » / « échec »)"
+ },
+ {
   "n": 777,
   "from": 777,
   "date": "2026-10-17",
@@ -232,11 +238,5 @@
   "from": 739,
   "date": "2026-10-12",
   "title": "Sondes GTB/GTC pour poste Windows : réseau et journaux d'application"
- },
- {
-  "n": 738,
-  "from": 738,
-  "date": "2026-10-09",
-  "title": "Images construites hors de la VM du hub, registre local"
  }
 ]

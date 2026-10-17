@@ -2266,7 +2266,7 @@ def migration_plan_route():
     if err:
         return jsonify({"error": err}), 400
     _event("migration", "info", "plan de migration « %s » importé par %s (%d étape(s))" % (p["name"], actor or "?", len(migrun.all_steps(p))))
-    return jsonify({"ok": True}), 200
+    return jsonify({"ok": True, "message": "plan « %s » importé : %d étape(s), étapes déjà faites conservées" % (p["name"], len(migrun.all_steps(p)))}), 200
 
 
 @app.route("/migration/vars", methods=["PUT"])

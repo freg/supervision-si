@@ -102,12 +102,14 @@ function StepRow({ s, act, busy, open, onOpen }) {
 function PlanImport({ onSave, busy }) {
   const [text, setText] = useState("");
   const [err, setErr] = useState(null);
+  const [ok, setOk] = useState(null);
   const file = (e) => { const f = e.target.files?.[0]; if (f) f.text().then(setText); };
   const go = async () => {
     const { plan, error } = parsePlan(text);
     if (error) { setErr(error); return; }
     const r = await onSave(plan);
     setErr(r?.error || null);
+    setOk(r?.error ? null : (r?.message || "plan importé"));
     if (!r?.error) setText("");
   };
   return (
@@ -115,7 +117,7 @@ function PlanImport({ onSave, busy }) {
       <p className="infra-note">Le plan réel (adresses, noms) reste hors dépôt : fichier <code>migration-2026.local.json</code>. L'état des étapes déjà faites et les paramètres saisis sont gardés.</p>
       <input type="file" accept=".json,application/json" onChange={file} />
       <textarea className="mig-plan" rows={8} value={text} onChange={(e) => setText(e.target.value)} placeholder='{"name": "...", "vars": {...}, "phases": [...]}' />
-      <button disabled={busy || !text.trim()} onClick={go}>Importer</button>{err && <span className="infra-error"> {err}</span>}
+      <button disabled={busy || !text.trim()} onClick={go}>{busy ? "Import en cours…" : "Importer"}</button>{err && <span className="infra-error"> {err}</span>}{ok && <span className="infra-muted"> ✓ {ok}</span>}
     </details>
   );
 }
