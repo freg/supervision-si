@@ -96,9 +96,7 @@ if command -v mysql >/dev/null 2>&1; then
   echo "## mysql version"; $M -e "SELECT VERSION()" 2>&1 | head -n 1
 fi
 echo "## internal"
-# #777 : activité INTERNE (lecture seule, aucune ligne brute remontée) -- connexions SSH acceptées et sudo (auth.log /
-# secure, sinon journal), courriels envoyés (postfix), fichiers de données modifiés par jour (dates seulement), journaux
-# écrits dans les dernières 24 h, connexions établies vers les services de l'invité, processus les plus consommateurs.
+# 777 : activite interne en lecture seule -- SSH, sudo, postfix, fichiers modifies par jour, journaux recents, connexions, processus
 LG=${SI_LOG:-/var/log}; DATA=${SI_DATA:-/home /var/www /srv /var/mail /var/vmail /var/lib/owncloud /var/lib/nextcloud}
 DP=${SI_DEEP:-0}; A=""
 for f in "$LG/auth.log" "$LG/secure" "$LG/mail.log" "$LG/maillog"; do
@@ -150,10 +148,14 @@ DRIVER_SH = r"""si_main() {
 N=$(basename "$(readlink -f /etc/pve/local 2>/dev/null)" 2>/dev/null)
 [ -n "$N" ] && [ "$N" != "local" ] || N=$(hostname -s)
 echo "@@node $N"
-G=$(cat <<'__SI_GUEST__'
+# #777 : script de l'invité écrit dans un fichier (et non dans $(cat <<...)) : bash 4.4 (PVE 5.4) analysait mal la
+# substitution et laissait G vide (« sh: -c requires an argument »).
+GF=$(mktemp /tmp/si-gu.XXXXXX)
+cat > "$GF" <<'__SI_GUEST__'
 %s
 __SI_GUEST__
-)
+G=$(cat "$GF"); rm -f "$GF"
+[ -n "$G" ] || { echo "@@error script de l invite vide"; return 1; }
 DONE=" __SI_DONE__ "
 # reprise d'historique : un invité pas encore repris, au plus DEEP_PER_PASS par boucle (CT, VM)
 deep() { P=""; T=60; case "$DONE" in *" $1 "*) return ;; esac; [ "${NDEEP:-0}" -ge __SI_NDEEP__ ] && return; P="SI_DEEP=1; export SI_DEEP; "; T=420; NDEEP=$(( ${NDEEP:-0} + 1 )); }
@@ -669,7 +671,7 @@ def main(argv=None):
         done_ids = deep_state.get(name) or {}
         try:
             node, guests, done = parse_driver(run_node(h, driver_script(done_ids.keys())))
-            label = node if zone == "local" and node else name
+            label = node or name   # #777 : nom du nœud Proxmox, local ou distant (une seule ligne par invité si deux agents le relèvent)
             full = full_state.get(name) != today
             rows, new_state[label] = build(label, guests, state.get(label) or {}, now, full=full)
             for g in rows:   # #771 : historique repris pour cet invité

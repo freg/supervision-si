@@ -311,3 +311,28 @@ class Interne777(unittest.TestCase):
         res, days = gu.parse_internal("S 2026-10-15 3 2\nSL 2026-10-15 09:00:00 alice 192.0.2.1\nC 443 12 5\nC 22 1 1\nT apache2 01:02:03\nM x\n", dt.datetime(2026, 10, 15))
         self.assertEqual((res["conns"][0]["port"], res["top"][0]["comm"], days["ssh"][0]["logins"]), (443, "apache2", 3))
         self.assertEqual(gu.parse_internal("", dt.datetime(2026, 10, 15)), (None, {"ssh": [], "sudo": [], "mail": [], "files": []}))
+
+
+class Pilote777(unittest.TestCase):
+    """#777 : le pilote du nœud, exécuté pour de vrai avec de faux pct / pvesh, transmet bien le script à l'invité
+    (régression vue sur PVE 5.4 / bash 4.4 : « sh: 0: -c requires an argument », script de l'invité vide)."""
+
+    def test_pilote_reel(self):
+        if not shutil.which("bash"):
+            self.skipTest("bash absent")
+        d = tempfile.mkdtemp()
+        with open(os.path.join(d, "pct"), "w") as fh:
+            fh.write('#!/bin/sh\nif [ "$1" = list ]; then echo "VMID Status Lock Name"; echo "103 running ct103"; exit 0; fi\n'
+                     'if [ "$1" = exec ]; then shift 3; exec "$@"; fi\n')
+        with open(os.path.join(d, "pvesh"), "w") as fh:
+            fh.write("#!/bin/sh\necho '[]'\n")
+        for f in ("pct", "pvesh"):
+            os.chmod(os.path.join(d, f), 0o755)
+        env = dict(os.environ, PATH=d + ":" + os.environ["PATH"])
+        out = subprocess.run(["bash", "-s"], input=gu.driver_script(), capture_output=True, text=True, timeout=120, env=env).stdout
+        node, guests, done = gu.parse_driver(out)
+        self.assertTrue(done)
+        self.assertEqual([g["vmid"] for g in guests], [103])
+        parts = gu.parse_guest(guests[0]["sections"]["exec"])
+        self.assertIn("end", parts, guests[0]["sections"]["exec"][-300:])
+        self.assertIn("internal", parts)

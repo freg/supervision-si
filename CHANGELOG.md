@@ -13,6 +13,10 @@
   fichiers modifiés, courriels.
 - Hub : fiche du CT / VM -- SSH (journaux internes), fichiers modifiés, courriel envoyé, connexions établies, bloc
   « Activité interne » (journaux récents, processus) ; « Inactif réel » indique les signes indirects plus récents.
+- Correctif (agent 0.5.76), vu en réel sur tous les CT : « sh: 0: -c requires an argument » -- le script de l'invité, logé dans
+  `$(cat <<...)` du pilote, arrivait vide (bash 4.4 des PVE 5.4) ; il est désormais écrit dans un fichier temporaire puis relu,
+  et un pilote réel (faux pct / pvesh) est testé de bout en bout. Le nœud distant est nommé comme le nœud Proxmox
+  (pve-1 relevé par deux agents apparaissait deux fois : « pve-1 » et « ns3037858 »).
 - Vérifié : test_guest_usage (script réel sur auth.log / mail.log / .gz / dossiers factices : SSH, sudo, postfix, fichiers,
   caches ignorés, reprise), test_z_guestusage, `node --test`. Non vérifié : invités réels (pve-1 doit figurer dans
   pve-remote.json de l'agent qui porte la sonde), rendu navigateur.
