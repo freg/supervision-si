@@ -16,6 +16,8 @@
   estimée, journal), carte d'erreur et bouton Solution, paramètres, phases et étapes, journal des gestes, import du plan.
 - Solution « clé SSH refusée » : la clé de l'hôte est posée chez le distant par le compte personnel + sudo (sans mot de passe
   root), depuis la maison ; vérifiée sur pve-3 le 17/10.
+- Contrôle d'un flux `zfs send` vers fichier (.zfs) : complet si son dernier enregistrement est la fin de flux (DRR_END),
+  au lieu d'une comparaison de tailles trompeuse (taille du volume ≠ taille du flux) ; vu sur la copie PBS de pve10.
 - `deploy/migration/agent-ssh.sh` : mise à jour de l'agent et activation des sondes sur des hôtes, par SSH depuis un poste
   Linux.
 - Vérifié : unittest migctl et sonde (scripts `bash -n` pour tous les types, injections refusées), test_z_migrun (parcours

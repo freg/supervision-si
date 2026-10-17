@@ -90,7 +90,10 @@ def script(step):
         body = ("f=%s\nif [ -d \"$f\" ]; then s=$(du -sb \"$f\" | cut -f1); echo \"dossier : $s octets\"; ls -la \"$f\" | head -20\n"
                 "elif [ -f \"$f\" ]; then s=$(stat -c %%s \"$f\"); echo \"taille : $s octets\"\n"
                 "else echo \"fichier absent : $f\"; exit 4; fi\n") % q(p["path"])
-        if p.get("device"):   # copie brute d'un volume (dd / cat d'un zvol) : taille du fichier >= taille du volume
+        if str(p["path"]).endswith(".zfs"):   # flux ZFS : complet si le dernier enregistrement (312 octets) est DRR_END (type 5)
+            body += ("t=$(tail -c 312 \"$f\" | od -A n -t u4 -N 4 | tr -d ' '); echo \"dernier enregistrement du flux : type $t\"\n"
+                     "[ \"$t\" = 5 ] && echo \"flux ZFS complet (enregistrement de fin présent)\" || { echo \"FICHIER INCOMPLET (flux ZFS sans enregistrement de fin)\"; exit 6; }\n")
+        elif p.get("device"):   # copie brute d'un volume (dd / cat d'un zvol) : taille du fichier >= taille du volume
             body += ("t=$(blockdev --getsize64 %s 2>/dev/null); echo \"volume source : $t octets\"\n"
                      "pgrep -af %s | grep -v pgrep | grep -qv '@@' && { echo \"copie encore en cours\"; pgrep -af %s; exit 5; }\n"
                      "[ -n \"$t\" ] && [ \"$s\" -ge \"$t\" ] || { echo \"FICHIER INCOMPLET ($s / $t)\"; exit 6; }\n") % (q(p["device"]), q(p["device"]), q(p["device"]))

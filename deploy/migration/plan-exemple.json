@@ -85,11 +85,10 @@
      "agent": "pve-lan-a",
      "kind": "check_file",
      "params": {
-      "path": "/opt/ext10/pbs",
-      "device": "/dev/zd99"
+      "path": "/opt/ext10/pbs/vm-1-disk-0@usb1.zfs"
      },
      "why": "La copie lancée à la main (session tmux pbscopy) doit être complète avant de toucher à quoi que ce soit d'autre sur pve-lan-a.",
-     "check": "taille du fichier ≥ taille du volume"
+     "check": "flux ZFS terminé par son enregistrement de fin"
     },
     {
      "id": "B2",
