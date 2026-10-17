@@ -21,6 +21,10 @@
   argument de plusieurs lignes (un argument court passe) ; le script est donc passé par l'entrée standard (`pct exec ... sh -s`).
 - Correctif 3 (agent 0.5.78), vu sur le CT 102 de pve-3 (Debian 9 : mawk 1.3.3, iproute2 2014) : `ss -H` inconnu, l'aide sortait sur la
   sortie standard et faussait les connexions établies (« port 0 ») ; lignes de données reconnues sans l'option -H.
+- CT ARRÊTÉS (agent 0.5.79) : analysés une fois hors ligne, comme une reprise d'historique -- `pct mount`, même script sur la racine
+  montée (journaux web, wtmp, SSH / sudo / courriels, dates de fichiers sur 800 j ; ni MySQL, ni processus, ni connexions),
+  `pct unmount` aussitôt ; une marque par CT monté fait démonter au passage suivant un CT resté monté après un arrêt brutal.
+  Les VM arrêtées ne sont pas montées (disques virtuels : à décider à part).
 - Vérifié : test_guest_usage (script réel sur auth.log / mail.log / .gz / dossiers factices : SSH, sudo, postfix, fichiers,
   caches ignorés, reprise), test_z_guestusage, `node --test`. Non vérifié : invités réels (pve-1 doit figurer dans
   pve-remote.json de l'agent qui porte la sonde), rendu navigateur.

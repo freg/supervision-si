@@ -38,10 +38,11 @@ RECENT_DAYS = 3             # #771 : jours envoyés hors reprise (le central gar
 DEEP_PER_PASS = 1          # reprises d'historique par nœud, par type (CT / VM) et par passage
 
 GUEST_SH = r"""LC_ALL=C; export LC_ALL
-echo "## os"; ( . /etc/os-release 2>/dev/null; echo "${PRETTY_NAME:-?}" )
+R=${SI_ROOT:-}   # #777 : racine d'un CT arrêté monté par pct mount (vide = invité démarré)
+echo "## os"; ( . "$R/etc/os-release" 2>/dev/null; echo "${PRETTY_NAME:-?}" )
 echo "## web"
 L=""
-for f in /var/log/apache2/*access*.log /var/log/nginx/*access*.log /var/log/httpd/*access_log; do
+for f in $R/var/log/apache2/*access*.log $R/var/log/nginx/*access*.log $R/var/log/httpd/*access_log; do
   [ -f "$f" ] || continue
   [ -f "$f.1" ] && L="$L $f.1"
   L="$L $f"
@@ -63,7 +64,7 @@ END { for (h in H) print "H", h, H[h], O[h] + 0
 echo "## days"
 echo "M deep ${SI_DEEP:-0}"
 D=""
-for f in /var/log/apache2/*access*.log* /var/log/nginx/*access*.log* /var/log/httpd/*access_log*; do
+for f in $R/var/log/apache2/*access*.log* $R/var/log/nginx/*access*.log* $R/var/log/httpd/*access_log*; do
   [ -f "$f" ] || continue
   case "$f" in
     *.log|*.log.1|*access_log|*access_log.1) D="$D $f" ;;
@@ -83,11 +84,11 @@ END { for (d in R) S[d] = 1; for (d in X) S[d] = 1
       for (d in S) print "W", d, R[d] + 0, B[d] + 0, X[d] + 0, XB[d] + 0, V[d] + 0, O[d] + 0 }'
 echo "## login"
 if [ "${SI_DEEP:-0}" = 1 ]; then
-  for w in /var/log/wtmp /var/log/wtmp.1; do [ -f "$w" ] && last -F -w -f "$w" 2>/dev/null | head -n 20000; done
+  for w in $R/var/log/wtmp $R/var/log/wtmp.1; do [ -f "$w" ] && last -F -w -f "$w" 2>/dev/null | head -n 20000; done
 else
   ( last -F -w -n 300 2>/dev/null || last -n 300 2>/dev/null ) | head -n 300
 fi
-if command -v mysql >/dev/null 2>&1; then
+if [ -z "$R" ] && command -v mysql >/dev/null 2>&1; then
   M="mysql -N -B"; [ -r /etc/mysql/debian.cnf ] && M="mysql --defaults-file=/etc/mysql/debian.cnf -N -B"
   echo "## mysql status"
   $M -e "SHOW GLOBAL STATUS WHERE Variable_name IN ('Uptime','Connections','Questions','Threads_connected','Max_used_connections','Aborted_connects','Bytes_received','Bytes_sent')" 2>&1 | head -n 20
@@ -97,7 +98,7 @@ if command -v mysql >/dev/null 2>&1; then
 fi
 echo "## internal"
 # 777 : activite interne en lecture seule -- SSH, sudo, postfix, fichiers modifies par jour, journaux recents, connexions, processus
-LG=${SI_LOG:-/var/log}; DATA=${SI_DATA:-/home /var/www /srv /var/mail /var/vmail /var/lib/owncloud /var/lib/nextcloud}
+LG=${SI_LOG:-$R/var/log}; DATA=${SI_DATA:-$R/home $R/var/www $R/srv $R/var/mail $R/var/vmail $R/var/lib/owncloud $R/var/lib/nextcloud}
 DP=${SI_DEEP:-0}; A=""
 for f in "$LG/auth.log" "$LG/secure" "$LG/mail.log" "$LG/maillog"; do
   [ "$DP" = 1 ] && for g in "$f".*.gz "$f"-*.gz; do [ -f "$g" ] && A="$A $g"; done
@@ -132,13 +133,14 @@ if [ -n "$FD" ]; then
     END { for (d in c) print "M", d, c[d]; if (ld != "") print "ML", ld, lt }'
 fi
 find "$LG" -xdev -type f -mmin -1440 ! -name '*.gz' ! -name '*.[0-9]' ! -name 'wtmp*' ! -name 'lastlog' -printf 'G %T@ %s %p\n' 2>/dev/null | sort -k2,2nr | head -n 12
-if command -v ss >/dev/null 2>&1; then ss -tn state established 2>/dev/null | awk '$1 ~ /^[0-9]+$/ && NF >= 4 {print $3, $4}'
+if [ -n "$R" ]; then :
+elif command -v ss >/dev/null 2>&1; then ss -tn state established 2>/dev/null | awk '$1 ~ /^[0-9]+$/ && NF >= 4 {print $3, $4}'
 else netstat -tn 2>/dev/null | awk '$6 == "ESTABLISHED" {print $4, $5}'; fi | awk '
   { r = $2; sub(/:[0-9]+$/, "", r); n = split($1, a, ":"); p = a[n] + 0
     if (p >= 32768 || r ~ /^(127\.|\[?::1|\[?::ffff:127\.)/) next
     C[p]++; if (!((p, r) in R)) { R[p, r] = 1; D[p]++ } }
   END { for (p in C) print "C", p, C[p], D[p] }'
-ps -eo comm=,time= --sort=-time 2>/dev/null | head -n 5 | awk '{print "T", $1, $2}'
+[ -n "$R" ] || ps -eo comm=,time= --sort=-time 2>/dev/null | head -n 5 | awk '{print "T", $1, $2}'
 echo "## end"
 """
 
@@ -157,12 +159,26 @@ __SI_GUEST__
 G=$(cat "$GF")
 [ -n "$G" ] || { echo "@@error script de l invite vide"; return 1; }
 DONE=" __SI_DONE__ "
+# #777 : CT arrêtés montés pour l'analyse hors ligne -- un passage interrompu (délai, arrêt de l'agent) les démonte au suivant
+LXC=${SI_LXC_ROOT:-/var/lib/lxc}; MK=${SI_MOUNT_MARK:-/var/lib/si-agent/gu-mounted}
+for m in "$MK".*; do [ -f "$m" ] || continue; i=${m##*.}; case "$i" in *[!0-9]*) continue ;; esac; pct unmount "$i" >/dev/null 2>&1; rm -f "$m"; echo "@@warn démonté au passage suivant : CT $i"; done
 # reprise d'historique : un invité pas encore repris, au plus DEEP_PER_PASS par boucle (CT, VM)
 deep() { P=""; T=60; case "$DONE" in *" $1 "*) return ;; esac; [ "${NDEEP:-0}" -ge __SI_NDEEP__ ] && return; P="SI_DEEP=1; export SI_DEEP; "; T=420; NDEEP=$(( ${NDEEP:-0} + 1 )); }
 rrd() { for tf in day week month year; do echo "## rrd $tf"; pvesh get /nodes/$N/$1/$2/rrddata --timeframe $tf --cf AVERAGE --output-format json </dev/null 2>/dev/null | head -c 200000; echo; done; }
 pct list 2>/dev/null | awk 'NR>1 {print $1, $2, $NF}' | while read id st name; do
   echo "=== lxc $id $st $name"; rrd lxc $id
   [ "$st" = running ] && { deep $id; echo "## exec"; { printf '%%s' "$P"; cat "$GF"; } | timeout $T pct exec $id -- sh -s 2>&1 | head -c 3000000; echo; }
+  # #777 : CT arrêté -- une seule analyse hors ligne (comme une reprise d'historique) : pct mount, script sur la racine
+  # montée (journaux, wtmp, dates de fichiers ; ni MySQL, ni processus, ni connexions), pct unmount aussitôt
+  if [ "$st" = stopped ]; then deep $id; if [ -n "$P" ]; then
+    echo "## offline"
+    if touch "$MK.$id" 2>/dev/null && pct mount $id >/dev/null 2>&1; then
+      trap "pct unmount $id >/dev/null 2>&1; rm -f $MK.$id" EXIT
+      { printf 'SI_DEEP=1; export SI_DEEP; SI_ROOT=%%s/%%s/rootfs; export SI_ROOT; ' "$LXC" "$id"; cat "$GF"; } | timeout $T sh -s 2>&1 | head -c 3000000
+      pct unmount $id >/dev/null 2>&1 || echo "@@warn pct unmount $id"; rm -f "$MK.$id"; trap - EXIT
+    else echo "montage impossible (pct mount $id)"; fi
+    echo
+  fi; fi
 done
 qm list 2>/dev/null | awk 'NR>1 {print $1, $3, $2}' | while read id st name; do
   echo "=== qemu $id $st $name"; rrd qemu $id
@@ -200,7 +216,7 @@ def parse_driver(text):
             continue
         if cur is None:
             continue
-        m = re.match(r"^## (rrd day|rrd week|rrd month|rrd year|exec|qga)$", line.strip())
+        m = re.match(r"^## (rrd day|rrd week|rrd month|rrd year|exec|qga|offline)$", line.strip())
         if m:
             sec = m.group(1)
             cur["sections"][sec] = []
@@ -580,8 +596,10 @@ def build(node_name, guests, state, now, full=True):
              "os": None, "web": None, "login": None, "mysql": None, "internal": None}
         r.update(rrd_stats(s.get("rrd day"), s.get("rrd week"), now))
         days = {"web": [], "login": [], "mysql": [], "ssh": [], "sudo": [], "mail": [], "files": [], "rrd": rrd_days(s.get("rrd month")), "rrd_weeks": rrd_weeks(s.get("rrd year")), "deep": False}
-        if g["status"] == "running":
-            raw, err = (s.get("exec"), None) if g["type"] == "lxc" else unwrap_qga(s.get("qga"))
+        offline = g["status"] != "running" and g["type"] == "lxc" and "offline" in s
+        if g["status"] == "running" or offline:
+            raw, err = (s.get("offline" if offline else "exec"), None) if g["type"] == "lxc" else unwrap_qga(s.get("qga"))
+            r["offline"] = offline
             parts = parse_guest(raw)
             if "end" not in parts:
                 r["error"] = err or ((raw or "").strip().splitlines() or ["sortie vide (délai dépassé ?)"])[-1][:160]

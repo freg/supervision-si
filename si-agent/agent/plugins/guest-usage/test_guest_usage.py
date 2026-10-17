@@ -351,3 +351,37 @@ class Connexions777(unittest.TestCase):
                              capture_output=True, text=True).stdout
         res, _d = gu.parse_internal(out, dt.datetime(2026, 10, 17))
         self.assertEqual(res["conns"], [{"port": 443, "n": 2, "peers": 2}, {"port": 22, "n": 1, "peers": 1}])
+
+
+class HorsLigne777(unittest.TestCase):
+    """#777 : CT arrêté analysé une fois hors ligne (pct mount / unmount), journaux et wtmp lus sur la racine montée."""
+
+    def test_ct_arrete(self):
+        if not shutil.which("bash"):
+            self.skipTest("bash absent")
+        d = tempfile.mkdtemp()
+        root = os.path.join(d, "lxc", "113", "rootfs")
+        os.makedirs(os.path.join(root, "var", "log")); os.makedirs(os.path.join(root, "etc"))
+        open(os.path.join(root, "etc", "os-release"), "w").write('PRETTY_NAME="Debian GNU/Linux 8 (jessie)"\n')
+        open(os.path.join(root, "var", "log", "auth.log"), "w").write("Mar  2 07:00:00 ct sshd[90]: Accepted publickey for alice from 198.51.100.7 port 1 ssh2\n")
+        log = os.path.join(d, "pct.log")
+        with open(os.path.join(d, "pct"), "w") as fh:
+            fh.write('#!/bin/sh\necho "$@" >> %s\nif [ "$1" = list ]; then echo "VMID Status Lock Name"; echo "113 stopped vieux"; fi\nexit 0\n' % log)
+        with open(os.path.join(d, "pvesh"), "w") as fh:
+            fh.write("#!/bin/sh\necho '[]'\n")
+        for f in ("pct", "pvesh"):
+            os.chmod(os.path.join(d, f), 0o755)
+        env = dict(os.environ, PATH=d + ":" + os.environ["PATH"], SI_LXC_ROOT=os.path.join(d, "lxc"), SI_MOUNT_MARK=os.path.join(d, "mk"))
+        out = subprocess.run(["bash", "-s"], input=gu.driver_script(), capture_output=True, text=True, timeout=120, env=env).stdout
+        _n, guests, done = gu.parse_driver(out)
+        self.assertTrue(done)
+        rows, _st = gu.build("pve-a", guests, {}, dt.datetime(2026, 10, 17))
+        r = rows[0]
+        self.assertTrue(r["collected"]); self.assertTrue(r["offline"]); self.assertEqual(r["os"], "Debian GNU/Linux 8 (jessie)")
+        self.assertTrue(r["days"]["deep"])
+        self.assertIn("2026-03-02", [x["day"] for x in r["days"]["ssh"]])
+        calls = open(log).read()
+        self.assertIn("mount 113", calls); self.assertIn("unmount 113", calls)
+        self.assertFalse([f for f in os.listdir(d) if f.startswith("mk.")])   # marque retirée
+        out2 = subprocess.run(["bash", "-s"], input=gu.driver_script(done=[113]), capture_output=True, text=True, timeout=60, env=env).stdout
+        self.assertNotIn("## offline", out2)   # une seule fois
