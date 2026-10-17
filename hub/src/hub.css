@@ -2585,3 +2585,22 @@ button:active:not(:disabled), a.hub-card:active, button.hub-card:active { transf
 .mig-vars label { display: flex; flex-direction: column; font-size: 12px; }
 .mig-vars input { font-family: monospace; }
 .mig-need { border-color: var(--st-critical) !important; }
+
+/* #775 : tuile « Latence des IP publiques » */
+.lat-table td { vertical-align: top; }
+.lat-cell { cursor: pointer; border-left: 3px solid var(--border); }
+.lat-cell b, .lat-target b { display: block; font-variant-numeric: tabular-nums; }
+.lat-cell small, .lat-target small { display: block; font-size: 11px; color: var(--muted); }
+.lat-cell.ok { border-left-color: var(--st-ok); }
+.lat-cell.warning { border-left-color: var(--st-warning); }
+.lat-cell.critical { border-left-color: var(--st-critical); }
+.lat-target.critical b { color: var(--st-critical); }
+.lat-note { color: var(--st-warning) !important; }
+.lat-grp td { font-weight: 600; background: var(--bg); }
+.lat-state { margin: 4px 0; padding: 6px 8px; border-left: 3px solid var(--border); }
+.lat-state.warning { border-left-color: var(--st-warning); }
+.lat-state.critical { border-left-color: var(--st-critical); }
+.lat-sparks { display: flex; gap: 16px; flex-wrap: wrap; }
+.lat-sparks figure { margin: 0; font-size: 12px; }
+.lat-spark { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+.lat-detail ul { margin: 4px 0 4px 18px; }

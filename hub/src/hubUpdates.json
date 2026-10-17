@@ -1,5 +1,11 @@
 [
  {
+  "n": 775,
+  "from": 775,
+  "date": "2026-10-17",
+  "title": "Tuile « Latence des IP publiques » : mesures régulières depuis plusieurs points, configurateur des accès (agent, compte + sudo, rebond), erreurs avec solution"
+ },
+ {
   "n": 774,
   "from": 774,
   "date": "2026-10-17",
@@ -232,11 +238,5 @@
   "from": 736,
   "date": "2026-10-09",
   "title": "Hub pré-compilé dans l'image, second hub sur une bordure"
- },
- {
-  "n": 735,
-  "from": 735,
-  "date": "2026-10-09",
-  "title": "Hub : vues à la demande, retour visuel immédiat, rafraîchissements suspendus onglet caché"
  }
 ]

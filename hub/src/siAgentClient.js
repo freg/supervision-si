@@ -197,6 +197,15 @@ export const fetchRotationRuns = (apiBase, id) => fetchJson(apiBase, `/rotations
 export const fetchInfraOverview = (apiBase) => fetchJson(apiBase, "/infra/overview");   // #749
 export const fetchGuestUsage = (apiBase) => fetchJson(apiBase, "/infra/guests");   // #769 : activité des CT / VM
 export const saveGuestProfile = (apiBase, node, vmid, profile, actor) => fetchJson(apiBase, "/infra/guests/profile", json("PUT", { node, vmid, profile, actor }));
+export const fetchLatency = (apiBase) => fetchJson(apiBase, "/latency");   // #775 : latence des IP publiques
+export const fetchLatencyHistory = (apiBase, target, point, hours = 24) => fetchJson(apiBase, `/latency/history?target=${encodeURIComponent(target)}&point=${encodeURIComponent(point)}&hours=${hours}`);
+export const saveLatencyTarget = (apiBase, target, actor) => fetchJson(apiBase, "/latency/targets", json("PUT", { target, actor }));
+export const saveLatencyPoint = (apiBase, point, actor) => fetchJson(apiBase, "/latency/points", json("PUT", { point, actor }));
+export const deleteLatency = (apiBase, what, id) => fetchJson(apiBase, `/latency/${what}/${encodeURIComponent(id)}`, { method: "DELETE" });
+export const saveLatencySettings = (apiBase, settings) => fetchJson(apiBase, "/latency/settings", json("PUT", settings));
+export const runLatency = (apiBase, point) => fetchJson(apiBase, "/latency/run", json("POST", { point }));
+export const fetchLatencyConfig = (apiBase) => fetchJson(apiBase, "/latency/config");
+export const importLatencyConfig = (apiBase, config, actor) => fetchJson(apiBase, "/latency/config", json("PUT", { ...config, actor }));
 export const fetchMigration = (apiBase) => fetchJson(apiBase, "/migration");   // #774 : tuile « Migration 2026-2027 »
 export const saveMigrationPlan = (apiBase, plan, actor) => fetchJson(apiBase, "/migration/plan", json("PUT", { plan, actor }));
 export const saveMigrationVars = (apiBase, vars, actor) => fetchJson(apiBase, "/migration/vars", json("PUT", { vars, actor }));

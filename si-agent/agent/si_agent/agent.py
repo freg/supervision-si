@@ -874,6 +874,22 @@ class Agent(object):
                     self.event("hostops", "info" if res.get("ok") else "warning", "geste %s %s%s" % (params.get("action"), params.get("unit") or params.get("container") or params.get("dir") or "",
                                "" if res.get("ok") else " -- " + str(res.get("error"))), {"command": c.get("id"), "actor": params.get("actor"), "reason": params.get("reason")})
                 return {"ok": res.get("ok", False), "error": res.get("error"), "result": res}
+            if ctype == "latency":
+                # #775 : latence des IP publiques vue d'ici, ou d'un hôte joint par SSH (compte personnel, rebond, sudo)
+                if IS_WINDOWS:
+                    return {"ok": False, "error": "mesures de latence : hôtes Linux / macOS seulement"}
+                if self.is_blocked():
+                    return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
+                import subprocess as _sp
+                from . import latctl
+
+                def _lrun(argv, inp, timeout):
+                    try:
+                        r = _sp.run(argv, input=inp, capture_output=True, text=True, timeout=timeout)
+                        return r.returncode, r.stdout or "", r.stderr or ""
+                    except Exception as exc:  # noqa: BLE001
+                        return 1, "", str(exc)
+                return latctl.run(params, _lrun)
             if ctype == "migstep":
                 # #774 : étape de la tuile « Migration 2026-2027 » (copie, vérification), détachée (systemd-run), pilotée par le hub
                 if self.is_blocked():

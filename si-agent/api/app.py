@@ -52,6 +52,7 @@ import infra  # noqa: E402  -- #749 : vue d'ensemble PVE / PBS
 import views  # noqa: E402  -- #753 : vues de parc paramétrables (serveurs, postes, IA, postes personnels)
 import repatriation as repa  # noqa: E402  -- #761 : assistant de rapatriement / nettoyage d'un nœud distant
 import guestusage  # noqa: E402  -- #769 : activité des CT / VM de tous les Proxmox
+import latency  # noqa: E402  -- #775 : latence des IP publiques (cibles, points de mesure, accès)
 import migrun  # noqa: E402  -- #774 : tuile « Migration 2026-2027 » (plan d'étapes, pilotage, erreurs et solutions)
 import rotation  # noqa: E402  -- #743 : tournées de mesures réparties (supervision distribuée, item 120)
 import json  # noqa: E402
@@ -179,6 +180,15 @@ def _watchdog_loop():
             rotation.tick(DB_PATH)          # #743 : créneaux des tournées de mesures
         except Exception as exc:  # noqa: BLE001
             _log.warning("tournées : %s", exc)
+        try:
+            _c = store._connect(DB_PATH)   # #775 : mesures de latence (créneaux, résultats, purge)
+            try:
+                latency.tick(_c)
+                _c.commit()
+            finally:
+                _c.close()
+        except Exception as exc:  # noqa: BLE001
+            _log.warning("latence : %s", exc)
 
 
 if os.environ.get("SI_AGENT_PURGE_THREAD", "1") == "1":
@@ -2064,6 +2074,76 @@ def guest_profile_route():
     _event("guest-profile", "info", "fiche de %s/%s %s par %s (%s)" % (node, vmid, "enregistrée" if prof else "effacée", actor or "?", ", ".join(sorted(prof)) or "vide"),
            details={"node": node, "vmid": vmid, "fields": sorted(prof)})
     return jsonify({"ok": True, "profile": prof}), 200
+
+
+def _lat(fn):
+    conn = store._connect(DB_PATH)
+    try:
+        out = fn(conn)
+        conn.commit()
+        return out
+    finally:
+        conn.close()
+
+
+@app.route("/latency", methods=["GET"])
+def latency_view_route():
+    """#775 : cibles × points de mesure (dernière mesure, diagnostic, médiane / p95 24 h), état des points, erreurs et solutions."""
+    return jsonify(_lat(latency.view)), 200
+
+
+@app.route("/latency/history", methods=["GET"])
+def latency_history_route():
+    t, p = str(request.args.get("target") or ""), str(request.args.get("point") or "")
+    hours = max(1, min(request.args.get("hours", default=24, type=int) or 24, 24 * 31))
+    return jsonify(_lat(lambda c: latency.history(c, t, p, hours))), 200
+
+
+@app.route("/latency/targets", methods=["PUT"])
+def latency_target_route():
+    b = request.get_json(silent=True) or {}
+    t, err = _lat(lambda c: latency.save_target(c, b.get("target") or {}, str(b.get("actor") or "")[:64]))
+    return (jsonify({"error": err}), 400) if err else (jsonify({"ok": True, "target": t}), 200)
+
+
+@app.route("/latency/points", methods=["PUT"])
+def latency_point_route():
+    b = request.get_json(silent=True) or {}
+    p, err = _lat(lambda c: latency.save_point(c, b.get("point") or {}, str(b.get("actor") or "")[:64]))
+    if err:
+        return jsonify({"error": err}), 400
+    _event("latency", "info", "point de mesure %s (%s) enregistré par %s" % (p["id"], p["mode"], b.get("actor") or "?"))
+    return jsonify({"ok": True, "point": p}), 200
+
+
+@app.route("/latency/<what>/<oid>", methods=["DELETE"])
+def latency_delete_route(what, oid):
+    if what not in ("target", "point"):
+        return jsonify({"error": "target ou point"}), 400
+    return jsonify({"ok": _lat(lambda c: latency.delete(c, what, oid))}), 200
+
+
+@app.route("/latency/settings", methods=["PUT"])
+def latency_settings_route():
+    s, err = _lat(lambda c: latency.set_settings(c, request.get_json(silent=True) or {}))
+    return (jsonify({"error": err}), 400) if err else (jsonify({"ok": True, "settings": s}), 200)
+
+
+@app.route("/latency/run", methods=["POST"])
+def latency_run_route():
+    b = request.get_json(silent=True) or {}
+    n = _lat(lambda c: latency.run_now(c, str(b.get("point") or "") or None))
+    return jsonify({"ok": True, "launched": n, "message": "%d mesure(s) demandée(s), résultats d'ici une à deux minutes" % n}), 200
+
+
+@app.route("/latency/config", methods=["GET", "PUT"])
+def latency_config_route():
+    """GET : export JSON (cibles, points, réglages) ; PUT : import (ajoute ou remplace par identifiant)."""
+    if request.method == "GET":
+        return jsonify(_lat(latency.export_config)), 200
+    b = request.get_json(silent=True) or {}
+    n, errs = _lat(lambda c: latency.import_config(c, b, str(b.get("actor") or "")[:64]))
+    return jsonify({"ok": not errs, "imported": n, "errors": errs}), (200 if not errs else 207)
 
 
 @app.route("/migration", methods=["GET"])

@@ -46,6 +46,7 @@ export const THEMES = [
       { view: "ssh-tunnels", label: "Tunnels SSH" },
       { front: "mikrotik", label: "Routeurs MikroTik" },
       { view: "nat-map", label: "Redirections NAT" },   // #606
+      { view: "latency", label: "Latence des IP publiques (mesures, accès)" },   // #775
       { front: "cisco", label: "Équipements Cisco" },
       { view: "proxmox", label: "Proxmox" },
       { view: "pve-ops", label: "Contrôle PVE (opérations, PRA)" },   // #653
@@ -175,7 +176,7 @@ export const SINCE = {
   "fusion": 431, "ged": 105, "geo-catalog": 429, "glpi-inventory": 192, "history": 105, "imap": 144, "imap-connectors": 489,
   "keycloak-admin": 105, "accounts": 557, "notifications": 590, "licenses": 595, "nat-map": 606, "ldap-admin": 105, "logs": 105, "memory": 105, "mikrotik": 485, "nebula": 192,
   "netmap-orchestrator": 388, "netprobe": 301, "network-agent": 236, "network-cycle": 396, "network-equipment": 506,
-  "portage": 650, "qa": 651, "datasync": 652, "vuln": 688, "mailserver": 697, "groupware": 664, "pve-ops": 653, "pve-maint": 705, "infra": 749, "guest-usage": 769, "migration": 774, "fleetviews": 753, "iapark": 756, "repatriation": 761, "projeqtor": 476, "proxmox": 487, "retro": 242, "rights": 105, "schema-analyzer": 173, "service-watch": 531,
+  "portage": 650, "qa": 651, "datasync": 652, "vuln": 688, "mailserver": 697, "groupware": 664, "pve-ops": 653, "pve-maint": 705, "infra": 749, "guest-usage": 769, "migration": 774, "latency": 775, "fleetviews": 753, "iapark": 756, "repatriation": 761, "projeqtor": 476, "proxmox": 487, "retro": 242, "rights": 105, "schema-analyzer": 173, "service-watch": 531,
   "si-agent": 421, "si-proxy": 454, "snmp": 181, "ssh-tunnels": 122, "supervision-si": 105, "synthese": 523,
   "tickets": 105, "ups": 415, "vault": 105, "vault-admin": 105, "vigilance": 105,
   "action:aide": 105, "action:tabs": 105, "action:settings": 105, "action:personalize": 457, "action:layout": 516,

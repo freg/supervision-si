@@ -1,3 +1,5 @@
+## Latence des IP publiques (2026-10-17) — tranche 1 FAITE (#775 : cibles, points de mesure agent / direct / indirect, diagnostic, erreurs et solutions) ; reste : alertes notifiées sur dégradation durable, découpage par tronçon (frontal → serveur interne) à partir de la conf Apache des frontaux
+
 ## Tuile « Migration 2026-2027 » (2026-10-17) — tranche 1 FAITE (#774 : plan d'étapes, pilotage, erreurs et solutions, étape 1 du plan automatisée) ; reste : étapes 2 à 5 en étapes automatiques (envois incrémentaux, bascules, réinstallations), rattachement de l'historique d'une VM migrée (item 128)
 
 ## Supervision réseau distribuée : ordonnanceur, chronologie, couverture, architecture (2026-10-13) — item 120 ; volet 1 tranche 1 FAITE (#743)

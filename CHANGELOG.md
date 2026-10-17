@@ -1,3 +1,25 @@
+## 2026-10-17 — Tuile « Latence des IP publiques » : mesures régulières depuis plusieurs points, configurateur des accès (agent, compte + sudo, rebond), erreurs avec solution (livraison #775)
+
+- Demandé : une page du hub des mesures de latence de toutes les IP publiques du SI, avec un configurateur pour ajouter
+  les comptes de connexion directe et indirecte (cas général : compte personnel + sudo, ou l'agent existant).
+- Cibles : IP publique, ports, noms servis en HTTPS, groupe ; points de mesure : `agent` (l'agent mesure), `direct`
+  (un agent exécutant ouvre `ssh compte@hôte`, sudo facultatif), `indirect` (même chose par un rebond `-J`) ; aucun mot de
+  passe ni clé enregistrés (chemin de clé facultatif sur l'exécutant). Import / export JSON : la liste réelle reste hors dépôt.
+- Agent 0.5.73 : commande `latency` (`si_agent/latctl.py`, lecture seule) -- ping (perte, aller-retour), ouverture TCP par
+  port, HTTPS forcé sur l'IP et par le nom (résolution, connexion, poignée TLS, premier octet, total, code, sans proxy),
+  adresses obtenues pour le nom ; localement ou par `ssh ... bash -s` (`sudo -n` si demandé).
+- Central (`latency.py`) : une mesure par point toutes les 15 min (réglable), une seule par créneau, résultats gardés
+  31 jours ; diagnostic (pertes, port fermé, HTTPS en échec, poignée TLS lente au regard de l'aller-retour, premier octet
+  lent, nom qui ne pointe pas sur l'IP, chemin par le nom plus lent) ; médiane et p95 sur 24 h ; erreurs classées avec
+  solution (clé refusée → commande pour poser la clé de l'exécutant, sudo avec mot de passe, agent trop ancien, outils
+  absents, empreinte, DNS, réseau, agent silencieux ou inconnu).
+- Hub : Réseau › Latence des IP publiques -- tableau IP × points (total, ping, TLS, constat), détail avec courbes 24 h,
+  onglets Cibles, Points de mesure (commande « préparer l'accès » générée), Réglages et import.
+- Garde : test qui vérifie que tout module importé par le central est copié dans l'image (oubli de `migrun.py` en #774).
+- Vérifié : unittest latctl (script `bash -n`, exécution locale réelle, lecture des mesures, SSH simulé), test_z_latency
+  (parcours par les routes : import, mesure demandée, acquittements, diagnostic, erreurs classées, créneau unique,
+  export), `node --test hub/tests/*.test.mjs`, syntaxe JSX. Non vérifié : mesures réelles depuis super / r2d2, rendu navigateur.
+
 ## 2026-10-17 — Tuile « Migration 2026-2027 » : plan d'étapes pré-paramétré, pilotage pas à pas, erreurs détaillées avec bouton Solution (livraison #774)
 
 - Demandé : une page du hub pré-paramétrée pour suivre et piloter la migration (start, stop, pause, next, auto) avec
