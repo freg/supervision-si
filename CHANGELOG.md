@@ -9,6 +9,8 @@
   les envois sans clic (rafraîchissements) ne changent rien.
 - Migration : l'import du plan répond « plan « … » importé : N étape(s), étapes déjà faites conservées » et le bouton affiche
   « Import en cours… ».
+- Migration (agent 0.5.81) : le lot rsync (pve-2 → disque de 10 To) échoue « SOURCE VIDE » quand aucun dossier ne correspond, au lieu
+  de réussir sans rien copier.
 - Vérifié : `node --test` (dont actionFeedbackLib), syntaxe JSX, **essai réel dans Chromium** (bouton occupé pendant l'envoi,
   second clic bloqué, bandeau « déjà en cours… » puis message du serveur), test_z_migrun. Non vérifié : chaque tuile une à une.
 

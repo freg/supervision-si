@@ -143,10 +143,11 @@ def script(step):
                 excl, q(SSH), q(h), q(dest), int(p.get("max_diff", 2000)))
     elif k == "rsync_pull_all":
         bw = "--bwlimit=%d " % int(p["bwlimit_mb"] * 1024) if p.get("bwlimit_mb") else ""
-        body = ("mkdir -p %s\nfail=0\n"
-                "for d in $(%s %s \"ls -d %s/%s 2>/dev/null\"); do n=$(basename \"$d\"); echo \"== $n\"\n"
+        body = ("mkdir -p %s\nfail=0; nb=0\n"
+                "for d in $(%s %s \"ls -d %s/%s 2>/dev/null\"); do n=$(basename \"$d\"); nb=$((nb + 1)); echo \"== $n\"\n"
                 "  rsync -aHAX --numeric-ids --sparse --stats %s--rsync-path='ionice -c3 nice rsync' -e %s %s:\"$d/\" %s/\"$n\"/; rc=$?\n"
                 "  [ $rc -eq 0 ] || [ $rc -eq 24 ] || { echo \"ÉCHEC $n (code $rc)\"; fail=$rc; }\ndone\n"
+                "[ $nb -gt 0 ] || { echo \"SOURCE VIDE : aucun dossier ne correspond (ls -d sur le nœud distant)\"; exit 12; }\n"
                 "%s %s 'tar -C /etc/pve -cf - lxc qemu-server 2>/dev/null' | tar -C %s -xf - && echo \"configurations copiées\"\nexit $fail\n") % (
             q(p["dest_dir"]), SSH, q(h), p["src_dir"].rstrip("/"), p["pattern"], bw, q(SSH), q(h), q(p["dest_dir"]), SSH, q(h), q(p["dest_dir"]))
     elif k == "zfs_pull":
