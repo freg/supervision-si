@@ -52,6 +52,7 @@ import infra  # noqa: E402  -- #749 : vue d'ensemble PVE / PBS
 import views  # noqa: E402  -- #753 : vues de parc paramétrables (serveurs, postes, IA, postes personnels)
 import repatriation as repa  # noqa: E402  -- #761 : assistant de rapatriement / nettoyage d'un nœud distant
 import guestusage  # noqa: E402  -- #769 : activité des CT / VM de tous les Proxmox
+import migrun  # noqa: E402  -- #774 : tuile « Migration 2026-2027 » (plan d'étapes, pilotage, erreurs et solutions)
 import rotation  # noqa: E402  -- #743 : tournées de mesures réparties (supervision distribuée, item 120)
 import json  # noqa: E402
 import notify  # noqa: E402
@@ -2063,6 +2064,68 @@ def guest_profile_route():
     _event("guest-profile", "info", "fiche de %s/%s %s par %s (%s)" % (node, vmid, "enregistrée" if prof else "effacée", actor or "?", ", ".join(sorted(prof)) or "vide"),
            details={"node": node, "vmid": vmid, "fields": sorted(prof)})
     return jsonify({"ok": True, "profile": prof}), 200
+
+
+@app.route("/migration", methods=["GET"])
+def migration_view_route():
+    """#774 : plan, paramètres, marche (arrêtée / en cours / en pause / terminée ; manuel / auto), étapes avec état, mesure et erreur classée."""
+    conn = store._connect(DB_PATH)
+    try:
+        v = migrun.view(conn)
+        conn.commit()
+    finally:
+        conn.close()
+    return jsonify(v), 200
+
+
+@app.route("/migration/plan", methods=["PUT"])
+def migration_plan_route():
+    """#774 : {plan, actor} -> importe (remplace) le plan ; les paramètres déjà saisis et l'état des étapes sont gardés."""
+    b = request.get_json(silent=True) or {}
+    actor = str(b.get("actor") or "")[:64]
+    conn = store._connect(DB_PATH)
+    try:
+        p, err = migrun.set_plan(conn, b.get("plan"), actor)
+        conn.commit()
+    finally:
+        conn.close()
+    if err:
+        return jsonify({"error": err}), 400
+    _event("migration", "info", "plan de migration « %s » importé par %s (%d étape(s))" % (p["name"], actor or "?", len(migrun.all_steps(p))))
+    return jsonify({"ok": True}), 200
+
+
+@app.route("/migration/vars", methods=["PUT"])
+def migration_vars_route():
+    """#774 : {vars: {NOM: valeur}, actor} -> paramètres du plan (adresses des nœuds...)."""
+    b = request.get_json(silent=True) or {}
+    if not isinstance(b.get("vars"), dict):
+        return jsonify({"error": "vars (objet) requis"}), 400
+    conn = store._connect(DB_PATH)
+    try:
+        v, err = migrun.set_vars(conn, b["vars"], str(b.get("actor") or "")[:64])
+        conn.commit()
+    finally:
+        conn.close()
+    if err:
+        return jsonify({"error": err}), 400
+    return jsonify({"ok": True, "vars": v}), 200
+
+
+@app.route("/migration/control", methods=["POST"])
+def migration_control_route():
+    """#774 : {action: start|next|pause|resume|stop|auto|manuel|retry|skip|done|reset, step?, actor} -> geste journalisé."""
+    b = request.get_json(silent=True) or {}
+    action, actor = str(b.get("action") or ""), str(b.get("actor") or "")[:64]
+    step = str(b.get("step") or "") or None
+    conn = store._connect(DB_PATH)
+    try:
+        ok, msg = migrun.control(conn, action, step, actor)
+        conn.commit()
+    finally:
+        conn.close()
+    _event("migration", "info" if ok else "warning", "migration : %s%s par %s -> %s" % (action, " " + step if step else "", actor or "?", msg))
+    return jsonify({"ok": ok, "message": msg}), (200 if ok else 409)
 
 
 @app.route("/images", methods=["GET"])

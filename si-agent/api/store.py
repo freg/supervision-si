@@ -160,7 +160,7 @@ MIGRATIONS = [
 AGENT_ID_MAX = 64
 COMMAND_TYPES = ("collect_now", "run_plugin", "enable_plugin", "disable_plugin", "remove_plugin", "flush",
                  "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update", "vm_action", "software_action", "vrrp_set",
-                 "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse", "windows_update", "protection", "image_transfer", "remote_desktop", "power_schedule", "ext_audit", "mail", "sbom", "ollama", "p2v", "xfer", "hostops")  # #756 hostops ; #750 xfer ; #748 p2v ; #746 ollama ; #613, #616, #621, #627, #633, #634, #636, #697, #699
+                 "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse", "windows_update", "protection", "image_transfer", "remote_desktop", "power_schedule", "ext_audit", "mail", "sbom", "ollama", "p2v", "xfer", "hostops", "migstep")  # #774 migstep ; #756 hostops ; #750 xfer ; #748 p2v ; #746 ollama ; #613, #616, #621, #627, #633, #634, #636, #697, #699
 SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
 TASKS_KEPT_LATEST = ("host", "risks", "inventory", "startup", "watchdog", "agent-self", "ext-audit")  # #613, #616
 
@@ -1096,6 +1096,13 @@ def ingest_measurements(db_path, agent_id, items, ip=None):
                         events_seen.append({"at": m["at"], "kind": ev["kind"], "severity": ev["severity"], "message": ev["message"], "agent_id": agent_id})
                     except sqlite3.IntegrityError:
                         pass
+            if m["task"] == "plugin:migration" and isinstance(data, dict):
+                # #774 : état des étapes de migration -> tuile « Migration 2026-2027 » (enchaînement automatique)
+                try:
+                    import migrun
+                    migrun.apply_report(conn, agent_id, data)
+                except Exception:   # noqa: BLE001 -- une mesure mal formée ne bloque jamais la réception
+                    pass
             if m["task"] == "plugin:guest-usage" and isinstance(data, dict):
                 # #771 : historique quotidien des CT / VM accumulé à la réception (au-delà de la rotation des journaux)
                 try:
@@ -1360,9 +1367,9 @@ def _vm_states(data):
 
 
 PROBE_TASKS = ("plugin:wifi-probe", "plugin:path-probe", "plugin:windows-probe", "plugin:broadcast-probe", "plugin:dns-observe", "plugin:resource-access", "plugin:mail-server",
-               "plugin:pulled-backups", "plugin:pbs", "plugin:pve-remote", "plugin:gtb-netwatch", "plugin:app-logwatch", "plugin:ollama", "plugin:node-activity", "plugin:guest-usage")
+               "plugin:pulled-backups", "plugin:pbs", "plugin:pve-remote", "plugin:gtb-netwatch", "plugin:app-logwatch", "plugin:ollama", "plugin:node-activity", "plugin:guest-usage", "plugin:migration")
 BACKUP_TASKS = ("plugin:pulled-backups", "plugin:pbs")   # #716 : genres backup-* (routables à part)
-PROBE_LABELS = {"plugin:pulled-backups": "sauvegardes", "plugin:pbs": "PBS", "plugin:pve-remote": "PVE distants", "plugin:wifi-probe": "Wi-Fi vu du poste", "plugin:path-probe": "chemin de service", "plugin:windows-probe": "postes Windows", "plugin:broadcast-probe": "annonces réseau", "plugin:dns-observe": "observabilité DNS", "plugin:resource-access": "accès aux ressources", "plugin:mail-server": "serveur de messagerie", "plugin:gtb-netwatch": "réseau GTB/GTC", "plugin:app-logwatch": "journaux d'application", "plugin:ollama": "modèles IA", "plugin:node-activity": "activité des nœuds", "plugin:guest-usage": "activité des CT / VM"}
+PROBE_LABELS = {"plugin:pulled-backups": "sauvegardes", "plugin:pbs": "PBS", "plugin:pve-remote": "PVE distants", "plugin:wifi-probe": "Wi-Fi vu du poste", "plugin:path-probe": "chemin de service", "plugin:windows-probe": "postes Windows", "plugin:broadcast-probe": "annonces réseau", "plugin:dns-observe": "observabilité DNS", "plugin:resource-access": "accès aux ressources", "plugin:mail-server": "serveur de messagerie", "plugin:gtb-netwatch": "réseau GTB/GTC", "plugin:app-logwatch": "journaux d'application", "plugin:ollama": "modèles IA", "plugin:node-activity": "activité des nœuds", "plugin:guest-usage": "activité des CT / VM", "plugin:migration": "étapes de migration"}
 
 
 def _probe_alerts(data):

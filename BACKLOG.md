@@ -1,3 +1,5 @@
+## Tuile « Migration 2026-2027 » (2026-10-17) — tranche 1 FAITE (#774 : plan d'étapes, pilotage, erreurs et solutions, étape 1 du plan automatisée) ; reste : étapes 2 à 5 en étapes automatiques (envois incrémentaux, bascules, réinstallations), rattachement de l'historique d'une VM migrée (item 128)
+
 ## Supervision réseau distribuée : ordonnanceur, chronologie, couverture, architecture (2026-10-13) — item 120 ; volet 1 tranche 1 FAITE (#743)
 
 Cadrage : `docs/supervision-distribuee.md`. Décisions : commencer par l'ordonnanceur réparti ; carte au choix plans de

@@ -1,0 +1,273 @@
+{
+ "name": "Exemple de plan de migration (valeurs fictives)",
+ "vars": {
+  "PVE1": "pve-a.example.org",
+  "PVE2": "198.51.100.20",
+  "PVE3": ""
+ },
+ "phases": [
+  {
+   "id": "A",
+   "title": "A. Préparation (contrôles, rien n'est copié)",
+   "steps": [
+    {
+     "id": "A1",
+     "title": "SSH de pve-lan-b vers pve-1",
+     "agent": "pve-lan-b",
+     "kind": "check_ssh",
+     "params": {
+      "host": "${PVE1}"
+     },
+     "why": "L'hôte de réception doit joindre pve-1 en root par clé, sans mot de passe.",
+     "check": "« connexion OK » et la version de Proxmox"
+    },
+    {
+     "id": "A2",
+     "title": "SSH de pve-lan-a vers pve-2",
+     "agent": "pve-lan-a",
+     "kind": "check_ssh",
+     "params": {
+      "host": "${PVE2}"
+     },
+     "why": "pve-2 est copié vers le disque de 10 To branché sur pve-lan-a."
+    },
+    {
+     "id": "A3",
+     "title": "SSH de pve-lan-b vers pve-3",
+     "agent": "pve-lan-b",
+     "kind": "check_ssh",
+     "params": {
+      "host": "${PVE3}"
+     },
+     "why": "Renseigner d'abord l'adresse de pve-3 dans les paramètres (PVE3)."
+    },
+    {
+     "id": "A4",
+     "title": "Place sur pve-lan-b (pool data)",
+     "agent": "pve-lan-b",
+     "kind": "check_space",
+     "params": {
+      "path": "data",
+      "min_gb": 1500
+     },
+     "why": "pve-3 (environ 1,95 To, compressé) et pve-1 (0,32 To) arrivent sur le miroir de pve-lan-b."
+    },
+    {
+     "id": "A5",
+     "title": "Place sur le disque de 10 To",
+     "agent": "pve-lan-a",
+     "kind": "check_space",
+     "params": {
+      "path": "/opt/ext10",
+      "min_gb": 3200
+     },
+     "why": "pve-2 (2,94 To) et la copie du stockage PBS vont sur le disque externe."
+    },
+    {
+     "id": "A6",
+     "title": "Volume de réception pve-1",
+     "agent": "pve-lan-b",
+     "kind": "zfs_create",
+     "params": {
+      "dataset": "data/ovh/pve1"
+     },
+     "why": "Existe déjà : l'étape le confirme."
+    }
+   ]
+  },
+  {
+   "id": "B",
+   "title": "B. Copies de sûreté au LAN (étape 1 du plan)",
+   "steps": [
+    {
+     "id": "B1",
+     "title": "Copie du stockage PBS terminée ?",
+     "agent": "pve-lan-a",
+     "kind": "check_file",
+     "params": {
+      "path": "/opt/ext10/pbs",
+      "device": "/dev/zd99"
+     },
+     "why": "La copie lancée à la main (session tmux pbscopy) doit être complète avant de toucher à quoi que ce soit d'autre sur pve-lan-a.",
+     "check": "taille du fichier ≥ taille du volume"
+    },
+    {
+     "id": "B2",
+     "title": "pve-1 → pve-lan-b : CT 103 ct-a (rsync à chaud)",
+     "agent": "pve-lan-b",
+     "kind": "rsync_pull",
+     "params": {
+      "host": "${PVE1}",
+      "src": "/var/lib/lxc/103/rootfs",
+      "dest": "/data/ovh/pve1/ct103",
+      "conf": "/etc/pve/lxc/103.conf"
+     },
+     "why": "Copie à chaud, priorité disque minimale sur pve-1 ; une relance ne recopie que la différence."
+    },
+    {
+     "id": "B3",
+     "title": "pve-1 → pve-lan-b : CT 104 ct-b (rsync à chaud)",
+     "agent": "pve-lan-b",
+     "kind": "rsync_pull",
+     "params": {
+      "host": "${PVE1}",
+      "src": "/var/lib/lxc/104/rootfs",
+      "dest": "/data/ovh/pve1/ct104",
+      "conf": "/etc/pve/lxc/104.conf"
+     },
+     "why": "Copie à chaud, priorité disque minimale sur pve-1 ; une relance ne recopie que la différence."
+    },
+    {
+     "id": "B4",
+     "title": "pve-1 → pve-lan-b : CT 106 ct-mail (rsync à chaud)",
+     "agent": "pve-lan-b",
+     "kind": "rsync_pull",
+     "params": {
+      "host": "${PVE1}",
+      "src": "/var/lib/lxc/106/rootfs",
+      "dest": "/data/ovh/pve1/ct106",
+      "conf": "/etc/pve/lxc/106.conf"
+     },
+     "why": "Copie à chaud, priorité disque minimale sur pve-1 ; une relance ne recopie que la différence."
+    },
+    {
+     "id": "B5",
+     "title": "pve-3 → pve-lan-b : CT 102, 119 et archive d'OB1 (envoi ZFS)",
+     "agent": "pve-lan-b",
+     "kind": "zfs_pull",
+     "params": {
+      "host": "${PVE3}",
+      "pool": "rpool",
+      "ids": [
+       102,
+       119,
+       9106
+      ],
+      "snapshot": "mig1",
+      "dest": "data/ovh/pve3",
+      "bwlimit_mb": 40
+     },
+     "why": "Instantané « mig1 » pris sur pve-3, envoi reprenable, débit plafonné à 40 Mo/s pour le trafic du bureau."
+    },
+    {
+     "id": "B6",
+     "title": "pve-2 → disque de 10 To : tous les conteneurs (rsync)",
+     "agent": "pve-lan-a",
+     "kind": "rsync_pull_all",
+     "params": {
+      "host": "${PVE2}",
+      "src_dir": "/rpool/data",
+      "pattern": "subvol-*",
+      "dest_dir": "/opt/ext10/ovh/pve2",
+      "bwlimit_mb": 40
+     },
+     "why": "Le disque de 10 To n'est pas en ZFS : copie fichier par fichier, configurations comprises."
+    },
+    {
+     "id": "B7",
+     "title": "pve-1 : images des CT arrêtés (0,35 To)",
+     "kind": "manual",
+     "params": {},
+     "why": "Chemin des images à confirmer sur pve-1 (pct list ; ls /var/lib/vz/images) avant d'en faire une étape automatique."
+    }
+   ]
+  },
+  {
+   "id": "C",
+   "title": "C. Vérifications",
+   "steps": [
+    {
+     "id": "C1",
+     "title": "Vérifier CT 103 ct-a",
+     "agent": "pve-lan-b",
+     "kind": "verify_rsync",
+     "params": {
+      "host": "${PVE1}",
+      "src": "/var/lib/lxc/103/rootfs",
+      "dest": "/data/ovh/pve1/ct103",
+      "max_diff": 2000
+     },
+     "why": "Compare la source et la copie sans rien écrire.",
+     "check": "moins de 2000 différences (fichiers vivants)"
+    },
+    {
+     "id": "C2",
+     "title": "Vérifier CT 104 ct-b",
+     "agent": "pve-lan-b",
+     "kind": "verify_rsync",
+     "params": {
+      "host": "${PVE1}",
+      "src": "/var/lib/lxc/104/rootfs",
+      "dest": "/data/ovh/pve1/ct104",
+      "max_diff": 2000
+     },
+     "why": "Compare la source et la copie sans rien écrire.",
+     "check": "moins de 2000 différences (fichiers vivants)"
+    },
+    {
+     "id": "C3",
+     "title": "Vérifier CT 106 ct-mail",
+     "agent": "pve-lan-b",
+     "kind": "verify_rsync",
+     "params": {
+      "host": "${PVE1}",
+      "src": "/var/lib/lxc/106/rootfs",
+      "dest": "/data/ovh/pve1/ct106",
+      "max_diff": 2000
+     },
+     "why": "Compare la source et la copie sans rien écrire.",
+     "check": "moins de 2000 différences (fichiers vivants)"
+    },
+    {
+     "id": "C4",
+     "title": "Vérifier les volumes de pve-3",
+     "agent": "pve-lan-b",
+     "kind": "verify_zfs",
+     "params": {
+      "dest": "data/ovh/pve3",
+      "snapshot": "mig1"
+     },
+     "check": "chaque volume a son instantané mig1, aucune réception inachevée"
+    },
+    {
+     "id": "C5",
+     "title": "Bilan du dimanche soir : feu vert pour l'étape 2 ?",
+     "kind": "manual",
+     "params": {},
+     "why": "Tailles, démarrage d'essai d'un conteneur arrêté, reste à copier, débit réel. Décider : étape 2 ou décalage."
+    }
+   ]
+  },
+  {
+   "id": "D",
+   "title": "D. Étapes 2 à 5 (à la main pour l'instant)",
+   "note": "Seront détaillées en étapes automatiques après le bilan de l'étape 1.",
+   "steps": [
+    {
+     "id": "D2",
+     "title": "Étape 2 : pve-3 vidé (arrêtés supprimés après copie vérifiée), MED10 et JuraCSD vers pve-2, réinstallation PVE 9, test de démarrage",
+     "kind": "manual",
+     "params": {}
+    },
+    {
+     "id": "D3",
+     "title": "Étape 3 : remplir pve-3 (THD8679 et CD19 depuis pve-1), construire ob1-b et basculer OB1",
+     "kind": "manual",
+     "params": {}
+    },
+    {
+     "id": "D4",
+     "title": "Étape 4 : réinstaller pve-1, puis vider pve-2 vers pve-1 et pve-3",
+     "kind": "manual",
+     "params": {}
+    },
+    {
+     "id": "D5",
+     "title": "Étape 5 : réinstaller pve-2, rééquilibrer, réplication en anneau, sauvegardes de nuit vers le LAN",
+     "kind": "manual",
+     "params": {}
+    }
+   ]
+  }
+ ]
+}

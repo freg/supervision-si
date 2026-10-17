@@ -1,5 +1,11 @@
 [
  {
+  "n": 774,
+  "from": 774,
+  "date": "2026-10-17",
+  "title": "Tuile « Migration 2026-2027 » : plan d'étapes pré-paramétré, pilotage pas à pas, erreurs détaillées avec bouton Solution"
+ },
+ {
   "n": 773,
   "from": 773,
   "date": "2026-10-16",
@@ -232,11 +238,5 @@
   "from": 735,
   "date": "2026-10-09",
   "title": "Hub : vues à la demande, retour visuel immédiat, rafraîchissements suspendus onglet caché"
- },
- {
-  "n": 734,
-  "from": 734,
-  "date": "2026-10-09",
-  "title": "Régime mémoire de la VM du hub et passerelle HTTP/2 + compression"
  }
 ]

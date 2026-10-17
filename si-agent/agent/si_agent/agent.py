@@ -874,6 +874,24 @@ class Agent(object):
                     self.event("hostops", "info" if res.get("ok") else "warning", "geste %s %s%s" % (params.get("action"), params.get("unit") or params.get("container") or params.get("dir") or "",
                                "" if res.get("ok") else " -- " + str(res.get("error"))), {"command": c.get("id"), "actor": params.get("actor"), "reason": params.get("reason")})
                 return {"ok": res.get("ok", False), "error": res.get("error"), "result": res}
+            if ctype == "migstep":
+                # #774 : étape de la tuile « Migration 2026-2027 » (copie, vérification), détachée (systemd-run), pilotée par le hub
+                if self.is_blocked():
+                    return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
+                import subprocess as _sp
+                from . import migctl
+
+                def _runner(argv):
+                    try:
+                        r = _sp.run(argv, capture_output=True, text=True, timeout=120)
+                        return r.returncode, r.stdout or "", r.stderr or ""
+                    except Exception as exc:  # noqa: BLE001
+                        return 1, "", str(exc)
+                res = migctl.run(params, _runner)
+                self.event("migration", "info" if res.get("ok") else "warning", "migration %s %s%s" % (
+                    params.get("action"), (params.get("step") or {}).get("id") or params.get("id") or "", "" if res.get("ok") else " -- " + str(res.get("error"))),
+                    {"command": c.get("id"), "actor": params.get("actor")})
+                return {"ok": res.get("ok", False), "error": res.get("error"), "result": res}
             if ctype == "xfer":
                 # #750 : rapatriement d'un CT / d'une VM depuis un nœud Proxmox distant (export, vérification, destruction par tranches)
                 if self.is_blocked():

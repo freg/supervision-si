@@ -1,3 +1,25 @@
+## 2026-10-17 — Tuile « Migration 2026-2027 » : plan d'étapes pré-paramétré, pilotage pas à pas, erreurs détaillées avec bouton Solution (livraison #774)
+
+- Demandé : une page du hub pré-paramétrée pour suivre et piloter la migration (start, stop, pause, next, auto) avec
+  toutes les étapes retenues, chaque erreur détaillée avec une solution, et un script de mise à jour des agents par SSH.
+- Plan importé en JSON (phases, étapes, paramètres `${NOM}`), hors dépôt pour le plan réel ; modèle fictif
+  `deploy/migration/plan-exemple.json`. État en base du central (`mig_plan`, `mig_run`, `mig_steps`, `mig_log`) ; chaque
+  geste est journalisé et donne un événement.
+- Agent 0.5.71 : commande `migstep` (start, pause, resume, stop) -- étape d'un TYPE connu (contrôles SSH / place /
+  fichier, création de volume, rsync à chaud, lot rsync, envoi ZFS reprenable, flux ZFS vers fichier, vérifications),
+  paramètres validés, script détaché par `systemd-run` (survit au redémarrage de l'agent). Sonde **migration** : état,
+  code de sortie, taille copiée, débit, fin estimée, fin du journal.
+- Central : enchaînement automatique sur rapport de la sonde, suspension sur erreur, refus de l'agent repris comme
+  erreur, étape « silencieuse » signalée après 5 min, processus disparu (hôte redémarré) reconnu ; catalogue d'erreurs
+  avec cause, détail et solution (relance avec reprise, ou commande exacte et hôte où la lancer).
+- Hub : tuile Infrastructure › Migration 2026-2027 -- barre de pilotage, étape en cours en grand (avancement, débit, fin
+  estimée, journal), carte d'erreur et bouton Solution, paramètres, phases et étapes, journal des gestes, import du plan.
+- `deploy/migration/agent-ssh.sh` : mise à jour de l'agent et activation des sondes sur des hôtes, par SSH depuis un poste
+  Linux.
+- Vérifié : unittest migctl et sonde (scripts `bash -n` pour tous les types, injections refusées), test_z_migrun (parcours
+  complet par les routes : plan, variables, erreur classée, saut, automatique, étape manuelle, refus d'agent),
+  `node --test hub/tests/*.test.mjs`, syntaxe JSX. Non vérifié : exécution réelle sur pve10 / pve11, rendu navigateur.
+
 ## 2026-10-16 — Infra PVE / PBS : suivi des copies en cours (zfs send, zfs recv, rsync) avec avancement, débit et fin estimée (livraison #773)
 
 - Besoin réel : suivre depuis le hub les copies du week-end (stockage PBS vers le disque de 10 To, rsync de pve-1 et

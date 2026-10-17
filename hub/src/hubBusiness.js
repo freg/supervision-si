@@ -93,6 +93,7 @@ export const PATHS = {
   "view:pve-ops": ["equipements/hotes/hyperviseurs", "etats/incidents"],
   "view:infra": ["equipements/hotes/hyperviseurs", "etats/incidents"],   // #749 : vue d'ensemble PVE / PBS
   "view:guest-usage": ["equipements/hotes/hyperviseurs", "etats/incidents"],   // #769 : activité des CT / VM
+  "view:migration": ["etats/maintenant", "equipements/hotes/hyperviseurs"],   // #774 : Migration 2026-2027 (suivi pas à pas)
   "view:fleetviews": ["equipements/hotes", "etats/incidents"],   // #753 : vues de parc
   "view:repatriation": ["equipements/hotes/hyperviseurs", "etats/incidents"],   // #761 : assistant de rapatriement
   "view:pve-maint": ["equipements/hotes/hyperviseurs", "etats/incidents"],   // #705 : maintenance / réorganisation, sauvegardes   // #653 : opérations et plans de reprise

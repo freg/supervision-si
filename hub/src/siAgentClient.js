@@ -197,6 +197,10 @@ export const fetchRotationRuns = (apiBase, id) => fetchJson(apiBase, `/rotations
 export const fetchInfraOverview = (apiBase) => fetchJson(apiBase, "/infra/overview");   // #749
 export const fetchGuestUsage = (apiBase) => fetchJson(apiBase, "/infra/guests");   // #769 : activité des CT / VM
 export const saveGuestProfile = (apiBase, node, vmid, profile, actor) => fetchJson(apiBase, "/infra/guests/profile", json("PUT", { node, vmid, profile, actor }));
+export const fetchMigration = (apiBase) => fetchJson(apiBase, "/migration");   // #774 : tuile « Migration 2026-2027 »
+export const saveMigrationPlan = (apiBase, plan, actor) => fetchJson(apiBase, "/migration/plan", json("PUT", { plan, actor }));
+export const saveMigrationVars = (apiBase, vars, actor) => fetchJson(apiBase, "/migration/vars", json("PUT", { vars, actor }));
+export const migrationControl = (apiBase, action, step, actor) => fetchJson(apiBase, "/migration/control", json("POST", { action, step, actor }));
 export const fetchViews = (apiBase) => fetchJson(apiBase, "/views");   // #753 : vues de parc
 export const saveViews = (apiBase, views, actor) => fetchJson(apiBase, "/views", json("PUT", { views, actor }));
 export const fetchViewOverview = (apiBase, id) => fetchJson(apiBase, `/views/${encodeURIComponent(id)}/overview`);

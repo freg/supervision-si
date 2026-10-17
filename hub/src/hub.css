@@ -2557,3 +2557,31 @@ button:active:not(:disabled), a.hub-card:active, button.hub-card:active { transf
 .gu-form-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .gu-ignored td { color: var(--muted); text-decoration: line-through; }
 .gu-watched td { font-weight: 600; }
+
+/* #774 : tuile « Migration 2026-2027 » */
+.mig-bar { height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; margin: 6px 0; }
+.mig-bar-fill { height: 100%; background: var(--accent); transition: width .5s; }
+.mig-bar-fill.ok { background: var(--st-ok); }
+.mig-bar-fill.warning { background: var(--st-warning); }
+.mig-bar-fill.critical { background: var(--st-critical); }
+.mig-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
+.mig-auto { display: inline-flex; gap: 4px; align-items: center; margin-left: 8px; }
+.mig-focus { border-left: 4px solid var(--border); }
+.mig-focus.warning { border-left-color: var(--st-warning); }
+.mig-focus.critical { border-left-color: var(--st-critical); }
+.mig-focus.ok { border-left-color: var(--st-ok); }
+.mig-focus h3 { margin: 4px 0; font-size: 17px; }
+.mig-focus-head { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.mig-error { margin-top: 8px; padding: 8px 10px; border: 1px solid var(--st-critical); border-radius: 6px; }
+.mig-error p { margin: 4px 0; }
+.mig-solution { margin-top: 6px; }
+.mig-log, .mig-cmd { max-height: 240px; overflow: auto; font-size: 12px; background: var(--bg); padding: 6px 8px; border-radius: 4px; white-space: pre-wrap; word-break: break-all; }
+.mig-cmd { font-size: 13px; border: 1px dashed var(--border); }
+.mig-err-inline { display: block; color: var(--st-critical); font-size: 12px; }
+.mig-next td { font-weight: 600; }
+.mig-small { padding: 1px 6px; font-size: 12px; margin-right: 4px; }
+.mig-plan { width: 100%; font-family: monospace; font-size: 12px; margin: 6px 0; }
+.mig-vars { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px 12px; margin: 6px 0; }
+.mig-vars label { display: flex; flex-direction: column; font-size: 12px; }
+.mig-vars input { font-family: monospace; }
+.mig-need { border-color: var(--st-critical) !important; }

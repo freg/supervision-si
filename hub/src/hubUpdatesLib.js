@@ -14,6 +14,7 @@ export const UPDATE_LINKS = {
   758: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   759: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   760: [{ view: "cortex", hint: "incidents « cause Wi-Fi probable »" }],
+  774: [{ view: "migration", hint: "Nouvelle tuile : plan de migration pas à pas, Démarrer / Pause / Étape suivante / Auto, erreurs avec bouton Solution" }],
   773: [{ view: "infra", hint: "Transferts › Destinations des transferts : copié, avancement, débit, fin estimée" }],
   772: [{ view: "services", hint: "Tour › Services › Hôte du hub : fichiers (inodes), « plein dans ~ », minimum 24 h, fichiers effacés encore ouverts" }],
   771: [{ view: "guest-usage", hint: "Colonnes 13 mois, Inactif réel, Décision ; liste décideurs (CSV) ; fiche ⚙ : décision et suivi de migration" }],
