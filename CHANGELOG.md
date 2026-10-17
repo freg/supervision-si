@@ -14,6 +14,8 @@
   avec cause, détail et solution (relance avec reprise, ou commande exacte et hôte où la lancer).
 - Hub : tuile Infrastructure › Migration 2026-2027 -- barre de pilotage, étape en cours en grand (avancement, débit, fin
   estimée, journal), carte d'erreur et bouton Solution, paramètres, phases et étapes, journal des gestes, import du plan.
+- Solution « clé SSH refusée » : la clé de l'hôte est posée chez le distant par le compte personnel + sudo (sans mot de passe
+  root), depuis la maison ; vérifiée sur pve-3 le 17/10.
 - `deploy/migration/agent-ssh.sh` : mise à jour de l'agent et activation des sondes sur des hôtes, par SSH depuis un poste
   Linux.
 - Vérifié : unittest migctl et sonde (scripts `bash -n` pour tous les types, injections refusées), test_z_migrun (parcours

@@ -51,8 +51,8 @@ class Pur(unittest.TestCase):
             e = migrun.classify(s, {"state": "failed", "rc": 1, "log_tail": ["x", line]}, "pve11")
             self.assertEqual((e["code"], e["solution"]["kind"]), (code, kind), line)
         e = migrun.classify(s, {"state": "failed", "rc": 255, "log_tail": ["Permission denied (publickey)."]}, "pve11")
-        self.assertIn("ssh-copy-id", e["solution"]["command"]); self.assertIn("198.51.100.10", e["solution"]["command"])
-        self.assertEqual(e["solution"]["where"], "pve11")
+        self.assertIn("sudo sh -c", e["solution"]["command"]); self.assertIn("198.51.100.10", e["solution"]["command"])
+        self.assertEqual(e["solution"]["where"], "maison (Linux)"); self.assertIn("root@pve11", e["solution"]["command"])
         self.assertEqual(migrun.classify(s, {"state": "stopped", "rc": 143, "log_tail": []})["code"], "arret")
 
 

@@ -125,8 +125,12 @@ def _host(step):
 ERRORS = [   # (code, motif dans le journal, titre, explication, solution(step, agent) -> {label, kind: retry|command|none, command?})
     ("ssh-cle", r"Permission denied \(publickey", "Clé SSH refusée par le nœud distant",
      "L'agent se connecte en root par clé ; la clé publique de cet hôte n'est pas dans /root/.ssh/authorized_keys du nœud distant.",
-     lambda s, a: {"label": "Installer la clé (mot de passe root du distant demandé une fois), puis relancer", "kind": "command",
-                   "where": a, "command": "[ -f /root/.ssh/id_ed25519 ] || ssh-keygen -q -t ed25519 -N '' -f /root/.ssh/id_ed25519; ssh-copy-id -i /root/.ssh/id_ed25519.pub root@%s" % _host(s)}),
+     lambda s, a: {"label": "Poser la clé de %s chez le distant par ton compte + sudo (mot de passe sudo demandé une fois), puis relancer" % (a or "l'hôte"),
+                   "kind": "command", "where": "maison (Linux)",
+                   "command": ("K=$(ssh root@%s 'cat /root/.ssh/id_ed25519.pub 2>/dev/null || cat /root/.ssh/id_rsa.pub') && ssh -t $USER@%s \"sudo sh -c "
+                               "'mkdir -p /root/.ssh && chmod 700 /root/.ssh && touch /root/.ssh/authorized_keys && (grep -qxF \\\"$K\\\" /root/.ssh/authorized_keys "
+                               "|| echo \\\"$K\\\" >> /root/.ssh/authorized_keys) && chmod 600 /root/.ssh/authorized_keys && echo cle posee'\" && "
+                               "ssh root@%s 'ssh -o BatchMode=yes root@%s \"hostname; pveversion\"'") % (a or "<hôte>", _host(s), a or "<hôte>", _host(s))}),
     ("ssh-empreinte", r"Host key verification failed|REMOTE HOST IDENTIFICATION HAS CHANGED", "Empreinte du nœud distant changée",
      "Le nœud distant a été réinstallé ou son adresse a changé : son empreinte ne correspond plus à celle connue de cet hôte.",
      lambda s, a: {"label": "Oublier l'ancienne empreinte puis relancer", "kind": "command", "where": a,
