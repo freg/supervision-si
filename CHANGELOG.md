@@ -18,6 +18,10 @@
   root), depuis la maison ; vérifiée sur pve-3 le 17/10.
 - Contrôle d'un flux `zfs send` vers fichier (.zfs) : complet si son dernier enregistrement est la fin de flux (DRR_END),
   au lieu d'une comparaison de tailles trompeuse (taille du volume ≠ taille du flux) ; vu sur la copie PBS de pve10.
+- Agent 0.5.72 : copie d'un conteneur Proxmox par son numéro (`ct`) -- en service, racine vue par son processus init
+  (`/proc/<pid>/root`, /proc /sys /dev /run /tmp exclus), arrêté : `pct mount` puis `pct unmount` ; une copie rsync qui ne
+  trouve aucun fichier échoue (« SOURCE VIDE ») au lieu de réussir. Vu sur pve-1 : `/var/lib/lxc/103/rootfs` est vide
+  vu de l'hôte, la copie de B2 (et celle lancée à la main dans tmux) n'avait rien copié.
 - `deploy/migration/agent-ssh.sh` : mise à jour de l'agent et activation des sondes sur des hôtes, par SSH depuis un poste
   Linux.
 - Vérifié : unittest migctl et sonde (scripts `bash -n` pour tous les types, injections refusées), test_z_migrun (parcours

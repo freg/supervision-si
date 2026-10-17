@@ -97,9 +97,9 @@
      "kind": "rsync_pull",
      "params": {
       "host": "${PVE1}",
-      "src": "/var/lib/lxc/103/rootfs",
       "dest": "/data/ovh/pve1/ct103",
-      "conf": "/etc/pve/lxc/103.conf"
+      "conf": "/etc/pve/lxc/103.conf",
+      "ct": 103
      },
      "why": "Copie à chaud, priorité disque minimale sur pve-1 ; une relance ne recopie que la différence."
     },
@@ -110,9 +110,9 @@
      "kind": "rsync_pull",
      "params": {
       "host": "${PVE1}",
-      "src": "/var/lib/lxc/104/rootfs",
       "dest": "/data/ovh/pve1/ct104",
-      "conf": "/etc/pve/lxc/104.conf"
+      "conf": "/etc/pve/lxc/104.conf",
+      "ct": 104
      },
      "why": "Copie à chaud, priorité disque minimale sur pve-1 ; une relance ne recopie que la différence."
     },
@@ -123,9 +123,9 @@
      "kind": "rsync_pull",
      "params": {
       "host": "${PVE1}",
-      "src": "/var/lib/lxc/106/rootfs",
       "dest": "/data/ovh/pve1/ct106",
-      "conf": "/etc/pve/lxc/106.conf"
+      "conf": "/etc/pve/lxc/106.conf",
+      "ct": 106
      },
      "why": "Copie à chaud, priorité disque minimale sur pve-1 ; une relance ne recopie que la différence."
     },
@@ -182,9 +182,9 @@
      "kind": "verify_rsync",
      "params": {
       "host": "${PVE1}",
-      "src": "/var/lib/lxc/103/rootfs",
       "dest": "/data/ovh/pve1/ct103",
-      "max_diff": 2000
+      "max_diff": 2000,
+      "ct": 103
      },
      "why": "Compare la source et la copie sans rien écrire.",
      "check": "moins de 2000 différences (fichiers vivants)"
@@ -196,9 +196,9 @@
      "kind": "verify_rsync",
      "params": {
       "host": "${PVE1}",
-      "src": "/var/lib/lxc/104/rootfs",
       "dest": "/data/ovh/pve1/ct104",
-      "max_diff": 2000
+      "max_diff": 2000,
+      "ct": 104
      },
      "why": "Compare la source et la copie sans rien écrire.",
      "check": "moins de 2000 différences (fichiers vivants)"
@@ -210,9 +210,9 @@
      "kind": "verify_rsync",
      "params": {
       "host": "${PVE1}",
-      "src": "/var/lib/lxc/106/rootfs",
       "dest": "/data/ovh/pve1/ct106",
-      "max_diff": 2000
+      "max_diff": 2000,
+      "ct": 106
      },
      "why": "Compare la source et la copie sans rien écrire.",
      "check": "moins de 2000 différences (fichiers vivants)"

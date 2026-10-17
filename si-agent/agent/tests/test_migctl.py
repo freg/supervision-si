@@ -69,6 +69,30 @@ class Validate(unittest.TestCase):
         self.assertEqual(migctl.measure(st), {"type": "zfs", "target": "data/ovh/pve-c"})
 
 
+class Conteneur(unittest.TestCase):
+    def test_ct_en_service(self):   # /var/lib/lxc/<id>/rootfs est vide vu de l'hôte : racine du CT par /proc/<pid>/root
+        for k in ("rsync_pull", "verify_rsync"):
+            st, e = migctl.validate({"id": "b2", "kind": k, "params": {"host": "198.51.100.10", "ct": 103, "dest": "/data/ct103"}})
+            self.assertIsNone(e)
+            sh = migctl.script(st)
+            self.assertEqual(subprocess.run(["bash", "-n"], input=sh, text=True).returncode, 0)
+            self.assertIn("lxc-info -n $ct -p -H", sh); self.assertIn("/proc/$pid/root/", sh); self.assertIn("pct unmount", sh)
+            self.assertIn("'--exclude=/proc/*'", sh)
+        self.assertIn("SOURCE VIDE", migctl.script(migctl.validate({"id": "b", "kind": "rsync_pull", "params": {"host": "h", "src": "/x", "dest": "/y"}})[0]))
+        self.assertIsNotNone(migctl.validate({"id": "b", "kind": "rsync_pull", "params": {"host": "h", "dest": "/y"}})[1])
+        self.assertIsNotNone(migctl.validate({"id": "b", "kind": "rsync_pull", "params": {"host": "h", "ct": "103; rm", "dest": "/y"}})[1])
+
+    def test_source_vide(self):   # rsync réussi mais rien copié -> échec 12
+        d = tempfile.mkdtemp()
+        src, dst = os.path.join(d, "vide"), os.path.join(d, "dst")
+        os.makedirs(src)
+        st, _e = migctl.validate({"id": "bv", "kind": "rsync_pull", "params": {"host": "h", "src": src, "dest": dst}})
+        sh = migctl.script(st).replace("-e 'ssh", "-e 'false").replace("root@h:", "")
+        r = subprocess.run(["bash", "-c", sh], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 12, r.stdout + r.stderr)
+        self.assertIn("SOURCE VIDE", r.stdout)
+
+
 class Run(unittest.TestCase):
     def setUp(self):
         self.d = tempfile.mkdtemp()

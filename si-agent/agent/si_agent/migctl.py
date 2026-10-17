@@ -27,9 +27,9 @@ SNAP_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,62}$")
 GLOB_RE = re.compile(r"^[A-Za-z0-9._*?-]{1,64}$")
 SSH = "ssh -o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=30 -o StrictHostKeyChecking=accept-new"
 REQUIRED = {"check_ssh": ("host",), "check_space": ("path", "min_gb"), "check_file": ("path",), "zfs_create": ("dataset",),
-            "rsync_pull": ("host", "src", "dest"), "rsync_pull_all": ("host", "src_dir", "pattern", "dest_dir"),
+            "rsync_pull": ("host", "dest"), "rsync_pull_all": ("host", "src_dir", "pattern", "dest_dir"),
             "zfs_pull": ("host", "pool", "ids", "snapshot", "dest"), "zfs_send_file": ("dataset", "snapshot", "file"),
-            "verify_rsync": ("host", "src", "dest"), "verify_zfs": ("dest", "snapshot")}
+            "verify_rsync": ("host", "dest"), "verify_zfs": ("dest", "snapshot")}
 
 
 def q(s):
@@ -60,6 +60,11 @@ def validate(step):
             rx = DS_RE    # volume ZFS ou dossier
         if not isinstance(v, str) or not rx.match(v) or ".." in v:
             return None, "paramètre %s invalide : %s" % (k, str(v)[:80])
+    if kind in ("rsync_pull", "verify_rsync"):
+        if p.get("ct") not in (None, "") and not (isinstance(p["ct"], int) and 0 < p["ct"] < 10**7):
+            return None, "ct : numéro de conteneur"
+        if not p.get("ct") and not p.get("src"):
+            return None, "paramètre manquant : src (dossier) ou ct (numéro du conteneur)"
     if "ids" in p:
         if not isinstance(p["ids"], list) or not p["ids"] or not all(isinstance(i, int) and 0 < i < 10**7 for i in p["ids"]):
             return None, "ids : liste de numéros de CT / VM"
@@ -107,20 +112,35 @@ def script(step):
             q(p["dataset"]), q(p["dataset"]), q(p["dataset"]))
     elif k in ("rsync_pull", "verify_rsync"):
         bw = "--bwlimit=%d " % int(p["bwlimit_mb"] * 1024) if p.get("bwlimit_mb") else ""
-        src, dest = p["src"].rstrip("/") + "/", p["dest"].rstrip("/") + "/"
+        dest = p["dest"].rstrip("/") + "/"
+        excl = ""
+        if p.get("ct"):
+            # #774 : sous Proxmox, /var/lib/lxc/<id>/rootfs est VIDE vu de l'hôte quand le CT tourne (montage dans l'espace
+            # de noms du conteneur) -> racine du conteneur vue par son processus init (/proc/<pid>/root) ; CT arrêté : pct mount.
+            body = ("ct=%d; mounted=0\npid=$(%s %s \"lxc-info -n $ct -p -H 2>/dev/null\")\n"
+                    "if [ -n \"$pid\" ]; then src=\"/proc/$pid/root/\"; echo \"CT $ct en service (pid $pid) : copie depuis $src\"\n"
+                    "else %s %s \"pct mount $ct\" >/dev/null 2>&1; mounted=1; src=\"/var/lib/lxc/$ct/rootfs/\"; echo \"CT $ct arrêté : monté pour la copie ($src)\"; fi\n"
+                    "cleanup() { [ $mounted = 1 ] && %s %s \"pct unmount $ct\" >/dev/null 2>&1; true; }\n") % (int(p["ct"]), SSH, q(h), SSH, q(h), SSH, q(h))
+            excl = "'--exclude=/proc/*' '--exclude=/sys/*' '--exclude=/dev/*' '--exclude=/run/*' '--exclude=/tmp/*' "
+        else:
+            body = "src=%s\ncleanup() { true; }\n" % q(p["src"].rstrip("/") + "/")
+        out = "/tmp/si-mig-%s.out" % step["id"]
         if k == "rsync_pull":
-            body = ("d=%s\nif pgrep -af \"rsync .*$d\" | grep -v \"@@\" | grep -q .; then echo \"UN AUTRE RSYNC ÉCRIT DÉJÀ DANS $d\"; pgrep -af \"rsync .*$d\"; exit 7; fi\n"
-                    "mkdir -p \"$d\"\n") % q(dest)
+            body += ("d=%s\nif pgrep -af \"rsync .*$d\" | grep -v \"@@\" | grep -q .; then echo \"UN AUTRE RSYNC ÉCRIT DÉJÀ DANS $d\"; pgrep -af \"rsync .*$d\"; cleanup; exit 7; fi\n"
+                     "mkdir -p \"$d\"\n") % q(dest)
             if p.get("conf"):
                 body += "scp -o BatchMode=yes %s:%s %s && echo \"configuration copiée\"\n" % (q(h), q(p["conf"]), q(dest.rstrip("/") + ".conf"))
-            body += ("rsync -aHAX --numeric-ids --sparse --stats %s--rsync-path='ionice -c3 nice rsync' -e %s %s:%s \"$d\"\n"
-                     "rc=$?; [ $rc -eq 24 ] && { echo \"(fichiers disparus pendant la copie : normal sur un conteneur en service)\"; rc=0; }\nexit $rc\n") % (
-                bw, q(SSH), q(h), q(src))
+            body += ("rsync -aHAX --numeric-ids --sparse --stats %s%s--rsync-path='ionice -c3 nice rsync' -e %s %s:\"$src\" \"$d\" 2>&1 | tee %s; rc=${PIPESTATUS[0]}\n"
+                     "[ $rc -eq 24 ] && { echo \"(fichiers disparus pendant la copie : normal sur un conteneur en service)\"; rc=0; }\n"
+                     "n=$(sed -n 's/^Number of files: \\([0-9,.]*\\).*/\\1/p' %s | tr -d ',.'); rm -f %s; cleanup\n"
+                     "[ $rc -ne 0 ] && exit $rc\n"
+                     "[ \"${n:-0}\" -gt 1 ] || { echo \"SOURCE VIDE : aucun fichier à copier dans $src (CT arrêté ? mauvais chemin ?)\"; exit 12; }\n"
+                     "echo \"$n fichier(s) et dossier(s) dans la source\"\n") % (bw, excl, q(SSH), q(h), out, out, out)
         else:
-            body = ("n=$(rsync -aHAXn --numeric-ids --delete --itemize-changes -e %s %s:%s %s | grep -vc '^\\.')\n"
-                    "echo \"différences restantes : $n\"\n"
-                    "[ \"$n\" -le %d ] || { echo \"TROP DE DIFFÉRENCES ($n) : relancer la copie\"; exit 8; }\n") % (
-                q(SSH), q(h), q(src), q(dest), int(p.get("max_diff", 2000)))
+            body += ("n=$(rsync -aHAXn --numeric-ids --delete --itemize-changes %s-e %s %s:\"$src\" %s | grep -vc '^\\.'); cleanup\n"
+                     "echo \"différences restantes : $n\"\n"
+                     "[ \"$n\" -le %d ] || { echo \"TROP DE DIFFÉRENCES ($n) : relancer la copie\"; exit 8; }\n") % (
+                excl, q(SSH), q(h), q(dest), int(p.get("max_diff", 2000)))
     elif k == "rsync_pull_all":
         bw = "--bwlimit=%d " % int(p["bwlimit_mb"] * 1024) if p.get("bwlimit_mb") else ""
         body = ("mkdir -p %s\nfail=0\n"
