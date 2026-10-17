@@ -336,3 +336,18 @@ class Pilote777(unittest.TestCase):
         parts = gu.parse_guest(guests[0]["sections"]["exec"])
         self.assertIn("end", parts, guests[0]["sections"]["exec"][-300:])
         self.assertIn("internal", parts)
+
+
+class Connexions777(unittest.TestCase):
+    def test_ss_ancien_et_recent(self):
+        """ss d'iproute2 2014 (Debian 9) : pas d'option -H, l'aide sortait sur la sortie standard (« C 0 34 21 »)."""
+        if not shutil.which("bash"):
+            self.skipTest("bash absent")
+        s = gu.GUEST_SH
+        part = s[s.index("if command -v ss"):s.index("ps -eo comm=")]
+        fake = ("Recv-Q Send-Q Local Address:Port Peer Address:Port\n0 0 192.0.2.5:443 198.51.100.7:51000\n0 0 192.0.2.5:443 198.51.100.8:51001\n"
+                "0 0 [::ffff:192.0.2.5]:22 [::ffff:198.51.100.7]:40000\n0 0 192.0.2.5:45000 192.0.2.9:3306\n0 0 127.0.0.1:3306 127.0.0.1:50000\nUsage: ss [ OPTIONS ]\n")
+        out = subprocess.run(["bash", "-c", "ss() { printf '%s' \"$FAKE\"; }\n" + part], env={"FAKE": fake, "PATH": os.environ["PATH"]},
+                             capture_output=True, text=True).stdout
+        res, _d = gu.parse_internal(out, dt.datetime(2026, 10, 17))
+        self.assertEqual(res["conns"], [{"port": 443, "n": 2, "peers": 2}, {"port": 22, "n": 1, "peers": 1}])

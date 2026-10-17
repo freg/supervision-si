@@ -19,6 +19,8 @@
   (pve-1 relevé par deux agents apparaissait deux fois : « pve-1 » et « ns3037858 »).
 - Correctif 2 (agent 0.5.77) : la cause réelle, vue sur pve-3 (bash 4.4, pct de PVE 5.4) : `pct exec <ct> -- sh -c "<script>"` perd un
   argument de plusieurs lignes (un argument court passe) ; le script est donc passé par l'entrée standard (`pct exec ... sh -s`).
+- Correctif 3 (agent 0.5.78), vu sur le CT 102 de pve-3 (Debian 9 : mawk 1.3.3, iproute2 2014) : `ss -H` inconnu, l'aide sortait sur la
+  sortie standard et faussait les connexions établies (« port 0 ») ; lignes de données reconnues sans l'option -H.
 - Vérifié : test_guest_usage (script réel sur auth.log / mail.log / .gz / dossiers factices : SSH, sudo, postfix, fichiers,
   caches ignorés, reprise), test_z_guestusage, `node --test`. Non vérifié : invités réels (pve-1 doit figurer dans
   pve-remote.json de l'agent qui porte la sonde), rendu navigateur.

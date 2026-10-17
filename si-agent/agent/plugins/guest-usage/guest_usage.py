@@ -132,7 +132,7 @@ if [ -n "$FD" ]; then
     END { for (d in c) print "M", d, c[d]; if (ld != "") print "ML", ld, lt }'
 fi
 find "$LG" -xdev -type f -mmin -1440 ! -name '*.gz' ! -name '*.[0-9]' ! -name 'wtmp*' ! -name 'lastlog' -printf 'G %T@ %s %p\n' 2>/dev/null | sort -k2,2nr | head -n 12
-if command -v ss >/dev/null 2>&1; then ss -Htn state established 2>/dev/null | awk '{print $3, $4}'
+if command -v ss >/dev/null 2>&1; then ss -tn state established 2>/dev/null | awk '$1 ~ /^[0-9]+$/ && NF >= 4 {print $3, $4}'
 else netstat -tn 2>/dev/null | awk '$6 == "ESTABLISHED" {print $4, $5}'; fi | awk '
   { r = $2; sub(/:[0-9]+$/, "", r); n = split($1, a, ":"); p = a[n] + 0
     if (p >= 32768 || r ~ /^(127\.|\[?::1|\[?::ffff:127\.)/) next
