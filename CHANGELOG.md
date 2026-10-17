@@ -11,6 +11,8 @@
   « Import en cours… ».
 - Migration (agent 0.5.81) : le lot rsync (pve-2 → disque de 10 To) échoue « SOURCE VIDE » quand aucun dossier ne correspond, au lieu
   de réussir sans rien copier.
+- Migration (agent 0.5.82) : l'envoi ZFS échoue « VOLUME MANQUANT » (code 13) si un des CT / VM demandés n'a aucun disque sur la
+  source, au lieu de réussir avec les seuls volumes trouvés (vu : 9106 absent de pve-3, B5 « réussie » avec 102 et 119).
 - Vérifié : `node --test` (dont actionFeedbackLib), syntaxe JSX, **essai réel dans Chromium** (bouton occupé pendant l'envoi,
   second clic bloqué, bandeau « déjà en cours… » puis message du serveur), test_z_migrun. Non vérifié : chaque tuile une à une.
 

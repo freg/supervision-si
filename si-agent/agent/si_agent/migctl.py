@@ -155,13 +155,15 @@ def script(step):
         body = ("snap=%s; dest=%s; fail=0\nzfs list \"$dest\" >/dev/null 2>&1 || zfs create -p -o compression=lz4 \"$dest\"\n"
                 "list=$(%s %s \"zfs list -H -o name -r %s | grep -E '/(subvol|vm)-(%s)-disk-[0-9]+\\$'\")\n"
                 "[ -n \"$list\" ] || { echo \"AUCUN VOLUME TROUVÉ pour %s sur %s\"; exit 9; }\n"
+                "for i in %s; do echo \"$list\" | grep -Eq \"/(subvol|vm)-$i-disk-[0-9]+\\$\" || { echo \"VOLUME MANQUANT : aucun disque pour $i sur la source\"; miss=1; }; done\n"
                 "for ds in $list; do dst=\"$dest/$(basename $ds)\"; echo \"== $ds -> $dst\"\n"
                 "  %s %s \"zfs list -H -t snapshot $ds@$snap >/dev/null 2>&1 || zfs snapshot $ds@$snap\" || { fail=10; continue; }\n"
                 "  if zfs list -H \"$dst@$snap\" >/dev/null 2>&1; then echo \"déjà reçu\"; continue; fi\n"
                 "  tok=$(zfs get -H -o value receive_resume_token \"$dst\" 2>/dev/null)\n"
                 "  if [ -n \"$tok\" ] && [ \"$tok\" != \"-\" ]; then echo \"reprise\"; %s %s \"zfs send -t $tok\" %s| zfs recv -s -u \"$dst\" || fail=11\n"
-                "  else %s %s \"zfs send -c $ds@$snap\" %s| zfs recv -s -u \"$dst\" || fail=11; fi\ndone\nexit $fail\n") % (
-            q(p["snapshot"]), q(p["dest"]), SSH, q(h), q(p["pool"]), ids, ids, p["host"], SSH, q(h), SSH, q(h), _limit(p), SSH, q(h), _limit(p))
+                "  else %s %s \"zfs send -c $ds@$snap\" %s| zfs recv -s -u \"$dst\" || fail=11; fi\ndone\n"
+                "[ \"${miss:-0}\" = 1 ] && [ $fail = 0 ] && fail=13\nexit $fail\n") % (
+            q(p["snapshot"]), q(p["dest"]), SSH, q(h), q(p["pool"]), ids, ids, p["host"], " ".join(str(i) for i in p["ids"]), SSH, q(h), SSH, q(h), _limit(p), SSH, q(h), _limit(p))
     elif k == "zfs_send_file":
         body = ("s=%s; f=%s; mkdir -p \"$(dirname \"$f\")\"\nzfs list -H -t snapshot \"$s\" >/dev/null 2>&1 || zfs snapshot \"$s\"\n"
                 "[ -f \"$f\" ] && { echo \"fichier déjà présent, recopie complète (un flux ZFS ne se reprend pas)\"; }\n"
