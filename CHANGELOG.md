@@ -24,7 +24,12 @@
 - CT ARRÊTÉS (agent 0.5.79) : analysés une fois hors ligne, comme une reprise d'historique -- `pct mount`, même script sur la racine
   montée (journaux web, wtmp, SSH / sudo / courriels, dates de fichiers sur 800 j ; ni MySQL, ni processus, ni connexions),
   `pct unmount` aussitôt ; une marque par CT monté fait démonter au passage suivant un CT resté monté après un arrêt brutal.
-  Les VM arrêtées ne sont pas montées (disques virtuels : à décider à part).
+- VM ARRÊTÉES (agent 0.5.80), choix de la personne : jamais Windows ; tâche de fond détachée (systemd-run), une VM à la fois par
+  nœud, UNE seule lecture tant que la VM n'a pas redémarré (signature des disques : taille / date des fichiers, octets écrits
+  des zvol), VM verrouillée par Proxmox pendant la lecture (`qm set --lock backup`, elle ne peut pas démarrer), disques ouverts
+  un par un en LECTURE SEULE (zvol / LV, `losetup -r` pour .raw, `qemu-nbd -r` pour .qcow2), ext2-4 / xfs / btrfs montés ro
+  sans rejouer le journal ; jamais : NTFS, pool ZFS interne (jamais importé), LVM interne, chiffré ; tout est démonté,
+  détaché, déverrouillé (et défait au passage suivant si la tâche a été interrompue) ; la VM est marquée « lue » sur le nœud.
 - Vérifié : test_guest_usage (script réel sur auth.log / mail.log / .gz / dossiers factices : SSH, sudo, postfix, fichiers,
   caches ignorés, reprise), test_z_guestusage, `node --test`. Non vérifié : invités réels (pve-1 doit figurer dans
   pve-remote.json de l'agent qui porte la sonde), rendu navigateur.

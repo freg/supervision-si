@@ -385,3 +385,60 @@ class HorsLigne777(unittest.TestCase):
         self.assertFalse([f for f in os.listdir(d) if f.startswith("mk.")])   # marque retirée
         out2 = subprocess.run(["bash", "-s"], input=gu.driver_script(done=[113]), capture_output=True, text=True, timeout=60, env=env).stdout
         self.assertNotIn("## offline", out2)   # une seule fois
+
+
+class VmArretee777(unittest.TestCase):
+    """#777 : VM arrêtée lue une fois en tâche de fond (faux qm / pvesm / systemd-run exécuté sur place), Windows jamais."""
+
+    def setUp(self):
+        if not shutil.which("bash"):
+            self.skipTest("bash absent")
+        self.d = tempfile.mkdtemp()
+        d = self.d
+        open(os.path.join(d, "disk.raw"), "wb").write(b"\0" * 4096)
+        self.log = os.path.join(d, "calls.log")
+        self.ostype = os.path.join(d, "ostype")
+        open(self.ostype, "w").write("l26")
+        fakes = {
+            "qm": '#!/bin/sh\necho "qm $@" >> %(log)s\ncase "$1" in list) echo "VMID NAME STATUS"; echo "120 vieille stopped";; status) echo "status: stopped";;\n'
+                  '  config) echo "ostype: $(cat %(os)s)"; echo "scsi0: local:120/vm-120-disk-0.raw,size=1G"; echo "ide2: none,media=cdrom";; esac\nexit 0\n',
+            "pvesm": '#!/bin/sh\necho %(d)s/disk.raw\n',
+            "pct": "#!/bin/sh\nexit 0\n",
+            "pvesh": "#!/bin/sh\necho '[]'\n",
+            "losetup": '#!/bin/sh\necho "losetup $@" >> %(log)s\nexit 1\n',
+            "systemctl": "#!/bin/sh\nexit 0\n",
+            "systemd-run": '#!/bin/sh\necho "systemd-run $@" >> %(log)s\nwhile [ $# -gt 0 ]; do case "$1" in --setenv=*) export "${1#--setenv=}";; /bin/bash) shift; exec /bin/bash "$@";; esac; shift; done\n',
+        }
+        for n, body in fakes.items():
+            with open(os.path.join(d, n), "w") as fh:
+                fh.write(body % {"log": self.log, "os": self.ostype, "d": d})
+            os.chmod(os.path.join(d, n), 0o755)
+        self.env = dict(os.environ, PATH=d + ":" + os.environ["PATH"], SI_VMREAD_DIR=os.path.join(d, "vr"), SI_MOUNT_MARK=os.path.join(d, "mk"))
+
+    def drive(self):
+        out = subprocess.run(["bash", "-s"], input=gu.driver_script(), capture_output=True, text=True, timeout=120, env=self.env).stdout
+        _n, guests, done = gu.parse_driver(out)
+        self.assertTrue(done)
+        return out, gu.build("pve-a", guests, {}, dt.datetime(2026, 10, 17))[0][0]
+
+    def test_une_seule_lecture(self):
+        out1, _r = self.drive()
+        self.assertIn("@@info VM 120 : lecture hors ligne lancée", out1)
+        calls = open(self.log).read()
+        self.assertIn("qm set 120 --lock backup", calls); self.assertIn("qm unlock 120", calls); self.assertIn("losetup -r -P -f --show", calls)
+        self.assertTrue(os.path.exists(os.path.join(self.d, "vr", "120.sig")))
+        self.assertFalse(os.path.exists(os.path.join(self.d, "vr", "mounted.120")))   # tout défait
+        out2, r = self.drive()
+        self.assertNotIn("lecture hors ligne lancée", out2)                           # lue : pas de nouvelle lecture
+        self.assertTrue(r["offline"]); self.assertIn("aucun système Linux lisible", r["error"])
+        open(os.path.join(self.d, "disk.raw"), "ab").write(b"x")                       # la VM a tourné : disque modifié
+        out3, _r = self.drive()
+        self.assertIn("lecture hors ligne lancée", out3)
+
+    def test_windows_jamais(self):
+        open(self.ostype, "w").write("win10")
+        self.drive()
+        calls = open(self.log).read()
+        self.assertNotIn("--lock", calls); self.assertNotIn("losetup", calls)
+        _o, r = self.drive()
+        self.assertIn("Windows : jamais lue", r["error"])

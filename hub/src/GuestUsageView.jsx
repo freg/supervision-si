@@ -117,6 +117,8 @@ function Detail({ row, now, onSave, saving }) {
           <figcaption>{row.vmid} {row.name} <span className="infra-note">{row.type === "qemu" ? "VM" : "CT"} · {row.node} · {row.status}{row.os ? ` · ${row.os}` : ""}</span></figcaption>
           {row.error && <p className="infra-error">{row.error} <JournalLinks agentId={row.agent_id} q="guest-usage" /></p>}
           {row.source === "inventaire" && <p className="infra-muted">Connu de l'inventaire seulement : sonde guest-usage absente pour ce nœud.</p>}
+          {row.offline && <p className="infra-note">Lu hors ligne ({row.type === "qemu" ? "VM" : "CT"} arrêté, disques montés en lecture seule puis démontés) : journaux, connexions et dates de fichiers jusqu'à son arrêt.</p>}
+          {(row.offline_notes || []).length > 0 && <ul className="infra-muted">{row.offline_notes.map((n) => <li key={n}>{n}</li>)}</ul>}
           <table className="infra-table"><tbody>
             <tr><td>Dernière activité</td><td><When v={lastActivity(row)} now={now} /></td></tr>
             <tr><td>Activité réelle</td><td><span className={`infra-status ${ACT_TONE[actClass(row)]}`}>{actClass(row)}</span> {idleSince(row)}{row.profile?.decision && <> · décision : <b>{decisionLabel(row.profile.decision)}</b>{row.profile.migration_status ? ` (${statusLabel(row.profile.migration_status)})` : ""}</>}</td></tr>

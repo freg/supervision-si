@@ -144,6 +144,67 @@ else netstat -tn 2>/dev/null | awk '$6 == "ESTABLISHED" {print $4, $5}'; fi | aw
 echo "## end"
 """
 
+VMREAD_SH = r"""
+# #777 : lecture HORS LIGNE d'une VM ARRÊTÉE (non Windows), tâche de fond détachée (systemd-run), une seule fois tant que la
+# VM n'a pas redémarré (signature des disques). VM verrouillée par Proxmox pendant la lecture (qm set --lock backup : elle
+# ne peut pas démarrer), disques ouverts UN PAR UN en LECTURE SEULE (zvol / LV : bloc ; .raw : losetup -r ; .qcow2 :
+# qemu-nbd -r), systèmes ext2-4, xfs, btrfs montés ro (sans rejouer le journal) ; jamais : NTFS, pool ZFS interne (jamais
+# importé), LVM interne, chiffré. Le script de l'invité tourne sur la racine montée ; tout est démonté et détaché, la VM
+# déverrouillée ; résultat dans $VR/<vmid>.out, signature dans $VR/<vmid>.sig (VM « lue »).
+set -u
+OUT="$VR/$VMID.out.tmp"; : > "$OUT"; MKV="$VR/mounted.$VMID"; MNT=/run/si-gu-vm/$VMID
+note() { echo "V $*" >> "$OUT"; }
+fin() { echo "$SIG" > "$VR/$VMID.sig"; mv -f "$OUT" "$VR/$VMID.out"; }
+undo() {   # démonte, détache, désactive, déverrouille (aussi appelé au passage suivant si la tâche a été tuée)
+  [ -f "$MKV" ] || return 0
+  for m in $(awk -v p="$MNT/" 'index($2, p) == 1 {print $2}' /proc/mounts | sort -r); do umount "$m" 2>/dev/null || umount -l "$m"; done
+  while read k v; do case "$k" in loop) losetup -d "$v" 2>/dev/null ;; nbd) qemu-nbd -d "$v" >/dev/null 2>&1 ;; lv) lvchange -an "$v" >/dev/null 2>&1 ;; lock) qm unlock "$VMID" 2>/dev/null ;; esac; done < "$MKV"
+  rm -f "$MKV"; rmdir "$MNT"/* "$MNT" 2>/dev/null; true
+}
+[ "${1:-}" = undo ] && { undo; exit 0; }
+[ "$(qm status "$VMID" 2>/dev/null | awk '{print $2}')" = stopped ] || { note "VM démarrée entre-temps : non lue"; exit 0; }
+case "$(qm config "$VMID" 2>/dev/null | sed -n 's/^ostype: //p')" in win*) note "Windows : jamais lue (choix)"; fin; exit 0 ;; esac
+qm config "$VMID" | grep -q '^lock:' && { note "VM déjà verrouillée ($(qm config "$VMID" | sed -n 's/^lock: //p')) : non lue"; exit 0; }
+: > "$MKV"; trap undo EXIT
+qm set "$VMID" --lock backup >/dev/null 2>&1 && echo "lock 1" >> "$MKV" || { note "verrou Proxmox impossible : non lue"; exit 0; }
+mkdir -p "$MNT"; ROOT=""; VARP=""
+for vol in $(qm config "$VMID" | awk '/^(scsi|virtio|sata|ide)[0-9]+: / && !/media=cdrom/ {sub(/^[a-z]+[0-9]+: /, ""); split($0, a, ","); if (a[1] != "none") print a[1]}'); do
+  p=$(pvesm path "$vol" 2>/dev/null) || { note "disque $vol : chemin inconnu"; continue; }
+  dev=""
+  case "$p" in
+    *.qcow2) modprobe nbd max_part=16 2>/dev/null
+             for n in /dev/nbd[0-9]*; do [ "$(cat /sys/block/${n#/dev/}/size 2>/dev/null)" = 0 ] || continue
+               qemu-nbd -r -c "$n" "$p" >/dev/null 2>&1 && { echo "nbd $n" >> "$MKV"; dev=$n; sleep 2; }; break; done ;;
+    *.raw|*.img) [ -f "$p" ] && dev=$(losetup -r -P -f --show "$p" 2>/dev/null) && echo "loop $dev" >> "$MKV" ;;
+    *) if [ -b "$p" ]; then dev=$p
+       elif lvchange -ay "$p" >/dev/null 2>&1 && [ -b "$p" ]; then dev=$p; echo "lv $p" >> "$MKV"; fi ;;
+  esac
+  [ -n "$dev" ] || { note "disque $vol : non ouvert ($p)"; continue; }
+  partprobe "$dev" 2>/dev/null; udevadm settle 2>/dev/null
+  lsblk -rnpo NAME,FSTYPE "$dev" 2>/dev/null > "$OUT.parts"
+  while read n fs; do
+    case "$fs" in
+      ext2|ext3|ext4) o=ro,noload ;; xfs) o=ro,norecovery ;; btrfs) o=ro ;;
+      "") continue ;;
+      zfs_member) note "$vol : pool ZFS interne, jamais importé"; continue ;;
+      ntfs|vfat|exfat) note "$vol : $fs non lu"; continue ;;
+      *) note "$vol : $fs non lu"; continue ;;
+    esac
+    m="$MNT/$(basename "$n")"; mkdir -p "$m"
+    mount -o "$o" "$n" "$m" 2>/dev/null || { note "$n ($fs) : montage refusé"; continue; }
+    if [ -z "$ROOT" ] && [ -f "$m/etc/os-release" ]; then ROOT=$m
+    elif [ -z "$VARP" ] && [ -d "$m/log" ] && [ -d "$m/lib" ]; then VARP=$m; fi
+  done < "$OUT.parts"
+  rm -f "$OUT.parts"
+done
+if [ -n "$ROOT" ]; then
+  [ -n "$VARP" ] && [ ! -f "$ROOT/var/log/syslog" ] && export SI_LOG="$VARP/log"
+  SI_DEEP=1 SI_ROOT="$ROOT" timeout 900 sh "$VR/guest.sh" >> "$OUT" 2>&1
+else note "aucun système Linux lisible sur les disques"; fi
+undo; trap - EXIT; fin
+"""
+
+
 # Tout le script est une fonction lue en entier par `bash -s` puis exécutée entrée standard fermée : sans cela,
 # pct / qm / pvesh avaleraient la suite du script envoyé sur l'entrée standard.
 DRIVER_SH = r"""si_main() {
@@ -180,9 +241,33 @@ pct list 2>/dev/null | awk 'NR>1 {print $1, $2, $NF}' | while read id st name; d
     echo
   fi; fi
 done
+# #777 : VM arrêtées -- lecture hors ligne par une tâche de fond (une VM à la fois par nœud, une seule fois tant qu'elle n'a pas
+# redémarré) ; ce passage renvoie le dernier résultat lu ; tâche interrompue : tout est défait au passage suivant
+VR=${SI_VMREAD_DIR:-/var/lib/si-agent/gu-vmread}; mkdir -p "$VR" 2>/dev/null
+cat > "$VR/job.sh" <<'__SI_VMREAD__'
+__SI_VMREAD_BODY__
+__SI_VMREAD__
+cp -f "$GF" "$VR/guest.sh"
+vsig() { qm config $1 2>/dev/null | awk '/^(scsi|virtio|sata|ide)[0-9]+: / && !/media=cdrom/ {sub(/^[a-z]+[0-9]+: /, ""); split($0, a, ","); print a[1]}' | while read v; do
+  p=$(pvesm path "$v" 2>/dev/null); if [ -f "$p" ]; then stat -c "%%s:%%Y" "$p"
+  elif [ -b "$p" ] && ds=$(zfs list -H -o name "$p" 2>/dev/null); then zfs get -Hp -o value written,referenced "$ds" | tr '\n' ':'
+  else echo "$v"; fi; done | tr '\n' ' '; }
+JOB=$(systemctl list-units --no-legend --plain 'si-gu-vmread-*' 2>/dev/null | awk 'NR==1 {print $1}')
+for m in "$VR"/mounted.*; do [ -f "$m" ] || continue; i=${m##*.}; case "$i" in *[!0-9]*) continue ;; esac
+  [ -n "$JOB" ] && continue; VMID=$i VR=$VR SIG=- bash "$VR/job.sh" undo; echo "@@warn VM $i : lecture interrompue défaite"; done
 qm list 2>/dev/null | awk 'NR>1 {print $1, $3, $2}' | while read id st name; do
   echo "=== qemu $id $st $name"; rrd qemu $id
   [ "$st" = running ] && { deep $id; echo "## qga"; timeout $T qm guest exec $id --timeout $((T - 10)) -- sh -c "$P$G" </dev/null 2>&1 | head -c 4000000; echo; }
+  if [ "$st" = stopped ]; then
+    sig=$(vsig $id)
+    if [ -f "$VR/$id.sig" ] && [ "$(cat "$VR/$id.sig")" = "$sig" ]; then
+      [ -f "$VR/$id.out" ] && { echo "## offline"; head -c 3000000 "$VR/$id.out"; echo; }
+    elif [ -z "$JOB" ] && command -v systemd-run >/dev/null 2>&1; then
+      JOB="si-gu-vmread-$id"
+      systemd-run --unit "$JOB" --collect --quiet --setenv=VMID=$id --setenv=VR="$VR" --setenv=SIG="$sig" /bin/bash "$VR/job.sh" >/dev/null 2>&1 \
+        && echo "@@info VM $id : lecture hors ligne lancée en tâche de fond"
+    fi
+  fi
 done
 rm -f "$GF"
 echo "@@done"
@@ -193,7 +278,7 @@ si_main </dev/null
 
 def driver_script(done=(), ndeep=DEEP_PER_PASS):
     """done : vmid dont l'historique est déjà repris (pas de nouvelle reprise)."""
-    return (DRIVER_SH % GUEST_SH.rstrip("\n")).replace("__SI_DONE__", " ".join(str(int(i)) for i in sorted(done, key=int))).replace("__SI_NDEEP__", str(int(ndeep)))
+    return (DRIVER_SH % GUEST_SH.rstrip("\n")).replace("__SI_VMREAD_BODY__", VMREAD_SH.strip("\n")).replace("__SI_DONE__", " ".join(str(int(i)) for i in sorted(done, key=int))).replace("__SI_NDEEP__", str(int(ndeep)))
 
 
 # ---------------------------------------------------------------- découpage
@@ -596,9 +681,14 @@ def build(node_name, guests, state, now, full=True):
              "os": None, "web": None, "login": None, "mysql": None, "internal": None}
         r.update(rrd_stats(s.get("rrd day"), s.get("rrd week"), now))
         days = {"web": [], "login": [], "mysql": [], "ssh": [], "sudo": [], "mail": [], "files": [], "rrd": rrd_days(s.get("rrd month")), "rrd_weeks": rrd_weeks(s.get("rrd year")), "deep": False}
-        offline = g["status"] != "running" and g["type"] == "lxc" and "offline" in s
+        offline = g["status"] != "running" and "offline" in s
         if g["status"] == "running" or offline:
-            raw, err = (s.get("offline" if offline else "exec"), None) if g["type"] == "lxc" else unwrap_qga(s.get("qga"))
+            raw, err = (s.get("offline" if offline else "exec"), None) if (g["type"] == "lxc" or offline) else unwrap_qga(s.get("qga"))
+            if offline:
+                notes = [ln[2:].strip() for ln in (raw or "").splitlines() if ln.startswith("V ")]
+                r["offline_notes"] = notes[:20]
+                if notes and "## end" not in (raw or ""):
+                    err = "; ".join(notes)[:300]
             r["offline"] = offline
             parts = parse_guest(raw)
             if "end" not in parts:

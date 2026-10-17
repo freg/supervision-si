@@ -97,7 +97,9 @@ def row_from(node, zone, at, agent_id, g, profile):
             "cpu": {"now": _num(g.get("cpu_now")), "avg24": _num(g.get("cpu_avg24")), "max24": _num(g.get("cpu_max24")),
                     "avg7d": _num(g.get("cpu_avg7d")), "ncpu": g.get("ncpu"), "series": g.get("cpu_series") or []},
             "net24": {"in": g.get("netin24"), "out": g.get("netout24")},
-            "web": w, "login": lg, "mysql": my, "internal": g.get("internal") if isinstance(g.get("internal"), dict) else None, "profile": profile or {}}
+            "web": w, "login": lg, "mysql": my, "internal": g.get("internal") if isinstance(g.get("internal"), dict) else None,
+            "offline": bool(g.get("offline")), "offline_notes": [str(x)[:200] for x in (g.get("offline_notes") or [])][:20] if isinstance(g.get("offline_notes"), list) else [],
+            "profile": profile or {}}
 
 
 def assemble(reports, inventory_vms, profiles, activity_map=None):
