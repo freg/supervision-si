@@ -14,6 +14,7 @@ export const UPDATE_LINKS = {
   758: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   759: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   760: [{ view: "cortex", hint: "incidents « cause Wi-Fi probable »" }],
+  777: [{ view: "guest-usage", hint: "Fiche d'un CT / VM : SSH, sudo, fichiers modifiés, courriels, connexions établies, journaux récents ; mois : SSH, fichiers, courriels" }],
   776: [{ view: "edge", hint: "Nouvelle tuile : couple de proxys d'entrée, bascule vers un autre serveur interne, contrôle DNS et alerte « DNS à configurer »" }],
   775: [{ view: "latency", hint: "Nouvelle tuile : latence de toutes les IP publiques, points de mesure (agent, compte + sudo, rebond), erreurs avec solution" }],
   774: [{ view: "migration", hint: "Nouvelle tuile : plan de migration pas à pas, Démarrer / Pause / Étape suivante / Auto, erreurs avec bouton Solution" }],

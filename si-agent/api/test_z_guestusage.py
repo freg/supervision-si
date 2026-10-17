@@ -100,7 +100,7 @@ class Activite771(unittest.TestCase):
                   "mysql": {"2026-10-12": {"connections": 0, "questions": 10}},
                   "rrd": {"2026-10-10": {"cpu": 4.0, "netin": 10, "netout": 5}}, "rrdw": {"2025-11-03": {"cpu": 1.0, "netin": 7}}}
         r = gu.summarize(series, "2026-10-16")
-        self.assertEqual(r["last_active"], {"web": "2025-11-03", "login": "2026-03-01", "mysql": None})   # 2 req. / 10 requêtes : sous les seuils
+        self.assertEqual(r["last_active"], {"web": "2025-11-03", "login": "2026-03-01", "mysql": None, "ssh": None, "sudo": None})   # 2 req. / 10 requêtes : sous les seuils
         self.assertEqual((r["last_any"], r["idle_days"], r["class"]), ("2026-03-01", 229, "inactif"))
         self.assertEqual(r["first_day"], "2025-11-03")
         m = {x["month"]: x for x in r["months"]}
@@ -144,3 +144,20 @@ class Activite771(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Interne777(unittest.TestCase):
+    def test_ssh_sudo_comptent_fichiers_indirects(self):
+        s = gu.summarize({"ssh": {"2026-09-01": {"logins": 2, "users": 1}}, "sudo": {"2026-09-03": {"cmds": 1}},
+                          "files": {"2026-10-10": {"files": 40}}, "mail": {"2026-10-12": {"sent": 3}}}, "2026-10-17")
+        self.assertEqual((s["last_any"], s["last_active"]["ssh"], s["last_active"]["sudo"]), ("2026-09-03", "2026-09-01", "2026-09-03"))
+        self.assertEqual((s["last_indirect_any"], s["last_indirect"]["files"], s["last_indirect"]["mail"]), ("2026-10-12", "2026-10-10", "2026-10-12"))
+        self.assertEqual(s["class"], "dormant")   # les signes indirects ne rendent pas « actif »
+        m = {x["month"]: x for x in s["months"]}
+        self.assertEqual((m["2026-09"]["ssh_logins"], m["2026-09"]["sudo"], m["2026-10"]["files"], m["2026-10"]["mail_sent"]), (2, 1, 40, 3))
+
+    def test_jours_internes_accumules(self):
+        data = {"nodes": [{"name": "pve-a", "ok": True, "guests": [{"vmid": 103, "days": {"ssh": [{"day": "2026-10-15", "logins": 2, "users": 1}],
+                                                                                         "files": [{"day": "2026-10-15", "files": 7}]}}]}]}
+        rows = gu.daily_rows(data)
+        self.assertEqual(sorted((r[2], r[4]) for r in rows), [("files", {"files": 7}), ("ssh", {"logins": 2, "users": 1})])

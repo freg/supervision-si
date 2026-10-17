@@ -97,7 +97,7 @@ def row_from(node, zone, at, agent_id, g, profile):
             "cpu": {"now": _num(g.get("cpu_now")), "avg24": _num(g.get("cpu_avg24")), "max24": _num(g.get("cpu_max24")),
                     "avg7d": _num(g.get("cpu_avg7d")), "ncpu": g.get("ncpu"), "series": g.get("cpu_series") or []},
             "net24": {"in": g.get("netin24"), "out": g.get("netout24")},
-            "web": w, "login": lg, "mysql": my, "profile": profile or {}}
+            "web": w, "login": lg, "mysql": my, "internal": g.get("internal") if isinstance(g.get("internal"), dict) else None, "profile": profile or {}}
 
 
 def assemble(reports, inventory_vms, profiles, activity_map=None):
@@ -166,13 +166,21 @@ METRICS = {   # métrique -> (clé du bloc days, champs gardés, fusion)
     "web": ("web", ("req", "bytes", "bot", "bot_bytes", "visitors", "owncloud"), "max"),
     "login": ("login", ("logins", "users"), "max"),
     "mysql": ("mysql", ("connections", "questions", "bytes"), "max"),
+    "ssh": ("ssh", ("logins", "users"), "max"),        # #777 : activité interne
+    "sudo": ("sudo", ("cmds",), "max"),
+    "mail": ("mail", ("sent",), "max"),
+    "files": ("files", ("files",), "max"),
     "rrd": ("rrd", ("cpu", "netin", "netout", "diskread", "diskwrite"), "replace"),
     "rrdw": ("rrd_weeks", ("cpu", "netin", "netout", "diskread", "diskwrite"), "replace"),
 }
 # seuils d'une journée « réellement active » (humains seulement : robots, supervision et sonde déjà écartés)
 ACTIVE = {"web": lambda d: (d.get("visitors") or 0) >= 1 and (d.get("req") or 0) >= 3,
           "login": lambda d: (d.get("logins") or 0) >= 1,
-          "mysql": lambda d: (d.get("connections") or 0) >= 1 or (d.get("questions") or 0) >= 50}
+          "mysql": lambda d: (d.get("connections") or 0) >= 1 or (d.get("questions") or 0) >= 50,
+          "ssh": lambda d: (d.get("logins") or 0) >= 1,      # #777 : connexion SSH acceptée, commande sudo
+          "sudo": lambda d: (d.get("cmds") or 0) >= 1}
+# #777 : signes INDIRECTS (peuvent venir d'une tâche automatique) : datés à part, sans compter pour la classe d'activité
+INDIRECT = {"files": lambda d: (d.get("files") or 0) >= 1, "mail": lambda d: (d.get("sent") or 0) >= 1}
 CLASSES = (("actif", 7), ("faible", 30), ("dormant", 180))
 
 
@@ -233,7 +241,11 @@ def summarize(series, today):
     for m, test in ACTIVE.items():
         act = [d for d, v in (series.get(m) or {}).items() if test(v)]
         last[m] = max(act) if act else None
-    seen = sorted({d for m in ("web", "login", "mysql") for d in (series.get(m) or {})})
+    seen = sorted({d for m in ("web", "login", "mysql", "ssh", "sudo", "mail", "files") for d in (series.get(m) or {})})
+    last_ind = {}
+    for m, test in INDIRECT.items():
+        act = [d for d, v in (series.get(m) or {}).items() if test(v)]
+        last_ind[m] = max(act) if act else None
     rrd_seen = sorted(set(series.get("rrd") or {}) | set(series.get("rrdw") or {}))
     first = min([x for x in (seen[:1] + rrd_seen[:1]) if x], default=None)
     last_any = max([v for v in last.values() if v], default=None)
@@ -247,7 +259,7 @@ def summarize(series, today):
     def mo(day):
         return months.setdefault(day[:7], {"month": day[:7], "req": 0, "bytes": 0, "visitor_days": 0, "bot": 0, "active_days": 0,
                                            "logins": 0, "mysql_conn": 0, "mysql_q": 0, "mysql_bytes": 0, "_cpu": [], "_wcpu": [],
-                                           "net": 0, "_wnet": 0, "_days": set()})
+                                           "net": 0, "_wnet": 0, "_days": set(), "ssh_logins": 0, "sudo": 0, "mail_sent": 0, "files": 0})
     for d, v in (series.get("web") or {}).items():
         m = mo(d)
         m["req"] += v.get("req") or 0
@@ -261,6 +273,14 @@ def summarize(series, today):
         m["mysql_conn"] += v.get("connections") or 0
         m["mysql_q"] += v.get("questions") or 0
         m["mysql_bytes"] += v.get("bytes") or 0
+    for d, v in (series.get("ssh") or {}).items():
+        mo(d)["ssh_logins"] += v.get("logins") or 0
+    for d, v in (series.get("sudo") or {}).items():
+        mo(d)["sudo"] += v.get("cmds") or 0
+    for d, v in (series.get("mail") or {}).items():
+        mo(d)["mail_sent"] += v.get("sent") or 0
+    for d, v in (series.get("files") or {}).items():
+        mo(d)["files"] += v.get("files") or 0
     for mtr, test in ACTIVE.items():
         for d, v in (series.get(mtr) or {}).items():
             if test(v):
@@ -283,7 +303,9 @@ def summarize(series, today):
         m["net"] = m["net"] or m["_wnet"] or 0
         m["active_days"] = len(m["_days"])
         out.append({x: y for x, y in m.items() if not x.startswith("_")})
+    li = max([v for v in last_ind.values() if v], default=None)
     return {"first_day": first, "coverage_days": len(seen), "last_active": last, "last_any": last_any, "idle_days": idle,
+            "last_indirect": last_ind, "last_indirect_any": li,
             "class": cls, "months": out[-25:]}
 
 

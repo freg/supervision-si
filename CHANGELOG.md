@@ -1,3 +1,22 @@
+## 2026-10-17 — Activité des VM : analyse interne des invités (SSH, sudo, courriels, fichiers modifiés, journaux, connexions établies) dans le temps (livraison #777)
+
+- Constat réel : CT 103 de pve-1 sans journal d'accès web, sans MySQL et wtmp vide -- « dernière activité » inconnue ;
+  demandé : une analyse plus intrusive, par exemple les journaux internes.
+- Sonde guest-usage v3 (agent 0.5.75), toujours en lecture seule et sans ligne brute remontée : connexions SSH acceptées
+  par jour (comptes distincts, dernière : compte et adresse) et commandes sudo (auth.log / secure, sinon journal systemd),
+  courriels envoyés (postfix), fichiers de données modifiés par jour (/home, /var/www, /srv, courrier, ownCloud /
+  Nextcloud ; caches, sessions, tmp, .git exclus ; dossier de premier niveau seulement), journaux écrits dans les 24 h,
+  connexions établies vers les services de l'invité, processus les plus consommateurs ; en reprise d'historique : .gz
+  d'auth / mail et dates de fichiers sur 800 jours.
+- Central : jours SSH, sudo, courriels, fichiers accumulés ; SSH et sudo comptent comme activité réelle (« Inactif réel »),
+  fichiers et courriels sont des signes INDIRECTS datés à part (une tâche automatique peut les produire) ; mois : SSH, sudo,
+  fichiers modifiés, courriels.
+- Hub : fiche du CT / VM -- SSH (journaux internes), fichiers modifiés, courriel envoyé, connexions établies, bloc
+  « Activité interne » (journaux récents, processus) ; « Inactif réel » indique les signes indirects plus récents.
+- Vérifié : test_guest_usage (script réel sur auth.log / mail.log / .gz / dossiers factices : SSH, sudo, postfix, fichiers,
+  caches ignorés, reprise), test_z_guestusage, `node --test`. Non vérifié : invités réels (pve-1 doit figurer dans
+  pve-remote.json de l'agent qui porte la sonde), rendu navigateur.
+
 ## 2026-10-17 — Tuile « Proxys d'entrée » : couple de proxys interchangeables sur deux nœuds, redirection dynamique vers un serveur interne, contrôle DNS automatique et alerte « DNS à configurer » (livraison #776)
 
 - Demandé : un couple interchangeable de proxys sur deux VM chez l'hébergeur, sur deux Proxmox différents, pour

@@ -82,8 +82,15 @@ export function ownLast(row) {
 }
 
 /** Activité la plus récente, toutes sources -> {at, kind, who} | null */
+/** #777 : dernière connexion SSH acceptée (journaux internes), si wtmp ne l'a pas. */
+export function sshLast(row) {
+  const s = row?.internal?.ssh_last;
+  return s?.at ? { at: s.at, who: `${s.user || "?"}${s.from ? `@${s.from}` : ""}` } : null;
+}
+
 export function lastActivity(row) {
-  const c = [["http", webLast(row)], ["owncloud", ownLast(row)], ["mysql", mysqlLast(row)], ["login", loginLast(row)]]
+  const c = [["http", webLast(row)], ["owncloud", ownLast(row)], ["mysql", mysqlLast(row)], ["login", loginLast(row)], ["ssh", sshLast(row)],
+    ["sudo", row?.internal?.sudo_last ? { at: row.internal.sudo_last } : null]]
     .filter(([, v]) => v && parseTime(v.at) != null);
   if (!c.length) return null;
   const [kind, v] = c.reduce((a, b) => (parseTime(b[1].at) > parseTime(a[1].at) ? b : a));
@@ -233,8 +240,9 @@ const frDay = (d) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` 
 export function idleSince(row) {
   const a = row?.activity;
   if (!a) return "";
-  if (a.last_any) return `depuis le ${frDay(a.last_any)}`;
-  return a.first_day ? `aucune depuis le ${frDay(a.first_day)}` : "";
+  const ind = a.last_indirect_any && (!a.last_any || a.last_indirect_any > a.last_any) ? ` (signes indirects jusqu'au ${frDay(a.last_indirect_any)})` : "";
+  if (a.last_any) return `depuis le ${frDay(a.last_any)}${ind}`;
+  return a.first_day ? `aucune depuis le ${frDay(a.first_day)}${ind}` : ind.trim();
 }
 
 function monthKey(t) {

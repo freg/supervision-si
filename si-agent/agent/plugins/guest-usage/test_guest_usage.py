@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -248,3 +249,65 @@ class Historique771(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Interne777(unittest.TestCase):
+    """#777 : activité interne -- SSH / sudo / postfix (auth.log, mail.log, .gz en reprise), fichiers de données par jour,
+    journaux récents ; le script de l'invité est exécuté pour de vrai sur des fichiers factices."""
+
+    def setUp(self):
+        if not shutil.which("awk") or not shutil.which("sh") or not shutil.which("find"):
+            self.skipTest("outils absents")
+        import gzip
+        self.d = tempfile.mkdtemp()
+        lg, data = os.path.join(self.d, "log"), os.path.join(self.d, "home", "alice", "docs")
+        os.makedirs(lg); os.makedirs(data); os.makedirs(os.path.join(self.d, "home", "alice", ".cache"))
+        with open(os.path.join(lg, "auth.log"), "w") as fh:
+            fh.write("Oct 14 08:00:01 ct sshd[100]: Accepted publickey for alice from 198.51.100.7 port 5000 ssh2: ED25519 SHA256:x\n"
+                     "Oct 15 09:30:00 ct sshd[101]: Accepted password for bob from 198.51.100.8 port 5001 ssh2\n"
+                     "Oct 15 09:31:00 ct sshd[102]: Accepted password for bob from 198.51.100.8 port 5002 ssh2\n"
+                     "Oct 15 09:35:00 ct sudo:   bob : TTY=pts/0 ; PWD=/root ; USER=root ; COMMAND=/usr/bin/apt update\n"
+                     "Oct 15 10:00:00 ct sshd[103]: Failed password for root from 203.0.113.9 port 22 ssh2\n")
+        with gzip.open(os.path.join(lg, "auth.log.3.gz"), "wt") as fh:
+            fh.write("Mar  2 07:00:00 ct sshd[90]: Accepted publickey for alice from 198.51.100.7 port 1 ssh2\n")
+        with open(os.path.join(lg, "mail.log"), "w") as fh:
+            fh.write("2026-10-15T11:00:00.123456+02:00 ct postfix/smtp[200]: 4AB: to=<x@example.org>, relay=mx.example.org, status=sent (250 ok)\n"
+                     "2026-10-15T11:05:00.000000+02:00 ct postfix/smtp[201]: 4AC: to=<y@example.org>, status=deferred (timeout)\n")
+        for i, age in enumerate((0, 0, 2)):
+            f = os.path.join(data, "f%d.txt" % i)
+            open(f, "w").close()
+            t = time.time() - age * 86400
+            os.utime(f, (t, t))
+        open(os.path.join(self.d, "home", "alice", ".cache", "c.bin"), "w").close()   # cache : ignoré
+
+    def tearDown(self):
+        shutil.rmtree(self.d, ignore_errors=True)
+
+    def run_guest(self, deep):
+        script = gu.GUEST_SH.replace("/var/log/apache2", "/nonexistent").replace("/var/log/nginx", "/nonexistent").replace("/var/log/httpd", "/nonexistent") \
+            .replace("command -v mysql", "command -v mysql_absent_pour_le_test")
+        env = dict(os.environ, SI_DEEP="1" if deep else "0", SI_LOG=os.path.join(self.d, "log"), SI_DATA=os.path.join(self.d, "home"))
+        out = subprocess.run(["sh", "-c", script], capture_output=True, text=True, timeout=60, env=env).stdout
+        parts = gu.parse_guest(out)
+        self.assertIn("end", parts)
+        return gu.parse_internal(parts["internal"], dt.datetime(2026, 10, 15, 12, 0))
+
+    def test_interne(self):
+        res, days = self.run_guest(False)
+        self.assertEqual(res["ssh_last"], {"at": "2026-10-15T09:31:00", "user": "bob", "from": "198.51.100.8"})
+        self.assertEqual([(d["day"], d["logins"], d["users"]) for d in days["ssh"]], [("2026-10-14", 1, 1), ("2026-10-15", 2, 1)])
+        self.assertEqual(days["sudo"], [{"day": "2026-10-15", "cmds": 1}]); self.assertEqual(res["sudo_last"], "2026-10-15T09:35:00")
+        self.assertEqual(days["mail"], [{"day": "2026-10-15", "sent": 1}])   # « deferred » non compté
+        self.assertEqual(sum(d["files"] for d in days["files"]), 3)           # le cache est ignoré
+        self.assertEqual(res["files_last"]["dir"], os.path.join(self.d, "home", "alice"))
+        self.assertTrue(any(l["path"].endswith("auth.log") for l in res["logs"]))
+        self.assertNotIn("2026-03-02", [d["day"] for d in days["ssh"]])      # le .gz n'est lu qu'en reprise
+
+    def test_reprise(self):
+        _res, days = self.run_guest(True)
+        self.assertIn("2026-03-02", [d["day"] for d in days["ssh"]])
+
+    def test_lecture(self):
+        res, days = gu.parse_internal("S 2026-10-15 3 2\nSL 2026-10-15 09:00:00 alice 192.0.2.1\nC 443 12 5\nC 22 1 1\nT apache2 01:02:03\nM x\n", dt.datetime(2026, 10, 15))
+        self.assertEqual((res["conns"][0]["port"], res["top"][0]["comm"], days["ssh"][0]["logins"]), (443, "apache2", 3))
+        self.assertEqual(gu.parse_internal("", dt.datetime(2026, 10, 15)), (None, {"ssh": [], "sudo": [], "mail": [], "files": []}))

@@ -95,6 +95,52 @@ if command -v mysql >/dev/null 2>&1; then
   $M -e "SELECT USER, SUBSTRING_INDEX(HOST, ':', 1), IFNULL(DB, ''), COMMAND, TIME FROM information_schema.PROCESSLIST WHERE ID <> CONNECTION_ID()" 2>&1 | head -n 300
   echo "## mysql version"; $M -e "SELECT VERSION()" 2>&1 | head -n 1
 fi
+echo "## internal"
+# #777 : activité INTERNE (lecture seule, aucune ligne brute remontée) -- connexions SSH acceptées et sudo (auth.log /
+# secure, sinon journal), courriels envoyés (postfix), fichiers de données modifiés par jour (dates seulement), journaux
+# écrits dans les dernières 24 h, connexions établies vers les services de l'invité, processus les plus consommateurs.
+LG=${SI_LOG:-/var/log}; DATA=${SI_DATA:-/home /var/www /srv /var/mail /var/vmail /var/lib/owncloud /var/lib/nextcloud}
+DP=${SI_DEEP:-0}; A=""
+for f in "$LG/auth.log" "$LG/secure" "$LG/mail.log" "$LG/maillog"; do
+  [ "$DP" = 1 ] && for g in "$f".*.gz "$f"-*.gz; do [ -f "$g" ] && A="$A $g"; done
+  [ -f "$f.1" ] && A="$A $f.1"; [ -f "$f" ] && A="$A $f"
+done
+if [ -n "$A" ]; then for f in $A; do zcat -f "$f" 2>/dev/null; done
+elif command -v journalctl >/dev/null 2>&1; then journalctl -q --no-pager -o short-iso --since "-$([ "$DP" = 1 ] && echo 800 || echo 4)d" 2>/dev/null | grep -E 'sshd|sudo|postfix'
+fi | awk -v Y="$(date +%Y)" -v MN="$(date +%m)" '
+BEGIN { split("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec", M, " "); for (i = 1; i <= 12; i++) m[M[i]] = sprintf("%02d", i) }
+{ if ($1 ~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T/) { d = substr($1, 1, 10); tm = substr($1, 12, 8) }
+  else if ($1 in m) { mm = m[$1]; y = (mm > MN) ? Y - 1 : Y; d = sprintf("%s-%s-%02d", y, mm, $2); tm = $3 }
+  else next
+  if ($0 ~ /sshd\[[0-9]+\]: Accepted /) { u = ""; ip = ""
+      for (i = 1; i <= NF; i++) { if ($i == "for" && u == "") u = $(i + 1); if ($i == "from") ip = $(i + 1) }
+      S[d]++; if (!((d, u) in SU)) { SU[d, u] = 1; SN[d]++ }; k = d " " tm; if (k >= lk) { lk = k; lu = u; li = ip } }
+  else if ($0 ~ /sudo(\[[0-9]+\])?: .*COMMAND=/) { U[d]++; k = d " " tm; if (k >= uk) uk = k }
+  else if ($0 ~ /postfix\/[a-z]+\[[0-9]+\]: .*status=sent/) { P[d]++; k = d " " tm; if (k >= pk) pk = k } }
+END { for (d in S) print "S", d, S[d], SN[d] + 0
+      if (lk != "") print "SL", lk, lu, li
+      for (d in U) print "U", d, U[d]
+      if (uk != "") print "UL", uk
+      for (d in P) print "P", d, P[d]
+      if (pk != "") print "PL", pk }'
+FD=""; for d in $DATA; do [ -d "$d" ] && FD="$FD $d"; done
+if [ -n "$FD" ]; then
+  if [ "$DP" = 1 ]; then ND=800; TF=150; else ND=4; TF=20; fi
+  timeout $TF find $FD -xdev \( -type d \( -name cache -o -name .cache -o -name sessions -o -name tmp -o -name .git -o -name node_modules \) -prune \) \
+    -o \( -type f -mtime -$ND ! -name '*.log' ! -name '*.lock' ! -name '*.pid' -printf '%TY-%Tm-%Td %h\n' \) 2>/dev/null | awk -v R="$FD" '
+    BEGIN { nr = split(R, rs, " ") }
+    { c[$1]++; t = $2; for (i = 1; i <= nr; i++) if (index($2, rs[i]) == 1) { split(substr($2, length(rs[i]) + 2), q, "/"); t = rs[i] (q[1] != "" ? "/" q[1] : ""); break }
+      if ($1 >= ld) { ld = $1; lt = t } }
+    END { for (d in c) print "M", d, c[d]; if (ld != "") print "ML", ld, lt }'
+fi
+find "$LG" -xdev -type f -mmin -1440 ! -name '*.gz' ! -name '*.[0-9]' ! -name 'wtmp*' ! -name 'lastlog' -printf 'G %T@ %s %p\n' 2>/dev/null | sort -k2,2nr | head -n 12
+if command -v ss >/dev/null 2>&1; then ss -Htn state established 2>/dev/null | awk '{print $3, $4}'
+else netstat -tn 2>/dev/null | awk '$6 == "ESTABLISHED" {print $4, $5}'; fi | awk '
+  { r = $2; sub(/:[0-9]+$/, "", r); n = split($1, a, ":"); p = a[n] + 0
+    if (p >= 32768 || r ~ /^(127\.|\[?::1|\[?::ffff:127\.)/) next
+    C[p]++; if (!((p, r) in R)) { R[p, r] = 1; D[p]++ } }
+  END { for (p in C) print "C", p, C[p], D[p] }'
+ps -eo comm=,time= --sort=-time 2>/dev/null | head -n 5 | awk '{print "T", $1, $2}'
 echo "## end"
 """
 
@@ -180,7 +226,7 @@ def parse_guest(text):
     """Sortie de GUEST_SH -> {clé de section: texte} (os, web, login, mysql status, mysql proc, mysql version, end)."""
     out, sec = {}, None
     for line in (text or "").splitlines():
-        m = re.match(r"^## (os|web|days|login|mysql status|mysql proc|mysql version|end)$", line.strip())
+        m = re.match(r"^## (os|web|days|login|mysql status|mysql proc|mysql version|internal|end)$", line.strip())
         if m:
             sec = m.group(1)
             out[sec] = []
@@ -267,6 +313,48 @@ def parse_days(text):
             out.append({"day": "%s-%s-%s" % (p[1][:4], p[1][4:6], p[1][6:]), "req": v[0], "bytes": v[1], "bot": v[2],
                         "bot_bytes": v[3], "visitors": v[4], "owncloud": v[5]})
     return sorted(out, key=lambda d: d["day"]), deep
+
+
+# ---------------------------------------------------------------- #777 : activité interne
+
+def parse_internal(text, now):
+    """Section internal -> (résumé, jours). résumé : {ssh: {last, users24h…}, sudo_last, mail_last, files: {last_day, last_dir},
+    logs: [{path, at, size}], conns: [{port, n, peers}], top: [{comm, time}]} ; jours : {ssh, sudo, mail, files} par jour."""
+    days = {"ssh": {}, "sudo": {}, "mail": {}, "files": {}}
+    res = {"ssh_last": None, "sudo_last": None, "mail_last": None, "files_last": None, "logs": [], "conns": [], "top": []}
+    for line in (text or "").splitlines():
+        p = line.split()
+        if not p:
+            continue
+        try:
+            if p[0] == "S" and len(p) >= 4:
+                days["ssh"][p[1]] = {"day": p[1], "logins": int(p[2]), "users": int(p[3])}
+            elif p[0] == "SL" and len(p) >= 3:
+                res["ssh_last"] = {"at": "%sT%s" % (p[1], p[2]), "user": p[3] if len(p) > 3 else None, "from": p[4] if len(p) > 4 else None}
+            elif p[0] == "U" and len(p) >= 3:
+                days["sudo"][p[1]] = {"day": p[1], "cmds": int(p[2])}
+            elif p[0] == "UL" and len(p) >= 3:
+                res["sudo_last"] = "%sT%s" % (p[1], p[2])
+            elif p[0] == "P" and len(p) >= 3:
+                days["mail"][p[1]] = {"day": p[1], "sent": int(p[2])}
+            elif p[0] == "PL" and len(p) >= 3:
+                res["mail_last"] = "%sT%s" % (p[1], p[2])
+            elif p[0] == "M" and len(p) >= 3:
+                days["files"][p[1]] = {"day": p[1], "files": int(p[2])}
+            elif p[0] == "ML" and len(p) >= 2:
+                res["files_last"] = {"day": p[1], "dir": p[2] if len(p) > 2 else None}
+            elif p[0] == "G" and len(p) >= 4:
+                res["logs"].append({"at": _iso(dt.datetime.fromtimestamp(float(p[1]), dt.timezone.utc)), "size": int(p[2]), "path": " ".join(p[3:])[:200]})
+            elif p[0] == "C" and len(p) >= 4:
+                res["conns"].append({"port": int(p[1]), "n": int(p[2]), "peers": int(p[3])})
+            elif p[0] == "T" and len(p) >= 3:
+                res["top"].append({"comm": p[1][:40], "time": p[2]})
+        except (ValueError, OverflowError):
+            continue
+    res["conns"].sort(key=lambda c: -c["n"])
+    if res["ssh_last"] is None and res["sudo_last"] is None and res["mail_last"] is None and res["files_last"] is None and not res["logs"] and not res["conns"]:
+        res = None
+    return res, {k: sorted(v.values(), key=lambda d: d["day"]) for k, v in days.items()}
 
 
 # ---------------------------------------------------------------- connexions (wtmp)
@@ -486,9 +574,9 @@ def build(node_name, guests, state, now, full=True):
     for g in guests:
         s = g["sections"]
         r = {"vmid": g["vmid"], "type": g["type"], "name": g["name"], "status": g["status"], "collected": False, "error": None,
-             "os": None, "web": None, "login": None, "mysql": None}
+             "os": None, "web": None, "login": None, "mysql": None, "internal": None}
         r.update(rrd_stats(s.get("rrd day"), s.get("rrd week"), now))
-        days = {"web": [], "login": [], "mysql": [], "rrd": rrd_days(s.get("rrd month")), "rrd_weeks": rrd_weeks(s.get("rrd year")), "deep": False}
+        days = {"web": [], "login": [], "mysql": [], "ssh": [], "sudo": [], "mail": [], "files": [], "rrd": rrd_days(s.get("rrd month")), "rrd_weeks": rrd_weeks(s.get("rrd year")), "deep": False}
         if g["status"] == "running":
             raw, err = (s.get("exec"), None) if g["type"] == "lxc" else unwrap_qga(s.get("qga"))
             parts = parse_guest(raw)
@@ -503,6 +591,9 @@ def build(node_name, guests, state, now, full=True):
                 rows = _last_rows(parts.get("login"), now)
                 r["login"] = parse_last(None, now, rows)
                 days["login"] = login_days(rows)
+                if "internal" in parts:
+                    r["internal"], idays = parse_internal(parts.get("internal"), now)
+                    days.update(idays)
                 if "mysql status" in parts:
                     my = parse_mysql(parts.get("mysql status"), parts.get("mysql proc"), parts.get("mysql version"))
                     key = str(g["vmid"])
@@ -514,7 +605,7 @@ def build(node_name, guests, state, now, full=True):
                         new_state[key] = state[key]
                     r["mysql"] = my
         if not days["deep"]:
-            for k in ("web", "login", "mysql"):
+            for k in ("web", "login", "mysql", "ssh", "sudo", "mail", "files"):
                 days[k] = trim_days(days[k], now)
             if not full:
                 days["rrd"], days["rrd_weeks"] = trim_days(days["rrd"], now), []

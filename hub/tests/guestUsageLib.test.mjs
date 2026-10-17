@@ -122,3 +122,12 @@ test("#771 : fiche -- décision et suivi de migration", () => {
   assert.equal(error, null);
   assert.deepEqual(profile, { decision: "migrer", target: "pve10", planned_for: "2026-11-15", migration_status: "a_planifier" });
 });
+
+test("#777 : activité interne (SSH, sudo, signes indirects)", async () => {
+  const { lastActivity, idleSince } = await import("../src/guestUsageLib.js");
+  const row = { internal: { ssh_last: { at: "2026-10-15T09:31:00Z", user: "bob", from: "198.51.100.8" }, sudo_last: "2026-10-14T08:00:00Z" } };
+  const a = lastActivity(row);
+  assert.equal(a.kind, "ssh"); assert.equal(a.who, "bob@198.51.100.8");
+  assert.equal(idleSince({ activity: { last_any: "2026-09-03", last_indirect_any: "2026-10-12" } }), "depuis le 03/09/2026 (signes indirects jusqu'au 12/10/2026)");
+  assert.equal(idleSince({ activity: { last_any: null, first_day: "2026-10-01", last_indirect_any: null } }), "aucune depuis le 01/10/2026");
+});

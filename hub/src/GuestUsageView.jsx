@@ -12,7 +12,7 @@ import { viewParams, clearViewParams } from "./hubLinks.js";
 import { fetchGuestUsage, saveGuestProfile } from "./siAgentClient.js";
 import { fmtBytes } from "./infraLib.js";
 import {
-  ago, webLast, loginLast, mysqlLast, ownLast, lastActivity, idleClass, IDLE, daySeries, sortGuests, filterGuests, counts,
+  ago, webLast, loginLast, mysqlLast, ownLast, sshLast, lastActivity, idleClass, IDLE, daySeries, sortGuests, filterGuests, counts,
   PROFILE_FIELDS, profileToForm, formToProfile, ipIgnored, fmtPct, fmtCount,
   ACT, SELECTS, actClass, idleSince, monthSeries, totals12, decisionLabel, statusLabel, decisionsCsv, DECISIONS,
 } from "./guestUsageLib.js";
@@ -34,8 +34,8 @@ function Months({ row }) {
   return (
     <figure className="infra-card gu-months">
       <figcaption>Activité réelle dans le temps <span className="infra-note">historique depuis {a.first_day || "—"} · {a.coverage_days} j relevés · humains seulement (robots, supervision à part)</span></figcaption>
-      <table className="infra-table"><thead><tr><th>mois</th><th>jours actifs</th><th>accès web</th><th>volume</th><th>visiteurs·jours</th><th>robots</th><th>connexions</th><th>MySQL req.</th><th>CPU moy.</th><th>réseau</th></tr></thead><tbody>
-        {ms.map((m) => <tr key={m.month}><td>{m.month}</td><td>{m.active_days}</td><td>{fmtCount(m.req)}</td><td>{fmtBytes(m.bytes)}</td><td>{fmtCount(m.visitor_days)}</td><td>{fmtCount(m.bot)}</td><td>{m.logins}</td><td>{fmtCount(m.mysql_q)}</td><td>{fmtPct(m.cpu)}</td><td>{m.net ? fmtBytes(m.net) : "—"}</td></tr>)}
+      <table className="infra-table"><thead><tr><th>mois</th><th>jours actifs</th><th>accès web</th><th>volume</th><th>visiteurs·jours</th><th>robots</th><th>connexions</th><th>SSH</th><th>sudo</th><th>MySQL req.</th><th>fichiers modifiés</th><th>courriels</th><th>CPU moy.</th><th>réseau</th></tr></thead><tbody>
+        {ms.map((m) => <tr key={m.month}><td>{m.month}</td><td>{m.active_days}</td><td>{fmtCount(m.req)}</td><td>{fmtBytes(m.bytes)}</td><td>{fmtCount(m.visitor_days)}</td><td>{fmtCount(m.bot)}</td><td>{m.logins}</td><td>{m.ssh_logins || 0}</td><td>{m.sudo || 0}</td><td>{fmtCount(m.mysql_q)}</td><td>{fmtCount(m.files || 0)}</td><td>{fmtCount(m.mail_sent || 0)}</td><td>{fmtPct(m.cpu)}</td><td>{m.net ? fmtBytes(m.net) : "—"}</td></tr>)}
       </tbody></table>
     </figure>
   );
@@ -124,6 +124,12 @@ function Detail({ row, now, onSave, saving }) {
             {w?.owncloud && <tr><td>ownCloud</td><td><When v={ownLast(row)} now={now} /> · {fmtCount(w.owncloud.hits7d)} req. 7 j{row.profile?.owncloud_user && ownLast(row)?.who === row.profile.owncloud_user ? " · compte suivi" : ""}</td></tr>}
             <tr><td>MySQL</td><td>{m ? (m.ok ? <>{m.version} · {m.threads_connected} connecté(s) · {fmtCount(m.conn7d)} connexions 7 j{m.window_s ? ` · ${m.conn_since_last ?? "?"} depuis le passage précédent` : " · 1er passage"}</> : <span className="infra-error">{m.error}</span>) : "absent"}</td></tr>
             <tr><td>Connexions unix</td><td>{l?.last ? <>{l.count7d} sur 7 j · dernière <When v={loginLast(row)} now={now} /></> : "aucune dans wtmp"}</td></tr>
+            {row.internal && <>
+              <tr><td>SSH (journaux internes)</td><td>{row.internal.ssh_last ? <><When v={sshLast(row)} now={now} /></> : "aucune connexion acceptée"}{row.internal.sudo_last ? <> · sudo {ago(row.internal.sudo_last, now)}</> : ""}</td></tr>
+              <tr><td>Fichiers modifiés</td><td>{row.internal.files_last ? <>dernier le {row.internal.files_last.day} <span className="infra-muted">({row.internal.files_last.dir})</span></> : "aucun récent dans les dossiers de données"}</td></tr>
+              {row.internal.mail_last && <tr><td>Courriel envoyé</td><td>{ago(row.internal.mail_last, now)}</td></tr>}
+              <tr><td>Connexions établies</td><td>{row.internal.conns?.length ? row.internal.conns.slice(0, 6).map((c) => `port ${c.port} : ${c.n} (${c.peers} client${c.peers > 1 ? "s" : ""})`).join(" · ") : "aucune vers un service"}</td></tr>
+            </>}
             <tr><td>CPU</td><td>{fmtPct(row.cpu?.now)} maintenant · moy. 24 h {fmtPct(row.cpu?.avg24)} · pic {fmtPct(row.cpu?.max24)} · moy. 7 j {fmtPct(row.cpu?.avg7d)}{row.cpu?.ncpu ? ` · ${row.cpu.ncpu} vCPU` : ""}</td></tr>
             {row.net24?.in != null && <tr><td>Réseau 24 h</td><td>↓ {fmtBytes(row.net24.in)} · ↑ {fmtBytes(row.net24.out)}</td></tr>}
           </tbody></table>
@@ -142,6 +148,12 @@ function Detail({ row, now, onSave, saving }) {
             <table className="infra-table"><thead><tr><th>compte</th><th>source</th><th>dernier</th></tr></thead><tbody>
               {(l?.users || []).slice(0, 10).map((u) => <tr key={`u${u.user}`} className={(row.profile?.unix_accounts || []).includes(u.user) ? "gu-watched" : ""}><td>{u.user}</td><td>unix{u.from ? ` · ${u.from}` : ""} · {u.count7d} sur 7 j</td><td>{ago(u.last_at, now)}</td></tr>)}
               {(m?.users_seen || []).slice(0, 10).map((u) => <tr key={`m${u.user}`} className={row.profile?.mysql_user === u.user ? "gu-watched" : ""}><td>{u.user}</td><td>MySQL (vu en session)</td><td>{ago(u.last_seen, now)}</td></tr>)}
+            </tbody></table></figure>)}
+        {row.internal && (row.internal.logs?.length > 0 || row.internal.top?.length > 0) && (
+          <figure className="infra-card"><figcaption>Activité interne <span className="infra-note">journaux écrits en 24 h, processus les plus consommateurs (sans contenu)</span></figcaption>
+            <table className="infra-table"><tbody>
+              {(row.internal.logs || []).map((l) => <tr key={l.path}><td>{l.path}</td><td>{fmtBytes(l.size)}</td><td>{ago(l.at, now)}</td></tr>)}
+              {(row.internal.top || []).map((t) => <tr key={`t${t.comm}`}><td>processus {t.comm}</td><td colSpan={2}>{t.time} de processeur</td></tr>)}
             </tbody></table></figure>)}
         <ProfileForm row={row} onSave={onSave} saving={saving} />
       </div>
