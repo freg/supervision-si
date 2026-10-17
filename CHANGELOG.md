@@ -17,6 +17,8 @@
   `$(cat <<...)` du pilote, arrivait vide (bash 4.4 des PVE 5.4) ; il est désormais écrit dans un fichier temporaire puis relu,
   et un pilote réel (faux pct / pvesh) est testé de bout en bout. Le nœud distant est nommé comme le nœud Proxmox
   (pve-1 relevé par deux agents apparaissait deux fois : « pve-1 » et « ns3037858 »).
+- Correctif 2 (agent 0.5.77) : la cause réelle, vue sur pve-3 (bash 4.4, pct de PVE 5.4) : `pct exec <ct> -- sh -c "<script>"` perd un
+  argument de plusieurs lignes (un argument court passe) ; le script est donc passé par l'entrée standard (`pct exec ... sh -s`).
 - Vérifié : test_guest_usage (script réel sur auth.log / mail.log / .gz / dossiers factices : SSH, sudo, postfix, fichiers,
   caches ignorés, reprise), test_z_guestusage, `node --test`. Non vérifié : invités réels (pve-1 doit figurer dans
   pve-remote.json de l'agent qui porte la sonde), rendu navigateur.

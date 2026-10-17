@@ -148,13 +148,13 @@ DRIVER_SH = r"""si_main() {
 N=$(basename "$(readlink -f /etc/pve/local 2>/dev/null)" 2>/dev/null)
 [ -n "$N" ] && [ "$N" != "local" ] || N=$(hostname -s)
 echo "@@node $N"
-# #777 : script de l'invité écrit dans un fichier (et non dans $(cat <<...)) : bash 4.4 (PVE 5.4) analysait mal la
-# substitution et laissait G vide (« sh: -c requires an argument »).
+# #777 : script de l'invité écrit dans un fichier et passé aux CT par l'ENTRÉE STANDARD de `pct exec ... sh -s` : le pct de
+# PVE 5.4 perd un argument de plusieurs lignes (« sh: 0: -c requires an argument ») ; les VM gardent qm guest exec sh -c.
 GF=$(mktemp /tmp/si-gu.XXXXXX)
 cat > "$GF" <<'__SI_GUEST__'
 %s
 __SI_GUEST__
-G=$(cat "$GF"); rm -f "$GF"
+G=$(cat "$GF")
 [ -n "$G" ] || { echo "@@error script de l invite vide"; return 1; }
 DONE=" __SI_DONE__ "
 # reprise d'historique : un invité pas encore repris, au plus DEEP_PER_PASS par boucle (CT, VM)
@@ -162,12 +162,13 @@ deep() { P=""; T=60; case "$DONE" in *" $1 "*) return ;; esac; [ "${NDEEP:-0}" -
 rrd() { for tf in day week month year; do echo "## rrd $tf"; pvesh get /nodes/$N/$1/$2/rrddata --timeframe $tf --cf AVERAGE --output-format json </dev/null 2>/dev/null | head -c 200000; echo; done; }
 pct list 2>/dev/null | awk 'NR>1 {print $1, $2, $NF}' | while read id st name; do
   echo "=== lxc $id $st $name"; rrd lxc $id
-  [ "$st" = running ] && { deep $id; echo "## exec"; timeout $T pct exec $id -- sh -c "$P$G" </dev/null 2>&1 | head -c 3000000; echo; }
+  [ "$st" = running ] && { deep $id; echo "## exec"; { printf '%%s' "$P"; cat "$GF"; } | timeout $T pct exec $id -- sh -s 2>&1 | head -c 3000000; echo; }
 done
 qm list 2>/dev/null | awk 'NR>1 {print $1, $3, $2}' | while read id st name; do
   echo "=== qemu $id $st $name"; rrd qemu $id
   [ "$st" = running ] && { deep $id; echo "## qga"; timeout $T qm guest exec $id --timeout $((T - 10)) -- sh -c "$P$G" </dev/null 2>&1 | head -c 4000000; echo; }
 done
+rm -f "$GF"
 echo "@@done"
 }
 si_main </dev/null
