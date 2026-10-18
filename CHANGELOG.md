@@ -1,3 +1,12 @@
+## 2026-10-18 — Migration : une étape manuelle devenue automatique dans un plan réimporté n'est plus bloquée (livraison #781)
+
+- Constat : B7 (images des CT supprimés de pve-1), d'abord « à faire à la main », remplacée dans le plan par une copie rsync ;
+  après réimport le titre changeait mais l'étape restait « à faire à la main » (statut `manuel` conservé, seuls « Fait » et
+  « Sauter » proposés).
+- `migrun.set_plan` : à l'import, une étape au statut `manuel` dont le type n'est plus `manual` repasse « à faire » ; une étape
+  déjà faite à la main (`manuel_fait`) est gardée.
+- Vérifié : test_z_migrun (dont le cas réimport manuel → rsync → manuel). Non vérifié : rendu de la tuile.
+
 ## 2026-10-18 — Migration : envoi ZFS des CT convertis en modèle (basevol), agent 0.5.84 (livraison #780)
 
 - Constat (B8, pve-3 → pve11) : « VOLUME MANQUANT : aucun disque pour 104 » alors que le CT 104 existe ; c'est un modèle

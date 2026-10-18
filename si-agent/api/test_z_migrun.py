@@ -150,6 +150,26 @@ class Parcours(unittest.TestCase):
         finally:
             conn.close()
 
+    def test_manuel_devenu_automatique(self):   # B7 « à faire à la main » remplacée par une copie rsync dans le plan réimporté
+        conn = store._connect(self.db)
+        try:
+            migrun.set_plan(conn, PLAN, "t")
+            migrun._set_step(conn, "b2", status="manuel")
+            migrun._set_step(conn, "a1", status="manuel_fait")
+            plan2 = json.loads(json.dumps(PLAN))
+            plan2["phases"][1]["steps"][1] = {"id": "b2", "title": "copie", "agent": "mig-h", "kind": "rsync_pull",
+                                              "params": {"host": "${PVE_A}", "src": "/var/lib/vz/images/100/", "dest": "/data/img100"}}
+            migrun.set_plan(conn, plan2, "t")
+            st = dict(conn.execute("SELECT step_id, status FROM mig_steps").fetchall())
+            self.assertEqual((st["b2"], st["a1"]), ("a_faire", "manuel_fait"))
+            migrun._set_step(conn, "b2", status="manuel")
+            migrun.set_plan(conn, PLAN, "t")   # redevenue manuelle : statut inchangé
+            self.assertEqual(conn.execute("SELECT status FROM mig_steps WHERE step_id = 'b2'").fetchone()[0], "manuel")
+            conn.execute("DELETE FROM mig_steps"); conn.execute("DELETE FROM mig_plan"); conn.execute("DELETE FROM mig_run")
+            conn.commit()
+        finally:
+            conn.close()
+
 
 if __name__ == "__main__":
     unittest.main()

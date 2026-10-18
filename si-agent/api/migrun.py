@@ -431,6 +431,12 @@ def set_plan(conn, plan, by):
     conn.execute("INSERT INTO mig_plan (id, data, vars, updated_at, updated_by) VALUES (1, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET "
                  "data = excluded.data, vars = excluded.vars, updated_at = excluded.updated_at, updated_by = excluded.updated_by",
                  (json.dumps(p, ensure_ascii=False), json.dumps(vars_, ensure_ascii=False), now_iso(), by))
+    # étape « à faire à la main » devenue automatique dans le nouveau plan : son statut « manuel » la bloquerait
+    # (seuls « Fait » / « Sauter » proposés) -> remise à faire ; une étape déjà faite à la main (manuel_fait) est gardée.
+    auto = [s["id"] for s in all_steps(p) if s["kind"] != "manual"]
+    if auto:
+        conn.execute("UPDATE mig_steps SET status = 'a_faire', report = NULL, ended_at = NULL, updated_at = ? WHERE status = 'manuel' AND step_id IN (%s)"
+                     % ",".join("?" * len(auto)), [now_iso()] + auto)
     _log(conn, by, "plan", None, "%s : %d étape(s)" % (p["name"], len(all_steps(p))))
     return p, None
 
