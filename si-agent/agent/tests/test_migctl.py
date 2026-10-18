@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import re
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -67,6 +68,15 @@ class Validate(unittest.TestCase):
         sh = migctl.script(st)
         self.assertIn("receive_resume_token", sh); self.assertIn("zfs recv -s -u", sh); self.assertIn("102|119", sh)
         self.assertEqual(migctl.measure(st), {"type": "zfs", "target": "data/ovh/pve-c"})
+
+    def test_zfs_modele_basevol(self):   # CT converti en modèle : rpool/basevol-104-disk-0 (vu sur pve-3, B8 « VOLUME MANQUANT »)
+        import subprocess
+        st, _e = migctl.validate({"id": "b8", "kind": "zfs_pull", "params": {"host": "h", "pool": "rpool", "ids": [101, 104], "snapshot": "mig1", "dest": "d"}})
+        sh = migctl.script(st)
+        rx = re.search(r"grep -E '([^']+)'", sh).group(1).replace("\\$", "$")
+        vols = "rpool/subvol-101-disk-0\nrpool/basevol-104-disk-0\nrpool/base-104-disk-1\nrpool/vm-1040-disk-0\nrpool/subvol-102-disk-0\n"
+        out = subprocess.run(["grep", "-E", rx], input=vols, capture_output=True, text=True).stdout.split()
+        self.assertEqual(out, ["rpool/subvol-101-disk-0", "rpool/basevol-104-disk-0", "rpool/base-104-disk-1"])
 
 
 class Conteneur(unittest.TestCase):
@@ -166,6 +176,8 @@ class Sonde(unittest.TestCase):
              "rpool/subvol-1010-disk-0\t/rpool/subvol-1010-disk-0\t7\t7\nautre/vm-104-disk-0\t-\t5\t5\nmal\tformé\n")
         rows = mr.parse_zfs_list(z)
         self.assertEqual(len(rows), 6)
+        rows_m = rows + mr.parse_zfs_list("rpool/basevol-107-disk-0\t/rpool/basevol-107-disk-0\t30\t90\n")
+        self.assertEqual(mr.pick_total("zfs_pull", {"pool": "rpool", "ids": [101, 107]}, rows_m, False), 180)   # modèle compté
         self.assertEqual(mr.pick_total("zfs_pull", {"pool": "rpool", "ids": [101, 104]}, rows, False), 550)   # send -c : compressé
         self.assertEqual(mr.pick_total("rsync_pull_all", {"src_dir": "/rpool/", "pattern": "subvol-*"}, rows, True), 157)
         self.assertEqual(mr.pick_total("rsync_pull_all", {"src_dir": "/rpool", "pattern": "subvol-*"}, rows, False), 317)

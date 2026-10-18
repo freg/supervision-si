@@ -153,9 +153,9 @@ def script(step):
     elif k == "zfs_pull":
         ids = "|".join(str(i) for i in p["ids"])
         body = ("snap=%s; dest=%s; fail=0\nzfs list \"$dest\" >/dev/null 2>&1 || zfs create -p -o compression=lz4 \"$dest\"\n"
-                "list=$(%s %s \"zfs list -H -o name -r %s | grep -E '/(subvol|vm)-(%s)-disk-[0-9]+\\$'\")\n"
+                "list=$(%s %s \"zfs list -H -o name -r %s | grep -E '/(subvol|basevol|vm|base)-(%s)-disk-[0-9]+\\$'\")\n"
                 "[ -n \"$list\" ] || { echo \"AUCUN VOLUME TROUVÉ pour %s sur %s\"; exit 9; }\n"
-                "for i in %s; do echo \"$list\" | grep -Eq \"/(subvol|vm)-$i-disk-[0-9]+\\$\" || { echo \"VOLUME MANQUANT : aucun disque pour $i sur la source\"; miss=1; }; done\n"
+                "for i in %s; do echo \"$list\" | grep -Eq \"/(subvol|basevol|vm|base)-$i-disk-[0-9]+\\$\" || { echo \"VOLUME MANQUANT : aucun disque pour $i sur la source\"; miss=1; }; done\n"
                 "for ds in $list; do dst=\"$dest/$(basename $ds)\"; echo \"== $ds -> $dst\"\n"
                 "  %s %s \"zfs list -H -t snapshot $ds@$snap >/dev/null 2>&1 || zfs snapshot $ds@$snap\" || { fail=10; continue; }\n"
                 "  if zfs list -H \"$dst@$snap\" >/dev/null 2>&1; then echo \"déjà reçu\"; continue; fi\n"

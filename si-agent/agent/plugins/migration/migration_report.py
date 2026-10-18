@@ -126,7 +126,7 @@ def pick_total(kind, params, rows, compressed):
         pool = str(p.get("pool") or "")
         if not ids or not pool:
             return None
-        rx = re.compile(r"/(subvol|vm)-(%s)-disk-[0-9]+$" % ids)
+        rx = re.compile(r"/(subvol|basevol|vm|base)-(%s)-disk-[0-9]+$" % ids)   # basevol / base : modèles (templates)
         sel = [r["ref"] for r in rows if r["name"].startswith(pool + "/") and rx.search(r["name"])]   # send -c : compression gardée
     elif kind == "rsync_pull_all":
         pat = str(p.get("src_dir") or "").rstrip("/") + "/" + str(p.get("pattern") or "*")

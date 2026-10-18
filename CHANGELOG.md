@@ -1,3 +1,12 @@
+## 2026-10-18 — Migration : envoi ZFS des CT convertis en modèle (basevol), agent 0.5.84 (livraison #780)
+
+- Constat (B8, pve-3 → pve11) : « VOLUME MANQUANT : aucun disque pour 104 » alors que le CT 104 existe ; c'est un modèle
+  (template), son disque s'appelle `rpool/basevol-104-disk-0` et la recherche ne connaissait que `subvol-` et `vm-`.
+- `migctl.py` (envoi ZFS) et `migration_report.py` (total pour « restant / transféré / total ») reconnaissent aussi
+  `basevol-` (modèle de CT) et `base-` (modèle de VM). Les 5 autres CT de B8 sont déjà reçus : la relance ne renvoie que le 104.
+- Vérifié : tests de l'agent fichier par fichier, dont un essai réel de la recherche (`grep -E`) sur une liste de volumes ;
+  `test_updater` échouait déjà avant cette livraison (non lié).
+
 ## 2026-10-17 — Hub : retour visuel de tous les boutons d'action (occupé pendant l'envoi, second clic bloqué, bandeau « fait » / « échec ») (livraison #778)
 
 - Constat : le bouton « Importer » de la tuile Migration (et bien d'autres) ne montrait aucune prise en compte ; on relançait
