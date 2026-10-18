@@ -156,9 +156,61 @@ class Sonde(unittest.TestCase):
             mr.main(["--dir", d, "--state", os.path.join(d, "st.json")])
         out = json.loads(buf.getvalue())
         s = out["steps"][0]
-        self.assertEqual((s["state"], s["rc"], s["size"], s["pct"]), ("failed", 255, 500, 50.0))
+        self.assertEqual((s["state"], s["rc"], s["size"], s["pct"], s["remaining"]), ("failed", 255, 500, 50.0, 500))
         self.assertNotIn("vieux", s["log_tail"])
         self.assertIn("Permission denied (publickey).", s["log_tail"])
+
+    def test_total_source(self):   # restant / transféré / total : total d'après `zfs list` du nœud source
+        z = ("rpool\t/rpool\t9000\t9000\nrpool/subvol-101-disk-0\t/rpool/subvol-101-disk-0\t100\t250\n"
+             "rpool/subvol-101-disk-1\t/rpool/subvol-101-disk-1\t50\t60\nrpool/vm-104-disk-0\t-\t400\t800\n"
+             "rpool/subvol-1010-disk-0\t/rpool/subvol-1010-disk-0\t7\t7\nautre/vm-104-disk-0\t-\t5\t5\nmal\tformé\n")
+        rows = mr.parse_zfs_list(z)
+        self.assertEqual(len(rows), 6)
+        self.assertEqual(mr.pick_total("zfs_pull", {"pool": "rpool", "ids": [101, 104]}, rows, False), 550)   # send -c : compressé
+        self.assertEqual(mr.pick_total("rsync_pull_all", {"src_dir": "/rpool/", "pattern": "subvol-*"}, rows, True), 157)
+        self.assertEqual(mr.pick_total("rsync_pull_all", {"src_dir": "/rpool", "pattern": "subvol-*"}, rows, False), 317)
+        self.assertEqual(mr.pick_total("rsync_pull", {"ct": 101}, rows, False), 310)
+        self.assertEqual(mr.pick_total("rsync_pull", {"src": "/rpool/subvol-101-disk-1/"}, rows, True), 50)
+        self.assertIsNone(mr.pick_total("rsync_pull", {"ct": 999}, rows, True))
+        self.assertIsNone(mr.pick_total("check_ssh", {}, rows, True))
+        self.assertEqual(mr.parse_df_used("Filesystem 1-blocks Used Available Capacity Mounted\n/dev/a 100 40 60 40% /\n/dev/b 10 2 8 20% /b\n"), 42)
+        calls = []
+
+        def sh(argv, timeout=30):
+            calls.append(argv)
+            if argv[0] == "stat":
+                return 0, "ext2/ext3\n"
+            if "zfs list" in argv[-1]:
+                return 0, z
+            return 0, "Filesystem 1-blocks Used Available Capacity Mounted\n/dev/loop0 100 33 67 33% /\n"
+        m = {"kind": "rsync_pull", "params": {"host": "pve-a", "ct": 102}, "measure": {"type": "path", "target": "/nulle/part"}, "started_at": 5}
+        self.assertEqual(mr.source_total(m, sh), 33)   # pas de sous-volume ZFS : df dans le CT
+        self.assertIn("pct exec 102 -- df -B1 -l -P -x tmpfs -x devtmpfs", calls[-1][-1])
+        d = tempfile.mkdtemp()
+        base = os.path.join(d, "b6")
+        self.assertEqual(mr.cached_total(base, m, 100.0, sh=sh), 33)
+        n = len(calls)
+        self.assertEqual(mr.cached_total(base, m, 200.0, sh=sh), 33)   # gardé : pas de nouvel appel
+        self.assertEqual(len(calls), n)
+        self.assertEqual(mr.cached_total(base, dict(m, started_at=6), 300.0, compute=False, sh=sh), None)   # autre lancement
+
+    def test_measure_dossier(self):
+        d = tempfile.mkdtemp()
+        tgt = os.path.join(d, "dest")
+        os.makedirs(tgt)
+        used = mr._df_used(tgt)
+        self.assertEqual(mr.measure({"type": "path", "target": tgt}, {}), (used, "volume"))
+        sz, scope = mr.measure({"type": "path", "target": tgt}, {"base_used": used - 10, "carry": 1000})
+        self.assertEqual(scope, "depuis")
+        self.assertGreaterEqual(sz, 1010)
+        self.assertEqual(mr.measure({"type": "path", "target": "/"}, {})[1], "dest")   # volume dédié (point de montage)
+        # migctl : ligne de base au lancement + ce qu'un passage précédent avait copié
+        json.dump({"target": tgt, "size": 777}, open(os.path.join(d, "x.done"), "w"))
+        bl = migctl.baseline({"type": "path", "target": tgt}, os.path.join(d, "x"), lambda a: (0, "Used\n12345\n", ""))
+        self.assertEqual(bl, {"base_used": 12345, "carry": 777})
+        bl = migctl.baseline({"type": "path", "target": tgt + "2"}, os.path.join(d, "x"), lambda a: (0, "Used\n5\n", ""))
+        self.assertEqual(bl, {"base_used": 5, "carry": 0})   # autre destination : rien repris
+        self.assertEqual(migctl.baseline({"type": "zfs", "target": "a/b"}, os.path.join(d, "x"), None), {})
 
 
 if __name__ == "__main__":

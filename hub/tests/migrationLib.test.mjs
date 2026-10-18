@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { allSteps, focusStep, progress, phaseProgress, controls, stepActions, parsePlan, fmtBytes, fmtRate, fmtDuration, solutionCommand, missingVars, statusLabel } from "../src/migrationLib.js";
+import { allSteps, focusStep, progress, phaseProgress, controls, stepActions, parsePlan, fmtBytes, fmtProgress, fmtRate, fmtDuration, solutionCommand, missingVars, statusLabel } from "../src/migrationLib.js";
 
 const st = (id, status, o = {}) => ({ id, status, kind: "check_ssh", missing_vars: [], ...o });
 const view = (steps, o = {}) => ({ plan: { name: "P", phases: [{ id: "A", title: "A", steps }] }, total: steps.length, done: steps.filter((s) => s.status === "fait").length, run: { state: "arrete", mode: "manuel" }, ...o });
@@ -44,4 +44,13 @@ test("plan, formats, solution, variables", () => {
   assert.equal(solutionCommand({ solution: { kind: "command", command: "ls" } }), "ls");
   assert.equal(solutionCommand({ solution: { kind: "retry" } }), "");
   assert.deepEqual(missingVars(view([st("a1", "a_faire", { missing_vars: ["PVE3"] }), st("a2", "fait", { missing_vars: ["X"] })])), ["PVE3"]);
+});
+
+test("avancement restant / transféré / total", () => {
+  const T = 1024 ** 4;
+  assert.equal(fmtProgress({ size: 2.8 * T, total: 7.9 * T }), "5.1 To / 2.8 To / 7.9 To");
+  assert.equal(fmtProgress({ size: 2.8 * T }), "2.8 To");
+  assert.equal(fmtProgress({ size: 2.8 * T, scope: "volume" }), "≈ 2.8 To");
+  assert.equal(fmtProgress({ size: 9 * T, total: 8 * T }), "0 o / 9.0 To / 8.0 To");
+  assert.equal(fmtProgress({}), "");
 });

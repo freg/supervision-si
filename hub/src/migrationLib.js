@@ -79,6 +79,13 @@ export function fmtBytes(n) {
   while (v >= 1024 && i < u.length - 1) { v /= 1024; i += 1; }
   return `${v >= 100 || i === 0 ? Math.round(v) : v.toFixed(1)} ${u[i]}`;
 }
+/** Avancement « restant / transféré / total » (total connu), sinon le transféré seul ; « ≈ » : mesure sur le volume entier. */
+export function fmtProgress(r) {
+  if (!r || r.size == null) return "";
+  const approx = r.scope === "volume" ? "≈ " : "";
+  if (!r.total) return approx + fmtBytes(r.size);
+  return `${approx}${fmtBytes(Math.max(0, r.total - r.size))} / ${fmtBytes(r.size)} / ${fmtBytes(r.total)}`;
+}
 export const fmtRate = (bps) => (bps == null ? "—" : `${fmtBytes(bps)}/s`);
 export function fmtDuration(s) {
   if (s == null || !Number.isFinite(s)) return "—";

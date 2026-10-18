@@ -188,6 +188,31 @@ def measure(step):
     return None
 
 
+def baseline(ms, base, runner):
+    """Dossier de destination hors volume dédié : occupation du volume au lancement (base_used) + ce qu'un passage
+    précédent de la même étape avait déjà copié (carry, mesuré par la sonde dans <id>.done) -> transféré exact."""
+    if not ms or ms.get("type") != "path":
+        return {}
+    tgt = ms["target"]
+    if os.path.isdir(tgt) and os.path.ismount(tgt.rstrip("/") or "/"):
+        return {}
+    p = tgt
+    while p and not os.path.exists(p):
+        p = os.path.dirname(p.rstrip("/"))
+    rc, out, _e = runner(["df", "-B1", "--output=used", p or "/"])
+    v = out.strip().splitlines()[-1].strip() if rc == 0 and out.strip() else ""
+    if not v.isdigit():
+        return {}
+    carry = 0
+    try:
+        with open(base + ".done") as fh:
+            d = json.load(fh)
+        carry = int(d.get("size") or 0) if d.get("target") == tgt else 0
+    except (OSError, ValueError, TypeError):
+        pass
+    return {"base_used": int(v), "carry": carry}
+
+
 def unit(sid):
     return "si-mig-" + re.sub(r"[^A-Za-z0-9_-]", "-", sid)
 
@@ -224,6 +249,7 @@ def run(params, runner, state_dir=STATE_DIR, now=None):
             total = int(out.strip()) if rc == 0 and out.strip().isdigit() else None
         meta = {"id": sid, "kind": st["kind"], "title": st["title"], "unit": u, "started_at": time.time() if now is None else now,
                 "measure": measure(st), "total": total, "params": st["params"]}
+        meta.update(baseline(meta["measure"], base, runner))
         with open(base + ".json", "w") as fh:
             json.dump(meta, fh)
         wrap = "bash %s >> %s 2>&1; echo $? > %s" % (q(base + ".sh"), q(base + ".log"), q(base + ".rc"))

@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchMigration, saveMigrationPlan, saveMigrationVars, migrationControl } from "./siAgentClient.js";
 import {
-  allSteps, focusStep, progress, phaseProgress, controls, stepActions, ACTION_LABEL, parsePlan, fmtBytes, fmtRate, fmtDuration, elapsed,
+  allSteps, focusStep, progress, phaseProgress, controls, stepActions, ACTION_LABEL, parsePlan, fmtBytes, fmtProgress, fmtRate, fmtDuration, elapsed,
   solutionCommand, missingVars, statusLabel, statusTone, RUN_LABEL, KIND_LABEL,
 } from "./migrationLib.js";
 
@@ -62,7 +62,8 @@ function Focus({ s, now, act, busy }) {
         <>
           {r.pct != null && <Bar pct={r.pct} tone="warning" />}
           <div className="infra-kpis">
-            <div className="infra-kpi"><span>copié</span><b>{fmtBytes(r.size)}</b>{r.total && <small>sur {fmtBytes(r.total)} ({r.pct} %)</small>}</div>
+            {r.total ? <div className="infra-kpi"><span>restant</span><b>{fmtBytes(Math.max(0, r.total - (r.size || 0)))}</b><small>{r.pct} % fait</small></div> : null}
+            <div className="infra-kpi"><span>transféré</span><b>{r.scope === "volume" ? "≈ " : ""}{fmtBytes(r.size)}</b>{r.total ? <small>sur {fmtBytes(r.total)}</small> : <small>total de la source inconnu</small>}</div>
             <div className="infra-kpi"><span>débit</span><b>{fmtRate(r.rate_bps)}</b></div>
             <div className="infra-kpi"><span>fin estimée</span><b>{r.eta_s != null ? fmtDuration(r.eta_s) : "—"}</b>{r.eta_s != null && <small>vers {new Date(now + r.eta_s * 1000).toLocaleString("fr-FR", { weekday: "short", hour: "2-digit", minute: "2-digit" })}</small>}</div>
             <div className="infra-kpi"><span>depuis</span><b>{fmtDuration(el)}</b>{s.attempts > 1 && <small>essai {s.attempts}</small>}</div>
@@ -86,7 +87,7 @@ function StepRow({ s, act, busy, open, onOpen }) {
         <td>{s.title}{s.error && <small className="mig-err-inline">⚠ {s.error.title}</small>}</td>
         <td className="infra-muted">{s.agent || "—"}</td>
         <td><span className={`infra-status ${statusTone(s.status)}`}>{statusLabel(s.status)}</span>{s.next && s.status === "a_faire" && <small className="infra-muted"> ← prochaine</small>}</td>
-        <td>{r.pct != null ? `${r.pct} %` : r.size != null ? fmtBytes(r.size) : ""}{r.rate_bps ? ` · ${fmtRate(r.rate_bps)}` : ""}</td>
+        <td title="restant / transféré / total">{fmtProgress(r)}{r.pct != null ? ` · ${r.pct} %` : ""}{r.rate_bps ? ` · ${fmtRate(r.rate_bps)}` : ""}</td>
         <td onClick={(e) => e.stopPropagation()}>{stepActions(s).map((a) => <button key={a} className="secondary mig-small" disabled={busy} onClick={() => act(a, s.id)}>{ACTION_LABEL[a]}</button>)}</td>
       </tr>
       {open && <tr><td colSpan={6}>
@@ -203,7 +204,7 @@ export default function MigrationView({ onBack, siAgentApiBase, username }) {
             return (
               <details key={ph.id} className="infra-card" open={pp.d < pp.n}>
                 <summary><b>{ph.title}</b> <span className={`infra-status ${pp.tone}`}>{pp.d} / {pp.n}</span>{ph.note && <span className="infra-note"> {ph.note}</span>}</summary>
-                <div className="infra-table-wrap"><table className="infra-table gu-table"><thead><tr><th>étape</th><th>titre</th><th>hôte</th><th>état</th><th>avancement</th><th></th></tr></thead><tbody>
+                <div className="infra-table-wrap"><table className="infra-table gu-table"><thead><tr><th>étape</th><th>titre</th><th>hôte</th><th>état</th><th title="restant / transféré / total · débit">avancement (restant / transféré / total)</th><th></th></tr></thead><tbody>
                   {ph.steps.map((s) => <StepRow key={s.id} s={{ ...s, phaseTitle: ph.title }} act={act} busy={busy} open={openStep === s.id} onOpen={() => setOpenStep(openStep === s.id ? null : s.id)} />)}
                 </tbody></table></div>
               </details>

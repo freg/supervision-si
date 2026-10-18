@@ -222,12 +222,12 @@ function XferDestinations({ rows }) {
     <div className="infra-card" style={{ marginBottom: 10 }}>
       <figcaption>Destinations des transferts <span className="infra-note">mesurées toutes les 2 min sur le nœud qui reçoit</span></figcaption>
       <table className="infra-table">
-        <thead><tr><th>Nœud</th><th>Transfert</th><th>Destination</th><th>Copié</th><th>Avancement</th><th>Débit</th><th>Fin estimée</th></tr></thead>
+        <thead><tr><th>Nœud</th><th>Transfert</th><th>Destination</th><th>Restant / copié / total</th><th>Avancement</th><th>Débit</th><th>Fin estimée</th></tr></thead>
         <tbody>{rows.map((t) => (
           <tr key={`${t.node}${t.key}`} title={t.cmd}>
             <td>{t.node}</td><td>{t.label}</td>
             <td className="infra-mono">{t.dest}<div className="infra-muted" style={{ fontSize: 11 }}>{t.measure}{t.measure !== "fichier" ? " (taille occupée du volume)" : ""}</div></td>
-            <td>{fmtBytes(t.size)}{t.total ? ` / ${fmtBytes(t.total)}` : ""}</td>
+            <td>{t.total ? `${fmtBytes(Math.max(0, t.total - t.size))} / ${fmtBytes(t.size)} / ${fmtBytes(t.total)}` : fmtBytes(t.size)}</td>
             <td style={{ minWidth: 120 }}>{t.pct != null ? (<><div style={{ height: 8, background: "var(--border)", borderRadius: 4, overflow: "hidden" }}><div style={{ width: `${t.pct}%`, height: "100%", background: "var(--viz-1)" }} /></div><small>{t.pct} %</small></>) : <span className="infra-muted">total inconnu</span>}</td>
             <td>{t.stalled_runs >= 3 ? <Status tone="warning" label="ne progresse plus" /> : t.rate_bps != null ? fmtBps(t.rate_bps * 8) : "mesure au prochain passage"}</td>
             <td>{eta(t.eta_s)}</td>
