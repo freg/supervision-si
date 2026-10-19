@@ -384,6 +384,13 @@ def registry_steps(steps):
     return out
 
 
+BUILD_BATCH = 6   # #783 : services reconstruits par lot (40 en parallèle dépassaient le délai de BuildKit sur la VM du hub)
+
+
+def batches(names, size=BUILD_BATCH):
+    return [names[i:i + size] for i in range(0, len(names), size)]
+
+
 def git_update_plan(mode, changed, main_paths, running, gateway_running=True, nodes=0, agents=False, branch="main", start_new=(), registry=False):
     """Étapes du job : `git pull --ff-only`, puis
     - central : plan ciblé (plan_for_changes) sur les fichiers modifiés entre HEAD et origin ;
@@ -400,8 +407,12 @@ def git_update_plan(mode, changed, main_paths, running, gateway_running=True, no
         if ".env.example" in changed:
             steps.append({"label": "clés .env manquantes (sync-env)", "cmd": "python3 scripts/sync-env.py"})
         names = sorted(s for s in (running or []) if SERVICE_RE.match(s))
+        # #783 : reconstruction par lots de BUILD_BATCH services (même sans commit nouveau : un `git pull` fait à la main
+        # laisse les images en retard sur le code, la cascade est là pour les rattraper).
         if names:
-            steps.append({"label": "reconstruire les %d service(s) en marche" % len(names), "cmd": "./scripts/run.sh up -d --build " + " ".join(names)})
+            lots = batches(names)
+            for i, lot in enumerate(lots, 1):
+                steps.append({"label": "reconstruire les services en marche, lot %d/%d (%d)" % (i, len(lots), len(lot)), "cmd": "./scripts/run.sh up -d --build " + " ".join(lot)})
         if gateway_running:
             steps.append({"label": "reconstruire la passerelle (tls-proxy)", "cmd": "./gateway/scripts/run.sh up -d --build tls-proxy"})
         if nodes and nodes > 1:

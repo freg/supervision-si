@@ -1,3 +1,15 @@
+## 2026-10-19 — Tour de contrôle : la cascade ne dépasse plus le délai de construction (livraison #783)
+
+- Constat : toutes les « mises à jour git en cascade » échouaient depuis le 7 oct. (`failed to solve: DeadlineExceeded`) ;
+  chaque service passait ~650 s dans « load build context ».
+- Cause : 73 services sont construits depuis la racine du dépôt, sans `.dockerignore` racine -- chacun envoyait tout le
+  dépôt (historique git, node_modules, archives, données montées), et la cascade les construisait tous en même temps.
+- `.dockerignore` racine (git, node_modules, caches Python, archives, `.env`, données et certificats montés, `dist` du hub)
+  -- rien de ce qu'un Dockerfile copie n'est exclu (vérifié sur toutes les lignes COPY/ADD).
+- Cascade : reconstruction par lots de 6 services (`tower.BUILD_BATCH`), une étape par lot dans le job.
+- Vérifié : test_tower (lots 6/6/2, passerelle à la fin, registre), test_app des services. Non vérifié : durée réelle de
+  la cascade sur super.
+
 ## 2026-10-19 — Cartes graphiques : sonde gpu, colonne GPU des vues de parc et du Parc IA, agent 0.5.85 (livraison #782)
 
 - Besoin : voir depuis le hub la puissance et l'état des GPU (A4500 de la prod campus, RTX 2000 Ada de la préprod,

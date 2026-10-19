@@ -1,0 +1,23 @@
+# #783 : contexte de construction commun -- 73 services sont construits depuis la racine du dépôt. Sans ce fichier, chacun
+# envoyait tout (historique git, node_modules, archives, données montées) et la cascade dépassait le délai de BuildKit
+# (« load build context » ~650 s, DeadlineExceeded). Ne rien exclure ici qu'un Dockerfile copie.
+.git
+**/.git
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+**/*.pyc
+**/.DS_Store
+*.zip
+*.tgz
+*.tar
+*.tar.gz
+.env
+.env.generated-secrets.txt
+hub/dist
+hub/standalone-ui/dist
+frontend/dist
+projeqtor-bridge/data
+si-proxy/data
+si-proxy/certs
+pki
