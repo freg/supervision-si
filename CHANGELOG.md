@@ -1,3 +1,13 @@
+## 2026-10-19 — Activité heure par heure d'un conteneur, pour choisir le créneau d'une bascule (livraison #785)
+
+- Besoin : avant de basculer des conteneurs web d'administrations (DNS à changer, utilisateurs à prévenir), savoir s'il
+  y a une activité régulière et sur quelle plage horaire.
+- `scripts/activite-horaire.py CT [semaines]` (sur le PVE qui porte le conteneur, Python 3.5+, lecture seule) : journaux
+  d'accès Apache / Nginx (rotations .gz comprises) lus par la racine du conteneur, robots / supervision / fichiers
+  statiques écartés (`--exclure` pour des adresses), grille jour × heure (requêtes par semaine, visiteurs distincts),
+  28 derniers jours, adresses les plus actives, plage d'activité par jour, créneaux les plus calmes des jours ouvrés.
+- Vérifié : sur un journal simulé (rotation gz, robot, fichier statique écartés). Non vérifié : sur les vrais conteneurs.
+
 ## 2026-10-19 — Migration : onglets (dont « MX »), étapes à la main avec commande et machine (livraison #784)
 
 - Besoin : suivre dans la tuile Migration la bascule de la messagerie (prérequis, répétition complète avec émission et
