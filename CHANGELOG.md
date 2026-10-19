@@ -4,7 +4,7 @@
   tête), activité 24 h / 24 pour l'autre, dominée par des scanners (réponses 404) et par Nextcloud lui-même (::1).
 - `scripts/activite-horaire.py` : format « site:port » en tête accepté ; requêtes en erreur (≥ 400) et locales (::1,
   127.0.0.1) écartées ; diagnostic (lignes lues, non reconnues avec un exemple, trop anciennes, écartées) ; comptes
-  authentifiés (WebDAV / synchronisation) avec leurs heures d'activité.
+  authentifiés (WebDAV / synchronisation) avec leurs heures d'activité ; plages sans aucune activité par jour et communes aux jours ouvrés (créneaux sûrs pour une coupure).
 - Vérifié : journal simulé (vhost, scanner 404, ligne illisible). Non vérifié : sur les conteneurs.
 
 ## 2026-10-19 — Activité heure par heure d'un conteneur, pour choisir le créneau d'une bascule (livraison #785)

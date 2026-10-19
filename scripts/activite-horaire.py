@@ -135,6 +135,20 @@ def main():
     for wd in range(7):
         hs = [h for h in range(24) if grille[(wd, h)] / nsem >= 1]
         print("  %s : %s" % (JOURS[wd], "de %d h à %d h" % (hs[0], hs[-1] + 1) if hs else "aucune activité régulière"))
+    def plages(heures):   # heures sans activité -> « 12 h-14 h, 18 h-24 h »
+        out, debut = [], None
+        for h in range(25):
+            vide = h < 24 and h in heures
+            if vide and debut is None:
+                debut = h
+            elif not vide and debut is not None:
+                out.append("%d h-%d h" % (debut, h)); debut = None
+        return ", ".join(out) or "aucune"
+    print("\nPLAGES SANS AUCUNE ACTIVITÉ sur toute la période (créneaux sûrs pour une coupure) :")
+    for wd in range(7):
+        print("  %s : %s" % (JOURS[wd], plages({h for h in range(24) if not grille[(wd, h)]})))
+    communes = {h for h in range(24) if all(not grille[(wd, h)] for wd in range(5))}
+    print("  tous les jours ouvrés (lun-ven) : %s" % plages(communes))
     ouvres = sorted(((grille[(wd, h)], wd, h) for wd in range(5) for h in range(7, 20)))
     print("\nCréneaux les plus calmes des jours ouvrés (7 h - 20 h) :")
     for n, wd, h in ouvres[:8]:
