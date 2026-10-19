@@ -15,6 +15,7 @@ export const UPDATE_LINKS = {
   758: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   759: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   760: [{ view: "cortex", hint: "incidents « cause Wi-Fi probable »" }],
+  789: [{ view: "notifications", hint: "La recherche « sms » trouve la tuile ; onglet 📱 SMS" }],
   787: [{ view: "notifications", hint: "Onglet 📱 SMS : envoi, journal, relance ; API interne /sms distincte du client externe" }],
   784: [{ view: "migration", hint: "Onglets du plan (dont « MX ») ; étapes à la main avec commande et machine" }],
   783: [{ view: "services", hint: "Tour › cascade sans dépassement de délai (reconstruction par lots)" }],

@@ -92,7 +92,7 @@ export const THEMES = [
       { view: "rights", label: "Droits" },
       { view: "accounts", label: "Comptes et groupes" },
       { view: "personal", label: "Données personnelles" },
-      { view: "notifications", label: "Notifications" },
+      { view: "notifications", label: "Notifications (courriels, SMS)" },
       { view: "backup-restore", label: "Sauvegardes" },
       { front: "vault", label: "Coffre-fort" },
       { front: "vault-admin", label: "Administration du coffre-fort" },

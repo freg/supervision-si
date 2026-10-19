@@ -45,8 +45,12 @@ test("repli « Autres » pour une feuille sans chemin déclaré, filtre début d
   const labels = [];
   const walk = (n) => { n.leaves.forEach((l) => labels.push(l.label)); n.children.forEach(walk); };
   f.roots.forEach(walk);
-  assert.ok(labels.includes("Nebula") && labels.includes("Notifications"));
+  assert.ok(labels.includes("Nebula") && labels.includes("Notifications (courriels, SMS)"));
   assert.ok(!labels.includes("Cortex"));
+  const fs = filterBusinessTree(businessTree(catalog), "sms");   // #789 : « sms » trouve la tuile Notifications
+  const ls = [];
+  fs.roots.forEach(function w(n) { n.leaves.forEach((l) => ls.push(l.label)); n.children.forEach(w); });
+  assert.ok(ls.includes("Notifications (courriels, SMS)"));
   const f2 = filterBusinessTree(businessTree(catalog), "routeur");
   assert.deepEqual(f2.roots.map((r) => r.id), ["equipements", "droits"]);  // branche « Routeurs » + « Routeurs MikroTik » sous Accès
   const full = businessTree(catalog);

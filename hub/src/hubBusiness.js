@@ -46,7 +46,7 @@ export const ROOTS = [
       { id: "incidents", label: "Incidents et alertes" },
       { id: "feux", label: "Feux tricolores" },
       { id: "journaux", label: "Journaux et historique" },
-      { id: "notifications", label: "Notifications" },
+      { id: "notifications", label: "Notifications (courriels, SMS)" },
       { id: "demandes", label: "Demandes et tickets" },
     ] },
   { id: "cortex", label: "Cortex et IA", icon: "🧠", description: "assistant, corrélation, classification, règles apprises, mémoire",

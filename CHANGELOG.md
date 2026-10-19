@@ -1,3 +1,7 @@
+## 2026-10-19 — Hub : la recherche « sms » trouve la tuile Notifications (livraison #789)
+
+- Tuile renommée « Notifications (courriels, SMS) » : les menus (thèmes, métier) et l'univers la trouvent par « sms ».
+
 ## 2026-10-19 — Hub : liens des « Mises à jour » rétablis pour les livraisons #780 à #787 (livraison #788)
 
 - Pied de page « Mises à jour » : chaque livraison récente a de nouveau ses boutons vers les écrans concernés

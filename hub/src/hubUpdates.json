@@ -1,5 +1,11 @@
 [
  {
+  "n": 789,
+  "from": 789,
+  "date": "2026-10-19",
+  "title": "Hub : la recherche « sms » trouve la tuile Notifications"
+ },
+ {
   "n": 788,
   "from": 788,
   "date": "2026-10-19",
@@ -232,11 +238,5 @@
   "from": 749,
   "date": "2026-10-14",
   "title": "Tuile « Infra PVE / PBS » : vue d'ensemble locale + OVH, transferts, onglet htop"
- },
- {
-  "n": 748,
-  "from": 748,
-  "date": "2026-10-14",
-  "title": "Virtualisation directe pilotée par les deux agents, relais à fenêtre bornée"
  }
 ]
