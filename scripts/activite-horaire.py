@@ -19,7 +19,7 @@ import re
 import subprocess
 import sys
 
-LIGNE = re.compile(r'^(\S+) \S+ \S+ \[(\d{2})/(\w{3})/(\d{4}):(\d{2}):\d{2}:\d{2} [^\]]+\] "(\S+) (\S+)[^"]*" (\d{3}) \S+(?: "[^"]*" "([^"]*)")?')
+LIGNE = re.compile(r'^(?:\S+:\d+ )?(\S+) \S+ (\S+) \[(\d{2})/(\w{3})/(\d{4}):(\d{2}):\d{2}:\d{2} [^\]]+\] "(\S+) (\S+)[^"]*" (\d{3}) \S+(?: "[^"]*" "([^"]*)")?')
 MOIS = {m: i + 1 for i, m in enumerate("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split())}
 ROBOTS = re.compile(r"bot|spider|crawl|slurp|monitor|uptime|pingdom|zabbix|nagios|check_http|curl|wget|python-requests|go-http|headless", re.I)
 STATIQUE = re.compile(r"\.(css|js|png|jpe?g|gif|svg|ico|woff2?|ttf|map|webp)(\?|$)", re.I)
@@ -66,19 +66,29 @@ def main():
     visiteurs = collections.defaultdict(set)
     jours = collections.Counter()
     ips = collections.Counter()
-    ecartees = 0
+    ecartees = refusees = lues = nonlues = anciennes = 0
+    exemple = None
+    comptes = collections.Counter()
+    heures_compte = collections.defaultdict(set)
     premier = dernier = None
     for f in fichiers:
         for l in lire(f):
+            lues += 1
             m = LIGNE.match(l)
             if not m:
+                nonlues += 1
+                exemple = exemple or l.strip()[:200]
                 continue
-            ip, j, mo, an, h, _meth, url, _code, ua = m.groups()
+            ip, user, j, mo, an, h, _meth, url, code, ua = m.groups()
             d = datetime.datetime(int(an), MOIS.get(mo, 1), int(j), int(h))
             if d < depuis:
+                anciennes += 1
                 continue
-            if ip in exclure or ROBOTS.search(ua or "") or STATIQUE.search(url):
+            if ip in exclure or ip in ("::1", "127.0.0.1") or ROBOTS.search(ua or "") or STATIQUE.search(url):
                 ecartees += 1
+                continue
+            if int(code) >= 400:          # 401/403/404 en rafale : scanners (et mots de passe refusés)
+                refusees += 1
                 continue
             premier = d if premier is None or d < premier else premier
             dernier = d if dernier is None or d > dernier else dernier
@@ -87,11 +97,18 @@ def main():
             visiteurs[cle].add(ip)
             jours[d.date()] += 1
             ips[ip] += 1
+            if user != "-":
+                comptes[user] += 1
+                heures_compte[user].add(d.hour)
     print("CT %s · %d journal(aux) · %d dernières semaines" % (ct, len(fichiers), semaines))
     for f in fichiers:
         print("   " + f.replace(r, ""))
+    print("Lignes lues : %d · format non reconnu : %d · antérieures à la période : %d · écartées (robots, supervision, local, "
+          "statiques) : %d · en erreur ≥ 400 (scanners) : %d" % (lues, nonlues, anciennes, ecartees, refusees))
+    if exemple:
+        print("Exemple de ligne non reconnue : " + exemple)
     if not premier:
-        print("Aucune requête humaine sur la période (%d écartées : robots, supervision, fichiers statiques)." % ecartees)
+        print("Aucune requête humaine sur la période.")
         return
     nsem = max(1.0, ((dernier - premier).days + 1) / 7.0)
     print("Période lue : %s -> %s (%.1f semaine(s)) · %d requêtes retenues, %d écartées" % (premier.date(), dernier.date(), nsem, sum(grille.values()), ecartees))
@@ -109,6 +126,11 @@ def main():
     print("\nAdresses les plus actives (une supervision ou un robot ? relancer avec --exclure) :")
     for ip, n in ips.most_common(10):
         print("  %-40s %d" % (ip, n))
+    if comptes:
+        print("\nComptes authentifiés (WebDAV / synchronisation) : requêtes et heures où ils travaillent")
+        for u, n in comptes.most_common(15):
+            hs = sorted(heures_compte[u])
+            print("  %-30s %7d   %s" % (u[:30], n, " ".join("%d" % h for h in hs)))
     print("\nPlage d'activité par jour (heures avec au moins 1 requête par semaine en moyenne) :")
     for wd in range(7):
         hs = [h for h in range(24) if grille[(wd, h)] / nsem >= 1]
