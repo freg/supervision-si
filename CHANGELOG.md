@@ -1,3 +1,8 @@
+## 2026-10-19 — Hub : les boutons des « Mises à jour » ouvrent l'onglet précis (SMS, MX…) (livraison #790)
+
+- Un lien de mise à jour peut porter des paramètres d'écran : « Notifications › 📱 SMS » ouvre directement l'onglet SMS,
+  « Migration › onglet MX » l'onglet MX (onglet inconnu : retour à l'onglet principal).
+
 ## 2026-10-19 — Hub : la recherche « sms » trouve la tuile Notifications (livraison #789)
 
 - Tuile renommée « Notifications (courriels, SMS) » : les menus (thèmes, métier) et l'univers la trouvent par « sms ».

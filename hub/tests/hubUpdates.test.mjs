@@ -18,3 +18,11 @@ test("#762 : liens des mises à jour (nouvelles tuiles, écrans modifiés, plage
   assert.equal(entryLabel({ view: "inconnue" }, themes), "inconnue");
   assert.equal(shortDate("2026-10-14"), "14/10");
 });
+
+test("#790 : les liens de mise à jour gardent leurs paramètres d'écran (onglet précis)", async () => {
+  const { updatesWithLinks } = await import("../src/hubUpdatesLib.js");
+  const [u] = updatesWithLinks([{ n: 9001, date: "2026-10-19", title: "x" }], {
+    since: {}, themes: [], links: { 9001: [{ view: "notifications", params: { tab: "sms" } }, { view: "notifications" }] } });
+  assert.equal(u.links.length, 2);
+  assert.deepEqual(u.links[0].params, { tab: "sms" });
+});

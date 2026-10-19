@@ -1,6 +1,7 @@
 import React, { Fragment, Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import HUB_UPDATES from "./hubUpdates.json";   // #762 : généré par scripts/gen-hub-updates.py
 import { updatesWithLinks, shortDate } from "./hubUpdatesLib.js";
+import { setViewParams } from "./hubLinks.js";   // #790
 import { preloadSequential } from "./lazyViews.js";   // #735
 import { installNetActivity } from "./netActivity.js";   // #735
 import { useAuth } from "react-oidc-context";
@@ -2263,9 +2264,9 @@ vm === "agent-page" ? (
                   const front = l.front ? fronts.find((f) => f.id === l.front) : null;
                   const ok = l.view ? availableViews.has(l.view) : !!front;
                   return (
-                    <button key={(l.view || l.front) + (l.hint || "")} type="button" className="secondary hub-update-link" disabled={!ok}
+                    <button key={(l.view || l.front) + (l.hint || "") + JSON.stringify(l.params || {})} type="button" className="secondary hub-update-link" disabled={!ok}
                       title={ok ? (l.hint ? `${l.label} › ${l.hint}` : l.label) : "écran non disponible pour vous ou sur ce déploiement"}
-                      onClick={() => { if (l.view) { setThemeEntry(null); setViewMode(l.view); } else if (front) window.open(front.url, "_blank", "noopener"); }}>
+                      onClick={() => { if (l.view) { setViewParams(l.params); setThemeEntry(null); setViewMode(l.view); } else if (front) window.open(front.url, "_blank", "noopener"); }}>
                       {l.isNew && <b>Nouveau · </b>}{l.label}{l.hint ? ` › ${l.hint}` : ""} →
                     </button>);
                 })}

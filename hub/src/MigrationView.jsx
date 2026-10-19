@@ -5,6 +5,7 @@
 // reprise, ou commande exacte à lancer et où). Données : si-agent-api /migration (sonde « migration » des agents).
 // Logique pure : migrationLib.js.
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { viewParams } from "./hubLinks.js";
 import { fetchMigration, saveMigrationPlan, saveMigrationVars, migrationControl } from "./siAgentClient.js";
 import {
   allSteps, focusStep, progress, phaseProgress, controls, stepActions, ACTION_LABEL, parsePlan, fmtBytes, fmtProgress, fmtRate, fmtDuration, elapsed,
@@ -151,7 +152,7 @@ export default function MigrationView({ onBack, siAgentApiBase, username }) {
   const [at, setAt] = useState(null);
   const [busy, setBusy] = useState(false);
   const [openStep, setOpenStep] = useState(null);
-  const [tab, setTab] = useState("");   // #784 : onglet (Migration, MX…)
+  const [tab, setTab] = useState(() => viewParams().onglet || "");   // #784 : onglet (Migration, MX…) ; #790 : ?onglet=MX
 
   const load = useCallback(() => fetchMigration(siAgentApiBase).then((d) => { setData(d); setErr(d?.error || null); setAt(new Date()); }).catch((e) => setErr(e.message)), [siAgentApiBase]);
   useEffect(() => {
@@ -173,6 +174,7 @@ export default function MigrationView({ onBack, siAgentApiBase, username }) {
 
   const now = at ? at.getTime() : Date.now();
   const tabs = useMemo(() => tabsOf(data), [data]);
+  useEffect(() => { if (tab && tabs.length && !tabs.some((x) => x.id === tab)) setTab(""); }, [tab, tabs]);   // #790 : ?onglet= inconnu -> onglet principal
   const vdata = useMemo(() => tabView(data, tab), [data, tab]);
   const focus = useMemo(() => (vdata ? focusStep(vdata) : null), [vdata]);
   const prog = progress(vdata);

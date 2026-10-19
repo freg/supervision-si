@@ -4,6 +4,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 
 // Écrans MODIFIÉS par une livraison (les tuiles NOUVELLES viennent de SINCE) : à compléter à chaque livraison visible.
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
+// (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
   747: [{ view: "nebula", hint: "Rapports › Occupation" }],
   748: [{ view: "pve-ops", hint: "Migration › méthode directe" }],
@@ -15,9 +16,10 @@ export const UPDATE_LINKS = {
   758: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   759: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   760: [{ view: "cortex", hint: "incidents « cause Wi-Fi probable »" }],
-  789: [{ view: "notifications", hint: "La recherche « sms » trouve la tuile ; onglet 📱 SMS" }],
-  787: [{ view: "notifications", hint: "Onglet 📱 SMS : envoi, journal, relance ; API interne /sms distincte du client externe" }],
-  784: [{ view: "migration", hint: "Onglets du plan (dont « MX ») ; étapes à la main avec commande et machine" }],
+  790: [{ view: "notifications", params: { tab: "sms" }, hint: "les boutons de mise à jour ouvrent l'onglet concerné (ici 📱 SMS)" }, { view: "migration", params: { onglet: "MX" }, hint: "onglet MX" }],
+  789: [{ view: "notifications", params: { tab: "sms" }, hint: "La recherche « sms » trouve la tuile ; onglet 📱 SMS" }],
+  787: [{ view: "notifications", params: { tab: "sms" }, hint: "Onglet 📱 SMS : envoi, journal, relance ; API interne /sms distincte du client externe" }],
+  784: [{ view: "migration", params: { onglet: "MX" }, hint: "Onglets du plan (dont « MX ») ; étapes à la main avec commande et machine" }],
   783: [{ view: "services", hint: "Tour › cascade sans dépassement de délai (reconstruction par lots)" }],
   782: [{ view: "fleetviews", hint: "Colonne GPU" }, { view: "iapark", hint: "Cartes graphiques des hôtes" }],
   781: [{ view: "migration", hint: "Étape manuelle devenue automatique : plus bloquée après réimport" }],
@@ -59,7 +61,7 @@ export function updatesWithLinks(items, { since = SINCE, links = UPDATE_LINKS, t
     const out = [];
     for (let n = u.from || u.n; n <= u.n; n += 1) out.push(...(byDelivery[n] || []), ...(links[n] || []));
     const seen = new Set();
-    const uniq = out.filter((l) => { const k = (l.view || "") + "|" + (l.front || ""); if (seen.has(k)) return false; seen.add(k); return true; });
+    const uniq = out.filter((l) => { const k = (l.view || "") + "|" + (l.front || "") + "|" + JSON.stringify(l.params || {}); if (seen.has(k)) return false; seen.add(k); return true; });
     return { ...u, links: uniq.map((l) => ({ ...l, label: entryLabel(l, themes) })) };
   });
 }

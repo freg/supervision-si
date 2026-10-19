@@ -18,6 +18,14 @@ export function viewParams() {
   } catch { return {}; }
 }
 
+/** #790 : pose des paramètres d'écran (ex. {tab: "sms"}) dans l'URL sans recharger, lus par viewParams() à l'ouverture. */
+export function setViewParams(params) {
+  try {
+    const q = new URLSearchParams(Object.entries(params || {}).filter(([, v]) => v != null && v !== "")).toString();
+    window.history.replaceState(null, "", window.location.pathname + (q ? "?" + q : ""));
+  } catch { /* sans importance */ }
+}
+
 /** Efface les paramètres de l'URL sans recharger (une fois consommés). */
 export function clearViewParams() {
   try { window.history.replaceState(null, "", window.location.pathname); } catch { /* sans importance */ }

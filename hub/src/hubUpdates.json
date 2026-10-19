@@ -1,5 +1,11 @@
 [
  {
+  "n": 790,
+  "from": 790,
+  "date": "2026-10-19",
+  "title": "Hub : les boutons des « Mises à jour » ouvrent l'onglet précis (SMS, MX…)"
+ },
+ {
   "n": 789,
   "from": 789,
   "date": "2026-10-19",
@@ -232,11 +238,5 @@
   "from": 750,
   "date": "2026-10-14",
   "title": "Rapatriement OVH → local piloté depuis le hub : export, vérification, destruction par tranches"
- },
- {
-  "n": 749,
-  "from": 749,
-  "date": "2026-10-14",
-  "title": "Tuile « Infra PVE / PBS » : vue d'ensemble locale + OVH, transferts, onglet htop"
  }
 ]
