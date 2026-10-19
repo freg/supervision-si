@@ -108,6 +108,20 @@ CREATE TABLE IF NOT EXISTS sms_in (id INTEGER PRIMARY KEY AUTOINCREMENT, receive
 """
 # #787 : SMS internes -- relais du TRB140 avec une clé PROPRE au hub (utilisateur dédié du relais, distinct du client externe)
 SMS_RELAY_URL = os.environ.get("NOTIFY_SMS_RELAY_URL", "").rstrip("/")
+
+
+def ui_url(v):
+    """#791 : lien d'interface affiché dans le hub -- http(s) seulement, sans identifiants (user:mdp@) ni paramètres."""
+    v = (v or "").strip()
+    if not v.lower().startswith(("http://", "https://")):
+        return ""
+    sch, rest = v.split("//", 1)
+    hote, _, chemin = rest.partition("/")
+    return sch + "//" + hote.rsplit("@", 1)[-1] + ("/" + chemin.split("?")[0].split("#")[0] if chemin else "")
+
+
+SMS_RELAY_UI = ui_url(os.environ.get("NOTIFY_SMS_RELAY_UI", "") or SMS_RELAY_URL)   # #791 : interface du relais (défaut : URL du relais)
+SMS_TRB_UI = ui_url(os.environ.get("NOTIFY_SMS_TRB_UI", ""))                          # #791 : interface web du TRB140 (facultatif)
 SMS_RELAY_KEY = os.environ.get("NOTIFY_SMS_RELAY_KEY", "")
 
 
@@ -726,7 +740,7 @@ def sms_journal():
     inn = [dict(r) for r in c.execute("SELECT * FROM sms_in ORDER BY id DESC LIMIT ?", (min(500, int(request.args.get("limit") or 200)),))]
     counts = {r["status"]: r["n"] for r in c.execute("SELECT status, COUNT(*) AS n FROM sms_out GROUP BY status")}
     host = SMS_RELAY_URL.split("//")[-1].split("/")[0] if SMS_RELAY_URL else ""
-    return jsonify({"relay": {"configured": bool(SMS_RELAY_URL and SMS_RELAY_KEY), "host": host}, "counts": counts, "out": out, "in": inn,
+    return jsonify({"relay": {"configured": bool(SMS_RELAY_URL and SMS_RELAY_KEY), "host": host, "ui": SMS_RELAY_UI, "trb_ui": SMS_TRB_UI}, "counts": counts, "out": out, "in": inn,
                     "sender": SMS_SENDER.state()}), 200
 
 

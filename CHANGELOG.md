@@ -1,3 +1,10 @@
+## 2026-10-19 — Notifications › SMS : accès direct au relais SMS et à la passerelle TRB140 (livraison #791)
+
+- Onglet 📱 SMS : boutons « Relais SMS », « Envoyer depuis le relais » (/compose) et « Passerelle TRB140 (interface web) ».
+- Réglages `.env` : `NOTIFY_SMS_RELAY_UI` (vide = `NOTIFY_SMS_RELAY_URL`), `NOTIFY_SMS_TRB_UI` (vide = pas de bouton) ;
+  URL nettoyées (http/https seulement, sans identifiants ni paramètres).
+- Vérifié : tests notify (12) et hub ; compilation JSX.
+
 ## 2026-10-19 — Hub : les boutons des « Mises à jour » ouvrent l'onglet précis (SMS, MX…) (livraison #790)
 
 - Un lien de mise à jour peut porter des paramètres d'écran : « Notifications › 📱 SMS » ouvre directement l'onglet SMS,

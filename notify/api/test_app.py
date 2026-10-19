@@ -246,3 +246,12 @@ class Sms(Base):   # #787 : SMS internes (canal du hub, distinct du client exter
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class UiUrlTest(unittest.TestCase):   # #791 : lien « accès direct » de l'onglet SMS
+    def test_sans_identifiants(self):
+        import app as m
+        self.assertEqual(m.ui_url("http://u:p@192.0.2.10:8090/compose?key=x"), "http://192.0.2.10:8090/compose")
+        self.assertEqual(m.ui_url("https://192.0.2.29"), "https://192.0.2.29")
+        self.assertEqual(m.ui_url("javascript:alert(1)"), "")
+        self.assertEqual(m.ui_url(""), "")

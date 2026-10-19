@@ -228,6 +228,13 @@ function Sms({ b, t, notice, apiBase }) {
         <strong>Canal SMS du hub</strong> — relais {relay.configured ? <Tone tone="green">configuré ({relay.host})</Tone> : <Tone tone="red">non configuré (NOTIFY_SMS_RELAY_URL / NOTIFY_SMS_RELAY_KEY)</Tone>}
         {" "}· {Object.entries(data?.counts || {}).map(([k, v]) => `${v} ${STATUS_LABEL[k] || k}`).join(" · ") || "aucun envoi"}
         {" "}· dernier envoi {s.last_sent ? when(s.last_sent) : "—"}{s.last_error ? <> · <Tone tone="red">{s.last_error}</Tone></> : null}
+        {(relay.ui || relay.trb_ui) && (   /* #791 : accès direct à la passerelle */
+          <div style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {relay.ui && <a className="secondary" href={relay.ui} target="_blank" rel="noreferrer noopener">↗ Relais SMS (envoi, historique, utilisateurs)</a>}
+            {relay.ui && <a className="secondary" href={relay.ui.replace(/\/$/, "") + "/compose"} target="_blank" rel="noreferrer noopener">↗ Envoyer depuis le relais</a>}
+            {relay.trb_ui && <a className="secondary" href={relay.trb_ui} target="_blank" rel="noreferrer noopener">↗ Passerelle TRB140 (interface web)</a>}
+          </div>
+        )}
         <details style={{ marginTop: 6 }}><summary className="muted">Brancher un script ou une passerelle sur ce canal</summary>
           <p className="muted">Créer un consommateur (onglet Consommateurs) puis utiliser son jeton :</p>
           <pre style={{ fontSize: 12, whiteSpace: "pre-wrap" }}>{`envoi (format du relais) : ${apiBase}/sms/send?number=+336…&message=…&key=JETON
