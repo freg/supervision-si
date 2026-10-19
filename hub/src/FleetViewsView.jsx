@@ -8,7 +8,7 @@ import DataStatus from "./DataStatus.jsx";   // #763 : état des données
 import { useEffect, useMemo, useState } from "react";
 import { fetchFleet, fetchViews, saveViews, fetchViewOverview } from "./siAgentClient.js";
 import { fmtBytes, fmtBps, fmtUptime, fillLevel } from "./infraLib.js";
-import { suggestViews, sortHtop, rowTone, moveAgent, viewAgents } from "./fleetViewsLib.js";
+import { suggestViews, sortHtop, rowTone, moveAgent, viewAgents, gpuCells } from "./fleetViewsLib.js";
 
 function Meter({ p, label }) {
   if (p == null) return <span className="infra-muted">—</span>;
@@ -36,8 +36,8 @@ function GroupTable({ g, sort, setSort, compact }) {
       <div className="infra-table-wrap infra-scroll">
         <table className="infra-table">
           <thead><tr><th />{th("name", "Hôte")}{!compact && <th>Système</th>}{th("cpu_pct", "CPU")}{th("load", "Charge 1 / 5 / 15")}{th("mem_pct", "Mémoire")}{th("swap_pct", "Swap")}{th("disk_max_pct", "Disques")}
-            {th("net_rx_bps", "Débit ↓ / ↑")}{th("uptime_s", "Uptime")}{th("failed_services", "Services")}<th>Constats</th><th>IA</th>{!compact && <th>Agent</th>}</tr></thead>
-          <tbody>{rows.length === 0 ? <tr><td colSpan={14} className="infra-muted">Aucun agent dans ce groupe (Organiser).</td></tr> : rows.map((r) => {
+            {th("net_rx_bps", "Débit ↓ / ↑")}{th("uptime_s", "Uptime")}{th("failed_services", "Services")}<th>Constats</th><th>IA</th><th>GPU</th>{!compact && <th>Agent</th>}</tr></thead>
+          <tbody>{rows.length === 0 ? <tr><td colSpan={15} className="infra-muted">Aucun agent dans ce groupe (Organiser).</td></tr> : rows.map((r) => {
             const tone = rowTone(r);
             return (
               <tr key={r.agent_id}>
@@ -56,6 +56,9 @@ function GroupTable({ g, sort, setSort, compact }) {
                 <td>{Object.entries(r.risks || {}).filter(([, n]) => n).map(([s, n]) => <span key={s} className={`infra-status ${s === "critical" ? "critical" : "warning"}`}>{n} {s}</span>)}</td>
                 <td>{r.ollama ? <span title={r.ollama.loaded.map((m) => `${m.name} : ${m.gpu_pct ?? "?"} % GPU`).join("\n")}>{r.ollama.up ? `${r.ollama.loaded.length}/${r.ollama.models} chargé(s)` : <span className="infra-status critical">Ollama arrêté</span>}
                   {r.ollama.loaded.map((m) => <div key={m.name} className="infra-muted">{m.name}{m.gpu_pct != null ? ` · ${m.gpu_pct} % GPU` : ""}</div>)}</span> : <span className="infra-muted">—</span>}</td>
+                <td>{r.gpus ? (r.gpus.length ? gpuCells(r).map((g, i) => <div key={i} title={g.title} style={{ whiteSpace: "nowrap" }}>
+                  <span className={`infra-dot ${g.tone}`}>{DOT[g.tone]}</span> {g.name} {g.pct != null ? <Meter p={g.pct} label={g.label} /> : <span className="infra-muted">{g.label}</span>}</div>)
+                  : <span className="infra-muted">aucune carte</span>) : <span className="infra-muted" title="sonde gpu inactive (fiche de l'agent › Sondes)">—</span>}</td>
                 {!compact && <td className="infra-muted">{r.version || "—"}</td>}
               </tr>);
           })}</tbody>

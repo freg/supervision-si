@@ -1917,6 +1917,7 @@ DIAG_HINTS = {   # #763 : que faire quand une source ne remonte rien
     "plugin:pbs": "sonde pbs sur l'agent du serveur de sauvegarde",
     "plugin:guest-usage": "sonde guest-usage sur l'agent qui joint les Proxmox (nœud local + /etc/si-agent/pve-remote.json), fiche de l'agent › Sondes",
     "plugin:ollama": "sonde ollama sur l'agent du poste d'IA",
+    "plugin:gpu": "sonde gpu sur l'agent de chaque hôte à carte graphique (fiche de l'agent › Sondes, ou tuile Parc IA)",
     "plugin:docker-containers": "sonde docker-containers sur l'agent de l'hôte Docker",
     "plugin:mail-server": "sonde mail-server sur l'agent du serveur de messagerie",
     "host": "relevé de base de tout agent (agent arrêté ou injoignable si absent)",
@@ -1987,7 +1988,7 @@ def ia_overview_route():
     extra = store.get_setting(DB_PATH, "ia_hosts", None) or []
     hosts = []
     for a in store.fleet(DB_PATH):
-        if "ollama" not in (a.get("plugin_ids") or []) and a["agent_id"] not in extra:
+        if not {"ollama", "gpu"} & set(a.get("plugin_ids") or []) and a["agent_id"] not in extra:   # #782 : gpu aussi
             continue
         latest = store.latest_per_task(DB_PATH, a["agent_id"])
         r = views.row(a, latest)

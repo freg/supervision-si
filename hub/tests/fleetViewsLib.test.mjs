@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { suggestViews, sortHtop, rowTone, moveAgent, viewAgents } from "../src/fleetViewsLib.js";
+import { suggestViews, sortHtop, rowTone, moveAgent, viewAgents, gpuCells } from "../src/fleetViewsLib.js";
 
 const fleet = [
   { agent_id: "pve10", plugin_ids: ["proxmox"], os: "Debian GNU/Linux 12" },
@@ -36,4 +36,16 @@ test("#753 : tri, pastille, déplacement", () => {
   assert.deepEqual(moveAgent(v, "x", 1).groups.map((g) => g.agents), [["y"], ["x"]]);
   assert.deepEqual(moveAgent(v, "x", null).groups.map((g) => g.agents), [["y"], []]);
   assert.deepEqual([...viewAgents(v)], ["x", "y"]);
+});
+
+test("gpuCells : mémoire vidéo, charge, température, carte sans pilote (#782)", () => {
+  const c = gpuCells({ gpus: [
+    { name: "NVIDIA RTX A4500", driver: "nvidia", vram_total: 20 * 1073741824, vram_used: 19.5 * 1073741824, vram_pct: 97.5, util_pct: 88.4, temp_c: 66, power_w: 181.2 },
+    { name: "Intel Corporation Device", driver: null },
+    { name: "NVIDIA Corporation GA102", driver: "vfio-pci", passthrough: true },
+    { name: "x", driver: "nvidia", temp_c: 90 }] });
+  assert.equal(c[0].name, "RTX A4500"); assert.equal(c[0].label, "20 / 20 Go · 88 % · 66 °C · 181 W"); assert.equal(c[0].tone, "warning");
+  assert.equal(c[1].label, "sans pilote"); assert.equal(c[1].tone, "warning"); assert.equal(c[1].name, "Intel Device");
+  assert.equal(c[2].label, "passée à une VM"); assert.equal(c[3].tone, "critical");
+  assert.deepEqual(gpuCells({}), []);
 });

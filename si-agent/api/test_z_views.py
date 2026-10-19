@@ -35,8 +35,14 @@ class Views(unittest.TestCase):
         self.assertEqual([d["mount"] for d in r["disks"]], ["/data", "/"]); self.assertEqual(r["cores_pct"], [10.0, 30.0])
         self.assertEqual((r["net_rx_bps"], r["net_tx_bps"]), (800, 200))
         self.assertEqual(r["ollama"]["models"], 2); self.assertEqual(r["ollama"]["loaded"][0]["name"], "qwen3:14b")
+        g = views.row({"agent_id": "g"}, {"plugin:gpu": {"at": "2026-10-19T09:00:00Z", "data": {"gpus": [
+            {"name": "NVIDIA RTX A4500", "vendor": "NVIDIA", "driver": "nvidia", "vram_total": 20 << 30, "vram_used": 10 << 30, "vram_pct": 50.0,
+             "util_pct": 87.0, "temp_c": 64.0, "power_w": 150.2, "processes": [{"pid": 1}]}],
+            "alerts": [{"code": "gpu-no-driver@x", "severity": "warning", "message": "Intel : aucun pilote"}]}}})
+        self.assertEqual((g["gpus"][0]["name"], g["gpus"][0]["vram_pct"], g["gpu_alerts"]), ("NVIDIA RTX A4500", 50.0, ["Intel : aucun pilote"]))
+        self.assertNotIn("processes", g["gpus"][0])
         empty = views.row({"agent_id": "w"}, {})
-        self.assertIsNone(empty["cpu_pct"]); self.assertNotIn("ollama", empty)
+        self.assertIsNone(empty["cpu_pct"]); self.assertNotIn("ollama", empty); self.assertNotIn("gpus", empty)
         view = {"id": "ia", "label": "IA", "groups": [{"name": "GPU", "agents": ["srv-a", "absent"]}]}
         o = views.overview(view, {"srv-a": r, "w": dict(empty, online="offline")})
         self.assertEqual(o["groups"][0]["missing"], ["absent"]); self.assertEqual(o["unassigned"], ["w"])

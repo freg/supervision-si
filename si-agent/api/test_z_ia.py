@@ -15,7 +15,8 @@ class Ia(unittest.TestCase):
         c = appmod.app.test_client(); db = appmod.DB_PATH
         store.create_agent(db, "ia-host", "siege"); store.create_agent(db, "ia-vm", "siege"); store.create_agent(db, "autre", "siege")
         store.ingest_measurements(db, "ia-host", [{"task": "plugin:ollama", "at": "2026-10-14T12:00:00Z", "data": {"up": True, "models": [{"name": "qwen3:14b", "loaded": True, "gpu_pct": 100}]}},
-                                                  {"task": "plugin:docker-containers", "at": "2026-10-14T12:00:00Z", "data": {"containers": [{"name": "open-webui", "state": "running"}]}}])
+                                                  {"task": "plugin:docker-containers", "at": "2026-10-14T12:00:00Z", "data": {"containers": [{"name": "open-webui", "state": "running"}]}},
+                                                  {"task": "plugin:gpu", "at": "2026-10-14T12:00:00Z", "data": {"gpus": [{"name": "RTX A4500", "vram_pct": 40.0}], "alerts": []}}])
         conn = store._connect(db)
         try:
             conn.execute("INSERT OR IGNORE INTO agent_plugins (agent_id, plugin_id, enabled) VALUES ('ia-host', 'ollama', 1)"); conn.commit()
@@ -29,6 +30,7 @@ class Ia(unittest.TestCase):
         self.assertEqual(ids, ["ia-host", "ia-vm"])
         h = o["hosts"][0]
         self.assertEqual(h["models"][0]["name"], "qwen3:14b"); self.assertEqual(h["containers"][0]["name"], "open-webui")
+        self.assertEqual(h["gpus"][0]["name"], "RTX A4500")   # #782
         self.assertEqual(c.get("/ia/assistant/index/rebuild").status_code, 404)
         r = c.get("/ia/assistant/status"); self.assertEqual(r.status_code, 502); self.assertIn("injoignable", r.json["error"])
 

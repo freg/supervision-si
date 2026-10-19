@@ -1,3 +1,20 @@
+## 2026-10-19 — Cartes graphiques : sonde gpu, colonne GPU des vues de parc et du Parc IA, agent 0.5.85 (livraison #782)
+
+- Besoin : voir depuis le hub la puissance et l'état des GPU (A4500 de la prod campus, RTX 2000 Ada de la préprod,
+  Arc Pro B60 de pcia) pour revoir la répartition des modèles entre machines.
+- Sonde `gpu` (agent, lecture seule, inactive par défaut) : inventaire `lspci` (puces de gestion et cartes virtuelles
+  ignorées), pilote lié ; NVIDIA par `nvidia-smi` (mémoire vidéo, charge, température, consommation et limite,
+  ventilateur, processus) ; Intel / AMD par les capteurs du noyau (température, puissance). Constats : carte sans
+  pilote, mémoire vidéo ≥ 95 %, température ≥ 80 / 87 °C, nvidia-smi en échec ; `--ignore vendeur:modèle` pour une
+  carte laissée sans pilote volontairement.
+- Central : `plugin:gpu` dans les sondes à constats (événements, notifications) ; `views.row` expose `gpus` ; le Parc IA
+  inclut les hôtes portant la sonde gpu.
+- Hub : colonne « GPU » des vues de parc (mémoire vidéo en jauge, charge, °C, W ; « sans pilote », « passée à une VM ») ;
+  Parc IA : bloc des cartes par hôte, bouton « Activer la sonde » quand elle manque.
+- Vérifié : test_gpu_probe (dont capteurs sysfs simulés), test_z_views, test_z_ia, fleetViewsLib / iaParkLib
+  (node --test), syntaxe JSX (analyseur Babel). Non vérifié : rendu dans le navigateur, mémoire vidéo des cartes Intel
+  (non exposée par le noyau : visible côté Ollama).
+
 ## 2026-10-18 — Migration : une étape manuelle devenue automatique dans un plan réimporté n'est plus bloquée (livraison #781)
 
 - Constat : B7 (images des CT supprimés de pve-1), d'abord « à faire à la main », remplacée dans le plan par une copie rsync ;

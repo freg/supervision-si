@@ -53,3 +53,20 @@ export function moveAgent(view, agentId, to) {
   if (to != null && groups[to]) groups[to].agents = [...groups[to].agents, agentId];
   return { ...view, groups };
 }
+
+/** #782 : cartes graphiques d'une ligne (sonde gpu) -> [{name, label, pct, tone, title}] ; mémoire vidéo en Go. */
+export function gpuCells(r) {
+  const gb = (b) => (b == null ? "?" : (b / 1073741824).toFixed(b >= 10 * 1073741824 ? 0 : 1));
+  return (r?.gpus || []).map((g) => {
+    const hot = g.temp_c != null && g.temp_c >= 87 ? "critical" : g.temp_c != null && g.temp_c >= 80 ? "warning" : null;
+    const tone = !g.driver ? "warning" : hot || (g.vram_pct != null && g.vram_pct >= 95 ? "warning" : "good");
+    const parts = [];
+    if (g.vram_total) parts.push(`${gb(g.vram_used)} / ${gb(g.vram_total)} Go`);
+    if (g.util_pct != null) parts.push(`${Math.round(g.util_pct)} %`);
+    if (g.temp_c != null) parts.push(`${Math.round(g.temp_c)} °C`);
+    if (g.power_w != null) parts.push(`${Math.round(g.power_w)} W`);
+    const label = !g.driver ? "sans pilote" : g.passthrough ? "passée à une VM" : parts.join(" · ") || g.driver;
+    const title = [g.name, g.driver ? `pilote ${g.driver}` : "aucun pilote chargé", g.power_limit_w ? `limite ${Math.round(g.power_limit_w)} W` : ""].filter(Boolean).join(" · ");
+    return { name: String(g.name || "GPU").replace(/^NVIDIA (Corporation )?/, "").replace(/^Intel Corporation /, "Intel "), label, pct: g.vram_pct, tone, title };
+  });
+}

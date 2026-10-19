@@ -75,6 +75,12 @@ def row(agent, latest):
         r["ollama"] = {"up": ol.get("up"), "version": ol.get("version"), "models": len(models), "loaded": [
             {"name": m.get("name"), "gpu_pct": m.get("gpu_pct"), "vram": m.get("vram"), "context": m.get("context")} for m in models if m.get("loaded")],
             "alerts": len(ol.get("alerts") or [])}
+    gp = ((latest.get("plugin:gpu") or {}).get("data")) or {}
+    if gp:                                        # #782 : cartes graphiques (sonde gpu)
+        r["gpus"] = [{k: g.get(k) for k in ("name", "vendor", "driver", "vram_total", "vram_used", "vram_pct", "util_pct", "temp_c",
+                                            "power_w", "power_limit_w", "passthrough")} for g in (gp.get("gpus") or [])[:8]]
+        r["gpu_alerts"] = [a.get("message") for a in gp.get("alerts") or []][:8]
+        r["gpu_at"] = (latest.get("plugin:gpu") or {}).get("at")
     return r
 
 

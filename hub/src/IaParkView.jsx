@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import OllamaSection from "./OllamaSection.jsx";
 import { fetchFleet, sendCommand, fetchCommand, fetchIaOverview, saveIaHosts, fetchIaAssistant } from "./siAgentClient.js";
 import { fmtBytes, fmtUptime, fillLevel } from "./infraLib.js";
+import { gpuCells } from "./fleetViewsLib.js";
 import { byModel, activityTotals, allowedContainers, gestureParams, scoreTone, ACTION_TARGET } from "./iaParkLib.js";
 
 const TABS = [["hotes", "Hôtes et modèles"], ["tests", "Tests (évaluations)"], ["activite", "Activité"]];
@@ -76,6 +77,19 @@ function Gestures({ base, host, username }) {
   );
 }
 
+// #782 : cartes graphiques de l'hôte (sonde gpu) ; activation de la sonde quand elle manque.
+function GpuBlock({ base, h }) {
+  const [msg, setMsg] = useState("");
+  if (!h.gpus) return <p className="infra-muted">Cartes GPU : sonde gpu inactive. <button className="secondary" onClick={async () => {
+    try { await sendCommand(base, h.agent_id, "enable_plugin", { id: "gpu" }); setMsg("activation demandée : premier relevé d'ici 2 minutes"); } catch (e) { setMsg(e.message); } }}>Activer la sonde</button> {msg}</p>;
+  return (
+    <div style={{ display: "flex", gap: 18, flexWrap: "wrap", margin: "6px 0" }}>
+      {h.gpus.length === 0 ? <span className="infra-muted">Aucune carte graphique détectée.</span> : gpuCells(h).map((g, i) =>
+        <span key={i} title={g.title}><b>{g.name}</b> {g.pct != null ? <Meter p={g.pct} label={g.label} /> : <span className={`infra-status ${g.tone === "good" ? "" : g.tone}`}>{g.label}</span>}</span>)}
+      {(h.gpu_alerts || []).map((a, i) => <span key={"a" + i} className="infra-status warning">⚠ {a}</span>)}
+    </div>);
+}
+
 function HostCard({ base, h, username, onRefresh }) {
   return (
     <section className="infra-card" style={{ marginBottom: 12 }}>
@@ -90,6 +104,7 @@ function HostCard({ base, h, username, onRefresh }) {
         <span>Disque <Meter p={h.disk_max_pct} label={h.disks?.[0] ? `${h.disks[0].mount} ${h.disk_max_pct} %` : "—"} /></span>
         <span className="infra-muted">charge {h.load1 ?? "—"} / {h.load5 ?? "—"} / {h.load15 ?? "—"}</span>
       </div>
+      <GpuBlock base={base} h={h} />
       {h.ollama_data || (h.models || []).length ? <OllamaSection apiBase={base} agentId={h.agent_id} latest={h.ollama_data ? { data: h.ollama_data, at: h.ollama_at } : null} present when={(t) => when(t)} onRefresh={onRefresh} />
         : <p className="infra-muted">Pas de sonde ollama sur cet hôte.</p>}
       {h.containers ? <><h4 style={{ margin: "8px 0 4px" }}>Conteneurs Docker ({h.containers.length})</h4>
