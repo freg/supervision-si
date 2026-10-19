@@ -1,5 +1,53 @@
 [
  {
+  "n": 787,
+  "from": 787,
+  "date": "2026-10-19",
+  "title": "SMS internes du hub : onglet « SMS » des Notifications et API, canal distinct du client externe"
+ },
+ {
+  "n": 786,
+  "from": 786,
+  "date": "2026-10-19",
+  "title": "Activité horaire : vrais utilisateurs séparés des scanners, journaux « vhost » lus"
+ },
+ {
+  "n": 785,
+  "from": 785,
+  "date": "2026-10-19",
+  "title": "Activité heure par heure d'un conteneur, pour choisir le créneau d'une bascule"
+ },
+ {
+  "n": 784,
+  "from": 784,
+  "date": "2026-10-19",
+  "title": "Migration : onglets (dont « MX »), étapes à la main avec commande et machine"
+ },
+ {
+  "n": 783,
+  "from": 783,
+  "date": "2026-10-19",
+  "title": "Tour de contrôle : la cascade ne dépasse plus le délai de construction"
+ },
+ {
+  "n": 782,
+  "from": 782,
+  "date": "2026-10-19",
+  "title": "Cartes graphiques : sonde gpu, colonne GPU des vues de parc et du Parc IA, agent 0.5.85"
+ },
+ {
+  "n": 781,
+  "from": 781,
+  "date": "2026-10-18",
+  "title": "Migration : une étape manuelle devenue automatique dans un plan réimporté n'est plus bloquée"
+ },
+ {
+  "n": 780,
+  "from": 780,
+  "date": "2026-10-18",
+  "title": "Migration : envoi ZFS des CT convertis en modèle (basevol), agent 0.5.84"
+ },
+ {
   "n": 778,
   "from": 778,
   "date": "2026-10-17",
@@ -190,53 +238,5 @@
   "from": 747,
   "date": "2026-10-14",
   "title": "Occupation des bornes Wi-Fi : statistiques, seuils, alertes Nebula, récapitulatif"
- },
- {
-  "n": 746,
-  "from": 746,
-  "date": "2026-10-13",
-  "title": "Modèles IA déployés depuis le hub : agent ↔ Ollama"
- },
- {
-  "n": 745,
-  "from": 745,
-  "date": "2026-10-13",
-  "title": "Chien de garde du socle : Keycloak, passerelle et hub relancés seuls"
- },
- {
-  "n": 744,
-  "from": 744,
-  "date": "2026-10-13",
-  "title": "Agent en conteneur : ports et connexions avec leur processus, sans refus AppArmor"
- },
- {
-  "n": 743,
-  "from": 743,
-  "date": "2026-10-13",
-  "title": "Supervision distribuée : tournées de mesures réparties avec suppléance"
- },
- {
-  "n": 742,
-  "from": 742,
-  "date": "2026-10-13",
-  "title": "Ordre des listes (A → Z, récent, gravité) et agents par catégorie"
- },
- {
-  "n": 741,
-  "from": 741,
-  "date": "2026-10-13",
-  "title": "Assistant IA sur un poste GPU distant par le bastion"
- },
- {
-  "n": 740,
-  "from": 740,
-  "date": "2026-10-12",
-  "title": "netprobe-api : fin des 200 % de CPU sur super"
- },
- {
-  "n": 739,
-  "from": 739,
-  "date": "2026-10-12",
-  "title": "Sondes GTB/GTC pour poste Windows : réseau et journaux d'application"
  }
 ]
