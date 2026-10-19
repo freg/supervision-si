@@ -77,15 +77,32 @@ def validate_plan(plan):
                 return None, "étape %s : variable(s) non déclarée(s) %s" % (sid, ", ".join(missing))
             seen.add(sid)
             steps.append({"id": sid, "title": str(st.get("title") or sid)[:200], "agent": str(st.get("agent") or "")[:64], "kind": kind,
-                          "params": params, "why": str(st.get("why") or "")[:600], "check": str(st.get("check") or "")[:600]})
-        out["phases"].append({"id": ph["id"], "title": str(ph.get("title") or ph["id"])[:160], "note": str(ph.get("note") or "")[:600], "steps": steps})
+                          "params": params, "why": str(st.get("why") or "")[:600], "check": str(st.get("check") or "")[:600],
+                          # #784 : étape à la main -- commande exacte et machine où la lancer
+                          "cmd": str(st.get("cmd") or "")[:4000], "where": str(st.get("where") or "")[:120]})
+        out["phases"].append({"id": ph["id"], "title": str(ph.get("title") or ph["id"])[:160], "note": str(ph.get("note") or "")[:600],
+                              "onglet": str(ph.get("onglet") or "").strip()[:40], "steps": steps})   # #784 : onglet de la tuile
     if not seen:
         return None, "plan sans étape"
     return out, None
 
 
-def all_steps(plan):
-    return [s for ph in (plan or {}).get("phases") or [] for s in ph["steps"]]
+def all_steps(plan, onglet=None):
+    """Étapes du plan ; onglet (#784) : seulement celles des phases de cet onglet ("" = onglet principal)."""
+    return [s for ph in (plan or {}).get("phases") or [] if onglet is None or (ph.get("onglet") or "") == onglet for s in ph["steps"]]
+
+
+def onglet_of(plan, step_id):
+    return next(((ph.get("onglet") or "") for ph in (plan or {}).get("phases") or [] if any(s["id"] == step_id for s in ph["steps"])), "")
+
+
+def onglets(plan):
+    out = []
+    for ph in (plan or {}).get("phases") or []:
+        o = ph.get("onglet") or ""
+        if o not in out:
+            out.append(o)
+    return out
 
 
 def expand(params, vars_):
@@ -108,9 +125,10 @@ def expand(params, vars_):
     return sub(params), sorted(empty)
 
 
-def next_step(plan, states):
-    """Première étape ni réussie, ni sautée, ni faite à la main (dans l'ordre du plan)."""
-    for s in all_steps(plan):
+def next_step(plan, states, onglet=""):
+    """Première étape ni réussie, ni sautée, ni faite à la main (dans l'ordre du plan), dans un onglet (#784 : chaque
+    onglet -- migration, MX… -- a sa propre suite d'étapes ; l'enchaînement ne passe jamais d'un onglet à l'autre)."""
+    for s in all_steps(plan, onglet):
         if (states.get(s["id"]) or {}).get("status", "a_faire") not in DONE:
             return s
     return None
@@ -327,7 +345,7 @@ def apply_report(conn, agent_id, data, by="sonde"):
     if any(n == "fait" for _s, _o, n in changed) and run["state"] == "en_cours" and run["mode"] == "auto":
         _p, _v, _r, states = load(conn)
         if not any(st.get("status") in ACTIVE for st in states.values()):
-            nxt = next_step(plan, states)
+            nxt = next_step(plan, states, onglet_of(plan, next(s for s, _o, n in changed if n == "fait")))
             if nxt:
                 launch(conn, nxt, vars_, "automatique")
             else:
@@ -337,7 +355,7 @@ def apply_report(conn, agent_id, data, by="sonde"):
     return changed
 
 
-def control(conn, action, step_id=None, by=""):
+def control(conn, action, step_id=None, by="", onglet=""):
     """Geste depuis le hub -> (ok, message)."""
     init(conn)
     plan, vars_, run, states = load(conn)
@@ -357,7 +375,7 @@ def control(conn, action, step_id=None, by=""):
     if action in ("start", "next"):
         if running:
             return False, "une étape tourne déjà (%s) : attendre, mettre en pause ou arrêter" % ", ".join(running)
-        nxt = steps.get(step_id) if step_id else next_step(plan, states)
+        nxt = steps.get(step_id) if step_id else next_step(plan, states, onglet)
         if not nxt:
             _set_run(conn, by, state="termine")
             return True, "toutes les étapes sont faites"
@@ -406,7 +424,7 @@ def control(conn, action, step_id=None, by=""):
         _log(conn, by, "fait", step_id)
         if run["mode"] == "auto" and run["state"] == "en_cours":
             _p, _v, _r, states = load(conn)
-            nxt = next_step(plan, states)
+            nxt = next_step(plan, states, onglet_of(plan, step_id))
             if nxt:
                 launch(conn, nxt, vars_, "automatique")
         return True, "étape %s faite" % step_id
@@ -464,6 +482,7 @@ def view(conn):
         return {"plan": None, "run": run, "vars": {}, "log": []}
     names = {r[0]: r[1] or r[0] for r in conn.execute("SELECT agent_id, hostname FROM agents")}
     out_phases, counts = [], {}
+    nexts = {o: (next_step(plan, states, o) or {}).get("id") for o in onglets(plan)}
     nxt = next_step(plan, states)
     for ph in plan["phases"]:
         steps = []
@@ -483,10 +502,10 @@ def view(conn):
             counts[st["status"]] = counts.get(st["status"], 0) + 1
             steps.append(dict(s, status=st["status"], status_label=STATUS_LABEL.get(st["status"], st["status"]), attempts=st.get("attempts", 0),
                               launched_at=st.get("launched_at"), ended_at=st.get("ended_at"), report=rep or None, error=err,
-                              missing_vars=empty, next=bool(nxt and nxt["id"] == s["id"])))
+                              missing_vars=empty, next=nexts.get(ph.get("onglet") or "") == s["id"]))
         out_phases.append(dict(ph, steps=steps))
     log = [{"at": r[0], "who": r[1], "action": r[2], "step": r[3], "detail": r[4]}
            for r in conn.execute("SELECT at, who, action, step_id, detail FROM mig_log ORDER BY id DESC LIMIT 60")]
     total = len(all_steps(plan))
     return {"plan": {"name": plan["name"], "phases": out_phases}, "vars": vars_, "run": run, "counts": counts, "total": total,
-            "done": sum(counts.get(k, 0) for k in DONE), "next": nxt["id"] if nxt else None, "log": log}
+            "done": sum(counts.get(k, 0) for k in DONE), "next": nxt["id"] if nxt else None, "nexts": nexts, "onglets": onglets(plan), "log": log}

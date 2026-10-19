@@ -267,6 +267,23 @@
      "params": {}
     }
    ]
+  },
+  {
+   "id": "MX1",
+   "title": "MX · exemple d'onglet : étapes à la main avec commande et machine",
+   "onglet": "MX",
+   "steps": [
+    {
+     "id": "mx1",
+     "title": "Contrôles avant bascule de la messagerie",
+     "kind": "manual",
+     "params": {},
+     "where": "pve-c",
+     "cmd": "cd /root/bascule && ./bascule.sh -c exemple.conf preparer",
+     "check": "« tout est en ordre »",
+     "why": "Une phase avec \"onglet\" s'affiche dans son propre onglet de la tuile, avec sa propre suite d'étapes."
+    }
+   ]
   }
  ]
 }

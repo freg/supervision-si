@@ -170,6 +170,32 @@ class Parcours(unittest.TestCase):
         finally:
             conn.close()
 
+    def test_onglets(self):   # #784 : onglet « MX » -- suite d'étapes propre, commande et machine d'une étape à la main
+        conn = store._connect(self.db)
+        try:
+            plan = json.loads(json.dumps(PLAN))
+            plan["phases"].append({"id": "MXT", "title": "Répétition", "onglet": "MX", "steps": [
+                {"id": "mxt1", "title": "Préparer", "kind": "manual", "params": {}, "cmd": "./ob1-bascule.sh -c ob1-test.conf preparer", "where": "pve-3"},
+                {"id": "mxt2", "title": "Relais", "kind": "manual", "params": {}}]})
+            p, err = migrun.validate_plan(plan); self.assertIsNone(err)
+            self.assertEqual((p["phases"][2]["onglet"], p["phases"][0]["onglet"]), ("MX", ""))
+            self.assertEqual((p["phases"][2]["steps"][0]["where"], p["phases"][2]["steps"][0]["cmd"][:15]), ("pve-3", "./ob1-bascule.s"))
+            self.assertEqual(migrun.onglets(p), ["", "MX"])
+            self.assertEqual(migrun.next_step(p, {})["id"], "a1"); self.assertEqual(migrun.next_step(p, {}, "MX")["id"], "mxt1")
+            migrun.set_plan(conn, plan, "t")
+            ok, _m = migrun.control(conn, "next", None, "t", "MX"); self.assertTrue(ok)
+            st = dict(conn.execute("SELECT step_id, status FROM mig_steps").fetchall())
+            self.assertEqual(st.get("mxt1"), "manuel"); self.assertNotIn("a1", st)        # l'onglet principal n'a pas bougé
+            migrun.control(conn, "done", "mxt1", "t")
+            v = migrun.view(conn)
+            self.assertEqual(v["nexts"], {"": "a1", "MX": "mxt2"}); self.assertEqual(v["onglets"], ["", "MX"])
+            mx = v["plan"]["phases"][2]["steps"]
+            self.assertTrue(mx[1]["next"]); self.assertTrue(v["plan"]["phases"][0]["steps"][0]["next"])
+            conn.execute("DELETE FROM mig_steps"); conn.execute("DELETE FROM mig_plan"); conn.execute("DELETE FROM mig_run")
+            conn.commit()
+        finally:
+            conn.close()
+
 
 if __name__ == "__main__":
     unittest.main()

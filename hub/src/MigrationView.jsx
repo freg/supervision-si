@@ -8,8 +8,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchMigration, saveMigrationPlan, saveMigrationVars, migrationControl } from "./siAgentClient.js";
 import {
   allSteps, focusStep, progress, phaseProgress, controls, stepActions, ACTION_LABEL, parsePlan, fmtBytes, fmtProgress, fmtRate, fmtDuration, elapsed,
-  solutionCommand, missingVars, statusLabel, statusTone, RUN_LABEL, KIND_LABEL,
+  solutionCommand, missingVars, statusLabel, statusTone, RUN_LABEL, KIND_LABEL, tabsOf, tabView,
 } from "./migrationLib.js";
+
+// #784 : étape à la main -- commande exacte et machine où la lancer
+function HandCmd({ s }) {
+  if (!s.cmd) return s.where ? <p>À faire sur <b>{s.where}</b>.</p> : null;
+  return <div><p>À lancer sur <b>{s.where || "l'hôte indiqué"}</b> :</p><pre className="mig-cmd">{s.cmd}</pre><Copy text={s.cmd} /></div>;
+}
 
 function Bar({ pct, tone }) {
   return <div className="mig-bar" role="progressbar" aria-valuenow={pct ?? 0} aria-valuemin={0} aria-valuemax={100}><div className={`mig-bar-fill ${tone || ""}`} style={{ width: `${Math.max(0, Math.min(100, pct ?? 0))}%` }} /></div>;
@@ -57,6 +63,7 @@ function Focus({ s, now, act, busy }) {
       <h3>{s.title}</h3>
       {s.why && <p>{s.why}</p>}
       {s.check && <p className="infra-note">Contrôle attendu : {s.check}</p>}
+      {s.kind === "manual" && <HandCmd s={s} />}
       {(s.missing_vars || []).length > 0 && <p className="infra-error">Paramètre(s) à renseigner avant : {s.missing_vars.join(", ")}</p>}
       {["en_cours", "en_pause", "lance"].includes(s.status) && (
         <>
@@ -92,7 +99,8 @@ function StepRow({ s, act, busy, open, onOpen }) {
       </tr>
       {open && <tr><td colSpan={6}>
         {s.why && <p>{s.why}</p>}
-        <pre className="mig-log">{JSON.stringify(s.params, null, 1)}</pre>
+        {s.check && <p className="infra-note">Contrôle attendu : {s.check}</p>}
+        {s.kind === "manual" ? <HandCmd s={s} /> : <pre className="mig-log">{JSON.stringify(s.params, null, 1)}</pre>}
         <ErrorCard s={s} act={act} busy={busy} />
         {!s.error && (r.log_tail || []).length > 0 && <pre className="mig-log">{r.log_tail.join("\n")}</pre>}
       </td></tr>}
@@ -143,6 +151,7 @@ export default function MigrationView({ onBack, siAgentApiBase, username }) {
   const [at, setAt] = useState(null);
   const [busy, setBusy] = useState(false);
   const [openStep, setOpenStep] = useState(null);
+  const [tab, setTab] = useState("");   // #784 : onglet (Migration, MX…)
 
   const load = useCallback(() => fetchMigration(siAgentApiBase).then((d) => { setData(d); setErr(d?.error || null); setAt(new Date()); }).catch((e) => setErr(e.message)), [siAgentApiBase]);
   useEffect(() => {
@@ -154,7 +163,7 @@ export default function MigrationView({ onBack, siAgentApiBase, username }) {
   const act = async (action, step) => {
     setBusy(true);
     try {
-      const r = await migrationControl(siAgentApiBase, action, step, username);
+      const r = await migrationControl(siAgentApiBase, action, step, username, tab);
       setMsg({ ok: r?.ok, text: r?.message || r?.error || "" });
       await load();
     } finally { setBusy(false); }
@@ -163,13 +172,15 @@ export default function MigrationView({ onBack, siAgentApiBase, username }) {
   const saveVars = async (vars) => { setBusy(true); try { const r = await saveMigrationVars(siAgentApiBase, vars, username); setMsg({ ok: !r?.error, text: r?.error || "paramètres enregistrés" }); await load(); } finally { setBusy(false); } };
 
   const now = at ? at.getTime() : Date.now();
-  const focus = useMemo(() => (data ? focusStep(data) : null), [data]);
-  const prog = progress(data);
-  const c = controls(data);
+  const tabs = useMemo(() => tabsOf(data), [data]);
+  const vdata = useMemo(() => tabView(data, tab), [data, tab]);
+  const focus = useMemo(() => (vdata ? focusStep(vdata) : null), [vdata]);
+  const prog = progress(vdata);
+  const c = controls(vdata);
   const need = missingVars(data);
   const run = data?.run || {};
   const auto = run.mode === "auto";
-  const steps = allSteps(data);
+  const steps = allSteps(vdata);
   const errors = steps.filter((s) => s.error && s.id !== focus?.id);
 
   return (
@@ -182,6 +193,12 @@ export default function MigrationView({ onBack, siAgentApiBase, username }) {
       </div>
       {err && <p className="infra-error">{err}</p>}
       {data && !data.plan && <p className="infra-card">Aucun plan : importer le fichier <code>migration-2026.local.json</code> ci-dessous (modèle : <code>deploy/migration/plan-exemple.json</code>).</p>}
+      {data?.plan && tabs.length > 1 && (
+        <div className="mig-controls" role="tablist">
+          {tabs.map((t) => <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? "" : "secondary"} onClick={() => setTab(t.id)}>
+            {t.label} <small>{t.done} / {t.total}</small>{t.bad && " ⚠"}</button>)}
+        </div>
+      )}
       {data?.plan && (
         <>
           <Bar pct={prog.pct} tone={steps.some((s) => s.status === "erreur") ? "critical" : "ok"} />
@@ -199,7 +216,7 @@ export default function MigrationView({ onBack, siAgentApiBase, username }) {
           <Focus s={focus} now={now} act={act} busy={busy} />
           {errors.length > 0 && <div className="infra-card"><b>Autres erreurs</b>{errors.map((s) => <div key={s.id}><p><code>{s.id}</code> {s.title}</p><ErrorCard s={s} act={act} busy={busy} /></div>)}</div>}
           <Vars vars={data.vars} need={need} onSave={saveVars} busy={busy} />
-          {data.plan.phases.map((ph) => {
+          {vdata.plan.phases.map((ph) => {
             const pp = phaseProgress(ph);
             return (
               <details key={ph.id} className="infra-card" open={pp.d < pp.n}>

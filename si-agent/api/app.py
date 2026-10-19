@@ -2293,9 +2293,10 @@ def migration_control_route():
     b = request.get_json(silent=True) or {}
     action, actor = str(b.get("action") or ""), str(b.get("actor") or "")[:64]
     step = str(b.get("step") or "") or None
+    onglet = str(b.get("onglet") or "")[:40]   # #784 : onglet de la tuile (suite d'étapes propre)
     conn = store._connect(DB_PATH)
     try:
-        ok, msg = migrun.control(conn, action, step, actor)
+        ok, msg = migrun.control(conn, action, step, actor, onglet)
         conn.commit()
     finally:
         conn.close()

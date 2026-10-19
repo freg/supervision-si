@@ -1,3 +1,18 @@
+## 2026-10-19 — Migration : onglets (dont « MX »), étapes à la main avec commande et machine (livraison #784)
+
+- Besoin : suivre dans la tuile Migration la bascule de la messagerie (prérequis, répétition complète avec émission et
+  réception, bascule, réinstallation et retour) sans la mêler au plan des copies.
+- Plan : une phase peut porter `"onglet": "MX"` ; chaque onglet a sa propre suite d'étapes (prochaine étape, « Démarrer »,
+  « Étape suivante », enchaînement automatique : jamais d'un onglet à l'autre). Une étape peut porter `cmd` (commande
+  exacte) et `where` (machine où la lancer), affichées avec un bouton « Copier » pour les étapes à la main.
+- API : `/migration` renvoie `onglets` et `nexts` (prochaine étape par onglet) ; `/migration/control` accepte `onglet`.
+- Hub : barre d'onglets (Migration, MX…) avec l'avancement de chacun ; la vue, la barre de pilotage et l'étape en grand
+  suivent l'onglet choisi.
+- Exemple : `deploy/migration/plan-exemple.json` (phase « MX » fictive). Le plan réel de la messagerie est dans le fichier
+  local hors dépôt.
+- Vérifié : test_z_migrun (onglets : prochaine étape, geste dans un onglet sans toucher l'autre), migrationLib (node --test),
+  syntaxe JSX. Non vérifié : rendu dans le navigateur.
+
 ## 2026-10-19 — Tour de contrôle : la cascade ne dépasse plus le délai de construction (livraison #783)
 
 - Constat : toutes les « mises à jour git en cascade » échouaient depuis le 7 oct. (`failed to solve: DeadlineExceeded`) ;

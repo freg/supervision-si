@@ -54,3 +54,18 @@ test("avancement restant / transféré / total", () => {
   assert.equal(fmtProgress({ size: 9 * T, total: 8 * T }), "0 o / 9.0 To / 8.0 To");
   assert.equal(fmtProgress({}), "");
 });
+
+test("onglets : Migration et MX, vue restreinte (#784)", async () => {
+  const { tabsOf, tabView, controls, focusStep } = await import("../src/migrationLib.js");
+  const view = { run: { state: "en_cours" }, onglets: ["", "MX"], nexts: { "": "a2", MX: "m1" }, plan: { phases: [
+    { id: "A", onglet: "", steps: [{ id: "a1", status: "fait" }, { id: "a2", status: "a_faire", next: true }] },
+    { id: "M", onglet: "MX", steps: [{ id: "m1", kind: "manual", status: "a_faire", next: true }, { id: "m2", kind: "manual", status: "erreur" }] }] } };
+  const t = tabsOf(view);
+  assert.deepEqual(t.map((x) => [x.id, x.label, x.done, x.total, x.bad]), [["", "Migration", 1, 2, false], ["MX", "MX", 0, 2, true]]);
+  const mx = tabView(view, "MX");
+  assert.equal(mx.next, "m1"); assert.equal(mx.total, 2); assert.deepEqual(mx.plan.phases.map((p) => p.id), ["M"]);
+  assert.equal(focusStep(mx).id, "m2");                       // l'erreur de l'onglet passe devant
+  assert.equal(controls(mx).next, true);
+  assert.equal(tabView(view, "").next, "a2");
+  assert.deepEqual(tabsOf({ plan: { phases: [{ id: "A", steps: [] }] } }).map((x) => x.label), ["Migration"]);
+});

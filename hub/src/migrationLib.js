@@ -112,3 +112,22 @@ export function missingVars(view) {
   allSteps(view).forEach((s) => { if (!["fait", "saute", "manuel_fait"].includes(s.status)) (s.missing_vars || []).forEach((v) => need.add(v)); });
   return [...need].sort();
 }
+
+/** #784 : onglets de la tuile (phases avec `onglet` ; "" = Migration) -> [{id, label, done, total, bad}]. */
+export function tabsOf(view) {
+  const ids = view?.onglets?.length ? view.onglets : [...new Set((view?.plan?.phases || []).map((ph) => ph.onglet || ""))];
+  return ids.map((id) => {
+    const st = allSteps(tabView(view, id));
+    return { id, label: id || "Migration", total: st.length, done: st.filter((s) => ["fait", "saute", "manuel_fait"].includes(s.status)).length,
+      bad: st.some((s) => s.status === "erreur" || s.status === "arrete") };
+  });
+}
+
+/** Vue restreinte à un onglet : mêmes champs que la vue complète (plan, next, total, done) pour les fonctions ci-dessus. */
+export function tabView(view, tab) {
+  if (!view?.plan) return view;
+  const phases = view.plan.phases.filter((ph) => (ph.onglet || "") === (tab || ""));
+  const st = phases.flatMap((ph) => ph.steps);
+  return { ...view, plan: { ...view.plan, phases }, next: view.nexts ? view.nexts[tab || ""] || null : view.next,
+    total: st.length, done: st.filter((s) => ["fait", "saute", "manuel_fait"].includes(s.status)).length };
+}
