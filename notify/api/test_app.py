@@ -44,7 +44,7 @@ class Base(unittest.TestCase):
     def setUp(self):
         appmod.verifier = auth.KeycloakVerifier("u", [], fetch=lambda _u: jwks(), allowed_groups=["administrateurs"], what="les notifications")
         c = appmod._conn()
-        for t in ("actions", "groups", "assignments", "consumers", "blacklist", "queue", "settings", "events", "attachments"):
+        for t in ("actions", "groups", "assignments", "consumers", "blacklist", "queue", "settings", "events", "attachments", "sms_out", "sms_in"):
             c.execute("DELETE FROM " + t)
         c.commit()
         c.close()
@@ -208,6 +208,40 @@ class Delivery(Base):
         self.assertEqual(appmod.SENDER.tick(), 0)  # débit atteint pour la minute
         self.assertEqual(self.c.get("/health").get_json()["queue"].get("queued"), 3)
         self.assertTrue(self.c.get("/events", headers=self.adm).get_json()["events"])
+
+class Sms(Base):   # #787 : SMS internes (canal du hub, distinct du client externe)
+    def test_normaliser(self):
+        import sms
+        self.assertEqual([sms.normaliser(x) for x in ("06 12 34 56 78", "33612345678", "0033612345678", "+33612345678", "12", "abc")],
+                         ["+33612345678"] * 4 + [None, None])
+        self.assertEqual(sms.destinataires("06 12 34 56 78, +33612345678;bad"), (["+33612345678"], ["bad"]))
+        self.assertEqual((sms.segments("a" * 160), sms.segments("a" * 161), sms.segments("€" * 71)), (1, 2, 2))
+
+    def test_envoi_reception_et_fil(self):
+        tok = self.c.post("/consumers", headers=self.adm, json={"name": "modem sms"}).get_json()["token"]
+        self.assertEqual(self.c.get("/sms/send?number=0612345678&message=x").status_code, 401)
+        r = self.c.get("/sms/send", query_string={"number": "33612345678", "message": "Alerte : arrêt", "key": tok})
+        self.assertEqual((r.status_code, r.get_json()["status"]), (200, "queued"))
+        r = self.c.post("/sms", headers=self.prod, json={"to": "0698765432, faux", "text": "test"})
+        self.assertEqual((r.status_code, r.get_json()["rejected"]), (202, ["faux"]))
+        self.assertEqual(self.c.get("/sms/recu", query_string={"jeton": tok, "de": "+33611111111", "texte": "STATUS"}).status_code, 200)
+        self.assertEqual(self.c.get("/sms/journal").status_code, 401)
+        j = self.c.get("/sms/journal", headers=self.adm).get_json()
+        self.assertEqual((len(j["out"]), j["counts"], j["in"][0]["from_number"], j["in"][0]["consumer"]), (2, {"queued": 2}, "+33611111111", "modem-sms"))
+        envoyes = []
+        appmod.SMS_SENDER.deliver = lambda n, t: (envoyes.append((n, t)) or (False, "relais injoignable : x", "")) if len(envoyes) == 0 else (envoyes.append((n, t)) or (True, "", "{}"))
+        self.assertEqual(appmod.SMS_SENDER.tick(), 0)               # échec : backoff, on s'arrête là
+        st = {r["id"]: r for r in self.c.get("/sms/journal", headers=self.adm).get_json()["out"]}
+        self.assertEqual(sorted((r["status"], r["attempts"]) for r in st.values()), [("queued", 0), ("queued", 1)])
+        self.assertEqual(appmod.SMS_SENDER.tick(now=time.time() + 3600), 2)
+        j = self.c.get("/sms/journal", headers=self.adm).get_json()
+        self.assertEqual(j["counts"], {"sent": 2})
+        self.assertEqual(envoyes[0], ("+33612345678", "Alerte : arrêt"))
+        sid = j["out"][0]["id"]
+        self.assertEqual(self.c.post("/sms/%d/retry" % sid, headers=self.adm).status_code, 409)   # déjà envoyé
+        r = self.c.post("/sms/envoyer", headers=self.adm, json={"to": "+33600000000", "text": "depuis la tuile"})
+        self.assertEqual(r.status_code, 202)
+        self.assertEqual(self.c.post("/sms/%d/drop" % r.get_json()["queued"][0], headers=self.adm).status_code, 200)
 
 
 if __name__ == "__main__":

@@ -27,3 +27,6 @@ export const fetchSettings = (b, t) => call(b, t, "/settings");
 export const saveSettings = (b, t, body) => call(b, t, "/settings", { method: "PUT", body: J(body) });
 export const fetchEvents = (b, t) => call(b, t, "/events");
 export const testSend = (b, t, to) => call(b, t, "/test", { method: "POST", body: J({ to }) });
+export const fetchSms = (b, t) => call(b, t, "/sms/journal");   // #787 : SMS internes
+export const sendSms = (b, t, to, text) => call(b, t, "/sms/envoyer", { method: "POST", body: J({ to, text }) });
+export const smsAct = (b, t, id, verb) => call(b, t, `/sms/${id}/${verb}`, { method: "POST" });

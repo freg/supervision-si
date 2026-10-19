@@ -1585,6 +1585,9 @@ services:
       - NOTIFY_SMTP_PASSWORD=${NOTIFY_SMTP_PASSWORD:-${SECRETS_ALERT_SMTP_PASSWORD:-}}
       - NOTIFY_SMTP_FROM=${NOTIFY_SMTP_FROM:-${SECRETS_ALERT_SMTP_FROM:-}}
       - NOTIFY_SMTP_USE_TLS=${NOTIFY_SMTP_USE_TLS:-${SECRETS_ALERT_SMTP_USE_TLS:-true}}
+      # #787 : SMS internes du hub -- relais du TRB140 avec une clé PROPRE (utilisateur dédié du relais, distinct du client externe)
+      - NOTIFY_SMS_RELAY_URL=${NOTIFY_SMS_RELAY_URL:-}
+      - NOTIFY_SMS_RELAY_KEY=${NOTIFY_SMS_RELAY_KEY:-}
 
   licenses-api:
     # Livraison #595 -- gestionnaire de LICENCES LOGICIELLES par site :

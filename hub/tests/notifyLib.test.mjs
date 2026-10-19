@@ -26,3 +26,9 @@ test("emails et résumés", () => {
   assert.equal(queueSummary({}), "file vide");
   assert.equal(groupLabel({ name: "Infra", kind: "meta", resolved: ["a", "b"] }), "Infra (méta) — 2 adresses");
 });
+
+test("SMS : segments et numéros (#787)", async () => {
+  const { smsSegments, smsNumbers } = await import("../src/notifyLib.js");
+  assert.equal(smsSegments("a".repeat(160)), 1); assert.equal(smsSegments("a".repeat(161)), 2); assert.equal(smsSegments("€".repeat(71)), 2);
+  assert.deepEqual(smsNumbers("06 12 34 56 78, 0612345678 ; 33612345678\n+33 6 98 76 54 32, x"), { ok: ["+33612345678", "+33698765432"], bad: ["x"] });
+});

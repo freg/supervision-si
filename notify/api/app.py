@@ -34,6 +34,7 @@ from flask import Flask, g, has_app_context, jsonify, request
 from flask_cors import CORS
 
 import core
+import sms
 from auth import AuthError, KeycloakVerifier, bearer_from_header
 
 try:
@@ -100,7 +101,14 @@ CREATE INDEX IF NOT EXISTS queue_status ON queue (status, due_at);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, at REAL, event TEXT, text TEXT);
 CREATE TABLE IF NOT EXISTS attachments (queue_id INTEGER, filename TEXT, content_type TEXT, data BLOB);
+CREATE TABLE IF NOT EXISTS sms_out (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at REAL, consumer TEXT, to_number TEXT, text TEXT, status TEXT,
+    due_at REAL, sent_at REAL, attempts INTEGER DEFAULT 0, last_error TEXT DEFAULT '', reply TEXT DEFAULT '');
+CREATE INDEX IF NOT EXISTS sms_out_status ON sms_out (status, due_at);
+CREATE TABLE IF NOT EXISTS sms_in (id INTEGER PRIMARY KEY AUTOINCREMENT, received_at REAL, from_number TEXT, text TEXT, consumer TEXT, source_ip TEXT);
 """
+# #787 : SMS internes -- relais du TRB140 avec une clé PROPRE au hub (utilisateur dédié du relais, distinct du client externe)
+SMS_RELAY_URL = os.environ.get("NOTIFY_SMS_RELAY_URL", "").rstrip("/")
+SMS_RELAY_KEY = os.environ.get("NOTIFY_SMS_RELAY_KEY", "")
 
 
 def db():
@@ -177,6 +185,8 @@ def _hash(token):
 # -- authentification -------------------------------------------------------------
 def consumer_from_request():
     tok = request.headers.get("X-Notify-Token") or ""
+    if not tok and request.path.startswith("/sms/"):   # #787 : appels « à l'ancienne » (?key= du relais, ?jeton= du TRB140)
+        tok = request.args.get("key") or request.args.get("jeton") or ""
     if not tok:
         return None
     if INTERNAL_TOKEN and secrets.compare_digest(tok, INTERNAL_TOKEN):
@@ -190,7 +200,7 @@ def consumer_from_request():
     return None
 
 
-PRODUCER = ("/notify", "/actions/register")
+PRODUCER = ("/notify", "/actions/register", "/sms", "/sms/send", "/sms/recu")
 PUBLIC = ("/health", "/version")
 
 
@@ -217,7 +227,7 @@ def health():
     n = {r["status"]: r["n"] for r in c.execute("SELECT status, COUNT(*) AS n FROM queue GROUP BY status")}
     smtp = smtp_config()
     return jsonify({"status": "ok" if smtp["host"] else "degraded", "smtp": bool(smtp["host"]), "enabled": st["enabled"], "queue": n,
-                    "internal_token": bool(INTERNAL_TOKEN)}), 200
+                    "internal_token": bool(INTERNAL_TOKEN), "sms": bool(SMS_RELAY_URL and SMS_RELAY_KEY)}), 200
 
 
 # -- producteurs -------------------------------------------------------------------
@@ -652,6 +662,155 @@ def test_send():
     return jsonify({"status": "ok" if ok else "error", "error": err}), (200 if ok else 502)
 
 
+# -- SMS internes (#787) -----------------------------------------------------------
+def sms_enqueue(c, consumer, numbers, text, now=None):
+    now = now or time.time()
+    ids = []
+    with _lock:
+        for n in numbers:
+            cur = c.execute("INSERT INTO sms_out (created_at, consumer, to_number, text, status, due_at) VALUES (?, ?, ?, ?, 'queued', ?)", (now, consumer, n, text, now))
+            ids.append(cur.lastrowid)
+        c.commit()
+    return ids
+
+
+@app.route("/sms", methods=["POST"])
+def sms_post():
+    """Producteurs du hub et scripts internes : {to: "+336…,06…" | [...], text} -> mis en file (202)."""
+    body = request.get_json(silent=True) or {}
+    numbers, bad = sms.destinataires(body.get("to"))
+    text = sms.texte(body.get("text") or body.get("message"))
+    if not numbers or not text:
+        return jsonify({"error": "destinataire(s) et texte requis", "rejected": bad}), 400
+    ids = sms_enqueue(db(), g.consumer["name"], numbers, text)
+    return jsonify({"queued": ids, "rejected": bad, "segments": sms.segments(text)}), 202
+
+
+@app.route("/sms/send", methods=["GET", "POST"])
+def sms_send_compat():
+    """Compatible avec le relais du TRB140 (GET /send?number&message&key) : le pont smstools y envoie sans changement
+    de format -- seule l'URL et la clé (jeton de consommateur) changent. 200 quand le message est en file."""
+    f = dict(request.args)
+    f.update(request.form or {})
+    numbers, bad = sms.destinataires(f.get("number") or f.get("to") or "")
+    text = sms.texte(f.get("message") or f.get("text"))
+    if not numbers or not text:
+        return jsonify({"status": "error", "error": "number et message requis", "rejected": bad}), 400
+    ids = sms_enqueue(db(), g.consumer["name"], numbers, text)
+    return jsonify({"status": "queued", "ids": ids}), 200
+
+
+@app.route("/sms/recu", methods=["GET", "POST"])
+def sms_received():
+    """SMS reçus, transmis par le TRB140 (SMS Forwarding HTTP) : ?jeton=…&de=…&texte=… (GET ou POST)."""
+    f = {k: v for k, v in request.args.items() if k not in ("jeton", "key")}
+    f.update(request.form or {})
+    f.update(request.get_json(silent=True) or {})
+    de = sms.normaliser(sms.premier(f, sms.CHAMPS_DE)) or sms.premier(f, sms.CHAMPS_DE)[:40]
+    if not de:
+        return jsonify({"error": "expéditeur absent (de)"}), 400
+    text = sms.texte(sms.premier(f, sms.CHAMPS_TEXTE))
+    c = db()
+    with _lock:
+        c.execute("INSERT INTO sms_in (received_at, from_number, text, consumer, source_ip) VALUES (?, ?, ?, ?, ?)",
+                  (time.time(), de, text, g.consumer["name"], request.headers.get("X-Real-IP") or request.remote_addr or ""))
+        c.commit()
+    event("sms-recu", "SMS reçu de %s (%d caractères)" % (de, len(text)))
+    return jsonify({"ok": True}), 200
+
+
+@app.route("/sms/journal", methods=["GET"])
+def sms_journal():
+    c = db()
+    out = [dict(r) for r in c.execute("SELECT * FROM sms_out ORDER BY id DESC LIMIT ?", (min(500, int(request.args.get("limit") or 200)),))]
+    inn = [dict(r) for r in c.execute("SELECT * FROM sms_in ORDER BY id DESC LIMIT ?", (min(500, int(request.args.get("limit") or 200)),))]
+    counts = {r["status"]: r["n"] for r in c.execute("SELECT status, COUNT(*) AS n FROM sms_out GROUP BY status")}
+    host = SMS_RELAY_URL.split("//")[-1].split("/")[0] if SMS_RELAY_URL else ""
+    return jsonify({"relay": {"configured": bool(SMS_RELAY_URL and SMS_RELAY_KEY), "host": host}, "counts": counts, "out": out, "in": inn,
+                    "sender": SMS_SENDER.state()}), 200
+
+
+@app.route("/sms/envoyer", methods=["POST"])
+def sms_admin_send():
+    """Depuis la tuile (administrateur) : {to, text}."""
+    body = request.get_json(silent=True) or {}
+    numbers, bad = sms.destinataires(body.get("to"))
+    text = sms.texte(body.get("text"))
+    if not numbers or not text:
+        return jsonify({"error": "destinataire(s) et texte requis", "rejected": bad}), 400
+    ids = sms_enqueue(db(), "hub:" + g.user["username"], numbers, text)
+    event("sms", "%s : SMS mis en file vers %s" % (g.user["username"], ", ".join(numbers)))
+    return jsonify({"queued": ids, "rejected": bad, "segments": sms.segments(text)}), 202
+
+
+@app.route("/sms/<int:sid>/<verb>", methods=["POST"])
+def sms_act(sid, verb):
+    if verb not in ("retry", "drop"):
+        return jsonify({"error": "geste inconnu"}), 400
+    c = db()
+    with _lock:
+        if verb == "retry":
+            n = c.execute("UPDATE sms_out SET status = 'queued', due_at = ?, attempts = 0, last_error = '' WHERE id = ? AND status IN ('failed', 'dropped')", (time.time(), sid)).rowcount
+        else:
+            n = c.execute("UPDATE sms_out SET status = 'dropped' WHERE id = ? AND status IN ('queued', 'failed')", (sid,)).rowcount
+        c.commit()
+    return (jsonify({"ok": True}), 200) if n else (jsonify({"error": "SMS introuvable ou dans un état qui ne le permet pas"}), 409)
+
+
+class SmsSender(object):
+    """Fil d'envoi des SMS : relais du TRB140, reprises avec backoff (core.backoff_seconds), abandon après retry_max."""
+    def __init__(self):
+        self.last_error = ""
+        self.last_sent = None
+
+    def state(self):
+        return {"last_error": self.last_error, "last_sent": self.last_sent}
+
+    def deliver(self, number, text):
+        if not (SMS_RELAY_URL and SMS_RELAY_KEY):
+            return False, "relais non configuré (NOTIFY_SMS_RELAY_URL / NOTIFY_SMS_RELAY_KEY)", ""
+        import urllib.error
+        import urllib.parse
+        import urllib.request
+        url = SMS_RELAY_URL + "/send?" + urllib.parse.urlencode({"number": number, "message": text, "key": SMS_RELAY_KEY})
+        try:
+            with urllib.request.urlopen(url, timeout=30) as r:
+                body = r.read(400).decode("utf-8", "replace")
+                return (r.status == 200), ("" if r.status == 200 else "HTTP %d" % r.status), body[:200]
+        except urllib.error.HTTPError as exc:
+            return False, "relais : HTTP %d" % exc.code, ""
+        except (urllib.error.URLError, OSError) as exc:
+            return False, "relais injoignable : %s" % str(getattr(exc, "reason", exc))[:150], ""
+
+    def tick(self, now=None):
+        now = now or time.time()
+        st = settings_get()
+        c = _conn()
+        rows = c.execute("SELECT * FROM sms_out WHERE status = 'queued' AND due_at <= ? ORDER BY id LIMIT 10", (now,)).fetchall()
+        n = 0
+        for r in rows:
+            ok, err, reply = self.deliver(r["to_number"], r["text"])
+            with _lock:
+                if ok:
+                    c.execute("UPDATE sms_out SET status = 'sent', sent_at = ?, attempts = attempts + 1, last_error = '', reply = ? WHERE id = ?", (now, reply, r["id"]))
+                    self.last_sent, n = now, n + 1
+                else:
+                    self.last_error = err
+                    attempts = r["attempts"] + 1
+                    if attempts >= st["retry_max"] or err.startswith("relais : HTTP 4"):
+                        c.execute("UPDATE sms_out SET status = 'failed', attempts = ?, last_error = ? WHERE id = ?", (attempts, err, r["id"]))
+                    else:
+                        c.execute("UPDATE sms_out SET attempts = ?, last_error = ?, due_at = ? WHERE id = ?", (attempts, err, now + core.backoff_seconds(attempts), r["id"]))
+                c.commit()
+            if not ok:
+                break   # relais en panne : on n'insiste pas sur les suivants à ce tour
+        c.close()
+        return n
+
+
+SMS_SENDER = SmsSender()
+
+
 # -- fil d'envoi -------------------------------------------------------------------
 class Sender(object):
     def __init__(self):
@@ -759,6 +918,10 @@ def _worker():
             SENDER.tick()
         except Exception as exc:  # noqa: BLE001
             _log.warning("fil d'envoi : %s", exc)
+        try:
+            SMS_SENDER.tick()   # #787
+        except Exception as exc:  # noqa: BLE001
+            _log.warning("fil d'envoi SMS : %s", exc)
 
 
 if os.environ.get("NOTIFY_WORKER", "1") == "1":

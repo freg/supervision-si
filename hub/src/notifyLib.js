@@ -44,3 +44,23 @@ export function queueSummary(counts) {
   for (const k of ["queued", "held", "failed", "no-recipients", "sent"]) if (c[k]) parts.push(`${c[k]} ${STATUS_LABEL[k]}`);
   return parts.join(", ") || "file vide";
 }
+
+/** #787 : SMS -- nombre de SMS facturés (160 / 153 en concaténé ; 70 / 67 hors alphabet GSM), numéros reconnus. */
+const GSM_EXTRA = "éèùìòÇØøÅåÄÖÑÜäöñüà£¥§¿¡";
+export function smsSegments(text) {
+  const t = String(text || "");
+  const gsm = [...t].every((ch) => ch.charCodeAt(0) < 128 || GSM_EXTRA.includes(ch));
+  const [one, part] = gsm ? [160, 153] : [70, 67];
+  return t.length <= one ? 1 : Math.ceil(t.length / part);
+}
+export function smsNumbers(text) {
+  const ok = [], bad = [];
+  for (const raw of String(text || "").split(/[,;\n]+/).map((x) => x.trim()).filter(Boolean)) {
+    let n = raw.replace(/[\s.\-()]/g, "");
+    if (n.startsWith("00")) n = "+" + n.slice(2);
+    else if (/^0[1-9]\d{8}$/.test(n)) n = "+33" + n.slice(1);
+    else if (/^[1-9]\d{7,14}$/.test(n)) n = "+" + n;
+    if (/^\+[1-9]\d{7,14}$/.test(n)) { if (!ok.includes(n)) ok.push(n); } else bad.push(raw);
+  }
+  return { ok, bad };
+}

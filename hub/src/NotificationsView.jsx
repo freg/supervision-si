@@ -9,13 +9,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import PageFrame from "./PageFrame.jsx";
 import { viewParams } from "./hubLinks.js";
 import * as api from "./notifyClient.js";
-import { byModule, filterActions, effectiveGroups, parseEmails, queueSummary, groupLabel, STATUS_LABEL, STATUS_TONE, SEVERITY_LABEL } from "./notifyLib.js";
+import { byModule, filterActions, effectiveGroups, parseEmails, queueSummary, groupLabel, STATUS_LABEL, STATUS_TONE, SEVERITY_LABEL, smsSegments, smsNumbers } from "./notifyLib.js";
 
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const TABS = [
   { id: "assign", label: "🎯 Affectations" },
   { id: "groups", label: "👥 Groupes" },
   { id: "queue", label: "📬 File & journal" },
+  { id: "sms", label: "📱 SMS" },
   { id: "consumers", label: "🔑 Consommateurs & liste noire" },
   { id: "settings", label: "⚙ Réglages" },
 ];
@@ -209,6 +210,61 @@ function Queue({ b, t, notice }) {
 }
 
 // ---------------------------------------------------------------------------
+// #787 : SMS internes du hub -- canal propre (clé dédiée sur le relais du TRB140), distinct du client externe.
+function Sms({ b, t, notice, apiBase }) {
+  const [data, setData] = useState(null);
+  const [to, setTo] = useState("");
+  const [text, setText] = useState("");
+  const load = useCallback(() => api.fetchSms(b, t).then((r) => setData(r)), [b, t]);
+  useEffect(() => { load(); const id = setInterval(load, 15000); return () => clearInterval(id); }, [load]);
+  const nums = smsNumbers(to);
+  const send = async () => { const r = await api.sendSms(b, t, nums.ok, text); notice(r.error || `${(r.queued || []).length} SMS en file`, !r.error); if (!r.error) setText(""); load(); };
+  const act = async (id, verb) => { const r = await api.smsAct(b, t, id, verb); notice(r.error || `SMS ${id} : ${verb}`, !r.error); load(); };
+  const relay = data?.relay || {};
+  const s = data?.sender || {};
+  return (
+    <div>
+      <div className="hub-card" style={{ marginBottom: 10 }}>
+        <strong>Canal SMS du hub</strong> — relais {relay.configured ? <Tone tone="green">configuré ({relay.host})</Tone> : <Tone tone="red">non configuré (NOTIFY_SMS_RELAY_URL / NOTIFY_SMS_RELAY_KEY)</Tone>}
+        {" "}· {Object.entries(data?.counts || {}).map(([k, v]) => `${v} ${STATUS_LABEL[k] || k}`).join(" · ") || "aucun envoi"}
+        {" "}· dernier envoi {s.last_sent ? when(s.last_sent) : "—"}{s.last_error ? <> · <Tone tone="red">{s.last_error}</Tone></> : null}
+        <details style={{ marginTop: 6 }}><summary className="muted">Brancher un script ou une passerelle sur ce canal</summary>
+          <p className="muted">Créer un consommateur (onglet Consommateurs) puis utiliser son jeton :</p>
+          <pre style={{ fontSize: 12, whiteSpace: "pre-wrap" }}>{`envoi (format du relais) : ${apiBase}/sms/send?number=+336…&message=…&key=JETON
+envoi (JSON)              : POST ${apiBase}/sms   en-tête X-Notify-Token: JETON   {"to": "+336…", "text": "…"}
+réception (TRB140 › SMS Forwarding HTTP) : ${apiBase}/sms/recu?jeton=JETON   champs « de » et « texte »`}</pre>
+        </details>
+      </div>
+      <div className="hub-card" style={{ marginBottom: 10 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-start" }}>
+          <label style={{ flex: "1 1 220px" }}>Destinataires<input value={to} onChange={(e) => setTo(e.target.value)} placeholder="06…, +336…" style={{ width: "100%" }} /></label>
+          <label style={{ flex: "3 1 380px" }}>Texte<textarea rows={3} maxLength={640} value={text} onChange={(e) => setText(e.target.value)} style={{ width: "100%" }} /></label>
+        </div>
+        <span className="muted">{nums.ok.length} numéro(s){nums.bad.length ? <> · <Tone tone="red">non reconnu(s) : {nums.bad.join(", ")}</Tone></> : null} · {text.length} caractère(s) = {smsSegments(text)} SMS</span>
+        {" "}<button type="button" disabled={!nums.ok.length || !text.trim()} onClick={send}>Envoyer</button>
+      </div>
+      <h3>Envoyés</h3>
+      <AutoColumns id="NotificationsView.sms1"><table className="hub-table">
+        <thead><tr><th>#</th><th>Quand</th><th>Par</th><th>À</th><th>Texte</th><th>État</th><th></th></tr></thead>
+        <tbody>{(data?.out || []).map((m) => (
+          <tr key={m.id}><td className="muted">{m.id}</td><td className="muted" style={{ whiteSpace: "nowrap" }}>{when(m.created_at)}</td><td className="muted">{m.consumer}</td><td>{m.to_number}</td>
+            <td style={{ maxWidth: 420 }}>{m.text}</td>
+            <td><Tone tone={STATUS_TONE[m.status]}>{STATUS_LABEL[m.status] || m.status}</Tone>{m.last_error ? <div className="muted">{m.attempts} tentative(s) : {m.last_error}</div> : null}</td>
+            <td style={{ whiteSpace: "nowrap" }}>{["failed", "dropped"].includes(m.status) && <button type="button" className="secondary" onClick={() => act(m.id, "retry")}>Renvoyer</button>}
+              {" "}{["queued", "failed"].includes(m.status) && <button type="button" className="secondary" onClick={() => act(m.id, "drop")}>Abandonner</button>}</td></tr>))}
+          {!(data?.out || []).length && <tr><td colSpan={7} className="muted">rien</td></tr>}</tbody>
+      </table></AutoColumns>
+      <h3>Reçus</h3>
+      <AutoColumns id="NotificationsView.sms2"><table className="hub-table">
+        <thead><tr><th>Quand</th><th>De</th><th>Texte</th><th>Par</th></tr></thead>
+        <tbody>{(data?.in || []).map((m) => <tr key={m.id}><td className="muted" style={{ whiteSpace: "nowrap" }}>{when(m.received_at)}</td><td>{m.from_number}</td><td>{m.text}</td><td className="muted">{m.consumer}</td></tr>)}
+          {!(data?.in || []).length && <tr><td colSpan={4} className="muted">rien</td></tr>}</tbody>
+      </table></AutoColumns>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 function Consumers({ b, t, notice }) {
   const [list, setList] = useState([]);
   const [bl, setBl] = useState([]);
@@ -325,6 +381,7 @@ export default function NotificationsView({ apiBase, accessToken, username, onBa
       {tab === "assign" && <Assignments b={b} t={t} groups={groups} notice={say} />}
       {tab === "groups" && <Groups b={b} t={t} groups={groups} reload={reloadGroups} notice={say} />}
       {tab === "queue" && <Queue b={b} t={t} notice={say} />}
+      {tab === "sms" && <Sms b={b} t={t} notice={say} apiBase={apiBase} />}
       {tab === "consumers" && <Consumers b={b} t={t} notice={say} />}
       {tab === "settings" && <Settings b={b} t={t} notice={say} />}
     </PageFrame>

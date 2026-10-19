@@ -1,3 +1,19 @@
+## 2026-10-19 — SMS internes du hub : onglet « SMS » des Notifications et API, canal distinct du client externe (livraison #787)
+
+- Besoin : remplacer le vieux modem 2G (smstools) par le TRB140, avec un onglet et une API SMS propres au hub, distincts
+  de ceux du client externe qui utilise déjà le relais.
+- notify-api : canal SMS avec sa propre clé sur le relais du TRB140 (`NOTIFY_SMS_RELAY_URL`, `NOTIFY_SMS_RELAY_KEY` :
+  utilisateur dédié du relais), file d'envoi (reprises avec backoff, abandon, Renvoyer / Abandonner), historique des
+  envoyés et des reçus.
+  - `POST /sms` (jeton de consommateur ou interne) ; `GET /sms/send?number&message&key` au format du relais : le pont
+    smstools (`/var/spool/sms*/outgoing`) s'y branche en changeant seulement l'URL et la clé ;
+  - `GET|POST /sms/recu?jeton=…&de=…&texte=…` pour la transmission des SMS reçus par le TRB140 (SMS Forwarding HTTP) ;
+  - administration (Keycloak) : `/sms/journal`, `/sms/envoyer`, `/sms/<id>/retry|drop`.
+- Hub : onglet « 📱 SMS » de la tuile Notifications (état du relais, envoi avec nombre de SMS facturés, envoyés, reçus,
+  URL à donner aux scripts et au TRB140).
+- Vérifié : notify-api test_app / test_core (numéros, file, backoff, reçus, droits), notifyLib (node --test), syntaxe JSX.
+  Non vérifié : envoi réel par le relais, rendu dans le navigateur.
+
 ## 2026-10-19 — Activité horaire : vrais utilisateurs séparés des scanners, journaux « vhost » lus (livraison #786)
 
 - Constat sur deux conteneurs réels : aucune ligne reconnue pour l'un (journaux au format vhost_combined, nom du site en
