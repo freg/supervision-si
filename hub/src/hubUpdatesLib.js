@@ -3,6 +3,7 @@
 import { SINCE, THEMES } from "./hubThemes.js";
 
 // Écrans MODIFIÉS par une livraison (les tuiles NOUVELLES viennent de SINCE) : à compléter à chaque livraison visible.
+// (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 export const UPDATE_LINKS = {
   747: [{ view: "nebula", hint: "Rapports › Occupation" }],
   748: [{ view: "pve-ops", hint: "Migration › méthode directe" }],
@@ -14,6 +15,12 @@ export const UPDATE_LINKS = {
   758: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   759: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   760: [{ view: "cortex", hint: "incidents « cause Wi-Fi probable »" }],
+  787: [{ view: "notifications", hint: "Onglet 📱 SMS : envoi, journal, relance ; API interne /sms distincte du client externe" }],
+  784: [{ view: "migration", hint: "Onglets du plan (dont « MX ») ; étapes à la main avec commande et machine" }],
+  783: [{ view: "services", hint: "Tour › cascade sans dépassement de délai (reconstruction par lots)" }],
+  782: [{ view: "fleetviews", hint: "Colonne GPU" }, { view: "iapark", hint: "Cartes graphiques des hôtes" }],
+  781: [{ view: "migration", hint: "Étape manuelle devenue automatique : plus bloquée après réimport" }],
+  780: [{ view: "migration", hint: "Envoi ZFS des CT convertis en modèle (basevol)" }],
   778: [{ view: "migration", hint: "Tous les boutons : occupés pendant l'envoi, second clic bloqué, bandeau « fait » / « échec »" }],
   777: [{ view: "guest-usage", hint: "Fiche d'un CT / VM : SSH, sudo, fichiers modifiés, courriels, connexions établies, journaux récents ; mois : SSH, fichiers, courriels" }],
   776: [{ view: "edge", hint: "Nouvelle tuile : couple de proxys d'entrée, bascule vers un autre serveur interne, contrôle DNS et alerte « DNS à configurer »" }],

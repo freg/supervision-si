@@ -1,3 +1,9 @@
+## 2026-10-19 — Hub : liens des « Mises à jour » rétablis pour les livraisons #780 à #787 (livraison #788)
+
+- Pied de page « Mises à jour » : chaque livraison récente a de nouveau ses boutons vers les écrans concernés
+  (Migration, Vues de parc, Parc IA, Tour, Notifications › SMS).
+- La liste elle-même est régénérée jusqu'à la dernière livraison.
+
 ## 2026-10-19 — SMS internes du hub : onglet « SMS » des Notifications et API, canal distinct du client externe (livraison #787)
 
 - Besoin : remplacer le vieux modem 2G (smstools) par le TRB140, avec un onglet et une API SMS propres au hub, distincts

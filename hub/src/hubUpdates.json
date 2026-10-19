@@ -1,5 +1,11 @@
 [
  {
+  "n": 788,
+  "from": 788,
+  "date": "2026-10-19",
+  "title": "Hub : liens des « Mises à jour » rétablis pour les livraisons #780 à #787"
+ },
+ {
   "n": 787,
   "from": 787,
   "date": "2026-10-19",
@@ -232,11 +238,5 @@
   "from": 748,
   "date": "2026-10-14",
   "title": "Virtualisation directe pilotée par les deux agents, relais à fenêtre bornée"
- },
- {
-  "n": 747,
-  "from": 747,
-  "date": "2026-10-14",
-  "title": "Occupation des bornes Wi-Fi : statistiques, seuils, alertes Nebula, récapitulatif"
  }
 ]
