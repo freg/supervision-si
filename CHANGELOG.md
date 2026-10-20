@@ -23,7 +23,11 @@
   `navigateur/test_automate.py`, `si-agent/agent/test_navctl.py`, `si-agent/api/test_z_parcours.py` (coffre et assistant
   simulés, masquage), `assistant/tests/test_rag.py` (intent), `hub/tests/navigateurLib.test.mjs` ; tuile rendue dans un
   Chromium avec API simulée (demande → plan → jeu → arrêt avant écriture), sans erreur de console.
-- Non vérifié : sur un hôte réel (image, noVNC, bastion), avec le vrai modèle (qualité du choix et des valeurs).
+- Vérifié ensuite hors conteneur (mêmes paquets que l'image) : `entrypoint.sh` complet (Xvfb, fluxbox, x11vnc, noVNC,
+  Chromium relancé, automate) -- écran noVNC affiché avec la page ouverte par l'automate, `/etat`, `/aller`, `/capture`,
+  401 sans jeton ; apprentissage par l'API pendant qu'un autre client agit dans le même navigateur (gestes relevés,
+  paramètres déduits). `NAV_CHROME` permet de désigner un autre Chromium.
+- Non vérifié : construction de l'image Docker elle-même, publication par le bastion, vrai modèle (qualité du choix).
 
 ## 2026-10-20 — Navigateur des hôtes : un Chromium visible sur l'hôte d'un agent, écran web et automate (livraison #798)
 

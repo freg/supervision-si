@@ -14,7 +14,7 @@ fluxbox >/tmp/fluxbox.log 2>&1 &
 x11vnc -storepasswd "$NAV_VNC_MDP" /tmp/vncpass >/dev/null 2>&1
 x11vnc -display "$DISPLAY" -rfbauth /tmp/vncpass -forever -shared -localhost -rfbport "${NAV_VNC_PORT:-5977}" -quiet >/tmp/x11vnc.log 2>&1 &
 websockify --web /usr/share/novnc "127.0.0.1:${NAV_ECRAN_PORT:-6080}" "127.0.0.1:${NAV_VNC_PORT:-5977}" >/tmp/websockify.log 2>&1 &
-CHROME=$(ls -d /ms-playwright/chromium-*/chrome-linux/chrome 2>/dev/null | head -1)
+CHROME="${NAV_CHROME:-$(ls -d /ms-playwright/chromium-*/chrome-linux/chrome 2>/dev/null | head -1)}"
 [ -x "$CHROME" ] || { echo "Chromium introuvable dans l'image" >&2; exit 1; }
 (
   while true; do
