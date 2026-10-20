@@ -128,7 +128,9 @@ class Routes(unittest.TestCase):
         self.assertEqual(lst["local_agents"], [{"agent_id": "rp-pve", "hostname": None, "node": "pve10"}])
         d = self.c.get("/diag/tasks?tasks=plugin:proxmox,plugin:ollama,bad task!").json["tasks"]   # #763
         self.assertEqual([t["task"] for t in d], ["plugin:proxmox", "plugin:ollama"])
-        self.assertEqual(d[0]["agents"][0]["agent_id"], "rp-pve"); self.assertTrue(d[0]["agents"][0]["ok"]); self.assertEqual(d[1]["agents"], [])
+        self.assertEqual(d[0]["agents"][0]["agent_id"], "rp-pve"); self.assertTrue(d[0]["agents"][0]["ok"])
+        # #795 : la base de test est partagée entre modules (agent « ia-host » de test_z_ia) -- seul rp-pve doit être absent d'ollama
+        self.assertNotIn("rp-pve", [a["agent_id"] for a in d[1]["agents"]])
         self.assertIn("ollama", d[1]["hint"])
 
 

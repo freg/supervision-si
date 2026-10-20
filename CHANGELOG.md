@@ -12,7 +12,8 @@
 - API si-agent-api : `/journal`, `/journal/<id>`, `/journal/import`, `/journal/export.csv`, `/journal/suggestions`.
 - Vérifié : 7 tests API (validation, heures, indicateurs, aller-retour CSV, parcours complet, suggestions), 2 tests hub
   (journalLib), suite hub au vert (403), syntaxe JSX ; import d'un journal réel de 77 entrées sans erreur.
-  Non vérifié : rendu navigateur, `npm run build`. Écart volontaire avec le classeur : un acte non horodaté un
+  Non vérifié : rendu navigateur, `npm run build`. Corrigé au passage : `test_z_repatriation.test_campaign` échouait selon
+  l'ordre des modules (base de test partagée avec test_z_ia) -- suite si-agent-api entièrement au vert. Écart volontaire avec le classeur : un acte non horodaté un
   week-end compte ici aussi « hors heures ».
 
 ## 2026-10-20 — Garde du hub : SMS d'alerte par l'API du TRB140, agent 0.5.88 (livraison #794)
