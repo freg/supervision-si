@@ -1,5 +1,11 @@
 [
  {
+  "n": 795,
+  "from": 795,
+  "date": "2026-10-20",
+  "title": "Tuile « Journal des chantiers » : actes, surveillances, relances, interventions, import / export Excel"
+ },
+ {
   "n": 794,
   "from": 794,
   "date": "2026-10-20",
@@ -232,11 +238,5 @@
   "from": 755,
   "date": "2026-10-14",
   "title": "Mises à jour d'agents : version reconnue dès le redémarrage ; agents 0.5.14 à relancer à la main"
- },
- {
-  "n": 754,
-  "from": 754,
-  "date": "2026-10-14",
-  "title": "Tests d'IA lisibles : ce qu'on fournit au modèle, les indicateurs cibles et le rendu critère par critère"
  }
 ]

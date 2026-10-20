@@ -2616,3 +2616,18 @@ button[aria-busy="true"]::after { content: ""; position: absolute; right: 8px; t
 .hub-action-toast[data-kind="ok"] { border-left: 5px solid var(--ok, #27ae60); }
 .hub-action-toast[data-kind="error"] { border-left: 5px solid var(--danger, #c0392b); }
 .hub-action-toast[data-kind="busy"] { border-left: 5px solid var(--accent, #2980b9); }
+
+/* #795 : journal des chantiers */
+.jr-off { color: var(--danger); font-weight: 600; }
+.jr-desc { display: block; color: var(--muted); font-size: 12px; white-space: pre-wrap; }
+.jr-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+.jr-form { display: flex; flex-direction: column; gap: 6px; max-width: 900px; margin: 8px 0; }
+.jr-form label { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.jr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.jr-table td { vertical-align: top; }
+.jr-actions { white-space: nowrap; position: sticky; right: 0; background: var(--panel); }
+.jr-click { cursor: pointer; }
+.jr-statut { padding: 1px 6px; border-radius: 4px; border: 1px solid var(--border); white-space: nowrap; }
+.jr-statut.ok { background: var(--ok-bg); color: var(--ok); }
+.jr-statut.warning { background: var(--warning-bg); color: var(--warning); }
+.jr-statut.critical { background: var(--danger-bg); color: var(--danger); }

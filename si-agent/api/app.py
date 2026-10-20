@@ -54,6 +54,7 @@ import repatriation as repa  # noqa: E402  -- #761 : assistant de rapatriement /
 import guestusage  # noqa: E402  -- #769 : activité des CT / VM de tous les Proxmox
 import edgepair  # noqa: E402  -- #776 : couple de proxys d'entrée interchangeables (routes, bascule, contrôle DNS)
 import latency  # noqa: E402  -- #775 : latence des IP publiques (cibles, points de mesure, accès)
+import journal  # noqa: E402  -- #795 : journal des chantiers (actes, surveillances, relances, interventions)
 import migrun  # noqa: E402  -- #774 : tuile « Migration 2026-2027 » (plan d'étapes, pilotage, erreurs et solutions)
 import rotation  # noqa: E402  -- #743 : tournées de mesures réparties (supervision distribuée, item 120)
 import json  # noqa: E402
@@ -2182,6 +2183,54 @@ def _lat(fn):
         return out
     finally:
         conn.close()
+
+
+@app.route("/journal", methods=["GET", "PUT"])
+def journal_route():
+    """#795 : GET = entrées (filtre ?chantier=), chantiers, indicateurs ; PUT = ajout ou modification d'une entrée."""
+    if request.method == "GET":
+        return jsonify(_lat(lambda c: journal.view(c, (request.args.get("chantier") or "").strip() or None))), 200
+    b = request.get_json(silent=True) or {}
+    e, err = _lat(lambda c: journal.save(c, b.get("entry") or {}, str(b.get("actor") or "")[:64]))
+    return (jsonify({"error": err}), 400) if err else (jsonify({"ok": True, "entry": e}), 200)
+
+
+@app.route("/journal/<int:eid>", methods=["DELETE"])
+def journal_delete_route(eid):
+    return jsonify({"ok": _lat(lambda c: journal.delete(c, eid))}), 200
+
+
+@app.route("/journal/import", methods=["POST"])
+def journal_import_route():
+    """{rows: [...]} (JSON) ou {csv: "...", chantier: "..."} (format de l'export) ; doublons ignorés."""
+    b = request.get_json(silent=True) or {}
+    rows = b.get("rows") if isinstance(b.get("rows"), list) else journal.parse_csv(str(b.get("csv") or ""), str(b.get("chantier") or ""))
+    r = _lat(lambda c: journal.import_rows(c, rows, str(b.get("actor") or "")[:64]))
+    if r["added"]:
+        _event("journal", "info", "journal des chantiers : %d entrée(s) importée(s) par %s" % (r["added"], b.get("actor") or "?"))
+    return jsonify(dict(r, ok=True)), 200
+
+
+@app.route("/journal/export.csv", methods=["GET"])
+def journal_export_route():
+    ch = (request.args.get("chantier") or "").strip() or None
+    body = _lat(lambda c: journal.to_csv(journal.list_entries(c, ch)))
+    name = "journal-chantiers%s.csv" % ("-" + re.sub(r"[^A-Za-z0-9_-]+", "-", ch) if ch else "")
+    return app.response_class(body.encode("utf-8"), mimetype="text/csv",
+                              headers={"Content-Disposition": "attachment; filename=%s" % name})
+
+
+@app.route("/journal/suggestions", methods=["GET"])
+def journal_suggestions_route():
+    days = max(1, min(request.args.get("days", default=30, type=int) or 30, 365))
+    return jsonify({"suggestions": _lat(lambda c: journal.suggestions(c, days))}), 200
+
+
+@app.route("/journal/suggestions/<int:event_id>", methods=["POST"])
+def journal_accept_route(event_id):
+    b = request.get_json(silent=True) or {}
+    e, err = _lat(lambda c: journal.accept(c, event_id, str(b.get("actor") or "")[:64], (b.get("chantier") or "").strip() or None))
+    return (jsonify({"error": err}), 400) if err else (jsonify({"ok": True, "entry": e}), 200)
 
 
 @app.route("/latency", methods=["GET"])

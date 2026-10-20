@@ -1,3 +1,20 @@
+## 2026-10-20 — Tuile « Journal des chantiers » : actes, surveillances, relances, interventions, import / export Excel (livraison #795)
+
+- Nouvelle tuile (thème Réseau et infrastructure, près de « Migration ») : par chantier, chaque entrée a date, jour,
+  heures de début / fin, durée, nature (Acte, Surveillance, Relance, Intervention), intitulé, description non technique,
+  résultat, statut (Fait, En cours, Planifié, À faire) et source. Week-ends et heures hors bureau (8 h 30 - 12 h 15,
+  14 h - 18 h) en rouge ; tableau de synthèse par chantier (entrées, temps tracé, week-end, hors heures, natures).
+- Saisie dans le hub ; import JSON ou CSV (format de l'export, doublons ignorés) ; export CSV pour Excel (`;`, UTF-8
+  avec BOM, même colonnes que le récapitulatif des chantiers).
+- « Suggestions du hub » : événements du central qui ressemblent à des actes de chantier (pilotage de la migration,
+  rapatriements, PRA, maintenances, sauvegardes, agents hors ligne, constats critiques des sondes), ajoutés au journal
+  d'un clic, une seule fois chacun, à l'heure de Paris (`JOURNAL_TZ`, paquet `tzdata` ajouté à l'image).
+- API si-agent-api : `/journal`, `/journal/<id>`, `/journal/import`, `/journal/export.csv`, `/journal/suggestions`.
+- Vérifié : 7 tests API (validation, heures, indicateurs, aller-retour CSV, parcours complet, suggestions), 2 tests hub
+  (journalLib), suite hub au vert (403), syntaxe JSX ; import d'un journal réel de 77 entrées sans erreur.
+  Non vérifié : rendu navigateur, `npm run build`. Écart volontaire avec le classeur : un acte non horodaté un
+  week-end compte ici aussi « hors heures ».
+
 ## 2026-10-20 — Garde du hub : SMS d'alerte par l'API du TRB140, agent 0.5.88 (livraison #794)
 
 - Le firmware RutOS 7 du TRB140 n'a plus de service « Post/Get » : la sonde **hub-watch** envoie désormais son SMS

@@ -234,3 +234,11 @@ export const launchRepatriation = (apiBase, id, actor) => fetchJson(apiBase, `/r
 export const evaluateLeftovers = (apiBase, body) => fetchJson(apiBase, "/repatriation/cleanup/evaluate", json("POST", body));   // #765
 export const purgeLeftover = (apiBase, body) => fetchJson(apiBase, "/repatriation/cleanup/purge", json("POST", body));
 export const repatriationGuest = (apiBase, id, vmid, action, actor) => fetchJson(apiBase, `/repatriation/${id}/guest/${vmid}/${action}`, json("POST", { actor }));
+// #795 : journal des chantiers (actes, surveillances, relances, interventions)
+export const fetchJournal = (apiBase, chantier) => fetchJson(apiBase, `/journal${chantier ? `?chantier=${encodeURIComponent(chantier)}` : ""}`);
+export const saveJournalEntry = (apiBase, entry, actor) => fetchJson(apiBase, "/journal", json("PUT", { entry, actor }));
+export const deleteJournalEntry = (apiBase, id) => fetchJson(apiBase, `/journal/${encodeURIComponent(id)}`, { method: "DELETE" });
+export const importJournal = (apiBase, payload, actor) => fetchJson(apiBase, "/journal/import", json("POST", { ...payload, actor }));
+export const journalExportUrl = (apiBase, chantier) => `${apiBase}/journal/export.csv${chantier ? `?chantier=${encodeURIComponent(chantier)}` : ""}`;
+export const fetchJournalSuggestions = (apiBase, days = 30) => fetchJson(apiBase, `/journal/suggestions?days=${days}`);
+export const acceptJournalSuggestion = (apiBase, eventId, chantier, actor) => fetchJson(apiBase, `/journal/suggestions/${encodeURIComponent(eventId)}`, json("POST", { chantier, actor }));

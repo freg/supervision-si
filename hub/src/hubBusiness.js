@@ -96,6 +96,7 @@ export const PATHS = {
   "view:edge": ["equipements/reseau", "services/internet"],   // #776 : proxys d'entrée interchangeables
   "view:latency": ["equipements/reseau", "etats/feux"],   // #775 : latence des IP publiques
   "view:migration": ["etats/maintenant", "equipements/hotes/hyperviseurs"],   // #774 : Migration 2026-2027 (suivi pas à pas)
+  "view:journal": ["etats/maintenant", "equipements/hotes/hyperviseurs"],   // #795 : journal des chantiers
   "view:fleetviews": ["equipements/hotes", "etats/incidents"],   // #753 : vues de parc
   "view:repatriation": ["equipements/hotes/hyperviseurs", "etats/incidents"],   // #761 : assistant de rapatriement
   "view:pve-maint": ["equipements/hotes/hyperviseurs", "etats/incidents"],   // #705 : maintenance / réorganisation, sauvegardes   // #653 : opérations et plans de reprise

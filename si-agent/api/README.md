@@ -24,3 +24,12 @@ cloisonné, pas d'accès Internet général) :
 
 Tests : `test_si_agent_api.DeployInstallTests` (service Python simulé, présence
 de `-PythonUrl` dans le bootstrap, page /install avec jeton valide/invalide).
+
+## Journal des chantiers (livraison #795)
+
+`journal.py` : table `journal` (chantier, jour, début, fin, nature, acte, description, résultat, statut, source,
+`event_id` si l'entrée vient d'un événement). Routes : `GET|PUT /journal`, `DELETE /journal/<id>`, `POST /journal/import`
+(`{rows}` JSON ou `{csv, chantier}`), `GET /journal/export.csv` (Excel : `;`, UTF-8 avec BOM), `GET /journal/suggestions`,
+`POST /journal/suggestions/<event_id>`. Heures des suggestions en `JOURNAL_TZ` (défaut Europe/Paris, paquet `tzdata`).
+Hors heures de bureau = samedi / dimanche, ou début / fin hors 8 h 30 - 12 h 15 et 14 h - 18 h. Les entrées réelles sont
+saisies ou importées dans le hub, jamais dans le dépôt.
