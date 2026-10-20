@@ -1,3 +1,25 @@
+## 2026-10-20 — Navigateur des hôtes : un Chromium visible sur l'hôte d'un agent, écran web et automate (livraison #798)
+
+- Demande : voir et utiliser un site web **depuis l'hôte d'un agent** (en priorité une VM OVH : nos services vus de
+  l'extérieur), pas depuis le navigateur qui consulte le hub -- pour le débogage et la QA (BACKLOG 129, tranche 1).
+- **`navigateur/`** (installé sur l'hôte, `sudo sh installer.sh`) : conteneur Playwright avec écran virtuel (Xvfb,
+  fluxbox), Chromium relancé s'il est fermé (profil conservé), VNC local + **noVNC**, et **automate** (API locale à
+  jeton) qui pilote CE navigateur par CDP : ouvrir une adresse, capturer, jouer un parcours au format QA avec arrêt
+  avant les étapes marquées `"ecrit": true`. Tout sur 127.0.0.1 (réseau de l'hôte).
+- **Écran dans le hub** : publication par le bastion (`SI_PROXY_PUBLISH=6490=<shim>:127.0.0.1:6080`) puis tls-proxy
+  sous la même origine que le hub (`NAVIGATEURS=ovh1=6490` → `/navigateur/ovh1/`, websocket relayé).
+- **Agent 0.5.89** : commande `navigateur` (`etat`, `aller`, `capture`, `etapes`) relayée à l'automate local
+  (`/etc/si-agent/navigateur/jeton`), résultat allégé au-delà de 3 Mo. Central : commande acceptée, registre
+  `GET|PUT /navigateurs` (nom de l'écran, agent, libellé, page d'accueil).
+- **Tuile « Navigateur des hôtes »** (thème Réseau et infrastructure) : choix de l'hôte, écran intégré (ou plein
+  écran), barre d'adresse (ouverte par l'automate), capture, état, parcours JSON joué sur l'hôte avec résultats pas à
+  pas et capture finale, déclaration des navigateurs.
+- Vérifié : `navigateur/test_automate.py` (étapes, page simulée, échec, arrêt avant écriture),
+  `si-agent/agent/test_navctl.py`, `si-agent/api/test_z_navigateurs.py`, `tls-proxy/test_render_nginx_conf.py`,
+  `hub/tests/navigateurLib.test.mjs` ; suites complètes si-agent (api, agent) et hub au vert ; syntaxe @babel/parser.
+- Non vérifié : construction de l'image et Chromium réel sous Xvfb/noVNC, publication par le bastion, rendu de la
+  tuile dans un navigateur (pas de navigateur ici).
+
 ## 2026-10-20 — Central : fin des « database is locked » (contrôle DNS des proxys d'entrée) (livraison #797)
 
 - Constat sur super : erreurs 500 en série (journal des chantiers, agents qui déposent leurs mesures ou lisent leur

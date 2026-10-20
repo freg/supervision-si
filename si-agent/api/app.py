@@ -54,6 +54,7 @@ import repatriation as repa  # noqa: E402  -- #761 : assistant de rapatriement /
 import guestusage  # noqa: E402  -- #769 : activité des CT / VM de tous les Proxmox
 import edgepair  # noqa: E402  -- #776 : couple de proxys d'entrée interchangeables (routes, bascule, contrôle DNS)
 import latency  # noqa: E402  -- #775 : latence des IP publiques (cibles, points de mesure, accès)
+import navigateurs  # noqa: E402  -- #798 : navigateurs des hôtes (écran web + automate)
 import journal  # noqa: E402  -- #795 : journal des chantiers (actes, surveillances, relances, interventions)
 import migrun  # noqa: E402  -- #774 : tuile « Migration 2026-2027 » (plan d'étapes, pilotage, erreurs et solutions)
 import rotation  # noqa: E402  -- #743 : tournées de mesures réparties (supervision distribuée, item 120)
@@ -2183,6 +2184,25 @@ def _lat(fn):
         return out
     finally:
         conn.close()
+
+
+@app.route("/navigateurs", methods=["GET", "PUT"])
+def navigateurs_route():
+    """#798 : registre des navigateurs d'hôte -- GET liste (avec l'état de l'agent), PUT {navigateurs: [...]} remplace."""
+    if request.method == "PUT":
+        b = request.get_json(silent=True) or {}
+        connus = {a["agent_id"] for a in store.list_agents(DB_PATH)}
+        liste, err = navigateurs.valider(b.get("navigateurs"), connus)
+        if err:
+            return jsonify({"error": err}), 400
+        store.set_setting(DB_PATH, "navigateurs", liste)
+        _event("navigateurs", "info", "navigateurs des hôtes : %d déclaré(s) par %s" % (len(liste), str(b.get("actor") or "?")[:64]))
+    agents = {a["agent_id"]: a for a in store.list_agents(DB_PATH)}
+    out = []
+    for n in store.get_setting(DB_PATH, "navigateurs", []) or []:
+        a = agents.get(n["agent_id"]) or {}
+        out.append(dict(n, hostname=a.get("hostname"), os=a.get("os"), last_seen_at=a.get("last_seen_at"), agent_version=a.get("agent_version")))
+    return jsonify({"navigateurs": out}), 200
 
 
 @app.route("/journal", methods=["GET", "PUT"])

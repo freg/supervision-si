@@ -1,5 +1,11 @@
 [
  {
+  "n": 798,
+  "from": 798,
+  "date": "2026-10-20",
+  "title": "Navigateur des hôtes : un Chromium visible sur l'hôte d'un agent, écran web et automate"
+ },
+ {
   "n": 797,
   "from": 797,
   "date": "2026-10-20",
@@ -232,11 +238,5 @@
   "from": 758,
   "date": "2026-10-14",
   "title": "Anticipation Wi-Fi : pic habituel attendu, affluence inhabituelle, bornes instables, disponibilité, étendues DHCP"
- },
- {
-  "n": 757,
-  "from": 757,
-  "date": "2026-10-14",
-  "title": "Passe « pleine largeur » : toutes les tuiles utilisent la largeur du navigateur, glissières visibles partout"
  }
 ]

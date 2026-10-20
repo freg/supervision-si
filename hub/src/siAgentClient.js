@@ -242,3 +242,7 @@ export const importJournal = (apiBase, payload, actor) => fetchJson(apiBase, "/j
 export const journalExportUrl = (apiBase, chantier) => `${apiBase}/journal/export.csv${chantier ? `?chantier=${encodeURIComponent(chantier)}` : ""}`;
 export const fetchJournalSuggestions = (apiBase, days = 30) => fetchJson(apiBase, `/journal/suggestions?days=${days}`);
 export const acceptJournalSuggestion = (apiBase, eventId, chantier, actor) => fetchJson(apiBase, `/journal/suggestions/${encodeURIComponent(eventId)}`, json("POST", { chantier, actor }));
+// #798 : navigateurs des hôtes (écran web + automate)
+export const fetchNavigateurs = (apiBase) => fetchJson(apiBase, "/navigateurs");
+export const saveNavigateurs = (apiBase, navigateurs, actor) => fetchJson(apiBase, "/navigateurs", json("PUT", { navigateurs, actor }));
+export const navCommand = (apiBase, agentId, params) => sendCommand(apiBase, agentId, "navigateur", params);

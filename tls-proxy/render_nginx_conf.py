@@ -541,6 +541,46 @@ server {{
 """
 
 
+# #798 : écran web du navigateur d'un hôte d'agent (noVNC), publié par le bastion (SI_PROXY_PUBLISH=<port>=<shim>:127.0.0.1:6080)
+# puis servi SOUS LA MÊME ORIGINE que le hub : /navigateur/<nom>/ -> http://si-proxy:<port>/ (websocket relayé).
+# Réglage .env : NAVIGATEURS=ovh1=6490,campus=6491. Mot de passe VNC demandé par l'écran.
+NAV_LOCATION_TEMPLATE = """
+    # Navigateur de l'hôte « {nom} » (#798) : écran noVNC publié par le bastion sur si-proxy:{port}
+    location /navigateur/{nom}/ {{
+        resolver 127.0.0.11 valid=10s;
+        set $nav_upstream_{i} http://si-proxy:{port};
+        rewrite ^/navigateur/{nom}/(.*)$ /$1 break;
+        proxy_pass $nav_upstream_{i};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_buffering off;
+        add_header X-Robots-Tag "noindex, nofollow" always;
+    }}
+"""
+
+
+def navigateurs_from_env(env):
+    """[(nom, port)] d'après NAVIGATEURS=nom=port,nom=port (noms : minuscules, chiffres, tirets)."""
+    raw = os.environ.get("NAVIGATEURS", env.get("NAVIGATEURS", "")).strip()
+    out, vus = [], set()
+    for item in [x.strip() for x in raw.split(",") if x.strip()]:
+        nom, _, port = item.partition("=")
+        nom, port = nom.strip(), port.strip()
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,30}", nom):
+            raise ValueError("NAVIGATEURS : nom invalide « %s » (minuscules, chiffres, tirets)" % nom)
+        if not port.isdigit() or not (1024 <= int(port) <= 65535):
+            raise ValueError("NAVIGATEURS : port invalide pour %s : %s" % (nom, port))
+        if nom in vus:
+            raise ValueError("NAVIGATEURS : %s en double" % nom)
+        vus.add(nom)
+        out.append((nom, int(port)))
+    return out
+
+
 def relays_from_env(env):
     """[(port, target, label)] d'après RELAYn_PORT / RELAYn_TARGET / RELAYn_LABEL (n = 1..4)."""
     out = []
@@ -592,6 +632,9 @@ def build_config(env):
         locations.append(template.format(path=path, service=service, container_port=container_port))
         summary.append(f"  {path:<20} -> {service}:{container_port}  ({kind}, {var_name} historique)")
 
+    for i, (nom, port) in enumerate(navigateurs_from_env(env)):
+        locations.append(NAV_LOCATION_TEMPLATE.format(nom=nom, port=port, i=i))
+        summary.append(f"  /navigateur/{nom}/  -> si-proxy:{port}  (écran du navigateur de l'hôte, #798)")
     config = HEADER_TEMPLATE.format(gateway_port=gateway_port) + "\n".join(locations) + FOOTER
     for port, target, label in relays_from_env(env):
         config += RELAY_TEMPLATE.format(port=port, target=target, label=label)

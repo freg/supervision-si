@@ -894,6 +894,14 @@ class Agent(object):
                     self.event("edge", "info" if res.get("ok") else "warning", "proxy d'entrée : configuration %s%s" % (
                         "appliquée" if res.get("changed") else "inchangée", "" if res.get("ok") else " -- " + str(res.get("error"))), {"command": c.get("id"), "digest": res.get("digest")})
                 return {"ok": res.get("ok", False), "error": res.get("error"), "result": res}
+            if ctype == "navigateur":
+                # #798 : navigateur de l'hôte (écran web publié par le bastion, automate Playwright local)
+                if IS_WINDOWS:
+                    return {"ok": False, "error": "navigateur de l'hôte : Linux seulement"}
+                if self.is_blocked():
+                    return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
+                from . import navctl
+                return navctl.run(params, navctl.http_local)
             if ctype == "latency":
                 # #775 : latence des IP publiques vue d'ici, ou d'un hôte joint par SSH (compte personnel, rebond, sudo)
                 if IS_WINDOWS:

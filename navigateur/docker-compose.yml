@@ -1,0 +1,12 @@
+# Navigateur de l'hôte (#798) -- installé sur l'hôte d'un agent Linux par navigateur/installer.sh.
+# Réseau de l'hôte : le navigateur voit le réseau comme l'hôte ; écran (6080), VNC, CDP et automate (8094) sur 127.0.0.1.
+services:
+  navigateur:
+    build: .
+    network_mode: host
+    shm_size: "1gb"
+    env_file: .env
+    volumes: ["profil:/profil"]
+    restart: unless-stopped
+volumes:
+  profil: {}

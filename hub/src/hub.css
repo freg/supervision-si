@@ -2652,3 +2652,22 @@ button[aria-busy="true"]::after { content: ""; position: absolute; right: 8px; t
 .urg-contact, .urg-sub { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); }
 .urg-tel { font-size: 16px; }
 @media (max-width: 600px) { .urg-links { grid-template-columns: 1fr 1fr; } .urg-row input, .urg-row select { width: 100%; } }
+
+/* #798 : navigateur des hôtes (écran web + automate) */
+.nav-root { gap: 10px; }
+.nav-registre { display: flex; flex-direction: column; gap: 6px; max-width: 640px; }
+.nav-registre label { display: flex; flex-direction: column; font-size: 13px; color: var(--muted); }
+.nav-ligne { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.nav-corps { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 10px; flex: 1; min-height: 0; }
+.nav-corps.seul { grid-template-columns: 1fr; }
+.nav-ecran { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.nav-barre { display: flex; gap: 6px; align-items: center; }
+.nav-barre input { flex: 1; }
+.nav-iframe { flex: 1; min-height: 60vh; width: 100%; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.nav-panneau { display: flex; flex-direction: column; gap: 6px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: var(--panel); }
+.nav-panneau label { display: flex; flex-direction: column; font-size: 13px; color: var(--muted); }
+.nav-panneau textarea { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+.nav-resultat { border-left: 4px solid var(--border); padding: 6px 8px; display: flex; flex-direction: column; gap: 3px; }
+.nav-resultat.ok { border-left-color: var(--ok); } .nav-resultat.ko { border-left-color: var(--danger); } .nav-resultat.confirmation { border-left-color: var(--warning); }
+.nav-capture { width: 100%; border: 1px solid var(--border); border-radius: 6px; margin-top: 4px; }
+@media (max-width: 1100px) { .nav-corps { grid-template-columns: 1fr; } }

@@ -8,6 +8,17 @@ import render_nginx_conf as r  # noqa: E402
 
 
 class Relays(unittest.TestCase):
+    def test_navigateurs(self):   # #798
+        self.assertEqual(r.navigateurs_from_env({"NAVIGATEURS": "ovh1=6490, campus=6491"}), [("ovh1", 6490), ("campus", 6491)])
+        self.assertEqual(r.navigateurs_from_env({}), [])
+        for bad in ({"NAVIGATEURS": "OVH=6490"}, {"NAVIGATEURS": "a=80"}, {"NAVIGATEURS": "a=6490,a=6491"}, {"NAVIGATEURS": "a/../b=6490"}):
+            with self.assertRaises(ValueError):
+                r.navigateurs_from_env(bad)
+        conf, _ = r.build_config({"NAVIGATEURS": "ovh1=6490"})
+        self.assertIn("location /navigateur/ovh1/", conf)
+        self.assertIn("set $nav_upstream_0 http://si-proxy:6490;", conf)
+        self.assertIn('proxy_set_header Connection "upgrade";', conf)
+
     def test_relays(self):
         env = {"GATEWAY_PORT": "6443", "HOST_IP": "192.0.2.1", "RELAY1_PORT": "6486", "RELAY1_TARGET": "ssh-tunnels-api:18006", "RELAY1_LABEL": "hyperviseur du site"}
         conf, summary = r.build_config(env)
