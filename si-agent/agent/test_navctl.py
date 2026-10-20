@@ -33,6 +33,9 @@ class Navctl(unittest.TestCase):
                        self.http((200, {"ok": False, "statut": "ko", "resultats": []})), self.d)
         self.assertEqual((r["ok"], r["error"]), (False, "parcours en échec"))
         self.assertEqual(self.appels[-1][2], {"etapes": [{"action": "goto", "value": "/"}], "base_url": "https://x.example"})
+        r = navctl.run({"action": "enregistrer", "etape": "fin"}, self.http((200, {"ok": True, "etapes": []})), self.d)
+        self.assertEqual((r["ok"], self.appels[-1][1], self.appels[-1][2]), (True, "/enregistrer", {"etape": "fin"}))
+        self.assertFalse(navctl.run({"action": "enregistrer", "etape": "pause"}, self.http((200, {})), self.d)["ok"])
         r = navctl.run({"action": "etat"}, self.http((502, {"error": "automate injoignable"})), self.d)
         self.assertEqual(r["error"], "automate injoignable")
 

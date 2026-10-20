@@ -41,3 +41,26 @@ export const imageDe = (b64) => (b64 ? `data:image/jpeg;base64,${b64}` : "");
 export function trierNavigateurs(liste) {
   return [...(liste || [])].map((n) => ({ ...n, libelle: n.libelle || n.nom })).sort((a, b) => a.libelle.localeCompare(b.libelle, "fr"));
 }
+
+// #799 : apprentissage -- paramètres visibles (le coffre fournit identifiant / mot de passe quand un accès est lié)
+export function paramsVisibles(p) {
+  return (p?.parametres || []).filter((x) => !x.secret && !(p?.acces && ["identifiant", "mot_de_passe"].includes(x.nom)));
+}
+export function valeursInitiales(p, plan) {
+  const v = {};
+  for (const x of paramsVisibles(p)) v[x.nom] = x.defaut || "";
+  return { ...v, ...(plan?.valeurs || {}) };
+}
+/** Résultat de l'enregistrement (commande « enregistrer fin ») -> brouillon de parcours. */
+export function brouillonDepuis(r, navigateur) {
+  return {
+    nom: "", description: "", navigateur, acces: "", base_url: r?.base_url || "",
+    etapes: r?.etapes || [], parametres: r?.parametres || [],
+  };
+}
+/** Résumé d'un parcours : n étapes, écrit ?, paramètres. */
+export function resumeParcours(p) {
+  const n = (p?.etapes || []).length;
+  const ecrit = (p?.etapes || []).some((s) => s.ecrit);
+  return `${n} étape${n > 1 ? "s" : ""}${ecrit ? " · écrit (confirmation)" : " · lecture"}${p?.acces ? ` · accès « ${p.acces} »` : ""}`;
+}

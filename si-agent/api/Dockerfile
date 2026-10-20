@@ -42,6 +42,7 @@ COPY si-agent/api/migrun.py .
 COPY si-agent/api/latency.py .
 COPY si-agent/api/journal.py .
 COPY si-agent/api/navigateurs.py .
+COPY si-agent/api/parcours.py .
 COPY si-agent/api/edgepair.py .
 COPY si-agent/api/dnsq.py .
 COPY si-agent/agent/si_agent/edgectl.py ./si_agent_edgectl.py

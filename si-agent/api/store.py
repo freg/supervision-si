@@ -962,6 +962,8 @@ def redact_params(params):
         p["autologon"] = dict(p["autologon"], password="***")
     if isinstance(p.get("share"), dict) and "password" in p["share"]:  # #635
         p["share"] = dict(p["share"], password="***")
+    if isinstance(p.get("etapes"), list):   # #799 : valeurs secrètes d'un parcours (mot de passe du coffre…)
+        p["etapes"] = [dict(e, value="***") if isinstance(e, dict) and e.get("secret") else e for e in p["etapes"]]
     return p
 
 

@@ -1,5 +1,11 @@
 [
  {
+  "n": 799,
+  "from": 799,
+  "date": "2026-10-20",
+  "title": "Navigateur des hôtes : apprentissage des parcours et demandes en langage courant"
+ },
+ {
   "n": 798,
   "from": 798,
   "date": "2026-10-20",
@@ -232,11 +238,5 @@
   "from": 759,
   "date": "2026-10-14",
   "title": "Anticipation Wi-Fi (suite) : ports vers les bornes, micrologiciels, licences, bandes et signal"
- },
- {
-  "n": 758,
-  "from": 758,
-  "date": "2026-10-14",
-  "title": "Anticipation Wi-Fi : pic habituel attendu, affluence inhabituelle, bornes instables, disponibilité, étendues DHCP"
  }
 ]

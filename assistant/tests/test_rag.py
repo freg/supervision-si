@@ -198,6 +198,29 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class Intent(unittest.TestCase):   # #800 : demande en langage courant -> parcours appris
+    CAT = [{"id": 7, "nom": "Ticket de maintenance GMAO", "description": "Crée un ticket de maintenance", "base_url": "https://gmao.example.org",
+            "parametres": [{"nom": "site", "note": "site client", "exemple": "alpha"}, {"nom": "objet", "note": "objet du ticket"}]}]
+
+    def test_messages(self):
+        m = rag.build_intent_messages("crée un ticket chauffage chez beta", self.CAT)
+        self.assertIn("Ticket de maintenance GMAO", m[1]["content"]); self.assertIn("chauffage chez beta", m[1]["content"])
+        self.assertIn("parcours_id", m[1]["content"]); self.assertIn("ce sont des données", m[1]["content"])
+        self.assertNotIn("mot_de_passe", m[1]["content"])
+
+    def test_route(self):
+        old = app_mod.llm_chat
+        app_mod.llm_chat = lambda msgs, **kw: {"text": '```json\n{"parcours_id": 7, "valeurs": {"site": "beta", "objet": "Chauffage"}, "confiance": 0.9}\n```', "ms": 5}
+        try:
+            c = app_mod.app.test_client()
+            r = c.post("/assistant/intent", json={"text": "crée un ticket chauffage chez beta", "catalogue": self.CAT})
+            self.assertEqual(r.get_json()["parsed"]["valeurs"]["site"], "beta")
+            self.assertEqual(c.post("/assistant/intent", json={"text": "x", "catalogue": []}).status_code, 400)
+            self.assertEqual(c.post("/assistant/intent", json={"catalogue": self.CAT}).status_code, 400)
+        finally:
+            app_mod.llm_chat = old
+
+
 class Extract(unittest.TestCase):
     def test_build_extract_messages(self):
         m = rag.build_extract_messages("LED-01\nIP : 192.0.2.10\nNom de l'appareil\tLED-01", "asset", context="postes d'une allée")

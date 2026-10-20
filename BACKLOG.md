@@ -3846,7 +3846,7 @@ migration par VM, export CSV. Suite possible : relier « migrer » aux opératio
 opérations PVE #653) pour lancer et suivre la migration depuis la fiche ; garder l'historique d'une VM migrée
 (rattachement par nom / UUID) ; seuils d'activité réglables par VM (cron, sauvegardes).
 
-### 129. Navigateur des hôtes, apprentissage des parcours, demandes en langage courant — tranche 1 LIVRÉE #798
+### 129. Navigateur des hôtes, apprentissage des parcours, demandes en langage courant — LIVRÉ #798-#799
 Demande (20/10/2026) : une VM / un agent pour **voir et utiliser un site web depuis l'hôte de l'agent** (et non le
 navigateur qui consulte le hub), pour le débogage et la QA ; puis un module d'**apprentissage du parcours** et un module
 d'**interprétation d'une demande en langage courant** (« ouvre le site xy, connecte-toi avec user/password et crée un
@@ -3854,9 +3854,12 @@ ticket de maintenance du chauffage chez truc »). Choix : Chromium + écran web 
 hôtes Linux seulement, en priorité une VM OVH (nos services vus de l'extérieur). Sans préférence exprimée : modèle et
 confirmation -- défauts retenus : modèle de l'assistant du hub (Ollama), confirmation avant toute étape qui écrit.
 1. Navigateur de l'hôte (écran + automate, commande `navigateur`) — LIVRÉ #798.
-2. Apprentissage du parcours : enregistrement des gestes dans le navigateur de l'hôte → étapes QA avec sélecteurs
+2. (LIVRÉ #799) Apprentissage du parcours : enregistrement des gestes dans le navigateur de l'hôte → étapes QA avec sélecteurs
    robustes, paramètres (`{{site}}`, `{{identifiant}}`, `{{mot_de_passe}}` depuis le coffre, `{{objet}}`…), étapes qui
    écrivent marquées ; enregistrement comme parcours réutilisable.
-3. Demandes en langage courant : catalogue des parcours appris (description, paramètres), interprétation par le modèle
+3. (LIVRÉ #799) Demandes en langage courant : catalogue des parcours appris (description, paramètres), interprétation par le modèle
    (parcours + valeurs), plan montré avant exécution, identifiants pris dans le coffre (jamais dans le texte), arrêt
    avant écriture, compte rendu avec captures.
+Suites possibles : export d'un parcours appris vers le module QA (non-régression planifiée depuis l'hôte) ; confiance
+par parcours (automatique après N jeux réussis, comme le harnais) ; reprise après arrêt sans rejouer le début ;
+captures de chaque étape dans le compte rendu ; plusieurs parcours enchaînés pour une demande.

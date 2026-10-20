@@ -55,6 +55,7 @@ import guestusage  # noqa: E402  -- #769 : activité des CT / VM de tous les Pro
 import edgepair  # noqa: E402  -- #776 : couple de proxys d'entrée interchangeables (routes, bascule, contrôle DNS)
 import latency  # noqa: E402  -- #775 : latence des IP publiques (cibles, points de mesure, accès)
 import navigateurs  # noqa: E402  -- #798 : navigateurs des hôtes (écran web + automate)
+import parcours as parcoursmod  # noqa: E402  -- #799/#800 : parcours appris, demandes en langage courant
 import journal  # noqa: E402  -- #795 : journal des chantiers (actes, surveillances, relances, interventions)
 import migrun  # noqa: E402  -- #774 : tuile « Migration 2026-2027 » (plan d'étapes, pilotage, erreurs et solutions)
 import rotation  # noqa: E402  -- #743 : tournées de mesures réparties (supervision distribuée, item 120)
@@ -2203,6 +2204,116 @@ def navigateurs_route():
         a = agents.get(n["agent_id"]) or {}
         out.append(dict(n, hostname=a.get("hostname"), os=a.get("os"), last_seen_at=a.get("last_seen_at"), agent_version=a.get("agent_version")))
     return jsonify({"navigateurs": out}), 200
+
+
+# -- #799/#800 : parcours appris dans le navigateur d'un hôte, joués avec les accès du coffre, demandés en langage courant --
+CREDENTIALS_API_URL = os.environ.get("CREDENTIALS_API_URL", "http://credentials-api:5000").rstrip("/")
+
+
+def reveler_acces(nom):
+    """Identifiant et mot de passe d'un accès du coffre (credentials-api, jeton interne) -> {username, password}."""
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+    tok = os.environ.get("CREDENTIALS_INTERNAL_TOKEN", "")
+    if not tok:
+        raise RuntimeError("CREDENTIALS_INTERNAL_TOKEN absent : accès du coffre indisponibles pour les parcours")
+    req = urllib.request.Request("%s/credentials/reveal/%s" % (CREDENTIALS_API_URL, urllib.parse.quote(nom, safe="")),
+                                 headers={"X-Credentials-Token": tok, "X-Credentials-Consumer": "si-agent-api/parcours"})
+    try:
+        with urllib.request.urlopen(req, timeout=8) as r:
+            return json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        raise RuntimeError("coffre : accès « %s » : HTTP %d" % (nom, e.code))
+    except (urllib.error.URLError, OSError) as e:
+        raise RuntimeError("coffre injoignable : %s" % e)
+
+
+def interpreter_demande(texte, catalogue):
+    """Assistant du hub (modèle local) : demande en langage courant + catalogue -> {parcours_id, valeurs, confiance, explication}."""
+    import urllib.error
+    import urllib.request
+    req = urllib.request.Request(ASSISTANT_API_URL + "/intent", data=json.dumps({"text": texte, "catalogue": catalogue}).encode(),
+                                 method="POST", headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=180) as r:
+            return json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        raise RuntimeError("assistant : HTTP %d %s" % (e.code, e.read()[:200].decode("utf-8", "replace")))
+    except (urllib.error.URLError, OSError) as e:
+        raise RuntimeError("assistant injoignable (%s) : %s" % (ASSISTANT_API_URL, e))
+
+
+@app.route("/parcours", methods=["GET", "POST"])
+def parcours_route():
+    if request.method == "GET":
+        return jsonify({"parcours": _lat(parcoursmod.lister)}), 200
+    b = request.get_json(silent=True) or {}
+    p, err = _lat(lambda c: parcoursmod.enregistrer(c, b.get("parcours") or {}, str(b.get("actor") or "")))
+    if err:
+        return jsonify({"error": err}), 400
+    _event("parcours", "info", "parcours appris : « %s » (%d étape(s)) par %s" % (p["nom"], len(p["etapes"]), b.get("actor") or "?"))
+    return jsonify({"parcours": p}), 201
+
+
+@app.route("/parcours/<int:pid>", methods=["PUT", "DELETE"])
+def parcours_item_route(pid):
+    if request.method == "DELETE":
+        return jsonify({"ok": _lat(lambda c: parcoursmod.supprimer(c, pid))}), 200
+    b = request.get_json(silent=True) or {}
+    p, err = _lat(lambda c: parcoursmod.enregistrer(c, b.get("parcours") or {}, str(b.get("actor") or ""), pid))
+    return (jsonify({"error": err}), 404 if err == "parcours inconnu" else 400) if err else (jsonify({"parcours": p}), 200)
+
+
+@app.route("/parcours/<int:pid>/jouer", methods=["POST"])
+def parcours_jouer_route(pid):
+    """{valeurs, confirmer, navigateur?, actor} -> commande « navigateur » sur l'hôte. Sans `confirmer`, arrêt avant la
+    première étape qui écrit (le hub montre l'état et rejoue avec confirmer=true)."""
+    b = request.get_json(silent=True) or {}
+    p = _lat(lambda c: parcoursmod.lire(c, pid))
+    if not p:
+        return jsonify({"error": "parcours inconnu"}), 404
+    nom_nav = str(b.get("navigateur") or p.get("navigateur") or "")
+    nav = next((n for n in store.get_setting(DB_PATH, "navigateurs", []) or [] if n["nom"] == nom_nav), None)
+    if not nav:
+        return jsonify({"error": "navigateur « %s » non déclaré (tuile Navigateur des hôtes)" % (nom_nav or "?")}), 400
+    coffre = None
+    if p.get("acces"):
+        try:
+            coffre = reveler_acces(p["acces"])
+        except RuntimeError as e:
+            return jsonify({"error": str(e)}), 502
+    etapes, manquants = parcoursmod.appliquer(p, b.get("valeurs") or {}, coffre)
+    if manquants:
+        return jsonify({"error": "valeur(s) manquante(s) : %s" % ", ".join(manquants), "manquants": manquants}), 400
+    params = {"action": "etapes", "etapes": etapes, "base_url": p.get("base_url") or None,
+              "arret_avant_ecriture": not bool(b.get("confirmer")), "parcours_id": pid}
+    c = store.create_command(DB_PATH, nav["agent_id"], "navigateur", params)
+    if c is None:
+        return jsonify({"error": "agent inconnu : %s" % nav["agent_id"]}), 404
+    open_interactive(nav["agent_id"], 300)
+    _lat(lambda cn: parcoursmod.noter_jeu(cn, pid, c["id"]))
+    _event("parcours", "info", "parcours « %s » joué sur %s%s par %s" % (p["nom"], nom_nav, " (écriture confirmée)" if b.get("confirmer") else "",
+                                                                        str(b.get("actor") or "?")[:64]), agent_id=nav["agent_id"])
+    return jsonify({"commande": c["id"], "agent_id": nav["agent_id"], "arret_avant_ecriture": params["arret_avant_ecriture"]}), 201
+
+
+@app.route("/parcours/interpreter", methods=["POST"])
+def parcours_interpreter_route():
+    """#800 : {texte} -> plan {parcours_id, parcours, valeurs, manquants, confiance, explication, ecrit} (rien n'est joué)."""
+    texte = str((request.get_json(silent=True) or {}).get("texte") or "").strip()
+    if not texte:
+        return jsonify({"error": "demande vide"}), 400
+    liste = _lat(parcoursmod.lister)
+    if not liste:
+        return jsonify({"error": "aucun parcours appris : en apprendre un dans la tuile Navigateur des hôtes"}), 400
+    try:
+        r = interpreter_demande(texte[:2000], parcoursmod.catalogue(liste))
+    except RuntimeError as e:
+        return jsonify({"error": str(e)}), 502
+    plan = parcoursmod.plan_depuis_interpretation(liste, (r or {}).get("parsed") if isinstance(r, dict) and "parsed" in r else r)
+    plan["modele"] = (r or {}).get("model") if isinstance(r, dict) else None
+    return jsonify(plan), (200 if plan.get("ok") else 422)
 
 
 @app.route("/journal", methods=["GET", "PUT"])

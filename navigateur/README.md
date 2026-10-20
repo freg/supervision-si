@@ -43,6 +43,16 @@ L'écran est alors sous `https://<hub>/navigateur/ovh1/` (même origine que le h
 L'automate passe par la relève des commandes de l'agent (60 s par défaut). Pour un hôte de QA, la réduire à 5 s :
 réglage `commands_poll_seconds` de l'agent. L'écran, lui, est en direct.
 
+## Apprentissage des parcours et demandes en langage courant (#799)
+
+- **Apprendre** : « Démarrer », faire le parcours dans l'écran, « Terminer » → étapes paramétrées (sélecteurs stables,
+  mots de passe jamais gardés, boutons qui écrivent marqués). Brouillon à nommer, décrire (la description sert à
+  reconnaître les demandes), lier à un **accès du coffre** (identifiant / mot de passe fournis au moment du jeu).
+- **Jouer** : valeurs des paramètres, arrêt avant la première étape qui écrit, puis « Jouer jusqu'au bout ».
+- **Demande** : texte libre → l'assistant du hub choisit le parcours et ses valeurs → plan montré → jeu.
+- Prérequis central : `CREDENTIALS_INTERNAL_TOKEN` (déjà utilisé par MikroTik/Cisco) ; assistant du hub démarré
+  (profil `assistant`), son modèle réglé par `LLM_BASE` / `LLM_MODEL`.
+
 ## Fichiers
 
 `Dockerfile` (image Playwright + Xvfb, fluxbox, x11vnc, noVNC), `entrypoint.sh` (écran, Chromium relancé s'il est

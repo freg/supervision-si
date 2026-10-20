@@ -1,3 +1,30 @@
+## 2026-10-20 — Navigateur des hôtes : apprentissage des parcours et demandes en langage courant (livraison #799)
+
+- **Apprendre** (onglet de la tuile) : « Démarrer », on fait le parcours à la main dans l'écran de l'hôte (connexion,
+  saisies, choix, cases, clics), « Terminer » : chaque geste devient une étape QA avec un sélecteur stable
+  (`data-testid`, `id` non généré, `name`, `aria-label`, texte du bouton, chemin court). Saisies fusionnées, doublons
+  retirés, clic implicite d'Entrée ignoré, validation d'un formulaire de connexion non comptée comme écriture,
+  boutons « créer / enregistrer / valider / supprimer… » marqués `ecrit`. **Mot de passe jamais gardé** (vidé dès le
+  geste). Paramètres déduits : `{{identifiant}}`, `{{mot_de_passe}}`, un paramètre par champ saisi (nommé d'après son
+  libellé, valeur enregistrée par défaut), adresse de base. Brouillon modifiable puis enregistré.
+- **Parcours appris** (central `GET|POST /parcours`, `PUT|DELETE /parcours/<id>`) : lié à un navigateur, à une adresse
+  de base et à un **accès du coffre** (tuile Accès d'équipements) qui fournit identifiant et mot de passe AU MOMENT DU
+  JEU (`credentials-api`, jeton interne) ; valeurs secrètes masquées (`***`) dans les commandes renvoyées au hub.
+  `POST /parcours/<id>/jouer {valeurs, confirmer}` : arrêt avant la première étape qui écrit sauf confirmation.
+- **Demande en langage courant** (`POST /parcours/interpreter`, assistant `POST /assistant/intent`) : le modèle local
+  de l'assistant du hub choisit un parcours appris et les valeurs de ses paramètres d'après la demande (« ouvre la GMAO,
+  connecte-toi et crée un ticket de maintenance du chauffage chez beta ») ; il ne voit que le catalogue (descriptions,
+  paramètres non secrets), jamais les accès ; le plan (parcours, valeurs, manquants, confiance) est montré et modifiable,
+  rien n'est joué sans l'utilisateur.
+- Choix faits faute de préférence : modèle = celui de l'assistant du hub (`LLM_BASE`/`LLM_MODEL`, à pointer vers le
+  serveur IA voulu) ; confirmation avant toute étape qui écrit.
+- Vérifié : enregistrement → paramétrage → rejeu **dans un vrai Chromium relié en CDP** (page de connexion + formulaire
+  de ticket : étapes et paramètres attendus, arrêt avant « Créer le ticket », rejeu complet qui crée) ;
+  `navigateur/test_automate.py`, `si-agent/agent/test_navctl.py`, `si-agent/api/test_z_parcours.py` (coffre et assistant
+  simulés, masquage), `assistant/tests/test_rag.py` (intent), `hub/tests/navigateurLib.test.mjs` ; tuile rendue dans un
+  Chromium avec API simulée (demande → plan → jeu → arrêt avant écriture), sans erreur de console.
+- Non vérifié : sur un hôte réel (image, noVNC, bastion), avec le vrai modèle (qualité du choix et des valeurs).
+
 ## 2026-10-20 — Navigateur des hôtes : un Chromium visible sur l'hôte d'un agent, écran web et automate (livraison #798)
 
 - Demande : voir et utiliser un site web **depuis l'hôte d'un agent** (en priorité une VM OVH : nos services vus de

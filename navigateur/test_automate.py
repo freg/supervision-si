@@ -60,5 +60,41 @@ class Automate(unittest.TestCase):
         self.assertTrue(r["resultats"][-1]["attente"])
 
 
+class Apprentissage(unittest.TestCase):   # #799 -- vérifié aussi dans un vrai Chromium (CDP) : enregistrement, rejeu, arrêt avant écriture
+    BRUT = [{"action": "goto", "value": "https://gmao.example.org/connexion"},
+            {"action": "fill", "selector": "#login", "value": "alice", "note": "Identifiant", "champ": "login", "type": "text"},
+            {"action": "fill", "selector": "#login", "value": "alice", "note": "Identifiant", "champ": "login", "type": "text"},
+            {"action": "fill", "selector": "input[name=\"pwd\"]", "value": "", "note": "Mot de passe", "secret": True, "type": "password"},
+            {"action": "press", "selector": "input[name=\"pwd\"]", "value": "Enter", "ecrit": False},
+            {"action": "fill", "selector": "#obj", "value": "Chauffage", "note": "Objet du ticket"},
+            {"action": "select", "selector": "select[name=\"site\"]", "value": "b12", "note": "Site"},
+            {"action": "fill", "selector": "#obj", "value": "Chauffage", "note": "Objet du ticket"},
+            {"action": "fill", "selector": "#obj", "value": "Chauffage bât. B", "note": "Objet du ticket"},
+            {"action": "click", "selector": "#creer", "note": "Créer le ticket", "ecrit": True}]
+
+    def test_nettoyage_et_parametres(self):
+        et = A.nettoyer_enregistrement(self.BRUT)
+        self.assertEqual(sum(1 for x in et if x.get("selector") == "#login"), 1)
+        par, params, base = A.parametrer(et)
+        self.assertEqual(base, "https://gmao.example.org")
+        self.assertEqual(par[0], {"action": "goto", "value": "/connexion"})
+        self.assertEqual([p["nom"] for p in params], ["identifiant", "mot_de_passe", "objet_du_ticket", "site"])
+        self.assertEqual(params[1], {"nom": "mot_de_passe", "defaut": "", "secret": True, "note": "Mot de passe"})
+        objets = [x["value"] for x in par if x.get("selector") == "#obj"]
+        self.assertTrue(objets and all(v == "{{objet_du_ticket}}" for v in objets))     # même champ = même paramètre
+        self.assertTrue(par[-1]["ecrit"])
+        self.assertFalse(any("champ" in x or "type" in x for x in par))
+        self.assertEqual(A.verifier_etapes(par)[-1]["action"], "click")
+
+    def test_geste_secret_jamais_garde(self):
+        n = A.Navigateur("http://127.0.0.1:1")
+        n.rec["actif"] = True
+        n._geste(None, {"action": "fill", "selector": "#p", "value": "motdepasse", "secret": True})
+        self.assertEqual(n.rec["brut"][0]["value"], "")
+        n.rec["actif"] = False
+        n._geste(None, {"action": "click", "selector": "#x"})
+        self.assertEqual(len(n.rec["brut"]), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

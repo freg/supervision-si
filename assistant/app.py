@@ -431,6 +431,26 @@ def extract_route():
     return jsonify(extract(b["text"], b.get("schema") or "asset", b.get("fields"), b.get("context") or "")), 200
 
 
+def intent(text, catalogue, log=True):
+    """#800 : choix d'un parcours appris + valeurs, sur le modèle interne (rien ne sort du SI, rien n'est exécuté ici)."""
+    out = llm_chat(rag.build_intent_messages(text, catalogue), temperature=0.0, json_mode=True, max_tokens=1500)
+    out["parsed"] = rag.extract_json(out.get("text"))
+    if log:
+        p = out["parsed"] if isinstance(out["parsed"], dict) else {}
+        journal("intent", {"chars": len(text or ""), "parcours": len(catalogue or []), "choix": p.get("parcours_id"), "ms": out.get("ms"), "error": out.get("error")})
+    return out
+
+
+@app.route(PREFIX + "/intent", methods=["POST"])
+def intent_route():
+    b = request.get_json(silent=True) or {}
+    if not (b.get("text") or "").strip():
+        return _bad("texte vide")
+    if not isinstance(b.get("catalogue"), list) or not b["catalogue"]:
+        return _bad("catalogue (liste de parcours) requis")
+    return jsonify(intent(b["text"], b["catalogue"])), 200
+
+
 @app.route(PREFIX + "/summarize", methods=["POST"])
 def summarize_route():
     b = request.get_json(silent=True) or {}

@@ -16,6 +16,7 @@ export const UPDATE_LINKS = {
   758: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   759: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   760: [{ view: "cortex", hint: "incidents « cause Wi-Fi probable »" }],
+  799: [{ view: "navigateur", hint: "Navigateur des hôtes : apprendre un parcours, le rejouer avec le coffre, demande en langage courant" }],
   798: [{ view: "navigateur", hint: "Nouvelle tuile : navigateur visible sur l'hôte d'un agent (écran web, automate, parcours)" }],
   797: [{ view: "journal", hint: "Journal des chantiers : plus d'erreur 500 (base bloquée par le contrôle DNS)" }, { view: "edge", hint: "Contrôle DNS des proxys d'entrée sans bloquer la base" }],
   796: [{ view: "urgence", hint: "Écran Urgence : état 24 h, accès rapides, contacts, alertes poussées sur le téléphone" }, { view: "notifications", hint: "Alertes poussées : appareils abonnés (notify-api /push)" }],

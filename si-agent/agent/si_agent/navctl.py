@@ -5,13 +5,14 @@
   aller {url}                           ouvre l'adresse dans le navigateur visible
   capture {qualite?}                    capture JPEG (base64)
   etapes {etapes[], base_url?, arret_avant_ecriture?}   parcours au format QA, capture à l'échec et à la fin
+  enregistrer {etape: debut|etat|fin}  apprentissage (#799) : les gestes faits dans l'écran deviennent des étapes
 Le navigateur est celui que l'écran web du hub montre : on voit l'automate travailler et on peut reprendre la main."""
 import json
 import os
 import re
 
 DOSSIER = "/etc/si-agent/navigateur"
-ACTIONS = ("etat", "aller", "capture", "etapes")
+ACTIONS = ("etat", "aller", "capture", "etapes", "enregistrer")
 MAX_RESULTAT = 3 * 1024 * 1024     # au-delà, les captures intermédiaires sont retirées (le central stocke le résultat)
 
 
@@ -57,6 +58,10 @@ def run(params, http, dossier=DOSSIER):
         if not re.match(r"^https?://", url):
             return {"ok": False, "error": "adresse http(s) attendue"}
         code, r = http("POST", "/aller", {"url": url}, cfg)
+    elif a == "enregistrer":
+        if params.get("etape") not in ("debut", "etat", "fin"):
+            return {"ok": False, "error": "enregistrer : etape debut, etat ou fin"}
+        code, r = http("POST", "/enregistrer", {"etape": params["etape"]}, cfg)
     else:
         corps = {k: params.get(k) for k in ("etapes", "base_url", "arret_avant_ecriture") if params.get(k) is not None}
         code, r = http("POST", "/etapes", corps, cfg)

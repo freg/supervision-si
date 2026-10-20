@@ -246,3 +246,10 @@ export const acceptJournalSuggestion = (apiBase, eventId, chantier, actor) => fe
 export const fetchNavigateurs = (apiBase) => fetchJson(apiBase, "/navigateurs");
 export const saveNavigateurs = (apiBase, navigateurs, actor) => fetchJson(apiBase, "/navigateurs", json("PUT", { navigateurs, actor }));
 export const navCommand = (apiBase, agentId, params) => sendCommand(apiBase, agentId, "navigateur", params);
+// #799/#800 : parcours appris, jeu, demande en langage courant
+export const fetchParcours = (apiBase) => fetchJson(apiBase, "/parcours");
+export const createParcours = (apiBase, parcours, actor) => fetchJson(apiBase, "/parcours", json("POST", { parcours, actor }));
+export const updateParcours = (apiBase, id, parcours, actor) => fetchJson(apiBase, `/parcours/${id}`, json("PUT", { parcours, actor }));
+export const deleteParcours = (apiBase, id) => fetchJson(apiBase, `/parcours/${id}`, { method: "DELETE" });
+export const jouerParcours = (apiBase, id, body) => fetchJson(apiBase, `/parcours/${id}/jouer`, json("POST", body));
+export const interpreterDemande = (apiBase, texte) => fetchJson(apiBase, "/parcours/interpreter", json("POST", { texte }));
