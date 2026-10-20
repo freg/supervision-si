@@ -316,7 +316,7 @@ class PluginTests(unittest.TestCase):
     def test_plugins_livres_valides(self):
         bundled = os.path.join(ROOT, "plugins")
         ids = sorted(os.listdir(bundled))
-        self.assertEqual(ids, ["app-logwatch", "broadcast-probe", "capture-relay", "dns-observe", "docker-containers", "front-access", "gtb-netwatch", "guest-usage", "mail-server", "migration", "network-neighbors", "node-activity", "ollama", "path-probe", "pbs", "proxmox", "pulled-backups", "pve-remote", "resource-access", "software-inventory", "web-audit", "web-trace", "wifi-probe", "windows-probe"])  # #749 node-activity ; #746 ollama ; #739 gtb-netwatch / app-logwatch ; #723 pve-remote ; #716 pbs (pulled-backups #714, oublié ici) ; #692 mail-server ; #436 relais ; #487 Proxmox ; #525 wifi-probe ; #527 path-probe ; #567 windows/broadcast ; #595 software-inventory
+        self.assertEqual(ids, ["app-logwatch", "broadcast-probe", "capture-relay", "dns-observe", "docker-containers", "front-access", "gpu", "gtb-netwatch", "guest-usage", "mail-server", "migration", "network-neighbors", "node-activity", "ollama", "path-probe", "pbs", "proxmox", "pulled-backups", "pve-remote", "remote-status", "resource-access", "sms-gateway", "software-inventory", "web-audit", "web-trace", "wifi-probe", "windows-probe"])  # #792 remote-status ; #782 gpu ; #749 node-activity ; #746 ollama ; #739 gtb-netwatch / app-logwatch ; #723 pve-remote ; #716 pbs (pulled-backups #714, oublié ici) ; #692 mail-server ; #436 relais ; #487 Proxmox ; #525 wifi-probe ; #527 path-probe ; #567 windows/broadcast ; #595 software-inventory
         for pid in ids:
             with open(os.path.join(bundled, pid, "manifest.json")) as fh:
                 m = json.load(fh)

@@ -1,0 +1,13 @@
+{
+  "id": "sms-gateway",
+  "version": "1",
+  "runner": "python",
+  "entry": "sms_gateway.py",
+  "interval_seconds": 600,
+  "timeout_seconds": 90,
+  "args": [],
+  "enabled": false,
+  "description": "Test de la passerelle SMS 4G (#792) : envoie un SMS de test par le relais du TRB140 (GET /send) et, si un compte est fourni, lit l'état du modem (réseau, opérateur, type 2G/3G/4G, signal). Constats : envoi refusé ou relais injoignable (critique), modem non enregistré (critique), repli en 2G/3G ou signal faible (avertissement). Réglages de l'hôte : /etc/si-agent/sms-gateway/args (une « --option valeur » par ligne) : --relais http://hôte:8090 --numero +336… [--cle-fichier /etc/si-agent/sms-gateway/relay_key] [--trb https://hôte --trb-compte nom --trb-mdp-fichier /etc/si-agent/sms-gateway/trb_password] [--texte « … »]. Privilégiée (secrets lisibles par root seulement).",
+  "source": "bundled",
+  "privileged": true
+}

@@ -1917,6 +1917,8 @@ DIAG_HINTS = {   # #763 : que faire quand une source ne remonte rien
     "plugin:pbs": "sonde pbs sur l'agent du serveur de sauvegarde",
     "plugin:guest-usage": "sonde guest-usage sur l'agent qui joint les Proxmox (nœud local + /etc/si-agent/pve-remote.json), fiche de l'agent › Sondes",
     "plugin:ollama": "sonde ollama sur l'agent du poste d'IA",
+    "plugin:sms-gateway": "sonde sms-gateway sur un agent Linux du LAN (fiche de l'agent › Sondes) + réglages dans /etc/si-agent/sms-gateway/args",   # #792
+    "plugin:remote-status": "sonde remote-status sur un agent Linux du LAN (fiche de l'agent › Sondes) + cibles dans /etc/si-agent/remote-status/args",   # #792
     "plugin:gpu": "sonde gpu sur l'agent de chaque hôte à carte graphique (fiche de l'agent › Sondes, ou tuile Parc IA)",
     "plugin:docker-containers": "sonde docker-containers sur l'agent de l'hôte Docker",
     "plugin:mail-server": "sonde mail-server sur l'agent du serveur de messagerie",

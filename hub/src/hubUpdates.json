@@ -1,5 +1,11 @@
 [
  {
+  "n": 792,
+  "from": 792,
+  "date": "2026-10-20",
+  "title": "Veilles SMS : machine sans agent (NMS) et passerelle 4G, constats critiques dans le hub, agent 0.5.86"
+ },
+ {
   "n": 791,
   "from": 791,
   "date": "2026-10-19",
@@ -232,11 +238,5 @@
   "from": 752,
   "date": "2026-10-14",
   "title": "Serveur de messagerie : incidents, file d'attente, échecs de distribution, listes blanche / grise / noire, réglages antispam"
- },
- {
-  "n": 751,
-  "from": 751,
-  "date": "2026-10-14",
-  "title": "Virtualisation directe sur le LAN : le poste pousse son image à l'agent du nœud, le hub orchestre"
  }
 ]

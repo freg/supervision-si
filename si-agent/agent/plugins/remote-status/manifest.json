@@ -1,0 +1,13 @@
+{
+  "id": "remote-status",
+  "version": "1",
+  "runner": "python",
+  "entry": "remote_status.py",
+  "interval_seconds": 120,
+  "timeout_seconds": 90,
+  "args": [],
+  "enabled": false,
+  "description": "Veilles distantes (#792) : lit par ssh (clé dédiée, commande forcée côté distant) le fichier d'état écrit par une veille installée sur une machine sans agent (ex. sms-veille du NMS : « OK|KO date détail »). Constats CRITIQUES : état KO, état trop ancien (veille arrêtée ou machine plantée), machine injoignable. Réglages de l'hôte : /etc/si-agent/remote-status/args (une « --option valeur » par ligne) : --cible NOM=compte@hôte:/chemin (répétable), [--age-max 1500] (s), [--cle /etc/si-agent/remote-status/id_rsa]. Lecture seule. Privilégiée (clé ssh lisible par root seulement).",
+  "source": "bundled",
+  "privileged": true
+}

@@ -1,3 +1,16 @@
+## 2026-10-20 — Veilles SMS : machine sans agent (NMS) et passerelle 4G, constats critiques dans le hub, agent 0.5.86 (livraison #792)
+
+- Sonde **remote-status** (veilles distantes) : lit par ssh, avec une clé dédiée limitée à une commande `cat` côté distant,
+  le fichier d'état d'une veille installée sur une machine sans agent (ex. `sms-veille` du NMS : « OK|KO date détail »).
+  Constats **critiques** : état KO, état trop ancien (`--age-max`, défaut 25 min : veille arrêtée ou machine plantée), machine injoignable.
+- Sonde **sms-gateway** (test de la passerelle 4G) : SMS de test par le relais du TRB140 (`/send`), état du modem par l'API
+  du TRB140 (enregistrement, opérateur, 2G/3G/4G, signal). Envoi refusé ou modem non enregistré = critique ; repli 2G/3G ou
+  signal faible = avertissement.
+- Réglages propres à chaque hôte dans `/etc/si-agent/<sonde>/args` (une « --option valeur » par ligne), secrets dans des
+  fichiers root : aucune adresse réelle dans le dépôt ni dans le catalogue central.
+- Test de la liste des sondes livrées complété (gpu y manquait depuis #782).
+- Vérifié : tests des deux sondes (10) et de l'agent ; tests de l'API (1 échec préexistant `test_z_repatriation.test_campaign`, présent aussi sans ce changement). Non vérifié en réel : champs de `/api/modems/status` selon le firmware du TRB140.
+
 ## 2026-10-19 — Notifications › SMS : accès direct au relais SMS et à la passerelle TRB140 (livraison #791)
 
 - Onglet 📱 SMS : boutons « Relais SMS », « Envoyer depuis le relais » (/compose) et « Passerelle TRB140 (interface web) ».
