@@ -1590,6 +1590,7 @@ services:
       - NOTIFY_SMS_RELAY_KEY=${NOTIFY_SMS_RELAY_KEY:-}
       - NOTIFY_SMS_RELAY_UI=${NOTIFY_SMS_RELAY_UI:-}
       - NOTIFY_SMS_TRB_UI=${NOTIFY_SMS_TRB_UI:-}
+      - NOTIFY_VAPID_SUBJECT=${NOTIFY_VAPID_SUBJECT:-mailto:supervision@example.org}
 
   licenses-api:
     # Livraison #595 -- gestionnaire de LICENCES LOGICIELLES par site :

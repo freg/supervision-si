@@ -1,3 +1,22 @@
+## 2026-10-20 — Hub installable sur téléphone : écran « Urgence » et alertes poussées (livraison #796)
+
+- Le hub devient une application installable (manifeste, icônes, service worker) : sur Android « Installer
+  l'application », sur iPhone Partager › « Sur l'écran d'accueil ». L'icône ouvre l'écran Urgence. Raccourcis : Urgence,
+  SMS, Journal des chantiers. Il faut l'adresse https publique (le service worker n'existe pas en http).
+- Nouvel écran « Urgence » (thème Supervision, sous « Aujourd'hui ») : état en un coup d'œil (critiques et
+  avertissements des agents sur 24 h, répétitions regroupées, hôtes touchés), rafraîchi chaque minute ; accès rapides
+  (Aujourd'hui, événements, SMS, tour de contrôle, migration, journal, PRA) ; contacts d'urgence gardés sur l'appareil
+  seulement, avec appel direct.
+- Alertes poussées (Web Push, RFC 8291 / VAPID RFC 8292) par notify-api : chaque appareil s'abonne depuis l'écran
+  Urgence (seuil : critiques, critiques et avertissements, ou tout), essai d'envoi, désabonnement, liste des appareils
+  abonnés. Toute notification passée à `/notify` part aussi en alerte poussée aux appareils dont le seuil est atteint ;
+  file d'envoi avec reprises, abonnements expirés (410) supprimés d'office. Clé VAPID créée au premier démarrage dans le
+  volume de notify-api (`NOTIFY_VAPID_PRIVATE_PEM` pour en fournir une) ; contact VAPID : `NOTIFY_VAPID_SUBJECT`.
+- Hors ligne : page de secours avec les contacts, les dernières alertes reçues et le dernier état relevé.
+- API notify-api : `/push/key` (public), `/push/subscribe`, `/push/subscriptions`, `/push/subscriptions/<id>`, `/push/test`.
+- Tests : `notify/api/test_push.py` (vecteur de la RFC 8291, jeton VAPID, envoi simulé), `test_app.PushRoutes`,
+  `hub/tests/urgenceLib.test.mjs`.
+
 ## 2026-10-20 — Tuile « Journal des chantiers » : actes, surveillances, relances, interventions, import / export Excel (livraison #795)
 
 - Nouvelle tuile (thème Réseau et infrastructure, près de « Migration ») : par chantier, chaque entrée a date, jour,

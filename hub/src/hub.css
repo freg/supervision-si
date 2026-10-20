@@ -2631,3 +2631,24 @@ button[aria-busy="true"]::after { content: ""; position: absolute; right: 8px; t
 .jr-statut.ok { background: var(--ok-bg); color: var(--ok); }
 .jr-statut.warning { background: var(--warning-bg); color: var(--warning); }
 .jr-statut.critical { background: var(--danger-bg); color: var(--danger); }
+
+/* #796 : écran Urgence (application installée sur téléphone) */
+.urg-root { gap: 12px; }
+.urg-root h3 { font-size: 15px; margin: 8px 0 6px; display: flex; gap: 10px; align-items: center; }
+.urg-state { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: var(--panel); }
+.urg-state.urg-critique { border-color: var(--danger); background: var(--danger-bg); }
+.urg-state.urg-alerte { border-color: var(--warning); background: var(--warning-bg); }
+.urg-state.urg-ok { border-color: var(--ok); }
+.urg-big { font-size: 18px; font-weight: 600; }
+.urg-links { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.urg-link { display: flex; gap: 8px; align-items: center; padding: 12px; min-height: 48px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); text-decoration: none; }
+.urg-link .hub-icon { flex: 0 0 auto; }
+.urg-ev { border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: 6px; padding: 6px 10px; margin: 4px 0; background: var(--panel); overflow-wrap: anywhere; }
+.urg-ev-critical { border-left-color: var(--danger); }
+.urg-ev-warning { border-left-color: var(--warning); }
+.urg-count { margin-left: 6px; font-size: 12px; padding: 0 6px; border-radius: 8px; background: var(--border); }
+.urg-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+.urg-ok { color: var(--ok); font-weight: 600; }
+.urg-contact, .urg-sub { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.urg-tel { font-size: 16px; }
+@media (max-width: 600px) { .urg-links { grid-template-columns: 1fr 1fr; } .urg-row input, .urg-row select { width: 100%; } }

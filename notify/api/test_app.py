@@ -44,7 +44,7 @@ class Base(unittest.TestCase):
     def setUp(self):
         appmod.verifier = auth.KeycloakVerifier("u", [], fetch=lambda _u: jwks(), allowed_groups=["administrateurs"], what="les notifications")
         c = appmod._conn()
-        for t in ("actions", "groups", "assignments", "consumers", "blacklist", "queue", "settings", "events", "attachments", "sms_out", "sms_in"):
+        for t in ("actions", "groups", "assignments", "consumers", "blacklist", "queue", "settings", "events", "attachments", "sms_out", "sms_in", "push_subs", "push_out"):
             c.execute("DELETE FROM " + t)
         c.commit()
         c.close()
@@ -255,3 +255,48 @@ class UiUrlTest(unittest.TestCase):   # #791 : lien « accès direct » de l'ong
         self.assertEqual(m.ui_url("https://192.0.2.29"), "https://192.0.2.29")
         self.assertEqual(m.ui_url("javascript:alert(1)"), "")
         self.assertEqual(m.ui_url(""), "")
+
+
+class PushRoutes(Base):   # #796 : abonnements des appareils, seuils, file d'envoi, abonnement périmé
+    def sub(self, n=1):
+        from cryptography.hazmat.primitives.asymmetric import ec
+        import push
+        ua = ec.generate_private_key(ec.SECP256R1())
+        return {"endpoint": "https://push.example.org/sub/%d" % n, "keys": {"p256dh": push.b64u(push._pub_bytes(ua.public_key())), "auth": push.b64u(b"0123456789abcdef")}}
+
+    def test_parcours(self):
+        k = self.c.get("/push/key").get_json()["publicKey"]
+        self.assertEqual(len(k), 87)                                   # 65 octets en base64url
+        self.assertEqual(self.c.post("/push/subscribe", json={"subscription": self.sub()}).status_code, 401)
+        self.assertEqual(self.c.post("/push/subscribe", headers=self.adm, json={"subscription": {"endpoint": "http://x"}}).status_code, 400)
+        r = self.c.post("/push/subscribe", headers=self.adm, json={"subscription": self.sub(1), "label": "téléphone", "min_severity": "critical"}).get_json()
+        self.c.post("/push/subscribe", headers=self.adm, json={"subscription": self.sub(2), "label": "tablette", "min_severity": "warning"})
+        self.assertEqual(r["min_severity"], "critical")
+        self.assertEqual(self.notify("a.b", "alerte", severity="warning").get_json()["push"], 1)      # tablette seulement
+        self.assertEqual(self.notify("a.b", "panne", severity="critical").get_json()["push"], 2)
+        self.assertEqual(self.notify("a.b", "info", severity="info").get_json()["push"], 0)
+        calls = []
+
+        class R(object):
+            status = 201
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+
+        def opener(req, timeout=20):
+            import urllib.error
+            calls.append(req.full_url)
+            if req.full_url.endswith("/2"):
+                raise urllib.error.HTTPError(req.full_url, 410, "Gone", {}, None)
+            return R()
+        import app as m
+        self.assertEqual(m.PushSender(opener=opener).tick(), 1)
+        self.assertEqual(len(calls), 3)
+        lst = self.c.get("/push/subscriptions", headers=self.adm).get_json()
+        self.assertEqual([x["label"] for x in lst["subscriptions"]], ["téléphone"])      # abonnement périmé supprimé
+        self.assertEqual(lst["queue"].get("sent"), 1)
+        sid = lst["subscriptions"][0]["id"]
+        self.assertTrue(self.c.post("/push/test", headers=self.adm, json={"endpoint": "https://push.example.org/sub/1"}).get_json()["ok"])
+        self.assertEqual(self.c.post("/push/test", headers=self.adm, json={}).status_code, 400)
+        self.assertTrue(self.c.delete("/push/subscribe", headers=self.adm, json={"endpoint": "https://push.example.org/sub/1"}).get_json()["deleted"])
+        self.assertEqual(self.c.get("/push/subscriptions", headers=self.adm).get_json()["subscriptions"], [])
+        self.assertFalse(self.c.delete("/push/subscriptions/%d" % sid, headers=self.adm).get_json()["ok"])

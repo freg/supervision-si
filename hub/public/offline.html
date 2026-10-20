@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#1a1d23" />
+<title>Hub SI — hors ligne</title>
+<style>
+  /* #796 : page affichée par le service worker quand le hub est injoignable. Thème sombre, sans dépendance. */
+  :root { --bg: #1a1d23; --panel: #23272f; --text: #e6e8eb; --muted: #9aa3ad; --border: #343a44; --danger: #e74c3c; --warn: #f39c12; --ok: #27ae60; --accent: #3498db; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, sans-serif; padding: 16px; }
+  h1 { font-size: 20px; margin: 0 0 4px; } h2 { font-size: 16px; margin: 20px 0 8px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin: 6px 0; }
+  .critical { border-left: 4px solid var(--danger); } .warning { border-left: 4px solid var(--warn); }
+  a { color: var(--accent); } button { background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 8px 14px; font-size: 15px; }
+  .tel { display: inline-block; margin-top: 4px; font-size: 17px; }
+</style>
+</head>
+<body>
+  <h1>Hub SI injoignable</h1>
+  <div class="muted">Pas de réseau ou serveur arrêté. Dernières informations connues sur cet appareil ci-dessous.</div>
+  <p><button onclick="location.reload()">Réessayer</button></p>
+  <h2>Contacts d'urgence</h2><div id="contacts" class="muted">aucun contact enregistré sur cet appareil</div>
+  <h2>Alertes reçues</h2><div id="push" class="muted">aucune alerte reçue</div>
+  <h2>Dernier état vu</h2><div id="snap" class="muted">aucun état enregistré</div>
+<script>
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function when(s) { try { return new Date(s).toLocaleString("fr-FR"); } catch (e) { return s || ""; } }
+  function read(k) { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } }
+  var contacts = read("hub.urgence.contacts") || [];
+  if (contacts.length) document.getElementById("contacts").innerHTML = contacts.map(function (c) {
+    var tel = String(c.phone || "").replace(/[^0-9+]/g, "");
+    return '<div class="card"><b>' + esc(c.name) + '</b> <span class="muted">' + esc(c.role) + '</span><br>' +
+      (tel ? '<a class="tel" href="tel:' + esc(tel) + '">📞 ' + esc(c.phone) + '</a>' : "") + '</div>';
+  }).join("");
+  var snap = read("hub.urgence.snapshot");
+  if (snap && snap.events) document.getElementById("snap").innerHTML =
+    '<div class="muted">relevé du ' + esc(when(snap.at)) + ' : ' + snap.events.length + ' alerte(s) sur 24 h</div>' +
+    snap.events.slice(0, 30).map(function (e) {
+      return '<div class="card ' + esc(e.severity) + '"><b>' + esc(e.agent_id || e.source || "") + '</b> ' + esc(e.message) +
+        '<div class="muted">' + esc(when(e.at)) + ' · ' + esc(e.kind) + '</div></div>';
+    }).join("");
+  if (window.caches) caches.open("hub-urgence-v1").then(function (c) { return c.match("/__urgence-push.json"); })
+    .then(function (r) { return r ? r.json() : []; }).then(function (list) {
+      if (list.length) document.getElementById("push").innerHTML = list.slice(0, 20).map(function (m) {
+        return '<div class="card ' + esc(m.severity) + '"><b>' + esc(m.title) + '</b><br>' + esc(m.body) +
+          '<div class="muted">reçue le ' + esc(when(m.recu)) + '</div></div>';
+      }).join("");
+    }).catch(function () {});
+</script>
+</body>
+</html>

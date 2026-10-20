@@ -4,7 +4,7 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY notify/api/requirements.txt .
 RUN pip install --no-cache-dir --retries 5 --timeout 60 -r requirements.txt
-COPY notify/api/app.py notify/api/core.py notify/api/sms.py .
+COPY notify/api/app.py notify/api/core.py notify/api/sms.py notify/api/push.py .
 COPY si-proxy/admin/auth.py .
 COPY shared/version_endpoint.py .
 COPY shared/VERSION.json .

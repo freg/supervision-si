@@ -30,3 +30,10 @@ export const testSend = (b, t, to) => call(b, t, "/test", { method: "POST", body
 export const fetchSms = (b, t) => call(b, t, "/sms/journal");   // #787 : SMS internes
 export const sendSms = (b, t, to, text) => call(b, t, "/sms/envoyer", { method: "POST", body: J({ to, text }) });
 export const smsAct = (b, t, id, verb) => call(b, t, `/sms/${id}/${verb}`, { method: "POST" });
+// #796 : alertes poussées (Web Push) sur cet appareil
+export const fetchPushKey = (b) => fetch(`${b}/push/key`).then((r) => r.json()).catch((e) => ({ error: e.message }));
+export const subscribePush = (b, t, subscription, label, minSeverity) => call(b, t, "/push/subscribe", { method: "POST", body: J({ subscription, label, min_severity: minSeverity }) });
+export const unsubscribePush = (b, t, endpoint) => call(b, t, "/push/subscribe", { method: "DELETE", body: J({ endpoint }) });
+export const testPush = (b, t, endpoint) => call(b, t, "/push/test", { method: "POST", body: J({ endpoint }) });
+export const fetchPushSubs = (b, t) => call(b, t, "/push/subscriptions");
+export const deletePushSub = (b, t, id) => call(b, t, `/push/subscriptions/${id}`, { method: "DELETE" });

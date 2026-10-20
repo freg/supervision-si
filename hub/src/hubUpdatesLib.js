@@ -16,6 +16,7 @@ export const UPDATE_LINKS = {
   758: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   759: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   760: [{ view: "cortex", hint: "incidents « cause Wi-Fi probable »" }],
+  796: [{ view: "urgence", hint: "Écran Urgence : état 24 h, accès rapides, contacts, alertes poussées sur le téléphone" }, { view: "notifications", hint: "Alertes poussées : appareils abonnés (notify-api /push)" }],
   795: [{ view: "journal", hint: "Nouvelle tuile : journal des chantiers, import / export Excel, suggestions du hub" }],
   794: [{ view: "si-agent", hint: "hub-watch : SMS d'alerte par l'API du TRB140" }],
   793: [{ view: "si-agent", hint: "Sonde hub-watch (garde du hub depuis un autre hôte, alerte hors hub)" }],

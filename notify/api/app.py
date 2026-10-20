@@ -34,6 +34,7 @@ from flask import Flask, g, has_app_context, jsonify, request
 from flask_cors import CORS
 
 import core
+import push
 import sms
 from auth import AuthError, KeycloakVerifier, bearer_from_header
 
@@ -105,6 +106,11 @@ CREATE TABLE IF NOT EXISTS sms_out (id INTEGER PRIMARY KEY AUTOINCREMENT, create
     due_at REAL, sent_at REAL, attempts INTEGER DEFAULT 0, last_error TEXT DEFAULT '', reply TEXT DEFAULT '');
 CREATE INDEX IF NOT EXISTS sms_out_status ON sms_out (status, due_at);
 CREATE TABLE IF NOT EXISTS sms_in (id INTEGER PRIMARY KEY AUTOINCREMENT, received_at REAL, from_number TEXT, text TEXT, consumer TEXT, source_ip TEXT);
+CREATE TABLE IF NOT EXISTS push_subs (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT UNIQUE, p256dh TEXT, auth TEXT, username TEXT, label TEXT,
+    min_severity TEXT DEFAULT 'critical', created_at REAL, last_ok REAL, last_error TEXT DEFAULT '');
+CREATE TABLE IF NOT EXISTS push_out (id INTEGER PRIMARY KEY AUTOINCREMENT, sub_id INTEGER, created_at REAL, payload TEXT, status TEXT DEFAULT 'queued',
+    attempts INTEGER DEFAULT 0, last_error TEXT DEFAULT '', due_at REAL);
+CREATE INDEX IF NOT EXISTS push_out_status ON push_out (status, due_at);
 """
 # #787 : SMS internes -- relais du TRB140 avec une clé PROPRE au hub (utilisateur dédié du relais, distinct du client externe)
 SMS_RELAY_URL = os.environ.get("NOTIFY_SMS_RELAY_URL", "").rstrip("/")
@@ -215,7 +221,7 @@ def consumer_from_request():
 
 
 PRODUCER = ("/notify", "/actions/register", "/sms", "/sms/send", "/sms/recu")
-PUBLIC = ("/health", "/version")
+PUBLIC = ("/health", "/version", "/push/key")   # #796 : la clé publique VAPID n'est pas un secret
 
 
 @app.before_request
@@ -359,8 +365,9 @@ def notify():
                         (action, consumer, sev, subject, text, json.dumps(context, ensure_ascii=False)[:4000], json.dumps(recipients), status, reason, now, now, ckey))
         for f in files:
             c.execute("INSERT INTO attachments (queue_id, filename, content_type, data) VALUES (?, ?, ?, ?)", (cur.lastrowid, f["filename"], f["content_type"], f["data"]))
+        pushed = push_enqueue(c, sev, subject, text, context, now)   # #796 : téléphones abonnés (selon leur seuil)
         c.commit()
-    return jsonify({"status": status, "id": cur.lastrowid, "recipients": len(recipients), "reason": reason, "attachments": len(files)}), 202
+    return jsonify({"status": status, "id": cur.lastrowid, "recipients": len(recipients), "reason": reason, "attachments": len(files), "push": pushed}), 202
 
 
 MAX_ATTACH_BYTES = int(os.environ.get("NOTIFY_MAX_ATTACH_BYTES", str(8 * 1024 * 1024)))
@@ -825,6 +832,139 @@ class SmsSender(object):
 SMS_SENDER = SmsSender()
 
 
+# -- #796 : notifications poussées (Web Push) ----------------------------------------
+PUSH_KEYS = push.Keys(os.environ.get("NOTIFY_VAPID_FILE") or os.path.join(os.path.dirname(DB_PATH) or ".", "vapid.pem"))
+PUSH_SUBJECT = os.environ.get("NOTIFY_VAPID_SUBJECT", "mailto:supervision@example.org")
+PUSH_SEVERITIES = ("info", "warning", "critical")
+
+
+def push_enqueue(c, severity, title, body, context=None, now=None, only_sub=None):
+    """Un message par abonnement dont le seuil est atteint (ou pour un abonnement précis : test) -> nombre enfilé."""
+    now = now or time.time()
+    payload = json.dumps({"title": str(title or "")[:120], "body": str(body or "").split("\n\n")[0][:300], "severity": severity or "info",
+                          "tag": (context or {}).get("kind") or "", "url": "/?view=urgence", "at": now}, ensure_ascii=False)
+    n = 0
+    for s in c.execute("SELECT id, min_severity FROM push_subs" + (" WHERE id = ?" if only_sub else ""), (only_sub,) if only_sub else ()):
+        if only_sub or push.should_push(severity, s["min_severity"]):
+            c.execute("INSERT INTO push_out (sub_id, created_at, payload, due_at) VALUES (?, ?, ?, ?)", (s["id"], now, payload, now))
+            n += 1
+    return n
+
+
+class PushSender(object):
+    def __init__(self, opener=None):
+        self.opener = opener
+        self.last_error = ""
+
+    def tick(self, now=None):
+        now = now or time.time()
+        c = _conn()
+        rows = c.execute("SELECT o.*, s.endpoint, s.p256dh, s.auth FROM push_out o JOIN push_subs s ON s.id = o.sub_id "
+                         "WHERE o.status = 'queued' AND o.due_at <= ? ORDER BY o.id LIMIT 20", (now,)).fetchall()
+        n, gone = 0, []
+        for r in rows:
+            kw = {"opener": self.opener} if self.opener else {}
+            st, err = push.send({"endpoint": r["endpoint"], "p256dh": r["p256dh"], "auth": r["auth"]}, json.loads(r["payload"]), PUSH_KEYS, PUSH_SUBJECT, **kw)
+            with _lock:
+                if st == "ok":
+                    c.execute("UPDATE push_out SET status = 'sent', attempts = attempts + 1 WHERE id = ?", (r["id"],))
+                    c.execute("UPDATE push_subs SET last_ok = ?, last_error = '' WHERE id = ?", (now, r["sub_id"]))
+                    n += 1
+                elif st == "gone":
+                    c.execute("UPDATE push_out SET status = 'failed', last_error = ? WHERE sub_id = ? AND status = 'queued'", (err, r["sub_id"]))
+                    c.execute("DELETE FROM push_subs WHERE id = ?", (r["sub_id"],))
+                    gone.append("abonnement push %d supprimé : %s" % (r["sub_id"], err))
+                else:
+                    self.last_error = err
+                    a = r["attempts"] + 1
+                    if a >= 5:
+                        c.execute("UPDATE push_out SET status = 'failed', attempts = ?, last_error = ? WHERE id = ?", (a, err, r["id"]))
+                    else:
+                        c.execute("UPDATE push_out SET attempts = ?, last_error = ?, due_at = ? WHERE id = ?", (a, err, now + core.backoff_seconds(a), r["id"]))
+                    c.execute("UPDATE push_subs SET last_error = ? WHERE id = ?", (err, r["sub_id"]))
+                c.commit()
+        c.execute("DELETE FROM push_out WHERE status != 'queued' AND created_at < ?", (now - 7 * 86400,))
+        c.commit()
+        c.close()
+        for msg in gone:      # après la fermeture : event() ouvre sa propre connexion (sinon base verrouillée)
+            event("push-gone", msg)
+        return n
+
+
+PUSH_SENDER = PushSender()
+
+
+@app.route("/push/key", methods=["GET"])
+def push_key():
+    return jsonify({"publicKey": push.b64u(PUSH_KEYS.public_raw())}), 200
+
+
+@app.route("/push/subscribe", methods=["POST", "DELETE"])
+def push_subscribe():
+    b = request.get_json(silent=True) or {}
+    sub = b.get("subscription") if isinstance(b.get("subscription"), dict) else {}
+    endpoint = str(sub.get("endpoint") or b.get("endpoint") or "")
+    if not endpoint.startswith("https://") or len(endpoint) > 1000:
+        return jsonify({"error": "abonnement invalide (adresse https du service de push attendue)"}), 400
+    c = db()
+    if request.method == "DELETE":
+        with _lock:
+            n = c.execute("DELETE FROM push_subs WHERE endpoint = ?", (endpoint,)).rowcount
+            c.commit()
+        return jsonify({"ok": True, "deleted": n}), 200
+    keys = sub.get("keys") or {}
+    p256dh, auth = str(keys.get("p256dh") or ""), str(keys.get("auth") or "")
+    try:
+        if len(push.b64u_dec(p256dh)) != 65 or len(push.b64u_dec(auth)) != 16:
+            raise ValueError
+    except Exception:  # noqa: BLE001
+        return jsonify({"error": "clés de l'abonnement invalides"}), 400
+    sev = b.get("min_severity") if b.get("min_severity") in PUSH_SEVERITIES else "critical"
+    label = str(b.get("label") or "")[:80]
+    with _lock:
+        c.execute("INSERT INTO push_subs (endpoint, p256dh, auth, username, label, min_severity, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) "
+                  "ON CONFLICT(endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth, label = excluded.label, "
+                  "min_severity = excluded.min_severity, username = excluded.username",
+                  (endpoint, p256dh, auth, g.user["username"], label, sev, time.time()))
+        sid = c.execute("SELECT id FROM push_subs WHERE endpoint = ?", (endpoint,)).fetchone()["id"]
+        c.commit()
+    event("push-sub", "appareil « %s » abonné aux alertes (%s et plus) par %s" % (label or sid, sev, g.user["username"]))
+    return jsonify({"ok": True, "id": sid, "min_severity": sev}), 200
+
+
+@app.route("/push/subscriptions", methods=["GET"])
+def push_subs_list():
+    rows = [dict(r) for r in db().execute("SELECT id, username, label, min_severity, created_at, last_ok, last_error, substr(endpoint, 1, 40) AS service FROM push_subs ORDER BY id")]
+    q = {r["status"]: r["n"] for r in db().execute("SELECT status, COUNT(*) AS n FROM push_out GROUP BY status")}
+    return jsonify({"subscriptions": rows, "queue": q, "last_error": PUSH_SENDER.last_error}), 200
+
+
+@app.route("/push/subscriptions/<int:sid>", methods=["DELETE"])
+def push_sub_delete(sid):
+    c = db()
+    with _lock:
+        n = c.execute("DELETE FROM push_subs WHERE id = ?", (sid,)).rowcount
+        c.commit()
+    return jsonify({"ok": n > 0}), 200
+
+
+@app.route("/push/test", methods=["POST"])
+def push_test():
+    b = request.get_json(silent=True) or {}
+    c = db()
+    sid = b.get("id")
+    if not sid and b.get("endpoint"):
+        r = c.execute("SELECT id FROM push_subs WHERE endpoint = ?", (str(b["endpoint"]),)).fetchone()
+        sid = r["id"] if r else None
+    if not sid:
+        return jsonify({"error": "abonnement inconnu : activer d'abord les alertes sur cet appareil"}), 400
+    with _lock:
+        n = push_enqueue(c, "critical", "Test d'alerte du hub", "Si ce message s'affiche, les alertes poussées fonctionnent sur cet appareil (%s)." % g.user["username"],
+                         {"kind": "push-test"}, only_sub=int(sid))
+        c.commit()
+    return jsonify({"ok": n > 0, "message": "message de test envoyé, il doit arriver en quelques secondes"}), 200
+
+
 # -- fil d'envoi -------------------------------------------------------------------
 class Sender(object):
     def __init__(self):
@@ -936,6 +1076,10 @@ def _worker():
             SMS_SENDER.tick()   # #787
         except Exception as exc:  # noqa: BLE001
             _log.warning("fil d'envoi SMS : %s", exc)
+        try:
+            PUSH_SENDER.tick()   # #796
+        except Exception as exc:  # noqa: BLE001
+            _log.warning("fil d'envoi push : %s", exc)
 
 
 if os.environ.get("NOTIFY_WORKER", "1") == "1":

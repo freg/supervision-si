@@ -1,5 +1,11 @@
 [
  {
+  "n": 796,
+  "from": 796,
+  "date": "2026-10-20",
+  "title": "Hub installable sur téléphone : écran « Urgence » et alertes poussées"
+ },
+ {
   "n": 795,
   "from": 795,
   "date": "2026-10-20",
@@ -232,11 +238,5 @@
   "from": 756,
   "date": "2026-10-14",
   "title": "Parc IA : hôtes, modèles, conteneurs, tests et activité ; gestes encadrés sur l'hôte"
- },
- {
-  "n": 755,
-  "from": 755,
-  "date": "2026-10-14",
-  "title": "Mises à jour d'agents : version reconnue dès le redémarrage ; agents 0.5.14 à relancer à la main"
  }
 ]
