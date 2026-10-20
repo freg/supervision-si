@@ -1,3 +1,11 @@
+## 2026-10-20 — Garde du hub : SMS d'alerte par l'API du TRB140, agent 0.5.88 (livraison #794)
+
+- Le firmware RutOS 7 du TRB140 n'a plus de service « Post/Get » : la sonde **hub-watch** envoie désormais son SMS
+  d'alerte directement par l'API du routeur (`--trb https://… --trb-compte … --trb-modem 3-1`, mot de passe dans
+  `/etc/si-agent/hub-watch/trb_password`), toujours sans passer par le relais hébergé sur l'hôte du hub.
+  `--sms-url-fichier` reste possible pour une autre passerelle à URL GET.
+- Vérifié : tests de la sonde (6). Non vérifié en réel : l'appel `POST /api/messages/actions/send` (même API que le relais).
+
 ## 2026-10-20 — Garde du hub : un autre hôte surveille le hub et alerte hors du hub, agent 0.5.87 (livraison #793)
 
 - Sonde **hub-watch**, à activer sur l'agent d'un AUTRE hôte que celui du hub : teste toutes les 2 min les URL du hub et

@@ -1,13 +1,13 @@
 {
   "id": "hub-watch",
-  "version": "1",
+  "version": "2",
   "runner": "python",
   "entry": "hub_watch.py",
   "interval_seconds": 120,
   "timeout_seconds": 90,
   "args": [],
   "enabled": false,
-  "description": "Garde du hub (#793) : depuis un AUTRE hôte que celui du hub, vérifie que le hub et le central répondent ; après N échecs de suite, alerte HORS DU HUB (courriel par le sendmail local, SMS direct par la passerelle si une URL est fournie), puis rappel toutes les heures et message « rétabli » au retour. L'inverse est déjà couvert : le central signale tout agent qui se tait (agent-offline). Réglages de l'hôte : /etc/si-agent/hub-watch/args (une « --option valeur » par ligne) : --url nom=https://… (répétable), [--echecs 2], --courriel adresse, [--expediteur adresse], [--sms-url-fichier fichier] (URL de la passerelle avec {numero} et {texte}), [--numero +336…]. Privilégiée (secrets lisibles par root seulement).",
+  "description": "Garde du hub (#793) : depuis un AUTRE hôte que celui du hub, vérifie que le hub et le central répondent ; après N échecs de suite, alerte HORS DU HUB (courriel par le sendmail local, SMS direct par l'API du TRB140), puis rappel toutes les heures et message « rétabli » au retour. L'inverse est déjà couvert : le central signale tout agent qui se tait (agent-offline). Réglages de l'hôte : /etc/si-agent/hub-watch/args (une « --option valeur » par ligne) : --url nom=https://… (répétable), [--echecs 2], --courriel adresse, [--expediteur adresse], [--trb https://… --trb-compte nom --trb-modem 3-1] (mot de passe dans trb_password) ou [--sms-url-fichier fichier] (URL GET avec {numero} et {texte}), [--numero +336…]. Privilégiée (secrets lisibles par root seulement).",
   "source": "bundled",
   "privileged": true
 }

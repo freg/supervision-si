@@ -3,8 +3,8 @@
 Le hub ne peut pas signaler sa propre panne : cette sonde tourne sur un autre agent (ex. un Proxmox du LAN), teste les URL
 du hub et du central, et après --echecs passages en échec de suite :
   - courriel par le sendmail de l'hôte (un Proxmox a toujours postfix) ;
-  - SMS direct par la passerelle (--sms-url-fichier : URL avec {numero} et {texte}, ex. service « Post/Get » du TRB140,
-    qui ne passe pas par le relais hébergé sur l'hôte du hub) ;
+  - SMS direct par l'API du TRB140 (--trb https://… --trb-compte nom [--trb-mdp-fichier …] [--trb-modem 3-1]), sans passer
+    par le relais hébergé sur l'hôte du hub ; ou toute passerelle à URL GET (--sms-url-fichier, avec {numero} et {texte}) ;
 puis rappel toutes les heures tant que ça dure, et message « rétabli » au retour.
 « Répond » = réponse HTTP < 500 (une page de connexion ou un 401 prouvent que le service tourne).
 Sortie JSON : {at, urls[], panne, alerts[], error}. État entre deux passages : /var/lib/si-agent/hub-watch.json."""
@@ -96,7 +96,33 @@ def sms(modele, numero, texte, ouvrir=urllib.request.urlopen):
         return False, str(exc)[:120]
 
 
-def collect(argv, tester=tester, envoyer_courriel=courriel, envoyer_sms=sms, etat_chemin=ETAT, maintenant=None):
+def sms_trb(trb, compte, mdp, modem, numero, texte, http=None):
+    """#794 : SMS direct par l'API du TRB140 (RutOS 7 n'a plus de service Post/Get) :
+    POST /api/login puis POST /api/messages/actions/send {data: {number, message, modem}}."""
+    def appel(url, corps, jeton=None):
+        h = {"Content-Type": "application/json"}
+        if jeton:
+            h["Authorization"] = "Bearer " + jeton
+        req = urllib.request.Request(url, data=json.dumps(corps).encode(), headers=h)
+        try:
+            with urllib.request.urlopen(req, timeout=20, context=_ctx()) as r:
+                return r.status, r.read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as e:
+            return e.code, e.read().decode("utf-8", "replace")
+    http = http or appel
+    try:
+        code, corps = http(trb.rstrip("/") + "/api/login", {"username": compte, "password": mdp})
+        if code != 200:
+            return False, "connexion au TRB140 refusée (HTTP %s)" % code
+        jeton = json.loads(corps)["data"]["token"]
+        code, corps = http(trb.rstrip("/") + "/api/messages/actions/send",
+                           {"data": {"number": numero, "message": texte[:150], "modem": modem}}, jeton)
+        return code == 200 and '"success":true' in corps.replace(" ", ""), "TRB140 HTTP %s %s" % (code, corps[:80])
+    except Exception as exc:  # noqa: BLE001
+        return False, "TRB140 : %s" % str(exc)[:120]
+
+
+def collect(argv, tester=tester, envoyer_courriel=courriel, envoyer_sms=sms, envoyer_sms_trb=sms_trb, etat_chemin=ETAT, maintenant=None):
     def arg(n, d=None):
         return argv[argv.index(n) + 1] if n in argv[:-1] else d
     maintenant = maintenant or time.time()
@@ -122,7 +148,14 @@ def collect(argv, tester=tester, envoyer_courriel=courriel, envoyer_sms=sms, eta
         sujet = "[%s] hub de supervision (%s)" % (msg[0], socket.gethostname())
         if arg("--courriel"):
             out["envois"].append(("courriel",) + envoyer_courriel(arg("--courriel"), arg("--expediteur", "root@" + socket.gethostname()), sujet, msg[1]))
-        if arg("--sms-url-fichier") and arg("--numero"):
+        if arg("--trb") and arg("--numero"):
+            try:
+                mdp = open(arg("--trb-mdp-fichier", DOSSIER + "/trb_password"), encoding="utf-8").read().strip()
+                out["envois"].append(("sms",) + envoyer_sms_trb(arg("--trb"), arg("--trb-compte", "admin"), mdp, arg("--trb-modem", "1-1"),
+                                                               arg("--numero"), "%s %s" % (msg[0], msg[1])))
+            except OSError as exc:
+                out["envois"].append(("sms", False, "mot de passe du TRB140 illisible : %s" % exc))
+        elif arg("--sms-url-fichier") and arg("--numero"):
             try:
                 modele = open(arg("--sms-url-fichier"), encoding="utf-8").read().strip()
                 out["envois"].append(("sms",) + envoyer_sms(modele, arg("--numero"), "%s %s" % (msg[0], msg[1])))

@@ -1,5 +1,11 @@
 [
  {
+  "n": 794,
+  "from": 794,
+  "date": "2026-10-20",
+  "title": "Garde du hub : SMS d'alerte par l'API du TRB140, agent 0.5.88"
+ },
+ {
   "n": 793,
   "from": 793,
   "date": "2026-10-20",
@@ -232,11 +238,5 @@
   "from": 754,
   "date": "2026-10-14",
   "title": "Tests d'IA lisibles : ce qu'on fournit au modèle, les indicateurs cibles et le rendu critère par critère"
- },
- {
-  "n": 753,
-  "from": 753,
-  "date": "2026-10-14",
-  "title": "Vues de parc : serveurs, postes, serveurs d'IA, postes personnels, en groupes, avec l'en-tête htop de chaque agent"
  }
 ]

@@ -58,3 +58,36 @@ class HubWatchTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SmsTrbTest(unittest.TestCase):
+    def test_login_puis_envoi(self):
+        import json
+        appels = []
+
+        def faux(url, corps, jeton=None):
+            appels.append((url, corps, jeton))
+            if url.endswith("/api/login"):
+                return 200, json.dumps({"data": {"token": "T"}})
+            return 200, '{"data":{"sms_used":1},"success":true}'
+        ok, d = H.sms_trb("https://t", "freg", "M", "3-1", "+33600000000", "ALERTE hub", http=faux)
+        self.assertTrue(ok)
+        self.assertEqual(appels[1][1], {"data": {"number": "+33600000000", "message": "ALERTE hub", "modem": "3-1"}})
+        self.assertEqual(appels[1][2], "T")
+
+    def test_login_refuse(self):
+        ok, d = H.sms_trb("https://t", "freg", "faux", "3-1", "+336", "x", http=lambda u, c, j=None: (401, "{}"))
+        self.assertFalse(ok)
+        self.assertIn("refusée", d)
+
+    def test_collect_utilise_trb(self):
+        d = tempfile.mkdtemp()
+        mdp = os.path.join(d, "mdp")
+        open(mdp, "w").write("M\n")
+        envois = []
+        argv = ["--url", "hub=https://h/", "--echecs", "1", "--trb", "https://t", "--trb-compte", "freg", "--trb-mdp-fichier", mdp,
+                "--trb-modem", "3-1", "--numero", "+336"]
+        r = H.collect(argv, tester=lambda u: (False, "HTTP 502"), envoyer_courriel=lambda *a: (True, "ok"),
+                      envoyer_sms_trb=lambda *a: (envois.append(a) or (True, "ok")), etat_chemin=os.path.join(d, "e"), maintenant=5)
+        self.assertEqual(envois[0][:5], ("https://t", "freg", "M", "3-1", "+336"))
+        self.assertEqual([e[0] for e in r["envois"]], ["sms"])
