@@ -1,3 +1,15 @@
+## 2026-10-20 — Central : fin des « database is locked » (contrôle DNS des proxys d'entrée) (livraison #797)
+
+- Constat sur super : erreurs 500 en série (journal des chantiers, agents qui déposent leurs mesures ou lisent leur
+  configuration), journaux « sqlite3.OperationalError: database is locked ».
+- Cause : le contrôle DNS des proxys d'entrée (#776, toutes les 30 s) interrogeait les résolveurs (3 s chacun) en gardant
+  une écriture ouverte sur la base, puis écrivait l'événement « DNS à configurer » par une autre connexion : il
+  s'attendait lui-même 30 s, et tout le central restait bloqué pendant ce temps.
+- Correction : requêtes DNS hors de toute écriture, chaque résultat validé aussitôt, événements émis après validation ;
+  même précaution pour les événements de la maintenance des Proxmox (#705).
+- Test : `test_z_edge` vérifie qu'aucune requête DNS ne part pendant une écriture et qu'un événement écrit par une autre
+  connexion passe sans attente (vérifié ici ; à confirmer sur super : plus de « database is locked » dans les journaux).
+
 ## 2026-10-20 — Hub installable sur téléphone : écran « Urgence » et alertes poussées (livraison #796)
 
 - Le hub devient une application installable (manifeste, icônes, service worker) : sur Android « Installer

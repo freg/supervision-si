@@ -645,6 +645,8 @@ def tick(now=None, snap=None):
                 camp = _evaluated(conn, _row(conn, r["id"]), snap)
                 events = transitions(camp, now)
                 if events:
+                    if conn.in_transaction:   # #797 : l'événement s'écrit par une autre connexion -> pas d'écriture ouverte ici
+                        conn.commit()
                     for kind, sev, text in events:
                         if _db["emit"]:
                             try:

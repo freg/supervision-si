@@ -1,5 +1,11 @@
 [
  {
+  "n": 797,
+  "from": 797,
+  "date": "2026-10-20",
+  "title": "Central : fin des « database is locked » (contrôle DNS des proxys d'entrée)"
+ },
+ {
   "n": 796,
   "from": 796,
   "date": "2026-10-20",
@@ -232,11 +238,5 @@
   "from": 757,
   "date": "2026-10-14",
   "title": "Passe « pleine largeur » : toutes les tuiles utilisent la largeur du navigateur, glissières visibles partout"
- },
- {
-  "n": 756,
-  "from": 756,
-  "date": "2026-10-14",
-  "title": "Parc IA : hôtes, modèles, conteneurs, tests et activité ; gestes encadrés sur l'hôte"
  }
 ]

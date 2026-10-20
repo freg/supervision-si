@@ -399,30 +399,41 @@ def collect(conn, now):
 
 
 def check_dns(conn, now, dq=dnsq, event=None, force=False):
-    """Contrôle DNS des routes nommées dont le dernier contrôle a plus de check_minutes. -> nombre contrôlé."""
+    """Contrôle DNS des routes nommées dont le dernier contrôle a plus de check_minutes. -> nombre contrôlé.
+    #797 : jamais de requête réseau ni d'événement pendant une écriture ouverte. Les requêtes DNS (3 s par résolveur)
+    tenaient le verrou de la base, et `event` écrit par une autre connexion : attente de 30 s sur soi-même, puis
+    « database is locked » pour tout le central (agents, journal des chantiers…)."""
     st = settings(conn)
     exp = expected_ips(st, proxies(conn))
-    n = 0
+    todo = []
     for r in routes(conn):
         if not r["enabled"] or not r.get("name"):
             continue
         row = conn.execute("SELECT at, state, alerted FROM edge_dns WHERE route_id = ?", (r["id"],)).fetchone()
         if row and not force and now - (row[0] or 0) < st["check_minutes"] * 60:
             continue
-        res = dns_check_route(r, exp, st["resolvers"], dq, st["ttl"])
-        alerted = row[2] if row else None
+        todo.append((r, row[2] if row else None))
+    if not todo:
+        return 0
+    if conn.in_transaction:
+        conn.commit()
+    pending = []
+    for r, alerted in todo:
+        res = dns_check_route(r, exp, st["resolvers"], dq, st["ttl"])      # réseau : aucune écriture ouverte
         if event and res["state"] != alerted and (res["state"] in ("a_configurer", "erreur") or alerted in ("a_configurer", "erreur")):
             sev = "warning" if res["state"] in ("a_configurer", "erreur") else "info"
-            event("edge-dns", sev, ("%s : %s" % (r["name"], res["message"])) if res["state"] != "ok" else "%s : DNS conforme (%s)" % (r["name"], res["message"]),
-                  {"route": r["id"], "state": res["state"], "zone": res["zone"], "provider": res["provider"], "records": res["records"]})
+            pending.append(("edge-dns", sev, ("%s : %s" % (r["name"], res["message"])) if res["state"] != "ok" else "%s : DNS conforme (%s)" % (r["name"], res["message"]),
+                            {"route": r["id"], "state": res["state"], "zone": res["zone"], "provider": res["provider"], "records": res["records"]}))
             alerted = res["state"]
         elif res["state"] in ("ok", "propagation") and alerted not in ("a_configurer", "erreur"):
             alerted = res["state"]
         conn.execute("INSERT INTO edge_dns (route_id, at, state, data, alerted) VALUES (?, ?, ?, ?, ?) ON CONFLICT(route_id) DO UPDATE SET "
                      "at = excluded.at, state = excluded.state, data = excluded.data, alerted = excluded.alerted",
                      (r["id"], now, res["state"], json.dumps(res), alerted))
-        n += 1
-    return n
+        conn.commit()
+    for ev in pending:      # après validation : l'événement s'écrit par sa propre connexion
+        event(*ev)
+    return len(todo)
 
 
 def tick(conn, now=None, dq=dnsq, event=None):

@@ -156,10 +156,31 @@ class Parcours(unittest.TestCase):
             ep.set_settings(conn, {"dns_mode": "active", "active_proxy": "proxy-b"}, "freg")
             ep.check_dns(conn, time.time(), good, lambda *a: events.append(a))
             conn.commit()
+            # #797 : requêtes DNS et événements hors de toute écriture ouverte (sinon « database is locked » partout)
+            seen = []
+
+            class Watch(FakeDNS):
+                def query(self, server, name, qtype="A", rd=True):
+                    seen.append(conn.in_transaction)
+                    return FakeDNS.query(self, server, name, qtype, rd)
+
+            def ev_other_conn(*a):
+                c2 = __import__("sqlite3").connect(self.db, timeout=0.5)
+                try:
+                    c2.execute("INSERT INTO events (at, kind, severity, message) VALUES ('2026-01-01T00:00:00Z', 'test-lock', 'info', 'x')")
+                    c2.commit()
+                finally:
+                    c2.close()
+                events.append(a)
+            conn.execute("INSERT INTO edge_log (at, who, action, detail) VALUES ('x', 'test', 'écriture ouverte', '')")
+            n0 = len(events)
+            ep.check_dns(conn, time.time(), Watch(["198.51.100.11"], {"*": ["198.51.100.11"]}), ev_other_conn, force=True)
+            self.assertTrue(seen and not any(seen))
+            self.assertEqual(len(events), n0 + 1)
         finally:
             conn.close()
         d = self.c.get("/edge").get_json()["routes"][0]["dns"]
-        self.assertEqual((d["state"], d["data"]["expected"]), ("a_configurer", ["198.51.100.11"]))
+        self.assertEqual((d["state"], d["data"]["expected"]), ("ok", ["198.51.100.11"]))   # #797 : la zone vient d'être corrigée (Watch)
         pv = self.c.get("/edge/preview").get_json()
         self.assertIn("req.ssl_sni -i www.example.org", pv["config"])
 
