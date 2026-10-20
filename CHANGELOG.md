@@ -1,3 +1,14 @@
+## 2026-10-20 — Garde du hub : un autre hôte surveille le hub et alerte hors du hub, agent 0.5.87 (livraison #793)
+
+- Sonde **hub-watch**, à activer sur l'agent d'un AUTRE hôte que celui du hub : teste toutes les 2 min les URL du hub et
+  du central (« répond » = HTTP < 500). Après 2 échecs de suite (`--echecs`) : courriel par le sendmail de l'hôte et SMS
+  direct par la passerelle (`--sms-url-fichier`, URL avec `{numero}` / `{texte}`, sans passer par le relais hébergé sur
+  l'hôte du hub) ; rappel toutes les heures, message « rétabli » au retour. Une alerte qui n'a pas pu partir est
+  elle-même un constat critique.
+- Sens inverse : le central signale déjà tout agent qui se tait (`agent-offline`) -- les deux se surveillent.
+- Vérifié : tests de la sonde (3, dont le cycle complet panne / rappel / rétabli) et liste des sondes livrées.
+  Non vérifié en réel : envoi par le service « Post/Get » du TRB140.
+
 ## 2026-10-20 — Veilles SMS : machine sans agent (NMS) et passerelle 4G, constats critiques dans le hub, agent 0.5.86 (livraison #792)
 
 - Sonde **remote-status** (veilles distantes) : lit par ssh, avec une clé dédiée limitée à une commande `cat` côté distant,

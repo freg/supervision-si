@@ -1,5 +1,11 @@
 [
  {
+  "n": 793,
+  "from": 793,
+  "date": "2026-10-20",
+  "title": "Garde du hub : un autre hôte surveille le hub et alerte hors du hub, agent 0.5.87"
+ },
+ {
   "n": 792,
   "from": 792,
   "date": "2026-10-20",
@@ -232,11 +238,5 @@
   "from": 753,
   "date": "2026-10-14",
   "title": "Vues de parc : serveurs, postes, serveurs d'IA, postes personnels, en groupes, avec l'en-tête htop de chaque agent"
- },
- {
-  "n": 752,
-  "from": 752,
-  "date": "2026-10-14",
-  "title": "Serveur de messagerie : incidents, file d'attente, échecs de distribution, listes blanche / grise / noire, réglages antispam"
  }
 ]

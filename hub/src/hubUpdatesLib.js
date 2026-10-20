@@ -16,6 +16,7 @@ export const UPDATE_LINKS = {
   758: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   759: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   760: [{ view: "cortex", hint: "incidents « cause Wi-Fi probable »" }],
+  793: [{ view: "si-agent", hint: "Sonde hub-watch (garde du hub depuis un autre hôte, alerte hors hub)" }],
   792: [{ view: "si-agent", hint: "Sondes remote-status (veille du NMS) et sms-gateway (passerelle 4G) : constats critiques" }],
   791: [{ view: "notifications", params: { tab: "sms" }, hint: "boutons d'accès direct au relais SMS et au TRB140" }],
   790: [{ view: "notifications", params: { tab: "sms" }, hint: "les boutons de mise à jour ouvrent l'onglet concerné (ici 📱 SMS)" }, { view: "migration", params: { onglet: "MX" }, hint: "onglet MX" }],
