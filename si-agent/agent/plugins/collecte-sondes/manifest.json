@@ -1,0 +1,13 @@
+{
+  "id": "collecte-sondes",
+  "version": "1",
+  "runner": "python",
+  "entry": "collecte_sondes.py",
+  "interval_seconds": 120,
+  "timeout_seconds": 30,
+  "args": [],
+  "enabled": false,
+  "description": "Collecte des sondes radio d'un site (#806), sur l'agent du mini-PC qui porte le collecteur du site (si-collecteur, installer-collecteur.sh) : lit l'état du collecteur et remonte au hub, par l'agent du mini-PC, la dernière mesure de chaque sonde -- wifi-monitor (canaux, bornes), rf-spectrum (spectre, occupation par canal), wifi-probe (résumé du lien). Constats des sondes préfixés par leur nom, plus « sonde muette » (5 min). Alimente la tuile « Data RF ». Lecture seule. Privilégiée : l'état du collecteur n'est lisible que par root. Réglages : /etc/si-agent/collecte-sondes/args (--etat, --muette).",
+  "source": "bundled",
+  "privileged": true
+}

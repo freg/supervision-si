@@ -69,6 +69,18 @@ heure, bornes vues (BSSID, SSID, fréquence, RSSI max, stations max). Options `-
 - Contrôle sur le Pi : `iw dev alfa0 info` (type monitor), `hackrf_info`, puis l'interface du collecteur
   (mesures `plugin:wifi-monitor` chaque minute, `plugin:rf-spectrum` toutes les 2 min).
 
+## 6. Collecteur permanent sur le mini-PC du site et tuile « Data RF » (#806)
+
+Pour un suivi permanent, les sondes du site s'enrôlent au **collecteur du mini-PC** du site (déjà agent du hub), qui
+remonte leurs mesures au hub par son propre agent : rien ne transite vers le LAN du client.
+
+1. Mini-PC (root) : `sh si-agent/local-central/installer-collecteur.sh [--ref <commit>]` -- service `si-collecteur`
+   (https://<IP>:6444), jeton des sondes : `sh installer-collecteur.sh --jeton`.
+2. Sonde (root) : `systemctl disable --now si-local-central` (le collecteur intégré n'est plus utile), puis
+   `curl -fsSL -k "https://<IP du mini-PC>:6444/deploy/linux?token=<jeton>" | sh` (l'agent passe au collecteur du
+   mini-PC, avec les sondes wifi-probe, path-probe, dns-observe, wifi-monitor, rf-spectrum).
+3. Hub : fiche de l'agent du mini-PC › Sondes › activer **collecte-sondes** ; tuile **Data RF** (Thèmes › réseau).
+
 ## Limites et notes
 
 - Wi-Fi intégré (brcmfmac) : pas de mode moniteur sans firmware nexmon ; l'audit est « expérience client » (lien, survey,

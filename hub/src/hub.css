@@ -2689,3 +2689,7 @@ button[aria-busy="true"]::after { content: ""; position: absolute; right: 8px; t
 .htop-courbe svg { display: block; }
 .htop-bandeau { display: block; margin: 4px 0 8px; }
 .infra-status.near { color: inherit; }
+
+/* #806 : tuile Data RF (le reste vient des classes infra-*) */
+.datarf-axe { font-size: 10px; fill: var(--fg-muted, #9aa4b2); }
+.datarf-spectre svg { display: block; }

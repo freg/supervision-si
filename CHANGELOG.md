@@ -1,3 +1,25 @@
+## 2026-10-21 — Collecteur des sondes sur le mini-PC du site et tuile « Data RF » (livraison #806)
+
+- **`si-agent/local-central/installer-collecteur.sh`** (mini-PC du site, root) : central local des sondes en service
+  `si-collecteur` (https://<IP>:6444). Code pris sur l'archive GitHub du dépôt ; état et jeton conservés d'une mise à
+  jour à l'autre ; jeton dans `/etc/si-collecteur/env` (600), affiché seulement par `--jeton` ; archive d'agent
+  reconstruite à chaque démarrage (les sondes reçoivent la version du collecteur) ; historique JSONL seulement avec
+  `--historique`.
+- **Sonde `collecte-sondes`** (agent du mini-PC, agent 0.5.91) : lit l'état du collecteur et remonte au hub la dernière
+  mesure de chaque sonde (wifi-monitor, rf-spectrum, résumé de wifi-probe sans le voisinage). Constats des sondes
+  préfixés par leur nom, plus « sonde muette » après 5 min.
+- **Central** : `GET /datarf` (`datarf.py`) assemble les collectes des sites et les sondes enrôlées directement (la
+  mesure la plus récente l'emporte). La sonde est reconnue dans les constats notifiés et dans l'aide « rien ne remonte ».
+- **Tuile « Data RF »** (Thèmes › réseau Wi-Fi), sombre :
+  - choix de la sonde, puis : dernier contact, écoute, spectre, lien client, constats ;
+  - spectre 2,4 et 5 GHz (moyenne et pic, repères de canaux, bruit de fond) ;
+  - tableau par canal croisant l'occupation au spectre et l'occupation Wi-Fi : « brouillage ou émetteur non Wi-Fi
+    probable » si le spectre est occupé sans trafic Wi-Fi à la hauteur, et rien conclu sans écoute sur ce canal ;
+  - bornes vues (signal, clients, BSS Load, désauthentifications).
+- Vérifié : `test_collecte_sondes.py` (état, résumé, constats, script réel), `test_z_datarf.py`,
+  `datarfLib.test.mjs`, suites agent, central et hub ; tuile rendue dans un Chromium avec des données simulées, sans
+  erreur. Non vérifié : `installer-collecteur.sh` sur le mini-PC réel, réenrôlement de la sonde, tuile déployée.
+
 ## 2026-10-21 — Sonde spectre : bruit de fond à la médiane, fin de la fausse occupation (livraison #805)
 
 - Premier balayage réel (HackRF dans une PortaPack Mayhem v2.3.2, bureau) : tous les canaux 2,4 GHz paraissaient

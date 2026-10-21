@@ -1,5 +1,11 @@
 [
  {
+  "n": 806,
+  "from": 806,
+  "date": "2026-10-21",
+  "title": "Collecteur des sondes sur le mini-PC du site et tuile « Data RF »"
+ },
+ {
   "n": 805,
   "from": 805,
   "date": "2026-10-21",
@@ -232,11 +238,5 @@
   "from": 766,
   "date": "2026-10-14",
   "title": "Infra PVE / PBS : avancement des tâches Proxmox en cours (sauvegardes vzdump vers PBS)"
- },
- {
-  "n": 765,
-  "from": 765,
-  "date": "2026-10-14",
-  "title": "Rapatriement : restes sur le nœud local, conditions vérifiées et suppression validée depuis le hub"
  }
 ]

@@ -196,6 +196,7 @@ export const deleteRotation = (apiBase, id) => fetchJson(apiBase, `/rotations/${
 export const fetchRotationRuns = (apiBase, id) => fetchJson(apiBase, `/rotations/${id}/runs?limit=100`);
 export const fetchInfraOverview = (apiBase) => fetchJson(apiBase, "/infra/overview");   // #749
 export const fetchHtop = (apiBase) => fetchJson(apiBase, "/htop");   // #800 : relais si-htop
+export const fetchDataRf = (apiBase) => fetchJson(apiBase, "/datarf");   // #806 : sondes radio des sites
 export const fetchHtopHote = (apiBase, nom) => fetchJson(apiBase, `/htop/hote/${encodeURIComponent(nom)}`);
 export const fetchGuestUsage = (apiBase) => fetchJson(apiBase, "/infra/guests");   // #769 : activité des CT / VM
 export const saveGuestProfile = (apiBase, node, vmid, profile, actor) => fetchJson(apiBase, "/infra/guests/profile", json("PUT", { node, vmid, profile, actor }));

@@ -56,6 +56,7 @@ import edgepair  # noqa: E402  -- #776 : couple de proxys d'entrée interchangea
 import latency  # noqa: E402  -- #775 : latence des IP publiques (cibles, points de mesure, accès)
 import navigateurs  # noqa: E402  -- #798 : navigateurs des hôtes (écran web + automate)
 import htoprelay  # noqa: E402  -- #800 : relais si-htop (tuile htop, constats -> événements)
+import datarf  # noqa: E402  -- #806 : tuile Data RF (sondes radio des sites)
 import parcours as parcoursmod  # noqa: E402  -- #799/#800 : parcours appris, demandes en langage courant
 import journal  # noqa: E402  -- #795 : journal des chantiers (actes, surveillances, relances, interventions)
 import migrun  # noqa: E402  -- #774 : tuile « Migration 2026-2027 » (plan d'étapes, pilotage, erreurs et solutions)
@@ -1931,6 +1932,7 @@ DIAG_HINTS = {   # #763 : que faire quand une source ne remonte rien
     "plugin:gpu": "sonde gpu sur l'agent de chaque hôte à carte graphique (fiche de l'agent › Sondes, ou tuile Parc IA)",
     "plugin:docker-containers": "sonde docker-containers sur l'agent de l'hôte Docker",
     "plugin:wifi-monitor": "sonde wifi-monitor sur l'agent d'une sonde à carte Wi-Fi USB en mode moniteur (Alfa AWUS036ACM ; kit netprobe/rpi --alfa monitor)",   # #801
+    "plugin:collecte-sondes": "sonde collecte-sondes sur l'agent du mini-PC du site qui porte le collecteur (si-agent/local-central/installer-collecteur.sh), fiche de l'agent › Sondes",   # #806
     "plugin:rf-spectrum": "sonde rf-spectrum sur l'agent d'une sonde équipée d'un HackRF / PortaPack en mode HackRF (paquet hackrf ; kit netprobe/rpi --hackrf)",
     "plugin:mail-server": "sonde mail-server sur l'agent du serveur de messagerie",
     "host": "relevé de base de tout agent (agent arrêté ou injoignable si absent)",
@@ -2065,6 +2067,18 @@ def htop_tick():
         _event(kind, sev, msg, details=det, source="htop")
     if evs:
         store.set_setting(DB_PATH, "htop_constats", apres)
+
+
+@app.route("/datarf", methods=["GET"])
+def datarf_route():
+    """#806 : tuile « Data RF » -- sondes radio des sites (collecte du mini-PC de chaque site + sondes enrôlées directement)."""
+    conn = store._connect(DB_PATH)
+    try:
+        collectes = infra.latest(conn, "plugin:collecte-sondes")
+        directes = {t: infra.latest(conn, t) for t, _c in datarf.DIRECTES}
+    finally:
+        conn.close()
+    return jsonify(datarf.assembler(collectes, directes)), 200
 
 
 @app.route("/htop", methods=["GET"])
