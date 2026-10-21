@@ -2,18 +2,20 @@
 # #800 : installe l'émetteur si-htop sur l'hôte courant (VM, CT ou Proxmox), en root.
 #   sh installer-emetteur.sh --relais relais.example.org:8399 [--nom NOM] [--transit]
 # --transit (#802, sur un Proxmox) : ajoute le relais local des CT (service si-htop-transit, UDP 8399 du nœud) ; installer
-# ensuite les émetteurs des CT avec installer-invites.sh.
+# ensuite les émetteurs des CT avec installer-invites.sh. --transit-depuis IP1,IP2 : sources admises en plus des CT du
+# cluster (ex. un nœud hors cluster et ses CT qui passent par ce nœud).
 # La clé des émetteurs (HTOP_CLE_EMETTEURS du central) est demandée au clavier et écrite dans /etc/si-htop/cle (600) :
 # jamais en argument (elle resterait dans l'historique et dans ps).
 # Prérequis : python3 (3.5 ou plus), systemd. Désinstaller : systemctl disable --now si-htop-emetteur
 set -eu
 ICI=$(cd "$(dirname "$0")" && pwd)
-RELAIS="" ; NOM="" ; TRANSIT=""
+RELAIS="" ; NOM="" ; TRANSIT="" ; DEPUIS=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --relais) RELAIS="$2"; shift 2 ;;
     --nom) NOM="$2"; shift 2 ;;
     --transit) TRANSIT=1; shift ;;
+    --transit-depuis) TRANSIT=1; DEPUIS="$2"; shift 2 ;;
     *) echo "option inconnue : $1" >&2; exit 2 ;;
   esac
 done
@@ -36,7 +38,7 @@ systemctl daemon-reload
 systemctl enable si-htop-emetteur >/dev/null 2>&1
 systemctl restart si-htop-emetteur
 if [ -n "$TRANSIT" ]; then
-  { echo "SI_HTOP_RELAIS=$RELAIS" ; echo "SI_HTOP_TRANSIT=0.0.0.0:8399" ; } > /etc/si-htop/transit.env
+  { echo "SI_HTOP_RELAIS=$RELAIS" ; echo "SI_HTOP_TRANSIT=0.0.0.0:8399" ; [ -n "$DEPUIS" ] && echo "SI_HTOP_TRANSIT_DEPUIS=$DEPUIS" ; true ; } > /etc/si-htop/transit.env
   install -m 644 "$ICI/si-htop-transit.service" /etc/systemd/system/si-htop-transit.service
   systemctl daemon-reload
   systemctl enable si-htop-transit >/dev/null 2>&1
