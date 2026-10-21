@@ -76,6 +76,8 @@ def meminfo(texte):
     kv = dict((k, int(v) * 1024) for k, v in re.findall(r"^(\w+):\s+(\d+)", texte, re.M))
     tot = kv.get("MemTotal", 0)
     dispo = kv.get("MemAvailable", kv.get("MemFree", 0) + kv.get("Cached", 0))
+    if tot and dispo >= tot:   # #803 : lxcfs ancien (CT sur PVE 5.4) recopie le MemAvailable de l'hôte -> recalcul
+        dispo = min(tot, kv.get("MemFree", 0) + kv.get("Buffers", 0) + kv.get("Cached", 0))
     return {"total": tot, "used": max(0, tot - dispo), "swap_total": kv.get("SwapTotal", 0),
             "swap_used": max(0, kv.get("SwapTotal", 0) - kv.get("SwapFree", 0))}
 

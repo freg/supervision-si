@@ -48,6 +48,8 @@ class Emetteur(unittest.TestCase):
         m = em.meminfo("MemTotal: 1000 kB\nMemFree: 100 kB\nMemAvailable: 400 kB\nSwapTotal: 200 kB\nSwapFree: 50 kB\n")
         self.assertEqual(m, {"total": 1024000, "used": 614400, "swap_total": 204800, "swap_used": 153600})
         self.assertEqual(em.meminfo("MemTotal: 1000 kB\nMemFree: 100 kB\nCached: 200 kB\n")["used"], 700 * 1024)   # noyau ancien sans MemAvailable
+        lxcfs = "MemTotal: 4000 kB\nMemFree: 1000 kB\nMemAvailable: 30000000 kB\nBuffers: 0 kB\nCached: 500 kB\n"   # #803 : CT, lxcfs ancien
+        self.assertEqual(em.meminfo(lxcfs)["used"], 2500 * 1024)
         self.assertEqual(em.arc_taille("c_max 4 99\nsize                            4    8589934592\n"), 8589934592)
         self.assertEqual(em.arc_taille(""), 0)
         st = "1234 (Web Content (x)) S 1 1 1 0 -1 0 0 0 0 0 150 50 0 0 20 0 1 0 100 1000 2500 0"
