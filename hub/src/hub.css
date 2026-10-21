@@ -2740,3 +2740,26 @@ button[aria-busy="true"]::after { content: ""; position: absolute; right: 8px; t
 .veille .veille-articles td:last-child { white-space: nowrap; }
 .veille .veille-sources td:first-child { max-width: 46ch; }
 .veille .veille-sources .veille-actions { flex-wrap: wrap; justify-content: flex-start; }
+/* #815 : Migration › Préparer la réinstallation d'un nœud */
+.prep .infra-card { margin: 8px 0; }
+.prep h3 { margin: 14px 0 6px; font-size: 15px; }
+.prep-choix { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.prep-choix label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); }
+.prep-choix input { width: 110px; }
+.prep-bandeau { font-size: 16px; font-weight: 600; margin: 8px 0; }
+.prep-controles { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 8px; }
+.prep-controle { margin: 0 !important; border-left: 4px solid var(--border); }
+.prep-controle.bad { border-left-color: var(--st-critical); }
+.prep-controle.warn { border-left-color: var(--st-warning); }
+.prep-controle.good { border-left-color: var(--st-ok, #2e9e5b); }
+.prep-controle p { margin: 4px 0; }
+.prep-actions code { white-space: pre-wrap; }
+.prep-table { max-height: 46vh; }
+.prep-table td { white-space: normal; vertical-align: top; }
+.prep-ligne { cursor: pointer; }
+.prep-detail td { background: var(--bg); }
+.prep-scenario { margin: 4px 0 8px; }
+.prep-scenario ol { margin: 4px 0 0 18px; padding: 0; }
+.prep-controle { max-height: none; overflow: visible; height: auto; min-width: 0; }
+.prep-actions th, .prep-actions td { white-space: normal; }
+.prep-controle .prep-actions { display: block; overflow-x: auto; }

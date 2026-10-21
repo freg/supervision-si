@@ -221,6 +221,7 @@ export const runLatency = (apiBase, point) => fetchJson(apiBase, "/latency/run",
 export const fetchLatencyConfig = (apiBase) => fetchJson(apiBase, "/latency/config");
 export const importLatencyConfig = (apiBase, config, actor) => fetchJson(apiBase, "/latency/config", json("PUT", { ...config, actor }));
 export const fetchMigration = (apiBase) => fetchJson(apiBase, "/migration");   // #774 : tuile « Migration 2026-2027 »
+export const fetchMigrationPrep = (apiBase, qs) => fetchJson(apiBase, `/migration/preparation${qs ? `?${qs}` : ""}`);   // #815 : préparer la réinstallation d'un nœud
 export const saveMigrationPlan = (apiBase, plan, actor) => fetchJson(apiBase, "/migration/plan", json("PUT", { plan, actor }));
 export const saveMigrationVars = (apiBase, vars, actor) => fetchJson(apiBase, "/migration/vars", json("PUT", { vars, actor }));
 export const migrationControl = (apiBase, action, step, actor, onglet = "") => fetchJson(apiBase, "/migration/control", json("POST", { action, step, actor, onglet }));

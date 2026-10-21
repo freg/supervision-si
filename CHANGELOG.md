@@ -1,3 +1,48 @@
+## 2026-10-21 — Migration : préparer la réinstallation d'un nœud -- quorum, invités transférés, sauvegardes, PRA (livraison #815)
+
+- Tuile Migration, nouvelle page **« Préparer la réinstallation d'un nœud »**, à côté du plan. On y choisit le nœud à
+  réinstaller et celui qui reste, et on règle les hypothèses de débit. La page donne un verdict global : prêt / points
+  à vérifier / pas prêt.
+- **1. Quorum** :
+  - état actuel : votes, membres, QDevice ;
+  - simulation sans le nœud : dans un cluster à deux nœuds sans QDevice, le nœud restant **perd le quorum** ;
+  - actions dans l'ordre, une commande à la fois, avec la machine où la lancer : `pvecm expected 1`, contrôle,
+    `pvecm delnode`, QDevice durable ;
+  - avertissement de version : un nœud réinstallé en PVE >= 6 ne rejoint pas un cluster 5.4 ;
+  - HA.
+- **Contrôles** :
+  - invités encore sur le nœud à réinstaller, avec la décision de leur fiche (archiver / arrêter) ;
+  - réplications liées au nœud, avec la commande `pvesr delete` de chacune.
+- **2. Invités transférés et invités du nœud qui reste** :
+  - état, charge sur 24 h (CPU moyenne / pic, pic mémoire) ;
+  - erreurs et avertissements du journal sur 24 h, unités systemd en échec, taux HTTP 5xx ;
+  - verdict et raisons ;
+  - « transféré » : migration pct / qm détectée, ou case à cocher.
+- **3. Sauvegardes** :
+  - dernière sauvegarde, et s'il existe une copie qui survit à la perte du nœud (stockage partagé ou autre nœud) ;
+  - **les archives posées sur le nœud à réinstaller ne comptent pas** : elles seront effacées, et la page dit
+    combien (et quel volume) ;
+  - dernière tâche vzdump (réussie / en échec), copie tirée au LAN.
+- **4. PRA par CT / VM** :
+  - scénarios : réplica pvesr, sauvegarde hors du nœud, copie au LAN, et la sauvegarde sur le même nœud signalée comme
+    insuffisante ;
+  - **RPO** = âge de la copie ;
+  - **RTO** = taille ÷ débits + démarrage, plus le déplacement de l'IP OVH si l'invité a une MAC virtuelle, plus la
+    reprise du quorum si le cluster le perd ;
+  - étapes exactes du scénario retenu.
+- **Nouvelle sonde `pve-preflight`** (agent **0.5.95**) :
+  - sur l'agent qui joint les Proxmox (nœud local + `pve-remote.json`, comme guest-usage), un ssh par nœud, en lecture
+    seule, PVE 5.4 compris ;
+  - relève pvecm, pveversion, ha-manager, ressources du cluster, pvesm, storage.cfg, pvesr, vzdump.cron / jobs.cfg,
+    tâches, sauvegardes de chaque stockage, configuration et RRD de chaque invité ;
+  - dans l'invité démarré : journal, unités en échec, HTTP. Des nombres seulement : aucune ligne de journal ne remonte.
+- **Vérifié** :
+  - `test_pve_preflight.py`, avec un pilote bash réel exécuté de bout en bout sur de faux pvecm / pvesh / pct / qm /
+    pvesm / pvesr ;
+  - `test_z_prep.py` (quorum, contrôles, santé, sauvegardes effacées, PRA, route) ;
+  - `prepLib.test.mjs`.
+- **Non vérifié** : les sorties réelles de pve-2 et pve-3 (PVE 5.4), et le rendu dans le hub réel.
+
 ## 2026-10-21 — Veille cyber : alertes, news, impacts sur notre SI, filtres, diffusion (livraison #814)
 
 - **BACKLOG 130, tranches T1-T2**, dans vuln-api (pas de nouveau service : routes `/veille`, hub `/api/vuln/veille/`).

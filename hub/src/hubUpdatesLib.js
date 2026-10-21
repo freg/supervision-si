@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  815: [{ view: "migration", params: { page: "prep" }, hint: "Préparer la réinstallation d'un nœud : quorum, invités transférés, sauvegardes, PRA par CT / VM" }],
   814: [{ view: "veille", hint: "Nouvelle tuile : alertes, news (IA, générales, France / Europe, règlements), impacts sur notre SI, filtres et extraction, diffusion" }],
   747: [{ view: "nebula", hint: "Rapports › Occupation" }],
   748: [{ view: "pve-ops", hint: "Migration › méthode directe" }],

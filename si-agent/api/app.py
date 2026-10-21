@@ -48,6 +48,7 @@ import updates  # noqa: E402
 import pra  # noqa: E402  -- #653 : plans PRA / opérations PVE
 import maint  # noqa: E402  -- #705 : maintenance / réorganisation des Proxmox
 import migration  # noqa: E402  -- #658 : migration serveur -> virtualisation (générateur de plan)
+import prep  # noqa: E402  -- #815 : préparer la réinstallation d'un nœud (quorum, invités transférés, sauvegardes, PRA)
 import infra  # noqa: E402  -- #749 : vue d'ensemble PVE / PBS
 import views  # noqa: E402  -- #753 : vues de parc paramétrables (serveurs, postes, IA, postes personnels)
 import repatriation as repa  # noqa: E402  -- #761 : assistant de rapatriement / nettoyage d'un nœud distant
@@ -1935,6 +1936,7 @@ DIAG_HINTS = {   # #763 : que faire quand une source ne remonte rien
     "plugin:collecte-sondes": "sonde collecte-sondes sur l'agent du mini-PC du site qui porte le collecteur (si-agent/local-central/installer-collecteur.sh), fiche de l'agent › Sondes",   # #806
     "plugin:rf-spectrum": "sonde rf-spectrum sur l'agent d'une sonde équipée d'un HackRF / PortaPack en mode HackRF (paquet hackrf ; kit netprobe/rpi --hackrf)",
     "plugin:mail-server": "sonde mail-server sur l'agent du serveur de messagerie",
+    "plugin:pve-preflight": "sonde pve-preflight sur l'agent qui joint les Proxmox (nœud local + /etc/si-agent/pve-remote.json, comme guest-usage), fiche de l'agent › Sondes",   # #815
     "host": "relevé de base de tout agent (agent arrêté ou injoignable si absent)",
 }
 
@@ -2528,6 +2530,34 @@ def migration_view_route():
     finally:
         conn.close()
     return jsonify(v), 200
+
+
+@app.route("/migration/preparation", methods=["GET"])
+def migration_prep_route():
+    """#815 : ?cible=<nœud à réinstaller>&accueil=<nœud qui reste>&debit_restore=&debit_lan=&ip_min=&demarrage_min=&quorum_min=&transferes=102,119
+    -> quorum (et simulation sans la cible), contrôles « prêt à réinstaller », invités (santé, sauvegardes, PRA estimé)."""
+    conn = store._connect(DB_PATH)
+    try:
+        reports = infra.latest(conn, "plugin:pve-preflight")
+        lan = infra.latest(conn, "plugin:pulled-backups")
+        profils = guestusage.load_profiles(conn)
+    finally:
+        conn.close()
+    noms = sorted(prep.noeuds(reports))
+    cible = str(request.args.get("cible") or "") or next((n for n in noms if n.endswith("3")), noms[0] if noms else "")
+    accueil = str(request.args.get("accueil") or "") or next((n for n in noms if n != cible), "")
+    params = {}
+    for k in prep.DEFAUTS:
+        try:
+            if request.args.get(k) not in (None, ""):
+                params[k] = max(0.01, float(request.args.get(k)))
+        except ValueError:
+            return jsonify({"error": "%s : nombre attendu" % k}), 400
+    transferes = [int(x) for x in str(request.args.get("transferes") or "").split(",") if x.strip().isdigit()]
+    if not reports:
+        return jsonify({"noeuds": [], "error": "aucun relevé pve-preflight : activer la sonde pve-preflight sur l'agent qui joint les Proxmox "
+                                               "(nœud local + /etc/si-agent/pve-remote.json, comme guest-usage), fiche de l'agent › Sondes"}), 200
+    return jsonify(prep.assemble(reports, lan, profils, cible, accueil, params, transferes)), 200
 
 
 @app.route("/migration/plan", methods=["PUT"])

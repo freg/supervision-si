@@ -5,6 +5,7 @@
 // reprise, ou commande exacte à lancer et où). Données : si-agent-api /migration (sonde « migration » des agents).
 // Logique pure : migrationLib.js.
 import { useCallback, useEffect, useMemo, useState } from "react";
+import MigrationPrepView from "./MigrationPrepView.jsx";   // #815
 import { viewParams } from "./hubLinks.js";
 import { fetchMigration, saveMigrationPlan, saveMigrationVars, migrationControl } from "./siAgentClient.js";
 import {
@@ -153,6 +154,7 @@ export default function MigrationView({ onBack, siAgentApiBase, username }) {
   const [busy, setBusy] = useState(false);
   const [openStep, setOpenStep] = useState(null);
   const [tab, setTab] = useState(() => viewParams().onglet || "");   // #784 : onglet (Migration, MX…) ; #790 : ?onglet=MX
+  const [page, setPage] = useState(() => (viewParams().page === "prep" ? "prep" : "plan"));   // #815 : plan | préparation d'une réinstallation
 
   const load = useCallback(() => fetchMigration(siAgentApiBase).then((d) => { setData(d); setErr(d?.error || null); setAt(new Date()); }).catch((e) => setErr(e.message)), [siAgentApiBase]);
   useEffect(() => {
@@ -193,6 +195,11 @@ export default function MigrationView({ onBack, siAgentApiBase, username }) {
         {data?.plan && <span className="infra-muted">{data.plan.name} · {prog.done} / {prog.total} étapes · marche {RUN_LABEL[run.state] || run.state}{run.updated_by ? ` (${run.updated_by})` : ""}</span>}
         <span className="infra-muted">{at ? `mis à jour ${at.toLocaleTimeString("fr-FR")}` : "lecture…"}</span>
       </div>
+      <div className="mig-controls" role="tablist">
+        <button role="tab" aria-selected={page === "plan"} className={page === "plan" ? "" : "secondary"} onClick={() => setPage("plan")}>Plan de migration</button>
+        <button role="tab" aria-selected={page === "prep"} className={page === "prep" ? "" : "secondary"} onClick={() => setPage("prep")}>Préparer la réinstallation d'un nœud</button>
+      </div>
+      {page === "prep" ? <MigrationPrepView siAgentApiBase={siAgentApiBase} /> : <>
       {err && <p className="infra-error">{err}</p>}
       {data && !data.plan && <p className="infra-card">Aucun plan : importer le fichier <code>migration-2026.local.json</code> ci-dessous (modèle : <code>deploy/migration/plan-exemple.json</code>).</p>}
       {data?.plan && tabs.length > 1 && (
@@ -235,6 +242,7 @@ export default function MigrationView({ onBack, siAgentApiBase, username }) {
         </>
       )}
       <PlanImport onSave={savePlan} busy={busy} />
+      </>}
     </div>
   );
 }
