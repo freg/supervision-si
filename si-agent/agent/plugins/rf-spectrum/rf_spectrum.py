@@ -121,7 +121,9 @@ def collecter(bandes="2.4,5", balayages=10, lna=32, vga=20, seuil=10.0, run=lanc
     rc, out, err = run(args, timeout=90)
     mesures = lire_balayage(out)
     if not mesures:
-        return {"present": True, "hackrf": materiel, "error": "balayage vide : %s" % (err.strip().splitlines() or ["?"])[-1][:200], "alerts": []}
+        cause = (err.strip().splitlines() or ["?"])[-1][:200]   # #810 : un balayage vide est un constat (sinon la tuile n'affiche rien)
+        return {"present": True, "hackrf": materiel, "error": "balayage vide : %s" % cause,
+                "alerts": [{"code": "spectre-vide", "severity": "warning", "message": "HackRF présent mais balayage vide : %s" % cause}]}
     res_b, canaux, spectre = analyser(mesures, noms, float(seuil))
     return {"present": True, "hackrf": materiel, "bandes": res_b, "canaux": canaux,
             "spectre": spectre, "unite": "dB relatifs (non étalonnés)", "reglages": {"lna": lna, "vga": vga, "balayages": balayages, "seuil_db": seuil},

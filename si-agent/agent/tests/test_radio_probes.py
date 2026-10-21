@@ -165,6 +165,9 @@ class Spectre(unittest.TestCase):
         r = rf.collecter(bandes="2.4", run=run)
         self.assertEqual(r["hackrf"]["micrologiciel"], "2024.02.1 (API:1.08)")
         self.assertTrue(r["canaux"])
+        r = rf.collecter(run=lambda a, timeout=60: (0, "Serial number: x\n", "") if a[0] == "hackrf_info" else (1, "", "hackrf_sweep: resource busy"))
+        self.assertEqual(r["alerts"][0]["code"], "spectre-vide")                   # #810 : balayage vide signalé
+        self.assertIn("busy", r["alerts"][0]["message"])
         r = rf.collecter(run=lambda a, timeout=60: (1, "", "hackrf_open() failed: HACKRF_ERROR_NOT_FOUND (-5)"))
         self.assertFalse(r["present"])
         self.assertIn("NOT_FOUND", r["alerts"][0]["message"])

@@ -1,3 +1,10 @@
+## 2026-10-21 — Data RF en réel : le spectre qui manque dit pourquoi (livraison #810)
+
+- Premier affichage réel de sonde-3b dans Data RF (via optline1) : l'écoute Wi-Fi remonte (canaux, bornes, BSS Load),
+  mais la colonne « spectre » est restée vide sans explication. Un balayage `hackrf_sweep` vide est maintenant un
+  constat (`spectre-vide`, avec la cause), et la tuile affiche l'erreur dans l'indicateur « spectre ».
+- Vérifié : `test_radio_probes.py`.
+
 ## 2026-10-21 — Cadrage : veille cyber, impacts sur notre SI, couverture du SI (livraison #809)
 
 - `docs/veille-cyber.md` et BACKLOG 130 :
