@@ -3884,4 +3884,9 @@ hackrf` ; Linux : paquet `hackrf`) -- l'agent macOS / Linux l'emporte avec lui ;
 127.0.0.1 (spectre en direct, cascade, canaux Wi-Fi, marqueurs, enregistrement d'une session de relevés avec position
 ou nom de pièce) sans dépendre du hub, puis envoi de la session au hub (tuile Data RF, sonde « nomade ») quand le
 réseau le permet ; même famille que le client si-htop (#800). Réception seule, comme `rf-spectrum`.
+But précisé (21/10/2026) : **audit et détection en mobilité** (se promener avec le portable). À terme : se **positionner
+par triangulation** sur les bornes Wi-Fi fixes (positions connues : plan du site, fiches Nebula) et sur les sondes
+émettrices. Pistes : RSSI des balises de plusieurs bornes + modèle de propagation calibré par pièce (trilatération
+pondérée, empreintes radio relevées sur place), cohérence avec les sondes fixes qui émettent un signal connu ;
+position affichée sur le plan du bâtiment avec les relevés (spectre, occupation, bornes) qui s'y rattachent.
 
