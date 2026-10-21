@@ -80,6 +80,7 @@ remonte leurs mesures au hub par son propre agent : rien ne transite vers le LAN
    `curl -fsSL -k "https://<IP du mini-PC>:6444/deploy/linux?token=<jeton>" | sh` (l'agent passe au collecteur du
    mini-PC, avec les sondes wifi-probe, path-probe, dns-observe, wifi-monitor, rf-spectrum).
 3. Hub : fiche de l'agent du mini-PC › Sondes › activer **collecte-sondes** ; tuile **Data RF** (Thèmes › réseau).
+4. Interfaces et SSID testés (#807) : tuile Data RF › Configuration radio (clés dans le coffre, envoi par le mini-PC).
 
 ## Limites et notes
 

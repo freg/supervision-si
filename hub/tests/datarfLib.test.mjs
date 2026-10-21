@@ -28,3 +28,21 @@ test("bornes et âges", () => {
   assert.equal(fmtAge(600), "10 min");
   assert.equal(fmtAge(7200), "2 h");
 });
+
+import { roleDefaut, configInitiale, verifierConfig, suiviCommande } from "../src/datarfLib.js";
+
+test("configuration radio (#807)", () => {
+  const etat = { interfaces: [{ nom: "wlan0", type: "managed" }, { nom: "alfa0", type: "monitor" }, { nom: "wlan1", type: "managed" }],
+    reglage: { interfaces: { wlan1: "inactive" }, ssids: [{ ssid: "Ancien", actif: false }] } };
+  assert.equal(roleDefaut({ type: "monitor" }), "moniteur");
+  const c = configInitiale(etat, { interfaces: { wlan0: "client" }, ssids: [{ ssid: "Campus", acces: "wifi-campus" }] });
+  assert.deepEqual(c.interfaces, { wlan0: "client", alfa0: "moniteur", wlan1: "inactive" });
+  assert.deepEqual(c.ssids, [{ ssid: "Campus", acces: "wifi-campus", actif: true, iface: "" }]);
+  assert.deepEqual(configInitiale(etat, null).ssids, [{ ssid: "Ancien", acces: "", actif: false, iface: "" }]);
+  assert.deepEqual(verifierConfig(c), []);
+  assert.equal(verifierConfig({ interfaces: { alfa0: "moniteur" }, ssids: [{ ssid: "A", actif: true, iface: "alfa0" }, { ssid: "A" }, { ssid: " " }] }).length, 4);
+  assert.deepEqual(suiviCommande({ status: "pending" }).etat, "attente");
+  assert.deepEqual(suiviCommande({ status: "done", result: { ok: true, result: { sonde: "s", resultat: { interfaces: [] } } } }).charge, { interfaces: [] });
+  assert.deepEqual(suiviCommande({ status: "done", result: { ok: true, result: { interfaces: [1] } } }).charge, { interfaces: [1] });
+  assert.equal(suiviCommande({ status: "failed", result: { ok: false, error: "hors ligne" } }).texte, "hors ligne");
+});

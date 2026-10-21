@@ -5,6 +5,8 @@
 #   sh installer-collecteur.sh [--ref dev|<commit>] [--port 6444] [--site sondes] [--historique]
 # Code pris sur GitHub (archive du dépôt public) ; état et jeton conservés d'une mise à jour à l'autre ;
 # jeton d'enrôlement des sondes dans /etc/si-collecteur/env (600), jamais affiché sauf par --jeton.
+# #807 : interface du collecteur (état, jeton, commandes) servie au mini-PC seulement (--ui-local) ; le hub atteint les
+# sondes par l'agent du mini-PC (commande « collecteur »).
 set -eu
 REF=dev ; PORT=6444 ; SITE=sondes ; HIST="" ; MONTRER=""
 while [ $# -gt 0 ]; do
@@ -34,6 +36,7 @@ install -d -m 700 /etc/si-collecteur
 if ! grep -q '^SI_JETON=.' /etc/si-collecteur/env 2>/dev/null; then
   umask 077; echo "SI_JETON=$(python3 -c 'import secrets; print(secrets.token_hex(12))')" > /etc/si-collecteur/env
 fi
+sed -i '/^SI_PORT=/d' /etc/si-collecteur/env && echo "SI_PORT=$PORT" >> /etc/si-collecteur/env   # #807 : lu par l'agent du mini-PC (relais)
 chmod 600 /etc/si-collecteur/env
 cat > /etc/systemd/system/si-collecteur.service <<EOS
 [Unit]
@@ -43,7 +46,7 @@ Wants=network-online.target
 [Service]
 EnvironmentFile=/etc/si-collecteur/env
 WorkingDirectory=$DEST/si-agent/local-central
-ExecStart=/usr/bin/python3 local_central.py --site $SITE --port $PORT --interval 60 --rebuild-archive ${HIST:+--history auto }--token \${SI_JETON} --plugins wifi-probe,path-probe,dns-observe,wifi-monitor,rf-spectrum
+ExecStart=/usr/bin/python3 local_central.py --site $SITE --port $PORT --interval 60 --rebuild-archive --ui-local ${HIST:+--history auto }--token \${SI_JETON} --plugins wifi-probe,path-probe,dns-observe,wifi-monitor,rf-spectrum
 Restart=always
 RestartSec=5
 [Install]

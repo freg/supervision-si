@@ -33,3 +33,36 @@ def assembler(collectes, directes):
                     if isinstance(c, dict):
                         constats.append(dict(c, message="%s : %s" % (nom, c.get("message", "")), via=None))
     return {"sondes": sorted(sondes.values(), key=lambda s: str(s.get("sonde")).lower()), "constats": constats}
+
+
+ROLES = ("client", "moniteur", "inactive")
+
+
+def preparer_config(cfg, reveler):
+    """#807 : configuration radio saisie dans la tuile -> (params de wifi_config, réglage à mémoriser sans clé, erreur).
+    cfg = {interfaces: {nom: rôle}, ssids: [{ssid, acces?, actif, iface?}]} ; la clé de chaque SSID vient du coffre
+    (accès nommé `acces`, son mot de passe) ; un SSID sans accès est un réseau ouvert. reveler(nom) -> {password}."""
+    inter = {str(k): v for k, v in ((cfg or {}).get("interfaces") or {}).items() if v in ROLES}
+    ssids, memo = [], []
+    for s in (cfg or {}).get("ssids") or []:
+        if not isinstance(s, dict) or not str(s.get("ssid") or "").strip():
+            continue
+        ssid, acces = str(s["ssid"]).strip(), str(s.get("acces") or "").strip()
+        psk = ""
+        if acces and s.get("actif", True):
+            try:
+                psk = (reveler(acces) or {}).get("password") or ""
+            except Exception as e:  # noqa: BLE001 -- le message du coffre suffit
+                return None, None, "SSID « %s » : %s" % (ssid, e)
+            if not psk:
+                return None, None, "SSID « %s » : l'accès « %s » du coffre n'a pas de mot de passe" % (ssid, acces)
+        ssids.append({"ssid": ssid, "psk": psk, "actif": bool(s.get("actif", True)), "iface": str(s.get("iface") or "")})
+        memo.append({"ssid": ssid, "acces": acces, "actif": bool(s.get("actif", True)), "iface": str(s.get("iface") or "")})
+    return {"action": "appliquer", "interfaces": inter, "ssids": ssids}, {"interfaces": inter, "ssids": memo}, None
+
+
+def commande(sonde, via_agent, agent_id, params):
+    """-> (agent qui reçoit la commande, type, params) : par le collecteur du site (via_agent) ou directement."""
+    if via_agent:
+        return via_agent, "collecteur", {"action": "commande", "sonde": sonde, "type": "wifi_config", "params": params, "attendre_s": 90}
+    return agent_id, "wifi_config", params

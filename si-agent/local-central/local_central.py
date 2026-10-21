@@ -48,7 +48,7 @@ from si_agent import uploadctl as uploadctl_local  # noqa: E402
 from si_agent.imagestore import ImageStore  # noqa: E402
 
 COMMAND_TYPES = ("collect_now", "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse", "windows_update", "protection", "image_transfer", "remote_desktop",
-                 "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update")
+                 "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update", "wifi_config")   # #807
 KEPT_TASKS = 40
 MAX_EVENTS = 500
 MAX_COMMANDS = 200
@@ -169,6 +169,8 @@ def redact_params(params):
         p["autologon"] = dict(p["autologon"], password="***")
     if isinstance(p.get("share"), dict) and "password" in p["share"]:  # #635
         p["share"] = dict(p["share"], password="***")
+    if isinstance(p.get("ssids"), list):   # #807 : clés Wi-Fi d'une configuration radio
+        p["ssids"] = [dict(s, psk="***") if isinstance(s, dict) and s.get("psk") else s for s in p["ssids"]]
     return p
 
 
@@ -298,6 +300,7 @@ class Central:
     def __init__(self, args):
         self.args = args
         self.data_dir = os.path.abspath(args.data)
+        self.ui_local = bool(getattr(args, "ui_local", False))   # #807
         os.makedirs(self.data_dir, exist_ok=True)
         hist = getattr(args, "history", "") or ""
         hist = os.path.join(self.data_dir, "history.jsonl") if hist == "auto" else (os.path.abspath(hist) if hist else None)
@@ -400,6 +403,8 @@ class Handler(BaseHTTPRequestHandler):
         url = urllib.parse.urlsplit(self.path)
         path, qs = url.path, urllib.parse.parse_qs(url.query)
         parts = path.strip("/").split("/")
+        if self._ui_refusee(path):
+            return self._send(403, {"error": "interface du collecteur réservée au poste lui-même (--ui-local)"})
         if path in ("/", "/index.html"):
             return self._send(200, page_html(), "text/html; charset=utf-8")
         if path == "/ui/state":
@@ -444,10 +449,18 @@ class Handler(BaseHTTPRequestHandler):
         return self._send(404, {"error": "inconnu"})
 
     # -- POST --
+    def _ui_refusee(self, path):
+        """#807 : avec --ui-local, l'interface (état, jeton, commandes) n'est servie qu'au poste lui-même (127.0.0.1) ; les
+        sondes n'utilisent que /api/v1, /ca, /package et /deploy."""
+        return bool(getattr(self.central, "ui_local", False)) and (path in ("/", "/index.html") or path.startswith("/ui")) and \
+            self.client_address[0] not in ("127.0.0.1", "::1", "::ffff:127.0.0.1")
+
     def do_POST(self):
         c = self.central
         raw = self._body()
         path = urllib.parse.urlsplit(self.path).path
+        if self._ui_refusee(path):
+            return self._send(403, {"error": "interface du collecteur réservée au poste lui-même (--ui-local)"})
         parts = path.strip("/").split("/")
         if path == "/api/v1/enroll":
             body = self._json(raw) or {}
@@ -597,6 +610,7 @@ def main(argv=None):
     ap.add_argument("--rebuild-archive", action="store_true")
     ap.add_argument("--no-archive", action="store_true")
     ap.add_argument("--verbose", action="store_true")
+    ap.add_argument("--ui-local", action="store_true", help="#807 : interface (/, /ui/*) servie au poste lui-même seulement")
     args = ap.parse_args(argv)
     central = Central(args)
     Handler.central = central

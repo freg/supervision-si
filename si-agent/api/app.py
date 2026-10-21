@@ -2081,6 +2081,46 @@ def datarf_route():
     return jsonify(datarf.assembler(collectes, directes)), 200
 
 
+@app.route("/datarf/config", methods=["GET"])
+def datarf_config_get():
+    """#807 : configuration radio mémorisée d'une sonde (?sonde=) -- rôles des interfaces, SSID, noms d'accès du coffre (jamais de clé)."""
+    sonde = str(request.args.get("sonde") or "").strip()
+    if not re.match(r"^[A-Za-z0-9._-]{1,64}$", sonde):
+        return jsonify({"error": "sonde requise"}), 400
+    return jsonify({"sonde": sonde, "config": store.get_setting(DB_PATH, "datarf_config:" + sonde.lower(), None)}), 200
+
+
+@app.route("/datarf/config", methods=["POST"])
+def datarf_config_post():
+    """#807 : {sonde, via_agent | agent_id, action: etat | appliquer, interfaces, ssids:[{ssid, acces, actif, iface}], actor}
+    -> commande wifi_config (sonde directe) ou collecteur (sonde d'un site, par l'agent du mini-PC). Clés lues dans le coffre."""
+    b = request.get_json(silent=True) or {}
+    sonde = str(b.get("sonde") or "").strip()
+    via, aid = str(b.get("via_agent") or "").strip() or None, str(b.get("agent_id") or "").strip() or None
+    if not re.match(r"^[A-Za-z0-9._-]{1,64}$", sonde) or not (via or aid):
+        return jsonify({"error": "sonde et via_agent (collecteur du site) ou agent_id (sonde directe) requis"}), 400
+    if b.get("action") == "etat":
+        params, memo = {"action": "etat"}, None
+    else:
+        params, memo, err = datarf.preparer_config(b, reveler_acces)
+        if err:
+            return jsonify({"error": err}), 400
+    cible, ctype, cparams = datarf.commande(sonde, via, aid, params)
+    try:
+        cmd = store.create_command(DB_PATH, cible, ctype, cparams)
+    except (ValueError, KeyError) as e:
+        return jsonify({"error": str(e)}), 400
+    if cmd is None:
+        return jsonify({"error": "agent inconnu : %s" % cible}), 404
+    open_interactive(cible, 180)                     # relève rapide des commandes : la suite arrive vite
+    if memo is not None:
+        store.set_setting(DB_PATH, "datarf_config:" + sonde.lower(), memo)
+        _event("datarf-config", "info", "configuration radio de %s envoyée par %s (%d SSID actifs, %s)" % (
+            sonde, str(b.get("actor") or "?")[:64], sum(1 for s in memo["ssids"] if s["actif"]), ", ".join("%s=%s" % kv for kv in sorted(memo["interfaces"].items())) or "interfaces inchangées"),
+            details={"sonde": sonde, "via": via, "commande": (cmd or {}).get("id")})
+    return jsonify({"ok": True, "id": cmd["id"], "agent_id": cible, "type": ctype}), 201   # jamais les paramètres (clés du coffre)
+
+
 @app.route("/htop", methods=["GET"])
 def htop_route():
     """#800 : tuile « htop » -- état du relais si-htop (hôtes en direct, constats, seuils, pics 24 h)."""

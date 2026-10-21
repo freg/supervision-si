@@ -416,6 +416,12 @@ def collect(ifaces=None, connections=None, name="www.google.com", public_dns=Non
             https_url=HTTPS_URL, state_path=STATE_DEFAULT):
     result = {"plugin": "path-probe", "version": VERSION, "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     state = load_state(state_path)
+    if not connections:   # #807 : SSID actifs réglés depuis le hub (/etc/si-agent/wifi-sondes.json)
+        try:
+            reg = json.load(open("/etc/si-agent/wifi-sondes.json", encoding="utf-8"))
+            connections = [s["connexion"] for s in reg.get("ssids") or [] if s.get("actif") and s.get("connexion")]
+        except (OSError, ValueError, AttributeError, KeyError, TypeError):
+            connections = []
     conn_name, up_error = rotate_connection(connections or [], state)
     if conn_name:
         state["last_connection"] = conn_name

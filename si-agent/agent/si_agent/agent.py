@@ -894,6 +894,29 @@ class Agent(object):
                     self.event("edge", "info" if res.get("ok") else "warning", "proxy d'entrée : configuration %s%s" % (
                         "appliquée" if res.get("changed") else "inchangée", "" if res.get("ok") else " -- " + str(res.get("error"))), {"command": c.get("id"), "digest": res.get("digest")})
                 return {"ok": res.get("ok", False), "error": res.get("error"), "result": res}
+            if ctype in ("wifi_config", "collecteur"):
+                # #807 : configuration radio d'une sonde (interfaces, SSID) ; relais vers le collecteur du site (mini-PC)
+                if IS_WINDOWS:
+                    return {"ok": False, "error": "%s : Linux seulement" % ctype}
+                if self.is_blocked():
+                    return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
+                if ctype == "collecteur":
+                    from . import collectctl
+                    return collectctl.run(params)
+                import subprocess as _sp
+                from . import wificonf
+
+                def _wrun(args):
+                    try:
+                        p = _sp.run(args, capture_output=True, text=True, timeout=60)
+                        return p.returncode, p.stdout, p.stderr
+                    except (OSError, _sp.SubprocessError) as exc:
+                        return 127, "", str(exc)
+                res = wificonf.run(params, _wrun)
+                if (params or {}).get("action") == "appliquer":
+                    self.event("wifi-config", "info" if res.get("ok") else "warning", "configuration radio %s%s" % (
+                        "appliquée" if res.get("ok") else "appliquée avec erreurs", "" if res.get("ok") else " -- " + str(res.get("error"))), {"command": c.get("id")})
+                return res
             if ctype == "navigateur":
                 # #798 : navigateur de l'hôte (écran web publié par le bastion, automate Playwright local)
                 if IS_WINDOWS:

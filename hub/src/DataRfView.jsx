@@ -3,8 +3,8 @@
 // vues, lien client (wifi-probe), constats. Données : si-agent-api /datarf (collecte du mini-PC de chaque site + sondes
 // enrôlées directement). Rafraîchie toutes les 30 s.
 import { useEffect, useMemo, useState } from "react";
-import { fetchDataRf } from "./siAgentClient.js";
-import { BANDES, traces, croiser, bornes, age, fmtAge, LECTURE } from "./datarfLib.js";
+import { fetchDataRf, fetchDataRfConfig, sendDataRfConfig, fetchCommand } from "./siAgentClient.js";
+import { BANDES, traces, croiser, bornes, age, fmtAge, LECTURE, ROLES, configInitiale, verifierConfig, suiviCommande } from "./datarfLib.js";
 
 const num = (v, s = "") => (v == null ? "—" : `${Math.round(v * 10) / 10}${s}`);
 
@@ -34,7 +34,80 @@ function Pct({ v, seuil = 30, critique = 70 }) {
   return <span className="infra-meter-wrap"><span className="infra-meter"><span className={`fill ${tone}`} style={{ width: `${Math.min(100, v)}%` }} /></span><em>{num(v, " %")}{tone === "critical" ? " ⛔" : tone ? " ⚠" : ""}</em></span>;
 }
 
-export default function DataRfView({ onBack, siAgentApiBase }) {
+// #807 : configuration radio de la sonde -- rôles des interfaces, SSID testés (clé lue dans le coffre par le central),
+// envoyée par l'agent du mini-PC du site (collecteur) ou directement à la sonde ; suivi de la commande jusqu'au résultat
+function ConfigRadio({ base, s, actor }) {
+  const [cfg, setCfg] = useState(null);
+  const [etat, setEtat] = useState(null);
+  const [suivi, setSuivi] = useState(null);
+  const [msg, setMsg] = useState("");
+  const cible = s.via_agent ? { via_agent: s.via_agent } : { agent_id: s.agent_id };
+  const sonde = s.via_agent ? (s.agent_id || s.sonde) : s.sonde;
+  useEffect(() => { setCfg(null); setEtat(null); setSuivi(null); fetchDataRfConfig(base, s.sonde).then((r) => setCfg(configInitiale(null, r?.config))).catch(() => setCfg(configInitiale(null, null))); }, [base, s.sonde]);
+  const suivre = (id, quand) => {
+    let n = 0;
+    const tour = () => fetchCommand(base, id).then((c) => {
+      const sv = suiviCommande(c);
+      setSuivi(sv);
+      if (sv.etat === "attente" && n++ < 60) setTimeout(tour, 3000); else if (sv.etat === "ok") quand(sv.charge);
+    }).catch((e) => setSuivi({ etat: "ko", texte: e.message }));
+    tour();
+  };
+  const lire = () => {
+    setMsg(""); setSuivi({ etat: "attente", texte: "envoi…" });
+    sendDataRfConfig(base, { sonde, ...cible, action: "etat" }).then((r) => {
+      if (r?.error) return setSuivi({ etat: "ko", texte: r.error });
+      suivre(r.id, (charge) => { setEtat(charge); setCfg((c) => configInitiale(charge, c)); });
+    });
+  };
+  const envoyer = () => {
+    const err = verifierConfig(cfg);
+    if (err.length) return setMsg(err.join(" · "));
+    setMsg(""); setSuivi({ etat: "attente", texte: "envoi…" });
+    sendDataRfConfig(base, { sonde, ...cible, action: "appliquer", ...cfg, actor }).then((r) => {
+      if (r?.error) return setSuivi({ etat: "ko", texte: r.error });
+      suivre(r.id, (charge) => { if (charge?.etat) setEtat(charge.etat); setMsg(`${(charge?.connexions_ecrites || []).length} SSID en place, ${(charge?.connexions_retirees || []).length} retiré(s)`); });
+    });
+  };
+  if (!cfg) return null;
+  const maj = (f) => setCfg((c) => f(JSON.parse(JSON.stringify(c))));
+  const clients = Object.entries(cfg.interfaces).filter(([, r]) => r === "client").map(([n]) => n);
+  const infos = Object.fromEntries((etat?.interfaces || []).map((i) => [i.nom, i]));
+  return (
+    <figure className="infra-card datarf-config">
+      <figcaption>Configuration radio de {s.sonde} {s.via ? <span className="infra-muted">· par le collecteur de {s.via}</span> : null}</figcaption>
+      <div className="infra-top">
+        <button className="secondary" onClick={lire}>Lire les interfaces de la sonde</button>
+        <button onClick={envoyer} disabled={suivi?.etat === "attente"}>Envoyer à la sonde</button>
+        {suivi && <span className={`infra-status ${suivi.etat === "ko" ? "critical" : ""}`}>{suivi.etat === "attente" ? "⏳" : suivi.etat === "ok" ? "✔" : "⛔"} {suivi.texte}</span>}
+        {msg && <span className="infra-muted">{msg}</span>}
+      </div>
+      <table className="infra-table">
+        <thead><tr><th>Interface</th><th>Pilote</th><th>État</th><th>Rôle</th></tr></thead>
+        <tbody>{Object.keys(cfg.interfaces).length === 0 ? <tr><td colSpan={4} className="infra-muted">Interfaces inconnues : « Lire les interfaces de la sonde ».</td></tr>
+          : Object.entries(cfg.interfaces).map(([n, r]) => (
+            <tr key={n}><td>{n}</td><td>{infos[n]?.pilote || "—"}</td><td>{infos[n] ? `${infos[n].type || "?"}${infos[n].connexion ? ` · ${infos[n].connexion}` : ""}` : "—"}</td>
+              <td><select value={r} onChange={(e) => maj((c) => { c.interfaces[n] = e.target.value; return c; })}>{ROLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></td></tr>))}</tbody>
+      </table>
+      <table className="infra-table">
+        <thead><tr><th>Actif</th><th>SSID testé</th><th>Accès du coffre (clé)</th><th>Interface</th><th></th></tr></thead>
+        <tbody>{cfg.ssids.map((x, i) => (
+          <tr key={i}>
+            <td><input type="checkbox" checked={x.actif} onChange={(e) => maj((c) => { c.ssids[i].actif = e.target.checked; return c; })} aria-label={`activer ${x.ssid}`} /></td>
+            <td><input value={x.ssid} onChange={(e) => maj((c) => { c.ssids[i].ssid = e.target.value; return c; })} placeholder="SSID" /></td>
+            <td><input value={x.acces} onChange={(e) => maj((c) => { c.ssids[i].acces = e.target.value; return c; })} placeholder="nom de l'accès (vide = réseau ouvert)" /></td>
+            <td><select value={x.iface} onChange={(e) => maj((c) => { c.ssids[i].iface = e.target.value; return c; })}><option value="">automatique</option>{clients.map((n) => <option key={n} value={n}>{n}</option>)}</select></td>
+            <td><button className="secondary" onClick={() => maj((c) => { c.ssids.splice(i, 1); return c; })} aria-label={`retirer ${x.ssid}`}>✕</button></td>
+          </tr>))}
+          <tr><td colSpan={5}><button className="secondary" onClick={() => maj((c) => { c.ssids.push({ ssid: "", acces: "", actif: true, iface: "" }); return c; })}>+ SSID</button>
+            <span className="infra-muted"> Les clés restent dans le coffre (tuile Accès d'équipements) : le central les lit au moment de l'envoi, la sonde les range en fichiers lisibles par root seul.</span></td></tr>
+        </tbody>
+      </table>
+    </figure>
+  );
+}
+
+export default function DataRfView({ onBack, siAgentApiBase, username }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState(null);
   const [choix, setChoix] = useState("");
@@ -76,6 +149,7 @@ export default function DataRfView({ onBack, siAgentApiBase }) {
           <div className="infra-grid">
             {BANDES.map((b) => <Spectre key={b.nom} rf={s.rf_spectrum} bande={b} />)}
           </div>
+          <ConfigRadio base={siAgentApiBase} s={s} actor={username} />
           <div className="infra-table-wrap">
             <table className="infra-table">
               <thead><tr><th>Canal</th><th>MHz</th><th>Occupation au spectre</th><th>Occupation Wi-Fi</th><th>Trames/s</th><th>Retransmissions</th><th>Désauth.</th><th>Signal max</th><th>Lecture</th></tr></thead>

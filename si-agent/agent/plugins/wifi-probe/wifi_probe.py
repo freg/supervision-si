@@ -431,7 +431,13 @@ def save_state(path, state):
 
 
 def collect(iface=None, target=None, iperf_host=None, do_scan=True, state_path=STATE_DEFAULT):
-    iface = iface if iface and iface != "auto" else detect_iface()
+    if not iface or iface == "auto":   # #807 : interface client réglée depuis le hub (/etc/si-agent/wifi-sondes.json), sinon détection
+        try:
+            reg = json.load(open("/etc/si-agent/wifi-sondes.json", encoding="utf-8"))
+            iface = next((n for n, r in sorted((reg.get("interfaces") or {}).items()) if r == "client"), None)
+        except (OSError, ValueError, AttributeError):
+            iface = None
+    iface = iface or detect_iface()
     result = {"plugin": "wifi-probe", "version": VERSION, "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "iface": iface}
     if not iface:
         result["error"] = "aucune interface Wi-Fi (iw dev)"

@@ -197,6 +197,8 @@ export const fetchRotationRuns = (apiBase, id) => fetchJson(apiBase, `/rotations
 export const fetchInfraOverview = (apiBase) => fetchJson(apiBase, "/infra/overview");   // #749
 export const fetchHtop = (apiBase) => fetchJson(apiBase, "/htop");   // #800 : relais si-htop
 export const fetchDataRf = (apiBase) => fetchJson(apiBase, "/datarf");   // #806 : sondes radio des sites
+export const fetchDataRfConfig = (apiBase, sonde) => fetchJson(apiBase, `/datarf/config?sonde=${encodeURIComponent(sonde)}`);   // #807
+export const sendDataRfConfig = (apiBase, body) => fetchJson(apiBase, "/datarf/config", json("POST", body));
 export const fetchHtopHote = (apiBase, nom) => fetchJson(apiBase, `/htop/hote/${encodeURIComponent(nom)}`);
 export const fetchGuestUsage = (apiBase) => fetchJson(apiBase, "/infra/guests");   // #769 : activité des CT / VM
 export const saveGuestProfile = (apiBase, node, vmid, profile, actor) => fetchJson(apiBase, "/infra/guests/profile", json("PUT", { node, vmid, profile, actor }));

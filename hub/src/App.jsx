@@ -1698,7 +1698,7 @@ vm === "agent-page" ? (
       ) : vm === "latency" ? (
         <LatencyView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={username} />
       ) : vm === "datarf" ? (
-        <DataRfView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} />
+        <DataRfView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={username} />
       ) : vm === "htop" ? (
         <HtopView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} />
       ) : vm === "navigateur" ? (

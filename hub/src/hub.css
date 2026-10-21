@@ -2693,3 +2693,5 @@ button[aria-busy="true"]::after { content: ""; position: absolute; right: 8px; t
 /* #806 : tuile Data RF (le reste vient des classes infra-*) */
 .datarf-axe { font-size: 10px; fill: var(--fg-muted, #9aa4b2); }
 .datarf-spectre svg { display: block; }
+.datarf-config input:not([type=checkbox]) { width: 100%; min-width: 9em; }
+.datarf-config .infra-table { margin-top: 8px; }

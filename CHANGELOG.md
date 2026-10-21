@@ -1,3 +1,35 @@
+## 2026-10-21 — Configuration radio des sondes depuis le hub : interfaces et SSID testés (livraison #807)
+
+- **Tuile Data RF › Configuration radio** : « Lire les interfaces de la sonde » (pilote, type, connexion), puis :
+  - un rôle par interface : client, moniteur ou inactive ;
+  - une liste de SSID à tester, chacun avec un accès du coffre (sa clé) et une case pour l'activer ou le désactiver ;
+  - « Envoyer à la sonde », avec suivi de la commande jusqu'au résultat.
+- **Agent 0.5.92**, commande `wifi_config` (etat | appliquer) :
+  - un SSID actif devient une connexion NetworkManager `si-<ssid>`, écrite en keyfile 0600 (la clé n'est jamais en
+    ligne de commande), sans route par défaut ;
+  - le premier SSID de chaque interface client se connecte seul, les autres servent à la rotation de path-probe ;
+  - un SSID désactivé est retiré ; une interface moniteur ou inactive n'est pas gérée par NetworkManager ;
+  - le réglage sans clé est écrit dans `/etc/si-agent/wifi-sondes.json`, d'où wifi-probe prend son interface et
+    path-probe ses connexions.
+- **Commande `collecteur`** (agent du mini-PC) : dépose la commande d'une sonde au collecteur du site (127.0.0.1) et
+  attend son résultat (90 s au plus). Le hub n'atteint les sondes que par l'agent du mini-PC.
+- **Central** :
+  - `GET|POST /datarf/config` : clés lues dans le coffre au moment de l'envoi ; réglage mémorisé sans clé ; événement
+    `datarf-config` ;
+  - clés masquées dans toute commande renvoyée au hub (sonde directe ou relayée).
+- **Collecteur** :
+  - `--ui-local` (posé par `installer-collecteur.sh`) : l'interface, qui montre le jeton et permet de déposer des
+    commandes, n'est servie qu'au mini-PC lui-même ;
+  - port noté dans `/etc/si-collecteur/env` pour le relais ;
+  - `wifi_config` relayable, clés masquées.
+- Vérifié :
+  - `test_wificonf.py` : validation, keyfiles et droits, clés jamais en ligne de commande ni dans le réglage, retrait,
+    UUID stable, échec de connexion, relais simulé ;
+  - `test_z_datarf.py` : coffre, routes, masquage ;
+  - `datarfLib.test.mjs`, suites agent, central et hub ;
+  - panneau rendu (lecture des interfaces puis envoi) sans erreur.
+- Non vérifié : NetworkManager réel de la sonde (Debian 13), clé Wi-Fi supplémentaire, relais réel par optline1.
+
 ## 2026-10-21 — Collecteur des sondes sur le mini-PC du site et tuile « Data RF » (livraison #806)
 
 - **`si-agent/local-central/installer-collecteur.sh`** (mini-PC du site, root) : central local des sondes en service

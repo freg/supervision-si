@@ -40,3 +40,43 @@ export function age(iso, maintenant = Date.now()) {
   return Number.isFinite(t) ? Math.max(0, Math.round((maintenant - t) / 1000)) : null;
 }
 export const fmtAge = (s) => (s == null ? "—" : s < 120 ? `${s} s` : s < 7200 ? `${Math.round(s / 60)} min` : `${Math.round(s / 3600)} h`);
+
+// #807 : configuration radio d'une sonde -----------------------------------------------------------------------------
+export const ROLES = [["client", "client (connexion aux SSID testés)"], ["moniteur", "moniteur (écoute passive)"], ["inactive", "inactive"]];
+
+// Rôle proposé pour une interface jamais réglée : déjà en moniteur -> moniteur, sinon client
+export const roleDefaut = (i) => (i?.type === "monitor" ? "moniteur" : "client");
+
+// Configuration de départ : interfaces relues sur la sonde + réglage mémorisé au hub (rôles, SSID, accès du coffre)
+export function configInitiale(etat, memo) {
+  const inter = {};
+  for (const i of etat?.interfaces || []) inter[i.nom] = memo?.interfaces?.[i.nom] || etat?.reglage?.interfaces?.[i.nom] || roleDefaut(i);
+  for (const [n, r] of Object.entries(memo?.interfaces || {})) if (!(n in inter)) inter[n] = r;
+  const ssids = (memo?.ssids || etat?.reglage?.ssids || []).map((s) => ({ ssid: s.ssid, acces: s.acces || "", actif: s.actif !== false, iface: s.iface || "" }));
+  return { interfaces: inter, ssids };
+}
+
+// Vérifications avant envoi -> liste de messages (vide = envoyable)
+export function verifierConfig(cfg) {
+  const err = [], vus = new Set();
+  for (const s of cfg?.ssids || []) {
+    const n = (s.ssid || "").trim();
+    if (!n) { err.push("un SSID est vide"); continue; }
+    if (new TextEncoder().encode(n).length > 32) err.push(`SSID trop long : ${n}`);
+    if (vus.has(n)) err.push(`SSID en double : ${n}`);
+    vus.add(n);
+    if (s.iface && cfg.interfaces?.[s.iface] !== "client") err.push(`« ${n} » demande ${s.iface}, qui n'est pas en rôle client`);
+  }
+  if ((cfg?.ssids || []).some((s) => s.actif) && !Object.values(cfg?.interfaces || {}).includes("client")) err.push("aucune interface en rôle client pour tester les SSID actifs");
+  return err;
+}
+
+// Commande du central (directe ou relayée par le collecteur) -> {etat: attente|ok|ko, texte, charge}
+export function suiviCommande(c) {
+  if (!c) return { etat: "attente", texte: "envoi…", charge: null };
+  if (c.status === "pending") return { etat: "attente", texte: "en attente de l'agent", charge: null };
+  const r = c.result || {}, x = r.result || {};
+  const charge = x.resultat !== undefined ? x.resultat : x;
+  if (c.status === "done") return { etat: "ok", texte: "fait", charge };
+  return { etat: "ko", texte: r.error || x.error || "échec", charge };
+}
