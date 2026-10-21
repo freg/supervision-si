@@ -23,6 +23,8 @@ def assembler(collectes, directes):
     for tache, cle in DIRECTES:
         for aid, host, at, d in directes.get(tache) or []:
             nom = str(host or aid)
+            if tache == "plugin:wifi-probe" and nom.lower() not in sondes:
+                continue   # un poste qui n'a que la sonde client (wifi-probe) n'est pas une sonde radio : section Wi-Fi de sa fiche
             e = sondes.setdefault(nom.lower(), {"sonde": nom, "agent_id": aid, "via": None, "recu": at})
             if (e.get(cle + "_at") or "") <= (at or ""):
                 e[cle], e[cle + "_at"] = d, at

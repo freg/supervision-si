@@ -23,6 +23,8 @@ class Assemblage(unittest.TestCase):
         self.assertEqual(r["sondes"][1]["via"], None)
         self.assertEqual([c["message"] for c in r["constats"]], ["sonde-3b : canal 36 occupé", "sonde-zero : carte absente"])
         self.assertEqual(datarf.assembler([], {}), {"sondes": [], "constats": []})
+        r = datarf.assembler([], {"plugin:wifi-probe": [("i9", "i9freg", "2026-10-21T15:00:00Z", {"link": {}})]})
+        self.assertEqual(r["sondes"], [])                                       # poste avec wifi-probe seulement : pas une sonde radio
 
 
 if __name__ == "__main__":

@@ -69,7 +69,7 @@ export default function DataRfView({ onBack, siAgentApiBase }) {
               <div className="infra-kpi"><span>dernier contact</span><b>{fmtAge(s.age_s ?? age(s.recu))}</b><small>{s.ip || ""}{s.via ? ` · via ${s.via}` : ""}</small></div>
               <div className="infra-kpi"><span>écoute Wi-Fi</span><b>{s.wifi_monitor ? `${(s.wifi_monitor.canaux || []).length} canaux` : "—"}</b><small>{s.wifi_monitor ? `${bs.length} bornes · ${s.wifi_monitor.clients ?? 0} clients · ${fmtAge(age(s.wifi_monitor_at))}` : "wifi-monitor inactive"}</small></div>
               <div className="infra-kpi"><span>spectre</span><b>{s.rf_spectrum?.present === false ? "HackRF absent" : s.rf_spectrum ? `${(s.rf_spectrum.canaux || []).length} canaux` : "—"}</b><small>{s.rf_spectrum ? fmtAge(age(s.rf_spectrum_at)) : "rf-spectrum inactive"}</small></div>
-              <div className="infra-kpi"><span>lien client</span><b>{lien.connected ? `${lien.signal ?? "?"} dBm` : s.wifi_probe ? "non associé" : "—"}</b><small>{lien.ssid || ""}{lien.freq ? ` · ${lien.freq} MHz` : ""}</small></div>
+              <div className="infra-kpi"><span>lien client</span><b>{lien.connected ? `${lien.signal_dbm ?? lien.signal ?? "?"} dBm` : s.wifi_probe ? "non associé" : "—"}</b><small>{lien.ssid || ""}{lien.freq ? ` · ${lien.freq} MHz` : ""}</small></div>
               <div className="infra-kpi"><span>constats</span><b>{constats.length}</b></div>
             </div>
           </div>
