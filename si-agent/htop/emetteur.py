@@ -145,6 +145,7 @@ class Releve(object):
         self.prec_cpu, self.prec_proc, self.prec_inv, self.prec_t = {}, {}, {}, None
         self.noms, self.noms_t = {}, 0
         self.disques, self.disques_t, self.pools, self.pools_t = [], 0, [], 0
+        self.prec_swap = None
         self.boot = "%08x" % random.getrandbits(32)
         self.seq = 0
 
@@ -259,12 +260,20 @@ class Releve(object):
         mem = meminfo(lire(os.path.join(self.proc, "meminfo")))
         la = lire(os.path.join(self.proc, "loadavg")).split()
         procs, nproc = self._processus(dt)
+        vm = dict(re.findall(r"^(pswpin|pswpout) (\d+)", lire(os.path.join(self.proc, "vmstat")), re.M))   # #803 : activité du swap
+        swio = None
+        if "pswpin" in vm:
+            cur_sw = (maintenant, int(vm["pswpin"]), int(vm.get("pswpout", 0)))
+            p = self.prec_swap
+            if p and cur_sw[0] > p[0] and cur_sw[1] >= p[1] and cur_sw[2] >= p[2]:
+                swio = [round((cur_sw[1] - p[1]) / (cur_sw[0] - p[0]), 1), round((cur_sw[2] - p[2]) / (cur_sw[0] - p[0]), 1)]
+            self.prec_swap = cur_sw
         self.seq += 1
         obj = {"v": VERSION, "h": self.nom, "k": self.nature, "t": round(maintenant, 1), "b": self.boot, "s": self.seq, "n": ncpu,
                "c": c, "cc": coeurs, "io": io, "st": st, "l": [float(x) for x in la[:3]] if len(la) >= 3 else None,
                "m": [mem["total"], mem["used"], arc_taille(lire(os.path.join(self.proc, "spl/kstat/zfs/arcstats")))],
                "sw": [mem["swap_total"], mem["swap_used"]], "up": int(float((lire(os.path.join(self.proc, "uptime")).split() or ["0"])[0])),
-               "pr": procs, "np": nproc, "d": self._disques(maintenant)}
+               "pr": procs, "np": nproc, "d": self._disques(maintenant), "swio": swio}
         if self.nature == "pve":
             obj["g"] = self._invites(dt, ncpu)
             obj["z"] = self._pools(maintenant)

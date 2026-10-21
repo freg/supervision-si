@@ -1,3 +1,12 @@
+## 2026-10-21 — htop : un swap rempli mais inerte ne déclenche plus d'alerte (livraison #803)
+
+- Premier cas réel : pve-1, swap à 72 % mais `si`/`so` à 0, 21 Go disponibles (pages anciennes, surtout `snmpd` d'OB1,
+  jamais relues). Ce n'est pas un engorgement.
+- L'émetteur envoie l'activité du swap (pages entrées / sorties par seconde, `/proc/vmstat`). Le relais ne lève le
+  constat « swap » que si les échanges continuent (seuil `swap_activite`, 50 pages/s). Pour un émetteur plus ancien,
+  sans cette mesure, il faut en plus que la mémoire soit à 10 points de son seuil.
+- Vérifié : `test_htop.py` (swap inerte, ancien émetteur avec mémoire libre ou pleine, échanges continus).
+
 ## 2026-10-21 — htop des CT : relais local sur chaque Proxmox, installation des émetteurs dans les CT en une commande (livraison #802)
 
 - Les CT sortent avec leur propre IP publique, que l'entrée du routeur (limitée aux IP des nœuds) n'admet pas.

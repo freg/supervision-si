@@ -79,6 +79,7 @@ class Emetteur(unittest.TestCase):
         self.assertIsNotNone(b["c"])
         self.assertEqual(len(b["cc"]), b["n"])
         self.assertGreater(b["m"][0], 0)
+        self.assertIn("swio", b)
         self.assertTrue(b["pr"] and all(len(p) >= 4 for p in b["pr"]))
         self.assertLess(len(em.emballer(em.MAGIE, CLE_E, b)), 1400)
         self.assertEqual(rl.deballer(em.emballer(em.MAGIE, CLE_E, b), CLE_E, rl.MAGIE_E)["h"], "essai")
@@ -180,6 +181,21 @@ class Relais(unittest.TestCase):
         self.h.t += 86400
         self.r.evaluer()
         self.assertEqual(self.r.hotes, {})                            # oublié après 24 h
+
+    def test_swap_inerte_ou_actif(self):   # #803
+        def swap(s, swio=None, mem=(64e9, 20e9, 0)):
+            r = releve(t=self.h.t, s=s, mem=mem, g=[], z=[])
+            r["sw"], r["swio"] = [2e9, 1.5e9], swio
+            self.assertTrue(self.r.recevoir(em.emballer(em.MAGIE, CLE_E, r), ("192.0.2.10", 1)))
+            self.r.evaluer()
+            self.h.t += 61
+            self.r.recevoir(em.emballer(em.MAGIE, CLE_E, dict(r, s=s + 1, t=self.h.t)), ("192.0.2.10", 1))
+            return [a["code"] for a in self.r.evaluer() if a["code"].startswith("htop-swap")]
+        self.assertEqual(swap(1, [0.0, 0.0]), [])                      # 75 % mais inerte : pas de constat
+        self.assertEqual(swap(3, None), [])                            # ancien émetteur, mémoire à 31 % : pas de constat
+        self.assertEqual(swap(5, [120.0, 40.0]), ["htop-swap:pve-a"])  # échanges continus : constat
+        self.h.t += 200
+        self.assertEqual(swap(7, None, mem=(64e9, 60e9, 0)), ["htop-swap:pve-a"])   # ancien émetteur, mémoire pleine
 
     def test_historique_et_pics(self):
         for i in range(130):                                          # 130 relevés à 2 s : 4 à 5 minutes

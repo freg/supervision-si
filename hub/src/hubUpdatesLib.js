@@ -17,6 +17,7 @@ export const UPDATE_LINKS = {
   759: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   760: [{ view: "cortex", hint: "incidents « cause Wi-Fi probable »" }],
   799: [{ view: "navigateur", hint: "Navigateur des hôtes : apprendre un parcours, le rejouer avec le coffre, demande en langage courant" }],
+  803: [{ view: "htop", hint: "Constat swap seulement si le swap est réellement actif" }],
   802: [{ view: "htop", hint: "htop des CT : relais local du Proxmox, émetteurs installés dans les CT en une commande" }],
   801: [{ view: "si-agent", hint: "Sondes wifi-monitor (Alfa en écoute passive) et rf-spectrum (HackRF) : fiche de l'agent › Sondes" }],
   800: [{ view: "htop", hint: "Nouvelle tuile : htop en direct de chaque VM, CT et Proxmox (relais UDP), constats, capacité d'un nœud" }],

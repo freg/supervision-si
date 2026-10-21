@@ -25,7 +25,7 @@ from urllib.parse import unquote
 
 MAGIE_E, MAGIE_S, MAGIE_R = b"SH1E", b"SH1S", b"SH1R"
 SEUILS = {"cpu": 90, "iowait": 30, "steal": 20, "memoire": 92, "swap": 60, "charge": 2.0, "disque": 90, "pool": 85,
-          "invite_memoire": 95, "duree_s": 60, "muet_s": 30, "oubli_s": 86400}
+          "invite_memoire": 95, "swap_activite": 50, "duree_s": 60, "muet_s": 30, "oubli_s": 86400}
 CRITIQUE = {"cpu": 98, "iowait": 50, "steal": 40, "memoire": 97, "swap": 90, "charge": 4.0, "disque": 97, "pool": 95, "invite_memoire": 99}
 DERIVE_S = 300          # horloge d'un émetteur / client tolérée
 MAX_CLIENTS = 8
@@ -85,7 +85,7 @@ def consommateurs(s, cle):
 
 
 LIBELLE = {"cpu": "CPU", "iowait": "attente disque (iowait)", "steal": "temps volé par l'hyperviseur (steal)", "memoire": "mémoire",
-           "swap": "swap", "charge": "charge par cœur"}
+           "swap": "swap actif (pages échangées en continu)", "charge": "charge par cœur"}
 
 
 class Relais(object):
@@ -196,6 +196,10 @@ class Relais(object):
                         continue
                     code = "htop-%s:%s" % (cle, nom)
                     actif = code in self.actifs
+                    if cle == "swap":   # #803 : swap rempli mais inerte (pages anciennes jamais relues) = pas un engorgement
+                        act = sum(s["swio"]) if isinstance(s.get("swio"), list) else None
+                        if (act is not None and act < S["swap_activite"]) or (act is None and (r.get("memoire") or 0) < S["memoire"] - 10):
+                            continue
                     if v >= S[cle] or (actif and v >= S[cle] - (0.3 if cle == "charge" else 5)):   # hystérésis
                         unite = "" if cle == "charge" else " %"
                         vus[code] = ("critical" if v >= CRITIQUE[cle] else "warning",

@@ -1,5 +1,11 @@
 [
  {
+  "n": 803,
+  "from": 803,
+  "date": "2026-10-21",
+  "title": "htop : un swap rempli mais inerte ne déclenche plus d'alerte"
+ },
+ {
   "n": 802,
   "from": 802,
   "date": "2026-10-21",
@@ -232,11 +238,5 @@
   "from": 763,
   "date": "2026-10-14",
   "title": "État des données sur les écrans : sources, retards, erreurs, lenteur de l'API ; listes du rapatriement corrigées"
- },
- {
-  "n": 762,
-  "from": 762,
-  "date": "2026-10-14",
-  "title": "Mises à jour en pied de page du hub, avec un bouton vers chaque écran nouveau ou modifié"
  }
 ]
