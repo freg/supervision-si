@@ -62,6 +62,8 @@ def resume(s):
     """Relevé brut -> mesures utiles (mémoire hors ARC ZFS : l'ARC se réduit sous la pression)."""
     m = s.get("m") or [0, 0, 0]
     tot, used, arc = (list(m) + [0, 0, 0])[:3]
+    if s.get("k") in ("ct", "vm"):   # #803 : l'ARC vu depuis un CT est celui de l'hôte (émetteurs antérieurs)
+        arc = 0
     sw = s.get("sw") or [0, 0]
     l1 = (s.get("l") or [None])[0]
     return {"cpu": s.get("c"), "iowait": s.get("io"), "steal": s.get("st"), "memoire": pct(max(0, (used or 0) - (arc or 0)), tot),

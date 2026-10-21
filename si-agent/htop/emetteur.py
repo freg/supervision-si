@@ -273,7 +273,7 @@ class Releve(object):
         self.seq += 1
         obj = {"v": VERSION, "h": self.nom, "k": self.nature, "t": round(maintenant, 1), "b": self.boot, "s": self.seq, "n": ncpu,
                "c": c, "cc": coeurs, "io": io, "st": st, "l": [float(x) for x in la[:3]] if len(la) >= 3 else None,
-               "m": [mem["total"], mem["used"], arc_taille(lire(os.path.join(self.proc, "spl/kstat/zfs/arcstats")))],
+               "m": [mem["total"], mem["used"], arc_taille(lire(os.path.join(self.proc, "spl/kstat/zfs/arcstats"))) if self.nature in ("pve", "hote") else 0],   # #803 : dans un CT, l'ARC lu est celui de l'hôte
                "sw": [mem["swap_total"], mem["swap_used"]], "up": int(float((lire(os.path.join(self.proc, "uptime")).split() or ["0"])[0])),
                "pr": procs, "np": nproc, "d": self._disques(maintenant), "swio": swio}
         if self.nature == "pve":

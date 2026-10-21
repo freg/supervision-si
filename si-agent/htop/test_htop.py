@@ -184,6 +184,11 @@ class Relais(unittest.TestCase):
         self.r.evaluer()
         self.assertEqual(self.r.hotes, {})                            # oublié après 24 h
 
+    def test_arc_ignore_hors_hote(self):   # #803
+        r = rl.resume(dict(releve(k="ct", mem=(4e9, 0.45e9, 9e9)), sw=[0, 0]))
+        self.assertEqual(r["memoire"], 11.2)
+        self.assertEqual(rl.resume(releve(k="pve", mem=(64e9, 30e9, 10e9)))["memoire"], 31.2)
+
     def test_swap_inerte_ou_actif(self):   # #803
         def swap(s, swio=None, mem=(64e9, 20e9, 0)):
             r = releve(t=self.h.t, s=s, mem=mem, g=[], z=[])

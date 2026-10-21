@@ -5,7 +5,7 @@
 - L'émetteur envoie l'activité du swap (pages entrées / sorties par seconde, `/proc/vmstat`). Le relais ne lève le
   constat « swap » que si les échanges continuent (seuil `swap_activite`, 50 pages/s). Pour un émetteur plus ancien,
   sans cette mesure, il faut en plus que la mémoire soit à 10 points de son seuil.
-- Mémoire des CT à 0 % sur PVE 5.4 : lxcfs ancien recopie le MemAvailable de l'hôte ; recalcul (libre + tampons + cache) quand il dépasse le total.
+- Mémoire des CT à 0 % : dans un CT, `/proc/spl/kstat/zfs/arcstats` est celui de l'hôte, son ARC était retranché. ARC désormais compté seulement pour un Proxmox ou un hôte (émetteur et relais) ; par prudence, MemAvailable plus grand que le total (lxcfs ancien) est recalculé.
 - Vérifié : `test_htop.py` (swap inerte, ancien émetteur avec mémoire libre ou pleine, échanges continus ; mémoire lxcfs).
 
 ## 2026-10-21 — htop des CT : relais local sur chaque Proxmox, installation des émetteurs dans les CT en une commande (livraison #802)
