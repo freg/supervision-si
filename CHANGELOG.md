@@ -3,7 +3,9 @@
 - Premier relevé réel de la sonde-3b par le collecteur d'optline1 : wifi-monitor rendait 0 canal et 0 borne en
   0,4 s, sans explication. Les refus de `iw … set channel` sont maintenant gardés (`refus`), et le constat
   `monitor-canaux` donne la cause du premier refus.
-- Vérifié : `test_radio_probes.py`.
+- Radios bloquées par rfkill (paquet manquant au premier démarrage) : wifi-monitor et la configuration radio lèvent
+  eux-mêmes le blocage logiciel (/sys/class/rfkill), sans dépendre de l'outil.
+- Vérifié : `test_radio_probes.py` (dont le déblocage : Wi-Fi seulement, Bluetooth intact), `test_wificonf.py`.
 
 ## 2026-10-21 — Configuration radio des sondes depuis le hub : interfaces et SSID testés (livraison #807)
 

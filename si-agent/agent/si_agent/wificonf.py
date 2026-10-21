@@ -112,10 +112,27 @@ def etat(run, reglage=REGLAGE):
     return out
 
 
+def debloquer_rfkill(racine="/sys/class/rfkill"):
+    """#808 : lève le blocage logiciel (rfkill) des radios Wi-Fi -- sans l'outil rfkill (vu en réel : paquet manquant,
+    radios bloquées, « Operation not possible due to RF-kill »). -> noms débloqués. Le blocage matériel reste."""
+    out = []
+    for d in sorted(os.listdir(racine)) if os.path.isdir(racine) else []:
+        try:
+            if open(os.path.join(racine, d, "type")).read().strip() != "wlan" or open(os.path.join(racine, d, "soft")).read().strip() != "1":
+                continue
+            with open(os.path.join(racine, d, "soft"), "w") as fh:
+                fh.write("0")
+            out.append(d)
+        except OSError:
+            pass
+    return out
+
+
 def appliquer(params, run, nm_dir=NM_CONNEXIONS, nm_conf=NM_CONF, reglage=REGLAGE):
     inter, ssids, err = valider(params)
     if err:
         return {"ok": False, "error": err}
+    debloques = debloquer_rfkill() if nm_conf == NM_CONF else []
     voulues = plan(inter, ssids)
     garde = set(v[0] for v in voulues)
     ecrites, retirees = [], []
@@ -160,7 +177,7 @@ def appliquer(params, run, nm_dir=NM_CONNEXIONS, nm_conf=NM_CONF, reglage=REGLAG
     os.chmod(reglage + ".tmp", 0o644)
     os.replace(reglage + ".tmp", reglage)
     return {"ok": not erreurs, "error": "; ".join(erreurs) or None, "connexions_ecrites": ecrites, "connexions_retirees": retirees,
-            "non_gerees": non_gerees, "reglage": doc}
+            "non_gerees": non_gerees, "rfkill_leve": debloques, "reglage": doc}
 
 
 def run(params, runner):

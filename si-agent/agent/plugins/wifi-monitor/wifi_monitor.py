@@ -276,7 +276,24 @@ def choisir_iface(demande):
     return None
 
 
+def debloquer_rfkill(racine="/sys/class/rfkill"):
+    """#808 : lève le blocage logiciel (rfkill) des radios Wi-Fi -- sans l'outil rfkill (vu en réel : paquet manquant,
+    radios bloquées, « Operation not possible due to RF-kill »). -> noms débloqués. Le blocage matériel reste."""
+    out = []
+    for d in sorted(os.listdir(racine)) if os.path.isdir(racine) else []:
+        try:
+            if open(os.path.join(racine, d, "type")).read().strip() != "wlan" or open(os.path.join(racine, d, "soft")).read().strip() != "1":
+                continue
+            with open(os.path.join(racine, d, "soft"), "w") as fh:
+                fh.write("0")
+            out.append(d)
+        except OSError:
+            pass
+    return out
+
+
 def mettre_en_moniteur(iface, run=lancer):
+    debloquer_rfkill()
     rc, out, _ = run(["iw", "dev", iface, "info"])
     if "type monitor" in out:
         run(["ip", "link", "set", iface, "up"])

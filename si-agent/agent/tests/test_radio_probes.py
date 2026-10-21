@@ -40,6 +40,20 @@ def deauth(**kw):
     return rt(**kw) + b"\xc0\x00\x00\x00" + CLIENT + BSSID + BSSID + b"\x00\x00\x07\x00"
 
 
+class Rfkill(unittest.TestCase):   # #808
+    def test_deblocage_logiciel(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            for n, typ, soft in (("rfkill0", "wlan", "1"), ("rfkill1", "bluetooth", "1"), ("rfkill2", "wlan", "0")):
+                os.makedirs(os.path.join(d, n))
+                open(os.path.join(d, n, "type"), "w").write(typ + "\n")
+                open(os.path.join(d, n, "soft"), "w").write(soft + "\n")
+            self.assertEqual(wm.debloquer_rfkill(d), ["rfkill0"])
+            self.assertEqual(open(os.path.join(d, "rfkill0", "soft")).read(), "0")
+            self.assertEqual(open(os.path.join(d, "rfkill1", "soft")).read().strip(), "1")   # bluetooth intact
+            self.assertEqual(wm.debloquer_rfkill(os.path.join(d, "absent")), [])
+
+
 class Radiotap(unittest.TestCase):
     def test_entete_et_trames(self):
         lg, r = wm.radiotap(balise())
