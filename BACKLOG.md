@@ -3876,3 +3876,12 @@ Décision (21/10/2026) : **pas encore lancé** -- terminer d'abord la mise au po
 et la remontée des infos radio et Wi-Fi dans le hub. Le volet cyber est aussi à prévoir côté **hub maison**, pour y
 tester des outils d'IA et des modèles spécialisés (sécurité).
 
+### 131. Agent HackRF et client local pour poste nomade (Mac, Linux portable) -- à prévoir
+
+Demande (21/10/2026) : un « agent HackRF » utilisable sur un portable (Mac, Linux), avec une interface ou un client
+local. Pistes : la sonde `rf-spectrum` (#801/#805) tourne déjà partout où `hackrf_sweep` existe (macOS : `brew install
+hackrf` ; Linux : paquet `hackrf`) -- l'agent macOS / Linux l'emporte avec lui ; client local = page servie sur
+127.0.0.1 (spectre en direct, cascade, canaux Wi-Fi, marqueurs, enregistrement d'une session de relevés avec position
+ou nom de pièce) sans dépendre du hub, puis envoi de la session au hub (tuile Data RF, sonde « nomade ») quand le
+réseau le permet ; même famille que le client si-htop (#800). Réception seule, comme `rf-spectrum`.
+

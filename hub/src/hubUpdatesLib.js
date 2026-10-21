@@ -17,6 +17,7 @@ export const UPDATE_LINKS = {
   759: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   760: [{ view: "cortex", hint: "incidents « cause Wi-Fi probable »" }],
   799: [{ view: "navigateur", hint: "Navigateur des hôtes : apprendre un parcours, le rejouer avec le coffre, demande en langage courant" }],
+  811: [{ view: "datarf", hint: "État du réseau de sondes : Activité / RF / Wi-Fi / LAN en couleur, action à faire, liens données et configuration" }],
   807: [{ view: "datarf", hint: "Configuration radio d'une sonde : rôles des interfaces, SSID testés (clés du coffre), envoi depuis le hub" }],
   806: [{ view: "datarf", hint: "Nouvelle tuile : spectre et écoute Wi-Fi des sondes, croisement par canal, bornes, constats" }],
   803: [{ view: "htop", hint: "Constat swap seulement si le swap est réellement actif" }],

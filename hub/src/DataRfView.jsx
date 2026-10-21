@@ -4,7 +4,7 @@
 // enrôlées directement). Rafraîchie toutes les 30 s.
 import { useEffect, useMemo, useState } from "react";
 import { fetchDataRf, fetchDataRfConfig, sendDataRfConfig, fetchCommand } from "./siAgentClient.js";
-import { BANDES, traces, croiser, bornes, age, fmtAge, LECTURE, ROLES, configInitiale, verifierConfig, suiviCommande } from "./datarfLib.js";
+import { BANDES, traces, croiser, bornes, age, fmtAge, LECTURE, ROLES, configInitiale, verifierConfig, suiviCommande, etatSondes, SYMBOLE } from "./datarfLib.js";
 
 const num = (v, s = "") => (v == null ? "—" : `${Math.round(v * 10) / 10}${s}`);
 
@@ -107,11 +107,54 @@ function ConfigRadio({ base, s, actor }) {
   );
 }
 
+// #811 : état du réseau de sondes -- une ligne par sonde, colonnes Activité / RF / Wi-Fi / LAN en couleur (et symbole),
+// l'action à faire quand ça ne va pas, liens vers les données et la configuration de la sonde
+function Case({ c }) {
+  return (
+    <td className={`datarf-niv ${c.niveau}`} title={c.action || ""}>
+      <span>{SYMBOLE[c.niveau]} {c.texte}</span>
+      {c.action && c.niveau !== "ok" && <small>→ {c.action}</small>}
+    </td>
+  );
+}
+
+function ReseauSondes({ data, ouvrir }) {
+  const lignes = etatSondes(data?.sondes, data?.constats);
+  const n = (niv) => lignes.filter((l) => l.global === niv).length;
+  return (
+    <div className="infra-scroll infra-page">
+      <div className="infra-kpis"><div className="infra-kpi-group"><h3>réseau de sondes</h3>
+        <div className="infra-kpi"><span>sondes</span><b>{lignes.length}</b></div>
+        <div className="infra-kpi"><span>en ordre</span><b>{n("ok")}</b></div>
+        <div className={`infra-kpi ${n("attention") ? "warning" : ""}`}><span>à surveiller</span><b>{n("attention")}</b></div>
+        <div className={`infra-kpi ${n("critique") ? "critical" : ""}`}><span>en panne</span><b>{n("critique")}</b></div>
+      </div></div>
+      <div className="infra-table-wrap">
+        <table className="infra-table datarf-etat">
+          <thead><tr><th>Sonde</th><th>Activité</th><th>RF (spectre)</th><th>Wi-Fi (écoute, client)</th><th>LAN (chemin)</th><th>Constats</th><th></th></tr></thead>
+          <tbody>{lignes.length === 0 ? <tr><td colSpan={7} className="infra-muted">Aucune sonde.</td></tr> : lignes.map((l) => (
+            <tr key={l.sonde}>
+              <td className={`datarf-niv ${l.global}`}><b>{SYMBOLE[l.global]} {l.sonde}</b><small>{l.via ? `via ${l.via}` : "directe"}{l.ip ? ` · ${l.ip}` : ""}</small></td>
+              <Case c={l.activite} /><Case c={l.rf} /><Case c={l.wifi} /><Case c={l.lan} />
+              <td>{l.constats || "—"}</td>
+              <td><button className="secondary" onClick={() => ouvrir(l.sonde, false)}>Données</button> <button className="secondary" onClick={() => ouvrir(l.sonde, true)}>Configuration</button></td>
+            </tr>))}</tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function DataRfView({ onBack, siAgentApiBase, username }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState(null);
   const [choix, setChoix] = useState("");
   const [at, setAt] = useState(null);
+  const [onglet, setOnglet] = useState("reseau");
+  const ouvrir = (nom, config) => {
+    setChoix(nom); setOnglet("detail");
+    if (config) setTimeout(() => document.querySelector(".datarf-config")?.scrollIntoView({ behavior: "smooth" }), 300);
+  };
   useEffect(() => {
     let stop = false;
     const load = () => fetchDataRf(siAgentApiBase).then((d) => { if (!stop) { if (d?.error) setErr(d.error); else { setData(d); setErr(null); setAt(new Date()); } } }).catch((e) => !stop && setErr(e.message));
@@ -130,12 +173,14 @@ export default function DataRfView({ onBack, siAgentApiBase, username }) {
       <div className="infra-top">
         <button className="secondary" onClick={onBack}>◀ Retour</button>
         <h2>Data RF</h2>
-        {sondes.length > 0 && <select value={s?.sonde || ""} onChange={(e) => setChoix(e.target.value)} aria-label="sonde">{sondes.map((x) => <option key={x.sonde} value={x.sonde}>{x.sonde}{x.via ? ` (via ${x.via})` : ""}</option>)}</select>}
+        <div className="infra-tabs">{[["reseau", "Réseau de sondes"], ["detail", "Détail d'une sonde"]].map(([k, l]) => <button key={k} className={onglet === k ? "active" : ""} onClick={() => setOnglet(k)}>{l}</button>)}</div>
+        {onglet === "detail" && sondes.length > 0 && <select value={s?.sonde || ""} onChange={(e) => setChoix(e.target.value)} aria-label="sonde">{sondes.map((x) => <option key={x.sonde} value={x.sonde}>{x.sonde}{x.via ? ` (via ${x.via})` : ""}</option>)}</select>}
         <span className="infra-muted">{at ? `mis à jour ${at.toLocaleTimeString("fr-FR")}` : "lecture…"}</span>
       </div>
       {err && <p className="infra-error">{err}</p>}
       {data && !sondes.length && <p className="infra-muted">Aucune sonde : installer le collecteur sur le mini-PC du site (si-agent/local-central/installer-collecteur.sh), y enrôler les sondes, puis activer la sonde <code>collecte-sondes</code> sur l'agent du mini-PC (fiche de l'agent › Sondes).</p>}
-      {s && (
+      {data && onglet === "reseau" && sondes.length > 0 && <ReseauSondes data={data} ouvrir={ouvrir} />}
+      {s && onglet === "detail" && (
         <div className="infra-scroll infra-page">
           <div className="infra-kpis">
             <div className="infra-kpi-group"><h3>{s.sonde}</h3>

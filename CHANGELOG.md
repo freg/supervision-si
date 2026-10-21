@@ -1,3 +1,17 @@
+## 2026-10-21 — Data RF : état du réseau de sondes (livraison #811)
+
+- **Onglet « Réseau de sondes »** (par défaut) dans la tuile Data RF :
+  - une ligne par sonde, colonnes Activité, RF (spectre), Wi-Fi (écoute et client), LAN (chemin) et constats ;
+  - couleur **et** symbole (✔ ⚠ ⛔, — quand la sonde n'a pas l'équipement), compteurs (en ordre, à surveiller, en panne) ;
+  - pour chaque case qui ne va pas, l'action à faire : PortaPack en mode HackRF, hub USB alimenté, rfkill, rôle
+    moniteur en Configuration radio, SSID à tester, bail / DNS / HTTP en échec… ;
+  - boutons « Données » et « Configuration » vers le détail de la sonde.
+- `collecte-sondes` remonte aussi le chemin (path-probe : état global et par interface) et **l'erreur d'une sonde en
+  échec côté agent** (délai dépassé…) au lieu d'un relevé vide ; le central prend path-probe pour les sondes directes.
+- BACKLOG 131 : agent HackRF et client local pour poste nomade (Mac, Linux portable), à prévoir.
+- Vérifié : `datarfLib.test.mjs` (règles de chaque colonne, tri, compteurs), `test_collecte_sondes.py`,
+  `test_z_datarf.py` ; onglet rendu avec des données simulées (3 sondes, cas variés), passage au détail, sans erreur.
+
 ## 2026-10-21 — Data RF en réel : le spectre qui manque dit pourquoi (livraison #810)
 
 - Premier affichage réel de sonde-3b dans Data RF (via optline1) : l'écoute Wi-Fi remonte (canaux, bornes, BSS Load),

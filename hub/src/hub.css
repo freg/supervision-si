@@ -2695,3 +2695,10 @@ button[aria-busy="true"]::after { content: ""; position: absolute; right: 8px; t
 .datarf-spectre svg { display: block; }
 .datarf-config input:not([type=checkbox]) { width: 100%; min-width: 9em; }
 .datarf-config .infra-table { margin-top: 8px; }
+/* #811 : état du réseau de sondes -- couleur ET symbole (jamais la couleur seule) */
+.datarf-etat td { vertical-align: top; }
+.datarf-niv small { display: block; opacity: .85; margin-top: 2px; }
+.datarf-niv.ok > span, .datarf-niv.ok > b { color: var(--ok, #3fb950); }
+.datarf-niv.attention > span, .datarf-niv.attention > b, .datarf-niv.attention small { color: var(--warning, #d29922); }
+.datarf-niv.critique > span, .datarf-niv.critique > b, .datarf-niv.critique small { color: var(--danger, #f85149); }
+.datarf-niv.absent > span { opacity: .55; }

@@ -20,9 +20,12 @@ T0 = calendar.timegm((2026, 10, 21, 15, 0, 0))
 ETAT = {"agents": {"sonde-3b": {"hostname": "sonde-3b", "ip": "192.0.2.160", "last_seen": "2026-10-21T14:59:30Z", "site": "campus"},
                    "sonde-zero": {"hostname": "sonde-zero", "last_seen": "2026-10-21T14:40:00Z"}},
         "measurements": {"sonde-3b": {
+            "plugin:wifi-monitor": {"at": "2026-10-21T14:58:30Z", "ok": False, "error": "délai dépassé (50 s)", "data": None},
             "plugin:rf-spectrum": {"at": "2026-10-21T14:58:00Z", "data": {"canaux": [{"canal": 36, "occupation_pct": 61}], "alerts": [{"code": "spectre-occupe:36", "severity": "warning", "message": "canal 36 occupé"}]}},
             "plugin:wifi-probe": {"at": "2026-10-21T14:59:00Z", "data": {"iface": "wlan0", "link": {"connected": True, "signal": -52, "bss": {"x": 1}},
                                                                         "neighbourhood": {"radios": [1, 2, 3]}, "station": {"tx": 1}, "summary": "ok"}},
+            "plugin:path-probe": {"at": "2026-10-21T14:59:10Z", "data": {"paths": [{"iface": "eth0", "summary": {"state": "ok"}, "dns": {"x": 1}}],
+                                                                        "summary": {"state": "ok", "counts": {}}, "alerts": []}},
             "host": {"at": "x", "data": {}}}}}
 
 
@@ -33,7 +36,8 @@ class Collecte(unittest.TestCase):
         a = s[0]
         self.assertEqual((a["age_s"], a["ip"], a["rf_spectrum_at"]), (30, "192.0.2.160", "2026-10-21T14:58:00Z"))
         self.assertEqual(a["wifi_probe"], {"iface": "wlan0", "summary": "ok", "link": {"connected": True, "signal": -52}})   # voisinage, station écartés
-        self.assertNotIn("wifi_monitor", a)
+        self.assertEqual(a["wifi_monitor"], {"error": "délai dépassé (50 s)"})          # #811 : échec de l'agent remonté
+        self.assertEqual(a["path_probe"], {"summary": {"state": "ok", "counts": {}}, "paths": [{"iface": "eth0", "summary": {"state": "ok"}}]})   # #811
         self.assertEqual([x["code"] for x in c], ["sonde-3b:spectre-occupe:36", "sonde-muette:sonde-zero"])
         self.assertEqual(c[0]["message"], "sonde-3b : canal 36 occupé")
         self.assertIn("20 min", c[1]["message"])

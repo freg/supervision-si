@@ -46,3 +46,24 @@ test("configuration radio (#807)", () => {
   assert.deepEqual(suiviCommande({ status: "done", result: { ok: true, result: { interfaces: [1] } } }).charge, { interfaces: [1] });
   assert.equal(suiviCommande({ status: "failed", result: { ok: false, error: "hors ligne" } }).texte, "hors ligne");
 });
+
+import { etatSondes, caseRf, caseWifi, caseLan, caseActivite } from "../src/datarfLib.js";
+
+test("état du réseau de sondes (#811)", () => {
+  assert.equal(caseActivite({ age_s: 60 }).niveau, "ok");
+  assert.equal(caseActivite({ age_s: 4000 }).niveau, "critique");
+  assert.equal(caseRf({}).niveau, "absent");
+  assert.match(caseRf({ rf_spectrum: { present: false } }).action, /Mayhem/);
+  assert.equal(caseRf({ rf_spectrum: { error: "délai dépassé" } }).niveau, "attention");
+  assert.equal(caseRf({ rf_spectrum: { canaux: [{ canal: 36, occupation_pct: 70 }, { canal: 1, occupation_pct: 2 }] } }).niveau, "attention");
+  assert.equal(caseRf({ rf_spectrum: { canaux: [{ canal: 1, occupation_pct: 2 }] } }).texte, "1 canaux balayés");
+  assert.match(caseWifi({ wifi_monitor: { iface: "alfa0", canaux: [], refus: ["6 : Operation not possible due to RF-kill"] } }).action, /rfkill/);
+  assert.match(caseWifi({ wifi_monitor: { iface: "alfa0", canaux: [], refus: ["1 : Device or resource busy (-16)"] } }).action, /moniteur/);
+  const w = caseWifi({ wifi_monitor: { iface: "alfa0", canaux: [1, 2], bornes: [1] }, wifi_probe: { link: { connected: false } } });
+  assert.equal(w.niveau, "attention");
+  assert.match(w.texte, /2 canaux · 1 bornes · client non associé/);
+  assert.match(w.action, /Configuration radio/);
+  assert.equal(caseLan({ path_probe: { summary: { state: "critical" }, paths: [{}] } }).niveau, "critique");
+  const t = etatSondes([{ sonde: "b", age_s: 30, rf_spectrum: { canaux: [] } }, { sonde: "a", age_s: 9000 }], [{ message: "a : x" }, { message: "ab : y" }]);
+  assert.deepEqual(t.map((r) => [r.sonde, r.global, r.constats]), [["a", "critique", 1], ["b", "ok", 0]]);
+});

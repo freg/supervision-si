@@ -18,7 +18,8 @@ import time
 
 ETAT = "/opt/si-collecteur/si-agent/local-central/data/state.json"
 DOSSIER = "/etc/si-agent/collecte-sondes"
-TACHES = {"plugin:wifi-monitor": "wifi_monitor", "plugin:rf-spectrum": "rf_spectrum", "plugin:wifi-probe": "wifi_probe"}
+TACHES = {"plugin:wifi-monitor": "wifi_monitor", "plugin:rf-spectrum": "rf_spectrum", "plugin:wifi-probe": "wifi_probe",
+          "plugin:path-probe": "path_probe"}   # #811 : chemin (bail, DNS, HTTP) -- colonne LAN de l'état du réseau de sondes
 
 
 def args_locaux(argv, chemin):
@@ -52,6 +53,16 @@ def resume_probe(d):
     return out
 
 
+def resume_chemin(d):
+    """#811 : path-probe -- état global et, par chemin (interface / connexion), son état ; le détail reste sur la sonde."""
+    if not isinstance(d, dict):
+        return None
+    out = {k: d.get(k) for k in ("error", "summary", "rotated_to") if d.get(k) is not None}
+    out["paths"] = [{k: p.get(k) for k in ("iface", "connection", "up_error", "summary") if p.get(k) is not None}
+                    for p in d.get("paths") or [] if isinstance(p, dict)][:6]
+    return out
+
+
 def sondes(etat, maintenant, muette=300):
     """État du collecteur -> (sondes, constats)."""
     out, constats = [], []
@@ -66,7 +77,9 @@ def sondes(etat, maintenant, muette=300):
             if not x:
                 continue
             d = x.get("data") if isinstance(x.get("data"), dict) else {}
-            s[cle] = resume_probe(d) if cle == "wifi_probe" else d
+            if x.get("error") and not d.get("error"):   # #811 : sonde en échec côté agent (délai dépassé…) -- l'erreur remonte
+                d = dict(d, error=str(x["error"])[:300])
+            s[cle] = resume_probe(d) if cle == "wifi_probe" else resume_chemin(d) if cle == "path_probe" else d
             s[cle + "_at"] = x.get("at")
             for c in d.get("alerts") or []:
                 if isinstance(c, dict) and c.get("code"):
