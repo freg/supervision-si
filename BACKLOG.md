@@ -3872,4 +3872,7 @@ SI ; une page de couverture du SI (fusion des découvertes réseau -- IP, MAC, p
 services et des journaux à surveiller). Cadrage : `docs/veille-cyber.md` (sources ouvertes, chaîne collecte →
 enrichissement → rapprochement → diffusion, trois pages, tranches T1-T5, choix à valider). Réutilise `vuln/` (#688),
 notify-api, agents, fusion IP/MAC, service-watch, journaux, assistant IA local.
+Décision (21/10/2026) : **pas encore lancé** -- terminer d'abord la mise au point des sondes Raspberry (Pi 3B, Pi Zero 2 W)
+et la remontée des infos radio et Wi-Fi dans le hub. Le volet cyber est aussi à prévoir côté **hub maison**, pour y
+tester des outils d'IA et des modèles spécialisés (sécurité).
 
