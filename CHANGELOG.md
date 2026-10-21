@@ -1,3 +1,36 @@
+## 2026-10-21 — htop en direct : émetteur sur chaque VM / CT / Proxmox, relais UDP, constats, tuile et client terminal (livraison #800)
+
+- **Émetteur `si-agent/htop/emetteur.py`** (bibliothèque standard, Python 3.5+ : tourne sur PVE 5.4) : toutes les 2 s,
+  CPU global et par cœur, iowait, **steal** (temps volé par l'hyperviseur, vu depuis une VM), charge, mémoire avec
+  l'**ARC ZFS à part**, swap, processus les plus gourmands (sur un Proxmox : rattachés à leur CT / VM), partitions,
+  pools ZFS ; sur un Proxmox, **CPU (cœurs, % du nœud) et mémoire (totale, hors cache, limite) de chaque CT / VM**
+  lus dans les cgroups v1 et v2, avec leur nom. Envoi UDP signé (HMAC-SHA256, numéro de séquence, horloge).
+  `installer-emetteur.sh` : service systemd durci, clé demandée au clavier (`/etc/si-htop/cle`, 600).
+- **Relais `htop-relais`** (nouveau service compose, port UDP `HTOP_UDP_PORT`) : refuse paquets altérés, rejoués ou
+  hors d'heure ; garde 10 min à 2 s et 24 h par minute (moyenne, pic ; pics par invité), repris après redémarrage.
+  **Constats soutenus 60 s** avec hystérésis : CPU 90 / 98 %, iowait 30 / 50, steal 20 / 40, mémoire hors ARC 92 / 97,
+  swap 60 / 90, charge par cœur 2 / 4, partition 90 / 97, pool ZFS 85 / 95 ou non ONLINE, CT / VM à 95 / 99 % de sa
+  limite mémoire hors cache, hôte muet 30 s ; le message nomme les trois plus gros consommateurs (invités d'un
+  Proxmox, sinon processus). Seuils réglables (`HTOP_SEUILS`).
+- **Central** : `GET /htop`, `GET /htop/hote/<nom>` ; constats lus toutes les 30 s → événements `htop-alert` (gravité
+  du constat, aggravation comprise) et `htop-recovered`, relayés à notify-api (nouvelles actions de la tuile
+  Notifications).
+- **Tuile « htop »** (Thèmes › hyperviseurs) : hôtes en direct (3 s), invités rangés sous leur Proxmox, tri, niveaux
+  (jamais la couleur seule) ; détail d'un hôte : courbes 10 min et 24 h, cœurs, mémoire / swap / disques / pools,
+  invités, processus ; **Capacité** : nœud d'accueil + CT / VM cochés → CPU pic et p95, mémoire hors ARC au pic,
+  mémoire allouée, avant / après, verdict (tient / juste / ne tient pas) — pour vérifier qu'un nœud tient la charge
+  avant d'en vider un autre.
+- **Client `client.py`** (poste d'exploitation, terminal façon htop) : s'abonne au relais (aucun port à ouvrir côté
+  poste), liste, constats, détail (Entrée), tri c / m / n, signal sonore sur constat critique (`--son`, touche s),
+  mode `--texte` sans curses.
+- Vérifié : `si-agent/htop/test_htop.py` (analyse /proc, relevé réel, signature / rejeu / horloge, constats soutenus
+  et hystérésis, mémoire hors ARC, invités, hôte muet, historique et pics, persistance, abonnements et taille des
+  paquets, écrans du client, bout en bout UDP + HTTP), `si-agent/api/test_z_htop.py`, `hub/tests/htopLib.test.mjs`,
+  suite complète si-agent-api et hub ; relais + émetteur + client lancés ensemble (mode texte et curses), émetteur
+  conforme Python 3.5 (vermin).
+- Non vérifié : cgroups réels d'un Proxmox (v1 sur PVE 5.4, v2 sur PVE 7+), image Docker du relais, tuile dans le hub
+  déployé.
+
 ## 2026-10-20 — Navigateur des hôtes : apprentissage des parcours et demandes en langage courant (livraison #799)
 
 - **Apprendre** (onglet de la tuile) : « Démarrer », on fait le parcours à la main dans l'écran de l'hôte (connexion,

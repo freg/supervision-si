@@ -54,8 +54,10 @@ HUB_ACTIONS = [
     {"id": "si-agent.backup-done", "label": "Sauvegarde réussie (tâches marquées notify_ok)", "severity": "info"},
     {"id": "si-agent.probe-alert", "label": "Constat d'une sonde d'agent", "severity": "warning"},
     {"id": "si-agent.agent-offline", "label": "Agent hors ligne", "severity": "warning"},
+    {"id": "si-agent.htop-alert", "label": "Engorgement d'un hôte (htop : CPU, mémoire, swap, iowait, steal, disque, hôte muet)", "severity": "warning"},   # #800
+    {"id": "si-agent.htop-recovered", "label": "Fin d'un engorgement (htop)", "severity": "info"},
 ]
-ALWAYS_RELAY = {"backup-alert", "backup-recovered", "backup-done"}
+ALWAYS_RELAY = {"backup-alert", "backup-recovered", "backup-done", "htop-recovered"}
 
 
 def hub_action(event):

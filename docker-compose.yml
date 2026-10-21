@@ -1388,6 +1388,9 @@ services:
       # #799 : parcours appris -- identifiant et mot de passe pris dans le coffre au moment du jeu (jeton interne)
       - CREDENTIALS_API_URL=http://credentials-api:5000
       - CREDENTIALS_INTERNAL_TOKEN=${CREDENTIALS_INTERNAL_TOKEN:-}
+      # #800 : relais si-htop (tuile htop ; constats lus toutes les 30 s -> journal et notifications)
+      - HTOP_RELAIS_URL=http://htop-relais:8400
+      - HTOP_JETON_INTERNE=${HTOP_JETON_INTERNE:-}
       - SI_AGENT_ALERT_TZ=${SI_AGENT_ALERT_TZ:-Europe/Paris}   # #607 : heures ouvrées des filtres d'alertes
       - MEMCACHED_HOST=memcached
       # URL que les agents utilisent pour joindre le central (passerelle
@@ -1432,6 +1435,24 @@ services:
       - memcached
     ports:
       - "${SI_AGENT_API_PORT:-6129}:5000"
+
+  htop-relais:
+    # Livraison #800 -- relais si-htop : reçoit en UDP les relevés signés des émetteurs (VM, CT, Proxmox ; toutes les
+    # 2 s), garde l'état et 24 h d'historique, calcule les constats soutenus, les sert à si-agent-api (HTTP interne,
+    # jeton) et les diffuse aux clients UDP abonnés (poste d'exploitation). Voir si-agent/htop/README.md.
+    build:
+      context: .
+      dockerfile: si-agent/htop/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ${SI_AGENT_DATA_DIR:-./si-agent/data}/htop:/data
+    environment:
+      - HTOP_CLE_EMETTEURS=${HTOP_CLE_EMETTEURS:-}
+      - HTOP_CLE_CLIENTS=${HTOP_CLE_CLIENTS:-}
+      - HTOP_JETON_INTERNE=${HTOP_JETON_INTERNE:-}
+      - HTOP_SEUILS=${HTOP_SEUILS:-}
+    ports:
+      - "${HTOP_UDP_PORT:-8399}:8399/udp"
 
   si-proxy:
     # Livraison #452 (backlog) -- bastion RÉSERVÉ à freg : aiguilleur TLS

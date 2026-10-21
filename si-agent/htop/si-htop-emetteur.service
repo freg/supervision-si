@@ -1,0 +1,20 @@
+# #800 : émetteur si-htop -- relevé toutes les 2 s envoyé en UDP signé au relais (lecture seule de /proc, cgroups, /etc/pve)
+[Unit]
+Description=si-htop emetteur (releve htop vers le relais de supervision)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+EnvironmentFile=/etc/si-htop/emetteur.env
+ExecStart=/usr/bin/python3 -u /usr/local/lib/si-htop/emetteur.py
+Restart=always
+RestartSec=5
+Nice=10
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+MemoryLimit=64M
+
+[Install]
+WantedBy=multi-user.target

@@ -55,6 +55,7 @@ import guestusage  # noqa: E402  -- #769 : activité des CT / VM de tous les Pro
 import edgepair  # noqa: E402  -- #776 : couple de proxys d'entrée interchangeables (routes, bascule, contrôle DNS)
 import latency  # noqa: E402  -- #775 : latence des IP publiques (cibles, points de mesure, accès)
 import navigateurs  # noqa: E402  -- #798 : navigateurs des hôtes (écran web + automate)
+import htoprelay  # noqa: E402  -- #800 : relais si-htop (tuile htop, constats -> événements)
 import parcours as parcoursmod  # noqa: E402  -- #799/#800 : parcours appris, demandes en langage courant
 import journal  # noqa: E402  -- #795 : journal des chantiers (actes, surveillances, relances, interventions)
 import migrun  # noqa: E402  -- #774 : tuile « Migration 2026-2027 » (plan d'étapes, pilotage, erreurs et solutions)
@@ -202,6 +203,10 @@ def _watchdog_loop():
                 _c.close()
         except Exception as exc:  # noqa: BLE001
             _log.warning("proxys d'entrée : %s", exc)
+        try:
+            htop_tick()                    # #800 : constats du relais si-htop -> journal et notifications
+        except Exception as exc:  # noqa: BLE001
+            _log.warning("htop : %s", exc)
 
 
 if os.environ.get("SI_AGENT_PURGE_THREAD", "1") == "1":
@@ -2040,6 +2045,38 @@ def infra_overview_route():
     finally:
         conn.close()
     return jsonify(infra.overview(*args)), 200
+
+
+HTOP_RELAIS_URL = os.environ.get("HTOP_RELAIS_URL", "")
+HTOP_JETON_INTERNE = os.environ.get("HTOP_JETON_INTERNE", "")
+
+
+def htop_tick():
+    """#800 : constats du relais si-htop apparus / aggravés -> « htop-alert », disparus -> « htop-recovered »."""
+    if not HTOP_RELAIS_URL:
+        return
+    code, d = htoprelay.lire(HTOP_RELAIS_URL, HTOP_JETON_INTERNE, "/constats")
+    if code != 200:
+        return
+    evs, apres = htoprelay.transitions(store.get_setting(DB_PATH, "htop_constats", {}) or {}, d.get("constats"))
+    for kind, sev, msg, det in evs:
+        _event(kind, sev, msg, details=det, source="htop")
+    if evs:
+        store.set_setting(DB_PATH, "htop_constats", apres)
+
+
+@app.route("/htop", methods=["GET"])
+def htop_route():
+    """#800 : tuile « htop » -- état du relais si-htop (hôtes en direct, constats, seuils, pics 24 h)."""
+    code, d = htoprelay.lire(HTOP_RELAIS_URL, HTOP_JETON_INTERNE, "/etat")
+    return jsonify(d), code
+
+
+@app.route("/htop/hote/<nom>", methods=["GET"])
+def htop_hote_route(nom):
+    """#800 : détail d'un hôte (courbes 10 min et 24 h, processus, invités)."""
+    code, d = htoprelay.lire(HTOP_RELAIS_URL, HTOP_JETON_INTERNE, htoprelay.chemin_hote(nom))
+    return jsonify(d), code
 
 
 @app.route("/infra/guests", methods=["GET"])

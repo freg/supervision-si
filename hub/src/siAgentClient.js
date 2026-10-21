@@ -195,6 +195,8 @@ export const saveRotation = (apiBase, body, id) => fetchJson(apiBase, id ? `/rot
 export const deleteRotation = (apiBase, id) => fetchJson(apiBase, `/rotations/${id}`, { method: "DELETE" });
 export const fetchRotationRuns = (apiBase, id) => fetchJson(apiBase, `/rotations/${id}/runs?limit=100`);
 export const fetchInfraOverview = (apiBase) => fetchJson(apiBase, "/infra/overview");   // #749
+export const fetchHtop = (apiBase) => fetchJson(apiBase, "/htop");   // #800 : relais si-htop
+export const fetchHtopHote = (apiBase, nom) => fetchJson(apiBase, `/htop/hote/${encodeURIComponent(nom)}`);
 export const fetchGuestUsage = (apiBase) => fetchJson(apiBase, "/infra/guests");   // #769 : activité des CT / VM
 export const saveGuestProfile = (apiBase, node, vmid, profile, actor) => fetchJson(apiBase, "/infra/guests/profile", json("PUT", { node, vmid, profile, actor }));
 export const fetchEdge = (apiBase) => fetchJson(apiBase, "/edge");   // #776 : proxys d'entrée
