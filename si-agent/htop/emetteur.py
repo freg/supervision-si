@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """si-htop : émetteur (#800). Relevé « htop » de l'hôte toutes les 2 s envoyé en UDP signé (HMAC-SHA256) à un ou
-plusieurs relais. Autonome : bibliothèque standard seule, compatible Python 3.5 (Proxmox VE 5.4 / Debian 9).
+plusieurs relais. Autonome : bibliothèque standard seule, compatible Python 3.4 (Debian 8 dans un CT) et 3.5 (Proxmox VE 5.4 / Debian 9).
 
 Relevé : CPU global et par cœur, iowait, steal (VM : temps volé par l'hyperviseur), charge, mémoire, swap, tâches,
 processus les plus gourmands (CPU puis mémoire), partitions (toutes les 30 s), pools ZFS et ARC (Proxmox, toutes
@@ -9,6 +9,9 @@ les 60 s) et, sur un Proxmox, consommation de chaque CT / VM lue dans les cgroup
 
 Usage : emetteur.py --relais hote:8399[,hote2:8399] --cle-fichier /etc/si-htop/cle [--nom N] [--periode 2]
         emetteur.py --afficher           (un relevé JSON sur la sortie standard, rien n'est envoyé)
+        emetteur.py --transit 0.0.0.0:8399 --relais hote:8399   (#802, sur un Proxmox : relaie vers le relais les paquets
+            des émetteurs de ses CT, qui sortent avec leur propre IP publique alors que l'entrée du routeur n'accepte
+            que celles des nœuds ; sources admises : IP déclarées dans les CT du nœud, plus --transit-depuis)
 Paquet : b"SH1E" + HMAC-SHA256(clé, magie + corps)[:16] + zlib(JSON)."""
 import argparse
 import glob
@@ -232,9 +235,10 @@ class Releve(object):
         if self.nature != "pve" or (maintenant - self.pools_t < 60 and self.pools_t) or not shutil.which("zpool"):
             return self.pools
         try:
-            p = subprocess.run(["zpool", "list", "-Hp", "-o", "name,size,alloc,health"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=8)
+            p = subprocess.Popen(["zpool", "list", "-Hp", "-o", "name,size,alloc,health"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            sortie = p.communicate(timeout=8)[0]
             out = []
-            for ligne in p.stdout.decode("utf-8", "replace").splitlines():
+            for ligne in sortie.decode("utf-8", "replace").splitlines():
                 f = ligne.split("\t")
                 if len(f) == 4 and f[1].isdigit():
                     out.append([f[0], int(f[1]), int(f[2]), f[3]])
@@ -278,6 +282,64 @@ def cibles(spec):
     return out
 
 
+def ip_des_invites(confs):
+    """Textes des configurations de CT (/etc/pve/lxc/*.conf) -> IP v4 déclarées (net*: ...,ip=a.b.c.d/nn) : sources admises en transit."""
+    out = set()
+    for t in confs:
+        out.update(re.findall(r"^net\d+:.*?\bip=(\d+\.\d+\.\d+\.\d+)", t or "", re.M))
+    return out
+
+
+def admis(ip, connues, depuis):
+    """Source admise : IP d'un CT du nœud, ou dans --transit-depuis (IP ou réseau a.b.c.d/nn)."""
+    if ip in connues:
+        return True
+    try:
+        import ipaddress
+        a = ipaddress.ip_address(ip)
+        return any(a in ipaddress.ip_network(d, strict=False) for d in depuis)
+    except ValueError:
+        return False
+
+
+def transit(ecoute, dest, depuis, duree=None):
+    """Relaie tel quel vers le relais chaque paquet SH1E reçu d'une source admise (le relais vérifie la signature)."""
+    h, _, p = ecoute.rpartition(":")
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.bind((h or "0.0.0.0", int(p)))
+    s.settimeout(1)
+    sortie = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    connues, lu, adresses, resolu, debut, compte = set(), 0, [], 0, time.time(), {"relayes": 0, "refuses": 0}
+    while duree is None or time.time() - debut < duree:
+        t = time.time()
+        if t - lu > 60:
+            connues = ip_des_invites(lire(c) for c in glob.glob("/etc/pve/lxc/*.conf"))
+            lu = t
+        if t - resolu > 60:
+            adresses = []
+            for hh, pp in dest:
+                try:
+                    adresses.append(socket.getaddrinfo(hh, pp, socket.AF_INET, socket.SOCK_DGRAM)[0][4])
+                except (OSError, socket.gaierror) as e:
+                    sys.stderr.write("relais %s introuvable : %s\n" % (hh, e))
+            resolu = t
+        try:
+            paquet, (ip, _) = s.recvfrom(65535)
+        except socket.timeout:
+            continue
+        if paquet[:4] != MAGIE or not admis(ip, connues, depuis):
+            compte["refuses"] += 1
+            continue
+        for ad in adresses:
+            try:
+                sortie.sendto(paquet, ad)
+                compte["relayes"] += 1
+            except OSError as e:
+                sys.stderr.write("transit vers %s : %s\n" % (ad, e))
+    s.close()
+    return compte
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="si-htop : émetteur UDP (#800)")
     ap.add_argument("--relais", default=os.environ.get("SI_HTOP_RELAIS", ""))
@@ -285,7 +347,16 @@ def main(argv=None):
     ap.add_argument("--nom", default=os.environ.get("SI_HTOP_NOM") or None)
     ap.add_argument("--periode", type=float, default=2.0)
     ap.add_argument("--afficher", action="store_true", help="un relevé JSON sur la sortie standard, rien n'est envoyé")
+    ap.add_argument("--transit", default=os.environ.get("SI_HTOP_TRANSIT", ""), help="adresse:port d'écoute du relais local des CT (#802)")
+    ap.add_argument("--transit-depuis", default=os.environ.get("SI_HTOP_TRANSIT_DEPUIS", ""), help="IP ou réseaux admis en plus des CT (virgules)")
     a = ap.parse_args(argv)
+    if a.transit:
+        dest = cibles(a.relais)
+        if not dest:
+            sys.stderr.write("aucun relais (--relais hote:port)\n")
+            return 2
+        transit(a.transit, dest, [d.strip() for d in a.transit_depuis.split(",") if d.strip()])
+        return 0
     r = Releve(a.nom)
     if a.afficher:
         r.mesurer()

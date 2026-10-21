@@ -1,5 +1,11 @@
 [
  {
+  "n": 802,
+  "from": 802,
+  "date": "2026-10-21",
+  "title": "htop des CT : relais local sur chaque Proxmox, installation des émetteurs dans les CT en une commande"
+ },
+ {
   "n": 801,
   "from": 801,
   "date": "2026-10-21",
@@ -232,11 +238,5 @@
   "from": 762,
   "date": "2026-10-14",
   "title": "Mises à jour en pied de page du hub, avec un bouton vers chaque écran nouveau ou modifié"
- },
- {
-  "n": 761,
-  "from": 761,
-  "date": "2026-10-14",
-  "title": "Assistant de rapatriement d'un nœud distant : six étapes, synoptique en bandeau, avancement mesuré"
  }
 ]

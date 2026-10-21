@@ -1,3 +1,16 @@
+## 2026-10-21 — htop des CT : relais local sur chaque Proxmox, installation des émetteurs dans les CT en une commande (livraison #802)
+
+- Les CT sortent avec leur propre IP publique, que l'entrée du routeur (limitée aux IP des nœuds) n'admet pas.
+  **`emetteur.py --transit`** (service `si-htop-transit`, `installer-emetteur.sh --transit`) relaie tels quels vers le
+  relais central les relevés reçus des CT du nœud. Sources admises : IP déclarées dans `/etc/pve/lxc/*.conf`
+  (relues toutes les minutes) et `SI_HTOP_TRANSIT_DEPUIS`. Le relais central vérifie toujours les signatures.
+- **`installer-invites.sh`** (sur le nœud) : émetteur installé dans tous les CT en marche (ou `--ids`), fichiers et
+  clé du nœud poussés par `pct push`, émetteur dirigé vers le relais local. Les CT sans python3 ≥ 3.4 ou sans systemd
+  sont ignorés et signalés.
+- Émetteur compatible **Python 3.4** (CT Debian 8) : plus de `subprocess.run`.
+- Vérifié : `test_htop.py` (sources admises, transit réel en UDP local : relevé relayé intact, paquet étranger
+  refusé), vermin (3.3+), syntaxe des scripts. Non vérifié : `pct push` / `pct exec` sur les nœuds réels.
+
 ## 2026-10-21 — Sonde Raspberry Pi 3B : écoute Wi-Fi passive (Alfa AWUS036ACM) et spectre radio (HackRF / PortaPack) (livraison #801)
 
 - **Kit `netprobe/rpi`** : `make-boot-files.sh --alfa monitor|client --hackrf` ; au premier démarrage, la carte Alfa

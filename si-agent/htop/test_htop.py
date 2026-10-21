@@ -84,6 +84,38 @@ class Emetteur(unittest.TestCase):
         self.assertEqual(rl.deballer(em.emballer(em.MAGIE, CLE_E, b), CLE_E, rl.MAGIE_E)["h"], "essai")
 
 
+class Transit(unittest.TestCase):   # #802
+    def test_sources_admises(self):
+        confs = ["net0: name=eth0,bridge=vmbr0,gw=192.0.2.254,hwaddr=02:00:00:00:00:01,ip=198.51.100.7/32,type=veth\n[snap]\nnet0: name=eth0,ip=198.51.100.9/24",
+                 "net0: name=eth0,bridge=vmbr0,ip=dhcp", None]
+        ips = em.ip_des_invites(confs)
+        self.assertEqual(ips, {"198.51.100.7", "198.51.100.9"})
+        self.assertTrue(em.admis("198.51.100.7", ips, []))
+        self.assertFalse(em.admis("203.0.113.5", ips, []))
+        self.assertTrue(em.admis("203.0.113.5", ips, ["203.0.113.0/28"]))
+        self.assertFalse(em.admis("pas-une-ip", ips, ["203.0.113.0/28"]))
+
+    def test_relaie_seulement_les_releves_admis(self):
+        dest = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        dest.bind(("127.0.0.1", 0))
+        dest.settimeout(3)
+        libre = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        libre.bind(("127.0.0.1", 0))
+        port = libre.getsockname()[1]
+        libre.close()
+        res = {}
+        th = threading.Thread(target=lambda: res.update(em.transit("127.0.0.1:%d" % port, [dest.getsockname()], ["127.0.0.0/8"], duree=2.5)))
+        th.start()
+        time.sleep(0.4)
+        tx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        bon = em.emballer(em.MAGIE, CLE_E, releve())
+        tx.sendto(b"pas un releve", ("127.0.0.1", port))
+        tx.sendto(bon, ("127.0.0.1", port))
+        self.assertEqual(dest.recvfrom(65535)[0], bon)                  # relayé tel quel, signature intacte
+        th.join()
+        self.assertEqual(res, {"relayes": 1, "refuses": 1})
+
+
 class Relais(unittest.TestCase):
     def setUp(self):
         self.h = Horloge()

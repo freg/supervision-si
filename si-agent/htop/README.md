@@ -4,7 +4,7 @@ Trois morceaux, bibliothèque standard Python seule :
 
 | fichier | où | rôle |
 |---|---|---|
-| `emetteur.py` | chaque VM, CT et Proxmox (Python 3.5+, donc PVE 5.4) | relevé toutes les 2 s : CPU global et par cœur, iowait, steal, charge, mémoire (ARC ZFS à part), swap, processus les plus gourmands, partitions, pools ZFS ; sur un Proxmox, CPU et mémoire de chaque CT / VM lus dans les cgroups v1 / v2 avec leur nom |
+| `emetteur.py` | chaque VM, CT et Proxmox (Python 3.4+ : PVE 5.4, CT Debian 8) | relevé toutes les 2 s : CPU global et par cœur, iowait, steal, charge, mémoire (ARC ZFS à part), swap, processus les plus gourmands, partitions, pools ZFS ; sur un Proxmox, CPU et mémoire de chaque CT / VM lus dans les cgroups v1 / v2 avec leur nom |
 | `relais.py` | pile supervision (service `htop-relais`) | reçoit les relevés signés, garde 10 min à pleine résolution et 24 h par minute (moyenne et pic, pics par invité), calcule les constats soutenus, les sert au central (tuile hub « htop », notifications) et les diffuse aux clients abonnés |
 | `client.py` | poste d'exploitation | écran façon htop dans un terminal : liste des hôtes (invités rangés sous leur Proxmox), constats, détail d'un hôte (cœurs, processus, invités) ; signal sonore sur constat critique (`--son`, touche `s`) |
 
@@ -33,6 +33,13 @@ constats toutes les 30 s et les verse au journal : `htop-alert` (gravité du con
    `sh installer-emetteur.sh --relais <relais>:8399` (clé demandée au clavier, rangée dans `/etc/si-htop/cle`).
 3. Poste : clé client dans `~/.si-htop-cle` (chmod 600), puis `python3 client.py --relais <relais>:8399 --son`.
    Windows : `pip install windows-curses` ou `--texte`.
+
+4. **CT d'un Proxmox (#802)** : leurs émetteurs sortent avec leur propre IP publique, que l'entrée du routeur
+   n'admet pas. Le nœud les relaie : `sh installer-emetteur.sh --relais <relais>:8399 --transit` (ajoute le service
+   `si-htop-transit`, UDP 8399 du nœud, sources admises = IP déclarées dans ses CT), puis
+   `sh installer-invites.sh` (tous les CT en marche, ou `--ids 102,119`) : fichiers et clé poussés par `pct push`,
+   rien à saisir ; CT sans python3 (3.4 ou plus) ou sans systemd ignorés et signalés. Dans un CT, le CPU affiché est
+   celui de ses cœurs attribués (lxcfs) ; sa consommation exacte reste dans le tableau « Invités » de son Proxmox.
 
 Contrôle sur un hôte : `python3 /usr/local/lib/si-htop/emetteur.py --afficher` (un relevé, rien n'est envoyé).
 Tests : `python3 -m pytest si-agent/htop/test_htop.py`.
