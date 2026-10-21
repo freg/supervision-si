@@ -3863,3 +3863,13 @@ confirmation -- défauts retenus : modèle de l'assistant du hub (Ollama), confi
 Suites possibles : export d'un parcours appris vers le module QA (non-régression planifiée depuis l'hôte) ; confiance
 par parcours (automatique après N jeux réussis, comme le harnais) ; reprise après arrêt sans rejouer le début ;
 captures de chaque étape dans le compte rendu ; plusieurs parcours enchaînés pour une demande.
+
+### 130. Veille cyber, impacts sur notre SI, couverture du SI (cadrage)
+
+Demande (21/10/2026) : abonnement et lecture continue des RFC, alertes et nouveautés, partagés et diffusés aux RSSI,
+développeurs et administrateurs ; une page des dernières infos et alertes ; une page de ce qui est impacté dans notre
+SI ; une page de couverture du SI (fusion des découvertes réseau -- IP, MAC, protocoles -- et de notre connaissance des
+services et des journaux à surveiller). Cadrage : `docs/veille-cyber.md` (sources ouvertes, chaîne collecte →
+enrichissement → rapprochement → diffusion, trois pages, tranches T1-T5, choix à valider). Réutilise `vuln/` (#688),
+notify-api, agents, fusion IP/MAC, service-watch, journaux, assistant IA local.
+

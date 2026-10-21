@@ -1,3 +1,13 @@
+## 2026-10-21 — Cadrage : veille cyber, impacts sur notre SI, couverture du SI (livraison #809)
+
+- `docs/veille-cyber.md` et BACKLOG 130 :
+  - publics : RSSI, développeurs, administrateurs ;
+  - sources ouvertes : CERT-FR, CISA KEV, NVD, RFC Editor, systèmes et constructeurs du parc ;
+  - chaîne collecte → enrichissement (moteur `vuln`) → rapprochement avec l'inventaire → diffusion par notify-api ;
+  - trois pages : dernières infos, impacts, couverture avec matrice actifs × couches de surveillance et liste des trous ;
+  - tranches T1 à T5 et choix à valider.
+- Aucun code dans cette livraison.
+
 ## 2026-10-21 — Écoute Wi-Fi : un relevé vide dit pourquoi (livraison #808)
 
 - Premier relevé réel de la sonde-3b par le collecteur d'optline1 : wifi-monitor rendait 0 canal et 0 borne en

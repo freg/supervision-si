@@ -1,5 +1,11 @@
 [
  {
+  "n": 809,
+  "from": 809,
+  "date": "2026-10-21",
+  "title": "Cadrage : veille cyber, impacts sur notre SI, couverture du SI"
+ },
+ {
   "n": 808,
   "from": 808,
   "date": "2026-10-21",
@@ -232,11 +238,5 @@
   "from": 769,
   "date": "2026-10-15",
   "title": "Activité des VM : dernier accès web, MySQL, connexions et CPU de chaque CT / VM de tous les Proxmox, fiche de paramétrage"
- },
- {
-  "n": 768,
-  "from": 768,
-  "date": "2026-10-15",
-  "title": "Messages d'erreur : lien vers le journal de l'agent concerné"
  }
 ]
