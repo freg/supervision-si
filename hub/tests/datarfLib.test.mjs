@@ -59,6 +59,8 @@ test("état du réseau de sondes (#811)", () => {
   assert.equal(caseRf({ rf_spectrum: { canaux: [{ canal: 1, occupation_pct: 2 }] } }).texte, "1 canaux balayés");
   assert.match(caseWifi({ wifi_monitor: { iface: "alfa0", canaux: [], refus: ["6 : Operation not possible due to RF-kill"] } }).action, /rfkill/);
   assert.match(caseWifi({ wifi_monitor: { iface: "alfa0", canaux: [], refus: ["1 : Device or resource busy (-16)"] } }).action, /moniteur/);
+  assert.equal(caseWifi({ wifi_monitor: { iface: null } }).texte, "carte d'écoute absente");
+  assert.equal(caseWifi({ wifi_monitor: {} }).texte, "relevé d'écoute vide");                     // #813 : pas une carte absente
   const w = caseWifi({ wifi_monitor: { iface: "alfa0", canaux: [1, 2], bornes: [1] }, wifi_probe: { link: { connected: false } } });
   assert.equal(w.niveau, "attention");
   assert.match(w.texte, /2 canaux · 1 bornes · client non associé/);

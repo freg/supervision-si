@@ -109,7 +109,8 @@ export function caseWifi(s) {
   const m = s.wifi_monitor;
   if (m) {
     if (m.error) out.push({ niveau: "attention", texte: `écoute : ${m.error.slice(0, 60)}`, action: "Réduire la durée d'écoute par canal ou le nombre de canaux (fiche de la sonde)" });
-    else if (!m.iface) out.push({ niveau: "critique", texte: "carte d'écoute absente", action: "Brancher la carte Alfa (hub USB alimenté) ; vérifier lsusb (0e8d:7612)" });
+    else if (m.iface === null) out.push({ niveau: "critique", texte: "carte d'écoute absente", action: "Brancher la carte Alfa (hub USB alimenté) ; vérifier lsusb (0e8d:7612)" });
+    else if (m.iface === undefined) out.push({ niveau: "attention", texte: "relevé d'écoute vide", action: "Sonde en échec côté agent (délai ?) : mettre l'agent du collecteur en 0.5.94 pour voir la cause" });
     else if (!(m.canaux || []).length) {
       const r = (m.refus || [])[0] || "";
       out.push({ niveau: "critique", texte: "écoute sans canal", action: /rf-?kill/i.test(r) ? "Radio bloquée : sudo rfkill unblock all (corrigé d'office par l'agent 0.5.92)"

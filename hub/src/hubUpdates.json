@@ -1,5 +1,11 @@
 [
  {
+  "n": 813,
+  "from": 813,
+  "date": "2026-10-21",
+  "title": "Écoute Wi-Fi : budget de temps par passage, canaux tournants"
+ },
+ {
   "n": 812,
   "from": 812,
   "date": "2026-10-21",
@@ -232,11 +238,5 @@
   "from": 773,
   "date": "2026-10-16",
   "title": "Infra PVE / PBS : suivi des copies en cours (zfs send, zfs recv, rsync) avec avancement, débit et fin estimée"
- },
- {
-  "n": 772,
-  "from": 772,
-  "date": "2026-10-16",
-  "title": "Auto-contrôle de l'hôte du hub : fichiers (inodes), remplissage rapide, saturation passagère, fichiers effacés encore ouverts, garde avant construction"
  }
 ]

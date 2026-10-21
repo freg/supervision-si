@@ -40,6 +40,14 @@ def deauth(**kw):
     return rt(**kw) + b"\xc0\x00\x00\x00" + CLIENT + BSSID + BSSID + b"\x00\x00\x07\x00"
 
 
+class Budget(unittest.TestCase):   # #813
+    def test_rotation_et_budget(self):
+        c = [1, 6, 11, 36, 40]
+        self.assertEqual(sorted(wm.ordre_canaux(c, 60)), c)
+        self.assertNotEqual(wm.ordre_canaux(c, 60)[0], wm.ordre_canaux(c, 120)[0])     # départ différent la minute suivante
+        self.assertEqual(wm.ordre_canaux([], 60), [])
+
+
 class Rfkill(unittest.TestCase):   # #808
     def test_deblocage_logiciel(self):
         import tempfile

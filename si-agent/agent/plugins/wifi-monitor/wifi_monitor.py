@@ -14,7 +14,8 @@ Constats (jamais d'action) : canal saturé, retransmissions élevées, rafale de
 diffusé par un BSSID inconnu (borne pirate / jumeau), carte absente. Réglage facultatif dans
 /etc/si-agent/wifi-monitor.json : {"ssid": ["SSID surveillé"], "bssid_connus": ["02:00:00:00:00:01"], "canaux": [1, 6, 11, 36]}.
 
-Usage : wifi_monitor.py [--iface auto|alfa0] [--bandes 2.4,5] [--sejour 0.35] [--config FICHIER]
+Usage : wifi_monitor.py [--iface auto|alfa0] [--bandes 2.4,5] [--sejour 0.35] [--budget 35] [--config FICHIER]
+#813 : budget de temps par passage (35 s, sous le délai de l'agent) ; canal de départ tournant d'un passage à l'autre.
 Root requis (mode moniteur, socket brute). Bibliothèque standard ; `iw` et `ip` requis."""
 import json
 import os
@@ -316,14 +317,26 @@ def survey(iface, freq, run=lancer):
     return None
 
 
-def ecouter(iface, sejour, canaux, run=lancer):
+def ordre_canaux(canaux, maintenant=None):
+    """#813 : rotation du canal de départ d'un passage à l'autre (sans état) -- avec un budget de temps, tous les canaux
+    sont couverts en quelques passages même si un passage n'a pas le temps de tous les écouter."""
+    if not canaux:
+        return []
+    k = (int((maintenant or time.time()) // 60) * 7) % len(canaux)
+    return canaux[k:] + canaux[:k]
+
+
+def ecouter(iface, sejour, canaux, run=lancer, budget=None):
     s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(3))
     s.bind((iface, 0))
     s.settimeout(0.05)
     bornes, res = Bornes(), []
     ecouter.refus = []
     try:
+        debut = time.time()
         for c in canaux:
+            if budget and time.time() - debut > budget:   # #813 : vu en réel sur Pi 3B -- passage plus long que le délai de l'agent
+                break
             rc, _, err = run(["iw", "dev", iface, "set", "channel", str(c)])
             if rc != 0:
                 ecouter.refus.append("%s : %s" % (c, (err or "code %d" % rc).strip()[:120]))
@@ -355,7 +368,7 @@ def ecouter(iface, sejour, canaux, run=lancer):
     return res, bornes.vue()
 
 
-def collecter(iface="auto", bandes="2.4,5", sejour=0.35, config=CONFIG_DEFAUT, run=lancer, ecoute=ecouter):
+def collecter(iface="auto", bandes="2.4,5", sejour=0.35, config=CONFIG_DEFAUT, run=lancer, ecoute=ecouter, budget=35):
     try:
         with open(config) as fh:
             conf = json.load(fh)
@@ -370,23 +383,28 @@ def collecter(iface="auto", bandes="2.4,5", sejour=0.35, config=CONFIG_DEFAUT, r
         return {"iface": ifc, "pilote": pilote(ifc), "alerts": [{"code": "monitor-mode", "severity": "warning",
                                                                   "message": "%s refuse le mode moniteur (gérée par NetworkManager ?)" % ifc}]}
     t0 = time.time()
-    res, bornes = ecoute(ifc, sejour, canaux, run)
+    canaux = ordre_canaux(canaux)
+    try:
+        res, bornes = ecoute(ifc, sejour, canaux, run, budget=float(budget) if budget else None)
+    except TypeError:   # écoute de remplacement (tests) sans budget
+        res, bornes = ecoute(ifc, sejour, canaux, run)
     refus = list(getattr(ecoute, "refus", []) or [])
     alertes = constats(res, bornes, conf, ifc)
     if canaux and not res:   # #808 : aucun canal réglable -- la cause (iw) est remontée au lieu d'un relevé vide
         alertes.append({"code": "monitor-canaux", "severity": "warning",
                         "message": "%s : aucun canal réglable (%s)" % (ifc, refus[0] if refus else "cause inconnue")})
-    return {"iface": ifc, "pilote": pilote(ifc), "duree_s": round(time.time() - t0, 1), "canaux": res, "bornes": bornes,
+    return {"iface": ifc, "pilote": pilote(ifc), "duree_s": round(time.time() - t0, 1), "canaux": sorted(res, key=lambda c: c["canal"]),
+            "couverture": "%d/%d" % (len(res), len(canaux)), "bornes": bornes,
             "clients": sum(b["clients"] for b in bornes), "refus": refus[:5], "alerts": alertes}
 
 
 def main(argv):
-    o = {"iface": "auto", "bandes": "2.4,5", "sejour": 0.35, "config": CONFIG_DEFAUT}
+    o = {"iface": "auto", "bandes": "2.4,5", "sejour": 0.35, "config": CONFIG_DEFAUT, "budget": 35}
     i = 0
     while i < len(argv):
         k = argv[i].lstrip("-")
         if k in o and i + 1 < len(argv):
-            o[k] = float(argv[i + 1]) if k == "sejour" else argv[i + 1]
+            o[k] = float(argv[i + 1]) if k in ("sejour", "budget") else argv[i + 1]
             i += 2
             continue
         i += 1

@@ -1,3 +1,14 @@
+## 2026-10-21 — Écoute Wi-Fi : budget de temps par passage, canaux tournants (livraison #813)
+
+- sonde-3b affichait « carte d'écoute absente », alors que l'Alfa était présente et en moniteur (lsusb, `alfa0` UP).
+  Le passage complet de wifi-monitor (32 canaux, plus deux relevés `survey` par canal) dépassait sur le Pi 3B le
+  délai de l'agent (50 s). Le relevé était perdu, et la tuile le lisait comme une carte absente.
+- wifi-monitor travaille maintenant avec un **budget de 35 s** par passage. Le canal de départ change à chaque passage,
+  si bien que tous les canaux sont couverts en quelques passages ; la `couverture` est indiquée (ex. « 24/32 »).
+- Data RF distingue une carte absente (`iface` nul) d'un relevé vide (sonde en échec côté agent).
+- Agent **0.5.94**.
+- Vérifié : `test_radio_probes.py` (rotation), `datarfLib.test.mjs`, suite agent.
+
 ## 2026-10-21 — Réseau de sondes en réel : spectre gardé malgré un balayage lent, collecteur hors de la liste (livraison #812)
 
 - Premier état réel du réseau de sondes. sonde-3b : « balayage vide : … timed out ». Sur le Pi 3B, le bus USB est
