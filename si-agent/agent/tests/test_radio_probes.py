@@ -94,6 +94,16 @@ class Radiotap(unittest.TestCase):
         finally:
             wm.choisir_iface = orig
         self.assertIn(["iw", "dev", "alfa0", "set", "type", "monitor"], appels)
+        wm.choisir_iface = lambda d: "alfa0"
+        try:
+            def ecoute_refus(i, s, c, run):
+                ecoute_refus.refus = ["1 : command failed: Device or resource busy (-16)"]
+                return [], []
+            r2 = wm.collecter(config="/nonexistent", run=run, ecoute=ecoute_refus)
+        finally:
+            wm.choisir_iface = orig
+        self.assertEqual(r2["alerts"][-1]["code"], "monitor-canaux")                # cause du relevé vide remontée
+        self.assertIn("busy", r2["alerts"][-1]["message"])
         self.assertEqual(r["alerts"][0]["code"], "monitor-sature:1")
         out = "Survey data from alfa0\n\tfrequency:\t\t\t2437 MHz [in use]\n\tchannel active time:\t\t1000 ms\n\tchannel busy time:\t\t400 ms\n"
         self.assertEqual(wm.survey("alfa0", 2437, run=lambda a, timeout=10: (0, out, "")), (1000, 400))

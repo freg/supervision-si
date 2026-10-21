@@ -304,10 +304,12 @@ def ecouter(iface, sejour, canaux, run=lancer):
     s.bind((iface, 0))
     s.settimeout(0.05)
     bornes, res = Bornes(), []
+    ecouter.refus = []
     try:
         for c in canaux:
             rc, _, err = run(["iw", "dev", iface, "set", "channel", str(c)])
             if rc != 0:
+                ecouter.refus.append("%s : %s" % (c, (err or "code %d" % rc).strip()[:120]))
                 continue
             k = Canal(c)
             sv0 = survey(iface, freq_canal(c), run)
@@ -352,8 +354,13 @@ def collecter(iface="auto", bandes="2.4,5", sejour=0.35, config=CONFIG_DEFAUT, r
                                                                   "message": "%s refuse le mode moniteur (gérée par NetworkManager ?)" % ifc}]}
     t0 = time.time()
     res, bornes = ecoute(ifc, sejour, canaux, run)
+    refus = list(getattr(ecoute, "refus", []) or [])
+    alertes = constats(res, bornes, conf, ifc)
+    if canaux and not res:   # #808 : aucun canal réglable -- la cause (iw) est remontée au lieu d'un relevé vide
+        alertes.append({"code": "monitor-canaux", "severity": "warning",
+                        "message": "%s : aucun canal réglable (%s)" % (ifc, refus[0] if refus else "cause inconnue")})
     return {"iface": ifc, "pilote": pilote(ifc), "duree_s": round(time.time() - t0, 1), "canaux": res, "bornes": bornes,
-            "clients": sum(b["clients"] for b in bornes), "alerts": constats(res, bornes, conf, ifc)}
+            "clients": sum(b["clients"] for b in bornes), "refus": refus[:5], "alerts": alertes}
 
 
 def main(argv):

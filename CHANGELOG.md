@@ -1,3 +1,10 @@
+## 2026-10-21 — Écoute Wi-Fi : un relevé vide dit pourquoi (livraison #808)
+
+- Premier relevé réel de la sonde-3b par le collecteur d'optline1 : wifi-monitor rendait 0 canal et 0 borne en
+  0,4 s, sans explication. Les refus de `iw … set channel` sont maintenant gardés (`refus`), et le constat
+  `monitor-canaux` donne la cause du premier refus.
+- Vérifié : `test_radio_probes.py`.
+
 ## 2026-10-21 — Configuration radio des sondes depuis le hub : interfaces et SSID testés (livraison #807)
 
 - **Tuile Data RF › Configuration radio** : « Lire les interfaces de la sonde » (pilote, type, connexion), puis :
