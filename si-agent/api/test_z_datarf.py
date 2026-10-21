@@ -27,6 +27,9 @@ class Assemblage(unittest.TestCase):
         self.assertEqual(r["sondes"][1]["via"], None)
         self.assertEqual([c["message"] for c in r["constats"]], ["sonde-3b : canal 36 occupé", "sonde-zero : carte absente"])
         self.assertEqual(datarf.assembler([], {}), {"sondes": [], "constats": []})
+        r = datarf.assembler(collectes, {"plugin:rf-spectrum": [("mini-pc", "optline1", "2026-10-21T15:00:00Z", {"present": False})],
+                                         "plugin:wifi-monitor": [("vieille", "vieille", "2026-10-21T09:00:00Z", {})]}, "2026-10-21T13:00:00Z")
+        self.assertEqual([s["sonde"] for s in r["sondes"]], ["sonde-3b"])            # #812 : ni le collecteur, ni une mesure ancienne
         r = datarf.assembler([], {"plugin:wifi-probe": [("i9", "i9freg", "2026-10-21T15:00:00Z", {"link": {}})]})
         self.assertEqual(r["sondes"], [])                                       # poste avec wifi-probe seulement : pas une sonde radio
 

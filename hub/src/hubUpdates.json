@@ -1,5 +1,11 @@
 [
  {
+  "n": 812,
+  "from": 812,
+  "date": "2026-10-21",
+  "title": "Réseau de sondes en réel : spectre gardé malgré un balayage lent, collecteur hors de la liste"
+ },
+ {
   "n": 811,
   "from": 811,
   "date": "2026-10-21",
@@ -232,11 +238,5 @@
   "from": 772,
   "date": "2026-10-16",
   "title": "Auto-contrôle de l'hôte du hub : fichiers (inodes), remplissage rapide, saturation passagère, fichiers effacés encore ouverts, garde avant construction"
- },
- {
-  "n": 771,
-  "from": 771,
-  "date": "2026-10-16",
-  "title": "Activité réelle des VM dans le temps (un an et plus), « inactif réel depuis », décision et suivi de migration"
  }
 ]

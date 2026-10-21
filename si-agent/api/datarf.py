@@ -8,9 +8,10 @@ DIRECTES = (("plugin:wifi-monitor", "wifi_monitor"), ("plugin:rf-spectrum", "rf_
             ("plugin:path-probe", "path_probe"))   # #811 : chemin, pour la colonne LAN
 
 
-def assembler(collectes, directes):
+def assembler(collectes, directes, maintenant=None):
     """collectes : [(agent_id, hostname, at, data)] de plugin:collecte-sondes ; directes : {tâche: [(agent_id, hostname, at, data)]}.
-    -> {sondes: [...], constats: [...]} ; une sonde vue des deux façons garde la mesure la plus récente."""
+    -> {sondes: [...], constats: [...]} ; une sonde vue des deux façons garde la mesure la plus récente.
+    maintenant (ISO, optionnel) : borne d'ancienneté -- une mesure directe antérieure est ignorée."""
     sondes, constats = {}, []
     for aid, host, at, d in collectes:
         for s in (d or {}).get("sondes") or []:
@@ -21,9 +22,12 @@ def assembler(collectes, directes):
         for c in (d or {}).get("alerts") or []:
             if isinstance(c, dict):
                 constats.append(dict(c, via=host or aid))
+    collecteurs = {str(aid) for aid, _h, _at, _d in collectes}   # #812 : l'hôte d'un collecteur n'est pas une sonde
     for tache, cle in DIRECTES:
         for aid, host, at, d in directes.get(tache) or []:
             nom = str(host or aid)
+            if str(aid) in collecteurs or (maintenant and at and at < maintenant):
+                continue   # mesure d'un collecteur, ou trop ancienne (sonde désactivée depuis)
             if tache in ("plugin:wifi-probe", "plugin:path-probe") and nom.lower() not in sondes:
                 continue   # un poste qui n'a que la sonde client (wifi-probe) n'est pas une sonde radio : section Wi-Fi de sa fiche
             e = sondes.setdefault(nom.lower(), {"sonde": nom, "agent_id": aid, "via": None, "recu": at})

@@ -1,3 +1,15 @@
+## 2026-10-21 — Réseau de sondes en réel : spectre gardé malgré un balayage lent, collecteur hors de la liste (livraison #812)
+
+- Premier état réel du réseau de sondes. sonde-3b : « balayage vide : … timed out ». Sur le Pi 3B, le bus USB est
+  partagé entre le HackRF, la carte Wi-Fi et l'Ethernet, et hackrf_sweep dépassait son délai : tout le relevé était
+  perdu. Le balayage est maintenant arrêté proprement et **ce qui a déjà été mesuré est gardé** (`partiel`). Délai
+  ramené à 75 s, et 5 balayages par défaut au lieu de 10.
+- optline1 apparaissait comme une sonde « en panne », avec les mesures de ses sondes radio désactivées depuis.
+  L'hôte d'un collecteur n'est plus une sonde, et une mesure directe de plus de 2 h est ignorée.
+- Agent **0.5.93** : le mini-PC reçoit ainsi `collecte-sondes` avec le chemin (colonne LAN, #811), et la sonde le
+  balayage corrigé.
+- Vérifié : `test_radio_probes.py` (arrêt sur délai avec sortie gardée), `test_z_datarf.py`, suite agent.
+
 ## 2026-10-21 — Data RF : état du réseau de sondes (livraison #811)
 
 - **Onglet « Réseau de sondes »** (par défaut) dans la tuile Data RF :

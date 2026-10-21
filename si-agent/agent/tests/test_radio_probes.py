@@ -173,6 +173,10 @@ class Spectre(unittest.TestCase):
         self.assertIn("NOT_FOUND", r["alerts"][0]["message"])
         with self.assertRaises(AssertionError):
             rf.lancer(["hackrf_transfer", "-t", "x"])
+        rc, out, err = rf.lancer(["sh", "-c", "echo 2026-10-21, 10:00, 2400000000, 2405000000, 500000.00, 20, -50.0; sleep 5"], timeout=1)
+        self.assertEqual(rc, 124)                                                   # #812 : arrêté mais sortie gardée
+        self.assertIn("2400000000", out)
+        self.assertIn("arrêté après 1 s", err)
 
     def test_manifestes(self):
         for d in ("wifi-monitor", "rf-spectrum"):

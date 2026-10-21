@@ -21,12 +21,24 @@ INTERDITS = ("hackrf_transfer", "-t")      # garde-fou : jamais d'émission
 
 
 def lancer(args, timeout=60):
+    """#812 : au-delà du délai, le balayage est arrêté et ce qu'il a déjà produit est GARDÉ (vu en réel sur Pi 3B : bus
+    USB partagé avec la carte Wi-Fi et l'Ethernet, hackrf_sweep lent -- « timed out » et relevé perdu)."""
     assert args[0] != INTERDITS[0], "émission interdite"
     try:
-        p = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
-        return p.returncode, p.stdout.decode("utf-8", "replace"), p.stderr.decode("utf-8", "replace")
-    except (OSError, subprocess.SubprocessError) as e:
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except OSError as e:
         return 127, "", str(e)
+    try:
+        out, err = p.communicate(timeout=timeout)
+        return p.returncode, out.decode("utf-8", "replace"), err.decode("utf-8", "replace")
+    except subprocess.TimeoutExpired:
+        p.terminate()
+        try:
+            out, err = p.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            p.kill()
+            out, err = p.communicate()
+        return 124, out.decode("utf-8", "replace"), (err.decode("utf-8", "replace") + "\nbalayage arrêté après %d s" % timeout).strip()
 
 
 def info(texte):
@@ -105,7 +117,7 @@ def constats(canaux):
     return out
 
 
-def collecter(bandes="2.4,5", balayages=10, lna=32, vga=20, seuil=10.0, run=lancer):
+def collecter(bandes="2.4,5", balayages=5, lna=32, vga=20, seuil=10.0, run=lancer):
     rc, out, err = run(["hackrf_info"], timeout=15)
     if rc != 0 or "Serial number" not in out:
         return {"present": False, "alerts": [{"code": "spectre-absent", "severity": "warning",
@@ -118,8 +130,9 @@ def collecter(bandes="2.4,5", balayages=10, lna=32, vga=20, seuil=10.0, run=lanc
         for de, a in BANDES[n]:
             args += ["-f", "%d:%d" % (de, a)]
     args += ["-w", "500000", "-l", str(int(lna)), "-g", str(int(vga)), "-N", str(int(balayages))]
-    rc, out, err = run(args, timeout=90)
+    rc, out, err = run(args, timeout=75)
     mesures = lire_balayage(out)
+    partiel = rc == 124 and bool(mesures)
     if not mesures:
         cause = (err.strip().splitlines() or ["?"])[-1][:200]   # #810 : un balayage vide est un constat (sinon la tuile n'affiche rien)
         return {"present": True, "hackrf": materiel, "error": "balayage vide : %s" % cause,
@@ -127,11 +140,11 @@ def collecter(bandes="2.4,5", balayages=10, lna=32, vga=20, seuil=10.0, run=lanc
     res_b, canaux, spectre = analyser(mesures, noms, float(seuil))
     return {"present": True, "hackrf": materiel, "bandes": res_b, "canaux": canaux,
             "spectre": spectre, "unite": "dB relatifs (non étalonnés)", "reglages": {"lna": lna, "vga": vga, "balayages": balayages, "seuil_db": seuil},
-            "alerts": constats(canaux)}
+            "partiel": partiel or None, "alerts": constats(canaux)}
 
 
 def main(argv):
-    o = {"bandes": "2.4,5", "balayages": 10, "lna": 32, "vga": 20, "seuil": 10.0}
+    o = {"bandes": "2.4,5", "balayages": 5, "lna": 32, "vga": 20, "seuil": 10.0}
     i = 0
     while i < len(argv):
         k = argv[i].lstrip("-")

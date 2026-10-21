@@ -2078,7 +2078,8 @@ def datarf_route():
         directes = {t: infra.latest(conn, t) for t, _c in datarf.DIRECTES}
     finally:
         conn.close()
-    return jsonify(datarf.assembler(collectes, directes)), 200
+    borne = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 2 * 3600))   # #812 : sondes directes désactivées depuis 2 h
+    return jsonify(datarf.assembler(collectes, directes, borne)), 200
 
 
 @app.route("/datarf/config", methods=["GET"])

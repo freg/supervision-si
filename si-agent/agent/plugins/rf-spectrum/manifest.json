@@ -5,7 +5,7 @@
   "entry": "rf_spectrum.py",
   "interval_seconds": 120,
   "timeout_seconds": 100,
-  "args": ["--bandes", "2.4,5", "--balayages", "10"],
+  "args": ["--bandes", "2.4,5", "--balayages", "5"],
   "enabled": false,
   "description": "Spectre radio des bandes Wi-Fi (#801) : HackRF One (seul ou PortaPack en mode HackRF) balayé par hackrf_sweep, RÉCEPTION SEULE -- par canal de 20 MHz : puissance moyenne et max (dB relatifs non étalonnés), occupation au-dessus du bruit de fond ; bruit par bande ; spectre résumé. Voit l'occupation non Wi-Fi (micro-ondes, émetteurs vidéo, Bluetooth, brouillage) ; à rapprocher de wifi-monitor. Constats : canal occupé ≥ 60 %, HackRF absent. Paquet hackrf requis.",
   "source": "bundled",
