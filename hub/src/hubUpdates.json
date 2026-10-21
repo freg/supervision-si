@@ -1,5 +1,11 @@
 [
  {
+  "n": 801,
+  "from": 801,
+  "date": "2026-10-21",
+  "title": "Sonde Raspberry Pi 3B : écoute Wi-Fi passive (Alfa AWUS036ACM) et spectre radio (HackRF / PortaPack)"
+ },
+ {
   "n": 800,
   "from": 800,
   "date": "2026-10-21",
@@ -232,11 +238,5 @@
   "from": 761,
   "date": "2026-10-14",
   "title": "Assistant de rapatriement d'un nœud distant : six étapes, synoptique en bandeau, avancement mesuré"
- },
- {
-  "n": 760,
-  "from": 760,
-  "date": "2026-10-14",
-  "title": "Cortex : constats des sondes de terrain corrélés aux constats Wi-Fi de Nebula, cause Wi-Fi probable"
  }
 ]

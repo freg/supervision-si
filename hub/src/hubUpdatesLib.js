@@ -17,6 +17,7 @@ export const UPDATE_LINKS = {
   759: [{ view: "nebula", hint: "Rapports › Occupation › Anticipation" }],
   760: [{ view: "cortex", hint: "incidents « cause Wi-Fi probable »" }],
   799: [{ view: "navigateur", hint: "Navigateur des hôtes : apprendre un parcours, le rejouer avec le coffre, demande en langage courant" }],
+  801: [{ view: "si-agent", hint: "Sondes wifi-monitor (Alfa en écoute passive) et rf-spectrum (HackRF) : fiche de l'agent › Sondes" }],
   800: [{ view: "htop", hint: "Nouvelle tuile : htop en direct de chaque VM, CT et Proxmox (relais UDP), constats, capacité d'un nœud" }],
   798: [{ view: "navigateur", hint: "Nouvelle tuile : navigateur visible sur l'hôte d'un agent (écran web, automate, parcours)" }],
   797: [{ view: "journal", hint: "Journal des chantiers : plus d'erreur 500 (base bloquée par le contrôle DNS)" }, { view: "edge", hint: "Contrôle DNS des proxys d'entrée sans bloquer la base" }],

@@ -1,0 +1,13 @@
+{
+  "id": "wifi-monitor",
+  "version": "1",
+  "runner": "python",
+  "entry": "wifi_monitor.py",
+  "interval_seconds": 60,
+  "timeout_seconds": 50,
+  "args": ["--iface", "auto", "--bandes", "2.4,5", "--sejour", "0.35"],
+  "enabled": false,
+  "description": "Écoute Wi-Fi passive (#801) : une carte USB en mode moniteur (Alfa AWUS036ACM / MT7612U, 2,4 et 5 GHz) parcourt les canaux sans émettre ni s'associer -- par canal : trames/s, retransmissions, occupation (survey de la puce, sinon estimation par temps d'antenne), gestion/contrôle/données, désauthentifications, signal max ; par borne : SSID, canal réel, signal, balises, clients vus, BSS Load. Constats : canal saturé, retransmissions, rafale de désauthentifications, SSID surveillé diffusé par un BSSID inconnu (/etc/si-agent/wifi-monitor.json), carte absente. Privilégiée : mode moniteur et socket brute exigent root.",
+  "source": "bundled",
+  "privileged": true
+}

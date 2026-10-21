@@ -1930,6 +1930,8 @@ DIAG_HINTS = {   # #763 : que faire quand une source ne remonte rien
     "plugin:remote-status": "sonde remote-status sur un agent Linux du LAN (fiche de l'agent › Sondes) + cibles dans /etc/si-agent/remote-status/args",   # #792
     "plugin:gpu": "sonde gpu sur l'agent de chaque hôte à carte graphique (fiche de l'agent › Sondes, ou tuile Parc IA)",
     "plugin:docker-containers": "sonde docker-containers sur l'agent de l'hôte Docker",
+    "plugin:wifi-monitor": "sonde wifi-monitor sur l'agent d'une sonde à carte Wi-Fi USB en mode moniteur (Alfa AWUS036ACM ; kit netprobe/rpi --alfa monitor)",   # #801
+    "plugin:rf-spectrum": "sonde rf-spectrum sur l'agent d'une sonde équipée d'un HackRF / PortaPack en mode HackRF (paquet hackrf ; kit netprobe/rpi --hackrf)",
     "plugin:mail-server": "sonde mail-server sur l'agent du serveur de messagerie",
     "host": "relevé de base de tout agent (agent arrêté ou injoignable si absent)",
 }

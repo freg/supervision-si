@@ -47,6 +47,28 @@ Vérifier : `ssh sonde-3b`, puis `systemctl status si-local-central si-agent` et
 chargée, pertes…), courbes RSSI / occupation du canal / débit négocié / latence-pertes / HTTP réel par sonde, synthèse par
 heure, bornes vues (BSSID, SSID, fréquence, RSSI max, stations max). Options `--since` / `--until` (ISO).
 
+## 5. Option radio du Pi 3B : Alfa AWUS036ACM et HackRF / PortaPack (#801)
+
+    netprobe/rpi/make-boot-files.sh --role collector --hostname sonde-3b --token "$TOKEN" --alfa monitor --hackrf
+
+- **Alimentation** : Alfa (jusqu'à ~600 mA en 5 GHz) + HackRF / PortaPack (~500-700 mA) dépassent les 1,2 A des ports USB
+  du Pi 3B → **hub USB alimenté obligatoire** (sinon déconnexions aléatoires), alimentation du Pi 2,5 A officielle.
+- **Alfa AWUS036ACM** (MediaTek MT7612U, pilote `mt76x2u` du noyau, firmware `mediatek/mt7662u` de
+  `firmware-misc-nonfree`) : nommée `alfa0` par une règle udev.
+  - `--alfa monitor` (défaut conseillé) : NetworkManager ne la gère pas, sonde **`wifi-monitor`** = écoute passive de
+    tous les canaux 2,4 / 5 GHz (trames, retransmissions, occupation, désauthentifications, bornes, clients, BSS Load ;
+    borne pirate si `/etc/si-agent/wifi-monitor.json` liste SSID et BSSID connus). N'émet jamais.
+  - `--alfa client` : la carte porte la connexion au SSID audité et les mesures « expérience client » (`wifi-probe`) —
+    utile car le Wi-Fi intégré du **Pi 3B (BCM43438) n'a que le 2,4 GHz** (le 3B+ a le 5 GHz).
+- **HackRF One / PortaPack** : paquet `hackrf`, sonde **`rf-spectrum`** (`hackrf_sweep`, 2,4 GHz et 5 GHz bandes 1-2,
+  **réception seule**, l'outil d'émission n'est jamais appelé). Sur la PortaPack (Mayhem) : choisir le mode **HackRF**
+  dans le menu avant de la brancher (sinon « HackRF non détecté »). Si `hackrf_info` signale un micrologiciel trop
+  récent pour l'outil de Debian, mettre à jour l'outil hôte ou le micrologiciel pour les aligner.
+- Lecture croisée : occupation élevée au spectre (`rf-spectrum`) mais peu de trames Wi-Fi sur le même canal
+  (`wifi-monitor`) = brouillage non Wi-Fi (micro-ondes, émetteur vidéo, Bluetooth, matériel défectueux).
+- Contrôle sur le Pi : `iw dev alfa0 info` (type monitor), `hackrf_info`, puis l'interface du collecteur
+  (mesures `plugin:wifi-monitor` chaque minute, `plugin:rf-spectrum` toutes les 2 min).
+
 ## Limites et notes
 
 - Wi-Fi intégré (brcmfmac) : pas de mode moniteur sans firmware nexmon ; l'audit est « expérience client » (lien, survey,
@@ -55,5 +77,6 @@ heure, bornes vues (BSSID, SSID, fréquence, RSSI max, stations max). Options `-
   (store-and-forward) et les remonte au retour.
 - Remontée vers le hub principal : le central local est autonome pour ce test ; pour un audit permanent, installer les
   agents contre le hub (tuile Agents hôtes) et garder le Pi 3B comme simple sonde.
+- #801 non vérifié sur matériel : Alfa en mode moniteur (canaux, survey du pilote mt76), HackRF / PortaPack réels.
 - Non vérifié : sur matériel réel (aucun Pi dans la session) — procédure écrite depuis les mécanismes connus de
   Raspberry Pi OS Bookworm (`/boot/firmware`, `systemd.run`), `make-boot-files.sh` testé sur une fausse partition.

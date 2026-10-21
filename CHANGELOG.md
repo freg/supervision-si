@@ -1,3 +1,29 @@
+## 2026-10-21 — Sonde Raspberry Pi 3B : écoute Wi-Fi passive (Alfa AWUS036ACM) et spectre radio (HackRF / PortaPack) (livraison #801)
+
+- **Kit `netprobe/rpi`** : `make-boot-files.sh --alfa monitor|client --hackrf` ; au premier démarrage, la carte Alfa
+  (MT7612U, pilote `mt76x2u`) devient `alfa0` (règle udev). En mode `monitor`, NetworkManager ne la gère pas. En mode
+  `client`, elle porte le SSID audité et les mesures client (le Wi-Fi intégré du Pi 3B n'a que le 2,4 GHz). Paquet
+  `hackrf` installé, sondes ajoutées au collecteur. Scripts du kit rendus exécutables (le README les appelait
+  directement alors qu'ils ne l'étaient pas).
+- **Sonde `wifi-monitor`** (agent 0.5.90) : écoute passive des canaux 2,4 / 5 GHz (France) sans émettre. La capture
+  passe par une socket brute, avec analyse radiotap / 802.11 en bibliothèque standard.
+  - Par canal : trames/s, retransmissions, occupation (survey de la puce, sinon temps d'antenne estimé),
+    gestion / contrôle / données, désauthentifications, signal max.
+  - Par borne : SSID, canal réel (élément DS : en 2,4 GHz on entend les canaux voisins), signal, balises, clients vus,
+    BSS Load.
+  - Constats : canal saturé, retransmissions, rafale de désauthentifications, SSID surveillé diffusé par un BSSID
+    inconnu (`/etc/si-agent/wifi-monitor.json`), carte absente.
+- **Sonde `rf-spectrum`** : `hackrf_sweep` sur 2,4 GHz et 5 GHz (bandes 1-2), **réception seule** (garde-fou contre
+  l'outil d'émission). Par canal de 20 MHz : puissance moyenne et max (dB relatifs non étalonnés), occupation
+  au-dessus du bruit de fond, spectre résumé par pas de 2 MHz. Constats : canal occupé, HackRF absent ou PortaPack
+  hors mode HackRF.
+- Central : sondes reconnues dans les constats (événements notifiés) et dans l'aide « que faire si rien ne remonte ».
+- Vérifié : `si-agent/agent/tests/test_radio_probes.py` (radiotap, balises, données, FCS, voisinage, constats, collecte
+  simulée, survey, sortie hackrf_sweep, bruit de fond, occupation, garde-fou), suite agent et central ;
+  `make-boot-files.sh` sur une fausse partition (options, env, cmdline, archive avec les deux sondes).
+- Non vérifié : matériel réel (mode moniteur et survey du pilote mt76, HackRF / PortaPack Mayhem), premier démarrage
+  complet ; pas encore d'affichage dédié dans le hub (mesures visibles dans le collecteur et sur la fiche de l'agent).
+
 ## 2026-10-21 — htop en direct : émetteur sur chaque VM / CT / Proxmox, relais UDP, constats, tuile et client terminal (livraison #800)
 
 - **Émetteur `si-agent/htop/emetteur.py`** (bibliothèque standard, Python 3.5+ : tourne sur PVE 5.4) : toutes les 2 s,
