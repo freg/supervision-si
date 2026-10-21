@@ -36,8 +36,9 @@ constats toutes les 30 s et les verse au journal : `htop-alert` (gravité du con
 
 4. **CT d'un Proxmox (#802)** : leurs émetteurs sortent avec leur propre IP publique, que l'entrée du routeur
    n'admet pas. Le nœud les relaie : `sh installer-emetteur.sh --relais <relais>:8399 --transit` (ajoute le service
-   `si-htop-transit`, UDP 8399 du nœud, sources admises = IP déclarées dans ses CT), puis
-   `sh installer-invites.sh` (tous les CT en marche, ou `--ids 102,119`) : fichiers et clé poussés par `pct push`,
+   `si-htop-transit`, UDP 8399 du nœud, sources admises = IP déclarées dans les CT du cluster), puis
+   `sh installer-invites.sh --relais <IP nœud 1>:8399,<IP nœud 2>:8399` (tous les CT en marche, ou `--ids 102,119` ;
+   les deux nœuds en relais : un CT migré reste suivi, le relais central écarte les doublons) : fichiers et clé poussés par `pct push`,
    rien à saisir ; CT sans python3 (3.4 ou plus) ou sans systemd ignorés et signalés. Dans un CT, le CPU affiché est
    celui de ses cœurs attribués (lxcfs) ; sa consommation exacte reste dans le tableau « Invités » de son Proxmox.
 

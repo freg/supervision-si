@@ -4,6 +4,8 @@
 # dirigés vers le relais local du nœud (IP de vmbr0, port 8399), qui les renvoie au relais central.
 #   sh installer-invites.sh                 (tous les CT en marche)
 #   sh installer-invites.sh --ids 102,119   (ces CT seulement)
+#   --relais IP1:8399,IP2:8399 : relais locaux de TOUS les nœuds du cluster (conseillé : un CT migré reste relayé ;
+#   chaque nœud admet les CT de tout le cluster, le relais central écarte les doublons)
 # CT sans python3 (3.4 ou plus) ni systemd : ignoré et signalé, rien n'y est installé.
 set -eu
 ICI=$(cd "$(dirname "$0")" && pwd)

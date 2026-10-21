@@ -10,8 +10,8 @@ les 60 s) et, sur un Proxmox, consommation de chaque CT / VM lue dans les cgroup
 Usage : emetteur.py --relais hote:8399[,hote2:8399] --cle-fichier /etc/si-htop/cle [--nom N] [--periode 2]
         emetteur.py --afficher           (un relevé JSON sur la sortie standard, rien n'est envoyé)
         emetteur.py --transit 0.0.0.0:8399 --relais hote:8399   (#802, sur un Proxmox : relaie vers le relais les paquets
-            des émetteurs de ses CT, qui sortent avec leur propre IP publique alors que l'entrée du routeur n'accepte
-            que celles des nœuds ; sources admises : IP déclarées dans les CT du nœud, plus --transit-depuis)
+            des émetteurs des CT, qui sortent avec leur propre IP publique alors que l'entrée du routeur n'accepte
+            que celles des nœuds ; sources admises : IP déclarées dans les CT du cluster, plus --transit-depuis)
 Paquet : b"SH1E" + HMAC-SHA256(clé, magie + corps)[:16] + zlib(JSON)."""
 import argparse
 import glob
@@ -313,7 +313,7 @@ def transit(ecoute, dest, depuis, duree=None):
     while duree is None or time.time() - debut < duree:
         t = time.time()
         if t - lu > 60:
-            connues = ip_des_invites(lire(c) for c in glob.glob("/etc/pve/lxc/*.conf"))
+            connues = ip_des_invites(lire(c) for c in glob.glob("/etc/pve/nodes/*/lxc/*.conf"))   # tout le cluster : un CT migré reste admis
             lu = t
         if t - resolu > 60:
             adresses = []

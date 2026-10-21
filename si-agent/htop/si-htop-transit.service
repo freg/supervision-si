@@ -1,6 +1,6 @@
 # #802 : relais local si-htop d'un Proxmox -- reçoit les relevés des émetteurs de ses CT (qui sortent avec leur propre IP
 # publique) et les renvoie au relais central avec l'IP du nœud, seule admise par l'entrée du routeur. Sources admises :
-# IP déclarées dans /etc/pve/lxc/*.conf (+ SI_HTOP_TRANSIT_DEPUIS). Le relais central vérifie les signatures.
+# IP déclarées dans les CT du cluster, /etc/pve/nodes/*/lxc/*.conf (+ SI_HTOP_TRANSIT_DEPUIS). Le relais central vérifie les signatures.
 [Unit]
 Description=si-htop transit (releves des CT vers le relais de supervision)
 After=network-online.target pve-cluster.service
