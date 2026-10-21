@@ -1,3 +1,13 @@
+## 2026-10-21 — Sonde spectre : bruit de fond à la médiane, fin de la fausse occupation (livraison #805)
+
+- Premier balayage réel (HackRF dans une PortaPack Mayhem v2.3.2, bureau) : tous les canaux 2,4 GHz paraissaient
+  occupés à 30-45 %. Le bruit de fond était pris au 10e centile, alors que la puissance d'une case de FFT suit une loi
+  exponentielle. Le seuil (bruit + 10 dB) était donc franchi par le bruit seul environ 35 % du temps.
+- Le bruit de fond est maintenant la médiane de la bande : le bruit seul franchit le seuil environ 0,1 % du temps. Les
+  canaux 36-48 du bureau (pics -36 à -48 dB pour un bruit vers -71 dB) restent vus comme occupés. Gains d'origine
+  validés (LNA 32 / VGA 20 : pas de saturation, pics à -36 dB au plus).
+- Vérifié : `test_radio_probes.py` (bruit simulé seul : occupation < 3 % sur tous les canaux).
+
 ## 2026-10-21 — Sonde Raspberry : paquets réinstallés tant qu'il en manque (livraison #804)
 
 - Premier démarrage réel du Pi 3B : « Temporary failure resolving 'deb.debian.org' » pendant l'installation. iw,

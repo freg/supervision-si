@@ -120,6 +120,17 @@ class Spectre(unittest.TestCase):
         self.assertEqual(spectre[0][0], 2400)
         self.assertEqual([a["code"] for a in rf.constats([dict(c[6], occupation_pct=90.0)])], ["spectre-occupe:6"])
 
+    def test_bruit_seul_peu_occupe(self):   # #805 : premier relevé réel, ~35 % partout avec le 10e centile
+        import random
+        rnd = random.Random(4)
+        lignes = []
+        for _ in range(20):
+            for f in range(2400, 2500, 5):
+                v = ", ".join("%.1f" % (-75 + 10 * __import__("math").log10(rnd.expovariate(1.0) + 1e-9)) for _ in range(10))
+                lignes.append("d, t, %d, %d, 500000.00, 20, %s" % (f * 1000000, (f + 5) * 1000000, v))
+        _b, canaux, _s = rf.analyser(rf.lire_balayage("\n".join(lignes)), ["2.4"])
+        self.assertTrue(all(c["occupation_pct"] < 3 for c in canaux), [c["occupation_pct"] for c in canaux])
+
     def test_collecte_et_garde_fou(self):
         def run(args, timeout=60):
             if args[0] == "hackrf_info":

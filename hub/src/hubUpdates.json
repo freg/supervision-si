@@ -1,5 +1,11 @@
 [
  {
+  "n": 805,
+  "from": 805,
+  "date": "2026-10-21",
+  "title": "Sonde spectre : bruit de fond à la médiane, fin de la fausse occupation"
+ },
+ {
   "n": 804,
   "from": 804,
   "date": "2026-10-21",
@@ -232,11 +238,5 @@
   "from": 765,
   "date": "2026-10-14",
   "title": "Rapatriement : restes sur le nœud local, conditions vérifiées et suppression validée depuis le hub"
- },
- {
-  "n": 764,
-  "from": 764,
-  "date": "2026-10-14",
-  "title": "Rapatriement : inventaire distant vide expliqué, sonde pve-remote tolérante au nom d'hôte"
  }
 ]

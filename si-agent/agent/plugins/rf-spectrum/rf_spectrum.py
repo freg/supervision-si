@@ -6,7 +6,7 @@ Elle voit ce que la carte Wi-Fi ne voit pas : tout ce qui occupe la bande sans �
 émetteurs vidéo, Bluetooth, brouilleurs, équipements défectueux).
 
 Par canal Wi-Fi de 20 MHz : puissance moyenne et max (dB relatifs, NON étalonnés en dBm), occupation = part des
-mesures (case × balayage) au-dessus du bruit de fond de la bande + seuil (10 dB par défaut) ; bruit de fond par bande ;
+mesures (case × balayage) au-dessus du bruit de fond de la bande (médiane) + seuil (10 dB par défaut) ; bruit de fond par bande ;
 spectre résumé (pas de 2 MHz) pour le tracé. Constats : canal occupé ≥ 60 % (critique ≥ 85 %), HackRF absent.
 À rapprocher de la sonde wifi-monitor : occupation au spectre élevée + peu de trames Wi-Fi = brouillage non Wi-Fi.
 
@@ -74,7 +74,8 @@ def analyser(mesures, bandes, seuil=10.0, pas=2):
     for nom in bandes:
         for de, a in BANDES.get(nom, []):
             v = [db for f, db in mesures if de <= f < a]
-            b = centile(v, 0.10)
+            b = centile(v, 0.50)   # #805 : médiane -- une case de FFT fluctue de ±10 dB ; le 10e centile mettait le bruit si bas
+            # qu'un canal vide paraissait occupé à ~35 % (loi exponentielle : P(X > 10 × p10) = e^-1,05)
             bruit[(de, a)] = b
             res_b.append({"nom": nom, "de": de, "a": a, "bruit_db": round(b, 1) if b is not None else None, "mesures": len(v)})
     canaux = []
