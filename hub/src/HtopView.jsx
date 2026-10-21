@@ -8,6 +8,9 @@ import { go, num, pctOf, niveau, niveauHote, grouper, invites, projeter, sparkPa
 
 const NAT = { pve: "PVE", vm: "VM", ct: "CT", hote: "hôte" };
 const TONE_LABEL = { critical: "critique", warning: "au seuil", near: "proche" };
+// #803 : l'ARC ZFS ne compte que pour un Proxmox / un hôte (vu depuis un CT, c'est celui de l'hôte) ; les cœurs d'un CT
+// (lxcfs) ne sont pas significatifs
+const arcDe = (h) => (h.nature === "pve" || h.nature === "hote" ? (h.memoire || [])[2] || 0 : 0);
 
 function Barre({ v, seuil, critique, texte }) {
   if (v == null) return <span className="infra-muted">—</span>;
@@ -64,14 +67,14 @@ function Detail({ base, nom, seuils, onClose }) {
           { nom: "iowait", couleur: C[2], valeurs: b.map((x) => x[3]) }, { nom: "steal", couleur: C[3], valeurs: b.map((x) => x[4]) }]} />
         <Courbe titre="24 heures (pic par minute)" series={[{ nom: "CPU", couleur: C[0], valeurs: m.map((x) => x[2]) }, { nom: "mémoire", couleur: C[1], valeurs: m.map((x) => x[4]) },
           { nom: "iowait", couleur: C[2], valeurs: m.map((x) => x[5]) }, { nom: "steal", couleur: C[3], valeurs: m.map((x) => x[6]) }]} />
-        <figure className="infra-card">
+        {d.nature !== "ct" && <figure className="infra-card">
           <figcaption>Cœurs</figcaption>
           <div className="htop-coeurs">{(d.coeurs || []).map((c, i) => <Barre key={i} v={c} seuil={seuils.cpu} critique={98} texte={`${i} · ${num(c)} %`} />)}</div>
-        </figure>
+        </figure>}
         <figure className="infra-card">
           <figcaption>Mémoire, swap, disques</figcaption>
           <div className="htop-coeurs">
-            <Barre v={d.memoire_pct} seuil={seuils.memoire} critique={97} texte={`mémoire ${go((d.memoire || [])[1])} / ${go((d.memoire || [])[0])}${(d.memoire || [])[2] ? ` dont ARC ${go(d.memoire[2])}` : ""} (${num(d.memoire_pct)} % hors ARC)`} />
+            <Barre v={d.memoire_pct} seuil={seuils.memoire} critique={97} texte={`mémoire ${go((d.memoire || [])[1])} / ${go((d.memoire || [])[0])}${arcDe(d) ? ` dont ARC ${go(arcDe(d))} (${num(d.memoire_pct)} % hors ARC)` : ""}`} />
             {d.swap?.[0] ? <Barre v={d.swap_pct} seuil={seuils.swap} critique={90} texte={`swap ${go(d.swap[1])} / ${go(d.swap[0])}`} /> : null}
             {(d.disques || []).map(([mp, t, u]) => <Barre key={mp} v={pctOf(u, t)} seuil={seuils.disque} critique={97} texte={`${mp} · ${go(u)} / ${go(t)}`} />)}
             {(d.pools || []).map(([n, t, u, st]) => <Barre key={n} v={pctOf(u, t)} seuil={seuils.pool} critique={95} texte={`zfs ${n} · ${go(u)} / ${go(t)} · ${st}`} />)}
@@ -185,9 +188,9 @@ export default function HtopView({ onBack, siAgentApiBase }) {
                   <tr key={h.nom} className={`${h.nature === "pve" ? "infra-host" : ""} htop-clic ${vu === h.nom ? "htop-vu" : ""}`} onClick={() => setVu(vu === h.nom ? null : h.nom)}>
                     <td>{ind ? <span className="infra-muted">└ </span> : null}{h.nom}{lv && <span className={`infra-status ${lv === "near" ? "" : lv}`} title={TONE_LABEL[lv]}> {lv === "critical" ? "⛔" : lv === "warning" ? "⚠" : "·"}</span>}</td>
                     <td>{NAT[h.nature] || h.nature}</td>
-                    <td><Barre v={h.cpu} seuil={S.cpu} critique={98} texte={h.cpu == null ? "—" : `${num(h.cpu)} % · ${h.ncpu} c.`} /></td><td><Coeurs coeurs={h.coeurs} /></td>
+                    <td><Barre v={h.cpu} seuil={S.cpu} critique={98} texte={h.cpu == null ? "—" : `${num(h.cpu)} % · ${h.ncpu} c.`} /></td><td>{h.nature === "ct" ? <span className="infra-muted">—</span> : <Coeurs coeurs={h.coeurs} />}</td>
                     <td><Barre v={h.iowait} seuil={S.iowait} critique={50} /></td><td><Barre v={h.steal} seuil={S.steal} critique={40} /></td>
-                    <td><Barre v={h.memoire_pct} seuil={S.memoire} critique={97} texte={`${go((h.memoire || [])[1] - ((h.memoire || [])[2] || 0))} / ${go((h.memoire || [])[0])}`} /></td>
+                    <td><Barre v={h.memoire_pct} seuil={S.memoire} critique={97} texte={`${go((h.memoire || [])[1] - arcDe(h))} / ${go((h.memoire || [])[0])}`} /></td>
                     <td>{h.swap?.[0] ? <Barre v={h.swap_pct} seuil={S.swap} critique={90} /> : <span className="infra-muted">—</span>}</td>
                     <td>{h.charge_coeur == null ? "—" : <span className={`infra-status ${niveau(h.charge_coeur, S.charge, 4).tone}`}>{num(h.charge_coeur)} <small className="infra-muted">({(h.charge || []).join(" ")})</small></span>}</td>
                     <td><Barre v={maxDisque(h)} seuil={S.disque} critique={97} /></td>

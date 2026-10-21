@@ -6,7 +6,10 @@
   constat « swap » que si les échanges continuent (seuil `swap_activite`, 50 pages/s). Pour un émetteur plus ancien,
   sans cette mesure, il faut en plus que la mémoire soit à 10 points de son seuil.
 - Mémoire des CT à 0 % : dans un CT, `/proc/spl/kstat/zfs/arcstats` est celui de l'hôte, son ARC était retranché. ARC désormais compté seulement pour un Proxmox ou un hôte (émetteur et relais) ; par prudence, MemAvailable plus grand que le total (lxcfs ancien) est recalculé.
-- Vérifié : `test_htop.py` (swap inerte, ancien émetteur avec mémoire libre ou pleine, échanges continus ; mémoire lxcfs).
+- Tuile et client : l'ARC n'est plus retranché à la mémoire affichée d'un CT (AIC85 affichait « -8,0 Go ») ; cœurs d'un
+  CT (lxcfs, non significatifs : un cœur à 100 % pour un CT à 0,5 %) masqués, et plus envoyés par l'émetteur.
+- Vérifié : `test_htop.py` (swap inerte, ancien émetteur avec mémoire libre ou pleine, échanges continus ; mémoire lxcfs). Tuile rendue avec un CT à
+  ARC d'hôte (ancien émetteur).
 
 ## 2026-10-21 — htop des CT : relais local sur chaque Proxmox, installation des émetteurs dans les CT en une commande (livraison #802)
 

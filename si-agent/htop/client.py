@@ -133,9 +133,10 @@ def lignes_detail(d, largeur):
     m, sw = d.get("memoire") or [0, 0, 0], d.get("swap") or [0, 0]
     out = [("%s (%s, %s cœurs) -- CPU %s %%  iowait %s %%  steal %s %%  charge %s" % (d["nom"], d.get("nature"), d.get("ncpu"), fmt(d.get("cpu")), fmt(d.get("iowait")),
                                                                                      fmt(d.get("steal")), " ".join(str(x) for x in d.get("charge") or [])), "titre"),
-           ("mémoire %s / %s%s (%s %% hors ARC)   swap %s / %s" % (go(m[1]), go(m[0]), " dont ARC %s" % go(m[2]) if len(m) > 2 and m[2] else "", fmt(d.get("memoire_pct")),
+           ("mémoire %s / %s%s (%s %%%s)   swap %s / %s" % (go(m[1]), go(m[0]), " dont ARC %s" % go(m[2]) if len(m) > 2 and m[2] and d.get("nature") in ("pve", "hote") else "", fmt(d.get("memoire_pct")),
+                                                                  " hors ARC" if len(m) > 2 and m[2] and d.get("nature") in ("pve", "hote") else "",
                                                                   go(sw[1]), go(sw[0])), "normal")]
-    cc = d.get("coeurs") or []
+    cc = d.get("coeurs") or [] if d.get("nature") != "ct" else []   # #803 : cœurs d'un CT (lxcfs) non significatifs
     for i in range(0, len(cc), 4):
         out.append(("  ".join("%2d[%s]%4s" % (i + j, barre(v, 8), fmt(v)) for j, v in enumerate(cc[i:i + 4])), "normal"))
     pic = d.get("pic_24h") or {}
