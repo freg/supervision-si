@@ -12,6 +12,15 @@ regarder l'entrée la plus récente en haut — si elle correspond à ce
 que vous avez déjà en `.env`, rien à faire. Sinon, copier/ajouter les
 clés listées, dans votre `.env` existant.
 
+## 2026-10-21 — veille cyber (livraison #814)
+
+Ajoutées (toutes facultatives) : `VEILLE_SYNTHESE_HEURE=7`, `VEILLE_CONSERVATION_JOURS=365`,
+`VEILLE_LLM_BASE_URL=` et `VEILLE_LLM_MODEL=` (vide = `LLM_BASE_URL` / `LLM_MODEL`). vuln-api reçoit
+`NOTIFY_INTERNAL_TOKEN` (déjà présent dans `.env`) pour la diffusion. `python3 scripts/sync-env.py`
+insère les nouvelles clés.
+
+---
+
 ## 2026-09-16 — déploiement réparti par nœud (livraison #513)
 
 Ajoutées : `SI_NODE_TOKEN=` (jeton de l'agent de nœud, généré par

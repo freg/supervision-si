@@ -944,6 +944,14 @@ services:
       # #693 : exclusions de « Analyser le dépôt » ; options osv-scanner (mode hors ligne)
       - VULN_SELF_SCAN_EXCLUDES=${VULN_SELF_SCAN_EXCLUDES:-}
       - OSV_SCANNER_ARGS=${OSV_SCANNER_ARGS:-}
+      # #814 : veille cyber (tuile « Veille cyber ») -- diffusion par notify-api, IA locale compatible OpenAI
+      - NOTIFY_API_URL=http://notify-api:5000
+      - NOTIFY_INTERNAL_TOKEN=${NOTIFY_INTERNAL_TOKEN:-}
+      - NOTIFY_CONSUMER=veille
+      - VEILLE_SYNTHESE_HEURE=${VEILLE_SYNTHESE_HEURE:-7}
+      - VEILLE_CONSERVATION_JOURS=${VEILLE_CONSERVATION_JOURS:-365}
+      - VEILLE_LLM_BASE_URL=${VEILLE_LLM_BASE_URL:-${LLM_BASE_URL:-http://ollama:11434/v1}}
+      - VEILLE_LLM_MODEL=${VEILLE_LLM_MODEL:-${LLM_MODEL:-qwen3:8b}}
     volumes:
       # SBOM reçus, constats, flux EPSS/KEV -- vide = ./vuln/data
       - ${VULN_DATA_DIR:-./vuln/data}:/data

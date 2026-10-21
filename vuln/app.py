@@ -199,6 +199,10 @@ def _feeds_loop():
 if os.environ.get("VULN_FEEDS_THREAD", "1") == "1":
     threading.Thread(target=_feeds_loop, daemon=True).start()
 
+# #814 : veille cyber (BACKLOG 130) -- flux publics, impacts sur nos constats, publics, diffusion, IA locale.
+import veille  # noqa: E402
+veille.installer(app, db)
+
 
 # ------------------------------------------------------------------ SBOM → osv-scanner → constats
 

@@ -15,7 +15,7 @@ FX = os.path.join(HERE, "fixtures")
 sys.path.insert(0, os.path.join(HERE, ".."))
 sys.path.insert(0, os.path.join(HERE, "..", "..", "shared"))
 TMP = tempfile.mkdtemp()
-os.environ.update(VULN_DATA_DIR=TMP, VULN_FEEDS_THREAD="0", DT_URL="", DT_API_KEY="")
+os.environ.update(VULN_DATA_DIR=TMP, VULN_FEEDS_THREAD="0", VEILLE_THREAD="0", DT_URL="", DT_API_KEY="")
 import vulnlib  # noqa: E402
 import app as app_mod  # noqa: E402
 

@@ -68,3 +68,20 @@ développeurs (dépendances, pratiques), administrateurs systèmes et réseau (c
 - Destinataires de chaque public (groupes notify-api) et rythme des synthèses.
 - Sources prioritaires au-delà de T1 ; groupes IETF à suivre.
 - Durée de conservation du fil (proposé : 2 ans, fiches traitées gardées pour l'historique RSSI).
+
+## Livré (#814, T1 et T2)
+
+Dans **vuln-api** (pas de nouveau service) : `vuln/veillelib.py` (pur), `vuln/veille.py` (routes `/veille`, relève en
+tâche de fond), tuile « Veille cyber » (`hub/src/VeilleView.jsx`).
+
+- Relève des 18 sources ouvertes (dont KEV) ; tables alertes / IA cyber / générales / France-Europe / règlements.
+- Impacts : CVE des articles × constats de vuln-api (actifs, priorité P1-P4, EPSS, KEV) ; onglet « Impacts SI » et
+  vue par actif. Le rapprochement par **nom de produit et version** (composants des SBOM, sans CVE) reste à faire.
+- Publics RSSI / administrateurs / développeurs (règles dans `veillelib.publics`) ; suivi de traitement et journal.
+- Diffusion notify-api : `veille.alerte-si` (immédiate, une fois par article), `veille.quotidienne-<public>` à
+  `VEILLE_SYNTHESE_HEURE`. Les groupes destinataires se règlent dans la tuile Notifications.
+- Préfiltres (python, php, linux, bsd, mikrotik + nos modèles, gardés en base), filtres enregistrés, extraction
+  CSV / Markdown / JSON / Atom, IA locale (explication, synthèse).
+- Même logique que la tuile « Cyber news » du hub maison (dépôt séparé), où elle sert aussi de banc d'essai des modèles.
+
+Restent : T3 (Couverture), T4 (fiches et glossaire), T5 (sources constructeurs et systèmes du parc).

@@ -3875,6 +3875,12 @@ notify-api, agents, fusion IP/MAC, service-watch, journaux, assistant IA local.
 Décision (21/10/2026) : **pas encore lancé** -- terminer d'abord la mise au point des sondes Raspberry (Pi 3B, Pi Zero 2 W)
 et la remontée des infos radio et Wi-Fi dans le hub. Le volet cyber est aussi à prévoir côté **hub maison**, pour y
 tester des outils d'IA et des modèles spécialisés (sécurité).
+Avancement (21/10/2026, à sa demande « priorité cyber et hub maison ») : **T1 et T2 livrées (#814)** dans vuln-api --
+relève, tables alertes / news, impacts par les constats de vuln-api (CVE), publics, suivi et journal, diffusion
+notify-api (alerte immédiate, synthèse quotidienne par public), filtres et extraction, IA locale ; hub maison : tuile
+« Cyber news » (dépôt séparé). Restent : T3 (page Couverture : fusion découvertes réseau × couches de surveillance),
+T4 (fiches d'explication et glossaire), T5 (sources constructeurs / systèmes du parc), rapprochement par nom de
+produit et version (composants des SBOM) en plus des CVE.
 
 ### 131. Agent HackRF et client local pour poste nomade (Mac, Linux portable) -- à prévoir
 

@@ -14,7 +14,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 WORKDIR /app
 COPY vuln/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY vuln/app.py vuln/vulnlib.py ./
+COPY vuln/app.py vuln/vulnlib.py vuln/veille.py vuln/veillelib.py ./
+COPY shared/notify_client.py .
 COPY shared/version_endpoint.py .
 COPY shared/VERSION.json .
 RUN mkdir -p /data/sboms

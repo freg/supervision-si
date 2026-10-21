@@ -1,3 +1,46 @@
+## 2026-10-21 — Veille cyber : alertes, news, impacts sur notre SI, filtres, diffusion (livraison #814)
+
+- **BACKLOG 130, tranches T1-T2**, dans vuln-api (pas de nouveau service : routes `/veille`, hub `/api/vuln/veille/`).
+- **Relève** de flux publics : RSS 2.0, Atom, RDF et catalogue KEV de la CISA. 18 sources proposées : CERT-FR, CISA,
+  ANSSI, CNIL, CEPD, presse cyber, IA et sécurité, arXiv limité à l'IA. Chaque source a sa période, ETag /
+  Last-Modified, 8 Mo au plus ; les entités XML sont refusées. Une source reste « non vérifiée » jusqu'à sa première
+  relève réussie.
+- **Tables** :
+  - Alertes, aux niveaux Alerte, Exploitée et Avis ;
+  - IA cyber, Générales, France / Europe, Règlements ANSSI / RGPD. Les catégories sont aussi déduites du texte : un
+    article de la presse générale qui parle d'IA ou du RGPD apparaît dans la table correspondante.
+- **Impacts sur notre SI** :
+  - les CVE de chaque article sont rapprochées des constats de vuln-api, ce qui donne les actifs touchés et leur
+    priorité P1-P4 ;
+  - l'EPSS et le KEV des CVE citées sont affichés ;
+  - onglet « Impacts SI », avec une vue par actif.
+- **Publics** : RSSI, administrateurs, développeurs, déduits de l'article et de ses impacts.
+- **Suivi** : à traiter, en cours, traité, non applicable — avec qui, quand et une note — et un journal pour le RSSI.
+- **Diffusion par notify-api** :
+  - `veille.alerte-si` (critique), une seule fois par article : une alerte ou une vulnérabilité exploitée qui touche
+    notre SI, ou qui cite un de nos modèles ;
+  - synthèse quotidienne par public : `veille.quotidienne-rssi`, `-adminsys`, `-dev`, envoyée à
+    `VEILLE_SYNTHESE_HEURE` ;
+  - bouton « envoyer maintenant ».
+- **Préfiltres** python, php, linux, bsd, mikrotik, modifiables et extensibles. Le préfiltre mikrotik porte **nos
+  modèles**, saisis dans la tuile et gardés dans la base, jamais dans le dépôt : ils déclenchent la marque ⚑.
+- **Filtres enregistrés** :
+  - critères : texte `"expression" -exclusion a|b`, catégories, niveaux, publics, suivi, préfiltres, sources, période,
+    « touche notre SI », CVE, nos modèles, non lus, suivis ;
+  - **extraction** CSV (actifs touchés, priorité, publics, suivi), Markdown, JSON, ou Atom pour s'y abonner.
+- **IA locale**, compatible OpenAI (`VEILLE_LLM_BASE_URL` / `VEILLE_LLM_MODEL`, par défaut ceux de l'assistant) :
+  - « Expliquer » un article : de quoi il s'agit, qui est concerné, chez nous, gravité, que faire ;
+  - « Synthèse IA » d'un filtre, avec un « À faire » par public ;
+  - le contenu des flux est passé au modèle comme une donnée balisée, jamais comme une consigne.
+- Même logique que la tuile « Cyber news » du hub maison, enrichie ici des impacts, des publics, du suivi et de la diffusion.
+- **Vérifié** :
+  - `vuln/tests/test_veille.py` (7 tests, KEV au format réel) et `test_vuln.py` ;
+  - `veilleLib.test.mjs`.
+- **Non vérifié** :
+  - les URL réelles des flux, faute d'accès Internet depuis l'environnement de travail : l'onglet Sources le dira à la
+    première relève ;
+  - l'envoi par notify-api en réel.
+
 ## 2026-10-21 — Écoute Wi-Fi : budget de temps par passage, canaux tournants (livraison #813)
 
 - sonde-3b affichait « carte d'écoute absente », alors que l'Alfa était présente et en moniteur (lsusb, `alfa0` UP).
@@ -15,7 +58,7 @@
   partagé entre le HackRF, la carte Wi-Fi et l'Ethernet, et hackrf_sweep dépassait son délai : tout le relevé était
   perdu. Le balayage est maintenant arrêté proprement et **ce qui a déjà été mesuré est gardé** (`partiel`). Délai
   ramené à 75 s, et 5 balayages par défaut au lieu de 10.
-- optline1 apparaissait comme une sonde « en panne », avec les mesures de ses sondes radio désactivées depuis.
+- Le mini-PC du site apparaissait comme une sonde « en panne », avec les mesures de ses sondes radio désactivées depuis.
   L'hôte d'un collecteur n'est plus une sonde, et une mesure directe de plus de 2 h est ignorée.
 - Agent **0.5.93** : le mini-PC reçoit ainsi `collecte-sondes` avec le chemin (colonne LAN, #811), et la sonde le
   balayage corrigé.
@@ -37,7 +80,7 @@
 
 ## 2026-10-21 — Data RF en réel : le spectre qui manque dit pourquoi (livraison #810)
 
-- Premier affichage réel de sonde-3b dans Data RF (via optline1) : l'écoute Wi-Fi remonte (canaux, bornes, BSS Load),
+- Premier affichage réel de sonde-3b dans Data RF (via le mini-PC du site) : l'écoute Wi-Fi remonte (canaux, bornes, BSS Load),
   mais la colonne « spectre » est restée vide sans explication. Un balayage `hackrf_sweep` vide est maintenant un
   constat (`spectre-vide`, avec la cause), et la tuile affiche l'erreur dans l'indicateur « spectre ».
 - Vérifié : `test_radio_probes.py`.
@@ -54,7 +97,7 @@
 
 ## 2026-10-21 — Écoute Wi-Fi : un relevé vide dit pourquoi (livraison #808)
 
-- Premier relevé réel de la sonde-3b par le collecteur d'optline1 : wifi-monitor rendait 0 canal et 0 borne en
+- Premier relevé réel de la sonde-3b par le collecteur du mini-PC du site : wifi-monitor rendait 0 canal et 0 borne en
   0,4 s, sans explication. Les refus de `iw … set channel` sont maintenant gardés (`refus`), et le constat
   `monitor-canaux` donne la cause du premier refus.
 - Radios bloquées par rfkill (paquet manquant au premier démarrage) : wifi-monitor et la configuration radio lèvent
@@ -91,7 +134,7 @@
   - `test_z_datarf.py` : coffre, routes, masquage ;
   - `datarfLib.test.mjs`, suites agent, central et hub ;
   - panneau rendu (lecture des interfaces puis envoi) sans erreur.
-- Non vérifié : NetworkManager réel de la sonde (Debian 13), clé Wi-Fi supplémentaire, relais réel par optline1.
+- Non vérifié : NetworkManager réel de la sonde (Debian 13), clé Wi-Fi supplémentaire, relais réel par le mini-PC du site.
 
 ## 2026-10-21 — Collecteur des sondes sur le mini-PC du site et tuile « Data RF » (livraison #806)
 

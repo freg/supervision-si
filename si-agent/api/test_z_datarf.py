@@ -27,7 +27,7 @@ class Assemblage(unittest.TestCase):
         self.assertEqual(r["sondes"][1]["via"], None)
         self.assertEqual([c["message"] for c in r["constats"]], ["sonde-3b : canal 36 occupé", "sonde-zero : carte absente"])
         self.assertEqual(datarf.assembler([], {}), {"sondes": [], "constats": []})
-        r = datarf.assembler(collectes, {"plugin:rf-spectrum": [("mini-pc", "optline1", "2026-10-21T15:00:00Z", {"present": False})],
+        r = datarf.assembler(collectes, {"plugin:rf-spectrum": [("mini-pc", "mini-pc-1", "2026-10-21T15:00:00Z", {"present": False})],
                                          "plugin:wifi-monitor": [("vieille", "vieille", "2026-10-21T09:00:00Z", {})]}, "2026-10-21T13:00:00Z")
         self.assertEqual([s["sonde"] for s in r["sondes"]], ["sonde-3b"])            # #812 : ni le collecteur, ni une mesure ancienne
         r = datarf.assembler([], {"plugin:wifi-probe": [("i9", "i9freg", "2026-10-21T15:00:00Z", {"link": {}})]})
@@ -52,11 +52,11 @@ class Configuration(unittest.TestCase):   # #807
         self.assertEqual(memo["ssids"][0]["acces"], "wifi-campus")
         self.assertIn("HTTP 404", datarf.preparer_config({"ssids": [{"ssid": "A", "acces": "inconnu"}]}, reveler)[2])
         self.assertIn("pas de mot de passe", datarf.preparer_config({"ssids": [{"ssid": "A", "acces": "vide"}]}, reveler)[2])
-        self.assertEqual(datarf.commande("sonde-3b", "optline1", None, p)[:2], ("optline1", "collecteur"))
+        self.assertEqual(datarf.commande("sonde-3b", "mini-pc-1", None, p)[:2], ("mini-pc-1", "collecteur"))
         self.assertEqual(datarf.commande("sonde-3b", None, "sonde-3b", p), ("sonde-3b", "wifi_config", p))
         import app  # noqa: F401 -- prépare les modules du central
         import store
-        r = store.redact_params(datarf.commande("sonde-3b", "optline1", None, p)[2])
+        r = store.redact_params(datarf.commande("sonde-3b", "mini-pc-1", None, p)[2])
         self.assertNotIn("clecampus1", str(r))
 
 
@@ -64,7 +64,7 @@ class Routes(unittest.TestCase):   # #807
     def test_config_par_le_collecteur(self):
         import app as appmod
         import store
-        aid = "optline1"
+        aid = "mini-pc-1"
         store.create_agent(appmod.DB_PATH, aid, "campus")
         appmod.reveler_acces = lambda n: {"password": "clecampus1"}
         cl = appmod.app.test_client()

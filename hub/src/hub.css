@@ -2702,3 +2702,41 @@ button[aria-busy="true"]::after { content: ""; position: absolute; right: 8px; t
 .datarf-niv.attention > span, .datarf-niv.attention > b, .datarf-niv.attention small { color: var(--warning, #d29922); }
 .datarf-niv.critique > span, .datarf-niv.critique > b, .datarf-niv.critique small { color: var(--danger, #f85149); }
 .datarf-niv.absent > span { opacity: .55; }
+/* #814 : tuile Veille cyber */
+.veille .veille-onglets { flex-wrap: wrap; margin: 6px 0; }
+.veille-bloc { border: 1px solid var(--border); border-radius: 8px; background: var(--panel); padding: 8px 10px; margin: 8px 0; }
+.veille-barre { display: flex; flex-direction: column; gap: 6px; }
+.veille-barre > input { width: 100%; font-size: 14px; }
+.veille-ligne { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.veille-puces { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.veille-puces button { padding: 1px 10px; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-size: 13px; cursor: pointer; }
+.veille-puces button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.veille-case { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.veille-table { max-height: calc(100vh - 420px); min-height: 160px; }
+.veille-titre { cursor: pointer; }
+.veille-titre:hover { text-decoration: underline; }
+.veille-non-lu .veille-titre { font-weight: 600; color: var(--text); }
+.veille-lu .veille-titre { color: var(--muted); }
+.veille-etiq { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 12px; }
+.veille-etiq a { white-space: nowrap; }
+.veille-actions { display: flex; gap: 4px; align-items: center; justify-content: flex-end; white-space: nowrap; }
+.veille-actions button { padding: 2px 8px; }
+.veille-detail td { background: var(--bg); }
+.veille-detail p { max-width: 120ch; margin: 4px 0 8px; }
+.veille-ia { white-space: pre-wrap; font-family: inherit; font-size: 13px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; max-width: 120ch; }
+.veille-extraire { display: inline-flex; gap: 8px; align-items: center; }
+.veille-choisi { outline: 1px solid var(--accent); }
+.veille-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.veille-grille .veille-bloc { margin: 0; }
+.veille-inactif { opacity: .6; }
+.veille-form { display: flex; flex-direction: column; gap: 6px; }
+.veille-form label { display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--muted); }
+.veille-form label.veille-case { flex-direction: row; }
+.veille a { color: var(--accent); }
+.veille .veille-table td { white-space: normal; vertical-align: top; }
+.veille .veille-articles td:nth-child(4) { min-width: 280px; }
+.veille .veille-articles td:nth-child(1), .veille .veille-articles td:nth-child(3) { white-space: nowrap; }
+.veille .veille-table td a { word-break: break-all; }
+.veille .veille-articles td:last-child { white-space: nowrap; }
+.veille .veille-sources td:first-child { max-width: 46ch; }
+.veille .veille-sources .veille-actions { flex-wrap: wrap; justify-content: flex-start; }

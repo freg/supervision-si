@@ -1,5 +1,11 @@
 [
  {
+  "n": 814,
+  "from": 814,
+  "date": "2026-10-21",
+  "title": "Veille cyber : alertes, news, impacts sur notre SI, filtres, diffusion"
+ },
+ {
   "n": 813,
   "from": 813,
   "date": "2026-10-21",
@@ -232,11 +238,5 @@
   "from": 774,
   "date": "2026-10-17",
   "title": "Tuile « Migration 2026-2027 » : plan d'étapes pré-paramétré, pilotage pas à pas, erreurs détaillées avec bouton Solution"
- },
- {
-  "n": 773,
-  "from": 773,
-  "date": "2026-10-16",
-  "title": "Infra PVE / PBS : suivi des copies en cours (zfs send, zfs recv, rsync) avec avancement, débit et fin estimée"
  }
 ]
