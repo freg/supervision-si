@@ -444,7 +444,8 @@ def source_creer():
         try:
             cur = cn.execute("INSERT INTO veille_sources (nom, url, format, categorie, niveau, garder_si, periode_min, actif) VALUES (?,?,?,?,?,?,?,?)",
                              (s["nom"], s["url"], s["format"], s["categorie"], s["niveau"], s["garder_si"], s["periode_min"], s["actif"]))
-        except Exception:  # noqa: BLE001 -- url unique
+        except Exception:  # noqa: BLE001 -- url unique : la transaction ouverte est annulée, sinon la base reste verrouillée
+            cn.rollback()
             return jsonify({"error": "cette url est déjà une source"}), 409
         cn.commit()
     return jsonify({"id": cur.lastrowid}), 201
