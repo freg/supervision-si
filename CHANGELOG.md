@@ -1,3 +1,12 @@
+## 2026-10-21 — Sonde Raspberry : paquets réinstallés tant qu'il en manque (livraison #804)
+
+- Premier démarrage réel du Pi 3B : « Temporary failure resolving 'deb.debian.org' » pendant l'installation. iw,
+  tcpdump, wavemon et hackrf manquaient, mais les services avaient démarré quand même. `firstrun-si.sh` fait
+  maintenant 5 tentatives et vérifie chaque paquet (`dpkg -s`). Le service `si-probe-paquets` installe à chaque
+  démarrage ceux qui manquent encore.
+- Vérifié : syntaxe ; unité systemd avec `$$` (sinon systemd remplace les variables). Non vérifié : nouveau premier
+  démarrage complet.
+
 ## 2026-10-21 — htop : un swap rempli mais inerte ne déclenche plus d'alerte (livraison #803)
 
 - Premier cas réel : pve-1, swap à 72 % mais `si`/`so` à 0, 21 Go disponibles (pages anciennes, surtout `snmpd` d'OB1,

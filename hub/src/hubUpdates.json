@@ -1,5 +1,11 @@
 [
  {
+  "n": 804,
+  "from": 804,
+  "date": "2026-10-21",
+  "title": "Sonde Raspberry : paquets réinstallés tant qu'il en manque"
+ },
+ {
   "n": 803,
   "from": 803,
   "date": "2026-10-21",
@@ -232,11 +238,5 @@
   "from": 764,
   "date": "2026-10-14",
   "title": "Rapatriement : inventaire distant vide expliqué, sonde pve-remote tolérante au nom d'hôte"
- },
- {
-  "n": 763,
-  "from": 763,
-  "date": "2026-10-14",
-  "title": "État des données sur les écrans : sources, retards, erreurs, lenteur de l'API ; listes du rapatriement corrigées"
  }
 ]

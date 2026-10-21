@@ -17,10 +17,30 @@ PLUGINS="wifi-probe,path-probe,dns-observe"
 [ -n "${SI_HOSTNAME:-}" ] && { hostnamectl set-hostname "$SI_HOSTNAME" 2>/dev/null || echo "$SI_HOSTNAME" > /etc/hostname; sed -i "s/127.0.1.1.*/127.0.1.1\t$SI_HOSTNAME/" /etc/hosts; }
 for i in $(seq 1 60); do ping -c1 -W2 deb.debian.org >/dev/null 2>&1 && break; sleep 5; done
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -q
 # pilotes : brcmfmac (Wi-Fi intégré des Pi 3B / Zero 2 W) est dans le noyau ; firmwares pour un dongle USB éventuel (Realtek, Atheros, MediaTek…)
-apt-get install -y -q iw wireless-tools wavemon tcpdump iperf3 mtr-tiny dnsutils curl jq python3 bc rfkill \
-  firmware-brcm80211 firmware-realtek firmware-atheros firmware-misc-nonfree ${HACKRF:+hackrf} 2>&1 | tail -3
+# #804 : DNS ou miroir instables au premier démarrage (vu en réel : « Temporary failure resolving ») -> 5 tentatives,
+# et la liste manquante est relancée à chaque démarrage par si-probe-paquets tant qu'il en manque
+PAQUETS="iw wireless-tools wavemon tcpdump iperf3 mtr-tiny dnsutils curl jq python3 bc rfkill firmware-brcm80211 firmware-realtek firmware-atheros firmware-misc-nonfree${HACKRF:+ hackrf}"
+echo "$PAQUETS" > /etc/si-probe-paquets
+for essai in 1 2 3 4 5; do
+  apt-get update -q && apt-get install -y -q $PAQUETS 2>&1 | tail -3
+  manque=$(for p in $PAQUETS; do dpkg -s "$p" >/dev/null 2>&1 || echo "$p"; done)
+  [ -z "$manque" ] && break
+  echo "paquets manquants (essai $essai/5) : $manque" ; sleep 20
+done
+cat > /etc/systemd/system/si-probe-paquets.service <<'EOPK'
+[Unit]
+Description=si-probe : installe les paquets de la sonde encore manquants (premier démarrage sans réseau fiable)
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+# ($$ : systemd remplace sinon les $VAR lui-même)
+ExecStart=/bin/sh -c 'm=$$(for p in $$(cat /etc/si-probe-paquets); do dpkg -s "$$p" >/dev/null 2>&1 || echo "$$p"; done); [ -z "$$m" ] || { apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q $$m; }'
+[Install]
+WantedBy=multi-user.target
+EOPK
+systemctl enable si-probe-paquets.service 2>/dev/null || true
 # #801 : carte Alfa AWUS036ACM (MT7612U, pilote mt76x2u du noyau, firmware mediatek/mt7662u dans firmware-misc-nonfree) -> alfa0
 if [ -n "$ALFA" ]; then
   echo 'SUBSYSTEM=="net", ACTION=="add", DRIVERS=="mt76x2u", NAME="alfa0"' > /etc/udev/rules.d/70-si-alfa.rules
