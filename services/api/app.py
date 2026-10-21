@@ -676,6 +676,77 @@ def job_get(jid):
     return jsonify(meta), 200
 
 
+# -- #816 : tentatives en échec dans « Mises à jour » jusqu'à résolution, puis archivées pour retraitement ----------
+ARCHIVE_DIR = "jobs-archive"
+
+
+def _job_log(jid, n=400):
+    try:
+        with open(os.path.join(DATA_DIR, "jobs", jid + ".log"), encoding="utf-8", errors="replace") as fh:
+            return fh.read().splitlines()[-n:]
+    except OSError:
+        return []
+
+
+def _archives():
+    d = os.path.join(DATA_DIR, ARCHIVE_DIR)
+    return sorted(f[:-5] for f in os.listdir(d) if f.endswith(".json")) if os.path.isdir(d) else []
+
+
+def _archiver(job, resolution, par=None, user=None, note=None):
+    """Garde l'échec (méta, fin du journal, ce qui l'a résolu) dans data/jobs-archive : matière à retraitement et apprentissage."""
+    doc = {"job": {k: v for k, v in job.items() if k != "log"}, "log": _job_log(job["id"]), "resolution": resolution,
+           "resolu_par": {"id": par.get("id"), "label": par.get("label"), "at": par.get("at"), "user": par.get("user")} if par else None,
+           "par": user, "note": note, "archive_le": time.time()}
+    _write(os.path.relpath(_data(ARCHIVE_DIR, job["id"] + ".json"), PROJECT_DIR), json.dumps(doc, ensure_ascii=False, indent=1))
+    event("job-archive", "échec %s (%s) archivé : %s" % (job["id"], job.get("label"), "résolu par %s" % par["id"] if par else "résolu à la main par %s" % user), job=job["id"])
+
+
+@app.route("/jobs/echecs", methods=["GET"])
+def jobs_echecs():
+    """Tentatives en échec NON résolues (avec la fin du journal) ; celles qu'une réussite ultérieure a résolues sont archivées."""
+    if not DATA_DIR or not os.path.isdir(os.path.join(DATA_DIR, "jobs")):
+        return jsonify({"echecs": [], "archives": 0}), 200
+    deja = set(_archives())
+    ids = sorted({f.rsplit(".", 1)[0] for f in os.listdir(os.path.join(DATA_DIR, "jobs")) if f.endswith(".json")})
+    jobs = [j for j in (job_status(i) for i in ids if i not in deja) if j and j.get("status") != "running"]
+    non_resolus, resolus = tower.echecs(jobs)
+    for j, par in resolus:
+        if j["id"] not in deja:
+            _archiver(j, "automatique", par)
+    return jsonify({"echecs": [dict(j, log=_job_log(j["id"], 40)) for j in non_resolus if j["id"] not in deja], "archives": len(_archives())}), 200
+
+
+@app.route("/jobs/<jid>/resolu", methods=["POST"])
+def job_resolu(jid):
+    """{note} -> l'échec est marqué résolu à la main et archivé (il quitte « Mises à jour »)."""
+    if not tower.re.match(r"^[0-9]{8}-[0-9]{6}-[0-9a-f]{4}$", jid):
+        return jsonify({"error": "job inconnu"}), 404
+    meta = job_status(jid)
+    if not meta:
+        return jsonify({"error": "job inconnu"}), 404
+    if meta.get("status") not in ("failed", "lost"):
+        return jsonify({"error": "ce travail n'est pas en échec (%s)" % meta.get("status")}), 409
+    _archiver(meta, "manuelle", None, g.user["username"], str((request.get_json(silent=True) or {}).get("note") or "")[:500])
+    return jsonify({"ok": True}), 200
+
+
+@app.route("/jobs/archives", methods=["GET"])
+def jobs_archives():
+    """Échecs archivés (?complet=1 : avec les journaux) -- pour le retraitement et l'apprentissage (base de connaissances, assistant)."""
+    out = []
+    for jid in reversed(_archives()):
+        try:
+            with open(_data(ARCHIVE_DIR, jid + ".json"), encoding="utf-8") as fh:
+                d = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        if request.args.get("complet") != "1":
+            d.pop("log", None)
+        out.append(d)
+    return jsonify({"archives": out}), 200
+
+
 def _running_main():
     return sorted({lights.service_of((c.attrs.get("Config") or {}).get("Labels"), c.name)
                    for c in _project_containers([PROJECT]) if c.status == "running"})

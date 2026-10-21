@@ -1,5 +1,11 @@
 [
  {
+  "n": 816,
+  "from": 816,
+  "date": "2026-10-21",
+  "title": "Mises à jour : tentatives en échec visibles jusqu'à résolution, puis archivées"
+ },
+ {
   "n": 815,
   "from": 815,
   "date": "2026-10-21",
@@ -232,11 +238,5 @@
   "from": 776,
   "date": "2026-10-17",
   "title": "Tuile « Proxys d'entrée » : couple de proxys interchangeables sur deux nœuds, redirection dynamique vers un serveur interne, contrôle DNS automatique et alerte « DNS à configurer »"
- },
- {
-  "n": 775,
-  "from": 775,
-  "date": "2026-10-17",
-  "title": "Tuile « Latence des IP publiques » : mesures régulières depuis plusieurs points, configurateur des accès (agent, compte + sudo, rebond), erreurs avec solution"
  }
 ]

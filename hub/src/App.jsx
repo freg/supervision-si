@@ -1,6 +1,7 @@
 import React, { Fragment, Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import HUB_UPDATES from "./hubUpdates.json";   // #762 : généré par scripts/gen-hub-updates.py
 import { updatesWithLinks, shortDate } from "./hubUpdatesLib.js";
+import HubUpdateFailures from "./HubUpdateFailures.jsx";   // #816 : tentatives en échec jusqu'à résolution
 import { setViewParams } from "./hubLinks.js";   // #790
 import { preloadSequential } from "./lazyViews.js";   // #735
 import { installNetActivity } from "./netActivity.js";   // #735
@@ -1108,6 +1109,7 @@ export default function App() {
   const [showUpdates, setShowUpdates] = useState(() => { try { return localStorage.getItem(FOOTER_UPDATES_STORAGE_KEY) === "1"; } catch { return false; } });
   useEffect(() => { try { localStorage.setItem(FOOTER_UPDATES_STORAGE_KEY, showUpdates ? "1" : "0"); } catch { /* stockage indisponible */ } }, [showUpdates]);
   const hubUpdates = useMemo(() => updatesWithLinks(HUB_UPDATES), []);
+  const [failCount, setFailCount] = useState(0);   // #816
   useEffect(() => {
     try {
       localStorage.setItem(FOOTER_NOTE_VISIBLE_STORAGE_KEY, JSON.stringify(showFooterNote));
@@ -2262,7 +2264,7 @@ vm === "agent-page" ? (
 
       <footer className="hub-footer">
         <button className="hub-footer-toggle" style={{ marginRight: 18 }} onClick={() => setShowUpdates((v) => !v)} title="Dernières livraisons et liens vers les écrans nouveaux ou modifiés">
-          {showUpdates ? "▾" : "▸"} Mises à jour{HUB_UPDATES[0] ? ` (dernière : #${HUB_UPDATES[0].n} du ${shortDate(HUB_UPDATES[0].date)})` : ""}
+          {showUpdates ? "▾" : "▸"} Mises à jour{HUB_UPDATES[0] ? ` (dernière : #${HUB_UPDATES[0].n} du ${shortDate(HUB_UPDATES[0].date)})` : ""}{failCount > 0 ? ` · ⚠ ${failCount} tentative(s) en échec` : ""}
         </button>
         <button
           className="hub-footer-toggle"
@@ -2271,6 +2273,10 @@ vm === "agent-page" ? (
         >
           {showFooterNote ? "▾ Informations" : "▸ Informations"}
         </button>
+        <div className="hub-updates" style={showUpdates ? undefined : { display: "none" }}>
+          <HubUpdateFailures apiBase={SERVICES_API_BASE_URL} token={auth.user?.access_token} onCount={setFailCount}
+            enabled={!!SERVICES_API_BASE_URL && (SERVICES_ADMIN_USERS.includes((profile.preferred_username || "").toLowerCase()) || groups.some((gr) => SERVICES_ADMIN_GROUPS.includes(String(gr).replace(/^\//, ""))))} />
+        </div>
         {showUpdates && (
           <div className="hub-updates">
             {hubUpdates.map((u) => (

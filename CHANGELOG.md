@@ -1,3 +1,23 @@
+## 2026-10-21 — Mises à jour : tentatives en échec visibles jusqu'à résolution, puis archivées (livraison #816)
+
+- Le pied de page « Mises à jour » montre maintenant, au-dessus des livraisons, les **tentatives de la tour de contrôle
+  en échec** : mise à jour git, livraison, reconstruction, passerelle… Pour chacune :
+  - date, libellé, genre, auteur, code de sortie ;
+  - **journal dépliable** (40 dernières lignes) ;
+  - le bouton du pied de page signale « ⚠ N tentative(s) en échec ».
+- **Une tentative reste affichée jusqu'à sa résolution** :
+  - automatique, quand un travail ultérieur du même genre réussit (même libellé pour une reconstruction) ;
+  - ou manuelle, avec le bouton « Résolu » et une note.
+- Résolue, elle quitte la liste et est **archivée** dans `services/data/jobs-archive/` (méta, 400 dernières lignes du
+  journal, ce qui l'a résolue, qui, note). Ces archives servent au retraitement et à l'apprentissage : base de
+  connaissances, assistant.
+- services-api : `GET /jobs/echecs`, `POST /jobs/<id>/resolu`, `GET /jobs/archives` (`?complet=1` avec les journaux).
+  Fonction pure `tower.echecs`.
+- **Vérifié** :
+  - `test_tower.py` (résolution par genre / libellé, un travail en cours ne résout rien) ;
+  - `test_app.py` (archive automatique et manuelle, journaux) ;
+  - rendu de la liste dépliable.
+
 ## 2026-10-21 — Migration : préparer la réinstallation d'un nœud -- quorum, invités transférés, sauvegardes, PRA (livraison #815)
 
 - Tuile Migration, nouvelle page **« Préparer la réinstallation d'un nœud »**, à côté du plan. On y choisit le nœud à

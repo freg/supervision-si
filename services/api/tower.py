@@ -499,3 +499,28 @@ def filter_plan(plan, placed):
         steps.append(st)
     out["steps"] = steps
     return out
+
+
+# -- #816 : tentatives de mise à jour en échec, jusqu'à résolution ---------------------------------------------
+GLOBAUX = ("git-update", "delivery", "gateway")   # une réussite ultérieure du même genre résout l'échec
+
+
+def cle_job(job):
+    """Genre de travail : une mise à jour git, une livraison ou la passerelle sont résolues par la suivante réussie du
+    même genre ; les autres (reconstruction d'un service…) par une réussite de même genre ET même libellé."""
+    k = job.get("kind") or "?"
+    return k if k in GLOBAUX else "%s|%s" % (k, job.get("label") or "")
+
+
+def echecs(jobs):
+    """jobs : [{id, kind, label, at, status}] -> (non résolus [job], résolus [(job, job qui le résout)]).
+    Échec = status failed ou lost ; un job en cours ne résout rien."""
+    tri = sorted([j for j in jobs or [] if isinstance(j, dict)], key=lambda j: j.get("at") or 0)
+    non_resolus, resolus = [], []
+    for i, j in enumerate(tri):
+        if j.get("status") not in ("failed", "lost"):
+            continue
+        par = next((x for x in tri[i + 1:] if x.get("status") == "done" and cle_job(x) == cle_job(j)), None)
+        (resolus.append((j, par)) if par else non_resolus.append(j))
+    non_resolus.sort(key=lambda j: -(j.get("at") or 0))
+    return non_resolus, resolus

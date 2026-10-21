@@ -2763,3 +2763,9 @@ button[aria-busy="true"]::after { content: ""; position: absolute; right: 8px; t
 .prep-controle { max-height: none; overflow: visible; height: auto; min-width: 0; }
 .prep-actions th, .prep-actions td { white-space: normal; }
 .prep-controle .prep-actions { display: block; overflow-x: auto; }
+/* #816 : tentatives en échec dans « Mises à jour » */
+.hub-update-failure { border-left: 3px solid var(--danger); padding-left: 6px; }
+.hub-update-failure summary { display: flex; gap: 8px; align-items: center; cursor: pointer; list-style: none; }
+.hub-update-failure .hub-update-n { color: var(--danger); }
+.hub-update-log { max-height: 260px; overflow: auto; font-size: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; white-space: pre-wrap; }
+.hub-update-archives { color: var(--muted); font-size: 12px; }

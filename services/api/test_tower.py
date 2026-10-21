@@ -179,3 +179,17 @@ class RegistryPlan(__import__("unittest").TestCase):
         self.assertIn("./gateway/scripts/run.sh up -d --build tls-proxy", cmds)          # passerelle construite ici
         self.assertTrue(p["registry"])
         self.assertFalse(t.git_update_plan("cascade", [], {}, ["hub"], nodes=1)["registry"])
+
+
+class Echecs(unittest.TestCase):
+    """#816 : tentatives en échec jusqu'à résolution."""
+    def test_echecs(self):
+        j = lambda i, k, st, at, label="x": {"id": i, "kind": k, "status": st, "at": at, "label": label}  # noqa: E731
+        jobs = [j("a", "git-update", "failed", 1), j("b", "git-update", "done", 2), j("c", "git-update", "lost", 3),
+                j("d", "rebuild", "failed", 1, "reconstruire hub"), j("e", "rebuild", "done", 2, "reconstruire ged-api"),
+                j("f", "delivery", "failed", 5), j("g", "delivery", "running", 6)]
+        non, res = tower.echecs(jobs)
+        self.assertEqual([x["id"] for x in non], ["f", "c", "d"])                 # plus récents d'abord ; en cours ne résout rien
+        self.assertEqual([(a["id"], b["id"]) for a, b in res], [("a", "b")])
+        self.assertEqual(tower.cle_job({"kind": "rebuild", "label": "reconstruire hub"}), "rebuild|reconstruire hub")
+        self.assertEqual(tower.echecs([]), ([], []))

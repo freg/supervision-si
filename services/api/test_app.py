@@ -251,6 +251,33 @@ class TestTower(TestApi):
         self.assertEqual(appmod.heal_once(), ["ged-api"])  # tls-proxy rouge mais protégé ; api-down rouge HTTP seulement -> jamais (#588)
         self.assertEqual(self.cs[2].actions, ["start"])
 
+    def test_echecs_jusqu_a_resolution(self):
+        """#816 : un échec reste visible jusqu'à une réussite du même genre, puis il est archivé ; « résolu » à la main aussi."""
+        jd = os.path.join(PROJ, "services/data/jobs")
+        os.makedirs(jd, exist_ok=True)
+        for f in os.listdir(jd):
+            os.remove(os.path.join(jd, f))
+        ad = os.path.join(PROJ, "services/data/jobs-archive")
+        if os.path.isdir(ad):
+            for f in os.listdir(ad):
+                os.remove(os.path.join(ad, f))
+        for jid, kind, rc, at in (("20261021-100000-aaaa", "git-update", 1, 1), ("20261021-110000-bbbb", "rebuild", 2, 2), ("20261021-120000-cccc", "git-update", 0, 3)):
+            put("services/data/jobs/%s.json" % jid, json.dumps({"id": jid, "kind": kind, "label": kind, "at": at, "user": "freg"}))
+            put("services/data/jobs/%s.rc" % jid, "%d\n" % rc)
+            put("services/data/jobs/%s.log" % jid, "▶ étape\n✗ échec (code %d)\n" % rc)
+        r = self.c.get("/jobs/echecs", headers=self.h).get_json()
+        self.assertEqual([e["id"] for e in r["echecs"]], ["20261021-110000-bbbb"])        # l'échec git-update est résolu par la suivante
+        self.assertEqual(r["echecs"][0]["log"][-1], "✗ échec (code 2)")
+        self.assertEqual(r["archives"], 1)
+        self.assertEqual(self.c.post("/jobs/20261021-120000-cccc/resolu", headers=self.h, json={}).status_code, 409)
+        self.assertEqual(self.c.post("/jobs/20261021-110000-bbbb/resolu", headers=self.h, json={"note": "image corrigée à la main"}).status_code, 200)
+        self.assertEqual(self.c.get("/jobs/echecs", headers=self.h).get_json(), {"echecs": [], "archives": 2})
+        a = self.c.get("/jobs/archives?complet=1", headers=self.h).get_json()["archives"]
+        self.assertEqual([(x["job"]["id"], x["resolution"]) for x in a], [("20261021-110000-bbbb", "manuelle"), ("20261021-100000-aaaa", "automatique")])
+        self.assertEqual((a[0]["par"], a[0]["note"], a[1]["resolu_par"]["id"]), ("freg", "image corrigée à la main", "20261021-120000-cccc"))
+        self.assertIn("✗ échec (code 2)", a[0]["log"])
+        self.assertNotIn("log", self.c.get("/jobs/archives", headers=self.h).get_json()["archives"][0])
+
     def test_check_jobs(self):
         self.c.post("/services/nebula-api/rebuild", headers=self.h)
         jid = [f[:-5] for f in os.listdir(os.path.join(PROJ, "services/data/jobs")) if f.endswith(".json")][-1]

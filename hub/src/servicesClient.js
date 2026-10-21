@@ -35,6 +35,9 @@ export async function saveConfig(apiBase, token, id, items) {
 }
 export const fetchJobs = (apiBase, token) => call(apiBase, token, "/jobs");
 export const fetchJob = (apiBase, token, id) => call(apiBase, token, `/jobs/${encodeURIComponent(id)}`);
+// #816 : tentatives en échec jusqu'à résolution (puis archivées pour retraitement)
+export const fetchJobFailures = (apiBase, token) => call(apiBase, token, "/jobs/echecs");
+export const resolveJobFailure = (apiBase, token, id, note) => call(apiBase, token, `/jobs/${encodeURIComponent(id)}/resolu`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note }) });
 export const fetchDeliveries = (apiBase, token) => call(apiBase, token, "/deliveries");
 // #659 : mise à jour depuis le dépôt git (GitHub) -- état (fetch) et lancement (central ciblé / cascade + agents)
 export const fetchGit = (apiBase, token, fetch = true) => call(apiBase, token, `/git${fetch ? "" : "?fetch=0"}`);
