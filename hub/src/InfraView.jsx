@@ -2,6 +2,7 @@
 // stockages, VM, CPU / mémoire, débits, connexions, transferts en cours, constats ; onglet « htop » (en-tête de htop
 // pour chaque hôte et chaque VM, en tableau trié). Pleine largeur ; rafraîchie toutes les 30 s.
 // Données : si-agent-api /infra/overview (sondes node-activity, proxmox, pve-remote, pbs).
+import { hubLink } from "./hubLinks.js";   // #817 : règle des liens
 import DataStatus from "./DataStatus.jsx";   // #763 : état des données
 import { useEffect, useMemo, useState } from "react";
 import { fetchInfraOverview } from "./siAgentClient.js";
@@ -119,7 +120,7 @@ export default function InfraView({ onBack, siAgentApiBase }) {
       </div>
       {err && <p className="infra-error">{err}</p>}
       <DataStatus base={siAgentApiBase} tasks={["plugin:node-activity", "plugin:proxmox", "plugin:pve-remote", "plugin:pbs"]} error={err} refreshKey={at ? at.getTime() : 0} />
-      {view && !view.nodes.length && <p className="infra-muted">Aucun nœud : activer les sondes <code>node-activity</code> (hôte local + nœuds distants de pve-remote.json), <code>proxmox</code>, <code>pve-remote</code> et <code>pbs</code> sur les agents des Proxmox (Agents hôtes › fiche › Sondes).</p>}
+      {view && !view.nodes.length && <p className="infra-muted">Aucun nœud : activer les sondes <code>node-activity</code> (hôte local + nœuds distants de pve-remote.json), <code>proxmox</code>, <code>pve-remote</code> et <code>pbs</code> sur les agents des Proxmox (Agents hôtes › fiche › Sondes). <a href={hubLink("si-agent", { section: "plugins" })}>Agents hôtes › choisir l'agent › Sondes →</a></p>}
 
       {view && tab === "synthese" && (
         <div className="infra-scroll infra-page">

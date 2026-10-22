@@ -4,6 +4,7 @@
 // Données : si-agent-api /migration/preparation (sonde pve-preflight + copies au LAN + fiches des invités).
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { fetchMigrationPrep } from "./siAgentClient.js";
+import { hubLink } from "./hubLinks.js";
 import { HYPOTHESES, SYMBOLE, TON, compte, fmtAgeH, fmtMin, fmtOctets, requete, taux5xx } from "./prepLib.js";
 
 const lire = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
@@ -13,6 +14,18 @@ const num = (v, s = "") => (v == null ? "—" : `${Math.round(v * 10) / 10}${s}`
 function Verdict({ v, children }) {
   return <span className={`np-tone ${TON[v] || "neutral"}`}>{SYMBOLE[v] || "?"} {children || v}</span>;
 }
+// Règle du hub (absolue) : « activer / régler X » donne le lien vers l'endroit où on le fait ; sinon « pas de lien :
+// opération manuelle » avec ce qu'il faut faire.
+function LiensOuManuel({ liens, manuel }) {
+  if (!liens?.length && !manuel) return null;
+  return (
+    <div className="prep-liens">
+      {(liens || []).map((l) => <a key={l.label} className="button-link" href={hubLink(l.view, l.params)}>{l.label} →</a>)}
+      {!liens?.length && manuel && <p className="infra-muted">⚠ {manuel}</p>}
+    </div>
+  );
+}
+
 function Copier({ texte }) {
   const [ok, setOk] = useState(false);
   return <button type="button" className="secondary" onClick={() => navigator.clipboard?.writeText(texte).then(() => { setOk(true); setTimeout(() => setOk(false), 1500); })}>{ok ? "copié ✓" : "Copier"}</button>;
@@ -48,6 +61,7 @@ function Controles({ liste }) {
           <div><Verdict v={c.verdict} /> <b>{c.titre}</b></div>
           <p className="infra-muted">{c.detail}</p>
           {c.id !== "quorum" && <Actions actions={c.actions} />}
+          <LiensOuManuel liens={c.liens} manuel={c.manuel} />
         </div>
       ))}
     </div>
@@ -81,6 +95,7 @@ export default function MigrationPrepView({ siAgentApiBase }) {
         <span className="infra-muted">{at ? `lu ${at.toLocaleTimeString("fr-FR")}` : "lecture…"}{d?.releve ? ` · relevés : ${Object.entries(d.releve).map(([k, v]) => `${k} ${v.at || "?"}${v.ok ? "" : " (en échec)"}`).join(" · ")}` : ""}</span>
       </div>
       {err && <p className="infra-error">{err}</p>}
+      {err && <LiensOuManuel liens={d?.liens} manuel={d?.manuel} />}
       {d?.verdict && <p className={`prep-bandeau ${TON[d.verdict]}`}><Verdict v={d.verdict}>{d.verdict === "ok" ? `prêt à réinstaller ${d.cible}` : d.verdict === "bloquant" ? `${d.cible} n'est PAS prêt à être réinstallé` : `${d.cible} : points à vérifier avant la réinstallation`}</Verdict></p>}
       {d?.quorum && <Quorum q={d.quorum} />}
       {d?.controles && <Controles liste={d.controles.filter((c) => c.id !== "quorum")} />}

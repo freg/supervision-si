@@ -2769,3 +2769,6 @@ button[aria-busy="true"]::after { content: ""; position: absolute; right: 8px; t
 .hub-update-failure .hub-update-n { color: var(--danger); }
 .hub-update-log { max-height: 260px; overflow: auto; font-size: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; white-space: pre-wrap; }
 .hub-update-archives { color: var(--muted); font-size: 12px; }
+.prep-liens { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
+.prep-liens a.button-link { display: inline-block; padding: 4px 10px; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); text-decoration: none; }
+.prep-liens a.button-link:hover { background: var(--accent); color: #fff; }

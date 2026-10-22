@@ -115,8 +115,8 @@ class Prep(unittest.TestCase):
         self.assertEqual(c["transferes"]["verdict"], "bloquant")
         self.assertEqual(c["sauvegardes"]["verdict"], "bloquant")
         self.assertEqual(self.r["verdict"], "bloquant")
-        manque = prep.assemble(REPORTS[1:], [], {}, "pve-3", "pve-2")
-        self.assertEqual(manque["controles"][0]["id"], "releves")
+        manque = prep.assemble(REPORTS[1:], [], {}, "pve-3", "pve-2", liens_sonde=[{"label": "x", "view": "si-agent", "params": {}}])
+        self.assertEqual((manque["controles"][0]["id"], manque["controles"][0]["liens"][0]["view"]), ("releves", "si-agent"))
 
 
 class Route(unittest.TestCase):
@@ -128,8 +128,15 @@ class Route(unittest.TestCase):
             r = c.get("/migration/preparation?debit_lan=50&transferes=119").get_json()
             self.assertEqual((r["cible"], r["accueil"], r["params"]["debit_lan"]), ("pve-3", "pve-2", 50.0))
             self.assertEqual(c.get("/migration/preparation?debit_lan=x").status_code, 400)
+            appmod.infra.latest = lambda conn, t: [("ag1", "deb13", "x", {})] if t == "plugin:guest-usage" else []
+            r = c.get("/migration/preparation").get_json()
+            self.assertIn("activer la sonde pve-preflight", r["error"])
+            self.assertEqual(r["liens"], [{"label": "Sondes de deb13 → activer pve-preflight", "view": "si-agent", "params": {"agent": "ag1", "section": "plugins"}}])
+            self.assertIsNone(r["manuel"])
             appmod.infra.latest = lambda conn, t: []
-            self.assertIn("activer la sonde pve-preflight", c.get("/migration/preparation").get_json()["error"])
+            r = c.get("/migration/preparation").get_json()
+            self.assertEqual(r["liens"], [])
+            self.assertTrue(r["manuel"].startswith("pas de lien : opération manuelle"))
         finally:
             appmod.infra.latest = avant
 

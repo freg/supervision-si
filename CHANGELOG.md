@@ -1,3 +1,19 @@
+## 2026-10-22 — Règle absolue : « activer / régler X » donne le lien, sinon « pas de lien : opération manuelle » (livraison #817)
+
+- La page « Préparer la réinstallation d'un nœud » disait « activer la sonde pve-preflight… fiche de l'agent › Sondes » sans
+  lien. Elle donne maintenant un bouton par agent qui joint les Proxmox : ceux qui remontent pve-remote ou guest-usage, à
+  défaut proxmox. Le bouton ouvre la fiche de l'agent sur ses Sondes.
+- S'il n'y a aucun agent, la page écrit « pas de lien : opération manuelle » et dit quoi faire (pve-remote.json, puis
+  activer la sonde). C'est aussi le cas dans le contrôle « Relevés des deux nœuds ».
+- Même règle appliquée aux autres messages sans lien : Data RF, Activité des VM, Parc IA, Infra PVE/PBS. Ils ont
+  maintenant un lien « Agents hôtes › choisir l'agent › Sondes ».
+- **Règle désormais absolue** pour toute nouvelle page : tout message qui demande d'activer ou de régler quelque chose
+  porte le lien vers l'endroit du hub où on le fait. Sinon, il porte la note « pas de lien : opération manuelle » avec la
+  marche à suivre.
+- **Vérifié** :
+  - `test_z_prep.py` (liens par agent, mention manuelle sans agent) ;
+  - suite du hub, construction.
+
 ## 2026-10-21 — Mises à jour : tentatives en échec visibles jusqu'à résolution, puis archivées (livraison #816)
 
 - Le pied de page « Mises à jour » montre maintenant, au-dessus des livraisons, les **tentatives de la tour de contrôle

@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from "react";
 import DataStatus from "./DataStatus.jsx";
 import JournalLinks from "./JournalLinks.jsx";
-import { viewParams, clearViewParams } from "./hubLinks.js";
+import { viewParams, clearViewParams, hubLink } from "./hubLinks.js";
 import { fetchGuestUsage, saveGuestProfile } from "./siAgentClient.js";
 import { fmtBytes } from "./infraLib.js";
 import {
@@ -239,7 +239,7 @@ export default function GuestUsageView({ onBack, siAgentApiBase, username }) {
       {err && <p className="infra-error">{err}</p>}
       <DataStatus base={siAgentApiBase} tasks={["plugin:guest-usage"]} error={err} refreshKey={now} />
       {(data?.errors || []).map((e) => <p key={`${e.node}${e.agent_id}`} className="infra-error">{e.node} : {e.error} <JournalLinks agentId={e.agent_id} name={e.agent} q="guest-usage" /></p>)}
-      {data && !all.length && <p className="infra-muted">Aucun invité : activer la sonde <code>guest-usage</code> sur l'agent qui joint les Proxmox (nœud local + /etc/si-agent/pve-remote.json), fiche de l'agent › Sondes.</p>}
+      {data && !all.length && <p className="infra-muted">Aucun invité : activer la sonde <code>guest-usage</code> sur l'agent qui joint les Proxmox (nœud local + /etc/si-agent/pve-remote.json), fiche de l'agent › Sondes. <a href={hubLink("si-agent", { section: "plugins" })}>Agents hôtes › choisir l'agent › Sondes →</a></p>}
       {data && all.length > 0 && (
         <div className="infra-kpis">
           <div className="infra-kpi"><span>CT / VM</span><b>{c.total}</b><small>{c.collected} relevés</small></div>

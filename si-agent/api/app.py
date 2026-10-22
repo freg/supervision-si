@@ -2541,6 +2541,7 @@ def migration_prep_route():
         reports = infra.latest(conn, "plugin:pve-preflight")
         lan = infra.latest(conn, "plugin:pulled-backups")
         profils = guestusage.load_profiles(conn)
+        cands = _agents_proxmox(conn)
     finally:
         conn.close()
     noms = sorted(prep.noeuds(reports))
@@ -2554,10 +2555,31 @@ def migration_prep_route():
         except ValueError:
             return jsonify({"error": "%s : nombre attendu" % k}), 400
     transferes = [int(x) for x in str(request.args.get("transferes") or "").split(",") if x.strip().isdigit()]
+    liens, manuel = _liens_sonde(cands)
     if not reports:
         return jsonify({"noeuds": [], "error": "aucun relevé pve-preflight : activer la sonde pve-preflight sur l'agent qui joint les Proxmox "
-                                               "(nœud local + /etc/si-agent/pve-remote.json, comme guest-usage), fiche de l'agent › Sondes"}), 200
-    return jsonify(prep.assemble(reports, lan, profils, cible, accueil, params, transferes)), 200
+                                               "(nœud local + pve-remote.json, comme guest-usage)", "liens": liens, "manuel": manuel}), 200
+    return jsonify(prep.assemble(reports, lan, profils, cible, accueil, params, transferes, liens_sonde=liens, manuel_sonde=manuel)), 200
+
+
+def _agents_proxmox(conn):
+    """#815 : agents qui joignent des Proxmox (sondes pve-remote / guest-usage, sinon proxmox) -> [(agent_id, hôte)]."""
+    vus = {}
+    for t in ("plugin:pve-remote", "plugin:guest-usage", "plugin:proxmox"):
+        for aid, host, _at, _d in infra.latest(conn, t):
+            vus.setdefault(aid, host or aid)
+        if vus:
+            break
+    return sorted(vus.items(), key=lambda x: x[1] or "")
+
+
+def _liens_sonde(cands):
+    """Règle du hub (#570, absolue depuis #817) : « activer / régler X » donne le lien vers l'endroit où on le fait ;
+    sans lien possible, une opération manuelle explicite."""
+    if cands:
+        return [{"label": "Sondes de %s → activer pve-preflight" % h, "view": "si-agent", "params": {"agent": a, "section": "plugins"}} for a, h in cands], None
+    return [], ("pas de lien : opération manuelle -- sur l'agent Linux qui joindra les Proxmox, créer /etc/si-agent/pve-remote.json "
+                "([{\"name\": \"pve-2\", \"host\": \"<IP>\", \"key\": \"/etc/si-agent/keys/pve\"}]), puis activer pve-preflight dans sa fiche › Sondes")
 
 
 @app.route("/migration/plan", methods=["PUT"])

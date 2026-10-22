@@ -2,6 +2,7 @@
 // passive (Alfa, wifi-monitor), croisement par canal (occupé au spectre sans trafic Wi-Fi = brouillage probable), bornes
 // vues, lien client (wifi-probe), constats. Données : si-agent-api /datarf (collecte du mini-PC de chaque site + sondes
 // enrôlées directement). Rafraîchie toutes les 30 s.
+import { hubLink } from "./hubLinks.js";   // #817 : règle des liens
 import { useEffect, useMemo, useState } from "react";
 import { fetchDataRf, fetchDataRfConfig, sendDataRfConfig, fetchCommand } from "./siAgentClient.js";
 import { BANDES, traces, croiser, bornes, age, fmtAge, LECTURE, ROLES, configInitiale, verifierConfig, suiviCommande, etatSondes, SYMBOLE } from "./datarfLib.js";
@@ -178,7 +179,7 @@ export default function DataRfView({ onBack, siAgentApiBase, username }) {
         <span className="infra-muted">{at ? `mis à jour ${at.toLocaleTimeString("fr-FR")}` : "lecture…"}</span>
       </div>
       {err && <p className="infra-error">{err}</p>}
-      {data && !sondes.length && <p className="infra-muted">Aucune sonde : installer le collecteur sur le mini-PC du site (si-agent/local-central/installer-collecteur.sh), y enrôler les sondes, puis activer la sonde <code>collecte-sondes</code> sur l'agent du mini-PC (fiche de l'agent › Sondes).</p>}
+      {data && !sondes.length && <p className="infra-muted">Aucune sonde : installer le collecteur sur le mini-PC du site (si-agent/local-central/installer-collecteur.sh), y enrôler les sondes, puis activer la sonde <code>collecte-sondes</code> sur l'agent du mini-PC (fiche de l'agent › Sondes). <a href={hubLink("si-agent", { section: "plugins" })}>Agents hôtes › choisir l'agent › Sondes →</a></p>}
       {data && onglet === "reseau" && sondes.length > 0 && <ReseauSondes data={data} ouvrir={ouvrir} />}
       {s && onglet === "detail" && (
         <div className="infra-scroll infra-page">

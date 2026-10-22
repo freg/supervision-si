@@ -244,7 +244,7 @@ def pra(g, noeud_invite, tous, sv, params, quorum_perdu, cible=None):
     return {"retenu": retenu, "scenarios": sc, "verdict": v, "taille_go": round(go, 1)}
 
 
-def assemble(reports, lan_reports, profils, cible, accueil, params=None, transferes=(), maintenant=None):
+def assemble(reports, lan_reports, profils, cible, accueil, params=None, transferes=(), maintenant=None, liens_sonde=(), manuel_sonde=None):
     maintenant = maintenant or time.time()
     tous = noeuds(reports)
     lan = copies_lan(lan_reports)
@@ -274,7 +274,7 @@ def assemble(reports, lan_reports, profils, cible, accueil, params=None, transfe
                             "checks": g.get("checks"), "disk": g.get("disk"), "maxdisk": g.get("maxdisk"), "uptime_s": g.get("uptime_s"),
                             "sante": s, "sauvegardes": sv, "pra": p, "replication": repl})
     invites.sort(key=lambda i: (i["noeud"] != cible, not i["transfere"], i["vmid"]))
-    controles = verifications(nc, na, invites, cible, accueil, q)
+    controles = verifications(nc, na, invites, cible, accueil, q, list(liens_sonde or []), manuel_sonde)
     perdues = [b for b in (nc or {}).get("backups") or [] if not ((nc.get("storages") or {}).get(b.get("storage")) or {}).get("shared")]
     return {"cible": cible, "accueil": accueil, "noeuds": sorted(tous), "releve": {k: {"at": v.get("_at"), "ok": v.get("ok"), "error": v.get("error")} for k, v in tous.items()},
             "quorum": q, "controles": controles, "invites": invites, "params": dict(DEFAUTS, **{k: v for k, v in (params or {}).items() if v is not None}),
@@ -282,13 +282,13 @@ def assemble(reports, lan_reports, profils, cible, accueil, params=None, transfe
             "verdict": _pire(*[c["verdict"] for c in controles])}
 
 
-def verifications(nc, na, invites, cible, accueil, q):
+def verifications(nc, na, invites, cible, accueil, q, liens=(), manuel=None):
     """Liste des contrôles « prêt à réinstaller » (verdict, détail, actions)."""
     out = []
     if not nc or not na:
         out.append({"id": "releves", "titre": "Relevés des deux nœuds", "verdict": "bloquant",
                     "detail": "relevé pve-preflight manquant pour %s : activer la sonde pve-preflight (agent qui joint les Proxmox, pve-remote.json)"
-                              % ", ".join(x for x, n in ((cible, nc), (accueil, na)) if not n), "actions": []})
+                              % ", ".join(x for x, n in ((cible, nc), (accueil, na)) if not n), "actions": [], "liens": list(liens), "manuel": manuel})
         if not nc and not na:
             return out
     out.append({"id": "quorum", "titre": "1. Quorum", "verdict": q["verdict"], "detail": q["detail"], "actions": q.get("actions") or []})

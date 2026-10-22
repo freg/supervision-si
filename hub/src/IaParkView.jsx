@@ -4,6 +4,7 @@
 //     activité par jour (appels, erreurs, temps moyen, jetons/s) -- relais en lecture si-agent-api /ia/assistant/* ;
 //   - Hôtes : en-tête htop, modèles Ollama (déployer, charger, tester : OllamaSection #746), conteneurs, gestes ;
 //   - hôtes ajoutés à la main (ex. la VM qui porte l'assistant sous Docker) : /ia/hosts.
+import { hubLink } from "./hubLinks.js";   // #817 : règle des liens
 import DataStatus from "./DataStatus.jsx";   // #763 : état des données
 import { useEffect, useState } from "react";
 import OllamaSection from "./OllamaSection.jsx";
@@ -147,7 +148,7 @@ export default function IaParkView({ onBack, siAgentApiBase, username }) {
         extra={status && !status.error ? [{ tone: status.llm_reachable ? (status.model_available ? "good" : "warning") : "critical", text: `assistant : ${status.model} ${status.llm_reachable ? (status.model_available ? "présent" : "absent du serveur de modèles") : "serveur de modèles injoignable"}`, detail: status.base_url }] : []} />
 
       {tab === "hotes" && ov && <>
-        {ov.hosts.length === 0 && <p className="infra-muted">Aucun hôte d'IA : activer la sonde <code>ollama</code> sur l'agent du poste (fiche de l'agent), ou ajouter un hôte ci-dessous.</p>}
+        {ov.hosts.length === 0 && <p className="infra-muted">Aucun hôte d'IA : activer la sonde <code>ollama</code> sur l'agent du poste (fiche de l'agent), ou ajouter un hôte ci-dessous. <a href={hubLink("si-agent", { section: "plugins" })}>Agents hôtes › choisir l'agent › Sondes →</a></p>}
         {ov.hosts.map((h) => <HostCard key={h.agent_id} base={base} h={h} username={username} onRefresh={load} />)}
         <div className="infra-card"><b>Hôtes ajoutés à la main</b> <span className="infra-muted">(ex. la VM qui fait tourner l'assistant sous Docker)</span> :{" "}
           {(ov.declared || []).map((id) => <span key={id} className="infra-kpi" style={{ display: "inline-flex", gap: 4, margin: 2 }}>{id}<button className="secondary" onClick={() => removeHost(id)}>✕</button></span>)}

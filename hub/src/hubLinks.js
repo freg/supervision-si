@@ -3,6 +3,7 @@
 // l'endroit du hub où on le fait. Un lien = `?view=<vue>&<paramètres>` :
 // App.jsx ouvre la vue (#559, lien profond), la vue lit ses paramètres
 // (`viewParams()`) pour se placer (agent sélectionné, section ouverte…).
+// #817 : règle ABSOLUE -- sans lien possible, le message porte « pas de lien : opération manuelle » et la marche à suivre.
 export function hubLink(view, params = {}) {
   const q = new URLSearchParams({ view, ...Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== "")) });
   return `${window.location.pathname}?${q.toString()}`;

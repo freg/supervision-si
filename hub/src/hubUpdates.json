@@ -1,5 +1,11 @@
 [
  {
+  "n": 817,
+  "from": 817,
+  "date": "2026-10-22",
+  "title": "Règle absolue : « activer / régler X » donne le lien, sinon « pas de lien : opération manuelle »"
+ },
+ {
   "n": 816,
   "from": 816,
   "date": "2026-10-21",
@@ -232,11 +238,5 @@
   "from": 777,
   "date": "2026-10-17",
   "title": "Activité des VM : analyse interne des invités (SSH, sudo, courriels, fichiers modifiés, journaux, connexions établies) dans le temps"
- },
- {
-  "n": 776,
-  "from": 776,
-  "date": "2026-10-17",
-  "title": "Tuile « Proxys d'entrée » : couple de proxys interchangeables sur deux nœuds, redirection dynamique vers un serveur interne, contrôle DNS automatique et alerte « DNS à configurer »"
  }
 ]
