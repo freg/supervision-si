@@ -194,7 +194,8 @@ def script(v):
                     'nomad config validate /etc/nomad.d >/dev/null 2>&1 || nomad config validate /etc/nomad.d >&2 || true\n'
                     'systemctl enable nomad >/dev/null 2>&1\n'
                     'systemctl restart nomad || { journalctl -u nomad -n 25 --no-pager >&2; echo "ERREUR Nomad ne démarre pas (journal ci-dessus) ; config : /etc/nomad.d/nomad.hcl" >&2; exit 1; }\n'
-                    'for i in $(seq 1 30); do curl -sf %s/v1/agent/health >/dev/null && break; sleep 2; done\n'
+                    'ok=; for i in $(seq 1 30); do curl -sf %s/v1/agent/health >/dev/null && { ok=1; break; }; sleep 2; done\n'
+                    '[ -n "$ok" ] || { journalctl -u nomad -n 25 --no-pager >&2; echo "ERREUR Nomad ne répond pas après 60 s (journal ci-dessus)" >&2; exit 1; }\n'
                     'nomad version; curl -sf %s/v1/nodes | head -c 600; echo\n'
                     'echo "interface web : ssh -L 4646:127.0.0.1:4646 <hôte> puis http://127.0.0.1:4646"' % (conf, api, api))
         if a == "desinstaller":
