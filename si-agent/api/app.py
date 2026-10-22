@@ -51,6 +51,8 @@ import migration  # noqa: E402  -- #658 : migration serveur -> virtualisation (g
 import priorites  # noqa: E402  -- #818 : priorités de la page d'accueil (préparation, décideur, explication)
 import banc  # noqa: E402  -- #825 : banc d'installation des agents sur un pool de VM
 import diffusion  # noqa: E402  -- #822 : diffusions en cascade (déploiement avec dépendances)
+import apprentissage  # noqa: E402  -- #828 : jeu de données du décideur, entraînements LoRA, évaluation
+import skills  # noqa: E402  -- #827 : skills des IA (consignes versionnées)
 import modeles  # noqa: E402  -- #821 : Parc IA, veille des modèles (sorties, ouvert/fermé, usages)
 import prep  # noqa: E402  -- #815 : préparer la réinstallation d'un nœud (quorum, invités transférés, sauvegardes, PRA)
 import infra  # noqa: E402  -- #749 : vue d'ensemble PVE / PBS
@@ -241,6 +243,26 @@ def _modeles_parc():
 
 
 modeles.source_tags = _modeles_parc
+app.register_blueprint(skills.bp)   # #827
+
+
+def _essai_skill(sk, texte):
+    """#827 : joue un skill sur un texte avec le modèle déclaré pour son usage (sinon celui du .env)."""
+    t0 = time.time()
+    m = priorites.modeles_declares().get(sk["usage"])
+    if sk["type"] == "decision":
+        q = priorites.questions_effectives(json.loads(sk["texte"])) if sk["id"] == "priorites-decideur" else json.loads(sk["texte"])
+        d = priorites.decideur.decider_lot([texte], q, cfg={"llm_modele": m} if m else None)
+        if d.get("erreur"):
+            raise ValueError(d["erreur"])
+        return {"sortie": json.dumps((d.get("reponses") or [None])[0], ensure_ascii=False, indent=1), "modele": d.get("modele"), "duree_s": round(time.time() - t0, 1)}
+    out = priorites.decideur.llm_chat([{"role": "system", "content": sk["texte"]}, {"role": "user", "content": texte}], modele=m, delai=600)
+    return {"sortie": out, "modele": m or priorites.decideur.config()["llm_modele"], "duree_s": round(time.time() - t0, 1)}
+
+
+skills.essayer_hook = _essai_skill
+app.register_blueprint(apprentissage.bp)   # #828
+apprentissage.evaluer_lot = lambda etats_, q, m: priorites.decideur.decider_lot(etats_, q, cfg={"llm_modele": m}).get("reponses") or []
 modeles.notifier = lambda titre, ctx: _event("modele-alerte", "warning", titre, details=ctx)   # #823 : journal + notifications
 if os.environ.get("SI_AGENT_PURGE_THREAD", "1") == "1":
     modeles.demarrer()

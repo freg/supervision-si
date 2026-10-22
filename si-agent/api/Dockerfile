@@ -50,6 +50,8 @@ COPY si-agent/api/priorites.py .
 COPY si-agent/api/modeles.py .
 COPY si-agent/api/diffusion.py .
 COPY si-agent/api/banc.py .
+COPY si-agent/api/skills.py .
+COPY si-agent/api/apprentissage.py .
 COPY si-agent/api/modeles_stockage.py .
 COPY shared/decideur.py .
 COPY si-agent/api/edgepair.py .

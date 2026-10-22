@@ -3913,9 +3913,9 @@ gestion des skills ; si raisonnable, apprentissage / entraînement ; gestion des
   modèles x hôtes, lancé depuis le hub (commande d'agent sur l'hôte, pas depuis l'API), résultats comparés dans le temps
   (régression quand un modèle change), coût (s / cas, mémoire) ; le banc du décideur du hub maison
   (`api/banc_decideur.py`) en est le premier.
-- **T4 Skills** : catalogue des consignes / outils réutilisables par les IA du hub (prompts système, schémas de
+- **T4 Skills (livrée #827)** : catalogue des consignes / outils réutilisables par les IA du hub (prompts système, schémas de
   décision, outils autorisés), versionnés, avec l'usage et le modèle qui les portent ; évalués par les bancs T3.
-- **T5 Apprentissage (raisonnable, à cadrer)** : pas d'entraînement complet. LoRA / QLoRA de petits modèles (≤ 8 B)
+- **T5 Apprentissage (livrée #828 : jeu, registre, évaluation ; kit LoRA non exécuté)** : pas d'entraînement complet. LoRA / QLoRA de petits modèles (≤ 8 B)
   sur nos propres décisions (suivis / rejets, statuts de traitement, corrections de l'utilisateur) pour le décideur et
   le classement ; sur GPU NVIDIA (outillage mûr), l'Arc Pro de la maison seulement après essai ; export GGUF -> Ollama
   -> banc T3 avant mise en service ; données d'entraînement jamais hors de nos machines.

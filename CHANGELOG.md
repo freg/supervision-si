@@ -1,3 +1,15 @@
+## 2026-10-22 — Parc IA : skills (consignes versionnées) et apprentissage du décideur (livraisons #827, #828)
+
+- **#827 Skills** (Parc IA > Skills) : consignes des IA versionnées (historique, restauration, auteur, notes), actives
+  ou non, essai sur un texte avec le modèle de l'usage. Branchés sur les **Priorités** : `priorites-preparation`,
+  `priorites-decideur` (instructions / critères : les clés et le format restent imposés par le code),
+  `priorites-explication` ; non personnalisé ou désactivé = texte du code. Skills personnels pour la bibliothèque.
+- **#828 Apprentissage** (Parc IA > Apprentissage) : jeu de données du décideur tiré de **nos décisions** de veille
+  (statut posé par une personne, rejets), même entrée que la production, découpage stable entraînement / test, export
+  JSONL ; registre des entraînements ; **évaluation** du modèle produit (ou de celui de production) sur la part test
+  (accord urgent / gravité). Kit LoRA Unsloth -> GGUF -> Ollama (`si-agent/tools/apprentissage/`, non exécuté) ;
+  `docs/apprentissage.md`. Aucune mise en service automatique.
+
 ## 2026-10-22 — Tuile « Banc d'installation » : modèles de VM fabriqués depuis le hub (livraison #826)
 
 - Nouvelle **tuile Banc d'installation** (Supervision, à côté du Parc IA) : onglets *Modèles de VM*, *Pool et passages*

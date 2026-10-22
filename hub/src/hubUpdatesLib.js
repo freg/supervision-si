@@ -6,6 +6,8 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  828: [{ view: "iapark", params: { tab: "apprentissage" }, hint: "Apprentissage : jeu du décideur (vos décisions de veille), entraînements, évaluation" }],
+  827: [{ view: "iapark", params: { tab: "skills" }, hint: "Skills : consignes des Priorités (préparation, décideur, explication), versions, essai" }],
   826: [{ view: "banc", hint: "tuile Banc d'installation : Modèles de VM › Fabriquer (Debian, Ubuntu, Rocky), Pool et passages" }],
   825: [{ view: "si-agent", params: { tab: "banc" }, hint: "Banc d'installation : « Configurer le pool » (nœud, plage de vmid, modèles, commandes) puis « Lancer »" }],
   824: [{ view: "si-agent", params: { tab: "updates" }, hint: "agent 0.5.97 : mise à jour automatique Windows réparée ; MSI à construire (pas de lien : opération manuelle, si-agent/agent/windows/msi/README.md)" }],

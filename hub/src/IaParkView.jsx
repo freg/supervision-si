@@ -9,12 +9,14 @@ import DataStatus from "./DataStatus.jsx";   // #763 : état des données
 import { useEffect, useState } from "react";
 import OllamaSection from "./OllamaSection.jsx";
 import ModelesVeille from "./ModelesVeille.jsx";   // #821
+import SkillsSection from "./SkillsSection.jsx";   // #827
+import ApprentissageSection from "./ApprentissageSection.jsx";   // #828
 import { fetchFleet, sendCommand, fetchCommand, fetchIaOverview, saveIaHosts, fetchIaAssistant } from "./siAgentClient.js";
 import { fmtBytes, fmtUptime, fillLevel } from "./infraLib.js";
 import { gpuCells } from "./fleetViewsLib.js";
 import { byModel, activityTotals, allowedContainers, gestureParams, scoreTone, ACTION_TARGET } from "./iaParkLib.js";
 
-const TABS = [["hotes", "Hôtes et modèles"], ["modeles", "Veille des modèles"], ["tests", "Tests (évaluations)"], ["activite", "Activité"]];
+const TABS = [["hotes", "Hôtes et modèles"], ["modeles", "Veille des modèles"], ["skills", "Skills"], ["apprentissage", "Apprentissage"], ["tests", "Tests (évaluations)"], ["activite", "Activité"]];
 const when = (t) => (t ? new Date(t).toLocaleString("fr-FR") : "—");
 
 function Meter({ p, label }) {
@@ -149,6 +151,8 @@ export default function IaParkView({ onBack, siAgentApiBase, username }) {
         extra={status && !status.error ? [{ tone: status.llm_reachable ? (status.model_available ? "good" : "warning") : "critical", text: `assistant : ${status.model} ${status.llm_reachable ? (status.model_available ? "présent" : "absent du serveur de modèles") : "serveur de modèles injoignable"}`, detail: status.base_url }] : []} />
 
       {tab === "modeles" && <ModelesVeille base={base} />}
+      {tab === "skills" && <SkillsSection base={base} username={username} />}
+      {tab === "apprentissage" && <ApprentissageSection base={base} username={username} />}
       {tab === "hotes" && ov && <>
         {ov.hosts.length === 0 && <p className="infra-muted">Aucun hôte d'IA : activer la sonde <code>ollama</code> sur l'agent du poste (fiche de l'agent), ou ajouter un hôte ci-dessous. <a href={hubLink("si-agent", { section: "plugins" })}>Agents hôtes › choisir l'agent › Sondes →</a></p>}
         {ov.hosts.map((h) => <HostCard key={h.agent_id} base={base} h={h} username={username} onRefresh={load} />)}
