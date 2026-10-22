@@ -259,3 +259,9 @@ export const updateParcours = (apiBase, id, parcours, actor) => fetchJson(apiBas
 export const deleteParcours = (apiBase, id) => fetchJson(apiBase, `/parcours/${id}`, { method: "DELETE" });
 export const jouerParcours = (apiBase, id, body) => fetchJson(apiBase, `/parcours/${id}/jouer`, json("POST", body));
 export const interpreterDemande = (apiBase, texte) => fetchJson(apiBase, "/parcours/interpreter", json("POST", { texte }));
+
+// #822 : diffusions en cascade (déploiement avec dépendances)
+export const fetchDiffusions = (apiBase) => fetchJson(apiBase, "/diffusions");
+export const saveDiffusion = (apiBase, regle) => fetchJson(apiBase, regle.id ? `/diffusions/${regle.id}` : "/diffusions", json(regle.id ? "PUT" : "POST", regle));
+export const deleteDiffusion = (apiBase, id) => fetchJson(apiBase, `/diffusions/${id}`, { method: "DELETE" });
+export const runDiffusion = (apiBase, id, simulation, actor) => fetchJson(apiBase, `/diffusions/${id}/executer`, json("POST", { simulation, actor }));

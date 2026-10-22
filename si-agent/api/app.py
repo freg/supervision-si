@@ -49,6 +49,7 @@ import pra  # noqa: E402  -- #653 : plans PRA / opérations PVE
 import maint  # noqa: E402  -- #705 : maintenance / réorganisation des Proxmox
 import migration  # noqa: E402  -- #658 : migration serveur -> virtualisation (générateur de plan)
 import priorites  # noqa: E402  -- #818 : priorités de la page d'accueil (préparation, décideur, explication)
+import diffusion  # noqa: E402  -- #822 : diffusions en cascade (déploiement avec dépendances)
 import modeles  # noqa: E402  -- #821 : Parc IA, veille des modèles (sorties, ouvert/fermé, usages)
 import prep  # noqa: E402  -- #815 : préparer la réinstallation d'un nœud (quorum, invités transférés, sauvegardes, PRA)
 import infra  # noqa: E402  -- #749 : vue d'ensemble PVE / PBS
@@ -185,6 +186,10 @@ def _watchdog_loop():
             watchdog_tick()
         except Exception as exc:  # noqa: BLE001
             _log.warning("chien de garde : %s", exc)
+        try:
+            _diffusions_auto()              # #822 : diffusions en cascade en mode automatique
+        except Exception as exc:  # noqa: BLE001
+            _log.warning("diffusions : %s", exc)
         try:
             rotation.tick(DB_PATH)          # #743 : créneaux des tournées de mesures
         except Exception as exc:  # noqa: BLE001
@@ -860,6 +865,114 @@ def _schedule_updates(only_agent=None, actor="central"):
                 next((p["version"] for p in planned if p["agent_id"] == aid), "?"), pkg["version"], aid, actor), agent_id=aid,
                 details={"command": c["id"], "to": pkg["version"], "by": actor})
     return created
+
+
+# ============================================================
+# #822 : diffusions en cascade -- règles (cible + étapes ordonnées par dépendances), plan par agent, gestes
+# ============================================================
+
+def _diffusions():
+    return store.get_setting(DB_PATH, "diffusions", None) or []
+
+
+def _diffusion_plan(regle):
+    pkg = package.package_info(package.find_package())
+
+    def ctx(aid):
+        return ({p_["id"]: p_ for p_ in store.agent_plugins(DB_PATH, aid)}, store.latest_per_task(DB_PATH, aid),
+                store.last_command(DB_PATH, aid, "update"))
+    return pkg, diffusion.planifier(regle, store.fleet(DB_PATH), ctx, (pkg or {}).get("version"))
+
+
+def _diffusion_executer(regle, actor):
+    """Fait les gestes « à faire » d'une règle ; [(agent, étape, résultat)]."""
+    pkg, plan = _diffusion_plan(regle)
+    faits = []
+    for aid, e in plan["gestes"]:
+        if e["type"] == "mise_a_jour":
+            if not pkg:
+                continue
+            c = store.create_command(DB_PATH, aid, "update", updates.command_params(pkg))
+            res = "commande %s" % (c or {}).get("id")
+            _event("update-scheduled", "info", "diffusion « %s » : mise à jour -> %s planifiée pour l'agent %s (%s)" % (regle["nom"], pkg["version"], aid, actor),
+                   agent_id=aid, details={"command": (c or {}).get("id"), "to": pkg["version"], "by": actor, "diffusion": regle.get("id")})
+        else:
+            on = e["type"] == "activer_sonde"
+            store.assign_plugin(DB_PATH, aid, e["sonde"], enabled=on)
+            res = "sonde %s %s" % (e["sonde"], "activée" if on else "désactivée")
+            _event("plugin-assigned" if on else "plugin-disabled", "info", "diffusion « %s » : %s sur l'agent %s (%s)" % (regle["nom"], res, aid, actor),
+                   agent_id=aid, details={"plugin": e["sonde"], "by": actor, "diffusion": regle.get("id")})
+        faits.append({"agent_id": aid, "etape": e["id"], "resultat": res})
+    return faits
+
+
+_diff_verrou = {"t": 0}
+
+
+def _diffusions_auto():
+    if time.time() - _diff_verrou["t"] < 120:
+        return
+    _diff_verrou["t"] = time.time()
+    import fcntl
+    with open(DB_PATH + ".diffusions.lock", "a") as fh:
+        try:
+            fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            return   # un autre worker s'en charge
+        for r in _diffusions():
+            if r.get("actif") and r.get("auto"):
+                _diffusion_executer(r, "automatique")
+
+
+@app.route("/diffusions", methods=["GET"])
+def diffusions_route():
+    out = []
+    for r in _diffusions():
+        pkg, plan = _diffusion_plan(r)
+        out.append(dict(r, plan=plan["agents"], gestes=len(plan["gestes"])))
+    pkg = package.package_info(package.find_package())
+    return jsonify({"diffusions": out, "types": diffusion.TYPES, "exemple": diffusion.EXEMPLE, "version_servie": (pkg or {}).get("version"),
+                    "sondes": sorted(p_["id"] for p_ in store.list_plugins(DB_PATH))}), 200
+
+
+@app.route("/diffusions", methods=["POST"])
+@app.route("/diffusions/<int:did>", methods=["PUT"])
+def diffusion_ecrire_route(did=None):
+    regle, err = diffusion.valider(request.get_json(silent=True) or {}, {p_["id"] for p_ in store.list_plugins(DB_PATH)})
+    if err:
+        return jsonify({"error": err}), 400
+    lst = _diffusions()
+    if did is None:
+        regle["id"] = max([r["id"] for r in lst] or [0]) + 1
+        lst.append(regle)
+    else:
+        if not any(r["id"] == did for r in lst):
+            return jsonify({"error": "diffusion inconnue"}), 404
+        regle["id"] = did
+        lst = [regle if r["id"] == did else r for r in lst]
+    store.set_setting(DB_PATH, "diffusions", lst)
+    return jsonify(regle), 201 if did is None else 200
+
+
+@app.route("/diffusions/<int:did>", methods=["DELETE"])
+def diffusion_supprimer_route(did):
+    lst = _diffusions()
+    if not any(r["id"] == did for r in lst):
+        return jsonify({"error": "diffusion inconnue"}), 404
+    store.set_setting(DB_PATH, "diffusions", [r for r in lst if r["id"] != did])
+    return jsonify({"ok": True}), 200
+
+
+@app.route("/diffusions/<int:did>/executer", methods=["POST"])
+def diffusion_executer_route(did):
+    r = next((x for x in _diffusions() if x["id"] == did), None)
+    if not r:
+        return jsonify({"error": "diffusion inconnue"}), 404
+    body = request.get_json(silent=True) or {}
+    if body.get("simulation"):
+        _pkg, plan = _diffusion_plan(r)
+        return jsonify({"simulation": True, "gestes": [{"agent_id": a, "etape": e["id"], "type": e["type"], "sonde": e.get("sonde")} for a, e in plan["gestes"]]}), 200
+    return jsonify({"faits": _diffusion_executer(r, (body.get("actor") or "bouton")[:64])}), 200
 
 
 @app.route("/updates", methods=["GET"])

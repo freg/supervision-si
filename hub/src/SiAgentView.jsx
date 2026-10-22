@@ -15,6 +15,7 @@ import {
 import { orderItems } from "./listOrder.js";  // #742
 import { useListOrder, OrderSwitch } from "./ListOrder.jsx";  // #742
 import RotationsTab from "./RotationsTab.jsx";  // #743
+import DiffusionsSection from "./DiffusionsSection.jsx";  // #822
 // #525 : section « Wi-Fi vu du poste » (sonde wifi-probe, famille explorer).
 import WifiProbeSection from "./WifiProbeSection.jsx";
 import AlertFiltersTab from "./AlertFiltersTab.jsx";  // #607
@@ -1093,7 +1094,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
         </>
       )}
 
-      {tab === "updates" && <UpdatesTab base={siAgentApiBase} />}
+      {tab === "updates" && <><UpdatesTab base={siAgentApiBase} /><DiffusionsSection base={siAgentApiBase} /></>}
       {tab === "webaudit" && <WebAuditTab base={siAgentApiBase} fleet={fleet} when={when} />}
       {tab === "netobs" && <NetworkObservabilityTab base={siAgentApiBase} fleet={fleet} when={when} />}
       {tab === "deploy" && <DeployTab base={siAgentApiBase} fleet={fleet} catalogue={catalogue} login="" notice={(t) => { setError(null); setNotice(t); }} error={(t) => { setNotice(null); setError(t); }} />}

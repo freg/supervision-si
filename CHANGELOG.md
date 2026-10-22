@@ -1,3 +1,15 @@
+## 2026-10-22 — Diffusions en cascade : déploiement automatique avec dépendances (livraison #822)
+
+- **Agents hôtes > Mises à jour > Diffusions en cascade** : une règle = une **cible** (agents qui portent telle
+  sonde, tel OS, telle liste, avec exclusions) et des **étapes** ordonnées par leurs dépendances (`apres`) :
+  mise à jour forcée de l'agent (hors canal bêta / général, ou `version_min`), activer / désactiver une sonde,
+  attendre un relevé réussi d'une sonde.
+- Plan agent par agent : fait, en cours, en attente d'une dépendance, à faire, échec (avec le détail) ; « Simuler »,
+  « Exécuter » ; mode **automatique** : le central fait les gestes toutes les 2 min (un seul worker, verrou de fichier).
+  Chaque geste est journalisé (événement avec la diffusion et l'auteur).
+- Exemple proposé : forcer la mise à jour, puis activer pve-preflight sur les agents qui portent guest-usage ou
+  pve-remote, puis attendre son premier relevé.
+
 ## 2026-10-22 — Parc IA : veille des modèles, historique, alertes, usages (livraison #821)
 
 - Nouvel onglet **Parc IA > Veille des modèles** (même module que la tuile « Modèles IA » du hub maison) :

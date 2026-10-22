@@ -1,5 +1,11 @@
 [
  {
+  "n": 822,
+  "from": 822,
+  "date": "2026-10-22",
+  "title": "Diffusions en cascade : déploiement automatique avec dépendances"
+ },
+ {
   "n": 821,
   "from": 821,
   "date": "2026-10-22",
@@ -232,11 +238,5 @@
   "from": 783,
   "date": "2026-10-19",
   "title": "Tour de contrôle : la cascade ne dépasse plus le délai de construction"
- },
- {
-  "n": 782,
-  "from": 782,
-  "date": "2026-10-19",
-  "title": "Cartes graphiques : sonde gpu, colonne GPU des vues de parc et du Parc IA, agent 0.5.85"
  }
 ]
