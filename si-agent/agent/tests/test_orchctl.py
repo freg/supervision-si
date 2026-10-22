@@ -105,5 +105,20 @@ class Lecture(unittest.TestCase):
         self.assertEqual(r["error"], "ERREUR Docker requis")
 
 
+class Console(unittest.TestCase):
+    """#840 console des clusters (hub maison) : Headlamp sur k3s, relais de l'interface Nomad ; jeton hors sortie."""
+    def test_console(self):
+        for m in ("k3s", "nomad"):
+            r = subprocess.run(["bash", "-n"], input=O.script(O.valider({"action": "console", "moteur": m})[0]), text=True, capture_output=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+        h = O.manifeste_headlamp()
+        self.assertEqual([i["kind"] for i in h["items"]], ["ServiceAccount", "ClusterRoleBinding", "Deployment", "Service"])
+        self.assertIn("-base-url=/console/k3s", h["items"][2]["spec"]["template"]["spec"]["containers"][0]["args"])
+        self.assertEqual(h["items"][3]["spec"]["ports"][0]["nodePort"], O.CONSOLE_K3S_PORT)
+        r = O.run(lambda a, timeout=0: types.SimpleNamespace(returncode=0, stdout="prêt\nJETON eyJsecret\n", stderr=""), {"action": "console", "moteur": "k3s"})
+        self.assertEqual(r["result"]["jeton"], "eyJsecret")
+        self.assertNotIn("eyJsecret", r["result"]["stdout"])
+
+
 if __name__ == "__main__":
     unittest.main()

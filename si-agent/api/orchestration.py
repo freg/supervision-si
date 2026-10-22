@@ -91,6 +91,8 @@ def commande():
     v, err = orchctl.valider(p)
     if err:
         return jsonify({"error": err}), 400
+    if v["action"] == "console":
+        return jsonify({"error": "console des clusters : hub maison seulement pour l'instant (son jeton resterait dans les commandes du central)"}), 400
     c = store.create_command(DB_PATH, aid, "orchestration", p)
     if evenement:
         evenement("orchestration", "info", "orchestration : %s %s %s sur %s" % (p["action"], p.get("moteur") or "", p.get("nom") or p.get("espace") or "", aid), aid,

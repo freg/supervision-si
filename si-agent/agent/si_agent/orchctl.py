@@ -20,7 +20,9 @@ import shlex
 import time
 
 MOTEURS = ("k3s", "nomad")
-ACTIONS = ("installer", "rejoindre", "etat", "deployer", "echelle", "supprimer", "quota", "desinstaller")
+ACTIONS = ("installer", "rejoindre", "etat", "deployer", "echelle", "supprimer", "quota", "desinstaller", "console")
+HEADLAMP = "ghcr.io/headlamp-k8s/headlamp:latest"
+CONSOLE_K3S_PORT = 30466      # NodePort de Headlamp (servi par le hub sous /console/k3s/)
 NOMAD_API = "http://127.0.0.1:4646"
 _NOM = re.compile(r"^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$")
 _IMAGE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/:@-]{0,200}$")
@@ -50,7 +52,7 @@ def valider(params, maintenant=None):
     if moteur not in MOTEURS and not (action == "etat" and moteur == "tous"):
         return None, "moteur : k3s ou nomad"
     v = {"action": action, "moteur": moteur}
-    if action in ("installer", "etat", "desinstaller"):
+    if action in ("installer", "etat", "desinstaller", "console"):
         return v, None
     if action == "rejoindre":
         if moteur == "k3s":
@@ -134,6 +136,23 @@ def job_nomad(v):
     return {"Job": {"ID": v["nom"], "Name": v["nom"], "Type": "service", "Datacenters": ["*"], "Meta": meta, "TaskGroups": [groupe]}}
 
 
+def manifeste_headlamp():
+    """Headlamp (interface web Kubernetes) : compte de service administrateur, déploiement, NodePort fixe."""
+    lab = {"app": "headlamp", "si-orchestration": "console"}
+    return {"apiVersion": "v1", "kind": "List", "items": [
+        {"apiVersion": "v1", "kind": "ServiceAccount", "metadata": {"name": "headlamp", "namespace": "kube-system"}},
+        {"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "ClusterRoleBinding", "metadata": {"name": "headlamp-admin"},
+         "roleRef": {"apiGroup": "rbac.authorization.k8s.io", "kind": "ClusterRole", "name": "cluster-admin"},
+         "subjects": [{"kind": "ServiceAccount", "name": "headlamp", "namespace": "kube-system"}]},
+        {"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "headlamp", "namespace": "kube-system", "labels": lab},
+         "spec": {"replicas": 1, "selector": {"matchLabels": {"app": "headlamp"}},
+                  "template": {"metadata": {"labels": lab}, "spec": {"serviceAccountName": "headlamp", "containers": [
+                      {"name": "headlamp", "image": HEADLAMP, "args": ["-in-cluster", "-plugins-dir=/headlamp/plugins", "-base-url=/console/k3s"],
+                       "ports": [{"containerPort": 4466}]}]}}}},
+        {"apiVersion": "v1", "kind": "Service", "metadata": {"name": "headlamp", "namespace": "kube-system", "labels": lab},
+         "spec": {"type": "NodePort", "selector": {"app": "headlamp"}, "ports": [{"port": 80, "targetPort": 4466, "nodePort": CONSOLE_K3S_PORT}]}}]}
+
+
 def _attendre_k3s():
     return 'for i in $(seq 1 60); do $K get nodes 2>/dev/null | grep -q " Ready" && break; sleep 2; done; $K get nodes -o wide'
 
@@ -156,6 +175,11 @@ def script(v):
             return ('set -e; if command -v k3s >/dev/null; then echo "ERREUR k3s déjà installé sur ce nœud" >&2; exit 1; fi\n'
                     'curl -sfL https://get.k3s.io | K3S_URL=%s K3S_TOKEN=%s INSTALL_K3S_EXEC="agent" sh -\nsleep 5; systemctl is-active k3s-agent'
                     % (q(v["serveur"]), q(v["jeton"])))
+        if a == "console":
+            return "set -e; " + KUBECTL + "\nprintf '%%s' %s | $K apply -f - >/dev/null\n" % q(json.dumps(manifeste_headlamp())) + (
+                "$K -n kube-system rollout status deployment/headlamp --timeout=240s\n"
+                "echo \"console k3s (Headlamp) : NodePort %d, servie par le hub sous /console/k3s/\"\n"
+                "echo \"JETON $($K -n kube-system create token headlamp --duration=720h)\"\n" % CONSOLE_K3S_PORT)
         if a == "desinstaller":
             return '[ -x /usr/local/bin/k3s-uninstall.sh ] && /usr/local/bin/k3s-uninstall.sh || { [ -x /usr/local/bin/k3s-agent-uninstall.sh ] && /usr/local/bin/k3s-agent-uninstall.sh; } || echo "k3s absent"'
         pre = "set -e; " + KUBECTL + "\n"
@@ -198,6 +222,15 @@ def script(v):
                     '[ -n "$ok" ] || { journalctl -u nomad -n 25 --no-pager >&2; echo "ERREUR Nomad ne répond pas après 60 s (journal ci-dessus)" >&2; exit 1; }\n'
                     'nomad version; curl -sf %s/v1/nodes | head -c 600; echo\n'
                     'echo "interface web : ssh -L 4646:127.0.0.1:4646 <hôte> puis http://127.0.0.1:4646"' % (conf, api, api))
+        if a == "console":
+            # Interface web de Nomad joignable par le hub de l'hôte : relais systemd sur le pont Docker -> 127.0.0.1:4646
+            return ('set -e; command -v nomad >/dev/null || { echo "ERREUR Nomad non installé" >&2; exit 1; }\n'
+                    'E=$(ip -4 -o addr show docker0 2>/dev/null | awk \'{print $4}\' | cut -d/ -f1 | head -1); [ -n "$E" ] || { echo "ERREUR pont Docker docker0 absent" >&2; exit 1; }\n'
+                    'P=$(command -v systemd-socket-proxyd || echo /usr/lib/systemd/systemd-socket-proxyd)\n'
+                    'printf \'[Unit]\\nDescription=Interface web de Nomad pour le hub (pont Docker)\\n[Socket]\\nListenStream=%s:4646\\nFreeBind=yes\\n[Install]\\nWantedBy=sockets.target\\n\' "$E" > /etc/systemd/system/si-console-nomad.socket\n'
+                    'printf \'[Unit]\\nDescription=Relais de l interface web de Nomad\\n[Service]\\nExecStart=%s 127.0.0.1:4646\\n\' "$P" > /etc/systemd/system/si-console-nomad.service\n'
+                    'systemctl daemon-reload; systemctl enable --now si-console-nomad.socket >/dev/null; systemctl restart si-console-nomad.socket\n'
+                    'echo "console Nomad : $E:4646 (relais), servie par le hub sous /ui/"')
         if a == "desinstaller":
             return 'systemctl disable --now nomad 2>/dev/null; apt-get remove -y -q nomad 2>/dev/null || true; echo "Nomad retiré (données : /opt/nomad)"'
         if a == "deployer":
@@ -328,7 +361,14 @@ def run(cmd, params, maintenant=None):
     if rc != 0:
         msg = next((l for l in errt.splitlines()[::-1] if l.startswith("ERREUR")), None) or errt.strip()[-400:] or "code %s" % rc
         return {"ok": False, "error": msg, "result": {"stdout": out[-4000:], "stderr": errt}}
+    jeton = None
+    if v["action"] == "console":                 # jeton de la console : à part, jamais dans la sortie (historique)
+        lignes = out.splitlines()
+        jeton = next((l[6:].strip() for l in lignes if l.startswith("JETON ")), None)
+        out = "\n".join(l if not l.startswith("JETON ") else "JETON (gardé par le hub)" for l in lignes)
     res = {"stdout": out[-4000:], "action": v["action"], "moteur": v["moteur"]}
+    if jeton:
+        res["jeton"] = jeton
     if v["action"] == "etat":
         etat = lire_etat(out)
         res.pop("stdout")
