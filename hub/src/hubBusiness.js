@@ -65,7 +65,8 @@ export const PATHS = {
   "view:aujourdhui": ["etats/maintenant", "etats/feux"],
   "view:cortex": ["cortex/correlation", "etats/incidents"],
   "view:iapark": ["cortex/assistant", "equipements/hotes"],   // #756 : Parc IA
-  "view:banc": ["equipements/hotes/agents", "equipements/hotes/hyperviseurs"],   // #826 : banc d'installation des agents
+  "view:banc": ["equipements/hotes/agents", "equipements/hotes/hyperviseurs"],
+  "view:emulation": ["equipements/hotes/agents", "equipements/sondes/sondes-reseau"],   // #831 : émulateurs Raspberry / Android   // #826 : banc d'installation des agents
   "view:supervision-si": ["etats/feux", "services/metier"],
   "view:si-agent": ["equipements/hotes/agents", "etats/feux"],
   "view:netprobe": ["equipements/sondes/sondes-reseau", "equipements/reseau/wifi"],

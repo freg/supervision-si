@@ -53,12 +53,14 @@ COPY si-agent/api/banc.py .
 COPY si-agent/api/skills.py .
 COPY si-agent/api/apprentissage.py .
 COPY si-agent/api/activite.py .
+COPY si-agent/api/emulation.py .
 COPY si-agent/api/modeles_stockage.py .
 COPY shared/decideur.py .
 COPY si-agent/api/edgepair.py .
 COPY si-agent/api/dnsq.py .
 COPY si-agent/agent/si_agent/edgectl.py ./si_agent_edgectl.py
 COPY si-agent/agent/si_agent/bancmod.py ./si_agent_bancmod.py
+COPY si-agent/agent/si_agent/emulctl.py ./si_agent_emulctl.py
 COPY si-agent/api/migration.py .
 COPY si-agent/api/maint.py .
 # #518 : archive de déploiement de l'agent (si-agent-agent-<version>.tar.gz,

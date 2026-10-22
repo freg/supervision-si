@@ -125,10 +125,10 @@ class Routes(unittest.TestCase):
         self.assertEqual(self.c.get("/repatriation/%d" % cid).json["progress"]["percent"], 100.0)
         lst = self.c.get("/repatriation").json
         self.assertEqual(lst["campaigns"][0]["percent"], 100.0)
-        self.assertEqual(lst["local_agents"], [{"agent_id": "rp-pve", "hostname": None, "node": "pve10"}])
+        self.assertEqual([a for a in lst["local_agents"] if a["agent_id"].startswith("rp-")], [{"agent_id": "rp-pve", "hostname": None, "node": "pve10"}])  # base partagée entre tests
         d = self.c.get("/diag/tasks?tasks=plugin:proxmox,plugin:ollama,bad task!").json["tasks"]   # #763
         self.assertEqual([t["task"] for t in d], ["plugin:proxmox", "plugin:ollama"])
-        self.assertEqual(d[0]["agents"][0]["agent_id"], "rp-pve"); self.assertTrue(d[0]["agents"][0]["ok"])
+        rp = [a for a in d[0]["agents"] if a["agent_id"] == "rp-pve"]; self.assertTrue(rp and rp[0]["ok"])   # autres agents proxmox (banc) possibles
         # #795 : la base de test est partagée entre modules (agent « ia-host » de test_z_ia) -- seul rp-pve doit être absent d'ollama
         self.assertNotIn("rp-pve", [a["agent_id"] for a in d[1]["agents"]])
         self.assertIn("ollama", d[1]["hint"])

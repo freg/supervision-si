@@ -262,19 +262,33 @@ if [ -d /etc/.git ] && [ -f /etc/.gitignore ] || [ -d /etc/.etckeeper ]; then
   grep -qx 'si-agent/agent.json' /etc/.gitignore 2>/dev/null || echo 'si-agent/agent.json' >> /etc/.gitignore
   git -C /etc rm --cached -q --ignore-unmatch si-agent/agent.json 2>/dev/null || true
 fi
-install -m 644 "$HERE/systemd/si-agent.service" /etc/systemd/system/si-agent.service
-# #645 : ExecStart pointe sur l'interpréteur choisi (défaut python3 système)
-sed -i "s#^ExecStart=[^ ]*#ExecStart=$PYAGENT_ABS#" /etc/systemd/system/si-agent.service
-# #685 : interpréteur sous /root ou /home (uv python install) -- ProtectHome=true le rendrait invisible au service
-case "$PYAGENT_ABS" in
-  /root/*|/home/*) sed -i "s#^ProtectHome=true#ProtectHome=read-only#" /etc/systemd/system/si-agent.service
-                   echo "note : $PYAGENT_ABS est sous un dossier personnel -> ProtectHome=read-only";;
-esac
-systemctl daemon-reload
-systemctl enable si-agent.service
-# #524 : toujours (re)démarrer -- `enable --now` laissait tourner un ancien
-# process avec l'ancienne configuration lors d'une réinstallation (vu sur
-# deux hyperviseurs : agent démarré sous le mauvais identifiant / sans CA).
-systemctl restart si-agent.service
-echo "si-agent installé ($PYAGENT_ABS) : systemctl status si-agent ; PYTHONPATH=/opt/si-agent $PYAGENT_ABS -m si_agent.agent --status"
+if [ ! -d /run/systemd/system ] || ! command -v systemctl >/dev/null 2>&1; then
+  # #831 : sans systemd (conteneur, émulateur Raspberry, image minimale) : agent lancé en arrière-plan, relancé par
+  # /etc/si-agent/demarrer.sh (à appeler au démarrage du conteneur) ; une instance précédente est arrêtée d'abord.
+  cat > /etc/si-agent/demarrer.sh <<EOS
+#!/bin/sh
+pkill -f "si_agent.agent --config /etc/si-agent/agent.json" 2>/dev/null
+PYTHONPATH=/opt/si-agent nohup $PYAGENT_ABS -m si_agent.agent --config /etc/si-agent/agent.json >>/var/log/si-agent.log 2>&1 &
+echo \$! > /run/si-agent.pid
+EOS
+  chmod 755 /etc/si-agent/demarrer.sh
+  /etc/si-agent/demarrer.sh
+  echo "si-agent installé SANS systemd ($PYAGENT_ABS) : lancé en arrière-plan (/etc/si-agent/demarrer.sh, traces /var/log/si-agent.log)"
+else
+  install -m 644 "$HERE/systemd/si-agent.service" /etc/systemd/system/si-agent.service
+  # #645 : ExecStart pointe sur l'interpréteur choisi (défaut python3 système)
+  sed -i "s#^ExecStart=[^ ]*#ExecStart=$PYAGENT_ABS#" /etc/systemd/system/si-agent.service
+  # #685 : interpréteur sous /root ou /home (uv python install) -- ProtectHome=true le rendrait invisible au service
+  case "$PYAGENT_ABS" in
+    /root/*|/home/*) sed -i "s#^ProtectHome=true#ProtectHome=read-only#" /etc/systemd/system/si-agent.service
+                     echo "note : $PYAGENT_ABS est sous un dossier personnel -> ProtectHome=read-only";;
+  esac
+  systemctl daemon-reload
+  systemctl enable si-agent.service
+  # #524 : toujours (re)démarrer -- `enable --now` laissait tourner un ancien
+  # process avec l'ancienne configuration lors d'une réinstallation (vu sur
+  # deux hyperviseurs : agent démarré sous le mauvais identifiant / sans CA).
+  systemctl restart si-agent.service
+  echo "si-agent installé ($PYAGENT_ABS) : systemctl status si-agent ; PYTHONPATH=/opt/si-agent $PYAGENT_ABS -m si_agent.agent --status"
+fi
 echo "blocage local d'urgence : touch /etc/si-agent/BLOCKED (ou --block) ; traces : journalctl -u si-agent -f"

@@ -273,3 +273,6 @@ export const startBanc = (apiBase, modeles) => fetchJson(apiBase, "/banc/runs", 
 export const stopBancRun = (apiBase, id) => fetchJson(apiBase, `/banc/runs/${id}/arreter`, json("POST", {}));
 export const purgeBanc = (apiBase) => fetchJson(apiBase, "/banc/runs", { method: "DELETE" });
 export const buildBancTemplate = (apiBase, body) => fetchJson(apiBase, "/banc/modeles", json("POST", body));   // #826
+// #831 : tuile Émulation et déploiement supervisé
+export const fetchEmulation = (apiBase) => fetchJson(apiBase, "/emulation");
+export const sendEmulation = (apiBase, body) => fetchJson(apiBase, "/emulation/commande", json("POST", body));

@@ -1,0 +1,13 @@
+{
+  "id": "emulation",
+  "version": "1",
+  "runner": "python",
+  "entry": "emulation.py",
+  "interval_seconds": 60,
+  "timeout_seconds": 45,
+  "args": [],
+  "enabled": false,
+  "description": "Hôte d'émulation (#831) : architecture, KVM, Docker, QEMU système (raspi3b, raspi0), Java et SDK Android, images Raspberry Pi OS préparées (conteneur armv6 / arm64, noyau et DTB pour les machines complètes), images système Android installées, et instances d'émulateurs (Raspberry Pi 3 B, Zero W, Zero 2 W ; Android) avec leur état. Alimente la tuile Émulation. Lecture seule. Privilégiée (registre root, socket Docker).",
+  "source": "bundled",
+  "privileged": true
+}

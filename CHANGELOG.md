@@ -1,3 +1,19 @@
+## 2026-10-22 — Émulation et déploiement supervisé : Raspberry Pi (3B, Zero W, Zero 2 W) et Android (livraison #831)
+
+- Nouvelle tuile **Émulation** (Équipements) : choix de l'hôte (agent), capacités détectées (docker, binfmt, QEMU,
+  KVM, SDK Android, architecture), instances en cours, lancement par profil, historique des commandes avec sortie.
+- **Raspberry Pi, deux niveaux** : *conteneur* (rootfs Raspberry Pi OS Lite officiel, vérifié SHA-256, émulation
+  utilisateur binfmt, `QEMU_CPU` arm1176 / cortex-a53) et *machine complète* QEMU (`raspi3b` pour 3B et Zero 2 W avec
+  son DTB, `raspi0` pour Zero W, SSH redirigé 52200+n).
+- **Android** : API 24 à 35, x86_64 / x86 (x86 jusqu'à l'API 30) sur hôte x86_64, arm64-v8a sur hôte ARM ; KVM requis ;
+  licences du SDK acceptées seulement si tu coches la case.
+- **Déploiement supervisé** : « Installer l'agent » dans une instance conteneur (la ligne d'enrôlement est masquée dans
+  l'historique et les événements).
+- Agent 0.5.99 : commande `emulation` (préparer, lancer, arrêter, détruire, lister, deployer_agent), sonde
+  `plugin:emulation` (60 s) ; `install.sh` fonctionne sans systemd (conteneurs : `/etc/si-agent/demarrer.sh`).
+- Pas de lien : opération manuelle pour installer QEMU / Docker / le SDK sur l'hôte (« Préparer » le fait si l'agent
+  est root).
+
 ## 2026-10-22 — Pied de page permanent : livraison, mise à jour en cours, rechargement sans cache, travaux en cours (livraison #830)
 
 - **Toujours visible** en bas du hub : « Hub supervision #<livraison de cet écran> » (et la livraison servie si elle

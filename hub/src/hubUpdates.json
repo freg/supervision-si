@@ -1,5 +1,11 @@
 [
  {
+  "n": 831,
+  "from": 831,
+  "date": "2026-10-22",
+  "title": "Émulation et déploiement supervisé : Raspberry Pi (3B, Zero W, Zero 2 W) et Android"
+ },
+ {
   "n": 830,
   "from": 830,
   "date": "2026-10-22",
@@ -232,11 +238,5 @@
   "from": 791,
   "date": "2026-10-19",
   "title": "Notifications › SMS : accès direct au relais SMS et à la passerelle TRB140"
- },
- {
-  "n": 790,
-  "from": 790,
-  "date": "2026-10-19",
-  "title": "Hub : les boutons des « Mises à jour » ouvrent l'onglet précis (SMS, MX…)"
  }
 ]

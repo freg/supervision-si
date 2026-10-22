@@ -801,6 +801,17 @@ class Agent(object):
                 self.event("command-vm", "info" if res.get("ok") else "warning",
                            "VM %s : %s%s" % (params.get("vmid"), params.get("action"), "" if res.get("ok") else " -- %s" % res.get("error")), {"command": c.get("id"), "params": vue})
                 return res
+            if ctype == "emulation":
+                # #831 : émulateurs Raspberry (conteneur armv6 / arm64, machine QEMU complète) et Android sur cet hôte
+                from . import emulctl
+                if self.is_blocked():
+                    return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
+                vue = dict(params, ligne="(masquée)") if params.get("ligne") else params
+                res = emulctl.run(self.cmd, params)
+                self.event("command-emulation", "info" if res.get("ok") else "warning",
+                           "émulation %s %s : %s" % (params.get("action"), params.get("instance") or params.get("profil") or "", "ok" if res.get("ok") else res.get("error")),
+                           {"command": c.get("id"), "params": vue})
+                return res
             if ctype == "banc_modele":
                 # #826 : modèle de VM du banc d'installation (image cloud vérifiée -> template Proxmox)
                 from . import bancmod

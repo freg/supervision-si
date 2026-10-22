@@ -51,6 +51,7 @@ import migration  # noqa: E402  -- #658 : migration serveur -> virtualisation (g
 import priorites  # noqa: E402  -- #818 : priorités de la page d'accueil (préparation, décideur, explication)
 import banc  # noqa: E402  -- #825 : banc d'installation des agents sur un pool de VM
 import diffusion  # noqa: E402  -- #822 : diffusions en cascade (déploiement avec dépendances)
+import emulation  # noqa: E402  -- #831 : tuile Émulation et déploiement supervisé
 import activite  # noqa: E402  -- #830 : travaux en cours (pied de page du hub)
 import apprentissage  # noqa: E402  -- #828 : jeu de données du décideur, entraînements LoRA, évaluation
 import skills  # noqa: E402  -- #827 : skills des IA (consignes versionnées)
@@ -246,6 +247,9 @@ def _modeles_parc():
 modeles.source_tags = _modeles_parc
 app.register_blueprint(skills.bp)   # #827
 app.register_blueprint(activite.bp)   # #830
+app.register_blueprint(emulation.bp)   # #831
+emulation.DB_PATH = DB_PATH
+emulation.evenement = lambda k, s, m, a, d: _event(k, s, m, agent_id=a, details=d)
 
 
 def _essai_skill(sk, texte):
