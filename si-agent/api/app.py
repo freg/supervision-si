@@ -197,6 +197,10 @@ def _watchdog_loop():
         except Exception as exc:  # noqa: BLE001
             _log.warning("banc : %s", exc)
         try:
+            _orch_vms_tick()                # #836 : VM à la demande (Orchestration), durée de vie
+        except Exception as exc:  # noqa: BLE001
+            _log.warning("VM à la demande : %s", exc)
+        try:
             _diffusions_auto()              # #822 : diffusions en cascade en mode automatique
         except Exception as exc:  # noqa: BLE001
             _log.warning("diffusions : %s", exc)
@@ -971,6 +975,10 @@ def _diffusions_auto():
 # ============================================================
 # #825 : banc d'installation des agents sur un pool de VM (BACKLOG 133)
 # ============================================================
+
+def _orch_vms_tick(maintenant=None):   # #836
+    orchestration.vms_tick(maintenant)
+
 
 def _banc_runs():
     return store.get_setting(DB_PATH, "banc_runs", None) or []

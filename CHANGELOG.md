@@ -1,3 +1,12 @@
+## 2026-10-22 — Orchestration : VM à la demande avec durée de vie (livraison #836)
+
+- Onglet **Machines virtuelles** : « Créer la VM » depuis un modèle Proxmox du nœud (ceux du Banc compris) -- clone
+  « orch-<nom> » dans une plage de vmid réservée (distincte de celle du Banc), cœurs, mémoire, description avec
+  l'expiration, démarrage ; liste avec phase et étape en cours ; Démarrer, Arrêter, Détruire.
+- **Durée de vie** : à l'échéance, arrêt puis destruction par le central (boucle de 30 s, comme le Banc) ; un échec
+  pendant la création déclenche le nettoyage (pas de clone orphelin). Événements « orchestration » à chaque fin de phase.
+- Réglages : nœud, plage de vmid, stockage, clone complet ou lié, durée de vie maximale.
+
 ## 2026-10-22 — Émulation : écran dans le navigateur, image Raspberry installable, APK dans l'émulateur (livraison #835)
 
 - **Écran** des machines complètes Raspberry et des émulateurs Android (noVNC : écran, clavier, souris = toucher),

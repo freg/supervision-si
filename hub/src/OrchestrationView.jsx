@@ -2,7 +2,7 @@
 // création depuis les modèles du banc) et conteneurs (k3s, Nomad) des hôtes supervisés -- clusters, nœuds, charges,
 // placement automatique, quotas (k3s), durée de vie (TTL, appliquée par la sonde). Ordres : commande « orchestration ».
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { fetchImages, fetchImageTags, fetchOrchestration, sendOrchestration } from "./siAgentClient.js";
+import { createVmDemande, fetchImages, fetchImageTags, fetchOrchestration, fetchVmsDemande, saveVmsConfig, sendOrchestration, vmDemandeGeste } from "./siAgentClient.js";
 import { hubLink, viewParams } from "./hubLinks.js";
 import BoutonCommande, { suivreCommande, useFinCommandes } from "./BoutonCommande.jsx";
 
@@ -54,6 +54,60 @@ function Catalogue({ base, choisir }) {
             </td></tr>}
           </Fragment>))}
           {liste && !liste.length && <tr><td colSpan={4} className="infra-muted">aucun résultat</td></tr>}</tbody></table></div>
+    </div>
+  );
+}
+
+// #836 VM à la demande : clone d'un modèle Proxmox (Banc compris), réglé, démarré ; durée de vie -> arrêt puis destruction.
+const PHASE = { creation: ["création", "neutral"], en_service: ["en service", "good"], destruction: ["destruction", "neutral"], detruite: ["détruite", "neutral"], echec: ["échec", "bad"] };
+function VmsDemande({ base }) {
+  const [v, setV] = useState(null);
+  const [err, setErr] = useState("");
+  const [msg, setMsg] = useState("");
+  const [cfg, setCfg] = useState(null);
+  const [f, setF] = useState({ modele: "", nom: "", cores: 2, memoire: 2048, ttl_h: 8 });
+  const [envoi, setEnvoi] = useState(false);
+  const charger = useCallback(async () => { const r = await fetchVmsDemande(base); if (r?.error) setErr(r.error); else { setV(r); setCfg((c) => c || r.config || { noeud: "", vmid_min: 9500, vmid_max: 9599, stockage: "", complet: false, ttl_max_h: 720 }); } }, [base]);
+  useEffect(() => { charger(); const t = setInterval(charger, 5000); return () => clearInterval(t); }, [charger]);
+  async function faire(p, quoi) { setEnvoi(true); const r = await p; setEnvoi(false); if (r?.error) { setErr(r.error); return false; } setErr(""); setMsg(quoi); charger(); return true; }
+  if (!v) return <p className="infra-muted">{err || "Chargement…"}</p>;
+  return (
+    <div className="infra-card">
+      <b>VM à la demande</b> <span className="infra-muted">clone d'un modèle, réglé, démarré ; à l'échéance : arrêt puis destruction</span>
+      {err && <p className="infra-error" onClick={() => setErr("")}>{err}</p>}
+      {msg && <p className="infra-muted" onClick={() => setMsg("")}>{msg}</p>}
+      <details open={!v.config}><summary className="infra-muted">Réglages : {v.config ? `${v.config.noeud} · vmid ${v.config.vmid_min}-${v.config.vmid_max}${v.config.stockage ? ` · ${v.config.stockage}` : ""}` : "à faire"}</summary>
+        <form className="veille-form" onSubmit={(e) => { e.preventDefault(); faire(saveVmsConfig(base, cfg), "réglages enregistrés"); }}>
+          <label>Nœud (agent) <input value={cfg.noeud} onChange={(e) => setCfg({ ...cfg, noeud: e.target.value })} required /></label>
+          <label>vmid min <input type="number" value={cfg.vmid_min} onChange={(e) => setCfg({ ...cfg, vmid_min: e.target.value })} /></label>
+          <label>vmid max <input type="number" value={cfg.vmid_max} onChange={(e) => setCfg({ ...cfg, vmid_max: e.target.value })} /></label>
+          <label>Stockage (vide = celui du modèle) <input value={cfg.stockage || ""} onChange={(e) => setCfg({ ...cfg, stockage: e.target.value })} /></label>
+          <label>Durée de vie max (h) <input type="number" value={cfg.ttl_max_h} onChange={(e) => setCfg({ ...cfg, ttl_max_h: e.target.value })} /></label>
+          <label><input type="checkbox" checked={!!cfg.complet} onChange={(e) => setCfg({ ...cfg, complet: e.target.checked })} /> clone complet (sinon lié, plus rapide)</label>
+          <button type="submit">Enregistrer</button><span className="infra-muted">Plage distincte de celle du Banc.</span>
+        </form></details>
+      {v.config && <form className="veille-form" onSubmit={async (e) => { e.preventDefault(); if (await faire(createVmDemande(base, f), `VM orch-${f.nom} demandée`)) setF({ ...f, nom: "" }); }}>
+        <label>Modèle <select value={f.modele} onChange={(e) => setF({ ...f, modele: e.target.value })} required><option value="">—</option>
+          {v.modeles.map((m) => <option key={m.vmid} value={m.vmid}>{m.vmid} · {m.nom} ({m.os})</option>)}</select></label>
+        <label>Nom (orch-…) <input value={f.nom} onChange={(e) => setF({ ...f, nom: e.target.value })} placeholder="test-debian" required /></label>
+        <label>Cœurs <input type="number" min={1} max={64} value={f.cores} onChange={(e) => setF({ ...f, cores: e.target.value })} /></label>
+        <label>Mémoire (Mio) <input type="number" min={256} value={f.memoire} onChange={(e) => setF({ ...f, memoire: e.target.value })} /></label>
+        <label>Durée de vie (h, vide = permanente) <input type="number" min={1} value={f.ttl_h} onChange={(e) => setF({ ...f, ttl_h: e.target.value })} /></label>
+        <button type="submit" className={envoi ? "en-cours" : ""} disabled={envoi || !v.modeles.length}>{envoi ? "envoi…" : "Créer la VM"}</button>
+        {!v.modeles.length && <span className="infra-muted">Aucun modèle sur {v.config.noeud} : <a href={hubLink("banc", { tab: "modeles" })}>Banc › Modèles</a>.</span>}
+      </form>}
+      <div className="infra-table-wrap"><table className="infra-table">
+        <thead><tr><th>VM</th><th>vmid</th><th>Modèle</th><th>Ressources</th><th>Phase</th><th>Expire</th><th></th></tr></thead>
+        <tbody>{v.vms.map((x) => (
+          <tr key={x.id}><td><b>{x.nom}</b></td><td>{x.vmid}</td><td className="infra-muted">{x.modele}</td><td className="infra-muted">{x.cores || "—"} cœur(s) · {x.memoire || "—"} Mio</td>
+            <td><span className={`np-tone ${(PHASE[x.phase] || ["", "neutral"])[1]}`}>{(PHASE[x.phase] || [x.phase])[0]}{x.etape ? ` · ${x.etape}…` : ""}</span>
+              {(x.echec || x.raison_fin) && <span className="infra-muted"> {x.echec || x.raison_fin}</span>}</td>
+            <td>{x.expire ? quand(x.expire) : "jamais"}</td>
+            <td className="veille-actions">{x.phase === "en_service" && <>
+              <button className="secondary" onClick={() => faire(vmDemandeGeste(base, x.vmid, "demarrer"), `démarrage de ${x.nom}`)}>Démarrer</button>
+              <button className="secondary" onClick={() => faire(vmDemandeGeste(base, x.vmid, "arreter"), `arrêt de ${x.nom}`)}>Arrêter</button></>}
+              {["creation", "en_service"].includes(x.phase) && <button className="danger" onClick={() => window.confirm(`Détruire ${x.nom} (vmid ${x.vmid}) ?`) && faire(vmDemandeGeste(base, x.vmid, "detruire"), `destruction de ${x.nom}`)}>Détruire</button>}</td></tr>))}
+          {!v.vms.length && <tr><td colSpan={7} className="infra-muted">Aucune VM à la demande.</td></tr>}</tbody></table></div>
     </div>
   );
 }
@@ -161,7 +215,8 @@ export default function OrchestrationView({ onBack, siAgentApiBase }) {
           </form>
         </>}
         {tab === "vms" && <>
-          <p className="infra-muted">Créer une VM depuis un modèle (Debian, Ubuntu, Rocky, Windows…) : <a href={hubLink("banc", { tab: "modeles" })}>Banc › Modèles</a> ;
+          <VmsDemande base={base} />
+          <p className="infra-muted">Fabriquer un modèle (Debian, Ubuntu, Rocky, Windows…) : <a href={hubLink("banc", { tab: "modeles" })}>Banc › Modèles</a> ;
             opérations Proxmox : <a href={hubLink("pve-ops", {})}>Opérations Proxmox</a> ; vue complète : <a href={hubLink("infra", {})}>Infrastructure</a>.</p>
           {d.machines.erreur && <p className="infra-error">{d.machines.erreur}</p>}
           <div className="veille-ligne">{d.machines.nodes.map((n) => <Ton key={n.name} ok={n.ok}>{n.name} · {n.guests?.running ?? 0} / {n.guests?.total ?? 0} en marche</Ton>)}</div>

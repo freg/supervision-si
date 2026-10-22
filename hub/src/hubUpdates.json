@@ -1,5 +1,11 @@
 [
  {
+  "n": 836,
+  "from": 836,
+  "date": "2026-10-22",
+  "title": "Orchestration : VM à la demande avec durée de vie"
+ },
+ {
   "n": 835,
   "from": 835,
   "date": "2026-10-22",
@@ -232,11 +238,5 @@
   "from": 796,
   "date": "2026-10-20",
   "title": "Hub installable sur téléphone : écran « Urgence » et alertes poussées"
- },
- {
-  "n": 795,
-  "from": 795,
-  "date": "2026-10-20",
-  "title": "Tuile « Journal des chantiers » : actes, surveillances, relances, interventions, import / export Excel"
  }
 ]

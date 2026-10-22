@@ -140,6 +140,11 @@ export const benchCommand = (apiBase, agentId, params) => sendCommand(apiBase, a
 export const imageHost = (apiBase, agentId, params) => sendCommand(apiBase, agentId, "image_host", params);  // #621
 export const browsePath = (apiBase, agentId, path) => sendCommand(apiBase, agentId, "browse", path ? { path } : {});  // #627
 export const imageTransfer = (apiBase, agentId, params) => sendCommand(apiBase, agentId, "image_transfer", params);  // #634
+// #836 : VM à la demande (clones de modèles Proxmox, durée de vie)
+export const fetchVmsDemande = (apiBase) => fetchJson(apiBase, "/orchestration/vms");
+export const saveVmsConfig = (apiBase, cfg) => fetchJson(apiBase, "/orchestration/vms/config", json("PUT", cfg));
+export const createVmDemande = (apiBase, body) => fetchJson(apiBase, "/orchestration/vms", json("POST", body));
+export const vmDemandeGeste = (apiBase, vmid, geste) => fetchJson(apiBase, `/orchestration/vms/${vmid}/${geste}`, json("POST", {}));
 export const fetchImages = (apiBase, site) => fetchJson(apiBase, `/images${site ? `?site=${encodeURIComponent(site)}` : ""}`);  // #634
 export const fetchWebAudit = (apiBase, site) => fetchJson(apiBase, `/web-audit${site ? `?site=${encodeURIComponent(site)}` : ""}`);  // #617
 export const fetchCommand = (apiBase, cid) => fetchJson(apiBase, `/commands/${encodeURIComponent(cid)}`);

@@ -6,7 +6,9 @@ Les ordres sont des commandes `orchestration` aux agents (si_agent/orchctl.py) ;
 Pur et testé : clusters, placer."""
 from flask import Blueprint, jsonify, request
 
+import banc
 import dockerhub
+import orch_vms
 import store
 
 try:   # copie de si_agent/orchctl.py dans l'image (source unique)
@@ -113,3 +115,124 @@ def images_tags():
         return jsonify({"error": str(e)}), 400
     except Exception as e:  # noqa: BLE001
         return jsonify({"error": "Docker Hub injoignable : %s" % e}), 502
+
+
+# -- #836 VM à la demande (clones de modèles Proxmox, durée de vie) --------------------------------
+def _vm_cfg():
+    return store.get_setting(DB_PATH, "orch_vms_config", None)
+
+
+def _vm_liste():
+    return store.get_setting(DB_PATH, "orch_vms", None) or []
+
+
+def _vm_noeud(noeud):
+    """Modèles du nœud (sonde proxmox) et vmid déjà pris."""
+    data = ((store.latest_per_task(DB_PATH, noeud).get("plugin:proxmox") or {}).get("data")) or {}
+    vms = data.get("vms") or []
+    return banc.modeles_du_noeud(vms), {v.get("vmid") for v in vms}
+
+
+@bp.get("/orchestration/vms")
+def vms_etat():
+    cfg = _vm_cfg()
+    modeles = _vm_noeud(cfg["noeud"])[0] if cfg else []
+    return jsonify({"config": cfg, "modeles": modeles, "vms": [orch_vms.resume(v) for v in reversed(_vm_liste())][:60]}), 200
+
+
+@bp.put("/orchestration/vms/config")
+def vms_config():
+    cfg, err = orch_vms.valider_config(request.get_json(silent=True) or {})
+    if err:
+        return jsonify({"error": err}), 400
+    if store.get_agent(DB_PATH, cfg["noeud"]) is None:
+        return jsonify({"error": "agent du nœud inconnu : %s" % cfg["noeud"]}), 400
+    banc_pool = store.get_setting(DB_PATH, "banc_pool", None) or {}
+    if banc_pool and banc_pool.get("noeud") == cfg["noeud"] and not (cfg["vmid_max"] < banc_pool["vmid_min"] or cfg["vmid_min"] > banc_pool["vmid_max"]):
+        return jsonify({"error": "plage de vmid chevauchant celle du Banc (%d-%d)" % (banc_pool["vmid_min"], banc_pool["vmid_max"])}), 400
+    store.set_setting(DB_PATH, "orch_vms_config", cfg)
+    return jsonify(cfg), 200
+
+
+@bp.post("/orchestration/vms")
+def vms_creer():
+    import time
+    cfg = _vm_cfg()
+    if not cfg:
+        return jsonify({"error": "VM à la demande non configurées : nœud et plage de vmid d'abord"}), 400
+    b = request.get_json(silent=True) or {}
+    modeles, pris = _vm_noeud(cfg["noeud"])
+    m = next((x for x in modeles if str(x["vmid"]) == str(b.get("modele"))), None)
+    if not m:
+        return jsonify({"error": "modèle inconnu sur %s (modèles vus par la sonde proxmox)" % cfg["noeud"]}), 400
+    liste = _vm_liste()
+    utilises = pris | {v["vmid"] for v in liste if v["phase"] not in ("detruite", "echec")}
+    vm, err = orch_vms.nouvelle_vm(cfg, m, b, max([v["id"] for v in liste] or [0]) + 1, utilises, time.time())
+    if err:
+        return jsonify({"error": err}), 400
+    liste.append(vm)
+    store.set_setting(DB_PATH, "orch_vms", liste[-200:])
+    if evenement:
+        evenement("orchestration", "info", "VM à la demande %s (vmid %d) depuis %s sur %s" % (vm["nom"], vm["vmid"], m["nom"], cfg["noeud"]), cfg["noeud"],
+                  {"vmid": vm["vmid"], "modele": m["vmid"], "expire": vm["expire"]})
+    return jsonify(orch_vms.resume(vm)), 201
+
+
+@bp.post("/orchestration/vms/<int:vmid>/<geste>")
+def vms_geste(vmid, geste):
+    import time
+    liste = _vm_liste()
+    vm = next((v for v in reversed(liste) if v["vmid"] == vmid and v["phase"] not in ("detruite",)), None)
+    if not vm:
+        return jsonify({"error": "VM à la demande inconnue"}), 404
+    if geste == "detruire":
+        if not orch_vms.detruire(vm, "demandée", time.time()):
+            return jsonify({"error": "déjà en destruction ou détruite"}), 409
+        store.set_setting(DB_PATH, "orch_vms", liste)
+        return jsonify(orch_vms.resume(vm)), 200
+    if geste in ("demarrer", "arreter") and vm["phase"] == "en_service":
+        c = store.create_command(DB_PATH, vm["noeud"], "vm_action", {"vmid": vmid, "action": "start" if geste == "demarrer" else "shutdown"})
+        return jsonify({"commande": (c or {}).get("id")}), 201
+    return jsonify({"error": "geste impossible (%s, phase %s)" % (geste, vm["phase"])}), 400
+
+
+def vms_tick(maintenant=None):
+    """Avance les VM à la demande (une commande à la fois par VM) et applique la durée de vie ; verrou de fichier."""
+    import fcntl
+    import time
+    liste = _vm_liste()
+    if not any(v["phase"] in ("creation", "en_service", "destruction") for v in liste):
+        return
+    t = maintenant or time.time()
+    with open(DB_PATH + ".orchvms.lock", "a") as fh:
+        try:
+            fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            return
+        liste = _vm_liste()
+        for v in orch_vms.a_expirer(liste, t):
+            orch_vms.detruire(v, "durée de vie atteinte", t)
+        for v in liste:
+            for _ in range(6):
+                e = orch_vms.courante(v)
+                if e is None:
+                    break
+                c = store.get_command(DB_PATH, e["commande"]) if e["commande"] else None
+                avant = (id(e), e["etat"], e["commande"])
+                v, geste = orch_vms.avancer(v, c, t)
+                if geste == "envoyer":
+                    cmd = store.create_command(DB_PATH, v["noeud"], "vm_action", e["params"])
+                    e["commande"] = (cmd or {}).get("id")
+                    if not cmd:
+                        orch_vms._echec(v, e, "commande refusée par le central (agent du nœud inconnu ?)", t)
+                    break
+                if (id(e), e["etat"], e["commande"]) == avant:
+                    break
+            if v["phase"] in ("en_service", "detruite", "echec") and not v.get("signale_" + v["phase"]):
+                v["signale_" + v["phase"]] = True
+                if evenement:
+                    evenement("orchestration", "warning" if v["phase"] == "echec" else "info",
+                              "VM à la demande %s (vmid %d) : %s%s" % (v["nom"], v["vmid"], {"en_service": "en service", "detruite": "détruite", "echec": "échec"}[v["phase"]],
+                                                                      " -- %s" % (v.get("echec") or v.get("raison_fin") or "") if v.get("echec") or v.get("raison_fin") else ""),
+                              v["noeud"], {"vmid": v["vmid"]})
+        store.set_setting(DB_PATH, "orch_vms", liste[-200:])
