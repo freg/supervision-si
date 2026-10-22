@@ -17,7 +17,11 @@ ACTIONS = {"start": [], "shutdown": ["--timeout", "120"], "stop": [], "reboot": 
            "migrate": None, "backup": None, "move_disk": None, "clone": None, "replicate": None, "unreplicate": None,
            # #658 (item 112) : migration d'un serveur vers la virtualisation -- create (VM vide / conteneur depuis un modèle),
            # import_disk (image P2V -> disque de la VM, qm importdisk), set (options en liste blanche), destroy (confirm = vmid)
-           "create": None, "import_disk": None, "set": None, "destroy": None}
+           "create": None, "import_disk": None, "set": None, "destroy": None,
+           # #825 (BACKLOG 133) : banc d'installation -- agent invité QEMU des VM de banc (nom « banc-… » seulement pour exec)
+           "guest_ping": None, "guest_ip": None, "guest_exec": None}
+GUEST = ("guest_ping", "guest_ip", "guest_exec")
+BANC_PREFIXE = "banc-"
 OPS = ("migrate", "backup", "move_disk", "clone", "replicate", "unreplicate", "create", "import_disk", "set", "destroy")
 BRIDGE_RE = re.compile(r"^vmbr\d{1,3}$")
 HOSTNAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.-]{0,62}$")
@@ -177,6 +181,21 @@ def build_argv(params):
         return None, "kind : qemu ou lxc"
     if kind == "lxc" and action in ("reset",):
         return None, "action %s impossible sur un conteneur" % action
+    if action in GUEST:
+        if kind != "qemu":
+            return None, "%s : VM QEMU seulement (agent invité)" % action
+        if action == "guest_ping":
+            return ["qm", "guest", "cmd", str(vmid), "ping"], None
+        if action == "guest_ip":
+            return ["qm", "guest", "cmd", str(vmid), "network-get-interfaces"], None
+        argv = params.get("argv")
+        if not isinstance(argv, list) or not argv or len(argv) > 20 or not all(isinstance(x, str) and 0 < len(x) <= 4000 for x in argv):
+            return None, "guest_exec : argv = liste de 1 à 20 chaînes"
+        try:
+            t = max(10, min(1800, int(params.get("timeout") or 600)))
+        except (TypeError, ValueError):
+            return None, "guest_exec : timeout entier"
+        return ["qm", "guest", "exec", str(vmid), "--timeout", str(t), "--"] + argv, None
     if action in OPS:
         return build_ops_argv(action, vmid, kind, params)
     if action in ("snapshot", "rollback", "delsnapshot"):
@@ -204,12 +223,41 @@ def interpret(r):
     return {"ok": rc == 0, "error": None if rc == 0 else (err or out or "code %s" % rc), "returncode": rc, "stdout": out, "stderr": err}
 
 
+def nom_banc(config_text):
+    """#825 : nom de la VM (sortie de `qm config`) s'il commence par « banc- », sinon None."""
+    m = re.search(r"(?m)^name:\s*(\S+)", config_text or "")
+    return m.group(1) if m and m.group(1).startswith(BANC_PREFIXE) else None
+
+
+def lire_exec(stdout):
+    """`qm guest exec` -> {exitcode, out, err} (JSON de l'agent invité) ; None si illisible."""
+    import json
+    try:
+        d = json.loads(stdout or "")
+    except ValueError:
+        return None
+    return {"exitcode": d.get("exitcode"), "exited": d.get("exited"), "out": (d.get("out-data") or "")[-3000:], "err": (d.get("err-data") or "")[-3000:]}
+
+
 def run(cmd, params, timeout=180):
     argv, err = build_argv(params or {})
     if err:
         return {"ok": False, "error": err}
-    if str((params or {}).get("action") or "").lower() in OPS:
+    action = str((params or {}).get("action") or "").lower()
+    if action in OPS:
         timeout = LONG_TIMEOUT
+    if action == "guest_exec":
+        # exécution dans l'invité : réservée aux VM de banc, vérifié sur l'hôte (le central ne suffit pas)
+        conf = interpret(cmd(["qm", "config", str(int(params["vmid"]))], timeout=30))
+        if not conf["ok"] or not nom_banc(conf.get("stdout")):
+            return {"ok": False, "error": "guest_exec refusé : la VM %s n'est pas une VM de banc (nom « %s… »)" % (params.get("vmid"), BANC_PREFIXE)}
+        timeout = int(argv[argv.index("--timeout") + 1]) + 60
     res = interpret(cmd(argv, timeout=timeout))
     res["argv"] = argv
+    if action == "guest_exec" and res["ok"]:
+        ex = lire_exec(res.get("stdout"))
+        res["exec"] = ex
+        if ex is None or ex.get("exitcode") not in (0, None) or not ex.get("exited", 1):
+            res["ok"] = False
+            res["error"] = "commande invitée : code %s -- %s" % ((ex or {}).get("exitcode"), ((ex or {}).get("err") or (ex or {}).get("out") or res.get("stdout") or "")[-300:])
     return {"ok": res["ok"], "error": res["error"], "result": res}

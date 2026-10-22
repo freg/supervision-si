@@ -49,6 +49,7 @@ import pra  # noqa: E402  -- #653 : plans PRA / opérations PVE
 import maint  # noqa: E402  -- #705 : maintenance / réorganisation des Proxmox
 import migration  # noqa: E402  -- #658 : migration serveur -> virtualisation (générateur de plan)
 import priorites  # noqa: E402  -- #818 : priorités de la page d'accueil (préparation, décideur, explication)
+import banc  # noqa: E402  -- #825 : banc d'installation des agents sur un pool de VM
 import diffusion  # noqa: E402  -- #822 : diffusions en cascade (déploiement avec dépendances)
 import modeles  # noqa: E402  -- #821 : Parc IA, veille des modèles (sorties, ouvert/fermé, usages)
 import prep  # noqa: E402  -- #815 : préparer la réinstallation d'un nœud (quorum, invités transférés, sauvegardes, PRA)
@@ -186,6 +187,10 @@ def _watchdog_loop():
             watchdog_tick()
         except Exception as exc:  # noqa: BLE001
             _log.warning("chien de garde : %s", exc)
+        try:
+            _banc_tick()                    # #825 : banc d'installation (passages sur le pool de VM)
+        except Exception as exc:  # noqa: BLE001
+            _log.warning("banc : %s", exc)
         try:
             _diffusions_auto()              # #822 : diffusions en cascade en mode automatique
         except Exception as exc:  # noqa: BLE001
@@ -923,6 +928,124 @@ def _diffusions_auto():
         for r in _diffusions():
             if r.get("actif") and r.get("auto"):
                 _diffusion_executer(r, "automatique")
+
+
+# ============================================================
+# #825 : banc d'installation des agents sur un pool de VM (BACKLOG 133)
+# ============================================================
+
+def _banc_runs():
+    return store.get_setting(DB_PATH, "banc_runs", None) or []
+
+
+def _banc_tick(maintenant=None):
+    """Fait avancer les passages en cours (un seul worker, verrou de fichier)."""
+    import fcntl
+    pool = store.get_setting(DB_PATH, "banc_pool", None)
+    runs = _banc_runs()
+    if not pool or not any(not r.get("fin") for r in runs):
+        return
+    with open(DB_PATH + ".banc.lock", "a") as fh:
+        try:
+            fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            return
+        runs = _banc_runs()
+        t = maintenant or time.time()
+        for r in runs:
+            for _ in range(len(banc.ETAPES)):      # plusieurs étapes sans attente peuvent s'enchaîner dans un même passage
+                if r.get("fin"):
+                    break
+                st = r["etapes"][r["etape"]]
+                c = store.get_command(DB_PATH, st["commande"]) if st["commande"] else None
+                avant = (r["etape"], st["commande"])
+                r, geste = banc.avancer(r, c, t)
+                if geste == "envoyer":
+                    params = banc.params_etape(r, pool)
+                    if params is None:
+                        banc.sauter(r, t)
+                        continue
+                    cmd = store.create_command(DB_PATH, pool["noeud"], "vm_action", params)
+                    r["etapes"][r["etape"]]["commande"] = (cmd or {}).get("id")
+                    if not cmd:
+                        banc._echouer(r, "commande refusée par le central (agent du nœud inconnu ?)", t)
+                    break
+                if (r["etape"], r["etapes"][r["etape"]]["commande"] if not r.get("fin") else None) == avant:
+                    break
+            if r.get("fin") and not r.get("signale"):
+                r["signale"] = True
+                _event("banc-run", "info" if not r.get("echec") else "warning", "banc d'installation %s (%s) : %s" % (r["nom"], r["os"], banc.resultat(r)),
+                       agent_id=pool["noeud"], details={"run": r["id"], "modele": r["modele"], "echec": r.get("echec")})
+        store.set_setting(DB_PATH, "banc_runs", runs[-100:])
+
+
+@app.route("/banc", methods=["GET"])
+def banc_route():
+    runs = _banc_runs()
+    for r in runs:
+        r["resultat"] = banc.resultat(r)
+    return jsonify({"pool": banc.pool_public(store.get_setting(DB_PATH, "banc_pool", None)), "runs": list(reversed(runs)),
+                    "etapes": [{"id": e, "libelle": banc.LIBELLES[e]} for e in banc.ETAPES],
+                    "verifier": banc.VERIFIER, "desinstaller": banc.DESINSTALLER}), 200
+
+
+@app.route("/banc/pool", methods=["PUT"])
+def banc_pool_route():
+    body = request.get_json(silent=True) or {}
+    ancien = store.get_setting(DB_PATH, "banc_pool", None) or {}
+    for o in ("linux", "windows"):   # commande masquée renvoyée telle quelle par le hub : on garde l'ancienne
+        c = ((body.get("commandes") or {}).get(o) or {})
+        for k in ("installer", "verifier", "desinstaller"):
+            if "•••" in str(c.get(k) or ""):
+                c[k] = ((ancien.get("commandes") or {}).get(o) or {}).get(k, "")
+    pool, err = banc.valider_pool(body)
+    if err:
+        return jsonify({"error": err}), 400
+    if store.get_agent(DB_PATH, pool["noeud"]) is None:
+        return jsonify({"error": "agent du nœud inconnu : %s" % pool["noeud"]}), 400
+    store.set_setting(DB_PATH, "banc_pool", pool)
+    return jsonify(banc.pool_public(pool)), 200
+
+
+@app.route("/banc/runs", methods=["POST"])
+def banc_lancer_route():
+    pool = store.get_setting(DB_PATH, "banc_pool", None)
+    if not pool:
+        return jsonify({"error": "pool non configuré"}), 400
+    body = request.get_json(silent=True) or {}
+    noms = body.get("modeles") or [m["nom"] for m in pool["modeles"]]
+    runs = _banc_runs()
+    crees = []
+    for m in pool["modeles"]:
+        if m["nom"] not in noms:
+            continue
+        utilises = {r["vmid"] for r in runs if not r.get("fin")}
+        rid = max([r["id"] for r in runs] or [0]) + 1
+        r, err = banc.nouveau_run(pool, m, rid, utilises, time.time())
+        if err:
+            return jsonify({"error": err, "crees": crees}), 409
+        runs.append(r)
+        crees.append(r["nom"])
+    store.set_setting(DB_PATH, "banc_runs", runs[-100:])
+    return jsonify({"crees": crees}), 201
+
+
+@app.route("/banc/runs/<int:rid>/arreter", methods=["POST"])
+def banc_arreter_route(rid):
+    runs = _banc_runs()
+    r = next((x for x in runs if x["id"] == rid), None)
+    if not r:
+        return jsonify({"error": "passage inconnu"}), 404
+    if not r.get("fin") and r["etape"] < banc.NETTOYAGE:
+        banc._echouer(r, "arrêté à la main", time.time())
+        store.set_setting(DB_PATH, "banc_runs", runs)
+    return jsonify({"ok": True}), 200
+
+
+@app.route("/banc/runs", methods=["DELETE"])
+def banc_purger_route():
+    store.set_setting(DB_PATH, "banc_runs", [r for r in _banc_runs() if not r.get("fin")])
+    return jsonify({"ok": True}), 200
 
 
 @app.route("/diffusions", methods=["GET"])

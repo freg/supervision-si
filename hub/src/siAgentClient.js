@@ -265,3 +265,10 @@ export const fetchDiffusions = (apiBase) => fetchJson(apiBase, "/diffusions");
 export const saveDiffusion = (apiBase, regle) => fetchJson(apiBase, regle.id ? `/diffusions/${regle.id}` : "/diffusions", json(regle.id ? "PUT" : "POST", regle));
 export const deleteDiffusion = (apiBase, id) => fetchJson(apiBase, `/diffusions/${id}`, { method: "DELETE" });
 export const runDiffusion = (apiBase, id, simulation, actor) => fetchJson(apiBase, `/diffusions/${id}/executer`, json("POST", { simulation, actor }));
+
+// #825 : banc d'installation des agents sur un pool de VM
+export const fetchBanc = (apiBase) => fetchJson(apiBase, "/banc");
+export const saveBancPool = (apiBase, pool) => fetchJson(apiBase, "/banc/pool", json("PUT", pool));
+export const startBanc = (apiBase, modeles) => fetchJson(apiBase, "/banc/runs", json("POST", { modeles }));
+export const stopBancRun = (apiBase, id) => fetchJson(apiBase, `/banc/runs/${id}/arreter`, json("POST", {}));
+export const purgeBanc = (apiBase) => fetchJson(apiBase, "/banc/runs", { method: "DELETE" });

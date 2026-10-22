@@ -797,8 +797,9 @@ class Agent(object):
                     res = self.import_disk(params)          # #658 : image depuis le central, décompression, importdisk, rattachement
                 else:
                     res = vmctl.run(self.cmd, params)
+                vue = dict(params, argv="(%d élément(s), masqués)" % len(params.get("argv") or [])) if params.get("argv") else params   # #825 : jeton d'enrôlement
                 self.event("command-vm", "info" if res.get("ok") else "warning",
-                           "VM %s : %s%s" % (params.get("vmid"), params.get("action"), "" if res.get("ok") else " -- %s" % res.get("error")), {"command": c.get("id"), "params": params})
+                           "VM %s : %s%s" % (params.get("vmid"), params.get("action"), "" if res.get("ok") else " -- %s" % res.get("error")), {"command": c.get("id"), "params": vue})
                 return res
             if ctype == "vrrp_set":
                 # #656 : bascule de rôle keepalived -- priorité VRRP de l'instance (le VIP suit la priorité la plus haute)

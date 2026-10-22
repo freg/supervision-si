@@ -1,5 +1,11 @@
 [
  {
+  "n": 825,
+  "from": 825,
+  "date": "2026-10-22",
+  "title": "Banc d'installation des agents sur un pool de VM"
+ },
+ {
   "n": 824,
   "from": 824,
   "date": "2026-10-22",
@@ -232,11 +238,5 @@
   "from": 786,
   "date": "2026-10-19",
   "title": "Activité horaire : vrais utilisateurs séparés des scanners, journaux « vhost » lus"
- },
- {
-  "n": 785,
-  "from": 785,
-  "date": "2026-10-19",
-  "title": "Activité heure par heure d'un conteneur, pour choisir le créneau d'une bascule"
  }
 ]

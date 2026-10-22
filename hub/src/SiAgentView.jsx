@@ -16,6 +16,7 @@ import { orderItems } from "./listOrder.js";  // #742
 import { useListOrder, OrderSwitch } from "./ListOrder.jsx";  // #742
 import RotationsTab from "./RotationsTab.jsx";  // #743
 import DiffusionsSection from "./DiffusionsSection.jsx";  // #822
+import BancSection from "./BancSection.jsx";  // #825
 // #525 : section « Wi-Fi vu du poste » (sonde wifi-probe, famille explorer).
 import WifiProbeSection from "./WifiProbeSection.jsx";
 import AlertFiltersTab from "./AlertFiltersTab.jsx";  // #607
@@ -83,7 +84,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
   const [now, setNow] = useState(Date.now());
-  const [tab, setTab] = useState(() => (["events", "risks", "catalogue", "updates"].includes(viewParams().tab) ? viewParams().tab : "fleet"));   // #768
+  const [tab, setTab] = useState(() => (["events", "risks", "catalogue", "updates", "banc"].includes(viewParams().tab) ? viewParams().tab : "fleet"));   // #768
   const [busy, setBusy] = useState(false);
 
   const [showEnroll, setShowEnroll] = useState(false);
@@ -414,6 +415,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
         <button className={`secondary na-section-toggle${tab === "catalogue" ? " active" : ""}`} onClick={() => setTab("catalogue")}>Catalogue de sondes ({catalogue.length})</button>
         <button className={`secondary na-section-toggle${tab === "updates" ? " active" : ""}`} onClick={() => setTab("updates")}>Mises à jour</button>
         <button className={`secondary na-section-toggle${tab === "deploy" ? " active" : ""}`} onClick={() => setTab("deploy")}>Déploiement</button>
+        <button className={`secondary na-section-toggle${tab === "banc" ? " active" : ""}`} onClick={() => setTab("banc")}>Banc d'installation</button>
         <button className={`secondary na-section-toggle${tab === "webaudit" ? " active" : ""}`} onClick={() => setTab("webaudit")}>Audit web</button>
         <button className={`secondary na-section-toggle${tab === "netobs" ? " active" : ""}`} onClick={() => setTab("netobs")}>Observabilité réseau</button>
         <button className={`secondary na-section-toggle${tab === "rotations" ? " active" : ""}`} onClick={() => setTab("rotations")} title="Mesures lourdes réparties entre agents, à tour de rôle avec suppléance (#743)">Tournées</button>
@@ -1094,6 +1096,7 @@ export default function SiAgentView({ onBack, siAgentApiBase }) {
         </>
       )}
 
+      {tab === "banc" && <BancSection base={siAgentApiBase} />}
       {tab === "updates" && <><UpdatesTab base={siAgentApiBase} /><DiffusionsSection base={siAgentApiBase} /></>}
       {tab === "webaudit" && <WebAuditTab base={siAgentApiBase} fleet={fleet} when={when} />}
       {tab === "netobs" && <NetworkObservabilityTab base={siAgentApiBase} fleet={fleet} when={when} />}

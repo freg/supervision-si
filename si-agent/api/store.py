@@ -968,6 +968,9 @@ def redact_params(params):
         p["ssids"] = [dict(s, psk="***") if isinstance(s, dict) and s.get("psk") else s for s in p["ssids"]]
     if isinstance(p.get("params"), dict):   # #807 : même chose dans une commande relayée par le collecteur du site
         p["params"] = redact_params(p["params"])
+    if isinstance(p.get("argv"), list):   # #825 : jeton d'enrôlement dans la ligne d'installation jouée dans une VM de banc
+        import re as _re
+        p["argv"] = [_re.sub(r"(?i)(token=|-EnrollToken\s+[\"']?|TOKEN=|secret=|-Secret\s+[\"']?)([^\s\"'&]+)", r"\1***", x) if isinstance(x, str) else x for x in p["argv"]]
     return p
 
 

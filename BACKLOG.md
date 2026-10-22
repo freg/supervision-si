@@ -3920,7 +3920,7 @@ gestion des skills ; si raisonnable, apprentissage / entraînement ; gestion des
   le classement ; sur GPU NVIDIA (outillage mûr), l'Arc Pro de la maison seulement après essai ; export GGUF -> Ollama
   -> banc T3 avant mise en service ; données d'entraînement jamais hors de nos machines.
 
-### 133. Pool de VM de test des agents et installeur Windows MSI -- MSI écrit #824 (non construit), pool à faire
+### 133. Pool de VM de test des agents et installeur Windows MSI -- MSI #824 et banc #825 écrits (non vérifiés en réel)
 
 Demande (22/10/2026) : un pool d'OS sur VM pour tester automatiquement et mettre au point les agents et leur système
 d'installation ; sous Windows, un installeur MSI ou équivalent.
@@ -3932,3 +3932,7 @@ d'installation ; sous Windows, un installeur MSI ou équivalent.
   Program Files, tâche planifiée SYSTEM (ou service via un petit hôte de service), propriétés MSI `CENTRAL`, `TOKEN`,
   `CAFINGERPRINT`, `SITE` (déploiement silencieux `msiexec /i si-agent.msi /qn CENTRAL=… TOKEN=…`, GPO / Intune),
   désinstallation propre, mise à jour majeure ; signature de code à prévoir (certificat de l'organisation).
+
+  Reste (133) : préparer les modèles de VM sur un nœud (Debian 12/13, Ubuntu 24, Rocky 9, Windows 10/11, Server
+  2019/2022), construire le MSI sur la VM Windows du banc puis le faire installer par le banc ; scénario « mise à jour »
+  (installer N-1, pousser N) ; passage planifié à chaque nouvelle version de l'agent ; résultats dans les bancs (#132 T3).

@@ -1,3 +1,16 @@
+## 2026-10-22 — Banc d'installation des agents sur un pool de VM (livraison #825)
+
+- **Agents hôtes > Banc d'installation** : un pool = un nœud Proxmox (son agent), une plage de vmid pour les clones,
+  des modèles de VM Linux / Windows avec l'agent invité QEMU, et par OS les commandes à jouer dans l'invité
+  (installer : ligne du central local, du hub ou MSI ; vérifier et désinstaller : valeurs par défaut fournies).
+- Un passage par modèle : cloner (clone lié « banc-<modèle>-<n> ») -> démarrer -> attendre l'agent invité (15 min) ->
+  installer -> vérifier -> désinstaller -> arrêter -> détruire ; un échec saute au **nettoyage** (aucune VM de banc ne
+  reste) ; détail et sortie de chaque étape ; « Arrêter » ; événement de fin `banc-run`.
+- Agent (0.5.97) : actions `guest_ping`, `guest_ip`, `guest_exec` de `vm_action` ; **l'exécution dans l'invité est
+  refusée par l'agent du nœud si la VM ne s'appelle pas « banc-… »** (vérifié sur l'hôte par `qm config`).
+- Jetons d'enrôlement masqués : affichage du pool, paramètres des commandes relus par le hub, événements de l'agent.
+- **Non vérifié en réel** : modèles de VM à préparer sur un nœud (qemu-guest-agent ; Windows : VirtIO + guest agent).
+
 ## 2026-10-22 — Agent Windows : installeur MSI ; mise à jour automatique Windows réparée (livraison #824)
 
 - **MSI** (`si-agent/agent/windows/msi/`, WiX v5+) : agent + Python embarqué (aucun téléchargement à
