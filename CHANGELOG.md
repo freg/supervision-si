@@ -1,3 +1,13 @@
+## 2026-10-22 — Émulation : lancement d'une machine complète marqué en échec à tort ; émulateurs hors de l'agent (livraison #838)
+
+- Premier test réel (Raspberry Pi 3 B, machine complète) : QEMU démarrait mais la commande finissait en échec et
+  l'écran n'était jamais lancé -- un `pkill -f` visait un motif présent dans le texte du script et tuait le bash
+  qui l'exécutait. Les processus d'écran (websockify, Xvfb, x11vnc) sont désormais suivis par fichiers pid ; test
+  ajouté : aucun `pkill -f` / `pgrep -f` dans les scripts.
+- QEMU, l'émulateur Android et l'écran tournent dans leur propre portée systemd (`systemd-run --scope`) : un
+  redémarrage ou une mise à jour de l'agent ne les arrête plus.
+- Les avertissements PipeWire de QEMU (`client.conf`) sont sans effet.
+
 ## 2026-10-22 — Pied de page : commandes Émulation / Orchestration en cours, liens et « terminé — voir » (livraison #837)
 
 - Les commandes envoyées aux agents par les tuiles **Émulation** et **Orchestration** apparaissent dans le pied de page

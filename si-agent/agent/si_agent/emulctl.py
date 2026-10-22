@@ -145,9 +145,9 @@ PAQUETS = r"""paquets() { m=; for p in "$@"; do dpkg -s "$p" >/dev/null 2>&1 || 
   DEBIAN_FRONTEND=noninteractive apt-get update -q >/dev/null 2>&1 || true
   DEBIAN_FRONTEND=noninteractive apt-get install -y -q $m >/dev/null || fail "installation impossible :$m"; echo "paquets installés :$m"; }
 champ() { python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); [d := (d or {}).get(k) for k in sys.argv[2:]]; print("" if d is None else d)' "$@"; }
-ecran_arreter() { W=$(champ "$1/instance.json" ecran web 2>/dev/null || true); V=$(champ "$1/instance.json" ecran vnc 2>/dev/null || true)
-  [ -n "$W" ] && pkill -f "websockify.*:$W " 2>/dev/null || true; [ -n "$V" ] && pkill -f "rfbport $V" 2>/dev/null || true
-  [ -f "$1/xvfb.pid" ] && kill "$(cat "$1/xvfb.pid")" 2>/dev/null || true; }
+# Émulateurs hors du groupe de processus de l'agent (portée systemd à part) : un redémarrage de l'agent ne les tue pas.
+H=; [ -d /run/systemd/system ] && command -v systemd-run >/dev/null && H="systemd-run --scope --quiet"
+ecran_arreter() { for f in web x11vnc xvfb; do [ -f "$1/$f.pid" ] && kill "$(cat "$1/$f.pid")" 2>/dev/null; rm -f "$1/$f.pid"; done; true; }
 """
 
 
@@ -258,8 +258,9 @@ def _web(ports):
     vnc, web = ports
     return """E=$(ip -4 -o addr show docker0 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -1); E=${E:-127.0.0.1}
 if command -v websockify >/dev/null && [ -f /usr/share/novnc/vnc.html ]; then
-  pkill -f "websockify.*:%(w)d " 2>/dev/null || true
-  websockify -D --web /usr/share/novnc "$E:%(w)d" 127.0.0.1:%(v)d >/dev/null 2>&1 || echo "websockify n'a pas démarré"
+  [ -f "$I/web.pid" ] && kill "$(cat "$I/web.pid")" 2>/dev/null || true
+  nohup $H websockify --web /usr/share/novnc "$E:%(w)d" 127.0.0.1:%(v)d >"$I/websockify.log" 2>&1 &
+  echo $! > "$I/web.pid"
   python3 - "$I/instance.json" "$E" <<'EOJ'
 import json, sys
 d = json.load(open(sys.argv[1])); d["ecran"] = dict(d.get("ecran") or {}, ecoute=sys.argv[2]); json.dump(d, open(sys.argv[1], "w"))
@@ -290,7 +291,7 @@ M=$(mktemp -d); mount -o loop,offset=$(part "$I/disque.img" 0) "$I/disque.img" "
 touch "$M/ssh"; MDP=$(head -c 12 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 16)
 echo "emul:$(openssl passwd -6 "$MDP")" > "$M/userconf.txt"; umount "$M"; rmdir "$M"
 umask 077; echo "$MDP" > "$I/mdp"
-%(q)s -M %(m)s -m %(mem)s -kernel "$B/%(k)s" -dtb "$B/%(dtb)s" -drive file="$I/disque.img",if=sd,format=raw \\
+$H %(q)s -M %(m)s -m %(mem)s -kernel "$B/%(k)s" -dtb "$B/%(dtb)s" -drive file="$I/disque.img",if=sd,format=raw \\
   -append "console=ttyAMA0,115200 console=tty1 root=/dev/mmcblk0p2 rootfstype=ext4 rootwait dwc_otg.fiq_fsm_enable=0" \\
   -device usb-net,netdev=n0 -netdev user,id=n0,hostfwd=tcp:127.0.0.1:%(port)d-:22 \\
   -device usb-kbd -device usb-tablet -display vnc=127.0.0.1:%(vn)d \\
@@ -301,11 +302,12 @@ echo "%(i)s démarre (machine %(m)s) : ssh -p %(port)d emul@127.0.0.1 depuis l'h
     return ecrire + """export ANDROID_SDK_ROOT=%(sdk)s ANDROID_HOME=%(sdk)s ANDROID_AVD_HOME="$I/avd"
 mkdir -p "$I/avd"
 echo no | %(sdk)s/cmdline-tools/latest/bin/avdmanager create avd -n %(i)s -k "%(img)s" -d pixel_5 --force >/dev/null || fail "création de l'appareil virtuel impossible"
-nohup Xvfb :%(d)d -screen 0 1280x2400x24 -nolisten tcp >"$I/xvfb.log" 2>&1 &
+nohup $H Xvfb :%(d)d -screen 0 1280x2400x24 -nolisten tcp >"$I/xvfb.log" 2>&1 &
 echo $! > "$I/xvfb.pid"; sleep 1
-DISPLAY=:%(d)d nohup %(sdk)s/emulator/emulator -avd %(i)s -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -port %(port)d >"$I/emulateur.log" 2>&1 &
+DISPLAY=:%(d)d nohup $H %(sdk)s/emulator/emulator -avd %(i)s -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -port %(port)d >"$I/emulateur.log" 2>&1 &
 echo $! > "$I/pid"
-x11vnc -display :%(d)d -localhost -rfbport %(vnc)d -forever -shared -nopw -bg -o "$I/x11vnc.log" >/dev/null 2>&1 || echo "x11vnc absent : pas d'écran (Préparer l'installe)"
+if command -v x11vnc >/dev/null; then nohup $H x11vnc -display :%(d)d -localhost -rfbport %(vnc)d -forever -shared -nopw -o "$I/x11vnc.log" >/dev/null 2>&1 &
+  echo $! > "$I/x11vnc.pid"; else echo "x11vnc absent : pas d'écran (Préparer l'installe)"; fi
 echo "%(i)s démarre : adb -s emulator-%(port)d (console %(port)d) ; journal $I/emulateur.log"
 """ % {"sdk": SDK, "i": i, "img": img, "port": port or 5554, "d": 100 + ecran_ports("avd", port)[0] - 6000, "vnc": ecran_ports("avd", port)[0]} + _web(ecran_ports("avd", port))
 

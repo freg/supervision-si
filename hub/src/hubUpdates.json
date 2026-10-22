@@ -1,5 +1,11 @@
 [
  {
+  "n": 838,
+  "from": 838,
+  "date": "2026-10-22",
+  "title": "Émulation : lancement d'une machine complète marqué en échec à tort ; émulateurs hors de l'agent"
+ },
+ {
   "n": 837,
   "from": 837,
   "date": "2026-10-22",
@@ -232,11 +238,5 @@
   "from": 798,
   "date": "2026-10-20",
   "title": "Navigateur des hôtes : un Chromium visible sur l'hôte d'un agent, écran web et automate"
- },
- {
-  "n": 797,
-  "from": 797,
-  "date": "2026-10-20",
-  "title": "Central : fin des « database is locked » (contrôle DNS des proxys d'entrée)"
  }
 ]

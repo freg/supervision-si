@@ -105,11 +105,27 @@ class ExportApkEcran(unittest.TestCase):
         self.assertEqual((E.ecran_ports("systeme", 52203), E.ecran_ports("avd", 5558), E.ecran_ports("conteneur", 0)), ((5903, 6903), (6002, 7002), (None, None)))
         s = E.script(E.valider({"action": "lancer", "profil": "rpi0w", "mode": "systeme", "instance": "emu-rpi0w-3", "port": 52203})[0])
         self.assertIn("-display vnc=127.0.0.1:3", s)
-        self.assertIn("websockify -D --web /usr/share/novnc", s)
+        self.assertIn("nohup $H websockify --web /usr/share/novnc", s)
+        self.assertIn("systemd-run --scope", s)
         s = E.script(E.valider({"action": "lancer", "profil": "android-34-x86_64", "instance": "emu-a", "port": 5558, "accepter_licences": True})[0])
         self.assertIn("Xvfb :102", s)
         self.assertIn("-rfbport 6002", s)
         self.assertNotIn("-no-window", s)
+
+
+class PasDAutoDestruction(unittest.TestCase):
+    """Aucun `pkill -f` / `pgrep -f` : le texte du script est dans la ligne de commande du bash qui l'exécute
+    (un motif présent dans le script le tuerait). Les processus d'écran sont suivis par fichiers pid."""
+    def test_pas_de_pkill(self):
+        for p in ({"action": "lancer", "profil": "rpi3b", "mode": "systeme", "instance": "emu-rpi3b-1", "port": 52201},
+                  {"action": "lancer", "profil": "android-34-x86_64", "instance": "emu-a", "port": 5556, "accepter_licences": True},
+                  {"action": "arreter", "instance": "emu-rpi3b-1"}, {"action": "detruire", "instance": "emu-rpi3b-1"},
+                  {"action": "exporter_image", "instance": "emu-rpi3b-1"}):
+            s = E.script(E.valider(p)[0])
+            self.assertNotIn("pkill -f", s, p["action"])
+            self.assertNotIn("pgrep -f", s, p["action"])
+        s = E.script(E.valider({"action": "lancer", "profil": "rpi3b", "mode": "systeme", "instance": "emu-rpi3b-1", "port": 52201})[0])
+        self.assertIn('echo $! > "$I/web.pid"', s)
 
 
 if __name__ == "__main__":
