@@ -276,3 +276,6 @@ export const buildBancTemplate = (apiBase, body) => fetchJson(apiBase, "/banc/mo
 // #831 : tuile Émulation et déploiement supervisé
 export const fetchEmulation = (apiBase) => fetchJson(apiBase, "/emulation");
 export const sendEmulation = (apiBase, body) => fetchJson(apiBase, "/emulation/commande", json("POST", body));
+// #832 : orchestration (VM Proxmox, k3s, Nomad)
+export const fetchOrchestration = (apiBase) => fetchJson(apiBase, "/orchestration");
+export const sendOrchestration = (apiBase, body) => fetchJson(apiBase, "/orchestration/commande", json("POST", body));

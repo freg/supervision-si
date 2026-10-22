@@ -1,3 +1,22 @@
+## 2026-10-22 — Orchestration : VM et conteneurs au même endroit (Proxmox, k3s, Nomad) (livraison #832)
+
+- Nouvelle tuile **Orchestration** (Équipements), un « OpenStack » maison :
+  - **Conteneurs** : toutes les charges des hôtes (k3s et Nomad) -- image, répliques prêtes / voulues, accès
+    (NodePort k3s), expiration ; « Échelle », « Supprimer » ;
+  - **Déployer** : moteur, hôte ou **placement automatique** (hôte en ligne le moins chargé), image, répliques, port,
+    CPU, mémoire, espace, **durée de vie** (TTL : la sonde supprime la charge expirée et le signale) ;
+  - **Clusters** : par hôte, k3s et Nomad -- installer, rejoindre un serveur, désinstaller, nœuds et leur état ;
+    **quotas** par espace k3s (ResourceQuota ; Nomad : réservé à Enterprise) ;
+  - **Machines virtuelles** : VM Proxmox des nœuds locaux (sonde proxmox) ; création depuis les modèles du Banc,
+    opérations Proxmox, Infrastructure (liens) ;
+  - **Commandes** avec sortie.
+- k3s s'installe **sans Traefik ni servicelb** (le hub a déjà son Traefik sur 80/443). Nomad : serveur + client, pilote
+  Docker, API sur 127.0.0.1:4646 uniquement (pas d'ACL : jamais exposée ; interface web par tunnel SSH).
+- Jeton de jonction k3s : jamais renvoyé par l'agent ; pas de lien : opération manuelle -- le lire sur le serveur
+  (`sudo cat /var/lib/rancher/k3s/server/node-token`) ; masqué dans les commandes et les événements.
+- Agent 0.6.0 : commande `orchestration`, sonde `plugin:orchestration` (60 s, privilégiée).
+- Correctifs : tri des nœuds de l'infrastructure sans nom (erreur 500 possible) ; tests indépendants de l'ordre.
+
 ## 2026-10-22 — Émulation et déploiement supervisé : Raspberry Pi (3B, Zero W, Zero 2 W) et Android (livraison #831)
 
 - Nouvelle tuile **Émulation** (Équipements) : choix de l'hôte (agent), capacités détectées (docker, binfmt, QEMU,

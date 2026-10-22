@@ -812,6 +812,16 @@ class Agent(object):
                            "émulation %s %s : %s" % (params.get("action"), params.get("instance") or params.get("profil") or "", "ok" if res.get("ok") else res.get("error")),
                            {"command": c.get("id"), "params": vue})
                 return res
+            if ctype == "orchestration":
+                # #832 : k3s / Nomad sur cet hôte (installer, rejoindre, déployer, échelle, supprimer, quota, état + TTL)
+                from . import orchctl
+                if self.is_blocked():
+                    return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
+                res = orchctl.run(self.cmd, params)
+                self.event("command-orchestration", "info" if res.get("ok") else "warning",
+                           "orchestration %s %s %s : %s" % (params.get("action"), params.get("moteur") or "", params.get("nom") or "", "ok" if res.get("ok") else res.get("error")),
+                           {"command": c.get("id"), "params": orchctl.masquer(params)})
+                return res
             if ctype == "banc_modele":
                 # #826 : modèle de VM du banc d'installation (image cloud vérifiée -> template Proxmox)
                 from . import bancmod

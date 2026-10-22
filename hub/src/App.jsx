@@ -70,6 +70,7 @@ const FleetViewsView = lazyView(() => import("./FleetViewsView.jsx"));   // #753
 const IaParkView = lazyView(() => import("./IaParkView.jsx"));   // #756
 const BancView = lazyView(() => import("./BancView.jsx"));   // #826
 const EmulationView = lazyView(() => import("./EmulationView.jsx"));   // #831
+const OrchestrationView = lazyView(() => import("./OrchestrationView.jsx"));   // #832
 const RepatriationView = lazyView(() => import("./RepatriationView.jsx"));   // #761
 const RetroView = lazyView(() => import("./RetroView.jsx"));
 const BackupRestoreView = lazyView(() => import("./BackupRestoreView.jsx"));
@@ -1542,7 +1543,7 @@ export default function App() {
     ARCHITECTURE_API_BASE_URL && "architecture", (EXTERNAL_BASES.ipam || EXTERNAL_BASES.zenoss) && "fusion", NEBULA_API_BASE_URL && "nebula",
     SSH_TUNNELS_API_BASE_URL && "ssh-tunnels", HAS_EXTERNAL_BASES && "external-bases", GLPI_API_BASE_URL && "glpi-inventory",
     GEO_CATALOG_API_BASE_URL && "geo-catalog", CLASSIFIER_API_BASE_URL && "classifier", SCHEMA_ANALYZER_API_BASE_URL && "schema-analyzer",
-    RETRO_API_BASE_URL && "retro", PORTAGE_API_BASE_URL && "portage", QA_API_BASE_URL && "qa", DATASYNC_API_BASE_URL && "datasync", VULN_API_BASE_URL && "vuln", VULN_API_BASE_URL && "veille", SI_AGENT_API_BASE_URL && "mailserver", GROUPWARE_API_BASE_URL && "groupware", SI_AGENT_API_BASE_URL && "pve-ops", SI_AGENT_API_BASE_URL && "pve-maint", SI_AGENT_API_BASE_URL && "infra", SI_AGENT_API_BASE_URL && "htop", SI_AGENT_API_BASE_URL && "datarf", SI_AGENT_API_BASE_URL && "guest-usage", SI_AGENT_API_BASE_URL && "migration", SI_AGENT_API_BASE_URL && "journal", SI_AGENT_API_BASE_URL && "urgence", SI_AGENT_API_BASE_URL && "navigateur", SI_AGENT_API_BASE_URL && "latency", SI_AGENT_API_BASE_URL && "edge", SI_AGENT_API_BASE_URL && "fleetviews", SI_AGENT_API_BASE_URL && "iapark", SI_AGENT_API_BASE_URL && "banc", SI_AGENT_API_BASE_URL && "emulation", SI_AGENT_API_BASE_URL && "repatriation", SI_AGENT_API_BASE_URL && "proxmox", (TICKETS_API_BASE_URL || TASKS_API_BASE_URL) && "ent", GED_API_BASE_URL && "ged",
+    RETRO_API_BASE_URL && "retro", PORTAGE_API_BASE_URL && "portage", QA_API_BASE_URL && "qa", DATASYNC_API_BASE_URL && "datasync", VULN_API_BASE_URL && "vuln", VULN_API_BASE_URL && "veille", SI_AGENT_API_BASE_URL && "mailserver", GROUPWARE_API_BASE_URL && "groupware", SI_AGENT_API_BASE_URL && "pve-ops", SI_AGENT_API_BASE_URL && "pve-maint", SI_AGENT_API_BASE_URL && "infra", SI_AGENT_API_BASE_URL && "htop", SI_AGENT_API_BASE_URL && "datarf", SI_AGENT_API_BASE_URL && "guest-usage", SI_AGENT_API_BASE_URL && "migration", SI_AGENT_API_BASE_URL && "journal", SI_AGENT_API_BASE_URL && "urgence", SI_AGENT_API_BASE_URL && "navigateur", SI_AGENT_API_BASE_URL && "latency", SI_AGENT_API_BASE_URL && "edge", SI_AGENT_API_BASE_URL && "fleetviews", SI_AGENT_API_BASE_URL && "iapark", SI_AGENT_API_BASE_URL && "banc", SI_AGENT_API_BASE_URL && "emulation", SI_AGENT_API_BASE_URL && "orchestration", SI_AGENT_API_BASE_URL && "repatriation", SI_AGENT_API_BASE_URL && "proxmox", (TICKETS_API_BASE_URL || TASKS_API_BASE_URL) && "ent", GED_API_BASE_URL && "ged",
     FILE_MANAGER_API_BASE_URL && "file-manager", IMAP_CLIENT_API_BASE_URL && "imap",
     IMAP_CONNECTORS_API_BASE_URL && "imap-connectors", bastionAllowed && "si-proxy",
     RIGHTS_API_BASE_URL && groups.includes("admin_hub") && "rights", BACKUP_RESTORE_API_BASE_URL && "backup-restore",
@@ -1725,6 +1726,8 @@ vm === "agent-page" ? (
         <IaParkView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={username} />
       ) : vm === "banc" ? (
         <BancView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} />
+      ) : vm === "orchestration" ? (
+        <OrchestrationView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} />
       ) : vm === "emulation" ? (
         <EmulationView onBack={goBack} siAgentApiBase={SI_AGENT_API_BASE_URL} username={username} />
       ) : vm === "repatriation" ? (

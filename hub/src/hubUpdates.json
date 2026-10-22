@@ -1,5 +1,11 @@
 [
  {
+  "n": 832,
+  "from": 832,
+  "date": "2026-10-22",
+  "title": "Orchestration : VM et conteneurs au même endroit (Proxmox, k3s, Nomad)"
+ },
+ {
   "n": 831,
   "from": 831,
   "date": "2026-10-22",
@@ -232,11 +238,5 @@
   "from": 792,
   "date": "2026-10-20",
   "title": "Veilles SMS : machine sans agent (NMS) et passerelle 4G, constats critiques dans le hub, agent 0.5.86"
- },
- {
-  "n": 791,
-  "from": 791,
-  "date": "2026-10-19",
-  "title": "Notifications › SMS : accès direct au relais SMS et à la passerelle TRB140"
  }
 ]

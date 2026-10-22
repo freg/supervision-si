@@ -1,0 +1,13 @@
+{
+  "id": "orchestration",
+  "version": "1",
+  "runner": "python",
+  "entry": "orchestration.py",
+  "interval_seconds": 60,
+  "timeout_seconds": 50,
+  "args": [],
+  "enabled": false,
+  "description": "Orchestration de conteneurs (#832) : clusters k3s (nœuds, Deployments et Services NodePort posés par les hubs) et Nomad (nœuds, jobs) de l'hôte. Applique la durée de vie des charges (TTL) : une charge expirée est supprimée et signalée. Alimente la tuile Orchestration. Privilégiée (kubeconfig root, API Nomad locale).",
+  "source": "bundled",
+  "privileged": true
+}

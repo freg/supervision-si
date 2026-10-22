@@ -160,7 +160,7 @@ MIGRATIONS = [
 AGENT_ID_MAX = 64
 COMMAND_TYPES = ("collect_now", "run_plugin", "enable_plugin", "disable_plugin", "remove_plugin", "flush",
                  "block_all", "unblock_all", "block_plugin", "unblock_plugin", "update", "vm_action", "software_action", "vrrp_set",
-                 "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse", "windows_update", "protection", "image_transfer", "remote_desktop", "power_schedule", "ext_audit", "mail", "sbom", "ollama", "p2v", "xfer", "hostops", "migstep", "latency", "edge", "navigateur", "wifi_config", "collecteur", "banc_modele", "emulation")  # #826 banc_modele ; #831 emulation  # #807 wifi_config / collecteur ; #774 migstep ; #756 hostops ; #750 xfer ; #748 p2v ; #746 ollama ; #613, #616, #621, #627, #633, #634, #636, #697, #699
+                 "power_action", "wol", "startup_action", "watchdog_config", "bench", "image_host", "browse", "windows_update", "protection", "image_transfer", "remote_desktop", "power_schedule", "ext_audit", "mail", "sbom", "ollama", "p2v", "xfer", "hostops", "migstep", "latency", "edge", "navigateur", "wifi_config", "collecteur", "banc_modele", "emulation", "orchestration")  # #826 banc_modele ; #831 emulation ; #832 orchestration  # #807 wifi_config / collecteur ; #774 migstep ; #756 hostops ; #750 xfer ; #748 p2v ; #746 ollama ; #613, #616, #621, #627, #633, #634, #636, #697, #699
 SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
 TASKS_KEPT_LATEST = ("host", "risks", "inventory", "startup", "watchdog", "agent-self", "ext-audit")  # #613, #616
 
@@ -971,6 +971,8 @@ def redact_params(params):
     if isinstance(p.get("ligne"), str):   # #831 : ligne d'installation (jeton) jouée dans un émulateur
         import re as _re
         p["ligne"] = _re.sub(r"(?i)(token=|-EnrollToken\s+[\"']?|TOKEN=)([^\s\"'&]+)", r"\1***", p["ligne"])
+    if p.get("jeton"):   # #832 : jeton de jonction k3s
+        p["jeton"] = "***"
     if isinstance(p.get("argv"), list):   # #825 : jeton d'enrôlement dans la ligne d'installation jouée dans une VM de banc
         import re as _re
         p["argv"] = [_re.sub(r"(?i)(token=|-EnrollToken\s+[\"']?|TOKEN=|secret=|-Secret\s+[\"']?)([^\s\"'&]+)", r"\1***", x) if isinstance(x, str) else x for x in p["argv"]]
@@ -1380,9 +1382,9 @@ def _vm_states(data):
 
 PROBE_TASKS = ("plugin:wifi-probe", "plugin:path-probe", "plugin:windows-probe", "plugin:broadcast-probe", "plugin:dns-observe", "plugin:resource-access", "plugin:mail-server",
                "plugin:pulled-backups", "plugin:pbs", "plugin:pve-remote", "plugin:gtb-netwatch", "plugin:app-logwatch", "plugin:ollama", "plugin:node-activity", "plugin:guest-usage", "plugin:migration",
-               "plugin:gpu", "plugin:remote-status", "plugin:sms-gateway", "plugin:hub-watch", "plugin:wifi-monitor", "plugin:rf-spectrum", "plugin:collecte-sondes", "plugin:pve-preflight", "plugin:emulation")   # #782, #792, #793, #801, #806, #815
+               "plugin:gpu", "plugin:remote-status", "plugin:sms-gateway", "plugin:hub-watch", "plugin:wifi-monitor", "plugin:rf-spectrum", "plugin:collecte-sondes", "plugin:pve-preflight", "plugin:emulation", "plugin:orchestration")   # #782, #792, #793, #801, #806, #815
 BACKUP_TASKS = ("plugin:pulled-backups", "plugin:pbs")   # #716 : genres backup-* (routables à part)
-PROBE_LABELS = {"plugin:pulled-backups": "sauvegardes", "plugin:pbs": "PBS", "plugin:pve-remote": "PVE distants", "plugin:wifi-probe": "Wi-Fi vu du poste", "plugin:path-probe": "chemin de service", "plugin:windows-probe": "postes Windows", "plugin:broadcast-probe": "annonces réseau", "plugin:dns-observe": "observabilité DNS", "plugin:resource-access": "accès aux ressources", "plugin:mail-server": "serveur de messagerie", "plugin:gtb-netwatch": "réseau GTB/GTC", "plugin:app-logwatch": "journaux d'application", "plugin:ollama": "modèles IA", "plugin:node-activity": "activité des nœuds", "plugin:guest-usage": "activité des CT / VM", "plugin:migration": "étapes de migration", "plugin:gpu": "cartes GPU", "plugin:remote-status": "veilles distantes", "plugin:sms-gateway": "passerelle SMS 4G", "plugin:hub-watch": "garde du hub", "plugin:wifi-monitor": "écoute Wi-Fi passive", "plugin:rf-spectrum": "spectre radio", "plugin:collecte-sondes": "sondes radio d'un site", "plugin:pve-preflight": "préparation de réinstallation (PVE)", "plugin:emulation": "émulateurs (Raspberry, Android)"}
+PROBE_LABELS = {"plugin:pulled-backups": "sauvegardes", "plugin:pbs": "PBS", "plugin:pve-remote": "PVE distants", "plugin:wifi-probe": "Wi-Fi vu du poste", "plugin:path-probe": "chemin de service", "plugin:windows-probe": "postes Windows", "plugin:broadcast-probe": "annonces réseau", "plugin:dns-observe": "observabilité DNS", "plugin:resource-access": "accès aux ressources", "plugin:mail-server": "serveur de messagerie", "plugin:gtb-netwatch": "réseau GTB/GTC", "plugin:app-logwatch": "journaux d'application", "plugin:ollama": "modèles IA", "plugin:node-activity": "activité des nœuds", "plugin:guest-usage": "activité des CT / VM", "plugin:migration": "étapes de migration", "plugin:gpu": "cartes GPU", "plugin:remote-status": "veilles distantes", "plugin:sms-gateway": "passerelle SMS 4G", "plugin:hub-watch": "garde du hub", "plugin:wifi-monitor": "écoute Wi-Fi passive", "plugin:rf-spectrum": "spectre radio", "plugin:collecte-sondes": "sondes radio d'un site", "plugin:pve-preflight": "préparation de réinstallation (PVE)", "plugin:emulation": "émulateurs (Raspberry, Android)", "plugin:orchestration": "orchestration (k3s, Nomad)"}
 
 
 def _probe_alerts(data):

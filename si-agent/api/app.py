@@ -52,6 +52,7 @@ import priorites  # noqa: E402  -- #818 : priorités de la page d'accueil (prép
 import banc  # noqa: E402  -- #825 : banc d'installation des agents sur un pool de VM
 import diffusion  # noqa: E402  -- #822 : diffusions en cascade (déploiement avec dépendances)
 import emulation  # noqa: E402  -- #831 : tuile Émulation et déploiement supervisé
+import orchestration  # noqa: E402  -- #832 : tuile Orchestration (VM Proxmox, k3s, Nomad)
 import activite  # noqa: E402  -- #830 : travaux en cours (pied de page du hub)
 import apprentissage  # noqa: E402  -- #828 : jeu de données du décideur, entraînements LoRA, évaluation
 import skills  # noqa: E402  -- #827 : skills des IA (consignes versionnées)
@@ -250,6 +251,10 @@ app.register_blueprint(activite.bp)   # #830
 app.register_blueprint(emulation.bp)   # #831
 emulation.DB_PATH = DB_PATH
 emulation.evenement = lambda k, s, m, a, d: _event(k, s, m, agent_id=a, details=d)
+app.register_blueprint(orchestration.bp)   # #832
+orchestration.DB_PATH = DB_PATH
+orchestration.evenement = lambda k, s, m, a, d: _event(k, s, m, agent_id=a, details=d)
+orchestration.machines = lambda: _infra_now()
 
 
 def _essai_skill(sk, texte):
