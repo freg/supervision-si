@@ -147,8 +147,11 @@ PAQUETS = r"""paquets() { m=; for p in "$@"; do dpkg -s "$p" >/dev/null 2>&1 || 
 champ() { python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); [d := (d or {}).get(k) for k in sys.argv[2:]]; print("" if d is None else d)' "$@"; }
 # Émulateurs hors du groupe de processus de l'agent (portée systemd à part) : un redémarrage de l'agent ne les tue pas.
 H=; [ -d /run/systemd/system ] && command -v systemd-run >/dev/null && H="systemd-run --scope --quiet"
-ecran_arreter() { for f in web x11vnc xvfb; do [ -f "$1/$f.pid" ] && kill "$(cat "$1/$f.pid")" 2>/dev/null; rm -f "$1/$f.pid"; done; true; }
+ecran_arreter() { for f in web x11vnc xvfb; do [ -f "$1/$f.pid" ] && kill "$(cat "$1/$f.pid")" 2>/dev/null; rm -f "$1/$f.pid"; done; rm -f "/var/lib/si-emulation/ecrans/$(basename "$1")"; true; }
 """
+
+
+PORTE_ECRANS = 6899    # websockify à jetons : tous les écrans de l'hôte sur un seul port (127.0.0.1), publié par le bastion
 
 
 def ecran_ports(mode, port):
@@ -266,8 +269,19 @@ import json, sys
 d = json.load(open(sys.argv[1])); d["ecran"] = dict(d.get("ecran") or {}, ecoute=sys.argv[2]); json.dump(d, open(sys.argv[1], "w"))
 EOJ
   echo "écran : noVNC sur $E:%(w)d (VNC 127.0.0.1:%(v)d)"
+  # Porte des écrans (hub supervision, par le bastion) : un jeton aléatoire par instance -> son VNC local
+  JT=$(head -c 32 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 32); mkdir -p %(r)s/ecrans; chmod 700 %(r)s/ecrans
+  echo "$JT: 127.0.0.1:%(v)d" > "%(r)s/ecrans/$(basename "$I")"
+  python3 - "$I/instance.json" "$JT" <<'EOJ'
+import json, sys
+d = json.load(open(sys.argv[1])); d["ecran"] = dict(d.get("ecran") or {}, jeton=sys.argv[2], porte=%(p)d); json.dump(d, open(sys.argv[1], "w"))
+EOJ
+  if ! { [ -f %(r)s/porte.pid ] && kill -0 "$(cat %(r)s/porte.pid)" 2>/dev/null; }; then
+    nohup $H websockify --web /usr/share/novnc --token-plugin TokenFile --token-source %(r)s/ecrans 127.0.0.1:%(p)d >%(r)s/porte.log 2>&1 &
+    echo $! > %(r)s/porte.pid
+  fi
 else echo "noVNC absent : pas d'écran dans le navigateur (Préparer installe novnc et websockify)"; fi
-""" % {"w": web, "v": vnc}
+""" % {"w": web, "v": vnc, "r": RACINE, "p": PORTE_ECRANS}
 
 
 def _lancer(v):

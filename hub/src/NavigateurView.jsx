@@ -14,20 +14,20 @@ import { ecranUrl, EXEMPLE_ETAPES, lireEtapes, etatCommande, imageDe, trierNavig
 function Registre({ api, liste, username, recharger }) {
   const [ouvert, setOuvert] = useState(false);
   const [agents, setAgents] = useState([]);
-  const [f, setF] = useState({ nom: "", agent_id: "", libelle: "", accueil: "" });
+  const [f, setF] = useState({ nom: "", agent_id: "", libelle: "", accueil: "", usage: "navigateur" });
   const [msg, setMsg] = useState(null);
   useEffect(() => { if (ouvert) fetchFleet(api).then((a) => setAgents(a.filter((x) => !/windows/i.test(x.os || "")))).catch(() => {}); }, [ouvert, api]);
   async function enregistrer(nouvelle) {
-    const r = await saveNavigateurs(api, nouvelle.map(({ nom, agent_id, libelle, accueil }) => ({ nom, agent_id, libelle, accueil })), username);
+    const r = await saveNavigateurs(api, nouvelle.map(({ nom, agent_id, libelle, accueil, usage }) => ({ nom, agent_id, libelle, accueil, usage: usage || "navigateur" })), username);
     if (r?.error) { setMsg({ ok: false, t: r.error }); return; }
-    setMsg({ ok: true, t: "enregistré" }); setF({ nom: "", agent_id: "", libelle: "", accueil: "" }); recharger();
+    setMsg({ ok: true, t: "enregistré" }); setF({ nom: "", agent_id: "", libelle: "", accueil: "", usage: "navigateur" }); recharger();
   }
   if (!ouvert) return <div><button className="secondary" onClick={() => setOuvert(true)}>+ Déclarer un navigateur</button></div>;
   return (
     <div className="infra-card nav-registre">
       <b>Navigateurs déclarés</b>
       {liste.map((n) => (
-        <div key={n.nom} className="nav-ligne"><span><b>{n.libelle}</b> <span className="infra-muted">{n.nom} · {n.agent_id}</span></span>
+        <div key={n.nom} className="nav-ligne"><span><b>{n.libelle}</b> <span className="infra-muted">{n.nom} · {n.agent_id}{n.usage === "emulation" ? " · écrans d'émulation (porte 6899)" : ""}</span></span>
           <button className="secondary" onClick={() => enregistrer(liste.filter((x) => x.nom !== n.nom))}>Retirer</button></div>
       ))}
       <form onSubmit={(e) => { e.preventDefault(); enregistrer([...liste, f]); }}>
@@ -35,6 +35,8 @@ function Registre({ api, liste, username, recharger }) {
         <label>Agent de l'hôte<select value={f.agent_id} onChange={(e) => setF({ ...f, agent_id: e.target.value })} required>
           <option value="">—</option>{agents.map((a) => <option key={a.agent_id} value={a.agent_id}>{a.label || a.hostname || a.agent_id} ({a.agent_id})</option>)}</select></label>
         <label>Libellé<input value={f.libelle} onChange={(e) => setF({ ...f, libelle: e.target.value })} placeholder="VM OVH -- vue de l'extérieur" /></label>
+        <label>Usage<select value={f.usage} onChange={(e) => setF({ ...f, usage: e.target.value })}>
+          <option value="navigateur">navigateur de l'hôte (127.0.0.1:6080)</option><option value="emulation">écrans d'émulation (porte 127.0.0.1:6899)</option></select></label>
         <label>Page d'accueil (facultatif)<input value={f.accueil} onChange={(e) => setF({ ...f, accueil: e.target.value })} placeholder="https://…" /></label>
         <div><button type="submit">Ajouter</button> <button type="button" className="secondary" onClick={() => setOuvert(false)}>Fermer</button></div>
       </form>
@@ -195,6 +197,7 @@ function Demande({ api, versAppris }) {
 
 export default function NavigateurView({ onBack, siAgentApiBase: api, username }) {
   const [liste, setListe] = useState([]);
+  const [tous, setTous] = useState([]);       // #839 : registre complet (écrans d'émulation compris)
   const [err, setErr] = useState(null);
   const [nom, setNom] = useState(null);
   const [url, setUrl] = useState("");
@@ -209,7 +212,7 @@ export default function NavigateurView({ onBack, siAgentApiBase: api, username }
   const chargerParcours = useCallback(() => fetchParcours(api).then((r) => setParcours(r?.parcours || [])).catch(() => {}), [api]);
   useEffect(() => { chargerParcours(); }, [chargerParcours]);
   const [, tic] = useState(0);
-  const charger = useCallback(() => fetchNavigateurs(api).then((r) => { setListe(trierNavigateurs(r?.navigateurs)); setErr(r?.error || null); }).catch((e) => setErr(e.message)), [api]);
+  const charger = useCallback(() => fetchNavigateurs(api).then((r) => { setTous(r?.navigateurs || []); setListe(trierNavigateurs((r?.navigateurs || []).filter((x) => x.usage !== "emulation"))); setErr(r?.error || null); }).catch((e) => setErr(e.message)), [api]);
   useEffect(() => { charger(); }, [charger]);
   useEffect(() => { if (!nom && liste.length) setNom(liste[0].nom); }, [liste, nom]);
   useEffect(() => { if (!cmd || cmd.c?.status && cmd.c.status !== "pending") return undefined; const t = setInterval(() => tic((x) => x + 1), 1000); return () => clearInterval(t); }, [cmd]);
@@ -228,7 +231,7 @@ export default function NavigateurView({ onBack, siAgentApiBase: api, username }
         <label className="infra-muted"><input type="checkbox" checked={ecranSeul} onChange={(e) => setEcranSeul(e.target.checked)} /> écran seul</label>
       </div>
       {err && <p className="infra-error">{err}</p>}
-      <Registre api={api} liste={liste} username={username} recharger={charger} />
+      <Registre api={api} liste={tous} username={username} recharger={charger} />
       {n && (
         <div className={`nav-corps ${ecranSeul ? "seul" : ""}`}>
           <section className="nav-ecran">

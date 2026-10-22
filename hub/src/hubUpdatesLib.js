@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  839: [{ view: "emulation", hint: "bouton Écran par le bastion (porte des écrans de l'hôte)" }, { view: "navigateur", hint: "usage « écrans d'émulation » dans le registre" }],
   838: [{ view: "emulation", hint: "lancement d'une machine complète : plus d'échec à tort, écran lancé ; émulateurs indépendants de l'agent" }],
   837: [{ view: "orchestration", params: { tab: "commandes" }, hint: "pied de page : commandes en cours avec lien, bandeau « terminé — voir »" }],
   836: [{ view: "orchestration", params: { tab: "vms" }, hint: "VM à la demande : clone d'un modèle, durée de vie, nettoyage automatique" }],

@@ -2774,6 +2774,8 @@ button[aria-busy="true"]::after { content: ""; position: absolute; right: 8px; t
 .prep-liens { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
 .prep-liens a.button-link { display: inline-block; padding: 4px 10px; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); text-decoration: none; }
 .prep-liens a.button-link:hover { background: var(--accent); color: #fff; }
+a.ecran-lien { display: inline-block; padding: 3px 10px; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); text-decoration: none; }   /* #839 */
+a.ecran-lien:hover { background: var(--accent); color: #fff; }
 /* #818 : Priorités de la page d'accueil */
 .priorites { border: 1px solid var(--border); border-radius: 10px; background: var(--panel); padding: 8px 12px; margin: 8px 0 12px; }
 .priorites-tete { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }

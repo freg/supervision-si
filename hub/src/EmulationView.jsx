@@ -12,6 +12,8 @@ const ETAT = { en_marche: ["en marche", "good"], demarre: ["démarre", "neutral"
 const taille = (o) => (o >= 1073741824 ? `${(o / 1073741824).toFixed(2).replace(".", ",")} Go` : `${Math.round(o / 1048576)} Mo`);
 // #835 écran (noVNC sur l'hôte d'émulation, écoute sur son pont Docker) : depuis le poste, par tunnel SSH
 const tunnelEcran = (h, i) => `ssh -L ${i.ecran.web}:${i.ecran.ecoute || "127.0.0.1"}:${i.ecran.web} root@${h.agent_id}  puis  http://127.0.0.1:${i.ecran.web}/vnc.html?autoconnect=1&resize=scale`;
+// #839 : écran par la porte de l'hôte (websockify à jetons) publiée par le bastion et servie sous /navigateur/<nom>/
+const ecranHub = (nom, i) => (nom && i.ecran?.jeton ? `/navigateur/${nom}/vnc.html?autoconnect=1&resize=scale&reconnect=1&path=${encodeURIComponent(`navigateur/${nom}/websockify?token=${i.ecran.jeton}`)}` : null);
 const quand = (t) => (t ? new Date(t).toLocaleString("fr-FR") : "—");
 const Oui = ({ v, l }) => <span className={`np-tone ${v ? "good" : "bad"}`}>{v ? "✓" : "✗"} {l}</span>;
 
@@ -69,7 +71,9 @@ export default function EmulationView({ onBack, siAgentApiBase, username }) {
             <tr key={i.id}><td>{i.id}</td><td>{i.profil}</td><td>{i.mode}</td>
               <td><span className={`np-tone ${(ETAT[i.etat] || ["", "neutral"])[1]}`}>{(ETAT[i.etat] || [i.etat])[0]}</span>{i.docker ? <span className="infra-muted"> {i.docker}</span> : null}</td>
               <td className="infra-muted">{i.mode === "systeme" ? `ssh -J root@${h.agent_id} -p ${i.port} emul@127.0.0.1 (mot de passe : ${"/var/lib/si-emulation/instances/" + i.id}/mdp)` : i.mode === "avd" ? `ssh -L ${i.port + 1}:127.0.0.1:${i.port + 1} root@${h.agent_id} ; adb connect 127.0.0.1:${i.port + 1}` : `docker exec -it ${i.id} bash (sur l'hôte)`}
-                {i.ecran?.web && i.etat === "en_marche" && <div title="écran, clavier, souris / toucher (noVNC) — pas de lien : opération manuelle (tunnel SSH vers l'hôte)">Écran : <code>{tunnelEcran(h, i)}</code></div>}</td>
+                {i.ecran?.web && i.etat === "en_marche" && (ecranHub(d.ecrans?.[h.agent_id], i)
+                  ? <div><a className="button-link ecran-lien" href={ecranHub(d.ecrans[h.agent_id], i)} target="_blank" rel="noreferrer" title="écran, clavier, souris / toucher (noVNC), par le bastion">Écran</a></div>
+                  : <div title="écran par tunnel SSH ; pour l'avoir d'un clic : publier la porte des écrans de l'hôte (voir plus bas)">Écran : <code>{tunnelEcran(h, i)}</code></div>)}</td>
               <td className="infra-muted">{i.cree ? new Date(i.cree * 1000).toLocaleString("fr-FR") : "—"}</td>
               <td><div className="veille-actions">
                 {i.mode === "conteneur" && <BoutonCommande cmds={d.commandes} agent={h.agent_id} critere={{ action: "deployer_agent", instance: i.id }} onClick={() => installer(h.agent_id, i)} title="installation supervisée de l'agent dans l'instance">Installer l'agent</BoutonCommande>}
@@ -80,6 +84,14 @@ export default function EmulationView({ onBack, siAgentApiBase, username }) {
               </div></td></tr>))}
             {!h.instances.length && <tr><td colSpan={7} className="infra-muted">Aucune instance : onglet « Lancer un émulateur ».</td></tr>}
           </tbody></table></div>}
+        {tab === "instances" && h && !d.ecrans?.[h.agent_id] && <div className="infra-card">
+          <b>Écrans dans le hub (un clic)</b>
+          <p className="infra-muted">Pas de lien : opération manuelle, une fois par hôte d'émulation — 1) <code>.env</code> du hub :
+            {" "}<code>SI_PROXY_PUBLISH=…,64xx=&lt;shim de {h.agent_id}&gt;:127.0.0.1:{d.porte_ecrans}</code> et <code>NAVIGATEURS=…,emu-{h.agent_id.toLowerCase().replace(/[^a-z0-9-]/g, "-")}=64xx</code>,
+            puis <code>cd ~/SRC/data2/tickets/supervision-si && ./scripts/run.sh up -d si-proxy tls-proxy</code> ;
+            2) <a href={hubLink("navigateur", {})}>Navigateurs des hôtes › + Déclarer</a> : ce nom, l'agent {h.agent_id}, usage « écrans d'émulation ».
+            Ensuite chaque instance démarrée a son bouton Écran (jeton aléatoire par instance).</p>
+        </div>}
         {tab === "instances" && h && <div className="infra-card">
           <b>Images installables (Raspberry Pi)</b>
           <div className="infra-table-wrap"><table className="infra-table"><thead><tr><th>Image</th><th>Taille</th><th>Date</th><th>SHA-256</th><th>Récupérer</th><th></th></tr></thead>

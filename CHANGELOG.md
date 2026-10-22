@@ -1,3 +1,13 @@
+## 2026-10-22 — Émulation : écran d'un clic dans le hub supervision, par le bastion (livraison #839)
+
+- Chaque hôte d'émulation ouvre une **porte des écrans** (websockify à jetons, 127.0.0.1:6899) : un jeton aléatoire
+  par instance démarrée, retiré à l'arrêt ou à la destruction.
+- La porte est publiée une fois par hôte (bastion + `NAVIGATEURS`, déclarée dans « Navigateurs des hôtes » avec l'usage
+  « écrans d'émulation ») ; ensuite chaque instance a son bouton **Écran** (noVNC, même origine que le hub). Sans
+  publication, la tuile affiche la marche à suivre et la commande de tunnel SSH.
+- Registre des navigateurs : champ « usage » (navigateur de l'hôte / écrans d'émulation) ; les portes d'écrans ne
+  sont pas proposées comme navigateurs.
+
 ## 2026-10-22 — Émulation : lancement d'une machine complète marqué en échec à tort ; émulateurs hors de l'agent (livraison #838)
 
 - Premier test réel (Raspberry Pi 3 B, machine complète) : QEMU démarrait mais la commande finissait en échec et

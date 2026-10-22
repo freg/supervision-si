@@ -8,7 +8,8 @@ NOM = re.compile(r"^[a-z0-9][a-z0-9-]{0,30}$")
 
 
 def valider(liste, agents_connus=None):
-    """[{nom, agent_id, libelle?, accueil?}] -> (liste nettoyée, erreur|None). `nom` = celui de NAVIGATEURS (tls-proxy)."""
+    """[{nom, agent_id, libelle?, accueil?, usage?}] -> (liste nettoyée, erreur|None). `nom` = celui de NAVIGATEURS (tls-proxy).
+    usage « emulation » (#839) : la publication est la porte des écrans d'émulation de l'hôte (websockify à jetons, 6899)."""
     if not isinstance(liste, list):
         return None, "liste attendue"
     out, vus = [], set()
@@ -28,6 +29,9 @@ def valider(liste, agents_connus=None):
         acc = str(n.get("accueil") or "").strip()
         if acc and not re.match(r"^https?://", acc):
             return None, "entrée %d : page d'accueil http(s) attendue" % i
+        usage = str(n.get("usage") or "navigateur")
+        if usage not in ("navigateur", "emulation"):
+            return None, "entrée %d : usage navigateur ou emulation" % i
         vus.add(nom)
-        out.append({"nom": nom, "agent_id": aid, "libelle": str(n.get("libelle") or nom).strip()[:80], "accueil": acc[:300]})
+        out.append({"nom": nom, "agent_id": aid, "libelle": str(n.get("libelle") or nom).strip()[:80], "accueil": acc[:300], "usage": usage})
     return out, None

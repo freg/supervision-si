@@ -46,6 +46,12 @@ class Api(unittest.TestCase):
         self.assertEqual(c.post("/emulation/commande", json={"agent": "emu-hote", "action": "supprimer_export", "nom": "emu-rpi0w-1-20261022-2130.img.xz"}).status_code, 201)
         c.post("/emulation/commande", json={"agent": "emu-hote", "action": "deployer_agent", "instance": "emu-rpi0w-1",
                                              "ligne": "curl -fsSL -k 'https://central:6443/deploy/linux?token=SECRET99' | sh"})
+        # #839 : porte des écrans déclarée dans le registre des navigateurs (usage « emulation »)
+        self.assertEqual(c.put("/navigateurs", json={"navigateurs": [{"nom": "emu-hote", "agent_id": "emu-hote", "usage": "emulation"}]}).status_code, 200)
+        e = c.get("/emulation").json
+        self.assertEqual((e["ecrans"], e["porte_ecrans"]), ({"emu-hote": "emu-hote"}, 6899))
+        self.assertIn("usage", c.put("/navigateurs", json={"navigateurs": [{"nom": "x", "agent_id": "emu-hote", "usage": "autre"}]}).json["error"])
+        c.put("/navigateurs", json={"navigateurs": []})                # base partagée entre modules de test
         cmds = c.get("/emulation").json["commandes"]
         self.assertEqual(len(cmds), 6)
         self.assertNotIn("SECRET99", str(cmds))                          # jeton masqué à la relecture

@@ -43,3 +43,15 @@ dans l'historique. `install.sh` détecte l'absence de systemd et démarre l'agen
   MOT_DE_PASSE_HASH = `openssl passwd -6`, CLE_SSH, NOM_HOTE, WIFI_SSID / WIFI_CLE / WIFI_PAYS, AGENT_LIGNE), effacé après usage.
 - **Installer une APK** (Android) : adresse https (+ SHA-256 conseillé) ; `adb install -r -g`. Un téléphone reçoit la même APK
   (adb ou enrôlement), pas l'image système de l'émulateur.
+
+## Écran d'un clic dans le hub supervision (#839)
+
+Chaque hôte d'émulation lance une **porte des écrans** : websockify à jetons sur 127.0.0.1:6899 (un jeton aléatoire par
+instance, fichiers `/var/lib/si-emulation/ecrans/<instance>`, retirés à l'arrêt). Mise en service, une fois par hôte
+(pas de lien : opération manuelle) :
+
+1. `.env` du hub : `SI_PROXY_PUBLISH=…,64xx=<shim de l'hôte>:127.0.0.1:6899` et `NAVIGATEURS=…,emu-<hôte>=64xx`, puis
+   `cd ~/SRC/data2/tickets/supervision-si && ./scripts/run.sh up -d si-proxy tls-proxy` ;
+2. tuile Navigateurs des hôtes › + Déclarer : ce nom, l'agent de l'hôte, usage « écrans d'émulation ».
+
+Le bouton **Écran** ouvre alors `/navigateur/emu-<hôte>/vnc.html` (même origine que le hub) avec le jeton de l'instance.

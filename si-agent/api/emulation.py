@@ -63,7 +63,9 @@ def etat():
                 cmds.append({"id": c["id"], "agent_id": h["agent_id"], "status": c["status"], "params": c["params"], "created_at": c.get("created_at"),
                              "error": r.get("error"), "sortie": ((r.get("result") or {}).get("stdout") or "")[-1500:]})
     cmds.sort(key=lambda x: x.get("created_at") or "", reverse=True)
-    return jsonify({"hotes": hs, "commandes": cmds[:40], "android_api": emulctl.ANDROID_API}), 200
+    # #839 : porte des écrans d'émulation publiée par le bastion (registre des navigateurs, usage « emulation »)
+    ecrans = {n["agent_id"]: n["nom"] for n in store.get_setting(DB_PATH, "navigateurs", []) or [] if n.get("usage") == "emulation"}
+    return jsonify({"hotes": hs, "commandes": cmds[:40], "android_api": emulctl.ANDROID_API, "ecrans": ecrans, "porte_ecrans": emulctl.PORTE_ECRANS}), 200
 
 
 @bp.post("/emulation/commande")

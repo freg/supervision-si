@@ -107,6 +107,8 @@ class ExportApkEcran(unittest.TestCase):
         self.assertIn("-display vnc=127.0.0.1:3", s)
         self.assertIn("nohup $H websockify --web /usr/share/novnc", s)
         self.assertIn("systemd-run --scope", s)
+        self.assertIn("--token-plugin TokenFile --token-source /var/lib/si-emulation/ecrans 127.0.0.1:6899", s)   # porte des écrans (#839)
+        self.assertIn('rm -f "/var/lib/si-emulation/ecrans/$(basename "$1")"', s)
         s = E.script(E.valider({"action": "lancer", "profil": "android-34-x86_64", "instance": "emu-a", "port": 5558, "accepter_licences": True})[0])
         self.assertIn("Xvfb :102", s)
         self.assertIn("-rfbport 6002", s)

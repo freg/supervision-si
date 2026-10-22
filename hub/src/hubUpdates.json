@@ -1,5 +1,11 @@
 [
  {
+  "n": 839,
+  "from": 839,
+  "date": "2026-10-22",
+  "title": "Émulation : écran d'un clic dans le hub supervision, par le bastion"
+ },
+ {
   "n": 838,
   "from": 838,
   "date": "2026-10-22",
@@ -232,11 +238,5 @@
   "from": 799,
   "date": "2026-10-20",
   "title": "Navigateur des hôtes : apprentissage des parcours et demandes en langage courant"
- },
- {
-  "n": 798,
-  "from": 798,
-  "date": "2026-10-20",
-  "title": "Navigateur des hôtes : un Chromium visible sur l'hôte d'un agent, écran web et automate"
  }
 ]
