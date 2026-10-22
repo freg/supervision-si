@@ -40,10 +40,13 @@ $ErrorActionPreference = "Stop"
 if (-not $Upgrade -and -not $EnrollToken -and -not ($Agent -and $Secret -and $Central)) { throw "paramètres -Agent, -Secret et -Central requis (ou -EnrollToken + -Central, ou -Upgrade pour une mise à jour)" }
 if ($EnrollToken -and -not $Central) { throw "-EnrollToken exige -Central <URL du central>" }
 if ($Central) { $Central = $Central.TrimEnd("/") }
+# #824 : « a,b » en une seule chaîne (MSI, -File) -> liste
+$EnablePlugin = @($EnablePlugin | ForEach-Object { "$_" -split "," } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) { throw "à lancer dans une console PowerShell « Exécuter en tant qu'administrateur »" }
-if (-not $Ca -and -not $CaFingerprint -and -not $Insecure -and -not $SystemCa) { throw "préciser -CaFingerprint <sha256> (recommandé), -Ca <ca.crt>, -SystemCa (certificat public) ou -Insecure (dépannage seulement)" }
+# #824 : -Upgrade (mise à jour automatique #522, MSI) garde la CA déjà installée -- ce contrôle la refusait toujours
+if (-not $Upgrade -and -not $Ca -and -not $CaFingerprint -and -not $Insecure -and -not $SystemCa) { throw "préciser -CaFingerprint <sha256> (recommandé), -Ca <ca.crt>, -SystemCa (certificat public) ou -Insecure (dépannage seulement)" }
 # Racine de l'archive (si_agent\, plugins\, windows\) : à côté de windows\ en principe ;
 # sinon (#449, premier essai réel) on cherche autour -- dossier du script, dossier courant,
 # et deux niveaux de sous-dossiers (archive décompressée dans un dossier du même nom,

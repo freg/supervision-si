@@ -3920,7 +3920,7 @@ gestion des skills ; si raisonnable, apprentissage / entraînement ; gestion des
   le classement ; sur GPU NVIDIA (outillage mûr), l'Arc Pro de la maison seulement après essai ; export GGUF -> Ollama
   -> banc T3 avant mise en service ; données d'entraînement jamais hors de nos machines.
 
-### 133. Pool de VM de test des agents et installeur Windows MSI -- à prévoir
+### 133. Pool de VM de test des agents et installeur Windows MSI -- MSI écrit #824 (non construit), pool à faire
 
 Demande (22/10/2026) : un pool d'OS sur VM pour tester automatiquement et mettre au point les agents et leur système
 d'installation ; sous Windows, un installeur MSI ou équivalent.

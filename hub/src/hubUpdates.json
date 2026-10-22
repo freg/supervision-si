@@ -1,5 +1,11 @@
 [
  {
+  "n": 824,
+  "from": 824,
+  "date": "2026-10-22",
+  "title": "Agent Windows : installeur MSI ; mise à jour automatique Windows réparée"
+ },
+ {
   "n": 823,
   "from": 823,
   "date": "2026-10-22",
@@ -232,11 +238,5 @@
   "from": 785,
   "date": "2026-10-19",
   "title": "Activité heure par heure d'un conteneur, pour choisir le créneau d'une bascule"
- },
- {
-  "n": 784,
-  "from": 784,
-  "date": "2026-10-19",
-  "title": "Migration : onglets (dont « MX »), étapes à la main avec commande et machine"
  }
 ]

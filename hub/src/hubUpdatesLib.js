@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  824: [{ view: "si-agent", params: { tab: "updates" }, hint: "agent 0.5.97 : mise à jour automatique Windows réparée ; MSI à construire (pas de lien : opération manuelle, si-agent/agent/windows/msi/README.md)" }],
   823: [{ view: "iapark", params: { tab: "modeles", onglet: "mes" }, hint: "Usages : cocher préparation / décideur / explication sur les modèles de l'hôte PRIORITES_LLM_HOTE" }],
   822: [{ view: "si-agent", params: { tab: "updates" }, hint: "Mises à jour › Diffusions en cascade (« Nouvelle diffusion » propose l'exemple pve-preflight)" }],
   821: [{ view: "iapark", hint: "onglet « Veille des modèles » : alertes, veille, historique, usages, bancs, réglages" }],

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  si-agent : installeur MSI pour Windows (livraison #824, BACKLOG 133) — WiX Toolset v5 ou plus récent.
+  Construit par build-msi.ps1 (qui prépare le dossier « payload » : si_agent, plugins, windows, et le Python embarqué).
+
+  Ce que fait le MSI :
+    - pose le Python embarqué dans [INSTALLDIR]python et l'archive de l'agent dans [INSTALLDIR]payload ;
+    - lance windows\install.ps1 (même installeur que l'installation manuelle : enrôlement par jeton, CA vérifiée par
+      empreinte, agent.json, tâche planifiée SYSTEM) avec -NoDownload : aucun téléchargement pendant l'installation ;
+    - mise à jour majeure : install.ps1 -Upgrade (agent.json conservé) ;
+    - désinstallation : uninstall.ps1 (tâche, programme ; KEEPDATA=1 garde C:\ProgramData\si-agent).
+  Propriétés (ligne de commande, GPO, Intune) : CENTRAL, TOKEN, CAFINGERPRINT (sinon magasin Windows : -SystemCa), SITE,
+  PLUGINS (ids séparés par des virgules), KEEPDATA.
+    msiexec /i si-agent-0.5.96.msi /qn CENTRAL=https://central:6443/api/si-agent TOKEN=... CAFINGERPRINT=ab12... SITE=siege
+  Le jeton n'apparaît pas dans le journal MSI (propriété cachée, cible d'action masquée).
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <Package Name="si-agent (supervision-si)" Manufacturer="supervision-si" Version="$(Version)"
+           UpgradeCode="6f1d9c2e-8b7a-4f53-9d8e-2c4b7a1e5f90" Scope="perMachine" InstallerVersion="500" Compressed="yes">
+    <MajorUpgrade DowngradeErrorMessage="Une version plus récente de si-agent est déjà installée." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Property Id="CENTRAL" Secure="yes" />
+    <Property Id="TOKEN" Secure="yes" Hidden="yes" />
+    <Property Id="CAFINGERPRINT" Secure="yes" />
+    <Property Id="SITE" Value="default" Secure="yes" />
+    <Property Id="PLUGINS" Secure="yes" />
+    <Property Id="KEEPDATA" Secure="yes" />
+    <Property Id="POWERSHELL" Value="[System64Folder]WindowsPowerShell\v1.0\powershell.exe" />
+
+    <Launch Condition="Installed OR WIX_UPGRADE_DETECTED OR (CENTRAL AND TOKEN)"
+            Message="Préciser CENTRAL (URL du central, …/api/si-agent) et TOKEN (jeton d'enrôlement du site) : msiexec /i si-agent.msi CENTRAL=… TOKEN=…" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLDIR" Name="si-agent">
+        <Directory Id="PAYLOADDIR" Name="payload" />
+        <Directory Id="PYTHONDIR" Name="python" />
+      </Directory>
+    </StandardDirectory>
+
+    <ComponentGroup Id="Payload" Directory="PAYLOADDIR">
+      <Files Include="!(bindpath.payload)\**" />
+    </ComponentGroup>
+    <ComponentGroup Id="Python" Directory="PYTHONDIR">
+      <Files Include="!(bindpath.python)\**" />
+    </ComponentGroup>
+    <Feature Id="Agent" Title="si-agent">
+      <ComponentGroupRef Id="Payload" />
+      <ComponentGroupRef Id="Python" />
+    </Feature>
+
+    <!-- Lignes de commande (actions différées : les propriétés passent par CustomActionData) -->
+    <SetProperty Id="SiAgentInstall" Sequence="execute" Before="SiAgentInstall"
+                 Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED AND CAFINGERPRINT"
+                 Value="&quot;[POWERSHELL]&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;[PAYLOADDIR]windows\install.ps1&quot; -Central &quot;[CENTRAL]&quot; -EnrollToken &quot;[TOKEN]&quot; -Site &quot;[SITE]&quot; -CaFingerprint &quot;[CAFINGERPRINT]&quot; -EnablePlugin &quot;[PLUGINS]&quot; -NoDownload" />
+    <SetProperty Id="SiAgentInstall" Sequence="execute" Before="SiAgentInstall"
+                 Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED AND NOT CAFINGERPRINT"
+                 Value="&quot;[POWERSHELL]&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;[PAYLOADDIR]windows\install.ps1&quot; -Central &quot;[CENTRAL]&quot; -EnrollToken &quot;[TOKEN]&quot; -Site &quot;[SITE]&quot; -SystemCa -EnablePlugin &quot;[PLUGINS]&quot; -NoDownload" />
+    <SetProperty Id="SiAgentUpgrade" Sequence="execute" Before="SiAgentUpgrade"
+                 Condition="WIX_UPGRADE_DETECTED"
+                 Value="&quot;[POWERSHELL]&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;[PAYLOADDIR]windows\install.ps1&quot; -Upgrade -NoDownload" />
+    <SetProperty Id="SiAgentUninstall" Sequence="execute" Before="SiAgentUninstall"
+                 Condition="KEEPDATA"
+                 Value="&quot;[POWERSHELL]&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;[INSTALLDIR]uninstall.ps1&quot; -KeepData" />
+    <SetProperty Id="SiAgentUninstall" Sequence="execute" Before="SiAgentUninstall"
+                 Condition="NOT KEEPDATA"
+                 Value="&quot;[POWERSHELL]&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;[INSTALLDIR]uninstall.ps1&quot;" />
+
+    <CustomAction Id="SiAgentInstall" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec" Execute="deferred" Impersonate="no" Return="check" HideTarget="yes" />
+    <CustomAction Id="SiAgentUpgrade" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec" Execute="deferred" Impersonate="no" Return="check" />
+    <CustomAction Id="SiAgentUninstall" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec" Execute="deferred" Impersonate="no" Return="ignore" />
+
+    <InstallExecuteSequence>
+      <!-- installation / mise à jour : une fois les fichiers posés -->
+      <Custom Action="SiAgentInstall" After="InstallFiles" Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED AND NOT REMOVE" />
+      <Custom Action="SiAgentUpgrade" After="InstallFiles" Condition="WIX_UPGRADE_DETECTED AND NOT REMOVE" />
+      <!-- désinstallation réelle seulement (pas pendant la mise à jour majeure : agent.json et la file locale restent) -->
+      <Custom Action="SiAgentUninstall" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>

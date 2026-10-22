@@ -1,3 +1,17 @@
+## 2026-10-22 — Agent Windows : installeur MSI ; mise à jour automatique Windows réparée (livraison #824)
+
+- **MSI** (`si-agent/agent/windows/msi/`, WiX v5+) : agent + Python embarqué (aucun téléchargement à
+  l'installation), même `install.ps1` que l'installation manuelle ; propriétés `CENTRAL`, `TOKEN` (masqué dans le
+  journal MSI), `CAFINGERPRINT` (sinon magasin Windows), `SITE`, `PLUGINS`, `KEEPDATA` ; déploiement silencieux
+  (`msiexec /i … /qn`), GPO / Intune ; mise à jour majeure = `install.ps1 -Upgrade` (enrôlement conservé) ;
+  désinstallation propre, données gardées avec `KEEPDATA=1` ; signature de code optionnelle (`-SignCert`).
+  **Non vérifié** : écrit et contrôlé statiquement, pas encore construit ni installé (première passe sur une VM Windows
+  du pool, BACKLOG 133).
+- **Bogue corrigé** : `install.ps1 -Upgrade` (mise à jour automatique des agents Windows, #522) exigeait une option de
+  CA et s'arrêtait donc toujours -- les postes Windows ne se mettaient jamais à jour seuls. Agent 0.5.97 (la correction
+  agit à la mise à jour suivante : les postes déjà installés se mettent à jour une dernière fois à la main).
+- `-EnablePlugin "a,b"` accepté en une seule chaîne.
+
 ## 2026-10-22 — Priorités : modèles choisis par usage ; alertes de la veille des modèles notifiées (livraison #823)
 
 - Les trois étapes des **Priorités** (préparation, décideur, explication) prennent chacune le modèle déclaré pour son
