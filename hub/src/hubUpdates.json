@@ -1,5 +1,11 @@
 [
  {
+  "n": 835,
+  "from": 835,
+  "date": "2026-10-22",
+  "title": "Émulation : écran dans le navigateur, image Raspberry installable, APK dans l'émulateur"
+ },
+ {
   "n": 834,
   "from": 834,
   "date": "2026-10-22",
@@ -232,11 +238,5 @@
   "from": 795,
   "date": "2026-10-20",
   "title": "Tuile « Journal des chantiers » : actes, surveillances, relances, interventions, import / export Excel"
- },
- {
-  "n": 794,
-  "from": 794,
-  "date": "2026-10-20",
-  "title": "Garde du hub : SMS d'alerte par l'API du TRB140, agent 0.5.88"
  }
 ]

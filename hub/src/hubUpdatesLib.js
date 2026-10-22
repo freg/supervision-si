@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  835: [{ view: "emulation", hint: "écran (noVNC), SSH, adb ; exporter une image Raspberry installable ; installer une APK" }],
   834: [{ view: "orchestration", params: { tab: "deployer" }, hint: "catalogue d'images : sélection, recherche Docker Hub, étiquettes et architectures" }],
   833: [{ view: "orchestration", hint: "boutons « en cours… » et bascule vers le résultat ; Nomad démarre" }, { view: "emulation", hint: "boutons « en cours… »" }],
   832: [{ view: "orchestration", hint: "VM Proxmox et conteneurs k3s / Nomad : déployer, placement, quotas, durée de vie" }],

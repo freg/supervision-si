@@ -28,3 +28,18 @@ binfmt, SDK Android si demandé). Licences Android : seulement si la case est co
 
 « Installer l'agent » (instances conteneur) : colle la ligne d'enrôlement de **Agents > Ajouter** ; elle est masquée
 dans l'historique. `install.sh` détecte l'absence de systemd et démarre l'agent par `/etc/si-agent/demarrer.sh`.
+
+## Accès, image installable, APK (#835)
+
+- **Écran** (machines complètes et Android) : VNC local (QEMU `-display vnc`, clavier USB, pointeur absolu ; Android dans
+  Xvfb + x11vnc, souris = toucher), websockify + noVNC sur le pont Docker de l'hôte (ports 69xx / 70xx). Depuis le poste :
+  pas de lien : opération manuelle -- `ssh -L 69xx:<écoute>:69xx root@<hôte>` puis `http://127.0.0.1:69xx/vnc.html`.
+- **SSH** : `ssh -J root@<hôte> -p 522xx emul@127.0.0.1` (mot de passe : `/var/lib/si-emulation/instances/<id>/mdp`).
+- **adb** : `ssh -L 555x:127.0.0.1:555x root@<hôte>` puis `adb connect 127.0.0.1:555x`.
+- **Exporter l'image** : copie de la machine complète, généralisation (clés SSH, machine-id, journaux, identité de l'agent,
+  mot de passe d'émulation verrouillé), service de premier démarrage, réduction, `xz` + SHA-256 dans
+  `/var/lib/si-emulation/exports/`. Graver : `xzcat <image>.img.xz | sudo dd of=/dev/sdX bs=4M conv=fsync status=progress`.
+  Réglages du premier démarrage : `si-premier-demarrage.conf` sur la partition de démarrage (UTILISATEUR,
+  MOT_DE_PASSE_HASH = `openssl passwd -6`, CLE_SSH, NOM_HOTE, WIFI_SSID / WIFI_CLE / WIFI_PAYS, AGENT_LIGNE), effacé après usage.
+- **Installer une APK** (Android) : adresse https (+ SHA-256 conseillé) ; `adb install -r -g`. Un téléphone reçoit la même APK
+  (adb ou enrôlement), pas l'image système de l'émulateur.

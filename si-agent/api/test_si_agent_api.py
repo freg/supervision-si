@@ -748,13 +748,16 @@ class AlertFilterTests(ApiBase):
         # événement réel : hors ligne la nuit -> journal (include_muted) mais ni liste par défaut, ni synthèse
         app_mod._event("agent-offline", "warning", "agent pc-01 ne répond plus", agent_id="pc-01")  # horodaté maintenant : filtré ou non selon l'heure
         conn = store._connect(app_mod.DB_PATH); conn.execute("DELETE FROM events"); conn.commit(); conn.close()
-        stored = store.add_event(app_mod.DB_PATH, "agent-offline", "warning", "agent pc-01 ne répond plus", agent_id="pc-01", at="2026-09-22T19:00:00Z")
+        import datetime as _dt   # mardi soir récent (dans la fenêtre de 30 j de la synthèse), 21:00 UTC = hors heures été comme hiver
+        _n = _dt.datetime.now(_dt.timezone.utc)
+        _mardi = (_n - _dt.timedelta(days=((_n.weekday() - 1) % 7) or 7)).strftime("%Y-%m-%dT21:00:00Z")
+        stored = store.add_event(app_mod.DB_PATH, "agent-offline", "warning", "agent pc-01 ne répond plus", agent_id="pc-01", at=_mardi)
         muted, why = alertfilters.evaluate(stored, app_mod.alert_groups(), {"filter_enabled": 1, "filter_group": "postes-travail"}, app_mod.ALERT_TZ)
         self.assertTrue(muted)
         store.mark_muted(app_mod.DB_PATH, stored["id"], why)
         self.assertEqual(self.kinds(), [])
         self.assertEqual(self.kinds(include_muted="1"), ["agent-offline"])
-        s = self.c.get("/events/summary?hours=720").get_json()  # fenêtre large : l'événement de test est daté
+        s = self.c.get("/events/summary?hours=720").get_json()  # événement daté du dernier mardi soir : dans la fenêtre
         self.assertEqual((s["counts"]["warning"], s["muted"]), (0, 1))
         # paramétrage : un groupe personnalisé, refus d'une règle vide, usage par agent
         r = self.c.put("/alert-filters", json={"groups": [{"id": "postes-travail", "label": "Postes", "rules": [{"categories": ["availability"], "when": "outside", "days": [0, 1, 2, 3, 4], "start": "07:00", "end": "20:00"}]}]})

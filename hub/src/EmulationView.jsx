@@ -9,6 +9,9 @@ import BoutonCommande, { suivreCommande, useFinCommandes } from "./BoutonCommand
 
 const TABS = [["instances", "Instances"], ["lancer", "Lancer un émulateur"], ["commandes", "Commandes"]];
 const ETAT = { en_marche: ["en marche", "good"], demarre: ["démarre", "neutral"], arrete: ["arrêtée", "neutral"], absent: ["absente", "bad"] };
+const taille = (o) => (o >= 1073741824 ? `${(o / 1073741824).toFixed(2).replace(".", ",")} Go` : `${Math.round(o / 1048576)} Mo`);
+// #835 écran (noVNC sur l'hôte d'émulation, écoute sur son pont Docker) : depuis le poste, par tunnel SSH
+const tunnelEcran = (h, i) => `ssh -L ${i.ecran.web}:${i.ecran.ecoute || "127.0.0.1"}:${i.ecran.web} root@${h.agent_id}  puis  http://127.0.0.1:${i.ecran.web}/vnc.html?autoconnect=1&resize=scale`;
 const quand = (t) => (t ? new Date(t).toLocaleString("fr-FR") : "—");
 const Oui = ({ v, l }) => <span className={`np-tone ${v ? "good" : "bad"}`}>{v ? "✓" : "✗"} {l}</span>;
 
@@ -65,15 +68,30 @@ export default function EmulationView({ onBack, siAgentApiBase, username }) {
           <tbody>{h.instances.map((i) => (
             <tr key={i.id}><td>{i.id}</td><td>{i.profil}</td><td>{i.mode}</td>
               <td><span className={`np-tone ${(ETAT[i.etat] || ["", "neutral"])[1]}`}>{(ETAT[i.etat] || [i.etat])[0]}</span>{i.docker ? <span className="infra-muted"> {i.docker}</span> : null}</td>
-              <td className="infra-muted">{i.mode === "systeme" ? `ssh -p ${i.port} emul@127.0.0.1 (sur l'hôte)` : i.mode === "avd" ? `adb -s emulator-${i.port}` : `docker exec -it ${i.id} bash`}</td>
+              <td className="infra-muted">{i.mode === "systeme" ? `ssh -J root@${h.agent_id} -p ${i.port} emul@127.0.0.1 (mot de passe : ${"/var/lib/si-emulation/instances/" + i.id}/mdp)` : i.mode === "avd" ? `ssh -L ${i.port + 1}:127.0.0.1:${i.port + 1} root@${h.agent_id} ; adb connect 127.0.0.1:${i.port + 1}` : `docker exec -it ${i.id} bash (sur l'hôte)`}
+                {i.ecran?.web && i.etat === "en_marche" && <div title="écran, clavier, souris / toucher (noVNC) — pas de lien : opération manuelle (tunnel SSH vers l'hôte)">Écran : <code>{tunnelEcran(h, i)}</code></div>}</td>
               <td className="infra-muted">{i.cree ? new Date(i.cree * 1000).toLocaleString("fr-FR") : "—"}</td>
               <td><div className="veille-actions">
                 {i.mode === "conteneur" && <BoutonCommande cmds={d.commandes} agent={h.agent_id} critere={{ action: "deployer_agent", instance: i.id }} onClick={() => installer(h.agent_id, i)} title="installation supervisée de l'agent dans l'instance">Installer l'agent</BoutonCommande>}
+                {i.mode === "systeme" && <BoutonCommande className="secondary" cmds={d.commandes} agent={h.agent_id} critere={{ action: "exporter_image", instance: i.id }} title="image à graver sur carte SD (généralisée, réduite, xz)" onClick={() => window.confirm(`Exporter ${i.id} en image installable ? (arrêtée pendant l'export)`) && envoyer({ action: "exporter_image", instance: i.id }, `export de ${i.id}`)}>Exporter l'image</BoutonCommande>}
+                {i.mode === "avd" && i.etat === "en_marche" && <BoutonCommande className="secondary" cmds={d.commandes} agent={h.agent_id} critere={{ action: "installer_apk", instance: i.id }} onClick={() => { const url = window.prompt("Adresse https de l'APK :", ""); if (!url) return; const sha = window.prompt("Empreinte SHA-256 (conseillée, vide sinon) :", ""); envoyer({ action: "installer_apk", instance: i.id, url: url.trim(), sha256: (sha || "").trim() || undefined }, `APK dans ${i.id}`); }}>Installer une APK…</BoutonCommande>}
                 <BoutonCommande className="secondary" cmds={d.commandes} agent={h.agent_id} critere={{ action: "arreter", instance: i.id }} onClick={() => envoyer({ action: "arreter", instance: i.id }, `arrêt de ${i.id}`)}>Arrêter</BoutonCommande>
                 <BoutonCommande className="secondary" cmds={d.commandes} agent={h.agent_id} critere={{ action: "detruire", instance: i.id }} onClick={() => window.confirm(`Détruire ${i.id} (disque et état) ?`) && envoyer({ action: "detruire", instance: i.id }, `destruction de ${i.id}`)}>Détruire</BoutonCommande>
               </div></td></tr>))}
             {!h.instances.length && <tr><td colSpan={7} className="infra-muted">Aucune instance : onglet « Lancer un émulateur ».</td></tr>}
           </tbody></table></div>}
+        {tab === "instances" && h && <div className="infra-card">
+          <b>Images installables (Raspberry Pi)</b>
+          <div className="infra-table-wrap"><table className="infra-table"><thead><tr><th>Image</th><th>Taille</th><th>Date</th><th>SHA-256</th><th>Récupérer</th><th></th></tr></thead>
+            <tbody>{(h.capacites.exports || []).map((x) => (
+              <tr key={x.nom}><td><code>{x.nom}</code></td><td>{taille(x.taille)}</td><td>{quand(x.date * 1000)}</td><td className="infra-muted" title={x.sha256}>{x.sha256 ? `${x.sha256.slice(0, 12)}…` : "—"}</td>
+                <td className="infra-muted" title="pas de lien : opération manuelle (l'image reste sur l'hôte d'émulation)"><code>scp root@{h.agent_id}:/var/lib/si-emulation/exports/{x.nom} .</code></td>
+                <td><BoutonCommande className="danger" cmds={d.commandes} agent={h.agent_id} critere={{ action: "supprimer_export", nom: x.nom }} onClick={() => window.confirm(`Supprimer ${x.nom} ?`) && envoyer({ action: "supprimer_export", nom: x.nom }, `suppression de ${x.nom}`)}>Supprimer</BoutonCommande></td></tr>))}
+              {!(h.capacites.exports || []).length && <tr><td colSpan={6} className="infra-muted">Aucune : « Exporter l'image » sur une machine complète.</td></tr>}</tbody></table></div>
+          <p className="infra-muted">Graver : Raspberry Pi Imager (image personnalisée) ou <code>xzcat image.img.xz | sudo dd of=/dev/sdX bs=4M conv=fsync status=progress</code>.
+            Premier démarrage : identité unique, partition agrandie ; utilisateur (hash <code>openssl passwd -6</code>), clé SSH, nom, Wi-Fi et ligne d'installation de l'agent
+            dans <code>si-premier-demarrage.conf</code> sur la partition de démarrage (modèle <code>.exemple</code> fourni, effacé après usage).</p>
+        </div>}
         {tab === "lancer" && h && <>
           <div className="veille-ligne">
             {[["raspberry", "Raspberry Pi"], ["android", "Android"]].map(([k, l]) => <button key={k} type="button" className={famille === k ? "" : "secondary"} onClick={() => setFamille(k)}>{l}</button>)}

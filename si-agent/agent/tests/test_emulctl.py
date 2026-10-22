@@ -75,5 +75,42 @@ class Emul(unittest.TestCase):
         self.assertEqual(r["error"], "ERREUR : KVM absent : émulateur Android impossible")
 
 
+class ExportApkEcran(unittest.TestCase):
+    """#835 : image installable (carte SD), APK dans l'émulateur, écran dans le navigateur (noVNC)."""
+    def test_validation(self):
+        self.assertIsNone(E.valider({"action": "exporter_image", "instance": "emu-rpi0w-2"})[1])
+        self.assertIsNone(E.valider({"action": "installer_apk", "instance": "emu-a34-x8664-1", "url": "https://f-droid.org/F-Droid.apk"})[1])
+        self.assertIsNone(E.valider({"action": "installer_apk", "instance": "emu-a", "url": "https://exemple.org/telecharger?id=3", "sha256": "a" * 64})[1])
+        for p in ({"action": "installer_apk", "instance": "emu-a", "url": "http://x/a.apk"}, {"action": "installer_apk", "instance": "emu-a", "fichier": "/etc/passwd"},
+                  {"action": "installer_apk", "instance": "emu-a", "url": "https://x/a.apk$(id)"}, {"action": "supprimer_export", "nom": "../x.img.xz"},
+                  {"action": "installer_apk", "instance": "emu-a", "url": "https://x/a.apk", "sha256": "zz"}):
+            self.assertIsNotNone(E.valider(p)[1], p)
+
+    def test_scripts(self):
+        for p in ({"action": "exporter_image", "instance": "emu-rpi0w-2"}, {"action": "supprimer_export", "nom": "emu-rpi0w-2-20261022-2130.img.xz"},
+                  {"action": "installer_apk", "instance": "emu-a", "fichier": E.RACINE + "/apk/app.apk", "sha256": "b" * 64},
+                  {"action": "lancer", "profil": "rpi3b", "mode": "systeme", "instance": "emu-rpi3b-1", "port": 52201},
+                  {"action": "lancer", "profil": "android-34-x86_64", "instance": "emu-a34-x8664-1", "port": 5556, "accepter_licences": True}):
+            ok, err = bash_ok(E.script(E.valider(p)[0]))
+            self.assertTrue(ok, (p, err))
+        s = E.script(E.valider({"action": "exporter_image", "instance": "emu-rpi0w-2"})[0])
+        for x in ("ssh_host_", "machine-id", "resize2fs -M", "xz -T0", "si-premier-demarrage.service", "emul:!:", "agent.json"):
+            self.assertIn(x, s)
+        self.assertNotIn("%%", s)
+        r = subprocess.run(["sh", "-n"], input=E.PREMIER_DEMARRAGE, text=True, capture_output=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertNotIn("MOT_DE_PASSE=", E.CONF_EXEMPLE)                       # seulement un hash, jamais le mot de passe en clair
+
+    def test_ecran(self):
+        self.assertEqual((E.ecran_ports("systeme", 52203), E.ecran_ports("avd", 5558), E.ecran_ports("conteneur", 0)), ((5903, 6903), (6002, 7002), (None, None)))
+        s = E.script(E.valider({"action": "lancer", "profil": "rpi0w", "mode": "systeme", "instance": "emu-rpi0w-3", "port": 52203})[0])
+        self.assertIn("-display vnc=127.0.0.1:3", s)
+        self.assertIn("websockify -D --web /usr/share/novnc", s)
+        s = E.script(E.valider({"action": "lancer", "profil": "android-34-x86_64", "instance": "emu-a", "port": 5558, "accepter_licences": True})[0])
+        self.assertIn("Xvfb :102", s)
+        self.assertIn("-rfbport 6002", s)
+        self.assertNotIn("-no-window", s)
+
+
 if __name__ == "__main__":
     unittest.main()

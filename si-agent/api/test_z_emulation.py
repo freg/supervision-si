@@ -38,10 +38,16 @@ class Api(unittest.TestCase):
         self.assertEqual(r.json["instance"], "emu-rpi0w-3")              # la commande en attente compte
         self.assertIn("licences", c.post("/emulation/commande", json={"agent": "emu-hote", "action": "lancer", "profil": "android-34-x86_64"}).json["error"])
         self.assertIn("hôte ARM", c.post("/emulation/commande", json={"agent": "emu-hote", "action": "preparer", "profil": "android-34-arm64-v8a", "accepter_licences": True}).json["error"])
+        # #835 : export d'image, APK, suppression d'un export
+        self.assertEqual(c.post("/emulation/commande", json={"agent": "emu-hote", "action": "exporter_image", "instance": "emu-rpi0w-1"}).status_code, 201)
+        r = c.post("/emulation/commande", json={"agent": "emu-hote", "action": "installer_apk", "instance": "emu-a34-x8664-1", "url": "https://f-droid.org/F-Droid.apk", "sha256": "a" * 64})
+        self.assertEqual(r.status_code, 201, r.json)
+        self.assertIn("https", c.post("/emulation/commande", json={"agent": "emu-hote", "action": "installer_apk", "instance": "emu-a", "url": "http://x/a.apk"}).json["error"])
+        self.assertEqual(c.post("/emulation/commande", json={"agent": "emu-hote", "action": "supprimer_export", "nom": "emu-rpi0w-1-20261022-2130.img.xz"}).status_code, 201)
         c.post("/emulation/commande", json={"agent": "emu-hote", "action": "deployer_agent", "instance": "emu-rpi0w-1",
                                              "ligne": "curl -fsSL -k 'https://central:6443/deploy/linux?token=SECRET99' | sh"})
         cmds = c.get("/emulation").json["commandes"]
-        self.assertEqual(len(cmds), 3)
+        self.assertEqual(len(cmds), 6)
         self.assertNotIn("SECRET99", str(cmds))                          # jeton masqué à la relecture
 
 

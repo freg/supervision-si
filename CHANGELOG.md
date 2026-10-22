@@ -1,3 +1,14 @@
+## 2026-10-22 — Émulation : écran dans le navigateur, image Raspberry installable, APK dans l'émulateur (livraison #835)
+
+- **Écran** des machines complètes Raspberry et des émulateurs Android (noVNC : écran, clavier, souris = toucher),
+  SSH et adb : la commande d'accès s'affiche sur chaque instance (tunnel SSH vers l'hôte d'émulation).
+- **Exporter l'image** (Raspberry, machine complète) : image `.img.xz` généralisée à graver sur carte SD ; au premier
+  démarrage, identité unique, partition agrandie, puis utilisateur, clé SSH, nom, Wi-Fi et agent depuis
+  `si-premier-demarrage.conf` (effacé après usage) ; liste des images avec taille, SHA-256 et commande `scp`.
+- **Installer une APK** (Android) : adresse https + SHA-256 ; `adb install`, paquets ajoutés dans la sortie.
+- **Préparer** installe ce qui manque sur l'hôte (QEMU, noVNC, websockify, Xvfb, x11vnc, Java).
+- Test de la synthèse des alertes rendu indépendant de la date (il expirait le 22/10/2026).
+
 ## 2026-10-22 — Orchestration : catalogue d'images Docker Hub (livraison #834)
 
 - Onglet **Déployer** : sélection de départ (images officielles courantes avec leur port : nginx, redis, postgres,

@@ -74,7 +74,7 @@ def commande():
     if aid not in hs:
         return jsonify({"error": "hôte d'émulation inconnu : activer la sonde « emulation » sur son agent"}), 400
     h = hs[aid]
-    p = {k: b.get(k) for k in ("action", "profil", "mode", "instance", "accepter_licences", "ligne", "port") if b.get(k) not in (None, "")}
+    p = {k: b.get(k) for k in ("action", "profil", "mode", "instance", "accepter_licences", "ligne", "port", "url", "sha256", "nom") if b.get(k) not in (None, "")}
     if p.get("action") == "lancer" and not p.get("instance"):
         pending = [str((c.get("params") or {}).get("instance") or "") for c in store.list_commands(DB_PATH, aid, status="pending")]
         iid, n = prochaine_instance(str(p.get("profil") or ""), [i.get("id") for i in h["instances"]] + pending)

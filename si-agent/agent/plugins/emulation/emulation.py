@@ -30,7 +30,24 @@ def capacites(which=shutil.which, exists=os.path.exists, run=_run):
             "java": bool(which("java")), "sdk_android": exists(os.path.join(SDK, "cmdline-tools", "latest", "bin", "sdkmanager")),
             "images_android": ["%s/%s" % (p.split(os.sep)[-3], p.split(os.sep)[-1]) for p in systeme],
             "images_raspberry": sorted(l for l in (imgs or "").split() if l.startswith("rpios-lite:")),
-            "boot_raspberry": sorted(os.path.basename(p) for p in glob.glob(os.path.join(RACINE, "images", "boot-*")))}
+            "boot_raspberry": sorted(os.path.basename(p) for p in glob.glob(os.path.join(RACINE, "images", "boot-*"))),
+            "novnc": exists("/usr/share/novnc/vnc.html") and bool(which("websockify")), "exports": exports()}
+
+
+def exports(racine=RACINE):
+    """Images installables exportées (#835) : nom, taille, date, SHA-256."""
+    out = []
+    for f in sorted(glob.glob(os.path.join(racine, "exports", "*.img.xz")), reverse=True):
+        try:
+            sha = (open(f + ".sha256").read().split() or [None])[0]
+        except OSError:
+            sha = None
+        try:
+            st = os.stat(f)
+            out.append({"nom": os.path.basename(f), "taille": st.st_size, "date": int(st.st_mtime), "sha256": sha})
+        except OSError:
+            continue
+    return out
 
 
 def instances(registres, docker_ps):
