@@ -6,6 +6,19 @@ import { useCallback, useEffect, useState } from "react";
 import { hubLink } from "./hubLinks.js";
 
 const pct = (v) => (v == null ? "—" : `${Math.round(v * 100)} %`);
+const GRAVITES = ["faible", "moyenne", "haute", "critique"];
+const CORRECTIONS = [["1:critique", "urgent · critique"], ["1:haute", "urgent · haute"], ["1:moyenne", "urgent · moyenne"], ["0:moyenne", "non urgent · moyenne"], ["0:faible", "non urgent · faible"]];
+// #829 : ta décision sur le choix du décideur (✓ juste, ✎ correction) -- vérité pour Parc IA › Apprentissage.
+function Decision({ u, decider }) {
+  if (u.decision) {
+    const pareil = u.decision.urgent === (u.urgence >= 0.5) && u.decision.gravite === u.gravite;
+    return <span className={`infra-muted ${pareil ? "" : "infra-status warning"}`} title="ta décision : vérité pour l'apprentissage du décideur">
+      {" "}· toi : {u.decision.urgent ? "urgent" : "non urgent"} · {u.decision.gravite} <button type="button" className="secondary" onClick={() => decider(u, null)}>↺</button></span>;
+  }
+  return <>{" "}<button type="button" className="secondary" title="le décideur a raison" onClick={() => decider(u, { urgent: u.urgence >= 0.5, gravite: GRAVITES.includes(u.gravite) ? u.gravite : "moyenne" })}>✓</button>
+    <select value="" title="corriger le décideur" onChange={(e) => { const [x, g] = e.target.value.split(":"); if (g) decider(u, { urgent: x === "1", gravite: g }); }}>
+      <option value="">✎</option>{CORRECTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></>;
+}
 const quand = (t) => (t ? new Date(t * 1000).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "");
 
 export default function PrioritesPanel({ siAgentApiBase }) {
@@ -17,6 +30,16 @@ export default function PrioritesPanel({ siAgentApiBase }) {
     .then((r) => r.json()).then((x) => { setD(x); setErr(x?.error || null); }).catch((e) => setErr(e.message)), [siAgentApiBase]);
   useEffect(() => { charger(false); const t = setInterval(() => charger(false), 60000); return () => clearInterval(t); }, [charger]);
   useEffect(() => { try { localStorage.setItem("priorites.ouvert", ouvert ? "1" : "0"); } catch { /* navigation privée */ } }, [ouvert]);
+  const decider = async (u, dec) => {
+    try {
+      const r = await fetch(`${siAgentApiBase}/priorites/decision`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dec ? { id: u.id, ...dec } : { id: u.id, efface: true }) });
+      const j = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+      const maj = (l) => (l || []).map((x) => (x.id === u.id ? { ...x, decision: dec } : x));
+      setD((x) => ({ ...x, urgences: maj(x.urgences), autres: maj(x.autres) }));
+    } catch (e) { setErr(e.message); }
+  };
   if (!siAgentApiBase) return null;
   const urg = d?.urgences || [];
   return (
@@ -33,7 +56,7 @@ export default function PrioritesPanel({ siAgentApiBase }) {
           <ol className="priorites-liste">
             {urg.map((u) => (
               <li key={u.id} className={u.gravite === "critique" ? "critique" : u.gravite === "haute" ? "haute" : ""}>
-                <div><b>{u.titre}</b> <span className="infra-muted">· {u.source} · urgence {pct(u.urgence)} · gravité {u.gravite}{u.nb > 1 ? ` · ${u.nb} fois` : ""}</span></div>
+                <div><b>{u.titre}</b> <span className="infra-muted">· {u.source} · urgence {pct(u.urgence)} · gravité {u.gravite}{u.nb > 1 ? ` · ${u.nb} fois` : ""}</span><Decision u={u} decider={decider} /></div>
                 {u.detail && <div>{u.detail}</div>}
                 {u.impact && <div className="infra-muted">Impact : {u.impact}</div>}
                 {u.lien && <a href={hubLink(u.lien.view, u.lien.params)}>Agir : ouvrir l'écran →</a>}
@@ -44,7 +67,7 @@ export default function PrioritesPanel({ siAgentApiBase }) {
         {d?.explication && <details className="priorites-ia" open><summary>Détail des urgences et solutions proposées (IA)</summary><pre>{d.explication}</pre></details>}
         {(d?.autres || []).length > 0 && (
           <details open={autres} onToggle={(e) => setAutres(e.target.open)}><summary className="infra-muted">{d.autres.length} autre(s) élément(s), non urgents</summary>
-            <ul className="priorites-autres">{d.autres.map((u) => <li key={u.id}>{u.titre} <span className="infra-muted">· {u.source} · urgence {pct(u.urgence)}</span>{u.lien && <> · <a href={hubLink(u.lien.view, u.lien.params)}>écran →</a></>}</li>)}</ul>
+            <ul className="priorites-autres">{d.autres.map((u) => <li key={u.id}>{u.titre} <span className="infra-muted">· {u.source} · urgence {pct(u.urgence)}</span>{u.lien && <> · <a href={hubLink(u.lien.view, u.lien.params)}>écran →</a></>}<Decision u={u} decider={decider} /></li>)}</ul>
           </details>
         )}
         {d?.etapes && <p className="infra-muted priorites-etapes">1. préparation : {d.etapes.preparation || "—"} · 2. décision : {d.etapes.decision || "—"} · 3. explication : {d.etapes.explication || "—"}</p>}

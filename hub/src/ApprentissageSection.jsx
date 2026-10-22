@@ -38,7 +38,7 @@ export default function ApprentissageSection({ base, username }) {
       {err && <p className="infra-muted" onClick={() => setErr("")}>{err}</p>}
       <div className="veille-bloc">
         <h3>Jeu de données du décideur</h3>
-        <p className="infra-muted">Étiquettes tirées de vos décisions dans la Veille cyber : rejet ou « non applicable » posé par une personne → non urgent ;
+        <p className="infra-muted">Étiquettes : d'abord tes décisions dans les Priorités de la page d'accueil (✓ / ✎, événements et veille), puis tes décisions dans la Veille cyber : rejet ou « non applicable » posé par une personne → non urgent ;
           « à traiter / en cours / traité » posé par une personne → urgent s'il touche un de nos actifs ou une faille exploitée, gravité d'après la priorité vuln-api.
           Même entrée que la production (consigne du décideur et skill actif).</p>
         {st ? <p>{st.exemples} exemple(s) — entraînement {st.train}, test {st.test} — urgents {st.urgents} — gravités {Object.entries(st.gravites).map(([k, v]) => `${k} ${v}`).join(", ") || "—"}

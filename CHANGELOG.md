@@ -1,3 +1,11 @@
+## 2026-10-22 — Priorités : tes décisions (✓ / ✎), vérité pour l'apprentissage du décideur (livraison #829)
+
+- Sur chaque élément des **Priorités** de la page d'accueil : « ✓ » (le décideur a raison) ou « ✎ » (corriger :
+  urgent ou non, gravité) ; ta décision s'affiche à côté de celle du modèle (en couleur si elle diffère), « ↺ » la retire.
+- Elle est gardée avec l'état exact que le décideur a vu (événements des agents compris, pas seulement la veille) et
+  passe en tête du jeu de **Parc IA > Apprentissage** (elle prime sur l'étiquette déduite de la veille).
+- Même fonction dans le hub maison (Cyber news > Priorités).
+
 ## 2026-10-22 — Parc IA : skills (consignes versionnées) et apprentissage du décideur (livraisons #827, #828)
 
 - **#827 Skills** (Parc IA > Skills) : consignes des IA versionnées (historique, restauration, auteur, notes), actives

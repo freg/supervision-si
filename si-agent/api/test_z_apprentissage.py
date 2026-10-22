@@ -73,5 +73,26 @@ class Api(unittest.TestCase):
             A.source_articles = avant
 
 
+class DecisionsPriorites(unittest.TestCase):   # #829
+    def test_decision_et_jeu(self):
+        c = appmod.app.test_client()
+        P._etat["data"] = {"urgences": [{"id": "evt:disk-full@srv-a", "source": "agents", "titre": "Disque plein", "severite": "critique", "depuis": "x", "nb": 3,
+                                         "urgence": 0.9, "gravite": "haute"}],
+                           "autres": [{"id": "veille:1", "source": "veille cyber", "titre": "Faille exploitée OpenSSH", "severite": "critique", "nb": 1, "urgence": 0.2}]}
+        self.assertEqual(c.post("/priorites/decision", json={"id": "evt:disk-full@srv-a", "urgent": True, "gravite": "énorme"}).status_code, 400)
+        self.assertEqual(c.post("/priorites/decision", json={"id": "absent", "urgent": True, "gravite": "haute"}).status_code, 404)
+        self.assertEqual(c.post("/priorites/decision", json={"id": "evt:disk-full@srv-a", "urgent": True, "gravite": "haute"}).status_code, 200)
+        self.assertEqual(c.post("/priorites/decision", json={"id": "veille:1", "urgent": False, "gravite": "moyenne"}).status_code, 200)
+        d = A.decisions_par_cle()
+        self.assertEqual((d["evt:disk-full@srv-a"]["gravite"], d["veille:1"]["urgent"]), ("haute", False))
+        ex, st = A.construire(ARTS, P.QUESTIONS, A.decisions())
+        par_id = {e["id"]: e for e in ex}
+        self.assertIn("Disque plein", par_id["evt:disk-full@srv-a"]["etat"])
+        self.assertEqual(par_id["veille:1"]["attendu"], {"urgent": False, "gravite": "moyenne"})   # la décision des Priorités prime
+        self.assertNotIn(1, par_id)                                                                   # l'article 1 n'est pas compté deux fois
+        c.post("/priorites/decision", json={"id": "veille:1", "efface": True})
+        self.assertNotIn("veille:1", A.decisions_par_cle())
+
+
 if __name__ == "__main__":
     unittest.main()

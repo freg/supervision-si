@@ -28,6 +28,7 @@ import priorites as P
 bp = Blueprint("apprentissage", __name__)
 GRAVITE_PAR_PRIORITE = {"P1": "critique", "P2": "haute", "P3": "moyenne", "P4": "faible"}
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS priorites_decisions (cle TEXT PRIMARY KEY, etat TEXT, titre TEXT, urgent INTEGER, gravite TEXT, decideur TEXT, par TEXT, at REAL);
 CREATE TABLE IF NOT EXISTS entrainements (id INTEGER PRIMARY KEY, nom TEXT, modele_base TEXT, hote TEXT, statut TEXT, modele_produit TEXT,
   jeu TEXT, evaluation TEXT, notes TEXT, cree REAL, maj REAL, par TEXT);
 """
@@ -67,9 +68,23 @@ def exemple(a, questions, lab):
                          {"role": "assistant", "content": json.dumps(rep, ensure_ascii=False)}]}
 
 
-def construire(articles, questions):
-    ex = []
+def exemple_decision(d, questions):
+    """#829 : décision posée dans les Priorités (✓ / ✎) : l'état est celui que le décideur a vu."""
+    import decideur
+    lab = {"urgent": bool(d["urgent"]), "gravite": d["gravite"]}
+    return {"id": d["cle"], "part": part(d["cle"]), "etat": d["etat"], "attendu": lab,
+            "messages": [{"role": "user", "content": decideur.prompt_llm([d["etat"]], questions)},
+                         {"role": "assistant", "content": json.dumps([{"urgent": 0.9 if lab["urgent"] else 0.1, "gravite": lab["gravite"]}], ensure_ascii=False)}]}
+
+
+def construire(articles, questions, decisions=None):
+    """Exemples : décisions des Priorités d'abord (vérité directe), puis articles de veille décidés (sauf ceux déjà
+    décidés dans les Priorités)."""
+    ex = [exemple_decision(d, questions) for d in decisions or []]
+    vus = {d["cle"] for d in decisions or []}
     for a in articles or []:
+        if "veille:%s" % a.get("id") in vus:
+            continue
         lab = etiquette(a)
         if lab:
             ex.append(exemple(a, questions, lab))
@@ -92,6 +107,15 @@ def mesurer(exemples, reponses):
         ok_g += (r.get("gravite") or {}).get("label") == e["attendu"]["gravite"]
     return {"n": n, "valides": valides, "accord_urgent": round(ok_u / float(valides), 3) if valides else None,
             "accord_gravite": round(ok_g / float(valides), 3) if valides else None}
+
+
+def decisions(c=None):
+    c = c or cnx()
+    return [dict(r) for r in c.execute("SELECT * FROM priorites_decisions ORDER BY at")]
+
+
+def decisions_par_cle(c=None):
+    return {d["cle"]: {"urgent": bool(d["urgent"]), "gravite": d["gravite"], "par": d["par"], "at": d["at"]} for d in decisions(c)}
 
 
 def questions_courantes():
@@ -129,7 +153,7 @@ def _lire(r):
 def jeu():
     try:
         jours = int(request.args.get("jours") or 365)
-        ex, stats = construire(source_articles(jours), questions_courantes())
+        ex, stats = construire(source_articles(jours), questions_courantes(), decisions())
     except Exception as e:  # noqa: BLE001 -- vuln-api absente
         return jsonify({"error": "veille injoignable : %s" % str(e)[:200]}), 502
     p = request.args.get("part")
@@ -140,6 +164,29 @@ def jeu():
         return Response(corps, mimetype="application/x-ndjson",
                         headers={"Content-Disposition": "attachment; filename=decideur-%s-%s.jsonl" % (p or "tout", time.strftime("%Y%m%d"))})
     return jsonify({"stats": stats, "apercu": [{k: e[k] for k in ("id", "part", "etat", "attendu")} for e in ex[:30]]})
+
+
+@bp.post("/priorites/decision")
+def priorites_decision():
+    """#829 : ta décision sur un élément des Priorités (✓ le décideur a raison, ✎ correction) -> vérité pour l'apprentissage.
+    {id, urgent, gravite} ; {id, efface: true} retire. L'état enregistré est celui que le décideur a vu (calcul en cache)."""
+    b = request.get_json(silent=True) or {}
+    cle = str(b.get("id") or "")[:200]
+    c = cnx()
+    if b.get("efface"):
+        c.execute("DELETE FROM priorites_decisions WHERE cle=?", (cle,)); c.commit()
+        return jsonify({"ok": True}), 200
+    if b.get("gravite") not in P.QUESTIONS["gravite"]["criteria"]:
+        return jsonify({"error": "gravite : " + ", ".join(P.QUESTIONS["gravite"]["criteria"])}), 400
+    data = P._etat.get("data") or {}
+    item = next((x for x in (data.get("urgences") or []) + (data.get("autres") or []) if str(x.get("id")) == cle), None)
+    if not item:
+        return jsonify({"error": "élément absent du dernier calcul des priorités"}), 404
+    c.execute("INSERT OR REPLACE INTO priorites_decisions VALUES (?,?,?,?,?,?,?,?)",
+              (cle, P.etats([item])[0], item.get("titre"), 1 if b.get("urgent") else 0, b["gravite"],
+               json.dumps({"urgence": item.get("urgence"), "gravite": item.get("gravite")}), str(b.get("par") or request.headers.get("X-Forwarded-User") or "hub")[:64], time.time()))
+    c.commit()
+    return jsonify({"ok": True}), 200
 
 
 @bp.get("/apprentissage/entrainements")
@@ -185,7 +232,7 @@ def evaluer(eid):
     if not modele:
         return jsonify({"error": "modèle produit inconnu : le renseigner (nom Ollama)"}), 400
     try:
-        ex, _ = construire(source_articles(365), questions_courantes())
+        ex, _ = construire(source_articles(365), questions_courantes(), decisions())
     except Exception as e:  # noqa: BLE001
         return jsonify({"error": "veille injoignable : %s" % str(e)[:200]}), 502
     test = [e for e in ex if e["part"] == "test"][:200]

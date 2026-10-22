@@ -2848,7 +2848,14 @@ def priorites_route():
 
     def contacts():
         return {a["agent_id"]: a.get("last_seen_at") for a in store.list_agents(DB_PATH)}
-    return jsonify(priorites.vue(evenements, contacts, forcer=request.args.get("refresh") == "1")), 200
+    v = priorites.vue(evenements, contacts, forcer=request.args.get("refresh") == "1")
+    try:   # #829 : tes décisions (✓ / ✎) sur les éléments affichés
+        dec = apprentissage.decisions_par_cle()
+        v = dict(v, urgences=[dict(u, decision=dec.get(str(u.get("id")))) for u in v.get("urgences") or []],
+                 autres=[dict(u, decision=dec.get(str(u.get("id")))) for u in v.get("autres") or []])
+    except Exception:  # noqa: BLE001
+        pass
+    return jsonify(v), 200
 
 
 @app.route("/migration/preparation", methods=["GET"])
