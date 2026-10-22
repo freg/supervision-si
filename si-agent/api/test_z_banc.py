@@ -116,5 +116,24 @@ class Api(unittest.TestCase):
         self.assertEqual(c.post("/banc/runs/99/arreter").status_code, 404)
 
 
+class Modeles(unittest.TestCase):   # #826
+    def test_recettes_fabrication_et_modeles_du_noeud(self):
+        db, c = appmod.DB_PATH, appmod.app.test_client()
+        store.create_agent(db, "pve-banc2", "siege")
+        self.assertIn("agent du nœud inconnu", c.post("/banc/modeles", json={"recette": "debian13", "vmid": 9100, "noeud": "absent"}).json["error"])
+        self.assertIn("recette", c.post("/banc/modeles", json={"recette": "w11", "vmid": 9100, "noeud": "pve-banc2"}).json["error"])
+        r = c.post("/banc/modeles", json={"recette": "debian13", "vmid": 9100, "noeud": "pve-banc2", "stockage": "data-zfs"})
+        self.assertEqual(r.status_code, 201)
+        cmd = [x for x in store.list_commands(db, "pve-banc2") if x["type"] == "banc_modele"][0]
+        self.assertEqual((cmd["params"]["recette"], cmd["params"]["stockage"]), ("debian13", "data-zfs"))
+        store.ingest_measurements(db, "pve-banc2", [{"task": "plugin:proxmox", "at": "2026-10-22T12:00:00Z", "ok": True, "data": {"vms": [
+            {"vmid": 9100, "name": "banc-modele-debian13", "type": "qemu", "template": True},
+            {"vmid": 9101, "name": "modele-win11", "type": "qemu", "template": True},
+            {"vmid": 120, "name": "prod", "type": "qemu", "template": False}]}}])
+        self.assertEqual([(m["vmid"], m["os"], m["recette"]) for m in B.modeles_du_noeud(store.latest_per_task(db, "pve-banc2")["plugin:proxmox"]["data"]["vms"])],
+                         [(9100, "linux", "debian13"), (9101, "windows", None)])
+        self.assertTrue({"debian13", "ubuntu2404", "rocky9"} <= {x["id"] for x in c.get("/banc").json["recettes"]})
+
+
 if __name__ == "__main__":
     unittest.main()

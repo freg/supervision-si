@@ -984,9 +984,37 @@ def banc_route():
     runs = _banc_runs()
     for r in runs:
         r["resultat"] = banc.resultat(r)
-    return jsonify({"pool": banc.pool_public(store.get_setting(DB_PATH, "banc_pool", None)), "runs": list(reversed(runs)),
+    pool = store.get_setting(DB_PATH, "banc_pool", None)
+    noeud = (pool or {}).get("noeud")
+    modeles_noeud, fabrications = [], []
+    if noeud and store.get_agent(DB_PATH, noeud):
+        modeles_noeud = banc.modeles_du_noeud((((store.latest_per_task(DB_PATH, noeud).get("plugin:proxmox") or {}).get("data")) or {}).get("vms"))
+        fabrications = [{"id": c["id"], "status": c["status"], "params": c["params"], "created_at": c.get("created_at"),
+                         "error": (c.get("result") or {}).get("error"), "stdout": ((c.get("result") or {}).get("result") or {}).get("stdout")}
+                        for c in store.list_commands(DB_PATH, noeud, limit=200) if c["type"] == "banc_modele"][:20]
+    return jsonify({"recettes": banc.recettes(), "modeles_noeud": modeles_noeud, "fabrications": fabrications,
+                    "pool": banc.pool_public(pool), "runs": list(reversed(runs)),
                     "etapes": [{"id": e, "libelle": banc.LIBELLES[e]} for e in banc.ETAPES],
                     "verifier": banc.VERIFIER, "desinstaller": banc.DESINSTALLER}), 200
+
+
+@app.route("/banc/modeles", methods=["POST"])
+def banc_modele_route():
+    """#826 : fabriquer un modèle de VM Linux sur le nœud du pool (image cloud vérifiée -> template)."""
+    body = request.get_json(silent=True) or {}
+    pool = store.get_setting(DB_PATH, "banc_pool", None) or {}
+    noeud = str(body.get("noeud") or pool.get("noeud") or "")
+    if store.get_agent(DB_PATH, noeud) is None:
+        return jsonify({"error": "agent du nœud inconnu : %r (régler d'abord le pool ou préciser noeud)" % noeud}), 400
+    v, err = banc.bancmod.valider(body)
+    if err:
+        return jsonify({"error": err}), 400
+    if pool and pool["vmid_min"] <= v["vmid"] <= pool["vmid_max"]:
+        return jsonify({"error": "vmid dans la plage des clones du pool"}), 400
+    c = store.create_command(DB_PATH, noeud, "banc_modele", v)
+    _event("banc-modele", "info", "modèle de banc %s demandé sur %s (vmid %d)" % (v["recette"], noeud, v["vmid"]), agent_id=noeud,
+           details={"command": (c or {}).get("id"), "recette": v["recette"], "vmid": v["vmid"]})
+    return jsonify({"commande": (c or {}).get("id"), "noeud": noeud, "parametres": v}), 201
 
 
 @app.route("/banc/pool", methods=["PUT"])

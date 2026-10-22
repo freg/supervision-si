@@ -272,3 +272,4 @@ export const saveBancPool = (apiBase, pool) => fetchJson(apiBase, "/banc/pool", 
 export const startBanc = (apiBase, modeles) => fetchJson(apiBase, "/banc/runs", json("POST", { modeles }));
 export const stopBancRun = (apiBase, id) => fetchJson(apiBase, `/banc/runs/${id}/arreter`, json("POST", {}));
 export const purgeBanc = (apiBase) => fetchJson(apiBase, "/banc/runs", { method: "DELETE" });
+export const buildBancTemplate = (apiBase, body) => fetchJson(apiBase, "/banc/modeles", json("POST", body));   // #826

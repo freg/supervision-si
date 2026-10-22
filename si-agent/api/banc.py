@@ -11,6 +11,14 @@ toutes les 30 s. L'exécution dans l'invité est refusée par l'agent du nœud s
 Pur et testé : valider_pool, masquer, vmid_libre, nouveau_run, params_etape, avancer."""
 import re
 
+try:   # #826 : recettes des modèles de VM (copie de si_agent/bancmod.py dans l'image, source unique)
+    import si_agent_bancmod as bancmod
+except ImportError:   # tests : dépôt
+    import os
+    import sys
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "agent"))
+    from si_agent import bancmod
+
 ETAPES = ["cloner", "demarrer", "attendre_invite", "installer", "verifier", "desinstaller", "arreter", "detruire"]
 NETTOYAGE = ETAPES.index("arreter")
 LIBELLES = {"cloner": "cloner le modèle", "demarrer": "démarrer", "attendre_invite": "attendre l'agent invité", "installer": "installer l'agent",
@@ -209,3 +217,20 @@ def resultat(run):
     if not run.get("fin"):
         return "en cours (%s)" % LIBELLES.get(ETAPES[min(run["etape"], len(ETAPES) - 1)])
     return "échec — %s" % run["echec"] if run.get("echec") else "réussi"
+
+
+def recettes():
+    return [{"id": k, "titre": v["titre"], "os": v["os"], "url": v["url"]} for k, v in sorted(bancmod.RECETTES.items())]
+
+
+def modeles_du_noeud(vms):
+    """Modèles (« template ») vus par la sonde proxmox du nœud -> [{vmid, nom, os, recette}]."""
+    out = []
+    for v in vms or []:
+        if not v.get("template"):
+            continue
+        nom = str(v.get("name") or "")
+        rec = nom[len("banc-modele-"):] if nom.startswith("banc-modele-") else None
+        os_ = (bancmod.RECETTES.get(rec) or {}).get("os") or ("windows" if re.search(r"(?i)win", nom) else "linux")
+        out.append({"vmid": v.get("vmid"), "nom": nom, "os": os_, "recette": rec, "type": v.get("type")})
+    return sorted(out, key=lambda x: x["vmid"] or 0)

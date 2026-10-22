@@ -801,6 +801,15 @@ class Agent(object):
                 self.event("command-vm", "info" if res.get("ok") else "warning",
                            "VM %s : %s%s" % (params.get("vmid"), params.get("action"), "" if res.get("ok") else " -- %s" % res.get("error")), {"command": c.get("id"), "params": vue})
                 return res
+            if ctype == "banc_modele":
+                # #826 : modèle de VM du banc d'installation (image cloud vérifiée -> template Proxmox)
+                from . import bancmod
+                if self.is_blocked():
+                    return {"ok": False, "error": "agent bloqué (%s)" % self.block_reason()}
+                res = bancmod.run(self.cmd, params)
+                self.event("command-banc", "info" if res.get("ok") else "warning",
+                           "modèle de banc %s (vmid %s) : %s" % (params.get("recette"), params.get("vmid"), "prêt" if res.get("ok") else res.get("error")), {"command": c.get("id")})
+                return res
             if ctype == "vrrp_set":
                 # #656 : bascule de rôle keepalived -- priorité VRRP de l'instance (le VIP suit la priorité la plus haute)
                 from . import vrrpctl

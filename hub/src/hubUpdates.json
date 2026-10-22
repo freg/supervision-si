@@ -1,5 +1,11 @@
 [
  {
+  "n": 826,
+  "from": 826,
+  "date": "2026-10-22",
+  "title": "Tuile « Banc d'installation » : modèles de VM fabriqués depuis le hub"
+ },
+ {
   "n": 825,
   "from": 825,
   "date": "2026-10-22",
@@ -232,11 +238,5 @@
   "from": 787,
   "date": "2026-10-19",
   "title": "SMS internes du hub : onglet « SMS » des Notifications et API, canal distinct du client externe"
- },
- {
-  "n": 786,
-  "from": 786,
-  "date": "2026-10-19",
-  "title": "Activité horaire : vrais utilisateurs séparés des scanners, journaux « vhost » lus"
  }
 ]

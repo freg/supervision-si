@@ -21,6 +21,7 @@ export const THEMES = [
       { view: "urgence", label: "Urgence (téléphone : alertes, contacts, alertes poussées)" },   // #796
       { view: "cortex", label: "Cortex" },
       { view: "iapark", label: "Parc IA (hôtes, modèles, tests, activité)" },   // #756
+      { view: "banc", label: "Banc d'installation (pool de VM de test des agents)" },   // #826
       { view: "supervision-si", label: "Supervision SI" },
       { view: "si-agent", label: "Agents hôtes" },
       { view: "netprobe", label: "Sondes réseau" },
@@ -183,7 +184,7 @@ export const SINCE = {
   "fusion": 431, "ged": 105, "geo-catalog": 429, "glpi-inventory": 192, "history": 105, "imap": 144, "imap-connectors": 489,
   "keycloak-admin": 105, "accounts": 557, "notifications": 590, "licenses": 595, "nat-map": 606, "ldap-admin": 105, "logs": 105, "memory": 105, "mikrotik": 485, "nebula": 192,
   "netmap-orchestrator": 388, "netprobe": 301, "network-agent": 236, "network-cycle": 396, "network-equipment": 506,
-  "portage": 650, "qa": 651, "datasync": 652, "vuln": 688, "mailserver": 697, "groupware": 664, "pve-ops": 653, "pve-maint": 705, "infra": 749, "htop": 800, "datarf": 806, "veille": 814, "guest-usage": 769, "migration": 774, "journal": 795, "urgence": 796, "navigateur": 798, "latency": 775, "edge": 776, "fleetviews": 753, "iapark": 756, "repatriation": 761, "projeqtor": 476, "proxmox": 487, "retro": 242, "rights": 105, "schema-analyzer": 173, "service-watch": 531,
+  "portage": 650, "qa": 651, "datasync": 652, "vuln": 688, "mailserver": 697, "groupware": 664, "pve-ops": 653, "pve-maint": 705, "infra": 749, "htop": 800, "datarf": 806, "veille": 814, "guest-usage": 769, "migration": 774, "journal": 795, "urgence": 796, "navigateur": 798, "latency": 775, "edge": 776, "fleetviews": 753, "iapark": 756, "banc": 826, "repatriation": 761, "projeqtor": 476, "proxmox": 487, "retro": 242, "rights": 105, "schema-analyzer": 173, "service-watch": 531,
   "si-agent": 421, "si-proxy": 454, "snmp": 181, "ssh-tunnels": 122, "supervision-si": 105, "synthese": 523,
   "tickets": 105, "ups": 415, "vault": 105, "vault-admin": 105, "vigilance": 105,
   "action:aide": 105, "action:tabs": 105, "action:settings": 105, "action:personalize": 457, "action:layout": 516,

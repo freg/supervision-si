@@ -1,3 +1,14 @@
+## 2026-10-22 — Tuile « Banc d'installation » : modèles de VM fabriqués depuis le hub (livraison #826)
+
+- Nouvelle **tuile Banc d'installation** (Supervision, à côté du Parc IA) : onglets *Modèles de VM*, *Pool et passages*
+  (le banc #825), *Modèles Windows* (marche à suivre).
+- **Fabriquer un modèle Linux** depuis le hub (Debian 13 / 12, Ubuntu 24.04, Rocky 9) : commande `banc_modele` à
+  l'agent du nœud (agent 0.5.98) -- image cloud officielle, **empreinte vérifiée** contre le fichier de sommes de
+  l'éditeur, VM avec agent invité QEMU, cloud-init (qemu-guest-agent installé par un snippet), disque agrandi,
+  `qm template`. Suivi des fabrications, modèles présents sur le nœud (sonde proxmox), « Ajouter au pool ».
+- `docs/banc-installation.md` : pool, modèles Linux, modèles Windows (VirtIO, agent invité, Sysprep, MSI).
+- **Non vérifié en réel** (URL des images et PVE du nœud à confirmer au premier essai ; l'échec est explicite).
+
 ## 2026-10-22 — Banc d'installation des agents sur un pool de VM (livraison #825)
 
 - **Agents hôtes > Banc d'installation** : un pool = un nœud Proxmox (son agent), une plage de vmid pour les clones,
