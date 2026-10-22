@@ -5,6 +5,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { fetchEmulation, sendEmulation } from "./siAgentClient.js";
 import { hubLink, viewParams } from "./hubLinks.js";
+import BoutonCommande, { suivreCommande, useFinCommandes } from "./BoutonCommande.jsx";
 
 const TABS = [["instances", "Instances"], ["lancer", "Lancer un émulateur"], ["commandes", "Commandes"]];
 const ETAT = { en_marche: ["en marche", "good"], demarre: ["démarre", "neutral"], arrete: ["arrêtée", "neutral"], absent: ["absente", "bad"] };
@@ -23,12 +24,15 @@ export default function EmulationView({ onBack, siAgentApiBase, username }) {
   const [licences, setLicences] = useState(false);
   const [ouvert, setOuvert] = useState(null);
   const charger = useCallback(async () => { const r = await fetchEmulation(base); if (r?.error) setErr(r.error); else { setD(r); setErr(""); } }, [base]);
-  useEffect(() => { charger(); const t = setInterval(charger, 10000); return () => clearInterval(t); }, [charger]);
+  useEffect(() => { charger(); const t = setInterval(charger, 5000); return () => clearInterval(t); }, [charger]);
+  useFinCommandes(d?.commandes, setTab, setMsg, setErr);
   useEffect(() => { if (d && !hote && d.hotes[0]) setHote(d.hotes[0].agent_id); }, [d, hote]);
   const h = useMemo(() => (d?.hotes || []).find((x) => x.agent_id === hote), [d, hote]);
   async function envoyer(body, quoi) {
     const r = await sendEmulation(base, { ...body, agent: body.agent || hote });
     if (r?.error) { setErr(r.error); return; }
+    suivreCommande(r.commande);
+    setD((x) => x && { ...x, commandes: [{ id: r.commande, agent_id: body.agent || hote, status: "pending", params: { ...body, instance: r.instance || body.instance }, created_at: new Date().toISOString() }, ...x.commandes] });
     setMsg(`${quoi} : commande ${r.commande} envoyée${r.instance ? ` (instance ${r.instance}${r.port ? `, port ${r.port}` : ""})` : ""} — suivi dans « Commandes »`);
     charger();
   }
@@ -64,9 +68,9 @@ export default function EmulationView({ onBack, siAgentApiBase, username }) {
               <td className="infra-muted">{i.mode === "systeme" ? `ssh -p ${i.port} emul@127.0.0.1 (sur l'hôte)` : i.mode === "avd" ? `adb -s emulator-${i.port}` : `docker exec -it ${i.id} bash`}</td>
               <td className="infra-muted">{i.cree ? new Date(i.cree * 1000).toLocaleString("fr-FR") : "—"}</td>
               <td><div className="veille-actions">
-                {i.mode === "conteneur" && <button type="button" onClick={() => installer(h.agent_id, i)} title="installation supervisée de l'agent dans l'instance">Installer l'agent</button>}
-                <button type="button" className="secondary" onClick={() => envoyer({ action: "arreter", instance: i.id }, `arrêt de ${i.id}`)}>Arrêter</button>
-                <button type="button" className="secondary" onClick={() => window.confirm(`Détruire ${i.id} (disque et état) ?`) && envoyer({ action: "detruire", instance: i.id }, `destruction de ${i.id}`)}>Détruire</button>
+                {i.mode === "conteneur" && <BoutonCommande cmds={d.commandes} agent={h.agent_id} critere={{ action: "deployer_agent", instance: i.id }} onClick={() => installer(h.agent_id, i)} title="installation supervisée de l'agent dans l'instance">Installer l'agent</BoutonCommande>}
+                <BoutonCommande className="secondary" cmds={d.commandes} agent={h.agent_id} critere={{ action: "arreter", instance: i.id }} onClick={() => envoyer({ action: "arreter", instance: i.id }, `arrêt de ${i.id}`)}>Arrêter</BoutonCommande>
+                <BoutonCommande className="secondary" cmds={d.commandes} agent={h.agent_id} critere={{ action: "detruire", instance: i.id }} onClick={() => window.confirm(`Détruire ${i.id} (disque et état) ?`) && envoyer({ action: "detruire", instance: i.id }, `destruction de ${i.id}`)}>Détruire</BoutonCommande>
               </div></td></tr>))}
             {!h.instances.length && <tr><td colSpan={7} className="infra-muted">Aucune instance : onglet « Lancer un émulateur ».</td></tr>}
           </tbody></table></div>}
@@ -89,8 +93,8 @@ export default function EmulationView({ onBack, siAgentApiBase, username }) {
                   <td>{p.modes.length > 1 ? <select value={mode} onChange={(e) => setModes({ ...modes, [p.id]: e.target.value })}>{p.modes.map((m) => <option key={m} value={m}>{m === "systeme" ? "machine complète" : m}</option>)}</select> : mode}</td>
                   <td>{p.disponible ? <span className="np-tone good">oui</span> : <span className="np-tone bad" title={p.raison}>non — {p.raison}</span>}</td>
                   <td><div className="veille-actions">
-                    <button type="button" className="secondary" disabled={!ok} onClick={() => envoyer({ action: "preparer", profil: p.id, mode, accepter_licences: licences }, `préparation ${p.titre}`)}>Préparer</button>
-                    <button type="button" disabled={!ok} onClick={() => envoyer({ action: "lancer", profil: p.id, mode, accepter_licences: licences }, `lancement ${p.titre}`)}>Lancer</button>
+                    <BoutonCommande className="secondary" cmds={d.commandes} agent={hote} critere={{ action: "preparer", profil: p.id }} disabled={!ok} onClick={() => envoyer({ action: "preparer", profil: p.id, mode, accepter_licences: licences }, `préparation ${p.titre}`)}>Préparer</BoutonCommande>
+                    <BoutonCommande cmds={d.commandes} agent={hote} critere={{ action: "lancer", profil: p.id, mode }} disabled={!ok} onClick={() => envoyer({ action: "lancer", profil: p.id, mode, accepter_licences: licences }, `lancement ${p.titre}`)}>Lancer</BoutonCommande>
                   </div></td></tr>);
             })}</tbody></table></div>
         </>}

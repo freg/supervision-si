@@ -37,6 +37,8 @@ button.primary {
    du projet, plutôt que de laisser une classe "secondary" sans
    règle dédiée. */
 button.secondary { background: var(--panel); }
+button.en-cours, button.en-cours:disabled { opacity: .85; cursor: progress; background: transparent; border-style: dashed; animation: commande-en-cours 1.4s ease-in-out infinite; }   /* #833 */
+@keyframes commande-en-cours { 50% { opacity: .45; } }
 
 .muted { color: var(--muted); }
 

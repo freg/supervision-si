@@ -1,3 +1,12 @@
+## 2026-10-22 — Émulation / Orchestration : boutons « en cours… », bascule vers le résultat ; Nomad démarre (livraison #833)
+
+- Chaque bouton qui envoie une commande à un agent (Installer, Rejoindre, Désinstaller, Relever, Échelle, Supprimer ;
+  Préparer, Lancer, Arrêter, Détruire, Installer l'agent) passe à « en cours… » (désactivé) tant que l'agent n'a pas
+  répondu ; à la fin, la tuile bascule vers l'onglet du résultat (échec : onglet Commandes, avec la sortie).
+- Nomad : adresse annoncée explicite (API sur 127.0.0.1 et plusieurs adresses privées avec Docker / k3s
+  empêchaient le démarrage : « Defaulting advertise to localhost is unsafe ») ; en cas d'échec, le journal du service
+  remonte dans la sortie de la commande.
+
 ## 2026-10-22 — Orchestration : VM et conteneurs au même endroit (Proxmox, k3s, Nomad) (livraison #832)
 
 - Nouvelle tuile **Orchestration** (Équipements), un « OpenStack » maison :

@@ -1,5 +1,11 @@
 [
  {
+  "n": 833,
+  "from": 833,
+  "date": "2026-10-22",
+  "title": "Émulation / Orchestration : boutons « en cours… », bascule vers le résultat ; Nomad démarre"
+ },
+ {
   "n": 832,
   "from": 832,
   "date": "2026-10-22",
@@ -232,11 +238,5 @@
   "from": 793,
   "date": "2026-10-20",
   "title": "Garde du hub : un autre hôte surveille le hub et alerte hors du hub, agent 0.5.87"
- },
- {
-  "n": 792,
-  "from": 792,
-  "date": "2026-10-20",
-  "title": "Veilles SMS : machine sans agent (NMS) et passerelle 4G, constats critiques dans le hub, agent 0.5.86"
  }
 ]

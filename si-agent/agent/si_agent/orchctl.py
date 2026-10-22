@@ -175,9 +175,12 @@ def script(v):
     if m == "nomad":
         api = NOMAD_API
         if a in ("installer", "rejoindre"):
+            # Adresse annoncée EXPLICITE : avec Docker / k3s l'hôte a plusieurs adresses privées (Nomad refuse alors de
+            # choisir), et l'API HTTP sur 127.0.0.1 exige un « advertise » manuel. $IP = adresse de la route par défaut.
             conf = ('data_dir  = "/opt/nomad/data"\nbind_addr = "0.0.0.0"\naddresses { http = "127.0.0.1" }\n'
+                    'advertise {\n  http = "127.0.0.1"\n  rpc  = "$IP"\n  serf = "$IP"\n}\n'
                     + ('server { enabled = true\n  bootstrap_expect = 1 }\n' if a == "installer" else "")
-                    + 'client { enabled = true%s }\nplugin "docker" { config { allow_privileged = false } }\nui { enabled = true }\n'
+                    + 'client {\n  enabled = true\n  network_interface = "$IFACE"%s\n}\nplugin "docker" { config { allow_privileged = false } }\nui { enabled = true }\n'
                     % ('\n  servers = ["%s:4647"]' % v["serveur"] if a == "rejoindre" else ""))
             return ('set -e; command -v docker >/dev/null || { echo "ERREUR Docker requis (pilote des tâches Nomad)" >&2; exit 1; }\n'
                     'if ! command -v nomad >/dev/null; then\n'
@@ -185,11 +188,15 @@ def script(v):
                     '  curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor --yes -o /usr/share/keyrings/hashicorp-archive-keyring.gpg\n'
                     '  echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" > /etc/apt/sources.list.d/hashicorp.list\n'
                     '  apt-get update -q; apt-get install -y -q nomad\nfi\n'
-                    'mkdir -p /etc/nomad.d /opt/nomad/data\nprintf \'%%s\' %s > /etc/nomad.d/nomad.hcl\n'
-                    'systemctl enable nomad >/dev/null 2>&1; systemctl restart nomad\n'
+                    'set -- $(ip -4 route get 1.1.1.1 2>/dev/null | awk \'{for(i=1;i<=NF;i++){if($i=="src")s=$(i+1);if($i=="dev")d=$(i+1)}} END{print s, d}\')\n'
+                    'IP=$1; IFACE=$2; [ -n "$IP" ] && [ -n "$IFACE" ] || { echo "ERREUR adresse de l\'hôte introuvable (route par défaut)" >&2; exit 1; }\n'
+                    'mkdir -p /etc/nomad.d /opt/nomad/data\ncat > /etc/nomad.d/nomad.hcl <<EOF\n%sEOF\n'
+                    'nomad config validate /etc/nomad.d >/dev/null 2>&1 || nomad config validate /etc/nomad.d >&2 || true\n'
+                    'systemctl enable nomad >/dev/null 2>&1\n'
+                    'systemctl restart nomad || { journalctl -u nomad -n 25 --no-pager >&2; echo "ERREUR Nomad ne démarre pas (journal ci-dessus) ; config : /etc/nomad.d/nomad.hcl" >&2; exit 1; }\n'
                     'for i in $(seq 1 30); do curl -sf %s/v1/agent/health >/dev/null && break; sleep 2; done\n'
                     'nomad version; curl -sf %s/v1/nodes | head -c 600; echo\n'
-                    'echo "interface web : ssh -L 4646:127.0.0.1:4646 <hôte> puis http://127.0.0.1:4646"' % (q(conf), api, api))
+                    'echo "interface web : ssh -L 4646:127.0.0.1:4646 <hôte> puis http://127.0.0.1:4646"' % (conf, api, api))
         if a == "desinstaller":
             return 'systemctl disable --now nomad 2>/dev/null; apt-get remove -y -q nomad 2>/dev/null || true; echo "Nomad retiré (données : /opt/nomad)"'
         if a == "deployer":
