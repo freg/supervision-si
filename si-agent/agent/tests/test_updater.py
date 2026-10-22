@@ -61,7 +61,7 @@ class Updater(unittest.TestCase):
         self.assertTrue(res["ok"], res)
         self.assertEqual(res["result"]["to"], "9.9.9")
         self.assertEqual(len(spawned), 1)
-        self.assertTrue(spawned[0][0][-1] == "--upgrade")
+        self.assertTrue(any("--upgrade" in str(x) for x in spawned[0][0]), spawned[0][0])   # systemd-run + journal : --upgrade dans la ligne bash
         marker = updater.pending_path(agent.cfg["state_path"])
         self.assertEqual(json.load(open(marker))["command"], "c1")
         ev = updater.check_pending(marker, "9.9.9")
