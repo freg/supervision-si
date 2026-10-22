@@ -118,7 +118,7 @@ app.docker_client = docker_client  # remplaçable dans les tests
 
 
 # -- garde d'identité -----------------------------------------------------
-PUBLIC = ("/health", "/version", "/host/public")
+PUBLIC = ("/health", "/version", "/host/public", "/version-hub")   # #830
 
 
 @app.before_request
@@ -1601,6 +1601,28 @@ def host_public():
     ni chiffres -- visible par tout utilisateur connecté au hub."""
     h = host_health()
     return jsonify({"light": h["light"], "text": h["text"] if h["light"] != "green" else "", "at": h["at"]}), 200
+
+
+@app.route("/version-hub", methods=["GET"])
+def version_hub():
+    """#830 : pied de page du hub (tout utilisateur) -- livraison servie et mise à jour en cours annoncée par
+    scripts/run.sh (.maj-en-cours.json à la racine du dépôt ; périmée au-delà de 2 h : déploiement interrompu)."""
+    out = {"delivery_number": None, "git_hash": None, "maj": None, "at": time.time()}
+    if PROJECT_DIR:
+        try:
+            with open(os.path.join(PROJECT_DIR, "shared", "VERSION.json"), encoding="utf-8") as fh:
+                v = json.load(fh)
+            out.update(delivery_number=v.get("delivery_number"), git_hash=v.get("git_hash"))
+        except (OSError, ValueError):
+            pass
+        try:
+            with open(os.path.join(PROJECT_DIR, ".maj-en-cours.json"), encoding="utf-8") as fh:
+                m = json.load(fh)
+            if time.time() - float(m.get("debut") or 0) < 7200:
+                out["maj"] = m
+        except (OSError, ValueError, TypeError):
+            pass
+    return jsonify(out), 200
 
 
 @app.route("/host/prune", methods=["POST"])

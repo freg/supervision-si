@@ -224,21 +224,29 @@ def calculer(evenements, contacts, articles, chat=None, decider=None, maintenant
     cands.sort(key=lambda c: c["severite"] != "critique")                         # …les critiques en tête (tri stable)
     cands = cands[:40]
     etapes = {"preparation": None, "decision": None, "explication": None}
+    try:
+        import activite as _ac
+    except Exception:  # noqa: BLE001
+        _ac = None
+    suivre = _ac.suivre if _ac else (lambda g, d: __import__("contextlib").nullcontext())
     if cands:
         try:
-            prep = lire_preparation(chat_prep([{"role": "user", "content": prompt_preparation(cands, consignes.get("priorites-preparation"))}]), len(cands))
+            with suivre("ia", "Priorités · préparation (%d élément(s))" % len(cands)):
+                prep = lire_preparation(chat_prep([{"role": "user", "content": prompt_preparation(cands, consignes.get("priorites-preparation"))}]), len(cands))
             for c, p in zip(cands, prep):
                 c["detail"], c["impact"] = (p.get("detail") or "")[:600], (p.get("impact") or "")[:400]
             etapes["preparation"] = "ok (%d élément(s))" % len(cands)
         except ValueError as e:
             etapes["preparation"] = "modèle indisponible : %s" % e
-    d = decider(etats(cands), questions) if cands else {"fournisseur": None, "modele": None, "reponses": [], "erreur": None}
+    with suivre("ia", "Priorités · décideur"):
+        d = decider(etats(cands), questions) if cands else {"fournisseur": None, "modele": None, "reponses": [], "erreur": None}
     etapes["decision"] = d.get("erreur") or "ok (%s %s)" % (d.get("fournisseur"), d.get("modele") or "")
     top, autres = classer(cands, d.get("reponses") or [None] * len(cands))
     texte = None
     if top:
         try:
-            texte = chat_expl([{"role": "user", "content": prompt_explication(top, consignes.get("priorites-explication"))}])
+            with suivre("ia", "Priorités · explication (%d urgence(s))" % len(top)):
+                texte = chat_expl([{"role": "user", "content": prompt_explication(top, consignes.get("priorites-explication"))}])
             etapes["explication"] = "ok"
         except ValueError as e:
             etapes["explication"] = "modèle indisponible : %s" % e

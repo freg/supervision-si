@@ -1,3 +1,16 @@
+## 2026-10-22 — Pied de page permanent : livraison, mise à jour en cours, rechargement sans cache, travaux en cours (livraison #830)
+
+- **Toujours visible** en bas du hub : « Hub supervision #<livraison de cet écran> » (et la livraison servie si elle
+  diffère), les travaux en cours avec leur durée -- 🧠 IA (Priorités : préparation, décideur, explication ; essais
+  de skills ; évaluations du décideur), 📡 sources (veille des modèles) -- et la dernière relève de la veille cyber ;
+  un clic déplie les derniers travaux terminés (✔ / ✗, durée, erreur).
+- **Mise à jour en cours** : `scripts/run.sh … --build` l'annonce (`.maj-en-cours.json`, retiré à la fin, même en
+  échec) ; services-api la sert à tous (`/version-hub`, public) ; bandeau « ⟳ mise à jour en cours vers #N », puis
+  « redémarrage des services — reconnexion » pendant les redémarrages.
+- **Nouvelle livraison servie** : bandeau et rechargement **sans cache** après 15 s (« Recharger maintenant » /
+  « Plus tard ») ; bouton ↻ permanent. (index.html était déjà servi sans cache depuis #681.)
+- Même pied de page dans le hub maison (version = rang du commit déployé).
+
 ## 2026-10-22 — Priorités : tes décisions (✓ / ✎), vérité pour l'apprentissage du décideur (livraison #829)
 
 - Sur chaque élément des **Priorités** de la page d'accueil : « ✓ » (le décideur a raison) ou « ✎ » (corriger :

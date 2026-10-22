@@ -1,5 +1,11 @@
 [
  {
+  "n": 830,
+  "from": 830,
+  "date": "2026-10-22",
+  "title": "Pied de page permanent : livraison, mise à jour en cours, rechargement sans cache, travaux en cours"
+ },
+ {
   "n": 829,
   "from": 829,
   "date": "2026-10-22",
@@ -232,11 +238,5 @@
   "from": 790,
   "date": "2026-10-19",
   "title": "Hub : les boutons des « Mises à jour » ouvrent l'onglet précis (SMS, MX…)"
- },
- {
-  "n": 789,
-  "from": 789,
-  "date": "2026-10-19",
-  "title": "Hub : la recherche « sms » trouve la tuile Notifications"
  }
 ]

@@ -156,3 +156,6 @@ groupware/dav-data/
 
 # #745 : suspension locale du chien de garde
 .watchdog-pause
+
+# #830 : mise à jour en cours (scripts/run.sh)
+.maj-en-cours.json

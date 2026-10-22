@@ -257,7 +257,14 @@ def relever(c, get=None, maintenant=None):
     for a in auteurs(c):
         initial = not c.execute("SELECT 1 FROM modeles WHERE auteur=? LIMIT 1", (a,)).fetchone()
         try:
-            n += enregistrer(c, get(url_auteur(a)), maintenant, initial)
+            try:
+                import activite as _ac
+                ctx = _ac.suivre("source", "Hugging Face · %s" % a)
+            except Exception:  # noqa: BLE001
+                ctx = __import__("contextlib").nullcontext()
+            with ctx:
+                lot = get(url_auteur(a))
+            n += enregistrer(c, lot, maintenant, initial)
         except (urllib.error.URLError, OSError, ValueError) as e:
             erreurs[a] = str(e)[:200]
     for (mid,) in c.execute("SELECT id FROM modeles WHERE suivi=1 AND dernier_vu < ?", (maintenant - 60,)).fetchall():

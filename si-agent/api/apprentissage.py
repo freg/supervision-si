@@ -242,7 +242,9 @@ def evaluer(eid):
     def travail():
         t0 = time.time()
         try:
-            reps = evaluer_lot([e["etat"] for e in test], questions_courantes(), modele)
+            import activite
+            with activite.suivre("ia", "évaluation du décideur · %s" % modele):
+                reps = evaluer_lot([e["etat"] for e in test], questions_courantes(), modele)
             res = dict(mesurer(test, reps), modele=modele, at=time.time(), duree_s=round(time.time() - t0, 1))
         except Exception as e:  # noqa: BLE001
             res = {"modele": modele, "at": time.time(), "erreur": str(e)[:300]}

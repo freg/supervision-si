@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  830: [{ view: "aujourdhui", hint: "pied de page permanent : livraison, mise à jour en cours, travaux d'IA ; ↻ recharge sans cache" }],
   829: [{ view: "aujourdhui", hint: "Priorités : « ✓ » / « ✎ » sur chaque élément ; le jeu est dans Parc IA › Apprentissage" }],
   828: [{ view: "iapark", params: { tab: "apprentissage" }, hint: "Apprentissage : jeu du décideur (vos décisions de veille), entraînements, évaluation" }],
   827: [{ view: "iapark", params: { tab: "skills" }, hint: "Skills : consignes des Priorités (préparation, décideur, explication), versions, essai" }],

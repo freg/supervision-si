@@ -1,5 +1,7 @@
 import React, { Fragment, Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import HUB_UPDATES from "./hubUpdates.json";   // #762 : généré par scripts/gen-hub-updates.py
+import BarreEtatHub, { nettoyerAdresse } from "./BarreEtatHub.jsx";   // #830 : pied de page permanent
+nettoyerAdresse();
 import { updatesWithLinks, shortDate } from "./hubUpdatesLib.js";
 import HubUpdateFailures from "./HubUpdateFailures.jsx";   // #816 : tentatives en échec jusqu'à résolution
 import PrioritesPanel from "./PrioritesPanel.jsx";   // #818 : priorités de la page d'accueil
@@ -2321,6 +2323,7 @@ vm === "agent-page" ? (
           </p>
         )}
       </footer>
+      <BarreEtatHub charge={HUB_UPDATES[0]?.n} servicesBase={SERVICES_API_BASE_URL} siAgentBase={SI_AGENT_API_BASE_URL} vulnBase={VULN_API_BASE_URL} />
       <div className="status-badges">
         <div
           className="clock-badge"

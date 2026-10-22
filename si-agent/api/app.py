@@ -51,6 +51,7 @@ import migration  # noqa: E402  -- #658 : migration serveur -> virtualisation (g
 import priorites  # noqa: E402  -- #818 : priorités de la page d'accueil (préparation, décideur, explication)
 import banc  # noqa: E402  -- #825 : banc d'installation des agents sur un pool de VM
 import diffusion  # noqa: E402  -- #822 : diffusions en cascade (déploiement avec dépendances)
+import activite  # noqa: E402  -- #830 : travaux en cours (pied de page du hub)
 import apprentissage  # noqa: E402  -- #828 : jeu de données du décideur, entraînements LoRA, évaluation
 import skills  # noqa: E402  -- #827 : skills des IA (consignes versionnées)
 import modeles  # noqa: E402  -- #821 : Parc IA, veille des modèles (sorties, ouvert/fermé, usages)
@@ -244,12 +245,18 @@ def _modeles_parc():
 
 modeles.source_tags = _modeles_parc
 app.register_blueprint(skills.bp)   # #827
+app.register_blueprint(activite.bp)   # #830
 
 
 def _essai_skill(sk, texte):
     """#827 : joue un skill sur un texte avec le modèle déclaré pour son usage (sinon celui du .env)."""
     t0 = time.time()
     m = priorites.modeles_declares().get(sk["usage"])
+    with activite.suivre("ia", "essai du skill %s" % sk["id"]):
+        return _essai_skill_brut(sk, texte, m, t0)
+
+
+def _essai_skill_brut(sk, texte, m, t0):
     if sk["type"] == "decision":
         q = priorites.questions_effectives(json.loads(sk["texte"])) if sk["id"] == "priorites-decideur" else json.loads(sk["texte"])
         d = priorites.decideur.decider_lot([texte], q, cfg={"llm_modele": m} if m else None)

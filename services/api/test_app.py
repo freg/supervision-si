@@ -337,6 +337,29 @@ class TestTower(TestApi):
         self.assertEqual(self.c.post("/services/inconnu/rebuild", headers=self.h).status_code, 404)
 
 
+class VersionHub(unittest.TestCase):   # #830
+    def test_public_version_et_maj(self):
+        import json as _j
+        import tempfile as _t
+        import time as _ti
+        d = _t.mkdtemp()
+        os.makedirs(os.path.join(d, "shared"))
+        _j.dump({"delivery_number": "830", "git_hash": "abc1234"}, open(os.path.join(d, "shared", "VERSION.json"), "w"))
+        avant = appmod.PROJECT_DIR
+        appmod.PROJECT_DIR = d
+        try:
+            c = appmod.app.test_client()
+            r = c.get("/version-hub")          # public : sans jeton
+            self.assertEqual(r.status_code, 200)
+            self.assertEqual((r.json["delivery_number"], r.json["maj"]), ("830", None))
+            _j.dump({"numero": "831", "etape": "construction", "debut": _ti.time()}, open(os.path.join(d, ".maj-en-cours.json"), "w"))
+            self.assertEqual(c.get("/version-hub").json["maj"]["numero"], "831")
+            _j.dump({"numero": "831", "debut": _ti.time() - 9000}, open(os.path.join(d, ".maj-en-cours.json"), "w"))
+            self.assertIsNone(c.get("/version-hub").json["maj"])
+        finally:
+            appmod.PROJECT_DIR = avant
+
+
 if __name__ == "__main__":
     unittest.main()
 

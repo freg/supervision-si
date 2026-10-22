@@ -219,6 +219,7 @@ CONTENT_HASH="$(find "$HERE_DIR" \
      -path "*/ssh-tunnels/mounts" \) -prune -o \
   -type f \
   -not -name "VERSION.json" \
+  -not -name ".maj-en-cours.json" \
   -not -name ".env" \
   -not -name ".env.example" \
   -not -name ".last-imported-realm.json" \
@@ -330,4 +331,17 @@ build_guard() {
 }
 build_guard "$@"
 
+# #830 : mise à jour en cours, annoncée au hub (services-api la lit, pied de page « ⟳ mise à jour en cours ») pendant la
+# construction et le redémarrage ; retirée à la fin, même en échec.
+MAJ_FILE="$HERE_DIR/.maj-en-cours.json"
+case " $* " in
+  *" --build "*|*" build "*)
+    python3 - "$MAJ_FILE" "$DELIVERY_NUMBER" "$*" <<'PYMAJ' 2>/dev/null || true
+import json, subprocess, sys, time
+sujet = subprocess.run(["git", "log", "-1", "--format=%s"], capture_output=True, text=True).stdout.strip()
+json.dump({"numero": sys.argv[2], "sujet": sujet[:200], "commande": sys.argv[3][:300], "etape": "construction et redémarrage des services",
+           "debut": time.time()}, open(sys.argv[1], "w"), ensure_ascii=False)
+PYMAJ
+    trap 'rm -f "$MAJ_FILE"' EXIT ;;
+esac
 docker compose "$@"

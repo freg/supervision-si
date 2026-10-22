@@ -2786,3 +2786,14 @@ button[aria-busy="true"]::after { content: ""; position: absolute; right: 8px; t
 
 /* #820 veille : rejets */
 .veille .veille-actions select.veille-rejet { width: 2.8em; padding: 2px; }
+
+/* #830 : pied de page permanent (livraison, mise à jour en cours, travaux) */
+body { padding-bottom: 36px; }
+.barre-etat-hub { position: fixed; left: 0; right: 0; bottom: 0; z-index: 900; background: var(--panel); color: var(--text); border-top: 1px solid var(--border); font-size: 12.5px; }
+.barre-etat-hub .barre-ligne { display: flex; gap: 10px; align-items: center; padding: 5px 12px; cursor: pointer; white-space: nowrap; overflow-x: auto; }
+.barre-etat-hub .barre-ligne button { padding: 1px 8px; }
+.barre-etat-hub .barre-tache { border: 1px solid var(--border); border-radius: 10px; padding: 1px 8px; }
+.barre-etat-hub .barre-tache.actif { border-color: var(--accent); }
+.barre-etat-hub .barre-maj { padding: 5px 12px; background: var(--warning-bg); border-bottom: 1px solid var(--border); }
+.barre-etat-hub .barre-maj.nouvelle { background: var(--ok-bg); }
+.barre-etat-hub .barre-recentes { list-style: none; margin: 0; padding: 4px 12px 8px; max-height: 40vh; overflow: auto; border-top: 1px solid var(--border); }
