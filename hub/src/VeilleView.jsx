@@ -8,10 +8,10 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { basculer, chezNous, dateCourte, fmtEpss, paramsRegle, termes, ton } from "./veilleLib.js";
 
 const ONGLETS = [
-  ["alerte", "Alertes"], ["impacts", "Impacts SI"], ["ia", "IA cyber"], ["generale", "Générales"], ["france_europe", "France / Europe"],
+  ["alerte", "Alertes"], ["impacts", "Impacts SI"], ["ia", "IA cyber"], ["ia_sorties", "IA : sorties"], ["generale", "Générales"], ["france_europe", "France / Europe"],
   ["reglement", "Règlements ANSSI / RGPD"], ["filtres", "Filtres et extraction"], ["sources", "Sources et préfiltres"], ["journal", "Journal"],
 ];
-const LISTES = new Set(["alerte", "impacts", "ia", "generale", "france_europe", "reglement"]);
+const LISTES = new Set(["alerte", "impacts", "ia", "ia_sorties", "generale", "france_europe", "reglement"]);
 const FORMATS = [["csv", "CSV"], ["md", "Markdown"], ["json", "JSON"], ["atom", "Atom"]];
 const PERIODES = [[1, "24 h"], [7, "7 jours"], [30, "30 jours"], [90, "90 jours"], [365, "1 an"]];
 const REGLE_VIDE = { texte: "", categories: [], niveaux: [], prefiltres: [], publics: [], statuts: [], sources: [], jours: 30, cve: false, nos_modeles: false, non_lus: false, suivis: false, impacts: false };

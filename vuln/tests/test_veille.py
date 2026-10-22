@@ -109,6 +109,11 @@ class Api(unittest.TestCase):
             cn.execute("INSERT INTO assets (name, kind, exposed) VALUES ('srv-a', 'host', 1)")
             cn.execute("INSERT INTO findings (asset, package, version, ids, cves, priority, kev) VALUES ('srv-a', 'openssh', '9.6', 'X-1', '[\"CVE-2026-12345\"]', 'P1', 1)")
 
+    def tearDown(self):   # base partagée avec test_vuln quand les deux tournent ensemble
+        with app_mod.db() as cn:
+            cn.execute("DELETE FROM findings WHERE asset='srv-a'")
+            cn.execute("DELETE FROM assets WHERE name='srv-a'")
+
     def relever(self, url, data, st=200):
         with app_mod.db() as cn:
             s = veille.lignes(cn.execute("SELECT * FROM veille_sources WHERE url=?", (url,)))[0]
@@ -164,6 +169,23 @@ class Api(unittest.TestCase):
         self.assertIn("veille.quotidienne-rssi", [e[0] for e in envois])
         e = self.c.get("/veille/etat").get_json()
         self.assertEqual((e["sources_en_erreur"], e["touchent_si_30j"] >= 0, "rssi" in e["publics"]), (1, True, True))
+
+    def test_semis_sorties_ia(self):
+        with app_mod.db() as cn:
+            urls = [x[0] for x in cn.execute("SELECT url FROM veille_sources")]
+            self.assertIn("https://github.com/ollama/ollama/releases.atom", urls)
+            cn.execute("DELETE FROM veille_sources WHERE url LIKE '%ollama%'")
+            veille.semer(cn)                                                        # une source supprimée ne revient pas
+            self.assertFalse(cn.execute("SELECT COUNT(*) FROM veille_sources WHERE url LIKE '%ollama%'").fetchone()[0])
+            # installation antérieure (sources sans état « semees », sans les sorties IA) : les sorties IA arrivent
+            cn.execute("DELETE FROM veille_etat")
+            cn.execute("DELETE FROM veille_sources WHERE categorie='ia_sorties'")
+            cn.execute("DELETE FROM veille_sources WHERE url LIKE '%zataz%'")
+            veille.semer(cn)
+            urls = [x[0] for x in cn.execute("SELECT url FROM veille_sources")]
+            self.assertIn("https://github.com/ollama/ollama/releases.atom", urls)
+            self.assertNotIn("https://www.zataz.com/feed/", urls)                 # supprimée avant : pas remise
+        self.assertIn("ia_sorties", self.c.get("/veille/etat").get_json()["categories"])
 
     def test_tour_et_ia(self):
         with app_mod.db() as cn:

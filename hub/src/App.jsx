@@ -2,6 +2,7 @@ import React, { Fragment, Suspense, lazy, useEffect, useMemo, useRef, useState }
 import HUB_UPDATES from "./hubUpdates.json";   // #762 : généré par scripts/gen-hub-updates.py
 import { updatesWithLinks, shortDate } from "./hubUpdatesLib.js";
 import HubUpdateFailures from "./HubUpdateFailures.jsx";   // #816 : tentatives en échec jusqu'à résolution
+import PrioritesPanel from "./PrioritesPanel.jsx";   // #818 : priorités de la page d'accueil
 import { setViewParams } from "./hubLinks.js";   // #790
 import { preloadSequential } from "./lazyViews.js";   // #735
 import { installNetActivity } from "./netActivity.js";   // #735
@@ -2251,6 +2252,7 @@ vm === "agent-page" ? (
       {/* #562 : gabarit de page -- en-tête et pied fixes, seule la zone
           centrale (ou les cadres/tbody qu'elle contient) défile. */}
       <main className="hub-main">
+      {viewMode === "grid" && <PrioritesPanel siAgentApiBase={SI_AGENT_API_BASE_URL} />}
       {isThemeViewMode(viewMode) && currentTheme ? (
         <ThemeView
           theme={currentTheme}

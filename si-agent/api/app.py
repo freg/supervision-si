@@ -48,6 +48,7 @@ import updates  # noqa: E402
 import pra  # noqa: E402  -- #653 : plans PRA / opérations PVE
 import maint  # noqa: E402  -- #705 : maintenance / réorganisation des Proxmox
 import migration  # noqa: E402  -- #658 : migration serveur -> virtualisation (générateur de plan)
+import priorites  # noqa: E402  -- #818 : priorités de la page d'accueil (préparation, décideur, explication)
 import prep  # noqa: E402  -- #815 : préparer la réinstallation d'un nœud (quorum, invités transférés, sauvegardes, PRA)
 import infra  # noqa: E402  -- #749 : vue d'ensemble PVE / PBS
 import views  # noqa: E402  -- #753 : vues de parc paramétrables (serveurs, postes, IA, postes personnels)
@@ -2530,6 +2531,19 @@ def migration_view_route():
     finally:
         conn.close()
     return jsonify(v), 200
+
+
+@app.route("/priorites", methods=["GET"])
+def priorites_route():
+    """#818 : page d'accueil -- les 5 urgences (préparation par le modèle local, décision urgent / non urgent par le décideur,
+    explication et solutions par le modèle conversationnel). ?refresh=1 relance le calcul (tâche de fond, gardé 15 min)."""
+    def evenements():
+        since = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() - 48 * 3600))
+        return store.list_events(DB_PATH, since=since, limit=2000)
+
+    def contacts():
+        return {a["agent_id"]: a.get("last_seen_at") for a in store.list_agents(DB_PATH)}
+    return jsonify(priorites.vue(evenements, contacts, forcer=request.args.get("refresh") == "1")), 200
 
 
 @app.route("/migration/preparation", methods=["GET"])

@@ -1,3 +1,39 @@
+## 2026-10-22 — Page d'accueil : priorités en trois IA (préparation, décideur, explication) ; veille « IA : sorties » (livraison #818)
+
+- **Priorités** en haut de la page d'accueil du hub :
+  1. **Préparation** (modèle de langage local) : rassemble ce qui est ouvert -- les événements warning / critical des
+     agents sur 48 h et les articles de veille qui touchent notre SI sans être traités. Les doublons sont regroupés et
+     les événements résolus écartés : un « -recovered » ultérieur, ou un agent revu depuis. Le modèle écrit pour chacun
+     une description détaillée et son impact.
+  2. **Décision** par le **décideur** : un petit modèle à décisions typées, sur l'interface du modèle Jev de TypeSafe
+     sorti en septembre 2026 (oui/non, choix, échelle). Il dit urgent / non urgent avec une probabilité, et donne une
+     gravité (faible -> critique). On garde les 5 plus urgents.
+  3. **Explication** (modèle conversationnel) : pour chaque urgence, ce qui se passe, pourquoi c'est urgent, la solution
+     proposée (commandes et machine) et où agir.
+  - Chaque élément a son lien vers l'écran du hub où on agit.
+  - Le calcul tourne en tâche de fond et reste gardé 15 minutes. Un bouton « Recalculer » le relance, et la page
+    affiche l'état de chaque étape.
+- **`shared/decideur.py`** : trois fournisseurs (`DECIDEUR`) :
+  - `llm` (défaut) : le modèle local compatible OpenAI, aucune donnée ne sort ;
+  - `jev` : un serveur LOCAL au format Jev (Clef de Cloudflare, Tiny-Jev…), via `DECIDEUR_URL` ;
+  - `typesafe` : l'API hébergée de TypeSafe, avec `TYPESAFE_API_KEY`. Les données SORTENT : à n'activer qu'en
+    connaissance de cause.
+
+  Jev lui-même n'existe qu'en API hébergée.
+- **Veille cyber, onglet « IA : sorties »** : les nouveaux modèles, API et outils.
+  - Sources : versions d'Ollama, llama.cpp, vLLM, Hermes Agent, Open WebUI et Transformers ; blogs Hugging Face, OpenAI
+    et Google DeepMind ; Simon Willison.
+  - Les sources proposées par une livraison arrivent aussi sur une installation existante, une seule fois : une source
+    supprimée ne revient pas.
+- `si-agent-api` : `GET /priorites` (`?refresh=1`). Nouvelles clés `.env` : `PRIORITES_LLM_*`, `DECIDEUR*`,
+  `TYPESAFE_API_KEY`.
+- **Vérifié** :
+  - `shared/test_decideur.py` (questions, lecture tolérante du modèle, format Jev, lots de 25) ;
+  - `test_z_priorites.py` (résolus écartés, top 5, trois IA, repli sur la sévérité brute) ;
+  - `test_veille.py` (semis) ;
+  - rendu du panneau.
+- **Non vérifié** : avec le vrai modèle local, et les nouveaux flux réels.
+
 ## 2026-10-22 — Règle absolue : « activer / régler X » donne le lien, sinon « pas de lien : opération manuelle » (livraison #817)
 
 - La page « Préparer la réinstallation d'un nœud » disait « activer la sonde pve-preflight… fiche de l'agent › Sondes » sans

@@ -1393,6 +1393,14 @@ services:
       # #699 : inventaires logiciels des agents transmis à vuln-api (autre nœud : son URL interne)
       - VULN_API_URL=${VULN_API_URL:-http://vuln-api:5000}
       - ASSISTANT_API_URL=${ASSISTANT_API_URL:-http://assistant-api:5000/assistant}   # #756 : tuile Parc IA (relais en lecture)
+      # #818 : priorités de la page d'accueil -- modèle de langage local (préparation, explication) et décideur (urgent / non urgent)
+      - LLM_BASE_URL=${PRIORITES_LLM_BASE_URL:-${LLM_BASE_URL:-http://ollama:11434/v1}}
+      - LLM_MODEL=${PRIORITES_LLM_MODEL:-${LLM_MODEL:-qwen3:8b}}
+      - DECIDEUR=${DECIDEUR:-llm}
+      - DECIDEUR_URL=${DECIDEUR_URL:-}
+      - DECIDEUR_MODELE=${DECIDEUR_MODELE:-}
+      - DECIDEUR_LLM_MODELE=${DECIDEUR_LLM_MODELE:-}
+      - TYPESAFE_API_KEY=${TYPESAFE_API_KEY:-}
       # #799 : parcours appris -- identifiant et mot de passe pris dans le coffre au moment du jeu (jeton interne)
       - CREDENTIALS_API_URL=http://credentials-api:5000
       - CREDENTIALS_INTERNAL_TOKEN=${CREDENTIALS_INTERNAL_TOKEN:-}

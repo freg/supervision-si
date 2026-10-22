@@ -46,6 +46,8 @@ COPY si-agent/api/parcours.py .
 COPY si-agent/api/htoprelay.py .
 COPY si-agent/api/datarf.py .
 COPY si-agent/api/prep.py .
+COPY si-agent/api/priorites.py .
+COPY shared/decideur.py .
 COPY si-agent/api/edgepair.py .
 COPY si-agent/api/dnsq.py .
 COPY si-agent/agent/si_agent/edgectl.py ./si_agent_edgectl.py

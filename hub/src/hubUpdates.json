@@ -1,5 +1,11 @@
 [
  {
+  "n": 818,
+  "from": 818,
+  "date": "2026-10-22",
+  "title": "Page d'accueil : priorités en trois IA (préparation, décideur, explication) ; veille « IA : sorties »"
+ },
+ {
   "n": 817,
   "from": 817,
   "date": "2026-10-22",
@@ -232,11 +238,5 @@
   "from": 778,
   "date": "2026-10-17",
   "title": "Hub : retour visuel de tous les boutons d'action (occupé pendant l'envoi, second clic bloqué, bandeau « fait » / « échec »)"
- },
- {
-  "n": 777,
-  "from": 777,
-  "date": "2026-10-17",
-  "title": "Activité des VM : analyse interne des invités (SSH, sudo, courriels, fichiers modifiés, journaux, connexions établies) dans le temps"
  }
 ]

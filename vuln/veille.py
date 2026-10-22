@@ -75,10 +75,20 @@ def installer(app, db):
 
 
 def semer(cn):
-    if not cn.execute("SELECT COUNT(*) FROM veille_sources").fetchone()[0]:
-        for nom, url, fmt, cat, niv, per in V.SOURCES_DEFAUT:
+    """Sources proposées : chacune n'est semée qu'UNE fois (une source supprimée dans la tuile ne revient pas) ; les sources
+    ajoutées par une livraison (#818 : sorties de l'IA) arrivent sur une installation existante."""
+    r = cn.execute("SELECT valeur FROM veille_etat WHERE cle='semees'").fetchone()
+    if r:
+        semees = set(json.loads(r[0]))
+    else:   # installation antérieure à #818 : ses sources présentes valent semis
+        semees = set(x[0] for x in cn.execute("SELECT url FROM veille_sources")) if cn.execute("SELECT COUNT(*) FROM veille_sources").fetchone()[0] else set()
+        semees |= set(u for _n, u, *_r in V.SOURCES_DEFAUT if u not in [x[1] for x in V.SOURCES_IA_SORTIES]) if semees else set()
+    for nom, url, fmt, cat, niv, per in V.SOURCES_DEFAUT:
+        if url not in semees:
             cn.execute("INSERT OR IGNORE INTO veille_sources (nom, url, format, categorie, niveau, garder_si, periode_min) VALUES (?,?,?,?,?,?,?)",
                        (nom, url, fmt, cat, niv, V.GARDER_SI_DEFAUT.get(url), per))
+            semees.add(url)
+    cn.execute("INSERT OR REPLACE INTO veille_etat VALUES ('semees', ?)", (json.dumps(sorted(semees)),))
     if not cn.execute("SELECT COUNT(*) FROM veille_prefiltres").fetchone()[0]:
         for nom, termes in V.PREFILTRES_DEFAUT.items():
             cn.execute("INSERT INTO veille_prefiltres (nom, termes, modeles) VALUES (?,?,?)", (nom, json.dumps(termes), "[]"))

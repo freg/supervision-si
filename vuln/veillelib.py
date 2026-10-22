@@ -20,7 +20,7 @@ from xml.sax.saxutils import escape
 
 KEV_JOURS = 60                  # au premier passage, seules les vulnérabilités exploitées ajoutées depuis 60 jours entrent
 
-CATEGORIES = {"alerte": "Alertes", "ia": "IA cyber", "generale": "Cyber générale", "france_europe": "France / Europe",
+CATEGORIES = {"alerte": "Alertes", "ia": "IA cyber", "ia_sorties": "IA : sorties (modèles, API, outils)", "generale": "Cyber générale", "france_europe": "France / Europe",
               "reglement": "Règlements ANSSI / RGPD"}
 NIVEAUX = {"alerte": "Alerte", "exploitee": "Exploitée", "avis": "Avis"}
 
@@ -45,6 +45,21 @@ SOURCES_DEFAUT = [
     ("Embrace The Red (sécurité des IA)", "https://embracethered.com/blog/index.xml", "flux", "ia", None, 360),
     ("arXiv cs.CR (articles sur l'IA seulement)", "https://rss.arxiv.org/rss/cs.CR", "flux", "ia", None, 720),
 ]
+# #818 : sorties de l'IA -- nouveaux modèles, API et outils (versions publiées des projets suivis, blogs des éditeurs).
+SOURCES_IA_SORTIES = [
+    ("Ollama — versions", "https://github.com/ollama/ollama/releases.atom", "flux", "ia_sorties", None, 360),
+    ("llama.cpp — versions", "https://github.com/ggml-org/llama.cpp/releases.atom", "flux", "ia_sorties", None, 720),
+    ("vLLM — versions", "https://github.com/vllm-project/vllm/releases.atom", "flux", "ia_sorties", None, 720),
+    ("Hermes Agent — versions", "https://github.com/NousResearch/hermes-agent/releases.atom", "flux", "ia_sorties", None, 360),
+    ("Open WebUI — versions", "https://github.com/open-webui/open-webui/releases.atom", "flux", "ia_sorties", None, 720),
+    ("Transformers — versions", "https://github.com/huggingface/transformers/releases.atom", "flux", "ia_sorties", None, 720),
+    ("Hugging Face — blog", "https://huggingface.co/blog/feed.xml", "flux", "ia_sorties", None, 360),
+    ("OpenAI — actualités", "https://openai.com/news/rss.xml", "flux", "ia_sorties", None, 360),
+    ("Google DeepMind — blog", "https://deepmind.google/blog/rss.xml", "flux", "ia_sorties", None, 720),
+    ("Simon Willison — tout", "https://simonwillison.net/atom/everything/", "flux", "ia_sorties", None, 360),
+]
+SOURCES_DEFAUT = SOURCES_DEFAUT + SOURCES_IA_SORTIES
+
 GARDER_SI_DEFAUT = {"https://rss.arxiv.org/rss/cs.CR": "llm, large language model, prompt injection, jailbreak, agent, agents, machine learning, neural, deepfake, rag"}
 
 PREFILTRES_DEFAUT = {
