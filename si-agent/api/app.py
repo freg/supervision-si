@@ -49,6 +49,7 @@ import pra  # noqa: E402  -- #653 : plans PRA / opérations PVE
 import maint  # noqa: E402  -- #705 : maintenance / réorganisation des Proxmox
 import migration  # noqa: E402  -- #658 : migration serveur -> virtualisation (générateur de plan)
 import priorites  # noqa: E402  -- #818 : priorités de la page d'accueil (préparation, décideur, explication)
+import modeles  # noqa: E402  -- #821 : Parc IA, veille des modèles (sorties, ouvert/fermé, usages)
 import prep  # noqa: E402  -- #815 : préparer la réinstallation d'un nœud (quorum, invités transférés, sauvegardes, PRA)
 import infra  # noqa: E402  -- #749 : vue d'ensemble PVE / PBS
 import views  # noqa: E402  -- #753 : vues de parc paramétrables (serveurs, postes, IA, postes personnels)
@@ -215,6 +216,23 @@ def _watchdog_loop():
 if os.environ.get("SI_AGENT_PURGE_THREAD", "1") == "1":
     threading.Thread(target=_purge_loop, daemon=True).start()
     threading.Thread(target=_watchdog_loop, daemon=True).start()
+app.register_blueprint(modeles.bp)   # #821 : /modeles/* (Parc IA, veille des modèles)
+
+
+def _modeles_parc():
+    """#821 : « Usages » -- les modèles Ollama relevés par la sonde ollama de chaque hôte, nommés « hôte/modèle »."""
+    out = []
+    for a in store.fleet(DB_PATH):
+        ol = ((store.latest_per_task(DB_PATH, a["agent_id"]).get("plugin:ollama") or {}).get("data") or {})
+        for m in ol.get("models") or []:
+            out.append({"name": "%s/%s" % (a["agent_id"], m.get("name")), "size": m.get("size"), "modified_at": m.get("modified"),
+                        "details": {"family": m.get("family"), "parameter_size": m.get("params"), "quantization_level": m.get("quant")}})
+    return out
+
+
+modeles.source_tags = _modeles_parc
+if os.environ.get("SI_AGENT_PURGE_THREAD", "1") == "1":
+    modeles.demarrer()
 
 
 # ============================================================

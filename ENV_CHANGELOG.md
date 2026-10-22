@@ -12,6 +12,12 @@ regarder l'entrée la plus récente en haut — si elle correspond à ce
 que vous avez déjà en `.env`, rien à faire. Sinon, copier/ajouter les
 clés listées, dans votre `.env` existant.
 
+## 2026-10-22 — Parc IA, veille des modèles (livraison #821)
+
+Ajoutées (facultatives) : `MODELES_MACHINES=ia-prod:20,ia-preprod:16` (nom:mémoire GPU en Go de chaque machine
+d'IA -- mettre les vrais noms dans `.env`), `MODELES_THREAD=1`. si-agent-api doit sortir en HTTPS vers
+huggingface.co (sinon les erreurs s'affichent dans Parc IA > Veille des modèles > Réglages).
+
 ## 2026-10-21 — veille cyber (livraison #814)
 
 Ajoutées (toutes facultatives) : `VEILLE_SYNTHESE_HEURE=7`, `VEILLE_CONSERVATION_JOURS=365`,

@@ -1,3 +1,17 @@
+## 2026-10-22 — Parc IA : veille des modèles, historique, alertes, usages (livraison #821)
+
+- Nouvel onglet **Parc IA > Veille des modèles** (même module que la tuile « Modèles IA » du hub maison) :
+  - **veille** des derniers dépôts des éditeurs suivis sur Hugging Face, relevés toutes les 6 h par si-agent-api (un
+    seul worker relève, verrou de fichier) ; le premier passage remonte le passé (40 dépôts par éditeur) sans alerter ;
+  - **historique** : nouveau, ouverture / fermeture de licence, accès restreint / libéré, disparition des modèles suivis ;
+  - **alertes** : nouveau modèle pertinent qui tient en Q4 sur une de nos machines (`MODELES_MACHINES`), tout passage
+    ouvert <-> fermé ; « ✕ » écarte un modèle ;
+  - **usages** : les modèles relevés par la sonde ollama de chaque hôte (« hôte/modèle »), cases « actif » et types
+    d'usage (inventaire ; branchement sur les priorités en tranche 2) ;
+  - **bancs** : résultats des bancs comparatifs.
+- BACKLOG 132 (modèles, skills, apprentissage, bancs : tranches 2 à 5) et 133 (pool de VM de test des agents,
+  installeur Windows MSI).
+
 ## 2026-10-22 — Veille cyber : rejets fins archivés et repêchables (livraison #820)
 
 - « ✕ » sur chaque article : ne plus présenter **cet article**, **sa source**, **son sujet** (ses CVE), **un de ses

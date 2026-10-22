@@ -1,5 +1,11 @@
 [
  {
+  "n": 821,
+  "from": 821,
+  "date": "2026-10-22",
+  "title": "Parc IA : veille des modèles, historique, alertes, usages"
+ },
+ {
   "n": 820,
   "from": 820,
   "date": "2026-10-22",
@@ -232,11 +238,5 @@
   "from": 782,
   "date": "2026-10-19",
   "title": "Cartes graphiques : sonde gpu, colonne GPU des vues de parc et du Parc IA, agent 0.5.85"
- },
- {
-  "n": 781,
-  "from": 781,
-  "date": "2026-10-18",
-  "title": "Migration : une étape manuelle devenue automatique dans un plan réimporté n'est plus bloquée"
  }
 ]

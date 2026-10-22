@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  821: [{ view: "iapark", hint: "onglet « Veille des modèles » : alertes, veille, historique, usages, bancs, réglages" }],
   820: [{ view: "veille", hint: "« ✕ » sur un article (article, source, sujet, thème, mots-clés) ; onglet « Rejets » pour repêcher" }],
   819: [{ view: "si-agent", hint: "vue locale (lecture seule) sur le poste : http://127.0.0.1:8090/ une fois ouverte par agent.json ou le central -- pas de lien : opération manuelle (voir README-DEPLOIEMENT, « Vue locale »)" }],
   818: [{ view: "veille", hint: "onglet « IA : sorties » (modèles, API, outils) ; Priorités : en haut de la page d'accueil" }],

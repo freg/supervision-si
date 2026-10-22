@@ -47,6 +47,8 @@ COPY si-agent/api/htoprelay.py .
 COPY si-agent/api/datarf.py .
 COPY si-agent/api/prep.py .
 COPY si-agent/api/priorites.py .
+COPY si-agent/api/modeles.py .
+COPY si-agent/api/modeles_stockage.py .
 COPY shared/decideur.py .
 COPY si-agent/api/edgepair.py .
 COPY si-agent/api/dnsq.py .

@@ -3896,3 +3896,39 @@ par triangulation** sur les bornes Wi-Fi fixes (positions connues : plan du site
 pondérée, empreintes radio relevées sur place), cohérence avec les sondes fixes qui émettent un signal connu ;
 position affichée sur le plan du bâtiment avec les relevés (spectre, occupation, bornes) qui s'y rattachent.
 
+
+### 132. Gestion des modèles IA, skills, apprentissage, bancs (les deux hubs) -- tranche 1 LIVRÉE #821 (hub maison ada86b7)
+
+Demande (22/10/2026) : suivre les sorties de modèles dans le temps avec alertes sur les modèles utilisables et
+pertinents, et les passages open-source <-> fermé ; une tuile de gestion des modèles (cases à cocher, types d'usage) ;
+gestion des skills ; si raisonnable, apprentissage / entraînement ; gestion des bancs de tests et benchmarks.
+- **T1 (livrée)** : veille des modèles (Hugging Face, éditeurs suivis, relève 6 h, remontée du passé sans alerte),
+  historique (nouveau, ouverture / fermeture de licence, accès restreint, disparition des modèles suivis), alertes,
+  usages par modèle (cases à cocher), liste des bancs. Hub maison : tuile « Modèles IA » ; ici : Parc IA > Veille des
+  modèles.
+- **T2** : brancher les usages déclarés sur les modules (ici : priorités -- préparation, décideur, explication -- avec
+  l'hôte qui porte le modèle) ; alerte des modèles par notify-api (`modeles.alerte`) ; bouton « installer sur l'hôte »
+  depuis une alerte (geste ollama pull existant #746) ; disponibilité dans la bibliothèque Ollama.
+- **T3 Bancs et benchmarks** : un banc = jeu de cas étiquetés (veille : suivis / rejetés ; assistant : 20 cas #533) x
+  modèles x hôtes, lancé depuis le hub (commande d'agent sur l'hôte, pas depuis l'API), résultats comparés dans le temps
+  (régression quand un modèle change), coût (s / cas, mémoire) ; le banc du décideur du hub maison
+  (`api/banc_decideur.py`) en est le premier.
+- **T4 Skills** : catalogue des consignes / outils réutilisables par les IA du hub (prompts système, schémas de
+  décision, outils autorisés), versionnés, avec l'usage et le modèle qui les portent ; évalués par les bancs T3.
+- **T5 Apprentissage (raisonnable, à cadrer)** : pas d'entraînement complet. LoRA / QLoRA de petits modèles (≤ 8 B)
+  sur nos propres décisions (suivis / rejets, statuts de traitement, corrections de l'utilisateur) pour le décideur et
+  le classement ; sur GPU NVIDIA (outillage mûr), l'Arc Pro de la maison seulement après essai ; export GGUF -> Ollama
+  -> banc T3 avant mise en service ; données d'entraînement jamais hors de nos machines.
+
+### 133. Pool de VM de test des agents et installeur Windows MSI -- à prévoir
+
+Demande (22/10/2026) : un pool d'OS sur VM pour tester automatiquement et mettre au point les agents et leur système
+d'installation ; sous Windows, un installeur MSI ou équivalent.
+- **Pool** : modèles de VM Proxmox (Debian 12/13, Ubuntu 22/24, Rocky 9, Windows 10/11, Windows Server 2016/2019/2022,
+  macOS hors Proxmox) clonés à la demande (clones liés), scénario : installation par la ligne du central local
+  (`--local-view` compris), premier relevé, mise à jour, désinstallation ; résultats dans les bancs (#132 T3) ; VM
+  détruites après. Pilotage par un agent sur le nœud qui porte le pool (gestes vmctl existants), réseau isolé.
+- **MSI** : WiX Toolset v4 (`wix build`) en CI Windows ou sur une VM du pool : Python embarqué + code de l'agent dans
+  Program Files, tâche planifiée SYSTEM (ou service via un petit hôte de service), propriétés MSI `CENTRAL`, `TOKEN`,
+  `CAFINGERPRINT`, `SITE` (déploiement silencieux `msiexec /i si-agent.msi /qn CENTRAL=… TOKEN=…`, GPO / Intune),
+  désinstallation propre, mise à jour majeure ; signature de code à prévoir (certificat de l'organisation).
