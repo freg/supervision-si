@@ -154,10 +154,39 @@ def prompt_explication(top):
                 (c.get("lien") or {}).get("view")) for i, c in enumerate(top)))
 
 
-def calculer(evenements, contacts, articles, chat=None, decider=None, maintenant=None):
-    """Les trois IA bout à bout -> page « Priorités »."""
-    chat = chat or (lambda m: decideur.llm_chat(m, delai=900))
-    decider = decider or decideur.decider_lot
+def modeles_declares(source=None, hote=None):
+    """#823 : modèles déclarés dans Parc IA > Veille des modèles > Usages pour l'hôte qui sert LLM_BASE_URL
+    (PRIORITES_LLM_HOTE) -> {usage: modèle} ; vide sans hôte déclaré ou sans déclaration (le .env s'applique)."""
+    hote = hote if hote is not None else os.environ.get("PRIORITES_LLM_HOTE", "")
+    if not hote:
+        return {}
+    if source is None:
+        try:
+            import modeles
+            source = modeles.modele_pour
+        except Exception:  # noqa: BLE001
+            return {}
+    out = {}
+    for u in ("preparation", "decideur", "explication"):
+        try:
+            nom = source(u, hote=hote)
+        except Exception:  # noqa: BLE001
+            nom = None
+        if nom:
+            out[u] = nom
+    return out
+
+
+def calculer(evenements, contacts, articles, chat=None, decider=None, maintenant=None, modeles=None):
+    """Les trois IA bout à bout -> page « Priorités ». #823 : chaque étape prend le modèle déclaré pour son usage."""
+    modeles = modeles_declares() if modeles is None else modeles
+    if chat is None:
+        chat_prep = lambda m: decideur.llm_chat(m, modele=modeles.get("preparation"), delai=900)  # noqa: E731
+        chat_expl = lambda m: decideur.llm_chat(m, modele=modeles.get("explication"), delai=900)  # noqa: E731
+    else:
+        chat_prep = chat_expl = chat
+    if decider is None:
+        decider = (lambda e, q: decideur.decider_lot(e, q, cfg={"llm_modele": modeles["decideur"]})) if modeles.get("decideur") else decideur.decider_lot
     t0 = time.time()
     cands = candidats_evenements(evenements, contacts, maintenant) + candidats_veille(articles)
     cands.sort(key=lambda c: str(c.get("dernier") or ""), reverse=True)          # plus récents d'abord…
@@ -166,7 +195,7 @@ def calculer(evenements, contacts, articles, chat=None, decider=None, maintenant
     etapes = {"preparation": None, "decision": None, "explication": None}
     if cands:
         try:
-            prep = lire_preparation(chat([{"role": "user", "content": prompt_preparation(cands)}]), len(cands))
+            prep = lire_preparation(chat_prep([{"role": "user", "content": prompt_preparation(cands)}]), len(cands))
             for c, p in zip(cands, prep):
                 c["detail"], c["impact"] = (p.get("detail") or "")[:600], (p.get("impact") or "")[:400]
             etapes["preparation"] = "ok (%d élément(s))" % len(cands)
@@ -178,12 +207,13 @@ def calculer(evenements, contacts, articles, chat=None, decider=None, maintenant
     texte = None
     if top:
         try:
-            texte = chat([{"role": "user", "content": prompt_explication(top)}])
+            texte = chat_expl([{"role": "user", "content": prompt_explication(top)}])
             etapes["explication"] = "ok"
         except ValueError as e:
             etapes["explication"] = "modèle indisponible : %s" % e
     return {"at": time.time(), "duree_s": round(time.time() - t0, 1), "urgences": top, "autres": autres[:60], "explication": texte,
-            "etapes": etapes, "decideur": {"fournisseur": d.get("fournisseur"), "modele": d.get("modele")}, "nb": len(cands)}
+            "etapes": etapes, "decideur": {"fournisseur": d.get("fournisseur"), "modele": d.get("modele")}, "nb": len(cands),
+            "modeles": modeles}
 
 
 def _articles_veille():

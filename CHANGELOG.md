@@ -1,3 +1,13 @@
+## 2026-10-22 — Priorités : modèles choisis par usage ; alertes de la veille des modèles notifiées (livraison #823)
+
+- Les trois étapes des **Priorités** (préparation, décideur, explication) prennent chacune le modèle déclaré pour son
+  usage dans **Parc IA > Veille des modèles > Usages**, pour l'hôte qui sert leur LLM (`PRIORITES_LLM_HOTE` = son
+  agent) ; sans déclaration, le .env s'applique. Le panneau dit quels modèles ont servi, avec le lien vers Usages.
+- Chaque alerte de la veille des modèles (nouveau modèle utilisable, passage ouvert <-> fermé, accès restreint,
+  disparition) devient un **événement du hub** `modele-alerte` (journal, bandeau, notifications).
+- Liens directs vers un onglet du Parc IA (`?view=iapark&tab=modeles&onglet=mes`).
+- BACKLOG 132 T2 livrée en partie (reste : installer un modèle depuis une alerte ; bibliothèque Ollama).
+
 ## 2026-10-22 — Diffusions en cascade : déploiement automatique avec dépendances (livraison #822)
 
 - **Agents hôtes > Mises à jour > Diffusions en cascade** : une règle = une **cible** (agents qui portent telle

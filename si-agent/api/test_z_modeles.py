@@ -122,5 +122,23 @@ class Parcours(unittest.TestCase):
         self.assertEqual(M.bancs(d), [{"fichier": "banc-decideur-1.json", "at": 5, "reference": "gros", "articles": 2, "synthese": {"petit": {"accord_urgent": 0.9}}}])
 
 
+class Supervision(unittest.TestCase):   # #823 : usages par hôte, notification des alertes
+    def test_modele_pour_hote_et_notifier(self):
+        c = M.cnx()
+        c.execute("DELETE FROM modeles_mes"); c.commit()
+        A.app.test_client().post("/modeles/mes", json={"nom": "ia-prod/qwen3:4b", "usages": ["decideur"]})
+        self.assertEqual(M.modele_pour("decideur", c, hote="ia-prod"), "qwen3:4b")
+        self.assertIsNone(M.modele_pour("decideur", c, hote="ia-preprod"))
+        vus = []
+        M.notifier = lambda titre, ctx: vus.append((titre, ctx["evenement"]))
+        try:
+            M.consigner(c, M.normaliser(item("org/Mod-7B")), [("fermeture", "apache-2.0", "other")], 1.0)
+            M.consigner(c, M.normaliser(item("org/Mod-7B")), [("nouveau", None, "mit")], 1.0, initial=True)
+        finally:
+            M.notifier = None
+        self.assertEqual([v[1] for v in vus], ["fermeture"])
+        self.assertIn("apache-2.0 -> other", vus[0][0])
+
+
 if __name__ == "__main__":
     unittest.main()

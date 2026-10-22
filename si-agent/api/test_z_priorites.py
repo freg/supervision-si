@@ -72,5 +72,13 @@ class Priorites(unittest.TestCase):
         self.assertEqual(r["urgences"][0]["genre"], "backup-alert")              # sévérité brute à défaut
 
 
+class ModelesDeclares(unittest.TestCase):   # #823
+    def test_hote_et_usages(self):
+        src = lambda u, hote=None: {"decideur": "qwen3:4b", "explication": "qwen3:30b-a3b"}.get(u) if hote == "ia-prod" else None
+        self.assertEqual(P.modeles_declares(src, "ia-prod"), {"decideur": "qwen3:4b", "explication": "qwen3:30b-a3b"})
+        self.assertEqual(P.modeles_declares(src, ""), {})
+        self.assertEqual(P.modeles_declares(src, "autre"), {})
+
+
 if __name__ == "__main__":
     unittest.main()

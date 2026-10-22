@@ -204,11 +204,23 @@ def url_auteur(a, n=PAR_AUTEUR):
     return HF + "?" + urllib.parse.urlencode(q)
 
 
+notifier = None   # #823 : fourni par app.py -- événement du hub (journal + notifications) pour chaque alerte
+
+
 def consigner(c, m, evts, maintenant, initial=False):
     mach = machines()
     for e, av, ap in evts:
+        al = alerte(e, m, mach, initial)
         c.execute("INSERT INTO modeles_hist (modele, at, evenement, avant, apres, alerte) VALUES (?,?,?,?,?,?)",
-                  (m["id"], maintenant, e, av, ap, 1 if alerte(e, m, mach, initial) else 0))
+                  (m["id"], maintenant, e, av, ap, 1 if al else 0))
+        if al and notifier is not None:
+            try:
+                ok = machines_ok(m.get("params_b"), mach)
+                notifier("modèle %s : %s%s" % (m["id"], e.replace("_", " "), (" (%s -> %s)" % (av or "?", ap or "?")) if e != "nouveau" else
+                                               (" -- %s B, tient sur %s" % (m.get("params_b") or "?", ", ".join(ok) or "aucune machine"))),
+                         {"modele": m["id"], "evenement": e, "avant": av, "apres": ap, "machines": ok})
+            except Exception:  # noqa: BLE001 -- la notification ne bloque jamais la veille
+                pass
 
 
 def enregistrer(c, items, maintenant=None, initial=False):
@@ -315,12 +327,17 @@ def mes_modeles(c, tags):
     return sorted(out, key=lambda x: (not x["installe"], x["nom"]))
 
 
-def modele_pour(usage, c=None):
-    """Premier modèle actif déclaré pour cet usage dans « Mes modèles » (None sinon : chaque module garde son défaut)."""
+def modele_pour(usage, c=None, hote=None):
+    """Premier modèle actif déclaré pour cet usage (None sinon : chaque module garde son défaut). #823 : avec `hote`,
+    seulement les modèles « hôte/modèle » de cet hôte, renvoyés sans le préfixe."""
     c = c or cnx()
     for r in lignes(c.execute("SELECT * FROM modeles_mes WHERE actif=1 ORDER BY maj DESC")):
-        if usage in json.loads(r.get("usages") or "[]"):
+        if usage not in json.loads(r.get("usages") or "[]"):
+            continue
+        if hote is None:
             return r["nom"]
+        if r["nom"].startswith(hote + "/"):
+            return r["nom"][len(hote) + 1:]
     return None
 
 

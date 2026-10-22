@@ -4,7 +4,7 @@
 //     activité par jour (appels, erreurs, temps moyen, jetons/s) -- relais en lecture si-agent-api /ia/assistant/* ;
 //   - Hôtes : en-tête htop, modèles Ollama (déployer, charger, tester : OllamaSection #746), conteneurs, gestes ;
 //   - hôtes ajoutés à la main (ex. la VM qui porte l'assistant sous Docker) : /ia/hosts.
-import { hubLink } from "./hubLinks.js";   // #817 : règle des liens
+import { hubLink, viewParams } from "./hubLinks.js";   // #817 : règle des liens
 import DataStatus from "./DataStatus.jsx";   // #763 : état des données
 import { useEffect, useState } from "react";
 import OllamaSection from "./OllamaSection.jsx";
@@ -120,7 +120,7 @@ function HostCard({ base, h, username, onRefresh }) {
 
 export default function IaParkView({ onBack, siAgentApiBase, username }) {
   const base = siAgentApiBase;
-  const [tab, setTab] = useState(() => { try { return localStorage.getItem("iapark.tab") || "hotes"; } catch { return "hotes"; } });
+  const [tab, setTab] = useState(() => { const v = viewParams().tab; if (v && TABS.some(([k]) => k === v)) return v; try { return localStorage.getItem("iapark.tab") || "hotes"; } catch { return "hotes"; } });   // #823 : lien direct
   const [ov, setOv] = useState(null), [status, setStatus] = useState(null), [evals, setEvals] = useState(null), [act, setAct] = useState(null), [days, setDays] = useState(30);
   const [fleet, setFleet] = useState(null), [err, setErr] = useState(null);
   const load = () => {

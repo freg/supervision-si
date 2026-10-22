@@ -1,5 +1,11 @@
 [
  {
+  "n": 823,
+  "from": 823,
+  "date": "2026-10-22",
+  "title": "Priorités : modèles choisis par usage ; alertes de la veille des modèles notifiées"
+ },
+ {
   "n": 822,
   "from": 822,
   "date": "2026-10-22",
@@ -232,11 +238,5 @@
   "from": 784,
   "date": "2026-10-19",
   "title": "Migration : onglets (dont « MX »), étapes à la main avec commande et machine"
- },
- {
-  "n": 783,
-  "from": 783,
-  "date": "2026-10-19",
-  "title": "Tour de contrôle : la cascade ne dépasse plus le délai de construction"
  }
 ]

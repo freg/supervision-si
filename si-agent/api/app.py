@@ -236,6 +236,7 @@ def _modeles_parc():
 
 
 modeles.source_tags = _modeles_parc
+modeles.notifier = lambda titre, ctx: _event("modele-alerte", "warning", titre, details=ctx)   # #823 : journal + notifications
 if os.environ.get("SI_AGENT_PURGE_THREAD", "1") == "1":
     modeles.demarrer()
 

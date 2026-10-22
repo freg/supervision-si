@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { dateCourte } from "./veilleLib.js";
+import { viewParams } from "./hubLinks.js";
 
 // #821 Parc IA, onglet « Veille des modèles » (même module que la tuile Modèles IA du hub maison) : veille des sorties (Hugging Face, éditeurs suivis) avec historique et alertes (nouveau modèle
 // utilisable et pertinent, passage ouvert <-> fermé), usages des modèles des hôtes (cases à cocher, types d'usage), bancs.
@@ -94,7 +95,7 @@ function Mes({ setErr }) {
   return (
     <div className="veille-bloc">
       
-      <p className="infra-muted">Modèles relevés par la sonde ollama de chaque hôte (« hôte/modèle ») : cochez ceux qui sont actifs et leurs usages. Inventaire déclaratif : les priorités de la page d'accueil gardent leur réglage du .env (branchement automatique : tranche suivante).</p>
+      <p className="infra-muted">Modèles relevés par la sonde ollama de chaque hôte (« hôte/modèle ») : cochez ceux qui sont actifs et leurs usages. Les priorités de la page d'accueil prennent les modèles déclarés pour l'hôte qui sert leur LLM (réglage PRIORITES_LLM_HOTE du .env, pas de lien : opération manuelle) ; sans déclaration, le .env s'applique. Chaque alerte de la veille est aussi un événement du hub (notifications).</p>
       <table className="infra-table">
         <thead><tr><th>Actif</th><th>Modèle</th><th>Taille</th><th>Quantif.</th>{U.map(([k, l]) => <th key={k} title={l}><span className="infra-muted">{l.split(" (")[0]}</span></th>)}<th>Note</th></tr></thead>
         <tbody>{d.modeles.map((m) => (
@@ -164,7 +165,7 @@ function Reglages({ etat, recharger, setErr }) {
 
 export default function ModelesVeille({ base }) {
   BASE = base || "";
-  const [onglet, setOnglet] = useState(() => { try { return localStorage.getItem("iapark.modeles.onglet") || "alertes"; } catch { return "alertes"; } });
+  const [onglet, setOnglet] = useState(() => { const v = viewParams().onglet; if (v && ONGLETS.some(([k]) => k === v)) return v; try { return localStorage.getItem("iapark.modeles.onglet") || "alertes"; } catch { return "alertes"; } });
   const [etat, setEtat] = useState(null);
   const [err, setErr] = useState("");
   const [evts, setEvts] = useState([]);

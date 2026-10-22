@@ -3906,7 +3906,7 @@ gestion des skills ; si raisonnable, apprentissage / entraînement ; gestion des
   historique (nouveau, ouverture / fermeture de licence, accès restreint, disparition des modèles suivis), alertes,
   usages par modèle (cases à cocher), liste des bancs. Hub maison : tuile « Modèles IA » ; ici : Parc IA > Veille des
   modèles.
-- **T2** : brancher les usages déclarés sur les modules (ici : priorités -- préparation, décideur, explication -- avec
+- **T2 (livrée en partie #823 : usages -> priorités, alertes -> événements du hub)** : brancher les usages déclarés sur les modules (ici : priorités -- préparation, décideur, explication -- avec
   l'hôte qui porte le modèle) ; alerte des modèles par notify-api (`modeles.alerte`) ; bouton « installer sur l'hôte »
   depuis une alerte (geste ollama pull existant #746) ; disponibilité dans la bibliothèque Ollama.
 - **T3 Bancs et benchmarks** : un banc = jeu de cas étiquetés (veille : suivis / rejetés ; assistant : 20 cas #533) x

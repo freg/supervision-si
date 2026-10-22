@@ -12,6 +12,10 @@ regarder l'entrée la plus récente en haut — si elle correspond à ce
 que vous avez déjà en `.env`, rien à faire. Sinon, copier/ajouter les
 clés listées, dans votre `.env` existant.
 
+## 2026-10-22 — priorités, modèles par usage (livraison #823)
+
+Ajoutée (facultative) : `PRIORITES_LLM_HOTE=` (identifiant de l'agent de l'hôte qui sert le LLM des priorités).
+
 ## 2026-10-22 — Parc IA, veille des modèles (livraison #821)
 
 Ajoutées (facultatives) : `MODELES_MACHINES=ia-prod:20,ia-preprod:16` (nom:mémoire GPU en Go de chaque machine

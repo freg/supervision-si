@@ -1404,6 +1404,8 @@ services:
       # #821 : Parc IA, veille des modèles -- machines et mémoire GPU (Go) pour juger un modèle « utilisable » (Q4 estimée)
       - MODELES_MACHINES=${MODELES_MACHINES:-ia-prod:20,ia-preprod:16}
       - MODELES_THREAD=${MODELES_THREAD:-1}
+      # #823 : agent de l'hôte qui sert LLM_BASE_URL -- les priorités prennent les modèles déclarés pour cet hôte (Usages)
+      - PRIORITES_LLM_HOTE=${PRIORITES_LLM_HOTE:-}
       # #799 : parcours appris -- identifiant et mot de passe pris dans le coffre au moment du jeu (jeton interne)
       - CREDENTIALS_API_URL=http://credentials-api:5000
       - CREDENTIALS_INTERNAL_TOKEN=${CREDENTIALS_INTERNAL_TOKEN:-}

@@ -48,6 +48,9 @@ export default function PrioritesPanel({ siAgentApiBase }) {
           </details>
         )}
         {d?.etapes && <p className="infra-muted priorites-etapes">1. préparation : {d.etapes.preparation || "—"} · 2. décision : {d.etapes.decision || "—"} · 3. explication : {d.etapes.explication || "—"}</p>}
+        {d?.etapes && <p className="infra-muted priorites-etapes">modèles : {d.modeles && Object.keys(d.modeles).length
+          ? Object.entries(d.modeles).map(([u, m]) => `${u} ${m}`).join(" · ") + " (Parc IA › Veille des modèles › Usages)"
+          : <>réglage du .env — pour choisir par usage : <a href={hubLink("iapark", { tab: "modeles", onglet: "mes" })}>Parc IA › Veille des modèles › Usages</a> et PRIORITES_LLM_HOTE dans le .env (pas de lien : opération manuelle)</>}</p>}
       </>}
     </section>
   );
