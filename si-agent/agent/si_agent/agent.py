@@ -41,7 +41,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from . import control, publish as publish_lib, host, netview, plugins, protocol, review, risks
+from . import control, publish as publish_lib, host, localview, netview, plugins, protocol, review, risks
 from .localqueue import LocalQueue
 
 # #440 : sous Windows 10/11, les collecteurs viennent de winhost.py (scripts
@@ -108,7 +108,38 @@ DEFAULTS = {
     "plugin_max_memory_mb": 4096,  # #577 : RLIMIT_AS (espace d'adressage, pas la RSS) -- 512 faisait planter les binaires Go (docker : « failed to reserve page summary memory »)
     "log_level": "INFO",
     "log_file": None,
+    # #819 : vue locale de transparence (page en lecture seule sur le poste), fermée par défaut
+    "local_view": {},
 }
+
+
+class _TapQueue(object):
+    """#819 : file vers le central, doublée d'un enregistreur pour la vue locale (rien d'autre ne change)."""
+
+    def __init__(self, queue, recorder):
+        self._q, self._rec = queue, recorder
+
+    def put(self, measurement):
+        try:
+            self._rec.record(measurement)
+        except Exception:  # noqa: BLE001 -- la vue ne doit jamais gêner l'envoi
+            pass
+        return self._q.put(measurement)
+
+    def put_many(self, measurements):
+        return sum(1 for m in measurements if self.put(m))
+
+    def __getattr__(self, name):
+        return getattr(self._q, name)
+
+
+def uninstall_hint():
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if IS_WINDOWS:
+        return 'powershell -NoProfile -ExecutionPolicy Bypass -File "%s"' % os.path.join(base, "uninstall.ps1")
+    if IS_MACOS:
+        return "voir README-DEPLOIEMENT.md, désinstallation macOS"
+    return "systemctl disable --now si-agent (ou docker rm -f si-agent)"
 
 
 def load_config(path=DEFAULT_CONFIG_PATH):
@@ -387,7 +418,13 @@ class Agent(object):
         self.usage = usage or __import__("shutil").disk_usage
         self.which = which or __import__("shutil").which
         self.exists = exists or host.host_exists
-        self.queue = queue or LocalQueue(cfg["queue_path"])
+        self.recorder = localview.Recorder()   # #819 : dernières mesures mises en file, pour la vue locale
+        self.queue = _TapQueue(queue or LocalQueue(cfg["queue_path"]), self.recorder)
+        self._local_view = None
+        self._lv_key = None
+        self._lv_retry = 0
+        self._lv_next = 0
+        self._lv_pending = None
         self.store = store or plugins.PluginStore(cfg["plugins_dir"])
         if hasattr(self.store, "ensure_permissions"):
             n = self.store.ensure_permissions()
@@ -549,6 +586,8 @@ class Agent(object):
         # la resserre pour le parcours interactif ; le hub laisse la valeur du poste (60 s)
         if isinstance(body.get("commands_poll_seconds"), (int, float)) and body["commands_poll_seconds"] >= 5:
             self.cfg["commands_poll_seconds"] = body["commands_poll_seconds"]
+        if isinstance(body.get("local_view"), dict):   # #819 : le central peut ouvrir / régler la vue locale
+            self.cfg["local_view"] = dict(self.cfg.get("local_view") or {}, **body["local_view"])
         if isinstance(body.get("publish"), dict):
             self.cfg["publish"] = body["publish"]
         elif "publish" in body:
@@ -1629,6 +1668,53 @@ class Agent(object):
             self.publish_payload = body
             srv.set_payload(body)
 
+    # -- vue locale de transparence (#819) -----------------------------------
+    def local_view_data(self):
+        """JSON de la vue locale : identité, sondes, dernières mesures, journal, configuration (secrets masqués)."""
+        tasks, _ = self.recorder.snapshot()
+        last = {t["task"]: t for t in tasks}
+        rows = localview.plugin_rows(self.store.list(), lambda m: plugins.is_enabled(m, self.cfg.get("plugins")),
+                                     lambda m: bool(m.get("blocked")) or bool(control.plugin_blocked(self.state, m)),
+                                     dict(self._next_plugin), last)
+        info = {"agent_id": self.agent_id, "host": socket.gethostname(), "version": __import__("si_agent").__version__,
+                "site": self.cfg.get("site"), "central_url": self.cfg.get("central_url"), "config_version": self.config_version,
+                "started_at": self._started_at, "last_central_contact": self.last_central_contact, "pending": self._lv_pending,
+                "blocked": self.is_blocked(), "block_reason": self.block_reason() if self.is_blocked() else None,
+                "block_file": self.cfg.get("block_file"), "uninstall": uninstall_hint()}
+        return localview.build_view(info, self.cfg, rows, self.recorder, now=time.time())
+
+    def local_view_tick(self):
+        lv = localview.merged(self.cfg.get("local_view"))
+        srv = self._local_view
+        if not lv["enabled"]:
+            if srv:
+                srv.stop(); self._local_view = None
+                self.event("local-view-stopped", "info", "vue locale arrêtée")
+            return
+        key = (lv["port"], lv["bind"], tuple(lv["allow"]))
+        if srv and self._lv_key != key:
+            srv.stop(); srv = self._local_view = None
+        if not srv:
+            if self.clock() < self._lv_retry:
+                return
+            try:
+                srv = localview.LocalViewServer(lv["port"], self.local_view_data, bind=lv["bind"], allow=lv["allow"])
+                srv.start()
+            except OSError as exc:
+                self._lv_retry = self.clock() + 300
+                self.event("local-view-failed", "warning", "vue locale impossible sur le port %d : %s" % (lv["port"], exc))
+                return
+            self._local_view, self._lv_key = srv, key
+            shown = "127.0.0.1" if lv["bind"] in ("0.0.0.0", "::") else lv["bind"]
+            self.event("local-view-started", "info", "vue locale (lecture seule) sur http://%s:%d/" % (shown, srv.port),
+                       {"bind": lv["bind"], "port": srv.port, "allow": lv["allow"]})
+        if self.clock() >= self._lv_next:
+            self._lv_next = self.clock() + 10
+            try:
+                self._lv_pending = self.queue.pending_count()
+            except Exception:  # noqa: BLE001
+                self._lv_pending = None
+
     # -- envoi ---------------------------------------------------------------
     def flush(self, force=False):
         now = self.clock()
@@ -2541,6 +2627,7 @@ class Agent(object):
                 self.collect_self()
                 self.poll_commands()
                 self.publish_tick()
+                self.local_view_tick()
                 self.flush()
                 self.maintenance()
             except Exception as exc:  # noqa: BLE001 -- la boucle ne meurt jamais

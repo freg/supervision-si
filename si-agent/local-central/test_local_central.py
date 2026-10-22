@@ -137,5 +137,19 @@ class LocalCentralTests(unittest.TestCase):
         self.assertIn("curl -fsSL -k", lin); self.assertIn("SI_AGENT_CA_SHA256=\"" + "ab" * 32, lin)
 
 
+class LocalView(unittest.TestCase):   # #819
+    def test_parse_et_config(self):
+        self.assertIsNone(lc.parse_local_view(""))
+        self.assertEqual(lc.parse_local_view("8090"), {"enabled": True, "port": 8090, "bind": "127.0.0.1", "allow": []})
+        lv = lc.parse_local_view("8091@0.0.0.0", "172.16.51.0/24, 10.0.0.1")
+        self.assertEqual((lv["port"], lv["bind"], lv["allow"]), (8091, "0.0.0.0", ["172.16.51.0/24", "10.0.0.1"]))
+        agent = {"secret": "s"}
+        sans = lc.config_for(agent, [], 60)
+        avec = lc.config_for(agent, [], 60, local_view=lv)
+        self.assertNotIn("local_view", sans)
+        self.assertEqual(avec["local_view"], lv)
+        self.assertNotEqual(sans["version"], avec["version"])   # l'agent réapplique sa configuration
+
+
 if __name__ == "__main__":
     unittest.main()

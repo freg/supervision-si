@@ -234,9 +234,9 @@ def load_plugins(ids, plugin_args):
     return out
 
 
-def config_for(agent, plugins, interval, commands_poll=5):
+def config_for(agent, plugins, interval, commands_poll=5, local_view=None):
     assigned = []
-    fp = [str(interval), "poll:%d" % commands_poll]
+    fp = [str(interval), "poll:%d" % commands_poll, "lv:%s" % json.dumps(local_view, sort_keys=True)]
     for p in plugins:
         man = dict(p["manifest"])
         msg = control.plugin_signature_message(man["id"], man["version"], man["sha256"], man.get("privileged", False))
@@ -245,7 +245,17 @@ def config_for(agent, plugins, interval, commands_poll=5):
         fp.append("%s@%s:%s" % (man["id"], man["version"], man["sha256"][:12]))
     version = hashlib.sha256("\n".join(fp).encode("utf-8")).hexdigest()[:16]
     return {"version": version, "issued_at": int(time.time()), "host_interval_seconds": interval, "commands_poll_seconds": commands_poll, "risk_thresholds": {},
-            "plugins": assigned, "remove_plugins": [], "blocked": False, "blocked_reason": None, "publish": None}
+            "plugins": assigned, "remove_plugins": [], "blocked": False, "blocked_reason": None, "publish": None,
+            **({"local_view": local_view} if local_view else {})}
+
+
+def parse_local_view(spec, allow=""):
+    """#819 : --local-view 8090 (poste seul) | 8090@0.0.0.0 (avec --local-view-allow 172.16.51.0/24,...)."""
+    if not spec:
+        return None
+    port, _, bind = str(spec).partition("@")
+    return {"enabled": True, "port": int(port), "bind": bind or "127.0.0.1",
+            "allow": [a.strip() for a in (allow or "").split(",") if a.strip()]}
 
 
 def local_ip():
@@ -320,6 +330,7 @@ class Central:
             pid, _, val = item.partition("=")
             pa[pid.strip()] = val.split()
         self.plugin_ids = [p.strip() for p in (args.plugins or "").split(",") if p.strip()]
+        self.local_view = parse_local_view(getattr(args, "local_view", ""), getattr(args, "local_view_allow", ""))   # #819
         self.plugins = load_plugins(self.plugin_ids, pa)
         self.interval = args.interval
         self.site = args.site
@@ -433,7 +444,7 @@ class Handler(BaseHTTPRequestHandler):
             if a is None:
                 return self._send(401, {"error": why})
             if leaf == "config":
-                cfg = config_for(a, c.plugins, c.interval, c.args.commands_poll)
+                cfg = config_for(a, c.plugins, c.interval, c.args.commands_poll, c.local_view)
                 c.state.touch(aid, self.client_address[0], cfg["version"])
                 return self._signed(a["secret"], cfg)
             if leaf == "commands":
@@ -610,6 +621,8 @@ def main(argv=None):
     ap.add_argument("--rebuild-archive", action="store_true")
     ap.add_argument("--no-archive", action="store_true")
     ap.add_argument("--verbose", action="store_true")
+    ap.add_argument("--local-view", default="", help="#819 : vue locale de transparence sur chaque agent : PORT (poste seul) ou PORT@0.0.0.0")
+    ap.add_argument("--local-view-allow", default="", help="#819 : adresses / réseaux admis quand la vue écoute hors du poste (ex. 172.16.51.0/24)")
     ap.add_argument("--ui-local", action="store_true", help="#807 : interface (/, /ui/*) servie au poste lui-même seulement")
     args = ap.parse_args(argv)
     central = Central(args)

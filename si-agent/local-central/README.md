@@ -37,6 +37,9 @@ UTC) -- `RealTimeIsUniversal=1` puis régler l'heure.
 Le pare-feu du poste doit laisser entrer le port 6444 (macOS demande
 l'autorisation pour `python3` au premier lancement).
 
+Vue locale sur chaque agent (#819) : `--local-view 8090` (poste seul) ou
+`--local-view 8090@0.0.0.0 --local-view-allow 172.16.51.0/24` ; voir agent/README-DEPLOIEMENT.md.
+
 ## Interface (`/`)
 
 Agents (dernier contact, IP, hôte), événements, et par agent : **poste**

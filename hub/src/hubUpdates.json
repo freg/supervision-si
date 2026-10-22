@@ -1,5 +1,11 @@
 [
  {
+  "n": 819,
+  "from": 819,
+  "date": "2026-10-22",
+  "title": "si-agent : vue locale de transparence sur le poste"
+ },
+ {
   "n": 818,
   "from": 818,
   "date": "2026-10-22",
@@ -232,11 +238,5 @@
   "from": 780,
   "date": "2026-10-18",
   "title": "Migration : envoi ZFS des CT convertis en modèle (basevol), agent 0.5.84"
- },
- {
-  "n": 778,
-  "from": 778,
-  "date": "2026-10-17",
-  "title": "Hub : retour visuel de tous les boutons d'action (occupé pendant l'envoi, second clic bloqué, bandeau « fait » / « échec »)"
  }
 ]

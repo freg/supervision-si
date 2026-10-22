@@ -181,6 +181,18 @@ ceux qu'il ne peut pas mesurer, avec la raison :
   `docker restart si-agent`).
 - **NFS « périmé »** : serveur injoignable (stale file handle).
 
+## Vue locale de transparence (#819)
+
+Page **en lecture seule** servie par l'agent sur le poste, pour l'administrateur du poste. Elle montre ce qui
+remonte au central (contenu exact), les sondes (état, cadence, dernier passage), le journal et la configuration
+(secrets masqués). Aucune action n'est possible depuis la page.
+
+- **Fermée par défaut.** On l'ouvre dans `agent.json` avec `"local_view": {"enabled": true}`, puis on redémarre
+  l'agent. Elle s'ouvre aussi par le central : central local `--local-view 8090`.
+- Adresse : `http://127.0.0.1:8090/`, depuis le poste lui-même (sous Windows : session console ou RDP).
+- Pour l'ouvrir au réseau, il faut `"bind": "0.0.0.0"` **et** `"allow": ["172.16.51.0/24"]` (IP ou réseaux).
+  Sans liste, seule la boucle locale est admise. Il faut aussi ouvrir le port dans le pare-feu du poste.
+
 ## Réseau
 
 L'hôte doit joindre le central en sortie sur le port de la passerelle TLS

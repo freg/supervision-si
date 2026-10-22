@@ -1,3 +1,23 @@
+## 2026-10-22 — si-agent : vue locale de transparence sur le poste (livraison #819)
+
+- **Vue locale** (agent 0.5.96) : l'agent peut servir sur le poste lui-même une page **en lecture seule** pour
+  l'administrateur du poste, sans compte à créer. Elle montre :
+  - **ce qui remonte** au central : chaque relevé, son dernier envoi, sa taille, le nombre d'envois et le contenu exact
+    envoyé (dépliable) ;
+  - les **sondes** du poste : état (active / inactive / bloquée), cadence, dernier passage, résultat ;
+  - le **journal** de l'agent ;
+  - la **configuration**, où les secrets sont masqués.
+  Elle indique aussi comment suspendre toute collecte (fichier BLOCKED) et comment désinstaller. Aucune action
+  n'est possible depuis la page.
+- Écoute sur `127.0.0.1:8090` par défaut, donc visible seulement depuis le poste. Pour l'ouvrir au réseau, il faut
+  `bind` 0.0.0.0 **et** une liste `allow` : sans liste, seule la boucle locale reste admise.
+- **Fermée par défaut.** On l'ouvre de deux façons :
+  - `local_view` dans `agent.json`, par exemple `{"enabled": true}` ;
+  - par le central, qui l'emporte. Le central local accepte `--local-view 8090` ou
+    `--local-view 8090@0.0.0.0 --local-view-allow 172.16.51.0/24`.
+- Note : `tests/test_updater` (test_run_update) échouait déjà avant cette livraison sur la VM Linux ; il n'est pas lié
+  à ce changement.
+
 ## 2026-10-22 — Page d'accueil : priorités en trois IA (préparation, décideur, explication) ; veille « IA : sorties » (livraison #818)
 
 - **Priorités** en haut de la page d'accueil du hub :
