@@ -1,5 +1,11 @@
 [
  {
+  "n": 820,
+  "from": 820,
+  "date": "2026-10-22",
+  "title": "Veille cyber : rejets fins archivés et repêchables"
+ },
+ {
   "n": 819,
   "from": 819,
   "date": "2026-10-22",
@@ -232,11 +238,5 @@
   "from": 781,
   "date": "2026-10-18",
   "title": "Migration : une étape manuelle devenue automatique dans un plan réimporté n'est plus bloquée"
- },
- {
-  "n": 780,
-  "from": 780,
-  "date": "2026-10-18",
-  "title": "Migration : envoi ZFS des CT convertis en modèle (basevol), agent 0.5.84"
  }
 ]

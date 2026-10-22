@@ -85,3 +85,10 @@ tâche de fond), tuile « Veille cyber » (`hub/src/VeilleView.jsx`).
 - Même logique que la tuile « Cyber news » du hub maison (dépôt séparé), où elle sert aussi de banc d'essai des modèles.
 
 Restent : T3 (Couverture), T4 (fiches et glossaire), T5 (sources constructeurs et systèmes du parc).
+
+## Rejets (#820)
+
+« ✕ » sur un article : ne plus présenter l'article, sa source, son sujet (CVE), un thème (préfiltre ou catégorie) ou des
+mots-clés. Onglet « Rejets » : règles et archive des articles écartés, repêchage (« ↺ » par article, « Retirer » par
+règle). Les rejetés sortent des listes, filtres, extractions, synthèses et priorités. Une alerte qui touche notre SI
+reste diffusée sauf si l'article lui-même est rejeté.

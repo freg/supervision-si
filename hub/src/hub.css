@@ -2783,3 +2783,6 @@ button[aria-busy="true"]::after { content: ""; position: absolute; right: 8px; t
 .priorites-autres { margin: 4px 0; font-size: 13px; }
 .priorites-etapes { font-size: 12px; margin: 4px 0 0; }
 .priorites a { color: var(--accent); }
+
+/* #820 veille : rejets */
+.veille .veille-actions select.veille-rejet { width: 2.8em; padding: 2px; }

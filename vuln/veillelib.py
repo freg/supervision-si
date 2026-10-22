@@ -388,6 +388,61 @@ def texte_synthese(articles, public, noms=None, maintenant=None):
 STATUTS = {"a_traiter": "À traiter", "en_cours": "En cours", "traite": "Traité", "non_applicable": "Non applicable"}
 
 
+# -- rejets fins (#819 hub maison, #820 ici) : « ne plus présenter » par article, source, sujet (CVE), thème, mots-clés --
+TYPES_REJET = {"article": "cet article", "source": "source", "sujet": "sujet (CVE)", "theme": "thème (préfiltre ou catégorie)",
+               "motcle": "mots-clés"}
+_CVE_RE = re.compile(r"^CVE-\d{4}-\d{4,}$")
+
+
+def correspond_texte(a, q):
+    """Requête « mots "phrase" a|b -exclu » sur titre, résumé, CVE et préfiltres (au moins un mot à trouver)."""
+    n = normaliser(" ".join([a.get("titre") or "", a.get("resume") or "", " ".join(a.get("cves") or []), " ".join(a.get("tags") or [])]))
+    inclus, exclus = decouper_requete(q)
+    if not inclus:
+        return False
+    return not (any(not any(x in n for x in alt) for alt in inclus) or any(any(x in n for x in alt) for alt in exclus))
+
+
+def valider_rejet(b, sources_ids=()):
+    """-> (règle normalisée, None) ou (None, erreur)."""
+    b = b or {}
+    t = str(b.get("type") or "")
+    v = str(b.get("valeur") if b.get("valeur") is not None else "").strip()
+    motif = str(b.get("motif") or "").strip()[:200] or None
+    if t not in TYPES_REJET:
+        return None, "type de rejet inconnu"
+    if not v or len(v) > 200:
+        return None, "valeur requise (200 car. max)"
+    if t in ("article", "source") and not v.isdigit():
+        return None, "identifiant numérique attendu"
+    if t == "source" and sources_ids and int(v) not in sources_ids:
+        return None, "source inconnue"
+    if t == "sujet":
+        cves = sorted(set(x.strip().upper() for x in v.split(",") if x.strip()))
+        if not cves or not all(_CVE_RE.match(x) for x in cves):
+            return None, "sujet : une ou plusieurs CVE (CVE-AAAA-NNNN), séparées par des virgules"
+        v = ",".join(cves)
+    if t == "theme":
+        v = v.lower()
+    if t == "motcle" and not decouper_requete(v)[0]:
+        return None, "mots-clés : au moins un mot à trouver"
+    return {"type": t, "valeur": v, "motif": motif}, None
+
+
+def rejet_de(a, regles):
+    """Première règle qui écarte l'article (None si aucune ou s'il a été repêché)."""
+    if a.get("repeche"):
+        return None
+    for g in regles or []:
+        t, v = g.get("type"), str(g.get("valeur") or "")
+        if (t == "article" and str(a.get("id")) == v) or (t == "source" and str(a.get("source_id")) == v) \
+                or (t == "sujet" and set(v.split(",")) & set(a.get("cves") or [])) \
+                or (t == "theme" and (v in (a.get("tags") or []) or v in (a.get("categories") or []))) \
+                or (t == "motcle" and correspond_texte(a, v)):
+            return g
+    return None
+
+
 def correspond_si(a, regle, maintenant=None):
     """correspond() + critères propres au hub supervision : touche notre SI, publics, statuts."""
     r = regle or {}

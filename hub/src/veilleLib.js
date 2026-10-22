@@ -7,7 +7,17 @@ export function paramsRegle(r = {}) {
   if (r.texte?.trim()) p.set("texte", r.texte.trim());
   p.set("jours", String(r.jours || 30));
   for (const k of ["cve", "nos_modeles", "non_lus", "suivis", "impacts"]) if (r[k]) p.set(k, "1");
+  if (r.rejetes === "avec" || r.rejetes === "seuls") p.set("rejetes", r.rejetes);
   return p.toString();
+}
+
+const MOTS_VIDES = new Set(["dans", "pour", "avec", "sans", "sous", "entre", "after", "with", "from", "this", "that", "your", "their", "about", "les", "des", "une", "aux"]);
+/** #820 rejet par mots-clés : mots saillants d'un titre (3 plus longs, hors mots vides), proposés à l'utilisateur. */
+export function motsCles(titre = "", n = 3) {
+  const vus = new Set();
+  return (titre.match(/[\p{L}][\p{L}\p{N}._-]{3,}/gu) || [])
+    .filter((m) => { const k = m.toLowerCase(); if (MOTS_VIDES.has(k) || vus.has(k)) return false; vus.add(k); return true; })
+    .sort((x, y) => y.length - x.length).slice(0, n).join(" ");
 }
 
 /** Bascule d'une valeur dans une liste (puces). */

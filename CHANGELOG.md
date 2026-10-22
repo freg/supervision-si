@@ -1,3 +1,16 @@
+## 2026-10-22 — Veille cyber : rejets fins archivés et repêchables (livraison #820)
+
+- « ✕ » sur chaque article : ne plus présenter **cet article**, **sa source**, **son sujet** (ses CVE), **un de ses
+  thèmes** (préfiltre ou catégorie) ou des **mots-clés** proposés depuis le titre (modifiables).
+- Onglet **Rejets** : règles (type, valeur, motif, auteur, date, nombre d'articles écartés), ajout manuel, retrait (qui
+  repêche tout) ; archive des articles écartés avec la règle en cause ; « ↺ » repêche un article, l'exempte de toute
+  règle et l'inscrit au journal.
+- Les articles écartés restent en base (la relève ne les ramène pas) mais sortent des listes, filtres, extraction,
+  synthèses quotidiennes et de la priorisation de la page d'accueil.
+- **Décision** : un rejet large (source, thème, mots-clés, sujet) ne fait **pas** taire l'alerte immédiate d'un article
+  qui touche notre SI ; seul le rejet explicite de l'article la retient.
+- Même fonction dans le hub maison (tuile Cyber news).
+
 ## 2026-10-22 — si-agent : vue locale de transparence sur le poste (livraison #819)
 
 - **Vue locale** (agent 0.5.96) : l'agent peut servir sur le poste lui-même une page **en lecture seule** pour

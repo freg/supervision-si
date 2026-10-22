@@ -15,6 +15,7 @@ import json
 import logging
 import os
 import re
+import sqlite3
 import threading
 import time
 import urllib.error
@@ -53,6 +54,8 @@ CREATE TABLE IF NOT EXISTS veille_articles (id INTEGER PRIMARY KEY, cle TEXT NOT
   lu INTEGER DEFAULT 0, suivi INTEGER DEFAULT 0, ia TEXT, statut TEXT, statut_par TEXT, statut_quand REAL, statut_note TEXT, signale REAL);
 CREATE INDEX IF NOT EXISTS veille_articles_publie ON veille_articles (publie);
 CREATE TABLE IF NOT EXISTS veille_journal (id INTEGER PRIMARY KEY, article_id INTEGER, statut TEXT, par TEXT, quand REAL, note TEXT);
+CREATE TABLE IF NOT EXISTS veille_rejets (id INTEGER PRIMARY KEY, type TEXT NOT NULL, valeur TEXT NOT NULL, motif TEXT, cree REAL, par TEXT,
+  UNIQUE (type, valeur));
 CREATE TABLE IF NOT EXISTS veille_prefiltres (nom TEXT PRIMARY KEY, termes TEXT NOT NULL, modeles TEXT, actif INTEGER DEFAULT 1);
 CREATE TABLE IF NOT EXISTS veille_filtres (id INTEGER PRIMARY KEY, nom TEXT NOT NULL, regle TEXT NOT NULL, cree REAL, maj REAL, par TEXT);
 CREATE TABLE IF NOT EXISTS veille_etat (cle TEXT PRIMARY KEY, valeur TEXT);
@@ -97,7 +100,22 @@ def semer(cn):
 def cnx():
     cn = _db()
     cn.executescript(SCHEMA)
+    if "repeche" not in [r[1] for r in cn.execute("PRAGMA table_info(veille_articles)")]:   # #820 : base d'avant les rejets
+        cn.execute("ALTER TABLE veille_articles ADD COLUMN repeche INTEGER DEFAULT 0")
     return cn
+
+
+def regles_rejet(cn):
+    return lignes(cn.execute("SELECT * FROM veille_rejets ORDER BY id"))
+
+
+def marquer_rejets(arts, regles):
+    """Annote chaque article écarté (« rejet » : la règle en cause) et renvoie la liste."""
+    for a in arts:
+        g = V.rejet_de(a, regles)
+        if g:
+            a["rejet"] = {"id": g["id"], "type": g["type"], "valeur": g["valeur"], "motif": g.get("motif"), "par": g.get("par")}
+    return arts
 
 
 def _decoder(d):
@@ -220,8 +238,9 @@ def signaler(cn, ids, envoyer=None, maintenant=None):
     q = ",".join("?" * len(ids))
     arts = enrichir(cn, lignes(cn.execute("SELECT * FROM veille_articles WHERE id IN (%s) AND signale IS NULL" % q, list(ids))))
     noms, n = noms_sources(cn), 0
+    explicites = [g for g in regles_rejet(cn) if g["type"] == "article"]
     for a in arts:
-        if not V.a_signaler(a, a["impacts"]):
+        if not V.a_signaler(a, a["impacts"]) or V.rejet_de(a, explicites):
             continue
         imp = a["impacts"]
         sujet = "Veille cyber : %s %s touche %s" % (V.NIVEAUX.get(a["niveau"], ""), ", ".join(a["cves"][:3]) or a["titre"][:60],
@@ -243,6 +262,7 @@ def syntheses(cn, envoyer=None, maintenant=None):
     envoyer = envoyer or (notify_client.notify if notify_client is not None else None)
     maintenant = maintenant or time.time()
     arts = enrichir(cn, lignes(cn.execute("SELECT * FROM veille_articles WHERE recu >= ? ORDER BY COALESCE(publie, recu) DESC", (maintenant - 86400,))))
+    arts = [a for a in marquer_rejets(arts, regles_rejet(cn)) if not a.get("rejet")]   # #820 : pas de rejetés dans les synthèses
     noms, out = noms_sources(cn), {}
     for p in V.PUBLICS:
         choix = sorted([a for a in arts if p in a["publics"]], key=lambda a: (0 if a["impacts"]["actifs"] else 1, -(a.get("publie") or 0)))
@@ -304,6 +324,7 @@ def regle_depuis(args):
     r["jours"] = float(args.get("jours") or 30)
     for k in ("cve", "nos_modeles", "non_lus", "suivis", "impacts"):
         r[k] = str(args.get(k) or "") in ("1", "true", "oui")
+    r["rejetes"] = args.get("rejetes") if args.get("rejetes") in ("avec", "seuls") else ""
     return r
 
 
@@ -325,7 +346,9 @@ def chercher(cn, regle, limite=300):
     jours = float(regle.get("jours") or 30)
     rows = enrichir(cn, lignes(cn.execute("SELECT * FROM veille_articles WHERE COALESCE(publie, recu) >= ? ORDER BY COALESCE(publie, recu) DESC",
                                           (time.time() - jours * 86400,))))
-    ok = [a for a in rows if V.correspond_si(a, regle)]
+    marquer_rejets(rows, regles_rejet(cn))
+    mode = regle.get("rejetes") or ""
+    ok = [a for a in rows if V.correspond_si(a, regle) and (mode == "avec" or bool(a.get("rejet")) == (mode == "seuls"))]
     ok.sort(key=lambda a: (0 if a["impacts"]["actifs"] and regle.get("impacts") else 1, -(a.get("publie") or a.get("recu") or 0)))
     return ok[:limite], len(ok)
 
@@ -366,9 +389,12 @@ def articles():
 def article_marquer(aid):
     b = request.get_json(silent=True) or {}
     with cnx() as cn:
-        for k in ("lu", "suivi"):
+        for k in ("lu", "suivi", "repeche"):
             if k in b:
                 cn.execute("UPDATE veille_articles SET %s=? WHERE id=?" % k, (1 if b[k] else 0, aid))
+        if "repeche" in b:
+            cn.execute("INSERT INTO veille_journal (article_id, statut, par, quand, note) VALUES (?,?,?,?,?)",
+                       (aid, "repeche" if b["repeche"] else "rejete", qui(b), time.time(), "repêché" if b["repeche"] else "repêchage annulé"))
         if "statut" in b:
             st = b.get("statut") or None
             if st and st not in V.STATUTS:
@@ -378,6 +404,49 @@ def article_marquer(aid):
             cn.execute("INSERT INTO veille_journal (article_id, statut, par, quand, note) VALUES (?,?,?,?,?)", (aid, st or "aucun", par, t, note))
         cn.commit()
     return jsonify({"ok": True})
+
+
+@bp.get("/veille/rejets")
+def rejets_liste():
+    """#820 : règles de rejet avec le nombre d'articles qu'elles écartent (sur la conservation)."""
+    with cnx() as cn:
+        regles = regles_rejet(cn)
+        nb = {g["id"]: 0 for g in regles}
+        for a in lignes(cn.execute("SELECT id, source_id, titre, resume, cves, tags, categories, repeche FROM veille_articles")):
+            g = V.rejet_de(a, regles)
+            if g:
+                nb[g["id"]] += 1
+        rep_ = cn.execute("SELECT COUNT(*) FROM veille_articles WHERE repeche=1").fetchone()[0]
+    return jsonify({"regles": [dict(g, articles=nb[g["id"]]) for g in regles], "types": V.TYPES_REJET, "repeches": rep_})
+
+
+@bp.post("/veille/rejets")
+def rejets_creer():
+    b = request.get_json(silent=True) or {}
+    with cnx() as cn:
+        g, err = V.valider_rejet(b, [r[0] for r in cn.execute("SELECT id FROM veille_sources")])
+        if err:
+            return jsonify({"error": err}), 400
+        if g["type"] == "article" and not cn.execute("SELECT 1 FROM veille_articles WHERE id=?", (int(g["valeur"]),)).fetchone():
+            return jsonify({"error": "article inconnu"}), 404
+        try:
+            cur = cn.execute("INSERT INTO veille_rejets (type, valeur, motif, cree, par) VALUES (?,?,?,?,?)", (g["type"], g["valeur"], g["motif"], time.time(), qui(b)))
+            cn.commit()
+        except sqlite3.IntegrityError:
+            cn.rollback()
+            return jsonify({"error": "règle déjà présente"}), 409
+        if g["type"] == "article":
+            cn.execute("UPDATE veille_articles SET repeche=0 WHERE id=?", (int(g["valeur"]),))
+            cn.commit()
+    return jsonify(dict(g, id=cur.lastrowid)), 201
+
+
+@bp.delete("/veille/rejets/<int:rid>")
+def rejets_retirer(rid):
+    with cnx() as cn:
+        n = cn.execute("DELETE FROM veille_rejets WHERE id=?", (rid,)).rowcount
+        cn.commit()
+    return (jsonify({"ok": True}), 200) if n else (jsonify({"error": "règle inconnue"}), 404)
 
 
 @bp.post("/veille/articles/lus")

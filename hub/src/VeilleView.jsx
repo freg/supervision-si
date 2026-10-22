@@ -5,11 +5,11 @@
 // (alerte immédiate, synthèse quotidienne par public). Préfiltres python, php, linux, bsd, mikrotik + nos modèles,
 // filtres enregistrés, extraction CSV / Markdown / JSON / Atom, explication et synthèse par l'IA locale.
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { basculer, chezNous, dateCourte, fmtEpss, paramsRegle, termes, ton } from "./veilleLib.js";
+import { basculer, chezNous, dateCourte, fmtEpss, motsCles, paramsRegle, termes, ton } from "./veilleLib.js";
 
 const ONGLETS = [
   ["alerte", "Alertes"], ["impacts", "Impacts SI"], ["ia", "IA cyber"], ["ia_sorties", "IA : sorties"], ["generale", "Générales"], ["france_europe", "France / Europe"],
-  ["reglement", "Règlements ANSSI / RGPD"], ["filtres", "Filtres et extraction"], ["sources", "Sources et préfiltres"], ["journal", "Journal"],
+  ["reglement", "Règlements ANSSI / RGPD"], ["filtres", "Filtres et extraction"], ["sources", "Sources et préfiltres"], ["rejets", "Rejets"], ["journal", "Journal"],
 ];
 const LISTES = new Set(["alerte", "impacts", "ia", "ia_sorties", "generale", "france_europe", "reglement"]);
 const FORMATS = [["csv", "CSV"], ["md", "Markdown"], ["json", "JSON"], ["atom", "Atom"]];
@@ -47,6 +47,19 @@ function Articles({ base, liste, total, etat, noms, username, recharger, setErr 
   const statuts = etat?.statuts || {};
   async function maj(a, b) {
     try { await call(base, `/veille/articles/${a.id}`, corps({ ...b, par: username })); recharger(); } catch (x) { setErr(x.message); }
+  }
+  async function rejeter(a, choix) {
+    if (!choix) return;
+    let type = choix, valeur = "";
+    if (choix === "article") valeur = String(a.id);
+    else if (choix === "source") valeur = String(a.source_id);
+    else if (choix === "sujet") valeur = (a.cves || []).join(",");
+    else if (choix.startsWith("theme:")) { type = "theme"; valeur = choix.slice(6); }
+    else if (choix === "motcle") {
+      valeur = window.prompt("Ne plus présenter les articles contenant (mots, \"phrase\", a|b, -exclu) :", motsCles(a.titre));
+      if (!valeur || !valeur.trim()) return;
+    }
+    try { await call(base, "/veille/rejets", corps({ type, valeur, par: username })); recharger(); } catch (x) { setErr(x.message); }
   }
   async function expliquer(a) {
     setIa((m) => ({ ...m, [a.id]: { attente: true } }));
@@ -87,6 +100,16 @@ function Articles({ base, liste, total, etat, noms, username, recharger, setErr 
                     <button type="button" className="secondary" title="suivre (gardé au-delà de la conservation)" onClick={() => maj(a, { suivi: !a.suivi })}>{a.suivi ? "★" : "☆"}</button>
                     <button type="button" className="secondary" title={a.lu ? "marquer non lu" : "marquer lu"} onClick={() => maj(a, { lu: !a.lu })}>{a.lu ? "○" : "●"}</button>
                     {a.url && <a href={a.url} target="_blank" rel="noreferrer" title="ouvrir l'article">↗</a>}
+                    {a.rejet
+                      ? <button type="button" className="secondary" title={`écarté par « ${TYPES_REJET[a.rejet.type] || a.rejet.type} : ${a.rejet.type === "source" ? noms[a.rejet.valeur] || a.rejet.valeur : a.rejet.valeur} »${a.rejet.par ? ` (${a.rejet.par})` : ""} — repêcher l'exempte de toute règle`} onClick={() => maj(a, { repeche: true })}>↺</button>
+                      : <select className="veille-rejet" value="" title="ne plus présenter… (archivé dans l'onglet Rejets)" onChange={(e) => rejeter(a, e.target.value)}>
+                        <option value="">✕</option>
+                        <option value="article">Ne plus présenter cet article</option>
+                        <option value="source">… la source « {noms[a.source_id] || a.source_id} »</option>
+                        {(a.cves || []).length > 0 && <option value="sujet">… ce sujet ({a.cves.slice(0, 3).join(", ")}{a.cves.length > 3 ? "…" : ""})</option>}
+                        {[...(a.tags || []), ...(a.categories || [])].map((t) => <option key={t} value={`theme:${t}`}>… le thème « {t} »</option>)}
+                        <option value="motcle">… des mots-clés…</option>
+                      </select>}
                   </div></td>
                 </tr>
                 {ouvert === a.id && (
@@ -111,6 +134,58 @@ function Articles({ base, liste, total, etat, noms, username, recharger, setErr 
       </table>
       {total > liste.length && <p className="infra-muted">{liste.length} affichés sur {total} — affinez ou extrayez le tout.</p>}
     </div>
+  );
+}
+
+const TYPES_REJET = { article: "cet article", source: "source", sujet: "sujet (CVE)", theme: "thème", motcle: "mots-clés" };
+const AIDE_VALEUR = { article: "n° d'article", sujet: "CVE-2026-1234, CVE-…", theme: "préfiltre ou catégorie (php, generale…)", motcle: "mots, \"phrase\", a|b, -exclu" };
+
+// #820 : rejets fins -- règles (article, source, sujet, thème, mots-clés), archive des articles écartés, repêchage.
+// Un rejet large ne fait pas taire l'alerte immédiate d'un article qui touche notre SI ; seul le rejet de l'article lui-même.
+function Rejets({ base, sources, noms, etat, username, setErr }) {
+  const [d, setD] = useState(null);
+  const [res, setRes] = useState({ articles: [], total: 0 });
+  const [g, setG] = useState({ type: "motcle", valeur: "", motif: "" });
+  const charger = useCallback(() => {
+    call(base, "/veille/rejets").then(setD).catch((x) => setErr(x.message));
+    call(base, "/veille/articles?jours=365&rejetes=seuls").then(setRes).catch((x) => setErr(x.message));
+  }, [base, setErr]);
+  useEffect(() => { charger(); }, [charger]);
+  const lib = (r) => r.type === "source" ? (noms[r.valeur] || `source ${r.valeur}`) : r.type === "article" ? `article n° ${r.valeur}` : r.valeur;
+  async function retirer(r) {
+    if (!window.confirm(`Retirer la règle « ${lib(r)} » ? Les ${r.articles} article(s) qu'elle écarte reviennent dans les listes.`)) return;
+    try { await call(base, `/veille/rejets/${r.id}`, { method: "DELETE" }); charger(); } catch (x) { setErr(x.message); }
+  }
+  async function ajouter() {
+    try { await call(base, "/veille/rejets", corps({ ...g, par: username })); setG({ ...g, valeur: "", motif: "" }); charger(); } catch (x) { setErr(x.message); }
+  }
+  return (
+    <>
+      <div className="veille-bloc">
+        <p className="infra-muted">Les articles écartés restent archivés ci-dessous ; « ↺ » repêche un article, « Retirer » repêche tout ce qu'une règle écarte.
+          Une alerte qui touche notre SI reste diffusée sauf si l'article lui-même est rejeté.</p>
+        <div className="infra-table-wrap"><table className="infra-table">
+          <thead><tr><th>Type</th><th>Valeur</th><th>Motif</th><th>Par</th><th>Créée</th><th>Articles écartés</th><th></th></tr></thead>
+          <tbody>
+            {(d?.regles || []).map((r) => (
+              <tr key={r.id}><td>{d.types[r.type] || r.type}</td><td>{lib(r)}</td><td className="infra-muted">{r.motif || "—"}</td><td className="infra-muted">{r.par || "—"}</td>
+                <td className="infra-muted">{dateCourte(r.cree)}</td><td>{r.articles}</td>
+                <td><button type="button" className="secondary" onClick={() => retirer(r)}>Retirer</button></td></tr>))}
+            {d && !d.regles.length && <tr><td colSpan={7} className="infra-muted">Aucune règle : utilisez « ✕ » sur un article, ou ajoutez-en une ci-dessous.</td></tr>}
+          </tbody>
+        </table></div>
+        <div className="veille-ligne">
+          <select value={g.type} onChange={(e) => setG({ ...g, type: e.target.value, valeur: "" })}>{Object.entries(d?.types || TYPES_REJET).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+          {g.type === "source"
+            ? <select value={g.valeur} onChange={(e) => setG({ ...g, valeur: e.target.value })}><option value="">— source —</option>{sources.map((x) => <option key={x.id} value={x.id}>{x.nom}</option>)}</select>
+            : <input value={g.valeur} placeholder={AIDE_VALEUR[g.type] || ""} onChange={(e) => setG({ ...g, valeur: e.target.value })} />}
+          <input value={g.motif} placeholder="motif (facultatif)" onChange={(e) => setG({ ...g, motif: e.target.value })} />
+          <button type="button" disabled={!String(g.valeur).trim()} onClick={ajouter}>Ajouter la règle</button>
+        </div>
+        {d?.repeches > 0 && <p className="infra-muted">{d.repeches} article(s) repêché(s), exemptés de toute règle.</p>}
+      </div>
+      <Articles base={base} liste={res.articles} total={res.total} etat={etat} noms={noms} username={username} recharger={charger} setErr={setErr} />
+    </>
   );
 }
 
@@ -424,6 +499,7 @@ export default function VeilleView({ onBack, vulnApiBase, username }) {
         </>}
         {onglet === "filtres" && <Filtres base={base} etat={etat} sources={sources} noms={noms} prefiltres={prefiltres} username={username} setErr={setErr} />}
         {onglet === "sources" && <Sources base={base} etat={etat} sources={sources} prefiltres={prefiltres} recharger={chargerFond} setErr={setErr} />}
+        {onglet === "rejets" && <Rejets base={base} sources={sources} noms={noms} etat={etat} username={username} setErr={setErr} />}
         {onglet === "journal" && <Journal base={base} etat={etat} setErr={setErr} />}
       </div>
     </div>

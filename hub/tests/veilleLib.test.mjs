@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { paramsRegle, basculer, termes, dateCourte, ton, chezNous, fmtEpss } from "../src/veilleLib.js";
+import { paramsRegle, basculer, termes, dateCourte, ton, chezNous, fmtEpss, motsCles } from "../src/veilleLib.js";
 
 test("veille : paramètres de règle", () => {
   assert.equal(paramsRegle({ categories: ["alerte"], publics: ["rssi"], statuts: ["a_traiter", "aucun"], texte: " openssh -windows ", jours: 7, impacts: true, cve: false }),
@@ -28,4 +28,10 @@ test("veille : ton, chez nous, EPSS", () => {
   assert.equal(fmtEpss(0.9731), "97 %");
   assert.equal(fmtEpss(0.0123), "1,2 %");
   assert.equal(fmtEpss(null), "—");
+});
+
+test("#820 rejets : paramètre rejetes et mots-clés proposés", () => {
+  assert.equal(paramsRegle({ rejetes: "seuls", jours: 365 }), "jours=365&rejetes=seuls");
+  assert.equal(paramsRegle({ rejetes: "autre" }), "jours=30");
+  assert.equal(motsCles("Ollama 0.12 : nouvelle API pour les embeddings dans Ollama"), "embeddings nouvelle Ollama");
 });
