@@ -1,3 +1,10 @@
+## 2026-10-22 — Pied de page : commandes Émulation / Orchestration en cours, liens et « terminé — voir » (livraison #837)
+
+- Les commandes envoyées aux agents par les tuiles **Émulation** et **Orchestration** apparaissent dans le pied de page
+  tant que l'agent y travaille (icône, action, hôte, durée) ; un clic ouvre la tuile sur l'onglet Commandes.
+- À la fin d'une commande vue en cours dans ce navigateur : bandeau « ✔ terminé — voir » (ou « ✗ échec : raison »),
+  lien vers la tuile ; les travaux terminés du pied de page déplié sont aussi des liens.
+
 ## 2026-10-22 — Orchestration : VM à la demande avec durée de vie (livraison #836)
 
 - Onglet **Machines virtuelles** : « Créer la VM » depuis un modèle Proxmox du nœud (ceux du Banc compris) -- clone

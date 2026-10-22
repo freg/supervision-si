@@ -11,6 +11,8 @@ from flask import Blueprint, jsonify
 import modeles_stockage as stockage
 
 bp = Blueprint("activite", __name__)
+DB_PATH = None          # #837 : base des agents (commandes suivies), fourni par app.py
+SUIVIES = {"emulation": ("émulation", "emulation"), "orchestration": ("orchestration", "orchestration")}   # type -> (libellé, vue du hub)
 SCHEMA = """CREATE TABLE IF NOT EXISTS activite (id INTEGER PRIMARY KEY, genre TEXT, detail TEXT, debut REAL, fin REAL, ok INTEGER, erreur TEXT);
 CREATE INDEX IF NOT EXISTS activite_debut ON activite (debut);"""
 ABANDON_S = 3600
@@ -64,10 +66,59 @@ def resume(lignes_, maintenant):
     return {"en_cours": sorted(en_cours, key=lambda r: r["debut"]), "recentes": recentes}
 
 
+def _ts(iso):
+    from datetime import datetime
+    try:
+        return datetime.fromisoformat(str(iso).replace("Z", "+00:00")).timestamp()
+    except (TypeError, ValueError):
+        return None
+
+
+def commandes_suivies(rows, maintenant):
+    """#837 Commandes d'agent des tuiles Émulation / Orchestration -> travaux du pied de page (lien vers la tuile)."""
+    import json as _json
+    en_cours, recentes = [], []
+    for r in rows:
+        lib, vue = SUIVIES.get(r["type"], (r["type"], None))
+        try:
+            p = _json.loads(r["params"] or "{}")
+        except ValueError:
+            p = {}
+        quoi = " ".join(str(x) for x in (p.get("action"), p.get("moteur"), p.get("nom") or p.get("instance") or p.get("profil")) if x)
+        d = {"id": "cmd-%s" % r["id"], "genre": r["type"], "detail": "%s : %s · %s" % (lib, quoi, r["agent_id"]), "vue": vue,
+             "debut": _ts(r["created_at"]) or maintenant}
+        if r["status"] == "pending":
+            if maintenant - d["debut"] < 6 * 3600:
+                en_cours.append(dict(d, depuis_s=int(maintenant - d["debut"])))
+        else:
+            fin = _ts(r["acked_at"]) or d["debut"]
+            try:
+                err = (_json.loads(r["result"] or "{}") or {}).get("error")
+            except ValueError:
+                err = None
+            recentes.append(dict(d, fin=fin, ok=r["status"] == "done" and not err, erreur=err, duree_s=round(max(0, fin - d["debut"]), 1)))
+    return en_cours, sorted(recentes, key=lambda x: -x["fin"])
+
+
 @bp.get("/etat-hub")
 def etat_hub():
     t = time.time()
     c = _cnx()
     rows = [dict(r) for r in c.execute("SELECT * FROM activite WHERE debut > ? ORDER BY debut DESC LIMIT 200", (t - CONSERVATION_S,))]
     c.close()
-    return jsonify(dict(resume(rows, t), maintenant=t))
+    out = resume(rows, t)
+    if DB_PATH:
+        try:
+            import store
+            conn = store._connect(DB_PATH)
+            try:
+                cmds = [dict(r) for r in conn.execute("SELECT id, agent_id, type, params, created_at, status, result, acked_at FROM commands WHERE type IN (%s) "
+                                                         "ORDER BY created_at DESC LIMIT 60" % ",".join("?" * len(SUIVIES)), tuple(SUIVIES))]
+            finally:
+                conn.close()
+            ec, rc = commandes_suivies(cmds, t)
+            out["en_cours"] = out["en_cours"] + ec
+            out["recentes"] = sorted(out["recentes"] + [x for x in rc if t - x["fin"] < 2 * 86400], key=lambda x: -(x.get("fin") or 0))[:10]
+        except Exception:  # noqa: BLE001 -- jamais bloquant
+            pass
+    return jsonify(dict(out, maintenant=t))

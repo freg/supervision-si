@@ -1,5 +1,11 @@
 [
  {
+  "n": 837,
+  "from": 837,
+  "date": "2026-10-22",
+  "title": "Pied de page : commandes Émulation / Orchestration en cours, liens et « terminé — voir »"
+ },
+ {
   "n": 836,
   "from": 836,
   "date": "2026-10-22",
@@ -232,11 +238,5 @@
   "from": 797,
   "date": "2026-10-20",
   "title": "Central : fin des « database is locked » (contrôle DNS des proxys d'entrée)"
- },
- {
-  "n": 796,
-  "from": 796,
-  "date": "2026-10-20",
-  "title": "Hub installable sur téléphone : écran « Urgence » et alertes poussées"
  }
 ]

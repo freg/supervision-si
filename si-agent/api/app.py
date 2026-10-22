@@ -252,6 +252,7 @@ def _modeles_parc():
 modeles.source_tags = _modeles_parc
 app.register_blueprint(skills.bp)   # #827
 app.register_blueprint(activite.bp)   # #830
+activite.DB_PATH = DB_PATH   # #837 : commandes Émulation / Orchestration dans le pied de page
 app.register_blueprint(emulation.bp)   # #831
 emulation.DB_PATH = DB_PATH
 emulation.evenement = lambda k, s, m, a, d: _event(k, s, m, agent_id=a, details=d)

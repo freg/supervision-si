@@ -2,9 +2,12 @@
 // (annoncée par scripts/run.sh pendant la construction et le redémarrage), rechargement SANS CACHE quand une
 // nouvelle livraison est servie (15 s, « Recharger maintenant » / « Plus tard », bouton ↻ permanent), et ce qui
 // travaille : IA (priorités, essais de skills, évaluations), sources consultées (veille des modèles, veille cyber).
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { hubLink } from "./hubLinks.js";
 
-const ICONE = { ia: "🧠", source: "📡" };
+const ICONE = { ia: "🧠", source: "📡", emulation: "📟", orchestration: "🧩" };
+// #837 : un travail lié à une tuile (commandes Émulation / Orchestration) est un lien vers elle
+const lien = (x, fini) => (x.vue ? hubLink(x.vue, fini && x.ok ? {} : { tab: "commandes" }) : null);
 const duree = (s) => (s < 60 ? `${s} s` : `${Math.floor(s / 60)} min${s % 60 ? ` ${s % 60} s` : ""}`);
 const depuis = (t) => { if (!t) return "jamais"; const s = Math.max(0, Date.now() / 1000 - t); return s < 60 ? `${Math.round(s)} s` : s < 3600 ? `${Math.round(s / 60)} min` : `${Math.round(s / 3600)} h`; };
 const num = (n) => { const x = parseInt(String(n ?? "").replace(/\D/g, ""), 10); return Number.isFinite(x) ? x : null; };
@@ -50,6 +53,15 @@ export default function BarreEtatHub({ charge, servicesBase, siAgentBase, vulnBa
   }, [nouvelle, plusTard]);
   const enCours = act?.en_cours || [];
   const m = srv?.maj;
+  const vus = useRef({});
+  const [finis, setFinis] = useState([]);
+  useEffect(() => {   // #837 : commande vue en cours puis terminée -> bandeau « terminé — voir »
+    if (!act) return;
+    const fins = (act.recentes || []).filter((x) => x.vue && vus.current[x.id]);
+    for (const x of act.en_cours || []) if (x.vue) vus.current[x.id] = true;
+    for (const x of fins) delete vus.current[x.id];
+    if (fins.length) setFinis((f) => [...fins, ...f].slice(0, 3));
+  }, [act]);
   return (
     <div className={`barre-etat-hub${ouvert ? " ouverte" : ""}`}>
       {m && <div className="barre-maj">⟳ mise à jour en cours{m.numero ? ` vers #${m.numero}` : ""} : {m.sujet || ""} — <b>{m.etape}</b>
@@ -58,18 +70,22 @@ export default function BarreEtatHub({ charge, servicesBase, siAgentBase, vulnBa
       {nouvelle && plusTard !== nouvelle && <div className="barre-maj nouvelle">✔ nouvelle livraison #{nouvelle} servie (cet écran : #{charge}) — rechargement sans cache dans {compte ?? 15} s{" "}
         <button type="button" onClick={() => rechargerSansCache(nouvelle)}>Recharger maintenant</button>{" "}
         <button type="button" className="secondary" onClick={() => setPlusTard(nouvelle)}>Plus tard</button></div>}
+      {finis.map((x) => <div key={x.id} className={`barre-maj ${x.ok ? "nouvelle" : ""}`}>{x.ok ? "✔" : "✗"} {ICONE[x.genre]} {x.detail} — {x.ok ? "terminé" : `échec${x.erreur ? ` : ${x.erreur}` : ""}`}{" "}
+        <a href={lien(x, true)} onClick={() => setFinis((f) => f.filter((y) => y.id !== x.id))}>voir</a>{" "}
+        <button type="button" className="secondary" onClick={() => setFinis((f) => f.filter((y) => y.id !== x.id))}>×</button></div>)}
       <div className="barre-ligne" onClick={() => setOuvert(!ouvert)} title="cliquer : derniers travaux">
         <b title={srv ? `servi : #${srv.delivery_number || "?"} (${srv.git_hash || "?"})` : ""}>Hub supervision #{charge || "?"}</b>
         {servie && servie !== num(charge) && <span className="infra-muted">(servi : #{servie})</span>}
         {hs && !vuMaj && <span className="infra-status critical">services-api injoignable</span>}
-        {enCours.map((x) => <span key={x.id} className="barre-tache actif">{ICONE[x.genre] || "⚙"} {x.detail} <span className="infra-muted">{duree(x.depuis_s)}</span></span>)}
-        {act && !enCours.length && <span className="infra-muted">aucun travail d'IA en cours</span>}
+        {enCours.map((x) => { const c = <>{ICONE[x.genre] || "⚙"} {x.detail} <span className="infra-muted">{duree(x.depuis_s)}</span></>;
+          return lien(x) ? <a key={x.id} className="barre-tache actif" href={lien(x)} onClick={(e) => e.stopPropagation()}>{c}</a> : <span key={x.id} className="barre-tache actif">{c}</span>; })}
+        {act && !enCours.length && <span className="infra-muted">aucun travail en cours</span>}
         <span style={{ flex: 1 }} />
         {veille?.derniere_releve && <span className="infra-muted">veille cyber relevée il y a {depuis(veille.derniere_releve)}{veille.sources_en_erreur ? ` · ${veille.sources_en_erreur} source(s) en erreur` : ""}</span>}
         <button type="button" className="secondary" title="recharger l'interface sans cache (dernière livraison servie)" onClick={(e) => { e.stopPropagation(); rechargerSansCache(servie || charge); }}>↻</button>
       </div>
       {ouvert && <ul className="barre-recentes">
-        {(act?.recentes || []).map((x) => <li key={x.id}><span className={x.ok ? "infra-status good" : "infra-status critical"}>{x.ok ? "✔" : "✗"}</span> {ICONE[x.genre] || "⚙"} {x.detail}
+        {(act?.recentes || []).map((x) => <li key={x.id}><span className={x.ok ? "infra-status good" : "infra-status critical"}>{x.ok ? "✔" : "✗"}</span> {ICONE[x.genre] || "⚙"} {lien(x, true) ? <a href={lien(x, true)}>{x.detail}</a> : x.detail}
           <span className="infra-muted"> · {duree(Math.round(x.duree_s))} · il y a {depuis(x.fin)}{x.erreur ? ` · ${x.erreur}` : ""}</span></li>)}
         {!(act?.recentes || []).length && <li className="infra-muted">aucun travail terminé récemment</li>}
       </ul>}

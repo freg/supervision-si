@@ -31,5 +31,21 @@ class Activite(unittest.TestCase):
         self.assertIn("Priorités · décideur", faits)
 
 
+
+class CommandesSuivies(unittest.TestCase):
+    """#837 : commandes Émulation / Orchestration dans le pied de page, avec la vue à ouvrir."""
+    def test_commandes(self):
+        import activite as A2
+        rows = [{"id": "c1", "agent_id": "pcia", "type": "orchestration", "params": '{"action": "installer", "moteur": "nomad"}',
+                 "created_at": "2026-10-22T10:00:00+00:00", "status": "pending", "result": None, "acked_at": None},
+                {"id": "c2", "agent_id": "pcia", "type": "emulation", "params": '{"action": "lancer", "instance": "emu-rpi0w-1"}',
+                 "created_at": "2026-10-22T09:00:00Z", "status": "failed", "result": '{"ok": false, "error": "QEMU absent"}', "acked_at": "2026-10-22T09:01:00Z"}]
+        t = A2._ts("2026-10-22T10:05:00Z")
+        ec, rc = A2.commandes_suivies(rows, t)
+        self.assertEqual((ec[0]["vue"], ec[0]["depuis_s"], ec[0]["detail"]), ("orchestration", 300, "orchestration : installer nomad · pcia"))
+        self.assertEqual((rc[0]["vue"], rc[0]["ok"], rc[0]["erreur"], rc[0]["duree_s"]), ("emulation", False, "QEMU absent", 60.0))
+        self.assertEqual(A2.commandes_suivies(rows[:1], t + 7 * 3600), ([], []))   # en attente depuis plus de 6 h : abandonnée
+
+
 if __name__ == "__main__":
     unittest.main()
