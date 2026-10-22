@@ -1,5 +1,11 @@
 [
  {
+  "n": 834,
+  "from": 834,
+  "date": "2026-10-22",
+  "title": "Orchestration : catalogue d'images Docker Hub"
+ },
+ {
   "n": 833,
   "from": 833,
   "date": "2026-10-22",
@@ -232,11 +238,5 @@
   "from": 794,
   "date": "2026-10-20",
   "title": "Garde du hub : SMS d'alerte par l'API du TRB140, agent 0.5.88"
- },
- {
-  "n": 793,
-  "from": 793,
-  "date": "2026-10-20",
-  "title": "Garde du hub : un autre hôte surveille le hub et alerte hors du hub, agent 0.5.87"
  }
 ]

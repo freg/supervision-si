@@ -279,3 +279,5 @@ export const sendEmulation = (apiBase, body) => fetchJson(apiBase, "/emulation/c
 // #832 : orchestration (VM Proxmox, k3s, Nomad)
 export const fetchOrchestration = (apiBase) => fetchJson(apiBase, "/orchestration");
 export const sendOrchestration = (apiBase, body) => fetchJson(apiBase, "/orchestration/commande", json("POST", body));
+export const fetchImages = (apiBase, q) => fetchJson(apiBase, `/orchestration/images${q ? `?q=${encodeURIComponent(q)}` : ""}`);   // #834
+export const fetchImageTags = (apiBase, image) => fetchJson(apiBase, `/orchestration/images/tags?image=${encodeURIComponent(image)}`);

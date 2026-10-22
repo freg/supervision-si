@@ -2,7 +2,7 @@
 // création depuis les modèles du banc) et conteneurs (k3s, Nomad) des hôtes supervisés -- clusters, nœuds, charges,
 // placement automatique, quotas (k3s), durée de vie (TTL, appliquée par la sonde). Ordres : commande « orchestration ».
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { fetchOrchestration, sendOrchestration } from "./siAgentClient.js";
+import { fetchImages, fetchImageTags, fetchOrchestration, sendOrchestration } from "./siAgentClient.js";
 import { hubLink, viewParams } from "./hubLinks.js";
 import BoutonCommande, { suivreCommande, useFinCommandes } from "./BoutonCommande.jsx";
 
@@ -11,6 +11,52 @@ const MOTEURS = { k3s: "k3s (Kubernetes)", nomad: "Nomad" };
 const VIDE = { moteur: "k3s", agent: "auto", nom: "", image: "", repliques: 1, port: "", cpu: 250, memoire: 256, ttl_h: "", espace: "si" };
 const quand = (t) => (t ? new Date(typeof t === "number" ? t * 1000 : t).toLocaleString("fr-FR") : "—");
 const Ton = ({ ok, children }) => <span className={`np-tone ${ok ? "good" : "bad"}`}>{children}</span>;
+
+// #834 Catalogue d'images : sélection de départ, recherche Docker Hub, étiquettes avec leurs architectures -> formulaire.
+function Catalogue({ base, choisir }) {
+  const [q, setQ] = useState("");
+  const [liste, setListe] = useState(null);
+  const [sel, setSel] = useState(null);
+  const [tags, setTags] = useState(null);
+  const [err, setErr] = useState("");
+  const [att, setAtt] = useState(false);
+  const chercher = useCallback(async (x) => {
+    setAtt(true); setSel(null);
+    const r = await fetchImages(base, x);
+    setAtt(false);
+    if (r?.error) setErr(r.error); else { setListe(r.images); setErr(""); }
+  }, [base]);
+  useEffect(() => { chercher(""); }, [chercher]);
+  async function ouvrir(i) {
+    if (sel?.image === i.image) { setSel(null); return; }
+    setSel(i); setTags(null);
+    const r = await fetchImageTags(base, i.image);
+    if (r?.error) setErr(r.error); else setTags(r.tags);
+  }
+  return (
+    <div className="infra-card">
+      <div className="veille-ligne"><b>Catalogue d'images</b>
+        <input value={q} onChange={(x) => setQ(x.target.value)} onKeyDown={(x) => { if (x.key === "Enter") { x.preventDefault(); chercher(q); } }} placeholder="chercher sur Docker Hub (ex. wordpress)" />
+        <button type="button" className={att ? "en-cours" : ""} disabled={att} onClick={() => chercher(q)}>{att ? "recherche…" : "Chercher"}</button>
+        {q && <button type="button" className="secondary" onClick={() => { setQ(""); chercher(""); }}>Sélection</button>}</div>
+      {err && <p className="infra-error">{err}</p>}
+      <div className="infra-table-wrap"><table className="infra-table"><thead><tr><th>Image</th><th>Usage</th><th>Téléchargements</th><th>Port</th></tr></thead>
+        <tbody>{(liste || []).map((i) => (
+          <Fragment key={i.image}>
+            <tr onClick={() => ouvrir(i)} style={{ cursor: "pointer" }}>
+              <td><b>{i.image}</b>{i.officielle && <span className="np-tone good"> officielle</span>}</td><td className="infra-muted">{i.description}</td>
+              <td className="infra-muted">{i.telechargements != null ? i.telechargements.toLocaleString("fr-FR") : ""}</td><td>{i.port || "—"}</td></tr>
+            {sel?.image === i.image && <tr><td colSpan={4}>
+              {!tags ? <span className="infra-muted">étiquettes…</span> : <div className="veille-ligne">{tags.map((t) => (
+                <button type="button" key={t.tag} className="secondary" title={`${(t.architectures || []).join(", ")}${t.maj ? ` · ${t.maj.slice(0, 10)}` : ""}`}
+                  onClick={() => choisir(`${i.image}:${t.tag}`, i.port)}>{t.tag} <small>{(t.architectures || []).filter((a) => /^(amd64|arm64)/.test(a)).map((a) => a.split("/")[0]).join(" ")}</small></button>))}
+                {!tags.length && <span className="infra-muted">aucune étiquette</span>}</div>}
+            </td></tr>}
+          </Fragment>))}
+          {liste && !liste.length && <tr><td colSpan={4} className="infra-muted">aucun résultat</td></tr>}</tbody></table></div>
+    </div>
+  );
+}
 
 export default function OrchestrationView({ onBack, siAgentApiBase }) {
   const base = siAgentApiBase;
@@ -67,6 +113,8 @@ export default function OrchestrationView({ onBack, siAgentApiBase }) {
                 <BoutonCommande className="danger" cmds={d.commandes} agent={x.agent} critere={{ action: "supprimer", moteur: x.moteur, nom: x.nom }} onClick={() => window.confirm(`Supprimer ${x.nom} (${x.moteur}, ${x.agent}) ?`) && envoyer({ agent: x.agent, action: "supprimer", moteur: x.moteur, nom: x.nom, espace: x.espace }, `suppression de ${x.nom}`)}>Supprimer</BoutonCommande>
               </td></tr>))}
             {!charges.length && <tr><td colSpan={9} className="infra-muted">Aucune charge : onglet Déployer.</td></tr>}</tbody></table></div>}
+        {tab === "deployer" && <Catalogue base={base} choisir={(image, port) => setF((x) => ({ ...x, image, port: x.port || port || "",
+          nom: x.nom || image.split(":")[0].split("/").pop().toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 40) }))} />}
         {tab === "deployer" && <form className="veille-form" onSubmit={async (e) => { e.preventDefault(); if (await envoyer(f, `déploiement de ${f.nom}`)) setF({ ...VIDE, moteur: f.moteur }); }}>
           <label>Moteur <select value={f.moteur} onChange={(e) => setF({ ...f, moteur: e.target.value, agent: "auto" })}>{Object.entries(MOTEURS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
           <label>Hôte <select value={f.agent} onChange={(e) => setF({ ...f, agent: e.target.value })}>

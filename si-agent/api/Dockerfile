@@ -55,6 +55,7 @@ COPY si-agent/api/apprentissage.py .
 COPY si-agent/api/activite.py .
 COPY si-agent/api/emulation.py .
 COPY si-agent/api/orchestration.py .
+COPY si-agent/api/dockerhub.py .
 COPY si-agent/api/modeles_stockage.py .
 COPY shared/decideur.py .
 COPY si-agent/api/edgepair.py .

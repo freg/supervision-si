@@ -1,3 +1,11 @@
+## 2026-10-22 — Orchestration : catalogue d'images Docker Hub (livraison #834)
+
+- Onglet **Déployer** : sélection de départ (images officielles courantes avec leur port : nginx, redis, postgres,
+  grafana, uptime-kuma, ollama…), **recherche Docker Hub** (officielles d'abord, nombre de téléchargements),
+  étiquettes récentes avec leurs **architectures** (amd64 / arm64) ; un clic remplit image, port et nom.
+- Lecture seule, sans compte Docker Hub ; réponses gardées 10 min. L'API du central doit joindre hub.docker.com
+  (sinon message « Docker Hub injoignable » ; la sélection de départ reste disponible).
+
 ## 2026-10-22 — Émulation / Orchestration : boutons « en cours… », bascule vers le résultat ; Nomad démarre (livraison #833)
 
 - Chaque bouton qui envoie une commande à un agent (Installer, Rejoindre, Désinstaller, Relever, Échelle, Supprimer ;

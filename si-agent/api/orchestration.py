@@ -6,6 +6,7 @@ Les ordres sont des commandes `orchestration` aux agents (si_agent/orchctl.py) ;
 Pur et testé : clusters, placer."""
 from flask import Blueprint, jsonify, request
 
+import dockerhub
 import store
 
 try:   # copie de si_agent/orchctl.py dans l'image (source unique)
@@ -93,3 +94,22 @@ def commande():
         evenement("orchestration", "info", "orchestration : %s %s %s sur %s" % (p["action"], p.get("moteur") or "", p.get("nom") or p.get("espace") or "", aid), aid,
                   {"command": (c or {}).get("id"), "params": orchctl.masquer(p)})
     return jsonify({"commande": (c or {}).get("id"), "agent": aid}), 201
+
+
+@bp.get("/orchestration/images")
+def images():
+    """#834 catalogue : sélection de départ (sans q) ou recherche Docker Hub."""
+    try:
+        return jsonify({"images": dockerhub.rechercher(request.args.get("q"))}), 200
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"error": "Docker Hub injoignable : %s" % e}), 502
+
+
+@bp.get("/orchestration/images/tags")
+def images_tags():
+    try:
+        return jsonify({"tags": dockerhub.etiquettes(request.args.get("image"))}), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"error": "Docker Hub injoignable : %s" % e}), 502
