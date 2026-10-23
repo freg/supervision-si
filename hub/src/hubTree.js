@@ -86,7 +86,28 @@ export function buildCatalog({ availableViews, viewLabels = {}, fronts = [], isA
  *  inconnue = à la fin, puis libellé). Filtre `query` sur le libellé, sans
  *  accents ni casse. Menu invariant : ne dépend pas de l'arbre de
  *  disposition, donc rien n'y est jamais perdu. */
-export function universeEntries(catalog, { sort = "alpha", since = {}, query = "", themes = [] } = {}) {
+/** #846 : mots-clés supplémentaires de l'Univers, depuis .env : « nebula=campus,wifi;front:cisco=commutateurs ».
+ *  Clé sans préfixe = vue. -> { "view:nebula": ["campus", "wifi"], "front:cisco": ["commutateurs"] } */
+export function parseAliases(s) {
+  const out = {};
+  for (const part of String(s || "").split(";")) {
+    const [k, v] = part.split("=");
+    const key = (k || "").trim();
+    if (!key || !v) continue;
+    const id = /^(view|front|action):/.test(key) ? key : "view:" + key;
+    out[id] = [...(out[id] || []), ...v.split(",").map((w) => w.trim()).filter(Boolean)];
+  }
+  return out;
+}
+
+/** #846 : la saisie est-elle une adresse IPv4 ou MAC complète (recherche de l'appareil dans les sources du hub) ? */
+export function looksLikeAddress(q) {
+  const s = String(q || "").trim();
+  return /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/.test(s)
+    || /^[0-9a-f]{2}([:-][0-9a-f]{2}){5}$/i.test(s) || /^[0-9a-f]{4}(\.[0-9a-f]{4}){2}$/i.test(s);
+}
+
+export function universeEntries(catalog, { sort = "alpha", since = {}, query = "", themes = [], aliases = {}, labels = {} } = {}) {
   // #718 : la recherche porte aussi sur la thématique (menu) de chaque feuille : « securite » liste tout
   // « Sécurité & accès », sans casse ni accents (fold).
   const themeOf = new Map();
@@ -102,12 +123,14 @@ export function universeEntries(catalog, { sort = "alpha", since = {}, query = "
     const key = leaf.kind === "view" ? leaf.view : leaf.kind === "action" ? leaf.id : leaf.front;
     const n = since[key];
     const leafKey = leaf.kind === "view" ? "view:" + leaf.view : leaf.kind === "front" ? "front:" + leaf.front : null;
-    out.push({ ...leaf, since: Number.isFinite(n) ? n : null, themes: (leafKey && themeOf.get(leafKey)) || [] });
+    const id = leafKey || leaf.id;
+    out.push({ ...leaf, label: labels[id] || leaf.label, since: Number.isFinite(n) ? n : null, themes: (leafKey && themeOf.get(leafKey)) || [], aliases: aliases[id] || [] });
   }
   const byLabel = (a, b) => a.label.localeCompare(b.label, "fr", { sensitivity: "base" });
   const cmp = sort === "added" ? (a, b) => ((a.since ?? Infinity) - (b.since ?? Infinity)) || byLabel(a, b) : byLabel;
   // #562 : débuts de mot d'abord (« n » → Nebula avant Onduleurs), puis le tri choisi
-  return rankFilter(out, query, (l) => [l.label, ...(l.themes || [])].join(" · "), cmp);
+  // #846 : aussi le titre réel de la tuile (ex. « Nebula@<site> », réglé dans .env) et les mots-clés de .env
+  return rankFilter(out, query, (l) => [l.label, ...(l.themes || []), ...(l.aliases || [])].join(" · "), cmp);
 }
 
 /** Libellés des vues, tirés des thématiques (hubThemes.js) -- source unique. */

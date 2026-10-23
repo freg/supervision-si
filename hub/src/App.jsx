@@ -42,7 +42,7 @@ const HubTreeView = lazyView(() => import("./HubTreeView.jsx"));
 // #523 : Infos synthèse SI (DNS / IP OVH / IPAM / services, recoupés).
 const SyntheseView = lazyView(() => import("./SyntheseView.jsx"));
 const TodayView = lazyView(() => import("./TodayView.jsx"));
-import { buildCatalog, defaultTree, normalizeTree, resolveTree, themesOf, rootLeaves, viewLabelsFromThemes, universeEntries, splitHeader, sortTiles, assistantAskUrl } from "./hubTree.js";
+import { buildCatalog, defaultTree, normalizeTree, resolveTree, themesOf, rootLeaves, viewLabelsFromThemes, universeEntries, splitHeader, sortTiles, assistantAskUrl, parseAliases, looksLikeAddress } from "./hubTree.js";
 const LogsManagerView = lazyView(() => import("./LogsManagerView.jsx"));
 const SchemaAnalyzerView = lazyView(() => import("./SchemaAnalyzerView.jsx"));
 const PortageView = lazyView(() => import("./PortageView.jsx"));
@@ -148,6 +148,14 @@ const CISCO_URL = import.meta.env.VITE_CISCO_URL || "";
 const SERVICE_WATCH_URL = import.meta.env.VITE_SERVICE_WATCH_URL || "";
 // Assistant IA PoC (livraison #532) -- page autonome d'assistant-api sous /assistant/.
 const ASSISTANT_URL = import.meta.env.VITE_ASSISTANT_URL || "";
+// #846 : l'Univers cherche aussi le titre réel des tuiles (« Nebula@<site> » du .env) et des mots-clés (.env VITE_HUB_ALIASES)
+const NEBULA_TILE_TITLE = import.meta.env.VITE_NEBULA_TILE_TITLE || "Nebula@Campus";
+const UNIVERSE_ALIASES = (() => {
+  const a = parseAliases(import.meta.env.VITE_HUB_ALIASES);
+  a["view:nebula"] = [NEBULA_TILE_TITLE, "campus", "wifi", "bornes", "vlan", "santé du réseau", ...(a["view:nebula"] || [])];
+  return a;
+})();
+const UNIVERSE_LABELS = { "view:nebula": NEBULA_TILE_TITLE };
 const CREDENTIALS_URL = import.meta.env.VITE_CREDENTIALS_URL || "";
 const MIKROTIK_API_BASE = MIKROTIK_URL.replace(/\/+$/, "");
 // Pont « suivi » (#484) — page d'administration (import/export Excel,
@@ -1094,6 +1102,21 @@ export default function App() {
   // #538 : menu invariant « Univers du hub » -- tri et filtre, tri mémorisé.
   const [universeSort, setUniverseSort] = useState(() => { try { return localStorage.getItem("hub.universe.sort") === "added" ? "added" : "alpha"; } catch { return "alpha"; } });
   const [universeQuery, setUniverseQuery] = useState("");
+  // #846 : une adresse IP ou MAC saisie dans l'Univers est cherchée dans les sources du hub (assistant, sans modèle)
+  const [universeLocate, setUniverseLocate] = useState(null);
+  useEffect(() => {
+    const q = universeQuery.trim();
+    if (!ASSISTANT_URL || !looksLikeAddress(q)) { setUniverseLocate(null); return undefined; }
+    let fini = false;
+    setUniverseLocate({ q, enCours: true });
+    const t = setTimeout(() => {
+      fetch(ASSISTANT_URL.replace(/\/?$/, "/") + "hub/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: q }) })
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status))))
+        .then((d) => { if (!fini) setUniverseLocate({ q, data: d.data || { found: [], absent: [] } }); })
+        .catch((e) => { if (!fini) setUniverseLocate({ q, erreur: e.message }); });
+    }, 350);
+    return () => { fini = true; clearTimeout(t); };
+  }, [universeQuery]);
   // #554 : pages publiées par les agents (menu « Pages ouvertes »)
   const [publishedAgents, setPublishedAgents] = useState([]);
   useEffect(() => {
@@ -1602,7 +1625,7 @@ export default function App() {
     window.open(leaf.url, "_blank", "noopener");
   };
   const leafActive = (leaf) => (leaf.kind === "view" && viewMode === leaf.view) || (leaf.kind === "action" && viewMode === leaf.action);
-  const universe = universeEntries(hubCatalog, { sort: universeSort, since: SINCE, query: universeQuery, themes: THEMES });
+  const universe = universeEntries(hubCatalog, { sort: universeSort, since: SINCE, query: universeQuery, themes: THEMES, aliases: UNIVERSE_ALIASES, labels: UNIVERSE_LABELS });
   const headerParts = splitHeader(hubRootOrder);  // #554
   const openPages = [...PUBLIC_LINKS, ...agentPublishedLinks(publishedAgents)];  // #554
   const setUniverseSortPersist = (v) => { setUniverseSort(v); try { localStorage.setItem("hub.universe.sort", v); } catch { /* stockage indisponible */ } };
@@ -2242,7 +2265,20 @@ vm === "agent-page" ? (
                       <span className="muted hub-universe-meta">{leaf.themes && leaf.themes.length ? leaf.themes.join(", ") + " · " : ""}{leaf.kind === "action" ? "fonction" : leaf.kind === "view" ? "vue" : "front"}{leaf.since ? ` · #${leaf.since}` : ""}</span>
                     </button>
                   ))}
-                  {universe.length === 0 && <span className="muted hub-universe-empty">Rien ne correspond.</span>}
+                  {universeLocate && (
+                    <div className="hub-universe-locate">
+                      {universeLocate.enCours ? <span className="muted">Recherche de {universeLocate.q} dans les sources du hub…</span>
+                        : universeLocate.erreur ? <span className="muted">Recherche d'adresse indisponible ({universeLocate.erreur})</span>
+                        : !(universeLocate.data.found || []).length ? <span className="muted">{universeLocate.q} : absente des {(universeLocate.data.absent || []).length} sources consultées</span>
+                        : universeLocate.data.found.map((f, i) => (
+                          <a key={i} className="hub-universe-item" href={f.link || undefined} title={(f.hits || []).map((h) => `${h.context || h.value} (${h.path})`).join("\n")}>
+                            <span className="hub-universe-label">📍 {f.source}</span>
+                            <span className="muted hub-universe-meta">{(f.hits || []).slice(0, 2).map((h) => h.context || h.value).join(" ; ")}</span>
+                          </a>
+                        ))}
+                    </div>
+                  )}
+                  {universe.length === 0 && !universeLocate && <span className="muted hub-universe-empty">Rien ne correspond.</span>}
                   {hubCatalog.has("front:assistant") && assistantAskUrl(ASSISTANT_URL, universeQuery) && (
                     <a className="hub-universe-ask" href={assistantAskUrl(ASSISTANT_URL, universeQuery)} target="_blank" rel="noreferrer" title="Questions sur le hub : vues, API, adresse IP ou MAC, dernier redémarrage d'un poste (#715)">
                       💬 Demander à l'assistant : « {universeQuery.trim()} »

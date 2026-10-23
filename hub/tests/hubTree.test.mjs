@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   buildCatalog, defaultTree, normalizeTree, resolveTree, themesOf, rootLeaves, themeOfLeaf,
   insertNode, removeNode, moveNode, cloneNode, updateNode, countRefs, exportTree, importTree,
-  viewLabelsFromThemes, universeEntries, assistantAskUrl, splitHeader, sortTiles, group, ref, ROOT_ID, REF_EXTERNAL_LINKS,
+  viewLabelsFromThemes, universeEntries, assistantAskUrl, parseAliases, looksLikeAddress, splitHeader, sortTiles, group, ref, ROOT_ID, REF_EXTERNAL_LINKS,
 } from "../src/hubTree.js";
 import { THEMES as REAL_THEMES } from "../src/hubThemes.js";
 
@@ -167,4 +167,18 @@ test("assistantAskUrl (#720) : question pré-remplie vers l'onglet Questions sur
   assert.equal(assistantAskUrl("https://h/assistant/?x=1", " ups "), "https://h/assistant/?x=1&tab=hub&q=ups");
   assert.equal(assistantAskUrl("", "onduleurs"), null);
   assert.equal(assistantAskUrl("/assistant/", "on"), null);
+});
+
+
+test("Univers (#846) : titre réel de la tuile, mots-clés du .env, adresses IP / MAC", () => {
+  const cat = new Map([["view:nebula", { id: "view:nebula", kind: "view", view: "nebula", label: "Nebula" }], ["front:cisco", { id: "front:cisco", kind: "front", front: "cisco", label: "Cisco" }]]);
+  const aliases = parseAliases("nebula=campus, wifi ; front:cisco=commutateurs;vide=");
+  assert.deepEqual(aliases, { "view:nebula": ["campus", "wifi"], "front:cisco": ["commutateurs"] });
+  aliases["view:nebula"].push("Nebula@Site-alpha");
+  const u = (q) => universeEntries(cat, { query: q, aliases, labels: { "view:nebula": "Nebula@Site-alpha" } });
+  assert.deepEqual(u("campu").map((e) => e.label), ["Nebula@Site-alpha"]);
+  assert.deepEqual(u("site").map((e) => e.id), ["view:nebula"]);
+  assert.deepEqual(u("commut").map((e) => e.id), ["front:cisco"]);
+  for (const a of ["192.0.2.10", "02:00:5e:10:00:01", "02-00-5E-10-00-01", "0200.5e10.0001"]) assert.ok(looksLikeAddress(a), a);
+  for (const a of ["192.0.2", "300.1.1.1", "campus", "02:00:5e"]) assert.ok(!looksLikeAddress(a), a);
 });

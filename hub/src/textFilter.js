@@ -13,9 +13,9 @@ export function matchRank(text, q) {
   if (!q) return 0;
   const i = t.indexOf(q);
   if (i < 0) return -1;
-  if (i === 0 || /[\s\-_/.:()·,]/.test(t[i - 1])) return 0;
+  if (i === 0 || /[\s\-_/.:()·,@]/.test(t[i - 1])) return 0;   // #846 : « @ » sépare aussi (Nebula@Site)
   // un autre mot commence par q plus loin ?
-  const re = new RegExp("(^|[\\s\\-_/.:()·,])" + q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const re = new RegExp("(^|[\\s\\-_/.:()·,@])" + q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
   return re.test(t) ? 0 : 1;
 }
 

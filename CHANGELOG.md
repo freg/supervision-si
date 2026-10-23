@@ -1,3 +1,12 @@
+## 2026-10-23 — Univers du hub : recherche par nom du site, mots-clés, adresse IP ou MAC (livraison #846)
+
+- La recherche de l'Univers porte aussi sur le **titre réel** des tuiles (« Nebula@<site> » du .env, affiché tel quel)
+  et sur des mots-clés : campus, wifi, bornes, vlan, santé du réseau pour la tuile Nebula, plus ceux de
+  `VITE_HUB_ALIASES` (« vue=mot1,mot2;front:x=mot »). « @ » sépare les mots (« numer » trouve « Nebula@Numer… »).
+- Une **adresse IP ou MAC complète** est cherchée dans les sources du hub (IPAM, exploration réseau, équipements,
+  Nebula, MikroTik, Cisco, sondes, DNS… par l'assistant, sans modèle) : résultats avec lien direct sous le champ.
+- Lien : menu « Univers du hub » de l'en-tête.
+
 ## 2026-10-23 — si-veille : icône dans la barre du haut, dernière alerte, maillons, alertes récentes et journal (livraison #845)
 
 - Extension GNOME (45+) installée par `veille-chaine/installer.sh` : icône à côté de la date (verte, orange, rouge avec
