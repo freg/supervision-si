@@ -1,3 +1,19 @@
+## 2026-10-23 — Nebula : recherche sur tout, module d'action surveillé (impact, chien de garde, retour arrière, journal) ; sondes livrées sous Windows (livraison #852)
+
+- **Recherche** en tête de la tuile Nebula : appareils, clients (nom, IP, MAC avec ou sans séparateurs, fabricant,
+  système, SSID, VLAN, signal « -70 dBm », dates « 23/10 »), VLAN, anomalies, fiches du campus ; un clic ouvre l'onglet
+  et met l'élément au point dans le synoptique (`GET /api/nebula/sites/<site>/recherche?q=`).
+- **Préparer l'action** sur chaque anomalie : plan (par l'API ou manuel guidé), **impact immédiat** (clients du
+  périmètre vus depuis moins de 10 min, volume Wi-Fi des 2 h -- l'API ne donne pas les flux en cours), confirmation
+  renforcée si l'impact est fort. Par l'API (VLAN manquant sur un port de commutateur) : sauvegarde du port, écriture,
+  **chien de garde** à +60 s et +180 s (commutateur en ligne, VLAN présents, clients revenus), **retour arrière
+  automatique** au premier échec, alerte « nebula.action-reseau ». Manuel (ex. interface de passerelle à l'adresse du
+  réseau : l'API Nebula ne modifie pas les interfaces de la passerelle) : étapes guidées, « Fait, vérifier » relit la
+  carte. **Journal des actions** avec annulation (retour arrière à la demande). Écriture : NEBULA_ALLOW_WRITE=1.
+- Agent Windows : les sondes livrées sont désormais installées dans le dossier des sondes de l'agent
+  (`C:\ProgramData\si-agent\plugins`) -- elles restaient invisibles (« aucune sonde » sur un poste Windows).
+- Liens : `?view=nebula&tab=vlan` (anomalies et journal des actions), recherche en tête de la tuile.
+
 ## 2026-10-23 — Campus : couleurs du synoptique (névralgiques), charge par borne / SSID / VLAN / commutateur, veille sur le poste (livraison #851)
 
 - **Synoptique** (tuile Nebula, Carte des VLAN) : rouge = panne qui compte (appareil réseau hors ligne, poste

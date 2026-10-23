@@ -37,6 +37,9 @@ class Msi(unittest.TestCase):
 
     def test_install_ps1(self):
         s = open(os.path.join(WIN, "install.ps1"), encoding="utf-8-sig").read()
+        # #852 : sondes livrées copiées dans le dossier des sondes de l'agent (plugins_dir), état local conservé
+        self.assertIn('Join-Path (Join-Path $DataDir "plugins") $pd.Name', s)
+        self.assertIn('foreach ($k in @("enabled", "blocked", "args"))', s)
         self.assertIn("if (-not $Upgrade -and -not $Ca -and -not $CaFingerprint", s)   # -Upgrade sans option de CA (MAJ automatique)
         self.assertIn('-split ","', s)
         self.assertTrue(open(os.path.join(WIN, "msi", "build-msi.ps1"), "rb").read().startswith(b"\xef\xbb\xbf"))   # PS 5.1 : UTF-8 avec BOM

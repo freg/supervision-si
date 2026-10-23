@@ -114,6 +114,27 @@ foreach ($d in @("si_agent", "plugins")) {
   Copy-Item -LiteralPath (Join-Path $Src $d) $dst -Recurse -Force
 }
 Get-ChildItem $InstallDir -Recurse -Directory -Filter "__pycache__" | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+# #852 : sondes livrées -> dossier des sondes de l'agent (plugins_dir = <DataDir>\plugins), comme install.sh ; jusqu'ici
+# elles restaient dans <InstallDir>\plugins, invisibles de l'agent (aucune sonde proposée sur un poste Windows).
+# Sonde déjà présente : code remis à jour, état local conservé (enabled, blocked, args) ; sonde du central : intouchée.
+$plugSrc = Join-Path $Src "plugins"
+if (Test-Path $plugSrc) {
+  foreach ($pd in Get-ChildItem $plugSrc -Directory) {
+    $dst = Join-Path (Join-Path $DataDir "plugins") $pd.Name
+    $mf = Join-Path $dst "manifest.json"
+    $old = $null
+    if (Test-Path $mf) { try { $old = Get-Content $mf -Raw | ConvertFrom-Json } catch { $old = $null } }
+    if ($old -and $old.source -and $old.source -ne "bundled") { continue }
+    if (Test-Path $dst) { Remove-Item $dst -Recurse -Force }
+    Copy-Item -LiteralPath $pd.FullName $dst -Recurse -Force
+    if ($old) {
+      $new = Get-Content $mf -Raw | ConvertFrom-Json
+      foreach ($k in @("enabled", "blocked", "args")) { if ($old.PSObject.Properties.Name -contains $k) { $new | Add-Member -Force NoteProperty $k $old.$k } }
+      [IO.File]::WriteAllText($mf, ($new | ConvertTo-Json -Depth 6), (New-Object Text.UTF8Encoding($false)))
+    }
+  }
+  Write-Host "sondes livrées : $((Get-ChildItem $plugSrc -Directory).Count) dans $(Join-Path $DataDir 'plugins') (désactivées tant qu'elles ne sont pas activées)"
+}
 Copy-Item $PSScriptRoot\uninstall.ps1 (Join-Path $InstallDir "uninstall.ps1") -Force
 
 # --- 3. CA du central ----------------------------------------------------------------

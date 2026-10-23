@@ -1497,6 +1497,70 @@ def nevralgiques_put(site_id):
     return jsonify({"nevralgiques": d}), 200
 
 
+# #852 : recherche sur tout le site, module d'action (plan, impact, exécution surveillée, retour arrière, journal)
+@app.route("/sites/<site_id>/recherche", methods=["GET"])
+def recherche_route(site_id):
+    import recherche as rech
+    q = (request.args.get("q") or "").strip()
+    if len(q) < 2:
+        return jsonify({"q": q, "resultats": []}), 200
+    errs, sources = [], []
+    try:
+        _refresh_inventory(_connect())
+    except Exception as e:  # noqa: BLE001
+        errs.append("inventaire : %s" % str(e)[:120])
+    devs = _inventory["devices"].get(site_id) or []
+    sources.append(("appareil", lambda o: o.get("name") or o.get("devId"), lambda o: {"tab": "vlan", "name": o.get("name")}, devs))
+    tree = None
+    for per in ("1d", "7d", "2h"):
+        c = _topo_cache.get((site_id, per))
+        if c:
+            tree = c["tree"]; break
+    if tree is None:
+        try:
+            tree = collect_topology(_connect(), site_id, "1d")
+            _topo_cache[(site_id, "1d")] = {"at": int(time.time()), "tree": tree}
+        except Exception as e:  # noqa: BLE001
+            errs.append("clients : %s" % str(e)[:120])
+    clients = [dict(cl, servi_par=n.get("name")) for n in (tree or {}).get("nodes") or [] for cl in n.get("clients") or []] + list((tree or {}).get("loose_clients") or [])
+    sources.append(("client", lambda o: o.get("name") or o.get("mac") or "?", lambda o: {"tab": "vlan", "mac": o.get("mac"), "name": o.get("name")}, clients))
+    try:
+        vm = _vlan_map_cached(site_id)
+        sources.append(("vlan", lambda o: "VLAN %s" % o.get("vid"), lambda o: {"tab": "vlan"}, vm.get("vlans") or []))
+        sources.append(("anomalie", lambda o: o.get("element") or o.get("kind"), lambda o: {"tab": "vlan", "anomalie": o.get("id")}, vm.get("anomalies_detail") or []))
+    except Exception as e:  # noqa: BLE001
+        errs.append("carte des VLAN : %s" % str(e)[:120])
+    try:
+        sources.append(("fiche", lambda o: o.get("name") or "?", lambda o: {"pane": "campus", "name": o.get("name")}, _veille_assets()))
+    except Exception as e:  # noqa: BLE001
+        errs.append("fiches du campus : %s" % str(e)[:120])
+    return jsonify({"q": q, "resultats": rech.chercher(q, sources, limite=int(request.args.get("limite", 100))), "erreurs": errs}), 200
+
+
+def _ssid_vlan(site_id):
+    out = {}
+    try:
+        for v in (_vlan_map_cached(site_id) or {}).get("vlans") or []:
+            for sd in v.get("ssids") or []:
+                if sd.get("name"):
+                    out[sd["name"]] = v.get("vid")
+    except Exception:  # noqa: BLE001
+        pass
+    return out
+
+
+def _invalider():
+    _vlan_cache.clear()
+    _topo_cache.clear()
+
+
+import actions_routes  # noqa: E402
+actions_routes.register(app, {"conn": get_connection, "client": _connect, "anomalies": lambda sid, refresh=False: _anomalies(sid, refresh=refresh),
+                              "ssid_vlan": _ssid_vlan, "manage": _check_manage_right, "allow_write": lambda: ALLOW_WRITE,
+                              "set_state": _set_state, "invalidate": _invalider,
+                              "notify": lambda action, sujet, corps: report_routes._notify(action, sujet, corps, report_routes.settings(), severity="warning")})
+
+
 def _veille_assets():
     conn = get_connection()
     try:

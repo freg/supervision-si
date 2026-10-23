@@ -34,6 +34,7 @@ ACTIONS = [{"id": "nebula.anomalie-urgente", "label": "Anomalie réseau persista
            {"id": "nebula.occupation-seuil", "label": "Borne Wi-Fi : seuil d'occupation ou de signal dépassé", "severity": "warning"},
            {"id": "nebula.alerte-nebula", "label": "Alerte Nebula : appareil hors ligne ou en alerte", "severity": "critical"},
            {"id": "nebula.occupation-recap", "label": "Récapitulatif de l'occupation des bornes Wi-Fi", "severity": "info"},
+           {"id": "nebula.action-reseau", "label": "Action sur le réseau : appliquée et vérifiée, ou annulée par le chien de garde (#852)", "severity": "warning"},
            {"id": "nebula.anticipation", "label": "Wi-Fi : pic attendu, affluence inhabituelle, borne instable, étendue DHCP presque pleine", "severity": "warning"}]   # #758
 OCC_TRACK = {"enabled": True, "min_severity": "moyenne", "delay_minutes": 0, "repeat_hours": 0, "notify_recovery": True}
 MIME = {"csv": "text/csv", "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "pdf": "application/pdf"}

@@ -8,6 +8,7 @@ import {
 import NebulaHealth from "./NebulaHealth.jsx";
 import NebulaVeille from "./NebulaVeille.jsx";
 import NebulaCharge from "./NebulaCharge.jsx";
+import NebulaRecherche from "./NebulaRecherche.jsx";
 import NebulaVlan from "./NebulaVlan.jsx";
 import NebulaPlan from "./NebulaPlan.jsx";
 import NebulaReports from "./NebulaReports.jsx";  // #703
@@ -181,6 +182,12 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, siAgent
           Les onglets Sites / Appareils / Clients restent alimentés par la voie CSV.
         </p>
       </div>
+
+      <NebulaRecherche nebulaApiBase={nebulaApiBase} siteId={siteId} onOuvrir={(l) => {
+        if (l.pane === "campus") { setPane("campus"); return; }
+        setPane("nebula"); setTab(l.tab || "vlan");
+        if (l.mac || l.name) setFocus({ mac: l.mac, name: l.name });
+      }} />
 
       {error && (
         <div className="hub-card" style={{ borderColor: "var(--danger)" }}>

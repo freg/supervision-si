@@ -574,3 +574,14 @@ rattaché au VLAN dans la rotation `--connections`. Sinon la vérification est �
   rappel, retour à la normale) ; notify-api : `nebula.veille-campus`, `nebula.veille-campus-externe` (créneau d'un
   organisme extérieur), `nebula.veille-campus-retabli`.
 - Hub : tuile Nebula@<site>, onglet **Veille** (premier onglet, `?view=nebula&tab=veille`), réglages dans l'onglet.
+
+
+## Recherche et module d'action (#852)
+
+- `GET /sites/<site>/recherche?q=` (`recherche.py`) : tout enregistrement aplati en texte (dates lisibles, signal en
+  dBm, MAC sans séparateurs), tous les mots de la saisie requis, sans casse ni accents.
+- `actions.py` / `actions_routes.py` : `GET /sites/<site>/actions/plan/<aid>` (plan + impact), `POST
+  /sites/<site>/actions/executer` (API, sauvegarde, chien de garde `NEBULA_ACTION_SURVEILLANCE`, défaut « 60,180 »,
+  retour arrière automatique), `POST /sites/<site>/actions/manuel`, `POST /actions/<id>/verifier`, `POST
+  /actions/<id>/annuler`, `GET /actions?site=` ; table `nebula_actions`. Écriture par l'API possible seulement sur les
+  réglages de ports des commutateurs (doc OpenAPI) : les interfaces de la passerelle restent en plan manuel.

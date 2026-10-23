@@ -17,12 +17,16 @@ async function call(url, init) {
 const SEV = { haute: { label: "Haute", color: "#c62828" }, moyenne: { label: "Moyenne", color: "#ef6c00" }, basse: { label: "Basse", color: "#1565c0" }, info: { label: "Info", color: "#757575" } };
 const STATE_LABEL = { validated: "validée, à appliquer à la main", applied: "appliquée", failed: "échec de l'application", hidden: "masquée" };
 
+import { NebulaActionPanel, NebulaActionsJournal } from "./NebulaActions.jsx";
+
 export default function NebulaAnomalies({ nebulaApiBase, siteId, groups, login, version }) {
   const [data, setData] = useState(null);
   const [showAll, setShowAll] = useState(false);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(null);
   const [open, setOpen] = useState(null);
+  const [prep, setPrep] = useState(null);      // #852 : anomalie dont on prépare l'action
+  const [vJournal, setVJournal] = useState(0);
   const base = `${nebulaApiBase}/sites/${encodeURIComponent(siteId)}/anomalies`;
 
   const load = async () => {
@@ -63,7 +67,7 @@ export default function NebulaAnomalies({ nebulaApiBase, siteId, groups, login, 
       {data.rules_errors?.length > 0 && <p className="muted">Règles illisibles : {data.rules_errors.join(" · ")}</p>}
       {rows.length === 0 ? <p className="muted">Aucune anomalie : chaque liaison porte les mêmes VLAN des deux côtés et chaque SSID a son VLAN sur les commutateurs.</p> : (
         <AutoColumns id="NebulaAnomalies.1"><table style={{ width: "100%", tableLayout: "auto", textAlign: "left" }}>
-          <thead><tr style={{ textAlign: "left" }}><th>Élément</th><th>Constat</th><th>Gravité</th><th>Action proposée</th><th>État</th><th></th><th></th></tr></thead>
+          <thead><tr style={{ textAlign: "left" }}><th>Élément</th><th>Constat</th><th>Gravité</th><th>Action proposée</th><th>État</th><th></th><th></th><th></th></tr></thead>
           <tbody>
             {rows.map((a) => {
               const sev = SEV[a.severity] || SEV.info;
@@ -77,6 +81,7 @@ export default function NebulaAnomalies({ nebulaApiBase, siteId, groups, login, 
                   <td>{a.action}{a.applicable && <span className="muted" style={{ fontSize: 11 }}> · applicable par l'API{a.can_apply ? "" : " (écriture désactivée)"}</span>}</td>
                   <td style={{ whiteSpace: "nowrap" }}>{a.state ? <span title={a.state_result || ""}>{STATE_LABEL[a.state] || a.state}{a.state_by ? ` (${a.state_by})` : ""}</span> : <span className="muted">—</span>}</td>
                   <td style={{ whiteSpace: "nowrap" }}>{hidden ? <button type="button" className="secondary" disabled={!!busy} onClick={() => post(`/${a.id}/unhide`)}>Démasquer</button> : <button type="button" className="secondary" disabled={!!busy} onClick={() => post(`/${a.id}/hide`)}>Masquer</button>}</td>
+                  <td style={{ whiteSpace: "nowrap" }}><button type="button" className="secondary" onClick={() => setPrep(prep === a.id ? null : a.id)} title="Plan, impact sur les clients et les flux, exécution surveillée avec retour arrière">{prep === a.id ? "Fermer" : "Préparer l'action"}</button></td>
                   <td style={{ whiteSpace: "nowrap" }}><button type="button" disabled={!!busy || a.state === "applied"} onClick={() => validate(a)} title={a.can_apply ? "Applique la correction sur Nebula (confirmation demandée)" : "Enregistre la validation ; l'action reste à faire à la main"}>{a.can_apply ? "Valider et appliquer" : "Valider"}</button></td>
                 </tr>
               );
@@ -84,6 +89,8 @@ export default function NebulaAnomalies({ nebulaApiBase, siteId, groups, login, 
           </tbody>
         </table></AutoColumns>
       )}
+      {prep && <NebulaActionPanel nebulaApiBase={nebulaApiBase} siteId={siteId} aid={prep} groups={groups} login={login} onClose={() => setPrep(null)} onDone={() => { setVJournal((v) => v + 1); load(); }} />}
+      <NebulaActionsJournal nebulaApiBase={nebulaApiBase} siteId={siteId} groups={groups} login={login} version={vJournal} />
     </div>
   );
 }
