@@ -1,5 +1,11 @@
 [
  {
+  "n": 845,
+  "from": 845,
+  "date": "2026-10-23",
+  "title": "si-veille : icône dans la barre du haut, dernière alerte, maillons, alertes récentes et journal"
+ },
+ {
   "n": 844,
   "from": 844,
   "date": "2026-10-23",
@@ -232,11 +238,5 @@
   "from": 805,
   "date": "2026-10-21",
   "title": "Sonde spectre : bruit de fond à la médiane, fin de la fausse occupation"
- },
- {
-  "n": 804,
-  "from": 804,
-  "date": "2026-10-21",
-  "title": "Sonde Raspberry : paquets réinstallés tant qu'il en manque"
  }
 ]

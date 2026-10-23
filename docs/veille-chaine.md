@@ -41,6 +41,14 @@ si-veille --tester-notif
 Les vraies adresses restent **hors dépôt** : `~/.config/si-veille/config.json` (le modèle `config.exemple.json` est
 fictif).
 
+## Icône de la barre du haut (#845)
+
+Sous GNOME (45 et plus), `installer.sh` ajoute une icône au centre de la barre du haut, après la date : bouclier vert
+quand tout va bien (rien d'autre affiché), orange sur un échec isolé, triangle rouge avec le nom du maillon en panne,
+grisée si si-veille ne passe plus. Le menu donne l'état, la **dernière alerte**, les **maillons** (✓ ✗ ? —), les
+**alertes récentes** (50 gardées), **Ouvrir le journal** et **Vérifier maintenant**. Le service démarre et s'arrête avec
+la session graphique. Après l'installation : fermer puis rouvrir la session.
+
 ## Mot de passe SMTP
 
 Jamais dans la configuration :

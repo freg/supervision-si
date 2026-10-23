@@ -7,6 +7,7 @@ APP="$HOME/.local/share/si-veille"; CONF="$HOME/.config/si-veille"
 if [ "${1:-}" = "--retirer" ]; then
   if [ "$(uname)" = Darwin ]; then launchctl unload "$HOME/Library/LaunchAgents/fr.exemple.si-veille.plist" 2>/dev/null || true; rm -f "$HOME/Library/LaunchAgents/fr.exemple.si-veille.plist"
   else systemctl --user disable --now si-veille.service 2>/dev/null || true; rm -f "$HOME/.config/systemd/user/si-veille.service"; systemctl --user daemon-reload 2>/dev/null || true; fi
+  rm -rf "$HOME/.local/share/gnome-shell/extensions/si-veille@exemple.fr"; command -v gnome-extensions >/dev/null && gnome-extensions disable si-veille@exemple.fr 2>/dev/null || true
   rm -f "$HOME/.local/bin/si-veille"; echo "si-veille retiré (configuration gardée)"; exit 0
 fi
 mkdir -p "$APP" "$CONF" "$HOME/.local/bin"; chmod 700 "$CONF"
@@ -43,6 +44,20 @@ UN
   command -v notify-send >/dev/null || echo "ATTENTION notify-send absent : sudo apt install -y libnotify-bin"
   command -v secret-tool >/dev/null || echo "ATTENTION secret-tool absent (mot de passe SMTP) : sudo apt install -y libsecret-tools"
   systemctl --user daemon-reload && systemctl --user disable si-veille.service 2>/dev/null || true; systemctl --user enable --now si-veille.service >/dev/null && systemctl --user restart si-veille.service
+fi
+# #845 : icône de la barre du haut (GNOME 45+) -- état, dernière alerte, maillons, alertes récentes, journal
+if [ "$(uname)" != Darwin ] && command -v gnome-shell >/dev/null; then
+  X="$HOME/.local/share/gnome-shell/extensions/si-veille@exemple.fr"; mkdir -p "$X"
+  cp "$ICI"/gnome/si-veille@exemple.fr/* "$X"/
+  python3 - <<'PY'
+import ast, subprocess
+u = "si-veille@exemple.fr"
+v = subprocess.run(["gsettings", "get", "org.gnome.shell", "enabled-extensions"], capture_output=True, text=True).stdout.strip()
+l = ast.literal_eval(v.replace("@as ", "")) if v.startswith(("[", "@as")) else []
+if u not in l:
+    subprocess.run(["gsettings", "set", "org.gnome.shell", "enabled-extensions", str(l + [u])])
+PY
+  echo "Icône GNOME installée : fermer puis rouvrir la session pour l'afficher."
 fi
 echo "si-veille installé. Premier passage :"; python3 "$APP/si_veille.py" --une-fois || true
 echo "Essai des notifications : si-veille --tester-notif"

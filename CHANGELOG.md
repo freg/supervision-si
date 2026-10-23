@@ -1,3 +1,11 @@
+## 2026-10-23 — si-veille : icône dans la barre du haut, dernière alerte, maillons, alertes récentes et journal (livraison #845)
+
+- Extension GNOME (45+) installée par `veille-chaine/installer.sh` : icône à côté de la date (verte, orange, rouge avec
+  le maillon en panne, grisée si le veilleur ne passe plus) ; menu : état, dernière alerte, maillons, 15 dernières
+  alertes, ouvrir le journal, vérifier maintenant.
+- si-veille garde les 50 dernières alertes graphiques et l'ordre des maillons dans son état local.
+- Pas de lien : opération manuelle (relancer `installer.sh` sur le poste, puis fermer et rouvrir la session).
+
 ## 2026-10-23 — si-mailbox : STARTTLS, jeton local sans dépendre du cookie, démarrage avec la session graphique (livraison #844)
 
 - Comptes IMAP : sécurité **SSL/TLS (993)**, **STARTTLS (143)** ou aucune ; le chiffrement est établi avant l'envoi du

@@ -26,7 +26,7 @@ import time
 import urllib.error
 import urllib.request
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 CONF = os.path.expanduser(os.environ.get("SI_VEILLE_CONF", "~/.config/si-veille/config.json"))
 ETAT = os.path.expanduser(os.environ.get("SI_VEILLE_ETAT", "~/.local/state/si-veille/etat.json"))
 JOURNAL = os.path.expanduser(os.environ.get("SI_VEILLE_JOURNAL", "~/.local/state/si-veille/journal.log"))
@@ -266,6 +266,9 @@ def tour(conf):
     for g in decider_notifications(conf, etat, inc, t):
         try:
             if g[0] == "graphique":
+                al = etat.setdefault("alertes", [])               # #845 : lues par l'icône de la barre du haut
+                al.append({"ts": t, "titre": g[1], "texte": g[2]})
+                del al[:-50]
                 notifier_graphique(g[1], g[2])
             else:
                 envoyer_mail(conf, g[1], g[2])
@@ -276,7 +279,8 @@ def tour(conf):
                 etat["incident"]["mail"] = False  # réseau coupé côté poste, SMTP muet… : on réessaiera au tour suivant
     if inc:
         journal("panne : " + etat["incident"]["texte"])
-    etat["dernier_tour"], etat["resultats"] = t, res
+    etat["dernier_tour"], etat["resultats"], etat["intervalle_s"] = t, res, conf["intervalle_s"]
+    etat["ordre"] = [v["id"] for v in ordonner(conf["verifs"])]
     _ecrire_etat(etat)
     return res
 

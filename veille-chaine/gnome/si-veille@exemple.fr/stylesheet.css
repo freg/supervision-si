@@ -1,0 +1,6 @@
+.si-veille-boite { spacing: 4px; }
+.si-veille-texte { font-size: 0.9em; }
+.si-veille-ok StIcon { color: #47c97a; }
+.si-veille-doute StIcon { color: #e8b84a; }
+.si-veille-panne StIcon, .si-veille-panne .si-veille-texte { color: #ff6b6b; }
+.si-veille-ancien, .si-veille-absent { opacity: 0.55; }

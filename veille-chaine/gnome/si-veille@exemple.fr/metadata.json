@@ -1,0 +1,7 @@
+{
+  "uuid": "si-veille@exemple.fr",
+  "name": "si-veille",
+  "description": "État de la chaîne du hub vu par si-veille : icône, dernière alerte, maillons, alertes récentes et journal.",
+  "shell-version": ["45", "46", "47", "48", "49"],
+  "version": 1
+}

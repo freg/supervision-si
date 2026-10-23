@@ -96,6 +96,8 @@ class Tour(unittest.TestCase):
         self.assertEqual(len(envois), 2)  # raté, puis réussi, puis plus rien
         self.assertEqual(len(graph), 1)   # rappel graphique seulement toutes les rappel_min minutes
         self.assertIn("ERREUR mail", open(V.JOURNAL).read())
+        e = V._lire_etat()
+        self.assertEqual((len(e["alertes"]), e["alertes"][0]["titre"], e["ordre"], e["intervalle_s"]), (1, "Chaîne du hub en panne", ["a"], 120))
 
 
 if __name__ == "__main__":
