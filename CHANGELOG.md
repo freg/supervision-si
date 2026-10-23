@@ -1,3 +1,15 @@
+## 2026-10-23 — si-veille : veilleur local de la chaîne du hub, silencieux si tout va bien (livraison #841)
+
+- Nouveau programme **dans la session de l'utilisateur** (Mac ou Linux, sans root, bibliothèque standard seule), qui
+  teste toute la chaîne d'accès au hub sans passer par le hub : DNS, certificat et frontal https, SSH vers l'hôte,
+  conteneurs, canal de contrôle du bastion, disque… (types dns, tcp, tls, http, commande).
+- **Silencieux** tant que tout va bien ; en panne : **notification graphique récurrente** (toutes les 5 min par défaut)
+  et **un seul courriel** par incident (retenté si l'envoi échoue), notification « rétablie » à la fin.
+- Maillons chaînés : ceux qui dépendent d'un maillon en échec ne sont pas testés, l'alerte nomme la cause probable ;
+  seuil d'échecs consécutifs contre les fausses alertes. Mot de passe SMTP dans le trousseau du système.
+- Installation : `cd ~/Downloads/supervision-si/veille-chaine && sh installer.sh <config>` (docs/veille-chaine.md).
+  Pas d'onglet dans le hub : pas de lien, opération manuelle.
+
 ## 2026-10-23 — si-mailbox : agent de messagerie de la session, requêtes et automates IA, mode discret (livraison #840)
 
 - Nouvel agent **dans la session de l'utilisateur** (sans root, Linux ou macOS), écran web local 127.0.0.1:8095 avec

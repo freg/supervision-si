@@ -1,5 +1,11 @@
 [
  {
+  "n": 841,
+  "from": 841,
+  "date": "2026-10-23",
+  "title": "si-veille : veilleur local de la chaîne du hub, silencieux si tout va bien"
+ },
+ {
   "n": 840,
   "from": 840,
   "date": "2026-10-23",
@@ -232,11 +238,5 @@
   "from": 801,
   "date": "2026-10-21",
   "title": "Sonde Raspberry Pi 3B : écoute Wi-Fi passive (Alfa AWUS036ACM) et spectre radio (HackRF / PortaPack)"
- },
- {
-  "n": 800,
-  "from": 800,
-  "date": "2026-10-21",
-  "title": "htop en direct : émetteur sur chaque VM / CT / Proxmox, relais UDP, constats, tuile et client terminal"
  }
 ]
