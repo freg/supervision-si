@@ -128,5 +128,34 @@ class Ecran(unittest.TestCase):
         srv.shutdown()
 
 
+class Compteurs(unittest.TestCase):
+    def test_validation_et_criteres(self):
+        cc, e = M.valider_compteurs({"filtres": [{"de": "banque@exemple.fr"}, {"sujet": "Facture"}, {}], "comptes": ["pro", "inconnu"]}, ["pro"])
+        self.assertIsNone(e)
+        self.assertEqual(([f["nom"] for f in cc["filtres"]], cc["comptes"], cc["cadence_s"]), (["banque@exemple.fr", "Facture"], ["pro"], 60))
+        self.assertIn("cadence", M.valider_compteurs({"cadence_s": 5}, [])[1])
+        self.assertIn("ligne", M.valider_compteurs({"filtres": [{"sujet": "a\r\nb"}]}, [])[1])
+        self.assertEqual(M.criteres_compteur({"de": "a@b", "sujet": 'x"y'}), '(UNSEEN FROM "a@b" SUBJECT "xy")')
+
+    def test_compter(self):
+        boite = FausseBoite()
+        def connecter(c):
+            if c["nom"] == "panne":
+                raise OSError("refusé")
+            return boite
+        M.connecter = connecter
+        conf = dict(M.DEFAUT, comptes=[{"nom": "pro"}, {"nom": "panne"}],
+                    compteurs={"dossier": "INBOX", "cadence_s": 60, "filtres": [{"nom": "Élec", "de": "", "sujet": "Échéance"}], "comptes": []})
+        r = M.compter(conf, 100)
+        self.assertEqual((r["total"], r["filtres"][0]["n"], r["comptes"]), (2, 2, [{"nom": "pro", "n": 2}]))
+        self.assertEqual(r["erreurs"], ["panne : refusé"])
+        self.assertIn(("SEARCH", "CHARSET", "UTF-8", '(UNSEEN SUBJECT "Échéance")'.encode()), boite.ops)   # non ASCII
+        self.assertIn(("select", '"INBOX"', True), boite.ops)                                            # lecture seule
+        self.assertFalse([o for o in boite.ops if o[0] in ("FETCH", "STORE", "COPY")])                   # ne lit ni ne marque rien
+        M.ecrire_compteurs(r)
+        self.assertEqual(M.lire_compteurs()["total"], 2)
+        self.assertEqual(oct(os.stat(os.path.join(M.DATA_DIR, "compteurs.json")).st_mode & 0o777), "0o600")
+
+
 if __name__ == "__main__":
     unittest.main()

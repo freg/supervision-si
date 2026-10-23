@@ -9,6 +9,7 @@ command -v python3 >/dev/null || { echo "python3 requis" >&2; exit 1; }
 if [ "${1:-}" = "--retirer" ]; then
   if [ "$(uname)" = Darwin ]; then launchctl unload "$HOME/Library/LaunchAgents/fr.exemple.si-mailbox.plist" 2>/dev/null || true; rm -f "$HOME/Library/LaunchAgents/fr.exemple.si-mailbox.plist"
   else systemctl --user disable --now si-mailbox.service 2>/dev/null || true; rm -f "$HOME/.config/systemd/user/si-mailbox.service"; systemctl --user daemon-reload 2>/dev/null || true; fi
+  rm -rf "$HOME/.local/share/gnome-shell/extensions/si-mailbox@exemple.fr"; command -v gnome-extensions >/dev/null && gnome-extensions disable si-mailbox@exemple.fr 2>/dev/null || true
   rm -f "$HOME/.local/bin/si-mailbox"; echo "si-mailbox retiré (configuration ~/.config/si-mailbox et journal ~/.local/share/si-mailbox gardés)"; exit 0
 fi
 mkdir -p "$APP" "$HOME/.local/bin" "$HOME/.config/si-mailbox/scripts"
@@ -45,6 +46,21 @@ UN
   systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XAUTHORITY DBUS_SESSION_BUS_ADDRESS 2>/dev/null || true
   command -v secret-tool >/dev/null || echo "ATTENTION secret-tool absent (mots de passe IMAP) : sudo apt install -y libsecret-tools"
   systemctl --user daemon-reload && systemctl --user enable --now si-mailbox.service >/dev/null && systemctl --user restart si-mailbox.service
+fi
+# #843 : widget de la barre du haut (GNOME 45+) -- icône + non lus à côté de la date
+if [ "$(uname)" != Darwin ] && command -v gnome-shell >/dev/null; then
+  X="$HOME/.local/share/gnome-shell/extensions/si-mailbox@exemple.fr"; mkdir -p "$X"
+  cp "$ICI"/gnome/si-mailbox@exemple.fr/* "$X"/
+  python3 - <<'PY'
+import ast, subprocess
+u = "si-mailbox@exemple.fr"
+v = subprocess.run(["gsettings", "get", "org.gnome.shell", "enabled-extensions"], capture_output=True, text=True).stdout.strip()
+l = ast.literal_eval(v.replace("@as ", "")) if v.startswith(("[", "@as")) else []
+if u not in l:
+    subprocess.run(["gsettings", "set", "org.gnome.shell", "enabled-extensions", str(l + [u])])
+PY
+  echo "Widget GNOME installé : fermer puis rouvrir la session pour l'afficher (onglet Widget de l'écran pour les filtres)."
+  [ "$(gsettings get org.gnome.shell disable-user-extensions 2>/dev/null)" = true ] && echo "ATTENTION extensions utilisateur désactivées : gsettings set org.gnome.shell disable-user-extensions false" || true
 fi
 sleep 2
 echo "si-mailbox installé (mode discret par défaut : aucune liaison avec le hub)."

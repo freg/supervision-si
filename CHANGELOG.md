@@ -1,3 +1,13 @@
+## 2026-10-23 — si-mailbox : widget des non lus à côté de la date, total et par filtre de / sujet (livraison #843)
+
+- Extension GNOME (45+) installée par `mailbox/installer.sh` : icône + « non lus · non lus du 1er filtre » au centre
+  de la barre du haut, à droite de la date ; menu avec chaque filtre, l'âge du relevé et « Ouvrir si-mailbox ».
+- L'agent relève les compteurs (SEARCH UNSEEN, dossier en lecture seule, rien n'est lu ni marqué) toutes les 60 s et les
+  écrit en local (`compteurs.json`, 600) ; nouvel onglet **Widget** de l'écran (dossier, cadence, 5 filtres de / sujet,
+  comptes) ; `si-mailbox --compteurs` en ligne de commande. Critères non ASCII envoyés en CHARSET UTF-8.
+- Service utilisateur Linux : affichage et bus de session transmis (notifications, trousseau).
+- Pas de lien : opération manuelle (sur le poste, `sh installer.sh`, puis fermer et rouvrir la session).
+
 ## 2026-10-23 — Hub blanc au chargement : fetchImages déclaré deux fois dans siAgentClient.js (livraison #842)
 
 - Le hub ne s'affichait plus (« redeclaration of const fetchImages ») : le catalogue d'images de l'orchestration (#834)

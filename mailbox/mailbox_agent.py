@@ -34,7 +34,7 @@ from email.policy import default as POLITIQUE
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 CONF_DIR = os.path.expanduser(os.environ.get("SI_MAILBOX_CONF", "~/.config/si-mailbox"))
 DATA_DIR = os.path.expanduser(os.environ.get("SI_MAILBOX_DATA", "~/.local/share/si-mailbox"))
 PORT = int(os.environ.get("SI_MAILBOX_PORT", "8095"))
@@ -43,7 +43,8 @@ SORTIES = ("aucune", "categorie", "resume", "extraction")
 _NOM = re.compile(r"^[A-Za-z0-9 ._-]{1,60}$")
 _DOSSIER = re.compile(r"^[^\r\n\"\\]{1,200}$")
 _MOTCLE = re.compile(r"^[A-Za-z0-9_$-]{1,40}$")
-DEFAUT = {"mode": "discret", "inclure_sujets": False, "ia": {"url": "http://127.0.0.1:11434", "modele": "qwen3:14b"}, "comptes": [], "automates": []}
+DEFAUT = {"mode": "discret", "inclure_sujets": False, "ia": {"url": "http://127.0.0.1:11434", "modele": "qwen3:14b"}, "comptes": [], "automates": [],
+          "compteurs": {"dossier": "INBOX", "cadence_s": 60, "filtres": [], "comptes": []}}
 _verrou = threading.Lock()
 
 
@@ -189,6 +190,89 @@ def criteres_imap(filtres, maintenant=None):
     if filtres.get("contient"):
         c += ["TEXT", _q(filtres["contient"])]
     return "(" + " ".join(c) + ")"
+
+
+# -- compteurs du widget de la barre du haut (#843) : non lus au total et par filtre de / sujet, chiffres seulement ------
+def valider_compteurs(b, comptes):
+    b = b or {}
+    d = str(b.get("dossier") or "INBOX")
+    if not _DOSSIER.match(d):
+        return None, "dossier invalide"
+    try:
+        cad = int(b.get("cadence_s") or 60)
+    except (TypeError, ValueError):
+        return None, "cadence invalide"
+    if not 30 <= cad <= 3600:
+        return None, "cadence : 30 à 3600 s"
+    fs = []
+    for f in (b.get("filtres") or [])[:5]:
+        de, suj = str(f.get("de") or "").strip()[:120], str(f.get("sujet") or "").strip()[:120]
+        if not (de or suj):
+            continue
+        if any(c in de + suj for c in "\r\n"):
+            return None, "filtre : pas de retour à la ligne"
+        fs.append({"nom": str(f.get("nom") or de or suj).strip()[:40], "de": de, "sujet": suj})
+    return {"dossier": d, "cadence_s": cad, "filtres": fs, "comptes": [c for c in (b.get("comptes") or []) if c in comptes]}, None
+
+
+def criteres_compteur(f):
+    c = ["UNSEEN"]
+    if f.get("de"):
+        c += ["FROM", _q(f["de"])]
+    if f.get("sujet"):
+        c += ["SUBJECT", _q(f["sujet"])]
+    return "(" + " ".join(c) + ")"
+
+
+def _rechercher(m, crit):
+    if crit.isascii():
+        typ, data = m.uid("SEARCH", None, crit)
+    else:
+        typ, data = m.uid("SEARCH", "CHARSET", "UTF-8", crit.encode("utf-8"))
+    return (data[0] or b"").split() if data and data[0] else []
+
+
+def compter(conf, maintenant=None):
+    """-> {maj, total, comptes: [{nom, n}], filtres: [{nom, n}], erreurs} : des nombres, jamais de contenu."""
+    cc = conf.get("compteurs") or DEFAUT["compteurs"]
+    res = {"maj": maintenant or time.time(), "dossier": cc["dossier"], "total": 0, "comptes": [],
+           "filtres": [{"nom": f["nom"], "n": 0} for f in cc.get("filtres") or []], "erreurs": []}
+    for compte in conf["comptes"]:
+        if cc.get("comptes") and compte["nom"] not in cc["comptes"]:
+            continue
+        try:
+            m = connecter(compte)
+            try:
+                m.select('"%s"' % cc["dossier"].replace('"', ""), readonly=True)
+                n = len(_rechercher(m, "(UNSEEN)"))
+                res["total"] += n
+                res["comptes"].append({"nom": compte["nom"], "n": n})
+                for i, f in enumerate(cc.get("filtres") or []):
+                    res["filtres"][i]["n"] += len(_rechercher(m, criteres_compteur(f)))
+            finally:
+                try:
+                    m.logout()
+                except Exception:  # noqa: BLE001
+                    pass
+        except Exception as e:  # noqa: BLE001
+            res["erreurs"].append("%s : %s" % (compte["nom"], str(e)[:120]))
+    return res
+
+
+def ecrire_compteurs(res):
+    os.makedirs(DATA_DIR, mode=0o700, exist_ok=True)
+    f = os.path.join(DATA_DIR, "compteurs.json")
+    with open(f + ".tmp", "w") as fh:
+        json.dump(res, fh, ensure_ascii=False)
+    os.chmod(f + ".tmp", 0o600)
+    os.replace(f + ".tmp", f)
+
+
+def lire_compteurs():
+    try:
+        return json.load(open(os.path.join(DATA_DIR, "compteurs.json")))
+    except (OSError, ValueError):
+        return None
 
 
 def _entete(v):
@@ -462,11 +546,18 @@ def boucle():
                 passer_automate(conf, a)
             except Exception as e:  # noqa: BLE001
                 journaliser(automate=a["nom"], action="passage", resultat="erreur", detail=str(e)[:200])
+        cc = conf.get("compteurs") or {}
+        if conf["comptes"] and t - derniers.get("__compteurs", 0) >= int(cc.get("cadence_s") or 60):
+            derniers["__compteurs"] = t
+            try:
+                ecrire_compteurs(compter(conf))
+            except Exception as e:  # noqa: BLE001
+                journaliser(action="compteurs", resultat="erreur", detail=str(e)[:200])
         try:
             publier(conf)
         except OSError:
             pass
-        time.sleep(30)
+        time.sleep(15)
 
 
 # -- écran local --------------------------------------------------------------------------------------------------------
@@ -545,6 +636,8 @@ class Ecran(BaseHTTPRequestHandler):
             return self._json(200, {"version": VERSION, "mode": conf["mode"], "inclure_sujets": conf["inclure_sujets"], "ia": conf["ia"], "trousseau": _trousseau(),
                                     "comptes": conf["comptes"], "automates": conf["automates"], "scripts": sorted(os.listdir(os.path.join(CONF_DIR, "scripts")))
                                     if os.path.isdir(os.path.join(CONF_DIR, "scripts")) else [], "publication": os.path.exists(os.path.join(DATA_DIR, "publication.json"))})
+        if u.path == "/api/compteurs":
+            return self._json(200, {"reglage": conf.get("compteurs") or DEFAUT["compteurs"], "releve": lire_compteurs()})
         if u.path == "/api/journal":
             return self._json(200, {"journal": list(reversed(lire_journal(300)))})
         if u.path == "/api/dossiers":
@@ -574,6 +667,15 @@ class Ecran(BaseHTTPRequestHandler):
             ecrire_conf(conf)
             journaliser(action="reglages", resultat="mode " + conf["mode"])
             return self._json(200, {"ok": True, "mode": conf["mode"]})
+        if u.path == "/api/compteurs":
+            cc, err = valider_compteurs(b, [c["nom"] for c in conf["comptes"]])
+            if err:
+                return self._json(400, {"erreur": err})
+            conf["compteurs"] = cc
+            ecrire_conf(conf)
+            r = compter(conf)
+            ecrire_compteurs(r)
+            return self._json(200, {"reglage": cc, "releve": r})
         if u.path == "/api/comptes":
             c, err = valider_compte(b)
             if err:
@@ -647,6 +749,11 @@ class Ecran(BaseHTTPRequestHandler):
 
 
 def main():
+    if "--compteurs" in sys.argv:
+        r = compter(charger_conf())
+        ecrire_compteurs(r)
+        print("non lus : %d%s%s" % (r["total"], "".join(" | %s : %d" % (f["nom"], f["n"]) for f in r["filtres"]), "".join(" | ERREUR " + e for e in r["erreurs"])))
+        return
     if "--ouvrir" in sys.argv:
         print("http://127.0.0.1:%d/?jeton=%s" % (PORT, jeton()))
         return

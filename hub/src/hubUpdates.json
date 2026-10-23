@@ -1,5 +1,11 @@
 [
  {
+  "n": 843,
+  "from": 843,
+  "date": "2026-10-23",
+  "title": "si-mailbox : widget des non lus à côté de la date, total et par filtre de / sujet"
+ },
+ {
   "n": 842,
   "from": 842,
   "date": "2026-10-23",
@@ -232,11 +238,5 @@
   "from": 803,
   "date": "2026-10-21",
   "title": "htop : un swap rempli mais inerte ne déclenche plus d'alerte"
- },
- {
-  "n": 802,
-  "from": 802,
-  "date": "2026-10-21",
-  "title": "htop des CT : relais local sur chaque Proxmox, installation des émetteurs dans les CT en une commande"
  }
 ]

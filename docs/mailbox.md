@@ -15,6 +15,15 @@ Python seule.
 - **Secrets** : trousseau du système (`security` macOS, `secret-tool` Linux), sinon fichier 600 local.
 - **IA** : Ollama local conseillé (le texte des messages ne quitte pas le poste).
 
+## Widget de la barre du haut (#843)
+
+Sous GNOME (45 et plus), une icône et un micro-statut à côté de la date : **non lus au total · non lus du 1er filtre**
+(ex. `12 · 3`) ; jaune quand un filtre a des non lus, rouge si aucun compte ne répond, grisé si le relevé date de plus
+de 10 min. Le menu détaille chaque filtre et ouvre l'écran. Réglage dans l'onglet **Widget** de l'écran : dossier
+(INBOX), cadence (60 s), jusqu'à 5 filtres « de contient » / « sujet contient ». L'agent ne fait que compter
+(SEARCH UNSEEN en lecture seule : rien n'est ouvert ni marqué lu) et écrit `~/.local/share/si-mailbox/compteurs.json` (600).
+`si-mailbox --compteurs` fait un relevé en ligne de commande. Après l'installation : fermer puis rouvrir la session.
+
 Installation (pas de lien : opération manuelle, sur le poste, sans sudo) :
 
     cd ~/Downloads/supervision-si/mailbox && sh installer.sh          # Linux (systemd --user) ou macOS (LaunchAgent)

@@ -29,12 +29,12 @@ async function api(chemin, corps) {
   return d;
 }
 let E = null, onglet = "requete";
-const ONGLETS = [["requete", "Requête"], ["automates", "Automates"], ["journal", "Journal"], ["comptes", "Comptes"], ["reglages", "Réglages"]];
+const ONGLETS = [["requete", "Requête"], ["automates", "Automates"], ["journal", "Journal"], ["widget", "Widget"], ["comptes", "Comptes"], ["reglages", "Réglages"]];
 async function charger() { E = await api("/api/etat"); $("#mode").textContent = E.mode === "relie" ? "relié au hub (résumé sans contenu)" : "discret : aucune liaison";
   $("#mode").className = "mode " + E.mode; $("#ver").textContent = "v" + E.version; rendre(); }
 function rendre() {
   $("#nav").innerHTML = ONGLETS.map(([k, l]) => `<button class="${onglet === k ? "actif" : ""}" onclick="onglet='${k}';rendre()">${l}</button>`).join("");
-  ({ requete, automates, journal, comptes, reglages })[onglet]();
+  Promise.resolve(({ requete, automates, journal, widget, comptes, reglages })[onglet]()).catch((e) => { $("#main").innerHTML = `<div class="carte ko">${esc(e.message)}</div>`; });
 }
 const optsComptes = () => E.comptes.map((c) => `<option>${esc(c.nom)}</option>`).join("");
 function attente(btn, txt) { btn.disabled = true; btn.dataset.t = btn.textContent; btn.textContent = txt; return () => { btn.disabled = false; btn.textContent = btn.dataset.t; }; }
@@ -133,6 +133,28 @@ function comptes() {
 }
 window.retirerCompte = async (nom) => { if (confirm("Retirer le compte " + nom + " ?")) { await api("/api/comptes/retirer", { nom }); charger(); } };
 
+async function widget() {
+  const W = await api("/api/compteurs"), g = W.reglage, r = W.releve, f = g.filtres.concat([{}, {}, {}, {}, {}]).slice(0, 5);
+  const releve = (x) => !x ? '<span class="doux">pas encore de relevé</span>' : `<b>${x.total}</b> non lu(s) dans ${esc(x.dossier)}`
+    + x.filtres.map((y) => ` · ${esc(y.nom)} : <b>${y.n}</b>`).join("") + ` <span class="doux">(${date(x.maj)})</span>`
+    + x.erreurs.map((e) => `<div class="ko">${esc(e)}</div>`).join("");
+  $("#main").innerHTML = `<div class="carte"><b>Widget de la barre du haut</b> <span class="doux">(à côté de la date : icône, non lus au total · non lus du 1er filtre ; le menu détaille chaque filtre)</span>
+    <p id="wr">${releve(r)}</p>
+    <div class="ligne"><label>Dossier<input id="wd" value="${esc(g.dossier)}"></label><label>Relevé toutes les (s)<input id="wc" type="number" min="30" max="3600" value="${g.cadence_s}" style="width:90px"></label>
+    <label>Comptes (vide = tous)<select id="wco" multiple size="2">${E.comptes.map((c) => `<option ${g.comptes.includes(c.nom) ? "selected" : ""}>${esc(c.nom)}</option>`).join("")}</select></label></div>
+    <table><tr><th>Nom affiché</th><th>De contient</th><th>Sujet contient</th></tr>
+    ${f.map((x, i) => `<tr><td><input id="fn${i}" value="${esc(x.nom)}"></td><td><input id="fd${i}" value="${esc(x.de)}" size="28"></td><td><input id="fs${i}" value="${esc(x.sujet)}" size="28"></td></tr>`).join("")}</table>
+    <p><button class="b" id="wok">Enregistrer et relever</button> <span id="wm"></span></p>
+    <p class="doux">Le widget ne lit que des nombres (fichier local ~/.local/share/si-mailbox/compteurs.json) ; aucun message n'est ouvert ni marqué lu.
+    Installation sous GNOME : faite par installer.sh, puis fermer et rouvrir la session.</p></div>`;
+  $("#wok").onclick = async () => {
+    const fin = attente($("#wok"), "en cours…");
+    try { const x = await api("/api/compteurs", { dossier: $("#wd").value, cadence_s: +$("#wc").value, comptes: [...$("#wco").selectedOptions].map((o) => o.value),
+        filtres: [0, 1, 2, 3, 4].map((i) => ({ nom: $("#fn" + i).value, de: $("#fd" + i).value, sujet: $("#fs" + i).value })) });
+      $("#wr").innerHTML = releve(x.releve); $("#wm").innerHTML = '<span class="ok">enregistré</span>'; } catch (e) { $("#wm").innerHTML = `<span class="ko">${esc(e.message)}</span>`; }
+    fin();
+  };
+}
 function reglages() {
   $("#main").innerHTML = `<div class="carte"><b>Liaison avec le hub</b>
     <p><label><span><input type="radio" name="m" value="discret" ${E.mode !== "relie" ? "checked" : ""}> <b>Discret</b> (défaut) : aucune liaison, rien n'est publié ; seules connexions : serveurs IMAP et IA ci-dessous</span></label><br>

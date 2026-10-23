@@ -1,0 +1,5 @@
+.si-mailbox-boite { spacing: 4px; }
+.si-mailbox-texte { font-size: 0.9em; font-feature-settings: "tnum"; }
+.si-mailbox-filtre .si-mailbox-texte, .si-mailbox-filtre StIcon { color: #e8b84a; }
+.si-mailbox-erreur StIcon, .si-mailbox-erreur .si-mailbox-texte { color: #ff6b6b; }
+.si-mailbox-ancien, .si-mailbox-absent { opacity: 0.55; }
