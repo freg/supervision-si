@@ -1406,8 +1406,17 @@ def _veille_clients(site_id):
     return out
 
 
+def _veille_assets():
+    conn = get_connection()
+    try:
+        return [json.loads(r["data"]) for r in conn.execute("SELECT data FROM campus_records WHERE collection = 'assets'")]
+    finally:
+        conn.close()
+
+
 import veille_routes  # noqa: E402
 veille_routes.register(app, {"sites": _report_sites, "board": lambda sid: _board(sid, 24)["devices"], "clients": _veille_clients,
+                             "vlanmap": lambda sid: _vlan_map_cached(sid), "assets": _veille_assets,
                              "manage": _check_manage_right, "lock_dir": os.path.dirname(DB_PATH)},
                        start_loop=os.environ.get("NEBULA_VEILLE_DISABLED") != "1" and os.environ.get("NEBULA_POLL_DISABLED") != "1")
 

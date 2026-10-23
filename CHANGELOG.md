@@ -1,3 +1,11 @@
+## 2026-10-23 — Veille du campus : réglages pré-remplis depuis Nebula et les fiches du campus (livraison #850)
+
+- Bouton « Proposer depuis Nebula et les fiches du campus » dans les réglages de l'onglet Veille : VLAN de la carte
+  Nebula (numéro, nom, SSID, sous-réseau ; VLAN d'administration sans contrôle Internet), postes des fiches Matériels
+  (MAC ou IP, en « info » à passer en « toujours » / « heures »), agents du site ; rien n'est écrasé ni enregistré
+  avant « Enregistrer ». `GET /api/nebula/veille/suggestions`.
+- Lien : `?view=nebula&tab=veille`, bouton « Réglages ».
+
 ## 2026-10-23 — si-onglets : fenêtre agrandie par défaut, rien sans onglets enregistrés ; outils du poste publiés à part (livraison #849)
 
 - Premier essai réel : une seule fenêtre rouverte, en plein écran sans la barre du haut -- aucun onglet n'avait encore

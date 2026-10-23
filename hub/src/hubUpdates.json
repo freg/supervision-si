@@ -1,5 +1,11 @@
 [
  {
+  "n": 850,
+  "from": 850,
+  "date": "2026-10-23",
+  "title": "Veille du campus : réglages pré-remplis depuis Nebula et les fiches du campus"
+ },
+ {
   "n": 849,
   "from": 849,
   "date": "2026-10-23",
@@ -232,11 +238,5 @@
   "from": 810,
   "date": "2026-10-21",
   "title": "Data RF en réel : le spectre qui manque dit pourquoi"
- },
- {
-  "n": 809,
-  "from": 809,
-  "date": "2026-10-21",
-  "title": "Cadrage : veille cyber, impacts sur notre SI, couverture du SI"
  }
 ]

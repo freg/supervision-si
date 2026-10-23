@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  850: [{ view: "nebula", params: { tab: "veille" }, hint: "réglages de la veille pré-remplis : VLAN de Nebula, postes des fiches du campus" }],
   847: [{ view: "nebula", params: { tab: "veille" }, hint: "veille du réseau du campus : équipements, VLAN, DHCP, Internet, postes ; créneaux d'usage mixte" }],
   840: [{ view: "mailbox", hint: "agents si-mailbox : requêtes et automates IA dans la session ; discret par défaut" }],
   839: [{ view: "emulation", hint: "bouton Écran par le bastion (porte des écrans de l'hôte)" }, { view: "navigateur", hint: "usage « écrans d'émulation » dans le registre" }],

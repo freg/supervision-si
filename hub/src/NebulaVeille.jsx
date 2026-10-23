@@ -57,6 +57,23 @@ export default function NebulaVeille({ nebulaApiBase, siAgentApiBase = "", group
     setBusy(false);
   };
   const setE = (k, v) => setEdit((x) => ({ ...x, [k]: v }));
+  // pré-remplissage : VLAN de la carte Nebula, postes des fiches Matériels (attendus « info »), sans écraser l'existant
+  const proposer = async () => {
+    setBusy(true); setNote(null);
+    try {
+      const sg = await call(`${base}/suggestions`);
+      setEdit((x) => {
+        const ids = new Set(x.vlans.map((v) => String(v.id)));
+        const cles = new Set(x.postes.map((p) => (p.mac || p.ip || "").toLowerCase()));
+        const vl = sg.vlans.filter((v) => !ids.has(String(v.id))).map((v) => ({ ...v, dhcp: "", cren: "" }));
+        const po = sg.postes.filter((p) => !cles.has((p.mac || p.ip || "").toLowerCase())).map((p) => ({ ...p, vlan: "" }));
+        setNote(["ok", `${vl.length} VLAN et ${po.length} poste(s) proposés (postes en « info » : passer en « toujours » ou « heures » ceux à surveiller), puis Enregistrer.${sg.erreurs?.length ? " Sources partielles : " + sg.erreurs.join(" ; ") : ""}`]);
+        return { ...x, vlans: [...x.vlans, ...vl], postes: [...x.postes, ...po] };
+      });
+      if (!agents.length && sg.agents?.length) setAgents(sg.agents);
+    } catch (e) { setNote(["ko", e.message]); }
+    setBusy(false);
+  };
   const setRow = (k, i, f, v) => setEdit((x) => ({ ...x, [k]: x[k].map((r, j) => (j === i ? { ...r, [f]: v } : r)) }));
 
   if (err && !d) return <div className="hub-card"><p className="muted" style={{ margin: 0 }}>Veille indisponible ({err}).</p></div>;
@@ -78,7 +95,7 @@ export default function NebulaVeille({ nebulaApiBase, siAgentApiBase = "", group
 
       {edit && (
         <div className="hub-card">
-          <h3 style={{ marginTop: 0 }}>Réglages de la veille</h3>
+          <h3 style={{ marginTop: 0 }}>Réglages de la veille <button type="button" className="secondary" onClick={proposer} disabled={busy}>{busy ? "en cours…" : "Proposer depuis Nebula et les fiches du campus"}</button></h3>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
             <label><input type="checkbox" checked={!!edit.enabled} onChange={(e) => setE("enabled", e.target.checked)} /> alertes actives</label>
             <label>Agents internes (identifiants)<br /><input value={edit.agentsTxt} onChange={(e) => setE("agentsTxt", e.target.value)} size={40} placeholder="pc-campus, pve-campus" /></label>

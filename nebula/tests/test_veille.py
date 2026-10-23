@@ -123,6 +123,22 @@ class Evaluer(unittest.TestCase):
         self.assertEqual(rien["etat"], "inconnu")
 
 
+class Suggestions(unittest.TestCase):
+    def test_pre_remplissage(self):
+        vmap = {"vlans": [{"vid": 10, "ssids": [{"name": "Wi-Fi général", "enabled": True}], "subnet": "192.0.2.0/24", "gateway_interface": "lan10"},
+                          {"vid": 51, "ssids": [], "subnet": "198.51.100.0/24", "gateway_interface": None, "management": []},
+                          {"vid": 99, "ssids": [], "subnet": None, "gateway_interface": None, "management": ["coeur"]}]}
+        assets = [{"name": "labo", "mac": "02-00-5E-00-00-01"}, {"name": "doublon", "mac": "02:00:5e:00:00:01"}, {"name": "imprimante", "ip": "198.51.100.30"}, {"name": "sans adresse"}]
+        agents = [{"agent_id": "pc-campus", "site": "site-alpha"}, {"agent_id": "autre", "site": "ailleurs"}]
+        s = veille.suggestions(vmap, assets, agents, "site-alpha")
+        self.assertEqual([(v["id"], v["nom"], v["connexion"], v["sous_reseau"], v["internet"]) for v in s["vlans"]],
+                         [(10, "lan10", "Wi-Fi général", "192.0.2.0/24", True), (51, "VLAN 51", "", "198.51.100.0/24", True), (99, "VLAN 99", "", "", False)])
+        self.assertEqual([(p["nom"], p["mac"], p["ip"], p["attendu"]) for p in s["postes"]],
+                         [("labo", "02:00:5e:00:00:01", "", "info"), ("imprimante", "", "198.51.100.30", "info")])
+        self.assertEqual([a["agent_id"] for a in s["agents"]], ["pc-campus"])
+        self.assertEqual(veille.normalize({"vlans": s["vlans"], "postes": s["postes"]})[1], [])     # réutilisable tel quel
+
+
 class Routes(unittest.TestCase):
     """Routes et passage d'alerte sur une application Flask de test (hooks et notify-api simulés)."""
     def test_routes_et_alertes(self):
@@ -153,7 +169,8 @@ class Routes(unittest.TestCase):
         rr.register(app, {"conn": conn, "sites": sites, "anomalies": lambda sid, refresh=False: ([], [], {}), "manage": lambda b: (True, None),
                           "configured": lambda: True, "lock_dir": tempfile.mkdtemp()}, start_loop=False)
         etat = {"devs": [{"dev_id": "g1", "name": "pare-feu", "type": "GW", "status": "offline"}]}
-        vr.register(app, {"sites": sites, "board": lambda sid: etat["devs"], "clients": lambda sid: [], "manage": lambda b: (b.get("user") == "admin", "droit requis"),
+        vr.register(app, {"sites": sites, "board": lambda sid: etat["devs"], "clients": lambda sid: [], "vlanmap": lambda sid: {"vlans": [{"vid": 51, "subnet": "198.51.100.0/24"}]},
+                          "assets": lambda: [{"name": "labo", "mac": "02:00:5e:00:00:01"}], "manage": lambda b: (b.get("user") == "admin", "droit requis"),
                           "lock_dir": tempfile.mkdtemp()}, start_loop=False)
         vr._agents = lambda cfg: ([], None)
         c = app.test_client()
@@ -182,6 +199,9 @@ class Routes(unittest.TestCase):
             self.assertEqual(c.get("/veille/etat?jeton=secret").status_code, 200)
         finally:
             del os.environ["NEBULA_VEILLE_TOKEN"]
+        vr._get = lambda url, timeout=8: {"agents": [{"agent_id": "pc-campus"}]}
+        sg = c.get("/veille/suggestions").get_json()
+        self.assertEqual(([v["id"] for v in sg["vlans"]], len(sg["postes"]), sg["agents"][0]["agent_id"], sg["erreurs"]), ([51], 1, "pc-campus", []))
         d = c.get("/veille").get_json()
         self.assertEqual((d["site"], len(d["retablies_24h"])), ("Site Alpha", 1))
 

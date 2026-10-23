@@ -193,6 +193,26 @@ def register(app, hooks, start_loop=True):
         rr.log("veille-reglages", "réglages de la veille enregistrés par %s" % (body.get("user") or "?"))
         return jsonify({"reglages": cfg, "resultat": evaluer(force=True)}), 200
 
+    @app.route("/veille/suggestions", methods=["GET"])
+    def veille_suggestions():
+        """Pré-remplissage : carte des VLAN, fiches Matériels, agents (aucun enregistrement)."""
+        cfg, errs = reglages(), []
+        vmap = assets = agents = None
+        try:
+            site_id = _site(cfg)[0]
+            vmap = hooks["vlanmap"](site_id) if site_id else None
+        except Exception as e:  # noqa: BLE001
+            errs.append("carte des VLAN : %s" % str(e)[:160])
+        try:
+            assets = hooks["assets"]()
+        except Exception as e:  # noqa: BLE001
+            errs.append("fiches du campus : %s" % str(e)[:160])
+        try:
+            agents = _get(SI_AGENT_API_URL + "/agents").get("agents") or []
+        except Exception as e:  # noqa: BLE001
+            errs.append("agents : %s" % str(e)[:160])
+        return jsonify(dict(veille.suggestions(vmap, assets, agents, cfg["agent_site"]), erreurs=errs)), 200
+
     @app.route("/veille/passer", methods=["POST"])
     def veille_passer():
         return jsonify(passage()), 200

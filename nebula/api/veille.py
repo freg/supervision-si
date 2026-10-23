@@ -388,3 +388,26 @@ def lignes_alerte(res, site_id, site):
         out.append({"site_id": site_id, "site": site, "id": "veille:" + v["id"], "severity": v["severite"], "element": v["nom"],
                     "message": v["detail"], "action": v.get("lien") or "", "kind": v.get("usage") or "interne"})
     return out
+
+
+def suggestions(vmap, assets, agents, agent_site=""):
+    """Pré-remplissage des réglages : VLAN de la carte Nebula (numéro, nom, SSID, sous-réseau), postes des fiches
+    Matériels du campus (MAC ou IP, attendus « info » : à passer en « toujours » / « heures » au choix), agents du site."""
+    vlans = []
+    for v in (vmap or {}).get("vlans") or []:
+        if not v.get("vid"):
+            continue
+        ssid = next((s.get("name") for s in v.get("ssids") or [] if s.get("enabled", True) and s.get("name")), "")
+        vlans.append({"id": int(v["vid"]), "nom": v.get("gateway_interface") or ssid or "VLAN %s" % v["vid"], "connexion": ssid,
+                      "sous_reseau": v.get("subnet") or "", "dhcp_attendus": [], "creneaux": [], "internet": not v.get("management")})
+    postes, vus = [], set()
+    for a in assets or []:
+        mac, ip = norm_mac(a.get("mac")), str(a.get("ip") or "").strip()
+        cle = mac or ip
+        if not cle or cle in vus:
+            continue
+        vus.add(cle)
+        postes.append({"nom": str(a.get("name") or cle)[:60], "mac": mac, "ip": ip, "vlan": None, "attendu": "info"})
+    ag = [{"agent_id": a.get("agent_id"), "hostname": a.get("hostname"), "site": a.get("site")} for a in agents or []
+          if a.get("agent_id") and (not agent_site or a.get("site") == agent_site)]
+    return {"vlans": vlans, "postes": postes[:300], "agents": ag}
