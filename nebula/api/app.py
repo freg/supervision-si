@@ -1406,6 +1406,97 @@ def _veille_clients(site_id):
     return out
 
 
+# #851 : charge du réseau (clients et débits moyens par borne, SSID, VLAN, commutateur) et appareils névralgiques
+_charge_cache = {}
+GW_TYPES = ("GW", "GWH", "FIREWALL", "GATEWAY", "USG")
+
+
+@app.route("/sites/<site_id>/charge", methods=["GET"])
+def charge_route(site_id):
+    import charge as charge_lib
+    period = request.args.get("period", "1d")
+    if period not in charge_lib.PERIODES:
+        return jsonify({"error": "période : 2h, 1d, 7d ou 30d"}), 400
+    key = (site_id, period)
+    c = _charge_cache.get(key)
+    if c and time.time() - c["at"] < 600 and request.args.get("refresh") != "1":
+        return jsonify(c["res"]), 200
+    errs = []
+
+    def essai(nom, f):
+        try:
+            r = f()
+            return r.get("data", r) if isinstance(r, dict) and isinstance(r.get("data"), list) else r
+        except Exception as e:  # noqa: BLE001 -- chaque source est facultative
+            errs.append("%s : %s" % (nom, str(e)[:160]))
+            return None
+    try:
+        client = _connect()
+        _refresh_inventory(client)
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"error": "Nebula injoignable : %s" % str(e)[:200]}), 502
+    devices = _inventory["devices"].get(site_id) or []
+    p7 = period if period != "30d" else "7d"
+    apc = essai("clients des bornes", lambda: client.ap_clients_v2(site_id, period))
+    cl = essai("clients du site", lambda: client.get_site_clients(site_id, features=["mac_address", "vlan", "status"], period=period))
+    swc = essai("clients des commutateurs", lambda: client.sw_clients(site_id, p7))
+    sw_usage, gw_usage = {}, {}
+    for d in devices:
+        t = str(d.get("type") or "").upper()
+        if t in ("SW", "SWITCH"):
+            sw_usage[d["devId"]] = essai("liaison montante de %s" % (d.get("name") or d["devId"]), lambda d=d: client.sw_traffic_usage(site_id, d["devId"], p7)) or {"erreur": "non disponible"}
+        elif t in GW_TYPES:
+            try:
+                gw_usage[d["devId"]] = client.gw_traffic_usage(site_id, d["devId"], p7)
+            except Exception as e:  # noqa: BLE001 -- chemin non documenté : simplement « non disponible »
+                gw_usage[d["devId"]] = {"erreur": "non disponible par l'API (%s)" % str(e)[:80]}
+    ssid_vlan = {}
+    vm = essai("carte des VLAN", lambda: _vlan_map_cached(site_id))
+    for v in (vm or {}).get("vlans") or []:
+        for sd in v.get("ssids") or []:
+            if sd.get("name"):
+                ssid_vlan[sd["name"]] = v.get("vid")
+    now = int(time.time())
+    conn = get_connection()
+    try:
+        lignes = [(r["dev_id"], r["at"], r["clients"]) for r in conn.execute("SELECT dev_id, at, clients FROM nebula_occupancy WHERE site_id = ? AND at >= ?",
+                                                                               (site_id, now - charge_lib.PERIODES[period]))]
+    except Exception:  # noqa: BLE001 -- table absente (occupation jamais relevée)
+        lignes = []
+    finally:
+        conn.close()
+    res = charge_lib.agreger(period, devices, apc if isinstance(apc, list) else None, cl if isinstance(cl, list) else None,
+                             swc if isinstance(swc, list) else None, sw_usage, gw_usage, ssid_vlan, charge_lib.occupation(lignes, now - charge_lib.PERIODES[period]))
+    res.update(site_id=site_id, at=now, erreurs=errs, periode_commutateurs=p7)
+    _charge_cache[key] = {"at": time.time(), "res": res}
+    return jsonify(res), 200
+
+
+@app.route("/sites/<site_id>/nevralgiques", methods=["GET"])
+def nevralgiques_get(site_id):
+    return jsonify({"nevralgiques": report_routes.kv_get("nevralgiques:%s" % site_id, {})}), 200
+
+
+@app.route("/sites/<site_id>/nevralgiques", methods=["PUT"])
+def nevralgiques_put(site_id):
+    """Marquer / démarquer un appareil névralgique : {mac, nom, raison, nevralgique: bool, user, groups}."""
+    body = request.get_json(silent=True) or {}
+    ok, err = _check_manage_right(body)
+    if not ok:
+        return jsonify({"error": err}), 403
+    import veille as veille_lib
+    mac = veille_lib.norm_mac(body.get("mac"))
+    if not mac:
+        return jsonify({"error": "adresse MAC requise"}), 400
+    d = report_routes.kv_get("nevralgiques:%s" % site_id, {})
+    if body.get("nevralgique", True):
+        d[mac] = {"nom": str(body.get("nom") or mac)[:60], "raison": str(body.get("raison") or "")[:200], "par": str(body.get("user") or "")[:60], "at": int(time.time())}
+    else:
+        d.pop(mac, None)
+    report_routes.kv_set("nevralgiques:%s" % site_id, d)
+    return jsonify({"nevralgiques": d}), 200
+
+
 def _veille_assets():
     conn = get_connection()
     try:

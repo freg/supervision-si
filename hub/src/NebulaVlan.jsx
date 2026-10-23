@@ -48,7 +48,7 @@ export default function NebulaVlan({ nebulaApiBase, groups = [], login = "", foc
       {map && (
         <div>
           <h3>Synoptique</h3>
-          <NebulaTopo nebulaApiBase={nebulaApiBase} siteId={siteId} focus={focus} />
+          <NebulaTopo nebulaApiBase={nebulaApiBase} siteId={siteId} focus={focus} groups={groups} login={login} />
           <NebulaAnomalies nebulaApiBase={nebulaApiBase} siteId={siteId} groups={groups} login={login} version={map.at} />
           <NebulaSsidMatrix nebulaApiBase={nebulaApiBase} siteId={siteId} version={map.at} />
           {map.errors.length > 0 && <p className="muted">Appels en échec (carte partielle) : {map.errors.join(" · ")}</p>}

@@ -100,6 +100,15 @@ def evaluer(force=False):
         if not force and _cache["res"] and time.time() - _cache["at"] < 30:
             return _cache["res"]
         cfg = reglages()
+        try:                                       # #851 : appareils marqués névralgiques = postes attendus toujours
+            sid = _site(cfg)[0]
+            nev = rr.kv_get("nevralgiques:%s" % sid, {}) if sid else {}
+        except Exception:  # noqa: BLE001
+            nev = {}
+        connus = {p["mac"] for p in cfg["postes"]}
+        for mac, info in nev.items():
+            if mac not in connus:
+                cfg["postes"].append({"nom": "%s (névralgique)" % (info.get("nom") or mac), "mac": mac, "ip": "", "vlan": None, "attendu": "toujours"})
         e, site_id, site, errs = entrees(cfg)
         res = veille.evaluer(cfg, e)
         res.update(site_id=site_id, site=site, erreurs=errs)
@@ -166,10 +175,23 @@ def register(app, hooks, start_loop=True):
         return jsonify(dict(res, suivi=sorted((state.get("open") or {}).values(), key=lambda e: e.get("first_seen", 0)),
                             retablies_24h=alerting.resolved_since(state, time.time() - 86400)[-30:], reglages=reglages())), 200
 
+    def _jeton_ok():
+        jeton = os.environ.get("NEBULA_VEILLE_TOKEN", "")
+        return not jeton or hmac.compare_digest(request.args.get("jeton", ""), jeton)
+
+    @app.route("/veille/resume", methods=["GET"])
+    def veille_resume():
+        """#851 : résumé compact pour le veilleur du poste (si-veille, type « veille_hub ») : état et vérifications,
+        sans réglages ni adresses."""
+        if not _jeton_ok():
+            return jsonify({"error": "jeton requis"}), 401
+        res = evaluer()
+        return jsonify({"etat": res["etat"], "resume": res["resume"], "at": res["at"], "site": res.get("site"),
+                        "verifs": [{k: v.get(k) for k in ("famille", "nom", "statut", "detail", "usage")} for v in res["verifs"]]}), 200
+
     @app.route("/veille/etat", methods=["GET"])
     def veille_etat():
-        jeton = os.environ.get("NEBULA_VEILLE_TOKEN", "")
-        if jeton and not hmac.compare_digest(request.args.get("jeton", ""), jeton):
+        if not _jeton_ok():
             return "jeton requis\n", 401, {"Content-Type": "text/plain; charset=utf-8"}
         res = evaluer()
         code = 200 if res["etat"] in ("ok", "inconnu") else 503

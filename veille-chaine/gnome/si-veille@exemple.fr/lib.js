@@ -5,11 +5,16 @@ const depuis = (s) => s < 90 ? 'à l\'instant' : s < 5400 ? `il y a ${Math.round
 
 export function resume(e, maintenant) {
     if (!e || !e.dernier_tour)
-        return {etat: 'absent', texte: '', titre: 'si-veille : aucun passage (service arrêté ?)', derniere: null, maillons: [], alertes: []};
+        return {etat: 'absent', texte: '', titre: 'si-veille : aucun passage (service arrêté ?)', derniere: null, maillons: [], alertes: [], groupes: []};
     const age = maintenant - e.dernier_tour, res = e.resultats || {};
     const ordre = (e.ordre && e.ordre.length) ? e.ordre : Object.keys(res);
     const maillons = ordre.filter(i => res[i]).map(i => `${STATUT[res[i].statut] || '?'} ${res[i].nom || i} — ${res[i].detail || ''}`.slice(0, 140));
     const alertes = (e.alertes || []).slice(-15).reverse().map(a => `${hm(a.ts)}  ${a.titre} : ${a.texte}`.slice(0, 160));
+    // veilles d'un hub (type « veille_hub ») : une rubrique par maillon, ses vérifications hors « ok »
+    const groupes = ordre.filter(i => res[i] && Array.isArray(res[i].sous)).map(i => ({
+        titre: `${STATUT[res[i].statut] || '?'} ${res[i].nom || i}`,
+        lignes: res[i].sous.length ? res[i].sous.map(x => `${STATUT[x.statut] || '?'} ${x.nom} — ${x.detail || ''}`.slice(0, 140)) : ['✓ tout va bien'],
+    }));
     const derniere = (e.alertes || []).length ? e.alertes[e.alertes.length - 1] : null;
     let etat = 'ok', texte = '', titre = `Chaîne du hub OK — vérifiée ${depuis(age)}`;
     if (e.incident) {
@@ -24,5 +29,5 @@ export function resume(e, maintenant) {
         etat = 'ancien';
         titre = `si-veille muet depuis ${Math.round(age / 60)} min (service arrêté ?)`;
     }
-    return {etat, texte, titre, derniere: derniere ? `${hm(derniere.ts)}  ${derniere.titre} : ${derniere.texte}`.slice(0, 200) : null, maillons, alertes};
+    return {etat, texte, titre, groupes, derniere: derniere ? `${hm(derniere.ts)}  ${derniere.titre} : ${derniere.texte}`.slice(0, 200) : null, maillons, alertes};
 }

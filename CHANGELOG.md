@@ -1,3 +1,20 @@
+## 2026-10-23 — Campus : couleurs du synoptique (névralgiques), charge par borne / SSID / VLAN / commutateur, veille sur le poste (livraison #851)
+
+- **Synoptique** (tuile Nebula, Carte des VLAN) : rouge = panne qui compte (appareil réseau hors ligne, poste
+  **névralgique** absent), orange = doute, vert = en ligne, gris = poste absent sans importance (plus de rouge
+  trompeur). Chaque nœud porte une barre de couleurs et des pastilles chiffrées (rouges / orange / verts) de tout son
+  aval. Un client se **marque névralgique** depuis sa fiche (avec son rôle, ex. pilote de 4 écrans interactifs) ;
+  la veille le suit alors comme poste « attendu toujours ».
+- **Charge** (nouvel onglet) : par borne, SSID, VLAN et commutateur, sur 2 h / 1 jour / 7 jours / 30 jours : clients
+  distincts, clients simultanés moyens et maximum (relevés d'occupation), volumes montant / descendant et débit moyen.
+  Sources OpenAPI Nebula : clients des bornes (octets par client), clients du site et des commutateurs (VLAN), usage
+  de la liaison montante des commutateurs ; la passerelle n'a pas d'usage documenté (essayé, signalé sinon).
+- **Veille sur le poste** : `GET /api/nebula/veille/resume?jeton=…` (vérifications sans réglages) et si-veille 1.1
+  (type de maillon `veille_hub`) : panne = alerte, dégradé = icône orange, rubrique « réseau du campus » dans le menu
+  de l'icône avec les vérifications hors « ok ».
+- Liens : `?view=nebula&tab=charge`, `?view=nebula&tab=vlan` (synoptique) ; veille du poste : pas de lien,
+  opération manuelle (docs/veille-chaine.md).
+
 ## 2026-10-23 — Veille du campus : réglages pré-remplis depuis Nebula et les fiches du campus (livraison #850)
 
 - Bouton « Proposer depuis Nebula et les fiches du campus » dans les réglages de l'onglet Veille : VLAN de la carte

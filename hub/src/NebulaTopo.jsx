@@ -4,7 +4,7 @@
 // « n clients » dépliable). Données : /sites/<id>/topology. Nœuds et liaisons
 // cliquables ; la logique (arbre, positions) est dans nebulaTree.js.
 import { useEffect, useMemo, useState } from "react";
-import { treeLayout, treeEdges, treeSummary, KIND_LABEL, apPortAudit } from "./nebulaTree.js";
+import { treeLayout, treeEdges, treeSummary, KIND_LABEL, apPortAudit, TONS, tonAppareil, tonClient, comptesSousArbre, tonDominant, normMac } from "./nebulaTree.js";
 
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 async function getJson(url) {
@@ -19,7 +19,19 @@ export const STATUS_COLOR = { online: "#2e7d32", offline: "#c62828", alerting: "
 const KIND_GLYPH = { gateway: "⛨", switch: "▤", ap: "((•))", other: "▣" };
 const EDGE_COLOR = { ok: "#607d8b", bad: "#c62828", muted: "#9e9e9e", unlinked: "#bdbdbd" };
 
-export default function NebulaTopo({ nebulaApiBase, siteId, focus = null }) {
+export default function NebulaTopo({ nebulaApiBase, siteId, focus = null, groups = [], login = "" }) {
+  // #851 : appareils névralgiques (absents = rouge) ; les autres postes absents restent gris
+  const [nev, setNev] = useState({});
+  const [raison, setRaison] = useState("");
+  const loadNev = () => { if (siteId) getJson(`${nebulaApiBase}/sites/${encodeURIComponent(siteId)}/nevralgiques`).then((d) => setNev(d.nevralgiques || {})).catch(() => {}); };
+  useEffect(loadNev, [nebulaApiBase, siteId]);  // eslint-disable-line react-hooks/exhaustive-deps
+  const nevSet = useMemo(() => new Set(Object.keys(nev)), [nev]);
+  const marquer = async (c, on) => {
+    const r = await fetch(`${nebulaApiBase}/sites/${encodeURIComponent(siteId)}/nevralgiques`, { method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mac: c.mac, nom: c.name || c.mac, raison, nevralgique: on, user: login, groups }) });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) { setNev(d.nevralgiques || {}); setRaison(""); } else alert(d.error || r.status);
+  };
   const [tree, setTree] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -58,6 +70,7 @@ export default function NebulaTopo({ nebulaApiBase, siteId, focus = null }) {
   };
   useEffect(() => { load(false); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [nebulaApiBase, siteId, period]);
 
+  const comptes = useMemo(() => (tree ? comptesSousArbre(tree, nevSet) : new Map()), [tree, nevSet]);
   const lay = useMemo(() => (tree ? treeLayout(tree, { orientation, stagger, nodeHeight: NODE_H, rowHeight: 120, colWidth: 320, clientWidth: CLIENT_W, clientHeight: CLIENT_H, expanded }) : null), [tree, expanded, orientation, stagger]);
   const edges = useMemo(() => (tree ? treeEdges(tree) : []), [tree]);
   if (error) return <p style={{ color: "var(--danger)" }}>{error}</p>;
@@ -81,9 +94,10 @@ export default function NebulaTopo({ nebulaApiBase, siteId, focus = null }) {
     const active = selected?.type === "client" && selected.id === key;
     return (
       <g key={key} transform={`translate(${x - CLIENT_W / 2},${y - CLIENT_H / 2})`} style={{ cursor: "pointer" }} onClick={() => setSelected({ type: "client", id: key, client: c, parent: parentId })}>
-        <rect width={CLIENT_W} height={CLIENT_H} rx={6} fill="var(--bg)" stroke={active ? "#1565c0" : STATUS_COLOR[c.status] || "#9e9e9e"} strokeWidth={active ? 2.5 : 1.2} />
-        <circle cx={9} cy={CLIENT_H / 2} r={3.5} fill={STATUS_COLOR[c.status] || "#9e9e9e"} />
-        <text x={16} y={CLIENT_H / 2 + 4} fontSize="9.5" fill="var(--text)">{String(c.name || c.mac || "?").length > 11 ? String(c.name || c.mac).slice(0, 10) + "…" : (c.name || c.mac)}</text>
+        <rect width={CLIENT_W} height={CLIENT_H} rx={6} fill="var(--bg)" stroke={active ? "#1565c0" : TONS[tonClient(c, nevSet)]} strokeWidth={active ? 2.5 : nevSet.has(normMac(c.mac)) ? 2 : 1.2} />
+        <circle cx={9} cy={CLIENT_H / 2} r={3.5} fill={TONS[tonClient(c, nevSet)]} />
+        <text x={16} y={CLIENT_H / 2 + 4} fontSize="9.5" fill="var(--text)">{nevSet.has(normMac(c.mac)) ? "★" : ""}{String(c.name || c.mac || "?").length > 11 ? String(c.name || c.mac).slice(0, 10) + "…" : (c.name || c.mac)}</text>
+        <title>{`${c.name || c.mac} — ${c.status}${nevSet.has(normMac(c.mac)) ? " — névralgique : " + (nev[normMac(c.mac)]?.raison || "") : ""}`}</title>
       </g>
     );
   };
@@ -95,6 +109,8 @@ export default function NebulaTopo({ nebulaApiBase, siteId, focus = null }) {
         {sum.offline > 0 && <span style={{ color: "var(--danger)" }}>{sum.offline} hors ligne</span>}
         {sum.unlinked > 0 && <span className="muted">{sum.unlinked} sans liaison connue (rattaché{sum.unlinked > 1 ? "s" : ""} à la racine)</span>}
         {sum.loose > 0 && <span className="muted">{sum.loose} client{sum.loose > 1 ? "s" : ""} sans appareil identifié</span>}
+        <span className="muted" title="Rouge : appareil réseau hors ligne ou poste névralgique absent · orange : doute · vert : en ligne · gris : poste absent sans importance">
+          <span style={{ color: TONS.rouge }}>●</span> panne <span style={{ color: TONS.orange }}>●</span> doute <span style={{ color: TONS.vert }}>●</span> en ligne <span style={{ color: TONS.gris }}>●</span> absent ; ★ névralgique</span>
         <span style={{ flex: 1 }} />
         <label className="muted">Clients vus depuis <select value={period} onChange={(e) => setPeriod(e.target.value)}><option value="2h">2 h</option><option value="1d">1 jour</option><option value="7d">7 jours</option></select></label>
         <button type="button" className="secondary" disabled={busy} onClick={() => load(true)}>{busy ? "Lecture…" : "Relire"}</button>
@@ -126,7 +142,8 @@ export default function NebulaTopo({ nebulaApiBase, siteId, focus = null }) {
                 <g transform={`translate(${g.x - CLIENT_W / 2},${g.y - CLIENT_H / 2})`} style={{ cursor: "pointer" }} onClick={() => toggle(pid)}>
                   <rect width={CLIENT_W} height={CLIENT_H} rx={15} fill="var(--bg)" stroke="#90a4ae" strokeWidth={1.5} />
                   <text x={CLIENT_W / 2} y={CLIENT_H / 2 + 4} fontSize="10" fill="var(--text)" textAnchor="middle" fontWeight="600">{g.count} client{g.count > 1 ? "s" : ""}</text>
-                  {g.online < g.count && <circle cx={CLIENT_W - 8} cy={8} r={4} fill={STATUS_COLOR.offline} />}
+                  {(() => { const cl = byId.get(pid)?.clients || []; const t = { rouge: 0, orange: 0, vert: 0, gris: 0 }; for (const c of cl) t[tonClient(c, nevSet)] += 1; const d = tonDominant(t);
+                    return <>{(d === "rouge" || d === "orange") && <circle cx={CLIENT_W - 8} cy={8} r={4} fill={TONS[d]} />}<title>{`${t.vert} en ligne · ${t.rouge} névralgique(s) absent(s) · ${t.orange} douteux · ${t.gris} absent(s) sans importance`}</title></>; })()}
                 </g>
               </g>
             ); })}
@@ -142,8 +159,14 @@ export default function NebulaTopo({ nebulaApiBase, siteId, focus = null }) {
               const active = selected?.type === "node" && selected.id === n.id;
               return (
                 <g key={n.id} transform={`translate(${p.x - w / 2},${p.y - NODE_H / 2})`} style={{ cursor: "pointer" }} onClick={() => setSelected({ type: "node", id: n.id })} opacity={n.unlinked ? 0.7 : 1}>
-                  <rect width={w} height={NODE_H} rx={8} fill="var(--bg)" stroke={active ? "#1565c0" : STATUS_COLOR[n.status] || "#9e9e9e"} strokeWidth={active ? 3 : 2} />
-                  <circle cx={14} cy={14} r={5} fill={STATUS_COLOR[n.status] || "#9e9e9e"} />
+                  <rect width={w} height={NODE_H} rx={8} fill="var(--bg)" stroke={active ? "#1565c0" : TONS[tonAppareil(n.status)]} strokeWidth={active ? 3 : 2} />
+                  <circle cx={14} cy={14} r={5} fill={TONS[tonAppareil(n.status)]} />
+                  {(() => { const c = comptes.get(n.id) || { rouge: 0, orange: 0, vert: 0, gris: 0 }; const tot = c.rouge + c.orange + c.vert + c.gris; let x = 3;
+                    return <g>
+                      {["rouge", "orange", "vert", "gris"].map((k) => { const ww = tot ? (w - 6) * c[k] / tot : 0; const el = ww > 0 ? <rect key={k} x={x} y={NODE_H - 6} width={ww} height={3} fill={TONS[k]} /> : null; x += ww; return el; })}
+                      <text x={w - 4} y={-4} fontSize="10" textAnchor="end" fontWeight="700">{c.rouge > 0 && <tspan fill={TONS.rouge}>● {c.rouge}  </tspan>}{c.orange > 0 && <tspan fill={TONS.orange}>● {c.orange}  </tspan>}<tspan fill={TONS.vert}>● {c.vert}</tspan></text>
+                      <title>{`${n.name} et en aval : ${c.rouge} en panne (rouge) · ${c.orange} douteux · ${c.vert} en ligne · ${c.gris} absents sans importance`}</title>
+                    </g>; })()}
                   <text x={24} y={18} fontSize="11" fill="var(--text)" fontWeight="600">{n.name}</text>
                   <text x={24} y={34} fontSize="10" fill="var(--muted)">{KIND_GLYPH[n.kind]} {n.model || KIND_LABEL[n.kind]}{n.clients?.length ? ` · ${n.clients.length}` : ""}</text>
                 </g>
@@ -163,12 +186,15 @@ export default function NebulaTopo({ nebulaApiBase, siteId, focus = null }) {
                 <p style={{ margin: "4px 0" }}>Enfants : {tree.nodes.filter((n) => n.parent === selNode.id).map((n) => n.name).join(" · ") || "aucun"}</p>
                 {selNode.clients?.length > 0 && (
                   <AutoColumns id="NebulaTopo.1"><table><thead><tr><th>Client</th><th>IP</th><th>VLAN</th><th>État</th></tr></thead>
-                    <tbody>{selNode.clients.map((c) => <tr key={c.mac} style={{ cursor: "pointer" }} onClick={() => setSelected({ type: "client", id: `${selNode.id}|${c.mac}`, client: c, parent: selNode.id })}><td>{c.name}</td><td>{c.ip || "—"}</td><td>{c.vlan ?? "—"}</td><td style={{ color: STATUS_COLOR[c.status] }}>{c.status}</td></tr>)}</tbody></table></AutoColumns>
+                    <tbody>{selNode.clients.map((c) => <tr key={c.mac} style={{ cursor: "pointer" }} onClick={() => setSelected({ type: "client", id: `${selNode.id}|${c.mac}`, client: c, parent: selNode.id })}><td>{c.name}</td><td>{c.ip || "—"}</td><td>{c.vlan ?? "—"}</td><td style={{ color: TONS[tonClient(c, nevSet)] }}>{c.status}</td></tr>)}</tbody></table></AutoColumns>
                 )}
               </div>
             ) : (
               <div>
                 <p className="muted" style={{ margin: "4px 0" }}>{selClient.wired ? "Client filaire" : "Client Wi-Fi"} · état : {selClient.status}</p>
+                {nevSet.has(normMac(selClient.mac))
+                  ? <p style={{ margin: "4px 0" }}><b style={{ color: TONS.rouge }}>★ névralgique</b>{nev[normMac(selClient.mac)]?.raison ? ` — ${nev[normMac(selClient.mac)].raison}` : ""} <button type="button" className="secondary" onClick={() => marquer(selClient, false)}>retirer</button></p>
+                  : selClient.mac && <p style={{ margin: "4px 0" }}><input value={raison} onChange={(e) => setRaison(e.target.value)} placeholder="rôle (ex. pilote 4 écrans interactifs)" size={30} /> <button type="button" className="secondary" onClick={() => marquer(selClient, true)}>Marquer névralgique</button></p>}
                 <ul style={{ margin: "4px 0", paddingLeft: 18 }}>
                   <li>Servi par <strong>{byId.get(selected.parent)?.name}</strong>{selClient.port != null ? ` (port ${selClient.port})` : ""}</li>
                   <li>MAC {selClient.mac || "—"} · IP {selClient.ip || "—"} · VLAN {selClient.vlan ?? "—"}</li>

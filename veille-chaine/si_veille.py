@@ -30,7 +30,7 @@ VERSION = "1.1.0"
 CONF = os.path.expanduser(os.environ.get("SI_VEILLE_CONF", "~/.config/si-veille/config.json"))
 ETAT = os.path.expanduser(os.environ.get("SI_VEILLE_ETAT", "~/.local/state/si-veille/etat.json"))
 JOURNAL = os.path.expanduser(os.environ.get("SI_VEILLE_JOURNAL", "~/.local/state/si-veille/journal.log"))
-TYPES = ("dns", "tcp", "tls", "http", "commande")
+TYPES = ("dns", "tcp", "tls", "http", "commande", "veille_hub")
 DEFAUT = {"intervalle_s": 120, "rappel_min": 5, "seuil_echecs": 2, "mail_retabli": False, "mail": {}, "verifs": []}
 
 
@@ -121,6 +121,17 @@ def verifier(v, maintenant=None):
             if v.get("contient") and v["contient"] not in corps:
                 return False, "HTTP %s mais « %s » absent de la page" % (code, v["contient"])
             return True, "HTTP %s" % code
+        if t == "veille_hub":
+            # veille d'un hub (ex. réseau d'un site : /api/nebula/veille/resume?jeton=…) : panne -> échec, dégradé ->
+            # doute (orange), détail par vérification dans le menu de l'icône
+            req = urllib.request.Request(v["url"], headers={"User-Agent": "si-veille/" + VERSION, "Accept": "application/json"})
+            with urllib.request.urlopen(req, timeout=delai, context=_ctx(v) if v["url"].startswith("https") else None) as r:
+                d = json.loads(r.read(2_000_000).decode("utf-8", "replace"))
+            sous = [{"nom": x.get("nom"), "statut": {"ok": "ok", "ko": "ko", "doute": "doute"}.get(x.get("statut"), "non_teste"), "detail": x.get("detail") or ""}
+                    for x in d.get("verifs") or [] if x.get("statut") != "ok" or v.get("tout_montrer")]
+            etat = d.get("etat")
+            return (etat != "panne", ("dégradé : " if etat == "degrade" else "") + (d.get("resume") or etat or "?"),
+                    {"sous": sous, "doute": etat == "degrade"})
         if t == "commande":
             r = subprocess.run(v["commande"], shell=True, capture_output=True, text=True, timeout=delai)
             if r.returncode:
@@ -144,12 +155,16 @@ def passer(conf, etat, maintenant=None, verif=verifier):
         if parents_ko:
             res[v["id"]] = {"statut": "non_teste", "detail": "non testé : %s en échec" % ", ".join(parents_ko)}
             continue
-        ok, detail = verif(v, t)
+        r = verif(v, t)
+        ok, detail, extra = r[0], r[1], (r[2] if len(r) > 2 else {})
         e = etat.setdefault("verifs", {}).setdefault(v["id"], {"echecs": 0})
         e["echecs"] = 0 if ok else e["echecs"] + 1
         e["dernier"], e["detail"] = t, detail
         seuil = int(v.get("seuil_echecs") or conf["seuil_echecs"])
-        res[v["id"]] = {"statut": "ok" if ok else ("ko" if e["echecs"] >= seuil else "doute"), "detail": detail, "nom": v.get("nom") or v["id"]}
+        res[v["id"]] = {"statut": ("doute" if extra.get("doute") else "ok") if ok else ("ko" if e["echecs"] >= seuil else "doute"), "detail": detail,
+                        "nom": v.get("nom") or v["id"]}
+        if extra.get("sous") is not None:
+            res[v["id"]]["sous"] = extra["sous"][:40]
     return res
 
 

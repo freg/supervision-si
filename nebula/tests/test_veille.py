@@ -197,6 +197,9 @@ class Routes(unittest.TestCase):
         try:
             self.assertEqual(c.get("/veille/etat").status_code, 401)
             self.assertEqual(c.get("/veille/etat?jeton=secret").status_code, 200)
+            self.assertEqual(c.get("/veille/resume").status_code, 401)
+            rs = c.get("/veille/resume?jeton=secret").get_json()
+            self.assertEqual((rs["etat"], sorted(rs["verifs"][0])), ("ok", ["detail", "famille", "nom", "statut", "usage"]))
         finally:
             del os.environ["NEBULA_VEILLE_TOKEN"]
         vr._get = lambda url, timeout=8: {"agents": [{"agent_id": "pc-campus"}]}

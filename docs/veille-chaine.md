@@ -22,6 +22,8 @@ Pas d'onglet dans le hub (c'est voulu). Pas de lien : opération manuelle.
 | `http` | `url`, `codes`, `contient`, `ca` | code attendu (200/30x/401 par défaut), texte présent |
 | `commande` | `commande` | code de sortie 0 (par exemple `ssh hote "docker ps …"`) |
 
+| `veille_hub` | `url` (résumé JSON d'une veille du hub, ex. `/api/nebula/veille/resume?jeton=…`), `tout_montrer` | pas de panne ; dégradé = doute (orange) ; détail dans le menu |
+
 Champs communs : `id`, `nom`, `depend_de`, `delai_s` (10 s par défaut), `seuil_echecs`.
 
 ## Installation

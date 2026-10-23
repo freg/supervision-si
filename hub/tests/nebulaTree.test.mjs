@@ -84,3 +84,23 @@ test("apPortAudit : PVID majoritaire attendu, all requis (#565)", async () => {
   assert.deepEqual(a.rows.map((r) => r.ok), [true, false, false]);
   assert.equal(a.differing, 1); assert.equal(a.notAll, 1);
 });
+
+test("#851 : couleurs -- poste absent gris sauf névralgique, borne absente rouge, comptes du sous-arbre", async () => {
+  const { tonAppareil, tonClient, comptesSousArbre, tonDominant, normMac } = await import("../src/nebulaTree.js");
+  const nev = new Set([normMac("02-00-5E-00-00-07")]);
+  assert.equal(tonAppareil("offline"), "rouge");
+  assert.equal(tonAppareil("alerting"), "orange");
+  assert.equal(tonClient({ mac: "02:00:5e:00:00:01", status: "offline" }, nev), "gris");
+  assert.equal(tonClient({ mac: "02:00:5e:00:00:07", status: "offline" }, nev), "rouge");
+  assert.equal(tonClient({ mac: "02:00:5e:00:00:07", status: "inconnu" }, nev), "orange");
+  assert.equal(tonClient({ mac: "02:00:5e:00:00:07", status: "online" }, nev), "vert");
+  const tree = { nodes: [
+    { id: "g", name: "gw", kind: "gateway", status: "online", parent: null, clients: [] },
+    { id: "s", name: "sw", kind: "switch", status: "online", parent: "g", clients: [{ mac: "02:00:5e:00:00:07", status: "offline" }, { mac: "02:00:5e:00:00:01", status: "offline" }] },
+    { id: "a", name: "ap", kind: "ap", status: "offline", parent: "s", clients: [{ mac: "02:00:5e:00:00:02", status: "online" }] }] };
+  const c = comptesSousArbre(tree, nev);
+  assert.deepEqual(c.get("a"), { rouge: 1, orange: 0, vert: 1, gris: 0 });
+  assert.deepEqual(c.get("s"), { rouge: 2, orange: 0, vert: 2, gris: 1 });
+  assert.deepEqual(c.get("g"), { rouge: 2, orange: 0, vert: 3, gris: 1 });
+  assert.equal(tonDominant({ rouge: 0, orange: 1, vert: 3, gris: 0 }), "orange");
+});

@@ -46,6 +46,8 @@ export default class SiVeille extends Extension {
         this._maillons = new PopupMenu.PopupSubMenuMenuItem('Maillons');
         this._alertes = new PopupMenu.PopupSubMenuMenuItem('Alertes récentes');
         this._btn.menu.addMenuItem(this._maillons);
+        this._groupes = new PopupMenu.PopupMenuSection();     // veilles d'un hub (ex. réseau d'un site), une rubrique chacune
+        this._btn.menu.addMenuItem(this._groupes);
         this._btn.menu.addMenuItem(this._alertes);
         this._btn.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         const journal = new PopupMenu.PopupMenuItem('Ouvrir le journal');
@@ -88,6 +90,13 @@ export default class SiVeille extends Extension {
         this._maillons.menu.removeAll();
         for (const m of r.maillons)
             this._maillons.menu.addMenuItem(ligne(m));
+        this._groupes.removeAll();
+        for (const g of r.groupes || []) {
+            const sm = new PopupMenu.PopupSubMenuMenuItem(g.titre);
+            for (const l of g.lignes)
+                sm.menu.addMenuItem(ligne(l));
+            this._groupes.addMenuItem(sm);
+        }
         this._alertes.menu.removeAll();
         for (const a of r.alertes.length ? r.alertes : ['aucune'])
             this._alertes.menu.addMenuItem(ligne(a));
@@ -98,6 +107,6 @@ export default class SiVeille extends Extension {
             GLib.source_remove(this._minuteur);
         this._minuteur = null;
         this._btn?.destroy();
-        this._btn = this._icone = this._label = this._titre = this._derniere = this._maillons = this._alertes = null;
+        this._btn = this._icone = this._label = this._titre = this._derniere = this._maillons = this._alertes = this._groupes = null;
     }
 }

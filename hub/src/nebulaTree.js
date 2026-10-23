@@ -191,3 +191,44 @@ export function apPortAudit(tree) {
   return { rows: rows.sort((a, b) => a.name.localeCompare(b.name, "fr")), expectedPvid,
     differing: rows.filter((r) => r.pvid !== expectedPvid).length, notAll: rows.filter((r) => !r.all).length };
 }
+
+// -- #851 : couleurs du synoptique -------------------------------------------------------------------------------------
+// Rouge = panne qui compte (appareil réseau hors ligne, poste NÉVRALGIQUE absent) ; orange = doute (en alerte, état
+// incertain d'un névralgique) ; vert = en ligne ; gris = absent sans importance (poste ordinaire non vu).
+export const TONS = { rouge: "#c62828", orange: "#ef6c00", vert: "#2e7d32", gris: "#9e9e9e" };
+export const normMac = (m) => { const h = String(m || "").toLowerCase().replace(/[^0-9a-f]/g, ""); return h.length === 12 ? h.match(/../g).join(":") : String(m || "").toLowerCase(); };
+
+export function tonAppareil(status) {
+  return status === "online" ? "vert" : status === "offline" ? "rouge" : status === "alerting" ? "orange" : "gris";
+}
+
+export function tonClient(c, nevralgiques = new Set()) {
+  if (c.status === "online") return "vert";
+  if (!nevralgiques.has(normMac(c.mac))) return "gris";
+  return c.status === "offline" ? "rouge" : "orange";
+}
+
+/** Comptes par couleur de chaque nœud : lui-même, ses clients et tout son sous-arbre -> Map(id -> {rouge, orange, vert, gris}). */
+export function comptesSousArbre(tree, nevralgiques = new Set()) {
+  const nodes = tree.nodes || [];
+  const enfants = childrenMap(nodes);
+  const memo = new Map();
+  const calc = (n, vus = new Set()) => {
+    if (memo.has(n.id)) return memo.get(n.id);
+    if (vus.has(n.id)) return { rouge: 0, orange: 0, vert: 0, gris: 0 };
+    vus.add(n.id);
+    const c = { rouge: 0, orange: 0, vert: 0, gris: 0 };
+    c[tonAppareil(n.status)] += 1;
+    for (const cl of n.clients || []) c[tonClient(cl, nevralgiques)] += 1;
+    for (const e of enfants.get(n.id) || []) { const s = calc(e, vus); for (const k of Object.keys(c)) c[k] += s[k]; }
+    memo.set(n.id, c);
+    return c;
+  };
+  for (const n of nodes) calc(n);
+  return memo;
+}
+
+/** Couleur dominante d'un ensemble (rouge > orange > vert > gris) -- pastille d'un groupe de clients. */
+export function tonDominant(c) {
+  return c.rouge ? "rouge" : c.orange ? "orange" : c.vert ? "vert" : "gris";
+}

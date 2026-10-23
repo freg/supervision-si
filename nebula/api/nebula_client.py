@@ -228,6 +228,23 @@ class NebulaClient:
     def ap_wlan_settings(self, site_id):
         return self._get(f"/v1/nebula/{site_id}/ap/wlan-settings", f"SSID du site '{site_id}' échoués")
 
+    # ------------------------------------------------ charge (#851)
+    # Doc OpenAPI : aucun point d'entrée ne donne directement un nombre de clients ni un débit par borne / SSID /
+    # VLAN ; on agrège les listes de clients (v2 ap-clients : upload / download par client sur la période) et
+    # l'usage de la liaison montante des commutateurs (traffic-usage). Périodes : 2h, 1d, 7d (30d pour ap-clients).
+    def ap_clients_v2(self, site_id, period="1d"):
+        feats = ["mac_address", "ipv4", "connected_device_id", "ssid", "wifi_sta", "upload", "download", "last_seen", "os_hostname", "description"]
+        r = self._post(f"/v2/nebula/{site_id}/ap-clients", {"period": period, "featrues": feats}, f"clients des bornes du site '{site_id}' échoués")
+        return r.get("data", []) if isinstance(r, dict) else r
+
+    def sw_traffic_usage(self, site_id, dev_id, period="1d"):
+        return self._get(f"/v1/nebula/{site_id}/sw/{dev_id}/traffic-usage?period={period}", f"usage de la liaison montante de '{dev_id}' échoué")
+
+    def gw_traffic_usage(self, site_id, dev_id, period="1d"):
+        # chemin supposé (absent du texte de la doc, présent dans son menu « Get Secure Gateway Traffic Usage ») :
+        # une erreur est simplement signalée « non disponible »
+        return self._get(f"/v1/nebula/{site_id}/gw/{dev_id}/traffic-usage?period={period}", f"usage de la passerelle '{dev_id}' échoué")
+
     def sw_clients(self, site_id, period="1d"):
         # `featrues` (sic, nom du champ dans l'API) : l'énumération acceptée n'est
         # pas documentée ; "mac_address" seul est accepté et la réponse porte
