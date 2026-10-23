@@ -1,5 +1,11 @@
 [
  {
+  "n": 854,
+  "from": 854,
+  "date": "2026-10-23",
+  "title": "Parc IA : généalogie des modèles depuis l'origine, tenue à jour"
+ },
+ {
   "n": 853,
   "from": 853,
   "date": "2026-10-23",
@@ -232,11 +238,5 @@
   "from": 814,
   "date": "2026-10-21",
   "title": "Veille cyber : alertes, news, impacts sur notre SI, filtres, diffusion"
- },
- {
-  "n": 813,
-  "from": 813,
-  "date": "2026-10-21",
-  "title": "Écoute Wi-Fi : budget de temps par passage, canaux tournants"
  }
 ]

@@ -56,6 +56,7 @@ import orchestration  # noqa: E402  -- #832 : tuile Orchestration (VM Proxmox, k
 import activite  # noqa: E402  -- #830 : travaux en cours (pied de page du hub)
 import apprentissage  # noqa: E402  -- #828 : jeu de données du décideur, entraînements LoRA, évaluation
 import skills  # noqa: E402  -- #827 : skills des IA (consignes versionnées)
+import genealogie  # noqa: E402  -- #854 : généalogie des modèles (histoire, filiations, mode d'emploi)
 import modeles  # noqa: E402  -- #821 : Parc IA, veille des modèles (sorties, ouvert/fermé, usages)
 import prep  # noqa: E402  -- #815 : préparer la réinstallation d'un nœud (quorum, invités transférés, sauvegardes, PRA)
 import infra  # noqa: E402  -- #749 : vue d'ensemble PVE / PBS
@@ -235,6 +236,7 @@ def _watchdog_loop():
 if os.environ.get("SI_AGENT_PURGE_THREAD", "1") == "1":
     threading.Thread(target=_purge_loop, daemon=True).start()
     threading.Thread(target=_watchdog_loop, daemon=True).start()
+app.register_blueprint(genealogie.bp)   # #854 : /modeles/genealogie
 app.register_blueprint(modeles.bp)   # #821 : /modeles/* (Parc IA, veille des modèles)
 
 

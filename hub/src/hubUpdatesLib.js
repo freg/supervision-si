@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  854: [{ view: "iapark", params: { tab: "modeles", onglet: "genealogie" }, hint: "généalogie des modèles depuis le Transformer : filiations, dates, auteurs, liens, mode d'emploi ; relevé quotidien Hugging Face" }],
   853: [{ view: "notifications", params: { tab: "pauses" }, hint: "pauses planifiées : fermeture de site, travaux, coupure ; bilan à la reprise" }],
   852: [{ view: "nebula", params: { tab: "vlan" }, hint: "anomalies : préparer l'action (impact, chien de garde, retour arrière), journal ; recherche sur tout en tête de tuile" }],
   851: [{ view: "nebula", params: { tab: "charge" }, hint: "charge par borne, SSID, VLAN, commutateur" }, { view: "nebula", params: { tab: "vlan" }, hint: "synoptique : rouge = panne qui compte, névralgiques, pastilles chiffrées" }],

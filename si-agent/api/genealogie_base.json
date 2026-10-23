@@ -1,0 +1,1903 @@
+{
+ "version": 1,
+ "maj": "2026-10-23",
+ "source": "relevé à la main (dates au mois) ; complété automatiquement par la veille Hugging Face",
+ "noeuds": [
+  {
+   "id": "transformer",
+   "nom": "Transformer",
+   "org": "Google Brain / Google Research",
+   "date": "2017-06",
+   "types": [
+    "architecture"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "",
+   "params_b": null,
+   "parents": [],
+   "auteurs": "Vaswani, Shazeer, Parmar, Uszkoreit, Jones, Gomez, Kaiser, Polosukhin",
+   "liens": {
+    "article": "https://arxiv.org/abs/1706.03762"
+   },
+   "hf": "",
+   "emploi": {
+    "note": "Architecture « Attention Is All You Need » à l'origine de tous les modèles de cette page ; pas un modèle à exécuter."
+   }
+  },
+  {
+   "id": "gpt-1",
+   "nom": "GPT-1",
+   "org": "OpenAI",
+   "date": "2018-06",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "117M",
+   "params_b": 0.117,
+   "parents": [
+    {
+     "id": "transformer",
+     "relation": "architecture"
+    }
+   ],
+   "auteurs": "Radford, Narasimhan, Salimans, Sutskever",
+   "liens": {
+    "site": "https://openai.com/research/language-unsupervised"
+   },
+   "hf": "",
+   "emploi": {
+    "note": "Premier « Generative Pre-trained Transformer » (décodeur seul)."
+   }
+  },
+  {
+   "id": "bert",
+   "nom": "BERT",
+   "org": "Google AI",
+   "date": "2018-10",
+   "types": [
+    "texte",
+    "embeddings"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "110M / 340M",
+   "params_b": 0.34,
+   "parents": [
+    {
+     "id": "transformer",
+     "relation": "architecture"
+    }
+   ],
+   "auteurs": "Devlin, Chang, Lee, Toutanova",
+   "liens": {
+    "article": "https://arxiv.org/abs/1810.04805",
+    "hf": "https://huggingface.co/google-bert/bert-base-uncased"
+   },
+   "hf": "google-bert/bert-base-uncased",
+   "emploi": {
+    "note": "Encodeur bidirectionnel : classification, extraction, recherche sémantique (via sentence-transformers)."
+   }
+  },
+  {
+   "id": "gpt-2",
+   "nom": "GPT-2",
+   "org": "OpenAI",
+   "date": "2019-02",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "124M à 1,5B",
+   "params_b": 1.5,
+   "parents": [
+    {
+     "id": "gpt-1",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "Radford, Wu, Child, Luan, Amodei, Sutskever",
+   "liens": {
+    "hf": "https://huggingface.co/openai-community/gpt2",
+    "site": "https://openai.com/research/better-language-models"
+   },
+   "hf": "openai-community/gpt2",
+   "emploi": {
+    "note": "Publication échelonnée (version complète en novembre 2019)."
+   }
+  },
+  {
+   "id": "t5",
+   "nom": "T5",
+   "org": "Google Research",
+   "date": "2019-10",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "60M à 11B",
+   "params_b": 11,
+   "parents": [
+    {
+     "id": "transformer",
+     "relation": "architecture"
+    }
+   ],
+   "auteurs": "Raffel, Shazeer, Roberts et al.",
+   "liens": {
+    "article": "https://arxiv.org/abs/1910.10683",
+    "hf": "https://huggingface.co/google-t5/t5-base"
+   },
+   "hf": "google-t5/t5-base",
+   "emploi": {
+    "note": "Encodeur-décodeur « texte vers texte » ; base de nombreux modèles de traduction et de résumé."
+   }
+  },
+  {
+   "id": "gpt-3",
+   "nom": "GPT-3",
+   "org": "OpenAI",
+   "date": "2020-05",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ferme",
+   "tailles": "175B",
+   "params_b": 175,
+   "parents": [
+    {
+     "id": "gpt-2",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "Brown, Mann, Ryder, Subbiah et al.",
+   "liens": {
+    "article": "https://arxiv.org/abs/2005.14165"
+   },
+   "hf": "",
+   "emploi": {
+    "note": "Accessible seulement par API."
+   }
+  },
+  {
+   "id": "clip",
+   "nom": "CLIP",
+   "org": "OpenAI",
+   "date": "2021-01",
+   "types": [
+    "vision",
+    "embeddings"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "0,15B à 0,43B",
+   "params_b": 0.43,
+   "parents": [
+    {
+     "id": "transformer",
+     "relation": "architecture"
+    }
+   ],
+   "auteurs": "Radford, Kim, Hallacy et al.",
+   "liens": {
+    "article": "https://arxiv.org/abs/2103.00020",
+    "hf": "https://huggingface.co/openai/clip-vit-large-patch14"
+   },
+   "hf": "openai/clip-vit-large-patch14",
+   "emploi": {
+    "note": "Associe images et textes ; encodeur visuel repris par LLaVA et beaucoup de modèles multimodaux."
+   }
+  },
+  {
+   "id": "codex",
+   "nom": "Codex",
+   "org": "OpenAI",
+   "date": "2021-07",
+   "types": [
+    "code"
+   ],
+   "ouverture": "ferme",
+   "tailles": "12B",
+   "params_b": 12,
+   "parents": [
+    {
+     "id": "gpt-3",
+     "relation": "affinage"
+    }
+   ],
+   "auteurs": "Chen, Tworek, Jun et al.",
+   "liens": {
+    "article": "https://arxiv.org/abs/2107.03374"
+   },
+   "hf": "",
+   "emploi": {
+    "note": "GPT-3 affiné sur du code (GitHub Copilot à l'origine)."
+   }
+  },
+  {
+   "id": "instructgpt",
+   "nom": "InstructGPT",
+   "org": "OpenAI",
+   "date": "2022-01",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ferme",
+   "tailles": "1,3B à 175B",
+   "params_b": 175,
+   "parents": [
+    {
+     "id": "gpt-3",
+     "relation": "affinage"
+    }
+   ],
+   "auteurs": "Ouyang, Wu, Jiang et al.",
+   "liens": {
+    "article": "https://arxiv.org/abs/2203.02155"
+   },
+   "hf": "",
+   "emploi": {
+    "note": "Affinage par instructions et RLHF : la méthode reprise par tous les modèles « chat »."
+   }
+  },
+  {
+   "id": "palm",
+   "nom": "PaLM",
+   "org": "Google",
+   "date": "2022-04",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ferme",
+   "tailles": "540B",
+   "params_b": 540,
+   "parents": [
+    {
+     "id": "transformer",
+     "relation": "architecture"
+    }
+   ],
+   "auteurs": "Chowdhery, Narang, Devlin et al.",
+   "liens": {
+    "article": "https://arxiv.org/abs/2204.02311"
+   },
+   "hf": "",
+   "emploi": {}
+  },
+  {
+   "id": "opt",
+   "nom": "OPT",
+   "org": "Meta AI",
+   "date": "2022-05",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "poids",
+   "tailles": "125M à 175B",
+   "params_b": 6.7,
+   "parents": [
+    {
+     "id": "gpt-3",
+     "relation": "inspiration"
+    }
+   ],
+   "auteurs": "Zhang, Roller, Goyal et al.",
+   "liens": {
+    "article": "https://arxiv.org/abs/2205.01068",
+    "hf": "https://huggingface.co/facebook/opt-6.7b"
+   },
+   "hf": "facebook/opt-6.7b",
+   "emploi": {
+    "note": "Reproduction ouverte de GPT-3 (licence de recherche pour 175B)."
+   }
+  },
+  {
+   "id": "bloom",
+   "nom": "BLOOM",
+   "org": "BigScience (Hugging Face et al.)",
+   "date": "2022-07",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "poids",
+   "tailles": "176B",
+   "params_b": 176,
+   "parents": [
+    {
+     "id": "gpt-3",
+     "relation": "inspiration"
+    }
+   ],
+   "auteurs": "BigScience Workshop",
+   "liens": {
+    "article": "https://arxiv.org/abs/2211.05100",
+    "hf": "https://huggingface.co/bigscience/bloom"
+   },
+   "hf": "bigscience/bloom",
+   "emploi": {
+    "note": "Modèle multilingue ouvert issu d'un consortium de plus de 1 000 chercheurs ; licence RAIL."
+   }
+  },
+  {
+   "id": "whisper",
+   "nom": "Whisper",
+   "org": "OpenAI",
+   "date": "2022-09",
+   "types": [
+    "audio"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "39M à 1,55B",
+   "params_b": 1.55,
+   "parents": [
+    {
+     "id": "transformer",
+     "relation": "architecture"
+    }
+   ],
+   "auteurs": "Radford, Kim, Xu et al.",
+   "liens": {
+    "article": "https://arxiv.org/abs/2212.04356",
+    "hf": "https://huggingface.co/openai/whisper-large-v3"
+   },
+   "hf": "openai/whisper-large-v3",
+   "emploi": {
+    "note": "Transcription multilingue ; à exécuter avec faster-whisper ou whisper.cpp (pas Ollama)."
+   }
+  },
+  {
+   "id": "chatgpt",
+   "nom": "ChatGPT (GPT-3.5)",
+   "org": "OpenAI",
+   "date": "2022-11",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ferme",
+   "tailles": "",
+   "params_b": null,
+   "parents": [
+    {
+     "id": "instructgpt",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "site": "https://openai.com/index/chatgpt/"
+   },
+   "hf": "",
+   "emploi": {}
+  },
+  {
+   "id": "llama",
+   "nom": "LLaMA",
+   "org": "Meta AI",
+   "date": "2023-02",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "poids",
+   "tailles": "7B à 65B",
+   "params_b": 13,
+   "parents": [
+    {
+     "id": "transformer",
+     "relation": "architecture"
+    }
+   ],
+   "auteurs": "Touvron, Lavril, Izacard et al.",
+   "liens": {
+    "article": "https://arxiv.org/abs/2302.13971"
+   },
+   "hf": "",
+   "emploi": {
+    "note": "Poids diffusés aux chercheurs puis largement copiés : point de départ de l'écosystème ouvert."
+   }
+  },
+  {
+   "id": "alpaca",
+   "nom": "Alpaca",
+   "org": "Stanford CRFM",
+   "date": "2023-03",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "poids",
+   "tailles": "7B",
+   "params_b": 7,
+   "parents": [
+    {
+     "id": "llama",
+     "relation": "affinage"
+    }
+   ],
+   "auteurs": "Taori, Gulrajani, Zhang et al.",
+   "liens": {
+    "site": "https://crfm.stanford.edu/2023/03/13/alpaca.html"
+   },
+   "hf": "",
+   "emploi": {
+    "note": "LLaMA affiné sur 52 000 instructions générées : a montré qu'un petit affinage suffit."
+   }
+  },
+  {
+   "id": "vicuna",
+   "nom": "Vicuna",
+   "org": "LMSYS",
+   "date": "2023-03",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "poids",
+   "tailles": "7B / 13B",
+   "params_b": 13,
+   "parents": [
+    {
+     "id": "llama",
+     "relation": "affinage"
+    }
+   ],
+   "auteurs": "Chiang, Li, Lin et al.",
+   "liens": {
+    "hf": "https://huggingface.co/lmsys/vicuna-13b-v1.5",
+    "site": "https://lmsys.org/blog/2023-03-30-vicuna/"
+   },
+   "hf": "lmsys/vicuna-13b-v1.5",
+   "emploi": {
+    "ollama": "vicuna:13b"
+   }
+  },
+  {
+   "id": "gpt-4",
+   "nom": "GPT-4",
+   "org": "OpenAI",
+   "date": "2023-03",
+   "types": [
+    "texte",
+    "vision"
+   ],
+   "ouverture": "ferme",
+   "tailles": "",
+   "params_b": null,
+   "parents": [
+    {
+     "id": "chatgpt",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "article": "https://arxiv.org/abs/2303.08774"
+   },
+   "hf": "",
+   "emploi": {}
+  },
+  {
+   "id": "claude",
+   "nom": "Claude",
+   "org": "Anthropic",
+   "date": "2023-03",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ferme",
+   "tailles": "",
+   "params_b": null,
+   "parents": [
+    {
+     "id": "transformer",
+     "relation": "architecture"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "site": "https://www.anthropic.com/news/introducing-claude"
+   },
+   "hf": "",
+   "emploi": {}
+  },
+  {
+   "id": "chatglm",
+   "nom": "ChatGLM-6B",
+   "org": "Tsinghua KEG / Zhipu AI",
+   "date": "2023-03",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "poids",
+   "tailles": "6B",
+   "params_b": 6,
+   "parents": [
+    {
+     "id": "transformer",
+     "relation": "architecture"
+    }
+   ],
+   "auteurs": "THUDM",
+   "liens": {
+    "hf": "https://huggingface.co/THUDM/chatglm-6b"
+   },
+   "hf": "THUDM/chatglm-6b",
+   "emploi": {
+    "note": "Lignée GLM (GLM-130B en 2022) : bilingue chinois / anglais."
+   }
+  },
+  {
+   "id": "llava",
+   "nom": "LLaVA",
+   "org": "Université du Wisconsin / Microsoft Research",
+   "date": "2023-04",
+   "types": [
+    "texte",
+    "vision"
+   ],
+   "ouverture": "poids",
+   "tailles": "7B / 13B",
+   "params_b": 7,
+   "parents": [
+    {
+     "id": "vicuna",
+     "relation": "affinage"
+    },
+    {
+     "id": "clip",
+     "relation": "encodeur visuel"
+    }
+   ],
+   "auteurs": "Liu, Li, Wu, Lee",
+   "liens": {
+    "article": "https://arxiv.org/abs/2304.08485",
+    "hf": "https://huggingface.co/liuhaotian/llava-v1.5-7b"
+   },
+   "hf": "liuhaotian/llava-v1.5-7b",
+   "emploi": {
+    "ollama": "llava:7b",
+    "note": "Premier assistant vision ouvert répandu : encodeur CLIP branché sur un modèle de langage."
+   }
+  },
+  {
+   "id": "falcon",
+   "nom": "Falcon",
+   "org": "Technology Innovation Institute (Abu Dhabi)",
+   "date": "2023-05",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "7B / 40B / 180B",
+   "params_b": 40,
+   "parents": [
+    {
+     "id": "transformer",
+     "relation": "architecture"
+    }
+   ],
+   "auteurs": "TII",
+   "liens": {
+    "article": "https://arxiv.org/abs/2306.01116",
+    "hf": "https://huggingface.co/tiiuae/falcon-40b"
+   },
+   "hf": "tiiuae/falcon-40b",
+   "emploi": {
+    "ollama": "falcon:7b"
+   }
+  },
+  {
+   "id": "llama-2",
+   "nom": "Llama 2",
+   "org": "Meta AI",
+   "date": "2023-07",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "poids",
+   "tailles": "7B / 13B / 70B",
+   "params_b": 13,
+   "parents": [
+    {
+     "id": "llama",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "Touvron, Martin, Stone et al.",
+   "liens": {
+    "article": "https://arxiv.org/abs/2307.09288",
+    "hf": "https://huggingface.co/meta-llama/Llama-2-7b-hf"
+   },
+   "hf": "meta-llama/Llama-2-7b-hf",
+   "emploi": {
+    "ollama": "llama2:13b",
+    "note": "Licence communautaire Meta (usage commercial permis sous conditions)."
+   }
+  },
+  {
+   "id": "qwen",
+   "nom": "Qwen",
+   "org": "Alibaba Cloud",
+   "date": "2023-08",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "poids",
+   "tailles": "1,8B à 72B",
+   "params_b": 7,
+   "parents": [
+    {
+     "id": "transformer",
+     "relation": "architecture"
+    }
+   ],
+   "auteurs": "Bai, Bai, Chu et al.",
+   "liens": {
+    "article": "https://arxiv.org/abs/2309.16609",
+    "hf": "https://huggingface.co/Qwen/Qwen-7B"
+   },
+   "hf": "Qwen/Qwen-7B",
+   "emploi": {}
+  },
+  {
+   "id": "code-llama",
+   "nom": "Code Llama",
+   "org": "Meta AI",
+   "date": "2023-08",
+   "types": [
+    "code"
+   ],
+   "ouverture": "poids",
+   "tailles": "7B à 70B",
+   "params_b": 13,
+   "parents": [
+    {
+     "id": "llama-2",
+     "relation": "spécialisation"
+    }
+   ],
+   "auteurs": "Rozière, Gehring, Gloeckle et al.",
+   "liens": {
+    "article": "https://arxiv.org/abs/2308.12950",
+    "hf": "https://huggingface.co/meta-llama/CodeLlama-7b-hf"
+   },
+   "hf": "meta-llama/CodeLlama-7b-hf",
+   "emploi": {
+    "ollama": "codellama:13b"
+   }
+  },
+  {
+   "id": "mistral-7b",
+   "nom": "Mistral 7B",
+   "org": "Mistral AI",
+   "date": "2023-09",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "7B",
+   "params_b": 7.3,
+   "parents": [
+    {
+     "id": "transformer",
+     "relation": "architecture"
+    }
+   ],
+   "auteurs": "Jiang, Sablayrolles, Mensch et al.",
+   "liens": {
+    "article": "https://arxiv.org/abs/2310.06825",
+    "hf": "https://huggingface.co/mistralai/Mistral-7B-v0.1"
+   },
+   "hf": "mistralai/Mistral-7B-v0.1",
+   "emploi": {
+    "ollama": "mistral:7b",
+    "note": "Apache 2.0 ; a surclassé Llama 2 13B à 7B paramètres (attention glissante, GQA)."
+   }
+  },
+  {
+   "id": "zephyr",
+   "nom": "Zephyr 7B",
+   "org": "Hugging Face H4",
+   "date": "2023-10",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "7B",
+   "params_b": 7,
+   "parents": [
+    {
+     "id": "mistral-7b",
+     "relation": "affinage"
+    }
+   ],
+   "auteurs": "Tunstall, Beeching, Lambert et al.",
+   "liens": {
+    "article": "https://arxiv.org/abs/2310.16944",
+    "hf": "https://huggingface.co/HuggingFaceH4/zephyr-7b-beta"
+   },
+   "hf": "HuggingFaceH4/zephyr-7b-beta",
+   "emploi": {
+    "ollama": "zephyr:7b",
+    "note": "Affinage par DPO (préférences directes) sans RLHF."
+   }
+  },
+  {
+   "id": "openhermes-2.5",
+   "nom": "OpenHermes 2.5",
+   "org": "Teknium / Nous Research",
+   "date": "2023-10",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "7B",
+   "params_b": 7,
+   "parents": [
+    {
+     "id": "mistral-7b",
+     "relation": "affinage"
+    }
+   ],
+   "auteurs": "Teknium",
+   "liens": {
+    "hf": "https://huggingface.co/teknium/OpenHermes-2.5-Mistral-7B"
+   },
+   "hf": "teknium/OpenHermes-2.5-Mistral-7B",
+   "emploi": {
+    "ollama": "openhermes",
+    "note": "Lignée Hermes (affinages communautaires sur données synthétiques)."
+   }
+  },
+  {
+   "id": "phi-2",
+   "nom": "Phi-2",
+   "org": "Microsoft Research",
+   "date": "2023-12",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "2,7B",
+   "params_b": 2.7,
+   "parents": [
+    {
+     "id": "transformer",
+     "relation": "architecture"
+    }
+   ],
+   "auteurs": "Microsoft Research",
+   "liens": {
+    "hf": "https://huggingface.co/microsoft/phi-2"
+   },
+   "hf": "microsoft/phi-2",
+   "emploi": {
+    "ollama": "phi:2.7b",
+    "note": "Petit modèle entraîné sur des données « de manuel » de qualité."
+   }
+  },
+  {
+   "id": "mixtral",
+   "nom": "Mixtral 8x7B",
+   "org": "Mistral AI",
+   "date": "2023-12",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "46,7B (12,9B actifs, MoE)",
+   "params_b": 46.7,
+   "parents": [
+    {
+     "id": "mistral-7b",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "Jiang, Sablayrolles, Roux et al.",
+   "liens": {
+    "article": "https://arxiv.org/abs/2401.04088",
+    "hf": "https://huggingface.co/mistralai/Mixtral-8x7B-v0.1"
+   },
+   "hf": "mistralai/Mixtral-8x7B-v0.1",
+   "emploi": {
+    "ollama": "mixtral:8x7b",
+    "note": "Mélange d'experts (MoE) ouvert : 2 experts sur 8 actifs par jeton."
+   }
+  },
+  {
+   "id": "gemini",
+   "nom": "Gemini 1.0",
+   "org": "Google DeepMind",
+   "date": "2023-12",
+   "types": [
+    "texte",
+    "vision",
+    "audio"
+   ],
+   "ouverture": "ferme",
+   "tailles": "",
+   "params_b": null,
+   "parents": [
+    {
+     "id": "palm",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "article": "https://arxiv.org/abs/2312.11805"
+   },
+   "hf": "",
+   "emploi": {}
+  },
+  {
+   "id": "qwen1.5",
+   "nom": "Qwen1.5",
+   "org": "Alibaba Cloud",
+   "date": "2024-02",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "poids",
+   "tailles": "0,5B à 110B",
+   "params_b": 7,
+   "parents": [
+    {
+     "id": "qwen",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "hf": "https://huggingface.co/Qwen/Qwen1.5-7B"
+   },
+   "hf": "Qwen/Qwen1.5-7B",
+   "emploi": {}
+  },
+  {
+   "id": "gemma",
+   "nom": "Gemma",
+   "org": "Google DeepMind",
+   "date": "2024-02",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "poids",
+   "tailles": "2B / 7B",
+   "params_b": 7,
+   "parents": [
+    {
+     "id": "gemini",
+     "relation": "même recherche"
+    }
+   ],
+   "auteurs": "Gemma Team",
+   "liens": {
+    "article": "https://arxiv.org/abs/2403.08295",
+    "hf": "https://huggingface.co/google/gemma-7b"
+   },
+   "hf": "google/gemma-7b",
+   "emploi": {
+    "ollama": "gemma:7b"
+   }
+  },
+  {
+   "id": "claude-3",
+   "nom": "Claude 3 (Haiku, Sonnet, Opus)",
+   "org": "Anthropic",
+   "date": "2024-03",
+   "types": [
+    "texte",
+    "vision"
+   ],
+   "ouverture": "ferme",
+   "tailles": "",
+   "params_b": null,
+   "parents": [
+    {
+     "id": "claude",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "site": "https://www.anthropic.com/news/claude-3-family"
+   },
+   "hf": "",
+   "emploi": {}
+  },
+  {
+   "id": "command-r",
+   "nom": "Command R",
+   "org": "Cohere",
+   "date": "2024-03",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "poids",
+   "tailles": "35B",
+   "params_b": 35,
+   "parents": [
+    {
+     "id": "transformer",
+     "relation": "architecture"
+    }
+   ],
+   "auteurs": "Cohere For AI",
+   "liens": {
+    "hf": "https://huggingface.co/CohereForAI/c4ai-command-r-v01"
+   },
+   "hf": "CohereForAI/c4ai-command-r-v01",
+   "emploi": {
+    "ollama": "command-r:35b",
+    "note": "Orienté RAG et outils ; licence CC-BY-NC."
+   }
+  },
+  {
+   "id": "llama-3",
+   "nom": "Llama 3",
+   "org": "Meta AI",
+   "date": "2024-04",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "poids",
+   "tailles": "8B / 70B",
+   "params_b": 8,
+   "parents": [
+    {
+     "id": "llama-2",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "hf": "https://huggingface.co/meta-llama/Meta-Llama-3-8B"
+   },
+   "hf": "meta-llama/Meta-Llama-3-8B",
+   "emploi": {
+    "ollama": "llama3:8b"
+   }
+  },
+  {
+   "id": "phi-3",
+   "nom": "Phi-3",
+   "org": "Microsoft",
+   "date": "2024-04",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "3,8B à 14B",
+   "params_b": 3.8,
+   "parents": [
+    {
+     "id": "phi-2",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "Abdin, Jacobs, Awan et al.",
+   "liens": {
+    "article": "https://arxiv.org/abs/2404.14219",
+    "hf": "https://huggingface.co/microsoft/Phi-3-mini-4k-instruct"
+   },
+   "hf": "microsoft/Phi-3-mini-4k-instruct",
+   "emploi": {
+    "ollama": "phi3:mini"
+   }
+  },
+  {
+   "id": "deepseek-v2",
+   "nom": "DeepSeek-V2",
+   "org": "DeepSeek",
+   "date": "2024-05",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "poids",
+   "tailles": "236B (21B actifs, MoE)",
+   "params_b": 236,
+   "parents": [
+    {
+     "id": "transformer",
+     "relation": "architecture"
+    }
+   ],
+   "auteurs": "DeepSeek-AI",
+   "liens": {
+    "article": "https://arxiv.org/abs/2405.04434",
+    "hf": "https://huggingface.co/deepseek-ai/DeepSeek-V2"
+   },
+   "hf": "deepseek-ai/DeepSeek-V2",
+   "emploi": {
+    "note": "Introduit l'attention latente multi-têtes (MLA) et DeepSeekMoE."
+   }
+  },
+  {
+   "id": "gpt-4o",
+   "nom": "GPT-4o",
+   "org": "OpenAI",
+   "date": "2024-05",
+   "types": [
+    "texte",
+    "vision",
+    "audio"
+   ],
+   "ouverture": "ferme",
+   "tailles": "",
+   "params_b": null,
+   "parents": [
+    {
+     "id": "gpt-4",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "site": "https://openai.com/index/hello-gpt-4o/"
+   },
+   "hf": "",
+   "emploi": {}
+  },
+  {
+   "id": "qwen2",
+   "nom": "Qwen2",
+   "org": "Alibaba Cloud",
+   "date": "2024-06",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "0,5B à 72B",
+   "params_b": 7,
+   "parents": [
+    {
+     "id": "qwen1.5",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "hf": "https://huggingface.co/Qwen/Qwen2-7B"
+   },
+   "hf": "Qwen/Qwen2-7B",
+   "emploi": {
+    "ollama": "qwen2:7b"
+   }
+  },
+  {
+   "id": "gemma-2",
+   "nom": "Gemma 2",
+   "org": "Google DeepMind",
+   "date": "2024-06",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "poids",
+   "tailles": "2B / 9B / 27B",
+   "params_b": 9,
+   "parents": [
+    {
+     "id": "gemma",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "hf": "https://huggingface.co/google/gemma-2-9b"
+   },
+   "hf": "google/gemma-2-9b",
+   "emploi": {
+    "ollama": "gemma2:9b"
+   }
+  },
+  {
+   "id": "claude-3.5",
+   "nom": "Claude 3.5 Sonnet",
+   "org": "Anthropic",
+   "date": "2024-06",
+   "types": [
+    "texte",
+    "vision"
+   ],
+   "ouverture": "ferme",
+   "tailles": "",
+   "params_b": null,
+   "parents": [
+    {
+     "id": "claude-3",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "site": "https://www.anthropic.com/news/claude-3-5-sonnet"
+   },
+   "hf": "",
+   "emploi": {}
+  },
+  {
+   "id": "llama-3.1",
+   "nom": "Llama 3.1",
+   "org": "Meta AI",
+   "date": "2024-07",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "poids",
+   "tailles": "8B / 70B / 405B",
+   "params_b": 8,
+   "parents": [
+    {
+     "id": "llama-3",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "Llama Team, AI @ Meta",
+   "liens": {
+    "article": "https://arxiv.org/abs/2407.21783",
+    "hf": "https://huggingface.co/meta-llama/Llama-3.1-8B"
+   },
+   "hf": "meta-llama/Llama-3.1-8B",
+   "emploi": {
+    "ollama": "llama3.1:8b",
+    "note": "405B : premier modèle ouvert au niveau des meilleurs fermés de l'époque ; 128k de contexte."
+   }
+  },
+  {
+   "id": "mistral-nemo",
+   "nom": "Mistral NeMo",
+   "org": "Mistral AI et NVIDIA",
+   "date": "2024-07",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "12B",
+   "params_b": 12,
+   "parents": [
+    {
+     "id": "mistral-7b",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "hf": "https://huggingface.co/mistralai/Mistral-Nemo-Base-2407"
+   },
+   "hf": "mistralai/Mistral-Nemo-Base-2407",
+   "emploi": {
+    "ollama": "mistral-nemo:12b"
+   }
+  },
+  {
+   "id": "hermes-3",
+   "nom": "Hermes 3",
+   "org": "Nous Research",
+   "date": "2024-08",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "poids",
+   "tailles": "8B / 70B / 405B",
+   "params_b": 8,
+   "parents": [
+    {
+     "id": "llama-3.1",
+     "relation": "affinage"
+    },
+    {
+     "id": "openhermes-2.5",
+     "relation": "lignée Hermes"
+    }
+   ],
+   "auteurs": "Nous Research",
+   "liens": {
+    "article": "https://arxiv.org/abs/2408.11857",
+    "hf": "https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-8B"
+   },
+   "hf": "NousResearch/Hermes-3-Llama-3.1-8B",
+   "emploi": {
+    "ollama": "hermes3:8b",
+    "note": "Affinage orienté agent, appels d'outils et jeu de rôle ; base du harnais « Hermes Agent »."
+   }
+  },
+  {
+   "id": "qwen2.5",
+   "nom": "Qwen2.5",
+   "org": "Alibaba Cloud",
+   "date": "2024-09",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "0,5B à 72B",
+   "params_b": 7,
+   "parents": [
+    {
+     "id": "qwen2",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "Qwen Team",
+   "liens": {
+    "article": "https://arxiv.org/abs/2412.15115",
+    "hf": "https://huggingface.co/Qwen/Qwen2.5-7B"
+   },
+   "hf": "Qwen/Qwen2.5-7B",
+   "emploi": {
+    "ollama": "qwen2.5:7b"
+   }
+  },
+  {
+   "id": "qwen2.5-coder",
+   "nom": "Qwen2.5-Coder",
+   "org": "Alibaba Cloud",
+   "date": "2024-09",
+   "types": [
+    "code"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "0,5B à 32B",
+   "params_b": 7,
+   "parents": [
+    {
+     "id": "qwen2.5",
+     "relation": "spécialisation"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "hf": "https://huggingface.co/Qwen/Qwen2.5-Coder-7B"
+   },
+   "hf": "Qwen/Qwen2.5-Coder-7B",
+   "emploi": {
+    "ollama": "qwen2.5-coder:7b"
+   }
+  },
+  {
+   "id": "llama-3.2",
+   "nom": "Llama 3.2",
+   "org": "Meta AI",
+   "date": "2024-09",
+   "types": [
+    "texte",
+    "vision"
+   ],
+   "ouverture": "poids",
+   "tailles": "1B / 3B, vision 11B / 90B",
+   "params_b": 11,
+   "parents": [
+    {
+     "id": "llama-3.1",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "hf": "https://huggingface.co/meta-llama/Llama-3.2-11B-Vision"
+   },
+   "hf": "meta-llama/Llama-3.2-11B-Vision",
+   "emploi": {
+    "ollama": "llama3.2-vision:11b"
+   }
+  },
+  {
+   "id": "o1",
+   "nom": "o1",
+   "org": "OpenAI",
+   "date": "2024-09",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ferme",
+   "tailles": "",
+   "params_b": null,
+   "parents": [
+    {
+     "id": "gpt-4o",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "site": "https://openai.com/index/learning-to-reason-with-llms/"
+   },
+   "hf": "",
+   "emploi": {
+    "note": "Premier modèle « de raisonnement » (réfléchit avant de répondre)."
+   }
+  },
+  {
+   "id": "llama-3.3",
+   "nom": "Llama 3.3 70B",
+   "org": "Meta AI",
+   "date": "2024-12",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "poids",
+   "tailles": "70B",
+   "params_b": 70,
+   "parents": [
+    {
+     "id": "llama-3.1",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "hf": "https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct"
+   },
+   "hf": "meta-llama/Llama-3.3-70B-Instruct",
+   "emploi": {
+    "ollama": "llama3.3:70b"
+   }
+  },
+  {
+   "id": "phi-4",
+   "nom": "Phi-4",
+   "org": "Microsoft Research",
+   "date": "2024-12",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "14B",
+   "params_b": 14,
+   "parents": [
+    {
+     "id": "phi-3",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "Abdin et al.",
+   "liens": {
+    "article": "https://arxiv.org/abs/2412.08905",
+    "hf": "https://huggingface.co/microsoft/phi-4"
+   },
+   "hf": "microsoft/phi-4",
+   "emploi": {
+    "ollama": "phi4:14b"
+   }
+  },
+  {
+   "id": "deepseek-v3",
+   "nom": "DeepSeek-V3",
+   "org": "DeepSeek",
+   "date": "2024-12",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "671B (37B actifs, MoE)",
+   "params_b": 671,
+   "parents": [
+    {
+     "id": "deepseek-v2",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "DeepSeek-AI",
+   "liens": {
+    "article": "https://arxiv.org/abs/2412.19437",
+    "hf": "https://huggingface.co/deepseek-ai/DeepSeek-V3"
+   },
+   "hf": "deepseek-ai/DeepSeek-V3",
+   "emploi": {
+    "note": "Trop gros pour nos machines (671B) ; utile comme référence et par API."
+   }
+  },
+  {
+   "id": "deepseek-r1",
+   "nom": "DeepSeek-R1",
+   "org": "DeepSeek",
+   "date": "2025-01",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "671B (37B actifs)",
+   "params_b": 671,
+   "parents": [
+    {
+     "id": "deepseek-v3",
+     "relation": "raisonnement (RL)"
+    }
+   ],
+   "auteurs": "DeepSeek-AI",
+   "liens": {
+    "article": "https://arxiv.org/abs/2501.12948",
+    "hf": "https://huggingface.co/deepseek-ai/DeepSeek-R1"
+   },
+   "hf": "deepseek-ai/DeepSeek-R1",
+   "emploi": {
+    "note": "Raisonnement appris par renforcement, licence MIT ; publié avec des versions distillées dans Qwen et Llama."
+   }
+  },
+  {
+   "id": "r1-distill-qwen",
+   "nom": "DeepSeek-R1-Distill-Qwen",
+   "org": "DeepSeek",
+   "date": "2025-01",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "1,5B à 32B",
+   "params_b": 14,
+   "parents": [
+    {
+     "id": "deepseek-r1",
+     "relation": "distillation"
+    },
+    {
+     "id": "qwen2.5",
+     "relation": "base"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "hf": "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-14B"
+   },
+   "hf": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+   "emploi": {
+    "ollama": "deepseek-r1:14b",
+    "note": "Le raisonnement de R1 transféré dans Qwen2.5 : tient sur nos cartes."
+   }
+  },
+  {
+   "id": "r1-distill-llama",
+   "nom": "DeepSeek-R1-Distill-Llama",
+   "org": "DeepSeek",
+   "date": "2025-01",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "8B / 70B",
+   "params_b": 8,
+   "parents": [
+    {
+     "id": "deepseek-r1",
+     "relation": "distillation"
+    },
+    {
+     "id": "llama-3.1",
+     "relation": "base"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "hf": "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+   },
+   "hf": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+   "emploi": {}
+  },
+  {
+   "id": "mistral-small-3",
+   "nom": "Mistral Small 3",
+   "org": "Mistral AI",
+   "date": "2025-01",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "24B",
+   "params_b": 24,
+   "parents": [
+    {
+     "id": "mistral-nemo",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "hf": "https://huggingface.co/mistralai/Mistral-Small-24B-Base-2501"
+   },
+   "hf": "mistralai/Mistral-Small-24B-Base-2501",
+   "emploi": {
+    "ollama": "mistral-small:24b"
+   }
+  },
+  {
+   "id": "qwen2.5-vl",
+   "nom": "Qwen2.5-VL",
+   "org": "Alibaba Cloud",
+   "date": "2025-01",
+   "types": [
+    "texte",
+    "vision",
+    "ocr"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "3B / 7B / 72B",
+   "params_b": 7,
+   "parents": [
+    {
+     "id": "qwen2.5",
+     "relation": "multimodal"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "hf": "https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct"
+   },
+   "hf": "Qwen/Qwen2.5-VL-7B-Instruct",
+   "emploi": {
+    "ollama": "qwen2.5vl:7b",
+    "note": "Vision, lecture de documents et OCR."
+   }
+  },
+  {
+   "id": "gemma-3",
+   "nom": "Gemma 3",
+   "org": "Google DeepMind",
+   "date": "2025-03",
+   "types": [
+    "texte",
+    "vision"
+   ],
+   "ouverture": "poids",
+   "tailles": "1B / 4B / 12B / 27B",
+   "params_b": 12,
+   "parents": [
+    {
+     "id": "gemma-2",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "hf": "https://huggingface.co/google/gemma-3-12b-it"
+   },
+   "hf": "google/gemma-3-12b-it",
+   "emploi": {
+    "ollama": "gemma3:12b"
+   }
+  },
+  {
+   "id": "gemini-2.5",
+   "nom": "Gemini 2.5",
+   "org": "Google DeepMind",
+   "date": "2025-03",
+   "types": [
+    "texte",
+    "vision",
+    "audio"
+   ],
+   "ouverture": "ferme",
+   "tailles": "",
+   "params_b": null,
+   "parents": [
+    {
+     "id": "gemini",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "",
+   "liens": {},
+   "hf": "",
+   "emploi": {}
+  },
+  {
+   "id": "llama-4",
+   "nom": "Llama 4 (Scout, Maverick)",
+   "org": "Meta AI",
+   "date": "2025-04",
+   "types": [
+    "texte",
+    "vision"
+   ],
+   "ouverture": "poids",
+   "tailles": "109B (17B actifs, MoE) / 400B",
+   "params_b": 109,
+   "parents": [
+    {
+     "id": "llama-3.3",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "hf": "https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E"
+   },
+   "hf": "meta-llama/Llama-4-Scout-17B-16E",
+   "emploi": {
+    "ollama": "llama4:scout",
+    "note": "Passage de Meta au mélange d'experts."
+   }
+  },
+  {
+   "id": "qwen3",
+   "nom": "Qwen3",
+   "org": "Alibaba Cloud",
+   "date": "2025-04",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "0,6B à 235B, dont 30B-A3B (MoE)",
+   "params_b": 14,
+   "parents": [
+    {
+     "id": "qwen2.5",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "Qwen Team",
+   "liens": {
+    "article": "https://arxiv.org/abs/2505.09388",
+    "hf": "https://huggingface.co/Qwen/Qwen3-14B"
+   },
+   "hf": "Qwen/Qwen3-14B",
+   "emploi": {
+    "ollama": "qwen3:14b",
+    "note": "Modes « réflexion » / « sans réflexion » ; 30B-A3B très rapide sur nos cartes (qwen3:30b-a3b)."
+   }
+  },
+  {
+   "id": "claude-4",
+   "nom": "Claude 4 (Sonnet, Opus)",
+   "org": "Anthropic",
+   "date": "2025-05",
+   "types": [
+    "texte",
+    "vision"
+   ],
+   "ouverture": "ferme",
+   "tailles": "",
+   "params_b": null,
+   "parents": [
+    {
+     "id": "claude-3.5",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "site": "https://www.anthropic.com/news/claude-4"
+   },
+   "hf": "",
+   "emploi": {}
+  },
+  {
+   "id": "devstral",
+   "nom": "Devstral",
+   "org": "Mistral AI et All Hands AI",
+   "date": "2025-05",
+   "types": [
+    "code"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "24B",
+   "params_b": 24,
+   "parents": [
+    {
+     "id": "mistral-small-3",
+     "relation": "affinage"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "hf": "https://huggingface.co/mistralai/Devstral-Small-2505"
+   },
+   "hf": "mistralai/Devstral-Small-2505",
+   "emploi": {
+    "ollama": "devstral:24b",
+    "note": "Agent de développement (outils, dépôts)."
+   }
+  },
+  {
+   "id": "magistral",
+   "nom": "Magistral",
+   "org": "Mistral AI",
+   "date": "2025-06",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "24B (Small)",
+   "params_b": 24,
+   "parents": [
+    {
+     "id": "mistral-small-3",
+     "relation": "raisonnement (RL)"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "hf": "https://huggingface.co/mistralai/Magistral-Small-2506"
+   },
+   "hf": "mistralai/Magistral-Small-2506",
+   "emploi": {
+    "ollama": "magistral:24b"
+   }
+  },
+  {
+   "id": "kimi-k2",
+   "nom": "Kimi K2",
+   "org": "Moonshot AI",
+   "date": "2025-07",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "poids",
+   "tailles": "1T (32B actifs, MoE)",
+   "params_b": 1000,
+   "parents": [
+    {
+     "id": "deepseek-v3",
+     "relation": "inspiration architecture"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "hf": "https://huggingface.co/moonshotai/Kimi-K2-Instruct"
+   },
+   "hf": "moonshotai/Kimi-K2-Instruct",
+   "emploi": {
+    "note": "Orienté agent ; trop gros pour nos machines."
+   }
+  },
+  {
+   "id": "glm-4.5",
+   "nom": "GLM-4.5",
+   "org": "Zhipu AI (Z.ai)",
+   "date": "2025-07",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "355B (32B actifs) / Air 106B",
+   "params_b": 106,
+   "parents": [
+    {
+     "id": "chatglm",
+     "relation": "lignée GLM"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "hf": "https://huggingface.co/zai-org/GLM-4.5"
+   },
+   "hf": "zai-org/GLM-4.5",
+   "emploi": {
+    "note": "MIT ; version Air plus légère."
+   }
+  },
+  {
+   "id": "qwen3-coder",
+   "nom": "Qwen3-Coder",
+   "org": "Alibaba Cloud",
+   "date": "2025-07",
+   "types": [
+    "code"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "30B-A3B / 480B-A35B",
+   "params_b": 30,
+   "parents": [
+    {
+     "id": "qwen3",
+     "relation": "spécialisation"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "hf": "https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct"
+   },
+   "hf": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+   "emploi": {
+    "ollama": "qwen3-coder:30b"
+   }
+  },
+  {
+   "id": "gpt-oss",
+   "nom": "gpt-oss",
+   "org": "OpenAI",
+   "date": "2025-08",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "20B / 120B (MoE)",
+   "params_b": 20,
+   "parents": [
+    {
+     "id": "o1",
+     "relation": "même lignée (raisonnement)"
+    }
+   ],
+   "auteurs": "",
+   "liens": {
+    "hf": "https://huggingface.co/openai/gpt-oss-20b",
+    "site": "https://openai.com/index/introducing-gpt-oss/"
+   },
+   "hf": "openai/gpt-oss-20b",
+   "emploi": {
+    "ollama": "gpt-oss:20b",
+    "note": "Premiers poids ouverts d'OpenAI depuis GPT-2, licence Apache 2.0."
+   }
+  },
+  {
+   "id": "gpt-5",
+   "nom": "GPT-5",
+   "org": "OpenAI",
+   "date": "2025-08",
+   "types": [
+    "texte",
+    "vision"
+   ],
+   "ouverture": "ferme",
+   "tailles": "",
+   "params_b": null,
+   "parents": [
+    {
+     "id": "o1",
+     "relation": "succession"
+    },
+    {
+     "id": "gpt-4o",
+     "relation": "succession"
+    }
+   ],
+   "auteurs": "",
+   "liens": {},
+   "hf": "",
+   "emploi": {}
+  },
+  {
+   "id": "hermes-4",
+   "nom": "Hermes 4",
+   "org": "Nous Research",
+   "date": "2025-08",
+   "types": [
+    "texte"
+   ],
+   "ouverture": "poids",
+   "tailles": "14B / 70B / 405B",
+   "params_b": 70,
+   "parents": [
+    {
+     "id": "llama-3.1",
+     "relation": "affinage"
+    },
+    {
+     "id": "hermes-3",
+     "relation": "lignée Hermes"
+    }
+   ],
+   "auteurs": "Nous Research",
+   "liens": {
+    "hf": "https://huggingface.co/NousResearch/Hermes-4-70B"
+   },
+   "hf": "NousResearch/Hermes-4-70B",
+   "emploi": {
+    "note": "Raisonnement hybride (balises de réflexion)."
+   }
+  },
+  {
+   "id": "deepseek-ocr",
+   "nom": "DeepSeek-OCR",
+   "org": "DeepSeek",
+   "date": "2025-10",
+   "types": [
+    "ocr",
+    "vision"
+   ],
+   "ouverture": "ouvert",
+   "tailles": "3B (MoE)",
+   "params_b": 3,
+   "parents": [
+    {
+     "id": "deepseek-v3",
+     "relation": "même famille"
+    }
+   ],
+   "auteurs": "DeepSeek-AI",
+   "liens": {
+    "hf": "https://huggingface.co/deepseek-ai/DeepSeek-OCR"
+   },
+   "hf": "deepseek-ai/DeepSeek-OCR",
+   "emploi": {
+    "note": "OCR par « compression optique » du contexte ; à exécuter avec transformers ou vLLM (voir la fiche Hugging Face)."
+   }
+  }
+ ]
+}

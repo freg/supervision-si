@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { dateCourte } from "./veilleLib.js";
 import { viewParams } from "./hubLinks.js";
+import GenealogieModeles from "./GenealogieModeles.jsx";   // #854
 
 // #821 Parc IA, onglet « Veille des modèles » (même module que la tuile Modèles IA du hub maison) : veille des sorties (Hugging Face, éditeurs suivis) avec historique et alertes (nouveau modèle
 // utilisable et pertinent, passage ouvert <-> fermé), usages des modèles des hôtes (cases à cocher, types d'usage), bancs.
@@ -12,7 +13,7 @@ async function api(path, { methode = "GET", corps } = {}) {
   if (!r.ok) throw new Error(j?.error || j?.erreur || (r.status === 404 ? "HTTP 404 : si-agent-api sans la veille des modèles (#821) -- reconstruire si-agent-api" : `HTTP ${r.status}`));
   return j;
 }
-const ONGLETS = [["alertes", "Alertes"], ["veille", "Veille des sorties"], ["historique", "Historique"], ["mes", "Usages"], ["bancs", "Bancs et benchmarks"], ["reglages", "Réglages"]];
+const ONGLETS = [["alertes", "Alertes"], ["genealogie", "Généalogie"], ["veille", "Veille des sorties"], ["historique", "Historique"], ["mes", "Usages"], ["bancs", "Bancs et benchmarks"], ["reglages", "Réglages"]];
 const EVT = { nouveau: "nouveau", ouverture: "↗ ouverture (licence plus libre)", fermeture: "↘ fermeture (licence plus restrictive)", licence: "licence changée",
   acces_restreint: "accès restreint (gated)", acces_libre: "accès libéré", disparu: "disparu / rendu privé", reapparu: "réapparu" };
 const OUV = { 2: ["libre", "good"], 1: ["sous conditions", "warn"], 0: ["fermé / inconnu", "bad"] };
@@ -189,6 +190,7 @@ export default function ModelesVeille({ base }) {
         <button className="secondary" type="button" disabled={!evts.some((e) => !e.vu)} onClick={() => marquerVu(null)}>Tout marquer vu</button></div>
         <Evenements liste={evts} alertes marquerVu={marquerVu} /></div>}
       {onglet === "historique" && <div className="veille-bloc"><Evenements liste={evts} /></div>}
+      {onglet === "genealogie" && <GenealogieModeles api={api} prefixe="/modeles" />}
       {onglet === "veille" && <Veille etat={etat} setErr={setErr} />}
       {onglet === "mes" && <Mes setErr={setErr} />}
       {onglet === "bancs" && <Bancs setErr={setErr} />}

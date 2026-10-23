@@ -1,3 +1,18 @@
+## 2026-10-23 — Parc IA : généalogie des modèles depuis l'origine, tenue à jour (livraison #854)
+
+- Parc IA › Veille des modèles, onglet **Généalogie** (même module que le hub maison) : frise par année du Transformer
+  (2017) à aujourd'hui, 71 modèles relevés à la main (GPT, BERT, T5, LLaMA, Mistral, Qwen, Gemma, Phi, DeepSeek, Claude,
+  Gemini, Hermes, gpt-oss...) avec date, éditeur, auteurs, ouverture (libre / poids sous conditions / fermé), filiation
+  (succession, affinage, distillation, fusion, architecture), liens (article, Hugging Face, annonce, Ollama).
+- Fiche d'un modèle : chemin jusqu'au Transformer, parents, enfants et forks, descendance complète, **mode d'emploi**
+  (commande Ollama à copier, VRAM estimée en Q4, machines du parc qui le tiennent) ; la lignée est entourée dans la frise.
+- **Mise à jour automatique** une fois par jour (et bouton « Relever maintenant ») : dérivés les plus téléchargés de chaque
+  modèle ouvert (tags `base_model:finetune|adapter` de Hugging Face), et nouveaux modèles de la veille des sorties rattachés
+  à leur modèle de base déclaré ; quantifications ignorées ; un relevé hors sujet s'écarte depuis sa fiche.
+- Corriger l'histoire : `si-agent/api/genealogie_base.json` (erreurs signalées en tête de page). Pas de lien : opération
+  manuelle (édition du fichier puis reconstruction de si-agent-api). Réglages : `GENEALOGIE_DERIVES` (5), `GENEALOGIE_AUTO` (1).
+- Lien : `?view=iapark&tab=modeles&onglet=genealogie`. API : `GET /modeles/genealogie`, `POST /modeles/genealogie/relever`.
+
 ## 2026-10-23 — Pauses planifiées des alertes : fermeture de site, travaux, coupure électrique (livraison #853)
 
 - Tuile Notifications, onglet **Pauses planifiées** : type (fermeture, travaux, coupure, maintenance), motif, début,

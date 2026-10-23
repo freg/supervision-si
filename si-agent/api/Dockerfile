@@ -58,6 +58,8 @@ COPY si-agent/api/orchestration.py .
 COPY si-agent/api/orch_vms.py .
 COPY si-agent/api/dockerhub.py .
 COPY si-agent/api/modeles_stockage.py .
+COPY si-agent/api/genealogie.py .
+COPY si-agent/api/genealogie_base.json .
 COPY shared/decideur.py .
 COPY si-agent/api/edgepair.py .
 COPY si-agent/api/dnsq.py .
