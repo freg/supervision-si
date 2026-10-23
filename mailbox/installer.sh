@@ -41,6 +41,9 @@ RestartSec=10
 [Install]
 WantedBy=default.target
 UN
+  # notifications du bureau et trousseau (bus de session) pour le service utilisateur
+  systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XAUTHORITY DBUS_SESSION_BUS_ADDRESS 2>/dev/null || true
+  command -v secret-tool >/dev/null || echo "ATTENTION secret-tool absent (mots de passe IMAP) : sudo apt install -y libsecret-tools"
   systemctl --user daemon-reload && systemctl --user enable --now si-mailbox.service >/dev/null && systemctl --user restart si-mailbox.service
 fi
 sleep 2
