@@ -1,3 +1,13 @@
+## 2026-10-23 — si-onglets : fenêtre agrandie par défaut, rien sans onglets enregistrés ; outils du poste publiés à part (livraison #849)
+
+- Premier essai réel : une seule fenêtre rouverte, en plein écran sans la barre du haut -- aucun onglet n'avait encore
+  été enregistré, et le plein écran (F11) était le défaut. Désormais : fenêtre **agrandie** par défaut (« fenetre » :
+  « plein-ecran » pour le plein écran), rien n'est ouvert à la connexion tant qu'aucun onglet n'est enregistré
+  (`--auto`), `--voir` montre la commande sans l'exécuter.
+- Les outils du poste (si-onglets, si-veille, si-mailbox) sont aussi publiés dans un dépôt à part, `poste-session`
+  (Linux et macOS, paquet .deb) ; les copies de ce dépôt restent pour l'historique.
+- Pas de lien : opération manuelle.
+
 ## 2026-10-23 — si-onglets : la fenêtre de terminal et ses onglets rouverts à l'ouverture de la session (livraison #848)
 
 - `poste-onglets/` : `si-onglets --capturer` relève les onglets ouverts de GNOME Terminal (dossier courant et commande

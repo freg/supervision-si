@@ -32,12 +32,12 @@ class Onglets(unittest.TestCase):
                              {"titre": "etc", "dossier": "/etc", "commande": ""}])
 
     def test_terminal(self):
-        a = O.commande_terminal({"plein_ecran": True, "onglets": O.onglets_de(PROCS, M)}, M)
+        a = O.commande_terminal({"fenetre": "plein-ecran", "onglets": O.onglets_de(PROCS, M)}, M)
         self.assertEqual(a[:5], ["gnome-terminal", "--window", "--full-screen", "--working-directory", M + "/SRC/data2"])
         self.assertEqual(a[5:7], ["--command", "bash -c 'ssh -A super; exec bash'"])
         self.assertEqual(a.count("--tab"), 3)
         self.assertIn(M + "/Téléchargements", a)
-        self.assertEqual(O.commande_terminal({"plein_ecran": False, "onglets": []}, M), ["gnome-terminal", "--window", "--maximize", "--working-directory", M])
+        self.assertEqual(O.commande_terminal({"onglets": []}, M), ["gnome-terminal", "--window", "--maximize", "--working-directory", M])
         q = O.commande_terminal({"onglets": [{"dossier": "~", "commande": "echo 'a b'"}]}, M)
         self.assertEqual(q[-1], "bash -c 'echo '\"'\"'a b'\"'\"'; exec bash'")
 
@@ -48,9 +48,9 @@ class Onglets(unittest.TestCase):
         os.environ["SI_ONGLETS_CONF"] = os.path.join(d, "o.json")
         O.CONF = os.environ["SI_ONGLETS_CONF"]
         O.ecrire({"onglets": [{"titre": "x", "dossier": "~", "commande": ""}]})
-        O.ecrire(dict(O.lire(), plein_ecran=False))
+        O.ecrire(dict(O.lire(), fenetre="plein-ecran"))
         self.assertTrue(os.path.exists(O.CONF + ".avant"))
-        self.assertEqual((O.lire()["plein_ecran"], O.lire()["attente_s"]), (False, 5))
+        self.assertEqual((O.lire()["fenetre"], O.lire()["attente_s"]), ("plein-ecran", 5))
 
 
 if __name__ == "__main__":

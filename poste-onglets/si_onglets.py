@@ -8,7 +8,7 @@ bibliothèque standard seule.
                           commande au premier plan) et les enregistre ; à lancer depuis un des onglets ;
   si-onglets --ouvrir     ouvre la fenêtre et ses onglets (lancé par la session, ~/.config/autostart) ;
   si-onglets --liste      affiche les onglets enregistrés.
-Configuration : ~/.config/si-onglets/onglets.json (modifiable à la main : titre, dossier, commande ; plein_ecran,
+Configuration : ~/.config/si-onglets/onglets.json (modifiable à la main : titre, dossier, commande ; fenetre : agrandie | plein-ecran,
 attente_s). Pur et testé : processus_lus, onglets_de, commande_terminal."""
 import json
 import os
@@ -20,7 +20,7 @@ import time
 
 VERSION = "1.0.0"
 CONF = os.path.expanduser(os.environ.get("SI_ONGLETS_CONF", "~/.config/si-onglets/onglets.json"))
-DEFAUT = {"plein_ecran": True, "attente_s": 5, "onglets": []}
+DEFAUT = {"fenetre": "agrandie", "attente_s": 5, "onglets": []}   # fenetre : agrandie (barre du haut visible) | plein-ecran
 NON_RELANCES = ("si-onglets", "si_onglets.py")       # la commande qui capture n'est pas un onglet à rejouer
 
 
@@ -67,9 +67,10 @@ def onglets_de(procs, maison=None):
 
 def commande_terminal(conf, maison=None):
     """Réglages -> argv de gnome-terminal : une fenêtre (plein écran ou agrandie), un onglet par entrée ; la
-    commande d'un onglet est suivie d'un shell, pour que l'onglet reste ouvert quand elle se termine."""
+    commande d'un onglet est suivie d'un shell, pour que l'onglet reste ouvert quand elle se termine. Fenêtre agrandie
+    par défaut (barre du haut visible) ; « fenetre »: « plein-ecran » pour le vrai plein écran (F11)."""
     maison = maison if maison is not None else os.path.expanduser("~")
-    a = ["gnome-terminal", "--window", "--full-screen" if conf.get("plein_ecran", True) else "--maximize"]
+    a = ["gnome-terminal", "--window", "--full-screen" if conf.get("fenetre") == "plein-ecran" else "--maximize"]
     for i, o in enumerate(conf.get("onglets") or [{"dossier": "~"}]):
         if i:
             a.append("--tab")
@@ -112,9 +113,14 @@ def main():
             print("%2d. %-16s %-40s %s" % (i, x["titre"], x["dossier"], x["commande"] or "(shell)"))
         return
     if "--ouvrir" in sys.argv or len(sys.argv) == 1:
+        if "--auto" in sys.argv and not (os.path.exists(CONF) and conf.get("onglets")):
+            return                                          # rien d'enregistré : la session s'ouvre comme d'habitude
         if not shutil.which("gnome-terminal"):
             print("gnome-terminal absent", file=sys.stderr)
             sys.exit(1)
+        if "--voir" in sys.argv:                            # diagnostic : la commande, sans l'exécuter
+            print(" ".join(shlex.quote(x) for x in commande_terminal(conf)))
+            return
         time.sleep(max(0, int(conf.get("attente_s") or 0)) if "--sans-attente" not in sys.argv else 0)
         subprocess.Popen(commande_terminal(conf), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         return

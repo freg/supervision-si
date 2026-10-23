@@ -17,7 +17,7 @@ cat > "$AUTO" <<DT
 Type=Application
 Name=si-onglets
 Comment=Rouvre la fenêtre de terminal et ses onglets
-Exec=$HOME/.local/bin/si-onglets --ouvrir
+Exec=$HOME/.local/bin/si-onglets --ouvrir --auto
 X-GNOME-Autostart-enabled=true
 X-GNOME-Autostart-Delay=3
 DT

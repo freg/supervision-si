@@ -1,5 +1,11 @@
 [
  {
+  "n": 849,
+  "from": 849,
+  "date": "2026-10-23",
+  "title": "si-onglets : fenêtre agrandie par défaut, rien sans onglets enregistrés ; outils du poste publiés à part"
+ },
+ {
   "n": 848,
   "from": 848,
   "date": "2026-10-23",
@@ -232,11 +238,5 @@
   "from": 809,
   "date": "2026-10-21",
   "title": "Cadrage : veille cyber, impacts sur notre SI, couverture du SI"
- },
- {
-  "n": 808,
-  "from": 808,
-  "date": "2026-10-21",
-  "title": "Écoute Wi-Fi : un relevé vide dit pourquoi"
  }
 ]
