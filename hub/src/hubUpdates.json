@@ -1,5 +1,11 @@
 [
  {
+  "n": 842,
+  "from": 842,
+  "date": "2026-10-23",
+  "title": "Hub blanc au chargement : fetchImages déclaré deux fois dans siAgentClient.js"
+ },
+ {
   "n": 841,
   "from": 841,
   "date": "2026-10-23",
@@ -232,11 +238,5 @@
   "from": 802,
   "date": "2026-10-21",
   "title": "htop des CT : relais local sur chaque Proxmox, installation des émetteurs dans les CT en une commande"
- },
- {
-  "n": 801,
-  "from": 801,
-  "date": "2026-10-21",
-  "title": "Sonde Raspberry Pi 3B : écoute Wi-Fi passive (Alfa AWUS036ACM) et spectre radio (HackRF / PortaPack)"
  }
 ]

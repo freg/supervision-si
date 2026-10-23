@@ -1,3 +1,10 @@
+## 2026-10-23 — Hub blanc au chargement : fetchImages déclaré deux fois dans siAgentClient.js (livraison #842)
+
+- Le hub ne s'affichait plus (« redeclaration of const fetchImages ») : le catalogue d'images de l'orchestration (#834)
+  réutilisait le nom de la liste des images P2V (#634). Renommé `fetchOrchImages` dans la tuile Orchestration.
+- Test ajouté : aucun nom déclaré deux fois au niveau d'un module de `hub/src` ; tout le hub a aussi été assemblé
+  (esbuild, imports et exports vérifiés) sans erreur.
+
 ## 2026-10-23 — si-veille : veilleur local de la chaîne du hub, silencieux si tout va bien (livraison #841)
 
 - Nouveau programme **dans la session de l'utilisateur** (Mac ou Linux, sans root, bibliothèque standard seule), qui

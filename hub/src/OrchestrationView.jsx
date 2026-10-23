@@ -2,7 +2,7 @@
 // création depuis les modèles du banc) et conteneurs (k3s, Nomad) des hôtes supervisés -- clusters, nœuds, charges,
 // placement automatique, quotas (k3s), durée de vie (TTL, appliquée par la sonde). Ordres : commande « orchestration ».
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { createVmDemande, fetchImages, fetchImageTags, fetchOrchestration, fetchVmsDemande, saveVmsConfig, sendOrchestration, vmDemandeGeste } from "./siAgentClient.js";
+import { createVmDemande, fetchImageTags, fetchOrchestration, fetchOrchImages, fetchVmsDemande, saveVmsConfig, sendOrchestration, vmDemandeGeste } from "./siAgentClient.js";
 import { hubLink, viewParams } from "./hubLinks.js";
 import BoutonCommande, { suivreCommande, useFinCommandes } from "./BoutonCommande.jsx";
 
@@ -22,7 +22,7 @@ function Catalogue({ base, choisir }) {
   const [att, setAtt] = useState(false);
   const chercher = useCallback(async (x) => {
     setAtt(true); setSel(null);
-    const r = await fetchImages(base, x);
+    const r = await fetchOrchImages(base, x);
     setAtt(false);
     if (r?.error) setErr(r.error); else { setListe(r.images); setErr(""); }
   }, [base]);
