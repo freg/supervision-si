@@ -35,6 +35,10 @@ RestartSec=30
 [Install]
 WantedBy=default.target
 UN
+  # notifications (affichage, bus de session) et clés ssh de l'agent de la session, pour le service utilisateur
+  systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XAUTHORITY DBUS_SESSION_BUS_ADDRESS SSH_AUTH_SOCK 2>/dev/null || true
+  command -v notify-send >/dev/null || echo "ATTENTION notify-send absent : sudo apt install -y libnotify-bin"
+  command -v secret-tool >/dev/null || echo "ATTENTION secret-tool absent (mot de passe SMTP) : sudo apt install -y libsecret-tools"
   systemctl --user daemon-reload && systemctl --user enable --now si-veille.service >/dev/null && systemctl --user restart si-veille.service
 fi
 echo "si-veille installé. Premier passage :"; python3 "$APP/si_veille.py" --une-fois || true

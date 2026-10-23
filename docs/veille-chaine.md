@@ -33,7 +33,9 @@ si-veille --tester-notif
 
 - Mac : agent de connexion `~/Library/LaunchAgents/fr.exemple.si-veille.plist`. La première notification peut
   demander l'autorisation dans Réglages Système → Notifications (Éditeur de script).
-- Linux : service utilisateur `systemctl --user status si-veille`.
+- Linux : service utilisateur `systemctl --user status si-veille` (l'installeur lui passe l'affichage, le bus de
+  session et l'agent ssh de la session ; à relancer après un changement de session graphique si les notifications
+  n'apparaissent plus).
 - Retrait : `sh installer.sh --retirer` (la configuration est gardée).
 
 Les vraies adresses restent **hors dépôt** : `~/.config/si-veille/config.json` (le modèle `config.exemple.json` est
