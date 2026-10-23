@@ -38,6 +38,8 @@ class Onglets(unittest.TestCase):
         self.assertEqual(a.count("--tab"), 3)
         self.assertIn(M + "/Téléchargements", a)
         self.assertEqual(O.commande_terminal({"onglets": []}, M), ["gnome-terminal", "--window", "--maximize", "--working-directory", M])
+        ici = O.commande_terminal({"onglets": O.onglets_de(PROCS, M)}, M, ici=True)
+        self.assertEqual((ici[:3], ici.count("--tab"), "--window" in ici), (["gnome-terminal", "--tab", "--working-directory"], 4, False))
         q = O.commande_terminal({"onglets": [{"dossier": "~", "commande": "echo 'a b'"}]}, M)
         self.assertEqual(q[-1], "bash -c 'echo '\"'\"'a b'\"'\"'; exec bash'")
 
