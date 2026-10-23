@@ -3936,3 +3936,28 @@ d'installation ; sous Windows, un installeur MSI ou équivalent.
   Reste (133) : préparer les modèles de VM sur un nœud (Debian 12/13, Ubuntu 24, Rocky 9, Windows 10/11, Server
   2019/2022), construire le MSI sur la VM Windows du banc puis le faire installer par le banc ; scénario « mise à jour »
   (installer N-1, pousser N) ; passage planifié à chaque nouvelle version de l'agent ; résultats dans les bancs (#132 T3).
+
+### 134. Pauses d'alertes planifiées (fermeture de site, travaux, coupure électrique) -- à faire
+
+Demandé le 23/10/2026 (évolution et prévision) : le campus ferme une semaine, puis le lundi suivant des travaux avec
+une grosse coupure électrique. Prévoir :
+- un **planning de maintenance** par site (et par agent / groupe d'agents) : fenêtres datées « site fermé »,
+  « travaux / coupure prévue », avec motif et responsable ; vue calendrier dans le hub ;
+- pendant une fenêtre : **alertes en pause** (agents muets, sondes, veille du campus, alertes Nebula, si-veille du
+  poste via le résumé de veille) mais **relevés conservés** et constats journalisés « pendant la maintenance » ;
+- à la fin de la fenêtre : **contrôle de reprise** automatique (agents revenus, équipements Nebula en ligne, VLAN et
+  DHCP vus par les sondes) et rapport « reprise après coupure » avec ce qui n'est pas revenu ;
+- avant une coupure électrique : rappel J-2 / J-1 (arrêts propres des VM / serveurs à prévoir, onduleurs) et liste
+  des équipements sans redémarrage automatique (BIOS « après coupure : allumé ») à vérifier.
+Dates précises de la fermeture et de la coupure : à demander.
+
+### 135. Adresses fixes des systèmes du campus (Ethernet d'abord, Wi-Fi récurrents selon l'historique) -- à étudier
+
+Demandé le 23/10/2026 : passer en IP fixe tous les systèmes en Ethernet, et si possible les clients Wi-Fi récurrents
+(doute : changements de zone et de SSID). Proposition :
+- de préférence des **réservations DHCP** (adresse fixe par MAC sur la passerelle) plutôt qu'une configuration statique
+  sur chaque poste : gestion centrale, retour arrière simple, pas de conflit si le poste change de prise ;
+- l'OpenAPI Nebula ne modifie pas la configuration DHCP de la passerelle : plan d'adressage préparé par le hub
+  (tableau MAC -> nom -> VLAN -> IP proposée, export à saisir dans Nebula) puis vérification par relecture ;
+- Wi-Fi : décider d'après l'historique des clients (30 jours : nombre de VLAN / SSID / bornes vus par MAC, adresses
+  aléatoires « MAC privée » exclues) ; une réservation n'a de sens que pour un client toujours sur le même VLAN.
