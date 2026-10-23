@@ -25,6 +25,7 @@ import platform
 import re
 import secrets
 import shutil
+import ssl
 import subprocess
 import sys
 import threading
@@ -34,7 +35,7 @@ from email.policy import default as POLITIQUE
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 CONF_DIR = os.path.expanduser(os.environ.get("SI_MAILBOX_CONF", "~/.config/si-mailbox"))
 DATA_DIR = os.path.expanduser(os.environ.get("SI_MAILBOX_DATA", "~/.local/share/si-mailbox"))
 PORT = int(os.environ.get("SI_MAILBOX_PORT", "8095"))
@@ -125,11 +126,19 @@ def valider_compte(b):
         return None, "serveur IMAP : nom d'hôte"
     if not util or len(util) > 200 or "\n" in util:
         return None, "utilisateur requis"
+    sec = securite_de(b)
+    if sec not in ("ssl", "starttls", "aucune"):
+        return None, "sécurité : ssl, starttls ou aucune"
     try:
-        port = int(b.get("port") or 993)
+        port = int(b.get("port") or (993 if sec == "ssl" else 143))
     except (TypeError, ValueError):
         return None, "port entier"
-    return {"nom": nom, "hote": hote, "port": port, "ssl": bool(b.get("ssl", True)), "utilisateur": util}, None
+    return {"nom": nom, "hote": hote, "port": port, "securite": sec, "ssl": sec == "ssl", "utilisateur": util}, None
+
+
+def securite_de(c):
+    """ssl (IMAPS, 993), starttls (IMAP 143 puis TLS) ou aucune ; les comptes d'avant #844 n'ont que « ssl »."""
+    return str(c.get("securite") or ("ssl" if c.get("ssl", True) else "aucune"))
 
 
 def valider_automate(b, comptes):
@@ -411,7 +420,13 @@ def connecter(compte):
     pw = lire_secret(compte["nom"])
     if not pw:
         raise ValueError("mot de passe absent du trousseau pour %s" % compte["nom"])
-    m = imaplib.IMAP4_SSL(compte["hote"], compte["port"], timeout=30) if compte.get("ssl", True) else imaplib.IMAP4(compte["hote"], compte["port"], timeout=30)
+    sec = securite_de(compte)
+    if sec == "ssl":
+        m = imaplib.IMAP4_SSL(compte["hote"], compte["port"], ssl_context=ssl.create_default_context(), timeout=30)
+    else:
+        m = imaplib.IMAP4(compte["hote"], compte["port"], timeout=30)
+        if sec == "starttls":
+            m.starttls(ssl_context=ssl.create_default_context())
     m.login(compte["utilisateur"], pw)
     return m
 
@@ -586,7 +601,8 @@ class Ecran(BaseHTTPRequestHandler):
     def _ok(self):
         ck = self.headers.get("Cookie") or ""
         m = re.search(r"si_mailbox=([A-Za-z0-9_-]+)", ck)
-        return bool(m) and hmac.compare_digest(m.group(1), jeton()) and self.headers.get("Host", "").split(":")[0] in ("127.0.0.1", "localhost")
+        j = self.headers.get("X-Jeton") or (m.group(1) if m else "")
+        return bool(j) and hmac.compare_digest(j, jeton()) and self.headers.get("Host", "").split(":")[0] in ("127.0.0.1", "localhost")
 
     def _json(self, code, obj):
         b = json.dumps(obj, ensure_ascii=False).encode()
@@ -608,24 +624,16 @@ class Ecran(BaseHTTPRequestHandler):
     def do_GET(self):
         u = urlparse(self.path)
         if u.path == "/":
+            # la page ne contient aucun secret : elle garde le jeton de l'adresse (?jeton=) pour la session de l'onglet
+            # et l'envoie en en-tête X-Jeton ; le cookie reste posé en plus quand le navigateur l'accepte.
             q = parse_qs(u.query)
-            if q.get("jeton") and hmac.compare_digest(q["jeton"][0], jeton()):
-                self.send_response(302)
-                self.send_header("Set-Cookie", "si_mailbox=%s; HttpOnly; SameSite=Strict; Path=/" % jeton())
-                self.send_header("Location", "/")
-                self.end_headers()
-                return
-            if not self._ok():
-                b = "Ouvrir l'adresse donnée par « si-mailbox --ouvrir » (jeton local).".encode()
-                self.send_response(401)
-                self.send_header("Content-Type", "text/plain; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(b)
-                return
             b = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "ecran.html"), "rb").read()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Security-Policy", "default-src 'self' 'unsafe-inline'")
+            self.send_header("Referrer-Policy", "no-referrer")
+            if q.get("jeton") and hmac.compare_digest(q["jeton"][0], jeton()):
+                self.send_header("Set-Cookie", "si_mailbox=%s; HttpOnly; SameSite=Strict; Path=/" % jeton())
             self.end_headers()
             self.wfile.write(b)
             return

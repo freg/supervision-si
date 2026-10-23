@@ -22,8 +22,15 @@ pre{white-space:pre-wrap;background:#0b1016;padding:8px;border-radius:6px}.ligne
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const date = (t) => (t ? new Date(t * 1000).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "");
+// jeton local : pris dans l'adresse (?jeton=, donnée par « si-mailbox --ouvrir » ou le widget), gardé pour l'onglet
+let JETON = "";
+try { JETON = new URLSearchParams(location.search).get("jeton") || sessionStorage.getItem("si_mailbox") || "";
+  if (JETON) sessionStorage.setItem("si_mailbox", JETON); } catch (e) { /* stockage refusé : jeton de l'adresse seulement */ }
+if (location.search) history.replaceState(null, "", "/");
 async function api(chemin, corps) {
-  const r = await fetch(chemin, corps ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corps) } : {});
+  const h = JETON ? { "X-Jeton": JETON } : {};
+  const r = await fetch(chemin, corps ? { method: "POST", headers: { ...h, "Content-Type": "application/json" }, body: JSON.stringify(corps) } : { headers: h });
+  if (r.status === 401) throw new Error("jeton local requis : ouvrir l'adresse donnée par « si-mailbox --ouvrir » (ou le menu du widget)");
   const d = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(d.erreur || r.status);
   return d;
@@ -117,15 +124,16 @@ async function journal() {
 
 function comptes() {
   $("#main").innerHTML = `<div class="carte"><table><tr><th>Compte</th><th>Serveur</th><th>Utilisateur</th><th></th></tr>${E.comptes.map((c) =>
-    `<tr><td><b>${esc(c.nom)}</b></td><td>${esc(c.hote)}:${c.port}${c.ssl ? " (TLS)" : ""}</td><td>${esc(c.utilisateur)}</td><td><button class="s ko" onclick="retirerCompte('${esc(c.nom)}')">×</button></td></tr>`).join("") ||
+    `<tr><td><b>${esc(c.nom)}</b></td><td>${esc(c.hote)}:${c.port}${({ ssl: " (SSL)", starttls: " (STARTTLS)", aucune: " (sans chiffrement)" })[c.securite || (c.ssl ? "ssl" : "aucune")]}</td><td>${esc(c.utilisateur)}</td><td><button class="s ko" onclick="retirerCompte('${esc(c.nom)}')">×</button></td></tr>`).join("") ||
     '<tr><td colspan="4" class="doux">aucun compte</td></tr>'}</table></div>
     <div class="carte"><b>Ajouter / modifier un compte IMAP</b><div class="ligne"><label>Nom<input id="cn" placeholder="pro"></label><label>Serveur IMAP<input id="ch" placeholder="imap.exemple.fr"></label>
+    <label>Sécurité<select id="cs" onchange="$('#cp').value = this.value === 'ssl' ? 993 : 143"><option value="ssl">SSL/TLS (993)</option><option value="starttls">STARTTLS (143)</option><option value="aucune">aucune (143)</option></select></label>
     <label>Port<input id="cp" type="number" value="993" style="width:80px"></label><label>Utilisateur<input id="cu"></label><label>Mot de passe<input id="cw" type="password" autocomplete="off"></label>
-    <label>&nbsp;<span><input type="checkbox" id="cs" checked> TLS</span></label><button class="b" id="cok">Enregistrer et tester</button></div>
+    <button class="b" id="cok">Enregistrer et tester</button></div>
     <p class="doux">Le mot de passe va dans le trousseau du système (${esc(E.trousseau)}), jamais dans la configuration.</p><div id="cr"></div></div>`;
   $("#cok").onclick = async () => {
     const fin = attente($("#cok"), "connexion…");
-    try { const r = await api("/api/comptes", { nom: $("#cn").value, hote: $("#ch").value, port: +$("#cp").value, utilisateur: $("#cu").value, mot_de_passe: $("#cw").value, ssl: $("#cs").checked });
+    try { const r = await api("/api/comptes", { nom: $("#cn").value, hote: $("#ch").value, port: +$("#cp").value, utilisateur: $("#cu").value, mot_de_passe: $("#cw").value, securite: $("#cs").value });
       $("#cr").innerHTML = r.ok ? `<p class="ok">connecté — dossiers : ${r.dossiers.map(esc).join(", ")}</p>` : `<p class="ko">${esc(r.erreur)}</p>`; await charger(); }
     catch (e) { $("#cr").innerHTML = `<p class="ko">${esc(e.message)}</p>`; }
     fin();

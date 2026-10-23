@@ -27,19 +27,22 @@ else
   mkdir -p "$HOME/.config/systemd/user"
   cat > "$HOME/.config/systemd/user/si-veille.service" <<UN
 [Unit]
+# démarre avec la session graphique (GNOME y transmet affichage et bus de session), s'arrête avec elle
+PartOf=graphical-session.target
+After=graphical-session.target
 Description=si-veille -- veilleur local de la chaîne du hub (silencieux si tout va bien)
 [Service]
 ExecStart=$(command -v python3) $APP/si_veille.py
 Restart=always
 RestartSec=30
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target
 UN
   # notifications (affichage, bus de session) et clés ssh de l'agent de la session, pour le service utilisateur
   systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XAUTHORITY DBUS_SESSION_BUS_ADDRESS SSH_AUTH_SOCK 2>/dev/null || true
   command -v notify-send >/dev/null || echo "ATTENTION notify-send absent : sudo apt install -y libnotify-bin"
   command -v secret-tool >/dev/null || echo "ATTENTION secret-tool absent (mot de passe SMTP) : sudo apt install -y libsecret-tools"
-  systemctl --user daemon-reload && systemctl --user enable --now si-veille.service >/dev/null && systemctl --user restart si-veille.service
+  systemctl --user daemon-reload && systemctl --user disable si-veille.service 2>/dev/null || true; systemctl --user enable --now si-veille.service >/dev/null && systemctl --user restart si-veille.service
 fi
 echo "si-veille installé. Premier passage :"; python3 "$APP/si_veille.py" --une-fois || true
 echo "Essai des notifications : si-veille --tester-notif"

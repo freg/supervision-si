@@ -1,3 +1,13 @@
+## 2026-10-23 — si-mailbox : STARTTLS, jeton local sans dépendre du cookie, démarrage avec la session graphique (livraison #844)
+
+- Comptes IMAP : sécurité **SSL/TLS (993)**, **STARTTLS (143)** ou aucune ; le chiffrement est établi avant l'envoi du
+  mot de passe, certificat vérifié. Les comptes existants restent en SSL.
+- « jeton local requis » : l'écran garde le jeton de son adresse pour l'onglet et l'envoie en en-tête (le cookie de
+  127.0.0.1 pouvait être refusé par le navigateur) ; la page elle-même ne contient aucun secret.
+- si-mailbox et si-veille démarrent et s'arrêtent avec la **session graphique** (graphical-session.target), qui leur
+  transmet affichage et bus de session ; les installations précédentes sont basculées par `installer.sh`.
+- Pas de lien : opération manuelle (relancer `installer.sh` sur le poste).
+
 ## 2026-10-23 — si-mailbox : widget des non lus à côté de la date, total et par filtre de / sujet (livraison #843)
 
 - Extension GNOME (45+) installée par `mailbox/installer.sh` : icône + « non lus · non lus du 1er filtre » au centre

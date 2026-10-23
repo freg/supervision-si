@@ -34,18 +34,21 @@ else
   mkdir -p "$HOME/.config/systemd/user"
   cat > "$HOME/.config/systemd/user/si-mailbox.service" <<UN
 [Unit]
+# démarre avec la session graphique (GNOME y transmet affichage et bus de session), s'arrête avec elle
+PartOf=graphical-session.target
+After=graphical-session.target
 Description=si-mailbox -- agent de messagerie de la session (écran local 127.0.0.1:8095)
 [Service]
 ExecStart=$(command -v python3) $APP/mailbox_agent.py
 Restart=on-failure
 RestartSec=10
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target
 UN
   # notifications du bureau et trousseau (bus de session) pour le service utilisateur
   systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XAUTHORITY DBUS_SESSION_BUS_ADDRESS 2>/dev/null || true
   command -v secret-tool >/dev/null || echo "ATTENTION secret-tool absent (mots de passe IMAP) : sudo apt install -y libsecret-tools"
-  systemctl --user daemon-reload && systemctl --user enable --now si-mailbox.service >/dev/null && systemctl --user restart si-mailbox.service
+  systemctl --user daemon-reload && systemctl --user disable si-mailbox.service 2>/dev/null || true; systemctl --user enable --now si-mailbox.service >/dev/null && systemctl --user restart si-mailbox.service
 fi
 # #843 : widget de la barre du haut (GNOME 45+) -- icône + non lus à côté de la date
 if [ "$(uname)" != Darwin ] && command -v gnome-shell >/dev/null; then

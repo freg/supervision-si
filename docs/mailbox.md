@@ -12,6 +12,8 @@ Python seule.
 - **Liaison** : **discret** par défaut — aucune liaison avec le hub, aucune connexion hors IMAP et IA configurés.
   **Relié** : résumé SANS contenu (compteurs, automates, dernières actions ; sujets seulement si coché) déposé dans
   `~/.local/share/si-mailbox/publication.json`, remonté par la sonde `mailbox` de l'agent du poste (tuile Boîtes aux lettres).
+- **Sécurité IMAP** : SSL/TLS (993), STARTTLS (143) ou aucune ; certificat vérifié.
+- **Démarrage** : avec la session graphique (service utilisateur rattaché à graphical-session.target).
 - **Secrets** : trousseau du système (`security` macOS, `secret-tool` Linux), sinon fichier 600 local.
 - **IA** : Ollama local conseillé (le texte des messages ne quitte pas le poste).
 

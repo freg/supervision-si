@@ -16,6 +16,8 @@ os.environ["SI_MAILBOX_PORT"] = "0"
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mailbox_agent as M  # noqa: E402
 
+CONNECTER = M.connecter   # les tests suivants remplacent M.connecter par une fausse boîte
+
 BRUT = (b"From: =?utf-8?q?Fournisseur_=C3=89lec?= <f@exemple.fr>\r\nTo: moi@exemple.fr\r\nSubject: Facture 2026-10\r\n"
         b"Date: Thu, 22 Oct 2026 10:00:00 +0200\r\nMessage-ID: <1@x>\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=B\r\n\r\n"
         b"--B\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nMontant 120 EUR, \xc3\xa9ch\xc3\xa9ance le 30.\r\n"
@@ -123,6 +125,12 @@ class Ecran(unittest.TestCase):
         req = urllib.request.Request(base + "/api/etat", headers={"Cookie": "si_mailbox=" + M.jeton()})
         d = json.load(urllib.request.urlopen(req))
         self.assertEqual(d["mode"], "discret")
+        self.assertEqual(json.load(urllib.request.urlopen(urllib.request.Request(base + "/api/etat", headers={"X-Jeton": M.jeton()})))["mode"], "discret")
+        with self.assertRaises(urllib.error.HTTPError):
+            urllib.request.urlopen(urllib.request.Request(base + "/api/etat", headers={"X-Jeton": "faux"}))
+        page = urllib.request.urlopen(base + "/")                    # la page (sans secret) s'ouvre ; seules les API exigent le jeton
+        self.assertNotIn("Set-Cookie", page.headers)
+        self.assertIn("Set-Cookie", urllib.request.urlopen(base + "/?jeton=" + M.jeton()).headers)
         req = urllib.request.Request(base + "/api/reglages", data=json.dumps({"mode": "relie"}).encode(), headers={"Cookie": "si_mailbox=" + M.jeton(), "Content-Type": "application/json"})
         self.assertEqual(json.load(urllib.request.urlopen(req))["mode"], "relie")
         srv.shutdown()
@@ -155,6 +163,30 @@ class Compteurs(unittest.TestCase):
         M.ecrire_compteurs(r)
         self.assertEqual(M.lire_compteurs()["total"], 2)
         self.assertEqual(oct(os.stat(os.path.join(M.DATA_DIR, "compteurs.json")).st_mode & 0o777), "0o600")
+
+
+class Securite(unittest.TestCase):
+    def test_starttls(self):
+        self.assertEqual(M.valider_compte({"nom": "pro", "hote": "mail.exemple.fr", "utilisateur": "u", "securite": "starttls"})[0]["port"], 143)
+        self.assertEqual(M.securite_de({"ssl": False}), "aucune")
+        self.assertEqual(M.securite_de({}), "ssl")
+        self.assertIn("sécurité", M.valider_compte({"nom": "pro", "hote": "h", "utilisateur": "u", "securite": "x"})[1])
+        vu = []
+        class Faux:
+            def __init__(self, h, p, timeout=None):
+                vu.append(("IMAP4", h, p))
+            def starttls(self, ssl_context=None):
+                vu.append(("starttls", ssl_context.verify_mode))
+            def login(self, u, pw):
+                vu.append(("login", u))
+        vrai, M.imaplib.IMAP4 = M.imaplib.IMAP4, Faux
+        lire, M.lire_secret = M.lire_secret, lambda n: "secret"
+        try:
+            CONNECTER({"nom": "pro", "hote": "mail.exemple.fr", "port": 143, "securite": "starttls", "utilisateur": "u"})
+        finally:
+            M.imaplib.IMAP4, M.lire_secret = vrai, lire
+        import ssl
+        self.assertEqual(vu, [("IMAP4", "mail.exemple.fr", 143), ("starttls", ssl.CERT_REQUIRED), ("login", "u")])   # TLS avant le mot de passe
 
 
 if __name__ == "__main__":
