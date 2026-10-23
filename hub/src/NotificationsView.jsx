@@ -13,6 +13,7 @@ import { byModule, filterActions, effectiveGroups, parseEmails, queueSummary, gr
 
 import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglables
 const TABS = [
+  { id: "pauses", label: "⏸ Pauses planifiées" },   // #853
   { id: "assign", label: "🎯 Affectations" },
   { id: "groups", label: "👥 Groupes" },
   { id: "queue", label: "📬 File & journal" },
@@ -317,6 +318,51 @@ function Consumers({ b, t, notice }) {
 }
 
 // ---------------------------------------------------------------------------
+// #853 : pauses planifiées -- pendant la fenêtre, les notifications couvertes sont retenues (journalisées, pas
+// envoyées), la veille du site passe « en pause » ; à la fin, un bilan « reprise » (action notify.maintenance-fin).
+const local = (ts) => { const d = new Date(ts * 1000); const p = (n) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
+function Pauses({ b, t, notice }) {
+  const [lst, setLst] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const now = Math.floor(Date.now() / 3600000) * 3600;
+  const [f, setF] = useState({ type: "fermeture", motif: "", site: "", debut: local(now), fin: local(now + 86400), consommateurs: "si-agent, nebula", sites: "", agents: "" });
+  const load = async () => { const r = await api.fetchPauses(b, t); if (!r.error) setLst(r.pauses || []); };
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [b, t]);
+  const creer = async (e) => {
+    e.preventDefault(); setBusy(true);
+    const ctx = {}; if (f.sites.trim()) ctx.site = f.sites; if (f.agents.trim()) ctx.agent_id = f.agents;
+    const r = await api.createPause(b, t, { type: f.type, motif: f.motif, site: f.site, debut: new Date(f.debut).getTime() / 1000, fin: new Date(f.fin).getTime() / 1000, consommateurs: f.consommateurs, contexte: ctx });
+    setBusy(false);
+    if (r.error) notice(r.error, "red"); else { notice(`pause enregistrée : ${f.motif}`, "green"); setF({ ...f, motif: "" }); load(); }
+  };
+  const suppr = async (p) => { if (!window.confirm(`Supprimer la pause « ${p.motif} » ?`)) return; const r = await api.deletePause(b, t, p.id); if (r.error) notice(r.error, "red"); else load(); };
+  const champ = (k, lbl, extra = {}) => <label>{lbl}<br /><input value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} {...extra} /></label>;
+  return (
+    <div className="hub-card hub-settings-section">
+      <h3 style={{ marginTop: 0 }}>Pauses planifiées</h3>
+      <p className="muted">Fermeture d'un site, travaux, coupure électrique : pendant la fenêtre, les alertes couvertes sont retenues et journalisées (pas envoyées), la veille du site affiche « en pause » (et le veilleur du poste ne sonne pas). À la fin, un bilan « reprise » part sur l'action <code>notify.maintenance-fin</code> (destinataires : onglet Affectations).</p>
+      <form onSubmit={creer} style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end" }}>
+        <label>Type<br /><select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}><option value="fermeture">fermeture du site</option><option value="travaux">travaux</option><option value="coupure">coupure électrique</option><option value="maintenance">maintenance</option></select></label>
+        {champ("motif", "Motif", { required: true, size: 30, placeholder: "fermeture du campus" })}
+        {champ("debut", "Début", { type: "datetime-local", required: true })}
+        {champ("fin", "Fin", { type: "datetime-local", required: true })}
+        {champ("consommateurs", "Producteurs couverts", { size: 18, title: "si-agent, nebula… (vide = tous)" })}
+        {champ("sites", "Sites des agents", { size: 14, placeholder: "site-alpha" })}
+        {champ("agents", "Agents (motifs)", { size: 18, placeholder: "site-alpha-*, pc-*" })}
+        <button type="submit" disabled={busy}>{busy ? "en cours…" : "Planifier la pause"}</button>
+      </form>
+      <table className="services infra-table" style={{ width: "100%", marginTop: 10 }}>
+        <thead><tr><th>Type</th><th>Motif</th><th>Début</th><th>Fin</th><th>Couverture</th><th>État</th><th>Retenues</th><th></th></tr></thead>
+        <tbody>{lst.map((p) => <tr key={p.id}><td>{p.type}</td><td>{p.motif}</td><td>{when(p.debut)}</td><td>{when(p.fin)}</td>
+          <td className="muted">{p.consommateurs || "tous"}{Object.entries(p.contexte || {}).map(([k, v]) => ` · ${k} : ${v}`).join("")}</td>
+          <td><Tone tone={p.etat === "en cours" ? "orange" : p.etat === "à venir" ? "green" : "grey"}>{p.etat}</Tone></td><td>{p.retenues}</td>
+          <td><button type="button" className="secondary" onClick={() => suppr(p)}>Supprimer</button></td></tr>)}
+          {!lst.length && <tr><td colSpan={8} className="muted">Aucune pause planifiée.</td></tr>}</tbody>
+      </table>
+    </div>
+  );
+}
+
 function Settings({ b, t, notice }) {
   const [s, setS] = useState(null);
   const [smtp, setSmtp] = useState(null);
@@ -385,6 +431,7 @@ export default function NotificationsView({ apiBase, accessToken, username, onBa
     <PageFrame title="📣 Notifications" onBack={onBack}
       actions={TABS.map((x) => <button key={x.id} type="button" className={`secondary na-section-toggle${tab === x.id ? " active" : ""}`} onClick={() => setTab(x.id)}>{x.label}</button>)}
       foot={<span>action → groupe / méta-groupe → adresses · gestionnaire d'envoi détaché · connecté en tant que {username || "?"}{notice ? <> · <span style={{ color: notice.ok ? COLORS.green : COLORS.red }}>{notice.text}</span></> : null}</span>}>
+      {tab === "pauses" && <Pauses b={b} t={t} notice={say} />}
       {tab === "assign" && <Assignments b={b} t={t} groups={groups} notice={say} />}
       {tab === "groups" && <Groups b={b} t={t} groups={groups} reload={reloadGroups} notice={say} />}
       {tab === "queue" && <Queue b={b} t={t} notice={say} />}

@@ -4,7 +4,7 @@
 // quand tout va bien ; alertes par notify-api (usage interne / créneau d'un organisme extérieur) ; réglages ici.
 import { useEffect, useState } from "react";
 
-const ETAT = { ok: ["Tout va bien", "var(--ok)"], degrade: ["Dégradé", "var(--warn, #e8b84a)"], panne: ["PANNE", "var(--danger)"], inconnu: ["Rien d'observable", "var(--muted, #8fa1b3)"] };
+const ETAT = { maintenance: ["En pause planifiée", "var(--muted, #8fa1b3)"], ok: ["Tout va bien", "var(--ok)"], degrade: ["Dégradé", "var(--warn, #e8b84a)"], panne: ["PANNE", "var(--danger)"], inconnu: ["Rien d'observable", "var(--muted, #8fa1b3)"] };
 const STATUT = { ok: ["✓", "var(--ok)"], ko: ["✗", "var(--danger)"], doute: ["?", "var(--warn, #e8b84a)"], inconnu: ["—", "var(--muted, #8fa1b3)"] };
 const FAMILLES = [["agents", "Agents internes"], ["equipements", "Équipements Nebula"], ["vlans", "VLAN suivis"], ["internet", "Liaison Internet"], ["postes", "Postes suivis"]];
 const when = (ts) => (ts ? new Date(ts * 1000).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "—");

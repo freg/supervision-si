@@ -101,6 +101,8 @@ CREATE TABLE IF NOT EXISTS queue (id INTEGER PRIMARY KEY AUTOINCREMENT, action T
 CREATE INDEX IF NOT EXISTS queue_status ON queue (status, due_at);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, at REAL, event TEXT, text TEXT);
+CREATE TABLE IF NOT EXISTS pauses (id INTEGER PRIMARY KEY AUTOINCREMENT, debut REAL, fin REAL, motif TEXT, site TEXT, type TEXT, actions TEXT, consommateurs TEXT,
+    contexte TEXT DEFAULT '{}', cree_par TEXT, cree_le REAL, bilan_envoye INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS attachments (queue_id INTEGER, filename TEXT, content_type TEXT, data BLOB);
 CREATE TABLE IF NOT EXISTS sms_out (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at REAL, consumer TEXT, to_number TEXT, text TEXT, status TEXT,
     due_at REAL, sent_at REAL, attempts INTEGER DEFAULT 0, last_error TEXT DEFAULT '', reply TEXT DEFAULT '');
@@ -220,7 +222,7 @@ def consumer_from_request():
     return None
 
 
-PRODUCER = ("/notify", "/actions/register", "/sms", "/sms/send", "/sms/recu")
+PRODUCER = ("/notify", "/actions/register", "/sms", "/sms/send", "/sms/recu", "/pauses/actives")   # #853 : pauses lues par les producteurs
 PUBLIC = ("/health", "/version", "/push/key")   # #796 : la clé publique VAPID n'est pas un secret
 
 
@@ -339,6 +341,13 @@ def notify():
             why = None if recipients else (why or "destinataires explicites en liste noire")
         now = time.time()
         status, reason = ("queued", "") if recipients else ("no-recipients", why)
+        pz = core.pause_applicable(_pauses(c), action, consumer, context, now)   # #853 : maintenance planifiée
+        if pz:
+            cur = c.execute("INSERT INTO queue (action, consumer, severity, subject, body, context, recipients, status, reason, created_at, due_at, ckey) VALUES (?, ?, ?, ?, ?, ?, ?, 'paused', ?, ?, ?, '')",
+                            (action, consumer, sev, subject, text, json.dumps(dict(context, pause_id=pz["id"]), ensure_ascii=False)[:4000], json.dumps(recipients),
+                             "pause : %s (jusqu'au %s)" % (pz["motif"], time.strftime("%d/%m %H:%M", time.localtime(pz["fin"]))), now, now))
+            c.commit()
+            return jsonify({"status": "paused", "id": cur.lastrowid, "reason": pz["motif"], "fin": pz["fin"]}), 202
         if recipients and not st.get("enabled", True):
             status, reason = "held", "envoi suspendu (réglages)"
         ckey = core.coalesce_key(action, subject, recipients)
@@ -368,6 +377,82 @@ def notify():
         pushed = push_enqueue(c, sev, subject, text, context, now)   # #796 : téléphones abonnés (selon leur seuil)
         c.commit()
     return jsonify({"status": status, "id": cur.lastrowid, "recipients": len(recipients), "reason": reason, "attachments": len(files), "push": pushed}), 202
+
+
+# -- #853 : pauses planifiées ------------------------------------------------------------------------------------------
+def _pauses(c, actives_seulement=False):
+    q = "SELECT * FROM pauses" + (" WHERE fin > ?" if actives_seulement else "") + " ORDER BY debut"
+    out = []
+    for r in c.execute(q, (time.time(),) if actives_seulement else ()):
+        d = dict(r)
+        d["contexte"] = json.loads(d.get("contexte") or "{}")
+        out.append(d)
+    return out
+
+
+@app.route("/pauses", methods=["GET"])
+def pauses_liste():
+    c = db()
+    lst = _pauses(c)
+    now = time.time()
+    for p in lst:
+        p["etat"] = "à venir" if now < p["debut"] else "en cours" if now < p["fin"] else "terminée"
+        p["retenues"] = c.execute("SELECT COUNT(*) AS n FROM queue WHERE status = 'paused' AND context LIKE ?", ('%%"pause_id": %d%%' % p["id"],)).fetchone()["n"]
+    return jsonify({"pauses": list(reversed(lst))[:100]}), 200
+
+
+@app.route("/pauses", methods=["POST"])
+def pauses_creer():
+    p, err = core.valider_pause(request.get_json(silent=True) or {}, time.time())
+    if err:
+        return jsonify({"error": err}), 400
+    c = db()
+    with _lock:
+        cur = c.execute("INSERT INTO pauses (debut, fin, motif, site, type, actions, consommateurs, contexte, cree_par, cree_le) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        (p["debut"], p["fin"], p["motif"], p["site"], p["type"], p["actions"], p["consommateurs"], json.dumps(p["contexte"], ensure_ascii=False),
+                         (getattr(g, "user", None) or {}).get("preferred_username") if isinstance(getattr(g, "user", None), dict) else "", time.time()))
+        c.commit()
+    event("pause", "pause %s du %s au %s : %s" % (p["type"], time.strftime("%d/%m %H:%M", time.localtime(p["debut"])), time.strftime("%d/%m %H:%M", time.localtime(p["fin"])), p["motif"]))
+    return jsonify(dict(p, id=cur.lastrowid)), 201
+
+
+@app.route("/pauses/<int:pid>", methods=["DELETE"])
+def pauses_supprimer(pid):
+    c = db()
+    with _lock:
+        c.execute("DELETE FROM pauses WHERE id = ?", (pid,))
+        c.commit()
+    return jsonify({"ok": True}), 200
+
+
+@app.route("/pauses/actives", methods=["GET"])
+def pauses_actives():
+    """Pour les producteurs (veille du campus, si-veille par le résumé de veille) : pauses en cours qui les couvrent."""
+    now = time.time()
+    lst = [p for p in _pauses(db(), True) if p["debut"] <= now]
+    cons = request.args.get("consumer") or g.consumer["name"]
+    ctx = {k: v for k, v in request.args.items() if k not in ("consumer", "action")}
+    act = request.args.get("action") or ""
+    # sans contexte ni action précisés : toutes les pauses en cours de ce consommateur (le producteur filtre lui-même)
+    sel = [p for p in lst if core.pause_applicable([dict(p, contexte=p["contexte"] if ctx else {}, actions=p["actions"] if act else "")], act, cons, ctx, now)]
+    return jsonify({"pauses": sel}), 200
+
+
+def bilan_pauses(c, now=None):
+    """Fin d'une pause : un message « reprise » récapitule ce qui a été retenu (action notify.maintenance-fin)."""
+    now = now or time.time()
+    for p in c.execute("SELECT * FROM pauses WHERE fin <= ? AND bilan_envoye = 0", (now,)).fetchall():
+        rows = c.execute("SELECT action, subject, created_at FROM queue WHERE status = 'paused' AND context LIKE ? ORDER BY created_at", ('%%"pause_id": %d%%' % p["id"],)).fetchall()
+        corps = "Fin de la pause « %s » (%s → %s).\n\n%d notification(s) retenue(s) pendant la pause :\n%s\n\nVérifier la reprise : agents revenus, veille du site, équipements en ligne.\n" % (
+            p["motif"], time.strftime("%d/%m %H:%M", time.localtime(p["debut"])), time.strftime("%d/%m %H:%M", time.localtime(p["fin"])), len(rows),
+            "\n".join("  %s  %s -- %s" % (time.strftime("%d/%m %H:%M", time.localtime(r["created_at"])), r["action"], r["subject"]) for r in rows[-80:]) or "  aucune")
+        ensure_action(c, "notify.maintenance-fin", "Fin d'une pause planifiée : bilan des notifications retenues", "warning")
+        rec, _why = core.resolve("notify.maintenance-fin", _assignments(c), _groups(c), _blacklist(c), consumer="notify-api")
+        c.execute("INSERT INTO queue (action, consumer, severity, subject, body, context, recipients, status, reason, created_at, due_at, ckey) VALUES (?, ?, 'warning', ?, ?, '{}', ?, ?, ?, ?, ?, '')",
+                  ("notify.maintenance-fin", "notify-api", "Reprise après « %s » : %d notification(s) retenue(s)" % (p["motif"], len(rows)), corps, json.dumps(rec),
+                   "queued" if rec else "no-recipients", "" if rec else "aucun destinataire pour notify.maintenance-fin", now, now))
+        c.execute("UPDATE pauses SET bilan_envoye = 1 WHERE id = ?", (p["id"],))
+        c.commit()
 
 
 MAX_ATTACH_BYTES = int(os.environ.get("NOTIFY_MAX_ATTACH_BYTES", str(8 * 1024 * 1024)))
@@ -1072,6 +1157,15 @@ def _worker():
             SENDER.tick()
         except Exception as exc:  # noqa: BLE001
             _log.warning("fil d'envoi : %s", exc)
+        try:
+            with _lock:
+                cb = _conn()
+                try:
+                    bilan_pauses(cb)   # #853
+                finally:
+                    cb.close()
+        except Exception as exc:  # noqa: BLE001
+            _log.warning("bilan des pauses : %s", exc)
         try:
             SMS_SENDER.tick()   # #787
         except Exception as exc:  # noqa: BLE001

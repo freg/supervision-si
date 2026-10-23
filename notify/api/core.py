@@ -110,3 +110,58 @@ def summary_body(action, count, first_subject, window_s):
 def render_subject(prefix, severity, subject):
     tag = {"critical": "[CRITIQUE] ", "warning": "[ALERTE] "}.get(severity or "", "")
     return "%s%s%s" % ((prefix + " ") if prefix else "", tag, (subject or "").strip()[:180])
+
+
+# -- #853 : pauses planifiées (fermeture de site, travaux, coupure électrique) ---------------------------------------
+def _globs(v):
+    return [x.strip() for x in str(v or "").replace(";", ",").split(",") if x.strip()]
+
+
+def pause_applicable(pauses, action, consumer, context, now):
+    """Première pause active qui couvre cette notification, ou None. Pause : {debut, fin, actions, consommateurs,
+    contexte: {cle: "motif1,motif2"}} ; motifs de type fnmatch (« si-agent.* », « numeria-* ») ; vide = tout. Un champ
+    de contexte absent de la notification n'exclut pas si la pause nomme explicitement ses consommateurs."""
+    import fnmatch
+    ctx = context or {}
+    for p in pauses or []:
+        if not (p.get("debut") or 0) <= now < (p.get("fin") or 0):
+            continue
+        if _globs(p.get("actions")) and not any(fnmatch.fnmatchcase(action or "", g) for g in _globs(p.get("actions"))):
+            continue
+        if _globs(p.get("consommateurs")) and not any(fnmatch.fnmatchcase(consumer or "", g) for g in _globs(p.get("consommateurs"))):
+            continue
+        ok = True
+        cons_explicite = bool(_globs(p.get("consommateurs")))
+        for cle, motifs in (p.get("contexte") or {}).items():
+            gl = _globs(motifs)
+            if not gl:
+                continue
+            if cle not in ctx and cons_explicite:
+                continue      # producteur nommé dans la pause qui ne précise pas ce champ (ex. nebula, propre au site) : couvert
+            if not any(fnmatch.fnmatchcase(str(ctx.get(cle) or ""), g) for g in gl):
+                ok = False
+                break
+        if ok:
+            return p
+    return None
+
+
+def valider_pause(b, now):
+    """-> (pause propre, None) ou (None, erreur)."""
+    try:
+        debut, fin = float(b.get("debut")), float(b.get("fin"))
+    except (TypeError, ValueError):
+        return None, "début et fin requis (horodatages)"
+    if fin <= debut:
+        return None, "la fin doit suivre le début"
+    if fin - debut > 62 * 86400:
+        return None, "pause de plus de 2 mois refusée"
+    if fin <= now:
+        return None, "pause déjà terminée"
+    motif = str(b.get("motif") or "").strip()[:200]
+    if not motif:
+        return None, "motif requis"
+    ctx = b.get("contexte") if isinstance(b.get("contexte"), dict) else {}
+    return {"debut": debut, "fin": fin, "motif": motif, "site": str(b.get("site") or "")[:60], "type": str(b.get("type") or "maintenance")[:40],
+            "actions": ",".join(_globs(b.get("actions")))[:500], "consommateurs": ",".join(_globs(b.get("consommateurs")))[:300],
+            "contexte": {str(k)[:40]: ",".join(_globs(v))[:500] for k, v in ctx.items() if _globs(v)}}, None

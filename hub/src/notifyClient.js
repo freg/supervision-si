@@ -37,3 +37,7 @@ export const unsubscribePush = (b, t, endpoint) => call(b, t, "/push/subscribe",
 export const testPush = (b, t, endpoint) => call(b, t, "/push/test", { method: "POST", body: J({ endpoint }) });
 export const fetchPushSubs = (b, t) => call(b, t, "/push/subscriptions");
 export const deletePushSub = (b, t, id) => call(b, t, `/push/subscriptions/${id}`, { method: "DELETE" });
+// #853 : pauses planifiées (fermeture de site, travaux, coupure électrique)
+export const fetchPauses = (b, t) => call(b, t, "/pauses");
+export const createPause = (b, t, body) => call(b, t, "/pauses", { method: "POST", body: J(body) });
+export const deletePause = (b, t, id) => call(b, t, `/pauses/${id}`, { method: "DELETE" });

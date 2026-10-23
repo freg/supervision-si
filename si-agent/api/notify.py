@@ -81,11 +81,54 @@ def relay_to_hub(event, client=None):
         json.dumps(event.get("details") or {}, indent=2, ensure_ascii=False))
     try:
         client.notify(action, "[supervision-si] %s" % str(event.get("message") or action)[:150], body,
-                      context={"agent_id": event.get("agent_id"), "kind": event.get("kind")}, severity=event.get("severity"))
+                      context={"agent_id": event.get("agent_id"), "kind": event.get("kind"), "site": event.get("site")}, severity=event.get("severity"))
     except Exception as exc:  # noqa: BLE001
         _log.warning("relais notify-api impossible : %s", exc)
         return None
     return action
+_pauses_cache = {"at": 0, "pauses": []}
+
+
+def en_pause(event, now=None, lire=None):
+    """#853 : une pause planifiée de notify-api couvre-t-elle cet événement (site, agent) ? Liste relue au plus toutes
+    les 60 s ; notify-api injoignable -> pas de pause (on alerte plutôt que de se taire)."""
+    import fnmatch
+    import time as _t
+    now = now or _t.time()
+    if now - _pauses_cache["at"] > 60:
+        try:
+            _pauses_cache.update(at=now, pauses=(lire or _lire_pauses)())
+        except Exception:  # noqa: BLE001
+            _pauses_cache.update(at=now, pauses=[])
+    for p in _pauses_cache["pauses"]:
+        if not (p.get("debut") or 0) <= now < (p.get("fin") or 0):
+            continue
+        cons = [x.strip() for x in (p.get("consommateurs") or "").split(",") if x.strip()]
+        if cons and not any(fnmatch.fnmatchcase("si-agent", g) for g in cons):
+            continue
+        ok = True
+        for cle, motifs in (p.get("contexte") or {}).items():
+            gl = [x.strip() for x in str(motifs).split(",") if x.strip()]
+            if cle not in ("site", "agent_id", "kind"):
+                continue
+            if gl and not any(fnmatch.fnmatchcase(str(event.get(cle) or ""), g) for g in gl):
+                ok = False
+                break
+        if ok:
+            return True
+    return False
+
+
+def _lire_pauses():
+    url, tok = os.environ.get("NOTIFY_API_URL", "").rstrip("/"), os.environ.get("NOTIFY_INTERNAL_TOKEN", "")
+    if not url or not tok:
+        return []
+    import urllib.request  # noqa: PLC0415
+    req = urllib.request.Request(url + "/pauses/actives?consumer=si-agent", headers={"X-Notify-Token": tok, "X-Notify-Consumer": "si-agent"})
+    with urllib.request.urlopen(req, timeout=3) as r:  # noqa: S310 (URL interne)
+        return json.loads(r.read().decode("utf-8") or "{}").get("pauses") or []
+
+
 SEVERITY_ORDER = {"critical": 0, "warning": 1, "info": 2}
 _last_sent = {}
 _lock = threading.Lock()
@@ -181,7 +224,18 @@ def dispatch(db_path, event, threaded=True):
     """Point d'entrée : décide, envoie (en thread), marque l'événement.
     #716 : relais à notify-api d'abord (indépendant des canaux SECRETS_ALERT_* et de leur anti-tempête :
     notify-api a les siens -- regroupement, retenue des rafales)."""
-    relay_to_hub(event)
+    if not event.get("site") and event.get("agent_id") and db_path:      # #853 : le site sert aux pauses planifiées
+        try:
+            import store  # noqa: PLC0415
+            a = store.get_agent(db_path, event["agent_id"])
+            if a:
+                event = dict(event, site=a.get("site"))
+        except Exception:  # noqa: BLE001
+            pass
+    relay_to_hub(event)            # notify-api applique lui-même ses pauses
+    if en_pause(event):
+        _log.info("événement %s de %s non notifié : pause planifiée", event.get("kind"), event.get("agent_id"))
+        return None
     ok, why = should_notify(event)
     if not ok:
         _log.debug("événement %s non notifié : %s", event.get("kind"), why)

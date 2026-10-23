@@ -1,5 +1,11 @@
 [
  {
+  "n": 853,
+  "from": 853,
+  "date": "2026-10-23",
+  "title": "Pauses planifiées des alertes : fermeture de site, travaux, coupure électrique"
+ },
+ {
   "n": 852,
   "from": 852,
   "date": "2026-10-23",
@@ -232,11 +238,5 @@
   "from": 813,
   "date": "2026-10-21",
   "title": "Écoute Wi-Fi : budget de temps par passage, canaux tournants"
- },
- {
-  "n": 812,
-  "from": 812,
-  "date": "2026-10-21",
-  "title": "Réseau de sondes en réel : spectre gardé malgré un balayage lent, collecteur hors de la liste"
  }
 ]

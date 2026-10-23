@@ -4,6 +4,7 @@
 présents / absents, synthèse et lignes d'alerte."""
 import os
 import sys
+import time
 import unittest
 from datetime import datetime
 
@@ -205,6 +206,22 @@ class Routes(unittest.TestCase):
         vr._get = lambda url, timeout=8: {"agents": [{"agent_id": "pc-campus"}]}
         sg = c.get("/veille/suggestions").get_json()
         self.assertEqual(([v["id"] for v in sg["vlans"]], len(sg["postes"]), sg["agents"][0]["agent_id"], sg["erreurs"]), ([51], 1, "pc-campus", []))
+        # #853 : pause planifiée (fermeture du site) -> état « en pause », 200, aucun suivi d'alerte
+        etat["devs"] = [{"dev_id": "g1", "name": "pare-feu", "type": "GW", "status": "offline"}]
+        vr._cache["at"] = 0
+        vrai = vr.pause_en_cours
+        vr.pause_en_cours = lambda now=None: {"motif": "fermeture du site", "fin": time.time() + 3600, "type": "fermeture"}
+        try:
+            n = len(envois)
+            vr.passage()
+            self.assertEqual(len(envois), n)
+            r = c.get("/veille/etat")
+            self.assertEqual(r.status_code, 200)
+            self.assertTrue(r.get_data(as_text=True).startswith("OK PAUSE EN PAUSE (fermeture du site)"))
+        finally:
+            vr.pause_en_cours = vrai
+            vr._cache["at"] = 0
+            etat["devs"] = [{"dev_id": "g1", "name": "pare-feu", "type": "GW", "status": "online"}]
         d = c.get("/veille").get_json()
         self.assertEqual((d["site"], len(d["retablies_24h"])), ("Site Alpha", 1))
 

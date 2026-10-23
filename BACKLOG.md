@@ -3937,7 +3937,7 @@ d'installation ; sous Windows, un installeur MSI ou équivalent.
   2019/2022), construire le MSI sur la VM Windows du banc puis le faire installer par le banc ; scénario « mise à jour »
   (installer N-1, pousser N) ; passage planifié à chaque nouvelle version de l'agent ; résultats dans les bancs (#132 T3).
 
-### 134. Pauses d'alertes planifiées (fermeture de site, travaux, coupure électrique) -- à faire
+### 134. Pauses d'alertes planifiées (fermeture de site, travaux, coupure électrique) -- tranche 1 LIVRÉE #853 (pauses, bilan de reprise) ; reste : vue calendrier, contrôle de reprise automatique, rappels J-2/J-1
 
 Demandé le 23/10/2026 (évolution et prévision) : le campus ferme une semaine, puis le lundi suivant des travaux avec
 une grosse coupure électrique. Prévoir :

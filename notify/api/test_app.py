@@ -44,7 +44,7 @@ class Base(unittest.TestCase):
     def setUp(self):
         appmod.verifier = auth.KeycloakVerifier("u", [], fetch=lambda _u: jwks(), allowed_groups=["administrateurs"], what="les notifications")
         c = appmod._conn()
-        for t in ("actions", "groups", "assignments", "consumers", "blacklist", "queue", "settings", "events", "attachments", "sms_out", "sms_in", "push_subs", "push_out"):
+        for t in ("actions", "groups", "assignments", "consumers", "blacklist", "queue", "settings", "events", "attachments", "sms_out", "sms_in", "push_subs", "push_out", "pauses"):
             c.execute("DELETE FROM " + t)
         c.commit()
         c.close()
@@ -156,6 +156,37 @@ class Producers(Base):
         self.assertTrue(any("regroupée" in b for _, _, b in self.sent))
         rel = self.c.post("/queue/release", headers=self.adm).get_json()["released"]
         self.assertGreaterEqual(rel, 5)
+
+
+class Pauses(Base):   # #853 : pauses planifiées (fermeture de site, coupure électrique)
+    def test_pause_retient_puis_bilan(self):
+        now = time.time()
+        self.assertEqual(self.c.post("/pauses", headers=self.adm, json={"motif": "", "debut": now, "fin": now + 60}).status_code, 400)
+        r = self.c.post("/pauses", headers=self.adm, json={"type": "fermeture", "motif": "fermeture du site", "debut": now - 10, "fin": now + 3600,
+                                                          "consommateurs": "si-agent, nebula", "contexte": {"site": "site-alpha"}})
+        self.assertEqual(r.status_code, 201)
+        pid = r.get_json()["id"]
+        agent = {"X-Notify-Token": "interne-test", "X-Notify-Consumer": "si-agent"}
+        neb = {"X-Notify-Token": "interne-test", "X-Notify-Consumer": "nebula"}
+        r1 = self.c.post("/notify", headers=agent, json={"action": "si-agent.agent-offline", "subject": "muet", "context": {"site": "site-alpha", "agent_id": "pc-a"}}).get_json()
+        r2 = self.c.post("/notify", headers=agent, json={"action": "si-agent.agent-offline", "subject": "muet", "context": {"site": "bureau"}}).get_json()
+        r3 = self.c.post("/notify", headers=neb, json={"action": "nebula.veille-campus", "subject": "panne", "context": {"module": "nebula"}}).get_json()
+        r4 = self.notify("mikrotik.nat.add").get_json()                      # autre producteur : jamais couvert
+        self.assertEqual((r1["status"], r2["status"], r3["status"], r4["status"]), ("paused", "no-recipients", "paused", "no-recipients"))
+        act = self.c.get("/pauses/actives", headers=neb).get_json()["pauses"]
+        self.assertEqual([p["id"] for p in act], [pid])
+        self.assertEqual(self.c.get("/pauses/actives", headers=self.prod).get_json()["pauses"], [])      # mikrotik
+        lst = self.c.get("/pauses", headers=self.adm).get_json()["pauses"]
+        self.assertEqual((lst[0]["etat"], lst[0]["retenues"]), ("en cours", 2))
+        c = appmod._conn()
+        appmod.bilan_pauses(c, now + 7200)
+        b = c.execute("SELECT subject, body FROM queue WHERE action = 'notify.maintenance-fin'").fetchone()
+        c.close()
+        self.assertIn("2 notification(s) retenue(s)", b["subject"])
+        self.assertIn("si-agent.agent-offline", b["body"])
+        c = appmod._conn(); appmod.bilan_pauses(c, now + 7300)
+        n = c.execute("SELECT COUNT(*) AS n FROM queue WHERE action = 'notify.maintenance-fin'").fetchone()["n"]; c.close()
+        self.assertEqual(n, 1)                                                # un seul bilan
 
 
 class Delivery(Base):

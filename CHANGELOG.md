@@ -1,3 +1,15 @@
+## 2026-10-23 — Pauses planifiées des alertes : fermeture de site, travaux, coupure électrique (livraison #853)
+
+- Tuile Notifications, onglet **Pauses planifiées** : type (fermeture, travaux, coupure, maintenance), motif, début,
+  fin, producteurs couverts (ex. si-agent, nebula), sites et agents (motifs). Pendant la fenêtre, les notifications
+  couvertes sont **retenues et journalisées** (statut « paused »), pas envoyées ; à la fin, un **bilan « reprise »**
+  (action `notify.maintenance-fin`) liste ce qui a été retenu, à vérifier au retour.
+- Agents (si-agent-api) : le site de l'agent accompagne désormais ses notifications ; les canaux directs (webhook,
+  courriel des secrets) respectent aussi les pauses. notify-api injoignable = pas de pause (on alerte plutôt que de se taire).
+- Veille du campus (Nebula) : « EN PAUSE (motif) jusqu'au … », texte d'état « OK PAUSE » (200), aucun suivi d'alerte
+  pendant la fenêtre ; si-veille (poste) : la veille d'un hub en pause ne sonne pas.
+- Lien : `?view=notifications&tab=pauses`.
+
 ## 2026-10-23 — Nebula : recherche sur tout, module d'action surveillé (impact, chien de garde, retour arrière, journal) ; sondes livrées sous Windows (livraison #852)
 
 - **Recherche** en tête de la tuile Nebula : appareils, clients (nom, IP, MAC avec ou sans séparateurs, fabricant,

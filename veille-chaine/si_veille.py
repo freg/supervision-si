@@ -130,6 +130,8 @@ def verifier(v, maintenant=None):
             sous = [{"nom": x.get("nom"), "statut": {"ok": "ok", "ko": "ko", "doute": "doute"}.get(x.get("statut"), "non_teste"), "detail": x.get("detail") or ""}
                     for x in d.get("verifs") or [] if x.get("statut") != "ok" or v.get("tout_montrer")]
             etat = d.get("etat")
+            if etat == "maintenance":                       # pause planifiée du hub (fermeture, travaux) : ni alerte ni doute
+                return (True, d.get("resume") or "en pause", {"sous": [], "doute": False})
             return (etat != "panne", ("dégradé : " if etat == "degrade" else "") + (d.get("resume") or etat or "?"),
                     {"sous": sous, "doute": etat == "degrade"})
         if t == "commande":

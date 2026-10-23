@@ -34,6 +34,27 @@ _clients = {"at": 0, "site": None, "items": None}
 _verrou = threading.Lock()
 
 
+_pauses = {"at": 0, "liste": []}
+
+
+def pause_en_cours(now=None):
+    """#853 : pause planifiée de notify-api couvrant « nebula » (fermeture du site, travaux), ou None ; relue toutes les
+    60 s ; notify-api injoignable -> pas de pause."""
+    now = now or time.time()
+    if now - _pauses["at"] > 60:
+        liste = []
+        url, tok = os.environ.get("NOTIFY_API_URL", "").rstrip("/"), os.environ.get("NOTIFY_INTERNAL_TOKEN", "")
+        if url and tok:
+            try:
+                req = urllib.request.Request(url + "/pauses/actives?consumer=nebula", headers={"X-Notify-Token": tok, "X-Notify-Consumer": "nebula"})
+                with urllib.request.urlopen(req, timeout=3) as r:
+                    liste = json.loads(r.read().decode("utf-8") or "{}").get("pauses") or []
+            except Exception:  # noqa: BLE001
+                liste = []
+        _pauses.update(at=now, liste=liste)
+    return next((p for p in _pauses["liste"] if (p.get("debut") or 0) <= now < (p.get("fin") or 0)), None)
+
+
 def reglages():
     return veille.normalize(rr.kv_get("veille_reglages", {}))[0]
 
@@ -112,6 +133,11 @@ def evaluer(force=False):
         e, site_id, site, errs = entrees(cfg)
         res = veille.evaluer(cfg, e)
         res.update(site_id=site_id, site=site, erreurs=errs)
+        pz = pause_en_cours()
+        if pz:
+            res["maintenance"] = {"motif": pz.get("motif"), "fin": pz.get("fin"), "type": pz.get("type")}
+            res["etat_reel"], res["etat"] = res["etat"], "maintenance"
+            res["resume"] = "EN PAUSE (%s) jusqu'au %s -- %s" % (pz.get("motif"), datetime.fromtimestamp(pz["fin"]).strftime("%d/%m %H:%M"), res["resume"])
         _cache.update(at=time.time(), res=res)
         return res
 
@@ -120,7 +146,7 @@ def passage(now=None):
     """Évaluation + suivi des alertes (délai avant alerte, rappel, retour à la normale)."""
     cfg = reglages()
     res = evaluer(force=True)
-    if not cfg["enabled"]:
+    if not cfg["enabled"] or res.get("maintenance"):     # #853 : pas de suivi d'alertes pendant une pause planifiée
         return res
     now = now or time.time()
     al = dict(cfg["alerte"], min_severity=cfg["alerte"]["min_severity"])
@@ -194,8 +220,8 @@ def register(app, hooks, start_loop=True):
         if not _jeton_ok():
             return "jeton requis\n", 401, {"Content-Type": "text/plain; charset=utf-8"}
         res = evaluer()
-        code = 200 if res["etat"] in ("ok", "inconnu") else 503
-        return "%s %s\n" % ({"ok": "OK", "inconnu": "INCONNU", "degrade": "DEGRADE", "panne": "PANNE"}[res["etat"]], res["resume"]), code, \
+        code = 200 if res["etat"] in ("ok", "inconnu", "maintenance") else 503
+        return "%s %s\n" % ({"ok": "OK", "inconnu": "INCONNU", "degrade": "DEGRADE", "panne": "PANNE", "maintenance": "OK PAUSE"}[res["etat"]], res["resume"]), code, \
             {"Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store"}
 
     @app.route("/veille/reglages", methods=["GET"])
