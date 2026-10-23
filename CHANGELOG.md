@@ -1,3 +1,10 @@
+## 2026-10-23 — si-onglets : la fenêtre de terminal et ses onglets rouverts à l'ouverture de la session (livraison #848)
+
+- `poste-onglets/` : `si-onglets --capturer` relève les onglets ouverts de GNOME Terminal (dossier courant et commande
+  au premier plan, ex. `ssh super`) ; à l'ouverture de la session, la fenêtre est rouverte en plein écran avec tous
+  ses onglets dans l'ordre, chaque commande relancée puis suivie d'un shell.
+- Pas de lien : opération manuelle (docs/poste-onglets.md).
+
 ## 2026-10-23 — Veille de santé du réseau du campus : Nebula + agents internes, VLAN à usage mixte (livraison #847)
 
 - Nouvel onglet **Veille** (premier onglet de la tuile Nebula@<site>) : passerelle / pare-feu, commutateurs, bornes

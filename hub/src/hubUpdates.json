@@ -1,5 +1,11 @@
 [
  {
+  "n": 848,
+  "from": 848,
+  "date": "2026-10-23",
+  "title": "si-onglets : la fenêtre de terminal et ses onglets rouverts à l'ouverture de la session"
+ },
+ {
   "n": 847,
   "from": 847,
   "date": "2026-10-23",
@@ -232,11 +238,5 @@
   "from": 808,
   "date": "2026-10-21",
   "title": "Écoute Wi-Fi : un relevé vide dit pourquoi"
- },
- {
-  "n": 807,
-  "from": 807,
-  "date": "2026-10-21",
-  "title": "Configuration radio des sondes depuis le hub : interfaces et SSID testés"
  }
 ]
