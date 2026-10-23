@@ -1,3 +1,18 @@
+## 2026-10-23 — Veille de santé du réseau du campus : Nebula + agents internes, VLAN à usage mixte (livraison #847)
+
+- Nouvel onglet **Veille** (premier onglet de la tuile Nebula@<site>) : passerelle / pare-feu, commutateurs, bornes
+  (Nebula), agents internes muets ou non, chaque VLAN suivi (DHCP, passerelle, DNS, Internet vus par la sonde « chemin
+  de service » d'un agent présent dans le VLAN), serveur DHCP inattendu (bail ou annonces), liaison Internet, postes
+  suivis présents / absents (clients Nebula et annonces réseau ; attendus toujours, aux heures ouvrées ou information).
+- VLAN à **usage mixte par créneaux** (ex. demi-journées d'un organisme extérieur) : la vérification indique l'usage en
+  cours et son alerte part sur une action de notification distincte (`nebula.veille-campus-externe`).
+- Silencieuse quand tout va bien ; alertes par notify-api après un délai réglable, rappel, retour à la normale ;
+  texte d'état `GET /api/nebula/veille/etat` (200 / 503, jeton `NEBULA_VEILLE_TOKEN`) pour le veilleur du poste.
+- Pas d'agent supplémentaire nécessaire : poste du campus + Proxmox suffisent tant qu'une sonde est présente dans
+  chaque VLAN à suivre (interface, sous-interface 802.1Q ou SSID en rotation).
+- La tuile Nebula ouvre l'onglet donné par l'adresse (`?view=nebula&tab=health`…).
+- Lien : `?view=nebula&tab=veille` (bouton « Réglages » de l'onglet). Destinataires : tuile Notifications.
+
 ## 2026-10-23 — Univers du hub : recherche par nom du site, mots-clés, adresse IP ou MAC (livraison #846)
 
 - La recherche de l'Univers porte aussi sur le **titre réel** des tuiles (« Nebula@<site> » du .env, affiché tel quel)

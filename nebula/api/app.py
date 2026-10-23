@@ -1394,6 +1394,23 @@ report_routes.register(app, {"conn": get_connection, "sites": _report_sites, "an
                              "configured": lambda: bool(NEBULA_API_KEY), "lock_dir": os.path.dirname(DB_PATH)},
                        start_loop=os.environ.get("NEBULA_REPORT_DISABLED") != "1" and os.environ.get("NEBULA_POLL_DISABLED") != "1")
 
+
+# #847 : veille de santé du réseau du campus (Nebula + agents internes), voir veille.py / veille_routes.py
+def _veille_clients(site_id):
+    import occupancy
+    out = []
+    for c in _connect().get_site_clients(site_id, period="2h") or []:
+        st = str(c.get("status") or "").lower()
+        out.append({"mac": _mac_of(c), "ip": c.get("ipv4Address") or c.get("ipv4_address") or c.get("ipv4") or c.get("ip"),
+                    "status": "connected" if (not st or st in occupancy.CONNECTED) else "offline"})
+    return out
+
+
+import veille_routes  # noqa: E402
+veille_routes.register(app, {"sites": _report_sites, "board": lambda sid: _board(sid, 24)["devices"], "clients": _veille_clients,
+                             "manage": _check_manage_right, "lock_dir": os.path.dirname(DB_PATH)},
+                       start_loop=os.environ.get("NEBULA_VEILLE_DISABLED") != "1" and os.environ.get("NEBULA_POLL_DISABLED") != "1")
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
 

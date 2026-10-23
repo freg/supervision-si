@@ -698,6 +698,9 @@ services:
       - NOTIFY_API_URL=http://notify-api:5000
       - NOTIFY_INTERNAL_TOKEN=${NOTIFY_INTERNAL_TOKEN:-}
       - NOTIFY_CONSUMER=nebula
+      # #847 : veille du réseau du campus -- relevés des agents internes, jeton du texte d'état pour si-veille
+      - SI_AGENT_API_URL=http://si-agent-api:5000
+      - NEBULA_VEILLE_TOKEN=${NEBULA_VEILLE_TOKEN:-}
       - TZ=${TZ:-Europe/Paris}
     volumes:
       # NEBULA_DATA_DIR (.env, optionnel) : même logique que

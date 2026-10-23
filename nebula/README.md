@@ -552,3 +552,25 @@ notify-api (`nebula.occupation-seuil`, `nebula.alerte-nebula`, `nebula.occupatio
 destinataires du réglage + groupes de la tuile Notifications. API : `GET /report/occupancy?hours=24`,
 `POST /report/occupancy/send {sample: true}`.
 
+
+
+## Veille de santé du réseau du campus (#847)
+
+Demandé : « une veille alerte sur la santé du réseau du campus : VLAN, DHCP, spots, postes actifs/absents, liaison
+Internet, certains VLAN comme le 51 (derrière le pare-feu, usage mixte par demi-journée avec un organisme extérieur) ».
+
+Pas de réseau d'agents supplémentaire : la veille croise ce qui existe déjà --
+- **Nebula** (sondeur à la minute) : passerelle / pare-feu, commutateurs, bornes ; clients connectés (présence des postes,
+  relus au plus toutes les 10 min) ;
+- **agents internes** (poste du campus, Proxmox) : battement, sonde « chemin de service » `path-probe` (bail DHCP,
+  passerelle, DNS, Internet par interface ou par SSID avec `--connections`), sonde « annonces réseau » `broadcast-probe`
+  (serveurs DHCP vus, appareils qui s'annoncent).
+Un VLAN n'est vu que si une sonde y est présente : interface (ou sous-interface 802.1Q) du poste dans ce VLAN, ou SSID
+rattaché au VLAN dans la rotation `--connections`. Sinon la vérification est « non observé » avec le lien vers l'agent.
+
+- `veille.py` (pur, `tests/test_veille.py`) : réglages, créneaux (« 1-5 08:00-12:30 externe »), évaluation, lignes d'alerte ;
+- `veille_routes.py` : `GET /veille`, `GET /veille/etat` (« OK … » 200 / « PANNE … » 503, jeton `NEBULA_VEILLE_TOKEN`),
+  `GET|PUT /veille/reglages`, `POST /veille/passer` ; passage toutes les 2 min, suivi par `alerting.track` (délai,
+  rappel, retour à la normale) ; notify-api : `nebula.veille-campus`, `nebula.veille-campus-externe` (créneau d'un
+  organisme extérieur), `nebula.veille-campus-retabli`.
+- Hub : tuile Nebula@<site>, onglet **Veille** (premier onglet, `?view=nebula&tab=veille`), réglages dans l'onglet.

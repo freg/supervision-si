@@ -6,6 +6,7 @@ import {
   importNebulaDevicesToGlpi,
 } from "./nebulaClient.js";
 import NebulaHealth from "./NebulaHealth.jsx";
+import NebulaVeille from "./NebulaVeille.jsx";
 import NebulaVlan from "./NebulaVlan.jsx";
 import NebulaPlan from "./NebulaPlan.jsx";
 import NebulaReports from "./NebulaReports.jsx";  // #703
@@ -30,6 +31,7 @@ import { AutoColumns } from "./TableColumns.jsx";   // #707 : colonnes réglable
 // bouton qui échouerait systématiquement sans ces prérequis.
 
 const TABS = [
+  { key: "veille", label: "Veille", columns: [] },   // #847 : santé du réseau du campus, Nebula + agents internes
   { key: "health", label: "Santé du réseau", columns: [] },
   { key: "vlan", label: "Carte des VLAN", columns: [] },
   { key: "plan", label: "Plan du site", columns: [] },
@@ -45,7 +47,8 @@ const FETCH_FN = { sites: fetchImportedSites, devices: fetchImportedDevices, cli
 const TILE_TITLE = import.meta.env.VITE_NEBULA_TILE_TITLE || "Nebula@Campus";  // #566 : « Nebula@<site> », réglé dans .env
 
 export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, siAgentApiBase = "", agentSite = "", assistantUrl = "", groups = [], login = "" }) {
-  const [tab, setTab] = useState("health");
+  // #847 : onglet de l'adresse (?tab=health…), sinon la Veille
+  const [tab, setTab] = useState(() => { try { const t = new URLSearchParams(window.location.search).get("tab"); return TABS.some((x) => x.key === t) ? t : "veille"; } catch { return "veille"; } });
   const [pane, setPane] = useState("nebula");  // #566 : volets « Nebula » / « Campus »
   const [focus, setFocus] = useState(null);      // #566 : fiche à montrer dans le synoptique
   const [siteId, setSiteId] = useState("");
@@ -63,7 +66,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, siAgent
   const [selectedBatchIds, setSelectedBatchIds] = useState([]);
 
   useEffect(() => {
-    if (tab === "health" || tab === "vlan" || tab === "plan" || tab === "reports") return;  // #546/#548/#555 : onglets servis par NebulaHealth / NebulaVlan / NebulaPlan
+    if (tab === "veille" || tab === "health" || tab === "vlan" || tab === "plan" || tab === "reports") return;  // #546/#548/#555 : onglets servis par NebulaHealth / NebulaVlan / NebulaPlan
     load(tab);
     setSelectedBatchIds([]);
     if (showHistory) loadBatches();
@@ -199,7 +202,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, siAgent
           ))}
         </div>
 
-        {tab === "health" ? <NebulaHealth nebulaApiBase={nebulaApiBase} /> : tab === "vlan" ? <NebulaVlan nebulaApiBase={nebulaApiBase} groups={groups} login={login} focus={focus} /> : tab === "plan" ? <NebulaPlan nebulaApiBase={nebulaApiBase} /> : tab === "reports" ? <NebulaReports nebulaApiBase={nebulaApiBase} groups={groups} login={login} /> : (<>
+        {tab === "veille" ? <NebulaVeille nebulaApiBase={nebulaApiBase} siAgentApiBase={siAgentApiBase} groups={groups} login={login} /> : tab === "health" ? <NebulaHealth nebulaApiBase={nebulaApiBase} /> : tab === "vlan" ? <NebulaVlan nebulaApiBase={nebulaApiBase} groups={groups} login={login} focus={focus} /> : tab === "plan" ? <NebulaPlan nebulaApiBase={nebulaApiBase} /> : tab === "reports" ? <NebulaReports nebulaApiBase={nebulaApiBase} groups={groups} login={login} /> : (<>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <h2 style={{ margin: 0 }}>{activeTab.label} ({rows.length})</h2>
           <label className="secondary" style={{ cursor: "pointer" }}>
