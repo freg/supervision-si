@@ -35,6 +35,7 @@ export const THEMES = [
       { view: "vuln", label: "Vulnérabilités (SBOM, EPSS, KEV)" },   // #688
       { view: "veille", label: "Veille cyber (alertes, news, impacts sur notre SI)" },   // #814
       { view: "mailserver", label: "Serveur de messagerie (traitements, recherche, quarantaine)" },   // #697
+      { view: "mailbox", label: "Boîtes aux lettres : agents si-mailbox des sessions (requêtes, automates IA)" },   // #840
       { view: "logs", label: "Logs" },
       { view: "history", label: "Historique" },
       { view: "memory", label: "Mémoire" },
@@ -186,7 +187,7 @@ export const SINCE = {
   "fusion": 431, "ged": 105, "geo-catalog": 429, "glpi-inventory": 192, "history": 105, "imap": 144, "imap-connectors": 489,
   "keycloak-admin": 105, "accounts": 557, "notifications": 590, "licenses": 595, "nat-map": 606, "ldap-admin": 105, "logs": 105, "memory": 105, "mikrotik": 485, "nebula": 192,
   "netmap-orchestrator": 388, "netprobe": 301, "network-agent": 236, "network-cycle": 396, "network-equipment": 506,
-  "portage": 650, "qa": 651, "datasync": 652, "vuln": 688, "mailserver": 697, "groupware": 664, "pve-ops": 653, "pve-maint": 705, "infra": 749, "htop": 800, "datarf": 806, "veille": 814, "guest-usage": 769, "migration": 774, "journal": 795, "urgence": 796, "navigateur": 798, "latency": 775, "edge": 776, "fleetviews": 753, "iapark": 756, "banc": 826, "emulation": 831, "orchestration": 832, "repatriation": 761, "projeqtor": 476, "proxmox": 487, "retro": 242, "rights": 105, "schema-analyzer": 173, "service-watch": 531,
+  "portage": 650, "qa": 651, "datasync": 652, "vuln": 688, "mailserver": 697, "mailbox": 840, "groupware": 664, "pve-ops": 653, "pve-maint": 705, "infra": 749, "htop": 800, "datarf": 806, "veille": 814, "guest-usage": 769, "migration": 774, "journal": 795, "urgence": 796, "navigateur": 798, "latency": 775, "edge": 776, "fleetviews": 753, "iapark": 756, "banc": 826, "emulation": 831, "orchestration": 832, "repatriation": 761, "projeqtor": 476, "proxmox": 487, "retro": 242, "rights": 105, "schema-analyzer": 173, "service-watch": 531,
   "si-agent": 421, "si-proxy": 454, "snmp": 181, "ssh-tunnels": 122, "supervision-si": 105, "synthese": 523,
   "tickets": 105, "ups": 415, "vault": 105, "vault-admin": 105, "vigilance": 105,
   "action:aide": 105, "action:tabs": 105, "action:settings": 105, "action:personalize": 457, "action:layout": 516,

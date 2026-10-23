@@ -1,0 +1,13 @@
+{
+  "id": "mailbox",
+  "version": "1",
+  "runner": "python",
+  "entry": "si_mailbox.py",
+  "interval_seconds": 300,
+  "timeout_seconds": 20,
+  "args": [],
+  "enabled": false,
+  "description": "Agents de messagerie si-mailbox des sessions du poste (#840) : en mode « relié » seulement, résumé sans contenu des messages (comptes, automates et leur mode, messages traités et erreurs sur 24 h, dernières actions). Un si-mailbox en mode « discret » ne publie rien. Alimente la tuile Boîtes aux lettres. Privilégiée (lecture des dossiers des sessions).",
+  "source": "bundled",
+  "privileged": true
+}

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>si-mailbox</title>
+<style>
+:root{--fond:#0f141a;--carte:#161d26;--bord:#263241;--texte:#dde6ef;--doux:#8fa1b3;--accent:#4aa3ff;--ok:#47c97a;--ko:#ff6b6b;--att:#e8b84a}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:14px/1.45 system-ui,sans-serif}
+header{display:flex;gap:12px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--bord)}header h1{font-size:17px;margin:0}
+nav button{background:none;border:0;color:var(--doux);padding:6px 10px;cursor:pointer;border-bottom:2px solid transparent}nav button.actif{color:var(--texte);border-color:var(--accent)}
+main{padding:14px 16px;max-width:1200px}.carte{background:var(--carte);border:1px solid var(--bord);border-radius:8px;padding:12px;margin-bottom:12px}
+label{display:inline-flex;flex-direction:column;gap:2px;margin:4px 10px 4px 0;color:var(--doux);font-size:12px}
+input,select,textarea{background:#0b1016;color:var(--texte);border:1px solid var(--bord);border-radius:6px;padding:5px 7px;font:inherit}
+button.b{background:var(--accent);color:#06121f;border:0;border-radius:6px;padding:6px 12px;cursor:pointer;font-weight:600}button.s{background:none;color:var(--texte);border:1px solid var(--bord)}
+button.b:disabled{opacity:.6;cursor:progress}.ok{color:var(--ok)}.ko{color:var(--ko)}.att{color:var(--att)}.doux{color:var(--doux)}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--bord);vertical-align:top}th{color:var(--doux);font-weight:500}
+.mode{padding:3px 8px;border-radius:12px;font-size:12px;border:1px solid var(--bord)}.mode.discret{color:var(--ok)}.mode.relie{color:var(--att)}
+pre{white-space:pre-wrap;background:#0b1016;padding:8px;border-radius:6px}.ligne{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-end}
+</style></head><body>
+<header><h1>si-mailbox</h1><span id="mode" class="mode"></span><span class="doux" id="ver"></span><span style="flex:1"></span>
+<nav id="nav"></nav></header>
+<main id="main"></main>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const date = (t) => (t ? new Date(t * 1000).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "");
+async function api(chemin, corps) {
+  const r = await fetch(chemin, corps ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corps) } : {});
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.erreur || r.status);
+  return d;
+}
+let E = null, onglet = "requete";
+const ONGLETS = [["requete", "Requête"], ["automates", "Automates"], ["journal", "Journal"], ["comptes", "Comptes"], ["reglages", "Réglages"]];
+async function charger() { E = await api("/api/etat"); $("#mode").textContent = E.mode === "relie" ? "relié au hub (résumé sans contenu)" : "discret : aucune liaison";
+  $("#mode").className = "mode " + E.mode; $("#ver").textContent = "v" + E.version; rendre(); }
+function rendre() {
+  $("#nav").innerHTML = ONGLETS.map(([k, l]) => `<button class="${onglet === k ? "actif" : ""}" onclick="onglet='${k}';rendre()">${l}</button>`).join("");
+  ({ requete, automates, journal, comptes, reglages })[onglet]();
+}
+const optsComptes = () => E.comptes.map((c) => `<option>${esc(c.nom)}</option>`).join("");
+function attente(btn, txt) { btn.disabled = true; btn.dataset.t = btn.textContent; btn.textContent = txt; return () => { btn.disabled = false; btn.textContent = btn.dataset.t; }; }
+
+function requete() {
+  if (!E.comptes.length) { $("#main").innerHTML = `<div class="carte">Aucun compte : onglet <b>Comptes</b>.</div>`; return; }
+  $("#main").innerHTML = `<div class="carte"><div class="ligne">
+    <label>Compte<select id="rc">${optsComptes()}</select></label><label>Dossier<input id="rd" value="INBOX"></label>
+    <label>De<input id="rde"></label><label>Sujet<input id="rs"></label><label>Contient<input id="rt"></label>
+    <label>Depuis (jours)<input id="rj" type="number" value="30" style="width:80px"></label><label>Max<input id="rm" type="number" value="30" style="width:70px"></label></div>
+    <div class="ligne"><label style="flex:1">Question à l'IA sur ces messages (facultatif)<input id="rq" placeholder="Quelles factures restent à payer ? Qui attend une réponse de ma part ?"></label>
+    <button class="b" id="rb">Chercher</button></div></div><div id="rr"></div>`;
+  $("#rb").onclick = async () => {
+    const fin = attente($("#rb"), $("#rq").value ? "l'IA lit…" : "recherche…");
+    try {
+      const r = await api("/api/requete", { compte: $("#rc").value, dossier: $("#rd").value, de: $("#rde").value, sujet: $("#rs").value, contient: $("#rt").value,
+        depuis_jours: +$("#rj").value, maximum: +$("#rm").value, question: $("#rq").value });
+      $("#rr").innerHTML = (r.reponse ? `<div class="carte"><b>Réponse</b><pre>${esc(r.reponse)}</pre></div>` : "") +
+        `<div class="carte"><table><tr><th>#</th><th>Date</th><th>De</th><th>Sujet / extrait</th><th>PJ</th></tr>${r.messages.map((m, i) =>
+          `<tr><td>${i + 1}</td><td>${date(m.date)}</td><td>${esc(m.de)}</td><td><b>${esc(m.sujet)}</b><br><span class="doux">${esc(m.extrait)}</span></td><td>${m.pieces.map((p) => esc(p.nom)).join("<br>")}</td></tr>`).join("") || '<tr><td colspan="5" class="doux">rien</td></tr>'}</table></div>`;
+    } catch (e) { $("#rr").innerHTML = `<div class="carte ko">${esc(e.message)}</div>`; }
+    fin();
+  };
+}
+
+function automates() {
+  const a = E.automates;
+  $("#main").innerHTML = `<div class="carte"><table><tr><th>Automate</th><th>Compte / dossier</th><th>Filtres</th><th>IA</th><th>Actions</th><th>Mode</th><th></th></tr>
+    ${a.map((x, i) => `<tr><td><b>${esc(x.nom)}</b><br><span class="doux">toutes les ${x.cadence_min} min${x.actif ? "" : " · suspendu"}</span></td><td>${esc(x.compte)} / ${esc(x.dossier)}</td>
+      <td class="doux">${[x.filtres.de && "de " + esc(x.filtres.de), x.filtres.sujet && "sujet " + esc(x.filtres.sujet), x.filtres.contient && "contient " + esc(x.filtres.contient),
+        x.filtres.non_lus && "non lus", x.filtres.pj && "avec PJ", x.filtres.depuis_jours + " j"].filter(Boolean).join(", ")}</td>
+      <td>${esc(x.ia.sortie)}${x.ia.categories.length ? "<br><span class='doux'>" + x.ia.categories.map(esc).join(", ") + "</span>" : ""}</td>
+      <td>${x.actions.map((y) => esc(y.type + (y.dossier ? " → " + y.dossier : y.etiquette ? " " + y.etiquette : y.script ? " " + y.script : "") + (y.si_categorie ? " si " + y.si_categorie : ""))).join("<br>")}</td>
+      <td class="${x.mode === "actif" ? "att" : "ok"}">${x.mode}</td>
+      <td><button class="s" onclick="editer(${i})">Modifier</button> <button class="s" id="p${i}" onclick="passer(${i})">Passer</button> <button class="s ko" onclick="retirer('${esc(x.nom)}')">×</button></td></tr>`).join("") ||
+      '<tr><td colspan="7" class="doux">aucun automate</td></tr>'}</table><p><button class="b" onclick="editer(-1)">+ Nouvel automate</button>
+      <span class="doux">Un automate commence en mode <b>essai</b> : il note ce qu'il ferait, sans toucher aux messages.</span></p></div><div id="ed"></div>`;
+}
+window.passer = async (i) => { const fin = attente($("#p" + i), "en cours…"); try { const r = await api("/api/automates/passer", { nom: E.automates[i].nom }); alert(r.traites + " message(s) traité(s) : voir le Journal"); } catch (e) { alert(e.message); } fin(); };
+window.retirer = async (nom) => { if (confirm("Retirer " + nom + " ?")) { await api("/api/automates/retirer", { nom }); charger(); } };
+window.editer = (i) => {
+  const x = i >= 0 ? E.automates[i] : { nom: "", compte: (E.comptes[0] || {}).nom, dossier: "INBOX", mode: "essai", cadence_min: 5, actif: true,
+    filtres: { de: "", sujet: "", contient: "", non_lus: true, pj: false, depuis_jours: 7 }, ia: { sortie: "categorie", consigne: "", categories: ["important", "normal", "inutile"] }, actions: [] };
+  $("#ed").innerHTML = `<div class="carte"><b>${i >= 0 ? "Modifier" : "Nouvel"} automate</b><div class="ligne">
+    <label>Nom<input id="an" value="${esc(x.nom)}"></label><label>Compte<select id="ac">${optsComptes()}</select></label><label>Dossier<input id="ad" value="${esc(x.dossier)}"></label>
+    <label>Toutes les (min)<input id="acad" type="number" value="${x.cadence_min}" style="width:80px"></label>
+    <label>Mode<select id="am"><option value="essai">essai (rien n'est touché)</option><option value="actif">actif</option></select></label>
+    <label>&nbsp;<span><input type="checkbox" id="aa" ${x.actif ? "checked" : ""}> en service</span></label></div>
+    <b>Filtres</b><div class="ligne"><label>De<input id="fde" value="${esc(x.filtres.de)}"></label><label>Sujet<input id="fs" value="${esc(x.filtres.sujet)}"></label>
+    <label>Contient<input id="ft" value="${esc(x.filtres.contient)}"></label><label>Depuis (jours)<input id="fj" type="number" value="${x.filtres.depuis_jours}" style="width:80px"></label>
+    <label>&nbsp;<span><input type="checkbox" id="fn" ${x.filtres.non_lus ? "checked" : ""}> non lus seulement</span></label><label>&nbsp;<span><input type="checkbox" id="fp" ${x.filtres.pj ? "checked" : ""}> avec pièce jointe</span></label></div>
+    <b>IA de traitement</b><div class="ligne"><label>Sortie<select id="is">${["aucune", "categorie", "resume", "extraction"].map((s) => `<option ${s === x.ia.sortie ? "selected" : ""}>${s}</option>`).join("")}</select></label>
+    <label>Catégories (virgules)<input id="ic" value="${esc(x.ia.categories.join(", "))}" size="34"></label><label style="flex:1">Consigne<input id="ico" value="${esc(x.ia.consigne)}" placeholder="ex. une facture est importante si l'échéance est dans moins de 10 jours"></label></div>
+    <b>Actions</b> <span class="doux">(une par ligne : deplacer DOSSIER | copier DOSSIER | etiqueter MOT | marquer_lu | marquer_important | script NOM | notifier ; suffixe « si CATÉGORIE » facultatif)</span>
+    <textarea id="aac" rows="4" style="width:100%">${esc(x.actions.map((y) => [y.type, y.dossier || y.etiquette || y.script || "", y.si_categorie ? "si " + y.si_categorie : ""].filter(Boolean).join(" ")).join("\n"))}</textarea>
+    <p class="doux">Scripts disponibles (~/.config/si-mailbox/scripts/) : ${E.scripts.map(esc).join(", ") || "aucun"} — ils reçoivent le message en JSON sur l'entrée standard.</p>
+    <button class="b" id="aok">Enregistrer</button> <button class="s" onclick="$('#ed').innerHTML=''">Annuler</button> <span id="aerr" class="ko"></span></div>`;
+  $("#ac").value = x.compte; $("#am").value = x.mode;
+  $("#aok").onclick = async () => {
+    const actions = $("#aac").value.split("\n").map((l) => l.trim()).filter(Boolean).map((l) => {
+      const m = l.match(/^(\S+)(?:\s+(.+?))?(?:\s+si\s+(.+))?$/); const t = m[1], arg = (m[2] || "").trim(), si = m[3];
+      const o = { type: t }; if (t === "deplacer" || t === "copier") o.dossier = arg; if (t === "etiqueter") o.etiquette = arg; if (t === "script") o.script = arg; if (si) o.si_categorie = si; return o; });
+    try {
+      await api("/api/automates", { nom: $("#an").value, compte: $("#ac").value, dossier: $("#ad").value, cadence_min: +$("#acad").value, mode: $("#am").value, actif: $("#aa").checked,
+        filtres: { de: $("#fde").value, sujet: $("#fs").value, contient: $("#ft").value, depuis_jours: +$("#fj").value, non_lus: $("#fn").checked, pj: $("#fp").checked },
+        ia: { sortie: $("#is").value, consigne: $("#ico").value, categories: $("#ic").value.split(",").map((s) => s.trim()).filter(Boolean) }, actions });
+      charger();
+    } catch (e) { $("#aerr").textContent = e.message; }
+  };
+};
+
+async function journal() {
+  const j = (await api("/api/journal")).journal;
+  $("#main").innerHTML = `<div class="carte"><table><tr><th>Quand</th><th>Automate</th><th>Action</th><th>Résultat</th><th>Message / détail</th></tr>${j.map((e) =>
+    `<tr><td>${date(e.ts)}</td><td>${esc(e.automate || "")}</td><td>${esc(e.action)}${e.essai ? ' <span class="ok">(essai)</span>' : ""}</td>
+     <td class="${e.resultat === "erreur" ? "ko" : e.resultat === "simulé" ? "ok" : ""}">${esc(e.resultat)}${e.categorie ? " · " + esc(e.categorie) : ""}</td>
+     <td>${esc(e.sujet || "")}${e.detail ? '<br><span class="doux">' + esc(e.detail) + "</span>" : ""}${e.ia ? '<br><span class="doux">IA : ' + esc(e.ia.slice(0, 200)) + "</span>" : ""}</td></tr>`).join("") ||
+    '<tr><td colspan="5" class="doux">vide</td></tr>'}</table></div>`;
+}
+
+function comptes() {
+  $("#main").innerHTML = `<div class="carte"><table><tr><th>Compte</th><th>Serveur</th><th>Utilisateur</th><th></th></tr>${E.comptes.map((c) =>
+    `<tr><td><b>${esc(c.nom)}</b></td><td>${esc(c.hote)}:${c.port}${c.ssl ? " (TLS)" : ""}</td><td>${esc(c.utilisateur)}</td><td><button class="s ko" onclick="retirerCompte('${esc(c.nom)}')">×</button></td></tr>`).join("") ||
+    '<tr><td colspan="4" class="doux">aucun compte</td></tr>'}</table></div>
+    <div class="carte"><b>Ajouter / modifier un compte IMAP</b><div class="ligne"><label>Nom<input id="cn" placeholder="pro"></label><label>Serveur IMAP<input id="ch" placeholder="imap.exemple.fr"></label>
+    <label>Port<input id="cp" type="number" value="993" style="width:80px"></label><label>Utilisateur<input id="cu"></label><label>Mot de passe<input id="cw" type="password" autocomplete="off"></label>
+    <label>&nbsp;<span><input type="checkbox" id="cs" checked> TLS</span></label><button class="b" id="cok">Enregistrer et tester</button></div>
+    <p class="doux">Le mot de passe va dans le trousseau du système (${esc(E.trousseau)}), jamais dans la configuration.</p><div id="cr"></div></div>`;
+  $("#cok").onclick = async () => {
+    const fin = attente($("#cok"), "connexion…");
+    try { const r = await api("/api/comptes", { nom: $("#cn").value, hote: $("#ch").value, port: +$("#cp").value, utilisateur: $("#cu").value, mot_de_passe: $("#cw").value, ssl: $("#cs").checked });
+      $("#cr").innerHTML = r.ok ? `<p class="ok">connecté — dossiers : ${r.dossiers.map(esc).join(", ")}</p>` : `<p class="ko">${esc(r.erreur)}</p>`; await charger(); }
+    catch (e) { $("#cr").innerHTML = `<p class="ko">${esc(e.message)}</p>`; }
+    fin();
+  };
+}
+window.retirerCompte = async (nom) => { if (confirm("Retirer le compte " + nom + " ?")) { await api("/api/comptes/retirer", { nom }); charger(); } };
+
+function reglages() {
+  $("#main").innerHTML = `<div class="carte"><b>Liaison avec le hub</b>
+    <p><label><span><input type="radio" name="m" value="discret" ${E.mode !== "relie" ? "checked" : ""}> <b>Discret</b> (défaut) : aucune liaison, rien n'est publié ; seules connexions : serveurs IMAP et IA ci-dessous</span></label><br>
+    <label><span><input type="radio" name="m" value="relie" ${E.mode === "relie" ? "checked" : ""}> <b>Relié</b> : un résumé sans contenu (compteurs, automates, dernières actions) est déposé pour l'agent de supervision de ce poste</span></label><br>
+    <label><span><input type="checkbox" id="is2" ${E.inclure_sujets ? "checked" : ""}> en mode relié, inclure les sujets des messages traités</span></label></p>
+    <p class="doux">Résumé déposé actuellement : ${E.publication ? '<span class="att">oui</span>' : '<span class="ok">non</span>'}</p></div>
+    <div class="carte"><b>IA de traitement</b><div class="ligne"><label>Adresse (Ollama)<input id="iu" value="${esc(E.ia.url)}" size="34"></label><label>Modèle<input id="im" value="${esc(E.ia.modele)}"></label></div>
+    <p class="doux">IA locale conseillée (le contenu des messages ne quitte pas le poste) ; une IA distante reçoit le texte des messages traités.</p></div>
+    <button class="b" id="rok">Enregistrer</button> <span id="rr2"></span>`;
+  $("#rok").onclick = async () => {
+    try { await api("/api/reglages", { mode: document.querySelector("input[name=m]:checked").value, inclure_sujets: $("#is2").checked, ia: { url: $("#iu").value, modele: $("#im").value } });
+      $("#rr2").innerHTML = '<span class="ok">enregistré</span>'; charger(); } catch (e) { $("#rr2").innerHTML = `<span class="ko">${esc(e.message)}</span>`; }
+  };
+}
+charger().catch((e) => { $("#main").innerHTML = `<div class="carte ko">${esc(e.message)}</div>`; });
+</script></body></html>

@@ -1,5 +1,11 @@
 [
  {
+  "n": 840,
+  "from": 840,
+  "date": "2026-10-23",
+  "title": "si-mailbox : agent de messagerie de la session, requêtes et automates IA, mode discret"
+ },
+ {
   "n": 839,
   "from": 839,
   "date": "2026-10-22",
@@ -232,11 +238,5 @@
   "from": 800,
   "date": "2026-10-21",
   "title": "htop en direct : émetteur sur chaque VM / CT / Proxmox, relais UDP, constats, tuile et client terminal"
- },
- {
-  "n": 799,
-  "from": 799,
-  "date": "2026-10-20",
-  "title": "Navigateur des hôtes : apprentissage des parcours et demandes en langage courant"
  }
 ]

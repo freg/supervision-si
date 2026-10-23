@@ -1026,6 +1026,17 @@ def _banc_tick(maintenant=None):
         store.set_setting(DB_PATH, "banc_runs", runs[-100:])
 
 
+@app.route("/mailbox", methods=["GET"])
+def mailbox_route():
+    """#840 : agents si-mailbox reliés (sonde « mailbox » des postes) -- résumés sans contenu de messages."""
+    out = []
+    for a in store.fleet(DB_PATH):
+        m = store.latest_per_task(DB_PATH, a["agent_id"]).get("plugin:mailbox")
+        for p in (((m or {}).get("data") or {}).get("postes") or []):
+            out.append(dict(p, agent_id=a["agent_id"], releve=(m or {}).get("at")))
+    return jsonify({"postes": out}), 200
+
+
 @app.route("/banc", methods=["GET"])
 def banc_route():
     runs = _banc_runs()

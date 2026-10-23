@@ -78,6 +78,7 @@ export const PATHS = {
   "view:cyber": ["droits/matrice", "etats/incidents"],
   "view:vuln": ["equipements/postes", "etats/incidents"],
   "view:veille": ["etats/incidents", "equipements/postes"],   // #814 : veille cyber, impacts sur notre SI
+  "view:mailbox": ["services/metier", "equipements/hotes/agents"],   // #840 : agents si-mailbox
   "view:mailserver": ["services/metier", "etats/incidents"],   // #697 : courrier -- traitements, recherche, quarantaine   // #688 : vulnérabilités des logiciels (SBOM, EPSS, KEV)
   "view:logs": ["etats/journaux"],
   "view:history": ["etats/journaux"],

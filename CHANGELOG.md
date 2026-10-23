@@ -1,3 +1,14 @@
+## 2026-10-23 — si-mailbox : agent de messagerie de la session, requêtes et automates IA, mode discret (livraison #840)
+
+- Nouvel agent **dans la session de l'utilisateur** (sans root, Linux ou macOS), écran web local 127.0.0.1:8095 avec
+  jeton : comptes IMAP (mot de passe dans le trousseau du système), **requêtes** ponctuelles (recherche + question à
+  l'IA sur les messages trouvés), **automates** (dossier → filtres → IA : catégorie, résumé, extraction, consigne →
+  actions : déplacer, copier, étiqueter, marquer, script local, notification), conditionnés à la catégorie, en mode
+  **essai** d'abord ; journal local.
+- **Discret** par défaut : aucune liaison avec le hub. **Relié** (au choix) : résumé sans contenu des messages remonté
+  par la nouvelle sonde `mailbox` de l'agent du poste → tuile **Boîtes aux lettres**.
+- Installation : `cd ~/Downloads/supervision-si/mailbox && sh installer.sh` (docs/mailbox.md).
+
 ## 2026-10-22 — Émulation : écran d'un clic dans le hub supervision, par le bastion (livraison #839)
 
 - Chaque hôte d'émulation ouvre une **porte des écrans** (websockify à jetons, 127.0.0.1:6899) : un jeton aléatoire
