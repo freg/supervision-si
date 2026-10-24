@@ -3961,3 +3961,34 @@ Demandé le 23/10/2026 : passer en IP fixe tous les systèmes en Ethernet, et si
   (tableau MAC -> nom -> VLAN -> IP proposée, export à saisir dans Nebula) puis vérification par relecture ;
 - Wi-Fi : décider d'après l'historique des clients (30 jours : nombre de VLAN / SSID / bornes vus par MAC, adresses
   aléatoires « MAC privée » exclues) ; une réservation n'a de sens que pour un client toujours sur le même VLAN.
+
+### 136. Bancs de test Wi-Fi : clients simulés multiples par machine, matériel des sondes -- à faire (#856), essais prévus
+
+Suite de #855 (pilotage, boucles, bancs). Constat du 24/10/2026 : le Wi-Fi du campus se limite au mieux au Wi-Fi 6
+(pas de Wi-Fi 7 en service) ; inutile d'acheter des cartes Wi-Fi 7.
+
+Matériel retenu (déjà disponible, pas d'achat pour l'instant) :
+- **banc mobile** (amphi, salles) : le mini PC Linux existant + concentrateur USB 3 **alimenté** + 4 clés Wi-Fi 6
+  (MT7921AU, ex. Alfa AWUS036AXML) + 4 clés Wi-Fi 5 (MT7612U, ex. Alfa AWUS036ACHM) = 8 clients simulés, mélange
+  « récents / anciens » proche d'un vrai amphi ;
+- **surveillance continue** par zone : Raspberry Pi 3B+ (2,4 + 5 GHz) / Pi Zero 2 W ; Pi 4 + clé Wi-Fi 6 (USB 3) ;
+  Pi 3B : 2,4 GHz seulement, à réserver au signal et à la latence ; sur Pi 3, l'USB 2 plafonne vers 200 Mb/s ;
+- 2e banc mobile éventuel : mini PC Intel N100/N150, 2,5 GbE, 4 ports USB 3 (sa carte interne = un client de plus) ;
+- serveur iperf3 **en filaire au plus près du cœur** (2,5 / 10 Gb/s), ports 5201 et 5202, sinon c'est lui qui limite.
+
+Évolution de l'agent netprobe (#856) :
+- **un agent par carte Wi-Fi**, chacune dans son espace réseau Linux (`ip netns`) : une MAC, une association, une
+  adresse DHCP par client simulé ; identifiant de sonde = machine + interface ;
+- **pilotage et remontée par l'Ethernet** (VLAN d'administration) : les tâches et les mesures ne passent pas par le
+  Wi-Fi testé, le banc reste pilotable quand la cellule s'effondre ;
+- installeur : détection des clés, création des espaces réseau au démarrage, `power_save off`, choix du SSID / bande
+  par client (forcer 5 GHz, 2,4 GHz ou laisser choisir), enrôlement auprès de netprobe-api ;
+- tuile Pilotage : regroupement des sondes par machine, sélection « toutes les clés Wi-Fi 6 » / « Wi-Fi 5 ».
+
+Points à vérifier sur le matériel réel :
+- tenue de 4 clés MT7612U et 4 MT7921AU sur un même concentrateur (décrochages, pertes faussées sans alimentation) ;
+- débit réel par clé et total du mini PC en charge (le mini PC ne doit pas être le goulet) ;
+- réglages des sondes Pi : `iw dev wlan0 set power_save off`, alimentation 2,5 A (Pi 3) / 3 A (Pi 4), `iperf3`.
+
+Planning : essais au bureau la semaine du 26/10/2026 (banc mobile, bancs « cast » et « montée en charge » contre un
+serveur iperf3 local), puis au campus la semaine du 02/11/2026 (après la coupure électrique du lundi matin).
