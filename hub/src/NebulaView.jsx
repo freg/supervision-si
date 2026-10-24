@@ -8,6 +8,7 @@ import {
 import NebulaHealth from "./NebulaHealth.jsx";
 import NebulaVeille from "./NebulaVeille.jsx";
 import NebulaCharge from "./NebulaCharge.jsx";
+import NebulaPilotage from "./NebulaPilotage.jsx";  // #855
 import NebulaRecherche from "./NebulaRecherche.jsx";
 import NebulaVlan from "./NebulaVlan.jsx";
 import NebulaPlan from "./NebulaPlan.jsx";
@@ -36,6 +37,7 @@ const TABS = [
   { key: "veille", label: "Veille", columns: [] },   // #847 : santé du réseau du campus, Nebula + agents internes
   { key: "health", label: "Santé du réseau", columns: [] },
   { key: "charge", label: "Charge", columns: [] },   // #851 : clients et débits moyens par borne, SSID, VLAN, commutateur
+  { key: "pilotage", label: "Pilotage", columns: [] },   // #855 : mesures / outils d'action, boucles, scénarios, bancs de test
   { key: "vlan", label: "Carte des VLAN", columns: [] },
   { key: "plan", label: "Plan du site", columns: [] },
   { key: "reports", label: "Rapports & alertes", columns: [] },   // #703
@@ -69,7 +71,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, siAgent
   const [selectedBatchIds, setSelectedBatchIds] = useState([]);
 
   useEffect(() => {
-    if (tab === "veille" || tab === "charge" || tab === "health" || tab === "vlan" || tab === "plan" || tab === "reports") return;  // #546/#548/#555 : onglets servis par NebulaHealth / NebulaVlan / NebulaPlan
+    if (tab === "veille" || tab === "charge" || tab === "pilotage" || tab === "health" || tab === "vlan" || tab === "plan" || tab === "reports") return;  // #546/#548/#555 : onglets servis par NebulaHealth / NebulaVlan / NebulaPlan
     load(tab);
     setSelectedBatchIds([]);
     if (showHistory) loadBatches();
@@ -211,7 +213,7 @@ export default function NebulaView({ onBack, nebulaApiBase, glpiApiBase, siAgent
           ))}
         </div>
 
-        {tab === "charge" ? <NebulaCharge nebulaApiBase={nebulaApiBase} siteId={siteId} /> : tab === "veille" ? <NebulaVeille nebulaApiBase={nebulaApiBase} siAgentApiBase={siAgentApiBase} groups={groups} login={login} /> : tab === "health" ? <NebulaHealth nebulaApiBase={nebulaApiBase} /> : tab === "vlan" ? <NebulaVlan nebulaApiBase={nebulaApiBase} groups={groups} login={login} focus={focus} /> : tab === "plan" ? <NebulaPlan nebulaApiBase={nebulaApiBase} /> : tab === "reports" ? <NebulaReports nebulaApiBase={nebulaApiBase} groups={groups} login={login} /> : (<>
+        {tab === "charge" ? <NebulaCharge nebulaApiBase={nebulaApiBase} siteId={siteId} /> : tab === "pilotage" ? <NebulaPilotage nebulaApiBase={nebulaApiBase} groups={groups} login={login} /> : tab === "veille" ? <NebulaVeille nebulaApiBase={nebulaApiBase} siAgentApiBase={siAgentApiBase} groups={groups} login={login} /> : tab === "health" ? <NebulaHealth nebulaApiBase={nebulaApiBase} /> : tab === "vlan" ? <NebulaVlan nebulaApiBase={nebulaApiBase} groups={groups} login={login} focus={focus} /> : tab === "plan" ? <NebulaPlan nebulaApiBase={nebulaApiBase} /> : tab === "reports" ? <NebulaReports nebulaApiBase={nebulaApiBase} groups={groups} login={login} /> : (<>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <h2 style={{ margin: 0 }}>{activeTab.label} ({rows.length})</h2>
           <label className="secondary" style={{ cursor: "pointer" }}>

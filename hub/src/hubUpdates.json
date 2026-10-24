@@ -1,5 +1,11 @@
 [
  {
+  "n": 855,
+  "from": 855,
+  "date": "2026-10-24",
+  "title": "Nebula : tableau de bord de pilotage (mesures / outils d'action), boucles de rétroaction à chaud, scénarios, bancs de test avec clients simulés"
+ },
+ {
   "n": 854,
   "from": 854,
   "date": "2026-10-23",
@@ -232,11 +238,5 @@
   "from": 815,
   "date": "2026-10-21",
   "title": "Migration : préparer la réinstallation d'un nœud -- quorum, invités transférés, sauvegardes, PRA"
- },
- {
-  "n": 814,
-  "from": 814,
-  "date": "2026-10-21",
-  "title": "Veille cyber : alertes, news, impacts sur notre SI, filtres, diffusion"
  }
 ]

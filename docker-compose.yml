@@ -701,6 +701,8 @@ services:
       # #847 : veille du réseau du campus -- relevés des agents internes, jeton du texte d'état pour si-veille
       - SI_AGENT_API_URL=http://si-agent-api:5000
       - NEBULA_VEILLE_TOKEN=${NEBULA_VEILLE_TOKEN:-}
+      # #855 : pilotage -- sondes netprobe (bancs de test, mesures du tableau de bord)
+      - NETPROBE_API_URL=http://netprobe-api:5000
       - TZ=${TZ:-Europe/Paris}
     volumes:
       # NEBULA_DATA_DIR (.env, optionnel) : même logique que

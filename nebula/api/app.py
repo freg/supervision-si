@@ -1575,6 +1575,22 @@ veille_routes.register(app, {"sites": _report_sites, "board": lambda sid: _board
                              "manage": _check_manage_right, "lock_dir": os.path.dirname(DB_PATH)},
                        start_loop=os.environ.get("NEBULA_VEILLE_DISABLED") != "1" and os.environ.get("NEBULA_POLL_DISABLED") != "1")
 
+
+def _pilotage_charge(site_id):
+    """Charge Nebula des 2 dernières heures (même calcul et même cache que /sites/<id>/charge)."""
+    with app.test_request_context("/sites/%s/charge?period=2h" % site_id):
+        r = charge_route(site_id)
+        resp, code = (r if isinstance(r, tuple) else (r, 200))[:2]
+        return resp.get_json() if code == 200 else None
+
+
+import pilotage_routes  # noqa: E402  -- #855 : tableau de bord, boucles de rétroaction, bancs de test
+pilotage_routes.register(app, {"sites": _report_sites, "charge": _pilotage_charge, "veille": lambda: veille_routes.evaluer(),
+                               "conn": get_connection, "manage": _check_manage_right,
+                               "notify": lambda action, sujet, corps: report_routes._notify(action, sujet, corps, report_routes.settings(), severity="warning"),
+                               "lock_dir": os.path.dirname(DB_PATH)},
+                         start_loop=os.environ.get("NEBULA_PILOTAGE_DISABLED") != "1" and os.environ.get("NEBULA_POLL_DISABLED") != "1")
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
 

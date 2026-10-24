@@ -1,3 +1,33 @@
+## 2026-10-24 — Nebula : tableau de bord de pilotage (mesures / outils d'action), boucles de rétroaction à chaud, scénarios, bancs de test avec clients simulés (livraison #855)
+
+- Tuile Nebula, onglet **Pilotage**, deux colonnes. **Mesures** : état de la veille, clients et débit Wi-Fi, bornes
+  (simultanés, clients, débit, courbe 4 h), sondes netprobe (signal, latence, pertes, gigue et pertes d'un flux cast,
+  débit, HTTP), recommandations en cours (lien vers l'outil, acquittement, banc proposé à lancer), banc en cours
+  (avancement, Arrêter), derniers bancs (verdicts, détail par étape et par sonde), journal. Relevé chaque minute (4 h gardées).
+- **Outils** : chaque réglage Nebula non écrivable par l'OpenAPI ouvre Nebula Control Center avec le chemin exact du
+  menu et la documentation : puissance d'émission (1-30 dBm par bande et par borne), plafond de clients par radio
+  (équilibrage), limite de débit par client d'un SSID, limite par application sur l'USG FLEX 700H, SNMP v2c du site,
+  miroir de port vers le capteur de flux ; outils internes : ports des commutateurs (API, chien de garde), veille, charge.
+- **Boucles de rétroaction** : si une mesure (borne, SSID, site, veille, sonde) passe un seuil pendant N minutes alors
+  notifier (action `nebula.pilotage`), recommander un outil, proposer ou lancer un banc. Activation et mode (conseil /
+  auto) **à chaud**, pris en compte au relevé suivant ; délai minimal entre deux déclenchements ; retour à la normale journalisé.
+- **Scénarios** prêts à installer (inactifs, mode conseil) : borne saturée, cast dégradé, latence élevée, signal faible,
+  panne du réseau, bancs de pointe et de navigation.
+- **Bancs de test** : chaque sonde autorisée devient un client simulé ; tâches injectées dans les sondes pendant chaque
+  étape (flux UDP type cast, téléchargements TCP parallèles, navigation HTTP, DNS, ping), montée en charge (1 sonde, la
+  moitié, toutes), tâches d'origine restaurées à la fin, arrêt automatique si la veille passe en panne, synthèse et
+  verdict par objectif, notification. Plafonds : 60 min, 50 Mb/s UDP, 4 flux TCP, 6 tâches par étape. Bancs
+  personnalisés en JSON. Un banc à la fois.
+- Sondes netprobe : iperf3 en **UDP** (`udp`, `bitrate_mbit` ≤ 50, gigue, pertes) et **flux parallèles** (`parallel` ≤ 4) ;
+  le port non standard et l'UDP entrent dans le nom de la tâche (deux flux vers le même serveur ne se confondent plus).
+  **Mettre à jour l'agent des sondes** pour les bancs UDP.
+- Réglages (onglet) : sondes autorisées, serveur iperf3 (un `iperf3 -s` sur les ports 5201 et 5202 d'une machine du
+  campus : pas de lien, opération manuelle), cible du ping, adresses à charger. nebula-api : `NETPROBE_API_URL`,
+  `NEBULA_PILOTAGE_DISABLED=1` pour couper la boucle.
+- Lien : `?view=nebula&tab=pilotage`. API : `GET /pilotage/tableau|catalogue|sondes`, `PUT /pilotage/reglages`,
+  `/pilotage/boucles[/<id>[/basculer]]`, `POST /pilotage/scenarios/<id>/installer`, `/pilotage/plans[/<id>/lancer]`,
+  `POST /pilotage/runs/arreter`, `POST /pilotage/passer`.
+
 ## 2026-10-23 — Parc IA : généalogie des modèles depuis l'origine, tenue à jour (livraison #854)
 
 - Parc IA › Veille des modèles, onglet **Généalogie** (même module que le hub maison) : frise par année du Transformer

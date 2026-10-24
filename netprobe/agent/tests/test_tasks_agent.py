@@ -115,6 +115,13 @@ class Tasks(unittest.TestCase):
         self.assertEqual(data["sent_mbps"], 20.0)
         self.assertIn("-R", cmd.calls[0])
         self.assertEqual(cmd.calls[0][cmd.calls[0].index("-t") + 1], "30", "durée bornée à 30 s")
+        # #855 bancs de test : flux UDP borné à 50 Mb/s, 4 flux parallèles au plus
+        cmd = FakeCmd({"iperf3": CmdResult(0, '{"end":{"sum":{"bits_per_second":8e6,"jitter_ms":1.5,"lost_percent":0.5}}}')})
+        ok, data, err = tasks.task_iperf3({"host": "ref", "udp": True, "bitrate_mbit": 500, "parallel": 9}, cmd=cmd, files=fake_files({}))
+        self.assertTrue(ok)
+        self.assertEqual((data["udp"], data["jitter_ms"], data["loss_pct"]), (True, 1.5, 0.5))
+        a = cmd.calls[0]
+        self.assertEqual((a[a.index("-b") + 1], a[a.index("-P") + 1], "-u" in a), ("50M", "4", True))
 
     def test_sys_with_throttling(self):
         cmd = FakeCmd({"vcgencmd": CmdResult(0, "throttled=0x50005\n")})
@@ -142,6 +149,9 @@ class Tasks(unittest.TestCase):
     def test_task_name_and_validation(self):
         self.assertEqual(tasks.task_name({"type": "ping", "params": {"host": "1.2.3.4"}}), "ping:1.2.3.4")
         self.assertEqual(tasks.task_name({"type": "wifi_link"}), "wifi_link")
+        self.assertEqual(tasks.task_name({"type": "iperf3", "params": {"host": "h"}}), "iperf3:h")
+        self.assertEqual(tasks.task_name({"type": "iperf3", "params": {"host": "h", "port": 5202, "udp": True}}), "iperf3:h:5202/udp")
+        self.assertEqual(tasks.task_name({"type": "iperf3", "params": {"host": "h", "udp": True}}), "iperf3:h/udp")
         self.assertTrue(tasks.validate_task_spec({"type": "ping", "every": 60}))
         self.assertFalse(tasks.validate_task_spec({"type": "ping", "every": 1}), "jamais plus d'une exécution toutes les 5 s")
         self.assertFalse(tasks.validate_task_spec({"every": 60}))

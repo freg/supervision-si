@@ -69,7 +69,12 @@ def task_name(spec):
     if t == "http":
         return "http:%s" % p.get("url", "?")
     if t == "iperf3":
-        return "iperf3:%s" % p.get("host", "?")
+        # #855 : port non standard et UDP dans le nom -- deux flux vers le même serveur (TCP 5201 + UDP 5202,
+        # banc « pointe ») ne se confondent ni dans l'ordonnanceur ni dans les dernières mesures.
+        nom = "iperf3:%s" % p.get("host", "?")
+        if int(p.get("port", 5201) or 5201) != 5201:
+            nom += ":%s" % int(p["port"])
+        return nom + ("/udp" if p.get("udp") else "")
     return t
 
 
@@ -165,12 +170,20 @@ def task_iperf3(params, cmd=run_cmd, files=read_file):
     argv = ["iperf3", "-c", host, "-p", str(int(params.get("port", 5201))), "-t", str(duration), "-J"]
     if params.get("reverse"):
         argv.append("-R")
+    # #855 bancs de test : flux UDP type cast (débit borné), flux TCP parallèles (injection de charge bornée)
+    if params.get("udp"):
+        mbit = max(0.1, min(float(params.get("bitrate_mbit", 8)), 50.0))
+        argv += ["-u", "-b", "%gM" % mbit]
+    parallel = max(1, min(int(params.get("parallel", 1)), 4))
+    if parallel > 1:
+        argv += ["-P", str(parallel)]
     r = cmd(argv, timeout=duration + 15)
     if r.returncode == -127:
         return False, {"host": host}, "iperf3 non installé sur cette sonde"
     data = parsers.parse_iperf3_json(r.stdout)
     data["host"] = host
     data["reverse"] = bool(params.get("reverse"))
+    data["udp"] = bool(params.get("udp"))
     if not data.get("ok"):
         return False, data, data.pop("error", None) or (r.stderr.strip()[:200] or "iperf3 a échoué")
     data.pop("ok", None)
