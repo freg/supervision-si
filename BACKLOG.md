@@ -3969,7 +3969,7 @@ Suite de #855 (pilotage, boucles, bancs). Constat du 24/10/2026 : le Wi-Fi du ca
 
 Matériel retenu (déjà disponible, pas d'achat pour l'instant) :
 - **banc mobile** (amphi, salles) : le mini PC Linux existant + concentrateur USB 3 **alimenté** + 4 clés Wi-Fi 6
-  (MT7921AU, ex. Alfa AWUS036AXML) + 4 clés Wi-Fi 5 (MT7612U, ex. Alfa AWUS036ACHM) = 8 clients simulés, mélange
+  (MT7921AU, ex. Alfa AWUS036AXML) + 4 clés Wi-Fi 5 (MT7610U, pilote mt76x0u, ex. Alfa AWUS036ACHM) = 8 clients simulés, mélange
   « récents / anciens » proche d'un vrai amphi ;
 - **surveillance continue** par zone : Raspberry Pi 3B+ (2,4 + 5 GHz) / Pi Zero 2 W ; Pi 4 + clé Wi-Fi 6 (USB 3) ;
   Pi 3B : 2,4 GHz seulement, à réserver au signal et à la latence ; sur Pi 3, l'USB 2 plafonne vers 200 Mb/s ;
@@ -3986,7 +3986,7 @@ Matériel retenu (déjà disponible, pas d'achat pour l'instant) :
 - tuile Pilotage : regroupement des sondes par machine, sélection « toutes les clés Wi-Fi 6 » / « Wi-Fi 5 ».
 
 Points à vérifier sur le matériel réel :
-- tenue de 4 clés MT7612U et 4 MT7921AU sur un même concentrateur (décrochages, pertes faussées sans alimentation) ;
+- tenue de 4 clés MT7610U et 4 MT7921AU sur un même concentrateur (décrochages, pertes faussées sans alimentation) ;
 - débit réel par clé et total du mini PC en charge (le mini PC ne doit pas être le goulet) ;
 - réglages des sondes Pi : `iw dev wlan0 set power_save off`, alimentation 2,5 A (Pi 3) / 3 A (Pi 4), `iperf3`.
 
