@@ -1,5 +1,11 @@
 [
  {
+  "n": 859,
+  "from": 859,
+  "date": "2026-10-26",
+  "title": "État des lieux : VM arrêtées lues hors ligne (système, paquets, services, adresses)"
+ },
+ {
   "n": 858,
   "from": 858,
   "date": "2026-10-26",
@@ -232,11 +238,5 @@
   "from": 819,
   "date": "2026-10-22",
   "title": "si-agent : vue locale de transparence sur le poste"
- },
- {
-  "n": 818,
-  "from": 818,
-  "date": "2026-10-22",
-  "title": "Page d'accueil : priorités en trois IA (préparation, décideur, explication) ; veille « IA : sorties »"
  }
 ]

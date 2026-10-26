@@ -247,9 +247,6 @@ class Historique771(unittest.TestCase):
         self.assertEqual(len(rows[0]["days"]["login"]), 3)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class Interne777(unittest.TestCase):
     """#777 : activité interne -- SSH / sudo / postfix (auth.log, mail.log, .gz en reprise), fichiers de données par jour,
@@ -442,3 +439,23 @@ class VmArretee777(unittest.TestCase):
         self.assertNotIn("--lock", calls); self.assertNotIn("losetup", calls)
         _o, r = self.drive()
         self.assertIn("Windows : jamais lue", r["error"])
+
+
+class Inventaire(unittest.TestCase):
+    """#859 : inventaire lu dans l'invité ou HORS LIGNE (VM arrêtée) pour l'état des lieux."""
+    def test_parse_systeme(self):
+        o = gu.parse_systeme("@@os debian|8|Debian GNU/Linux 8 (jessie)\n@@maj 1500000000\n@@hostname ob1\n@@pkg postfix 2.11\n"
+                            "@@app owncloud 9.1.8\n@@svc apache2\n@@ips 192.0.2.44 \n")
+        self.assertEqual((o["os"]["version"], o["maj_at"], o["hostname"], o["paquets"], o["services"], o["ips"]),
+                         ("8", 1500000000, "ob1", {"postfix": "2.11"}, ["apache2"], ["192.0.2.44"]))
+        self.assertTrue(o["hors_ligne"])
+        self.assertIsNone(gu.parse_systeme("@@ips \n"))
+
+    def test_section_inventaire(self):
+        p = gu.parse_guest("## os\nDebian\n## inventaire\n@@os debian|12|Debian 12\n## web\n## end\n")
+        self.assertIn("inventaire", p)
+        self.assertIn("@@os debian|12", p["inventaire"])
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -1,3 +1,16 @@
+## 2026-10-26 — État des lieux : VM arrêtées lues hors ligne (système, paquets, services, adresses) (livraison #859)
+
+- Sonde `guest-usage` (agent **0.6.2**) : son script d'invité, déjà exécuté sur le disque des VM ARRÊTÉES lu hors ligne
+  (#777 : VM verrouillée, disques ouverts un par un en lecture seule, ext2-4 / xfs / btrfs montés sans rejouer le
+  journal ; jamais Windows, NTFS, pool ZFS ou LVM internes), relève maintenant l'**inventaire** : système, date de la
+  dernière installation de paquets, versions des paquets clés (dpkg de la racine lue), ownCloud / Nextcloud, services
+  activés, nom d'hôte, adresses de `/etc/network/interfaces`. Chaque VM arrêtée est relue une fois avec ce script.
+- Migration › État des lieux : quand pve-preflight n'a rien (VM arrêtée, VM sans agent invité dont l'activité est
+  relevée), l'inventaire de guest-usage est utilisé (« lu hors ligne ») ; la déclaration à la main ne sert plus qu'aux
+  systèmes vraiment illisibles (Windows, LVM ou ZFS internes, chiffré). Les adresses lues servent aussi aux dépendances.
+- Vérifié : `test_guest_usage.py` (script exécuté sous dash sur une racine simulée), `test_z_etat.py`,
+  `test_z_etat_routes.py`. Non vérifié : lecture réelle des VM arrêtées de pve10 avec ce script.
+
 ## 2026-10-26 — État des lieux : plus d'inconnu -- déclaration à la main des systèmes illisibles, rôles des nœuds Proxmox corrigés (livraison #858)
 
 - Migration › État des lieux : un système que la sonde ne peut pas lire (VM sans agent invité QEMU, Windows, appliance,

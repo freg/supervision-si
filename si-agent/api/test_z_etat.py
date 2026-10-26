@@ -92,6 +92,17 @@ class Etat(unittest.TestCase):
         self.assertEqual(r["resume"]["inconnus"], 1)
         self.assertIn("déclarer le système", " ".join(next(l for l in r["systemes"] if l["key"] == "pve-2/105")["actions"]))
 
+    def test_lu_hors_ligne(self):
+        lus = E.hors_ligne([("a", "h", "2026-10-26T10:00:00", {"nodes": [{"name": "pve-2", "guests": [
+            {"vmid": 105, "systeme": {"os": {"id": "debian", "version": "8", "nom": "Debian 8"}, "maj_at": T - 3000 * J, "paquets": {}, "apps": [],
+                                      "services": ["apache2"], "ips": ["198.51.100.15"], "ecoute": [], "cnx_out": [], "cnx_in": []}},
+            {"vmid": 100, "systeme": None}]}]})])
+        self.assertEqual(sorted(lus), ["pve-2/105"])
+        r = E.assemble(NODES, maintenant=T, lus=lus, manuels={"pve-2/105": {"famille": "windows", "version": "11"}})
+        a = next(l for l in r["systemes"] if l["key"] == "pve-2/105")
+        self.assertEqual((a["source"], a["os"]["statut"], a["services"]), ("relevé (activité)", "obsolète", ["apache2"]))   # le relevé prime sur la déclaration
+        self.assertIn("198.51.100.15", a["ips"])
+
     def test_php_maintenu_par_la_distribution(self):
         c = E.composants({"paquets": {"php7.4-common": "7.4.33"}}, "supporté", T)
         self.assertEqual(c[0]["statut"], "maintenu par la distribution")

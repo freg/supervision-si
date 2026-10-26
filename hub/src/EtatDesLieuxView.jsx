@@ -82,7 +82,8 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
                   : <div className="infra-muted" style={{ cursor: "pointer" }} onClick={() => setLib({ key: l.key, texte: l.libelle || "" })}>{l.libelle ? `« ${l.libelle} » ✎` : "+ libellé"}</div>}</td>
               <td>{(l.roles || []).join(", ") || "—"}{l.expose ? <div className="np-tone warn">exposé sur Internet</div> : null}</td>
               <td className={`np-tone ${TON_OS[l.os?.statut] || "neutral"}`}>{l.os?.nom || "non relevé"}<div className="infra-muted">{l.os?.fin ? `fin : ${jour(l.os.fin)} (${l.os.statut})` : l.os?.statut}</div>
-                {l.source !== "relevé" && (decl?.key === l.key ? (
+                {l.source === "lu hors ligne" && <div className="infra-muted">lu hors ligne (disque de la VM arrêtée)</div>}
+                {(l.source === "aucune" || l.source === "déclaré") && (decl?.key === l.key ? (
                   <div style={{ display: "grid", gap: 4, marginTop: 4 }}>
                     <select value={decl.famille} onChange={(e) => setDecl({ ...decl, famille: e.target.value })}>{["debian", "ubuntu", "windows", "windows-server", "centos", "rocky", "almalinux", "alpine", "autre"].map((x) => <option key={x}>{x}</option>)}</select>
                     <input placeholder="version (12, 22.04, 2019…)" value={decl.version} onChange={(e) => setDecl({ ...decl, version: e.target.value })} />

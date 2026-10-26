@@ -174,12 +174,26 @@ def declaration(manuel):
             "ips": [], "declare": True, "note": manuel.get("note")}
 
 
-def assemble(nodes, maintenant=None, eol=None, libelles=None, manuels=None):
-    """nodes = {nom: relevé pve-preflight d'un nœud} -> {systemes, dependances, resume} ; manuels = fiches déclarées."""
+def hors_ligne(reports):
+    """#859 : relevés guest-usage [(agent, hôte, at, data)] -> {nœud/vmid: inventaire} (invités démarrés, CT montés, VM
+    arrêtées lues hors ligne) ; le plus frais l'emporte."""
+    out = {}
+    for _a, _h, at, d in sorted(reports or [], key=lambda r: str(r[2])):
+        for n in (d or {}).get("nodes") or []:
+            for g in n.get("guests") or []:
+                if g.get("systeme"):
+                    out["%s/%s" % (n.get("name"), g.get("vmid"))] = g["systeme"]
+    return out
+
+
+def assemble(nodes, maintenant=None, eol=None, libelles=None, manuels=None, lus=None):
+    """nodes = {nom: relevé pve-preflight d'un nœud} -> {systemes, dependances, resume} ; manuels = fiches déclarées ;
+    lus = inventaires de la sonde guest-usage (dont VM arrêtées lues hors ligne), utilisés quand pve-preflight n'a rien."""
     now = maintenant or time.time()
     eol = dict(EOL, **(eol or {}))
     libelles = libelles or {}
     manuels = manuels or {}
+    lus = lus or {}
     sys_ = []
     for n, node in sorted((nodes or {}).items()):
         if not node.get("ok", True):
@@ -192,7 +206,8 @@ def assemble(nodes, maintenant=None, eol=None, libelles=None, manuels=None):
             if g.get("template"):
                 continue
             s = g.get("systeme")
-            ips = list(dict.fromkeys(((g.get("conf") or {}).get("ips") or []) + ((s or {}).get("ips") or [])))
+            ips = list(dict.fromkeys(((g.get("conf") or {}).get("ips") or []) + ((s or {}).get("ips") or [])
+                                     + ((lus.get("%s/%s" % (n, g["vmid"])) or {}).get("ips") or [])))
             sys_.append({"key": "%s/%s" % (n, g["vmid"]), "type": "CT" if g.get("type") == "lxc" else "VM", "node": n, "vmid": g["vmid"],
                          "name": g.get("name") or "", "status": g.get("status"), "systeme": s, "charge": g.get("charge"), "ips": ips})
     par_ip = {}
@@ -211,7 +226,9 @@ def assemble(nodes, maintenant=None, eol=None, libelles=None, manuels=None):
     for s in sys_:
         sy = s["systeme"]
         source = "relevé"
-        if (not sy or not (sy.get("os") or {}).get("id")) and manuels.get(s["key"]):
+        if (not sy or not (sy.get("os") or {}).get("id")) and (lus.get(s["key"]) or {}).get("os"):
+            sy, source = lus[s["key"]], ("lu hors ligne" if s["status"] != "running" else "relevé (activité)")
+        elif (not sy or not (sy.get("os") or {}).get("id")) and manuels.get(s["key"]):
             sy, source = declaration(manuels[s["key"]]), "déclaré"
         elif not sy or not (sy.get("os") or {}).get("id"):
             source = "aucune"

@@ -3067,11 +3067,12 @@ def _etat():
     conn = store._connect(DB_PATH)
     try:
         reports = infra.latest(conn, "plugin:pve-preflight")
+        lus = etat_lib.hors_ligne(infra.latest(conn, "plugin:guest-usage"))   # #859 : VM arrêtées lues hors ligne
         cands = _agents_proxmox(conn)
         conn.execute("CREATE TABLE IF NOT EXISTS etat_historique (jour TEXT PRIMARY KEY, data TEXT NOT NULL)")
         e = etat_lib.assemble(prep.noeuds(reports), eol=store.get_setting(DB_PATH, "etat_eol", {}) or {},
                               libelles=store.get_setting(DB_PATH, "etat_libelles", {}) or {},
-                              manuels=store.get_setting(DB_PATH, "etat_manuels", {}) or {})
+                              manuels=store.get_setting(DB_PATH, "etat_manuels", {}) or {}, lus=lus)
         if reports:     # une ligne par jour : le suivi à long terme
             conn.execute("INSERT OR REPLACE INTO etat_historique VALUES (?, ?)", (time.strftime("%Y-%m-%d"), json.dumps(etat_lib.instantane(e))))
             conn.execute("DELETE FROM etat_historique WHERE jour < ?", (time.strftime("%Y-%m-%d", time.gmtime(time.time() - 800 * 86400)),))

@@ -40,6 +40,25 @@ DEEP_PER_PASS = 1          # reprises d'historique par nœud, par type (CT / VM)
 GUEST_SH = r"""LC_ALL=C; export LC_ALL
 R=${SI_ROOT:-}   # #777 : racine d'un CT arrêté monté par pct mount (vide = invité démarré)
 echo "## os"; ( . "$R/etc/os-release" 2>/dev/null; echo "${PRETTY_NAME:-?}" )
+# #859 : inventaire (état des lieux) -- invité démarré, CT monté ou VM ARRÊTÉE lue hors ligne : système, date de la dernière
+# installation de paquets, versions des paquets clés (dpkg de la racine lue), ownCloud / Nextcloud, services activés, adresses
+echo "## inventaire"
+( . "$R/etc/os-release" 2>/dev/null && echo "@@os ${ID:-?}|${VERSION_ID:-?}|${PRETTY_NAME:-?}" )
+[ -f "$R/var/lib/dpkg/status" ] && echo "@@maj $(stat -c %Y "$R/var/lib/dpkg/status" 2>/dev/null)"
+[ -f "$R/etc/hostname" ] && echo "@@hostname $(head -n 1 "$R/etc/hostname")"
+if command -v dpkg-query >/dev/null 2>&1 && [ -d "$R/var/lib/dpkg" ]; then
+  dpkg-query --admindir="$R/var/lib/dpkg" -W -f='${db:Status-Abbrev} ${Package} ${Version}\n' apache2 nginx 'php[0-9]*-common' \
+    'mariadb-server-[0-9]*' mariadb-server 'mysql-server-[0-9]*' 'postgresql-[0-9]*' postfix dovecot-core openssh-server docker-ce docker.io \
+    pve-manager proxmox-backup-server redis-server nodejs 'openjdk-[0-9]*-jre-headless' 'tomcat[0-9]*' bind9 samba squid amavisd-new \
+    roundcube-core 2>/dev/null | awk '$1 ~ /^ii/ {print "@@pkg", $2, $3}' | head -n 60
+fi
+for f in $R/var/www/*/version.php $R/var/www/*/*/version.php; do
+  [ -f "$f" ] || continue
+  v=$(sed -n "s/.*OC_VersionString *= *'\([^']*\)'.*/\1/p" "$f" | head -n 1)
+  [ -n "$v" ] && echo "@@app $(grep -qi "vendor *= *'nextcloud'" "$f" && echo nextcloud || echo owncloud) $v"
+done
+for f in $R/etc/systemd/system/multi-user.target.wants/*.service; do [ -L "$f" ] || [ -f "$f" ] || continue; b=${f##*/}; echo "@@svc ${b%.service}"; done | head -n 80
+echo "@@ips $(cat $R/etc/network/interfaces $R/etc/network/interfaces.d/* 2>/dev/null | awk '$1 == "address" {sub(/\/.*/, "", $2); printf "%s ", $2}')"
 echo "## web"
 L=""
 for f in $R/var/log/apache2/*access*.log $R/var/log/nginx/*access*.log $R/var/log/httpd/*access_log; do
@@ -259,7 +278,7 @@ qm list 2>/dev/null | awk 'NR>1 {print $1, $3, $2}' | while read id st name; do
   echo "=== qemu $id $st $name"; rrd qemu $id
   [ "$st" = running ] && { deep $id; echo "## qga"; timeout $T qm guest exec $id --timeout $((T - 10)) -- sh -c "$P$G" </dev/null 2>&1 | head -c 4000000; echo; }
   if [ "$st" = stopped ]; then
-    sig=$(vsig $id)
+    sig="i2 $(vsig $id)"   # #859 : « i2 » = script avec inventaire -> chaque VM arrêtée est relue une fois
     if [ -f "$VR/$id.sig" ] && [ "$(cat "$VR/$id.sig")" = "$sig" ]; then
       [ -f "$VR/$id.out" ] && { echo "## offline"; head -c 3000000 "$VR/$id.out"; echo; }
     elif [ -z "$JOB" ] && command -v systemd-run >/dev/null 2>&1; then
@@ -326,11 +345,41 @@ def unwrap_qga(text):
     return d.get("out-data") or "", None if d.get("exited", 1) else "commande interrompue dans l'invité"
 
 
+def parse_systeme(text):
+    """#859 : section « inventaire » (mêmes balises que pve-preflight) -> {os, maj_at, paquets, apps, services, ips, hostname}."""
+    o = {"os": None, "maj_at": None, "paquets": {}, "apps": [], "services": [], "ips": [], "hostname": None, "attente": None, "attente_secu": None,
+         "ecoute": [], "cnx_in": [], "cnx_out": [], "hors_ligne": True}
+    vu = False
+    for line in (text or "").splitlines():
+        line = line.strip()
+        if not line.startswith("@@"):
+            continue
+        k, _, v = line[2:].partition(" ")
+        p = v.split()
+        if k == "os":
+            q = v.split("|")
+            o["os"] = {"id": q[0] if q[0] != "?" else None, "version": q[1] if len(q) > 1 and q[1] != "?" else None, "nom": q[2] if len(q) > 2 else None}
+            vu = True
+        elif k == "maj" and p and p[0].isdigit():
+            o["maj_at"] = int(p[0])
+        elif k == "hostname" and p:
+            o["hostname"] = p[0][:80]
+        elif k == "pkg" and len(p) >= 2:
+            o["paquets"][p[0]] = p[1]
+        elif k == "app" and len(p) >= 2:
+            o["apps"].append({"nom": p[0], "version": p[1]})
+        elif k == "svc" and p:
+            o["services"].append(p[0])
+        elif k == "ips":
+            o["ips"] = [x for x in p if re.match(r"^\d{1,3}(\.\d{1,3}){3}$", x)]
+    return o if vu else None
+
+
 def parse_guest(text):
     """Sortie de GUEST_SH -> {clé de section: texte} (os, web, login, mysql status, mysql proc, mysql version, end)."""
     out, sec = {}, None
     for line in (text or "").splitlines():
-        m = re.match(r"^## (os|web|days|login|mysql status|mysql proc|mysql version|internal|end)$", line.strip())
+        m = re.match(r"^## (os|inventaire|web|days|login|mysql status|mysql proc|mysql version|internal|end)$", line.strip())
         if m:
             sec = m.group(1)
             out[sec] = []
@@ -696,6 +745,7 @@ def build(node_name, guests, state, now, full=True):
             if parts:
                 r["collected"] = "end" in parts
                 r["os"] = (parts.get("os") or "").strip()[:80] or None
+                r["systeme"] = parse_systeme(parts.get("inventaire")) if "inventaire" in parts else None   # #859
                 r["web"] = parse_web(parts.get("web"), now)
                 days["web"], days["deep"] = parse_days(parts.get("days"))
                 days["deep"] = days["deep"] and "end" in parts
