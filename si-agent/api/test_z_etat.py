@@ -117,6 +117,25 @@ class Etat(unittest.TestCase):
         self.assertIn("Calendrier des fins de support", h)
         self.assertIn("window.print()", h)
 
+    def test_si_interne_et_non_suivis(self):
+        rep = [("ag", "h", "2026-10-26T10:00:00", {"systemes": [
+            {"name": "nms", "role": "serveur", "ok": True, "systeme": sy("debian", "9", "Debian 9", ips=["192.0.2.30"], maj_at=T - 10 * J,
+                                                                        cnx_out=[{"hote": "198.51.100.12", "port": 5432, "n": 1}])},
+            {"name": "pc-alice", "role": "poste", "ok": True, "systeme": sy("windows", "10", "Windows 10 Pro", ips=["192.0.2.101"],
+                                                                            cnx_out=[{"hote": "192.0.2.30", "port": 443, "n": 2}, {"hote": "192.0.2.50", "port": 445, "n": 4}])},
+            {"name": "thd-agent", "role": "serveur", "ok": True, "systeme": sy("debian", "9", "Debian 9", ips=["198.51.100.7"])},
+            {"name": "nas", "role": "serveur", "ok": False, "error": "Permission denied", "systeme": None}]})]
+        r = E.assemble(NODES, maintenant=T, autres=E.autres_systemes(rep))
+        L = {l["key"]: l for l in r["systemes"]}
+        self.assertNotIn("hote:thd-agent", L)                                          # même adresse que pve-2/100 : pas de doublon
+        self.assertEqual((L["hote:nms"]["type"], L["hote:nms"]["os"]["statut"]), ("serveur", "obsolète"))
+        self.assertEqual((L["hote:pc-alice"]["type"], L["hote:pc-alice"]["os"]["fin"]), ("poste", "2025-10-14"))
+        self.assertEqual(L["hote:nas"]["niveau"], "à surveiller")
+        self.assertIn("pve-2/112", L["hote:nms"]["utilise"])
+        self.assertIn("hote:pc-alice", L["hote:nms"]["dependants"])
+        ns = {x["ip"]: x for x in r["non_suivis"]}
+        self.assertEqual((ns["192.0.2.50"]["postes"], ns["192.0.2.50"]["natures"], ns["192.0.2.50"]["interne"]), (1, ["partage de fichiers"], True))
+
     def test_php_maintenu_par_la_distribution(self):
         c = E.composants({"paquets": {"php7.4-common": "7.4.33"}}, "supporté", T)
         self.assertEqual(c[0]["statut"], "maintenu par la distribution")

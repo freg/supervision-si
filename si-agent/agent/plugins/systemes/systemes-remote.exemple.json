@@ -1,0 +1,5 @@
+[
+  {"name": "nms", "host": "192.0.2.30", "key": "/etc/si-agent/keys/si_agent_pve", "role": "serveur"},
+  {"name": "fichiers", "host": "192.0.2.31", "key": "/etc/si-agent/keys/si_agent_pve", "role": "serveur"},
+  {"name": "nas-1", "host": "192.0.2.32", "user": "admin", "key": "/etc/si-agent/keys/si_agent_pve", "role": "serveur"}
+]

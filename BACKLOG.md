@@ -4008,7 +4008,7 @@ automatique sur VM Windows (Server 2016 / 2019 / 2022 / 2025, Windows 10 / 11) d
 - Tableaux très larges (État des lieux) : colonnes coupées à droite, lignes trop hautes ; colonnes repliables, détail
   dans un volet.
 
-### 139. État des lieux : le SI interne hors Proxmox, et les serveurs / services utilisés par les postes -- à faire (#861)
+### 139. État des lieux : le SI interne hors Proxmox, et les serveurs / services utilisés par les postes -- tranche 1 LIVRÉE #861 (reste : noms DNS des serveurs non suivis, croisement avec la sonde voisinage et postes Windows)
 
 - Ajouter les systèmes du SI interne qui ne sont ni des nœuds ni des invités Proxmox : nms, r2d2, serveur, serveur de
   fichiers, NAS… (hôtes avec agent : relevé local ; sans agent : relevé par ssh, comme pve-remote) ; Windows compris.

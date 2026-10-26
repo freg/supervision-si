@@ -1,5 +1,11 @@
 [
  {
+  "n": 861,
+  "from": 861,
+  "date": "2026-10-26",
+  "title": "État des lieux : SI interne hors Proxmox (serveurs, NAS, postes) et serveurs utilisés par les postes"
+ },
+ {
   "n": 860,
   "from": 860,
   "date": "2026-10-26",
@@ -232,11 +238,5 @@
   "from": 821,
   "date": "2026-10-22",
   "title": "Parc IA : veille des modèles, historique, alertes, usages"
- },
- {
-  "n": 820,
-  "from": 820,
-  "date": "2026-10-22",
-  "title": "Veille cyber : rejets fins archivés et repêchables"
  }
 ]

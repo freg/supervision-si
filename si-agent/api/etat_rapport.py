@@ -66,7 +66,7 @@ def elements(etat, maintenant):
     for l in etat["systemes"]:
         if l["niveau"] == "inactif":
             continue
-        qui = l.get("libelle") or ("serveur %s" % l["name"] if l["type"] == "nœud" else l["name"])
+        qui = l.get("libelle") or ("serveur %s" % l["name"] if l["type"] == "nœud" else "poste %s" % l["name"] if l["type"] == "poste" else l["name"])
         roles = ", ".join(l.get("roles") or []) or "—"
         os_ = l["os"]
         if os_.get("nom"):

@@ -186,7 +186,17 @@ def hors_ligne(reports):
     return out
 
 
-def assemble(nodes, maintenant=None, eol=None, libelles=None, manuels=None, lus=None):
+def autres_systemes(reports):
+    """#861 : relevés de la sonde systemes [(agent, hôte, at, data)] -> [{name, role, ok, error, systeme}] (le plus frais par nom)."""
+    out = {}
+    for _a, _h, at, d in sorted(reports or [], key=lambda r: str(r[2])):
+        for x in (d or {}).get("systemes") or []:
+            if x.get("name"):
+                out[x["name"]] = x
+    return [out[k] for k in sorted(out)]
+
+
+def assemble(nodes, maintenant=None, eol=None, libelles=None, manuels=None, lus=None, autres=None):
     """nodes = {nom: relevé pve-preflight d'un nœud} -> {systemes, dependances, resume} ; manuels = fiches déclarées ;
     lus = inventaires de la sonde guest-usage (dont VM arrêtées lues hors ligne), utilisés quand pve-preflight n'a rien."""
     now = maintenant or time.time()
@@ -210,6 +220,20 @@ def assemble(nodes, maintenant=None, eol=None, libelles=None, manuels=None, lus=
                                      + ((lus.get("%s/%s" % (n, g["vmid"])) or {}).get("ips") or [])))
             sys_.append({"key": "%s/%s" % (n, g["vmid"]), "type": "CT" if g.get("type") == "lxc" else "VM", "node": n, "vmid": g["vmid"],
                          "name": g.get("name") or "", "status": g.get("status"), "systeme": s, "charge": g.get("charge"), "ips": ips})
+    # #861 : systèmes hors Proxmox (serveurs, NAS, postes) ; un hôte qui est en fait un invité déjà suivi (adresse commune)
+    # n'est pas dupliqué : son relevé complète l'invité s'il n'en avait pas
+    ip_invite = {ip: s for s in sys_ for ip in s["ips"]}
+    for x in autres or []:
+        sx = x.get("systeme")
+        ips = (sx or {}).get("ips") or []
+        dbl = next((ip_invite[ip] for ip in ips if ip in ip_invite), None)
+        if dbl:
+            if not dbl["systeme"] and sx:
+                dbl["systeme"] = sx
+            continue
+        sys_.append({"key": "hote:%s" % x["name"], "type": "poste" if x.get("role") == "poste" else "serveur", "node": "hors Proxmox", "vmid": None,
+                     "name": x["name"], "status": "running" if x.get("ok") else "injoignable", "systeme": sx, "charge": None, "ips": ips,
+                     "erreur": x.get("error")})
     par_ip = {}
     for s in sys_:
         for ip in s["ips"]:
@@ -222,6 +246,20 @@ def assemble(nodes, maintenant=None, eol=None, libelles=None, manuels=None, lus=
                 d = {"de": s["key"], "vers": cible, "port": c["port"], "n": c["n"], "nature": ROLES_PORT.get(c["port"], "port %s" % c["port"])}
                 if not any(x["de"] == d["de"] and x["vers"] == d["vers"] and x["port"] == d["port"] for x in deps):
                     deps.append(d)
+    ext = {}
+    for s in sys_:
+        for c in (s["systeme"] or {}).get("cnx_out") or []:
+            if c["hote"] in par_ip or not c.get("hote"):
+                continue
+            e = ext.setdefault(c["hote"], {"ip": c["hote"], "ports": set(), "clients": set(), "postes": set(), "connexions": 0})
+            e["ports"].add(c["port"])
+            e["clients"].add(s["key"])
+            if s["type"] == "poste":
+                e["postes"].add(s["key"])
+            e["connexions"] += c.get("n") or 0
+    non_suivis = sorted(({"ip": e["ip"], "ports": sorted(p for p in e["ports"] if p is not None), "natures": sorted({ROLES_PORT.get(p, "port %s" % p) for p in e["ports"]}),
+                          "clients": len(e["clients"]), "postes": len(e["postes"]), "connexions": e["connexions"], "interne": not public(e["ip"]),
+                          "utilise_par": sorted(e["clients"])[:12]} for e in ext.values()), key=lambda x: (not x["interne"], -x["clients"], x["ip"]))
     lignes = []
     for s in sys_:
         sy = s["systeme"]
@@ -288,7 +326,11 @@ def assemble(nodes, maintenant=None, eol=None, libelles=None, manuels=None, lus=
             raisons.append("exposé sur Internet (%s)" % ", ".join(sorted({str(e["port"]) for e in ext})[:8]))
             actions.append("limiter l'accès depuis Internet en attendant la mise à niveau")
         impact = len(dependants) + (2 if u == "fort" else 1 if u == "moyen" else 0)
-        if s["status"] != "running":
+        if s["status"] == "injoignable":
+            niveau = "à surveiller"
+            raisons.insert(0, "relevé impossible : %s" % (s.get("erreur") or "hôte injoignable"))
+            actions.insert(0, "rétablir l'accès de la sonde (clé ssh, réseau)")
+        elif s["status"] != "running":
             niveau = "inactif"
             if st_os == "obsolète":
                 actions = ["archiver puis supprimer s'il n'est plus utile"]
@@ -312,7 +354,7 @@ def assemble(nodes, maintenant=None, eol=None, libelles=None, manuels=None, lus=
     res["secu"] = sum(1 for l in lignes if (l["attente_secu"] or 0) > 0)
     res["exposes"] = sum(1 for l in lignes if l["expose"])
     res["inconnus"] = sum(1 for l in lignes if l["source"] == "aucune")
-    return {"at": now, "systemes": lignes, "dependances": deps, "resume": res, "eol": eol}
+    return {"at": now, "systemes": lignes, "dependances": deps, "resume": res, "eol": eol, "non_suivis": non_suivis}
 
 
 def instantane(etat):

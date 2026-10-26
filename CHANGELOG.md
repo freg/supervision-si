@@ -1,3 +1,20 @@
+## 2026-10-26 — État des lieux : SI interne hors Proxmox (serveurs, NAS, postes) et serveurs utilisés par les postes (livraison #861)
+
+- Nouvelle sonde **`systemes`** (agent **0.6.3**) : l'hôte de l'agent (Linux ou **Windows**) et les hôtes de
+  `/etc/si-agent/systemes-remote.json` (nms, frontal, serveur de fichiers, NAS… : `[{name, host, key, user, role}]`, ssh,
+  lecture seule ; modèle `systemes-remote.exemple.json`) : même relevé que les invités (système, mise à jour,
+  correctifs en attente, paquets clés, ports, connexions agrégées, services). Windows : système et build (Windows 10 /
+  11, Server 2012 à 2025), dernier correctif installé, ports écoutés et processus, connexions, services en marche.
+  Rôle « poste » ou « serveur » (un Windows client est un poste par défaut).
+- Migration › État des lieux : ces systèmes apparaissent (types « serveur » et « poste ») ; un hôte qui est en fait un
+  invité déjà suivi (même adresse) n'est pas dupliqué ; un hôte injoignable est signalé avec la raison. Ils entrent dans
+  les dépendances (« utilise » / « utilisé par »), l'Excel et l'audit.
+- **Serveurs utilisés mais non suivis** : la liste des adresses que les systèmes et les postes suivis contactent sans
+  qu'elles soient suivies (services en clair, nombre de systèmes et de postes, réseau interne ou Internet) -- les
+  serveurs internes de cette liste sont ceux à ajouter au suivi.
+- Vérifié : `test_systemes.py` (script réel exécuté sous sh, hôtes distants simulés, découpage Windows),
+  `test_z_etat.py`. **Non vérifié** : relevé Windows réel (PowerShell 5.1), hôtes réels (nms, r2d2, NAS).
+
 ## 2026-10-26 — Audit d'obsolescence et de support pour les décideurs (page imprimable) (livraison #860)
 
 - Migration › État des lieux : lien **« Audit obsolescence et support (page à imprimer) »** (`GET /etat-des-lieux/audit.html`),

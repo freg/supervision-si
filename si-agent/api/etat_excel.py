@@ -11,7 +11,7 @@ from openpyxl.utils import get_column_letter
 
 TEINTES = {"urgent": "F4B6B6", "à planifier": "F9D9A8", "à surveiller": "FFF2B3", "ok": "CDEBC5", "inactif": "E0E0E0"}
 LIBELLE_NIVEAU = {"urgent": "Urgent", "à planifier": "À planifier", "à surveiller": "À surveiller", "ok": "À jour", "inactif": "Arrêté"}
-TYPE = {"nœud": "Serveur physique", "VM": "Machine virtuelle", "CT": "Conteneur"}
+TYPE = {"nœud": "Serveur physique", "VM": "Machine virtuelle", "CT": "Conteneur", "serveur": "Serveur", "poste": "Poste de travail"}
 USAGE = {"fort": "Forte", "moyen": "Moyenne", "faible": "Faible", "nul": "Arrêté"}
 TITRE = Font(bold=True, size=14)
 GRAS = Font(bold=True)

@@ -69,7 +69,7 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
       <div className="mig-controls">
         <input placeholder="nom, rôle, système" value={f.texte} onChange={(e) => setF({ ...f, texte: e.target.value })} />
         <select value={f.niveau} onChange={(e) => setF({ ...f, niveau: e.target.value })}><option value="">tous les niveaux</option>{NIVEAUX.map((n) => <option key={n}>{n}</option>)}</select>
-        <select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}><option value="">nœuds, CT et VM</option>{["nœud", "CT", "VM"].map((n) => <option key={n}>{n}</option>)}</select>
+        <select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}><option value="">tous les types</option>{["nœud", "CT", "VM", "serveur", "poste"].map((n) => <option key={n}>{n}</option>)}</select>
         <select value={f.noeud} onChange={(e) => setF({ ...f, noeud: e.target.value })}><option value="">tous les nœuds</option>{[...new Set((d.systemes || []).map((l) => l.node))].map((n) => <option key={n}>{n}</option>)}</select>
       </div>
       <div style={{ overflowX: "auto" }}><table className="infra-table">
@@ -111,6 +111,14 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
         <table className="infra-table"><thead><tr><th>Système</th><th>utilise</th><th>pour</th><th>Connexions</th></tr></thead>
           <tbody>{(d.dependances || []).map((x, i) => <tr key={i}><td>{noms[x.de] || x.de}</td><td>{noms[x.vers] || x.vers}</td><td>{x.nature}</td><td>{x.n}</td></tr>)}</tbody></table>
         <p className="infra-muted">Relevées à partir des connexions établies au moment du relevé (toutes les 15 min) : une interaction rare peut manquer.</p>
+      </div>
+      <div className="infra-card">
+        <b>Serveurs utilisés mais non suivis ({(d.non_suivis || []).length})</b>
+        <table className="infra-table"><thead><tr><th>Adresse</th><th>Services</th><th>Utilisé par</th><th>dont postes</th><th>Connexions</th></tr></thead>
+          <tbody>{(d.non_suivis || []).map((x) => <tr key={x.ip}><td><b>{x.ip}</b> <span className="infra-muted">{x.interne ? "réseau interne" : "Internet"}</span></td>
+            <td>{x.natures.join(", ")} <span className="infra-muted">({x.ports.join(", ")})</span></td><td>{x.clients} système(s) <span className="infra-muted">{x.utilise_par.map((k) => noms[k] || k).join(", ")}</span></td>
+            <td>{x.postes}</td><td>{x.connexions}</td></tr>)}</tbody></table>
+        <p className="infra-muted">Relevés à partir des connexions des systèmes et des postes suivis. Un serveur interne de cette liste (serveur de fichiers, NAS…) s'ajoute au suivi dans <code>/etc/si-agent/systemes-remote.json</code> de l'agent qui le joint (sonde systemes) -- pas de lien : opération manuelle.</p>
       </div>
       <div className="infra-card">
         <b>Dates de fin de support (références)</b> {!eol && <button className="secondary" onClick={() => setEol(JSON.stringify({ debian: d.eol?.debian, php: d.eol?.php }, null, 2))}>Corriger une date</button>}
