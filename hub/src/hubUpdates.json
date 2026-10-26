@@ -1,5 +1,11 @@
 [
  {
+  "n": 857,
+  "from": 857,
+  "date": "2026-10-26",
+  "title": "État des lieux des systèmes actifs : versions, mises à jour, obsolescence, services, usage, dépendances ; suivi en ligne et Excel pour les décideurs"
+ },
+ {
   "n": 856,
   "from": 856,
   "date": "2026-10-26",
@@ -232,11 +238,5 @@
   "from": 817,
   "date": "2026-10-22",
   "title": "Règle absolue : « activer / régler X » donne le lien, sinon « pas de lien : opération manuelle »"
- },
- {
-  "n": 816,
-  "from": 816,
-  "date": "2026-10-21",
-  "title": "Mises à jour : tentatives en échec visibles jusqu'à résolution, puis archivées"
  }
 ]

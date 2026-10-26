@@ -205,3 +205,20 @@ class Ips(unittest.TestCase):
         c = P.parse_conf("net0: name=eth0,bridge=vmbr0,hwaddr=02:00:00:15:45:EE,ip=198.51.100.7/32,gw=198.51.100.1,type=veth\n"
                          "net1: name=eth1,bridge=vmbr1,ip=dhcp\nipconfig0: ip=192.0.2.9/24,gw=192.0.2.1\ndescription: ip=203.0.113.1\n")
         self.assertEqual(c["ips"], ["198.51.100.7", "192.0.2.9"])
+
+
+class Systeme(unittest.TestCase):
+    def test_parse_systeme(self):
+        t = "\n".join(["@@os debian|9|Debian GNU/Linux 9 (stretch)", "@@kernel 5.4.0", "@@ips 192.0.2.5 fe80::1 198.51.100.7", "@@maj 1700000000", "@@attente 12 3",
+                       "@@pkg php7.0-common 7.0.33-0+deb9u12", "@@app owncloud 9.1.8", "@@ecoute 443 0.0.0.0 apache2", "@@ecoute 443 0.0.0.0 apache2",
+                       "@@cnxin 443 30 12", "@@cnxout 192.0.2.7 3306 2", "@@svc apache2", "@@req 5400", "@@comptes 2", "@@fin"])
+        o = P.parse_systeme(t)
+        self.assertEqual((o["os"]["id"], o["os"]["version"], o["attente"], o["attente_secu"]), ("debian", "9", 12, 3))
+        self.assertEqual(o["paquets"], {"php7.0-common": "7.0.33-0+deb9u12"})
+        self.assertEqual(o["ips"], ["192.0.2.5", "198.51.100.7"])
+        self.assertEqual(o["apps"], [{"nom": "owncloud", "version": "9.1.8"}])
+        self.assertEqual(len(o["ecoute"]), 1)
+        self.assertEqual((o["cnx_in"][0]["clients"], o["cnx_out"][0]["hote"], o["requetes"]), (12, "192.0.2.7", 5400))
+        off = P.parse_systeme('ID=debian\nVERSION_ID="8"\nPRETTY_NAME="Debian GNU/Linux 8 (jessie)"\n@@maj 1500000000')
+        self.assertEqual((off["os"]["version"], off["maj_at"]), ("8", 1500000000))
+        self.assertIsNone(P.parse_systeme("@@err 3\n@@fin"))

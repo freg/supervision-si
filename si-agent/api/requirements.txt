@@ -8,3 +8,5 @@ PyJWT==2.9.0
 cryptography==43.0.1
 # #795 : base des fuseaux horaires (journal des chantiers en heure de Paris ; python:slim n en a pas)
 tzdata==2024.2
+# #857 : état des lieux en Excel pour les décideurs
+openpyxl==3.1.5

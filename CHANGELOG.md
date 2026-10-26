@@ -1,3 +1,32 @@
+## 2026-10-26 — État des lieux des systèmes actifs : versions, mises à jour, obsolescence, services, usage, dépendances ; suivi en ligne et Excel pour les décideurs (livraison #857)
+
+- Tuile Migration, page **« État des lieux »** (`?view=migration&page=etat`) : chaque nœud Proxmox, CT et VM, avec :
+  - **système d'exploitation** et **date de fin des correctifs** (obsolète / fin proche / supporté), noyau ;
+  - **dernière mise à jour** et correctifs **en attente, dont sécurité** ;
+  - **versions clés** : Proxmox VE / PBS, PHP, PostgreSQL, ownCloud / Nextcloud (un paquet de la distribution reste
+    « maintenu » tant que le système l'est) ;
+  - **services inclus** traduits en rôles (messagerie, site web, base de données, partage de fichiers…), ports écoutés,
+    services actifs ; **exposition sur Internet** (adresse publique et service ouvert) ;
+  - **usage** : clients connectés, requêtes web, charge processeur ; **interactions et dépendances** entre systèmes
+    (connexions établies : « utilise » / « utilisé par ») ;
+  - **niveau** : urgent / à planifier / à surveiller / ok / inactif, avec score, impact, raisons et action proposée.
+- **Suivi à long terme** : une photographie par jour (800 jours gardés), courbe d'évolution dans la page.
+- **Excel pour les décideurs** (bouton « Télécharger l'Excel pour les décideurs », `GET /etat-des-lieux/export.xlsx`) :
+  Synthèse (chiffres clés, points clés en phrases simples, 10 priorités), Systèmes (un par ligne : rôle, fin des
+  correctifs, dernière mise à jour, utilisation, accès Internet, niveau, pourquoi, action), Dépendances, Évolution.
+  Sans jargon : ni ports ni noms de paquets. Libellé métier modifiable par système (« Messagerie », « Partage de
+  fichiers »…) ; nom de l'organisation par `ETAT_ORGANISATION`.
+- Dates de fin de support : table de référence (Debian, Ubuntu, CentOS / Rocky / Alma, Alpine, Proxmox VE / PBS, PHP,
+  PostgreSQL, ownCloud, Nextcloud) **corrigeable** dans la page (`PUT /etat-des-lieux/eol`).
+- Sonde `pve-preflight` (agent **0.6.1**) : dans chaque invité démarré et sur le nœud lui-même -- système, noyau,
+  adresses, date de la dernière installation de paquets, mises à jour en attente (simulation `apt-get -s`), versions
+  des paquets clés, version d'ownCloud / Nextcloud, ports écoutés et processus, connexions établies agrégées (nombres),
+  services actifs, nombre de requêtes web, comptes ; CT arrêté : système et date de mise à jour lus sur son disque.
+  Des noms et des nombres seulement.
+- Vérifié : `test_z_etat.py`, `test_z_etat_routes.py` (dont l'export Excel relu), `test_pve_preflight.py` (script de
+  l'invité exécuté réellement sous dash), `etatLib.test.mjs`, rendu de la page sur données simulées. **Non vérifié** :
+  les sorties réelles des invités (Debian 8 / 9, PVE 5.4, VM sans agent invité).
+
 ## 2026-10-26 — Migration : inventaire permanent de toutes les copies et de leur distance à la source ; récapitulatif permanent du risque (livraison #856)
 
 - Tuile Migration, page **« Copies et sauvegardes »** (`?view=migration&page=copies`) : pour chaque CT / VM de tous les

@@ -233,6 +233,10 @@ export const fetchRisques = (apiBase) => fetchJson(apiBase, "/migration/risques"
 export const saveAccesCibles = (apiBase, key, cibles) => fetchJson(apiBase, "/migration/acces", json("PUT", { key, cibles }));
 export const verifierAcces = (apiBase) => fetchJson(apiBase, "/migration/acces/verifier", json("POST", {}));
 export const saveMigrationCible = (apiBase, cible) => fetchJson(apiBase, "/migration/cible", json("PUT", { cible }));
+export const fetchEtat = (apiBase) => fetchJson(apiBase, "/etat-des-lieux");   // #857 : état des lieux des systèmes
+export const saveEtatLibelles = (apiBase, libelles) => fetchJson(apiBase, "/etat-des-lieux/libelles", json("PUT", { libelles }));
+export const saveEtatEol = (apiBase, eol) => fetchJson(apiBase, "/etat-des-lieux/eol", json("PUT", { eol }));
+export const etatExportUrl = (apiBase) => `${apiBase}/etat-des-lieux/export.xlsx`;
 export const saveMigrationPlan = (apiBase, plan, actor) => fetchJson(apiBase, "/migration/plan", json("PUT", { plan, actor }));
 export const saveMigrationVars = (apiBase, vars, actor) => fetchJson(apiBase, "/migration/vars", json("PUT", { vars, actor }));
 export const migrationControl = (apiBase, action, step, actor, onglet = "") => fetchJson(apiBase, "/migration/control", json("POST", { action, step, actor, onglet }));

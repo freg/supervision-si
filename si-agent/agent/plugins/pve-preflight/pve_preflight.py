@@ -44,6 +44,44 @@ for f in /var/log/apache2/*access*.log /var/log/nginx/*access*.log /var/log/http
 if [ -n "$L" ]; then
   tail -q -n 20000 $L 2>/dev/null | awk -F'"' 'NF >= 3 { split($3, a, " "); c = a[1] + 0; if (c >= 100 && c < 600) { t++; if (c >= 500) e5++; else if (c >= 400) e4++ } } END { printf "@@http %d %d %d\n", t, e5, e4 }'
 fi
+# #857 : état des lieux -- système, mises à jour, versions clés, services, usage, dépendances (noms et nombres seulement)
+if [ -r /etc/os-release ]; then ( . /etc/os-release; echo "@@os ${ID:-?}|${VERSION_ID:-?}|${PRETTY_NAME:-?}" ); fi
+echo "@@kernel $(uname -r 2>/dev/null)"
+I=$(hostname -I 2>/dev/null); [ -n "$(echo $I)" ] || I=$(ip -4 -o addr show scope global 2>/dev/null | awk '{sub(/\/.*/, "", $4); printf "%s ", $4}')
+echo "@@ips $I"
+echo "@@uptime $(cut -d. -f1 /proc/uptime 2>/dev/null)"
+echo "@@disque $(df -P / 2>/dev/null | awk 'NR == 2 {sub(/%/, "", $5); print $5}')"
+[ -f /var/lib/dpkg/status ] && echo "@@maj $(stat -c %Y /var/lib/dpkg/status 2>/dev/null)"
+[ -f /var/cache/apt/pkgcache.bin ] && echo "@@listes $(stat -c %Y /var/cache/apt/pkgcache.bin 2>/dev/null)"
+if command -v apt-get >/dev/null 2>&1; then
+  U=$(apt-get -s -o Debug::NoLocking=1 upgrade 2>/dev/null | grep '^Inst ')
+  if [ -n "$U" ]; then echo "@@attente $(printf '%s\n' "$U" | grep -c '^Inst ') $(printf '%s\n' "$U" | grep -ci 'securi')"; else echo "@@attente 0 0"; fi
+  dpkg-query -W -f='${db:Status-Abbrev} ${Package} ${Version}\n' apache2 nginx 'php[0-9]*-common' php-common 'mariadb-server-[0-9]*' mariadb-server \
+    'mysql-server-[0-9]*' 'postgresql-[0-9]*' postfix dovecot-core openssh-server docker-ce docker.io pve-manager proxmox-backup-server \
+    redis-server nodejs python3 'openjdk-[0-9]*-jre-headless' 'tomcat[0-9]*' bind9 samba squid amavisd-new spamassassin roundcube-core \
+    proftpd-basic vsftpd 2>/dev/null | awk '$1 ~ /^ii/ {print "@@pkg", $2, $3}' | head -n 60
+fi
+for f in /var/www/*/version.php /var/www/*/*/version.php; do
+  [ -f "$f" ] || continue
+  v=$(sed -n "s/.*OC_VersionString *= *'\([^']*\)'.*/\1/p" "$f" | head -n 1)
+  [ -n "$v" ] && echo "@@app $(grep -qi "vendor *= *'nextcloud'" "$f" && echo nextcloud || echo owncloud) $v"
+done
+if command -v ss >/dev/null 2>&1; then
+  ss -ltnp 2>/dev/null | awk 'NR > 1 {a = $4; n = split(a, x, ":"); p = x[n]; h = substr(a, 1, length(a) - length(p) - 1); u = $0;
+    if (sub(/.*users:\(\("/, "", u)) sub(/".*/, "", u); else u = "?"; print "@@ecoute", p, h, u}' | sort -u | head -n 80
+  L=" $(ss -ltn 2>/dev/null | awk 'NR > 1 {n = split($4, x, ":"); print x[n]}' | sort -u | tr '\n' ' ') "
+  ss -tn 2>/dev/null | awk -v L="$L" 'NR > 1 && $1 == "ESTAB" {n = split($4, a, ":"); lp = a[n]; m = split($5, b, ":"); rp = b[m];
+    rh = substr($5, 1, length($5) - length(rp) - 1); gsub(/[][]/, "", rh); sub(/^::ffff:/, "", rh);
+    if (rh ~ /^127\./ || rh == "::1") next;
+    if (index(L, " " lp " ")) {cin[lp]++; k = lp " " rh; if (!(k in vu)) {vu[k] = 1; din[lp]++}} else cout[rh " " rp]++}
+    END {for (p in cin) print "@@cnxin", p, cin[p], din[p]; for (k in cout) print "@@cnxout", k, cout[k]}' | head -n 120
+fi
+command -v systemctl >/dev/null 2>&1 && systemctl list-units --type=service --state=running --no-legend 2>/dev/null | \
+  awk '{u = $1; if (u !~ /^[A-Za-z0-9]/) u = $2; sub(/\.service$/, "", u); print "@@svc", u}' | head -n 80
+R=0
+for f in /var/log/apache2/*access*.log /var/log/nginx/*access*.log; do [ -f "$f" ] && R=$((R + $(wc -l < "$f"))); done
+echo "@@req $R"
+echo "@@comptes $(awk -F: '$3 >= 1000 && $3 < 65000 && $7 !~ /(nologin|false)$/' /etc/passwd 2>/dev/null | grep -c .)"
 echo "@@fin"
 """
 
@@ -58,6 +96,7 @@ cat > "$GF" <<'__SI_GUEST__'
 %s
 __SI_GUEST__
 echo "## pveversion"; pveversion 2>&1 | head -c 2000
+echo "## nodeexec"; timeout 120 sh "$GF" 2>&1 | head -c 80000
 echo "## pvecm"; pvecm status 2>&1 | head -c 20000
 echo "## ha"; ha-manager status 2>&1 | head -c 10000
 echo "## resources"; pvesh get /cluster/resources --type vm --output-format json 2>/dev/null | head -c 600000; echo
@@ -74,14 +113,19 @@ pct list 2>/dev/null | awk 'NR>1 {print $1, $2, $NF}' | while read id st name; d
   echo "## conf"; pct config $id 2>/dev/null | head -c 20000
   echo "## rrd"; pvesh get /nodes/$N/lxc/$id/rrddata --timeframe day --cf AVERAGE --output-format json 2>/dev/null | head -c 200000; echo
   echo "## rrdmax"; pvesh get /nodes/$N/lxc/$id/rrddata --timeframe day --cf MAX --output-format json 2>/dev/null | head -c 200000; echo
-  [ "$st" = running ] && { echo "## exec"; cat "$GF" | timeout 60 pct exec $id -- sh -s 2>&1 | head -c 20000; echo; }
+  [ "$st" = running ] && { echo "## exec"; cat "$GF" | timeout 60 pct exec $id -- sh -s 2>&1 | head -c 80000; echo; }
+  if [ "$st" != running ]; then
+    R=$(pct config $id 2>/dev/null | sed -n 's/^rootfs: \([^,]*\).*/\1/p'); P=$(pvesm path "$R" 2>/dev/null)
+    if [ -n "$P" ] && [ -d "$P/etc" ]; then echo "## offline"; grep -E '^(ID|VERSION_ID|PRETTY_NAME)=' "$P/etc/os-release" 2>/dev/null
+      echo "@@maj $(stat -c %%Y "$P/var/lib/dpkg/status" 2>/dev/null)"; fi
+  fi
 done
 qm list 2>/dev/null | awk 'NR>1 {print $1, $3, $2}' | while read id st name; do
   echo "=== qemu $id $st $name"
   echo "## conf"; qm config $id 2>/dev/null | head -c 20000
   echo "## rrd"; pvesh get /nodes/$N/qemu/$id/rrddata --timeframe day --cf AVERAGE --output-format json 2>/dev/null | head -c 200000; echo
   echo "## rrdmax"; pvesh get /nodes/$N/qemu/$id/rrddata --timeframe day --cf MAX --output-format json 2>/dev/null | head -c 200000; echo
-  [ "$st" = running ] && { echo "## qga"; timeout 60 qm guest exec $id --timeout 50 -- sh -c "$(cat "$GF")" 2>&1 | head -c 50000; echo; }
+  [ "$st" = running ] && { echo "## qga"; timeout 60 qm guest exec $id --timeout 50 -- sh -c "$(cat "$GF")" 2>&1 | head -c 150000; echo; }
 done
 rm -f "$GF"
 echo "@@done"
@@ -366,6 +410,68 @@ def parse_checks(text):
     return out
 
 
+def parse_systeme(text):
+    """#857 : sortie de GUEST_SH (ou section « offline » d'un CT arrêté : lignes ID= / VERSION_ID= / PRETTY_NAME=) ->
+    {os: {id, version, nom}, noyau, uptime_s, disque_pct, maj_at, listes_at, attente, attente_secu, paquets {nom: version},
+    apps [{nom, version}], ecoute [{port, hote, proc}], cnx_in [{port, n, clients}], cnx_out [{hote, port, n}], services [],
+    requetes, comptes} ; None si rien d'exploitable."""
+    o = {"os": None, "noyau": None, "uptime_s": None, "disque_pct": None, "maj_at": None, "listes_at": None, "attente": None, "attente_secu": None,
+         "paquets": {}, "apps": [], "ecoute": [], "cnx_in": [], "cnx_out": [], "services": [], "requetes": None, "comptes": None, "ips": []}
+    env = {}
+    vu = False
+    for line in (text or "").splitlines():
+        line = line.strip()
+        m = re.match(r'^(ID|VERSION_ID|PRETTY_NAME)="?([^"]*)"?$', line)
+        if m:
+            env[m.group(1)] = m.group(2)
+            vu = True
+            continue
+        if not line.startswith("@@"):
+            continue
+        k, _, v = line[2:].partition(" ")
+        p = v.split()
+        n = lambda i: int(p[i]) if len(p) > i and p[i].isdigit() else None  # noqa: E731
+        vu = vu or k in ("os", "maj", "pkg", "ecoute", "svc")
+        if k == "os":
+            q = v.split("|")
+            o["os"] = {"id": q[0] if q[0] != "?" else None, "version": q[1] if len(q) > 1 and q[1] != "?" else None, "nom": q[2] if len(q) > 2 else None}
+        elif k == "kernel":
+            o["noyau"] = v or None
+        elif k == "uptime":
+            o["uptime_s"] = n(0)
+        elif k == "ips":
+            o["ips"] = [x for x in p if re.match(r"^\d{1,3}(\.\d{1,3}){3}$", x)]
+        elif k == "disque":
+            o["disque_pct"] = n(0)
+        elif k == "maj":
+            o["maj_at"] = n(0)
+        elif k == "listes":
+            o["listes_at"] = n(0)
+        elif k == "attente":
+            o["attente"], o["attente_secu"] = n(0), n(1)
+        elif k == "pkg" and len(p) >= 2:
+            o["paquets"][p[0]] = p[1]
+        elif k == "app" and len(p) >= 2:
+            o["apps"].append({"nom": p[0], "version": p[1]})
+        elif k == "ecoute" and len(p) >= 2 and p[0].isdigit():
+            e = {"port": int(p[0]), "hote": p[1], "proc": p[2] if len(p) > 2 else "?"}
+            if e not in o["ecoute"]:
+                o["ecoute"].append(e)
+        elif k == "cnxin" and len(p) >= 3:
+            o["cnx_in"].append({"port": n(0), "n": n(1), "clients": n(2)})
+        elif k == "cnxout" and len(p) >= 3:
+            o["cnx_out"].append({"hote": p[0], "port": n(1), "n": n(2)})
+        elif k == "svc" and p:
+            o["services"].append(p[0])
+        elif k == "req":
+            o["requetes"] = n(0)
+        elif k == "comptes":
+            o["comptes"] = n(0)
+    if env:
+        o["os"] = {"id": env.get("ID"), "version": env.get("VERSION_ID"), "nom": env.get("PRETTY_NAME")}
+    return o if vu else None
+
+
 def build_node(name, zone, nsec, guests, complete, now=None):
     """Assemble le relevé d'un nœud."""
     now = now or time.time()
@@ -382,13 +488,15 @@ def build_node(name, zone, nsec, guests, complete, now=None):
         checks = parse_checks(txt) if (txt or err) else None
         if checks is not None and not checks["complet"]:
             checks["erreur"] = err or ((txt or "").strip().splitlines() or ["relevé interrompu"])[-1][:160]
-        rows.append({"vmid": g["vmid"], "type": g["type"], "name": g["name"] or r.get("name") or "", "status": g["status"],
+        systeme = parse_systeme(txt) if txt else parse_systeme(s.get("offline")) if s.get("offline") else None   # #857
+        rows.append({"vmid": g["vmid"], "type": g["type"], "name": g["name"] or r.get("name") or "", "status": g["status"], "systeme": systeme,
                      "conf": parse_conf(s.get("conf")), "charge": rrd_stats(_json(s.get("rrd"), []), _json(s.get("rrdmax"), [])),
                      "checks": checks, "disk": r.get("disk"), "maxdisk": r.get("maxdisk"), "maxmem": r.get("maxmem"), "maxcpu": r.get("maxcpu"),
                      "uptime_s": r.get("uptime"), "template": bool(r.get("template"))})
     jobs = parse_vzdump_cron(nsec.get("vzdumpcron")) + parse_jobs_cfg(nsec.get("jobscfg"))
     ha = (nsec.get("ha") or "").strip()
     return {"name": name, "zone": zone, "ok": True, "complete": complete, "error": None if complete else "relevé incomplet (délai dépassé ?)",
+            "systeme": parse_systeme(nsec.get("nodeexec")),
             "pveversion": (nsec.get("pveversion") or "").strip().splitlines()[0][:120] if (nsec.get("pveversion") or "").strip() else None,
             "quorum": parse_pvecm(nsec.get("pvecm")), "ha": {"actif": bool(re.search(r"^service ", ha, re.M)), "texte": ha[:600]},
             "cluster_vms": [{"vmid": int(r["vmid"]), "node": r.get("node"), "name": r.get("name"), "type": r.get("type"), "status": r.get("status")}

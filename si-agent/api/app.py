@@ -62,6 +62,8 @@ import prep  # noqa: E402  -- #815 : préparer la réinstallation d'un nœud (qu
 import copies as copies_lib  # noqa: E402  -- #856 : inventaire de toutes les copies et distance à la source
 import acces as acces_lib  # noqa: E402  -- #856 : accessibilité des services des CT / VM
 import risque as risque_lib  # noqa: E402  -- #856 : récapitulatif permanent du risque (Migration › Risques)
+import etat as etat_lib  # noqa: E402  -- #857 : état des lieux des systèmes (versions, mises à jour, services, usage, dépendances)
+import etat_excel  # noqa: E402  -- #857 : version Excel pour les décideurs
 import infra  # noqa: E402  -- #749 : vue d'ensemble PVE / PBS
 import views  # noqa: E402  -- #753 : vues de parc paramétrables (serveurs, postes, IA, postes personnels)
 import repatriation as repa  # noqa: E402  -- #761 : assistant de rapatriement / nettoyage d'un nœud distant
@@ -3058,6 +3060,77 @@ def migration_cible_route():
     b = request.get_json(silent=True) or {}
     store.set_setting(DB_PATH, "migration_cible", str(b.get("cible") or "")[:64])
     return jsonify({"cible": str(b.get("cible") or "")[:64]}), 200
+
+
+# -- #857 : état des lieux des systèmes ---------------------------------------------------------------------------------
+def _etat():
+    conn = store._connect(DB_PATH)
+    try:
+        reports = infra.latest(conn, "plugin:pve-preflight")
+        cands = _agents_proxmox(conn)
+        conn.execute("CREATE TABLE IF NOT EXISTS etat_historique (jour TEXT PRIMARY KEY, data TEXT NOT NULL)")
+        e = etat_lib.assemble(prep.noeuds(reports), eol=store.get_setting(DB_PATH, "etat_eol", {}) or {},
+                              libelles=store.get_setting(DB_PATH, "etat_libelles", {}) or {})
+        if reports:     # une ligne par jour : le suivi à long terme
+            conn.execute("INSERT OR REPLACE INTO etat_historique VALUES (?, ?)", (time.strftime("%Y-%m-%d"), json.dumps(etat_lib.instantane(e))))
+            conn.execute("DELETE FROM etat_historique WHERE jour < ?", (time.strftime("%Y-%m-%d", time.gmtime(time.time() - 800 * 86400)),))
+            conn.commit()
+        hist = [(r[0], json.loads(r[1])) for r in conn.execute("SELECT jour, data FROM etat_historique ORDER BY jour")]
+    finally:
+        conn.close()
+    return reports, e, etat_lib.tendance(hist), cands
+
+
+@app.route("/etat-des-lieux", methods=["GET"])
+def etat_route():
+    """#857 : état des lieux des systèmes actifs (nœuds, CT, VM) et suivi dans le temps."""
+    reports, e, t, cands = _etat()
+    liens, manuel = _liens_sonde(cands)
+    e.update(tendance=t, libelles=store.get_setting(DB_PATH, "etat_libelles", {}) or {}, liens=liens, manuel=manuel,
+             error=None if reports else "aucun relevé pve-preflight : activer la sonde pve-preflight (agent 0.6.1 ou plus récent pour les versions et services)")
+    return jsonify(e), 200
+
+
+@app.route("/etat-des-lieux/libelles", methods=["PUT"])
+def etat_libelles_route():
+    """#857 : {libelles: {clé: libellé métier}} -- le nom compris par les décideurs (ex. « Messagerie »)."""
+    b = request.get_json(silent=True) or {}
+    v = b.get("libelles")
+    if not isinstance(v, dict):
+        return jsonify({"error": "libelles : objet {clé: libellé}"}), 400
+    propre = {str(k)[:80]: str(x).strip()[:120] for k, x in list(v.items())[:500] if str(x).strip()}
+    store.set_setting(DB_PATH, "etat_libelles", propre)
+    return jsonify({"libelles": propre}), 200
+
+
+@app.route("/etat-des-lieux/eol", methods=["PUT"])
+def etat_eol_route():
+    """#857 : dates de fin de support modifiées : {eol: {famille: {version: "AAAA-MM-JJ"}}}."""
+    b = request.get_json(silent=True) or {}
+    v = b.get("eol")
+    if not isinstance(v, dict):
+        return jsonify({"error": "eol : objet {famille: {version: date}}"}), 400
+    propre = {}
+    for fam, t in v.items():
+        if not isinstance(t, dict):
+            return jsonify({"error": "%s : objet {version: date}" % fam}), 400
+        for ver, d in t.items():
+            if not re.match(r"^\d{4}-\d{2}-\d{2}$", str(d)):
+                return jsonify({"error": "%s %s : date AAAA-MM-JJ" % (fam, ver)}), 400
+            propre.setdefault(str(fam)[:40], {})[str(ver)[:20]] = str(d)
+    fusion = {f: dict(etat_lib.EOL.get(f, {}), **t) for f, t in propre.items()}
+    store.set_setting(DB_PATH, "etat_eol", fusion)
+    return jsonify({"eol": fusion}), 200
+
+
+@app.route("/etat-des-lieux/export.xlsx", methods=["GET"])
+def etat_export_route():
+    """#857 : classeur Excel pour les décideurs (synthèse, systèmes, dépendances, évolution), sans jargon."""
+    _r, e, t, _c = _etat()
+    data = etat_excel.classeur(e, t, os.environ.get("ETAT_ORGANISATION", ""))
+    from flask import Response
+    return Response(data, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": "attachment; filename=etat-des-lieux-%s.xlsx" % time.strftime("%Y-%m-%d")})
 
 
 def _agents_proxmox(conn):
