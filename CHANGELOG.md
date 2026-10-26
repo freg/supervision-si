@@ -1,3 +1,13 @@
+## 2026-10-26 — Relevé à distance des serveurs anciens : ports, adresses et services corrigés (livraison #866)
+
+- Sonde `systemes` (agent 0.6.5), constaté sur un serveur Debian 5 :
+  - ports écoutés absents : l'ancien `ss` n'affiche pas la colonne d'état avec `-l` -> adresse locale lue au bon
+    endroit ; les connexions entrantes n'étaient plus distinguées des sortantes (toutes comptées comme sortantes) ;
+  - adresses absentes : `hostname -I` non reconnu écrivait son aide sur la sortie -> sortie filtrée, repli sur `ip` ;
+    chemin `/sbin:/usr/sbin` ajouté (sessions ssh non interactives) ;
+  - scripts de démarrage sans service (`rc.local`, `rmnologin`, `stop-bootlogd`…) retirés de la liste des services.
+- Vérifié : `test_systemes.py` (ss ancien simulé).
+
 ## 2026-10-26 — État des lieux : relevé à distance des serveurs très anciens (Debian 4 et suivants) (livraison #865)
 
 - Sonde `systemes` (agent 0.6.4) : un serveur trop ancien pour porter l'agent (Debian 4, OpenSSL 0.9.8, glibc 2.3)

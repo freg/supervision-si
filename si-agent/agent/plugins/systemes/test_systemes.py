@@ -77,13 +77,43 @@ esac""",
                 with open(os.path.join(b, n), "w") as fh:
                     fh.write("#!/bin/sh\n" + c + "\n")
                 os.chmod(os.path.join(b, n), 0o755)
-            p = subprocess.run(["/bin/sh", "-s"], input=S.INVENTAIRE_SH, capture_output=True, text=True, timeout=60,
+            p = subprocess.run(["/bin/sh", "-s"], input=S.INVENTAIRE_SH.replace('PATH="$PATH:/sbin:/usr/sbin:/bin:/usr/bin"', 'PATH="$PATH"'),
+                               capture_output=True, text=True, timeout=60,
                                env={"PATH": b, "LC_ALL": "C"})
             o = S.parse_systeme(p.stdout)
             self.assertEqual(o["paquets"], {"apache": "1.3.34-4.1", "php5-common": "5.2.0-8", "mysql-server-5.0": "5.0.32-7"}, p.stdout)
             self.assertEqual(sorted((e["port"], e["proc"]) for e in o["ecoute"]), [(22, "?"), (80, "apache"), (3306, "mysqld")])
             self.assertEqual(o["cnx_in"], [{"port": 80, "n": 2, "clients": 1}])
             self.assertEqual(o["cnx_out"], [{"hote": "192.0.2.5", "port": 25, "n": 1}])
+        # ss ancien (Debian 5) : sans colonne State pour -l ; hostname -I non reconnu qui écrit sur stdout
+        with tempfile.TemporaryDirectory() as tmp:
+            b = os.path.join(tmp, "bin")
+            os.mkdir(b)
+            for o in ("uname", "cut", "df", "stat", "head", "sed", "awk", "mawk", "gawk", "grep", "sort", "tr", "wc", "cat", "basename"):
+                for d in ("/usr/bin", "/bin"):
+                    if os.path.exists(os.path.join(d, o)):
+                        os.symlink(os.path.join(d, o), os.path.join(b, o))
+                        break
+            stubs = {
+                "hostname": 'case "$1" in -I) echo "Usage: hostname [-v] {hostname|-F file}" ;; *) echo nms ;; esac',
+                "ip": "echo '2: eth0    inet 192.0.2.41/24 brd 192.0.2.255 scope global eth0'",
+                "ss": """case "$1" in
+-ltnp) printf '%s\\n' 'Recv-Q Send-Q Local Address:Port Peer Address:Port' '0 128 *:22 *:* users:(("sshd",2001,3))' '0 50 *:80 *:* users:(("apache2",3001,4))' ;;
+-ltn) printf '%s\\n' 'Recv-Q Send-Q Local Address:Port Peer Address:Port' '0 128 *:22 *:*' '0 50 *:80 *:*' ;;
+-tn) printf '%s\\n' 'State Recv-Q Send-Q Local Address:Port Peer Address:Port' 'ESTAB 0 0 192.0.2.41:22 198.51.100.7:56906' 'ESTAB 0 0 192.0.2.41:41000 192.0.2.50:5900' ;;
+esac""",
+            }
+            for n, c in stubs.items():
+                with open(os.path.join(b, n), "w") as fh:
+                    fh.write("#!/bin/sh\n" + c + "\n")
+                os.chmod(os.path.join(b, n), 0o755)
+            p = subprocess.run(["/bin/sh", "-s"], input=S.INVENTAIRE_SH.replace('PATH="$PATH:/sbin:/usr/sbin:/bin:/usr/bin"', 'PATH="$PATH"'),
+                               capture_output=True, text=True, timeout=60, env={"PATH": b, "LC_ALL": "C"})
+            o = S.parse_systeme(p.stdout)
+            self.assertEqual(o["ips"], ["192.0.2.41"], p.stdout)
+            self.assertEqual(sorted((e["port"], e["proc"]) for e in o["ecoute"]), [(22, "sshd"), (80, "apache2")])
+            self.assertEqual(o["cnx_in"], [{"port": 22, "n": 1, "clients": 1}])
+            self.assertEqual(o["cnx_out"], [{"hote": "192.0.2.50", "port": 5900, "n": 1}])
         o = S.parse_systeme("@@os debian|4|Debian GNU/Linux 4.0\n@@fin")
         self.assertEqual((o["os"]["id"], o["os"]["version"]), ("debian", "4"))
 

@@ -6,6 +6,7 @@ import { SINCE, THEMES } from "./hubThemes.js";
 // (#788 : rappel -- à chaque livraison visible, ajouter son entrée ici ET relancer scripts/gen-hub-updates.py)
 // (#790 : `params` = paramètres d'écran posés avant l'ouverture, ex. { tab: "sms" } -> l'onglet précis)
 export const UPDATE_LINKS = {
+  866: [{ view: "migration", params: { page: "etat" }, hint: "serveurs anciens : ports écoutés, adresses et services corrigés" }],
   865: [{ view: "migration", params: { page: "etat" }, hint: "serveurs très anciens relevés à distance : système, paquets, ports, services" }],
   864: [{ view: "si-agent", hint: "installation sur un hôte ancien (Debian 9 / Python 3.5) : commandes complètes" }],
   863: [{ view: "migration", params: { page: "etat" }, hint: "pour les décideurs : où, quand, combien -- serveurs concernés, phases, volumes, durées, coupures" }],

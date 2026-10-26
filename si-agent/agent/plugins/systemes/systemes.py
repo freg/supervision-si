@@ -27,7 +27,8 @@ if [ -r /etc/os-release ]; then ( . /etc/os-release; echo "@@os ${ID:-?}|${VERSI
 elif [ -r /etc/debian_version ]; then v=$(head -n 1 /etc/debian_version); echo "@@os debian|${v%%.*}|Debian GNU/Linux $v"
 elif [ -r /etc/redhat-release ]; then v=$(head -n 1 /etc/redhat-release); echo "@@os rhel|$(echo "$v" | sed -n 's/[^0-9]*\([0-9]*\).*/\1/p')|$v"; fi
 echo "@@kernel $(uname -r 2>/dev/null)"
-I=$(hostname -I 2>/dev/null); [ -n "$(echo $I)" ] || I=$(ip -4 -o addr show scope global 2>/dev/null | awk '{sub(/\/.*/, "", $4); printf "%s ", $4}')
+PATH="$PATH:/sbin:/usr/sbin:/bin:/usr/bin"; export PATH
+I=$(hostname -I 2>/dev/null | grep -E '^[0-9a-fA-F.: ]+$'); [ -n "$(echo $I)" ] || I=$(ip -4 -o addr show scope global 2>/dev/null | awk '{sub(/\/.*/, "", $4); printf "%s ", $4}')
 echo "@@ips $I"
 echo "@@uptime $(cut -d. -f1 /proc/uptime 2>/dev/null)"
 echo "@@disque $(df -P / 2>/dev/null | awk 'NR == 2 {sub(/%/, "", $5); print $5}')"
@@ -47,9 +48,9 @@ for f in /var/www/*/version.php /var/www/*/*/version.php; do
   [ -n "$v" ] && echo "@@app $(grep -qi "vendor *= *'nextcloud'" "$f" && echo nextcloud || echo owncloud) $v"
 done
 if command -v ss >/dev/null 2>&1; then
-  ss -ltnp 2>/dev/null | awk 'NR > 1 {a = $4; n = split(a, x, ":"); p = x[n]; h = substr(a, 1, length(a) - length(p) - 1); u = $0;
+  ss -ltnp 2>/dev/null | awk 'NR > 1 {a = ($1 ~ /^[0-9]+$/) ? $3 : $4; n = split(a, x, ":"); p = x[n]; h = substr(a, 1, length(a) - length(p) - 1); u = $0;
     if (sub(/.*users:\(\("/, "", u)) sub(/".*/, "", u); else u = "?"; print "@@ecoute", p, h, u}' | sort -u | head -n 80
-  L=" $(ss -ltn 2>/dev/null | awk 'NR > 1 {n = split($4, x, ":"); print x[n]}' | sort -u | tr '\n' ' ') "
+  L=" $(ss -ltn 2>/dev/null | awk 'NR > 1 {n = split(($1 ~ /^[0-9]+$/) ? $3 : $4, x, ":"); print x[n]}' | sort -u | tr '\n' ' ') "
   ss -tn 2>/dev/null | awk -v L="$L" 'NR > 1 && $1 == "ESTAB" {n = split($4, a, ":"); lp = a[n]; m = split($5, b, ":"); rp = b[m];
     rh = substr($5, 1, length($5) - length(rp) - 1); gsub(/[][]/, "", rh); sub(/^::ffff:/, "", rh);
     if (rh ~ /^127\./ || rh == "::1") next;
@@ -68,7 +69,7 @@ if ! command -v ss >/dev/null 2>&1 && command -v netstat >/dev/null 2>&1; then
 fi
 if ! command -v systemctl >/dev/null 2>&1; then
   N=$(runlevel 2>/dev/null | awk '{print $2}'); [ -d "/etc/rc${N:-2}.d" ] || N=2
-  for f in /etc/rc${N:-2}.d/S*; do [ -e "$f" ] || continue; b=$(basename "$f"); echo "@@svc $(echo "$b" | sed 's/^S[0-9]*//')"; done | head -n 80
+  for f in /etc/rc${N:-2}.d/S*; do [ -e "$f" ] || continue; b=$(basename "$f"); echo "$b" | sed 's/^S[0-9]*//'; done | grep -Evx 'rc\.local|rmnologin|stop-bootlogd|stop-bootlogd-single|bootlogs|single|killprocs|sendsigs|motd|README' | sed 's/^/@@svc /' | head -n 80
 fi
 command -v systemctl >/dev/null 2>&1 && systemctl list-units --type=service --state=running --no-legend 2>/dev/null | \
   awk '{u = $1; if (u !~ /^[A-Za-z0-9]/) u = $2; sub(/\.service$/, "", u); print "@@svc", u}' | head -n 80
