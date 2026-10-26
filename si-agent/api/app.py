@@ -3086,6 +3086,13 @@ def _etat():
         except Exception:  # noqa: BLE001
             mig = None
         e["chantiers"] = etat_lib.chantiers(journal.list_entries(conn), mig, store.get_setting(DB_PATH, "etat_decisions", []) or [])
+        # #863 : où, quand, combien -- phases du chantier (fiches saisies) et serveurs concernés (inventaire des copies)
+        e["chantiers"]["organisation"] = etat_lib.organisation(mig, store.get_setting(DB_PATH, "etat_phases", {}) or {})
+        try:
+            inv = copies_lib.assemble(infra.latest(conn, "plugin:copies-inventory"), store.get_setting(DB_PATH, "copies_regles", {}) or {})
+            e["chantiers"]["infrastructure"] = etat_lib.infrastructure(inv.get("hotes"), e["systemes"])
+        except Exception:  # noqa: BLE001
+            e["chantiers"]["infrastructure"] = []
     finally:
         conn.close()
     return reports, e, etat_lib.tendance(hist), cands
@@ -3097,7 +3104,7 @@ def etat_route():
     reports, e, t, cands = _etat()
     liens, manuel = _liens_sonde(cands)
     e.update(tendance=t, libelles=store.get_setting(DB_PATH, "etat_libelles", {}) or {}, manuels=store.get_setting(DB_PATH, "etat_manuels", {}) or {},
-             decisions=store.get_setting(DB_PATH, "etat_decisions", []) or [],
+             decisions=store.get_setting(DB_PATH, "etat_decisions", []) or [], phases=store.get_setting(DB_PATH, "etat_phases", {}) or {},
              liens=liens, manuel=manuel,
              error=None if reports else "aucun relevé pve-preflight : activer la sonde pve-preflight (agent 0.6.1 ou plus récent pour les versions et services)")
     return jsonify(e), 200
@@ -3147,6 +3154,27 @@ def etat_decisions_route():
     propre = [{k: str(d.get(k) or "").strip()[:400] for k in ("titre", "detail", "montant", "echeance")} for d in v[:50] if isinstance(d, dict) and str(d.get("titre") or "").strip()]
     store.set_setting(DB_PATH, "etat_decisions", propre)
     return jsonify({"decisions": propre}), 200
+
+
+@app.route("/etat-des-lieux/phases", methods=["PUT"])
+def etat_phases_route():
+    """#863 : fiches des phases pour les décideurs : {phases: {id: {quand, ou, volume_go, debit_mo_s, coupure, contraintes}}}."""
+    b = request.get_json(silent=True) or {}
+    v = b.get("phases")
+    if not isinstance(v, dict):
+        return jsonify({"error": "phases : objet {id de phase: fiche}"}), 400
+    propre = {}
+    for pid, f in list(v.items())[:100]:
+        if not isinstance(f, dict):
+            continue
+        g = {k: str(f.get(k) or "").strip()[:300] for k in etat_lib.CHAMPS_PHASE if str(f.get(k) or "").strip()}
+        for k in ("volume_go", "debit_mo_s"):
+            if k in g and etat_lib._nb(g[k]) is None:
+                return jsonify({"error": "%s %s : nombre attendu" % (pid, k)}), 400
+        if g:
+            propre[str(pid)[:20]] = g
+    store.set_setting(DB_PATH, "etat_phases", propre)
+    return jsonify({"phases": propre}), 200
 
 
 @app.route("/etat-des-lieux/eol", methods=["PUT"])

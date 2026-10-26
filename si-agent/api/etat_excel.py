@@ -155,7 +155,7 @@ def classeur(etat, tendance=None, organisation="", maintenant=None):
     _largeurs(ws2, [34, 16, 30, 26, 14, 14, 12, 12, 12, 12, 13, 50, 44])
 
     ch = etat.get("chantiers") or {}
-    if ch.get("decisions") or ch.get("chantiers") or ch.get("migration"):
+    if ch.get("decisions") or ch.get("chantiers") or ch.get("migration") or ch.get("organisation") or ch.get("infrastructure"):
         wsc = wb.create_sheet("Chantiers", 1)
         wsc["A1"] = "Chantiers en cours et décisions à prendre"
         wsc["A1"].font = TITRE
@@ -167,6 +167,30 @@ def classeur(etat, tendance=None, organisation="", maintenant=None):
             for d in ch["decisions"]:
                 ligne += 1
                 for j, v in enumerate([d.get("titre"), d.get("detail"), d.get("montant"), d.get("echeance")], 1):
+                    wsc.cell(row=ligne, column=j, value=v).alignment = Alignment(wrap_text=True, vertical="top")
+            ligne += 2
+        if ch.get("infrastructure"):
+            wsc.cell(row=ligne, column=1, value="Serveurs et sites concernés").font = GRAS
+            ligne += 1
+            _entete(wsc, ligne, ["Serveur", "Site", "Machines hébergées", "Capacité (To)", "Occupé", "Disque de secours", "État"])
+            for x in ch["infrastructure"]:
+                ligne += 1
+                vals = [x["nom"] + (" (dans %s)" % x["dans"] if x.get("dans") else ""), x["site"], x["machines"], x["espace_to"],
+                        ("%s %%" % x["occupe_pct"]) if x["occupe_pct"] is not None else "—", x["secours"], x["etat"]]
+                for j, v in enumerate(vals, 1):
+                    c = wsc.cell(row=ligne, column=j, value=v)
+                    if (j == 6 and v == "non") or (j == 7 and v != "normal"):
+                        c.fill = PatternFill("solid", fgColor=TEINTES["urgent"])
+            ligne += 2
+        if ch.get("organisation"):
+            wsc.cell(row=ligne, column=1, value="Organisation du chantier : où, quand, combien").font = GRAS
+            ligne += 1
+            _entete(wsc, ligne, ["Phase", "Quand", "Où (de → vers)", "Volume (Go)", "Durée estimée", "Coupure de service", "Contraintes", "Avancement"])
+            for x in ch["organisation"]:
+                ligne += 1
+                vals = [x["titre"], x["quand"] or "à fixer", x["ou"] or "—", x["volume_go"] or "—", x["duree"] or "—", x["coupure"] or "—",
+                        x["contraintes"] or "—", "%s (%d / %d)" % (x["etat"], x["faites"], x["total"])]
+                for j, v in enumerate(vals, 1):
                     wsc.cell(row=ligne, column=j, value=v).alignment = Alignment(wrap_text=True, vertical="top")
             ligne += 2
         m = ch.get("migration")
@@ -187,7 +211,7 @@ def classeur(etat, tendance=None, organisation="", maintenant=None):
                     for j, v in enumerate([lib, _fin(e.get("day")), e.get("acte"), e.get("resultat") or e.get("description")], 1):
                         wsc.cell(row=ligne, column=j, value=v).alignment = Alignment(wrap_text=True, vertical="top")
             ligne += 2
-        _largeurs(wsc, [26, 14, 52, 70])
+        _largeurs(wsc, [40, 16, 30, 12, 14, 18, 40, 18])
 
     ws3 = wb.create_sheet("Dépendances")
     _entete(ws3, 1, ["Système", "utilise", "pour"])

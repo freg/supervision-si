@@ -3,7 +3,7 @@
 // dépendances -> niveau (urgent / à planifier / à surveiller / ok / inactif), raisons, actions. Suivi jour par jour ;
 // version Excel pour les décideurs (sans jargon). Données : /etat-des-lieux (sonde pve-preflight, agent 0.6.1+).
 import { Fragment, useCallback, useEffect, useState } from "react";
-import { fetchEtat, saveEtatLibelles, saveEtatEol, saveEtatManuel, saveEtatDecisions, etatExportUrl, etatAuditUrl } from "./siAgentClient.js";
+import { fetchEtat, saveEtatLibelles, saveEtatEol, saveEtatManuel, saveEtatDecisions, saveEtatPhases, etatExportUrl, etatAuditUrl } from "./siAgentClient.js";
 import { hubLink } from "./hubLinks.js";
 import { NIVEAUX, TON, TON_OS, COULEUR, filtrer, depuis, jour, points, maxTendance, nom } from "./etatLib.js";
 
@@ -26,6 +26,7 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
   const [eol, setEol] = useState(null);
   const [decl, setDecl] = useState(null);    // #858 : {key, famille, version, nom, maj, note}
   const [decis, setDecis] = useState(null);  // #862 : décisions à prendre (liste en édition)
+  const [phases, setPhases] = useState(null); // #863 : fiches « où, quand, combien » par phase (en édition)
   const [note, setNote] = useState(null);
   const load = useCallback(() => fetchEtat(siAgentApiBase).then((x) => { setD(x); setErr(x?.error || null); }).catch((e) => setErr(e.message)), [siAgentApiBase]);
   useEffect(() => { load(); const id = setInterval(load, 300000); return () => clearInterval(id); }, [load]);
@@ -50,6 +51,11 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
     const x = await saveEtatDecisions(siAgentApiBase, decis.filter((y) => y.titre.trim()));
     setNote(x?.error ? ["ko", x.error] : ["ok", "Décisions enregistrées : elles figurent dans l'Excel et dans l'audit."]);
     if (!x?.error) { setDecis(null); load(); }
+  };
+  const enregistrerPhases = async () => {
+    const x = await saveEtatPhases(siAgentApiBase, phases);
+    setNote(x?.error ? ["ko", x.error] : ["ok", "Organisation du chantier enregistrée : elle figure dans l'Excel et dans l'audit."]);
+    if (!x?.error) { setPhases(null); load(); }
   };
   const enregistrerEol = async () => {
     let o; try { o = JSON.parse(eol); } catch (e) { setNote(["ko", `JSON invalide : ${e.message}`]); return; }
@@ -117,6 +123,26 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
         <table className="infra-table"><thead><tr><th>Système</th><th>utilise</th><th>pour</th><th>Connexions</th></tr></thead>
           <tbody>{(d.dependances || []).map((x, i) => <tr key={i}><td>{noms[x.de] || x.de}</td><td>{noms[x.vers] || x.vers}</td><td>{x.nature}</td><td>{x.n}</td></tr>)}</tbody></table>
         <p className="infra-muted">Relevées à partir des connexions établies au moment du relevé (toutes les 15 min) : une interaction rare peut manquer.</p>
+      </div>
+      <div className="infra-card">
+        <b>Où, quand, combien (pour les décideurs)</b>
+        {(d.chantiers?.infrastructure || []).length > 0 && (
+          <table className="infra-table"><thead><tr><th>Serveur</th><th>Site</th><th>Machines</th><th>Capacité</th><th>Occupé</th><th>Disque de secours</th><th>État</th></tr></thead>
+            <tbody>{d.chantiers.infrastructure.map((x) => <tr key={x.nom}><td>{x.nom}{x.dans ? <span className="infra-muted"> (dans {x.dans})</span> : null}</td><td>{x.site || "—"}</td><td>{x.machines}</td>
+              <td>{x.espace_to ? `${x.espace_to} To` : "—"}</td><td>{x.occupe_pct != null ? `${x.occupe_pct} %` : "—"}</td><td className={x.secours === "non" ? "np-tone bad" : ""}>{x.secours}</td>
+              <td className={x.etat !== "normal" ? "np-tone bad" : ""}>{x.etat}</td></tr>)}</tbody></table>)}
+        <div style={{ overflowX: "auto" }}><table className="infra-table" style={{ marginTop: 8 }}>
+          <thead><tr><th>Phase</th><th>Quand</th><th>Où (de → vers)</th><th>Volume (Go)</th><th>Débit (Mo/s)</th><th>Durée estimée</th><th>Coupure de service</th><th>Contraintes</th><th>Avancement</th></tr></thead>
+          <tbody>{(d.chantiers?.organisation || []).map((x) => {
+            const f = phases ? (phases[x.id] || {}) : null;
+            const champ = (k, w) => (f ? <input style={{ width: w }} value={f[k] ?? ""} onChange={(e) => setPhases({ ...phases, [x.id]: { ...f, [k]: e.target.value } })} /> : (x[k] || "—"));
+            return (<tr key={x.id} style={{ verticalAlign: "top" }}><td>{x.titre}</td><td>{champ("quand", 120)}</td><td>{champ("ou", 140)}</td><td>{champ("volume_go", 70)}</td>
+              <td>{f ? champ("debit_mo_s", 60) : (x.debit_mo_s || "—")}</td><td>{x.duree || "—"}</td><td>{champ("coupure", 120)}</td><td>{champ("contraintes", 200)}</td>
+              <td>{x.etat} <span className="infra-muted">({x.faites} / {x.total})</span></td></tr>);
+          })}</tbody></table></div>
+        {phases ? <div style={{ marginTop: 6 }}><button onClick={enregistrerPhases}>Enregistrer</button> <button className="secondary" onClick={() => setPhases(null)}>Annuler</button></div>
+          : <div style={{ marginTop: 6 }}><button className="secondary" onClick={() => setPhases(JSON.parse(JSON.stringify(d.phases || {})))}>Compléter (quand, où, volume, coupure, contraintes)</button>
+            <span className="infra-muted"> La durée est calculée : volume ÷ débit (par défaut le plafond des copies de la phase). Serveurs : relevé de la sonde copies-inventory.</span></div>}
       </div>
       <div className="infra-card">
         <b>Décisions à prendre (pour les décideurs)</b> {!decis && <button className="secondary" onClick={() => setDecis((d.decisions || []).map((y) => ({ ...y })).concat([{ titre: "", detail: "", montant: "", echeance: "" }]))}>Modifier</button>}

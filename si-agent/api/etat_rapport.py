@@ -127,6 +127,25 @@ def page(etat, organisation="", maintenant=None):
         for d in ch["decisions"]:
             h.append("<tr><td><b>%s</b></td><td>%s</td><td>%s</td><td>%s</td></tr>" % (_e(d.get("titre")), _e(d.get("detail")), _e(d.get("montant")), _e(d.get("echeance"))))
         h.append("</table>")
+    if ch.get("infrastructure") or ch.get("organisation"):
+        h.append("<h2>Où, quand, combien</h2>")
+    if ch.get("infrastructure"):
+        h.append("<p class='doux'>Serveurs et sites concernés</p><table><tr><th>Serveur</th><th>Site</th><th>Machines hébergées</th><th>Capacité</th>"
+                 "<th>Occupé</th><th>Disque de secours</th><th>État</th></tr>")
+        for x in ch["infrastructure"]:
+            h.append("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td class='%s'>%s</td><td class='%s'>%s</td></tr>" % (
+                _e(x["nom"] + (" (dans %s)" % x["dans"] if x.get("dans") else "")), _e(x["site"]), _e(x["machines"]),
+                _e("%s To" % x["espace_to"] if x["espace_to"] else "—"), _e("%s %%" % x["occupe_pct"] if x["occupe_pct"] is not None else "—"),
+                "rouge" if x["secours"] == "non" else "", _e(x["secours"]), "rouge" if x["etat"] != "normal" else "", _e(x["etat"])))
+        h.append("</table>")
+    if ch.get("organisation"):
+        h.append("<p class='doux'>Organisation du chantier par phase</p><table><tr><th>Phase</th><th>Quand</th><th>Où</th><th>Volume</th>"
+                 "<th>Durée estimée</th><th>Coupure de service</th><th>Contraintes</th><th>Avancement</th></tr>")
+        for x in ch["organisation"]:
+            h.append("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td class='doux'>%s</td><td>%s</td></tr>" % (
+                _e(x["titre"]), _e(x["quand"] or "à fixer"), _e(x["ou"] or "—"), _e(("%s Go" % x["volume_go"]) if x["volume_go"] else "—"),
+                _e(x["duree"] or "—"), _e(x["coupure"] or "—"), _e(x["contraintes"] or "—"), _e("%s (%d / %d)" % (x["etat"], x["faites"], x["total"]))))
+        h.append("</table>")
     m = ch.get("migration")
     if m or ch.get("chantiers"):
         h.append("<h2>Avancement des chantiers</h2>")

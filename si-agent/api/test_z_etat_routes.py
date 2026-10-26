@@ -44,6 +44,8 @@ class Routes(unittest.TestCase):
         self.assertEqual(self.c.put("/etat-des-lieux/decisions", json={"decisions": {}}).status_code, 400)
         self.c.put("/etat-des-lieux/decisions", json={"decisions": [{"titre": "Disques du serveur du bureau", "montant": "835 € HT"}]})
         self.assertEqual(self.c.get("/etat-des-lieux").get_json()["decisions"][0]["montant"], "835 € HT")
+        self.assertEqual(self.c.put("/etat-des-lieux/phases", json={"phases": {"B": {"volume_go": "beaucoup"}}}).status_code, 400)
+        self.assertEqual(self.c.put("/etat-des-lieux/phases", json={"phases": {"B": {"quand": "17/10", "volume_go": "1950"}}}).get_json()["phases"]["B"]["volume_go"], "1950")
         a = self.c.get("/etat-des-lieux/audit.html")
         self.assertEqual((a.status_code, a.mimetype), (200, "text/html"))
         self.assertIn("Audit des systèmes", a.get_data(as_text=True))

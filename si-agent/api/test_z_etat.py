@@ -156,6 +156,31 @@ class Etat(unittest.TestCase):
         self.assertEqual(wb.sheetnames[1], "Chantiers")
         self.assertIn("835 € HT", [c.value for row in wb["Chantiers"].iter_rows() for c in row])
 
+    def test_ou_quand_combien(self):
+        self.assertEqual(E.duree_texte(1950, 40), "≈ 14 h")
+        self.assertEqual(E.duree_texte("10", "100"), "≈ 2 min")
+        self.assertEqual(E.duree_texte(3000, 10), "≈ 4 jours")
+        self.assertIsNone(E.duree_texte("", 40))
+        mig = {"plan": {"phases": [{"id": "B", "title": "B. Copies au bureau", "steps": [{"status": "fait", "params": {"bwlimit_mb": 40}}, {"status": "a_faire", "params": {}}]},
+                                   {"id": "D", "title": "D. Réinstallations", "steps": [{"status": "a_faire", "params": {}}]}]}}
+        o = E.organisation(mig, {"B": {"quand": "week-end du 17/10", "ou": "OVH → bureau", "volume_go": "1950", "coupure": "aucune"}})
+        self.assertEqual((o[0]["debit_mo_s"], o[0]["duree"], o[0]["etat"]), (40, "≈ 14 h", "en cours"))
+        self.assertEqual((o[1]["quand"], o[1]["etat"], o[1]["duree"]), ("", "à venir", None))
+        inf = E.infrastructure([{"name": "pve10", "ok": True, "site": "bureau", "pools": [{"name": "rpool", "size": 6 * 1024 ** 4, "alloc": 5 * 1024 ** 4,
+                                                                                         "health": "DEGRADED", "redondance": "non"}]}],
+                               [{"type": "VM", "node": "pve10"}, {"type": "CT", "node": "pve10"}, {"type": "nœud", "node": "pve10"}])
+        self.assertEqual((inf[0]["machines"], inf[0]["espace_to"], inf[0]["occupe_pct"], inf[0]["secours"], inf[0]["etat"]), (2, 6.0, 83, "non", "dégradé"))
+        r = E.assemble(NODES, maintenant=T)
+        r["chantiers"] = {"organisation": o, "infrastructure": inf}
+        h = RP.page(r, "", T)
+        self.assertIn("Où, quand, combien", h)
+        self.assertIn("≈ 14 h", h)
+        from openpyxl import load_workbook
+        wb = load_workbook(io.BytesIO(X.classeur(r, [], "")))
+        vals = [c.value for row in wb["Chantiers"].iter_rows() for c in row]
+        self.assertIn("Organisation du chantier : où, quand, combien", vals)
+        self.assertIn("OVH → bureau", vals)
+
     def test_php_maintenu_par_la_distribution(self):
         c = E.composants({"paquets": {"php7.4-common": "7.4.33"}}, "supporté", T)
         self.assertEqual(c[0]["statut"], "maintenu par la distribution")

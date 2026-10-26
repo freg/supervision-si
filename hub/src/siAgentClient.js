@@ -237,6 +237,7 @@ export const fetchEtat = (apiBase) => fetchJson(apiBase, "/etat-des-lieux");   /
 export const saveEtatLibelles = (apiBase, libelles) => fetchJson(apiBase, "/etat-des-lieux/libelles", json("PUT", { libelles }));
 export const saveEtatManuel = (apiBase, key, fiche) => fetchJson(apiBase, "/etat-des-lieux/manuel", json("PUT", { key, fiche }));   // #858
 export const saveEtatDecisions = (apiBase, decisions) => fetchJson(apiBase, "/etat-des-lieux/decisions", json("PUT", { decisions }));   // #862
+export const saveEtatPhases = (apiBase, phases) => fetchJson(apiBase, "/etat-des-lieux/phases", json("PUT", { phases }));   // #863
 export const saveEtatEol = (apiBase, eol) => fetchJson(apiBase, "/etat-des-lieux/eol", json("PUT", { eol }));
 export const etatExportUrl = (apiBase) => `${apiBase}/etat-des-lieux/export.xlsx`;
 export const etatAuditUrl = (apiBase) => `${apiBase}/etat-des-lieux/audit.html`;   // #860

@@ -403,3 +403,68 @@ def chantiers(entries, migration=None, decisions=None, maintenant=None, jours=45
                "marche": (migration.get("run") or {}).get("state")}
     dec = [d for d in (decisions or []) if d.get("titre")]
     return {"periode_jours": jours, "depuis": debut, "chantiers": out, "migration": mig, "decisions": dec}
+
+
+# -- #863 : où, quand, combien -- organisation du chantier et infrastructure concernée (pour les décideurs) -----------
+CHAMPS_PHASE = ("quand", "ou", "volume_go", "debit_mo_s", "coupure", "contraintes")
+
+
+def _nb(v):
+    try:
+        return float(str(v).replace(",", ".")) if v not in (None, "") else None
+    except ValueError:
+        return None
+
+
+def duree_texte(volume_go, debit_mo_s):
+    """1950 Go à 40 Mo/s -> « ≈ 14 h » ; None si inconnu."""
+    v, d = _nb(volume_go), _nb(debit_mo_s)
+    if not v or not d:
+        return None
+    h = v * 1024 / d / 3600
+    if h < 1:
+        return "≈ %d min" % max(1, round(h * 60))
+    if h < 48:
+        return "≈ %d h" % round(h)
+    return "≈ %d jours" % round(h / 24)
+
+
+def organisation(migration, fiches=None):
+    """Plan de migration (#774) + fiches saisies par phase -> lignes « où, quand, combien » pour les décideurs ;
+    débit par défaut : le plafond des copies de la phase (bwlimit_mb) s'il existe."""
+    if not migration or not migration.get("plan"):
+        return []
+    fiches = fiches or {}
+    out = []
+    for p in migration["plan"].get("phases") or []:
+        st = p.get("steps") or []
+        f = fiches.get(p.get("id")) or {}
+        bw = [x for x in ((s.get("params") or {}).get("bwlimit_mb") if isinstance(s.get("params"), dict) else None for s in st) if x]
+        debit = f.get("debit_mo_s") or (max(bw) if bw else None)
+        faites = sum(1 for s in st if s.get("status") in DONE_MIG)
+        out.append({"id": p.get("id"), "titre": p.get("title") or p.get("name") or p.get("id"), "onglet": p.get("onglet") or "", "faites": faites, "total": len(st),
+                    "etat": "terminée" if st and faites == len(st) else "en cours" if faites else "à venir",
+                    "quand": f.get("quand") or "", "ou": f.get("ou") or "", "volume_go": f.get("volume_go") or "", "debit_mo_s": debit or "",
+                    "duree": duree_texte(f.get("volume_go"), debit), "coupure": f.get("coupure") or "", "contraintes": f.get("contraintes") or ""})
+    return out
+
+
+def infrastructure(hotes_copies, systemes):
+    """Hôtes de l'inventaire des copies (#856) + systèmes de l'état des lieux -> serveurs concernés, en clair :
+    site, machines hébergées, espace occupé, secours (redondance des disques), état."""
+    nb = {}
+    for l in systemes or []:
+        if l["type"] in ("CT", "VM"):
+            nb[l["node"]] = nb.get(l["node"], 0) + 1
+    out = []
+    for h in hotes_copies or []:
+        pools = h.get("pools") or []
+        taille = sum(p.get("size") or 0 for p in pools)
+        occ = sum(p.get("alloc") or 0 for p in pools)
+        sans = [p["name"] for p in pools if p.get("redondance") == "non"]
+        malades = [p["name"] for p in pools if p.get("health") and p["health"] != "ONLINE"]
+        out.append({"nom": h["name"], "site": h.get("site") or "", "dans": h.get("dans"), "machines": nb.get(h["name"], 0),
+                    "espace_to": round(taille / 1024 ** 4, 1) if taille else None, "occupe_pct": round(100.0 * occ / taille) if taille else None,
+                    "secours": "non" if sans else ("oui" if pools else "inconnu"),
+                    "etat": "dégradé" if malades else ("injoignable" if not h.get("ok") else "normal")})
+    return out

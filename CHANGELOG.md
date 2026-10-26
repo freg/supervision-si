@@ -1,3 +1,13 @@
+## 2026-10-26 — Pour les décideurs : où, quand, combien -- serveurs concernés et organisation du chantier par phase (livraison #863)
+
+- Migration › État des lieux, bloc **« Où, quand, combien »** ; repris dans la feuille Chantiers de l'Excel et dans l'audit :
+  - **serveurs et sites concernés** (tirés de l'inventaire des copies) : site, machines hébergées, capacité, place
+    occupée, disque de secours (oui / non), état (normal / dégradé / injoignable) ;
+  - **organisation du chantier par phase** du plan de migration : quand, où (de → vers), volume, débit, **durée estimée
+    calculée** (volume ÷ débit ; débit par défaut : le plafond des copies de la phase), coupure de service, contraintes,
+    avancement (terminée / en cours / à venir, étapes faites / total). Saisie dans la page (`PUT /etat-des-lieux/phases`).
+- Vérifié : `test_z_etat.py` (durées, organisation, serveurs, Excel, audit), `test_z_etat_routes.py`.
+
 ## 2026-10-26 — Excel décideurs et audit : chantiers en cours et décisions à prendre (livraison #862)
 
 - L'Excel pour les décideurs gagne une feuille **Chantiers** (2e position) et l'audit imprimable deux sections :

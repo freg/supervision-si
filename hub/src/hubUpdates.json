@@ -1,5 +1,11 @@
 [
  {
+  "n": 863,
+  "from": 863,
+  "date": "2026-10-26",
+  "title": "Pour les décideurs : où, quand, combien -- serveurs concernés et organisation du chantier par phase"
+ },
+ {
   "n": 862,
   "from": 862,
   "date": "2026-10-26",
@@ -232,11 +238,5 @@
   "from": 823,
   "date": "2026-10-22",
   "title": "Priorités : modèles choisis par usage ; alertes de la veille des modèles notifiées"
- },
- {
-  "n": 822,
-  "from": 822,
-  "date": "2026-10-22",
-  "title": "Diffusions en cascade : déploiement automatique avec dépendances"
  }
 ]
