@@ -1,5 +1,11 @@
 [
  {
+  "n": 858,
+  "from": 858,
+  "date": "2026-10-26",
+  "title": "État des lieux : plus d'inconnu -- déclaration à la main des systèmes illisibles, rôles des nœuds Proxmox corrigés"
+ },
+ {
   "n": 857,
   "from": 857,
   "date": "2026-10-26",
@@ -232,11 +238,5 @@
   "from": 818,
   "date": "2026-10-22",
   "title": "Page d'accueil : priorités en trois IA (préparation, décideur, explication) ; veille « IA : sorties »"
- },
- {
-  "n": 817,
-  "from": 817,
-  "date": "2026-10-22",
-  "title": "Règle absolue : « activer / régler X » donne le lien, sinon « pas de lien : opération manuelle »"
  }
 ]

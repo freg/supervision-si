@@ -3,7 +3,7 @@
 // dépendances -> niveau (urgent / à planifier / à surveiller / ok / inactif), raisons, actions. Suivi jour par jour ;
 // version Excel pour les décideurs (sans jargon). Données : /etat-des-lieux (sonde pve-preflight, agent 0.6.1+).
 import { Fragment, useCallback, useEffect, useState } from "react";
-import { fetchEtat, saveEtatLibelles, saveEtatEol, etatExportUrl } from "./siAgentClient.js";
+import { fetchEtat, saveEtatLibelles, saveEtatEol, saveEtatManuel, etatExportUrl } from "./siAgentClient.js";
 import { hubLink } from "./hubLinks.js";
 import { NIVEAUX, TON, TON_OS, COULEUR, filtrer, depuis, jour, points, maxTendance, nom } from "./etatLib.js";
 
@@ -24,6 +24,7 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
   const [ouvert, setOuvert] = useState({});
   const [lib, setLib] = useState(null);      // {key, texte}
   const [eol, setEol] = useState(null);
+  const [decl, setDecl] = useState(null);    // #858 : {key, famille, version, nom, maj, note}
   const [note, setNote] = useState(null);
   const load = useCallback(() => fetchEtat(siAgentApiBase).then((x) => { setD(x); setErr(x?.error || null); }).catch((e) => setErr(e.message)), [siAgentApiBase]);
   useEffect(() => { load(); const id = setInterval(load, 300000); return () => clearInterval(id); }, [load]);
@@ -37,6 +38,12 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
     const x = await saveEtatLibelles(siAgentApiBase, libelles);
     setNote(x?.error ? ["ko", x.error] : ["ok", "Libellé enregistré."]);
     setLib(null); load();
+  };
+  const enregistrerDecl = async (effacer = false) => {
+    const { key, ...fiche } = decl;
+    const x = await saveEtatManuel(siAgentApiBase, key, effacer ? null : fiche);
+    setNote(x?.error ? ["ko", x.error] : ["ok", effacer ? "Déclaration retirée." : `Système de ${key} déclaré.`]);
+    if (!x?.error) { setDecl(null); load(); }
   };
   const enregistrerEol = async () => {
     let o; try { o = JSON.parse(eol); } catch (e) { setNote(["ko", `JSON invalide : ${e.message}`]); return; }
@@ -52,6 +59,7 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
           {!d.liens?.length && d.manuel && <p className="infra-muted">⚠ {d.manuel}</p>}</div>)}
       <div className="infra-card mig-controls">
         {NIVEAUX.map((n) => <span key={n} className={`np-tone ${TON[n]}`} style={{ marginRight: 10 }}><b>{r[n] ?? 0}</b> {n}</span>)}
+        <span className={r.inconnus ? "np-tone warn" : "infra-muted"}>· {r.inconnus ?? 0} système(s) non identifié(s)</span>
         <span className="infra-muted">· {r.obsoletes ?? 0} système(s) plus maintenu(s) · {r.secu ?? 0} avec correctifs de sécurité en attente · {r.exposes ?? 0} exposé(s) sur Internet</span>
         <a className="button-link" style={{ color: "var(--accent, #4a9eda)" }} href={etatExportUrl(siAgentApiBase)}>Télécharger l'Excel pour les décideurs ↓</a>
       </div>
@@ -73,7 +81,18 @@ export default function EtatDesLieuxView({ siAgentApiBase }) {
                 {lib?.key === l.key ? <div><input value={lib.texte} onChange={(e) => setLib({ ...lib, texte: e.target.value })} placeholder="libellé pour les décideurs" /> <button onClick={enregistrerLib}>OK</button></div>
                   : <div className="infra-muted" style={{ cursor: "pointer" }} onClick={() => setLib({ key: l.key, texte: l.libelle || "" })}>{l.libelle ? `« ${l.libelle} » ✎` : "+ libellé"}</div>}</td>
               <td>{(l.roles || []).join(", ") || "—"}{l.expose ? <div className="np-tone warn">exposé sur Internet</div> : null}</td>
-              <td className={`np-tone ${TON_OS[l.os?.statut] || "neutral"}`}>{l.os?.nom || "non relevé"}<div className="infra-muted">{l.os?.fin ? `fin : ${jour(l.os.fin)} (${l.os.statut})` : l.os?.statut}</div></td>
+              <td className={`np-tone ${TON_OS[l.os?.statut] || "neutral"}`}>{l.os?.nom || "non relevé"}<div className="infra-muted">{l.os?.fin ? `fin : ${jour(l.os.fin)} (${l.os.statut})` : l.os?.statut}</div>
+                {l.source !== "relevé" && (decl?.key === l.key ? (
+                  <div style={{ display: "grid", gap: 4, marginTop: 4 }}>
+                    <select value={decl.famille} onChange={(e) => setDecl({ ...decl, famille: e.target.value })}>{["debian", "ubuntu", "windows", "windows-server", "centos", "rocky", "almalinux", "alpine", "autre"].map((x) => <option key={x}>{x}</option>)}</select>
+                    <input placeholder="version (12, 22.04, 2019…)" value={decl.version} onChange={(e) => setDecl({ ...decl, version: e.target.value })} />
+                    <input placeholder="nom affiché (facultatif)" value={decl.nom} onChange={(e) => setDecl({ ...decl, nom: e.target.value })} />
+                    <label className="infra-muted">dernière mise à jour <input type="date" value={decl.maj} onChange={(e) => setDecl({ ...decl, maj: e.target.value })} /></label>
+                    <input placeholder="note (ex. appliance, relevé du 26/10)" value={decl.note} onChange={(e) => setDecl({ ...decl, note: e.target.value })} />
+                    <div><button onClick={() => enregistrerDecl()}>Enregistrer</button> {l.source === "déclaré" && <button className="secondary" onClick={() => enregistrerDecl(true)}>Retirer</button>} <button className="secondary" onClick={() => setDecl(null)}>Annuler</button></div>
+                  </div>
+                ) : <div style={{ cursor: "pointer" }} className="infra-muted" onClick={() => { const m = (d.manuels || {})[l.key] || {}; setDecl({ key: l.key, famille: m.famille || "debian", version: m.version || "", nom: m.nom || "", maj: m.maj || "", note: m.note || "" }); }}>
+                  {l.source === "déclaré" ? `déclaré à la main ✎${l.note ? ` · ${l.note}` : ""}` : "+ déclarer le système"}</div>)}</td>
               <td>{l.maj_jours != null ? `il y a ${depuis(l.maj_jours)}` : "—"}<div className={l.attente_secu ? "np-tone bad" : "infra-muted"}>{l.attente != null ? `${l.attente} en attente${l.attente_secu ? `, dont ${l.attente_secu} de sécurité` : ""}` : ""}</div></td>
               <td>{(l.composants || []).map((c) => <div key={c.nom + c.version} className={`np-tone ${TON_OS[c.statut] || "neutral"}`}>{c.nom} {c.version} <small>({c.statut}{c.note ? ` ; ${c.note}` : ""})</small></div>)}</td>
               <td>{l.usage}<div className="infra-muted">{l.usage_detail?.clients ? `${l.usage_detail.clients} client(s)` : ""}{l.usage_detail?.requetes ? ` · ${l.usage_detail.requetes} req.` : ""}{l.usage_detail?.cpu_moy_pct != null ? ` · CPU ${Math.round(l.usage_detail.cpu_moy_pct)} %` : ""}</div></td>

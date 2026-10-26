@@ -78,6 +78,20 @@ class Etat(unittest.TestCase):
         self.assertEqual(r["systemes"][0]["niveau"], "urgent")
         self.assertEqual(r["resume"]["inactif"], 1)
 
+    def test_roles_noeud_et_declaration(self):
+        sy_ = {"paquets": {"postfix": "3.7", "pve-manager": "9.0"}, "ecoute": [{"port": 3128, "hote": "0.0.0.0", "proc": "spiceproxy"},
+                                                                         {"port": 25, "hote": "127.0.0.1", "proc": "master"},
+                                                                         {"port": 8006, "hote": "0.0.0.0", "proc": "pveproxy"}]}
+        self.assertEqual(E.roles(sy_), ["hyperviseur Proxmox"])                     # ni « proxy » ni « messagerie »
+        r = E.assemble(NODES, maintenant=T, manuels={"pve-2/105": {"famille": "windows-server", "version": "2016", "maj": "2026-10-01"}})
+        L = {l["key"]: l for l in r["systemes"]}
+        a = L["pve-2/105"]
+        self.assertEqual((a["source"], a["os"]["fin"], a["os"]["statut"], a["maj_jours"]), ("déclaré", "2027-01-12", "fin proche", 25))   # fin < 6 mois
+        self.assertEqual(r["resume"]["inconnus"], 0)
+        r = E.assemble(NODES, maintenant=T)
+        self.assertEqual(r["resume"]["inconnus"], 1)
+        self.assertIn("déclarer le système", " ".join(next(l for l in r["systemes"] if l["key"] == "pve-2/105")["actions"]))
+
     def test_php_maintenu_par_la_distribution(self):
         c = E.composants({"paquets": {"php7.4-common": "7.4.33"}}, "supporté", T)
         self.assertEqual(c[0]["statut"], "maintenu par la distribution")

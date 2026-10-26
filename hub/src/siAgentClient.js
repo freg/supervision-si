@@ -235,6 +235,7 @@ export const verifierAcces = (apiBase) => fetchJson(apiBase, "/migration/acces/v
 export const saveMigrationCible = (apiBase, cible) => fetchJson(apiBase, "/migration/cible", json("PUT", { cible }));
 export const fetchEtat = (apiBase) => fetchJson(apiBase, "/etat-des-lieux");   // #857 : état des lieux des systèmes
 export const saveEtatLibelles = (apiBase, libelles) => fetchJson(apiBase, "/etat-des-lieux/libelles", json("PUT", { libelles }));
+export const saveEtatManuel = (apiBase, key, fiche) => fetchJson(apiBase, "/etat-des-lieux/manuel", json("PUT", { key, fiche }));   // #858
 export const saveEtatEol = (apiBase, eol) => fetchJson(apiBase, "/etat-des-lieux/eol", json("PUT", { eol }));
 export const etatExportUrl = (apiBase) => `${apiBase}/etat-des-lieux/export.xlsx`;
 export const saveMigrationPlan = (apiBase, plan, actor) => fetchJson(apiBase, "/migration/plan", json("PUT", { plan, actor }));

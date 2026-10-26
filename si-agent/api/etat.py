@@ -19,6 +19,8 @@ EOL = {
     "centos": {"6": "2020-11-30", "7": "2024-06-30", "8": "2021-12-31"},
     "rocky": {"8": "2029-05-31", "9": "2032-05-31"}, "almalinux": {"8": "2029-05-31", "9": "2032-05-31"},
     "alpine": {"3.18": "2025-05-09", "3.19": "2025-11-01", "3.20": "2026-04-01", "3.21": "2026-11-01", "3.22": "2027-05-01"},
+    "windows": {"10": "2025-10-14", "11": "2027-10-12"},
+    "windows-server": {"2012": "2023-10-10", "2012r2": "2023-10-10", "2016": "2027-01-12", "2019": "2029-01-09", "2022": "2031-10-14", "2025": "2034-10-10"},
     "proxmox-ve": {"4": "2018-06-30", "5": "2020-07-31", "6": "2022-07-31", "7": "2024-07-31", "8": "2026-08-31", "9": "2028-06-30"},
     "proxmox-backup": {"1": "2022-07-31", "2": "2024-06-30", "3": "2026-08-31", "4": "2028-06-30"},
     "php": {"5": "2018-12-31", "7.0": "2019-01-10", "7.1": "2019-12-01", "7.2": "2020-11-30", "7.3": "2021-12-06", "7.4": "2022-11-28",
@@ -114,16 +116,28 @@ def composants(systeme, os_statut, maintenant, eol=None):
     return out
 
 
+PROCS_TECHNIQUES = {"spiceproxy", "pvedaemon", "rpcbind", "systemd-resolve", "chronyd", "master"}   # services internes d'un nœud Proxmox
+EXIGE_PORT = {"postfix": (25, 465, 587), "dovecot": (110, 143, 993, 995), "samba": (139, 445), "squid": (3128,), "bind9": (53,)}
+
+
 def roles(systeme):
+    """Rôles en clair : ports écoutés hors boucle locale (sauf services internes de Proxmox), puis applications ; un
+    paquet de messagerie, de partage ou de proxy ne compte que si son port est réellement ouvert (postfix d'un nœud
+    Proxmox = notifications locales, pas un serveur de messagerie)."""
     r = []
-    for e in (systeme or {}).get("ecoute") or []:
-        if e["hote"].startswith(("127.", "[::1]", "::1")):
+    ext = [e for e in (systeme or {}).get("ecoute") or [] if not e["hote"].startswith(("127.", "[::1]", "::1"))]
+    ports = {e["port"] for e in ext}
+    for e in ext:
+        if e.get("proc") in PROCS_TECHNIQUES:
             continue
         x = ROLES_PORT.get(e["port"])
         if x and x not in r:
             r.append(x)
     for n in list(((systeme or {}).get("paquets") or {}).keys()) + [a["nom"] for a in (systeme or {}).get("apps") or []]:
-        x = ROLES_APP.get(n) or ROLES_APP.get(n.split("-")[0])
+        base = n if n in ROLES_APP else n.split("-")[0]
+        x = ROLES_APP.get(base)
+        if x and base in EXIGE_PORT and not ports & set(EXIGE_PORT[base]):
+            continue
         if x and x not in r:
             r.append(x)
     return r
@@ -146,11 +160,26 @@ def usage(status, charge, systeme):
     return "faible", d
 
 
-def assemble(nodes, maintenant=None, eol=None, libelles=None):
-    """nodes = {nom: relevé pve-preflight d'un nœud} -> {systemes, dependances, resume}."""
+def declaration(manuel):
+    """Fiche déclarée à la main (système illisible : VM sans agent invité, Windows, appliance, VM arrêtée) ->
+    morceau de « systeme » compatible avec le relevé."""
+    if not manuel:
+        return None
+    try:
+        maj = int(_date(manuel.get("maj")) or 0) or None
+    except (TypeError, ValueError):
+        maj = None
+    return {"os": {"id": manuel.get("famille"), "version": manuel.get("version"), "nom": manuel.get("nom") or "%s %s" % (manuel.get("famille"), manuel.get("version"))},
+            "maj_at": maj, "attente": None, "attente_secu": None, "paquets": {}, "apps": [], "ecoute": [], "cnx_in": [], "cnx_out": [], "services": [],
+            "ips": [], "declare": True, "note": manuel.get("note")}
+
+
+def assemble(nodes, maintenant=None, eol=None, libelles=None, manuels=None):
+    """nodes = {nom: relevé pve-preflight d'un nœud} -> {systemes, dependances, resume} ; manuels = fiches déclarées."""
     now = maintenant or time.time()
     eol = dict(EOL, **(eol or {}))
     libelles = libelles or {}
+    manuels = manuels or {}
     sys_ = []
     for n, node in sorted((nodes or {}).items()):
         if not node.get("ok", True):
@@ -181,6 +210,11 @@ def assemble(nodes, maintenant=None, eol=None, libelles=None):
     lignes = []
     for s in sys_:
         sy = s["systeme"]
+        source = "relevé"
+        if (not sy or not (sy.get("os") or {}).get("id")) and manuels.get(s["key"]):
+            sy, source = declaration(manuels[s["key"]]), "déclaré"
+        elif not sy or not (sy.get("os") or {}).get("id"):
+            source = "aucune"
         fam, ver, nom_os = os_de(sy)
         fin, _k = fin_support(fam, ver, eol) if fam else (None, None)
         st_os = statut_fin(fin, now) if fin else ("inconnu" if sy else "non relevé")
@@ -202,10 +236,11 @@ def assemble(nodes, maintenant=None, eol=None, libelles=None):
             score += 1
             raisons.append("fin de support du système le %s" % fin)
             actions.append("planifier la mise à niveau du système avant le %s" % fin)
-        elif st_os in ("inconnu", "non relevé") and s["status"] == "running":
-            score += 1
-            raisons.append("système non identifié (relevé dans l'invité impossible : agent invité QEMU absent, Windows…)")
-            actions.append("identifier le système (installer l'agent invité ou relever à la main)")
+        elif st_os in ("inconnu", "non relevé"):
+            if s["status"] == "running":
+                score += 1
+            raisons.append("système non identifié (%s)" % ("agent invité QEMU absent ou Windows" if s["type"] == "VM" else "relevé impossible"))
+            actions.append("installer l'agent invité QEMU (VM Linux) ou déclarer le système à la main" if s["type"] == "VM" else "déclarer le système à la main")
         if secu:
             score += 2
             raisons.append("%d mise(s) à jour de sécurité en attente" % secu)
@@ -251,13 +286,15 @@ def assemble(nodes, maintenant=None, eol=None, libelles=None):
                        "composants": comp, "roles": roles(sy), "services": (sy or {}).get("services") or [],
                        "ecoute": [{"port": e["port"], "proc": e["proc"]} for e in ext], "expose": expose, "ips": s["ips"],
                        "usage": u, "usage_detail": ud, "dependants": dependants, "utilise": utilise, "impact": impact,
-                       "score": score, "niveau": niveau, "raisons": raisons, "actions": list(dict.fromkeys(actions)), "releve": bool(sy)})
+                       "score": score, "niveau": niveau, "raisons": raisons, "actions": list(dict.fromkeys(actions)), "releve": bool(sy),
+                       "source": source, "note": (sy or {}).get("note")})
     ordre = {n: i for i, n in enumerate(NIVEAUX)}
     lignes.sort(key=lambda l: (ordre[l["niveau"]], -l["score"], -l["impact"], l["node"], l["vmid"] or 0))
     res = {n: sum(1 for l in lignes if l["niveau"] == n) for n in NIVEAUX}
     res["obsoletes"] = sum(1 for l in lignes if l["os"]["statut"] == "obsolète" and l["status"] == "running")
     res["secu"] = sum(1 for l in lignes if (l["attente_secu"] or 0) > 0)
     res["exposes"] = sum(1 for l in lignes if l["expose"])
+    res["inconnus"] = sum(1 for l in lignes if l["source"] == "aucune")
     return {"at": now, "systemes": lignes, "dependances": deps, "resume": res, "eol": eol}
 
 

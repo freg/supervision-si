@@ -1,3 +1,15 @@
+## 2026-10-26 — État des lieux : plus d'inconnu -- déclaration à la main des systèmes illisibles, rôles des nœuds Proxmox corrigés (livraison #858)
+
+- Migration › État des lieux : un système que la sonde ne peut pas lire (VM sans agent invité QEMU, Windows, appliance,
+  VM arrêtée) se **déclare à la main** depuis sa ligne (« + déclarer le système » : famille, version, date de la dernière
+  mise à jour, note). La fin de support est alors calculée comme pour un système relevé ; la ligne indique « déclaré à la
+  main ». Compteur « non identifié(s) » en tête de page : l'objectif est zéro. `PUT /etat-des-lieux/manuel`.
+- Fins de support ajoutées : Windows 10 / 11, Windows Server 2012 à 2025 (références corrigeables).
+- Rôles d'un nœud Proxmox : spiceproxy (3128) n'est plus pris pour un proxy, ni le postfix des notifications locales
+  pour un serveur de messagerie (un paquet de messagerie, partage, proxy ou DNS ne compte que si son port est ouvert).
+- Action proposée pour une VM non identifiée : installer l'agent invité QEMU (VM Linux) ou déclarer le système.
+- Vérifié : `test_z_etat.py`, `test_z_etat_routes.py`, suite du hub. Non vérifié : rendu sur le hub réel.
+
 ## 2026-10-26 — État des lieux des systèmes actifs : versions, mises à jour, obsolescence, services, usage, dépendances ; suivi en ligne et Excel pour les décideurs (livraison #857)
 
 - Tuile Migration, page **« État des lieux »** (`?view=migration&page=etat`) : chaque nœud Proxmox, CT et VM, avec :

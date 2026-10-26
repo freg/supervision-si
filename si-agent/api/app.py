@@ -3070,7 +3070,8 @@ def _etat():
         cands = _agents_proxmox(conn)
         conn.execute("CREATE TABLE IF NOT EXISTS etat_historique (jour TEXT PRIMARY KEY, data TEXT NOT NULL)")
         e = etat_lib.assemble(prep.noeuds(reports), eol=store.get_setting(DB_PATH, "etat_eol", {}) or {},
-                              libelles=store.get_setting(DB_PATH, "etat_libelles", {}) or {})
+                              libelles=store.get_setting(DB_PATH, "etat_libelles", {}) or {},
+                              manuels=store.get_setting(DB_PATH, "etat_manuels", {}) or {})
         if reports:     # une ligne par jour : le suivi à long terme
             conn.execute("INSERT OR REPLACE INTO etat_historique VALUES (?, ?)", (time.strftime("%Y-%m-%d"), json.dumps(etat_lib.instantane(e))))
             conn.execute("DELETE FROM etat_historique WHERE jour < ?", (time.strftime("%Y-%m-%d", time.gmtime(time.time() - 800 * 86400)),))
@@ -3086,7 +3087,8 @@ def etat_route():
     """#857 : état des lieux des systèmes actifs (nœuds, CT, VM) et suivi dans le temps."""
     reports, e, t, cands = _etat()
     liens, manuel = _liens_sonde(cands)
-    e.update(tendance=t, libelles=store.get_setting(DB_PATH, "etat_libelles", {}) or {}, liens=liens, manuel=manuel,
+    e.update(tendance=t, libelles=store.get_setting(DB_PATH, "etat_libelles", {}) or {}, manuels=store.get_setting(DB_PATH, "etat_manuels", {}) or {},
+             liens=liens, manuel=manuel,
              error=None if reports else "aucun relevé pve-preflight : activer la sonde pve-preflight (agent 0.6.1 ou plus récent pour les versions et services)")
     return jsonify(e), 200
 
@@ -3101,6 +3103,28 @@ def etat_libelles_route():
     propre = {str(k)[:80]: str(x).strip()[:120] for k, x in list(v.items())[:500] if str(x).strip()}
     store.set_setting(DB_PATH, "etat_libelles", propre)
     return jsonify({"libelles": propre}), 200
+
+
+@app.route("/etat-des-lieux/manuel", methods=["PUT"])
+def etat_manuel_route():
+    """#858 : fiche déclarée à la main d'un système illisible : {key, fiche: {famille, version, nom, maj: AAAA-MM-JJ, note} | null}."""
+    b = request.get_json(silent=True) or {}
+    key = str(b.get("key") or "")
+    if not re.match(r"^(node:)?[A-Za-z0-9_.-]+(/\d+)?$", key):
+        return jsonify({"error": "key : nœud/vmid"}), 400
+    m = store.get_setting(DB_PATH, "etat_manuels", {}) or {}
+    f = b.get("fiche")
+    if not f:
+        m.pop(key, None)
+    else:
+        if not str(f.get("famille") or "").strip() or not str(f.get("version") or "").strip():
+            return jsonify({"error": "famille et version requises"}), 400
+        if f.get("maj") and not re.match(r"^\d{4}-\d{2}-\d{2}$", str(f["maj"])):
+            return jsonify({"error": "maj : AAAA-MM-JJ"}), 400
+        m[key] = {k: str(f.get(k) or "").strip()[:120] for k in ("famille", "version", "nom", "maj", "note")}
+        m[key]["famille"] = m[key]["famille"].lower()
+    store.set_setting(DB_PATH, "etat_manuels", m)
+    return jsonify({"key": key, "fiche": m.get(key)}), 200
 
 
 @app.route("/etat-des-lieux/eol", methods=["PUT"])

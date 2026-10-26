@@ -3962,7 +3962,7 @@ Demandé le 23/10/2026 : passer en IP fixe tous les systèmes en Ethernet, et si
 - Wi-Fi : décider d'après l'historique des clients (30 jours : nombre de VLAN / SSID / bornes vus par MAC, adresses
   aléatoires « MAC privée » exclues) ; une réservation n'a de sens que pour un client toujours sur le même VLAN.
 
-### 136. Bancs de test Wi-Fi : clients simulés multiples par machine, matériel des sondes -- à faire (#858), essais prévus
+### 136. Bancs de test Wi-Fi : clients simulés multiples par machine, matériel des sondes -- à faire (#859), essais prévus
 
 Suite de #855 (pilotage, boucles, bancs). Constat du 24/10/2026 : le Wi-Fi du campus se limite au mieux au Wi-Fi 6
 (pas de Wi-Fi 7 en service) ; inutile d'acheter des cartes Wi-Fi 7.
@@ -3976,7 +3976,7 @@ Matériel retenu (déjà disponible, pas d'achat pour l'instant) :
 - 2e banc mobile éventuel : mini PC Intel N100/N150, 2,5 GbE, 4 ports USB 3 (sa carte interne = un client de plus) ;
 - serveur iperf3 **en filaire au plus près du cœur** (2,5 / 10 Gb/s), ports 5201 et 5202, sinon c'est lui qui limite.
 
-Évolution de l'agent netprobe (#858) :
+Évolution de l'agent netprobe (#859) :
 - **un agent par carte Wi-Fi**, chacune dans son espace réseau Linux (`ip netns`) : une MAC, une association, une
   adresse DHCP par client simulé ; identifiant de sonde = machine + interface ;
 - **pilotage et remontée par l'Ethernet** (VLAN d'administration) : les tâches et les mesures ne passent pas par le
@@ -3992,3 +3992,11 @@ Points à vérifier sur le matériel réel :
 
 Planning : essais au bureau la semaine du 26/10/2026 (banc mobile, bancs « cast » et « montée en charge » contre un
 serveur iperf3 local), puis au campus la semaine du 02/11/2026 (après la coupure électrique du lundi matin).
+
+### 137. Installeur Windows pour client non développeur, banc de test sur VM Windows -- à reprendre après l'état des lieux
+
+Retour du 26/10/2026 (installation chez un client, serveur Windows Server) : la procédure en ligne de commande (secret,
+empreinte de CA, adresse du central, archive à décompresser) est beaucoup trop compliquée pour un client non
+développeur. À faire : un vrai installeur (double-clic, un seul code d'enrôlement à saisir, central public par défaut,
+vérification de connectivité intégrée avec message clair, exclusion antivirus guidée) et une mécanique de test
+automatique sur VM Windows (Server 2016 / 2019 / 2022 / 2025, Windows 10 / 11) dans le banc (#825, BACKLOG 133).
